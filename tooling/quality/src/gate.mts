@@ -1,0 +1,74 @@
+import { access, readFile } from "node:fs/promises";
+import { join } from "node:path";
+
+export type StaticRequirement = {
+  file: string;
+  includes?: string[];
+  absent?: string[];
+  message: string;
+};
+
+export type StaticCheckDescriptor = {
+  name: string;
+  requirements: StaticRequirement[];
+};
+
+export type StaticCheckResult = {
+  ok: boolean;
+  failures: string[];
+};
+
+export async function evaluateStaticCheck(
+  repoRoot: string,
+  descriptor: StaticCheckDescriptor,
+): Promise<StaticCheckResult> {
+  const failures: string[] = [];
+
+  for (const requirement of descriptor.requirements) {
+    const fullPath = join(repoRoot, requirement.file);
+    let content = "";
+
+    try {
+      await access(fullPath);
+      content = await readFile(fullPath, "utf8");
+    } catch {
+      failures.push(`${requirement.message}: missing ${requirement.file}`);
+      continue;
+    }
+
+    for (const expected of requirement.includes ?? []) {
+      if (!content.includes(expected)) {
+        failures.push(
+          `${requirement.message}: ${requirement.file} is missing \`${expected}\``,
+        );
+      }
+    }
+
+    for (const forbidden of requirement.absent ?? []) {
+      if (content.includes(forbidden)) {
+        failures.push(
+          `${requirement.message}: ${requirement.file} contains forbidden \`${forbidden}\``,
+        );
+      }
+    }
+  }
+
+  return { ok: failures.length === 0, failures };
+}
+
+export async function runStaticCheck(
+  descriptor: StaticCheckDescriptor,
+  repoRoot = process.cwd(),
+): Promise<void> {
+  const result = await evaluateStaticCheck(repoRoot, descriptor);
+
+  if (result.ok) {
+    console.log(`${descriptor.name}: ok`);
+    return;
+  }
+
+  for (const failure of result.failures) {
+    console.error(`${descriptor.name}: ${failure}`);
+  }
+  process.exitCode = 1;
+}

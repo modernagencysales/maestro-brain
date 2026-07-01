@@ -25,7 +25,8 @@ The goal is end-to-end typed contracts without losing Convex component support.
 - No useful return means `Schema.Null`.
 - Expected failures use tagged errors and the Effect error channel.
 - Unexpected defects may die; they must not serialize private data.
-- Specs use type-only imports for plain Convex function values.
+- Specs use type-only imports for plain Convex function values with
+  `import type`.
 - Impls end with `GroupImpl.finalize`.
 
 ## Client Rules

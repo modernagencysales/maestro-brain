@@ -1,0 +1,81 @@
+env:
+  SECRET_SCANNER_VERSION: "8.28.0"
+
+# Phase-1 command inventory:
+# pnpm verify
+# pnpm check:ci-completeness
+# pnpm check:config-drift
+# pnpm check:deps
+# pnpm check:knip
+# pnpm check:route-tree
+# pnpm check:coverage-ratchet
+# pnpm check:types-coverage
+# pnpm check:gates
+# pnpm check:debt
+# pnpm check:generators
+# pnpm check:docs-freshness
+# pnpm check:generated-files
+# pnpm check:confect-contracts
+# pnpm check:schema-migration-notes
+# pnpm check:layer-boundaries
+# pnpm check:secret-canaries
+# pnpm check:sbom-license
+# pnpm check:headless-surface-contract
+# pnpm check:posthog-readiness
+# pnpm check:auth-demo-bypass
+# pnpm check:pr-health
+# pnpm check:unresolved-review-threads
+# pnpm check:merge-conflicts
+# pnpm check:qlty
+
+steps:
+  - label: ":pipeline: phase-1 deterministic gates"
+    key: "phase-1"
+    command: ".buildkite/scripts/phase1.sh"
+    agents:
+      queue: "default"
+
+  - label: ":brain: taste"
+    key: "taste"
+    depends_on: "phase-1"
+    command: ".buildkite/scripts/taste.sh"
+
+  - label: ":shield: contract review"
+    key: "contract-review"
+    depends_on: "phase-1"
+    command: ".buildkite/scripts/contract-review.sh"
+
+  - label: ":test_tube: mutation"
+    key: "mutation"
+    if: build.source == "schedule" || build.env("RUN_MUTATION") == "true"
+    command: ".buildkite/scripts/mutation.sh"
+
+  - label: ":rocket: staging deploy"
+    key: "staging-deploy"
+    if: build.branch == "main" && build.pull_request.id == null
+    depends_on: "phase-1"
+    command: ".buildkite/scripts/staging-deploy.sh"
+
+  - block: "Promote the exact staged commit to production"
+    key: "production-approval"
+    if: build.branch == "main" && build.pull_request.id == null
+    depends_on: "staging-deploy"
+
+  - label: ":rocket: production promote"
+    key: "production-promote"
+    if: build.branch == "main" && build.pull_request.id == null
+    depends_on: "production-approval"
+    command: ".buildkite/scripts/production-promote.sh"
+
+  - wait: ~
+    continue_on_failure: true
+
+  - label: ":memo: prompt/eval artifact upload"
+    key: "eval-artifacts"
+    command: "echo 'prompt/eval artifacts are non-fatal during bootstrap'"
+    soft_fail: true
+
+# Graphite CI optimizer is enabled when credentials are configured. Local and
+# fork runs intentionally no-op rather than requiring Graphite auth.
+# Merge-queue builds may reuse a prior passing AI verdict for the same PR while
+# deterministic gates rerun from scratch.
