@@ -1,0 +1,13 @@
+.attest/
+.env.local
+.eslintcache
+.pnpm-store/
+.tsup
+coverage/
+dist/
+node-compile-cache/
+node_modules/
+opensrc/
+tsconfig.vitest-temp.json
+*.tsbuildinfo
+*.bundled_*.mjs
