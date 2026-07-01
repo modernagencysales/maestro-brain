@@ -5,6 +5,7 @@ import {
   buildMcpTools,
   describeWorkflowTemplate,
   getHeadlessOperation,
+  runTemplateWorkflow,
 } from "./index";
 
 describe("workflow headless registry", () => {
@@ -54,6 +55,17 @@ describe("workflow headless registry", () => {
       description:
         "Invoke createTrustReceipt through the shared template registry.",
       typedErrors: ["Unauthorized", "ConfigInvalid", "ValidationFailed"],
+    });
+  });
+
+  it("returns a deterministic run receipt for the template workflow", () => {
+    expect(runTemplateWorkflow()).toMatchObject({
+      runId: "run_template_001",
+      workflowName: "Source-grounded planning workflow",
+      status: "completed",
+      trustReceipt: {
+        receiptId: "receipt_template_001",
+      },
     });
   });
 });

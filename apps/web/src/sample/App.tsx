@@ -29,6 +29,7 @@ import {
   headlessSurfaces,
   navItems,
   providerAdapters,
+  sampleRunReceipt,
   safetyChecklist,
   stats,
   workflowEdges,
@@ -226,6 +227,41 @@ export function App() {
                   {adapter.status}
                 </StatusPill>
               </div>
+            ))}
+          </div>
+        </SurfaceCard>
+      </section>
+
+      <section className="detail-grid" id="runs">
+        <SurfaceCard title="Workflow Run Receipt" meta={sampleRunReceipt.runId}>
+          <div className="receipt-summary">
+            <strong>{sampleRunReceipt.workflowName}</strong>
+            <StatusPill tone="good">{sampleRunReceipt.status}</StatusPill>
+            <span>{sampleRunReceipt.completedAt}</span>
+          </div>
+          <div className="record-list">
+            {sampleRunReceipt.steps.map((step) => (
+              <div className="receipt-step" key={step.id}>
+                <CheckCircle2 size={16} />
+                <div>
+                  <strong>{step.label}</strong>
+                  <span>
+                    {step.capability ?? step.agent ?? step.kind} · {step.status}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </SurfaceCard>
+
+        <SurfaceCard
+          title="Trust Receipt"
+          meta={sampleRunReceipt.trustReceipt.receiptId}
+        >
+          <p>{sampleRunReceipt.trustReceipt.claim}</p>
+          <div className="audit-list">
+            {sampleRunReceipt.auditEvents.map((event) => (
+              <span key={event}>{event}</span>
             ))}
           </div>
         </SurfaceCard>

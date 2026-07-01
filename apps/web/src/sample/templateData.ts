@@ -1,4 +1,7 @@
-import { templateRegistry } from "@maestro-template/template-core";
+import {
+  createSampleWorkflowRunReceipt,
+  templateRegistry,
+} from "@maestro-template/template-core";
 
 export const navItems = [
   { id: "overview", label: "Overview", active: true },
@@ -21,3 +24,5 @@ export const agents = templateRegistry.agents;
 export const headlessSurfaces = templateRegistry.headlessSurfaces;
 export const providerAdapters = templateRegistry.providerAdapters;
 export const safetyChecklist = templateRegistry.safetyChecklist;
+export const sampleRunReceipt =
+  createSampleWorkflowRunReceipt(templateRegistry);

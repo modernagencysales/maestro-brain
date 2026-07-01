@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { templateRegistry, validateTemplateRegistry } from "./index";
+import {
+  createSampleWorkflowRunReceipt,
+  templateRegistry,
+  validateTemplateRegistry,
+} from "./index";
 
 describe("templateRegistry", () => {
   it("is internally valid", () => {
@@ -17,5 +21,26 @@ describe("templateRegistry", () => {
     expect(
       templateRegistry.headlessSurfaces.map((surface) => surface.name),
     ).toEqual(["Scalar API", "CLI", "MCP"]);
+  });
+
+  it("creates a deterministic workflow run receipt", () => {
+    const receipt = createSampleWorkflowRunReceipt();
+
+    expect(receipt).toMatchObject({
+      runId: "run_template_001",
+      status: "completed",
+      trustReceipt: {
+        receiptId: "receipt_template_001",
+        model: "fake/local deterministic model",
+      },
+    });
+    expect(receipt.steps.map((step) => step.nodeId)).toEqual([
+      "source",
+      "context",
+      "agent",
+      "approval",
+      "output",
+    ]);
+    expect(receipt.auditEvents).toContain("trust_receipt.created");
   });
 });

@@ -1,9 +1,11 @@
 import {
+  createSampleWorkflowRunReceipt,
   templateRegistry,
   validateTemplateRegistry,
   type CapabilityDefinition,
   type HeadlessSurface,
   type TemplateRegistry,
+  type WorkflowRunReceipt,
 } from "@maestro-template/template-core";
 
 export type HeadlessOperation = {
@@ -88,3 +90,7 @@ export const buildMcpTools = (
       description: `Invoke ${operation.capability} through the shared template registry.`,
       typedErrors: operation.typedErrors,
     }));
+
+export const runTemplateWorkflow = (
+  registry: TemplateRegistry = templateRegistry,
+): WorkflowRunReceipt => createSampleWorkflowRunReceipt(registry);

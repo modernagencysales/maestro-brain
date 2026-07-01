@@ -56,6 +56,7 @@ Inspect the same registry through the CLI:
 pnpm exec tsx apps/cli/src/index.ts describe
 pnpm exec tsx apps/cli/src/index.ts operations list
 pnpm exec tsx apps/cli/src/index.ts operations get CLI:createTrustReceipt
+pnpm exec tsx apps/cli/src/index.ts workflow run
 pnpm exec tsx apps/cli/src/index.ts api catalog
 pnpm exec tsx apps/cli/src/index.ts mcp tools
 pnpm exec tsx apps/cli/src/index.ts integrations report fake
@@ -63,12 +64,12 @@ pnpm exec tsx apps/cli/src/index.ts integrations report fake
 
 ## 3. Run One Workflow
 
-The current app shows the workflow authoring primitive. When execution surfaces
-land, start the same workflow through:
+The current app shows the workflow authoring primitive and a deterministic
+reviewer-safe run receipt. Inspect the same receipt through:
 
 - web workflow builder;
-- CLI;
-- MCP tool.
+- CLI command `workflow run`;
+- future MCP tool.
 
 Inspect the run receipt, audit event, and Trust Receipt.
 

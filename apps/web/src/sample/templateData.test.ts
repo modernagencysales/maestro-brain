@@ -6,6 +6,7 @@ import {
   headlessSurfaces,
   navItems,
   providerAdapters,
+  sampleRunReceipt,
   safetyChecklist,
   workflowEdges,
   workflowNodes,
@@ -48,5 +49,16 @@ describe("template sample data", () => {
       "WorkOS/AuthKit",
     );
     expect(safetyChecklist.join(" ")).toContain("Tenant identity");
+  });
+
+  it("shows the deterministic workflow receipt used by headless surfaces", () => {
+    expect(sampleRunReceipt).toMatchObject({
+      runId: "run_template_001",
+      workflowName: "Source-grounded planning workflow",
+      trustReceipt: {
+        receiptId: "receipt_template_001",
+      },
+    });
+    expect(sampleRunReceipt.steps).toHaveLength(workflowNodes.length);
   });
 });

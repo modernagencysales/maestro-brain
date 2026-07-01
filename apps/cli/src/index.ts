@@ -5,6 +5,7 @@ import {
   buildMcpTools,
   describeWorkflowTemplate,
   getHeadlessOperation,
+  runTemplateWorkflow,
 } from "@maestro-template/workflow-tooling";
 import {
   providerConfigReport,
@@ -30,6 +31,7 @@ export const runCli = (argv: readonly string[]): CliResult => {
           "maestro-template describe",
           "maestro-template operations list",
           "maestro-template operations get <id>",
+          "maestro-template workflow run",
           "maestro-template api catalog",
           "maestro-template mcp tools",
           "maestro-template integrations report [fake|test|live]",
@@ -68,6 +70,14 @@ export const runCli = (argv: readonly string[]): CliResult => {
     return {
       exitCode: 0,
       stdout: json(operation),
+      stderr: "",
+    };
+  }
+
+  if (command === "workflow" && subcommand === "run") {
+    return {
+      exitCode: 0,
+      stdout: json(runTemplateWorkflow()),
       stderr: "",
     };
   }

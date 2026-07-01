@@ -52,6 +52,18 @@ describe("maestro-template CLI", () => {
     );
   });
 
+  it("runs the sample workflow and prints a trust receipt", () => {
+    const receipt = JSON.parse(runCli(["workflow", "run"]).stdout);
+
+    expect(receipt).toMatchObject({
+      runId: "run_template_001",
+      status: "completed",
+      trustReceipt: {
+        receiptId: "receipt_template_001",
+      },
+    });
+  });
+
   it("returns a clear error for unknown operations", () => {
     const result = runCli(["operations", "get", "CLI:nope"]);
 

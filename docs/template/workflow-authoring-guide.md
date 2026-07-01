@@ -23,6 +23,20 @@ React Flow owns canvas interaction only: drag/drop, selection, viewport,
 palette, draft commands, and visual validation hints. Durable graph schemas,
 validation, and execution live outside React Flow packages.
 
+## Reviewer-Safe Run Receipt
+
+The deterministic sample receipt lives in `packages/template-core/src/index.ts`
+as `createSampleWorkflowRunReceipt`. It is projected through
+`tooling/workflow/src/index.ts` and exposed through:
+
+```bash
+pnpm exec tsx apps/cli/src/index.ts workflow run
+```
+
+The receipt includes ordered steps, evidence references, audit event names, and
+a Trust Receipt. It is intentionally fake/local and contains only synthetic
+reviewer-safe data.
+
 ## Verification
 
 Focused workflow changes run:

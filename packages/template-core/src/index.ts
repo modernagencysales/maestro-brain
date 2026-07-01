@@ -74,6 +74,40 @@ export type TemplateRegistry = {
   readonly safetyChecklist: readonly string[];
 };
 
+export type WorkflowRunStepStatus = "completed" | "waiting_for_approval";
+
+export type WorkflowRunStep = {
+  readonly id: string;
+  readonly nodeId: string;
+  readonly label: string;
+  readonly kind: WorkflowNodeKind;
+  readonly capability?: string;
+  readonly agent?: string;
+  readonly status: WorkflowRunStepStatus;
+  readonly evidence: readonly string[];
+};
+
+export type TrustReceipt = {
+  readonly receiptId: string;
+  readonly claim: string;
+  readonly sourceTitles: readonly string[];
+  readonly policySnapshot: string;
+  readonly model: string;
+  readonly generatedAt: string;
+};
+
+export type WorkflowRunReceipt = {
+  readonly runId: string;
+  readonly workflowName: string;
+  readonly workspaceSlug: string;
+  readonly status: "completed";
+  readonly startedAt: string;
+  readonly completedAt: string;
+  readonly steps: readonly WorkflowRunStep[];
+  readonly trustReceipt: TrustReceipt;
+  readonly auditEvents: readonly string[];
+};
+
 export const templateRegistry = {
   stats: [
     { label: "Typed functions", value: "12", tone: "good" },
@@ -267,4 +301,106 @@ export const validateTemplateRegistry = (
   }
 
   return errors;
+};
+
+export const createSampleWorkflowRunReceipt = (
+  registry: TemplateRegistry = templateRegistry,
+): WorkflowRunReceipt => {
+  const sourceTitles = registry.brainSources.map((source) => source.title);
+  const sourceNode = registry.workflow.nodes.find(
+    (node) => node.id === "source",
+  );
+  const contextNode = registry.workflow.nodes.find(
+    (node) => node.id === "context",
+  );
+  const agentNode = registry.workflow.nodes.find((node) => node.id === "agent");
+  const approvalNode = registry.workflow.nodes.find(
+    (node) => node.id === "approval",
+  );
+  const outputNode = registry.workflow.nodes.find(
+    (node) => node.id === "output",
+  );
+
+  if (
+    !sourceNode ||
+    !contextNode ||
+    !agentNode ||
+    !approvalNode ||
+    !outputNode
+  ) {
+    throw new Error("Sample workflow graph is missing required receipt nodes");
+  }
+
+  return {
+    runId: "run_template_001",
+    workflowName: "Source-grounded planning workflow",
+    workspaceSlug: "acme-demo",
+    status: "completed",
+    startedAt: "2026-07-01T14:00:00.000Z",
+    completedAt: "2026-07-01T14:03:12.000Z",
+    steps: [
+      {
+        id: "step_source",
+        nodeId: sourceNode.id,
+        label: sourceNode.label,
+        kind: sourceNode.kind,
+        capability: "resolveSourceSet",
+        status: "completed",
+        evidence: sourceTitles,
+      },
+      {
+        id: "step_context",
+        nodeId: contextNode.id,
+        label: contextNode.label,
+        kind: contextNode.kind,
+        capability: "buildContextPack",
+        status: "completed",
+        evidence: registry.contextPacks,
+      },
+      {
+        id: "step_agent",
+        nodeId: agentNode.id,
+        label: agentNode.label,
+        kind: agentNode.kind,
+        agent: "Planner Agent",
+        status: "completed",
+        evidence: ["agent grant: workflow.compose", "policy snapshot: default"],
+      },
+      {
+        id: "step_approval",
+        nodeId: approvalNode.id,
+        label: approvalNode.label,
+        kind: approvalNode.kind,
+        status: "completed",
+        evidence: ["approval: synthetic reviewer-safe policy check"],
+      },
+      {
+        id: "step_output",
+        nodeId: outputNode.id,
+        label: outputNode.label,
+        kind: outputNode.kind,
+        capability: "createTrustReceipt",
+        status: "completed",
+        evidence: ["trust receipt: receipt_template_001"],
+      },
+    ],
+    trustReceipt: {
+      receiptId: "receipt_template_001",
+      claim:
+        "The generated plan used only approved source sets, context packs, and audited capability grants.",
+      sourceTitles,
+      policySnapshot: "default-template-policy@2026-07-01",
+      model: "fake/local deterministic model",
+      generatedAt: "2026-07-01T14:03:12.000Z",
+    },
+    auditEvents: [
+      "workflow.started",
+      "source_set.resolved",
+      "context_pack.created",
+      "agent.grant_checked",
+      "approval.recorded",
+      "trust_receipt.created",
+      "workflow.completed",
+    ],
+  };
 };
