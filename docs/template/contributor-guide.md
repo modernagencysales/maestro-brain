@@ -22,8 +22,7 @@ Use fake providers until a task explicitly asks for live provider setup.
 - `pnpm test:tooling`: focused tooling tests.
 - `pnpm test:workflow`: focused workflow tooling tests.
 - `pnpm build`: all package builds.
-- `host-test-slot --class full pnpm verify`: full deterministic gate chain after
-  Task 4 lands.
+- `host-test-slot --class full pnpm verify`: full deterministic gate chain.
 
 ## PR Workflow
 
@@ -47,4 +46,4 @@ same task-sized commit boundaries.
 
 If a rule blocks a legitimate change, document the conflict in the PR and add a
 small proposal to `docs/template/coding-standards.md` or `docs/rule-coverage.md`
-when Task 4 has landed. Do not silently bypass a rule.
+as part of the same review. Do not silently bypass a rule.

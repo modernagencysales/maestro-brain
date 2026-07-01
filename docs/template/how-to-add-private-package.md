@@ -9,14 +9,16 @@ pnpm template:private-package:import -- --fixture examples/generic-ai-ops --writ
 
 Private package imports may add workflows, capabilities, agents,
 transformations, source types, blocks, prompts, fixtures, docs, and tests. The
-current generator creates a redaction-aware package plan and README under
-`private-packages/<package>/`; client packages can then promote specific
-capabilities, workflows, docs, and tests into the owning modules.
+generator creates a redaction-aware package plan, README, source index,
+capability contract modules, and workflow graph modules under
+`private-packages/<package>/`. Client packages can then promote reviewed
+capabilities, workflows, docs, and tests into the owning Confect modules.
 
 ## Tests
 
 - dry-run diff;
 - fixture redaction;
+- imported source-module shape;
 - generated Confect validity;
 - data-map metadata;
 - migration notes;

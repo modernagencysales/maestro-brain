@@ -819,6 +819,126 @@ const privatePackageName = (
 ): string =>
   manifest?.name?.trim() || slugify(basename(fixturePath)) || "client-package";
 
+const privatePackageCapabilityFiles = (
+  packageName: string,
+  capabilityName: string,
+): readonly GeneratedFile[] => {
+  const name = camelCase(capabilityName);
+  const pascalName = pascalCase(capabilityName);
+  const basePath = `private-packages/${packageName}/src/capabilities/${name}`;
+
+  return [
+    {
+      path: `${basePath}/${name}.contract.json`,
+      content: `${JSON.stringify(
+        {
+          capability: name,
+          packageName,
+          authScope: "workspace member",
+          typedErrors: ["Unauthorized", "ValidationFailed", "Forbidden"],
+          surfaces: ["api", "cli", "mcp"],
+          promotionCommand: `pnpm template:promote-capability -- --name ${name} --write`,
+        },
+        null,
+        2,
+      )}\n`,
+    },
+    {
+      path: `${basePath}/README.md`,
+      content: `# ${pascalName} Capability Module
+
+Private package capability module for \`${packageName}\`.
+
+## Import Checklist
+
+1. Review fixture redaction and source ownership.
+2. Promote with \`pnpm template:promote-capability -- --name ${name} --write\`.
+3. Replace deterministic implementation with client-specific domain logic.
+4. Run \`pnpm check:confect-contracts\` and focused capability tests.
+`,
+    },
+  ];
+};
+
+const privatePackageWorkflowFiles = (
+  packageName: string,
+  workflowName: string,
+): readonly GeneratedFile[] => {
+  const name = camelCase(workflowName);
+  const pascalName = pascalCase(workflowName);
+  const basePath = `private-packages/${packageName}/src/workflows/${name}`;
+
+  return [
+    {
+      path: `${basePath}/${name}.workflow.json`,
+      content: `${JSON.stringify(
+        {
+          workflow: name,
+          packageName,
+          promoted: false,
+          nodes: [
+            { id: "source", kind: "source", label: "Source Set" },
+            {
+              id: "capability",
+              kind: "capability",
+              label: "Private Capability",
+            },
+            { id: "approval", kind: "approval", label: "Policy Approval" },
+            { id: "receipt", kind: "output", label: "Trust Receipt" },
+          ],
+          edges: [
+            { id: "e1", source: "source", target: "capability" },
+            { id: "e2", source: "capability", target: "approval" },
+            { id: "e3", source: "approval", target: "receipt" },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    },
+    {
+      path: `${basePath}/README.md`,
+      content: `# ${pascalName} Workflow Module
+
+Private package workflow module for \`${packageName}\`.
+
+## Import Checklist
+
+1. Review graph nodes, approvals, idempotency, and Trust Receipt policy.
+2. Promote with \`pnpm template:promote-workflow -- --name ${name} --write\`.
+3. Replace placeholder capability refs with reviewed capability modules.
+4. Run \`pnpm check:workflow-graph-boundary\` and focused workflow tests.
+`,
+    },
+  ];
+};
+
+const privatePackageIndexFile = (
+  packageName: string,
+  capabilities: readonly string[],
+  workflows: readonly string[],
+  docs: readonly string[],
+): GeneratedFile => ({
+  path: `private-packages/${packageName}/src/index.ts`,
+  content: `export const privatePackage = ${JSON.stringify(
+    {
+      packageName,
+      capabilities: capabilities.map(camelCase),
+      workflows: workflows.map(camelCase),
+      docs,
+      requiredChecks: [
+        "pnpm check:confect-contracts",
+        "pnpm check:workflow-graph-boundary",
+        "pnpm check:schema-migration-notes",
+        "pnpm check:secret-canaries",
+      ],
+    },
+    null,
+    2,
+  )} as const;
+`,
+});
+
 export const buildPrivatePackagePlan = (options: {
   readonly fixturePath: string;
   readonly mode?: "dry-run" | "import";
@@ -895,6 +1015,13 @@ This package plan is generated from \`${options.fixturePath}\`.
 - \`pnpm check:secret-canaries\`
 `,
     },
+    privatePackageIndexFile(packageName, capabilities, workflows, docs),
+    ...capabilities.flatMap((capability) =>
+      privatePackageCapabilityFiles(packageName, capability),
+    ),
+    ...workflows.flatMap((workflow) =>
+      privatePackageWorkflowFiles(packageName, workflow),
+    ),
   ];
 
   return {

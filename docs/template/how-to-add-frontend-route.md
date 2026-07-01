@@ -1,6 +1,6 @@
 # How To Add A Frontend Route
 
-Generator after Task 16:
+Use the frontend route generator:
 
 ```bash
 pnpm template:add-client-domain -- --name reports

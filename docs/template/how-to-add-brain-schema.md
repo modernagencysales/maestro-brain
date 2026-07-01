@@ -1,6 +1,6 @@
 # How To Add A Brain Schema
 
-Generator after Task 16:
+Use the Brain schema generator:
 
 ```bash
 pnpm template:add-brain-schema -- --name customerBrief

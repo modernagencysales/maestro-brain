@@ -408,6 +408,15 @@ describe("template app factory generators", () => {
           expect.objectContaining({
             path: "private-packages/generic-ai-ops/package-plan.json",
           }),
+          expect.objectContaining({
+            path: "private-packages/generic-ai-ops/src/index.ts",
+          }),
+          expect.objectContaining({
+            path: "private-packages/generic-ai-ops/src/capabilities/summarizeSource/summarizeSource.contract.json",
+          }),
+          expect.objectContaining({
+            path: "private-packages/generic-ai-ops/src/workflows/sourceGroundedPlan/sourceGroundedPlan.workflow.json",
+          }),
         ]),
       });
       expect(plan.checks).toContainEqual(
@@ -454,6 +463,18 @@ describe("template app factory generators", () => {
         cwd,
         "private-packages/generic-ai-ops/package-plan.json",
       );
+      const indexPath = join(
+        cwd,
+        "private-packages/generic-ai-ops/src/index.ts",
+      );
+      const capabilityPath = join(
+        cwd,
+        "private-packages/generic-ai-ops/src/capabilities/summarizeSource/summarizeSource.contract.json",
+      );
+      const workflowPath = join(
+        cwd,
+        "private-packages/generic-ai-ops/src/workflows/sourceGroundedPlan/sourceGroundedPlan.workflow.json",
+      );
 
       expect(dryRun.exitCode).toBe(0);
       expect(JSON.parse(dryRun.stdout)).toMatchObject({
@@ -462,9 +483,25 @@ describe("template app factory generators", () => {
       });
       expect(imported.exitCode).toBe(0);
       expect(existsSync(planPath)).toBe(true);
+      expect(existsSync(indexPath)).toBe(true);
+      expect(existsSync(capabilityPath)).toBe(true);
+      expect(existsSync(workflowPath)).toBe(true);
       expect(JSON.parse(readFileSync(planPath, "utf8"))).toMatchObject({
         packageName: "generic-ai-ops",
         requiredChecks: expect.arrayContaining(["pnpm check:secret-canaries"]),
+      });
+      expect(readFileSync(indexPath, "utf8")).toContain("privatePackage");
+      expect(JSON.parse(readFileSync(capabilityPath, "utf8"))).toMatchObject({
+        capability: "summarizeSource",
+        promotionCommand:
+          "pnpm template:promote-capability -- --name summarizeSource --write",
+      });
+      expect(JSON.parse(readFileSync(workflowPath, "utf8"))).toMatchObject({
+        workflow: "sourceGroundedPlan",
+        nodes: expect.arrayContaining([
+          expect.objectContaining({ id: "source" }),
+          expect.objectContaining({ id: "receipt" }),
+        ]),
       });
     } finally {
       rmSync(cwd, { recursive: true, force: true });

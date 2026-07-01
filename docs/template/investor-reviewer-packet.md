@@ -36,7 +36,8 @@ The current template proves these reusable primitives:
 - App factory commands for `template:init`, `template:doctor`,
   `template:add-capability`, `template:add-workflow`,
   `template:promote-capability`, `template:promote-workflow`,
-  `template:upgrade`, and private-package dry-run/import.
+  `template:upgrade`, and private-package dry-run/import with source-module
+  scaffolds for imported capabilities and workflows.
 - Cloudflare Pages deployment wiring and static hosted smoke checks.
 
 ## Thirty-Minute Technical Review
@@ -90,6 +91,7 @@ pnpm template:promote-capability -- --name summarizeSource
 pnpm template:promote-workflow -- --name sourceGroundedPlan
 pnpm template:upgrade -- --from client-v1.0.0 --to template-v1.1.0
 pnpm template:private-package:dry-run -- --fixture examples/generic-ai-ops
+pnpm template:private-package:import -- --fixture examples/generic-ai-ops --write
 ```
 
 ## Architecture Trace
@@ -121,14 +123,32 @@ Concrete files to inspect:
 - `packages/convex/test/confect-contracts.test.ts`: generated refs, Effect
   schemas, typed errors, and plain Convex contract shape.
 - `tooling/generators/src/index.ts`: app factory commands.
+- `docs/rule-coverage.md`: rule-to-gate coverage map.
 - `.buildkite/pipeline.yml`: deterministic, AI, deploy, and promotion gates.
+
+## Confect/Effect Completion Boundary
+
+This template treats Confect and Effect as the contract default for new backend
+work. The template proves the migration direction with pinned compatible
+versions, Effect schemas, typed public errors, generated refs, Scalar/OpenAPI
+docs, plain Convex Workpool interop, React/JS client package pins, static
+contract gates, and lightweight runtime contract tests that do not require a
+provisioned Convex deployment.
+
+Client forks become fully production-provisioned when they add generated Convex
+deployment code, replace deterministic template runners with Confect runner
+services, and run provisioned `@confect/test` coverage for auth identity,
+storage, scheduling, Node actions, HTTP handlers, and live plain-Convex
+component interop. Until then, deterministic runners are intentional reviewer
+scaffolding so the private template remains runnable without client secrets or
+customer infrastructure.
 
 ## Current Limits
 
 This repo is already useful as an internal template and diligence artifact, but
 it is not claiming every final production subsystem is fully implemented.
 
-Remaining work before calling the whole plan complete:
+Remaining client-specific work before calling a fork production-complete:
 
 - Wire promoted capability/workflow Confect groups into codegen automatically
   after client review.
@@ -139,8 +159,8 @@ Remaining work before calling the whole plan complete:
 - Add provisioned `@confect/test` coverage for storage, scheduling, Node
   actions, identity, and live HTTP handler paths once client apps have Convex
   `_generated` deployment code.
-- Promote private-package package plans into full source-module importers for
-  larger client packages.
+- Extend private-package source-module importers with richer transforms as new
+  client package formats appear.
 - Add visual baselines for additional client-specific pages as those pages are
   generated.
 

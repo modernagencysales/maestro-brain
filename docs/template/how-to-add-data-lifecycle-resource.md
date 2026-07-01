@@ -1,6 +1,6 @@
 # How To Add A Data Lifecycle Resource
 
-Generator after Task 16:
+Use the data lifecycle generator:
 
 ```bash
 pnpm template:add-data-lifecycle-resource -- --name sourceArchive

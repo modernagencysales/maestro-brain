@@ -1,6 +1,6 @@
 # How To Add An Agent
 
-Generator after Task 16:
+Use the agent generator:
 
 ```bash
 pnpm template:add-agent-seat -- --name workflow_architect

@@ -1,6 +1,6 @@
 # How To Add A Notification
 
-Generator after Task 16:
+Use the notification generator:
 
 ```bash
 pnpm template:add-notification -- --name workflowCompleted

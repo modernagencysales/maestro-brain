@@ -1,6 +1,6 @@
 # How To Add An Admin Surface
 
-Generator after Task 16:
+Use the admin surface generator:
 
 ```bash
 pnpm template:add-admin-surface -- --name providerHealth

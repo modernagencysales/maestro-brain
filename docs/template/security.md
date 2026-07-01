@@ -19,5 +19,6 @@ providers.
 
 ## Review
 
-Run security gates after Task 18 lands. Until then, review sensitive changes
-against this document and `coding-standards.md`.
+Run `pnpm check:secret-canaries`, `pnpm check:auth-demo-bypass`, and focused
+tests for changed auth, provider, storage, webhook, and support/admin behavior.
+Review sensitive changes against this document and `coding-standards.md`.

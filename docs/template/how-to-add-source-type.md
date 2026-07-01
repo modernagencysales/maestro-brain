@@ -1,6 +1,6 @@
 # How To Add A Source Type
 
-Generator after Task 16:
+Use the source type generator:
 
 ```bash
 pnpm template:add-source-type -- --name customerBrief

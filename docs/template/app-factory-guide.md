@@ -25,12 +25,15 @@ without copying project-specific business logic into the core framework.
 6. Promote reviewed capability/workflow artifacts with
    `pnpm template:promote-capability -- --name summarizeSource --write` and
    `pnpm template:promote-workflow -- --name sourceGroundedPlan --write`.
-7. Add domain modules with `template:add-client-domain`.
-8. Add capabilities, workflows, agents, Brain schemas, API surfaces, source
+7. Import reviewed private packages with
+   `pnpm template:private-package:import -- --fixture <fixture> --write`; keep
+   generated source modules under `private-packages/<package>/` until review.
+8. Add domain modules with `template:add-client-domain`.
+9. Add capabilities, workflows, agents, Brain schemas, API surfaces, source
    types, notifications, admin surfaces, and data lifecycle resources through
    the matching generators.
-9. Run focused verification for each generated change.
-10. Run full verification before a client handoff.
+10. Run focused verification for each generated change.
+11. Run full verification before a client handoff.
 
 ## Client Forks
 
@@ -46,3 +49,11 @@ changes, contract diffs, and manual review items.
 provider posture, and fake-mode readiness. Fake mode must not require live
 secrets. Live mode reports provider warnings until WorkOS, Convex, PostHog,
 Dodo, email, LLM, and storage providers are configured.
+
+## Handoff Acceptance
+
+A client fork is ready for a technical handoff when `template:doctor`, focused
+generator tests, Confect contract checks, workflow graph boundary checks, secret
+canaries, hosted smoke tests, and `pnpm review:readiness` all pass. The handoff
+packet should identify any deterministic template runners that still need to be
+replaced with SDK-backed provider calls or production Confect runner services.
