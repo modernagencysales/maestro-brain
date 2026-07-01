@@ -56,6 +56,7 @@ const readinessArtifacts = [
   "tooling/workflow/src/index.ts",
   "tooling/generators/src/index.ts",
   "tests/e2e/hosted-reference-app.spec.ts",
+  "tests/e2e/hosted-reference-app.visual.spec.ts",
 ] as const;
 
 export const reviewerCommands = [
@@ -67,6 +68,7 @@ export const reviewerCommands = [
   "pnpm smoke:web-static",
   "pnpm smoke:hosted",
   "pnpm smoke:hosted:browser",
+  "pnpm smoke:hosted:visual",
 ] as const;
 
 const currentCommit = (repoRoot: string): string => {

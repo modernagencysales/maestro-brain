@@ -46,6 +46,7 @@ Smoke the hosted app:
 ```bash
 pnpm smoke:hosted
 pnpm smoke:hosted:browser
+pnpm smoke:hosted:visual
 ```
 
 When running on the headless host, wrap deploys in the secret environment:

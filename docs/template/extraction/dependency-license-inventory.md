@@ -21,7 +21,7 @@ artifacts are added.
 | OpenRouter-compatible SDKs   | LLM gateway                                   | Required review            | Use OpenAI-compatible client surface where possible.             |
 | Scalar                       | Interactive API documentation                 | Required review            | Mounted through Confect HTTP API.                                |
 | MCP packages                 | Headless tool projection                      | Required review            | Results must be redacted and schema-validated.                   |
-| Playwright                   | End-to-end browser checks                     | Required review            | Used for reviewer route and mobile smoke.                        |
+| Playwright                   | End-to-end browser checks                     | Required review            | Used for reviewer route, mobile smoke, and visual screenshots.   |
 | Vitest                       | Unit and integration tests                    | Required review            | Default test runner.                                             |
 | dependency-cruiser           | Layer boundary checks                         | Required review            | Optional if custom gates cover the boundary.                     |
 | knip                         | Dead code and export checks                   | Required review            | CI gate.                                                         |

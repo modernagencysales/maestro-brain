@@ -53,6 +53,7 @@ pnpm build
 pnpm smoke:web-static
 pnpm smoke:hosted
 pnpm smoke:hosted:browser
+pnpm smoke:hosted:visual
 ```
 
 Inspect the live app:
@@ -105,6 +106,8 @@ Concrete files to inspect:
 
 - `apps/web/src/sample/App.tsx`: hosted reference app.
 - `tests/e2e/hosted-reference-app.spec.ts`: hosted desktop/mobile browser smoke.
+- `tests/e2e/hosted-reference-app.visual.spec.ts`: hosted desktop/mobile
+  screenshot-diff visual smoke.
 - `packages/template-core/src/index.ts`: canonical sample registry.
 - `packages/workflow-ui/src/index.tsx`: React Flow workflow canvas primitive.
 - `tooling/workflow/src/index.ts`: API/CLI/MCP/OpenAPI projection.
@@ -132,8 +135,8 @@ Remaining work before calling the whole plan complete:
   identity, and live HTTP handler paths.
 - Promote private-package package plans into full source-module importers for
   larger client packages.
-- Add screenshot-diff visual regression coverage for investor-visible UI
-  surfaces.
+- Add visual baselines for additional client-specific pages as those pages are
+  generated.
 
 ## Diligence Summary
 

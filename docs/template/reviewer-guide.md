@@ -136,7 +136,10 @@ pnpm build
 pnpm smoke:web-static
 pnpm smoke:hosted
 pnpm smoke:hosted:browser
+pnpm smoke:hosted:visual
 ```
 
 The smoke verifies the static web output under `apps/web/dist`, which can be
-served by Vercel, Cloudflare Pages, Netlify, or another static host.
+served by Vercel, Cloudflare Pages, Netlify, or another static host. The visual
+smoke adds desktop and mobile screenshot-diff coverage for the investor-visible
+first viewport and the workflow/trust receipt section.

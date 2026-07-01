@@ -48,6 +48,7 @@ const makeReviewerRepo = (): string => {
     "tooling/workflow/src/index.ts",
     "tooling/generators/src/index.ts",
     "tests/e2e/hosted-reference-app.spec.ts",
+    "tests/e2e/hosted-reference-app.visual.spec.ts",
   ];
 
   for (const file of files) {
@@ -140,6 +141,7 @@ describe("release tooling", () => {
         commands: expect.arrayContaining([
           "pnpm check:format",
           "pnpm smoke:hosted:browser",
+          "pnpm smoke:hosted:visual",
         ]),
       });
     } finally {
