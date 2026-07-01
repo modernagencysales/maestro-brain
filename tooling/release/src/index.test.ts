@@ -1,8 +1,12 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { runReleaseCli, smokeWebStaticBuild } from "./index";
+import {
+  buildReviewerReadinessReport,
+  runReleaseCli,
+  smokeWebStaticBuild,
+} from "./index";
 
 const makeRepo = (): string => {
   const repoRoot = join(
@@ -18,6 +22,39 @@ const makeRepo = (): string => {
     '<div id="root"></div><script type="module" src="/assets/index.js"></script>',
   );
   writeFileSync(join(assets, "index.js"), "console.log('ok');");
+
+  return repoRoot;
+};
+
+const makeReviewerRepo = (): string => {
+  const repoRoot = join(
+    tmpdir(),
+    `maestro-template-review-${Math.random().toString(16).slice(2)}`,
+  );
+  const files = [
+    "README.md",
+    "AGENTS.md",
+    "docs/template/investor-reviewer-packet.md",
+    "docs/template/reviewer-guide.md",
+    "docs/template/repo-map.md",
+    "docs/template/confect-effect-guide.md",
+    "docs/template/hosting.md",
+    "docs/template/security.md",
+    "packages/convex/confect/http.ts",
+    "packages/convex/confect/_generated/refs.ts",
+    "packages/convex/confect/jobs/workpool.spec.ts",
+    "packages/workflow-ui/src/index.tsx",
+    "packages/template-core/src/index.ts",
+    "tooling/workflow/src/index.ts",
+    "tooling/generators/src/index.ts",
+    "tests/e2e/hosted-reference-app.spec.ts",
+  ];
+
+  for (const file of files) {
+    const fullPath = join(repoRoot, file);
+    mkdirSync(dirname(fullPath), { recursive: true });
+    writeFileSync(fullPath, "ok");
+  }
 
   return repoRoot;
 };
@@ -70,6 +107,56 @@ describe("release tooling", () => {
       expect(JSON.parse(result.stdout)).toMatchObject({
         ok: true,
         assetCount: 1,
+      });
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("builds an investor readiness report", () => {
+    const repoRoot = makeReviewerRepo();
+
+    try {
+      const report = buildReviewerReadinessReport({
+        repoRoot,
+        commit: "abc1234",
+        hostedUrl: "https://example.test",
+      });
+
+      expect(report).toMatchObject({
+        ok: true,
+        commit: "abc1234",
+        hostedUrl: "https://example.test",
+        artifacts: expect.arrayContaining([
+          expect.objectContaining({
+            path: "docs/template/investor-reviewer-packet.md",
+            status: "pass",
+          }),
+          expect.objectContaining({
+            path: "packages/convex/confect/_generated/refs.ts",
+            status: "pass",
+          }),
+        ]),
+        commands: expect.arrayContaining([
+          "pnpm check:format",
+          "pnpm smoke:hosted:browser",
+        ]),
+      });
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("exposes a CLI investor readiness report", () => {
+    const repoRoot = makeReviewerRepo();
+
+    try {
+      const result = runReleaseCli(["review-readiness"], repoRoot);
+
+      expect(result.exitCode).toBe(0);
+      expect(JSON.parse(result.stdout)).toMatchObject({
+        ok: true,
+        hostedUrl: "https://maestro-template.pages.dev",
       });
     } finally {
       rmSync(repoRoot, { recursive: true, force: true });

@@ -9,7 +9,7 @@ instead of a blank app.
 
 - Hosted reference app: `https://maestro-template.pages.dev`
 - GitHub remote: `modernagencysales/maestro-template`
-- Current reviewed commit: `97fc495`
+- Current reviewed commit: run `pnpm review:readiness`
 - Local reviewer guide: [reviewer-guide.md](./reviewer-guide.md)
 - Architecture map: [repo-map.md](./repo-map.md)
 - Confect/Effect guide: [confect-effect-guide.md](./confect-effect-guide.md)
@@ -41,6 +41,7 @@ Run these from the repo root:
 
 ```bash
 pnpm install
+pnpm review:readiness
 pnpm check:format
 pnpm lint
 pnpm typecheck
@@ -118,7 +119,8 @@ Remaining work before calling the whole plan complete:
 - Add deeper `@confect/test` coverage for storage, scheduling, Node actions,
   identity, and live HTTP handler paths.
 - Add richer client-fork upgrade tooling and private package import workflows.
-- Add Playwright visual/mobile hosted smoke coverage.
+- Add screenshot-diff visual regression coverage for investor-visible UI
+  surfaces.
 
 ## Diligence Summary
 

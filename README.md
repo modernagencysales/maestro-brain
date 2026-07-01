@@ -13,6 +13,7 @@ implementation work and technical diligence.
 
 ```bash
 pnpm install
+pnpm review:readiness
 pnpm check:format
 pnpm lint
 pnpm typecheck

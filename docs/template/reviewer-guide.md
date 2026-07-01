@@ -9,6 +9,7 @@ For the executive technical packet, start with
 
 ```bash
 pnpm install
+pnpm review:readiness
 pnpm check:format
 pnpm lint
 pnpm typecheck

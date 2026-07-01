@@ -12,6 +12,7 @@ export const checkDescriptors = {
           "pnpm check:config-drift",
           "pnpm check:confect-contracts",
           "pnpm check:confect-compat",
+          "pnpm check:workflow-graph-boundary",
           "taste",
           "contract-review",
           "production-promote.sh",
@@ -30,6 +31,7 @@ export const checkDescriptors = {
           "check:config-drift",
           "check:confect-contracts",
           "check:confect-compat",
+          "check:workflow-graph-boundary",
           "contract-review",
           "taste:eval",
           "test:mutation",
@@ -168,6 +170,53 @@ export const checkDescriptors = {
         ],
         message: "Confect guide must encode contract invariants",
       },
+      {
+        file: "packages/convex/confect/capabilities/catalog.spec.ts",
+        includes: [
+          "FunctionSpec.publicQuery",
+          "Schema.Struct",
+          "Schema.Array",
+          "GroupSpec.make().addFunction",
+        ],
+        message: "capability catalog must be a Confect/Effect spec",
+      },
+      {
+        file: "packages/convex/confect/brain/pages.spec.ts",
+        includes: [
+          "FunctionSpec.publicQuery",
+          "FunctionSpec.publicMutation",
+          "WorkspaceNotFound",
+          "brainPages.Doc",
+        ],
+        message: "Brain pages must expose typed Confect contracts",
+      },
+      {
+        file: "packages/convex/confect/jobs/workpool.spec.ts",
+        includes: [
+          "import type",
+          "FunctionSpec.convexPublicMutation",
+          "FunctionSpec.convexPublicQuery",
+          "FunctionSpec.convexInternalAction",
+          "FunctionSpec.convexInternalMutation",
+        ],
+        message:
+          "plain Convex component functions must be type-only in Confect specs",
+      },
+      {
+        file: "packages/convex/confect/jobs/workpool.impl.ts",
+        includes: ["FunctionImpl.make", "GroupImpl.finalize"],
+        message: "plain Convex component impls must finalize through Confect",
+      },
+      {
+        file: "packages/convex/confect/_generated/refs.ts",
+        includes: ["Refs.FromSpec", "Refs.make(spec)"],
+        message: "generated Confect refs must be present",
+      },
+      {
+        file: "packages/convex/confect/_generated/spec.ts",
+        includes: ["capabilities", "brain", "jobs", "workpool"],
+        message: "generated Confect spec must include core template groups",
+      },
     ],
   },
   "confect-compat": {
@@ -298,6 +347,30 @@ export const checkDescriptors = {
         file: "docs/template/security.md",
         includes: ["No caller-supplied tenant identity"],
         message: "security docs must forbid demo auth bypasses",
+      },
+    ],
+  },
+  "workflow-graph-boundary": {
+    name: "check:workflow-graph-boundary",
+    requirements: [
+      {
+        file: "packages/workflow-ui/src/index.tsx",
+        includes: ["@xyflow/react", "ReactFlow", "WorkflowCanvas"],
+        message: "workflow UI package must own React Flow canvas rendering",
+      },
+      {
+        file: "packages/template-core/src/index.ts",
+        includes: ["workflow", "nodes", "edges"],
+        absent: ["@xyflow/react", "ReactFlow"],
+        message:
+          "durable workflow registry must not depend on React Flow runtime",
+      },
+      {
+        file: "tooling/workflow/src/index.ts",
+        includes: ["createSampleWorkflowRunReceipt"],
+        absent: ["@xyflow/react", "ReactFlow"],
+        message:
+          "headless workflow projection must not depend on React Flow runtime",
       },
     ],
   },
