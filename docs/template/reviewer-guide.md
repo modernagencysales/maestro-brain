@@ -50,6 +50,16 @@ The headless projection lives in `tooling/workflow/src/index.ts`. It turns the
 same capability registry into stable operation metadata for future API, CLI,
 MCP, and Scalar generation.
 
+Inspect the same registry through the CLI:
+
+```bash
+pnpm exec tsx apps/cli/src/index.ts describe
+pnpm exec tsx apps/cli/src/index.ts operations list
+pnpm exec tsx apps/cli/src/index.ts operations get CLI:createTrustReceipt
+pnpm exec tsx apps/cli/src/index.ts api catalog
+pnpm exec tsx apps/cli/src/index.ts mcp tools
+```
+
 ## 3. Run One Workflow
 
 The current app shows the workflow authoring primitive. When execution surfaces

@@ -14,7 +14,7 @@
 ## Apps
 
 - `apps/web`: the hostable Vite reference workspace app.
-- `apps/cli`: typed CLI projection over the headless registry.
+- `apps/cli`: typed CLI projection over the shared headless registry.
 - `apps/voice-relay`: optional capture/voice relay app.
 
 ## Packages

@@ -15,6 +15,20 @@ export type HeadlessOperation = {
   readonly typedErrors: readonly string[];
 };
 
+export type ApiCatalogEntry = {
+  readonly operationId: string;
+  readonly method: "POST";
+  readonly path: string;
+  readonly authScope: string;
+  readonly typedErrors: readonly string[];
+};
+
+export type McpToolEntry = {
+  readonly name: string;
+  readonly description: string;
+  readonly typedErrors: readonly string[];
+};
+
 export const buildHeadlessOperations = (
   registry: TemplateRegistry = templateRegistry,
 ): readonly HeadlessOperation[] =>
@@ -50,3 +64,27 @@ export const getHeadlessOperation = (
   registry: TemplateRegistry = templateRegistry,
 ): HeadlessOperation | undefined =>
   buildHeadlessOperations(registry).find((operation) => operation.id === id);
+
+export const buildApiCatalog = (
+  registry: TemplateRegistry = templateRegistry,
+): readonly ApiCatalogEntry[] =>
+  buildHeadlessOperations(registry)
+    .filter((operation) => operation.surface === "Scalar API")
+    .map((operation) => ({
+      operationId: operation.capability,
+      method: "POST",
+      path: `/api/${operation.capability}`,
+      authScope: operation.authScope,
+      typedErrors: operation.typedErrors,
+    }));
+
+export const buildMcpTools = (
+  registry: TemplateRegistry = templateRegistry,
+): readonly McpToolEntry[] =>
+  buildHeadlessOperations(registry)
+    .filter((operation) => operation.surface === "MCP")
+    .map((operation) => ({
+      name: `template.${operation.capability}`,
+      description: `Invoke ${operation.capability} through the shared template registry.`,
+      typedErrors: operation.typedErrors,
+    }));

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildApiCatalog,
   buildHeadlessOperations,
+  buildMcpTools,
   describeWorkflowTemplate,
   getHeadlessOperation,
 } from "./index";
@@ -35,6 +37,23 @@ describe("workflow headless registry", () => {
       surface: "CLI",
       capability: "createTrustReceipt",
       authScope: "audited write",
+    });
+  });
+
+  it("projects API and MCP metadata from the same operation registry", () => {
+    expect(buildApiCatalog()).toContainEqual({
+      operationId: "createTrustReceipt",
+      method: "POST",
+      path: "/api/createTrustReceipt",
+      authScope: "audited write",
+      typedErrors: ["Unauthorized", "ConfigInvalid", "ValidationFailed"],
+    });
+
+    expect(buildMcpTools()).toContainEqual({
+      name: "template.createTrustReceipt",
+      description:
+        "Invoke createTrustReceipt through the shared template registry.",
+      typedErrors: ["Unauthorized", "ConfigInvalid", "ValidationFailed"],
     });
   });
 });
