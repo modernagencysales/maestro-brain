@@ -32,6 +32,22 @@ describe("maestro-template CLI", () => {
         path: "/api/resolveSourceSet",
       }),
     );
+    expect(JSON.parse(runCli(["api", "openapi"]).stdout)).toMatchObject({
+      openapi: "3.1.0",
+      paths: {
+        "/api/resolveSourceSet": {
+          post: {
+            operationId: "resolveSourceSet",
+            "x-maestro-auth-scope": "workspace member",
+            "x-maestro-typed-errors": [
+              "Unauthorized",
+              "WorkspaceNotFound",
+              "ValidationFailed",
+            ],
+          },
+        },
+      },
+    });
     expect(JSON.parse(runCli(["mcp", "tools"]).stdout)).toContainEqual(
       expect.objectContaining({ name: "template.resolveSourceSet" }),
     );

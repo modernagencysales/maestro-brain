@@ -25,6 +25,74 @@ export type ApiCatalogEntry = {
   readonly typedErrors: readonly string[];
 };
 
+type JsonSchema = {
+  readonly type?: string;
+  readonly description?: string;
+  readonly properties?: Record<string, JsonSchema>;
+  readonly required?: readonly string[];
+  readonly items?: JsonSchema;
+  readonly enum?: readonly string[];
+  readonly additionalProperties?: boolean;
+};
+
+export type OpenApiDocument = {
+  readonly openapi: "3.1.0";
+  readonly info: {
+    readonly title: string;
+    readonly version: string;
+    readonly description: string;
+  };
+  readonly paths: Record<
+    string,
+    {
+      readonly post: {
+        readonly operationId: string;
+        readonly summary: string;
+        readonly description: string;
+        readonly tags: readonly string[];
+        readonly security: readonly {
+          readonly bearerAuth: readonly string[];
+        }[];
+        readonly "x-maestro-auth-scope": string;
+        readonly "x-maestro-typed-errors": readonly string[];
+        readonly requestBody: {
+          readonly required: true;
+          readonly content: {
+            readonly "application/json": {
+              readonly schema: JsonSchema;
+              readonly example: Record<string, unknown>;
+            };
+          };
+        };
+        readonly responses: Record<
+          string,
+          {
+            readonly description: string;
+            readonly content: {
+              readonly "application/json": {
+                readonly schema: JsonSchema;
+                readonly examples?: Record<
+                  string,
+                  { readonly value: Record<string, unknown> }
+                >;
+              };
+            };
+          }
+        >;
+      };
+    }
+  >;
+  readonly components: {
+    readonly securitySchemes: {
+      readonly bearerAuth: {
+        readonly type: "http";
+        readonly scheme: "bearer";
+      };
+    };
+    readonly schemas: Record<string, JsonSchema>;
+  };
+};
+
 export type McpToolEntry = {
   readonly name: string;
   readonly description: string;
@@ -79,6 +147,185 @@ export const buildApiCatalog = (
       authScope: operation.authScope,
       typedErrors: operation.typedErrors,
     }));
+
+const baseRequestSchema: JsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["workspaceSlug", "input"],
+  properties: {
+    workspaceSlug: {
+      type: "string",
+      description: "Server-authorized workspace slug or instance alias.",
+    },
+    input: {
+      type: "object",
+      description:
+        "Capability-specific input. Generated Confect refs provide the exact Effect schema in the implementation package.",
+      additionalProperties: true,
+    },
+    idempotencyKey: {
+      type: "string",
+      description: "Required for externally visible writes.",
+    },
+  },
+};
+
+const successResponseSchema: JsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["ok", "operationId", "result"],
+  properties: {
+    ok: { type: "boolean" },
+    operationId: { type: "string" },
+    result: {
+      type: "object",
+      description:
+        "Typed capability result encoded by the generated Confect function.",
+      additionalProperties: true,
+    },
+  },
+};
+
+const typedErrorSchema = (typedErrors: readonly string[]): JsonSchema => ({
+  type: "object",
+  additionalProperties: false,
+  required: ["ok", "error"],
+  properties: {
+    ok: { type: "boolean" },
+    error: {
+      type: "object",
+      additionalProperties: false,
+      required: ["_tag", "message"],
+      properties: {
+        _tag: {
+          type: "string",
+          enum: typedErrors,
+          description: "Declared public typed error variant.",
+        },
+        message: {
+          type: "string",
+          description: "Redacted user-safe error message.",
+        },
+      },
+    },
+  },
+});
+
+const apiExampleFor = (
+  entry: ApiCatalogEntry,
+): {
+  readonly request: Record<string, unknown>;
+  readonly success: Record<string, unknown>;
+  readonly typedError: Record<string, unknown>;
+} => ({
+  request: {
+    workspaceSlug: "acme-demo",
+    input: {
+      sample: entry.operationId,
+    },
+    idempotencyKey: `${entry.operationId}-example-001`,
+  },
+  success: {
+    ok: true,
+    operationId: entry.operationId,
+    result: {
+      receiptId:
+        entry.operationId === "createTrustReceipt"
+          ? "receipt_template_001"
+          : undefined,
+      status: "accepted",
+    },
+  },
+  typedError: {
+    ok: false,
+    error: {
+      _tag: entry.typedErrors[0] ?? "ValidationFailed",
+      message: "Request failed a declared template policy check.",
+    },
+  },
+});
+
+export const buildOpenApiDocument = (
+  registry: TemplateRegistry = templateRegistry,
+): OpenApiDocument => {
+  const apiEntries = buildApiCatalog(registry);
+
+  return {
+    openapi: "3.1.0",
+    info: {
+      title: "Maestro Template Headless API",
+      version: "0.1.0",
+      description:
+        "Generated from the shared template registry. The live Confect HTTP implementation mounts the same operations for Scalar.",
+    },
+    paths: Object.fromEntries(
+      apiEntries.map((entry) => {
+        const examples = apiExampleFor(entry);
+
+        return [
+          entry.path,
+          {
+            post: {
+              operationId: entry.operationId,
+              summary: `Run ${entry.operationId}`,
+              description:
+                "Calls the same typed capability/workflow contract used by the web, CLI, and MCP surfaces.",
+              tags: ["template-headless"],
+              security: [{ bearerAuth: [entry.authScope] }],
+              "x-maestro-auth-scope": entry.authScope,
+              "x-maestro-typed-errors": entry.typedErrors,
+              requestBody: {
+                required: true,
+                content: {
+                  "application/json": {
+                    schema: baseRequestSchema,
+                    example: examples.request,
+                  },
+                },
+              },
+              responses: {
+                "200": {
+                  description: "Typed capability result.",
+                  content: {
+                    "application/json": {
+                      schema: successResponseSchema,
+                      examples: {
+                        success: { value: examples.success },
+                      },
+                    },
+                  },
+                },
+                "400": {
+                  description: "Declared typed failure.",
+                  content: {
+                    "application/json": {
+                      schema: typedErrorSchema(entry.typedErrors),
+                      examples: {
+                        typedError: { value: examples.typedError },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        ];
+      }),
+    ),
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: "http",
+          scheme: "bearer",
+        },
+      },
+      schemas: {
+        TemplateOperationRequest: baseRequestSchema,
+        TemplateOperationSuccess: successResponseSchema,
+      },
+    },
+  };
+};
 
 export const buildMcpTools = (
   registry: TemplateRegistry = templateRegistry,

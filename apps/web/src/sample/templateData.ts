@@ -2,6 +2,7 @@ import {
   createSampleWorkflowRunReceipt,
   templateRegistry,
 } from "@maestro-template/template-core";
+import { buildOpenApiDocument } from "@maestro-template/workflow-tooling";
 
 export const navItems = [
   { id: "overview", label: "Overview", active: true },
@@ -26,3 +27,20 @@ export const providerAdapters = templateRegistry.providerAdapters;
 export const safetyChecklist = templateRegistry.safetyChecklist;
 export const sampleRunReceipt =
   createSampleWorkflowRunReceipt(templateRegistry);
+export const openApiDocument = buildOpenApiDocument(templateRegistry);
+export const openApiSummary = {
+  version: openApiDocument.openapi,
+  operationCount: Object.keys(openApiDocument.paths).length,
+  docsRoute:
+    templateRegistry.headlessSurfaces.find(
+      (surface) => surface.name === "Scalar API",
+    )?.route ?? "/api/docs",
+  typedErrors:
+    openApiDocument.paths["/api/createTrustReceipt"]?.post[
+      "x-maestro-typed-errors"
+    ] ?? [],
+  authScope:
+    openApiDocument.paths["/api/createTrustReceipt"]?.post[
+      "x-maestro-auth-scope"
+    ] ?? "unknown",
+} as const;

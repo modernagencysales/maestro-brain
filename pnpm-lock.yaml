@@ -78,6 +78,9 @@ importers:
       "@maestro-template/ui":
         specifier: workspace:*
         version: link:../../packages/ui
+      "@maestro-template/workflow-tooling":
+        specifier: workspace:*
+        version: link:../../tooling/workflow
       "@maestro-template/workflow-ui":
         specifier: workspace:*
         version: link:../../packages/workflow-ui

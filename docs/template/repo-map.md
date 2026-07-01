@@ -35,8 +35,8 @@
 ## Tooling
 
 - `tooling/quality`: deterministic gates and AI gate wrappers.
-- `tooling/workflow`: headless operation projection, CLI/MCP/API metadata, and
-  workflow helpers.
+- `tooling/workflow`: headless operation projection, CLI/MCP/API metadata,
+  OpenAPI generation, and workflow helpers.
 - `tooling/generators`: template init, add-* generators, doctor, and upgrade.
 - `tooling/evals`: prompt and source-grounding evaluation fixtures.
 - `tooling/release`: deploy, smoke, rollback, and backup/restore helpers.

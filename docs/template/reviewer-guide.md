@@ -58,9 +58,15 @@ pnpm exec tsx apps/cli/src/index.ts operations list
 pnpm exec tsx apps/cli/src/index.ts operations get CLI:createTrustReceipt
 pnpm exec tsx apps/cli/src/index.ts workflow run
 pnpm exec tsx apps/cli/src/index.ts api catalog
+pnpm exec tsx apps/cli/src/index.ts api openapi
 pnpm exec tsx apps/cli/src/index.ts mcp tools
 pnpm exec tsx apps/cli/src/index.ts integrations report fake
 ```
+
+`api openapi` prints an OpenAPI 3.1 document generated from the same headless
+registry as the web sample and CLI. It includes operation paths, auth scope
+metadata, typed error variants, and examples intended for the future Confect
+HTTP/Scalar route.
 
 ## 3. Run One Workflow
 

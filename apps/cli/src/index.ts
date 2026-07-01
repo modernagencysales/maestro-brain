@@ -3,6 +3,7 @@ import {
   buildApiCatalog,
   buildHeadlessOperations,
   buildMcpTools,
+  buildOpenApiDocument,
   describeWorkflowTemplate,
   getHeadlessOperation,
   runTemplateWorkflow,
@@ -33,6 +34,7 @@ export const runCli = (argv: readonly string[]): CliResult => {
           "maestro-template operations get <id>",
           "maestro-template workflow run",
           "maestro-template api catalog",
+          "maestro-template api openapi",
           "maestro-template mcp tools",
           "maestro-template integrations report [fake|test|live]",
         ].join("\n") + "\n",
@@ -86,6 +88,14 @@ export const runCli = (argv: readonly string[]): CliResult => {
     return {
       exitCode: 0,
       stdout: json(buildApiCatalog()),
+      stderr: "",
+    };
+  }
+
+  if (command === "api" && subcommand === "openapi") {
+    return {
+      exitCode: 0,
+      stdout: json(buildOpenApiDocument()),
       stderr: "",
     };
   }

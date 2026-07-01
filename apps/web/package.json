@@ -15,6 +15,7 @@
     "@confect/react": "9.1.4",
     "@maestro-template/template-core": "workspace:*",
     "@maestro-template/ui": "workspace:*",
+    "@maestro-template/workflow-tooling": "workspace:*",
     "@maestro-template/workflow-ui": "workspace:*",
     "@xyflow/react": "^12.11.1",
     "convex": "1.42.1",

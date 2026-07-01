@@ -3,6 +3,7 @@ import {
   buildApiCatalog,
   buildHeadlessOperations,
   buildMcpTools,
+  buildOpenApiDocument,
   describeWorkflowTemplate,
   getHeadlessOperation,
   runTemplateWorkflow,
@@ -56,6 +57,49 @@ describe("workflow headless registry", () => {
         "Invoke createTrustReceipt through the shared template registry.",
       typedErrors: ["Unauthorized", "ConfigInvalid", "ValidationFailed"],
     });
+  });
+
+  it("builds an OpenAPI document from the shared API catalog", () => {
+    const document = buildOpenApiDocument();
+
+    expect(document.openapi).toBe("3.1.0");
+    expect(Object.keys(document.paths)).toEqual([
+      "/api/resolveSourceSet",
+      "/api/buildContextPack",
+      "/api/createTrustReceipt",
+    ]);
+    const createTrustReceipt = document.paths["/api/createTrustReceipt"]?.post;
+
+    expect(createTrustReceipt).toMatchObject({
+      operationId: "createTrustReceipt",
+      "x-maestro-auth-scope": "audited write",
+      "x-maestro-typed-errors": [
+        "Unauthorized",
+        "ConfigInvalid",
+        "ValidationFailed",
+      ],
+      security: [{ bearerAuth: ["audited write"] }],
+    });
+
+    if (!createTrustReceipt) {
+      throw new Error("createTrustReceipt OpenAPI operation is missing");
+    }
+
+    const typedErrorResponse = createTrustReceipt.responses["400"];
+
+    if (!typedErrorResponse) {
+      throw new Error("createTrustReceipt typed error response is missing");
+    }
+
+    const typedErrorEnum =
+      typedErrorResponse.content["application/json"].schema.properties?.error
+        ?.properties?._tag?.enum;
+
+    expect(typedErrorEnum).toEqual([
+      "Unauthorized",
+      "ConfigInvalid",
+      "ValidationFailed",
+    ]);
   });
 
   it("returns a deterministic run receipt for the template workflow", () => {

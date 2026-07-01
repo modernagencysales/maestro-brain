@@ -28,6 +28,7 @@ import {
   contextPacks,
   headlessSurfaces,
   navItems,
+  openApiSummary,
   providerAdapters,
   sampleRunReceipt,
   safetyChecklist,
@@ -214,8 +215,30 @@ export function App() {
           </div>
         </SurfaceCard>
 
+        <SurfaceCard title="OpenAPI / Scalar" meta={openApiSummary.version}>
+          <div className="api-doc-card">
+            <Braces size={20} />
+            <div>
+              <strong>{openApiSummary.docsRoute}</strong>
+              <span>{openApiSummary.operationCount} generated operations</span>
+            </div>
+          </div>
+          <dl className="meta-list">
+            <div>
+              <dt>Auth scope</dt>
+              <dd>{openApiSummary.authScope}</dd>
+            </div>
+            <div>
+              <dt>Typed errors</dt>
+              <dd>{openApiSummary.typedErrors.join(", ")}</dd>
+            </div>
+          </dl>
+        </SurfaceCard>
+      </section>
+
+      <section className="detail-grid" id="integrations">
         <SurfaceCard title="Provider Adapters" meta="fake/test/live layers">
-          <div className="adapter-grid" id="integrations">
+          <div className="adapter-grid">
             {providerAdapters.map((adapter) => (
               <div className="adapter-card" key={adapter.name}>
                 <DatabaseZap size={17} />

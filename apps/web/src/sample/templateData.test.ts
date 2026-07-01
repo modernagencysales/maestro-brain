@@ -5,6 +5,7 @@ import {
   capabilities,
   headlessSurfaces,
   navItems,
+  openApiSummary,
   providerAdapters,
   sampleRunReceipt,
   safetyChecklist,
@@ -49,6 +50,16 @@ describe("template sample data", () => {
       "WorkOS/AuthKit",
     );
     expect(safetyChecklist.join(" ")).toContain("Tenant identity");
+  });
+
+  it("derives the API docs summary from the generated OpenAPI artifact", () => {
+    expect(openApiSummary).toEqual({
+      version: "3.1.0",
+      operationCount: 3,
+      docsRoute: "/api/docs",
+      typedErrors: ["Unauthorized", "ConfigInvalid", "ValidationFailed"],
+      authScope: "audited write",
+    });
   });
 
   it("shows the deterministic workflow receipt used by headless surfaces", () => {

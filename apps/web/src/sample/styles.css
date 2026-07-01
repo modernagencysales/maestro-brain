@@ -291,6 +291,7 @@ a {
 .record-row,
 .capability-row,
 .headless-row,
+.api-doc-card,
 .adapter-card,
 .agent-card,
 .receipt-step {
@@ -309,12 +310,23 @@ a {
   padding: 10px;
 }
 
+.api-doc-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-height: 64px;
+  padding: 10px;
+}
+
 .record-row strong,
 .record-row span,
 .capability-row strong,
 .capability-row span,
 .headless-row strong,
 .headless-row span,
+.api-doc-card strong,
+.api-doc-card span,
 .adapter-card strong,
 .adapter-card span,
 .agent-card strong,
@@ -325,6 +337,7 @@ a {
 .record-row span,
 .capability-row span,
 .headless-row span,
+.api-doc-card span,
 .adapter-card span,
 .agent-card span,
 .record-row small,
@@ -333,6 +346,31 @@ a {
   color: #667064;
   font-size: 12px;
   line-height: 1.35;
+}
+
+.meta-list {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0 0;
+}
+
+.meta-list div {
+  display: grid;
+  gap: 4px;
+}
+
+.meta-list dt {
+  color: #667064;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.meta-list dd {
+  margin: 0;
+  color: #203327;
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 .number-list {
