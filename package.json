@@ -20,6 +20,7 @@
     "template:init": "tsx tooling/generators/src/index.ts init",
     "template:doctor": "tsx tooling/generators/src/index.ts doctor",
     "template:add-capability": "tsx tooling/generators/src/index.ts add-capability",
+    "template:add-workflow": "tsx tooling/generators/src/index.ts add-workflow",
     "check:convex": "pnpm --dir packages/convex check:convex",
     "check:confect-compat": "tsx tooling/quality/check-confect-compat.mts",
     "check:ci-completeness": "tsx tooling/quality/check-ci-completeness.mts",

@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildCapabilityFiles,
   buildTemplateInstance,
+  buildWorkflowFiles,
   doctorTemplateInstance,
   runGeneratorCli,
 } from "./index";
@@ -142,6 +143,67 @@ describe("template app factory generators", () => {
       expect(JSON.parse(readFileSync(metadataPath, "utf8"))).toMatchObject({
         capability: "summarizeSource",
         surfaces: ["api", "cli", "mcp"],
+      });
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("builds workflow generator files with graph and headless metadata", () => {
+    const generated = buildWorkflowFiles({
+      name: "source grounded plan",
+      description: "Builds a sourced plan with approval and receipt.",
+    });
+
+    expect(generated).toMatchObject({
+      name: "sourceGroundedPlan",
+      pascalName: "SourceGroundedPlan",
+    });
+    expect(generated.files.map((file) => file.path)).toEqual([
+      "generated/workflows/sourceGroundedPlan/sourceGroundedPlan.workflow.json",
+      "generated/workflows/sourceGroundedPlan/sourceGroundedPlan.metadata.json",
+      "generated/workflows/sourceGroundedPlan/sourceGroundedPlan.test.ts",
+      "generated/workflows/sourceGroundedPlan/README.md",
+    ]);
+    expect(JSON.parse(generated.files[0]?.content ?? "{}")).toMatchObject({
+      nodes: expect.arrayContaining([
+        expect.objectContaining({ id: "source" }),
+        expect.objectContaining({ id: "receipt" }),
+      ]),
+    });
+    expect(JSON.parse(generated.files[1]?.content ?? "{}")).toMatchObject({
+      surfaces: ["web", "cli", "mcp"],
+      requiredCapabilities: ["summarizeSource", "createTrustReceipt"],
+    });
+  });
+
+  it("writes generated workflow files through the CLI", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "maestro-template-workflow-"));
+
+    try {
+      const result = runGeneratorCli(
+        [
+          "add-workflow",
+          "--name",
+          "source grounded plan",
+          "--description",
+          "Builds a sourced plan with approval and receipt.",
+          "--write",
+        ],
+        cwd,
+      );
+      const graphPath = join(
+        cwd,
+        "generated/workflows/sourceGroundedPlan/sourceGroundedPlan.workflow.json",
+      );
+
+      expect(result.exitCode).toBe(0);
+      expect(existsSync(graphPath)).toBe(true);
+      expect(JSON.parse(readFileSync(graphPath, "utf8"))).toMatchObject({
+        id: "sourceGroundedPlan",
+        policy: {
+          audit: "record-workflow-run-and-trust-receipt",
+        },
       });
     } finally {
       rmSync(cwd, { recursive: true, force: true });

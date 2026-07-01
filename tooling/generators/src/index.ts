@@ -55,6 +55,18 @@ export type CapabilityGeneratorResult = {
   readonly files: readonly GeneratedFile[];
 };
 
+export type WorkflowGeneratorOptions = {
+  readonly name: string;
+  readonly description?: string;
+  readonly write?: boolean;
+};
+
+export type WorkflowGeneratorResult = {
+  readonly name: string;
+  readonly pascalName: string;
+  readonly files: readonly GeneratedFile[];
+};
+
 const defaultModules = [
   "brain",
   "workflows",
@@ -340,6 +352,119 @@ ${description}
   };
 };
 
+export const buildWorkflowFiles = (
+  options: WorkflowGeneratorOptions,
+): WorkflowGeneratorResult => {
+  const name = camelCase(options.name);
+  const pascalName = pascalCase(options.name);
+  const description =
+    options.description ??
+    `Generated ${name} workflow. Replace sample capability refs after review.`;
+  const basePath = `generated/workflows/${name}`;
+  const graph = {
+    id: name,
+    name: pascalName,
+    description,
+    nodes: [
+      {
+        id: "source",
+        kind: "source",
+        label: "Source Set",
+      },
+      {
+        id: "capability",
+        kind: "capability",
+        label: "Generated Capability",
+        capability: "summarizeSource",
+      },
+      {
+        id: "approval",
+        kind: "approval",
+        label: "Policy Approval",
+      },
+      {
+        id: "receipt",
+        kind: "output",
+        label: "Trust Receipt",
+      },
+    ],
+    edges: [
+      { id: "e1", source: "source", target: "capability" },
+      { id: "e2", source: "capability", target: "approval" },
+      { id: "e3", source: "approval", target: "receipt" },
+    ],
+    policy: {
+      idempotency: "required-for-external-effects",
+      approval: "required-before-publish-send-spend-delete",
+      audit: "record-workflow-run-and-trust-receipt",
+    },
+  };
+  const files: readonly GeneratedFile[] = [
+    {
+      path: `${basePath}/${name}.workflow.json`,
+      content: `${JSON.stringify(graph, null, 2)}\n`,
+    },
+    {
+      path: `${basePath}/${name}.metadata.json`,
+      content: `${JSON.stringify(
+        {
+          workflow: name,
+          description,
+          surfaces: ["web", "cli", "mcp"],
+          requiredCapabilities: ["summarizeSource", "createTrustReceipt"],
+          typedErrors: ["Unauthorized", "ValidationFailed", "PolicyDenied"],
+        },
+        null,
+        2,
+      )}\n`,
+    },
+    {
+      path: `${basePath}/${name}.test.ts`,
+      content: `import { describe, expect, it } from "vitest";
+import graph from "./${name}.workflow.json";
+
+describe("${name} generated workflow graph", () => {
+  it("has a connected source-to-receipt graph", () => {
+    const nodeIds = new Set(graph.nodes.map((node) => node.id));
+
+    expect(graph.edges).toHaveLength(3);
+    for (const edge of graph.edges) {
+      expect(nodeIds.has(edge.source)).toBe(true);
+      expect(nodeIds.has(edge.target)).toBe(true);
+    }
+  });
+});
+`,
+    },
+    {
+      path: `${basePath}/README.md`,
+      content: `# ${pascalName} Workflow
+
+${description}
+
+## Generated Files
+
+- \`${name}.workflow.json\`: React Flow friendly durable graph seed.
+- \`${name}.metadata.json\`: headless surfaces, typed errors, and required capabilities.
+- \`${name}.test.ts\`: graph integrity scaffold.
+
+## Required Follow-Up
+
+1. Replace sample capability refs with generated or existing capability names.
+2. Add save/validate/run Confect functions for this workflow.
+3. Wire the graph into \`packages/workflow-ui\` and the headless registry.
+4. Add replay, retry, idempotency, approval, and receipt tests.
+`,
+    },
+  ];
+
+  return {
+    name,
+    pascalName,
+    files,
+  };
+};
+
 const parseArgs = (
   argv: readonly string[],
 ): {
@@ -402,6 +527,7 @@ export const runGeneratorCli = (
             "template:init [--name <name>] [--mode fake|test|live] [--write] [--path <file>]",
             "template:doctor [--mode fake|test|live] [--path <file>]",
             "template:add-capability --name <name> [--description <text>] [--exposure web|workflow|headless] [--write]",
+            "template:add-workflow --name <name> [--description <text>] [--write]",
           ].join("\n") + "\n",
         stderr: "",
       };
@@ -460,6 +586,31 @@ export const runGeneratorCli = (
       const result = buildCapabilityFiles({
         name: args.name,
         exposure: args.exposure,
+        ...(args.description ? { description: args.description } : {}),
+      });
+
+      if (args.write) {
+        writeGeneratedFiles(result.files, cwd);
+      }
+
+      return {
+        exitCode: 0,
+        stdout: `${JSON.stringify(result, null, 2)}\n`,
+        stderr: "",
+      };
+    }
+
+    if (args.command === "add-workflow") {
+      if (!args.name) {
+        return {
+          exitCode: 1,
+          stdout: "",
+          stderr: "Missing required --name for add-workflow\n",
+        };
+      }
+
+      const result = buildWorkflowFiles({
+        name: args.name,
         ...(args.description ? { description: args.description } : {}),
       });
 

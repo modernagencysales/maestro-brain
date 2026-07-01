@@ -1,18 +1,28 @@
 # How To Add A Workflow
 
-Generator after Task 16:
+Dry-run a generated workflow:
 
 ```bash
 pnpm template:add-workflow -- --name sourceToBrief
 ```
 
+Write the generated files:
+
+```bash
+pnpm template:add-workflow -- --name sourceToBrief --description "Turns approved sources into a reviewed brief." --write
+```
+
 ## Files Created
 
-- Confect workflow spec and impl.
-- Durable graph schema or graph fixture.
-- Web adapter and workflow UI entry.
-- Headless registry entry when exposed.
-- Tests, docs, audit metadata, and migration note when durable data changes.
+- React Flow friendly durable graph seed under `generated/workflows/<name>/`.
+- Workflow metadata for web, CLI, and MCP exposure.
+- Graph integrity test scaffold.
+- README with follow-up steps for Confect save/validate/run functions.
+
+The generator intentionally writes reviewable graph artifacts first. Promote the
+graph into the workflow package after replacing placeholder capability refs,
+then wire save, validate, run, replay, approval, and receipt behavior through
+Confect functions.
 
 ## Tests
 
