@@ -41,7 +41,7 @@ describe("Confect backend contracts", () => {
         functionVisibility: "public",
       },
     });
-    expect(refs.public.jobs.workpool.backgroundWork).toMatchObject({
+    expect(refs.internal.jobs.workpool.backgroundWork).toMatchObject({
       functionNamespace: "jobs/workpool",
       functionSpec: {
         name: "backgroundWork",
