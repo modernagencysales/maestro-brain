@@ -39,3 +39,16 @@ adapters.
 - Verify webhook signatures and replay windows.
 - Keep raw provider payloads out of logs and public errors.
 - Add fake-mode smoke tests before live setup.
+
+## Inspect Readiness
+
+The provider catalog lives in `packages/integrations/src/index.ts`. It declares
+fake/test/live posture, required live env var names, and redacted fields for
+each provider. Inspect it through:
+
+```bash
+pnpm exec tsx apps/cli/src/index.ts integrations report fake
+pnpm exec tsx apps/cli/src/index.ts integrations report live
+```
+
+Live mode reports missing env var names only; it must not print secret values.

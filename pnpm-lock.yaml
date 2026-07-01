@@ -52,6 +52,9 @@ importers:
       "@effect/platform-node":
         specifier: 0.106.0
         version: 0.106.0(@effect/cluster@0.58.0(@effect/platform@0.96.2(effect@3.21.4))(@effect/rpc@0.75.1(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(@effect/sql@0.51.1(@effect/experimental@0.60.0(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(@effect/workflow@0.18.2(@effect/experimental@0.60.0(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(@effect/platform@0.96.2(effect@3.21.4))(@effect/rpc@0.75.1(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(effect@3.21.4))(effect@3.21.4))(@effect/platform@0.96.2(effect@3.21.4))(@effect/rpc@0.75.1(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(@effect/sql@0.51.1(@effect/experimental@0.60.0(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(@effect/platform@0.96.2(effect@3.21.4))(effect@3.21.4))(effect@3.21.4)
+      "@maestro-template/integrations":
+        specifier: workspace:*
+        version: link:../../packages/integrations
       "@maestro-template/template-core":
         specifier: workspace:*
         version: link:../../packages/template-core
@@ -159,7 +162,15 @@ importers:
         specifier: ^10.0.3
         version: 10.0.3
 
-  packages/integrations: {}
+  packages/integrations:
+    dependencies:
+      effect:
+        specifier: 3.21.4
+        version: 3.21.4
+    devDependencies:
+      "@types/node":
+        specifier: ^22.20.0
+        version: 22.20.0
 
   packages/notifications: {}
 

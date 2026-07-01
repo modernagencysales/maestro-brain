@@ -58,6 +58,7 @@ pnpm exec tsx apps/cli/src/index.ts operations list
 pnpm exec tsx apps/cli/src/index.ts operations get CLI:createTrustReceipt
 pnpm exec tsx apps/cli/src/index.ts api catalog
 pnpm exec tsx apps/cli/src/index.ts mcp tools
+pnpm exec tsx apps/cli/src/index.ts integrations report fake
 ```
 
 ## 3. Run One Workflow

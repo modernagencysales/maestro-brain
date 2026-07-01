@@ -6,6 +6,10 @@ import {
   describeWorkflowTemplate,
   getHeadlessOperation,
 } from "@maestro-template/workflow-tooling";
+import {
+  providerConfigReport,
+  type ProviderMode,
+} from "@maestro-template/integrations";
 
 export type CliResult = {
   readonly exitCode: 0 | 1;
@@ -28,6 +32,7 @@ export const runCli = (argv: readonly string[]): CliResult => {
           "maestro-template operations get <id>",
           "maestro-template api catalog",
           "maestro-template mcp tools",
+          "maestro-template integrations report [fake|test|live]",
         ].join("\n") + "\n",
       stderr: "",
     };
@@ -79,6 +84,24 @@ export const runCli = (argv: readonly string[]): CliResult => {
     return {
       exitCode: 0,
       stdout: json(buildMcpTools()),
+      stderr: "",
+    };
+  }
+
+  if (command === "integrations" && subcommand === "report") {
+    const mode = (maybeId ?? "fake") as ProviderMode;
+
+    if (!["fake", "test", "live"].includes(mode)) {
+      return {
+        exitCode: 1,
+        stdout: "",
+        stderr: `Unknown provider mode: ${mode}\n`,
+      };
+    }
+
+    return {
+      exitCode: 0,
+      stdout: json(providerConfigReport(mode, process.env)),
       stderr: "",
     };
   }

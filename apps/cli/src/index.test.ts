@@ -37,6 +37,21 @@ describe("maestro-template CLI", () => {
     );
   });
 
+  it("prints integration readiness without requiring live secrets", () => {
+    const report = JSON.parse(
+      runCli(["integrations", "report", "fake"]).stdout,
+    );
+
+    expect(report).toContainEqual(
+      expect.objectContaining({
+        id: "workos",
+        displayName: "WorkOS/AuthKit",
+        mode: "fake",
+        ready: true,
+      }),
+    );
+  });
+
   it("returns a clear error for unknown operations", () => {
     const result = runCli(["operations", "get", "CLI:nope"]);
 
