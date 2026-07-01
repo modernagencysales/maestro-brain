@@ -1,0 +1,74 @@
+# Effect And Confect Agent Patterns
+
+This repo vendors upstream source under `repos/` so agents can inspect real
+implementation and test patterns before writing Effect or Confect code.
+
+## Read Order
+
+When writing Effect or Confect code:
+
+1. Read the local project rules in `AGENTS.md`.
+2. Read `repos/effect/AGENTS.md`.
+3. Read `repos/confect/CLAUDE.md`.
+4. Search `repos/confect/apps/example/confect/` for Confect file layout.
+5. Search `repos/effect/packages/effect/test/` for Effect, Schema, Layer, and
+   error-handling patterns.
+
+Treat vendored repositories as read-only reference material. Do not edit files
+under `repos/` unless the task explicitly says to update the vendored subtree.
+Application code must import from package dependencies, never from `repos/`.
+
+## Confect Patterns To Prefer
+
+- Tables live in `packages/convex/confect/tables/*` and use
+  `Table.make(() => Schema.Struct(...))`.
+- Function specs live beside implementations as `*.spec.ts`.
+- Function impls live beside specs as `*.impl.ts`.
+- Specs default-export a `GroupSpec`; impls default-export a finalized
+  `GroupImpl`.
+- Plain Convex functions needed by Convex components are included with
+  `FunctionSpec.convex*` constructors and implemented by passing the Convex
+  function value to `FunctionImpl.make`.
+- Specs use type-only imports for plain Convex function values so server code is
+  not pulled into client bundles.
+- Run Confect codegen after spec, impl, or table changes.
+
+Useful references:
+
+- `repos/confect/apps/example/confect/tables/notes.ts`
+- `repos/confect/apps/example/confect/notes_and_random/notes.spec.ts`
+- `repos/confect/apps/example/confect/notes_and_random/notes.impl.ts`
+- `repos/confect/apps/example/confect/workpool.spec.ts`
+- `repos/confect/apps/example/confect/workpool.impl.ts`
+- `repos/confect/packages/cli/src/CodegenError.ts`
+
+## Effect Patterns To Prefer
+
+- Use `Effect.gen` for multi-step effectful control flow.
+- Use `Schema.TaggedError` for public typed errors that cross Confect
+  boundaries.
+- Use `Data.TaggedError` for internal domain errors when schema encoding is not
+  required.
+- Put provider SDKs behind Effect services or adapter boundaries.
+- Keep side effects at the edge: domain/check helpers should stay pure.
+- Prefer explicit `Layer` wiring for live/test/fake services.
+- In tests, look for existing Effect test style before inventing a local one.
+
+Useful references:
+
+- `repos/effect/packages/effect/test/Effect/error.test.ts`
+- `repos/effect/packages/effect/test/Schema/Class/TaggedError.test.ts`
+- `repos/effect/packages/effect/test/Layer.test.ts`
+- `repos/effect/packages/effect/test/Context.test.ts`
+- `repos/effect/packages/effect/src/Schema.ts`
+
+## Template-Specific Rule
+
+Every Maestro-to-template backend port is a translation:
+
+- Plain Convex validators become Effect schemas.
+- Plain Convex functions become Confect specs and impls.
+- Thrown `ConvexError`s become typed Effect/Confect errors.
+- Provider calls move behind Effect services.
+- Business-specific Maestro logic is dropped or renamed into generic template
+  primitives.

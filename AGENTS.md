@@ -21,6 +21,8 @@ layers, add the missing boundary instead.
 
 ## Confect And Effect Rules
 
+- Before non-trivial Effect or Confect work, read
+  `agent-patterns/effect-confect.md`.
 - Durable Convex tables live under `packages/convex/confect/tables/*` and use
   Effect schemas.
 - Public, internal, and HTTP functions use Confect specs/impls with typed args,
@@ -94,6 +96,26 @@ assuming success.
 - `tooling/quality`: gates and CI helpers.
 - `tooling/generators`: app-factory generators.
 - `docs/template`: operating docs and playbooks.
+- `repos/effect`: vendored Effect source, read-only reference material.
+- `repos/confect`: vendored Confect source, read-only reference material.
+
+## Vendored Repositories
+
+This project vendors external repositories under `repos/`.
+
+- Use vendored repositories as read-only reference material when working with
+  related libraries.
+- Prefer examples and patterns from vendored source and tests over generated
+  guesses or web snippets.
+- Do not edit files under `repos/` unless explicitly asked to update a vendored
+  subtree.
+- Do not import from `repos/`; application code imports from normal package
+  dependencies.
+- When writing Effect code, inspect `repos/effect/AGENTS.md` and relevant tests
+  under `repos/effect/packages/effect/test/`.
+- When writing Confect code, inspect `repos/confect/CLAUDE.md`,
+  `repos/confect/apps/example/confect/`, and relevant tests under
+  `repos/confect/packages/*/test/`.
 
 ## Playbook Index
 
