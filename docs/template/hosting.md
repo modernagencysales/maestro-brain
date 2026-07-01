@@ -3,6 +3,10 @@
 The reference app is a static Vite build. It can be hosted on Vercel, Cloudflare
 Pages, Netlify, or any static asset host.
 
+Current Cloudflare Pages URL:
+
+- `https://maestro-template.pages.dev`
+
 ## Local Static Smoke
 
 ```bash
@@ -22,6 +26,32 @@ hosting provider at the repo.
 - Environment: fake/local providers by default
 - Production promotion: only from a commit that passed `pnpm verify` and
   `pnpm smoke:web-static`
+
+## Cloudflare Pages
+
+Create the project once:
+
+```bash
+pnpm dlx wrangler@latest pages project create maestro-template --production-branch main
+```
+
+Deploy:
+
+```bash
+pnpm deploy:cloudflare
+```
+
+Smoke the hosted app:
+
+```bash
+pnpm smoke:hosted
+```
+
+When running on the headless host, wrap deploys in the secret environment:
+
+```bash
+headless-bws-env exec -- pnpm deploy:cloudflare
+```
 
 ## Provider Notes
 

@@ -23,6 +23,12 @@ Open `http://127.0.0.1:5174/`. The first screen is the generic AI operations
 workspace: Brain, workflows, capabilities, agents, integrations, headless
 surfaces, and safety posture.
 
+The hosted static reference app is available at:
+
+```text
+https://maestro-template.pages.dev
+```
+
 If port `5174` is busy, use any free port:
 
 ```bash
@@ -121,6 +127,7 @@ host-test-slot --class full pnpm verify
 ```bash
 pnpm build
 pnpm smoke:web-static
+pnpm smoke:hosted
 ```
 
 The smoke verifies the static web output under `apps/web/dist`, which can be

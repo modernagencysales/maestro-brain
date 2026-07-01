@@ -6,7 +6,7 @@
 2. Run provider fake smokes.
 3. Run `pnpm build` and `pnpm smoke:web-static`.
 4. Deploy staging from the exact commit.
-5. Run provider-specific deploy smoke.
+5. Run `pnpm smoke:hosted` or the provider-specific deploy smoke.
 6. Promote production through the human approval block.
 
 ## Rollback
