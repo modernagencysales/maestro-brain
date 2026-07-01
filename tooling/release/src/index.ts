@@ -33,6 +33,21 @@ export type ReviewerReadinessReport = {
   readonly commands: readonly string[];
 };
 
+export type CompletionAuditReport = {
+  readonly ok: boolean;
+  readonly repoRoot: string;
+  readonly commit: string;
+  readonly hostedUrl: string;
+  readonly requirements: readonly {
+    readonly id: string;
+    readonly requirement: string;
+    readonly status: "pass" | "fail";
+    readonly evidence: readonly string[];
+    readonly verification: readonly string[];
+    readonly detail: string;
+  }[];
+};
+
 const pass = (id: string, detail: string) => ({
   id,
   status: "pass" as const,
@@ -148,6 +163,155 @@ const readinessClaims = [
   },
 ] as const;
 
+const completionRequirements = [
+  {
+    id: "private-template-repo",
+    requirement:
+      "A private template repo exists and is navigable as an internal app factory, not a public starter kit.",
+    evidence: [
+      "README.md",
+      "AGENTS.md",
+      "docs/template/repo-map.md",
+      "docs/template/investor-reviewer-packet.md",
+    ],
+    verification: ["pnpm review:readiness"],
+    detail:
+      "Repo entry points, agent rules, map, and investor packet are present.",
+  },
+  {
+    id: "clear-sample-app",
+    requirement:
+      "The repo contains a clear, useful sample app that demonstrates Brain, workflow, capability, agent, integration, and safety surfaces.",
+    evidence: [
+      "apps/web/src/sample/App.tsx",
+      "apps/web/src/sample/templateData.ts",
+      "apps/web/src/sample/templateData.test.ts",
+      "tests/e2e/hosted-reference-app.spec.ts",
+      "tests/e2e/hosted-reference-app.visual.spec.ts",
+    ],
+    verification: [
+      "pnpm --dir apps/web test src/sample/templateData.test.ts",
+      "pnpm smoke:hosted:browser",
+      "pnpm smoke:hosted:visual",
+    ],
+    detail:
+      "Reference app data and browser/visual tests cover the investor-visible sample app.",
+  },
+  {
+    id: "hosted-reference",
+    requirement:
+      "The sample app is hosted or can be immediately hosted from the static build.",
+    evidence: [
+      "docs/template/hosting.md",
+      "tests/e2e/hosted-reference-app.spec.ts",
+      "tests/e2e/hosted-reference-app.visual.spec.ts",
+    ],
+    verification: [
+      "pnpm build",
+      "pnpm smoke:web-static",
+      "pnpm smoke:hosted",
+      "pnpm smoke:hosted:browser",
+      "pnpm smoke:hosted:visual",
+    ],
+    detail:
+      "Cloudflare Pages URL and static/hosted smoke paths are documented and testable.",
+  },
+  {
+    id: "confect-effect-framework",
+    requirement:
+      "The template uses Confect and Effect for typed contracts while preserving Convex component interop.",
+    evidence: [
+      "docs/template/confect-effect-guide.md",
+      "packages/convex/confect/_generated/refs.ts",
+      "packages/convex/test/confect-contracts.test.ts",
+      "packages/convex/confect/jobs/workpool.spec.ts",
+    ],
+    verification: [
+      "pnpm check:confect-contracts",
+      "pnpm check:confect-compat",
+      "pnpm --dir packages/convex test",
+    ],
+    detail:
+      "Pinned compatibility, generated refs, contract tests, and plain Convex Workpool interop are present.",
+  },
+  {
+    id: "workflow-capability-agent-primitives",
+    requirement:
+      "Reusable workflows, capabilities, agents, React Flow, API, CLI, MCP, and integration primitives are included without Maestro-specific business logic.",
+    evidence: [
+      "packages/workflow-ui/src/index.tsx",
+      "packages/template-core/src/index.ts",
+      "tooling/workflow/src/index.ts",
+      "apps/cli/src/index.ts",
+      "docs/template/workflow-authoring-guide.md",
+      "docs/template/capability-authoring-guide.md",
+    ],
+    verification: [
+      "pnpm test:workflow",
+      "pnpm check:workflow-graph-boundary",
+      "pnpm exec tsx apps/cli/src/index.ts describe",
+      "pnpm exec tsx apps/cli/src/index.ts mcp tools",
+    ],
+    detail:
+      "Workflow UI, headless registry, CLI/MCP projection, and authoring guides are present.",
+  },
+  {
+    id: "app-factory",
+    requirement:
+      "The repo can be used to start custom client apps, promote generated capabilities/workflows, upgrade forks, and import private packages.",
+    evidence: [
+      "tooling/generators/src/index.ts",
+      "tooling/generators/src/index.test.ts",
+      "docs/template/app-factory-guide.md",
+      "docs/template/private-package-guide.md",
+    ],
+    verification: [
+      "pnpm check:generators",
+      "pnpm --dir tooling/generators test",
+      'pnpm template:init -- --name "Reviewer Brain"',
+      "pnpm template:private-package:dry-run -- --fixture examples/generic-ai-ops",
+    ],
+    detail:
+      "Generator implementation, tests, and app-factory/private-package docs are present.",
+  },
+  {
+    id: "services-and-security",
+    requirement:
+      "Core services, provider adapters, CI/CD gates, security posture, and coding rules are documented and enforced.",
+    evidence: [
+      ".buildkite/pipeline.yml",
+      "packages/integrations/src/index.ts",
+      "packages/integrations/src/index.test.ts",
+      "docs/template/security.md",
+      "docs/template/coding-standards.md",
+      "docs/rule-coverage.md",
+    ],
+    verification: [
+      "pnpm lint",
+      "pnpm typecheck",
+      "pnpm check:secret-canaries",
+      "pnpm check:auth-demo-bypass",
+      "pnpm check:ci-completeness",
+    ],
+    detail:
+      "Provider harnesses, CI config, security docs, coding standards, and static gates are present.",
+  },
+  {
+    id: "investor-handoff",
+    requirement:
+      "An investor or technical reviewer has a clear entry point, review path, evidence packet, and explicit production limits.",
+    evidence: [
+      "docs/template/investor-reviewer-packet.md",
+      "docs/template/reviewer-guide.md",
+      "docs/template/confect-effect-guide.md",
+      "docs/template/hosting.md",
+    ],
+    verification: ["pnpm review:readiness", "pnpm review:completion"],
+    detail:
+      "Investor packet, reviewer guide, typed-contract guide, hosting guide, and completion audit are present.",
+  },
+] as const;
+
 export const reviewerCommands = [
   "pnpm check:format",
   "pnpm lint",
@@ -231,6 +395,43 @@ export const buildReviewerReadinessReport = (options?: {
   };
 };
 
+export const buildCompletionAuditReport = (options?: {
+  readonly repoRoot?: string;
+  readonly commit?: string;
+  readonly hostedUrl?: string;
+}): CompletionAuditReport => {
+  const repoRoot = options?.repoRoot ?? process.cwd();
+  const hostedUrl =
+    options?.hostedUrl ??
+    process.env.TEMPLATE_HOSTED_URL ??
+    "https://maestro-template.pages.dev";
+  const requirements = completionRequirements.map((requirement) => {
+    const missing = requirement.evidence.filter(
+      (artifactPath) => !existsSync(resolve(repoRoot, artifactPath)),
+    );
+
+    return {
+      id: requirement.id,
+      requirement: requirement.requirement,
+      status: missing.length === 0 ? ("pass" as const) : ("fail" as const),
+      evidence: requirement.evidence,
+      verification: requirement.verification,
+      detail:
+        missing.length === 0
+          ? requirement.detail
+          : `${requirement.detail} Missing evidence: ${missing.join(", ")}`,
+    };
+  });
+
+  return {
+    ok: requirements.every((requirement) => requirement.status === "pass"),
+    repoRoot,
+    commit: options?.commit ?? currentCommit(repoRoot),
+    hostedUrl,
+    requirements,
+  };
+};
+
 export const smokeWebStaticBuild = (options?: {
   readonly repoRoot?: string;
 }): WebStaticSmokeReport => {
@@ -286,7 +487,8 @@ export const runReleaseCli = (
   if (!command || command === "help" || command === "--help") {
     return {
       exitCode: 0,
-      stdout: "release-tooling smoke-web-static | review-readiness\n",
+      stdout:
+        "release-tooling smoke-web-static | review-readiness | review-completion\n",
       stderr: "",
     };
   }
@@ -303,6 +505,16 @@ export const runReleaseCli = (
 
   if (command === "review-readiness") {
     const report = buildReviewerReadinessReport({ repoRoot: cwd });
+
+    return {
+      exitCode: report.ok ? 0 : 1,
+      stdout: `${JSON.stringify(report, null, 2)}\n`,
+      stderr: "",
+    };
+  }
+
+  if (command === "review-completion") {
+    const report = buildCompletionAuditReport({ repoRoot: cwd });
 
     return {
       exitCode: report.ok ? 0 : 1,

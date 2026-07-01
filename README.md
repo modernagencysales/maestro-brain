@@ -14,6 +14,7 @@ implementation work and technical diligence.
 ```bash
 pnpm install
 pnpm review:readiness
+pnpm review:completion
 pnpm check:format
 pnpm lint
 pnpm typecheck
@@ -82,6 +83,12 @@ Fast local verification:
 
 ```bash
 pnpm check:format && pnpm lint && pnpm typecheck && host-test-slot --class full pnpm test && pnpm build
+```
+
+Investor completion audit:
+
+```bash
+pnpm review:completion
 ```
 
 Full verification after safety gates land:

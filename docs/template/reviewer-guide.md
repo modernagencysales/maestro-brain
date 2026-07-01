@@ -10,6 +10,7 @@ For the executive technical packet, start with
 ```bash
 pnpm install
 pnpm review:readiness
+pnpm review:completion
 pnpm check:format
 pnpm lint
 pnpm typecheck
@@ -90,6 +91,10 @@ MCP-style tool result.
 `template:init` prints the client-instance manifest. Use `--write` when you want
 to create `template-instance.json`, then run
 `pnpm template:doctor -- --mode fake`.
+
+`review:completion` maps the original template objective to concrete evidence
+and verification commands so reviewers can see what is proved, what is hosted,
+and what remains client-specific.
 
 ## 3. Run One Workflow
 

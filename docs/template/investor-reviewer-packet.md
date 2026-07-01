@@ -47,6 +47,7 @@ Run these from the repo root:
 ```bash
 pnpm install
 pnpm review:readiness
+pnpm review:completion
 pnpm check:format
 pnpm lint
 pnpm typecheck
@@ -124,6 +125,7 @@ Concrete files to inspect:
   schemas, typed errors, and plain Convex contract shape.
 - `tooling/generators/src/index.ts`: app factory commands.
 - `docs/rule-coverage.md`: rule-to-gate coverage map.
+- `pnpm review:completion`: objective-to-evidence completion audit.
 - `.buildkite/pipeline.yml`: deterministic, AI, deploy, and promotion gates.
 
 ## Confect/Effect Completion Boundary

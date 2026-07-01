@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  buildCompletionAuditReport,
   buildReviewerReadinessReport,
   runReleaseCli,
   smokeWebStaticBuild,
@@ -43,11 +44,15 @@ const makeReviewerRepo = (): string => {
     "docs/template/hosting.md",
     "docs/template/security.md",
     "docs/template/coding-standards.md",
+    "docs/template/capability-authoring-guide.md",
     "docs/template/integrations.md",
     "docs/template/workflow-authoring-guide.md",
     "docs/rule-coverage.md",
+    ".buildkite/pipeline.yml",
     "apps/cli/src/index.ts",
     "apps/web/src/sample/App.tsx",
+    "apps/web/src/sample/templateData.ts",
+    "apps/web/src/sample/templateData.test.ts",
     "packages/convex/confect/http.ts",
     "packages/convex/confect/_generated/refs.ts",
     "packages/convex/confect/jobs/workpool.spec.ts",
@@ -198,6 +203,63 @@ describe("release tooling", () => {
       expect(JSON.parse(result.stdout)).toMatchObject({
         ok: true,
         hostedUrl: "https://maestro-template.pages.dev",
+      });
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("builds a completion audit report", () => {
+    const repoRoot = makeReviewerRepo();
+
+    try {
+      const report = buildCompletionAuditReport({
+        repoRoot,
+        commit: "abc1234",
+        hostedUrl: "https://example.test",
+      });
+
+      expect(report).toMatchObject({
+        ok: true,
+        commit: "abc1234",
+        hostedUrl: "https://example.test",
+        requirements: expect.arrayContaining([
+          expect.objectContaining({
+            id: "private-template-repo",
+            status: "pass",
+          }),
+          expect.objectContaining({
+            id: "clear-sample-app",
+            status: "pass",
+            verification: expect.arrayContaining([
+              "pnpm smoke:hosted:browser",
+              "pnpm smoke:hosted:visual",
+            ]),
+          }),
+          expect.objectContaining({
+            id: "investor-handoff",
+            status: "pass",
+          }),
+        ]),
+      });
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("exposes a CLI completion audit report", () => {
+    const repoRoot = makeReviewerRepo();
+
+    try {
+      const result = runReleaseCli(["review-completion"], repoRoot);
+
+      expect(result.exitCode).toBe(0);
+      expect(JSON.parse(result.stdout)).toMatchObject({
+        ok: true,
+        hostedUrl: "https://maestro-template.pages.dev",
+        requirements: expect.arrayContaining([
+          expect.objectContaining({ id: "app-factory", status: "pass" }),
+        ]),
       });
     } finally {
       rmSync(repoRoot, { recursive: true, force: true });
