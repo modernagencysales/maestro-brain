@@ -49,8 +49,25 @@ describe("maestro-template CLI", () => {
       },
     });
     expect(JSON.parse(runCli(["mcp", "tools"]).stdout)).toContainEqual(
-      expect.objectContaining({ name: "template.resolveSourceSet" }),
+      expect.objectContaining({
+        name: "template.resolveSourceSet",
+        inputSchema: expect.objectContaining({ type: "object" }),
+      }),
     );
+  });
+
+  it("calls MCP tools through the shared workflow registry", () => {
+    const result = runCli(["mcp", "call", "template.workflow.run"]);
+    const call = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(0);
+    expect(call.isError).toBe(false);
+    expect(JSON.parse(call.content[0].text)).toMatchObject({
+      runId: "run_template_001",
+      trustReceipt: {
+        receiptId: "receipt_template_001",
+      },
+    });
   });
 
   it("prints integration readiness without requiring live secrets", () => {

@@ -4,6 +4,7 @@ import {
   buildHeadlessOperations,
   buildMcpTools,
   buildOpenApiDocument,
+  callMcpTool,
   describeWorkflowTemplate,
   getHeadlessOperation,
   runTemplateWorkflow,
@@ -55,6 +56,10 @@ describe("workflow headless registry", () => {
       name: "template.createTrustReceipt",
       description:
         "Invoke createTrustReceipt through the shared template registry.",
+      inputSchema: expect.objectContaining({
+        type: "object",
+        additionalProperties: false,
+      }),
       typedErrors: ["Unauthorized", "ConfigInvalid", "ValidationFailed"],
     });
   });
@@ -109,6 +114,41 @@ describe("workflow headless registry", () => {
       status: "completed",
       trustReceipt: {
         receiptId: "receipt_template_001",
+      },
+    });
+  });
+
+  it("invokes MCP tools through the shared registry", () => {
+    const capabilityResult = callMcpTool("template.resolveSourceSet");
+    const workflowResult = callMcpTool("template.workflow.run");
+
+    expect(capabilityResult.isError).toBe(false);
+    expect(JSON.parse(capabilityResult.content[0]?.text ?? "{}")).toMatchObject(
+      {
+        ok: true,
+        capability: "resolveSourceSet",
+        result: {
+          source: "shared-template-registry",
+        },
+      },
+    );
+    expect(JSON.parse(workflowResult.content[0]?.text ?? "{}")).toMatchObject({
+      runId: "run_template_001",
+      trustReceipt: {
+        receiptId: "receipt_template_001",
+      },
+    });
+  });
+
+  it("returns a structured MCP error for unknown tools", () => {
+    const result = callMcpTool("template.nope");
+
+    expect(result.isError).toBe(true);
+    expect(JSON.parse(result.content[0]?.text ?? "{}")).toEqual({
+      ok: false,
+      error: {
+        _tag: "ToolNotFound",
+        message: "Unknown MCP tool: template.nope",
       },
     });
   });

@@ -96,7 +96,16 @@ export type OpenApiDocument = {
 export type McpToolEntry = {
   readonly name: string;
   readonly description: string;
+  readonly inputSchema: JsonSchema;
   readonly typedErrors: readonly string[];
+};
+
+export type McpToolCallResult = {
+  readonly isError: boolean;
+  readonly content: readonly {
+    readonly type: "text";
+    readonly text: string;
+  }[];
 };
 
 export const buildHeadlessOperations = (
@@ -210,6 +219,17 @@ const typedErrorSchema = (typedErrors: readonly string[]): JsonSchema => ({
     },
   },
 });
+
+const mcpInputSchema: JsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    workspaceSlug: {
+      type: "string",
+      description: "Reviewer-safe workspace slug. Defaults to acme-demo.",
+    },
+  },
+};
 
 const apiExampleFor = (
   entry: ApiCatalogEntry,
@@ -329,15 +349,83 @@ export const buildOpenApiDocument = (
 
 export const buildMcpTools = (
   registry: TemplateRegistry = templateRegistry,
-): readonly McpToolEntry[] =>
-  buildHeadlessOperations(registry)
+): readonly McpToolEntry[] => [
+  ...buildHeadlessOperations(registry)
     .filter((operation) => operation.surface === "MCP")
     .map((operation) => ({
       name: `template.${operation.capability}`,
       description: `Invoke ${operation.capability} through the shared template registry.`,
+      inputSchema: mcpInputSchema,
       typedErrors: operation.typedErrors,
-    }));
+    })),
+  {
+    name: "template.workflow.run",
+    description:
+      "Run the deterministic reviewer-safe workflow through the shared template registry.",
+    inputSchema: mcpInputSchema,
+    typedErrors: ["Unauthorized", "ValidationFailed"],
+  },
+];
 
 export const runTemplateWorkflow = (
   registry: TemplateRegistry = templateRegistry,
 ): WorkflowRunReceipt => createSampleWorkflowRunReceipt(registry);
+
+const mcpText = (value: unknown): McpToolCallResult => ({
+  isError: false,
+  content: [
+    {
+      type: "text",
+      text: JSON.stringify(value, null, 2),
+    },
+  ],
+});
+
+const mcpError = (message: string): McpToolCallResult => ({
+  isError: true,
+  content: [
+    {
+      type: "text",
+      text: JSON.stringify(
+        {
+          ok: false,
+          error: {
+            _tag: "ToolNotFound",
+            message,
+          },
+        },
+        null,
+        2,
+      ),
+    },
+  ],
+});
+
+export const callMcpTool = (
+  toolName: string,
+  registry: TemplateRegistry = templateRegistry,
+): McpToolCallResult => {
+  if (toolName === "template.workflow.run") {
+    return mcpText(runTemplateWorkflow(registry));
+  }
+
+  const capability = registry.capabilities.find(
+    (candidate) => `template.${candidate.name}` === toolName,
+  );
+
+  if (!capability) {
+    return mcpError(`Unknown MCP tool: ${toolName}`);
+  }
+
+  return mcpText({
+    ok: true,
+    toolName,
+    capability: capability.name,
+    policy: capability.policy,
+    typedErrors: capability.typedErrors,
+    result: {
+      status: "accepted",
+      source: "shared-template-registry",
+    },
+  });
+};

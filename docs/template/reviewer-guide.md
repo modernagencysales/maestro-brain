@@ -60,6 +60,7 @@ pnpm exec tsx apps/cli/src/index.ts workflow run
 pnpm exec tsx apps/cli/src/index.ts api catalog
 pnpm exec tsx apps/cli/src/index.ts api openapi
 pnpm exec tsx apps/cli/src/index.ts mcp tools
+pnpm exec tsx apps/cli/src/index.ts mcp call template.workflow.run
 pnpm exec tsx apps/cli/src/index.ts integrations report fake
 ```
 
@@ -67,6 +68,10 @@ pnpm exec tsx apps/cli/src/index.ts integrations report fake
 registry as the web sample and CLI. It includes operation paths, auth scope
 metadata, typed error variants, and examples intended for the future Confect
 HTTP/Scalar route.
+
+`mcp call template.workflow.run` invokes the deterministic reviewer-safe
+workflow through the same registry and returns the workflow receipt as an
+MCP-style tool result.
 
 ## 3. Run One Workflow
 

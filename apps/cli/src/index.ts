@@ -4,6 +4,7 @@ import {
   buildHeadlessOperations,
   buildMcpTools,
   buildOpenApiDocument,
+  callMcpTool,
   describeWorkflowTemplate,
   getHeadlessOperation,
   runTemplateWorkflow,
@@ -36,6 +37,7 @@ export const runCli = (argv: readonly string[]): CliResult => {
           "maestro-template api catalog",
           "maestro-template api openapi",
           "maestro-template mcp tools",
+          "maestro-template mcp call <toolName>",
           "maestro-template integrations report [fake|test|live]",
         ].join("\n") + "\n",
       stderr: "",
@@ -104,6 +106,16 @@ export const runCli = (argv: readonly string[]): CliResult => {
     return {
       exitCode: 0,
       stdout: json(buildMcpTools()),
+      stderr: "",
+    };
+  }
+
+  if (command === "mcp" && subcommand === "call" && maybeId) {
+    const result = callMcpTool(maybeId);
+
+    return {
+      exitCode: result.isError ? 1 : 0,
+      stdout: json(result),
       stderr: "",
     };
   }
