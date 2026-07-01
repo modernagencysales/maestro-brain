@@ -7,14 +7,17 @@ test.describe("hosted reference app", () => {
     await expect(page).toHaveTitle(/Maestro Template/);
     await expect(
       page.getByRole("heading", {
-        name: "A calm template for custom Brain, workflow, and agent apps",
+        name: "A reusable foundation for custom AI implementation work",
       }),
     ).toBeVisible();
     await expect(page.locator(".notion-eyebrow")).toHaveText(
       "Private AI app factory",
     );
-    await expect(page.getByText("What this proves")).toBeVisible();
-    await expect(page.getByText("How to read the template")).toBeVisible();
+    await expect(
+      page.getByText("What a GTM operator should see"),
+    ).toBeVisible();
+    await expect(page.getByText("What an investor should see")).toBeVisible();
+    await expect(page.getByLabel("Template operating model")).toBeVisible();
   });
 
   test("presents each primitive as a single readable document page", async ({
@@ -26,15 +29,16 @@ test.describe("hosted reference app", () => {
     await sidebar.getByRole("link", { name: /Brain/ }).click();
     await expect(
       page.getByRole("heading", {
-        name: "The Brain is simple, source-grounded, and intentionally flexible",
+        name: "The Brain turns company knowledge into usable AI context",
       }),
     ).toBeVisible();
     await expect(page.getByText("Founder interview notes")).toBeVisible();
+    await expect(page.getByLabel("Brain context path")).toBeVisible();
 
     await sidebar.getByRole("link", { name: /Workflows/ }).click();
     await expect(
       page.getByRole("heading", {
-        name: "Workflows compose capabilities into auditable runs",
+        name: "Workflows turn AI ideas into repeatable business processes",
       }),
     ).toBeVisible();
     await expect(page.locator(".workflow-canvas")).toBeVisible();
@@ -42,7 +46,7 @@ test.describe("hosted reference app", () => {
     await sidebar.getByRole("link", { name: /Capabilities/ }).click();
     await expect(
       page.getByRole("heading", {
-        name: "Capabilities are typed units of work",
+        name: "Capabilities are the safe actions the system can perform",
       }),
     ).toBeVisible();
     await expect(page.getByText("createTrustReceipt")).toBeVisible();
@@ -50,7 +54,7 @@ test.describe("hosted reference app", () => {
     await sidebar.getByRole("link", { name: /Agents/ }).click();
     await expect(
       page.getByRole("heading", {
-        name: "Agents are nondeterministic actors with explicit grants",
+        name: "Agents make choices, but only inside boundaries",
       }),
     ).toBeVisible();
     await expect(page.getByText("Agent grants are explicit.")).toBeVisible();
@@ -65,8 +69,11 @@ test.describe("hosted reference app", () => {
     await sidebar.getByRole("link", { name: /API \/ CLI \/ MCP/ }).click();
     await expect(
       page.getByRole("heading", {
-        name: "The same registry powers API, CLI, MCP, and Scalar docs",
+        name: "One operation can show up in the app, API, CLI, MCP, and docs",
       }),
+    ).toBeVisible();
+    await expect(
+      page.getByLabel("One operation registry, many surfaces"),
     ).toBeVisible();
     await expect(page.getByText("Scalar docs are mounted")).toBeVisible();
     await expect(page.getByText("3 generated operations")).toBeVisible();

@@ -6,10 +6,10 @@ test.describe("hosted reference app visual coverage", () => {
 
     await expect(
       page.getByRole("heading", {
-        name: "A calm template for custom Brain, workflow, and agent apps",
+        name: "A reusable foundation for custom AI implementation work",
       }),
     ).toBeVisible();
-    await expect(page.getByText("What this proves")).toBeVisible();
+    await expect(page.getByText("What an investor should see")).toBeVisible();
 
     const documentPage = await page.locator(".notion-page").boundingBox();
 
@@ -32,7 +32,7 @@ test.describe("hosted reference app visual coverage", () => {
 
     await expect(
       page.getByRole("heading", {
-        name: "Workflows compose capabilities into auditable runs",
+        name: "Workflows turn AI ideas into repeatable business processes",
       }),
     ).toBeVisible();
     await expect(page.locator(".workflow-canvas")).toBeVisible();
