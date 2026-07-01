@@ -48,6 +48,7 @@ host-test-slot --class full pnpm test
 pnpm build
 pnpm smoke:web-static
 pnpm smoke:hosted
+pnpm smoke:hosted:browser
 ```
 
 Inspect the live app:
@@ -90,6 +91,7 @@ admin/support/privacy -> audited capabilities -> narrow operator surfaces
 Concrete files to inspect:
 
 - `apps/web/src/sample/App.tsx`: hosted reference app.
+- `tests/e2e/hosted-reference-app.spec.ts`: hosted desktop/mobile browser smoke.
 - `packages/template-core/src/index.ts`: canonical sample registry.
 - `packages/workflow-ui/src/index.tsx`: React Flow workflow canvas primitive.
 - `tooling/workflow/src/index.ts`: API/CLI/MCP/OpenAPI projection.

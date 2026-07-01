@@ -131,6 +131,7 @@ host-test-slot --class full pnpm verify
 pnpm build
 pnpm smoke:web-static
 pnpm smoke:hosted
+pnpm smoke:hosted:browser
 ```
 
 The smoke verifies the static web output under `apps/web/dist`, which can be
