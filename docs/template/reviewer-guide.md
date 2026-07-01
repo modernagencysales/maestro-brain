@@ -23,6 +23,12 @@ Open `http://127.0.0.1:5174/`. The first screen is the generic AI operations
 workspace: Brain, workflows, capabilities, agents, integrations, headless
 surfaces, and safety posture.
 
+If port `5174` is busy, use any free port:
+
+```bash
+pnpm --dir apps/web dev -- --port 5184
+```
+
 ## 2. Inspect The Product Surfaces
 
 Open the reference app and inspect:
@@ -35,7 +41,9 @@ Open the reference app and inspect:
 - safety model and generated contract checklist.
 
 The app intentionally uses reviewer-safe synthetic data and fake/local provider
-posture.
+posture. The typed fixture data lives in `apps/web/src/sample/templateData.ts`;
+tests for section coverage and workflow graph integrity live in
+`apps/web/src/sample/templateData.test.ts`.
 
 ## 3. Run One Workflow
 

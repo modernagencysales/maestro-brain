@@ -5,10 +5,12 @@ import {
   Cable,
   CheckCircle2,
   Command,
+  DatabaseZap,
   KeyRound,
   Mail,
   Play,
   ShieldCheck,
+  UserRoundCog,
 } from "lucide-react";
 import {
   AppFrame,
@@ -19,45 +21,19 @@ import {
   SurfaceCard,
 } from "@maestro-template/ui";
 import { WorkflowCanvas } from "@maestro-template/workflow-ui";
-
-const navItems = [
-  { id: "overview", label: "Overview", active: true },
-  { id: "brain", label: "Brain" },
-  { id: "workflows", label: "Workflows" },
-  { id: "capabilities", label: "Capabilities" },
-  { id: "agents", label: "Agents" },
-  { id: "headless", label: "API / CLI / MCP" },
-  { id: "integrations", label: "Integrations" },
-  { id: "safety", label: "Safety" },
-] as const;
-
-const stats = [
-  { label: "Typed functions", value: "8", tone: "good" },
-  { label: "Provider mode", value: "Fake/local", tone: "neutral" },
-  { label: "Workflow gates", value: "Strict", tone: "good" },
-  { label: "RAG default", value: "Off", tone: "warn" },
-] as const;
-
-const workflowNodes = [
-  { id: "source", label: "Source Set", kind: "source", x: 0, y: 80 },
-  {
-    id: "context",
-    label: "Build Context Pack",
-    kind: "capability",
-    x: 260,
-    y: 20,
-  },
-  { id: "agent", label: "Planner Agent", kind: "agent", x: 520, y: 80 },
-  { id: "approval", label: "Policy Approval", kind: "approval", x: 780, y: 20 },
-  { id: "output", label: "Trust Receipt", kind: "output", x: 1040, y: 80 },
-] as const;
-
-const workflowEdges = [
-  { id: "e1", source: "source", target: "context", label: "evidence" },
-  { id: "e2", source: "context", target: "agent", label: "grounded pack" },
-  { id: "e3", source: "agent", target: "approval", label: "agent choice" },
-  { id: "e4", source: "approval", target: "output", label: "audited run" },
-] as const;
+import {
+  agents,
+  brainSources,
+  capabilities,
+  contextPacks,
+  headlessSurfaces,
+  navItems,
+  providerAdapters,
+  safetyChecklist,
+  stats,
+  workflowEdges,
+  workflowNodes,
+} from "./templateData";
 
 const surfaces = [
   {
@@ -113,7 +89,9 @@ export function App() {
 
       <section className="main-grid" id="overview">
         <SurfaceCard title="Reference Workflow" meta="React Flow primitive">
-          <WorkflowCanvas nodes={workflowNodes} edges={workflowEdges} />
+          <div id="workflows">
+            <WorkflowCanvas nodes={workflowNodes} edges={workflowEdges} />
+          </div>
         </SurfaceCard>
 
         <SurfaceCard title="Template Contract" meta="current slice">
@@ -157,9 +135,105 @@ export function App() {
         })}
       </section>
 
-      <section className="two-column">
+      <section className="detail-grid" id="brain">
+        <SurfaceCard title="Brain Sources" meta="markdown + links">
+          <div className="record-list">
+            {brainSources.map((source) => (
+              <div className="record-row" key={source.title}>
+                <div>
+                  <strong>{source.title}</strong>
+                  <span>{source.kind}</span>
+                </div>
+                <StatusPill
+                  tone={source.freshness === "fresh" ? "good" : "warn"}
+                >
+                  {source.freshness}
+                </StatusPill>
+                <small>{source.evidence}</small>
+              </div>
+            ))}
+          </div>
+        </SurfaceCard>
+
+        <SurfaceCard title="Context Pack" meta="no default RAG">
+          <ol className="number-list">
+            {contextPacks.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ol>
+        </SurfaceCard>
+      </section>
+
+      <section className="detail-grid" id="capabilities">
+        <SurfaceCard title="Capabilities" meta="typed units of work">
+          <div className="record-list">
+            {capabilities.map((capability) => (
+              <div className="capability-row" key={capability.name}>
+                <div>
+                  <strong>{capability.name}</strong>
+                  <p>{capability.description}</p>
+                </div>
+                <span>{capability.exposure}</span>
+                <StatusPill>{capability.policy}</StatusPill>
+              </div>
+            ))}
+          </div>
+        </SurfaceCard>
+
+        <SurfaceCard title="Agents" meta="nondeterministic actors">
+          <div className="agent-grid" id="agents">
+            {agents.map((agent) => (
+              <div className="agent-card" key={agent.name}>
+                <UserRoundCog size={18} />
+                <strong>{agent.name}</strong>
+                <span>{agent.grants}</span>
+                <small>{agent.guardrail}</small>
+              </div>
+            ))}
+          </div>
+        </SurfaceCard>
+      </section>
+
+      <section className="detail-grid" id="headless">
+        <SurfaceCard
+          title="Headless Registry"
+          meta="one backend, many surfaces"
+        >
+          <div className="record-list">
+            {headlessSurfaces.map((surface) => (
+              <div className="headless-row" key={surface.name}>
+                <Braces size={17} />
+                <div>
+                  <strong>{surface.name}</strong>
+                  <span>{surface.route}</span>
+                </div>
+                <small>{surface.contract}</small>
+              </div>
+            ))}
+          </div>
+        </SurfaceCard>
+
+        <SurfaceCard title="Provider Adapters" meta="fake/test/live layers">
+          <div className="adapter-grid" id="integrations">
+            {providerAdapters.map((adapter) => (
+              <div className="adapter-card" key={adapter.name}>
+                <DatabaseZap size={17} />
+                <strong>{adapter.name}</strong>
+                <span>{adapter.mode}</span>
+                <StatusPill
+                  tone={adapter.status === "guarded" ? "good" : "neutral"}
+                >
+                  {adapter.status}
+                </StatusPill>
+              </div>
+            ))}
+          </div>
+        </SurfaceCard>
+      </section>
+
+      <section className="two-column" id="safety">
         <SurfaceCard title="Default Provider Posture" meta="fake first">
-          <div className="integration-list" id="integrations">
+          <div className="integration-list">
             <span>
               <ShieldCheck size={16} /> WorkOS/AuthKit
             </span>
@@ -176,11 +250,14 @@ export function App() {
         </SurfaceCard>
 
         <SurfaceCard title="Safety Model" meta="reviewer visible">
-          <p id="safety">
-            Tenant identity is server-derived, runtime-authored capabilities are
-            data not arbitrary code, provider errors are redacted, and generated
-            contracts are checked before merge.
-          </p>
+          <ul className="check-list">
+            {safetyChecklist.map((item) => (
+              <li key={item}>
+                <CheckCircle2 size={16} />
+                {item}
+              </li>
+            ))}
+          </ul>
         </SurfaceCard>
       </section>
     </AppFrame>
