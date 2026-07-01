@@ -8,5 +8,8 @@
     "build": "tsc -p tsconfig.json --outDir dist --declaration",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@maestro-template/template-core": "workspace:*"
   }
 }

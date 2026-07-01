@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@confect/react": "9.1.4",
+    "@maestro-template/template-core": "workspace:*",
     "@maestro-template/ui": "workspace:*",
     "@maestro-template/workflow-ui": "workspace:*",
     "@xyflow/react": "^12.11.1",

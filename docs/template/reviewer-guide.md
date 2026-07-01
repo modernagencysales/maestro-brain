@@ -41,9 +41,14 @@ Open the reference app and inspect:
 - safety model and generated contract checklist.
 
 The app intentionally uses reviewer-safe synthetic data and fake/local provider
-posture. The typed fixture data lives in `apps/web/src/sample/templateData.ts`;
-tests for section coverage and workflow graph integrity live in
-`apps/web/src/sample/templateData.test.ts`.
+posture. The canonical typed registry lives in
+`packages/template-core/src/index.ts`; the web app imports it through
+`apps/web/src/sample/templateData.ts`. Tests for section coverage and workflow
+graph integrity live in `apps/web/src/sample/templateData.test.ts`.
+
+The headless projection lives in `tooling/workflow/src/index.ts`. It turns the
+same capability registry into stable operation metadata for future API, CLI,
+MCP, and Scalar generation.
 
 ## 3. Run One Workflow
 

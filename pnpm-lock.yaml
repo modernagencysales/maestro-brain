@@ -63,6 +63,9 @@ importers:
       "@confect/react":
         specifier: 9.1.4
         version: 9.1.4(@confect/core@9.1.4(convex@1.42.1(react@19.1.0))(effect@3.21.4))(convex@1.42.1(react@19.1.0))(effect@3.21.4)(react@19.1.0)
+      "@maestro-template/template-core":
+        specifier: workspace:*
+        version: link:../../packages/template-core
       "@maestro-template/ui":
         specifier: workspace:*
         version: link:../../packages/ui
@@ -207,7 +210,11 @@ importers:
 
   tooling/release: {}
 
-  tooling/workflow: {}
+  tooling/workflow:
+    dependencies:
+      "@maestro-template/template-core":
+        specifier: workspace:*
+        version: link:../../packages/template-core
 
 packages:
   "@confect/cli@9.1.4":

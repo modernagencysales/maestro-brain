@@ -24,7 +24,8 @@
   settings-ready controls.
 - `packages/workflow-ui`: React Flow graph editor primitive and future command
   reducers.
-- `packages/template-core`: shared template types, policies, and fixtures.
+- `packages/template-core`: shared template registry, workflow/capability/agent
+  types, policies, and reviewer-safe fixtures.
 - `packages/integrations`: Effect service interfaces and provider adapters.
 - `packages/notifications`: notification provider boundary.
 - `packages/storage`: asset storage provider boundary.
@@ -34,7 +35,8 @@
 ## Tooling
 
 - `tooling/quality`: deterministic gates and AI gate wrappers.
-- `tooling/workflow`: headless registry, CLI, MCP, and workflow helpers.
+- `tooling/workflow`: headless operation projection, CLI/MCP/API metadata, and
+  workflow helpers.
 - `tooling/generators`: template init, add-* generators, doctor, and upgrade.
 - `tooling/evals`: prompt and source-grounding evaluation fixtures.
 - `tooling/release`: deploy, smoke, rollback, and backup/restore helpers.
