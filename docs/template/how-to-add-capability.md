@@ -1,19 +1,33 @@
 # How To Add A Capability
 
-Generator after Task 16:
+Dry-run a generated capability:
 
 ```bash
 pnpm template:add-capability -- --name summarizeSource
 ```
 
+Write the generated files:
+
+```bash
+pnpm template:add-capability -- --name summarizeSource --description "Summarizes an approved source set." --exposure headless --write
+```
+
 ## Files Created
 
-- Confect capability spec and impl.
+- Confect-oriented capability spec and impl under
+  `generated/capabilities/<name>/`.
 - Typed args, returns, and errors.
-- Capability catalog metadata.
-- Fake fixtures and tests.
-- Frontend adapter when user-facing.
-- Headless registry entry when exposed.
+- Capability headless metadata.
+- Contract test scaffold.
+- README with follow-up steps for moving into the owning Confect group.
+
+The generator intentionally writes to `generated/` first. Promote the files into
+the correct `packages/convex/confect/<group>/` location after review, run
+`pnpm confect:codegen`, then wire generated refs into web/API/CLI/MCP surfaces.
+
+Future generator slices should add frontend adapters when user-facing and richer
+fake fixtures once the capability owns provider side effects.
+
 - Docs and audit metadata.
 
 ## Tests

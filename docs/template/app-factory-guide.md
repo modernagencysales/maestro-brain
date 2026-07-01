@@ -18,12 +18,14 @@ without copying project-specific business logic into the core framework.
 1. Run `pnpm template:init -- --name "Client Brain" --write`.
 2. Review and edit `template-instance.json`.
 3. Run `pnpm template:doctor -- --mode fake`.
-4. Add domain modules with `template:add-client-domain`.
-5. Add capabilities, workflows, agents, Brain schemas, API surfaces, source
+4. Add a first capability with
+   `pnpm template:add-capability -- --name summarizeSource --write`.
+5. Add domain modules with `template:add-client-domain`.
+6. Add capabilities, workflows, agents, Brain schemas, API surfaces, source
    types, notifications, admin surfaces, and data lifecycle resources through
    the matching generators.
-6. Run focused verification for each generated change.
-7. Run full verification before a client handoff.
+7. Run focused verification for each generated change.
+8. Run full verification before a client handoff.
 
 ## Client Forks
 

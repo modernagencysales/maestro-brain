@@ -1,8 +1,9 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  buildCapabilityFiles,
   buildTemplateInstance,
   doctorTemplateInstance,
   runGeneratorCli,
@@ -80,6 +81,67 @@ describe("template app factory generators", () => {
       expect(JSON.parse(doctor.stdout)).toMatchObject({
         ok: true,
         mode: "fake",
+      });
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("builds Confect-oriented capability generator files", () => {
+    const generated = buildCapabilityFiles({
+      name: "summarize source",
+      description: "Summarizes an approved source set.",
+      exposure: "headless",
+    });
+
+    expect(generated).toMatchObject({
+      name: "summarizeSource",
+      pascalName: "SummarizeSource",
+      exposure: "headless",
+    });
+    expect(generated.files.map((file) => file.path)).toEqual([
+      "generated/capabilities/summarizeSource/summarizeSource.spec.ts",
+      "generated/capabilities/summarizeSource/summarizeSource.impl.ts",
+      "generated/capabilities/summarizeSource/summarizeSource.test.ts",
+      "generated/capabilities/summarizeSource/summarizeSource.headless.json",
+      "generated/capabilities/summarizeSource/README.md",
+    ]);
+    expect(generated.files[0]?.content).toContain(
+      "FunctionSpec.publicMutation",
+    );
+    expect(generated.files[3]?.content).toContain('"surfaces"');
+  });
+
+  it("writes generated capability files through the CLI", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "maestro-template-capability-"));
+
+    try {
+      const result = runGeneratorCli(
+        [
+          "add-capability",
+          "--name",
+          "summarize source",
+          "--description",
+          "Summarizes an approved source set.",
+          "--write",
+        ],
+        cwd,
+      );
+      const specPath = join(
+        cwd,
+        "generated/capabilities/summarizeSource/summarizeSource.spec.ts",
+      );
+      const metadataPath = join(
+        cwd,
+        "generated/capabilities/summarizeSource/summarizeSource.headless.json",
+      );
+
+      expect(result.exitCode).toBe(0);
+      expect(existsSync(specPath)).toBe(true);
+      expect(readFileSync(specPath, "utf8")).toContain("summarizeSourceArgs");
+      expect(JSON.parse(readFileSync(metadataPath, "utf8"))).toMatchObject({
+        capability: "summarizeSource",
+        surfaces: ["api", "cli", "mcp"],
       });
     } finally {
       rmSync(cwd, { recursive: true, force: true });
