@@ -6,18 +6,15 @@ test.describe("hosted reference app visual coverage", () => {
 
     await expect(
       page.getByRole("heading", {
-        name: "Custom Brain, workflow, and agent apps without rebuilding the platform",
+        name: "A calm template for custom Brain, workflow, and agent apps",
       }),
     ).toBeVisible();
-    await expect(page.locator(".workflow-canvas")).toBeVisible();
+    await expect(page.getByText("What this proves")).toBeVisible();
 
-    const header = await page.locator(".page-header").boundingBox();
-    const workflow = await page.locator(".workflow-canvas").boundingBox();
+    const documentPage = await page.locator(".notion-page").boundingBox();
 
-    expect(header?.width ?? 0).toBeGreaterThan(280);
-    expect(header?.height ?? 0).toBeGreaterThan(80);
-    expect(workflow?.width ?? 0).toBeGreaterThan(280);
-    expect(workflow?.height ?? 0).toBeGreaterThan(240);
+    expect(documentPage?.width ?? 0).toBeGreaterThan(280);
+    expect(documentPage?.height ?? 0).toBeGreaterThan(420);
 
     await expect(page).toHaveScreenshot("reference-app-first-viewport.png", {
       animations: "disabled",
@@ -26,19 +23,22 @@ test.describe("hosted reference app visual coverage", () => {
     });
   });
 
-  test("matches the workflow and trust receipt section", async ({ page }) => {
+  test("matches the workflow document page", async ({ page }) => {
     await page.goto("/");
-    await page.locator("#runs").scrollIntoViewIfNeeded();
+    await page
+      .getByRole("navigation", { name: "Primary" })
+      .getByRole("link", { name: /Workflows/ })
+      .click();
 
     await expect(
-      page.getByRole("heading", { name: "Workflow Run Receipt" }),
+      page.getByRole("heading", {
+        name: "Workflows compose capabilities into auditable runs",
+      }),
     ).toBeVisible();
-    await expect(
-      page.getByRole("heading", { name: "Trust Receipt" }),
-    ).toBeVisible();
+    await expect(page.locator(".workflow-canvas")).toBeVisible();
 
-    await expect(page.locator("#runs")).toHaveScreenshot(
-      "workflow-trust-receipt-section.png",
+    await expect(page.locator(".notion-page")).toHaveScreenshot(
+      "workflow-document-page.png",
       {
         animations: "disabled",
         maxDiffPixelRatio: 0.03,

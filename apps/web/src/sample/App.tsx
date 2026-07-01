@@ -1,29 +1,7 @@
-import {
-  Activity,
-  Brain,
-  Braces,
-  Cable,
-  CheckCircle2,
-  Command,
-  DatabaseZap,
-  KeyRound,
-  Mail,
-  Play,
-  ShieldCheck,
-  UserRoundCog,
-} from "lucide-react";
 import { useState } from "react";
-import {
-  AppFrame,
-  IconButton,
-  PageHeader,
-  StatGrid,
-  StatusPill,
-  SurfaceCard,
-} from "@maestro-template/ui";
+import { AppFrame } from "@maestro-template/ui";
 import { WorkflowCanvas } from "@maestro-template/workflow-ui";
 import {
-  agents,
   brainSources,
   capabilities,
   contextPacks,
@@ -38,294 +16,279 @@ import {
   workflowNodes,
 } from "./templateData";
 
-const surfaces = [
+type DocumentPage = {
+  readonly id: string;
+  readonly eyebrow: string;
+  readonly title: string;
+  readonly intro: string;
+  readonly sections: readonly {
+    readonly heading: string;
+    readonly body: readonly string[];
+  }[];
+};
+
+const overviewPage: DocumentPage = {
+  id: "overview",
+  eyebrow: "Private AI app factory",
+  title: "A calm template for custom Brain, workflow, and agent apps",
+  intro:
+    "Maestro Template is the reusable application substrate we can clone for client-specific AI implementation work. It keeps the useful platform primitives from Maestro while removing Maestro-specific business logic.",
+  sections: [
+    {
+      heading: "What this proves",
+      body: [
+        "The repo has a hosted reference app, a typed backend direction, reusable workflow and capability primitives, headless API/CLI/MCP surfaces, provider adapter boundaries, and CI gates.",
+        `The current sample tracks ${stats.length} high-level health signals: typed functions, provider posture, workflow gates, and the decision not to default every app into RAG.`,
+      ],
+    },
+    {
+      heading: "How to read the template",
+      body: [
+        "Start with the Brain page to understand how customer context becomes a source-grounded workspace.",
+        "Then read Workflows, Capabilities, and Agents in order. Those pages describe the layered model: workflows compose capabilities, and agents request capabilities through grants.",
+        "Finish with API / CLI / MCP, Integrations, and Safety to see how the same model is exposed and protected.",
+      ],
+    },
+  ],
+};
+
+const pages: readonly DocumentPage[] = [
+  overviewPage,
   {
-    title: "Living Brain",
-    icon: Brain,
-    status: "core",
-    copy: "Markdown, links, source sets, evidence views, context packs, freshness, and trust receipts without defaulting every app into vector search.",
+    id: "brain",
+    eyebrow: "Context layer",
+    title: "The Brain is simple, source-grounded, and intentionally flexible",
+    intro:
+      "The template treats the Brain as structured customer context: markdown, links, notes, source sets, evidence views, context packs, and trust receipts. It can support RAG later, but it does not make RAG the default answer to every problem.",
+    sections: [
+      {
+        heading: "Source types",
+        body: brainSources.map(
+          (source) =>
+            `**${source.title}** is represented as ${source.kind} content with ${source.evidence}.`,
+        ),
+      },
+      {
+        heading: "Context packs",
+        body: [
+          "A context pack is the safe bundle an agent or workflow receives before it acts.",
+          ...contextPacks.map((item) => `- ${item}`),
+        ],
+      },
+    ],
   },
   {
-    title: "Workflow Runtime",
-    icon: Activity,
-    status: "core",
-    copy: "Workflows compose capabilities. Agents are nondeterministic actors that receive grants, policy snapshots, and audit ledgers.",
+    id: "workflows",
+    eyebrow: "Composition layer",
+    title: "Workflows compose capabilities into auditable runs",
+    intro:
+      "The workflow primitive is deliberately generic. It can represent source intake, approval, agent choice, output generation, and trust receipt creation without hard-coding one client's process.",
+    sections: [
+      {
+        heading: "How the sample flow works",
+        body: [
+          "A source set is resolved, a context pack is built, an agent receives a narrow grant, a policy approval is recorded, and the output is wrapped in a trust receipt.",
+          "React Flow is used for authoring and inspection. Durable workflow logic should stay in typed workflow metadata and Confect/Effect contracts.",
+        ],
+      },
+    ],
   },
   {
-    title: "Headless Surfaces",
-    icon: Braces,
-    status: "core",
-    copy: "API, CLI, MCP, and Scalar projections call the same typed capability and workflow registry as the web app.",
+    id: "capabilities",
+    eyebrow: "Execution units",
+    title: "Capabilities are typed units of work",
+    intro:
+      "Capabilities are the reusable actions workflows and agents can call. They authenticate, validate, delegate to the correct service, and return typed results or typed failures.",
+    sections: [
+      {
+        heading: "Sample capabilities",
+        body: capabilities.map(
+          (capability) =>
+            `**${capability.name}**: ${capability.description} It is exposed through ${capability.exposure} and guarded by ${capability.policy}.`,
+        ),
+      },
+      {
+        heading: "Why this matters",
+        body: [
+          "Client apps can add domain-specific capabilities without changing the platform model.",
+          "Reviewed runtime-authored capabilities can be promoted into generated Confect source when compile-time guarantees matter.",
+        ],
+      },
+    ],
   },
   {
-    title: "Integrations",
-    icon: Cable,
-    status: "adapters",
-    copy: "WorkOS, PostHog, Dodo, MailerSend, storage, and OpenRouter-compatible LLM providers sit behind Effect services with fake/test/live layers.",
+    id: "agents",
+    eyebrow: "Actor layer",
+    title: "Agents are nondeterministic actors with explicit grants",
+    intro:
+      "Agents do not get broad access to the system. They receive narrow tool grants and compose capabilities or workflow kickoffs through typed boundaries.",
+    sections: [
+      {
+        heading: "What agents can do",
+        body: [
+          "A planner can compose a workflow.",
+          "A research agent can read approved Brain sources.",
+          "An operator agent can inspect runs and draft notifications, but approvals are required before external side effects.",
+        ],
+      },
+      {
+        heading: "Guardrails",
+        body: [
+          "Source content is data, not instructions.",
+          "Agent grants are explicit.",
+          "Capability calls are auditable.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "headless",
+    eyebrow: "Surface layer",
+    title: "The same registry powers API, CLI, MCP, and Scalar docs",
+    intro:
+      "The template has one headless registry that can project operations into multiple surfaces. A client app should not have separate business logic for web, API, CLI, and MCP.",
+    sections: [
+      {
+        heading: "Available surfaces",
+        body: headlessSurfaces.map(
+          (surface) =>
+            `**${surface.name}** is available at \`${surface.route}\` and uses ${surface.contract}.`,
+        ),
+      },
+      {
+        heading: "OpenAPI",
+        body: [
+          `The sample OpenAPI document is ${openApiSummary.version}.`,
+          `It exposes ${openApiSummary.operationCount} generated operations and documents typed errors: ${openApiSummary.typedErrors.join(", ")}.`,
+          `Scalar docs are mounted at \`${openApiSummary.docsRoute}\`.`,
+        ],
+      },
+    ],
+  },
+  {
+    id: "integrations",
+    eyebrow: "Provider layer",
+    title: "Integrations sit behind Effect services",
+    intro:
+      "The template keeps provider SDKs behind adapters. Fake and test layers make the app safe to run during diligence, while live layers can be filled in for each client.",
+    sections: [
+      {
+        heading: "Provider posture",
+        body: providerAdapters.map(
+          (adapter) =>
+            `**${adapter.name}** uses ${adapter.mode} mode and is currently marked ${adapter.status}.`,
+        ),
+      },
+      {
+        heading: "Why fake first",
+        body: [
+          "The template should run without client secrets.",
+          "Provider payloads should be redacted before crossing public boundaries.",
+          "Client forks replace deterministic receipts with SDK-backed calls when live setup begins.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "safety",
+    eyebrow: "Safety layer",
+    title: "Safety is part of the framework, not a checklist at the end",
+    intro:
+      "The template is designed for client work where tenant boundaries, provider secrets, prompt injection, and auditability matter. The sample app makes those rules visible.",
+    sections: [
+      {
+        heading: "Default rules",
+        body: safetyChecklist.map((item) => `- ${item}`),
+      },
+      {
+        heading: "Trust receipt path",
+        body: [
+          `The sample run \`${sampleRunReceipt.runId}\` produces \`${sampleRunReceipt.trustReceipt.receiptId}\`.`,
+          sampleRunReceipt.trustReceipt.claim,
+        ],
+      },
+    ],
   },
 ] as const;
+
+const pageById = new Map(pages.map((page) => [page.id, page]));
+
+const renderInlineMarkdown = (text: string) => {
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+
+  return parts.map((part, index) => {
+    const key = `${part}-${index}`;
+
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={key}>{part.slice(2, -2)}</strong>;
+    }
+
+    if (part.startsWith("`") && part.endsWith("`")) {
+      return <code key={key}>{part.slice(1, -1)}</code>;
+    }
+
+    return <span key={key}>{part}</span>;
+  });
+};
+
+const MarkdownLine = ({ text }: { readonly text: string }) => {
+  if (text.startsWith("- ")) {
+    return <li>{renderInlineMarkdown(text.slice(2))}</li>;
+  }
+
+  return <p>{renderInlineMarkdown(text)}</p>;
+};
+
+const NotionDocument = ({ page }: { readonly page: DocumentPage }) => (
+  <article className="notion-page" id={page.id}>
+    <p className="notion-eyebrow">{page.eyebrow}</p>
+    <h1>{page.title}</h1>
+    <p className="notion-intro">{page.intro}</p>
+
+    {page.id === "workflows" ? (
+      <section className="notion-section" aria-label="Workflow preview">
+        <WorkflowCanvas nodes={workflowNodes} edges={workflowEdges} />
+      </section>
+    ) : null}
+
+    {page.sections.map((section) => {
+      const listItems = section.body.filter((line) => line.startsWith("- "));
+      const paragraphs = section.body.filter((line) => !line.startsWith("- "));
+
+      return (
+        <section className="notion-section" key={section.heading}>
+          <h2>{section.heading}</h2>
+          {paragraphs.map((line) => (
+            <MarkdownLine key={line} text={line} />
+          ))}
+          {listItems.length > 0 ? (
+            <ul>
+              {listItems.map((line) => (
+                <MarkdownLine key={line} text={line} />
+              ))}
+            </ul>
+          ) : null}
+        </section>
+      );
+    })}
+  </article>
+);
 
 export function App() {
   const [activeNavId, setActiveNavId] = useState<string>(
     navItems[0]?.id ?? "overview",
   );
+  const activePage = pageById.get(activeNavId) ?? overviewPage;
 
   return (
     <AppFrame
       title="Maestro Template"
       subtitle="Private AI app factory"
       navItems={navItems}
-      activeId={activeNavId}
+      activeId={activePage.id}
       onNavigate={setActiveNavId}
     >
-      <PageHeader
-        eyebrow="Generic AI operations framework"
-        title="Custom Brain, workflow, and agent apps without rebuilding the platform"
-        description="This reference app shows the reusable primitives: Confect/Effect contracts, source-grounded Brain context, visual workflow composition, capabilities, agents, headless APIs, integrations, and safety gates."
-        actions={
-          <>
-            <IconButton label="Run sample workflow">
-              <Play size={18} />
-            </IconButton>
-            <IconButton label="Open command palette">
-              <Command size={18} />
-            </IconButton>
-          </>
-        }
-      />
-
-      <StatGrid stats={stats} />
-
-      <section className="main-grid" id="overview">
-        <SurfaceCard title="Reference Workflow" meta="React Flow primitive">
-          <div id="workflows">
-            <WorkflowCanvas nodes={workflowNodes} edges={workflowEdges} />
-          </div>
-        </SurfaceCard>
-
-        <SurfaceCard title="Template Contract" meta="current slice">
-          <ul className="check-list">
-            <li>
-              <CheckCircle2 size={16} />
-              Confect tables, specs, impls, generated refs
-            </li>
-            <li>
-              <CheckCircle2 size={16} />
-              Effect schemas and declared expected failures
-            </li>
-            <li>
-              <CheckCircle2 size={16} />
-              Plain Convex Workpool bridge through Confect
-            </li>
-            <li>
-              <CheckCircle2 size={16} />
-              CI gates for compatibility and contract drift
-            </li>
-          </ul>
-        </SurfaceCard>
-      </section>
-
-      <section className="surface-grid" aria-label="Template primitives">
-        {surfaces.map((surface) => {
-          const Icon = surface.icon;
-          return (
-            <SurfaceCard key={surface.title} title={surface.title}>
-              <div className="surface-title-row">
-                <Icon size={20} />
-                <StatusPill
-                  tone={surface.status === "core" ? "good" : "neutral"}
-                >
-                  {surface.status}
-                </StatusPill>
-              </div>
-              <p>{surface.copy}</p>
-            </SurfaceCard>
-          );
-        })}
-      </section>
-
-      <section className="detail-grid" id="brain">
-        <SurfaceCard title="Brain Sources" meta="markdown + links">
-          <div className="record-list">
-            {brainSources.map((source) => (
-              <div className="record-row" key={source.title}>
-                <div>
-                  <strong>{source.title}</strong>
-                  <span>{source.kind}</span>
-                </div>
-                <StatusPill
-                  tone={source.freshness === "fresh" ? "good" : "warn"}
-                >
-                  {source.freshness}
-                </StatusPill>
-                <small>{source.evidence}</small>
-              </div>
-            ))}
-          </div>
-        </SurfaceCard>
-
-        <SurfaceCard title="Context Pack" meta="no default RAG">
-          <ol className="number-list">
-            {contextPacks.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ol>
-        </SurfaceCard>
-      </section>
-
-      <section className="detail-grid" id="capabilities">
-        <SurfaceCard title="Capabilities" meta="typed units of work">
-          <div className="record-list">
-            {capabilities.map((capability) => (
-              <div className="capability-row" key={capability.name}>
-                <div>
-                  <strong>{capability.name}</strong>
-                  <p>{capability.description}</p>
-                </div>
-                <span>{capability.exposure}</span>
-                <StatusPill>{capability.policy}</StatusPill>
-              </div>
-            ))}
-          </div>
-        </SurfaceCard>
-
-        <SurfaceCard title="Agents" meta="nondeterministic actors">
-          <div className="agent-grid" id="agents">
-            {agents.map((agent) => (
-              <div className="agent-card" key={agent.name}>
-                <UserRoundCog size={18} />
-                <strong>{agent.name}</strong>
-                <span>{agent.grants}</span>
-                <small>{agent.guardrail}</small>
-              </div>
-            ))}
-          </div>
-        </SurfaceCard>
-      </section>
-
-      <section className="detail-grid" id="headless">
-        <SurfaceCard
-          title="Headless Registry"
-          meta="one backend, many surfaces"
-        >
-          <div className="record-list">
-            {headlessSurfaces.map((surface) => (
-              <div className="headless-row" key={surface.name}>
-                <Braces size={17} />
-                <div>
-                  <strong>{surface.name}</strong>
-                  <span>{surface.route}</span>
-                </div>
-                <small>{surface.contract}</small>
-              </div>
-            ))}
-          </div>
-        </SurfaceCard>
-
-        <SurfaceCard title="OpenAPI / Scalar" meta={openApiSummary.version}>
-          <div className="api-doc-card">
-            <Braces size={20} />
-            <div>
-              <strong>{openApiSummary.docsRoute}</strong>
-              <span>{openApiSummary.operationCount} generated operations</span>
-            </div>
-          </div>
-          <dl className="meta-list">
-            <div>
-              <dt>Auth scope</dt>
-              <dd>{openApiSummary.authScope}</dd>
-            </div>
-            <div>
-              <dt>Typed errors</dt>
-              <dd>{openApiSummary.typedErrors.join(", ")}</dd>
-            </div>
-          </dl>
-        </SurfaceCard>
-      </section>
-
-      <section className="detail-grid" id="integrations">
-        <SurfaceCard title="Provider Adapters" meta="fake/test/live layers">
-          <div className="adapter-grid">
-            {providerAdapters.map((adapter) => (
-              <div className="adapter-card" key={adapter.name}>
-                <DatabaseZap size={17} />
-                <strong>{adapter.name}</strong>
-                <span>{adapter.mode}</span>
-                <StatusPill
-                  tone={adapter.status === "guarded" ? "good" : "neutral"}
-                >
-                  {adapter.status}
-                </StatusPill>
-              </div>
-            ))}
-          </div>
-        </SurfaceCard>
-      </section>
-
-      <section className="detail-grid" id="runs">
-        <SurfaceCard title="Workflow Run Receipt" meta={sampleRunReceipt.runId}>
-          <div className="receipt-summary">
-            <strong>{sampleRunReceipt.workflowName}</strong>
-            <StatusPill tone="good">{sampleRunReceipt.status}</StatusPill>
-            <span>{sampleRunReceipt.completedAt}</span>
-          </div>
-          <div className="record-list">
-            {sampleRunReceipt.steps.map((step) => (
-              <div className="receipt-step" key={step.id}>
-                <CheckCircle2 size={16} />
-                <div>
-                  <strong>{step.label}</strong>
-                  <span>
-                    {step.capability ?? step.agent ?? step.kind} · {step.status}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </SurfaceCard>
-
-        <SurfaceCard
-          title="Trust Receipt"
-          meta={sampleRunReceipt.trustReceipt.receiptId}
-        >
-          <p>{sampleRunReceipt.trustReceipt.claim}</p>
-          <div className="audit-list">
-            {sampleRunReceipt.auditEvents.map((event) => (
-              <span key={event}>{event}</span>
-            ))}
-          </div>
-        </SurfaceCard>
-      </section>
-
-      <section className="two-column" id="safety">
-        <SurfaceCard title="Default Provider Posture" meta="fake first">
-          <div className="integration-list">
-            <span>
-              <ShieldCheck size={16} /> WorkOS/AuthKit
-            </span>
-            <span>
-              <Activity size={16} /> PostHog
-            </span>
-            <span>
-              <KeyRound size={16} /> Dodo billing
-            </span>
-            <span>
-              <Mail size={16} /> MailerSend email
-            </span>
-          </div>
-        </SurfaceCard>
-
-        <SurfaceCard title="Safety Model" meta="reviewer visible">
-          <ul className="check-list">
-            {safetyChecklist.map((item) => (
-              <li key={item}>
-                <CheckCircle2 size={16} />
-                {item}
-              </li>
-            ))}
-          </ul>
-        </SurfaceCard>
-      </section>
+      <NotionDocument page={activePage} />
     </AppFrame>
   );
 }
