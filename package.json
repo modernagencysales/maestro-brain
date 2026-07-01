@@ -21,6 +21,8 @@
     "template:doctor": "tsx tooling/generators/src/index.ts doctor",
     "template:add-capability": "tsx tooling/generators/src/index.ts add-capability",
     "template:add-workflow": "tsx tooling/generators/src/index.ts add-workflow",
+    "template:promote-capability": "tsx tooling/generators/src/index.ts promote-capability",
+    "template:promote-workflow": "tsx tooling/generators/src/index.ts promote-workflow",
     "template:upgrade": "tsx tooling/generators/src/index.ts upgrade",
     "template:private-package:dry-run": "tsx tooling/generators/src/index.ts private-package:dry-run",
     "template:private-package:import": "tsx tooling/generators/src/index.ts private-package:import",

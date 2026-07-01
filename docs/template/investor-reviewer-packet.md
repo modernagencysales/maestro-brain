@@ -34,8 +34,9 @@ The current template proves these reusable primitives:
   harnesses for WorkOS/AuthKit, PostHog, Dodo, MailerSend, OpenRouter-compatible
   LLMs, storage, and search.
 - App factory commands for `template:init`, `template:doctor`,
-  `template:add-capability`, `template:add-workflow`, `template:upgrade`, and
-  private-package dry-run/import.
+  `template:add-capability`, `template:add-workflow`,
+  `template:promote-capability`, `template:promote-workflow`,
+  `template:upgrade`, and private-package dry-run/import.
 - Cloudflare Pages deployment wiring and static hosted smoke checks.
 
 ## Thirty-Minute Technical Review
@@ -85,6 +86,8 @@ Inspect the app factory:
 pnpm template:init -- --name "Reviewer Brain"
 pnpm template:add-capability -- --name summarizeSource
 pnpm template:add-workflow -- --name sourceGroundedPlan
+pnpm template:promote-capability -- --name summarizeSource
+pnpm template:promote-workflow -- --name sourceGroundedPlan
 pnpm template:upgrade -- --from client-v1.0.0 --to template-v1.1.0
 pnpm template:private-package:dry-run -- --fixture examples/generic-ai-ops
 ```
@@ -125,8 +128,8 @@ it is not claiming every final production subsystem is fully implemented.
 
 Remaining work before calling the whole plan complete:
 
-- Promote generated capability/workflow files into full production Confect
-  groups automatically.
+- Wire promoted capability/workflow Confect groups into codegen automatically
+  after client review.
 - Replace deterministic live-ready provider receipts with SDK-backed WorkOS,
   Dodo, MailerSend, PostHog, and LLM provider calls in client apps.
 - Replace the deterministic reviewer-safe API operation runner with production

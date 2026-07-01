@@ -11,10 +11,12 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildCapabilityFiles,
+  buildCapabilityPromotionFiles,
   buildPrivatePackagePlan,
   buildTemplateInstance,
   buildTemplateUpgradeReport,
   buildWorkflowFiles,
+  buildWorkflowPromotionFiles,
   doctorTemplateInstance,
   runGeneratorCli,
 } from "./index";
@@ -213,6 +215,123 @@ describe("template app factory generators", () => {
         policy: {
           audit: "record-workflow-run-and-trust-receipt",
         },
+      });
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("builds production-target capability promotion files", () => {
+    const promoted = buildCapabilityPromotionFiles({
+      name: "summarize source",
+      description: "Summarizes an approved source set.",
+    });
+
+    expect(promoted).toMatchObject({
+      name: "summarizeSource",
+      pascalName: "SummarizeSource",
+      target: "capability",
+    });
+    expect(promoted.files.map((file) => file.path)).toEqual([
+      "packages/convex/confect/capabilities/summarizeSource/summarizeSource.spec.ts",
+      "packages/convex/confect/capabilities/summarizeSource/summarizeSource.impl.ts",
+      "packages/convex/confect/capabilities/summarizeSource/summarizeSource.headless.json",
+      "packages/convex/confect/capabilities/summarizeSource/README.md",
+    ]);
+    expect(promoted.files[0]?.content).toContain("FunctionSpec.publicMutation");
+    expect(promoted.files[1]?.content).toContain(
+      'import databaseSchema from "../../_generated/schema"',
+    );
+    expect(promoted.followUp).toContain(
+      "Run pnpm confect:codegen and inspect generated refs.",
+    );
+  });
+
+  it("writes promoted capability files through the CLI", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "maestro-template-promote-cap-"));
+
+    try {
+      const result = runGeneratorCli(
+        [
+          "promote-capability",
+          "--name",
+          "summarize source",
+          "--description",
+          "Summarizes an approved source set.",
+          "--write",
+        ],
+        cwd,
+      );
+      const specPath = join(
+        cwd,
+        "packages/convex/confect/capabilities/summarizeSource/summarizeSource.spec.ts",
+      );
+
+      expect(result.exitCode).toBe(0);
+      expect(existsSync(specPath)).toBe(true);
+      expect(readFileSync(specPath, "utf8")).toContain("summarizeSourceArgs");
+      expect(JSON.parse(result.stdout)).toMatchObject({
+        target: "capability",
+        name: "summarizeSource",
+      });
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("builds production-target workflow promotion files", () => {
+    const promoted = buildWorkflowPromotionFiles({
+      name: "source grounded plan",
+      description: "Builds a sourced plan with approval and receipt.",
+    });
+
+    expect(promoted).toMatchObject({
+      name: "sourceGroundedPlan",
+      pascalName: "SourceGroundedPlan",
+      target: "workflow",
+    });
+    expect(promoted.files.map((file) => file.path)).toEqual([
+      "packages/convex/confect/workflows/sourceGroundedPlan/sourceGroundedPlan.spec.ts",
+      "packages/convex/confect/workflows/sourceGroundedPlan/sourceGroundedPlan.impl.ts",
+      "packages/convex/confect/workflows/sourceGroundedPlan/sourceGroundedPlan.workflow.json",
+      "packages/convex/confect/workflows/sourceGroundedPlan/README.md",
+    ]);
+    expect(promoted.files[0]?.content).toContain("FunctionSpec.publicMutation");
+    expect(promoted.files[2]?.content).toContain('"promoted": true');
+    expect(promoted.followUp).toContain(
+      "Run pnpm confect:codegen and inspect generated refs.",
+    );
+  });
+
+  it("writes promoted workflow files through the CLI", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "maestro-template-promote-flow-"));
+
+    try {
+      const result = runGeneratorCli(
+        [
+          "promote-workflow",
+          "--name",
+          "source grounded plan",
+          "--description",
+          "Builds a sourced plan with approval and receipt.",
+          "--write",
+        ],
+        cwd,
+      );
+      const graphPath = join(
+        cwd,
+        "packages/convex/confect/workflows/sourceGroundedPlan/sourceGroundedPlan.workflow.json",
+      );
+
+      expect(result.exitCode).toBe(0);
+      expect(existsSync(graphPath)).toBe(true);
+      expect(JSON.parse(readFileSync(graphPath, "utf8"))).toMatchObject({
+        id: "sourceGroundedPlan",
+        promoted: true,
+      });
+      expect(JSON.parse(result.stdout)).toMatchObject({
+        target: "workflow",
+        name: "sourceGroundedPlan",
       });
     } finally {
       rmSync(cwd, { recursive: true, force: true });

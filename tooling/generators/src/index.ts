@@ -67,6 +67,20 @@ export type WorkflowGeneratorResult = {
   readonly files: readonly GeneratedFile[];
 };
 
+export type PromotionGeneratorOptions = {
+  readonly name: string;
+  readonly description?: string;
+  readonly write?: boolean;
+};
+
+export type PromotionGeneratorResult = {
+  readonly name: string;
+  readonly pascalName: string;
+  readonly target: "capability" | "workflow";
+  readonly files: readonly GeneratedFile[];
+  readonly followUp: readonly string[];
+};
+
 export type TemplateUpgradeReport = {
   readonly from: string;
   readonly to: string;
@@ -494,6 +508,251 @@ ${description}
   };
 };
 
+export const buildCapabilityPromotionFiles = (
+  options: PromotionGeneratorOptions,
+): PromotionGeneratorResult => {
+  const name = camelCase(options.name);
+  const pascalName = pascalCase(options.name);
+  const description =
+    options.description ??
+    `Promoted ${name} capability. Replace the deterministic template body with client-specific domain logic.`;
+  const basePath = `packages/convex/confect/capabilities/${name}`;
+  const files: readonly GeneratedFile[] = [
+    {
+      path: `${basePath}/${name}.spec.ts`,
+      content: `import { FunctionSpec, GroupSpec } from "@confect/core";
+import * as Schema from "effect/Schema";
+import { Forbidden, Unauthorized, ValidationFailed } from "../../errors";
+
+export const ${name}Args = Schema.Struct({
+  workspaceSlug: Schema.String,
+  input: Schema.String,
+  idempotencyKey: Schema.String,
+});
+
+export const ${name}Returns = Schema.Struct({
+  status: Schema.Literal("accepted"),
+  summary: Schema.String,
+});
+
+export const ${name} = FunctionSpec.publicMutation({
+  name: "${name}",
+  args: () => ${name}Args,
+  returns: () => ${name}Returns,
+  error: () => Schema.Union(Unauthorized, ValidationFailed, Forbidden),
+});
+
+export default GroupSpec.make().addFunction(${name});
+`,
+    },
+    {
+      path: `${basePath}/${name}.impl.ts`,
+      content: `import { FunctionImpl, GroupImpl } from "@confect/server";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import databaseSchema from "../../_generated/schema";
+import ${name}Group, { ${name} } from "./${name}.spec";
+
+const ${name}Impl = FunctionImpl.make(
+  databaseSchema,
+  ${name}Group,
+  "${name}",
+  ({ workspaceSlug, input }) =>
+    Effect.succeed({
+      status: "accepted" as const,
+      summary: \`${description} Workspace: \${workspaceSlug}. Input: \${input}.\`,
+    }),
+);
+
+export default GroupImpl.make(databaseSchema, ${name}Group).pipe(
+  Layer.provide(${name}Impl),
+  GroupImpl.finalize,
+);
+`,
+    },
+    {
+      path: `${basePath}/${name}.headless.json`,
+      content: `${JSON.stringify(
+        {
+          capability: name,
+          promoted: true,
+          targetGroup: `capabilities/${name}`,
+          authScope: "workspace member",
+          typedErrors: ["Unauthorized", "ValidationFailed", "Forbidden"],
+          surfaces: ["api", "cli", "mcp"],
+        },
+        null,
+        2,
+      )}\n`,
+    },
+    {
+      path: `${basePath}/README.md`,
+      content: `# ${pascalName} Promoted Capability
+
+${description}
+
+## Promotion Contract
+
+- Confect spec: \`${name}.spec.ts\`
+- Confect impl: \`${name}.impl.ts\`
+- Typed errors: Unauthorized, ValidationFailed, Forbidden
+- Headless surfaces: API, CLI, MCP
+
+## Required Follow-Up
+
+1. Add this group to the Confect spec tree.
+2. Run \`pnpm confect:codegen\`.
+3. Wire generated refs into web/API/CLI/MCP surfaces.
+4. Replace the deterministic implementation with client-specific domain logic.
+5. Run \`pnpm check:confect-contracts\` and focused capability tests.
+`,
+    },
+  ];
+
+  return {
+    name,
+    pascalName,
+    target: "capability",
+    files,
+    followUp: [
+      "Add promoted group to the Confect spec tree.",
+      "Run pnpm confect:codegen and inspect generated refs.",
+      "Wire generated refs into selected headless and web surfaces.",
+      "Run pnpm check:confect-contracts and focused capability tests.",
+    ],
+  };
+};
+
+export const buildWorkflowPromotionFiles = (
+  options: PromotionGeneratorOptions,
+): PromotionGeneratorResult => {
+  const name = camelCase(options.name);
+  const pascalName = pascalCase(options.name);
+  const description =
+    options.description ??
+    `Promoted ${name} workflow. Replace sample capability refs with client-specific steps.`;
+  const basePath = `packages/convex/confect/workflows/${name}`;
+  const files: readonly GeneratedFile[] = [
+    {
+      path: `${basePath}/${name}.spec.ts`,
+      content: `import { FunctionSpec, GroupSpec } from "@confect/core";
+import * as Schema from "effect/Schema";
+import { Unauthorized, ValidationFailed } from "../../errors";
+
+export const ${name}RunArgs = Schema.Struct({
+  workspaceSlug: Schema.String,
+  sourceSetId: Schema.String,
+  idempotencyKey: Schema.String,
+});
+
+export const ${name}RunReturns = Schema.Struct({
+  status: Schema.Literal("queued"),
+  workflow: Schema.Literal("${name}"),
+  runId: Schema.String,
+});
+
+export const run = FunctionSpec.publicMutation({
+  name: "run",
+  args: () => ${name}RunArgs,
+  returns: () => ${name}RunReturns,
+  error: () => Schema.Union(Unauthorized, ValidationFailed),
+});
+
+export default GroupSpec.make().addFunction(run);
+`,
+    },
+    {
+      path: `${basePath}/${name}.impl.ts`,
+      content: `import { FunctionImpl, GroupImpl } from "@confect/server";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import databaseSchema from "../../_generated/schema";
+import ${name}Group, { run } from "./${name}.spec";
+
+const runImpl = FunctionImpl.make(
+  databaseSchema,
+  ${name}Group,
+  "run",
+  ({ workspaceSlug, idempotencyKey }) =>
+    Effect.succeed({
+      status: "queued" as const,
+      workflow: "${name}" as const,
+      runId: \`${name}_\${workspaceSlug}_\${idempotencyKey}\`,
+    }),
+);
+
+export default GroupImpl.make(databaseSchema, ${name}Group).pipe(
+  Layer.provide(runImpl),
+  GroupImpl.finalize,
+);
+`,
+    },
+    {
+      path: `${basePath}/${name}.workflow.json`,
+      content: `${JSON.stringify(
+        {
+          id: name,
+          name: pascalName,
+          description,
+          promoted: true,
+          nodes: [
+            { id: "source", kind: "source", label: "Source Set" },
+            {
+              id: "capability",
+              kind: "capability",
+              label: "Generated Capability",
+              capability: "summarizeSource",
+            },
+            { id: "approval", kind: "approval", label: "Policy Approval" },
+            { id: "receipt", kind: "output", label: "Trust Receipt" },
+          ],
+          edges: [
+            { id: "e1", source: "source", target: "capability" },
+            { id: "e2", source: "capability", target: "approval" },
+            { id: "e3", source: "approval", target: "receipt" },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    },
+    {
+      path: `${basePath}/README.md`,
+      content: `# ${pascalName} Promoted Workflow
+
+${description}
+
+## Promotion Contract
+
+- Confect run spec: \`${name}.spec.ts\`
+- Confect run impl: \`${name}.impl.ts\`
+- Durable graph seed: \`${name}.workflow.json\`
+
+## Required Follow-Up
+
+1. Add this group to the Confect spec tree.
+2. Wire the graph into \`packages/workflow-ui\` and the headless registry.
+3. Replace sample capability refs with promoted capability names.
+4. Add replay, retry, idempotency, approval, and Trust Receipt tests.
+5. Run \`pnpm confect:codegen\`, \`pnpm check:workflow-graph-boundary\`, and focused workflow tests.
+`,
+    },
+  ];
+
+  return {
+    name,
+    pascalName,
+    target: "workflow",
+    files,
+    followUp: [
+      "Add promoted workflow group to the Confect spec tree.",
+      "Wire the durable graph into workflow UI and headless registry surfaces.",
+      "Run pnpm confect:codegen and inspect generated refs.",
+      "Run pnpm check:workflow-graph-boundary and focused workflow tests.",
+    ],
+  };
+};
+
 export const buildTemplateUpgradeReport = (options: {
   readonly from: string;
   readonly to: string;
@@ -720,6 +979,8 @@ export const runGeneratorCli = (
             "template:doctor [--mode fake|test|live] [--path <file>]",
             "template:add-capability --name <name> [--description <text>] [--exposure web|workflow|headless] [--write]",
             "template:add-workflow --name <name> [--description <text>] [--write]",
+            "template:promote-capability --name <name> [--description <text>] [--write]",
+            "template:promote-workflow --name <name> [--description <text>] [--write]",
             "template:upgrade --from <client-version> --to <template-version>",
             "template:private-package:dry-run --fixture <path>",
             "template:private-package:import --fixture <path> [--write]",
@@ -805,6 +1066,56 @@ export const runGeneratorCli = (
       }
 
       const result = buildWorkflowFiles({
+        name: args.name,
+        ...(args.description ? { description: args.description } : {}),
+      });
+
+      if (args.write) {
+        writeGeneratedFiles(result.files, cwd);
+      }
+
+      return {
+        exitCode: 0,
+        stdout: `${JSON.stringify(result, null, 2)}\n`,
+        stderr: "",
+      };
+    }
+
+    if (args.command === "promote-capability") {
+      if (!args.name) {
+        return {
+          exitCode: 1,
+          stdout: "",
+          stderr: "Missing required --name for promote-capability\n",
+        };
+      }
+
+      const result = buildCapabilityPromotionFiles({
+        name: args.name,
+        ...(args.description ? { description: args.description } : {}),
+      });
+
+      if (args.write) {
+        writeGeneratedFiles(result.files, cwd);
+      }
+
+      return {
+        exitCode: 0,
+        stdout: `${JSON.stringify(result, null, 2)}\n`,
+        stderr: "",
+      };
+    }
+
+    if (args.command === "promote-workflow") {
+      if (!args.name) {
+        return {
+          exitCode: 1,
+          stdout: "",
+          stderr: "Missing required --name for promote-workflow\n",
+        };
+      }
+
+      const result = buildWorkflowPromotionFiles({
         name: args.name,
         ...(args.description ? { description: args.description } : {}),
       });

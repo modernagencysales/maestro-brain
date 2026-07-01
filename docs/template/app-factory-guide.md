@@ -22,12 +22,15 @@ without copying project-specific business logic into the core framework.
    `pnpm template:add-capability -- --name summarizeSource --write`.
 5. Add a first workflow with
    `pnpm template:add-workflow -- --name sourceGroundedPlan --write`.
-6. Add domain modules with `template:add-client-domain`.
-7. Add capabilities, workflows, agents, Brain schemas, API surfaces, source
+6. Promote reviewed capability/workflow artifacts with
+   `pnpm template:promote-capability -- --name summarizeSource --write` and
+   `pnpm template:promote-workflow -- --name sourceGroundedPlan --write`.
+7. Add domain modules with `template:add-client-domain`.
+8. Add capabilities, workflows, agents, Brain schemas, API surfaces, source
    types, notifications, admin surfaces, and data lifecycle resources through
    the matching generators.
-8. Run focused verification for each generated change.
-9. Run full verification before a client handoff.
+9. Run focused verification for each generated change.
+10. Run full verification before a client handoff.
 
 ## Client Forks
 

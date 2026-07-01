@@ -12,6 +12,12 @@ Write the generated files:
 pnpm template:add-capability -- --name summarizeSource --description "Summarizes an approved source set." --exposure headless --write
 ```
 
+Promote reviewed files into production-target Confect paths:
+
+```bash
+pnpm template:promote-capability -- --name summarizeSource --description "Summarizes an approved source set." --write
+```
+
 ## Files Created
 
 - Confect-oriented capability spec and impl under
@@ -21,9 +27,11 @@ pnpm template:add-capability -- --name summarizeSource --description "Summarizes
 - Contract test scaffold.
 - README with follow-up steps for moving into the owning Confect group.
 
-The generator intentionally writes to `generated/` first. Promote the files into
-the correct `packages/convex/confect/<group>/` location after review, run
-`pnpm confect:codegen`, then wire generated refs into web/API/CLI/MCP surfaces.
+The generator intentionally writes to `generated/` first. After review,
+`template:promote-capability` writes production-target files under
+`packages/convex/confect/capabilities/<name>/`. Add the promoted group to the
+Confect spec tree, run `pnpm confect:codegen`, then wire generated refs into
+web/API/CLI/MCP surfaces.
 
 Future generator slices should add frontend adapters when user-facing and richer
 fake fixtures once the capability owns provider side effects.
