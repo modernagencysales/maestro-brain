@@ -1,0 +1,50 @@
+# Contributor Guide
+
+## First-Day Setup
+
+```bash
+pnpm install
+pnpm check:format
+pnpm lint
+pnpm typecheck
+host-test-slot --class full pnpm test
+pnpm build
+```
+
+Use fake providers until a task explicitly asks for live provider setup.
+
+## Local Commands
+
+- `pnpm check:format`: formatting check.
+- `pnpm lint`: ESLint.
+- `pnpm typecheck`: TypeScript project references through Turbo.
+- `host-test-slot --class full pnpm test`: all package tests.
+- `pnpm test:tooling`: focused tooling tests.
+- `pnpm test:workflow`: focused workflow tooling tests.
+- `pnpm build`: all package builds.
+- `host-test-slot --class full pnpm verify`: full deterministic gate chain after
+  Task 4 lands.
+
+## PR Workflow
+
+Use small commits that match the implementation plan tasks. If Graphite is
+enabled in the client fork, stack changes by milestone and keep each stack
+reviewable. If Graphite is not enabled, use normal GitHub PRs and preserve the
+same task-sized commit boundaries.
+
+## Reading CI Failures
+
+1. Check deterministic gates first: format, lint, typecheck, tests, build, and
+   repo-specific check scripts.
+2. Check generated-file failures next. Regenerate through the official script;
+   do not edit generated files by hand.
+3. Check provider or auth failures for missing fake-mode configuration before
+   assuming the provider implementation is wrong.
+4. Check AI gate verdicts last. AI gates explain risks; deterministic failures
+   are usually the first fix.
+
+## Rule Review
+
+If a rule blocks a legitimate change, document the conflict in the PR and add a
+small proposal to `docs/template/coding-standards.md` or `docs/rule-coverage.md`
+when Task 4 has landed. Do not silently bypass a rule.
