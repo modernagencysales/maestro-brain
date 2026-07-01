@@ -66,9 +66,9 @@ pnpm template:init -- --name "Reviewer Brain"
 ```
 
 `api openapi` prints an OpenAPI 3.1 document generated from the same headless
-registry as the web sample and CLI. It includes operation paths, auth scope
-metadata, typed error variants, and examples intended for the future Confect
-HTTP/Scalar route.
+registry as the web sample and CLI. The same document is served by the backend
+HTTP docs route in `packages/convex/confect/http.ts` at `/api/openapi.json`,
+with the Scalar shell at `/api/docs`.
 
 `mcp call template.workflow.run` invokes the deterministic reviewer-safe
 workflow through the same registry and returns the workflow receipt as an

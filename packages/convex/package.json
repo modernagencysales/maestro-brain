@@ -19,6 +19,7 @@
     "@confect/core": "9.1.4",
     "@confect/server": "9.1.4",
     "@confect/test": "9.1.4",
+    "@maestro-template/workflow-tooling": "workspace:*",
     "@convex-dev/migrations": "^0.3.5",
     "@convex-dev/workflow": "^0.4.4",
     "@convex-dev/workpool": "^0.4.7",
