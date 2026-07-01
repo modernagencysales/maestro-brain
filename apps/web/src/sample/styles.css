@@ -1,6 +1,6 @@
 :root {
-  color: #17201a;
-  background: #f7f8f5;
+  color: #37352f;
+  background: #ffffff;
   font-family:
     Inter,
     ui-sans-serif,
@@ -27,63 +27,114 @@ a {
 .app-frame {
   display: grid;
   min-height: 100vh;
-  grid-template-columns: 248px minmax(0, 1fr);
+  grid-template-columns: 240px minmax(0, 1fr);
 }
 
 .app-sidebar {
-  border-right: 1px solid #dce0d6;
-  background: #fbfcf8;
-  padding: 20px 14px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  border-right: 1px solid #e9e9e7;
+  background: #f7f7f5;
+  padding: 10px;
 }
 
-.brand-mark {
-  display: grid;
-  grid-template-columns: 40px 1fr;
-  gap: 10px;
+.sidebar-workspace {
+  display: flex;
   align-items: center;
-  margin-bottom: 22px;
+  gap: 8px;
+  min-height: 34px;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  padding: 4px 6px;
+  color: #37352f;
 }
 
-.brand-sigil {
+.sidebar-workspace:hover {
+  background: #ededeb;
+}
+
+.workspace-icon {
   display: grid;
-  width: 40px;
-  height: 40px;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
   place-items: center;
-  border-radius: 8px;
-  background: #123c36;
-  color: #f7f8f5;
-  font-weight: 800;
-}
-
-.brand-mark strong,
-.brand-mark small {
-  display: block;
-}
-
-.brand-mark small {
-  color: #667064;
+  border-radius: 4px;
+  background: #37352f;
+  color: #ffffff;
   font-size: 12px;
+  font-weight: 700;
+}
+
+.workspace-copy {
+  min-width: 0;
+}
+
+.workspace-copy strong,
+.workspace-copy small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-copy strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.workspace-copy small {
+  color: #787774;
+  font-size: 11px;
 }
 
 .nav-list {
   display: grid;
-  gap: 4px;
+  gap: 1px;
 }
 
 .nav-item {
-  min-height: 34px;
-  border-radius: 7px;
-  color: #4b554b;
   display: flex;
   align-items: center;
-  padding: 0 10px;
+  gap: 8px;
+  min-height: 30px;
+  border-radius: 5px;
+  color: #5f5e5b;
+  padding: 0 8px;
   text-decoration: none;
+}
+
+.nav-item-icon {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 4px;
+  color: #787774;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.nav-item-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .nav-item.active,
 .nav-item:hover {
-  background: #e5eee8;
-  color: #123c36;
+  background: #ededeb;
+  color: #37352f;
+}
+
+.nav-item.active .nav-item-icon,
+.nav-item:hover .nav-item-icon {
+  background: #ffffff;
+  color: #37352f;
 }
 
 .app-main {
@@ -471,9 +522,11 @@ a {
   .app-sidebar {
     position: sticky;
     top: 0;
+    height: auto;
+    max-height: 44vh;
     z-index: 2;
     border-right: 0;
-    border-bottom: 1px solid #dce0d6;
+    border-bottom: 1px solid #e9e9e7;
   }
 
   .nav-list {

@@ -1,0 +1,18 @@
+{
+  "lifecycleEvents": [
+    {
+      "workspaceRef": "workspace_demo",
+      "provider": "dodo",
+      "event": "subscription.fake_created",
+      "externalRef": "sub_fake_001",
+      "occurredAt": "2026-07-01T14:05:00.000Z"
+    },
+    {
+      "workspaceRef": "workspace_demo",
+      "provider": "mailersend",
+      "event": "email.fake_queued",
+      "externalRef": "email_fake_001",
+      "occurredAt": "2026-07-01T14:06:00.000Z"
+    }
+  ]
+}

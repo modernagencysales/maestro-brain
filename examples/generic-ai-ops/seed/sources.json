@@ -1,0 +1,31 @@
+{
+  "sources": [
+    {
+      "ref": "source_founder_notes",
+      "workspaceRef": "workspace_demo",
+      "kind": "markdown",
+      "title": "Founder interview notes",
+      "url": null,
+      "freshness": "fresh",
+      "evidenceCount": 12
+    },
+    {
+      "ref": "source_product_docs",
+      "workspaceRef": "workspace_demo",
+      "kind": "link",
+      "title": "Product docs and policies",
+      "url": "https://example.com/acme-demo/product-docs",
+      "freshness": "review_due",
+      "evidenceCount": 8
+    },
+    {
+      "ref": "source_preferences",
+      "workspaceRef": "workspace_demo",
+      "kind": "note",
+      "title": "Implementation preferences",
+      "url": null,
+      "freshness": "fresh",
+      "evidenceCount": 5
+    }
+  ]
+}

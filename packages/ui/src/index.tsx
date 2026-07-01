@@ -4,6 +4,7 @@ export type NavItem = {
   readonly id: string;
   readonly label: string;
   readonly active?: boolean;
+  readonly icon?: string;
 };
 
 export type Stat = {
@@ -16,34 +17,46 @@ export function AppFrame({
   title,
   subtitle,
   navItems,
+  activeId,
+  onNavigate,
   children,
 }: {
   readonly title: string;
   readonly subtitle: string;
   readonly navItems: readonly NavItem[];
+  readonly activeId?: string;
+  readonly onNavigate?: (id: string) => void;
   readonly children: ReactNode;
 }) {
   return (
     <div className="app-frame">
       <aside className="app-sidebar" aria-label="Primary">
-        <div className="brand-mark">
-          <span className="brand-sigil">M</span>
-          <span>
+        <div className="sidebar-workspace">
+          <span className="workspace-icon">M</span>
+          <div className="workspace-copy">
             <strong>{title}</strong>
             <small>{subtitle}</small>
-          </span>
+          </div>
         </div>
-        <nav className="nav-list">
-          {navItems.map((item) => (
-            <a
-              aria-current={item.active ? "page" : undefined}
-              className={item.active ? "nav-item active" : "nav-item"}
-              href={`#${item.id}`}
-              key={item.id}
-            >
-              {item.label}
-            </a>
-          ))}
+        <nav className="nav-list" aria-label="Primary">
+          {navItems.map((item) => {
+            const isActive = activeId ? activeId === item.id : item.active;
+
+            return (
+              <a
+                aria-current={isActive ? "page" : undefined}
+                className={isActive ? "nav-item active" : "nav-item"}
+                href={`#${item.id}`}
+                key={item.id}
+                onClick={() => onNavigate?.(item.id)}
+              >
+                <span className="nav-item-icon" aria-hidden="true">
+                  {item.icon ?? item.label.slice(0, 1)}
+                </span>
+                <span className="nav-item-label">{item.label}</span>
+              </a>
+            );
+          })}
         </nav>
       </aside>
       <main className="app-main">{children}</main>

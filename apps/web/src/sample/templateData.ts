@@ -5,14 +5,14 @@ import {
 import { buildOpenApiDocument } from "@maestro-template/workflow-tooling";
 
 export const navItems = [
-  { id: "overview", label: "Overview", active: true },
-  { id: "brain", label: "Brain" },
-  { id: "workflows", label: "Workflows" },
-  { id: "capabilities", label: "Capabilities" },
-  { id: "agents", label: "Agents" },
-  { id: "headless", label: "API / CLI / MCP" },
-  { id: "integrations", label: "Integrations" },
-  { id: "safety", label: "Safety" },
+  { id: "overview", label: "Overview", icon: "O", active: true },
+  { id: "brain", label: "Brain", icon: "B" },
+  { id: "workflows", label: "Workflows", icon: "W" },
+  { id: "capabilities", label: "Capabilities", icon: "C" },
+  { id: "agents", label: "Agents", icon: "A" },
+  { id: "headless", label: "API / CLI / MCP", icon: "/" },
+  { id: "integrations", label: "Integrations", icon: "I" },
+  { id: "safety", label: "Safety", icon: "S" },
 ] as const;
 
 export const stats = templateRegistry.stats;

@@ -1,0 +1,18 @@
+{
+  "auditEvents": [
+    {
+      "workspaceRef": "workspace_demo",
+      "actorRef": "user_demo_reviewer",
+      "event": "workflow.started",
+      "targetRef": "run_template_001",
+      "occurredAt": "2026-07-01T14:00:00.000Z"
+    },
+    {
+      "workspaceRef": "workspace_demo",
+      "actorRef": "agent_planner",
+      "event": "trust_receipt.created",
+      "targetRef": "receipt_template_001",
+      "occurredAt": "2026-07-01T14:03:12.000Z"
+    }
+  ]
+}

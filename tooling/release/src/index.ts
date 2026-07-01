@@ -186,6 +186,9 @@ const completionRequirements = [
       "apps/web/src/sample/App.tsx",
       "apps/web/src/sample/templateData.ts",
       "apps/web/src/sample/templateData.test.ts",
+      "examples/generic-ai-ops/seed/workspace.json",
+      "examples/generic-ai-ops/seed/brain-pages.md",
+      "examples/generic-ai-ops/seed/workflows.json",
       "tests/e2e/hosted-reference-app.spec.ts",
       "tests/e2e/hosted-reference-app.visual.spec.ts",
     ],
@@ -195,7 +198,7 @@ const completionRequirements = [
       "pnpm smoke:hosted:visual",
     ],
     detail:
-      "Reference app data and browser/visual tests cover the investor-visible sample app.",
+      "Reference app data, seed fixtures, and browser/visual tests cover the investor-visible sample app.",
   },
   {
     id: "hosted-reference",

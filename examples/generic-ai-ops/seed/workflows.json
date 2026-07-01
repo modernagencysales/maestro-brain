@@ -1,0 +1,24 @@
+{
+  "workflows": [
+    {
+      "name": "sourceGroundedPlan",
+      "nodes": [
+        { "id": "source", "kind": "source", "label": "Source Set" },
+        {
+          "id": "context",
+          "kind": "capability",
+          "label": "Build Context Pack"
+        },
+        { "id": "agent", "kind": "agent", "label": "Planner Agent" },
+        { "id": "approval", "kind": "approval", "label": "Policy Approval" },
+        { "id": "output", "kind": "output", "label": "Trust Receipt" }
+      ],
+      "edges": [
+        { "id": "e1", "source": "source", "target": "context" },
+        { "id": "e2", "source": "context", "target": "agent" },
+        { "id": "e3", "source": "agent", "target": "approval" },
+        { "id": "e4", "source": "approval", "target": "output" }
+      ]
+    }
+  ]
+}

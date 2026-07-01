@@ -1,0 +1,10 @@
+{
+  "provider": "posthog",
+  "mode": "fake",
+  "event": "template.workflow.completed",
+  "distinctId": "user_demo_reviewer",
+  "properties": {
+    "workspaceRef": "workspace_demo",
+    "workflowRunRef": "run_template_001"
+  }
+}

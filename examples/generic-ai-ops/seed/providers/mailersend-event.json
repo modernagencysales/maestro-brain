@@ -1,0 +1,11 @@
+{
+  "provider": "mailersend",
+  "mode": "fake",
+  "event": "template.email.queued",
+  "recipient": "reviewer@example.com",
+  "template": "workflow-complete",
+  "properties": {
+    "workspaceRef": "workspace_demo",
+    "workflowRunRef": "run_template_001"
+  }
+}

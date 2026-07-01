@@ -69,4 +69,26 @@ test.describe("hosted reference app", () => {
       page.locator("#safety").getByText("MailerSend email"),
     ).toBeVisible();
   });
+
+  test("keeps the Notion-style sidebar visible while navigating", async ({
+    page,
+  }) => {
+    await page.goto("/");
+
+    const sidebar = page.getByRole("navigation", { name: "Primary" });
+    await expect(sidebar).toBeVisible();
+    await expect(
+      sidebar.getByRole("link", { name: /Overview/ }),
+    ).toHaveAttribute("aria-current", "page");
+
+    await sidebar.getByRole("link", { name: /Integrations/ }).click();
+
+    await expect(sidebar).toBeVisible();
+    await expect(
+      sidebar.getByRole("link", { name: /Integrations/ }),
+    ).toHaveAttribute("aria-current", "page");
+    await expect(
+      page.locator("#integrations").getByText("WorkOS/AuthKit"),
+    ).toBeVisible();
+  });
 });

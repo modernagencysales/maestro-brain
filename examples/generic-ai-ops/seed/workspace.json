@@ -1,0 +1,10 @@
+{
+  "workspace": {
+    "ref": "workspace_demo",
+    "slug": "acme-demo",
+    "name": "Acme Demo Workspace",
+    "status": "active",
+    "dataClassification": "internal",
+    "createdAt": 1782900000000
+  }
+}

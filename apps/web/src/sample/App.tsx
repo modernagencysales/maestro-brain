@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   UserRoundCog,
 } from "lucide-react";
+import { useState } from "react";
 import {
   AppFrame,
   IconButton,
@@ -65,11 +66,17 @@ const surfaces = [
 ] as const;
 
 export function App() {
+  const [activeNavId, setActiveNavId] = useState<string>(
+    navItems[0]?.id ?? "overview",
+  );
+
   return (
     <AppFrame
       title="Maestro Template"
       subtitle="Private AI app factory"
       navItems={navItems}
+      activeId={activeNavId}
+      onNavigate={setActiveNavId}
     >
       <PageHeader
         eyebrow="Generic AI operations framework"
