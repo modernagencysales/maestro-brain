@@ -39,25 +39,23 @@ const backgroundWorkRef = makeFunctionReference<
 const onCompleteArgs = vOnCompleteArgs(v.null());
 type OnCompleteArgs = Infer<typeof onCompleteArgs>;
 
-const onCompleteRef = makeFunctionReference<
-  "mutation",
-  OnCompleteArgs,
-  null
->("jobs/workpool:onComplete") as unknown as FunctionReference<
-  "mutation",
-  "internal",
-  OnCompleteArgs,
-  null
->;
+const onCompleteRef = makeFunctionReference<"mutation", OnCompleteArgs, null>(
+  "jobs/workpool:onComplete",
+) as unknown as FunctionReference<"mutation", "internal", OnCompleteArgs, null>;
 
 export const enqueue = mutationGeneric({
   args: {},
   returns: vWorkId,
   handler: async (ctx): Promise<WorkId> =>
-    await pool.enqueueAction(ctx, backgroundWorkRef, {}, {
-      onComplete: onCompleteRef,
-      context: null,
-    }),
+    await pool.enqueueAction(
+      ctx,
+      backgroundWorkRef,
+      {},
+      {
+        onComplete: onCompleteRef,
+        context: null,
+      },
+    ),
 });
 
 export const status = queryGeneric({

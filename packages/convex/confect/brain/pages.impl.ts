@@ -13,21 +13,23 @@ const requireWorkspace = (workspaceId: GenericId<"workspaces">) =>
     return yield* reader
       .table("workspaces")
       .get(workspaceId)
-      .pipe(
-        Effect.mapError(() => new WorkspaceNotFound({ workspaceId })),
-      );
+      .pipe(Effect.mapError(() => new WorkspaceNotFound({ workspaceId })));
   });
 
-const list = FunctionImpl.make(databaseSchema, pages, "list", ({ workspaceId }) =>
-  Effect.gen(function* () {
-    yield* requireWorkspace(workspaceId);
-    const reader = yield* DatabaseReader;
-    return yield* reader
-      .table("brainPages")
-      .index("by_workspace", (q) => q.eq("workspaceId", workspaceId))
-      .collect()
-      .pipe(Effect.orDie);
-  }),
+const list = FunctionImpl.make(
+  databaseSchema,
+  pages,
+  "list",
+  ({ workspaceId }) =>
+    Effect.gen(function* () {
+      yield* requireWorkspace(workspaceId);
+      const reader = yield* DatabaseReader;
+      return yield* reader
+        .table("brainPages")
+        .index("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+        .collect()
+        .pipe(Effect.orDie);
+    }),
 );
 
 const createMarkdown = FunctionImpl.make(

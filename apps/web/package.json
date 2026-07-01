@@ -5,19 +5,27 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc -p tsconfig.json --outDir dist --declaration",
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc -p tsconfig.json --outDir dist/types --declaration && vite build",
+    "preview": "vite preview --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@confect/react": "9.1.4",
+    "@maestro-template/ui": "workspace:*",
+    "@maestro-template/workflow-ui": "workspace:*",
+    "@xyflow/react": "^12.11.1",
     "convex": "1.42.1",
     "effect": "3.21.4",
+    "lucide-react": "^1.22.0",
     "react": "19.1.0",
     "react-dom": "19.1.0"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3"
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "vite": "^8.1.2"
   }
 }

@@ -8,7 +8,11 @@ import workspaces from "./workspaces.spec";
 const list = FunctionImpl.make(databaseSchema, workspaces, "list", () =>
   Effect.gen(function* () {
     const reader = yield* DatabaseReader;
-    return yield* reader.table("workspaces").index("by_slug").collect().pipe(Effect.orDie);
+    return yield* reader
+      .table("workspaces")
+      .index("by_slug")
+      .collect()
+      .pipe(Effect.orDie);
   }),
 );
 

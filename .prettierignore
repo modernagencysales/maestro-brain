@@ -1,2 +1,8 @@
 .gitleaks.toml
 .prettierignore
+dist
+coverage
+node_modules
+repos
+packages/convex/confect/_generated
+packages/convex/convex/_generated

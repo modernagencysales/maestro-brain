@@ -36,9 +36,9 @@ The goal is end-to-end typed contracts without losing Convex component support.
   Confect spec and impl files.
 - Specs must import plain Convex functions with `import type`; impls pass the
   real function values to `FunctionImpl.make`.
-- Local template typechecks may use narrow component-reference shims when
-  Convex deployment codegen has not been provisioned yet. Provisioned apps must
-  run `convex dev` or `convex codegen` and prefer generated `components` refs.
+- Local template typechecks may use narrow component-reference shims when Convex
+  deployment codegen has not been provisioned yet. Provisioned apps must run
+  `convex dev` or `convex codegen` and prefer generated `components` refs.
 - `check:confect-contracts` must fail if a spec runtime-imports plain Convex
   functions or if generated Confect wrappers are stale.
 

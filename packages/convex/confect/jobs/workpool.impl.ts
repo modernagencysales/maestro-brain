@@ -10,7 +10,12 @@ const enqueueImpl = FunctionImpl.make(
   "enqueue",
   enqueue,
 );
-const statusImpl = FunctionImpl.make(databaseSchema, workpool, "status", status);
+const statusImpl = FunctionImpl.make(
+  databaseSchema,
+  workpool,
+  "status",
+  status,
+);
 const backgroundWorkImpl = FunctionImpl.make(
   databaseSchema,
   workpool,
