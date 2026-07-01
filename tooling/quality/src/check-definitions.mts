@@ -11,6 +11,7 @@ export const checkDescriptors = {
           "pnpm check:ci-completeness",
           "pnpm check:config-drift",
           "pnpm check:confect-contracts",
+          "pnpm check:confect-compat",
           "taste",
           "contract-review",
           "production-promote.sh",
@@ -28,6 +29,7 @@ export const checkDescriptors = {
           "check:ci-completeness",
           "check:config-drift",
           "check:confect-contracts",
+          "check:confect-compat",
           "contract-review",
           "taste:eval",
           "test:mutation",
@@ -165,6 +167,59 @@ export const checkDescriptors = {
           "confect/http.ts",
         ],
         message: "Confect guide must encode contract invariants",
+      },
+    ],
+  },
+  "confect-compat": {
+    name: "check:confect-compat",
+    requirements: [
+      {
+        file: "docs/template/confect-effect-guide.md",
+        includes: [
+          "@confect/server",
+          "9.1.4",
+          "effect",
+          "3.21.4",
+          "@effect/platform-node",
+          "0.106.0",
+          "convex-test",
+          "0.0.54",
+          "check:confect-compat",
+        ],
+        message:
+          "Confect guide must record the resolved compatible package matrix",
+      },
+      {
+        file: "packages/convex/package.json",
+        includes: [
+          '"@confect/core": "9.1.4"',
+          '"@confect/server": "9.1.4"',
+          '"@confect/test": "9.1.4"',
+          '"@effect/platform-node": "0.106.0"',
+          '"convex-test": "0.0.54"',
+          '"confect:codegen"',
+          '"check:convex"',
+        ],
+        message:
+          "Convex package must pin Confect-compatible runtime and codegen scripts",
+      },
+      {
+        file: "apps/web/package.json",
+        includes: [
+          '"@confect/react": "9.1.4"',
+          '"effect": "3.21.4"',
+          '"convex": "1.42.1"',
+        ],
+        message: "web package must pin the Confect React client set",
+      },
+      {
+        file: "apps/cli/package.json",
+        includes: [
+          '"@confect/js": "9.1.4"',
+          '"@effect/platform-node": "0.106.0"',
+          '"effect": "3.21.4"',
+        ],
+        message: "CLI package must pin the Confect JavaScript client set",
       },
     ],
   },

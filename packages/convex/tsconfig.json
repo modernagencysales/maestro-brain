@@ -5,5 +5,12 @@
     "rootDir": ".",
     "outDir": "dist"
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.mts", "test/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "src/**/*.mts",
+    "test/**/*.ts",
+    "confect/**/*.ts",
+    "convex/**/*.ts"
+  ]
 }

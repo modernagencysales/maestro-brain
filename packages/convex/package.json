@@ -7,6 +7,27 @@
   "scripts": {
     "build": "tsc -p tsconfig.json --outDir dist --declaration",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "confect:codegen": "confect codegen",
+    "confect:dev": "confect dev",
+    "convex:dev": "convex dev",
+    "dev:backend": "concurrently -n confect,convex \"pnpm confect:dev\" \"pnpm convex:dev\"",
+    "check:convex": "confect codegen && git diff --exit-code confect/_generated convex/_generated"
+  },
+  "dependencies": {
+    "@confect/cli": "9.1.4",
+    "@confect/core": "9.1.4",
+    "@confect/server": "9.1.4",
+    "@confect/test": "9.1.4",
+    "@effect/cluster": "0.58.0",
+    "@effect/platform": "0.96.2",
+    "@effect/platform-node": "0.106.0",
+    "@effect/vitest": "0.29.0",
+    "convex": "1.42.1",
+    "convex-test": "0.0.54",
+    "effect": "3.21.4"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.3"
   }
 }

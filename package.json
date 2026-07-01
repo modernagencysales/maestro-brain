@@ -13,6 +13,12 @@
     "test:pr-backlog": "pnpm --dir tooling/pr-backlog test",
     "evals": "pnpm --dir tooling/evals test",
     "build": "turbo run build",
+    "confect:codegen": "pnpm --dir packages/convex confect:codegen",
+    "confect:dev": "pnpm --dir packages/convex confect:dev",
+    "convex:dev": "pnpm --dir packages/convex convex:dev",
+    "dev:backend": "pnpm --dir packages/convex dev:backend",
+    "check:convex": "pnpm --dir packages/convex check:convex",
+    "check:confect-compat": "tsx tooling/quality/check-confect-compat.mts",
     "check:ci-completeness": "tsx tooling/quality/check-ci-completeness.mts",
     "check:config-drift": "tsx tooling/quality/check-config-drift.mts",
     "check:deps": "tsx tooling/quality/check-deps.mts",
@@ -41,7 +47,7 @@
     "taste": "tsx tooling/quality/taste.mts",
     "taste:eval": "tsx tooling/quality/taste-eval.mts",
     "test:mutation": "bash .buildkite/scripts/mutation.sh",
-    "verify": "pnpm check:format && pnpm lint && pnpm typecheck && pnpm test && pnpm test:tooling && pnpm test:workflow && pnpm test:pr-backlog && pnpm evals && pnpm build && pnpm check:ci-completeness && pnpm check:config-drift && pnpm check:deps && pnpm check:knip && pnpm check:route-tree && pnpm check:coverage-ratchet && pnpm check:types-coverage && pnpm check:gates && pnpm check:debt && pnpm check:generators && pnpm check:docs-freshness && pnpm check:generated-files && pnpm check:confect-contracts && pnpm check:schema-migration-notes && pnpm check:layer-boundaries && pnpm check:secret-canaries && pnpm check:sbom-license && pnpm check:headless-surface-contract && pnpm check:posthog-readiness && pnpm check:auth-demo-bypass && pnpm check:qlty"
+    "verify": "pnpm check:format && pnpm lint && pnpm typecheck && pnpm test && pnpm test:tooling && pnpm test:workflow && pnpm test:pr-backlog && pnpm evals && pnpm build && pnpm check:ci-completeness && pnpm check:config-drift && pnpm check:deps && pnpm check:knip && pnpm check:route-tree && pnpm check:coverage-ratchet && pnpm check:types-coverage && pnpm check:gates && pnpm check:debt && pnpm check:generators && pnpm check:docs-freshness && pnpm check:generated-files && pnpm check:confect-contracts && pnpm check:confect-compat && pnpm check:schema-migration-notes && pnpm check:layer-boundaries && pnpm check:secret-canaries && pnpm check:sbom-license && pnpm check:headless-surface-contract && pnpm check:posthog-readiness && pnpm check:auth-demo-bypass && pnpm check:qlty"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",

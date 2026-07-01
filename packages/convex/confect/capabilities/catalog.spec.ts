@@ -1,0 +1,18 @@
+import { FunctionSpec, GroupSpec } from "@confect/core";
+import * as Schema from "effect/Schema";
+
+export const Capability = Schema.Struct({
+  key: Schema.String,
+  name: Schema.String,
+  description: Schema.String,
+  headlessExposure: Schema.Literal("web", "api", "cli", "mcp"),
+  requiresApproval: Schema.Boolean,
+});
+
+const list = FunctionSpec.publicQuery({
+  name: "list",
+  args: () => Schema.Struct({}),
+  returns: () => Schema.Array(Capability),
+});
+
+export default GroupSpec.make().addFunction(list);

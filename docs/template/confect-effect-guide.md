@@ -15,12 +15,12 @@ The goal is end-to-end typed contracts without losing Convex component support.
 
 ## Compatibility Matrix
 
-| Surface        | Package(s)                         | Version | Evidence                                |
-| -------------- | ---------------------------------- | ------- | --------------------------------------- |
-| Confect server | `@confect/core`, `@confect/server` | Pending | Resolve before Task 5 implementation.   |
-| Confect client | `@confect/react`, `@confect/js`    | Pending | Resolve before Task 5 implementation.   |
-| Effect runtime | `effect`, `@effect/*`              | Pending | Must satisfy Confect peer dependencies. |
-| Convex         | `convex`, `convex-test`            | Pending | Must pass codegen and `@confect/test`.  |
+| Surface        | Package(s)                                                                                 | Version                                           | Evidence                                                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Confect server | `@confect/core`, `@confect/server`, `@confect/cli`, `@confect/test`                        | `9.1.4`                                           | Package metadata: peers require Effect `^3.21.2`, Convex `^1.32.0`, `@effect/platform` `^0.96.1`, and `@effect/platform-node` `^0.106.0`. |
+| Confect client | `@confect/react`, `@confect/js`                                                            | `9.1.4`                                           | Package metadata: peers require Effect `^3.21.2`, Convex `^1.32.0`, and React `^18` or `^19` for React hooks.                             |
+| Effect runtime | `effect`, `@effect/platform`, `@effect/platform-node`, `@effect/cluster`, `@effect/vitest` | `3.21.4`, `0.96.2`, `0.106.0`, `0.58.0`, `0.29.0` | `@effect/platform-node@0.106.0` matches Confect's `^0.106.0` peer; `0.107.0` is intentionally not used.                                   |
+| Convex         | `convex`, `convex-test`                                                                    | `1.42.1`, `0.0.54`                                | Satisfies Confect peers and `@confect/test`'s `convex-test >=0.0.50 <0.1.0` peer.                                                         |
 
 ## File Model
 
