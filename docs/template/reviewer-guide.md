@@ -13,29 +13,34 @@ host-test-slot --class full pnpm test
 pnpm build
 ```
 
-After the web app lands, run:
+Start the reference app:
 
 ```bash
-pnpm --dir apps/web dev
+pnpm --dir apps/web dev -- --port 5174
 ```
+
+Open `http://127.0.0.1:5174/`. The first screen is the generic AI operations
+workspace: Brain, workflows, capabilities, agents, integrations, headless
+surfaces, and safety posture.
 
 ## 2. Inspect The Product Surfaces
 
 Open the reference app and inspect:
 
-- Home
-- Brain
-- Workflow builder
-- API docs
-- Admin/Support
-- Data Map
-- Health
+- reusable app shell and navigation from `packages/ui`;
+- React Flow workflow primitive from `packages/workflow-ui`;
+- Brain/source/context/trust receipt model;
+- capabilities, agents, and workflow composition model;
+- API/CLI/MCP and provider adapter posture;
+- safety model and generated contract checklist.
 
-Each surface should show generic AI operations behavior and synthetic data.
+The app intentionally uses reviewer-safe synthetic data and fake/local provider
+posture.
 
 ## 3. Run One Workflow
 
-After workflow execution lands, start the same workflow through:
+The current app shows the workflow authoring primitive. When execution surfaces
+land, start the same workflow through:
 
 - web workflow builder;
 - CLI;
@@ -64,7 +69,7 @@ Confirm deploy, rollback, export/delete, and support access are documented.
 pnpm check:format && pnpm lint && pnpm typecheck && host-test-slot --class full pnpm test && pnpm build
 ```
 
-After Task 4 lands, use:
+For the full deterministic gate chain, use:
 
 ```bash
 host-test-slot --class full pnpm verify

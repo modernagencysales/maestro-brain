@@ -20,6 +20,14 @@ host-test-slot --class full pnpm test
 pnpm build
 ```
 
+Run the hostable reference app:
+
+```bash
+pnpm --dir apps/web dev -- --port 5174
+```
+
+Open `http://127.0.0.1:5174/`.
+
 The template defaults to fake/local providers. Real Convex, WorkOS, PostHog,
 Dodo, MailerSend, storage, and LLM credentials are added through typed provider
 adapters in later setup steps.

@@ -13,15 +13,17 @@
 
 ## Apps
 
-- `apps/web`: the reference workspace app.
+- `apps/web`: the hostable Vite reference workspace app.
 - `apps/cli`: typed CLI projection over the headless registry.
 - `apps/voice-relay`: optional capture/voice relay app.
 
 ## Packages
 
 - `packages/convex`: Confect specs/impls, Convex components, schema, and tests.
-- `packages/ui`: Notion Kit wrappers, blocks, layout primitives, and settings.
-- `packages/workflow-ui`: React Flow graph editor UI and command reducers.
+- `packages/ui`: Notion-style app shell, blocks, layout primitives, and
+  settings-ready controls.
+- `packages/workflow-ui`: React Flow graph editor primitive and future command
+  reducers.
 - `packages/template-core`: shared template types, policies, and fixtures.
 - `packages/integrations`: Effect service interfaces and provider adapters.
 - `packages/notifications`: notification provider boundary.
