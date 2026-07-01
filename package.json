@@ -50,6 +50,7 @@
     "contract-review": "tsx tooling/quality/contract-review.mts",
     "taste": "tsx tooling/quality/taste.mts",
     "taste:eval": "tsx tooling/quality/taste-eval.mts",
+    "smoke:web-static": "tsx tooling/release/src/index.ts smoke-web-static",
     "test:mutation": "bash .buildkite/scripts/mutation.sh",
     "verify": "pnpm check:format && pnpm lint && pnpm typecheck && pnpm test && pnpm test:tooling && pnpm test:workflow && pnpm test:pr-backlog && pnpm evals && pnpm build && pnpm check:ci-completeness && pnpm check:config-drift && pnpm check:deps && pnpm check:knip && pnpm check:route-tree && pnpm check:coverage-ratchet && pnpm check:types-coverage && pnpm check:gates && pnpm check:debt && pnpm check:generators && pnpm check:docs-freshness && pnpm check:generated-files && pnpm check:confect-contracts && pnpm check:confect-compat && pnpm check:schema-migration-notes && pnpm check:layer-boundaries && pnpm check:secret-canaries && pnpm check:sbom-license && pnpm check:headless-surface-contract && pnpm check:posthog-readiness && pnpm check:auth-demo-bypass && pnpm check:qlty"
   },

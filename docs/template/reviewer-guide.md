@@ -115,3 +115,13 @@ For the full deterministic gate chain, use:
 ```bash
 host-test-slot --class full pnpm verify
 ```
+
+## 7. Smoke The Static Reference App
+
+```bash
+pnpm build
+pnpm smoke:web-static
+```
+
+The smoke verifies the static web output under `apps/web/dist`, which can be
+served by Vercel, Cloudflare Pages, Netlify, or another static host.

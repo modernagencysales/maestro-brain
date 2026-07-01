@@ -4,9 +4,10 @@
 
 1. Run deterministic verification.
 2. Run provider fake smokes.
-3. Deploy staging from the exact commit.
-4. Run deploy smoke.
-5. Promote production through the human approval block.
+3. Run `pnpm build` and `pnpm smoke:web-static`.
+4. Deploy staging from the exact commit.
+5. Run provider-specific deploy smoke.
+6. Promote production through the human approval block.
 
 ## Rollback
 
