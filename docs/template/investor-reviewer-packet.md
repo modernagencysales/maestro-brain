@@ -118,6 +118,8 @@ Concrete files to inspect:
 - `packages/convex/confect/jobs/workpool.spec.ts`: plain Convex component
   interop through Confect.
 - `packages/convex/confect/http.ts`: OpenAPI and Scalar docs route.
+- `packages/convex/test/confect-contracts.test.ts`: generated refs, Effect
+  schemas, typed errors, and plain Convex contract shape.
 - `tooling/generators/src/index.ts`: app factory commands.
 - `.buildkite/pipeline.yml`: deterministic, AI, deploy, and promotion gates.
 
@@ -134,8 +136,9 @@ Remaining work before calling the whole plan complete:
   Dodo, MailerSend, PostHog, and LLM provider calls in client apps.
 - Replace the deterministic reviewer-safe API operation runner with production
   Confect runner services in client apps.
-- Add deeper `@confect/test` coverage for storage, scheduling, Node actions,
-  identity, and live HTTP handler paths.
+- Add provisioned `@confect/test` coverage for storage, scheduling, Node
+  actions, identity, and live HTTP handler paths once client apps have Convex
+  `_generated` deployment code.
 - Promote private-package package plans into full source-module importers for
   larger client packages.
 - Add visual baselines for additional client-specific pages as those pages are

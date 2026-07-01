@@ -43,6 +43,7 @@ const makeReviewerRepo = (): string => {
     "packages/convex/confect/http.ts",
     "packages/convex/confect/_generated/refs.ts",
     "packages/convex/confect/jobs/workpool.spec.ts",
+    "packages/convex/test/confect-contracts.test.ts",
     "packages/workflow-ui/src/index.tsx",
     "packages/template-core/src/index.ts",
     "tooling/workflow/src/index.ts",

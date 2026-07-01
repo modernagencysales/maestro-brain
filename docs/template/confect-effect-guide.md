@@ -83,7 +83,11 @@ without duplicating headless registry metadata.
 ## Testing
 
 Use `@confect/test` for generated refs, auth identity, typed errors, HTTP
-routes, scheduled functions, storage, Node actions, and plain Convex interop.
+routes, scheduled functions, storage, Node actions, and plain Convex interop in
+provisioned apps with Convex `_generated` codegen. The private template also
+keeps lightweight contract tests under `packages/convex/test` for generated ref
+metadata, Effect schema validation, public-safe typed errors, HTTP routes, and
+plain Convex registration shape without requiring a live Convex deployment.
 
 Run `check:confect-compat` after every Confect contract change. It must cover
 codegen, generated-file diffs, `@confect/test`, HTTP/Scalar fetch, React type

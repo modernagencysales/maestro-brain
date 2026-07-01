@@ -105,7 +105,10 @@ Inspect the run receipt, audit event, and Trust Receipt.
 ## 4. Inspect Confect
 
 Open one Confect spec, its impl, and generated refs. Confirm args, returns, and
-expected errors are Effect schemas and that callers use generated refs.
+expected errors are Effect schemas and that callers use generated refs. Then
+inspect `packages/convex/test/confect-contracts.test.ts`, which checks generated
+ref metadata, capability schema validation, public-safe typed errors, and plain
+Convex registration shape without requiring a live Convex deployment.
 
 ## 5. Inspect Operations
 
