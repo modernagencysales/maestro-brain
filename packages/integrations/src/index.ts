@@ -1,3 +1,4 @@
+import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
 export type ProviderMode = "fake" | "test" | "live";
@@ -41,6 +42,39 @@ export class ProviderCallError extends Schema.TaggedError<ProviderCallError>()(
     retryable: Schema.Boolean,
   },
 ) {}
+
+export type ProviderOperation =
+  | "auth.ensureWorkspace"
+  | "analytics.capture"
+  | "billing.createCheckout"
+  | "email.send"
+  | "llm.complete"
+  | "storage.putObject"
+  | "search.query";
+
+export type ProviderAdapterInput = {
+  readonly operation: ProviderOperation;
+  readonly workspaceSlug: string;
+  readonly payload: Record<string, unknown>;
+  readonly idempotencyKey?: string;
+};
+
+export type ProviderAdapterReceipt = {
+  readonly provider: ProviderId;
+  readonly mode: ProviderMode;
+  readonly operation: ProviderOperation;
+  readonly delivery: "fake" | "test" | "live-ready";
+  readonly receiptId: string;
+  readonly redactedPayload: Record<string, unknown>;
+};
+
+export type ProviderAdapter = {
+  readonly provider: ProviderId;
+  readonly mode: ProviderMode;
+  readonly call: (
+    input: ProviderAdapterInput,
+  ) => Effect.Effect<ProviderAdapterReceipt, ProviderCallError>;
+};
 
 export const providerDescriptors = [
   {
@@ -126,6 +160,16 @@ export const getProviderDescriptor = (
 ): ProviderDescriptor | undefined =>
   providerDescriptors.find((provider) => provider.id === id);
 
+const commonRedactedFields = [
+  "apiKey",
+  "token",
+  "accessToken",
+  "refreshToken",
+  "secret",
+  "webhookSecret",
+  "authorization",
+] as const;
+
 export const validateProviderConfig = (
   id: ProviderId,
   mode: ProviderMode,
@@ -156,7 +200,10 @@ export const redactProviderPayload = (
   const descriptor = getProviderDescriptor(id);
   const redacted = { ...payload };
 
-  for (const field of descriptor?.redactedFields ?? []) {
+  for (const field of [
+    ...commonRedactedFields,
+    ...(descriptor?.redactedFields ?? []),
+  ]) {
     if (field in redacted) {
       redacted[field] = "[redacted]";
     }
@@ -184,3 +231,134 @@ export const providerConfigReport = (
       liveMode: provider.liveMode,
     };
   });
+
+const providerOperationByFamily = {
+  auth: "auth.ensureWorkspace",
+  analytics: "analytics.capture",
+  billing: "billing.createCheckout",
+  email: "email.send",
+  llm: "llm.complete",
+  storage: "storage.putObject",
+  search: "search.query",
+} as const satisfies Record<ProviderFamily, ProviderOperation>;
+
+export const defaultProviderOperation = (id: ProviderId): ProviderOperation => {
+  const descriptor = getProviderDescriptor(id);
+
+  if (!descriptor) {
+    return "analytics.capture";
+  }
+
+  return providerOperationByFamily[descriptor.family];
+};
+
+const validateWorkspaceSlug = (
+  workspaceSlug: string,
+): true | ProviderCallError => {
+  if (/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(workspaceSlug)) {
+    return true;
+  }
+
+  return new ProviderCallError({
+    provider: "workspace",
+    publicMessage: "workspaceSlug must be a lowercase slug.",
+    retryable: false,
+  });
+};
+
+export const createProviderAdapter = (
+  id: ProviderId,
+  mode: ProviderMode,
+  env: Record<string, string | undefined> = {},
+): ProviderConfigError | ProviderAdapter => {
+  const config = validateProviderConfig(id, mode, env);
+
+  if (config !== true) {
+    return config;
+  }
+
+  return {
+    provider: id,
+    mode,
+    call: (input) =>
+      Effect.gen(function* () {
+        const workspace = validateWorkspaceSlug(input.workspaceSlug);
+
+        if (workspace !== true) {
+          return yield* Effect.fail(workspace);
+        }
+
+        if (
+          input.operation === "billing.createCheckout" &&
+          !input.idempotencyKey?.trim()
+        ) {
+          return yield* Effect.fail(
+            new ProviderCallError({
+              provider: id,
+              publicMessage:
+                "idempotencyKey is required for billing checkout operations.",
+              retryable: false,
+            }),
+          );
+        }
+
+        const redactedPayload = redactProviderPayload(id, input.payload);
+
+        return {
+          provider: id,
+          mode,
+          operation: input.operation,
+          delivery:
+            mode === "fake" ? "fake" : mode === "test" ? "test" : "live-ready",
+          receiptId: `${id}_${mode}_${input.operation.replaceAll(".", "_")}_001`,
+          redactedPayload,
+        };
+      }),
+  };
+};
+
+export const buildProviderAdapters = (
+  mode: ProviderMode,
+  env: Record<string, string | undefined> = {},
+) =>
+  providerDescriptors.map((provider) => ({
+    id: provider.id,
+    adapter: createProviderAdapter(provider.id, mode, env),
+  }));
+
+export const smokeProviderAdapter = async (
+  id: ProviderId,
+  mode: ProviderMode,
+  env: Record<string, string | undefined> = {},
+): Promise<
+  ProviderAdapterReceipt | ProviderConfigError | ProviderCallError
+> => {
+  const adapter = createProviderAdapter(id, mode, env);
+
+  if (adapter instanceof ProviderConfigError) {
+    return adapter;
+  }
+
+  return await Effect.runPromise(
+    adapter.call({
+      operation: defaultProviderOperation(id),
+      workspaceSlug: "acme-demo",
+      idempotencyKey: `${id}-smoke-001`,
+      payload: {
+        apiKey: "secret",
+        recipient: "client@example.test",
+        prompt: "source text",
+        customerEmail: "client@example.test",
+        event: "template.provider.smoke",
+      },
+    }),
+  ).catch((error: unknown) =>
+    error instanceof ProviderCallError
+      ? error
+      : new ProviderCallError({
+          provider: id,
+          publicMessage: "Provider smoke failed.",
+          retryable: false,
+        }),
+  );
+};

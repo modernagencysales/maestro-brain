@@ -1,8 +1,15 @@
+import * as Effect from "effect/Effect";
 import { describe, expect, it } from "vitest";
 import {
+  buildProviderAdapters,
+  createProviderAdapter,
+  defaultProviderOperation,
+  ProviderCallError,
+  ProviderConfigError,
   providerConfigReport,
   providerDescriptors,
   redactProviderPayload,
+  smokeProviderAdapter,
   validateProviderConfig,
 } from "./index";
 
@@ -57,5 +64,130 @@ describe("provider adapter descriptors", () => {
       prompt: "[redacted]",
       model: "example-model",
     });
+  });
+
+  it("constructs fake and test adapters without live secrets", () => {
+    const fakeAdapters = buildProviderAdapters("fake", {});
+    const testAdapters = buildProviderAdapters("test", {});
+
+    expect(fakeAdapters).toHaveLength(providerDescriptors.length);
+    expect(testAdapters).toHaveLength(providerDescriptors.length);
+    expect(
+      fakeAdapters.every(
+        (entry) => !(entry.adapter instanceof ProviderConfigError),
+      ),
+    ).toBe(true);
+    expect(
+      testAdapters.every(
+        (entry) => !(entry.adapter instanceof ProviderConfigError),
+      ),
+    ).toBe(true);
+  });
+
+  it("constructs live adapters only after required env names are present", () => {
+    expect(createProviderAdapter("mailersend", "live", {})).toMatchObject({
+      _tag: "ProviderConfigError",
+      provider: "mailersend",
+      missingEnv: ["MAILERSEND_API_KEY", "MAILERSEND_FROM_EMAIL"],
+    });
+
+    const adapter = createProviderAdapter("mailersend", "live", {
+      MAILERSEND_API_KEY: "secret",
+      MAILERSEND_FROM_EMAIL: "hello@example.test",
+    });
+
+    expect(adapter).toMatchObject({
+      provider: "mailersend",
+      mode: "live",
+    });
+    expect(JSON.stringify(adapter)).not.toContain("secret");
+  });
+
+  it("runs provider calls through the Effect error channel", async () => {
+    const adapter = createProviderAdapter("dodo", "fake", {});
+
+    if (adapter instanceof ProviderConfigError) {
+      throw new Error("Expected fake dodo adapter");
+    }
+
+    const result = await Effect.runPromise(
+      adapter.call({
+        operation: "billing.createCheckout",
+        workspaceSlug: "acme-demo",
+        idempotencyKey: "checkout-001",
+        payload: {
+          apiKey: "secret",
+          customerEmail: "client@example.test",
+          plan: "template-plan",
+        },
+      }),
+    );
+
+    expect(result).toEqual({
+      provider: "dodo",
+      mode: "fake",
+      operation: "billing.createCheckout",
+      delivery: "fake",
+      receiptId: "dodo_fake_billing_createCheckout_001",
+      redactedPayload: {
+        apiKey: "[redacted]",
+        customerEmail: "[redacted]",
+        plan: "template-plan",
+      },
+    });
+  });
+
+  it("keeps provider validation failures typed and public-safe", async () => {
+    const adapter = createProviderAdapter("dodo", "fake", {});
+
+    if (adapter instanceof ProviderConfigError) {
+      throw new Error("Expected fake dodo adapter");
+    }
+
+    const result = await Effect.runPromise(
+      Effect.either(
+        adapter.call({
+          operation: "billing.createCheckout",
+          workspaceSlug: "acme-demo",
+          payload: { customerEmail: "client@example.test" },
+        }),
+      ),
+    );
+
+    expect(result).toMatchObject({
+      _tag: "Left",
+      left: {
+        _tag: "ProviderCallError",
+        provider: "dodo",
+        publicMessage:
+          "idempotencyKey is required for billing checkout operations.",
+        retryable: false,
+      },
+    });
+  });
+
+  it("smokes every fake provider adapter with redacted receipts", async () => {
+    const receipts = await Promise.all(
+      providerDescriptors.map((provider) =>
+        smokeProviderAdapter(provider.id, "fake", {}),
+      ),
+    );
+
+    expect(
+      receipts.every((receipt) => !(receipt instanceof ProviderCallError)),
+    ).toBe(true);
+    expect(
+      receipts.every((receipt) => !(receipt instanceof ProviderConfigError)),
+    ).toBe(true);
+    expect(JSON.stringify(receipts)).not.toContain("secret");
+    expect(
+      receipts.map((receipt) =>
+        "operation" in receipt ? receipt.operation : undefined,
+      ),
+    ).toEqual(
+      providerDescriptors.map((provider) =>
+        defaultProviderOperation(provider.id),
+      ),
+    );
   });
 });

@@ -1,7 +1,9 @@
 # Integrations
 
 Integrations are Effect services with fake, test, and live layers. The template
-must run without live credentials.
+must run without live credentials. Adapter boundaries live in
+`packages/integrations/src/index.ts` and return Effect programs with typed,
+public-safe provider errors.
 
 ## Default Families
 
@@ -36,19 +38,29 @@ adapters.
 
 - Decode config through typed config modules.
 - Redact provider errors.
+- Redact common secret field names for every provider, then apply
+  provider-specific redaction.
 - Verify webhook signatures and replay windows.
 - Keep raw provider payloads out of logs and public errors.
 - Add fake-mode smoke tests before live setup.
+- Live mode validates required env var names before an adapter can be
+  constructed.
 
 ## Inspect Readiness
 
 The provider catalog lives in `packages/integrations/src/index.ts`. It declares
-fake/test/live posture, required live env var names, and redacted fields for
-each provider. Inspect it through:
+fake/test/live posture, required live env var names, redacted fields, adapter
+construction, and deterministic fake/test/live-ready receipts for each provider.
+Inspect it through:
 
 ```bash
 pnpm exec tsx apps/cli/src/index.ts integrations report fake
 pnpm exec tsx apps/cli/src/index.ts integrations report live
+pnpm --dir packages/integrations test
 ```
 
 Live mode reports missing env var names only; it must not print secret values.
+Fake and test modes construct adapters without secrets and return redacted
+receipts through the Effect error channel. Live mode is a configured boundary:
+client apps replace the deterministic `live-ready` receipts with SDK-backed
+provider calls inside the same adapter shape.

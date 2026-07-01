@@ -30,8 +30,9 @@ The current template proves these reusable primitives:
 - A backend HTTP docs route at `packages/convex/confect/http.ts` for
   `/api/openapi.json`, `/api/docs`, and executable reviewer-safe generated API
   operations.
-- Provider adapter contracts for WorkOS/AuthKit, PostHog, Dodo, MailerSend,
-  OpenRouter-compatible LLMs, storage, and search.
+- Provider adapter contracts and tested Effect fake/test/live-ready adapter
+  harnesses for WorkOS/AuthKit, PostHog, Dodo, MailerSend, OpenRouter-compatible
+  LLMs, storage, and search.
 - App factory commands for `template:init`, `template:doctor`,
   `template:add-capability`, and `template:add-workflow`.
 - Cloudflare Pages deployment wiring and static hosted smoke checks.
@@ -67,6 +68,7 @@ pnpm exec tsx apps/cli/src/index.ts workflow run
 pnpm exec tsx apps/cli/src/index.ts api openapi
 pnpm exec tsx apps/cli/src/index.ts mcp call template.workflow.run
 pnpm exec tsx apps/cli/src/index.ts integrations report fake
+pnpm --dir packages/integrations test
 ```
 
 Inspect the executable API handler:
@@ -119,8 +121,8 @@ Remaining work before calling the whole plan complete:
 
 - Promote generated capability/workflow files into full production Confect
   groups automatically.
-- Add full live WorkOS, Dodo, MailerSend, PostHog, and LLM provider adapters
-  beyond the current contracts/fake posture.
+- Replace deterministic live-ready provider receipts with SDK-backed WorkOS,
+  Dodo, MailerSend, PostHog, and LLM provider calls in client apps.
 - Replace the deterministic reviewer-safe API operation runner with production
   Confect runner services in client apps.
 - Add deeper `@confect/test` coverage for storage, scheduling, Node actions,
