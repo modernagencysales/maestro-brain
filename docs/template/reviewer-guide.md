@@ -78,7 +78,10 @@ pnpm template:init -- --name "Reviewer Brain"
 `api openapi` prints an OpenAPI 3.1 document generated from the same headless
 registry as the web sample and CLI. The same document is served by the backend
 HTTP docs route in `packages/convex/confect/http.ts` at `/api/openapi.json`,
-with the Scalar shell at `/api/docs`.
+with the Scalar shell at `/api/docs`. The same route also mounts reviewer-safe
+executable `POST /api/<operation>` handlers backed by the shared template
+registry; `packages/convex/test/http-docs.test.ts` proves
+`POST /api/createTrustReceipt` returns the sample Trust Receipt path.
 
 `mcp call template.workflow.run` invokes the deterministic reviewer-safe
 workflow through the same registry and returns the workflow receipt as an

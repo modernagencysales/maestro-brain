@@ -30,9 +30,11 @@ The goal is end-to-end typed contracts without losing Convex component support.
 - Plain Convex interop: colocated `.ts`, `.spec.ts`, and `.impl.ts`
 - Special entrypoints: `confect/auth.ts`, `confect/crons.ts`, `confect/http.ts`
 
-`packages/convex/confect/http.ts` owns the current API docs surface. It serves
-the generated OpenAPI document at `/api/openapi.json` and the Scalar shell at
-`/api/docs`; future Confect HTTP API handlers should mount beside this route
+`packages/convex/confect/http.ts` owns the current API surface. It serves the
+generated OpenAPI document at `/api/openapi.json`, the Scalar shell at
+`/api/docs`, and reviewer-safe executable `POST /api/<operation>` handlers from
+the same headless registry metadata. Production client apps should replace the
+deterministic template operation runner with generated Confect runner services
 without duplicating headless registry metadata.
 
 ## Convex Component Interop

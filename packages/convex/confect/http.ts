@@ -1,8 +1,13 @@
-import { buildOpenApiDocument } from "@maestro-template/workflow-tooling";
+import {
+  buildApiCatalog,
+  buildOpenApiDocument,
+  runTemplateApiOperation,
+  type TemplateApiRequest,
+} from "@maestro-template/workflow-tooling";
 
 export type TemplateHttpRoute = {
-  readonly path: "/api/openapi.json" | "/api/docs";
-  readonly method: "GET";
+  readonly path: string;
+  readonly method: "GET" | "POST";
   readonly description: string;
 };
 
@@ -17,6 +22,11 @@ export const templateHttpRoutes = [
     method: "GET",
     description: "Serves the Scalar API documentation shell.",
   },
+  ...buildApiCatalog().map((entry) => ({
+    path: entry.path,
+    method: entry.method,
+    description: `Executes ${entry.operationId} through the shared template registry.`,
+  })),
 ] as const satisfies readonly TemplateHttpRoute[];
 
 const jsonResponse = (value: unknown): Response =>
@@ -50,25 +60,80 @@ const htmlResponse = (html: string): Response =>
     },
   });
 
-export const handleTemplateHttpRequest = (request: Request): Response => {
-  const url = new URL(request.url);
-
-  if (request.method !== "GET") {
-    return jsonResponse({
-      ok: false,
-      error: {
-        _tag: "MethodNotAllowed",
-        message: "Only GET is supported for template API docs routes.",
-      },
-    });
+const readJsonBody = async (request: Request): Promise<TemplateApiRequest> => {
+  if (!request.body) {
+    return {};
   }
 
+  const contentType = request.headers.get("content-type") ?? "";
+
+  if (!contentType.includes("application/json")) {
+    return {};
+  }
+
+  const value = (await request.json()) as unknown;
+
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return value as TemplateApiRequest;
+};
+
+export const handleTemplateHttpRequest = async (
+  request: Request,
+): Promise<Response> => {
+  const url = new URL(request.url);
+
   if (url.pathname === "/api/openapi.json") {
+    if (request.method !== "GET") {
+      return jsonResponse({
+        ok: false,
+        error: {
+          _tag: "MethodNotAllowed",
+          message: "Only GET is supported for OpenAPI docs.",
+        },
+      });
+    }
+
     return jsonResponse(buildOpenApiDocument());
   }
 
   if (url.pathname === "/api/docs") {
+    if (request.method !== "GET") {
+      return jsonResponse({
+        ok: false,
+        error: {
+          _tag: "MethodNotAllowed",
+          message: "Only GET is supported for Scalar docs.",
+        },
+      });
+    }
+
     return htmlResponse(scalarDocsHtml());
+  }
+
+  const apiEntry = buildApiCatalog().find(
+    (entry) => entry.path === url.pathname,
+  );
+
+  if (apiEntry) {
+    if (request.method !== apiEntry.method) {
+      return jsonResponse({
+        ok: false,
+        error: {
+          _tag: "MethodNotAllowed",
+          message: `Only ${apiEntry.method} is supported for ${apiEntry.path}.`,
+        },
+      });
+    }
+
+    return jsonResponse(
+      runTemplateApiOperation(
+        apiEntry.operationId,
+        await readJsonBody(request),
+      ),
+    );
   }
 
   return jsonResponse({

@@ -7,6 +7,7 @@ import {
   callMcpTool,
   describeWorkflowTemplate,
   getHeadlessOperation,
+  runTemplateApiOperation,
   runTemplateWorkflow,
 } from "./index";
 
@@ -114,6 +115,74 @@ describe("workflow headless registry", () => {
       status: "completed",
       trustReceipt: {
         receiptId: "receipt_template_001",
+      },
+    });
+  });
+
+  it("executes generated API operations through the shared registry", () => {
+    expect(
+      runTemplateApiOperation("createTrustReceipt", {
+        workspaceSlug: "acme-demo",
+        input: { sourceSetId: "source_set_template_001" },
+        idempotencyKey: "receipt-example-001",
+      }),
+    ).toMatchObject({
+      ok: true,
+      operationId: "createTrustReceipt",
+      result: {
+        status: "accepted",
+        workspaceSlug: "acme-demo",
+        receiptId: "receipt_template_001",
+        workflowRunId: "run_template_001",
+      },
+    });
+
+    expect(
+      runTemplateApiOperation("resolveSourceSet", {
+        workspaceSlug: "acme-demo",
+        input: { sourceSetId: "source_set_template_001" },
+      }),
+    ).toMatchObject({
+      ok: true,
+      operationId: "resolveSourceSet",
+      result: {
+        source: "shared-template-registry",
+        inputEcho: { sourceSetId: "source_set_template_001" },
+      },
+    });
+  });
+
+  it("returns typed API errors for unknown operations and invalid requests", () => {
+    expect(runTemplateApiOperation("nope")).toEqual({
+      ok: false,
+      error: {
+        _tag: "NotFound",
+        message: "Unknown template API operation: nope",
+      },
+    });
+
+    expect(
+      runTemplateApiOperation("createTrustReceipt", {
+        workspaceSlug: "bad slug",
+        idempotencyKey: "receipt-example-001",
+      }),
+    ).toEqual({
+      ok: false,
+      error: {
+        _tag: "ValidationFailed",
+        message: "workspaceSlug must be a lowercase slug.",
+      },
+    });
+
+    expect(
+      runTemplateApiOperation("createTrustReceipt", {
+        workspaceSlug: "acme-demo",
+      }),
+    ).toEqual({
+      ok: false,
+      error: {
+        _tag: "ValidationFailed",
+        message: "idempotencyKey is required for write operations.",
       },
     });
   });

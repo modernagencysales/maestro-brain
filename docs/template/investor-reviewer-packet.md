@@ -28,7 +28,8 @@ The current template proves these reusable primitives:
 - Confect/Effect backend slices with Effect schemas, typed errors, generated
   refs, and plain Convex Workpool interop.
 - A backend HTTP docs route at `packages/convex/confect/http.ts` for
-  `/api/openapi.json` and `/api/docs`.
+  `/api/openapi.json`, `/api/docs`, and executable reviewer-safe generated API
+  operations.
 - Provider adapter contracts for WorkOS/AuthKit, PostHog, Dodo, MailerSend,
   OpenRouter-compatible LLMs, storage, and search.
 - App factory commands for `template:init`, `template:doctor`,
@@ -66,6 +67,12 @@ pnpm exec tsx apps/cli/src/index.ts workflow run
 pnpm exec tsx apps/cli/src/index.ts api openapi
 pnpm exec tsx apps/cli/src/index.ts mcp call template.workflow.run
 pnpm exec tsx apps/cli/src/index.ts integrations report fake
+```
+
+Inspect the executable API handler:
+
+```bash
+pnpm --dir packages/convex test http-docs
 ```
 
 Inspect the app factory:
@@ -114,8 +121,8 @@ Remaining work before calling the whole plan complete:
   groups automatically.
 - Add full live WorkOS, Dodo, MailerSend, PostHog, and LLM provider adapters
   beyond the current contracts/fake posture.
-- Expand the Confect HTTP route from docs/OpenAPI into executable API handlers
-  for every headless operation.
+- Replace the deterministic reviewer-safe API operation runner with production
+  Confect runner services in client apps.
 - Add deeper `@confect/test` coverage for storage, scheduling, Node actions,
   identity, and live HTTP handler paths.
 - Add richer client-fork upgrade tooling and private package import workflows.

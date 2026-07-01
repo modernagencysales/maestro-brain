@@ -25,6 +25,27 @@ export type ApiCatalogEntry = {
   readonly typedErrors: readonly string[];
 };
 
+export type TemplateApiRequest = {
+  readonly workspaceSlug?: string;
+  readonly input?: Record<string, unknown>;
+  readonly idempotencyKey?: string;
+};
+
+export type TemplateApiResult =
+  | {
+      readonly ok: true;
+      readonly operationId: string;
+      readonly result: Record<string, unknown>;
+    }
+  | {
+      readonly ok: false;
+      readonly error: {
+        readonly _tag:
+          "NotFound" | "ValidationFailed" | "Unauthorized" | "FeatureDisabled";
+        readonly message: string;
+      };
+    };
+
 type JsonSchema = {
   readonly type?: string;
   readonly description?: string;
@@ -343,6 +364,79 @@ export const buildOpenApiDocument = (
         TemplateOperationRequest: baseRequestSchema,
         TemplateOperationSuccess: successResponseSchema,
       },
+    },
+  };
+};
+
+export const runTemplateApiOperation = (
+  operationId: string,
+  request: TemplateApiRequest = {},
+  registry: TemplateRegistry = templateRegistry,
+): TemplateApiResult => {
+  const operation = buildApiCatalog(registry).find(
+    (entry) => entry.operationId === operationId,
+  );
+
+  if (!operation) {
+    return {
+      ok: false,
+      error: {
+        _tag: "NotFound",
+        message: `Unknown template API operation: ${operationId}`,
+      },
+    };
+  }
+
+  const workspaceSlug = request.workspaceSlug?.trim() || "acme-demo";
+
+  if (!/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(workspaceSlug)) {
+    return {
+      ok: false,
+      error: {
+        _tag: "ValidationFailed",
+        message: "workspaceSlug must be a lowercase slug.",
+      },
+    };
+  }
+
+  if (
+    operation.authScope.includes("write") &&
+    !request.idempotencyKey?.trim()
+  ) {
+    return {
+      ok: false,
+      error: {
+        _tag: "ValidationFailed",
+        message: "idempotencyKey is required for write operations.",
+      },
+    };
+  }
+
+  if (operationId === "createTrustReceipt") {
+    const receipt = runTemplateWorkflow(registry);
+
+    return {
+      ok: true,
+      operationId,
+      result: {
+        status: "accepted",
+        workspaceSlug,
+        receiptId: receipt.trustReceipt.receiptId,
+        claim: receipt.trustReceipt.claim,
+        sourceTitles: receipt.trustReceipt.sourceTitles,
+        workflowRunId: receipt.runId,
+      },
+    };
+  }
+
+  return {
+    ok: true,
+    operationId,
+    result: {
+      status: "accepted",
+      workspaceSlug,
+      source: "shared-template-registry",
+      inputEcho: request.input ?? {},
     },
   };
 };
