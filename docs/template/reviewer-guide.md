@@ -62,6 +62,7 @@ pnpm exec tsx apps/cli/src/index.ts api openapi
 pnpm exec tsx apps/cli/src/index.ts mcp tools
 pnpm exec tsx apps/cli/src/index.ts mcp call template.workflow.run
 pnpm exec tsx apps/cli/src/index.ts integrations report fake
+pnpm template:init -- --name "Reviewer Brain"
 ```
 
 `api openapi` prints an OpenAPI 3.1 document generated from the same headless
@@ -72,6 +73,10 @@ HTTP/Scalar route.
 `mcp call template.workflow.run` invokes the deterministic reviewer-safe
 workflow through the same registry and returns the workflow receipt as an
 MCP-style tool result.
+
+`template:init` prints the client-instance manifest. Use `--write` when you want
+to create `template-instance.json`, then run
+`pnpm template:doctor -- --mode fake`.
 
 ## 3. Run One Workflow
 

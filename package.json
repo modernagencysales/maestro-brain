@@ -17,6 +17,8 @@
     "confect:dev": "pnpm --dir packages/convex confect:dev",
     "convex:dev": "pnpm --dir packages/convex convex:dev",
     "dev:backend": "pnpm --dir packages/convex dev:backend",
+    "template:init": "tsx tooling/generators/src/index.ts init",
+    "template:doctor": "tsx tooling/generators/src/index.ts doctor",
     "check:convex": "pnpm --dir packages/convex check:convex",
     "check:confect-compat": "tsx tooling/quality/check-confect-compat.mts",
     "check:ci-completeness": "tsx tooling/quality/check-ci-completeness.mts",

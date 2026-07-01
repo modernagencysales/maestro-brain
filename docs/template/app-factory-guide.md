@@ -15,9 +15,9 @@ without copying project-specific business logic into the core framework.
 
 ## Default Flow
 
-1. Run `template:init` after Task 16 lands.
-2. Configure `template-instance.json`.
-3. Run `template:doctor -- --mode fake`.
+1. Run `pnpm template:init -- --name "Client Brain" --write`.
+2. Review and edit `template-instance.json`.
+3. Run `pnpm template:doctor -- --mode fake`.
 4. Add domain modules with `template:add-client-domain`.
 5. Add capabilities, workflows, agents, Brain schemas, API surfaces, source
    types, notifications, admin surfaces, and data lifecycle resources through
@@ -31,3 +31,10 @@ Client forks should consume template releases, not copy random files from the
 template main branch. Use `template:upgrade` after Task 21 lands to compare a
 client fork against a template release and list migrations, env changes,
 contract diffs, and manual review items.
+
+## Instance Doctor
+
+`template:doctor` verifies the generated instance file has core modules,
+provider posture, and fake-mode readiness. Fake mode must not require live
+secrets. Live mode reports provider warnings until WorkOS, Convex, PostHog,
+Dodo, email, LLM, and storage providers are configured.
