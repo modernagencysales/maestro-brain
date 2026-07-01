@@ -28,6 +28,15 @@ pnpm --dir apps/web dev -- --port 5174
 
 Open `http://127.0.0.1:5174/`.
 
+Hosted reference app:
+
+```text
+https://maestro-template.pages.dev
+```
+
+For a technical diligence path, start with
+[docs/template/investor-reviewer-packet.md](./docs/template/investor-reviewer-packet.md).
+
 The template defaults to fake/local providers. Real Convex, WorkOS, PostHog,
 Dodo, MailerSend, storage, and LLM credentials are added through typed provider
 adapters in later setup steps.
@@ -86,6 +95,8 @@ host-test-slot --class full pnpm verify
 - Repo map: [docs/template/repo-map.md](./docs/template/repo-map.md)
 - Reviewer guide:
   [docs/template/reviewer-guide.md](./docs/template/reviewer-guide.md)
+- Investor reviewer packet:
+  [docs/template/investor-reviewer-packet.md](./docs/template/investor-reviewer-packet.md)
 - Extraction policy:
   [docs/template/extraction-redaction-guide.md](./docs/template/extraction-redaction-guide.md)
 - Confect/Effect guide:

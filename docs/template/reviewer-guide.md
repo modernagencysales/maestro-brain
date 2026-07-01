@@ -2,6 +2,9 @@
 
 This guide is the 30-minute technical diligence path.
 
+For the executive technical packet, start with
+[investor-reviewer-packet.md](./investor-reviewer-packet.md).
+
 ## 1. Run The Repo Locally
 
 ```bash

@@ -7,6 +7,8 @@
 - `tooling/`: gates, generators, release helpers, evals, and workflow tooling.
 - `examples/`: reviewer-safe synthetic example apps and seed data.
 - `docs/`: architecture, operations, and playbooks.
+- `docs/template/investor-reviewer-packet.md`: first-stop technical diligence
+  packet for investors and review agents.
 - `agent-patterns/`: future local references for Effect, Confect, and workflow
   graph idioms.
 - `repos/`: future vendored read-only source references for Effect and Confect.

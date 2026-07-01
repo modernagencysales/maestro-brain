@@ -1,0 +1,127 @@
+# Investor Reviewer Packet
+
+This private repo is an internal AI app factory for custom Brain, workflow, and
+agent applications. It is not a public starter kit. It is intended to show that
+custom client builds can start from a typed, tested, hosted platform substrate
+instead of a blank app.
+
+## Reviewer Entry Points
+
+- Hosted reference app: `https://maestro-template.pages.dev`
+- GitHub remote: `modernagencysales/maestro-template`
+- Current reviewed commit: `97fc495`
+- Local reviewer guide: [reviewer-guide.md](./reviewer-guide.md)
+- Architecture map: [repo-map.md](./repo-map.md)
+- Confect/Effect guide: [confect-effect-guide.md](./confect-effect-guide.md)
+- Hosting guide: [hosting.md](./hosting.md)
+
+## What This Proves Today
+
+The current template proves these reusable primitives:
+
+- A hosted static reference app with Brain, workflow, capability, agent,
+  integration, API/CLI/MCP, receipt, and safety surfaces.
+- A React Flow workflow primitive through `packages/workflow-ui`.
+- A canonical typed template registry in `packages/template-core`.
+- Headless projections for API, CLI, MCP, and OpenAPI from the same registry.
+- A deterministic workflow run receipt and Trust Receipt path.
+- Confect/Effect backend slices with Effect schemas, typed errors, generated
+  refs, and plain Convex Workpool interop.
+- A backend HTTP docs route at `packages/convex/confect/http.ts` for
+  `/api/openapi.json` and `/api/docs`.
+- Provider adapter contracts for WorkOS/AuthKit, PostHog, Dodo, MailerSend,
+  OpenRouter-compatible LLMs, storage, and search.
+- App factory commands for `template:init`, `template:doctor`,
+  `template:add-capability`, and `template:add-workflow`.
+- Cloudflare Pages deployment wiring and static hosted smoke checks.
+
+## Thirty-Minute Technical Review
+
+Run these from the repo root:
+
+```bash
+pnpm install
+pnpm check:format
+pnpm lint
+pnpm typecheck
+host-test-slot --class full pnpm test
+pnpm build
+pnpm smoke:web-static
+pnpm smoke:hosted
+```
+
+Inspect the live app:
+
+```text
+https://maestro-template.pages.dev
+```
+
+Inspect the shared headless contracts:
+
+```bash
+pnpm exec tsx apps/cli/src/index.ts describe
+pnpm exec tsx apps/cli/src/index.ts workflow run
+pnpm exec tsx apps/cli/src/index.ts api openapi
+pnpm exec tsx apps/cli/src/index.ts mcp call template.workflow.run
+pnpm exec tsx apps/cli/src/index.ts integrations report fake
+```
+
+Inspect the app factory:
+
+```bash
+pnpm template:init -- --name "Reviewer Brain"
+pnpm template:add-capability -- --name summarizeSource
+pnpm template:add-workflow -- --name sourceGroundedPlan
+```
+
+## Architecture Trace
+
+The intended layer law is:
+
+```text
+web routes -> screens -> features -> blocks -> Notion Kit
+client hooks -> @confect/react refs -> Confect specs -> Convex functions
+agents -> workflows -> capabilities -> domain/checks -> schema
+API/CLI/MCP -> headless registry -> same capabilities/workflows as web
+storage/notifications/observability -> Effect services -> provider adapters
+admin/support/privacy -> audited capabilities -> narrow operator surfaces
+```
+
+Concrete files to inspect:
+
+- `apps/web/src/sample/App.tsx`: hosted reference app.
+- `packages/template-core/src/index.ts`: canonical sample registry.
+- `packages/workflow-ui/src/index.tsx`: React Flow workflow canvas primitive.
+- `tooling/workflow/src/index.ts`: API/CLI/MCP/OpenAPI projection.
+- `packages/convex/confect/capabilities/catalog.spec.ts`: Confect spec shape.
+- `packages/convex/confect/jobs/workpool.spec.ts`: plain Convex component
+  interop through Confect.
+- `packages/convex/confect/http.ts`: OpenAPI and Scalar docs route.
+- `tooling/generators/src/index.ts`: app factory commands.
+- `.buildkite/pipeline.yml`: deterministic, AI, deploy, and promotion gates.
+
+## Current Limits
+
+This repo is already useful as an internal template and diligence artifact, but
+it is not claiming every final production subsystem is fully implemented.
+
+Remaining work before calling the whole plan complete:
+
+- Promote generated capability/workflow files into full production Confect
+  groups automatically.
+- Add full live WorkOS, Dodo, MailerSend, PostHog, and LLM provider adapters
+  beyond the current contracts/fake posture.
+- Expand the Confect HTTP route from docs/OpenAPI into executable API handlers
+  for every headless operation.
+- Add deeper `@confect/test` coverage for storage, scheduling, Node actions,
+  identity, and live HTTP handler paths.
+- Add richer client-fork upgrade tooling and private package import workflows.
+- Add Playwright visual/mobile hosted smoke coverage.
+
+## Diligence Summary
+
+The important signal is that the template has a real product surface, a typed
+backend direction, a reusable headless contract model, app-factory commands,
+deployment wiring, and operational docs. It is structured so future custom AI
+Brain builds can reuse the same platform primitives while swapping domain logic,
+providers, and workflow/capability catalogs.
