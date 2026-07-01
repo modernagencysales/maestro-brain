@@ -1,0 +1,19 @@
+---
+icon: "component"
+title: "Components"
+description: "Use Convex components in your Confect app."
+---
+
+Convex [components](https://docs.convex.dev/components) are configured in `convex/convex.config.ts`, which is one of the files in the `convex/` directory that Confect does not manage. Configure and use components using the vanilla Convex API.
+
+```ts convex/convex.config.ts
+import { defineApp } from "convex/server";
+
+const app = defineApp();
+
+export default app;
+```
+
+Some components (such as [Workflow](https://www.convex.dev/components/workflow), [Migrations](https://www.convex.dev/components/migrations), and [Workpool](https://www.convex.dev/components/workpool)) expect you to define Convex functions in your project that they can reference. You can integrate these into your Confect spec and impl using [plain Convex functions](/server/plain-convex-functions).
+
+See the [Convex components documentation](https://docs.convex.dev/components) for details on installing and using components.

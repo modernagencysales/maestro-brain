@@ -1,0 +1,76 @@
+{
+  "name": "@confect/react",
+  "description": "Client-side bindings for React apps",
+  "version": "9.1.4",
+  "author": "RJ Dellecese",
+  "bugs": {
+    "url": "https://github.com/rjdellecese/confect/issues"
+  },
+  "devDependencies": {
+    "@effect/vitest": "0.29.0",
+    "@testing-library/react": "16.3.2",
+    "@types/node": "25.3.3",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "convex": "1.40.0",
+    "effect": "3.21.2",
+    "happy-dom": "15.11.7",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "tsdown": "0.20.3",
+    "typescript": "5.9.3",
+    "vite": "7.3.1",
+    "vitest": "3.2.4"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./*": {
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "CHANGELOG.md",
+    "LICENSE",
+    "README.md",
+    "dist",
+    "package.json",
+    "src"
+  ],
+  "homepage": "https://confect.dev",
+  "keywords": [
+    "convex",
+    "effect",
+    "react"
+  ],
+  "license": "ISC",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "peerDependencies": {
+    "@confect/core": "workspace:^",
+    "convex": "^1.32.0",
+    "effect": "^3.21.2",
+    "react": "^18.0.0 || ^19.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rjdellecese/confect.git"
+  },
+  "scripts": {
+    "clean": "rm -rf dist coverage node_modules",
+    "dev": "tsdown --watch --config-loader unrun",
+    "postpack": "rm ./README.md && ln -s ../../README.md ./README.md",
+    "prepack": "rm -f ./README.md && cp ../../README.md ./README.md",
+    "typecheck": "tsc -b tsconfig.src.json"
+  },
+  "sideEffects": false,
+  "type": "module",
+  "types": "./dist/index.d.ts"
+}

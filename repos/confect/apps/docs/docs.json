@@ -1,0 +1,117 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Confect 🧁",
+  "colors": {
+    "primary": "#941A97",
+    "light": "#F9A8D4",
+    "dark": "#D11B6A"
+  },
+  "background": {
+    "color": {
+      "light": "#FAFAF9",
+      "dark": "#1C1917"
+    }
+  },
+  "icons": {
+    "library": "lucide"
+  },
+  "favicon": "/favicon.svg",
+  "navigation": {
+    "global": {
+      "anchors": [
+        {
+          "icon": "layers",
+          "anchor": "Effect Docs",
+          "href": "https://effect.website/docs"
+        },
+        {
+          "icon": "database",
+          "anchor": "Convex Docs",
+          "href": "https://docs.convex.dev"
+        }
+      ]
+    },
+    "groups": [
+      {
+        "group": "Getting Started",
+        "pages": ["getting-started/introduction", "getting-started/quickstart"]
+      },
+      {
+        "group": "Concepts",
+        "pages": [
+          "concepts/packages",
+          "concepts/project-structure",
+          "concepts/spec-impl-model",
+          "concepts/file-naming-conventions",
+          "concepts/services",
+          "concepts/schema-restrictions"
+        ]
+      },
+      {
+        "group": "Server",
+        "pages": [
+          "server/functions",
+          "server/error-handling",
+          "server/plain-convex-functions",
+          "server/node-actions",
+          {
+            "icon": "database",
+            "group": "Database",
+            "pages": [
+              "server/database/schema",
+              "server/database/reading",
+              "server/database/writing",
+              "server/database/system-tables",
+              "server/database/determinism"
+            ]
+          },
+          "server/http-api",
+          "server/storage",
+          "server/scheduling",
+          "server/authentication",
+          "server/cron-jobs",
+          "server/search",
+          "server/components",
+          "server/environment-variables"
+        ]
+      },
+      {
+        "group": "Clients",
+        "pages": [
+          "clients/react",
+          {
+            "icon": "js",
+            "group": "JS",
+            "pages": ["clients/js/http", "clients/js/websocket"]
+          }
+        ]
+      },
+      {
+        "group": "Guides",
+        "pages": ["guides/testing"]
+      }
+    ]
+  },
+  "navbar": {
+    "links": [
+      {
+        "icon": "github",
+        "label": "GitHub",
+        "href": "https://github.com/rjdellecese/confect"
+      }
+    ]
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "mcp",
+      "cursor",
+      "vscode"
+    ]
+  }
+}
