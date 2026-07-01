@@ -24,6 +24,12 @@ export type ReviewerReadinessReport = {
     readonly status: "pass" | "fail";
     readonly detail: string;
   }[];
+  readonly claims: readonly {
+    readonly id: string;
+    readonly status: "pass" | "fail";
+    readonly evidence: readonly string[];
+    readonly detail: string;
+  }[];
   readonly commands: readonly string[];
 };
 
@@ -61,6 +67,85 @@ const readinessArtifacts = [
   "tooling/generators/src/index.ts",
   "tests/e2e/hosted-reference-app.spec.ts",
   "tests/e2e/hosted-reference-app.visual.spec.ts",
+] as const;
+
+const readinessClaims = [
+  {
+    id: "hosted-reference-app",
+    evidence: [
+      "apps/web/src/sample/App.tsx",
+      "tests/e2e/hosted-reference-app.spec.ts",
+      "tests/e2e/hosted-reference-app.visual.spec.ts",
+    ],
+    detail:
+      "Hosted app has a concrete reference surface plus browser and visual smoke coverage.",
+  },
+  {
+    id: "confect-effect-contracts",
+    evidence: [
+      "docs/template/confect-effect-guide.md",
+      "packages/convex/confect/_generated/refs.ts",
+      "packages/convex/test/confect-contracts.test.ts",
+      "packages/convex/confect/jobs/workpool.spec.ts",
+    ],
+    detail:
+      "Confect/Effect path has pinned versions, generated refs, contract tests, and plain Convex interop.",
+  },
+  {
+    id: "workflow-react-flow-primitive",
+    evidence: [
+      "packages/workflow-ui/src/index.tsx",
+      "tooling/quality/check-workflow-graph-boundary.mts",
+      "docs/template/workflow-authoring-guide.md",
+    ],
+    detail:
+      "React Flow is kept as a reusable UI primitive while durable workflow logic remains schema-backed.",
+  },
+  {
+    id: "headless-api-cli-mcp",
+    evidence: [
+      "packages/template-core/src/index.ts",
+      "tooling/workflow/src/index.ts",
+      "apps/cli/src/index.ts",
+      "packages/convex/confect/http.ts",
+    ],
+    detail:
+      "API, CLI, MCP, and Scalar/OpenAPI projections come from shared template registry metadata.",
+  },
+  {
+    id: "provider-adapter-harness",
+    evidence: [
+      "packages/integrations/src/index.ts",
+      "packages/integrations/src/index.test.ts",
+      "docs/template/integrations.md",
+    ],
+    detail:
+      "Provider integrations use Effect service boundaries with fake/test/live-ready adapter posture.",
+  },
+  {
+    id: "app-factory-generators",
+    evidence: [
+      "tooling/generators/src/index.ts",
+      "tooling/generators/src/index.test.ts",
+      "docs/template/app-factory-guide.md",
+      "docs/template/private-package-guide.md",
+    ],
+    detail:
+      "App factory commands cover initialization, generated capabilities/workflows, promotion, upgrades, and private packages.",
+  },
+  {
+    id: "security-and-rules",
+    evidence: [
+      "AGENTS.md",
+      "docs/template/security.md",
+      "docs/template/coding-standards.md",
+      "docs/rule-coverage.md",
+      "tooling/quality/check-secret-canaries.mts",
+      "tooling/quality/check-auth-demo-bypass.mts",
+    ],
+    detail:
+      "Coding rules, security posture, and static gates document and enforce the core safety model.",
+  },
 ] as const;
 
 export const reviewerCommands = [
@@ -101,7 +186,7 @@ export const buildReviewerReadinessReport = (options?: {
     options?.hostedUrl ??
     process.env.TEMPLATE_HOSTED_URL ??
     "https://maestro-template.pages.dev";
-  const artifacts = readinessArtifacts.map((artifactPath) => {
+  const artifactStatus = (artifactPath: string) => {
     const fullPath = resolve(repoRoot, artifactPath);
 
     return existsSync(fullPath)
@@ -115,14 +200,33 @@ export const buildReviewerReadinessReport = (options?: {
           status: "fail" as const,
           detail: `missing ${fullPath}`,
         };
+  };
+  const artifacts = readinessArtifacts.map(artifactStatus);
+  const claims = readinessClaims.map((claim) => {
+    const missing = claim.evidence.filter(
+      (artifactPath) => !existsSync(resolve(repoRoot, artifactPath)),
+    );
+
+    return {
+      id: claim.id,
+      status: missing.length === 0 ? ("pass" as const) : ("fail" as const),
+      evidence: claim.evidence,
+      detail:
+        missing.length === 0
+          ? claim.detail
+          : `${claim.detail} Missing evidence: ${missing.join(", ")}`,
+    };
   });
 
   return {
-    ok: artifacts.every((artifact) => artifact.status === "pass"),
+    ok:
+      artifacts.every((artifact) => artifact.status === "pass") &&
+      claims.every((claim) => claim.status === "pass"),
     repoRoot,
     commit: options?.commit ?? currentCommit(repoRoot),
     hostedUrl,
     artifacts,
+    claims,
     commands: reviewerCommands,
   };
 };

@@ -42,15 +42,26 @@ const makeReviewerRepo = (): string => {
     "docs/template/private-package-guide.md",
     "docs/template/hosting.md",
     "docs/template/security.md",
+    "docs/template/coding-standards.md",
+    "docs/template/integrations.md",
+    "docs/template/workflow-authoring-guide.md",
     "docs/rule-coverage.md",
+    "apps/cli/src/index.ts",
+    "apps/web/src/sample/App.tsx",
     "packages/convex/confect/http.ts",
     "packages/convex/confect/_generated/refs.ts",
     "packages/convex/confect/jobs/workpool.spec.ts",
     "packages/convex/test/confect-contracts.test.ts",
+    "packages/integrations/src/index.ts",
+    "packages/integrations/src/index.test.ts",
     "packages/workflow-ui/src/index.tsx",
     "packages/template-core/src/index.ts",
+    "tooling/quality/check-auth-demo-bypass.mts",
+    "tooling/quality/check-secret-canaries.mts",
+    "tooling/quality/check-workflow-graph-boundary.mts",
     "tooling/workflow/src/index.ts",
     "tooling/generators/src/index.ts",
+    "tooling/generators/src/index.test.ts",
     "tests/e2e/hosted-reference-app.spec.ts",
     "tests/e2e/hosted-reference-app.visual.spec.ts",
   ];
@@ -144,6 +155,24 @@ describe("release tooling", () => {
           expect.objectContaining({
             path: "packages/convex/confect/_generated/refs.ts",
             status: "pass",
+          }),
+        ]),
+        claims: expect.arrayContaining([
+          expect.objectContaining({
+            id: "confect-effect-contracts",
+            status: "pass",
+            evidence: expect.arrayContaining([
+              "packages/convex/confect/_generated/refs.ts",
+              "packages/convex/test/confect-contracts.test.ts",
+            ]),
+          }),
+          expect.objectContaining({
+            id: "app-factory-generators",
+            status: "pass",
+            evidence: expect.arrayContaining([
+              "tooling/generators/src/index.ts",
+              "docs/template/private-package-guide.md",
+            ]),
           }),
         ]),
         commands: expect.arrayContaining([
