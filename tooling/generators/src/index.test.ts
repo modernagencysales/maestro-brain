@@ -1,10 +1,19 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildCapabilityFiles,
+  buildPrivatePackagePlan,
   buildTemplateInstance,
+  buildTemplateUpgradeReport,
   buildWorkflowFiles,
   doctorTemplateInstance,
   runGeneratorCli,
@@ -204,6 +213,139 @@ describe("template app factory generators", () => {
         policy: {
           audit: "record-workflow-run-and-trust-receipt",
         },
+      });
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("builds a client-fork upgrade report", () => {
+    const report = buildTemplateUpgradeReport({
+      from: "client-v1.0.0",
+      to: "template-v1.1.0",
+    });
+
+    expect(report).toMatchObject({
+      from: "client-v1.0.0",
+      to: "template-v1.1.0",
+      ok: true,
+      changedPackages: expect.arrayContaining([
+        "packages/convex",
+        "packages/integrations",
+      ]),
+      envChanges: expect.arrayContaining([expect.stringContaining("WorkOS")]),
+      generatedContractDiffs: expect.arrayContaining([
+        expect.stringContaining("OpenAPI"),
+      ]),
+      commands: expect.arrayContaining([
+        "pnpm review:readiness",
+        "pnpm check:confect-contracts",
+      ]),
+    });
+  });
+
+  it("prints a client-fork upgrade report through the CLI", () => {
+    const result = runGeneratorCli([
+      "upgrade",
+      "--from",
+      "client-v1.0.0",
+      "--to",
+      "template-v1.1.0",
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      from: "client-v1.0.0",
+      to: "template-v1.1.0",
+      ok: true,
+    });
+  });
+
+  it("builds a private package dry-run plan from a fixture manifest", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "maestro-template-private-"));
+    const fixture = join(cwd, "fixtures/generic-ai-ops");
+
+    try {
+      mkdirSync(fixture, { recursive: true });
+      writeFileSync(
+        join(fixture, "template-package.json"),
+        JSON.stringify({
+          name: "generic-ai-ops",
+          capabilities: ["summarizeSource", "draftPlan"],
+          workflows: ["sourceGroundedPlan"],
+          agents: ["planner"],
+          docs: ["README.md", "playbook.md"],
+        }),
+        { flag: "w" },
+      );
+
+      const plan = buildPrivatePackagePlan({ fixturePath: fixture });
+
+      expect(plan).toMatchObject({
+        mode: "dry-run",
+        ok: true,
+        packageName: "generic-ai-ops",
+        files: expect.arrayContaining([
+          expect.objectContaining({
+            path: "private-packages/generic-ai-ops/package-plan.json",
+          }),
+        ]),
+      });
+      expect(plan.checks).toContainEqual(
+        expect.objectContaining({
+          id: "fixture:manifest",
+          status: "pass",
+        }),
+      );
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("imports a private package plan through the CLI when write is explicit", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "maestro-template-private-import-"));
+    const fixture = join(cwd, "fixtures/generic-ai-ops");
+
+    try {
+      mkdirSync(fixture, { recursive: true });
+      writeFileSync(
+        join(fixture, "template-package.json"),
+        JSON.stringify({
+          name: "generic-ai-ops",
+          capabilities: ["summarizeSource"],
+          workflows: ["sourceGroundedPlan"],
+        }),
+        { flag: "w" },
+      );
+
+      const dryRun = runGeneratorCli(
+        ["private-package:dry-run", "--fixture", "fixtures/generic-ai-ops"],
+        cwd,
+      );
+      const imported = runGeneratorCli(
+        [
+          "private-package:import",
+          "--fixture",
+          "fixtures/generic-ai-ops",
+          "--write",
+        ],
+        cwd,
+      );
+      const planPath = join(
+        cwd,
+        "private-packages/generic-ai-ops/package-plan.json",
+      );
+
+      expect(dryRun.exitCode).toBe(0);
+      expect(JSON.parse(dryRun.stdout)).toMatchObject({
+        mode: "dry-run",
+        packageName: "generic-ai-ops",
+      });
+      expect(imported.exitCode).toBe(0);
+      expect(existsSync(planPath)).toBe(true);
+      expect(JSON.parse(readFileSync(planPath, "utf8"))).toMatchObject({
+        packageName: "generic-ai-ops",
+        requiredChecks: expect.arrayContaining(["pnpm check:secret-canaries"]),
       });
     } finally {
       rmSync(cwd, { recursive: true, force: true });

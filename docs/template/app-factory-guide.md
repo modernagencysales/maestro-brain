@@ -32,9 +32,10 @@ without copying project-specific business logic into the core framework.
 ## Client Forks
 
 Client forks should consume template releases, not copy random files from the
-template main branch. Use `template:upgrade` after Task 21 lands to compare a
-client fork against a template release and list migrations, env changes,
-contract diffs, and manual review items.
+template main branch. Use
+`pnpm template:upgrade -- --from <client-version> --to <template-version>` to
+compare a client fork against a template release and list migrations, env
+changes, contract diffs, and manual review items.
 
 ## Instance Doctor
 

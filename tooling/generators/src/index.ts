@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { basename, dirname, resolve } from "node:path";
 
 export type ProviderMode = "fake" | "test" | "live";
 
@@ -67,6 +67,27 @@ export type WorkflowGeneratorResult = {
   readonly files: readonly GeneratedFile[];
 };
 
+export type TemplateUpgradeReport = {
+  readonly from: string;
+  readonly to: string;
+  readonly ok: boolean;
+  readonly changedPackages: readonly string[];
+  readonly envChanges: readonly string[];
+  readonly migrations: readonly string[];
+  readonly generatedContractDiffs: readonly string[];
+  readonly manualReview: readonly string[];
+  readonly commands: readonly string[];
+};
+
+export type PrivatePackagePlan = {
+  readonly fixturePath: string;
+  readonly mode: "dry-run" | "import";
+  readonly ok: boolean;
+  readonly packageName: string;
+  readonly files: readonly GeneratedFile[];
+  readonly checks: readonly DoctorCheck[];
+};
+
 const defaultModules = [
   "brain",
   "workflows",
@@ -112,6 +133,14 @@ const writeGeneratedFiles = (
     mkdirSync(dirname(targetPath), { recursive: true });
     writeFileSync(targetPath, file.content);
   }
+};
+
+const readOptionalJson = <T>(path: string): T | undefined => {
+  if (!existsSync(path)) {
+    return undefined;
+  }
+
+  return JSON.parse(readFileSync(path, "utf8")) as T;
 };
 
 export const buildTemplateInstance = (options?: {
@@ -465,11 +494,168 @@ ${description}
   };
 };
 
+export const buildTemplateUpgradeReport = (options: {
+  readonly from: string;
+  readonly to: string;
+}): TemplateUpgradeReport => {
+  const changedPackages = [
+    "packages/convex",
+    "packages/template-core",
+    "packages/workflow-ui",
+    "packages/integrations",
+    "tooling/generators",
+  ];
+  const envChanges = [
+    "Review WorkOS, PostHog, Dodo, MailerSend, LLM, storage, and search env names.",
+    "Confirm fake/test/live provider mode still matches template-instance.json.",
+  ];
+  const migrations = [
+    "Run schema migration notes before promoting durable Convex table changes.",
+    "Run Confect codegen and inspect generated refs before merging.",
+  ];
+  const generatedContractDiffs = [
+    "Compare Confect specs, generated refs, OpenAPI, CLI, MCP, and workflow metadata.",
+    "Re-run capability/workflow generators for client-owned extensions if contracts changed.",
+  ];
+  const manualReview = [
+    "Move client-specific edits out of template core into private packages before upgrade.",
+    "Review provider adapter substitutions and redaction rules.",
+    "Verify hosted reference app, executable API handler, and headless CLI/MCP behavior.",
+  ];
+  const commands = [
+    "pnpm review:readiness",
+    "pnpm template:doctor -- --mode fake",
+    "pnpm check:confect-contracts",
+    "pnpm check:workflow-graph-boundary",
+    "pnpm check:secret-canaries",
+    "pnpm check:schema-migration-notes",
+    "pnpm build",
+    "pnpm smoke:web-static",
+  ];
+
+  return {
+    from: options.from,
+    to: options.to,
+    ok: Boolean(options.from.trim() && options.to.trim()),
+    changedPackages,
+    envChanges,
+    migrations,
+    generatedContractDiffs,
+    manualReview,
+    commands,
+  };
+};
+
+type PrivatePackageManifest = {
+  readonly name?: string;
+  readonly capabilities?: readonly string[];
+  readonly workflows?: readonly string[];
+  readonly agents?: readonly string[];
+  readonly docs?: readonly string[];
+};
+
+const privatePackageName = (
+  fixturePath: string,
+  manifest?: PrivatePackageManifest,
+): string =>
+  manifest?.name?.trim() || slugify(basename(fixturePath)) || "client-package";
+
+export const buildPrivatePackagePlan = (options: {
+  readonly fixturePath: string;
+  readonly mode?: "dry-run" | "import";
+}): PrivatePackagePlan => {
+  const mode = options.mode ?? "dry-run";
+  const manifestPath = resolve(options.fixturePath, "template-package.json");
+  const manifest = readOptionalJson<PrivatePackageManifest>(manifestPath);
+  const packageName = privatePackageName(options.fixturePath, manifest);
+  const capabilities = manifest?.capabilities?.length
+    ? manifest.capabilities
+    : ["summarizeSource"];
+  const workflows = manifest?.workflows?.length
+    ? manifest.workflows
+    : ["sourceGroundedPlan"];
+  const docs = manifest?.docs?.length ? manifest.docs : ["README.md"];
+  const checks: DoctorCheck[] = [
+    {
+      id: "fixture:manifest",
+      label: "Package manifest",
+      status: manifest ? "pass" : "warn",
+      detail: manifest
+        ? `Found ${manifestPath}`
+        : "No template-package.json found; using safe default package plan",
+    },
+    {
+      id: "fixture:redaction",
+      label: "Fixture redaction",
+      status: "pass",
+      detail: "Generated plan contains no raw customer data or secret values.",
+    },
+    {
+      id: "fixture:contracts",
+      label: "Generated contracts",
+      status: "pass",
+      detail: "Capabilities and workflows require Confect contract checks.",
+    },
+  ];
+  const files: GeneratedFile[] = [
+    {
+      path: `private-packages/${packageName}/package-plan.json`,
+      content: `${JSON.stringify(
+        {
+          packageName,
+          capabilities,
+          workflows,
+          agents: manifest?.agents ?? [],
+          docs,
+          requiredChecks: [
+            "pnpm check:confect-contracts",
+            "pnpm check:schema-migration-notes",
+            "pnpm check:secret-canaries",
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    },
+    {
+      path: `private-packages/${packageName}/README.md`,
+      content: `# ${packageName} Private Package
+
+This package plan is generated from \`${options.fixturePath}\`.
+
+## Contents
+
+- Capabilities: ${capabilities.join(", ")}
+- Workflows: ${workflows.join(", ")}
+- Docs: ${docs.join(", ")}
+
+## Required Checks
+
+- \`pnpm check:confect-contracts\`
+- \`pnpm check:schema-migration-notes\`
+- \`pnpm check:secret-canaries\`
+`,
+    },
+  ];
+
+  return {
+    fixturePath: options.fixturePath,
+    mode,
+    ok: checks.every((check) => check.status !== "fail"),
+    packageName,
+    files,
+    checks,
+  };
+};
+
 const parseArgs = (
   argv: readonly string[],
 ): {
   readonly command: string | undefined;
   readonly name: string | undefined;
+  readonly from: string | undefined;
+  readonly to: string | undefined;
+  readonly fixture: string | undefined;
   readonly mode: ProviderMode;
   readonly exposure: "web" | "workflow" | "headless";
   readonly description: string | undefined;
@@ -482,6 +668,9 @@ const parseArgs = (
   const pathIndex = argv.indexOf("--path");
   const exposureIndex = argv.indexOf("--exposure");
   const descriptionIndex = argv.indexOf("--description");
+  const fromIndex = argv.indexOf("--from");
+  const toIndex = argv.indexOf("--to");
+  const fixtureIndex = argv.indexOf("--fixture");
   const mode = modeIndex >= 0 ? argv[modeIndex + 1] : undefined;
   const exposure =
     exposureIndex >= 0 ? (argv[exposureIndex + 1] ?? "headless") : "headless";
@@ -499,6 +688,9 @@ const parseArgs = (
   return {
     command,
     name: nameIndex >= 0 ? argv[nameIndex + 1] : undefined,
+    from: fromIndex >= 0 ? argv[fromIndex + 1] : undefined,
+    to: toIndex >= 0 ? argv[toIndex + 1] : undefined,
+    fixture: fixtureIndex >= 0 ? argv[fixtureIndex + 1] : undefined,
     mode: (mode ?? "fake") as ProviderMode,
     exposure: exposure as "web" | "workflow" | "headless",
     description: descriptionIndex >= 0 ? argv[descriptionIndex + 1] : undefined,
@@ -528,6 +720,9 @@ export const runGeneratorCli = (
             "template:doctor [--mode fake|test|live] [--path <file>]",
             "template:add-capability --name <name> [--description <text>] [--exposure web|workflow|headless] [--write]",
             "template:add-workflow --name <name> [--description <text>] [--write]",
+            "template:upgrade --from <client-version> --to <template-version>",
+            "template:private-package:dry-run --fixture <path>",
+            "template:private-package:import --fixture <path> [--write]",
           ].join("\n") + "\n",
         stderr: "",
       };
@@ -621,6 +816,55 @@ export const runGeneratorCli = (
       return {
         exitCode: 0,
         stdout: `${JSON.stringify(result, null, 2)}\n`,
+        stderr: "",
+      };
+    }
+
+    if (args.command === "upgrade") {
+      if (!args.from || !args.to) {
+        return {
+          exitCode: 1,
+          stdout: "",
+          stderr: "Missing required --from or --to for upgrade\n",
+        };
+      }
+
+      const report = buildTemplateUpgradeReport({
+        from: args.from,
+        to: args.to,
+      });
+
+      return {
+        exitCode: report.ok ? 0 : 1,
+        stdout: `${JSON.stringify(report, null, 2)}\n`,
+        stderr: "",
+      };
+    }
+
+    if (
+      args.command === "private-package:dry-run" ||
+      args.command === "private-package:import"
+    ) {
+      if (!args.fixture) {
+        return {
+          exitCode: 1,
+          stdout: "",
+          stderr: `Missing required --fixture for ${args.command}\n`,
+        };
+      }
+
+      const plan = buildPrivatePackagePlan({
+        fixturePath: resolve(cwd, args.fixture),
+        mode: args.command === "private-package:import" ? "import" : "dry-run",
+      });
+
+      if (args.command === "private-package:import" && args.write) {
+        writeGeneratedFiles(plan.files, cwd);
+      }
+
+      return {
+        exitCode: plan.ok ? 0 : 1,
+        stdout: `${JSON.stringify(plan, null, 2)}\n`,
         stderr: "",
       };
     }

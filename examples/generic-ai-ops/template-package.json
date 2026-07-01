@@ -1,0 +1,7 @@
+{
+  "name": "generic-ai-ops",
+  "capabilities": ["summarizeSource", "draftSourceGroundedPlan"],
+  "workflows": ["sourceGroundedPlan"],
+  "agents": ["planner"],
+  "docs": ["README.md"]
+}

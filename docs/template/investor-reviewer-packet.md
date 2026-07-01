@@ -34,7 +34,8 @@ The current template proves these reusable primitives:
   harnesses for WorkOS/AuthKit, PostHog, Dodo, MailerSend, OpenRouter-compatible
   LLMs, storage, and search.
 - App factory commands for `template:init`, `template:doctor`,
-  `template:add-capability`, and `template:add-workflow`.
+  `template:add-capability`, `template:add-workflow`, `template:upgrade`, and
+  private-package dry-run/import.
 - Cloudflare Pages deployment wiring and static hosted smoke checks.
 
 ## Thirty-Minute Technical Review
@@ -83,6 +84,8 @@ Inspect the app factory:
 pnpm template:init -- --name "Reviewer Brain"
 pnpm template:add-capability -- --name summarizeSource
 pnpm template:add-workflow -- --name sourceGroundedPlan
+pnpm template:upgrade -- --from client-v1.0.0 --to template-v1.1.0
+pnpm template:private-package:dry-run -- --fixture examples/generic-ai-ops
 ```
 
 ## Architecture Trace
@@ -127,7 +130,8 @@ Remaining work before calling the whole plan complete:
   Confect runner services in client apps.
 - Add deeper `@confect/test` coverage for storage, scheduling, Node actions,
   identity, and live HTTP handler paths.
-- Add richer client-fork upgrade tooling and private package import workflows.
+- Promote private-package package plans into full source-module importers for
+  larger client packages.
 - Add screenshot-diff visual regression coverage for investor-visible UI
   surfaces.
 

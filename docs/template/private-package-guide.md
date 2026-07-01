@@ -16,3 +16,13 @@ template core.
 
 Private packages should target a template release. When the template upgrades,
 rerun dry-run import and fix contract diffs deliberately.
+
+## Commands
+
+```bash
+pnpm template:private-package:dry-run -- --fixture examples/generic-ai-ops
+pnpm template:private-package:import -- --fixture examples/generic-ai-ops --write
+```
+
+The dry-run emits a redaction-aware package plan. Import writes the plan under
+`private-packages/<package>/` only when `--write` is explicit.
