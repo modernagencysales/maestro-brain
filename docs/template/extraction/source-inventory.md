@@ -75,22 +75,21 @@ Primary architecture sources:
 
 Representative reusable streams to mine deliberately:
 
-- Frontend and Notion Kit: PR #1385, #1400, #1390, #1397, #1383, #1384,
-  #1259, #1249, #1254, and the `canonical-nk-*` stream.
+- Frontend and Notion Kit: PR #1385, #1400, #1390, #1397, #1383, #1384, #1259,
+  #1249, #1254, and the `canonical-nk-*` stream.
 - Workflow builder and React Flow: PR #869, #1374, and #1370.
-- Living Knowledge: PR #1031, #1035, #1038, #1039, #1040, #1047, #1048,
-  #1053, #1057, #1063, #1069, #1072, #1073, #1104, #1151, #1167, #1172,
-  and #1195.
+- Living Knowledge: PR #1031, #1035, #1038, #1039, #1040, #1047, #1048, #1053,
+  #1057, #1063, #1069, #1072, #1073, #1104, #1151, #1167, #1172, and #1195.
 - Brain: PR #421, #422, #653-#667, and #1349.
 - Headless/API/CLI/MCP: PR #736-#749, #1184, #1186, #1187, #1188, and #1331.
-- Platform and operations: PR #2, #423-#427, #801, #843, #849-#855, #864,
-  #1311, #1314, #1317, #1362, and #1366-#1408.
-- Access, admin, support, and privacy lifecycle: PR #67, #85, #1359, #1376,
-  and launch docs around audit, support, export/delete, and incident handling.
+- Platform and operations: PR #2, #423-#427, #801, #843, #849-#855, #864, #1311,
+  #1314, #1317, #1362, and #1366-#1408.
+- Access, admin, support, and privacy lifecycle: PR #67, #85, #1359, #1376, and
+  launch docs around audit, support, export/delete, and incident handling.
 - Onboarding and demo workspace: PR #468-#471 plus safe demo data and seeding
   boundary docs.
-- Capture, voice, and source intake: PR #390-#398, #914, #950, and related
-  voice relay/browser capture/manual transcript docs.
+- Capture, voice, and source intake: PR #390-#398, #914, #950, and related voice
+  relay/browser capture/manual transcript docs.
 - Storage, media, export, and collaboration: PR #948, #1408, asset storage,
   review-token, ProseMirror, BlockNote, and media boundary docs.
 - Observability, release, and rollback: PR #294 plus PostHog readiness, SLO,

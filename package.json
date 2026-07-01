@@ -1,0 +1,30 @@
+{
+  "name": "maestro-template",
+  "private": true,
+  "packageManager": "pnpm@10.12.1",
+  "scripts": {
+    "format": "prettier --write .",
+    "check:format": "prettier --check .",
+    "lint": "eslint .",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:tooling": "pnpm --dir tooling/quality test && pnpm --dir tooling/workflow test && pnpm --dir tooling/generators test && pnpm --dir tooling/evals test && pnpm --dir tooling/release test",
+    "test:workflow": "pnpm --dir tooling/workflow test",
+    "test:pr-backlog": "pnpm --dir tooling/pr-backlog test",
+    "evals": "pnpm --dir tooling/evals test",
+    "build": "turbo run build",
+    "verify": "pnpm check:format && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@playwright/test": "^1.45.0",
+    "@types/node": "^22.0.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.0.0",
+    "tsx": "^4.0.0",
+    "turbo": "^2.0.0",
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^3.0.0"
+  }
+}
