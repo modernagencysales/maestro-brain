@@ -89,8 +89,8 @@ steps:
     depends_on: "phase-1"
     command: ".buildkite/scripts/staging-deploy.sh"
     secrets:
-      - CLOUDFLARE_API_TOKEN
-      - CLOUDFLARE_ACCOUNT_ID
+      - TEMPLATE_CLOUDFLARE_API_TOKEN
+      - TEMPLATE_CLOUDFLARE_ACCOUNT_ID
       - TEMPLATE_CONVEX_DEPLOY_KEY
     agents:
       queue: "linux-medium"
@@ -106,8 +106,8 @@ steps:
     depends_on: "production-approval"
     command: ".buildkite/scripts/production-promote.sh"
     secrets:
-      - CLOUDFLARE_API_TOKEN
-      - CLOUDFLARE_ACCOUNT_ID
+      - TEMPLATE_CLOUDFLARE_API_TOKEN
+      - TEMPLATE_CLOUDFLARE_ACCOUNT_ID
       - TEMPLATE_CONVEX_DEPLOY_KEY
     agents:
       queue: "linux-medium"

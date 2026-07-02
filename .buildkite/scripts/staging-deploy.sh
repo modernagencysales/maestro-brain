@@ -8,10 +8,13 @@ COMMIT_SHA="${BUILDKITE_COMMIT:-$(git rev-parse HEAD)}"
 PROJECT_NAME="$(node scripts/_project-config.mjs get staging cloudflarePagesProject)"
 BRANCH_NAME="$(node scripts/_project-config.mjs get staging cloudflareBranch)"
 
-# Cluster secrets namespace this pipeline's Convex key so it can never
-# collide with another pipeline's CONVEX_DEPLOY_KEY in the shared cluster.
+# Cluster secrets are namespaced TEMPLATE_* so this pipeline can never read
+# (or collide with) another pipeline's deploy credentials in the shared
+# cluster; each is policy-locked to maestro-template main builds.
 CONVEX_DEPLOY_KEY="${CONVEX_DEPLOY_KEY:-${TEMPLATE_CONVEX_DEPLOY_KEY:-}}"
-export CONVEX_DEPLOY_KEY
+CLOUDFLARE_API_TOKEN="${CLOUDFLARE_API_TOKEN:-${TEMPLATE_CLOUDFLARE_API_TOKEN:-}}"
+CLOUDFLARE_ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID:-${TEMPLATE_CLOUDFLARE_ACCOUNT_ID:-}}"
+export CONVEX_DEPLOY_KEY CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID
 
 pnpm exec tsx tooling/release/src/index.ts deploy-doctor staging
 
