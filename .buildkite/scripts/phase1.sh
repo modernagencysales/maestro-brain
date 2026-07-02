@@ -14,6 +14,10 @@ if [[ -n "${SECRET_SCANNER_VERSION:-}" ]]; then
   echo "Secret scanner version target: ${SECRET_SCANNER_VERSION}"
 fi
 
+# check:secret-canaries shells out to gitleaks; hosted agents are bare.
+"$(dirname "$0")/install-gitleaks.sh"
+export PATH="${HOME}/.local/bin:${PATH}"
+
 pnpm verify
 pnpm check:ci-completeness
 pnpm check:config-drift

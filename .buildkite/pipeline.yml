@@ -1,5 +1,5 @@
 env:
-  SECRET_SCANNER_VERSION: "8.28.0"
+  SECRET_SCANNER_VERSION: "8.30.1"
 
 # Phase-1 command inventory:
 # pnpm verify

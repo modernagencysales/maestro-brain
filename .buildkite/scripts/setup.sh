@@ -65,10 +65,29 @@ else
   exit 1
 fi
 
-# pnpm via corepack
-if command -v corepack &>/dev/null; then
-  corepack enable
-  corepack prepare --activate 2>/dev/null || true
+# pnpm: checksum-pinned standalone binary. Corepack verifies downloads against
+# registry signature keys that rotate out from under pinned Node releases
+# ("Cannot find matching keyid"), so it is avoided entirely.
+PNPM_VERSION="10.12.1"
+PNPM_LINUX_X64_SHA256="eb2dc1f109bca046ce734d062c8dd8f34db2b58a115992f9b086456efd7b2305"
+
+if ! command -v pnpm &>/dev/null || [[ "$(pnpm --version 2>/dev/null)" != "$PNPM_VERSION" ]]; then
+  if [[ "$(uname -s)_$(uname -m)" != "Linux_x86_64" ]]; then
+    echo "pnpm $PNPM_VERSION must be preinstalled on non linux-x64 CI images." >&2
+    exit 1
+  fi
+  pnpm_install_dir="${HOME:-$PWD}/.local/bin"
+  mkdir -p "$pnpm_install_dir"
+  curl -fsSL -o "$pnpm_install_dir/pnpm.download" \
+    "https://github.com/pnpm/pnpm/releases/download/v${PNPM_VERSION}/pnpm-linux-x64"
+  pnpm_actual_sha="$(sha256_file "$pnpm_install_dir/pnpm.download")"
+  if [[ "$pnpm_actual_sha" != "$PNPM_LINUX_X64_SHA256" ]]; then
+    echo "pnpm ${PNPM_VERSION} checksum mismatch: expected ${PNPM_LINUX_X64_SHA256}, got ${pnpm_actual_sha}" >&2
+    exit 1
+  fi
+  install -m 0755 "$pnpm_install_dir/pnpm.download" "$pnpm_install_dir/pnpm"
+  rm -f "$pnpm_install_dir/pnpm.download"
+  export PATH="$pnpm_install_dir:$PATH"
 fi
 
 # Keep the pnpm store inside the workspace so Buildkite's hosted cache volume can
