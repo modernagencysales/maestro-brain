@@ -14,6 +14,8 @@ export default [
       "packages/convex/convex/_generated/**",
       "apps/web/src/routeTree.gen.ts",
       ".pnpm-store/**",
+      ".stryker-tmp/**",
+      ".wrangler/**",
     ],
   },
   js.configs.recommended,
