@@ -190,28 +190,28 @@ const overviewPage: DocumentPage = {
   eyebrow: "Private AI app factory",
   title: "A reusable foundation for custom AI implementation work",
   intro:
-    "Maestro Template is the internal starting point for client-specific AI apps. It lets us start from a proven Brain, workflow, agent, integration, and safety model instead of rebuilding the same platform scaffolding for every engagement.",
+    "Maestro Template is the starting point for every client-specific AI app we build. Instead of beginning an engagement from a blank repository, we begin from a working product: a company Brain, workflows, agents, integrations, and safety rails that have already been built, tested, and deployed once.",
   diagram: overviewDiagram,
   sections: [
     {
       heading: "What an investor should see",
       body: [
-        "This is leverage. The repo packages repeatable delivery assets: a hosted app shell, typed backend contracts, workflow and capability primitives, provider adapters, API/CLI/MCP surfaces, and release gates.",
-        "It also lowers execution risk. A new client app can begin from working code, tests, docs, and deployment paths rather than a blank editor and a pile of one-off decisions.",
+        "This is leverage. Every engagement reuses the same delivery assets: a hosted app, a type-checked backend, workflow and approval machinery, provider integrations, API and docs surfaces, and an automated release pipeline.",
+        "It also lowers execution risk. A new client app starts from code that already runs in production — with tests, documentation, and deployment in place — instead of an empty editor and a hundred unmade decisions.",
       ],
     },
     {
       heading: "What a GTM operator should see",
       body: [
-        "This is a way to turn customer context into useful AI behavior. The Brain organizes what the business knows, workflows describe what should happen, capabilities do the work, and agents choose or compose the next step inside clear guardrails.",
-        "The pages in the sidebar walk through that path in order: Brain, Workflows, Capabilities, Agents, API / CLI / MCP, Integrations, and Safety.",
+        "This is how customer knowledge becomes useful AI behavior. The Brain organizes what the business knows. Workflows describe what should happen, and in what order. Capabilities do the actual work. Agents choose the next step — always inside clear guardrails.",
+        "The sidebar walks that path in order: Brain, Workflows, Capabilities, Agents, then the surfaces and safeguards built around them.",
       ],
     },
     {
       heading: "Technical proof",
       body: [
-        `The sample tracks ${stats.length} health signals across typed functions, provider posture, workflow gates, and grounded context.`,
-        "The template is intentionally generic: it keeps the reusable machinery while leaving client-specific business logic out.",
+        `This demo tracks ${stats.length} live health signals covering the backend, provider readiness, workflow gates, and grounded context.`,
+        "Everything client-specific is deliberately left out: the machinery is reusable, the business logic is yours.",
       ],
     },
   ],
@@ -236,7 +236,7 @@ const pages: readonly DocumentPage[] = [
     eyebrow: "Context layer",
     title: "The Brain turns company knowledge into usable AI context",
     intro:
-      "For a client, the Brain is the place where sales calls, website pages, positioning notes, links, markdown, and operating knowledge become organized context that an AI system can safely use.",
+      "The Brain is where a client's knowledge — sales calls, website pages, positioning notes, documents — is organized into context an AI system can safely use. Nothing the AI says has to come from thin air; it comes from here.",
     diagram: brainDiagram,
     sections: buildBrainDocumentSections({
       sources: brainSources,
@@ -248,7 +248,7 @@ const pages: readonly DocumentPage[] = [
     eyebrow: "Composition layer",
     title: "Workflows turn AI ideas into repeatable business processes",
     intro:
-      "A workflow is the recipe for getting from customer context to a useful outcome: research, qualification, drafting, routing, enrichment, approval, follow-up, or anything else the client needs to repeat.",
+      "A workflow is a recipe the business can repeat: research an account, qualify a lead, draft an update, route a request for approval. It spells out the steps; AI does the heavy lifting inside them.",
     diagram: {
       label: "Workflow graph template",
       graph: durableWorkflowGraph,
@@ -257,19 +257,19 @@ const pages: readonly DocumentPage[] = [
       {
         heading: "How to explain it",
         body: [
-          "A non-technical stakeholder can think of this as an operating procedure with AI inside it. The workflow says what information is needed, which steps can be automated, where approval is required, and what output should be produced.",
-          "This is why the React Flow implementation matters. It gives clients a visual way to understand and eventually author the process without reading code.",
+          "Think of it as a standard operating procedure with AI inside. The workflow states what information is needed, which steps run automatically, where a human must approve, and what gets produced at the end.",
+          "The visual canvas above is the point: clients can see, question, and eventually edit their own processes without reading code.",
         ],
       },
       {
         heading: "Technical proof",
         body: [
-          "The sample flow resolves a source set, builds a context pack, grants an agent narrow access, records approval, and produces a trust receipt.",
-          "Durable workflow behavior should stay in typed workflow metadata and Confect/Effect contracts. React Flow is the authoring and inspection layer, not the only source of truth.",
+          "The sample flow gathers approved sources, packages them into context, lets an agent plan, records a human approval, and finishes with a trust receipt — a permanent record of what was done and on what evidence.",
+          "The diagram is a view of the process, not the process itself. The real workflow lives in the backend with type-checked steps, so what runs is always exactly what was approved.",
         ],
       },
       {
-        heading: "Fake/local run trigger",
+        heading: "Try it without live credentials",
         body: [
           `Run command: \`${fakeWorkflowRun.commandLine}\`.`,
           `Mode: ${fakeWorkflowRun.mode}.`,
@@ -284,13 +284,13 @@ const pages: readonly DocumentPage[] = [
     eyebrow: "Execution units",
     title: "Capabilities are the safe actions the system can perform",
     intro:
-      "A capability is one thing the app knows how to do: create a trust receipt, search approved context, draft a message, call a provider, enrich a record, or trigger a downstream process.",
+      "A capability is one concrete thing the app knows how to do: search approved context, draft a message, create a trust receipt, update a record. Big outcomes are composed from small, safe actions.",
     sections: [
       {
         heading: "Why this matters",
         body: [
-          "This keeps custom apps modular. When a client needs a new business action, we add a capability instead of rewriting the whole application.",
-          "It also makes AI safer. Agents do not get vague, unlimited power. They request specific capabilities with clear inputs, outputs, policies, and audit trails.",
+          "When a client needs something new, we add one capability — we do not rewrite the application.",
+          "It also keeps AI safe. Agents never get vague, unlimited power: they request specific capabilities, each with defined inputs, outputs, permissions, and an audit trail.",
         ],
       },
       {
@@ -303,8 +303,8 @@ const pages: readonly DocumentPage[] = [
       {
         heading: "Technical proof",
         body: [
-          "Reviewed runtime-authored capabilities can be promoted into generated Confect source when compile-time guarantees matter.",
-          "Each capability should return typed results or typed failures so the app can handle success, policy denial, provider errors, and validation errors deliberately.",
+          "Every capability answers with either a typed result or a typed failure, so the app responds deliberately to success, permission denials, provider outages, and bad input — nothing surfaces as a mystery error.",
+          "Capabilities sketched at runtime can be promoted into reviewed, generated source code once they prove out — gaining compile-time guarantees.",
         ],
       },
     ],
@@ -314,7 +314,7 @@ const pages: readonly DocumentPage[] = [
     eyebrow: "Actor layer",
     title: "Agents make choices, but only inside boundaries",
     intro:
-      "An agent is the part of the system that can reason, choose a next step, and compose workflows or capabilities. The template treats agents as useful but bounded actors, not unchecked automation.",
+      "An agent is the part of the system that reasons: it looks at a request, picks the right workflow or capability, and composes the next step. The template treats agents as valuable but bounded — they act inside explicit permissions, never around them.",
     sections: [
       {
         heading: "What this means in practice",
@@ -329,7 +329,7 @@ const pages: readonly DocumentPage[] = [
         body: [
           ...agents.map(
             (agent) =>
-              `**${agent.name}** receives these grants: ${agent.grants}.`,
+              `**${agent.name}** is allowed exactly this, and nothing else: ${agent.grants}.`,
           ),
           "Source content is data, not instructions.",
           "Agent grants are explicit.",
@@ -343,14 +343,14 @@ const pages: readonly DocumentPage[] = [
     eyebrow: "Surface layer",
     title: "One operation can show up in the app, API, CLI, MCP, and docs",
     intro:
-      "The same business operation should not be rebuilt five times. The template keeps a shared registry that can power the web app, external API, internal CLI, MCP tools for agents, and Scalar API documentation.",
+      "Build a business operation once and it shows up everywhere it is needed: the web app, the external API, the command line, AI tool integrations (MCP), and always-current API documentation. Nothing is rebuilt five times, so nothing drifts out of sync.",
     diagram: surfaceDiagram,
     sections: [
       {
         heading: "Why this matters",
         body: [
-          "For investors, this is delivery leverage: one well-typed operation can become several useful product surfaces.",
-          "For GTM teams, this means the same customer workflow can be used by humans in the app, by operators in the CLI, by integrations through the API, and by AI tools through MCP.",
+          "For investors: one well-defined operation becomes five product surfaces. That is delivery leverage.",
+          "For GTM teams: the same workflow a person runs in the app can be triggered by an integration through the API, by an operator from the command line, or by an AI assistant through MCP — same rules, same audit trail.",
         ],
       },
       {
@@ -375,7 +375,7 @@ const pages: readonly DocumentPage[] = [
     eyebrow: "Client quickstart",
     title: "Onboarding turns the template into a client app",
     intro:
-      "This is the operator checklist for turning the internal factory into a useful AI/GTM implementation for a specific B2B company.",
+      "The step-by-step checklist for turning this template into a specific client's app — from first workspace to a working, branded implementation.",
     sections: onboardingSections,
   },
   {
@@ -383,13 +383,13 @@ const pages: readonly DocumentPage[] = [
     eyebrow: "Provider layer",
     title: "Integrations are swappable instead of tangled into the app",
     intro:
-      "Client work almost always needs identity, analytics, email, billing, data storage, model providers, or third-party systems. The template keeps those providers behind adapters so each client can use the right tools without changing the core architecture.",
+      "Client work always touches other systems: identity, analytics, email, billing, storage, AI models. The template keeps every provider behind a clean adapter, so each client can use the right tools — and swap them later — without touching the core product.",
     sections: [
       {
         heading: "Why this matters",
         body: [
-          "The app can run in demo, diligence, and test modes without live client secrets.",
-          "When a client implementation begins, fake layers can be replaced with live SDK-backed layers one provider at a time.",
+          "The app runs fully in demo mode with no live credentials, so evaluations and diligence never require client secrets.",
+          "When an engagement goes live, providers are switched on one at a time — each a deliberate, reviewed step instead of a tangle to unpick later.",
         ],
       },
       {
@@ -402,8 +402,8 @@ const pages: readonly DocumentPage[] = [
       {
         heading: "Technical proof",
         body: [
-          "Provider payloads should be redacted before crossing public boundaries.",
-          "Client forks replace deterministic receipts with SDK-backed calls when live setup begins.",
+          "Anything a provider sends back is scrubbed of sensitive detail before it can reach logs or screens.",
+          "Swapping the demo version of a provider for the live one is a contained change — the rest of the app does not know the difference.",
         ],
       },
     ],
@@ -413,7 +413,7 @@ const pages: readonly DocumentPage[] = [
     eyebrow: "Workspace operations",
     title: "Settings make the fork operational without live secrets",
     intro:
-      "Settings should give the implementation team a clear view of workspace identity, members, provider posture, notification readiness, billing posture, and deploy readiness.",
+      "Settings give the implementation team one honest view of the workspace: who is in it, which providers are live versus demo, whether notifications and billing are ready, and how close the app is to deployable.",
     sections: providerSetupSections,
   },
   {
@@ -421,26 +421,26 @@ const pages: readonly DocumentPage[] = [
     eyebrow: "Commercial layer",
     title: "Billing starts fake and becomes live after signoff",
     intro:
-      "Client demos and diligence should not need live payment secrets. The template starts with deterministic billing posture, then swaps in Dodo when sandbox and production setup are approved.",
+      "Demos and evaluations never require a live payment provider. Billing starts in a predictable demo mode and switches to the real provider (Dodo) only after checkout, webhooks, and refund runbooks have been signed off.",
     sections: [
       {
         heading: "Dodo posture",
         body: [
-          "**Dodo** starts in billing fake first mode so demos and tests do not need live payment secrets.",
-          "The live adapter should only be enabled after sandbox checkout, webhook, credit accounting, and support/refund runbooks are signed off.",
+          "**Dodo** starts in billing fake first mode, so demos and tests never touch real payment credentials.",
+          "The live connection is enabled only after sandbox checkout, webhook handling, credit accounting, and the support/refund playbook have each been verified.",
         ],
       },
       {
         heading: "Credits and spend",
         body: [
-          "Credits, model spend, and provider caps should be visible to admins before any paid workflow can run.",
-          "Provider failures should produce redacted typed errors rather than leaking billing or API details to users.",
+          "Admins can see credits, model spend, and provider caps before any paid workflow is allowed to run.",
+          "If a provider fails, users see a clear, plain-language error — never a raw payment or API detail.",
         ],
       },
       {
         heading: "Launch proof",
         body: [
-          "A client fork should preserve fake receipts for tests and add live Dodo smoke evidence before production promotion.",
+          "A client fork keeps the demo receipts for testing and adds live payment evidence before anything is promoted to production.",
           `The sample workflow already produces \`${sampleRunReceipt.trustReceiptId}\` so billing and workflow proof can be inspected separately.`,
         ],
       },
@@ -451,13 +451,13 @@ const pages: readonly DocumentPage[] = [
     eyebrow: "Safety layer",
     title: "Safety is built into the delivery model",
     intro:
-      "The template is meant for real client work, not a toy demo. It assumes tenant boundaries, provider secrets, prompt injection, auditability, approvals, and production release discipline matter from the beginning.",
+      "This template is built for real client work, so it assumes from day one that tenant boundaries, secrets, prompt injection, audit trails, and disciplined releases all matter. Safety is part of the product, not a hardening phase bolted on later.",
     sections: [
       {
         heading: "Why this matters",
         body: [
-          "Investors should see that this is not just a UI prototype. It is a delivery framework with risk controls.",
-          "GTM operators should see that the system can explain what happened, what sources were used, which policy applied, and where human approval was required.",
+          "For investors: this is not a UI prototype. It is a delivery framework with risk controls built in.",
+          "For operators: the system can always explain itself — what ran, which sources were used, which policy applied, and where a human said yes.",
         ],
       },
       {
@@ -479,20 +479,20 @@ const pages: readonly DocumentPage[] = [
     eyebrow: "Execution history",
     title: "Runs are the audit trail of every workflow execution",
     intro:
-      "Every workflow execution persists a run row, per-stage rows, and an event stream. A client can always answer: what ran, who started it, what policy applied, and what evidence backs the output.",
+      "Every time a workflow executes, the system keeps the receipts. A client can always answer: what ran, who started it, which rules applied, and what evidence backs the output.",
     sections: [
       {
         heading: "How to explain it",
         body: [
-          "A run is one execution of a workflow recipe. It records the workflow version, the exact graph that executed, and start/completion timestamps.",
-          "Runs are idempotency-keyed, so retries and duplicate triggers can never double-execute a business process.",
+          "A run is one execution of a workflow recipe. It records which version of the process ran, the exact steps that executed, and when it started and finished.",
+          "Duplicate triggers and retries can never run the same business process twice — every run carries a key that makes repeats harmless.",
         ],
       },
       {
         heading: "Technical proof",
         body: [
-          "`workflowRuns`, `workflowStageRuns`, and `workflowRunEvents` are typed Confect tables indexed by workspace and status.",
-          "The Workflows page streams the seeded demo runs live from the deployed Convex backend — the same rows this page describes.",
+          "Every run, every stage, and every event is stored permanently and belongs to exactly one customer workspace.",
+          "The Workflows page streams the demo runs live from the deployed backend — the same records this page describes.",
           `Completed runs link to Trust Receipts like \`${sampleRunReceipt.trustReceiptId}\` for source-backed proof.`,
         ],
       },
@@ -503,20 +503,20 @@ const pages: readonly DocumentPage[] = [
     eyebrow: "Working surface",
     title: "Documents are versioned, annotated, and co-edited safely",
     intro:
-      "Client teams work in documents: briefs, drafts, research notes. The template treats every document as a versioned record with annotations and a co-editing seam, not a mutable blob.",
+      "Client teams work in documents: briefs, drafts, research notes. The template treats every document as a versioned record — with review notes attached to specific versions and safe simultaneous editing — never as a file that silently changes underneath you.",
     sections: [
       {
         heading: "Why this matters",
         body: [
-          "AI-assisted drafts need history: which version did the human approve, and what did the agent change?",
-          "Annotations attach review context to a specific version instead of drifting comments.",
+          "AI-assisted drafts need history. Which version did the human approve? What exactly did the AI change since then?",
+          "Review notes attach to the exact version they were written on, so feedback never drifts away from what it referred to.",
         ],
       },
       {
         heading: "Technical proof",
         body: [
-          "`documents`, `documentVersions`, and `documentAnnotations` tables carry the version chain; the coediting capability gates concurrent edits.",
-          "Document mutations flow through the same typed-error, role-gated Confect contracts as every other write.",
+          "Every document keeps its full version history, and simultaneous edits are coordinated instead of overwriting each other.",
+          "Document changes pass through the same permission checks and audit trail as every other change in the system.",
         ],
       },
     ],
@@ -526,20 +526,20 @@ const pages: readonly DocumentPage[] = [
     eyebrow: "Context layer",
     title: "Sources keep AI output anchored to real evidence",
     intro:
-      "Sources are the raw truth the Brain organizes: call transcripts, web pages, notes, uploads. Every claim an agent makes should trace back to one.",
+      "Sources are the raw truth the Brain organizes: call transcripts, web pages, notes, uploads. Every claim the AI makes should trace back to one of them.",
     sections: [
       {
         heading: "How to explain it",
         body: [
-          "A source set is a curated bundle of sources approved for a task. Context packs are built from source sets, never from the open internet.",
+          "A source set is a hand-picked bundle of sources approved for a task. The AI works from those — never from the open internet.",
           "Citations record which source backed which claim, so 'where did this come from?' always has an answer.",
         ],
       },
       {
         heading: "Technical proof",
         body: [
-          "`citations`, `claims`, and `versionedEntries` tables pin claims to sources; version freshness tracking flags stale context.",
-          "The source-grounded brief capability refuses to draft without a resolved source set — no default RAG.",
+          "Every claim is pinned to the source that backs it, and stale context is flagged before it can mislead anyone.",
+          "The drafting capability refuses to write without an approved set of sources. There is no 'just make something up' path.",
         ],
       },
     ],
@@ -549,20 +549,20 @@ const pages: readonly DocumentPage[] = [
     eyebrow: "Data governance",
     title: "The Data Map shows what the system stores and why",
     intro:
-      "Client diligence always asks the same question: what data does this system hold, how sensitive is it, and who can see it? The Data Map is the standing answer.",
+      "Client diligence always asks the same questions: what data does this system hold, how sensitive is it, and who can see it? The Data Map is the standing answer.",
     sections: [
       {
         heading: "Why this matters",
         body: [
-          "Every workspace carries an explicit `dataClassification` (public, internal, or confidential) that policies can key on.",
-          "Provider payloads are redacted before logging, so operational telemetry never becomes a shadow copy of client data.",
+          "Every workspace is explicitly labeled public, internal, or confidential, and rules can key off that label.",
+          "Anything a provider sends back is scrubbed before it reaches logs, so operational records never become a shadow copy of client data.",
         ],
       },
       {
         heading: "Technical proof",
         body: [
-          "Tenancy tables scope every row to a workspace; cross-tenant reads are structurally impossible through the typed reader.",
-          "`check:sbom-license` inventories every dependency license, and gitleaks scanning blocks committed secrets.",
+          "Every record belongs to exactly one customer workspace, and the system is built so a query physically cannot read across customers.",
+          "Every software license in the product is inventoried automatically, and secret-scanning blocks credentials from ever being committed.",
         ],
       },
     ],
@@ -577,15 +577,15 @@ const pages: readonly DocumentPage[] = [
       {
         heading: "How to explain it",
         body: [
-          "The demo records send intents — you can inspect exactly what would have been sent, to whom, and why.",
-          "A client fork flips to live MailerSend delivery only after the sender domain is verified and approved.",
+          "In demo mode, nothing is actually sent — the system records exactly what would have gone out, to whom, and why, so every flow is testable.",
+          "A client fork switches to live email delivery only after the sending domain is verified and approved.",
         ],
       },
       {
         heading: "Technical proof",
         body: [
-          "`packages/notifications` exposes the typed send seam; `EMAIL_DISABLED=true` is the default posture.",
-          "Invitation emails flow through the access lifecycle, so a recorded invite is proof the whole membership path works.",
+          "Recorded-only is the default; going live is an explicit configuration decision, not an accident.",
+          "A recorded invitation is proof the entire membership flow works end to end — invite, accept, and role assignment.",
         ],
       },
     ],
@@ -600,15 +600,15 @@ const pages: readonly DocumentPage[] = [
       {
         heading: "How to explain it",
         body: [
-          "Events are defined in a capture schema the client approves before anything is collected.",
-          "Local, demo, and diligence modes never emit real events.",
+          "Every tracked event is defined up front in a list the client approves before anything is collected.",
+          "Local, demo, and evaluation modes never send real events anywhere.",
         ],
       },
       {
         heading: "Technical proof",
         body: [
-          "The PostHog provider mounts in the web shell behind `POSTHOG_DISABLED`; `check:posthog-readiness` pins the wiring.",
-          "The backend event seam is typed, so renaming an event is a compile error, not a silent analytics gap.",
+          "The analytics connection (PostHog) ships wired but switched off, and an automated check keeps it that way until a client turns it on deliberately.",
+          "Renaming or removing a tracked event is a visible code change the build catches — never a silent gap in the data.",
         ],
       },
     ],
@@ -623,15 +623,15 @@ const pages: readonly DocumentPage[] = [
       {
         heading: "Why this matters",
         body: [
-          "B2B buyers ask for a DPA and a data inventory before rollout; having placeholders beats having nothing.",
-          "License exposure is inventoried mechanically, so 'is anything here GPL?' is a report, not an audit.",
+          "B2B buyers ask for data-processing terms and a data inventory before rollout. Starting from drafts beats starting from nothing.",
+          "License exposure is inventoried automatically, so 'is anything in here we can't ship?' is a report, not a week-long audit.",
         ],
       },
       {
         heading: "Technical proof",
         body: [
-          "A dedicated `/legal` route renders the legal shell in the app itself.",
-          "`check:sbom-license` runs in every verify pass and fails the build on unvetted license classes.",
+          "The app ships with a dedicated legal page, so terms and privacy always have a home in the product itself.",
+          "Every dependency's license is checked on every release, and unvetted license types stop the build.",
         ],
       },
     ],
@@ -646,15 +646,15 @@ const pages: readonly DocumentPage[] = [
       {
         heading: "How to explain it",
         body: [
-          "Membership lifecycle — invite, accept, change role, remove, transfer ownership — is a state machine with typed errors, not a pile of update calls.",
-          "Risky agent actions wait in an approval queue; approving one mints a scoped, expiring token.",
+          "Membership has a real lifecycle — invite, accept, change role, remove, transfer ownership — with every step validated, not a pile of ad-hoc updates.",
+          "Risky AI actions wait in an approval queue. Approving one grants narrow, time-limited permission for that action only.",
         ],
       },
       {
         heading: "Technical proof",
         body: [
-          "Every write capability declares a `minRole`; an ESLint layer law makes an unguarded write a build failure.",
-          "`actionApprovals` records reviewer, scope, and expiry — the sample approval flow is covered by unit tests end to end.",
+          "Every action that changes data declares who is allowed to take it — a change without a permission check cannot even be built.",
+          "Every approval records the reviewer, the scope, and an expiry, and the whole flow is covered by automated tests.",
         ],
       },
     ],

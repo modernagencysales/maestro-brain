@@ -41,8 +41,9 @@ export function LiveWorkflowRunsPanel() {
       {view.kind === "ready" ? (
         <>
           <p>
-            Streaming from workspace <strong>{view.workspaceName}</strong> on
-            the deployed Convex backend.
+            Streaming from workspace <strong>{view.workspaceName}</strong> —
+            these rows come from the live backend, not from content bundled with
+            the page.
           </p>
           <ul>
             {view.rows.map((row) => (
