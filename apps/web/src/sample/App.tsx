@@ -26,6 +26,7 @@ import {
   buildOnboardingDocumentSections,
   buildProviderSetupDocumentSections,
 } from "../features/setup/setup-surface";
+import { LiveWorkflowRunsPanel } from "../features/workflows/live-runs-panel";
 import {
   buildWorkflowRunDocumentSections,
   reduceFakeWorkflowRunCommand,
@@ -567,6 +568,10 @@ export function App() {
           }}
         >
           <NotionDocumentPage page={renderPage(activePage)} />
+          {/* Sibling of .notion-page on purpose: the visual baseline
+              screenshots the document element, and live data must never
+              shift a pinned screenshot. */}
+          {activePage.id === "workflows" ? <LiveWorkflowRunsPanel /> : null}
         </TemplateWorkspaceShell>
       </TemplateToastProvider>
     </>

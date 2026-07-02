@@ -192,4 +192,28 @@ test.describe("hosted reference app", () => {
     ).toHaveAttribute("aria-current", "page");
     await expect(page.getByText("WorkOS/AuthKit")).toBeVisible();
   });
+
+  test("streams live workflow runs from the deployed Convex backend", async ({
+    page,
+  }) => {
+    await page.goto("/");
+
+    const sidebar = await primaryNav(page);
+    await sidebar.getByRole("link", { name: /Workflows/ }).click();
+
+    const panel = page.getByRole("region", { name: "Live workspace data" });
+    await expect(
+      panel.getByRole("heading", { name: "Live workspace data" }),
+    ).toBeVisible();
+
+    // The hosted build bakes VITE_CONVEX_URL, so this must be a real
+    // subscription against the seeded demo workspace — not fixture data.
+    await expect(panel.getByText("Streaming from workspace")).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(panel.getByText("Maestro Template Demo")).toBeVisible();
+    await expect(
+      panel.getByText("source-grounded-brief").first(),
+    ).toBeVisible();
+  });
 });
