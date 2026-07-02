@@ -84,8 +84,8 @@ layers, add the missing boundary instead.
 - Broad local test gates must use:
 
 ```bash
-host-test-slot --class full pnpm test
-host-test-slot --class full pnpm verify
+pnpm test
+pnpm verify
 ```
 
 ## Provider And Secret Boundary

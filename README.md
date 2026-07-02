@@ -18,7 +18,7 @@ pnpm review:completion
 pnpm check:format
 pnpm lint
 pnpm typecheck
-host-test-slot --class full pnpm test
+pnpm test
 pnpm build
 ```
 
@@ -39,9 +39,12 @@ https://maestro-template.pages.dev
 For a technical diligence path, start with
 [docs/template/investor-reviewer-packet.md](./docs/template/investor-reviewer-packet.md).
 
-The template defaults to fake/local providers. Real Convex, WorkOS, PostHog,
-Dodo, MailerSend, storage, and LLM credentials are added through typed provider
-adapters in later setup steps.
+The hosted app is a working full-stack deployment: the Workflows page streams
+live data from a deployed Convex backend, and every push to `main` runs the full
+Buildkite gate pipeline (deterministic gates, LLM review gates, staging deploy,
+gated production promote). Other providers (WorkOS, PostHog, Dodo, MailerSend,
+storage, LLM) default to fake/local adapters and are switched on per client
+fork.
 
 ## Architecture
 
@@ -82,7 +85,7 @@ The reference app converges on these default surfaces:
 Fast local verification:
 
 ```bash
-pnpm check:format && pnpm lint && pnpm typecheck && host-test-slot --class full pnpm test && pnpm build
+pnpm check:format && pnpm lint && pnpm typecheck && pnpm test && pnpm build
 ```
 
 Investor completion audit:
@@ -94,7 +97,7 @@ pnpm review:completion
 Full verification after safety gates land:
 
 ```bash
-host-test-slot --class full pnpm verify
+pnpm verify
 ```
 
 ## Navigation

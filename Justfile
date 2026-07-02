@@ -18,7 +18,7 @@ typecheck:
     pnpm typecheck
 
 test:
-    host-test-slot --class full pnpm test
+    sh -c 'if command -v host-test-slot >/dev/null 2>&1; then host-test-slot --class full pnpm test; else pnpm test; fi'
 
 test-tooling:
     pnpm test:tooling
@@ -60,4 +60,4 @@ mutation:
     bash .buildkite/scripts/mutation.sh
 
 verify-full:
-    host-test-slot --class full pnpm verify
+    sh -c 'if command -v host-test-slot >/dev/null 2>&1; then host-test-slot --class full pnpm verify; else pnpm verify; fi'

@@ -7,7 +7,7 @@ pnpm install
 pnpm check:format
 pnpm lint
 pnpm typecheck
-host-test-slot --class full pnpm test
+pnpm test
 pnpm build
 ```
 
@@ -18,11 +18,11 @@ Use fake providers until a task explicitly asks for live provider setup.
 - `pnpm check:format`: formatting check.
 - `pnpm lint`: ESLint.
 - `pnpm typecheck`: TypeScript project references through Turbo.
-- `host-test-slot --class full pnpm test`: all package tests.
+- `pnpm test`: all package tests.
 - `pnpm test:tooling`: focused tooling tests.
 - `pnpm test:workflow`: focused workflow tooling tests.
 - `pnpm build`: all package builds.
-- `host-test-slot --class full pnpm verify`: full deterministic gate chain.
+- `pnpm verify`: full deterministic gate chain.
 
 ## PR Workflow
 
