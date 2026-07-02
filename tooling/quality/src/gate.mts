@@ -63,7 +63,11 @@ export async function runStaticCheck(
   const result = await evaluateStaticCheck(repoRoot, descriptor);
 
   if (result.ok) {
-    console.log(`${descriptor.name}: ok`);
+    // Pin-only: this harness greps files for pinned content. It protects
+    // gate/config shape; it does not measure behavior. Real measurement gates
+    // (coverage, mutation, knip, depcruise, gitleaks, type-coverage) run as
+    // their own tools — see docs/rule-coverage.md.
+    console.log(`${descriptor.name}: ok (pin-only)`);
     return;
   }
 

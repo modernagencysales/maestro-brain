@@ -56,6 +56,26 @@ layers, add the missing boundary instead.
 - Runtime-authored capabilities are data, not arbitrary code. Promotion to
   generated Confect source is the compile-time safety path.
 
+## Working Loop
+
+- Scaffold first: when a `pnpm template:*` generator covers the module kind, use
+  it instead of hand-writing registrations. Generated output compiles and passes
+  gates; fill in the TODOs where judgment is required.
+- Gate discipline: run the focused gates for what you changed before every
+  commit, and `just verify` before declaring any task done. Recipe names in the
+  Justfile are the canonical gate contract shared by local dev, CI, and agent
+  SOPs.
+- Verification before completion: never claim done, fixed, or passing without
+  pasting the passing command output. A red gate is a finding, not a blocker to
+  route around — never edit a gate file to make red turn green.
+- Commits: one intention per commit, imperative subject under ~60 chars
+  (`feat:`/`fix:`/`test:`/`docs:`/`chore:`), commit after every completed task,
+  keep PRs phase-scoped.
+- Suppressions (`eslint-disable`, `ts-expect-error`) are debt: do not add them
+  without a comment explaining the constraint and a backlog note.
+- When a subsystem changes status (real/fake/seam/planned), update its doc in
+  the same commit.
+
 ## Testing Doctrine
 
 - New behavior needs tests before implementation.
