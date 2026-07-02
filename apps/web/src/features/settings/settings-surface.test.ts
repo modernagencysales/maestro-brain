@@ -3,10 +3,12 @@ import { providerAdapters } from "../../sample/templateData";
 import { buildSettingsDocumentSections } from "./settings-surface";
 
 const workspace = {
-  id: "workspace_template",
+  workspaceId: "workspace_template",
+  organizationId: "org_template",
   name: "Acme Demo",
   slug: "acme-demo",
   role: "owner",
+  status: "active",
 } as const;
 
 describe("settings surface", () => {

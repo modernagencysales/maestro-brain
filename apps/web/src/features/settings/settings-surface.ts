@@ -1,5 +1,5 @@
 import type { ProviderAdapter } from "@maestro-template/template-core";
-import type { WorkspaceSnapshot } from "../../providers/workspace";
+import type { WorkspaceSummary } from "../../providers/workspace";
 
 export type SettingsDocumentSection = {
   readonly heading: string;
@@ -15,7 +15,7 @@ export const buildSettingsDocumentSections = ({
   viewer,
   providers,
 }: {
-  readonly workspace: WorkspaceSnapshot | null;
+  readonly workspace: WorkspaceSummary | null;
   readonly viewer: SettingsViewer;
   readonly providers: readonly ProviderAdapter[];
 }): readonly SettingsDocumentSection[] => {

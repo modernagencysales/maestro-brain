@@ -1,6 +1,7 @@
 export type Tone = "neutral" | "good" | "warn";
 
-export * from "./actions";
+// actions.ts is Node-only (node:crypto) — import it by path, not through this
+// browser-safe barrel.
 export * from "./coediting";
 export * from "./knowledge";
 export * from "./transforms";
