@@ -15,9 +15,12 @@ describe("workflow headless registry", () => {
   it("projects every capability to every headless surface", () => {
     const operations = buildHeadlessOperations();
 
-    expect(operations).toHaveLength(9);
+    expect(operations).toHaveLength(12);
     expect(operations.map((operation) => operation.id)).toContain(
       "Scalar API:resolveSourceSet",
+    );
+    expect(operations.map((operation) => operation.id)).toContain(
+      "CLI:sourceGroundedBrief",
     );
     expect(
       operations.every((operation) => operation.typedErrors.length > 0),
@@ -30,9 +33,9 @@ describe("workflow headless registry", () => {
       validationErrors: [],
       nodeCount: 5,
       edgeCount: 4,
-      capabilityCount: 3,
+      capabilityCount: 4,
       agentCount: 3,
-      headlessOperationCount: 9,
+      headlessOperationCount: 12,
     });
   });
 
@@ -46,11 +49,35 @@ describe("workflow headless registry", () => {
 
   it("projects API and MCP metadata from the same operation registry", () => {
     expect(buildApiCatalog()).toContainEqual({
+      operationId: "sourceGroundedBrief",
+      method: "POST",
+      path: "/api/sourceGroundedBrief",
+      authScope: "workspace member",
+      typedErrors: expect.arrayContaining([
+        "PolicyNotFound",
+        "PromptNotFound",
+        "RateLimited",
+        "SpendCapExceeded",
+      ]),
+    });
+
+    expect(buildApiCatalog()).toContainEqual({
       operationId: "createTrustReceipt",
       method: "POST",
       path: "/api/createTrustReceipt",
       authScope: "audited write",
       typedErrors: ["Unauthorized", "ConfigInvalid", "ValidationFailed"],
+    });
+
+    expect(buildMcpTools()).toContainEqual({
+      name: "template.sourceGroundedBrief",
+      description:
+        "Invoke sourceGroundedBrief through the shared template registry.",
+      inputSchema: expect.objectContaining({
+        type: "object",
+        additionalProperties: false,
+      }),
+      typedErrors: expect.arrayContaining(["PolicyNotFound", "PromptNotFound"]),
     });
 
     expect(buildMcpTools()).toContainEqual({
@@ -73,7 +100,17 @@ describe("workflow headless registry", () => {
       "/api/resolveSourceSet",
       "/api/buildContextPack",
       "/api/createTrustReceipt",
+      "/api/sourceGroundedBrief",
     ]);
+    expect(document.paths["/api/sourceGroundedBrief"]?.post).toMatchObject({
+      operationId: "sourceGroundedBrief",
+      "x-maestro-auth-scope": "workspace member",
+      "x-maestro-typed-errors": expect.arrayContaining([
+        "PolicyNotFound",
+        "PromptNotFound",
+        "ProviderConfigInvalid",
+      ]),
+    });
     const createTrustReceipt = document.paths["/api/createTrustReceipt"]?.post;
 
     expect(createTrustReceipt).toMatchObject({
@@ -111,10 +148,13 @@ describe("workflow headless registry", () => {
   it("returns a deterministic run receipt for the template workflow", () => {
     expect(runTemplateWorkflow()).toMatchObject({
       runId: "run_template_001",
+      workflowRunId: "run_template_001",
+      workflowId: "workflow_source_grounded_plan",
       workflowName: "Source-grounded planning workflow",
       status: "completed",
+      trustReceiptId: "trust_run_template_001",
       trustReceipt: {
-        receiptId: "receipt_template_001",
+        receiptId: "trust_run_template_001",
       },
     });
   });
@@ -132,8 +172,27 @@ describe("workflow headless registry", () => {
       result: {
         status: "accepted",
         workspaceSlug: "acme-demo",
-        receiptId: "receipt_template_001",
+        receiptId: "trust_run_template_001",
         workflowRunId: "run_template_001",
+      },
+    });
+
+    expect(
+      runTemplateApiOperation("sourceGroundedBrief", {
+        workspaceSlug: "acme-demo",
+        input: {
+          sourceIds: ["source_1"],
+          briefGoal: "Create a client implementation brief.",
+        },
+        idempotencyKey: "brief-example-001",
+      }),
+    ).toMatchObject({
+      ok: true,
+      operationId: "sourceGroundedBrief",
+      result: {
+        status: "accepted",
+        workspaceSlug: "acme-demo",
+        trustClaim: "source-backed-no-default-rag",
       },
     });
 
@@ -189,6 +248,7 @@ describe("workflow headless registry", () => {
 
   it("invokes MCP tools through the shared registry", () => {
     const capabilityResult = callMcpTool("template.resolveSourceSet");
+    const briefResult = callMcpTool("template.sourceGroundedBrief");
     const workflowResult = callMcpTool("template.workflow.run");
 
     expect(capabilityResult.isError).toBe(false);
@@ -201,10 +261,20 @@ describe("workflow headless registry", () => {
         },
       },
     );
+    expect(JSON.parse(briefResult.content[0]?.text ?? "{}")).toMatchObject({
+      ok: true,
+      capability: "sourceGroundedBrief",
+      result: {
+        status: "accepted",
+        trustClaim: "source-backed-no-default-rag",
+      },
+    });
     expect(JSON.parse(workflowResult.content[0]?.text ?? "{}")).toMatchObject({
       runId: "run_template_001",
+      workflowRunId: "run_template_001",
+      trustReceiptId: "trust_run_template_001",
       trustReceipt: {
-        receiptId: "receipt_template_001",
+        receiptId: "trust_run_template_001",
       },
     });
   });

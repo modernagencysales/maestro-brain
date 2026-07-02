@@ -1,0 +1,18 @@
+[
+  {
+    "id": "person_demo_avery",
+    "name": "Avery Demo",
+    "role": "VP Revenue",
+    "email": "avery@northstar.example",
+    "accountDomain": "northstar.example",
+    "buyingCommittee": "economic buyer"
+  },
+  {
+    "id": "person_demo_morgan",
+    "name": "Morgan Demo",
+    "role": "RevOps Lead",
+    "email": "morgan@riverline.example",
+    "accountDomain": "riverline.example",
+    "buyingCommittee": "technical evaluator"
+  }
+]

@@ -46,6 +46,24 @@ adapters.
 - Live mode validates required env var names before an adapter can be
   constructed.
 
+## Billing And Dodo
+
+Dodo remains fake-first in the template. Live Dodo calls stay behind
+`packages/integrations/src/dodo.ts`, while `packages/convex/confect/ops/billing`
+stores the reusable billing state:
+
+- webhook events deduplicate by provider, event ID, and signature timestamp
+- usage events carry an entitlement key before they create append-only credit
+  ledger entries
+- entitlements model seats, credits, and feature limits without hard-coding a
+  pricing plan
+- seat checks return typed failures instead of silently over-provisioning
+
+Fake billing receipts redact customer and provider metadata. Webhook
+normalization also redacts raw payload `data`, so tests and logs can inspect
+event identity without leaking customer emails, Dodo customer IDs, checkout
+session IDs, or signatures.
+
 ## Inspect Readiness
 
 The provider catalog lives in `packages/integrations/src/index.ts`. It declares

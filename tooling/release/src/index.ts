@@ -48,6 +48,64 @@ export type CompletionAuditReport = {
   }[];
 };
 
+export type ClientReleaseReport = {
+  readonly ok: boolean;
+  readonly repoRoot: string;
+  readonly templateVersion: string;
+  readonly clientVersion: string;
+  readonly compatibility: {
+    readonly status: "ready-for-review" | "missing-artifacts";
+    readonly requiredChecks: readonly string[];
+    readonly notes: readonly string[];
+  };
+  readonly handoffArtifacts: readonly {
+    readonly path: string;
+    readonly status: "pass" | "fail";
+    readonly detail: string;
+  }[];
+};
+
+export type DeployEnvironmentName = "staging" | "production";
+
+export type DeployEnvironmentConfig = {
+  readonly name: DeployEnvironmentName;
+  readonly domain: string;
+  readonly cloudflarePagesProject: string;
+  readonly cloudflareBranch: string;
+  readonly convexDeployName: string;
+  readonly requiredEnvGroups: readonly string[];
+  readonly requiredSecrets: readonly string[];
+};
+
+export type ProjectConfig = {
+  readonly project: {
+    readonly name: string;
+  };
+  readonly environments: Record<DeployEnvironmentName, DeployEnvironmentConfig>;
+};
+
+export type DeployDoctorReport = {
+  readonly ok: boolean;
+  readonly environment: DeployEnvironmentName;
+  readonly domain: string;
+  readonly cloudflarePagesProject: string;
+  readonly convexDeployName: string;
+  readonly requiredEnvGroups: readonly string[];
+  readonly requiredSecretNames: readonly string[];
+  readonly missingSecretNames: readonly string[];
+};
+
+export type DeployPlan = {
+  readonly ok: boolean;
+  readonly environment: DeployEnvironmentName;
+  readonly commitSha: string;
+  readonly domain: string;
+  readonly cloudflarePagesProject: string;
+  readonly cloudflareBranch: string;
+  readonly convexDeployName: string;
+  readonly refusal?: string;
+};
+
 const pass = (id: string, detail: string) => ({
   id,
   status: "pass" as const,
@@ -59,6 +117,101 @@ const fail = (id: string, detail: string) => ({
   status: "fail" as const,
   detail,
 });
+
+const readProjectConfig = (repoRoot: string): ProjectConfig => {
+  const path = resolve(repoRoot, "project.config.json");
+  const parsed = JSON.parse(readFileSync(path, "utf8")) as ProjectConfig;
+
+  return parsed;
+};
+
+const deployEnvironment = (
+  repoRoot: string,
+  environment: DeployEnvironmentName,
+): DeployEnvironmentConfig => {
+  const config = readProjectConfig(repoRoot);
+  const selected = config.environments[environment];
+
+  if (!selected) {
+    throw new Error(`Unknown deploy environment: ${environment}`);
+  }
+
+  return selected;
+};
+
+export const buildDeployDoctorReport = (options: {
+  readonly repoRoot?: string;
+  readonly environment: DeployEnvironmentName;
+  readonly env?: NodeJS.ProcessEnv;
+}): DeployDoctorReport => {
+  const repoRoot = options.repoRoot ?? process.cwd();
+  const env = options.env ?? process.env;
+  const selected = deployEnvironment(repoRoot, options.environment);
+  const missingSecretNames = selected.requiredSecrets.filter(
+    (name) => !env[name],
+  );
+
+  return {
+    ok: missingSecretNames.length === 0,
+    environment: selected.name,
+    domain: selected.domain,
+    cloudflarePagesProject: selected.cloudflarePagesProject,
+    convexDeployName: selected.convexDeployName,
+    requiredEnvGroups: selected.requiredEnvGroups,
+    requiredSecretNames: selected.requiredSecrets,
+    missingSecretNames,
+  };
+};
+
+export const buildStagingDeployPlan = (options: {
+  readonly repoRoot?: string;
+  readonly commitSha: string;
+}): DeployPlan => {
+  const repoRoot = options.repoRoot ?? process.cwd();
+  const selected = deployEnvironment(repoRoot, "staging");
+
+  return {
+    ok: true,
+    environment: "staging",
+    commitSha: options.commitSha,
+    domain: selected.domain,
+    cloudflarePagesProject: selected.cloudflarePagesProject,
+    cloudflareBranch: selected.cloudflareBranch,
+    convexDeployName: selected.convexDeployName,
+  };
+};
+
+export const buildProductionPromotePlan = (options: {
+  readonly repoRoot?: string;
+  readonly stagedSha: string;
+  readonly currentSha: string;
+}): DeployPlan => {
+  const repoRoot = options.repoRoot ?? process.cwd();
+  const selected = deployEnvironment(repoRoot, "production");
+
+  if (options.stagedSha !== options.currentSha) {
+    return {
+      ok: false,
+      environment: "production",
+      commitSha: options.currentSha,
+      domain: selected.domain,
+      cloudflarePagesProject: selected.cloudflarePagesProject,
+      cloudflareBranch: selected.cloudflareBranch,
+      convexDeployName: selected.convexDeployName,
+      refusal: `Refusing production promotion: staged SHA ${options.stagedSha} does not match current SHA ${options.currentSha}.`,
+    };
+  }
+
+  return {
+    ok: true,
+    environment: "production",
+    commitSha: options.currentSha,
+    domain: selected.domain,
+    cloudflarePagesProject: selected.cloudflarePagesProject,
+    cloudflareBranch: selected.cloudflareBranch,
+    convexDeployName: selected.convexDeployName,
+  };
+};
 
 const readinessArtifacts = [
   "README.md",
@@ -82,6 +235,25 @@ const readinessArtifacts = [
   "tooling/generators/src/index.ts",
   "tests/e2e/hosted-reference-app.spec.ts",
   "tests/e2e/hosted-reference-app.visual.spec.ts",
+] as const;
+
+const clientReleaseHandoffArtifacts = [
+  "template-instance.json",
+  "docs/template/generated/client-intake.md",
+  "docs/template/generated/implementation-brief.md",
+  "docs/template/generated/provider-setup-checklist.md",
+  "docs/template/generated/handoff-packet.md",
+  "docs/template/env-manifest.md",
+  "docs/template/template-release-process.md",
+] as const;
+
+const clientReleaseRequiredChecks = [
+  "pnpm check:generators",
+  "pnpm check:confect-contracts",
+  "pnpm check:workflow-graph-boundary",
+  "pnpm check:schema-migration-notes",
+  "pnpm check:secret-canaries",
+  "pnpm review:readiness",
 ] as const;
 
 const readinessClaims = [
@@ -435,25 +607,80 @@ export const buildCompletionAuditReport = (options?: {
   };
 };
 
+export const buildClientReleaseReport = (options: {
+  readonly repoRoot?: string;
+  readonly templateVersion: string;
+  readonly clientVersion: string;
+}): ClientReleaseReport => {
+  const repoRoot = options.repoRoot ?? process.cwd();
+  const handoffArtifacts = clientReleaseHandoffArtifacts.map((artifactPath) => {
+    const fullPath = resolve(repoRoot, artifactPath);
+
+    return existsSync(fullPath)
+      ? {
+          path: artifactPath,
+          status: "pass" as const,
+          detail: "present",
+        }
+      : {
+          path: artifactPath,
+          status: "fail" as const,
+          detail: `missing ${fullPath}`,
+        };
+  });
+  const ok = handoffArtifacts.every((artifact) => artifact.status === "pass");
+
+  return {
+    ok,
+    repoRoot,
+    templateVersion: options.templateVersion,
+    clientVersion: options.clientVersion,
+    compatibility: {
+      status: ok ? "ready-for-review" : "missing-artifacts",
+      requiredChecks: clientReleaseRequiredChecks,
+      notes: [
+        "Review generated Confect refs, workflow graphs, provider posture, and private-package promotion metadata before upgrading a client fork.",
+        "Handoff artifacts must label fake, seam, planned, and real behavior before investor or client review.",
+      ],
+    },
+    handoffArtifacts,
+  };
+};
+
 export const smokeWebStaticBuild = (options?: {
   readonly repoRoot?: string;
 }): WebStaticSmokeReport => {
   const repoRoot = options?.repoRoot ?? process.cwd();
   const distPath = resolve(repoRoot, "apps/web/dist");
   const indexPath = join(distPath, "index.html");
+  const startShellPath = join(distPath, "client/_shell.html");
   const assetsPath = join(distPath, "assets");
+  const startAssetsPath = join(distPath, "client/assets");
   const checks = [];
+  const htmlPath = existsSync(indexPath) ? indexPath : startShellPath;
 
-  if (!existsSync(indexPath)) {
-    checks.push(fail("web:index", `Missing ${indexPath}. Run pnpm build.`));
-  } else {
-    const html = readFileSync(indexPath, "utf8");
-    checks.push(pass("web:index", `Found ${indexPath}`));
+  if (!existsSync(htmlPath)) {
     checks.push(
-      html.includes('<div id="root"></div>')
-        ? pass("web:root", "index.html contains the React root")
-        : fail("web:root", "index.html is missing the React root"),
+      fail(
+        "web:index",
+        `Missing ${indexPath} or ${startShellPath}. Run pnpm build.`,
+      ),
     );
+  } else {
+    const html = readFileSync(htmlPath, "utf8");
+    const isStartShell = htmlPath === startShellPath;
+    checks.push(
+      isStartShell
+        ? pass("web:start-shell", `Found ${startShellPath}`)
+        : pass("web:index", `Found ${indexPath}`),
+    );
+    if (!isStartShell) {
+      checks.push(
+        html.includes('<div id="root"></div>')
+          ? pass("web:root", "index.html contains the React root")
+          : fail("web:root", "index.html is missing the React root"),
+      );
+    }
     checks.push(
       html.includes("/assets/")
         ? pass("web:assets-linked", "index.html links built assets")
@@ -461,17 +688,25 @@ export const smokeWebStaticBuild = (options?: {
     );
   }
 
-  const assets = existsSync(assetsPath) ? readdirSync(assetsPath) : [];
+  const resolvedAssetsPath = existsSync(assetsPath)
+    ? assetsPath
+    : startAssetsPath;
+  const assets = existsSync(resolvedAssetsPath)
+    ? readdirSync(resolvedAssetsPath)
+    : [];
   checks.push(
     assets.length > 0
       ? pass("web:assets", `Found ${assets.length} built assets`)
-      : fail("web:assets", `Missing built assets under ${assetsPath}`),
+      : fail(
+          "web:assets",
+          `Missing built assets under ${assetsPath} or ${startAssetsPath}`,
+        ),
   );
 
   return {
     ok: checks.every((check) => check.status === "pass"),
     distPath,
-    indexHtmlBytes: existsSync(indexPath) ? statSync(indexPath).size : 0,
+    indexHtmlBytes: existsSync(htmlPath) ? statSync(htmlPath).size : 0,
     assetCount: assets.length,
     checks,
   };
@@ -491,7 +726,7 @@ export const runReleaseCli = (
     return {
       exitCode: 0,
       stdout:
-        "release-tooling smoke-web-static | review-readiness | review-completion\n",
+        "release-tooling smoke-web-static | review-readiness | review-completion | client-release <template-version> <client-version> | deploy-doctor <staging|production> | deploy-plan staging <sha> | promote-plan <staged-sha> <current-sha>\n",
       stderr: "",
     };
   }
@@ -518,6 +753,97 @@ export const runReleaseCli = (
 
   if (command === "review-completion") {
     const report = buildCompletionAuditReport({ repoRoot: cwd });
+
+    return {
+      exitCode: report.ok ? 0 : 1,
+      stdout: `${JSON.stringify(report, null, 2)}\n`,
+      stderr: "",
+    };
+  }
+
+  if (command === "client-release") {
+    const templateVersion = argv[1];
+    const clientVersion = argv[2];
+
+    if (!templateVersion || !clientVersion) {
+      return {
+        exitCode: 1,
+        stdout: "",
+        stderr: "Usage: client-release <template-version> <client-version>\n",
+      };
+    }
+
+    const report = buildClientReleaseReport({
+      repoRoot: cwd,
+      templateVersion,
+      clientVersion,
+    });
+
+    return {
+      exitCode: report.ok ? 0 : 1,
+      stdout: `${JSON.stringify(report, null, 2)}\n`,
+      stderr: "",
+    };
+  }
+
+  if (command === "deploy-doctor") {
+    const environment = argv[1] as DeployEnvironmentName | undefined;
+
+    if (environment !== "staging" && environment !== "production") {
+      return {
+        exitCode: 1,
+        stdout: "",
+        stderr: "Usage: deploy-doctor <staging|production>\n",
+      };
+    }
+
+    const report = buildDeployDoctorReport({ repoRoot: cwd, environment });
+
+    return {
+      exitCode: report.ok ? 0 : 1,
+      stdout: `${JSON.stringify(report, null, 2)}\n`,
+      stderr: "",
+    };
+  }
+
+  if (command === "deploy-plan") {
+    const environment = argv[1];
+    const commitSha = argv[2];
+
+    if (environment !== "staging" || !commitSha) {
+      return {
+        exitCode: 1,
+        stdout: "",
+        stderr: "Usage: deploy-plan staging <sha>\n",
+      };
+    }
+
+    const report = buildStagingDeployPlan({ repoRoot: cwd, commitSha });
+
+    return {
+      exitCode: 0,
+      stdout: `${JSON.stringify(report, null, 2)}\n`,
+      stderr: "",
+    };
+  }
+
+  if (command === "promote-plan") {
+    const stagedSha = argv[1];
+    const currentSha = argv[2];
+
+    if (!stagedSha || !currentSha) {
+      return {
+        exitCode: 1,
+        stdout: "",
+        stderr: "Usage: promote-plan <staged-sha> <current-sha>\n",
+      };
+    }
+
+    const report = buildProductionPromotePlan({
+      repoRoot: cwd,
+      stagedSha,
+      currentSha,
+    });
 
     return {
       exitCode: report.ok ? 0 : 1,

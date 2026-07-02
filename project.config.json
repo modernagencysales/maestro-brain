@@ -1,0 +1,57 @@
+{
+  "project": {
+    "name": "maestro-template"
+  },
+  "environments": {
+    "staging": {
+      "name": "staging",
+      "domain": "staging.maestro-template.pages.dev",
+      "cloudflarePagesProject": "maestro-template-staging",
+      "cloudflareBranch": "staging",
+      "convexDeployName": "maestro-template-staging",
+      "requiredEnvGroups": [
+        "cloudflare",
+        "convex",
+        "buildkite",
+        "fake-providers"
+      ],
+      "requiredSecrets": [
+        "CLOUDFLARE_API_TOKEN",
+        "CLOUDFLARE_ACCOUNT_ID",
+        "CONVEX_DEPLOY_KEY",
+        "BUILDKITE_API_TOKEN"
+      ]
+    },
+    "production": {
+      "name": "production",
+      "domain": "maestro-template.pages.dev",
+      "cloudflarePagesProject": "maestro-template",
+      "cloudflareBranch": "main",
+      "convexDeployName": "maestro-template-production",
+      "requiredEnvGroups": [
+        "cloudflare",
+        "convex",
+        "buildkite",
+        "workos",
+        "posthog",
+        "dodo",
+        "mailersend",
+        "llm",
+        "storage"
+      ],
+      "requiredSecrets": [
+        "CLOUDFLARE_API_TOKEN",
+        "CLOUDFLARE_ACCOUNT_ID",
+        "CONVEX_DEPLOY_KEY",
+        "WORKOS_API_KEY",
+        "WORKOS_CLIENT_ID",
+        "WORKOS_COOKIE_PASSWORD",
+        "POSTHOG_API_KEY",
+        "DODO_API_KEY",
+        "MAILERSEND_API_KEY",
+        "OPENROUTER_API_KEY",
+        "STORAGE_SIGNING_SECRET"
+      ]
+    }
+  }
+}

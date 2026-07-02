@@ -1,5 +1,17 @@
 title = "maestro-template secret scan"
 
+[[allowlists]]
+description = "Dependency, generated build, and vendored reference trees are not source secrets."
+paths = [
+  '''(^|/)node_modules/''',
+  '''(^|/)dist/''',
+  '''(^|/)repos/''',
+  '''(^|/)vendor/''',
+  '''(^|/)test-results/''',
+  '''(^|/)coverage/''',
+  '''(^|/).stryker-tmp/'''
+]
+
 [[rules]]
 id = "generic-api-key"
 description = "Generic API key assignment"

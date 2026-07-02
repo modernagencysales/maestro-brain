@@ -12,6 +12,7 @@ instead of a blank app.
 - Current reviewed commit: run `pnpm review:readiness`
 - Local reviewer guide: [reviewer-guide.md](./reviewer-guide.md)
 - Architecture map: [repo-map.md](./repo-map.md)
+- Frontend architecture: [frontend-architecture.md](./frontend-architecture.md)
 - Confect/Effect guide: [confect-effect-guide.md](./confect-effect-guide.md)
 - Hosting guide: [hosting.md](./hosting.md)
 
@@ -33,12 +34,15 @@ The current template proves these reusable primitives:
 - Provider adapter contracts and tested Effect fake/test/live-ready adapter
   harnesses for WorkOS/AuthKit, PostHog, Dodo, MailerSend, OpenRouter-compatible
   LLMs, storage, and search.
-- App factory commands for `template:init`, `template:doctor`,
+- App factory commands for `template:quickstart`, `template:seed-demo`,
+  `template:handoff`, `template:init`, `template:doctor`,
   `template:add-capability`, `template:add-workflow`,
   `template:promote-capability`, `template:promote-workflow`,
   `template:upgrade`, and private-package dry-run/import with source-module
   scaffolds for imported capabilities and workflows.
 - Cloudflare Pages deployment wiring and static hosted smoke checks.
+- A documented TanStack Start migration decision that preserves the current Vite
+  static hosted app until Start has equivalent smoke coverage.
 
 ## Thirty-Minute Technical Review
 
@@ -85,11 +89,14 @@ pnpm --dir packages/convex test http-docs
 Inspect the app factory:
 
 ```bash
-pnpm template:init -- --name "Reviewer Brain"
+pnpm template:quickstart -- --blueprint source-grounded-gtm-brain --name "Reviewer Brain" --write
+pnpm template:doctor -- --mode fake
+pnpm template:seed-demo -- --blueprint source-grounded-gtm-brain --write
 pnpm template:add-capability -- --name summarizeSource
 pnpm template:add-workflow -- --name sourceGroundedPlan
 pnpm template:promote-capability -- --name summarizeSource
 pnpm template:promote-workflow -- --name sourceGroundedPlan
+pnpm template:handoff -- --mode fake --write
 pnpm template:upgrade -- --from client-v1.0.0 --to template-v1.1.0
 pnpm template:private-package:dry-run -- --fixture examples/generic-ai-ops
 pnpm template:private-package:import -- --fixture examples/generic-ai-ops --write
@@ -111,6 +118,10 @@ admin/support/privacy -> audited capabilities -> narrow operator surfaces
 Concrete files to inspect:
 
 - `apps/web/src/sample/App.tsx`: hosted reference app.
+- `docs/design-intake/2026-07-01-template-frontend-stack-source.md`: frontend
+  source audit from Maestro into the template.
+- `docs/template/frontend-architecture.md`: frontend layer law, provider tree,
+  Notion Kit boundary, and TanStack Start acceptance criteria.
 - `tests/e2e/hosted-reference-app.spec.ts`: hosted desktop/mobile browser smoke.
 - `tests/e2e/hosted-reference-app.visual.spec.ts`: hosted desktop/mobile
   screenshot-diff visual smoke.

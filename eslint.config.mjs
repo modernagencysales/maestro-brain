@@ -11,6 +11,7 @@ export default [
       "repos/**",
       "packages/convex/confect/_generated/**",
       "packages/convex/convex/_generated/**",
+      "apps/web/src/routeTree.gen.ts",
     ],
   },
   js.configs.recommended,

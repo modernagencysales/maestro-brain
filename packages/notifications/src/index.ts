@@ -1,1 +1,193 @@
-export const packageName = "@maestro-template/notifications";
+export type EmailMode = "fake" | "test" | "live";
+
+export type EmailPayload = {
+  readonly to: string;
+  readonly from: string;
+  readonly subject: string;
+  readonly html: string;
+  readonly idempotencyKey: string;
+  readonly templateData: Readonly<Record<string, unknown>>;
+};
+
+export type EmailDelivery = {
+  readonly ok: true;
+  readonly delivery: "fake" | "test" | "live-ready";
+  readonly idempotencyKey: string;
+};
+
+export class EmailValidationError extends Error {
+  readonly _tag = "EmailValidationError";
+
+  constructor(
+    readonly field: string,
+    message: string,
+  ) {
+    super(message);
+    this.name = "EmailValidationError";
+  }
+}
+
+export type EmailFailure = {
+  readonly ok: false;
+  readonly error: EmailValidationError;
+};
+
+export type EmailResult = EmailDelivery | EmailFailure;
+
+export type AlertSeverity = "info" | "warning" | "critical";
+
+export type AlertPayload = {
+  readonly severity: AlertSeverity;
+  readonly title: string;
+  readonly body: string;
+  readonly dedupeKey: string;
+  readonly workspaceId?: string;
+  readonly metadata: Readonly<Record<string, unknown>>;
+};
+
+export type AlertDelivery = {
+  readonly ok: true;
+  readonly delivery: "fake" | "test" | "live-ready";
+  readonly dedupeKey: string;
+};
+
+export type AlertFailure = {
+  readonly ok: false;
+  readonly error: EmailValidationError;
+};
+
+export type AlertResult = AlertDelivery | AlertFailure;
+
+export type ActionDigestPayload = {
+  readonly to: string;
+  readonly workspaceId: string;
+  readonly recipientId: string;
+  readonly periodStart: string;
+  readonly periodEnd: string;
+  readonly jobsQueued: number;
+  readonly approvalsWaiting: number;
+  readonly actionsPublished: number;
+  readonly customerMetadata: Readonly<Record<string, unknown>>;
+  readonly providerMetadata: Readonly<Record<string, unknown>>;
+};
+
+export const redactEmailPayload = (
+  payload: Readonly<Record<string, unknown>>,
+): Record<string, unknown> => {
+  const redacted: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(payload)) {
+    redacted[key] =
+      key === "to" ||
+      key === "recipient" ||
+      key === "apiKey" ||
+      key === "templateData"
+        ? "[redacted]"
+        : value;
+  }
+
+  return redacted;
+};
+
+const deliveryForMode = (mode: EmailMode): EmailDelivery["delivery"] =>
+  mode === "fake" ? "fake" : mode === "test" ? "test" : "live-ready";
+
+export const createEmailService = (options: {
+  readonly mode: EmailMode;
+  readonly sink?: (
+    payload: Readonly<Record<string, unknown>>,
+  ) => void | Promise<void>;
+}) => ({
+  send: async (payload: EmailPayload): Promise<EmailResult> => {
+    if (!payload.idempotencyKey.trim()) {
+      return {
+        ok: false,
+        error: new EmailValidationError(
+          "idempotencyKey",
+          "Email idempotencyKey is required.",
+        ),
+      };
+    }
+
+    await options.sink?.(
+      redactEmailPayload({
+        ...payload,
+        apiKey: "provider-owned",
+      }),
+    );
+
+    return {
+      ok: true,
+      delivery: deliveryForMode(options.mode),
+      idempotencyKey: payload.idempotencyKey,
+    };
+  },
+});
+
+export const createAlertService = (options: {
+  readonly mode: EmailMode;
+  readonly sink?: (
+    payload: Readonly<Record<string, unknown>>,
+  ) => void | Promise<void>;
+}) => ({
+  emit: async (payload: AlertPayload): Promise<AlertResult> => {
+    if (!payload.dedupeKey.trim()) {
+      return {
+        ok: false,
+        error: new EmailValidationError(
+          "dedupeKey",
+          "Alert dedupeKey is required.",
+        ),
+      };
+    }
+
+    await options.sink?.(
+      redactEmailPayload({
+        ...payload,
+        body: "[redacted]",
+        metadata: "[redacted]",
+      }),
+    );
+
+    return {
+      ok: true,
+      delivery: deliveryForMode(options.mode),
+      dedupeKey: payload.dedupeKey,
+    };
+  },
+});
+
+export const createActionDigestService = (options: {
+  readonly mode: EmailMode;
+  readonly from: string;
+  readonly sink?: (
+    payload: Readonly<Record<string, unknown>>,
+  ) => void | Promise<void>;
+}) => {
+  const email = createEmailService(options);
+
+  return {
+    send: async (payload: ActionDigestPayload): Promise<EmailResult> => {
+      const idempotencyKey = `action-digest:${payload.workspaceId}:${payload.recipientId}:${payload.periodStart}:${payload.periodEnd}`;
+
+      return await email.send({
+        to: payload.to,
+        from: options.from,
+        subject: `Action digest: ${payload.jobsQueued} queued, ${payload.approvalsWaiting} waiting, ${payload.actionsPublished} published`,
+        html: `<p>Your audited action queue has ${payload.jobsQueued} queued jobs, ${payload.approvalsWaiting} approvals waiting, and ${payload.actionsPublished} published action.</p>`,
+        idempotencyKey,
+        templateData: {
+          workspaceId: payload.workspaceId,
+          recipientId: payload.recipientId,
+          periodStart: payload.periodStart,
+          periodEnd: payload.periodEnd,
+          jobsQueued: payload.jobsQueued,
+          approvalsWaiting: payload.approvalsWaiting,
+          actionsPublished: payload.actionsPublished,
+          customerMetadata: "[redacted]",
+          providerMetadata: "[redacted]",
+        },
+      });
+    },
+  };
+};

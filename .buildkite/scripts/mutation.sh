@@ -11,4 +11,4 @@ if [[ "${BUILDKITE:-}" != "true" && "${RUN_MUTATION:-}" != "true" ]]; then
   exit 0
 fi
 
-pnpm test
+pnpm exec stryker run stryker.conf.mjs

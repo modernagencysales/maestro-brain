@@ -15,9 +15,40 @@ export const checkDescriptors = {
           "pnpm check:workflow-graph-boundary",
           "taste",
           "contract-review",
+          "staging-deploy",
           "production-promote.sh",
         ],
         message: "Buildkite pipeline must include deterministic and AI gates",
+      },
+      {
+        file: ".buildkite/scripts/taste.sh",
+        includes: [
+          "OPENAI_API_KEY",
+          "extract-ai-verdict.mts",
+          "pnpm taste -- --mode fake | pnpm exec tsx tooling/quality/extract-ai-verdict.mts",
+        ],
+        message: "taste AI gate must require provider auth and parse verdicts",
+      },
+      {
+        file: ".buildkite/scripts/contract-review.sh",
+        includes: [
+          "OPENAI_API_KEY",
+          "extract-ai-verdict.mts",
+          "pnpm contract-review -- --mode fake | pnpm exec tsx tooling/quality/extract-ai-verdict.mts",
+        ],
+        message:
+          "contract-review AI gate must require provider auth and parse verdicts",
+      },
+      {
+        file: "docs/template/operations-runbook.md",
+        includes: [
+          "CI And AI Gate Verdicts",
+          "buildkite-agent meta-data get staged-sha",
+          "tooling/quality/extract-ai-verdict.mts",
+          "gh pr checks --watch",
+        ],
+        message:
+          "operations runbook must explain AI gate verdict retrieval and repair workflow",
       },
     ],
   },
@@ -37,6 +68,52 @@ export const checkDescriptors = {
           "test:mutation",
         ],
         message: "package scripts must expose required quality gates",
+      },
+      {
+        file: ".buildkite/scripts/mutation.sh",
+        includes: ["pnpm exec stryker run stryker.conf.mjs"],
+        message: "mutation gate must run Stryker in scheduled/manual mode",
+      },
+      {
+        file: "stryker.conf.mjs",
+        includes: [
+          "@stryker-mutator/vitest-runner",
+          "@stryker-mutator/typescript-checker",
+          "packages/convex/confect/access/lifecycle.ts",
+          "packages/convex/confect/workflows/runGraph.ts",
+        ],
+        message: "Stryker config must target focused backend primitives",
+      },
+      {
+        file: "project.config.json",
+        includes: [
+          "maestro-template-staging",
+          "maestro-template-production",
+          "CLOUDFLARE_API_TOKEN",
+          "CONVEX_DEPLOY_KEY",
+        ],
+        message:
+          "project config must declare deploy environments and required secret names",
+      },
+      {
+        file: ".buildkite/scripts/staging-deploy.sh",
+        includes: [
+          "deploy-doctor staging",
+          "scripts/_project-config.mjs get staging cloudflarePagesProject",
+          "buildkite-agent meta-data set staged-sha",
+        ],
+        message:
+          "staging deploy must use project config and record the staged SHA",
+      },
+      {
+        file: ".buildkite/scripts/production-promote.sh",
+        includes: [
+          "deploy-doctor production",
+          "promote-plan",
+          "buildkite-agent meta-data get staged-sha",
+        ],
+        message:
+          "production promote must use project config and verify the staged SHA",
       },
     ],
   },
@@ -59,10 +136,14 @@ export const checkDescriptors = {
     name: "check:knip",
     requirements: [
       {
-        file: "pnpm-workspace.yaml",
-        includes: ['"apps/*"', '"packages/*"', '"tooling/*"'],
-        message:
-          "workspace config must include app, package, and tooling roots",
+        file: "knip.json",
+        includes: ["entry", "project"],
+        message: "knip must have a real workspace-aware config",
+      },
+      {
+        file: "package.json",
+        includes: ["knip --config knip.json"],
+        message: "check:knip must invoke the real knip CLI",
       },
     ],
   },
@@ -71,8 +152,41 @@ export const checkDescriptors = {
     requirements: [
       {
         file: "docs/template/repo-map.md",
-        includes: ["/brain", "/workflows", "/api", "/admin"],
+        includes: [
+          "/brain",
+          "/workflows",
+          "/capabilities",
+          "/agents",
+          "/runs",
+          "/settings",
+          "/api",
+          "/admin",
+        ],
         message: "repo map must declare planned app routes",
+      },
+      {
+        file: "docs/template/frontend-architecture.md",
+        includes: [
+          "generated `routeTree`",
+          'defaultPreload: "intent"',
+          "scrollRestoration: true",
+          "apps/web/src/routeTree.gen.ts",
+        ],
+        message:
+          "frontend architecture must declare TanStack Start route tree invariants",
+      },
+      {
+        file: "apps/web/package.json",
+        includes: [
+          '"@tanstack/react-start"',
+          '"@tanstack/react-router"',
+          '"@tanstack/react-query"',
+          '"@convex-dev/react-query"',
+          '"@workos/authkit-tanstack-react-start"',
+          '"@notion-kit/ui"',
+        ],
+        message:
+          "web package must include the committed TanStack Start and Notion Kit runtime dependencies",
       },
     ],
   },
@@ -81,8 +195,13 @@ export const checkDescriptors = {
     requirements: [
       {
         file: "vitest.config.ts",
-        includes: ["include", "exclude"],
-        message: "vitest config must define test discovery boundaries",
+        includes: ["coverage", "thresholds"],
+        message: "vitest config must define real coverage thresholds",
+      },
+      {
+        file: "package.json",
+        includes: ["vitest run --coverage"],
+        message: "check:coverage-ratchet must run Vitest coverage",
       },
     ],
   },
@@ -97,6 +216,25 @@ export const checkDescriptors = {
           "exactOptionalPropertyTypes",
         ],
         message: "TypeScript config must enforce strict typing",
+      },
+      {
+        file: "package.json",
+        includes: [
+          "type-coverage --project tsconfig.type-coverage.json --at-least 99.7",
+        ],
+        message:
+          "check:types-coverage must invoke type-coverage with an explicit threshold",
+      },
+      {
+        file: "tsconfig.type-coverage.json",
+        includes: ["include", "exclude"],
+        message: "type coverage must inspect real project files",
+      },
+      {
+        file: "docs/template/type-coverage-ratchet.md",
+        includes: ["99.7", "100%"],
+        message:
+          "type coverage ratchet must be documented until it reaches 100%",
       },
     ],
   },
@@ -130,8 +268,49 @@ export const checkDescriptors = {
     requirements: [
       {
         file: "docs/template/app-factory-guide.md",
-        includes: ["template:init", "template:add-client-domain"],
+        includes: [
+          "template:quickstart",
+          "template:init",
+          "template:add-client-domain",
+          "blueprint-catalog.md",
+          "generator-output-contract.md",
+        ],
         message: "app factory guide must document generator workflow",
+      },
+      {
+        file: "docs/template/blueprint-catalog.md",
+        includes: [
+          "source-grounded-gtm-brain",
+          "implementation-consulting-brain",
+          "internal-ops-agent-workspace",
+          "custom-domain-ai-app",
+        ],
+        message: "blueprint catalog must document core factory blueprints",
+      },
+      {
+        file: "docs/template/generator-output-contract.md",
+        includes: [
+          "Confect spec/impl",
+          "Effect schema",
+          "typed errors",
+          "headless registry entry",
+        ],
+        message: "generator output contract must protect generated slices",
+      },
+      {
+        file: "docs/template/client-handoff-packet.md",
+        includes: ["real", "fake", "seam", "planned", "Required secret names"],
+        message: "handoff packet must define status labels and secret posture",
+      },
+      {
+        file: "package.json",
+        includes: [
+          "template:quickstart",
+          "template:seed-demo",
+          "template:handoff",
+          "template:add-client-domain",
+        ],
+        message: "package scripts must expose app factory quickstart commands",
       },
     ],
   },
@@ -142,6 +321,28 @@ export const checkDescriptors = {
         file: "README.md",
         includes: ["AGENTS.md", "repo-map.md", "reviewer-guide.md"],
         message: "README must link primary navigation docs",
+      },
+      {
+        file: "docs/template/env-manifest.md",
+        includes: [
+          "WorkOS",
+          "PostHog",
+          "Dodo",
+          "MailerSend",
+          "OpenRouter",
+          "Cloudflare",
+          "Buildkite",
+          "fake mode",
+          "rotation",
+        ],
+        message:
+          "env manifest must document provider setup, fake-mode behavior, and rotation posture",
+      },
+      {
+        file: ".env.example",
+        includes: ["example.test", "fake_local_key", "acme-demo"],
+        message:
+          ".env.example must expose safe fake values for local quickstart",
       },
     ],
   },
@@ -291,18 +492,31 @@ export const checkDescriptors = {
     name: "check:layer-boundaries",
     requirements: [
       {
-        file: "AGENTS.md",
-        includes: [
-          "web routes -> screens -> features -> blocks",
-          "agents -> workflows -> capabilities",
-        ],
-        message: "AGENTS.md must declare layer law",
+        file: "dependency-cruiser.config.cjs",
+        includes: ["forbidden", "from", "to"],
+        message: "dependency-cruiser config must enforce layer boundaries",
+      },
+      {
+        file: "package.json",
+        includes: ["depcruise --config dependency-cruiser.config.cjs"],
+        message:
+          "check:layer-boundaries must invoke dependency-cruiser instead of a placeholder check",
       },
     ],
   },
   "secret-canaries": {
     name: "check:secret-canaries",
     requirements: [
+      {
+        file: ".gitleaks.toml",
+        includes: ["generic-api-key", "regex"],
+        message: "gitleaks config must include a generic secret rule",
+      },
+      {
+        file: "package.json",
+        includes: ["gitleaks detect --config .gitleaks.toml"],
+        message: "check:secret-canaries must run gitleaks",
+      },
       {
         file: "docs/template/security.md",
         includes: ["Secrets never enter client bundles", "Logs redact secrets"],

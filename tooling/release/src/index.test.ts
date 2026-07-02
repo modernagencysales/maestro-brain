@@ -3,7 +3,11 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  buildDeployDoctorReport,
+  buildProductionPromotePlan,
+  buildStagingDeployPlan,
   buildCompletionAuditReport,
+  buildClientReleaseReport,
   buildReviewerReadinessReport,
   runReleaseCli,
   smokeWebStaticBuild,
@@ -21,6 +25,24 @@ const makeRepo = (): string => {
   writeFileSync(
     join(dist, "index.html"),
     '<div id="root"></div><script type="module" src="/assets/index.js"></script>',
+  );
+  writeFileSync(join(assets, "index.js"), "console.log('ok');");
+
+  return repoRoot;
+};
+
+const makeStartRepo = (): string => {
+  const repoRoot = join(
+    tmpdir(),
+    `maestro-template-start-release-${Math.random().toString(16).slice(2)}`,
+  );
+  const client = join(repoRoot, "apps/web/dist/client");
+  const assets = join(client, "assets");
+
+  mkdirSync(assets, { recursive: true });
+  writeFileSync(
+    join(client, "_shell.html"),
+    '<title>Maestro Template</title><script type="module" src="/assets/index.js"></script>',
   );
   writeFileSync(join(assets, "index.js"), "console.log('ok');");
 
@@ -94,6 +116,29 @@ describe("release tooling", () => {
         checks: expect.arrayContaining([
           expect.objectContaining({ id: "web:index", status: "pass" }),
           expect.objectContaining({ id: "web:root", status: "pass" }),
+          expect.objectContaining({
+            id: "web:assets-linked",
+            status: "pass",
+          }),
+        ]),
+      });
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("passes for a TanStack Start static shell build", () => {
+    const repoRoot = makeStartRepo();
+
+    try {
+      expect(smokeWebStaticBuild({ repoRoot })).toMatchObject({
+        ok: true,
+        assetCount: 1,
+        checks: expect.arrayContaining([
+          expect.objectContaining({
+            id: "web:start-shell",
+            status: "pass",
+          }),
           expect.objectContaining({
             id: "web:assets-linked",
             status: "pass",
@@ -263,6 +308,265 @@ describe("release tooling", () => {
         requirements: expect.arrayContaining([
           expect.objectContaining({ id: "app-factory", status: "pass" }),
         ]),
+      });
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("builds deploy doctor reports without leaking secret values", () => {
+    const repoRoot = makeReviewerRepo();
+    writeFileSync(
+      join(repoRoot, "project.config.json"),
+      JSON.stringify({
+        project: { name: "maestro-template" },
+        environments: {
+          staging: {
+            name: "staging",
+            domain: "staging.example.test",
+            cloudflarePagesProject: "maestro-template-staging",
+            cloudflareBranch: "staging",
+            convexDeployName: "maestro-template-staging",
+            requiredEnvGroups: ["cloudflare", "convex"],
+            requiredSecrets: ["CLOUDFLARE_API_TOKEN", "CONVEX_DEPLOY_KEY"],
+          },
+          production: {
+            name: "production",
+            domain: "app.example.test",
+            cloudflarePagesProject: "maestro-template",
+            cloudflareBranch: "main",
+            convexDeployName: "maestro-template-production",
+            requiredEnvGroups: ["cloudflare", "convex"],
+            requiredSecrets: ["CLOUDFLARE_API_TOKEN", "CONVEX_DEPLOY_KEY"],
+          },
+        },
+      }),
+    );
+
+    try {
+      const report = buildDeployDoctorReport({
+        repoRoot,
+        environment: "staging",
+        env: { CLOUDFLARE_API_TOKEN: "super-secret-value" },
+      });
+
+      expect(report).toMatchObject({
+        ok: false,
+        environment: "staging",
+        cloudflarePagesProject: "maestro-template-staging",
+        missingSecretNames: ["CONVEX_DEPLOY_KEY"],
+      });
+      expect(JSON.stringify(report)).not.toContain("super-secret-value");
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("builds staging and production promotion plans from project config", () => {
+    const repoRoot = makeReviewerRepo();
+    writeFileSync(
+      join(repoRoot, "project.config.json"),
+      JSON.stringify({
+        project: { name: "maestro-template" },
+        environments: {
+          staging: {
+            name: "staging",
+            domain: "staging.example.test",
+            cloudflarePagesProject: "maestro-template-staging",
+            cloudflareBranch: "staging",
+            convexDeployName: "maestro-template-staging",
+            requiredEnvGroups: ["cloudflare", "convex"],
+            requiredSecrets: [],
+          },
+          production: {
+            name: "production",
+            domain: "app.example.test",
+            cloudflarePagesProject: "maestro-template",
+            cloudflareBranch: "main",
+            convexDeployName: "maestro-template-production",
+            requiredEnvGroups: ["cloudflare", "convex"],
+            requiredSecrets: [],
+          },
+        },
+      }),
+    );
+
+    try {
+      expect(
+        buildStagingDeployPlan({
+          repoRoot,
+          commitSha: "abc123",
+        }),
+      ).toMatchObject({
+        environment: "staging",
+        commitSha: "abc123",
+        cloudflarePagesProject: "maestro-template-staging",
+        cloudflareBranch: "staging",
+        convexDeployName: "maestro-template-staging",
+      });
+      expect(
+        buildProductionPromotePlan({
+          repoRoot,
+          stagedSha: "abc123",
+          currentSha: "abc123",
+        }),
+      ).toMatchObject({
+        ok: true,
+        environment: "production",
+        commitSha: "abc123",
+        cloudflarePagesProject: "maestro-template",
+        cloudflareBranch: "main",
+      });
+      expect(
+        buildProductionPromotePlan({
+          repoRoot,
+          stagedSha: "abc123",
+          currentSha: "def456",
+        }),
+      ).toMatchObject({
+        ok: false,
+        refusal:
+          "Refusing production promotion: staged SHA abc123 does not match current SHA def456.",
+      });
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("builds a client release report with compatibility checks and handoff artifacts", () => {
+    const repoRoot = makeReviewerRepo();
+    const files = [
+      "template-instance.json",
+      "docs/template/generated/client-intake.md",
+      "docs/template/generated/implementation-brief.md",
+      "docs/template/generated/provider-setup-checklist.md",
+      "docs/template/generated/handoff-packet.md",
+      "docs/template/env-manifest.md",
+      "docs/template/template-release-process.md",
+    ];
+
+    for (const file of files) {
+      const fullPath = join(repoRoot, file);
+      mkdirSync(dirname(fullPath), { recursive: true });
+      writeFileSync(fullPath, "ok");
+    }
+
+    try {
+      const report = buildClientReleaseReport({
+        repoRoot,
+        templateVersion: "template-v1.2.0",
+        clientVersion: "client-v0.1.0",
+      });
+
+      expect(report).toMatchObject({
+        ok: true,
+        templateVersion: "template-v1.2.0",
+        clientVersion: "client-v0.1.0",
+        compatibility: {
+          status: "ready-for-review",
+          requiredChecks: expect.arrayContaining([
+            "pnpm check:generators",
+            "pnpm check:confect-contracts",
+            "pnpm check:workflow-graph-boundary",
+          ]),
+        },
+        handoffArtifacts: expect.arrayContaining([
+          expect.objectContaining({
+            path: "docs/template/generated/client-intake.md",
+            status: "pass",
+          }),
+          expect.objectContaining({
+            path: "template-instance.json",
+            status: "pass",
+          }),
+        ]),
+      });
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("exposes a client release report through the release CLI", () => {
+    const repoRoot = makeReviewerRepo();
+    writeFileSync(join(repoRoot, "template-instance.json"), "ok");
+
+    try {
+      const result = runReleaseCli(
+        ["client-release", "template-v1.2.0", "client-v0.1.0"],
+        repoRoot,
+      );
+
+      expect(result.exitCode).toBe(1);
+      expect(JSON.parse(result.stdout)).toMatchObject({
+        templateVersion: "template-v1.2.0",
+        clientVersion: "client-v0.1.0",
+        handoffArtifacts: expect.arrayContaining([
+          expect.objectContaining({
+            path: "docs/template/generated/client-intake.md",
+            status: "fail",
+          }),
+        ]),
+      });
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("exposes deploy doctor and plan reports through the release CLI", () => {
+    const repoRoot = makeReviewerRepo();
+    writeFileSync(
+      join(repoRoot, "project.config.json"),
+      JSON.stringify({
+        project: { name: "maestro-template" },
+        environments: {
+          staging: {
+            name: "staging",
+            domain: "staging.example.test",
+            cloudflarePagesProject: "maestro-template-staging",
+            cloudflareBranch: "staging",
+            convexDeployName: "maestro-template-staging",
+            requiredEnvGroups: ["cloudflare"],
+            requiredSecrets: [],
+          },
+          production: {
+            name: "production",
+            domain: "app.example.test",
+            cloudflarePagesProject: "maestro-template",
+            cloudflareBranch: "main",
+            convexDeployName: "maestro-template-production",
+            requiredEnvGroups: ["cloudflare"],
+            requiredSecrets: [],
+          },
+        },
+      }),
+    );
+
+    try {
+      expect(
+        JSON.parse(
+          runReleaseCli(["deploy-doctor", "staging"], repoRoot).stdout,
+        ),
+      ).toMatchObject({
+        ok: true,
+        environment: "staging",
+        requiredSecretNames: [],
+      });
+      expect(
+        JSON.parse(
+          runReleaseCli(["deploy-plan", "staging", "abc123"], repoRoot).stdout,
+        ),
+      ).toMatchObject({
+        ok: true,
+        cloudflarePagesProject: "maestro-template-staging",
+      });
+      expect(
+        JSON.parse(
+          runReleaseCli(["promote-plan", "abc123", "def456"], repoRoot).stdout,
+        ),
+      ).toMatchObject({
+        ok: false,
+        refusal:
+          "Refusing production promotion: staged SHA abc123 does not match current SHA def456.",
       });
     } finally {
       rmSync(repoRoot, { recursive: true, force: true });

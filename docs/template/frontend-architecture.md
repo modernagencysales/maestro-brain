@@ -1,0 +1,220 @@
+# Frontend Architecture
+
+The frontend is an opinionated app-factory shell for custom AI Brain, workflow,
+agent, and go-to-market implementation software. It should feel like a working
+product surface, while keeping the current investor/reviewer document route
+available until the richer app surfaces have equivalent smoke coverage.
+
+## Layer Law
+
+Use this dependency direction:
+
+```text
+web routes -> screens -> features -> adapters -> Confect/Convex refs
+features -> blocks -> Notion Kit
+workflow feature surfaces -> packages/workflow-ui -> React Flow
+```
+
+Rules:
+
+- Routes are thin. They bind paths, loaders, auth posture, and screen
+  composition.
+- Screens compose feature surfaces and shell blocks.
+- Features adapt backend data into view models.
+- Blocks render generic UI. Blocks must not import Convex, Confect refs,
+  provider SDKs, WorkOS, PostHog, billing SDKs, or workflow persistence code.
+- Durable workflow graph schemas, validation, persistence, and execution never
+  import React Flow.
+- React Flow stays inside `packages/workflow-ui` and workflow feature surfaces.
+
+## Runtime Direction
+
+TanStack Start is the committed runtime direction for the template.
+
+Required router/provider shape:
+
+- `ConvexQueryClient` from `@convex-dev/react-query`.
+- `QueryClient` from `@tanstack/react-query`.
+- generated `routeTree`.
+- `setupRouterSsrQueryIntegration`.
+- `defaultPreload: "intent"`.
+- `scrollRestoration: true`.
+- root provider tree containing WorkOS/AuthKit, Convex auth bridge, PostHog,
+  workspace provider, `HeadContent`, `Outlet`, and `Scripts`.
+
+Deployment decision:
+
+- Keep the current Vite static Cloudflare Pages app as the hosted reference
+  deploy until TanStack Start static output passes equivalent local static
+  smoke, hosted HTTP smoke, hosted browser smoke, and hosted visual smoke.
+- Prefer TanStack Start static output on Cloudflare Pages first.
+- Use Cloudflare Workers SSR only after explicit env mapping, rollback command,
+  and smoke tests are documented.
+
+## Provider Tree
+
+The intended provider tree is:
+
+```text
+AuthKitProvider
+  ConvexProviderWithAuth
+    PostHogWebProvider
+      WorkspaceProvider
+        route outlet / app shell
+```
+
+Provider rules:
+
+- WorkOS owns identity. Tenant/workspace identity used by backend calls must be
+  server-derived or re-verified.
+- Convex/Confect own durable business operations.
+- PostHog receives redacted, contract-named events only.
+- Provider SDK clients are constructed in adapters/providers, not feature
+  components.
+- Fake/local provider mode remains the default for template quickstarts.
+
+## Notion Kit And Blocks
+
+The shell should use Notion Kit primitives where possible:
+
+- `SidebarProvider`, `Sidebar`, `SidebarHeader`, `SidebarContent`,
+  `SidebarFooter`, `SidebarRail`, `SidebarInset`, `SidebarClose`, `SidebarOpen`.
+- `Navbar` for topbar surfaces.
+- `@notion-kit/settings-panel` for settings surfaces.
+- lucide icons for commands and navigation affordances.
+
+CSS rules:
+
+- Load `@notion-kit/ui/style.css` through `apps/web/src/notion.css`.
+- Keep Notion Kit CSS scoped to app shell/workspace routes.
+- Use `apps/web/src/index.css` for semantic tokens, font stack, density, focus,
+  motion, and workflow categorical colors.
+- Do not copy Maestro-specific product color names or route names into template
+  tokens.
+
+Block rules:
+
+- `packages/ui/src/blocks/*` contains reusable layout/state blocks.
+- `packages/ui/src/shell/*` contains reusable shell primitives.
+- Feature code composes blocks; it should not invent route-local layout systems.
+
+Notion Kit package note: `@notion-kit/settings-panel` depends on
+`@notion-kit/i18n`, which is vendored at `vendor/notion-kit-i18n-1.0.0.tgz` and
+resolved through `pnpm-workspace.yaml`. Keep this private artifact internal to
+the template and update it only when the Notion Kit package set is intentionally
+upgraded.
+
+## Platform Primitives
+
+Reusable frontend platform primitives live in `packages/ui/src/platform/*`. They
+are shared by client forks that need a serious B2B app shell before custom
+business logic is fully built.
+
+- Command palette: route/action commands only. It must not import Convex,
+  Confect refs, provider SDKs, or backend adapters.
+- Notification center: renders empty, fake, test, and live-ready delivery states
+  from provider-neutral view models.
+- Onboarding checklist: works in fake mode and names missing live provider setup
+  without printing secret values.
+- Legal route: ships as an explicit placeholder. Replace privacy, terms, data
+  handling, AI output review, and provider disclosure language for each client.
+- PWA manifest: declares install metadata only. Do not claim offline support
+  until service worker caching and offline states are implemented and tested.
+
+## Visualization Primitives
+
+Reusable B2B visualization components live in `packages/ui/src/visualize/*`.
+They consume plain view models and are intentionally generic enough for GTM,
+Brain, workflow, billing, operations, and support surfaces.
+
+- Data grid, Kanban, calendar, funnel, metric tiles, health board, lineage, and
+  diff views render loading, empty, ready, and error states.
+- Feature adapters transform Confect/Convex data into view models before these
+  components render.
+- Visualization components must not import Convex, Confect refs, TanStack route
+  modules, WorkOS, PostHog, provider SDKs, or persistence code.
+- Keep visual layouts Notion-like: dense, readable, centered where appropriate,
+  and built from Notion Kit primitives rather than a second design system.
+
+## Data Loading Rules
+
+- Web data access goes through generated Confect refs via `@confect/react`, with
+  Convex React Query where useful for router/cache integration.
+- The shared adapter planned in Task 8.3 normalizes query/mutation state into
+  `skipped`, `loading`, `empty`, `ready`, `typed_failure`, `parse_failure`,
+  `transport_failure`, and `defect`.
+- Route loaders preload only safe route data and auth state.
+- Feature adapters convert backend contract data into view models.
+- UI code must not read raw environment variables or construct provider SDKs.
+
+## Navigation Model
+
+The template workspace registry should include generic routes:
+
+- Home
+- Brain
+- Workflows
+- Capabilities
+- Agents
+- Runs
+- Documents
+- Sources
+- Integrations
+- API
+- Onboarding
+- Data Map
+- Notifications
+- Settings
+- Legal
+- Billing
+- Analytics
+- Health
+- Admin
+
+Grouped sections should expand for active children, active route selection
+should come from the route registry, and the sidebar must remain mounted while
+navigating.
+
+## Quickstart Frontend Contract
+
+The first app experience must support the default factory loop without making a
+reviewer understand the whole codebase. The app should expose one clear route
+for each step: Brain sources and context pack, workflow graph/run, capability
+catalog, agent/tool grants, Trust Receipt, provider posture, and handoff or API
+docs. Keep the investor document route calm and separate from these operational
+routes.
+
+Generated or client-specific UI should start with feature adapters and block
+composition. It should not fork the shell, introduce a second sidebar, or
+construct provider clients inside route components.
+
+## Workflow UI Rules
+
+- Durable graph data is the source of truth.
+- React Flow nodes and edges are derived UI state.
+- Do not persist React Flow selection, hover, measured dimensions, viewport, or
+  generic `data` bags.
+- Validation hints are overlays derived from graph validation results.
+- Reduced-motion mode disables nonessential canvas animation.
+
+## Migration Acceptance Criteria
+
+Before the TanStack Start runtime replaces the current static app path:
+
+- `pnpm --dir apps/web test` passes.
+- `pnpm check:route-tree` passes.
+- `pnpm smoke:web-static` passes.
+- Hosted browser and visual smoke pass for desktop and mobile.
+- The investor/reviewer document route remains readable.
+- The Notion sidebar stays mounted during navigation.
+- The route tree is generated at `apps/web/src/routeTree.gen.ts` and checked for
+  freshness.
+- The deployment guide documents Cloudflare Pages static output or Workers SSR
+  with rollback.
+
+## Optional Rich Editor Modules
+
+BlockNote and ProseMirror are optional template extensions, not baseline app
+factory requirements. Add them only for forks that need rich collaborative
+document editing, and keep editor persistence behind explicit Confect/Convex
+contracts.

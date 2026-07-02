@@ -44,6 +44,15 @@
 - Workflows compose capabilities and do not call adapters directly.
 - Agents call capabilities or workflow kickoffs through explicit tool grants.
 
+## Versioning
+
+- Never mutate historical version rows.
+- Restore creates a new version with `causation: "restore"` and a
+  `restoredFromVersionKey`.
+- Freshness belongs in mutable freshness records, not immutable version history.
+- Reconcile is idempotent by workspace, entity key, external version, and
+  idempotency key.
+
 ## Generated Files
 
 Generated files are never edited directly. Regenerate through the package

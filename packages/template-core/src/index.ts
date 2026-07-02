@@ -1,5 +1,11 @@
 export type Tone = "neutral" | "good" | "warn";
 
+export * from "./actions";
+export * from "./coediting";
+export * from "./knowledge";
+export * from "./transforms";
+export * from "./versioning";
+
 export type TemplateStat = {
   readonly label: string;
   readonly value: string;
@@ -89,8 +95,12 @@ export type WorkflowRunStep = {
 
 export type TrustReceipt = {
   readonly receiptId: string;
+  readonly workflowRunId: string;
   readonly claim: string;
   readonly sourceTitles: readonly string[];
+  readonly policySnapshotId: string;
+  readonly modelReceiptId: string;
+  readonly trustClaim: "source-backed-no-default-rag";
   readonly policySnapshot: string;
   readonly model: string;
   readonly generatedAt: string;
@@ -98,9 +108,13 @@ export type TrustReceipt = {
 
 export type WorkflowRunReceipt = {
   readonly runId: string;
+  readonly workflowRunId: string;
+  readonly workflowId: string;
+  readonly workflowVersion: number;
   readonly workflowName: string;
   readonly workspaceSlug: string;
   readonly status: "completed";
+  readonly trustReceiptId: string;
   readonly startedAt: string;
   readonly completedAt: string;
   readonly steps: readonly WorkflowRunStep[];
@@ -165,6 +179,24 @@ export const templateRegistry = {
       description:
         "Emits claim, source, model, policy, and workflow provenance.",
       typedErrors: ["Unauthorized", "ConfigInvalid", "ValidationFailed"],
+    },
+    {
+      name: "sourceGroundedBrief",
+      exposure: "API + CLI",
+      policy: "workspace member",
+      description:
+        "Creates a source-grounded implementation brief with policy, model, and trust provenance.",
+      typedErrors: [
+        "Unauthenticated",
+        "NoWorkspaceAccess",
+        "ValidationFailed",
+        "PolicyNotFound",
+        "PromptNotFound",
+        "LlmDisabled",
+        "RateLimited",
+        "SpendCapExceeded",
+        "ProviderConfigInvalid",
+      ],
     },
   ],
   agents: [
@@ -333,9 +365,13 @@ export const createSampleWorkflowRunReceipt = (
 
   return {
     runId: "run_template_001",
+    workflowRunId: "run_template_001",
+    workflowId: "workflow_source_grounded_plan",
+    workflowVersion: 1,
     workflowName: "Source-grounded planning workflow",
     workspaceSlug: "acme-demo",
     status: "completed",
+    trustReceiptId: "trust_run_template_001",
     startedAt: "2026-07-01T14:00:00.000Z",
     completedAt: "2026-07-01T14:03:12.000Z",
     steps: [
@@ -381,14 +417,18 @@ export const createSampleWorkflowRunReceipt = (
         kind: outputNode.kind,
         capability: "createTrustReceipt",
         status: "completed",
-        evidence: ["trust receipt: receipt_template_001"],
+        evidence: ["trust receipt: trust_run_template_001"],
       },
     ],
     trustReceipt: {
-      receiptId: "receipt_template_001",
+      receiptId: "trust_run_template_001",
+      workflowRunId: "run_template_001",
       claim:
         "The generated plan used only approved source sets, context packs, and audited capability grants.",
       sourceTitles,
+      policySnapshotId: "policy_snapshot_template_default",
+      modelReceiptId: "model_receipt_template_fake_local",
+      trustClaim: "source-backed-no-default-rag",
       policySnapshot: "default-template-policy@2026-07-01",
       model: "fake/local deterministic model",
       generatedAt: "2026-07-01T14:03:12.000Z",

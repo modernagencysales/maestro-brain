@@ -272,7 +272,7 @@ const apiExampleFor = (
     result: {
       receiptId:
         entry.operationId === "createTrustReceipt"
-          ? "receipt_template_001"
+          ? "trust_run_template_001"
           : undefined,
       status: "accepted",
     },
@@ -429,6 +429,31 @@ export const runTemplateApiOperation = (
     };
   }
 
+  if (operationId === "sourceGroundedBrief") {
+    const sourceTitles = registry.brainSources.map((source) => source.title);
+
+    return {
+      ok: true,
+      operationId,
+      result: {
+        status: "accepted",
+        workspaceSlug,
+        briefMarkdown: [
+          "# Source-Grounded Implementation Brief",
+          "",
+          "This deterministic template response shows the contract shape used by the Confect capability implementation.",
+          "",
+          "## Grounding",
+          ...sourceTitles.map((title) => `- ${title}`),
+        ].join("\n"),
+        sourceTitles,
+        policySnapshotId: "policy_snapshot_template_default",
+        modelReceiptId: "model_receipt_template_fake_local",
+        trustClaim: "source-backed-no-default-rag",
+      },
+    };
+  }
+
   return {
     ok: true,
     operationId,
@@ -509,6 +534,23 @@ export const callMcpTool = (
 
   if (!capability) {
     return mcpError(`Unknown MCP tool: ${toolName}`);
+  }
+
+  if (capability.name === "sourceGroundedBrief") {
+    return mcpText({
+      ok: true,
+      toolName,
+      capability: capability.name,
+      policy: capability.policy,
+      typedErrors: capability.typedErrors,
+      result: {
+        status: "accepted",
+        sourceTitles: registry.brainSources.map((source) => source.title),
+        policySnapshotId: "policy_snapshot_template_default",
+        modelReceiptId: "model_receipt_template_fake_local",
+        trustClaim: "source-backed-no-default-rag",
+      },
+    });
   }
 
   return mcpText({

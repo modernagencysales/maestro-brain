@@ -1,0 +1,43 @@
+[
+  {
+    "id": "happy-path-grounded-brief",
+    "input": {
+      "briefGoal": "Create a client implementation brief.",
+      "sourceIds": ["source_founder_notes", "source_product_docs"]
+    },
+    "requiredSourceTitles": [
+      "Founder interview notes",
+      "Product docs and policies"
+    ],
+    "expectedTrustClaim": "source-backed-no-default-rag",
+    "expectedPolicySnapshotId": "policy_snapshot_template_default",
+    "expectedModelReceiptId": "model_receipt_template_fake_local",
+    "expectsRefusal": false,
+    "output": {
+      "briefMarkdown": "# Implementation Brief\n\nUse Founder interview notes and Product docs and policies as the only grounding sources.\n\n## Sources\n- Founder interview notes\n- Product docs and policies",
+      "sourceTitles": ["Founder interview notes", "Product docs and policies"],
+      "policySnapshotId": "policy_snapshot_template_default",
+      "modelReceiptId": "model_receipt_template_fake_local",
+      "trustClaim": "source-backed-no-default-rag"
+    }
+  },
+  {
+    "id": "missing-source-refusal",
+    "input": {
+      "briefGoal": "Create a client implementation brief.",
+      "sourceIds": []
+    },
+    "requiredSourceTitles": ["Founder interview notes"],
+    "expectedTrustClaim": "source-backed-no-default-rag",
+    "expectedPolicySnapshotId": "policy_snapshot_template_default",
+    "expectedModelReceiptId": "model_receipt_template_fake_local",
+    "expectsRefusal": true,
+    "output": {
+      "briefMarkdown": "# Implementation Brief\n\nHere is a confident plan without approved sources.",
+      "sourceTitles": [],
+      "policySnapshotId": "policy_snapshot_template_default",
+      "modelReceiptId": "model_receipt_template_fake_local",
+      "trustClaim": "source-backed-no-default-rag"
+    }
+  }
+]

@@ -1,5 +1,18 @@
 import { expect, test } from "@playwright/test";
 
+const openPrimaryNav = async (page: import("@playwright/test").Page) => {
+  const nav = page.getByRole("navigation", { name: "Primary" });
+
+  if (await nav.isVisible().catch(() => false)) {
+    return nav;
+  }
+
+  await page.getByRole("button", { name: "Open sidebar" }).click();
+  await expect(nav).toBeVisible();
+
+  return nav;
+};
+
 test.describe("hosted reference app visual coverage", () => {
   test("matches the investor-visible first viewport", async ({ page }) => {
     await page.goto("/");
@@ -25,10 +38,8 @@ test.describe("hosted reference app visual coverage", () => {
 
   test("matches the workflow document page", async ({ page }) => {
     await page.goto("/");
-    await page
-      .getByRole("navigation", { name: "Primary" })
-      .getByRole("link", { name: /Workflows/ })
-      .click();
+    const nav = await openPrimaryNav(page);
+    await nav.getByRole("link", { name: /Workflows/ }).click();
 
     await expect(
       page.getByRole("heading", {

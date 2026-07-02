@@ -6,10 +6,14 @@ template core.
 
 ## Import Rules
 
+- Start from a blueprint in [blueprint-catalog.md](./blueprint-catalog.md) and
+  keep client-specific nouns in the private package until reviewed.
 - Run dry-run first.
 - Inspect generated diffs.
 - Keep imported modules under `private-packages/<package>/` until review.
 - Require docs, tests, data-map metadata, and migration notes.
+- Follow [generator-output-contract.md](./generator-output-contract.md) before
+  promoting any imported capability or workflow.
 - Do not bypass Confect contract checks.
 - Do not import secrets or customer data.
 

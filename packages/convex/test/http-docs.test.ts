@@ -1,10 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { handleTemplateHttpRequest, templateHttpRoutes } from "../src/index";
+import templateHttp from "../confect/http";
+import {
+  handleTemplateHttpRequest,
+  securityHeaders,
+  templateHttpRoutes,
+} from "../src/index";
 
 const readJson = async (response: Response): Promise<unknown> =>
   JSON.parse(await response.text());
 
 describe("template HTTP docs routes", () => {
+  it("default-exports the handler expected by generated Convex HTTP bridge", () => {
+    expect(templateHttp).toBe(handleTemplateHttpRequest);
+  });
+
   it("declares OpenAPI, Scalar docs, and executable API routes", () => {
     expect(templateHttpRoutes).toEqual(
       expect.arrayContaining([
@@ -48,6 +57,28 @@ describe("template HTTP docs routes", () => {
     });
   });
 
+  it("applies security headers to every HTTP response", async () => {
+    const responses = await Promise.all([
+      handleTemplateHttpRequest(new Request("https://template.local/api/docs")),
+      handleTemplateHttpRequest(
+        new Request("https://template.local/api/openapi.json"),
+      ),
+      handleTemplateHttpRequest(new Request("https://template.local/missing")),
+    ]);
+
+    for (const response of responses) {
+      expect(response.headers.get("strict-transport-security")).toBe(
+        securityHeaders["strict-transport-security"],
+      );
+      expect(response.headers.get("x-frame-options")).toBe("DENY");
+      expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+      expect(response.headers.get("referrer-policy")).toBe("no-referrer");
+      expect(response.headers.get("content-security-policy")).toContain(
+        "frame-ancestors 'none'",
+      );
+    }
+  });
+
   it("serves a Scalar docs shell", async () => {
     const response = await handleTemplateHttpRequest(
       new Request("https://template.local/api/docs"),
@@ -79,7 +110,7 @@ describe("template HTTP docs routes", () => {
       result: {
         status: "accepted",
         workspaceSlug: "acme-demo",
-        receiptId: "receipt_template_001",
+        receiptId: "trust_run_template_001",
         workflowRunId: "run_template_001",
       },
     });

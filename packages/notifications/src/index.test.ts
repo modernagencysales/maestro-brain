@@ -1,0 +1,186 @@
+import { describe, expect, it } from "vitest";
+import {
+  createActionDigestService,
+  createAlertService,
+  createEmailService,
+  redactEmailPayload,
+} from "./index";
+
+describe("notification provider seams", () => {
+  it("sends MailerSend-style email in fake mode with idempotency key", async () => {
+    const deliveries: unknown[] = [];
+    const service = createEmailService({
+      mode: "fake",
+      sink: (message) => {
+        deliveries.push(message);
+      },
+    });
+
+    await expect(
+      service.send({
+        to: "person@example.test",
+        from: "no-reply@example.test",
+        subject: "Invite",
+        html: "<p>Hello</p>",
+        idempotencyKey: "email-001",
+        templateData: { token: "secret", workspace: "Acme" },
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      delivery: "fake",
+      idempotencyKey: "email-001",
+    });
+    expect(JSON.stringify(deliveries)).not.toContain("secret");
+  });
+
+  it("requires an idempotency key before sending", async () => {
+    const service = createEmailService({ mode: "fake" });
+
+    await expect(
+      service.send({
+        to: "person@example.test",
+        from: "no-reply@example.test",
+        subject: "Invite",
+        html: "<p>Hello</p>",
+        idempotencyKey: "",
+        templateData: {},
+      }),
+    ).resolves.toMatchObject({
+      ok: false,
+      error: { _tag: "EmailValidationError" },
+    });
+  });
+
+  it("redacts email payload recipients and template secrets", () => {
+    expect(
+      redactEmailPayload({
+        to: "person@example.test",
+        apiKey: "secret",
+        templateData: { token: "secret", safe: "value" },
+      }),
+    ).toEqual({
+      to: "[redacted]",
+      apiKey: "[redacted]",
+      templateData: "[redacted]",
+    });
+  });
+
+  it("emits outbound alerts through a redacted fake/test/live seam", async () => {
+    const emitted: unknown[] = [];
+    const alerts = createAlertService({
+      mode: "fake",
+      sink: (alert) => {
+        emitted.push(alert);
+      },
+    });
+
+    await expect(
+      alerts.emit({
+        severity: "critical",
+        title: "Provider outage",
+        body: "OpenRouter failed with token sk-live-secret",
+        dedupeKey: "provider-openrouter-down",
+        workspaceId: "workspace_123",
+        metadata: {
+          apiKey: "sk-live-secret",
+          provider: "openrouter",
+        },
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      delivery: "fake",
+      dedupeKey: "provider-openrouter-down",
+    });
+    expect(JSON.stringify(emitted)).not.toContain("sk-live-secret");
+    expect(emitted).toEqual([
+      expect.objectContaining({
+        severity: "critical",
+        title: "Provider outage",
+        metadata: "[redacted]",
+      }),
+    ]);
+  });
+
+  it("emits transform drift alerts without leaking hashes or raw metadata", async () => {
+    const emitted: unknown[] = [];
+    const alerts = createAlertService({
+      mode: "fake",
+      sink: (alert) => {
+        emitted.push(alert);
+      },
+    });
+
+    await expect(
+      alerts.emit({
+        severity: "warning",
+        title: "Transform drift detected",
+        body: "Transform transform_gtm_brief drifted for run run_001.",
+        dedupeKey: "transform-drift:workspace_123:transform_gtm_brief:run_001",
+        workspaceId: "workspace_123",
+        metadata: {
+          transformId: "transform_gtm_brief",
+          runId: "run_001",
+          expectedOutputHash: "sha256:expected-secret",
+          actualOutputHash: "sha256:actual-secret",
+        },
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      delivery: "fake",
+      dedupeKey: "transform-drift:workspace_123:transform_gtm_brief:run_001",
+    });
+
+    expect(JSON.stringify(emitted)).not.toContain("sha256:expected-secret");
+    expect(JSON.stringify(emitted)).not.toContain("sha256:actual-secret");
+    expect(emitted).toEqual([
+      expect.objectContaining({
+        severity: "warning",
+        title: "Transform drift detected",
+        body: "[redacted]",
+        metadata: "[redacted]",
+      }),
+    ]);
+  });
+
+  it("sends action digests through the email seam with redacted metadata", async () => {
+    const deliveries: unknown[] = [];
+    const digests = createActionDigestService({
+      mode: "fake",
+      from: "no-reply@example.test",
+      sink: (message) => {
+        deliveries.push(message);
+      },
+    });
+
+    await expect(
+      digests.send({
+        to: "ops@example.test",
+        workspaceId: "workspace_123",
+        recipientId: "user_ops",
+        periodStart: "2026-07-01T00:00:00.000Z",
+        periodEnd: "2026-07-01T23:59:59.000Z",
+        jobsQueued: 5,
+        approvalsWaiting: 2,
+        actionsPublished: 1,
+        customerMetadata: { email: "buyer@example.com" },
+        providerMetadata: { messageId: "provider-secret-message-id" },
+      }),
+    ).resolves.toMatchObject({
+      ok: true,
+      delivery: "fake",
+      idempotencyKey:
+        "action-digest:workspace_123:user_ops:2026-07-01T00:00:00.000Z:2026-07-01T23:59:59.000Z",
+    });
+
+    expect(JSON.stringify(deliveries)).not.toContain("buyer@example.com");
+    expect(JSON.stringify(deliveries)).not.toContain(
+      "provider-secret-message-id",
+    );
+    expect(deliveries).toEqual([
+      expect.objectContaining({
+        to: "[redacted]",
+        templateData: "[redacted]",
+      }),
+    ]);
+  });
+});

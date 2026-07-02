@@ -73,7 +73,10 @@ pnpm exec tsx apps/cli/src/index.ts api openapi
 pnpm exec tsx apps/cli/src/index.ts mcp tools
 pnpm exec tsx apps/cli/src/index.ts mcp call template.workflow.run
 pnpm exec tsx apps/cli/src/index.ts integrations report fake
-pnpm template:init -- --name "Reviewer Brain"
+pnpm template:quickstart -- --blueprint source-grounded-gtm-brain --name "Reviewer Brain" --write
+pnpm template:doctor -- --mode fake
+pnpm template:seed-demo -- --blueprint source-grounded-gtm-brain --write
+pnpm template:handoff -- --mode fake --write
 ```
 
 `api openapi` prints an OpenAPI 3.1 document generated from the same headless
@@ -88,9 +91,9 @@ registry; `packages/convex/test/http-docs.test.ts` proves
 workflow through the same registry and returns the workflow receipt as an
 MCP-style tool result.
 
-`template:init` prints the client-instance manifest. Use `--write` when you want
-to create `template-instance.json`, then run
-`pnpm template:doctor -- --mode fake`.
+`template:quickstart` writes the client-instance manifest, implementation brief,
+deterministic fake seed, and handoff packet. Use `template:init` when you only
+need the low-level manifest file.
 
 `review:completion` maps the original template objective to concrete evidence
 and verification commands so reviewers can see what is proved, what is hosted,
@@ -114,6 +117,34 @@ expected errors are Effect schemas and that callers use generated refs. Then
 inspect `packages/convex/test/confect-contracts.test.ts`, which checks generated
 ref metadata, capability schema validation, public-safe typed errors, and plain
 Convex registration shape without requiring a live Convex deployment.
+
+The access spine now includes real Confect/Effect provisioning:
+`packages/convex/confect/access/provisioning.spec.ts`,
+`packages/convex/confect/access/provisioning.impl.ts`, and
+`packages/convex/test/access-provisioning.test.ts` prove the first-sign-in
+workspace path, verified provider identity handling, idempotency, self-healing
+owner memberships, suspended-user denial, and duplicate-live-row conflict
+handling.
+
+Membership and invitation lifecycle policy is implemented as a pure typed kernel
+in `packages/convex/confect/access/lifecycle.ts`, with behavior coverage in
+`packages/convex/test/access-lifecycle.test.ts`. It covers escalation-safe role
+changes, removal, ownership transfer, last-owner protection, invitation
+creation, accept, decline, cancel, opaque invite denial, expiry handling, and
+audit-ready domain events. The Confect database groups in
+`packages/convex/confect/access/members.*` and
+`packages/convex/confect/access/invitations.*` expose generated refs for member
+role changes, removal, ownership transfer, invitation create, accept, decline,
+and cancel through `packages/convex/test/access-confect-groups.test.ts`.
+
+The web package now has a reusable workspace provider in
+`apps/web/src/providers/workspace.tsx`, covered by
+`apps/web/src/providers/workspace.test.tsx`. It models loading, empty-account
+provisioning, active workspace persistence, workspace switching, and
+provisioning failure without requiring live Convex or WorkOS secrets. The
+reference app does not render a new status widget yet, because the current
+diligence surface is intentionally a calm document until live app routes are
+wired.
 
 ## 5. Inspect Operations
 

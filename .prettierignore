@@ -3,6 +3,7 @@
 node_modules/
 dist/
 coverage/
+.stryker-tmp/
 .turbo/
 apps/*/dist/
 packages/*/dist/
@@ -12,3 +13,4 @@ playwright-report/
 repos/
 packages/convex/confect/_generated/
 packages/convex/convex/_generated/
+apps/web/src/routeTree.gen.ts

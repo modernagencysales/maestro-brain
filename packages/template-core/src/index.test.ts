@@ -14,6 +14,18 @@ describe("templateRegistry", () => {
     for (const capability of templateRegistry.capabilities) {
       expect(capability.typedErrors.length).toBeGreaterThan(0);
     }
+    expect(templateRegistry.capabilities).toContainEqual(
+      expect.objectContaining({
+        name: "sourceGroundedBrief",
+        exposure: "API + CLI",
+        typedErrors: expect.arrayContaining([
+          "PolicyNotFound",
+          "PromptNotFound",
+          "RateLimited",
+          "SpendCapExceeded",
+        ]),
+      }),
+    );
   });
 
   it("keeps source-grounding and headless primitives visible", () => {
@@ -28,10 +40,16 @@ describe("templateRegistry", () => {
 
     expect(receipt).toMatchObject({
       runId: "run_template_001",
+      workflowRunId: "run_template_001",
+      workflowId: "workflow_source_grounded_plan",
+      workflowVersion: 1,
       status: "completed",
+      trustReceiptId: "trust_run_template_001",
       trustReceipt: {
-        receiptId: "receipt_template_001",
-        model: "fake/local deterministic model",
+        receiptId: "trust_run_template_001",
+        workflowRunId: "run_template_001",
+        modelReceiptId: "model_receipt_template_fake_local",
+        trustClaim: "source-backed-no-default-rag",
       },
     });
     expect(receipt.steps.map((step) => step.nodeId)).toEqual([

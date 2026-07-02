@@ -1,0 +1,243 @@
+import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
+import type { ProviderMode } from "./index";
+import { redactProviderPayload } from "./index";
+import {
+  makeFakeLlmCompletionText,
+  makeLlmCompletion,
+  type LlmCompletion,
+} from "./llmResponse";
+import {
+  calculateLlmSpend,
+  estimateConservativeTokenCount,
+  SpendCapExceededError,
+  verifyDailySpendCap,
+} from "./spend";
+
+export class LlmDisabledError extends Schema.TaggedError<LlmDisabledError>()(
+  "LlmDisabledError",
+  {
+    provider: Schema.Literal("openrouter"),
+  },
+) {}
+
+export class LlmProviderConfigError extends Schema.TaggedError<LlmProviderConfigError>()(
+  "LlmProviderConfigError",
+  {
+    provider: Schema.Literal("openrouter"),
+    missingEnv: Schema.Array(Schema.String),
+  },
+) {}
+
+export class LlmProviderCallError extends Schema.TaggedError<LlmProviderCallError>()(
+  "LlmProviderCallError",
+  {
+    provider: Schema.Literal("openrouter"),
+    publicMessage: Schema.String,
+    retryable: Schema.Boolean,
+    redactedPayload: Schema.Record({
+      key: Schema.String,
+      value: Schema.Unknown,
+    }),
+  },
+) {}
+
+export type LlmGatewayError =
+  | LlmDisabledError
+  | LlmProviderConfigError
+  | LlmProviderCallError
+  | SpendCapExceededError;
+
+export type LlmGatewayRequest = {
+  readonly workspaceSlug: string;
+  readonly prompt: string;
+  readonly idempotencyKey?: string;
+  readonly expectedCompletionTokens?: number;
+  readonly currentDailySpendCents?: number;
+};
+
+export type LlmProviderTransportInput = {
+  readonly apiKey: string;
+  readonly baseUrl: string;
+  readonly model: string;
+  readonly prompt: string;
+};
+
+export type LlmProviderTransportResult = {
+  readonly text: string;
+};
+
+export type LlmTelemetryEvent = {
+  readonly provider: "openrouter";
+  readonly mode: ProviderMode;
+  readonly workspaceSlug: string;
+  readonly estimatedCents: number;
+};
+
+export type LlmGatewayConfig = {
+  readonly mode: ProviderMode;
+  readonly env: Readonly<Record<string, string | undefined>>;
+  readonly now?: () => string;
+  readonly transport?: (
+    input: LlmProviderTransportInput,
+  ) => Effect.Effect<LlmProviderTransportResult, unknown>;
+  readonly captureTelemetry?: (
+    event: LlmTelemetryEvent,
+  ) => void | Promise<void>;
+};
+
+export type LlmGateway = {
+  readonly complete: (
+    request: LlmGatewayRequest,
+  ) => Effect.Effect<LlmCompletion, LlmGatewayError>;
+};
+
+const defaultModel = "fake/local-demo";
+const defaultBaseUrl = "https://openrouter.ai/api/v1";
+
+const readEnv = (
+  env: Readonly<Record<string, string | undefined>>,
+  name: string,
+): string | undefined => {
+  const value = env[name]?.trim();
+
+  return value ? value : undefined;
+};
+
+const llmDisabled = (
+  env: Readonly<Record<string, string | undefined>>,
+): boolean => readEnv(env, "LLM_DISABLED")?.toLowerCase() === "true";
+
+const requireOpenRouterApiKey = (
+  env: Readonly<Record<string, string | undefined>>,
+): string | LlmProviderConfigError => {
+  const apiKey = readEnv(env, "OPENROUTER_API_KEY");
+
+  if (apiKey) {
+    return apiKey;
+  }
+
+  return new LlmProviderConfigError({
+    provider: "openrouter",
+    missingEnv: ["OPENROUTER_API_KEY"],
+  });
+};
+
+const spendForRequest = (request: LlmGatewayRequest) => {
+  const promptTokens = estimateConservativeTokenCount(request.prompt);
+  const completionTokens = request.expectedCompletionTokens ?? 256;
+
+  return calculateLlmSpend({
+    promptTokens,
+    completionTokens,
+    inputCentsPerMillionTokens: 20,
+    outputCentsPerMillionTokens: 40,
+    minimumCents: 1,
+  });
+};
+
+const captureTelemetrySafely = (
+  capture: LlmGatewayConfig["captureTelemetry"],
+  event: LlmTelemetryEvent,
+) =>
+  Effect.tryPromise({
+    try: async () => {
+      await capture?.(event);
+    },
+    catch: () => undefined,
+  }).pipe(Effect.catchAll(() => Effect.succeed(undefined)));
+
+const createProviderCallError = (
+  input: LlmProviderTransportInput,
+): LlmProviderCallError =>
+  new LlmProviderCallError({
+    provider: "openrouter",
+    publicMessage: "LLM provider request failed.",
+    retryable: true,
+    redactedPayload: redactProviderPayload("openrouter", {
+      apiKey: input.apiKey,
+      prompt: input.prompt,
+      model: input.model,
+      baseUrl: input.baseUrl,
+    }),
+  });
+
+export const createLlmGateway = (config: LlmGatewayConfig): LlmGateway => ({
+  complete: (request) =>
+    Effect.gen(function* () {
+      if (llmDisabled(config.env)) {
+        return yield* Effect.fail(
+          new LlmDisabledError({ provider: "openrouter" }),
+        );
+      }
+
+      const usage = spendForRequest(request);
+      const dailyLimit = Number(
+        readEnv(config.env, "LLM_DAILY_SPEND_LIMIT_CENTS") ?? "2500",
+      );
+      const cap = verifyDailySpendCap({
+        workspaceSlug: request.workspaceSlug,
+        currentDailySpendCents: request.currentDailySpendCents ?? 0,
+        estimatedCallCents: usage.estimatedCents,
+        dailySpendLimitCents: dailyLimit,
+      });
+
+      if (cap !== true) {
+        return yield* Effect.fail(cap);
+      }
+
+      const model = readEnv(config.env, "LLM_DEFAULT_MODEL") ?? defaultModel;
+      const generatedAt = config.now?.() ?? new Date().toISOString();
+
+      const text =
+        config.mode === "fake"
+          ? makeFakeLlmCompletionText(request.workspaceSlug)
+          : yield* Effect.gen(function* () {
+              const apiKey = requireOpenRouterApiKey(config.env);
+
+              if (apiKey instanceof LlmProviderConfigError) {
+                return yield* Effect.fail(apiKey);
+              }
+
+              const transportInput = {
+                apiKey,
+                baseUrl:
+                  readEnv(config.env, "OPENROUTER_BASE_URL") ?? defaultBaseUrl,
+                model,
+                prompt: request.prompt,
+              };
+              const transport =
+                config.transport ??
+                (() =>
+                  Effect.succeed({
+                    text: "Live-ready LLM transport placeholder.",
+                  }));
+              const result = yield* transport(transportInput).pipe(
+                Effect.mapError(() => createProviderCallError(transportInput)),
+              );
+
+              return result.text;
+            });
+
+      const completion = makeLlmCompletion({
+        mode: config.mode,
+        model,
+        workspaceSlug: request.workspaceSlug,
+        text,
+        usage,
+        generatedAt,
+        ...(request.idempotencyKey
+          ? { idempotencyKey: request.idempotencyKey }
+          : {}),
+      });
+
+      yield* captureTelemetrySafely(config.captureTelemetry, {
+        provider: "openrouter",
+        mode: config.mode,
+        workspaceSlug: request.workspaceSlug,
+        estimatedCents: usage.estimatedCents,
+      });
+
+      return completion;
+    }),
+});

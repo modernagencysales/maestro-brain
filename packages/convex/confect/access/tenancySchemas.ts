@@ -1,0 +1,80 @@
+import * as Schema from "effect/Schema";
+
+import { Role } from "./roles";
+
+export const UserStatus = Schema.Literal("active", "suspended", "deleted");
+export const OrganizationStatus = Schema.Literal(
+  "active",
+  "suspended",
+  "archived",
+);
+export const MembershipStatus = Schema.Literal("pending", "active", "revoked");
+export const InvitationStatus = Schema.Literal(
+  "pending",
+  "accepted",
+  "cancelled",
+  "declined",
+  "revoked",
+  "expired",
+);
+
+const NullableNumber = Schema.NullOr(Schema.Number);
+const OptionalString = Schema.optional(Schema.String);
+
+export const UserRow = Schema.Struct({
+  subject: Schema.String,
+  email: Schema.String,
+  displayName: OptionalString,
+  status: UserStatus,
+  createdAt: Schema.Number,
+  updatedAt: Schema.Number,
+  deletedAt: Schema.optional(NullableNumber),
+});
+
+export const OrganizationRow = Schema.Struct({
+  ownerUserId: Schema.String,
+  slug: Schema.String,
+  name: Schema.String,
+  status: OrganizationStatus,
+  createdAt: Schema.Number,
+  updatedAt: Schema.Number,
+  archivedAt: Schema.optional(NullableNumber),
+});
+
+export const OrganizationMemberRow = Schema.Struct({
+  organizationId: Schema.String,
+  userId: Schema.String,
+  role: Role,
+  status: MembershipStatus,
+  acceptedAt: NullableNumber,
+  revokedAt: NullableNumber,
+  createdAt: Schema.Number,
+  updatedAt: Schema.Number,
+});
+
+export const WorkspaceMemberRow = Schema.Struct({
+  workspaceId: Schema.String,
+  userId: Schema.String,
+  role: Role,
+  status: MembershipStatus,
+  acceptedAt: NullableNumber,
+  revokedAt: NullableNumber,
+  deletedAt: NullableNumber,
+  createdAt: Schema.Number,
+  updatedAt: Schema.Number,
+});
+
+export const InvitationRow = Schema.Struct({
+  workspaceId: Schema.String,
+  organizationId: Schema.String,
+  email: Schema.String,
+  role: Role,
+  status: InvitationStatus,
+  tokenHash: Schema.String,
+  invitedByUserId: Schema.String,
+  acceptedAt: NullableNumber,
+  revokedAt: NullableNumber,
+  expiresAt: Schema.Number,
+  createdAt: Schema.Number,
+  updatedAt: Schema.Number,
+});

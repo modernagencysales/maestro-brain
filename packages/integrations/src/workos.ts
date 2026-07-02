@@ -1,0 +1,128 @@
+import * as Schema from "effect/Schema";
+import type { ProviderMode } from "./index";
+
+export class WorkosConfigError extends Schema.TaggedError<WorkosConfigError>()(
+  "WorkosConfigError",
+  {
+    missingEnv: Schema.Array(Schema.String),
+  },
+) {}
+
+export type FakeAuthKitClient = {
+  readonly mode: "fake";
+  readonly getSignInUrl: (state: string) => string;
+  readonly getSignOutUrl: () => string;
+};
+
+export type AuthKitRouteRegistration = {
+  readonly callback: {
+    readonly path: string;
+    readonly redirectUri: string;
+  };
+  readonly logout: {
+    readonly path: string;
+    readonly logoutUri: string;
+  };
+};
+
+export type WorkosSignatureFailureReason =
+  "missing_signature" | "stale_timestamp" | "invalid_signature";
+
+export type WorkosSignatureFailure = {
+  readonly reason: WorkosSignatureFailureReason;
+  readonly retryable: boolean;
+};
+
+export type WorkosConvexAuthConfig = {
+  readonly providers: readonly [
+    {
+      readonly type: "customJwt";
+      readonly issuer: string;
+      readonly jwks: string;
+      readonly applicationID: string;
+    },
+  ];
+};
+
+const requiredLiveEnv = [
+  "WORKOS_API_KEY",
+  "WORKOS_CLIENT_ID",
+  "WORKOS_COOKIE_PASSWORD",
+  "WORKOS_REDIRECT_URI",
+] as const;
+
+export const validateWorkosEnv = (
+  mode: ProviderMode,
+  env: Readonly<Record<string, string | undefined>>,
+): true | WorkosConfigError => {
+  if (mode === "fake") {
+    return true;
+  }
+
+  const missingEnv = requiredLiveEnv.filter((name) => !env[name]?.trim());
+
+  return missingEnv.length > 0
+    ? new WorkosConfigError({ missingEnv: [...missingEnv] })
+    : true;
+};
+
+export const createFakeAuthKitClient = (input: {
+  readonly baseUrl: string;
+  readonly organizationId: string;
+}): FakeAuthKitClient => ({
+  mode: "fake",
+  getSignInUrl: (state) =>
+    `${input.baseUrl}/auth/fake/sign-in?organization_id=${input.organizationId}&state=${state}`,
+  getSignOutUrl: () => `${input.baseUrl}/auth/fake/sign-out`,
+});
+
+export const createAuthKitRouteRegistration = (input: {
+  readonly callbackPath: string;
+  readonly logoutPath: string;
+  readonly redirectUri: string;
+  readonly logoutUri: string;
+}): AuthKitRouteRegistration => ({
+  callback: {
+    path: input.callbackPath,
+    redirectUri: input.redirectUri,
+  },
+  logout: {
+    path: input.logoutPath,
+    logoutUri: input.logoutUri,
+  },
+});
+
+export const classifyWorkosSignatureFailure = (input: {
+  readonly hasSignature: boolean;
+  readonly timestampSkewMs: number;
+  readonly verified: boolean;
+}): WorkosSignatureFailure | undefined => {
+  if (input.verified) {
+    return undefined;
+  }
+
+  if (!input.hasSignature) {
+    return { reason: "missing_signature", retryable: false };
+  }
+
+  if (input.timestampSkewMs > 300_000) {
+    return { reason: "stale_timestamp", retryable: false };
+  }
+
+  return { reason: "invalid_signature", retryable: false };
+};
+
+export const deriveWorkosConvexAuthConfig = (input: {
+  readonly issuer: string;
+  readonly jwksUrl: string;
+  readonly applicationId: string;
+}): WorkosConvexAuthConfig => ({
+  providers: [
+    {
+      type: "customJwt",
+      issuer: input.issuer,
+      jwks: input.jwksUrl,
+      applicationID: input.applicationId,
+    },
+  ],
+});

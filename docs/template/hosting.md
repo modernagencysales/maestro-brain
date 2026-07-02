@@ -1,11 +1,18 @@
 # Hosting
 
-The reference app is a static Vite build. It can be hosted on Vercel, Cloudflare
-Pages, Netlify, or any static asset host.
+The current reference app is a static Vite build. It can be hosted on Vercel,
+Cloudflare Pages, Netlify, or any static asset host.
 
 Current Cloudflare Pages URL:
 
 - `https://maestro-template.pages.dev`
+
+TanStack Start is the committed runtime direction for the template, but the Vite
+static deployment remains the production-safe reference path until the Start
+build has equivalent local static smoke, hosted HTTP smoke, hosted browser
+smoke, hosted visual smoke, and rollback documentation. The first Start deploy
+target should be static Cloudflare Pages output if equivalent. Cloudflare
+Workers SSR is deferred until env mapping and rollback are explicit.
 
 ## Local Static Smoke
 
@@ -26,6 +33,10 @@ hosting provider at the repo.
 - Environment: fake/local providers by default
 - Production promotion: only from a commit that passed `pnpm verify` and
   `pnpm smoke:web-static`
+- Runtime migration: see [frontend-architecture.md](./frontend-architecture.md)
+  and
+  [../design-intake/2026-07-01-template-frontend-stack-source.md](../design-intake/2026-07-01-template-frontend-stack-source.md)
+  before changing the deploy target.
 
 ## Cloudflare Pages
 
@@ -48,6 +59,19 @@ pnpm smoke:hosted
 pnpm smoke:hosted:browser
 pnpm smoke:hosted:visual
 ```
+
+## TanStack Start Migration Gate
+
+Before replacing the Vite static deploy with TanStack Start:
+
+1. Generate the route tree; never hand-edit `apps/web/src/routeTree.gen.ts`.
+2. Prove the investor document route still renders on desktop and mobile.
+3. Run `pnpm --dir apps/web test`, `pnpm check:route-tree`,
+   `pnpm smoke:web-static`, `pnpm smoke:hosted`, `pnpm smoke:hosted:browser`,
+   and `pnpm smoke:hosted:visual`.
+4. Document whether the deploy is Cloudflare Pages static output or Cloudflare
+   Workers SSR.
+5. Document rollback to the previous static deploy.
 
 When running on the headless host, wrap deploys in the secret environment:
 

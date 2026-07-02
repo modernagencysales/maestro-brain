@@ -1,0 +1,27 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "include": ["dependencies"],
+  "workspaces": {
+    ".": {
+      "entry": ["package.json"],
+      "project": []
+    }
+  },
+  "ignoreDependencies": [
+    "@confect/js",
+    "@confect/test",
+    "@effect/cluster",
+    "@effect/platform",
+    "@effect/platform-node",
+    "@effect/vitest",
+    "@maestro-template/template-core",
+    "@notion-kit/i18n",
+    "@notion-kit/schemas",
+    "@notion-kit/settings-panel",
+    "@tailwindcss/vite",
+    "convex-test",
+    "effect",
+    "lucide-react",
+    "tailwindcss"
+  ]
+}

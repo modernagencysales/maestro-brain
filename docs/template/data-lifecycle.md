@@ -1,20 +1,128 @@
 # Data Lifecycle
 
-Every durable resource declares owner module, workspace scope, classification,
-retention, export posture, delete posture, and demo-data eligibility.
+The template ships a small, explicit lifecycle planner rather than a broad data
+deleter. It is intentionally conservative: it documents export, retention, and
+delete posture for resources that exist in the template today, and it requires
+typed confirmation before destructive workspace delete work.
 
-## Export
+Authoritative implementation:
 
-Export requests produce scoped manifests. Manifests list resource owner, table
-or provider, ids safe for the requester, file names, and omissions.
+- `packages/convex/confect/ops/dataLifecycle.ts`
+- `packages/convex/test/data-lifecycle.test.ts`
 
-## Deletion
+Every schema addition that stores workspace-owned data must declare:
 
-Deletion requests produce either typed block reasons or deletion receipts.
-Blocks include legal hold, active billing dependency, active workflow run,
-unsupported provider state, or missing authority.
+- owner module
+- export posture
+- delete posture
+- retention rule
 
-## Data Map
+These fields must be documented before a resource is promoted from
+generated/client-specific code into the template core.
 
-The Data Map route shows resource owner, retention, export eligibility, delete
-posture, provider storage, health, and module ownership.
+## Current Resources
+
+The planner covers these workspace-owned resources:
+
+- `workspaces`
+- `workspaceMembers`
+- `brainPages`
+- `workflowRuns`
+- `workflowStageRuns`
+- `workflowRunEvents`
+- `workflowRunEvidenceSnapshots`
+- `workflowRunContextManifests`
+- `usageEvents`
+- `creditLedger`
+- `entitlements`
+- `webhookEvents`
+- `apiKeys`
+- `invitations`
+- `documents`
+- `documentVersions`
+- `documentAnnotations`
+- `concepts`
+- `claims`
+- `citations`
+- `contextPacks`
+- `transformDefinitions`
+- `transformRuns`
+- `transformBlocks`
+- `actionJobs`
+- `actionApprovals`
+- `actionTriggers`
+- `actionDigests`
+- `versionedEntries`
+- `versionFreshness`
+
+## Export Posture
+
+Brain pages and co-editing documents export as markdown with JSON metadata.
+Knowledge concepts, claims, citations, and context packs export as JSON and may
+also be projected into Open Knowledge Format. Document versions and annotations
+export as JSON so reviewer comments, agent suggestions, and version provenance
+remain inspectable. Generic versioned entries and freshness markers export as
+JSON so any workspace-owned entity can be audited without mutating history.
+Transform definitions, runs, and blocks export as JSON so input hashes, output
+hashes, source IDs, policy snapshots, model receipts, and Trust Receipt
+projection remain reviewable. Action jobs and trigger config export as JSON so
+external-write intent, approval posture, scheduler config, and idempotency keys
+remain inspectable. Action approvals and digests export as redacted JSON:
+approval links expose token hashes only, and digest exports never include raw
+customer or provider metadata. Entitlements export as JSON so seat, credit, and
+feature limits remain auditable. Webhook events export as redacted JSON:
+provider, event ID, signature timestamp, and dedupe state are retained without
+raw provider payloads. Operational, workflow, usage, and ledger records export
+as JSON. Sensitive identity, invitation, and API key resources export as
+redacted JSON.
+
+## Delete Posture
+
+Customer content can be deleted with the workspace. Co-editing documents and
+annotations follow workspace delete, while append-only document versions may be
+retained for a configured audit window when a client enables legal, compliance,
+or approval workflows. Concepts, claims, citations, and context packs follow
+workspace delete by default because they are structured overlays on customer
+Brain content. Generic versioned entries are retained as audit provenance;
+version freshness rows delete with the workspace entity because they are mutable
+operational state. Transform definitions delete with the workspace, while
+transform runs and blocks are retained for the audit window because they explain
+generated outputs. Action jobs, approvals, and digest deliveries are retained
+for the audit window because they explain external side effects and reviewer
+decisions; action triggers delete with workspace automation settings. Audit,
+workflow, usage, and financial ledger records are retained as audit anchors. API
+keys and invitations are redacted or revoked rather than exposing secret
+material. Entitlements and payment webhook events are retained for billing,
+seat, and support reconciliation.
+
+## Retention Rules
+
+The implemented retention hooks are:
+
+- Brain pages: retain until workspace delete.
+- Documents: retain until workspace delete.
+- Document versions: append-only; retain until workspace delete by default, or
+  for the configured audit window when approval/compliance mode is enabled.
+- Document annotations: retain until the target document is deleted.
+- Concepts: retain until workspace delete.
+- Claims: retain until workspace delete.
+- Citations: retain until the claim/source is deleted.
+- Context packs: retain until workspace delete; regenerate from cited sources
+  when freshness expires.
+- Transform definitions: retain until workspace delete.
+- Transform runs: retain for the audit window.
+- Transform blocks: retain for the audit window.
+- Action jobs: retain for the audit window.
+- Action approvals: hash or redact review token material on export.
+- Action triggers: retain until workspace delete.
+- Action digests: redact customer and provider metadata on export.
+- Entitlements: retain for the audit window.
+- Webhook events: hash or redact provider payloads on export.
+- Versioned entries: append-only; retain for the audit window.
+- Version freshness: retain until workspace delete.
+- API keys: hash or redact on export.
+- Workflow runs: retain for the audit window.
+- Credit ledger: retain for reconciliation.
+
+Future client forks may add resources, but they must update this planner and its
+tests in the same change.

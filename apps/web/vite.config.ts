@@ -1,9 +1,22 @@
 import react from "@vitejs/plugin-react";
+import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  plugins: [react()],
+  build: {
+    sourcemap: false,
+  },
+  plugins: [
+    tanstackStart({
+      spa: { enabled: true },
+      router: {
+        routesDirectory: "./routes",
+        generatedRouteTree: "./routeTree.gen.ts",
+      },
+    }),
+    react(),
+  ],
   resolve: {
     alias: {
       "@maestro-template/ui": fileURLToPath(

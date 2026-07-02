@@ -9,6 +9,39 @@ export class Forbidden extends Schema.TaggedError<Forbidden>()("Forbidden", {
   reason: Schema.String,
 }) {}
 
+export class MemberNotInWorkspace extends Schema.TaggedError<MemberNotInWorkspace>()(
+  "MemberNotInWorkspace",
+  {
+    membershipId: Schema.String,
+  },
+) {}
+
+export class LastOwnerProtected extends Schema.TaggedError<LastOwnerProtected>()(
+  "LastOwnerProtected",
+  {
+    workspaceId: Schema.String,
+  },
+) {}
+
+export class InvitationNotAccessible extends Schema.TaggedError<InvitationNotAccessible>()(
+  "InvitationNotAccessible",
+  {},
+) {}
+
+export class InvitationNotPending extends Schema.TaggedError<InvitationNotPending>()(
+  "InvitationNotPending",
+  {
+    invitationId: Schema.String,
+  },
+) {}
+
+export class InvitationExpired extends Schema.TaggedError<InvitationExpired>()(
+  "InvitationExpired",
+  {
+    invitationId: Schema.String,
+  },
+) {}
+
 export class WorkspaceNotFound extends Schema.TaggedError<WorkspaceNotFound>()(
   "WorkspaceNotFound",
   {
@@ -20,6 +53,14 @@ export class ValidationFailed extends Schema.TaggedError<ValidationFailed>()(
   "ValidationFailed",
   {
     field: Schema.String,
+    message: Schema.String,
+  },
+) {}
+
+export class ProvisioningConflict extends Schema.TaggedError<ProvisioningConflict>()(
+  "ProvisioningConflict",
+  {
+    resource: Schema.String,
     message: Schema.String,
   },
 ) {}

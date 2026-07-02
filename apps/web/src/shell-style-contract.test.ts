@@ -1,0 +1,59 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+
+const read = (path: string): string => readFileSync(path, "utf8");
+
+describe("Notion Kit shell style contract", () => {
+  it("loads Notion Kit style.css through the template notion stylesheet", () => {
+    expect(read("src/notion.css")).toContain(
+      '@import "@notion-kit/ui/style.css"',
+    );
+  });
+
+  it("loads notion.css and index.css from the root route head", () => {
+    const root = read("src/routes/__root.tsx");
+
+    expect(root).toContain("../notion.css?url");
+    expect(root).toContain("../index.css?url");
+  });
+
+  it("uses the reusable Notion Kit shell instead of the old sample stylesheet shell", () => {
+    const app = read("src/sample/App.tsx");
+
+    expect(app).toContain("TemplateWorkspaceShell");
+    expect(app).not.toContain("AppFrame");
+    expect(app).not.toContain("./sample/styles.css");
+    expect(app).toContain("TemplateToastProvider");
+  });
+
+  it("uses reusable route pending and error surfaces", () => {
+    const router = read("src/router.tsx");
+
+    expect(router).toContain("TemplateRoutePending");
+    expect(router).toContain("TemplateRouteError");
+    expect(router).not.toContain("defaultPendingComponent: () => null");
+    expect(router).not.toContain("<main>Not Found</main>");
+  });
+
+  it("keeps nested sidebar route links inside the Notion Kit menu row hit target", () => {
+    const css = read("src/index.css");
+
+    expect(css).toContain(".template-sidebar-menuitem");
+    expect(css).toContain("overflow: hidden");
+    expect(css).toContain("height: 100%");
+    expect(css).toContain("min-height: 0");
+  });
+
+  it("defines UX safety classes and reduced-motion behavior", () => {
+    const css = read("src/index.css");
+
+    expect(css).toContain(".template-skip-link");
+    expect(css).toContain(".template-live-region");
+    expect(css).toContain(".template-network-banner");
+    expect(css).toContain(".template-empty-state");
+    expect(css).toContain(".template-toast-region");
+    expect(css).toContain(".template-route-state");
+    expect(css).toContain("@media (prefers-reduced-motion: reduce)");
+    expect(css).toContain(".workflow-canvas .react-flow__edge.animated path");
+  });
+});

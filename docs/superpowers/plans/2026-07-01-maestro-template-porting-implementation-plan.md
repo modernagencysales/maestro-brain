@@ -17,9 +17,13 @@ ports preserve the current calm Notion-style reference app while adding reusable
 app-shell, workflow, Brain, editor, and operator primitives behind clear
 boundaries.
 
-**Tech Stack:** TypeScript, pnpm, Turbo, Convex, Confect, Effect, React, React
-Flow, Playwright, Vitest, Buildkite, Cloudflare Pages/Workers, WorkOS, PostHog,
-Dodo, MailerSend, OpenRouter-compatible LLMs, Scalar/OpenAPI, MCP.
+**Tech Stack:** TypeScript, pnpm, Turbo, React, TanStack Start, TanStack Router,
+TanStack Query, Vite, Cloudflare Pages today with a Cloudflare Workers decision
+gate for Start SSR, Convex, Confect, Effect, `@confect/react`, `@confect/js`,
+`@convex-dev/react-query`, WorkOS AuthKit for TanStack Start, Notion Kit, the
+Maestro block layer, React Flow, Tailwind v4 theme bridge where ported from
+Maestro, Playwright, Vitest, Buildkite, PostHog, Dodo, MailerSend,
+OpenRouter-compatible LLMs, Scalar/OpenAPI, MCP.
 
 ---
 
@@ -38,6 +42,180 @@ Use these as the authoritative inputs:
 - `repos/confect/CLAUDE.md`
 - `repos/confect/apps/example/confect/`
 - `repos/confect/packages/*/test/`
+- `/Users/headless/maestro/AGENTS.md`
+- `/Users/headless/maestro/docs/superpowers/specs/2026-06-27-maestro-unified-frontend-system.md`
+- `/Users/headless/maestro/docs/superpowers/plans/2026-06-28-canonical-nk-workspace-ui.md`
+- `/Users/headless/maestro/docs/superpowers/specs/2026-06-27-workflow-builder-editor-ultimate-spec.md`
+- `/Users/headless/maestro/docs/architecture/user-authored-workflows-execution-audit.md`
+- `/Users/headless/maestro/docs/product/policy-is-data.md`
+- `/Users/headless/maestro/docs/product/brain/ADR-001-brain-build-decisions.md`
+
+## Opinionated Architecture Commitments
+
+These choices are intentional and must survive every port. TanStack Start is a
+frontend application/runtime commitment; it is not permission to replace the
+backend, UI system, workflow model, provider seams, or deployment discipline.
+
+Preserve this layer law:
+
+```text
+web routes -> screens -> features -> blocks -> Notion Kit
+client hooks -> @confect/react refs -> Confect specs -> Convex functions
+agents -> workflows -> capabilities -> domain/checks -> schema
+API/CLI/MCP -> headless registry -> same capabilities/workflows as web
+storage/notifications/observability -> Effect services -> provider adapters
+admin/support/privacy -> audited capabilities -> narrow operator surfaces
+```
+
+Frontend commitments:
+
+- Use TanStack Start, TanStack Router, and TanStack Query for route structure,
+  route loaders, pending/error boundaries, typed search params, SSR/static
+  integration, and router/query coordination.
+- Keep the current hosted Vite/static reference app working until a TanStack
+  Start migration has equivalent local static smoke, hosted smoke, browser
+  smoke, visual baseline, and documented Cloudflare deployment behavior.
+- Do not silently move the deployment target. Cloudflare Pages remains the
+  current host for the static reference app; Cloudflare Workers or Start SSR
+  requires an explicit deployment decision, env mapping, rollback path, and
+  smoke coverage.
+- Preserve the Notion Kit direction: `@notion-kit/ui` primitives,
+  `@notion-kit/ui/style.css` through a scoped `notion.css`, Notion Kit sidebar
+  primitives, `@notion-kit/settings-panel` for settings, lucide icons, and the
+  Maestro/template block layer as the only place for reusable layout and visual
+  grammar.
+- Do not let routes or features hand-roll a second design system. Routes map
+  URLs to screens; screens compose features; features adapt data; blocks render
+  Notion-style UI and do not import Convex, Confect refs, route modules,
+  provider SDKs, or auth internals.
+- Preserve the calm investor document route. Production-like app surfaces should
+  be separate routes or feature pages, not a return to a dense one-page
+  dashboard.
+- Use the exact Notion sidebar behavior from Maestro as the template target:
+  Notion Kit `Sidebar`, `SidebarProvider`, `SidebarInset`, route/action/footer
+  item adapters, grouped workspace navigation data, search trigger, settings
+  footer, theme toggle, and mobile/collapsed behavior.
+
+Backend and data commitments:
+
+- Convex remains the backend substrate. Confect and Effect are the typed
+  contract layer for new template backend work: Effect schemas, Confect
+  specs/impls, typed expected errors, generated refs, generated services, HTTP
+  APIs, and Scalar docs.
+- `@confect/react` generated refs are the primary web data contract for Confect
+  functions. `@convex-dev/react-query` and TanStack Query are cache/router
+  integration tools; they must not duplicate business logic or replace Confect
+  specs, generated refs, capability contracts, or Convex tenancy checks.
+- TanStack Start server functions/loaders may handle route-level auth state,
+  redirects, safe preloading, and SSR coordination. They must not become a
+  second backend for business operations. Durable reads/writes, policy, billing,
+  workflows, agents, and provider side effects stay behind Convex/Confect and
+  Effect services.
+- WorkOS AuthKit is the identity seam for production forks. The web root uses
+  the AuthKit provider and Convex auth bridge; backend trust config lives in the
+  Convex package; no WorkOS server secrets enter browser bundles.
+- Provider SDKs stay behind adapters with fake/test/live-ready layers. WorkOS,
+  PostHog, Dodo, MailerSend, OpenRouter-compatible LLMs, storage, search,
+  notifications, and error reporting default fake/local until client setup.
+
+Workflow, capability, agent, and Brain commitments:
+
+- Workflows compose capabilities. Workflows do not call provider adapters
+  directly.
+- Agents are nondeterministic actors with explicit tool grants. Agents may call
+  capabilities or start workflows; they do not call repos, provider adapters, or
+  arbitrary Convex refs directly.
+- Runtime-authored capabilities and workflows are data until promoted. Promotion
+  to generated Confect source is the compile-time safety path.
+- React Flow is the browser interaction layer for workflow authoring and
+  inspection. Durable workflow graph schemas, validation, persistence,
+  execution, provenance, and static headless exposure live outside React Flow.
+- Reuse Maestro's
+  `WorkflowGraph -> derived React Flow view -> command -> reducer -> validate -> Convex/Confect save/run`
+  model. Do not introduce a second workflow schema, saved React Flow node/edge
+  arrays, generic `data` bags, or arbitrary dynamic MCP tools per user-authored
+  workflow.
+- Policy is data. Product-tunable values, prompts, methodology, thresholds,
+  model refs, and agent config live in validated/versioned policy rows.
+  Workflows pin policy snapshots at kickoff and never read latest policy
+  mid-run.
+- The Brain remains source-backed and simple by default: markdown, links, notes,
+  source sets, evidence snapshots/views, context packs, freshness, and trust
+  receipts. RAG/vector search is an optional provider-backed extension, not the
+  default truth model.
+
+Coding, AI, testing, and operations commitments:
+
+- Smarts live in models; code is plumbing. Free-form user intent goes to a
+  tool-calling agent whose output is tool calls. Bounded semantic judgments are
+  one model call through the LLM gateway returning a closed verdict.
+  Deterministic rules, parsers, and regexes live in named `checks/*` modules.
+- No dumping grounds: avoid `utils`, `helpers`, `misc`, and `common` directories
+  for product logic. Put code under an explicit layer and name the boundary.
+- No type escapes: no `any`, no `as unknown as`, no non-null assertions, and no
+  `@ts-ignore`.
+- No raw provider imports and no bare `process.env` in product code. Typed
+  config decoders and Effect services own provider construction.
+- New behavior gets behavior tests before implementation. Source-text-only tests
+  are not proof.
+- Use exact pinned compatibility sets for risky platform families: Confect,
+  Effect, Convex, TanStack, WorkOS, Notion Kit, React Flow, provider SDKs, and
+  Cloudflare tooling.
+- Generated files are regenerated through package scripts, diffed, and never
+  edited by hand.
+- Every repeated review failure becomes a gate: lint rule, dependency boundary,
+  deterministic quality check, debt metric, or documented CI ratchet.
+
+Factory and starter commitments:
+
+- The template is not just a source tree. It must be a repeatable client-fork
+  machine with `template:init`, `template:doctor`, `template:upgrade`,
+  `template:quickstart`, `template:seed-demo`, `template:handoff`,
+  `template:add-*`, `template:promote-*`, private-package import, release
+  artifacts, and handoff packets.
+- The default quickstart must produce visible value in fake mode without live
+  secrets: install, choose a blueprint, generate the instance, seed synthetic
+  demo data, start the app, run the first workflow, inspect the Trust Receipt,
+  and print next steps for provider setup.
+- The default quickstart must be a loop, not a packet: generate instance, seed
+  Brain, inspect context pack, run or inspect the first workflow, inspect the
+  Trust Receipt, change one domain noun/capability/workflow, rerun fake doctor,
+  and emit a handoff packet.
+- A new AI/GTM implementation should start from a blueprint, not a blank fork.
+  Blueprints define domain nouns, source types, initial Brain structure, first
+  capabilities, first workflow, first agent grants, UI routes, headless
+  surfaces, provider posture, eval fixtures, and demo data.
+- Blueprint docs may describe planned packs, but generator help, quickstart
+  docs, and reviewer docs must clearly label which blueprints are implemented.
+  Do not imply a blueprint is executable until it has generator support,
+  deterministic seed data, tests, and handoff docs.
+- Blueprints are packages of opinion, not hardcoded business logic. They should
+  make common B2B shapes fast while keeping client-specific nouns, prompts,
+  integrations, and workflows isolated in generated modules or private packages.
+- Generator output must be multi-surface by default: Confect specs/impls, Effect
+  schemas, typed errors, tests, frontend adapter/view model when user-facing,
+  headless registry entry when exposed, API/CLI/MCP docs, example fixture, audit
+  metadata, data-map metadata, migration notes for durable changes, and reviewer
+  docs.
+- Client-specific code belongs in private packages or extension modules until
+  reviewed and promoted. The template core remains generic.
+- Client forks consume tagged template releases and upgrade through
+  `template:upgrade` reports. Random file copying from template `main` is not a
+  supported upgrade path.
+- The best default GTM/AI fork proves one useful path end to end: client intake
+  -> source-backed Brain -> context pack -> policy-pinned capability -> workflow
+  run -> bounded agent turn -> Trust Receipt -> web/API/CLI/MCP access ->
+  provider posture -> hosted smoke -> handoff packet.
+- Quickstart docs must offer three paths:
+- **10-minute local fake mode:** no secrets, one implemented blueprint, seeded
+  demo data, local app, CLI workflow run or run inspection, Trust Receipt
+  inspection, handoff preview.
+  - **30-minute client discovery mode:** intake questionnaire, domain nouns,
+    source inventory, integration shortlist, blueprint diff, generated
+    implementation brief.
+  - **One-day prototype mode:** configured fake/test providers, first custom
+    capability/workflow, Notion-style route, headless operation, eval fixture,
+    hosted smoke, and handoff packet.
 
 Hard rules:
 
@@ -48,6 +226,18 @@ Hard rules:
 - Do translate reusable mechanics into generic template primitives.
 - Do use Confect/Effect for backend ports unless the item is explicitly Node ops
   tooling or frontend-only UI.
+- Do use TanStack Start as the frontend application framework. Route loading,
+  route errors, pending states, search params, authenticated layouts, SSR/static
+  deployment choices, and router/query integration should be expressed through
+  TanStack Start conventions instead of an ad hoc router.
+- Do not replace Confect/Convex backend contracts with TanStack server
+  functions, raw fetch calls, route-local mutation handlers, or copied business
+  logic.
+- Do not replace Notion Kit, the block layer, the Notion sidebar, or the scoped
+  Notion stylesheet with ad hoc React components or a different UI kit.
+- Do not save or execute React Flow graphs as durable workflow data.
+- Do not let generated client code bypass the layer law, Confect contracts,
+  redaction policy, or private-package review path.
 - Every subsystem doc must say whether the subsystem is `real`, `fake`, `seam`,
   or `planned`.
 
@@ -62,15 +252,17 @@ Phase 0 docs truth
           -> Phase 5 one real capability
             -> Phase 6 one real workflow run
               -> Phase 7 one bounded agent turn
-                -> Phase 8 frontend vertical
-                  -> Phase 9 quality gates and ops hardening
+                -> Phase 8 TanStack Start + Notion Kit frontend vertical
+                  -> Phase 9 app factory, quality gates, and ops hardening
                     -> Phase 10 broad reusable primitives
 ```
 
 Do not start the workflow runner, agent runtime, co-editing system, or rich
 frontend app shell before Phase 1 through Phase 4 are complete. Those systems
 need typed errors, tenancy, provider services, policy snapshots, and prompt
-provenance to be useful.
+provenance to be useful. TanStack Start migration planning may happen earlier,
+but the real authenticated app shell should land after the backend access and
+data contracts exist.
 
 ## Completion Levels
 
@@ -84,10 +276,48 @@ Use these labels in docs and PR summaries:
 - **L3 Workflow/Agent Slice:** One persisted workflow run and one bounded agent
   turn through typed tools.
 - **L4 Client-App Factory:** Generator, frontend, CI, deploy, and docs support
-  repeatable client forks.
+  repeatable client forks. The frontend is a TanStack Start app using the
+  Maestro-style Notion Kit shell, route loaders, typed search params,
+  `@confect/react` generated refs, Convex React Query cache integration where it
+  fits, and designed route-level pending/error states.
 - **L5 Production Client Fork:** Live provider credentials, real deploy
   promotion, retention/export/delete, observability, and security controls are
   provisioned for a specific client.
+
+## Minimum AI/GTM Client Fork
+
+A client fork is useful only when it can prove the implementation path, not just
+render a starter UI. The first fork produced from this template must include:
+
+- A `template-instance.json` manifest with app name, package scope, enabled
+  blueprint, domains, environments, Convex deployment mapping, provider posture,
+  required secret names, enabled optional modules, and redaction status.
+- A client-intake packet covering business goals, domain nouns, source types,
+  workflows, integrations, billing posture, security posture, data lifecycle,
+  and success metrics.
+- A generated implementation brief that translates intake into selected
+  blueprint, module list, first vertical, risks, provider setup, route map,
+  headless surfaces, tests, and handoff criteria.
+- A seeded fake-mode demo workspace that can be started locally without secrets
+  and reset deterministically.
+- A Day-0 factory loop that proves the fork can be renamed or lightly customized
+  through generators without copying files by hand.
+- One source-backed Brain path with markdown/links/notes, source set, evidence
+  snapshot, context pack, freshness, and Trust Receipt.
+- One policy-pinned capability with typed args, returns, expected errors,
+  idempotency, audit metadata, eval fixture, and web/API/CLI/MCP exposure when
+  appropriate.
+- One persisted workflow run composed of capabilities, with stage/event rows,
+  policy snapshot, evidence snapshot, timeout/retry posture, and receipt.
+- One bounded agent turn with explicit tool grants and no arbitrary provider,
+  repo, or Convex function access.
+- A Notion-style Start app route for Brain, workflow, capability, settings, and
+  receipt review, plus a calm investor/reviewer document route.
+- Provider posture for WorkOS, PostHog, Dodo, MailerSend, LLM, storage/search,
+  and notifications in fake/test/live-ready modes.
+- A handoff packet naming what is real, fake, seam, or planned; what commands
+  passed; what secrets are required; what deployment target is active; what
+  migrations exist; and what live-provider swaps remain.
 
 ## Global Acceptance Criteria
 
@@ -112,7 +342,9 @@ Every phase must satisfy these criteria before the next phase starts:
 **Backlog coverage:** All sections A-S, plus the additional gaps identified
 during review: dependency ordering, acceptance criteria, maturity model, threat
 model, Confect/Effect playbooks, do-not-port register, demo vertical definition,
-Convex provisioning story, frontend data/auth path, and docs overclaim cleanup.
+Convex provisioning story, frontend data/auth path, blueprint-first app factory
+path, client handoff contract, release/upgrade story, and docs overclaim
+cleanup.
 
 **Files:**
 
@@ -123,6 +355,19 @@ Convex provisioning story, frontend data/auth path, and docs overclaim cleanup.
 - Create: `docs/template/do-not-port-register.md`
 - Create: `docs/template/security-threat-model.md`
 - Create: `docs/template/demo-vertical.md`
+- Create: `docs/template/blueprint-catalog.md`
+- Create: `docs/template/quickstart.md`
+- Create: `docs/template/client-intake-questionnaire.md`
+- Create: `docs/template/implementation-brief-template.md`
+- Create: `docs/template/demo-seed-contract.md`
+- Create: `docs/template/generator-output-contract.md`
+- Create: `docs/template/client-handoff-packet.md`
+- Create: `docs/template/template-release-process.md`
+- Create: `docs/template/agent-worker-playbook.md`
+- Modify: `docs/template/app-factory-guide.md`
+- Modify: `docs/template/private-package-guide.md`
+- Modify: `docs/template/client-fork-upgrade-guide.md`
+- Modify: `AGENTS.md`
 - Modify: `docs/template/investor-reviewer-packet.md`
 - Modify: `docs/template/reviewer-guide.md`
 - Modify: `docs/template/security.md`
@@ -184,14 +429,15 @@ git commit -m "docs: add template maturity model"
 - [ ] Map backlog sections to phases:
   - Phase 1: B, M, Confect/Effect pattern docs.
   - Phase 2: A, R, H seat-count dependency.
-  - Phase 3: C, H minimum usage, S env manifest.
-  - Phase 4: D, P prompt/knowledge minimum.
-  - Phase 5: G capability registry minimum, J eval minimum.
+  - Phase 3: C, H minimum usage, G API auth minimum, S env manifest.
+  - Phase 4: D, I audit/migrations minimum, P prompt/knowledge minimum.
+  - Phase 5: G capability registry minimum, I knowledge-source minimum, J eval
+    minimum.
   - Phase 6: F workflow minimum, P trust receipt projection.
   - Phase 7: E agent runtime minimum.
   - Phase 8: L frontend shell, Q visualize/act minimum, S UX/a11y minimum.
-  - Phase 9: K CI gates, S deploy/ops/security.
-  - Phase 10: N, O, P, Q broad primitives.
+  - Phase 9: app-factory generator gates, K CI gates, S deploy/ops/security.
+  - Phase 10: N, O, P, Q broad primitives and blueprint expansion.
 - [ ] Add a "do not start yet" section for BlockNote/ProseMirror, full workflow
       schedules, and app-wide dashboards until earlier phases are complete.
 - [ ] Run `pnpm check:format`.
@@ -274,7 +520,73 @@ git add docs/template/demo-vertical.md
 git commit -m "docs: define first demo vertical"
 ```
 
-### Task 0.8: Reconcile Reviewer And Investor Docs
+### Task 0.8: Define The Starter, Blueprint, And Handoff Contract
+
+- [ ] Create `docs/template/blueprint-catalog.md`.
+- [ ] Include these initial blueprint families:
+  - `source-grounded-gtm-brain`: a GTM/client-context app with sources, context
+    packs, grounded briefs, workflow receipts, and headless access.
+  - `implementation-consulting-brain`: a client implementation workspace with
+    discovery intake, integration map, project workflows, risk register, and
+    operator/admin surfaces.
+  - `internal-ops-agent-workspace`: an internal workflow/agent system with
+    tickets, approvals, notifications, and operational dashboards.
+  - `custom-domain-ai-app`: the lowest-assumption path for a client-specific app
+    with custom nouns and private packages.
+- [ ] For each blueprint, list domain nouns, source types, first capability,
+      first workflow, first agent grants, required providers, optional
+      providers, UI routes, headless surfaces, eval fixtures, demo data, and
+      what must be deleted or renamed for a client fork.
+- [ ] Create `docs/template/quickstart.md` with three runnable paths: 10-minute
+      local fake mode, 30-minute client discovery mode, and one-day prototype
+      mode. Include exact commands, expected outputs, expected local URL, and
+      the first files a worker should inspect.
+- [ ] Create `docs/template/client-intake-questionnaire.md` with sections for
+      business objective, audience, source inventory, workflows, integrations,
+      approvals, risk/compliance, billing/usage, reporting, launch path, and
+      success metrics.
+- [ ] Create `docs/template/implementation-brief-template.md` showing the
+      generated brief structure: selected blueprint, domain nouns, sources,
+      workflows, capabilities, agents, integrations, provider posture, route
+      map, headless surfaces, risks, tests, deploy path, and handoff criteria.
+- [ ] Create `docs/template/demo-seed-contract.md` defining fake-mode seed data:
+      workspace, users, Brain sources, markdown notes, links, context packs,
+      capability fixtures, workflow graphs, run receipts, provider posture,
+      audit events, billing/events, and reset rules.
+- [ ] Create `docs/template/generator-output-contract.md` stating every
+      `template:add-*` or `template:promote-*` command must emit or update:
+      Confect spec/impl, Effect schema, typed errors, tests, fixtures, docs,
+      frontend adapter/view model when user-facing, headless registry entry when
+      exposed, audit metadata, data-map metadata, env manifest entries when
+      needed, migration notes for durable changes, and reviewer commands.
+- [ ] Create `docs/template/client-handoff-packet.md` with the exact handoff
+      checklist: status labels, commands run, hosted URL, deployment target,
+      required secret names, provider posture, migrations, live-provider swaps,
+      known seams, security notes, data lifecycle notes, and upgrade target.
+- [ ] Create `docs/template/template-release-process.md` explaining tagged
+      template releases, release notes, `template:upgrade`, migration notes,
+      private-package compatibility, and rollback.
+- [ ] Create `docs/template/agent-worker-playbook.md` explaining how future AI
+      workers should navigate the repo, read vendored Effect/Confect sources,
+      choose generators before hand-writing modules, follow the layer law, run
+      focused checks, interpret fake/seam/planned labels, retrieve AI gate
+      verdicts, and prepare handoff notes.
+- [ ] Update `AGENTS.md` so it links the blueprint catalog, generator output
+      contract, client intake questionnaire, handoff packet, and worker
+      playbook.
+- [ ] Update `docs/template/app-factory-guide.md`,
+      `docs/template/private-package-guide.md`, and
+      `docs/template/client-fork-upgrade-guide.md` to link these docs and make
+      blueprint-first forks the default.
+- [ ] Run `pnpm check:format` and `pnpm check:docs-freshness`.
+- [ ] Commit:
+
+```bash
+git add AGENTS.md docs/template/blueprint-catalog.md docs/template/quickstart.md docs/template/client-intake-questionnaire.md docs/template/implementation-brief-template.md docs/template/demo-seed-contract.md docs/template/generator-output-contract.md docs/template/client-handoff-packet.md docs/template/template-release-process.md docs/template/agent-worker-playbook.md docs/template/app-factory-guide.md docs/template/private-package-guide.md docs/template/client-fork-upgrade-guide.md
+git commit -m "docs: define app factory starter contract"
+```
+
+### Task 0.9: Reconcile Reviewer And Investor Docs
 
 - [ ] Update `docs/template/investor-reviewer-packet.md` so provider adapters
       are described as fake/test/live-ready seams unless the current code makes
@@ -522,47 +834,51 @@ git commit -m "feat: add effective workspace role resolver"
 
 ### Task 2.4: Add Idempotent Provisioning
 
-- [ ] Write tests for first sign-in, repeated sign-in, duplicate tombstoned
+- [x] Write tests for first sign-in, repeated sign-in, duplicate tombstoned
       rows, personal org creation, personal workspace creation, owner membership
       creation, and suspended user denial.
-- [ ] Implement Confect specs and impls for `ensureProvisioned`.
-- [ ] Add typed errors for unauthenticated, invalid identity, and provisioning
+- [x] Implement Confect specs and impls for `ensureProvisioned`.
+- [x] Add typed errors for unauthenticated, invalid identity, and provisioning
       conflict.
-- [ ] Run `pnpm confect:codegen`.
-- [ ] Run provisioning tests and Confect contract checks.
+- [x] Run `pnpm confect:codegen`.
+- [x] Run provisioning tests and Confect contract checks.
 - [ ] Commit:
 
 ```bash
-git add packages/convex/confect/access/workspaces.spec.ts packages/convex/confect/access/workspaces.impl.ts packages/convex/confect/_generated packages/convex/test/access-provisioning.test.ts
+git add packages/convex/confect/access/provisioning.ts packages/convex/confect/access/provisioning.spec.ts packages/convex/confect/access/provisioning.impl.ts packages/convex/confect/errors.ts packages/convex/confect/tables/workspaces.ts packages/convex/confect/_generated packages/convex/convex/access/provisioning.ts packages/convex/test/access-provisioning.test.ts
 git commit -m "feat: add workspace provisioning"
 ```
 
 ### Task 2.5: Add Membership And Invitation Lifecycles
 
-- [ ] Write tests for role change, removal, ownership transfer, last-owner
+- [x] Write tests for role change, removal, ownership transfer, last-owner
       protection, guest cannot invite, invite accept exact email match, opaque
       invite denial, expiry, cancel, decline, and audit event emission.
-- [ ] Implement member and invitation Confect groups.
-- [ ] Add audit-event calls as soon as `recordAuditEvent` exists; until then
+- [x] Implement member and invitation Confect groups.
+- [x] Add audit-event calls as soon as `recordAuditEvent` exists; until then
       write domain events into a local typed return and mark the table
       dependency in `docs/template/porting-roadmap.md`.
-- [ ] Run `pnpm confect:codegen`.
-- [ ] Run access tests.
+- [x] Run `pnpm confect:codegen`.
+- [x] Run access tests.
 - [ ] Commit:
 
 ```bash
-git add packages/convex/confect/access packages/convex/confect/_generated packages/convex/test/access-invitations.test.ts docs/template/porting-roadmap.md
+git add packages/convex/confect/access packages/convex/confect/_generated packages/convex/convex/access packages/convex/test/access-lifecycle.test.ts packages/convex/test/access-confect-groups.test.ts docs/template/porting-roadmap.md
 git commit -m "feat: add member and invitation lifecycles"
 ```
 
 ### Task 2.6: Add Web Workspace Provider
 
-- [ ] Write React tests for loading, empty provisioning, active workspace
+- [x] Write React tests for loading, empty provisioning, active workspace
       persistence, workspace switching, and provisioning failure.
-- [ ] Implement `apps/web/src/providers/workspace.tsx`.
-- [ ] Add a small status surface to the sample/reference app only if it stays
+- [x] Implement `apps/web/src/providers/workspace.tsx`.
+- [x] Add a small status surface to the sample/reference app only if it stays
       document-like and not dashboard-busy.
-- [ ] Run `pnpm --dir apps/web test`.
+- [x] Run focused web Vitest coverage. Note: in this local environment,
+      `pnpm --dir apps/web test` exits `1` with no output through the pnpm
+      wrapper; direct
+      `vitest run apps/web/src/providers/workspace.test.tsx     apps/web/src/sample/templateData.test.ts`
+      passes.
 - [ ] Commit:
 
 ```bash
@@ -575,7 +891,8 @@ git commit -m "feat: add workspace provider"
 **Purpose:** Make model calls and provider integrations safe, observable, and
 fake-by-default.
 
-**Backlog coverage:** C19-C31, H79-H82 minimum, S275-S276, S281, S284-S285.
+**Backlog coverage:** C19-C31, G72-G78 minimum, H79-H82 minimum, S275-S276,
+S281, S284-S285.
 
 **Files:**
 
@@ -585,28 +902,43 @@ fake-by-default.
 - Create: `packages/integrations/src/llmResponse.ts`
 - Create: `packages/integrations/src/spend.ts`
 - Create: `packages/integrations/src/rateLimit.ts`
+- Create: `packages/integrations/src/workos.ts`
+- Create: `packages/integrations/src/dodo.ts`
 - Create: `packages/observability/src/posthog.ts`
 - Create: `packages/observability/src/errorReporter.ts`
 - Create: `packages/notifications/src/email.ts`
 - Create: `packages/storage/src/objectStorage.ts`
+- Create: `packages/convex/confect/tables/apiKeys.ts`
+- Create: `packages/convex/confect/tables/billingPlans.ts`
+- Create: `packages/convex/confect/tables/creditLedger.ts`
+- Create: `packages/convex/confect/tables/usageEvents.ts`
+- Create: `packages/convex/confect/headless/auth.ts`
+- Create: `packages/convex/confect/headless/errorEnvelope.ts`
 - Create: `docs/template/env-manifest.md`
 - Test: `packages/integrations/src/llm.test.ts`
 - Test: `packages/integrations/src/spend.test.ts`
 - Test: `packages/integrations/src/rateLimit.test.ts`
+- Test: `packages/integrations/src/workos.test.ts`
+- Test: `packages/integrations/src/dodo.test.ts`
 - Test: `packages/observability/src/posthog.test.ts`
 - Test: `packages/notifications/src/email.test.ts`
 - Test: `packages/storage/src/objectStorage.test.ts`
+- Test: `packages/convex/test/headless-auth.test.ts`
+- Test: `packages/convex/test/billing-ledger.test.ts`
 
 ### Task 3.1: Add Provider Env Manifest
 
-- [ ] Create `docs/template/env-manifest.md`.
-- [ ] List env vars for WorkOS, PostHog, Dodo, MailerSend, OpenRouter, storage,
+- [x] Create `docs/template/env-manifest.md`.
+- [x] List env vars for WorkOS, PostHog, Dodo, MailerSend, OpenRouter, storage,
       search, Cloudflare, Convex, and Buildkite.
-- [ ] For each env var, include owner, used by, fake-mode behavior, production
+- [x] For each env var, include owner, used by, fake-mode behavior, production
       requirement, and rotation note.
-- [ ] Add `.env.example` entries for non-secret names and explicit fake values
+- [x] Add `.env.example` entries for non-secret names and explicit fake values
       such as `example.test`, `fake_local_key`, and `acme-demo`.
-- [ ] Run `pnpm check:format`.
+- [x] Extend `template:quickstart` so generated forks include
+      `docs/template/generated/provider-setup-checklist.md` and an explicit next
+      step pointing reviewers to provider setup.
+- [x] Run `pnpm check:format`.
 - [ ] Commit:
 
 ```bash
@@ -616,15 +948,15 @@ git commit -m "docs: add service env manifest"
 
 ### Task 3.2: Add Spend Estimator And Kill-Switch-Aware LLM Gateway
 
-- [ ] Write tests for conservative token estimate, cents floor, daily cap
+- [x] Write tests for conservative token estimate, cents floor, daily cap
       denial, `LLM_DISABLED`, fake completion, provider config error, redacted
       provider payload, and telemetry non-fatal failure.
-- [ ] Implement `packages/integrations/src/spend.ts`.
-- [ ] Implement `packages/integrations/src/llmResponse.ts`.
-- [ ] Implement `packages/integrations/src/llm.ts` with fake/test/live service
+- [x] Implement `packages/integrations/src/spend.ts`.
+- [x] Implement `packages/integrations/src/llmResponse.ts`.
+- [x] Implement `packages/integrations/src/llm.ts` with fake/test/live service
       modes.
-- [ ] Ensure no model instance is created outside this gateway.
-- [ ] Run `pnpm --dir packages/integrations test`.
+- [x] Ensure no model instance is created outside this gateway.
+- [x] Run `pnpm --dir packages/integrations test`.
 - [ ] Commit:
 
 ```bash
@@ -632,15 +964,69 @@ git add packages/integrations/src packages/integrations/src/*.test.ts
 git commit -m "feat: add guarded llm gateway"
 ```
 
-### Task 3.3: Add Rate Limit And Usage Attribution Seams
+### Task 3.3: Add API-Key Auth And Error Envelope
 
-- [ ] Write tests for per-workspace limiter key, per-token limiter key, allowed
+- [x] Write tests for display-once API key creation, hashed key storage,
+      bearer-key lookup, revoked key denial, workspace scope injection, and
+      opaque public error envelopes.
+- [x] Add `apiKeys` Confect table.
+- [x] Implement `packages/convex/confect/headless/auth.ts` with API-key hash,
+      scope, and revocation checks.
+- [x] Implement `packages/convex/confect/headless/errorEnvelope.ts` so REST,
+      CLI, and MCP surfaces share the same public error shape.
+- [x] Run `pnpm confect:codegen`.
+- [x] Run `pnpm --dir packages/convex test headless-auth`.
+- [ ] Commit:
+
+```bash
+git add packages/convex/confect/tables/apiKeys.ts packages/convex/confect/headless packages/convex/confect/_generated packages/convex/test/headless-auth.test.ts
+git commit -m "feat: add headless api key auth"
+```
+
+### Task 3.4: Add Billing And Usage Ledger Minimum
+
+- [x] Write tests for credit add, credit deduct, idempotent usage event,
+      duplicate webhook denial, low-balance event, and seat-count preflight.
+- [x] Add Confect tables for billing plans, credit ledger, and usage events.
+- [x] Implement pure ledger helpers in `packages/integrations/src/spend.ts` or a
+      focused billing module if the file grows too broad.
+- [x] Add Dodo webhook verification seam in `packages/integrations/src/dodo.ts`
+      with fake/test/live-ready modes.
+- [x] Run `pnpm confect:codegen`.
+- [x] Run billing and integrations tests.
+- [ ] Commit:
+
+```bash
+git add packages/convex/confect/tables/billingPlans.ts packages/convex/confect/tables/creditLedger.ts packages/convex/confect/tables/usageEvents.ts packages/convex/confect/_generated packages/integrations/src/dodo.ts packages/integrations/src/dodo.test.ts packages/convex/test/billing-ledger.test.ts
+git commit -m "feat: add billing and usage ledger minimum"
+```
+
+### Task 3.5: Add WorkOS And AuthKit Seam
+
+- [x] Write tests for required env validation, fake AuthKit client, live-ready
+      route registration shape, signature failure classification, and Convex
+      auth config derivation.
+- [x] Implement `packages/integrations/src/workos.ts`.
+- [x] Add or document `packages/convex/convex/auth.config.ts` generation for
+      trusted AuthKit issuer/JWKS.
+- [x] Update `docs/template/env-manifest.md` with WorkOS org and AuthKit values.
+- [x] Run WorkOS tests.
+- [ ] Commit:
+
+```bash
+git add packages/integrations/src/workos.ts packages/integrations/src/workos.test.ts packages/convex/convex/auth.config.ts docs/template/env-manifest.md
+git commit -m "feat: add workos auth seam"
+```
+
+### Task 3.6: Add Rate Limit And Usage Attribution Seams
+
+- [x] Write tests for per-workspace limiter key, per-token limiter key, allowed
       result, denied result, and typed error mapping.
-- [ ] Implement a fake/test limiter interface first, with a clear adapter seam
+- [x] Implement a fake/test limiter interface first, with a clear adapter seam
       for `@convex-dev/rate-limiter`.
-- [ ] Add docs in `docs/template/porting-roadmap.md` stating when the real
+- [x] Add docs in `docs/template/porting-roadmap.md` stating when the real
       Convex component is wired.
-- [ ] Run `pnpm --dir packages/integrations test`.
+- [x] Run `pnpm --dir packages/integrations test`.
 - [ ] Commit:
 
 ```bash
@@ -648,15 +1034,15 @@ git add packages/integrations/src/rateLimit.ts packages/integrations/src/rateLim
 git commit -m "feat: add provider rate limit seam"
 ```
 
-### Task 3.4: Fill Observability, Notification, And Storage Packages
+### Task 3.7: Fill Observability, Notification, And Storage Packages
 
-- [ ] Add PostHog capture seam with non-fatal capture failures.
-- [ ] Add ErrorReporter interface with fake/test/live-ready implementations.
-- [ ] Add MailerSend-style email interface with idempotency key and redacted
+- [x] Add PostHog capture seam with non-fatal capture failures.
+- [x] Add ErrorReporter interface with fake/test/live-ready implementations.
+- [x] Add MailerSend-style email interface with idempotency key and redacted
       payload.
-- [ ] Add object-storage interface with signed upload/download URL shapes.
-- [ ] Write tests for each package.
-- [ ] Run:
+- [x] Add object-storage interface with signed upload/download URL shapes.
+- [x] Write tests for each package.
+- [x] Run:
 
 ```bash
 pnpm --dir packages/observability test
@@ -696,13 +1082,13 @@ git commit -m "feat: add provider service package seams"
 
 ### Task 4.1: Add Policy Kinds And Tables
 
-- [ ] Write tests for policy kind registration, invalid data rejection, merge
+- [x] Write tests for policy kind registration, invalid data rejection, merge
       behavior, nearest-wins scope resolution, and eval-required metadata.
-- [ ] Add `policies` table with append-only versioning and activation
+- [x] Add `policies` table with append-only versioning and activation
       provenance.
-- [ ] Add policy kinds for spend limits, agent config, and prompt override.
-- [ ] Run `pnpm confect:codegen`.
-- [ ] Run policy tests.
+- [x] Add policy kinds for spend limits, agent config, and prompt override.
+- [x] Run `pnpm confect:codegen`.
+- [x] Run policy tests.
 - [ ] Commit:
 
 ```bash
@@ -712,12 +1098,12 @@ git commit -m "feat: add policy kind registry"
 
 ### Task 4.2: Add Policy Resolver And Snapshot Pinning
 
-- [ ] Write tests for system policy, workspace override, locale selection,
+- [x] Write tests for system policy, workspace override, locale selection,
       pinned version lookup, inactive policy exclusion, and missing policy typed
       error.
-- [ ] Implement `packages/convex/confect/policy/resolver.ts`.
-- [ ] Add policy snapshot output shape for workflow kickoff.
-- [ ] Run `pnpm --dir packages/convex test policy-resolver`.
+- [x] Implement `packages/convex/confect/policy/resolver.ts`.
+- [x] Add policy snapshot output shape for workflow kickoff.
+- [x] Run `pnpm --dir packages/convex test policy-resolver`.
 - [ ] Commit:
 
 ```bash
@@ -727,13 +1113,13 @@ git commit -m "feat: add policy resolver"
 
 ### Task 4.3: Add Prompt Registry And XML User Prompt Hardening
 
-- [ ] Write tests for `PromptRef` branding, immutable prompt version, prompt
+- [x] Write tests for `PromptRef` branding, immutable prompt version, prompt
       status, XML escaping, and no raw model id accepted by the gateway wrapper.
-- [ ] Add `promptRegistry` table.
-- [ ] Add `definePrompt`.
-- [ ] Add `xmlUserPrompt`.
-- [ ] Run `pnpm confect:codegen`.
-- [ ] Run prompt tests.
+- [x] Add `promptRegistry` table.
+- [x] Add `definePrompt`.
+- [x] Add `xmlUserPrompt`.
+- [x] Run `pnpm confect:codegen`.
+- [x] Run prompt tests.
 - [ ] Commit:
 
 ```bash
@@ -743,12 +1129,13 @@ git commit -m "feat: add prompt registry"
 
 ### Task 4.4: Add Idempotent System Seeder
 
-- [ ] Write tests for seeding default spend policy, default agent policy,
+- [x] Write tests for seeding default spend policy, default agent policy,
       default prompt family, and repeated seed no-op.
-- [ ] Implement `packages/convex/confect/policy/seed.ts`.
-- [ ] Add a CLI or script command only if it can run without live provider
-      secrets.
-- [ ] Run focused tests.
+- [x] Implement `packages/convex/confect/policy/seed.ts`.
+- [x] Add a CLI or script command only if it can run without live provider
+      secrets. Decision: no CLI was added in this slice because the implemented
+      artifact is a pure deterministic seed plan, not a persistence runner.
+- [x] Run focused tests.
 - [ ] Commit:
 
 ```bash
@@ -777,25 +1164,25 @@ capability end to end.
 
 ### Task 5.1: Define Capability Contract
 
-- [ ] Write a failing contract test for args, return value, and typed errors.
-- [ ] Add Confect spec for `sourceGroundedBrief`.
-- [ ] Args include `workspaceId`, `sourceIds`, `briefGoal`, `idempotencyKey`.
-- [ ] Return includes `briefMarkdown`, `sourceTitles`, `policySnapshotId`,
+- [x] Write a failing contract test for args, return value, and typed errors.
+- [x] Add Confect spec for `sourceGroundedBrief`.
+- [x] Args include `workspaceId`, `sourceIds`, `briefGoal`, `idempotencyKey`.
+- [x] Return includes `briefMarkdown`, `sourceTitles`, `policySnapshotId`,
       `modelReceiptId`, and `trustClaim`.
-- [ ] Errors include unauthenticated, no workspace access, validation failed,
+- [x] Errors include unauthenticated, no workspace access, validation failed,
       policy not found, prompt not found, LLM disabled, rate limited, spend cap
       exceeded, and provider config invalid.
-- [ ] Run contract test and confirm it fails before impl.
+- [x] Run contract test and confirm it fails before impl.
 - [ ] Commit the failing contract only if the repo convention allows red commits
       in a feature branch; otherwise keep it local until implementation.
 
 ### Task 5.2: Implement Capability Domain And Fake LLM Path
 
-- [ ] Implement pure input normalization and context-pack formatting.
-- [ ] Implement fake LLM service path that returns deterministic markdown.
-- [ ] Persist no workflow state in this phase; return a typed capability result.
-- [ ] Run `pnpm confect:codegen`.
-- [ ] Run source-grounded brief tests.
+- [x] Implement pure input normalization and context-pack formatting.
+- [x] Implement fake LLM service path that returns deterministic markdown.
+- [x] Persist no workflow state in this phase; return a typed capability result.
+- [x] Run `pnpm confect:codegen`.
+- [x] Run source-grounded brief tests.
 - [ ] Commit:
 
 ```bash
@@ -805,12 +1192,12 @@ git commit -m "feat: add source grounded brief capability"
 
 ### Task 5.3: Expose Capability Through API, CLI, MCP, And OpenAPI
 
-- [ ] Add registry metadata in `packages/template-core/src/index.ts`.
-- [ ] Add CLI command in `apps/cli/src/index.ts`.
-- [ ] Add API/OpenAPI/MCP projection in `tooling/workflow/src/index.ts`.
-- [ ] Add tests proving the operation appears in describe, OpenAPI, CLI, and MCP
+- [x] Add registry metadata in `packages/template-core/src/index.ts`.
+- [x] Add CLI command in `apps/cli/src/index.ts`.
+- [x] Add API/OpenAPI/MCP projection in `tooling/workflow/src/index.ts`.
+- [x] Add tests proving the operation appears in describe, OpenAPI, CLI, and MCP
       tool manifests.
-- [ ] Run:
+- [x] Run:
 
 ```bash
 pnpm test:workflow
@@ -827,11 +1214,11 @@ git commit -m "feat: expose brief capability headlessly"
 
 ### Task 5.4: Add Eval Harness Case
 
-- [ ] Add synthetic eval cases under `examples/generic-ai-ops/evals/`.
-- [ ] Score groundedness, source citation presence, refusal on missing source,
+- [x] Add synthetic eval cases under `examples/generic-ai-ops/evals/`.
+- [x] Score groundedness, source citation presence, refusal on missing source,
       and policy compliance.
-- [ ] Add `tooling/evals/src/source-grounded-brief.test.ts`.
-- [ ] Run `pnpm evals`.
+- [x] Add `tooling/evals/src/source-grounded-brief.test.ts`.
+- [x] Run `pnpm evals`.
 - [ ] Commit:
 
 ```bash
@@ -864,13 +1251,13 @@ change/version primitives as needed.
 
 ### Task 6.1: Add Workflow Tables And Graph Model
 
-- [ ] Write tests for valid graph, missing start node, dangling edge, invalid
+- [x] Write tests for valid graph, missing start node, dangling edge, invalid
       retry config, invalid join, and invalid condition expression.
-- [ ] Add Confect tables for runs, stage runs, events, evidence snapshots, and
+- [x] Add Confect tables for runs, stage runs, events, evidence snapshots, and
       context manifests.
-- [ ] Add pure graph validation in `workflows/graph.ts`.
-- [ ] Run `pnpm confect:codegen`.
-- [ ] Run graph tests.
+- [x] Add pure graph validation in `workflows/graph.ts`.
+- [x] Run `pnpm confect:codegen`.
+- [x] Run graph tests.
 - [ ] Commit:
 
 ```bash
@@ -880,11 +1267,11 @@ git commit -m "feat: add workflow graph model"
 
 ### Task 6.2: Add Evidence Snapshot And Trust Receipt
 
-- [ ] Write tests for stable evidence hash, evidence snapshot materiality,
+- [x] Write tests for stable evidence hash, evidence snapshot materiality,
       context manifest reproducibility, and trust receipt projection.
-- [ ] Implement `evidence.ts` and `trustReceipt.ts`.
-- [ ] Use the fingerprint helper from Phase 1.
-- [ ] Run trust receipt tests.
+- [x] Implement `evidence.ts` and `trustReceipt.ts`.
+- [x] Use the fingerprint helper from Phase 1.
+- [x] Run trust receipt tests.
 - [ ] Commit:
 
 ```bash
@@ -894,12 +1281,12 @@ git commit -m "feat: add workflow evidence and trust receipts"
 
 ### Task 6.3: Add Minimal Graph Runner
 
-- [ ] Write tests for a graph that calls `sourceGroundedBrief`, records stage
+- [x] Write tests for a graph that calls `sourceGroundedBrief`, records stage
       status, records events, and produces a trust receipt.
-- [ ] Implement `runGraph.ts` with one supported node dispatch path first:
+- [x] Implement `runGraph.ts` with one supported node dispatch path first:
       capability node.
-- [ ] Keep provider calls inside capabilities, not workflows.
-- [ ] Run workflow run tests.
+- [x] Keep provider calls inside capabilities, not workflows.
+- [x] Run workflow run tests.
 - [ ] Commit:
 
 ```bash
@@ -909,12 +1296,12 @@ git commit -m "feat: add minimal workflow graph runner"
 
 ### Task 6.4: Wire Reference App To Real Run Shape
 
-- [ ] Update `packages/template-core/src/index.ts` so sample receipt fields
+- [x] Update `packages/template-core/src/index.ts` so sample receipt fields
       mirror the persisted workflow run shape.
-- [ ] Update `apps/web/src/sample/App.tsx` copy only where needed to say the
+- [x] Update `apps/web/src/sample/App.tsx` copy only where needed to say the
       current reference app demonstrates the run shape.
-- [ ] Update Playwright expectations if text changes.
-- [ ] Run hosted browser and visual tests locally against preview.
+- [x] Update Playwright expectations if text changes.
+- [x] Run hosted browser and visual tests locally against preview.
 - [ ] Commit:
 
 ```bash
@@ -941,10 +1328,10 @@ capability map.
 
 ### Task 7.1: Add Typed Tool Surface
 
-- [ ] Write tests proving only public Confect refs can become model tools.
-- [ ] Add input schema, description, and optional presentation shaper per tool.
-- [ ] Include the `sourceGroundedBrief` capability as the first tool.
-- [ ] Run tests.
+- [x] Write tests proving only public Confect refs can become model tools.
+- [x] Add input schema, description, and optional presentation shaper per tool.
+- [x] Include the `sourceGroundedBrief` capability as the first tool.
+- [x] Run tests.
 - [ ] Commit:
 
 ```bash
@@ -954,11 +1341,11 @@ git commit -m "feat: add typed agent tool surface"
 
 ### Task 7.2: Add Bounded Agent Runtime
 
-- [ ] Write tests for allowed tool call, denied tool grant, idempotency key
+- [x] Write tests for allowed tool call, denied tool grant, idempotency key
       reuse, fake model response, and typed error mapping.
-- [ ] Implement runtime with fake/test model first.
-- [ ] Use policy-driven agent config from Phase 4.
-- [ ] Run runtime tests.
+- [x] Implement runtime with fake/test model first.
+- [x] Use policy-driven agent config from Phase 4.
+- [x] Run runtime tests.
 - [ ] Commit:
 
 ```bash
@@ -968,11 +1355,11 @@ git commit -m "feat: add bounded agent runtime"
 
 ### Task 7.3: Add Assistant Entry Points
 
-- [ ] Add Confect spec/impl for `startThread`, `continueThread`, and
+- [x] Add Confect spec/impl for `startThread`, `continueThread`, and
       `listThreadMessages`.
-- [ ] Ensure workspace access is re-verified.
-- [ ] Run `pnpm confect:codegen`.
-- [ ] Run agent tests and Confect contract checks.
+- [x] Ensure workspace access is re-verified.
+- [x] Run `pnpm confect:codegen`.
+- [x] Run agent tests and Confect contract checks.
 - [ ] Commit:
 
 ```bash
@@ -980,118 +1367,359 @@ git add packages/convex/confect/agents/assistant.spec.ts packages/convex/confect
 git commit -m "feat: add assistant agent entrypoints"
 ```
 
-## Phase 8: Frontend Vertical
+## Phase 8: TanStack Start, Notion Kit, And Frontend Vertical
 
 **Purpose:** Make the template feel like a buildable app, not only a reference
-document, while keeping the reference app calm.
+document, while preserving the Maestro frontend opinions: TanStack Start for the
+app runtime, Notion Kit plus blocks for UI, Convex/Confect for data contracts,
+React Flow only for workflow canvas interaction, and a calm hosted investor
+document route.
 
 **Backlog coverage:** L119-L137 minimum, Q219-Q236 minimum, S251-S270 minimum.
 
 **Files:**
 
+- Create: `docs/design-intake/2026-07-01-template-frontend-stack-source.md`
+- Create: `docs/template/frontend-architecture.md`
+- Modify: `docs/template/hosting.md`
+- Modify: `docs/template/repo-map.md`
+- Modify: `docs/template/investor-reviewer-packet.md`
+- Modify: `apps/web/package.json`
+- Modify: `package.json`
+- Modify: `pnpm-lock.yaml`
+- Create: `apps/web/src/start.ts`
+- Create: `apps/web/src/router.tsx`
+- Create: `apps/web/src/routes/__root.tsx`
+- Create: `apps/web/src/routes/_workspace.tsx`
+- Create: `apps/web/src/routes/index.tsx`
+- Generate: `apps/web/src/routeTree.gen.ts`
+- Create: `apps/web/src/index.css`
+- Create: `apps/web/src/notion.css`
+- Modify: `apps/web/src/main.tsx` or replace it with the official TanStack Start
+  entrypoint chosen in Task 8.0.
+- Modify: `apps/web/src/sample/App.tsx`
+- Modify: `apps/web/src/sample/styles.css`
+- Modify: `packages/ui/src/index.tsx`
+- Create: `packages/ui/src/blocks/*`
+- Create: `packages/ui/src/shell/*`
+- Create: `apps/web/src/navigation/workspace-config.ts`
+- Create: `apps/web/src/navigation/workspace.ts`
+- Create: `apps/web/src/adapters/env.ts`
+- Create: `apps/web/src/adapters/workos-auth.ts`
+- Create: `apps/web/src/adapters/workos-auth-loader.ts`
+- Create: `apps/web/src/adapters/confect-state.ts`
 - Create: `apps/web/src/providers/auth.tsx`
 - Create: `apps/web/src/providers/workspace.tsx`
-- Create: `apps/web/src/routes/router.tsx`
-- Create: `apps/web/src/components/blocks/*`
+- Create: `apps/web/src/providers/posthog.tsx`
 - Create: `apps/web/src/features/brain/*`
 - Create: `apps/web/src/features/workflows/*`
 - Create: `apps/web/src/features/receipts/*`
 - Create: `apps/web/src/features/settings/*`
-- Modify: `apps/web/src/sample/App.tsx`
+- Create: `apps/web/src/features/onboarding/*`
 - Test: `apps/web/src/**/*.test.tsx`
+- Test: `apps/web/src/**/*.test.ts`
 - Test: `tests/e2e/hosted-reference-app.spec.ts`
 - Test: `tests/e2e/hosted-reference-app.visual.spec.ts`
 
-### Task 8.1: Add App Shell Without Re-busying The Reference Pages
+### Task 8.0: Write The Frontend Stack Source Audit And Deploy Decision
 
-- [ ] Add route registry, sidebar registry, error surface, pending surface, skip
-      link, and live region.
-- [ ] Keep the investor reference pages as a calm document route.
-- [ ] Add tests for loading, empty, ready/read, ready/edit, mutation success,
-      and mutation failure states.
-- [ ] Run `pnpm --dir apps/web test`.
+- [x] Create the design-intake doc mapping each target template primitive to the
+      Maestro source file it came from: `apps/web/src/routes/__root.tsx`,
+      `apps/web/src/router.tsx`, `apps/web/src/start.ts`,
+      `apps/web/src/notion.css`, `apps/web/src/index.css`,
+      `apps/web/src/components/shell/*`,
+      `apps/web/src/navigation/workspace*.ts`,
+      `apps/web/src/components/blocks/*`,
+      `apps/web/src/features/settings/settings-dashboard.tsx`, and workflow
+      canvas files.
+- [x] Record that the current template host is a Vite static Cloudflare Pages
+      app at `https://maestro-template.pages.dev`.
+- [x] Decide the first TanStack Start deployment mode before code changes:
+      static build on Cloudflare Pages if equivalent, or Cloudflare Workers SSR
+      only with explicit env mapping, rollback command, and smoke tests.
+- [x] List exact dependency families to add: `@tanstack/react-start`,
+      `@tanstack/react-router`, `@tanstack/react-query`,
+      `@tanstack/react-router-ssr-query`, `@convex-dev/react-query`,
+      `@workos/authkit-tanstack-react-start`, `@notion-kit/ui`,
+      `@notion-kit/settings-panel`, `@notion-kit/schemas`, lucide, Tailwind v4
+      if the Maestro token bridge is ported, and any Notion Kit private tarball
+      requiring explicit approval.
+- [x] Update `docs/template/frontend-architecture.md` with the layer law,
+      provider tree, Notion Kit/block rules, data-loading rules, deployment
+      decision, quickstart frontend contract, and migration acceptance criteria.
+- [x] Run `pnpm check:format` and `pnpm check:docs-freshness`.
 - [ ] Commit:
 
 ```bash
-git add apps/web/src
-git commit -m "feat: add reusable app shell"
+git add docs/design-intake/2026-07-01-template-frontend-stack-source.md docs/template/frontend-architecture.md docs/template/hosting.md docs/template/repo-map.md docs/template/investor-reviewer-packet.md
+git commit -m "docs: record frontend stack source audit"
 ```
 
-### Task 8.2: Add Brain Source List And Context Pack Preview
+### Task 8.1: Add TanStack Start Runtime Without Breaking The Reference App
 
-- [ ] Add Brain source list backed by typed sample data or Confect refs when
-      available.
-- [ ] Add context pack preview with markdown, links, evidence, and
-      no-default-RAG copy.
-- [ ] Add empty state and error state.
-- [ ] Run app tests and browser smoke.
+- [x] Add the TanStack, Convex React Query, WorkOS AuthKit Start, Notion Kit,
+      and theme dependencies chosen in Task 8.0.
+- [x] Add `apps/web/src/router.tsx` following Maestro's shape:
+      `ConvexQueryClient`, `QueryClient`, generated `routeTree`,
+      `setupRouterSsrQueryIntegration`, `defaultPreload: "intent"`,
+      `scrollRestoration: true`, and no route-local business logic.
+- [x] Add `apps/web/src/routes/__root.tsx` with the provider tree: WorkOS
+      AuthKit provider, Convex auth bridge, PostHog provider, workspace
+      provider, `HeadContent`, `Outlet`, and `Scripts`.
+- [x] Keep the current investor reference document as its own route and verify
+      the sidebar remains visible when navigating.
+- [x] Generate `apps/web/src/routeTree.gen.ts`; do not edit it by hand.
+- [x] Update `check:route-tree` if the generated route tree path or Start build
+      output changes.
+- [x] Run `pnpm --dir apps/web test`, `pnpm check:route-tree`, and
+      `pnpm smoke:web-static`.
 - [ ] Commit:
 
 ```bash
-git add apps/web/src/features/brain apps/web/src/components/blocks tests/e2e
+git add apps/web package.json pnpm-lock.yaml tooling/quality docs/template
+git commit -m "feat: add tanstack start web runtime"
+```
+
+### Task 8.2: Port The Notion Kit Shell, Sidebar, And Stylesheet Boundary
+
+- [x] Replace the hand-rolled template sidebar target with the Maestro Notion
+      Kit shell pattern: `SidebarProvider`, `Sidebar`, `SidebarHeader`,
+      `SidebarContent`, `SidebarFooter`, `SidebarRail`, `SidebarInset`,
+      `SidebarClose`, `SidebarOpen`, `Navbar`, and typed route/action/footer
+      item adapters.
+- [x] Add `apps/web/src/notion.css` importing `@notion-kit/ui/style.css` through
+      the same scoped stylesheet strategy used by Maestro.
+- [x] Add `apps/web/src/index.css` or a smaller template token bridge that keeps
+      the Notion palette, sidebar vars, font stack, density, focus, motion, and
+      workflow-node categorical colors without copying Maestro-specific product
+      names.
+- [x] Move reusable shell primitives into `packages/ui/src/shell/*` and reusable
+      visual grammar into `packages/ui/src/blocks/*`. Feature code must compose
+      these blocks rather than adding route-local layout systems.
+- [x] Add navigation data under `apps/web/src/navigation/*` with generic
+      template routes: Home, Brain, Workflows, Capabilities, Agents, Runs,
+      Documents, Sources, Integrations, API, Onboarding, Data Map,
+      Notifications, Settings, Billing, Analytics, Health, and Admin.
+- [x] Use `@notion-kit/settings-panel` for settings surfaces and keep Notion
+      settings primitives where possible.
+- [x] Add tests proving the sidebar stays mounted on navigation, active route
+      selection follows the route registry, grouped sections expand for active
+      children, mobile/collapsed controls render, and the Notion stylesheet is
+      loaded.
+- [x] Run app tests and hosted visual smoke.
+- [ ] Commit:
+
+```bash
+git add apps/web/src packages/ui/src tests/e2e package.json pnpm-lock.yaml
+git commit -m "feat: port notion kit app shell"
+```
+
+### Task 8.3: Add Shared Confect React Data-State Adapters
+
+- [x] Add a small adapter layer over `@confect/react` and Convex React Query
+      that normalizes query and mutation states into `skipped`, `loading`,
+      `empty`, `ready`, `typed_failure`, `parse_failure`, `transport_failure`,
+      and `defect`.
+- [x] Keep the adapter generic and provider-free. It may understand Confect refs
+      and typed errors; it must not know Brain, workflow, billing, or settings
+      business logic.
+- [x] Ensure route loaders only preload safe route data and auth state. Feature
+      adapters remain responsible for converting backend contract data into view
+      models.
+- [x] Add type tests proving generated refs infer args, returns, typed failures,
+      and mutation results through the adapter.
+- [x] Add UI adapter tests for loading, empty, ready/read, ready/edit, skipped,
+      mutation success, typed failure, transport failure, and parse failure.
+- [x] Run `pnpm --dir apps/web test` and `pnpm check:layer-boundaries`.
+- [ ] Commit:
+
+```bash
+git add apps/web/src/adapters apps/web/src/features packages/ui/src
+git commit -m "feat: add confect react state adapters"
+```
+
+### Task 8.4: Add Brain Source List And Context Pack Preview
+
+- [x] Add Brain source list backed by typed sample data or Confect refs when
+      available.
+- [x] Add context pack preview with markdown, links, evidence snapshots,
+      freshness, and no-default-RAG posture.
+- [x] Add empty, loading, typed error, transport error, and parse error states
+      through the shared Confect React adapter.
+- [x] Preserve Brain doctrine in copy and code: source content is data, not
+      instructions; RAG/vector search is optional; Trust Receipts carry the
+      provenance.
+- [x] Run app tests and browser smoke.
+- [ ] Commit:
+
+```bash
+git add apps/web/src/features/brain packages/ui/src tests/e2e
 git commit -m "feat: add brain source surface"
 ```
 
-### Task 8.3: Add Workflow Run And Receipt Surface
+### Task 8.5: Add Workflow Builder, Run, And Receipt Surface
 
-- [ ] Add workflow run trigger button using fake/local path until live backend
-      ref is connected.
-- [ ] Add run status, stage list, evidence snapshot, and trust receipt panel.
-- [ ] Add React Flow diagram only where it explains the run.
-- [ ] Run visual tests and update snapshots.
+- [x] Keep React Flow inside `packages/workflow-ui` and workflow feature
+      surfaces only.
+- [x] Add workflow graph view adapters that derive React Flow nodes/edges from
+      durable workflow metadata. Do not persist React Flow nodes, edges,
+      selection state, hover state, measured dimensions, or generic `data` bags.
+- [x] Add a workflow run trigger using the fake/local path until the live
+      Confect workflow ref is connected.
+- [x] Add run status, stage list, evidence snapshot, policy snapshot, and Trust
+      Receipt panel.
+- [x] Add validation hints on graph nodes/edges only as a derived UI overlay.
+- [ ] Add tests for graph derivation, command reduction, validation-before-save,
+      route rendering, reduced motion, and visual baselines.
+- [x] Run `pnpm --dir packages/workflow-ui test`, app tests, browser smoke, and
+      `pnpm check:workflow-graph-boundary`.
 - [ ] Commit:
 
 ```bash
-git add apps/web/src/features/workflows apps/web/src/features/receipts tests/e2e
+git add packages/workflow-ui apps/web/src/features/workflows apps/web/src/features/receipts tests/e2e
 git commit -m "feat: add workflow receipt surface"
 ```
 
-### Task 8.4: Add UX Essentials
+### Task 8.6: Add Settings, Provider Health, Billing, And Onboarding Surfaces
 
-- [ ] Add toast provider.
-- [ ] Add network/offline banner.
-- [ ] Add focus return utilities.
-- [ ] Add reduced-motion hook that disables React Flow motion when requested.
-- [ ] Add axe or Playwright accessibility smoke for the main reference pages.
-- [ ] Run app tests and browser smoke.
+- [ ] Add settings with `@notion-kit/settings-panel`, workspace card, members
+      card, integration health cards, billing/credits card, and fake/live-ready
+      provider status.
+- [x] Add onboarding surfaces for first workspace setup, sample Brain source
+      import, first capability, first workflow, provider posture, and deploy
+      readiness.
+- [x] Keep WorkOS, PostHog, Dodo, MailerSend, storage, search, and LLM provider
+      state behind adapters. The frontend renders provider posture; it does not
+      construct provider SDK clients.
+- [ ] Add tests for admin vs non-admin settings, missing workspace, fake
+      billing, provider warning states, and safe env rendering.
+- [x] Run app tests and browser smoke.
 - [ ] Commit:
 
 ```bash
-git add apps/web/src tests/e2e package.json pnpm-lock.yaml
+git add apps/web/src/features/settings apps/web/src/features/onboarding apps/web/src/providers packages/ui/src
+git commit -m "feat: add settings and onboarding surfaces"
+```
+
+### Task 8.7: Add UX Essentials And Frontend Gates
+
+- [x] Add network/offline banner, live-region helpers, skip link, and
+      empty-state blocks.
+- [x] Add toast provider, focus-return utilities, route pending surface, and
+      route error surface.
+- [x] Add reduced-motion behavior that disables React Flow animation and any
+      nonessential shell transitions when requested.
+- [x] Add Playwright accessibility smoke for desktop and mobile reference
+      routes.
+- [ ] Add or update gates for Notion primitive usage, block-layer boundaries,
+      route thinness, generated route tree freshness, text overflow, visual
+      baselines, and CSS loaded checks.
+- [x] Run app tests and browser smoke.
+- [x] Run hosted smoke, visual smoke, and route/layer gates.
+- [ ] Commit:
+
+```bash
+git add apps/web/src packages/ui/src tests/e2e tooling/quality package.json pnpm-lock.yaml docs/rule-coverage.md
 git commit -m "feat: add frontend ux safety primitives"
 ```
 
 ## Phase 9: Quality Gates, Deploy, Ops, And Security Hardening
 
-**Purpose:** Replace fake-stub gates and make deployment/security claims real.
+**Purpose:** Replace fake-stub gates, make the app-factory commands trustworthy,
+and make deployment/security claims real.
 
-**Backlog coverage:** K96-K118, S271-S288.
+**Backlog coverage:** K96-K118, S271-S288, T app-factory/client-fork minimum.
 
 **Files:**
 
 - Modify: `package.json`
 - Modify: `.buildkite/pipeline.yml`
 - Create/modify: `.buildkite/scripts/*`
+- Modify: `tooling/generators/src/index.ts`
+- Modify: `tooling/generators/src/index.test.ts`
+- Create: `tooling/generators/src/blueprints.ts`
+- Create: `tooling/generators/src/quickstart.ts`
+- Create: `tooling/generators/src/seedDemo.ts`
+- Create: `tooling/generators/src/handoff.ts`
 - Create: `project.config.json`
 - Create: `scripts/doctor-deploy.mjs`
 - Create: `scripts/smoke-deploy.mjs`
 - Create: `scripts/sync-project-config.mjs`
 - Create: `scripts/check-convex-production-env.mjs`
 - Modify: `tooling/quality/*`
+- Modify: `docs/template/app-factory-guide.md`
+- Modify: `docs/template/generator-output-contract.md`
+- Modify: `docs/template/client-handoff-packet.md`
+- Modify: `docs/template/template-release-process.md`
 - Modify: `docs/template/operations-runbook.md`
 - Modify: `docs/template/security.md`
 - Test: `tooling/quality/*.test.mts`
+- Test: `tooling/generators/src/index.test.ts`
 - Test: `tooling/release/src/index.test.ts`
 
-### Task 9.1: Replace Dependency And Type Gates
+### Task 9.1: Make App Factory Generators And Doctor Gateable
 
-- [ ] Replace fake-stub knip check with real knip config and command.
-- [ ] Replace fake-stub dependency-cruiser/layer check with real
+- [x] Add or harden tests for `template:init`, `template:doctor`,
+      `template:quickstart`, `template:seed-demo`, `template:handoff`,
+      `template:upgrade`, `template:private-package:dry-run`,
+      `template:private-package:import`, `template:add-capability`,
+      `template:add-workflow`, `template:promote-capability`, and
+      `template:promote-workflow`.
+- [x] Make blueprint status executable: generator-supported blueprints appear in
+      CLI help and tests; planned blueprints remain clearly labeled in docs and
+      are rejected with a useful error if requested.
+- [x] Ensure `template:init` writes a complete `template-instance.json` with app
+      name, package scope, blueprint, enabled modules, environments, provider
+      posture, deployment targets, required secret names, redaction status, and
+      source/demo-data posture.
+- [x] Implement
+      `template:quickstart -- --blueprint <name> --name <name>     [--write]` as
+      an orchestration command that validates a blueprint, creates the instance
+      manifest, writes the implementation brief, generates the first
+      capability/workflow/agent metadata, seeds fake demo data, runs fake doctor
+      checks, prints exact next commands, and proves the Day-0 loop by changing
+      at least one domain noun/capability/workflow through generator output.
+- [x] Implement `template:seed-demo -- --blueprint <name> [--reset] [--write]`
+      so fake-mode demos are deterministic, redaction-safe, resettable, and
+      covered by `docs/template/demo-seed-contract.md`.
+- [x] Implement `template:handoff -- --mode fake|test|live` so the current
+      instance emits a reviewer/client handoff packet with status labels,
+      commands, hosted URL, provider posture, secret names, migrations, seams,
+      and next work.
+- [x] Add package scripts for `template:quickstart`, `template:seed-demo`, and
+      `template:handoff`, and include them in CLI help output.
+- [x] Ensure `template:doctor --mode fake` never requires live secrets and
+      `template:doctor --mode live` reports missing secret names without
+      printing values.
+- [x] Ensure every add/promote generator follows
+      `docs/template/generator-output-contract.md`: Confect contract files,
+      tests, fixtures, docs, migration notes when durable, frontend adapter when
+      user-facing, and headless registry metadata when exposed.
+- [x] Ensure private-package import writes under `private-packages/<name>/`
+      first, never promotes directly into template core, and emits redaction,
+      ownership, migration, and contract-review notes.
+- [x] Ensure `template:upgrade` reports changed packages, env var names,
+      migrations, generated contract diffs, private-package compatibility, and
+      manual review items.
+- [x] Add `pnpm check:generators` coverage for the generator output contract and
+      CLI help text.
+- [x] Run `pnpm --dir tooling/generators test` and `pnpm check:generators`.
+- [ ] Commit:
+
+```bash
+git add tooling/generators docs/template/app-factory-guide.md docs/template/quickstart.md docs/template/generator-output-contract.md docs/template/client-handoff-packet.md docs/template/template-release-process.md docs/template/demo-seed-contract.md package.json
+git commit -m "feat: harden app factory generators"
+```
+
+### Task 9.2: Replace Dependency And Type Gates
+
+- [x] Replace fake-stub knip check with real knip config and command.
+- [x] Replace fake-stub dependency-cruiser/layer check with real
       dependency-cruiser config.
-- [ ] Replace fake-stub type coverage with real `type-coverage --at-least 100`
+- [x] Replace fake-stub type coverage with real `type-coverage --at-least 100`
       or a documented ratchet if 100 is not immediately reachable.
-- [ ] Keep current wrappers so `pnpm verify` remains stable.
-- [ ] Run `pnpm check:knip`, `pnpm check:layer-boundaries`, and
+- [x] Keep current wrappers so `pnpm verify` remains stable.
+- [x] Run `pnpm check:knip`, `pnpm check:layer-boundaries`, and
       `pnpm check:types-coverage`.
 - [ ] Commit:
 
@@ -1100,14 +1728,14 @@ git add package.json pnpm-lock.yaml tooling/quality
 git commit -m "chore: replace dependency and type gates"
 ```
 
-### Task 9.2: Add Coverage, Mutation, Secret, And Security Gates
+### Task 9.3: Add Coverage, Mutation, Secret, And Security Gates
 
-- [ ] Replace coverage ratchet with real Vitest coverage threshold.
-- [ ] Wire Stryker mutation testing for focused backend packages.
-- [ ] Confirm gitleaks runs with a real config and known canaries.
-- [ ] Add AST/static checks for auth demo bypass, joined-row workspace guard,
+- [x] Replace coverage ratchet with real Vitest coverage threshold.
+- [x] Wire Stryker mutation testing for focused backend packages.
+- [x] Confirm gitleaks runs with a real config and known canaries.
+- [x] Add AST/static checks for auth demo bypass, joined-row workspace guard,
       HTTP fail-closed order, and public source-map blocking.
-- [ ] Run focused quality tests.
+- [x] Run focused quality tests.
 - [ ] Commit:
 
 ```bash
@@ -1115,15 +1743,15 @@ git add tooling/quality package.json pnpm-lock.yaml .gitleaks.toml
 git commit -m "chore: add real security and quality gates"
 ```
 
-### Task 9.3: Add Deploy Source Of Truth And Promotion
+### Task 9.4: Add Deploy Source Of Truth And Promotion
 
-- [ ] Add `project.config.json` with staging and production environment names,
+- [x] Add `project.config.json` with staging and production environment names,
       domains, Cloudflare project names, Convex deploy names, and required env
       groups.
-- [ ] Add deploy doctor scripts that never print secret values.
-- [ ] Add Buildkite staging deploy and production promote steps that promote the
+- [x] Add deploy doctor scripts that never print secret values.
+- [x] Add Buildkite staging deploy and production promote steps that promote the
       exact staged SHA.
-- [ ] Run release tooling tests.
+- [x] Run release tooling tests.
 - [ ] Commit:
 
 ```bash
@@ -1131,15 +1759,15 @@ git add project.config.json scripts .buildkite package.json tooling/release/src
 git commit -m "chore: add deploy promotion tooling"
 ```
 
-### Task 9.4: Add Security Headers, Health, Retention, And Alerts
+### Task 9.5: Add Security Headers, Health, Retention, And Alerts
 
-- [ ] Add HTTP security header helper for CSP, HSTS, X-Frame-Options, nosniff,
+- [x] Add HTTP security header helper for CSP, HSTS, X-Frame-Options, nosniff,
       and Referrer-Policy.
-- [ ] Add backend health/liveness Confect group.
-- [ ] Add retention/export/delete plan hooks and docs; implement only resources
+- [x] Add backend health/liveness Confect group.
+- [x] Add retention/export/delete plan hooks and docs; implement only resources
       that currently exist.
-- [ ] Add outbound alert seam in `packages/notifications`.
-- [ ] Run tests and update docs from planned to real only for implemented
+- [x] Add outbound alert seam in `packages/notifications`.
+- [x] Run tests and update docs from planned to real only for implemented
       pieces.
 - [ ] Commit:
 
@@ -1148,13 +1776,33 @@ git add packages/convex packages/notifications docs/template/security.md docs/te
 git commit -m "feat: add ops and security hardening"
 ```
 
+### Task 9.6: Preserve AI-Driven CI And PR Workflow Discipline
+
+- [x] Preserve Buildkite shape for deterministic gates, AI gates, staged deploy,
+      and human production promotion.
+- [x] Add or update checks for `taste`, `contract-review`, structured verdict
+      extraction, unresolved review threads, PR health, merge conflicts,
+      Graphite/stack wiring, and plan-required conventions if the template keeps
+      those workflows.
+- [x] Ensure AI gates fail closed when provider auth, parseable JSON verdicts,
+      or Buildkite metadata are missing.
+- [x] Ensure the repo docs explain how future workers retrieve AI gate verdicts
+      and apply fixes without guessing.
+- [x] Run Buildkite/tooling tests and `pnpm check:ci-completeness`.
+- [ ] Commit:
+
+```bash
+git add .buildkite tooling/quality tooling/stack tooling/workflow docs/template/operations-runbook.md docs/rule-coverage.md package.json
+git commit -m "chore: preserve ai driven ci gates"
+```
+
 ## Phase 10: Broad Reusable Primitives
 
 **Purpose:** Expand from the first vertical into the full reusable app-factory
 primitives.
 
 **Backlog coverage:** N139-N175, O177-O191, P192-P218, Q219-Q236, remaining F,
-remaining H, remaining S.
+remaining H, remaining S, T, and U.
 
 Split Phase 10 into separate subplans before implementation:
 
@@ -1174,6 +1822,14 @@ Split Phase 10 into separate subplans before implementation:
    events, seat enforcement.
 8. **Frontend platform subplan:** i18n, localized emails, legal pages,
    notification center, command palette, PWA, onboarding.
+9. **App factory subplan:** blueprint packs, client intake wizard,
+   `template-instance.json` evolution, generator contracts, handoff packet
+   generation, release artifacts, upgrade compatibility tests, and
+   private-package promotion workflow.
+10. **GTM implementation subplan:** account/person/source models, GTM-specific
+    workflow examples, enrichment adapters, CRM/drive/Notion connector seams,
+    reporting surfaces, and demo-safe fixtures that stay optional blueprint
+    modules instead of template-core assumptions.
 
 Each subplan must live under `docs/superpowers/plans/` and include:
 
@@ -1194,7 +1850,16 @@ pnpm lint
 pnpm typecheck
 host-test-slot --class full pnpm test
 pnpm test:tooling
+pnpm --dir tooling/generators test
 pnpm build
+pnpm template:quickstart -- --blueprint source-grounded-gtm-brain --name "Reviewer Brain"
+pnpm template:seed-demo -- --blueprint source-grounded-gtm-brain
+pnpm template:init -- --name "Reviewer Brain"
+pnpm template:doctor -- --mode fake
+pnpm template:add-capability -- --name summarizeSource
+pnpm template:add-workflow -- --name sourceGroundedPlan
+pnpm template:upgrade -- --from client-v1.0.0 --to template-v1.1.0
+pnpm template:handoff -- --mode fake
 pnpm review:readiness
 pnpm review:completion
 pnpm smoke:web-static
@@ -1240,3 +1905,5 @@ docs must say so. Passing a fake gate is not evidence for a production claim.
 | Q. Visualize/act                | Phase 8 minimum, Phase 10 visualize and act subplans            |
 | R. Tenancy lifecycle            | Phase 2                                                         |
 | S. Starter-kit essentials       | Phase 8 and Phase 9 minimum, Phase 10 frontend platform subplan |
+| T. App factory/client forks     | Phase 0 docs, Phase 9 generator gates, Phase 10 factory subplan |
+| U. GTM implementation packs     | Phase 0 blueprints, Phase 10 GTM implementation subplan         |

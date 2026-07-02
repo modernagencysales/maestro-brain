@@ -9,13 +9,42 @@
 - `docs/`: architecture, operations, and playbooks.
 - `docs/template/investor-reviewer-packet.md`: first-stop technical diligence
   packet for investors and review agents.
+- `docs/template/frontend-architecture.md`: frontend layer law, TanStack Start
+  direction, Notion Kit shell rules, data-loading rules, and deploy acceptance
+  criteria.
+- `docs/template/knowledge-model.md`: source-backed Brain concepts, claims,
+  citations, context packs, markdown codecs, and OKF export.
+- `docs/design-intake/2026-07-01-template-frontend-stack-source.md`: source map
+  from Maestro frontend primitives into template destinations.
+- `docs/template/quickstart.md`: shortest path from private template to seeded
+  B2B AI/GTM app fork.
+- `docs/template/blueprint-catalog.md`: blueprint families for common
+  AI/GTM/client implementation apps.
+- `docs/template/client-intake-questionnaire.md`: discovery questions before a
+  client-specific fork.
+- `docs/template/implementation-brief-template.md`: discovery and handoff
+  structure for client-specific builds.
+- `docs/template/demo-seed-contract.md`: deterministic fake-mode seed shape.
+- `docs/template/generator-output-contract.md`: required files, tests, and
+  metadata for generator output.
+- `docs/template/client-handoff-packet.md`: handoff status labels, provider
+  posture, verification, and known seams.
+- `docs/template/template-release-process.md`: release, upgrade, and rollback
+  path for private client forks.
+- `docs/template/agent-worker-playbook.md`: operating guide for future AI
+  workers.
 - `agent-patterns/`: future local references for Effect, Confect, and workflow
   graph idioms.
 - `repos/`: future vendored read-only source references for Effect and Confect.
+- `vendor/`: private package artifacts required by the internal template, such
+  as the Notion Kit i18n tarball used by `@notion-kit/settings-panel`.
 
 ## Apps
 
-- `apps/web`: the hostable Vite reference workspace app.
+- `apps/web`: the hostable TanStack Start reference workspace app, preserving
+  the Maestro frontend direction with Convex/Confect data access, WorkOS-ready
+  auth, PostHog-ready analytics, Notion Kit shell primitives, and React Flow
+  workflow inspection.
 - `apps/cli`: typed CLI projection over the shared headless registry.
 - `apps/voice-relay`: optional capture/voice relay app.
 
@@ -23,11 +52,11 @@
 
 - `packages/convex`: Confect specs/impls, Convex components, schema, and tests.
 - `packages/ui`: Notion-style app shell, blocks, layout primitives, and
-  settings-ready controls.
+  settings-ready controls, including the optional co-editing document shell.
 - `packages/workflow-ui`: React Flow graph editor primitive and future command
   reducers.
 - `packages/template-core`: shared template registry, workflow/capability/agent
-  types, policies, and reviewer-safe fixtures.
+  types, co-editing domain constructors, policies, and reviewer-safe fixtures.
 - `packages/integrations`: Effect service interfaces and provider adapters.
 - `packages/notifications`: notification provider boundary.
 - `packages/storage`: asset storage provider boundary.
@@ -39,7 +68,8 @@
 - `tooling/quality`: deterministic gates and AI gate wrappers.
 - `tooling/workflow`: headless operation projection, CLI/MCP/API metadata,
   OpenAPI generation, and workflow helpers.
-- `tooling/generators`: template init, add-* generators, doctor, and upgrade.
+- `tooling/generators`: template init, quickstart, seed-demo, handoff, add-*
+  generators, doctor, private-package import, and upgrade.
 - `tooling/evals`: prompt and source-grounding evaluation fixtures.
 - `tooling/release`: deploy, smoke, rollback, and backup/restore helpers.
 - `tooling/pr-backlog`: PR sweep and backlog tooling.
@@ -62,6 +92,8 @@
 - `/agents`: agent seats, tool grants, approvals, and conversations.
 - `/runs`: workflow and agent run history.
 - `/documents`: generated and reviewed documents.
+- `/documents/:documentId`: optional co-editing review surface for source-backed
+  markdown, version history, annotations, and agent suggestions.
 - `/sources`: source intake and upload state.
 - `/integrations`: provider health and configuration.
 - `/api`: API docs and key management.

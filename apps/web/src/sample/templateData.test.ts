@@ -55,7 +55,7 @@ describe("template sample data", () => {
   it("derives the API docs summary from the generated OpenAPI artifact", () => {
     expect(openApiSummary).toEqual({
       version: "3.1.0",
-      operationCount: 3,
+      operationCount: 4,
       docsRoute: "/api/docs",
       typedErrors: ["Unauthorized", "ConfigInvalid", "ValidationFailed"],
       authScope: "audited write",
@@ -65,9 +65,13 @@ describe("template sample data", () => {
   it("shows the deterministic workflow receipt used by headless surfaces", () => {
     expect(sampleRunReceipt).toMatchObject({
       runId: "run_template_001",
+      workflowRunId: "run_template_001",
+      workflowId: "workflow_source_grounded_plan",
       workflowName: "Source-grounded planning workflow",
+      trustReceiptId: "trust_run_template_001",
       trustReceipt: {
-        receiptId: "receipt_template_001",
+        receiptId: "trust_run_template_001",
+        trustClaim: "source-backed-no-default-rag",
       },
     });
     expect(sampleRunReceipt.steps).toHaveLength(workflowNodes.length);

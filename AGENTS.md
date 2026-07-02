@@ -119,6 +119,12 @@ This project vendors external repositories under `repos/`.
 
 ## Playbook Index
 
+- [Blueprint catalog](docs/template/blueprint-catalog.md)
+- [Generator output contract](docs/template/generator-output-contract.md)
+- [Client intake questionnaire](docs/template/client-intake-questionnaire.md)
+- [Client handoff packet](docs/template/client-handoff-packet.md)
+- [Template release process](docs/template/template-release-process.md)
+- [Agent worker playbook](docs/template/agent-worker-playbook.md)
 - [Add a workflow](docs/template/how-to-add-workflow.md)
 - [Add a capability](docs/template/how-to-add-capability.md)
 - [Add an agent](docs/template/how-to-add-agent.md)

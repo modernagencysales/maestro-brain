@@ -1,0 +1,32 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "allowJs": false,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "emitDeclarationOnly": false,
+    "jsx": "react-jsx",
+    "noEmit": true
+  },
+  "include": [
+    "apps/*/src/**/*.ts",
+    "apps/*/src/**/*.tsx",
+    "packages/*/src/**/*.ts",
+    "packages/*/src/**/*.tsx",
+    "packages/convex/confect/**/*.ts",
+    "packages/convex/convex/**/*.ts",
+    "packages/convex/test/**/*.ts",
+    "tooling/**/*.ts",
+    "tooling/**/*.mts",
+    "tests/**/*.ts"
+  ],
+  "exclude": [
+    "apps/**/dist/**",
+    "packages/**/dist/**",
+    "tooling/**/dist/**",
+    "repos/**",
+    "vendor/**",
+    "test-results/**"
+  ]
+}

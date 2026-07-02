@@ -1,15 +1,41 @@
-import { useState } from "react";
-import { AppFrame } from "@maestro-template/ui";
-import { WorkflowCanvas } from "@maestro-template/workflow-ui";
+import { useEffect, useState } from "react";
+import {
+  NotionDocumentPage,
+  TemplateLiveRegion,
+  TemplateNetworkBanner,
+  TemplateSkipLink,
+  TemplateToastProvider,
+  TemplateWorkspaceShell,
+  type NotionDocumentPageModel,
+} from "@maestro-template/ui";
+import {
+  WorkflowCanvas,
+  WorkflowGraphCanvas,
+} from "@maestro-template/workflow-ui";
 import type {
+  DurableWorkflowGraphForCanvas,
   WorkflowTemplateEdge,
   WorkflowTemplateNode,
 } from "@maestro-template/workflow-ui";
+import { TEMPLATE_NAV_CATEGORIES } from "../navigation/workspace";
+import {
+  buildBrainDocumentSections,
+  createBrainContextPackPreview,
+} from "../features/brain/brain-surface";
+import {
+  buildOnboardingDocumentSections,
+  buildProviderSetupDocumentSections,
+} from "../features/setup/setup-surface";
+import {
+  buildWorkflowRunDocumentSections,
+  reduceFakeWorkflowRunCommand,
+} from "../features/workflows/workflow-surface";
 import {
   agents,
   brainSources,
   capabilities,
   contextPacks,
+  durableWorkflowGraph,
   headlessSurfaces,
   navItems,
   openApiSummary,
@@ -17,14 +43,13 @@ import {
   sampleRunReceipt,
   safetyChecklist,
   stats,
-  workflowEdges,
-  workflowNodes,
 } from "./templateData";
 
 type Diagram = {
   readonly label: string;
-  readonly nodes: readonly WorkflowTemplateNode[];
-  readonly edges: readonly WorkflowTemplateEdge[];
+  readonly nodes?: readonly WorkflowTemplateNode[];
+  readonly edges?: readonly WorkflowTemplateEdge[];
+  readonly graph?: DurableWorkflowGraphForCanvas;
 };
 
 type DocumentPage = {
@@ -38,6 +63,9 @@ type DocumentPage = {
     readonly body: readonly string[];
   }[];
 };
+
+type RenderedDocumentPage = Omit<DocumentPage, "diagram"> &
+  Pick<NotionDocumentPageModel, "diagram" | "diagramLabel">;
 
 const overviewDiagram: Diagram = {
   label: "Template operating model",
@@ -188,6 +216,18 @@ const overviewPage: DocumentPage = {
   ],
 };
 
+const brainContextPack = createBrainContextPackPreview(contextPacks);
+const workflowRunSections = buildWorkflowRunDocumentSections(sampleRunReceipt);
+const fakeWorkflowRun = reduceFakeWorkflowRunCommand({
+  type: "trigger_fake_workflow_run",
+  workspaceSlug: sampleRunReceipt.workspaceSlug,
+  workflowId: sampleRunReceipt.workflowId,
+  requestedBy: "operator@example.test",
+});
+const providerSetupSections =
+  buildProviderSetupDocumentSections(providerAdapters);
+const onboardingSections = buildOnboardingDocumentSections();
+
 const pages: readonly DocumentPage[] = [
   overviewPage,
   {
@@ -197,29 +237,10 @@ const pages: readonly DocumentPage[] = [
     intro:
       "For a client, the Brain is the place where sales calls, website pages, positioning notes, links, markdown, and operating knowledge become organized context that an AI system can safely use.",
     diagram: brainDiagram,
-    sections: [
-      {
-        heading: "Why this matters",
-        body: [
-          "Most AI projects fail when the model has to guess what the company means. The Brain gives the app a source-grounded understanding of the client's market, language, offers, constraints, and proof.",
-          "It can support RAG when a project truly needs retrieval, but the default is simpler: curated source sets, context packs, evidence, and trust receipts.",
-        ],
-      },
-      {
-        heading: "What can go into it",
-        body: brainSources.map(
-          (source) =>
-            `**${source.title}** becomes ${source.kind} context with ${source.evidence}.`,
-        ),
-      },
-      {
-        heading: "Technical proof",
-        body: [
-          "A context pack is the approved bundle an agent or workflow receives before it acts.",
-          ...contextPacks.map((item) => `- ${item}`),
-        ],
-      },
-    ],
+    sections: buildBrainDocumentSections({
+      sources: brainSources,
+      contextPack: brainContextPack,
+    }),
   },
   {
     id: "workflows",
@@ -229,8 +250,7 @@ const pages: readonly DocumentPage[] = [
       "A workflow is the recipe for getting from customer context to a useful outcome: research, qualification, drafting, routing, enrichment, approval, follow-up, or anything else the client needs to repeat.",
     diagram: {
       label: "Workflow graph template",
-      nodes: workflowNodes,
-      edges: workflowEdges,
+      graph: durableWorkflowGraph,
     },
     sections: [
       {
@@ -247,6 +267,15 @@ const pages: readonly DocumentPage[] = [
           "Durable workflow behavior should stay in typed workflow metadata and Confect/Effect contracts. React Flow is the authoring and inspection layer, not the only source of truth.",
         ],
       },
+      {
+        heading: "Fake/local run trigger",
+        body: [
+          `Run command: \`${fakeWorkflowRun.commandLine}\`.`,
+          `Mode: ${fakeWorkflowRun.mode}.`,
+          `Audit trail: ${fakeWorkflowRun.auditLine}.`,
+        ],
+      },
+      ...workflowRunSections,
     ],
   },
   {
@@ -341,6 +370,14 @@ const pages: readonly DocumentPage[] = [
     ],
   },
   {
+    id: "onboarding",
+    eyebrow: "Client quickstart",
+    title: "Onboarding turns the template into a client app",
+    intro:
+      "This is the operator checklist for turning the internal factory into a useful AI/GTM implementation for a specific B2B company.",
+    sections: onboardingSections,
+  },
+  {
     id: "integrations",
     eyebrow: "Provider layer",
     title: "Integrations are swappable instead of tangled into the app",
@@ -371,6 +408,44 @@ const pages: readonly DocumentPage[] = [
     ],
   },
   {
+    id: "settings",
+    eyebrow: "Workspace operations",
+    title: "Settings make the fork operational without live secrets",
+    intro:
+      "Settings should give the implementation team a clear view of workspace identity, members, provider posture, notification readiness, billing posture, and deploy readiness.",
+    sections: providerSetupSections,
+  },
+  {
+    id: "billing",
+    eyebrow: "Commercial layer",
+    title: "Billing starts fake and becomes live after signoff",
+    intro:
+      "Client demos and diligence should not need live payment secrets. The template starts with deterministic billing posture, then swaps in Dodo when sandbox and production setup are approved.",
+    sections: [
+      {
+        heading: "Dodo posture",
+        body: [
+          "**Dodo** starts in billing fake first mode so demos and tests do not need live payment secrets.",
+          "The live adapter should only be enabled after sandbox checkout, webhook, credit accounting, and support/refund runbooks are signed off.",
+        ],
+      },
+      {
+        heading: "Credits and spend",
+        body: [
+          "Credits, model spend, and provider caps should be visible to admins before any paid workflow can run.",
+          "Provider failures should produce redacted typed errors rather than leaking billing or API details to users.",
+        ],
+      },
+      {
+        heading: "Launch proof",
+        body: [
+          "A client fork should preserve fake receipts for tests and add live Dodo smoke evidence before production promotion.",
+          `The sample workflow already produces \`${sampleRunReceipt.trustReceiptId}\` so billing and workflow proof can be inspected separately.`,
+        ],
+      },
+    ],
+  },
+  {
     id: "safety",
     eyebrow: "Safety layer",
     title: "Safety is built into the delivery model",
@@ -391,7 +466,8 @@ const pages: readonly DocumentPage[] = [
       {
         heading: "Technical proof",
         body: [
-          `The sample run \`${sampleRunReceipt.runId}\` produces \`${sampleRunReceipt.trustReceipt.receiptId}\`.`,
+          `The sample run \`${sampleRunReceipt.workflowRunId}\` mirrors the persisted workflow run shape and produces \`${sampleRunReceipt.trustReceiptId}\`.`,
+          `Its Trust Receipt pins \`${sampleRunReceipt.trustReceipt.policySnapshotId}\`, \`${sampleRunReceipt.trustReceipt.modelReceiptId}\`, and the \`${sampleRunReceipt.trustReceipt.trustClaim}\` posture.`,
           sampleRunReceipt.trustReceipt.claim,
         ],
       },
@@ -400,83 +476,99 @@ const pages: readonly DocumentPage[] = [
 ] as const;
 
 const pageById = new Map(pages.map((page) => [page.id, page]));
-
-const renderInlineMarkdown = (text: string) => {
-  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
-
-  return parts.map((part, index) => {
-    const key = `${part}-${index}`;
-
-    if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={key}>{part.slice(2, -2)}</strong>;
-    }
-
-    if (part.startsWith("`") && part.endsWith("`")) {
-      return <code key={key}>{part.slice(1, -1)}</code>;
-    }
-
-    return <span key={key}>{part}</span>;
-  });
-};
-
-const MarkdownLine = ({ text }: { readonly text: string }) => {
-  if (text.startsWith("- ")) {
-    return <li>{renderInlineMarkdown(text.slice(2))}</li>;
+const samplePageKeyByRouteKey = new Map<string, string>([
+  ["home", "overview"],
+  ["brain", "brain"],
+  ["workflows", "workflows"],
+  ["capabilities", "capabilities"],
+  ["agents", "agents"],
+  ["api", "headless"],
+  ["onboarding", "onboarding"],
+  ["integrations", "integrations"],
+  ["settings", "settings"],
+  ["billing", "billing"],
+  ["health", "safety"],
+  ["admin", "safety"],
+]);
+const sampleRouteKeyByPageId = new Map(
+  [...samplePageKeyByRouteKey.entries()].map(([key, value]) => [value, key]),
+);
+const sampleNavigation = TEMPLATE_NAV_CATEGORIES.map((category) => ({
+  ...category,
+  items: category.items.map((item) => ({
+    key: item.key,
+    label: item.key === "health" ? "Safety" : item.label,
+    icon: item.icon,
+    href: `#${samplePageKeyByRouteKey.get(item.key) ?? item.key}`,
+    ...(item.key === "api" ? { hint: "Scalar" } : {}),
+  })),
+}));
+const samplePageIdFromHash = () => {
+  if (typeof window === "undefined") {
+    return navItems[0]?.id ?? "overview";
   }
 
-  return <p>{renderInlineMarkdown(text)}</p>;
+  const hash = window.location.hash.replace(/^#/, "");
+
+  return pageById.has(hash) ? hash : (navItems[0]?.id ?? "overview");
 };
 
-const NotionDocument = ({ page }: { readonly page: DocumentPage }) => (
-  <article className="notion-page" id={page.id}>
-    <p className="notion-eyebrow">{page.eyebrow}</p>
-    <h1>{page.title}</h1>
-    <p className="notion-intro">{page.intro}</p>
+const renderPage = (page: DocumentPage): RenderedDocumentPage => {
+  const { diagram, ...documentPage } = page;
 
-    {page.diagram ? (
-      <section className="notion-section" aria-label={page.diagram.label}>
-        <WorkflowCanvas nodes={page.diagram.nodes} edges={page.diagram.edges} />
-      </section>
-    ) : null}
+  if (!diagram) {
+    return documentPage;
+  }
 
-    {page.sections.map((section) => {
-      const listItems = section.body.filter((line) => line.startsWith("- "));
-      const paragraphs = section.body.filter((line) => !line.startsWith("- "));
-
-      return (
-        <section className="notion-section" key={section.heading}>
-          <h2>{section.heading}</h2>
-          {paragraphs.map((line) => (
-            <MarkdownLine key={line} text={line} />
-          ))}
-          {listItems.length > 0 ? (
-            <ul>
-              {listItems.map((line) => (
-                <MarkdownLine key={line} text={line} />
-              ))}
-            </ul>
-          ) : null}
-        </section>
-      );
-    })}
-  </article>
-);
+  return {
+    ...documentPage,
+    diagramLabel: diagram.label,
+    diagram: diagram.graph ? (
+      <WorkflowGraphCanvas graph={diagram.graph} />
+    ) : (
+      <WorkflowCanvas nodes={diagram.nodes ?? []} edges={diagram.edges ?? []} />
+    ),
+  };
+};
 
 export function App() {
-  const [activeNavId, setActiveNavId] = useState<string>(
-    navItems[0]?.id ?? "overview",
-  );
+  const [activeNavId, setActiveNavId] = useState<string>(samplePageIdFromHash);
   const activePage = pageById.get(activeNavId) ?? overviewPage;
+  const activeRouteKey = sampleRouteKeyByPageId.get(activePage.id) ?? "home";
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      setActiveNavId(samplePageIdFromHash());
+    };
+
+    window.addEventListener("hashchange", handleHashChange);
+
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
 
   return (
-    <AppFrame
-      title="Maestro Template"
-      subtitle="Private AI app factory"
-      navItems={navItems}
-      activeId={activePage.id}
-      onNavigate={setActiveNavId}
-    >
-      <NotionDocument page={activePage} />
-    </AppFrame>
+    <>
+      <TemplateSkipLink />
+      <TemplateLiveRegion
+        message={`Viewing ${activePage.id === "overview" ? "Overview" : activePage.title}`}
+      />
+      <TemplateNetworkBanner state="online" />
+      <TemplateToastProvider>
+        <TemplateWorkspaceShell
+          title="Maestro Template"
+          subtitle="Private AI app factory"
+          navigation={sampleNavigation}
+          activeKey={activeRouteKey}
+          topbarTitle={activePage.title}
+          onNavigate={(key) => {
+            const pageId = samplePageKeyByRouteKey.get(key) ?? "overview";
+
+            setActiveNavId(pageId);
+          }}
+        >
+          <NotionDocumentPage page={renderPage(activePage)} />
+        </TemplateWorkspaceShell>
+      </TemplateToastProvider>
+    </>
   );
 }

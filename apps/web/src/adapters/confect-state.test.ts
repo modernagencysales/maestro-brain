@@ -1,0 +1,149 @@
+import { describe, expect, expectTypeOf, it } from "vitest";
+import { QueryResult } from "@confect/react";
+import * as Either from "effect/Either";
+import {
+  classifyConfectMutationResult,
+  normalizeConfectQuery,
+  normalizeMutationError,
+  normalizeMutationPending,
+  normalizeMutationSuccess,
+  normalizeReactQueryResult,
+  type TemplateDataState,
+  type TemplateMutationState,
+} from "./confect-state";
+
+type TypedError = {
+  readonly _tag: "ValidationFailed";
+  readonly message: string;
+};
+
+describe("Confect React data-state adapter", () => {
+  it("normalizes skipped, loading, empty, ready/read, and ready/edit query states", () => {
+    expect(normalizeConfectQuery(QueryResult.load(true))).toEqual({
+      status: "skipped",
+    });
+    expect(normalizeConfectQuery(QueryResult.load(false))).toEqual({
+      status: "loading",
+    });
+    expect(normalizeConfectQuery(QueryResult.succeed([]))).toEqual({
+      status: "empty",
+      data: [],
+    });
+    expect(
+      normalizeConfectQuery(QueryResult.succeed({ id: "source_1" })),
+    ).toEqual({
+      status: "ready",
+      mode: "read",
+      data: { id: "source_1" },
+    });
+    expect(
+      normalizeConfectQuery(QueryResult.succeed({ id: "source_1" }), {
+        mode: "edit",
+      }),
+    ).toMatchObject({
+      status: "ready",
+      mode: "edit",
+    });
+  });
+
+  it("preserves typed Confect failures separately from transport and parse failures", () => {
+    const error: TypedError = {
+      _tag: "ValidationFailed",
+      message: "Name is required",
+    };
+
+    expect(normalizeConfectQuery(QueryResult.fail(error))).toEqual({
+      status: "typed_failure",
+      error,
+    });
+    expect(normalizeMutationError(new TypeError("network down"))).toEqual({
+      status: "transport_failure",
+      error: expect.any(TypeError),
+      message: "network down",
+    });
+    expect(normalizeMutationError(new SyntaxError("bad json"))).toEqual({
+      status: "parse_failure",
+      error: expect.any(SyntaxError),
+      message: "bad json",
+    });
+    expect(normalizeMutationError("boom")).toEqual({
+      status: "defect",
+      error: "boom",
+      message: "Unexpected client defect.",
+    });
+  });
+
+  it("normalizes mutation pending, success, typed failure, and thrown failure states", () => {
+    const error: TypedError = {
+      _tag: "ValidationFailed",
+      message: "Name is required",
+    };
+
+    expect(normalizeMutationPending()).toEqual({ status: "loading" });
+    expect(normalizeMutationSuccess({ id: "receipt_1" })).toEqual({
+      status: "ready",
+      mode: "read",
+      data: { id: "receipt_1" },
+      mutation: "success",
+    });
+    expect(classifyConfectMutationResult(Either.right("ok"))).toEqual({
+      status: "ready",
+      mode: "read",
+      data: "ok",
+      mutation: "success",
+    });
+    expect(classifyConfectMutationResult(Either.left(error))).toEqual({
+      status: "typed_failure",
+      error,
+    });
+  });
+
+  it("normalizes Convex React Query style results without knowing business logic", () => {
+    expect(normalizeReactQueryResult({ status: "pending" })).toEqual({
+      status: "loading",
+    });
+    expect(
+      normalizeReactQueryResult({ status: "success", data: null }),
+    ).toEqual({
+      status: "empty",
+      data: null,
+    });
+    expect(
+      normalizeReactQueryResult({ status: "error", error: new Error("boom") }),
+    ).toEqual({
+      status: "transport_failure",
+      error: expect.any(Error),
+      message: "boom",
+    });
+  });
+
+  it("keeps typed result inference through the normalized state", () => {
+    type State = TemplateDataState<{ readonly id: string }, TypedError>;
+    type Mutation = TemplateMutationState<{ readonly id: string }, TypedError>;
+
+    expectTypeOf<Extract<State, { status: "ready" }>["data"]>().toEqualTypeOf<{
+      readonly id: string;
+    }>();
+    expectTypeOf<
+      Extract<State, { status: "typed_failure" }>["error"]
+    >().toEqualTypeOf<TypedError>();
+    expectTypeOf<
+      Extract<Mutation, { mutation: "success" }>["data"]
+    >().toEqualTypeOf<{ readonly id: string }>();
+  });
+
+  it("keeps typed mutation result inference without importing backend source into the web project", () => {
+    type GeneratedReturn = { readonly pageId: string };
+    type GeneratedError = { readonly _tag: "ValidationFailed" };
+    type MutationState = ReturnType<
+      typeof classifyConfectMutationResult<GeneratedReturn, GeneratedError>
+    >;
+
+    expectTypeOf<
+      Extract<MutationState, { mutation: "success" }>["data"]
+    >().toEqualTypeOf<GeneratedReturn>();
+    expectTypeOf<
+      Extract<MutationState, { status: "typed_failure" }>["error"]
+    >().toEqualTypeOf<GeneratedError>();
+  });
+});

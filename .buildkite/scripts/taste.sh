@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ "$*" == *"--mode fake"* ]]; then
-  pnpm taste -- --mode fake
+  pnpm taste -- --mode fake | pnpm exec tsx tooling/quality/extract-ai-verdict.mts
   exit 0
 fi
 

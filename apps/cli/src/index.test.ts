@@ -8,8 +8,8 @@ describe("maestro-template CLI", () => {
     expect(result.exitCode).toBe(0);
     expect(JSON.parse(result.stdout)).toMatchObject({
       valid: true,
-      capabilityCount: 3,
-      headlessOperationCount: 9,
+      capabilityCount: 4,
+      headlessOperationCount: 12,
     });
   });
 
@@ -17,7 +17,7 @@ describe("maestro-template CLI", () => {
     const list = runCli(["operations", "list"]);
     const get = runCli(["operations", "get", "CLI:createTrustReceipt"]);
 
-    expect(JSON.parse(list.stdout)).toHaveLength(9);
+    expect(JSON.parse(list.stdout)).toHaveLength(12);
     expect(JSON.parse(get.stdout)).toMatchObject({
       surface: "CLI",
       capability: "createTrustReceipt",
@@ -35,6 +35,11 @@ describe("maestro-template CLI", () => {
     expect(JSON.parse(runCli(["api", "openapi"]).stdout)).toMatchObject({
       openapi: "3.1.0",
       paths: {
+        "/api/sourceGroundedBrief": {
+          post: {
+            operationId: "sourceGroundedBrief",
+          },
+        },
         "/api/resolveSourceSet": {
           post: {
             operationId: "resolveSourceSet",
@@ -48,6 +53,12 @@ describe("maestro-template CLI", () => {
         },
       },
     });
+    expect(JSON.parse(runCli(["mcp", "tools"]).stdout)).toContainEqual(
+      expect.objectContaining({
+        name: "template.sourceGroundedBrief",
+        inputSchema: expect.objectContaining({ type: "object" }),
+      }),
+    );
     expect(JSON.parse(runCli(["mcp", "tools"]).stdout)).toContainEqual(
       expect.objectContaining({
         name: "template.resolveSourceSet",
@@ -64,8 +75,10 @@ describe("maestro-template CLI", () => {
     expect(call.isError).toBe(false);
     expect(JSON.parse(call.content[0].text)).toMatchObject({
       runId: "run_template_001",
+      workflowRunId: "run_template_001",
+      trustReceiptId: "trust_run_template_001",
       trustReceipt: {
-        receiptId: "receipt_template_001",
+        receiptId: "trust_run_template_001",
       },
     });
   });
@@ -90,9 +103,26 @@ describe("maestro-template CLI", () => {
 
     expect(receipt).toMatchObject({
       runId: "run_template_001",
+      workflowRunId: "run_template_001",
+      trustReceiptId: "trust_run_template_001",
       status: "completed",
       trustReceipt: {
-        receiptId: "receipt_template_001",
+        receiptId: "trust_run_template_001",
+      },
+    });
+  });
+
+  it("runs the source-grounded brief capability from the CLI", () => {
+    const result = runCli(["capability", "run", "sourceGroundedBrief"]);
+    const payload = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(0);
+    expect(payload).toMatchObject({
+      ok: true,
+      operationId: "sourceGroundedBrief",
+      result: {
+        status: "accepted",
+        trustClaim: "source-backed-no-default-rag",
       },
     });
   });

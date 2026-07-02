@@ -2,3 +2,6 @@ packages:
   - "apps/*"
   - "packages/*"
   - "tooling/*"
+
+overrides:
+  "@notion-kit/i18n": "file:vendor/notion-kit-i18n-1.0.0.tgz"

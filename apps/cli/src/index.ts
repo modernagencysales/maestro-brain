@@ -7,6 +7,7 @@ import {
   callMcpTool,
   describeWorkflowTemplate,
   getHeadlessOperation,
+  runTemplateApiOperation,
   runTemplateWorkflow,
 } from "@maestro-template/workflow-tooling";
 import {
@@ -33,6 +34,7 @@ export const runCli = (argv: readonly string[]): CliResult => {
           "maestro-template describe",
           "maestro-template operations list",
           "maestro-template operations get <id>",
+          "maestro-template capability run <id>",
           "maestro-template workflow run",
           "maestro-template api catalog",
           "maestro-template api openapi",
@@ -82,6 +84,23 @@ export const runCli = (argv: readonly string[]): CliResult => {
     return {
       exitCode: 0,
       stdout: json(runTemplateWorkflow()),
+      stderr: "",
+    };
+  }
+
+  if (command === "capability" && subcommand === "run" && maybeId) {
+    return {
+      exitCode: 0,
+      stdout: json(
+        runTemplateApiOperation(maybeId, {
+          workspaceSlug: "acme-demo",
+          input: {
+            sourceIds: ["source_1"],
+            briefGoal: "Create a client implementation brief.",
+          },
+          idempotencyKey: `${maybeId}-cli-001`,
+        }),
+      ),
       stderr: "",
     };
   }
