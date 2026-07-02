@@ -46,6 +46,33 @@ gated production promote). Other providers (WorkOS, PostHog, Dodo, MailerSend,
 storage, LLM) default to fake/local adapters and are switched on per client
 fork.
 
+## Design decisions
+
+Fresh reviewers tend to flag the same four things. Each one is a decision, not
+an accident:
+
+- **Auth is a seam, not a feature.** The template ships fake-safe identity
+  wiring (WorkOS-shaped) and a server-derived tenancy spine, but no live auth
+  flow. Client forks choose their own provider; the template's job is to make
+  that a contained swap instead of a rewrite.
+- **Some backend capabilities are contract fixtures.** Domains that manage live
+  data (`access`, `auth`, `brain`, `demo`) are database-backed. Domains that
+  demonstrate contract shape (`ops/*`, `agents`, `capabilities`, `jobs`) return
+  deterministic fixtures behind real typed specs. The spec, typed errors, and
+  tests are the deliverable; a fork replaces fixture bodies with persistence.
+  See AGENTS.md for the exact map.
+- **The live surface is deliberately thin.** One seeded workspace and one live
+  query prove the full path (static app → deployed backend → typed contract →
+  UI). Everything else stays inert until a client fork gives it real data. A
+  template that pretends to be a product ages badly.
+- **`repos/` vendors Effect and Confect sources on purpose.** AI coding agents
+  produce measurably better changes with framework source in-tree. It is
+  reference material, excluded from builds, lint, and scanning.
+
+How this repo was built — and why the commit history looks the way it does — is
+documented in
+[docs/template/delivery-story.md](./docs/template/delivery-story.md).
+
 ## Architecture
 
 ```text

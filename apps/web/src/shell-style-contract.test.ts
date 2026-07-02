@@ -1,7 +1,11 @@
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const read = (path: string): string => readFileSync(path, "utf8");
+const appRoot = fileURLToPath(new URL("..", import.meta.url));
+const read = (path: string): string =>
+  readFileSync(resolve(appRoot, path), "utf8");
 
 describe("Notion Kit shell style contract", () => {
   it("loads Notion Kit style.css through the template notion stylesheet", () => {

@@ -1,11 +1,15 @@
 import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   activeTemplateRouteKey,
   TEMPLATE_ROUTE_ITEMS,
 } from "./navigation/workspace";
 
-const read = (path: string): string => readFileSync(path, "utf8");
+const appRoot = fileURLToPath(new URL("..", import.meta.url));
+const read = (path: string): string =>
+  readFileSync(resolve(appRoot, path), "utf8");
 
 describe("frontend platform routes", () => {
   it("registers legal and onboarding workspace routes in navigation", () => {
@@ -21,8 +25,12 @@ describe("frontend platform routes", () => {
   });
 
   it("defines legal and onboarding route files as template placeholders", () => {
-    expect(existsSync("src/routes/_workspace.legal.tsx")).toBe(true);
-    expect(existsSync("src/routes/_workspace.onboarding.tsx")).toBe(true);
+    expect(
+      existsSync(resolve(appRoot, "src/routes/_workspace.legal.tsx")),
+    ).toBe(true);
+    expect(
+      existsSync(resolve(appRoot, "src/routes/_workspace.onboarding.tsx")),
+    ).toBe(true);
     expect(read("src/routes/_workspace.legal.tsx")).toContain(
       "Replace these legal placeholders per client",
     );

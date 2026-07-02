@@ -56,6 +56,30 @@ layers, add the missing boundary instead.
 - Runtime-authored capabilities are data, not arbitrary code. Promotion to
   generated Confect source is the compile-time safety path.
 
+## Reference Fixture Implementations
+
+Two kinds of Confect impls live in `packages/convex/confect/`, and codegen must
+treat them differently:
+
+**Database-backed (real persistence — extend, don't replace):** `access/*`,
+`auth/workspaces`, `brain/pages`, `demo/showcase`.
+
+**Contract fixtures (deterministic bodies behind real specs — replace the body
+per fork, keep the spec):** `ops/actions`, `ops/billing`, `ops/coediting`,
+`ops/health`, `ops/knowledge`, `ops/transforms`, `ops/versioning`,
+`agents/assistant`, `capabilities/catalog`, `capabilities/sourceGroundedBrief`,
+`jobs/workpool`.
+
+Rules when replacing a fixture body:
+
+- The `.spec.ts` (args, returns, typed errors) is the contract — keep it, or
+  change it deliberately with its tests.
+- Fixture bodies use `Effect.succeed` with canned data and a fixed `now`
+  constant; a real implementation swaps in `DatabaseReader`/ `DatabaseWriter`
+  access and keeps every declared typed failure reachable.
+- Existing tests pin the contract shape, not the fixture values — they should
+  keep passing after the swap, plus new tests for the persistence behavior.
+
 ## Working Loop
 
 - Scaffold first: when a `pnpm template:*` generator covers the module kind, use

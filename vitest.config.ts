@@ -1,8 +1,7 @@
 import { defineConfig } from "vitest/config";
 
-// Directories measured by the coverage ratchet. Node-pure packages only:
-// packages/convex and apps/web run under their own vitest configs
-// (edge-runtime / jsdom) and are ratcheted separately when provisioned.
+// Directories measured by the coverage ratchet. Everything runs under this
+// root config; generated files and vendored trees are excluded below.
 export const coverageRatchetDirs = [
   "packages/template-core",
   "packages/integrations",
@@ -10,12 +9,14 @@ export const coverageRatchetDirs = [
   "packages/storage",
   "packages/notifications",
   "packages/observability",
+  "packages/convex",
   "tooling/quality",
   "tooling/workflow",
   "tooling/release",
   "tooling/generators",
   "tooling/stack",
   "apps/cli",
+  "apps/web",
 ];
 
 export default defineConfig({
@@ -32,6 +33,7 @@ export default defineConfig({
         "**/dist/**",
         "**/_generated/**",
         "**/__fixtures__/**",
+        "apps/web/src/routeTree.gen.ts",
         "repos/**",
         "vendor/**",
       ],

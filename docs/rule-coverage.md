@@ -28,18 +28,18 @@ strongest first:
 
 ## Code quality
 
-| Rule                              | Enforcement                                                                                                    |
-| --------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Formatting                        | mechanical: `check:format` (prettier); lefthook pre-commit auto-format                                         |
-| Lint cleanliness, no `any`        | mechanical: `pnpm lint` (eslint strict + typescript-eslint), zero warnings tolerated in `verify`               |
-| Strict types                      | mechanical: `pnpm typecheck` (strict tsconfig); `check:types-coverage` (`type-coverage --at-least 99.7`)       |
-| No unused exports/deps            | mechanical: `check:knip`                                                                                       |
-| Dependency hygiene                | mechanical: `check:deps` version pins; `pnpm install --frozen-lockfile` in CI                                  |
-| Coverage only rises               | mechanical: `check:coverage-ratchet` (vitest json-summary vs `coverage-baseline.json`; `--update` only raises) |
-| Tests survive mutation            | mechanical: `test:mutation` (Stryker, scheduled/manual CI)                                                     |
-| Single responsibility, naming     | ai-judge: `taste` gate (rubric pinned in `tooling/quality/taste-review.mts`)                                   |
-| Contract-shape review of the diff | ai-judge: `contract-review` gate (rubric: `tooling/quality/contract-review-rubric.md`)                         |
-| Generated modules are born tested | mechanical: generator emits fast-check property tests; `check:generators` pins docs                            |
+| Rule                              | Enforcement                                                                                                                                                                |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Formatting                        | mechanical: `check:format` (prettier); lefthook pre-commit auto-format                                                                                                     |
+| Lint cleanliness, no `any`        | mechanical: `pnpm lint` (eslint strict + typescript-eslint), zero warnings tolerated in `verify`                                                                           |
+| Strict types                      | mechanical: `pnpm typecheck` (strict tsconfig); `check:types-coverage` (`type-coverage --at-least 99.7`)                                                                   |
+| No unused exports/deps            | mechanical: `check:knip`                                                                                                                                                   |
+| Dependency hygiene                | mechanical: `check:deps` version pins; `pnpm install --frozen-lockfile` in CI                                                                                              |
+| Coverage only rises               | mechanical: `check:coverage-ratchet` across every package incl. `packages/convex` and `apps/web` (vitest json-summary vs `coverage-baseline.json`; `--update` only raises) |
+| Tests survive mutation            | mechanical: `test:mutation` (Stryker, scheduled/manual CI)                                                                                                                 |
+| Single responsibility, naming     | ai-judge: `taste` gate (rubric pinned in `tooling/quality/taste-review.mts`)                                                                                               |
+| Contract-shape review of the diff | ai-judge: `contract-review` gate (rubric: `tooling/quality/contract-review-rubric.md`)                                                                                     |
+| Generated modules are born tested | mechanical: generator emits fast-check property tests; `check:generators` pins docs                                                                                        |
 
 ## Security and tenancy
 
@@ -66,7 +66,5 @@ strongest first:
 ## Known unenforced (candidates for the next ratchet)
 
 - Provider payload redaction outside `packages/integrations` — review only.
-- `packages/convex` and `apps/web` coverage — excluded from the ratchet until
-  they run under the root vitest environment matrix; tracked per-package.
 - Audit-event emission on access lifecycle mutations — domain functions return
   events, impls do not persist them yet (see porting roadmap).
