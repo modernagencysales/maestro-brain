@@ -190,21 +190,6 @@ export const checkDescriptors = {
       },
     ],
   },
-  "coverage-ratchet": {
-    name: "check:coverage-ratchet",
-    requirements: [
-      {
-        file: "vitest.config.ts",
-        includes: ["coverage", "thresholds"],
-        message: "vitest config must define real coverage thresholds",
-      },
-      {
-        file: "package.json",
-        includes: ["vitest run --coverage"],
-        message: "check:coverage-ratchet must run Vitest coverage",
-      },
-    ],
-  },
   "types-coverage": {
     name: "check:types-coverage",
     requirements: [

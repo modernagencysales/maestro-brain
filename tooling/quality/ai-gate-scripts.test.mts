@@ -3,6 +3,10 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
+// Spawned tsx/shell subprocesses start slowly under V8 coverage
+// instrumentation; give these integration tests a generous budget.
+const SHELL_TEST_TIMEOUT = 60_000;
+
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 async function run(
@@ -35,71 +39,83 @@ async function run(
 }
 
 describe("AI and PR gate scripts", () => {
-  it("AI Buildkite wrappers fail closed without provider auth", async () => {
-    const noProviderEnv = {
-      OPENROUTER_API_KEY: "",
-      OPENAI_API_KEY: "",
-    };
-    const taste = await run(
-      "bash",
-      [".buildkite/scripts/taste.sh"],
-      noProviderEnv,
-    );
-    const contract = await run(
-      "bash",
-      [".buildkite/scripts/contract-review.sh"],
-      noProviderEnv,
-    );
+  it(
+    "AI Buildkite wrappers fail closed without provider auth",
+    { timeout: SHELL_TEST_TIMEOUT },
+    async () => {
+      const noProviderEnv = {
+        OPENROUTER_API_KEY: "",
+        OPENAI_API_KEY: "",
+      };
+      const taste = await run(
+        "bash",
+        [".buildkite/scripts/taste.sh"],
+        noProviderEnv,
+      );
+      const contract = await run(
+        "bash",
+        [".buildkite/scripts/contract-review.sh"],
+        noProviderEnv,
+      );
 
-    expect(taste.exitCode).toBe(1);
-    expect(taste.stderr).toContain(
-      "requires OPENROUTER_API_KEY or OPENAI_API_KEY",
-    );
-    expect(contract.exitCode).toBe(1);
-    expect(contract.stderr).toContain(
-      "requires OPENROUTER_API_KEY or OPENAI_API_KEY",
-    );
-  });
+      expect(taste.exitCode).toBe(1);
+      expect(taste.stderr).toContain(
+        "requires OPENROUTER_API_KEY or OPENAI_API_KEY",
+      );
+      expect(contract.exitCode).toBe(1);
+      expect(contract.stderr).toContain(
+        "requires OPENROUTER_API_KEY or OPENAI_API_KEY",
+      );
+    },
+  );
 
-  it("AI Buildkite wrappers allow explicit fake mode only", async () => {
-    const taste = await run("bash", [
-      ".buildkite/scripts/taste.sh",
-      "--mode",
-      "fake",
-    ]);
-    const contract = await run("bash", [
-      ".buildkite/scripts/contract-review.sh",
-      "--mode",
-      "fake",
-    ]);
+  it(
+    "AI Buildkite wrappers allow explicit fake mode only",
+    { timeout: SHELL_TEST_TIMEOUT },
+    async () => {
+      const taste = await run("bash", [
+        ".buildkite/scripts/taste.sh",
+        "--mode",
+        "fake",
+      ]);
+      const contract = await run("bash", [
+        ".buildkite/scripts/contract-review.sh",
+        "--mode",
+        "fake",
+      ]);
 
-    expect(taste.exitCode).toBe(0);
-    expect(taste.stdout).toContain("extract-ai-verdict: pass");
-    expect(contract.exitCode).toBe(0);
-    expect(contract.stdout).toContain("extract-ai-verdict: pass");
-  });
+      expect(taste.exitCode).toBe(0);
+      expect(taste.stdout).toContain("extract-ai-verdict: pass");
+      expect(contract.exitCode).toBe(0);
+      expect(contract.stdout).toContain("extract-ai-verdict: pass");
+    },
+  );
 
-  it("GitHub PR gates fail closed in CI without GitHub auth", async () => {
-    const health = await run(
-      "pnpm",
-      ["exec", "tsx", "tooling/quality/check-pr-health.mts"],
-      {
-        BUILDKITE: "true",
-        GITHUB_TOKEN: "",
-      },
-    );
-    const threads = await run(
-      "pnpm",
-      ["exec", "tsx", "tooling/quality/check-unresolved-review-threads.mts"],
-      {
-        BUILDKITE: "true",
-        GITHUB_TOKEN: "",
-      },
-    );
+  it(
+    "GitHub PR gates fail closed in CI without GitHub auth",
+    { timeout: SHELL_TEST_TIMEOUT },
+    async () => {
+      const health = await run(
+        "pnpm",
+        ["exec", "tsx", "tooling/quality/check-pr-health.mts"],
+        {
+          BUILDKITE: "true",
+          GITHUB_TOKEN: "",
+        },
+      );
+      const threads = await run(
+        "pnpm",
+        ["exec", "tsx", "tooling/quality/check-unresolved-review-threads.mts"],
+        {
+          BUILDKITE: "true",
+          GITHUB_TOKEN: "",
+        },
+      );
 
-    expect(health.exitCode).toBe(1);
-    expect(health.stderr).toContain("missing GITHUB_TOKEN");
-    expect(threads.exitCode).toBe(1);
-    expect(threads.stderr).toContain("missing GITHUB_TOKEN");
-  });
+      expect(health.exitCode).toBe(1);
+      expect(health.stderr).toContain("missing GITHUB_TOKEN");
+      expect(threads.exitCode).toBe(1);
+      expect(threads.stderr).toContain("missing GITHUB_TOKEN");
+    },
+  );
 });
