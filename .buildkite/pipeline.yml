@@ -47,6 +47,8 @@ steps:
     key: "phase-1"
     depends_on: "ci-self-protection"
     command: ".buildkite/scripts/phase1.sh"
+    secrets:
+      - GITHUB_TOKEN
     agents:
       queue: "linux-medium"
 
