@@ -7,6 +7,7 @@ export const checkDescriptors = {
       {
         file: ".buildkite/pipeline.yml",
         includes: [
+          "ci-self-protection",
           "pnpm verify",
           "pnpm check:ci-completeness",
           "pnpm check:config-drift",
@@ -19,6 +20,21 @@ export const checkDescriptors = {
           "production-promote.sh",
         ],
         message: "Buildkite pipeline must include deterministic and AI gates",
+      },
+      {
+        file: ".buildkite/scripts/ci-self-protection.sh",
+        includes: ["check:ci-completeness", "check:config-drift"],
+        message: "secretless self-protection step must run the shape pins",
+      },
+      {
+        file: "Justfile",
+        includes: ["verify:", "check-fmt:", "lint:", "typecheck:", "test:"],
+        message: "Justfile must keep the canonical gate recipe names",
+      },
+      {
+        file: "lefthook.yml",
+        includes: ["pre-push", "pre-push-rubric.sh", "check:debt"],
+        message: "lefthook must run shifted-left gates and rubric injection",
       },
       {
         file: ".buildkite/scripts/taste.sh",

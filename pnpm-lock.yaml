@@ -40,6 +40,9 @@ importers:
       knip:
         specifier: ^6.23.0
         version: 6.23.0
+      lefthook:
+        specifier: 1.10.5
+        version: 1.10.5
       prettier:
         specifier: ^3.0.0
         version: 3.9.4
@@ -6440,6 +6443,93 @@ packages:
         integrity: sha512-Dew1okvhM/SQcIa2rcgujNndZwU8VnSapDgdxlYoB84ZlpAD43U6KLAFqYo17ykSFGHNPrg0qry0bP+GJd9v7Q==,
       }
 
+  lefthook-darwin-arm64@1.10.5:
+    resolution:
+      {
+        integrity: sha512-Sllv7RgzR33gwmnWf6dFttzXbA78f9dBDhX4IVJUUSa5AM/6uvchooM7+sdvv3+G8aR3MsGewIImlZoD5rn3wg==,
+      }
+    cpu: [arm64]
+    os: [darwin]
+
+  lefthook-darwin-x64@1.10.5:
+    resolution:
+      {
+        integrity: sha512-pClWV5IpCjBDYD7QetQMxOjZQ/9/ry8HH9QGHPAHELHISqpMePd9sVvaRBQNeq9KY2nqmn46/4oJ+dCI3jUEuQ==,
+      }
+    cpu: [x64]
+    os: [darwin]
+
+  lefthook-freebsd-arm64@1.10.5:
+    resolution:
+      {
+        integrity: sha512-5xqw26FSE0UEYLXkbTuPQcLpCbchCRDVaMwGN7jbF5WpeFAinYumfZ/ZzmXtfE+l4DSMALc/62EpA2sEtOxAuA==,
+      }
+    cpu: [arm64]
+    os: [freebsd]
+
+  lefthook-freebsd-x64@1.10.5:
+    resolution:
+      {
+        integrity: sha512-tLOol890ozyZ1cvlZWqk6StBwA5yFifwuoWcFFdGCDJp10NSs6EmKedYKxLVP+v7gcaqg+69bnGgZpPgG9KCoA==,
+      }
+    cpu: [x64]
+    os: [freebsd]
+
+  lefthook-linux-arm64@1.10.5:
+    resolution:
+      {
+        integrity: sha512-ygVMXFUOVMIwC4cFSUr1YVXkyazLMwQfHc6Bh+D3RraHQ4CuqfGLr9Dqg3JUxQrczOsWlvw7m8fAgz37n4hquQ==,
+      }
+    cpu: [arm64]
+    os: [linux]
+
+  lefthook-linux-x64@1.10.5:
+    resolution:
+      {
+        integrity: sha512-zu8nnQKjM8P+awoRpIqbyo83Oi88QVDjS5veIXGj61bVNvrMJHMGqMseKJVV+6DNGuTOFx+7W2Iv5OrzQKJgGw==,
+      }
+    cpu: [x64]
+    os: [linux]
+
+  lefthook-openbsd-arm64@1.10.5:
+    resolution:
+      {
+        integrity: sha512-XRQ4/Jxfm2HnVQB8ZI2f35JNeuO4PANKpO6u29eNMlCJh9HejbdyDbZ3EpS8qIFREkHOxaiKI3fbYd5nsOKcUw==,
+      }
+    cpu: [arm64]
+    os: [openbsd]
+
+  lefthook-openbsd-x64@1.10.5:
+    resolution:
+      {
+        integrity: sha512-cVWj6oHOpQ8SdSxfQ920TceSzJyf3jwYJ/QTG4Du2yyl8kds6D3l4Qo54zvfTCeEkOFiY+pAODLLYdQZOEQSnw==,
+      }
+    cpu: [x64]
+    os: [openbsd]
+
+  lefthook-windows-arm64@1.10.5:
+    resolution:
+      {
+        integrity: sha512-ISyQZlV5P4VmAk8ovdqPyNse4XDp4WM21AKzaDvaGvT/NRgg9Qn9yHFeChgjlUQJitOF7GsQ2hqfli6P4xk62A==,
+      }
+    cpu: [arm64]
+    os: [win32]
+
+  lefthook-windows-x64@1.10.5:
+    resolution:
+      {
+        integrity: sha512-s9tEKZXi3iRqVW/u/9qwOGAiRfDzeO0kNJZKT0JVH3MnZwewF/pVYh+XcfcoNr+SSgsiKvZalN41Sl7XrKyoAw==,
+      }
+    cpu: [x64]
+    os: [win32]
+
+  lefthook@1.10.5:
+    resolution:
+      {
+        integrity: sha512-zVRJtGh6wK6DuUVFeGrYmnSk2fB6L1wh0hOPbRw4E5CMHo7uiTD2f5zRh7VKtMS8jFUnw9sEprffoYqRkJWdeA==,
+      }
+    hasBin: true
+
   levn@0.4.1:
     resolution:
       {
@@ -12127,6 +12217,49 @@ snapshots:
       zod: 4.4.3
 
   kubernetes-types@1.30.0: {}
+
+  lefthook-darwin-arm64@1.10.5:
+    optional: true
+
+  lefthook-darwin-x64@1.10.5:
+    optional: true
+
+  lefthook-freebsd-arm64@1.10.5:
+    optional: true
+
+  lefthook-freebsd-x64@1.10.5:
+    optional: true
+
+  lefthook-linux-arm64@1.10.5:
+    optional: true
+
+  lefthook-linux-x64@1.10.5:
+    optional: true
+
+  lefthook-openbsd-arm64@1.10.5:
+    optional: true
+
+  lefthook-openbsd-x64@1.10.5:
+    optional: true
+
+  lefthook-windows-arm64@1.10.5:
+    optional: true
+
+  lefthook-windows-x64@1.10.5:
+    optional: true
+
+  lefthook@1.10.5:
+    optionalDependencies:
+      lefthook-darwin-arm64: 1.10.5
+      lefthook-darwin-x64: 1.10.5
+      lefthook-freebsd-arm64: 1.10.5
+      lefthook-freebsd-x64: 1.10.5
+      lefthook-linux-arm64: 1.10.5
+      lefthook-linux-x64: 1.10.5
+      lefthook-openbsd-arm64: 1.10.5
+      lefthook-openbsd-x64: 1.10.5
+      lefthook-windows-arm64: 1.10.5
+      lefthook-windows-x64: 1.10.5
 
   levn@0.4.1:
     dependencies:
