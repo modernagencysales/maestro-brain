@@ -9,6 +9,7 @@
   },
   "ignoreDependencies": [
     "@confect/js",
+    "fast-check",
     "@confect/test",
     "@effect/cluster",
     "@effect/platform",
