@@ -1,0 +1,51 @@
+{
+  "feature": "demo",
+  "allTaskRefs": ["t1", "t2", "t3", "t4", "t5"],
+  "slices": [
+    {
+      "id": 1,
+      "branch": "feat/demo-1",
+      "intention": "x",
+      "layers": ["schema"],
+      "taskRefs": ["t1"],
+      "rationale": "r",
+      "estLines": 30
+    },
+    {
+      "id": 2,
+      "branch": "feat/demo-2",
+      "intention": "x",
+      "layers": ["checks"],
+      "taskRefs": ["t2"],
+      "rationale": "r",
+      "estLines": 30
+    },
+    {
+      "id": 3,
+      "branch": "feat/demo-3",
+      "intention": "x",
+      "layers": ["domain"],
+      "taskRefs": ["t3"],
+      "rationale": "r",
+      "estLines": 30
+    },
+    {
+      "id": 4,
+      "branch": "feat/demo-4",
+      "intention": "x",
+      "layers": ["capabilities"],
+      "taskRefs": ["t4"],
+      "rationale": "r",
+      "estLines": 30
+    },
+    {
+      "id": 5,
+      "branch": "feat/demo-5",
+      "intention": "x",
+      "layers": ["workflows"],
+      "taskRefs": ["t5"],
+      "rationale": "r",
+      "estLines": 30
+    }
+  ]
+}

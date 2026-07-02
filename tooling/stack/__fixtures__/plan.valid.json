@@ -1,0 +1,21 @@
+{
+  "feature": "demo",
+  "allTaskRefs": ["t1"],
+  "slices": [
+    {
+      "id": 1,
+      "branch": "feat/demo-1",
+      "intention": "x",
+      "layers": ["schema"],
+      "contractRiskIds": [
+        "schema-runtime-validator-export",
+        "policy-data-hardcoded",
+        "duplicated-closed-union",
+        "unjustified-cap-or-threshold"
+      ],
+      "taskRefs": ["t1"],
+      "rationale": "table+validator",
+      "estLines": 30
+    }
+  ]
+}
