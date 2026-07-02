@@ -13,6 +13,7 @@ export default [
       "packages/convex/confect/_generated/**",
       "packages/convex/convex/_generated/**",
       "apps/web/src/routeTree.gen.ts",
+      ".pnpm-store/**",
     ],
   },
   js.configs.recommended,

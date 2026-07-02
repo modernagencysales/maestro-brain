@@ -9,7 +9,8 @@ paths = [
   '''(^|/)vendor/''',
   '''(^|/)test-results/''',
   '''(^|/)coverage/''',
-  '''(^|/).stryker-tmp/'''
+  '''(^|/).stryker-tmp/''',
+  '''(^|/)\.pnpm-store/'''
 ]
 
 [[rules]]

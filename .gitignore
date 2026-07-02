@@ -14,3 +14,6 @@ playwright-report/
 
 # Wrangler local dev state
 .wrangler/
+
+# In-workspace pnpm store used by CI hosted-agent caching
+.pnpm-store/
