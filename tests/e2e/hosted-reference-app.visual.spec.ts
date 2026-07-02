@@ -2,13 +2,16 @@ import { expect, test } from "@playwright/test";
 
 const openPrimaryNav = async (page: import("@playwright/test").Page) => {
   const nav = page.getByRole("navigation", { name: "Primary" });
+  const openButton = page.getByRole("button", { name: "Open sidebar" });
 
-  if (await nav.isVisible().catch(() => false)) {
-    return nav;
+  // Wait for hydration: either the sidebar or its opener must exist before we
+  // can decide whether a click is needed.
+  await expect(nav.or(openButton).first()).toBeVisible();
+
+  if (!(await nav.isVisible())) {
+    await openButton.click();
+    await expect(nav).toBeVisible();
   }
-
-  await page.getByRole("button", { name: "Open sidebar" }).click();
-  await expect(nav).toBeVisible();
 
   return nav;
 };
