@@ -9,6 +9,8 @@ import { RuleTester } from "eslint";
 import tseslint from "typescript-eslint";
 
 import typedConvexErrors from "../typed-convex-errors.mjs";
+import noThrowInEffectHandler from "../no-throw-in-effect-handler.mjs";
+import noThrowTaggedError from "../no-throw-tagged-error.mjs";
 import requireMinroleOnWrite from "../require-minrole-on-write.mjs";
 import workflowStepsAreCapabilities from "../workflow-steps-are-capabilities.mjs";
 import workflowHandlerDeterminism from "../workflow-handler-determinism.mjs";
@@ -66,6 +68,93 @@ tester.run("typed-convex-errors", typedConvexErrors, {
       filename: HTTP,
       code: "export function f() { throw new Error('bad'); }",
       errors: [{ messageId: "typed" }],
+    },
+  ],
+});
+
+const IMPL = "packages/convex/confect/access/members.impl.ts";
+const IMPL_TEST = "packages/convex/confect/access/members.impl.test.ts";
+const PLANNER = "packages/convex/confect/access/lifecycle.ts";
+
+tester.run("no-throw-in-effect-handler", noThrowInEffectHandler, {
+  valid: [
+    // handler surfaces the error through the channel — no throw
+    {
+      filename: IMPL,
+      code: "const h = () => Effect.gen(function* () { return yield* new Forbidden({ reason: 'x' }); });",
+    },
+    // an intentional invariant defect is stated, not thrown
+    {
+      filename: IMPL,
+      code: "const h = () => Effect.gen(function* () { return yield* Effect.dieMessage('unreachable'); });",
+    },
+    // pure planner modules (not *.impl.ts) are out of scope: unit-tested as
+    // throwing pure functions, wrapped into typed failures at the boundary
+    {
+      filename: PLANNER,
+      code: "export const plan = () => { throw new Forbidden({ reason: 'x' }); };",
+    },
+    // *.impl.test.ts is exempt
+    {
+      filename: IMPL_TEST,
+      code: "it('x', () => { throw new Error('assert'); });",
+    },
+  ],
+  invalid: [
+    // the headline defect leak: throwing a tagged error inside a handler file
+    {
+      filename: IMPL,
+      code: "const requireRole = () => { throw new Forbidden({ reason: 'x' }); };",
+      errors: [{ messageId: "noThrow" }],
+    },
+    // bare Error thrown as an invariant in a handler file — still a defect,
+    // still must be an explicit Effect.die
+    {
+      filename: IMPL,
+      code: "const f = (p) => { if (p.action !== 'insert') throw new Error('bad'); return p.value; };",
+      errors: [{ messageId: "noThrow" }],
+    },
+  ],
+});
+
+const PLANNER_FILE = "packages/convex/confect/access/lifecycle.ts";
+const ERRORS_FILE = "packages/convex/confect/errors.ts";
+
+tester.run("no-throw-tagged-error", noThrowTaggedError, {
+  valid: [
+    // planner returns the error, never throws it
+    {
+      filename: PLANNER_FILE,
+      code: "import { Forbidden } from '../errors'; export const p = () => Either.left(new Forbidden({ reason: 'x' }));",
+    },
+    // a genuine invariant may still throw a plain Error (intentional defect)
+    {
+      filename: PLANNER_FILE,
+      code: "export const p = () => { throw new Error('invariant'); };",
+    },
+    // throwing a non-error-module identifier is untouched
+    {
+      filename: PLANNER_FILE,
+      code: "import { Thing } from './thing'; export const p = () => { throw new Thing(); };",
+    },
+    // test files are exempt
+    {
+      filename: "packages/convex/test/access-lifecycle.test.ts",
+      code: "import { Forbidden } from '../confect/errors'; it('x', () => { throw new Forbidden({ reason: 'x' }); });",
+    },
+  ],
+  invalid: [
+    // throwing a tagged error imported from an errors module
+    {
+      filename: PLANNER_FILE,
+      code: "import { Forbidden } from '../errors'; export const p = () => { throw new Forbidden({ reason: 'x' }); };",
+      errors: [{ messageId: "noThrowTagged" }],
+    },
+    // throwing a tagged error declared in the same file
+    {
+      filename: ERRORS_FILE,
+      code: "import * as Schema from 'effect/Schema'; class Boom extends Schema.TaggedError()('Boom', {}) {} const p = () => { throw new Boom(); };",
+      errors: [{ messageId: "noThrowTagged" }],
     },
   ],
 });

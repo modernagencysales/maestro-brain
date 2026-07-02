@@ -1,3 +1,5 @@
+import * as Either from "effect/Either";
+
 import {
   Forbidden,
   InvitationExpired,
@@ -79,37 +81,41 @@ export const changeMemberRole = (input: {
   readonly liveWorkspaceMembers: readonly WorkspaceMemberLifecycleRef[];
   readonly newRole: Role;
   readonly now: number;
-}): {
-  readonly patch: Patch<{ readonly role: Role; readonly updatedAt: number }>;
-  readonly events: readonly AccessLifecycleEvent[];
-} => {
-  assertLiveWorkspaceMember(input.target, input.workspaceId);
-  assertActorCanManage(input.actorRole, input.target.role);
-  assertActorCanGrant(input.actorRole, input.newRole);
-  if (input.target.role === "owner" && input.newRole !== "owner") {
-    assertNotLastOwner(input.workspaceId, input.liveWorkspaceMembers);
-  }
+}): Either.Either<
+  {
+    readonly patch: Patch<{ readonly role: Role; readonly updatedAt: number }>;
+    readonly events: readonly AccessLifecycleEvent[];
+  },
+  MemberNotInWorkspace | Forbidden | LastOwnerProtected
+> =>
+  Either.gen(function* () {
+    yield* assertLiveWorkspaceMember(input.target, input.workspaceId);
+    yield* assertActorCanManage(input.actorRole, input.target.role);
+    yield* assertActorCanGrant(input.actorRole, input.newRole);
+    if (input.target.role === "owner" && input.newRole !== "owner") {
+      yield* assertNotLastOwner(input.workspaceId, input.liveWorkspaceMembers);
+    }
 
-  return {
-    patch: {
-      id: input.target.id,
-      value: { role: input.newRole, updatedAt: input.now },
-    },
-    events: [
-      {
-        action: "member.roleChanged",
-        workspaceId: input.workspaceId,
-        actorUserId: input.actorUserId,
-        subjectKind: "workspaceMember",
-        subjectId: input.target.id,
-        metadata: {
-          previousRole: input.target.role,
-          nextRole: input.newRole,
-        },
+    return {
+      patch: {
+        id: input.target.id,
+        value: { role: input.newRole, updatedAt: input.now },
       },
-    ],
-  };
-};
+      events: [
+        {
+          action: "member.roleChanged",
+          workspaceId: input.workspaceId,
+          actorUserId: input.actorUserId,
+          subjectKind: "workspaceMember",
+          subjectId: input.target.id,
+          metadata: {
+            previousRole: input.target.role,
+            nextRole: input.newRole,
+          },
+        },
+      ],
+    };
+  });
 
 export const removeMember = (input: {
   readonly actorUserId: string;
@@ -118,43 +124,47 @@ export const removeMember = (input: {
   readonly target: WorkspaceMemberLifecycleRef;
   readonly liveWorkspaceMembers: readonly WorkspaceMemberLifecycleRef[];
   readonly now: number;
-}): {
-  readonly patch: Patch<{
-    readonly status: "revoked";
-    readonly revokedAt: number;
-    readonly deletedAt: number;
-    readonly updatedAt: number;
-  }>;
-  readonly events: readonly AccessLifecycleEvent[];
-} => {
-  assertLiveWorkspaceMember(input.target, input.workspaceId);
-  assertActorCanManage(input.actorRole, input.target.role);
-  if (input.target.role === "owner") {
-    assertNotLastOwner(input.workspaceId, input.liveWorkspaceMembers);
-  }
+}): Either.Either<
+  {
+    readonly patch: Patch<{
+      readonly status: "revoked";
+      readonly revokedAt: number;
+      readonly deletedAt: number;
+      readonly updatedAt: number;
+    }>;
+    readonly events: readonly AccessLifecycleEvent[];
+  },
+  MemberNotInWorkspace | Forbidden | LastOwnerProtected
+> =>
+  Either.gen(function* () {
+    yield* assertLiveWorkspaceMember(input.target, input.workspaceId);
+    yield* assertActorCanManage(input.actorRole, input.target.role);
+    if (input.target.role === "owner") {
+      yield* assertNotLastOwner(input.workspaceId, input.liveWorkspaceMembers);
+    }
 
-  return {
-    patch: {
-      id: input.target.id,
-      value: {
-        status: "revoked",
-        revokedAt: input.now,
-        deletedAt: input.now,
-        updatedAt: input.now,
+    return {
+      patch: {
+        id: input.target.id,
+        value: {
+          status: "revoked",
+          revokedAt: input.now,
+          deletedAt: input.now,
+          updatedAt: input.now,
+        },
       },
-    },
-    events: [
-      {
-        action: "member.removed",
-        workspaceId: input.workspaceId,
-        actorUserId: input.actorUserId,
-        subjectKind: "workspaceMember",
-        subjectId: input.target.id,
-        metadata: { role: input.target.role },
-      },
-    ],
-  };
-};
+      events: [
+        {
+          action: "member.removed",
+          workspaceId: input.workspaceId,
+          actorUserId: input.actorUserId,
+          subjectKind: "workspaceMember",
+          subjectId: input.target.id,
+          metadata: { role: input.target.role },
+        },
+      ],
+    };
+  });
 
 export const transferOwnership = (input: {
   readonly actorUserId: string;
@@ -162,46 +172,52 @@ export const transferOwnership = (input: {
   readonly target: WorkspaceMemberLifecycleRef;
   readonly actorMembership: WorkspaceMemberLifecycleRef;
   readonly now: number;
-}): {
-  readonly patches: readonly Patch<{
-    readonly role: Role;
-    readonly updatedAt: number;
-  }>[];
-  readonly events: readonly AccessLifecycleEvent[];
-} => {
-  assertLiveWorkspaceMember(input.target, input.workspaceId);
-  assertLiveWorkspaceMember(input.actorMembership, input.workspaceId);
-  if (
-    input.target.userId === input.actorUserId ||
-    input.actorMembership.userId !== input.actorUserId ||
-    input.actorMembership.role !== "owner"
-  ) {
-    throw new Forbidden({ reason: "Cannot transfer workspace ownership." });
-  }
+}): Either.Either<
+  {
+    readonly patches: readonly Patch<{
+      readonly role: Role;
+      readonly updatedAt: number;
+    }>[];
+    readonly events: readonly AccessLifecycleEvent[];
+  },
+  MemberNotInWorkspace | Forbidden
+> =>
+  Either.gen(function* () {
+    yield* assertLiveWorkspaceMember(input.target, input.workspaceId);
+    yield* assertLiveWorkspaceMember(input.actorMembership, input.workspaceId);
+    if (
+      input.target.userId === input.actorUserId ||
+      input.actorMembership.userId !== input.actorUserId ||
+      input.actorMembership.role !== "owner"
+    ) {
+      yield* Either.left(
+        new Forbidden({ reason: "Cannot transfer workspace ownership." }),
+      );
+    }
 
-  return {
-    patches: [
-      {
-        id: input.target.id,
-        value: { role: "owner", updatedAt: input.now },
-      },
-      {
-        id: input.actorMembership.id,
-        value: { role: "admin", updatedAt: input.now },
-      },
-    ],
-    events: [
-      {
-        action: "member.ownershipTransferred",
-        workspaceId: input.workspaceId,
-        actorUserId: input.actorUserId,
-        subjectKind: "workspaceMember",
-        subjectId: input.target.id,
-        metadata: { previousRole: input.target.role, nextRole: "owner" },
-      },
-    ],
-  };
-};
+    return {
+      patches: [
+        {
+          id: input.target.id,
+          value: { role: "owner", updatedAt: input.now },
+        },
+        {
+          id: input.actorMembership.id,
+          value: { role: "admin", updatedAt: input.now },
+        },
+      ],
+      events: [
+        {
+          action: "member.ownershipTransferred",
+          workspaceId: input.workspaceId,
+          actorUserId: input.actorUserId,
+          subjectKind: "workspaceMember",
+          subjectId: input.target.id,
+          metadata: { previousRole: input.target.role, nextRole: "owner" },
+        },
+      ],
+    };
+  });
 
 export const buildWorkspaceInvitation = (input: {
   readonly workspaceId: string;
@@ -211,40 +227,44 @@ export const buildWorkspaceInvitation = (input: {
   readonly invitedByUserId: string;
   readonly tokenHash: string;
   readonly now: number;
-}): {
-  readonly invitation: Omit<InvitationRef, "id">;
-  readonly events: readonly AccessLifecycleEvent[];
-} => {
-  const email = requireNormalizedEmail(input.inviteeEmail, "email");
-  const invitation = {
-    workspaceId: input.workspaceId,
-    organizationId: input.organizationId,
-    email,
-    role: input.role,
-    status: "pending" as const,
-    tokenHash: input.tokenHash,
-    invitedByUserId: input.invitedByUserId,
-    acceptedAt: null,
-    revokedAt: null,
-    expiresAt: input.now + INVITATION_TTL_MS,
-    createdAt: input.now,
-    updatedAt: input.now,
-  };
+}): Either.Either<
+  {
+    readonly invitation: Omit<InvitationRef, "id">;
+    readonly events: readonly AccessLifecycleEvent[];
+  },
+  ValidationFailed
+> =>
+  Either.gen(function* () {
+    const email = yield* requireNormalizedEmail(input.inviteeEmail, "email");
+    const invitation = {
+      workspaceId: input.workspaceId,
+      organizationId: input.organizationId,
+      email,
+      role: input.role,
+      status: "pending" as const,
+      tokenHash: input.tokenHash,
+      invitedByUserId: input.invitedByUserId,
+      acceptedAt: null,
+      revokedAt: null,
+      expiresAt: input.now + INVITATION_TTL_MS,
+      createdAt: input.now,
+      updatedAt: input.now,
+    };
 
-  return {
-    invitation,
-    events: [
-      {
-        action: "invitation.created",
-        workspaceId: input.workspaceId,
-        actorUserId: input.invitedByUserId,
-        subjectKind: "invitation",
-        subjectId: input.tokenHash,
-        metadata: { email, role: input.role },
-      },
-    ],
-  };
-};
+    return {
+      invitation,
+      events: [
+        {
+          action: "invitation.created",
+          workspaceId: input.workspaceId,
+          actorUserId: input.invitedByUserId,
+          subjectKind: "invitation",
+          subjectId: input.tokenHash,
+          metadata: { email, role: input.role },
+        },
+      ],
+    };
+  });
 
 export const acceptInvitation = (input: {
   readonly invitation: InvitationRef | null;
@@ -252,98 +272,109 @@ export const acceptInvitation = (input: {
   readonly userId: string;
   readonly existingLiveMembership: WorkspaceMemberLifecycleRef | null;
   readonly now: number;
-}): {
-  readonly invitationPatch: Patch<{
-    readonly status: "accepted";
-    readonly acceptedAt: number;
-    readonly updatedAt: number;
-  }>;
-  readonly membershipInsert: Omit<WorkspaceMemberLifecycleRef, "id"> | null;
-  readonly events: readonly AccessLifecycleEvent[];
-} => {
-  const invitation = requireAccessibleInvitation(
-    input.invitation,
-    input.verifiedEmail,
-  );
-  assertInvitationPending(invitation);
-  if (invitation.expiresAt <= input.now) {
-    throw new InvitationExpired({ invitationId: invitation.id });
-  }
+}): Either.Either<
+  {
+    readonly invitationPatch: Patch<{
+      readonly status: "accepted";
+      readonly acceptedAt: number;
+      readonly updatedAt: number;
+    }>;
+    readonly membershipInsert: Omit<WorkspaceMemberLifecycleRef, "id"> | null;
+    readonly events: readonly AccessLifecycleEvent[];
+  },
+  InvitationNotAccessible | InvitationNotPending | InvitationExpired
+> =>
+  Either.gen(function* () {
+    const invitation = yield* requireAccessibleInvitation(
+      input.invitation,
+      input.verifiedEmail,
+    );
+    yield* assertInvitationPending(invitation);
+    if (invitation.expiresAt <= input.now) {
+      yield* Either.left(
+        new InvitationExpired({ invitationId: invitation.id }),
+      );
+    }
 
-  return {
-    invitationPatch: {
-      id: invitation.id,
-      value: {
-        status: "accepted",
-        acceptedAt: input.now,
-        updatedAt: input.now,
+    return {
+      invitationPatch: {
+        id: invitation.id,
+        value: {
+          status: "accepted",
+          acceptedAt: input.now,
+          updatedAt: input.now,
+        },
       },
-    },
-    membershipInsert:
-      input.existingLiveMembership === null
-        ? {
-            workspaceId: invitation.workspaceId,
-            userId: input.userId,
-            role: invitation.role,
-            status: "active",
-            acceptedAt: input.now,
-            revokedAt: null,
-            deletedAt: null,
-          }
-        : null,
-    events: [
-      {
-        action: "invitation.accepted",
-        workspaceId: invitation.workspaceId,
-        actorUserId: input.userId,
-        subjectKind: "invitation",
-        subjectId: invitation.id,
-        metadata: { acceptedByUserId: input.userId },
-      },
-    ],
-  };
-};
+      membershipInsert:
+        input.existingLiveMembership === null
+          ? {
+              workspaceId: invitation.workspaceId,
+              userId: input.userId,
+              role: invitation.role,
+              status: "active",
+              acceptedAt: input.now,
+              revokedAt: null,
+              deletedAt: null,
+            }
+          : null,
+      events: [
+        {
+          action: "invitation.accepted",
+          workspaceId: invitation.workspaceId,
+          actorUserId: input.userId,
+          subjectKind: "invitation",
+          subjectId: invitation.id,
+          metadata: { acceptedByUserId: input.userId },
+        },
+      ],
+    };
+  });
 
 export const declineInvitation = (input: {
   readonly invitation: InvitationRef | null;
   readonly verifiedEmail: string | null | undefined;
+  readonly userId: string;
   readonly now: number;
-}): {
-  readonly invitationPatch: Patch<{
-    readonly status: "declined";
-    readonly revokedAt: number;
-    readonly updatedAt: number;
-  }> | null;
-  readonly events: readonly AccessLifecycleEvent[];
-} => {
-  const invitation = requireAccessibleInvitation(
-    input.invitation,
-    input.verifiedEmail,
-  );
-  if (invitation.status !== "pending") {
-    return { invitationPatch: null, events: [] };
-  }
-  return {
-    invitationPatch: {
-      id: invitation.id,
-      value: {
-        status: "declined",
-        revokedAt: input.now,
-        updatedAt: input.now,
+}): Either.Either<
+  {
+    readonly invitationPatch: Patch<{
+      readonly status: "declined";
+      readonly revokedAt: number;
+      readonly updatedAt: number;
+    }> | null;
+    readonly events: readonly AccessLifecycleEvent[];
+  },
+  InvitationNotAccessible
+> =>
+  Either.gen(function* () {
+    const invitation = yield* requireAccessibleInvitation(
+      input.invitation,
+      input.verifiedEmail,
+    );
+    if (invitation.status !== "pending") {
+      return { invitationPatch: null, events: [] };
+    }
+    return {
+      invitationPatch: {
+        id: invitation.id,
+        value: {
+          status: "declined",
+          revokedAt: input.now,
+          updatedAt: input.now,
+        },
       },
-    },
-    events: [
-      {
-        action: "invitation.declined",
-        workspaceId: invitation.workspaceId,
-        actorUserId: invitation.email,
-        subjectKind: "invitation",
-        subjectId: invitation.id,
-        metadata: { reason: "declined" },
-      },
-    ],
-  };
-};
+      events: [
+        {
+          action: "invitation.declined",
+          workspaceId: invitation.workspaceId,
+          actorUserId: input.userId,
+          subjectKind: "invitation",
+          subjectId: invitation.id,
+          metadata: { reason: "declined" },
+        },
+      ],
+    };
+  });
 
 export const cancelInvitation = (input: {
   readonly invitation: InvitationRef | null;
@@ -387,64 +418,82 @@ export const cancelInvitation = (input: {
   };
 };
 
+/**
+ * A workspace membership is "live" when it is active, accepted, and neither
+ * revoked nor soft-deleted. Centralised so the liveness rule has one definition
+ * instead of the same four-clause boolean copied across every loader and guard.
+ */
+export const isLiveWorkspaceMembership = (
+  member: Pick<
+    WorkspaceMemberLifecycleRef,
+    "status" | "acceptedAt" | "revokedAt" | "deletedAt"
+  >,
+): boolean =>
+  member.status === "active" &&
+  member.acceptedAt !== null &&
+  member.revokedAt === null &&
+  member.deletedAt === null;
+
 const assertLiveWorkspaceMember = (
   member: WorkspaceMemberLifecycleRef,
   workspaceId: string,
-): void => {
-  if (
-    member.workspaceId !== workspaceId ||
-    member.status !== "active" ||
-    member.acceptedAt === null ||
-    member.revokedAt !== null ||
-    member.deletedAt !== null
-  ) {
-    throw new MemberNotInWorkspace({ membershipId: member.id });
-  }
-};
+): Either.Either<void, MemberNotInWorkspace> =>
+  member.workspaceId !== workspaceId || !isLiveWorkspaceMembership(member)
+    ? Either.left(new MemberNotInWorkspace({ membershipId: member.id }))
+    : Either.void;
 
-const assertActorCanManage = (actorRole: Role, targetRole: Role): void => {
-  if (!roleAtLeast(actorRole, targetRole)) {
-    throw new Forbidden({
-      reason: "Cannot manage a member with a higher role.",
-    });
-  }
-};
+const assertActorCanManage = (
+  actorRole: Role,
+  targetRole: Role,
+): Either.Either<void, Forbidden> =>
+  roleAtLeast(actorRole, targetRole)
+    ? Either.void
+    : Either.left(
+        new Forbidden({
+          reason: "Cannot manage a member with a higher role.",
+        }),
+      );
 
-const assertActorCanGrant = (actorRole: Role, newRole: Role): void => {
-  if (!roleAtLeast(actorRole, newRole)) {
-    throw new Forbidden({
-      reason: "Cannot grant a role higher than your own.",
-    });
-  }
-};
+const assertActorCanGrant = (
+  actorRole: Role,
+  newRole: Role,
+): Either.Either<void, Forbidden> =>
+  roleAtLeast(actorRole, newRole)
+    ? Either.void
+    : Either.left(
+        new Forbidden({
+          reason: "Cannot grant a role higher than your own.",
+        }),
+      );
 
 const assertNotLastOwner = (
   workspaceId: string,
   members: readonly WorkspaceMemberLifecycleRef[],
-): void => {
+): Either.Either<void, LastOwnerProtected> => {
   const liveOwners = members.filter(
     (member) =>
       member.workspaceId === workspaceId &&
       member.role === "owner" &&
-      member.status === "active" &&
-      member.acceptedAt !== null &&
-      member.revokedAt === null &&
-      member.deletedAt === null,
+      isLiveWorkspaceMembership(member),
   );
-  if (liveOwners.length <= 1) {
-    throw new LastOwnerProtected({ workspaceId });
-  }
+  return liveOwners.length <= 1
+    ? Either.left(new LastOwnerProtected({ workspaceId }))
+    : Either.void;
 };
 
-const requireNormalizedEmail = (value: string, field: string): string => {
+const requireNormalizedEmail = (
+  value: string,
+  field: string,
+): Either.Either<string, ValidationFailed> => {
   const normalized = normalizeEmail(value);
-  if (normalized.kind !== "verified") {
-    throw new ValidationFailed({
-      field,
-      message: "A valid email address is required.",
-    });
-  }
-  return normalized.email;
+  return normalized.kind !== "verified"
+    ? Either.left(
+        new ValidationFailed({
+          field,
+          message: "A valid email address is required.",
+        }),
+      )
+    : Either.right(normalized.email);
 };
 
 const normalizeAccessibleEmail = (
@@ -457,20 +506,21 @@ const normalizeAccessibleEmail = (
 const requireAccessibleInvitation = (
   invitation: InvitationRef | null,
   verifiedEmail: string | null | undefined,
-): InvitationRef => {
+): Either.Either<InvitationRef, InvitationNotAccessible> => {
   const email = normalizeAccessibleEmail(verifiedEmail);
   if (invitation === null || email === null) {
-    throw new InvitationNotAccessible();
+    return Either.left(new InvitationNotAccessible());
   }
   const invitationEmail = normalizeAccessibleEmail(invitation.email);
   if (invitationEmail === null || invitationEmail !== email) {
-    throw new InvitationNotAccessible();
+    return Either.left(new InvitationNotAccessible());
   }
-  return invitation;
+  return Either.right(invitation);
 };
 
-const assertInvitationPending = (invitation: InvitationRef): void => {
-  if (invitation.status !== "pending") {
-    throw new InvitationNotPending({ invitationId: invitation.id });
-  }
-};
+const assertInvitationPending = (
+  invitation: InvitationRef,
+): Either.Either<void, InvitationNotPending> =>
+  invitation.status !== "pending"
+    ? Either.left(new InvitationNotPending({ invitationId: invitation.id }))
+    : Either.void;

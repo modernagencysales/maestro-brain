@@ -7,6 +7,7 @@
     "check:format": "prettier --check .",
     "lint": "eslint .",
     "typecheck": "turbo run typecheck",
+    "check:effect-diagnostics": "effect-language-service diagnostics --project packages/convex/tsconfig.json --format github-actions --strict",
     "test": "turbo run test",
     "test:tooling": "pnpm --dir tooling/quality test && pnpm --dir tooling/workflow test && pnpm --dir tooling/generators test && pnpm --dir tooling/evals test && pnpm --dir tooling/release test",
     "test:workflow": "pnpm --dir tooling/workflow test",
@@ -77,11 +78,12 @@
     "deploy:doctor": "tsx tooling/release/src/index.ts deploy-doctor",
     "deploy:cloudflare": "VITE_CONVEX_URL=${VITE_CONVEX_URL:-$(node scripts/_project-config.mjs get production convexUrl)} pnpm build && pnpm smoke:web-static && pnpm dlx wrangler@latest pages deploy apps/web/dist/client --project-name ${CLOUDFLARE_PAGES_PROJECT:-maestro-template} --branch ${CLOUDFLARE_PAGES_BRANCH:-main} --commit-dirty=true",
     "test:mutation": "bash .buildkite/scripts/mutation.sh",
-    "verify": "pnpm check:format && pnpm lint && pnpm typecheck && pnpm test && pnpm test:tooling && pnpm test:workflow && pnpm test:pr-backlog && pnpm evals && pnpm build && pnpm check:ci-completeness && pnpm check:config-drift && pnpm check:deps && pnpm check:knip && pnpm check:route-tree && pnpm check:coverage-ratchet && pnpm check:types-coverage && pnpm check:gates && pnpm check:debt && pnpm check:generators && pnpm check:docs-freshness && pnpm check:generated-files && pnpm check:confect-contracts && pnpm check:confect-compat && pnpm check:workflow-graph-boundary && pnpm check:schema-migration-notes && pnpm check:layer-boundaries && pnpm check:secret-canaries && pnpm check:sbom-license && pnpm check:headless-surface-contract && pnpm check:posthog-readiness && pnpm check:auth-demo-bypass && pnpm check:qlty",
+    "verify": "pnpm check:format && pnpm lint && pnpm typecheck && pnpm check:effect-diagnostics && pnpm test && pnpm test:tooling && pnpm test:workflow && pnpm test:pr-backlog && pnpm evals && pnpm build && pnpm check:ci-completeness && pnpm check:config-drift && pnpm check:deps && pnpm check:knip && pnpm check:route-tree && pnpm check:coverage-ratchet && pnpm check:types-coverage && pnpm check:gates && pnpm check:debt && pnpm check:generators && pnpm check:docs-freshness && pnpm check:generated-files && pnpm check:confect-contracts && pnpm check:confect-compat && pnpm check:workflow-graph-boundary && pnpm check:schema-migration-notes && pnpm check:layer-boundaries && pnpm check:secret-canaries && pnpm check:sbom-license && pnpm check:headless-surface-contract && pnpm check:posthog-readiness && pnpm check:auth-demo-bypass && pnpm check:qlty",
     "coverage:update-baseline": "vitest run --coverage packages/template-core packages/integrations packages/search packages/storage packages/notifications packages/observability packages/convex tooling/quality tooling/workflow tooling/release tooling/generators tooling/stack apps/cli apps/web && tsx tooling/quality/check-coverage-ratchet.mts --update",
     "prepare": "lefthook install"
   },
   "devDependencies": {
+    "@effect/language-service": "^0.86.3",
     "@eslint/js": "^9.0.0",
     "@playwright/test": "^1.45.0",
     "@stryker-mutator/core": "9.6.1",
@@ -91,15 +93,15 @@
     "@vitest/coverage-v8": "3.2.6",
     "dependency-cruiser": "^18.0.0",
     "eslint": "^9.0.0",
+    "fast-check": "^4.1.1",
     "knip": "^6.23.0",
+    "lefthook": "1.10.5",
     "prettier": "^3.0.0",
     "tsx": "^4.0.0",
     "turbo": "^2.0.0",
     "type-coverage": "^2.29.7",
     "typescript": "^5.0.0",
     "typescript-eslint": "^8.0.0",
-    "vitest": "^3.0.0",
-    "lefthook": "1.10.5",
-    "fast-check": "^4.1.1"
+    "vitest": "^3.0.0"
   }
 }

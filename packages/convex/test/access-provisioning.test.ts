@@ -1,10 +1,12 @@
 import * as Effect from "effect/Effect";
+import * as Either from "effect/Either";
 import { describe, expect, it } from "vitest";
 
 import refs from "../confect/_generated/refs";
 import {
   buildProvisioningPlan,
   extractIdentityProfile,
+  requireInsertValue,
   selectLiveOwnedOrganization,
   selectLiveOwnedWorkspace,
   type ProvisioningState,
@@ -87,7 +89,7 @@ describe("access provisioning", () => {
   });
 
   it("plans first sign-in rows for user, organization, workspace, and owner memberships", () => {
-    const plan = buildProvisioningPlan({
+    const result = buildProvisioningPlan({
       identity: {
         subject: "workos|user_12345678",
         displayName: "Ada Lovelace",
@@ -96,6 +98,9 @@ describe("access provisioning", () => {
       state: emptyState,
       now,
     });
+
+    expect(Either.isRight(result)).toBe(true);
+    const plan = Either.getOrThrow(result);
 
     expect(plan).toMatchObject({
       user: {
@@ -158,7 +163,7 @@ describe("access provisioning", () => {
   });
 
   it("is idempotent for an already provisioned active owner", () => {
-    const plan = buildProvisioningPlan({
+    const result = buildProvisioningPlan({
       identity: {
         subject: "workos|user_12345678",
         displayName: "Ada Lovelace",
@@ -221,6 +226,9 @@ describe("access provisioning", () => {
       now,
     });
 
+    expect(Either.isRight(result)).toBe(true);
+    const plan = Either.getOrThrow(result);
+
     expect(plan.user.action).toBe("none");
     expect(plan.organization.action).toBe("none");
     expect(plan.workspace.action).toBe("none");
@@ -229,7 +237,7 @@ describe("access provisioning", () => {
   });
 
   it("self-heals changed email and revoked owner memberships without duplicating rows", () => {
-    const plan = buildProvisioningPlan({
+    const result = buildProvisioningPlan({
       identity: {
         subject: "workos|user_12345678",
         displayName: "Ada Lovelace",
@@ -292,6 +300,9 @@ describe("access provisioning", () => {
       now,
     });
 
+    expect(Either.isRight(result)).toBe(true);
+    const plan = Either.getOrThrow(result);
+
     expect(plan.user).toMatchObject({
       action: "patch",
       id: "users_1",
@@ -323,85 +334,114 @@ describe("access provisioning", () => {
   });
 
   it("refuses to provision suspended or deleted users", () => {
-    expect(() =>
-      buildProvisioningPlan({
-        identity: {
+    const result = buildProvisioningPlan({
+      identity: {
+        subject: "workos|user_12345678",
+        displayName: "Ada Lovelace",
+        email: "ada@example.com",
+      },
+      state: {
+        ...emptyState,
+        user: {
+          _id: "users_1",
           subject: "workos|user_12345678",
-          displayName: "Ada Lovelace",
           email: "ada@example.com",
+          displayName: "Ada Lovelace",
+          status: "suspended",
+          createdAt: now - 100,
+          updatedAt: now - 100,
         },
-        state: {
-          ...emptyState,
-          user: {
-            _id: "users_1",
-            subject: "workos|user_12345678",
-            email: "ada@example.com",
-            displayName: "Ada Lovelace",
-            status: "suspended",
-            createdAt: now - 100,
-            updatedAt: now - 100,
-          },
-        },
-        now,
-      }),
-    ).toThrow(Unauthorized);
+      },
+      now,
+    });
+
+    expect(Either.isLeft(result)).toBe(true);
+    if (Either.isLeft(result)) {
+      expect(result.left).toBeInstanceOf(Unauthorized);
+    }
   });
 
   it("fails closed when duplicate live owned organizations or workspaces exist", () => {
-    expect(() =>
-      selectLiveOwnedOrganization(
-        [
-          {
-            _id: "organizations_1",
-            ownerUserId: "users_1",
-            slug: "ada-one",
-            name: "Ada One",
-            status: "active",
-            createdAt: now,
-            updatedAt: now,
-          },
-          {
-            _id: "organizations_2",
-            ownerUserId: "users_1",
-            slug: "ada-two",
-            name: "Ada Two",
-            status: "active",
-            createdAt: now,
-            updatedAt: now,
-          },
-        ],
-        "users_1",
-      ),
-    ).toThrow(ProvisioningConflict);
+    const organizationResult = selectLiveOwnedOrganization(
+      [
+        {
+          _id: "organizations_1",
+          ownerUserId: "users_1",
+          slug: "ada-one",
+          name: "Ada One",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          _id: "organizations_2",
+          ownerUserId: "users_1",
+          slug: "ada-two",
+          name: "Ada Two",
+          status: "active",
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+      "users_1",
+    );
 
+    expect(Either.isLeft(organizationResult)).toBe(true);
+    if (Either.isLeft(organizationResult)) {
+      expect(organizationResult.left).toBeInstanceOf(ProvisioningConflict);
+    }
+
+    const workspaceResult = selectLiveOwnedWorkspace(
+      [
+        {
+          _id: "workspaces_1",
+          organizationId: "organizations_1",
+          ownerUserId: "users_1",
+          slug: "ada-one",
+          name: "Ada One",
+          status: "active",
+          dataClassification: "internal",
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          _id: "workspaces_2",
+          organizationId: "organizations_1",
+          ownerUserId: "users_1",
+          slug: "ada-two",
+          name: "Ada Two",
+          status: "active",
+          dataClassification: "internal",
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+      "users_1",
+    );
+
+    expect(Either.isLeft(workspaceResult)).toBe(true);
+    if (Either.isLeft(workspaceResult)) {
+      expect(workspaceResult.left).toBeInstanceOf(ProvisioningConflict);
+    }
+  });
+});
+
+describe("requireInsertValue", () => {
+  it("returns the value of an insert plan", () => {
+    const value = { name: "acme" };
+    expect(requireInsertValue({ action: "insert", value }, "workspace")).toBe(
+      value,
+    );
+  });
+
+  it("throws a plain Error (an intentional defect) on a non-insert plan", () => {
+    // The caller already proved the row is absent, so a patch/none plan here is
+    // an internal invariant violation, not a client-facing failure.
     expect(() =>
-      selectLiveOwnedWorkspace(
-        [
-          {
-            _id: "workspaces_1",
-            organizationId: "organizations_1",
-            ownerUserId: "users_1",
-            slug: "ada-one",
-            name: "Ada One",
-            status: "active",
-            dataClassification: "internal",
-            createdAt: now,
-            updatedAt: now,
-          },
-          {
-            _id: "workspaces_2",
-            organizationId: "organizations_1",
-            ownerUserId: "users_1",
-            slug: "ada-two",
-            name: "Ada Two",
-            status: "active",
-            dataClassification: "internal",
-            createdAt: now,
-            updatedAt: now,
-          },
-        ],
-        "users_1",
-      ),
-    ).toThrow(ProvisioningConflict);
+      requireInsertValue({ action: "none" }, "organization"),
+    ).toThrow(/Expected organization provisioning insert plan/);
+    expect(() => requireInsertValue({ action: "patch" }, "workspace")).toThrow(
+      /Expected workspace provisioning insert plan/,
+    );
   });
 });

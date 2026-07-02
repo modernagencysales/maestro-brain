@@ -1,22 +1,28 @@
 import { FunctionImpl, GroupImpl } from "@confect/server";
 import type { GenericId } from "convex/values";
-import type * as Context from "effect/Context";
+import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import type { WorkspaceMembersDoc } from "../_generated/docs";
 import databaseSchema from "../_generated/schema";
-import { Auth, DatabaseReader, DatabaseWriter } from "../_generated/services";
-import { Forbidden, MemberNotInWorkspace, Unauthorized } from "../errors";
+import { DatabaseReader, DatabaseWriter } from "../_generated/services";
+import { MemberNotInWorkspace } from "../errors";
+import {
+  asGenericId,
+  loadCurrentUser,
+  requireActorRole,
+  toLifecycleMember,
+  type Reader,
+} from "./handlerContext";
 import {
   changeMemberRole,
+  isLiveWorkspaceMembership,
   removeMember,
   transferOwnership,
   type WorkspaceMemberLifecycleRef,
 } from "./lifecycle";
 import members from "./members.spec";
-import { roleAtLeast, type Role } from "./roles";
 
 const MEMBER_SCAN_CAP = 200;
 
@@ -26,17 +32,17 @@ const changeRole = FunctionImpl.make(
   "changeRole",
   ({ membershipId, newRole }) =>
     Effect.gen(function* () {
-      const now = Date.now();
+      const now = yield* Clock.currentTimeMillis;
       const reader = yield* DatabaseReader;
       const writer = yield* DatabaseWriter;
       const target = yield* loadMember(reader, membershipId);
       const actor = yield* loadActorForWorkspace(reader, target.workspaceId);
-      requireActorRole(actor, "admin");
-      const liveMembers = yield* liveWorkspaceMembers(
+      yield* requireActorRole(actor, "admin");
+      const liveMembers = yield* liveWorkspaceMembersOrDie(
         reader,
         target.workspaceId,
       );
-      const plan = changeMemberRole({
+      const plan = yield* changeMemberRole({
         actorUserId: actor.userId,
         actorRole: actor.role,
         workspaceId: target.workspaceId,
@@ -61,17 +67,17 @@ const remove = FunctionImpl.make(
   "remove",
   ({ membershipId }) =>
     Effect.gen(function* () {
-      const now = Date.now();
+      const now = yield* Clock.currentTimeMillis;
       const reader = yield* DatabaseReader;
       const writer = yield* DatabaseWriter;
       const target = yield* loadMember(reader, membershipId);
       const actor = yield* loadActorForWorkspace(reader, target.workspaceId);
-      requireActorRole(actor, "admin");
-      const liveMembers = yield* liveWorkspaceMembers(
+      yield* requireActorRole(actor, "admin");
+      const liveMembers = yield* liveWorkspaceMembersOrDie(
         reader,
         target.workspaceId,
       );
-      const plan = removeMember({
+      const plan = yield* removeMember({
         actorUserId: actor.userId,
         actorRole: actor.role,
         workspaceId: target.workspaceId,
@@ -95,18 +101,18 @@ const transferOwnershipImpl = FunctionImpl.make(
   "transferOwnership",
   ({ membershipId }) =>
     Effect.gen(function* () {
-      const now = Date.now();
+      const now = yield* Clock.currentTimeMillis;
       const reader = yield* DatabaseReader;
       const writer = yield* DatabaseWriter;
       const target = yield* loadMember(reader, membershipId);
       const actor = yield* loadActorForWorkspace(reader, target.workspaceId);
-      requireActorRole(actor, "owner");
+      yield* requireActorRole(actor, "owner");
       const actorMembership = yield* loadLiveWorkspaceMemberForUser(
         reader,
         target.workspaceId,
         actor.userId,
       );
-      const plan = transferOwnership({
+      const plan = yield* transferOwnership({
         actorUserId: actor.userId,
         workspaceId: target.workspaceId,
         target,
@@ -117,38 +123,13 @@ const transferOwnershipImpl = FunctionImpl.make(
       yield* Effect.forEach(plan.patches, (patch) =>
         writer
           .table("workspaceMembers")
-          .patch(toId<"workspaceMembers">(patch.id), patch.value)
+          .patch(asGenericId<"workspaceMembers">(patch.id), patch.value)
           .pipe(Effect.orDie),
       );
 
       return null;
     }),
 );
-
-type Reader = Context.Tag.Service<typeof DatabaseReader>;
-
-const loadCurrentUser = (reader: Reader) =>
-  Effect.gen(function* () {
-    const auth = yield* Auth;
-    const identity = yield* auth.getUserIdentity.pipe(
-      Effect.mapError(() => new Unauthorized()),
-    );
-    return yield* reader
-      .table("users")
-      .index("by_subject", (q) => q.eq("subject", identity.subject))
-      .first()
-      .pipe(
-        Effect.map(Option.getOrNull),
-        Effect.flatMap((user) =>
-          user === null
-            ? Effect.fail(new Unauthorized())
-            : Effect.succeed(user),
-        ),
-        Effect.mapError((error) =>
-          error instanceof Unauthorized ? error : new Unauthorized(),
-        ),
-      );
-  });
 
 const loadActorForWorkspace = (
   reader: Reader,
@@ -176,8 +157,10 @@ const loadMember = (
     .get(membershipId)
     .pipe(
       Effect.map(toLifecycleMember),
-      Effect.mapError(
-        () => new MemberNotInWorkspace({ membershipId: membershipId }),
+      Effect.catchAll((error) =>
+        error._tag === "GetByIdFailure"
+          ? Effect.fail(new MemberNotInWorkspace({ membershipId }))
+          : Effect.die(error),
       ),
     );
 
@@ -200,23 +183,22 @@ const loadLiveWorkspaceMemberForUser = (
           : Effect.succeed(toLifecycleMember(membership)),
       ),
       Effect.flatMap((membership) =>
-        membership.status === "active" &&
-        membership.acceptedAt !== null &&
-        membership.revokedAt === null &&
-        membership.deletedAt === null
+        isLiveWorkspaceMembership(membership)
           ? Effect.succeed(membership)
           : Effect.fail(
               new MemberNotInWorkspace({ membershipId: membership.id }),
             ),
       ),
-      Effect.mapError((error) =>
+      // Keep the typed MemberNotInWorkspace; a decode/system failure is a real
+      // defect, not a spurious "member not found".
+      Effect.catchAll((error) =>
         error instanceof MemberNotInWorkspace
-          ? error
-          : new MemberNotInWorkspace({ membershipId: "actor" }),
+          ? Effect.fail(error)
+          : Effect.die(error),
       ),
     );
 
-const liveWorkspaceMembers = (
+const liveWorkspaceMembersOrDie = (
   reader: Reader,
   workspaceId: GenericId<"workspaces"> | string,
 ) =>
@@ -228,42 +210,10 @@ const liveWorkspaceMembers = (
     .take(MEMBER_SCAN_CAP)
     .pipe(
       Effect.map((members_) =>
-        members_
-          .map(toLifecycleMember)
-          .filter(
-            (member) =>
-              member.acceptedAt !== null &&
-              member.revokedAt === null &&
-              member.deletedAt === null,
-          ),
+        members_.map(toLifecycleMember).filter(isLiveWorkspaceMembership),
       ),
       Effect.orDie,
     );
-
-const toLifecycleMember = (
-  member: WorkspaceMembersDoc,
-): WorkspaceMemberLifecycleRef => ({
-  id: member._id,
-  workspaceId: member.workspaceId,
-  userId: member.userId,
-  role: member.role,
-  status: member.status,
-  acceptedAt: member.acceptedAt,
-  revokedAt: member.revokedAt,
-  deletedAt: member.deletedAt,
-});
-
-const requireActorRole = (
-  actor: { readonly role: Role },
-  minimumRole: Role,
-): void => {
-  if (!roleAtLeast(actor.role, minimumRole)) {
-    throw new Forbidden({ reason: "Insufficient workspace role." });
-  }
-};
-
-const toId = <TableName extends string>(id: string): GenericId<TableName> =>
-  id as GenericId<TableName>;
 
 export default GroupImpl.make(databaseSchema, members).pipe(
   Layer.provide(changeRole),

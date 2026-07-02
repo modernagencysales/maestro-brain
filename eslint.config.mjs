@@ -58,6 +58,8 @@ export default [
     plugins: { template: templatePlugin },
     rules: {
       "template/typed-convex-errors": "error",
+      "template/no-throw-in-effect-handler": "error",
+      "template/no-throw-tagged-error": "error",
       "template/require-minrole-on-write": "error",
       "template/workflow-steps-are-capabilities": "error",
       "template/workflow-handler-determinism": "error",
