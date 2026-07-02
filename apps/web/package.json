@@ -6,7 +6,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && ../../node_modules/.bin/tsc -p tsconfig.json --outDir dist/types --declaration && ../../node_modules/.bin/vite build",
+    "build": "vite build && cp dist/client/_shell.html dist/client/index.html",
     "preview": "vite preview --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests"

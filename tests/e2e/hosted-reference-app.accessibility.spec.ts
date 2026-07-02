@@ -3,7 +3,13 @@ import { expect, test } from "@playwright/test";
 const openPrimaryNav = async (page: import("@playwright/test").Page) => {
   const nav = page.getByRole("navigation", { name: "Primary" });
 
-  if (await nav.isVisible().catch(() => false)) {
+  // Wait for hydration to settle on either the docked sidebar or the
+  // hamburger (which only exists while the sidebar is hidden) instead of
+  // sampling isVisible() mid-hydration.
+  const openButton = page.getByRole("button", { name: "Open sidebar" });
+  await expect(nav.or(openButton).first()).toBeVisible();
+
+  if (await nav.isVisible()) {
     return nav;
   }
 
@@ -12,7 +18,7 @@ const openPrimaryNav = async (page: import("@playwright/test").Page) => {
       document.activeElement.blur();
     }
   });
-  await page.getByRole("button", { name: "Open sidebar" }).click();
+  await openButton.click();
   await expect(nav).toBeVisible();
 
   return nav;

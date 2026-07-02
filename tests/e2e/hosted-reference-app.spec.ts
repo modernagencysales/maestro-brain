@@ -14,13 +14,18 @@ const primaryNav = async (page: Page) => {
     });
   };
 
-  if (await nav.isVisible().catch(() => false)) {
-    await waitForRouteLinksOnScreen();
-    return nav;
+  // The SPA shell hydrates after first paint, and the hamburger only exists
+  // while the sidebar is hidden. Wait for hydration to settle on one of the
+  // two states instead of sampling isVisible() mid-hydration, which used to
+  // mis-click the hamburger and collapse an already-open sidebar.
+  const openButton = page.getByRole("button", { name: "Open sidebar" });
+  await expect(nav.or(openButton).first()).toBeVisible();
+
+  if (!(await nav.isVisible())) {
+    await openButton.click();
+    await expect(nav).toBeVisible();
   }
 
-  await page.getByRole("button", { name: "Open sidebar" }).click();
-  await expect(nav).toBeVisible();
   await waitForRouteLinksOnScreen();
 
   return nav;

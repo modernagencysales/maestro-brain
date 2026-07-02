@@ -161,6 +161,20 @@ export function TemplateFooterItem({
   return <TemplateActionItem item={item} />;
 }
 
+function TopbarSidebarOpen() {
+  const { isMobile, open, openMobile } = useSidebar();
+  const sidebarShown = isMobile ? openMobile : open;
+
+  // Match Notion: the hamburger only exists while the sidebar is hidden.
+  // Rendering it while the sidebar is open turns it into a toggle that
+  // collapses the sidebar out from under keyboard/automation users.
+  if (sidebarShown) {
+    return null;
+  }
+
+  return <SidebarOpen aria-label="Open sidebar" />;
+}
+
 export function TemplateWorkspaceShell({
   title,
   subtitle,
@@ -247,7 +261,7 @@ export function TemplateWorkspaceShell({
 
         <SidebarInset className="template-shell-main">
           <Navbar className="template-shell-topbar" aria-label="Workspace">
-            <SidebarOpen aria-label="Open sidebar" />
+            <TopbarSidebarOpen />
             <span className="template-topbar-title">
               {topbarTitle ?? title}
             </span>
