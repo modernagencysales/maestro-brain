@@ -588,6 +588,7 @@ describe("template app factory generators", () => {
     expect(generated.files.map((file) => file.path)).toEqual([
       "generated/capabilities/summarizeSource/summarizeSource.spec.ts",
       "generated/capabilities/summarizeSource/summarizeSource.impl.ts",
+      "generated/capabilities/summarizeSource/summarizeSource.domain.ts",
       "generated/capabilities/summarizeSource/summarizeSource.test.ts",
       "generated/capabilities/summarizeSource/summarizeSource.headless.json",
       "generated/capabilities/summarizeSource/README.md",
@@ -597,8 +598,15 @@ describe("template app factory generators", () => {
     );
     expect(generated.files[0]?.content).toContain("error: () =>");
     expect(generated.files[0]?.content).not.toContain("errors: () =>");
-    expect(generated.files[3]?.content).toContain('"surfaces"');
-    expect(JSON.parse(generated.files[3]?.content ?? "{}")).toMatchObject({
+    expect(generated.files[2]?.content).toContain(
+      "normalizeSummarizeSourceInput",
+    );
+    expect(generated.files[3]?.content).toContain(
+      'import fc from "fast-check"',
+    );
+    expect(generated.files[3]?.content).toContain("fc.assert");
+    expect(generated.files[4]?.content).toContain('"surfaces"');
+    expect(JSON.parse(generated.files[4]?.content ?? "{}")).toMatchObject({
       requiredFiles: expect.arrayContaining([
         "Confect spec/impl",
         "tests",

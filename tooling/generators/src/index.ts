@@ -1084,12 +1084,81 @@ export default GroupImpl.make(databaseSchema, ${name}Group).pipe(
 `,
     },
     {
-      path: `${basePath}/${name}.test.ts`,
-      content: `import { describe, expect, it } from "vitest";
+      path: `${basePath}/${name}.domain.ts`,
+      content: `// Pure domain seam for ${name}. Replace the placeholder fields with the
+// real capability input, keep normalize/validate pure, and keep provider
+// calls out of this file (they belong in the impl behind services).
+export type ${pascalName}Input = {
+  readonly workspaceSlug: string;
+  readonly input: string;
+};
 
-describe("${name} generated capability contract", () => {
-  it("declares args, returns, typed errors, and implementation files", () => {
-    expect("${name}").toBe("${name}");
+export const normalize${pascalName}Input = (
+  input: ${pascalName}Input,
+): ${pascalName}Input => ({
+  workspaceSlug: input.workspaceSlug.trim(),
+  input: input.input.trim(),
+});
+
+export const validate${pascalName}Input = (
+  input: ${pascalName}Input,
+): readonly string[] => {
+  const errors: string[] = [];
+
+  if (input.workspaceSlug.length === 0) {
+    errors.push("workspaceSlug must not be blank.");
+  }
+
+  if (input.input.length === 0) {
+    errors.push("input must not be blank.");
+  }
+
+  return errors;
+};
+`,
+    },
+    {
+      path: `${basePath}/${name}.test.ts`,
+      content: `import fc from "fast-check";
+import { describe, expect, it } from "vitest";
+import {
+  normalize${pascalName}Input,
+  validate${pascalName}Input,
+} from "./${name}.domain";
+
+describe("${name} generated capability domain", () => {
+  it("normalization is idempotent for any input", () => {
+    fc.assert(
+      fc.property(fc.string(), fc.string(), (workspaceSlug, input) => {
+        const once = normalize${pascalName}Input({ workspaceSlug, input });
+        expect(normalize${pascalName}Input(once)).toEqual(once);
+      }),
+    );
+  });
+
+  it("rejects blank fields after normalization", () => {
+    fc.assert(
+      fc.property(fc.stringMatching(/^\\s*$/), (blank) => {
+        const normalized = normalize${pascalName}Input({
+          workspaceSlug: blank,
+          input: blank,
+        });
+        expect(validate${pascalName}Input(normalized)).toHaveLength(2);
+      }),
+    );
+  });
+
+  it("accepts trimmed non-blank input", () => {
+    const normalized = normalize${pascalName}Input({
+      workspaceSlug: "  acme-demo  ",
+      input: "  summarize the approved sources  ",
+    });
+
+    expect(normalized.workspaceSlug).toBe("acme-demo");
+    expect(validate${pascalName}Input(normalized)).toEqual([]);
+  });
+
+  it("declares the required typed errors", () => {
     expect(${JSON.stringify(typedErrors)}).toContain("ValidationFailed");
   });
 });

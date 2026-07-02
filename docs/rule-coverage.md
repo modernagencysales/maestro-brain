@@ -1,16 +1,72 @@
 # Rule Coverage
 
-| Rule                                          | Coverage                                                             |
-| --------------------------------------------- | -------------------------------------------------------------------- |
-| Preserve layer law                            | Static gate: `check:layer-boundaries`; code review checklist.        |
-| Use Confect/Effect contracts                  | Static gate: `check:confect-contracts`; generator invariant.         |
-| Do not edit generated files                   | Static gate: `check:generated-files`; code review checklist.         |
-| Keep React Flow out of durable workflow logic | Static gate: `check:workflow-graph-boundary`; code review checklist. |
-| Use Notion Kit/block primitives               | Code review checklist; frontend surface tests.                       |
-| No caller-supplied tenant identity            | Static gate: `check:auth-demo-bypass`; security review checklist.    |
-| Keep provider SDKs behind adapters            | Code review checklist; integration tests.                            |
-| Protect secrets and provider payloads         | Static gate: `check:secret-canaries`; secret scan.                   |
-| Add focused tests for behavior                | Test suite and PR review checklist.                                  |
-| Use generators for app-factory additions      | Static gate: `check:generators`; generator invariants.               |
-| Keep docs navigable                           | Static gate: `check:docs-freshness`.                                 |
-| Keep CI complete                              | Static gate: `check:ci-completeness`; Buildkite phase-1.             |
+Every stated rule maps to the mechanism that enforces it. Enforcement tiers,
+strongest first:
+
+- **mechanical** — a tool measures the code itself and fails the build.
+- **ai-judge** — an LLM gate reviews the diff against a pinned rubric in CI
+  (fail-closed; deterministic fake mode locally).
+- **pin-only** — a grep harness (`tooling/quality/src/gate.mts`) asserts that
+  config/docs keep a pinned shape. It protects the gate structure; it does not
+  measure behavior. Pin-only gates say `ok (pin-only)` in their output.
+- **review** — humans/agents via the PR template checklist and rubric injection
+  at pre-push. Weakest tier; anything resting here is a porting candidate.
+
+## Layer law and contracts
+
+| Rule                                          | Enforcement                                                                                                                                              |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Preserve layer law (imports respect layers)   | mechanical: `check:layer-boundaries` (dependency-cruiser) + `eslint-plugin-template` (`no-cross-domain-value-import`, `workflow-steps-are-capabilities`) |
+| Typed errors at Convex boundaries             | mechanical: `template/typed-convex-errors` ESLint rule                                                                                                   |
+| Writes require a role gate                    | mechanical: `template/require-minrole-on-write` ESLint rule                                                                                              |
+| Workflow handlers stay deterministic          | mechanical: `template/workflow-handler-determinism`, `template/no-raw-scheduler` ESLint rules                                                            |
+| Workflow runs pin a policy snapshot           | mechanical: `template/workflow-policy-snapshot` ESLint rule                                                                                              |
+| Routes stay thin; server stays at boundary    | mechanical: `template/frontend-route-thin`, `template/frontend-route-server-boundary` ESLint rules                                                       |
+| Keep React Flow out of durable workflow logic | mechanical: `check:workflow-graph-boundary` file pins + dependency-cruiser                                                                               |
+| Use Confect/Effect contracts                  | pin-only: `check:confect-contracts`, `check:confect-compat`; mechanical: `check:convex` codegen drift diff                                               |
+| Do not edit generated files                   | mechanical: `check:convex` (codegen + `git diff --exit-code`); pin-only: `check:generated-files`                                                         |
+
+## Code quality
+
+| Rule                              | Enforcement                                                                                                    |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Formatting                        | mechanical: `check:format` (prettier); lefthook pre-commit auto-format                                         |
+| Lint cleanliness, no `any`        | mechanical: `pnpm lint` (eslint strict + typescript-eslint), zero warnings tolerated in `verify`               |
+| Strict types                      | mechanical: `pnpm typecheck` (strict tsconfig); `check:types-coverage` (`type-coverage --at-least 99.7`)       |
+| No unused exports/deps            | mechanical: `check:knip`                                                                                       |
+| Dependency hygiene                | mechanical: `check:deps` version pins; `pnpm install --frozen-lockfile` in CI                                  |
+| Coverage only rises               | mechanical: `check:coverage-ratchet` (vitest json-summary vs `coverage-baseline.json`; `--update` only raises) |
+| Tests survive mutation            | mechanical: `test:mutation` (Stryker, scheduled/manual CI)                                                     |
+| Single responsibility, naming     | ai-judge: `taste` gate (rubric pinned in `tooling/quality/taste-review.mts`)                                   |
+| Contract-shape review of the diff | ai-judge: `contract-review` gate (rubric: `tooling/quality/contract-review-rubric.md`)                         |
+| Generated modules are born tested | mechanical: generator emits fast-check property tests; `check:generators` pins docs                            |
+
+## Security and tenancy
+
+| Rule                                  | Enforcement                                                                                                  |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| No caller-supplied tenant identity    | mechanical: `template/require-minrole-on-write`; review: security docs + `check:auth-demo-bypass` (pin-only) |
+| Secrets never committed               | mechanical: `check:secret-canaries` (gitleaks with real config)                                              |
+| Provider SDKs stay behind adapters    | review: PR checklist; ai-judge: contract-review rubric lane                                                  |
+| Provider payloads redacted before log | mechanical: unit tests on `redactProviderPayload`; review elsewhere                                          |
+| Licenses inventoried                  | pin-only: `check:sbom-license`                                                                               |
+
+## Process and CI integrity
+
+| Rule                                 | Enforcement                                                                                                                                         |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CI gate structure cannot be weakened | mechanical-ish: secretless `ci-self-protection` Buildkite step runs `check:ci-completeness` + `check:config-drift` pins before any credentialed job |
+| Canonical gate names stay stable     | pin-only: `check:ci-completeness` pins Justfile recipes, pipeline steps, lefthook config                                                            |
+| Gates run before push                | mechanical: lefthook pre-push (typecheck, lint, deps, knip, gates, debt) + AI rubric injection (`scripts/pre-push-rubric.sh`)                       |
+| Stacked PRs merge safely             | mechanical: `stack:preflight` / `stack:merge` (`tooling/stack`, injectable Runner, tested)                                                          |
+| Docs stay navigable                  | pin-only: `check:docs-freshness`                                                                                                                    |
+| Hosted app works                     | mechanical: Playwright smoke + accessibility + visual baselines (`smoke:hosted:*`), static build smoke                                              |
+| Debt is visible                      | pin-only: `check:debt`; review: suppression ban in PR template                                                                                      |
+
+## Known unenforced (candidates for the next ratchet)
+
+- Provider payload redaction outside `packages/integrations` — review only.
+- `packages/convex` and `apps/web` coverage — excluded from the ratchet until
+  they run under the root vitest environment matrix; tracked per-package.
+- Audit-event emission on access lifecycle mutations — domain functions return
+  events, impls do not persist them yet (see porting roadmap).
