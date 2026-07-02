@@ -7,7 +7,8 @@ Maestro's plain Convex machinery into Confect/Effect.
 
 ## What Changed
 
-The template vendors upstream source under `repos/`:
+The template pins upstream reference source, fetched on demand into the
+gitignored `repos/` directory by `scripts/fetch-reference-repos.sh`:
 
 - `repos/effect` from `https://github.com/Effect-TS/effect.git`
 - `repos/confect` from `https://github.com/rjdellecese/confect.git`

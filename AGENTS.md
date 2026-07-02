@@ -96,20 +96,19 @@ assuming success.
 - `tooling/quality`: gates and CI helpers.
 - `tooling/generators`: app-factory generators.
 - `docs/template`: operating docs and playbooks.
-- `repos/effect`: vendored Effect source, read-only reference material.
-- `repos/confect`: vendored Confect source, read-only reference material.
+- `repos/` (gitignored): optional local reference clones of Effect and Confect,
+  fetched by `scripts/fetch-reference-repos.sh`.
 
-## Vendored Repositories
+## Reference Repositories
 
-This project vendors external repositories under `repos/`.
+Upstream Effect and Confect source is reference material, not part of this repo.
+Run `scripts/fetch-reference-repos.sh` to clone both at the pinned commits the
+`agent-patterns/` docs were written against.
 
-- Use vendored repositories as read-only reference material when working with
-  related libraries.
-- Prefer examples and patterns from vendored source and tests over generated
-  guesses or web snippets.
-- Do not edit files under `repos/` unless explicitly asked to update a vendored
-  subtree.
-- Do not import from `repos/`; application code imports from normal package
+- Start with `agent-patterns/*.md` — they distill the patterns this template
+  actually uses; fetch the upstream source only when a pattern doc is not
+  enough.
+- Never import from `repos/`; application code imports from normal package
   dependencies.
 - When writing Effect code, inspect `repos/effect/AGENTS.md` and relevant tests
   under `repos/effect/packages/effect/test/`.
