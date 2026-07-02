@@ -20,6 +20,7 @@
     "template:init": "tsx tooling/generators/src/index.ts init",
     "template:doctor": "tsx tooling/generators/src/index.ts doctor",
     "template:quickstart": "tsx tooling/generators/src/index.ts quickstart",
+    "template:intake": "tsx tooling/generators/src/index.ts intake",
     "template:seed-demo": "tsx tooling/generators/src/index.ts seed-demo",
     "template:handoff": "tsx tooling/generators/src/index.ts handoff",
     "template:add-client-domain": "tsx tooling/generators/src/index.ts add-client-domain",

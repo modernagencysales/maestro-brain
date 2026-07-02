@@ -7,7 +7,8 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   buildBlueprintCatalog,
@@ -28,17 +29,20 @@ import {
 } from "./index";
 import { gtmImplementationBlueprint } from "./blueprints/gtmImplementation";
 
+const testDir = dirname(fileURLToPath(import.meta.url));
+const repoRoot = join(testDir, "../../..");
+
 describe("template app factory generators", () => {
   it("ships demo-safe GTM implementation seed fixtures", () => {
     const accounts = JSON.parse(
       readFileSync(
-        "../../examples/gtm-implementation/seed/accounts.json",
+        join(repoRoot, "examples/gtm-implementation/seed/accounts.json"),
         "utf8",
       ),
     ) as readonly { readonly name: string; readonly domain: string }[];
     const people = JSON.parse(
       readFileSync(
-        "../../examples/gtm-implementation/seed/people.json",
+        join(repoRoot, "examples/gtm-implementation/seed/people.json"),
         "utf8",
       ),
     ) as readonly {
@@ -47,7 +51,7 @@ describe("template app factory generators", () => {
       readonly accountDomain: string;
     }[];
     const sources = readFileSync(
-      "../../examples/gtm-implementation/seed/sources.md",
+      join(repoRoot, "examples/gtm-implementation/seed/sources.md"),
       "utf8",
     );
 

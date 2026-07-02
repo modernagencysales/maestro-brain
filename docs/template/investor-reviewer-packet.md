@@ -34,8 +34,8 @@ The current template proves these reusable primitives:
 - Provider adapter contracts and tested Effect fake/test/live-ready adapter
   harnesses for WorkOS/AuthKit, PostHog, Dodo, MailerSend, OpenRouter-compatible
   LLMs, storage, and search.
-- App factory commands for `template:quickstart`, `template:seed-demo`,
-  `template:handoff`, `template:init`, `template:doctor`,
+- App factory commands for `template:quickstart`, `template:intake`,
+  `template:seed-demo`, `template:handoff`, `template:init`, `template:doctor`,
   `template:add-capability`, `template:add-workflow`,
   `template:promote-capability`, `template:promote-workflow`,
   `template:upgrade`, and private-package dry-run/import with source-module
@@ -90,6 +90,7 @@ Inspect the app factory:
 
 ```bash
 pnpm template:quickstart -- --blueprint source-grounded-gtm-brain --name "Reviewer Brain" --write
+pnpm template:intake -- --name "Reviewer Brain" --write
 pnpm template:doctor -- --mode fake
 pnpm template:seed-demo -- --blueprint source-grounded-gtm-brain --write
 pnpm template:add-capability -- --name summarizeSource

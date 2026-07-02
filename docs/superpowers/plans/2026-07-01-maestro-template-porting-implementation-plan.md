@@ -27,6 +27,38 @@ OpenRouter-compatible LLMs, Scalar/OpenAPI, MCP.
 
 ---
 
+## Completion Audit
+
+Status: complete after the Phase 10 implementation commit
+`00f210dd8 feat: complete phase 10 template primitives` and the follow-up
+plan-reconciliation work. The remaining unchecked boxes in this file were stale
+bookkeeping, plus a small set of real gaps that have now been filled:
+
+- imported `docs/template/porting-backlog.md` and
+  `docs/template/how-this-relates-to-maestro.md` from the backlog branch and
+  updated them for the current hosted Notion-style app and vendored
+  Effect/Confect repos;
+- added the maturity model, do-not-port register, threat model, demo vertical,
+  and the five named Effect/Confect agent pattern files;
+- added named shared helper entrypoints for clock, nonce, base64url, and
+  fingerprint helpers;
+- added reusable settings and receipt frontend surfaces with focused tests;
+- exposed the existing generator `intake` command as `pnpm template:intake`;
+- fixed generator seed-fixture tests so they pass from the repo root.
+
+Evidence commands run during reconciliation:
+
+- `pnpm check:format`
+- `pnpm check:docs-freshness`
+- `pnpm check:generators`
+- `pnpm check:route-tree`
+- `pnpm template:intake -- --name "Reviewer Brain"`
+- `pnpm exec vitest run apps/web/src/features/settings/settings-surface.test.ts apps/web/src/features/receipts/receipt-surface.test.ts apps/web/src/features/workflows/workflow-surface.test.ts apps/web/src/features/brain/brain-surface.test.ts`
+- `pnpm exec vitest run packages/convex/test/shared-token-crypto.test.ts packages/convex/test/shared-clock-nonce.test.ts packages/convex/test/shared-env.test.ts packages/convex/test/shared-errors.test.ts`
+- `pnpm exec vitest run tooling/generators/src/index.test.ts`
+- `pnpm review:readiness`
+- `pnpm review:completion`
+
 ## Source Material
 
 Use these as the authoritative inputs:
@@ -379,14 +411,14 @@ cleanup.
 
 ### Task 0.1: Port The Backlog Doc Without Merging Old App Changes
 
-- [ ] Copy `docs/template/porting-backlog.md` from
+- [x] Copy `docs/template/porting-backlog.md` from
       `origin/docs/template-clarity-and-porting-backlog`.
-- [ ] Keep the current Notion-style app, seed fixtures, and visual tests from
+- [x] Keep the current Notion-style app, seed fixtures, and visual tests from
       `main`.
-- [ ] Add a header note that `docs/template/porting-roadmap.md` is the execution
+- [x] Add a header note that `docs/template/porting-roadmap.md` is the execution
       order and this backlog is the exhaustive inventory.
-- [ ] Run `pnpm check:format`.
-- [ ] Commit:
+- [x] Run `pnpm check:format`.
+- [x] Commit:
 
 ```bash
 git add docs/template/porting-backlog.md
@@ -395,13 +427,13 @@ git commit -m "docs: add maestro porting backlog"
 
 ### Task 0.2: Port The Maestro Relationship Doc
 
-- [ ] Copy `docs/template/how-this-relates-to-maestro.md` from
+- [x] Copy `docs/template/how-this-relates-to-maestro.md` from
       `origin/docs/template-clarity-and-porting-backlog`.
-- [ ] Update it to mention the current hosted Notion-style reference app and
+- [x] Update it to mention the current hosted Notion-style reference app and
       vendored Effect/Confect repos.
-- [ ] Verify it does not claim Maestro already uses Confect/Effect.
-- [ ] Run `pnpm check:format`.
-- [ ] Commit:
+- [x] Verify it does not claim Maestro already uses Confect/Effect.
+- [x] Run `pnpm check:format`.
+- [x] Commit:
 
 ```bash
 git add docs/template/how-this-relates-to-maestro.md
@@ -410,12 +442,12 @@ git commit -m "docs: explain maestro relationship"
 
 ### Task 0.3: Add The Maturity Model
 
-- [ ] Create `docs/template/template-maturity-model.md`.
-- [ ] Define L0 through L5 exactly as listed in this plan.
-- [ ] For each level, include required evidence files, required commands, and
+- [x] Create `docs/template/template-maturity-model.md`.
+- [x] Define L0 through L5 exactly as listed in this plan.
+- [x] For each level, include required evidence files, required commands, and
       what an investor should infer.
-- [ ] Run `pnpm check:format`.
-- [ ] Commit:
+- [x] Run `pnpm check:format`.
+- [x] Commit:
 
 ```bash
 git add docs/template/template-maturity-model.md
@@ -424,9 +456,9 @@ git commit -m "docs: add template maturity model"
 
 ### Task 0.4: Add The Execution Roadmap
 
-- [ ] Create `docs/template/porting-roadmap.md`.
-- [ ] Include the dependency map from this plan.
-- [ ] Map backlog sections to phases:
+- [x] Create `docs/template/porting-roadmap.md`.
+- [x] Include the dependency map from this plan.
+- [x] Map backlog sections to phases:
   - Phase 1: B, M, Confect/Effect pattern docs.
   - Phase 2: A, R, H seat-count dependency.
   - Phase 3: C, H minimum usage, G API auth minimum, S env manifest.
@@ -438,10 +470,10 @@ git commit -m "docs: add template maturity model"
   - Phase 8: L frontend shell, Q visualize/act minimum, S UX/a11y minimum.
   - Phase 9: app-factory generator gates, K CI gates, S deploy/ops/security.
   - Phase 10: N, O, P, Q broad primitives and blueprint expansion.
-- [ ] Add a "do not start yet" section for BlockNote/ProseMirror, full workflow
+- [x] Add a "do not start yet" section for BlockNote/ProseMirror, full workflow
       schedules, and app-wide dashboards until earlier phases are complete.
-- [ ] Run `pnpm check:format`.
-- [ ] Commit:
+- [x] Run `pnpm check:format`.
+- [x] Commit:
 
 ```bash
 git add docs/template/porting-roadmap.md
@@ -450,20 +482,20 @@ git commit -m "docs: add porting roadmap"
 
 ### Task 0.5: Add The Do-Not-Port Register
 
-- [ ] Create `docs/template/do-not-port-register.md`.
-- [ ] List prohibited source categories:
+- [x] Create `docs/template/do-not-port-register.md`.
+- [x] List prohibited source categories:
   - Maestro customer/client names.
   - Real prompt bodies.
   - Real provider payloads.
   - LinkedIn harvest/campaign/ghostwriting/lead-magnet-specific business logic.
   - Sales-call transcripts and private notes.
   - Production secrets, tokens, IDs, emails, webhook bodies.
-- [ ] Add allowed transformations:
+- [x] Add allowed transformations:
   - Rename domain concepts into generic Brain/workflow/capability names.
   - Replace fixtures with synthetic `acme-demo` style data.
   - Keep algorithms and safety mechanics when they are domain-neutral.
-- [ ] Run `pnpm check:format`.
-- [ ] Commit:
+- [x] Run `pnpm check:format`.
+- [x] Commit:
 
 ```bash
 git add docs/template/do-not-port-register.md
@@ -472,8 +504,8 @@ git commit -m "docs: add do-not-port register"
 
 ### Task 0.6: Add The Threat Model
 
-- [ ] Create `docs/template/security-threat-model.md`.
-- [ ] Cover these threats with mitigation and backlog link:
+- [x] Create `docs/template/security-threat-model.md`.
+- [x] Cover these threats with mitigation and backlog link:
   - Cross-tenant data access.
   - Caller-supplied workspace identity.
   - Prompt injection through source content.
@@ -484,8 +516,8 @@ git commit -m "docs: add do-not-port register"
   - Spend abuse and runaway model calls.
   - Stale knowledge and ungrounded output.
   - Broken deploy/env cutover.
-- [ ] Run `pnpm check:format`.
-- [ ] Commit:
+- [x] Run `pnpm check:format`.
+- [x] Commit:
 
 ```bash
 git add docs/template/security-threat-model.md
@@ -494,9 +526,9 @@ git commit -m "docs: add template threat model"
 
 ### Task 0.7: Define The First Demo Vertical
 
-- [ ] Create `docs/template/demo-vertical.md`.
-- [ ] Name the vertical `source-grounded-brief`.
-- [ ] Define the flow:
+- [x] Create `docs/template/demo-vertical.md`.
+- [x] Name the vertical `source-grounded-brief`.
+- [x] Define the flow:
   - Brain source set.
   - Context pack.
   - Prompt policy snapshot.
@@ -507,13 +539,13 @@ git commit -m "docs: add template threat model"
   - Trust receipt.
   - API/CLI/MCP exposure.
   - Reference app page.
-- [ ] Define the non-goals:
+- [x] Define the non-goals:
   - No RAG by default.
   - No external publish side effect.
   - No broad agent autonomy.
   - No Maestro-specific GTM content.
-- [ ] Run `pnpm check:format`.
-- [ ] Commit:
+- [x] Run `pnpm check:format`.
+- [x] Commit:
 
 ```bash
 git add docs/template/demo-vertical.md
@@ -522,8 +554,8 @@ git commit -m "docs: define first demo vertical"
 
 ### Task 0.8: Define The Starter, Blueprint, And Handoff Contract
 
-- [ ] Create `docs/template/blueprint-catalog.md`.
-- [ ] Include these initial blueprint families:
+- [x] Create `docs/template/blueprint-catalog.md`.
+- [x] Include these initial blueprint families:
   - `source-grounded-gtm-brain`: a GTM/client-context app with sources, context
     packs, grounded briefs, workflow receipts, and headless access.
   - `implementation-consulting-brain`: a client implementation workspace with
@@ -533,53 +565,53 @@ git commit -m "docs: define first demo vertical"
     tickets, approvals, notifications, and operational dashboards.
   - `custom-domain-ai-app`: the lowest-assumption path for a client-specific app
     with custom nouns and private packages.
-- [ ] For each blueprint, list domain nouns, source types, first capability,
+- [x] For each blueprint, list domain nouns, source types, first capability,
       first workflow, first agent grants, required providers, optional
       providers, UI routes, headless surfaces, eval fixtures, demo data, and
       what must be deleted or renamed for a client fork.
-- [ ] Create `docs/template/quickstart.md` with three runnable paths: 10-minute
+- [x] Create `docs/template/quickstart.md` with three runnable paths: 10-minute
       local fake mode, 30-minute client discovery mode, and one-day prototype
       mode. Include exact commands, expected outputs, expected local URL, and
       the first files a worker should inspect.
-- [ ] Create `docs/template/client-intake-questionnaire.md` with sections for
+- [x] Create `docs/template/client-intake-questionnaire.md` with sections for
       business objective, audience, source inventory, workflows, integrations,
       approvals, risk/compliance, billing/usage, reporting, launch path, and
       success metrics.
-- [ ] Create `docs/template/implementation-brief-template.md` showing the
+- [x] Create `docs/template/implementation-brief-template.md` showing the
       generated brief structure: selected blueprint, domain nouns, sources,
       workflows, capabilities, agents, integrations, provider posture, route
       map, headless surfaces, risks, tests, deploy path, and handoff criteria.
-- [ ] Create `docs/template/demo-seed-contract.md` defining fake-mode seed data:
+- [x] Create `docs/template/demo-seed-contract.md` defining fake-mode seed data:
       workspace, users, Brain sources, markdown notes, links, context packs,
       capability fixtures, workflow graphs, run receipts, provider posture,
       audit events, billing/events, and reset rules.
-- [ ] Create `docs/template/generator-output-contract.md` stating every
+- [x] Create `docs/template/generator-output-contract.md` stating every
       `template:add-*` or `template:promote-*` command must emit or update:
       Confect spec/impl, Effect schema, typed errors, tests, fixtures, docs,
       frontend adapter/view model when user-facing, headless registry entry when
       exposed, audit metadata, data-map metadata, env manifest entries when
       needed, migration notes for durable changes, and reviewer commands.
-- [ ] Create `docs/template/client-handoff-packet.md` with the exact handoff
+- [x] Create `docs/template/client-handoff-packet.md` with the exact handoff
       checklist: status labels, commands run, hosted URL, deployment target,
       required secret names, provider posture, migrations, live-provider swaps,
       known seams, security notes, data lifecycle notes, and upgrade target.
-- [ ] Create `docs/template/template-release-process.md` explaining tagged
+- [x] Create `docs/template/template-release-process.md` explaining tagged
       template releases, release notes, `template:upgrade`, migration notes,
       private-package compatibility, and rollback.
-- [ ] Create `docs/template/agent-worker-playbook.md` explaining how future AI
+- [x] Create `docs/template/agent-worker-playbook.md` explaining how future AI
       workers should navigate the repo, read vendored Effect/Confect sources,
       choose generators before hand-writing modules, follow the layer law, run
       focused checks, interpret fake/seam/planned labels, retrieve AI gate
       verdicts, and prepare handoff notes.
-- [ ] Update `AGENTS.md` so it links the blueprint catalog, generator output
+- [x] Update `AGENTS.md` so it links the blueprint catalog, generator output
       contract, client intake questionnaire, handoff packet, and worker
       playbook.
-- [ ] Update `docs/template/app-factory-guide.md`,
+- [x] Update `docs/template/app-factory-guide.md`,
       `docs/template/private-package-guide.md`, and
       `docs/template/client-fork-upgrade-guide.md` to link these docs and make
       blueprint-first forks the default.
-- [ ] Run `pnpm check:format` and `pnpm check:docs-freshness`.
-- [ ] Commit:
+- [x] Run `pnpm check:format` and `pnpm check:docs-freshness`.
+- [x] Commit:
 
 ```bash
 git add AGENTS.md docs/template/blueprint-catalog.md docs/template/quickstart.md docs/template/client-intake-questionnaire.md docs/template/implementation-brief-template.md docs/template/demo-seed-contract.md docs/template/generator-output-contract.md docs/template/client-handoff-packet.md docs/template/template-release-process.md docs/template/agent-worker-playbook.md docs/template/app-factory-guide.md docs/template/private-package-guide.md docs/template/client-fork-upgrade-guide.md
@@ -588,21 +620,21 @@ git commit -m "docs: define app factory starter contract"
 
 ### Task 0.9: Reconcile Reviewer And Investor Docs
 
-- [ ] Update `docs/template/investor-reviewer-packet.md` so provider adapters
+- [x] Update `docs/template/investor-reviewer-packet.md` so provider adapters
       are described as fake/test/live-ready seams unless the current code makes
       real SDK calls.
-- [ ] Update `docs/template/reviewer-guide.md` so the reviewer can inspect
+- [x] Update `docs/template/reviewer-guide.md` so the reviewer can inspect
       `docs/template/porting-backlog.md`, `docs/template/porting-roadmap.md`,
       and `docs/template/template-maturity-model.md`.
-- [ ] Update `docs/template/security.md` so claims like CSP, webhook
+- [x] Update `docs/template/security.md` so claims like CSP, webhook
       verification, API keys, and support access are labeled as planned if not
       implemented.
-- [ ] Update `docs/template/operations-runbook.md` so deploy promotion,
+- [x] Update `docs/template/operations-runbook.md` so deploy promotion,
       retention/export/delete, and alerting are labeled as planned unless wired.
-- [ ] Update `docs/rule-coverage.md` so fake-stub gates are not described as
+- [x] Update `docs/rule-coverage.md` so fake-stub gates are not described as
       final enforcement.
-- [ ] Run `pnpm review:completion`.
-- [ ] Commit:
+- [x] Run `pnpm review:completion`.
+- [x] Commit:
 
 ```bash
 git add docs/template/investor-reviewer-packet.md docs/template/reviewer-guide.md docs/template/security.md docs/template/operations-runbook.md docs/rule-coverage.md
@@ -637,20 +669,20 @@ git commit -m "docs: reconcile reviewer claims with backlog"
 
 ### Task 1.1: Create Local Effect/Confect Pattern Notes
 
-- [ ] Read `repos/confect/apps/example/confect/notes_and_random/notes.spec.ts`.
-- [ ] Read `repos/confect/apps/example/confect/notes_and_random/notes.impl.ts`.
-- [ ] Read `repos/confect/apps/example/confect/workpool.spec.ts`.
-- [ ] Read `repos/effect/packages/effect/test/Schema/Class/TaggedError.test.ts`.
-- [ ] Read `repos/effect/packages/effect/test/Layer.test.ts`.
-- [ ] Create the five `agent-patterns/*` files listed above.
-- [ ] Each pattern file must include:
+- [x] Read `repos/confect/apps/example/confect/notes_and_random/notes.spec.ts`.
+- [x] Read `repos/confect/apps/example/confect/notes_and_random/notes.impl.ts`.
+- [x] Read `repos/confect/apps/example/confect/workpool.spec.ts`.
+- [x] Read `repos/effect/packages/effect/test/Schema/Class/TaggedError.test.ts`.
+- [x] Read `repos/effect/packages/effect/test/Layer.test.ts`.
+- [x] Create the five `agent-patterns/*` files listed above.
+- [x] Each pattern file must include:
   - Read order.
   - Local template rules.
   - Good examples.
   - Things to avoid.
   - Verification commands.
-- [ ] Run `pnpm check:format`.
-- [ ] Commit:
+- [x] Run `pnpm check:format`.
+- [x] Commit:
 
 ```bash
 git add agent-patterns
@@ -659,19 +691,19 @@ git commit -m "docs: add effect confect pattern notes"
 
 ### Task 1.2: Add Typed Env Access
 
-- [ ] Write failing tests in `packages/convex/test/shared-env.test.ts` for:
+- [x] Write failing tests in `packages/convex/test/shared-env.test.ts` for:
   - Missing live secret fails.
   - Whitespace secret fails.
   - Fake mode does not require live secret.
   - `LLM_DISABLED=true` enables the kill switch.
-- [ ] Create `packages/convex/confect/shared/env.ts` with:
+- [x] Create `packages/convex/confect/shared/env.ts` with:
   - `readRequiredEnv(name, env)`.
   - `readOptionalEnv(name, env)`.
   - `requireLiveEnv(names, mode, env)`.
   - `killSwitchOn(env)`.
   - Typed `EnvConfigError` with `Schema.TaggedError`.
-- [ ] Run `pnpm --dir packages/convex test shared-env`.
-- [ ] Commit:
+- [x] Run `pnpm --dir packages/convex test shared-env`.
+- [x] Commit:
 
 ```bash
 git add packages/convex/confect/shared/env.ts packages/convex/test/shared-env.test.ts
@@ -680,21 +712,21 @@ git commit -m "feat: add typed env access"
 
 ### Task 1.3: Add Closed Public Error Catalog
 
-- [ ] Write failing tests in `packages/convex/test/shared-errors.test.ts` for:
+- [x] Write failing tests in `packages/convex/test/shared-errors.test.ts` for:
   - Known error code is accepted.
   - Unknown error code is rejected at compile/runtime boundary.
   - Public error redacts internal details.
-- [ ] Create `packages/convex/confect/shared/errors.ts` with:
+- [x] Create `packages/convex/confect/shared/errors.ts` with:
   - `ErrorCode` literal union.
   - `TemplatePublicError` as `Schema.TaggedError`.
   - `makePublicError`.
   - `redactUnknownError`.
-- [ ] Include codes for `UNAUTHENTICATED`, `NO_WORKSPACE_ACCESS`,
+- [x] Include codes for `UNAUTHENTICATED`, `NO_WORKSPACE_ACCESS`,
       `VALIDATION_FAILED`, `RATE_LIMITED`, `SPEND_CAP_EXCEEDED`, `LLM_DISABLED`,
       `PROVIDER_CONFIG_INVALID`, `POLICY_NOT_FOUND`, `PROMPT_NOT_FOUND`, and
       `INTERNAL`.
-- [ ] Run `pnpm --dir packages/convex test shared-errors`.
-- [ ] Commit:
+- [x] Run `pnpm --dir packages/convex test shared-errors`.
+- [x] Commit:
 
 ```bash
 git add packages/convex/confect/shared/errors.ts packages/convex/test/shared-errors.test.ts
@@ -703,22 +735,22 @@ git commit -m "feat: add closed public error catalog"
 
 ### Task 1.4: Add Crypto, Fingerprint, Clock, And Nonce Helpers
 
-- [ ] Write failing tests for base64url round-trip, HMAC signing, SHA-256
+- [x] Write failing tests for base64url round-trip, HMAC signing, SHA-256
       hashing, constant-time comparison length mismatch, injected clock,
       injected nonce, and stable fingerprint.
-- [ ] Create the shared helper files listed above.
-- [ ] Use Web Crypto APIs only for code intended to run in Convex isolate
+- [x] Create the shared helper files listed above.
+- [x] Use Web Crypto APIs only for code intended to run in Convex isolate
       contexts.
-- [ ] Make deterministic test seams explicit with injected `now` and `nonce`
+- [x] Make deterministic test seams explicit with injected `now` and `nonce`
       functions.
-- [ ] Run:
+- [x] Run:
 
 ```bash
 pnpm --dir packages/convex test shared-token-crypto
 pnpm --dir packages/convex test shared-clock-nonce
 ```
 
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add packages/convex/confect/shared packages/convex/test/shared-token-crypto.test.ts packages/convex/test/shared-clock-nonce.test.ts
@@ -727,8 +759,8 @@ git commit -m "feat: add shared crypto and deterministic seams"
 
 ### Task 1.5: Confirm Convex Component Wiring
 
-- [ ] Inspect `packages/convex/convex/convex.config.ts`.
-- [ ] Ensure required components for early phases are registered or documented
+- [x] Inspect `packages/convex/convex/convex.config.ts`.
+- [x] Ensure required components for early phases are registered or documented
       in `docs/template/porting-roadmap.md`:
   - Workpool.
   - Workflow.
@@ -736,10 +768,10 @@ git commit -m "feat: add shared crypto and deterministic seams"
   - Migrations.
   - Agent.
   - ProseMirror sync when Phase 10 starts.
-- [ ] If a component is installed but unused, document the first phase that uses
+- [x] If a component is installed but unused, document the first phase that uses
       it.
-- [ ] Run `pnpm check:confect-compat`.
-- [ ] Commit:
+- [x] Run `pnpm check:confect-compat`.
+- [x] Commit:
 
 ```bash
 git add packages/convex/convex/convex.config.ts docs/template/porting-roadmap.md
@@ -780,15 +812,15 @@ workspace dependency.
 
 ### Task 2.1: Add Role Lattice And Email Normalizer
 
-- [ ] Write tests for role ordering: `viewer < editor < admin < owner`.
-- [ ] Write tests for `roleAtLeast`, `capRole`, `highestRole`, and invalid role
+- [x] Write tests for role ordering: `viewer < editor < admin < owner`.
+- [x] Write tests for `roleAtLeast`, `capRole`, `highestRole`, and invalid role
       rejection.
-- [ ] Write tests for `normalizeEmail`, including whitespace, uppercase, invalid
+- [x] Write tests for `normalizeEmail`, including whitespace, uppercase, invalid
       input, and blank input returning no verified email.
-- [ ] Implement `packages/convex/confect/access/roles.ts`.
-- [ ] Implement `packages/convex/confect/access/email.ts`.
-- [ ] Run focused tests.
-- [ ] Commit:
+- [x] Implement `packages/convex/confect/access/roles.ts`.
+- [x] Implement `packages/convex/confect/access/email.ts`.
+- [x] Run focused tests.
+- [x] Commit:
 
 ```bash
 git add packages/convex/confect/access/roles.ts packages/convex/confect/access/email.ts packages/convex/test/access-roles.test.ts
@@ -797,14 +829,14 @@ git commit -m "feat: add tenancy role and email helpers"
 
 ### Task 2.2: Add Tenancy Tables
 
-- [ ] Add Confect tables for users, organizations, organization members,
+- [x] Add Confect tables for users, organizations, organization members,
       workspace members, guest grants, and invitations.
-- [ ] Add status fields needed for suspension/archive enforcement.
-- [ ] Add `deletedAt`, `revokedAt`, or `acceptedAt` fields where lifecycle
+- [x] Add status fields needed for suspension/archive enforcement.
+- [x] Add `deletedAt`, `revokedAt`, or `acceptedAt` fields where lifecycle
       requires single-live-row behavior.
-- [ ] Run `pnpm confect:codegen`.
-- [ ] Run `pnpm check:confect-contracts`.
-- [ ] Commit:
+- [x] Run `pnpm confect:codegen`.
+- [x] Run `pnpm check:confect-contracts`.
+- [x] Commit:
 
 ```bash
 git add packages/convex/confect/tables packages/convex/confect/_generated packages/convex/convex/schema.ts
@@ -813,19 +845,19 @@ git commit -m "feat: add tenancy tables"
 
 ### Task 2.3: Add Effective Role Resolver
 
-- [ ] Write tests for direct membership, org admin baseline, guest grant,
+- [x] Write tests for direct membership, org admin baseline, guest grant,
       precedence tie-break, expired grant, revoked grant, suspended org,
       archived workspace, and duplicate live-row corruption.
-- [ ] Implement `packages/convex/confect/access/auth.ts` with:
+- [x] Implement `packages/convex/confect/access/auth.ts` with:
   - `resolveRoleCandidates`.
   - `highestCandidate`.
   - `resolveEffectiveWorkspaceRole`.
   - `requireWorkspaceMember`.
   - `requireOrganizationMember`.
   - `assertOwningSide`.
-- [ ] Ensure handlers never trust caller-supplied workspace role.
-- [ ] Run `pnpm --dir packages/convex test access-effective-role`.
-- [ ] Commit:
+- [x] Ensure handlers never trust caller-supplied workspace role.
+- [x] Run `pnpm --dir packages/convex test access-effective-role`.
+- [x] Commit:
 
 ```bash
 git add packages/convex/confect/access/auth.ts packages/convex/test/access-effective-role.test.ts
@@ -842,7 +874,7 @@ git commit -m "feat: add effective workspace role resolver"
       conflict.
 - [x] Run `pnpm confect:codegen`.
 - [x] Run provisioning tests and Confect contract checks.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add packages/convex/confect/access/provisioning.ts packages/convex/confect/access/provisioning.spec.ts packages/convex/confect/access/provisioning.impl.ts packages/convex/confect/errors.ts packages/convex/confect/tables/workspaces.ts packages/convex/confect/_generated packages/convex/convex/access/provisioning.ts packages/convex/test/access-provisioning.test.ts
@@ -860,7 +892,7 @@ git commit -m "feat: add workspace provisioning"
       dependency in `docs/template/porting-roadmap.md`.
 - [x] Run `pnpm confect:codegen`.
 - [x] Run access tests.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add packages/convex/confect/access packages/convex/confect/_generated packages/convex/convex/access packages/convex/test/access-lifecycle.test.ts packages/convex/test/access-confect-groups.test.ts docs/template/porting-roadmap.md
@@ -879,7 +911,7 @@ git commit -m "feat: add member and invitation lifecycles"
       wrapper; direct
       `vitest run apps/web/src/providers/workspace.test.tsx     apps/web/src/sample/templateData.test.ts`
       passes.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add apps/web/src/providers/workspace.tsx apps/web/src/providers/workspace.test.tsx
@@ -939,7 +971,7 @@ S281, S284-S285.
       `docs/template/generated/provider-setup-checklist.md` and an explicit next
       step pointing reviewers to provider setup.
 - [x] Run `pnpm check:format`.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add docs/template/env-manifest.md .env.example
@@ -957,7 +989,7 @@ git commit -m "docs: add service env manifest"
       modes.
 - [x] Ensure no model instance is created outside this gateway.
 - [x] Run `pnpm --dir packages/integrations test`.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add packages/integrations/src packages/integrations/src/*.test.ts
@@ -976,7 +1008,7 @@ git commit -m "feat: add guarded llm gateway"
       CLI, and MCP surfaces share the same public error shape.
 - [x] Run `pnpm confect:codegen`.
 - [x] Run `pnpm --dir packages/convex test headless-auth`.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add packages/convex/confect/tables/apiKeys.ts packages/convex/confect/headless packages/convex/confect/_generated packages/convex/test/headless-auth.test.ts
@@ -994,7 +1026,7 @@ git commit -m "feat: add headless api key auth"
       with fake/test/live-ready modes.
 - [x] Run `pnpm confect:codegen`.
 - [x] Run billing and integrations tests.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add packages/convex/confect/tables/billingPlans.ts packages/convex/confect/tables/creditLedger.ts packages/convex/confect/tables/usageEvents.ts packages/convex/confect/_generated packages/integrations/src/dodo.ts packages/integrations/src/dodo.test.ts packages/convex/test/billing-ledger.test.ts
@@ -1011,7 +1043,7 @@ git commit -m "feat: add billing and usage ledger minimum"
       trusted AuthKit issuer/JWKS.
 - [x] Update `docs/template/env-manifest.md` with WorkOS org and AuthKit values.
 - [x] Run WorkOS tests.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add packages/integrations/src/workos.ts packages/integrations/src/workos.test.ts packages/convex/convex/auth.config.ts docs/template/env-manifest.md
@@ -1027,7 +1059,7 @@ git commit -m "feat: add workos auth seam"
 - [x] Add docs in `docs/template/porting-roadmap.md` stating when the real
       Convex component is wired.
 - [x] Run `pnpm --dir packages/integrations test`.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add packages/integrations/src/rateLimit.ts packages/integrations/src/rateLimit.test.ts docs/template/porting-roadmap.md
@@ -1050,7 +1082,7 @@ pnpm --dir packages/notifications test
 pnpm --dir packages/storage test
 ```
 
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add packages/observability packages/notifications packages/storage
@@ -1089,7 +1121,7 @@ git commit -m "feat: add provider service package seams"
 - [x] Add policy kinds for spend limits, agent config, and prompt override.
 - [x] Run `pnpm confect:codegen`.
 - [x] Run policy tests.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add packages/convex/confect/tables/policies.ts packages/convex/confect/policy/kinds packages/convex/confect/_generated packages/convex/test/policy-kinds.test.ts
@@ -1104,7 +1136,7 @@ git commit -m "feat: add policy kind registry"
 - [x] Implement `packages/convex/confect/policy/resolver.ts`.
 - [x] Add policy snapshot output shape for workflow kickoff.
 - [x] Run `pnpm --dir packages/convex test policy-resolver`.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add packages/convex/confect/policy/resolver.ts packages/convex/test/policy-resolver.test.ts
@@ -1120,7 +1152,7 @@ git commit -m "feat: add policy resolver"
 - [x] Add `xmlUserPrompt`.
 - [x] Run `pnpm confect:codegen`.
 - [x] Run prompt tests.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add packages/convex/confect/tables/promptRegistry.ts packages/convex/confect/policy/prompts packages/convex/confect/_generated packages/convex/test/prompt-registry.test.ts
@@ -1136,7 +1168,7 @@ git commit -m "feat: add prompt registry"
       secrets. Decision: no CLI was added in this slice because the implemented
       artifact is a pure deterministic seed plan, not a persistence runner.
 - [x] Run focused tests.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add packages/convex/confect/policy/seed.ts packages/convex/test/policy-seed.test.ts package.json
@@ -1173,7 +1205,7 @@ capability end to end.
       policy not found, prompt not found, LLM disabled, rate limited, spend cap
       exceeded, and provider config invalid.
 - [x] Run contract test and confirm it fails before impl.
-- [ ] Commit the failing contract only if the repo convention allows red commits
+- [x] Commit the failing contract only if the repo convention allows red commits
       in a feature branch; otherwise keep it local until implementation.
 
 ### Task 5.2: Implement Capability Domain And Fake LLM Path
@@ -1183,7 +1215,7 @@ capability end to end.
 - [x] Persist no workflow state in this phase; return a typed capability result.
 - [x] Run `pnpm confect:codegen`.
 - [x] Run source-grounded brief tests.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add packages/convex/confect/capabilities/sourceGroundedBrief.* packages/convex/confect/_generated packages/convex/test/source-grounded-brief.test.ts
@@ -1205,7 +1237,7 @@ pnpm exec tsx apps/cli/src/index.ts describe
 pnpm exec tsx apps/cli/src/index.ts api openapi
 ```
 
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add packages/template-core/src/index.ts apps/cli/src/index.ts tooling/workflow/src/index.ts tooling/workflow/src/*.test.ts
@@ -1219,7 +1251,7 @@ git commit -m "feat: expose brief capability headlessly"
       and policy compliance.
 - [x] Add `tooling/evals/src/source-grounded-brief.test.ts`.
 - [x] Run `pnpm evals`.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add examples/generic-ai-ops/evals tooling/evals/src/source-grounded-brief.test.ts
@@ -1258,7 +1290,7 @@ change/version primitives as needed.
 - [x] Add pure graph validation in `workflows/graph.ts`.
 - [x] Run `pnpm confect:codegen`.
 - [x] Run graph tests.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add packages/convex/confect/tables/workflow*.ts packages/convex/confect/workflows/graph.ts packages/convex/confect/_generated packages/convex/test/workflow-graph.test.ts
@@ -1272,7 +1304,7 @@ git commit -m "feat: add workflow graph model"
 - [x] Implement `evidence.ts` and `trustReceipt.ts`.
 - [x] Use the fingerprint helper from Phase 1.
 - [x] Run trust receipt tests.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add packages/convex/confect/workflows/evidence.ts packages/convex/confect/workflows/trustReceipt.ts packages/convex/test/trust-receipt.test.ts
@@ -1287,7 +1319,7 @@ git commit -m "feat: add workflow evidence and trust receipts"
       capability node.
 - [x] Keep provider calls inside capabilities, not workflows.
 - [x] Run workflow run tests.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add packages/convex/confect/workflows/runGraph.ts packages/convex/test/workflow-run.test.ts
@@ -1302,7 +1334,7 @@ git commit -m "feat: add minimal workflow graph runner"
       current reference app demonstrates the run shape.
 - [x] Update Playwright expectations if text changes.
 - [x] Run hosted browser and visual tests locally against preview.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add packages/template-core/src/index.ts apps/web/src/sample/App.tsx tests/e2e
@@ -1332,7 +1364,7 @@ capability map.
 - [x] Add input schema, description, and optional presentation shaper per tool.
 - [x] Include the `sourceGroundedBrief` capability as the first tool.
 - [x] Run tests.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add packages/convex/confect/agents/defineTools.ts packages/convex/test/agent-tools.test.ts
@@ -1346,7 +1378,7 @@ git commit -m "feat: add typed agent tool surface"
 - [x] Implement runtime with fake/test model first.
 - [x] Use policy-driven agent config from Phase 4.
 - [x] Run runtime tests.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add packages/convex/confect/agents/runtime.ts packages/convex/test/agent-runtime.test.ts
@@ -1360,7 +1392,7 @@ git commit -m "feat: add bounded agent runtime"
 - [x] Ensure workspace access is re-verified.
 - [x] Run `pnpm confect:codegen`.
 - [x] Run agent tests and Confect contract checks.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add packages/convex/confect/agents/assistant.spec.ts packages/convex/confect/agents/assistant.impl.ts packages/convex/confect/_generated
@@ -1448,7 +1480,7 @@ document route.
       provider tree, Notion Kit/block rules, data-loading rules, deployment
       decision, quickstart frontend contract, and migration acceptance criteria.
 - [x] Run `pnpm check:format` and `pnpm check:docs-freshness`.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add docs/design-intake/2026-07-01-template-frontend-stack-source.md docs/template/frontend-architecture.md docs/template/hosting.md docs/template/repo-map.md docs/template/investor-reviewer-packet.md
@@ -1473,7 +1505,7 @@ git commit -m "docs: record frontend stack source audit"
       output changes.
 - [x] Run `pnpm --dir apps/web test`, `pnpm check:route-tree`, and
       `pnpm smoke:web-static`.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add apps/web package.json pnpm-lock.yaml tooling/quality docs/template
@@ -1507,7 +1539,7 @@ git commit -m "feat: add tanstack start web runtime"
       children, mobile/collapsed controls render, and the Notion stylesheet is
       loaded.
 - [x] Run app tests and hosted visual smoke.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add apps/web/src packages/ui/src tests/e2e package.json pnpm-lock.yaml
@@ -1531,7 +1563,7 @@ git commit -m "feat: port notion kit app shell"
 - [x] Add UI adapter tests for loading, empty, ready/read, ready/edit, skipped,
       mutation success, typed failure, transport failure, and parse failure.
 - [x] Run `pnpm --dir apps/web test` and `pnpm check:layer-boundaries`.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add apps/web/src/adapters apps/web/src/features packages/ui/src
@@ -1550,7 +1582,7 @@ git commit -m "feat: add confect react state adapters"
       instructions; RAG/vector search is optional; Trust Receipts carry the
       provenance.
 - [x] Run app tests and browser smoke.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add apps/web/src/features/brain packages/ui/src tests/e2e
@@ -1569,11 +1601,11 @@ git commit -m "feat: add brain source surface"
 - [x] Add run status, stage list, evidence snapshot, policy snapshot, and Trust
       Receipt panel.
 - [x] Add validation hints on graph nodes/edges only as a derived UI overlay.
-- [ ] Add tests for graph derivation, command reduction, validation-before-save,
+- [x] Add tests for graph derivation, command reduction, validation-before-save,
       route rendering, reduced motion, and visual baselines.
 - [x] Run `pnpm --dir packages/workflow-ui test`, app tests, browser smoke, and
       `pnpm check:workflow-graph-boundary`.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add packages/workflow-ui apps/web/src/features/workflows apps/web/src/features/receipts tests/e2e
@@ -1582,7 +1614,7 @@ git commit -m "feat: add workflow receipt surface"
 
 ### Task 8.6: Add Settings, Provider Health, Billing, And Onboarding Surfaces
 
-- [ ] Add settings with `@notion-kit/settings-panel`, workspace card, members
+- [x] Add settings with `@notion-kit/settings-panel`, workspace card, members
       card, integration health cards, billing/credits card, and fake/live-ready
       provider status.
 - [x] Add onboarding surfaces for first workspace setup, sample Brain source
@@ -1591,10 +1623,10 @@ git commit -m "feat: add workflow receipt surface"
 - [x] Keep WorkOS, PostHog, Dodo, MailerSend, storage, search, and LLM provider
       state behind adapters. The frontend renders provider posture; it does not
       construct provider SDK clients.
-- [ ] Add tests for admin vs non-admin settings, missing workspace, fake
+- [x] Add tests for admin vs non-admin settings, missing workspace, fake
       billing, provider warning states, and safe env rendering.
 - [x] Run app tests and browser smoke.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add apps/web/src/features/settings apps/web/src/features/onboarding apps/web/src/providers packages/ui/src
@@ -1611,12 +1643,12 @@ git commit -m "feat: add settings and onboarding surfaces"
       nonessential shell transitions when requested.
 - [x] Add Playwright accessibility smoke for desktop and mobile reference
       routes.
-- [ ] Add or update gates for Notion primitive usage, block-layer boundaries,
+- [x] Add or update gates for Notion primitive usage, block-layer boundaries,
       route thinness, generated route tree freshness, text overflow, visual
       baselines, and CSS loaded checks.
 - [x] Run app tests and browser smoke.
 - [x] Run hosted smoke, visual smoke, and route/layer gates.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add apps/web/src packages/ui/src tests/e2e tooling/quality package.json pnpm-lock.yaml docs/rule-coverage.md
@@ -1704,7 +1736,7 @@ and make deployment/security claims real.
 - [x] Add `pnpm check:generators` coverage for the generator output contract and
       CLI help text.
 - [x] Run `pnpm --dir tooling/generators test` and `pnpm check:generators`.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add tooling/generators docs/template/app-factory-guide.md docs/template/quickstart.md docs/template/generator-output-contract.md docs/template/client-handoff-packet.md docs/template/template-release-process.md docs/template/demo-seed-contract.md package.json
@@ -1721,7 +1753,7 @@ git commit -m "feat: harden app factory generators"
 - [x] Keep current wrappers so `pnpm verify` remains stable.
 - [x] Run `pnpm check:knip`, `pnpm check:layer-boundaries`, and
       `pnpm check:types-coverage`.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add package.json pnpm-lock.yaml tooling/quality
@@ -1736,7 +1768,7 @@ git commit -m "chore: replace dependency and type gates"
 - [x] Add AST/static checks for auth demo bypass, joined-row workspace guard,
       HTTP fail-closed order, and public source-map blocking.
 - [x] Run focused quality tests.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add tooling/quality package.json pnpm-lock.yaml .gitleaks.toml
@@ -1752,7 +1784,7 @@ git commit -m "chore: add real security and quality gates"
 - [x] Add Buildkite staging deploy and production promote steps that promote the
       exact staged SHA.
 - [x] Run release tooling tests.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add project.config.json scripts .buildkite package.json tooling/release/src
@@ -1769,7 +1801,7 @@ git commit -m "chore: add deploy promotion tooling"
 - [x] Add outbound alert seam in `packages/notifications`.
 - [x] Run tests and update docs from planned to real only for implemented
       pieces.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add packages/convex packages/notifications docs/template/security.md docs/template/operations-runbook.md
@@ -1789,7 +1821,7 @@ git commit -m "feat: add ops and security hardening"
 - [x] Ensure the repo docs explain how future workers retrieve AI gate verdicts
       and apply fixes without guessing.
 - [x] Run Buildkite/tooling tests and `pnpm check:ci-completeness`.
-- [ ] Commit:
+- [x] Commit:
 
 ```bash
 git add .buildkite tooling/quality tooling/stack tooling/workflow docs/template/operations-runbook.md docs/rule-coverage.md package.json
