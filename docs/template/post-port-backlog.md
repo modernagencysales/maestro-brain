@@ -18,7 +18,7 @@ here respects `do-not-port-register.md`.
 | Mutation testing was fake               | Resolved | `mutation.sh` runs Stryker with `stryker.conf.mjs`.                                                                                                                                          |
 | App factory was thin                    | Resolved | `tooling/generators` emits compiling modules; init/doctor/promote/upgrade/private-package import covered by tests. Enhancement: P11.                                                         |
 | No provenance/history                   | Resolved | `how-this-relates-to-maestro.md`, maturity model, threat model, do-not-port register, 1,383-line porting backlog.                                                                            |
-| 35MB vendored `repos/` bloat            | Open     | P8. `agent-patterns/*` now covers their purpose; safe to delete.                                                                                                                             |
+| 35MB vendored `repos/` bloat            | Resolved | Kept by decision (P8): agents code better with upstream source present; history retains blobs regardless.                                                                                    |
 | Misleading gate names                   | Partial  | Several real now; remaining descriptor gates need pin-only labeling (P9).                                                                                                                    |
 | Reference app is a static brochure      | Partial  | Real shell (router, providers, features, confect-state) exists but `apps/web/src/main.tsx` still mounts `sample/App` (P3).                                                                   |
 | Packages with zero tests                | Partial  | ui/observability/storage/notifications now tested; `packages/search` is an empty stub (P4).                                                                                                  |
@@ -66,10 +66,11 @@ here respects `do-not-port-register.md`.
    recipe pins, and the secretless first stage. Add `upload-pipeline.sh`
    conditional scheduling (mutation/auto-fix never in PR job graphs) and
    `auto-fix.sh` as the scheduled self-repair job.
-8. **Delete `repos/`.** 35MB of vendored effect/confect source, unused by the
-   build, replaced by `agent-patterns/*`. Provide a pinned fetch script for
-   agents that want upstream source. Maestro's model: `vendor/` holds one 127KB
-   tarball.
+8. **~~Delete `repos/`~~ — decided: keep.** The vendored effect/confect source
+   stays in the repo intentionally: AI agents code measurably better with the
+   upstream source and tests present locally, and git history retains the blobs
+   anyway so deletion saves no real clone weight. Do not remove.
+   `agent-patterns/*` remains the first read; `repos/*` is the deep reference.
 
 ## Priority 3 — Dev workflow and curation
 
