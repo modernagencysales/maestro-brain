@@ -52,10 +52,9 @@ an invention:
   intentional bet to get stronger end-to-end type safety and tighter AI-agent
   coding constraints on everything we build from here forward. Do not read the
   Confect layer as "how maestro is built" — read it as "how we intend to build
-  the next apps." The template also pins reference clones of Effect and Confect
-  (fetched on demand by `scripts/fetch-reference-repos.sh`) as read-only source
-  references so coding agents can inspect real upstream patterns before writing
-  typed backend code.
+  the next apps." The template also vendors `repos/effect/` and `repos/confect/`
+  as read-only source references so coding agents can inspect real upstream
+  patterns before writing typed backend code.
 
 - **The template starts on fakes.** Providers default to fake/local mode so the
   shell runs with no client secrets. Real SDKs are installed and the adapters

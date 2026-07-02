@@ -12,8 +12,7 @@ Use this when asking an AI worker to modify the template or a client fork.
 
 ## Effect And Confect
 
-- Reference clones of Effect/Confect are optional: run
-  `scripts/fetch-reference-repos.sh` to fetch them into `repos/` (gitignored).
+- Treat `repos/effect` and `repos/confect` as read-only reference material.
 - Do not import from `repos/*`.
 - Prefer local pattern files and vendored source examples over guesses.
 - Use Confect specs, Effect schemas, typed errors, generated refs, and focused
