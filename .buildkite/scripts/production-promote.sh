@@ -13,9 +13,12 @@ PRODUCTION_BRANCH="$(node scripts/_project-config.mjs get production cloudflareB
 pnpm exec tsx tooling/release/src/index.ts deploy-doctor production
 pnpm exec tsx tooling/release/src/index.ts promote-plan "${STAGED_SHA}" "${CURRENT_SHA}"
 
+VITE_CONVEX_URL="${VITE_CONVEX_URL:-$(node scripts/_project-config.mjs get production convexUrl)}"
+export VITE_CONVEX_URL
+
 pnpm build
 pnpm smoke:web-static
-pnpm dlx wrangler@latest pages deploy apps/web/dist \
+pnpm dlx wrangler@latest pages deploy apps/web/dist/client \
   --project-name "${PROJECT_NAME}" \
   --branch "${PRODUCTION_BRANCH}" \
   --commit-dirty=true

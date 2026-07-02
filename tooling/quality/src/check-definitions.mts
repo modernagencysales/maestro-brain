@@ -107,29 +107,34 @@ export const checkDescriptors = {
           "maestro-template-production",
           "CLOUDFLARE_API_TOKEN",
           "CONVEX_DEPLOY_KEY",
+          "convexUrl",
         ],
         message:
-          "project config must declare deploy environments and required secret names",
+          "project config must declare deploy environments, Convex URLs, and required secret names",
       },
       {
         file: ".buildkite/scripts/staging-deploy.sh",
         includes: [
           "deploy-doctor staging",
           "scripts/_project-config.mjs get staging cloudflarePagesProject",
+          "scripts/_project-config.mjs get staging convexUrl",
+          "pages deploy apps/web/dist/client",
           "buildkite-agent meta-data set staged-sha",
         ],
         message:
-          "staging deploy must use project config and record the staged SHA",
+          "staging deploy must use project config, bake the Convex URL, deploy the client build, and record the staged SHA",
       },
       {
         file: ".buildkite/scripts/production-promote.sh",
         includes: [
           "deploy-doctor production",
           "promote-plan",
+          "scripts/_project-config.mjs get production convexUrl",
+          "pages deploy apps/web/dist/client",
           "buildkite-agent meta-data get staged-sha",
         ],
         message:
-          "production promote must use project config and verify the staged SHA",
+          "production promote must use project config, bake the Convex URL, deploy the client build, and verify the staged SHA",
       },
     ],
   },

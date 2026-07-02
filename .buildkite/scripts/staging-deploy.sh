@@ -7,9 +7,12 @@ BRANCH_NAME="$(node scripts/_project-config.mjs get staging cloudflareBranch)"
 
 pnpm exec tsx tooling/release/src/index.ts deploy-doctor staging
 
+VITE_CONVEX_URL="${VITE_CONVEX_URL:-$(node scripts/_project-config.mjs get staging convexUrl)}"
+export VITE_CONVEX_URL
+
 pnpm build
 pnpm smoke:web-static
-pnpm dlx wrangler@latest pages deploy apps/web/dist \
+pnpm dlx wrangler@latest pages deploy apps/web/dist/client \
   --project-name "${PROJECT_NAME}" \
   --branch "${BRANCH_NAME}" \
   --commit-dirty=true
