@@ -10,6 +10,11 @@ fi
 PROJECT_NAME="$(node scripts/_project-config.mjs get production cloudflarePagesProject)"
 PRODUCTION_BRANCH="$(node scripts/_project-config.mjs get production cloudflareBranch)"
 
+# Cluster secrets namespace this pipeline's Convex key so it can never
+# collide with another pipeline's CONVEX_DEPLOY_KEY in the shared cluster.
+CONVEX_DEPLOY_KEY="${CONVEX_DEPLOY_KEY:-${TEMPLATE_CONVEX_DEPLOY_KEY:-}}"
+export CONVEX_DEPLOY_KEY
+
 pnpm exec tsx tooling/release/src/index.ts deploy-doctor production
 pnpm exec tsx tooling/release/src/index.ts promote-plan "${STAGED_SHA}" "${CURRENT_SHA}"
 

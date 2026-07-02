@@ -5,6 +5,11 @@ COMMIT_SHA="${BUILDKITE_COMMIT:-$(git rev-parse HEAD)}"
 PROJECT_NAME="$(node scripts/_project-config.mjs get staging cloudflarePagesProject)"
 BRANCH_NAME="$(node scripts/_project-config.mjs get staging cloudflareBranch)"
 
+# Cluster secrets namespace this pipeline's Convex key so it can never
+# collide with another pipeline's CONVEX_DEPLOY_KEY in the shared cluster.
+CONVEX_DEPLOY_KEY="${CONVEX_DEPLOY_KEY:-${TEMPLATE_CONVEX_DEPLOY_KEY:-}}"
+export CONVEX_DEPLOY_KEY
+
 pnpm exec tsx tooling/release/src/index.ts deploy-doctor staging
 
 # Backend first: CONVEX_DEPLOY_KEY (validated by deploy-doctor) targets the

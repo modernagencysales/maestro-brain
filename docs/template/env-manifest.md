@@ -36,6 +36,15 @@ rotation guidance.
 | Cloudflare                | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_PAGES_PROJECT`, `CLOUDFLARE_PAGES_BRANCH`, `TEMPLATE_HOSTED_URL`        | Deploy owner            | hosted smoke, Pages deploy, future Workers decision gate               | Fake values are enough for local docs and generator output; hosted smoke needs a real URL                                                                       | Required for hosted environments; token must be scoped to the project and environment                                  | Rotate token on deploy-admin changes; review Pages/Workers mapping before promotion                               |
 | Buildkite                 | `BUILDKITE_ORGANIZATION_SLUG`, `BUILDKITE_PIPELINE_SLUG`, `BUILDKITE_API_TOKEN`, `BUILDKITE_AGENT_TOKEN`                             | CI owner                | CI status checks, AI gates, release promotion, agent workers           | Fake tokens are placeholders only; local quickstart does not call Buildkite                                                                                     | Required for CI-backed production promotion and AI gate workflows                                                      | Rotate API and agent tokens after CI admin changes, agent image changes, and any log exposure                     |
 
+The template's own CI keeps one Convex deployment behind both Pages
+environments: the demo backend is read-only seeded data, so staging and
+production `convexUrl` both point at the production deployment and CI deploys
+functions with the cluster secret `TEMPLATE_CONVEX_DEPLOY_KEY` (namespaced —
+plain `CONVEX_DEPLOY_KEY` in the shared Buildkite cluster belongs to another
+pipeline). Forks with real tenant data must mint separate staging/production
+deployments and keys before the staging→production promotion gate means anything
+for the backend.
+
 WorkOS forks also derive Convex trusted JWT settings from the AuthKit issuer,
 JWKS URL, and client/application ID. The template ships a fake-safe
 `packages/convex/convex/auth.config.ts`; production forks must replace the

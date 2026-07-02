@@ -5,11 +5,11 @@
   "environments": {
     "staging": {
       "name": "staging",
-      "domain": "staging.maestro-template.pages.dev",
+      "domain": "maestro-template-staging.pages.dev",
       "cloudflarePagesProject": "maestro-template-staging",
       "cloudflareBranch": "staging",
       "convexDeployName": "maestro-template-staging",
-      "convexUrl": "https://merry-tiger-953.convex.cloud",
+      "convexUrl": "https://exciting-cat-536.convex.cloud",
       "requiredEnvGroups": [
         "cloudflare",
         "convex",
