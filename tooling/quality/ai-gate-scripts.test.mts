@@ -21,7 +21,8 @@ async function run(
   return await new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: repoRoot,
-      env: { ...process.env, ...env },
+      // The CI toolchain bootstrap must never run inside a test timeout.
+      env: { ...process.env, TEMPLATE_CI_SETUP: "skip", ...env },
       stdio: ["ignore", "pipe", "pipe"],
     });
     let stdout = "";

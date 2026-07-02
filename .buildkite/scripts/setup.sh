@@ -3,6 +3,17 @@
 # so PATH changes persist for subsequent commands.
 set -euo pipefail
 
+# Full bootstrap is only for bare CI agents. Unit tests exercise the step
+# scripts (mutation-script.test.mts, ai-gate-scripts.test.mts) and set
+# TEMPLATE_CI_SETUP=skip so a frozen install never runs inside a test
+# timeout; local operator runs with a working toolchain skip it too.
+if [[ "${TEMPLATE_CI_SETUP:-}" == "skip" ]]; then
+  return 0
+fi
+if [[ "${BUILDKITE:-}" != "true" ]] && command -v pnpm &>/dev/null; then
+  return 0
+fi
+
 # Node.js via fnm (fast, reads .nvmrc automatically).
 # CI images may prebake the exact fnm version. When they do not, install the
 # pinned release archive with a checked SHA-256; never execute remote installers
