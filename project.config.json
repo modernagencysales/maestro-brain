@@ -19,8 +19,7 @@
       "requiredSecrets": [
         "CLOUDFLARE_API_TOKEN",
         "CLOUDFLARE_ACCOUNT_ID",
-        "CONVEX_DEPLOY_KEY",
-        "BUILDKITE_API_TOKEN"
+        "CONVEX_DEPLOY_KEY"
       ]
     },
     "production": {
@@ -44,15 +43,7 @@
       "requiredSecrets": [
         "CLOUDFLARE_API_TOKEN",
         "CLOUDFLARE_ACCOUNT_ID",
-        "CONVEX_DEPLOY_KEY",
-        "WORKOS_API_KEY",
-        "WORKOS_CLIENT_ID",
-        "WORKOS_COOKIE_PASSWORD",
-        "POSTHOG_API_KEY",
-        "DODO_API_KEY",
-        "MAILERSEND_API_KEY",
-        "OPENROUTER_API_KEY",
-        "STORAGE_SIGNING_SECRET"
+        "CONVEX_DEPLOY_KEY"
       ]
     }
   }
