@@ -13,6 +13,12 @@ PRODUCTION_BRANCH="$(node scripts/_project-config.mjs get production cloudflareB
 pnpm exec tsx tooling/release/src/index.ts deploy-doctor production
 pnpm exec tsx tooling/release/src/index.ts promote-plan "${STAGED_SHA}" "${CURRENT_SHA}"
 
+# Backend first: CONVEX_DEPLOY_KEY (validated by deploy-doctor) targets the
+# production deployment; the seed is idempotent and only creates the fixed
+# demo workspace. The frontend below is built against the same deployment.
+(cd packages/convex && pnpm exec convex deploy -y)
+(cd packages/convex && pnpm exec convex run demo/showcase:seed)
+
 VITE_CONVEX_URL="${VITE_CONVEX_URL:-$(node scripts/_project-config.mjs get production convexUrl)}"
 export VITE_CONVEX_URL
 
