@@ -16,12 +16,18 @@ export default {
     "packages/convex/confect/access/lifecycle.ts",
     "packages/convex/confect/workflows/runGraph.ts",
   ],
+  // Sandbox contents: everything the scoped vitest run needs must survive
+  // this list — the convex tests import confect/_generated, so generated
+  // files stay in (the `mutate` list already keeps them unmutated).
   ignorePatterns: [
+    ".pnpm-store/**",
+    ".qlty/**",
+    ".wrangler/**",
+    "test-results/**",
     "apps/**",
     "docs/**",
     "node_modules/**",
     "packages/**/dist/**",
-    "packages/convex/confect/_generated/**",
     "repos/**",
     "vendor/**",
   ],
@@ -31,7 +37,7 @@ export default {
     break: 55,
   },
   vitest: {
-    configFile: "vitest.config.ts",
+    configFile: "vitest.stryker.config.ts",
     related: true,
   },
   typescriptChecker: {
