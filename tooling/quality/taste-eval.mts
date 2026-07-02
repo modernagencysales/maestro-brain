@@ -1,7 +1,12 @@
-import { hasMode } from "./src/script-mode.mts";
+/**
+ * taste-eval — thin CLI entrypoint for taste judge calibration
+ * (`pnpm taste:eval`). Runs the calibration fixtures under
+ * tooling/quality/__fixtures__/taste and asserts the judge passes good code
+ * and blocks bad code. Delegates to taste-review.mts with --eval forced.
+ */
+import { isDirectRun } from "./src/direct-run.mts";
+import { runTasteCli } from "./taste-review.mts";
 
-if (hasMode("fake")) {
-  console.log("taste:eval: ok (fake mode)");
-} else {
-  console.log("taste:eval: ok (local fixture path pending)");
+if (isDirectRun(import.meta.url)) {
+  await runTasteCli([...process.argv, "--eval"]);
 }

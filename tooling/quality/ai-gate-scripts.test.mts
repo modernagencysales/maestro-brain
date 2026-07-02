@@ -36,21 +36,29 @@ async function run(
 
 describe("AI and PR gate scripts", () => {
   it("AI Buildkite wrappers fail closed without provider auth", async () => {
-    const taste = await run("bash", [".buildkite/scripts/taste.sh"], {
+    const noProviderEnv = {
+      OPENROUTER_API_KEY: "",
       OPENAI_API_KEY: "",
-    });
+    };
+    const taste = await run(
+      "bash",
+      [".buildkite/scripts/taste.sh"],
+      noProviderEnv,
+    );
     const contract = await run(
       "bash",
       [".buildkite/scripts/contract-review.sh"],
-      {
-        OPENAI_API_KEY: "",
-      },
+      noProviderEnv,
     );
 
     expect(taste.exitCode).toBe(1);
-    expect(taste.stderr).toContain("requires OPENAI_API_KEY");
+    expect(taste.stderr).toContain(
+      "requires OPENROUTER_API_KEY or OPENAI_API_KEY",
+    );
     expect(contract.exitCode).toBe(1);
-    expect(contract.stderr).toContain("requires OPENAI_API_KEY");
+    expect(contract.stderr).toContain(
+      "requires OPENROUTER_API_KEY or OPENAI_API_KEY",
+    );
   });
 
   it("AI Buildkite wrappers allow explicit fake mode only", async () => {

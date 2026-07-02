@@ -10,8 +10,46 @@ export type AiVerdictParseResult =
       readonly reason: string;
     };
 
+const VERDICT_MARKER_PREFIXES = [
+  "TASTE_VERDICT_JSON=",
+  "CONTRACT_VERDICT_JSON=",
+] as const;
+
+// A gate-emitted VERDICT_JSON marker is authoritative over loose "verdict=pass"
+// text elsewhere in the log: a blocking or unparseable marker fails closed even
+// when surrounding log lines look like a pass.
+function lastMarkerVerdict(input: string): AiVerdictParseResult | null {
+  let lastMarkerJson: string | null = null;
+  for (const line of input.split("\n")) {
+    for (const prefix of VERDICT_MARKER_PREFIXES) {
+      if (line.startsWith(prefix)) {
+        lastMarkerJson = line.slice(prefix.length).trim();
+      }
+    }
+  }
+  if (lastMarkerJson === null) return null;
+
+  try {
+    const parsed = JSON.parse(lastMarkerJson) as unknown;
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      "verdict" in parsed &&
+      parsed.verdict === "pass"
+    ) {
+      return { ok: true, verdict: "pass" };
+    }
+  } catch {
+    // Fall through to the shared fail-closed result.
+  }
+  return { ok: false, reason: "blocking or unparseable AI gate verdict" };
+}
+
 export function parseAiVerdict(input: string): AiVerdictParseResult {
   const trimmed = input.trim();
+
+  const markerResult = lastMarkerVerdict(trimmed);
+  if (markerResult !== null) return markerResult;
 
   if (/verdict\s*=\s*pass/i.test(trimmed)) {
     return { ok: true, verdict: "pass" };

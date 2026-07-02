@@ -27,4 +27,44 @@ describe("extract-ai-verdict", () => {
       reason: "missing parseable pass verdict",
     });
   });
+
+  it("accepts gate logs carrying a passing VERDICT_JSON marker", () => {
+    const tasteLog = [
+      "taste-review: no changed source files",
+      'TASTE_VERDICT_JSON={"verdict":"pass","files":[]}',
+      "taste review passed (taste-v1)",
+    ].join("\n");
+    expect(parseAiVerdict(tasteLog)).toEqual({ ok: true, verdict: "pass" });
+
+    const contractLog = [
+      '{"verdict":"pass","findings":[]}',
+      'CONTRACT_VERDICT_JSON={"verdict":"pass","findings":[]}',
+    ].join("\n");
+    expect(parseAiVerdict(contractLog)).toEqual({ ok: true, verdict: "pass" });
+  });
+
+  it("uses the last marker so retry logs settle on the final verdict", () => {
+    const log = [
+      'TASTE_VERDICT_JSON={"verdict":"block","files":[]}',
+      "Attempt 1 failed - retrying",
+      'TASTE_VERDICT_JSON={"verdict":"pass","files":[]}',
+    ].join("\n");
+    expect(parseAiVerdict(log)).toEqual({ ok: true, verdict: "pass" });
+  });
+
+  it("fails closed on blocking or unparseable markers even with pass text nearby", () => {
+    const blockingLog = [
+      "taste: verdict=pass reason=stale-line",
+      'TASTE_VERDICT_JSON={"verdict":"block","files":[]}',
+    ].join("\n");
+    expect(parseAiVerdict(blockingLog)).toEqual({
+      ok: false,
+      reason: "blocking or unparseable AI gate verdict",
+    });
+
+    expect(parseAiVerdict("CONTRACT_VERDICT_JSON={not json")).toEqual({
+      ok: false,
+      reason: "blocking or unparseable AI gate verdict",
+    });
+  });
 });

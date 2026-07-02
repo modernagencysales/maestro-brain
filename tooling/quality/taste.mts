@@ -1,10 +1,9 @@
-import { hasMode, isCi } from "./src/script-mode.mts";
+/**
+ * taste — thin CLI entrypoint for the taste AI gate (`pnpm taste`).
+ * All review logic lives in taste-review.mts; this file only forwards argv so
+ * the root package.json script name stays stable.
+ */
+import { isDirectRun } from "./src/direct-run.mts";
+import { runTasteCli } from "./taste-review.mts";
 
-if (hasMode("fake")) {
-  console.log("taste: verdict=pass reason=fake-mode");
-} else if (isCi() && !process.env.OPENAI_API_KEY) {
-  console.error("taste: missing OPENAI_API_KEY in CI");
-  process.exitCode = 1;
-} else {
-  console.log("taste: local no-op; pass --mode fake for test verdicts");
-}
+if (isDirectRun(import.meta.url)) await runTasteCli(process.argv);
