@@ -2,12 +2,12 @@
   "name": "@maestro-template/convex",
   "private": true,
   "type": "module",
-  "main": "dist/index.js",
+  "main": "dist/src/index.js",
   "types": "src/index.ts",
   "exports": {
     ".": {
       "types": "./src/index.ts",
-      "default": "./dist/index.js"
+      "default": "./dist/src/index.js"
     }
   },
   "scripts": {

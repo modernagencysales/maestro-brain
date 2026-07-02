@@ -5,6 +5,7 @@ export type WorkosConvexAuthConfig = {
       readonly issuer: string;
       readonly jwks: string;
       readonly applicationID: string;
+      readonly algorithm: "RS256";
     },
   ];
 };
@@ -20,6 +21,8 @@ export const deriveWorkosConvexAuthConfig = (input: {
       issuer: input.issuer,
       jwks: input.jwksUrl,
       applicationID: input.applicationId,
+      // Convex rejects customJwt providers without an explicit algorithm.
+      algorithm: "RS256",
     },
   ],
 });

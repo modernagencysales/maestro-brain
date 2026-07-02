@@ -4,6 +4,7 @@ import {
   runTemplateApiOperation,
   type TemplateApiRequest,
 } from "@maestro-template/workflow-tooling";
+import { httpActionGeneric, httpRouter } from "convex/server";
 
 export type TemplateHttpRoute = {
   readonly path: string;
@@ -165,4 +166,20 @@ export const handleTemplateHttpRequest = async (
   });
 };
 
-export default handleTemplateHttpRequest;
+/**
+ * The deployable router. Convex requires convex/http's default export to be
+ * an httpRouter, so every declared route is mounted onto one here; dispatch
+ * (including the fail-closed 404) stays in handleTemplateHttpRequest above.
+ */
+const buildTemplateHttpRouter = () => {
+  const router = httpRouter();
+  const handler = httpActionGeneric(async (_ctx, request) =>
+    handleTemplateHttpRequest(request),
+  );
+  for (const route of templateHttpRoutes) {
+    router.route({ path: route.path, method: route.method, handler });
+  }
+  return router;
+};
+
+export default buildTemplateHttpRouter();

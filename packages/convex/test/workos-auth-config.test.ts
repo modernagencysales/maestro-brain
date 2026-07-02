@@ -9,6 +9,7 @@ describe("Convex WorkOS auth config", () => {
       type: "customJwt",
       issuer: "https://api.workos.com",
       applicationID: "client_fake_local_key",
+      algorithm: "RS256",
     });
     expect(
       deriveWorkosConvexAuthConfig({

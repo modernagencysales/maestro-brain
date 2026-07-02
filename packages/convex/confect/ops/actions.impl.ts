@@ -1,14 +1,14 @@
-import { createHash } from "node:crypto";
 import { FunctionImpl, GroupImpl } from "@confect/server";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import databaseSchema from "../_generated/schema";
+import { sha256Hex } from "../shared/sha256";
 import actions from "./actions.spec";
 
 const now = 1_700_000_000_000;
 
-const hashSecret = (value: string): string =>
-  `sha256:${createHash("sha256").update(value).digest("hex")}`;
+// node:crypto is unavailable in the Convex isolate runtime.
+const hashSecret = (value: string): string => `sha256:${sha256Hex(value)}`;
 
 const enqueueAction = FunctionImpl.make(
   databaseSchema,

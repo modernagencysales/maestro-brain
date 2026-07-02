@@ -10,8 +10,21 @@ const readJson = async (response: Response): Promise<unknown> =>
   JSON.parse(await response.text());
 
 describe("template HTTP docs routes", () => {
-  it("default-exports the handler expected by generated Convex HTTP bridge", () => {
-    expect(templateHttp).toBe(handleTemplateHttpRequest);
+  it("default-exports a Convex router covering every declared route", () => {
+    const byPathThenMethod = (
+      a: { path: string; method: string },
+      b: { path: string; method: string },
+    ) => a.path.localeCompare(b.path) || a.method.localeCompare(b.method);
+    const routes = templateHttp
+      .getRoutes()
+      .map(([path, method]) => ({ path, method }))
+      .sort(byPathThenMethod);
+
+    expect(routes).toEqual(
+      templateHttpRoutes
+        .map(({ path, method }) => ({ path, method }))
+        .sort(byPathThenMethod),
+    );
   });
 
   it("declares OpenAPI, Scalar docs, and executable API routes", () => {
