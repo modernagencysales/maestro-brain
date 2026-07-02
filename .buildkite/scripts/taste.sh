@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
+# Hosted agents are bare: install pinned node/pnpm and run frozen install.
+source "$(dirname "$0")/setup.sh"
 # taste — required AI gate. Runs the LLM taste judge over the PR diff and
 # fails closed: no provider key, no verdict marker, or a blocking verdict all
 # exit non-zero. `--mode fake` is the deterministic no-network wiring check.

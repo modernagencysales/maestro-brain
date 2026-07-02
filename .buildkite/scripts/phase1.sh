@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Hosted agents are bare: install pinned node/pnpm and run frozen install.
+source "$(dirname "$0")/setup.sh"
+
 if [[ -n "${GRAPHITE_TOKEN:-}" ]]; then
   echo "Graphite CI optimizer configured"
 else

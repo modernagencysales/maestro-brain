@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
+# Hosted agents are bare: install pinned node/pnpm and run frozen install.
+source "$(dirname "$0")/setup.sh"
 # contract-review — required AI gate. Judges the whole PR against AGENTS.md and
 # the contract-review rubric, failing closed: no provider key, no verdict
 # marker, or a blocking verdict all exit non-zero. `--mode fake` is the

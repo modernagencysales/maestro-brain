@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Hosted agents are bare: install pinned node/pnpm and run frozen install.
+source "$(dirname "$0")/setup.sh"
+
 COMMIT_SHA="${BUILDKITE_COMMIT:-$(git rev-parse HEAD)}"
 PROJECT_NAME="$(node scripts/_project-config.mjs get staging cloudflarePagesProject)"
 BRANCH_NAME="$(node scripts/_project-config.mjs get staging cloudflareBranch)"

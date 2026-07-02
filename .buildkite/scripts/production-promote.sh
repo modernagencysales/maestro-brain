@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Hosted agents are bare: install pinned node/pnpm and run frozen install.
+source "$(dirname "$0")/setup.sh"
+
 CURRENT_SHA="${BUILDKITE_COMMIT:-$(git rev-parse HEAD)}"
 if command -v buildkite-agent >/dev/null 2>&1; then
   STAGED_SHA="${STAGED_SHA:-$(buildkite-agent meta-data get staged-sha)}"

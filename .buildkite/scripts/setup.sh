@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+# Shared Node.js + pnpm bootstrap. Sourced (not executed) by each step script
+# so PATH changes persist for subsequent commands.
+set -euo pipefail
+
+# Node.js via fnm (fast, reads .nvmrc automatically).
+# CI images may prebake the exact fnm version. When they do not, install the
+# pinned release archive with a checked SHA-256; never execute remote installers
+# from PR-controlled scripts.
+FNM_VERSION="1.38.1"
+FNM_LINUX_ZIP_SHA256="b69e5c9a05c1e17e4a7de9a17df14ba430d049f2591af791a6f850a170296069"
+FNM_LINUX_ZIP_URL="https://github.com/Schniz/fnm/releases/download/v${FNM_VERSION}/fnm-linux.zip"
+
+sha256_file() {
+  if command -v sha256sum &>/dev/null; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
+
+install_pinned_fnm() {
+  if ! command -v curl &>/dev/null; then
+    echo "curl must be preinstalled to fetch pinned fnm ${FNM_VERSION}." >&2
+    exit 1
+  fi
+  if ! command -v python3 &>/dev/null; then
+    echo "python3 must be preinstalled to unpack pinned fnm ${FNM_VERSION}." >&2
+    exit 1
+  fi
+  local tmp_dir archive actual_sha install_dir
+  tmp_dir="$(mktemp -d)"
+  archive="$tmp_dir/fnm-linux.zip"
+  curl -fsSL -o "$archive" "$FNM_LINUX_ZIP_URL"
+  actual_sha="$(sha256_file "$archive")"
+  if [[ "$actual_sha" != "$FNM_LINUX_ZIP_SHA256" ]]; then
+    echo "fnm ${FNM_VERSION} checksum mismatch: expected ${FNM_LINUX_ZIP_SHA256}, got ${actual_sha}" >&2
+    rm -rf "$tmp_dir"
+    exit 1
+  fi
+  python3 -m zipfile -e "$archive" "$tmp_dir/extract"
+  install_dir="${HOME:-$PWD}/.local/bin"
+  mkdir -p "$install_dir"
+  install -m 0755 "$tmp_dir/extract/fnm" "$install_dir/fnm"
+  rm -rf "$tmp_dir"
+  export PATH="$install_dir:$PATH"
+}
+
+if ! command -v fnm &>/dev/null && ! { command -v node &>/dev/null && command -v pnpm &>/dev/null; }; then
+  install_pinned_fnm
+fi
+
+if command -v fnm &>/dev/null; then
+  if ! fnm --version | grep -Eq "(^| )${FNM_VERSION}($| )"; then
+    echo "fnm version mismatch; expected $FNM_VERSION, got: $(fnm --version)" >&2
+    exit 1
+  fi
+  eval "$(fnm env --shell bash)"
+  fnm install
+  fnm use
+elif command -v node &>/dev/null && command -v pnpm &>/dev/null; then
+  echo "fnm $FNM_VERSION not present; using preinstalled node $(node --version) and pnpm $(pnpm --version)."
+else
+  echo "fnm $FNM_VERSION or preinstalled node+pnpm must be present on the Buildkite image; refusing unchecked remote installer." >&2
+  exit 1
+fi
+
+# pnpm via corepack
+if command -v corepack &>/dev/null; then
+  corepack enable
+  corepack prepare --activate 2>/dev/null || true
+fi
+
+# Keep the pnpm store inside the workspace so Buildkite's hosted cache volume can
+# restore/save it across ephemeral hosted agents without writing repo config.
+export npm_config_store_dir="$PWD/.pnpm-store"
+
+run_without_ci_secrets() {
+  local scrubbed_env=(env)
+  local name
+  while IFS='=' read -r name _; do
+    case "$name" in
+      *_TOKEN|*_API_KEY|*_DEPLOY_KEY|*_SECRET|*_PASSWORD|*_PRIVATE_KEY|*_CREDENTIALS|*_COOKIE_PASSWORD|CONVEX_DEPLOY_KEY*|CLOUDFLARE_*|WORKOS_*|OPENROUTER_*|ANTHROPIC_*|MAESTRO_WEB_*|SITE_URL*|VITE_CONVEX_URL*)
+        scrubbed_env+=("-u" "$name")
+        ;;
+    esac
+  done < <(env)
+  "${scrubbed_env[@]}" "$@"
+}
+
+echo "pnpm store: $(run_without_ci_secrets pnpm store path)"
+for cache_path in .pnpm-store node_modules .turbo packages/convex/reports; do
+  if [ -e "$cache_path" ]; then
+    du -sh "$cache_path" 2>/dev/null || true
+  else
+    echo "cache miss: $cache_path"
+  fi
+done
+
+pnpm_install_without_ci_secrets() {
+  run_without_ci_secrets \
+    CI=true \
+    pnpm install --frozen-lockfile --prefer-offline
+}
+
+pnpm_install_without_ci_secrets
