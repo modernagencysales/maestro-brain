@@ -61,23 +61,12 @@ export function TemplateRouteItem({
 }) {
   const isActive = activeKey === item.key;
   const { isMobile, setOpenMobile } = useSidebar();
-  const menuItemProps: {
-    className: string;
-    label: ReactNode;
-    hint?: string;
-    icon: ReactNode;
-  } = {
-    className: "template-sidebar-menuitem",
-    label: item.label,
-    icon: <span className="template-sidebar-icon">{item.icon}</span>,
-  };
 
-  if (item.hint !== undefined) {
-    menuItemProps.hint = item.hint;
-  }
-
+  // label/icon/hint render ONLY inside the anchor below. Passing them to
+  // SidebarMenuItem as props makes Notion Kit render a second, non-clickable
+  // copy of the row that swallows most of the click area.
   return (
-    <SidebarMenuItem {...menuItemProps}>
+    <SidebarMenuItem className="template-sidebar-menuitem" label={null}>
       <a
         aria-current={isActive ? "page" : undefined}
         className={
@@ -119,23 +108,9 @@ export function TemplateActionItem({
 }: {
   readonly item: TemplateShellActionItem;
 }) {
-  const menuItemProps: {
-    className: string;
-    label: ReactNode;
-    hint?: string;
-    icon: ReactNode;
-  } = {
-    className: "template-sidebar-menuitem",
-    label: item.label,
-    icon: <span className="template-sidebar-icon">{item.icon}</span>,
-  };
-
-  if (item.hint !== undefined) {
-    menuItemProps.hint = item.hint;
-  }
-
+  // Same rule as TemplateRouteItem: the button is the whole row.
   return (
-    <SidebarMenuItem {...menuItemProps}>
+    <SidebarMenuItem className="template-sidebar-menuitem" label={null}>
       <button
         className="template-sidebar-row"
         onClick={item.onSelect}

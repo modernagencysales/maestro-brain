@@ -474,6 +474,191 @@ const pages: readonly DocumentPage[] = [
       },
     ],
   },
+  {
+    id: "runs",
+    eyebrow: "Execution history",
+    title: "Runs are the audit trail of every workflow execution",
+    intro:
+      "Every workflow execution persists a run row, per-stage rows, and an event stream. A client can always answer: what ran, who started it, what policy applied, and what evidence backs the output.",
+    sections: [
+      {
+        heading: "How to explain it",
+        body: [
+          "A run is one execution of a workflow recipe. It records the workflow version, the exact graph that executed, and start/completion timestamps.",
+          "Runs are idempotency-keyed, so retries and duplicate triggers can never double-execute a business process.",
+        ],
+      },
+      {
+        heading: "Technical proof",
+        body: [
+          "`workflowRuns`, `workflowStageRuns`, and `workflowRunEvents` are typed Confect tables indexed by workspace and status.",
+          "The Workflows page streams the seeded demo runs live from the deployed Convex backend — the same rows this page describes.",
+          `Completed runs link to Trust Receipts like \`${sampleRunReceipt.trustReceiptId}\` for source-backed proof.`,
+        ],
+      },
+    ],
+  },
+  {
+    id: "documents",
+    eyebrow: "Working surface",
+    title: "Documents are versioned, annotated, and co-edited safely",
+    intro:
+      "Client teams work in documents: briefs, drafts, research notes. The template treats every document as a versioned record with annotations and a co-editing seam, not a mutable blob.",
+    sections: [
+      {
+        heading: "Why this matters",
+        body: [
+          "AI-assisted drafts need history: which version did the human approve, and what did the agent change?",
+          "Annotations attach review context to a specific version instead of drifting comments.",
+        ],
+      },
+      {
+        heading: "Technical proof",
+        body: [
+          "`documents`, `documentVersions`, and `documentAnnotations` tables carry the version chain; the coediting capability gates concurrent edits.",
+          "Document mutations flow through the same typed-error, role-gated Confect contracts as every other write.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "sources",
+    eyebrow: "Context layer",
+    title: "Sources keep AI output anchored to real evidence",
+    intro:
+      "Sources are the raw truth the Brain organizes: call transcripts, web pages, notes, uploads. Every claim an agent makes should trace back to one.",
+    sections: [
+      {
+        heading: "How to explain it",
+        body: [
+          "A source set is a curated bundle of sources approved for a task. Context packs are built from source sets, never from the open internet.",
+          "Citations record which source backed which claim, so 'where did this come from?' always has an answer.",
+        ],
+      },
+      {
+        heading: "Technical proof",
+        body: [
+          "`citations`, `claims`, and `versionedEntries` tables pin claims to sources; version freshness tracking flags stale context.",
+          "The source-grounded brief capability refuses to draft without a resolved source set — no default RAG.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "data-map",
+    eyebrow: "Data governance",
+    title: "The Data Map shows what the system stores and why",
+    intro:
+      "Client diligence always asks the same question: what data does this system hold, how sensitive is it, and who can see it? The Data Map is the standing answer.",
+    sections: [
+      {
+        heading: "Why this matters",
+        body: [
+          "Every workspace carries an explicit `dataClassification` (public, internal, or confidential) that policies can key on.",
+          "Provider payloads are redacted before logging, so operational telemetry never becomes a shadow copy of client data.",
+        ],
+      },
+      {
+        heading: "Technical proof",
+        body: [
+          "Tenancy tables scope every row to a workspace; cross-tenant reads are structurally impossible through the typed reader.",
+          "`check:sbom-license` inventories every dependency license, and gitleaks scanning blocks committed secrets.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "notifications",
+    eyebrow: "Communication layer",
+    title: "Notifications start recorded, then become delivered",
+    intro:
+      "Invites, lifecycle notices, and workflow alerts route through one notifications seam. In demo mode every send is recorded instead of delivered, so flows are testable without a live email provider.",
+    sections: [
+      {
+        heading: "How to explain it",
+        body: [
+          "The demo records send intents — you can inspect exactly what would have been sent, to whom, and why.",
+          "A client fork flips to live MailerSend delivery only after the sender domain is verified and approved.",
+        ],
+      },
+      {
+        heading: "Technical proof",
+        body: [
+          "`packages/notifications` exposes the typed send seam; `EMAIL_DISABLED=true` is the default posture.",
+          "Invitation emails flow through the access lifecycle, so a recorded invite is proof the whole membership path works.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "analytics",
+    eyebrow: "Product telemetry",
+    title: "Analytics is a seam, not a surveillance default",
+    intro:
+      "Product analytics answers whether the client's team actually uses what was built. The template ships the seam wired and disabled, so turning it on is a decision, not a discovery.",
+    sections: [
+      {
+        heading: "How to explain it",
+        body: [
+          "Events are defined in a capture schema the client approves before anything is collected.",
+          "Local, demo, and diligence modes never emit real events.",
+        ],
+      },
+      {
+        heading: "Technical proof",
+        body: [
+          "The PostHog provider mounts in the web shell behind `POSTHOG_DISABLED`; `check:posthog-readiness` pins the wiring.",
+          "The backend event seam is typed, so renaming an event is a compile error, not a silent analytics gap.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "legal",
+    eyebrow: "Compliance posture",
+    title: "Legal surfaces ship with the template, not after the incident",
+    intro:
+      "Terms, privacy, and data-processing posture are part of the delivery checklist. The template keeps the legal surface present from day one so client review starts from a draft, not a blank page.",
+    sections: [
+      {
+        heading: "Why this matters",
+        body: [
+          "B2B buyers ask for a DPA and a data inventory before rollout; having placeholders beats having nothing.",
+          "License exposure is inventoried mechanically, so 'is anything here GPL?' is a report, not an audit.",
+        ],
+      },
+      {
+        heading: "Technical proof",
+        body: [
+          "A dedicated `/legal` route renders the legal shell in the app itself.",
+          "`check:sbom-license` runs in every verify pass and fails the build on unvetted license classes.",
+        ],
+      },
+    ],
+  },
+  {
+    id: "admin",
+    eyebrow: "Operator surface",
+    title: "Admin is where humans govern the machine",
+    intro:
+      "Someone has to invite members, change roles, approve risky actions, and transfer ownership. Admin is that surface, and every action it exposes is a typed, audited capability.",
+    sections: [
+      {
+        heading: "How to explain it",
+        body: [
+          "Membership lifecycle — invite, accept, change role, remove, transfer ownership — is a state machine with typed errors, not a pile of update calls.",
+          "Risky agent actions wait in an approval queue; approving one mints a scoped, expiring token.",
+        ],
+      },
+      {
+        heading: "Technical proof",
+        body: [
+          "Every write capability declares a `minRole`; an ESLint layer law makes an unguarded write a build failure.",
+          "`actionApprovals` records reviewer, scope, and expiry — the sample approval flow is covered by unit tests end to end.",
+        ],
+      },
+    ],
+  },
 ] as const;
 
 const pageById = new Map(pages.map((page) => [page.id, page]));
@@ -483,13 +668,20 @@ const samplePageKeyByRouteKey = new Map<string, string>([
   ["workflows", "workflows"],
   ["capabilities", "capabilities"],
   ["agents", "agents"],
+  ["runs", "runs"],
+  ["documents", "documents"],
+  ["sources", "sources"],
   ["api", "headless"],
   ["onboarding", "onboarding"],
+  ["dataMap", "data-map"],
+  ["notifications", "notifications"],
   ["integrations", "integrations"],
   ["settings", "settings"],
+  ["legal", "legal"],
   ["billing", "billing"],
+  ["analytics", "analytics"],
   ["health", "safety"],
-  ["admin", "safety"],
+  ["admin", "admin"],
 ]);
 const sampleRouteKeyByPageId = new Map(
   [...samplePageKeyByRouteKey.entries()].map(([key, value]) => [value, key]),

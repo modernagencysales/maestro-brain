@@ -193,6 +193,72 @@ test.describe("hosted reference app", () => {
     await expect(page.getByText("WorkOS/AuthKit")).toBeVisible();
   });
 
+  test("every sidebar item renders its name once and opens its own page", async ({
+    page,
+  }) => {
+    // 19 items × (reopen sheet + animation) on mobile outgrows the default.
+    test.setTimeout(120_000);
+    await page.goto("/");
+
+    // In sheet mode the sidebar auto-closes ~150ms after each navigation;
+    // detect it up front so the loop can wait out the close animation
+    // instead of racing it on reopen.
+    const navLocator = page.getByRole("navigation", { name: "Primary" });
+    const openButton = page.getByRole("button", { name: "Open sidebar" });
+    await expect(navLocator.or(openButton).first()).toBeVisible();
+    const sheetMode = !(await navLocator.isVisible());
+
+    let sidebar = await primaryNav(page);
+
+    const items = await sidebar
+      .locator("a.template-sidebar-row")
+      .evaluateAll((anchors) =>
+        anchors.map((anchor) => ({
+          href: anchor.getAttribute("href") ?? "",
+          label:
+            anchor
+              .querySelector(".template-sidebar-label")
+              ?.textContent?.trim() ?? "",
+        })),
+      );
+    expect(items.length).toBeGreaterThanOrEqual(19);
+
+    const headingByHref = new Map<string, string>();
+    for (const { href, label } of items) {
+      sidebar = await primaryNav(page);
+      const row = sidebar.locator(`a.template-sidebar-row[href="${href}"]`);
+
+      // The row (anchor + its Notion Kit menuitem wrapper) must contain the
+      // label exactly once — a second copy means the shell is rendering a
+      // dead, non-clickable duplicate that swallows clicks.
+      const rowText = (await row.locator("..").innerText()).trim();
+      expect(
+        rowText.split(label).length - 1,
+        `sidebar label "${label}" rendered ${String(rowText.split(label).length - 1)} times`,
+      ).toBe(1);
+
+      await row.click();
+      if (sheetMode) {
+        await navLocator.waitFor({ state: "hidden" });
+      }
+      await expect(page.locator("h1").first()).toBeVisible();
+      const heading =
+        (await page.locator("h1").first().textContent())?.trim() ?? "";
+
+      // Every href must land on its own page: two menu items showing the
+      // same document means one of them silently fell back.
+      for (const [otherHref, otherHeading] of headingByHref) {
+        if (otherHref !== href) {
+          expect(
+            heading,
+            `"${label}" (${href}) shows the same page as ${otherHref}`,
+          ).not.toBe(otherHeading);
+        }
+      }
+      headingByHref.set(href, heading);
+    }
+  });
+
   test("streams live workflow runs from the deployed Convex backend", async ({
     page,
   }) => {
