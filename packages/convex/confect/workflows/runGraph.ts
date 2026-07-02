@@ -16,6 +16,7 @@ import {
   type DurableWorkflowGraph,
   type WorkflowNode,
 } from "./graph";
+import { makePublicError } from "../shared/errors";
 import {
   projectTrustReceipt,
   type TrustReceiptProjection,
@@ -80,7 +81,7 @@ export const runWorkflowGraph = async (
   const validationErrors = validateWorkflowGraph(input.graph);
 
   if (validationErrors.length > 0) {
-    throw new Error("Workflow graph is invalid.");
+    throw makePublicError("VALIDATION_FAILED", "Workflow graph is invalid.");
   }
 
   const startNode = input.graph.nodes.find(
@@ -88,7 +89,7 @@ export const runWorkflowGraph = async (
   );
 
   if (!startNode) {
-    throw new Error("Workflow graph is invalid.");
+    throw makePublicError("VALIDATION_FAILED", "Workflow graph is invalid.");
   }
 
   const events: WorkflowRunEventRecord[] = [
@@ -183,11 +184,17 @@ const runCapabilityNode = (
   node: WorkflowNode,
 ): SourceGroundedBriefResult => {
   if (node.kind !== "capability") {
-    throw new Error(`Unsupported workflow node kind: ${node.kind}`);
+    throw makePublicError(
+      "VALIDATION_FAILED",
+      `Unsupported workflow node kind: ${node.kind}`,
+    );
   }
 
   if (node.capability !== "sourceGroundedBrief") {
-    throw new Error(`Unsupported workflow capability: ${node.capability}`);
+    throw makePublicError(
+      "VALIDATION_FAILED",
+      `Unsupported workflow capability: ${node.capability}`,
+    );
   }
 
   const normalizedInput = normalizeSourceGroundedBriefInput(

@@ -1,4 +1,5 @@
 import js from "@eslint/js";
+import templatePlugin from "./tooling/eslint-plugin-template/index.mjs";
 import tseslint from "typescript-eslint";
 
 export default [
@@ -22,6 +23,52 @@ export default [
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/ban-ts-comment": "error",
       "@typescript-eslint/no-non-null-assertion": "error",
+    },
+  },
+  {
+    // Confect groups related TaggedErrors in value+type namespaces by
+    // convention; ES module syntax cannot express that merge.
+    files: ["packages/convex/confect/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-namespace": "off",
+    },
+  },
+  {
+    files: ["scripts/**/*.mjs"],
+    languageOptions: {
+      globals: { process: "readonly", console: "readonly" },
+    },
+  },
+  {
+    files: ["**/*.cjs"],
+    languageOptions: {
+      sourceType: "commonjs",
+      globals: {
+        module: "writable",
+        require: "readonly",
+        __dirname: "readonly",
+      },
+    },
+  },
+  {
+    files: ["packages/convex/confect/**/*.ts"],
+    plugins: { template: templatePlugin },
+    rules: {
+      "template/typed-convex-errors": "error",
+      "template/require-minrole-on-write": "error",
+      "template/workflow-steps-are-capabilities": "error",
+      "template/workflow-handler-determinism": "error",
+      "template/workflow-policy-snapshot": "error",
+      "template/no-cross-domain-value-import": "error",
+      "template/no-raw-scheduler": "error",
+    },
+  },
+  {
+    files: ["apps/web/src/routes/**/*.{ts,tsx}"],
+    plugins: { template: templatePlugin },
+    rules: {
+      "template/frontend-route-thin": "error",
+      "template/frontend-route-server-boundary": "error",
     },
   },
 ];

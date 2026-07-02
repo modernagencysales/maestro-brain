@@ -114,17 +114,12 @@ const transferOwnershipImpl = FunctionImpl.make(
         now,
       });
 
-      yield* writer
-        .table("workspaceMembers")
-        .patch(membershipId, { role: "owner", updatedAt: now })
-        .pipe(Effect.orDie);
-      yield* writer
-        .table("workspaceMembers")
-        .patch(toId<"workspaceMembers">(actorMembership.id), {
-          role: "admin",
-          updatedAt: now,
-        })
-        .pipe(Effect.orDie);
+      yield* Effect.forEach(plan.patches, (patch) =>
+        writer
+          .table("workspaceMembers")
+          .patch(toId<"workspaceMembers">(patch.id), patch.value)
+          .pipe(Effect.orDie),
+      );
 
       return null;
     }),
