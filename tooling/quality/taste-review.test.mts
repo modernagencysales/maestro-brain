@@ -8,9 +8,12 @@ import {
   callTasteJudge,
   formatTasteVerdict,
   infrastructureBlockedTasteVerdict,
+  isLineInRanges,
   isTasteProviderQuotaOutput,
+  parseChangedLineRanges,
   parseVerdict,
   reviewTasteFiles,
+  scopeVerdictToChangedLines,
   selectTasteReviewProvider,
   tasteReviewConcurrency,
 } from "./taste-review.mts";
@@ -409,6 +412,77 @@ describe("taste review concurrency", () => {
     expect(tasteReviewConcurrency({ TASTE_REVIEW_CONCURRENCY: "2" })).toBe(2);
     expect(tasteReviewConcurrency({ TASTE_REVIEW_CONCURRENCY: "0" })).toBe(4);
     expect(tasteReviewConcurrency({ TASTE_REVIEW_CONCURRENCY: "99" })).toBe(25);
+  });
+});
+
+describe("taste diff scoping", () => {
+  it("parses new-side line ranges from unified hunk headers", () => {
+    const diff = [
+      "diff --git a/x.ts b/x.ts",
+      "--- a/x.ts",
+      "+++ b/x.ts",
+      "@@ -10,3 +12,5 @@ context",
+      " keep",
+      "+added",
+      "+added",
+      "@@ -40 +50 @@",
+      "-old",
+      "+new",
+    ].join("\n");
+    expect(parseChangedLineRanges(diff)).toEqual([
+      { start: 12, end: 16 },
+      { start: 50, end: 50 },
+    ]);
+  });
+
+  it("treats a pure deletion hunk (+c,0) as no new-side scope", () => {
+    const diff = "@@ -10,4 +9,0 @@\n-gone\n-gone";
+    expect(parseChangedLineRanges(diff)).toEqual([]);
+  });
+
+  it("keeps only findings that fall inside a changed range", () => {
+    const verdict = {
+      verdict: "block",
+      findings: [
+        { line: 13, severity: "block", issue: "in scope", fix: "" },
+        { line: 99, severity: "block", issue: "pre-existing", fix: "" },
+      ],
+    };
+    const scoped = scopeVerdictToChangedLines(verdict, [
+      { start: 12, end: 16 },
+    ]);
+    expect(scoped.findings).toHaveLength(1);
+    expect(scoped.findings[0]?.issue).toBe("in scope");
+    expect(scoped.verdict).toBe("block");
+  });
+
+  it("downgrades to pass when every block finding is outside the diff", () => {
+    const verdict = {
+      verdict: "block",
+      findings: [{ line: 99, severity: "block", issue: "old code", fix: "" }],
+    };
+    expect(scopeVerdictToChangedLines(verdict, [{ start: 1, end: 5 }])).toEqual(
+      {
+        verdict: "pass",
+        findings: [],
+      },
+    );
+  });
+
+  it("fails open to the full verdict when ranges cannot be computed", () => {
+    const verdict = {
+      verdict: "block",
+      findings: [{ line: 99, severity: "block", issue: "keep", fix: "" }],
+    };
+    expect(scopeVerdictToChangedLines(verdict, null)).toBe(verdict);
+  });
+
+  it("matches lines against inclusive range bounds", () => {
+    const ranges = [{ start: 12, end: 16 }];
+    expect(isLineInRanges(12, ranges)).toBe(true);
+    expect(isLineInRanges(16, ranges)).toBe(true);
+    expect(isLineInRanges(11, ranges)).toBe(false);
+    expect(isLineInRanges(17, ranges)).toBe(false);
   });
 });
 
