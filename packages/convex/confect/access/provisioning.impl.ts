@@ -159,6 +159,17 @@ const ensureProvisioned = FunctionImpl.make(
               .pipe(Effect.orDie)
           : asGenericId<"workspaces">(existingWorkspace._id);
 
+      // The two membership upserts below are deliberately kept inline rather than
+      // factored into a shared `upsertMembership<T extends TableNames>` helper.
+      // confect's writer types `.insert` against a *concrete* table literal
+      // (`WithoutSystemFields<DocumentByName<…, T>>`); inside a helper generic
+      // over `T`, TypeScript cannot prove the value matches that mapping, so the
+      // helper only compiles with an `as` assertion — which discards the concrete
+      // insert-shape check these literal call sites get for free (our first line
+      // of defense against schema drift between the provisioning rows and the
+      // Convex schema). The parallel structure is the price of that check, and
+      // it is worth more than removing the duplication. Never reach for `any`
+      // here. See docs/template/coding-standards.md ("Multi-table Convex writes").
       if (organizationMembership === null) {
         yield* writer
           .table("organizationMembers")

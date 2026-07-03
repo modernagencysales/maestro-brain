@@ -9,6 +9,24 @@
 - Prefer narrow interfaces and explicit return types at public boundaries.
 - Use Effect schemas for durable data, public args, returns, and typed errors.
 
+### Multi-table Convex writes
+
+confect types `writer.table(name).insert(value)` against a **concrete** table
+literal, so the object literal is checked field-by-field against that table's
+schema — our first defense against drift between planner rows and the Convex
+schema. A helper generic over `<T extends TableNames>` cannot preserve that
+check: TypeScript can't prove the value matches `DocumentByName<…, T>` for an
+abstract `T`, so it only compiles behind an `as` assertion.
+
+Rule: when a DRY abstraction across two Convex tables would require a cast or
+`any`, keep the per-table writes inline. The parallel structure is the price of
+the concrete insert check and is worth more than removing the duplication. This
+is a deliberate, blessed exception to the duplication gate — not tech debt.
+`ensureProvisioned` (`packages/convex/confect/access/provisioning.impl.ts`) is
+the canonical example. Transaction scripts like it are also exempt from
+step-wise single-responsibility splitting: their one responsibility is the
+atomic transaction.
+
 ## Tenancy And Auth
 
 - Never trust caller-supplied tenant identity.
