@@ -7,6 +7,7 @@ import {
   InvitationNotPending,
   LastOwnerProtected,
   MemberNotInWorkspace,
+  MembershipNotLive,
   ValidationFailed,
 } from "../errors";
 import { normalizeEmail } from "./email";
@@ -86,7 +87,7 @@ export const changeMemberRole = (input: {
     readonly patch: Patch<{ readonly role: Role; readonly updatedAt: number }>;
     readonly events: readonly AccessLifecycleEvent[];
   },
-  MemberNotInWorkspace | Forbidden | LastOwnerProtected
+  MemberNotInWorkspace | MembershipNotLive | Forbidden | LastOwnerProtected
 > =>
   Either.gen(function* () {
     yield* assertLiveWorkspaceMember(input.target, input.workspaceId);
@@ -134,7 +135,7 @@ export const removeMember = (input: {
     }>;
     readonly events: readonly AccessLifecycleEvent[];
   },
-  MemberNotInWorkspace | Forbidden | LastOwnerProtected
+  MemberNotInWorkspace | MembershipNotLive | Forbidden | LastOwnerProtected
 > =>
   Either.gen(function* () {
     yield* assertLiveWorkspaceMember(input.target, input.workspaceId);
@@ -180,7 +181,7 @@ export const transferOwnership = (input: {
     }>[];
     readonly events: readonly AccessLifecycleEvent[];
   },
-  MemberNotInWorkspace | Forbidden
+  MemberNotInWorkspace | MembershipNotLive | Forbidden
 > =>
   Either.gen(function* () {
     yield* assertLiveWorkspaceMember(input.target, input.workspaceId);
@@ -437,10 +438,15 @@ export const isLiveWorkspaceMembership = (
 const assertLiveWorkspaceMember = (
   member: WorkspaceMemberLifecycleRef,
   workspaceId: string,
-): Either.Either<void, MemberNotInWorkspace> =>
-  member.workspaceId !== workspaceId || !isLiveWorkspaceMembership(member)
-    ? Either.left(new MemberNotInWorkspace({ membershipId: member.id }))
-    : Either.void;
+): Either.Either<void, MemberNotInWorkspace | MembershipNotLive> => {
+  if (member.workspaceId !== workspaceId) {
+    return Either.left(new MemberNotInWorkspace({ membershipId: member.id }));
+  }
+  if (!isLiveWorkspaceMembership(member)) {
+    return Either.left(new MembershipNotLive({ membershipId: member.id }));
+  }
+  return Either.void;
+};
 
 const assertActorCanManage = (
   actorRole: Role,

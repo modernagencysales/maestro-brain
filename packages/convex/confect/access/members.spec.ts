@@ -6,6 +6,7 @@ import {
   Forbidden,
   LastOwnerProtected,
   MemberNotInWorkspace,
+  MembershipNotLive,
   Unauthorized,
 } from "../errors";
 import { Role } from "./roles";
@@ -23,6 +24,7 @@ const changeRole = FunctionSpec.publicMutation({
       Unauthorized,
       Forbidden,
       MemberNotInWorkspace,
+      MembershipNotLive,
       LastOwnerProtected,
     ),
 });
@@ -39,6 +41,7 @@ const remove = FunctionSpec.publicMutation({
       Unauthorized,
       Forbidden,
       MemberNotInWorkspace,
+      MembershipNotLive,
       LastOwnerProtected,
     ),
 });
@@ -55,6 +58,7 @@ const transferOwnership = FunctionSpec.publicMutation({
       Unauthorized,
       Forbidden,
       MemberNotInWorkspace,
+      MembershipNotLive,
       LastOwnerProtected,
     ),
 });

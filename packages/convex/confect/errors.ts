@@ -16,6 +16,18 @@ export class MemberNotInWorkspace extends Schema.TaggedError<MemberNotInWorkspac
   },
 ) {}
 
+/**
+ * The membership row belongs to the workspace but is not live (pending, revoked,
+ * or soft-deleted). Distinct from MemberNotInWorkspace — "exists here but can't
+ * act" is a different client-facing case than "not a member of this workspace".
+ */
+export class MembershipNotLive extends Schema.TaggedError<MembershipNotLive>()(
+  "MembershipNotLive",
+  {
+    membershipId: Schema.String,
+  },
+) {}
+
 export class LastOwnerProtected extends Schema.TaggedError<LastOwnerProtected>()(
   "LastOwnerProtected",
   {

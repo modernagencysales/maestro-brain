@@ -19,6 +19,7 @@ import {
   InvitationNotPending,
   LastOwnerProtected,
   MemberNotInWorkspace,
+  MembershipNotLive,
 } from "../confect/errors";
 
 const now = 1_782_924_800_000;
@@ -154,7 +155,7 @@ describe("workspace member lifecycle policy", () => {
     }
   });
 
-  it("refuses removed, pending, revoked, or cross-workspace members", () => {
+  it("refuses a target that belongs to a different workspace", () => {
     const changeResult = changeMemberRole({
       actorUserId: "users_owner",
       actorRole: "owner",
@@ -169,6 +170,29 @@ describe("workspace member lifecycle policy", () => {
       expect(changeResult.left).toBeInstanceOf(MemberNotInWorkspace);
     }
   });
+
+  it.each([
+    { label: "revoked", overrides: { status: "revoked" as const } },
+    { label: "pending", overrides: { acceptedAt: null } },
+    { label: "soft-deleted", overrides: { deletedAt: now } },
+  ])(
+    "refuses a $label member of this workspace with MembershipNotLive",
+    ({ overrides }) => {
+      const changeResult = changeMemberRole({
+        actorUserId: "users_owner",
+        actorRole: "owner",
+        workspaceId: "workspaces_1",
+        target: member({ workspaceId: "workspaces_1", ...overrides }),
+        liveWorkspaceMembers: [],
+        newRole: "admin",
+        now,
+      });
+      expect(Either.isLeft(changeResult)).toBe(true);
+      if (Either.isLeft(changeResult)) {
+        expect(changeResult.left).toBeInstanceOf(MembershipNotLive);
+      }
+    },
+  );
 
   it("transfers ownership by promoting the target and stepping the caller down", () => {
     const either = transferOwnership({
