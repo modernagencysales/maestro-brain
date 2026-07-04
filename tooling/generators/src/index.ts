@@ -176,6 +176,21 @@ export type WorkflowGeneratorResult = {
   readonly files: readonly GeneratedFile[];
 };
 
+export type AgentGeneratorOptions = {
+  readonly name: string;
+  readonly description?: string;
+  readonly write?: boolean;
+};
+
+export type AgentGeneratorResult = {
+  readonly name: string;
+  readonly pascalName: string;
+  readonly surfaces: readonly ["web"];
+  readonly headlessExposure: false;
+  readonly files: readonly GeneratedFile[];
+  readonly followUp: readonly string[];
+};
+
 export type PromotionGeneratorOptions = {
   readonly name: string;
   readonly description?: string;
@@ -232,7 +247,7 @@ const defaultDeploymentTargets = [
 const requiredSecretNamesByProvider = {
   convex: ["CONVEX_DEPLOYMENT", "VITE_CONVEX_URL"],
   workos: ["WORKOS_API_KEY", "WORKOS_CLIENT_ID", "WORKOS_COOKIE_PASSWORD"],
-  posthog: ["POSTHOG_KEY", "POSTHOG_HOST"],
+  posthog: ["POSTHOG_PROJECT_TOKEN", "POSTHOG_HOST"],
   dodo: ["DODO_API_KEY", "DODO_WEBHOOK_SECRET"],
   email: ["MAILERSEND_API_KEY", "MAILERSEND_FROM_EMAIL"],
   llm: ["OPENROUTER_API_KEY"],
@@ -1022,13 +1037,14 @@ export const buildCapabilityFiles = (
   const description =
     options.description ??
     `Generated ${name} capability. Replace the domain logic while preserving the contract shape.`;
-  const basePath = `generated/capabilities/${name}`;
+  const basePath = `packages/convex/confect/capabilities/${name}`;
   const typedErrors = ["Unauthorized", "ValidationFailed", "Forbidden"];
   const files: readonly GeneratedFile[] = [
     {
-      path: `${basePath}/${name}.spec.ts`,
+      path: `${basePath}.spec.ts`,
       content: `import { FunctionSpec, GroupSpec } from "@confect/core";
 import * as Schema from "effect/Schema";
+import { Forbidden, Unauthorized, ValidationFailed } from "../errors";
 
 export const ${name}Args = Schema.Struct({
   workspaceSlug: Schema.String,
@@ -1040,35 +1056,23 @@ export const ${name}Returns = Schema.Struct({
   summary: Schema.String,
 });
 
-export const ${name}Errors = Schema.Union(
-  Schema.TaggedStruct("Unauthorized", {
-    message: Schema.String,
-  }),
-  Schema.TaggedStruct("ValidationFailed", {
-    message: Schema.String,
-  }),
-  Schema.TaggedStruct("Forbidden", {
-    message: Schema.String,
-  }),
-);
-
 export const ${name} = FunctionSpec.publicMutation({
   name: "${name}",
   args: () => ${name}Args,
   returns: () => ${name}Returns,
-  error: () => ${name}Errors,
+  error: () => Schema.Union(Unauthorized, ValidationFailed, Forbidden),
 });
 
 export default GroupSpec.make().addFunction(${name});
 `,
     },
     {
-      path: `${basePath}/${name}.impl.ts`,
+      path: `${basePath}.impl.ts`,
       content: `import { FunctionImpl, GroupImpl } from "@confect/server";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import databaseSchema from "../../confect/_generated/schema";
-import ${name}Group, { ${name} } from "./${name}.spec";
+import databaseSchema from "../_generated/schema";
+import ${name}Group from "./${name}.spec";
 
 const ${name}Impl = FunctionImpl.make(databaseSchema, ${name}Group, "${name}", () =>
   Effect.succeed({
@@ -1084,7 +1088,7 @@ export default GroupImpl.make(databaseSchema, ${name}Group).pipe(
 `,
     },
     {
-      path: `${basePath}/${name}.domain.ts`,
+      path: `${basePath}.domain.ts`,
       content: `// Pure domain seam for ${name}. Replace the placeholder fields with the
 // real capability input, keep normalize/validate pure, and keep provider
 // calls out of this file (they belong in the impl behind services).
@@ -1118,9 +1122,10 @@ export const validate${pascalName}Input = (
 `,
     },
     {
-      path: `${basePath}/${name}.test.ts`,
+      path: `${basePath}.test.ts`,
       content: `import fc from "fast-check";
 import { describe, expect, it } from "vitest";
+import metadata from "./${name}.headless.json";
 import {
   normalize${pascalName}Input,
   validate${pascalName}Input,
@@ -1159,13 +1164,19 @@ describe("${name} generated capability domain", () => {
   });
 
   it("declares the required typed errors", () => {
-    expect(${JSON.stringify(typedErrors)}).toContain("ValidationFailed");
+    expect(metadata.typedErrors).toEqual(
+      expect.arrayContaining(["Unauthorized", "ValidationFailed", "Forbidden"]),
+    );
+    expect(metadata.schemas).toEqual({
+      args: "${name}Args",
+      returns: "${name}Returns",
+    });
   });
 });
 `,
     },
     {
-      path: `${basePath}/${name}.headless.json`,
+      path: `${basePath}.headless.json`,
       content: `${JSON.stringify(
         {
           capability: name,
@@ -1173,6 +1184,10 @@ describe("${name} generated capability domain", () => {
           exposure,
           authScope: "workspace member",
           typedErrors,
+          schemas: {
+            args: `${name}Args`,
+            returns: `${name}Returns`,
+          },
           surfaces:
             exposure === "headless" ? ["api", "cli", "mcp"] : [exposure],
           requiredFiles: [
@@ -1193,7 +1208,7 @@ describe("${name} generated capability domain", () => {
 `,
     },
     {
-      path: `${basePath}/README.md`,
+      path: `docs/template/generated/capabilities/${name}.md`,
       content: `# ${pascalName} Capability
 
 ${description}
@@ -1207,7 +1222,7 @@ ${description}
 
 ## Required Follow-Up
 
-1. Move generated files into the owning Confect group.
+1. Review the flat files in \`packages/convex/confect/capabilities/\`.
 2. Run \`pnpm confect:codegen\`.
 3. Add generated refs to the web/API/CLI/MCP surfaces selected in \`${name}.headless.json\`.
 4. Replace the placeholder implementation with domain logic behind capability checks.
@@ -1224,6 +1239,393 @@ ${description}
   };
 };
 
+export const buildAgentFiles = (
+  options: AgentGeneratorOptions,
+): AgentGeneratorResult => {
+  const name = camelCase(options.name);
+  const pascalName = pascalCase(options.name);
+  const description =
+    options.description ??
+    `Generated ${name} agent seat. Keep the default web surface deterministic until tool grants are reviewed.`;
+  const manifestName = `${name}AgentManifest`;
+  const messageName = `${pascalName}AgentMessage`;
+  const startArgsName = `${pascalName}StartThreadArgs`;
+  const continueArgsName = `${pascalName}ContinueThreadArgs`;
+  const listArgsName = `${pascalName}ListThreadMessagesArgs`;
+  const startReturnName = `${pascalName}StartThreadReturn`;
+  const continueReturnName = `${pascalName}ContinueThreadReturn`;
+  const toolsName = `${name}Tools`;
+  const followUp = [
+    "Wire the generated web agent seat into the app route or feature module.",
+    "Review tool grants before adding model-call or provider-backed behavior.",
+    "Run Confect codegen before importing generated refs from runtime surfaces.",
+  ] as const;
+  const files: readonly GeneratedFile[] = [
+    {
+      path: `packages/convex/confect/agents/${name}.spec.ts`,
+      content: `import { FunctionSpec, GroupSpec } from "@confect/core";
+import * as S from "effect/Schema";
+
+export const ${manifestName} = {
+  agent: "${name}",
+  displayName: "${pascalName}",
+  description: ${JSON.stringify(description)},
+  surfaces: ["web"],
+  agentSeat: "web-facing",
+  headlessExposure: false,
+  toolGrantPolicy: "none-by-default",
+} as const;
+
+export const ${startArgsName} = S.Struct({
+  workspaceId: S.String.pipe(S.minLength(1)),
+  userId: S.String.pipe(S.minLength(1)),
+  firstMessage: S.String.pipe(S.minLength(1)),
+});
+
+export const ${continueArgsName} = S.Struct({
+  workspaceId: S.String.pipe(S.minLength(1)),
+  userId: S.String.pipe(S.minLength(1)),
+  threadId: S.String.pipe(S.minLength(1)),
+  message: S.String.pipe(S.minLength(1)),
+  idempotencyKey: S.String.pipe(S.minLength(1)),
+});
+
+export const ${listArgsName} = S.Struct({
+  workspaceId: S.String.pipe(S.minLength(1)),
+  userId: S.String.pipe(S.minLength(1)),
+  threadId: S.String.pipe(S.minLength(1)),
+});
+
+export const ${messageName} = S.Struct({
+  id: S.String,
+  role: S.Literal("user", "assistant", "tool"),
+  content: S.String,
+  createdAt: S.Number,
+});
+
+export const ${startReturnName} = S.Struct({
+  threadId: S.String,
+  agent: S.Literal("${name}"),
+  surface: S.Literal("web"),
+  messages: S.Array(${messageName}),
+});
+
+export const ${continueReturnName} = S.Struct({
+  threadId: S.String,
+  agent: S.Literal("${name}"),
+  surface: S.Literal("web"),
+  messages: S.Array(${messageName}),
+  toolCallCount: S.Number,
+});
+
+export namespace ${pascalName}AgentError {
+  export class NoWorkspaceAccess extends S.TaggedError<NoWorkspaceAccess>()(
+    "NoWorkspaceAccess",
+    {
+      workspaceId: S.String,
+      userId: S.String,
+    },
+  ) {}
+
+  export class ValidationFailed extends S.TaggedError<ValidationFailed>()(
+    "ValidationFailed",
+    {
+      field: S.String,
+      message: S.String,
+    },
+  ) {}
+
+  export const Schema = S.Union(NoWorkspaceAccess, ValidationFailed);
+}
+
+const startThread = FunctionSpec.publicMutation({
+  name: "startThread",
+  args: () => ${startArgsName},
+  returns: () => ${startReturnName},
+  error: () => ${pascalName}AgentError.Schema,
+});
+
+const continueThread = FunctionSpec.publicMutation({
+  name: "continueThread",
+  args: () => ${continueArgsName},
+  returns: () => ${continueReturnName},
+  error: () => ${pascalName}AgentError.Schema,
+});
+
+const listThreadMessages = FunctionSpec.publicQuery({
+  name: "listThreadMessages",
+  args: () => ${listArgsName},
+  returns: () => S.Array(${messageName}),
+  error: () => ${pascalName}AgentError.Schema,
+});
+
+export default GroupSpec.make()
+  .addFunction(startThread)
+  .addFunction(continueThread)
+  .addFunction(listThreadMessages);
+`,
+    },
+    {
+      path: `packages/convex/confect/agents/${name}.impl.ts`,
+      content: `import { FunctionImpl, GroupImpl } from "@confect/server";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import databaseSchema from "../_generated/schema";
+import ${name}Agent, {
+  ${pascalName}AgentError,
+  ${manifestName},
+} from "./${name}.spec";
+import { ${toolsName} } from "./${name}.tools";
+
+const fakeMemberships = [
+  {
+    workspaceId: "workspace_123",
+    userId: "user_123",
+    status: "active",
+  },
+] as const;
+
+const hasWorkspaceAccess = (input: {
+  readonly workspaceId: string;
+  readonly userId: string;
+}): boolean =>
+  fakeMemberships.some(
+    (membership) =>
+      membership.workspaceId === input.workspaceId &&
+      membership.userId === input.userId &&
+      membership.status === "active",
+  );
+
+const requireWorkspaceAccess = (input: {
+  readonly workspaceId: string;
+  readonly userId: string;
+}) =>
+  hasWorkspaceAccess(input)
+    ? undefined
+    : new ${pascalName}AgentError.NoWorkspaceAccess(input);
+
+const startThread = FunctionImpl.make(
+  databaseSchema,
+  ${name}Agent,
+  "startThread",
+  ({ workspaceId, userId, firstMessage }) => {
+    const accessError = requireWorkspaceAccess({ workspaceId, userId });
+
+    if (accessError) {
+      return Effect.fail(accessError);
+    }
+
+    return Effect.succeed({
+      threadId: \`thread_\${workspaceId}_\${userId}_${name}\`,
+      agent: ${manifestName}.agent,
+      surface: "web" as const,
+      messages: [
+        {
+          id: "msg_user_001",
+          role: "user" as const,
+          content: firstMessage,
+          createdAt: 1,
+        },
+        {
+          id: "msg_agent_001",
+          role: "assistant" as const,
+          content:
+            "${pascalName} is ready in fake mode. Review web UX and tool grants before adding provider calls.",
+          createdAt: 2,
+        },
+      ],
+    });
+  },
+);
+
+const continueThread = FunctionImpl.make(
+  databaseSchema,
+  ${name}Agent,
+  "continueThread",
+  ({ workspaceId, userId, threadId, message }) => {
+    const accessError = requireWorkspaceAccess({ workspaceId, userId });
+
+    if (accessError) {
+      return Effect.fail(accessError);
+    }
+
+    return Effect.succeed({
+      threadId,
+      agent: ${manifestName}.agent,
+      surface: "web" as const,
+      messages: [
+        {
+          id: "msg_user_continue",
+          role: "user" as const,
+          content: message,
+          createdAt: 3,
+        },
+        {
+          id: "msg_agent_continue",
+          role: "assistant" as const,
+          content:
+            "Deterministic scaffold response. No model provider or external tool was called.",
+          createdAt: 4,
+        },
+      ],
+      toolCallCount: ${toolsName}.length,
+    });
+  },
+);
+
+const listThreadMessages = FunctionImpl.make(
+  databaseSchema,
+  ${name}Agent,
+  "listThreadMessages",
+  ({ workspaceId, userId, threadId }) => {
+    const accessError = requireWorkspaceAccess({ workspaceId, userId });
+
+    if (accessError) {
+      return Effect.fail(accessError);
+    }
+
+    return Effect.succeed([
+      {
+        id: \`\${threadId}_summary\`,
+        role: "assistant" as const,
+        content:
+          "This generated web-facing agent seat uses fake-safe local behavior by default.",
+        createdAt: 1,
+      },
+    ]);
+  },
+);
+
+export default GroupImpl.make(databaseSchema, ${name}Agent).pipe(
+  Layer.provide(startThread),
+  Layer.provide(continueThread),
+  Layer.provide(listThreadMessages),
+  GroupImpl.finalize,
+);
+`,
+    },
+    {
+      path: `packages/convex/confect/agents/${name}.tools.ts`,
+      content: `export type ${pascalName}Tool = {
+  readonly name: string;
+  readonly grantId: string;
+  readonly description: string;
+};
+
+export const ${toolsName}: readonly ${pascalName}Tool[] = [];
+
+export const list${pascalName}ToolNames = (): readonly string[] =>
+  ${toolsName}.map((tool) => tool.name);
+`,
+    },
+    {
+      path: `packages/convex/test/${name}.agent.test.ts`,
+      content: `import * as Schema from "effect/Schema";
+import { describe, expect, it } from "vitest";
+import ${name}AgentImpl from "../confect/agents/${name}.impl";
+import ${name}Agent, {
+  ${messageName},
+  ${continueArgsName},
+  ${manifestName},
+  ${startArgsName},
+} from "../confect/agents/${name}.spec";
+import { ${toolsName}, list${pascalName}ToolNames } from "../confect/agents/${name}.tools";
+
+describe("${name} generated agent seat", () => {
+  it("declares web-only agent metadata", () => {
+    expect(${manifestName}).toMatchObject({
+      agent: "${name}",
+      surfaces: ["web"],
+      agentSeat: "web-facing",
+      headlessExposure: false,
+      toolGrantPolicy: "none-by-default",
+    });
+  });
+
+  it("declares thread contracts and validates message shapes", () => {
+    expect(JSON.stringify(${name}Agent)).toContain("startThread");
+    expect(JSON.stringify(${name}Agent)).toContain("continueThread");
+    expect(JSON.stringify(${name}Agent)).toContain("listThreadMessages");
+    expect(
+      Schema.decodeUnknownSync(${startArgsName})({
+        workspaceId: "workspace_123",
+        userId: "user_123",
+        firstMessage: "Start the web-facing agent seat.",
+      }),
+    ).toMatchObject({ workspaceId: "workspace_123" });
+    expect(
+      Schema.decodeUnknownSync(${continueArgsName})({
+        workspaceId: "workspace_123",
+        userId: "user_123",
+        threadId: "thread_123",
+        message: "Continue.",
+        idempotencyKey: "turn-001",
+      }),
+    ).toMatchObject({ threadId: "thread_123" });
+    expect(
+      Schema.decodeUnknownSync(${messageName})({
+        id: "msg_1",
+        role: "assistant",
+        content: "Done.",
+        createdAt: 1,
+      }),
+    ).toMatchObject({ role: "assistant" });
+  });
+
+  it("starts with no provider-backed tools", () => {
+    expect(${toolsName}).toEqual([]);
+    expect(list${pascalName}ToolNames()).toEqual([]);
+  });
+
+  it("exports a finalized Confect implementation", () => {
+    expect(${name}AgentImpl).toMatchObject({
+      _op_layer: "Fold",
+    });
+  });
+});
+`,
+    },
+    {
+      path: `docs/template/generated/agents/${name}.md`,
+      content: `# ${pascalName} Agent Seat
+
+${description}
+
+## Generated Contract
+
+- Agent: \`${name}\`
+- Surfaces: \`["web"]\`
+- Agent seat: web-facing
+- Headless exposure: none. This generator does not create API, CLI, MCP, \`.headless.json\`, or headless registry entries.
+- Tool grants: none by default.
+
+## Files
+
+- \`packages/convex/confect/agents/${name}.spec.ts\`
+- \`packages/convex/confect/agents/${name}.impl.ts\`
+- \`packages/convex/confect/agents/${name}.tools.ts\`
+- \`packages/convex/test/${name}.agent.test.ts\`
+
+## Required Follow-Up
+
+1. Wire the generated web agent seat into the app route or feature module.
+2. Review tool grants before adding model-call or provider-backed behavior.
+3. Run \`pnpm confect:codegen\` before importing generated refs from runtime surfaces.
+4. Keep API, CLI, and MCP exposure out until a separate headless contract review approves it.
+`,
+    },
+  ];
+
+  return {
+    name,
+    pascalName,
+    surfaces: ["web"],
+    headlessExposure: false,
+    files,
+    followUp,
+  };
+};
+
 export const buildWorkflowFiles = (
   options: WorkflowGeneratorOptions,
 ): WorkflowGeneratorResult => {
@@ -1231,111 +1633,514 @@ export const buildWorkflowFiles = (
   const pascalName = pascalCase(options.name);
   const description =
     options.description ??
-    `Generated ${name} workflow. Replace sample capability refs after review.`;
-  const basePath = `generated/workflows/${name}`;
-  const graph = {
-    id: name,
-    name: pascalName,
-    description,
-    nodes: [
-      {
-        id: "source",
-        kind: "source",
-        label: "Source Set",
-      },
-      {
-        id: "capability",
-        kind: "capability",
-        label: "Generated Capability",
-        capability: "summarizeSource",
-      },
-      {
-        id: "approval",
-        kind: "approval",
-        label: "Policy Approval",
-      },
-      {
-        id: "receipt",
-        kind: "output",
-        label: "Trust Receipt",
-      },
-    ],
-    edges: [
-      { id: "e1", source: "source", target: "capability" },
-      { id: "e2", source: "capability", target: "approval" },
-      { id: "e3", source: "approval", target: "receipt" },
-    ],
-    policy: {
-      idempotency: "required-for-external-effects",
-      approval: "required-before-publish-send-spend-delete",
-      audit: "record-workflow-run-and-trust-receipt",
-    },
-  };
+    `Generated ${name} workflow. Replace the source-to-receipt graph after review.`;
   const files: readonly GeneratedFile[] = [
     {
-      path: `${basePath}/${name}.workflow.json`,
-      content: `${JSON.stringify(graph, null, 2)}\n`,
+      path: `packages/convex/confect/workflowContracts/${name}.spec.ts`,
+      content: `import { FunctionSpec, GroupSpec } from "@confect/core";
+import * as Schema from "effect/Schema";
+import {
+  collectContractManifest,
+  collectContractSchemas,
+  defineContractFunction,
+} from "../capabilities/_kit/capability";
+import {
+  MemberNotInWorkspace,
+  NotFound,
+  Unauthorized,
+  ValidationFailed,
+  WorkspaceNotFound,
+} from "../errors";
+import { Id } from "../_generated/id";
+import { WorkflowStatusResult } from "../workflows/_kit/status";
+
+const WorkflowErrors = Schema.Union(
+  Unauthorized,
+  MemberNotInWorkspace,
+  WorkspaceNotFound,
+  NotFound,
+  ValidationFailed,
+);
+
+const StartArgs = Schema.Struct({
+  workspaceId: Id("workspaces"),
+  idempotencyKey: Schema.String,
+});
+
+const StartReturns = Schema.Struct({
+  status: Schema.Literal("queued"),
+  workflow: Schema.Literal("${name}"),
+  componentWorkflowId: Schema.String,
+});
+
+const StatusArgs = Schema.Struct({
+  workspaceId: Id("workspaces"),
+  componentWorkflowId: Schema.String,
+});
+
+const ApproveArgs = Schema.Struct({
+  workspaceId: Id("workspaces"),
+  componentWorkflowId: Schema.String,
+  nodeId: Schema.String,
+});
+
+const ApproveReturns = Schema.Struct({
+  eventId: Schema.String,
+});
+
+export const start = defineContractFunction(
+  FunctionSpec.publicMutation({
+    name: "start",
+    args: () => StartArgs,
+    returns: () => StartReturns,
+    error: () => WorkflowErrors,
+  }),
+  {
+    namespace: "workflows.${name}",
+    name: "start",
+    operationId: "workflows.${name}.start",
+    kind: "mutation",
+    surfaces: ["web", "api", "cli", "mcp"],
+    typedErrors: [
+      "Unauthorized",
+      "MemberNotInWorkspace",
+      "WorkspaceNotFound",
+      "NotFound",
+      "ValidationFailed",
+    ],
+    idempotent: false,
+    argsSchemaName: "workflows.${name}.start.args",
+    returnsSchemaName: "workflows.${name}.start.returns",
+    argsSchema: StartArgs,
+    returnsSchema: StartReturns,
+  },
+);
+
+export const status = defineContractFunction(
+  FunctionSpec.publicQuery({
+    name: "status",
+    args: () => StatusArgs,
+    returns: () => WorkflowStatusResult,
+    error: () => WorkflowErrors,
+  }),
+  {
+    namespace: "workflows.${name}",
+    name: "status",
+    operationId: "workflows.${name}.status",
+    kind: "query",
+    surfaces: ["web", "api", "cli", "mcp"],
+    typedErrors: [
+      "Unauthorized",
+      "MemberNotInWorkspace",
+      "WorkspaceNotFound",
+      "NotFound",
+      "ValidationFailed",
+    ],
+    idempotent: true,
+    argsSchemaName: "workflows.${name}.status.args",
+    returnsSchemaName: "workflows.${name}.status.returns",
+    argsSchema: StatusArgs,
+    returnsSchema: WorkflowStatusResult,
+  },
+);
+
+export const approve = defineContractFunction(
+  FunctionSpec.publicMutation({
+    name: "approve",
+    args: () => ApproveArgs,
+    returns: () => ApproveReturns,
+    error: () => WorkflowErrors,
+  }),
+  {
+    namespace: "workflows.${name}",
+    name: "approve",
+    operationId: "workflows.${name}.approve",
+    kind: "mutation",
+    surfaces: ["web", "api", "cli", "mcp"],
+    typedErrors: [
+      "Unauthorized",
+      "MemberNotInWorkspace",
+      "WorkspaceNotFound",
+      "NotFound",
+      "ValidationFailed",
+    ],
+    idempotent: false,
+    argsSchemaName: "workflows.${name}.approve.args",
+    returnsSchemaName: "workflows.${name}.approve.returns",
+    argsSchema: ApproveArgs,
+    returnsSchema: ApproveReturns,
+  },
+);
+
+const contractFunctions = [start, status, approve] as const;
+
+export const manifest = collectContractManifest(contractFunctions);
+export const schemaRegistry = collectContractSchemas(contractFunctions);
+
+export default GroupSpec.make()
+  .addFunction(start.spec)
+  .addFunction(status.spec)
+  .addFunction(approve.spec);
+`,
     },
     {
-      path: `${basePath}/${name}.metadata.json`,
-      content: `${JSON.stringify(
-        {
-          workflow: name,
-          description,
-          surfaces: ["web", "cli", "mcp"],
-          requiredCapabilities: ["summarizeSource", "createTrustReceipt"],
-          typedErrors: ["Unauthorized", "ValidationFailed", "PolicyDenied"],
-          requiredFiles: [
-            "durable workflow graph",
-            "tests",
-            "headless registry entry",
-            "docs",
-          ],
-          migrationNotes: [
-            "Persist only durable workflow metadata, never React Flow node state.",
-            "Add migration notes when the workflow writes durable run/event rows.",
-          ],
-        },
-        null,
-        2,
-      )}\n`,
-    },
-    {
-      path: `${basePath}/${name}.test.ts`,
-      content: `import { describe, expect, it } from "vitest";
-import graph from "./${name}.workflow.json";
+      path: `packages/convex/confect/workflowContracts/${name}.impl.ts`,
+      content: `import {
+  getStatus,
+  sendEvent,
+  type WorkflowComponent,
+  type WorkflowId,
+} from "@convex-dev/workflow";
+import { FunctionImpl, GroupImpl } from "@confect/server";
+import * as Clock from "effect/Clock";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import {
+  componentsGeneric,
+  makeFunctionReference,
+  type FunctionReference,
+} from "convex/server";
+import databaseSchema from "../_generated/schema";
+import {
+  DatabaseReader,
+  MutationCtx,
+  QueryCtx,
+} from "../_generated/services";
+import { requireWorkspaceAccess } from "../capabilities/_kit/workspaceAccess";
+import {
+  MemberNotInWorkspace,
+  NotFound,
+  Unauthorized,
+  ValidationFailed,
+  WorkspaceNotFound,
+} from "../errors";
+import { startWorkflowAndRecordOwnership } from "../workflows/_kit/ownership";
+import {
+  projectWorkflowStatus,
+  type WorkflowStatusRunProjection,
+} from "../workflows/_kit/status";
+import { ${name}Graph } from "../workflows/${name}.graph";
+import ${name} from "./${name}.spec";
 
-describe("${name} generated workflow graph", () => {
-  it("has a connected source-to-receipt graph", () => {
-    const nodeIds = new Set(graph.nodes.map((node) => node.id));
+const withConfectClock = <A, E, R>(
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, Exclude<R, Clock.Clock>> =>
+  // Confect provides Clock at runtime, but its current handler type omits it.
+  effect as Effect.Effect<A, E, Exclude<R, Clock.Clock>>;
 
-    expect(graph.edges).toHaveLength(3);
-    for (const edge of graph.edges) {
-      expect(nodeIds.has(edge.source)).toBe(true);
-      expect(nodeIds.has(edge.target)).toBe(true);
+const workflowComponent =
+  componentsGeneric().workflow as unknown as WorkflowComponent;
+
+type WorkflowRunFunctionArgs = {
+  readonly args: {
+    readonly workspaceId: string;
+    readonly idempotencyKey: string;
+  };
+  readonly startAsync?: boolean;
+};
+
+const ${name}RunRef = makeFunctionReference<
+  "mutation",
+  WorkflowRunFunctionArgs,
+  WorkflowId
+>("workflowRunners/${name}:run") as unknown as FunctionReference<
+  "mutation",
+  "internal",
+  WorkflowRunFunctionArgs,
+  WorkflowId
+>;
+
+const errorMessage = (error: unknown): string | null => {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    return error.message;
+  }
+
+  return null;
+};
+
+const toWorkflowValidationFailed = (error: unknown): ValidationFailed =>
+  new ValidationFailed({
+    field: "workflow",
+    message: errorMessage(error) ?? "Unable to start workflow.",
+  });
+
+type WorkflowError =
+  | Unauthorized
+  | MemberNotInWorkspace
+  | WorkspaceNotFound
+  | NotFound
+  | ValidationFailed;
+
+const toWorkflowError = (error: unknown): WorkflowError => {
+  if (
+    error instanceof Unauthorized ||
+    error instanceof MemberNotInWorkspace ||
+    error instanceof WorkspaceNotFound ||
+    error instanceof NotFound ||
+    error instanceof ValidationFailed
+  ) {
+    return error;
+  }
+
+  return toWorkflowValidationFailed(error);
+};
+
+const findWorkflowRun = (
+  workspaceId: string,
+  componentWorkflowId: string,
+) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const run = yield* reader
+      .table("workflowRuns")
+      .index("by_workspace_component_workflow", (q) =>
+        q
+          .eq("workspaceId", workspaceId)
+          .eq("componentWorkflowId", componentWorkflowId),
+      )
+      .first()
+      .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+
+    if (!run) {
+      return yield* Effect.fail(
+        new NotFound({
+          resource: "workflowRuns",
+          id: componentWorkflowId,
+        }),
+      );
     }
+
+    return run;
+  });
+
+const startImpl = FunctionImpl.make(
+  databaseSchema,
+  ${name},
+  "start",
+  ({ workspaceId, idempotencyKey }) =>
+    Effect.gen(function* () {
+      const access = yield* withConfectClock(
+        requireWorkspaceAccess(workspaceId, "editor"),
+      );
+      const startedAt = yield* withConfectClock(Clock.currentTimeMillis);
+      const componentWorkflowId = yield* startWorkflowAndRecordOwnership({
+        workflowRef: ${name}RunRef,
+        workflowArgs: { workspaceId, idempotencyKey },
+        workspaceId,
+        workflowId: ${name}Graph.id,
+        workflowVersion: ${name}Graph.version,
+        graphJson: JSON.stringify(${name}Graph),
+        idempotencyKey,
+        startedByUserId: access.userId,
+        startedAt: startedAt,
+        workflowKind: "workflow.${name}",
+      }).pipe(Effect.mapError(toWorkflowValidationFailed));
+
+      return {
+        status: "queued" as const,
+        workflow: "${name}" as const,
+        componentWorkflowId,
+      };
+    }).pipe(Effect.mapError(toWorkflowError)),
+);
+
+const statusImpl = FunctionImpl.make(
+  databaseSchema,
+  ${name},
+  "status",
+  ({ workspaceId, componentWorkflowId }) =>
+    Effect.gen(function* () {
+      yield* withConfectClock(requireWorkspaceAccess(workspaceId, "viewer"));
+      const run = yield* findWorkflowRun(workspaceId, componentWorkflowId);
+      const ctx = yield* QueryCtx;
+      const rawStatus = yield* Effect.promise(() =>
+        getStatus(ctx, workflowComponent, componentWorkflowId as WorkflowId),
+      ).pipe(Effect.mapError(toWorkflowValidationFailed));
+      const runProjection = {
+        ...(run.status !== undefined ? { status: run.status } : {}),
+        ...(run.deadlineAt !== undefined ? { deadlineAt: run.deadlineAt } : {}),
+        ...(run.timedOutAt !== undefined ? { timedOutAt: run.timedOutAt } : {}),
+        ...(run.timeoutErrorCode !== undefined
+          ? { timeoutErrorCode: run.timeoutErrorCode }
+          : {}),
+        ...(run.timeoutSummary !== undefined
+          ? { timeoutSummary: run.timeoutSummary }
+          : {}),
+      } satisfies WorkflowStatusRunProjection;
+
+      return projectWorkflowStatus(rawStatus, runProjection);
+    }).pipe(Effect.mapError(toWorkflowError)),
+);
+
+const approveImpl = FunctionImpl.make(
+  databaseSchema,
+  ${name},
+  "approve",
+  ({ workspaceId, componentWorkflowId, nodeId }) =>
+    Effect.gen(function* () {
+      yield* withConfectClock(requireWorkspaceAccess(workspaceId, "editor"));
+      yield* findWorkflowRun(workspaceId, componentWorkflowId);
+      const ctx = yield* MutationCtx;
+      const eventId = yield* Effect.promise(() =>
+        sendEvent(ctx, workflowComponent, {
+          workflowId: componentWorkflowId as WorkflowId,
+          name: ${name}Graph.id + "." + nodeId + ".approved",
+          value: null,
+        }),
+      ).pipe(Effect.mapError(toWorkflowValidationFailed));
+
+      return { eventId };
+    }).pipe(Effect.mapError(toWorkflowError)),
+);
+
+export default GroupImpl.make(databaseSchema, ${name}).pipe(
+  Layer.provide(startImpl),
+  Layer.provide(statusImpl),
+  Layer.provide(approveImpl),
+  GroupImpl.finalize,
+);
+`,
+    },
+    {
+      path: `packages/convex/confect/workflows/${name}.graph.ts`,
+      content: `import type { DurableWorkflowGraph } from "./graph";
+
+export const ${name}Graph = {
+  id: "workflow_${name}",
+  version: 1,
+  startNodeId: "start",
+  nodes: [
+    {
+      id: "start",
+      kind: "source",
+      label: "${name} start",
+      retry: { maxAttempts: 1, backoffMs: 0 },
+    },
+    {
+      id: "receipt",
+      kind: "output",
+      label: "Trust Receipt",
+      retry: { maxAttempts: 1, backoffMs: 0 },
+    },
+  ],
+  edges: [
+    {
+      id: "edge_start_receipt",
+      sourceNodeId: "start",
+      targetNodeId: "receipt",
+    },
+  ],
+  joins: [],
+} satisfies DurableWorkflowGraph;
+`,
+    },
+    {
+      path: `packages/convex/convex/workflowRunners/${name}.ts`,
+      content: `import { defineWorkflow } from "@convex-dev/workflow";
+import { v } from "convex/values";
+import { components } from "../_generated/api";
+import {
+  runDurableGraphWorkflow,
+  type RunDurableGraphStep,
+} from "../../confect/workflows/_kit/graphRunner";
+import { ${name}Graph } from "../../confect/workflows/${name}.graph";
+
+export const run = defineWorkflow(components.workflow, {
+  args: {
+    workspaceId: v.string(),
+    idempotencyKey: v.string(),
+  },
+  returns: v.any(),
+}).handler((step, args) =>
+  runDurableGraphWorkflow(step as RunDurableGraphStep, {
+    graph: ${name}Graph,
+    inputs: args,
+    policySnapshot: {},
+    capabilityRegistry: {},
+  }),
+);
+`,
+    },
+    {
+      path: `packages/convex/test/${name}.workflow.test.ts`,
+      content: `import { describe, expect, it } from "vitest";
+import { ${name}Graph } from "../confect/workflows/${name}.graph";
+import {
+  runDurableGraphWorkflow,
+  type RunDurableGraphStep,
+} from "../confect/workflows/_kit/graphRunner";
+
+describe("${name} durable workflow scaffold", () => {
+  it("runs the generated source-to-output graph", async () => {
+    const step: RunDurableGraphStep = {
+      runQuery: async () => {
+        throw new Error("Generated source/output graph should not run queries.");
+      },
+      runMutation: async () => {
+        throw new Error("Generated source/output graph should not run mutations.");
+      },
+      runAction: async () => {
+        throw new Error("Generated source/output graph should not run actions.");
+      },
+      sleep: async () => {},
+      awaitEvent: async () => {
+        throw new Error("Generated source/output graph should not await events.");
+      },
+    };
+
+    const inputs = {
+      workspaceId: "workspace_123",
+      idempotencyKey: "workflow-test-1",
+    };
+    const policySnapshot = { mode: "test" };
+
+    const result = await runDurableGraphWorkflow(step, {
+      graph: ${name}Graph,
+      inputs,
+      policySnapshot,
+      capabilityRegistry: {},
+    });
+
+    expect(result).toEqual({
+      inputs,
+      context: {
+        start: inputs,
+      },
+      policySnapshot,
+    });
   });
 });
 `,
     },
     {
-      path: `${basePath}/README.md`,
+      path: `docs/template/generated/workflows/${name}.md`,
       content: `# ${pascalName} Workflow
 
 ${description}
 
 ## Generated Files
 
-- \`${name}.workflow.json\`: React Flow friendly durable graph seed.
-- \`${name}.metadata.json\`: headless surfaces, typed errors, and required capabilities.
-- \`${name}.test.ts\`: graph integrity scaffold.
+- \`packages/convex/convex/workflowRunners/${name}.ts\`: plain Convex \`defineWorkflow\` durable replay handler.
+- \`packages/convex/confect/workflowContracts/${name}.spec.ts\`: typed start, status, and approval contract.
+- \`packages/convex/confect/workflowContracts/${name}.impl.ts\`: Confect implementation that records workflow ownership and projects component status.
+- \`packages/convex/confect/workflows/${name}.graph.ts\`: durable graph data, initially source to Trust Receipt output only.
+- \`packages/convex/test/${name}.workflow.test.ts\`: focused runner scaffold for the default graph.
 
 ## Required Follow-Up
 
-1. Replace sample capability refs with generated or existing capability names.
-2. Add save/validate/run Confect functions for this workflow.
-3. Wire the graph into \`packages/workflow-ui\` and the headless registry.
-4. Add replay, retry, idempotency, approval, and receipt tests.
+1. Add the generated Confect group to the workflow spec tree.
+2. Run \`pnpm --dir packages/convex exec convex codegen\` after writing the generated files so \`workflowRunners/${name}:run\` exists before typecheck.
+   Run \`pnpm confect:codegen\` when validating the generated \`workflowContracts.${name}\` public wrappers; if Confect sync removes \`packages/convex/convex/workflowRunners/${name}.ts\`, rerun this generator before Convex codegen and typecheck.
+3. Keep React Flow as a projection of \`${name}.graph.ts\`; do not persist canvas node state as the workflow contract.
+4. Generated approval nodes require the generated \`workflowContracts.${name}.approve\` mutation before they are usable.
+5. Generated capability nodes require registry entries with concrete \`buildArgs\` mappers for the target internal capability ref.
+6. Run \`pnpm check:workflow-graph-boundary\`, \`pnpm check:confect-contracts\`, and focused workflow tests.
 `,
     },
   ];
@@ -1358,10 +2163,10 @@ export const buildCapabilityPromotionFiles = (
   const basePath = `packages/convex/confect/capabilities/${name}`;
   const files: readonly GeneratedFile[] = [
     {
-      path: `${basePath}/${name}.spec.ts`,
+      path: `${basePath}.spec.ts`,
       content: `import { FunctionSpec, GroupSpec } from "@confect/core";
 import * as Schema from "effect/Schema";
-import { Forbidden, Unauthorized, ValidationFailed } from "../../errors";
+import { Forbidden, Unauthorized, ValidationFailed } from "../errors";
 
 export const ${name}Args = Schema.Struct({
   workspaceSlug: Schema.String,
@@ -1385,12 +2190,12 @@ export default GroupSpec.make().addFunction(${name});
 `,
     },
     {
-      path: `${basePath}/${name}.impl.ts`,
+      path: `${basePath}.impl.ts`,
       content: `import { FunctionImpl, GroupImpl } from "@confect/server";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import databaseSchema from "../../_generated/schema";
-import ${name}Group, { ${name} } from "./${name}.spec";
+import databaseSchema from "../_generated/schema";
+import ${name}Group from "./${name}.spec";
 
 const ${name}Impl = FunctionImpl.make(
   databaseSchema,
@@ -1410,7 +2215,95 @@ export default GroupImpl.make(databaseSchema, ${name}Group).pipe(
 `,
     },
     {
-      path: `${basePath}/${name}.headless.json`,
+      path: `${basePath}.domain.ts`,
+      content: `// Pure domain helpers for promoted ${name}. Replace the placeholder fields with
+// reviewed capability input, keep normalize/validate pure, and keep provider
+// calls out of this file (they belong in the impl behind services).
+export type ${pascalName}Input = {
+  readonly workspaceSlug: string;
+  readonly input: string;
+};
+
+export const normalize${pascalName}Input = (
+  input: ${pascalName}Input,
+): ${pascalName}Input => ({
+  workspaceSlug: input.workspaceSlug.trim(),
+  input: input.input.trim(),
+});
+
+export const validate${pascalName}Input = (
+  input: ${pascalName}Input,
+): readonly string[] => {
+  const errors: string[] = [];
+
+  if (input.workspaceSlug.length === 0) {
+    errors.push("workspaceSlug must not be blank.");
+  }
+
+  if (input.input.length === 0) {
+    errors.push("input must not be blank.");
+  }
+
+  return errors;
+};
+`,
+    },
+    {
+      path: `${basePath}.test.ts`,
+      content: `import fc from "fast-check";
+import { describe, expect, it } from "vitest";
+import metadata from "./${name}.headless.json";
+import {
+  normalize${pascalName}Input,
+  validate${pascalName}Input,
+} from "./${name}.domain";
+
+describe("${name} promoted capability domain", () => {
+  it("normalization is idempotent for any input", () => {
+    fc.assert(
+      fc.property(fc.string(), fc.string(), (workspaceSlug, input) => {
+        const once = normalize${pascalName}Input({ workspaceSlug, input });
+        expect(normalize${pascalName}Input(once)).toEqual(once);
+      }),
+    );
+  });
+
+  it("rejects blank fields after normalization", () => {
+    fc.assert(
+      fc.property(fc.stringMatching(/^\\s*$/), (blank) => {
+        const normalized = normalize${pascalName}Input({
+          workspaceSlug: blank,
+          input: blank,
+        });
+        expect(validate${pascalName}Input(normalized)).toHaveLength(2);
+      }),
+    );
+  });
+
+  it("accepts trimmed non-blank input", () => {
+    const normalized = normalize${pascalName}Input({
+      workspaceSlug: "  acme-demo  ",
+      input: "  summarize the approved sources  ",
+    });
+
+    expect(normalized.workspaceSlug).toBe("acme-demo");
+    expect(validate${pascalName}Input(normalized)).toEqual([]);
+  });
+
+  it("declares the required typed errors", () => {
+    expect(metadata.typedErrors).toEqual(
+      expect.arrayContaining(["Unauthorized", "ValidationFailed", "Forbidden"]),
+    );
+    expect(metadata.schemas).toEqual({
+      args: "${name}Args",
+      returns: "${name}Returns",
+    });
+  });
+});
+`,
+    },
+    {
+      path: `${basePath}.headless.json`,
       content: `${JSON.stringify(
         {
           capability: name,
@@ -1418,6 +2311,10 @@ export default GroupImpl.make(databaseSchema, ${name}Group).pipe(
           targetGroup: `capabilities/${name}`,
           authScope: "workspace member",
           typedErrors: ["Unauthorized", "ValidationFailed", "Forbidden"],
+          schemas: {
+            args: `${name}Args`,
+            returns: `${name}Returns`,
+          },
           surfaces: ["api", "cli", "mcp"],
           migrationNotes: [
             "Run Confect codegen before wiring generated refs.",
@@ -1430,7 +2327,7 @@ export default GroupImpl.make(databaseSchema, ${name}Group).pipe(
       )}\n`,
     },
     {
-      path: `${basePath}/README.md`,
+      path: `docs/template/generated/capabilities/${name}.md`,
       content: `# ${pascalName} Promoted Capability
 
 ${description}
@@ -1999,6 +2896,8 @@ export const runGeneratorCli = (
             "template:add-client-domain --name <name> [--description <text>] [--write]",
             "template:add-capability --name <name> [--description <text>] [--exposure web|workflow|headless] [--write]",
             "template:add-workflow --name <name> [--description <text>] [--write]",
+            "template:add-agent --name <name> [--description <text>] [--write]",
+            "template:add-agent-seat --name <name> [--description <text>] [--write]",
             "template:promote-capability --name <name> [--description <text>] [--write]",
             "template:promote-workflow --name <name> [--description <text>] [--write]",
             "template:upgrade --from <client-version> --to <template-version>",
@@ -2209,6 +3108,31 @@ export const runGeneratorCli = (
       }
 
       const result = buildWorkflowFiles({
+        name: args.name,
+        ...(args.description ? { description: args.description } : {}),
+      });
+
+      if (args.write) {
+        writeGeneratedFiles(result.files, cwd);
+      }
+
+      return {
+        exitCode: 0,
+        stdout: `${JSON.stringify(result, null, 2)}\n`,
+        stderr: "",
+      };
+    }
+
+    if (args.command === "add-agent" || args.command === "add-agent-seat") {
+      if (!args.name) {
+        return {
+          exitCode: 1,
+          stdout: "",
+          stderr: `Missing required --name for ${args.command}\n`,
+        };
+      }
+
+      const result = buildAgentFiles({
         name: args.name,
         ...(args.description ? { description: args.description } : {}),
       });

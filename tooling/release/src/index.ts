@@ -297,7 +297,7 @@ const readinessClaims = [
       "packages/convex/confect/http.ts",
     ],
     detail:
-      "API, CLI, MCP, and Scalar/OpenAPI projections come from shared template registry metadata.",
+      "API, CLI, MCP, and Scalar/OpenAPI projections come from generated Confect manifest metadata.",
   },
   {
     id: "provider-adapter-harness",

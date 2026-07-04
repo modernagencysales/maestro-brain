@@ -1,174 +1,64 @@
 #!/usr/bin/env node
-import {
-  buildApiCatalog,
-  buildHeadlessOperations,
-  buildMcpTools,
-  buildOpenApiDocument,
-  callMcpTool,
-  describeWorkflowTemplate,
-  getHeadlessOperation,
-  runTemplateApiOperation,
-  runTemplateWorkflow,
-} from "@maestro-template/workflow-tooling";
-import {
-  providerConfigReport,
-  type ProviderMode,
-} from "@maestro-template/integrations";
+import { runTemplateApiOperation } from "@maestro-template/workflow-tooling";
+import { createCliHandlers } from "./commands";
+import { cliFailure, formatJsonOutput } from "./result";
+import { decodeCliRuntimeConfig, emptyCliRuntimeConfig } from "./runtimeConfig";
+import { dispatchCliCommand } from "./router";
+import type {
+  CliCapabilityRequest,
+  CliResult,
+  CliRuntimeConfig,
+} from "./types";
 
-export type CliResult = {
-  readonly exitCode: 0 | 1;
-  readonly stdout: string;
-  readonly stderr: string;
+export { decodeCliRuntimeConfig };
+export type { CliResult, CliRuntimeConfig };
+
+export const staticCliOperationRefs: Readonly<Record<string, string>> = {
+  "brain.pages.createMarkdown": "brain.pages.createMarkdown",
 };
 
-const json = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`;
+export const staticCliCapabilityIds: ReadonlySet<string> = new Set(
+  Object.keys(staticCliOperationRefs),
+);
 
-export const runCli = (argv: readonly string[]): CliResult => {
-  const [command, subcommand, maybeId] = argv;
-
-  if (!command || command === "help" || command === "--help") {
-    return {
-      exitCode: 0,
-      stdout:
-        [
-          "maestro-template describe",
-          "maestro-template operations list",
-          "maestro-template operations get <id>",
-          "maestro-template capability run <id>",
-          "maestro-template workflow run",
-          "maestro-template api catalog",
-          "maestro-template api openapi",
-          "maestro-template mcp tools",
-          "maestro-template mcp call <toolName>",
-          "maestro-template integrations report [fake|test|live]",
-        ].join("\n") + "\n",
-      stderr: "",
-    };
+const runStaticCliCapability = (
+  capabilityId: string,
+  request: CliCapabilityRequest,
+): CliResult => {
+  const operationId = staticCliOperationRefs[capabilityId];
+  if (!staticCliCapabilityIds.has(capabilityId) || operationId === undefined) {
+    return cliFailure(`Unknown CLI capability: ${capabilityId}\n`);
   }
 
-  if (command === "describe") {
-    return {
-      exitCode: 0,
-      stdout: json(describeWorkflowTemplate()),
-      stderr: "",
-    };
-  }
-
-  if (command === "operations" && subcommand === "list") {
-    return {
-      exitCode: 0,
-      stdout: json(buildHeadlessOperations()),
-      stderr: "",
-    };
-  }
-
-  if (command === "operations" && subcommand === "get" && maybeId) {
-    const operation = getHeadlessOperation(maybeId);
-
-    if (!operation) {
-      return {
-        exitCode: 1,
-        stdout: "",
-        stderr: `Unknown operation: ${maybeId}\n`,
-      };
-    }
-
-    return {
-      exitCode: 0,
-      stdout: json(operation),
-      stderr: "",
-    };
-  }
-
-  if (command === "workflow" && subcommand === "run") {
-    return {
-      exitCode: 0,
-      stdout: json(runTemplateWorkflow()),
-      stderr: "",
-    };
-  }
-
-  if (command === "capability" && subcommand === "run" && maybeId) {
-    return {
-      exitCode: 0,
-      stdout: json(
-        runTemplateApiOperation(maybeId, {
-          workspaceSlug: "acme-demo",
-          input: {
-            sourceIds: ["source_1"],
-            briefGoal: "Create a client implementation brief.",
-          },
-          idempotencyKey: `${maybeId}-cli-001`,
-        }),
-      ),
-      stderr: "",
-    };
-  }
-
-  if (command === "api" && subcommand === "catalog") {
-    return {
-      exitCode: 0,
-      stdout: json(buildApiCatalog()),
-      stderr: "",
-    };
-  }
-
-  if (command === "api" && subcommand === "openapi") {
-    return {
-      exitCode: 0,
-      stdout: json(buildOpenApiDocument()),
-      stderr: "",
-    };
-  }
-
-  if (command === "mcp" && subcommand === "tools") {
-    return {
-      exitCode: 0,
-      stdout: json(buildMcpTools()),
-      stderr: "",
-    };
-  }
-
-  if (command === "mcp" && subcommand === "call" && maybeId) {
-    const result = callMcpTool(maybeId);
-
-    return {
-      exitCode: result.isError ? 1 : 0,
-      stdout: json(result),
-      stderr: "",
-    };
-  }
-
-  if (command === "integrations" && subcommand === "report") {
-    const mode = (maybeId ?? "fake") as ProviderMode;
-
-    if (!["fake", "test", "live"].includes(mode)) {
-      return {
-        exitCode: 1,
-        stdout: "",
-        stderr: `Unknown provider mode: ${mode}\n`,
-      };
-    }
-
-    return {
-      exitCode: 0,
-      stdout: json(providerConfigReport(mode, process.env)),
-      stderr: "",
-    };
-  }
+  const result = runTemplateApiOperation(operationId, request);
 
   return {
-    exitCode: 1,
-    stdout: "",
-    stderr: `Unknown command: ${argv.join(" ")}\n`,
+    exitCode: result.ok ? 0 : 1,
+    stdout: formatJsonOutput(result),
+    stderr: "",
   };
 };
+
+const cliHandlers = createCliHandlers({
+  capability: {
+    hasCapability: (capabilityId) => staticCliCapabilityIds.has(capabilityId),
+    runCapability: runStaticCliCapability,
+  },
+});
+
+export const runCli = (
+  argv: readonly string[],
+  config: CliRuntimeConfig = emptyCliRuntimeConfig,
+): CliResult => dispatchCliCommand(cliHandlers, argv, config);
 
 if (
   process.argv[1]?.endsWith("index.ts") ||
   process.argv[1]?.endsWith("index.js")
 ) {
-  const result = runCli(process.argv.slice(2));
+  const result = runCli(
+    process.argv.slice(2),
+    decodeCliRuntimeConfig(process.env),
+  );
   process.stdout.write(result.stdout);
   process.stderr.write(result.stderr);
   process.exitCode = result.exitCode;

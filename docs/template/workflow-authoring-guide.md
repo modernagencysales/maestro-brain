@@ -23,6 +23,75 @@ React Flow owns canvas interaction only: drag/drop, selection, viewport,
 palette, draft commands, and visual validation hints. Durable graph schemas,
 validation, and execution live outside React Flow packages.
 
+## Canvas Boundary
+
+The workflow canvas is a projection of durable workflow graph data. Persisted
+workflow records store the graph contract and stage/event ledgers. The web app
+derives React Flow nodes and edges from that graph, overlays
+`workflowStageRuns`, and saves domain workflow commands rather than raw React
+Flow mutations.
+
+## Durable Graph Runner Semantics
+
+The persisted `DurableWorkflowGraph` is the source of truth. React Flow and
+other editors are projections over this graph, never the persisted source.
+
+Runtime context:
+
+- The graph runner receives `inputs`, `policySnapshot`, and a generated
+  capability registry.
+- Each node result is stored under `context[node.id]`.
+- Capability node args are `{ inputs, context, node, policySnapshot }` unless a
+  later schema task declares a narrower generated args schema.
+- Source nodes copy `inputs` into `context[node.id]`.
+- Output nodes project `{ inputs, context, policySnapshot }` into a
+  Convex-serializable object. The first output node reached becomes the final
+  result; if no output node is reached, the full context is returned.
+- Agent nodes may only dispatch generated internal capability refs tagged as
+  agent seats. They do not call provider adapters or repos directly.
+
+Graph traversal:
+
+- Nodes become ready when all incoming edges without false conditions have
+  satisfied source nodes.
+- Join nodes must wait for every required incoming source.
+- Edges with conditions use the safe expression grammar below; false edges do
+  not activate their target.
+- Delay nodes call `step.sleep(delayMs, { name })` for stable workflow journal
+  naming and return `{ delayedMs }`.
+- Approval nodes call `step.awaitEvent({ name })`, where name is
+  `${graph.id}.${node.id}.approved`, and return the event payload.
+- Capability nodes resolve `node.capability` through the generated capability
+  registry and call only `step.runAction`, `step.runMutation`, or
+  `step.runQuery`.
+
+Condition grammar:
+
+- Allowed identifiers: `inputs`, `context`, `policySnapshot`.
+- Allowed operators: `===`, `!==`, `&&`, `||`, `!`, parentheses, string and
+  number literals.
+- No function calls, property writes, constructor access, global identifiers,
+  regex literals, or dynamic imports.
+- Invalid conditions fail validation before workflow start.
+
+Failures:
+
+- Missing capability refs fail as typed workflow validation errors before
+  dispatch.
+- Unsupported node kinds fail as typed workflow validation errors.
+- Stage observability failures are quarantined; the original workflow failure or
+  result is preserved.
+- All outputs must be Convex JSON-safe.
+
+## Durable Runtime Boundary
+
+Generated workflow replay handlers live in
+`packages/convex/convex/workflowRunners/*.ts` and are plain Convex
+`defineWorkflow(components.workflow, ...)` handlers. Confect owns start, status,
+event, cancel, restart, cleanup, manifest, and capability step contracts. Do not
+move replay handlers into Confect impl files: the workflow component is the
+durable runtime, while Confect is the typed contract layer around it.
+
 ## Reviewer-Safe Run Receipt
 
 The deterministic sample receipt lives in `packages/template-core/src/index.ts`

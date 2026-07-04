@@ -1,6 +1,6 @@
 import type { Ref } from "@confect/core";
 import type { ReactMutation } from "@confect/react";
-import type { TemplateConfectRefs } from "@maestro-template/convex";
+import type { TemplateConfectRefs } from "@maestro-template/convex/refs";
 import { describe, expectTypeOf, it } from "vitest";
 import {
   type TemplateDataState,
@@ -17,6 +17,10 @@ type TemplateQueryResult<Query extends Ref.AnyPublicQuery> = ReturnType<
 >;
 type TemplateMutationResult<Mutation extends Ref.AnyPublicMutation> =
   ReturnType<typeof useTemplateMutation<Mutation>>;
+type WorkspaceNotFoundVariant<Error> = Extract<
+  Error,
+  { readonly _tag: "WorkspaceNotFound" }
+>;
 
 describe("generated Confect refs through the web adapter", () => {
   it("infers generated query args, returns, and typed failures", () => {
@@ -25,10 +29,9 @@ describe("generated Confect refs through the web adapter", () => {
     expectTypeOf<Ref.Returns<BrainPageListRef>>().toMatchTypeOf<
       ReadonlyArray<{ readonly workspaceId: string; readonly title: string }>
     >();
-    expectTypeOf<Ref.Error<BrainPageListRef>>().toMatchTypeOf<{
-      readonly _tag: "WorkspaceNotFound";
-      readonly workspaceId: string;
-    }>();
+    expectTypeOf<WorkspaceNotFoundVariant<Ref.Error<BrainPageListRef>>>()
+      .toHaveProperty("workspaceId")
+      .toEqualTypeOf<string>();
 
     expectTypeOf<TemplateQueryResult<BrainPageListRef>>().toEqualTypeOf<
       TemplateDataState<
@@ -47,10 +50,9 @@ describe("generated Confect refs through the web adapter", () => {
       readonly markdown: string;
     }>();
     expectTypeOf<Ref.Returns<BrainPageCreateRef>>().toMatchTypeOf<string>();
-    expectTypeOf<Ref.Error<BrainPageCreateRef>>().toMatchTypeOf<{
-      readonly _tag: "WorkspaceNotFound";
-      readonly workspaceId: string;
-    }>();
+    expectTypeOf<WorkspaceNotFoundVariant<Ref.Error<BrainPageCreateRef>>>()
+      .toHaveProperty("workspaceId")
+      .toEqualTypeOf<string>();
 
     expectTypeOf<TemplateMutationResult<BrainPageCreateRef>>().toEqualTypeOf<
       ReactMutation<BrainPageCreateRef>

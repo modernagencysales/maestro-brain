@@ -10,6 +10,9 @@ exclude_patterns = [
   "**/coverage/**",
   "**/_generated/**",
   "apps/web/src/routeTree.gen.ts",
+  "packages/template-core/src/generated/**",
+  "packages/template-core/src/generated/confectManifest.ts",
+  "**/packages/template-core/src/generated/confectManifest.ts",
   "**/*.d.ts",
   "pnpm-lock.yaml",
   "tooling/**",
@@ -45,6 +48,15 @@ threshold = 4
 threshold = 5
 [smells.nested_control_flow]
 threshold = 4
+
+[[triage]]
+match.rules = ["qlty:similar-code"]
+match.file_patterns = ["packages/template-core/src/generated/confectManifest.ts"]
+set.ignored = true
+
+[[exclude]]
+plugins = ["qlty"]
+file_patterns = ["packages/template-core/src/generated/confectManifest.ts"]
 
 [[plugin]]
 name = "gitleaks"

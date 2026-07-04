@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  createConfectFailureEvent,
   createErrorReporter,
   createPostHogCapture,
   redactObservabilityPayload,
@@ -74,5 +75,52 @@ describe("observability provider seams", () => {
         safe: true,
       },
     );
+  });
+
+  it("builds redacted Confect failure events for PostHog", () => {
+    expect(
+      createConfectFailureEvent({
+        functionPath: "brain/pages.createMarkdown",
+        kind: "mutation",
+        errorTag: "MemberNotInWorkspace",
+        errorMessage: "Denied",
+        causeHash: "cause_123",
+        workspaceId: "workspaces_1",
+        userId: "users_1",
+      }),
+    ).toEqual({
+      event: "template.confect.failure",
+      distinctId: "users_1",
+      properties: {
+        functionPath: "brain/pages.createMarkdown",
+        kind: "mutation",
+        errorTag: "MemberNotInWorkspace",
+        errorMessage: "Denied",
+        causeHash: "cause_123",
+        workspaceId: "workspaces_1",
+      },
+    });
+  });
+
+  it("uses system distinctId for Confect failures without a user", () => {
+    expect(
+      createConfectFailureEvent({
+        functionPath: "brain/pages.reindex",
+        kind: "action",
+        errorTag: "ActionFailed",
+        errorMessage: "Action failed",
+        causeHash: "cause_456",
+      }),
+    ).toMatchObject({
+      event: "template.confect.failure",
+      distinctId: "system",
+      properties: {
+        functionPath: "brain/pages.reindex",
+        kind: "action",
+        errorTag: "ActionFailed",
+        errorMessage: "Action failed",
+        causeHash: "cause_456",
+      },
+    });
   });
 });

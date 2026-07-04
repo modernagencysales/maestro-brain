@@ -20,18 +20,24 @@ pnpm template:promote-capability -- --name summarizeSource --description "Summar
 
 ## Files Created
 
-- Confect-oriented capability spec and impl under
-  `generated/capabilities/<name>/`.
-- Typed args, returns, and errors.
+- Confect-oriented capability files under
+  `packages/convex/confect/capabilities/<name>.spec.ts`,
+  `packages/convex/confect/capabilities/<name>.impl.ts`,
+  `packages/convex/confect/capabilities/<name>.domain.ts`,
+  `packages/convex/confect/capabilities/<name>.test.ts`, and
+  `packages/convex/confect/capabilities/<name>.headless.json`.
+- Generated review docs under `docs/template/generated/capabilities/<name>.md`.
+- Typed args and returns, with shared typed errors imported from
+  `packages/convex/confect/errors.ts`.
 - Capability headless metadata.
 - Contract test scaffold.
-- README with follow-up steps for moving into the owning Confect group.
+- Follow-up docs for wiring the capability into the owning Confect group.
 
-The generator intentionally writes to `generated/` first. After review,
-`template:promote-capability` writes production-target files under
-`packages/convex/confect/capabilities/<name>/`. Add the promoted group to the
-Confect spec tree, run `pnpm confect:codegen`, then wire generated refs into
-web/API/CLI/MCP surfaces.
+The generator writes flat Confect capability drafts that match existing files
+such as `packages/convex/confect/capabilities/sourceGroundedBrief.spec.ts`.
+After review, add the promoted group to the Confect spec tree, run
+`pnpm confect:codegen`, run `pnpm confect:manifest`, then wire generated refs
+into web/API/CLI/MCP surfaces only for explicitly exposed operations.
 
 Future generator slices should add frontend adapters when user-facing and richer
 fake fixtures once the capability owns provider side effects.
@@ -51,6 +57,8 @@ fake fixtures once the capability owns provider side effects.
 
 ## Gates
 
+- `pnpm confect:codegen`
+- `pnpm confect:manifest`
 - `pnpm --dir packages/convex test capabilities`
 - `pnpm check:confect-contracts`
 - `pnpm check:headless-surface-contract` when exposed.

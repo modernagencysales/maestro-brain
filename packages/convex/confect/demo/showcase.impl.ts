@@ -8,6 +8,7 @@
  * writes at all.
  */
 import { FunctionImpl, GroupImpl } from "@confect/server";
+import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -65,7 +66,7 @@ const seed = FunctionImpl.make(databaseSchema, showcase, "seed", () =>
     }
 
     const writer = yield* DatabaseWriter;
-    const now = Date.now();
+    const now = yield* Clock.currentTimeMillis;
     const workspaceId = yield* writer
       .table("workspaces")
       .insert({

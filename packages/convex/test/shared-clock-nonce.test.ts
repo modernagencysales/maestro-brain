@@ -1,24 +1,31 @@
 import { describe, expect, it } from "vitest";
+import * as Effect from "effect/Effect";
+import * as TestClock from "effect/TestClock";
+import * as TestContext from "effect/TestContext";
+
 import {
-  createDeterministicClock,
+  currentDate,
+  currentIso,
+  currentTimeMillis,
+} from "../confect/shared/clock";
+import {
   createDeterministicNonce,
-  createSystemClock,
   createWebCryptoNonce,
-} from "../confect/shared/determinism";
+} from "../confect/shared/nonce";
 
 describe("shared clock and nonce seams", () => {
-  it("supports injected clocks for deterministic tests", () => {
-    const clock = createDeterministicClock("2026-07-01T00:00:00.000Z");
+  it("uses the Effect test clock for deterministic time", async () => {
+    await Effect.gen(function* () {
+      yield* TestClock.setTime(1782864000000);
 
-    expect(clock.now()).toEqual(new Date("2026-07-01T00:00:00.000Z"));
-    expect(clock.nowIso()).toBe("2026-07-01T00:00:00.000Z");
-    expect(clock.nowMs()).toBe(1782864000000);
-  });
+      const now = yield* currentTimeMillis;
+      const date = yield* currentDate;
+      const iso = yield* currentIso;
 
-  it("exposes a system clock seam", () => {
-    const clock = createSystemClock(() => 1782864000000);
-
-    expect(clock.nowIso()).toBe("2026-07-01T00:00:00.000Z");
+      expect(now).toBe(1782864000000);
+      expect(date).toEqual(new Date("2026-07-01T00:00:00.000Z"));
+      expect(iso).toBe("2026-07-01T00:00:00.000Z");
+    }).pipe(Effect.provide(TestContext.TestContext), Effect.runPromise);
   });
 
   it("supports injected nonce sequences", () => {

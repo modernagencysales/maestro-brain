@@ -1,11 +1,10 @@
 import * as S from "effect/Schema";
-import {
-  normalizeSourceGroundedBriefInput,
-  runFakeSourceGroundedBrief,
-  type SourceGroundedBriefInput,
-} from "../capabilities/sourceGroundedBrief.domain";
 import type { AgentPolicy } from "../policy/kinds/agent";
-import type { ModelTool, ToolPresentation } from "./defineTools";
+import type {
+  ModelTool,
+  PreparedModelToolInvocation,
+  ToolPresentation,
+} from "./defineTools";
 
 export namespace AgentRuntimeError {
   export class ToolNotFound extends S.TaggedError<ToolNotFound>()(
@@ -80,6 +79,12 @@ export type AgentTurnResult = {
   readonly toolCalls: readonly AgentToolCall[];
 };
 
+type AgentTurnPlan = {
+  readonly result: AgentTurnResult | undefined;
+  readonly tool: ModelTool | undefined;
+  readonly prepared: PreparedModelToolInvocation | undefined;
+};
+
 export const createAgentRuntime = (input: {
   readonly workspaceId: string;
   readonly policy: AgentPolicy;
@@ -96,12 +101,107 @@ export const continueAgentTurn = async (
   runtime: AgentRuntime,
   input: ContinueAgentTurnInput,
 ): Promise<AgentTurnResult> => {
-  const tool = runtime.tools.find((candidate) => {
-    return candidate.name === input.requestedToolName;
-  });
+  const plan = planAgentTurn(runtime, input);
 
-  if (!tool) {
-    return withFailedCall(runtime, input, {
+  return plan.result ?? executePreparedPlan(runtime, input, plan);
+};
+
+const planAgentTurn = (
+  runtime: AgentRuntime,
+  input: ContinueAgentTurnInput,
+): AgentTurnPlan => {
+  const tool = findRequestedTool(runtime, input.requestedToolName);
+  const requestedToolPlan = planRequestedTool(runtime, input, tool);
+  const grantedToolPlan = planGrantedTool(runtime, input, requestedToolPlan);
+  const limitedToolPlan = planToolCallLimit(runtime, input, grantedToolPlan);
+  const preparedToolPlan = planPreparedTool(runtime, input, limitedToolPlan);
+
+  return planCachedToolCall(runtime, input, preparedToolPlan);
+};
+
+const planRequestedTool = (
+  runtime: AgentRuntime,
+  input: ContinueAgentTurnInput,
+  tool: ModelTool | undefined,
+): AgentTurnPlan =>
+  tool
+    ? { result: undefined, tool, prepared: undefined }
+    : {
+        result: buildFailedTurnResult(runtime, input, {
+          error: new AgentRuntimeError.ToolNotFound({
+            toolName: input.requestedToolName,
+          }),
+          assistantMessage: `I cannot find ${input.requestedToolName}.`,
+        }),
+        tool: undefined,
+        prepared: undefined,
+      };
+
+const planGrantedTool = (
+  runtime: AgentRuntime,
+  input: ContinueAgentTurnInput,
+  plan: AgentTurnPlan,
+): AgentTurnPlan => ({
+  ...plan,
+  result:
+    plan.result ??
+    (plan.tool ? resultForGrantFailure(runtime, input, plan.tool) : undefined),
+});
+
+const planToolCallLimit = (
+  runtime: AgentRuntime,
+  input: ContinueAgentTurnInput,
+  plan: AgentTurnPlan,
+): AgentTurnPlan => ({
+  ...plan,
+  result:
+    plan.result ??
+    (plan.tool ? resultForToolCallLimit(runtime, input, plan.tool) : undefined),
+});
+
+const planPreparedTool = (
+  runtime: AgentRuntime,
+  input: ContinueAgentTurnInput,
+  plan: AgentTurnPlan,
+): AgentTurnPlan => {
+  if (plan.result || !plan.tool) {
+    return plan;
+  }
+
+  const prepared = prepareToolInvocation(plan.tool, input.toolArgs);
+
+  return prepared instanceof AgentRuntimeError.ToolInputInvalid
+    ? {
+        ...plan,
+        result: buildFailedTurnResult(runtime, input, {
+          tool: plan.tool,
+          error: prepared,
+          assistantMessage: `I could not call ${plan.tool.name} because the input was invalid.`,
+        }),
+      }
+    : { ...plan, prepared };
+};
+
+const planCachedToolCall = (
+  runtime: AgentRuntime,
+  input: ContinueAgentTurnInput,
+  plan: AgentTurnPlan,
+): AgentTurnPlan => ({
+  ...plan,
+  result:
+    plan.result ??
+    (plan.tool && plan.prepared
+      ? resultForCachedToolCall(runtime, input, plan.tool, plan.prepared)
+      : undefined),
+});
+
+const executePreparedPlan = (
+  runtime: AgentRuntime,
+  input: ContinueAgentTurnInput,
+  plan: AgentTurnPlan,
+): AgentTurnResult => {
+  if (!plan.tool || !plan.prepared) {
+    return buildFailedTurnResult(runtime, input, {
       error: new AgentRuntimeError.ToolNotFound({
         toolName: input.requestedToolName,
       }),
@@ -109,96 +209,79 @@ export const continueAgentTurn = async (
     });
   }
 
-  if (!runtime.policy.allowedToolGrantIds.includes(tool.grantId)) {
-    return {
-      threadId: input.threadId,
-      assistantMessage: `I cannot use ${tool.name} without a grant.`,
-      modelRef: runtime.policy.modelRef,
-      toolCalls: [
-        {
-          toolName: tool.name,
-          grantId: tool.grantId,
-          idempotencyKey: idempotencyKeyFromUnknown(input.toolArgs),
-          status: "denied",
-          reused: false,
-          error: new AgentRuntimeError.ToolGrantDenied({
-            toolName: tool.name,
-            grantId: tool.grantId,
-          }),
-        },
-      ],
-    };
-  }
-
-  if (runtime.usedToolCalls >= runtime.policy.maxToolCalls) {
-    return withFailedCall(runtime, input, {
-      tool,
-      error: new AgentRuntimeError.ToolCallLimitExceeded({
-        maxToolCalls: runtime.policy.maxToolCalls,
-      }),
-      assistantMessage: "I stopped before exceeding the configured tool limit.",
-    });
-  }
-
-  const decoded = decodeToolArgs(tool, input.toolArgs);
-
-  if (decoded instanceof AgentRuntimeError.ToolInputInvalid) {
-    return withFailedCall(runtime, input, {
-      tool,
-      error: decoded,
-      assistantMessage: `I could not call ${tool.name} because the input was invalid.`,
-    });
-  }
-
-  const idempotencyKey = decoded.idempotencyKey;
-  const cached = runtime.idempotencyCache.get(idempotencyKey);
-
-  if (cached) {
-    return {
-      threadId: input.threadId,
-      assistantMessage: `I reused the existing ${tool.name} result.`,
-      modelRef: runtime.policy.modelRef,
-      toolCalls: [{ ...cached, reused: true }],
-    };
-  }
-
-  runtime.usedToolCalls += 1;
-
-  const result = runFakeSourceGroundedBrief({
-    input: normalizeSourceGroundedBriefInput(decoded),
-    sources: decoded.sourceIds.map((sourceId) => ({
-      id: sourceId,
-      title: `Source ${sourceId}`,
-      markdown: "Synthetic source content for fake-mode agent tool run.",
-    })),
-    policySnapshotId: `policy_snapshot_${decoded.idempotencyKey}`,
-    modelReceiptId: `model_receipt_${decoded.idempotencyKey}`,
-  });
-  const toolCall: AgentToolCall = {
-    toolName: tool.name,
-    grantId: tool.grantId,
-    idempotencyKey,
-    status: "completed",
-    reused: false,
-    presentation: tool.present(result),
-  };
-
-  runtime.idempotencyCache.set(idempotencyKey, toolCall);
+  const execution = executePreparedTool(runtime, plan.tool, plan.prepared);
 
   return {
     threadId: input.threadId,
-    assistantMessage: `I created a source-grounded brief using ${tool.name}.`,
+    assistantMessage: execution.assistantMessage,
     modelRef: runtime.policy.modelRef,
-    toolCalls: [toolCall],
+    toolCalls: [execution.toolCall],
   };
 };
 
-const decodeToolArgs = (
+const findRequestedTool = (
+  runtime: AgentRuntime,
+  requestedToolName: string,
+): ModelTool | undefined =>
+  runtime.tools.find((candidate) => candidate.name === requestedToolName);
+
+const validateToolGrant = (
+  runtime: AgentRuntime,
   tool: ModelTool,
-  value: unknown,
-): SourceGroundedBriefInput | AgentRuntimeError.ToolInputInvalid => {
+): AgentRuntimeError.ToolGrantDenied | undefined => {
+  if (runtime.policy.allowedToolGrantIds.includes(tool.grantId)) {
+    return undefined;
+  }
+
+  return new AgentRuntimeError.ToolGrantDenied({
+    toolName: tool.name,
+    grantId: tool.grantId,
+  });
+};
+
+const resultForGrantFailure = (
+  runtime: AgentRuntime,
+  input: ContinueAgentTurnInput,
+  tool: ModelTool,
+): AgentTurnResult | undefined => {
+  const grantError = validateToolGrant(runtime, tool);
+
+  return grantError
+    ? buildDeniedTurnResult(runtime, input, tool, grantError)
+    : undefined;
+};
+
+const resultForToolCallLimit = (
+  runtime: AgentRuntime,
+  input: ContinueAgentTurnInput,
+  tool: ModelTool,
+): AgentTurnResult | undefined =>
+  runtime.usedToolCalls >= runtime.policy.maxToolCalls
+    ? buildFailedTurnResult(runtime, input, {
+        tool,
+        error: new AgentRuntimeError.ToolCallLimitExceeded({
+          maxToolCalls: runtime.policy.maxToolCalls,
+        }),
+        assistantMessage:
+          "I stopped before exceeding the configured tool limit.",
+      })
+    : undefined;
+
+const prepareToolInvocation = (
+  tool: ModelTool,
+  toolArgs: unknown,
+): PreparedModelToolInvocation | AgentRuntimeError.ToolInputInvalid => {
   try {
-    return S.decodeUnknownSync(tool.inputSchema)(value);
+    const result = tool.prepare(toolArgs);
+
+    if (result.ok) {
+      return result.invocation;
+    }
+
+    return new AgentRuntimeError.ToolInputInvalid({
+      toolName: tool.name,
+      message: result.message,
+    });
   } catch (error) {
     return new AgentRuntimeError.ToolInputInvalid({
       toolName: tool.name,
@@ -207,7 +290,81 @@ const decodeToolArgs = (
   }
 };
 
-const withFailedCall = (
+const executePreparedTool = (
+  runtime: AgentRuntime,
+  tool: ModelTool,
+  invocation: PreparedModelToolInvocation,
+): {
+  readonly assistantMessage: string;
+  readonly toolCall: AgentToolCall;
+} => {
+  runtime.usedToolCalls += 1;
+
+  const execution = invocation.execute();
+  const toolCall: AgentToolCall = {
+    toolName: tool.name,
+    grantId: tool.grantId,
+    idempotencyKey: invocation.idempotencyKey,
+    status: "completed",
+    reused: false,
+    presentation: execution.presentation,
+  };
+
+  runtime.idempotencyCache.set(invocation.idempotencyKey, toolCall);
+
+  return {
+    assistantMessage: execution.assistantMessage,
+    toolCall,
+  };
+};
+
+const resultForCachedToolCall = (
+  runtime: AgentRuntime,
+  input: ContinueAgentTurnInput,
+  tool: ModelTool,
+  invocation: PreparedModelToolInvocation,
+): AgentTurnResult | undefined => {
+  const cached = runtime.idempotencyCache.get(invocation.idempotencyKey);
+
+  return cached
+    ? buildCachedTurnResult(runtime, input, tool, cached)
+    : undefined;
+};
+
+const buildCachedTurnResult = (
+  runtime: AgentRuntime,
+  input: ContinueAgentTurnInput,
+  tool: ModelTool,
+  cached: AgentToolCall,
+): AgentTurnResult => ({
+  threadId: input.threadId,
+  assistantMessage: `I reused the existing ${tool.name} result.`,
+  modelRef: runtime.policy.modelRef,
+  toolCalls: [{ ...cached, reused: true }],
+});
+
+const buildDeniedTurnResult = (
+  runtime: AgentRuntime,
+  input: ContinueAgentTurnInput,
+  tool: ModelTool,
+  error: AgentRuntimeError.ToolGrantDenied,
+): AgentTurnResult => ({
+  threadId: input.threadId,
+  assistantMessage: `I cannot use ${tool.name} without a grant.`,
+  modelRef: runtime.policy.modelRef,
+  toolCalls: [
+    {
+      toolName: tool.name,
+      grantId: tool.grantId,
+      idempotencyKey: idempotencyKeyFromUnknown(input.toolArgs),
+      status: "denied",
+      reused: false,
+      error,
+    },
+  ],
+});
+
+const buildFailedTurnResult = (
   runtime: AgentRuntime,
   input: ContinueAgentTurnInput,
   options: {

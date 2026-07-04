@@ -40,20 +40,29 @@ export const checkDescriptors = {
         file: ".buildkite/scripts/taste.sh",
         includes: [
           "OPENAI_API_KEY",
+          "TASTE_PROVIDER",
+          "TASTE_OPENROUTER_MODEL",
           "extract-ai-verdict.mts",
-          "pnpm taste -- --mode fake | pnpm exec tsx tooling/quality/extract-ai-verdict.mts",
+          "TASTE_REVIEW_WORKTREE",
+          "TRUSTED_TREE",
+          "pnpm exec tsx tooling/quality/taste.mts --mode fake | pnpm exec tsx tooling/quality/extract-ai-verdict.mts",
+          'pnpm exec tsx "$TRUSTED_TREE/tooling/quality/taste.mts"',
         ],
-        message: "taste AI gate must require provider auth and parse verdicts",
+        message:
+          "taste AI gate must require provider auth, run trusted reviewer code, and parse verdicts",
       },
       {
         file: ".buildkite/scripts/contract-review.sh",
         includes: [
           "OPENAI_API_KEY",
           "extract-ai-verdict.mts",
-          "pnpm contract-review -- --mode fake | pnpm exec tsx tooling/quality/extract-ai-verdict.mts",
+          "CONTRACT_REVIEW_WORKTREE",
+          "TRUSTED_TREE",
+          "pnpm exec tsx tooling/quality/contract-review.mts --mode fake | pnpm exec tsx tooling/quality/extract-ai-verdict.mts",
+          'pnpm exec tsx "$TRUSTED_TREE/tooling/quality/contract-review.mts"',
         ],
         message:
-          "contract-review AI gate must require provider auth and parse verdicts",
+          "contract-review AI gate must require provider auth, run trusted reviewer code, and parse verdicts",
       },
       {
         file: "docs/template/operations-runbook.md",
@@ -76,6 +85,7 @@ export const checkDescriptors = {
         includes: [
           "check:ci-completeness",
           "check:config-drift",
+          "check:confect-v9",
           "check:confect-contracts",
           "check:confect-compat",
           "check:workflow-graph-boundary",
@@ -303,8 +313,10 @@ export const checkDescriptors = {
           "Confect spec/impl",
           "Effect schema",
           "typed errors",
-          "headless registry entry",
+          "generated manifest/headless metadata",
+          "explicit generated ref mappings",
         ],
+        absent: ["headless registry entry"],
         message: "generator output contract must protect generated slices",
       },
       {
@@ -428,6 +440,18 @@ export const checkDescriptors = {
         includes: ["capabilities", "brain", "jobs", "workpool"],
         message: "generated Confect spec must include core template groups",
       },
+      {
+        file: "tooling/quality/check-confect-contracts.mts",
+        includes: [
+          "publicSpecMissingError",
+          "ambientDateNow",
+          "plainConvexValueImports",
+          "requiredGeneratedFilesMissing",
+          "collectConfectContractFindings",
+        ],
+        message:
+          "Confect contract gate must keep semantic contract scanners wired",
+      },
     ],
   },
   "confect-compat": {
@@ -437,7 +461,7 @@ export const checkDescriptors = {
         file: "docs/template/confect-effect-guide.md",
         includes: [
           "@confect/server",
-          "9.1.4",
+          "9.1.5",
           "effect",
           "3.21.4",
           "@effect/platform-node",
@@ -452,9 +476,9 @@ export const checkDescriptors = {
       {
         file: "packages/convex/package.json",
         includes: [
-          '"@confect/core": "9.1.4"',
-          '"@confect/server": "9.1.4"',
-          '"@confect/test": "9.1.4"',
+          '"@confect/core": "9.1.5"',
+          '"@confect/server": "9.1.5"',
+          '"@confect/test": "9.1.5"',
           '"@effect/platform-node": "0.106.0"',
           '"convex-test": "0.0.54"',
           '"confect:codegen"',
@@ -466,7 +490,7 @@ export const checkDescriptors = {
       {
         file: "apps/web/package.json",
         includes: [
-          '"@confect/react": "9.1.4"',
+          '"@confect/react": "9.1.5"',
           '"effect": "3.21.4"',
           '"convex": "1.42.1"',
         ],
@@ -475,7 +499,7 @@ export const checkDescriptors = {
       {
         file: "apps/cli/package.json",
         includes: [
-          '"@confect/js": "9.1.4"',
+          '"@confect/js": "9.1.5"',
           '"@effect/platform-node": "0.106.0"',
           '"effect": "3.21.4"',
         ],
@@ -552,6 +576,18 @@ export const checkDescriptors = {
         includes: ["API/CLI/MCP -> headless registry"],
         message: "architecture docs must include headless projection",
       },
+      {
+        file: "tooling/quality/check-headless-surface-contract.mts",
+        includes: [
+          "missingTypedErrors",
+          "cannedRegistryImport",
+          "cannedRuntimeSuccess",
+          "missingGeneratedRefMapping",
+          "evaluateHeadlessSurfaceContract",
+        ],
+        message:
+          "headless surface gate must run semantic generated parity checks",
+      },
     ],
   },
   "posthog-readiness": {
@@ -559,8 +595,129 @@ export const checkDescriptors = {
     requirements: [
       {
         file: "docs/template/integrations.md",
-        includes: ["PostHog", "Analytics"],
-        message: "integrations docs must include PostHog readiness",
+        includes: [
+          "PostHog backend capture covers Confect mutation and action failures only",
+          "functionPath",
+          "kind",
+          "public error tag",
+          "redacted public message",
+          "stable cause hash",
+          "Query",
+          "capture is not included",
+        ],
+        message:
+          "integrations docs must define PostHog backend Confect failure capture and query limitation",
+      },
+      {
+        file: ".env.example",
+        includes: [
+          "POSTHOG_PROJECT_TOKEN=phc_test_placeholder",
+          "POSTHOG_HOST=http://localhost",
+        ],
+        absent: ["POSTHOG_KEY", "POSTHOG_DISABLED"],
+        message:
+          ".env.example must use PostHog Convex component env names and fake/test placeholders",
+      },
+      {
+        file: "packages/integrations/src/index.ts",
+        includes: ['requiredEnv: ["POSTHOG_PROJECT_TOKEN", "POSTHOG_HOST"]'],
+        absent: ['requiredEnv: ["POSTHOG_KEY", "POSTHOG_HOST"]'],
+        message:
+          "provider descriptors must use the PostHog Convex component project token env",
+      },
+      {
+        file: "tooling/generators/src/index.ts",
+        includes: ['posthog: ["POSTHOG_PROJECT_TOKEN", "POSTHOG_HOST"]'],
+        absent: ['posthog: ["POSTHOG_KEY", "POSTHOG_HOST"]'],
+        message:
+          "template generator required secrets must use the PostHog project token env",
+      },
+      {
+        file: "docs/template/env-manifest.md",
+        includes: [
+          "POSTHOG_PROJECT_TOKEN",
+          "phc_test_placeholder",
+          "POSTHOG_HOST=http://localhost",
+          "local checks never require live credentials",
+        ],
+        message:
+          "env manifest must document fake/test PostHog placeholders without live credentials",
+      },
+      {
+        file: "docs/template/confect-effect-guide.md",
+        includes: [
+          'withMutationErrorCapture("brain/pages.createMarkdown", effect)',
+          'withActionErrorCapture("group/functionName", effect)',
+          "preserves and",
+          "re-fails the original cause",
+          "There is no `withQueryErrorCapture` helper",
+        ],
+        message:
+          "Confect guide must document PostHog error-capture wrapper usage and limitations",
+      },
+      {
+        file: "docs/template/effectification-status.md",
+        includes: [
+          "brain/pages.createMarkdown",
+          "Remaining Confect groups are still unwrapped pending rollout/factory support",
+        ],
+        message:
+          "effectification status must identify the first wrapped group and remaining rollout gap",
+      },
+      {
+        file: "tooling/effectified-api-proof/posthog-proof.ts",
+        includes: [
+          'import { PostHog } from "@posthog/convex"',
+          "new PostHog(component)",
+          "posthog.capture",
+          "template.proof",
+        ],
+        message:
+          "PostHog API proof must exercise constructor and capture shape",
+      },
+      {
+        file: "packages/convex/convex/convex.config.ts",
+        includes: [
+          'import posthog from "@posthog/convex/convex.config.js"',
+          "POSTHOG_PROJECT_TOKEN: v.string()",
+          "POSTHOG_HOST: v.optional(v.string())",
+          "app.use(posthog",
+        ],
+        message:
+          "Convex config must mount the PostHog component with token and optional host env",
+      },
+      {
+        file: "packages/observability/src/index.ts",
+        includes: [
+          "CapturedConfectFailure",
+          "template.confect.failure",
+          "functionPath",
+          "kind",
+          "errorTag",
+          "errorMessage",
+          "causeHash",
+          "redactObservabilityPayload",
+        ],
+        message:
+          "observability package must expose the redacted Confect failure event contract",
+      },
+      {
+        file: "packages/convex/confect/observability/errorCapture.ts",
+        includes: [
+          "withMutationErrorCapture",
+          "withActionErrorCapture",
+          "Effect.catchAllCause",
+          "Effect.catchAll(() => Effect.void)",
+          "Effect.failCause(cause)",
+        ],
+        message:
+          "Confect error-capture wrappers must best-effort capture and preserve the original cause",
+      },
+      {
+        file: "packages/convex/confect/brain/pages.impl.ts",
+        includes: ["withMutationErrorCapture", "brain/pages.createMarkdown"],
+        message:
+          "brain/pages.createMarkdown must be the first wrapped Confect mutation",
       },
     ],
   },
@@ -591,6 +748,13 @@ export const checkDescriptors = {
       },
       {
         file: "tooling/workflow/src/index.ts",
+        includes: ["generatedMcpOperationRefs", "buildGeneratedMcpTools"],
+        absent: ["@xyflow/react", "ReactFlow"],
+        message:
+          "headless workflow projection entrypoint must not depend on React Flow runtime",
+      },
+      {
+        file: "tooling/workflow/src/workflow-compat.ts",
         includes: ["createSampleWorkflowRunReceipt"],
         absent: ["@xyflow/react", "ReactFlow"],
         message:

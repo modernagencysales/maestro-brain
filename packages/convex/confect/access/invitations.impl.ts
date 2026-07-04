@@ -142,7 +142,6 @@ const decline = FunctionImpl.make(
       const plan = yield* declineInvitation({
         invitation,
         verifiedEmail: user.email,
-        userId: user._id,
         now,
       });
 
@@ -169,7 +168,7 @@ const cancel = FunctionImpl.make(
       const actor = yield* loadActorForWorkspace(reader, workspaceId);
       yield* requireActorRole(actor, "admin");
       const invitation = yield* loadInvitationForResponse(reader, invitationId);
-      const plan = cancelInvitation({
+      const plan = yield* cancelInvitation({
         invitation,
         workspaceId,
         actorUserId: actor.userId,
@@ -260,6 +259,7 @@ const toInvitationRef = (invitation: InvitationsDoc): InvitationRef => ({
   invitedByUserId: invitation.invitedByUserId,
   acceptedAt: invitation.acceptedAt,
   revokedAt: invitation.revokedAt,
+  declinedAt: invitation.declinedAt ?? null,
   expiresAt: invitation.expiresAt,
   createdAt: invitation.createdAt,
   updatedAt: invitation.updatedAt,

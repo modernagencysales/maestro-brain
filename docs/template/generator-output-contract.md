@@ -14,17 +14,32 @@ For backend or headless behavior, emit or update:
   private-package posture.
 - Confect spec/impl.
 - Effect schema.
-- typed errors.
+- shared typed errors imported from the owning Confect errors module.
 - behavior tests.
 - reviewer-safe fixtures.
 - README or generated docs.
-- headless registry entry when exposed.
+- generated manifest/headless metadata and explicit generated ref mappings when
+  exposed.
 - API, CLI, MCP, and OpenAPI/Scalar metadata when exposed.
 - audit metadata.
 - data-map metadata.
 - env manifest entries when a provider or secret name is introduced.
 - migration notes for durable table or index changes.
 - reviewer commands.
+
+`template:add-capability` emits flat Confect files under
+`packages/convex/confect/capabilities/<name>.*`, including spec, impl, domain,
+tests, and optional headless metadata. It does not create a nested
+`capabilities/<name>/` source tree.
+
+`template:add-workflow` emits durable graph JSON data, Confect
+`start`/`status`/`control` spec, impl, tests, docs, and a plain Convex
+`defineWorkflow` durable replay handler. The Confect contract owns public
+start/status/control access; the plain Convex handler owns replay.
+
+`template:add-agent` emits the agent spec, impl, tool grants, tests, and docs.
+Generated agents default to web-only exposure. API, CLI, or MCP exposure
+requires a separate reviewed headless contract change.
 
 For app-factory setup commands such as `template:quickstart` and
 `template:intake`, also emit or update:
@@ -46,15 +61,32 @@ For user-facing behavior, also emit or update:
 
 - Runtime-authored capabilities and workflows are data until promoted.
 - Promotion to generated Confect source is the compile-time safety path.
+- Capability generators emit flat Confect files:
+  `packages/convex/confect/capabilities/<name>.spec.ts`,
+  `packages/convex/confect/capabilities/<name>.impl.ts`,
+  `packages/convex/confect/capabilities/<name>.domain.ts`,
+  `packages/convex/confect/capabilities/<name>.test.ts`, and
+  `packages/convex/confect/capabilities/<name>.headless.json`.
+- Generated capability docs are emitted at
+  `docs/template/generated/capabilities/<name>.md`.
+- Flat generated capability specs import shared errors with
+  `import { Forbidden, Unauthorized, ValidationFailed } from "../errors";` and
+  declare
+  `error: () => Schema.Union(Unauthorized, ValidationFailed, Forbidden)`.
 - Generated source must never import from `repos/*`.
 - Generated client-specific logic stays under generated modules or
   `private-packages/<name>/` until reviewed.
 - Provider SDKs stay behind Effect services and adapters.
 - React Flow output is derived UI state only; durable workflow graphs use the
   workflow schema.
+- After writing any generated Confect slice, run `pnpm confect:codegen`,
+  `pnpm confect:manifest`, and focused tests for the generated package or
+  surface before wiring generated refs into web/API/CLI/MCP callers.
 
 ## Minimum Review Commands
 
+- `pnpm confect:codegen`
+- `pnpm confect:manifest`
 - `pnpm check:generators`
 - `pnpm check:confect-contracts`
 - `pnpm check:workflow-graph-boundary`

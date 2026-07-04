@@ -1,5 +1,12 @@
-import { FunctionSpec, GroupSpec } from "@confect/core";
+import { GroupSpec } from "@confect/core";
 import * as S from "effect/Schema";
+import {
+  collectContractManifest,
+  collectContractSchemas,
+  defineContractFunction,
+  internalMutationStep,
+  publicMutation,
+} from "./_kit/capability";
 
 export const SourceGroundedBriefArgs = S.Struct({
   workspaceId: S.String,
@@ -16,83 +23,65 @@ export const SourceGroundedBriefReturn = S.Struct({
   trustClaim: S.String,
 });
 
-export namespace SourceGroundedBriefError {
-  export class Unauthenticated extends S.TaggedError<Unauthenticated>()(
-    "Unauthenticated",
-    {},
-  ) {}
+const run = defineContractFunction(
+  publicMutation({
+    name: "run",
+    args: () => SourceGroundedBriefArgs,
+    returns: () => SourceGroundedBriefReturn,
+  }),
+  {
+    namespace: "capabilities.sourceGroundedBrief",
+    name: "run",
+    operationId: "capabilities.sourceGroundedBrief.run",
+    kind: "mutation",
+    surfaces: ["web", "workflow", "internal"],
+    typedErrors: [
+      "Unauthorized",
+      "Forbidden",
+      "MemberNotInWorkspace",
+      "WorkspaceNotFound",
+      "ValidationFailed",
+    ],
+    idempotent: false,
+    argsSchemaName: "capabilities.sourceGroundedBrief.run.args",
+    returnsSchemaName: "capabilities.sourceGroundedBrief.run.returns",
+    argsSchema: SourceGroundedBriefArgs,
+    returnsSchema: SourceGroundedBriefReturn,
+  },
+);
 
-  export class NoWorkspaceAccess extends S.TaggedError<NoWorkspaceAccess>()(
-    "NoWorkspaceAccess",
-    {
-      workspaceId: S.String,
-    },
-  ) {}
+const runInternal = defineContractFunction(
+  internalMutationStep({
+    name: "runInternal",
+    args: () => SourceGroundedBriefArgs,
+    returns: () => SourceGroundedBriefReturn,
+  }),
+  {
+    namespace: "capabilities.sourceGroundedBrief",
+    name: "runInternal",
+    operationId: "capabilities.sourceGroundedBrief.runInternal",
+    kind: "mutation",
+    surfaces: ["workflow", "internal"],
+    typedErrors: [
+      "Unauthorized",
+      "Forbidden",
+      "MemberNotInWorkspace",
+      "WorkspaceNotFound",
+      "ValidationFailed",
+    ],
+    idempotent: false,
+    argsSchemaName: "capabilities.sourceGroundedBrief.runInternal.args",
+    returnsSchemaName: "capabilities.sourceGroundedBrief.runInternal.returns",
+    argsSchema: SourceGroundedBriefArgs,
+    returnsSchema: SourceGroundedBriefReturn,
+  },
+);
 
-  export class ValidationFailed extends S.TaggedError<ValidationFailed>()(
-    "ValidationFailed",
-    {
-      field: S.String,
-      message: S.String,
-    },
-  ) {}
+const contractFunctions = [run, runInternal] as const;
 
-  export class PolicyNotFound extends S.TaggedError<PolicyNotFound>()(
-    "PolicyNotFound",
-    {
-      kind: S.String,
-      workspaceId: S.String,
-    },
-  ) {}
+export const manifest = collectContractManifest(contractFunctions);
+export const schemaRegistry = collectContractSchemas(contractFunctions);
 
-  export class PromptNotFound extends S.TaggedError<PromptNotFound>()(
-    "PromptNotFound",
-    {
-      promptRef: S.String,
-    },
-  ) {}
-
-  export class LlmDisabled extends S.TaggedError<LlmDisabled>()(
-    "LlmDisabled",
-    {},
-  ) {}
-
-  export class RateLimited extends S.TaggedError<RateLimited>()("RateLimited", {
-    retryAfterMs: S.Number,
-  }) {}
-
-  export class SpendCapExceeded extends S.TaggedError<SpendCapExceeded>()(
-    "SpendCapExceeded",
-    {
-      dailySpendLimitCents: S.Number,
-    },
-  ) {}
-
-  export class ProviderConfigInvalid extends S.TaggedError<ProviderConfigInvalid>()(
-    "ProviderConfigInvalid",
-    {
-      provider: S.String,
-    },
-  ) {}
-
-  export const Schema = S.Union(
-    Unauthenticated,
-    NoWorkspaceAccess,
-    ValidationFailed,
-    PolicyNotFound,
-    PromptNotFound,
-    LlmDisabled,
-    RateLimited,
-    SpendCapExceeded,
-    ProviderConfigInvalid,
-  );
-}
-
-const run = FunctionSpec.publicMutation({
-  name: "run",
-  args: () => SourceGroundedBriefArgs,
-  returns: () => SourceGroundedBriefReturn,
-  error: () => SourceGroundedBriefError.Schema,
-});
-
-export default GroupSpec.make().addFunction(run);
+export default GroupSpec.make()
+  .addFunction(run.spec)
+  .addFunction(runInternal.spec);

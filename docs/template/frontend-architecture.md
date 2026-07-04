@@ -147,6 +147,24 @@ Brain, workflow, billing, operations, and support surfaces.
 - Feature adapters convert backend contract data into view models.
 - UI code must not read raw environment variables or construct provider SDKs.
 
+## Frontend Data States
+
+Feature components normalize Confect and Convex query/mutation results through
+`apps/web/src/adapters/confect-state.ts`. The canonical statuses are `skipped`,
+`loading`, `empty`, `ready`, `typed_failure`, `parse_failure`,
+`transport_failure`, and `defect`. Components should render these states
+directly or through feature presenters; they should not branch on raw Confect,
+Convex, TanStack Query, or Effect internals.
+
+## Effect State Policy
+
+The detailed frontend Effect policy lives in
+`docs/template/frontend-effect-state.md`. In short: TanStack Router/Start is the
+current routing shell, Convex/Confect hooks are the default server-state model,
+TanStack Query remains only for current router/Convex integration and legacy
+cache surfaces, and Effect Atom is an opt-in adapter for complex local client
+state rather than the template default.
+
 ## Navigation Model
 
 The template workspace registry should include generic routes:
@@ -196,6 +214,19 @@ construct provider clients inside route components.
   generic `data` bags.
 - Validation hints are overlays derived from graph validation results.
 - Reduced-motion mode disables nonessential canvas animation.
+
+## Workflow Canvas State
+
+`packages/workflow-ui/src/workflowCanvasState.ts` is the reusable workflow
+canvas primitive. It converts durable workflow graph data into loading, empty,
+and ready canvas states and overlays latest stage attempts onto nodes. It has no
+React, Convex, Confect, Effect runtime, or generated-ref imports.
+
+`packages/workflow-ui/src/index.tsx` renders the pure model with React Flow.
+`apps/web/src/features/workflows/workflowCanvasAdapter.ts` is the app boundary
+that combines a graph source with live stage rows. React Flow interactions must
+emit workflow graph commands; React Flow node/edge objects are not persisted as
+the source of truth.
 
 ## Migration Acceptance Criteria
 

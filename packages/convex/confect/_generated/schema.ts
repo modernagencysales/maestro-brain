@@ -32,6 +32,7 @@ import webhookEvents from "./tables/webhookEvents";
 import workflowRunContextManifests from "./tables/workflowRunContextManifests";
 import workflowRunEvents from "./tables/workflowRunEvents";
 import workflowRunEvidenceSnapshots from "./tables/workflowRunEvidenceSnapshots";
+import workflowRunLinks from "./tables/workflowRunLinks";
 import workflowRuns from "./tables/workflowRuns";
 import workflowStageRuns from "./tables/workflowStageRuns";
 import workspaceMembers from "./tables/workspaceMembers";
@@ -70,6 +71,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof workflowRunContextManifests |
   typeof workflowRunEvents |
   typeof workflowRunEvidenceSnapshots |
+  typeof workflowRunLinks |
   typeof workflowRuns |
   typeof workflowStageRuns |
   typeof workspaceMembers |
@@ -107,6 +109,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   workflowRunContextManifests,
   workflowRunEvents,
   workflowRunEvidenceSnapshots,
+  workflowRunLinks,
   workflowRuns,
   workflowStageRuns,
   workspaceMembers,

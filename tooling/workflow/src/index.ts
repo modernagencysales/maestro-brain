@@ -1,17 +1,39 @@
 import {
-  createSampleWorkflowRunReceipt,
-  templateRegistry,
-  validateTemplateRegistry,
-  type CapabilityDefinition,
-  type HeadlessSurface,
   type TemplateRegistry,
   type WorkflowRunReceipt,
 } from "@maestro-template/template-core";
+import {
+  confectJsonSchemas,
+  confectManifest,
+} from "@maestro-template/template-core/generated/confectManifest";
+import {
+  describeDefaultWorkflow,
+  describeWorkflowRegistry,
+  runDefaultWorkflow,
+  runWorkflowRegistry,
+} from "./workflow-compat";
+
+type ManifestFunction = (typeof confectManifest.functions)[number];
+type ManifestSurface = ManifestFunction["surfaces"][number];
+
+const hasSurface = (
+  entry: ManifestFunction,
+  surface: string,
+): surface is ManifestSurface =>
+  (entry.surfaces as readonly string[]).includes(surface);
+
+export const generatedCliOperationRefs: Readonly<Record<string, string>> = {
+  "brain.pages.createMarkdown": "brain.pages.createMarkdown",
+};
+
+export const generatedMcpOperationRefs: Readonly<Record<string, string>> = {
+  "brain.pages.createMarkdown": "template.brain.pages.createMarkdown",
+};
 
 export type HeadlessOperation = {
   readonly id: string;
-  readonly surface: HeadlessSurface["name"];
-  readonly capability: CapabilityDefinition["name"];
+  readonly surface: ManifestSurface;
+  readonly capability: ManifestFunction["operationId"];
   readonly route: string;
   readonly authScope: string;
   readonly typedErrors: readonly string[];
@@ -29,6 +51,7 @@ export type TemplateApiRequest = {
   readonly workspaceSlug?: string;
   readonly input?: Record<string, unknown>;
   readonly idempotencyKey?: string;
+  readonly surface?: ManifestSurface;
 };
 
 export type TemplateApiResult =
@@ -46,6 +69,21 @@ export type TemplateApiResult =
       };
     };
 
+export type TemplateRuntimeRequest = {
+  readonly operationId: ManifestFunction["operationId"];
+  readonly surface: ManifestSurface;
+  readonly workspaceSlug: string;
+  readonly input: Record<string, unknown>;
+  readonly idempotencyKey?: string;
+  readonly typedErrors: readonly string[];
+};
+
+export type TemplateRuntimeAdapter = {
+  readonly runGeneratedOperation: (
+    request: TemplateRuntimeRequest,
+  ) => TemplateApiResult;
+};
+
 type JsonSchema = {
   readonly type?: string;
   readonly description?: string;
@@ -56,6 +94,44 @@ type JsonSchema = {
   readonly additionalProperties?: boolean;
 };
 
+export const openApiOperationMethods = [
+  "get",
+  "put",
+  "post",
+  "delete",
+  "options",
+  "head",
+  "patch",
+  "trace",
+] as const;
+
+export type OpenApiOperationMethod = (typeof openApiOperationMethods)[number];
+
+export type OpenApiOperation = {
+  readonly operationId: string;
+  readonly tags: readonly string[];
+  readonly "x-maestro-auth-scope"?: string;
+  readonly "x-maestro-typed-errors": readonly string[];
+  readonly requestBody: {
+    readonly required: true;
+    readonly content: {
+      readonly "application/json": {
+        readonly schema: JsonSchema;
+      };
+    };
+  };
+  readonly responses: Record<
+    string,
+    {
+      readonly description: string;
+    }
+  >;
+};
+
+export type OpenApiPathItem = Partial<
+  Record<OpenApiOperationMethod, OpenApiOperation>
+>;
+
 export type OpenApiDocument = {
   readonly openapi: "3.1.0";
   readonly info: {
@@ -63,55 +139,7 @@ export type OpenApiDocument = {
     readonly version: string;
     readonly description: string;
   };
-  readonly paths: Record<
-    string,
-    {
-      readonly post: {
-        readonly operationId: string;
-        readonly summary: string;
-        readonly description: string;
-        readonly tags: readonly string[];
-        readonly security: readonly {
-          readonly bearerAuth: readonly string[];
-        }[];
-        readonly "x-maestro-auth-scope": string;
-        readonly "x-maestro-typed-errors": readonly string[];
-        readonly requestBody: {
-          readonly required: true;
-          readonly content: {
-            readonly "application/json": {
-              readonly schema: JsonSchema;
-              readonly example: Record<string, unknown>;
-            };
-          };
-        };
-        readonly responses: Record<
-          string,
-          {
-            readonly description: string;
-            readonly content: {
-              readonly "application/json": {
-                readonly schema: JsonSchema;
-                readonly examples?: Record<
-                  string,
-                  { readonly value: Record<string, unknown> }
-                >;
-              };
-            };
-          }
-        >;
-      };
-    }
-  >;
-  readonly components: {
-    readonly securitySchemes: {
-      readonly bearerAuth: {
-        readonly type: "http";
-        readonly scheme: "bearer";
-      };
-    };
-    readonly schemas: Record<string, JsonSchema>;
-  };
+  readonly paths: Record<string, OpenApiPathItem>;
 };
 
 export type McpToolEntry = {
@@ -130,254 +158,156 @@ export type McpToolCallResult = {
 };
 
 export const buildHeadlessOperations = (
-  registry: TemplateRegistry = templateRegistry,
-): readonly HeadlessOperation[] =>
-  registry.headlessSurfaces.flatMap((surface) =>
-    registry.capabilities.map((capability) => ({
-      id: `${surface.name}:${capability.name}`,
-      surface: surface.name,
-      capability: capability.name,
-      route: surface.route,
-      authScope: capability.policy,
-      typedErrors: capability.typedErrors,
+  _registry?: TemplateRegistry,
+): readonly HeadlessOperation[] => {
+  void _registry;
+  return confectManifest.functions.flatMap((entry) =>
+    entry.surfaces.map((surface) => ({
+      id: `${surface}:${entry.operationId}`,
+      surface,
+      capability: entry.operationId,
+      route:
+        surface === "api" ? `/api/${entry.operationId}` : entry.operationId,
+      authScope: "workspace member",
+      typedErrors: entry.typedErrors,
     })),
   );
-
-export const describeWorkflowTemplate = (
-  registry: TemplateRegistry = templateRegistry,
-) => {
-  const validationErrors = validateTemplateRegistry(registry);
-
-  return {
-    valid: validationErrors.length === 0,
-    validationErrors,
-    nodeCount: registry.workflow.nodes.length,
-    edgeCount: registry.workflow.edges.length,
-    capabilityCount: registry.capabilities.length,
-    agentCount: registry.agents.length,
-    headlessOperationCount: buildHeadlessOperations(registry).length,
-  };
 };
+
+export const describeWorkflowTemplate = (registry?: TemplateRegistry) =>
+  registry === undefined
+    ? describeDefaultWorkflow(
+        confectManifest.functions.length,
+        buildHeadlessOperations().length,
+      )
+    : describeWorkflowRegistry(
+        registry,
+        confectManifest.functions.length,
+        buildHeadlessOperations(registry).length,
+      );
 
 export const getHeadlessOperation = (
   id: string,
-  registry: TemplateRegistry = templateRegistry,
+  registry?: TemplateRegistry,
 ): HeadlessOperation | undefined =>
   buildHeadlessOperations(registry).find((operation) => operation.id === id);
 
 export const buildApiCatalog = (
-  registry: TemplateRegistry = templateRegistry,
-): readonly ApiCatalogEntry[] =>
-  buildHeadlessOperations(registry)
-    .filter((operation) => operation.surface === "Scalar API")
-    .map((operation) => ({
-      operationId: operation.capability,
+  _registry?: TemplateRegistry,
+): readonly ApiCatalogEntry[] => {
+  void _registry;
+  return confectManifest.functions
+    .filter((entry) => hasSurface(entry, "api"))
+    .map((entry) => ({
+      operationId: entry.operationId,
       method: "POST",
-      path: `/api/${operation.capability}`,
-      authScope: operation.authScope,
-      typedErrors: operation.typedErrors,
+      path: `/api/${entry.operationId}`,
+      authScope: "workspace member",
+      typedErrors: entry.typedErrors,
     }));
-
-const baseRequestSchema: JsonSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: ["workspaceSlug", "input"],
-  properties: {
-    workspaceSlug: {
-      type: "string",
-      description: "Server-authorized workspace slug or instance alias.",
-    },
-    input: {
-      type: "object",
-      description:
-        "Capability-specific input. Generated Confect refs provide the exact Effect schema in the implementation package.",
-      additionalProperties: true,
-    },
-    idempotencyKey: {
-      type: "string",
-      description: "Required for externally visible writes.",
-    },
-  },
 };
 
-const successResponseSchema: JsonSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: ["ok", "operationId", "result"],
-  properties: {
-    ok: { type: "boolean" },
-    operationId: { type: "string" },
-    result: {
-      type: "object",
-      description:
-        "Typed capability result encoded by the generated Confect function.",
-      additionalProperties: true,
-    },
-  },
+const openApiRequestSchemaFor = (schemaName: string): JsonSchema => {
+  const schema =
+    confectJsonSchemas.openApi31[
+      schemaName as keyof typeof confectJsonSchemas.openApi31
+    ];
+
+  if (schema === undefined) {
+    throw new Error(`Missing OpenAPI JSON schema for ${schemaName}.`);
+  }
+
+  return schema as JsonSchema;
 };
 
-const typedErrorSchema = (typedErrors: readonly string[]): JsonSchema => ({
-  type: "object",
-  additionalProperties: false,
-  required: ["ok", "error"],
-  properties: {
-    ok: { type: "boolean" },
-    error: {
-      type: "object",
-      additionalProperties: false,
-      required: ["_tag", "message"],
-      properties: {
-        _tag: {
-          type: "string",
-          enum: typedErrors,
-          description: "Declared public typed error variant.",
-        },
-        message: {
-          type: "string",
-          description: "Redacted user-safe error message.",
-        },
-      },
-    },
-  },
-});
+const mcpInputSchemaFor = (schemaName: string): JsonSchema => {
+  const schema =
+    confectJsonSchemas.mcp[schemaName as keyof typeof confectJsonSchemas.mcp];
 
-const mcpInputSchema: JsonSchema = {
-  type: "object",
-  additionalProperties: false,
-  properties: {
-    workspaceSlug: {
-      type: "string",
-      description: "Reviewer-safe workspace slug. Defaults to acme-demo.",
-    },
-  },
+  if (schema === undefined) {
+    throw new Error(`Missing MCP JSON schema for ${schemaName}.`);
+  }
+
+  return schema as JsonSchema;
 };
 
-const apiExampleFor = (
-  entry: ApiCatalogEntry,
-): {
-  readonly request: Record<string, unknown>;
-  readonly success: Record<string, unknown>;
-  readonly typedError: Record<string, unknown>;
-} => ({
-  request: {
-    workspaceSlug: "acme-demo",
-    input: {
-      sample: entry.operationId,
-    },
-    idempotencyKey: `${entry.operationId}-example-001`,
-  },
-  success: {
-    ok: true,
-    operationId: entry.operationId,
-    result: {
-      receiptId:
-        entry.operationId === "createTrustReceipt"
-          ? "trust_run_template_001"
-          : undefined,
-      status: "accepted",
-    },
-  },
-  typedError: {
-    ok: false,
-    error: {
-      _tag: entry.typedErrors[0] ?? "ValidationFailed",
-      message: "Request failed a declared template policy check.",
-    },
-  },
-});
+const apiEnvelopeSchemaFor = (entry: ManifestFunction): JsonSchema => {
+  const required = ["input"];
+  if (!entry.idempotent) {
+    required.push("idempotencyKey");
+  }
 
-export const buildOpenApiDocument = (
-  registry: TemplateRegistry = templateRegistry,
+  return {
+    type: "object",
+    additionalProperties: false,
+    required,
+    properties: {
+      workspaceSlug: { type: "string" },
+      input: openApiRequestSchemaFor(entry.argsSchemaName),
+      idempotencyKey: { type: "string" },
+    },
+  };
+};
+
+export const buildGeneratedOpenApiDocument = (
+  _registry?: TemplateRegistry,
 ): OpenApiDocument => {
-  const apiEntries = buildApiCatalog(registry);
-
+  void _registry;
   return {
     openapi: "3.1.0",
     info: {
       title: "Maestro Template Headless API",
       version: "0.1.0",
-      description:
-        "Generated from the shared template registry. The live Confect HTTP implementation mounts the same operations for Scalar.",
+      description: "Generated from Confect contract manifest metadata.",
     },
     paths: Object.fromEntries(
-      apiEntries.map((entry) => {
-        const examples = apiExampleFor(entry);
-
-        return [
-          entry.path,
+      confectManifest.functions
+        .filter((entry) => hasSurface(entry, "api"))
+        .map((entry) => [
+          `/api/${entry.operationId}`,
           {
             post: {
               operationId: entry.operationId,
-              summary: `Run ${entry.operationId}`,
-              description:
-                "Calls the same typed capability/workflow contract used by the web, CLI, and MCP surfaces.",
               tags: ["template-headless"],
-              security: [{ bearerAuth: [entry.authScope] }],
-              "x-maestro-auth-scope": entry.authScope,
+              "x-maestro-auth-scope": "workspace member",
               "x-maestro-typed-errors": entry.typedErrors,
               requestBody: {
                 required: true,
                 content: {
                   "application/json": {
-                    schema: baseRequestSchema,
-                    example: examples.request,
+                    schema: apiEnvelopeSchemaFor(entry),
                   },
                 },
               },
               responses: {
                 "200": {
-                  description: "Typed capability result.",
-                  content: {
-                    "application/json": {
-                      schema: successResponseSchema,
-                      examples: {
-                        success: { value: examples.success },
-                      },
-                    },
-                  },
+                  description: "Typed operation result.",
                 },
                 "400": {
                   description: "Declared typed failure.",
-                  content: {
-                    "application/json": {
-                      schema: typedErrorSchema(entry.typedErrors),
-                      examples: {
-                        typedError: { value: examples.typedError },
-                      },
-                    },
-                  },
                 },
               },
             },
           },
-        ];
-      }),
+        ]),
     ),
-    components: {
-      securitySchemes: {
-        bearerAuth: {
-          type: "http",
-          scheme: "bearer",
-        },
-      },
-      schemas: {
-        TemplateOperationRequest: baseRequestSchema,
-        TemplateOperationSuccess: successResponseSchema,
-      },
-    },
   };
 };
+
+export const buildOpenApiDocument = buildGeneratedOpenApiDocument;
 
 export const runTemplateApiOperation = (
   operationId: string,
   request: TemplateApiRequest = {},
-  registry: TemplateRegistry = templateRegistry,
+  _registry?: TemplateRegistry,
+  runtime?: TemplateRuntimeAdapter,
 ): TemplateApiResult => {
-  const operation = buildApiCatalog(registry).find(
-    (entry) => entry.operationId === operationId,
+  const surface = request.surface ?? "cli";
+  const manifestEntry = confectManifest.functions.find(
+    (entry) => entry.operationId === operationId && hasSurface(entry, surface),
   );
 
-  if (!operation) {
+  if (manifestEntry === undefined) {
     return {
       ok: false,
       error: {
@@ -399,96 +329,74 @@ export const runTemplateApiOperation = (
     };
   }
 
-  if (
-    operation.authScope.includes("write") &&
-    !request.idempotencyKey?.trim()
-  ) {
+  if (!manifestEntry.idempotent && !request.idempotencyKey?.trim()) {
     return {
       ok: false,
       error: {
         _tag: "ValidationFailed",
-        message: "idempotencyKey is required for write operations.",
+        message: `Operation ${operationId} requires a nonblank idempotencyKey.`,
       },
     };
   }
 
-  if (operationId === "createTrustReceipt") {
-    const receipt = runTemplateWorkflow(registry);
-
-    return {
-      ok: true,
-      operationId,
-      result: {
-        status: "accepted",
-        workspaceSlug,
-        receiptId: receipt.trustReceipt.receiptId,
-        claim: receipt.trustReceipt.claim,
-        sourceTitles: receipt.trustReceipt.sourceTitles,
-        workflowRunId: receipt.runId,
-      },
-    };
-  }
-
-  if (operationId === "sourceGroundedBrief") {
-    const sourceTitles = registry.brainSources.map((source) => source.title);
-
-    return {
-      ok: true,
-      operationId,
-      result: {
-        status: "accepted",
-        workspaceSlug,
-        briefMarkdown: [
-          "# Source-Grounded Implementation Brief",
-          "",
-          "This deterministic template response shows the contract shape used by the Confect capability implementation.",
-          "",
-          "## Grounding",
-          ...sourceTitles.map((title) => `- ${title}`),
-        ].join("\n"),
-        sourceTitles,
-        policySnapshotId: "policy_snapshot_template_default",
-        modelReceiptId: "model_receipt_template_fake_local",
-        trustClaim: "source-backed-no-default-rag",
-      },
-    };
+  if (runtime !== undefined) {
+    const idempotencyKey = request.idempotencyKey?.trim();
+    return runtime.runGeneratedOperation({
+      operationId: manifestEntry.operationId,
+      surface,
+      workspaceSlug,
+      input: request.input ?? {},
+      typedErrors: manifestEntry.typedErrors,
+      ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
+    });
   }
 
   return {
-    ok: true,
-    operationId,
-    result: {
-      status: "accepted",
-      workspaceSlug,
-      source: "shared-template-registry",
-      inputEcho: request.input ?? {},
+    ok: false,
+    error: {
+      _tag: "FeatureDisabled",
+      message: `Operation ${operationId} requires a runtime execution adapter.`,
     },
   };
 };
 
-export const buildMcpTools = (
-  registry: TemplateRegistry = templateRegistry,
-): readonly McpToolEntry[] => [
-  ...buildHeadlessOperations(registry)
-    .filter((operation) => operation.surface === "MCP")
-    .map((operation) => ({
-      name: `template.${operation.capability}`,
-      description: `Invoke ${operation.capability} through the shared template registry.`,
-      inputSchema: mcpInputSchema,
-      typedErrors: operation.typedErrors,
-    })),
-  {
-    name: "template.workflow.run",
-    description:
-      "Run the deterministic reviewer-safe workflow through the shared template registry.",
-    inputSchema: mcpInputSchema,
-    typedErrors: ["Unauthorized", "ValidationFailed"],
+export const buildGeneratedMcpTools = (
+  _registry?: TemplateRegistry,
+): readonly McpToolEntry[] => {
+  void _registry;
+  return confectManifest.functions
+    .filter((entry) => hasSurface(entry, "mcp"))
+    .map((entry) => ({
+      name:
+        generatedMcpOperationRefs[entry.operationId] ??
+        `template.${entry.operationId}`,
+      description: `Invoke ${entry.operationId} through the generated Confect contract manifest.`,
+      inputSchema: mcpInputSchemaFor(entry.argsSchemaName),
+      typedErrors: entry.typedErrors,
+    }));
+};
+
+const workflowRunMcpTool: McpToolEntry = {
+  name: "template.workflow.run",
+  description: "Run the template workflow compatibility adapter.",
+  inputSchema: {
+    type: "object",
+    additionalProperties: false,
   },
+  typedErrors: [],
+};
+
+export const buildMcpTools = (
+  registry?: TemplateRegistry,
+): readonly McpToolEntry[] => [
+  ...buildGeneratedMcpTools(registry),
+  workflowRunMcpTool,
 ];
 
 export const runTemplateWorkflow = (
-  registry: TemplateRegistry = templateRegistry,
-): WorkflowRunReceipt => createSampleWorkflowRunReceipt(registry);
+  registry?: TemplateRegistry,
+): WorkflowRunReceipt =>
+  registry === undefined ? runDefaultWorkflow() : runWorkflowRegistry(registry);
 
 const mcpText = (value: unknown): McpToolCallResult => ({
   isError: false,
@@ -522,46 +430,46 @@ const mcpError = (message: string): McpToolCallResult => ({
 
 export const callMcpTool = (
   toolName: string,
-  registry: TemplateRegistry = templateRegistry,
+  registry?: TemplateRegistry,
+  runtime?: TemplateRuntimeAdapter,
+  request: TemplateApiRequest = {},
 ): McpToolCallResult => {
-  if (toolName === "template.workflow.run") {
+  if (toolName === workflowRunMcpTool.name) {
     return mcpText(runTemplateWorkflow(registry));
   }
 
-  const capability = registry.capabilities.find(
-    (candidate) => `template.${candidate.name}` === toolName,
+  const operation = confectManifest.functions.find(
+    (candidate) =>
+      hasSurface(candidate, "mcp") &&
+      generatedMcpOperationRefs[candidate.operationId] === toolName,
   );
 
-  if (!capability) {
+  if (!operation) {
     return mcpError(`Unknown MCP tool: ${toolName}`);
   }
 
-  if (capability.name === "sourceGroundedBrief") {
-    return mcpText({
-      ok: true,
-      toolName,
-      capability: capability.name,
-      policy: capability.policy,
-      typedErrors: capability.typedErrors,
-      result: {
-        status: "accepted",
-        sourceTitles: registry.brainSources.map((source) => source.title),
-        policySnapshotId: "policy_snapshot_template_default",
-        modelReceiptId: "model_receipt_template_fake_local",
-        trustClaim: "source-backed-no-default-rag",
-      },
-    });
+  const result = runTemplateApiOperation(
+    operation.operationId,
+    {
+      ...request,
+      surface: "mcp",
+    },
+    registry,
+    runtime,
+  );
+
+  if (runtime !== undefined) {
+    return mcpText(result);
   }
 
   return mcpText({
-    ok: true,
+    ok: false,
     toolName,
-    capability: capability.name,
-    policy: capability.policy,
-    typedErrors: capability.typedErrors,
-    result: {
-      status: "accepted",
-      source: "shared-template-registry",
+    capability: operation.operationId,
+    typedErrors: operation.typedErrors,
+    error: {
+      _tag: "FeatureDisabled",
+      message: `MCP operation ${operation.operationId} requires a runtime execution adapter.`,
     },
   });
 };

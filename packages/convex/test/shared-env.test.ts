@@ -1,11 +1,17 @@
+import * as ConfigError from "effect/ConfigError";
+import * as ConfigProvider from "effect/ConfigProvider";
+import * as Either from "effect/Either";
+import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import {
   EnvConfigError,
   killSwitchOn,
+  loadTemplateRuntimeConfig,
   readOptionalEnv,
   readRequiredEnv,
   requireLiveEnv,
+  runWithTemplateRuntimeConfig,
 } from "../confect/shared/env";
 
 describe("shared typed env access", () => {
@@ -66,5 +72,105 @@ describe("shared typed env access", () => {
     expect(killSwitchOn({ LLM_DISABLED: "TRUE" })).toBe(true);
     expect(killSwitchOn({ LLM_DISABLED: "false" })).toBe(false);
     expect(killSwitchOn({})).toBe(false);
+  });
+});
+
+describe("TemplateRuntimeConfig", () => {
+  it("loads fake localhost defaults when no provider values are set", async () => {
+    const previousRuntimeMode = process.env.TEMPLATE_RUNTIME_MODE;
+    const previousPublicBaseUrl = process.env.TEMPLATE_PUBLIC_BASE_URL;
+
+    try {
+      delete process.env.TEMPLATE_RUNTIME_MODE;
+      delete process.env.TEMPLATE_PUBLIC_BASE_URL;
+
+      await expect(
+        Effect.runPromise(
+          runWithTemplateRuntimeConfig(loadTemplateRuntimeConfig),
+        ),
+      ).resolves.toEqual({
+        runtimeMode: "fake",
+        publicBaseUrl: "http://localhost:5173",
+      });
+    } finally {
+      if (previousRuntimeMode === undefined) {
+        delete process.env.TEMPLATE_RUNTIME_MODE;
+      } else {
+        process.env.TEMPLATE_RUNTIME_MODE = previousRuntimeMode;
+      }
+
+      if (previousPublicBaseUrl === undefined) {
+        delete process.env.TEMPLATE_PUBLIC_BASE_URL;
+      } else {
+        process.env.TEMPLATE_PUBLIC_BASE_URL = previousPublicBaseUrl;
+      }
+    }
+  });
+
+  it("loads ambient process env when no provider is supplied", async () => {
+    const previousRuntimeMode = process.env.TEMPLATE_RUNTIME_MODE;
+    const previousPublicBaseUrl = process.env.TEMPLATE_PUBLIC_BASE_URL;
+
+    try {
+      process.env.TEMPLATE_RUNTIME_MODE = "live";
+      process.env.TEMPLATE_PUBLIC_BASE_URL = "https://ambient.example";
+
+      await expect(
+        Effect.runPromise(
+          runWithTemplateRuntimeConfig(loadTemplateRuntimeConfig),
+        ),
+      ).resolves.toEqual({
+        runtimeMode: "live",
+        publicBaseUrl: "https://ambient.example",
+      });
+    } finally {
+      if (previousRuntimeMode === undefined) {
+        delete process.env.TEMPLATE_RUNTIME_MODE;
+      } else {
+        process.env.TEMPLATE_RUNTIME_MODE = previousRuntimeMode;
+      }
+
+      if (previousPublicBaseUrl === undefined) {
+        delete process.env.TEMPLATE_PUBLIC_BASE_URL;
+      } else {
+        process.env.TEMPLATE_PUBLIC_BASE_URL = previousPublicBaseUrl;
+      }
+    }
+  });
+
+  it("loads provider overrides from the Effect config provider", async () => {
+    const provider = ConfigProvider.fromMap(
+      new Map([
+        ["TEMPLATE_RUNTIME_MODE", "test"],
+        ["TEMPLATE_PUBLIC_BASE_URL", "https://client.example"],
+      ]),
+    );
+
+    await expect(
+      Effect.runPromise(
+        runWithTemplateRuntimeConfig(loadTemplateRuntimeConfig, provider),
+      ),
+    ).resolves.toEqual({
+      runtimeMode: "test",
+      publicBaseUrl: "https://client.example",
+    });
+  });
+
+  it("fails invalid runtime mode values as Effect config failures", async () => {
+    const provider = ConfigProvider.fromMap(
+      new Map([["TEMPLATE_RUNTIME_MODE", "bad"]]),
+    );
+
+    const result = await Effect.runPromise(
+      Effect.either(
+        runWithTemplateRuntimeConfig(loadTemplateRuntimeConfig, provider),
+      ),
+    );
+
+    expect(Either.isLeft(result)).toBe(true);
+    if (Either.isLeft(result)) {
+      expect(ConfigError.isConfigError(result.left)).toBe(true);
+      expect(String(result.left)).toContain("TEMPLATE_RUNTIME_MODE");
+    }
   });
 });

@@ -8,6 +8,8 @@ export default Table.make(() =>
     slug: Schema.String,
     title: Schema.String,
     markdown: Schema.String,
+    editorSnapshotJson: Schema.optional(Schema.String),
+    editorSnapshotVersion: Schema.optional(Schema.Number),
     sourceKind: Schema.Literal("markdown", "link", "note"),
     updatedAt: Schema.Number,
   }),

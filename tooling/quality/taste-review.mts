@@ -23,7 +23,7 @@ const DEFAULT_OPENROUTER_MODEL = "deepseek/deepseek-v4-pro";
 const DEFAULT_OPENAI_MODEL = "gpt-5.5";
 const PROMPT_VERSION = "taste-v1";
 const MAX_FILES = 25;
-const DEFAULT_REVIEW_CONCURRENCY = 4;
+const DEFAULT_REVIEW_CONCURRENCY = 1;
 const MAX_JUDGE_PARSE_ATTEMPTS = 3;
 const JUDGE_TIMEOUT_MS = 180_000;
 const JUDGE_MAX_TOKENS = 4096;
@@ -332,6 +332,26 @@ export function parseVerdict(raw: string): Verdict {
   };
 }
 
+async function parseJudgeVerdictWithRetries(
+  file: string,
+  callText: () => Promise<string>,
+): Promise<Verdict> {
+  let lastError: unknown = null;
+  for (let attempt = 1; attempt <= MAX_JUDGE_PARSE_ATTEMPTS; attempt += 1) {
+    try {
+      return parseVerdict(await callText());
+    } catch (error) {
+      if (error instanceof TasteInfrastructureError) throw error;
+      lastError = error;
+      if (attempt === MAX_JUDGE_PARSE_ATTEMPTS) break;
+      console.warn(
+        `taste-review: retrying ${file} after malformed judge JSON (${String(attempt)}/${String(MAX_JUDGE_PARSE_ATTEMPTS)})`,
+      );
+    }
+  }
+  throw lastError;
+}
+
 async function callOpenRouter(
   systemPrompt: string,
   userMessage: string,
@@ -469,7 +489,9 @@ async function callJudgeText(userMessage: string): Promise<string> {
   }
 }
 
-function changedLinesBlock(ranges: readonly ChangedRange[] | null): string {
+export function changedLinesBlock(
+  ranges: readonly ChangedRange[] | null,
+): string {
   if (ranges === null || ranges.length === 0) return "";
   const list = ranges
     .map((range) =>
@@ -478,7 +500,7 @@ function changedLinesBlock(ranges: readonly ChangedRange[] | null): string {
         : `${String(range.start)}-${String(range.end)}`,
     )
     .join(", ");
-  return `\n\n<changed-lines>\nThis PR added or modified these line ranges; review only these: ${list}\n</changed-lines>`;
+  return `\n\n<changed-lines>\nChanged new-side line ranges: ${list}\n</changed-lines>`;
 }
 
 export async function callTasteJudge(
@@ -487,20 +509,26 @@ export async function callTasteJudge(
   changedLines: readonly ChangedRange[] | null = null,
 ): Promise<Verdict> {
   const userMessage = `File under review: ${file}${changedLinesBlock(changedLines)}\n\n<file-content>\n${content}\n</file-content>`;
-  let lastError: unknown = null;
-  for (let attempt = 1; attempt <= MAX_JUDGE_PARSE_ATTEMPTS; attempt += 1) {
-    try {
-      return parseVerdict(await callJudgeText(userMessage));
-    } catch (error) {
-      if (error instanceof TasteInfrastructureError) throw error;
-      lastError = error;
-      if (attempt === MAX_JUDGE_PARSE_ATTEMPTS) break;
+  try {
+    return await parseJudgeVerdictWithRetries(file, () =>
+      callJudgeText(userMessage),
+    );
+  } catch (error) {
+    const provider = requireProvider();
+    if (
+      !(error instanceof TasteInfrastructureError) &&
+      provider.kind === "openrouter" &&
+      process.env.OPENAI_API_KEY
+    ) {
       console.warn(
-        `taste-review: retrying ${file} after malformed judge JSON (${String(attempt)}/${String(MAX_JUDGE_PARSE_ATTEMPTS)})`,
+        `taste-review: OpenRouter returned malformed judge JSON for ${file}; falling back to OpenAI.`,
+      );
+      return parseJudgeVerdictWithRetries(file, () =>
+        callOpenAI(RUBRIC, userMessage),
       );
     }
+    throw error;
   }
-  throw lastError;
 }
 
 function printFindings(file: string, verdict: Verdict): void {

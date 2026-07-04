@@ -1,0 +1,27 @@
+{
+  "name": "@maestro-template/effectified-api-proof",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit --module NodeNext --moduleResolution NodeNext --target ES2022 --jsx react-jsx --skipLibCheck *.ts"
+  },
+  "dependencies": {
+    "@blocknote/core": "0.51.4",
+    "@confect/core": "9.1.5",
+    "@confect/server": "9.1.5",
+    "@confect/test": "9.1.5",
+    "@convex-dev/prosemirror-sync": "0.2.5",
+    "@convex-dev/workflow": "0.4.4",
+    "@posthog/convex": "2.0.32",
+    "@tiptap/core": "3.27.1",
+    "@tiptap/pm": "3.27.1",
+    "convex": "1.42.1",
+    "decode-named-character-reference": "1.3.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "effect": "3.21.4"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

@@ -4,6 +4,16 @@ export type Tone = "neutral" | "good" | "warn";
 // browser-safe barrel.
 export * from "./coediting";
 export * from "./knowledge";
+export {
+  checkPrimitiveContract,
+  createPrimitiveContract,
+  type PrimitiveContract,
+  type PrimitiveContractFile,
+  type PrimitiveContractFinding,
+  type PrimitiveFileKind,
+  type PrimitiveRuntime,
+  type PrimitiveSurface,
+} from "./primitiveContract";
 export * from "./transforms";
 export * from "./versioning";
 

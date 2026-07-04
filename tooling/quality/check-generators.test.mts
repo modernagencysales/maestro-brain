@@ -25,8 +25,10 @@ describe("check:generators", () => {
             "Confect spec/impl",
             "Effect schema",
             "typed errors",
-            "headless registry entry",
+            "generated manifest/headless metadata",
+            "explicit generated ref mappings",
           ]),
+          absent: expect.arrayContaining(["headless registry entry"]),
         }),
         expect.objectContaining({
           file: "package.json",

@@ -33,6 +33,7 @@ export type WebhookEventsDoc = Document.Document<typeof schemaDefinition, "webho
 export type WorkflowRunContextManifestsDoc = Document.Document<typeof schemaDefinition, "workflowRunContextManifests">;
 export type WorkflowRunEventsDoc = Document.Document<typeof schemaDefinition, "workflowRunEvents">;
 export type WorkflowRunEvidenceSnapshotsDoc = Document.Document<typeof schemaDefinition, "workflowRunEvidenceSnapshots">;
+export type WorkflowRunLinksDoc = Document.Document<typeof schemaDefinition, "workflowRunLinks">;
 export type WorkflowRunsDoc = Document.Document<typeof schemaDefinition, "workflowRuns">;
 export type WorkflowStageRunsDoc = Document.Document<typeof schemaDefinition, "workflowStageRuns">;
 export type WorkspaceMembersDoc = Document.Document<typeof schemaDefinition, "workspaceMembers">;
@@ -71,6 +72,7 @@ export interface Docs {
   workflowRunContextManifests: WorkflowRunContextManifestsDoc;
   workflowRunEvents: WorkflowRunEventsDoc;
   workflowRunEvidenceSnapshots: WorkflowRunEvidenceSnapshotsDoc;
+  workflowRunLinks: WorkflowRunLinksDoc;
   workflowRuns: WorkflowRunsDoc;
   workflowStageRuns: WorkflowStageRunsDoc;
   workspaceMembers: WorkspaceMembersDoc;

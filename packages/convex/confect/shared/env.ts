@@ -1,5 +1,12 @@
 import * as Schema from "effect/Schema";
 
+export {
+  loadTemplateRuntimeConfig,
+  runWithTemplateRuntimeConfig,
+  TemplateRuntimeConfigLive,
+} from "./config";
+export type { RuntimeMode, TemplateRuntimeConfigShape } from "./config";
+
 export type ProviderMode = "fake" | "test" | "live";
 
 export type EnvSource = Readonly<Record<string, string | undefined>>;

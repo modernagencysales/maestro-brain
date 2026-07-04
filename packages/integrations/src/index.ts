@@ -101,7 +101,7 @@ export const providerDescriptors = [
     displayName: "PostHog",
     fakeMode: true,
     liveMode: true,
-    requiredEnv: ["POSTHOG_KEY", "POSTHOG_HOST"],
+    requiredEnv: ["POSTHOG_PROJECT_TOKEN", "POSTHOG_HOST"],
     redactedFields: ["distinctId", "personProperties"],
     notes: "Event contracts are typed before live analytics is enabled.",
   },

@@ -23,8 +23,10 @@ The current template proves these reusable primitives:
 - A hosted static reference app with Brain, workflow, capability, agent,
   integration, API/CLI/MCP, receipt, and safety surfaces.
 - A React Flow workflow primitive through `packages/workflow-ui`.
-- A canonical typed template registry in `packages/template-core`.
-- Headless projections for API, CLI, MCP, and OpenAPI from the same registry.
+- A canonical typed generated manifest and metadata model in
+  `packages/template-core`.
+- Headless projections for API, CLI, MCP, OpenAPI, and Scalar from generated
+  Confect manifest/exposure metadata plus explicit generated ref mappings.
 - A deterministic workflow run receipt and Trust Receipt path.
 - Confect/Effect backend slices with Effect schemas, typed errors, generated
   refs, and plain Convex Workpool interop.
@@ -37,9 +39,10 @@ The current template proves these reusable primitives:
 - App factory commands for `template:quickstart`, `template:intake`,
   `template:seed-demo`, `template:handoff`, `template:init`, `template:doctor`,
   `template:add-capability`, `template:add-workflow`,
-  `template:promote-capability`, `template:promote-workflow`,
-  `template:upgrade`, and private-package dry-run/import with source-module
-  scaffolds for imported capabilities and workflows.
+  `template:workflow-output-smoke`, `template:promote-capability`,
+  legacy/private-package `template:promote-workflow`, `template:upgrade`, and
+  private-package dry-run/import with source-module scaffolds for imported
+  capabilities and workflows.
 - Cloudflare Pages deployment wiring and static hosted smoke checks.
 - A documented TanStack Start migration decision that preserves the current Vite
   static hosted app until Start has equivalent smoke coverage.
@@ -96,7 +99,7 @@ pnpm template:seed-demo -- --blueprint source-grounded-gtm-brain --write
 pnpm template:add-capability -- --name summarizeSource
 pnpm template:add-workflow -- --name sourceGroundedPlan
 pnpm template:promote-capability -- --name summarizeSource
-pnpm template:promote-workflow -- --name sourceGroundedPlan
+pnpm template:workflow-output-smoke
 pnpm template:handoff -- --mode fake --write
 pnpm template:upgrade -- --from client-v1.0.0 --to template-v1.1.0
 pnpm template:private-package:dry-run -- --fixture examples/generic-ai-ops
@@ -111,7 +114,8 @@ The intended layer law is:
 web routes -> screens -> features -> blocks -> Notion Kit
 client hooks -> @confect/react refs -> Confect specs -> Convex functions
 agents -> workflows -> capabilities -> domain/checks -> schema
-API/CLI/MCP -> headless registry -> same capabilities/workflows as web
+API/CLI/MCP/OpenAPI/Scalar -> generated Confect manifest/exposure metadata
+  plus explicit generated ref mappings -> same capabilities/workflows as web
 storage/notifications/observability -> Effect services -> provider adapters
 admin/support/privacy -> audited capabilities -> narrow operator surfaces
 ```

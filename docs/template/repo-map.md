@@ -45,7 +45,8 @@
   the Maestro frontend direction with Convex/Confect data access, WorkOS-ready
   auth, PostHog-ready analytics, Notion Kit shell primitives, and React Flow
   workflow inspection.
-- `apps/cli`: typed CLI projection over the shared headless registry.
+- `apps/cli`: typed CLI projection over generated Confect manifest metadata and
+  generated refs.
 - `apps/voice-relay`: optional capture/voice relay app.
 
 ## Packages
@@ -55,19 +56,31 @@
   settings-ready controls, including the optional co-editing document shell.
 - `packages/workflow-ui`: React Flow graph editor primitive and future command
   reducers.
-- `packages/template-core`: shared template registry, workflow/capability/agent
-  types, co-editing domain constructors, policies, and reviewer-safe fixtures.
+- `packages/template-core`: shared template registry for sample/reviewer data,
+  generated Confect manifest output, workflow/capability/agent types, co-editing
+  domain constructors, policies, and reviewer-safe fixtures.
 - `packages/integrations`: Effect service interfaces and provider adapters.
 - `packages/notifications`: notification provider boundary.
 - `packages/storage`: asset storage provider boundary.
 - `packages/observability`: event contracts, logs, SLOs, and telemetry helpers.
 - `packages/search`: optional search/vector provider boundary.
 
+### Editor Packages
+
+- `packages/editor-core`: framework-agnostic editor document ids, codecs, and
+  empty document helpers shared by backend and frontend editor surfaces.
+- `packages/editor-react`: server-safe root helper re-exports at
+  `@maestro-template/editor-react`, plus the browser-only `./client` subpath for
+  future BlockNote React and ProseMirror sync UI.
+- `packages/convex/confect/editor`: future backend editor sync boundary for
+  document access checks, snapshot hooks, and transform-schema derivation from
+  the guarded headless BlockNote schema.
+
 ## Tooling
 
 - `tooling/quality`: deterministic gates and AI gate wrappers.
-- `tooling/workflow`: headless operation projection, CLI/MCP/API metadata,
-  OpenAPI generation, and workflow helpers.
+- `tooling/workflow`: headless operation projection from the generated Confect
+  manifest, CLI/MCP/API metadata, OpenAPI generation, and workflow helpers.
 - `tooling/generators`: template init, quickstart, seed-demo, handoff, add-*
   generators, doctor, private-package import, and upgrade.
 - `tooling/evals`: prompt and source-grounding evaluation fixtures.
@@ -80,6 +93,9 @@
   services. Never edit directly.
 - `packages/convex/convex/_generated`: Convex generated API files. Never edit
   directly.
+- `packages/template-core/src/generated/confectManifest.ts`: generated Confect
+  contract manifest and JSON schemas for API/CLI/MCP/OpenAPI projection. Never
+  edit directly.
 - `apps/web/src/routeTree.gen.ts`: generated route tree once TanStack routes
   land. Never edit directly.
 

@@ -1,6 +1,6 @@
+import { runFakeSourceGroundedBrief } from "../capabilities/sourceGroundedBrief.fake";
 import {
   normalizeSourceGroundedBriefInput,
-  runFakeSourceGroundedBrief,
   type SourceGroundedBriefInput,
   type SourceGroundedBriefResult,
 } from "../capabilities/sourceGroundedBrief.domain";

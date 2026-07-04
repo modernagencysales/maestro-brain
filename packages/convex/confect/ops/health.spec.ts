@@ -1,5 +1,6 @@
 import { FunctionSpec, GroupSpec } from "@confect/core";
 import * as S from "effect/Schema";
+import { NoRecoverableError } from "../errors";
 
 export const TemplateHealthEnvironment = S.Literal("fake", "test", "live");
 
@@ -27,6 +28,7 @@ const liveness = FunctionSpec.publicQuery({
       checkedAt: S.Number,
     }),
   returns: () => TemplateHealthReport,
+  error: () => NoRecoverableError,
 });
 
 export default GroupSpec.make().addFunction(liveness);

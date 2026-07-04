@@ -52,21 +52,28 @@ Open the reference app and inspect:
 - safety model and generated contract checklist.
 
 The app intentionally uses reviewer-safe synthetic data and fake/local provider
-posture. The canonical typed registry lives in
-`packages/template-core/src/index.ts`; the web app imports it through
-`apps/web/src/sample/templateData.ts`. Tests for section coverage and workflow
-graph integrity live in `apps/web/src/sample/templateData.test.ts`.
+posture. The `templateRegistry`/template-core registry in
+`packages/template-core/src/index.ts` is sample reviewer data and compatibility
+metadata for the web walkthrough and deterministic workflow adapter; the web app
+imports it through `apps/web/src/sample/templateData.ts`. Tests for section
+coverage and workflow graph integrity live in
+`apps/web/src/sample/templateData.test.ts`.
 
-The headless projection lives in `tooling/workflow/src/index.ts`. It turns the
-same capability registry into stable operation metadata for future API, CLI,
-MCP, and Scalar generation.
+The public headless surface source of truth is the generated Confect contract
+manifest and exposure metadata in
+`packages/template-core/src/generated/confectManifest.ts`, paired with explicit
+generated ref mappings such as `generatedCliOperationRefs` and
+`generatedMcpOperationRefs` in `tooling/workflow/src/index.ts` and the HTTP
+operation refs in `packages/convex/confect/http.ts`. The headless projection in
+`tooling/workflow/src/index.ts` turns that generated manifest metadata into
+stable operation metadata for API, CLI, MCP, OpenAPI, and Scalar docs.
 
-Inspect the same registry through the CLI:
+Inspect the generated headless operations through the CLI:
 
 ```bash
 pnpm exec tsx apps/cli/src/index.ts describe
 pnpm exec tsx apps/cli/src/index.ts operations list
-pnpm exec tsx apps/cli/src/index.ts operations get CLI:createTrustReceipt
+pnpm exec tsx apps/cli/src/index.ts operations get cli:brain.pages.createMarkdown
 pnpm exec tsx apps/cli/src/index.ts workflow run
 pnpm exec tsx apps/cli/src/index.ts api catalog
 pnpm exec tsx apps/cli/src/index.ts api openapi
@@ -79,17 +86,17 @@ pnpm template:seed-demo -- --blueprint source-grounded-gtm-brain --write
 pnpm template:handoff -- --mode fake --write
 ```
 
-`api openapi` prints an OpenAPI 3.1 document generated from the same headless
-registry as the web sample and CLI. The same document is served by the backend
-HTTP docs route in `packages/convex/confect/http.ts` at `/api/openapi.json`,
-with the Scalar shell at `/api/docs`. The same route also mounts reviewer-safe
-executable `POST /api/<operation>` handlers backed by the shared template
-registry; `packages/convex/test/http-docs.test.ts` proves
-`POST /api/createTrustReceipt` returns the sample Trust Receipt path.
+`api openapi` prints an OpenAPI 3.1 document generated from the Confect manifest
+metadata used by the CLI and MCP surfaces. The same document is served by the
+backend HTTP docs route in `packages/convex/confect/http.ts` at
+`/api/openapi.json`, with the Scalar shell at `/api/docs`. The same route also
+mounts reviewer-safe executable `POST /api/<operation>` handlers backed by the
+generated HTTP ref mapping; `packages/convex/test/http-docs.test.ts` proves
+`POST /api/brain.pages.createMarkdown` accepts the generated route contract.
 
 `mcp call template.workflow.run` invokes the deterministic reviewer-safe
-workflow through the same registry and returns the workflow receipt as an
-MCP-style tool result.
+workflow compatibility adapter and returns the workflow receipt as an MCP-style
+tool result.
 
 `template:quickstart` writes the client-instance manifest, implementation brief,
 deterministic fake seed, and handoff packet. Use `template:init` when you only

@@ -1,4 +1,4 @@
-import { templateConfectRefs } from "@maestro-template/convex";
+import { templateConfectRefs } from "@maestro-template/convex/refs";
 import { useTemplateQuery } from "../../adapters/confect-state";
 import { isConvexConfigured } from "../../env";
 import { presentLiveRuns } from "./live-runs-presenter";

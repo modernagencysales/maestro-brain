@@ -120,6 +120,31 @@ describe("check:auth-demo-bypass security posture scan", () => {
     );
   });
 
+  it("rejects HTTP handlers that only declare the dispatch helper before not-found", async () => {
+    await withFixtureRepo(
+      {
+        ...safeFiles,
+        "packages/convex/confect/http.ts": `
+          const runTemplateApiOperation = async () => ({ ok: true });
+          export const handleTemplateHttpRequest = async (request: Request) => {
+            const url = new URL(request.url);
+            if (url.pathname === "/api/openapi.json") return new Response("docs");
+            const apiEntry = buildApiCatalog().find((entry) => entry.path === url.pathname);
+            return new Response("Unknown template HTTP route");
+          };
+        `,
+      },
+      async (repoRoot) => {
+        const result = await evaluateTemplateSecurityPosture(repoRoot);
+
+        expect(result.ok).toBe(false);
+        expect(result.failures.join("\n")).toContain(
+          "dispatch docs/API routes",
+        );
+      },
+    );
+  });
+
   it("rejects public production source maps", async () => {
     await withFixtureRepo(
       {

@@ -1,4 +1,4 @@
-import type { Schema } from "effect";
+import type * as Schema from "effect/Schema";
 import type {
   SourceGroundedBriefArgs,
   SourceGroundedBriefReturn,
@@ -33,20 +33,3 @@ export const formatContextPackForBrief = (
   sources
     .map((source) => `## Source: ${source.title}\n\n${source.markdown}`)
     .join("\n\n");
-
-export const runFakeSourceGroundedBrief = (input: {
-  readonly input: SourceGroundedBriefInput;
-  readonly sources: readonly BriefSource[];
-  readonly policySnapshotId: string;
-  readonly modelReceiptId: string;
-}): SourceGroundedBriefResult => {
-  const sourceTitles = input.sources.map((source) => source.title);
-
-  return {
-    briefMarkdown: `## Source-Grounded Brief\n\nGoal: ${input.input.briefGoal}\n\n### Sources\n\n${sourceTitles.map((title) => `- ${title}`).join("\n")}\n\n### Draft\n\nThis deterministic fake brief is grounded in ${input.sources.length} approved source${input.sources.length === 1 ? "" : "s"}. Replace the fake LLM service before live use.`,
-    sourceTitles,
-    policySnapshotId: input.policySnapshotId,
-    modelReceiptId: input.modelReceiptId,
-    trustClaim: "source-backed-no-default-rag",
-  };
-};

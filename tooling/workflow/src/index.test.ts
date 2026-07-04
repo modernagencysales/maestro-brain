@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildApiCatalog,
+  buildGeneratedMcpTools,
   buildHeadlessOperations,
   buildMcpTools,
   buildOpenApiDocument,
@@ -12,16 +13,18 @@ import {
 } from "./index";
 
 describe("workflow headless registry", () => {
-  it("projects every capability to every headless surface", () => {
+  it("projects every manifest function to its declared surfaces", () => {
     const operations = buildHeadlessOperations();
+    const ids = operations.map((operation) => operation.id);
 
-    expect(operations).toHaveLength(12);
-    expect(operations.map((operation) => operation.id)).toContain(
-      "Scalar API:resolveSourceSet",
+    expect(operations).toHaveLength(10);
+    expect(ids).toContain("api:brain.pages.createMarkdown");
+    expect(ids).toContain("cli:brain.pages.createMarkdown");
+    expect(ids).not.toContain(
+      "web:capabilities.sourceGroundedBrief.runInternal",
     );
-    expect(operations.map((operation) => operation.id)).toContain(
-      "CLI:sourceGroundedBrief",
-    );
+    expect(ids).not.toContain("CLI:createTrustReceipt");
+    expect(ids).not.toContain("api:resolveSourceSet");
     expect(
       operations.every((operation) => operation.typedErrors.length > 0),
     ).toBe(true);
@@ -35,61 +38,73 @@ describe("workflow headless registry", () => {
       edgeCount: 4,
       capabilityCount: 4,
       agentCount: 3,
-      headlessOperationCount: 12,
+      headlessOperationCount: 10,
     });
   });
 
   it("looks up a single operation by stable id", () => {
-    expect(getHeadlessOperation("CLI:createTrustReceipt")).toMatchObject({
-      surface: "CLI",
-      capability: "createTrustReceipt",
-      authScope: "audited write",
+    expect(
+      getHeadlessOperation("api:brain.pages.createMarkdown"),
+    ).toMatchObject({
+      surface: "api",
+      capability: "brain.pages.createMarkdown",
+      authScope: "workspace member",
     });
+    expect(getHeadlessOperation("CLI:createTrustReceipt")).toBeUndefined();
   });
 
-  it("projects API and MCP metadata from the same operation registry", () => {
-    expect(buildApiCatalog()).toContainEqual({
-      operationId: "sourceGroundedBrief",
-      method: "POST",
-      path: "/api/sourceGroundedBrief",
-      authScope: "workspace member",
-      typedErrors: expect.arrayContaining([
-        "PolicyNotFound",
-        "PromptNotFound",
-        "RateLimited",
-        "SpendCapExceeded",
-      ]),
-    });
-
-    expect(buildApiCatalog()).toContainEqual({
-      operationId: "createTrustReceipt",
-      method: "POST",
-      path: "/api/createTrustReceipt",
-      authScope: "audited write",
-      typedErrors: ["Unauthorized", "ConfigInvalid", "ValidationFailed"],
-    });
+  it("projects API and MCP metadata from the generated manifest", () => {
+    expect(buildApiCatalog()).toEqual([
+      {
+        operationId: "brain.pages.createMarkdown",
+        method: "POST",
+        path: "/api/brain.pages.createMarkdown",
+        authScope: "workspace member",
+        typedErrors: [
+          "Unauthorized",
+          "MemberNotInWorkspace",
+          "WorkspaceNotFound",
+          "ValidationFailed",
+        ],
+      },
+    ]);
 
     expect(buildMcpTools()).toContainEqual({
-      name: "template.sourceGroundedBrief",
+      name: "template.brain.pages.createMarkdown",
       description:
-        "Invoke sourceGroundedBrief through the shared template registry.",
+        "Invoke brain.pages.createMarkdown through the generated Confect contract manifest.",
+      inputSchema: expect.objectContaining({
+        type: "object",
+        required: ["workspaceId", "slug", "title", "markdown"],
+        properties: expect.objectContaining({
+          workspaceId: { type: "string" },
+          slug: { type: "string" },
+          title: { type: "string" },
+          markdown: { type: "string" },
+        }),
+      }),
+      typedErrors: [
+        "Unauthorized",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+        "ValidationFailed",
+      ],
+    });
+    expect(buildGeneratedMcpTools()).not.toContainEqual(
+      expect.objectContaining({ name: "template.workflow.run" }),
+    );
+    expect(buildMcpTools()).toContainEqual({
+      name: "template.workflow.run",
+      description: "Run the template workflow compatibility adapter.",
       inputSchema: expect.objectContaining({
         type: "object",
         additionalProperties: false,
       }),
-      typedErrors: expect.arrayContaining(["PolicyNotFound", "PromptNotFound"]),
+      typedErrors: [],
     });
-
-    expect(buildMcpTools()).toContainEqual({
-      name: "template.createTrustReceipt",
-      description:
-        "Invoke createTrustReceipt through the shared template registry.",
-      inputSchema: expect.objectContaining({
-        type: "object",
-        additionalProperties: false,
-      }),
-      typedErrors: ["Unauthorized", "ConfigInvalid", "ValidationFailed"],
-    });
+    expect(buildMcpTools()).not.toContainEqual(
+      expect.objectContaining({ name: "template.resolveSourceSet" }),
+    );
   });
 
   it("builds an OpenAPI document from the shared API catalog", () => {
@@ -97,52 +112,65 @@ describe("workflow headless registry", () => {
 
     expect(document.openapi).toBe("3.1.0");
     expect(Object.keys(document.paths)).toEqual([
-      "/api/resolveSourceSet",
-      "/api/buildContextPack",
-      "/api/createTrustReceipt",
-      "/api/sourceGroundedBrief",
+      "/api/brain.pages.createMarkdown",
     ]);
-    expect(document.paths["/api/sourceGroundedBrief"]?.post).toMatchObject({
-      operationId: "sourceGroundedBrief",
+    expect(
+      document.paths["/api/brain.pages.createMarkdown"]?.post,
+    ).toMatchObject({
+      operationId: "brain.pages.createMarkdown",
       "x-maestro-auth-scope": "workspace member",
       "x-maestro-typed-errors": expect.arrayContaining([
-        "PolicyNotFound",
-        "PromptNotFound",
-        "ProviderConfigInvalid",
+        "Unauthorized",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+        "ValidationFailed",
       ]),
     });
-    const createTrustReceipt = document.paths["/api/createTrustReceipt"]?.post;
+    const createMarkdown =
+      document.paths["/api/brain.pages.createMarkdown"]?.post;
 
-    expect(createTrustReceipt).toMatchObject({
-      operationId: "createTrustReceipt",
-      "x-maestro-auth-scope": "audited write",
+    expect(createMarkdown).toMatchObject({
+      operationId: "brain.pages.createMarkdown",
+      "x-maestro-auth-scope": "workspace member",
       "x-maestro-typed-errors": [
         "Unauthorized",
-        "ConfigInvalid",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
         "ValidationFailed",
       ],
-      security: [{ bearerAuth: ["audited write"] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              additionalProperties: false,
+              required: ["input", "idempotencyKey"],
+              properties: {
+                input: expect.objectContaining({
+                  type: "object",
+                  required: ["workspaceId", "slug", "title", "markdown"],
+                }),
+                idempotencyKey: { type: "string" },
+              },
+            },
+          },
+        },
+      },
     });
 
-    if (!createTrustReceipt) {
-      throw new Error("createTrustReceipt OpenAPI operation is missing");
+    if (!createMarkdown) {
+      throw new Error(
+        "brain.pages.createMarkdown OpenAPI operation is missing",
+      );
     }
 
-    const typedErrorResponse = createTrustReceipt.responses["400"];
-
-    if (!typedErrorResponse) {
-      throw new Error("createTrustReceipt typed error response is missing");
-    }
-
-    const typedErrorEnum =
-      typedErrorResponse.content["application/json"].schema.properties?.error
-        ?.properties?._tag?.enum;
-
-    expect(typedErrorEnum).toEqual([
-      "Unauthorized",
-      "ConfigInvalid",
-      "ValidationFailed",
-    ]);
+    expect(createMarkdown.responses["200"]).toEqual({
+      description: "Typed operation result.",
+    });
+    expect(createMarkdown.responses["400"]).toEqual({
+      description: "Declared typed failure.",
+    });
   });
 
   it("returns a deterministic run receipt for the template workflow", () => {
@@ -159,54 +187,54 @@ describe("workflow headless registry", () => {
     });
   });
 
-  it("executes generated API operations through the shared registry", () => {
+  it("does not execute manifest API operations without a runtime adapter", () => {
     expect(
-      runTemplateApiOperation("createTrustReceipt", {
+      runTemplateApiOperation("brain.pages.createMarkdown", {
         workspaceSlug: "acme-demo",
-        input: { sourceSetId: "source_set_template_001" },
+        input: { title: "A note", markdown: "# A note" },
         idempotencyKey: "receipt-example-001",
       }),
-    ).toMatchObject({
-      ok: true,
-      operationId: "createTrustReceipt",
-      result: {
-        status: "accepted",
-        workspaceSlug: "acme-demo",
-        receiptId: "trust_run_template_001",
-        workflowRunId: "run_template_001",
+    ).toEqual({
+      ok: false,
+      error: {
+        _tag: "FeatureDisabled",
+        message:
+          "Operation brain.pages.createMarkdown requires a runtime execution adapter.",
       },
     });
+  });
 
+  it("executes manifest operations through an explicit runtime adapter", () => {
     expect(
-      runTemplateApiOperation("sourceGroundedBrief", {
-        workspaceSlug: "acme-demo",
-        input: {
-          sourceIds: ["source_1"],
-          briefGoal: "Create a client implementation brief.",
+      runTemplateApiOperation(
+        "brain.pages.createMarkdown",
+        {
+          workspaceSlug: "acme-demo",
+          input: { title: "A note", markdown: "# A note" },
+          idempotencyKey: "receipt-example-001",
         },
-        idempotencyKey: "brief-example-001",
-      }),
-    ).toMatchObject({
+        undefined,
+        {
+          runGeneratedOperation: (request) => ({
+            ok: true,
+            operationId: request.operationId,
+            result: {
+              ref: request.operationId,
+              surface: request.surface,
+              workspaceSlug: request.workspaceSlug,
+              idempotencyKey: request.idempotencyKey,
+            },
+          }),
+        },
+      ),
+    ).toEqual({
       ok: true,
-      operationId: "sourceGroundedBrief",
+      operationId: "brain.pages.createMarkdown",
       result: {
-        status: "accepted",
+        ref: "brain.pages.createMarkdown",
+        surface: "cli",
         workspaceSlug: "acme-demo",
-        trustClaim: "source-backed-no-default-rag",
-      },
-    });
-
-    expect(
-      runTemplateApiOperation("resolveSourceSet", {
-        workspaceSlug: "acme-demo",
-        input: { sourceSetId: "source_set_template_001" },
-      }),
-    ).toMatchObject({
-      ok: true,
-      operationId: "resolveSourceSet",
-      result: {
-        source: "shared-template-registry",
-        inputEcho: { sourceSetId: "source_set_template_001" },
+        idempotencyKey: "receipt-example-001",
       },
     });
   });
@@ -221,7 +249,7 @@ describe("workflow headless registry", () => {
     });
 
     expect(
-      runTemplateApiOperation("createTrustReceipt", {
+      runTemplateApiOperation("brain.pages.createMarkdown", {
         workspaceSlug: "bad slug",
         idempotencyKey: "receipt-example-001",
       }),
@@ -234,47 +262,74 @@ describe("workflow headless registry", () => {
     });
 
     expect(
-      runTemplateApiOperation("createTrustReceipt", {
+      runTemplateApiOperation("brain.pages.createMarkdown", {
         workspaceSlug: "acme-demo",
       }),
     ).toEqual({
       ok: false,
       error: {
         _tag: "ValidationFailed",
-        message: "idempotencyKey is required for write operations.",
+        message:
+          "Operation brain.pages.createMarkdown requires a nonblank idempotencyKey.",
       },
     });
   });
 
-  it("invokes MCP tools through the shared registry", () => {
-    const capabilityResult = callMcpTool("template.resolveSourceSet");
-    const briefResult = callMcpTool("template.sourceGroundedBrief");
+  it("invokes MCP compatibility tools from the generated manifest", () => {
+    const capabilityResult = callMcpTool("template.brain.pages.createMarkdown");
     const workflowResult = callMcpTool("template.workflow.run");
 
     expect(capabilityResult.isError).toBe(false);
     expect(JSON.parse(capabilityResult.content[0]?.text ?? "{}")).toMatchObject(
       {
-        ok: true,
-        capability: "resolveSourceSet",
-        result: {
-          source: "shared-template-registry",
+        ok: false,
+        capability: "brain.pages.createMarkdown",
+        error: {
+          _tag: "FeatureDisabled",
         },
       },
     );
-    expect(JSON.parse(briefResult.content[0]?.text ?? "{}")).toMatchObject({
-      ok: true,
-      capability: "sourceGroundedBrief",
-      result: {
-        status: "accepted",
-        trustClaim: "source-backed-no-default-rag",
-      },
-    });
     expect(JSON.parse(workflowResult.content[0]?.text ?? "{}")).toMatchObject({
       runId: "run_template_001",
       workflowRunId: "run_template_001",
       trustReceiptId: "trust_run_template_001",
       trustReceipt: {
         receiptId: "trust_run_template_001",
+      },
+    });
+  });
+
+  it("executes MCP manifest operations through an explicit runtime adapter", () => {
+    const capabilityResult = callMcpTool(
+      "template.brain.pages.createMarkdown",
+      undefined,
+      {
+        runGeneratedOperation: (request) => ({
+          ok: true,
+          operationId: request.operationId,
+          result: {
+            ref: request.operationId,
+            surface: request.surface,
+            workspaceSlug: request.workspaceSlug,
+          },
+        }),
+      },
+      {
+        workspaceSlug: "acme-demo",
+        input: { title: "MCP note", markdown: "# MCP note" },
+        idempotencyKey: "mcp-example-001",
+        surface: "cli",
+      },
+    );
+
+    expect(capabilityResult.isError).toBe(false);
+    expect(JSON.parse(capabilityResult.content[0]?.text ?? "{}")).toEqual({
+      ok: true,
+      operationId: "brain.pages.createMarkdown",
+      result: {
+        ref: "brain.pages.createMarkdown",
+        surface: "mcp",
+        workspaceSlug: "acme-demo",
       },
     });
   });

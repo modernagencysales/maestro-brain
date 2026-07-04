@@ -40,6 +40,7 @@ const isRuntimeFile = (path: string): boolean =>
   isSourceFile(path) &&
   !path.includes(".test.") &&
   !path.includes("/__tests__/") &&
+  !path.includes("/test/") &&
   !path.includes("/_generated/");
 
 async function listFiles(root: string, current = root): Promise<string[]> {
@@ -109,7 +110,10 @@ function checkWorkspaceMemberGuards(
 
 function checkHttpFailClosedOrder(httpSource: string): string[] {
   const apiEntryIndex = httpSource.indexOf("const apiEntry");
-  const operationIndex = httpSource.indexOf("runTemplateApiOperation");
+  const operationIndex =
+    apiEntryIndex === -1
+      ? -1
+      : httpSource.indexOf("runTemplateApiOperation(", apiEntryIndex);
   const notFoundIndex = httpSource.indexOf("Unknown template HTTP route");
 
   if (apiEntryIndex === -1 || operationIndex === -1 || notFoundIndex === -1) {

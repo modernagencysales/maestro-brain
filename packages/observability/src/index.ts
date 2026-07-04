@@ -19,6 +19,18 @@ export type ErrorReport = {
   readonly context: Readonly<Record<string, unknown>>;
 };
 
+export type CapturedFailureKind = "mutation" | "action";
+
+export type CapturedConfectFailure = {
+  readonly functionPath: string;
+  readonly kind: CapturedFailureKind;
+  readonly errorTag: string;
+  readonly errorMessage: string;
+  readonly causeHash: string;
+  readonly workspaceId?: string;
+  readonly userId?: string;
+};
+
 const redactedFields = [
   "apiKey",
   "token",
@@ -44,6 +56,21 @@ export const redactObservabilityPayload = (
 
   return redacted;
 };
+
+export const createConfectFailureEvent = (
+  failure: CapturedConfectFailure,
+): PostHogEvent => ({
+  event: "template.confect.failure",
+  distinctId: failure.userId ?? "system",
+  properties: redactObservabilityPayload({
+    functionPath: failure.functionPath,
+    kind: failure.kind,
+    errorTag: failure.errorTag,
+    errorMessage: failure.errorMessage,
+    causeHash: failure.causeHash,
+    workspaceId: failure.workspaceId,
+  }),
+});
 
 const deliveryForMode = (mode: ObservabilityMode): ObservabilityDelivery =>
   mode === "fake" ? "fake" : mode === "test" ? "test" : "live-ready";

@@ -10,7 +10,7 @@ source "$(dirname "$0")/setup.sh"
 cd "$(dirname "$0")/../.."
 
 if [[ "$*" == *"--mode fake"* ]]; then
-  pnpm contract-review -- --mode fake | pnpm exec tsx tooling/quality/extract-ai-verdict.mts
+  pnpm exec tsx tooling/quality/contract-review.mts --mode fake | pnpm exec tsx tooling/quality/extract-ai-verdict.mts
   exit 0
 fi
 
@@ -28,16 +28,21 @@ export CONTRACT_BASE="origin/${BASE_BRANCH}"
 CONTRACT_REVIEW_WORKTREE="$(pwd)"
 export CONTRACT_REVIEW_WORKTREE
 
+TRUSTED_TREE="$(mktemp -d)"
+trap 'rm -rf "$TRUSTED_TREE"' EXIT
+git archive "origin/${BASE_BRANCH}" AGENTS.md .buildkite dependency-cruiser.config.cjs docs/template/coding-standards.md eslint.config.mjs tooling/quality package.json pnpm-lock.yaml pnpm-workspace.yaml |
+  tar -x -C "$TRUSTED_TREE"
+
 LOG_FILE="$(mktemp)"
-trap 'rm -f "$LOG_FILE"' EXIT
+trap 'rm -f "$LOG_FILE"; rm -rf "$TRUSTED_TREE"' EXIT
 
 GATE_EXIT=0
-pnpm contract-review 2>&1 | tee "$LOG_FILE" || GATE_EXIT=$?
+pnpm exec tsx "$TRUSTED_TREE/tooling/quality/contract-review.mts" 2>&1 | tee "$LOG_FILE" || GATE_EXIT=$?
 
-VERDICT_JSON="$(pnpm exec tsx tooling/quality/ai-gate-log-verdict.mts --marker CONTRACT_VERDICT_JSON --log-file "$LOG_FILE" || true)"
+VERDICT_JSON="$(pnpm exec tsx "$TRUSTED_TREE/tooling/quality/ai-gate-log-verdict.mts" --marker CONTRACT_VERDICT_JSON --log-file "$LOG_FILE" || true)"
 if [[ -z "$VERDICT_JSON" ]]; then
   echo "contract-review gate exited without CONTRACT_VERDICT_JSON — failing closed." >&2
-  pnpm exec tsx tooling/quality/ai-gate-fallback-verdict.mts --gate contract-review --log-file "$LOG_FILE" >&2 || true
+  pnpm exec tsx "$TRUSTED_TREE/tooling/quality/ai-gate-fallback-verdict.mts" --gate contract-review --log-file "$LOG_FILE" >&2 || true
   exit 1
 fi
 
@@ -45,10 +50,10 @@ fi
 if [[ -n "${GITHUB_TOKEN:-}" ]]; then
   VERDICT_FILE="$(mktemp)"
   printf '%s' "$VERDICT_JSON" > "$VERDICT_FILE"
-  pnpm exec tsx tooling/quality/post-ai-gate-comment.mts --gate contract-review --verdict-file "$VERDICT_FILE" ||
+  pnpm exec tsx "$TRUSTED_TREE/tooling/quality/post-ai-gate-comment.mts" --gate contract-review --verdict-file "$VERDICT_FILE" ||
     echo "contract-review: PR comment publish failed; the gate verdict remains authoritative." >&2
   rm -f "$VERDICT_FILE"
 fi
 
-printf '%s\n' "$VERDICT_JSON" | pnpm exec tsx tooling/quality/extract-ai-verdict.mts || GATE_EXIT=1
+printf '%s\n' "$VERDICT_JSON" | pnpm exec tsx "$TRUSTED_TREE/tooling/quality/extract-ai-verdict.mts" || GATE_EXIT=1
 exit "$GATE_EXIT"

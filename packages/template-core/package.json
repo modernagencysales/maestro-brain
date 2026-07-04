@@ -4,6 +4,16 @@
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./generated/confectManifest": {
+      "types": "./src/generated/confectManifest.ts",
+      "default": "./src/generated/confectManifest.ts"
+    }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json --outDir dist --declaration",
     "typecheck": "tsc -p tsconfig.json --noEmit",

@@ -1,16 +1,57 @@
-import {
-  buildApiCatalog,
-  buildOpenApiDocument,
-  runTemplateApiOperation,
-  type TemplateApiRequest,
-} from "@maestro-template/workflow-tooling";
+import { confectManifest } from "@maestro-template/template-core/generated/confectManifest";
 import { httpActionGeneric, httpRouter } from "convex/server";
+import { api } from "../convex/_generated/api";
+import {
+  executeHeadlessOperation,
+  type HeadlessExecutorRequest,
+} from "./manifest/executor";
+import { buildGeneratedOpenApiDocument } from "./manifest/openapi";
+import {
+  executorRequestFor,
+  readJsonBody,
+  type TemplateApiRequestBody,
+} from "./httpRequest";
+
+type ManifestFunction = (typeof confectManifest.functions)[number];
+
+const hasSurface = (entry: ManifestFunction, surface: string): boolean =>
+  (entry.surfaces as readonly string[]).includes(surface);
 
 export type TemplateHttpRoute = {
   readonly path: string;
   readonly method: "GET" | "POST";
   readonly description: string;
 };
+
+export type HeadlessHttpCtx = {
+  readonly runQuery: (
+    ref: unknown,
+    input: Record<string, unknown>,
+  ) => Promise<unknown>;
+  readonly runMutation: (
+    ref: unknown,
+    input: Record<string, unknown>,
+  ) => Promise<unknown>;
+  readonly runAction: (
+    ref: unknown,
+    input: Record<string, unknown>,
+  ) => Promise<unknown>;
+};
+
+type TemplateRouteMatch =
+  | { readonly kind: "openapi" }
+  | { readonly kind: "docs" }
+  | { readonly kind: "operation"; readonly operationId: string }
+  | { readonly kind: "notFound"; readonly pathname: string };
+
+const staticTemplateRoutes: Record<string, TemplateRouteMatch | undefined> = {
+  "/api/openapi.json": { kind: "openapi" },
+  "/api/docs": { kind: "docs" },
+};
+
+const operationRefs = {
+  "brain.pages.createMarkdown": api.brain.pages.createMarkdown,
+} satisfies Record<string, unknown>;
 
 export const securityHeaders = {
   "content-security-policy":
@@ -32,11 +73,13 @@ export const templateHttpRoutes = [
     method: "GET",
     description: "Serves the Scalar API documentation shell.",
   },
-  ...buildApiCatalog().map((entry) => ({
-    path: entry.path,
-    method: entry.method,
-    description: `Executes ${entry.operationId} through the shared template registry.`,
-  })),
+  ...confectManifest.functions
+    .filter((entry) => hasSurface(entry, "api"))
+    .map((entry) => ({
+      path: `/api/${entry.operationId}`,
+      method: "POST" as const,
+      description: `Executes ${entry.operationId}.`,
+    })),
 ] as const satisfies readonly TemplateHttpRoute[];
 
 const withSecurityHeaders = (
@@ -81,89 +124,147 @@ const htmlResponse = (html: string): Response =>
     }),
   });
 
-const readJsonBody = async (request: Request): Promise<TemplateApiRequest> => {
-  if (!request.body) {
-    return {};
-  }
+const runTemplateApiOperation = async (
+  ctx: HeadlessHttpCtx,
+  request: HeadlessExecutorRequest,
+): Promise<unknown> =>
+  await executeHeadlessOperation(
+    {
+      refs: operationRefs,
+      runQuery: (ref, input) => ctx.runQuery(ref, input),
+      runMutation: (ref, input) => ctx.runMutation(ref, input),
+      runAction: (ref, input) => ctx.runAction(ref, input),
+    },
+    request,
+  );
 
-  const contentType = request.headers.get("content-type") ?? "";
+const templateRouteForPath = (pathname: string): TemplateRouteMatch => {
+  const apiEntry = confectManifest.functions.find(
+    (entry) =>
+      hasSurface(entry, "api") && `/api/${entry.operationId}` === pathname,
+  );
+  const route =
+    staticTemplateRoutes[pathname] ??
+    (apiEntry
+      ? { kind: "operation", operationId: apiEntry.operationId }
+      : { kind: "notFound", pathname });
 
-  if (!contentType.includes("application/json")) {
-    return {};
-  }
-
-  const value = (await request.json()) as unknown;
-
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
-  }
-
-  return value as TemplateApiRequest;
+  return route;
 };
 
-export const handleTemplateHttpRequest = async (
+const templateRouteResponse = async (
+  ctx: HeadlessHttpCtx,
   request: Request,
+  route: TemplateRouteMatch,
 ): Promise<Response> => {
-  const url = new URL(request.url);
+  let response: Response;
 
-  if (url.pathname === "/api/openapi.json") {
-    if (request.method !== "GET") {
-      return jsonResponse({
+  switch (route.kind) {
+    case "openapi":
+      response = openApiRouteResponse(request);
+      break;
+    case "docs":
+      response = docsRouteResponse(request);
+      break;
+    case "operation":
+      response = await operationRouteResponse(ctx, request, route.operationId);
+      break;
+    case "notFound":
+      response = notFoundRouteResponse(route.pathname);
+      break;
+  }
+
+  return response;
+};
+
+const openApiRouteResponse = (request: Request): Response =>
+  request.method === "GET"
+    ? jsonResponse(buildGeneratedOpenApiDocument())
+    : jsonResponse({
         ok: false,
         error: {
           _tag: "MethodNotAllowed",
           message: "Only GET is supported for OpenAPI docs.",
         },
       });
-    }
 
-    return jsonResponse(buildOpenApiDocument());
-  }
-
-  if (url.pathname === "/api/docs") {
-    if (request.method !== "GET") {
-      return jsonResponse({
+const docsRouteResponse = (request: Request): Response =>
+  request.method === "GET"
+    ? htmlResponse(scalarDocsHtml())
+    : jsonResponse({
         ok: false,
         error: {
           _tag: "MethodNotAllowed",
           message: "Only GET is supported for Scalar docs.",
         },
       });
-    }
 
-    return htmlResponse(scalarDocsHtml());
-  }
+const operationRouteResponse = async (
+  ctx: HeadlessHttpCtx,
+  request: Request,
+  operationId: string,
+): Promise<Response> => {
+  const response =
+    request.method === "POST"
+      ? await executeTemplateApiRoute(ctx, request, operationId)
+      : jsonResponse({
+          ok: false,
+          error: {
+            _tag: "MethodNotAllowed",
+            message: `Only POST is supported for /api/${operationId}.`,
+          },
+        });
 
-  const apiEntry = buildApiCatalog().find(
-    (entry) => entry.path === url.pathname,
-  );
+  return response;
+};
 
-  if (apiEntry) {
-    if (request.method !== apiEntry.method) {
-      return jsonResponse({
-        ok: false,
-        error: {
-          _tag: "MethodNotAllowed",
-          message: `Only ${apiEntry.method} is supported for ${apiEntry.path}.`,
-        },
-      });
-    }
+const executeTemplateApiRoute = async (
+  ctx: HeadlessHttpCtx,
+  request: Request,
+  operationId: string,
+): Promise<Response> => {
+  const parsedBody = await readJsonBody(request);
+  const response = parsedBody.ok
+    ? await responseForParsedTemplateApiBody(ctx, operationId, parsedBody.body)
+    : jsonResponse(parsedBody);
 
-    return jsonResponse(
-      runTemplateApiOperation(
-        apiEntry.operationId,
-        await readJsonBody(request),
-      ),
-    );
-  }
+  return response;
+};
 
-  return jsonResponse({
+const responseForParsedTemplateApiBody = async (
+  ctx: HeadlessHttpCtx,
+  operationId: string,
+  body: TemplateApiRequestBody,
+): Promise<Response> => {
+  const executorRequest = executorRequestFor(operationId, body);
+  const response = executorRequest.ok
+    ? jsonResponse(await runTemplateApiOperation(ctx, executorRequest.request))
+    : jsonResponse(executorRequest);
+
+  return response;
+};
+
+const notFoundRouteResponse = (pathname: string): Response =>
+  jsonResponse({
     ok: false,
     error: {
       _tag: "NotFound",
-      message: `Unknown template HTTP route: ${url.pathname}`,
+      message: `Unknown template HTTP route: ${pathname}`,
     },
   });
+
+export const handleTemplateHttpRequest = async (
+  ctx: HeadlessHttpCtx,
+  request: Request,
+): Promise<Response> => {
+  const url = new URL(request.url);
+  const response = await templateRouteResponse(
+    ctx,
+    request,
+    templateRouteForPath(url.pathname),
+  );
+
+  return response;
 };
 
 /**
@@ -173,9 +274,16 @@ export const handleTemplateHttpRequest = async (
  */
 const buildTemplateHttpRouter = () => {
   const router = httpRouter();
-  const handler = httpActionGeneric(async (_ctx, request) =>
-    handleTemplateHttpRequest(request),
-  );
+  const handler = httpActionGeneric(async (ctx, request) => {
+    const headlessCtx: HeadlessHttpCtx = {
+      runQuery: (ref, input) => ctx.runQuery(ref as never, input as never),
+      runMutation: (ref, input) =>
+        ctx.runMutation(ref as never, input as never),
+      runAction: (ref, input) => ctx.runAction(ref as never, input as never),
+    };
+
+    return handleTemplateHttpRequest(headlessCtx, request);
+  });
   for (const route of templateHttpRoutes) {
     router.route({ path: route.path, method: route.method, handler });
   }

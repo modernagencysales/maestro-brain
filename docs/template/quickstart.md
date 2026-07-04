@@ -108,8 +108,10 @@ Use the generated implementation brief as the discovery map:
    `pnpm template:add-capability -- --name "<capability>" --write`.
 3. Add a workflow with
    `pnpm template:add-workflow -- --name "<workflow>" --write`.
-4. Promote reviewed contracts with `template:promote-capability` and
-   `template:promote-workflow`.
+4. Regenerate Convex refs, typecheck the Convex package, and keep
+   `template:promote-workflow` only for older reviewed or private-package
+   workflow artifacts. `template:add-workflow -- --write` already writes the
+   production-target workflow paths.
 5. Wire the generated refs into the Notion-style UI, API, CLI, and MCP surfaces.
 6. Add focused tests for the capability, workflow graph, provider posture, and
    Trust Receipt.

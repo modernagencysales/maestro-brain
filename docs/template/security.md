@@ -22,6 +22,21 @@ providers.
 - Destructive actions require approvals or explicit typed confirmations.
 - Prompt-injection boundaries separate source content from instructions.
 
+## API, CLI, And MCP Identity
+
+API, CLI, and MCP callers may pass operation args, but they do not get to assert
+workspace authority. Headless entrypoints resolve a `Principal` server-side from
+the authenticated request or API key, resolve workspace access on the server,
+and then dispatch through generated Confect refs only after the operation is
+allowed on that surface.
+
+Public failures crossing API, CLI, and MCP boundaries use declared typed public
+errors. Provider errors, config defects, internal causes, secret names, secret
+values, stack traces, and raw provider payloads are redacted before they leave
+the server. Undeclared provider/config/internal defects are reported through an
+opaque public envelope, not through caller-controlled workspace identity or raw
+exception text.
+
 ## Review
 
 Run `pnpm check:secret-canaries`, `pnpm check:auth-demo-bypass`, and focused

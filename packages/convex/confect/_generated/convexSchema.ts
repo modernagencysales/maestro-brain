@@ -32,6 +32,7 @@ import webhookEvents from "./tables/webhookEvents";
 import workflowRunContextManifests from "./tables/workflowRunContextManifests";
 import workflowRunEvents from "./tables/workflowRunEvents";
 import workflowRunEvidenceSnapshots from "./tables/workflowRunEvidenceSnapshots";
+import workflowRunLinks from "./tables/workflowRunLinks";
 import workflowRuns from "./tables/workflowRuns";
 import workflowStageRuns from "./tables/workflowStageRuns";
 import workspaceMembers from "./tables/workspaceMembers";
@@ -70,6 +71,7 @@ export default $defineSchema({
   workflowRunContextManifests: workflowRunContextManifests.tableDefinition,
   workflowRunEvents: workflowRunEvents.tableDefinition,
   workflowRunEvidenceSnapshots: workflowRunEvidenceSnapshots.tableDefinition,
+  workflowRunLinks: workflowRunLinks.tableDefinition,
   workflowRuns: workflowRuns.tableDefinition,
   workflowStageRuns: workflowStageRuns.tableDefinition,
   workspaceMembers: workspaceMembers.tableDefinition,

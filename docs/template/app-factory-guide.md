@@ -16,8 +16,8 @@ without copying project-specific business logic into the core framework.
 - Use [env-manifest.md](./env-manifest.md) as the provider setup source of
   truth.
 - Add client domain nouns through generators.
-- Keep Confect specs, frontend adapters, headless registry entries, docs, and
-  tests together.
+- Keep Confect specs, generated manifest/headless metadata, generated ref
+  mappings, frontend adapters, docs, and tests together.
 - Promote runtime-authored capabilities to generated source when compile-time
   guarantees matter.
 - Keep private client packages separate from the template core.
@@ -61,18 +61,24 @@ not template-core assumptions.
    `pnpm template:add-capability -- --name summarizeSource --write`.
 7. Add a first workflow with
    `pnpm template:add-workflow -- --name sourceGroundedPlan --write`.
-8. Promote reviewed capability/workflow artifacts with
-   `pnpm template:promote-capability -- --name summarizeSource --write` and
-   `pnpm template:promote-workflow -- --name sourceGroundedPlan --write`.
-9. Import reviewed private packages with
-   `pnpm template:private-package:import -- --fixture <fixture> --write`; keep
-   generated source modules under `private-packages/<package>/` until review.
-10. Add domain modules with `template:add-client-domain`.
-11. Add capabilities, workflows, agents, Brain schemas, API surfaces, source
+8. Regenerate generated contracts before wiring generated wrappers:
+   `pnpm confect:codegen`, `pnpm confect:manifest`, then the relevant focused
+   tests and gates for the changed surface. Run Convex codegen only when the
+   generated slice also changes Convex deployment refs. In the template repo,
+   use `pnpm template:workflow-output-smoke` to repeat workflow output checks in
+   an isolated temp copy.
+9. Use `template:promote-workflow` only when migrating older reviewed workflow
+   artifacts or private-package workflow modules into production-target paths.
+   New `template:add-workflow -- --write` output is already production-target.
+10. Import reviewed private packages with
+    `pnpm template:private-package:import -- --fixture <fixture> --write`; keep
+    generated source modules under `private-packages/<package>/` until review.
+11. Add domain modules with `template:add-client-domain`.
+12. Add capabilities, workflows, agents, Brain schemas, API surfaces, source
     types, notifications, admin surfaces, and data lifecycle resources through
     the matching generators.
-12. Run focused verification for each generated change.
-13. Run `pnpm template:handoff -- --mode fake --write` and full verification
+13. Run focused verification for each generated change.
+14. Run `pnpm template:handoff -- --mode fake --write` and full verification
     before a client handoff.
 
 See `docs/template/quickstart.md` for the 10-minute fake-mode path, 30-minute

@@ -34,6 +34,27 @@ public-safe provider errors.
 Resend, Sentry, Slack/webhooks, CRM, drive, and Notion connectors are optional
 adapters.
 
+## PostHog Backend Event Capture
+
+PostHog backend capture covers Confect mutation and action failures only. Wrap
+Effect programs with `withMutationErrorCapture(functionPath, effect)` or
+`withActionErrorCapture(functionPath, effect)` so failed effects emit the
+`template.confect.failure` event before the original Effect cause is re-failed.
+
+The event contract is intentionally small and public-safe:
+
+- `functionPath`, such as `brain/pages.createMarkdown`
+- `kind`, either `mutation` or `action`
+- public error tag
+- redacted public message
+- stable cause hash
+- optional workspace and user identifiers when already available
+
+Capture is best-effort. PostHog delivery errors are dropped by the capture path
+and must not replace, mask, or retry the original application failure. Query
+capture is not included in this slice because Confect query context does not
+provide the scheduler required by the PostHog Convex component.
+
 ## Rules
 
 - Decode config through typed config modules.

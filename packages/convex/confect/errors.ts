@@ -1,5 +1,10 @@
 import * as Schema from "effect/Schema";
 
+// Schema.Never is the runtime "no recoverable errors" schema; Confect accepts
+// AnyNoContext thunks, so keep the variance bridge in one named place.
+export const NoRecoverableError =
+  Schema.Never as unknown as Schema.Schema.AnyNoContext;
+
 export class Unauthorized extends Schema.TaggedError<Unauthorized>()(
   "Unauthorized",
   {},

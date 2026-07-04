@@ -30,6 +30,7 @@ export default defineConfig({
       include: coverageRatchetDirs.map((dir) => `${dir}/**/*.{ts,mts,tsx}`),
       exclude: [
         "**/*.test.{ts,tsx,mts}",
+        "**/test/support/**",
         "**/dist/**",
         "**/_generated/**",
         "**/__fixtures__/**",

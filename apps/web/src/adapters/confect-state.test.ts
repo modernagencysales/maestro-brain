@@ -3,14 +3,17 @@ import { QueryResult } from "@confect/react";
 import * as Either from "effect/Either";
 import {
   classifyConfectMutationResult,
+  isTemplateFailureState,
   normalizeConfectQuery,
   normalizeMutationError,
   normalizeMutationPending,
   normalizeMutationSuccess,
-  normalizeReactQueryResult,
+  TEMPLATE_DATA_STATUSES,
+  TEMPLATE_MUTATION_STATUSES,
   type TemplateDataState,
   type TemplateMutationState,
 } from "./confect-state";
+import { normalizeReactQueryResult } from "./react-query-state";
 
 type TypedError = {
   readonly _tag: "ValidationFailed";
@@ -18,6 +21,40 @@ type TypedError = {
 };
 
 describe("Confect React data-state adapter", () => {
+  it("exposes one canonical frontend state vocabulary", () => {
+    expect(TEMPLATE_DATA_STATUSES).toEqual([
+      "skipped",
+      "loading",
+      "empty",
+      "ready",
+      "typed_failure",
+      "parse_failure",
+      "transport_failure",
+      "defect",
+    ]);
+    expect(TEMPLATE_MUTATION_STATUSES).toEqual([
+      "loading",
+      "ready",
+      "typed_failure",
+      "parse_failure",
+      "transport_failure",
+      "defect",
+    ]);
+    expect(
+      isTemplateFailureState({
+        status: "typed_failure",
+        error: { _tag: "Unauthorized" },
+      }),
+    ).toBe(true);
+    expect(
+      isTemplateFailureState({
+        status: "ready",
+        mode: "read",
+        data: { id: "ok" },
+      }),
+    ).toBe(false);
+  });
+
   it("normalizes skipped, loading, empty, ready/read, and ready/edit query states", () => {
     expect(normalizeConfectQuery(QueryResult.load(true))).toEqual({
       status: "skipped",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runCli } from "./index";
+import { decodeCliRuntimeConfig, runCli } from "./index";
 
 describe("maestro-template CLI", () => {
   it("describes the shared workflow template", () => {
@@ -9,61 +9,95 @@ describe("maestro-template CLI", () => {
     expect(JSON.parse(result.stdout)).toMatchObject({
       valid: true,
       capabilityCount: 4,
-      headlessOperationCount: 12,
+      headlessOperationCount: 10,
     });
   });
 
   it("lists and gets headless operations", () => {
     const list = runCli(["operations", "list"]);
-    const get = runCli(["operations", "get", "CLI:createTrustReceipt"]);
+    const operations = JSON.parse(list.stdout);
+    const get = runCli(["operations", "get", "api:brain.pages.createMarkdown"]);
 
-    expect(JSON.parse(list.stdout)).toHaveLength(12);
+    expect(operations).toHaveLength(10);
+    expect(
+      operations.map((operation: { id: string }) => operation.id),
+    ).toContain("api:brain.pages.createMarkdown");
+    expect(
+      operations.map((operation: { id: string }) => operation.id),
+    ).not.toContain("web:capabilities.sourceGroundedBrief.runInternal");
+    expect(
+      operations.map((operation: { id: string }) => operation.id),
+    ).not.toContain("CLI:createTrustReceipt");
     expect(JSON.parse(get.stdout)).toMatchObject({
-      surface: "CLI",
-      capability: "createTrustReceipt",
-      authScope: "audited write",
+      surface: "api",
+      capability: "brain.pages.createMarkdown",
+      authScope: "workspace member",
     });
   });
 
   it("prints API and MCP metadata", () => {
     expect(JSON.parse(runCli(["api", "catalog"]).stdout)).toContainEqual(
       expect.objectContaining({
+        operationId: "brain.pages.createMarkdown",
+        path: "/api/brain.pages.createMarkdown",
+      }),
+    );
+    expect(JSON.parse(runCli(["api", "catalog"]).stdout)).not.toContainEqual(
+      expect.objectContaining({
         operationId: "resolveSourceSet",
-        path: "/api/resolveSourceSet",
       }),
     );
     expect(JSON.parse(runCli(["api", "openapi"]).stdout)).toMatchObject({
       openapi: "3.1.0",
       paths: {
-        "/api/sourceGroundedBrief": {
+        "/api/brain.pages.createMarkdown": {
           post: {
-            operationId: "sourceGroundedBrief",
-          },
-        },
-        "/api/resolveSourceSet": {
-          post: {
-            operationId: "resolveSourceSet",
+            operationId: "brain.pages.createMarkdown",
             "x-maestro-auth-scope": "workspace member",
             "x-maestro-typed-errors": [
               "Unauthorized",
+              "MemberNotInWorkspace",
               "WorkspaceNotFound",
               "ValidationFailed",
             ],
+            requestBody: {
+              required: true,
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    additionalProperties: false,
+                    required: ["input", "idempotencyKey"],
+                    properties: {
+                      workspaceSlug: { type: "string" },
+                      idempotencyKey: { type: "string" },
+                      input: expect.objectContaining({ type: "object" }),
+                    },
+                  },
+                },
+              },
+            },
           },
         },
       },
     });
     expect(JSON.parse(runCli(["mcp", "tools"]).stdout)).toContainEqual(
       expect.objectContaining({
-        name: "template.sourceGroundedBrief",
+        name: "template.brain.pages.createMarkdown",
         inputSchema: expect.objectContaining({ type: "object" }),
       }),
     );
     expect(JSON.parse(runCli(["mcp", "tools"]).stdout)).toContainEqual(
       expect.objectContaining({
-        name: "template.resolveSourceSet",
-        inputSchema: expect.objectContaining({ type: "object" }),
+        name: "template.workflow.run",
+        inputSchema: expect.objectContaining({
+          type: "object",
+          additionalProperties: false,
+        }),
       }),
+    );
+    expect(JSON.parse(runCli(["mcp", "tools"]).stdout)).not.toContainEqual(
+      expect.objectContaining({ name: "template.resolveSourceSet" }),
     );
   });
 
@@ -98,6 +132,26 @@ describe("maestro-template CLI", () => {
     );
   });
 
+  it("reports live integration readiness from decoded provider env only", () => {
+    const config = decodeCliRuntimeConfig({
+      WORKOS_API_KEY: "workos_key",
+      WORKOS_CLIENT_ID: "workos_client",
+      IGNORED_SECRET: "do-not-forward",
+    });
+    const report = JSON.parse(
+      runCli(["integrations", "report", "live"], config).stdout,
+    );
+
+    expect(report).toContainEqual(
+      expect.objectContaining({
+        id: "workos",
+        mode: "live",
+        ready: true,
+      }),
+    );
+    expect(config.providerEnv).not.toHaveProperty("IGNORED_SECRET");
+  });
+
   it("runs the sample workflow and prints a trust receipt", () => {
     const receipt = JSON.parse(runCli(["workflow", "run"]).stdout);
 
@@ -112,28 +166,189 @@ describe("maestro-template CLI", () => {
     });
   });
 
+  it("parses workflow args after the workflow run subcommand", () => {
+    expect(
+      JSON.parse(
+        runCli(["workflow", "run", "--idempotency-key", "workflow-slice"])
+          .stdout,
+      ),
+    ).toMatchObject({
+      runId: "run_workflow-slice",
+      idempotencyKey: "workflow-slice",
+    });
+  });
+
+  it("uses workflow run args when provided", () => {
+    const receipt = JSON.parse(
+      runCli([
+        "workflow",
+        "run",
+        "--workflow",
+        "workflow_custom_plan",
+        "--workspace",
+        "reviewer-brain",
+        "--idempotency-key",
+        "run-42",
+        "--mode",
+        "fake",
+      ]).stdout,
+    );
+
+    expect(receipt).toMatchObject({
+      runId: "run_run-42",
+      workflowRunId: "run_run-42",
+      workflowId: "workflow_custom_plan",
+      workspaceSlug: "reviewer-brain",
+      mode: "fake",
+      trustReceiptId: "trust_run_run-42",
+      trustReceipt: {
+        receiptId: "trust_run_run-42",
+        workflowRunId: "run_run-42",
+      },
+    });
+  });
+
+  it("accepts inline workflow run args", () => {
+    const receipt = JSON.parse(
+      runCli([
+        "workflow",
+        "run",
+        "--workflow=workflow_inline_plan",
+        "--workspace=inline-brain",
+        "--idempotency-key=run=43",
+        "--mode=",
+        '--input={"topic":"inline"}',
+      ]).stdout,
+    );
+
+    expect(receipt).toMatchObject({
+      runId: "run_run=43",
+      workflowId: "workflow_inline_plan",
+      workspaceSlug: "inline-brain",
+      idempotencyKey: "run=43",
+      mode: "",
+      input: { topic: "inline" },
+    });
+  });
+
+  it("reports named arg parse errors", () => {
+    expect(runCli(["workflow", "run", "--workflow"])).toEqual({
+      exitCode: 1,
+      stdout: "",
+      stderr: "--workflow requires a value.\n",
+    });
+    expect(runCli(["workflow", "run", "--nope"])).toEqual({
+      exitCode: 1,
+      stdout: "",
+      stderr: "Unknown option: --nope\n",
+    });
+    expect(runCli(["workflow", "run", "--input", "[]"])).toEqual({
+      exitCode: 1,
+      stdout: "",
+      stderr: "--input must be a JSON object.\n",
+    });
+  });
+
+  it("requires explicit capability request args", () => {
+    expect(runCli(["capability", "run", "brain.pages.createMarkdown"])).toEqual(
+      {
+        exitCode: 1,
+        stdout: "",
+        stderr:
+          "capability run requires --workspace, --input, and --idempotency-key.\n",
+      },
+    );
+  });
+
+  it("rejects unknown CLI capabilities before parsing request args", () => {
+    expect(runCli(["capability", "run", "not.real"])).toEqual({
+      exitCode: 1,
+      stdout: "",
+      stderr: "Unknown CLI capability: not.real\n",
+    });
+  });
+
   it("runs the source-grounded brief capability from the CLI", () => {
-    const result = runCli(["capability", "run", "sourceGroundedBrief"]);
+    const result = runCli([
+      "capability",
+      "run",
+      "brain.pages.createMarkdown",
+      "--workspace",
+      "acme-demo",
+      "--input",
+      '{"title":"CLI note","markdown":"# CLI note"}',
+      "--idempotency-key",
+      "brain.pages.createMarkdown-cli-001",
+    ]);
     const payload = JSON.parse(result.stdout);
 
-    expect(result.exitCode).toBe(0);
+    expect(result.exitCode).toBe(1);
     expect(payload).toMatchObject({
-      ok: true,
-      operationId: "sourceGroundedBrief",
-      result: {
-        status: "accepted",
-        trustClaim: "source-backed-no-default-rag",
+      ok: false,
+      error: {
+        _tag: "FeatureDisabled",
+        message:
+          "Operation brain.pages.createMarkdown requires a runtime execution adapter.",
+      },
+    });
+  });
+
+  it("uses capability request args when provided", () => {
+    const result = runCli([
+      "capability",
+      "run",
+      "brain.pages.createMarkdown",
+      "--workspace",
+      "bad slug",
+      "--input",
+      '{"title":"Custom note","markdown":"# Custom note"}',
+      "--idempotency-key",
+      "custom-note-001",
+    ]);
+    const payload = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(1);
+    expect(payload).toMatchObject({
+      ok: false,
+      error: {
+        _tag: "ValidationFailed",
+        message: "workspaceSlug must be a lowercase slug.",
+      },
+    });
+  });
+
+  it("parses capability args after the capability id", () => {
+    const result = runCli([
+      "capability",
+      "run",
+      "brain.pages.createMarkdown",
+      "--workspace",
+      "acme-demo",
+      "--input",
+      '{"title":"Slice check","markdown":"# Slice check"}',
+      "--idempotency-key",
+      "capability-slice-001",
+    ]);
+    const payload = JSON.parse(result.stdout);
+
+    expect(result.exitCode).toBe(1);
+    expect(payload).toMatchObject({
+      ok: false,
+      error: {
+        _tag: "FeatureDisabled",
+        message:
+          "Operation brain.pages.createMarkdown requires a runtime execution adapter.",
       },
     });
   });
 
   it("returns a clear error for unknown operations", () => {
-    const result = runCli(["operations", "get", "CLI:nope"]);
+    const result = runCli(["operations", "get", "cli:nope"]);
 
     expect(result).toEqual({
       exitCode: 1,
       stdout: "",
-      stderr: "Unknown operation: CLI:nope\n",
+      stderr: "Unknown operation: cli:nope\n",
     });
   });
 });

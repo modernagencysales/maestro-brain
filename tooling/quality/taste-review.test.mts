@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   callTasteJudge,
+  changedLinesBlock,
   formatTasteVerdict,
   infrastructureBlockedTasteVerdict,
   isLineInRanges,
@@ -375,6 +376,41 @@ describe("taste judge calls", () => {
     expect(verdict.verdict).toBe("pass");
     expect(responses).toHaveLength(0);
   });
+
+  it("falls back to OpenAI after repeated malformed OpenRouter verdicts", async () => {
+    stubProviderEnv({
+      OPENROUTER_API_KEY: "openrouter-token",
+      OPENAI_API_KEY: "openai-token",
+    });
+    const urls: string[] = [];
+    vi.stubGlobal("fetch", (async (
+      input: string | URL | Request,
+      init?: Parameters<typeof fetch>[1],
+    ) => {
+      const url = String(input);
+      urls.push(url);
+      if (url.includes("openrouter.ai")) {
+        return Response.json({ choices: [{ message: { content: "" } }] });
+      }
+      expect(url).toBe("https://api.openai.com/v1/chat/completions");
+      const body = JSON.parse(String(init?.body)) as { model: string };
+      expect(body.model).toBe("gpt-5.5");
+      return Response.json({
+        choices: [{ message: { content: '{"verdict":"pass","findings":[]}' } }],
+      });
+    }) as typeof fetch);
+
+    const verdict = await callTasteJudge(
+      "packages/example.ts",
+      "export const ok = true;",
+    );
+
+    expect(verdict.verdict).toBe("pass");
+    expect(urls.filter((url) => url.includes("openrouter.ai"))).toHaveLength(3);
+    expect(urls.filter((url) => url.includes("api.openai.com"))).toHaveLength(
+      1,
+    );
+  });
 });
 
 describe("taste review concurrency", () => {
@@ -408,14 +444,25 @@ describe("taste review concurrency", () => {
   });
 
   it("defaults taste review concurrency to a small bounded worker pool", () => {
-    expect(tasteReviewConcurrency({})).toBe(4);
+    expect(tasteReviewConcurrency({})).toBe(1);
     expect(tasteReviewConcurrency({ TASTE_REVIEW_CONCURRENCY: "2" })).toBe(2);
-    expect(tasteReviewConcurrency({ TASTE_REVIEW_CONCURRENCY: "0" })).toBe(4);
+    expect(tasteReviewConcurrency({ TASTE_REVIEW_CONCURRENCY: "0" })).toBe(1);
     expect(tasteReviewConcurrency({ TASTE_REVIEW_CONCURRENCY: "99" })).toBe(25);
   });
 });
 
 describe("taste diff scoping", () => {
+  it("renders changed-line metadata without imperative reviewer instructions", () => {
+    const block = changedLinesBlock([
+      { start: 5, end: 10 },
+      { start: 42, end: 42 },
+    ]);
+
+    expect(block).toContain("<changed-lines>");
+    expect(block).toContain("5-10, 42");
+    expect(block).not.toMatch(/review only|ignore|return pass/i);
+  });
+
   it("parses new-side line ranges from unified hunk headers", () => {
     const diff = [
       "diff --git a/x.ts b/x.ts",

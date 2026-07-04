@@ -11,6 +11,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
+  buildAgentFiles,
   buildBlueprintCatalog,
   buildCapabilityFiles,
   buildCapabilityPromotionFiles,
@@ -28,6 +29,10 @@ import {
   runGeneratorCli,
 } from "./index";
 import { gtmImplementationBlueprint } from "./blueprints/gtmImplementation";
+import {
+  smokeWorkflowName,
+  workflowOutputSmokeScriptName,
+} from "./workflow-output-smoke";
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(testDir, "../../..");
@@ -133,7 +138,7 @@ describe("template app factory generators", () => {
     expect(instance.requiredSecretNames).toEqual(
       expect.arrayContaining([
         "WORKOS_API_KEY",
-        "POSTHOG_KEY",
+        "POSTHOG_PROJECT_TOKEN",
         "DODO_API_KEY",
         "MAILERSEND_API_KEY",
         "OPENROUTER_API_KEY",
@@ -443,6 +448,8 @@ describe("template app factory generators", () => {
     expect(result.stdout).toContain("template:seed-demo");
     expect(result.stdout).toContain("template:handoff");
     expect(result.stdout).toContain("template:add-client-domain");
+    expect(result.stdout).toContain("template:add-agent");
+    expect(result.stdout).toContain("template:add-agent-seat");
   });
 
   it("rejects planned blueprints with a useful error", () => {
@@ -586,25 +593,48 @@ describe("template app factory generators", () => {
       exposure: "headless",
     });
     expect(generated.files.map((file) => file.path)).toEqual([
-      "generated/capabilities/summarizeSource/summarizeSource.spec.ts",
-      "generated/capabilities/summarizeSource/summarizeSource.impl.ts",
-      "generated/capabilities/summarizeSource/summarizeSource.domain.ts",
-      "generated/capabilities/summarizeSource/summarizeSource.test.ts",
-      "generated/capabilities/summarizeSource/summarizeSource.headless.json",
-      "generated/capabilities/summarizeSource/README.md",
+      "packages/convex/confect/capabilities/summarizeSource.spec.ts",
+      "packages/convex/confect/capabilities/summarizeSource.impl.ts",
+      "packages/convex/confect/capabilities/summarizeSource.domain.ts",
+      "packages/convex/confect/capabilities/summarizeSource.test.ts",
+      "packages/convex/confect/capabilities/summarizeSource.headless.json",
+      "docs/template/generated/capabilities/summarizeSource.md",
     ]);
     expect(generated.files[0]?.content).toContain(
       "FunctionSpec.publicMutation",
     );
+    expect(generated.files[0]?.content).toContain(
+      'import { Forbidden, Unauthorized, ValidationFailed } from "../errors"',
+    );
     expect(generated.files[0]?.content).toContain("error: () =>");
+    expect(generated.files[0]?.content).toContain(
+      "Schema.Union(Unauthorized, ValidationFailed, Forbidden)",
+    );
     expect(generated.files[0]?.content).not.toContain("errors: () =>");
+    expect(generated.files[0]?.content).not.toContain("Schema.TaggedStruct");
     expect(generated.files[2]?.content).toContain(
       "normalizeSummarizeSourceInput",
     );
+    expect(generated.files[1]?.content).toContain(
+      'import summarizeSourceGroup from "./summarizeSource.spec"',
+    );
+    expect(generated.files[1]?.content).not.toContain(", { summarizeSource }");
     expect(generated.files[3]?.content).toContain(
       'import fc from "fast-check"',
     );
     expect(generated.files[3]?.content).toContain("fc.assert");
+    expect(generated.files[3]?.content).toContain(
+      'import metadata from "./summarizeSource.headless.json"',
+    );
+    expect(generated.files[3]?.content).not.toContain(
+      "JSON.stringify(typedErrors)",
+    );
+    expect(generated.files[3]?.content).not.toContain(
+      'expect(["Unauthorized","ValidationFailed","Forbidden"])',
+    );
+    expect(generated.files[3]?.content).toContain("metadata.typedErrors");
+    expect(generated.files[3]?.content).toContain("summarizeSourceArgs");
+    expect(generated.files[3]?.content).toContain("summarizeSourceReturns");
     expect(generated.files[4]?.content).toContain('"surfaces"');
     expect(JSON.parse(generated.files[4]?.content ?? "{}")).toMatchObject({
       requiredFiles: expect.arrayContaining([
@@ -634,11 +664,11 @@ describe("template app factory generators", () => {
       );
       const specPath = join(
         cwd,
-        "generated/capabilities/summarizeSource/summarizeSource.spec.ts",
+        "packages/convex/confect/capabilities/summarizeSource.spec.ts",
       );
       const metadataPath = join(
         cwd,
-        "generated/capabilities/summarizeSource/summarizeSource.headless.json",
+        "packages/convex/confect/capabilities/summarizeSource.headless.json",
       );
 
       expect(result.exitCode).toBe(0);
@@ -653,7 +683,7 @@ describe("template app factory generators", () => {
     }
   });
 
-  it("builds workflow generator files with graph and headless metadata", () => {
+  it("builds workflow generator files with durable Confect contracts", () => {
     const generated = buildWorkflowFiles({
       name: "source grounded plan",
       description: "Builds a sourced plan with approval and receipt.",
@@ -664,29 +694,87 @@ describe("template app factory generators", () => {
       pascalName: "SourceGroundedPlan",
     });
     expect(generated.files.map((file) => file.path)).toEqual([
-      "generated/workflows/sourceGroundedPlan/sourceGroundedPlan.workflow.json",
-      "generated/workflows/sourceGroundedPlan/sourceGroundedPlan.metadata.json",
-      "generated/workflows/sourceGroundedPlan/sourceGroundedPlan.test.ts",
-      "generated/workflows/sourceGroundedPlan/README.md",
+      "packages/convex/confect/workflowContracts/sourceGroundedPlan.spec.ts",
+      "packages/convex/confect/workflowContracts/sourceGroundedPlan.impl.ts",
+      "packages/convex/confect/workflows/sourceGroundedPlan.graph.ts",
+      "packages/convex/convex/workflowRunners/sourceGroundedPlan.ts",
+      "packages/convex/test/sourceGroundedPlan.workflow.test.ts",
+      "docs/template/generated/workflows/sourceGroundedPlan.md",
     ]);
-    expect(JSON.parse(generated.files[0]?.content ?? "{}")).toMatchObject({
-      nodes: expect.arrayContaining([
-        expect.objectContaining({ id: "source" }),
-        expect.objectContaining({ id: "receipt" }),
-      ]),
-    });
-    expect(JSON.parse(generated.files[1]?.content ?? "{}")).toMatchObject({
-      surfaces: ["web", "cli", "mcp"],
-      requiredCapabilities: ["summarizeSource", "createTrustReceipt"],
-      requiredFiles: expect.arrayContaining([
-        "durable workflow graph",
-        "tests",
-        "headless registry entry",
-      ]),
-      migrationNotes: expect.arrayContaining([
-        "Persist only durable workflow metadata, never React Flow node state.",
-      ]),
-    });
+    expect(generated.files[3]?.path).toBe(
+      "packages/convex/convex/workflowRunners/sourceGroundedPlan.ts",
+    );
+    const spec = generated.files[0]?.content ?? "";
+    const impl = generated.files[1]?.content ?? "";
+    const graph = generated.files[2]?.content ?? "";
+    const convexWorkflow = generated.files[3]?.content ?? "";
+    const docs = generated.files[5]?.content ?? "";
+
+    expect(spec).toContain("defineContractFunction");
+    expect(spec).toContain("export const manifest");
+    expect(spec).toContain("export const schemaRegistry");
+    expect(spec).toContain('operationId: "workflows.sourceGroundedPlan.start"');
+    expect(spec).toContain(
+      'argsSchemaName: "workflows.sourceGroundedPlan.start.args"',
+    );
+    expect(spec).toContain(
+      'returnsSchemaName: "workflows.sourceGroundedPlan.start.returns"',
+    );
+    expect(spec).toContain(
+      'argsSchemaName: "workflows.sourceGroundedPlan.status.args"',
+    );
+    expect(spec).toContain(
+      'returnsSchemaName: "workflows.sourceGroundedPlan.status.returns"',
+    );
+    expect(spec).toContain(
+      'argsSchemaName: "workflows.sourceGroundedPlan.approve.args"',
+    );
+    expect(spec).toContain(
+      'returnsSchemaName: "workflows.sourceGroundedPlan.approve.returns"',
+    );
+    expect(spec).toContain("WorkflowStatusResult");
+
+    expect(impl).toContain("startWorkflowAndRecordOwnership");
+    expect(impl).toContain("makeFunctionReference");
+    expect(impl).toContain('"workflowRunners/sourceGroundedPlan:run"');
+    expect(impl).not.toContain('"workflows/sourceGroundedPlan:run"');
+    expect(impl).not.toContain("../../convex/_generated/api");
+    expect(impl).toContain("toWorkflowValidationFailed");
+    expect(impl).toContain("Effect.mapError(toWorkflowError)");
+    expect(impl).toContain("Effect.mapError(toWorkflowValidationFailed)");
+    expect(impl).toContain("workflowArgs:");
+    expect(impl).toContain("startedAt:");
+    expect(impl).toContain("const runProjection = {");
+    expect(impl).toContain("...(run.timeoutSummary !== undefined");
+    expect(impl).toContain(
+      "return projectWorkflowStatus(rawStatus, runProjection)",
+    );
+    expect(impl).not.toContain("return projectWorkflowStatus(rawStatus, run)");
+    expect(impl).not.toMatch(/\bargs:\s*\{ workspaceId, idempotencyKey \}/);
+    expect(impl).not.toContain("now:");
+
+    expect(convexWorkflow).toContain("defineWorkflow");
+    expect(convexWorkflow).toContain("runDurableGraphWorkflow");
+    expect(convexWorkflow).toContain("policySnapshot: {}");
+    expect(convexWorkflow).toContain("capabilityRegistry: {}");
+
+    expect(graph).toContain("satisfies DurableWorkflowGraph");
+    expect(graph).toContain('kind: "source"');
+    expect(graph).toContain('kind: "output"');
+    expect(graph).not.toContain('kind: "capability"');
+    expect(graph).not.toContain('kind: "approval"');
+
+    expect(docs).toContain(
+      "packages/convex/convex/workflowRunners/sourceGroundedPlan.ts",
+    );
+    expect(docs).toContain(
+      "plain Convex `defineWorkflow` durable replay handler",
+    );
+    expect(docs).not.toContain("packages/convex/convex/workflows/");
+    expect(docs).toContain("pnpm confect:codegen");
+    expect(docs).toContain("pnpm --dir packages/convex exec convex codegen");
+    expect(docs).toContain("workflowContracts.sourceGroundedPlan.approve");
+    expect(docs).toContain("concrete `buildArgs` mappers");
   });
 
   it("writes generated workflow files through the CLI", () => {
@@ -704,22 +792,171 @@ describe("template app factory generators", () => {
         ],
         cwd,
       );
+      const specPath = join(
+        cwd,
+        "packages/convex/confect/workflowContracts/sourceGroundedPlan.spec.ts",
+      );
       const graphPath = join(
         cwd,
-        "generated/workflows/sourceGroundedPlan/sourceGroundedPlan.workflow.json",
+        "packages/convex/confect/workflows/sourceGroundedPlan.graph.ts",
+      );
+      const workflowPath = join(
+        cwd,
+        "packages/convex/convex/workflowRunners/sourceGroundedPlan.ts",
       );
 
       expect(result.exitCode).toBe(0);
+      expect(existsSync(specPath)).toBe(true);
       expect(existsSync(graphPath)).toBe(true);
-      expect(JSON.parse(readFileSync(graphPath, "utf8"))).toMatchObject({
-        id: "sourceGroundedPlan",
-        policy: {
-          audit: "record-workflow-run-and-trust-receipt",
-        },
-      });
+      expect(existsSync(workflowPath)).toBe(true);
+      expect(readFileSync(specPath, "utf8")).toContain(
+        "workflows.sourceGroundedPlan.start",
+      );
+      expect(readFileSync(graphPath, "utf8")).toContain(
+        "sourceGroundedPlanGraph",
+      );
+      expect(readFileSync(workflowPath, "utf8")).toContain(
+        "runDurableGraphWorkflow",
+      );
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }
+  });
+
+  it("builds web-only agent seat generator files", () => {
+    const generated = buildAgentFiles({
+      name: "workflow architect",
+      description: "Drafts reviewed workflow plans from approved context.",
+    });
+
+    expect(generated).toMatchObject({
+      name: "workflowArchitect",
+      pascalName: "WorkflowArchitect",
+      surfaces: ["web"],
+      headlessExposure: false,
+    });
+    expect(generated.files.map((file) => file.path)).toEqual([
+      "packages/convex/confect/agents/workflowArchitect.spec.ts",
+      "packages/convex/confect/agents/workflowArchitect.impl.ts",
+      "packages/convex/confect/agents/workflowArchitect.tools.ts",
+      "packages/convex/test/workflowArchitect.agent.test.ts",
+      "docs/template/generated/agents/workflowArchitect.md",
+    ]);
+    expect(
+      generated.files.some((file) => file.path.endsWith(".headless.json")),
+    ).toBe(false);
+
+    const spec = generated.files[0]?.content ?? "";
+    const impl = generated.files[1]?.content ?? "";
+    const tools = generated.files[2]?.content ?? "";
+    const test = generated.files[3]?.content ?? "";
+    const docs = generated.files[4]?.content ?? "";
+
+    expect(spec).toContain('surfaces: ["web"]');
+    expect(spec).toContain('agentSeat: "web-facing"');
+    expect(spec).toContain("headlessExposure: false");
+    expect(spec).toContain("FunctionSpec.publicMutation");
+    expect(spec).toContain("FunctionSpec.publicQuery");
+    expect(spec).not.toContain('["api", "cli", "mcp"]');
+    expect(spec).not.toContain(".headless.json");
+    expect(impl).toContain("No model provider or external tool was called.");
+    expect(impl).not.toContain("createAgentRuntime");
+    expect(tools).toContain(
+      "workflowArchitectTools: readonly WorkflowArchitectTool[] = []",
+    );
+    expect(test).toContain("headlessExposure: false");
+    expect(docs).toContain('Surfaces: `["web"]`');
+    expect(docs).toContain("does not create API, CLI, MCP");
+    expect(docs).toContain("`.headless.json`");
+    expect(docs).toContain("Keep API, CLI, and MCP exposure out");
+  });
+
+  it("writes generated agent files through the CLI and keeps the alias equivalent", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "maestro-template-agent-"));
+
+    try {
+      const result = runGeneratorCli(
+        [
+          "add-agent",
+          "--name",
+          "workflow architect",
+          "--description",
+          "Drafts reviewed workflow plans from approved context.",
+          "--write",
+        ],
+        cwd,
+      );
+      const aliasResult = runGeneratorCli([
+        "add-agent-seat",
+        "--name",
+        "workflow architect",
+        "--description",
+        "Drafts reviewed workflow plans from approved context.",
+      ]);
+      const parsed = JSON.parse(result.stdout) as {
+        readonly files: readonly { readonly path: string }[];
+        readonly surfaces: readonly string[];
+        readonly headlessExposure: boolean;
+      };
+      const aliasParsed = JSON.parse(aliasResult.stdout) as {
+        readonly files: readonly { readonly path: string }[];
+        readonly surfaces: readonly string[];
+        readonly headlessExposure: boolean;
+      };
+      const specPath = join(
+        cwd,
+        "packages/convex/confect/agents/workflowArchitect.spec.ts",
+      );
+      const toolsPath = join(
+        cwd,
+        "packages/convex/confect/agents/workflowArchitect.tools.ts",
+      );
+      const docsPath = join(
+        cwd,
+        "docs/template/generated/agents/workflowArchitect.md",
+      );
+
+      expect(result.exitCode).toBe(0);
+      expect(aliasResult.exitCode).toBe(0);
+      expect(parsed.files.map((file) => file.path)).toEqual(
+        aliasParsed.files.map((file) => file.path),
+      );
+      expect(parsed.surfaces).toEqual(["web"]);
+      expect(aliasParsed.surfaces).toEqual(["web"]);
+      expect(parsed.headlessExposure).toBe(false);
+      expect(aliasParsed.headlessExposure).toBe(false);
+      expect(existsSync(specPath)).toBe(true);
+      expect(existsSync(toolsPath)).toBe(true);
+      expect(existsSync(docsPath)).toBe(true);
+      expect(readFileSync(specPath, "utf8")).toContain('surfaces: ["web"]');
+      expect(readFileSync(docsPath, "utf8")).not.toContain(
+        "headless registry entry",
+      );
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("exposes a dedicated generated workflow output smoke gate", () => {
+    const rootPackage = JSON.parse(
+      readFileSync(join(repoRoot, "package.json"), "utf8"),
+    ) as { readonly scripts?: Record<string, string> };
+    const smokeScriptPath = join(
+      repoRoot,
+      "tooling/generators/src/workflow-output-smoke.ts",
+    );
+
+    expect(rootPackage.scripts?.[workflowOutputSmokeScriptName]).toBe(
+      "tsx tooling/generators/src/workflow-output-smoke.ts",
+    );
+    expect(rootPackage.scripts?.["template:add-agent"]).toBe(
+      "tsx tooling/generators/src/index.ts add-agent",
+    );
+    expect(rootPackage.scripts?.["template:add-agent-seat"]).toBe(
+      "tsx tooling/generators/src/index.ts add-agent-seat",
+    );
+    expect(existsSync(smokeScriptPath)).toBe(true);
+    expect(smokeWorkflowName).toBe("generatedWorkflowSmoke");
   });
 
   it("builds production-target capability promotion files", () => {
@@ -734,16 +971,42 @@ describe("template app factory generators", () => {
       target: "capability",
     });
     expect(promoted.files.map((file) => file.path)).toEqual([
-      "packages/convex/confect/capabilities/summarizeSource/summarizeSource.spec.ts",
-      "packages/convex/confect/capabilities/summarizeSource/summarizeSource.impl.ts",
-      "packages/convex/confect/capabilities/summarizeSource/summarizeSource.headless.json",
-      "packages/convex/confect/capabilities/summarizeSource/README.md",
+      "packages/convex/confect/capabilities/summarizeSource.spec.ts",
+      "packages/convex/confect/capabilities/summarizeSource.impl.ts",
+      "packages/convex/confect/capabilities/summarizeSource.domain.ts",
+      "packages/convex/confect/capabilities/summarizeSource.test.ts",
+      "packages/convex/confect/capabilities/summarizeSource.headless.json",
+      "docs/template/generated/capabilities/summarizeSource.md",
     ]);
     expect(promoted.files[0]?.content).toContain("FunctionSpec.publicMutation");
-    expect(promoted.files[1]?.content).toContain(
-      'import databaseSchema from "../../_generated/schema"',
+    expect(promoted.files[0]?.content).toContain(
+      'import { Forbidden, Unauthorized, ValidationFailed } from "../errors"',
     );
-    expect(JSON.parse(promoted.files[2]?.content ?? "{}")).toMatchObject({
+    expect(promoted.files[1]?.content).toContain(
+      'import databaseSchema from "../_generated/schema"',
+    );
+    expect(promoted.files[1]?.content).toContain(
+      'import summarizeSourceGroup from "./summarizeSource.spec"',
+    );
+    expect(promoted.files[1]?.content).not.toContain(", { summarizeSource }");
+    expect(promoted.files[2]?.content).toContain(
+      "normalizeSummarizeSourceInput",
+    );
+    expect(promoted.files[3]?.content).toContain('import fc from "fast-check"');
+    expect(promoted.files[3]?.content).toContain("fc.assert");
+    expect(promoted.files[3]?.content).toContain(
+      'import metadata from "./summarizeSource.headless.json"',
+    );
+    expect(promoted.files[3]?.content).not.toContain(
+      "JSON.stringify(typedErrors)",
+    );
+    expect(promoted.files[3]?.content).not.toContain(
+      'expect(["Unauthorized","ValidationFailed","Forbidden"])',
+    );
+    expect(promoted.files[3]?.content).toContain("metadata.typedErrors");
+    expect(promoted.files[3]?.content).toContain("summarizeSourceArgs");
+    expect(promoted.files[3]?.content).toContain("summarizeSourceReturns");
+    expect(JSON.parse(promoted.files[4]?.content ?? "{}")).toMatchObject({
       migrationNotes: expect.arrayContaining([
         "Run Confect codegen before wiring generated refs.",
       ]),
@@ -771,7 +1034,7 @@ describe("template app factory generators", () => {
       );
       const specPath = join(
         cwd,
-        "packages/convex/confect/capabilities/summarizeSource/summarizeSource.spec.ts",
+        "packages/convex/confect/capabilities/summarizeSource.spec.ts",
       );
 
       expect(result.exitCode).toBe(0);

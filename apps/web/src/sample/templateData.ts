@@ -2,23 +2,22 @@ import {
   createSampleWorkflowRunReceipt,
   templateRegistry,
 } from "@maestro-template/template-core";
-import { buildOpenApiDocument } from "@maestro-template/workflow-tooling";
+import {
+  buildOpenApiDocument,
+  openApiOperationMethods,
+  type OpenApiDocument,
+} from "@maestro-template/workflow-tooling";
 import type { DurableWorkflowGraphForCanvas } from "@maestro-template/workflow-ui";
 
-export const navItems = [
-  { id: "overview", label: "Overview", icon: "O", active: true },
-  { id: "brain", label: "Brain", icon: "B" },
-  { id: "workflows", label: "Workflows", icon: "W" },
-  { id: "capabilities", label: "Capabilities", icon: "C" },
-  { id: "agents", label: "Agents", icon: "A" },
-  { id: "headless", label: "API / CLI / MCP", icon: "/" },
-  { id: "integrations", label: "Integrations", icon: "I" },
-  { id: "safety", label: "Safety", icon: "S" },
-] as const;
+type OpenApiSummary = {
+  readonly version: string;
+  readonly operationCount: number;
+  readonly docsRoute: string;
+  readonly typedErrors: readonly string[];
+  readonly authScope: string;
+};
 
-export const stats = templateRegistry.stats;
-export const workflowNodes = templateRegistry.workflow.nodes;
-export const workflowEdges = templateRegistry.workflow.edges;
+export const templateStats = templateRegistry.stats;
 export const durableWorkflowGraph: DurableWorkflowGraphForCanvas = {
   id: "workflow_source_grounded_plan",
   version: 1,
@@ -53,19 +52,36 @@ export const safetyChecklist = templateRegistry.safetyChecklist;
 export const sampleRunReceipt =
   createSampleWorkflowRunReceipt(templateRegistry);
 export const openApiDocument = buildOpenApiDocument(templateRegistry);
-export const openApiSummary = {
-  version: openApiDocument.openapi,
-  operationCount: Object.keys(openApiDocument.paths).length,
-  docsRoute:
-    templateRegistry.headlessSurfaces.find(
-      (surface) => surface.name === "Scalar API",
-    )?.route ?? "/api/docs",
-  typedErrors:
-    openApiDocument.paths["/api/createTrustReceipt"]?.post[
-      "x-maestro-typed-errors"
-    ] ?? [],
-  authScope:
-    openApiDocument.paths["/api/createTrustReceipt"]?.post[
-      "x-maestro-auth-scope"
-    ] ?? "unknown",
-} as const;
+
+const buildOpenApiSummary = (
+  document: OpenApiDocument,
+  primaryOperationPath: string,
+  docsRoute: string,
+): OpenApiSummary => {
+  const primaryOperation = document.paths[primaryOperationPath]?.post;
+  const operationCount = Object.values(document.paths).reduce(
+    (count, pathItem) =>
+      count +
+      openApiOperationMethods.filter((method) => pathItem[method] !== undefined)
+        .length,
+    0,
+  );
+
+  return {
+    version: document.openapi,
+    operationCount,
+    docsRoute,
+    typedErrors: primaryOperation?.["x-maestro-typed-errors"] ?? [],
+    authScope: primaryOperation?.["x-maestro-auth-scope"] ?? "unknown",
+  };
+};
+
+const scalarApiDocsRoute =
+  headlessSurfaces.find((surface) => surface.name === "Scalar API")?.route ??
+  "/api/docs";
+
+export const openApiSummary = buildOpenApiSummary(
+  openApiDocument,
+  "/api/brain.pages.createMarkdown",
+  scalarApiDocsRoute,
+);

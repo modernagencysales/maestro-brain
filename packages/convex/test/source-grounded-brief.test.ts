@@ -1,16 +1,26 @@
+import { TestConfect } from "@confect/test";
+import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import sourceGroundedBrief, {
+  manifest as sourceGroundedBriefManifest,
   SourceGroundedBriefArgs,
-  SourceGroundedBriefError,
   SourceGroundedBriefReturn,
 } from "../confect/capabilities/sourceGroundedBrief.spec";
 import sourceGroundedBriefImpl from "../confect/capabilities/sourceGroundedBrief.impl";
+import { WorkspaceWriteErrors } from "../confect/capabilities/_kit/errors";
 import {
   formatContextPackForBrief,
   normalizeSourceGroundedBriefInput,
-  runFakeSourceGroundedBrief,
 } from "../confect/capabilities/sourceGroundedBrief.domain";
+import { runFakeSourceGroundedBrief } from "../confect/capabilities/sourceGroundedBrief.fake";
+import refs from "../confect/_generated/refs";
+import databaseSchema from "../confect/_generated/schema";
+import { MemberNotInWorkspace, ValidationFailed } from "../confect/errors";
+import { testConfectLayer } from "./support/confect";
+import { SeededTenancy, seedTenancy } from "./support/seedTenancy";
+
+const now = 1_782_924_800_000;
 
 describe("sourceGroundedBrief capability contract", () => {
   it("declares args required by the first real capability", () => {
@@ -55,52 +65,80 @@ describe("sourceGroundedBrief capability contract", () => {
     });
   });
 
-  it("declares every expected typed error", () => {
+  it("uses the shared workspace write error family", () => {
+    const runSpec = sourceGroundedBrief.functions.run;
+    const runInternalSpec = sourceGroundedBrief.functions.runInternal;
+    if (runSpec === undefined || runInternalSpec === undefined) {
+      throw new Error(
+        "Expected sourceGroundedBrief functions to be registered",
+      );
+    }
+    const errorSchema = runSpec.functionProvenance.error;
+    const internalErrorSchema = runInternalSpec.functionProvenance.error;
+    if (errorSchema === undefined || internalErrorSchema === undefined) {
+      throw new Error(
+        "Expected sourceGroundedBrief functions to declare errors",
+      );
+    }
+
     const encoded = [
-      new SourceGroundedBriefError.Unauthenticated(),
-      new SourceGroundedBriefError.NoWorkspaceAccess({
-        workspaceId: "workspace_123",
+      new MemberNotInWorkspace({
+        membershipId: "actor",
       }),
-      new SourceGroundedBriefError.ValidationFailed({
+      new ValidationFailed({
         field: "sourceIds",
         message: "At least one source is required.",
       }),
-      new SourceGroundedBriefError.PolicyNotFound({
-        kind: "spend.limits",
-        workspaceId: "workspace_123",
-      }),
-      new SourceGroundedBriefError.PromptNotFound({
-        promptRef: "prompt:gtm.planner:v1",
-      }),
-      new SourceGroundedBriefError.LlmDisabled(),
-      new SourceGroundedBriefError.RateLimited({
-        retryAfterMs: 1_000,
-      }),
-      new SourceGroundedBriefError.SpendCapExceeded({
-        dailySpendLimitCents: 2_500,
-      }),
-      new SourceGroundedBriefError.ProviderConfigInvalid({
-        provider: "openrouter",
-      }),
-    ].map((error) => Schema.encodeSync(SourceGroundedBriefError.Schema)(error));
+    ].map((error) => Schema.encodeSync(WorkspaceWriteErrors)(error));
 
     expect(encoded.map((error) => error._tag)).toEqual([
-      "Unauthenticated",
-      "NoWorkspaceAccess",
+      "MemberNotInWorkspace",
       "ValidationFailed",
-      "PolicyNotFound",
-      "PromptNotFound",
-      "LlmDisabled",
-      "RateLimited",
-      "SpendCapExceeded",
-      "ProviderConfigInvalid",
     ]);
+    expect(
+      Schema.encodeSync(errorSchema)(
+        new ValidationFailed({
+          field: "idempotencyKey",
+          message: "Required for external writes.",
+        }),
+      ),
+    ).toMatchObject({ _tag: "ValidationFailed" });
+    expect(
+      Schema.encodeSync(internalErrorSchema)(
+        new MemberNotInWorkspace({
+          membershipId: "actor",
+        }),
+      ),
+    ).toMatchObject({ _tag: "MemberNotInWorkspace" });
     expect(JSON.stringify(encoded)).not.toContain("secret");
   });
 
-  it("registers a public Confect mutation named run", () => {
-    expect(JSON.stringify(sourceGroundedBrief)).toContain("run");
-    expect(JSON.stringify(sourceGroundedBrief)).toContain("public");
+  it("registers public and internal Confect mutations", () => {
+    expect(sourceGroundedBrief.functions.run).toMatchObject({
+      name: "run",
+      functionVisibility: "public",
+      runtimeAndFunctionType: {
+        functionType: "mutation",
+      },
+    });
+    expect(sourceGroundedBrief.functions.runInternal).toMatchObject({
+      name: "runInternal",
+      functionVisibility: "internal",
+      runtimeAndFunctionType: {
+        functionType: "mutation",
+      },
+    });
+  });
+
+  it("does not advertise internal workflow steps as web-callable surfaces", () => {
+    const runInternal = sourceGroundedBriefManifest.find(
+      (entry) =>
+        entry.operationId === "capabilities.sourceGroundedBrief.runInternal",
+    );
+
+    expect(runInternal).toMatchObject({
+      surfaces: ["workflow", "internal"],
+    });
   });
 
   it("normalizes input and formats source context deterministically", () => {
@@ -168,5 +206,32 @@ describe("sourceGroundedBrief capability contract", () => {
     expect(sourceGroundedBriefImpl).toMatchObject({
       _op_layer: "Fold",
     });
+  });
+
+  it("rejects a workspace outsider before generating the public brief", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const seeded = yield* confect.run(seedTenancy(now), SeededTenancy);
+      return yield* confect
+        .withIdentity({
+          subject: "outsider-subject",
+          email: "outsider@example.com",
+        })
+        .mutation(refs.public.capabilities.sourceGroundedBrief.run, {
+          workspaceId: seeded.workspaceId,
+          sourceIds: ["source_1"],
+          briefGoal: "Build an implementation brief.",
+          idempotencyKey: "brief-001",
+        })
+        .pipe(Effect.flip);
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result).toBeInstanceOf(MemberNotInWorkspace);
   });
 });

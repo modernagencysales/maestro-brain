@@ -73,30 +73,53 @@ export type TemplateMutationState<T, E = never> =
   | TemplateTransportFailureState
   | TemplateDefectState;
 
+export type TemplateDataStatus = TemplateDataState<unknown, unknown>["status"];
+export type TemplateMutationStatus = TemplateMutationState<
+  unknown,
+  unknown
+>["status"];
+
+export const TEMPLATE_DATA_STATUSES = [
+  "skipped",
+  "loading",
+  "empty",
+  "ready",
+  "typed_failure",
+  "parse_failure",
+  "transport_failure",
+  "defect",
+] as const satisfies readonly TemplateDataStatus[];
+
+export const TEMPLATE_MUTATION_STATUSES = [
+  "loading",
+  "ready",
+  "typed_failure",
+  "parse_failure",
+  "transport_failure",
+  "defect",
+] as const satisfies readonly TemplateMutationStatus[];
+
+export type TemplateFailureState<E = unknown> =
+  | TemplateTypedFailureState<E>
+  | TemplateParseFailureState
+  | TemplateTransportFailureState
+  | TemplateDefectState;
+
+export function isTemplateFailureState<E>(
+  state: TemplateDataState<unknown, E> | TemplateMutationState<unknown, E>,
+): state is TemplateFailureState<E> {
+  return (
+    state.status === "typed_failure" ||
+    state.status === "parse_failure" ||
+    state.status === "transport_failure" ||
+    state.status === "defect"
+  );
+}
+
 export type NormalizeOptions<T> = {
   readonly mode?: TemplateReadyMode;
   readonly isEmpty?: (value: T) => boolean;
 };
-
-export type ReactQueryLikeResult<T> =
-  | {
-      readonly status: "pending";
-      readonly data?: undefined;
-      readonly error?: null;
-      readonly fetchStatus?: string;
-    }
-  | {
-      readonly status: "success";
-      readonly data: T;
-      readonly error?: null;
-      readonly fetchStatus?: string;
-    }
-  | {
-      readonly status: "error";
-      readonly data?: T;
-      readonly error: unknown;
-      readonly fetchStatus?: string;
-    };
 
 export function normalizeConfectQuery<T, E>(
   result: QueryResult.QueryResult<T, E>,
@@ -111,21 +134,6 @@ export function normalizeConfectQuery<T, E>(
   }
 
   return readyOrEmpty(result.value, options);
-}
-
-export function normalizeReactQueryResult<T>(
-  result: ReactQueryLikeResult<T>,
-  options: NormalizeOptions<T> = {},
-): TemplateDataState<T, never> {
-  if (result.status === "pending") {
-    return { status: "loading" };
-  }
-
-  if (result.status === "error") {
-    return classifyReactQueryFailure(result.error);
-  }
-
-  return readyOrEmpty(result.data, options);
 }
 
 export function normalizeMutationPending(): TemplateMutationState<
@@ -183,7 +191,7 @@ export function useTemplateMutation<Mutation extends Ref.AnyPublicMutation>(
   return useConfectMutation(ref);
 }
 
-function readyOrEmpty<T>(
+export function readyOrEmpty<T>(
   data: T,
   options: NormalizeOptions<T>,
 ): TemplateEmptyState<T> | TemplateReadyState<T> {
@@ -210,7 +218,7 @@ function defaultIsEmpty(value: unknown): boolean {
   return false;
 }
 
-function classifyUnknownFailure(
+export function classifyUnknownFailure(
   error: unknown,
 ):
   | TemplateParseFailureState
@@ -237,29 +245,4 @@ function classifyUnknownFailure(
     error,
     message: "Unexpected client defect.",
   };
-}
-
-function classifyReactQueryFailure(
-  error: unknown,
-):
-  | TemplateParseFailureState
-  | TemplateTransportFailureState
-  | TemplateDefectState {
-  if (error instanceof SyntaxError) {
-    return {
-      status: "parse_failure",
-      error,
-      message: error.message,
-    };
-  }
-
-  if (error instanceof Error) {
-    return {
-      status: "transport_failure",
-      error,
-      message: error.message,
-    };
-  }
-
-  return classifyUnknownFailure(error);
 }

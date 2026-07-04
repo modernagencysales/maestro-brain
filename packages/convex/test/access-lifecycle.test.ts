@@ -3,6 +3,7 @@ import * as Either from "effect/Either";
 
 import {
   acceptInvitation,
+  buildInvitationCreatedEvent,
   buildWorkspaceInvitation,
   cancelInvitation,
   changeMemberRole,
@@ -49,6 +50,7 @@ const invitation = (overrides: Partial<InvitationRef>): InvitationRef => ({
   invitedByUserId: "users_inviter",
   acceptedAt: null,
   revokedAt: null,
+  declinedAt: null,
   expiresAt: now + 10_000,
   createdAt: now - 100,
   updatedAt: now - 100,
@@ -230,7 +232,7 @@ describe("workspace member lifecycle policy", () => {
 });
 
 describe("workspace invitation lifecycle policy", () => {
-  it("builds a normalized pending invitation with an audit event", () => {
+  it("builds a normalized pending invitation", () => {
     const either = buildWorkspaceInvitation({
       workspaceId: "workspaces_1",
       organizationId: "organizations_1",
@@ -251,16 +253,34 @@ describe("workspace invitation lifecycle policy", () => {
       status: "pending",
       expiresAt: now + 7 * 24 * 60 * 60 * 1000,
     });
-    expect(result.events).toEqual([
-      {
-        action: "invitation.created",
+  });
+
+  it("builds invitation-created events with the persisted invitation id", () => {
+    expect(
+      buildInvitationCreatedEvent({
+        id: "invitations_1",
         workspaceId: "workspaces_1",
-        actorUserId: "users_owner",
-        subjectKind: "invitation",
-        subjectId: "token_hash",
-        metadata: { email: "ada@example.com", role: "editor" },
-      },
-    ]);
+        organizationId: "organizations_1",
+        email: "ada@example.com",
+        role: "editor",
+        status: "pending",
+        tokenHash: "token_hash",
+        invitedByUserId: "users_owner",
+        acceptedAt: null,
+        revokedAt: null,
+        declinedAt: null,
+        expiresAt: now + 7 * 24 * 60 * 60 * 1000,
+        createdAt: now,
+        updatedAt: now,
+      }),
+    ).toEqual({
+      action: "invitation.created",
+      workspaceId: "workspaces_1",
+      actorUserId: "users_owner",
+      subjectKind: "invitation",
+      subjectId: "invitations_1",
+      metadata: { email: "ada@example.com", role: "editor" },
+    });
   });
 
   it("opaque-denies missing, wrong-email, and blank-email invite access", () => {
@@ -291,7 +311,6 @@ describe("workspace invitation lifecycle policy", () => {
     const blankEmailResult = declineInvitation({
       invitation: invitation({ email: "" }),
       verifiedEmail: " ",
-      userId: "users_decliner",
       now,
     });
     expect(Either.isLeft(blankEmailResult)).toBe(true);
@@ -368,43 +387,48 @@ describe("workspace invitation lifecycle policy", () => {
     const declineEither = declineInvitation({
       invitation: invitation({}),
       verifiedEmail: "ada@example.com",
-      userId: "users_decliner",
       now,
     });
     expect(Either.isRight(declineEither)).toBe(true);
     expect(Either.getOrThrow(declineEither).invitationPatch).toEqual({
       id: "invitations_1",
-      value: { status: "declined", revokedAt: now, updatedAt: now },
+      value: { status: "declined", declinedAt: now, updatedAt: now },
     });
 
     expect(
-      cancelInvitation({
-        invitation: invitation({ workspaceId: "workspaces_1" }),
-        workspaceId: "workspaces_1",
-        actorUserId: "users_owner",
-        now,
-      }).invitationPatch,
+      Either.getOrThrow(
+        cancelInvitation({
+          invitation: invitation({ workspaceId: "workspaces_1" }),
+          workspaceId: "workspaces_1",
+          actorUserId: "users_owner",
+          now,
+        }),
+      ).invitationPatch,
     ).toEqual({
       id: "invitations_1",
       value: { status: "cancelled", revokedAt: now, updatedAt: now },
     });
 
     expect(
-      cancelInvitation({
-        invitation: invitation({ status: "accepted" }),
-        workspaceId: "workspaces_1",
-        actorUserId: "users_owner",
-        now,
-      }).invitationPatch,
+      Either.getOrThrow(
+        cancelInvitation({
+          invitation: invitation({ status: "accepted" }),
+          workspaceId: "workspaces_1",
+          actorUserId: "users_owner",
+          now,
+        }),
+      ).invitationPatch,
     ).toBeNull();
 
     expect(
-      cancelInvitation({
-        invitation: invitation({ workspaceId: "workspaces_other" }),
-        workspaceId: "workspaces_1",
-        actorUserId: "users_owner",
-        now,
-      }).invitationPatch,
+      Either.getOrThrow(
+        cancelInvitation({
+          invitation: invitation({ workspaceId: "workspaces_other" }),
+          workspaceId: "workspaces_1",
+          actorUserId: "users_owner",
+          now,
+        }),
+      ).invitationPatch,
     ).toBeNull();
   });
 });

@@ -74,6 +74,7 @@ export const InvitationRow = Schema.Struct({
   invitedByUserId: Schema.String,
   acceptedAt: NullableNumber,
   revokedAt: NullableNumber,
+  declinedAt: Schema.optional(NullableNumber),
   expiresAt: Schema.Number,
   createdAt: Schema.Number,
   updatedAt: Schema.Number,
