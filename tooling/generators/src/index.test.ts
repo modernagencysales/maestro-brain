@@ -331,6 +331,71 @@ describe("template app factory generators", () => {
     }
   });
 
+  it("writes GTM implementation quickstart files through the CLI", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "maestro-template-gtm-quickstart-"));
+
+    try {
+      const result = runGeneratorCli(
+        [
+          "quickstart",
+          "--blueprint",
+          "gtm-implementation",
+          "--name",
+          "GTM Brain",
+          "--write",
+        ],
+        cwd,
+      );
+      const instancePath = join(cwd, "template-instance.json");
+      const providerSeamsPath = join(
+        cwd,
+        "generated/blueprints/gtm-implementation/provider-seams.json",
+      );
+      const reportingSurfacesPath = join(
+        cwd,
+        "generated/blueprints/gtm-implementation/reporting-surfaces.json",
+      );
+      const seedPath = join(
+        cwd,
+        "examples/demo-seed/gtm-implementation/demo-seed.json",
+      );
+
+      expect(result.exitCode).toBe(0);
+      expect(JSON.parse(result.stdout)).toMatchObject({
+        blueprint: "gtm-implementation",
+        firstWorkflow: "gtmAccountResearch",
+      });
+      expect(JSON.parse(readFileSync(instancePath, "utf8"))).toMatchObject({
+        slug: "gtm-brain",
+        blueprint: "gtm-implementation",
+      });
+      expect(JSON.parse(readFileSync(providerSeamsPath, "utf8"))).toMatchObject(
+        {
+          seams: expect.arrayContaining([
+            expect.objectContaining({ id: "crm" }),
+            expect.objectContaining({ id: "drive" }),
+            expect.objectContaining({ id: "notion" }),
+          ]),
+        },
+      );
+      expect(
+        JSON.parse(readFileSync(reportingSurfacesPath, "utf8")),
+      ).toMatchObject({
+        promotionPath:
+          "generated reporting seams stay outside template core until reviewed",
+      });
+      expect(JSON.parse(readFileSync(seedPath, "utf8"))).toMatchObject({
+        blueprint: "gtm-implementation",
+        workflowRun: {
+          workflow: "gtmAccountResearch",
+          status: "ready",
+        },
+      });
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
   it("writes a client intake brief and updates the instance manifest through the CLI", () => {
     const cwd = mkdtempSync(join(tmpdir(), "maestro-template-intake-"));
 
@@ -440,7 +505,7 @@ describe("template app factory generators", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain(
-      "Supported blueprints: source-grounded-gtm-brain",
+      "Supported blueprints: source-grounded-gtm-brain, gtm-implementation",
     );
     expect(result.stdout).toContain(
       "Planned blueprints: implementation-consulting-brain, internal-ops-agent-workspace, custom-domain-ai-app",
@@ -467,6 +532,7 @@ describe("template app factory generators", () => {
       "Blueprint implementation-consulting-brain is planned, not generator-supported",
     );
     expect(result.stderr).toContain("source-grounded-gtm-brain");
+    expect(result.stderr).toContain("gtm-implementation");
   });
 
   it("doctors fake instances without requiring live secrets", () => {

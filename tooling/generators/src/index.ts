@@ -330,6 +330,11 @@ const plannedBlueprintIds = [
   "custom-domain-ai-app",
 ] as const;
 
+const supportedBlueprintIds = (): readonly BlueprintId[] =>
+  buildBlueprintCatalog().map((blueprint) => blueprint.id);
+
+const supportedBlueprintList = (): string => supportedBlueprintIds().join(", ");
+
 export const buildBlueprintCatalog = (): readonly TemplateBlueprint[] => [
   {
     id: defaultBlueprintId,
@@ -2893,7 +2898,7 @@ const parseArgs = (
     )
   ) {
     throw new Error(
-      `Blueprint ${blueprint} is planned, not generator-supported. Supported blueprints: ${defaultBlueprintId}`,
+      `Blueprint ${blueprint} is planned, not generator-supported. Supported blueprints: ${supportedBlueprintList()}`,
     );
   }
 
@@ -2943,16 +2948,14 @@ export const runGeneratorCli = (
         exitCode: 0,
         stdout:
           [
-            `Supported blueprints: ${buildBlueprintCatalog()
-              .map((blueprint) => blueprint.id)
-              .join(", ")}`,
+            `Supported blueprints: ${supportedBlueprintList()}`,
             `Planned blueprints: ${plannedBlueprintIds.join(", ")}`,
             "template:init [--name <name>] [--mode fake|test|live] [--write] [--path <file>]",
             "template:doctor [--mode fake|test|live] [--path <file>]",
-            "template:quickstart [--blueprint source-grounded-gtm-brain] [--name <name>] [--mode fake|test|live] [--write]",
-            "template:intake [--blueprint source-grounded-gtm-brain] [--name <name>] [--mode fake|test|live] [--write]",
-            "template:seed-demo [--blueprint source-grounded-gtm-brain] [--mode fake|test|live] [--write]",
-            "template:handoff [--blueprint source-grounded-gtm-brain] [--name <name>] [--mode fake|test|live] [--write]",
+            "template:quickstart [--blueprint <supported-blueprint>] [--name <name>] [--mode fake|test|live] [--write]",
+            "template:intake [--blueprint <supported-blueprint>] [--name <name>] [--mode fake|test|live] [--write]",
+            "template:seed-demo [--blueprint <supported-blueprint>] [--mode fake|test|live] [--write]",
+            "template:handoff [--blueprint <supported-blueprint>] [--name <name>] [--mode fake|test|live] [--write]",
             "template:add-client-domain --name <name> [--description <text>] [--write]",
             "template:add-capability --name <name> [--description <text>] [--exposure web|workflow|headless] [--write]",
             "template:add-workflow --name <name> [--description <text>] [--write]",
