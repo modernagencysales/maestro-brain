@@ -153,7 +153,12 @@ export const providerDescriptors = [
     displayName: "Object Storage",
     fakeMode: true,
     liveMode: true,
-    requiredEnv: ["STORAGE_BUCKET", "STORAGE_SIGNING_SECRET"],
+    requiredEnv: [
+      "STORAGE_BUCKET",
+      "STORAGE_PUBLIC_BASE_URL",
+      "STORAGE_ACCESS_KEY_ID",
+      "STORAGE_SECRET_ACCESS_KEY",
+    ],
     redactedFields: ["signedUrl", "objectKey", "sourceExcerpt"],
     notes: "Signed URLs are scoped, expiring, and workspace-bound.",
   },

@@ -82,7 +82,10 @@ contract family.
   includes DSAR export manifests, delete-request confirmation, legal-hold
   blocking, and dry-run retention job plans. Observability now includes a
   provider-neutral ErrorReporter event contract with release metadata,
-  fingerprints, recursive redaction, and best-effort delivery. Remaining
+  fingerprints, recursive redaction, and best-effort delivery. Environment
+  posture now includes a machine-readable `env-manifest.json` checked against
+  `.env.example`, provider descriptors, generator secrets, Convex component env,
+  setup UI readiness copy, and deploy-required secrets. Remaining
   product-surface work is adoption: wire future modals/popovers into
   `TemplateDialog`, future forms into the starter form primitive, future live
   surfaces into the feature flag evaluator, durable notification records into

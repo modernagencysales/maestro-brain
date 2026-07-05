@@ -20,7 +20,7 @@ export type OnboardingContinueToastOptions = {
 
 export const requiredLiveProviderEnv = [
   "WORKOS_API_KEY",
-  "POSTHOG_API_KEY",
+  "POSTHOG_PROJECT_TOKEN",
   "DODO_API_KEY",
   "MAILERSEND_API_KEY",
   "OPENROUTER_API_KEY",

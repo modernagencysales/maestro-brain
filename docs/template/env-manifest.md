@@ -2,9 +2,12 @@
 
 Status: real documentation, fake-by-default provider posture.
 
-This manifest is the source of truth for client-fork environment setup. New apps
-should start from `.env.example`, run fake mode first, then replace only the
-provider families that the client has approved for test or live use. Every
+This manifest is the human-readable guide for client-fork environment setup. The
+machine-readable source of truth is [`env-manifest.json`](./env-manifest.json),
+and CI checks it against `.env.example`, provider descriptors, Convex component
+env, deploy config, generator secret lists, and setup UI readiness copy. New
+apps should start from `.env.example`, run fake mode first, then replace only
+the provider families that the client has approved for test or live use. Every
 provider entry includes owner, usage, fake mode, production requirement, and
 rotation guidance.
 
@@ -22,6 +25,9 @@ rotation guidance.
   services.
 - `APP_PROVIDER_MODE=fake` is the default until the fork passes provider doctor
   checks.
+- Any new environment variable must be added to
+  [`env-manifest.json`](./env-manifest.json) in the same change that introduces
+  the code, config, generator, or docs reference.
 
 ## Provider Matrix
 
@@ -99,7 +105,7 @@ external demo that claims live-provider readiness.
 
 ## Adding A Provider
 
-When adding a new provider, update this file, `.env.example`, the provider
-doctor, the implementation brief template, the handoff packet, and the data map.
-The new provider must define fake, test, and live-ready behavior before client
-forks rely on it.
+When adding a new provider, update `env-manifest.json`, this file,
+`.env.example`, the provider doctor, the implementation brief template, the
+handoff packet, and the data map. The new provider must define fake, test, and
+live-ready behavior before client forks rely on it.

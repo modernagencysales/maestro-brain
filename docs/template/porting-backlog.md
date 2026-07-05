@@ -1429,9 +1429,14 @@ repos**.
      `packages/notifications`). Deploy failures, spend-cap trips, webhook-dedup
      conflicts should page a human.
 285. **Comprehensive `.env.example` / env manifest across services** — MED —
-     Port
-     - extend. Only a thin web-only example exists; Convex/voice-relay have
-       none. Per-service manifest with rotation notes + secret-store pointer.
+     partial. `docs/template/env-manifest.json` is now the machine-readable
+     source of truth and is checked against `.env.example`, provider
+     descriptors, generator secret lists, Convex component env, setup UI
+     readiness copy, and `project.config.json` required deploy secrets.
+     `docs/template/env-manifest.md` remains the human guide with owner,
+     fake-mode, production, and rotation posture. Remaining work: wire provider
+     doctors and future voice-relay/client-fork services to consume the JSON
+     manifest directly instead of maintaining parallel lists.
 286. **Pagination convention/helper** — LOW — Port (convention).
      `paginationOpts`/ `.paginate()` used ad hoc at ~16 sites; ship one
      cursor-pagination pattern.
