@@ -9,6 +9,8 @@ import {
   type ReactNode,
 } from "react";
 
+export { TemplateDialog, useTemplateDialogFocusTrap } from "./template-dialog";
+
 export type TemplateToastTone = "neutral" | "success" | "warning" | "danger";
 export type TemplateAnnouncementPriority = "polite" | "assertive";
 

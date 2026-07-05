@@ -68,6 +68,8 @@ describe("Notion Kit shell style contract", () => {
     expect(css).toContain(".template-shell-content");
     expect(css).toContain(".template-network-banner");
     expect(css).toContain(".template-empty-state");
+    expect(css).toContain(".template-dialog-backdrop");
+    expect(css).toContain(".template-dialog");
     expect(css).toContain(".template-toast-region");
     expect(css).toContain(".template-route-state");
     expect(css).toContain("@media (prefers-reduced-motion: reduce)");

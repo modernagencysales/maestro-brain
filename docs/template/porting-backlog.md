@@ -1265,8 +1265,10 @@ repos**.
      `TemplateRouteFocusBoundary` and `TemplateMainContent` provide app-level
      route-change focus and skip-to-content targets, with
      `TemplateWorkspaceShell` and standalone routes wired to
-     `template-main-content`. Remaining work: modal/dialog focus traps and
-     focus-return wiring on every closeable surface.
+     `template-main-content`. `TemplateDialog` and `useTemplateDialogFocusTrap`
+     provide modal focus trapping, Escape close, and return-focus behavior for
+     closeable surfaces. Remaining work: wire every product modal/dialog/popover
+     surface into the shared primitive as those surfaces land.
 257. **Screen-reader live-region announcer** — MED — partial.
      `TemplateRouteFocusBoundary` renders a polite route-change announcement
      driven by `describeRouteAnnouncement`. Toasts also emit through an

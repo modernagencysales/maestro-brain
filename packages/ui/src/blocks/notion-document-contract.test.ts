@@ -25,6 +25,7 @@ describe("Notion document block contract", () => {
 
   it("keeps accessibility and resilience blocks reusable", () => {
     const blocks = read("src/blocks/ux-essentials.tsx");
+    const dialog = read("src/blocks/template-dialog.tsx");
 
     expect(blocks).toContain("TemplateSkipLink");
     expect(blocks).toContain("TemplateLiveRegion");
@@ -32,6 +33,8 @@ describe("Notion document block contract", () => {
     expect(blocks).toContain("TemplateRouteFocusBoundary");
     expect(blocks).toContain("TemplateMainContent");
     expect(blocks).toContain("TemplateEmptyState");
+    expect(dialog).toContain("TemplateDialog");
+    expect(dialog).toContain("useTemplateDialogFocusTrap");
     expect(blocks).toContain("TemplateToastProvider");
     expect(blocks).toContain("announceAssertive");
     expect(blocks).toContain("TemplateRoutePending");
@@ -39,7 +42,9 @@ describe("Notion document block contract", () => {
     expect(blocks).toContain("useTemplateFocusReturn");
     expect(blocks).toContain('role="status"');
     expect(blocks).toContain('role="alert"');
+    expect(dialog).toContain('role="dialog"');
     expect(blocks).toContain('aria-live="polite"');
     expect(blocks).toContain('aria-live="assertive"');
+    expect(dialog).toContain('aria-modal="true"');
   });
 });
