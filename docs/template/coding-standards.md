@@ -35,7 +35,8 @@ atomic transaction.
 
 ## Providers
 
-- No raw provider imports outside adapter packages.
+- No raw provider imports outside adapter packages or explicit runtime boundary
+  files.
 - No bare `process.env`, `import.meta.env`, or `Deno.env` in product code
   outside the approved config boundary files.
 - Use typed config decoders.
