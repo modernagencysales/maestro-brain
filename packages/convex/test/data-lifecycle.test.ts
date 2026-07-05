@@ -223,6 +223,57 @@ describe("template data lifecycle plan", () => {
     );
   });
 
+  it("covers durable feature flag and notification resources", () => {
+    const plan = buildWorkspaceDataLifecyclePlan({
+      workspaceId: "workspace_123",
+      requestedBy: "user_123",
+      now: 1_700_000_000_000,
+    });
+
+    expect(currentLifecycleResourceIds).toEqual(
+      expect.arrayContaining([
+        "featureFlagPolicies",
+        "notificationRecords",
+        "notificationPreferences",
+      ]),
+    );
+    expect(plan.export.resources).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "featureFlagPolicies",
+          exportMode: "json",
+          deleteMode: "delete",
+        }),
+        expect.objectContaining({
+          id: "notificationRecords",
+          exportMode: "redacted-json",
+          deleteMode: "retain-audit",
+        }),
+        expect.objectContaining({
+          id: "notificationPreferences",
+          exportMode: "json",
+          deleteMode: "delete",
+        }),
+      ]),
+    );
+    expect(plan.retention.rules).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          resourceId: "featureFlagPolicies",
+          action: "retain-until-workspace-delete",
+        }),
+        expect.objectContaining({
+          resourceId: "notificationRecords",
+          action: "hash-or-redact-on-export",
+        }),
+        expect.objectContaining({
+          resourceId: "notificationPreferences",
+          action: "retain-until-workspace-delete",
+        }),
+      ]),
+    );
+  });
+
   it("requires typed confirmation before destructive delete execution", () => {
     const plan = buildWorkspaceDataLifecyclePlan({
       workspaceId: "workspace_123",

@@ -59,6 +59,9 @@ The planner covers these workspace-owned resources:
 - `creditLedger`
 - `entitlements`
 - `webhookEvents`
+- `featureFlagPolicies`
+- `notificationRecords`
+- `notificationPreferences`
 - `apiKeys`
 - `invitations`
 - `documents`
@@ -92,12 +95,15 @@ projection remain reviewable. Action jobs and trigger config export as JSON so
 external-write intent, approval posture, scheduler config, and idempotency keys
 remain inspectable. Action approvals and digests export as redacted JSON:
 approval links expose token hashes only, and digest exports never include raw
-customer or provider metadata. Entitlements export as JSON so seat, credit, and
-feature limits remain auditable. Webhook events export as redacted JSON:
-provider, event ID, signature timestamp, and dedupe state are retained without
-raw provider payloads. Operational, workflow, usage, and ledger records export
-as JSON. Sensitive identity, invitation, and API key resources export as
-redacted JSON.
+customer or provider metadata. Entitlements and feature flag policies export as
+JSON so seat, credit, feature limit, rollout, and kill-switch posture remain
+auditable. Webhook events export as redacted JSON: provider, event ID, signature
+timestamp, and dedupe state are retained without raw provider payloads.
+Notification records export as redacted JSON so recipient/action metadata stays
+bounded while delivery audit state remains reviewable. Notification preferences
+export as JSON because they are workspace-member channel settings. Operational,
+workflow, usage, and ledger records export as JSON. Sensitive identity,
+invitation, and API key resources export as redacted JSON.
 
 ## Delete Posture
 
@@ -112,11 +118,13 @@ operational state. Transform definitions delete with the workspace, while
 transform runs and blocks are retained for the audit window because they explain
 generated outputs. Action jobs, approvals, and digest deliveries are retained
 for the audit window because they explain external side effects and reviewer
-decisions; action triggers delete with workspace automation settings. Audit,
-workflow, usage, and financial ledger records are retained as audit anchors. API
-keys and invitations are redacted or revoked rather than exposing secret
-material. Entitlements and payment webhook events are retained for billing,
-seat, and support reconciliation.
+decisions; action triggers delete with workspace automation settings. Feature
+flag policies and notification preferences delete with workspace configuration.
+Notification records retain redacted delivery audit state. Audit, workflow,
+usage, and financial ledger records are retained as audit anchors. API keys and
+invitations are redacted or revoked rather than exposing secret material.
+Entitlements and payment webhook events are retained for billing, seat, and
+support reconciliation.
 
 ## Retention Rules
 
@@ -141,6 +149,9 @@ The implemented retention hooks are:
 - Action digests: redact customer and provider metadata on export.
 - Entitlements: retain for the audit window.
 - Webhook events: hash or redact provider payloads on export.
+- Feature flag policies: retain until workspace delete.
+- Notification records: hash or redact recipient/action metadata on export.
+- Notification preferences: retain until workspace delete.
 - Versioned entries: append-only; retain for the audit window.
 - Version freshness: retain until workspace delete.
 - API keys: hash or redact on export.

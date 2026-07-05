@@ -11,6 +11,9 @@ export const currentLifecycleResourceIds = [
   "creditLedger",
   "entitlements",
   "webhookEvents",
+  "featureFlagPolicies",
+  "notificationRecords",
+  "notificationPreferences",
   "apiKeys",
   "invitations",
   "documents",
@@ -213,6 +216,30 @@ const resourcePlans: readonly LifecycleResourcePlan[] = [
     deleteMode: "retain-audit",
     detail:
       "Payment webhook events retain provider/event/timestamp dedupe keys without raw payloads.",
+  },
+  {
+    id: "featureFlagPolicies",
+    owner: "workspace",
+    exportMode: "json",
+    deleteMode: "delete",
+    detail:
+      "Workspace rollout and kill-switch policy exports as tenant configuration.",
+  },
+  {
+    id: "notificationRecords",
+    owner: "workspace",
+    exportMode: "redacted-json",
+    deleteMode: "retain-audit",
+    detail:
+      "In-app notification records export with redacted recipient/action metadata and retain delivery audit state.",
+  },
+  {
+    id: "notificationPreferences",
+    owner: "workspace",
+    exportMode: "json",
+    deleteMode: "delete",
+    detail:
+      "Notification channel preferences export as workspace-member configuration and delete with the workspace.",
   },
   {
     id: "apiKeys",
@@ -462,6 +489,24 @@ const retentionRules: readonly RetentionRule[] = [
     action: "hash-or-redact-on-export",
     detail:
       "Webhook payloads are redacted; provider, event ID, and signature timestamp form the dedupe key.",
+  },
+  {
+    resourceId: "featureFlagPolicies",
+    action: "retain-until-workspace-delete",
+    detail:
+      "Workspace rollout policies are tenant configuration and follow workspace lifecycle.",
+  },
+  {
+    resourceId: "notificationRecords",
+    action: "hash-or-redact-on-export",
+    detail:
+      "Notification exports redact recipient/action metadata while retaining delivery audit state.",
+  },
+  {
+    resourceId: "notificationPreferences",
+    action: "retain-until-workspace-delete",
+    detail:
+      "Notification channel preferences are workspace-member settings and follow workspace lifecycle.",
   },
   {
     resourceId: "workflowRuns",
