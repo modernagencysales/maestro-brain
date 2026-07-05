@@ -61,6 +61,61 @@ export class SeatLimitExceededError extends Schema.TaggedError<SeatLimitExceeded
   },
 ) {}
 
+export class BillingIdempotencyKeyError extends Schema.TaggedError<BillingIdempotencyKeyError>()(
+  "BillingIdempotencyKeyError",
+  {
+    field: Schema.String,
+    message: Schema.String,
+  },
+) {}
+
+const maxIdempotencyKeyLength = 128;
+const idempotencyKeyPattern = /^[A-Za-z0-9._~-]+$/;
+
+export const validateBillingIdempotencyKey = (
+  idempotencyKey: string | undefined,
+): string | BillingIdempotencyKeyError => {
+  if (idempotencyKey === undefined) {
+    return new BillingIdempotencyKeyError({
+      field: "idempotencyKey",
+      message: "idempotencyKey is required.",
+    });
+  }
+
+  const trimmed = idempotencyKey.trim();
+
+  if (!trimmed) {
+    return new BillingIdempotencyKeyError({
+      field: "idempotencyKey",
+      message: "idempotencyKey must not be blank.",
+    });
+  }
+
+  if (trimmed !== idempotencyKey) {
+    return new BillingIdempotencyKeyError({
+      field: "idempotencyKey",
+      message: "idempotencyKey must not have leading or trailing whitespace.",
+    });
+  }
+
+  if (idempotencyKey.length > maxIdempotencyKeyLength) {
+    return new BillingIdempotencyKeyError({
+      field: "idempotencyKey",
+      message: `idempotencyKey must be ${String(maxIdempotencyKeyLength)} characters or fewer.`,
+    });
+  }
+
+  if (!idempotencyKeyPattern.test(idempotencyKey)) {
+    return new BillingIdempotencyKeyError({
+      field: "idempotencyKey",
+      message:
+        "idempotencyKey must contain only URL-safe letters, numbers, '.', '_', '~', or '-'.",
+    });
+  }
+
+  return idempotencyKey;
+};
+
 export const computeCreditBalance = (
   entries: readonly CreditLedgerEntry[],
 ): number =>
@@ -91,7 +146,13 @@ export const addCredits = (input: {
   readonly idempotencyKey: string;
   readonly createdAt: number;
   readonly lowBalanceThresholdCredits?: number;
-}): CreditLedgerEntry => {
+}): CreditLedgerEntry | BillingIdempotencyKeyError => {
+  const idempotencyKey = validateBillingIdempotencyKey(input.idempotencyKey);
+
+  if (idempotencyKey instanceof BillingIdempotencyKeyError) {
+    return idempotencyKey;
+  }
+
   const balanceAfter = input.credits;
   const lowBalance = lowBalanceFor(
     input.workspaceSlug,
@@ -99,12 +160,12 @@ export const addCredits = (input: {
     input.lowBalanceThresholdCredits ?? 10,
   );
   const base = {
-    id: ledgerId(input.workspaceSlug, input.idempotencyKey),
+    id: ledgerId(input.workspaceSlug, idempotencyKey),
     workspaceSlug: input.workspaceSlug,
     type: "credit" as const,
     credits: input.credits,
     reason: input.reason,
-    idempotencyKey: input.idempotencyKey,
+    idempotencyKey,
     createdAt: input.createdAt,
     balanceAfter,
   };
@@ -120,7 +181,13 @@ export const deductCredits = (input: {
   readonly idempotencyKey: string;
   readonly createdAt: number;
   readonly lowBalanceThresholdCredits?: number;
-}): CreditLedgerEntry | LowBalanceError => {
+}): CreditLedgerEntry | LowBalanceError | BillingIdempotencyKeyError => {
+  const idempotencyKey = validateBillingIdempotencyKey(input.idempotencyKey);
+
+  if (idempotencyKey instanceof BillingIdempotencyKeyError) {
+    return idempotencyKey;
+  }
+
   const currentBalance = computeCreditBalance(input.existingEntries);
 
   if (currentBalance < input.credits) {
@@ -138,12 +205,12 @@ export const deductCredits = (input: {
     input.lowBalanceThresholdCredits ?? 10,
   );
   const base = {
-    id: ledgerId(input.workspaceSlug, input.idempotencyKey),
+    id: ledgerId(input.workspaceSlug, idempotencyKey),
     workspaceSlug: input.workspaceSlug,
     type: "debit" as const,
     credits: input.credits,
     reason: input.reason,
-    idempotencyKey: input.idempotencyKey,
+    idempotencyKey,
     createdAt: input.createdAt,
     balanceAfter,
   };
@@ -165,9 +232,15 @@ export const recordUsageEvent = (input: {
   readonly units: number;
   readonly costCredits: number;
   readonly createdAt: number;
-}): UsageEvent => {
+}): UsageEvent | BillingIdempotencyKeyError => {
+  const idempotencyKey = validateBillingIdempotencyKey(input.idempotencyKey);
+
+  if (idempotencyKey instanceof BillingIdempotencyKeyError) {
+    return idempotencyKey;
+  }
+
   const existing = input.existingEvents.find(
-    (event) => event.idempotencyKey === input.idempotencyKey,
+    (event) => event.idempotencyKey === idempotencyKey,
   );
 
   if (existing) {
@@ -175,9 +248,9 @@ export const recordUsageEvent = (input: {
   }
 
   return {
-    id: `usage_${input.workspaceSlug}_${input.idempotencyKey}`,
+    id: `usage_${input.workspaceSlug}_${idempotencyKey}`,
     workspaceSlug: input.workspaceSlug,
-    idempotencyKey: input.idempotencyKey,
+    idempotencyKey,
     provider: input.provider,
     units: input.units,
     costCredits: input.costCredits,
@@ -202,14 +275,22 @@ export const createFakeBillingReceipt = (input: {
   readonly customerMetadata: Readonly<Record<string, unknown>>;
   readonly providerMetadata: Readonly<Record<string, unknown>>;
   readonly createdAt: number;
-}): FakeBillingReceipt => ({
-  receiptId: `billing_${input.workspaceSlug}_${input.idempotencyKey}`,
-  workspaceSlug: input.workspaceSlug,
-  mode: "fake",
-  operation: input.operation,
-  idempotencyKey: input.idempotencyKey,
-  credits: input.credits,
-  customerMetadata: "[redacted]",
-  providerMetadata: "[redacted]",
-  createdAt: input.createdAt,
-});
+}): FakeBillingReceipt | BillingIdempotencyKeyError => {
+  const idempotencyKey = validateBillingIdempotencyKey(input.idempotencyKey);
+
+  if (idempotencyKey instanceof BillingIdempotencyKeyError) {
+    return idempotencyKey;
+  }
+
+  return {
+    receiptId: `billing_${input.workspaceSlug}_${idempotencyKey}`,
+    workspaceSlug: input.workspaceSlug,
+    mode: "fake",
+    operation: input.operation,
+    idempotencyKey,
+    credits: input.credits,
+    customerMetadata: "[redacted]",
+    providerMetadata: "[redacted]",
+    createdAt: input.createdAt,
+  };
+};

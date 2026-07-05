@@ -1,5 +1,9 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
+import {
+  BillingIdempotencyKeyError,
+  validateBillingIdempotencyKey,
+} from "./billing";
 export * from "./llm";
 export * from "./llmResponse";
 export * from "./spend";
@@ -322,18 +326,23 @@ export const createProviderAdapter = (
           return yield* Effect.fail(workspace);
         }
 
-        if (
-          input.operation === "billing.createCheckout" &&
-          !input.idempotencyKey?.trim()
-        ) {
-          return yield* Effect.fail(
-            new ProviderCallError({
-              provider: id,
-              publicMessage:
-                "idempotencyKey is required for billing checkout operations.",
-              retryable: false,
-            }),
+        if (input.operation === "billing.createCheckout") {
+          const idempotencyKey = validateBillingIdempotencyKey(
+            input.idempotencyKey,
           );
+
+          if (idempotencyKey instanceof BillingIdempotencyKeyError) {
+            return yield* Effect.fail(
+              new ProviderCallError({
+                provider: id,
+                publicMessage:
+                  input.idempotencyKey === undefined
+                    ? "idempotencyKey is required for billing checkout operations."
+                    : idempotencyKey.message,
+                retryable: false,
+              }),
+            );
+          }
         }
 
         const redactedPayload = redactProviderPayload(id, input.payload);

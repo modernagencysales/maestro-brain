@@ -128,9 +128,12 @@ Convex component wiring (M).
    `ops.coediting.appendVersion`, and `ops.coediting.createAnnotation` now
    validate document collaboration keys before deriving document/annotation ids
    or returning version receipts. Workflow ownership now validates workflow-run
-   reservation keys before reading or inserting `workflowRuns`. Remaining work:
-   adopt the shared validator across every remaining durable ledger path that
-   accepts caller-supplied idempotency keys.
+   reservation keys before reading or inserting `workflowRuns`.
+   `packages/integrations` fake billing ledger helpers and the generic billing
+   checkout provider seam now reject malformed caller keys before deriving
+   ledger, usage, or receipt IDs. Remaining work: adopt the shared validator
+   across every remaining durable ledger path that accepts caller-supplied
+   idempotency keys.
 10. **Workspace bootstrap/provision provider (web)** — MED — no.
     `apps/web/src/providers/workspace.tsx`. Idempotent first-sign-in
     provisioning self-heal, then exposes active `workspaceId` via context.

@@ -167,6 +167,36 @@ describe("provider adapter descriptors", () => {
     });
   });
 
+  it("rejects malformed billing checkout idempotency keys", async () => {
+    const adapter = createProviderAdapter("dodo", "fake", {});
+
+    if (adapter instanceof ProviderConfigError) {
+      throw new Error("Expected fake dodo adapter");
+    }
+
+    const result = await Effect.runPromise(
+      Effect.either(
+        adapter.call({
+          operation: "billing.createCheckout",
+          workspaceSlug: "acme-demo",
+          idempotencyKey: " checkout-001 ",
+          payload: { customerEmail: "client@example.test" },
+        }),
+      ),
+    );
+
+    expect(result).toMatchObject({
+      _tag: "Left",
+      left: {
+        _tag: "ProviderCallError",
+        provider: "dodo",
+        publicMessage:
+          "idempotencyKey must not have leading or trailing whitespace.",
+        retryable: false,
+      },
+    });
+  });
+
   it("smokes every fake provider adapter with redacted receipts", async () => {
     const receipts = await Promise.all(
       providerDescriptors.map((provider) =>

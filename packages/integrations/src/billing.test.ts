@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   addCredits,
+  BillingIdempotencyKeyError,
   deductCredits,
   duplicateUsageEvent,
   computeCreditBalance,
@@ -19,6 +20,11 @@ describe("billing and usage ledger minimum", () => {
       idempotencyKey: "credit-001",
       createdAt: 1_000,
     });
+
+    if (credit instanceof BillingIdempotencyKeyError) {
+      throw new Error("Expected credit ledger entry");
+    }
+
     const debit = deductCredits({
       workspaceSlug: "acme-demo",
       existingEntries: [credit],
@@ -33,7 +39,10 @@ describe("billing and usage ledger minimum", () => {
       credits: 35,
       balanceAfter: 65,
     });
-    if (debit instanceof LowBalanceError) {
+    if (
+      debit instanceof LowBalanceError ||
+      debit instanceof BillingIdempotencyKeyError
+    ) {
       throw new Error("Expected debit ledger entry");
     }
     expect(computeCreditBalance([credit, debit])).toBe(65);
@@ -68,6 +77,11 @@ describe("billing and usage ledger minimum", () => {
       costCredits: 2,
       createdAt: 1_000,
     });
+
+    if (first instanceof BillingIdempotencyKeyError) {
+      throw new Error("Expected usage event");
+    }
+
     const second = recordUsageEvent({
       existingEvents: [first],
       workspaceSlug: "acme-demo",
@@ -90,6 +104,10 @@ describe("billing and usage ledger minimum", () => {
       idempotencyKey: "credit-001",
       createdAt: 1_000,
     });
+
+    if (entry instanceof BillingIdempotencyKeyError) {
+      throw new Error("Expected credit ledger entry");
+    }
 
     expect(entry.lowBalance).toEqual({
       workspaceSlug: "acme-demo",
@@ -126,6 +144,10 @@ describe("billing and usage ledger minimum", () => {
       createdAt: 1_000,
     });
 
+    if (receipt instanceof BillingIdempotencyKeyError) {
+      throw new Error("Expected fake billing receipt");
+    }
+
     expect(receipt).toEqual({
       receiptId: "billing_acme-demo_checkout-001",
       workspaceSlug: "acme-demo",
@@ -139,5 +161,72 @@ describe("billing and usage ledger minimum", () => {
     });
     expect(JSON.stringify(receipt)).not.toContain("buyer@example.com");
     expect(JSON.stringify(receipt)).not.toContain("cust_secret");
+  });
+
+  it("rejects malformed billing ledger idempotency keys before deriving ids", () => {
+    expect(
+      addCredits({
+        workspaceSlug: "acme-demo",
+        credits: 100,
+        reason: "manual_adjustment",
+        idempotencyKey: " credit-001 ",
+        createdAt: 1_000,
+      }),
+    ).toMatchObject({
+      _tag: "BillingIdempotencyKeyError",
+      field: "idempotencyKey",
+      message: "idempotencyKey must not have leading or trailing whitespace.",
+    });
+
+    expect(
+      deductCredits({
+        workspaceSlug: "acme-demo",
+        existingEntries: [],
+        credits: 1,
+        reason: "llm_usage",
+        idempotencyKey: "debit/001",
+        createdAt: 2_000,
+      }),
+    ).toMatchObject({
+      _tag: "BillingIdempotencyKeyError",
+      field: "idempotencyKey",
+      message:
+        "idempotencyKey must contain only URL-safe letters, numbers, '.', '_', '~', or '-'.",
+    });
+  });
+
+  it("rejects malformed usage and receipt idempotency keys before deriving ids", () => {
+    expect(
+      recordUsageEvent({
+        existingEvents: [],
+        workspaceSlug: "acme-demo",
+        idempotencyKey: " usage-001 ",
+        provider: "openrouter",
+        units: 10,
+        costCredits: 2,
+        createdAt: 1_000,
+      }),
+    ).toMatchObject({
+      _tag: "BillingIdempotencyKeyError",
+      field: "idempotencyKey",
+      message: "idempotencyKey must not have leading or trailing whitespace.",
+    });
+
+    expect(
+      createFakeBillingReceipt({
+        workspaceSlug: "acme-demo",
+        operation: "checkout.created",
+        idempotencyKey: "checkout/001",
+        credits: 100,
+        customerMetadata: {},
+        providerMetadata: {},
+        createdAt: 1_000,
+      }),
+    ).toMatchObject({
+      _tag: "BillingIdempotencyKeyError",
+      field: "idempotencyKey",
+      message:
+        "idempotencyKey must contain only URL-safe letters, numbers, '.', '_', '~', or '-'.",
+    });
   });
 });
