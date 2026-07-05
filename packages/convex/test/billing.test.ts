@@ -66,9 +66,9 @@ describe("billing Confect contracts", () => {
         eventId: "evt_123",
         eventType: "payment.succeeded",
         signatureTimestamp: "1700000000",
-        dedupeKey: "dodo:evt_123:1700000000",
+        dedupeKey: "dodo.evt_123.1700000000",
       }),
-    ).toMatchObject({ dedupeKey: "dodo:evt_123:1700000000" });
+    ).toMatchObject({ dedupeKey: "dodo.evt_123.1700000000" });
 
     expect(
       Schema.decodeUnknownSync(GrantEntitlementArgs)({
@@ -113,7 +113,7 @@ describe("billing Confect contracts", () => {
         eventId: "evt_123",
         eventType: "payment.succeeded",
         signatureTimestamp: "1700000000",
-        dedupeKey: "dodo:evt_123:1700000000",
+        dedupeKey: "dodo.evt_123.1700000000",
         status: "processed",
         createdAt: 1,
       }),
@@ -146,7 +146,7 @@ describe("billing Confect contracts", () => {
   it("declares public-safe typed billing failures", () => {
     const encoded = [
       new BillingError.DuplicateWebhook({
-        dedupeKey: "dodo:evt_123:1700000000",
+        dedupeKey: "dodo.evt_123.1700000000",
       }),
       new BillingError.InsufficientCredits({
         availableCredits: 1,
@@ -213,6 +213,34 @@ describe("billing Confect contracts", () => {
     expect(result).toMatchObject({
       field: "idempotencyKey",
       message: "idempotencyKey must not have leading or trailing whitespace.",
+    });
+  });
+
+  it("rejects padded webhook dedupe keys before recording webhook state", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      return yield* confect
+        .mutation(refs.public.ops.billing.applyWebhook, {
+          workspaceId: "workspace_123",
+          provider: "dodo",
+          eventId: "evt_123",
+          eventType: "payment.succeeded",
+          signatureTimestamp: "1700000000",
+          dedupeKey: " dodo.evt_123.1700000000 ",
+        })
+        .pipe(Effect.flip);
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result).toBeInstanceOf(BillingError.ValidationFailed);
+    expect(result).toMatchObject({
+      field: "dedupeKey",
+      message: "dedupeKey must not have leading or trailing whitespace.",
     });
   });
 });

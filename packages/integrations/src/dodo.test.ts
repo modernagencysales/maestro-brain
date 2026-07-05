@@ -69,7 +69,7 @@ describe("Dodo payment seam", () => {
       eventId: "evt_123",
       eventType: "payment.succeeded",
       signatureTimestamp: "1700000000",
-      dedupeKey: "dodo:evt_123:1700000000",
+      dedupeKey: "dodo.evt_123.1700000000",
       redactedPayload: {
         id: "evt_123",
         type: "payment.succeeded",
@@ -88,7 +88,7 @@ describe("Dodo payment seam", () => {
         signatureTimestamp: "1700000000",
         webhookSecret: "secret",
         nowMs: 1_000,
-        seenWebhookKeys: ["dodo:evt_123:1700000000"],
+        seenWebhookKeys: ["dodo.evt_123.1700000000"],
         seenEventIds: [],
       }),
     ).resolves.toBeInstanceOf(DodoWebhookReplayError);

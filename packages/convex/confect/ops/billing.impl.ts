@@ -42,17 +42,32 @@ const applyWebhook = FunctionImpl.make(
   databaseSchema,
   billing,
   "applyWebhook",
-  (input) =>
-    Effect.succeed({
+  (input) => {
+    const dedupeKey = validateCallerIdempotencyKey(input.dedupeKey);
+
+    if (!dedupeKey.ok) {
+      return Effect.fail(
+        new BillingError.ValidationFailed({
+          field: "dedupeKey",
+          message: dedupeKey.error.message.replace(
+            "idempotencyKey",
+            "dedupeKey",
+          ),
+        }),
+      );
+    }
+
+    return Effect.succeed({
       workspaceId: input.workspaceId,
       provider: input.provider,
       eventId: input.eventId,
       eventType: input.eventType,
       signatureTimestamp: input.signatureTimestamp,
-      dedupeKey: input.dedupeKey,
+      dedupeKey: dedupeKey.value,
       status: "processed" as const,
       createdAt: now,
-    }),
+    });
+  },
 );
 
 const grantEntitlement = FunctionImpl.make(

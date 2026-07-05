@@ -50,6 +50,9 @@ const eventIdFromPayload = (payload: string): string => {
   return typeof parsed.id === "string" ? parsed.id : "fake-dodo-event";
 };
 
+const webhookDedupePart = (value: string): string =>
+  value.replaceAll(/[^A-Za-z0-9._~-]/g, "-");
+
 export const normalizeDodoWebhook = (input: {
   readonly payload: string;
   readonly signatureTimestamp: string | undefined;
@@ -74,7 +77,9 @@ export const normalizeDodoWebhook = (input: {
     eventId,
     eventType,
     signatureTimestamp,
-    dedupeKey: `dodo:${eventId}:${signatureTimestamp}`,
+    dedupeKey: ["dodo", eventId, signatureTimestamp]
+      .map(webhookDedupePart)
+      .join("."),
     redactedPayload,
   };
 };
