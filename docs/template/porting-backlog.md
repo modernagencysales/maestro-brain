@@ -155,9 +155,11 @@ Convex component wiring (M).
     whitespace-contaminated live env names without exposing values, and the CLI
     live readiness report surfaces those names from its allowlisted env decoder.
     The WorkOS AuthKit seam also rejects whitespace-contaminated live env values
-    while reporting only env names. Remaining work: route every backend
-    integration through this shared accessor and tighten the "only file allowed
-    to read `process.env`" boundary for non-generated server code.
+    while reporting only env names. The web Vite env shim rejects
+    whitespace-contaminated configured `VITE_CONVEX_URL` values instead of
+    silently trimming them. Remaining work: route every backend integration
+    through this shared accessor and tighten the "only file allowed to read
+    `process.env`" boundary for non-generated server code.
 12. **Shared Web-Crypto token primitives** — HIGH — partial.
     `packages/convex/confect/shared/tokenCrypto.ts` provides Web Crypto
     `hmacSha256Base64Url`, `sha256Base64Url`, `base64Url{Encode,Decode}`,
