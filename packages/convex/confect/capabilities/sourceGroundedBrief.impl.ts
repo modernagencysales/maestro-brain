@@ -25,15 +25,20 @@ const runSourceGroundedBrief = (input: SourceGroundedBriefInput) =>
       ),
     );
 
+    const normalized = normalizeSourceGroundedBriefInput(input);
+    if (normalized instanceof Error) {
+      return yield* Effect.fail(normalized);
+    }
+
     return runFakeSourceGroundedBrief({
-      input: normalizeSourceGroundedBriefInput(input),
-      sources: input.sourceIds.map((sourceId) => ({
+      input: normalized,
+      sources: normalized.sourceIds.map((sourceId) => ({
         id: sourceId,
         title: `Source ${sourceId}`,
         markdown: "Synthetic source content for fake-mode capability run.",
       })),
-      policySnapshotId: `policy_snapshot_${input.idempotencyKey}`,
-      modelReceiptId: `model_receipt_${input.idempotencyKey}`,
+      policySnapshotId: `policy_snapshot_${normalized.idempotencyKey}`,
+      modelReceiptId: `model_receipt_${normalized.idempotencyKey}`,
     });
   });
 

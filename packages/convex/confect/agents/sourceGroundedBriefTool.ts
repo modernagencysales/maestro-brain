@@ -42,7 +42,7 @@ const runFakeSourceGroundedBriefTool = (
   input: SourceGroundedBriefInput,
 ): SourceGroundedBriefResult =>
   runFakeSourceGroundedBrief({
-    input: normalizeSourceGroundedBriefInput(input),
+    input,
     sources: input.sourceIds.map((sourceId) => ({
       id: sourceId,
       title: `Source ${sourceId}`,
@@ -85,9 +85,17 @@ export const sourceGroundedBriefTool: SourceGroundedBriefTool = {
       return decoded;
     }
 
+    const normalized = normalizeSourceGroundedBriefInput(decoded.input);
+    if (normalized instanceof Error) {
+      return {
+        ok: false,
+        message: normalized.message,
+      };
+    }
+
     return {
       ok: true,
-      invocation: prepareSourceGroundedBriefInvocation(decoded.input),
+      invocation: prepareSourceGroundedBriefInvocation(normalized),
     };
   },
   present: buildSourceGroundedBriefPresentation,

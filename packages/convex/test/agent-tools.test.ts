@@ -85,4 +85,18 @@ describe("agent tool definitions", () => {
       sourceTitles: ["Founder interview notes"],
     });
   });
+
+  it("rejects padded idempotency keys before preparing tool execution", () => {
+    expect(
+      sourceGroundedBriefTool.prepare({
+        workspaceId: "workspace_123",
+        sourceIds: ["source_1"],
+        briefGoal: "Draft the implementation brief.",
+        idempotencyKey: " brief-001 ",
+      }),
+    ).toEqual({
+      ok: false,
+      message: "idempotencyKey must not have leading or trailing whitespace.",
+    });
+  });
 });

@@ -146,7 +146,7 @@ describe("sourceGroundedBrief capability contract", () => {
       workspaceId: " workspace_123 ",
       sourceIds: [" source_2 ", "source_1", "source_2"],
       briefGoal: "  Build an implementation brief. ",
-      idempotencyKey: " brief-001 ",
+      idempotencyKey: "brief-001",
     });
 
     expect(normalized).toEqual({
@@ -233,5 +233,36 @@ describe("sourceGroundedBrief capability contract", () => {
     );
 
     expect(result).toBeInstanceOf(MemberNotInWorkspace);
+  });
+
+  it("rejects padded idempotency keys with a typed validation error", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const seeded = yield* confect.run(seedTenancy(now), SeededTenancy);
+      return yield* confect
+        .withIdentity({
+          subject: "member-subject",
+          email: "member@example.com",
+        })
+        .mutation(refs.public.capabilities.sourceGroundedBrief.run, {
+          workspaceId: seeded.workspaceId,
+          sourceIds: ["source_1"],
+          briefGoal: "Build an implementation brief.",
+          idempotencyKey: " brief-001 ",
+        })
+        .pipe(Effect.flip);
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result).toBeInstanceOf(ValidationFailed);
+    expect(result).toMatchObject({
+      field: "idempotencyKey",
+      message: "idempotencyKey must not have leading or trailing whitespace.",
+    });
   });
 });

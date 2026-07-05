@@ -3,6 +3,8 @@ import type {
   SourceGroundedBriefArgs,
   SourceGroundedBriefReturn,
 } from "./sourceGroundedBrief.spec";
+import { ValidationFailed } from "../errors";
+import { validateCallerIdempotencyKey } from "../shared/idempotencyKey";
 
 export type SourceGroundedBriefInput = Schema.Schema.Type<
   typeof SourceGroundedBriefArgs
@@ -20,12 +22,23 @@ export type BriefSource = {
 
 export const normalizeSourceGroundedBriefInput = (
   input: SourceGroundedBriefInput,
-): SourceGroundedBriefInput => ({
-  workspaceId: input.workspaceId.trim(),
-  sourceIds: [...new Set(input.sourceIds.map((sourceId) => sourceId.trim()))],
-  briefGoal: input.briefGoal.trim(),
-  idempotencyKey: input.idempotencyKey.trim(),
-});
+): SourceGroundedBriefInput | ValidationFailed => {
+  const idempotencyKey = validateCallerIdempotencyKey(input.idempotencyKey);
+
+  if (!idempotencyKey.ok) {
+    return new ValidationFailed({
+      field: "idempotencyKey",
+      message: idempotencyKey.error.message,
+    });
+  }
+
+  return {
+    workspaceId: input.workspaceId.trim(),
+    sourceIds: [...new Set(input.sourceIds.map((sourceId) => sourceId.trim()))],
+    briefGoal: input.briefGoal.trim(),
+    idempotencyKey: idempotencyKey.value,
+  };
+};
 
 export const formatContextPackForBrief = (
   sources: readonly BriefSource[],

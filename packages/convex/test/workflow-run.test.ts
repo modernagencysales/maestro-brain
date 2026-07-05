@@ -121,6 +121,38 @@ describe("workflow graph runner", () => {
     ).rejects.toThrow("Workflow graph is invalid.");
   });
 
+  it("rejects invalid capability idempotency keys before running workflow capabilities", async () => {
+    await expect(
+      runWorkflowGraph({
+        workflowRunId: "run_123",
+        workflowName: "Source grounded planning workflow",
+        workspaceId: "workspace_123",
+        startedByUserId: "user_123",
+        startedAt: "2026-07-01T14:00:00.000Z",
+        completedAt: "2026-07-01T14:03:12.000Z",
+        graph,
+        capabilityInput: {
+          workspaceId: "workspace_123",
+          sourceIds: ["source_1"],
+          briefGoal: "Create a source-grounded implementation brief.",
+          idempotencyKey: " brief-001 ",
+        },
+        sources: [
+          {
+            id: "source_1",
+            title: "Founder interview notes",
+            kind: "markdown",
+            content: "Trusted founder notes.",
+          },
+        ],
+        policySnapshotId: "policy_snapshot_123",
+        modelReceiptId: "model_receipt_123",
+      }),
+    ).rejects.toThrow(
+      "idempotencyKey must not have leading or trailing whitespace.",
+    );
+  });
+
   it("rejects unsupported capability nodes explicitly", async () => {
     await expect(
       runWorkflowGraph({

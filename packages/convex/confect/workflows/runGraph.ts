@@ -201,6 +201,10 @@ const runCapabilityNode = (
     input.capabilityInput,
   );
 
+  if (normalizedInput instanceof Error) {
+    throw makePublicError("VALIDATION_FAILED", normalizedInput.message);
+  }
+
   return runFakeSourceGroundedBrief({
     input: normalizedInput,
     sources: input.sources.map((source) => ({
