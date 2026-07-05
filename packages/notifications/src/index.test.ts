@@ -57,6 +57,54 @@ describe("notification provider seams", () => {
     });
   });
 
+  it("rejects padded and non-URL-safe email idempotency keys before sending", async () => {
+    const deliveries: unknown[] = [];
+    const service = createEmailService({
+      mode: "fake",
+      sink: (message) => {
+        deliveries.push(message);
+      },
+    });
+
+    await expect(
+      service.send({
+        to: "person@example.test",
+        from: "no-reply@example.test",
+        subject: "Invite",
+        html: "<p>Hello</p>",
+        idempotencyKey: " email-001 ",
+        templateData: {},
+      }),
+    ).resolves.toMatchObject({
+      ok: false,
+      error: {
+        _tag: "EmailValidationError",
+        field: "idempotencyKey",
+        message:
+          "Email idempotencyKey must not have leading or trailing whitespace.",
+      },
+    });
+    await expect(
+      service.send({
+        to: "person@example.test",
+        from: "no-reply@example.test",
+        subject: "Invite",
+        html: "<p>Hello</p>",
+        idempotencyKey: "email/001",
+        templateData: {},
+      }),
+    ).resolves.toMatchObject({
+      ok: false,
+      error: {
+        _tag: "EmailValidationError",
+        field: "idempotencyKey",
+        message:
+          "Email idempotencyKey must contain only URL-safe letters, numbers, '.', '_', '~', or '-'.",
+      },
+    });
+    expect(deliveries).toEqual([]);
+  });
+
   it("redacts email payload recipients and template secrets", () => {
     expect(
       redactEmailPayload({
@@ -175,7 +223,7 @@ describe("notification provider seams", () => {
       ok: true,
       delivery: "fake",
       idempotencyKey:
-        "action-digest:workspace_123:user_ops:2026-07-01T00:00:00.000Z:2026-07-01T23:59:59.000Z",
+        "action-digest.workspace_123.user_ops.2026-07-01T00-00-00.000Z.2026-07-01T23-59-59.000Z",
     });
 
     expect(JSON.stringify(deliveries)).not.toContain("buyer@example.com");

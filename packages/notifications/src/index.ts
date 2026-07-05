@@ -34,6 +34,45 @@ export type EmailFailure = {
 
 export type EmailResult = EmailDelivery | EmailFailure;
 
+const idempotencyKeyPattern = /^[A-Za-z0-9._~-]+$/;
+const maxIdempotencyKeyLength = 128;
+
+const validateEmailIdempotencyKey = (
+  idempotencyKey: string,
+): EmailValidationError | undefined => {
+  const trimmed = idempotencyKey.trim();
+
+  if (!trimmed) {
+    return new EmailValidationError(
+      "idempotencyKey",
+      "Email idempotencyKey is required.",
+    );
+  }
+
+  if (trimmed !== idempotencyKey) {
+    return new EmailValidationError(
+      "idempotencyKey",
+      "Email idempotencyKey must not have leading or trailing whitespace.",
+    );
+  }
+
+  if (idempotencyKey.length > maxIdempotencyKeyLength) {
+    return new EmailValidationError(
+      "idempotencyKey",
+      `Email idempotencyKey must be ${String(maxIdempotencyKeyLength)} characters or fewer.`,
+    );
+  }
+
+  if (!idempotencyKeyPattern.test(idempotencyKey)) {
+    return new EmailValidationError(
+      "idempotencyKey",
+      "Email idempotencyKey must contain only URL-safe letters, numbers, '.', '_', '~', or '-'.",
+    );
+  }
+
+  return undefined;
+};
+
 export type AlertSeverity = "info" | "warning" | "critical";
 
 export type NotificationCenterDeliveryState = "fake" | "test" | "live-ready";
@@ -243,13 +282,14 @@ export const createEmailService = (options: {
   ) => void | Promise<void>;
 }) => ({
   send: async (payload: EmailPayload): Promise<EmailResult> => {
-    if (!payload.idempotencyKey.trim()) {
+    const idempotencyKeyError = validateEmailIdempotencyKey(
+      payload.idempotencyKey,
+    );
+
+    if (idempotencyKeyError) {
       return {
         ok: false,
-        error: new EmailValidationError(
-          "idempotencyKey",
-          "Email idempotencyKey is required.",
-        ),
+        error: idempotencyKeyError,
       };
     }
 
@@ -267,6 +307,9 @@ export const createEmailService = (options: {
     };
   },
 });
+
+const actionDigestKeyPart = (value: string): string =>
+  value.replaceAll(/[^A-Za-z0-9._~-]/g, "-");
 
 export const createAlertService = (options: {
   readonly mode: EmailMode;
@@ -312,7 +355,15 @@ export const createActionDigestService = (options: {
 
   return {
     send: async (payload: ActionDigestPayload): Promise<EmailResult> => {
-      const idempotencyKey = `action-digest:${payload.workspaceId}:${payload.recipientId}:${payload.periodStart}:${payload.periodEnd}`;
+      const idempotencyKey = [
+        "action-digest",
+        payload.workspaceId,
+        payload.recipientId,
+        payload.periodStart,
+        payload.periodEnd,
+      ]
+        .map(actionDigestKeyPart)
+        .join(".");
 
       return await email.send({
         to: payload.to,

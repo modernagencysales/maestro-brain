@@ -115,9 +115,11 @@ Convex component wiring (M).
    (`sourceGroundedBrief`) now rejects padded caller keys with typed
    `ValidationFailed` errors before fake/live execution.
    `ops.billing.recordUsage` now validates usage idempotency keys before
-   deriving usage/ledger IDs. Remaining work: adopt the shared validator across
-   every remaining durable ledger, agent turn, webhook, and notification path
-   that accepts caller-supplied idempotency keys.
+   deriving usage/ledger IDs, and the notification email seam rejects
+   padded/non-URL-safe delivery keys before sending while generating URL-safe
+   action-digest keys. Remaining work: adopt the shared validator across every
+   remaining durable ledger, agent turn, and webhook path that accepts
+   caller-supplied idempotency keys.
 10. **Workspace bootstrap/provision provider (web)** — MED — no.
     `apps/web/src/providers/workspace.tsx`. Idempotent first-sign-in
     provisioning self-heal, then exposes active `workspaceId` via context.
