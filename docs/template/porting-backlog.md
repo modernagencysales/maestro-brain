@@ -1380,10 +1380,16 @@ repos**.
 276. **Structured ops logging + correlation-id propagation** — MED — Greenfield
      / partial (`requestIdFor`, item 72). Redaction-aware structured log seam
      threading a request/trace id through capability → action → provider.
-277. **Backend health / liveness surface** — MED — Port.
-     `capabilities/system/ health.ts` (`ping`), `brain/health.ts`,
-     `content/scheduleHealth.ts`. Workspace-scoped liveness + subsystem-coverage
-     signals for uptime probes / status board (item 225). Rewrite in Confect.
+277. **Backend health / liveness surface** — MED — partial.
+     `packages/convex/confect/ops/health.*` now exposes a Confect `liveness`
+     public query with typed fake/test/live reports, runtime and Confect
+     registration checks, provider-posture guidance, environment, commit SHA,
+     and check timestamp. `packages/convex/test/health.test.ts` pins the schema
+     contract, and [operations-runbook.md](./operations-runbook.md) documents
+     deploy-doctor pairing for test/live modes. Remaining work: add
+     workspace-scoped subsystem coverage for status-board style uptime probes
+     when forks wire live Brain, scheduling, provider, and tenant health
+     signals.
 278. **Workpool job pattern (bounded concurrency + retry/backoff)** — MED —
      Port. `capabilities/references/creatorEnrichmentRuns.ts` on
      `@convex-dev/workpool`. Idempotent enqueued jobs with concurrency caps +
