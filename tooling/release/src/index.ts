@@ -665,6 +665,31 @@ const completionRequirements = [
       "Generator implementation, tests, and app-factory/private-package docs are present.",
   },
   {
+    id: "day-0-factory-loop",
+    requirement:
+      "The starter proves the Day-0 loop from quickstart to fake doctor, deterministic seed, and handoff packet.",
+    evidence: [
+      "docs/template/quickstart.md",
+      "apps/web/src/sample/templateData.ts",
+      "apps/web/src/sample/templateData.test.ts",
+      "tooling/generators/src/index.ts",
+      "tooling/generators/src/index.test.ts",
+      "tooling/release/src/index.ts",
+      "tooling/release/src/index.test.ts",
+    ],
+    verification: [
+      "pnpm --dir tooling/generators test src/index.test.ts",
+      "pnpm --dir tooling/release test src/index.test.ts",
+      'pnpm template:quickstart -- --blueprint source-grounded-gtm-brain --name "Reviewer Brain" --write',
+      "pnpm template:doctor -- --mode fake",
+      "pnpm template:seed-demo -- --blueprint source-grounded-gtm-brain --write",
+      "pnpm template:handoff -- --mode fake --write",
+      "pnpm --dir tooling/release exec tsx src/index.ts client-release <template-version> <client-version>",
+    ],
+    detail:
+      "Quickstart, fake doctor, deterministic seed, handoff packet, and client-release validation are documented and covered by generator/release tests.",
+  },
+  {
     id: "services-and-security",
     requirement:
       "Core services, provider adapters, CI/CD gates, security posture, and coding rules are documented and enforced.",

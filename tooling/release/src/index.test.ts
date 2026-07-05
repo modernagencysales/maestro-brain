@@ -62,6 +62,7 @@ const makeReviewerRepo = (): string => {
     "docs/template/repo-map.md",
     "docs/template/confect-effect-guide.md",
     "docs/template/app-factory-guide.md",
+    "docs/template/quickstart.md",
     "docs/template/private-package-guide.md",
     "docs/template/hosting.md",
     "docs/template/security.md",
@@ -92,6 +93,8 @@ const makeReviewerRepo = (): string => {
     "tooling/workflow/src/index.ts",
     "tooling/generators/src/index.ts",
     "tooling/generators/src/index.test.ts",
+    "tooling/release/src/index.ts",
+    "tooling/release/src/index.test.ts",
     "tests/e2e/hosted-reference-app.spec.ts",
     "tests/e2e/hosted-reference-app.visual.spec.ts",
   ];
@@ -311,6 +314,20 @@ describe("release tooling", () => {
           expect.objectContaining({
             id: "investor-handoff",
             status: "pass",
+          }),
+          expect.objectContaining({
+            id: "day-0-factory-loop",
+            status: "pass",
+            evidence: expect.arrayContaining([
+              "docs/template/quickstart.md",
+              "tooling/generators/src/index.test.ts",
+              "tooling/release/src/index.test.ts",
+            ]),
+            verification: expect.arrayContaining([
+              'pnpm template:quickstart -- --blueprint source-grounded-gtm-brain --name "Reviewer Brain" --write',
+              "pnpm template:doctor -- --mode fake",
+              "pnpm template:handoff -- --mode fake --write",
+            ]),
           }),
         ]),
       });
