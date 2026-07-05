@@ -11,6 +11,7 @@ import {
   MutationCtx,
 } from "../../_generated/services";
 import { makePublicError } from "../../shared/errors";
+import { validateCallerIdempotencyKey } from "../../shared/idempotencyKey";
 
 type Reader = Context.Tag.Service<typeof DatabaseReader>;
 type Writer = Context.Tag.Service<typeof DatabaseWriter>;
@@ -49,27 +50,45 @@ export const startWorkflowAndRecordOwnership = <
   MutationCtx | DatabaseReader | DatabaseWriter
 > =>
   Effect.gen(function* () {
+    const idempotencyKey = yield* validateWorkflowIdempotencyKey(
+      input.idempotencyKey,
+    );
     const reader = yield* DatabaseReader;
     const writer = yield* DatabaseWriter;
     const mutationCtx = yield* MutationCtx;
-    const existing = yield* readExistingWorkflowRun(reader, input);
+    const normalizedInput = { ...input, idempotencyKey };
+    const existing = yield* readExistingWorkflowRun(reader, normalizedInput);
 
     const existingWorkflowId = yield* handleExistingWorkflowRun(
       existing,
-      input,
+      normalizedInput,
     );
     if (existingWorkflowId) {
       return existingWorkflowId;
     }
 
-    const reservationId = yield* reserveWorkflowRun(writer, input);
+    const reservationId = yield* reserveWorkflowRun(writer, normalizedInput);
     const componentWorkflowId = yield* startComponentWorkflow(
       mutationCtx,
-      input,
+      normalizedInput,
     );
     yield* recordStartedWorkflow(writer, reservationId, componentWorkflowId);
     return componentWorkflowId;
   });
+
+export const validateWorkflowIdempotencyKey = (idempotencyKey: string) => {
+  const validation = validateCallerIdempotencyKey(idempotencyKey);
+
+  if (validation.ok) {
+    return Effect.succeed(validation.value);
+  }
+
+  return Effect.fail(
+    makePublicError("VALIDATION_FAILED", validation.error.message, {
+      idempotencyKey,
+    }),
+  );
+};
 
 const readExistingWorkflowRun = <
   F extends FunctionReference<"mutation", "internal">,

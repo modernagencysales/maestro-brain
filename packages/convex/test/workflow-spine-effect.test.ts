@@ -1,3 +1,4 @@
+import * as Effect from "effect/Effect";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -9,6 +10,7 @@ import {
   type DurableGraphStepRef,
   type RunDurableGraphStep,
 } from "../confect/workflows/_kit/graphRunner";
+import { validateWorkflowIdempotencyKey } from "../confect/workflows/_kit/ownership";
 import { projectWorkflowStatus } from "../confect/workflows/_kit/status";
 
 const classifyRef =
@@ -196,6 +198,20 @@ describe("workflow status projection", () => {
         errorCode: "WORKFLOW_TIMEOUT",
         summary: "Approval deadline elapsed.",
       },
+    });
+  });
+});
+
+describe("workflow ownership", () => {
+  it("rejects padded idempotency keys before reserving workflow runs", async () => {
+    const result = await Effect.runPromise(
+      validateWorkflowIdempotencyKey(" workflow-run-001 ").pipe(Effect.flip),
+    );
+
+    expect(result).toMatchObject({
+      code: "VALIDATION_FAILED",
+      message: "idempotencyKey must not have leading or trailing whitespace.",
+      details: { idempotencyKey: " workflow-run-001 " },
     });
   });
 });
