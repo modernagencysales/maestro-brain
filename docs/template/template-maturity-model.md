@@ -3,6 +3,11 @@
 Use these levels in investor notes, PR summaries, and client handoff packets.
 They describe what the template can prove with current repo evidence.
 
+Current baseline: this repo can prove L0 through L4 with current source,
+generated artifacts, hosted smoke tests, app-factory commands, and CI gates. L5
+is client-fork-specific because it requires live provider credentials,
+client-domain smoke, signed handoff evidence, and production operations.
+
 ## L0 Hosted Shell
 
 **Meaning:** the repo renders a hosted reference app with fake providers and a

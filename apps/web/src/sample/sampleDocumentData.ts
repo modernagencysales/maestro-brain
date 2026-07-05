@@ -26,6 +26,7 @@ import {
   providerAdapters,
   sampleRunReceipt,
   safetyChecklist,
+  starterReadiness,
   templateStats,
 } from "./templateData";
 
@@ -156,6 +157,16 @@ const surfaceDiagram = hubDiagram({
   ],
 });
 
+const starterStatusLines = starterReadiness.statuses.map(
+  (status) => `**${status.label}** (${status.state}): ${status.detail}`,
+);
+const starterCommandLines = starterReadiness.dayZeroCommands.map(
+  (command) => `\`${command}\``,
+);
+const starterProofLines = starterReadiness.proofPoints.map(
+  (point) => `**${point.label}**: ${point.detail}`,
+);
+
 export const overviewPage: DocumentPage = {
   id: "overview",
   eyebrow: "Private AI app factory",
@@ -164,6 +175,24 @@ export const overviewPage: DocumentPage = {
     "Maestro Template is the starting point for every client-specific AI app we build. Instead of beginning an engagement from a blank repository, we begin from a working product: a company Brain, workflows, agents, integrations, and safety rails that have already been built, tested, and deployed once.",
   diagram: overviewDiagram,
   sections: [
+    {
+      heading: "Starter console",
+      body: [
+        "This is the Day-0 control panel for a client SaaS fork: what is ready, what is generated, what is intentionally fake, and what must be client-specific before production.",
+        ...starterStatusLines,
+      ],
+    },
+    {
+      heading: "Day-0 command loop",
+      body: [
+        "Run these commands in order. The first command uses `--write` because `template:doctor` checks the generated `template-instance.json` file.",
+        ...starterCommandLines,
+      ],
+    },
+    {
+      heading: "Starter proof points",
+      body: starterProofLines,
+    },
     {
       heading: "What an investor should see",
       body: [

@@ -9,8 +9,10 @@ import {
   providerAdapters,
   sampleRunReceipt,
   safetyChecklist,
+  starterReadiness,
 } from "./templateData";
 import { navItems } from "./navItems";
+import { overviewPage } from "./sampleDocumentData";
 
 describe("template sample data", () => {
   it("keeps navigation ids unique and backed by sample sections", () => {
@@ -81,5 +83,38 @@ describe("template sample data", () => {
     expect(sampleRunReceipt.steps).toHaveLength(
       durableWorkflowGraph.nodes.length,
     );
+  });
+
+  it("documents the Day-0 SaaS starter loop", () => {
+    expect(starterReadiness.statuses.map((status) => status.label)).toEqual([
+      "Hosted reference app",
+      "Fake provider mode",
+      "Generated headless surfaces",
+      "Client fork packet",
+      "Live provider setup",
+    ]);
+    expect(starterReadiness.dayZeroCommands).toEqual([
+      'pnpm template:quickstart -- --blueprint source-grounded-gtm-brain --name "Client Brain" --write',
+      "pnpm template:doctor -- --mode fake",
+      "pnpm template:seed-demo -- --blueprint source-grounded-gtm-brain --write",
+      "pnpm template:add-client-domain -- --name customerContext --write",
+      "pnpm template:handoff -- --mode fake --write",
+    ]);
+    expect(starterReadiness.dayZeroCommands[0]).toContain("--write");
+    expect(starterReadiness.proofPoints.map((point) => point.label)).toContain(
+      "API / CLI / MCP registry",
+    );
+  });
+
+  it("renders a starter console on the overview page", () => {
+    const sectionText = overviewPage.sections
+      .flatMap((section) => [section.heading, ...section.body])
+      .join(" ");
+
+    expect(sectionText).toContain("Starter console");
+    expect(sectionText).toContain("Hosted reference app");
+    expect(sectionText).toContain("pnpm template:quickstart");
+    expect(sectionText).toContain("API / CLI / MCP registry");
+    expect(sectionText).toContain("Live provider setup");
   });
 });

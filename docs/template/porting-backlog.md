@@ -13,6 +13,11 @@ two repos differ.
 > fake seed fixtures, hosted Notion-style reference app, and visual tests are
 > authoritative over older app files from the backlog branch.
 
+Current readiness commands and the maturity model are authoritative for the
+current template baseline. This backlog is a historical inventory of reusable
+machinery and can lag recently merged implementation work; treat stale per-item
+status text as backlog context, not readiness evidence.
+
 ## How to read this
 
 - **Priority** — HIGH / MED / LOW for a diligence-grade, genuinely-useful shell.

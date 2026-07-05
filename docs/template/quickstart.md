@@ -24,6 +24,11 @@ This is the fastest reviewer path: install, generate the client fork packet,
 create the intake brief, prove fake-mode readiness, seed the source-backed
 Brain, generate the handoff packet, and open the TanStack Start reference app.
 
+The first command must run with `--write`. `template:quickstart -- --write`
+creates `template-instance.json`; `template:doctor -- --mode fake` expects
+`template-instance.json` and will fail if you only previewed quickstart output.
+Commands without `--write` are dry-run previews.
+
 1. Install dependencies with `pnpm install`.
 2. Review `.env.example` and [env-manifest.md](./env-manifest.md). Keep the fake
    defaults unless this is a test/live provider setup.
