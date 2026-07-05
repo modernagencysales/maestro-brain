@@ -2,7 +2,8 @@ import { FunctionImpl, GroupImpl } from "@confect/server";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import databaseSchema from "../_generated/schema";
-import billing from "./billing.spec";
+import { validateCallerIdempotencyKey } from "../shared/idempotencyKey";
+import billing, { BillingError } from "./billing.spec";
 
 const now = 1_700_000_000_000;
 
@@ -10,19 +11,31 @@ const recordUsage = FunctionImpl.make(
   databaseSchema,
   billing,
   "recordUsage",
-  (input) =>
-    Effect.succeed({
+  (input) => {
+    const idempotencyKey = validateCallerIdempotencyKey(input.idempotencyKey);
+
+    if (!idempotencyKey.ok) {
+      return Effect.fail(
+        new BillingError.ValidationFailed({
+          field: "idempotencyKey",
+          message: idempotencyKey.error.message,
+        }),
+      );
+    }
+
+    return Effect.succeed({
       workspaceId: input.workspaceId,
-      usageEventId: `usage_${input.workspaceId}_${input.idempotencyKey}`,
-      ledgerEntryId: `ledger_${input.workspaceId}_${input.idempotencyKey}`,
-      idempotencyKey: input.idempotencyKey,
+      usageEventId: `usage_${input.workspaceId}_${idempotencyKey.value}`,
+      ledgerEntryId: `ledger_${input.workspaceId}_${idempotencyKey.value}`,
+      idempotencyKey: idempotencyKey.value,
       provider: input.provider,
       units: input.units,
       costCredits: input.costCredits,
       entitlementKey: input.entitlementKey,
       appendOnly: true as const,
       createdAt: now,
-    }),
+    });
+  },
 );
 
 const applyWebhook = FunctionImpl.make(

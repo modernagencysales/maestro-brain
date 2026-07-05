@@ -1,5 +1,9 @@
+import { TestConfect } from "@confect/test";
+import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
+import refs from "../confect/_generated/refs";
+import databaseSchema from "../confect/_generated/schema";
 import billingImpl from "../confect/ops/billing.impl";
 import billing, {
   ApplyWebhookArgs,
@@ -16,6 +20,7 @@ import creditLedger from "../confect/tables/creditLedger";
 import entitlements from "../confect/tables/entitlements";
 import usageEvents from "../confect/tables/usageEvents";
 import webhookEvents from "../confect/tables/webhookEvents";
+import { testConfectLayer } from "./support/confect";
 
 describe("billing Confect contracts", () => {
   it("declares entitlement, webhook, append-only ledger, and usage indexes", () => {
@@ -180,6 +185,34 @@ describe("billing Confect contracts", () => {
   it("exports a finalized fake/local Confect implementation", () => {
     expect(billingImpl).toMatchObject({
       _op_layer: "Fold",
+    });
+  });
+
+  it("rejects padded usage idempotency keys before writing ledger-shaped IDs", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      return yield* confect
+        .mutation(refs.public.ops.billing.recordUsage, {
+          workspaceId: "workspace_123",
+          idempotencyKey: " usage-001 ",
+          provider: "openrouter",
+          units: 10,
+          costCredits: 2,
+          entitlementKey: "llm_credits",
+        })
+        .pipe(Effect.flip);
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result).toBeInstanceOf(BillingError.ValidationFailed);
+    expect(result).toMatchObject({
+      field: "idempotencyKey",
+      message: "idempotencyKey must not have leading or trailing whitespace.",
     });
   });
 });

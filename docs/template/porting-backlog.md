@@ -113,9 +113,11 @@ Convex component wiring (M).
    executor rejects missing, padded, too-long, or non-URL-safe keys before
    external API/CLI/MCP-style writes dispatch, and the first real capability
    (`sourceGroundedBrief`) now rejects padded caller keys with typed
-   `ValidationFailed` errors before fake/live execution. Remaining work: adopt
-   the shared validator across every durable ledger, agent turn, billing,
-   webhook, and notification path that accepts caller-supplied idempotency keys.
+   `ValidationFailed` errors before fake/live execution.
+   `ops.billing.recordUsage` now validates usage idempotency keys before
+   deriving usage/ledger IDs. Remaining work: adopt the shared validator across
+   every remaining durable ledger, agent turn, webhook, and notification path
+   that accepts caller-supplied idempotency keys.
 10. **Workspace bootstrap/provision provider (web)** — MED — no.
     `apps/web/src/providers/workspace.tsx`. Idempotent first-sign-in
     provisioning self-heal, then exposes active `workspaceId` via context.
