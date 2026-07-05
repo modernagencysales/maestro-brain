@@ -7,6 +7,7 @@ import {
   TemplateNotificationCenter,
   type PlatformNotification,
   type PlatformNotificationPreference,
+  useTemplateToast,
 } from "@maestro-template/ui";
 import {
   buildNotificationCenterView,
@@ -18,6 +19,8 @@ import type { Ref } from "@confect/core";
 import * as Either from "effect/Either";
 import {
   classifyConfectMutationResult,
+  normalizeMutationError,
+  notifyTemplateMutation,
   type TemplateDataState,
   useTemplateMutation,
   useTemplateQuery,
@@ -205,9 +208,9 @@ export const presentNotificationCenter = (
 
 export function NotificationCenterSurface() {
   const workspace = useWorkspace();
+  const toast = useTemplateToast();
   const [notifications, setNotifications] =
     useState<readonly NotificationRecord[]>(fakeNotifications);
-  const [mutationMessage, setMutationMessage] = useState<string | null>(null);
   const workspaceId =
     workspace.status === "ready"
       ? (workspace.activeWorkspaceId as WorkspaceId)
@@ -259,15 +262,9 @@ export function NotificationCenterSurface() {
           Notification backend unavailable: {view.detail}
         </p>
       ) : null}
-      {mutationMessage ? (
-        <p className="template-platform-empty" aria-live="polite">
-          {mutationMessage}
-        </p>
-      ) : null}
       <TemplateNotificationCenter
         notifications={view.notifications}
         onMarkRead={(notificationId) => {
-          setMutationMessage(null);
           if (view.live && workspaceId !== null) {
             void markRead({
               workspaceId,
@@ -275,16 +272,18 @@ export function NotificationCenterSurface() {
             })
               .then((result) => {
                 const state = classifyConfectMutationResult(result);
-                if (state.status === "typed_failure") {
-                  setMutationMessage(notificationFailureMessage(state.error));
-                }
+                notifyTemplateMutation({
+                  copy: notificationMarkReadToastCopy,
+                  state,
+                  toast,
+                });
               })
               .catch((error: unknown) => {
-                setMutationMessage(
-                  error instanceof Error
-                    ? error.message
-                    : "Notification update failed.",
-                );
+                notifyTemplateMutation({
+                  copy: notificationMarkReadToastCopy,
+                  state: normalizeMutationError(error),
+                  toast,
+                });
               });
             return;
           }
@@ -298,6 +297,13 @@ export function NotificationCenterSurface() {
                 : notification,
             ),
           );
+          toast.notify({
+            title: "Notification marked read",
+            description:
+              "The fake-safe starter inbox updated its local read state.",
+            tone: "success",
+            announcement: "Notification marked read.",
+          });
         }}
         preferences={view.preferences}
         summary={view.summary}
@@ -305,6 +311,21 @@ export function NotificationCenterSurface() {
     </>
   );
 }
+
+const notificationMarkReadToastCopy = {
+  successTitle: "Notification marked read",
+  successDescription: (notification: NotificationRecordData) =>
+    `Marked "${notification.title}" as read.`,
+  failureTitle: "Notification update failed",
+  failureDescription: (failure: {
+    readonly status: string;
+    readonly error?: unknown;
+    readonly message?: string;
+  }) =>
+    failure.status === "typed_failure"
+      ? notificationFailureMessage(failure.error)
+      : (failure.message ?? "Notification update failed."),
+};
 
 function notificationFailureMessage(error: unknown): string {
   if (Either.isEither(error)) {

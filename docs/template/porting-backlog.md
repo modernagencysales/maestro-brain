@@ -1355,7 +1355,9 @@ repos**.
 259. **Global toast / notification-emitter system** — HIGH — partial. The
      reusable `TemplateToastProvider` now exposes an imperative
      `useTemplateToast` API with dismiss and auto-dismiss behavior.
-     `/onboarding` uses the provider for its continuation action. Remaining
+     `/onboarding` uses the provider for its continuation action, and
+     `/notifications` routes generated `ops.notifications.markRead`
+     success/error results through the shared mutation-toast adapter. Remaining
      work: wire future real mutation success/error paths across product surfaces
      into the provider.
 260. **In-app notification center (table + UI + prefs)** — MED — partial.

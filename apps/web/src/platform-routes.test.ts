@@ -89,6 +89,12 @@ describe("frontend platform routes", () => {
     expect(
       read("src/features/notifications/notification-center-surface.tsx"),
     ).toContain("templateConfectRefs.public.ops.notifications.markRead");
+    expect(
+      read("src/features/notifications/notification-center-surface.tsx"),
+    ).toContain("notifyTemplateMutation");
+    expect(
+      read("src/features/notifications/notification-center-surface.tsx"),
+    ).toContain("useTemplateToast");
   });
 
   it("ships a PWA manifest without unsupported offline claims", () => {

@@ -80,11 +80,12 @@ contract family.
   mark-read, preference upsert, and internal record mutations under
   `ops.notifications`; the `/notifications` route uses the generated
   `ops.notifications` refs when Convex is configured and falls back to the
-  fake-safe starter inbox otherwise. Static Cloudflare Pages output now carries
-  CSP, HSTS, frame, nosniff, referrer, and permissions-policy headers through
-  `apps/web/public/_headers`. Data lifecycle planning now includes DSAR export
-  manifests, delete-request confirmation, legal-hold blocking, and dry-run
-  retention job plans. Observability now includes a provider-neutral
+  fake-safe starter inbox otherwise, with mark-read success/error feedback
+  routed through `TemplateToastProvider`. Static Cloudflare Pages output now
+  carries CSP, HSTS, frame, nosniff, referrer, and permissions-policy headers
+  through `apps/web/public/_headers`. Data lifecycle planning now includes DSAR
+  export manifests, delete-request confirmation, legal-hold blocking, and
+  dry-run retention job plans. Observability now includes a provider-neutral
   ErrorReporter event contract with release metadata, fingerprints, recursive
   redaction, and best-effort delivery. Environment posture now includes a
   machine-readable `env-manifest.json` checked against `.env.example`, provider
@@ -98,7 +99,7 @@ contract family.
   future modals/popovers into `TemplateDialog`, future forms into the starter
   form primitive, future live surfaces into the feature flag evaluator, audited
   DSAR fulfillment mutations, live error-reporting providers/source-map upload,
-  and real mutation success/error paths into `TemplateToastProvider`.
+  and future real mutation success/error paths into `TemplateToastProvider`.
 
 ## Starter Readiness Read
 
