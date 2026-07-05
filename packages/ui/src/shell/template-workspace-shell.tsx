@@ -66,7 +66,11 @@ export function TemplateRouteItem({
   // SidebarMenuItem as props makes Notion Kit render a second, non-clickable
   // copy of the row that swallows most of the click area.
   return (
-    <SidebarMenuItem className="template-sidebar-menuitem" label={null}>
+    <SidebarMenuItem
+      className="template-sidebar-menuitem"
+      label={null}
+      role="none"
+    >
       <a
         aria-current={isActive ? "page" : undefined}
         className={
@@ -110,7 +114,11 @@ export function TemplateActionItem({
 }) {
   // Same rule as TemplateRouteItem: the button is the whole row.
   return (
-    <SidebarMenuItem className="template-sidebar-menuitem" label={null}>
+    <SidebarMenuItem
+      className="template-sidebar-menuitem"
+      label={null}
+      role="none"
+    >
       <button
         className="template-sidebar-row"
         onClick={item.onSelect}

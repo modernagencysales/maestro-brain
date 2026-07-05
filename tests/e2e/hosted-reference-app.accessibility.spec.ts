@@ -1,4 +1,7 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+
+const wcagTags = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] as const;
 
 const openPrimaryNav = async (page: import("@playwright/test").Page) => {
   const nav = page.getByRole("navigation", { name: "Primary" });
@@ -24,6 +27,24 @@ const openPrimaryNav = async (page: import("@playwright/test").Page) => {
   return nav;
 };
 
+const expectNoAxeViolations = async (
+  page: import("@playwright/test").Page,
+  label: string,
+) => {
+  const results = await new AxeBuilder({ page }).withTags(wcagTags).analyze();
+  const violations = results.violations.map((violation) => ({
+    id: violation.id,
+    impact: violation.impact,
+    description: violation.description,
+    nodes: violation.nodes.map((node) => ({
+      target: node.target,
+      summary: node.failureSummary,
+    })),
+  }));
+
+  expect(violations, `${label} has axe violations`).toEqual([]);
+};
+
 test.describe("hosted reference app accessibility", () => {
   test("exposes landmarks, skip link, and live status", async ({ page }) => {
     await page.goto("/");
@@ -38,8 +59,14 @@ test.describe("hosted reference app accessibility", () => {
       await expect(
         page.getByRole("navigation", { name: "Workspace" }),
       ).toBeVisible();
+    } else {
+      await page.getByRole("button", { name: "Close sidebar" }).click();
+      await expect(
+        page.getByRole("button", { name: "Open sidebar" }),
+      ).toBeVisible();
     }
     await expect(page.getByRole("status")).toContainText("Viewing Overview");
+    await expectNoAxeViolations(page, "Overview");
   });
 
   test("keeps mobile navigation operable and announces route changes", async ({
@@ -57,5 +84,6 @@ test.describe("hosted reference app accessibility", () => {
     await expect(page.getByRole("status")).toContainText(
       "The Brain turns company knowledge into usable AI context",
     );
+    await expectNoAxeViolations(page, "Brain");
   });
 });

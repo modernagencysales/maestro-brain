@@ -80,7 +80,11 @@ export function WorkflowCanvas({
   }));
 
   return (
-    <div className="workflow-canvas" aria-label="Workflow graph template">
+    <div
+      aria-label="Workflow graph template"
+      className="workflow-canvas"
+      role="region"
+    >
       <ReactFlow fitView nodes={flowNodes} edges={flowEdges}>
         <Background />
         <MiniMap pannable zoomable />
@@ -102,7 +106,11 @@ export function WorkflowGraphCanvas({
   const flowEdges: Edge[] = model.edges.map(toReactFlowEdge);
 
   return (
-    <div className="workflow-canvas" aria-label="Workflow graph template">
+    <div
+      aria-label="Workflow graph canvas"
+      className="workflow-canvas"
+      role="region"
+    >
       <ReactFlow fitView nodes={flowNodes} edges={flowEdges}>
         <Background />
         <MiniMap pannable zoomable />

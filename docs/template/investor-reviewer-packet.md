@@ -63,6 +63,7 @@ pnpm build
 pnpm smoke:web-static
 pnpm smoke:hosted
 pnpm smoke:hosted:browser
+pnpm smoke:hosted:a11y
 pnpm smoke:hosted:visual
 ```
 
@@ -128,6 +129,8 @@ Concrete files to inspect:
 - `docs/template/frontend-architecture.md`: frontend layer law, provider tree,
   Notion Kit boundary, and TanStack Start acceptance criteria.
 - `tests/e2e/hosted-reference-app.spec.ts`: hosted desktop/mobile browser smoke.
+- `tests/e2e/hosted-reference-app.accessibility.spec.ts`: hosted desktop/mobile
+  landmark, route-announcement, and axe WCAG smoke.
 - `tests/e2e/hosted-reference-app.visual.spec.ts`: hosted desktop/mobile
   screenshot-diff visual smoke.
 - `packages/template-core/src/index.ts`: canonical sample registry.

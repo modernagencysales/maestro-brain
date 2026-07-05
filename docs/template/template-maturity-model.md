@@ -17,7 +17,8 @@ typed architectural direction.
 snapshots, `docs/template/investor-reviewer-packet.md`.
 
 **Required commands:** `pnpm check:format`, `pnpm smoke:web-static`,
-`pnpm smoke:hosted:browser`, `pnpm smoke:hosted:visual`.
+`pnpm smoke:hosted:browser`, `pnpm smoke:hosted:a11y`,
+`pnpm smoke:hosted:visual`.
 
 **Investor inference:** the story is inspectable, but this level alone is not a
 client implementation platform.

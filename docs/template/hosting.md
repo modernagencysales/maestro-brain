@@ -57,6 +57,7 @@ Smoke the hosted app:
 ```bash
 pnpm smoke:hosted
 pnpm smoke:hosted:browser
+pnpm smoke:hosted:a11y
 pnpm smoke:hosted:visual
 ```
 
@@ -68,7 +69,7 @@ Before replacing the Vite static deploy with TanStack Start:
 2. Prove the investor document route still renders on desktop and mobile.
 3. Run `pnpm --dir apps/web test`, `pnpm check:route-tree`,
    `pnpm smoke:web-static`, `pnpm smoke:hosted`, `pnpm smoke:hosted:browser`,
-   and `pnpm smoke:hosted:visual`.
+   `pnpm smoke:hosted:a11y`, and `pnpm smoke:hosted:visual`.
 4. Document whether the deploy is Cloudflare Pages static output or Cloudflare
    Workers SSR.
 5. Document rollback to the previous static deploy.

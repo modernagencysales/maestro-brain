@@ -1256,9 +1256,11 @@ repos**.
      Persist locale/timezone on the workspace/member record; drive `dir`/`lang`.
 254. **Localized transactional emails** — LOW/MED — Greenfield (on captured seam
      29). Locale-selected email templates + formatting.
-255. **a11y test harness (axe/jest-axe + Playwright)** — HIGH — Greenfield. No
-     axe anywhere; maestro has vitest + playwright to host WCAG gates on key
-     screens.
+255. **a11y test harness (axe/jest-axe + Playwright)** — HIGH — partial.
+     `tests/e2e/hosted-reference-app.accessibility.spec.ts` runs hosted
+     desktop/mobile Playwright checks plus axe WCAG scans on key reference
+     routes via `pnpm smoke:hosted:a11y`. Remaining work: add fork-specific axe
+     coverage as generated client routes/forms land.
 256. **Focus management / focus-trap / skip-link utilities** — MED — Greenfield.
      App-level focus-return-on-close, route-change focus, skip-to-content.
 257. **Screen-reader live-region announcer** — MED — Greenfield.
