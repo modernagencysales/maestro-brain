@@ -11,6 +11,7 @@ export type TemplateRouteKey =
   | "api"
   | "onboarding"
   | "dataMap"
+  | "dataLifecycle"
   | "notifications"
   | "settings"
   | "legal"
@@ -119,6 +120,14 @@ export const TEMPLATE_ROUTE_ITEMS: readonly TemplateRouteItem[] = [
     description: "Tenant data inventory, classifications, and retention.",
   },
   {
+    key: "dataLifecycle",
+    label: "Data Lifecycle",
+    path: "/data-lifecycle",
+    icon: "P",
+    description:
+      "Dry-run DSAR planning, request audit rows, and retention posture.",
+  },
+  {
     key: "notifications",
     label: "Notifications",
     path: "/notifications",
@@ -199,6 +208,7 @@ export const TEMPLATE_NAV_CATEGORIES: readonly TemplateNavCategory[] = [
     items: TEMPLATE_ROUTE_ITEMS.filter((item) =>
       [
         "dataMap",
+        "dataLifecycle",
         "notifications",
         "settings",
         "legal",

@@ -98,12 +98,15 @@ contract family.
   concrete missing env names without printing values. Release tooling now
   includes redacted alert plans for failed deploy doctor checks and refused
   production promotions, ready for client forks to route through
-  `packages/notifications`. Remaining product-surface work is adoption: wire
-  future modals/popovers into `TemplateDialog`, future forms into the starter
-  form primitive, future live surfaces into the feature flag evaluator,
-  destructive DSAR fulfillment execution mutations, live error-reporting
-  providers/source-map upload, and future real mutation success/error paths into
-  `TemplateToastProvider`.
+  `packages/notifications`. The `/data-lifecycle` route now renders the
+  generated-ref backed DSAR request audit surface, uses
+  `ops.dataLifecycle.listDsarRequests` / `createDsarRequest` when Convex is
+  configured, and falls back to fake-safe dry-run request planning otherwise.
+  Remaining product-surface work is adoption: wire future modals/popovers into
+  `TemplateDialog`, future forms into the starter form primitive, future live
+  surfaces into the feature flag evaluator, destructive DSAR fulfillment
+  execution mutations, live error-reporting providers/source-map upload, and
+  future real mutation success/error paths into `TemplateToastProvider`.
 
 ## Starter Readiness Read
 

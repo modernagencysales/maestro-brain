@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as WorkspaceOnboardingRouteImport } from './routes/_workspace.onboarding'
 import { Route as WorkspaceNotificationsRouteImport } from './routes/_workspace.notifications'
 import { Route as WorkspaceLegalRouteImport } from './routes/_workspace.legal'
+import { Route as WorkspaceDataLifecycleRouteImport } from './routes/_workspace.data-lifecycle'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,15 +35,22 @@ const WorkspaceLegalRoute = WorkspaceLegalRouteImport.update({
   path: '/legal',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WorkspaceDataLifecycleRoute = WorkspaceDataLifecycleRouteImport.update({
+  id: '/_workspace/data-lifecycle',
+  path: '/data-lifecycle',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/data-lifecycle': typeof WorkspaceDataLifecycleRoute
   '/legal': typeof WorkspaceLegalRoute
   '/notifications': typeof WorkspaceNotificationsRoute
   '/onboarding': typeof WorkspaceOnboardingRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/data-lifecycle': typeof WorkspaceDataLifecycleRoute
   '/legal': typeof WorkspaceLegalRoute
   '/notifications': typeof WorkspaceNotificationsRoute
   '/onboarding': typeof WorkspaceOnboardingRoute
@@ -50,18 +58,21 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_workspace/data-lifecycle': typeof WorkspaceDataLifecycleRoute
   '/_workspace/legal': typeof WorkspaceLegalRoute
   '/_workspace/notifications': typeof WorkspaceNotificationsRoute
   '/_workspace/onboarding': typeof WorkspaceOnboardingRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/legal' | '/notifications' | '/onboarding'
+  fullPaths:
+    '/' | '/data-lifecycle' | '/legal' | '/notifications' | '/onboarding'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/legal' | '/notifications' | '/onboarding'
+  to: '/' | '/data-lifecycle' | '/legal' | '/notifications' | '/onboarding'
   id:
     | '__root__'
     | '/'
+    | '/_workspace/data-lifecycle'
     | '/_workspace/legal'
     | '/_workspace/notifications'
     | '/_workspace/onboarding'
@@ -69,6 +80,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  WorkspaceDataLifecycleRoute: typeof WorkspaceDataLifecycleRoute
   WorkspaceLegalRoute: typeof WorkspaceLegalRoute
   WorkspaceNotificationsRoute: typeof WorkspaceNotificationsRoute
   WorkspaceOnboardingRoute: typeof WorkspaceOnboardingRoute
@@ -104,11 +116,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceLegalRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_workspace/data-lifecycle': {
+      id: '/_workspace/data-lifecycle'
+      path: '/data-lifecycle'
+      fullPath: '/data-lifecycle'
+      preLoaderRoute: typeof WorkspaceDataLifecycleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  WorkspaceDataLifecycleRoute: WorkspaceDataLifecycleRoute,
   WorkspaceLegalRoute: WorkspaceLegalRoute,
   WorkspaceNotificationsRoute: WorkspaceNotificationsRoute,
   WorkspaceOnboardingRoute: WorkspaceOnboardingRoute,

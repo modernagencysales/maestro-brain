@@ -726,6 +726,122 @@ a {
   color: var(--template-muted);
 }
 
+.template-data-lifecycle {
+  display: grid;
+  gap: 18px;
+  margin-top: 28px;
+}
+
+.template-data-lifecycle-header,
+.template-data-lifecycle-row header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.template-data-lifecycle-header h2,
+.template-data-lifecycle-row h3 {
+  margin: 0;
+  color: var(--template-text);
+  font-size: 18px;
+  line-height: 1.3;
+  letter-spacing: 0;
+}
+
+.template-data-lifecycle-header p,
+.template-data-lifecycle-row p {
+  margin: 6px 0 0;
+  color: #4f4e49;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.template-data-lifecycle-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.template-data-lifecycle-actions button {
+  border: 1px solid var(--template-border);
+  border-radius: 8px;
+  background: var(--template-page);
+  color: var(--template-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  min-height: 36px;
+  padding: 0 12px;
+}
+
+.template-data-lifecycle-actions button:first-child {
+  background: var(--template-text);
+  color: var(--template-page);
+}
+
+.template-data-lifecycle-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.template-data-lifecycle-summary div,
+.template-data-lifecycle-row {
+  border: 1px solid var(--template-border);
+  border-radius: 8px;
+  background: var(--template-page);
+  padding: 14px;
+}
+
+.template-data-lifecycle-summary dt,
+.template-data-lifecycle-row dt {
+  color: var(--template-muted);
+  font-size: 12px;
+}
+
+.template-data-lifecycle-summary dd,
+.template-data-lifecycle-row dd {
+  margin: 4px 0 0;
+  color: var(--template-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.template-data-lifecycle-list {
+  display: grid;
+  gap: 10px;
+}
+
+.template-data-lifecycle-row > dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0 0;
+}
+
+.template-data-lifecycle-row span {
+  border: 1px solid var(--template-border);
+  border-radius: 999px;
+  color: var(--template-muted);
+  font-size: 12px;
+  padding: 4px 8px;
+  text-transform: capitalize;
+}
+
+@media (max-width: 720px) {
+  .template-data-lifecycle-header,
+  .template-data-lifecycle-row header {
+    display: grid;
+  }
+
+  .template-data-lifecycle-summary,
+  .template-data-lifecycle-row > dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .notion-page {
   width: min(100%, 820px);
   margin: 0 auto;

@@ -20,6 +20,7 @@ describe("template workspace navigation", () => {
       "api",
       "onboarding",
       "dataMap",
+      "dataLifecycle",
       "notifications",
       "settings",
       "legal",
@@ -35,6 +36,7 @@ describe("template workspace navigation", () => {
     expect(activeTemplateRouteKey("/workflows")).toBe("workflows");
     expect(activeTemplateRouteKey("/workflows/run_123")).toBe("workflows");
     expect(activeTemplateRouteKey("/data-map")).toBe("dataMap");
+    expect(activeTemplateRouteKey("/data-lifecycle")).toBe("dataLifecycle");
     expect(activeTemplateRouteKey("/unknown")).toBeNull();
   });
 

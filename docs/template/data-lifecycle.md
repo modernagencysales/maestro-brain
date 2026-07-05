@@ -12,6 +12,8 @@ Authoritative implementation:
 - `packages/convex/confect/ops/dataLifecycle.spec.ts`
 - `packages/convex/confect/ops/dataLifecycle.impl.ts`
 - `packages/convex/confect/tables/dsarRequests.ts`
+- `apps/web/src/routes/_workspace.data-lifecycle.tsx`
+- `apps/web/src/features/data-lifecycle/data-lifecycle-surface.tsx`
 - `packages/convex/test/data-lifecycle.test.ts`
 - `packages/convex/test/data-lifecycle-ops.test.ts`
 
@@ -46,6 +48,11 @@ remains dry-run only. `ops.dataLifecycle.listDsarRequests` lets authorized
 workspace viewers review those audit rows without direct database access.
 Together they are the review/audit handoff point before a client fork wires real
 export bundle generation, redaction, deletion, or legal-hold workflows.
+
+The `/data-lifecycle` web route consumes those generated refs when Convex is
+configured and falls back to fake-safe dry-run rows otherwise. It is a request
+review surface, not a fulfillment console: all rows remain `dryRunOnly`, and
+delete/redaction execution stays an explicit client-fork promotion.
 
 ## Retention Job Planning
 

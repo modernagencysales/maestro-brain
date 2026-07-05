@@ -12,8 +12,11 @@ const read = (path: string): string =>
   readFileSync(resolve(appRoot, path), "utf8");
 
 describe("frontend platform routes", () => {
-  it("registers legal, onboarding, and notification workspace routes in navigation", () => {
+  it("registers legal, onboarding, data lifecycle, and notification workspace routes in navigation", () => {
     expect(TEMPLATE_ROUTE_ITEMS.map((item) => item.key)).toContain("legal");
+    expect(TEMPLATE_ROUTE_ITEMS.map((item) => item.key)).toContain(
+      "dataLifecycle",
+    );
     expect(TEMPLATE_ROUTE_ITEMS.map((item) => item.key)).toContain(
       "notifications",
     );
@@ -25,10 +28,11 @@ describe("frontend platform routes", () => {
     );
     expect(activeTemplateRouteKey("/legal/privacy")).toBe("legal");
     expect(activeTemplateRouteKey("/onboarding")).toBe("onboarding");
+    expect(activeTemplateRouteKey("/data-lifecycle")).toBe("dataLifecycle");
     expect(activeTemplateRouteKey("/notifications")).toBe("notifications");
   });
 
-  it("defines legal, onboarding, and notification route files as template placeholders", () => {
+  it("defines legal, onboarding, data lifecycle, and notification route files as template placeholders", () => {
     expect(
       existsSync(resolve(appRoot, "src/routes/_workspace.legal.tsx")),
     ).toBe(true);
@@ -37,6 +41,9 @@ describe("frontend platform routes", () => {
     ).toBe(true);
     expect(
       existsSync(resolve(appRoot, "src/routes/_workspace.notifications.tsx")),
+    ).toBe(true);
+    expect(
+      existsSync(resolve(appRoot, "src/routes/_workspace.data-lifecycle.tsx")),
     ).toBe(true);
     expect(read("src/routes/_workspace.legal.tsx")).toContain(
       "Replace these legal placeholders per client",
@@ -94,6 +101,25 @@ describe("frontend platform routes", () => {
     ).toContain("notifyTemplateMutation");
     expect(
       read("src/features/notifications/notification-center-surface.tsx"),
+    ).toContain("useTemplateToast");
+    expect(read("src/routes/_workspace.data-lifecycle.tsx")).toContain(
+      "DataLifecycleSurface",
+    );
+    expect(
+      read("src/features/data-lifecycle/data-lifecycle-surface.tsx"),
+    ).toContain(
+      "templateConfectRefs.public.ops.dataLifecycle.listDsarRequests",
+    );
+    expect(
+      read("src/features/data-lifecycle/data-lifecycle-surface.tsx"),
+    ).toContain(
+      "templateConfectRefs.public.ops.dataLifecycle.createDsarRequest",
+    );
+    expect(
+      read("src/features/data-lifecycle/data-lifecycle-surface.tsx"),
+    ).toContain("notifyTemplateMutation");
+    expect(
+      read("src/features/data-lifecycle/data-lifecycle-surface.tsx"),
     ).toContain("useTemplateToast");
   });
 
