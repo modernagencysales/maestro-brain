@@ -30,7 +30,8 @@ public-safe provider errors.
 - MailerSend for email.
 - OpenRouter-compatible LLM provider through an OpenAI-compatible client
   surface.
-- Local feature flag definitions for fake-safe rollout and kill-switch checks.
+- Local feature flag definitions plus durable `ops.flags` workspace policy
+  records for fake-safe rollout and kill-switch checks.
 
 Resend, Sentry, Slack/webhooks, CRM, drive, and Notion connectors are optional
 adapters.

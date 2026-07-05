@@ -1480,9 +1480,11 @@ repos**.
      definitions, deterministic workspace rollout buckets, internal/workspace
      audience checks, and explicit kill-switch env overrides for live billing,
      notifications, and AI generation. `/onboarding` setup copy now includes a
-     rollout and kill-switch readiness step. Remaining work: promote the flag
-     definitions into durable per-workspace policy data and connect generated
-     product surfaces to the evaluator before client-specific live rollout.
+     rollout and kill-switch readiness step. Confect `featureFlagPolicies` and
+     `ops.flags` now provide durable per-workspace list/evaluate/upsert
+     contracts while preserving starter-safe disabled defaults for live side
+     effects. Remaining work: connect generated product surfaces to the
+     evaluator before client-specific live rollout.
 282. **Retention/TTL/erasure cron + DSAR export/delete** — MED (compliance-HIGH)
      — partial. `packages/convex/confect/ops/dataLifecycle.ts` now covers the
      current resource inventory, DSAR export manifests, DSAR delete plans, exact

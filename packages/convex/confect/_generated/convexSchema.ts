@@ -17,6 +17,7 @@ import documentAnnotations from "./tables/documentAnnotations";
 import documentVersions from "./tables/documentVersions";
 import documents from "./tables/documents";
 import entitlements from "./tables/entitlements";
+import featureFlagPolicies from "./tables/featureFlagPolicies";
 import invitations from "./tables/invitations";
 import notificationPreferences from "./tables/notificationPreferences";
 import notificationRecords from "./tables/notificationRecords";
@@ -59,6 +60,7 @@ export default $defineSchema({
   documentVersions: documentVersions.tableDefinition,
   documents: documents.tableDefinition,
   entitlements: entitlements.tableDefinition,
+  featureFlagPolicies: featureFlagPolicies.tableDefinition,
   invitations: invitations.tableDefinition,
   notificationPreferences: notificationPreferences.tableDefinition,
   notificationRecords: notificationRecords.tableDefinition,

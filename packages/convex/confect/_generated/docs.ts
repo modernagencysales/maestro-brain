@@ -18,6 +18,7 @@ export type DocumentAnnotationsDoc = Document.Document<typeof schemaDefinition, 
 export type DocumentVersionsDoc = Document.Document<typeof schemaDefinition, "documentVersions">;
 export type DocumentsDoc = Document.Document<typeof schemaDefinition, "documents">;
 export type EntitlementsDoc = Document.Document<typeof schemaDefinition, "entitlements">;
+export type FeatureFlagPoliciesDoc = Document.Document<typeof schemaDefinition, "featureFlagPolicies">;
 export type InvitationsDoc = Document.Document<typeof schemaDefinition, "invitations">;
 export type NotificationPreferencesDoc = Document.Document<typeof schemaDefinition, "notificationPreferences">;
 export type NotificationRecordsDoc = Document.Document<typeof schemaDefinition, "notificationRecords">;
@@ -60,6 +61,7 @@ export interface Docs {
   documentVersions: DocumentVersionsDoc;
   documents: DocumentsDoc;
   entitlements: EntitlementsDoc;
+  featureFlagPolicies: FeatureFlagPoliciesDoc;
   invitations: InvitationsDoc;
   notificationPreferences: NotificationPreferencesDoc;
   notificationRecords: NotificationRecordsDoc;

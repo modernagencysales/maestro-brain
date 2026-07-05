@@ -17,6 +17,7 @@ import documentAnnotations from "./tables/documentAnnotations";
 import documentVersions from "./tables/documentVersions";
 import documents from "./tables/documents";
 import entitlements from "./tables/entitlements";
+import featureFlagPolicies from "./tables/featureFlagPolicies";
 import invitations from "./tables/invitations";
 import notificationPreferences from "./tables/notificationPreferences";
 import notificationRecords from "./tables/notificationRecords";
@@ -59,6 +60,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof documentVersions |
   typeof documents |
   typeof entitlements |
+  typeof featureFlagPolicies |
   typeof invitations |
   typeof notificationPreferences |
   typeof notificationRecords |
@@ -100,6 +102,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   documentVersions,
   documents,
   entitlements,
+  featureFlagPolicies,
   invitations,
   notificationPreferences,
   notificationRecords,
