@@ -23,9 +23,38 @@ describe("WorkOS AuthKit seam", () => {
         "WORKOS_COOKIE_PASSWORD",
         "WORKOS_REDIRECT_URI",
       ],
+      invalidEnv: [],
     });
     expect(JSON.stringify(result)).not.toContain("secret");
     expect(validateWorkosEnv("fake", {})).toBe(true);
+  });
+
+  it("rejects whitespace-contaminated live env without exposing values", () => {
+    const result = validateWorkosEnv("live", {
+      WORKOS_API_KEY: " secret ",
+      WORKOS_CLIENT_ID: "client_123",
+      WORKOS_COOKIE_PASSWORD: "password_123",
+      WORKOS_REDIRECT_URI: "https://app.example.test/auth/callback",
+    });
+
+    expect(result).toBeInstanceOf(WorkosConfigError);
+    expect(result).toMatchObject({
+      _tag: "WorkosConfigError",
+      missingEnv: [],
+      invalidEnv: ["WORKOS_API_KEY"],
+    });
+    expect(JSON.stringify(result)).not.toContain("secret");
+  });
+
+  it("accepts complete live env values", () => {
+    expect(
+      validateWorkosEnv("live", {
+        WORKOS_API_KEY: "secret",
+        WORKOS_CLIENT_ID: "client_123",
+        WORKOS_COOKIE_PASSWORD: "password_123",
+        WORKOS_REDIRECT_URI: "https://app.example.test/auth/callback",
+      }),
+    ).toBe(true);
   });
 
   it("creates a fake AuthKit client with deterministic URLs", () => {

@@ -5,6 +5,7 @@ export class WorkosConfigError extends Schema.TaggedError<WorkosConfigError>()(
   "WorkosConfigError",
   {
     missingEnv: Schema.Array(Schema.String),
+    invalidEnv: Schema.Array(Schema.String),
   },
 ) {}
 
@@ -59,10 +60,26 @@ export const validateWorkosEnv = (
     return true;
   }
 
-  const missingEnv = requiredLiveEnv.filter((name) => !env[name]?.trim());
+  const missingEnv: Array<(typeof requiredLiveEnv)[number]> = [];
+  const invalidEnv: Array<(typeof requiredLiveEnv)[number]> = [];
 
-  return missingEnv.length > 0
-    ? new WorkosConfigError({ missingEnv: [...missingEnv] })
+  for (const name of requiredLiveEnv) {
+    const value = env[name];
+    const trimmed = value?.trim();
+    if (!trimmed) {
+      missingEnv.push(name);
+      continue;
+    }
+    if (value !== trimmed) {
+      invalidEnv.push(name);
+    }
+  }
+
+  return missingEnv.length > 0 || invalidEnv.length > 0
+    ? new WorkosConfigError({
+        missingEnv: [...missingEnv],
+        invalidEnv: [...invalidEnv],
+      })
     : true;
 };
 
