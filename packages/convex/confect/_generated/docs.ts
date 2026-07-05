@@ -19,6 +19,8 @@ export type DocumentVersionsDoc = Document.Document<typeof schemaDefinition, "do
 export type DocumentsDoc = Document.Document<typeof schemaDefinition, "documents">;
 export type EntitlementsDoc = Document.Document<typeof schemaDefinition, "entitlements">;
 export type InvitationsDoc = Document.Document<typeof schemaDefinition, "invitations">;
+export type NotificationPreferencesDoc = Document.Document<typeof schemaDefinition, "notificationPreferences">;
+export type NotificationRecordsDoc = Document.Document<typeof schemaDefinition, "notificationRecords">;
 export type OrganizationMembersDoc = Document.Document<typeof schemaDefinition, "organizationMembers">;
 export type OrganizationsDoc = Document.Document<typeof schemaDefinition, "organizations">;
 export type PoliciesDoc = Document.Document<typeof schemaDefinition, "policies">;
@@ -59,6 +61,8 @@ export interface Docs {
   documents: DocumentsDoc;
   entitlements: EntitlementsDoc;
   invitations: InvitationsDoc;
+  notificationPreferences: NotificationPreferencesDoc;
+  notificationRecords: NotificationRecordsDoc;
   organizationMembers: OrganizationMembersDoc;
   organizations: OrganizationsDoc;
   policies: PoliciesDoc;

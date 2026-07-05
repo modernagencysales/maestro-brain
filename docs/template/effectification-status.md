@@ -74,26 +74,30 @@ contract family.
   first TanStack Form-backed starter form primitive with validation, dirty-state
   guarding, fake-safe autosave, fake-safe feature flag definitions for rollout
   and kill-switch checks, and a fake-safe notification-center foundation with
-  unread/read-state planning and preference rendering. Static Cloudflare Pages
-  output now carries CSP, HSTS, frame, nosniff, referrer, and permissions-policy
-  headers through `apps/web/public/_headers`. Data lifecycle planning now
-  includes DSAR export manifests, delete-request confirmation, legal-hold
-  blocking, and dry-run retention job plans. Observability now includes a
-  provider-neutral ErrorReporter event contract with release metadata,
-  fingerprints, recursive redaction, and best-effort delivery. Environment
-  posture now includes a machine-readable `env-manifest.json` checked against
-  `.env.example`, provider descriptors, generator secrets, Convex component env,
-  setup UI readiness copy, and deploy-required secrets. `template:doctor` reads
-  provider requirements from the manifest, and `deploy:doctor` consumes the same
-  manifest to expand deploy groups into concrete missing env names without
-  printing values. Release tooling now includes redacted alert plans for failed
-  deploy doctor checks and refused production promotions, ready for client forks
-  to route through `packages/notifications`. Remaining product-surface work is
-  adoption: wire future modals/popovers into `TemplateDialog`, future forms into
-  the starter form primitive, future live surfaces into the feature flag
-  evaluator, durable notification records into Confect tables, audited DSAR
-  fulfillment mutations, live error-reporting providers/source-map upload, and
-  real mutation success/error paths into `TemplateToastProvider`.
+  unread/read-state planning and preference rendering. Durable in-app
+  notification records and preferences now live in Confect `notificationRecords`
+  / `notificationPreferences` tables with workspace-member-scoped list,
+  mark-read, preference upsert, and internal record mutations under
+  `ops.notifications`. Static Cloudflare Pages output now carries CSP, HSTS,
+  frame, nosniff, referrer, and permissions-policy headers through
+  `apps/web/public/_headers`. Data lifecycle planning now includes DSAR export
+  manifests, delete-request confirmation, legal-hold blocking, and dry-run
+  retention job plans. Observability now includes a provider-neutral
+  ErrorReporter event contract with release metadata, fingerprints, recursive
+  redaction, and best-effort delivery. Environment posture now includes a
+  machine-readable `env-manifest.json` checked against `.env.example`, provider
+  descriptors, generator secrets, Convex component env, setup UI readiness copy,
+  and deploy-required secrets. `template:doctor` reads provider requirements
+  from the manifest, and `deploy:doctor` consumes the same manifest to expand
+  deploy groups into concrete missing env names without printing values. Release
+  tooling now includes redacted alert plans for failed deploy doctor checks and
+  refused production promotions, ready for client forks to route through
+  `packages/notifications`. Remaining product-surface work is adoption: wire
+  future modals/popovers into `TemplateDialog`, future forms into the starter
+  form primitive, future live surfaces into the feature flag evaluator, the web
+  notification route into `ops.notifications`, audited DSAR fulfillment
+  mutations, live error-reporting providers/source-map upload, and real mutation
+  success/error paths into `TemplateToastProvider`.
 
 ## Starter Readiness Read
 
@@ -110,8 +114,8 @@ The remaining cross-cutting starter improvements are:
    those surfaces gain mutations, modals, popovers, and destructive flows.
 2. Adopt the starter form primitive in each generated client form and replace
    fake-safe autosave with durable mutations in client forks.
-3. Promote notification records/preferences into durable per-workspace data
-   before enabling live digests or provider delivery.
+3. Wire the `/notifications` route into the durable `ops.notifications` Confect
+   center before enabling live digests or provider delivery.
 4. Promote starter feature flags into durable per-workspace policy data when a
    fork enables live billing, notifications, or AI generation.
 5. Keep [template-defaults.md](./template-defaults.md) current when billing,

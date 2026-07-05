@@ -1358,11 +1358,14 @@ repos**.
      `packages/notifications` now owns the starter notification-center model:
      fake/test/live-ready delivery state, in-app/email/digest preferences,
      in-app filtering, unread counts, and read-receipt planning.
-     `TemplateNotificationCenter` renders the bell/inbox surface with unread
-     state, open actions, and channel preferences, and `/notifications` ships a
-     fake-safe reference route. Remaining work: promote records/preferences into
-     Confect tables, wire workspace/user-scoped queries and mutations, and add
-     digest scheduling plus provider-backed delivery in client forks.
+     `ops.notifications` now persists in-app records and per-recipient
+     preferences in Confect `notificationRecords` and `notificationPreferences`
+     tables, with workspace-member-scoped list, mark-read, preference upsert,
+     and internal record mutations. `TemplateNotificationCenter` renders the
+     bell/inbox surface with unread state, open actions, and channel
+     preferences, and `/notifications` ships a fake-safe reference route.
+     Remaining work: wire the route to generated `ops.notifications` refs, add
+     digest scheduling, and add provider-backed delivery in client forks.
 261. **Form library + validation / dirty-state / autosave** — HIGH — partial.
      `@tanstack/react-form` is installed in the web app, and
      `apps/web/src/forms/starter-form.ts` provides the reusable starter

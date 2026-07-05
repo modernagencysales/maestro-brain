@@ -61,7 +61,10 @@
   domain constructors, policies, and reviewer-safe fixtures.
 - `packages/integrations`: Effect service interfaces and provider adapters.
 - `packages/notifications`: notification provider boundary plus fake-safe in-app
-  center model, read-state planner, and channel preferences.
+  center model, read-state planner, and channel preferences. Durable
+  notification records/preferences live in
+  `packages/convex/confect/ops/notifications.*` and the generated
+  `ops.notifications` refs.
 - `packages/storage`: asset storage provider boundary.
 - `packages/observability`: event contracts, logs, SLOs, and telemetry helpers.
 - `packages/search`: optional search/vector provider boundary.
@@ -117,7 +120,8 @@
 - `/onboarding`: first-run setup.
 - `/data-map`: retention, export, delete, and processor inventory.
 - `/notifications`: fake-safe notification center, read-state reference UI, and
-  channel preferences.
+  channel preferences backed by the generated `ops.notifications` Confect
+  surface when a fork wires live data into the route.
 - `/settings`: workspace, users, auth, and Notion settings.
 - `/billing`: package, entitlement, credits, checkout, and portal.
 - `/analytics`: product and workflow analytics.

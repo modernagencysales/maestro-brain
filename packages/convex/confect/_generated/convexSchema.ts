@@ -18,6 +18,8 @@ import documentVersions from "./tables/documentVersions";
 import documents from "./tables/documents";
 import entitlements from "./tables/entitlements";
 import invitations from "./tables/invitations";
+import notificationPreferences from "./tables/notificationPreferences";
+import notificationRecords from "./tables/notificationRecords";
 import organizationMembers from "./tables/organizationMembers";
 import organizations from "./tables/organizations";
 import policies from "./tables/policies";
@@ -58,6 +60,8 @@ export default $defineSchema({
   documents: documents.tableDefinition,
   entitlements: entitlements.tableDefinition,
   invitations: invitations.tableDefinition,
+  notificationPreferences: notificationPreferences.tableDefinition,
+  notificationRecords: notificationRecords.tableDefinition,
   organizationMembers: organizationMembers.tableDefinition,
   organizations: organizations.tableDefinition,
   policies: policies.tableDefinition,

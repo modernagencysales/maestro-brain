@@ -18,6 +18,8 @@ import documentVersions from "./tables/documentVersions";
 import documents from "./tables/documents";
 import entitlements from "./tables/entitlements";
 import invitations from "./tables/invitations";
+import notificationPreferences from "./tables/notificationPreferences";
+import notificationRecords from "./tables/notificationRecords";
 import organizationMembers from "./tables/organizationMembers";
 import organizations from "./tables/organizations";
 import policies from "./tables/policies";
@@ -58,6 +60,8 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof documents |
   typeof entitlements |
   typeof invitations |
+  typeof notificationPreferences |
+  typeof notificationRecords |
   typeof organizationMembers |
   typeof organizations |
   typeof policies |
@@ -97,6 +101,8 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   documents,
   entitlements,
   invitations,
+  notificationPreferences,
+  notificationRecords,
   organizationMembers,
   organizations,
   policies,

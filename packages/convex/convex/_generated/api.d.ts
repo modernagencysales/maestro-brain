@@ -25,6 +25,7 @@ import type * as ops_billing from "../ops/billing.js";
 import type * as ops_coediting from "../ops/coediting.js";
 import type * as ops_health from "../ops/health.js";
 import type * as ops_knowledge from "../ops/knowledge.js";
+import type * as ops_notifications from "../ops/notifications.js";
 import type * as ops_transforms from "../ops/transforms.js";
 import type * as ops_versioning from "../ops/versioning.js";
 
@@ -52,6 +53,7 @@ declare const fullApi: ApiFromModules<{
   "ops/coediting": typeof ops_coediting;
   "ops/health": typeof ops_health;
   "ops/knowledge": typeof ops_knowledge;
+  "ops/notifications": typeof ops_notifications;
   "ops/transforms": typeof ops_transforms;
   "ops/versioning": typeof ops_versioning;
 }>;

@@ -18,9 +18,12 @@ pnpm template:add-notification -- --name workflowCompleted
 The template already ships the fake-safe center foundation:
 `packages/notifications` owns notification records, in-app/email/digest
 preferences, read-state planning, unread counts, and channel filtering.
-`/notifications` renders a reference inbox without requiring live provider
-credentials. Generated notifications should extend those contracts rather than
-creating a second inbox model.
+`ops.notifications` persists durable in-app notification records and
+per-recipient preferences in Confect, including workspace-member-scoped list,
+mark-read, preference upsert, and internal record mutations. `/notifications`
+renders a reference inbox without requiring live provider credentials; generated
+notifications should extend those contracts rather than creating a second inbox
+model.
 
 ## Tests
 
