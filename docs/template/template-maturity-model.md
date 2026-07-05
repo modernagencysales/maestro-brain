@@ -4,9 +4,11 @@ Use these levels in investor notes, PR summaries, and client handoff packets.
 They describe what the template can prove with current repo evidence.
 
 Current baseline: this repo can prove L0 through L4 with current source,
-generated artifacts, hosted smoke tests, app-factory commands, and CI gates. L5
-is client-fork-specific because it requires live provider credentials,
-client-domain smoke, signed handoff evidence, and production operations.
+generated artifacts, hosted smoke tests, app-factory commands, and CI gates.
+That means it is a credible SaaS starter/factory baseline, not that every item
+in the exhaustive porting backlog has shipped. L5 is client-fork-specific
+because it requires live provider credentials, client-domain smoke, signed
+handoff evidence, and production operations.
 
 ## L0 Hosted Shell
 
@@ -77,6 +79,11 @@ of repeatable AI work execution.
 support repeatable client forks. The frontend is a TanStack Start app with the
 Maestro-style Notion Kit shell, typed data adapters, designed route states, and
 React Flow constrained to workflow surfaces.
+
+**Boundary:** L4 proves the template can start real client builds with strong
+guardrails. It still leaves fork- or product-specific work such as full tenant
+admin flows, billing/provider wiring, notification center, every mutation toast,
+and every future modal/popover adoption.
 
 **Required evidence:** `tooling/generators/src/index.ts`,
 `docs/template/quickstart.md`, `docs/template/generator-output-contract.md`,

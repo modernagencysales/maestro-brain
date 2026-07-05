@@ -16,7 +16,9 @@ two repos differ.
 Current readiness commands and the maturity model are authoritative for the
 current template baseline. This backlog is a historical inventory of reusable
 machinery and can lag recently merged implementation work; treat stale per-item
-status text as backlog context, not readiness evidence.
+status text as backlog context, not readiness evidence. A `no` or `partial`
+entry here means "not yet part of the generic reusable kit," not necessarily
+"the current starter is incomplete."
 
 ## How to read this
 

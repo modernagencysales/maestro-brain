@@ -8,6 +8,11 @@ nothing identified during review is lost.
 Source of truth for what Maestro has: `modernagencysales/maestro`. Everything
 here respects `do-not-port-register.md`.
 
+Current readiness note: this backlog is not a completion gate for the starter
+baseline. The maturity model and effectification status are authoritative for
+what the template can prove today; this file preserves future acceleration
+options and diligence findings so they are not lost.
+
 ## Diligence Finding Coverage
 
 | Finding                                 | Status   | Evidence / remaining gap                                                                                                                                                                                        |

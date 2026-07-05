@@ -36,6 +36,11 @@ contract family.
 
 ## Known Gaps Remaining
 
+- The template is a verified starter baseline, not a finished generic SaaS
+  product. The exhaustive porting backlog still tracks optional or
+  client-specific primitives such as full billing lifecycle, notification
+  center, provider-specific deploy hardening, production retention jobs, and
+  every future product surface.
 - Some Confect groups still predate the spec-bound capability/workflow builder
   helpers. They are valid Confect groups, but they do not all emit manifest
   metadata until migrated.
@@ -62,6 +67,30 @@ contract family.
   are encoded as tagged `EditorSyncAccessDenied` `ConvexError` payloads, but
   Confect `convexPublic*` wrappers do not currently expose an `error` schema
   slot for those component functions.
+- Frontend UX essentials now include route focus, hosted axe smoke, dialog focus
+  trap, route announcements, live-region announcements, and toast primitives.
+  Remaining product-surface work is adoption: wire future modals/popovers into
+  `TemplateDialog` and wire real mutation success/error paths into
+  `TemplateToastProvider`.
+
+## Starter Readiness Read
+
+As of 2026-07-05, the current `main` branch is a good SaaS-starter baseline for
+new client work: it has the Effect/Confect contract spine, typed error doctrine,
+headless surface generation, guarded CI, app shell, Notion Kit-based frontend,
+generator scaffolds, and core UX/a11y primitives. It is not yet a complete
+generic SaaS product. Treat the remaining backlog as selectable product
+acceleration work, not as proof that the existing starter baseline is fake.
+
+The next cross-cutting starter improvements are:
+
+1. Adopt the shared dialog and toast primitives in each real product surface as
+   those surfaces gain mutations, modals, popovers, and destructive flows.
+2. Add designed root 404/500/pending/offline retry views beyond the current
+   route-state primitives.
+3. Decide which client-fork features are template-defaults versus documented
+   extension paths, especially billing, notification center, retention jobs, and
+   deploy promotion.
 
 ## Generated Artifact Ownership
 
