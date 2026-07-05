@@ -221,6 +221,9 @@ describe("release tooling", () => {
 
       expect(report).toMatchObject({
         ok: true,
+        auditKind: "presence",
+        warning:
+          "Presence audit only: this report checks required files and listed evidence paths. Run pnpm verify for behavior.",
         commit: "abc1234",
         hostedUrl: "https://example.test",
         artifacts: expect.arrayContaining([
@@ -277,6 +280,9 @@ describe("release tooling", () => {
       expect(result.exitCode).toBe(0);
       expect(JSON.parse(result.stdout)).toMatchObject({
         ok: true,
+        auditKind: "presence",
+        warning:
+          "Presence audit only: this report checks required files and listed evidence paths. Run pnpm verify for behavior.",
         hostedUrl: "https://maestro-template.pages.dev",
       });
     } finally {
@@ -296,6 +302,9 @@ describe("release tooling", () => {
 
       expect(report).toMatchObject({
         ok: true,
+        auditKind: "presence",
+        warning:
+          "Presence audit only: this report checks evidence paths and handoff-label content. It does not execute verification commands; run pnpm verify for behavior.",
         commit: "abc1234",
         hostedUrl: "https://example.test",
         requirements: expect.arrayContaining([
@@ -345,6 +354,9 @@ describe("release tooling", () => {
       expect(result.exitCode).toBe(0);
       expect(JSON.parse(result.stdout)).toMatchObject({
         ok: true,
+        auditKind: "presence",
+        warning:
+          "Presence audit only: this report checks evidence paths and handoff-label content. It does not execute verification commands; run pnpm verify for behavior.",
         hostedUrl: "https://maestro-template.pages.dev",
         requirements: expect.arrayContaining([
           expect.objectContaining({ id: "app-factory", status: "pass" }),

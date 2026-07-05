@@ -78,6 +78,9 @@ export type DoctorCheck = {
 export type DoctorReport = {
   readonly ok: boolean;
   readonly mode: ProviderMode;
+  readonly summary: string;
+  readonly warningCount: number;
+  readonly failureCount: number;
   readonly instancePath: string;
   readonly manifestPath: string;
   readonly checks: readonly DoctorCheck[];
@@ -583,10 +586,16 @@ export const doctorTemplateInstance = (
       options?.repoRoot ? { repoRoot: options.repoRoot } : undefined,
     ),
   ];
+  const warningCount = checks.filter((check) => check.status === "warn").length;
+  const failureCount = checks.filter((check) => check.status === "fail").length;
+  const ok = failureCount === 0;
 
   return {
-    ok: checks.every((check) => check.status !== "fail"),
+    ok,
     mode,
+    summary: `mode=${mode} ok=${ok} warnings=${warningCount} failures=${failureCount}`,
+    warningCount,
+    failureCount,
     instancePath: options?.instancePath ?? "template-instance.json",
     manifestPath: envManifestPath(options?.repoRoot),
     checks,

@@ -67,6 +67,12 @@ pnpm smoke:hosted:a11y
 pnpm smoke:hosted:visual
 ```
 
+`review:readiness` and `review:completion` are presence/evidence audits. They
+check required files and listed evidence paths; run the rest of the commands for
+behavioral proof. `host-test-slot` is optional internal host tooling that
+serializes expensive tests; on a fresh external clone, run the command after it
+directly, for example `pnpm test`.
+
 Inspect the live app:
 
 ```text

@@ -22,6 +22,10 @@ pnpm test
 pnpm build
 ```
 
+`review:readiness` and `review:completion` are presence/evidence audits. They
+check required files and listed evidence paths; run `pnpm verify` for behavioral
+proof.
+
 Run the hostable reference app:
 
 ```bash

@@ -8,7 +8,9 @@ strongest first:
   (fail-closed; deterministic fake mode locally).
 - **pin-only** — a grep harness (`tooling/quality/src/gate.mts`) asserts that
   config/docs keep a pinned shape. It protects the gate structure; it does not
-  measure behavior. Pin-only gates say `ok (pin-only)` in their output.
+  measure behavior. Pin-only gates say `ok (pin-only)` in their output, and the
+  highest-risk shape pins such as `check:generators` and
+  `check:workflow-graph-boundary` print `(shape-only)` in the display name.
 - **review** — humans/agents via the PR template checklist and rubric injection
   at pre-push. Weakest tier; anything resting here is a porting candidate.
 

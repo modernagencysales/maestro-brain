@@ -288,7 +288,7 @@ export const checkDescriptors = {
     ],
   },
   generators: {
-    name: "check:generators",
+    name: "check:generators (shape-only)",
     requirements: [
       {
         file: "docs/template/app-factory-guide.md",
@@ -752,7 +752,7 @@ export const checkDescriptors = {
     ],
   },
   "workflow-graph-boundary": {
-    name: "check:workflow-graph-boundary",
+    name: "check:workflow-graph-boundary (shape-only)",
     requirements: [
       {
         file: "packages/workflow-ui/src/index.tsx",

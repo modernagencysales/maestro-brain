@@ -3,6 +3,10 @@ import { expectDescriptorPassesAndFails } from "./src/check-test-helpers.mts";
 import { descriptor } from "./check-workflow-graph-boundary.mts";
 
 describe("check:workflow-graph-boundary", () => {
+  it("labels the gate as shape-only because behavior lives in workflow tests", () => {
+    expect(descriptor.name).toBe("check:workflow-graph-boundary (shape-only)");
+  });
+
   it("passes and fails on its declared requirements", async () => {
     await expectDescriptorPassesAndFails(descriptor);
   });

@@ -18,6 +18,12 @@ host-test-slot --class full pnpm test
 pnpm build
 ```
 
+`review:readiness` and `review:completion` are presence/evidence audits. They
+check required files and listed evidence paths; run the verification commands
+below for behavioral proof. `host-test-slot` is optional internal host tooling
+that serializes expensive tests; on a fresh external clone, use the command
+after it directly, such as `pnpm test` or `pnpm verify`.
+
 Start the reference app:
 
 ```bash
@@ -174,6 +180,8 @@ For the full deterministic gate chain, use:
 ```bash
 host-test-slot --class full pnpm verify
 ```
+
+If `host-test-slot` is unavailable, run `pnpm verify` directly.
 
 ## 7. Smoke The Static Reference App
 

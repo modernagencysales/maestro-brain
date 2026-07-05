@@ -583,6 +583,13 @@ describe("template app factory generators", () => {
     });
 
     expect(report.ok).toBe(true);
+    expect(report.warningCount).toBe(
+      report.checks.filter((check) => check.status === "warn").length,
+    );
+    expect(report.failureCount).toBe(0);
+    expect(report.summary).toBe(
+      `mode=live ok=true warnings=${report.warningCount} failures=0`,
+    );
     expect(report.checks).toContainEqual(
       expect.objectContaining({
         id: "provider:workos",

@@ -3,6 +3,10 @@ import { expectDescriptorPassesAndFails } from "./src/check-test-helpers.mts";
 import { descriptor } from "./check-generators.mts";
 
 describe("check:generators", () => {
+  it("labels the gate as shape-only because behavior lives in generator tests", () => {
+    expect(descriptor.name).toBe("check:generators (shape-only)");
+  });
+
   it("passes and fails on its declared requirements", async () => {
     await expectDescriptorPassesAndFails(descriptor);
   });

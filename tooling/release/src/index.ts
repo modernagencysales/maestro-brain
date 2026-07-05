@@ -16,6 +16,8 @@ export type WebStaticSmokeReport = {
 
 export type ReviewerReadinessReport = {
   readonly ok: boolean;
+  readonly auditKind: "presence";
+  readonly warning: string;
   readonly repoRoot: string;
   readonly commit: string;
   readonly hostedUrl: string;
@@ -35,6 +37,8 @@ export type ReviewerReadinessReport = {
 
 export type CompletionAuditReport = {
   readonly ok: boolean;
+  readonly auditKind: "presence";
+  readonly warning: string;
   readonly repoRoot: string;
   readonly commit: string;
   readonly hostedUrl: string;
@@ -727,6 +731,12 @@ const completionRequirements = [
   },
 ] as const;
 
+const readinessPresenceAuditWarning =
+  "Presence audit only: this report checks required files and listed evidence paths. Run pnpm verify for behavior.";
+
+const completionPresenceAuditWarning =
+  "Presence audit only: this report checks evidence paths and handoff-label content. It does not execute verification commands; run pnpm verify for behavior.";
+
 export const reviewerCommands = [
   "pnpm check:format",
   "pnpm lint",
@@ -801,6 +811,8 @@ export const buildReviewerReadinessReport = (options?: {
     ok:
       artifacts.every((artifact) => artifact.status === "pass") &&
       claims.every((claim) => claim.status === "pass"),
+    auditKind: "presence",
+    warning: readinessPresenceAuditWarning,
     repoRoot,
     commit: options?.commit ?? currentCommit(repoRoot),
     hostedUrl,
@@ -840,6 +852,8 @@ export const buildCompletionAuditReport = (options?: {
 
   return {
     ok: requirements.every((requirement) => requirement.status === "pass"),
+    auditKind: "presence",
+    warning: completionPresenceAuditWarning,
     repoRoot,
     commit: options?.commit ?? currentCommit(repoRoot),
     hostedUrl,
