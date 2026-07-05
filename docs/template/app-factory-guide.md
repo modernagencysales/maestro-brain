@@ -11,7 +11,7 @@ without copying project-specific business logic into the core framework.
   blueprint packs have generator support, deterministic seed data, tests, and
   handoff docs.
 - Use `gtm-implementation` when the first client app should be account-centric
-  GTM software with CRM, Drive, Notion, and reporting stubs.
+  GTM software with CRM, Drive, Notion, and generated reporting seams.
 - Start from fake providers and synthetic demo data.
 - Use [env-manifest.md](./env-manifest.md) as the provider setup source of
   truth.
@@ -44,7 +44,7 @@ pnpm template:quickstart -- --blueprint gtm-implementation --name "GTM Brain" --
 ```
 
 That adds optional provider seam metadata for CRM, Drive, and Notion plus
-reporting surface stubs. These are generated/private-package starting points,
+reporting surface seams. These are generated/private-package starting points,
 not template-core assumptions.
 
 1. Run

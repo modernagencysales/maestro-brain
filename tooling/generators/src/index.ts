@@ -837,7 +837,7 @@ const buildBlueprintQuickstartFiles = (
             },
           ],
           promotionPath:
-            "generated feature stubs stay outside template core until reviewed",
+            "generated reporting seams stay outside template core until reviewed",
         },
         null,
         2,
@@ -1149,8 +1149,8 @@ export default GroupImpl.make(databaseSchema, ${name}Group).pipe(
     },
     {
       path: `${basePath}.domain.ts`,
-      content: `// Pure domain seam for ${name}. Replace the placeholder fields with the
-// real capability input, keep normalize/validate pure, and keep provider
+      content: `// Pure domain seam for ${name}. Specialize these starter fields with
+// reviewed capability input, keep normalize/validate pure, and keep provider
 // calls out of this file (they belong in the impl behind services).
 export type ${pascalName}Input = {
   readonly workspaceSlug: string;
@@ -1285,7 +1285,7 @@ ${description}
 1. Review the flat files in \`packages/convex/confect/capabilities/\`.
 2. Run \`pnpm confect:codegen\`.
 3. Add generated refs to the web/API/CLI/MCP surfaces selected in \`${name}.headless.json\`.
-4. Replace the placeholder implementation with domain logic behind capability checks.
+4. Specialize the starter implementation with domain logic behind capability checks.
 5. Run \`pnpm check:confect-contracts\` and focused capability tests.
 `,
     },
@@ -2276,7 +2276,7 @@ export default GroupImpl.make(databaseSchema, ${name}Group).pipe(
     },
     {
       path: `${basePath}.domain.ts`,
-      content: `// Pure domain helpers for promoted ${name}. Replace the placeholder fields with
+      content: `// Pure domain helpers for promoted ${name}. Specialize these starter fields with
 // reviewed capability input, keep normalize/validate pure, and keep provider
 // calls out of this file (they belong in the impl behind services).
 export type ${pascalName}Input = {
@@ -2718,7 +2718,7 @@ Private package workflow module for \`${packageName}\`.
 
 1. Review graph nodes, approvals, idempotency, and Trust Receipt policy.
 2. Promote with \`pnpm template:promote-workflow -- --name ${name} --write\`.
-3. Replace placeholder capability refs with reviewed capability modules.
+3. Connect reviewed capability refs to reviewed capability modules.
 4. Run \`pnpm check:workflow-graph-boundary\` and focused workflow tests.
 `,
     },

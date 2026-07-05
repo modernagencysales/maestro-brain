@@ -12,7 +12,7 @@ workflow-driven follow-up, and fake/test/live-ready connector seams.
 - A quickstart instance with `buildAccountBrief`, `gtmAccountResearch`, and
   `gtmImplementationPlanner`.
 - Provider seam metadata for CRM, Drive, and Notion.
-- Reporting surface stubs for account briefs, pipeline funnel, and activity
+- Reporting surface seams for account briefs, pipeline funnel, and activity
   board.
 
 ## Safety Posture

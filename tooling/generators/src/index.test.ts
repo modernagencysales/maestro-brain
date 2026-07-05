@@ -233,7 +233,7 @@ describe("template app factory generators", () => {
     expect(quickstart.files[5]?.content).toContain("No live secrets required");
   });
 
-  it("builds a GTM implementation quickstart with provider seams and reporting stubs", () => {
+  it("builds a GTM implementation quickstart with provider and reporting seams", () => {
     const quickstart = buildTemplateQuickstart({
       name: "GTM Brain",
       blueprint: "gtm-implementation",
@@ -273,7 +273,7 @@ describe("template app factory generators", () => {
       ),
     ).toMatchObject({
       promotionPath:
-        "generated feature stubs stay outside template core until reviewed",
+        "generated reporting seams stay outside template core until reviewed",
     });
   });
 
@@ -647,6 +647,9 @@ describe("template app factory generators", () => {
     expect(generated.files[0]?.content).not.toContain("Schema.TaggedStruct");
     expect(generated.files[2]?.content).toContain(
       "normalizeSummarizeSourceInput",
+    );
+    expect(generated.files.map((file) => file.content).join("\n")).not.toMatch(
+      /placeholder|stub/i,
     );
     expect(generated.files[1]?.content).toContain(
       'import summarizeSourceGroup from "./summarizeSource.spec"',
