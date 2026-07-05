@@ -595,7 +595,12 @@ describe("release tooling", () => {
     for (const file of files) {
       const fullPath = join(repoRoot, file);
       mkdirSync(dirname(fullPath), { recursive: true });
-      writeFileSync(fullPath, "ok");
+      writeFileSync(
+        fullPath,
+        file === "docs/template/generated/handoff-packet.md"
+          ? "`real`\n`fake`\n`seam`\n`planned`\n"
+          : "ok",
+      );
     }
 
     try {
@@ -625,6 +630,49 @@ describe("release tooling", () => {
           expect.objectContaining({
             path: "template-instance.json",
             status: "pass",
+          }),
+        ]),
+      });
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("fails client release when the handoff packet omits status labels", () => {
+    const repoRoot = makeReviewerRepo();
+    const files = [
+      "template-instance.json",
+      "docs/template/generated/client-intake.md",
+      "docs/template/generated/implementation-brief.md",
+      "docs/template/generated/provider-setup-checklist.md",
+      "docs/template/generated/handoff-packet.md",
+      "docs/template/env-manifest.md",
+      "docs/template/template-release-process.md",
+    ];
+
+    for (const file of files) {
+      const fullPath = join(repoRoot, file);
+      mkdirSync(dirname(fullPath), { recursive: true });
+      writeFileSync(fullPath, "ok");
+    }
+
+    try {
+      const report = buildClientReleaseReport({
+        repoRoot,
+        templateVersion: "template-v1.2.0",
+        clientVersion: "client-v0.1.0",
+      });
+
+      expect(report).toMatchObject({
+        ok: false,
+        compatibility: {
+          status: "missing-artifacts",
+        },
+        handoffArtifacts: expect.arrayContaining([
+          expect.objectContaining({
+            path: "docs/template/generated/handoff-packet.md",
+            status: "fail",
+            detail: "missing handoff status labels: real, fake, seam, planned",
           }),
         ]),
       });

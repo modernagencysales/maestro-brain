@@ -728,6 +728,7 @@ export const buildHandoffPacket = (options?: {
   const mode = options?.mode ?? "fake";
   const sections = [
     { id: "overview", title: "Overview" },
+    { id: "status-labels", title: "Status Labels" },
     { id: "architecture", title: "Architecture" },
     { id: "quickstart", title: "Quickstart" },
     { id: "providers", title: "Providers" },
@@ -748,6 +749,13 @@ export const buildHandoffPacket = (options?: {
 ## Overview
 
 ${name} is generated from the ${blueprintConfig.label} blueprint. It demonstrates the private app factory path for B2B AI/GTM implementation software.
+
+## Status Labels
+
+- \`real\`: implemented and verified in the template or this fork.
+- \`fake\`: deterministic local behavior used for demos and tests.
+- \`seam\`: provider boundary exists; live adapter setup is pending client approval.
+- \`planned\`: documented but not implemented for this fork.
 
 ## Architecture
 

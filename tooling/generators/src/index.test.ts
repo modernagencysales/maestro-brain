@@ -489,6 +489,7 @@ describe("template app factory generators", () => {
     expect(packet.mode).toBe("fake");
     expect(packet.sections.map((section) => section.id)).toEqual([
       "overview",
+      "status-labels",
       "architecture",
       "quickstart",
       "providers",
@@ -497,6 +498,10 @@ describe("template app factory generators", () => {
     ]);
     expect(packet.markdown).toContain("Reviewer Brain");
     expect(packet.markdown).toContain("No live secrets required");
+    expect(packet.markdown).toContain("`real`");
+    expect(packet.markdown).toContain("`fake`");
+    expect(packet.markdown).toContain("`seam`");
+    expect(packet.markdown).toContain("`planned`");
     expect(packet.markdown).not.toMatch(/api[_-]?key|bearer|sk-[a-z0-9]/i);
   });
 

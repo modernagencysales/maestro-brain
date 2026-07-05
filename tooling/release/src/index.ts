@@ -422,6 +422,55 @@ const clientReleaseRequiredChecks = [
   "pnpm review:readiness",
 ] as const;
 
+const requiredHandoffStatusLabels = [
+  "real",
+  "fake",
+  "seam",
+  "planned",
+] as const;
+
+const validateClientReleaseArtifact = (
+  repoRoot: string,
+  artifactPath: string,
+): {
+  readonly path: string;
+  readonly status: "pass" | "fail";
+  readonly detail: string;
+} => {
+  const fullPath = resolve(repoRoot, artifactPath);
+
+  if (!existsSync(fullPath)) {
+    return {
+      path: artifactPath,
+      status: "fail",
+      detail: `missing ${fullPath}`,
+    };
+  }
+
+  if (artifactPath === "docs/template/generated/handoff-packet.md") {
+    const content = readFileSync(fullPath, "utf8");
+    const missingLabels = requiredHandoffStatusLabels.filter(
+      (label) =>
+        !content.includes(`\`${label}\``) &&
+        !new RegExp(`(^|\\s)${label}:`, "i").test(content),
+    );
+
+    if (missingLabels.length > 0) {
+      return {
+        path: artifactPath,
+        status: "fail",
+        detail: `missing handoff status labels: ${missingLabels.join(", ")}`,
+      };
+    }
+  }
+
+  return {
+    path: artifactPath,
+    status: "pass",
+    detail: "present",
+  };
+};
+
 const readinessClaims = [
   {
     id: "hosted-reference-app",
@@ -779,21 +828,9 @@ export const buildClientReleaseReport = (options: {
   readonly clientVersion: string;
 }): ClientReleaseReport => {
   const repoRoot = options.repoRoot ?? process.cwd();
-  const handoffArtifacts = clientReleaseHandoffArtifacts.map((artifactPath) => {
-    const fullPath = resolve(repoRoot, artifactPath);
-
-    return existsSync(fullPath)
-      ? {
-          path: artifactPath,
-          status: "pass" as const,
-          detail: "present",
-        }
-      : {
-          path: artifactPath,
-          status: "fail" as const,
-          detail: `missing ${fullPath}`,
-        };
-  });
+  const handoffArtifacts = clientReleaseHandoffArtifacts.map((artifactPath) =>
+    validateClientReleaseArtifact(repoRoot, artifactPath),
+  );
   const ok = handoffArtifacts.every((artifact) => artifact.status === "pass");
 
   return {
