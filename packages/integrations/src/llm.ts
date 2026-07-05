@@ -3,6 +3,7 @@ import * as Schema from "effect/Schema";
 import type { ProviderMode } from "./index";
 import { redactProviderPayload } from "./index";
 import {
+  LlmReceiptValidationError,
   makeFakeLlmCompletionText,
   makeLlmCompletion,
   type LlmCompletion,
@@ -46,6 +47,7 @@ export type LlmGatewayError =
   | LlmDisabledError
   | LlmProviderConfigError
   | LlmProviderCallError
+  | LlmReceiptValidationError
   | SpendCapExceededError;
 
 export type LlmGatewayRequest = {
@@ -230,6 +232,10 @@ export const createLlmGateway = (config: LlmGatewayConfig): LlmGateway => ({
           ? { idempotencyKey: request.idempotencyKey }
           : {}),
       });
+
+      if (completion instanceof LlmReceiptValidationError) {
+        return yield* Effect.fail(completion);
+      }
 
       yield* captureTelemetrySafely(config.captureTelemetry, {
         provider: "openrouter",

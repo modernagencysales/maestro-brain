@@ -63,6 +63,35 @@ describe("kill-switch-aware LLM gateway", () => {
     });
   });
 
+  it("rejects malformed idempotency keys before building LLM receipts", async () => {
+    const gateway = createLlmGateway({
+      mode: "fake",
+      env: {},
+      now: () => "2026-07-01T00:00:00.000Z",
+    });
+
+    const result = await Effect.runPromiseExit(
+      gateway.complete({
+        workspaceSlug: "acme-demo",
+        prompt: "Summarize the approved source set.",
+        idempotencyKey: " llm-001 ",
+      }),
+    );
+
+    expect(result).toMatchObject({
+      _tag: "Failure",
+      cause: {
+        _tag: "Fail",
+        error: {
+          _tag: "LlmReceiptValidationError",
+          field: "idempotencyKey",
+          message:
+            "idempotencyKey must not have leading or trailing whitespace.",
+        },
+      },
+    });
+  });
+
   it("reports live provider config errors without leaking env values", async () => {
     const gateway = createLlmGateway({
       mode: "live",

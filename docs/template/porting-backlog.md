@@ -133,9 +133,11 @@ Convex component wiring (M).
    checkout provider seam now reject malformed caller keys before deriving
    ledger, usage, or receipt IDs. `packages/template-core` versioning helpers
    now reject malformed versioning keys before storing append-only entries or
-   deriving reconciliation keys. Remaining work: adopt the shared validator
-   across every remaining durable ledger path that accepts caller-supplied
-   idempotency keys.
+   deriving reconciliation keys. `packages/integrations` LLM completion receipts
+   now reject malformed optional caller keys before preserving them in
+   fake/live-ready receipts. Remaining work: adopt the shared validator across
+   every remaining durable ledger path that accepts caller-supplied idempotency
+   keys.
 10. **Workspace bootstrap/provision provider (web)** — MED — no.
     `apps/web/src/providers/workspace.tsx`. Idempotent first-sign-in
     provisioning self-heal, then exposes active `workspaceId` via context.
