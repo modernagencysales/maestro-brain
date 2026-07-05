@@ -71,10 +71,11 @@ contract family.
   trap, route announcements, live-region announcements, root route
   pending/error/not-found states, offline/degraded network retry affordances,
   runtime reduced-motion gating for workflow edge animation, starter SEO/public
-  assets, toast primitives, and onboarding continuation feedback through
-  `TemplateToastProvider`. Remaining product-surface work is adoption: wire
-  future modals/popovers into `TemplateDialog` and wire real mutation
-  success/error paths into `TemplateToastProvider`.
+  assets, fake-safe cookie consent and legal placeholders, toast primitives, and
+  onboarding continuation feedback through `TemplateToastProvider`. Remaining
+  product-surface work is adoption: wire future modals/popovers into
+  `TemplateDialog` and wire real mutation success/error paths into
+  `TemplateToastProvider`.
 
 ## Starter Readiness Read
 

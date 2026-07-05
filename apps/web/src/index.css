@@ -128,6 +128,50 @@ a {
   background: #ffffff;
 }
 
+.template-cookie-banner {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 95;
+  display: grid;
+  width: min(460px, calc(100vw - 36px));
+  gap: 12px;
+  border: 1px solid var(--template-border);
+  border-radius: 8px;
+  background: var(--template-page);
+  color: var(--template-text);
+  padding: 14px;
+  box-shadow: 0 14px 42px rgb(15 15 15 / 16%);
+}
+
+.template-cookie-banner p {
+  margin: 4px 0 0;
+  color: var(--template-muted);
+  font-size: 13px;
+}
+
+.template-cookie-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.template-cookie-banner-actions button {
+  min-height: 34px;
+  border: 1px solid var(--template-border);
+  border-radius: 6px;
+  background: var(--template-page);
+  color: var(--template-text);
+  padding: 7px 10px;
+  cursor: pointer;
+}
+
+.template-cookie-banner-actions button:last-child {
+  background: var(--template-text);
+  color: var(--template-bg);
+}
+
 .template-empty-state {
   border: 1px solid var(--template-border);
   border-radius: 8px;

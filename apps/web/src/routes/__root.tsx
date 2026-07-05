@@ -18,6 +18,7 @@ import {
 } from "../providers/workspace";
 import { createFakeWorkspaceOperations } from "../providers/workspace-operations";
 import { PostHogWebProvider } from "../providers/posthog";
+import { CookieConsentBoundary } from "../providers/cookie-consent";
 import { WebRouteUxBoundary } from "../navigation/route-ux-boundary";
 import { buildTemplateRouteHead } from "../adapters/route-head";
 import appCssUrl from "../index.css?url";
@@ -65,18 +66,22 @@ function RootComponent() {
           operations={createFakeWorkspaceOperations()}
           storage={createBrowserWorkspaceStorage()}
         >
-          <PostHogWebProvider>
-            <RootDocument>
-              <WebRouteUxBoundary
-                href={location.href}
-                pathname={location.pathname}
-              >
-                <TemplateToastProvider>
-                  <Outlet />
-                </TemplateToastProvider>
-              </WebRouteUxBoundary>
-            </RootDocument>
-          </PostHogWebProvider>
+          <CookieConsentBoundary>
+            {(analyticsConsent) => (
+              <PostHogWebProvider analyticsConsent={analyticsConsent}>
+                <RootDocument>
+                  <WebRouteUxBoundary
+                    href={location.href}
+                    pathname={location.pathname}
+                  >
+                    <TemplateToastProvider>
+                      <Outlet />
+                    </TemplateToastProvider>
+                  </WebRouteUxBoundary>
+                </RootDocument>
+              </PostHogWebProvider>
+            )}
+          </CookieConsentBoundary>
         </WorkspaceProvider>
       </ConvexProviderWithAuth>
     </AuthKitProvider>

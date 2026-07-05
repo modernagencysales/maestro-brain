@@ -36,6 +36,8 @@ describe("Notion Kit shell style contract", () => {
 
     expect(root).toContain("WebRouteUxBoundary");
     expect(root).toContain("TemplateToastProvider");
+    expect(root).toContain("CookieConsentBoundary");
+    expect(root).toContain("analyticsConsent={analyticsConsent}");
     expect(root).toContain("useRouterState");
     expect(root).toContain("<Outlet />");
     expect(boundary).toContain("TemplateRouteFocusBoundary");
@@ -77,6 +79,8 @@ describe("Notion Kit shell style contract", () => {
     expect(css).toContain(".template-shell-content");
     expect(css).toContain(".template-network-banner");
     expect(css).toContain(".template-network-banner-action");
+    expect(css).toContain(".template-cookie-banner");
+    expect(css).toContain(".template-cookie-banner-actions");
     expect(css).toContain(".template-empty-state");
     expect(css).toContain(".template-dialog-backdrop");
     expect(css).toContain(".template-dialog");

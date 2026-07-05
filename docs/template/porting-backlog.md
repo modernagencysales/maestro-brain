@@ -1313,9 +1313,13 @@ repos**.
      `sitemap.xml`, `favicon.svg`, and `social-card.svg`. Remaining work: client
      forks should replace canonical domains, social art, sitemap entries, and
      page-specific descriptions before public launch.
-265. **Cookie consent + legal pages (terms, privacy)** — MED — Greenfield.
-     Needed because PostHog telemetry ships (item 24); no consent gate or legal
-     routes.
+265. **Cookie consent + legal pages (terms, privacy)** — MED — partial. `/legal`
+     ships reviewable privacy, terms, and cookie/analytics placeholder sections.
+     `CookieConsentBoundary` stores an explicit accepted/declined decision and
+     keeps analytics capture disabled until acceptance. Remaining work: client
+     forks must replace placeholder legal copy, approved retention periods,
+     analytics purpose text, and opt-out instructions before enabling live
+     telemetry.
 266. **PWA (web manifest + service worker + installability)** — LOW —
      Greenfield.
 267. **First-run onboarding wizard / empty-first-workspace / checklist / tour**

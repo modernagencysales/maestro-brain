@@ -34,6 +34,12 @@ describe("frontend platform routes", () => {
     expect(read("src/routes/_workspace.legal.tsx")).toContain(
       "Replace these legal placeholders per client",
     );
+    expect(read("src/routes/_workspace.legal.tsx")).toContain(
+      "Cookie and analytics placeholder",
+    );
+    expect(read("src/routes/_workspace.legal.tsx")).toContain(
+      "before enabling live telemetry",
+    );
     expect(read("src/routes/_workspace.onboarding.tsx")).toContain(
       "TemplateOnboardingChecklist",
     );

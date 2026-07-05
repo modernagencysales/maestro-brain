@@ -22,6 +22,12 @@ function LegalRoute() {
           occurs, how support access works, and how workspace export/delete
           requests are handled.
         </p>
+        <h2>Cookie and analytics placeholder</h2>
+        <p>
+          Replace the consent banner copy, analytics purpose, retention period,
+          and opt-out instructions with the client-approved privacy posture
+          before enabling live telemetry.
+        </p>
         <h2>Terms placeholder</h2>
         <p>
           Replace with the client-specific service terms, billing terms,
