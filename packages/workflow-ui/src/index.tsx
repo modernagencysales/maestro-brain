@@ -13,6 +13,10 @@ import {
   type WorkflowFlowNode,
   type WorkflowValidationHint,
 } from "./workflowCanvasState";
+import {
+  shouldAnimateWorkflowEdge,
+  useWorkflowReducedMotion,
+} from "./reducedMotion";
 
 export {
   applyStatusOverlay,
@@ -22,6 +26,10 @@ export {
   mapWorkflowStageStatus,
   summarizeWorkflowValidationHints,
 } from "./workflowCanvasState";
+export {
+  shouldAnimateWorkflowEdge,
+  useWorkflowReducedMotion,
+} from "./reducedMotion";
 
 export type {
   DurableWorkflowGraphForCanvas,
@@ -64,6 +72,7 @@ export function WorkflowCanvas({
   readonly nodes: readonly WorkflowTemplateNode[];
   readonly edges: readonly WorkflowTemplateEdge[];
 }) {
+  const reducedMotion = useWorkflowReducedMotion();
   const flowNodes: Node[] = nodes.map((node) => ({
     id: node.id,
     position: { x: node.x, y: node.y },
@@ -76,7 +85,10 @@ export function WorkflowCanvas({
     source: edge.source,
     target: edge.target,
     label: edge.label,
-    animated: edge.label === "agent choice",
+    animated: shouldAnimateWorkflowEdge({
+      edgeAnimated: edge.label === "agent choice",
+      reducedMotion,
+    }),
   }));
 
   return (
@@ -101,9 +113,12 @@ export function WorkflowGraphCanvas({
   readonly graph: DurableWorkflowGraphForCanvas;
   readonly validationHints?: readonly WorkflowValidationHint[];
 }) {
+  const reducedMotion = useWorkflowReducedMotion();
   const model = deriveWorkflowFlowModel(graph, validationHints);
   const flowNodes: Node[] = model.nodes.map(toReactFlowNode);
-  const flowEdges: Edge[] = model.edges.map(toReactFlowEdge);
+  const flowEdges: Edge[] = model.edges.map((edge) =>
+    toReactFlowEdge(edge, reducedMotion),
+  );
 
   return (
     <div
@@ -127,11 +142,17 @@ const toReactFlowNode = (node: WorkflowFlowNode): Node => ({
   type: node.type,
 });
 
-const toReactFlowEdge = (edge: WorkflowFlowEdge): Edge => ({
+const toReactFlowEdge = (
+  edge: WorkflowFlowEdge,
+  reducedMotion: boolean,
+): Edge => ({
   id: edge.id,
   source: edge.source,
   target: edge.target,
   label: edge.label,
-  animated: edge.animated,
+  animated: shouldAnimateWorkflowEdge({
+    edgeAnimated: edge.animated,
+    reducedMotion,
+  }),
   data: { ...edge.data },
 });

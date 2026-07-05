@@ -8,6 +8,7 @@ import {
   type DurableWorkflowGraphForCanvas,
   type WorkflowValidationHint,
 } from "./workflowCanvasState";
+import { shouldAnimateWorkflowEdge } from ".";
 
 const graph: DurableWorkflowGraphForCanvas = {
   id: "workflow_source_grounded_brief",
@@ -182,5 +183,26 @@ describe("workflow canvas state", () => {
       validationHints: [],
       status: "completed",
     });
+  });
+
+  it("suppresses runtime edge animation when reduced motion is requested", () => {
+    expect(
+      shouldAnimateWorkflowEdge({
+        edgeAnimated: true,
+        reducedMotion: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldAnimateWorkflowEdge({
+        edgeAnimated: true,
+        reducedMotion: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldAnimateWorkflowEdge({
+        edgeAnimated: false,
+        reducedMotion: false,
+      }),
+    ).toBe(false);
   });
 });

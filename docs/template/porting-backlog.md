@@ -1280,8 +1280,12 @@ repos**.
      ready-to-handoff feedback through the shared toast provider. Remaining
      work: wire every future real mutation-specific save/error path across
      product surfaces into those helpers.
-258. **`useReducedMotion` runtime hook** — LOW — Greenfield. Gate JS/canvas
-     motion (React Flow), not just CSS (`index.css` is CSS-only today).
+258. **`useReducedMotion` runtime hook** — LOW — partial. `packages/workflow-ui`
+     now exposes `useWorkflowReducedMotion` and gates React Flow edge animation
+     through `shouldAnimateWorkflowEdge` so runtime canvas motion respects
+     `prefers-reduced-motion`; CSS still backs this up for rendered edges.
+     Remaining work: reuse the hook for any future JS/canvas animation outside
+     workflow-ui.
 259. **Global toast / notification-emitter system** — HIGH — partial. The
      reusable `TemplateToastProvider` now exposes an imperative
      `useTemplateToast` API with dismiss and auto-dismiss behavior.
