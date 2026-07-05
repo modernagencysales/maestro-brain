@@ -1402,9 +1402,14 @@ repos**.
      definitions into durable per-workspace policy data and connect generated
      product surfaces to the evaluator before client-specific live rollout.
 282. **Retention/TTL/erasure cron + DSAR export/delete** — MED (compliance-HIGH)
-     — Greenfield (implements the item-91 / `data-lifecycle.md` doctrine). No
-     retention job in `crons.ts`, no backend export/delete/legal-hold
-     capability.
+     — partial. `packages/convex/confect/ops/dataLifecycle.ts` now covers the
+     current resource inventory, DSAR export manifests, DSAR delete plans, exact
+     delete confirmation, legal-hold blocking, and dry-run retention job
+     planning. `packages/convex/test/data-lifecycle.test.ts` pins those
+     contracts. Remaining work: wire audited Confect mutations for actual export
+     bundles, redaction/delete execution, scheduled cron, legal-hold records,
+     and client-specific processor inventory before a production fork fulfills
+     live DSAR or retention actions.
 283. **HTTP security headers (CSP / HSTS / X-Frame / nosniff /
      Referrer-Policy)** — MED — partial. Convex HTTP routes expose
      `securityHeaders` and `packages/convex/test/http-docs.test.ts` verifies

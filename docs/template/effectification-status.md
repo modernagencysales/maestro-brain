@@ -78,11 +78,14 @@ contract family.
   and kill-switch checks, and a fake-safe notification-center foundation with
   unread/read-state planning and preference rendering. Static Cloudflare Pages
   output now carries CSP, HSTS, frame, nosniff, referrer, and permissions-policy
-  headers through `apps/web/public/_headers`. Remaining product-surface work is
+  headers through `apps/web/public/_headers`. Data lifecycle planning now
+  includes DSAR export manifests, delete-request confirmation, legal-hold
+  blocking, and dry-run retention job plans. Remaining product-surface work is
   adoption: wire future modals/popovers into `TemplateDialog`, future forms into
   the starter form primitive, future live surfaces into the feature flag
-  evaluator, durable notification records into Confect tables, and real mutation
-  success/error paths into `TemplateToastProvider`.
+  evaluator, durable notification records into Confect tables, audited DSAR
+  fulfillment mutations, and real mutation success/error paths into
+  `TemplateToastProvider`.
 
 ## Starter Readiness Read
 

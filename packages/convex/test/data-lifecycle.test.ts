@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildRetentionJobPlan,
+  buildWorkspaceDsarPlan,
   buildWorkspaceDataLifecyclePlan,
   currentLifecycleResourceIds,
 } from "../confect/ops/dataLifecycle";
@@ -233,5 +235,135 @@ describe("template data lifecycle plan", () => {
       phrase: "delete workspace_123",
       reason: "workspace data deletion is destructive and audited",
     });
+  });
+
+  it("builds a DSAR export manifest from the lifecycle plan", () => {
+    const dsar = buildWorkspaceDsarPlan({
+      requestId: "dsar_export_123",
+      workspaceId: "workspace_123",
+      requestedBy: "privacy@example.test",
+      subjectId: "user_123",
+      kind: "export",
+      now: 1_700_000_000_000,
+    });
+
+    expect(dsar).toMatchObject({
+      requestId: "dsar_export_123",
+      workspaceId: "workspace_123",
+      requestedBy: "privacy@example.test",
+      subjectId: "user_123",
+      kind: "export",
+      status: "ready-for-review",
+      dryRunOnly: true,
+    });
+    expect(dsar.exportManifest.map((entry) => entry.resourceId)).toEqual(
+      currentLifecycleResourceIds,
+    );
+    expect(dsar.exportManifest).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          resourceId: "brainPages",
+          exportMode: "markdown",
+        }),
+        expect.objectContaining({
+          resourceId: "apiKeys",
+          exportMode: "redacted-json",
+        }),
+        expect.objectContaining({
+          resourceId: "actionDigests",
+          exportMode: "redacted-json",
+        }),
+      ]),
+    );
+  });
+
+  it("keeps DSAR delete requests non-executable until exact confirmation", () => {
+    const dsar = buildWorkspaceDsarPlan({
+      requestId: "dsar_delete_123",
+      workspaceId: "workspace_123",
+      requestedBy: "privacy@example.test",
+      kind: "delete",
+      now: 1_700_000_000_000,
+      confirmationPhrase: "delete workspace_WRONG",
+    });
+
+    expect(dsar.status).toBe("needs-confirmation");
+    expect(dsar.confirmation.phrase).toBe("delete workspace_123");
+    expect(dsar.deletePlan.every((entry) => entry.executable === false)).toBe(
+      true,
+    );
+    expect(dsar.deletePlan).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          resourceId: "brainPages",
+          deleteMode: "delete",
+          reason: "Awaiting exact workspace delete confirmation.",
+        }),
+        expect.objectContaining({
+          resourceId: "creditLedger",
+          deleteMode: "retain-audit",
+          reason: "Awaiting exact workspace delete confirmation.",
+        }),
+      ]),
+    );
+  });
+
+  it("blocks DSAR deletes behind legal hold even with exact confirmation", () => {
+    const dsar = buildWorkspaceDsarPlan({
+      requestId: "dsar_delete_hold_123",
+      workspaceId: "workspace_123",
+      requestedBy: "privacy@example.test",
+      kind: "delete",
+      now: 1_700_000_000_000,
+      confirmationPhrase: "delete workspace_123",
+      legalHold: {
+        enabled: true,
+        reason: "open billing dispute",
+        expiresAt: 1_700_086_400_000,
+      },
+    });
+
+    expect(dsar.status).toBe("blocked-by-legal-hold");
+    expect(dsar.legalHold).toMatchObject({ reason: "open billing dispute" });
+    expect(dsar.deletePlan).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          resourceId: "documents",
+          executable: false,
+          reason: "Blocked by legal hold: open billing dispute",
+        }),
+      ]),
+    );
+  });
+
+  it("plans retention jobs without performing destructive cron work", () => {
+    const retention = buildRetentionJobPlan({
+      workspaceId: "workspace_123",
+      requestedBy: "privacy@example.test",
+      now: 1_700_000_000_000,
+      auditWindowDays: 365,
+    });
+
+    expect(retention).toMatchObject({
+      workspaceId: "workspace_123",
+      dryRunOnly: true,
+      auditWindowDays: 365,
+      nextReviewAt: 1_700_086_400_000,
+    });
+    expect(
+      retention.actions.every((action) => action.executable === false),
+    ).toBe(true);
+    expect(retention.actions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          resourceId: "workflowRuns",
+          action: "retain-audit-window",
+        }),
+        expect.objectContaining({
+          resourceId: "brainPages",
+          action: "retain-until-workspace-delete",
+        }),
+      ]),
+    );
   });
 });

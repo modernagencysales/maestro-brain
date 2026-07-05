@@ -1,9 +1,10 @@
 # Data Lifecycle
 
-The template ships a small, explicit lifecycle planner rather than a broad data
-deleter. It is intentionally conservative: it documents export, retention, and
-delete posture for resources that exist in the template today, and it requires
-typed confirmation before destructive workspace delete work.
+The template ships a small, explicit lifecycle and DSAR planner rather than a
+broad data deleter. It is intentionally conservative: it documents export,
+retention, and delete posture for resources that exist in the template today,
+builds fake-safe export/delete request plans, plans retention jobs as dry-runs,
+and requires typed confirmation before destructive workspace delete work.
 
 Authoritative implementation:
 
@@ -19,6 +20,28 @@ Every schema addition that stores workspace-owned data must declare:
 
 These fields must be documented before a resource is promoted from
 generated/client-specific code into the template core.
+
+## DSAR Request Planning
+
+`buildWorkspaceDsarPlan` creates a plan-only request for workspace export or
+delete:
+
+- export requests produce an export manifest for every current lifecycle
+  resource, including markdown, JSON, and redacted JSON modes.
+- delete requests require the exact phrase `delete <workspaceId>` before they
+  can reach `ready-for-review`.
+- legal holds block delete plans even when the confirmation phrase is correct.
+- delete entries are always `executable: false` in the template. A client fork
+  must wire audited Confect mutations, approval checks, and legal signoff before
+  executing deletion or redaction.
+
+## Retention Job Planning
+
+`buildRetentionJobPlan` turns retention rules into a dry-run job plan with an
+audit window, next review timestamp, and per-resource actions. The template does
+not schedule destructive retention cron work by default. Client forks should use
+the dry-run plan as the review artifact before enabling scheduled deletion,
+redaction, or legal-hold-aware retention execution.
 
 ## Current Resources
 
@@ -124,5 +147,5 @@ The implemented retention hooks are:
 - Workflow runs: retain for the audit window.
 - Credit ledger: retain for reconciliation.
 
-Future client forks may add resources, but they must update this planner and its
-tests in the same change.
+Future client forks may add resources, but they must update this planner, DSAR
+plans, retention job expectations, and tests in the same change.

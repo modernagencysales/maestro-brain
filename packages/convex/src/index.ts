@@ -9,3 +9,21 @@ export {
   type HeadlessHttpCtx,
   type TemplateHttpRoute,
 } from "../confect/http";
+
+export {
+  buildRetentionJobPlan,
+  buildWorkspaceDataLifecyclePlan,
+  buildWorkspaceDsarPlan,
+  currentLifecycleResourceIds,
+  type DsarDeletePlanEntry,
+  type DsarExportManifestEntry,
+  type DsarRequestKind,
+  type DsarRequestStatus,
+  type LegalHold,
+  type LifecycleResourceId,
+  type LifecycleResourcePlan,
+  type RetentionJobPlan,
+  type RetentionRule,
+  type WorkspaceDataLifecyclePlan,
+  type WorkspaceDsarPlan,
+} from "../confect/ops/dataLifecycle";
