@@ -2,7 +2,8 @@ import { FunctionImpl, GroupImpl } from "@confect/server";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import databaseSchema from "../_generated/schema";
-import transforms from "./transforms.spec";
+import { validateCallerIdempotencyKey } from "../shared/idempotencyKey";
+import transforms, { TransformError } from "./transforms.spec";
 
 const now = 1_700_000_000_000;
 
@@ -27,8 +28,19 @@ const runTransform = FunctionImpl.make(
   databaseSchema,
   transforms,
   "runTransform",
-  (input) =>
-    Effect.succeed({
+  (input) => {
+    const idempotencyKey = validateCallerIdempotencyKey(input.idempotencyKey);
+
+    if (!idempotencyKey.ok) {
+      return Effect.fail(
+        new TransformError.ValidationFailed({
+          field: "idempotencyKey",
+          message: idempotencyKey.error.message,
+        }),
+      );
+    }
+
+    return Effect.succeed({
       workspaceId: input.workspaceId,
       runId: input.runId,
       transformId: input.transformId,
@@ -39,10 +51,11 @@ const runTransform = FunctionImpl.make(
       citationIds: input.citationIds,
       policySnapshotId: input.policySnapshotId,
       modelReceiptId: input.modelReceiptId,
-      idempotencyKey: input.idempotencyKey,
+      idempotencyKey: idempotencyKey.value,
       createdAt: now,
       completedAt: now,
-    }),
+    });
+  },
 );
 
 const getRun = FunctionImpl.make(

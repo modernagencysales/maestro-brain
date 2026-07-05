@@ -122,9 +122,11 @@ Convex component wiring (M).
    webhook state. The agent runtime also sanitizes malformed caller keys before
    recording denied/failed tool calls. `ops.versioning.append`,
    `ops.versioning.restore`, and `ops.versioning.reconcile` now validate version
-   ledger idempotency keys before returning append-only history rows. Remaining
-   work: adopt the shared validator across every remaining durable ledger path
-   that accepts caller-supplied idempotency keys.
+   ledger idempotency keys before returning append-only history rows.
+   `ops.transforms.runTransform` now validates transform run ledger keys before
+   returning completed run receipts. Remaining work: adopt the shared validator
+   across every remaining durable ledger path that accepts caller-supplied
+   idempotency keys.
 10. **Workspace bootstrap/provision provider (web)** — MED — no.
     `apps/web/src/providers/workspace.tsx`. Idempotent first-sign-in
     provisioning self-heal, then exposes active `workspaceId` via context.

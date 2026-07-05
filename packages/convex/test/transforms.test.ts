@@ -1,5 +1,9 @@
+import { TestConfect } from "@confect/test";
+import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
+import refs from "../confect/_generated/refs";
+import databaseSchema from "../confect/_generated/schema";
 import transforms, {
   GetTransformRunArgs,
   ProjectTrustReceiptArgs,
@@ -15,6 +19,7 @@ import transformsImpl from "../confect/ops/transforms.impl";
 import transformBlocks from "../confect/tables/transformBlocks";
 import transformDefinitions from "../confect/tables/transformDefinitions";
 import transformRuns from "../confect/tables/transformRuns";
+import { testConfectLayer } from "./support/confect";
 
 describe("transform Confect contracts", () => {
   it("declares transform definition, run, and block tables", () => {
@@ -176,6 +181,38 @@ describe("transform Confect contracts", () => {
   it("exports a finalized fake/local Confect implementation", () => {
     expect(transformsImpl).toMatchObject({
       _op_layer: "Fold",
+    });
+  });
+
+  it("rejects padded run idempotency keys before creating transform runs", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      return yield* confect
+        .mutation(refs.public.ops.transforms.runTransform, {
+          workspaceId: "workspace_123",
+          runId: "run_001",
+          transformId: "transform_gtm_brief",
+          inputHash: "sha256:input",
+          outputHash: "sha256:output",
+          sourceIds: ["source_founder_notes"],
+          citationIds: ["citation_001"],
+          policySnapshotId: "policy_snapshot_001",
+          modelReceiptId: "model_receipt_001",
+          idempotencyKey: " run-001 ",
+        })
+        .pipe(Effect.flip);
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result).toBeInstanceOf(TransformError.ValidationFailed);
+    expect(result).toMatchObject({
+      field: "idempotencyKey",
+      message: "idempotencyKey must not have leading or trailing whitespace.",
     });
   });
 });
