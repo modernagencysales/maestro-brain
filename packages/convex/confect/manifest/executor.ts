@@ -1,4 +1,8 @@
 import { confectManifest } from "@maestro-template/template-core/generated/confectManifest";
+import {
+  type IdempotencyKeyValidationError,
+  validateCallerIdempotencyKey,
+} from "../shared/idempotencyKey";
 
 export type HeadlessSurface = "api" | "cli" | "mcp";
 
@@ -177,21 +181,29 @@ const headlessOperationKinds = new Set<string>(["query", "mutation", "action"]);
 const isHeadlessOperationKind = (kind: string): kind is HeadlessOperationKind =>
   headlessOperationKinds.has(kind);
 
-const idempotencyKeyForRequest = (
-  request: HeadlessExecutorRequest,
-): string | undefined => request.idempotencyKey?.trim();
-
 const idempotencyFailureFor = (
   operation: HeadlessManifestOperation,
-  idempotencyKey: string | undefined,
+  idempotencyKey: IdempotencyKeyValidationError | string | undefined,
 ): HeadlessFailureResult | undefined => {
-  const hasRequiredKey = operation.idempotent || Boolean(idempotencyKey);
-  return hasRequiredKey
-    ? undefined
-    : failure(
-        "ValidationFailed",
-        `Operation ${operation.operationId} requires a nonblank idempotencyKey.`,
-      );
+  if (typeof idempotencyKey === "string") {
+    return undefined;
+  }
+
+  if (idempotencyKey === undefined || idempotencyKey.reason === "missing") {
+    if (operation.idempotent) {
+      return undefined;
+    }
+
+    return failure(
+      "ValidationFailed",
+      `Operation ${operation.operationId} requires a nonblank idempotencyKey.`,
+    );
+  }
+
+  return failure(
+    "ValidationFailed",
+    `Operation ${operation.operationId} received invalid idempotencyKey: ${idempotencyKey.message}`,
+  );
 };
 
 const inputFailureFor = (
@@ -231,10 +243,18 @@ const prepareHeadlessExecution = (
 
   if (resolved.ok) {
     const { operation } = resolved;
-    const idempotencyKey = idempotencyKeyForRequest(request);
+    const idempotencyKeyResult = validateCallerIdempotencyKey(
+      request.idempotencyKey,
+    );
+    const idempotencyValidation = idempotencyKeyResult.ok
+      ? idempotencyKeyResult.value
+      : idempotencyKeyResult.error;
+    const idempotencyKey = idempotencyKeyResult.ok
+      ? idempotencyKeyResult.value
+      : undefined;
     const ref = adapter.refs[operation.operationId];
     const validationFailure =
-      idempotencyFailureFor(operation, idempotencyKey) ??
+      idempotencyFailureFor(operation, idempotencyValidation) ??
       inputFailureFor(operation, request.input) ??
       refFailureFor(operation, ref);
 

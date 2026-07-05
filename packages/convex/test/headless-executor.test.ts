@@ -43,6 +43,45 @@ describe("headless executor", () => {
     });
   });
 
+  it("rejects padded and non-URL-safe idempotency keys before dispatch", async () => {
+    const adapter = createAdapter({
+      runMutation: async () => {
+        throw new Error("runMutation should not be called");
+      },
+    });
+
+    await expect(
+      executeHeadlessOperation(adapter, {
+        operationId: "brain.pages.createMarkdown",
+        surface: "api",
+        input: { title: "A note" },
+        idempotencyKey: " idem_123 ",
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      error: {
+        _tag: "ValidationFailed",
+        message:
+          "Operation brain.pages.createMarkdown received invalid idempotencyKey: idempotencyKey must not have leading or trailing whitespace.",
+      },
+    });
+    await expect(
+      executeHeadlessOperation(adapter, {
+        operationId: "brain.pages.createMarkdown",
+        surface: "api",
+        input: { title: "A note" },
+        idempotencyKey: "idem/123",
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      error: {
+        _tag: "ValidationFailed",
+        message:
+          "Operation brain.pages.createMarkdown received invalid idempotencyKey: idempotencyKey must contain only URL-safe letters, numbers, '.', '_', '~', or '-'.",
+      },
+    });
+  });
+
   it("dispatches exposed writes through the adapter ref with idempotency input", async () => {
     const calls: unknown[] = [];
     const adapter = createAdapter({

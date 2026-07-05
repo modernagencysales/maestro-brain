@@ -106,9 +106,14 @@ Convex component wiring (M).
 8. **Action-side tenancy bridge** — HIGH — no. `adapters/tenantAccess.ts`.
    `internalQuery` that `workspaceAction` calls via `ctx.runQuery` to re-verify
    membership (actions have no `ctx.db`).
-9. **Idempotency-key validator** — MED — no.
-   `checks/agentTurnIdempotencyKey.ts`. Bounded URL-safe validation before a
-   caller key becomes a durable ledger key.
+9. **Idempotency-key validator** — MED — partial.
+   `packages/convex/confect/shared/idempotencyKey.ts` now provides bounded
+   URL-safe caller-key validation, with
+   `packages/convex/test/shared-idempotency-key.test.ts` coverage. The headless
+   executor rejects missing, padded, too-long, or non-URL-safe keys before
+   external API/CLI/MCP-style writes dispatch. Remaining work: adopt the shared
+   validator across every durable ledger, agent turn, billing, webhook, and
+   notification path that accepts caller-supplied idempotency keys.
 10. **Workspace bootstrap/provision provider (web)** — MED — no.
     `apps/web/src/providers/workspace.tsx`. Idempotent first-sign-in
     provisioning self-heal, then exposes active `workspaceId` via context.
