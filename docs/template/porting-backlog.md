@@ -1306,10 +1306,13 @@ repos**.
      detects browser online/offline state, shows a connection banner for
      offline/degraded states, and exposes a retry action to reload the current
      route. Remaining work: mutation retry over Convex live queries.
-264. **SEO/social meta helper + `public/` assets** — MED — small Port +
-     Greenfield. `adapters/route-head.ts` is title-only; **no `public/` dir**
-     (no favicon, robots, sitemap, manifest, OG/Twitter cards) despite
-     public/shared pages.
+264. **SEO/social meta helper + `public/` assets** — MED — partial.
+     `apps/web/src/adapters/route-head.ts` centralizes canonical, manifest,
+     favicon, Open Graph, and Twitter metadata for the root route.
+     `apps/web/public` now includes `manifest.webmanifest`, `robots.txt`,
+     `sitemap.xml`, `favicon.svg`, and `social-card.svg`. Remaining work: client
+     forks should replace canonical domains, social art, sitemap entries, and
+     page-specific descriptions before public launch.
 265. **Cookie consent + legal pages (terms, privacy)** — MED — Greenfield.
      Needed because PostHog telemetry ships (item 24); no consent gate or legal
      routes.

@@ -60,6 +60,26 @@ describe("frontend platform routes", () => {
       display: "standalone",
       start_url: "/",
     });
+    expect(manifest.icons).toEqual([
+      {
+        src: "/favicon.svg",
+        sizes: "any",
+        type: "image/svg+xml",
+        purpose: "any maskable",
+      },
+    ]);
     expect(JSON.stringify(manifest).toLowerCase()).not.toContain("offline");
+  });
+
+  it("ships starter-safe public SEO assets", () => {
+    expect(read("public/robots.txt")).toContain(
+      "Sitemap: https://maestro-template.pages.dev/sitemap.xml",
+    );
+    expect(read("public/sitemap.xml")).toContain(
+      "https://maestro-template.pages.dev/onboarding",
+    );
+    expect(read("public/favicon.svg")).toContain("Maestro Template");
+    expect(read("public/social-card.svg")).toContain("Maestro Template");
+    expect(read("src/routes/__root.tsx")).toContain("buildTemplateRouteHead");
   });
 });

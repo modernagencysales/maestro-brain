@@ -19,6 +19,7 @@ import {
 import { createFakeWorkspaceOperations } from "../providers/workspace-operations";
 import { PostHogWebProvider } from "../providers/posthog";
 import { WebRouteUxBoundary } from "../navigation/route-ux-boundary";
+import { buildTemplateRouteHead } from "../adapters/route-head";
 import appCssUrl from "../index.css?url";
 import notionCssUrl from "../notion.css?url";
 import xyflowCssUrl from "@xyflow/react/dist/style.css?url";
@@ -30,27 +31,14 @@ export type RouterContext = {
 };
 
 export const Route = createRootRouteWithContext<RouterContext>()({
-  head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      {
-        name: "viewport",
-        content: "width=device-width, initial-scale=1, viewport-fit=cover",
-      },
-      { title: "Maestro Template" },
-      {
-        name: "description",
-        content:
-          "Private app factory for B2B AI Brain, workflow, and agent software.",
-      },
-      { name: "application-name", content: "Maestro Template" },
-    ],
-    links: [
-      { rel: "stylesheet", href: notionCssUrl },
-      { rel: "stylesheet", href: xyflowCssUrl },
-      { rel: "stylesheet", href: appCssUrl },
-    ],
-  }),
+  head: () =>
+    buildTemplateRouteHead({
+      stylesheets: [
+        { rel: "stylesheet", href: notionCssUrl },
+        { rel: "stylesheet", href: xyflowCssUrl },
+        { rel: "stylesheet", href: appCssUrl },
+      ],
+    }),
   component: RootComponent,
 });
 

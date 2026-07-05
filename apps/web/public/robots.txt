@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://maestro-template.pages.dev/sitemap.xml
