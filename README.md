@@ -75,7 +75,9 @@ an accident:
 
 How this repo was built — and why the commit history looks the way it does — is
 documented in
-[docs/template/delivery-story.md](./docs/template/delivery-story.md).
+[docs/template/delivery-story.md](./docs/template/delivery-story.md). The fast
+receipt path is
+[docs/template/delivery-receipts.md](./docs/template/delivery-receipts.md).
 
 ## Architecture
 

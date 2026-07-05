@@ -36,7 +36,9 @@ being demonstrated, not a shortcut around it:
 - The history is honest about failures. CI hardening landed as a sequence of red
   builds each fixing the previous failure (bare agents, corepack key rotation,
   tree-walking gates, cross-platform coverage variance). Those commits document
-  what running the gates for real actually costs.
+  what running the gates for real actually costs. For fast verification, use the
+  commit ranges and Buildkite anchors in
+  [`delivery-receipts.md`](./delivery-receipts.md).
 - Human decisions are recorded where they happened: design calls (keep vendored
   `repos/`, fixture-backed ops domains, thin live surface) live in README design
   decisions and AGENTS.md, and were made by the maintainer, not inferred by the
@@ -47,5 +49,6 @@ being demonstrated, not a shortcut around it:
 The claim this repo makes is narrow and checkable: an AI-heavy delivery process
 can produce production-shaped software when every change is forced through
 mechanical and adversarial review gates. The evidence is the gate configuration
-(all real, all wired — see `docs/rule-coverage.md`), the CI history, and the
-hosted app streaming live data from the deployed backend.
+(all real, all wired — see `docs/rule-coverage.md`), the CI history with
+receipts in [`delivery-receipts.md`](./delivery-receipts.md), and the hosted app
+streaming live data from the deployed backend.

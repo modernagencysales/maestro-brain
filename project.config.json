@@ -2,6 +2,7 @@
   "project": {
     "name": "maestro-template"
   },
+  "sharedConvexBackendNote": "The template showcase intentionally points staging and production Pages deployments at the same read-only seeded Convex demo backend. Client forks with tenant data must replace this with separate staging and production Convex deployments before claiming backend promotion isolation.",
   "environments": {
     "staging": {
       "name": "staging",

@@ -122,9 +122,10 @@ export const checkDescriptors = {
           "CLOUDFLARE_API_TOKEN",
           "CONVEX_DEPLOY_KEY",
           "convexUrl",
+          "sharedConvexBackendNote",
         ],
         message:
-          "project config must declare deploy environments, Convex URLs, and required secret names",
+          "project config must declare deploy environments, Convex URLs, required secret names, and any shared-backend exception note",
       },
       {
         file: ".buildkite/scripts/staging-deploy.sh",
@@ -345,7 +346,12 @@ export const checkDescriptors = {
     requirements: [
       {
         file: "README.md",
-        includes: ["AGENTS.md", "repo-map.md", "reviewer-guide.md"],
+        includes: [
+          "AGENTS.md",
+          "repo-map.md",
+          "reviewer-guide.md",
+          "delivery-receipts.md",
+        ],
         message: "README must link primary navigation docs",
       },
       {
