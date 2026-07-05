@@ -2,7 +2,8 @@ import { FunctionImpl, GroupImpl } from "@confect/server";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import databaseSchema from "../_generated/schema";
-import versioning from "./versioning.spec";
+import { validateCallerIdempotencyKey } from "../shared/idempotencyKey";
+import versioning, { VersioningError } from "./versioning.spec";
 
 const now = 1_700_000_000_000;
 
@@ -19,12 +20,31 @@ const reconciliationKey = (input: {
     input.idempotencyKey,
   ].join("::");
 
+const validateVersionIdempotencyKey = (
+  idempotencyKey: string,
+): string | VersioningError.ValidationFailed => {
+  const validation = validateCallerIdempotencyKey(idempotencyKey);
+
+  return validation.ok
+    ? validation.value
+    : new VersioningError.ValidationFailed({
+        field: "idempotencyKey",
+        message: validation.error.message,
+      });
+};
+
 const append = FunctionImpl.make(
   databaseSchema,
   versioning,
   "append",
-  (input) =>
-    Effect.succeed({
+  (input) => {
+    const idempotencyKey = validateVersionIdempotencyKey(input.idempotencyKey);
+
+    if (idempotencyKey instanceof Error) {
+      return Effect.fail(idempotencyKey);
+    }
+
+    return Effect.succeed({
       workspaceId: input.workspaceId,
       entityKey: input.entityKey,
       versionKey: input.versionKey,
@@ -33,18 +53,25 @@ const append = FunctionImpl.make(
       actorId: input.actorId,
       payloadHash: input.payloadHash,
       payloadJson: input.payloadJson,
-      idempotencyKey: input.idempotencyKey,
+      idempotencyKey,
       appendOnly: true,
       createdAt: now,
-    }),
+    });
+  },
 );
 
 const restore = FunctionImpl.make(
   databaseSchema,
   versioning,
   "restore",
-  (input) =>
-    Effect.succeed({
+  (input) => {
+    const idempotencyKey = validateVersionIdempotencyKey(input.idempotencyKey);
+
+    if (idempotencyKey instanceof Error) {
+      return Effect.fail(idempotencyKey);
+    }
+
+    return Effect.succeed({
       workspaceId: input.workspaceId,
       entityKey: input.entityKey,
       versionKey: input.versionKey,
@@ -54,31 +81,39 @@ const restore = FunctionImpl.make(
       actorId: input.actorId,
       payloadHash: input.payloadHash,
       payloadJson: input.payloadJson,
-      idempotencyKey: input.idempotencyKey,
+      idempotencyKey,
       appendOnly: true,
       createdAt: now,
-    }),
+    });
+  },
 );
 
 const reconcile = FunctionImpl.make(
   databaseSchema,
   versioning,
   "reconcile",
-  (input) =>
-    Effect.succeed({
+  (input) => {
+    const idempotencyKey = validateVersionIdempotencyKey(input.idempotencyKey);
+
+    if (idempotencyKey instanceof Error) {
+      return Effect.fail(idempotencyKey);
+    }
+
+    return Effect.succeed({
       workspaceId: input.workspaceId,
       entityKey: input.entityKey,
       versionKey: `external:${input.externalVersion}`,
       externalVersion: input.externalVersion,
-      reconciliationKey: reconciliationKey(input),
+      reconciliationKey: reconciliationKey({ ...input, idempotencyKey }),
       causation: "reconcile" as const,
       actorId: input.actorId,
       payloadHash: input.payloadHash,
       payloadJson: input.payloadJson,
-      idempotencyKey: input.idempotencyKey,
+      idempotencyKey,
       appendOnly: true,
       createdAt: now,
-    }),
+    });
+  },
 );
 
 const markFreshness = FunctionImpl.make(

@@ -120,9 +120,11 @@ Convex component wiring (M).
    action-digest keys. Dodo webhook normalization now emits URL-safe dedupe
    keys, and `ops.billing.applyWebhook` validates dedupe keys before recording
    webhook state. The agent runtime also sanitizes malformed caller keys before
-   recording denied/failed tool calls. Remaining work: adopt the shared
-   validator across every remaining durable ledger path that accepts
-   caller-supplied idempotency keys.
+   recording denied/failed tool calls. `ops.versioning.append`,
+   `ops.versioning.restore`, and `ops.versioning.reconcile` now validate version
+   ledger idempotency keys before returning append-only history rows. Remaining
+   work: adopt the shared validator across every remaining durable ledger path
+   that accepts caller-supplied idempotency keys.
 10. **Workspace bootstrap/provision provider (web)** — MED — no.
     `apps/web/src/providers/workspace.tsx`. Idempotent first-sign-in
     provisioning self-heal, then exposes active `workspaceId` via context.

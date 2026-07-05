@@ -1,5 +1,9 @@
+import { TestConfect } from "@confect/test";
+import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
+import refs from "../confect/_generated/refs";
+import databaseSchema from "../confect/_generated/schema";
 import versioning, {
   AppendVersionArgs,
   LatestVersionArgs,
@@ -13,6 +17,7 @@ import versioning, {
 import versioningImpl from "../confect/ops/versioning.impl";
 import versionFreshness from "../confect/tables/versionFreshness";
 import versionedEntries from "../confect/tables/versionedEntries";
+import { testConfectLayer } from "./support/confect";
 
 describe("versioning Confect contracts", () => {
   it("declares append-only history and mutable freshness tables", () => {
@@ -160,6 +165,95 @@ describe("versioning Confect contracts", () => {
   it("exports a finalized fake/local Confect implementation", () => {
     expect(versioningImpl).toMatchObject({
       _op_layer: "Fold",
+    });
+  });
+
+  it("rejects padded append idempotency keys before creating append-only history", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      return yield* confect
+        .mutation(refs.public.ops.versioning.append, {
+          workspaceId: "workspace_123",
+          entityKey: "brain/page/founder-notes",
+          versionKey: "v1",
+          causation: "human-edit",
+          actorId: "user_123",
+          payloadHash: "sha256:abc",
+          payloadJson: '{"title":"Founder notes"}',
+          idempotencyKey: " append-v1 ",
+        })
+        .pipe(Effect.flip);
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result).toBeInstanceOf(VersioningError.ValidationFailed);
+    expect(result).toMatchObject({
+      field: "idempotencyKey",
+      message: "idempotencyKey must not have leading or trailing whitespace.",
+    });
+  });
+
+  it("rejects padded restore idempotency keys before creating append-only history", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      return yield* confect
+        .mutation(refs.public.ops.versioning.restore, {
+          workspaceId: "workspace_123",
+          entityKey: "brain/page/founder-notes",
+          restoredFromVersionKey: "v1",
+          versionKey: "v3",
+          actorId: "user_123",
+          payloadHash: "sha256:restore",
+          payloadJson: '{"title":"Restored"}',
+          idempotencyKey: " restore-v3 ",
+        })
+        .pipe(Effect.flip);
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result).toBeInstanceOf(VersioningError.ValidationFailed);
+    expect(result).toMatchObject({
+      field: "idempotencyKey",
+      message: "idempotencyKey must not have leading or trailing whitespace.",
+    });
+  });
+
+  it("rejects padded reconcile idempotency keys before creating append-only history", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      return yield* confect
+        .mutation(refs.public.ops.versioning.reconcile, {
+          workspaceId: "workspace_123",
+          entityKey: "crm/account/acme",
+          externalVersion: "salesforce:001:7",
+          actorId: "sync_worker",
+          payloadHash: "sha256:crm",
+          payloadJson: '{"accountName":"Acme"}',
+          idempotencyKey: " sync-001 ",
+        })
+        .pipe(Effect.flip);
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result).toBeInstanceOf(VersioningError.ValidationFailed);
+    expect(result).toMatchObject({
+      field: "idempotencyKey",
+      message: "idempotencyKey must not have leading or trailing whitespace.",
     });
   });
 });
