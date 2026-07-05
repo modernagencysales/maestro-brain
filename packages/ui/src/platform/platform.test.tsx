@@ -1,9 +1,11 @@
 import { readFileSync } from "node:fs";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
   buildLocalizedPlatformLabels,
   filterCommandPaletteItems,
 } from "./command-palette";
+import { TemplateNotificationCenter } from "./notification-center";
 
 const read = (path: string): string => readFileSync(path, "utf8");
 
@@ -57,6 +59,57 @@ describe("frontend platform primitives", () => {
     expect(source).toContain("fake");
     expect(source).toContain("test");
     expect(source).toContain("live-ready");
+  });
+
+  it("renders notification read state, actions, and preference channels", () => {
+    const html = renderToStaticMarkup(
+      <TemplateNotificationCenter
+        notifications={[
+          {
+            id: "notification_1",
+            title: "Workflow completed",
+            body: "The launch flow is ready.",
+            category: "workflow",
+            priority: "normal",
+            delivery: "fake",
+            createdAt: "2026-07-05T14:00:00.000Z",
+            actionHref: "/runs/run_1",
+          },
+          {
+            id: "notification_2",
+            title: "Security reviewed",
+            body: "The provider posture was approved.",
+            category: "security",
+            priority: "high",
+            delivery: "test",
+            createdAt: "2026-07-05T13:00:00.000Z",
+            readAt: "2026-07-05T13:05:00.000Z",
+          },
+        ]}
+        preferences={[
+          {
+            category: "workflow",
+            inApp: true,
+            email: false,
+            digest: true,
+          },
+        ]}
+        summary={{
+          total: 2,
+          unread: 1,
+          mutedCategories: [],
+          liveDeliveryReady: false,
+        }}
+        onMarkRead={() => undefined}
+      />,
+    );
+
+    expect(html).toContain("1 unread");
+    expect(html).toContain("template-notification-row unread");
+    expect(html).toContain("Mark read");
+    expect(html).toContain('href="/runs/run_1"');
+    expect(html).toContain("Email off");
+    expect(html).toContain("Digest on");
   });
 
   it("declares onboarding checklist and missing live provider setup states", () => {

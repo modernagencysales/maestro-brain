@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WorkspaceOnboardingRouteImport } from './routes/_workspace.onboarding'
+import { Route as WorkspaceNotificationsRouteImport } from './routes/_workspace.notifications'
 import { Route as WorkspaceLegalRouteImport } from './routes/_workspace.legal'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +24,11 @@ const WorkspaceOnboardingRoute = WorkspaceOnboardingRouteImport.update({
   path: '/onboarding',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WorkspaceNotificationsRoute = WorkspaceNotificationsRouteImport.update({
+  id: '/_workspace/notifications',
+  path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WorkspaceLegalRoute = WorkspaceLegalRouteImport.update({
   id: '/_workspace/legal',
   path: '/legal',
@@ -32,30 +38,39 @@ const WorkspaceLegalRoute = WorkspaceLegalRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/legal': typeof WorkspaceLegalRoute
+  '/notifications': typeof WorkspaceNotificationsRoute
   '/onboarding': typeof WorkspaceOnboardingRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/legal': typeof WorkspaceLegalRoute
+  '/notifications': typeof WorkspaceNotificationsRoute
   '/onboarding': typeof WorkspaceOnboardingRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_workspace/legal': typeof WorkspaceLegalRoute
+  '/_workspace/notifications': typeof WorkspaceNotificationsRoute
   '/_workspace/onboarding': typeof WorkspaceOnboardingRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/legal' | '/onboarding'
+  fullPaths: '/' | '/legal' | '/notifications' | '/onboarding'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/legal' | '/onboarding'
-  id: '__root__' | '/' | '/_workspace/legal' | '/_workspace/onboarding'
+  to: '/' | '/legal' | '/notifications' | '/onboarding'
+  id:
+    | '__root__'
+    | '/'
+    | '/_workspace/legal'
+    | '/_workspace/notifications'
+    | '/_workspace/onboarding'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   WorkspaceLegalRoute: typeof WorkspaceLegalRoute
+  WorkspaceNotificationsRoute: typeof WorkspaceNotificationsRoute
   WorkspaceOnboardingRoute: typeof WorkspaceOnboardingRoute
 }
 
@@ -75,6 +90,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceOnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_workspace/notifications': {
+      id: '/_workspace/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof WorkspaceNotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_workspace/legal': {
       id: '/_workspace/legal'
       path: '/legal'
@@ -88,6 +110,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   WorkspaceLegalRoute: WorkspaceLegalRoute,
+  WorkspaceNotificationsRoute: WorkspaceNotificationsRoute,
   WorkspaceOnboardingRoute: WorkspaceOnboardingRoute,
 }
 export const routeTree = rootRouteImport

@@ -12,8 +12,11 @@ const read = (path: string): string =>
   readFileSync(resolve(appRoot, path), "utf8");
 
 describe("frontend platform routes", () => {
-  it("registers legal and onboarding workspace routes in navigation", () => {
+  it("registers legal, onboarding, and notification workspace routes in navigation", () => {
     expect(TEMPLATE_ROUTE_ITEMS.map((item) => item.key)).toContain("legal");
+    expect(TEMPLATE_ROUTE_ITEMS.map((item) => item.key)).toContain(
+      "notifications",
+    );
     expect(TEMPLATE_ROUTE_ITEMS.find((item) => item.key === "legal")).toEqual(
       expect.objectContaining({
         label: "Legal",
@@ -22,14 +25,18 @@ describe("frontend platform routes", () => {
     );
     expect(activeTemplateRouteKey("/legal/privacy")).toBe("legal");
     expect(activeTemplateRouteKey("/onboarding")).toBe("onboarding");
+    expect(activeTemplateRouteKey("/notifications")).toBe("notifications");
   });
 
-  it("defines legal and onboarding route files as template placeholders", () => {
+  it("defines legal, onboarding, and notification route files as template placeholders", () => {
     expect(
       existsSync(resolve(appRoot, "src/routes/_workspace.legal.tsx")),
     ).toBe(true);
     expect(
       existsSync(resolve(appRoot, "src/routes/_workspace.onboarding.tsx")),
+    ).toBe(true);
+    expect(
+      existsSync(resolve(appRoot, "src/routes/_workspace.notifications.tsx")),
     ).toBe(true);
     expect(read("src/routes/_workspace.legal.tsx")).toContain(
       "Replace these legal placeholders per client",
@@ -64,6 +71,18 @@ describe("frontend platform routes", () => {
     expect(
       read("src/features/setup/onboarding-workspace-brief-form.tsx"),
     ).toContain("useStarterAutosave");
+    expect(read("src/routes/_workspace.notifications.tsx")).toContain(
+      "NotificationCenterSurface",
+    );
+    expect(
+      read("src/features/notifications/notification-center-surface.tsx"),
+    ).toContain("buildNotificationCenterView");
+    expect(
+      read("src/features/notifications/notification-center-surface.tsx"),
+    ).toContain("markNotificationRead");
+    expect(
+      read("src/features/notifications/notification-center-surface.tsx"),
+    ).toContain("defaultNotificationPreferences");
   });
 
   it("ships a PWA manifest without unsupported offline claims", () => {

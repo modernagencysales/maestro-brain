@@ -21,6 +21,7 @@
     "@maestro-template/convex": "workspace:*",
     "@maestro-template/editor-core": "workspace:*",
     "@maestro-template/editor-react": "workspace:*",
+    "@maestro-template/notifications": "workspace:*",
     "@maestro-template/template-core": "workspace:*",
     "@maestro-template/ui": "workspace:*",
     "@maestro-template/workflow-tooling": "workspace:*",

@@ -36,6 +36,150 @@ export type EmailResult = EmailDelivery | EmailFailure;
 
 export type AlertSeverity = "info" | "warning" | "critical";
 
+export type NotificationCenterDeliveryState = "fake" | "test" | "live-ready";
+
+export type NotificationChannel = "inApp" | "email" | "digest";
+
+export type NotificationCategory =
+  "workspace" | "workflow" | "billing" | "security" | "system";
+
+export type NotificationPriority = "low" | "normal" | "high";
+
+export type NotificationRecord = {
+  readonly id: string;
+  readonly workspaceId: string;
+  readonly recipientId: string;
+  readonly title: string;
+  readonly body: string;
+  readonly category: NotificationCategory;
+  readonly priority: NotificationPriority;
+  readonly delivery: NotificationCenterDeliveryState;
+  readonly createdAt: string;
+  readonly readAt?: string;
+  readonly actionHref?: string;
+};
+
+export type NotificationPreference = {
+  readonly category: NotificationCategory;
+  readonly inApp: boolean;
+  readonly email: boolean;
+  readonly digest: boolean;
+};
+
+export type NotificationCenterSummary = {
+  readonly total: number;
+  readonly unread: number;
+  readonly mutedCategories: readonly NotificationCategory[];
+  readonly liveDeliveryReady: boolean;
+};
+
+export type NotificationCenterView = {
+  readonly notifications: readonly NotificationRecord[];
+  readonly preferences: readonly NotificationPreference[];
+  readonly summary: NotificationCenterSummary;
+};
+
+const notificationCategories = [
+  "workspace",
+  "workflow",
+  "billing",
+  "security",
+  "system",
+] as const satisfies readonly NotificationCategory[];
+
+export const defaultNotificationPreferences =
+  notificationCategories.map<NotificationPreference>((category) => ({
+    category,
+    inApp: true,
+    email: category === "security" || category === "system",
+    digest: category !== "security",
+  }));
+
+const defaultPreferenceFor = (
+  category: NotificationCategory,
+): NotificationPreference =>
+  defaultNotificationPreferences.find(
+    (preference) => preference.category === category,
+  ) ?? {
+    category,
+    inApp: true,
+    email: false,
+    digest: true,
+  };
+
+export const preferenceAllowsChannel = (
+  preference: NotificationPreference,
+  channel: NotificationChannel,
+): boolean => preference[channel];
+
+export const applyNotificationPreference = (
+  preferences: readonly NotificationPreference[],
+  preference: NotificationPreference,
+): readonly NotificationPreference[] => {
+  const withoutCategory = preferences.filter(
+    (existing) => existing.category !== preference.category,
+  );
+
+  return [...withoutCategory, preference].sort(
+    (a, b) =>
+      notificationCategories.indexOf(a.category) -
+      notificationCategories.indexOf(b.category),
+  );
+};
+
+export const markNotificationRead = ({
+  notification,
+  readAt,
+}: {
+  readonly notification: NotificationRecord;
+  readonly readAt: string;
+}): NotificationRecord => ({
+  ...notification,
+  readAt: notification.readAt ?? readAt,
+});
+
+export const buildNotificationCenterView = ({
+  notifications,
+  preferences = defaultNotificationPreferences,
+}: {
+  readonly notifications: readonly NotificationRecord[];
+  readonly preferences?: readonly NotificationPreference[];
+}): NotificationCenterView => {
+  const preferenceByCategory = new Map(
+    preferences.map((preference) => [preference.category, preference]),
+  );
+  const visibleNotifications = notifications
+    .filter((notification) =>
+      preferenceAllowsChannel(
+        preferenceByCategory.get(notification.category) ??
+          defaultPreferenceFor(notification.category),
+        "inApp",
+      ),
+    )
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const effectivePreferences = notificationCategories.map(
+    (category) =>
+      preferenceByCategory.get(category) ?? defaultPreferenceFor(category),
+  );
+
+  return {
+    notifications: visibleNotifications,
+    preferences: effectivePreferences,
+    summary: {
+      total: visibleNotifications.length,
+      unread: visibleNotifications.filter(
+        (notification) => notification.readAt === undefined,
+      ).length,
+      mutedCategories: effectivePreferences
+        .filter((preference) => !preference.inApp)
+        .map((preference) => preference.category),
+      liveDeliveryReady: visibleNotifications.some(
+        (notification) => notification.delivery === "live-ready",
+      ),
+    },
+  };
+};
+
 export type AlertPayload = {
   readonly severity: AlertSeverity;
   readonly title: string;

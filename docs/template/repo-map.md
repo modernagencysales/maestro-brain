@@ -60,7 +60,8 @@
   generated Confect manifest output, workflow/capability/agent types, co-editing
   domain constructors, policies, and reviewer-safe fixtures.
 - `packages/integrations`: Effect service interfaces and provider adapters.
-- `packages/notifications`: notification provider boundary.
+- `packages/notifications`: notification provider boundary plus fake-safe in-app
+  center model, read-state planner, and channel preferences.
 - `packages/storage`: asset storage provider boundary.
 - `packages/observability`: event contracts, logs, SLOs, and telemetry helpers.
 - `packages/search`: optional search/vector provider boundary.
@@ -115,7 +116,8 @@
 - `/api`: API docs and key management.
 - `/onboarding`: first-run setup.
 - `/data-map`: retention, export, delete, and processor inventory.
-- `/notifications`: notification center.
+- `/notifications`: fake-safe notification center, read-state reference UI, and
+  channel preferences.
 - `/settings`: workspace, users, auth, and Notion settings.
 - `/billing`: package, entitlement, credits, checkout, and portal.
 - `/analytics`: product and workflow analytics.

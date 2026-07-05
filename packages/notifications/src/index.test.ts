@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyNotificationPreference,
+  buildNotificationCenterView,
   createActionDigestService,
   createAlertService,
   createEmailService,
+  defaultNotificationPreferences,
+  markNotificationRead,
+  preferenceAllowsChannel,
   redactEmailPayload,
+  type NotificationRecord,
 } from "./index";
 
 describe("notification provider seams", () => {
@@ -182,5 +188,105 @@ describe("notification provider seams", () => {
         templateData: "[redacted]",
       }),
     ]);
+  });
+});
+
+describe("notification center model", () => {
+  const notifications: readonly NotificationRecord[] = [
+    {
+      id: "notification_workflow_done",
+      workspaceId: "workspace_123",
+      recipientId: "user_ops",
+      title: "Workflow completed",
+      body: "The launch workflow finished and is ready for review.",
+      category: "workflow",
+      priority: "normal",
+      delivery: "fake",
+      createdAt: "2026-07-05T13:00:00.000Z",
+      actionHref: "/runs/run_123",
+    },
+    {
+      id: "notification_security_review",
+      workspaceId: "workspace_123",
+      recipientId: "user_ops",
+      title: "Security review needed",
+      body: "A new live provider key is waiting for approval.",
+      category: "security",
+      priority: "high",
+      delivery: "test",
+      createdAt: "2026-07-05T14:00:00.000Z",
+      readAt: "2026-07-05T14:05:00.000Z",
+    },
+  ];
+  const workflowDoneNotification = notifications[0];
+  const securityReviewNotification = notifications[1];
+
+  if (
+    workflowDoneNotification === undefined ||
+    securityReviewNotification === undefined
+  ) {
+    throw new Error("Notification center test fixtures are incomplete.");
+  }
+
+  it("builds an in-app view with unread counts and newest-first ordering", () => {
+    expect(buildNotificationCenterView({ notifications })).toMatchObject({
+      notifications: [
+        { id: "notification_security_review" },
+        { id: "notification_workflow_done" },
+      ],
+      summary: {
+        total: 2,
+        unread: 1,
+        mutedCategories: [],
+        liveDeliveryReady: false,
+      },
+    });
+  });
+
+  it("filters muted in-app categories while preserving delivery preferences", () => {
+    const preferences = applyNotificationPreference(
+      defaultNotificationPreferences,
+      {
+        category: "workflow",
+        inApp: false,
+        email: true,
+        digest: true,
+      },
+    );
+
+    const view = buildNotificationCenterView({ notifications, preferences });
+
+    expect(view.notifications.map((notification) => notification.id)).toEqual([
+      "notification_security_review",
+    ]);
+    expect(view.summary.mutedCategories).toEqual(["workflow"]);
+    expect(
+      preferenceAllowsChannel(
+        view.preferences.find(
+          (preference) => preference.category === "workflow",
+        ) ?? {
+          category: "workflow",
+          inApp: false,
+          email: false,
+          digest: false,
+        },
+        "email",
+      ),
+    ).toBe(true);
+  });
+
+  it("marks unread notifications without rewriting an existing read receipt", () => {
+    expect(
+      markNotificationRead({
+        notification: workflowDoneNotification,
+        readAt: "2026-07-05T15:00:00.000Z",
+      }),
+    ).toMatchObject({ readAt: "2026-07-05T15:00:00.000Z" });
+    expect(
+      markNotificationRead({
+        notification: securityReviewNotification,
+        readAt: "2026-07-05T15:00:00.000Z",
+      }),
+    ).toMatchObject({ readAt: "2026-07-05T14:05:00.000Z" });
   });
 });

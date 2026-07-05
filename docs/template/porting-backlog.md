@@ -1292,9 +1292,15 @@ repos**.
      `/onboarding` uses the provider for its continuation action. Remaining
      work: wire future real mutation success/error paths across product surfaces
      into the provider.
-260. **In-app notification center (table + UI + prefs)** — MED — Greenfield. No
-     notifications schema, center UI, or prefs panel. Bell/inbox with
-     read-state + digest prefs.
+260. **In-app notification center (table + UI + prefs)** — MED — partial.
+     `packages/notifications` now owns the starter notification-center model:
+     fake/test/live-ready delivery state, in-app/email/digest preferences,
+     in-app filtering, unread counts, and read-receipt planning.
+     `TemplateNotificationCenter` renders the bell/inbox surface with unread
+     state, open actions, and channel preferences, and `/notifications` ships a
+     fake-safe reference route. Remaining work: promote records/preferences into
+     Confect tables, wire workspace/user-scoped queries and mutations, and add
+     digest scheduling plus provider-backed delivery in client forks.
 261. **Form library + validation / dirty-state / autosave** — HIGH — partial.
      `@tanstack/react-form` is installed in the web app, and
      `apps/web/src/forms/starter-form.ts` provides the reusable starter
