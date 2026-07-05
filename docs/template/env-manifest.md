@@ -54,6 +54,15 @@ pipeline). Forks with real tenant data must mint separate staging/production
 deployments and keys before the staging→production promotion gate means anything
 for the backend.
 
+`pnpm deploy:doctor` reads `project.config.json` and
+`docs/template/env-manifest.json` together. `requiredEnvGroups` in
+`project.config.json` expand to concrete manifest entries, so deploy reports
+name the missing environment variables without printing values. Staging checks
+deploy-scoped manifest entries; production checks deploy entries plus live
+provider entries for the configured groups. CI runtime markers such as
+`BUILDKITE_COMMIT` are documented in the manifest but are not required by local
+deploy doctor runs.
+
 WorkOS forks also derive Convex trusted JWT settings from the AuthKit issuer,
 JWKS URL, and client/application ID. The template ships a fake-safe
 `packages/convex/convex/auth.config.ts`; production forks must replace the

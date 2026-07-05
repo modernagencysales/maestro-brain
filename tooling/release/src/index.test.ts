@@ -105,6 +105,30 @@ const makeReviewerRepo = (): string => {
   return repoRoot;
 };
 
+const writeEnvManifest = (
+  repoRoot: string,
+  variables: readonly {
+    readonly name: string;
+    readonly group: string;
+    readonly requiredFor: readonly string[];
+  }[],
+): void => {
+  const path = join(repoRoot, "docs/template/env-manifest.json");
+
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(
+    path,
+    JSON.stringify(
+      {
+        schemaVersion: 1,
+        variables,
+      },
+      null,
+      2,
+    ),
+  );
+};
+
 describe("release tooling", () => {
   it("passes for a built static web app", () => {
     const repoRoot = makeRepo();
@@ -316,6 +340,23 @@ describe("release tooling", () => {
 
   it("builds deploy doctor reports without leaking secret values", () => {
     const repoRoot = makeReviewerRepo();
+    writeEnvManifest(repoRoot, [
+      {
+        name: "CLOUDFLARE_API_TOKEN",
+        group: "cloudflare",
+        requiredFor: ["deploy"],
+      },
+      {
+        name: "CONVEX_DEPLOY_KEY",
+        group: "convex",
+        requiredFor: ["deploy"],
+      },
+      {
+        name: "WORKOS_API_KEY",
+        group: "workos",
+        requiredFor: ["live"],
+      },
+    ]);
     writeFileSync(
       join(repoRoot, "project.config.json"),
       JSON.stringify({
@@ -354,9 +395,86 @@ describe("release tooling", () => {
         ok: false,
         environment: "staging",
         cloudflarePagesProject: "maestro-template-staging",
+        requiredEnvNames: ["CLOUDFLARE_API_TOKEN", "CONVEX_DEPLOY_KEY"],
+        missingEnvNames: ["CONVEX_DEPLOY_KEY"],
         missingSecretNames: ["CONVEX_DEPLOY_KEY"],
       });
       expect(JSON.stringify(report)).not.toContain("super-secret-value");
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("uses manifest groups to require live provider env for production deploys", () => {
+    const repoRoot = makeReviewerRepo();
+    writeEnvManifest(repoRoot, [
+      {
+        name: "OPENROUTER_API_KEY",
+        group: "openrouter",
+        requiredFor: ["live"],
+      },
+      {
+        name: "POSTHOG_PROJECT_TOKEN",
+        group: "posthog",
+        requiredFor: ["live"],
+      },
+      {
+        name: "CLOUDFLARE_API_TOKEN",
+        group: "cloudflare",
+        requiredFor: ["deploy"],
+      },
+      {
+        name: "LOCAL_ONLY_FAKE_KEY",
+        group: "openrouter",
+        requiredFor: ["fake"],
+      },
+    ]);
+    writeFileSync(
+      join(repoRoot, "project.config.json"),
+      JSON.stringify({
+        project: { name: "maestro-template" },
+        environments: {
+          staging: {
+            name: "staging",
+            domain: "staging.example.test",
+            cloudflarePagesProject: "maestro-template-staging",
+            cloudflareBranch: "staging",
+            convexDeployName: "maestro-template-staging",
+            requiredEnvGroups: ["cloudflare"],
+            requiredSecrets: [],
+          },
+          production: {
+            name: "production",
+            domain: "app.example.test",
+            cloudflarePagesProject: "maestro-template",
+            cloudflareBranch: "main",
+            convexDeployName: "maestro-template-production",
+            requiredEnvGroups: ["cloudflare", "llm", "posthog"],
+            requiredSecrets: [],
+          },
+        },
+      }),
+    );
+
+    try {
+      expect(
+        buildDeployDoctorReport({
+          repoRoot,
+          environment: "production",
+          env: {
+            CLOUDFLARE_API_TOKEN: "cloudflare-secret",
+            POSTHOG_PROJECT_TOKEN: "posthog-secret",
+          },
+        }),
+      ).toMatchObject({
+        ok: false,
+        requiredEnvNames: [
+          "CLOUDFLARE_API_TOKEN",
+          "OPENROUTER_API_KEY",
+          "POSTHOG_PROJECT_TOKEN",
+        ],
+        missingEnvNames: ["OPENROUTER_API_KEY"],
+      });
     } finally {
       rmSync(repoRoot, { recursive: true, force: true });
     }
@@ -549,6 +667,13 @@ describe("release tooling", () => {
       ).toMatchObject({
         ok: true,
         environment: "staging",
+        requiredSecretNames: [],
+      });
+      expect(
+        JSON.parse(runReleaseCli(["deploy-doctor"], repoRoot).stdout),
+      ).toMatchObject({
+        ok: true,
+        environment: "production",
         requiredSecretNames: [],
       });
       expect(

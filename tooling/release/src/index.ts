@@ -91,7 +91,10 @@ export type DeployDoctorReport = {
   readonly cloudflarePagesProject: string;
   readonly convexDeployName: string;
   readonly requiredEnvGroups: readonly string[];
+  readonly manifestPath: string;
+  readonly requiredEnvNames: readonly string[];
   readonly requiredSecretNames: readonly string[];
+  readonly missingEnvNames: readonly string[];
   readonly missingSecretNames: readonly string[];
 };
 
@@ -125,6 +128,84 @@ const readProjectConfig = (repoRoot: string): ProjectConfig => {
   return parsed;
 };
 
+type EnvManifestVariable = {
+  readonly name: string;
+  readonly group: string;
+  readonly requiredFor: readonly string[];
+};
+
+type EnvManifest = {
+  readonly variables: readonly EnvManifestVariable[];
+};
+
+const envManifestPath = (repoRoot: string): string =>
+  resolve(repoRoot, "docs/template/env-manifest.json");
+
+const readEnvManifest = (repoRoot: string): EnvManifest | undefined => {
+  const path = envManifestPath(repoRoot);
+
+  if (!existsSync(path)) {
+    return undefined;
+  }
+
+  return JSON.parse(readFileSync(path, "utf8")) as EnvManifest;
+};
+
+const deployEnvGroupAliases = {
+  llm: ["openrouter"],
+  email: ["mailersend"],
+  "fake-providers": [
+    "app",
+    "workos",
+    "posthog",
+    "dodo",
+    "mailersend",
+    "openrouter",
+    "storage",
+    "search",
+  ],
+} as const satisfies Record<string, readonly string[]>;
+
+const expandEnvGroups = (groups: readonly string[]): readonly string[] => [
+  ...new Set(
+    groups.flatMap(
+      (group) =>
+        deployEnvGroupAliases[group as keyof typeof deployEnvGroupAliases] ?? [
+          group,
+        ],
+    ),
+  ),
+];
+
+const manifestRequiredFor = (
+  environment: DeployEnvironmentName,
+): readonly string[] =>
+  environment === "production" ? ["live", "deploy"] : ["deploy"];
+
+const manifestRequiredEnvNames = (
+  manifest: EnvManifest | undefined,
+  groups: readonly string[],
+  environment: DeployEnvironmentName,
+): readonly string[] => {
+  if (!manifest) {
+    return [];
+  }
+
+  const expandedGroups = new Set(expandEnvGroups(groups));
+  const requiredFor = new Set(manifestRequiredFor(environment));
+
+  return [
+    ...new Set(
+      manifest.variables
+        .filter((variable) => expandedGroups.has(variable.group))
+        .filter((variable) =>
+          variable.requiredFor.some((mode) => requiredFor.has(mode)),
+        )
+        .map((variable) => variable.name),
+    ),
+  ].sort();
+};
+
 const deployEnvironment = (
   repoRoot: string,
   environment: DeployEnvironmentName,
@@ -147,18 +228,28 @@ export const buildDeployDoctorReport = (options: {
   const repoRoot = options.repoRoot ?? process.cwd();
   const env = options.env ?? process.env;
   const selected = deployEnvironment(repoRoot, options.environment);
+  const manifest = readEnvManifest(repoRoot);
+  const requiredEnvNames = manifestRequiredEnvNames(
+    manifest,
+    selected.requiredEnvGroups,
+    selected.name,
+  );
+  const missingEnvNames = requiredEnvNames.filter((name) => !env[name]?.trim());
   const missingSecretNames = selected.requiredSecrets.filter(
-    (name) => !env[name],
+    (name) => !env[name]?.trim(),
   );
 
   return {
-    ok: missingSecretNames.length === 0,
+    ok: missingSecretNames.length === 0 && missingEnvNames.length === 0,
     environment: selected.name,
     domain: selected.domain,
     cloudflarePagesProject: selected.cloudflarePagesProject,
     convexDeployName: selected.convexDeployName,
     requiredEnvGroups: selected.requiredEnvGroups,
+    manifestPath: envManifestPath(repoRoot),
+    requiredEnvNames,
     requiredSecretNames: selected.requiredSecrets,
+    missingEnvNames,
     missingSecretNames,
   };
 };
@@ -726,7 +817,7 @@ export const runReleaseCli = (
     return {
       exitCode: 0,
       stdout:
-        "release-tooling smoke-web-static | review-readiness | review-completion | client-release <template-version> <client-version> | deploy-doctor <staging|production> | deploy-plan staging <sha> | promote-plan <staged-sha> <current-sha>\n",
+        "release-tooling smoke-web-static | review-readiness | review-completion | client-release <template-version> <client-version> | deploy-doctor [staging|production] | deploy-plan staging <sha> | promote-plan <staged-sha> <current-sha>\n",
       stderr: "",
     };
   }
@@ -787,13 +878,14 @@ export const runReleaseCli = (
   }
 
   if (command === "deploy-doctor") {
-    const environment = argv[1] as DeployEnvironmentName | undefined;
+    const environment = (argv[1] ?? "production") as
+      DeployEnvironmentName | undefined;
 
     if (environment !== "staging" && environment !== "production") {
       return {
         exitCode: 1,
         stdout: "",
-        stderr: "Usage: deploy-doctor <staging|production>\n",
+        stderr: "Usage: deploy-doctor [staging|production]\n",
       };
     }
 
