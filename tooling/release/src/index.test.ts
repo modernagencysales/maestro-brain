@@ -304,7 +304,7 @@ describe("release tooling", () => {
         ok: true,
         auditKind: "presence",
         warning:
-          "Presence audit only: this report checks evidence paths and handoff-label content. It does not execute verification commands; run pnpm verify for behavior.",
+          "Presence audit only: this report checks evidence paths. It does not execute verification commands or inspect generated handoff content; run pnpm verify and client-release for behavior.",
         commit: "abc1234",
         hostedUrl: "https://example.test",
         requirements: expect.arrayContaining([
@@ -356,7 +356,7 @@ describe("release tooling", () => {
         ok: true,
         auditKind: "presence",
         warning:
-          "Presence audit only: this report checks evidence paths and handoff-label content. It does not execute verification commands; run pnpm verify for behavior.",
+          "Presence audit only: this report checks evidence paths. It does not execute verification commands or inspect generated handoff content; run pnpm verify and client-release for behavior.",
         hostedUrl: "https://maestro-template.pages.dev",
         requirements: expect.arrayContaining([
           expect.objectContaining({ id: "app-factory", status: "pass" }),

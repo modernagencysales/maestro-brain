@@ -735,7 +735,7 @@ const readinessPresenceAuditWarning =
   "Presence audit only: this report checks required files and listed evidence paths. Run pnpm verify for behavior.";
 
 const completionPresenceAuditWarning =
-  "Presence audit only: this report checks evidence paths and handoff-label content. It does not execute verification commands; run pnpm verify for behavior.";
+  "Presence audit only: this report checks evidence paths. It does not execute verification commands or inspect generated handoff content; run pnpm verify and client-release for behavior.";
 
 export const reviewerCommands = [
   "pnpm check:format",
