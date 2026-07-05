@@ -32,6 +32,16 @@ describe("shared typed env access", () => {
     expect(() =>
       readRequiredEnv("WORKOS_API_KEY", { WORKOS_API_KEY: "   " }),
     ).toThrow(/Blank required env: WORKOS_API_KEY/);
+    expect(() =>
+      Schema.decodeUnknownSync(EnvConfigError)({
+        _tag: "EnvConfigError",
+        name: "WORKOS_API_KEY",
+        reason: "whitespace",
+      }),
+    ).not.toThrow();
+    expect(() =>
+      readRequiredEnv("WORKOS_API_KEY", { WORKOS_API_KEY: " test_key " }),
+    ).toThrow(/Whitespace-contaminated required env: WORKOS_API_KEY/);
   });
 
   it("does not require live secrets in fake mode", () => {
@@ -44,12 +54,12 @@ describe("shared typed env access", () => {
     expect(result).toEqual({});
   });
 
-  it("returns trimmed optional and required values", () => {
+  it("returns trimmed optional values and exact required values", () => {
     expect(
       readOptionalEnv("OPTIONAL_URL", { OPTIONAL_URL: "  https://x.test " }),
     ).toBe("https://x.test");
     expect(
-      readRequiredEnv("REQUIRED_URL", { REQUIRED_URL: "  https://x.test " }),
+      readRequiredEnv("REQUIRED_URL", { REQUIRED_URL: "https://x.test" }),
     ).toBe("https://x.test");
   });
 
@@ -62,7 +72,7 @@ describe("shared typed env access", () => {
 
     expect(
       requireLiveEnv(["WORKOS_API_KEY"], "test", {
-        WORKOS_API_KEY: " test_key ",
+        WORKOS_API_KEY: "test_key",
       }),
     ).toEqual({ WORKOS_API_KEY: "test_key" });
   });

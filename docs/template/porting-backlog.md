@@ -115,32 +115,50 @@ Convex component wiring (M).
 
 ## B. Secrets, crypto & environment
 
-11. **Typed env accessor with whitespace rejection** — HIGH — no.
-    `adapters/env.ts` (+ `adapters/env.secrets.test.ts`). Only file allowed to
-    read `process.env`; per-integration accessors that throw on missing or
-    whitespace-contaminated secrets; also `killSwitchOn()` / `LLM_DISABLED`.
-12. **Shared Web-Crypto token primitives** — HIGH — no.
-    `packages/shared/src/tokenCrypto.ts` (+ `checks/tokenCrypto.ts`).
-    `hmacSha256Base64url`, `sha256Hex`, `base64url{Encode,Decode}`,
-    `constantTimeEqual` — Web Crypto only (works in the Convex isolate).
-13. **base64url byte helpers** — MED — no. `checks/base64Url.ts`. RFC 4648
-    byte-level encode/decode for signed-state/OAuth payloads.
+11. **Typed env accessor with whitespace rejection** — HIGH — partial.
+    `packages/convex/confect/shared/env.ts` now owns typed required/optional env
+    reads, fake-mode live-secret bypass, `killSwitchOn()` / `LLM_DISABLED`, and
+    `EnvConfigError` failures for missing, blank, and whitespace-contaminated
+    required values. `packages/convex/test/shared-env.test.ts` pins the
+    contract. Remaining work: route every backend integration through this
+    shared accessor and tighten the "only file allowed to read `process.env`"
+    boundary for non-generated server code.
+12. **Shared Web-Crypto token primitives** — HIGH — partial.
+    `packages/convex/confect/shared/tokenCrypto.ts` provides Web Crypto
+    `hmacSha256Base64Url`, `sha256Base64Url`, `base64Url{Encode,Decode}`,
+    `constantTimeEqual`, and stable fingerprint support with
+    `packages/convex/test/shared-token-crypto.test.ts`. Remaining work: add the
+    exact hex-hash helper if a fork needs stored `sha256Hex(token)` rows.
+13. **base64url byte helpers** — MED — partial.
+    `packages/convex/confect/shared/base64Url.ts` re-exports the byte-level
+    base64url helpers from the shared token-crypto module. Remaining work: add
+    stricter malformed-input classification if signed external tokens need
+    user-facing parse errors.
 14. **Signed-token sign/verify/hash pattern** — MED — no.
     `checks/reviewTokenCrypto.ts`, `checks/agentDoorCrypto.ts`. HMAC-signed
     `<payload>.<hmac>` tokens; format checked before signature so shape errors
     never leak HMAC truthiness; store only `sha256Hex(token)`; injected
     `now`/`nonce`.
-15. **Server nonce seam** — LOW — no. `adapters/nonce.ts`. Single entropy seam
-    (`crypto.randomUUID()`) enforcing the no-ambient-random contract.
-16. **Content fingerprint helper** — LOW — no. `checks/fingerprint.ts`. Stable
-    content hashing for dedup/change-detection.
+15. **Server nonce seam** — LOW — partial.
+    `packages/convex/confect/shared/nonce.ts` provides deterministic test nonce
+    sequences and a Web Crypto random-byte nonce seam, covered by
+    `packages/convex/test/shared-clock-nonce.test.ts`. Remaining work: adopt
+    this seam in every future token/id path that would otherwise reach for
+    ambient randomness.
+16. **Content fingerprint helper** — LOW — partial.
+    `packages/convex/confect/shared/fingerprint.ts` re-exports stable sorted-key
+    fingerprinting from the shared token-crypto module, with tests. Remaining
+    work: apply it to future dedup/change-detection tables as those tables land.
 17. **Closed error-code catalog + `typedError`** — MED — partial.
     `adapters/errors.ts`. Literal-union `ErrorCode`
     (`UNAUTHENTICATED`/`NO_WORKSPACE_ACCESS`/`RATE_LIMITED`/`SPEND_CAP_EXCEEDED`/
     `LLM_DISABLED`/…) + `typedError`/`isConvexError`. Template has Effect
     `TaggedError`s over a different surface; port the closed-code discipline.
-18. **Server clock seam** — LOW — no. `adapters/clock.ts`. `serverNow` injection
-    point that makes time-dependent logic testable.
+18. **Server clock seam** — LOW — partial.
+    `packages/convex/confect/shared/clock.ts` exposes Effect Clock-backed
+    `currentTimeMillis`, `currentDate`, and `currentIso`, with `TestClock`
+    coverage in `packages/convex/test/shared-clock-nonce.test.ts`. Remaining
+    work: migrate any future persisted time-dependent logic through this seam.
 
 ## C. Provider adapters / integrations
 
@@ -152,8 +170,12 @@ Convex component wiring (M).
     **Replaces the template's canned `createProviderAdapter` for LLM.** 19b.
     **Narrow OpenRouter response parser** — LOW — no. `adapters/llmResponse.ts`.
     Defensive JSON parsing of the provider result.
-20. **Global LLM kill-switch** — HIGH — no. `adapters/env.ts` `killSwitchOn()`.
-    Ops "stop all model calls" lever, independent of billing/policy caps.
+20. **Global LLM kill-switch** — HIGH — partial.
+    `packages/convex/confect/shared/env.ts` includes `killSwitchOn()` for
+    `LLM_DISABLED`, and `packages/integrations/src/llm.ts` honors `LLM_DISABLED`
+    in the starter LLM gateway. Remaining work: route every live model/agent
+    execution path through the same gate before a fork enables production AI
+    calls.
 21. **Per-caller rate limiter** — HIGH — no (component not installed).
     `adapters/rateLimit.ts` (+ test) on `@convex-dev/rate-limiter`. Token-bucket
     `enforceLlmRateLimit` throwing `RATE_LIMITED`; reusable route + per-token

@@ -15,16 +15,21 @@ export class EnvConfigError extends Schema.TaggedError<EnvConfigError>()(
   "EnvConfigError",
   {
     name: Schema.String,
-    reason: Schema.Literal("missing", "blank"),
+    reason: Schema.Literal("missing", "blank", "whitespace"),
   },
 ) {}
 
 const makeEnvConfigError = (
   name: string,
-  reason: "missing" | "blank",
+  reason: "missing" | "blank" | "whitespace",
 ): EnvConfigError => {
   const error = new EnvConfigError({ name, reason });
-  const label = reason === "missing" ? "Missing" : "Blank";
+  const label =
+    reason === "missing"
+      ? "Missing"
+      : reason === "blank"
+        ? "Blank"
+        : "Whitespace-contaminated";
 
   Object.defineProperty(error, "message", {
     value: `${label} required env: ${name}`,
@@ -49,10 +54,15 @@ export const readRequiredEnv = (name: string, env: EnvSource): string => {
     throw makeEnvConfigError(name, "missing");
   }
 
-  const value = trimEnvValue(env[name]);
+  const rawValue = env[name];
+  const value = trimEnvValue(rawValue);
 
   if (!value) {
     throw makeEnvConfigError(name, "blank");
+  }
+
+  if (rawValue !== value) {
+    throw makeEnvConfigError(name, "whitespace");
   }
 
   return value;
