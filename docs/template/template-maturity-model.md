@@ -81,9 +81,11 @@ Maestro-style Notion Kit shell, typed data adapters, designed route states, and
 React Flow constrained to workflow surfaces.
 
 **Boundary:** L4 proves the template can start real client builds with strong
-guardrails. It still leaves fork- or product-specific work such as full tenant
-admin flows, billing/provider wiring, notification center, every mutation toast,
-and every future modal/popover adoption.
+guardrails. [template-defaults.md](./template-defaults.md) is the default versus
+extension-path decision record for surfaces such as billing, notification
+center, retention jobs, and deploy promotion. It still leaves fork- or
+product-specific work such as full tenant admin flows, every mutation toast, and
+every future modal/popover adoption.
 
 **Required evidence:** `tooling/generators/src/index.ts`,
 `docs/template/quickstart.md`, `docs/template/generator-output-contract.md`,

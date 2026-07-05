@@ -42,4 +42,29 @@ describe("check:docs-freshness", () => {
       "Current readiness commands and the maturity model are authoritative",
     );
   });
+
+  it("keeps template default decisions explicit for client fork surfaces", () => {
+    const defaults = normalizeMarkdownText(
+      readRepoFile("docs/template/template-defaults.md"),
+    );
+    const maturity = normalizeMarkdownText(
+      readRepoFile("docs/template/template-maturity-model.md"),
+    );
+    const status = normalizeMarkdownText(
+      readRepoFile("docs/template/effectification-status.md"),
+    );
+
+    expect(defaults).toContain("Template Defaults And Extension Paths");
+    expect(defaults).toContain("Billing");
+    expect(defaults).toContain("Notifications");
+    expect(defaults).toContain("Retention and DSAR");
+    expect(defaults).toContain("Deploy promotion");
+    expect(defaults).toContain(
+      "Promotion is a code, docs, test, and handoff event",
+    );
+    expect(maturity).toContain(
+      "[template-defaults.md](./template-defaults.md)",
+    );
+    expect(status).toContain("[template-defaults.md](./template-defaults.md)");
+  });
 });

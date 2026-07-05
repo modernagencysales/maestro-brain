@@ -83,13 +83,13 @@ generator scaffolds, and core UX/a11y primitives. It is not yet a complete
 generic SaaS product. Treat the remaining backlog as selectable product
 acceleration work, not as proof that the existing starter baseline is fake.
 
-The next cross-cutting starter improvements are:
+The remaining cross-cutting starter improvements are:
 
 1. Adopt the shared dialog and toast primitives in each real product surface as
    those surfaces gain mutations, modals, popovers, and destructive flows.
-2. Decide which client-fork features are template-defaults versus documented
-   extension paths, especially billing, notification center, retention jobs, and
-   deploy promotion.
+2. Keep [template-defaults.md](./template-defaults.md) current when billing,
+   notification center, retention jobs, or deploy promotion move between
+   template defaults and client-fork extension paths.
 
 ## Generated Artifact Ownership
 
