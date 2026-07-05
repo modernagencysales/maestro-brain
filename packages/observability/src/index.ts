@@ -17,6 +17,26 @@ export type PostHogEvent = {
 export type ErrorReport = {
   readonly error: unknown;
   readonly context: Readonly<Record<string, unknown>>;
+  readonly release?: string;
+  readonly environment?: string;
+  readonly severity?: ErrorReportSeverity;
+  readonly handled?: boolean;
+  readonly tags?: Readonly<Record<string, string>>;
+};
+
+export type ErrorReportSeverity = "info" | "warning" | "error" | "fatal";
+
+export type ErrorReporterEvent = {
+  readonly type: "template.error";
+  readonly message: string;
+  readonly name: string;
+  readonly fingerprint: string;
+  readonly severity: ErrorReportSeverity;
+  readonly handled: boolean;
+  readonly release: string;
+  readonly environment: string;
+  readonly context: Readonly<Record<string, unknown>>;
+  readonly tags: Readonly<Record<string, string>>;
 };
 
 export type CapturedFailureKind = "mutation" | "action";
@@ -41,21 +61,36 @@ const redactedFields = [
   "password",
 ] as const;
 
-export const redactObservabilityPayload = (
-  payload: Readonly<Record<string, unknown>>,
-): Record<string, unknown> => {
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const isRedactedField = (field: string): boolean =>
+  redactedFields.includes(field as (typeof redactedFields)[number]);
+
+const redactObservabilityValue = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map((entry) => redactObservabilityValue(entry));
+  }
+
+  if (!isRecord(value)) {
+    return value;
+  }
+
   const redacted: Record<string, unknown> = {};
 
-  for (const [key, value] of Object.entries(payload)) {
-    redacted[key] = redactedFields.includes(
-      key as (typeof redactedFields)[number],
-    )
+  for (const [key, nested] of Object.entries(value)) {
+    redacted[key] = isRedactedField(key)
       ? "[redacted]"
-      : value;
+      : redactObservabilityValue(nested);
   }
 
   return redacted;
 };
+
+export const redactObservabilityPayload = (
+  payload: Readonly<Record<string, unknown>>,
+): Record<string, unknown> =>
+  redactObservabilityValue(payload) as Record<string, unknown>;
 
 export const createConfectFailureEvent = (
   failure: CapturedConfectFailure,
@@ -93,24 +128,52 @@ export const createPostHogCapture = (options: {
   },
 });
 
+const hashString = (value: string): string => {
+  let hash = 0x811c9dc5;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+
+  return `err_${(hash >>> 0).toString(16).padStart(8, "0")}`;
+};
+
+const errorName = (error: unknown): string =>
+  error instanceof Error ? error.name : "UnknownError";
+
+const errorMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : "Unknown error captured.";
+
+export const normalizeErrorReport = (
+  report: ErrorReport,
+): ErrorReporterEvent => {
+  const name = errorName(report.error);
+  const message = errorMessage(report.error);
+  const release = report.release?.trim() || "unreleased";
+  const environment = report.environment?.trim() || "unknown";
+
+  return {
+    type: "template.error",
+    name,
+    message: "Error captured.",
+    fingerprint: hashString(`${name}:${message}:${release}:${environment}`),
+    severity: report.severity ?? "error",
+    handled: report.handled ?? false,
+    release,
+    environment,
+    context: redactObservabilityPayload(report.context),
+    tags: report.tags ?? {},
+  };
+};
+
 export const createErrorReporter = (options: {
   readonly mode: ObservabilityMode;
-  readonly sink?: (
-    event: Readonly<Record<string, unknown>>,
-  ) => void | Promise<void>;
+  readonly sink?: (event: ErrorReporterEvent) => void | Promise<void>;
 }) => ({
   report: async (report: ErrorReport): Promise<ObservabilityResult> => {
     try {
-      await options.sink?.({
-        error:
-          report.error instanceof Error
-            ? {
-                name: report.error.name,
-                message: "Error captured.",
-              }
-            : "Unknown error captured.",
-        context: redactObservabilityPayload(report.context),
-      });
+      await options.sink?.(normalizeErrorReport(report));
 
       return { ok: true, delivery: deliveryForMode(options.mode) };
     } catch {

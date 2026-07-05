@@ -1370,9 +1370,13 @@ repos**.
      `scripts/check-convex-production-env.mjs`, `check:convex-deploy-env`.
      Proves required Convex/Worker env names exist before cutover (never
      printing values), fails closed. Catches the top cause of broken prod.
-275. **Error tracking / ErrorReporter (Sentry-class)** — HIGH — Greenfield
-     (fills `packages/observability`). maestro has PostHog analytics (item 24)
-     but no exception capture / release tracking / source-map upload.
+275. **Error tracking / ErrorReporter (Sentry-class)** — HIGH — partial.
+     `packages/observability` exposes a provider-neutral `ErrorReporter`
+     contract with recursive redaction, release/environment metadata, severity,
+     handled status, deterministic fingerprints, fake/test/live-ready delivery,
+     and dropped retryable sink failures. Remaining work: wire a live provider
+     such as Sentry or PostHog exception capture, source-map upload, release
+     creation, and hosted verification in client forks.
 276. **Structured ops logging + correlation-id propagation** — MED — Greenfield
      / partial (`requestIdFor`, item 72). Redaction-aware structured log seam
      threading a request/trace id through capability → action → provider.

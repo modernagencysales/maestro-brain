@@ -56,6 +56,24 @@ and must not replace, mask, or retry the original application failure. Query
 capture is not included in this slice because Confect query context does not
 provide the scheduler required by the PostHog Convex component.
 
+## ErrorReporter
+
+`packages/observability` also exposes a provider-neutral `ErrorReporter`
+contract for Sentry-class exception tracking. The template reporter is fake-safe
+by default and normalizes every report into a small public-safe event:
+
+- `type: "template.error"`
+- sanitized error name and generic public message
+- deterministic fingerprint
+- severity, handled status, release, and environment
+- redacted context and string tags
+
+Reporter delivery is best-effort. Sink failures return a dropped retryable
+result and must not replace the original application failure. Client forks can
+wire Sentry, PostHog exception capture, or another provider behind the same
+event shape after approving release names, environment names, source-map upload,
+and privacy posture.
+
 ## Rules
 
 - Decode config through typed config modules.

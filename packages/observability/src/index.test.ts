@@ -3,6 +3,7 @@ import {
   createConfectFailureEvent,
   createErrorReporter,
   createPostHogCapture,
+  normalizeErrorReport,
   redactObservabilityPayload,
 } from "./index";
 
@@ -50,7 +51,7 @@ describe("observability provider seams", () => {
     });
   });
 
-  it("reports errors through fake/test/live-ready reporters with redaction", async () => {
+  it("reports normalized errors with release, environment, and redaction", async () => {
     const reported: unknown[] = [];
     const reporter = createErrorReporter({
       mode: "test",
@@ -62,19 +63,91 @@ describe("observability provider seams", () => {
     await expect(
       reporter.report({
         error: new Error("raw secret payload"),
-        context: { requestId: "req_123", token: "secret" },
+        context: {
+          requestId: "req_123",
+          token: "secret",
+          nested: { authorization: "bearer secret" },
+        },
+        release: "template-v1.2.3",
+        environment: "staging",
+        severity: "fatal",
+        handled: true,
+        tags: { surface: "workflow" },
       }),
     ).resolves.toMatchObject({
       ok: true,
       delivery: "test",
     });
     expect(JSON.stringify(reported)).not.toContain("secret");
-    expect(redactObservabilityPayload({ token: "secret", safe: true })).toEqual(
-      {
-        token: "[redacted]",
+    expect(reported).toEqual([
+      expect.objectContaining({
+        type: "template.error",
+        name: "Error",
+        message: "Error captured.",
+        severity: "fatal",
+        handled: true,
+        release: "template-v1.2.3",
+        environment: "staging",
+        fingerprint: expect.stringMatching(/^err_/),
+        context: {
+          requestId: "req_123",
+          token: "[redacted]",
+          nested: { authorization: "[redacted]" },
+        },
+        tags: { surface: "workflow" },
+      }),
+    ]);
+  });
+
+  it("normalizes unknown errors without leaking raw object payloads", () => {
+    expect(
+      normalizeErrorReport({
+        error: { apiKey: "secret" },
+        context: { safe: true },
+      }),
+    ).toMatchObject({
+      type: "template.error",
+      name: "UnknownError",
+      message: "Error captured.",
+      release: "unreleased",
+      environment: "unknown",
+      severity: "error",
+      handled: false,
+    });
+  });
+
+  it("redacts observability payloads recursively", () => {
+    expect(
+      redactObservabilityPayload({
+        token: "secret",
         safe: true,
+        nested: { password: "secret", values: [{ apiKey: "secret" }] },
+      }),
+    ).toEqual({
+      token: "[redacted]",
+      safe: true,
+      nested: { password: "[redacted]", values: [{ apiKey: "[redacted]" }] },
+    });
+  });
+
+  it("keeps error reporter sink failures non-fatal", async () => {
+    const reporter = createErrorReporter({
+      mode: "live",
+      sink: () => {
+        throw new Error("sentry unavailable");
       },
-    );
+    });
+
+    await expect(
+      reporter.report({
+        error: new Error("provider failed"),
+        context: { requestId: "req_123" },
+      }),
+    ).resolves.toMatchObject({
+      ok: false,
+      delivery: "dropped",
+      retryable: true,
+    });
   });
 
   it("builds redacted Confect failure events for PostHog", () => {
