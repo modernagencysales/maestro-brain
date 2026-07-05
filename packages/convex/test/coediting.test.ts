@@ -1,5 +1,9 @@
+import { TestConfect } from "@confect/test";
+import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
+import refs from "../confect/_generated/refs";
+import databaseSchema from "../confect/_generated/schema";
 import coediting, {
   AppendVersionArgs,
   CoeditingError,
@@ -14,6 +18,7 @@ import coeditingImpl from "../confect/ops/coediting.impl";
 import documentAnnotations from "../confect/tables/documentAnnotations";
 import documentVersions from "../confect/tables/documentVersions";
 import documents from "../confect/tables/documents";
+import { testConfectLayer } from "./support/confect";
 
 describe("coediting Confect contracts", () => {
   it("declares workspace-owned document tables with stable indexes", () => {
@@ -185,6 +190,101 @@ describe("coediting Confect contracts", () => {
   it("exports a finalized fake/local Confect implementation", () => {
     expect(coeditingImpl).toMatchObject({
       _op_layer: "Fold",
+    });
+  });
+
+  it("rejects padded create-document idempotency keys before deriving document ids", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      return yield* confect
+        .mutation(refs.public.ops.coediting.createDocument, {
+          workspaceId: "workspace_123",
+          slug: "founder-notes",
+          title: "Founder notes",
+          markdown: "# Founder notes",
+          sourceKind: "markdown",
+          sourceIds: ["source_001"],
+          authorId: "user_123",
+          idempotencyKey: " document-001 ",
+        })
+        .pipe(Effect.flip);
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result).toBeInstanceOf(CoeditingError.ValidationFailed);
+    expect(result).toMatchObject({
+      field: "idempotencyKey",
+      message: "idempotencyKey must not have leading or trailing whitespace.",
+    });
+  });
+
+  it("rejects padded append-version idempotency keys before returning version receipts", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      return yield* confect
+        .mutation(refs.public.ops.coediting.appendVersion, {
+          workspaceId: "workspace_123",
+          documentId: "document_123",
+          versionId: "version_002",
+          priorVersionId: "version_001",
+          markdown: "# Updated notes",
+          author: { type: "agent", id: "planner_agent" },
+          sourceMetadata: {
+            kind: "markdown",
+            title: "Founder notes",
+            sourceIds: ["source_001"],
+          },
+          idempotencyKey: " version-002 ",
+        })
+        .pipe(Effect.flip);
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result).toBeInstanceOf(CoeditingError.ValidationFailed);
+    expect(result).toMatchObject({
+      field: "idempotencyKey",
+      message: "idempotencyKey must not have leading or trailing whitespace.",
+    });
+  });
+
+  it("rejects padded annotation idempotency keys before deriving annotation ids", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      return yield* confect
+        .mutation(refs.public.ops.coediting.createAnnotation, {
+          workspaceId: "workspace_123",
+          documentId: "document_123",
+          versionId: "version_002",
+          startOffset: 4,
+          endOffset: 20,
+          quotedText: "Updated notes",
+          author: { type: "human", id: "user_123" },
+          body: "Needs citation.",
+          idempotencyKey: " annotation-001 ",
+        })
+        .pipe(Effect.flip);
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result).toBeInstanceOf(CoeditingError.ValidationFailed);
+    expect(result).toMatchObject({
+      field: "idempotencyKey",
+      message: "idempotencyKey must not have leading or trailing whitespace.",
     });
   });
 });

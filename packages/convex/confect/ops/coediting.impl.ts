@@ -2,9 +2,23 @@ import { FunctionImpl, GroupImpl } from "@confect/server";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import databaseSchema from "../_generated/schema";
-import coediting from "./coediting.spec";
+import { validateCallerIdempotencyKey } from "../shared/idempotencyKey";
+import coediting, { CoeditingError } from "./coediting.spec";
 
 const now = 1_700_000_000_000;
+
+const validateCoeditingIdempotencyKey = (
+  idempotencyKey: string,
+): string | CoeditingError.ValidationFailed => {
+  const validation = validateCallerIdempotencyKey(idempotencyKey);
+
+  return validation.ok
+    ? validation.value
+    : new CoeditingError.ValidationFailed({
+        field: "idempotencyKey",
+        message: validation.error.message,
+      });
+};
 
 const listDocuments = FunctionImpl.make(
   databaseSchema,
@@ -30,26 +44,43 @@ const createDocument = FunctionImpl.make(
   databaseSchema,
   coediting,
   "createDocument",
-  (input) =>
-    Effect.succeed({
-      documentId: `document_${input.idempotencyKey}`,
+  (input) => {
+    const idempotencyKey = validateCoeditingIdempotencyKey(
+      input.idempotencyKey,
+    );
+
+    if (idempotencyKey instanceof Error) {
+      return Effect.fail(idempotencyKey);
+    }
+
+    return Effect.succeed({
+      documentId: `document_${idempotencyKey}`,
       workspaceId: input.workspaceId,
       slug: input.slug,
       title: input.title,
-      latestVersionId: `version_${input.idempotencyKey}`,
+      latestVersionId: `version_${idempotencyKey}`,
       sourceKind: input.sourceKind,
       sourceIds: input.sourceIds,
       createdAt: now,
       updatedAt: now,
-    }),
+    });
+  },
 );
 
 const appendVersion = FunctionImpl.make(
   databaseSchema,
   coediting,
   "appendVersion",
-  (input) =>
-    Effect.succeed({
+  (input) => {
+    const idempotencyKey = validateCoeditingIdempotencyKey(
+      input.idempotencyKey,
+    );
+
+    if (idempotencyKey instanceof Error) {
+      return Effect.fail(idempotencyKey);
+    }
+
+    return Effect.succeed({
       documentId: input.documentId,
       workspaceId: input.workspaceId,
       versionId: input.versionId,
@@ -57,16 +88,25 @@ const appendVersion = FunctionImpl.make(
       markdown: input.markdown,
       author: input.author,
       createdAt: now,
-    }),
+    });
+  },
 );
 
 const createAnnotation = FunctionImpl.make(
   databaseSchema,
   coediting,
   "createAnnotation",
-  (input) =>
-    Effect.succeed({
-      annotationId: `annotation_${input.idempotencyKey}`,
+  (input) => {
+    const idempotencyKey = validateCoeditingIdempotencyKey(
+      input.idempotencyKey,
+    );
+
+    if (idempotencyKey instanceof Error) {
+      return Effect.fail(idempotencyKey);
+    }
+
+    return Effect.succeed({
+      annotationId: `annotation_${idempotencyKey}`,
       documentId: input.documentId,
       workspaceId: input.workspaceId,
       versionId: input.versionId,
@@ -77,7 +117,8 @@ const createAnnotation = FunctionImpl.make(
       body: input.body,
       status: "open" as const,
       createdAt: now,
-    }),
+    });
+  },
 );
 
 export default GroupImpl.make(databaseSchema, coediting).pipe(

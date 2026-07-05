@@ -124,7 +124,10 @@ Convex component wiring (M).
    `ops.versioning.restore`, and `ops.versioning.reconcile` now validate version
    ledger idempotency keys before returning append-only history rows.
    `ops.transforms.runTransform` now validates transform run ledger keys before
-   returning completed run receipts. Remaining work: adopt the shared validator
+   returning completed run receipts. `ops.coediting.createDocument`,
+   `ops.coediting.appendVersion`, and `ops.coediting.createAnnotation` now
+   validate document collaboration keys before deriving document/annotation ids
+   or returning version receipts. Remaining work: adopt the shared validator
    across every remaining durable ledger path that accepts caller-supplied
    idempotency keys.
 10. **Workspace bootstrap/provision provider (web)** — MED — no.
