@@ -129,7 +129,37 @@ describe("bounded agent runtime", () => {
       toolCalls: [
         {
           status: "failed",
+          idempotencyKey: "brief-001",
           error: { _tag: "ToolInputInvalid" },
+        },
+      ],
+    });
+  });
+
+  it("does not preserve malformed caller idempotency keys on failed tool calls", async () => {
+    const runtime = createAgentRuntime({
+      workspaceId: "workspace_123",
+      policy,
+      tools: [sourceGroundedBriefTool],
+    });
+
+    await expect(
+      continueAgentTurn(runtime, {
+        threadId: "thread_123",
+        userMessage: prompt,
+        requestedToolName: "sourceGroundedBrief",
+        toolArgs: { ...toolArgs, idempotencyKey: " brief-001 " },
+      }),
+    ).resolves.toMatchObject({
+      toolCalls: [
+        {
+          status: "failed",
+          idempotencyKey: "invalid",
+          error: {
+            _tag: "ToolInputInvalid",
+            message:
+              "idempotencyKey must not have leading or trailing whitespace.",
+          },
         },
       ],
     });

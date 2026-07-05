@@ -1,5 +1,6 @@
 import * as S from "effect/Schema";
 import type { AgentPolicy } from "../policy/kinds/agent";
+import { validateCallerIdempotencyKey } from "../shared/idempotencyKey";
 import type {
   ModelTool,
   PreparedModelToolInvocation,
@@ -396,7 +397,13 @@ const idempotencyKeyFromUnknown = (value: unknown): string => {
   ) {
     const key = (value as { readonly idempotencyKey?: unknown }).idempotencyKey;
 
-    return typeof key === "string" ? key : "missing";
+    if (typeof key !== "string") {
+      return "missing";
+    }
+
+    const validation = validateCallerIdempotencyKey(key);
+
+    return validation.ok ? validation.value : "invalid";
   }
 
   return "missing";
