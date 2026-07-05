@@ -23,6 +23,8 @@ import {
 } from "./handlerContext";
 import {
   acceptInvitation,
+  acknowledgeAccessLifecycleEvents,
+  buildInvitationCreatedEvent,
   buildWorkspaceInvitation,
   cancelInvitation,
   declineInvitation,
@@ -71,10 +73,21 @@ const create = FunctionImpl.make(
         now,
       });
 
-      return yield* writer
+      const invitationId = yield* writer
         .table("invitations")
         .insert(plan.invitation)
         .pipe(Effect.orDie);
+      acknowledgeAccessLifecycleEvents(
+        [
+          buildInvitationCreatedEvent({
+            id: invitationId,
+            ...plan.invitation,
+          }),
+        ],
+        "audit-sink-not-yet-implemented",
+      );
+
+      return invitationId;
     }),
 );
 
@@ -121,6 +134,10 @@ const accept = FunctionImpl.make(
           })
           .pipe(Effect.orDie);
       }
+      acknowledgeAccessLifecycleEvents(
+        plan.events,
+        "audit-sink-not-yet-implemented",
+      );
 
       return {
         workspaceId: asGenericId<"workspaces">(acceptedInvitation.workspaceId),
@@ -151,6 +168,10 @@ const decline = FunctionImpl.make(
           .patch(invitationId, plan.invitationPatch.value)
           .pipe(Effect.orDie);
       }
+      acknowledgeAccessLifecycleEvents(
+        plan.events,
+        "audit-sink-not-yet-implemented",
+      );
 
       return null;
     }),
@@ -181,6 +202,10 @@ const cancel = FunctionImpl.make(
           .patch(invitationId, plan.invitationPatch.value)
           .pipe(Effect.orDie);
       }
+      acknowledgeAccessLifecycleEvents(
+        plan.events,
+        "audit-sink-not-yet-implemented",
+      );
 
       return null;
     }),

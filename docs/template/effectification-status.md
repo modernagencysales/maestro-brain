@@ -50,10 +50,11 @@ contract family.
   backend PostHog failure capture.
 - Remaining Confect groups are still unwrapped pending rollout/factory support.
 - Access lifecycle planners emit audit-event values, including invitation
-  lifecycle events, but tenancy mutations do not yet persist them because this
-  template slice does not include a durable access-audit sink. Forks that expose
-  invite/role administration in production must wire those `plan.events` values
-  into an audit table or external audit stream.
+  lifecycle events. Tenancy mutations now explicitly acknowledge those planner
+  events at the implementation boundary, but they do not yet persist them
+  because this template slice does not include a durable access-audit sink.
+  Forks that expose invite/role administration in production must wire those
+  `plan.events` values into an audit table or external audit stream.
 - Generated workflow graph data is emitted as JSON-safe TypeScript constants so
   it can be typechecked with the workflow schemas; consumers must still treat
   React Flow state as a projection, not durable source.

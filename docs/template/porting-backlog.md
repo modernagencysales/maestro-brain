@@ -1282,10 +1282,12 @@ maestro's plain Convex would reintroduce bugs.
      read-only; no org-member invite/role/remove mutations and no WorkOS
      `organization_membership`/directory-sync webhook. The org tier has no
      management surface or external identity sync yet.
-249. **Audit-of-admin-actions wiring** — MED — no. The audit sink
-     (`recordAuditEvent`, item 83) exists but **no tenancy mutation calls it**.
-     Establish the discipline: every role change / removal / ownership transfer
-     / grant / invite emits an audit event. Isolation-safety requirement.
+249. **Audit-of-admin-actions wiring** — MED — partial. Access lifecycle
+     planners emit events for role changes, removals, ownership transfers, and
+     invitations, and `check:access-audit-events` now prevents member/invitation
+     impls from silently dropping those events. Remaining work: add the durable
+     audit sink/table and replace the temporary acknowledgement with persisted
+     audit writes. Isolation-safety requirement.
 250. **Member "leave" + suspended/disabled member state** — LOW — no.
      `capabilities/access/workspaceMembers.ts`. No self-service leave for a
      non-admin; membership is only live/tombstoned, no temporary

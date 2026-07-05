@@ -91,6 +91,7 @@ export const checkDescriptors = {
           "check:env-boundary",
           "check:provider-boundary",
           "check:logging-boundary",
+          "check:access-audit-events",
           "check:workflow-graph-boundary",
           "contract-review",
           "taste:eval",

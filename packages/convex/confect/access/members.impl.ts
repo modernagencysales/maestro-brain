@@ -16,6 +16,7 @@ import {
   type Reader,
 } from "./handlerContext";
 import {
+  acknowledgeAccessLifecycleEvents,
   changeMemberRole,
   isLiveWorkspaceMembership,
   removeMember,
@@ -56,6 +57,10 @@ const changeRole = FunctionImpl.make(
         .table("workspaceMembers")
         .patch(membershipId, plan.patch.value)
         .pipe(Effect.orDie);
+      acknowledgeAccessLifecycleEvents(
+        plan.events,
+        "audit-sink-not-yet-implemented",
+      );
 
       return null;
     }),
@@ -90,6 +95,10 @@ const remove = FunctionImpl.make(
         .table("workspaceMembers")
         .patch(membershipId, plan.patch.value)
         .pipe(Effect.orDie);
+      acknowledgeAccessLifecycleEvents(
+        plan.events,
+        "audit-sink-not-yet-implemented",
+      );
 
       return null;
     }),
@@ -125,6 +134,10 @@ const transferOwnershipImpl = FunctionImpl.make(
           .table("workspaceMembers")
           .patch(asGenericId<"workspaceMembers">(patch.id), patch.value)
           .pipe(Effect.orDie),
+      );
+      acknowledgeAccessLifecycleEvents(
+        plan.events,
+        "audit-sink-not-yet-implemented",
       );
 
       return null;
