@@ -98,6 +98,30 @@ const createDsarRequest = FunctionImpl.make(
     }),
 );
 
+const listDsarRequests = FunctionImpl.make(
+  databaseSchema,
+  dataLifecycleSpec,
+  "listDsarRequests",
+  ({ workspaceId }) =>
+    Effect.gen(function* () {
+      yield* unsafeAssumeClockProvided(
+        requireWorkspaceAccess(workspaceId, "viewer"),
+      );
+      const reader = yield* DatabaseReader;
+      const rows = yield* reader
+        .table("dsarRequests")
+        .index("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+        .collect()
+        .pipe(Effect.orDie);
+
+      return {
+        requests: rows
+          .map(toDsarRequestReturn)
+          .sort((left, right) => left.requestId.localeCompare(right.requestId)),
+      };
+    }),
+);
+
 const toDsarRequestReturn = (row: DsarRequestRowValue) => ({
   workspaceId: row.workspaceId as GenericId<"workspaces">,
   requestId: row.requestId,
@@ -122,5 +146,6 @@ const toDsarRequestReturn = (row: DsarRequestRowValue) => ({
 
 export default GroupImpl.make(databaseSchema, dataLifecycleSpec).pipe(
   Layer.provide(createDsarRequest),
+  Layer.provide(listDsarRequests),
   GroupImpl.finalize,
 );

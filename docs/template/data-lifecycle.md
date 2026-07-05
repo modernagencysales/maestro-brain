@@ -42,9 +42,10 @@ delete:
 `ops.dataLifecycle.createDsarRequest` persists that same plan as a
 tenant-guarded audit row in `dsarRequests`. The mutation verifies workspace
 access, records the requesting user, stores export/delete plan metadata, and
-remains dry-run only. It is the review/audit handoff point before a client fork
-wires real export bundle generation, redaction, deletion, or legal-hold
-workflows.
+remains dry-run only. `ops.dataLifecycle.listDsarRequests` lets authorized
+workspace viewers review those audit rows without direct database access.
+Together they are the review/audit handoff point before a client fork wires real
+export bundle generation, redaction, deletion, or legal-hold workflows.
 
 ## Retention Job Planning
 

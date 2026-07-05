@@ -10,6 +10,8 @@ import dataLifecycleImpl from "../confect/ops/dataLifecycle.impl";
 import dataLifecycle, {
   CreateDsarRequestArgs,
   DsarRequestReturn,
+  ListDsarRequestsArgs,
+  ListDsarRequestsReturn,
 } from "../confect/ops/dataLifecycle.spec";
 import dsarRequests, { DsarRequestRow } from "../confect/tables/dsarRequests";
 import { DatabaseReader } from "../confect/_generated/services";
@@ -72,10 +74,33 @@ describe("data lifecycle Confect contracts", () => {
         },
       }),
     ).toMatchObject({ requestId: "dsar_delete_123" });
+
+    expect(
+      Schema.decodeUnknownSync(ListDsarRequestsArgs)({
+        workspaceId: "workspaces_123",
+      }),
+    ).toMatchObject({ workspaceId: "workspaces_123" });
+    expect(
+      Schema.decodeUnknownSync(ListDsarRequestsReturn)({
+        requests: [
+          {
+            ...row,
+            confirmation: {
+              required: true,
+              phrase: "delete workspaces_123",
+              reason: "workspace data deletion is destructive and audited",
+            },
+          },
+        ],
+      }),
+    ).toMatchObject({
+      requests: [expect.objectContaining({ kind: "delete" })],
+    });
   });
 
   it("registers data lifecycle functions and exports a finalized implementation", () => {
     expect(JSON.stringify(dataLifecycle)).toContain("createDsarRequest");
+    expect(JSON.stringify(dataLifecycle)).toContain("listDsarRequests");
     expect(dataLifecycleImpl).toMatchObject({
       _op_layer: "Fold",
     });
@@ -270,5 +295,83 @@ describe("data lifecycle Confect contracts", () => {
 
     expect(result).toBeInstanceOf(Unauthorized);
     expect(result._tag).toBe("Unauthorized");
+  });
+
+  it("lists DSAR request audit rows for workspace viewers", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const seeded = yield* confect.run(
+        seedTenancy(1_782_924_800_000),
+        SeededTenancy,
+      );
+      const actor = confect.withIdentity({
+        subject: "member-subject",
+        email: "member@example.com",
+      });
+      yield* actor.mutation(refs.public.ops.dataLifecycle.createDsarRequest, {
+        workspaceId: seeded.workspaceId,
+        requestId: "dsar_export_list_123",
+        kind: "export",
+      });
+      yield* actor.mutation(refs.public.ops.dataLifecycle.createDsarRequest, {
+        workspaceId: seeded.workspaceId,
+        requestId: "dsar_delete_list_123",
+        kind: "delete",
+        confirmationPhrase: "delete wrong_workspace",
+      });
+
+      return yield* actor.query(
+        refs.public.ops.dataLifecycle.listDsarRequests,
+        {
+          workspaceId: seeded.workspaceId,
+        },
+      );
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.requests.map((request) => request.requestId)).toEqual([
+      "dsar_delete_list_123",
+      "dsar_export_list_123",
+    ]);
+    expect(result.requests.every((request) => request.dryRunOnly)).toBe(true);
+    expect(
+      result.requests.every((request) =>
+        request.deletePlan.every((entry) => entry.executable === false),
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects outsider DSAR request listing with a typed error", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const seeded = yield* confect.run(
+        seedTenancy(1_782_924_800_000),
+        SeededTenancy,
+      );
+
+      return yield* confect
+        .withIdentity({
+          subject: "outsider-subject",
+          email: "outsider@example.com",
+        })
+        .query(refs.public.ops.dataLifecycle.listDsarRequests, {
+          workspaceId: seeded.workspaceId,
+        })
+        .pipe(Effect.flip);
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result).toBeInstanceOf(MemberNotInWorkspace);
+    expect(result._tag).toBe("MemberNotInWorkspace");
   });
 });

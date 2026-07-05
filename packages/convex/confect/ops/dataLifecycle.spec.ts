@@ -33,6 +33,10 @@ export const CreateDsarRequestArgs = Schema.Struct({
   legalHold: Schema.optional(LegalHoldSchema),
 });
 
+export const ListDsarRequestsArgs = Schema.Struct({
+  workspaceId: Id("workspaces"),
+});
+
 export const DsarConfirmationReturn = Schema.Struct({
   required: Schema.Literal(true),
   phrase: Schema.String,
@@ -55,6 +59,10 @@ export const DsarRequestReturn = Schema.Struct({
   deletePlan: Schema.Array(DsarDeletePlanEntrySchema),
 });
 
+export const ListDsarRequestsReturn = Schema.Struct({
+  requests: Schema.Array(DsarRequestReturn),
+});
+
 const createDsarRequest = FunctionSpec.publicMutation({
   name: "createDsarRequest",
   args: () => CreateDsarRequestArgs,
@@ -62,4 +70,13 @@ const createDsarRequest = FunctionSpec.publicMutation({
   error: () => DataLifecycleError,
 });
 
-export default GroupSpec.make().addFunction(createDsarRequest);
+const listDsarRequests = FunctionSpec.publicQuery({
+  name: "listDsarRequests",
+  args: () => ListDsarRequestsArgs,
+  returns: () => ListDsarRequestsReturn,
+  error: () => DataLifecycleError,
+});
+
+export default GroupSpec.make()
+  .addFunction(createDsarRequest)
+  .addFunction(listDsarRequests);
