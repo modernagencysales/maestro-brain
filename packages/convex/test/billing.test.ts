@@ -35,6 +35,7 @@ describe("billing Confect contracts", () => {
     expect(webhookEvents.indexes).toMatchObject({
       by_provider_event: ["provider", "eventId", "signatureTimestamp"],
       by_dedupe_key: ["dedupeKey"],
+      by_workspace_dedupe_key: ["workspaceId", "dedupeKey"],
       by_workspace: ["workspaceId"],
     });
     expect(creditLedger.indexes).toMatchObject({
@@ -236,7 +237,7 @@ describe("billing Confect contracts", () => {
         TestConfect.TestConfect<typeof databaseSchema>(),
       );
       return yield* confect
-        .mutation(refs.public.ops.billing.applyWebhook, {
+        .mutation(refs.internal.ops.billing.applyWebhook, {
           workspaceId: "workspace_123",
           provider: "dodo",
           eventId: "evt_123",
@@ -256,6 +257,184 @@ describe("billing Confect contracts", () => {
       field: "dedupeKey",
       message: "dedupeKey must not have leading or trailing whitespace.",
     });
+  });
+
+  it("persists billing webhooks and returns duplicate on exact replay", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const first = yield* confect.mutation(
+        refs.internal.ops.billing.applyWebhook,
+        {
+          workspaceId: "workspace_webhook",
+          provider: "dodo",
+          eventId: "evt_123",
+          eventType: "payment.succeeded",
+          signatureTimestamp: "1700000000",
+          dedupeKey: "dodo.evt_123.1700000000",
+        },
+      );
+      const second = yield* confect.mutation(
+        refs.internal.ops.billing.applyWebhook,
+        {
+          workspaceId: "workspace_webhook",
+          provider: "dodo",
+          eventId: "evt_123",
+          eventType: "payment.succeeded",
+          signatureTimestamp: "1700000000",
+          dedupeKey: "dodo.evt_123.1700000000",
+        },
+      );
+      const snapshot = yield* confect.run(
+        readWebhookSnapshot({
+          workspaceId: "workspace_webhook",
+          dedupeKey: "dodo.evt_123.1700000000",
+        }),
+        WebhookSnapshot,
+      );
+
+      return { first, second, snapshot };
+    });
+
+    const { first, second, snapshot } = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(first).toMatchObject({
+      workspaceId: "workspace_webhook",
+      provider: "dodo",
+      eventId: "evt_123",
+      eventType: "payment.succeeded",
+      signatureTimestamp: "1700000000",
+      dedupeKey: "dodo.evt_123.1700000000",
+      status: "processed",
+      createdAt: 1_700_000_000_000,
+    });
+    expect(second).toEqual({
+      ...first,
+      status: "duplicate",
+    });
+    expect(snapshot).toEqual({
+      count: 1,
+      status: "processed",
+      eventType: "payment.succeeded",
+    });
+  });
+
+  it("rejects webhook dedupe-key reuse with a different payload", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      yield* confect.mutation(refs.internal.ops.billing.applyWebhook, {
+        workspaceId: "workspace_webhook",
+        provider: "dodo",
+        eventId: "evt_123",
+        eventType: "payment.succeeded",
+        signatureTimestamp: "1700000000",
+        dedupeKey: "dodo.evt_123.1700000000",
+      });
+
+      const error = yield* confect
+        .mutation(refs.internal.ops.billing.applyWebhook, {
+          workspaceId: "workspace_webhook",
+          provider: "dodo",
+          eventId: "evt_123",
+          eventType: "payment.failed",
+          signatureTimestamp: "1700000000",
+          dedupeKey: "dodo.evt_123.1700000000",
+        })
+        .pipe(Effect.flip);
+      const snapshot = yield* confect.run(
+        readWebhookSnapshot({
+          workspaceId: "workspace_webhook",
+          dedupeKey: "dodo.evt_123.1700000000",
+        }),
+        WebhookSnapshot,
+      );
+
+      return { error, snapshot };
+    });
+
+    const { error, snapshot } = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(error).toBeInstanceOf(BillingError.ValidationFailed);
+    expect(error).toMatchObject({
+      field: "eventType",
+      message:
+        "dedupeKey was already used for a different billing webhook payload.",
+    });
+    expect(snapshot).toEqual({
+      count: 1,
+      status: "processed",
+      eventType: "payment.succeeded",
+    });
+  });
+
+  it("rejects provider webhook dedupe-key reuse across workspaces", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const first = yield* confect.mutation(
+        refs.internal.ops.billing.applyWebhook,
+        {
+          workspaceId: "workspace_webhook_a",
+          provider: "dodo",
+          eventId: "evt_123",
+          eventType: "payment.succeeded",
+          signatureTimestamp: "1700000000",
+          dedupeKey: "dodo.evt_123.1700000000",
+        },
+      );
+      const error = yield* confect
+        .mutation(refs.internal.ops.billing.applyWebhook, {
+          workspaceId: "workspace_webhook_b",
+          provider: "dodo",
+          eventId: "evt_123",
+          eventType: "payment.succeeded",
+          signatureTimestamp: "1700000000",
+          dedupeKey: "dodo.evt_123.1700000000",
+        })
+        .pipe(Effect.flip);
+      const firstSnapshot = yield* confect.run(
+        readWebhookSnapshot({
+          workspaceId: "workspace_webhook_a",
+          dedupeKey: "dodo.evt_123.1700000000",
+        }),
+        WebhookSnapshot,
+      );
+      const secondSnapshot = yield* confect.run(
+        readWebhookSnapshot({
+          workspaceId: "workspace_webhook_b",
+          dedupeKey: "dodo.evt_123.1700000000",
+        }),
+        WebhookSnapshot,
+      );
+
+      return { first, error, firstSnapshot, secondSnapshot };
+    });
+
+    const { first, error, firstSnapshot, secondSnapshot } =
+      await Effect.runPromise(program.pipe(Effect.provide(testConfectLayer())));
+
+    expect(first.status).toBe("processed");
+    expect(first.workspaceId).toBe("workspace_webhook_a");
+    expect(error).toBeInstanceOf(BillingError.ValidationFailed);
+    expect(error).toMatchObject({
+      field: "workspaceId",
+      message:
+        "dedupeKey was already used for a different billing webhook payload.",
+    });
+    expect(firstSnapshot).toEqual({
+      count: 1,
+      status: "processed",
+      eventType: "payment.succeeded",
+    });
+    expect(secondSnapshot).toEqual({ count: 0 });
   });
 
   it("records usage durably, debits the ledger, and increments active entitlement usage", async () => {
@@ -652,6 +831,12 @@ const BillingUsageSnapshot = Schema.Struct({
   ledgerCreatedBy: Schema.optional(Schema.String),
 });
 
+const WebhookSnapshot = Schema.Struct({
+  count: Schema.Number,
+  status: Schema.optional(Schema.Literal("processed", "duplicate", "failed")),
+  eventType: Schema.optional(Schema.String),
+});
+
 const readBillingUsageSnapshot = (input: {
   readonly workspaceId: string;
   readonly idempotencyKey: string;
@@ -698,6 +883,32 @@ const readBillingUsageSnapshot = (input: {
             ledgerType: ledger.type,
             ledgerReason: ledger.reason,
             ledgerCreatedBy: ledger.createdBy,
+          }),
+    };
+  });
+
+const readWebhookSnapshot = (input: {
+  readonly workspaceId: string;
+  readonly dedupeKey: string;
+}) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const webhooks = yield* reader
+      .table("webhookEvents")
+      .index("by_workspace_dedupe_key", (q) =>
+        q.eq("workspaceId", input.workspaceId).eq("dedupeKey", input.dedupeKey),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const webhook = webhooks[0];
+
+    return {
+      count: webhooks.length,
+      ...(webhook === undefined
+        ? {}
+        : {
+            status: webhook.status,
+            eventType: webhook.eventType,
           }),
     };
   });

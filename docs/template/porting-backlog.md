@@ -119,7 +119,7 @@ Convex component wiring (M).
    rejects padded/non-URL-safe delivery keys before sending while generating
    URL-safe action-digest keys. Dodo webhook normalization now emits URL-safe
    dedupe keys, and `ops.billing.applyWebhook` validates dedupe keys before
-   returning processed webhook state. The agent runtime also sanitizes malformed
+   persisting webhook event identity. The agent runtime also sanitizes malformed
    caller keys before recording denied/failed tool calls.
    `ops.versioning.append`, `ops.versioning.restore`, and
    `ops.versioning.reconcile` now validate version ledger idempotency keys
@@ -498,9 +498,10 @@ Convex component wiring (M).
 82. **Idempotency + webhook dedup + usage-event tables** — HIGH — partial. Usage
     recording now has a workspace-scoped idempotent replay guard and immutable
     usage log. Webhook table shape and dedupe normalization exist, and
-    `ops.billing.applyWebhook` validates dedupe keys before returning processed
-    state. Remaining work: persist webhook application, provider event replay
-    projection, and surface-specific usage idempotency adoption.
+    `ops.billing.applyWebhook` now persists Dodo webhook event identity, returns
+    `duplicate` for exact replay, and rejects dedupe-key reuse with mismatched
+    payload identity. Remaining work: webhook domain effects, provider event
+    replay projection, and surface-specific usage idempotency adoption.
 
 ## I. Data schema, knowledge & RAG
 

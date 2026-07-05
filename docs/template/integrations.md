@@ -92,7 +92,9 @@ Dodo remains fake-first in the template. Live Dodo calls stay behind
 `packages/integrations/src/dodo.ts`, while `packages/convex/confect/ops/billing`
 stores the reusable billing state:
 
-- webhook events deduplicate by provider, event ID, and signature timestamp
+- `applyWebhook` persists Dodo webhook event identity after provider
+  normalization, returns `duplicate` for exact replay, and rejects dedupe-key
+  reuse with mismatched payload identity
 - `recordUsage` is persistence-backed: it validates workspace-scoped idempotency
   keys, requires an active entitlement with remaining credits, writes a durable
   usage event, writes an append-only credit-ledger debit, and increments

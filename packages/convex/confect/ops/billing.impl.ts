@@ -231,33 +231,137 @@ const applyWebhook = FunctionImpl.make(
   databaseSchema,
   billing,
   "applyWebhook",
-  (input) => {
-    const dedupeKey = validateCallerIdempotencyKey(input.dedupeKey);
+  (input) =>
+    Effect.gen(function* () {
+      const dedupeKey = validateCallerIdempotencyKey(input.dedupeKey);
 
-    if (!dedupeKey.ok) {
-      return Effect.fail(
-        new BillingError.ValidationFailed({
-          field: "dedupeKey",
-          message: dedupeKey.error.message.replace(
-            "idempotencyKey",
-            "dedupeKey",
-          ),
-        }),
+      if (!dedupeKey.ok) {
+        return yield* Effect.fail(
+          new BillingError.ValidationFailed({
+            field: "dedupeKey",
+            message: dedupeKey.error.message.replace(
+              "idempotencyKey",
+              "dedupeKey",
+            ),
+          }),
+        );
+      }
+
+      const reader = yield* DatabaseReader;
+      const writer = yield* DatabaseWriter;
+      const existingWebhook = yield* exactlyOneOrDie(
+        "billing webhook dedupe key",
+        yield* reader
+          .table("webhookEvents")
+          .index("by_dedupe_key", (q) => q.eq("dedupeKey", dedupeKey.value))
+          .take(2)
+          .pipe(Effect.orDie),
       );
-    }
 
-    return Effect.succeed({
-      workspaceId: input.workspaceId,
-      provider: input.provider,
-      eventId: input.eventId,
-      eventType: input.eventType,
-      signatureTimestamp: input.signatureTimestamp,
-      dedupeKey: dedupeKey.value,
-      status: "processed" as const,
-      createdAt: now,
-    });
-  },
+      if (existingWebhook !== null) {
+        const payloadMismatch = webhookPayloadMismatch(existingWebhook, {
+          ...input,
+          dedupeKey: dedupeKey.value,
+        });
+
+        if (payloadMismatch !== null) {
+          return yield* Effect.fail(
+            new BillingError.ValidationFailed({
+              field: payloadMismatch,
+              message:
+                "dedupeKey was already used for a different billing webhook payload.",
+            }),
+          );
+        }
+
+        return webhookReturn(existingWebhook, "duplicate");
+      }
+
+      yield* writer
+        .table("webhookEvents")
+        .insert({
+          workspaceId: input.workspaceId,
+          provider: input.provider,
+          eventId: input.eventId,
+          eventType: input.eventType,
+          signatureTimestamp: input.signatureTimestamp,
+          dedupeKey: dedupeKey.value,
+          status: "processed" as const,
+          createdAt: now,
+        })
+        .pipe(Effect.orDie);
+
+      return {
+        workspaceId: input.workspaceId,
+        provider: input.provider,
+        eventId: input.eventId,
+        eventType: input.eventType,
+        signatureTimestamp: input.signatureTimestamp,
+        dedupeKey: dedupeKey.value,
+        status: "processed" as const,
+        createdAt: now,
+      };
+    }),
 );
+
+const webhookPayloadMismatch = (
+  existingWebhook: {
+    readonly workspaceId: string;
+    readonly provider: "dodo";
+    readonly eventId: string;
+    readonly eventType: string;
+    readonly signatureTimestamp: string;
+    readonly dedupeKey: string;
+  },
+  input: {
+    readonly workspaceId: string;
+    readonly provider: "dodo";
+    readonly eventId: string;
+    readonly eventType: string;
+    readonly signatureTimestamp: string;
+    readonly dedupeKey: string;
+  },
+):
+  | "workspaceId"
+  | "provider"
+  | "eventId"
+  | "eventType"
+  | "signatureTimestamp"
+  | "dedupeKey"
+  | null => {
+  if (existingWebhook.workspaceId !== input.workspaceId) return "workspaceId";
+  if (existingWebhook.provider !== input.provider) return "provider";
+  if (existingWebhook.eventId !== input.eventId) return "eventId";
+  if (existingWebhook.eventType !== input.eventType) return "eventType";
+  if (existingWebhook.signatureTimestamp !== input.signatureTimestamp) {
+    return "signatureTimestamp";
+  }
+  if (existingWebhook.dedupeKey !== input.dedupeKey) return "dedupeKey";
+
+  return null;
+};
+
+const webhookReturn = (
+  webhook: {
+    readonly workspaceId: string;
+    readonly provider: "dodo";
+    readonly eventId: string;
+    readonly eventType: string;
+    readonly signatureTimestamp: string;
+    readonly dedupeKey: string;
+    readonly createdAt: number;
+  },
+  status: "processed" | "duplicate" | "failed",
+) => ({
+  workspaceId: webhook.workspaceId,
+  provider: webhook.provider,
+  eventId: webhook.eventId,
+  eventType: webhook.eventType,
+  signatureTimestamp: webhook.signatureTimestamp,
+  dedupeKey: webhook.dedupeKey,
+  status,
+  createdAt: webhook.createdAt,
+});
 
 const grantEntitlement = FunctionImpl.make(
   databaseSchema,

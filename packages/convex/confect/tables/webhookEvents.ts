@@ -15,4 +15,5 @@ export default Table.make(() =>
 )
   .index("by_provider_event", ["provider", "eventId", "signatureTimestamp"])
   .index("by_dedupe_key", ["dedupeKey"])
+  .index("by_workspace_dedupe_key", ["workspaceId", "dedupeKey"])
   .index("by_workspace", ["workspaceId"]);

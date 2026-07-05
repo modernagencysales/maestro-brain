@@ -142,7 +142,7 @@ const recordUsage = FunctionSpec.publicMutation({
   error: () => BillingError.Schema,
 });
 
-const applyWebhook = FunctionSpec.publicMutation({
+const applyWebhook = FunctionSpec.internalMutation({
   name: "applyWebhook",
   args: () => ApplyWebhookArgs,
   returns: () => BillingWebhookReturn,
