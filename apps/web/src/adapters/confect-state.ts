@@ -5,6 +5,10 @@ import {
   type ReactMutation,
 } from "@confect/react";
 import type { Ref } from "@confect/core";
+import type {
+  TemplateToastApi,
+  TemplateToastInput,
+} from "@maestro-template/ui";
 import * as Either from "effect/Either";
 
 export type TemplateReadyMode = "read" | "edit";
@@ -104,6 +108,13 @@ export type TemplateFailureState<E = unknown> =
   | TemplateParseFailureState
   | TemplateTransportFailureState
   | TemplateDefectState;
+
+export type TemplateMutationToastCopy<T, E = unknown> = {
+  readonly successTitle: string;
+  readonly successDescription?: (data: T) => string;
+  readonly failureTitle: string;
+  readonly failureDescription?: (failure: TemplateFailureState<E>) => string;
+};
 
 export function isTemplateFailureState<E>(
   state: TemplateDataState<unknown, E> | TemplateMutationState<unknown, E>,
@@ -245,4 +256,70 @@ export function classifyUnknownFailure(
     error,
     message: "Unexpected client defect.",
   };
+}
+
+export function toastForTemplateMutation<T, E>(
+  state: TemplateMutationState<T, E>,
+  copy: TemplateMutationToastCopy<T, E>,
+): TemplateToastInput | null {
+  if (state.status === "ready" && state.mutation === "success") {
+    return {
+      title: copy.successTitle,
+      tone: "success",
+      announcement: copy.successTitle,
+      ...(copy.successDescription
+        ? { description: copy.successDescription(state.data) }
+        : {}),
+    };
+  }
+
+  if (isTemplateFailureState(state)) {
+    const description =
+      copy.failureDescription?.(state) ?? defaultMutationFailureMessage(state);
+
+    return {
+      title: copy.failureTitle,
+      description,
+      tone: "danger",
+      announcement: {
+        message: `${copy.failureTitle}. ${description}`,
+        priority: "assertive",
+      },
+    };
+  }
+
+  return null;
+}
+
+export function notifyTemplateMutation<T, E>({
+  copy,
+  state,
+  toast,
+}: {
+  readonly copy: TemplateMutationToastCopy<T, E>;
+  readonly state: TemplateMutationState<T, E>;
+  readonly toast: TemplateToastApi;
+}): string | null {
+  const notification = toastForTemplateMutation(state, copy);
+
+  return notification ? toast.notify(notification) : null;
+}
+
+function defaultMutationFailureMessage(
+  failure: TemplateFailureState<unknown>,
+): string {
+  if (failure.status === "typed_failure") {
+    const maybeMessage =
+      typeof failure.error === "object" &&
+      failure.error !== null &&
+      "message" in failure.error
+        ? failure.error.message
+        : undefined;
+
+    return typeof maybeMessage === "string"
+      ? maybeMessage
+      : "The request was rejected by the server.";
+  }
+
+  return failure.message;
 }

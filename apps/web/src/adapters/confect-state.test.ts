@@ -8,8 +8,10 @@ import {
   normalizeMutationError,
   normalizeMutationPending,
   normalizeMutationSuccess,
+  notifyTemplateMutation,
   TEMPLATE_DATA_STATUSES,
   TEMPLATE_MUTATION_STATUSES,
+  toastForTemplateMutation,
   type TemplateDataState,
   type TemplateMutationState,
 } from "./confect-state";
@@ -133,6 +135,86 @@ describe("Confect React data-state adapter", () => {
       status: "typed_failure",
       error,
     });
+  });
+
+  it("maps mutation results to accessible toast announcements", () => {
+    const success = toastForTemplateMutation(
+      normalizeMutationSuccess({ pageId: "page_1" }),
+      {
+        successTitle: "Page saved",
+        successDescription: (data) => `Created ${data.pageId}.`,
+        failureTitle: "Page save failed",
+      },
+    );
+    const typedFailure = toastForTemplateMutation(
+      {
+        status: "typed_failure",
+        error: {
+          _tag: "ValidationFailed",
+          message: "Title is required",
+        },
+      },
+      {
+        successTitle: "Page saved",
+        failureTitle: "Page save failed",
+      },
+    );
+    const loading = toastForTemplateMutation(normalizeMutationPending(), {
+      successTitle: "Page saved",
+      failureTitle: "Page save failed",
+    });
+
+    expect(success).toEqual({
+      title: "Page saved",
+      description: "Created page_1.",
+      tone: "success",
+      announcement: "Page saved",
+    });
+    expect(typedFailure).toEqual({
+      title: "Page save failed",
+      description: "Title is required",
+      tone: "danger",
+      announcement: {
+        message: "Page save failed. Title is required",
+        priority: "assertive",
+      },
+    });
+    expect(loading).toBeNull();
+  });
+
+  it("notifies through the shared toast provider API for mutation failures", () => {
+    const emitted: unknown[] = [];
+    const toast = {
+      announce: () => "unused",
+      announceAssertive: () => "unused",
+      dismiss: () => {},
+      notify: (input: unknown) => {
+        emitted.push(input);
+        return "toast_1";
+      },
+    };
+
+    expect(
+      notifyTemplateMutation({
+        toast,
+        state: normalizeMutationError(new TypeError("network down")),
+        copy: {
+          successTitle: "Saved",
+          failureTitle: "Save failed",
+        },
+      }),
+    ).toBe("toast_1");
+    expect(emitted).toEqual([
+      {
+        title: "Save failed",
+        description: "network down",
+        tone: "danger",
+        announcement: {
+          message: "Save failed. network down",
+          priority: "assertive",
+        },
+      },
+    ]);
   });
 
   it("normalizes Convex React Query style results without knowing business logic", () => {
