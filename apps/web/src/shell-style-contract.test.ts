@@ -82,6 +82,8 @@ describe("Notion Kit shell style contract", () => {
     expect(css).toContain(".template-cookie-banner");
     expect(css).toContain(".template-cookie-banner-actions");
     expect(css).toContain(".template-empty-state");
+    expect(css).toContain(".template-form-panel");
+    expect(css).toContain(".template-form-actions");
     expect(css).toContain(".template-dialog-backdrop");
     expect(css).toContain(".template-dialog");
     expect(css).toContain(".template-toast-region");

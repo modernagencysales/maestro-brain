@@ -52,6 +52,18 @@ describe("frontend platform routes", () => {
     expect(read("src/routes/_workspace.onboarding.tsx")).toContain(
       "useTemplateToast",
     );
+    expect(read("src/routes/_workspace.onboarding.tsx")).toContain(
+      "OnboardingWorkspaceBriefForm",
+    );
+    expect(
+      read("src/features/setup/onboarding-workspace-brief-form.tsx"),
+    ).toContain("useForm");
+    expect(
+      read("src/features/setup/onboarding-workspace-brief-form.tsx"),
+    ).toContain("useStarterDirtyRouteGuard");
+    expect(
+      read("src/features/setup/onboarding-workspace-brief-form.tsx"),
+    ).toContain("useStarterAutosave");
   });
 
   it("ships a PWA manifest without unsupported offline claims", () => {

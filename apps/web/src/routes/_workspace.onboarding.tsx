@@ -7,14 +7,16 @@ import {
 import {
   buildOnboardingChecklistSteps,
   toastForOnboardingContinue,
+  type SetupMode,
 } from "../features/setup/setup-surface";
+import { OnboardingWorkspaceBriefForm } from "../features/setup/onboarding-workspace-brief-form";
 
 export const Route = createFileRoute("/_workspace/onboarding")({
   component: OnboardingRoute,
 });
 
 function OnboardingRoute() {
-  const mode = "fake";
+  const mode: SetupMode = "fake";
   const steps = buildOnboardingChecklistSteps({ mode });
   const toast = useTemplateToast();
   const continueSetup = () => {
@@ -35,6 +37,7 @@ function OnboardingRoute() {
           onContinue={continueSetup}
           steps={steps}
         />
+        <OnboardingWorkspaceBriefForm mode={mode} />
       </article>
     </TemplateMainContent>
   );

@@ -1295,10 +1295,15 @@ repos**.
 260. **In-app notification center (table + UI + prefs)** — MED — Greenfield. No
      notifications schema, center UI, or prefs panel. Bell/inbox with
      read-state + digest prefs.
-261. **Form library + validation / dirty-state / autosave** — HIGH — Greenfield.
-     Every form is a bespoke `*-state.ts` reducer; no form lib. Adopt
-     react-hook-form/tanstack-form + schema validation + a dirty-state
-     navigation guard + autosave.
+261. **Form library + validation / dirty-state / autosave** — HIGH — partial.
+     `@tanstack/react-form` is installed in the web app, and
+     `apps/web/src/forms/starter-form.ts` provides the reusable starter
+     validation, dirty-state detection, route leave guard, and autosave planner.
+     `apps/web/src/features/setup/onboarding-workspace-brief-form.tsx` is the
+     first schema-backed workspace brief form reference implementation.
+     Remaining work: promote the primitive into every generated client form,
+     connect autosave to durable mutations, and add fork-specific axe coverage
+     as real form-heavy routes land.
 262. **Designed error surfaces (404 / 500 / root error + global pending)** — MED
      — Partial port + build. `router.tsx` ships throwaway not-found/pending
      one-liners; the error-boundary _pattern_ is item 126.
