@@ -47,6 +47,7 @@ describe("Notion Kit shell style contract", () => {
 
     expect(router).toContain("TemplateRoutePending");
     expect(router).toContain("TemplateRouteError");
+    expect(router).toContain("Return to overview");
     expect(router).not.toContain("defaultPendingComponent: () => null");
     expect(router).not.toContain("<main>Not Found</main>");
   });
@@ -72,6 +73,7 @@ describe("Notion Kit shell style contract", () => {
     expect(css).toContain(".template-dialog");
     expect(css).toContain(".template-toast-region");
     expect(css).toContain(".template-route-state");
+    expect(css).toContain(".template-route-state-actions");
     expect(css).toContain("@media (prefers-reduced-motion: reduce)");
     expect(css).toContain(".workflow-canvas .react-flow__edge.animated path");
   });

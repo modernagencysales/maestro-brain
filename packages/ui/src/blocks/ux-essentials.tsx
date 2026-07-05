@@ -447,31 +447,41 @@ export function useTemplateToast(): TemplateToastApi {
 }
 
 export function TemplateRoutePending({
+  description = "Preparing the workspace route.",
   label = "Loading page",
 }: {
+  readonly description?: string;
   readonly label?: string;
 }) {
   return (
     <TemplateMainContent className="template-route-state">
-      <div role="status">
-        <p>{label}</p>
+      <div className="template-route-state-panel" role="status">
+        <p className="template-route-state-kicker">Please wait</p>
+        <h1>{label}</h1>
+        <p>{description}</p>
       </div>
     </TemplateMainContent>
   );
 }
 
 export function TemplateRouteError({
-  title = "Something went wrong",
+  action,
   description = "The page could not be loaded. Try again or return to a safe workspace page.",
+  title = "Something went wrong",
 }: {
-  readonly title?: string;
+  readonly action?: ReactNode;
   readonly description?: string;
+  readonly title?: string;
 }) {
   return (
     <TemplateMainContent className="template-route-state error">
-      <div role="alert">
+      <div className="template-route-state-panel" role="alert">
+        <p className="template-route-state-kicker">Route unavailable</p>
         <h1>{title}</h1>
         <p>{description}</p>
+        {action ? (
+          <div className="template-route-state-actions">{action}</div>
+        ) : null}
       </div>
     </TemplateMainContent>
   );

@@ -4,7 +4,9 @@ import { describe, expect, it } from "vitest";
 import {
   TemplateDialog,
   TemplateMainContent,
+  TemplateRouteError,
   TemplateRouteFocusBoundary,
+  TemplateRoutePending,
   TemplateToastProvider,
   useTemplateToast,
 } from "./ux-essentials";
@@ -175,6 +177,32 @@ describe("TemplateDialog", () => {
 });
 
 describe("template route UX helpers", () => {
+  it("renders route pending and error states with useful copy and actions", () => {
+    const pending = renderToStaticMarkup(
+      <TemplateRoutePending
+        label="Loading workspace"
+        description="Fetching route data."
+      />,
+    );
+    const error = renderToStaticMarkup(
+      <TemplateRouteError
+        title="Page not found"
+        description="This route is not part of the workspace."
+        action={<a href="/">Return to overview</a>}
+      />,
+    );
+
+    expect(pending).toContain('role="status"');
+    expect(pending).toContain("Please wait");
+    expect(pending).toContain("Loading workspace");
+    expect(pending).toContain("Fetching route data.");
+    expect(error).toContain('role="alert"');
+    expect(error).toContain("Route unavailable");
+    expect(error).toContain("Page not found");
+    expect(error).toContain("Return to overview");
+    expect(error).toContain("template-route-state-actions");
+  });
+
   it("renders skip-link, polite announcement, and online children", () => {
     const html = renderToStaticMarkup(
       <TemplateRouteFocusBoundary announcement="Viewing Overview" focusKey="/">

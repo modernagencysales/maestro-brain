@@ -243,14 +243,45 @@ a {
   text-align: center;
 }
 
+.template-route-state-panel {
+  width: min(460px, 100%);
+}
+
+.template-route-state-kicker {
+  margin: 0 0 8px;
+  color: var(--template-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
 .template-route-state h1 {
   margin: 0 0 8px;
   color: var(--template-text);
   font-size: 28px;
+  line-height: 1.2;
 }
 
 .template-route-state p {
   margin: 0;
+  line-height: 1.5;
+}
+
+.template-route-state-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 18px;
+}
+
+.template-route-state-actions a,
+.template-route-state-actions button {
+  min-height: 36px;
+  border: 1px solid var(--template-border);
+  border-radius: 6px;
+  background: var(--template-page);
+  color: var(--template-text);
+  padding: 8px 12px;
+  text-decoration: none;
 }
 
 .template-route-state.error {

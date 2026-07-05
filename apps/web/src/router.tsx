@@ -33,6 +33,7 @@ export function getRouter() {
       <TemplateRouteError
         title="Page not found"
         description="This route is not part of the template workspace."
+        action={<a href="/">Return to overview</a>}
       />
     ),
     context: {
