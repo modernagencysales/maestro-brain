@@ -127,6 +127,24 @@ const assertScope = (scope: string): "action:approve" | "action:review" => {
 const hashSecret = (value: string): string =>
   `sha256:${createHash("sha256").update(value).digest("hex")}`;
 
+const urlSafeKeyPart = (value: string): string =>
+  Array.from(value)
+    .map((char) => {
+      if (/^[A-Za-z0-9._-]$/.test(char)) {
+        return char;
+      }
+
+      if (char === "~") {
+        return "~~";
+      }
+
+      return `~${char.codePointAt(0)?.toString(16) ?? "0"}~`;
+    })
+    .join("");
+
+const actionKey = (prefix: string, parts: readonly string[]): string =>
+  [prefix, ...parts.map(urlSafeKeyPart)].join(".");
+
 export const createActionJob = (input: {
   readonly jobId: string;
   readonly workspaceId: string;
@@ -222,7 +240,11 @@ export const configureActionTrigger = (input: {
     capabilityId: input.capabilityId,
     configHash: input.configHash,
     enabled: input.enabled,
-    idempotencyKey: `action-trigger:${input.workspaceId}:${input.triggerId}:${input.configHash}`,
+    idempotencyKey: actionKey("action-trigger", [
+      input.workspaceId,
+      input.triggerId,
+      input.configHash,
+    ]),
     createdAt: input.createdAt,
   };
 };
@@ -255,7 +277,12 @@ export const buildActionDigestPayload = (input: {
     recipientId: input.recipientId,
     subject: `Action digest: ${input.jobsQueued} queued, ${input.approvalsWaiting} waiting, ${input.actionsPublished} published`,
     body: `Your audited action queue has ${input.jobsQueued} queued jobs, ${input.approvalsWaiting} approvals waiting, and ${input.actionsPublished} published action.`,
-    dedupeKey: `action-digest:${input.workspaceId}:${input.recipientId}:${input.periodStart}:${input.periodEnd}`,
+    dedupeKey: actionKey("action-digest", [
+      input.workspaceId,
+      input.recipientId,
+      input.periodStart,
+      input.periodEnd,
+    ]),
     metadata: {
       periodStart: input.periodStart,
       periodEnd: input.periodEnd,

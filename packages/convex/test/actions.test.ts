@@ -1,5 +1,9 @@
+import { TestConfect } from "@confect/test";
+import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
+import refs from "../confect/_generated/refs";
+import databaseSchema from "../confect/_generated/schema";
 import actionsImpl from "../confect/ops/actions.impl";
 import actions, {
   ActionApprovalReturn,
@@ -16,6 +20,7 @@ import actionApprovals from "../confect/tables/actionApprovals";
 import actionDigests from "../confect/tables/actionDigests";
 import actionJobs from "../confect/tables/actionJobs";
 import actionTriggers from "../confect/tables/actionTriggers";
+import { testConfectLayer } from "./support/confect";
 
 describe("action Confect contracts", () => {
   it("declares action job, approval, trigger, and digest tables", () => {
@@ -130,7 +135,7 @@ describe("action Confect contracts", () => {
         configHash: "sha256:trigger-config",
         enabled: true,
         idempotencyKey:
-          "action-trigger:workspace_123:trigger_daily_refresh:sha256:trigger-config",
+          "action-trigger.workspace_123.trigger_daily_refresh.sha256~3a~trigger-config",
         createdAt: 1,
       }),
     ).toMatchObject({ enabled: true });
@@ -141,7 +146,7 @@ describe("action Confect contracts", () => {
       recipientId: "user_ops",
       subject: "Action digest",
       body: "Queue summary",
-      dedupeKey: "action-digest:workspace_123:user_ops:1:2",
+      dedupeKey: "action-digest.workspace_123.user_ops.1.2",
       metadata: {
         providerMetadata: "[redacted]",
         customerMetadata: "[redacted]",
@@ -187,5 +192,52 @@ describe("action Confect contracts", () => {
     expect(actionsImpl).toMatchObject({
       _op_layer: "Fold",
     });
+  });
+
+  it("generates URL-safe trigger idempotency keys and digest dedupe keys", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const trigger = yield* confect.mutation(
+        refs.public.ops.actions.configureTrigger,
+        {
+          workspaceId: "workspace_123",
+          triggerId: "trigger_daily_refresh",
+          actionKind: "refresh",
+          schedule: "0 9 * * 1-5",
+          capabilityId: "cap_refresh_context",
+          configHash: "sha256:trigger-config",
+          enabled: true,
+        },
+      );
+      const digest = yield* confect.mutation(
+        refs.public.ops.actions.sendDigest,
+        {
+          workspaceId: "workspace_123",
+          recipientId: "user_ops",
+          periodStart: 1,
+          periodEnd: 2,
+          jobsQueued: 5,
+          approvalsWaiting: 2,
+          actionsPublished: 1,
+        },
+      );
+
+      return { trigger, digest };
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.trigger.idempotencyKey).toBe(
+      "action-trigger.workspace_123.trigger_daily_refresh.sha256~3a~trigger-config",
+    );
+    expect(result.trigger.idempotencyKey).toMatch(/^[A-Za-z0-9._~-]+$/);
+    expect(result.digest.dedupeKey).toBe(
+      "action-digest.workspace_123.user_ops.1.2",
+    );
+    expect(result.digest.dedupeKey).toMatch(/^[A-Za-z0-9._~-]+$/);
   });
 });

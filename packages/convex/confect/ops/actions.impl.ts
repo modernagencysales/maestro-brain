@@ -9,6 +9,22 @@ const now = 1_700_000_000_000;
 
 // node:crypto is unavailable in the Convex isolate runtime.
 const hashSecret = (value: string): string => `sha256:${sha256Hex(value)}`;
+const urlSafeKeyPart = (value: string): string =>
+  Array.from(value)
+    .map((char) => {
+      if (/^[A-Za-z0-9._-]$/.test(char)) {
+        return char;
+      }
+
+      if (char === "~") {
+        return "~~";
+      }
+
+      return `~${char.codePointAt(0)?.toString(16) ?? "0"}~`;
+    })
+    .join("");
+const actionKey = (prefix: string, parts: readonly string[]): string =>
+  [prefix, ...parts.map(urlSafeKeyPart)].join(".");
 
 const enqueueAction = FunctionImpl.make(
   databaseSchema,
@@ -64,7 +80,11 @@ const configureTrigger = FunctionImpl.make(
       capabilityId: input.capabilityId,
       configHash: input.configHash,
       enabled: input.enabled,
-      idempotencyKey: `action-trigger:${input.workspaceId}:${input.triggerId}:${input.configHash}`,
+      idempotencyKey: actionKey("action-trigger", [
+        input.workspaceId,
+        input.triggerId,
+        input.configHash,
+      ]),
       createdAt: now,
     }),
 );
@@ -80,7 +100,12 @@ const sendDigest = FunctionImpl.make(
       recipientId: input.recipientId,
       subject: `Action digest: ${input.jobsQueued} queued, ${input.approvalsWaiting} waiting, ${input.actionsPublished} published`,
       body: `Your audited action queue has ${input.jobsQueued} queued jobs, ${input.approvalsWaiting} approvals waiting, and ${input.actionsPublished} published action.`,
-      dedupeKey: `action-digest:${input.workspaceId}:${input.recipientId}:${input.periodStart}:${input.periodEnd}`,
+      dedupeKey: actionKey("action-digest", [
+        input.workspaceId,
+        input.recipientId,
+        String(input.periodStart),
+        String(input.periodEnd),
+      ]),
       metadata: {
         providerMetadata: "[redacted]" as const,
         customerMetadata: "[redacted]" as const,

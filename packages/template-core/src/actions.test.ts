@@ -110,9 +110,10 @@ describe("action domain", () => {
       configHash: "sha256:trigger-config",
       enabled: true,
       idempotencyKey:
-        "action-trigger:workspace_123:trigger_daily_refresh:sha256:trigger-config",
+        "action-trigger.workspace_123.trigger_daily_refresh.sha256~3a~trigger-config",
       createdAt,
     });
+    expect(trigger.idempotencyKey).toMatch(/^[A-Za-z0-9._~-]+$/);
   });
 
   it("builds notification digest payloads with customer and provider metadata redacted", () => {
@@ -143,7 +144,7 @@ describe("action domain", () => {
       subject: "Action digest: 5 queued, 2 waiting, 1 published",
       body: "Your audited action queue has 5 queued jobs, 2 approvals waiting, and 1 published action.",
       dedupeKey:
-        "action-digest:workspace_123:user_ops:2026-07-01T00:00:00.000Z:2026-07-01T23:59:59.000Z",
+        "action-digest.workspace_123.user_ops.2026-07-01T00~3a~00~3a~00.000Z.2026-07-01T23~3a~59~3a~59.000Z",
       metadata: {
         periodStart: "2026-07-01T00:00:00.000Z",
         periodEnd: "2026-07-01T23:59:59.000Z",
@@ -155,5 +156,6 @@ describe("action domain", () => {
       },
       createdAt,
     });
+    expect(digest.dedupeKey).toMatch(/^[A-Za-z0-9._~-]+$/);
   });
 });

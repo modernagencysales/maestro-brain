@@ -135,9 +135,11 @@ Convex component wiring (M).
    now reject malformed versioning keys before storing append-only entries or
    deriving reconciliation keys. `packages/integrations` LLM completion receipts
    now reject malformed optional caller keys before preserving them in
-   fake/live-ready receipts. Remaining work: adopt the shared validator across
-   every remaining durable ledger path that accepts caller-supplied idempotency
-   keys.
+   fake/live-ready receipts. Confect and `packages/template-core` action trigger
+   idempotency keys and action digest dedupe keys are now URL-safe when
+   generated from config hashes or time ranges. Remaining work: adopt the shared
+   validator across every remaining durable ledger path that accepts
+   caller-supplied idempotency keys.
 10. **Workspace bootstrap/provision provider (web)** — MED — no.
     `apps/web/src/providers/workspace.tsx`. Idempotent first-sign-in
     provisioning self-heal, then exposes active `workspaceId` via context.
