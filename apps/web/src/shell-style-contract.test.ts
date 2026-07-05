@@ -32,6 +32,7 @@ describe("Notion Kit shell style contract", () => {
   it("owns global route UX wiring at the root route", () => {
     const root = read("src/routes/__root.tsx");
     const boundary = read("src/navigation/route-ux-boundary.tsx");
+    const network = read("src/navigation/network-state.ts");
 
     expect(root).toContain("WebRouteUxBoundary");
     expect(root).toContain("TemplateToastProvider");
@@ -39,7 +40,11 @@ describe("Notion Kit shell style contract", () => {
     expect(root).toContain("<Outlet />");
     expect(boundary).toContain("TemplateRouteFocusBoundary");
     expect(boundary).toContain("describeRouteAnnouncement");
+    expect(boundary).toContain("useBrowserNetworkState");
+    expect(boundary).toContain("networkState={networkState}");
     expect(boundary).toContain("hashchange");
+    expect(network).toContain('"online"');
+    expect(network).toContain('"offline"');
   });
 
   it("uses reusable route pending and error surfaces", () => {
