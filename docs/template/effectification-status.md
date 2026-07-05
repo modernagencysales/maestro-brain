@@ -76,11 +76,13 @@ contract family.
   first TanStack Form-backed starter form primitive with validation, dirty-state
   guarding, fake-safe autosave, fake-safe feature flag definitions for rollout
   and kill-switch checks, and a fake-safe notification-center foundation with
-  unread/read-state planning and preference rendering. Remaining product-surface
-  work is adoption: wire future modals/popovers into `TemplateDialog`, future
-  forms into the starter form primitive, future live surfaces into the feature
-  flag evaluator, durable notification records into Confect tables, and real
-  mutation success/error paths into `TemplateToastProvider`.
+  unread/read-state planning and preference rendering. Static Cloudflare Pages
+  output now carries CSP, HSTS, frame, nosniff, referrer, and permissions-policy
+  headers through `apps/web/public/_headers`. Remaining product-surface work is
+  adoption: wire future modals/popovers into `TemplateDialog`, future forms into
+  the starter form primitive, future live surfaces into the feature flag
+  evaluator, durable notification records into Confect tables, and real mutation
+  success/error paths into `TemplateToastProvider`.
 
 ## Starter Readiness Read
 

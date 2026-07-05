@@ -1406,8 +1406,16 @@ repos**.
      retention job in `crons.ts`, no backend export/delete/legal-hold
      capability.
 283. **HTTP security headers (CSP / HSTS / X-Frame / nosniff /
-     Referrer-Policy)** — MED — Greenfield. Only CORS/origin door (item 78);
-     `security.md` claims a CSP that no Worker response emits.
+     Referrer-Policy)** — MED — partial. Convex HTTP routes expose
+     `securityHeaders` and `packages/convex/test/http-docs.test.ts` verifies
+     CSP, HSTS, `X-Frame-Options: DENY`, nosniff, and no-referrer headers. The
+     static Cloudflare Pages app now ships `apps/web/public/_headers` with CSP,
+     HSTS, frame, nosniff, referrer, and permissions-policy defaults, and
+     `apps/web/src/security-headers.test.ts` pins the contract. Remaining work:
+     remove the static shell's `script-src 'unsafe-inline'` allowance when the
+     TanStack Start render path supports nonce/hash-based inline bootstrap
+     scripts, and mirror/verify equivalent headers if a fork moves to Workers
+     SSR.
 284. **Ops alerting — outbound Slack/webhook** — MED — Greenfield (fills
      `packages/notifications`). Deploy failures, spend-cap trips, webhook-dedup
      conflicts should page a human.

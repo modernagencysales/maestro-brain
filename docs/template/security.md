@@ -10,6 +10,9 @@ providers.
 - HTTP responses from `packages/convex/confect/http.ts` include CSP, HSTS,
   `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, and
   `Referrer-Policy: no-referrer`.
+- The static Cloudflare Pages reference app ships `apps/web/public/_headers`
+  with CSP, HSTS, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`,
+  `Referrer-Policy: no-referrer`, and a restrictive `Permissions-Policy`.
 - Webhook signatures and replay windows are verified.
 - Secrets never enter client bundles.
 - Provider setup follows [env-manifest.md](./env-manifest.md); docs and handoff
@@ -46,6 +49,11 @@ Review sensitive changes against this document and `coding-standards.md`.
 Implemented safety checks:
 
 - `packages/convex/test/http-docs.test.ts` verifies HTTP security headers.
+- `apps/web/src/security-headers.test.ts` verifies Cloudflare Pages static
+  headers and pins the current TanStack Start static CSP. The static shell still
+  needs `script-src 'unsafe-inline'` for TanStack bootstrap scripts; remove that
+  allowance only with a nonce/hash-capable rendering path and a matching test
+  update.
 - `packages/convex/test/data-lifecycle.test.ts` verifies export/delete
   confirmation and current-resource lifecycle planning.
 - `packages/notifications/src/index.test.ts` verifies outbound alerts redact

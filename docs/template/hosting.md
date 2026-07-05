@@ -40,6 +40,12 @@ hosting provider at the repo.
 
 ## Cloudflare Pages
 
+The reference app ships Cloudflare Pages headers in `apps/web/public/_headers`.
+Vite copies this file into the static output, so hosted Pages responses receive
+CSP, HSTS, frame, nosniff, referrer, and permissions-policy defaults without a
+Worker. Keep the CSP synchronized with TanStack Start output; the current static
+shell requires `script-src 'unsafe-inline'` for framework bootstrap scripts.
+
 Create the project once:
 
 ```bash
