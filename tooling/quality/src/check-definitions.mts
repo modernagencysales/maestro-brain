@@ -631,10 +631,26 @@ export const checkDescriptors = {
       },
       {
         file: "tooling/generators/src/index.ts",
-        includes: ['posthog: ["POSTHOG_PROJECT_TOKEN", "POSTHOG_HOST"]'],
+        includes: [
+          "envManifestPath",
+          "readEnvManifest",
+          'posthog: "posthog"',
+          "requiredEnvNamesForProvider",
+        ],
         absent: ['posthog: ["POSTHOG_KEY", "POSTHOG_HOST"]'],
         message:
-          "template generator required secrets must use the PostHog project token env",
+          "template generator required secrets must be loaded from the env manifest with the PostHog project token group",
+      },
+      {
+        file: "tooling/generators/src/index.test.ts",
+        includes: [
+          'requiredEnvNamesForProvider("posthog")',
+          '"POSTHOG_HOST"',
+          '"POSTHOG_PROJECT_TOKEN"',
+        ],
+        absent: ['"POSTHOG_KEY"'],
+        message:
+          "template generator tests must prove PostHog live env names come from the env manifest",
       },
       {
         file: "docs/template/env-manifest.md",

@@ -138,6 +138,13 @@ describe("frontend platform routes", () => {
     expect(read("src/sample/App.tsx")).not.toContain(
       "referenceAppRouteHashForKey",
     );
+    expect(read("src/routes/_workspace.health.tsx")).toContain("HealthSurface");
+    expect(read("src/features/health/health-surface.tsx")).toContain(
+      "TemplateHealthBoard",
+    );
+    expect(read("src/features/health/health-surface.tsx")).toContain(
+      "providerConfigReport",
+    );
   });
 
   it("ships a PWA manifest without unsupported offline claims", () => {

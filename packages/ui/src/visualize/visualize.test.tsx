@@ -75,11 +75,17 @@ describe("visualization primitives", () => {
     expect(
       renderToStaticMarkup(
         <TemplateHealthBoard
-          checks={[{ label: "MailerSend", status: "ready" }]}
+          checks={[
+            {
+              label: "MailerSend",
+              status: "ready",
+              detail: "Missing MAILERSEND_API_KEY.",
+            },
+          ]}
           state="ready"
         />,
       ),
-    ).toContain("MailerSend");
+    ).toContain("Missing MAILERSEND_API_KEY.");
     expect(
       renderToStaticMarkup(
         <TemplateLineagePanel

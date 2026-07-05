@@ -113,6 +113,11 @@ runtime, Confect registration, provider posture, environment, commit SHA, and
 check timestamp. Fake mode is expected to pass without live provider secrets;
 test/live modes should be paired with deploy doctor evidence.
 
+The `/health` web route renders the fake-safe operator health board for local
+and hosted review. It combines runtime health checks with provider readiness
+metadata from `@maestro-template/integrations` and shows only environment names
+when live provider setup is missing or invalid.
+
 ## Backup And Restore
 
 Run restore drills in fake or staging mode before production reliance.

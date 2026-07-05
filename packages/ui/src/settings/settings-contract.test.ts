@@ -20,6 +20,8 @@ describe("Notion settings boundary contract", () => {
     const packageJson = read("package.json");
 
     expect(packageJson).toContain('"./settings"');
-    expect(packageJson).toContain("./dist/settings/template-settings-panel.js");
+    expect(packageJson).toContain(
+      "./dist/src/settings/template-settings-panel.js",
+    );
   });
 });

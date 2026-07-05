@@ -4,6 +4,7 @@ import { VisualShell, type VisualState } from "./shared";
 export type HealthCheck = {
   readonly label: string;
   readonly status: "ready" | "degraded" | "blocked";
+  readonly detail?: string;
 };
 
 export function TemplateHealthBoard({
@@ -23,7 +24,10 @@ export function TemplateHealthBoard({
       <div className="template-health-board">
         {checks.map((check) => (
           <article className="template-health-row" key={check.label}>
-            <span>{check.label}</span>
+            <span>
+              <strong>{check.label}</strong>
+              {check.detail ? <small>{check.detail}</small> : null}
+            </span>
             <Badge>{check.status}</Badge>
           </article>
         ))}

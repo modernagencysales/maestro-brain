@@ -106,9 +106,13 @@ contract family.
   links to Brain, Workflows, Capabilities, Agents, Runs, Documents, Sources,
   Integrations, API, Data Map, Settings, Billing, Analytics, Health, and Admin
   render starter reference content instead of falling through to a not-found
-  route. Remaining product-surface work is adoption: wire future modals/popovers
-  into `TemplateDialog`, future forms into the starter form primitive, future
-  live surfaces into the feature flag evaluator, destructive DSAR fulfillment
+  route. The `/health` route now renders a fake-safe operator health board that
+  combines runtime health checks with provider readiness from
+  `@maestro-template/integrations`, reports missing/invalid live env names
+  without values, and uses the shared `TemplateHealthBoard` primitive. Remaining
+  product-surface work is adoption: wire future modals/popovers into
+  `TemplateDialog`, future forms into the starter form primitive, future live
+  surfaces into the feature flag evaluator, destructive DSAR fulfillment
   execution mutations, live error-reporting providers/source-map upload, and
   future real mutation success/error paths into `TemplateToastProvider`.
 

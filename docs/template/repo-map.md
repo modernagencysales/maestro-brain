@@ -127,7 +127,8 @@
 - `/settings`: workspace, users, auth, and Notion settings.
 - `/billing`: package, entitlement, credits, checkout, and portal.
 - `/analytics`: product and workflow analytics.
-- `/health`: system and provider health.
+- `/health`: fake-safe operator health board with runtime checks and provider
+  readiness.
 - `/admin`: support, audit, data lifecycle, and operator tools.
 
 Every path listed in workspace navigation has a route file under

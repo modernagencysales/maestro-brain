@@ -132,6 +132,9 @@ importers:
       "@maestro-template/editor-react":
         specifier: workspace:*
         version: link:../../packages/editor-react
+      "@maestro-template/integrations":
+        specifier: workspace:*
+        version: link:../../packages/integrations
       "@maestro-template/notifications":
         specifier: workspace:*
         version: link:../../packages/notifications
