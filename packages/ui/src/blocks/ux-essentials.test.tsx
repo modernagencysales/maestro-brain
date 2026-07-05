@@ -33,8 +33,14 @@ function ToastOutsideProvider() {
     title: "Saved",
     autoDismissMs: 0,
   });
+  const politeAnnouncementId = toast.announce("Saved");
+  const assertiveAnnouncementId = toast.announceAssertive("Save failed");
 
-  return <span>{toastId}</span>;
+  return (
+    <span>
+      {toastId}:{politeAnnouncementId}:{assertiveAnnouncementId}
+    </span>
+  );
 }
 
 describe("TemplateToastProvider", () => {
@@ -61,6 +67,41 @@ describe("TemplateToastProvider", () => {
     expect(html).toContain('aria-live="polite"');
   });
 
+  it("renders polite and assertive screen-reader announcement regions", () => {
+    const html = renderToStaticMarkup(
+      <TemplateToastProvider>
+        <ToastTrigger />
+      </TemplateToastProvider>,
+    );
+
+    expect(html).toContain("template-announcement-region");
+    expect(html).toContain('aria-live="polite"');
+    expect(html).toContain('aria-live="assertive"');
+    expect(html).toContain('role="alert"');
+  });
+
+  it("marks dangerous toasts as alerts for destructive failures", () => {
+    const html = renderToStaticMarkup(
+      <TemplateToastProvider
+        initialToasts={[
+          {
+            id: "toast_delete_failed",
+            title: "Delete failed",
+            description: "The workspace was not removed.",
+            tone: "danger",
+          },
+        ]}
+      >
+        <ToastTrigger />
+      </TemplateToastProvider>,
+    );
+
+    expect(html).toContain("template-toast danger");
+    expect(html).toContain('role="alert"');
+    expect(html).toContain("Delete failed");
+    expect(html).toContain("The workspace was not removed.");
+  });
+
   it("exports a hook for mutation handlers to emit toasts", () => {
     const html = renderToStaticMarkup(
       <TemplateToastProvider>
@@ -76,6 +117,7 @@ describe("TemplateToastProvider", () => {
     const html = renderToStaticMarkup(<ToastOutsideProvider />);
 
     expect(html).toContain("template-toast-missing-provider");
+    expect(html).toContain("template-announcement-missing-provider");
   });
 });
 

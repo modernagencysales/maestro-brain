@@ -10,6 +10,7 @@ import {
 } from "react";
 
 export type TemplateToastTone = "neutral" | "success" | "warning" | "danger";
+export type TemplateAnnouncementPriority = "polite" | "assertive";
 
 export type TemplateToast = {
   readonly id: string;
@@ -18,12 +19,22 @@ export type TemplateToast = {
   readonly tone?: TemplateToastTone;
 };
 
+export type TemplateAnnouncementInput =
+  | string
+  | {
+      readonly message: string;
+      readonly priority?: TemplateAnnouncementPriority;
+    };
+
 export type TemplateToastInput = Omit<TemplateToast, "id"> & {
+  readonly announcement?: TemplateAnnouncementInput;
   readonly autoDismissMs?: number;
   readonly id?: string;
 };
 
 export type TemplateToastApi = {
+  readonly announce: (announcement: TemplateAnnouncementInput) => string;
+  readonly announceAssertive: (message: string) => string;
   readonly notify: (toast: TemplateToastInput) => string;
   readonly dismiss: (toastId: string) => void;
 };
@@ -31,8 +42,14 @@ export type TemplateToastApi = {
 const TemplateToastContext = createContext<TemplateToastApi | null>(null);
 
 const missingTemplateToastApi: TemplateToastApi = {
+  announce: () => "template-announcement-missing-provider",
+  announceAssertive: () => "template-announcement-missing-provider",
   dismiss: () => {},
   notify: () => "template-toast-missing-provider",
+};
+
+type StoredAnnouncement = {
+  readonly message: string;
 };
 
 const initialTemplateToasts = ({
@@ -86,11 +103,74 @@ const storeToast = (
   toast,
 ];
 
-const useTemplateToastState = ({
+const normalizeAnnouncement = (
+  announcement: TemplateAnnouncementInput,
+): {
+  readonly message: string;
+  readonly priority: TemplateAnnouncementPriority;
+} =>
+  typeof announcement === "string"
+    ? { message: announcement, priority: "polite" }
+    : {
+        message: announcement.message,
+        priority: announcement.priority ?? "polite",
+      };
+
+const toastAnnouncement = (
+  toast: TemplateToastInput,
+): TemplateAnnouncementInput | undefined => toast.announcement;
+
+const storedToastFromInput = (
+  toast: TemplateToastInput,
+): Omit<TemplateToast, "id"> => ({
+  title: toast.title,
+  ...(toast.description === undefined
+    ? {}
+    : { description: toast.description }),
+  ...(toast.tone === undefined ? {} : { tone: toast.tone }),
+});
+
+const useTemplateAnnouncementState = () => {
+  const nextAnnouncementId = useRef(0);
+  const [politeAnnouncement, setPoliteAnnouncement] =
+    useState<StoredAnnouncement | null>(null);
+  const [assertiveAnnouncement, setAssertiveAnnouncement] =
+    useState<StoredAnnouncement | null>(null);
+
+  const announce = useCallback((announcement: TemplateAnnouncementInput) => {
+    const { message, priority } = normalizeAnnouncement(announcement);
+    const id = `template-announcement-${nextAnnouncementId.current++}`;
+    const stored = { message };
+
+    if (priority === "assertive") {
+      setAssertiveAnnouncement(stored);
+    } else {
+      setPoliteAnnouncement(stored);
+    }
+
+    return id;
+  }, []);
+
+  const announceAssertive = useCallback(
+    (message: string) => announce({ message, priority: "assertive" }),
+    [announce],
+  );
+
+  return {
+    announce,
+    announceAssertive,
+    assertiveAnnouncement,
+    politeAnnouncement,
+  };
+};
+
+const useTemplateStoredToasts = ({
+  announce,
   defaultAutoDismissMs,
   initialToasts,
   message,
 }: {
+  readonly announce: (announcement: TemplateAnnouncementInput) => string;
   readonly defaultAutoDismissMs: number;
   readonly initialToasts: readonly TemplateToast[];
   readonly message: string | undefined;
@@ -110,11 +190,19 @@ const useTemplateToastState = ({
 
   const notify = useCallback(
     (toast: TemplateToastInput) => {
-      const { autoDismissMs = defaultAutoDismissMs, ...storedToast } = toast;
+      const { autoDismissMs = defaultAutoDismissMs } = toast;
       const id = toast.id ?? `template-toast-${nextId.current++}`;
 
       clearToastTimer(dismissTimers.current, id);
-      setToasts((current) => storeToast(current, { ...storedToast, id }));
+      setToasts((current) =>
+        storeToast(current, { ...storedToastFromInput(toast), id }),
+      );
+
+      const announcement = toastAnnouncement(toast);
+
+      if (announcement) {
+        announce(announcement);
+      }
 
       if (autoDismissMs > 0) {
         dismissTimers.current.set(
@@ -125,7 +213,7 @@ const useTemplateToastState = ({
 
       return id;
     },
-    [defaultAutoDismissMs, dismiss],
+    [announce, defaultAutoDismissMs, dismiss],
   );
 
   useEffect(
@@ -135,15 +223,42 @@ const useTemplateToastState = ({
     [],
   );
 
+  return { dismiss, notify, toasts };
+};
+
+const useTemplateToastState = ({
+  defaultAutoDismissMs,
+  initialToasts,
+  message,
+}: {
+  readonly defaultAutoDismissMs: number;
+  readonly initialToasts: readonly TemplateToast[];
+  readonly message: string | undefined;
+}) => {
+  const {
+    announce,
+    announceAssertive,
+    assertiveAnnouncement,
+    politeAnnouncement,
+  } = useTemplateAnnouncementState();
+  const { dismiss, notify, toasts } = useTemplateStoredToasts({
+    announce,
+    defaultAutoDismissMs,
+    initialToasts,
+    message,
+  });
+
   const api = useMemo<TemplateToastApi>(
     () => ({
+      announce,
+      announceAssertive,
       dismiss,
       notify,
     }),
-    [dismiss, notify],
+    [announce, announceAssertive, dismiss, notify],
   );
 
-  return { api, dismiss, toasts };
+  return { api, assertiveAnnouncement, dismiss, politeAnnouncement, toasts };
 };
 
 export function TemplateSkipLink({
@@ -162,7 +277,12 @@ export function TemplateSkipLink({
 
 export function TemplateLiveRegion({ message }: { readonly message: string }) {
   return (
-    <div aria-live="polite" className="template-live-region" role="status">
+    <div
+      aria-atomic="true"
+      aria-live="polite"
+      className="template-live-region"
+      role="status"
+    >
       {message}
     </div>
   );
@@ -269,21 +389,38 @@ export function TemplateToastProvider({
   readonly initialToasts?: readonly TemplateToast[];
   readonly message?: string;
 }) {
-  const { api, dismiss, toasts } = useTemplateToastState({
-    defaultAutoDismissMs,
-    initialToasts,
-    message,
-  });
+  const { api, assertiveAnnouncement, dismiss, politeAnnouncement, toasts } =
+    useTemplateToastState({
+      defaultAutoDismissMs,
+      initialToasts,
+      message,
+    });
 
   return (
     <TemplateToastContext.Provider value={api}>
       {children}
+      <div
+        aria-atomic="true"
+        aria-live="polite"
+        className="template-live-region template-announcement-region"
+        role="status"
+      >
+        {politeAnnouncement?.message}
+      </div>
+      <div
+        aria-atomic="true"
+        aria-live="assertive"
+        className="template-live-region template-announcement-region"
+        role="alert"
+      >
+        {assertiveAnnouncement?.message}
+      </div>
       <div aria-live="polite" className="template-toast-region">
         {toasts.map((toast) => (
           <div
             className={`template-toast ${toast.tone ?? "neutral"}`}
             key={toast.id}
-            role="status"
+            role={toast.tone === "danger" ? "alert" : "status"}
           >
             <div>
               <strong>{toast.title}</strong>

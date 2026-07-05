@@ -1270,8 +1270,10 @@ repos**.
 257. **Screen-reader live-region announcer** — MED — partial.
      `TemplateRouteFocusBoundary` renders a polite route-change announcement
      driven by `describeRouteAnnouncement`. Toasts also emit through an
-     aria-live region. Remaining work: mutation-specific save/error
-     announcements and an assertive announcer helper for destructive failures.
+     aria-live region, and `TemplateToastProvider` exposes polite/assertive
+     screen-reader announcement helpers with danger toasts treated as alerts.
+     Remaining work: wire every real mutation-specific save/error path across
+     product surfaces into those helpers.
 258. **`useReducedMotion` runtime hook** — LOW — Greenfield. Gate JS/canvas
      motion (React Flow), not just CSS (`index.css` is CSS-only today).
 259. **Global toast / notification-emitter system** — HIGH — partial. The

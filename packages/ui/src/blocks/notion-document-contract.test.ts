@@ -33,11 +33,13 @@ describe("Notion document block contract", () => {
     expect(blocks).toContain("TemplateMainContent");
     expect(blocks).toContain("TemplateEmptyState");
     expect(blocks).toContain("TemplateToastProvider");
+    expect(blocks).toContain("announceAssertive");
     expect(blocks).toContain("TemplateRoutePending");
     expect(blocks).toContain("TemplateRouteError");
     expect(blocks).toContain("useTemplateFocusReturn");
     expect(blocks).toContain('role="status"');
     expect(blocks).toContain('role="alert"');
     expect(blocks).toContain('aria-live="polite"');
+    expect(blocks).toContain('aria-live="assertive"');
   });
 });
