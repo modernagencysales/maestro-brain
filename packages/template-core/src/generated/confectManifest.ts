@@ -69,10 +69,54 @@ export const confectManifest = {
       argsSchemaName: "capabilities.sourceGroundedBrief.runInternal.args",
       returnsSchemaName: "capabilities.sourceGroundedBrief.runInternal.returns",
     },
+    {
+      namespace: "ops.dataLifecycle",
+      name: "createDsarRequest",
+      operationId: "ops.dataLifecycle.createDsarRequest",
+      kind: "mutation",
+      surfaces: ["web"],
+      typedErrors: [
+        "Unauthorized",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+        "ValidationFailed",
+      ],
+      idempotent: true,
+      argsSchemaName: "ops.dataLifecycle.createDsarRequest.args",
+      returnsSchemaName: "ops.dataLifecycle.createDsarRequest.returns",
+    },
+    {
+      namespace: "ops.dataLifecycle",
+      name: "listDsarRequests",
+      operationId: "ops.dataLifecycle.listDsarRequests",
+      kind: "query",
+      surfaces: ["web"],
+      typedErrors: [
+        "Unauthorized",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+        "ValidationFailed",
+      ],
+      idempotent: true,
+      argsSchemaName: "ops.dataLifecycle.listDsarRequests.args",
+      returnsSchemaName: "ops.dataLifecycle.listDsarRequests.returns",
+    },
   ],
 } as const;
 
 const sharedConfectJsonSchemasValue1 = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  type: "object",
+  required: ["workspaceId"],
+  properties: {
+    workspaceId: {
+      type: "string",
+    },
+  },
+  additionalProperties: false,
+} as const;
+
+const sharedConfectJsonSchemasValue2 = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
   type: "object",
   required: ["workspaceId", "sourceIds", "briefGoal", "idempotencyKey"],
@@ -105,7 +149,7 @@ const sharedConfectJsonSchemasValue1 = {
   additionalProperties: false,
 } as const;
 
-const sharedConfectJsonSchemasValue2 = {
+const sharedConfectJsonSchemasValue3 = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
   type: "object",
   required: [
@@ -163,17 +207,7 @@ const sharedConfectJsonSchemas = {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "string",
   },
-  "brain.pages.list.args": {
-    $schema: "https://json-schema.org/draft/2020-12/schema",
-    type: "object",
-    required: ["workspaceId"],
-    properties: {
-      workspaceId: {
-        type: "string",
-      },
-    },
-    additionalProperties: false,
-  },
+  "brain.pages.list.args": sharedConfectJsonSchemasValue1,
   "brain.pages.list.returns": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "array",
@@ -225,13 +259,486 @@ const sharedConfectJsonSchemas = {
       additionalProperties: false,
     },
   },
-  "capabilities.sourceGroundedBrief.run.args": sharedConfectJsonSchemasValue1,
+  "capabilities.sourceGroundedBrief.run.args": sharedConfectJsonSchemasValue2,
   "capabilities.sourceGroundedBrief.run.returns":
-    sharedConfectJsonSchemasValue2,
+    sharedConfectJsonSchemasValue3,
   "capabilities.sourceGroundedBrief.runInternal.args":
-    sharedConfectJsonSchemasValue1,
-  "capabilities.sourceGroundedBrief.runInternal.returns":
     sharedConfectJsonSchemasValue2,
+  "capabilities.sourceGroundedBrief.runInternal.returns":
+    sharedConfectJsonSchemasValue3,
+  "ops.dataLifecycle.createDsarRequest.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    required: ["workspaceId", "requestId", "kind"],
+    properties: {
+      workspaceId: {
+        type: "string",
+      },
+      requestId: {
+        type: "string",
+        description: "a string at least 1 character(s) long",
+        title: "minLength(1)",
+        minLength: 1,
+      },
+      kind: {
+        type: "string",
+        enum: ["export", "delete"],
+      },
+      subjectId: {
+        type: "string",
+        description: "a string at least 1 character(s) long",
+        title: "minLength(1)",
+        minLength: 1,
+      },
+      confirmationPhrase: {
+        type: "string",
+      },
+      legalHold: {
+        type: "object",
+        required: ["enabled", "reason"],
+        properties: {
+          enabled: {
+            type: "boolean",
+          },
+          reason: {
+            type: "string",
+          },
+          expiresAt: {
+            type: "number",
+          },
+        },
+        additionalProperties: false,
+      },
+    },
+    additionalProperties: false,
+  },
+  "ops.dataLifecycle.createDsarRequest.returns": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    required: [
+      "workspaceId",
+      "requestId",
+      "requestedByUserId",
+      "kind",
+      "status",
+      "dryRunOnly",
+      "plannedAt",
+      "confirmation",
+      "exportManifest",
+      "deletePlan",
+    ],
+    properties: {
+      workspaceId: {
+        type: "string",
+      },
+      requestId: {
+        type: "string",
+        description: "a string at least 1 character(s) long",
+        title: "minLength(1)",
+        minLength: 1,
+      },
+      requestedByUserId: {
+        type: "string",
+      },
+      subjectId: {
+        type: "string",
+        description: "a string at least 1 character(s) long",
+        title: "minLength(1)",
+        minLength: 1,
+      },
+      kind: {
+        type: "string",
+        enum: ["export", "delete"],
+      },
+      status: {
+        type: "string",
+        enum: [
+          "ready-for-review",
+          "needs-confirmation",
+          "blocked-by-legal-hold",
+        ],
+      },
+      dryRunOnly: {
+        type: "boolean",
+        enum: [true],
+      },
+      plannedAt: {
+        type: "number",
+      },
+      confirmationPhrase: {
+        type: "string",
+      },
+      legalHold: {
+        type: "object",
+        required: ["enabled", "reason"],
+        properties: {
+          enabled: {
+            type: "boolean",
+          },
+          reason: {
+            type: "string",
+          },
+          expiresAt: {
+            type: "number",
+          },
+        },
+        additionalProperties: false,
+      },
+      confirmation: {
+        type: "object",
+        required: ["required", "phrase", "reason"],
+        properties: {
+          required: {
+            type: "boolean",
+            enum: [true],
+          },
+          phrase: {
+            type: "string",
+          },
+          reason: {
+            type: "string",
+          },
+        },
+        additionalProperties: false,
+      },
+      exportManifest: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["resourceId", "exportMode", "detail"],
+          properties: {
+            resourceId: {
+              type: "string",
+              enum: [
+                "workspaces",
+                "workspaceMembers",
+                "brainPages",
+                "workflowRuns",
+                "workflowStageRuns",
+                "workflowRunEvents",
+                "workflowRunEvidenceSnapshots",
+                "workflowRunContextManifests",
+                "usageEvents",
+                "creditLedger",
+                "entitlements",
+                "webhookEvents",
+                "dsarRequests",
+                "featureFlagPolicies",
+                "notificationRecords",
+                "notificationPreferences",
+                "apiKeys",
+                "invitations",
+                "documents",
+                "documentVersions",
+                "documentAnnotations",
+                "concepts",
+                "claims",
+                "citations",
+                "contextPacks",
+                "transformDefinitions",
+                "transformRuns",
+                "transformBlocks",
+                "actionJobs",
+                "actionApprovals",
+                "actionTriggers",
+                "actionDigests",
+                "versionedEntries",
+                "versionFreshness",
+              ],
+            },
+            exportMode: {
+              type: "string",
+              enum: ["markdown", "json", "redacted-json"],
+            },
+            detail: {
+              type: "string",
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+      deletePlan: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["resourceId", "deleteMode", "executable", "reason"],
+          properties: {
+            resourceId: {
+              type: "string",
+              enum: [
+                "workspaces",
+                "workspaceMembers",
+                "brainPages",
+                "workflowRuns",
+                "workflowStageRuns",
+                "workflowRunEvents",
+                "workflowRunEvidenceSnapshots",
+                "workflowRunContextManifests",
+                "usageEvents",
+                "creditLedger",
+                "entitlements",
+                "webhookEvents",
+                "dsarRequests",
+                "featureFlagPolicies",
+                "notificationRecords",
+                "notificationPreferences",
+                "apiKeys",
+                "invitations",
+                "documents",
+                "documentVersions",
+                "documentAnnotations",
+                "concepts",
+                "claims",
+                "citations",
+                "contextPacks",
+                "transformDefinitions",
+                "transformRuns",
+                "transformBlocks",
+                "actionJobs",
+                "actionApprovals",
+                "actionTriggers",
+                "actionDigests",
+                "versionedEntries",
+                "versionFreshness",
+              ],
+            },
+            deleteMode: {
+              type: "string",
+              enum: ["delete", "redact", "retain-audit"],
+            },
+            executable: {
+              type: "boolean",
+              enum: [false],
+            },
+            reason: {
+              type: "string",
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    additionalProperties: false,
+  },
+  "ops.dataLifecycle.listDsarRequests.args": sharedConfectJsonSchemasValue1,
+  "ops.dataLifecycle.listDsarRequests.returns": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    required: ["requests"],
+    properties: {
+      requests: {
+        type: "array",
+        items: {
+          type: "object",
+          required: [
+            "workspaceId",
+            "requestId",
+            "requestedByUserId",
+            "kind",
+            "status",
+            "dryRunOnly",
+            "plannedAt",
+            "confirmation",
+            "exportManifest",
+            "deletePlan",
+          ],
+          properties: {
+            workspaceId: {
+              type: "string",
+            },
+            requestId: {
+              type: "string",
+              description: "a string at least 1 character(s) long",
+              title: "minLength(1)",
+              minLength: 1,
+            },
+            requestedByUserId: {
+              type: "string",
+            },
+            subjectId: {
+              type: "string",
+              description: "a string at least 1 character(s) long",
+              title: "minLength(1)",
+              minLength: 1,
+            },
+            kind: {
+              type: "string",
+              enum: ["export", "delete"],
+            },
+            status: {
+              type: "string",
+              enum: [
+                "ready-for-review",
+                "needs-confirmation",
+                "blocked-by-legal-hold",
+              ],
+            },
+            dryRunOnly: {
+              type: "boolean",
+              enum: [true],
+            },
+            plannedAt: {
+              type: "number",
+            },
+            confirmationPhrase: {
+              type: "string",
+            },
+            legalHold: {
+              type: "object",
+              required: ["enabled", "reason"],
+              properties: {
+                enabled: {
+                  type: "boolean",
+                },
+                reason: {
+                  type: "string",
+                },
+                expiresAt: {
+                  type: "number",
+                },
+              },
+              additionalProperties: false,
+            },
+            confirmation: {
+              type: "object",
+              required: ["required", "phrase", "reason"],
+              properties: {
+                required: {
+                  type: "boolean",
+                  enum: [true],
+                },
+                phrase: {
+                  type: "string",
+                },
+                reason: {
+                  type: "string",
+                },
+              },
+              additionalProperties: false,
+            },
+            exportManifest: {
+              type: "array",
+              items: {
+                type: "object",
+                required: ["resourceId", "exportMode", "detail"],
+                properties: {
+                  resourceId: {
+                    type: "string",
+                    enum: [
+                      "workspaces",
+                      "workspaceMembers",
+                      "brainPages",
+                      "workflowRuns",
+                      "workflowStageRuns",
+                      "workflowRunEvents",
+                      "workflowRunEvidenceSnapshots",
+                      "workflowRunContextManifests",
+                      "usageEvents",
+                      "creditLedger",
+                      "entitlements",
+                      "webhookEvents",
+                      "dsarRequests",
+                      "featureFlagPolicies",
+                      "notificationRecords",
+                      "notificationPreferences",
+                      "apiKeys",
+                      "invitations",
+                      "documents",
+                      "documentVersions",
+                      "documentAnnotations",
+                      "concepts",
+                      "claims",
+                      "citations",
+                      "contextPacks",
+                      "transformDefinitions",
+                      "transformRuns",
+                      "transformBlocks",
+                      "actionJobs",
+                      "actionApprovals",
+                      "actionTriggers",
+                      "actionDigests",
+                      "versionedEntries",
+                      "versionFreshness",
+                    ],
+                  },
+                  exportMode: {
+                    type: "string",
+                    enum: ["markdown", "json", "redacted-json"],
+                  },
+                  detail: {
+                    type: "string",
+                  },
+                },
+                additionalProperties: false,
+              },
+            },
+            deletePlan: {
+              type: "array",
+              items: {
+                type: "object",
+                required: ["resourceId", "deleteMode", "executable", "reason"],
+                properties: {
+                  resourceId: {
+                    type: "string",
+                    enum: [
+                      "workspaces",
+                      "workspaceMembers",
+                      "brainPages",
+                      "workflowRuns",
+                      "workflowStageRuns",
+                      "workflowRunEvents",
+                      "workflowRunEvidenceSnapshots",
+                      "workflowRunContextManifests",
+                      "usageEvents",
+                      "creditLedger",
+                      "entitlements",
+                      "webhookEvents",
+                      "dsarRequests",
+                      "featureFlagPolicies",
+                      "notificationRecords",
+                      "notificationPreferences",
+                      "apiKeys",
+                      "invitations",
+                      "documents",
+                      "documentVersions",
+                      "documentAnnotations",
+                      "concepts",
+                      "claims",
+                      "citations",
+                      "contextPacks",
+                      "transformDefinitions",
+                      "transformRuns",
+                      "transformBlocks",
+                      "actionJobs",
+                      "actionApprovals",
+                      "actionTriggers",
+                      "actionDigests",
+                      "versionedEntries",
+                      "versionFreshness",
+                    ],
+                  },
+                  deleteMode: {
+                    type: "string",
+                    enum: ["delete", "redact", "retain-audit"],
+                  },
+                  executable: {
+                    type: "boolean",
+                    enum: [false],
+                  },
+                  reason: {
+                    type: "string",
+                  },
+                },
+                additionalProperties: false,
+              },
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    additionalProperties: false,
+  },
 } as const;
 
 export const confectJsonSchemas = {

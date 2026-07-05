@@ -8,8 +8,8 @@ describe("maestro-template CLI", () => {
     expect(result.exitCode).toBe(0);
     expect(JSON.parse(result.stdout)).toMatchObject({
       valid: true,
-      capabilityCount: 4,
-      headlessOperationCount: 10,
+      capabilityCount: 6,
+      headlessOperationCount: 12,
     });
   });
 
@@ -18,10 +18,19 @@ describe("maestro-template CLI", () => {
     const operations = JSON.parse(list.stdout);
     const get = runCli(["operations", "get", "api:brain.pages.createMarkdown"]);
 
-    expect(operations).toHaveLength(10);
+    expect(operations).toHaveLength(12);
     expect(
       operations.map((operation: { id: string }) => operation.id),
     ).toContain("api:brain.pages.createMarkdown");
+    expect(
+      operations.map((operation: { id: string }) => operation.id),
+    ).toContain("web:ops.dataLifecycle.createDsarRequest");
+    expect(
+      operations.map((operation: { id: string }) => operation.id),
+    ).not.toContain("api:ops.dataLifecycle.createDsarRequest");
+    expect(
+      operations.map((operation: { id: string }) => operation.id),
+    ).not.toContain("mcp:ops.dataLifecycle.listDsarRequests");
     expect(
       operations.map((operation: { id: string }) => operation.id),
     ).not.toContain("web:capabilities.sourceGroundedBrief.runInternal");

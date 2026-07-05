@@ -9,6 +9,11 @@ import {
   WorkspaceNotFound,
 } from "../errors";
 import {
+  collectContractManifest,
+  collectContractSchemas,
+  defineContractFunction,
+} from "../capabilities/_kit/capability";
+import {
   DsarDeletePlanEntrySchema,
   DsarExportManifestEntrySchema,
   DsarRequestKindSchema,
@@ -63,20 +68,65 @@ export const ListDsarRequestsReturn = Schema.Struct({
   requests: Schema.Array(DsarRequestReturn),
 });
 
-const createDsarRequest = FunctionSpec.publicMutation({
-  name: "createDsarRequest",
-  args: () => CreateDsarRequestArgs,
-  returns: () => DsarRequestReturn,
-  error: () => DataLifecycleError,
-});
+const createDsarRequest = defineContractFunction(
+  FunctionSpec.publicMutation({
+    name: "createDsarRequest",
+    args: () => CreateDsarRequestArgs,
+    returns: () => DsarRequestReturn,
+    error: () => DataLifecycleError,
+  }),
+  {
+    namespace: "ops.dataLifecycle",
+    name: "createDsarRequest",
+    operationId: "ops.dataLifecycle.createDsarRequest",
+    kind: "mutation",
+    surfaces: ["web"],
+    typedErrors: [
+      "Unauthorized",
+      "MemberNotInWorkspace",
+      "WorkspaceNotFound",
+      "ValidationFailed",
+    ],
+    idempotent: true,
+    argsSchemaName: "ops.dataLifecycle.createDsarRequest.args",
+    returnsSchemaName: "ops.dataLifecycle.createDsarRequest.returns",
+    argsSchema: CreateDsarRequestArgs,
+    returnsSchema: DsarRequestReturn,
+  },
+);
 
-const listDsarRequests = FunctionSpec.publicQuery({
-  name: "listDsarRequests",
-  args: () => ListDsarRequestsArgs,
-  returns: () => ListDsarRequestsReturn,
-  error: () => DataLifecycleError,
-});
+const listDsarRequests = defineContractFunction(
+  FunctionSpec.publicQuery({
+    name: "listDsarRequests",
+    args: () => ListDsarRequestsArgs,
+    returns: () => ListDsarRequestsReturn,
+    error: () => DataLifecycleError,
+  }),
+  {
+    namespace: "ops.dataLifecycle",
+    name: "listDsarRequests",
+    operationId: "ops.dataLifecycle.listDsarRequests",
+    kind: "query",
+    surfaces: ["web"],
+    typedErrors: [
+      "Unauthorized",
+      "MemberNotInWorkspace",
+      "WorkspaceNotFound",
+      "ValidationFailed",
+    ],
+    idempotent: true,
+    argsSchemaName: "ops.dataLifecycle.listDsarRequests.args",
+    returnsSchemaName: "ops.dataLifecycle.listDsarRequests.returns",
+    argsSchema: ListDsarRequestsArgs,
+    returnsSchema: ListDsarRequestsReturn,
+  },
+);
+
+const contractFunctions = [createDsarRequest, listDsarRequests] as const;
+
+export const manifest = collectContractManifest(contractFunctions);
+export const schemaRegistry = collectContractSchemas(contractFunctions);
 
 export default GroupSpec.make()
-  .addFunction(createDsarRequest)
-  .addFunction(listDsarRequests);
+  .addFunction(createDsarRequest.spec)
+  .addFunction(listDsarRequests.spec);

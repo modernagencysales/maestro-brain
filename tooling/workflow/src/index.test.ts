@@ -17,9 +17,13 @@ describe("workflow headless registry", () => {
     const operations = buildHeadlessOperations();
     const ids = operations.map((operation) => operation.id);
 
-    expect(operations).toHaveLength(10);
+    expect(operations).toHaveLength(12);
     expect(ids).toContain("api:brain.pages.createMarkdown");
     expect(ids).toContain("cli:brain.pages.createMarkdown");
+    expect(ids).toContain("web:ops.dataLifecycle.createDsarRequest");
+    expect(ids).toContain("web:ops.dataLifecycle.listDsarRequests");
+    expect(ids).not.toContain("api:ops.dataLifecycle.createDsarRequest");
+    expect(ids).not.toContain("mcp:ops.dataLifecycle.listDsarRequests");
     expect(ids).not.toContain(
       "web:capabilities.sourceGroundedBrief.runInternal",
     );
@@ -36,9 +40,9 @@ describe("workflow headless registry", () => {
       validationErrors: [],
       nodeCount: 5,
       edgeCount: 4,
-      capabilityCount: 4,
+      capabilityCount: 6,
       agentCount: 3,
-      headlessOperationCount: 10,
+      headlessOperationCount: 12,
     });
   });
 
@@ -92,6 +96,16 @@ describe("workflow headless registry", () => {
     });
     expect(buildGeneratedMcpTools()).not.toContainEqual(
       expect.objectContaining({ name: "template.workflow.run" }),
+    );
+    expect(buildApiCatalog()).not.toContainEqual(
+      expect.objectContaining({
+        operationId: "ops.dataLifecycle.createDsarRequest",
+      }),
+    );
+    expect(buildGeneratedMcpTools()).not.toContainEqual(
+      expect.objectContaining({
+        name: "template.ops.dataLifecycle.listDsarRequests",
+      }),
     );
     expect(buildMcpTools()).toContainEqual({
       name: "template.workflow.run",

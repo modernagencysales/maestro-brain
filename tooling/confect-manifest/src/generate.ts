@@ -16,11 +16,20 @@ import {
   manifest as brainPagesManifest,
   schemaRegistry as brainPagesSchemaRegistry,
 } from "../../../packages/convex/confect/brain/pages.spec";
+import {
+  manifest as dataLifecycleManifest,
+  schemaRegistry as dataLifecycleSchemaRegistry,
+} from "../../../packages/convex/confect/ops/dataLifecycle.spec";
 
-const functions = [...brainPagesManifest, ...sourceGroundedBriefManifest];
+const functions = [
+  ...brainPagesManifest,
+  ...sourceGroundedBriefManifest,
+  ...dataLifecycleManifest,
+];
 const schemaRegistry = mergeContractSchemaRegistries(
   brainPagesSchemaRegistry,
   sourceGroundedBriefSchemaRegistry,
+  dataLifecycleSchemaRegistry,
 );
 
 const duplicateIds = duplicateOperationIds(functions);
@@ -57,6 +66,7 @@ const generatedRefModules: Readonly<Record<string, string>> = {
   "brain.pages": "packages/convex/convex/brain/pages.ts",
   "capabilities.sourceGroundedBrief":
     "packages/convex/convex/capabilities/sourceGroundedBrief.ts",
+  "ops.dataLifecycle": "packages/convex/convex/ops/dataLifecycle.ts",
 };
 
 const escapeRegExp = (input: string): string =>

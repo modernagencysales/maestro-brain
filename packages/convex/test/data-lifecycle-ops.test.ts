@@ -12,6 +12,8 @@ import dataLifecycle, {
   DsarRequestReturn,
   ListDsarRequestsArgs,
   ListDsarRequestsReturn,
+  manifest as dataLifecycleManifest,
+  schemaRegistry as dataLifecycleSchemaRegistry,
 } from "../confect/ops/dataLifecycle.spec";
 import dsarRequests, { DsarRequestRow } from "../confect/tables/dsarRequests";
 import { DatabaseReader } from "../confect/_generated/services";
@@ -104,6 +106,42 @@ describe("data lifecycle Confect contracts", () => {
     expect(dataLifecycleImpl).toMatchObject({
       _op_layer: "Fold",
     });
+  });
+
+  it("exports web-only manifest metadata for DSAR operations", () => {
+    expect(dataLifecycleManifest).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          operationId: "ops.dataLifecycle.createDsarRequest",
+          kind: "mutation",
+          surfaces: ["web"],
+          idempotent: true,
+          argsSchemaName: "ops.dataLifecycle.createDsarRequest.args",
+          returnsSchemaName: "ops.dataLifecycle.createDsarRequest.returns",
+        }),
+        expect.objectContaining({
+          operationId: "ops.dataLifecycle.listDsarRequests",
+          kind: "query",
+          surfaces: ["web"],
+          idempotent: true,
+          argsSchemaName: "ops.dataLifecycle.listDsarRequests.args",
+          returnsSchemaName: "ops.dataLifecycle.listDsarRequests.returns",
+        }),
+      ]),
+    );
+    expect(
+      dataLifecycleManifest.some((entry) =>
+        entry.surfaces.some((surface) =>
+          ["api", "cli", "mcp"].includes(surface),
+        ),
+      ),
+    ).toBe(false);
+    expect(Object.keys(dataLifecycleSchemaRegistry).sort()).toEqual([
+      "ops.dataLifecycle.createDsarRequest.args",
+      "ops.dataLifecycle.createDsarRequest.returns",
+      "ops.dataLifecycle.listDsarRequests.args",
+      "ops.dataLifecycle.listDsarRequests.returns",
+    ]);
   });
 
   it("persists a tenant-guarded dry-run DSAR request plan", async () => {
