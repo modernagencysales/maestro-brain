@@ -62,6 +62,45 @@ const requireNonEmpty = (field: string, value: string): void => {
   }
 };
 
+const maxIdempotencyKeyLength = 128;
+const idempotencyKeyPattern = /^[A-Za-z0-9._~-]+$/;
+
+export const validateVersioningIdempotencyKey = (
+  idempotencyKey: string,
+): string => {
+  const trimmed = idempotencyKey.trim();
+
+  if (!trimmed) {
+    throw new VersioningValidationError(
+      "idempotencyKey",
+      "idempotencyKey is required.",
+    );
+  }
+
+  if (trimmed !== idempotencyKey) {
+    throw new VersioningValidationError(
+      "idempotencyKey",
+      "idempotencyKey must not have leading or trailing whitespace.",
+    );
+  }
+
+  if (idempotencyKey.length > maxIdempotencyKeyLength) {
+    throw new VersioningValidationError(
+      "idempotencyKey",
+      `idempotencyKey must be ${String(maxIdempotencyKeyLength)} characters or fewer.`,
+    );
+  }
+
+  if (!idempotencyKeyPattern.test(idempotencyKey)) {
+    throw new VersioningValidationError(
+      "idempotencyKey",
+      "idempotencyKey must contain only URL-safe letters, numbers, '.', '_', '~', or '-'.",
+    );
+  }
+
+  return idempotencyKey;
+};
+
 const assertCausation = (causation: string): VersionCausation => {
   if (!causations.has(causation as VersionCausation)) {
     throw new VersioningValidationError(
@@ -94,7 +133,7 @@ const reconciliationKey = (input: {
     input.workspaceId.trim(),
     input.entityKey.trim(),
     input.externalVersion.trim(),
-    input.idempotencyKey.trim(),
+    input.idempotencyKey,
   ].join("::");
 
 export const appendVersion = (input: {
@@ -114,7 +153,7 @@ export const appendVersion = (input: {
   requireNonEmpty("versionKey", input.versionKey);
   requireNonEmpty("actorId", input.actorId);
   requireNonEmpty("payloadHash", input.payloadHash);
-  requireNonEmpty("idempotencyKey", input.idempotencyKey);
+  const idempotencyKey = validateVersioningIdempotencyKey(input.idempotencyKey);
 
   return {
     workspaceId: input.workspaceId,
@@ -127,7 +166,7 @@ export const appendVersion = (input: {
     actorId: input.actorId,
     payloadHash: input.payloadHash,
     payload: input.payload,
-    idempotencyKey: input.idempotencyKey,
+    idempotencyKey,
     createdAt: input.createdAt,
     appendOnly: true,
   };
@@ -190,7 +229,8 @@ export const reconcileExternalVersion = (input: {
   readonly createdAt: string;
 }): VersionedEntry => {
   requireNonEmpty("externalVersion", input.externalVersion);
-  const key = reconciliationKey(input);
+  const idempotencyKey = validateVersioningIdempotencyKey(input.idempotencyKey);
+  const key = reconciliationKey({ ...input, idempotencyKey });
 
   return {
     ...appendVersion({
@@ -201,7 +241,7 @@ export const reconcileExternalVersion = (input: {
       actorId: input.actorId,
       payloadHash: input.payloadHash,
       payload: input.payload,
-      idempotencyKey: input.idempotencyKey,
+      idempotencyKey,
       createdAt: input.createdAt,
     }),
     externalVersion: input.externalVersion,

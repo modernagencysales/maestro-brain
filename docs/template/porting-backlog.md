@@ -131,7 +131,9 @@ Convex component wiring (M).
    reservation keys before reading or inserting `workflowRuns`.
    `packages/integrations` fake billing ledger helpers and the generic billing
    checkout provider seam now reject malformed caller keys before deriving
-   ledger, usage, or receipt IDs. Remaining work: adopt the shared validator
+   ledger, usage, or receipt IDs. `packages/template-core` versioning helpers
+   now reject malformed versioning keys before storing append-only entries or
+   deriving reconciliation keys. Remaining work: adopt the shared validator
    across every remaining durable ledger path that accepts caller-supplied
    idempotency keys.
 10. **Workspace bootstrap/provision provider (web)** — MED — no.
