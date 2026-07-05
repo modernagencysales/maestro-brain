@@ -9,7 +9,11 @@ and requires typed confirmation before destructive workspace delete work.
 Authoritative implementation:
 
 - `packages/convex/confect/ops/dataLifecycle.ts`
+- `packages/convex/confect/ops/dataLifecycle.spec.ts`
+- `packages/convex/confect/ops/dataLifecycle.impl.ts`
+- `packages/convex/confect/tables/dsarRequests.ts`
 - `packages/convex/test/data-lifecycle.test.ts`
+- `packages/convex/test/data-lifecycle-ops.test.ts`
 
 Every schema addition that stores workspace-owned data must declare:
 
@@ -35,6 +39,13 @@ delete:
   must wire audited Confect mutations, approval checks, and legal signoff before
   executing deletion or redaction.
 
+`ops.dataLifecycle.createDsarRequest` persists that same plan as a
+tenant-guarded audit row in `dsarRequests`. The mutation verifies workspace
+access, records the requesting user, stores export/delete plan metadata, and
+remains dry-run only. It is the review/audit handoff point before a client fork
+wires real export bundle generation, redaction, deletion, or legal-hold
+workflows.
+
 ## Retention Job Planning
 
 `buildRetentionJobPlan` turns retention rules into a dry-run job plan with an
@@ -59,6 +70,7 @@ The planner covers these workspace-owned resources:
 - `creditLedger`
 - `entitlements`
 - `webhookEvents`
+- `dsarRequests`
 - `featureFlagPolicies`
 - `notificationRecords`
 - `notificationPreferences`
@@ -98,12 +110,14 @@ approval links expose token hashes only, and digest exports never include raw
 customer or provider metadata. Entitlements and feature flag policies export as
 JSON so seat, credit, feature limit, rollout, and kill-switch posture remain
 auditable. Webhook events export as redacted JSON: provider, event ID, signature
-timestamp, and dedupe state are retained without raw provider payloads.
-Notification records export as redacted JSON so recipient/action metadata stays
-bounded while delivery audit state remains reviewable. Notification preferences
-export as JSON because they are workspace-member channel settings. Operational,
-workflow, usage, and ledger records export as JSON. Sensitive identity,
-invitation, and API key resources export as redacted JSON.
+timestamp, and dedupe state are retained without raw provider payloads. DSAR
+request rows export as redacted JSON so fulfillment review state is auditable
+without exposing unnecessary subject metadata. Notification records export as
+redacted JSON so recipient/action metadata stays bounded while delivery audit
+state remains reviewable. Notification preferences export as JSON because they
+are workspace-member channel settings. Operational, workflow, usage, and ledger
+records export as JSON. Sensitive identity, invitation, and API key resources
+export as redacted JSON.
 
 ## Delete Posture
 
@@ -118,13 +132,14 @@ operational state. Transform definitions delete with the workspace, while
 transform runs and blocks are retained for the audit window because they explain
 generated outputs. Action jobs, approvals, and digest deliveries are retained
 for the audit window because they explain external side effects and reviewer
-decisions; action triggers delete with workspace automation settings. Feature
-flag policies and notification preferences delete with workspace configuration.
-Notification records retain redacted delivery audit state. Audit, workflow,
-usage, and financial ledger records are retained as audit anchors. API keys and
-invitations are redacted or revoked rather than exposing secret material.
-Entitlements and payment webhook events are retained for billing, seat, and
-support reconciliation.
+decisions; action triggers delete with workspace automation settings. DSAR
+request rows retain fulfillment review posture. Feature flag policies and
+notification preferences delete with workspace configuration. Notification
+records retain redacted delivery audit state. Audit, workflow, usage, and
+financial ledger records are retained as audit anchors. API keys and invitations
+are redacted or revoked rather than exposing secret material. Entitlements and
+payment webhook events are retained for billing, seat, and support
+reconciliation.
 
 ## Retention Rules
 
@@ -149,6 +164,7 @@ The implemented retention hooks are:
 - Action digests: redact customer and provider metadata on export.
 - Entitlements: retain for the audit window.
 - Webhook events: hash or redact provider payloads on export.
+- DSAR requests: retain for the audit window.
 - Feature flag policies: retain until workspace delete.
 - Notification records: hash or redact recipient/action metadata on export.
 - Notification preferences: retain until workspace delete.

@@ -16,6 +16,7 @@ import creditLedger from "./tables/creditLedger";
 import documentAnnotations from "./tables/documentAnnotations";
 import documentVersions from "./tables/documentVersions";
 import documents from "./tables/documents";
+import dsarRequests from "./tables/dsarRequests";
 import entitlements from "./tables/entitlements";
 import featureFlagPolicies from "./tables/featureFlagPolicies";
 import invitations from "./tables/invitations";
@@ -59,6 +60,7 @@ export default $defineSchema({
   documentAnnotations: documentAnnotations.tableDefinition,
   documentVersions: documentVersions.tableDefinition,
   documents: documents.tableDefinition,
+  dsarRequests: dsarRequests.tableDefinition,
   entitlements: entitlements.tableDefinition,
   featureFlagPolicies: featureFlagPolicies.tableDefinition,
   invitations: invitations.tableDefinition,

@@ -232,6 +232,7 @@ describe("template data lifecycle plan", () => {
 
     expect(currentLifecycleResourceIds).toEqual(
       expect.arrayContaining([
+        "dsarRequests",
         "featureFlagPolicies",
         "notificationRecords",
         "notificationPreferences",
@@ -239,6 +240,11 @@ describe("template data lifecycle plan", () => {
     );
     expect(plan.export.resources).toEqual(
       expect.arrayContaining([
+        expect.objectContaining({
+          id: "dsarRequests",
+          exportMode: "redacted-json",
+          deleteMode: "retain-audit",
+        }),
         expect.objectContaining({
           id: "featureFlagPolicies",
           exportMode: "json",
@@ -258,6 +264,10 @@ describe("template data lifecycle plan", () => {
     );
     expect(plan.retention.rules).toEqual(
       expect.arrayContaining([
+        expect.objectContaining({
+          resourceId: "dsarRequests",
+          action: "retain-audit-window",
+        }),
         expect.objectContaining({
           resourceId: "featureFlagPolicies",
           action: "retain-until-workspace-delete",

@@ -17,6 +17,7 @@ export type CreditLedgerDoc = Document.Document<typeof schemaDefinition, "credit
 export type DocumentAnnotationsDoc = Document.Document<typeof schemaDefinition, "documentAnnotations">;
 export type DocumentVersionsDoc = Document.Document<typeof schemaDefinition, "documentVersions">;
 export type DocumentsDoc = Document.Document<typeof schemaDefinition, "documents">;
+export type DsarRequestsDoc = Document.Document<typeof schemaDefinition, "dsarRequests">;
 export type EntitlementsDoc = Document.Document<typeof schemaDefinition, "entitlements">;
 export type FeatureFlagPoliciesDoc = Document.Document<typeof schemaDefinition, "featureFlagPolicies">;
 export type InvitationsDoc = Document.Document<typeof schemaDefinition, "invitations">;
@@ -60,6 +61,7 @@ export interface Docs {
   documentAnnotations: DocumentAnnotationsDoc;
   documentVersions: DocumentVersionsDoc;
   documents: DocumentsDoc;
+  dsarRequests: DsarRequestsDoc;
   entitlements: EntitlementsDoc;
   featureFlagPolicies: FeatureFlagPoliciesDoc;
   invitations: InvitationsDoc;

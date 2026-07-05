@@ -1488,12 +1488,13 @@ repos**.
 282. **Retention/TTL/erasure cron + DSAR export/delete** — MED (compliance-HIGH)
      — partial. `packages/convex/confect/ops/dataLifecycle.ts` now covers the
      current resource inventory, DSAR export manifests, DSAR delete plans, exact
-     delete confirmation, legal-hold blocking, and dry-run retention job
-     planning. `packages/convex/test/data-lifecycle.test.ts` pins those
-     contracts. Remaining work: wire audited Confect mutations for actual export
-     bundles, redaction/delete execution, scheduled cron, legal-hold records,
-     and client-specific processor inventory before a production fork fulfills
-     live DSAR or retention actions.
+     delete confirmation, legal-hold blocking, dry-run retention job planning,
+     and tenant-guarded audited DSAR request persistence through
+     `ops.dataLifecycle`. `packages/convex/test/data-lifecycle*.test.ts` pins
+     those contracts. Remaining work: wire actual export bundles,
+     redaction/delete execution, scheduled cron, legal-hold records, and
+     client-specific processor inventory before a production fork fulfills live
+     DSAR or retention actions.
 283. **HTTP security headers (CSP / HSTS / X-Frame / nosniff /
      Referrer-Policy)** — MED — partial. Convex HTTP routes expose
      `securityHeaders` and `packages/convex/test/http-docs.test.ts` verifies

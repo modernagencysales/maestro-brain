@@ -1,3 +1,5 @@
+import * as Schema from "effect/Schema";
+
 export const currentLifecycleResourceIds = [
   "workspaces",
   "workspaceMembers",
@@ -11,6 +13,7 @@ export const currentLifecycleResourceIds = [
   "creditLedger",
   "entitlements",
   "webhookEvents",
+  "dsarRequests",
   "featureFlagPolicies",
   "notificationRecords",
   "notificationPreferences",
@@ -35,6 +38,10 @@ export const currentLifecycleResourceIds = [
 ] as const;
 
 export type LifecycleResourceId = (typeof currentLifecycleResourceIds)[number];
+
+export const LifecycleResourceIdSchema = Schema.Literal(
+  ...currentLifecycleResourceIds,
+);
 
 export type LifecycleResourcePlan = {
   readonly id: LifecycleResourceId;
@@ -75,14 +82,28 @@ export type WorkspaceDataLifecyclePlan = {
 
 export type DsarRequestKind = "export" | "delete";
 
+export const DsarRequestKindSchema = Schema.Literal("export", "delete");
+
 export type DsarRequestStatus =
   "ready-for-review" | "needs-confirmation" | "blocked-by-legal-hold";
+
+export const DsarRequestStatusSchema = Schema.Literal(
+  "ready-for-review",
+  "needs-confirmation",
+  "blocked-by-legal-hold",
+);
 
 export type LegalHold = {
   readonly enabled: boolean;
   readonly reason: string;
-  readonly expiresAt?: number;
+  readonly expiresAt?: number | undefined;
 };
+
+export const LegalHoldSchema = Schema.Struct({
+  enabled: Schema.Boolean,
+  reason: Schema.String,
+  expiresAt: Schema.optional(Schema.Number),
+});
 
 export type DsarExportManifestEntry = {
   readonly resourceId: LifecycleResourceId;
@@ -90,12 +111,25 @@ export type DsarExportManifestEntry = {
   readonly detail: string;
 };
 
+export const DsarExportManifestEntrySchema = Schema.Struct({
+  resourceId: LifecycleResourceIdSchema,
+  exportMode: Schema.Literal("markdown", "json", "redacted-json"),
+  detail: Schema.String,
+});
+
 export type DsarDeletePlanEntry = {
   readonly resourceId: LifecycleResourceId;
   readonly deleteMode: LifecycleResourcePlan["deleteMode"];
   readonly executable: false;
   readonly reason: string;
 };
+
+export const DsarDeletePlanEntrySchema = Schema.Struct({
+  resourceId: LifecycleResourceIdSchema,
+  deleteMode: Schema.Literal("delete", "redact", "retain-audit"),
+  executable: Schema.Literal(false),
+  reason: Schema.String,
+});
 
 export type WorkspaceDsarPlan = {
   readonly requestId: string;
@@ -216,6 +250,14 @@ const resourcePlans: readonly LifecycleResourcePlan[] = [
     deleteMode: "retain-audit",
     detail:
       "Payment webhook events retain provider/event/timestamp dedupe keys without raw payloads.",
+  },
+  {
+    id: "dsarRequests",
+    owner: "workspace",
+    exportMode: "redacted-json",
+    deleteMode: "retain-audit",
+    detail:
+      "DSAR request audit rows export plan metadata and retain fulfillment review posture.",
   },
   {
     id: "featureFlagPolicies",
@@ -489,6 +531,12 @@ const retentionRules: readonly RetentionRule[] = [
     action: "hash-or-redact-on-export",
     detail:
       "Webhook payloads are redacted; provider, event ID, and signature timestamp form the dedupe key.",
+  },
+  {
+    resourceId: "dsarRequests",
+    action: "retain-audit-window",
+    detail:
+      "DSAR request records are retained as compliance review and fulfillment audit anchors.",
   },
   {
     resourceId: "featureFlagPolicies",

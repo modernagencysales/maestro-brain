@@ -86,20 +86,22 @@ contract family.
   output now carries CSP, HSTS, frame, nosniff, referrer, and permissions-policy
   headers through `apps/web/public/_headers`. Data lifecycle planning now
   includes DSAR export manifests, delete-request confirmation, legal-hold
-  blocking, and dry-run retention job plans. Observability now includes a
-  provider-neutral ErrorReporter event contract with release metadata,
-  fingerprints, recursive redaction, and best-effort delivery. Environment
-  posture now includes a machine-readable `env-manifest.json` checked against
-  `.env.example`, provider descriptors, generator secrets, Convex component env,
-  setup UI readiness copy, and deploy-required secrets. `template:doctor` reads
-  provider requirements from the manifest, and `deploy:doctor` consumes the same
-  manifest to expand deploy groups into concrete missing env names without
-  printing values. Release tooling now includes redacted alert plans for failed
-  deploy doctor checks and refused production promotions, ready for client forks
-  to route through `packages/notifications`. Remaining product-surface work is
-  adoption: wire future modals/popovers into `TemplateDialog`, future forms into
-  the starter form primitive, future live surfaces into the feature flag
-  evaluator, audited DSAR fulfillment mutations, live error-reporting
+  blocking, audited dry-run DSAR request persistence through
+  `ops.dataLifecycle`, and dry-run retention job plans. Observability now
+  includes a provider-neutral ErrorReporter event contract with release
+  metadata, fingerprints, recursive redaction, and best-effort delivery.
+  Environment posture now includes a machine-readable `env-manifest.json`
+  checked against `.env.example`, provider descriptors, generator secrets,
+  Convex component env, setup UI readiness copy, and deploy-required secrets.
+  `template:doctor` reads provider requirements from the manifest, and
+  `deploy:doctor` consumes the same manifest to expand deploy groups into
+  concrete missing env names without printing values. Release tooling now
+  includes redacted alert plans for failed deploy doctor checks and refused
+  production promotions, ready for client forks to route through
+  `packages/notifications`. Remaining product-surface work is adoption: wire
+  future modals/popovers into `TemplateDialog`, future forms into the starter
+  form primitive, future live surfaces into the feature flag evaluator,
+  destructive DSAR fulfillment execution mutations, live error-reporting
   providers/source-map upload, and future real mutation success/error paths into
   `TemplateToastProvider`.
 

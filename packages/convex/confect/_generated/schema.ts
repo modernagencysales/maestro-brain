@@ -16,6 +16,7 @@ import creditLedger from "./tables/creditLedger";
 import documentAnnotations from "./tables/documentAnnotations";
 import documentVersions from "./tables/documentVersions";
 import documents from "./tables/documents";
+import dsarRequests from "./tables/dsarRequests";
 import entitlements from "./tables/entitlements";
 import featureFlagPolicies from "./tables/featureFlagPolicies";
 import invitations from "./tables/invitations";
@@ -59,6 +60,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof documentAnnotations |
   typeof documentVersions |
   typeof documents |
+  typeof dsarRequests |
   typeof entitlements |
   typeof featureFlagPolicies |
   typeof invitations |
@@ -101,6 +103,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   documentAnnotations,
   documentVersions,
   documents,
+  dsarRequests,
   entitlements,
   featureFlagPolicies,
   invitations,
