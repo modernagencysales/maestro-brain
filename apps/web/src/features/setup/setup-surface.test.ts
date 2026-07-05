@@ -43,6 +43,9 @@ describe("setup surface", () => {
     expect(sections[3]?.body).toContain(
       "- Run browser smoke, app tests, Confect contract checks, and deploy readiness checks before handoff.",
     );
+    expect(sections[3]?.body).toContain(
+      "- Confirm feature flags and kill switches before enabling live billing, notifications, or model calls.",
+    );
   });
 
   it("builds a route checklist for fake-mode client setup", () => {
@@ -52,6 +55,7 @@ describe("setup surface", () => {
       "workspace",
       "providers",
       "brain",
+      "flags",
       "workflow",
     ]);
     expect(steps[0]).toMatchObject({
@@ -68,6 +72,10 @@ describe("setup surface", () => {
       status: "ready",
     });
     expect(steps[3]).toMatchObject({
+      label: "Rollout and kill switches",
+      status: "ready",
+    });
+    expect(steps[4]).toMatchObject({
       label: "First workflow receipt",
       status: "ready",
     });

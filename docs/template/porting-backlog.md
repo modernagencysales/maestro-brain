@@ -1387,9 +1387,14 @@ repos**.
      (partial). `domain/seedWorkspace.ts`, `**/__fixtures__/*`, playwright
      `apps/web/e2e/`. Schema-valid row builders + the convex-test harness the
      captured gates (J/K) assume exists. Item 57 covers only graph fixtures.
-281. **Feature flags / gradual rollout / kill switches** — MED — Greenfield
-     (extends kill-switch item 20 + policy-as-data). Per-flag rollout/targeting;
-     the template's `Flags` integration family is a stub.
+281. **Feature flags / gradual rollout / kill switches** — MED — partial.
+     `packages/integrations/src/flags.ts` provides fake-safe local flag
+     definitions, deterministic workspace rollout buckets, internal/workspace
+     audience checks, and explicit kill-switch env overrides for live billing,
+     notifications, and AI generation. `/onboarding` setup copy now includes a
+     rollout and kill-switch readiness step. Remaining work: promote the flag
+     definitions into durable per-workspace policy data and connect generated
+     product surfaces to the evaluator before client-specific live rollout.
 282. **Retention/TTL/erasure cron + DSAR export/delete** — MED (compliance-HIGH)
      — Greenfield (implements the item-91 / `data-lifecycle.md` doctrine). No
      retention job in `crons.ts`, no backend export/delete/legal-hold

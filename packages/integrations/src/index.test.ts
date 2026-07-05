@@ -23,6 +23,7 @@ describe("provider adapter descriptors", () => {
       "openrouter",
       "storage",
       "search",
+      "flags",
     ]);
     expect(providerDescriptors.every((provider) => provider.fakeMode)).toBe(
       true,
@@ -189,5 +190,16 @@ describe("provider adapter descriptors", () => {
         defaultProviderOperation(provider.id),
       ),
     );
+  });
+
+  it("includes feature flags in the provider readiness report without live env", () => {
+    expect(
+      providerConfigReport("live", {}).find((entry) => entry.id === "flags"),
+    ).toMatchObject({
+      displayName: "Feature Flags",
+      ready: true,
+      missingEnv: [],
+    });
+    expect(defaultProviderOperation("flags")).toBe("flags.evaluate");
   });
 });

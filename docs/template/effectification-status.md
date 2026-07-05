@@ -74,10 +74,11 @@ contract family.
   assets, fake-safe cookie consent and legal placeholders, toast primitives,
   onboarding continuation feedback through `TemplateToastProvider`, and the
   first TanStack Form-backed starter form primitive with validation, dirty-state
-  guarding, and fake-safe autosave. Remaining product-surface work is adoption:
+  guarding, fake-safe autosave, and fake-safe feature flag definitions for
+  rollout and kill-switch checks. Remaining product-surface work is adoption:
   wire future modals/popovers into `TemplateDialog`, future forms into the
-  starter form primitive, and real mutation success/error paths into
-  `TemplateToastProvider`.
+  starter form primitive, future live surfaces into the feature flag evaluator,
+  and real mutation success/error paths into `TemplateToastProvider`.
 
 ## Starter Readiness Read
 
@@ -94,7 +95,9 @@ The remaining cross-cutting starter improvements are:
    those surfaces gain mutations, modals, popovers, and destructive flows.
 2. Adopt the starter form primitive in each generated client form and replace
    fake-safe autosave with durable mutations in client forks.
-3. Keep [template-defaults.md](./template-defaults.md) current when billing,
+3. Promote starter feature flags into durable per-workspace policy data when a
+   fork enables live billing, notifications, or AI generation.
+4. Keep [template-defaults.md](./template-defaults.md) current when billing,
    notification center, retention jobs, or deploy promotion move between
    template defaults and client-fork extension paths.
 

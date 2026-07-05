@@ -7,6 +7,7 @@ export * from "./billing";
 export * from "./dodo";
 export * from "./workos";
 export * from "./rateLimit";
+export * from "./flags";
 
 export type ProviderMode = "fake" | "test" | "live";
 
@@ -17,10 +18,18 @@ export type ProviderId =
   | "mailersend"
   | "openrouter"
   | "storage"
-  | "search";
+  | "search"
+  | "flags";
 
 export type ProviderFamily =
-  "auth" | "analytics" | "billing" | "email" | "llm" | "storage" | "search";
+  | "auth"
+  | "analytics"
+  | "billing"
+  | "email"
+  | "llm"
+  | "storage"
+  | "search"
+  | "flags";
 
 export type ProviderDescriptor = {
   readonly id: ProviderId;
@@ -57,7 +66,8 @@ export type ProviderOperation =
   | "email.send"
   | "llm.complete"
   | "storage.putObject"
-  | "search.query";
+  | "search.query"
+  | "flags.evaluate";
 
 export type ProviderAdapterInput = {
   readonly operation: ProviderOperation;
@@ -158,6 +168,17 @@ export const providerDescriptors = [
     notes:
       "Vector/RAG retrieval is optional; source sets and context packs are core.",
   },
+  {
+    id: "flags",
+    family: "flags",
+    displayName: "Feature Flags",
+    fakeMode: true,
+    liveMode: true,
+    requiredEnv: [],
+    redactedFields: ["userEmail", "workspaceSlug", "targetingRule"],
+    notes:
+      "Local default flags support gradual rollout and kill-switch checks before a live provider is promoted.",
+  },
 ] as const satisfies readonly ProviderDescriptor[];
 
 export const providerIds = providerDescriptors.map((provider) => provider.id);
@@ -247,6 +268,7 @@ const providerOperationByFamily = {
   llm: "llm.complete",
   storage: "storage.putObject",
   search: "search.query",
+  flags: "flags.evaluate",
 } as const satisfies Record<ProviderFamily, ProviderOperation>;
 
 export const defaultProviderOperation = (id: ProviderId): ProviderOperation => {

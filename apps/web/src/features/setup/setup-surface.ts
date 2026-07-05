@@ -79,7 +79,7 @@ export const buildProviderSetupDocumentSections = (
       heading: "Deploy readiness",
       body: [
         "Run local tests, hosted browser smoke, Confect contract checks, provider readiness checks, and secret scans before client handoff.",
-        "Production promotion should stay manual until the client fork has live provider signoff.",
+        "Production promotion should stay manual until the client fork has live provider signoff, rollout flags, and kill switches.",
       ],
     },
   ];
@@ -116,6 +116,7 @@ export const buildOnboardingDocumentSections =
       body: [
         "- Run browser smoke, app tests, Confect contract checks, and deploy readiness checks before handoff.",
         "- Confirm WorkOS, PostHog, Dodo, MailerSend, storage, and model provider posture.",
+        "- Confirm feature flags and kill switches before enabling live billing, notifications, or model calls.",
         "- Save a Trust Receipt for the first meaningful workflow run.",
       ],
     },
@@ -149,6 +150,13 @@ export const buildOnboardingChecklistSteps = ({
       label: "Source-backed Brain",
       description:
         "Add markdown, links, and source sets before agent workflows run.",
+      status: "ready",
+    },
+    {
+      id: "flags",
+      label: "Rollout and kill switches",
+      description:
+        "Confirm feature flags before promoting live billing, notifications, or AI generation.",
       status: "ready",
     },
     {
