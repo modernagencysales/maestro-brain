@@ -39,6 +39,8 @@ atomic transaction.
   files.
 - No bare `process.env`, `import.meta.env`, or `Deno.env` in product code
   outside the approved config boundary files.
+- No product runtime `console.*`; route operator-visible output through CLI
+  output seams and product telemetry through typed redacted observability seams.
 - Use typed config decoders.
 - Redact secrets, tokens, webhook bodies, raw provider payloads, and stack
   traces before crossing public boundaries.

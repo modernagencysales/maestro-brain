@@ -29,6 +29,7 @@ strongest first:
 | Keep frontend Effect usage behind boundaries                                                                                               | mechanical: `check:frontend-effect-boundary` scans frontend roots for the approved Effect/TanStack/Effect Atom boundary: `Effect.runPromise` only in the web effect adapter, no client `effect` barrel imports, and `@effect-atom/*` imports only under approved prefixes                                 |
 | Keep product env reads behind typed boundaries                                                                                             | mechanical: `check:env-boundary` scans `apps/` and `packages/` for direct `process.env`, `import.meta.env`, or `Deno.env` access outside the CLI decoder, web env shim, and Convex shared env accessor                                                                                                    |
 | Keep provider SDKs behind adapters and runtime boundaries                                                                                  | mechanical: `check:provider-boundary` scans `apps/` and `packages/` for provider SDK imports outside approved integration/provider packages and explicit WorkOS/PostHog runtime boundary files                                                                                                            |
+| Keep product logs behind redacted seams                                                                                                    | mechanical: `check:logging-boundary` scans `apps/` and `packages/` for product runtime `console.*` calls; product telemetry must go through typed redacted observability/notification seams                                                                                                               |
 | Do not edit generated files                                                                                                                | mechanical: `check:convex` (codegen + `git diff --exit-code`); pin-only: `check:generated-files`                                                                                                                                                                                                          |
 | API/CLI/MCP generated surface parity                                                                                                       | mechanical: `check:headless-surface-contract` verifies generated manifest exposure has typed errors, idempotency-key enforcement proof, generated ref mappings, and no canned registry/runtime success shortcuts                                                                                          |
 
@@ -55,7 +56,7 @@ strongest first:
 | Secrets never committed               | mechanical: `check:secret-canaries` (gitleaks with real config)                                              |
 | Provider SDKs stay behind adapters    | mechanical: `check:provider-boundary`; ai-judge: contract-review rubric lane                                 |
 | Product env reads use typed decoders  | mechanical: `check:env-boundary`; focused tests cover bad app/backend reads and approved boundary files      |
-| Provider payloads redacted before log | mechanical: unit tests on `redactProviderPayload`; review elsewhere                                          |
+| Provider payloads redacted before log | mechanical: `check:logging-boundary` plus unit tests on provider, notification, and observability redactors  |
 | Licenses inventoried                  | pin-only: `check:sbom-license`                                                                               |
 
 ## Process and CI integrity
@@ -72,6 +73,5 @@ strongest first:
 
 ## Known unenforced (candidates for the next ratchet)
 
-- Provider payload redaction outside `packages/integrations` — review only.
 - Audit-event emission on access lifecycle mutations — domain functions return
   events, impls do not persist them yet (see porting roadmap).

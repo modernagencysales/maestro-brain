@@ -90,6 +90,7 @@ export const checkDescriptors = {
           "check:confect-compat",
           "check:env-boundary",
           "check:provider-boundary",
+          "check:logging-boundary",
           "check:workflow-graph-boundary",
           "contract-review",
           "taste:eval",
