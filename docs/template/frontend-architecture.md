@@ -116,8 +116,9 @@ business logic is fully built.
   from provider-neutral view models.
 - Onboarding checklist: works in fake mode and names missing live provider setup
   without printing secret values.
-- Legal route: ships as an explicit placeholder. Replace privacy, terms, data
-  handling, AI output review, and provider disclosure language for each client.
+- Legal route: ships as a plain client-specific legal review draft. Replace
+  privacy, terms, data handling, AI output review, and provider disclosure
+  language for each client before launch.
 - PWA manifest: declares install metadata only. Do not claim offline support
   until service worker caching and offline states are implemented and tested.
 
@@ -140,7 +141,7 @@ Brain, workflow, billing, operations, and support surfaces.
 
 - Web data access goes through generated Confect refs via `@confect/react`, with
   Convex React Query where useful for router/cache integration.
-- The shared adapter planned in Task 8.3 normalizes query/mutation state into
+- The shared Confect state adapter normalizes query/mutation state into
   `skipped`, `loading`, `empty`, `ready`, `typed_failure`, `parse_failure`,
   `transport_failure`, and `defect`.
 - Route loaders preload only safe route data and auth state.

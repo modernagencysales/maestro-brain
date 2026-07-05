@@ -69,7 +69,7 @@ contract family.
   trap, route announcements, live-region announcements, root route
   pending/error/not-found states, offline/degraded network retry affordances,
   runtime reduced-motion gating for workflow edge animation, starter SEO/public
-  assets, fake-safe cookie consent and legal placeholders, toast primitives,
+  assets, fake-safe cookie consent and legal review drafts, toast primitives,
   onboarding continuation feedback through `TemplateToastProvider`, and the
   first TanStack Form-backed starter form primitive with validation, dirty-state
   guarding, fake-safe autosave, fake-safe feature flag definitions plus durable

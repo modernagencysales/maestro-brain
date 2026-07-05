@@ -4,7 +4,7 @@ export const gtmImplementationBlueprint = {
   id: "gtm-implementation",
   label: "GTM Implementation",
   summary:
-    "Optional GTM implementation pack for account research, buying committee context, enrichment seams, and reporting stubs.",
+    "Optional GTM implementation pack for account research, buying committee context, enrichment seams, and reporting surface seams.",
   domainNouns: [
     "account",
     "person",

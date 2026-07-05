@@ -146,7 +146,7 @@ export const TEMPLATE_ROUTE_ITEMS: readonly TemplateRouteItem[] = [
     label: "Legal",
     path: "/legal",
     icon: "L",
-    description: "Template legal placeholders to replace per client.",
+    description: "Client-specific legal review drafts for launch signoff.",
   },
   {
     key: "billing",

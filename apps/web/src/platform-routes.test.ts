@@ -36,7 +36,7 @@ describe("frontend platform routes", () => {
     expect(activeTemplateRouteKey("/notifications")).toBe("notifications");
   });
 
-  it("defines legal, onboarding, data lifecycle, and notification route files as template placeholders", () => {
+  it("defines legal, onboarding, data lifecycle, and notification route files as starter-ready surfaces", () => {
     expect(
       existsSync(resolve(appRoot, "src/routes/_workspace.legal.tsx")),
     ).toBe(true);
@@ -50,10 +50,13 @@ describe("frontend platform routes", () => {
       existsSync(resolve(appRoot, "src/routes/_workspace.data-lifecycle.tsx")),
     ).toBe(true);
     expect(read("src/routes/_workspace.legal.tsx")).toContain(
-      "Replace these legal placeholders per client",
+      "Replace this client-specific legal draft before launch",
     );
     expect(read("src/routes/_workspace.legal.tsx")).toContain(
-      "Cookie and analytics placeholder",
+      "Cookie and analytics review draft",
+    );
+    expect(read("src/routes/_workspace.legal.tsx")).not.toContain(
+      "placeholder",
     );
     expect(read("src/routes/_workspace.legal.tsx")).toContain(
       "before enabling live telemetry",

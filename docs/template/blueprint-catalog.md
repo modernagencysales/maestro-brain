@@ -35,7 +35,7 @@ briefs, workflow receipts, and headless access.
 - Demo data: synthetic markdown notes, safe links, context pack, workflow run,
   Trust Receipt.
 - Delete or rename for a fork: generic demo names, sample proof points, fake
-  source bodies, placeholder provider posture.
+  source bodies, and sample provider posture.
 
 ## `implementation-consulting-brain`
 
@@ -71,8 +71,8 @@ surfaces.
 Status: optional implemented blueprint pack.
 
 Use this for account-centric B2B GTM apps that need account briefs, buying
-committee context, CRM/Drive/Notion connector seams, and reporting stubs without
-putting GTM business logic into template core.
+committee context, CRM/Drive/Notion connector seams, and reporting surface seams
+without putting GTM business logic into template core.
 
 - Domain nouns: account, person, buying committee, source, account brief,
   follow-up action, pipeline stage.
@@ -89,7 +89,7 @@ putting GTM business logic into template core.
 - Headless surfaces: API, CLI, MCP.
 - Demo data: `.example` accounts, fake people, synthetic source notes.
 - Delete or rename for a fork: every synthetic account/person/source fixture and
-  all generated reporting stubs that do not match client language.
+  all generated reporting surface seams that do not match client language.
 
 ## `internal-ops-agent-workspace`
 
