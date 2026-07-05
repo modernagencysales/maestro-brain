@@ -1367,9 +1367,10 @@ repos**.
      tables, with workspace-member-scoped list, mark-read, preference upsert,
      and internal record mutations. `TemplateNotificationCenter` renders the
      bell/inbox surface with unread state, open actions, and channel
-     preferences, and `/notifications` ships a fake-safe reference route.
-     Remaining work: wire the route to generated `ops.notifications` refs, add
-     digest scheduling, and add provider-backed delivery in client forks.
+     preferences, and `/notifications` uses generated `ops.notifications` refs
+     when Convex is configured while retaining a fake-safe fallback route.
+     Remaining work: add digest scheduling and provider-backed delivery in
+     client forks.
 261. **Form library + validation / dirty-state / autosave** — HIGH — partial.
      `@tanstack/react-form` is installed in the web app, and
      `apps/web/src/forms/starter-form.ts` provides the reusable starter

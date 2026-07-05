@@ -78,8 +78,10 @@ contract family.
   notification records and preferences now live in Confect `notificationRecords`
   / `notificationPreferences` tables with workspace-member-scoped list,
   mark-read, preference upsert, and internal record mutations under
-  `ops.notifications`. Static Cloudflare Pages output now carries CSP, HSTS,
-  frame, nosniff, referrer, and permissions-policy headers through
+  `ops.notifications`; the `/notifications` route uses the generated
+  `ops.notifications` refs when Convex is configured and falls back to the
+  fake-safe starter inbox otherwise. Static Cloudflare Pages output now carries
+  CSP, HSTS, frame, nosniff, referrer, and permissions-policy headers through
   `apps/web/public/_headers`. Data lifecycle planning now includes DSAR export
   manifests, delete-request confirmation, legal-hold blocking, and dry-run
   retention job plans. Observability now includes a provider-neutral
@@ -94,10 +96,9 @@ contract family.
   refused production promotions, ready for client forks to route through
   `packages/notifications`. Remaining product-surface work is adoption: wire
   future modals/popovers into `TemplateDialog`, future forms into the starter
-  form primitive, future live surfaces into the feature flag evaluator, the web
-  notification route into `ops.notifications`, audited DSAR fulfillment
-  mutations, live error-reporting providers/source-map upload, and real mutation
-  success/error paths into `TemplateToastProvider`.
+  form primitive, future live surfaces into the feature flag evaluator, audited
+  DSAR fulfillment mutations, live error-reporting providers/source-map upload,
+  and real mutation success/error paths into `TemplateToastProvider`.
 
 ## Starter Readiness Read
 
@@ -114,11 +115,9 @@ The remaining cross-cutting starter improvements are:
    those surfaces gain mutations, modals, popovers, and destructive flows.
 2. Adopt the starter form primitive in each generated client form and replace
    fake-safe autosave with durable mutations in client forks.
-3. Wire the `/notifications` route into the durable `ops.notifications` Confect
-   center before enabling live digests or provider delivery.
-4. Promote starter feature flags into durable per-workspace policy data when a
+3. Promote starter feature flags into durable per-workspace policy data when a
    fork enables live billing, notifications, or AI generation.
-5. Keep [template-defaults.md](./template-defaults.md) current when billing,
+4. Keep [template-defaults.md](./template-defaults.md) current when billing,
    notification center, retention jobs, or deploy promotion move between
    template defaults and client-fork extension paths.
 

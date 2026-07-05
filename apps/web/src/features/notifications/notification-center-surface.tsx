@@ -1,5 +1,9 @@
 import { useMemo, useState } from "react";
 import {
+  templateConfectRefs,
+  type TemplateConfectRefs,
+} from "@maestro-template/convex/refs";
+import {
   TemplateNotificationCenter,
   type PlatformNotification,
   type PlatformNotificationPreference,
@@ -10,6 +14,42 @@ import {
   markNotificationRead,
   type NotificationRecord,
 } from "@maestro-template/notifications";
+import type { Ref } from "@confect/core";
+import * as Either from "effect/Either";
+import {
+  classifyConfectMutationResult,
+  type TemplateDataState,
+  useTemplateMutation,
+  useTemplateQuery,
+} from "../../adapters/confect-state";
+import { isConvexConfigured } from "../../env";
+import { useWorkspace } from "../../providers/workspace";
+
+type ListNotificationsRef =
+  TemplateConfectRefs["public"]["ops"]["notifications"]["list"];
+type MarkReadRef =
+  TemplateConfectRefs["public"]["ops"]["notifications"]["markRead"];
+type NotificationCenterData = Ref.Returns<ListNotificationsRef>;
+type NotificationCenterError = Ref.Error<ListNotificationsRef>;
+type NotificationRecordData = NotificationCenterData["notifications"][number];
+type NotificationPreferenceData = NotificationCenterData["preferences"][number];
+type WorkspaceId = Ref.Args<ListNotificationsRef>["workspaceId"];
+type NotificationId = Ref.Args<MarkReadRef>["notificationId"];
+
+type NotificationCenterViewModel = {
+  readonly notifications: readonly PlatformNotification[];
+  readonly preferences: readonly PlatformNotificationPreference[];
+  readonly summary: NotificationCenterData["summary"];
+  readonly live: boolean;
+  readonly status:
+    | "unconfigured"
+    | "waiting_for_workspace"
+    | "loading"
+    | "ready"
+    | "empty"
+    | "unavailable";
+  readonly detail?: string;
+};
 
 const fakeNotifications: readonly NotificationRecord[] = [
   {
@@ -66,6 +106,24 @@ const toPlatformNotification = (
     : { actionHref: notification.actionHref }),
 });
 
+const toPlatformConfectNotification = (
+  notification: NotificationRecordData,
+): PlatformNotification => ({
+  id: notification.notificationId,
+  title: notification.title,
+  body: notification.body,
+  category: notification.category,
+  priority: notification.priority,
+  delivery: notification.delivery,
+  createdAt: new Date(notification.createdAt).toISOString(),
+  ...(notification.readAt === undefined
+    ? {}
+    : { readAt: new Date(notification.readAt).toISOString() }),
+  ...(notification.actionHref === undefined
+    ? {}
+    : { actionHref: notification.actionHref }),
+});
+
 const toPlatformPreference = (
   preference: (typeof defaultNotificationPreferences)[number],
 ): PlatformNotificationPreference => ({
@@ -75,35 +133,195 @@ const toPlatformPreference = (
   digest: preference.digest,
 });
 
+const toPlatformConfectPreference = (
+  preference: NotificationPreferenceData,
+): PlatformNotificationPreference => ({
+  category: preference.category,
+  inApp: preference.inApp,
+  email: preference.email,
+  digest: preference.digest,
+});
+
+export const fakeNotificationCenterView = (): NotificationCenterViewModel => {
+  const view = buildNotificationCenterView({
+    notifications: fakeNotifications,
+    preferences: defaultNotificationPreferences,
+  });
+
+  return {
+    notifications: view.notifications.map(toPlatformNotification),
+    preferences: view.preferences.map(toPlatformPreference),
+    summary: view.summary,
+    live: false,
+    status: "unconfigured",
+  };
+};
+
+export const presentNotificationCenter = (
+  state: TemplateDataState<NotificationCenterData, NotificationCenterError>,
+): NotificationCenterViewModel => {
+  if (state.status === "skipped") {
+    return fakeNotificationCenterView();
+  }
+
+  if (state.status === "loading") {
+    return {
+      ...fakeNotificationCenterView(),
+      status: "loading",
+    };
+  }
+
+  if (state.status === "empty") {
+    return {
+      notifications: [],
+      preferences: state.data.preferences.map(toPlatformConfectPreference),
+      summary: state.data.summary,
+      live: true,
+      status: "empty",
+    };
+  }
+
+  if (state.status === "ready") {
+    return {
+      notifications: state.data.notifications.map(
+        toPlatformConfectNotification,
+      ),
+      preferences: state.data.preferences.map(toPlatformConfectPreference),
+      summary: state.data.summary,
+      live: true,
+      status: "ready",
+    };
+  }
+
+  return {
+    ...fakeNotificationCenterView(),
+    status: "unavailable",
+    detail:
+      state.status === "typed_failure"
+        ? notificationFailureMessage(state.error)
+        : state.message,
+  };
+};
+
 export function NotificationCenterSurface() {
+  const workspace = useWorkspace();
   const [notifications, setNotifications] =
     useState<readonly NotificationRecord[]>(fakeNotifications);
-  const view = useMemo(
-    () =>
-      buildNotificationCenterView({
-        notifications,
-        preferences: defaultNotificationPreferences,
-      }),
-    [notifications],
+  const [mutationMessage, setMutationMessage] = useState<string | null>(null);
+  const workspaceId =
+    workspace.status === "ready"
+      ? (workspace.activeWorkspaceId as WorkspaceId)
+      : null;
+  const liveQueryEnabled = isConvexConfigured() && workspaceId !== null;
+  const markRead = useTemplateMutation(
+    templateConfectRefs.public.ops.notifications.markRead,
   );
+  const liveState = useTemplateQuery(
+    templateConfectRefs.public.ops.notifications.list,
+    liveQueryEnabled && workspaceId !== null
+      ? { workspaceId, limit: 50 }
+      : "skip",
+    {
+      isEmpty: (data) => data.notifications.length === 0,
+    },
+  );
+  const fakeView = useMemo(() => {
+    const view = buildNotificationCenterView({
+      notifications,
+      preferences: defaultNotificationPreferences,
+    });
+
+    return {
+      notifications: view.notifications.map(toPlatformNotification),
+      preferences: view.preferences.map(toPlatformPreference),
+      summary: view.summary,
+      live: false,
+      status:
+        workspace.status === "ready" ? "unconfigured" : "waiting_for_workspace",
+    } satisfies NotificationCenterViewModel;
+  }, [notifications, workspace.status]);
+  const view = liveQueryEnabled
+    ? presentNotificationCenter(liveState)
+    : fakeView;
 
   return (
-    <TemplateNotificationCenter
-      notifications={view.notifications.map(toPlatformNotification)}
-      onMarkRead={(notificationId) => {
-        setNotifications((current) =>
-          current.map((notification) =>
-            notification.id === notificationId
-              ? markNotificationRead({
-                  notification,
-                  readAt: new Date().toISOString(),
-                })
-              : notification,
-          ),
-        );
-      }}
-      preferences={view.preferences.map(toPlatformPreference)}
-      summary={view.summary}
-    />
+    <>
+      {view.status === "loading" ? (
+        <p className="template-platform-empty">
+          Connecting to notifications...
+        </p>
+      ) : null}
+      {view.status === "waiting_for_workspace" ? (
+        <p className="template-platform-empty">Preparing workspace inbox...</p>
+      ) : null}
+      {view.status === "unavailable" && view.detail ? (
+        <p className="template-platform-empty">
+          Notification backend unavailable: {view.detail}
+        </p>
+      ) : null}
+      {mutationMessage ? (
+        <p className="template-platform-empty" aria-live="polite">
+          {mutationMessage}
+        </p>
+      ) : null}
+      <TemplateNotificationCenter
+        notifications={view.notifications}
+        onMarkRead={(notificationId) => {
+          setMutationMessage(null);
+          if (view.live && workspaceId !== null) {
+            void markRead({
+              workspaceId,
+              notificationId: notificationId as NotificationId,
+            })
+              .then((result) => {
+                const state = classifyConfectMutationResult(result);
+                if (state.status === "typed_failure") {
+                  setMutationMessage(notificationFailureMessage(state.error));
+                }
+              })
+              .catch((error: unknown) => {
+                setMutationMessage(
+                  error instanceof Error
+                    ? error.message
+                    : "Notification update failed.",
+                );
+              });
+            return;
+          }
+          setNotifications((current) =>
+            current.map((notification) =>
+              notification.id === notificationId
+                ? markNotificationRead({
+                    notification,
+                    readAt: new Date().toISOString(),
+                  })
+                : notification,
+            ),
+          );
+        }}
+        preferences={view.preferences}
+        summary={view.summary}
+      />
+    </>
   );
+}
+
+function notificationFailureMessage(error: unknown): string {
+  if (Either.isEither(error)) {
+    return Either.isLeft(error)
+      ? notificationFailureMessage(error.left)
+      : "Notification update failed.";
+  }
+
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const message = error.message;
+    if (typeof message === "string") return message;
+  }
+
+  if (typeof error === "object" && error !== null && "_tag" in error) {
+    const tag = error._tag;
+    if (typeof tag === "string") return tag;
+  }
+
+  return "Notification update failed.";
 }

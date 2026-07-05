@@ -21,9 +21,10 @@ preferences, read-state planning, unread counts, and channel filtering.
 `ops.notifications` persists durable in-app notification records and
 per-recipient preferences in Confect, including workspace-member-scoped list,
 mark-read, preference upsert, and internal record mutations. `/notifications`
-renders a reference inbox without requiring live provider credentials; generated
-notifications should extend those contracts rather than creating a second inbox
-model.
+renders through generated `ops.notifications` refs when Convex is configured and
+falls back to a reference inbox without requiring live provider credentials.
+Generated notifications should extend those contracts rather than creating a
+second inbox model.
 
 ## Tests
 
