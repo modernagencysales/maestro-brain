@@ -10,6 +10,10 @@ import {
 const appRoot = fileURLToPath(new URL("..", import.meta.url));
 const read = (path: string): string =>
   readFileSync(resolve(appRoot, path), "utf8");
+const routeFileForPath = (path: string): string =>
+  path === "/"
+    ? "src/routes/index.tsx"
+    : `src/routes/_workspace.${path.slice(1).replaceAll("/", ".")}.tsx`;
 
 describe("frontend platform routes", () => {
   it("registers legal, onboarding, data lifecycle, and notification workspace routes in navigation", () => {
@@ -121,6 +125,19 @@ describe("frontend platform routes", () => {
     expect(
       read("src/features/data-lifecycle/data-lifecycle-surface.tsx"),
     ).toContain("useTemplateToast");
+  });
+
+  it("has a route file for every advertised workspace navigation path", () => {
+    for (const item of TEMPLATE_ROUTE_ITEMS) {
+      expect(
+        existsSync(resolve(appRoot, routeFileForPath(item.path))),
+        `${item.path} should be backed by ${routeFileForPath(item.path)}`,
+      ).toBe(true);
+    }
+    expect(read("src/sample/App.tsx")).toContain("href: item.path");
+    expect(read("src/sample/App.tsx")).not.toContain(
+      "referenceAppRouteHashForKey",
+    );
   });
 
   it("ships a PWA manifest without unsupported offline claims", () => {

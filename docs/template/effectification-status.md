@@ -102,9 +102,13 @@ contract family.
   generated-ref backed DSAR request audit surface, uses
   `ops.dataLifecycle.listDsarRequests` / `createDsarRequest` when Convex is
   configured, and falls back to fake-safe dry-run request planning otherwise.
-  Remaining product-surface work is adoption: wire future modals/popovers into
-  `TemplateDialog`, future forms into the starter form primitive, future live
-  surfaces into the feature flag evaluator, destructive DSAR fulfillment
+  Every advertised workspace navigation path now has a route file, so direct
+  links to Brain, Workflows, Capabilities, Agents, Runs, Documents, Sources,
+  Integrations, API, Data Map, Settings, Billing, Analytics, Health, and Admin
+  render starter reference content instead of falling through to a not-found
+  route. Remaining product-surface work is adoption: wire future modals/popovers
+  into `TemplateDialog`, future forms into the starter form primitive, future
+  live surfaces into the feature flag evaluator, destructive DSAR fulfillment
   execution mutations, live error-reporting providers/source-map upload, and
   future real mutation success/error paths into `TemplateToastProvider`.
 

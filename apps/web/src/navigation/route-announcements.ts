@@ -2,8 +2,24 @@ import { referenceAppAnnouncementTitleForPageId } from "./reference-app-routes";
 
 const routeTitles = new Map<string, string>([
   ["/", "Overview"],
-  ["/_workspace/onboarding", "Onboarding"],
-  ["/_workspace/legal", "Legal"],
+  ["/agents", "Agents"],
+  ["/analytics", "Analytics"],
+  ["/api", "API and MCP"],
+  ["/billing", "Billing"],
+  ["/brain", "Brain"],
+  ["/capabilities", "Capabilities"],
+  ["/data-lifecycle", "Data Lifecycle"],
+  ["/data-map", "Data map"],
+  ["/documents", "Documents"],
+  ["/health", "Safety"],
+  ["/integrations", "Integrations"],
+  ["/legal", "Legal"],
+  ["/notifications", "Notifications"],
+  ["/onboarding", "Onboarding"],
+  ["/runs", "Workflow runs"],
+  ["/settings", "Settings"],
+  ["/sources", "Sources"],
+  ["/workflows", "Workflows"],
 ]);
 
 export function describeRouteAnnouncement(pathname: string, hash = ""): string {

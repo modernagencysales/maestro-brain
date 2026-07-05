@@ -8,11 +8,12 @@ describe("route announcements", () => {
     expect(describeRouteAnnouncement("/", "#headless")).toBe(
       "Viewing API and MCP",
     );
-    expect(describeRouteAnnouncement("/_workspace/onboarding")).toBe(
-      "Viewing Onboarding",
-    );
-    expect(describeRouteAnnouncement("/_workspace/legal")).toBe(
-      "Viewing Legal",
+    expect(describeRouteAnnouncement("/onboarding")).toBe("Viewing Onboarding");
+    expect(describeRouteAnnouncement("/legal")).toBe("Viewing Legal");
+    expect(describeRouteAnnouncement("/billing")).toBe("Viewing Billing");
+    expect(describeRouteAnnouncement("/health")).toBe("Viewing Safety");
+    expect(describeRouteAnnouncement("/data-lifecycle")).toBe(
+      "Viewing Data Lifecycle",
     );
   });
 

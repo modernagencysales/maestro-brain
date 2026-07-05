@@ -11,8 +11,6 @@ import {
 import {
   referenceAppNavigationHint,
   referenceAppNavigationLabel,
-  referenceAppPageIdByRouteKey,
-  referenceAppRouteHashForKey,
   referenceAppRouteKeyByPageId,
 } from "../navigation/reference-app-routes";
 import { TEMPLATE_NAV_CATEGORIES } from "../navigation/workspace";
@@ -33,7 +31,7 @@ const sampleNavigation = TEMPLATE_NAV_CATEGORIES.map((category) => ({
       key: item.key,
       label: referenceAppNavigationLabel(item.key),
       icon: item.icon,
-      href: referenceAppRouteHashForKey(item.key),
+      href: item.path,
       ...(hint ? { hint } : {}),
     };
   }),
@@ -90,14 +88,6 @@ export function App() {
       navigation={sampleNavigation}
       activeKey={activeRouteKey}
       topbarTitle={activePage.title}
-      onNavigate={(key) => {
-        const pageId = referenceAppPageIdByRouteKey.get(key) ?? "overview";
-
-        if (typeof window !== "undefined") {
-          window.location.hash = pageId;
-        }
-        setActivePageId(pageId);
-      }}
     >
       <NotionDocumentPage page={toRenderedPage(activePage)} />
       {activePage.id === "workflows" ? <LiveWorkflowRunsPanel /> : null}

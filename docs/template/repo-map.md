@@ -119,6 +119,8 @@
 - `/api`: API docs and key management.
 - `/onboarding`: first-run setup.
 - `/data-map`: retention, export, delete, and processor inventory.
+- `/data-lifecycle`: dry-run DSAR request review and retention posture backed by
+  the generated `ops.dataLifecycle` Confect surface when Convex is configured.
 - `/notifications`: fake-safe notification center, read-state reference UI, and
   channel preferences backed by the generated `ops.notifications` Confect
   surface when a fork wires live data into the route.
@@ -127,3 +129,9 @@
 - `/analytics`: product and workflow analytics.
 - `/health`: system and provider health.
 - `/admin`: support, audit, data lifecycle, and operator tools.
+
+Every path listed in workspace navigation has a route file under
+`apps/web/src/routes`. Generic reference routes render the corresponding
+document page through `ReferenceDocumentRoute`; routes with live/fake Confect
+behavior, such as `/notifications` and `/data-lifecycle`, own dedicated feature
+surfaces.
