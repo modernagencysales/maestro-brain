@@ -1,5 +1,5 @@
 import type { ProviderAdapter } from "@maestro-template/template-core";
-import type { OnboardingStep } from "@maestro-template/ui";
+import type { OnboardingStep, TemplateToastInput } from "@maestro-template/ui";
 
 export type SetupDocumentSection = {
   readonly heading: string;
@@ -11,6 +11,11 @@ export type SetupMode = "fake" | "test" | "live";
 export type OnboardingChecklistOptions = {
   readonly mode: SetupMode;
   readonly presentEnv?: readonly string[];
+};
+
+export type OnboardingContinueToastOptions = {
+  readonly mode: SetupMode;
+  readonly steps: readonly OnboardingStep[];
 };
 
 export const requiredLiveProviderEnv = [
@@ -154,4 +159,47 @@ export const buildOnboardingChecklistSteps = ({
       status: "ready",
     },
   ];
+};
+
+export const toastForOnboardingContinue = ({
+  mode,
+  steps,
+}: OnboardingContinueToastOptions): TemplateToastInput => {
+  const blockedStep = steps.find((step) => step.status === "blocked");
+
+  if (blockedStep) {
+    const description =
+      blockedStep.missingEnv && blockedStep.missingEnv.length > 0
+        ? `${blockedStep.label} needs ${blockedStep.missingEnv.join(", ")} before live handoff.`
+        : `${blockedStep.label} must be resolved before continuing.`;
+
+    return {
+      title: "Setup blocked",
+      description,
+      tone: "danger",
+      announcement: {
+        message: `Setup blocked. ${description}`,
+        priority: "assertive",
+      },
+    };
+  }
+
+  if (mode === "fake") {
+    return {
+      title: "Fake-mode setup ready",
+      description:
+        "Continue building with fake providers. Live handoff still needs provider environment signoff.",
+      tone: "warning",
+      announcement:
+        "Fake-mode setup ready. Continue building with fake providers.",
+    };
+  }
+
+  return {
+    title: "Onboarding checklist ready",
+    description:
+      "Workspace setup, provider posture, Brain sources, and first workflow are ready for the next handoff step.",
+    tone: "success",
+    announcement: "Onboarding checklist ready.",
+  };
 };

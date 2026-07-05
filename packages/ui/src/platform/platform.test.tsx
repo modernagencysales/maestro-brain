@@ -65,6 +65,8 @@ describe("frontend platform primitives", () => {
     expect(source).toContain("@notion-kit/ui/primitives");
     expect(source).toContain("TemplateOnboardingChecklist");
     expect(source).toContain("missingEnv");
+    expect(source).toContain("onContinue");
+    expect(source).toContain("onClick={onContinue}");
     expect(source).toContain("fake mode");
     expect(source).toContain("live provider setup");
   });

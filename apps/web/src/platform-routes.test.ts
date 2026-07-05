@@ -40,6 +40,12 @@ describe("frontend platform routes", () => {
     expect(read("src/routes/_workspace.onboarding.tsx")).toContain(
       "buildOnboardingChecklistSteps",
     );
+    expect(read("src/routes/_workspace.onboarding.tsx")).toContain(
+      "toastForOnboardingContinue",
+    );
+    expect(read("src/routes/_workspace.onboarding.tsx")).toContain(
+      "useTemplateToast",
+    );
   });
 
   it("ships a PWA manifest without unsupported offline claims", () => {

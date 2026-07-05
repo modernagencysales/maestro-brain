@@ -70,9 +70,10 @@ contract family.
 - Frontend UX essentials now include route focus, hosted axe smoke, dialog focus
   trap, route announcements, live-region announcements, root route
   pending/error/not-found states, offline/degraded network retry affordances,
-  and toast primitives. Remaining product-surface work is adoption: wire future
-  modals/popovers into `TemplateDialog` and wire real mutation success/error
-  paths into `TemplateToastProvider`.
+  toast primitives, and onboarding continuation feedback through
+  `TemplateToastProvider`. Remaining product-surface work is adoption: wire
+  future modals/popovers into `TemplateDialog` and wire real mutation
+  success/error paths into `TemplateToastProvider`.
 
 ## Starter Readiness Read
 

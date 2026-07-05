@@ -6,6 +6,7 @@ import {
   buildProviderSetupDocumentSections,
   missingLiveProviderEnv,
   requiredLiveProviderEnv,
+  toastForOnboardingContinue,
 } from "./setup-surface";
 
 describe("setup surface", () => {
@@ -95,6 +96,51 @@ describe("setup surface", () => {
     ).toMatchObject({
       status: "blocked",
       missingEnv: ["OPENROUTER_API_KEY"],
+    });
+  });
+
+  it("maps fake-mode continuation to a non-blocking warning toast", () => {
+    const steps = buildOnboardingChecklistSteps({ mode: "fake" });
+
+    expect(toastForOnboardingContinue({ mode: "fake", steps })).toMatchObject({
+      title: "Fake-mode setup ready",
+      tone: "warning",
+      announcement:
+        "Fake-mode setup ready. Continue building with fake providers.",
+    });
+  });
+
+  it("maps blocked live continuation to an assertive failure toast", () => {
+    const steps = buildOnboardingChecklistSteps({
+      mode: "live",
+      presentEnv: requiredLiveProviderEnv.filter(
+        (envName) => envName !== "OPENROUTER_API_KEY",
+      ),
+    });
+
+    expect(toastForOnboardingContinue({ mode: "live", steps })).toMatchObject({
+      title: "Setup blocked",
+      tone: "danger",
+      description:
+        "Provider readiness needs OPENROUTER_API_KEY before live handoff.",
+      announcement: {
+        message:
+          "Setup blocked. Provider readiness needs OPENROUTER_API_KEY before live handoff.",
+        priority: "assertive",
+      },
+    });
+  });
+
+  it("maps ready live continuation to a success toast", () => {
+    const steps = buildOnboardingChecklistSteps({
+      mode: "live",
+      presentEnv: requiredLiveProviderEnv,
+    });
+
+    expect(toastForOnboardingContinue({ mode: "live", steps })).toMatchObject({
+      title: "Onboarding checklist ready",
+      tone: "success",
+      announcement: "Onboarding checklist ready.",
     });
   });
 });

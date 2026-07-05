@@ -2,8 +2,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   TemplateMainContent,
   TemplateOnboardingChecklist,
+  useTemplateToast,
 } from "@maestro-template/ui";
-import { buildOnboardingChecklistSteps } from "../features/setup/setup-surface";
+import {
+  buildOnboardingChecklistSteps,
+  toastForOnboardingContinue,
+} from "../features/setup/setup-surface";
 
 export const Route = createFileRoute("/_workspace/onboarding")({
   component: OnboardingRoute,
@@ -12,6 +16,10 @@ export const Route = createFileRoute("/_workspace/onboarding")({
 function OnboardingRoute() {
   const mode = "fake";
   const steps = buildOnboardingChecklistSteps({ mode });
+  const toast = useTemplateToast();
+  const continueSetup = () => {
+    toast.notify(toastForOnboardingContinue({ mode, steps }));
+  };
 
   return (
     <TemplateMainContent className="template-page">
@@ -22,7 +30,11 @@ function OnboardingRoute() {
           Configure the client workspace, provider posture, source-backed Brain,
           and first workflow before enabling live external actions.
         </p>
-        <TemplateOnboardingChecklist mode={mode} steps={steps} />
+        <TemplateOnboardingChecklist
+          mode={mode}
+          onContinue={continueSetup}
+          steps={steps}
+        />
       </article>
     </TemplateMainContent>
   );

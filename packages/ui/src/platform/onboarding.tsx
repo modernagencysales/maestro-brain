@@ -11,9 +11,11 @@ export type OnboardingStep = {
 };
 
 export function TemplateOnboardingChecklist({
+  onContinue,
   steps,
   mode,
 }: {
+  readonly onContinue: () => void;
   readonly steps: readonly OnboardingStep[];
   readonly mode: "fake" | "test" | "live";
 }) {
@@ -39,7 +41,7 @@ export function TemplateOnboardingChecklist({
           </article>
         ))}
       </div>
-      <Button type="button" variant="cell">
+      <Button onClick={onContinue} type="button" variant="cell">
         Continue setup
       </Button>
     </section>

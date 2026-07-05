@@ -1276,15 +1276,18 @@ repos**.
      driven by `describeRouteAnnouncement`. Toasts also emit through an
      aria-live region, and `TemplateToastProvider` exposes polite/assertive
      screen-reader announcement helpers with danger toasts treated as alerts.
-     Remaining work: wire every real mutation-specific save/error path across
+     The onboarding continuation action now emits fake-ready, live-blocked, and
+     ready-to-handoff feedback through the shared toast provider. Remaining
+     work: wire every future real mutation-specific save/error path across
      product surfaces into those helpers.
 258. **`useReducedMotion` runtime hook** — LOW — Greenfield. Gate JS/canvas
      motion (React Flow), not just CSS (`index.css` is CSS-only today).
 259. **Global toast / notification-emitter system** — HIGH — partial. The
      reusable `TemplateToastProvider` now exposes an imperative
-     `useTemplateToast` API with dismiss and auto-dismiss behavior. Remaining
-     work: wire real mutation success/error paths across product surfaces into
-     the provider.
+     `useTemplateToast` API with dismiss and auto-dismiss behavior.
+     `/onboarding` uses the provider for its continuation action. Remaining
+     work: wire future real mutation success/error paths across product surfaces
+     into the provider.
 260. **In-app notification center (table + UI + prefs)** — MED — Greenfield. No
      notifications schema, center UI, or prefs panel. Bell/inbox with
      read-state + digest prefs.
