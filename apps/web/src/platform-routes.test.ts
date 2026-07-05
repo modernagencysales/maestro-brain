@@ -37,6 +37,9 @@ describe("frontend platform routes", () => {
     expect(read("src/routes/_workspace.onboarding.tsx")).toContain(
       "TemplateOnboardingChecklist",
     );
+    expect(read("src/routes/_workspace.onboarding.tsx")).toContain(
+      "buildOnboardingChecklistSteps",
+    );
   });
 
   it("ships a PWA manifest without unsupported offline claims", () => {

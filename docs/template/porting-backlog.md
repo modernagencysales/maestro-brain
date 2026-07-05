@@ -1308,8 +1308,11 @@ repos**.
 266. **PWA (web manifest + service worker + installability)** — LOW —
      Greenfield.
 267. **First-run onboarding wizard / empty-first-workspace / checklist / tour**
-     — MED/HIGH — Greenfield. `providers/workspace.tsx` provisions silently;
-     there's no user-facing activation flow.
+     — MED/HIGH — partial. `/onboarding` now renders a tested setup checklist
+     derived from the setup surface model, including workspace identity,
+     provider readiness, source-backed Brain, and first Trust Receipt steps.
+     Remaining work: persist checklist progress per workspace, add a guided
+     tour, and connect first-workspace provisioning to a real activation flow.
 268. **Global keyboard-shortcut registry + shortcuts-help overlay** — LOW/MED —
      small Port + build. `workspace-search.tsx` owns ⌘K only; a central
      registry + "?" cheat-sheet so shortcuts aren't re-implemented per feature.

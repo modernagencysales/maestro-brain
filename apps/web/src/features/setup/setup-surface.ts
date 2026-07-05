@@ -1,9 +1,30 @@
 import type { ProviderAdapter } from "@maestro-template/template-core";
+import type { OnboardingStep } from "@maestro-template/ui";
 
 export type SetupDocumentSection = {
   readonly heading: string;
   readonly body: readonly string[];
 };
+
+export type SetupMode = "fake" | "test" | "live";
+
+export type OnboardingChecklistOptions = {
+  readonly mode: SetupMode;
+  readonly presentEnv?: readonly string[];
+};
+
+export const requiredLiveProviderEnv = [
+  "WORKOS_API_KEY",
+  "POSTHOG_API_KEY",
+  "DODO_API_KEY",
+  "MAILERSEND_API_KEY",
+  "OPENROUTER_API_KEY",
+] as const;
+
+export const missingLiveProviderEnv = (
+  presentEnv: readonly string[] = [],
+): readonly string[] =>
+  requiredLiveProviderEnv.filter((envName) => !presentEnv.includes(envName));
 
 export const buildProviderSetupDocumentSections = (
   adapters: readonly ProviderAdapter[],
@@ -94,3 +115,43 @@ export const buildOnboardingDocumentSections =
       ],
     },
   ];
+
+export const buildOnboardingChecklistSteps = ({
+  mode,
+  presentEnv = [],
+}: OnboardingChecklistOptions): readonly OnboardingStep[] => {
+  const missingEnv = missingLiveProviderEnv(presentEnv);
+
+  return [
+    {
+      id: "workspace",
+      label: "Workspace identity",
+      description: "Create the client workspace and ownership model.",
+      status: "complete",
+    },
+    {
+      id: "providers",
+      label: "Provider readiness",
+      description:
+        mode === "live"
+          ? "Live mode requires provider environment values before handoff."
+          : "Fake mode is ready. Live provider setup still needs environment values.",
+      status: mode === "live" && missingEnv.length > 0 ? "blocked" : "ready",
+      missingEnv,
+    },
+    {
+      id: "brain",
+      label: "Source-backed Brain",
+      description:
+        "Add markdown, links, and source sets before agent workflows run.",
+      status: "ready",
+    },
+    {
+      id: "workflow",
+      label: "First workflow receipt",
+      description:
+        "Run one typed workflow and save the Trust Receipt before client handoff.",
+      status: "ready",
+    },
+  ];
+};
