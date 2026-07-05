@@ -1,10 +1,6 @@
 import { useEffect, useState } from "react";
 import {
   NotionDocumentPage,
-  TemplateLiveRegion,
-  TemplateNetworkBanner,
-  TemplateSkipLink,
-  TemplateToastProvider,
   TemplateWorkspaceShell,
   type NotionDocumentPageModel,
 } from "@maestro-template/ui";
@@ -12,6 +8,13 @@ import {
   WorkflowCanvas,
   WorkflowGraphCanvas,
 } from "@maestro-template/workflow-ui";
+import {
+  referenceAppNavigationHint,
+  referenceAppNavigationLabel,
+  referenceAppPageIdByRouteKey,
+  referenceAppRouteHashForKey,
+  referenceAppRouteKeyByPageId,
+} from "../navigation/reference-app-routes";
 import { TEMPLATE_NAV_CATEGORIES } from "../navigation/workspace";
 import { LiveWorkflowRunsPanel } from "../features/workflows/live-runs-panel";
 import { navItems } from "./navItems";
@@ -21,39 +24,19 @@ type RenderedDocumentPage = Omit<DocumentPage, "diagram"> &
   Pick<NotionDocumentPageModel, "diagram" | "diagramLabel">;
 
 const pageById = new Map(pages.map((page) => [page.id, page]));
-const routeKeyToPageId = new Map<string, string>([
-  ["home", "overview"],
-  ["brain", "brain"],
-  ["workflows", "workflows"],
-  ["capabilities", "capabilities"],
-  ["agents", "agents"],
-  ["runs", "runs"],
-  ["documents", "documents"],
-  ["sources", "sources"],
-  ["api", "headless"],
-  ["onboarding", "onboarding"],
-  ["dataMap", "data-map"],
-  ["notifications", "notifications"],
-  ["integrations", "integrations"],
-  ["settings", "settings"],
-  ["legal", "legal"],
-  ["billing", "billing"],
-  ["analytics", "analytics"],
-  ["health", "safety"],
-  ["admin", "admin"],
-]);
-const pageIdToRouteKey = new Map(
-  [...routeKeyToPageId.entries()].map(([key, value]) => [value, key]),
-);
 const sampleNavigation = TEMPLATE_NAV_CATEGORIES.map((category) => ({
   ...category,
-  items: category.items.map((item) => ({
-    key: item.key,
-    label: item.key === "health" ? "Safety" : item.label,
-    icon: item.icon,
-    href: `#${routeKeyToPageId.get(item.key) ?? item.key}`,
-    ...(item.key === "api" ? { hint: "Scalar" } : {}),
-  })),
+  items: category.items.map((item) => {
+    const hint = referenceAppNavigationHint(item.key);
+
+    return {
+      key: item.key,
+      label: referenceAppNavigationLabel(item.key),
+      icon: item.icon,
+      href: referenceAppRouteHashForKey(item.key),
+      ...(hint ? { hint } : {}),
+    };
+  }),
 }));
 const fallbackPageId = navItems[0]?.id ?? "overview";
 const resolvePageIdFromHash = (hashValue: string) => {
@@ -87,7 +70,8 @@ export function App() {
       : resolvePageIdFromHash(window.location.hash),
   );
   const activePage = pageById.get(activePageId) ?? overviewPage;
-  const activeRouteKey = pageIdToRouteKey.get(activePage.id) ?? "home";
+  const activeRouteKey =
+    referenceAppRouteKeyByPageId.get(activePage.id) ?? "home";
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -100,32 +84,23 @@ export function App() {
   }, []);
 
   return (
-    <>
-      <TemplateSkipLink />
-      <TemplateLiveRegion
-        message={`Viewing ${activePage.id === "overview" ? "Overview" : activePage.title}`}
-      />
-      <TemplateNetworkBanner state="online" />
-      <TemplateToastProvider>
-        <TemplateWorkspaceShell
-          title="Maestro Template"
-          subtitle="Private AI app factory"
-          navigation={sampleNavigation}
-          activeKey={activeRouteKey}
-          topbarTitle={activePage.title}
-          onNavigate={(key) => {
-            const pageId = routeKeyToPageId.get(key) ?? "overview";
+    <TemplateWorkspaceShell
+      title="Maestro Template"
+      subtitle="Private AI app factory"
+      navigation={sampleNavigation}
+      activeKey={activeRouteKey}
+      topbarTitle={activePage.title}
+      onNavigate={(key) => {
+        const pageId = referenceAppPageIdByRouteKey.get(key) ?? "overview";
 
-            if (typeof window !== "undefined") {
-              window.location.hash = pageId;
-            }
-            setActivePageId(pageId);
-          }}
-        >
-          <NotionDocumentPage page={toRenderedPage(activePage)} />
-          {activePage.id === "workflows" ? <LiveWorkflowRunsPanel /> : null}
-        </TemplateWorkspaceShell>
-      </TemplateToastProvider>
-    </>
+        if (typeof window !== "undefined") {
+          window.location.hash = pageId;
+        }
+        setActivePageId(pageId);
+      }}
+    >
+      <NotionDocumentPage page={toRenderedPage(activePage)} />
+      {activePage.id === "workflows" ? <LiveWorkflowRunsPanel /> : null}
+    </TemplateWorkspaceShell>
   );
 }

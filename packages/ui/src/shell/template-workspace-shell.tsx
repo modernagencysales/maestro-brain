@@ -15,6 +15,7 @@ import {
   SidebarRail,
   useSidebar,
 } from "@notion-kit/ui/sidebar";
+import { TemplateMainContent } from "../blocks/ux-essentials";
 
 export type TemplateShellRouteItem = {
   readonly key: string;
@@ -250,7 +251,9 @@ export function TemplateWorkspaceShell({
             </span>
             <span aria-hidden="true" />
           </Navbar>
-          {children}
+          <TemplateMainContent className="template-shell-content">
+            {children}
+          </TemplateMainContent>
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>

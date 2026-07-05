@@ -81,9 +81,8 @@ test.describe("hosted reference app accessibility", () => {
         name: "The Brain turns company knowledge into usable AI context",
       }),
     ).toBeVisible();
-    await expect(page.getByRole("status")).toContainText(
-      "The Brain turns company knowledge into usable AI context",
-    );
+    await expect(page.getByRole("status")).toContainText("Viewing Brain");
+    await expect(page.locator("#template-main-content")).toBeFocused();
     await expectNoAxeViolations(page, "Brain");
   });
 });

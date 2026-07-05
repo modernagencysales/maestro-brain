@@ -361,6 +361,16 @@ a {
   background: var(--template-page);
 }
 
+.template-shell-content {
+  min-height: calc(100vh - 44px);
+}
+
+.template-shell-content:focus,
+.template-page:focus,
+.template-route-state:focus {
+  outline: none;
+}
+
 .notion-page {
   width: min(100%, 820px);
   margin: 0 auto;

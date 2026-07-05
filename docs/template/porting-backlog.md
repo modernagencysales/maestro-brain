@@ -1261,10 +1261,17 @@ repos**.
      desktop/mobile Playwright checks plus axe WCAG scans on key reference
      routes via `pnpm smoke:hosted:a11y`. Remaining work: add fork-specific axe
      coverage as generated client routes/forms land.
-256. **Focus management / focus-trap / skip-link utilities** — MED — Greenfield.
-     App-level focus-return-on-close, route-change focus, skip-to-content.
-257. **Screen-reader live-region announcer** — MED — Greenfield.
-     Polite/assertive announce hook for route changes, async saves, toasts.
+256. **Focus management / focus-trap / skip-link utilities** — MED — partial.
+     `TemplateRouteFocusBoundary` and `TemplateMainContent` provide app-level
+     route-change focus and skip-to-content targets, with
+     `TemplateWorkspaceShell` and standalone routes wired to
+     `template-main-content`. Remaining work: modal/dialog focus traps and
+     focus-return wiring on every closeable surface.
+257. **Screen-reader live-region announcer** — MED — partial.
+     `TemplateRouteFocusBoundary` renders a polite route-change announcement
+     driven by `describeRouteAnnouncement`. Toasts also emit through an
+     aria-live region. Remaining work: mutation-specific save/error
+     announcements and an assertive announcer helper for destructive failures.
 258. **`useReducedMotion` runtime hook** — LOW — Greenfield. Gate JS/canvas
      motion (React Flow), not just CSS (`index.css` is CSS-only today).
 259. **Global toast / notification-emitter system** — HIGH — partial. The

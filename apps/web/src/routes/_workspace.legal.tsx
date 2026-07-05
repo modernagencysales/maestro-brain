@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { TemplateMainContent } from "@maestro-template/ui";
 
 export const Route = createFileRoute("/_workspace/legal")({
   component: LegalRoute,
@@ -6,7 +7,7 @@ export const Route = createFileRoute("/_workspace/legal")({
 
 function LegalRoute() {
   return (
-    <main className="template-page">
+    <TemplateMainContent className="template-page">
       <article className="template-readable-page">
         <p className="eyebrow">Platform</p>
         <h1>Legal</h1>
@@ -27,6 +28,6 @@ function LegalRoute() {
           acceptable use policy, and AI-generated-output review requirements.
         </p>
       </article>
-    </main>
+    </TemplateMainContent>
   );
 }

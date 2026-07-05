@@ -29,6 +29,8 @@ describe("Notion document block contract", () => {
     expect(blocks).toContain("TemplateSkipLink");
     expect(blocks).toContain("TemplateLiveRegion");
     expect(blocks).toContain("TemplateNetworkBanner");
+    expect(blocks).toContain("TemplateRouteFocusBoundary");
+    expect(blocks).toContain("TemplateMainContent");
     expect(blocks).toContain("TemplateEmptyState");
     expect(blocks).toContain("TemplateToastProvider");
     expect(blocks).toContain("TemplateRoutePending");

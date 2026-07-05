@@ -1,6 +1,11 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { TemplateToastProvider, useTemplateToast } from "./ux-essentials";
+import {
+  TemplateMainContent,
+  TemplateRouteFocusBoundary,
+  TemplateToastProvider,
+  useTemplateToast,
+} from "./ux-essentials";
 
 function ToastTrigger() {
   const toast = useTemplateToast();
@@ -71,5 +76,43 @@ describe("TemplateToastProvider", () => {
     const html = renderToStaticMarkup(<ToastOutsideProvider />);
 
     expect(html).toContain("template-toast-missing-provider");
+  });
+});
+
+describe("template route UX helpers", () => {
+  it("renders skip-link, polite announcement, and online children", () => {
+    const html = renderToStaticMarkup(
+      <TemplateRouteFocusBoundary announcement="Viewing Overview" focusKey="/">
+        <TemplateMainContent>
+          <h1>Overview</h1>
+        </TemplateMainContent>
+      </TemplateRouteFocusBoundary>,
+    );
+
+    expect(html).toContain('href="#template-main-content"');
+    expect(html).toContain("Viewing Overview");
+    expect(html).toContain('aria-live="polite"');
+    expect(html).toContain('id="template-main-content"');
+    expect(html).toContain('tabindex="-1"');
+    expect(html).toContain("Overview");
+    expect(html).not.toContain("template-network-banner");
+  });
+
+  it("can announce degraded network state without changing the main target", () => {
+    const html = renderToStaticMarkup(
+      <TemplateRouteFocusBoundary
+        announcement="Viewing Legal"
+        focusKey="/_workspace/legal"
+        networkState="degraded"
+      >
+        <TemplateMainContent className="template-page">
+          Legal
+        </TemplateMainContent>
+      </TemplateRouteFocusBoundary>,
+    );
+
+    expect(html).toContain("Network is degraded");
+    expect(html).toContain('class="template-page"');
+    expect(html).toContain('id="template-main-content"');
   });
 });

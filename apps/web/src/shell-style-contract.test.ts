@@ -27,7 +27,19 @@ describe("Notion Kit shell style contract", () => {
     expect(app).toContain("TemplateWorkspaceShell");
     expect(app).not.toContain("AppFrame");
     expect(app).not.toContain("./sample/styles.css");
-    expect(app).toContain("TemplateToastProvider");
+  });
+
+  it("owns global route UX wiring at the root route", () => {
+    const root = read("src/routes/__root.tsx");
+    const boundary = read("src/navigation/route-ux-boundary.tsx");
+
+    expect(root).toContain("WebRouteUxBoundary");
+    expect(root).toContain("TemplateToastProvider");
+    expect(root).toContain("useRouterState");
+    expect(root).toContain("<Outlet />");
+    expect(boundary).toContain("TemplateRouteFocusBoundary");
+    expect(boundary).toContain("describeRouteAnnouncement");
+    expect(boundary).toContain("hashchange");
   });
 
   it("uses reusable route pending and error surfaces", () => {
@@ -53,6 +65,7 @@ describe("Notion Kit shell style contract", () => {
 
     expect(css).toContain(".template-skip-link");
     expect(css).toContain(".template-live-region");
+    expect(css).toContain(".template-shell-content");
     expect(css).toContain(".template-network-banner");
     expect(css).toContain(".template-empty-state");
     expect(css).toContain(".template-toast-region");

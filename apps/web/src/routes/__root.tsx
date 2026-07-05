@@ -4,11 +4,13 @@ import {
   HeadContent,
   Outlet,
   Scripts,
+  useRouterState,
 } from "@tanstack/react-router";
 import { AuthKitProvider } from "@workos/authkit-tanstack-react-start/client";
 import type { ConvexQueryClient } from "@convex-dev/react-query";
 import type { QueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import { TemplateToastProvider } from "@maestro-template/ui";
 
 import {
   createBrowserWorkspaceStorage,
@@ -16,6 +18,7 @@ import {
 } from "../providers/workspace";
 import { createFakeWorkspaceOperations } from "../providers/workspace-operations";
 import { PostHogWebProvider } from "../providers/posthog";
+import { WebRouteUxBoundary } from "../navigation/route-ux-boundary";
 import appCssUrl from "../index.css?url";
 import notionCssUrl from "../notion.css?url";
 import xyflowCssUrl from "@xyflow/react/dist/style.css?url";
@@ -65,6 +68,7 @@ function ConvexProviderWithAuth({
 
 function RootComponent() {
   const { convexClient } = Route.useRouteContext();
+  const location = useRouterState({ select: (state) => state.location });
 
   return (
     <AuthKitProvider initialAuth={fakeInitialAuth}>
@@ -75,7 +79,14 @@ function RootComponent() {
         >
           <PostHogWebProvider>
             <RootDocument>
-              <Outlet />
+              <WebRouteUxBoundary
+                href={location.href}
+                pathname={location.pathname}
+              >
+                <TemplateToastProvider>
+                  <Outlet />
+                </TemplateToastProvider>
+              </WebRouteUxBoundary>
             </RootDocument>
           </PostHogWebProvider>
         </WorkspaceProvider>

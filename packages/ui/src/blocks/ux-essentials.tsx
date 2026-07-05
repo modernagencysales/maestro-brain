@@ -186,6 +186,60 @@ export function TemplateNetworkBanner({
   );
 }
 
+export function TemplateRouteFocusBoundary({
+  announcement,
+  children,
+  focusKey,
+  networkState = "online",
+  targetId = "template-main-content",
+}: {
+  readonly announcement: string;
+  readonly children: ReactNode;
+  readonly focusKey: string;
+  readonly networkState?: "online" | "offline" | "degraded";
+  readonly targetId?: string;
+}) {
+  useEffect(() => {
+    const focusTarget = () => {
+      const target = document.getElementById(targetId);
+
+      if (target instanceof HTMLElement) {
+        target.focus({ preventScroll: true });
+      }
+    };
+
+    focusTarget();
+    const settledFocus = window.setTimeout(focusTarget, 175);
+
+    return () => window.clearTimeout(settledFocus);
+  }, [focusKey, targetId]);
+
+  return (
+    <>
+      <TemplateSkipLink targetId={targetId} />
+      <TemplateLiveRegion message={announcement} />
+      <TemplateNetworkBanner state={networkState} />
+      {children}
+    </>
+  );
+}
+
+export function TemplateMainContent({
+  children,
+  className,
+  id = "template-main-content",
+}: {
+  readonly children: ReactNode;
+  readonly className?: string;
+  readonly id?: string;
+}) {
+  return (
+    <main className={className} id={id} tabIndex={-1}>
+      {children}
+    </main>
+  );
+}
+
 export function TemplateEmptyState({
   title,
   description,
@@ -259,9 +313,11 @@ export function TemplateRoutePending({
   readonly label?: string;
 }) {
   return (
-    <main className="template-route-state" role="status">
-      <p>{label}</p>
-    </main>
+    <TemplateMainContent className="template-route-state">
+      <div role="status">
+        <p>{label}</p>
+      </div>
+    </TemplateMainContent>
   );
 }
 
@@ -273,10 +329,12 @@ export function TemplateRouteError({
   readonly description?: string;
 }) {
   return (
-    <main className="template-route-state error" role="alert">
-      <h1>{title}</h1>
-      <p>{description}</p>
-    </main>
+    <TemplateMainContent className="template-route-state error">
+      <div role="alert">
+        <h1>{title}</h1>
+        <p>{description}</p>
+      </div>
+    </TemplateMainContent>
   );
 }
 

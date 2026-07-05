@@ -1,5 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { TemplateOnboardingChecklist } from "@maestro-template/ui";
+import {
+  TemplateMainContent,
+  TemplateOnboardingChecklist,
+} from "@maestro-template/ui";
 
 export const Route = createFileRoute("/_workspace/onboarding")({
   component: OnboardingRoute,
@@ -7,7 +10,7 @@ export const Route = createFileRoute("/_workspace/onboarding")({
 
 function OnboardingRoute() {
   return (
-    <main className="template-page">
+    <TemplateMainContent className="template-page">
       <article className="template-readable-page">
         <p className="eyebrow">Setup</p>
         <h1>Onboarding</h1>
@@ -42,6 +45,6 @@ function OnboardingRoute() {
           ]}
         />
       </article>
-    </main>
+    </TemplateMainContent>
   );
 }

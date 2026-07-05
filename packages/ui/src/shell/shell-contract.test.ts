@@ -34,6 +34,8 @@ describe("Notion Kit reusable shell contract", () => {
   it("wires active route state, expandable groups, and collapsed controls", () => {
     const shell = read("src/shell/template-workspace-shell.tsx");
 
+    expect(shell).toContain("TemplateMainContent");
+    expect(shell).toContain('className="template-shell-content"');
     expect(shell).toContain('aria-current={isActive ? "page" : undefined}');
     expect(shell).toContain("activeKey === item.key");
     expect(shell).toContain("data-default-expanded");
