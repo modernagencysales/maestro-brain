@@ -291,8 +291,10 @@ export function TemplateLiveRegion({ message }: { readonly message: string }) {
 }
 
 export function TemplateNetworkBanner({
+  action,
   state,
 }: {
+  readonly action?: ReactNode;
   readonly state: "online" | "offline" | "degraded";
 }) {
   if (state === "online") {
@@ -301,9 +303,14 @@ export function TemplateNetworkBanner({
 
   return (
     <div className={`template-network-banner ${state}`} role="status">
-      {state === "offline"
-        ? "You are offline. Local draft state remains available."
-        : "Network is degraded. Live provider calls may be delayed."}
+      <span>
+        {state === "offline"
+          ? "You are offline. Local draft state remains available."
+          : "Network is degraded. Live provider calls may be delayed."}
+      </span>
+      {action ? (
+        <span className="template-network-banner-action">{action}</span>
+      ) : null}
     </div>
   );
 }
@@ -312,12 +319,14 @@ export function TemplateRouteFocusBoundary({
   announcement,
   children,
   focusKey,
+  networkAction,
   networkState = "online",
   targetId = "template-main-content",
 }: {
   readonly announcement: string;
   readonly children: ReactNode;
   readonly focusKey: string;
+  readonly networkAction?: ReactNode;
   readonly networkState?: "online" | "offline" | "degraded";
   readonly targetId?: string;
 }) {
@@ -340,7 +349,7 @@ export function TemplateRouteFocusBoundary({
     <>
       <TemplateSkipLink targetId={targetId} />
       <TemplateLiveRegion message={announcement} />
-      <TemplateNetworkBanner state={networkState} />
+      <TemplateNetworkBanner action={networkAction} state={networkState} />
       {children}
     </>
   );

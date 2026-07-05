@@ -226,6 +226,7 @@ describe("template route UX helpers", () => {
       <TemplateRouteFocusBoundary
         announcement="Viewing Legal"
         focusKey="/_workspace/legal"
+        networkAction={<button type="button">Retry now</button>}
         networkState="degraded"
       >
         <TemplateMainContent className="template-page">
@@ -235,6 +236,8 @@ describe("template route UX helpers", () => {
     );
 
     expect(html).toContain("Network is degraded");
+    expect(html).toContain("Retry now");
+    expect(html).toContain("template-network-banner-action");
     expect(html).toContain('class="template-page"');
     expect(html).toContain('id="template-main-content"');
   });

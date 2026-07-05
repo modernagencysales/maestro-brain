@@ -42,6 +42,9 @@ describe("Notion Kit shell style contract", () => {
     expect(boundary).toContain("describeRouteAnnouncement");
     expect(boundary).toContain("useBrowserNetworkState");
     expect(boundary).toContain("networkState={networkState}");
+    expect(boundary).toContain("retryCurrentRoute");
+    expect(boundary).toContain("window.location.reload");
+    expect(boundary).toContain("Retry now");
     expect(boundary).toContain("hashchange");
     expect(network).toContain('"online"');
     expect(network).toContain('"offline"');
@@ -73,6 +76,7 @@ describe("Notion Kit shell style contract", () => {
     expect(css).toContain(".template-live-region");
     expect(css).toContain(".template-shell-content");
     expect(css).toContain(".template-network-banner");
+    expect(css).toContain(".template-network-banner-action");
     expect(css).toContain(".template-empty-state");
     expect(css).toContain(".template-dialog-backdrop");
     expect(css).toContain(".template-dialog");

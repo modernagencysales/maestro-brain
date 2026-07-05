@@ -1295,9 +1295,10 @@ repos**.
 262. **Designed error surfaces (404 / 500 / root error + global pending)** — MED
      — Partial port + build. `router.tsx` ships throwaway not-found/pending
      one-liners; the error-boundary _pattern_ is item 126.
-263. **Offline / network-retry UX** — LOW/MED — Greenfield. Connection-lost
-     banner
-     - mutation retry over Convex live queries.
+263. **Offline / network-retry UX** — LOW/MED — partial. Root route UX now
+     detects browser online/offline state, shows a connection banner for
+     offline/degraded states, and exposes a retry action to reload the current
+     route. Remaining work: mutation retry over Convex live queries.
 264. **SEO/social meta helper + `public/` assets** — MED — small Port +
      Greenfield. `adapters/route-head.ts` is title-only; **no `public/` dir**
      (no favicon, robots, sitemap, manifest, OG/Twitter cards) despite

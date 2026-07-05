@@ -96,11 +96,36 @@ a {
   position: sticky;
   top: 0;
   z-index: 80;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
   border-bottom: 1px solid var(--template-border);
   padding: 8px 16px;
   background: #fff8db;
   color: #5f3b00;
   font-size: 13px;
+  text-align: center;
+}
+
+.template-network-banner-action {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.template-network-banner-action button {
+  min-height: 28px;
+  border: 1px solid rgb(95 59 0 / 22%);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 72%);
+  color: #5f3b00;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.template-network-banner-action button:hover {
+  background: #ffffff;
 }
 
 .template-empty-state {

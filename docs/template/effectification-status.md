@@ -68,10 +68,11 @@ contract family.
   Confect `convexPublic*` wrappers do not currently expose an `error` schema
   slot for those component functions.
 - Frontend UX essentials now include route focus, hosted axe smoke, dialog focus
-  trap, route announcements, live-region announcements, and toast primitives.
-  Remaining product-surface work is adoption: wire future modals/popovers into
-  `TemplateDialog` and wire real mutation success/error paths into
-  `TemplateToastProvider`.
+  trap, route announcements, live-region announcements, root route
+  pending/error/not-found states, offline/degraded network retry affordances,
+  and toast primitives. Remaining product-surface work is adoption: wire future
+  modals/popovers into `TemplateDialog` and wire real mutation success/error
+  paths into `TemplateToastProvider`.
 
 ## Starter Readiness Read
 
@@ -86,9 +87,7 @@ The next cross-cutting starter improvements are:
 
 1. Adopt the shared dialog and toast primitives in each real product surface as
    those surfaces gain mutations, modals, popovers, and destructive flows.
-2. Add designed root 404/500/pending/offline retry views beyond the current
-   route-state primitives.
-3. Decide which client-fork features are template-defaults versus documented
+2. Decide which client-fork features are template-defaults versus documented
    extension paths, especially billing, notification center, retention jobs, and
    deploy promotion.
 
