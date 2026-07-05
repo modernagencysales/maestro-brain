@@ -1,3 +1,4 @@
+import accessAuditEvents from "../tables/accessAuditEvents";
 import invitations from "../tables/invitations";
 import organizationMembers from "../tables/organizationMembers";
 import organizations from "../tables/organizations";
@@ -10,4 +11,5 @@ export default {
   organizationMembers,
   workspaceMembers,
   invitations,
+  accessAuditEvents,
 } as const;

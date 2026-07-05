@@ -60,14 +60,6 @@ export type AccessLifecycleEvent = AccessLifecycleActor & {
   readonly metadata: AuditMetadata;
 };
 
-export const acknowledgeAccessLifecycleEvents = (
-  events: readonly AccessLifecycleEvent[],
-  reason: "audit-sink-not-yet-implemented",
-): void => {
-  void events;
-  void reason;
-};
-
 type Patch<Value> = {
   readonly id: string;
   readonly value: Value;

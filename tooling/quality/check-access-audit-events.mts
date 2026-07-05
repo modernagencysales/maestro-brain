@@ -50,17 +50,12 @@ export function evaluateAccessAuditEventSource(
     }
   }
 
-  if (!source.includes("acknowledgeAccessLifecycleEvents")) {
+  const recordCallCount =
+    source.match(/\brecordAccessLifecycleEvents\s*\(/g)?.length ?? 0;
+  if (recordCallCount < planners.length) {
     findings.push({
       file,
-      message: `${file} must explicitly acknowledge access lifecycle events until the durable audit sink is wired.`,
-    });
-  }
-
-  if (!source.includes('"audit-sink-not-yet-implemented"')) {
-    findings.push({
-      file,
-      message: `${file} must label temporary audit acknowledgement with audit-sink-not-yet-implemented.`,
+      message: `${file} must persist each access lifecycle planner event through recordAccessLifecycleEvents.`,
     });
   }
 

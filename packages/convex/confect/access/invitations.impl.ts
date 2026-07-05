@@ -9,6 +9,7 @@ import type { InvitationsDoc } from "../_generated/docs";
 import databaseSchema from "../_generated/schema";
 import { DatabaseReader, DatabaseWriter } from "../_generated/services";
 import { stableFingerprint } from "../shared/tokenCrypto";
+import { recordAccessLifecycleEvents } from "./audit";
 import {
   Forbidden,
   InvitationNotAccessible,
@@ -23,7 +24,6 @@ import {
 } from "./handlerContext";
 import {
   acceptInvitation,
-  acknowledgeAccessLifecycleEvents,
   buildInvitationCreatedEvent,
   buildWorkspaceInvitation,
   cancelInvitation,
@@ -77,14 +77,15 @@ const create = FunctionImpl.make(
         .table("invitations")
         .insert(plan.invitation)
         .pipe(Effect.orDie);
-      acknowledgeAccessLifecycleEvents(
+      yield* recordAccessLifecycleEvents(
+        writer,
         [
           buildInvitationCreatedEvent({
             id: invitationId,
             ...plan.invitation,
           }),
         ],
-        "audit-sink-not-yet-implemented",
+        now,
       );
 
       return invitationId;
@@ -134,10 +135,7 @@ const accept = FunctionImpl.make(
           })
           .pipe(Effect.orDie);
       }
-      acknowledgeAccessLifecycleEvents(
-        plan.events,
-        "audit-sink-not-yet-implemented",
-      );
+      yield* recordAccessLifecycleEvents(writer, plan.events, now);
 
       return {
         workspaceId: asGenericId<"workspaces">(acceptedInvitation.workspaceId),
@@ -168,10 +166,7 @@ const decline = FunctionImpl.make(
           .patch(invitationId, plan.invitationPatch.value)
           .pipe(Effect.orDie);
       }
-      acknowledgeAccessLifecycleEvents(
-        plan.events,
-        "audit-sink-not-yet-implemented",
-      );
+      yield* recordAccessLifecycleEvents(writer, plan.events, now);
 
       return null;
     }),
@@ -202,10 +197,7 @@ const cancel = FunctionImpl.make(
           .patch(invitationId, plan.invitationPatch.value)
           .pipe(Effect.orDie);
       }
-      acknowledgeAccessLifecycleEvents(
-        plan.events,
-        "audit-sink-not-yet-implemented",
-      );
+      yield* recordAccessLifecycleEvents(writer, plan.events, now);
 
       return null;
     }),

@@ -30,7 +30,7 @@ strongest first:
 | Keep product env reads behind typed boundaries                                                                                             | mechanical: `check:env-boundary` scans `apps/` and `packages/` for direct `process.env`, `import.meta.env`, or `Deno.env` access outside the CLI decoder, web env shim, and Convex shared env accessor                                                                                                    |
 | Keep provider SDKs behind adapters and runtime boundaries                                                                                  | mechanical: `check:provider-boundary` scans `apps/` and `packages/` for provider SDK imports outside approved integration/provider packages and explicit WorkOS/PostHog runtime boundary files                                                                                                            |
 | Keep product logs behind redacted seams                                                                                                    | mechanical: `check:logging-boundary` scans `apps/` and `packages/` for product runtime `console.*` calls; product telemetry must go through typed redacted observability/notification seams                                                                                                               |
-| Access lifecycle planner events are not silently dropped                                                                                   | mechanical: `check:access-audit-events` pins member and invitation lifecycle impls to explicit `acknowledgeAccessLifecycleEvents(..., "audit-sink-not-yet-implemented")` calls until a durable audit sink lands                                                                                           |
+| Access lifecycle planner events are durably recorded                                                                                       | mechanical: `check:access-audit-events` pins member and invitation lifecycle impls to `recordAccessLifecycleEvents`; table/schema tests pin `accessAuditEvents` indexes and row shape                                                                                                                     |
 | Do not edit generated files                                                                                                                | mechanical: `check:convex` (codegen + `git diff --exit-code`); pin-only: `check:generated-files`                                                                                                                                                                                                          |
 | API/CLI/MCP generated surface parity                                                                                                       | mechanical: `check:headless-surface-contract` verifies generated manifest exposure has typed errors, idempotency-key enforcement proof, generated ref mappings, and no canned registry/runtime success shortcuts                                                                                          |
 
@@ -74,6 +74,6 @@ strongest first:
 
 ## Known unenforced (candidates for the next ratchet)
 
-- Audit-event persistence on access lifecycle mutations — domain functions
-  return events and impls explicitly acknowledge them, but a durable audit
-  sink/table is not wired yet (see porting roadmap).
+- Audit-event persistence coverage is currently focused on member and invitation
+  lifecycle mutations. Future admin surfaces should extend the same
+  `recordAccessLifecycleEvents` discipline.

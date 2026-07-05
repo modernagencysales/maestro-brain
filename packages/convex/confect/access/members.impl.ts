@@ -8,6 +8,7 @@ import * as Option from "effect/Option";
 import databaseSchema from "../_generated/schema";
 import { DatabaseReader, DatabaseWriter } from "../_generated/services";
 import { MemberNotInWorkspace } from "../errors";
+import { recordAccessLifecycleEvents } from "./audit";
 import {
   asGenericId,
   loadCurrentUser,
@@ -16,7 +17,6 @@ import {
   type Reader,
 } from "./handlerContext";
 import {
-  acknowledgeAccessLifecycleEvents,
   changeMemberRole,
   isLiveWorkspaceMembership,
   removeMember,
@@ -57,10 +57,7 @@ const changeRole = FunctionImpl.make(
         .table("workspaceMembers")
         .patch(membershipId, plan.patch.value)
         .pipe(Effect.orDie);
-      acknowledgeAccessLifecycleEvents(
-        plan.events,
-        "audit-sink-not-yet-implemented",
-      );
+      yield* recordAccessLifecycleEvents(writer, plan.events, now);
 
       return null;
     }),
@@ -95,10 +92,7 @@ const remove = FunctionImpl.make(
         .table("workspaceMembers")
         .patch(membershipId, plan.patch.value)
         .pipe(Effect.orDie);
-      acknowledgeAccessLifecycleEvents(
-        plan.events,
-        "audit-sink-not-yet-implemented",
-      );
+      yield* recordAccessLifecycleEvents(writer, plan.events, now);
 
       return null;
     }),
@@ -135,10 +129,7 @@ const transferOwnershipImpl = FunctionImpl.make(
           .patch(asGenericId<"workspaceMembers">(patch.id), patch.value)
           .pipe(Effect.orDie),
       );
-      acknowledgeAccessLifecycleEvents(
-        plan.events,
-        "audit-sink-not-yet-implemented",
-      );
+      yield* recordAccessLifecycleEvents(writer, plan.events, now);
 
       return null;
     }),

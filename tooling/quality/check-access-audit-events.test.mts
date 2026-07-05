@@ -5,7 +5,7 @@ const membersFile = "packages/convex/confect/access/members.impl.ts";
 const invitationsFile = "packages/convex/confect/access/invitations.impl.ts";
 
 describe("check:access-audit-events", () => {
-  it("requires member lifecycle impls to acknowledge planner events", () => {
+  it("requires member lifecycle impls to persist planner events", () => {
     const findings = evaluateAccessAuditEventSource(
       membersFile,
       `
@@ -17,12 +17,12 @@ describe("check:access-audit-events", () => {
 
     expect(findings).toContainEqual(
       expect.objectContaining({
-        message: expect.stringContaining("acknowledge access lifecycle events"),
+        message: expect.stringContaining("recordAccessLifecycleEvents"),
       }),
     );
   });
 
-  it("requires invitation lifecycle impls to preserve the temporary audit reason", () => {
+  it("requires invitation lifecycle impls to persist planner events", () => {
     const findings = evaluateAccessAuditEventSource(
       invitationsFile,
       `
@@ -30,26 +30,46 @@ describe("check:access-audit-events", () => {
         acceptInvitation();
         declineInvitation();
         cancelInvitation();
-        acknowledgeAccessLifecycleEvents(events, "other-reason");
       `,
     );
 
     expect(findings).toContainEqual(
       expect.objectContaining({
-        message: expect.stringContaining("audit-sink-not-yet-implemented"),
+        message: expect.stringContaining("recordAccessLifecycleEvents"),
       }),
     );
   });
 
-  it("passes when all access lifecycle planners have explicit event acknowledgement", () => {
+  it("requires one persistence call per planner in a lifecycle impl", () => {
+    const findings = evaluateAccessAuditEventSource(
+      invitationsFile,
+      `
+        buildInvitationCreatedEvent();
+        acceptInvitation();
+        declineInvitation();
+        cancelInvitation();
+        recordAccessLifecycleEvents(writer, events, now);
+      `,
+    );
+
+    expect(findings).toContainEqual(
+      expect.objectContaining({
+        message: expect.stringContaining("each access lifecycle planner event"),
+      }),
+    );
+  });
+
+  it("passes when all access lifecycle planners persist events", () => {
     expect(
       evaluateAccessAuditEventSource(
         membersFile,
         `
           changeMemberRole();
-          acknowledgeAccessLifecycleEvents(events, "audit-sink-not-yet-implemented");
+          recordAccessLifecycleEvents(writer, events, now);
           removeMember();
+          recordAccessLifecycleEvents(writer, events, now);
           transferOwnership();
+          recordAccessLifecycleEvents(writer, events, now);
         `,
       ),
     ).toEqual([]);
@@ -61,7 +81,10 @@ describe("check:access-audit-events", () => {
           acceptInvitation();
           declineInvitation();
           cancelInvitation();
-          acknowledgeAccessLifecycleEvents(events, "audit-sink-not-yet-implemented");
+          recordAccessLifecycleEvents(writer, events, now);
+          recordAccessLifecycleEvents(writer, events, now);
+          recordAccessLifecycleEvents(writer, events, now);
+          recordAccessLifecycleEvents(writer, events, now);
         `,
       ),
     ).toEqual([]);

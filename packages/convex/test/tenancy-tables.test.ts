@@ -1,6 +1,7 @@
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import {
+  AccessAuditEventRow,
   InvitationRow,
   MembershipStatus,
   OrganizationMemberRow,
@@ -13,6 +14,7 @@ import tenancyTables from "../confect/access/tenancyTables";
 describe("tenancy table contracts", () => {
   it("exports the required tenancy tables", () => {
     expect(Object.keys(tenancyTables).sort()).toEqual([
+      "accessAuditEvents",
       "invitations",
       "organizationMembers",
       "organizations",
@@ -44,6 +46,11 @@ describe("tenancy table contracts", () => {
       by_token: ["tokenHash"],
       by_email_status: ["email", "status"],
       by_workspace_status: ["workspaceId", "status"],
+    });
+    expect(tenancyTables.accessAuditEvents.indexes).toMatchObject({
+      by_workspace_created: ["workspaceId", "createdAt"],
+      by_subject: ["subjectKind", "subjectId"],
+      by_workspace_action: ["workspaceId", "action"],
     });
   });
 
@@ -115,5 +122,19 @@ describe("tenancy table contracts", () => {
         updatedAt: 2,
       }),
     ).toMatchObject({ status: "pending", acceptedAt: null });
+    expect(
+      Schema.decodeUnknownSync(AccessAuditEventRow)({
+        workspaceId: "workspace_123",
+        action: "member.roleChanged",
+        actorUserId: "user_owner",
+        subjectKind: "workspaceMember",
+        subjectId: "workspaceMembers_123",
+        metadataJson: '{"previousRole":"editor","nextRole":"admin"}',
+        createdAt: 1,
+      }),
+    ).toMatchObject({
+      action: "member.roleChanged",
+      subjectKind: "workspaceMember",
+    });
   });
 });

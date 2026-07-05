@@ -17,6 +17,19 @@ export const InvitationStatus = Schema.Literal(
   "revoked",
   "expired",
 );
+export const AccessAuditAction = Schema.Literal(
+  "member.roleChanged",
+  "member.removed",
+  "member.ownershipTransferred",
+  "invitation.created",
+  "invitation.accepted",
+  "invitation.declined",
+  "invitation.cancelled",
+);
+export const AccessAuditSubjectKind = Schema.Literal(
+  "workspaceMember",
+  "invitation",
+);
 
 const NullableNumber = Schema.NullOr(Schema.Number);
 const OptionalString = Schema.optional(Schema.String);
@@ -78,4 +91,15 @@ export const InvitationRow = Schema.Struct({
   expiresAt: Schema.Number,
   createdAt: Schema.Number,
   updatedAt: Schema.Number,
+});
+
+export const AccessAuditEventRow = Schema.Struct({
+  workspaceId: Schema.String,
+  action: AccessAuditAction,
+  actorUserId: Schema.optional(Schema.String),
+  actorEmail: Schema.optional(Schema.String),
+  subjectKind: AccessAuditSubjectKind,
+  subjectId: Schema.String,
+  metadataJson: Schema.String,
+  createdAt: Schema.Number,
 });

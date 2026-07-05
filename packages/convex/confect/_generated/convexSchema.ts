@@ -1,5 +1,6 @@
 import { defineSchema as $defineSchema } from "convex/server";
 
+import accessAuditEvents from "./tables/accessAuditEvents";
 import actionApprovals from "./tables/actionApprovals";
 import actionDigests from "./tables/actionDigests";
 import actionJobs from "./tables/actionJobs";
@@ -39,6 +40,7 @@ import workspaceMembers from "./tables/workspaceMembers";
 import workspaces from "./tables/workspaces";
 
 export default $defineSchema({
+  accessAuditEvents: accessAuditEvents.tableDefinition,
   actionApprovals: actionApprovals.tableDefinition,
   actionDigests: actionDigests.tableDefinition,
   actionJobs: actionJobs.tableDefinition,

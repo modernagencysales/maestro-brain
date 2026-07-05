@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as Either from "effect/Either";
 
+import { accessAuditEventInsert } from "../confect/access/audit";
 import {
   acceptInvitation,
   buildInvitationCreatedEvent,
@@ -58,6 +59,47 @@ const invitation = (overrides: Partial<InvitationRef>): InvitationRef => ({
 });
 
 describe("workspace member lifecycle policy", () => {
+  it("projects lifecycle events into durable audit rows", () => {
+    expect(
+      accessAuditEventInsert(
+        {
+          action: "member.roleChanged",
+          workspaceId: "workspaces_1",
+          actorUserId: "users_owner",
+          subjectKind: "workspaceMember",
+          subjectId: "workspaceMembers_2",
+          metadata: { previousRole: "editor", nextRole: "admin" },
+        },
+        now,
+      ),
+    ).toEqual({
+      workspaceId: "workspaces_1",
+      action: "member.roleChanged",
+      actorUserId: "users_owner",
+      subjectKind: "workspaceMember",
+      subjectId: "workspaceMembers_2",
+      metadataJson: '{"previousRole":"editor","nextRole":"admin"}',
+      createdAt: now,
+    });
+
+    expect(
+      accessAuditEventInsert(
+        {
+          action: "invitation.declined",
+          workspaceId: "workspaces_1",
+          actorEmail: "ada@example.com",
+          subjectKind: "invitation",
+          subjectId: "invitations_1",
+          metadata: { reason: "declined" },
+        },
+        now,
+      ),
+    ).toMatchObject({
+      actorEmail: "ada@example.com",
+      metadataJson: '{"reason":"declined"}',
+    });
+  });
+
   it("changes a member role when the actor can manage the target and grant the new role", () => {
     const either = changeMemberRole({
       actorUserId: "users_owner",

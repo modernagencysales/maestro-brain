@@ -1,6 +1,7 @@
 import type { Document } from "@confect/server";
 import type schemaDefinition from "./schema";
 
+export type AccessAuditEventsDoc = Document.Document<typeof schemaDefinition, "accessAuditEvents">;
 export type ActionApprovalsDoc = Document.Document<typeof schemaDefinition, "actionApprovals">;
 export type ActionDigestsDoc = Document.Document<typeof schemaDefinition, "actionDigests">;
 export type ActionJobsDoc = Document.Document<typeof schemaDefinition, "actionJobs">;
@@ -40,6 +41,7 @@ export type WorkspaceMembersDoc = Document.Document<typeof schemaDefinition, "wo
 export type WorkspacesDoc = Document.Document<typeof schemaDefinition, "workspaces">;
 
 export interface Docs {
+  accessAuditEvents: AccessAuditEventsDoc;
   actionApprovals: ActionApprovalsDoc;
   actionDigests: ActionDigestsDoc;
   actionJobs: ActionJobsDoc;

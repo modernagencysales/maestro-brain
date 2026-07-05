@@ -1,5 +1,6 @@
 import { DatabaseSchema as $DatabaseSchema } from "@confect/server";
 
+import accessAuditEvents from "./tables/accessAuditEvents";
 import actionApprovals from "./tables/actionApprovals";
 import actionDigests from "./tables/actionDigests";
 import actionJobs from "./tables/actionJobs";
@@ -39,6 +40,7 @@ import workspaceMembers from "./tables/workspaceMembers";
 import workspaces from "./tables/workspaces";
 
 const databaseSchema: $DatabaseSchema.DatabaseSchema<
+  typeof accessAuditEvents |
   typeof actionApprovals |
   typeof actionDigests |
   typeof actionJobs |
@@ -77,6 +79,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof workspaceMembers |
   typeof workspaces
 > = $DatabaseSchema.make({
+  accessAuditEvents,
   actionApprovals,
   actionDigests,
   actionJobs,
