@@ -1265,10 +1265,11 @@ repos**.
      Polite/assertive announce hook for route changes, async saves, toasts.
 258. **`useReducedMotion` runtime hook** — LOW — Greenfield. Gate JS/canvas
      motion (React Flow), not just CSS (`index.css` is CSS-only today).
-259. **Global toast / notification-emitter system** — HIGH — Build. Only a
-     presentational mock exists
-     (`features/nk-gallery/components/FloatingToast.tsx`). A real app-wide toast
-     provider + imperative API wired to mutation success/error.
+259. **Global toast / notification-emitter system** — HIGH — partial. The
+     reusable `TemplateToastProvider` now exposes an imperative
+     `useTemplateToast` API with dismiss and auto-dismiss behavior. Remaining
+     work: wire real mutation success/error paths across product surfaces into
+     the provider.
 260. **In-app notification center (table + UI + prefs)** — MED — Greenfield. No
      notifications schema, center UI, or prefs panel. Bell/inbox with
      read-state + digest prefs.

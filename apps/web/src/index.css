@@ -138,6 +138,37 @@ a {
   padding: 10px 12px;
   font-size: 13px;
   box-shadow: 0 12px 36px rgb(15 15 15 / 12%);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: start;
+}
+
+.template-toast p {
+  margin: 4px 0 0;
+  color: rgb(255 255 255 / 78%);
+}
+
+.template-toast button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+  opacity: 0.72;
+}
+
+.template-toast.success {
+  background: #0f5d3d;
+}
+
+.template-toast.warning {
+  background: #7a4a00;
+}
+
+.template-toast.danger {
+  background: var(--template-danger);
 }
 
 .template-route-state {

@@ -1,4 +1,150 @@
-import { useCallback, useRef, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+
+export type TemplateToastTone = "neutral" | "success" | "warning" | "danger";
+
+export type TemplateToast = {
+  readonly id: string;
+  readonly title: string;
+  readonly description?: string;
+  readonly tone?: TemplateToastTone;
+};
+
+export type TemplateToastInput = Omit<TemplateToast, "id"> & {
+  readonly autoDismissMs?: number;
+  readonly id?: string;
+};
+
+export type TemplateToastApi = {
+  readonly notify: (toast: TemplateToastInput) => string;
+  readonly dismiss: (toastId: string) => void;
+};
+
+const TemplateToastContext = createContext<TemplateToastApi | null>(null);
+
+const missingTemplateToastApi: TemplateToastApi = {
+  dismiss: () => {},
+  notify: () => "template-toast-missing-provider",
+};
+
+const initialTemplateToasts = ({
+  initialToasts,
+  message,
+}: {
+  readonly initialToasts: readonly TemplateToast[];
+  readonly message: string | undefined;
+}): readonly TemplateToast[] => {
+  if (!message) {
+    return initialToasts;
+  }
+
+  return [
+    ...initialToasts,
+    {
+      id: "template-toast-static-message",
+      title: message,
+      tone: "neutral",
+    },
+  ];
+};
+
+const clearToastTimer = (
+  timers: Map<string, ReturnType<typeof setTimeout>>,
+  toastId: string,
+): void => {
+  const timer = timers.get(toastId);
+  if (!timer) {
+    return;
+  }
+
+  clearTimeout(timer);
+  timers.delete(toastId);
+};
+
+const clearAllToastTimers = (
+  timers: Map<string, ReturnType<typeof setTimeout>>,
+): void => {
+  for (const timer of timers.values()) {
+    clearTimeout(timer);
+  }
+  timers.clear();
+};
+
+const storeToast = (
+  current: readonly TemplateToast[],
+  toast: TemplateToast,
+): readonly TemplateToast[] => [
+  ...current.filter((existing) => existing.id !== toast.id),
+  toast,
+];
+
+const useTemplateToastState = ({
+  defaultAutoDismissMs,
+  initialToasts,
+  message,
+}: {
+  readonly defaultAutoDismissMs: number;
+  readonly initialToasts: readonly TemplateToast[];
+  readonly message: string | undefined;
+}) => {
+  const nextId = useRef(0);
+  const dismissTimers = useRef(
+    new Map<string, ReturnType<typeof setTimeout>>(),
+  );
+  const [toasts, setToasts] = useState<readonly TemplateToast[]>(() =>
+    initialTemplateToasts({ initialToasts, message }),
+  );
+
+  const dismiss = useCallback((toastId: string) => {
+    clearToastTimer(dismissTimers.current, toastId);
+    setToasts((current) => current.filter((toast) => toast.id !== toastId));
+  }, []);
+
+  const notify = useCallback(
+    (toast: TemplateToastInput) => {
+      const { autoDismissMs = defaultAutoDismissMs, ...storedToast } = toast;
+      const id = toast.id ?? `template-toast-${nextId.current++}`;
+
+      clearToastTimer(dismissTimers.current, id);
+      setToasts((current) => storeToast(current, { ...storedToast, id }));
+
+      if (autoDismissMs > 0) {
+        dismissTimers.current.set(
+          id,
+          setTimeout(() => dismiss(id), autoDismissMs),
+        );
+      }
+
+      return id;
+    },
+    [defaultAutoDismissMs, dismiss],
+  );
+
+  useEffect(
+    () => () => {
+      clearAllToastTimers(dismissTimers.current);
+    },
+    [],
+  );
+
+  const api = useMemo<TemplateToastApi>(
+    () => ({
+      dismiss,
+      notify,
+    }),
+    [dismiss, notify],
+  );
+
+  return { api, dismiss, toasts };
+};
 
 export function TemplateSkipLink({
   targetId = "template-main-content",
@@ -60,23 +206,51 @@ export function TemplateEmptyState({
 
 export function TemplateToastProvider({
   children,
+  defaultAutoDismissMs = 5000,
+  initialToasts = [],
   message,
 }: {
   readonly children: ReactNode;
+  readonly defaultAutoDismissMs?: number;
+  readonly initialToasts?: readonly TemplateToast[];
   readonly message?: string;
 }) {
+  const { api, dismiss, toasts } = useTemplateToastState({
+    defaultAutoDismissMs,
+    initialToasts,
+    message,
+  });
+
   return (
-    <>
+    <TemplateToastContext.Provider value={api}>
       {children}
       <div aria-live="polite" className="template-toast-region">
-        {message ? (
-          <div className="template-toast" role="status">
-            {message}
+        {toasts.map((toast) => (
+          <div
+            className={`template-toast ${toast.tone ?? "neutral"}`}
+            key={toast.id}
+            role="status"
+          >
+            <div>
+              <strong>{toast.title}</strong>
+              {toast.description ? <p>{toast.description}</p> : null}
+            </div>
+            <button
+              aria-label={`Dismiss ${toast.title}`}
+              onClick={() => dismiss(toast.id)}
+              type="button"
+            >
+              x
+            </button>
           </div>
-        ) : null}
+        ))}
       </div>
-    </>
+    </TemplateToastContext.Provider>
   );
+}
+
+export function useTemplateToast(): TemplateToastApi {
+  return useContext(TemplateToastContext) ?? missingTemplateToastApi;
 }
 
 export function TemplateRoutePending({
