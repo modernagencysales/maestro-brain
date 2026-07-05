@@ -114,32 +114,32 @@ Convex component wiring (M).
    external API/CLI/MCP-style writes dispatch, and the first real capability
    (`sourceGroundedBrief`) now rejects padded caller keys with typed
    `ValidationFailed` errors before fake/live execution.
-   `ops.billing.recordUsage` now validates usage idempotency keys before
-   deriving usage/ledger IDs, and the notification email seam rejects
-   padded/non-URL-safe delivery keys before sending while generating URL-safe
-   action-digest keys. Dodo webhook normalization now emits URL-safe dedupe
-   keys, and `ops.billing.applyWebhook` validates dedupe keys before recording
-   webhook state. The agent runtime also sanitizes malformed caller keys before
-   recording denied/failed tool calls. `ops.versioning.append`,
-   `ops.versioning.restore`, and `ops.versioning.reconcile` now validate version
-   ledger idempotency keys before returning append-only history rows.
-   `ops.transforms.runTransform` now validates transform run ledger keys before
-   returning completed run receipts. `ops.coediting.createDocument`,
-   `ops.coediting.appendVersion`, and `ops.coediting.createAnnotation` now
-   validate document collaboration keys before deriving document/annotation ids
-   or returning version receipts. Workflow ownership now validates workflow-run
-   reservation keys before reading or inserting `workflowRuns`.
-   `packages/integrations` fake billing ledger helpers and the generic billing
-   checkout provider seam now reject malformed caller keys before deriving
-   ledger, usage, or receipt IDs. `packages/template-core` versioning helpers
-   now reject malformed versioning keys before storing append-only entries or
-   deriving reconciliation keys. `packages/integrations` LLM completion receipts
-   now reject malformed optional caller keys before preserving them in
-   fake/live-ready receipts. Confect and `packages/template-core` action trigger
-   idempotency keys and action digest dedupe keys are now URL-safe when
-   generated from config hashes or time ranges. Remaining work: adopt the shared
-   validator across every remaining durable ledger path that accepts
-   caller-supplied idempotency keys.
+   `ops.billing.recordUsage` now validates workspace-scoped usage idempotency
+   keys before durable usage and ledger writes, and the notification email seam
+   rejects padded/non-URL-safe delivery keys before sending while generating
+   URL-safe action-digest keys. Dodo webhook normalization now emits URL-safe
+   dedupe keys, and `ops.billing.applyWebhook` validates dedupe keys before
+   returning processed webhook state. The agent runtime also sanitizes malformed
+   caller keys before recording denied/failed tool calls.
+   `ops.versioning.append`, `ops.versioning.restore`, and
+   `ops.versioning.reconcile` now validate version ledger idempotency keys
+   before returning append-only history rows. `ops.transforms.runTransform` now
+   validates transform run ledger keys before returning completed run receipts.
+   `ops.coediting.createDocument`, `ops.coediting.appendVersion`, and
+   `ops.coediting.createAnnotation` now validate document collaboration keys
+   before deriving document/annotation ids or returning version receipts.
+   Workflow ownership now validates workflow-run reservation keys before reading
+   or inserting `workflowRuns`. `packages/integrations` fake billing ledger
+   helpers and the generic billing checkout provider seam now reject malformed
+   caller keys before deriving ledger, usage, or receipt IDs.
+   `packages/template-core` versioning helpers now reject malformed versioning
+   keys before storing append-only entries or deriving reconciliation keys.
+   `packages/integrations` LLM completion receipts now reject malformed optional
+   caller keys before preserving them in fake/live-ready receipts. Confect and
+   `packages/template-core` action trigger idempotency keys and action digest
+   dedupe keys are now URL-safe when generated from config hashes or time
+   ranges. Remaining work: adopt the shared validator across every remaining
+   durable ledger path that accepts caller-supplied idempotency keys.
 10. **Workspace bootstrap/provision provider (web)** — MED — no.
     `apps/web/src/providers/workspace.tsx`. Idempotent first-sign-in
     provisioning self-heal, then exposes active `workspaceId` via context.
@@ -478,12 +478,14 @@ Convex component wiring (M).
 
 ## H. Billing, credits, entitlements & usage
 
-79. **Credit ledger + billing plan/package tables** — HIGH — no.
-    `schema/billing.ts` (`billingCreditLedgerEntries`, `billingPlanAssignments`,
-    `clientBillingPackages`, `billingCustomers`),
-    `domain/billingCreditLedger.ts`. Append-only ledger
-    (direction/balance-before-after/idempotencyKey/refund linkage).
-    Metered-billing substrate.
+79. **Credit ledger + billing plan/package tables** — HIGH — partial.
+    `creditLedger`, `usageEvents`, `entitlements`, `billingPlans`, and
+    `webhookEvents` Confect tables exist. `ops.billing.recordUsage` now
+    validates workspace-scoped idempotency, requires an active entitlement with
+    remaining credits, writes a durable usage event, writes an append-only
+    `llm_usage` debit, and increments entitlement usage. Remaining work:
+    balance-before/after projections, refund linkage, customer/package
+    assignments, and provider reconciliation.
 80. **Credit gate lifecycle + saga** — HIGH — no.
     `adapters/creditGateLifecycle.ts`, `domain/creditSaga.ts`,
     `domain/creditPreflight.ts`,
@@ -493,11 +495,12 @@ Convex component wiring (M).
     `domain/headlessEntitlements.ts`, `domain/billing.ts`,
     `checks/entitlementFeature.ts`. `requireEntitlement`/
     `requireWorkspaceEntitlement` gating surfaces on plan features.
-82. **Idempotency + webhook dedup + usage-event tables** — HIGH — no.
-    `schema/billing.ts` (`webhookEvents`, `apiUsageIdempotencyKeys`,
-    `apiUsageEvents`), `domain/webhookEvent.ts`,
-    `domain/agentTurnIdempotency.ts`. `deduplicationKey` webhook table +
-    `(org,surface,idempotencyKey)` replay guard + immutable usage log.
+82. **Idempotency + webhook dedup + usage-event tables** — HIGH — partial. Usage
+    recording now has a workspace-scoped idempotent replay guard and immutable
+    usage log. Webhook table shape and dedupe normalization exist, and
+    `ops.billing.applyWebhook` validates dedupe keys before returning processed
+    state. Remaining work: persist webhook application, provider event replay
+    projection, and surface-specific usage idempotency adoption.
 
 ## I. Data schema, knowledge & RAG
 

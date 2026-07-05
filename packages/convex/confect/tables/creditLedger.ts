@@ -20,5 +20,6 @@ export default Table.make(() =>
 )
   .index("by_workspace", ["workspaceId"])
   .index("by_idempotency", ["idempotencyKey"])
+  .index("by_workspace_idempotency", ["workspaceId", "idempotencyKey"])
   .index("by_workspace_created", ["workspaceId", "createdAt"])
   .index("by_append_only", ["workspaceId", "appendOnly"]);

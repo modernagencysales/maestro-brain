@@ -1,9 +1,11 @@
 import { TestConfect } from "@confect/test";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import refs from "../confect/_generated/refs";
 import databaseSchema from "../confect/_generated/schema";
+import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
 import billingImpl from "../confect/ops/billing.impl";
 import billing, {
   ApplyWebhookArgs,
@@ -16,11 +18,13 @@ import billing, {
   SeatCheckReturn,
   UsageRecordReturn,
 } from "../confect/ops/billing.spec";
+import { MemberNotInWorkspace } from "../confect/errors";
 import creditLedger from "../confect/tables/creditLedger";
 import entitlements from "../confect/tables/entitlements";
 import usageEvents from "../confect/tables/usageEvents";
 import webhookEvents from "../confect/tables/webhookEvents";
 import { testConfectLayer } from "./support/confect";
+import { SeededTenancy, seedTenancy } from "./support/seedTenancy";
 
 describe("billing Confect contracts", () => {
   it("declares entitlement, webhook, append-only ledger, and usage indexes", () => {
@@ -36,12 +40,14 @@ describe("billing Confect contracts", () => {
     expect(creditLedger.indexes).toMatchObject({
       by_workspace: ["workspaceId"],
       by_idempotency: ["idempotencyKey"],
+      by_workspace_idempotency: ["workspaceId", "idempotencyKey"],
       by_workspace_created: ["workspaceId", "createdAt"],
       by_append_only: ["workspaceId", "appendOnly"],
     });
     expect(usageEvents.indexes).toMatchObject({
       by_workspace: ["workspaceId"],
       by_idempotency: ["idempotencyKey"],
+      by_workspace_idempotency: ["workspaceId", "idempotencyKey"],
       by_provider: ["provider"],
       by_entitlement: ["workspaceId", "entitlementKey"],
     });
@@ -50,7 +56,7 @@ describe("billing Confect contracts", () => {
   it("validates usage, webhook, entitlement, and seat args with Effect schemas", () => {
     expect(
       Schema.decodeUnknownSync(RecordUsageArgs)({
-        workspaceId: "workspace_123",
+        workspaceId: "workspaces_123",
         idempotencyKey: "usage-001",
         provider: "openrouter",
         units: 10,
@@ -157,6 +163,9 @@ describe("billing Confect contracts", () => {
         requestedSeats: 6,
         seatLimit: 5,
       }),
+      new MemberNotInWorkspace({
+        membershipId: "actor",
+      }),
       new BillingError.ValidationFailed({
         field: "idempotencyKey",
         message: "idempotencyKey is required.",
@@ -167,6 +176,7 @@ describe("billing Confect contracts", () => {
       "DuplicateWebhook",
       "InsufficientCredits",
       "SeatLimitExceeded",
+      "MemberNotInWorkspace",
       "ValidationFailed",
     ]);
     expect(JSON.stringify(encoded)).not.toContain("secret");
@@ -193,9 +203,13 @@ describe("billing Confect contracts", () => {
       const confect = yield* Effect.serviceOptional(
         TestConfect.TestConfect<typeof databaseSchema>(),
       );
+      const seeded = yield* confect.run(
+        seedTenancy(1_700_000_000_000),
+        SeededTenancy,
+      );
       return yield* confect
         .mutation(refs.public.ops.billing.recordUsage, {
-          workspaceId: "workspace_123",
+          workspaceId: seeded.workspaceId,
           idempotencyKey: " usage-001 ",
           provider: "openrouter",
           units: 10,
@@ -243,4 +257,447 @@ describe("billing Confect contracts", () => {
       message: "dedupeKey must not have leading or trailing whitespace.",
     });
   });
+
+  it("records usage durably, debits the ledger, and increments active entitlement usage", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const seeded = yield* confect.run(
+        seedTenancy(1_700_000_000_000),
+        SeededTenancy,
+      );
+      yield* confect.run(
+        seedEntitlement({
+          workspaceId: seeded.workspaceId,
+          entitlementKey: "llm_credits",
+          limit: 10,
+          used: 3,
+          status: "active",
+        }),
+        SeedResult,
+      );
+
+      const result = yield* confect
+        .withIdentity({
+          subject: "member-subject",
+          email: "member@example.com",
+        })
+        .mutation(refs.public.ops.billing.recordUsage, {
+          workspaceId: seeded.workspaceId,
+          idempotencyKey: "usage-001",
+          provider: "openrouter",
+          units: 12,
+          costCredits: 4,
+          entitlementKey: "llm_credits",
+        });
+      const snapshot = yield* confect.run(
+        readBillingUsageSnapshot({
+          workspaceId: seeded.workspaceId,
+          idempotencyKey: "usage-001",
+          entitlementKey: "llm_credits",
+        }),
+        BillingUsageSnapshot,
+      );
+
+      return { result, snapshot };
+    });
+
+    const { result, snapshot } = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result).toMatchObject({
+      idempotencyKey: "usage-001",
+      provider: "openrouter",
+      units: 12,
+      costCredits: 4,
+      entitlementKey: "llm_credits",
+      appendOnly: true,
+      createdAt: 1_700_000_000_000,
+    });
+    expect(result.usageEventId).toEqual(expect.stringContaining("usageEvents"));
+    expect(result.ledgerEntryId).toEqual(
+      expect.stringContaining("creditLedger"),
+    );
+    expect(snapshot).toMatchObject({
+      usageCount: 1,
+      ledgerCount: 1,
+      entitlementUsed: 7,
+      ledgerType: "debit",
+      ledgerReason: "llm_usage",
+      ledgerCreatedBy: "system:billing",
+    });
+  });
+
+  it("returns existing usage records idempotently without double-debiting credits", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const seeded = yield* confect.run(
+        seedTenancy(1_700_000_000_000),
+        SeededTenancy,
+      );
+      yield* confect.run(
+        seedEntitlement({
+          workspaceId: seeded.workspaceId,
+          entitlementKey: "llm_credits",
+          limit: 10,
+          used: 0,
+          status: "active",
+        }),
+        SeedResult,
+      );
+
+      const memberConfect = confect.withIdentity({
+        subject: "member-subject",
+        email: "member@example.com",
+      });
+      const first = yield* memberConfect.mutation(
+        refs.public.ops.billing.recordUsage,
+        {
+          workspaceId: seeded.workspaceId,
+          idempotencyKey: "usage-duplicate",
+          provider: "openrouter",
+          units: 12,
+          costCredits: 4,
+          entitlementKey: "llm_credits",
+        },
+      );
+      const second = yield* memberConfect.mutation(
+        refs.public.ops.billing.recordUsage,
+        {
+          workspaceId: seeded.workspaceId,
+          idempotencyKey: "usage-duplicate",
+          provider: "openrouter",
+          units: 12,
+          costCredits: 4,
+          entitlementKey: "llm_credits",
+        },
+      );
+      const snapshot = yield* confect.run(
+        readBillingUsageSnapshot({
+          workspaceId: seeded.workspaceId,
+          idempotencyKey: "usage-duplicate",
+          entitlementKey: "llm_credits",
+        }),
+        BillingUsageSnapshot,
+      );
+
+      return { first, second, snapshot };
+    });
+
+    const { first, second, snapshot } = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(second).toEqual(first);
+    expect(snapshot).toMatchObject({
+      usageCount: 1,
+      ledgerCount: 1,
+      entitlementUsed: 4,
+    });
+  });
+
+  it("rejects idempotency-key reuse with a different billing payload", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const seeded = yield* confect.run(
+        seedTenancy(1_700_000_000_000),
+        SeededTenancy,
+      );
+      yield* confect.run(
+        seedEntitlement({
+          workspaceId: seeded.workspaceId,
+          entitlementKey: "llm_credits",
+          limit: 10,
+          used: 0,
+          status: "active",
+        }),
+        SeedResult,
+      );
+
+      const memberConfect = confect.withIdentity({
+        subject: "member-subject",
+        email: "member@example.com",
+      });
+      yield* memberConfect.mutation(refs.public.ops.billing.recordUsage, {
+        workspaceId: seeded.workspaceId,
+        idempotencyKey: "usage-mismatch",
+        provider: "openrouter",
+        units: 12,
+        costCredits: 4,
+        entitlementKey: "llm_credits",
+      });
+
+      const error = yield* confect
+        .withIdentity({
+          subject: "member-subject",
+          email: "member@example.com",
+        })
+        .mutation(refs.public.ops.billing.recordUsage, {
+          workspaceId: seeded.workspaceId,
+          idempotencyKey: "usage-mismatch",
+          provider: "mailersend",
+          units: 12,
+          costCredits: 4,
+          entitlementKey: "llm_credits",
+        })
+        .pipe(Effect.flip);
+      const snapshot = yield* confect.run(
+        readBillingUsageSnapshot({
+          workspaceId: seeded.workspaceId,
+          idempotencyKey: "usage-mismatch",
+          entitlementKey: "llm_credits",
+        }),
+        BillingUsageSnapshot,
+      );
+
+      return { error, snapshot };
+    });
+
+    const { error, snapshot } = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(error).toBeInstanceOf(BillingError.ValidationFailed);
+    expect(error).toMatchObject({
+      field: "provider",
+      message:
+        "idempotencyKey was already used for a different billing usage payload.",
+    });
+    expect(snapshot).toMatchObject({
+      usageCount: 1,
+      ledgerCount: 1,
+      entitlementUsed: 4,
+    });
+  });
+
+  it("rejects workspace outsiders before recording durable usage", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const seeded = yield* confect.run(
+        seedTenancy(1_700_000_000_000),
+        SeededTenancy,
+      );
+      yield* confect.run(
+        seedEntitlement({
+          workspaceId: seeded.workspaceId,
+          entitlementKey: "llm_credits",
+          limit: 10,
+          used: 0,
+          status: "active",
+        }),
+        SeedResult,
+      );
+
+      const error = yield* confect
+        .withIdentity({
+          subject: "outsider-subject",
+          email: "outsider@example.com",
+        })
+        .mutation(refs.public.ops.billing.recordUsage, {
+          workspaceId: seeded.workspaceId,
+          idempotencyKey: "usage-outsider",
+          provider: "openrouter",
+          units: 12,
+          costCredits: 4,
+          entitlementKey: "llm_credits",
+        })
+        .pipe(Effect.flip);
+      const snapshot = yield* confect.run(
+        readBillingUsageSnapshot({
+          workspaceId: seeded.workspaceId,
+          idempotencyKey: "usage-outsider",
+          entitlementKey: "llm_credits",
+        }),
+        BillingUsageSnapshot,
+      );
+
+      return { error, snapshot };
+    });
+
+    const { error, snapshot } = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(error).toBeInstanceOf(MemberNotInWorkspace);
+    expect(snapshot).toMatchObject({
+      usageCount: 0,
+      ledgerCount: 0,
+      entitlementUsed: 0,
+    });
+  });
+
+  it("rejects missing, paused, revoked, and over-limit entitlements before usage writes", async () => {
+    const scenarios = [
+      { name: "missing", status: null, availableCredits: 0 },
+      { name: "paused", status: "paused" as const, availableCredits: 0 },
+      { name: "revoked", status: "revoked" as const, availableCredits: 0 },
+      { name: "over-limit", status: "active" as const, availableCredits: 1 },
+    ];
+
+    for (const scenario of scenarios) {
+      const program = Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof databaseSchema>(),
+        );
+        const seeded = yield* confect.run(
+          seedTenancy(1_700_000_000_000),
+          SeededTenancy,
+        );
+        const workspaceId = seeded.workspaceId;
+        const entitlementKey = "llm_credits";
+
+        if (scenario.status !== null) {
+          yield* confect.run(
+            seedEntitlement({
+              workspaceId,
+              entitlementKey,
+              limit: scenario.name === "over-limit" ? 5 : 10,
+              used: scenario.name === "over-limit" ? 4 : 0,
+              status: scenario.status,
+            }),
+            SeedResult,
+          );
+        }
+
+        const error = yield* confect
+          .withIdentity({
+            subject: "member-subject",
+            email: "member@example.com",
+          })
+          .mutation(refs.public.ops.billing.recordUsage, {
+            workspaceId,
+            idempotencyKey: `usage-${scenario.name}`,
+            provider: "openrouter",
+            units: 12,
+            costCredits: 4,
+            entitlementKey,
+          })
+          .pipe(Effect.flip);
+        const snapshot = yield* confect.run(
+          readBillingUsageSnapshot({
+            workspaceId,
+            idempotencyKey: `usage-${scenario.name}`,
+            entitlementKey,
+          }),
+          BillingUsageSnapshot,
+        );
+
+        return { error, snapshot };
+      });
+
+      const { error, snapshot } = await Effect.runPromise(
+        program.pipe(Effect.provide(testConfectLayer())),
+      );
+
+      expect(error).toBeInstanceOf(BillingError.InsufficientCredits);
+      expect(error).toMatchObject({
+        availableCredits: scenario.availableCredits,
+        requestedCredits: 4,
+      });
+      expect(snapshot).toMatchObject({
+        usageCount: 0,
+        ledgerCount: 0,
+      });
+    }
+  });
 });
+
+const seedEntitlement = (input: {
+  readonly workspaceId: string;
+  readonly entitlementKey: string;
+  readonly limit: number;
+  readonly used: number;
+  readonly status: "active" | "paused" | "revoked";
+}) =>
+  Effect.gen(function* () {
+    const writer = yield* DatabaseWriter;
+    yield* writer
+      .table("entitlements")
+      .insert({
+        workspaceId: input.workspaceId,
+        entitlementKey: input.entitlementKey,
+        featureKey: "llm_credits",
+        limit: input.limit,
+        used: input.used,
+        source: "manual" as const,
+        status: input.status,
+        createdAt: 1_700_000_000_000,
+        updatedAt: 1_700_000_000_000,
+      })
+      .pipe(Effect.orDie);
+
+    return { ok: true as const };
+  });
+
+const SeedResult = Schema.Struct({
+  ok: Schema.Literal(true),
+});
+
+const BillingUsageSnapshot = Schema.Struct({
+  usageCount: Schema.Number,
+  ledgerCount: Schema.Number,
+  entitlementUsed: Schema.optional(Schema.Number),
+  ledgerType: Schema.optional(Schema.Literal("credit", "debit")),
+  ledgerReason: Schema.optional(
+    Schema.Literal("manual_adjustment", "llm_usage", "seat_charge", "refund"),
+  ),
+  ledgerCreatedBy: Schema.optional(Schema.String),
+});
+
+const readBillingUsageSnapshot = (input: {
+  readonly workspaceId: string;
+  readonly idempotencyKey: string;
+  readonly entitlementKey: string;
+}) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const usageRows = yield* reader
+      .table("usageEvents")
+      .index("by_workspace_idempotency", (q) =>
+        q
+          .eq("workspaceId", input.workspaceId)
+          .eq("idempotencyKey", input.idempotencyKey),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const ledgerRows = yield* reader
+      .table("creditLedger")
+      .index("by_workspace_idempotency", (q) =>
+        q
+          .eq("workspaceId", input.workspaceId)
+          .eq("idempotencyKey", input.idempotencyKey),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const entitlement = yield* reader
+      .table("entitlements")
+      .index("by_workspace_entitlement", (q) =>
+        q
+          .eq("workspaceId", input.workspaceId)
+          .eq("entitlementKey", input.entitlementKey),
+      )
+      .first()
+      .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+    const ledger = ledgerRows[0];
+
+    return {
+      usageCount: usageRows.length,
+      ledgerCount: ledgerRows.length,
+      ...(entitlement === null ? {} : { entitlementUsed: entitlement.used }),
+      ...(ledger === undefined
+        ? {}
+        : {
+            ledgerType: ledger.type,
+            ledgerReason: ledger.reason,
+            ledgerCreatedBy: ledger.createdBy,
+          }),
+    };
+  });

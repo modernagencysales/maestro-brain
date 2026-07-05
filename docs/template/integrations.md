@@ -93,8 +93,10 @@ Dodo remains fake-first in the template. Live Dodo calls stay behind
 stores the reusable billing state:
 
 - webhook events deduplicate by provider, event ID, and signature timestamp
-- usage events carry an entitlement key before they create append-only credit
-  ledger entries
+- `recordUsage` is persistence-backed: it validates workspace-scoped idempotency
+  keys, requires an active entitlement with remaining credits, writes a durable
+  usage event, writes an append-only credit-ledger debit, and increments
+  entitlement usage
 - entitlements model seats, credits, and feature limits without hard-coding a
   pricing plan
 - seat checks return typed failures instead of silently over-provisioning

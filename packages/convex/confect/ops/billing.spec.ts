@@ -1,6 +1,13 @@
 import { FunctionSpec, GroupSpec } from "@confect/core";
 import * as S from "effect/Schema";
 
+import { Id } from "../_generated/id";
+import {
+  MemberNotInWorkspace,
+  Unauthorized,
+  WorkspaceNotFound,
+} from "../errors";
+
 const NonEmptyString = S.String.pipe(S.minLength(1));
 const NonNegativeNumber = S.Number.pipe(S.greaterThanOrEqualTo(0));
 const Provider = S.Literal("openrouter", "dodo", "mailersend", "storage");
@@ -9,7 +16,7 @@ const EntitlementStatus = S.Literal("active", "paused", "revoked");
 const WebhookStatus = S.Literal("processed", "duplicate", "failed");
 
 export const RecordUsageArgs = S.Struct({
-  workspaceId: NonEmptyString,
+  workspaceId: Id("workspaces"),
   idempotencyKey: NonEmptyString,
   provider: Provider,
   units: NonNegativeNumber,
@@ -120,8 +127,11 @@ export namespace BillingError {
   export const Schema = S.Union(
     DuplicateWebhook,
     InsufficientCredits,
+    MemberNotInWorkspace,
     SeatLimitExceeded,
+    Unauthorized,
     ValidationFailed,
+    WorkspaceNotFound,
   );
 }
 
