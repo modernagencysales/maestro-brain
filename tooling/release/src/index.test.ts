@@ -398,6 +398,16 @@ describe("release tooling", () => {
         requiredEnvNames: ["CLOUDFLARE_API_TOKEN", "CONVEX_DEPLOY_KEY"],
         missingEnvNames: ["CONVEX_DEPLOY_KEY"],
         missingSecretNames: ["CONVEX_DEPLOY_KEY"],
+        alert: {
+          severity: "warning",
+          title: "Deploy doctor failed: staging",
+          dedupeKey: "deploy-doctor:staging:CONVEX_DEPLOY_KEY",
+          metadata: {
+            environment: "staging",
+            missingEnvNames: ["CONVEX_DEPLOY_KEY"],
+            missingSecretNames: ["CONVEX_DEPLOY_KEY"],
+          },
+        },
       });
       expect(JSON.stringify(report)).not.toContain("super-secret-value");
     } finally {
@@ -474,6 +484,14 @@ describe("release tooling", () => {
           "POSTHOG_PROJECT_TOKEN",
         ],
         missingEnvNames: ["OPENROUTER_API_KEY"],
+        alert: {
+          severity: "critical",
+          title: "Deploy doctor failed: production",
+          dedupeKey: "deploy-doctor:production:OPENROUTER_API_KEY",
+          metadata: {
+            missingEnvNames: ["OPENROUTER_API_KEY"],
+          },
+        },
       });
     } finally {
       rmSync(repoRoot, { recursive: true, force: true });
@@ -545,6 +563,17 @@ describe("release tooling", () => {
         ok: false,
         refusal:
           "Refusing production promotion: staged SHA abc123 does not match current SHA def456.",
+        alert: {
+          severity: "critical",
+          title: "Production promotion refused",
+          dedupeKey: "production-promote:def456:production",
+          metadata: {
+            environment: "production",
+            commitSha: "def456",
+            refusal:
+              "Refusing production promotion: staged SHA abc123 does not match current SHA def456.",
+          },
+        },
       });
     } finally {
       rmSync(repoRoot, { recursive: true, force: true });

@@ -70,6 +70,9 @@ an unparseable model response.
 4. Reconcile provider state after recovery.
 5. Emit an outbound alert through `packages/notifications` with a stable
    `dedupeKey`; alert payload metadata is redacted before it reaches sinks.
+   Deploy doctor and production promotion failures already include a redacted
+   alert plan in their JSON report; forks can route that plan into their chosen
+   Slack/webhook sink.
 
 ## Incident
 

@@ -88,12 +88,14 @@ contract family.
   setup UI readiness copy, and deploy-required secrets. `template:doctor` reads
   provider requirements from the manifest, and `deploy:doctor` consumes the same
   manifest to expand deploy groups into concrete missing env names without
-  printing values. Remaining product-surface work is adoption: wire future
-  modals/popovers into `TemplateDialog`, future forms into the starter form
-  primitive, future live surfaces into the feature flag evaluator, durable
-  notification records into Confect tables, audited DSAR fulfillment mutations,
-  live error-reporting providers/source-map upload, and real mutation
-  success/error paths into `TemplateToastProvider`.
+  printing values. Release tooling now includes redacted alert plans for failed
+  deploy doctor checks and refused production promotions, ready for client forks
+  to route through `packages/notifications`. Remaining product-surface work is
+  adoption: wire future modals/popovers into `TemplateDialog`, future forms into
+  the starter form primitive, future live surfaces into the feature flag
+  evaluator, durable notification records into Confect tables, audited DSAR
+  fulfillment mutations, live error-reporting providers/source-map upload, and
+  real mutation success/error paths into `TemplateToastProvider`.
 
 ## Starter Readiness Read
 

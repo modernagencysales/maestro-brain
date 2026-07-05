@@ -1425,9 +1425,12 @@ repos**.
      TanStack Start render path supports nonce/hash-based inline bootstrap
      scripts, and mirror/verify equivalent headers if a fork moves to Workers
      SSR.
-284. **Ops alerting — outbound Slack/webhook** — MED — Greenfield (fills
-     `packages/notifications`). Deploy failures, spend-cap trips, webhook-dedup
-     conflicts should page a human.
+284. **Ops alerting — outbound Slack/webhook** — MED — partial.
+     `packages/notifications` exposes a redacted fake/test/live-ready alert seam
+     with stable `dedupeKey` handling, and release tooling now attaches redacted
+     alert plans to failed deploy doctor reports and refused production
+     promotions. Remaining work: add a live Slack/webhook sink in client forks
+     and extend alert plans to spend-cap trips and webhook-dedup conflicts.
 285. **Comprehensive `.env.example` / env manifest across services** — MED —
      partial. `docs/template/env-manifest.json` is now the machine-readable
      source of truth and is checked against `.env.example`, provider

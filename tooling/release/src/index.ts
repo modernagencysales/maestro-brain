@@ -96,6 +96,7 @@ export type DeployDoctorReport = {
   readonly requiredSecretNames: readonly string[];
   readonly missingEnvNames: readonly string[];
   readonly missingSecretNames: readonly string[];
+  readonly alert?: ReleaseAlertPlan;
 };
 
 export type DeployPlan = {
@@ -107,6 +108,15 @@ export type DeployPlan = {
   readonly cloudflareBranch: string;
   readonly convexDeployName: string;
   readonly refusal?: string;
+  readonly alert?: ReleaseAlertPlan;
+};
+
+export type ReleaseAlertPlan = {
+  readonly severity: "warning" | "critical";
+  readonly title: string;
+  readonly body: string;
+  readonly dedupeKey: string;
+  readonly metadata: Readonly<Record<string, unknown>>;
 };
 
 const pass = (id: string, detail: string) => ({
@@ -206,6 +216,58 @@ const manifestRequiredEnvNames = (
   ].sort();
 };
 
+const deployDoctorAlert = (
+  report: Omit<DeployDoctorReport, "alert">,
+): ReleaseAlertPlan | undefined => {
+  if (report.ok) {
+    return undefined;
+  }
+
+  const missingNames = [
+    ...new Set([...report.missingEnvNames, ...report.missingSecretNames]),
+  ].sort();
+
+  return {
+    severity: report.environment === "production" ? "critical" : "warning",
+    title: `Deploy doctor failed: ${report.environment}`,
+    body: `Missing ${report.missingEnvNames.length} manifest env names and ${report.missingSecretNames.length} required deploy secrets.`,
+    dedupeKey: `deploy-doctor:${report.environment}:${missingNames.join("|") || "unknown"}`,
+    metadata: {
+      environment: report.environment,
+      domain: report.domain,
+      cloudflarePagesProject: report.cloudflarePagesProject,
+      convexDeployName: report.convexDeployName,
+      requiredEnvGroups: report.requiredEnvGroups,
+      missingEnvNames: report.missingEnvNames,
+      missingSecretNames: report.missingSecretNames,
+    },
+  };
+};
+
+const productionPromoteAlert = (
+  plan: Omit<DeployPlan, "alert">,
+): ReleaseAlertPlan | undefined => {
+  if (plan.ok) {
+    return undefined;
+  }
+
+  return {
+    severity: "critical",
+    title: "Production promotion refused",
+    body: plan.refusal ?? "Production promotion was refused.",
+    dedupeKey: `production-promote:${plan.commitSha}:${plan.environment}`,
+    metadata: {
+      environment: plan.environment,
+      commitSha: plan.commitSha,
+      domain: plan.domain,
+      cloudflarePagesProject: plan.cloudflarePagesProject,
+      cloudflareBranch: plan.cloudflareBranch,
+      convexDeployName: plan.convexDeployName,
+      refusal: plan.refusal,
+    },
+  };
+};
+
 const deployEnvironment = (
   repoRoot: string,
   environment: DeployEnvironmentName,
@@ -239,7 +301,7 @@ export const buildDeployDoctorReport = (options: {
     (name) => !env[name]?.trim(),
   );
 
-  return {
+  const report: Omit<DeployDoctorReport, "alert"> = {
     ok: missingSecretNames.length === 0 && missingEnvNames.length === 0,
     environment: selected.name,
     domain: selected.domain,
@@ -251,6 +313,13 @@ export const buildDeployDoctorReport = (options: {
     requiredSecretNames: selected.requiredSecrets,
     missingEnvNames,
     missingSecretNames,
+  };
+
+  const alert = deployDoctorAlert(report);
+
+  return {
+    ...report,
+    ...(alert ? { alert } : {}),
   };
 };
 
@@ -281,7 +350,7 @@ export const buildProductionPromotePlan = (options: {
   const selected = deployEnvironment(repoRoot, "production");
 
   if (options.stagedSha !== options.currentSha) {
-    return {
+    const plan: Omit<DeployPlan, "alert"> = {
       ok: false,
       environment: "production",
       commitSha: options.currentSha,
@@ -290,6 +359,12 @@ export const buildProductionPromotePlan = (options: {
       cloudflareBranch: selected.cloudflareBranch,
       convexDeployName: selected.convexDeployName,
       refusal: `Refusing production promotion: staged SHA ${options.stagedSha} does not match current SHA ${options.currentSha}.`,
+    };
+    const alert = productionPromoteAlert(plan);
+
+    return {
+      ...plan,
+      ...(alert ? { alert } : {}),
     };
   }
 

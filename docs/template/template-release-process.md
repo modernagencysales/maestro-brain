@@ -17,6 +17,15 @@ Client forks consume tagged template releases. Random file copying from template
    for any client fork being promoted from this release.
 7. Tag the release.
 
+## Deploy Alert Plans
+
+Release tooling does not send Slack or webhook messages directly. Instead,
+failed deploy doctor reports and refused production promotion plans include a
+redacted alert plan with severity, title, body, stable `dedupeKey`, and metadata
+that contains only names and deployment identifiers. Client forks can hand that
+plan to `packages/notifications` `createAlertService` after choosing their live
+alert sink.
+
 ## Client Upgrade
 
 Use:
