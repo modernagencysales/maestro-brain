@@ -51,6 +51,7 @@ export class ProviderConfigError extends Schema.TaggedError<ProviderConfigError>
   {
     provider: Schema.String,
     missingEnv: Schema.Array(Schema.String),
+    invalidEnv: Schema.optional(Schema.Array(Schema.String)),
   },
 ) {}
 
@@ -217,16 +218,22 @@ export const validateProviderConfig = (
   }
 
   const descriptor = getProviderDescriptor(id);
-  const missingEnv =
-    descriptor?.requiredEnv.filter((name) => !env[name]?.trim()) ?? [];
+  const requiredEnv = descriptor?.requiredEnv ?? [];
+  const missingEnv = requiredEnv.filter((name) => !env[name]?.trim());
+  const invalidEnv = requiredEnv.filter((name) => {
+    const value = env[name];
 
-  if (missingEnv.length === 0) {
+    return value !== undefined && value.trim() !== "" && value.trim() !== value;
+  });
+
+  if (missingEnv.length === 0 && invalidEnv.length === 0) {
     return true;
   }
 
   return new ProviderConfigError({
     provider: id,
     missingEnv,
+    ...(invalidEnv.length === 0 ? {} : { invalidEnv }),
   });
 };
 
@@ -263,6 +270,7 @@ export const providerConfigReport = (
       mode,
       ready: validation === true,
       missingEnv: validation === true ? [] : validation.missingEnv,
+      invalidEnv: validation === true ? [] : (validation.invalidEnv ?? []),
       requiredEnv: provider.requiredEnv,
       fakeMode: provider.fakeMode,
       liveMode: provider.liveMode,

@@ -151,9 +151,12 @@ Convex component wiring (M).
     reads, fake-mode live-secret bypass, `killSwitchOn()` / `LLM_DISABLED`, and
     `EnvConfigError` failures for missing, blank, and whitespace-contaminated
     required values. `packages/convex/test/shared-env.test.ts` pins the
-    contract. Remaining work: route every backend integration through this
-    shared accessor and tighten the "only file allowed to read `process.env`"
-    boundary for non-generated server code.
+    contract. `packages/integrations` provider readiness now reports
+    whitespace-contaminated live env names without exposing values, and the CLI
+    live readiness report surfaces those names from its allowlisted env decoder.
+    Remaining work: route every backend integration through this shared accessor
+    and tighten the "only file allowed to read `process.env`" boundary for
+    non-generated server code.
 12. **Shared Web-Crypto token primitives** — HIGH — partial.
     `packages/convex/confect/shared/tokenCrypto.ts` provides Web Crypto
     `hmacSha256Base64Url`, `sha256Base64Url`, `base64Url{Encode,Decode}`,

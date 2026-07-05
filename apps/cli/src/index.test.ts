@@ -152,6 +152,27 @@ describe("maestro-template CLI", () => {
     expect(config.providerEnv).not.toHaveProperty("IGNORED_SECRET");
   });
 
+  it("reports whitespace-contaminated live provider env names without leaking values", () => {
+    const config = decodeCliRuntimeConfig({
+      WORKOS_API_KEY: " workos_secret ",
+      WORKOS_CLIENT_ID: "workos_client",
+    });
+    const report = JSON.parse(
+      runCli(["integrations", "report", "live"], config).stdout,
+    );
+
+    expect(report).toContainEqual(
+      expect.objectContaining({
+        id: "workos",
+        mode: "live",
+        ready: false,
+        missingEnv: [],
+        invalidEnv: ["WORKOS_API_KEY"],
+      }),
+    );
+    expect(JSON.stringify(report)).not.toContain("workos_secret");
+  });
+
   it("runs the sample workflow and prints a trust receipt", () => {
     const receipt = JSON.parse(runCli(["workflow", "run"]).stdout);
 

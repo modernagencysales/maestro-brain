@@ -53,6 +53,22 @@ describe("provider adapter descriptors", () => {
     expect(JSON.stringify(result)).not.toContain("secret-key");
   });
 
+  it("reports whitespace-contaminated live env names without secret values", () => {
+    const result = validateProviderConfig("dodo", "live", {
+      DODO_API_KEY: " dodo-secret ",
+      DODO_WEBHOOK_SECRET: "webhook-secret",
+    });
+
+    expect(result).toMatchObject({
+      _tag: "ProviderConfigError",
+      provider: "dodo",
+      missingEnv: [],
+      invalidEnv: ["DODO_API_KEY"],
+    });
+    expect(JSON.stringify(result)).not.toContain("dodo-secret");
+    expect(JSON.stringify(result)).not.toContain("webhook-secret");
+  });
+
   it("redacts provider payload fields by descriptor", () => {
     expect(
       redactProviderPayload("openrouter", {
@@ -102,6 +118,20 @@ describe("provider adapter descriptors", () => {
       mode: "live",
     });
     expect(JSON.stringify(adapter)).not.toContain("secret");
+  });
+
+  it("refuses live adapters with whitespace-contaminated env values", () => {
+    expect(
+      createProviderAdapter("mailersend", "live", {
+        MAILERSEND_API_KEY: " mailer-secret ",
+        MAILERSEND_FROM_EMAIL: "hello@example.test",
+      }),
+    ).toMatchObject({
+      _tag: "ProviderConfigError",
+      provider: "mailersend",
+      missingEnv: [],
+      invalidEnv: ["MAILERSEND_API_KEY"],
+    });
   });
 
   it("runs provider calls through the Effect error channel", async () => {
