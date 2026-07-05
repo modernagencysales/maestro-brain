@@ -69,20 +69,6 @@ const providerRequiredEnvNames = (): readonly string[] => {
   return [...names].sort();
 };
 
-const generatorRequiredSecretNames = (): readonly string[] => {
-  const source = readText("tooling/generators/src/index.ts");
-  const names = new Set<string>();
-  const section = source.match(
-    /const requiredSecretNamesByProvider = \{([\s\S]*?)\} as const/s,
-  )?.[1];
-
-  for (const name of quotedEnvNames(section ?? "")) {
-    names.add(name);
-  }
-
-  return [...names].sort();
-};
-
 const projectConfigRequiredSecretNames = (): readonly string[] => {
   const config = readJson<ProjectConfig>("project.config.json");
   const names = new Set<string>();
@@ -166,10 +152,9 @@ describe("environment manifest", () => {
     }
   });
 
-  it("covers provider descriptors, generators, Convex component env, setup UI, and deploy config", () => {
+  it("covers provider descriptors, Convex component env, setup UI, and deploy config", () => {
     const requiredNames = new Set([
       ...providerRequiredEnvNames(),
-      ...generatorRequiredSecretNames(),
       ...projectConfigRequiredSecretNames(),
       ...convexConfigEnvNames(),
       ...setupSurfaceEnvNames(),
@@ -180,6 +165,16 @@ describe("environment manifest", () => {
         name,
       );
     }
+  });
+
+  it("keeps generators reading the manifest instead of maintaining a parallel provider env list", () => {
+    const source = readText("tooling/generators/src/index.ts");
+
+    expect(source).toContain("docs/template/env-manifest.json");
+    expect(source).toContain("requiredEnvNamesForProvider");
+    expect(source).toContain('email: "mailersend"');
+    expect(source).toContain('llm: "openrouter"');
+    expect(source).not.toContain("requiredSecretNamesByProvider");
   });
 
   it("keeps PostHog and storage env names consistent across surfaces", () => {

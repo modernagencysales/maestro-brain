@@ -54,6 +54,10 @@ pipeline). Forks with real tenant data must mint separate staging/production
 deployments and keys before the staging→production promotion gate means anything
 for the backend.
 
+`pnpm template:doctor` reads `docs/template/env-manifest.json` for provider
+requirements in generated instance reports. Live-mode warnings list the
+manifest-backed env names for each provider family without printing values.
+
 `pnpm deploy:doctor` reads `project.config.json` and
 `docs/template/env-manifest.json` together. `requiredEnvGroups` in
 `project.config.json` expand to concrete manifest entries, so deploy reports
@@ -115,6 +119,7 @@ external demo that claims live-provider readiness.
 ## Adding A Provider
 
 When adding a new provider, update `env-manifest.json`, this file,
-`.env.example`, the provider doctor, the implementation brief template, the
-handoff packet, and the data map. The new provider must define fake, test, and
-live-ready behavior before client forks rely on it.
+`.env.example`, the implementation brief template, the handoff packet, and the
+data map. The template and deploy doctors consume the manifest directly. The new
+provider must define fake, test, and live-ready behavior before client forks
+rely on it.

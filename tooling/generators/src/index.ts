@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { gtmImplementationBlueprint } from "./blueprints/gtmImplementation";
 
 export type ProviderMode = "fake" | "test" | "live";
@@ -78,6 +79,7 @@ export type DoctorReport = {
   readonly ok: boolean;
   readonly mode: ProviderMode;
   readonly instancePath: string;
+  readonly manifestPath: string;
   readonly checks: readonly DoctorCheck[];
 };
 
@@ -244,25 +246,76 @@ const defaultDeploymentTargets = [
   "cloudflare-pages",
   "convex",
 ] as const;
-const requiredSecretNamesByProvider = {
-  convex: ["CONVEX_DEPLOYMENT", "VITE_CONVEX_URL"],
-  workos: ["WORKOS_API_KEY", "WORKOS_CLIENT_ID", "WORKOS_COOKIE_PASSWORD"],
-  posthog: ["POSTHOG_PROJECT_TOKEN", "POSTHOG_HOST"],
-  dodo: ["DODO_API_KEY", "DODO_WEBHOOK_SECRET"],
-  email: ["MAILERSEND_API_KEY", "MAILERSEND_FROM_EMAIL"],
-  llm: ["OPENROUTER_API_KEY"],
-  storage: [
-    "STORAGE_BUCKET",
-    "STORAGE_ACCESS_KEY_ID",
-    "STORAGE_SECRET_ACCESS_KEY",
-  ],
-} as const satisfies Record<
-  keyof TemplateInstance["providers"],
-  readonly string[]
->;
-const defaultRequiredSecretNames = Object.values(
-  requiredSecretNamesByProvider,
-).flat();
+type TemplateProvider = keyof TemplateInstance["providers"];
+
+type EnvManifestVariable = {
+  readonly name: string;
+  readonly group: string;
+  readonly requiredFor: readonly string[];
+};
+
+type EnvManifest = {
+  readonly variables: readonly EnvManifestVariable[];
+};
+
+const defaultRepoRoot = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../..",
+);
+
+const envManifestPath = (repoRoot = defaultRepoRoot): string =>
+  resolve(repoRoot, "docs/template/env-manifest.json");
+
+const readEnvManifest = (
+  repoRoot = defaultRepoRoot,
+): EnvManifest | undefined => {
+  const path = envManifestPath(repoRoot);
+
+  if (!existsSync(path)) {
+    return undefined;
+  }
+
+  return JSON.parse(readFileSync(path, "utf8")) as EnvManifest;
+};
+
+const providerManifestGroup = {
+  convex: "convex",
+  workos: "workos",
+  posthog: "posthog",
+  dodo: "dodo",
+  email: "mailersend",
+  llm: "openrouter",
+  storage: "storage",
+} as const satisfies Record<TemplateProvider, string>;
+
+export const requiredEnvNamesForProvider = (
+  provider: TemplateProvider,
+  options?: { readonly repoRoot?: string },
+): readonly string[] => {
+  const manifest = readEnvManifest(options?.repoRoot);
+  const group = providerManifestGroup[provider];
+
+  if (!manifest) {
+    return [];
+  }
+
+  return [
+    ...new Set(
+      manifest.variables
+        .filter((variable) => variable.group === group)
+        .filter((variable) => variable.requiredFor.includes("live"))
+        .map((variable) => variable.name),
+    ),
+  ].sort();
+};
+
+const defaultRequiredSecretNames = (): readonly string[] => [
+  ...new Set(
+    (Object.keys(providerManifestGroup) as TemplateProvider[]).flatMap(
+      (provider) => requiredEnvNamesForProvider(provider),
+    ),
+  ),
+];
 const defaultUpgradeRequiredChecks = [
   "pnpm check:confect-contracts",
   "pnpm check:workflow-graph-boundary",
@@ -378,7 +431,7 @@ export const buildTemplateInstance = (options?: {
     environments: defaultEnvironments,
     deploymentTargets: defaultDeploymentTargets,
     modules: defaultModules,
-    requiredSecretNames: defaultRequiredSecretNames,
+    requiredSecretNames: defaultRequiredSecretNames(),
     redactionStatus:
       providerMode === "fake" ? "reviewer-safe-fake-data" : "requires-review",
     sourcePosture:
@@ -434,7 +487,7 @@ export const parseTemplateInstance = (raw: string): TemplateInstance => {
     environments: parsed.environments ?? defaultEnvironments,
     deploymentTargets: parsed.deploymentTargets ?? defaultDeploymentTargets,
     requiredSecretNames:
-      parsed.requiredSecretNames ?? defaultRequiredSecretNames,
+      parsed.requiredSecretNames ?? defaultRequiredSecretNames(),
     redactionStatus:
       parsed.redactionStatus ??
       (parsed.providerMode === "fake"
@@ -468,9 +521,10 @@ export const parseTemplateInstance = (raw: string): TemplateInstance => {
 const providerChecks = (
   instance: TemplateInstance,
   mode: ProviderMode,
+  options?: { readonly repoRoot?: string },
 ): readonly DoctorCheck[] => {
   const entries = Object.entries(instance.providers) as readonly [
-    keyof TemplateInstance["providers"],
+    TemplateProvider,
     TemplateInstance["providers"][keyof TemplateInstance["providers"]],
   ][];
 
@@ -486,7 +540,7 @@ const providerChecks = (
       detail:
         readyForFake || readyForLive
           ? `${provider} is valid for ${mode} mode`
-          : `${provider} should be configured before ${mode} handoff. Required secret names: ${requiredSecretNamesByProvider[provider].join(", ")}`,
+          : `${provider} should be configured before ${mode} handoff. Required env names from env-manifest.json: ${requiredEnvNamesForProvider(provider, options).join(", ")}`,
     };
   });
 };
@@ -496,6 +550,7 @@ export const doctorTemplateInstance = (
   options?: {
     readonly mode?: ProviderMode;
     readonly instancePath?: string;
+    readonly repoRoot?: string;
   },
 ): DoctorReport => {
   const mode = options?.mode ?? instance.providerMode;
@@ -517,13 +572,18 @@ export const doctorTemplateInstance = (
         : "fail",
       detail: `Required modules: ${requiredModules.join(", ")}`,
     },
-    ...providerChecks(instance, mode),
+    ...providerChecks(
+      instance,
+      mode,
+      options?.repoRoot ? { repoRoot: options.repoRoot } : undefined,
+    ),
   ];
 
   return {
     ok: checks.every((check) => check.status !== "fail"),
     mode,
     instancePath: options?.instancePath ?? "template-instance.json",
+    manifestPath: envManifestPath(options?.repoRoot),
     checks,
   };
 };

@@ -26,6 +26,7 @@ import {
   buildWorkflowFiles,
   buildWorkflowPromotionFiles,
   doctorTemplateInstance,
+  requiredEnvNamesForProvider,
   runGeneratorCli,
 } from "./index";
 import { gtmImplementationBlueprint } from "./blueprints/gtmImplementation";
@@ -475,8 +476,34 @@ describe("template app factory generators", () => {
     });
 
     expect(report.ok).toBe(true);
+    expect(report.manifestPath).toContain("docs/template/env-manifest.json");
     expect(report.checks.every((check) => check.status !== "fail")).toBe(true);
     expect(report.checks.map((check) => check.id)).toContain("provider:workos");
+  });
+
+  it("loads provider requirements from the env manifest", () => {
+    expect(requiredEnvNamesForProvider("posthog")).toEqual([
+      "POSTHOG_HOST",
+      "POSTHOG_PROJECT_TOKEN",
+    ]);
+    expect(requiredEnvNamesForProvider("posthog")).not.toContain(
+      "POSTHOG_API_KEY",
+    );
+    expect(requiredEnvNamesForProvider("llm")).toEqual(
+      expect.arrayContaining([
+        "OPENROUTER_API_KEY",
+        "LLM_DAILY_SPEND_LIMIT_CENTS",
+        "LLM_DEFAULT_MODEL",
+      ]),
+    );
+    expect(requiredEnvNamesForProvider("storage")).toEqual(
+      expect.arrayContaining([
+        "STORAGE_BUCKET",
+        "STORAGE_PUBLIC_BASE_URL",
+        "STORAGE_ACCESS_KEY_ID",
+        "STORAGE_SECRET_ACCESS_KEY",
+      ]),
+    );
   });
 
   it("warns when a fake instance is doctored for live mode", () => {
@@ -495,6 +522,12 @@ describe("template app factory generators", () => {
       expect.objectContaining({
         id: "provider:llm",
         detail: expect.stringContaining("OPENROUTER_API_KEY"),
+      }),
+    );
+    expect(report.checks).toContainEqual(
+      expect.objectContaining({
+        id: "provider:posthog",
+        detail: expect.stringContaining("POSTHOG_PROJECT_TOKEN"),
       }),
     );
     expect(report.checks.map((check) => check.detail).join("\n")).not.toMatch(

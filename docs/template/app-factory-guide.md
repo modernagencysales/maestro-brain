@@ -133,7 +133,9 @@ present for review.
 `template:doctor` verifies the generated instance file has core modules,
 provider posture, and fake-mode readiness. Fake mode must not require live
 secrets. Live mode reports provider warnings until WorkOS, Convex, PostHog,
-Dodo, email, LLM, and storage providers are configured.
+Dodo, email, LLM, and storage providers are configured. Provider requirements
+come from `docs/template/env-manifest.json`, so doctor output stays aligned with
+`.env.example`, deploy config, and provider descriptors.
 
 ## Handoff Acceptance
 

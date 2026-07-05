@@ -1434,12 +1434,12 @@ repos**.
      descriptors, generator secret lists, Convex component env, setup UI
      readiness copy, and `project.config.json` required deploy secrets.
      `docs/template/env-manifest.md` remains the human guide with owner,
-     fake-mode, production, and rotation posture. `pnpm deploy:doctor` now
-     consumes the JSON manifest to expand deploy env groups into concrete
-     missing env names without printing values. Remaining work: wire
-     template-instance/provider doctors and future voice-relay/client-fork
-     services to consume the JSON manifest directly instead of maintaining
-     parallel lists.
+     fake-mode, production, and rotation posture. `pnpm template:doctor` reads
+     provider requirements from the manifest, and `pnpm deploy:doctor` consumes
+     the JSON manifest to expand deploy env groups into concrete missing env
+     names without printing values. Remaining work: wire future
+     voice-relay/client-fork services to consume the JSON manifest directly
+     instead of maintaining parallel lists.
 286. **Pagination convention/helper** — LOW — Port (convention).
      `paginationOpts`/ `.paginate()` used ad hoc at ~16 sites; ship one
      cursor-pagination pattern.
