@@ -24,6 +24,22 @@ Make the template faster to use for any custom AI/GTM implementation build.
 
 ## Files
 
+Work packages:
+
+- `pattern-instance`: `template:intake`
+  - Target: `tooling/generators/src/index.ts`,
+    `docs/template/generated/client-intake.md`, `template-instance.json`
+  - Generator command: `pnpm template:intake -- --name "Client Brain" --write`
+  - Follow-up gates: `pnpm --dir tooling/generators test`,
+    `pnpm --dir tooling/generators typecheck`, `pnpm check:generators`
+- `pattern-instance`: client handoff and upgrade reporting
+  - Target: `tooling/release/src/index.ts`,
+    `docs/template/generated/handoff-packet.md`
+  - Generator command: `pnpm template:handoff -- --mode fake --write`
+  - Follow-up gates: `pnpm --dir tooling/release test`, `pnpm review:readiness`
+
+Touched files:
+
 - Modify: `tooling/generators/src/index.ts`
 - Modify: `tooling/generators/src/index.test.ts`
 - Create: `docs/template/client-intake-wizard.md`

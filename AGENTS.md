@@ -82,6 +82,17 @@ Rules when replacing a fixture body:
 
 ## Working Loop
 
+- Planning starts from work-packages. Each plan/subplan slice must classify work
+  as `fixture-to-real`, `pattern-instance`, or `template-gap`.
+- `fixture-to-real` names the existing contract fixture, the real
+  persistence/provider boundary, and the focused gates that prove the swap.
+- `pattern-instance` names the `pnpm template:*` command, generated target, and
+  follow-up gates from the matching `docs/template/how-to-add-*` playbook.
+- `template-gap` names the missing pattern, a template backlog reference, and
+  the proposed promotion/import path. A gap is a template finding, not a waiver.
+- Use `docs/template/app-factory-guide.md` for the generator flow and
+  `pnpm stack:check` for deterministic plan-shape validation.
+
 - Scaffold first: when a `pnpm template:*` generator covers the module kind, use
   it instead of hand-writing registrations. Generated output compiles and passes
   gates; fill in the TODOs where judgment is required.

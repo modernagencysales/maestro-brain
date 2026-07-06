@@ -43,6 +43,7 @@
     "template:upgrade": "tsx tooling/generators/src/index.ts upgrade",
     "template:private-package:dry-run": "tsx tooling/generators/src/index.ts private-package:dry-run",
     "template:private-package:import": "tsx tooling/generators/src/index.ts private-package:import",
+    "pattern-fit": "tsx scripts/pattern-fit.mts",
     "check:convex": "pnpm --dir packages/convex check:convex",
     "check:confect-compat": "tsx tooling/quality/check-confect-compat.mts",
     "check:ci-completeness": "tsx tooling/quality/check-ci-completeness.mts",

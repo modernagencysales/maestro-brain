@@ -409,6 +409,34 @@ const writeGeneratedFiles = (
   }
 };
 
+const withGeneratorProvenance = (
+  generator: string,
+  name: string,
+  files: readonly GeneratedFile[],
+): readonly GeneratedFile[] => {
+  const commandFamily =
+    generator === "private-package"
+      ? "template:private-package:import"
+      : `template:${generator}`;
+
+  return [
+    ...files,
+    {
+      path: `docs/template/generated/provenance/${generator}/${name}.json`,
+      content: `${JSON.stringify(
+        {
+          generator,
+          commandFamily,
+          name,
+          generatedPaths: files.map((file) => file.path),
+        },
+        null,
+        2,
+      )}\n`,
+    },
+  ];
+};
+
 const readOptionalJson = <T>(path: string): T | undefined => {
   if (!existsSync(path)) {
     return undefined;
@@ -940,7 +968,7 @@ export const buildTemplateQuickstart = (options?: {
     firstCapability: blueprintConfig.defaultCapability,
     firstWorkflow: blueprintConfig.defaultWorkflow,
     firstAgent: blueprintConfig.defaultAgent,
-    files,
+    files: withGeneratorProvenance("quickstart", instance.slug, files),
     nextCommands: [
       "pnpm template:doctor -- --mode fake",
       "review docs/template/generated/provider-setup-checklist.md",
@@ -1038,18 +1066,20 @@ for a source-backed B2B AI/GTM app. No live secrets required in fake mode.
   packages until contract review.
 `;
 
+  const files: readonly GeneratedFile[] = [
+    {
+      path: "template-instance.json",
+      content: `${JSON.stringify(instance, null, 2)}\n`,
+    },
+    {
+      path: briefPath,
+      content: markdown,
+    },
+  ];
+
   return {
     instance,
-    files: [
-      {
-        path: "template-instance.json",
-        content: `${JSON.stringify(instance, null, 2)}\n`,
-      },
-      {
-        path: briefPath,
-        content: markdown,
-      },
-    ],
+    files: withGeneratorProvenance("intake", instance.slug, files),
   };
 };
 
@@ -1106,7 +1136,7 @@ package until reviewed.
   return {
     name,
     pascalName,
-    files,
+    files: withGeneratorProvenance("add-client-domain", name, files),
   };
 };
 
@@ -1317,7 +1347,7 @@ ${description}
     name,
     pascalName,
     exposure,
-    files,
+    files: withGeneratorProvenance("add-capability", name, files),
   };
 };
 
@@ -1703,7 +1733,7 @@ ${description}
     pascalName,
     surfaces: ["web"],
     headlessExposure: false,
-    files,
+    files: withGeneratorProvenance("add-agent", name, files),
     followUp,
   };
 };
@@ -2230,7 +2260,7 @@ ${description}
   return {
     name,
     pascalName,
-    files,
+    files: withGeneratorProvenance("add-workflow", name, files),
   };
 };
 
@@ -2436,7 +2466,7 @@ ${description}
     name,
     pascalName,
     target: "capability",
-    files,
+    files: withGeneratorProvenance("promote-capability", name, files),
     followUp: [
       "Add promoted group to the Confect spec tree.",
       "Run pnpm confect:codegen and inspect generated refs.",
@@ -2572,7 +2602,7 @@ ${description}
     name,
     pascalName,
     target: "workflow",
-    files,
+    files: withGeneratorProvenance("promote-workflow", name, files),
     followUp: [
       "Add promoted workflow group to the Confect spec tree.",
       "Wire the durable graph into workflow UI and headless registry surfaces.",
@@ -2873,7 +2903,7 @@ This package plan is generated from \`${options.fixturePath}\`.
     mode,
     ok: checks.every((check) => check.status !== "fail"),
     packageName,
-    files,
+    files: withGeneratorProvenance("private-package", packageName, files),
     checks,
   };
 };
@@ -3086,9 +3116,10 @@ export const runGeneratorCli = (
         path: `examples/demo-seed/${args.blueprint}/demo-seed.json`,
         content: `${JSON.stringify(seed, null, 2)}\n`,
       };
+      const files = withGeneratorProvenance("seed-demo", instance.slug, [file]);
 
       if (args.write) {
-        writeGeneratedFiles([file], cwd);
+        writeGeneratedFiles(files, cwd);
       }
 
       return {
@@ -3115,9 +3146,10 @@ export const runGeneratorCli = (
         path: "docs/template/generated/handoff-packet.md",
         content: packet.markdown,
       };
+      const files = withGeneratorProvenance("handoff", instance.slug, [file]);
 
       if (args.write) {
-        writeGeneratedFiles([file], cwd);
+        writeGeneratedFiles(files, cwd);
       }
 
       return {

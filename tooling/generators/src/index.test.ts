@@ -211,6 +211,7 @@ describe("template app factory generators", () => {
       "generated/app-factory/day-0-loop.json",
       "examples/demo-seed/source-grounded-gtm-brain/demo-seed.json",
       "docs/template/generated/handoff-packet.md",
+      "docs/template/generated/provenance/quickstart/reviewer-brain.json",
     ]);
     expect(quickstart.nextCommands).toEqual([
       "pnpm template:doctor -- --mode fake",
@@ -449,11 +450,67 @@ describe("template app factory generators", () => {
     expect(intake.files.map((file) => file.path)).toEqual([
       "template-instance.json",
       "docs/template/generated/client-intake.md",
+      "docs/template/generated/provenance/intake/reviewer-brain.json",
     ]);
     expect(intake.files[1]?.content).toContain("What business outcome should");
     expect(intake.files[1]?.content).toContain(
       "Which sources are authoritative",
     );
+  });
+
+  it("writes direct seed and handoff artifacts with provenance through the CLI", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "maestro-template-direct-"));
+
+    try {
+      const seed = runGeneratorCli(
+        ["seed-demo", "--name", "Reviewer Brain", "--write"],
+        cwd,
+      );
+      const handoff = runGeneratorCli(
+        ["handoff", "--name", "Reviewer Brain", "--write"],
+        cwd,
+      );
+      const seedProvenancePath = join(
+        cwd,
+        "docs/template/generated/provenance/seed-demo/reviewer-brain.json",
+      );
+      const handoffProvenancePath = join(
+        cwd,
+        "docs/template/generated/provenance/handoff/reviewer-brain.json",
+      );
+
+      expect(seed.exitCode).toBe(0);
+      expect(handoff.exitCode).toBe(0);
+      expect(
+        existsSync(
+          join(
+            cwd,
+            "examples/demo-seed/source-grounded-gtm-brain/demo-seed.json",
+          ),
+        ),
+      ).toBe(true);
+      expect(
+        existsSync(join(cwd, "docs/template/generated/handoff-packet.md")),
+      ).toBe(true);
+      expect(
+        JSON.parse(readFileSync(seedProvenancePath, "utf8")),
+      ).toMatchObject({
+        generator: "seed-demo",
+        commandFamily: "template:seed-demo",
+        generatedPaths: [
+          "examples/demo-seed/source-grounded-gtm-brain/demo-seed.json",
+        ],
+      });
+      expect(
+        JSON.parse(readFileSync(handoffProvenancePath, "utf8")),
+      ).toMatchObject({
+        generator: "handoff",
+        commandFamily: "template:handoff",
+        generatedPaths: ["docs/template/generated/handoff-packet.md"],
+      });
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
   });
 
   it("builds deterministic fake demo seed data for the default blueprint", () => {
@@ -650,6 +707,7 @@ describe("template app factory generators", () => {
     expect(generated.files.map((file) => file.path)).toEqual([
       "generated/domains/customerSuccess/customerSuccess.domain.json",
       "generated/domains/customerSuccess/README.md",
+      "docs/template/generated/provenance/add-client-domain/customerSuccess.json",
     ]);
     expect(JSON.parse(generated.files[0]?.content ?? "{}")).toMatchObject({
       domain: "customerSuccess",
@@ -710,6 +768,7 @@ describe("template app factory generators", () => {
       "packages/convex/confect/capabilities/summarizeSource.test.ts",
       "packages/convex/confect/capabilities/summarizeSource.headless.json",
       "docs/template/generated/capabilities/summarizeSource.md",
+      "docs/template/generated/provenance/add-capability/summarizeSource.json",
     ]);
     expect(generated.files[0]?.content).toContain(
       "FunctionSpec.publicMutation",
@@ -814,6 +873,7 @@ describe("template app factory generators", () => {
       "packages/convex/convex/workflowRunners/sourceGroundedPlan.ts",
       "packages/convex/test/sourceGroundedPlan.workflow.test.ts",
       "docs/template/generated/workflows/sourceGroundedPlan.md",
+      "docs/template/generated/provenance/add-workflow/sourceGroundedPlan.json",
     ]);
     expect(generated.files[3]?.path).toBe(
       "packages/convex/convex/workflowRunners/sourceGroundedPlan.ts",
@@ -955,6 +1015,7 @@ describe("template app factory generators", () => {
       "packages/convex/confect/agents/workflowArchitect.tools.ts",
       "packages/convex/test/workflowArchitect.agent.test.ts",
       "docs/template/generated/agents/workflowArchitect.md",
+      "docs/template/generated/provenance/add-agent/workflowArchitect.json",
     ]);
     expect(
       generated.files.some((file) => file.path.endsWith(".headless.json")),
@@ -1091,6 +1152,7 @@ describe("template app factory generators", () => {
       "packages/convex/confect/capabilities/summarizeSource.test.ts",
       "packages/convex/confect/capabilities/summarizeSource.headless.json",
       "docs/template/generated/capabilities/summarizeSource.md",
+      "docs/template/generated/provenance/promote-capability/summarizeSource.json",
     ]);
     expect(promoted.files[0]?.content).toContain("FunctionSpec.publicMutation");
     expect(promoted.files[0]?.content).toContain(
@@ -1179,6 +1241,7 @@ describe("template app factory generators", () => {
       "packages/convex/confect/workflows/sourceGroundedPlan/sourceGroundedPlan.impl.ts",
       "packages/convex/confect/workflows/sourceGroundedPlan/sourceGroundedPlan.workflow.json",
       "packages/convex/confect/workflows/sourceGroundedPlan/README.md",
+      "docs/template/generated/provenance/promote-workflow/sourceGroundedPlan.json",
     ]);
     expect(promoted.files[0]?.content).toContain("FunctionSpec.publicMutation");
     expect(promoted.files[2]?.content).toContain('"promoted": true');

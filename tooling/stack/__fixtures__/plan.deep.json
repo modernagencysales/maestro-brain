@@ -7,6 +7,13 @@
       "branch": "feat/demo-1",
       "intention": "x",
       "layers": ["schema"],
+      "workPackages": [
+        {
+          "kind": "fixture-to-real",
+          "target": "packages/convex/confect/ops/actions.impl.ts",
+          "followUpGates": ["pnpm --dir packages/convex test ops"]
+        }
+      ],
       "taskRefs": ["t1"],
       "rationale": "r",
       "estLines": 30
@@ -16,6 +23,14 @@
       "branch": "feat/demo-2",
       "intention": "x",
       "layers": ["checks"],
+      "workPackages": [
+        {
+          "kind": "pattern-instance",
+          "target": "packages/convex/confect/capabilities/demoChecks",
+          "generatorCommand": "pnpm template:add-capability -- --name demoChecks --write",
+          "followUpGates": ["pnpm check:confect-contracts"]
+        }
+      ],
       "taskRefs": ["t2"],
       "rationale": "r",
       "estLines": 30
@@ -25,6 +40,14 @@
       "branch": "feat/demo-3",
       "intention": "x",
       "layers": ["domain"],
+      "workPackages": [
+        {
+          "kind": "pattern-instance",
+          "target": "packages/convex/confect/capabilities/demoDomain",
+          "generatorCommand": "pnpm template:add-capability -- --name demoDomain --write",
+          "followUpGates": ["pnpm check:confect-contracts"]
+        }
+      ],
       "taskRefs": ["t3"],
       "rationale": "r",
       "estLines": 30
@@ -34,6 +57,17 @@
       "branch": "feat/demo-4",
       "intention": "x",
       "layers": ["capabilities"],
+      "workPackages": [
+        {
+          "kind": "pattern-instance",
+          "target": "packages/convex/confect/capabilities/demoCapability",
+          "generatorCommand": "pnpm template:add-capability -- --name demoCapability --write",
+          "followUpGates": [
+            "pnpm confect:codegen",
+            "pnpm check:confect-contracts"
+          ]
+        }
+      ],
       "taskRefs": ["t4"],
       "rationale": "r",
       "estLines": 30
@@ -43,6 +77,17 @@
       "branch": "feat/demo-5",
       "intention": "x",
       "layers": ["workflows"],
+      "workPackages": [
+        {
+          "kind": "pattern-instance",
+          "target": "packages/convex/confect/workflowContracts/demoWorkflow",
+          "generatorCommand": "pnpm template:add-workflow -- --name demoWorkflow --write",
+          "followUpGates": [
+            "pnpm confect:codegen",
+            "pnpm check:workflow-graph-boundary"
+          ]
+        }
+      ],
       "taskRefs": ["t5"],
       "rationale": "r",
       "estLines": 30

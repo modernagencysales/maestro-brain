@@ -1,8 +1,9 @@
 /**
  * plan — the StackPlan shape and its DETERMINISTIC validators. The slicing
  * JUDGMENT is the agent's (per the skill); this file only checks the manifest:
- * size estimate, dependency order, completeness, depth. None of this proves a
- * slice is CI-green — that is the required CI checks (spec §5).
+ * size estimate, dependency order, completeness, depth, and shift-left
+ * work-package metadata. None of this proves a slice is CI-green — that is the
+ * required CI checks (spec §5).
  */
 import {
   missingContractRiskIdsForLayers,
@@ -17,9 +18,22 @@ type Slice = {
   readonly layers: readonly string[];
   readonly contractRiskIds: readonly ContractRiskId[];
   readonly existingModuleRepairChecklist?: ExistingModuleRepairChecklist;
+  readonly workPackages: readonly WorkPackage[];
   readonly taskRefs: readonly string[];
   readonly rationale: string; // advisory only
   readonly estLines: number; // planning estimate; binding size is actual diff at submit
+};
+
+type WorkPackageKind = "fixture-to-real" | "pattern-instance" | "template-gap";
+
+type WorkPackage = {
+  readonly kind: WorkPackageKind;
+  readonly target: string;
+  readonly generatorCommand?: string;
+  readonly followUpGates: readonly string[];
+  readonly templateBacklogRef?: string;
+  readonly templateResolutionPath?: string;
+  readonly notes?: string;
 };
 
 type ExistingModuleRepairChecklist = {
@@ -66,6 +80,11 @@ const REPAIR_STRATEGIES = new Set([
   "compatibility-wrap",
   "leave-untouched",
 ]);
+const WORK_PACKAGE_KINDS = new Set<WorkPackageKind>([
+  "fixture-to-real",
+  "pattern-instance",
+  "template-gap",
+]);
 
 function rank(layer: string): number {
   const i = LAYER_ORDER.indexOf(layer as (typeof LAYER_ORDER)[number]);
@@ -97,6 +116,7 @@ export function validatePlan(plan: StackPlan): string[] {
       );
     }
     errors.push(...validateExistingModuleRepairChecklist(s));
+    errors.push(...validateWorkPackages(s));
   }
 
   if (plan.slices.length > MAX_DEPTH)
@@ -122,6 +142,59 @@ export function validatePlan(plan: StackPlan): string[] {
   const shipped = new Set(plan.slices.flatMap((s) => s.taskRefs));
   for (const ref of plan.allTaskRefs)
     if (!shipped.has(ref)) errors.push(`stack does not cover task ${ref}`);
+
+  return errors;
+}
+
+function validateWorkPackages(slice: Slice): string[] {
+  if (!Array.isArray(slice.workPackages) || slice.workPackages.length === 0) {
+    return [`slice ${slice.id} workPackages must be a non-empty array`];
+  }
+
+  return slice.workPackages.flatMap((workPackage, index) =>
+    validateWorkPackage(slice.id, index, workPackage),
+  );
+}
+
+function validateWorkPackage(
+  sliceId: number,
+  index: number,
+  workPackage: WorkPackage,
+): string[] {
+  const prefix = `slice ${sliceId} workPackages[${index}]`;
+  const errors: string[] = [];
+
+  if (!WORK_PACKAGE_KINDS.has(workPackage.kind)) {
+    errors.push(
+      `${prefix}.kind must be fixture-to-real, pattern-instance, or template-gap`,
+    );
+  }
+  if (!nonEmptyString(workPackage.target)) {
+    errors.push(`${prefix}.target must be a non-empty string`);
+  }
+  if (!nonEmptyStringArray(workPackage.followUpGates)) {
+    errors.push(`${prefix}.followUpGates must be a non-empty string array`);
+  }
+
+  if (
+    workPackage.kind === "pattern-instance" &&
+    !nonEmptyString(workPackage.generatorCommand)
+  ) {
+    errors.push(
+      `${prefix}.generatorCommand is required for pattern-instance work`,
+    );
+  }
+
+  if (workPackage.kind === "template-gap") {
+    if (!nonEmptyString(workPackage.templateBacklogRef)) {
+      errors.push(`${prefix}.templateBacklogRef is required for template-gap`);
+    }
+    if (!nonEmptyString(workPackage.templateResolutionPath)) {
+      errors.push(
+        `${prefix}.templateResolutionPath is required for template-gap`,
+      );
+    }
+  }
 
   return errors;
 }
