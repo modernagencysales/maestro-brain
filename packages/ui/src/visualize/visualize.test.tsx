@@ -109,7 +109,7 @@ describe("visualization primitives", () => {
     ).toContain("New claim");
   });
 
-  it("keeps visualization components on Notion Kit and away from backend imports", () => {
+  it("keeps visualization components on local primitives and away from backend imports", () => {
     const files = [
       "data-grid.tsx",
       "kanban-board.tsx",
@@ -122,7 +122,8 @@ describe("visualization primitives", () => {
     ].map((file) => read(`src/visualize/${file}`));
 
     for (const source of files) {
-      expect(source).toContain("@notion-kit/ui/primitives");
+      expect(source).not.toContain("@notion-kit");
+      expect(source).toContain("../primitives");
       expect(source).not.toContain("convex/");
       expect(source).not.toContain("@confect/");
       expect(source).not.toContain("@tanstack/react-router");

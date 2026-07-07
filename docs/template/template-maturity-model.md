@@ -15,8 +15,9 @@ handoff evidence, and production operations.
 **Meaning:** the repo renders a hosted reference app with fake providers and a
 typed architectural direction.
 
-**Required evidence:** hosted URL, `apps/web/src/sample/App.tsx`, visual smoke
-snapshots, `docs/template/investor-reviewer-packet.md`.
+**Required evidence:** hosted URL, `apps/web/src/routes/index.tsx`,
+`apps/web/src/saas-ui/business-shell.tsx`, visual smoke snapshots,
+`docs/template/investor-reviewer-packet.md`.
 
 **Required commands:** `pnpm check:format`, `pnpm smoke:web-static`,
 `pnpm smoke:hosted:browser`, `pnpm smoke:hosted:a11y`,
@@ -76,9 +77,9 @@ of repeatable AI work execution.
 ## L4 Client-App Factory
 
 **Meaning:** generators, frontend, CI, deploy tooling, docs, and handoff assets
-support repeatable client forks. The frontend is a TanStack Start app with the
-Maestro-style Notion Kit shell, typed data adapters, designed route states, and
-React Flow constrained to workflow surfaces.
+support repeatable client forks. The frontend is a TanStack Start app with a
+Saas UI business shell, typed data adapters, designed route states, and React
+Flow constrained to workflow surfaces.
 
 **Boundary:** L4 proves the template can start real client builds with strong
 guardrails. [template-defaults.md](./template-defaults.md) is the default versus

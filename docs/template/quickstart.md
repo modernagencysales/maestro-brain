@@ -31,7 +31,8 @@ Commands without `--write` are dry-run previews.
 
 1. Install dependencies with `pnpm install`.
 2. Review `.env.example` and [env-manifest.md](./env-manifest.md). Keep the fake
-   defaults unless this is a test/live provider setup.
+   defaults unless this is a test/live provider setup. Leave `VITE_CONVEX_URL`
+   blank for fake-safe local web mode.
 3. Generate the default client fork scaffold:
    `pnpm template:quickstart -- --name "Client Brain" --write`.
 4. Generate the first discovery brief with
@@ -46,6 +47,14 @@ Commands without `--write` are dry-run previews.
    `docs/template/generated/implementation-brief.md`.
 10. Preview the handoff packet with
     `pnpm template:handoff -- --mode fake --write`.
+
+Expected first screen: the Saas UI dashboard at `/`, with priority-account
+cards, a live workflow-runs card, and a golden-path architecture card. With
+`VITE_CONVEX_URL` blank, the workflow-runs card must say Convex is not
+configured rather than attempting a fake network call. The `/data-lifecycle`
+route is the first copyable mutation slice: `Plan export` and `Plan delete`
+update local fake-safe state until a real Convex URL and workspace are
+configured.
 
 Expected local URL: `http://127.0.0.1:5173/` unless Vite selects another free
 port. Expected generated files:
@@ -117,7 +126,8 @@ Use the generated implementation brief as the discovery map:
    `template:promote-workflow` only for older reviewed or private-package
    workflow artifacts. `template:add-workflow -- --write` already writes the
    production-target workflow paths.
-5. Wire the generated refs into the Notion-style UI, API, CLI, and MCP surfaces.
+5. Wire the generated refs into the Saas UI business surfaces, API, CLI, and MCP
+   surfaces.
 6. Add focused tests for the capability, workflow graph, provider posture, and
    Trust Receipt.
 7. Run `pnpm review:readiness` before handoff.
@@ -131,7 +141,7 @@ generated implementation brief.
 
 - TanStack Start is the frontend direction; Convex, Confect, and Effect own
   durable backend contracts.
-- Notion Kit and the template block layer own UI primitives.
+- Saas UI and the template block layer own UI primitives.
 - React Flow is only the workflow interaction layer; durable workflow graphs
   stay outside React Flow node and edge arrays.
 - The Brain is source-backed by default. RAG is an optional extension, not the

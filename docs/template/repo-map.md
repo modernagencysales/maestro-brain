@@ -10,7 +10,7 @@
 - `docs/template/investor-reviewer-packet.md`: first-stop technical diligence
   packet for investors and review agents.
 - `docs/template/frontend-architecture.md`: frontend layer law, TanStack Start
-  direction, Notion Kit shell rules, data-loading rules, and deploy acceptance
+  direction, Saas UI shell rules, data-loading rules, and deploy acceptance
   criteria.
 - `docs/template/knowledge-model.md`: source-backed Brain concepts, claims,
   citations, context packs, markdown codecs, and OKF export.
@@ -36,14 +36,14 @@
 - `agent-patterns/`: future local references for Effect, Confect, and workflow
   graph idioms.
 - `repos/`: future vendored read-only source references for Effect and Confect.
-- `vendor/`: private package artifacts required by the internal template, such
-  as the Notion Kit i18n tarball used by `@notion-kit/settings-panel`.
+- `vendor/`: private package artifacts required by the internal template. This
+  fork currently does not require private UI tarballs.
 
 ## Apps
 
 - `apps/web`: the hostable TanStack Start reference workspace app, preserving
   the Maestro frontend direction with Convex/Confect data access, WorkOS-ready
-  auth, PostHog-ready analytics, Notion Kit shell primitives, and React Flow
+  auth, PostHog-ready analytics, Saas UI shell primitives, and React Flow
   workflow inspection.
 - `apps/cli`: typed CLI projection over generated Confect manifest metadata and
   generated refs.
@@ -52,8 +52,8 @@
 ## Packages
 
 - `packages/convex`: Confect specs/impls, Convex components, schema, and tests.
-- `packages/ui`: Notion-style app shell, blocks, layout primitives, and
-  settings-ready controls, including the optional co-editing document shell.
+- `packages/ui`: shared app shell, blocks, layout primitives, and settings-ready
+  controls, including the optional co-editing document shell.
 - `packages/workflow-ui`: React Flow graph editor primitive and future command
   reducers.
 - `packages/template-core`: shared template registry for sample/reviewer data,
@@ -132,7 +132,6 @@
 - `/admin`: support, audit, data lifecycle, and operator tools.
 
 Every path listed in workspace navigation has a route file under
-`apps/web/src/routes`. Generic reference routes render the corresponding
-document page through `ReferenceDocumentRoute`; routes with live/fake Confect
-behavior, such as `/notifications` and `/data-lifecycle`, own dedicated feature
-surfaces.
+`apps/web/src/routes`. Workspace routes render the Saas UI business shell or a
+Saas UI section page, with Confect-backed business behavior kept behind feature
+and adapter boundaries.

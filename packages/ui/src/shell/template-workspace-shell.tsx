@@ -1,20 +1,5 @@
 import type { ReactNode } from "react";
-import { Navbar } from "@notion-kit/ui/navbar";
-import { TooltipProvider } from "@notion-kit/ui/primitives";
-import {
-  Sidebar,
-  SidebarClose,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarHeader,
-  SidebarInset,
-  SidebarMenuItem,
-  SidebarOpen,
-  SidebarProvider,
-  SidebarRail,
-  useSidebar,
-} from "@notion-kit/ui/sidebar";
+import { useState } from "react";
 import { TemplateMainContent } from "../blocks/ux-essentials";
 
 export type TemplateShellRouteItem = {
@@ -55,23 +40,17 @@ export function TemplateRouteItem({
   item,
   activeKey,
   onNavigate,
+  onClose,
 }: {
   readonly item: TemplateShellRouteItem;
-  readonly activeKey?: string;
-  readonly onNavigate?: (key: string) => void;
+  readonly activeKey?: string | undefined;
+  readonly onNavigate?: ((key: string) => void) | undefined;
+  readonly onClose?: (() => void) | undefined;
 }) {
   const isActive = activeKey === item.key;
-  const { isMobile, setOpenMobile } = useSidebar();
 
-  // label/icon/hint render ONLY inside the anchor below. Passing them to
-  // SidebarMenuItem as props makes Notion Kit render a second, non-clickable
-  // copy of the row that swallows most of the click area.
   return (
-    <SidebarMenuItem
-      className="template-sidebar-menuitem"
-      label={null}
-      role="none"
-    >
+    <li className="template-sidebar-menuitem">
       <a
         aria-current={isActive ? "page" : undefined}
         className={
@@ -84,12 +63,7 @@ export function TemplateRouteItem({
           }
 
           onNavigate?.(item.key);
-
-          if (isMobile) {
-            window.setTimeout(() => {
-              setOpenMobile(false);
-            }, 150);
-          }
+          onClose?.();
 
           if (item.href?.startsWith("#") && typeof window !== "undefined") {
             window.history.replaceState(null, "", item.href);
@@ -104,7 +78,7 @@ export function TemplateRouteItem({
           <span className="template-sidebar-hint">{item.hint}</span>
         ) : null}
       </a>
-    </SidebarMenuItem>
+    </li>
   );
 }
 
@@ -113,13 +87,8 @@ export function TemplateActionItem({
 }: {
   readonly item: TemplateShellActionItem;
 }) {
-  // Same rule as TemplateRouteItem: the button is the whole row.
   return (
-    <SidebarMenuItem
-      className="template-sidebar-menuitem"
-      label={null}
-      role="none"
-    >
+    <li className="template-sidebar-menuitem">
       <button
         className="template-sidebar-row"
         onClick={item.onSelect}
@@ -133,7 +102,7 @@ export function TemplateActionItem({
           <span className="template-sidebar-hint">{item.hint}</span>
         ) : null}
       </button>
-    </SidebarMenuItem>
+    </li>
   );
 }
 
@@ -143,20 +112,6 @@ export function TemplateFooterItem({
   readonly item: TemplateShellActionItem;
 }) {
   return <TemplateActionItem item={item} />;
-}
-
-function TopbarSidebarOpen() {
-  const { isMobile, open, openMobile } = useSidebar();
-  const sidebarShown = isMobile ? openMobile : open;
-
-  // Match Notion: the hamburger only exists while the sidebar is hidden.
-  // Rendering it while the sidebar is open turns it into a toggle that
-  // collapses the sidebar out from under keyboard/automation users.
-  if (sidebarShown) {
-    return null;
-  }
-
-  return <SidebarOpen aria-label="Open sidebar" />;
 }
 
 export function TemplateWorkspaceShell({
@@ -170,92 +125,244 @@ export function TemplateWorkspaceShell({
   onNavigate,
   children,
 }: TemplateWorkspaceShellProps) {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const closeSidebar = () => setSidebarOpen(false);
+  const openSidebar = () => setSidebarOpen(true);
+
   return (
-    <TooltipProvider>
-      <SidebarProvider className="template-workspace-shell" defaultOpen>
-        <Sidebar className="template-sidebar" collapsible="offcanvas">
-          <SidebarHeader className="template-sidebar-header">
-            <button className="template-workspace-switcher" type="button">
-              <span className="template-workspace-mark" aria-hidden="true">
-                {title.slice(0, 1)}
-              </span>
-              <span>
-                <span className="template-workspace-name">{title}</span>
-                {subtitle ? (
-                  <span className="template-workspace-subtitle">
-                    {subtitle}
-                  </span>
-                ) : null}
-              </span>
-            </button>
-            <SidebarClose aria-label="Close sidebar" />
-          </SidebarHeader>
+    <div
+      className={
+        sidebarOpen
+          ? "template-workspace-shell"
+          : "template-workspace-shell is-sidebar-closed"
+      }
+    >
+      {sidebarOpen ? (
+        <TemplateSidebar
+          actions={actions}
+          activeKey={activeKey}
+          footerItems={footerItems}
+          navigation={navigation}
+          onClose={closeSidebar}
+          onNavigate={onNavigate}
+          subtitle={subtitle}
+          title={title}
+        />
+      ) : null}
 
-          <SidebarContent className="template-sidebar-content">
-            <nav aria-label="Primary">
-              {navigation.map((category) => (
-                <SidebarGroup
-                  className="template-sidebar-group"
-                  data-default-expanded={
-                    category.defaultExpanded ? "true" : "false"
-                  }
-                  key={category.label}
-                >
-                  <p className="template-sidebar-group-label">
-                    {category.label}
-                  </p>
-                  {category.items.map((item) => {
-                    const routeProps: {
-                      item: TemplateShellRouteItem;
-                      activeKey?: string;
-                      onNavigate?: (key: string) => void;
-                    } = { item };
+      <TemplateShellMain
+        onOpenSidebar={openSidebar}
+        sidebarOpen={sidebarOpen}
+        title={topbarTitle ?? title}
+      >
+        {children}
+      </TemplateShellMain>
+    </div>
+  );
+}
 
-                    if (activeKey !== undefined) {
-                      routeProps.activeKey = activeKey;
-                    }
+function TemplateSidebar({
+  actions,
+  activeKey,
+  footerItems,
+  navigation,
+  onClose,
+  onNavigate,
+  subtitle,
+  title,
+}: {
+  readonly actions: readonly TemplateShellActionItem[];
+  readonly activeKey?: string | undefined;
+  readonly footerItems: readonly TemplateShellActionItem[];
+  readonly navigation: readonly TemplateShellNavCategory[];
+  readonly onClose: () => void;
+  readonly onNavigate?: ((key: string) => void) | undefined;
+  readonly subtitle?: string | undefined;
+  readonly title: string;
+}) {
+  return (
+    <aside className="template-sidebar" aria-label="Workspace navigation">
+      <TemplateSidebarHeader
+        onClose={onClose}
+        subtitle={subtitle}
+        title={title}
+      />
+      <div className="template-sidebar-content">
+        <TemplateSidebarNav
+          actions={actions}
+          activeKey={activeKey}
+          navigation={navigation}
+          onClose={onClose}
+          onNavigate={onNavigate}
+        />
+      </div>
+      <TemplateSidebarFooter items={footerItems} />
+    </aside>
+  );
+}
 
-                    if (onNavigate !== undefined) {
-                      routeProps.onNavigate = onNavigate;
-                    }
+function TemplateSidebarHeader({
+  onClose,
+  subtitle,
+  title,
+}: {
+  readonly onClose: () => void;
+  readonly subtitle?: string | undefined;
+  readonly title: string;
+}) {
+  return (
+    <header className="template-sidebar-header">
+      <button className="template-workspace-switcher" type="button">
+        <span className="template-workspace-mark" aria-hidden="true">
+          {title.slice(0, 1)}
+        </span>
+        <span>
+          <span className="template-workspace-name">{title}</span>
+          {subtitle ? (
+            <span className="template-workspace-subtitle">{subtitle}</span>
+          ) : null}
+        </span>
+      </button>
+      <button
+        aria-label="Close sidebar"
+        className="template-sidebar-toggle"
+        onClick={onClose}
+        type="button"
+      >
+        Close
+      </button>
+    </header>
+  );
+}
 
-                    return <TemplateRouteItem {...routeProps} key={item.key} />;
-                  })}
-                </SidebarGroup>
-              ))}
+function TemplateSidebarNav({
+  actions,
+  activeKey,
+  navigation,
+  onClose,
+  onNavigate,
+}: {
+  readonly actions: readonly TemplateShellActionItem[];
+  readonly activeKey?: string | undefined;
+  readonly navigation: readonly TemplateShellNavCategory[];
+  readonly onClose: () => void;
+  readonly onNavigate?: ((key: string) => void) | undefined;
+}) {
+  return (
+    <nav aria-label="Primary">
+      {navigation.map((category) => (
+        <TemplateNavCategorySection
+          activeKey={activeKey}
+          category={category}
+          key={category.label}
+          onClose={onClose}
+          onNavigate={onNavigate}
+        />
+      ))}
+      <TemplateActionsSection actions={actions} />
+    </nav>
+  );
+}
 
-              {actions.length > 0 ? (
-                <SidebarGroup className="template-sidebar-group">
-                  <p className="template-sidebar-group-label">Actions</p>
-                  {actions.map((item) => (
-                    <TemplateActionItem item={item} key={item.key} />
-                  ))}
-                </SidebarGroup>
-              ) : null}
-            </nav>
-          </SidebarContent>
+function TemplateNavCategorySection({
+  activeKey,
+  category,
+  onClose,
+  onNavigate,
+}: {
+  readonly activeKey?: string | undefined;
+  readonly category: TemplateShellNavCategory;
+  readonly onClose: () => void;
+  readonly onNavigate?: ((key: string) => void) | undefined;
+}) {
+  return (
+    <section
+      className="template-sidebar-group"
+      data-default-expanded={category.defaultExpanded ? "true" : "false"}
+    >
+      <p className="template-sidebar-group-label">{category.label}</p>
+      <ul>
+        {category.items.map((item) => (
+          <TemplateRouteItem
+            activeKey={activeKey}
+            item={item}
+            key={item.key}
+            onClose={onClose}
+            onNavigate={onNavigate}
+          />
+        ))}
+      </ul>
+    </section>
+  );
+}
 
-          <SidebarFooter className="template-sidebar-footer">
-            {footerItems.map((item) => (
-              <TemplateFooterItem item={item} key={item.key} />
-            ))}
-          </SidebarFooter>
-          <SidebarRail enableDrag />
-        </Sidebar>
+function TemplateActionsSection({
+  actions,
+}: {
+  readonly actions: readonly TemplateShellActionItem[];
+}) {
+  if (actions.length === 0) {
+    return null;
+  }
 
-        <SidebarInset className="template-shell-main">
-          <Navbar className="template-shell-topbar" aria-label="Workspace">
-            <TopbarSidebarOpen />
-            <span className="template-topbar-title">
-              {topbarTitle ?? title}
-            </span>
-            <span aria-hidden="true" />
-          </Navbar>
-          <TemplateMainContent className="template-shell-content">
-            {children}
-          </TemplateMainContent>
-        </SidebarInset>
-      </SidebarProvider>
-    </TooltipProvider>
+  return (
+    <section className="template-sidebar-group">
+      <p className="template-sidebar-group-label">Actions</p>
+      <ul>
+        {actions.map((item) => (
+          <TemplateActionItem item={item} key={item.key} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function TemplateSidebarFooter({
+  items,
+}: {
+  readonly items: readonly TemplateShellActionItem[];
+}) {
+  return (
+    <footer className="template-sidebar-footer">
+      <ul>
+        {items.map((item) => (
+          <TemplateFooterItem item={item} key={item.key} />
+        ))}
+      </ul>
+    </footer>
+  );
+}
+
+function TemplateShellMain({
+  children,
+  onOpenSidebar,
+  sidebarOpen,
+  title,
+}: {
+  readonly children: ReactNode;
+  readonly onOpenSidebar: () => void;
+  readonly sidebarOpen: boolean;
+  readonly title: string;
+}) {
+  return (
+    <div className="template-shell-main">
+      <header className="template-shell-topbar" aria-label="Workspace">
+        {!sidebarOpen ? (
+          <button
+            aria-label="Open sidebar"
+            className="template-sidebar-toggle"
+            onClick={onOpenSidebar}
+            type="button"
+          >
+            Open
+          </button>
+        ) : null}
+        <span className="template-topbar-title">{title}</span>
+        <span aria-hidden="true" />
+      </header>
+      <TemplateMainContent className="template-shell-content">
+        {children}
+      </TemplateMainContent>
+    </div>
   );
 }
