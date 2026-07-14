@@ -10,6 +10,7 @@ const authenticatedSnapshot = {
   subject: "user_123",
   email: "user@example.com",
   organizationId: "org_123",
+  sessionId: "session_real_123",
   accessToken: "token-redacted",
 } as const;
 
@@ -27,6 +28,7 @@ describe("AuthKit client bridge", () => {
     expect(initialAuth).toMatchObject({
       user: { id: "user_123", email: "user@example.com" },
       organizationId: "org_123",
+      sessionId: "session_real_123",
     });
     expect(JSON.stringify(initialAuth)).not.toContain("token-redacted");
   });

@@ -1,6 +1,5 @@
 import { createCsrfMiddleware, createStart } from "@tanstack/react-start";
-import { authkitMiddleware } from "@workos/authkit-tanstack-react-start";
-
+import { createWorkosAuthkitMiddleware } from "./auth/authkit-runtime";
 import { buildAuthKitRuntimeConfig } from "./auth/authkit-server";
 import { getServerEnv } from "./server-env";
 
@@ -13,7 +12,7 @@ const workosRequestMiddleware = () => {
 
   if (config.mode === "fake") return [];
 
-  return [authkitMiddleware({ redirectUri: config.redirectUri })];
+  return [createWorkosAuthkitMiddleware({ redirectUri: config.redirectUri })];
 };
 
 export const startInstance = createStart(() => ({

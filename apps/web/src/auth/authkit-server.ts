@@ -7,6 +7,7 @@ export type AuthSnapshot =
       readonly subject: string;
       readonly email: string;
       readonly organizationId: string;
+      readonly sessionId: string;
       readonly accessToken: string;
     };
 
@@ -17,6 +18,7 @@ export type ClientAuthSnapshot =
       readonly subject: string;
       readonly email: string;
       readonly organizationId: string;
+      readonly sessionId: string;
     };
 
 export class Unauthorized extends Error {
@@ -51,6 +53,7 @@ export type WorkosServerAuth =
   | {
       readonly user: { readonly id?: string; readonly email?: string } | null;
       readonly organizationId?: string;
+      readonly sessionId?: string;
       readonly accessToken?: string;
     }
   | { readonly user: null };
@@ -58,8 +61,12 @@ export type WorkosServerAuth =
 const fakeProviderModes = new Set(["fake", "local"]);
 const productionModes = new Set(["prod", "production", "live"]);
 
-const isProductionEnv = (env: ServerEnvSource): boolean =>
-  productionModes.has((env.APP_ENV ?? "").trim().toLowerCase());
+const isProductionEnv = (env: ServerEnvSource): boolean => {
+  const appEnv = (env.APP_ENV ?? "").trim().toLowerCase();
+  if (appEnv.length > 0) return productionModes.has(appEnv);
+
+  return productionModes.has((env.NODE_ENV ?? "").trim().toLowerCase());
+};
 
 const providerModeFor = (env: ServerEnvSource): string =>
   (env.APP_PROVIDER_MODE ?? env.AUTH_PROVIDER_MODE ?? "fake")
@@ -137,6 +144,7 @@ export const toAuthSnapshot = (auth: WorkosServerAuth): AuthSnapshot => {
     !auth.user.id ||
     !auth.user.email ||
     !auth.organizationId ||
+    !auth.sessionId ||
     !auth.accessToken
   ) {
     throw new Unauthorized();
@@ -147,6 +155,7 @@ export const toAuthSnapshot = (auth: WorkosServerAuth): AuthSnapshot => {
     subject: auth.user.id,
     email: auth.user.email,
     organizationId: auth.organizationId,
+    sessionId: auth.sessionId,
     accessToken: auth.accessToken,
   };
 };
@@ -161,6 +170,7 @@ export const toClientAuthSnapshot = (
     subject: snapshot.subject,
     email: snapshot.email,
     organizationId: snapshot.organizationId,
+    sessionId: snapshot.sessionId,
   };
 };
 

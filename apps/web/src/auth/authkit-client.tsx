@@ -45,7 +45,7 @@ export const authSnapshotToInitialAuth = (
       id: snapshot.subject,
       email: snapshot.email,
     },
-    sessionId: snapshot.subject,
+    sessionId: snapshot.sessionId,
     organizationId: snapshot.organizationId,
   };
 };

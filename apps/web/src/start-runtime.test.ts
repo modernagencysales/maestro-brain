@@ -31,6 +31,15 @@ describe("TanStack Start runtime contract", () => {
     expect(source).toContain("reactGlobal.React ??= React");
   });
 
+  it("keeps WorkOS SDK imports inside auth adapters, not route modules", () => {
+    const root = read("src/routes/__root.tsx");
+    const runtime = read("src/auth/authkit-runtime.tsx");
+
+    expect(root).not.toContain("@workos/");
+    expect(root).toContain('from "../auth/authkit-runtime"');
+    expect(runtime).toContain("@workos/authkit-tanstack-react-start");
+  });
+
   it("keeps the root route as a provider boundary", () => {
     const source = read("src/routes/__root.tsx");
 

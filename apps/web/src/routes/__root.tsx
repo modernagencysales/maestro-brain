@@ -9,17 +9,13 @@ import type { ConvexQueryClient } from "@convex-dev/react-query";
 import type { ConvexReactClient } from "convex/react";
 import type { QueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import type { AuthKitClientBridge } from "../auth/authkit-client";
-import { getAuth } from "@workos/authkit-tanstack-react-start";
-import {
-  AuthKitProvider as WorkosAuthKitProvider,
-  useAccessToken,
-  useAuth,
-  type AuthKitProviderProps,
-} from "@workos/authkit-tanstack-react-start/client";
 import { TemplateToastProvider } from "@maestro-template/ui";
 
 import { createAuthKitProviderWithConvexProviderWithAuth } from "../auth/authkit-client";
+import {
+  getWorkosServerAuth,
+  workosAuthKitClientBridge,
+} from "../auth/authkit-runtime";
 import {
   getRuntimeClientAuthSnapshot,
   type ClientAuthSnapshot,
@@ -30,7 +26,7 @@ import {
   createBrowserWorkspaceStorage,
   WorkspaceProvider,
 } from "../providers/workspace";
-import { createFakeWorkspaceOperations } from "../providers/workspace-operations";
+import { createRuntimeWorkspaceOperations } from "../providers/workspace-operations";
 import { PostHogWebProvider } from "../providers/posthog";
 import { CookieConsentBoundary } from "../providers/cookie-consent";
 import { WebRouteUxBoundary } from "../navigation/route-ux-boundary";
@@ -38,27 +34,8 @@ import { buildTemplateRouteHead } from "../adapters/route-head";
 import appCssUrl from "../index.css?url";
 import xyflowCssUrl from "@xyflow/react/dist/style.css?url";
 
-const WorkosAuthKitProviderBoundary: AuthKitClientBridge["AuthKitProvider"] = ({
-  children,
-  initialAuth,
-}) => {
-  const workosInitialAuth = initialAuth as NonNullable<
-    AuthKitProviderProps["initialAuth"]
-  >;
-
-  return (
-    <WorkosAuthKitProvider initialAuth={workosInitialAuth}>
-      {children}
-    </WorkosAuthKitProvider>
-  );
-};
-
 const AuthKitProviderWithConvexProviderWithAuth =
-  createAuthKitProviderWithConvexProviderWithAuth({
-    AuthKitProvider: WorkosAuthKitProviderBoundary,
-    useAccessToken,
-    useAuth,
-  });
+  createAuthKitProviderWithConvexProviderWithAuth(workosAuthKitClientBridge);
 
 export type RouterContext = {
   readonly queryClient: QueryClient;
@@ -79,7 +56,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   }> => ({
     authSnapshot: await getRuntimeClientAuthSnapshot({
       env: getServerEnv(),
-      getAuth,
+      getAuth: getWorkosServerAuth,
     }),
   }),
   component: RootComponent,
@@ -96,7 +73,7 @@ function RootComponent() {
       initialAuthSnapshot={authSnapshot}
     >
       <WorkspaceProvider
-        operations={createFakeWorkspaceOperations()}
+        operations={createRuntimeWorkspaceOperations(authSnapshot)}
         storage={createBrowserWorkspaceStorage()}
       >
         <CookieConsentBoundary>

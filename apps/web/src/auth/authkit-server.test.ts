@@ -51,6 +51,7 @@ describe("AuthKit server bridge", () => {
       subject: "user_123",
       email: "user@example.com",
       organizationId: "org_123",
+      sessionId: "session_123",
       accessToken: "token-redacted",
     });
   });
@@ -75,15 +76,20 @@ describe("AuthKit server bridge", () => {
       subject: "user_123",
       email: "user@example.com",
       organizationId: "org_123",
+      sessionId: "session_123",
     });
     expect(JSON.stringify(clientSnapshot)).not.toContain("token-redacted");
     expect("accessToken" in clientSnapshot).toBe(false);
   });
 
-  it("does not call WorkOS while resolving fake runtime auth", async () => {
+  it("does not call WorkOS while resolving explicit build-time fake runtime auth", async () => {
     await expect(
       getRuntimeClientAuthSnapshot({
-        env: { APP_PROVIDER_MODE: "fake", NODE_ENV: "production" },
+        env: {
+          APP_ENV: "build",
+          APP_PROVIDER_MODE: "fake",
+          NODE_ENV: "production",
+        },
         getAuth: async () => {
           throw new Error("getAuth should not be called in fake mode");
         },
@@ -97,6 +103,7 @@ describe("AuthKit server bridge", () => {
       subject: "user_123",
       email: "user@example.com",
       organizationId: "org_123",
+      sessionId: "session_123",
       accessToken: "token-redacted",
     });
 
@@ -105,6 +112,7 @@ describe("AuthKit server bridge", () => {
       subject: "user_123",
       email: "user@example.com",
       organizationId: "org_123",
+      sessionId: "session_123",
     });
     expect(JSON.stringify(clientSnapshot)).not.toContain("token-redacted");
   });
@@ -155,13 +163,23 @@ describe("AuthKit server bridge", () => {
     ).toEqual({ mode: "fake" });
   });
 
-  it("allows fake provider mode during production web builds", () => {
+  it("allows fake provider mode only for explicit web builds", () => {
     expect(
       buildAuthKitRuntimeConfig({
+        APP_ENV: "build",
         NODE_ENV: "production",
         APP_PROVIDER_MODE: "fake",
       }),
     ).toEqual({ mode: "fake" });
+  });
+
+  it("prevents implicit fake mode when NODE_ENV is production", () => {
+    expect(() =>
+      buildAuthKitRuntimeConfig({
+        NODE_ENV: "production",
+        APP_PROVIDER_MODE: "fake",
+      }),
+    ).toThrow(AuthConfigurationInvalid);
   });
 
   it("prevents fake mode in production", () => {
