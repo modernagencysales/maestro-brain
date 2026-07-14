@@ -46,3 +46,28 @@ export type ModelCallReceipt = {
   readonly usage: ModelCallUsage;
   readonly generatedAt: string;
 };
+
+const stableJson = (value: unknown): string => {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableJson).join(",")}]`;
+  }
+
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, nested]) => `${JSON.stringify(key)}:${stableJson(nested)}`)
+      .join(",")}}`;
+  }
+
+  return JSON.stringify(value);
+};
+
+export const hashModelPayload = (payload: unknown): string =>
+  `sha256:${createHash("sha256").update(stableJson(payload)).digest("hex")}`;
+
+export const makeModelCallReceipt = (
+  input: Omit<ModelCallReceipt, "state">,
+): ModelCallReceipt => ({
+  ...input,
+  state: "succeeded",
+});
