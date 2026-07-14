@@ -1,11 +1,6 @@
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  symlinkSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { hydrateWorktreeDependencies } from "./dependencies.js";
 import { buildManifest } from "./manifest.js";
 import { runRtk } from "./process.js";
 import { selectReadyTasks } from "./scheduler.js";
@@ -126,10 +121,7 @@ for (const task of selected) {
   if (existsSync(workdir))
     runRtk(["git", "worktree", "remove", "--force", workdir]);
   runRtk(["git", "worktree", "add", "-B", branch, workdir, baseSha]);
-  const rootModules = resolve(root, "node_modules");
-  const worktreeModules = resolve(workdir, "node_modules");
-  if (existsSync(rootModules) && !existsSync(worktreeModules))
-    symlinkSync(rootModules, worktreeModules, "junction");
+  hydrateWorktreeDependencies(root, workdir);
   const output = runRtk(
     [
       "fabro",

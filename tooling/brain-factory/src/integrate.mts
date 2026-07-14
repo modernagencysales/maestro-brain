@@ -1,5 +1,6 @@
-import { existsSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { hydrateWorktreeDependencies } from "./dependencies.js";
 import { runRtk } from "./process.js";
 
 const valueAfter = (flag: string): string | undefined => {
@@ -30,10 +31,7 @@ if (!existsSync(workflow)) throw new Error(`missing workflow ${workflow}`);
 if (existsSync(workdir))
   runRtk(["git", "worktree", "remove", "--force", workdir]);
 runRtk(["git", "worktree", "add", "-B", branch, workdir, baseSha]);
-const rootModules = resolve(root, "node_modules");
-const worktreeModules = resolve(workdir, "node_modules");
-if (existsSync(rootModules) && !existsSync(worktreeModules))
-  symlinkSync(rootModules, worktreeModules, "junction");
+hydrateWorktreeDependencies(root, workdir);
 const output = runRtk(
   [
     "fabro",

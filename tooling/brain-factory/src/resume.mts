@@ -1,5 +1,6 @@
-import { existsSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { hydrateWorktreeDependencies } from "./dependencies.js";
 import { buildManifest } from "./manifest.js";
 import { runRtk } from "./process.js";
 
@@ -60,10 +61,7 @@ const startSha = runRtk(["git", "rev-parse", "HEAD"], {
   cwd: workdir,
   quiet: true,
 });
-const rootModules = resolve(root, "node_modules");
-const worktreeModules = resolve(workdir, "node_modules");
-if (existsSync(rootModules) && !existsSync(worktreeModules))
-  symlinkSync(rootModules, worktreeModules, "junction");
+hydrateWorktreeDependencies(root, workdir);
 const output = runRtk(
   [
     "fabro",
