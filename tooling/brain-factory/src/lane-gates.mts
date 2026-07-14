@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { commandsForProfiles, type GateCommand } from "./gates.js";
 import { buildManifest } from "./manifest.js";
+import { isCompatibleProofHead } from "./proof.js";
 
 interface ProofPacket {
   readonly baseSha: string;
@@ -64,8 +65,27 @@ const head = spawnSync("rtk", ["git", "rev-parse", "HEAD"], {
   cwd: process.cwd(),
   encoding: "utf8",
 }).stdout.trim();
-if (head !== proof.headSha)
-  throw new Error(`${taskId}: proof head ${proof.headSha} != ${head}`);
+const ancestor = spawnSync(
+  "rtk",
+  ["git", "merge-base", "--is-ancestor", proof.headSha, head],
+  { cwd: process.cwd(), stdio: "ignore" },
+);
+const treeDiff = spawnSync(
+  "rtk",
+  ["git", "diff", "--quiet", proof.headSha, head],
+  { cwd: process.cwd(), stdio: "ignore" },
+);
+if (
+  !isCompatibleProofHead({
+    ancestorExit: ancestor.status,
+    currentHead: head,
+    proofHead: proof.headSha,
+    treeDiffExit: treeDiff.status,
+  })
+)
+  throw new Error(
+    `${taskId}: proof head ${proof.headSha} is not a same-tree checkpoint ancestor of ${head}`,
+  );
 run({
   program: "git",
   args: ["diff", "--check", `${proof.baseSha}..${proof.headSha}`],
