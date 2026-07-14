@@ -243,6 +243,12 @@ const sectionDetails = {
 
 export type BusinessSectionKey = keyof typeof sectionDetails;
 
+const productBusinessSections = new Set<BusinessSectionKey>(["brain"]);
+
+const referenceRoutesEnabled =
+  !import.meta.env.PROD &&
+  import.meta.env.VITE_ENABLE_REFERENCE_ROUTES === "true";
+
 const routePathByKey = Object.fromEntries(
   TEMPLATE_ROUTE_ITEMS.map((item) => [item.key, item.path]),
 ) as Partial<Record<TemplateRouteKey, string>>;
@@ -489,6 +495,10 @@ export function BusinessSectionRoute({
 }: {
   readonly section: BusinessSectionKey;
 }) {
+  if (!productBusinessSections.has(section) && !referenceRoutesEnabled) {
+    return <ReferenceRouteUnavailable />;
+  }
+
   const details = sectionDetails[section];
   const IconComponent = details.icon;
   const activePath = routePathByKey[section] ?? "/";
@@ -574,7 +584,24 @@ export function BusinessSectionRoute({
   );
 }
 
+function ReferenceRouteUnavailable() {
+  return (
+    <BusinessAppShell>
+      <BusinessPageRoot>
+        <Page.Header
+          title="Page not found"
+          description="This reference route is hidden from the Maestro Brain product shell. Enable the non-production reference-route flag to inspect template examples."
+        />
+      </BusinessPageRoot>
+    </BusinessAppShell>
+  );
+}
+
 export function BusinessDataLifecycleRoute() {
+  if (!referenceRoutesEnabled) {
+    return <ReferenceRouteUnavailable />;
+  }
+
   return (
     <BusinessAppShell activePath="/data-lifecycle">
       <BusinessPageRoot>

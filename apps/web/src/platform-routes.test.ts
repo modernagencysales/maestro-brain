@@ -35,7 +35,7 @@ describe("frontend platform routes", () => {
     expect(activeTemplateRouteKey("/legal/privacy")).toBeNull();
   });
 
-  it("keeps reference route files available but outside product navigation", () => {
+  it("keeps reference route files behind an explicit non-production flag", () => {
     expect(REFERENCE_ROUTE_ITEMS.map((item) => item.path)).toContain("/legal");
     expect(REFERENCE_ROUTE_ITEMS.map((item) => item.path)).toContain(
       "/data-lifecycle",
@@ -58,9 +58,12 @@ describe("frontend platform routes", () => {
     expect(read("src/routes/_workspace.legal.tsx")).not.toContain(
       "ReferenceDocumentRoute",
     );
-    expect(read("src/routes/_workspace.data-lifecycle.tsx")).toContain(
-      "BusinessDataLifecycleRoute",
-    );
+
+    const shellSource = read("src/saas-ui/business-shell.tsx");
+    expect(shellSource).toContain("VITE_ENABLE_REFERENCE_ROUTES");
+    expect(shellSource).toContain("!import.meta.env.PROD");
+    expect(shellSource).toContain("ReferenceRouteUnavailable");
+    expect(shellSource).toContain("This reference route is hidden");
   });
 
   it("has a route file for every advertised workspace navigation path", () => {
