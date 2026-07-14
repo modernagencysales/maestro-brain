@@ -1,12 +1,19 @@
 import * as Schema from "effect/Schema";
 
+import { Forbidden } from "../errors";
+import { roleAtLeast, type Role } from "../access/roles";
 import {
   base64UrlEncode,
   constantTimeEqual,
   sha256Base64Url,
 } from "../shared/tokenCrypto";
 
-export const ApiKeyScope = Schema.Literal(
+export const HeadlessApiKeyScope = Schema.Literal("brain:read", "brain:ask");
+export type HeadlessApiKeyScope = Schema.Schema.Type<
+  typeof HeadlessApiKeyScope
+>;
+
+export const LegacyApiKeyScope = Schema.Literal(
   "workspace:read",
   "workspace:write",
   "capability:run",
@@ -14,21 +21,50 @@ export const ApiKeyScope = Schema.Literal(
   "admin",
 );
 
+export const ApiKeyScope = Schema.Union(LegacyApiKeyScope, HeadlessApiKeyScope);
 export type ApiKeyScope = Schema.Schema.Type<typeof ApiKeyScope>;
 
-export const ApiKeyStatus = Schema.Literal("active", "revoked");
-
+export const ApiKeyStatus = Schema.Literal("active", "revoked", "expired");
 export type ApiKeyStatus = Schema.Schema.Type<typeof ApiKeyStatus>;
+
+export const ServicePrincipalStatus = Schema.Literal(
+  "active",
+  "revoked",
+  "expired",
+);
+export type ServicePrincipalStatus = Schema.Schema.Type<
+  typeof ServicePrincipalStatus
+>;
 
 export const NullableNumber = Schema.NullOr(Schema.Number);
 
+export const ServicePrincipalRow = Schema.Struct({
+  id: Schema.String,
+  organizationId: Schema.String,
+  workspaceId: Schema.String,
+  brainKey: Schema.String,
+  roleCeiling: Schema.Literal("viewer"),
+  status: ServicePrincipalStatus,
+  generation: Schema.Number,
+  createdByUserId: Schema.String,
+  createdAt: Schema.Number,
+  revokedAt: NullableNumber,
+});
+export type ServicePrincipalRow = Schema.Schema.Type<
+  typeof ServicePrincipalRow
+>;
+
 export const ApiKeyRow = Schema.Struct({
   id: Schema.String,
+  principalId: Schema.optional(Schema.String),
+  organizationId: Schema.optional(Schema.String),
   workspaceId: Schema.String,
+  brainKey: Schema.optional(Schema.String),
   name: Schema.String,
   keyHash: Schema.String,
   displayPrefix: Schema.String,
   scopes: Schema.Array(ApiKeyScope),
+  roleCeiling: Schema.optional(Schema.Literal("viewer")),
   status: ApiKeyStatus,
   createdByUserId: Schema.String,
   createdAt: Schema.Number,
@@ -39,13 +75,45 @@ export const ApiKeyRow = Schema.Struct({
 
 export type ApiKeyRow = Schema.Schema.Type<typeof ApiKeyRow>;
 
+export const ApiKeyMetadataSchema = Schema.Struct({
+  id: Schema.String,
+  principalId: Schema.String,
+  organizationId: Schema.String,
+  workspaceId: Schema.String,
+  brainKey: Schema.String,
+  name: Schema.String,
+  displayPrefix: Schema.String,
+  scopes: Schema.Array(HeadlessApiKeyScope),
+  roleCeiling: Schema.Literal("viewer"),
+  status: ApiKeyStatus,
+  createdByUserId: Schema.String,
+  createdAt: Schema.Number,
+  expiresAt: NullableNumber,
+  revokedAt: NullableNumber,
+  lastUsedAt: NullableNumber,
+});
+
+export type ApiKeyMetadata = Schema.Schema.Type<typeof ApiKeyMetadataSchema>;
+
 export type ApiKeyCreateInput = {
   readonly workspaceId: string;
   readonly name: string;
   readonly scopes: readonly ApiKeyScope[];
   readonly createdByUserId: string;
   readonly nowMs: number;
-  readonly expiresAt?: number;
+  readonly expiresAt?: number | undefined;
+  readonly randomBytes?: () => Uint8Array;
+};
+
+export type BrainApiKeyCreateInput = {
+  readonly organizationId: string;
+  readonly workspaceId: string;
+  readonly brainKey: string;
+  readonly name: string;
+  readonly scopes: readonly string[];
+  readonly actor: { readonly userId: string; readonly role: Role };
+  readonly nowMs: number;
+  readonly expiresAt?: number | undefined;
   readonly randomBytes?: () => Uint8Array;
 };
 
@@ -54,10 +122,20 @@ export type ApiKeyCreateResult = {
   readonly row: ApiKeyRow;
 };
 
+export type BrainApiKeyCreateResult = {
+  readonly displayKey: string;
+  readonly key: ApiKeyMetadata & { readonly keyHash: string };
+  readonly principal: ServicePrincipalRow;
+};
+
 export type ApiKeyVerificationSuccess = {
   readonly ok: true;
+  readonly organizationId?: string;
   readonly workspaceId: string;
+  readonly brainKey?: string;
+  readonly roleCeiling?: "viewer";
   readonly keyId: string;
+  readonly principalId?: string;
   readonly scopes: readonly ApiKeyScope[];
 };
 
@@ -66,7 +144,8 @@ export type HeadlessAuthErrorCode =
   | "API_KEY_NOT_FOUND"
   | "API_KEY_REVOKED"
   | "API_KEY_EXPIRED"
-  | "API_KEY_FORBIDDEN";
+  | "API_KEY_FORBIDDEN"
+  | "SERVICE_PRINCIPAL_REVOKED";
 
 export class HeadlessAuthError extends Schema.TaggedError<HeadlessAuthError>()(
   "HeadlessAuthError",
@@ -77,9 +156,40 @@ export class HeadlessAuthError extends Schema.TaggedError<HeadlessAuthError>()(
       "API_KEY_REVOKED",
       "API_KEY_EXPIRED",
       "API_KEY_FORBIDDEN",
+      "SERVICE_PRINCIPAL_REVOKED",
     ),
     message: Schema.String,
   },
+) {}
+
+export class ApiKeyScopeInvalid extends Schema.TaggedError<ApiKeyScopeInvalid>()(
+  "ApiKeyScopeInvalid",
+  { scope: Schema.String },
+) {}
+
+export class ApiKeyExpiryInvalid extends Schema.TaggedError<ApiKeyExpiryInvalid>()(
+  "ApiKeyExpiryInvalid",
+  { reason: Schema.String },
+) {}
+
+export class ApiKeyNotFound extends Schema.TaggedError<ApiKeyNotFound>()(
+  "ApiKeyNotFound",
+  { keyId: Schema.String },
+) {}
+
+export class ApiKeyRevoked extends Schema.TaggedError<ApiKeyRevoked>()(
+  "ApiKeyRevoked",
+  { keyId: Schema.String },
+) {}
+
+export class ApiKeyExpired extends Schema.TaggedError<ApiKeyExpired>()(
+  "ApiKeyExpired",
+  { keyId: Schema.String },
+) {}
+
+export class ServicePrincipalRevoked extends Schema.TaggedError<ServicePrincipalRevoked>()(
+  "ServicePrincipalRevoked",
+  { principalId: Schema.String },
 ) {}
 
 export type ApiKeyVerificationFailure = {
@@ -89,6 +199,14 @@ export type ApiKeyVerificationFailure = {
 
 export type ApiKeyVerificationResult =
   ApiKeyVerificationSuccess | ApiKeyVerificationFailure;
+
+const MAX_EXPIRY_MS = 90 * 24 * 60 * 60 * 1_000;
+const HEADLESS_KEY_PREFIX = "mbk_live_";
+const LEGACY_KEY_PREFIX = "mtk_live_";
+
+const raiseTagged = (error: unknown): never => {
+  throw error;
+};
 
 const makeAuthError = (
   code: HeadlessAuthErrorCode,
