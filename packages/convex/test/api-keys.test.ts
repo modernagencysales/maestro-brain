@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createApiKey,
   createBrainApiKey,
   listApiKeyMetadata,
   rotateBrainApiKey,
@@ -28,6 +29,19 @@ const baseInput = {
 } as const;
 
 describe("one-Brain API key CRUD", () => {
+  it("derives key and principal ids from at least 128 digest bits", async () => {
+    const first = await createBrainApiKey(baseInput);
+    const second = await createBrainApiKey({
+      ...baseInput,
+      randomBytes: () => new Uint8Array(32).fill(4),
+    });
+
+    expect(first.key.id).toMatch(/^api_key_[A-Za-z0-9_-]{22}/);
+    expect(first.principal.id).toMatch(/^service_principal_[A-Za-z0-9_-]{22}/);
+    expect(first.key.id).not.toBe(second.key.id);
+    expect(first.principal.id).not.toBe(second.principal.id);
+  });
+
   it("mints display-once one-Brain keys and stores only hash/prefix metadata", async () => {
     const created = await createBrainApiKey(baseInput);
 
@@ -117,6 +131,61 @@ describe("one-Brain API key CRUD", () => {
         expiresAt: baseInput.nowMs + 91 * 24 * 60 * 60 * 1_000,
       }),
     ).rejects.toMatchObject({ _tag: "ApiKeyExpiryInvalid" });
+  });
+
+  it("fails closed for Brain scopes without an exact active service principal", async () => {
+    const created = await createBrainApiKey(baseInput);
+
+    await expect(
+      verifyApiKey({
+        presentedKey: created.displayKey,
+        keys: [created.key],
+        principals: [],
+        nowMs: 1_500,
+        requiredScope: "brain:read",
+        brainKey: "brain_client_alpha",
+      }),
+    ).resolves.toMatchObject({
+      ok: false,
+      error: { code: "SERVICE_PRINCIPAL_MISSING" },
+    });
+
+    await expect(
+      verifyApiKey({
+        presentedKey: created.displayKey,
+        keys: [created.key],
+        principals: [{ ...created.principal, workspaceId: "workspace_other" }],
+        nowMs: 1_500,
+        requiredScope: "brain:read",
+        brainKey: "brain_client_alpha",
+      }),
+    ).resolves.toMatchObject({
+      ok: false,
+      error: { code: "API_KEY_FORBIDDEN" },
+    });
+
+    const legacy = await createApiKey({
+      workspaceId: "workspace_acme",
+      name: "legacy admin",
+      scopes: ["admin"],
+      createdByUserId: "user_admin",
+      nowMs: 1_000,
+      randomBytes: () => new Uint8Array(32).fill(5),
+    });
+
+    await expect(
+      verifyApiKey({
+        presentedKey: legacy.displayKey,
+        keys: [legacy.row],
+        principals: [],
+        nowMs: 1_500,
+        requiredScope: "brain:read",
+        brainKey: "brain_client_alpha",
+      }),
+    ).resolves.toMatchObject({
+      ok: false,
+      error: { code: "SERVICE_PRINCIPAL_MISSING" },
+    });
   });
 
   it("verifies scope, Brain, expiry, key revocation, and principal revocation", async () => {

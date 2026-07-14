@@ -147,6 +147,7 @@ export type HeadlessAuthErrorCode =
   | "API_KEY_REVOKED"
   | "API_KEY_EXPIRED"
   | "API_KEY_FORBIDDEN"
+  | "SERVICE_PRINCIPAL_MISSING"
   | "SERVICE_PRINCIPAL_REVOKED";
 
 export class HeadlessAuthError extends Schema.TaggedError<HeadlessAuthError>()(
@@ -158,6 +159,7 @@ export class HeadlessAuthError extends Schema.TaggedError<HeadlessAuthError>()(
       "API_KEY_REVOKED",
       "API_KEY_EXPIRED",
       "API_KEY_FORBIDDEN",
+      "SERVICE_PRINCIPAL_MISSING",
       "SERVICE_PRINCIPAL_REVOKED",
     ),
     message: Schema.String,
@@ -205,6 +207,13 @@ export type ApiKeyVerificationResult =
 const MAX_EXPIRY_MS = 90 * 24 * 60 * 60 * 1_000;
 const HEADLESS_KEY_PREFIX = "mbk_live_";
 const LEGACY_KEY_PREFIX = "mtk_live_";
+const DIGEST_ID_PREFIX_LENGTH = 22;
+
+const digestIdSuffix = (keyHash: string): string =>
+  keyHash.slice(0, DIGEST_ID_PREFIX_LENGTH);
+
+const isHeadlessScope = (scope: ApiKeyScope): scope is HeadlessApiKeyScope =>
+  scope === "brain:read" || scope === "brain:ask";
 
 const raiseTagged = (error: unknown): never => {
   throw error;
@@ -287,7 +296,7 @@ export const createApiKey = async (
   const displayKey = `${LEGACY_KEY_PREFIX}${makeSecret(input.randomBytes)}`;
   const keyHash = await makeKeyHash(displayKey);
   const row: ApiKeyRow = {
-    id: `api_key_${keyHash.slice(0, 16)}`,
+    id: `api_key_${digestIdSuffix(keyHash)}`,
     workspaceId: input.workspaceId,
     name: input.name,
     keyHash,
@@ -313,7 +322,7 @@ export const createBrainApiKey = async (
   const displayKey = `${HEADLESS_KEY_PREFIX}${makeSecret(input.randomBytes)}`;
   const keyHash = await makeKeyHash(displayKey);
   const principal: ServicePrincipalRow = {
-    id: `service_principal_${keyHash.slice(0, 16)}`,
+    id: `service_principal_${digestIdSuffix(keyHash)}`,
     organizationId: input.organizationId,
     workspaceId: input.workspaceId,
     brainKey: input.brainKey,
@@ -325,7 +334,7 @@ export const createBrainApiKey = async (
     revokedAt: null,
   };
   const key: BrainApiKeyCreateResult["key"] = {
-    id: `api_key_${keyHash.slice(0, 16)}`,
+    id: `api_key_${digestIdSuffix(keyHash)}`,
     principalId: principal.id,
     organizationId: input.organizationId,
     workspaceId: input.workspaceId,
@@ -400,6 +409,17 @@ export const verifyApiKey = async (input: {
   }
 
   const principal = findPrincipal(row, input.principals ?? []);
+  const requiresBrainPrincipal = isHeadlessScope(input.requiredScope);
+
+  if (requiresBrainPrincipal && principal === undefined) {
+    return {
+      ok: false,
+      error: makeAuthError(
+        "SERVICE_PRINCIPAL_MISSING",
+        "Brain API keys require an active service principal.",
+      ),
+    };
+  }
 
   if (
     principal !== undefined &&
@@ -429,6 +449,21 @@ export const verifyApiKey = async (input: {
   }
 
   if (
+    requiresBrainPrincipal &&
+    (row.organizationId === undefined ||
+      row.brainKey === undefined ||
+      row.roleCeiling !== "viewer" ||
+      row.principalGeneration === undefined ||
+      row.organizationId !== principal?.organizationId ||
+      row.workspaceId !== principal.workspaceId ||
+      row.brainKey !== principal.brainKey)
+  ) {
+    return forbidden();
+  }
+
+  if (requiresBrainPrincipal) {
+    if (!row.scopes.includes(input.requiredScope)) return forbidden();
+  } else if (
     !row.scopes.includes(input.requiredScope) &&
     !row.scopes.includes("admin")
   ) {
