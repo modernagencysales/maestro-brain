@@ -143,7 +143,7 @@ if (existingChangedFiles.length > 0)
     args: ["exec", "prettier", "--check", ...existingChangedFiles],
   });
 for (const command of commandsForProfiles(task.gateProfiles)) run(command);
-const status = spawnSync("rtk", ["git", "status", "--porcelain"], {
+const status = spawnSync("rtk", ["proxy", "git", "status", "--porcelain"], {
   cwd: process.cwd(),
   encoding: "utf8",
 });
