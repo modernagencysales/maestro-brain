@@ -44,7 +44,14 @@ const taskCommits = runRtk(
   { quiet: true },
 )
   .split("\n")
-  .filter(Boolean);
+  .filter(Boolean)
+  .filter(
+    (commit) =>
+      runRtk(
+        ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", commit],
+        { quiet: true },
+      ) !== "",
+  );
 if (taskCommits.length === 0)
   throw new Error(`${taskId}: ${sourceRef} has no commits after ${taskBase}`);
 for (const commit of taskCommits)
