@@ -30,7 +30,8 @@ pnpm --dir tooling/evals brain:eval
 pnpm --dir tooling/evals brain:fixture-check
 ```
 
-`brain:eval` writes `brain-eval-report.json` with receipts shaped as:
+`brain:eval` prints the report to stdout by default; pass an explicit path to
+write a file. Reports contain receipts shaped as:
 
 ```ts
 {
