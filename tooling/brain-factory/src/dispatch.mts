@@ -150,6 +150,8 @@ for (const task of selected) {
       `task_id=${task.taskId}`,
       "-I",
       `base_sha=${baseSha}`,
+      "-I",
+      `start_sha=${baseSha}`,
     ],
     { quiet: true },
   );

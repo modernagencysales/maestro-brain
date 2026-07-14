@@ -18,6 +18,7 @@
     "brain:factory:dispatch": "tsx tooling/brain-factory/src/dispatch.mts",
     "brain:factory:integrate": "tsx tooling/brain-factory/src/integrate.mts",
     "brain:factory:lane-gates": "tsx tooling/brain-factory/src/lane-gates.mts",
+    "brain:factory:resume": "tsx tooling/brain-factory/src/resume.mts",
     "stack:check": "tsx tooling/stack/check.mts",
     "stack:status": "tsx tooling/stack/status.mts",
     "stack:submit": "tsx tooling/stack/submit.mts",
