@@ -64,6 +64,7 @@ export const ApiKeyRow = Schema.Struct({
   keyHash: Schema.String,
   displayPrefix: Schema.String,
   scopes: Schema.Array(ApiKeyScope),
+  principalGeneration: Schema.optional(Schema.Number),
   roleCeiling: Schema.optional(Schema.Literal("viewer")),
   status: ApiKeyStatus,
   createdByUserId: Schema.String,
@@ -84,6 +85,7 @@ export const ApiKeyMetadataSchema = Schema.Struct({
   name: Schema.String,
   displayPrefix: Schema.String,
   scopes: Schema.Array(HeadlessApiKeyScope),
+  principalGeneration: Schema.Number,
   roleCeiling: Schema.Literal("viewer"),
   status: ApiKeyStatus,
   createdByUserId: Schema.String,
@@ -241,7 +243,13 @@ const validateBrainScopes = (
     raiseTagged(new ApiKeyScopeInvalid({ scope: invalid }));
   }
 
-  return [...new Set(scopes)] as readonly HeadlessApiKeyScope[];
+  const uniqueScopes = [...new Set(scopes)];
+
+  if (!uniqueScopes.includes("brain:read")) {
+    raiseTagged(new ApiKeyScopeInvalid({ scope: "brain:read" }));
+  }
+
+  return uniqueScopes as readonly HeadlessApiKeyScope[];
 };
 
 const validateExpiry = (
@@ -326,6 +334,7 @@ export const createBrainApiKey = async (
     keyHash,
     displayPrefix: displayPrefixFor(displayKey),
     scopes,
+    principalGeneration: principal.generation,
     roleCeiling: "viewer",
     status: "active",
     createdByUserId: input.actor.userId,
@@ -380,7 +389,10 @@ export const verifyApiKey = async (input: {
     };
   }
 
-  if (row.expiresAt !== null && row.expiresAt <= input.nowMs) {
+  if (
+    row.status === "expired" ||
+    (row.expiresAt !== null && row.expiresAt <= input.nowMs)
+  ) {
     return {
       ok: false,
       error: makeAuthError("API_KEY_EXPIRED", "API key has expired."),
@@ -391,13 +403,27 @@ export const verifyApiKey = async (input: {
 
   if (
     principal !== undefined &&
-    (principal.status === "revoked" || principal.revokedAt !== null)
+    (principal.status !== "active" || principal.revokedAt !== null)
   ) {
     return {
       ok: false,
       error: makeAuthError(
         "SERVICE_PRINCIPAL_REVOKED",
         "Service principal has been revoked.",
+      ),
+    };
+  }
+
+  if (
+    principal !== undefined &&
+    row.principalGeneration !== undefined &&
+    row.principalGeneration !== principal.generation
+  ) {
+    return {
+      ok: false,
+      error: makeAuthError(
+        "SERVICE_PRINCIPAL_REVOKED",
+        "Service principal generation no longer matches the API key.",
       ),
     };
   }
@@ -461,6 +487,7 @@ const isBrainApiKey = (
   key.organizationId !== undefined &&
   key.brainKey !== undefined &&
   key.roleCeiling === "viewer" &&
+  key.principalGeneration !== undefined &&
   key.scopes.every((scope) => scope === "brain:read" || scope === "brain:ask");
 
 export const revokeBrainApiKey = (input: {
@@ -507,6 +534,11 @@ export const rotateBrainApiKey = async (input: {
 
   return {
     ...rotated,
+    key: {
+      ...rotated.key,
+      principalId: input.principal.id,
+      principalGeneration: input.principal.generation + 1,
+    },
     principal: {
       ...rotated.principal,
       id: input.principal.id,
