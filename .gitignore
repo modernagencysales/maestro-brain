@@ -12,6 +12,10 @@ tooling/*/dist/
 test-results/
 playwright-report/
 
+# Local Fabro execution state and disposable task worktrees
+.fabro/state/
+.fabro/workdirs/
+
 # Wrangler local dev state
 .wrangler/
 

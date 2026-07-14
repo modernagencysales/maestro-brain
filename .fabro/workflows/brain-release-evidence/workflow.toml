@@ -1,0 +1,2 @@
+name = "brain-release-evidence"
+description = "Collect staging, rollback, pilot, and promotion evidence for one frozen candidate"

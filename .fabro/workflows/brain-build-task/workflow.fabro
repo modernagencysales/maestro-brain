@@ -1,0 +1,33 @@
+digraph BrainBuildTask {
+  graph [
+    goal="Implement one approved Maestro Brain task with test-first focused proof",
+    inputs="workdir,evidence_dir,task_id,base_sha",
+    model_stylesheet="
+      #implement { provider: codex-lb; model: codex-lb-gpt-5.5; reasoning_effort: high; }
+      #review    { provider: codex-lb; model: codex-lb-gpt-5.5; reasoning_effort: high; }
+    ",
+    rankdir=LR
+  ]
+  start [shape=Mdiamond]
+  exit [shape=Msquare]
+
+  preflight [shape=parallelogram, goal_gate=true, retry_target=preflight, max_retries=1, timeout="600s", script="set -euo pipefail; cd {{ inputs.workdir|default('.') }}; TASK='{{ inputs.task_id|default('S01-T01') }}'; E='{{ inputs.evidence_dir|default('.fabro/state/maestro-brain/evidence') }}'; rtk proxy test -s docs/superpowers/execution/maestro-brain/task-manifest.json; rtk proxy test -s docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md; rtk proxy mkdir -p \"$E/lane-results/$TASK\"; STATUS=$(rtk git status --porcelain); rtk proxy test -z \"$STATUS\"; rtk proxy test \"$(rtk git rev-parse HEAD)\" = '{{ inputs.base_sha|default('HEAD') }}'"]
+
+  implement [label="Implement Task", max_visits=5, timeout="10800s", prompt="Implement only task {{ inputs.task_id|default('S01-T01') }} in {{ inputs.workdir|default('.') }}. Read AGENTS.md, the Parallel Execution Amendment and Appendices O/P, this task's complete packet in docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md, its entry in docs/superpowers/execution/maestro-brain/task-manifest.json, every named playbook/anchor required by its classification, and only directly relevant source or vendored examples. Do not repeat global product research. Respect codeStartAfter as code-start authority and the original packet dependency as acceptance authority. Edit only declared files or stop and amend the task contract. Never edit generated files unless this task owns @generated-confect. Use fake/local providers by default. Write the new behavior's focused tests before its implementation and preserve typed errors, tenant isolation, lifecycle fencing, redaction, and the repository layer law. Use repo generators exactly when the packet is pattern-instance. Do not weaken gates, add unexplained suppressions, or implement another task. Run every exact focused packet command except broad just verify/verify-full, then the relevant package-local lint/type/test commands. Broad verification belongs to tranche integration. Commit one intention with the packet's conventional subject. Write ci-proof-packet.json to the absolute directory {{ inputs.evidence_dir|default('.fabro/state/maestro-brain/evidence') }}/lane-results/{{ inputs.task_id|default('S01-T01') }}/ with taskId, baseSha, headSha, changedFiles, focusedCommands, testsAdded, reviewVerdict='pending', and knownRisks. The proof head must equal git HEAD and the worktree must be clean. If native apply_patch fails once, switch to a targeted edit method and immediately inspect git diff."]
+
+  gates [shape=parallelogram, goal_gate=true, retry_target=implement, timeout="5400s", script="set -euo pipefail; cd {{ inputs.workdir|default('.') }}; rtk pnpm brain:factory:lane-gates -- --task '{{ inputs.task_id|default('S01-T01') }}' --evidence '{{ inputs.evidence_dir|default('.fabro/state/maestro-brain/evidence') }}' --stage pre-review"]
+
+  review [label="Independent Contract Review", max_visits=2, timeout="5400s", prompt="Independently review task {{ inputs.task_id|default('S01-T01') }} in {{ inputs.workdir|default('.') }} against its full task packet, design requirements, task-manifest ownership, AGENTS.md, tests, and ci-proof-packet.json. Inspect the actual committed diff. Look specifically for false-green tests, missing expected errors, cross-tenant access, stale-generation races, lifecycle resurrection, secret/customer-text exposure, layer skips, fixture leakage, generated-file drift, and scope beyond the task. Fix narrow defects directly, rerun the exact focused gates, and amend the task commit. Update the proof to the new head and set reviewVerdict='pass' only when the diff is genuinely ready; otherwise set rework and leave a concrete blocker. Do not run broad verify in this worktree."]
+
+  final_gates [shape=parallelogram, goal_gate=true, retry_target=implement, timeout="5400s", script="set -euo pipefail; cd {{ inputs.workdir|default('.') }}; rtk pnpm brain:factory:lane-gates -- --task '{{ inputs.task_id|default('S01-T01') }}' --evidence '{{ inputs.evidence_dir|default('.fabro/state/maestro-brain/evidence') }}' --stage final"]
+
+  complete [shape=parallelogram, goal_gate=true, retry_target=complete, max_retries=1, timeout="300s", script="set -euo pipefail; cd {{ inputs.workdir|default('.') }}; TASK='{{ inputs.task_id|default('S01-T01') }}'; E='{{ inputs.evidence_dir|default('.fabro/state/maestro-brain/evidence') }}'; HEAD_SHA=$(rtk git rev-parse HEAD); rtk proxy node -e \"const fs=require('fs'); const p=process.argv[1]; const taskId=process.argv[2]; const headSha=process.argv[3]; fs.writeFileSync(p, JSON.stringify({schemaVersion:'maestro-brain-lane-result/v1',taskId,headSha,status:'lane_green'},null,2)+'\\n')\" \"$E/lane-results/$TASK/lane-result.json\" \"$TASK\" \"$HEAD_SHA\""]
+
+  start -> preflight -> implement -> gates
+  gates -> review [condition="outcome=succeeded"]
+  gates -> implement [label="red"]
+  review -> final_gates
+  final_gates -> complete [condition="outcome=succeeded"]
+  final_gates -> implement [label="red"]
+  complete -> exit
+}

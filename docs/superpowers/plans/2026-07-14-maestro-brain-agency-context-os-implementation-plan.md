@@ -1,6 +1,7 @@
 # Maestro Brain: Agency Context OS Implementation Plan
 
-> **Status:** implementation-ready plan for the approved V1 design  
+> **Status:** implementation-ready, parallel-factory execution plan
+>
 > **Plan date:** 2026-07-14  
 > **Canonical design:**
 > [`../specs/2026-07-14-maestro-brain-agency-context-os-design.md`](../specs/2026-07-14-maestro-brain-agency-context-os-design.md)  
@@ -62,6 +63,54 @@ them. Product-specific additions are:
    limits remain binding.
 5. Receipts contain names, versions, hashes, counts, statuses, redacted error
    tags, and command results—never secrets or customer text.
+
+## Parallel Execution Amendment
+
+The task packets remain the acceptance contracts, but their original stack
+dependencies are no longer code-start barriers. This greenfield product has no
+tenant data to preserve, so downstream work may begin against frozen typed
+contracts, generated refs, and deterministic fake/local providers before the
+corresponding real body is integrated. A task is still not accepted until all of
+its original prerequisites and focused evidence are integrated.
+
+The machine-readable code-start graph at
+`docs/superpowers/execution/maestro-brain/task-manifest.json` is binding for
+Fabro dispatch. It must preserve every original acceptance prerequisite while
+applying these rules:
+
+1. **Contract before body:** stable keys, principals, typed errors, lifecycle
+   generations, provider interfaces, capability/workflow specs, and receipt
+   shapes unblock consumers. Consumers use generated refs or deterministic
+   fixtures; they do not duplicate a missing upstream body.
+2. **Speculative isolation:** S00-T01 remains the merge gate for product source,
+   but independent code may be prepared in isolated worktrees while the three
+   host receipts are collected. No speculative branch is integrated or deployed
+   before the receipt is green.
+3. **Central shared ownership:** generated Convex/Confect output, route trees,
+   root dependency files, canonical schema registries, environment manifests,
+   and other manifest-declared shared locks have one live owner. Parallel lanes
+   never resolve those files independently.
+4. **Focused lane quality:** each lane writes tests before behavior, runs its
+   task packet's focused commands plus its deterministic gate profile, receives
+   an independent contract/security review, and emits a minimal proof packet.
+   Red gates return to implementation inside the same Fabro run.
+5. **Tranche integration:** one-intention task commits are cherry-picked into
+   dependency-safe integration tranches.
+   `rtk host-test-slot --class full pnpm verify` runs once on the integrated
+   tranche; tasks become complete only after that gate passes. Broad
+   verification is not duplicated in every isolated lane.
+6. **Phase-scoped delivery:** use roughly twelve to sixteen tranche PRs rather
+   than one PR for every micro-task. Preserve one intention per task commit and
+   its receipt. Graphite ordering is optional PR hygiene, never the scheduler.
+7. **Just-in-time context:** the approved design, this task packet, its named
+   anchors/playbook, and directly relevant vendored examples are sufficient. Do
+   not rerun global product research, plan review, task-plan generation, or AI
+   CI-risk scoring before implementation.
+
+The dispatcher may start only tasks whose `codeStartAfter` contracts are
+available and whose file locks do not intersect another active lane. The
+original dependency in each packet and Appendix A remains its `acceptanceAfter`
+condition.
 
 ## Source Pins And Existing-Code Authority
 
@@ -136,10 +185,12 @@ Before every stack:
 | REL-03 | Ship redacted observability, spend/rate/storage budgets, overload admission control, audited recovery, and kill switches.                            |
 | REL-04 | Prove staging, pilot value, rollback, and launch evidence; any cross-client, audience, key-scope, or webhook incident blocks launch.                 |
 
-## Delivery Map
+## Acceptance Delivery Map
 
-Each row is one independently submitted stack. Each task within a row is one
-slice/PR; no row may contain more than four tasks.
+Each row remains an acceptance checkpoint. It is not the implementation
+scheduler and no longer requires one PR per task. Parallel code-start and
+integration-tranche ownership are defined by Appendix O and the generated task
+manifest.
 
 | Stack                                        | Slices | Depends on    | Release checkpoint                                                |
 | -------------------------------------------- | -----: | ------------- | ----------------------------------------------------------------- |
@@ -2845,7 +2896,7 @@ slice/PR; no row may contain more than four tasks.
 
 ---
 
-## Appendix A — Exact Task Dependency, Classification, And Slice Budget Matrix
+## Appendix A — Exact Acceptance Dependency, Classification, And Slice Budget Matrix
 
 `est source lines` counts hand-authored production source only. Tests, generated
 output, and docs are reported separately in the StackPlan receipt and fully
@@ -3557,9 +3608,11 @@ unverified provider flow, or partially green pilot is not done.
 
 - **Foundation:** S00's three-host plugin, pin/gap, stack-manifest and migration
   receipts are complete; staging/production are isolated with no demo seed;
-  every one of the 56 task packets is merged in dependency order with one
-  intention/PR, <=300 changed source lines per slice, <=4 slices per stack,
-  focused green gates and archived receipts.
+  every one of the 56 task packets has one intention commit, is accepted only
+  after its original dependencies, and is merged through a green phase-scoped
+  integration tranche with <=300 changed hand-authored source lines, focused
+  lane gates, independent review, full tranche verification, and archived
+  receipts.
 - **Identity and isolation:** production has no fake auth path; WorkOS identity,
   organization and exact `viewer | editor | admin | owner` roles authorize every
   entrypoint server-side; stable public keys reveal no Convex IDs; all
@@ -3619,3 +3672,90 @@ unverified provider flow, or partially green pilot is not done.
 
 The final release verdict is binary: all clauses and evidence are present, or
 the program remains not done and the failed clause names the next scoped task.
+
+## Appendix O — Parallel Code-Start And Integration Contract
+
+The factory computes exact topological levels from the checked-in task manifest;
+the following domains are ownership lanes, not new product requirements:
+
+| Lane           | Primary task families | Exclusive ownership boundary                         |
+| -------------- | --------------------- | ---------------------------------------------------- |
+| `foundation`   | S00                   | deploy isolation, migration harness, source receipts |
+| `identity`     | S01                   | human principal, organization binding, RBAC          |
+| `brain`        | S02                   | stable page/revision/citation persistence            |
+| `web`          | S03                   | routes, screens, feature adapters, blocks            |
+| `slack-source` | S04-S06               | Nango/Slack boundary, source ledger, work claims     |
+| `lifecycle`    | S07                   | lifecycle envelope, holds, DSAR, purge               |
+| `cognition`    | S08                   | structured LLM and internal workflows                |
+| `retrieval`    | S09                   | search projections, retrieval manifests, Ask         |
+| `slack-answer` | S10                   | Slack identity, intake, outbox, requester-private UX |
+| `headless`     | S11                   | service principals, registry, API/CLI/MCP            |
+| `export`       | S12                   | deterministic codec, jobs, artifacts                 |
+| `operations`   | S13                   | evals, capacity, telemetry, controls                 |
+| `release`      | S14                   | staging, pilot, promotion, rollback evidence         |
+
+Initial contract-first code-start may fan out across identity, Brain schema,
+product shell, structured LLM, async search, and evaluation-harness seams. The
+source/lifecycle/retrieval convergence tasks wait for their declared contract
+edges, not for unrelated UI or provider bodies. The dispatcher proves the actual
+ready width and refuses intersecting file locks; a hand-maintained wave number
+is never authority.
+
+Shared locks include `@generated-confect`, `@route-tree`, `@dependencies`,
+`@environment`, and every exact path extracted from the task's **Files** field.
+A task that discovers an undeclared shared path stops and amends its contract;
+it does not opportunistically edit the file.
+
+Task states are:
+
+```text
+planned -> ready -> active -> lane_green -> integrated -> accepted
+                    |             |             |
+                    +-> blocked   +-> rework    +-> tranche_red
+```
+
+`lane_green` proves the isolated task. `integrated` proves the commit is present
+on the tranche head. `accepted` additionally proves every original prerequisite
+and the full tranche gate. Only `accepted` satisfies Appendix M/N.
+
+## Appendix P — Lightweight Fabro Factory Contract
+
+The checked-in factory intentionally has four workflows:
+
+1. `brain-build-task`: preflight, test-first implementation, deterministic
+   focused gates, independent review, final gates, task commit and proof.
+2. `brain-integrate-tranche`: validate proofs/ownership, integrate task commits,
+   run centralized codegen once, run the full host-slotted gate, and emit the
+   tranche verdict.
+3. `brain-repair-check`: diagnose one red focused/CI context, make the narrow
+   owning-task repair, rerun the exact failure, and update proof.
+4. `brain-release-evidence`: freeze one release candidate and record staging,
+   rollback, pilot, promotion and final evidence without hiding product fixes.
+
+The factory does not run global research, a second plan-review gauntlet, an LLM
+task-plan factory, AI CI-risk scoring, or always-on PR rescue. The
+implementation plan already supplies those decisions. Deterministic factory
+checks validate:
+
+- exactly 56 task contracts and all 37 requirement owners;
+- one primary work-package classification per task;
+- acyclic `codeStartAfter` and preserved `acceptanceAfter` metadata;
+- known gate profiles, tranche/lane ownership, and shared-file locks;
+- no duplicate active task or shared-lock owner;
+- clean worktree/base SHA and proof/head consistency;
+- no broad lane command or gate weakening;
+- full verification before a tranche marks tasks accepted.
+
+The canonical commands are:
+
+```bash
+rtk pnpm brain:factory:materialize
+rtk pnpm brain:factory:check
+rtk pnpm brain:factory:dispatch -- --max 6
+rtk pnpm brain:factory:integrate -- --tranche <id>
+```
+
+Local state and disposable worktrees live under ignored `.fabro/state/` and
+`.fabro/workdirs/`. Durable task contracts and workflow definitions are
+versioned. Secrets, provider payloads, customer text, and raw prompts never
+enter factory artifacts.

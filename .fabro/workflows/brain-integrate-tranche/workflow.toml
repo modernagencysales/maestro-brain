@@ -1,0 +1,2 @@
+name = "brain-integrate-tranche"
+description = "Integrate green Maestro Brain task commits and run one full tranche gate"
