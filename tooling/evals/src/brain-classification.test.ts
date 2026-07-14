@@ -45,4 +45,61 @@ describe("Brain classification eval", () => {
       ]),
     );
   });
+  it("rejects run results when every classification prediction is wrong", () => {
+    const result = evaluateBrainClassification(
+      {
+        suiteVersion: "run-v1",
+        modelId: "candidate",
+        promptVersion: "prompt",
+        toolSchemaVersion: "tool",
+        cases: [
+          {
+            id: "case-a",
+            split: "test",
+            labels: {
+              reviewerA: "client-alpha",
+              reviewerB: "client-alpha",
+              adjudicated: "client-alpha",
+            },
+            allowedTargets: ["client-alpha", "client-beta"],
+            expectedTarget: "client-alpha",
+            outputTargets: ["client-alpha"],
+            committedTarget: "client-alpha",
+          },
+          {
+            id: "case-b",
+            split: "test",
+            labels: {
+              reviewerA: "no-route",
+              reviewerB: "no-route",
+              adjudicated: "no-route",
+            },
+            allowedTargets: ["client-alpha"],
+            expectedTarget: null,
+            outputTargets: [],
+            committedTarget: null,
+          },
+        ],
+      },
+      {
+        schemaVersion: "maestro-brain-classification-run/v1",
+        results: [
+          {
+            caseId: "case-a",
+            outputTargets: ["client-beta"],
+            committedTarget: "client-beta",
+          },
+          {
+            caseId: "case-b",
+            outputTargets: ["client-alpha"],
+            committedTarget: "client-alpha",
+          },
+        ],
+      },
+    );
+
+    expect(result.receipt.passed).toBe(false);
+    expect(result.receipt.metrics.agreement?.numerator).toBe(0);
+    expect(result.status).toBe("rejected");
+  });
 });

@@ -65,4 +65,79 @@ describe("Brain answers eval", () => {
       ]),
     );
   });
+  it("rejects run results when every answer prediction is wrong", () => {
+    const result = evaluateBrainAnswers(
+      {
+        suiteVersion: "run-v1",
+        modelId: "candidate",
+        promptVersion: "prompt",
+        toolSchemaVersion: "tool",
+        cases: [
+          {
+            id: "claim-a",
+            split: "test",
+            labels: {
+              reviewerA: "entailed",
+              reviewerB: "entailed",
+              adjudicated: "entailed",
+            },
+            kind: "claim",
+            output: {
+              claimEntailed: true,
+              citationLocatorResolved: true,
+              redactionMarker: false,
+              abstained: false,
+              inventedSource: false,
+            },
+          },
+          {
+            id: "abstain-a",
+            split: "test",
+            labels: {
+              reviewerA: "abstain",
+              reviewerB: "abstain",
+              adjudicated: "abstain",
+            },
+            kind: "no-evidence",
+            output: {
+              claimEntailed: false,
+              citationLocatorResolved: false,
+              redactionMarker: true,
+              abstained: true,
+              inventedSource: false,
+            },
+          },
+        ],
+      },
+      {
+        schemaVersion: "maestro-brain-answer-run/v1",
+        results: [
+          {
+            caseId: "claim-a",
+            output: {
+              claimEntailed: false,
+              citationLocatorResolved: false,
+              redactionMarker: false,
+              abstained: false,
+              inventedSource: true,
+            },
+          },
+          {
+            caseId: "abstain-a",
+            output: {
+              claimEntailed: false,
+              citationLocatorResolved: false,
+              redactionMarker: false,
+              abstained: false,
+              inventedSource: true,
+            },
+          },
+        ],
+      },
+    );
+
+    expect(result.receipt.passed).toBe(false);
+    expect(result.receipt.metrics.entailment?.numerator).toBe(0);
+    expect(result.receipt.metrics.noEvidenceAbstention?.numerator).toBe(0);
+  });
 });

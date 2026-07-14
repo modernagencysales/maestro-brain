@@ -11,6 +11,17 @@ import {
   type BrainEvalSuiteResult,
 } from "./brain-eval-report";
 
+export type BrainClassificationRunResult = {
+  readonly caseId: string;
+  readonly outputTargets: readonly string[];
+  readonly committedTarget: string | null;
+};
+
+export type BrainClassificationRun = {
+  readonly schemaVersion: "maestro-brain-classification-run/v1";
+  readonly results: readonly BrainClassificationRunResult[];
+};
+
 export type BrainClassificationCase = BrainEvalCaseBase & {
   readonly allowedTargets: readonly string[];
   readonly expectedTarget: string | null;
@@ -50,13 +61,56 @@ export const parseBrainClassificationCases = (
   });
 };
 
+export const parseBrainClassificationRun = (
+  value: unknown,
+): BrainClassificationRun => {
+  const record = assertRecord(value, "classification run");
+  if (record.schemaVersion !== "maestro-brain-classification-run/v1") {
+    throw new Error("classification run schemaVersion must be v1.");
+  }
+  if (!Array.isArray(record.results)) {
+    throw new Error("classification run results must be an array.");
+  }
+  return {
+    schemaVersion: "maestro-brain-classification-run/v1",
+    results: record.results.map((entry) => {
+      const result = assertRecord(entry, "classification run result");
+      return {
+        caseId: assertString(result.caseId, "classification run case id"),
+        outputTargets: assertStringArray(
+          result.outputTargets,
+          "classification run output targets",
+        ),
+        committedTarget:
+          result.committedTarget === null
+            ? null
+            : assertString(
+                result.committedTarget,
+                "classification run committed target",
+              ),
+      };
+    }),
+  };
+};
+
 export const evaluateBrainClassification = (
   suiteFixture: unknown,
+  runInput?: unknown,
 ): BrainEvalSuiteResult => {
   const suite = assertRecord(suiteFixture, "classification fixture");
   const cases = parseBrainClassificationCases(suite.cases);
   const testCases = cases.filter((entry) => entry.split === "test");
   const failures: BrainEvalFailure[] = [];
+  const runResults = new Map(
+    (runInput === undefined
+      ? testCases.map((entry) => ({
+          caseId: entry.id,
+          outputTargets: entry.outputTargets,
+          committedTarget: entry.committedTarget,
+        }))
+      : parseBrainClassificationRun(runInput).results
+    ).map((result) => [result.caseId, result]),
+  );
 
   let agreement = 0;
   let allowlist = 0;
@@ -64,9 +118,19 @@ export const evaluateBrainClassification = (
   let noCrossClientCommit = 0;
 
   for (const testCase of testCases) {
+    const output = runResults.get(testCase.id);
+    if (output === undefined) {
+      failures.push({
+        caseId: testCase.id,
+        message: "Classification run result is missing for test case.",
+      });
+      continue;
+    }
+
+    const predictedTarget = output.outputTargets[0] ?? "no-route";
     const labelAgreement =
       reviewedLabelPassed(testCase.labels) &&
-      testCase.labels.adjudicated === (testCase.expectedTarget ?? "no-route");
+      testCase.labels.adjudicated === predictedTarget;
     if (labelAgreement) agreement += 1;
     else
       failures.push({
@@ -74,7 +138,7 @@ export const evaluateBrainClassification = (
         message: "Classification must match adjudicated reviewer label.",
       });
 
-    const insideAllowlist = testCase.outputTargets.every((target) =>
+    const insideAllowlist = output.outputTargets.every((target) =>
       testCase.allowedTargets.includes(target),
     );
     if (insideAllowlist) allowlist += 1;
@@ -84,7 +148,7 @@ export const evaluateBrainClassification = (
         message: "Classification target must stay inside pinned allowlist.",
       });
 
-    const atMostOne = testCase.outputTargets.length <= 1;
+    const atMostOne = output.outputTargets.length <= 1;
     if (atMostOne) singleTarget += 1;
     else
       failures.push({
@@ -93,8 +157,8 @@ export const evaluateBrainClassification = (
       });
 
     const noCrossClient =
-      testCase.committedTarget === null ||
-      testCase.committedTarget === testCase.expectedTarget;
+      output.committedTarget === null ||
+      output.committedTarget === (testCase.expectedTarget ?? "no-route");
     if (noCrossClient) noCrossClientCommit += 1;
     else
       failures.push({
