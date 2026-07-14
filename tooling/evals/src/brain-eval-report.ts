@@ -48,6 +48,8 @@ export type BrainEvalSuiteResult = {
   readonly status: ModelPromptStatus;
 };
 
+type FixtureRoot = Record<string, unknown>;
+
 export const canonicalJson = (value: unknown): string => {
   if (value === null || typeof value !== "object") return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
@@ -168,8 +170,11 @@ const fixturePath = fileURLToPath(
 export const loadFrozenBrainEvalFixture = (): unknown =>
   JSON.parse(readFileSync(fixturePath, "utf8"));
 
+const frozenFixtureRoot = (): FixtureRoot =>
+  assertRecord(loadFrozenBrainEvalFixture(), "Brain eval fixture");
+
 export const runFrozenBrainEvalSuites = (): readonly BrainEvalSuiteResult[] => {
-  const root = assertRecord(loadFrozenBrainEvalFixture(), "Brain eval fixture");
+  const root = frozenFixtureRoot();
   return [
     evaluateBrainClassification(root.classification),
     evaluateBrainAnswers(root.answers),
@@ -195,3 +200,135 @@ export const buildBrainEvalReport = () => {
 export const writeBrainEvalReport = (path: string): void => {
   writeFileSync(path, `${JSON.stringify(buildBrainEvalReport(), null, 2)}\n`);
 };
+
+export const checkFrozenBrainFixtures = (): BrainEvalReceipt =>
+  checkBrainFixture(loadFrozenBrainEvalFixture());
+
+export const checkBrainFixture = (fixture: unknown): BrainEvalReceipt => {
+  const root = assertRecord(fixture, "Brain eval fixture");
+  const classification = testCases(root.classification);
+  const answers = testCases(root.answers);
+  const maintenance = testCases(root.maintenance);
+  const promptInjection = testCases(root.promptInjection);
+  const multilingual = testCases(root.multilingual);
+  const answerClaims = answers.filter(({ kind }) => kind === "claim");
+  const answerNoEvidence = answers.filter(({ kind }) => kind === "no-evidence");
+  const noRoute = classification.filter(
+    (entry) =>
+      entry.expectedTarget === null || adjudicatedLabel(entry) === "no-route",
+  );
+  const mixedClient = classification.filter(
+    (entry) =>
+      adjudicatedLabel(entry) === "mixed-client" ||
+      entry.caseType === "mixed-client" ||
+      (typeof entry.id === "string" && entry.id.includes("mixed-client")),
+  );
+  const languageCounts = countByString(multilingual, "language");
+  const languageTotals = Array.from(languageCounts.values());
+  const minLanguageCount =
+    languageTotals.length === 0 ? 0 : Math.min(...languageTotals);
+  const metrics = {
+    fixtureCompleteness: metric(presentSuiteCount(root), 5, 1),
+    classificationDenominator: minimumCountMetric(classification.length, 500),
+    classificationNoRouteDenominator: minimumCountMetric(noRoute.length, 100),
+    classificationMixedClientDenominator: minimumCountMetric(
+      mixedClient.length,
+      50,
+    ),
+    answerClaimDenominator: minimumCountMetric(answerClaims.length, 300),
+    answerNoEvidenceDenominator: minimumCountMetric(
+      answerNoEvidence.length,
+      100,
+    ),
+    maintenanceDenominator: minimumCountMetric(maintenance.length, 200),
+    promptInjectionDenominator: minimumCountMetric(promptInjection.length, 200),
+    multilingualLanguageCount: minimumCountMetric(languageCounts.size, 5),
+    multilingualLanguageDenominator: minimumCountMetric(minLanguageCount, 50),
+  };
+  return buildReceipt({
+    suiteVersion: assertString(root.suiteVersion, "suite version"),
+    fixture,
+    modelId: assertString(root.modelId, "model id"),
+    promptVersion: assertString(root.promptVersion, "prompt version"),
+    toolSchemaVersion: assertString(
+      root.toolSchemaVersion,
+      "tool schema version",
+    ),
+    totals: { suites: 5 },
+    metrics,
+    failures: failedMetrics(metrics),
+  });
+};
+
+const countByString = (
+  entries: readonly Record<string, unknown>[],
+  field: string,
+): Map<string, number> => {
+  const counts = new Map<string, number>();
+  for (const entry of entries) {
+    const value = entry[field];
+    if (typeof value === "string")
+      counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+  return counts;
+};
+
+const failedMetrics = (
+  metrics: Record<string, BrainEvalMetric>,
+): readonly BrainEvalFailure[] =>
+  Object.entries(metrics)
+    .filter(([, value]) => !value.passed)
+    .map(([name]) => ({
+      caseId: metricFailureCaseId(name),
+      message: `Frozen fixture check failed ${name}.`,
+    }));
+
+const presentSuiteCount = (root: FixtureRoot): number =>
+  [
+    "classification",
+    "answers",
+    "maintenance",
+    "promptInjection",
+    "multilingual",
+  ].filter((suite) => root[suite] !== undefined).length;
+
+const testCases = (
+  suiteFixture: unknown,
+): readonly Record<string, unknown>[] => {
+  if (suiteFixture === undefined) return [];
+  const cases = assertRecord(suiteFixture, "suite fixture").cases;
+  return Array.isArray(cases)
+    ? cases.filter(
+        (entry): entry is Record<string, unknown> =>
+          typeof entry === "object" &&
+          entry !== null &&
+          !Array.isArray(entry) &&
+          entry.split === "test",
+      )
+    : [];
+};
+
+const adjudicatedLabel = (entry: Record<string, unknown>): unknown => {
+  const labels = entry.labels;
+  return typeof labels === "object" && labels !== null && !Array.isArray(labels)
+    ? (labels as Record<string, unknown>).adjudicated
+    : undefined;
+};
+
+const metricFailureCaseId = (metricName: string): string => {
+  if (metricName.startsWith("classification")) return "classification";
+  if (metricName.startsWith("answer")) return "answers";
+  if (metricName.startsWith("maintenance")) return "maintenance";
+  if (metricName.startsWith("promptInjection")) return "promptInjection";
+  if (metricName.startsWith("multilingual")) return "multilingual";
+  return metricName;
+};
+
+const minimumCountMetric = (
+  count: number,
+  required: number,
+): BrainEvalMetric => ({
+  ...metric(Math.min(count, required), required, 1),
+  numerator: count,
+  passed: count >= required,
+});
