@@ -1,10 +1,4 @@
-import {
-  mkdirSync,
-  mkdtempSync,
-  readlinkSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -35,23 +29,24 @@ afterEach(() => {
 });
 
 describe("worktree dependency hydration", () => {
-  it("links root and package-local installs when manifests match", () => {
+  it("uses a lane-local frozen install when manifests match", () => {
     const { root, workdir } = fixture();
-    mkdirSync(resolve(root, "node_modules"));
-    mkdirSync(resolve(root, "packages/example/node_modules"));
-    const runner = vi.fn();
+    const runner = vi.fn(() => "");
 
     expect(hydrateWorktreeDependencies(root, workdir, runner)).toEqual({
-      linked: 2,
-      mode: "linked",
+      linked: 0,
+      mode: "installed",
     });
-    expect(readlinkSync(resolve(workdir, "node_modules"))).toBe(
-      resolve(root, "node_modules"),
+    expect(runner).toHaveBeenCalledWith(
+      [
+        "pnpm",
+        "install",
+        "--frozen-lockfile",
+        "--prefer-offline",
+        "--ignore-scripts",
+      ],
+      { cwd: workdir },
     );
-    expect(
-      readlinkSync(resolve(workdir, "packages/example/node_modules")),
-    ).toBe(resolve(root, "packages/example/node_modules"));
-    expect(runner).not.toHaveBeenCalled();
   });
 
   it("runs a frozen local install when a workspace manifest drifts", () => {
