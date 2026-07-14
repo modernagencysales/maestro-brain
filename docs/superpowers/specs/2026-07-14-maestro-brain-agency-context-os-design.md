@@ -38,7 +38,9 @@ Non-negotiable V1 invariants:
   classification;
 - every Classify channel has a human-selected finite target-Brain allowlist;
 - a V1 classification routes a complete source unit to zero or exactly one
-  allowed Brain; ambiguous or mixed-client units require review;
+  allowed Brain; ambiguous units require review, while any unit containing
+  evidence for multiple clients is structurally forced to `no_route` because V1
+  has no target-safe span splitting;
 - deterministic capture commits before and independently of every model call;
 - model decisions return typed data that a separate pipe validates and applies
   mechanically;
@@ -46,8 +48,9 @@ Non-negotiable V1 invariants:
   logical effect across duplicate attempts;
 - realtime streaming remains healthy even when classification, maintenance, or
   historical backfill is unavailable;
-- Slack Connect is capture-only in V1, and a Slack channel is never treated as a
-  read grant for the full aggregated Brain.
+- Slack Connect may ingest through Direct or Classify, but its delivery policy
+  is capture-only in V1; a Slack channel is never a read grant for the full
+  aggregated Brain.
 
 This is a small, strong product if it remains a context control plane. It
 becomes a weak product if it expands into a connector catalog, analytics
@@ -129,9 +132,21 @@ initial acceptance fixture is:
 - a 20-event-per-second live burst for 60 seconds while backfill is active; and
 - 10 concurrent authorized Ask/MCP requests.
 
+The loaded profile remains one agency, but the harness also provisions a second
+lightweight canary agency solely for adversarial cross-organization reads, key
+collisions, commits, and deliveries. Cross-Brain checks inside the loaded agency
+do not substitute for this tenant-isolation canary.
+
 Provider-backed Slack tests run separately against the launch-supported Slack
 rate class. Raising an envelope value requires a passing capacity receipt;
 lowering one requires visible onboarding enforcement and customer-facing limits.
+
+Staging and production use distinct Convex deployments, deploy credentials,
+data, storage, provider connections, and WorkOS/Nango callback configuration.
+The template's shared read-only demo backend and `demo/showcase` seed are
+forbidden once tenant implementation begins. Backend-first staging deployment,
+explicit promotion, and compatible rollback must be proven before real pilot
+data is admitted.
 
 ### Explicitly Later
 
@@ -426,13 +441,17 @@ This layer stores normalized source facts exactly:
 - capture timestamp
 - edit/delete state
 
-Provider delivery is at-least-once. A source observation key combines the stable
-provider object key, provider revision discriminator (`edited.ts` or
-equivalent), event ID, and canonical hash. This preserves a real `A -> B -> A`
-edit sequence instead of collapsing the final observation into the first hash.
-Out-of-order observations append, while a documented total-order rule updates
-the latest pointer. Edits append source revisions; deletions append tombstones.
-Neither overwrites history metadata.
+Provider delivery is at-least-once. Transport receipts and logical source
+observations have different identities. A transport receipt is unique by the
+verified delivery/event identifier. A logical source observation is unique by
+connection generation, stable provider object key, provider revision
+discriminator (`edited.ts`, tombstone revision, or equivalent), and canonical
+hash; one observation may cite multiple live/backfill/reconciliation receipts.
+This lets a live event and a history page converge while preserving a real
+`A -> B -> A` edit sequence. Out-of-order observations append, while provider
+timestamp, revision discriminator, and a deterministic receipt tie-breaker form
+the total order that updates the latest pointer. Edits append source revisions;
+deletions append tombstones. Neither overwrites history metadata.
 
 #### 2. Versioned Brain Pages
 
@@ -485,10 +504,28 @@ exports, and backups:
 - Brain deletion, organization deletion, and DSAR.
 
 Revocation fences pending commits, deactivates routes and indexes, blocks
-current retrieval, and marks affected derived pages for redaction or rebuild. A
+current retrieval, and immediately makes an affected current page revision
+non-readable until a reviewed safe replacement becomes current. V1 does not
+attempt selective claim redaction without block/claim-level provenance. A
 citation whose text has been erased resolves to an explicit redacted marker,
 never stale cleartext. Previously downloaded exports are reported as outside
 Maestro's control.
+
+Connection lifecycle is explicit: same-connection reauthorization preserves
+stable channel keys and cursors while incrementing the credential generation;
+connection replacement, team/app change, disconnect, or uninstall revokes the
+old generation, rejects stale webhooks, pauses old channel lanes, fences queued
+jobs/routes/projections/outbox rows, and revokes Slack identity bindings until
+the exact replacement is reviewed. Model providers used with customer text must
+have an approved zero-retention/no-training contract or a documented deletion/
+DSAR API and retention window; otherwise they are not launch-eligible.
+
+DSAR scope is deterministic for exact linked identities: WorkOS subject,
+organization membership, verified Slack `(team_id, user_id)`, source-author
+keys, and every descendant row keyed from those occurrences. Free-text mentions
+or inferred identity are not deleted automatically in V1; they enter a reviewed
+manual-discovery plan whose included/excluded resources and reviewer are part of
+the DSAR receipt.
 
 ### Zero Framework Cognition
 
@@ -702,36 +739,30 @@ output is never described as reproducible.
 
 Nango owns Slack connection infrastructure. Maestro owns context semantics.
 
-| Nango owns                             | Maestro owns                                                                         |
-| -------------------------------------- | ------------------------------------------------------------------------------------ |
-| OAuth and connection UI                | Agency/client tenancy and RBAC                                                       |
-| Token refresh and storage              | Exact normalized source ledger                                                       |
-| Slack API proxy                        | Exact bot identity, membership, and routing policies                                 |
-| Channel directory sync                 | Per-channel cursors, queues, health                                                  |
-| Event challenge and webhook forwarding | Signed connection binding, replay defense, normalization, idempotency                |
-| Slack read/send actions                | Slack identity binding, delivery authorization, revisions, retrieval, answers, audit |
+| Nango owns                     | Maestro owns                                                                         |
+| ------------------------------ | ------------------------------------------------------------------------------------ |
+| OAuth and connection UI        | Agency/client tenancy and RBAC                                                       |
+| Token refresh and storage      | Exact normalized source ledger                                                       |
+| Slack API proxy                | Exact bot identity, membership, and routing policies                                 |
+| Channel/history API operations | Directory scheduling, per-channel cursors, queues, health                            |
+| Slack read/send actions        | Native Slack Events receiver, raw-signature/replay verification, normalization       |
+| OAuth callback metadata        | Slack identity binding, delivery authorization, revisions, retrieval, answers, audit |
 
 Nango's maintained Slack docs show user authorization, proxied channel access,
 prebuilt syncs, and actions
 ([source](https://github.com/NangoHQ/nango/blob/0bef47367085384c037a0ccca83c7d5bfc696d7f/docs/api-integrations/slack.mdx#L7-L87)).
-Its webhook layer handles Slack's verification challenge and routes events to a
-connection by `team_id`
-([source](https://github.com/NangoHQ/nango/blob/0bef47367085384c037a0ccca83c7d5bfc696d7f/docs/api-integrations/slack/webhooks.mdx#L7-L17),
-[source](https://github.com/NangoHQ/nango/blob/0bef47367085384c037a0ccca83c7d5bfc696d7f/docs/api-integrations/slack/webhooks.mdx#L45-L99)).
-
-That same guide warns that an unmatched Slack event can arrive without Nango's
-connection wrapper. Reject it from product ingestion, retain only redacted
-diagnostic metadata, raise connection health, and let per-channel reconciliation
-recover it. Do not guess a tenant from an unverified raw payload.
+Its webhook guide warns that unmatched raw events may arrive without a
+connection wrapper. V1 therefore does not use Nango forwarding as its trust
+boundary. The Slack app points Events API traffic to Maestro's narrow native
+receiver; Nango remains the OAuth/token/API/action boundary.
 
 Before WP2 starts, pin the Slack app manifest, bot scopes, event subscriptions,
-and Nango webhook-authenticity contract. Every accepted event must pass signed
-envelope verification, timestamp/replay-window checks, request-size limits, and
+and native raw-body signature contract. Every accepted event must pass Slack
+signature verification, timestamp/replay-window checks, request-size limits, and
 secret-rotation policy, then bind
 `providerConfigKey + connectionId + connectionGeneration + team_id + api_app_id`
-to exactly one active organization. If Nango cannot provide a durable signed
-forwarding contract, use its OAuth/token proxy with a narrow Maestro-owned Slack
-event receiver instead of weakening verification.
+to exactly one active organization. Unmatched or unverifiable raw payloads
+create redacted health metadata only; tenant inference is forbidden.
 
 Nango is not a complete conversational Slackbot or multi-tenant ingestion
 runtime. Maestro still needs a thin bot handler and a product-specific
@@ -799,6 +830,9 @@ V1 routing rules are deliberately bounded:
 - a channel rename does not change policy because Slack channel ID is stable;
 - changing a Direct target or Classify allowlist creates an immutable policy
   epoch and is prospective by first-observed time by default;
+- a thread revision never mixes policy epochs: messages retain their
+  first-observed epoch and assembly emits same-epoch segments; a reply after a
+  policy change starts a new segment and cannot reroute earlier-epoch text;
 - moving or revoking historical source routes requires a separate explicit,
   audited action;
 - `capture_only` never creates a recovery gap because exact capture continues;
@@ -823,13 +857,17 @@ human-confirmed routing policy is still required before client access.
 
 #### Live event path
 
-Nango forwards Slack events for the one workspace connection. Maestro then:
+Slack sends live Events API requests to a narrow Maestro-owned receiver. Maestro
+verifies Slack's native signature over the raw bytes; Nango continues to own
+OAuth, token refresh, Slack API proxying, bounded history calls, and send
+actions. Maestro then:
 
-1. verifies the signed Nango envelope, replay window, and exact active
-   connection generation;
+1. verifies Slack's native signature/raw-body timestamp, replay window, and
+   active connection generation;
 2. verifies `team_id`, app/bot identity, bot membership, and organization
    binding;
-3. deduplicates the Slack `event_id` and provider observation key;
+3. deduplicates the Slack transport receipt, then converges it with any
+   live/backfill/reconciliation receipt on the logical observation key;
 4. snapshots the active routing-policy epoch, if one exists;
 5. atomically appends the event receipt, exact organization-scoped source
    revision, and durable assembly intent; `needs_policy` becomes
@@ -878,10 +916,10 @@ Backfill runs in two stages:
 Every batch is bounded. It either commits normalized observations and the next
 cursor together, or commits observations first and advances the cursor through
 compare-and-set only after all writes succeed. It respects Slack's `Retry-After`
-and can resume on another worker. Live events and backfill use the same stable
-provider keys, so races produce one logical observation. Scheduled
-reconciliation re-reads a recent overlap window to repair missed edit/delete
-events.
+and can resume on another worker. Live events and backfill use the same logical
+observation key while retaining separate transport receipts, so races converge
+on one source revision. Scheduled reconciliation re-reads a recent overlap
+window to repair missed edit/delete events.
 
 Required multi-channel properties:
 
@@ -929,7 +967,7 @@ user. Display-name or email matching is never sufficient. Bindings are revocable
 and rechecked against current WorkOS/Convex membership and role on every
 request.
 
-Use Nango-forwarded `app_mention` and DM events. The handler:
+Use the verified native `app_mention` and DM events. The handler:
 
 1. verifies, deduplicates, persists, and acknowledges the forwarded event
    without waiting for a model;
@@ -963,11 +1001,14 @@ V1 delivery policy is deliberately conservative:
 Nango already maintains a `chat.postEphemeral` action with `user_id` and
 optional `thread_ts`
 ([source](https://github.com/NangoHQ/integration-templates/blob/e286bd20c5795f9e8bfbc9053e65669941c08c89/integrations/slack/actions/send-ephemeral-message.ts#L4-L35)).
-Use it for internal-channel V1 answers. Outbound delivery is also at-least-once:
-persist Slack response timestamps, reconcile ambiguous timeouts before retry,
-and accept one logical delivery. Mechanically identify and suppress the bot's
-own answer events from maintenance/classification while retaining a receipt.
-Escape mass mentions and unsafe links before delivery.
+Use it for internal-channel V1 answers. Ephemeral delivery is at-most-once:
+persist the outbox effect before the call and never retry an ambiguous timeout,
+because ephemeral history cannot be reliably reconciled. Report the outcome as
+unknown and let the requester create a new answer request with a new effect key.
+DM delivery may retry only behind a provider action with a verified idempotency
+or reconciliation contract. Mechanically identify and suppress the bot's own
+answer events from maintenance/classification while retaining a receipt. Escape
+mass mentions and unsafe links before delivery.
 
 The Vercel AI SDK Slackbot is useful behavioral prior art for fetching thread
 context and replying in a thread
@@ -1306,7 +1347,7 @@ Do not import:
 | Search                         | Provider-neutral deterministic fake/test seam                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Its live contract is synchronous; migrate to async Effect search and add authorized Convex projections before a live adapter ([contract](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/search/src/index.ts#L57-L64))                                                                                                                                                          |
 | API keys and HTTP              | Hashing/table/verification primitives plus generated headless metadata                                                                                                                                                                                                                                                                                                                                                                                                                                        | Add authenticated admin CRUD, role ceilings, bearer principal resolution, server-owned workspace injection, and fail-closed dispatch; current HTTP helper accepts caller tenant identity                                                                                                                                                                                                                                                             |
 | MCP                            | Tool descriptors generated from Confect manifest                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Add reviewed Brain read operations and a real stateless Streamable HTTP transport; descriptors are not a deployable MCP server                                                                                                                                                                                                                                                                                                                       |
-| Slack/Nango                    | Nango supplies auth/proxy/events, channel/message starting templates, and send actions; the stock message sync processes one channel                                                                                                                                                                                                                                                                                                                                                                          | Disable auto-join; add signed organization binding, exact bot membership, independent channel capture/backfill, Slack identity linking, routing, and requester-private delivery                                                                                                                                                                                                                                                                      |
+| Slack/Nango                    | Nango supplies auth/proxy, channel/message starting templates, and send actions; the stock message sync processes one channel                                                                                                                                                                                                                                                                                                                                                                                 | Add native Slack Events signature verification, disable auto-join, and add exact binding/membership, independent capture/backfill, identity linking, routing, and requester-private delivery                                                                                                                                                                                                                                                         |
 | Workpool                       | `@convex-dev/workpool` is mounted with fixed retry defaults, but enqueue/status/background work are demo seams ([source](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/jobs/workpool.ts#L18-L86))                                                                                                                                                                                                                       | Replace the fixture behavior with fenced, fair, tenant-aware source and cognition work                                                                                                                                                                                                                                                                                                                                                               |
 | LLM gateway                    | Provider seam, spend cap, receipts, and fake path; live transport returns placeholder text ([source](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/integrations/src/llm.ts#L167-L248))                                                                                                                                                                                                                                                 | Add real structured transport, schemas, hashes, receipts, malformed-output errors, and eval fixtures                                                                                                                                                                                                                                                                                                                                                 |
 | Workflow generator             | Production-target durable graph and public start/status/approve wrappers                                                                                                                                                                                                                                                                                                                                                                                                                                      | Current output exposes control operations to web/API/CLI/MCP ([source](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/tooling/generators/src/index.ts#L1803-L1875))                                                                                                                                                                                                                     | Add an internal-only workflow mode before using it for capture-driven cognition; never expose model-maintenance controls publicly |
@@ -1383,14 +1424,15 @@ the first generalized source-ingestion pattern through Confect tables/specs, a
 provider-neutral integration interface, and a Nango Slack adapter; promote a
 generator only after schema and lifecycle behavior stabilize.
 
-- Add the Nango Connect boundary and pin the Slack app/event/webhook security
-  contract.
+- Add the Nango Connect boundary and pin the native Slack Events raw-signature
+  security contract.
 - Disable auto-join and implement exact bot membership, organization/connection
   generation binding, channel directory reconciliation, and channel policies.
 - Support bulk Direct, Classify, and Capture only policies with finite
   administrator-selected Classify targets and requester-private delivery policy.
-- Persist event receipt + exact source revision + durable assembly intent in one
-  fast transaction and acknowledge before downstream work.
+- Persist the transport receipt, converged logical observation/source revision,
+  and durable assembly intent in one fast transaction and acknowledge before
+  downstream work.
 - Replace demo workpool behavior with fair per-channel live/recent/deep work,
   independent cursors, fenced leases, typed retries, dead-letter/replay, and
   Slack `Retry-After` handling.
@@ -1405,7 +1447,7 @@ generator only after schema and lifecycle behavior stabilize.
 
 Focused gates:
 
-- signed-envelope, wrong-team/app/connection, replay-window, rotation, and
+- native-signature, wrong-team/app/connection, replay-window, rotation, and
   oversized-webhook denial tests;
 - source normalization/property, duplicate delivery, `A -> B -> A` revision
   order, edit, delete, and tombstone tests;
@@ -1443,8 +1485,9 @@ and `template-gap TB-INTERNAL-WORKFLOW-01`.
   provider-neutral transport, prompt/model/tool-schema versions, usage and
   request/response hashes, and typed malformed-output failures.
 - Keep classification zero-or-one, review-first, closed to the pinned allowlist,
-  and independent of model confidence. Keep all semantic page/evidence choices
-  in model calls and all safety/persistence work in pipes.
+  and independent of model confidence. Mixed-client units are mandatory
+  `no_route` and cannot be reviewer-overridden in V1. Keep all semantic page/
+  evidence choices in model calls and all safety/persistence work in pipes.
 - Enforce the prompt-injection and dependency boundaries for classification,
   maintenance, answers, future imports, and MCP.
 
@@ -1496,7 +1539,7 @@ Focused gates:
 - MCP method/content/protocol/origin/CORS/body/batch/timeout/rate-limit security
   tests and manifest drift checks;
 - Slack identity spoofing, unbound user, ambiguous DM, Slack Connect,
-  ephemeral-audience, and ambiguous-send retry tests;
+  ephemeral-audience, and terminal ambiguous-ephemeral/no-retry tests;
 - citation resolution, entailment, insufficient-evidence, and prompt-injection
   evals.
 
@@ -1591,15 +1634,16 @@ Focused gates:
   channel answers use `chat.postEphemeral` for the verified requester; DMs go
   only to that requester. V1 never posts a full-Brain answer to a channel.
 - The outbound outbox persists audience, authorization generations, and a unique
-  effect key before send. An ambiguous timeout is reconciled before retry and
-  yields at most one logical visible answer.
+  effect key before send. An ambiguous ephemeral timeout is terminal and never
+  retried; a new requester action creates a new logical answer request. DM retry
+  requires a verified provider idempotency/reconciliation contract.
 
 ### Verified Webhooks, Deterministic Ledger, And Fencing
 
-- Accepted events pass signed-forwarding verification, timestamp/replay-window,
-  request-size, secret-rotation, exact team/app/connection generation, and exact
-  bot-membership checks. Unmatched or unverifiable payloads never enter a
-  tenant.
+- Accepted live events pass Slack native raw-body signature verification,
+  timestamp/replay-window, request-size, secret-rotation, exact
+  team/app/connection generation, and exact bot-membership checks. Unmatched or
+  unverifiable payloads never enter a tenant.
 - Repeated event delivery creates one logical observation. A live/backfill race
   creates one logical source revision. A real `A -> B -> A` edit sequence
   retains all three ordered observations, and a deletion appends a tombstone.
@@ -1627,6 +1671,8 @@ Focused gates:
 - The classifier returns zero or exactly one target. An out-of-allowlist target,
   stale snapshot, unresolved evidence quote, malformed result, or multiple
   targets fails structurally.
+- Any unit containing evidence assigned to multiple clients is structurally
+  forced to `no_route`; review cannot override it in V1.
 - Classify is review-first. An organization administrator accepts, changes to a
   different allowed target, or selects no route. Confidence is diagnostic and
   never grants routing, Brain access, or publication.
@@ -1718,17 +1764,23 @@ Focused gates:
 
 - The full declared launch-envelope fixture passes with live capture, deep
   history, classification, search projection, and 10 concurrent authorized Ask
-  requests active; every channel makes progress and no tenant crosses another.
+  requests active; every channel makes progress. A second lightweight canary
+  agency continuously attempts adversarial cross-organization reads, key
+  collisions, commits, and deliveries.
 - In the synthetic adapter fixture, 95% of live events become visible in the
   source ledger within 60 seconds and one large channel cannot starve another.
   Provider-backed SLAs are published separately by Slack rate class.
 - The product blocks or explicitly queues configuration above the verified
   envelope; it never accepts it and silently drops channels, events, or jobs.
-- Before general V1 launch, at least five design-partner agencies complete
-  activation. At least 80% get an accepted Client Brief proposal, at least 70%
-  rate a cited answer useful, at least 50% use Slack or MCP in addition to web
-  during week one, and median Brain administration stays under ten minutes per
-  active agency per week.
+- Before general V1 launch, at least five design-partner agencies complete a
+  minimum seven-day observation window. Thresholds use exact integer numerators
+  with ceiling rounding: at least 80% get an accepted Client Brief proposal, at
+  least 70% rate a cited answer useful, at least 50% use Slack or MCP in
+  addition to web during week one, median time to first reviewable cited
+  proposal or explicit insufficient-evidence result is under 15 minutes, median
+  Brain administration stays under ten minutes per active agency per week, and
+  each active client averages fewer than two manual Brain-maintenance actions
+  per week.
 - The pilot has zero cross-client disclosure, Slack audience, key-scope, or
   unverified-webhook incidents. Any such incident blocks launch regardless of
   aggregate adoption scores.

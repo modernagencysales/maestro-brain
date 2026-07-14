@@ -30,60 +30,38 @@ commit/PR boundary.
 - WorkOS/AuthKit establishes human identity and agency organization; the
   template's existing `viewer | editor | admin | owner` role resolver remains
   the only human authorization source.
-- Nango owns Slack OAuth, token storage/refresh, API proxying, maintained syncs,
-  and send actions. Maestro owns signed connection binding, exact bot identity,
-  per-channel state, source semantics, routing, lifecycle, and delivery
-  authorization.
+- Nango owns Slack OAuth, token storage/refresh, API proxying, bounded history
+  and send actions. Maestro owns the native signed Events receiver, connection
+  binding, exact bot identity, per-channel scheduling/state, source semantics,
+  routing, lifecycle, and delivery authorization.
 - Capture, normalization, ordering, persistence, leases, policies, lifecycle,
   and commits are deterministic. Semantic selection, classification,
   maintenance, scope selection, and answering are explicit structured model
   calls. No helper mixes the two sides.
-- Slack Connect is capture-only in V1. Internal Slack answers are visible only
-  to the verified requester through ephemeral or DM delivery.
+- Slack Connect may route captured source through Direct/Classify, but delivery
+  is capture-only in V1. Internal Slack answers are visible only to the verified
+  requester through ephemeral or DM delivery.
 - External API/MCP is read-only and one-Brain-scoped. Analytics, arbitrary
   connectors, file ingestion, Git sync, re-import, write MCP, channel-wide
   answers, digests, and content generation remain outside V1.
 
 ## Non-Negotiable Execution Rules
 
-1. **Do not implement before S00-T01 passes on three distinct machines.** Each
-   machine must have the Convex Codex plugin installed with
-   `codex plugin add convex@openai-curated` and a durable redacted receipt.
-2. **Use this SaaS UI/Chakra fork only.** Do not implement in `maestro`,
-   `maestro-template`, or a Notion Kit fork. Production Maestro is read-only
-   prior art.
-3. **Preserve the layer law.** Routes call screens/features; features call
-   generated Confect refs; capabilities authorize and delegate; workflows
-   compose capabilities; provider SDKs stay behind Effect services/adapters.
-4. **Generated files are never hand-edited.** After any Confect table/spec/impl
-   change run `rtk pnpm confect:codegen` and `rtk pnpm confect:manifest`, then
-   inspect and commit the generated diff.
-5. **Tests fail first.** Every slice begins with the stated failing test or
-   deterministic preflight. A test that passes before the implementation must be
-   strengthened until it proves the missing behavior.
-6. **One slice stays at or below 300 changed source lines.** Tests, generated
-   output, and docs still count for review even when the stack tool's source
-   budget does not. Split a slice before coding when its estimate or actual
-   source diff exceeds 300 lines.
-7. **One stack contains at most four slices.** The fourteen stacks below are
-   ordered. Do not merge a dependent stack before every prerequisite stack is
-   merged and deployed to the shared staging baseline.
-8. **The Markdown file is canonical.** Generate one temporary StackPlan JSON for
-   only the next stack immediately before implementation, validate it with
-   `rtk pnpm stack:check <absolute-temp-plan.json>`, and discard it after the
-   stack is merged. Do not check in fourteen stale JSON plans.
-9. **One intention per commit and PR.** Use the branch and commit boundary named
-   by the task. Run every focused gate and `rtk just verify` before submitting
-   each slice. Run `rtk just verify-full` at stack release checkpoints and the
-   final release gate.
-10. **Never weaken a gate.** A red gate is a finding. Do not add suppressions,
-    edit thresholds, expose an internal capability, or bypass auth to make it
-    green.
-11. **Preserve unrelated work.** Start implementation in a clean worktree from
-    the pinned/approved baseline; never reset or clean the user's existing
-    checkout.
-12. **No secrets or customer text in receipts.** Record names, versions, hashes,
-    counts, statuses, redacted error tags, and command results only.
+Repository-wide layer, generator, work-package, testing, gate, commit,
+suppression, and worktree rules come from [`AGENTS.md`](../../../AGENTS.md) and
+the linked app-factory/playbook sources; this plan does not restate or weaken
+them. Product-specific additions are:
+
+1. S00-T01's three-host Convex plugin receipt gates source implementation.
+2. The pinned SaaS UI/Chakra fork is the implementation base; external Maestro
+   is read-only prior art.
+3. This Markdown is canonical. Generate, validate, hash, and discard only the
+   next stack's temporary StackPlan JSON.
+4. Each StackPlan reports hand-authored source lines separately from generated,
+   test, and documentation review totals. The 300-source-line and four-slice
+   limits remain binding.
+5. Receipts contain names, versions, hashes, counts, statuses, redacted error
+   tags, and command results—never secrets or customer text.
 
 ## Source Pins And Existing-Code Authority
 
@@ -138,7 +116,7 @@ Before every stack:
 | SLK-05 | Preserve exact append-only observations, `A -> B -> A` edits, tombstones, total ordering, hashes, permalinks, and immutable latest pointers.         |
 | SLK-06 | Assemble bounded immutable source-unit snapshots at a fixed cut before any model call.                                                               |
 | SLK-07 | Run fenced, fair, bounded live/recent/deep/reconciliation work with atomic cursors, rate limits, dead letters, and honest gaps.                      |
-| SLK-08 | Keep Slack Connect capture-only and send internal answers only to a currently authorized requester.                                                  |
+| SLK-08 | Keep Slack Connect delivery capture-only while allowing reviewed Direct/Classify ingestion; send internal answers only to a current requester.       |
 | SLK-09 | Link exact Slack/Maestro identities and use an idempotent, authorization-fenced outbound delivery outbox.                                            |
 | ZFC-01 | Keep capture/gather/commit pipes deterministic and model adapters semantic, separately typed, metered, observable, and testable.                     |
 | AI-01  | Provide provider-neutral schema-constrained LLM calls with immutable request/response hashes, versions, usage, budgets, and typed failures.          |
@@ -165,7 +143,7 @@ slice/PR; no row may contain more than four tasks.
 
 | Stack                                        | Slices | Depends on    | Release checkpoint                                                |
 | -------------------------------------------- | -----: | ------------- | ----------------------------------------------------------------- |
-| S00 Readiness and migration foundation       |      4 | none          | Three-host plugin receipt, source/backlog pins, migration harness |
+| S00 Readiness and migration foundation       |      4 | none          | Plugin/pins, isolated deployments, migration harness              |
 | S01 Identity, tenancy, and RBAC              |      4 | S00           | Real sign-in/provision/list/member isolation on staging           |
 | S02 Brain persistence and revision contracts |      4 | S01           | Authorized stable-key page/version/citation/editor contracts      |
 | S03 Product shell and Client Brief UI        |      4 | S02           | Useful responsive Brain UI with history/restore                   |
@@ -178,7 +156,8 @@ slice/PR; no row may contain more than four tasks.
 | S10 Slack identity and private delivery      |      4 | S04, S09      | Verified requester-only mention/DM answers                        |
 | S11 Service principals, API, and MCP         |      4 | S09           | Read-only one-Brain API/MCP from shared capabilities              |
 | S12 Deterministic export                     |      3 | S07, S11      | Byte-identical authorized export with expiring artifact           |
-| S13 Evals, capacity, operations, and launch  |      4 | S10, S11, S12 | Full release, pilot, and rollback evidence                        |
+| S13 Evals, capacity, and operations          |      4 | S10, S11, S12 | Reproducible eval/capacity and safe operations                    |
+| S14 Staging, pilot, launch, and rollback     |      1 | S13           | Signed release, pilot, promotion, and rollback evidence           |
 
 ---
 
@@ -226,10 +205,10 @@ slice/PR; no row may contain more than four tasks.
 - **Commit / PR boundary:** branch `codex/brain-s00-convex-plugin-readiness`;
   commit `chore: attest Convex plugin readiness`; docs-only first slice.
 
-### S00-T02 — Freeze Sources And Register Every Template Gap
+### S00-T02 — Freeze Sources, Register Gaps, And Prove Stack Receipts
 
-- **Outcome / requirements:** satisfy FND-02 and make every later `template-gap`
-  reference real and reviewable before code uses it.
+- **Outcome / requirements:** satisfy FND-02, make every later `template-gap`
+  reviewable, and prove the just-in-time StackPlan projection fails closed.
 - **Classification:** `template-gap`; target the missing Maestro Brain pattern
   ledger; backlog reference `docs/template/porting-backlog.md`; resolution is to
   register gaps and their promotion/import paths.
@@ -241,73 +220,96 @@ slice/PR; no row may contain more than four tasks.
   lifecycle gaps in
   [`porting-backlog.md`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/docs/template/porting-backlog.md#L506-L541).
 - **Files:** modify `docs/template/porting-backlog.md`; create
-  `docs/superpowers/receipts/maestro-brain/source-baseline.md`; do not modify
-  the design or this plan except through an explicit drift amendment.
+  `docs/superpowers/receipts/maestro-brain/source-baseline.md` and
+  `docs/superpowers/receipts/maestro-brain/stack-execution-contract.md`; do not
+  modify the design or this plan except through an explicit drift amendment.
 - **Failure-first gate:** run `rtk git rev-parse HEAD`; verify the
   implementation base contains `123adb18c0abfe81fe98dd531c910b6cf493c8dd`;
   verify the five external repositories at the pinned commits in **Source
   Pins**. Fail if any pin cannot be resolved or if an anchor disagrees with the
-  design.
+  design. Create the temporary S00 manifest outside the repo, omit
+  `workPackages.followUpGates`, use `estLines: 301`, and add a fifth slice in
+  separate trials; `rtk pnpm stack:check <absolute-temp-plan.json>` must reject
+  each before the corrected manifest passes.
 - **Implementation:** add backlog entries with exact IDs and ownership:
   `TB-DEVEX-CONVEX-01`, `TB-AUTHKIT-01`, `TB-BRAIN-UI-01`, `TB-NANGO-SLACK-01`,
   `TB-SOURCE-01`, `TB-SOURCE-LIFECYCLE-01`, `TB-AUTHORIZED-KNOWLEDGE-01`,
   `TB-STRUCTURED-LLM-01`, `TB-INTERNAL-WORKFLOW-01`, `TB-ASYNC-SEARCH-01`,
-  `TB-HEADLESS-01`, and `TB-BRAIN-EXPORT-01`. Each entry names current absence,
-  generic template lesson, product-specific first implementation path, promotion
-  criteria, owner, and focused gates. Record source pin verification without
-  copying customer data.
+  `TB-HEADLESS-01`, `TB-BRAIN-EXPORT-01`, `TB-DEPLOY-ISOLATION-01`,
+  `TB-AUTHORIZED-TENANCY-01`, `TB-ACCESS-UI-01`, `TB-EVALS-01`,
+  `TB-OPERATIONS-01`, and `TB-RELEASE-EVIDENCE-01`. Each entry names current
+  absence, generic template lesson, product-specific first implementation path,
+  promotion criteria, owner, and focused gates. Document the StackPlan fields,
+  source-line audit, generated/test/docs review totals, and split-not-waive
+  rule. Record source pins without customer data and delete the temporary JSON
+  after preserving its hash/result.
 - **Contract / state:** a gap is
   `registered -> product instance -> proven -> promoted | retained product-specific`;
   no task may call a gap “complete” just because the product instance exists.
 - **Migration / rollback:** docs only. Revert the slice if the pin or gap names
   are wrong; never renumber an ID after a dependent PR references it.
 - **Focused verification:**
-  `rtk pnpm exec prettier --check docs/template/porting-backlog.md docs/superpowers/receipts/maestro-brain/source-baseline.md`,
-  `rtk pnpm check:docs-freshness`, `rtk git diff --check`, and
-  `rtk just verify`.
-- **Completion receipt:** source commit, resolved URL, verification date, gap
-  IDs, and promotion path are present; no floating `main`/`latest` source is
-  treated as authority.
-- **Commit / PR boundary:** branch `codex/brain-s00-source-and-gap-ledger`
-  stacked on T01; commit `docs: register Brain implementation gaps`.
-
-### S00-T03 — Establish Just-In-Time Stack And Diff Receipts
-
-- **Outcome / requirements:** satisfy FND-02 by proving the next stack cannot
-  start with an invalid/deep/oversized or incomplete plan.
-- **Classification:** `pattern-instance`; target the existing StackPlan
-  validator; generator command is the manual temporary JSON projection required
-  by `rtk pnpm stack:check` because the Markdown remains canonical.
-- **Dependencies:** S00-T02.
-- **Existing anchors:** the validator caps estimates at 300 lines and stack
-  depth at four and rejects incomplete work-package metadata in
-  [`plan.mts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/tooling/stack/plan.mts#L12-L58).
-- **Files:** create
-  `docs/superpowers/receipts/maestro-brain/stack-execution-contract.md`; modify
-  no stack validator unless the documented current schema cannot represent this
-  plan.
-- **Failure-first gate:** create the temporary S00 manifest outside the repo,
-  deliberately omit one `workPackages.followUpGates`, and prove
-  `rtk pnpm stack:check <absolute-temp-plan.json>` fails. Restore the field and
-  prove it passes. Repeat with `estLines: 301` and five slices.
-- **Implementation:** document the per-stack manifest projection fields:
-  `feature`, numbered `slices`, branch, intention, layers, contract risk IDs,
-  existing-module repair checklist where required, classified work packages,
-  task refs, rationale, and estimate. Document the source-line audit command
-  used before submit and the rule to split rather than waive an oversized slice.
-- **Contract / state:** stack is
-  `unprojected -> projected -> validated -> in progress -> merged -> receipt archived`;
-  any source drift returns it to `unprojected`.
-- **Migration / rollback:** no application migration. Delete only the temporary
-  JSON after merge; keep the Markdown receipt.
-- **Focused verification:** adversarial fail/pass transcript,
+  `rtk pnpm exec prettier --check docs/template/porting-backlog.md docs/superpowers/receipts/maestro-brain/source-baseline.md docs/superpowers/receipts/maestro-brain/stack-execution-contract.md`,
   `rtk pnpm test:stack`, `rtk pnpm check:docs-freshness`,
   `rtk git diff --check`, and `rtk just verify`.
-- **Completion receipt:** includes the exact temporary file hash, validator
-  result, task coverage, depth, and per-slice estimates; contains no stale JSON
-  plan in Git.
-- **Commit / PR boundary:** branch `codex/brain-s00-stack-receipts`; commit
-  `docs: define Brain stack receipts`.
+- **Completion receipt:** source commit, resolved URL, verification date, gap
+  IDs/promotion paths, adversarial fail/pass transcript, temporary manifest
+  hash, depth, and source estimates are present; no floating source or stale
+  JSON plan is treated as authority.
+- **Commit / PR boundary:** branch `codex/brain-s00-source-gap-stack-contract`
+  stacked on T01; commit `docs: define Brain execution contract`.
+
+### S00-T03 — Isolate Staging And Production Deployments
+
+- **Outcome / requirements:** satisfy FND-02 and REL-04 before tenant data
+  exists; staging and production must use distinct Convex deployments,
+  credentials, provider callbacks, data, and promotion/rollback paths with no
+  demo seed.
+- **Classification:** `template-gap`; target `TB-DEPLOY-ISOLATION-01`; the
+  product instance repairs the template deployment scripts, and the generic
+  promotion path is a reusable isolated-backend release pattern.
+- **Dependencies:** S00-T02.
+- **Existing anchors:** the current config explicitly shares one read-only demo
+  Convex backend between staging and production in
+  [`project.config.json`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/project.config.json#L1-L42),
+  and both pinned deploy scripts seed `demo/showcase` after backend deploy
+  ([staging](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/.buildkite/scripts/staging-deploy.sh#L19-L35),
+  [production](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/.buildkite/scripts/production-promote.sh#L24-L41)).
+- **Files:** modify `project.config.json`,
+  `.buildkite/scripts/staging-deploy.sh`,
+  `.buildkite/scripts/production-promote.sh`, `tooling/release/src/index.ts`,
+  `tooling/release/src/index.test.ts`, `.env.example`,
+  `docs/template/env-manifest.md`, and `docs/template/env-manifest.json`; create
+  `tooling/release/src/project-config.ts` and
+  `docs/superpowers/receipts/maestro-brain/deployment-isolation.md`.
+- **Failure-first tests:** current config fails because staging/production
+  `convexUrl` values match; current scripts fail because they invoke
+  `demo/showcase:seed`; staging credentials cannot deploy production and vice
+  versa; promotion of an unstaged SHA and rollback to an incompatible schema
+  fail closed.
+- **Implementation:** provision/configure distinct deployment names, URLs and
+  namespaced deploy keys; remove demo seeding from both tenant deploy paths;
+  require explicit `deploy-doctor staging` and `deploy-doctor production`;
+  backend-first staging records the staged SHA/schema/manifest, and production
+  promotion accepts only that compatible staged SHA. Add a rollback-plan command
+  that selects the prior compatible binary without data down-migration.
+- **Typed errors / state:** environment is
+  `unconfigured -> isolated -> staged -> promoted | rollback_ready`; errors are
+  `SharedBackendForbidden`, `EnvironmentCredentialMismatch`,
+  `DemoSeedForbidden`, `UnstagedCommit`, and `IncompatibleRollback`.
+- **Migration / compatibility / rollback:** no customer data exists yet. Create
+  the production deployment empty, verify isolation canaries, and destroy only
+  erroneous empty deployments. Never copy the shared demo database into either
+  tenant environment.
+- **Focused verification:** `rtk pnpm --dir tooling/release test`,
+  `rtk pnpm deploy:doctor staging`, `rtk pnpm deploy:doctor production`, script
+  static tests proving no `demo/showcase:seed`, distinct-URL/credential
+  canaries, `rtk pnpm check:env-boundary`, and `rtk just verify-full`.
+- **Completion receipt:** redacted deployment names/URL hashes, distinct-key
+  owner metadata, negative cross-deploy attempts, staged/promotion/rollback-plan
+  results, and no-demo-seed scan.
+- **Commit / PR boundary:** branch `codex/brain-s00-deployment-isolation`;
+  commit `fix: isolate tenant deployments`.
 
 ### S00-T04 — Add A Resumable Expand/Backfill/Contract Migration Harness
 
@@ -332,11 +334,14 @@ slice/PR; no row may contain more than four tasks.
   supports dry-run counts, refuses an unknown migration name, and exposes no
   public/MCP/API function.
 - **Implementation:** wrap the installed component with named internal
-  migrations and a typed receipt
-  `{ name, mode, cursor, scanned, changed, skipped, failed, complete, startedAt, finishedAt }`.
-  Require explicit `dryRun | execute`, a fixed batch cap, idempotent row
-  predicate, and no delete operation in expand/backfill phases. Reserve names
-  for organization/Brain/page keys; do not execute them yet.
+  migrations. A batch-run receipt is
+  `{ migrationName, mode, cursor, scanned, changed, skipped, failed, complete, startedAt, finishedAt }`;
+  its parent release-migration receipt adds
+  `{ releaseCommit, schemaBefore, schemaAfter, parityChecks, rollbackOwner, observationEndsAt }`
+  and is the Appendix K contract. Require explicit `dryRun | execute`, a fixed
+  batch cap, idempotent row predicate, and no delete operation in
+  expand/backfill phases. Reserve names for organization/Brain/page keys; do not
+  execute them yet.
 - **Typed errors / state:** errors are `MigrationNotFound`,
   `MigrationAlreadyRunning`, `MigrationCursorInvalid`, and
   `MigrationBatchFailed`; run state is `planned -> running -> complete | failed`
@@ -460,9 +465,9 @@ slice/PR; no row may contain more than four tasks.
 - **Outcome / requirements:** satisfy IAM-01, IAM-02, IAM-03, UI-02; a signed-in
   user sees only Brains granted by current organization/workspace membership and
   authorized admins can create a client Brain.
-- **Classification:** `fixture-to-real` for the existing
-  `auth/workspaces.{spec,impl}.ts` plus deliberate contract migration; the real
-  boundary is `Auth + DatabaseReader/Writer + requireWorkspaceAccess`.
+- **Classification:** `template-gap`; target `TB-AUTHORIZED-TENANCY-01` while
+  extending the already database-backed `auth/workspaces.{spec,impl}.ts`; the
+  promotion path is a generic server-derived workspace-list/provision pattern.
 - **Dependencies:** S01-T02.
 - **Existing anchors:** the current public query collects every workspace
   without auth in
@@ -472,7 +477,8 @@ slice/PR; no row may contain more than four tasks.
 - **Files:** modify `packages/convex/confect/auth/workspaces.spec.ts`,
   `packages/convex/confect/auth/workspaces.impl.ts`,
   `packages/convex/confect/access/provisioning.{spec,impl,ts}`,
-  `apps/web/src/providers/workspace-operations.ts`, and provider tests; create
+  `apps/web/src/providers/workspace-operations.ts`, and
+  `apps/web/src/providers/workspace-operations.test.ts`; create
   `packages/convex/test/authorized-brain-provisioning.test.ts`.
 - **Failure-first tests:** signed-out list/create, suspended user/org, unrelated
   org, viewer/editor client creation, duplicate client slug/key, caller-supplied
@@ -487,8 +493,8 @@ slice/PR; no row may contain more than four tasks.
   workspace controller interface.
 - **Typed errors / state:** `Unauthorized`, `Forbidden`, `OrganizationNotFound`,
   `BrainNotFound`, `BrainAlreadyExists`, `ProvisioningConflict`; Brain state is
-  `provisioning -> active -> archived -> deleted`, and only active rows list by
-  default.
+  `provisioning -> active`, `active <-> archived`, and
+  `active | archived -> deleting -> deleted`; only active rows list by default.
 - **Migration / compatibility / rollback:** dual-return legacy `workspaceId`
   internally only until all web adapters consume `brainKey`; public contract
   never exposes it. Roll back the web adapter and public spec together; creation
@@ -508,21 +514,23 @@ slice/PR; no row may contain more than four tasks.
 
 - **Outcome / requirements:** satisfy IAM-04 and establish the role/capability
   matrix every later task must reuse.
-- **Classification:** `pattern-instance` over real
-  `access/members`/`access/invitations`; the target is the existing access
-  pattern and settings feature composition. No fixture body is replaced by this
-  slice.
+- **Classification:** `template-gap`; target `TB-ACCESS-UI-01` while extending
+  real `access/members`/`access/invitations`; promote the generated-ref member
+  management and settings composition after its role matrix is proven.
 - **Dependencies:** S01-T03.
 - **Existing anchors:** member and invitation mutations already exist under
   `packages/convex/confect/access/`; the Settings surface still renders
   placeholder copy in
   [`settings-surface.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/apps/web/src/features/settings/settings-surface.ts#L34-L52).
 - **Files:** modify `packages/convex/confect/access/tenancySchemas.ts`,
-  `packages/convex/confect/access/audit.ts`, access specs/impls only where the
-  matrix requires it, `apps/web/src/features/settings/settings-surface.ts`, and
-  `_workspace.settings.tsx`; create
-  `apps/web/src/features/settings/member-management-adapter.ts`,
-  `member-management.tsx`, tests, and
+  `packages/convex/confect/access/audit.ts`,
+  `packages/convex/confect/access/members.{spec,impl}.ts`,
+  `packages/convex/confect/access/invitations.{spec,impl}.ts`,
+  `apps/web/src/features/settings/settings-surface.ts`,
+  `settings-surface.test.ts`, and `apps/web/src/routes/_workspace.settings.tsx`;
+  create `apps/web/src/features/settings/member-management-adapter.ts`,
+  `member-management-adapter.test.ts`, `member-management.tsx`,
+  `member-management.test.tsx`, and
   `packages/convex/test/brain-role-matrix.test.ts`.
 - **Failure-first tests:** exercise every operation in Appendix B for all four
   roles, direct workspace membership, organization-admin baseline, revoked
@@ -582,8 +590,8 @@ slice/PR; no row may contain more than four tasks.
   publish state, and lifecycle. Add compound indexes from Appendix C.
 - **Typed errors / state:** `PageNotFound`, `ParentPageNotFound`,
   `PageTreeConflict`, `PageCycle`, `RevisionNotFound`, `TenantMismatch`; page is
-  `active -> archived -> redacted -> purged`, revision is
-  `draft -> proposed -> published | rejected -> redacted -> purged`.
+  `active <-> archived`, then `active | archived -> redacted -> purged`;
+  revision is `draft -> proposed -> published | rejected -> redacted -> purged`.
 - **Migration / compatibility / rollback:** expand optional fields; backfill
   deterministic keys/root parents/revision seeds from current Markdown; verify
   hashes and sibling uniqueness; dual-write old snapshot fields through S02;
@@ -602,8 +610,8 @@ slice/PR; no row may contain more than four tasks.
 - **Outcome / requirements:** satisfy IAM-04, KNW-01, UI-03; viewers read while
   editors create/rename/move/favorite/archive and all authority is
   server-derived.
-- **Classification:** `pattern-instance` against the existing database-backed
-  `brain/pages` module, not a replacement system.
+- **Classification:** `template-gap`; target `TB-AUTHORIZED-KNOWLEDGE-01` while
+  extending the existing database-backed `brain/pages` module, not replacing it.
 - **Dependencies:** S02-T01.
 - **Existing anchors:** current specs take caller Convex IDs and expose
   `createMarkdown` to MCP in
@@ -690,8 +698,9 @@ slice/PR; no row may contain more than four tasks.
 - **Outcome / requirements:** satisfy UI-03, IAM-04, KNW-01; BlockNote sync is
   readable by viewers, writable by editors, and cannot publish a stale or
   cross-Brain snapshot.
-- **Classification:** `pattern-instance` extending the existing ProseMirror sync
-  substrate.
+- **Classification:** `template-gap`; target `TB-AUTHORIZED-KNOWLEDGE-01`;
+  integrate the existing ProseMirror substrate with stable-key resolution and
+  revision fences, then promote that generic bridge.
 - **Dependencies:** S02-T03.
 - **Existing anchors:** the reusable editor takes `documentId` and `editable` in
   [`BlockNoteSyncEditor.tsx`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/editor-react/src/BlockNoteSyncEditor.tsx#L20-L69),
@@ -699,7 +708,7 @@ slice/PR; no row may contain more than four tasks.
   [`editor/sync.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/editor/sync.ts#L24-L63).
 - **Files:** modify `packages/convex/confect/editor/documentTargets.ts`,
   `editor/sync.ts`, `editor/syncApi.ts`, `brain/pages.{spec,impl}.ts`, and
-  editor tests; create
+  `packages/convex/test/editor-sync.test.ts`; create
   `packages/convex/test/brain-editor-revision-fence.test.ts`.
 - **Failure-first tests:** forged stable key, cross-Brain key collision, viewer
   write, revoked membership, archived/redacted page, stale expected revision,
@@ -853,8 +862,9 @@ slice/PR; no row may contain more than four tasks.
 
 - **Outcome / requirements:** satisfy UI-04, KNW-01, AI-03 UI prerequisites;
   every revision is inspectable and restoration appends history.
-- **Classification:** `pattern-instance` on S02 revision/citation contracts;
-  reusable review UI remains tracked by backlog gap `TB-BRAIN-UI-01`.
+- **Classification:** `template-gap`; target `TB-BRAIN-UI-01`; build the
+  reusable revision/review UI on S02 contracts and promote it after the product
+  instance passes accessibility and role gates.
 - **Dependencies:** S03-T03.
 - **Existing anchors:** current template versioning vocabulary and table exist
   in
@@ -863,8 +873,11 @@ slice/PR; no row may contain more than four tasks.
   [`versionedEntries.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/tables/versionedEntries.ts#L4-L35).
 - **Files:** create `apps/web/src/features/brain/revision-history.tsx`,
   `revision-diff.tsx`, `citation-list.tsx`, `restore-dialog.tsx`,
-  `review-queue.tsx`, view-model/tests; modify the evidence drawer and Brain
-  adapter.
+  `review-queue.tsx`, `revision-history.test.tsx`, `revision-diff.test.tsx`,
+  `citation-list.test.tsx`, `restore-dialog.test.tsx`, and
+  `review-queue.test.tsx`; modify
+  `apps/web/src/features/brain/brain-evidence-drawer.tsx` and
+  `brain-adapter.ts`.
 - **Failure-first tests:** viewer cannot restore/review; editor restores;
   redacted citation shows marker not text; unresolved legacy citation cannot
   authorize publication; stale restore fails; diff escapes untrusted HTML; queue
@@ -898,29 +911,32 @@ slice/PR; no row may contain more than four tasks.
 - **Classification:** `template-gap`; target `TB-NANGO-SLACK-01`; resolution
   adds a generic Nango Effect service and a product-specific Slack connection
   capability.
-- **Dependencies:** S01 complete; S03 provides the Connections shell.
+- **Dependencies:** S01 and S03 complete.
 - **Existing anchors:** Nango's pinned Slack guide documents authorization,
   proxy access, syncs, and actions in
   [`slack.mdx`](https://github.com/NangoHQ/nango/blob/0bef47367085384c037a0ccca83c7d5bfc696d7f/docs/api-integrations/slack.mdx#L7-L87);
   provider SDK imports must remain behind the template's Effect adapter
   boundary.
 - **Files:** modify `packages/integrations/package.json`,
-  `packages/convex/package.json`, `apps/web/package.json`, `pnpm-lock.yaml`,
-  `.env.example`, and env manifests; create
-  `packages/integrations/src/nango/client.ts`, `nango/slack.ts`, tests,
+  `packages/convex/package.json`, `pnpm-lock.yaml`, `.env.example`,
+  `docs/template/env-manifest.md`, and `docs/template/env-manifest.json`; create
+  `packages/integrations/src/nango/client.ts`, `nango/connectBrowser.ts`,
+  `nango/slack.ts`, `nango/client.test.ts`, `nango/connectBrowser.test.ts`,
   `packages/convex/confect/integrations/slackConnections.{spec,impl}.ts`,
   `packages/convex/test/slack-connections.test.ts`, and
-  `apps/web/src/features/connections/nango-connect-button.tsx` plus tests.
+  `apps/web/src/features/connections/nango-connect-button.tsx` and
+  `nango-connect-button.test.tsx`.
 - **Failure-first tests:** signed-out/non-org-admin connect, raw token input,
   forged/expired Connect session, second active Slack connection, provider
   timeout, and connection ID from another organization all fail. Tests assert no
   token/session value enters logs or durable rows.
-- **Implementation:** pin `@nangohq/node@0.71.0` inside integrations and
-  `@nangohq/frontend@0.71.0` inside web. An authenticated organization-admin
-  capability creates a short-lived Nango Connect session and returns only its
-  client token/expiry. The browser opens Nango Connect. The authenticated
-  callback persists the returned `connectionId` through the backend; no Slack
-  access/refresh token crosses Maestro code.
+- **Implementation:** pin `@nangohq/node@0.71.0` and `@nangohq/frontend@0.71.0`
+  inside `packages/integrations`; web imports only the narrow `connectBrowser`
+  adapter, never a provider SDK. An authenticated org-admin capability creates a
+  short-lived Nango Connect session and returns only its client token/expiry.
+  The browser opens Nango Connect. The authenticated callback persists the
+  returned `connectionId` through the backend; no Slack access/refresh token
+  crosses Maestro code.
 - **Typed contract / errors:**
   `beginSlackConnect({}) -> { connectSessionToken, expiresAt }`;
   `completeSlackConnect({ connectionId, connectSessionId }) -> { connectionKey, status }`;
@@ -965,13 +981,19 @@ slice/PR; no row may contain more than four tasks.
 - **Failure-first tests:** duplicate active connection/team/app binding,
   `is_member` derived from installer user token, auto-join invocation, channel
   from a stale connection generation, team mismatch, channel rename creating a
-  new key, and Slack Connect flag loss all fail.
+  new key, same-connection reauthorization losing cursors, replacement retaining
+  old jobs/bindings, and Slack Connect flag loss all fail.
 - **Implementation:** after connect, call Slack `auth.test` through Nango's bot
   credential and persist `teamId`, `apiAppId`, `botUserId`. Reconcile the full
   paginated channel directory in bounded pages. Persist stable `connectionKey`
   and `channelKey`; external channel ID is unique inside connection generation.
   Update names/flags in place; exact bot membership controls capture
-  eligibility. Never call `conversations.join`.
+  eligibility. Same-connection reauthorization preserves channel keys/cursors
+  and increments credentials generation. Replacement, team/app change,
+  disconnect, or uninstall revokes the old generation, pauses lanes, and records
+  a typed replacement audit. S07 consumes that generation/audit to propagate to
+  routes/jobs and assigns exact S09/S10 projection/outbox/binding adoption to
+  their owning tasks. Never call `conversations.join`.
 - **Typed contract / errors:** internal
   `reconcileChannels({ connectionKey, expectedGeneration, cursor, limit }) -> { upserted, accessGained, accessLost, nextCursor }`;
   errors `ConnectionNotFound`, `ConnectionGenerationMismatch`,
@@ -998,34 +1020,31 @@ slice/PR; no row may contain more than four tasks.
   oversized, unmatched, stale-generation, or wrong-app event reaches tenant
   data.
 - **Classification:** `template-gap`; target `TB-NANGO-SLACK-01`; resolution
-  establishes a reusable verified-provider-webhook envelope. It may use Nango
-  forwarding only if the pinned contract proves authenticity and durability.
+  establishes a reusable native signed-provider-event envelope while Nango
+  remains the OAuth/token/API/action boundary.
 - **Dependencies:** S04-T02.
-- **Existing anchors:** Nango handles Slack's URL challenge and connection
-  routing but warns unmatched events may arrive without its wrapper in
-  [`webhooks.mdx`](https://github.com/NangoHQ/nango/blob/0bef47367085384c037a0ccca83c7d5bfc696d7f/docs/api-integrations/slack/webhooks.mdx#L7-L17)
-  and
-  [`webhooks.mdx`](https://github.com/NangoHQ/nango/blob/0bef47367085384c037a0ccca83c7d5bfc696d7f/docs/api-integrations/slack/webhooks.mdx#L45-L99).
+- **Existing anchors:** Nango's pinned Slack webhook guide warns that unmatched
+  raw events may bypass its wrapper in
+  [`webhooks.mdx`](https://github.com/NangoHQ/nango/blob/0bef47367085384c037a0ccca83c7d5bfc696d7f/docs/api-integrations/slack/webhooks.mdx#L45-L99),
+  so forwarding is not the V1 trust boundary.
 - **Files:** create `config/slack/maestro-brain-manifest.json`,
-  `packages/integrations/src/nango/webhook.ts` and tests,
-  `packages/convex/confect/slack/webhook.spec.ts`, `webhook.impl.ts`,
-  `webhookSecurity.ts`, `packages/convex/convex/slackWebhook.ts`, and
+  `packages/integrations/src/slack/eventsVerifier.ts` and
+  `eventsVerifier.test.ts`, `packages/convex/confect/slack/webhook.spec.ts`,
+  `webhook.impl.ts`, `webhookSecurity.ts`,
+  `packages/convex/convex/slackWebhook.ts`, and
   `packages/convex/test/slack-webhook-security.test.ts`; modify
   `packages/convex/confect/http.ts`, env manifests, provider/logging gates, and
   generated refs.
-- **Failure-first tests:** invalid/current/previous secret, stale/future
-  timestamp, duplicate request ID/event ID, oversized body, malformed JSON, raw
-  unmatched Slack payload, inactive connection, generation/team/app/bot
-  mismatch, and revoked connection. Denials write only redacted metadata and do
-  not invoke the capture transaction.
-- **Implementation:** first perform a documented preflight against the pinned
-  Nango version: identify signature header/algorithm, timestamp, retry and
-  retention behavior, body bytes covered, and secret rotation. If and only if it
-  is durable and signed, verify that envelope before JSON decode. Otherwise, use
-  a narrow Maestro-owned Slack Events receiver that verifies Slack's native
-  signature and forwards the verified normalized envelope while Nango continues
-  to own OAuth/tokens/API proxy. Both paths implement one
-  `VerifiedSlackEnvelope` interface. Bind
+- **Failure-first tests:** invalid/current/previous Slack signature secret,
+  stale/future timestamp, duplicate request ID/event ID, oversized body,
+  malformed JSON, raw unmatched Slack payload, inactive connection,
+  generation/team/app/bot mismatch, and revoked connection. Denials write only
+  redacted metadata and do not invoke the capture transaction.
+- **Implementation:** use one narrow Maestro-owned Slack Events receiver. Verify
+  Slack's native signature over the exact raw bytes and timestamp before JSON
+  decode, handle URL verification without tenant writes, and normalize only
+  after verification. Nango continues to own OAuth/tokens/API proxy/history/send
+  actions. Bind
   `providerConfigKey + connectionId + generation + teamId + apiAppId` to exactly
   one active org before capture.
 - **Manifest:** request only scopes/events in Appendix E; auto-join scopes and
@@ -1037,16 +1056,17 @@ slice/PR; no row may contain more than four tasks.
   `rejected | quarantined_metadata_only | accepted_duplicate | accepted`.
 - **Migration / compatibility / rollback:** add current/previous webhook secret
   names, never values. Rotate by deploy-current-as-previous, add-new-current,
-  verify, then remove old. Roll back receiver selection as one config change;
-  never accept unsigned forwarding as fallback.
-- **Focused verification:** `rtk pnpm --dir packages/integrations test webhook`,
+  verify, then remove old. Rollback disables the native receiver and capture;
+  never accept Nango or unsigned forwarding as fallback.
+- **Focused verification:**
+  `rtk pnpm --dir packages/integrations test eventsVerifier`,
   `rtk pnpm --dir packages/convex test slack-webhook-security`,
   codegen/manifest, `rtk pnpm check:provider-boundary`,
   `rtk pnpm check:logging-boundary`, `rtk pnpm check:secret-canaries`, and
   `rtk just verify`.
-- **Completion receipt:** signature/replay/size matrix, selected receiver
-  decision with pinned evidence, manifest hash, secret-name inventory, and proof
-  rejected payloads made zero tenant writes.
+- **Completion receipt:** native signature/replay/size matrix, raw-byte verifier
+  evidence, manifest hash, secret-name inventory, and proof rejected payloads
+  made zero tenant writes.
 - **Commit / PR boundary:** branch `codex/brain-s04-webhook-security`; commit
   `feat: verify Slack webhook bindings`.
 
@@ -1072,14 +1092,16 @@ slice/PR; no row may contain more than four tasks.
 - **Failure-first tests:** non-org-admin policy change, Direct with zero/two
   targets, Classify with empty/duplicate/unauthorized/cross-org target,
   Capture-only with targets, Slack Connect requester-private delivery, stale
-  connection/channel generation, and bulk partial commit all fail.
+  connection/channel generation, a 101st active channel, a 26th Client Brain
+  target, and bulk partial commit all fail.
 - **Implementation:** immutable policy epochs with
   `direct | classify | capture_only`; Direct has exactly one authorized Brain;
   Classify has a finite stable target descriptor set and Review-first;
   Capture-only has none. Independently write delivery policy: Slack Connect is
   always `capture_only`; internal channels may be `requester_private`. First
-  policy records a bounded pending-source processing interval. Bulk change is
-  all-or- nothing and audited.
+  policy records a bounded pending-source processing interval. Enforce the
+  approved 25-client/100-channel launch envelope in capability and UI before
+  accepting policy. Bulk change is all-or-nothing and audited.
 - **Typed errors / state:** `ChannelNotJoined`, `PolicyInvalid`,
   `TargetBrainForbidden`, `PolicyGenerationMismatch`, `CapacityExceeded`;
   channel is `needs_policy -> streaming | capture_only`, bot loss moves either
@@ -1095,8 +1117,9 @@ slice/PR; no row may contain more than four tasks.
   route/layer/access-audit gates, accessibility test, and
   `rtk just verify-full`.
 - **Completion receipt:** all role/policy invariants, 100-channel selection
-  fixture, Slack Connect structural denial, bulk atomicity, UI screenshots, and
-  audit rows.
+  fixture, Slack Connect Direct/Classify ingestion allowed plus
+  requester-private delivery denial, bulk atomicity, UI screenshots, and audit
+  rows.
 - **Commit / PR boundary:** branch `codex/brain-s04-channel-control-plane`;
   commit `feat: add multi-channel policy control`; final S04 checkpoint.
 
@@ -1107,8 +1130,8 @@ slice/PR; no row may contain more than four tasks.
 ### S05-T01 — Add The Organization Source Ledger And Atomic Capture Tables
 
 - **Outcome / requirements:** satisfy SLK-04, SLK-05, IAM-03, KNW-02; accepted
-  events have one durable receipt, exact observation, source revision, and
-  assembly intent in one transaction.
+  deliveries have distinct transport receipts that converge on one logical
+  observation/source revision and assembly intent.
 - **Classification:** `template-gap`; target `TB-SOURCE-01`; promote as the
   generic source intake pattern only after Slack proves it.
 - **Dependencies:** S04 complete.
@@ -1121,15 +1144,19 @@ slice/PR; no row may contain more than four tasks.
   `sourceArtifacts.ts`, `sourceRevisions.ts`, `sourceProcessingJobs.ts`,
   `packages/convex/confect/sources/sourceSchemas.ts`, and schema tests; modify
   migration/lifecycle registries.
-- **Failure-first tests:** missing organization/channel binding, duplicate event
-  key, duplicate provider observation key, invalid source key/revision key,
-  cross-org channel, content over limit, noncanonical timestamp/text, and
-  partial transaction failure.
+- **Failure-first tests:** missing organization/channel binding, duplicate
+  transport receipt, multiple receipts for one logical observation, conflicting
+  observation identity, invalid source key/revision key, cross-org channel,
+  content over limit, noncanonical timestamp/text, and partial transaction
+  failure.
 - **Implementation:** use stable tenant keys and every table/index in Appendix
-  C. Content-bearing rows carry lifecycle envelope and exact normalized
-  text/blocks, author snapshot, timestamps, permalink, provider revision/order
-  metadata, canonical hash, and tombstone flag. Job row begins at
-  `assembly_pending` with pinned policy epoch and unique effect key.
+  C. `providerEventReceipts` deduplicates transport delivery IDs and points to a
+  logical observation key; multiple live/backfill/reconciliation receipts may
+  reference the same source revision. Content-bearing rows carry lifecycle
+  envelope and exact normalized text/blocks, author snapshot, timestamps,
+  permalink, provider revision/order metadata, canonical hash, and tombstone
+  flag. Job row begins at `assembly_pending` with pinned policy epoch and unique
+  effect key.
 - **Typed contract / errors:** internal capture input is a
   `VerifiedSlackEnvelope` plus normalized observation; result
   `{ outcome: inserted | duplicate, sourceKey, sourceRevisionKey, assemblyJobKey }`;
@@ -1156,9 +1183,8 @@ slice/PR; no row may contain more than four tasks.
 - **Existing anchors:** the pinned template's provider boundary exposes typed
   integrations and rate-limit services but no source normalizer in
   [`rateLimit.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/integrations/src/rateLimit.ts#L1-L135).
-  Nango remains only the forwarding/proxy boundary. The design's `A -> B -> A`
-  invariant must use provider revision discriminator plus event ID and canonical
-  hash, not hash-only dedupe.
+  Nango remains the API/history boundary. The design's `A -> B -> A` invariant
+  separates transport event IDs from logical observation identity.
 - **Files:** create `packages/convex/confect/sources/slackNormalizer.ts`,
   `sourceOrdering.ts`, `captureTransaction.ts`, property tests, and
   `packages/convex/test/source-capture.test.ts`; modify `slack/webhook.impl.ts`
@@ -1167,10 +1193,13 @@ slice/PR; no row may contain more than four tasks.
   edit, `A -> B -> A`, delete-before-create, thread reply, bot-authored answer,
   malformed permalink, Unicode/newline normalization, crash before commit, crash
   after commit/before ACK, and LLM outage.
-- **Implementation:** parse the verified event into canonical schemas; compute
-  stable provider object/revision/observation keys and hash; append observations
-  and update latest pointer only under the total order
-  `(provider effective timestamp, event timestamp, event ID, observation sequence)`.
+- **Implementation:** parse the verified event/history item into canonical
+  schemas. Transport receipt key is
+  `(connectionGeneration, transport, deliveryId)`; logical observation key is
+  `(connectionGeneration, channelId, providerObjectId, providerRevisionDiscriminator, canonicalHashOrTombstone)`.
+  Append only when the logical observation is new, attach every receipt as
+  provenance, and update latest pointer only under the total order
+  `(provider effective timestamp, provider revision discriminator, deterministic minimum receipt key)`.
   Append tombstones without retaining deleted text in current pointers.
   Atomically write event receipt/source artifact/revision/assembly intent, then
   ACK. Self-authored bot answers retain a receipt but are mechanically excluded
@@ -1207,15 +1236,17 @@ slice/PR; no row may contain more than four tasks.
   `sourceUnits.{spec,impl}.ts`, and tests; modify job schema/lifecycle
   inventory.
 - **Failure-first tests:** standalone and thread assembly, out-of-order replies,
-  reply arriving during assembly, edit/delete at the cut,
-  over-message/byte/token bounds, stale lease, duplicate assembly effect, and
-  cross-channel/org revision.
+  reply arriving during assembly, a thread spanning a policy change, edit/delete
+  at the cut, over-message/byte/token bounds, stale lease, duplicate assembly
+  effect, and cross-channel/org revision.
 - **Implementation:** group mechanically by Slack `thread_ts` or standalone
-  message ID; after fixed quiet window claim the assembly intent; pin a database
-  cut; load latest active revisions as of that cut; produce ordered immutable
-  content-bearing snapshot with canonical hash, source revision keys, policy
-  epoch, and assembly version. A later reply creates a new unit revision and
-  supersedes older pending cognitive jobs; it never mutates the snapshot.
+  message ID and partition by each message's first-observed policy epoch. After
+  the fixed quiet window claim one same-epoch segment, pin a database cut, load
+  latest active revisions for that segment, and produce an ordered immutable
+  snapshot with canonical hash, source revision keys, one policy epoch, and
+  assembly version. A reply after a policy change starts a new segment and
+  cannot reroute earlier-epoch text. A later reply creates a new unit revision
+  for its segment and supersedes older pending cognitive jobs without mutation.
 - **Typed contract / errors:**
   `assembleSourceUnit({ jobKey, leaseToken }) -> { sourceUnitKey, sourceUnitRevisionKey, hash, messageCount, byteCount, fixedCut }`;
   errors `LeaseLost`, `SourceRevisionMissing`, `SourceUnitTooLarge`,
@@ -1237,16 +1268,19 @@ slice/PR; no row may contain more than four tasks.
   zero classification calls and Capture-only produces no route/model work.
 - **Classification:** `pattern-instance` capability generated with
   `rtk pnpm template:add-capability -- --name commitSourceRoute --description "Commits an authorized source route without semantic reinterpretation." --exposure workflow --write`,
-  followed by deliberate internal-only contract review.
+  followed by deliberate internal-only contract review and the focused gates in
+  `docs/template/how-to-add-capability.md`.
 - **Dependencies:** S05-T03 and S04-T04.
 - **Existing anchors:** the capability generator defaults to a public mutation,
   so use workflow exposure and review every generated surface
   ([generator](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/tooling/generators/src/index.ts#L1143-L1178)).
-- **Files:** generated
-  `packages/convex/confect/capabilities/commitSourceRoute.*` and docs; create
+- **Files:** the generator dry-run enumerates/hashes the generated
+  `commitSourceRoute` capability target; create
   `packages/convex/confect/tables/sourceRoutes.ts`,
-  `packages/convex/confect/sources/policyDispatch.ts`, and tests; modify job
-  state/lifecycle inventory and generated manifests.
+  `packages/convex/confect/sources/policyDispatch.ts`, and
+  `packages/convex/test/direct-routing.test.ts`; modify
+  `packages/convex/confect/tables/sourceProcessingJobs.ts`,
+  `docs/product/maestro-brain-lifecycle-adoption.md`, and generated manifests.
 - **Failure-first tests:** no policy -> `awaiting_policy`; Capture-only creates
   no route/job; Direct creates one exact route; stale policy/route/lifecycle/
   lease generation, wrong Brain org, duplicate effect, and any classification
@@ -1337,13 +1371,16 @@ slice/PR; no row may contain more than four tasks.
   and lifecycle inventory.
 - **Failure-first tests:** 100-channel round-robin, one huge queue, one failing
   channel, live burst while deep backfill runs, connection/method 429 with
-  `Retry-After`, organization concurrency cap, noisy tenant, and clock advance.
-  Assert no message text influences order.
+  `Retry-After`, organization concurrency cap, above-envelope admission, noisy
+  tenant, and clock advance. Assert no message text influences order.
 - **Implementation:** fixed priority classes `live_capture`,
   `outbound_delivery`, `recent_history`, `reconciliation`, `deep_history` with
   configured concurrency. Within a class, deterministic tenant/channel
   round-robin and bounded quantum. Central token/budget rows apply by provider,
   connection, method, and organization; `Retry-After` sets `blockedUntil`.
+  Admission above the approved channel/job/concurrency policy returns
+  `CapacityExceeded` or an explicit bounded queued state; it never silently
+  accepts work that the scheduler will drop.
 - **Typed errors / state:** bucket `available -> throttled -> available`;
   admission `accepted | queued | capacity_rejected`; errors
   `RateBudgetExceeded`, `ProviderRateLimited`, `CapacityExceeded`.
@@ -1413,9 +1450,14 @@ slice/PR; no row may contain more than four tasks.
   provide source-level reconciliation.
 - **Files:** create
   `packages/convex/confect/slack/reconciliation.{spec,impl}.ts`, `recovery.ts`,
-  tests, `apps/web/src/features/connections/channel-health.tsx`,
-  `dead-letter-dialog.tsx`, tests; modify scheduler, sync state, notifications/
-  audit vocabulary.
+  `packages/convex/test/slack-reconciliation.test.ts`,
+  `apps/web/src/features/connections/channel-health.tsx`,
+  `channel-health.test.tsx`, `dead-letter-dialog.tsx`, and
+  `dead-letter-dialog.test.tsx`; modify
+  `packages/convex/confect/jobs/fairScheduler.ts`,
+  `packages/convex/confect/tables/channelSyncStates.ts`,
+  `packages/convex/confect/ops/notifications.{spec,impl}.ts`, and
+  `packages/convex/confect/access/audit.ts`.
 - **Failure-first tests:** missed edit/delete in overlap, bot removed/re-added,
   message expired during access loss, permanent poison record, max attempts,
   admin replay wrong generation, viewer replay, and one channel's dead letter
@@ -1446,19 +1488,25 @@ slice/PR; no row may contain more than four tasks.
 
 ### S07-T01 — Add The Shared Lifecycle Envelope, Policies, Holds, And Jobs
 
-- **Outcome / requirements:** satisfy KNW-02, IAM-04, FND-03; every content or
-  derived row has one enforceable lifecycle vocabulary and current-read fence.
-- **Classification:** `fixture-to-real` for `ops/dataLifecycle`; the generic
-  propagation seam remains tracked by `TB-SOURCE-LIFECYCLE-01`.
+- **Outcome / requirements:** satisfy KNW-02, IAM-04, FND-03 for all rows that
+  exist through S06 and define the mandatory adoption contract for later S09-S12
+  descendants.
+- **Classification:** `template-gap`; target `TB-SOURCE-LIFECYCLE-01` while
+  extending the already database-backed `ops/dataLifecycle` planner; promote the
+  lifecycle envelope/job pattern after descendant adoption is complete.
 - **Dependencies:** S05 and S06 complete.
 - **Existing anchors:** the template currently plans lifecycle work but keeps
   delete entries `executable: false` and retention dry-run-only in
   [`data-lifecycle.md`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/docs/template/data-lifecycle.md#L30-L63).
 - **Files:** create `packages/convex/confect/lifecycle/envelope.ts`,
-  `tables/retentionPolicies.ts`, `legalHolds.ts`, `lifecycleJobs.ts`, tests;
-  modify source/page/citation/route/job/search/receipt/outbox/export tables as
-  they land, `ops/dataLifecycle.{spec,impl,ts}`, migration registry, and
-  `docs/template/data-lifecycle.md`.
+  `packages/convex/confect/tables/retentionPolicies.ts`, `legalHolds.ts`,
+  `lifecycleJobs.ts`, `packages/convex/test/lifecycle-envelope.test.ts`, and
+  `docs/product/maestro-brain-lifecycle-adoption.md`; modify the S02/S05/S06
+  page/citation/source/route/job tables,
+  `packages/convex/confect/ops/dataLifecycle.{spec,impl,ts}`, migration
+  registry, and `docs/template/data-lifecycle.md`. The adoption document assigns
+  exact S09-S12 descendant files/tests to their owning future tasks; S07 does
+  not name nonexistent files as its own diff.
 - **Failure-first tests:** missing lifecycle owner/posture, stale lifecycle
   generation read/commit, purge under active hold, policy from non-org-admin,
   retroactive shortening without preview/approval, and cross-org job target.
@@ -1466,8 +1514,9 @@ slice/PR; no row may contain more than four tasks.
   `lifecycleState: active | redacted | purged`, `lifecycleGeneration`,
   `redactedAt?`, `purgeAfter?`, `legalHoldKey?`. Store immutable organization
   policy epochs and affected resource types. Internal guard functions filter
-  current reads/model/search/export and compare pinned generation before every
-  commit.
+  current reads and existing commits. Export reusable guards for S09-S12; those
+  tasks must add their own search/model/outbox/export integrations before the
+  whole-matrix gate.
 - **Typed errors / state:** `LifecycleRevoked`, `LegalHoldActive`,
   `RetentionPolicyInvalid`, `LifecycleGenerationMismatch`, `PurgeNotApproved`;
   job `planned -> approved -> running -> complete | failed | blocked_by_hold`.
@@ -1498,19 +1547,23 @@ slice/PR; no row may contain more than four tasks.
   but has no real propagation executor. S05/S06 provide the revision and route
   generations to fence.
 - **Files:** create `packages/convex/confect/lifecycle/propagation.ts`,
-  `sourceRedaction.{spec,impl}.ts`, `routeRevocation.{spec,impl}.ts`, tests, and
-  `packages/convex/test/lifecycle-propagation.test.ts`; modify source/latest
-  pointer, route, page/citation, job, projection, receipt, and outbox handling.
+  `sourceRedaction.{spec,impl}.ts`, `routeRevocation.{spec,impl}.ts`, and
+  `packages/convex/test/lifecycle-propagation.test.ts`; modify only existing
+  source/latest-pointer, route, page/citation, and job handlers plus
+  `docs/product/maestro-brain-lifecycle-adoption.md`.
 - **Failure-first tests:** Slack delete after page citation, emergency revoke
-  during classification/maintenance/Ask/export/outbound send, normal prospective
-  policy change versus historical revoke, legal hold, duplicate propagation, and
-  crash/resume at every resource class.
+  during existing route/page/job work, current page read/history/editor snapshot
+  after revoke, normal prospective policy change versus historical revoke, legal
+  hold, duplicate propagation, and crash/resume at every extant resource class.
+  S09-S12 own equivalent Ask/export/outbound tests when those resources exist.
 - **Implementation:** Slack delete marks prior cleartext non-current
   immediately, appends tombstone, increments lifecycle generation,
-  cancels/fences jobs, deactivates routes/projections, marks citations redacted,
-  and queues affected pages for review/rebuild. Emergency route revocation
-  increments route and lifecycle fences and remediates derived data. Normal
-  policy changes remain prospective and do not invoke this path.
+  cancels/fences jobs, deactivates routes, marks citations redacted, and marks
+  the entire affected current page revision non-readable before queueing a
+  reviewed safe replacement. History returns metadata/redacted markers, not the
+  unsafe editor snapshot. Emergency route revocation increments route and
+  lifecycle fences and applies the same whole-revision rule. Normal policy
+  changes remain prospective and do not invoke this path.
 - **Typed errors / state:** propagation item
   `pending -> applied | already_applied | retry_wait | failed`; errors
   `LifecycleGenerationMismatch`, `RouteGenerationMismatch`, `LegalHoldActive`
@@ -1521,9 +1574,9 @@ slice/PR; no row may contain more than four tasks.
   rows from still-retained source, not resurrected old rows.
 - **Focused verification:** lifecycle propagation/race tests, codegen/manifest,
   logging/access audit/schema gates, and `rtk just verify`.
-- **Completion receipt:** lifecycle matrix row-by-row results, immediate
-  current- read denial, in-flight fencing, idempotent resume, and redacted
-  citation marker.
+- **Completion receipt:** extant-resource matrix results, immediate
+  page/current- read/history/editor denial, in-flight fencing, idempotent
+  resume, redacted citation marker, and the explicit S09-S12 adoption ledger.
 - **Commit / PR boundary:** branch `codex/brain-s07-revocation-propagation`;
   commit `feat: propagate source revocations`.
 
@@ -1531,30 +1584,39 @@ slice/PR; no row may contain more than four tasks.
 
 - **Outcome / requirements:** satisfy KNW-02 and REL-04 with reviewed,
   legal-hold-aware destructive execution and an honest backup contract.
-- **Classification:** `fixture-to-real` for `ops/dataLifecycle`; the real
-  boundary is audited internal lifecycle jobs, not a broad public deleter, and
-  generic promotion remains tracked by `TB-SOURCE-LIFECYCLE-01`.
+- **Classification:** `template-gap`; target `TB-SOURCE-LIFECYCLE-01` while
+  extending the already database-backed `ops/dataLifecycle`; the real boundary
+  is audited internal jobs, not a broad public deleter.
 - **Dependencies:** S07-T02.
 - **Existing anchors:** current `createDsarRequest` is only the review handoff
   and explicitly does not execute deletion
   ([source](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/docs/template/data-lifecycle.md#L44-L55)).
 - **Files:** modify `packages/convex/confect/ops/dataLifecycle.{spec,impl,ts}`
-  and `tables/dsarRequests.ts`; create
+  and `packages/convex/confect/tables/dsarRequests.ts`; create
+  `packages/convex/confect/tables/dataSubjectBindings.ts`,
+  `dataSubjectOccurrences.ts`,
+  `packages/convex/confect/lifecycle/dataSubjects.ts`,
   `packages/convex/confect/lifecycle/executor.ts`, `purge.ts`,
-  `backupPolicy.ts`, tests, and `docs/product/maestro-brain-data-handling.md`.
+  `backupPolicy.ts`, `packages/convex/test/data-subject-scope.test.ts`,
+  `packages/convex/test/lifecycle-executor.test.ts`, and
+  `docs/product/maestro-brain-data-handling.md`.
 - **Failure-first tests:** wrong confirmation, non-owner organization delete,
-  non-admin Brain delete, active hold, expired approval, partial purge/resume,
-  derived table omitted, previously downloaded export, and provider backup
-  retention unknown.
+  non-owner Brain delete including admin denial, active hold, expired approval,
+  exact WorkOS/Slack subject binding, free-text identity ambiguity, partial
+  purge/resume, derived table omitted, previously downloaded export, and
+  provider backup retention unknown.
 - **Implementation:** preserve plan/review phase; require typed resource counts,
   exact confirmation, current role, second approval for organization delete, and
-  current generations. Immediately revoke access; after grace/hold checks, blank
-  or delete protected primary-store text and retain approved tombstone/
-  hash/audit metadata. Purge temporary artifacts. Document Convex backup
-  retention and restoration handling; if selective tenant deletion from backups
-  is unavailable, mark backups inaccessible immediately, let them age out under
-  the verified provider window, and disclose that window. Launch blocks until
-  provider evidence is attached.
+  current generations. Deterministically scope exact WorkOS subject,
+  organization membership, verified Slack user, source-author occurrences, and
+  keyed descendants. Free-text/inferred identity enters a reviewed manual-
+  discovery manifest and is never auto-deleted. Immediately revoke access; after
+  grace/hold checks, blank or delete protected primary-store text and retain
+  approved tombstone/ hash/audit metadata. Purge temporary artifacts. Document
+  Convex backup retention and restoration handling; if selective tenant deletion
+  from backups is unavailable, mark backups inaccessible immediately, let them
+  age out under the verified provider window, and disclose that window. Launch
+  blocks until provider evidence is attached.
 - **Typed errors / state:** DSAR
   `draft -> ready_for_review -> approved -> executing -> complete | blocked | failed`;
   `ConfirmationMismatch`, `ApprovalExpired`, `LegalHoldActive`,
@@ -1576,16 +1638,22 @@ slice/PR; no row may contain more than four tasks.
 
 - **Outcome / requirements:** satisfy UI-04, KNW-02, REL-03; administrators can
   see and recover lifecycle work without exposing customer text.
-- **Classification:** `pattern-instance` extending the current lifecycle route
-  and Connections health UI.
+- **Classification:** `template-gap`; target `TB-SOURCE-LIFECYCLE-01` because
+  the documented lifecycle/admin generators are not runnable; promote the
+  product lifecycle-health surface after its role/accessibility gates pass.
 - **Dependencies:** S07-T03.
 - **Existing anchors:** the existing lifecycle route is a request review surface
   backed by the dry-run planner in
   [`data-lifecycle.md`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/docs/template/data-lifecycle.md#L52-L63).
-- **Files:** modify `apps/web/src/features/data-lifecycle/*`,
-  `_workspace.data-lifecycle.tsx`, Settings/Connections/Brain evidence drawer;
-  create `apps/web/src/features/settings/retention-policy.tsx`,
-  `legal-holds.tsx`, `lifecycle-job-detail.tsx`, tests, and operator runbook.
+- **Files:** modify
+  `apps/web/src/features/data-lifecycle/data-lifecycle-surface.tsx`,
+  `data-lifecycle-surface.test.tsx`,
+  `apps/web/src/routes/_workspace.data-lifecycle.tsx`, and
+  `apps/web/src/features/brain/evidence-drawer.tsx`; create
+  `apps/web/src/features/settings/retention-policy.tsx`,
+  `retention-policy.test.tsx`, `legal-holds.tsx`, `legal-holds.test.tsx`,
+  `lifecycle-job-detail.tsx`, `lifecycle-job-detail.test.tsx`, and
+  `docs/product/maestro-brain-lifecycle-operations.md`.
 - **Failure-first tests:** viewer/editor policy/hold/job denial, redacted
   citation rendering, failed job retry stale generation, purge preview counts,
   downloaded-export disclaimer, and no customer text in UI telemetry/errors.
@@ -1713,28 +1781,39 @@ slice/PR; no row may contain more than four tasks.
   `rtk pnpm template:add-capability -- --name classifySourceUnit --description "Returns a typed zero-or-one route proposal from an immutable source unit." --exposure workflow --write`
   and
   `rtk pnpm template:add-workflow -- --name sourceClassification --description "Gathers, classifies, reviews, and commits one source route." --exposure internal --write`;
-  then replace starter contracts deliberately.
+  then replace starter contracts deliberately and run the focused gates from
+  `docs/template/how-to-add-capability.md` and
+  `docs/template/how-to-add-workflow.md`.
 - **Dependencies:** S08-T02, S05-T04, S07-T02.
 - **Existing anchors:** generated capability drafts are public mutations by
   default, so the named workflow exposure and manifest review are mandatory
   ([source](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/tooling/generators/src/index.ts#L1143-L1178)).
-- **Files:** generated capability/workflow files and docs; create
-  `packages/convex/confect/tables/classificationDecisions.ts`,
+- **Files:** generator dry-runs enumerate/hash the generated
+  `classifySourceUnit` capability and `sourceClassification` workflow targets;
+  create `packages/convex/confect/tables/classificationDecisions.ts`,
   `packages/convex/confect/classification/{gather,request,review,commit}.ts`,
-  tests; modify review queue adapter/UI, job/lifecycle registries, manifests.
+  `packages/convex/test/source-classification.test.ts`,
+  `apps/web/src/features/connections/classification-review-queue.tsx`, and
+  `classification-review-queue.test.tsx`; modify
+  `packages/convex/confect/tables/sourceProcessingJobs.ts`,
+  `docs/product/maestro-brain-lifecycle-adoption.md`, and generated manifests.
 - **Failure-first tests:** Direct/Capture-only makes zero calls; empty/multiple/
   out-of-allowlist target, wrong snapshot/hash/policy, unresolved evidence
   quote, stale route/lifecycle/lease, model timeout, non-admin review,
-  confidence-based auto-commit, mixed-client unit, duplicate attempts, and
-  prompt injection.
+  confidence-based auto-commit, mixed-client proposal/reviewer override,
+  duplicate attempts, and prompt injection.
 - **Implementation:** gather loads the immutable source-unit revision and pinned
   finite target descriptors, producing the exact `ClassificationRequest` in
   Appendix F. Adapter has no tools/database/Slack/Nango imports and returns
-  `targetBrainKey | null`. Structural validation creates a proposal. Admin may
-  accept, select another allowed target, or no-route. Commit rechecks current
-  authority/generations and calls the mechanical route capability once.
+  `{ contentScope: single_target | mixed_client | no_target, targetBrainKey }`.
+  Structural validation requires a nullable target for `no_target`, a null
+  target for `mixed_client`, and one allowed target for `single_target`. An
+  admin may change single-target to another allowed target or no-route, and may
+  mark any proposal mixed-client/no-route, but cannot change `mixed_client` to a
+  route in V1 because no target-safe span splitter exists. Commit rechecks
+  current authority/generations and calls the mechanical route capability once.
 - **Typed errors / state:**
-  `awaiting_classification -> classifying -> awaiting_classification_review -> routed | classified_no_route | retry_wait | superseded | revoked`;
+  `awaiting_classification -> classifying -> awaiting_classification_review -> routed | classified_no_route | mixed_client_no_route | retry_wait | superseded | revoked`;
   errors `MalformedModelOutput`, `TargetNotAllowed`, `EvidenceMismatch`,
   `ReviewForbidden`, `StaleGeneration`, `DuplicateEffect`.
 - **Migration / compatibility / rollback:** Classify policies remain disabled
@@ -1760,18 +1839,24 @@ slice/PR; no row may contain more than four tasks.
 - **Classification:** `pattern-instance`; run
   `rtk pnpm template:add-capability -- --name maintainBrainPage --description "Returns cited Brain revision proposals from an immutable context pack." --exposure workflow --write`
   and internal
-  `template:add-workflow -- --name sourceToBrainMaintenance --exposure internal --write`
-  after dry-runs.
+  `rtk pnpm template:add-workflow -- --name sourceToBrainMaintenance --description "Gathers routed evidence and proposes cited Brain revisions." --exposure internal --write`
+  after dry-runs; follow `docs/template/how-to-add-capability.md` and
+  `docs/template/how-to-add-workflow.md`, including their focused gates.
 - **Dependencies:** S08-T03 and S02-T03.
 - **Existing anchors:** version/citation persistence is S02; the current generic
   LLM seam is now structured from T01. The repo layer law requires workflows to
   compose capabilities and provider calls to stay behind adapters
   ([source](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/AGENTS.md#L50-L58)).
-- **Files:** generated capability/workflow artifacts; create
+- **Files:** generator dry-runs enumerate/hash the generated `maintainBrainPage`
+  capability and `sourceToBrainMaintenance` workflow targets; create
   `packages/convex/confect/tables/brainMaintenanceProposals.ts`,
   `packages/convex/confect/maintenance/{gather,request,policy,commit}.ts`,
-  tests; modify Brain policy/review UI, jobs/lifecycle/manifests, eval fixture
-  registry.
+  `packages/convex/test/brain-maintenance.test.ts`,
+  `apps/web/src/features/brain/maintenance-review.tsx`, and
+  `maintenance-review.test.tsx`; modify
+  `packages/convex/confect/tables/sourceProcessingJobs.ts`,
+  `docs/product/maestro-brain-lifecycle-adoption.md`, generated manifests, and
+  `tooling/evals/src/index.ts`.
 - **Failure-first tests:** typed no-op, new/existing page proposal, uncited
   factual claim, citation outside context pack, stale
   page/source/route/lifecycle generation, revision budget, model
@@ -1817,9 +1902,12 @@ slice/PR; no row may contain more than four tasks.
 - **Existing anchors:** current live search `query` returns synchronously in
   [`packages/search/src/index.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/search/src/index.ts#L57-L64),
   which cannot wrap a Convex query.
-- **Files:** modify `packages/search/src/index.ts`, tests, exports, and every
-  first-party consumer found by `rtk rg`; create
-  `packages/search/src/asyncSearch.ts` and contract tests; update docs/backlog.
+- **Files:** modify `packages/search/src/index.ts`,
+  `packages/search/src/index.test.ts`, and `packages/search/package.json`;
+  create `packages/search/src/asyncSearch.ts` and `asyncSearch.test.ts`; update
+  `docs/template/porting-backlog.md` and
+  `docs/product/maestro-brain-lifecycle-adoption.md`. The pinned baseline has no
+  external first-party consumer; drift preflight enumerates any new one.
 - **Failure-first tests:** async fake/live parity, cancellation, timeout,
   provider failure, explicit cap/filter propagation, deterministic fake order,
   and a compile test rejecting synchronous consumer use.
@@ -1834,9 +1922,10 @@ slice/PR; no row may contain more than four tasks.
 - **Migration / compatibility / rollback:** compatibility-wrap synchronous test
   fixtures during one slice, then remove all production sync consumers. Rollback
   switches to the async fake service, not old product scoring.
-- **Focused verification:** `rtk pnpm --dir packages/search test typecheck`,
-  `rtk pnpm typecheck`, `rtk pnpm check:knip`,
-  `rtk pnpm check:layer-boundaries`, and `rtk just verify`.
+- **Focused verification:** `rtk pnpm --dir packages/search test`,
+  `rtk pnpm --dir packages/search typecheck`, `rtk pnpm typecheck`,
+  `rtk pnpm check:knip`, `rtk pnpm check:layer-boundaries`, and
+  `rtk just verify`.
 - **Completion receipt:** consumer inventory, compile failure/pass, fake/live
   contract parity, cancellation/timeout, and runtime import scan.
 - **Commit / PR boundary:** branch `codex/brain-s09-async-search`; commit
@@ -1891,18 +1980,20 @@ slice/PR; no row may contain more than four tasks.
 - **Classification:** `pattern-instance`; dry-run then generate
   `rtk pnpm template:add-capability -- --name brainContextRead --description "Reads stable pages, sources, search candidates, and bounded Brain context." --exposure headless --write`,
   then replace the single starter operation with the reviewed operation set in
-  Appendix F.
+  Appendix F and run `docs/template/how-to-add-capability.md` follow-up gates.
 - **Dependencies:** S09-T02 and S02.
 - **Existing anchors:** current Brain list is web-only while `createMarkdown` is
   incorrectly headless in
   [`pages.spec.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/brain/pages.spec.ts#L52-L99);
   generated MCP descriptors come from manifest metadata
   ([source](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/manifest/mcp.ts#L17-L25)).
-- **Files:** generated `brainContextRead.*` artifacts/docs; modify
-  `brain/pages.{spec,impl}.ts`; create
+- **Files:** the generator dry-run enumerates/hashes the generated
+  `brainContextRead` target; modify
+  `packages/convex/confect/brain/pages.{spec,impl}.ts`; create
   `packages/convex/confect/tables/retrievalReceipts.ts`,
-  `packages/convex/confect/retrieval/{manifest,reads}.ts`, tests; update
-  lifecycle and generated manifests.
+  `packages/convex/confect/retrieval/{manifest,reads}.ts`, and
+  `packages/convex/test/brain-context-read.test.ts`; update
+  `docs/product/maestro-brain-lifecycle-adoption.md` and generated manifests.
 - **Failure-first tests:** signed-out/wrong role, caller tenant/Convex fields,
   vault-only/inactive/redacted source, stale route/lifecycle generation,
   candidate outside immutable manifest, oversized context, and manifest hash
@@ -1933,17 +2024,23 @@ slice/PR; no row may contain more than four tasks.
   returns claim-level citations or typed insufficient evidence.
 - **Classification:** `pattern-instance`; generate
   `rtk pnpm template:add-capability -- --name askBrain --description "Answers from an immutable authorized retrieval manifest with citations or abstention." --exposure headless --write`
-  and publish operation ID `brain.answers.ask`.
+  and publish operation ID `brain.answers.ask`; run the focused gates from
+  `docs/template/how-to-add-capability.md`.
 - **Dependencies:** S09-T03 and S08-T01.
 - **Existing anchors:** the pinned template isolates model calls behind the
   provider-neutral
   [`llm.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/integrations/src/llm.ts#L1-L117)
   seam. Search supplies candidates only; the model, not local weights or keyword
   trees, chooses evidence through S08's shared gateway.
-- **Files:** generated `askBrain.*` artifacts/docs; create
-  `packages/convex/confect/answers/{gather,request,validate,deliver}.ts`, tests,
-  `apps/web/src/features/brain/ask-dialog.tsx`, `ask-adapter.ts`, tests; modify
-  retrieval receipts/manifests and Brain command UI.
+- **Files:** the generator dry-run enumerates/hashes the generated `askBrain`
+  target; create
+  `packages/convex/confect/answers/{gather,request,validate,deliver}.ts`,
+  `packages/convex/test/brain-ask.test.ts`,
+  `apps/web/src/features/brain/ask-dialog.tsx`, `ask-dialog.test.tsx`,
+  `ask-adapter.ts`, and `ask-adapter.test.ts`; modify
+  `packages/convex/confect/tables/retrievalReceipts.ts`,
+  `docs/product/maestro-brain-lifecycle-adoption.md`, and
+  `apps/web/src/features/brain/brain-workspace.tsx`.
 - **Failure-first tests:** evidence question, no-evidence abstention, citation
   outside manifest, claim without citation, stale role/route/lifecycle after
   model response, model memory answer, prompt injection, multilingual question,
@@ -1995,9 +2092,11 @@ slice/PR; no row may contain more than four tasks.
 - **Implementation:** authenticated user creates short-lived single-use link
   intent bound to organization/team and nonce hash; Slack interaction confirms
   exact `teamId + slackUserId`; backend consumes once and records binding
-  generation/verified time. Revoke on user request, membership removal, org
-  suspension, or connection replacement. Every request rechecks binding and
-  current Brain role.
+  generation/verified time. Revoke the organization-scoped binding on user
+  request, organization-membership/user suspension, or connection replacement.
+  Removing one workspace membership only revokes that Brain's access through the
+  current role generation; it does not unlink the Slack identity from other
+  authorized Brains. Every request rechecks binding and current Brain role.
 - **Typed errors / state:** `unlinked -> pending -> verified -> revoked`;
   `LinkExpired`, `LinkReplay`, `SlackIdentityAlreadyBound`, `TeamMismatch`,
   `BindingRevoked`, auth errors.
@@ -2017,9 +2116,10 @@ slice/PR; no row may contain more than four tasks.
 - **Outcome / requirements:** satisfy SLK-08, SLK-09, ZFC-01, HLS-02; webhook
   ACK is fast, and any ambiguous semantic Brain selection is an explicit closed
   model call over authorized Brains.
-- **Classification:** `pattern-instance` capability generated with
-  `--exposure workflow` for `selectAuthorizedBrainScope`; the thin transport
-  remains tracked by backlog gap `TB-NANGO-SLACK-01`.
+- **Classification:** `pattern-instance`; run
+  `rtk pnpm template:add-capability -- --name selectAuthorizedBrainScope --description "Selects zero or one authorized Brain for a verified Slack requester." --exposure workflow --write`;
+  the generated target follows `docs/template/how-to-add-capability.md`, and the
+  thin transport remains tracked by `TB-NANGO-SLACK-01`.
 - **Dependencies:** S10-T01 and S09-T04.
 - **Existing anchors:** Vercel's pinned Slackbot shows useful thread/mention
   behavior in
@@ -2027,9 +2127,13 @@ slice/PR; no row may contain more than four tasks.
   and
   [`handle-app-mention.ts`](https://github.com/vercel-labs/ai-sdk-slackbot/blob/7d84809865ba4624a38eab4dd6dbb2aecc3758bc/lib/handle-app-mention.ts#L29-L56),
   but its static token client must not be copied.
-- **Files:** generated scope capability artifacts; create
+- **Files:** the generator dry-run enumerates/hashes the generated
+  `selectAuthorizedBrainScope` capability target; create
   `packages/convex/confect/slack/intake.{spec,impl}.ts`, `answerJobs.ts`,
-  `scopeSelection.ts`, tests; modify webhook dispatch/job tables/manifests.
+  `scopeSelection.ts`, and `packages/convex/test/slack-intake.test.ts`; modify
+  `packages/convex/confect/slack/webhook.impl.ts`,
+  `packages/convex/confect/tables/sourceProcessingJobs.ts`,
+  `docs/product/maestro-brain-lifecycle-adoption.md`, and generated manifests.
 - **Failure-first tests:** Slack Connect mention, unbound/revoked user,
   bot/non-user event, Direct channel without viewer role, ambiguous DM,
   cross-org/free-text client, out-of-authorized-set model result, replay, ACK
@@ -2058,8 +2162,8 @@ slice/PR; no row may contain more than four tasks.
 ### S10-T03 — Add A Fenced Outbox And Requester-Private Slack Delivery
 
 - **Outcome / requirements:** satisfy SLK-08, SLK-09, KNW-04; authorize again
-  before send and accept at most one logical visible answer after ambiguous
-  provider outcomes.
+  before send, use at-most-once ephemeral delivery, and never convert an unknown
+  provider outcome into a blind retry.
 - **Classification:** `template-gap`; target `TB-NANGO-SLACK-01`; reuse Nango's
   ephemeral send action behind the shared outbox.
 - **Dependencies:** S10-T02.
@@ -2072,18 +2176,22 @@ slice/PR; no row may contain more than four tasks.
   answer/lifecycle/rate scheduler.
 - **Failure-first tests:** Slack Connect destination, wrong user/channel/team,
   role/binding/route/lifecycle revoked after answer, mass mention/unsafe link,
-  Slack timeout before/after accepted send, duplicate worker, rate limit,
-  self-authored event loop, and DM to different user.
+  Slack timeout before/after accepted ephemeral/DM send, forbidden retry of an
+  ambiguous ephemeral, duplicate worker, rate limit, self-authored event loop,
+  and DM to different user.
 - **Implementation:** before provider call persist outbox row with exact
   requester, audience, answer/retrieval receipt, authorization generations,
   destination, sanitized payload hash, and unique effect key. Reauthorize
   immediately before send. Internal channel uses ephemeral requester/thread; DM
   uses exact verified user. Persist Slack timestamp/response hash. On ambiguous
-  timeout reconcile by deterministic metadata/history where provider supports
-  it; otherwise stop in `ambiguous` for operator action rather than blind
-  duplicate send.
+  timeout, an ephemeral row stops terminally at `ambiguous_no_retry` because
+  Slack cannot read ephemeral history. Operators may mark the receipt observed
+  but cannot resend it; the requester may create a new answer request/effect. DM
+  retries are enabled only when the selected Nango action proves a stable
+  idempotency or reconciliation contract; otherwise DM ambiguity is also
+  terminal.
 - **Typed errors / state:**
-  `pending -> sending -> delivered | retry_wait | ambiguous | denied | revoked | dead_letter`;
+  `pending -> sending -> delivered | retry_wait | ambiguous_no_retry | denied | revoked | dead_letter`;
   `DeliveryAudienceDenied`, `StaleAuthorization`, `ProviderRateLimited`,
   `AmbiguousProviderOutcome`, `PayloadUnsafe`.
 - **Migration / compatibility / rollback:** new outbox. Rollback stops sends but
@@ -2094,8 +2202,8 @@ slice/PR; no row may contain more than four tasks.
   logging/provider/lifecycle gates, ambiguous-send crash tests, and
   `rtk just verify`.
 - **Completion receipt:** audience matrix, final-auth race, sanitize fixtures,
-  timeout/reconcile outcomes, one logical delivery, self-event suppression, and
-  redacted logs.
+  terminal ambiguous-ephemeral proof, DM idempotency/reconciliation evidence or
+  terminal ambiguity, self-event suppression, and redacted logs.
 - **Commit / PR boundary:** branch `codex/brain-s10-slack-outbox`; commit
   `feat: deliver private Slack answers`.
 
@@ -2103,17 +2211,21 @@ slice/PR; no row may contain more than four tasks.
 
 - **Outcome / requirements:** satisfy SLK-08, SLK-09, UI-04, REL-03 with a
   usable and auditable Slack experience.
-- **Classification:** `pattern-instance` on Settings/Connections/notifications
-  primitives; no new Slack reasoning layer.
+- **Classification:** `template-gap`; target `TB-NANGO-SLACK-01` plus
+  `TB-BRAIN-UI-01`; promote the Slack recovery UX after provider/audience gates.
 - **Dependencies:** S10-T03.
 - **Existing anchors:** the pinned notification center consumes generated
   `ops.notifications` refs and preferences in
   [`notification-center-surface.tsx`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/apps/web/src/features/notifications/notification-center-surface.tsx#L17-L43).
   Connections and Settings are product routes from S03/S04.
-- **Files:** create/modify Slack link status, interactive Brain picker,
-  clarification copy, answer status, outbox/dead-letter admin detail, and tests
-  under `apps/web/src/features/settings`, `connections`, and `brain`; add
-  operator runbook and notification types.
+- **Files:** create `apps/web/src/features/settings/slack-link-status.tsx`,
+  `slack-link-status.test.tsx`,
+  `apps/web/src/features/brain/slack-scope-picker.tsx`,
+  `slack-scope-picker.test.tsx`,
+  `apps/web/src/features/connections/slack-answer-status.tsx`,
+  `slack-answer-status.test.tsx`, `outbox-detail.tsx`, `outbox-detail.test.tsx`,
+  and `docs/product/maestro-brain-slack-recovery.md`; modify
+  `packages/convex/confect/ops/notifications.{spec,impl}.ts`.
 - **Failure-first tests:** expired link recovery, ambiguous DM picker, denied
   Brain, revoked binding/key while dialog open, ambiguous delivery admin action,
   viewer/admin UI visibility, accessibility, and no client text in
@@ -2123,7 +2235,8 @@ slice/PR; no row may contain more than four tasks.
   offers only currently authorized Brains. Admin outbox view shows status,
   hashes/counts/redacted errors, retry/reconcile actions; never raw payload.
 - **Typed contract / state:** UI mirrors binding/answer/outbox states from T01-
-  T03 and treats `ambiguous` as unresolved, never delivered.
+  T03 and treats `ambiguous_no_retry` as unresolved/terminal, never delivered or
+  operator-retryable.
 - **Migration / compatibility / rollback:** no migration. UI rollback hides
   actions; server kill switch stops intake/send independently.
 - **Focused verification:** targeted web tests, accessibility/visual smoke,
@@ -2231,8 +2344,12 @@ slice/PR; no row may contain more than four tasks.
 - **Outcome / requirements:** satisfy HLS-02 and HLS-03; API/CLI/MCP registry
   contains exactly the seven V1 operations and no write/cognition/admin
   controls.
-- **Classification:** `pattern-instance` completing S09 generated headless
-  capabilities and existing manifest projections.
+- **Classification:** `pattern-instance` completing the generated targets from
+  `rtk pnpm template:add-capability -- --name brainContextRead --description "Reads stable pages, sources, search candidates, and bounded Brain context." --exposure headless --write`
+  and
+  `rtk pnpm template:add-capability -- --name askBrain --description "Answers from an immutable authorized retrieval manifest with citations or abstention." --exposure headless --write`;
+  follow `docs/template/how-to-add-capability.md` and its manifest/headless
+  gates.
 - **Dependencies:** S11-T02 and S09-T04.
 - **Existing anchors:** MCP descriptors are generated from Confect metadata in
   [`manifest/mcp.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/manifest/mcp.ts#L17-L25);
@@ -2359,18 +2476,22 @@ slice/PR; no row may contain more than four tasks.
   admins can request a lifecycle-fenced export, and artifacts expire/purge.
 - **Classification:** `pattern-instance` capability generated with
   `rtk pnpm template:add-capability -- --name exportBrain --description "Creates a lifecycle-fenced deterministic Brain export." --exposure web --write`,
-  with real object persistence tracked by backlog gap `TB-BRAIN-EXPORT-01`.
+  with the focused gates from `docs/template/how-to-add-capability.md`; real
+  object persistence remains tracked by backlog gap `TB-BRAIN-EXPORT-01`.
 - **Dependencies:** S12-T01.
 - **Existing anchors:** the pinned storage service exposes a signed-URL seam but
   no real object write/delete in
   [`index.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/storage/src/index.ts#L1-L103).
   V1 uses Convex storage rather than introducing R2 or a customer Git
   repository.
-- **Files:** generated `exportBrain.*` artifacts/docs; create
-  `packages/convex/confect/tables/brainExportJobs.ts`,
-  `packages/convex/confect/brain/exports/{gather,job,storage}.ts`, tests; modify
-  `packages/storage/src/index.ts`/tests, Convex HTTP/storage functions,
-  lifecycle/workpool/manifests.
+- **Files:** the generator dry-run enumerates/hashes the generated `exportBrain`
+  target; create `packages/convex/confect/tables/brainExportJobs.ts`,
+  `packages/convex/confect/brain/exports/{gather,job,storage}.ts`, and
+  `packages/convex/test/brain-export-job.test.ts`; modify
+  `packages/storage/src/index.ts`, `packages/storage/src/index.test.ts`,
+  `packages/convex/confect/http.ts`,
+  `packages/convex/confect/jobs/workpool.impl.ts`,
+  `docs/product/maestro-brain-lifecycle-adoption.md`, and generated manifests.
 - **Failure-first tests:** viewer/editor, archived Brain, stale role/route/
   lifecycle after gather, redacted/deleted source, duplicate idempotency key,
   partial write, oversized bundle, URL expiry, job retry, purge failure, and
@@ -2401,16 +2522,20 @@ slice/PR; no row may contain more than four tasks.
 
 - **Outcome / requirements:** satisfy KNW-05, UI-04, REL-03 with clear lifecycle
   and downloaded-copy posture.
-- **Classification:** `pattern-instance` on Settings/Connections and lifecycle
-  UI primitives.
+- **Classification:** `template-gap`; target `TB-BRAIN-EXPORT-01` plus
+  `TB-BRAIN-UI-01`; promote the artifact-lifecycle UI after expiry/purge gates.
 - **Dependencies:** S12-T02.
 - **Existing anchors:** the pinned Settings surface already separates admin and
   viewer posture in
   [`settings-surface.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/apps/web/src/features/settings/settings-surface.ts#L34-L87),
   while the lifecycle surface supplies the audited action pattern.
 - **Files:** create `apps/web/src/features/settings/brain-exports.tsx`,
-  `export-dialog.tsx`, `export-history.tsx`, tests; modify Settings/Connections,
-  lifecycle job detail, notification types, operator runbook.
+  `brain-exports.test.tsx`, `export-dialog.tsx`, `export-dialog.test.tsx`,
+  `export-history.tsx`, and `export-history.test.tsx`; modify
+  `apps/web/src/features/settings/settings-surface.ts`,
+  `apps/web/src/features/settings/lifecycle-job-detail.tsx`,
+  `packages/convex/confect/ops/notifications.{spec,impl}.ts`, and
+  `docs/product/maestro-brain-lifecycle-operations.md`.
 - **Failure-first tests:** viewer/editor request denial, admin request/download,
   URL expired, lifecycle revoked while dialog open, failed/purge states,
   downloaded-copy disclaimer, duplicate click idempotency, and no source text in
@@ -2433,14 +2558,15 @@ slice/PR; no row may contain more than four tasks.
 
 ---
 
-## S13 — Semantic Evals, Capacity, Observability, Pilot, Launch, And Rollback
+## S13 — Semantic Evals, Capacity, And Operational Controls
 
 ### S13-T01 — Build Frozen Semantic And Security Evaluation Suites
 
 - **Outcome / requirements:** satisfy REL-01, AI-02, AI-03, AI-04, KNW-04; no
   model/prompt pair ships without versioned quality and safety evidence.
-- **Classification:** `pattern-instance` extending the existing eval harness; no
-  product runtime heuristic may be copied from an eval scorer.
+- **Classification:** `template-gap`; target `TB-EVALS-01`; extend the existing
+  harness into a reproducible semantic-suite pattern without importing scorers
+  into product runtime.
 - **Dependencies:** S08, S09, S10 complete.
 - **Existing anchors:** the pinned eval style lives in
   [`source-grounded-brief.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/tooling/evals/src/source-grounded-brief.ts#L1-L184);
@@ -2448,19 +2574,22 @@ slice/PR; no row may contain more than four tasks.
   product runtime.
 - **Files:** create `tooling/evals/src/brain-classification.ts`,
   `brain-answers.ts`, `brain-maintenance.ts`, `brain-prompt-injection.ts`,
-  `brain-multilingual.ts`, frozen JSONL fixtures/labels, evaluator tests and
-  report schema; modify eval registry/package scripts and release docs.
+  `brain-multilingual.ts`, `brain-eval-report.ts`, matching `.test.ts` files,
+  and frozen fixtures under `tooling/evals/fixtures/maestro-brain/`; modify
+  `tooling/evals/package.json`, `tooling/evals/src/index.ts`, and
+  `docs/product/maestro-brain-evals.md`.
 - **Failure-first tests:** each suite fails against deliberately wrong fixtures:
   cross-client route, multi-target, unsupported claim, bad citation, no-evidence
   answer, uncited maintenance, tool/tenant/allowlist injection, and non-English
   synonym that defeats keyword logic.
 - **Implementation:** immutable fixture IDs/hashes, train/dev/test separation,
-  human labels, per-model/prompt/tool-schema results, confidence intervals and
-  failure examples. Classification: >=90% agreement incl. no-route, 100%
-  allowlist, zero cross-client commits. Answers: >=95% claim entailment, 100%
-  locator resolution/redaction marker, >=95% no-evidence abstention.
-  Maintenance: 100% factual citation coverage, >=80% accepted without factual
-  correction. All injection/multilingual authorization invariants pass 100%.
+  two-reviewer labels with adjudication, and the frozen Appendix J denominator/
+  seed/repeat/95%-Wilson-lower-bound algorithm. Classification: >=90% agreement
+  including no-route/mixed-client, 100% allowlist, zero cross-client commits.
+  Answers: >=95% claim entailment, 100% locator resolution/redaction marker,
+  > =95% no-evidence abstention. Maintenance: 100% factual citation coverage,
+  > =80% accepted without factual correction. Injection/multilingual
+  > authorization invariants pass 100% in every subgroup and repeat.
 - **Typed contract / state:** eval receipt
   `{ suiteVersion, fixtureHash, modelId, promptVersion, toolSchemaVersion, totals, metrics, failures, passed }`;
   model/prompt status `candidate -> evaluated -> approved | rejected`.
@@ -2468,8 +2597,9 @@ slice/PR; no row may contain more than four tasks.
   changes create a new suite version and require re-baseline review; never edit
   labels simply to pass. Rollback model/prompt to last approved receipt.
 - **Focused verification:** `rtk pnpm --dir tooling/evals test`,
-  `rtk pnpm evals`, fixture-hash drift check, product-runtime heuristic scan,
-  and `rtk just verify`.
+  `rtk pnpm --dir tooling/evals brain:eval`,
+  `rtk pnpm --dir tooling/evals brain:fixture-check`,
+  `rtk pnpm check:provider-boundary`, and `rtk just verify`.
 - **Completion receipt:** frozen hashes, per-suite/model/prompt reports,
   intentional-red then green proof, failure examples, reviewer signoff.
 - **Commit / PR boundary:** branch `codex/brain-s13-semantic-evals`; commit
@@ -2488,43 +2618,49 @@ slice/PR; no row may contain more than four tasks.
   while the repo has Vitest, fast-check, TestClock, and release tooling but no
   Brain capacity fixture.
 - **Files:** create `tooling/evals/src/brain-capacity.ts`,
-  `packages/convex/test/brain-capacity.test.ts`, synthetic fixture generator,
-  release report script/tests; modify capacity config/admission UI and CI docs.
+  `brain-capacity.test.ts`, `brain-capacity-fixture.ts`,
+  `brain-capacity-report.ts`, and `packages/convex/test/brain-capacity.test.ts`;
+  modify `tooling/evals/package.json` and
+  `docs/product/maestro-brain-capacity.md`.
 - **Failure-first tests:** intentionally set shared cursor, concurrency 1 with
-  unfair FIFO, dropped event, queue overflow, and cross-tenant key collision;
-  harness must detect each.
-- **Implementation:** deterministic fixture: one agency, Agency Brain + 25
-  clients, 100 channels (75 Direct/20 Classify/5 Capture-only), 100,000 source
-  revisions, 20 events/sec for 60 sec during backfill, and 10 concurrent Ask/MCP
-  requests. Measure live p50/p95/p99, per-channel progress, queue depth,
-  attempts/effects, rate waits, recent/deep progress, Ask latency, storage/model
-  usage, and tenant-denial canaries. Synthetic adapter target: >=95% live
-  visibility within 60 seconds, every channel progresses, zero loss/tenant
-  bleed.
+  unfair FIFO, dropped event, queue overflow, cross-Brain leak, and a second
+  canary agency's cross-tenant key/read/commit/delivery attempts; harness must
+  detect each.
+- **Implementation:** deterministic loaded fixture: one agency, Agency Brain +
+  25 clients, 100 channels (75 Direct/20 Classify/5 Capture-only), 100,000
+  source revisions, 20 events/sec for 60 sec during backfill, and 10 concurrent
+  Ask/MCP requests, plus one lightweight adversarial canary agency. Measure live
+  p50/p95/p99, per-channel progress, queue depth, attempts/effects, rate waits,
+  recent/deep progress, Ask latency, storage/model usage, and tenant-denial
+  canaries. Use 60-second fairness windows; every runnable channel advances in
+  every window or records an exact provider-rate block, and none misses two
+  consecutive windows. At least 95% of live events are visible within 60
+  seconds, all admitted events drain within five minutes, and loss/cross-tenant
+  effects remain zero.
 - **Typed contract / state:** capacity receipt pins code/config/fixture hashes,
-  hardware/runner class, metrics and pass/fail. Admission above verified limits
-  returns `CapacityExceeded` or explicit queued state—never silent acceptance.
+  hardware/runner class, seeds, windows, drain deadline, metrics and pass/fail.
+  Admission enforcement itself is owned by S04-T04/S06-T02; this task proves it.
 - **Migration / compatibility / rollback:** no customer data. Raising limits
-  requires a new passing receipt; lowering them requires UI/API enforcement and
-  customer migration notice. Roll back by lowering admission and pausing deep/
-  classification pools, never live exact capture already admitted.
-- **Focused verification:** targeted capacity harness on controlled runner,
-  normal focused tests, `rtk pnpm check:coverage-ratchet`, and
-  `rtk just verify`.
+  requires a new passing receipt. Rollback selects the last passing capacity
+  policy already enforced by S04/S06; never stop exact capture already admitted.
+- **Focused verification:** `rtk pnpm --dir tooling/evals brain:capacity`,
+  `rtk pnpm --dir tooling/evals test brain-capacity`,
+  `rtk pnpm --dir packages/convex test brain-capacity`,
+  `rtk pnpm check:coverage-ratchet`, and `rtk just verify`.
 - **Completion receipt:** fixture/config/runner hashes, latency/fairness/loss/
   isolation report, overload proof, cost/storage estimates, raw synthetic-only
   artifacts.
 - **Commit / PR boundary:** branch `codex/brain-s13-capacity`; commit
   `test: prove Brain launch capacity`.
 
-### S13-T03 — Add Redacted Observability, Budgets, Alerts, Recovery, And Kill Switches
+### S13-T03 — Add Redacted Telemetry, Budgets, And Kill Switches
 
 - **Outcome / requirements:** satisfy REL-03, AI-04, SLK-07; operators can
   diagnose and stop each risky subsystem independently without viewing customer
   text or stopping exact capture unnecessarily.
-- **Classification:** `pattern-instance` extending observability,
-  feature-flag-policy, notification, and admin patterns; no semantic local alert
-  classifier.
+- **Classification:** `template-gap`; target `TB-OPERATIONS-01`; compose the
+  existing observability/flag/notification seams into a generic safe-operations
+  pattern with no semantic local alert classifier.
 - **Dependencies:** S13-T02.
 - **Existing anchors:** the pinned template already exposes typed telemetry and
   redaction primitives in
@@ -2533,20 +2669,23 @@ slice/PR; no row may contain more than four tasks.
   [`index.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/notifications/src/index.ts#L1-L388);
   extend those seams instead of a second operator platform.
 - **Files:** create
-  `packages/convex/confect/ops/brainOperations.{spec,impl}.ts`, operational
-  metrics/checks/tests, dashboard/admin components, alerts/runbooks; modify
-  feature flag policies, health, notifications, logging/secret/provider gates,
-  env manifests.
+  `packages/convex/confect/ops/brainOperations.{spec,impl}.ts`,
+  `packages/convex/confect/ops/brainOperationPolicy.ts`,
+  `packages/convex/test/brain-operation-policy.test.ts`, and
+  `packages/observability/src/brainMetrics.ts`; modify
+  `packages/observability/src/index.ts`,
+  `packages/convex/confect/ops/flags.{spec,impl}.ts`,
+  `tooling/quality/check-logging-boundary.mts`, and
+  `docs/product/maestro-brain-operations.md`.
 - **Failure-first tests:** prompt/source/token/header logging canaries; model
   spend/token/input cap; Slack rate/storage/queue/channel cap; kill switches for
   capture, backfill, classification, maintenance, Ask, Slack delivery, MCP,
-  export, lifecycle execution; stale operator role; alert flood/dedupe; recovery
-  replay.
+  export, lifecycle execution; and stale operator role.
 - **Implementation:** emit IDs/hashes/counts/durations/status/error tags only.
-  Dashboards: connection/channel lag, queues/leases/dead letters, model spend
+  Metrics cover connection/channel lag, queues/leases/dead letters, model spend
   and eval version, search projection lag, Ask abstention/errors, outbox
-  ambiguity, lifecycle/export jobs, capacity use. Kill switches are policy data
-  with owner, reason, expiry, audit. Preserve independent controls:
+  ambiguity, lifecycle/export jobs, and capacity use. Kill switches are policy
+  data with owner, reason, expiry, audit. Preserve independent controls:
   classification/model outage does not disable exact capture; deep history
   throttle does not stop live capture; lifecycle emergency revoke can override
   publication.
@@ -2556,21 +2695,76 @@ slice/PR; no row may contain more than four tasks.
 - **Migration / compatibility / rollback:** additive policy/metric fields.
   Default risky external surfaces off until launch enablement. Rollback via kill
   switches first, code deploy second; retain audit/receipts.
-- **Focused verification:** focused ops/observability/notifications/flags tests,
-  provider/logging/secret/access gates, canary scan, alert/recovery rehearsal,
-  and `rtk just verify`.
-- **Completion receipt:** dashboard metric dictionary, every kill-switch drill,
-  canary result, alert dedupe, budget enforcement, recovery audit.
+- **Focused verification:**
+  `rtk pnpm --dir packages/convex test brain-operation-policy`,
+  `rtk pnpm --dir packages/observability test brainMetrics`,
+  `rtk pnpm check:logging-boundary`, `rtk pnpm check:secret-canaries`,
+  `rtk pnpm check:access-audit-events`, and `rtk just verify`.
+- **Completion receipt:** metric dictionary, every kill-switch drill, canary
+  result, budget enforcement, and redacted audit samples.
 - **Commit / PR boundary:** branch `codex/brain-s13-operations`; commit
   `feat: operate Brain safely`.
 
-### S13-T04 — Stage, Pilot, Launch, And Prove Rollback
+### S13-T04 — Add Operations Dashboard, Alerts, And Recovery Drills
+
+- **Outcome / requirements:** satisfy REL-03 with a narrow audited operator
+  surface over S13-T03 metrics/policies, including alert dedupe and safe
+  recovery.
+- **Classification:** `template-gap`; target `TB-OPERATIONS-01`; the documented
+  admin generator is not runnable, so promote the dashboard/alert/recovery
+  pattern only after access, redaction, and rehearsal gates pass.
+- **Dependencies:** S13-T03.
+- **Existing anchors:** the pinned template health and notification surfaces are
+  existing UI seams in
+  [`health-surface.tsx`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/apps/web/src/features/health/health-surface.tsx#L1-L151)
+  and
+  [`notification-center-surface.tsx`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/apps/web/src/features/notifications/notification-center-surface.tsx#L17-L118),
+  while operator authorization must continue through audited Confect
+  capabilities rather than direct metric/provider access.
+- **Files:** create `apps/web/src/features/health/brain-operations.tsx`,
+  `brain-operations.test.tsx`,
+  `packages/convex/confect/ops/brainAlerts.{spec,impl}.ts`,
+  `packages/convex/test/brain-alerts.test.ts`, and
+  `docs/product/maestro-brain-recovery-runbook.md`; modify
+  `apps/web/src/features/health/health-surface.tsx`, `health-surface.test.tsx`,
+  `packages/convex/confect/ops/notifications.{spec,impl}.ts`, and
+  `docs/product/maestro-brain-operations.md`.
+- **Failure-first tests:** viewer/editor operator denial, stale admin role,
+  customer-text metric canary, alert flood/dedupe, expired kill switch, recovery
+  replay with wrong generation, and dashboard status disagreement with durable
+  policy.
+- **Implementation:** show only IDs/hashes/counts/durations/status/error tags;
+  render the metric dictionary and exact policy state; dedupe alerts by
+  subsystem/error/generation/window; recovery creates a new audited attempt and
+  never edits prior receipts. Drill each kill switch independently and prove
+  exact capture can remain live while semantic/deep/delivery surfaces pause.
+- **Typed errors / state:** alert `open -> acknowledged -> resolved` with a new
+  alert on recurrence; recovery
+  `planned -> running -> complete | failed | generation_mismatch`; errors
+  `OperatorForbidden`, `AlertStale`, and `RecoveryGenerationMismatch`.
+- **Migration / compatibility / rollback:** additive notification/alert fields.
+  UI rollback hides controls; server policies remain authoritative and existing
+  recovery attempts finish or fail under their generation fence.
+- **Focused verification:** `rtk pnpm --dir apps/web test brain-operations`,
+  `rtk pnpm --dir packages/convex test brain-alerts`,
+  `rtk pnpm check:logging-boundary`, `rtk pnpm check:access-audit-events`,
+  accessibility smoke, and `rtk just verify-full`.
+- **Completion receipt:** role/redaction screenshots, alert dedupe timeline,
+  every kill-switch/recovery drill, exact-capture continuity, and audit samples.
+- **Commit / PR boundary:** branch `codex/brain-s13-operations-ui`; commit
+  `feat: expose safe Brain operations`; final S13 checkpoint.
+
+---
+
+## S14 — Staging, Pilot, Launch, And Rollback Evidence
+
+### S14-T01 — Stage, Pilot, Launch, And Prove Rollback
 
 - **Outcome / requirements:** satisfy REL-04 and the whole-program Definition of
   Done; produce live evidence, not a local-readiness claim.
-- **Classification:** `pattern-instance` on the template release process and
-  hosted smoke; product-specific provider/pilot evidence remains outside the
-  generic template.
+- **Classification:** `template-gap`; target `TB-RELEASE-EVIDENCE-01`; use the
+  template release process and hosted smoke as anchors, then promote a generic
+  signed product-release/attestation evidence contract.
 - **Dependencies:** every prior task merged; all focused receipts green.
 - **Existing anchors:** the pinned canonical full local gate and host semaphore
   are defined in
@@ -2583,86 +2777,101 @@ slice/PR; no row may contain more than four tasks.
   `docs/product/maestro-brain-incident-rollback.md`,
   `docs/product/maestro-brain-limits.md`,
   `docs/product/maestro-brain-privacy-security.md`, and
-  `docs/superpowers/receipts/maestro-brain/staging-pilot-launch.md`; update
-  `.env.example` and `docs/template/env-manifest.{md,json}` only for reviewed
-  environment-name changes. Modify no product code unless a failed gate produces
-  a separately reviewed fix PR.
+  `docs/superpowers/receipts/maestro-brain/staging-pilot-launch.md`. Environment
+  or source changes are separate product-candidate PRs; this attestation task is
+  documentation-only.
 - **Failure-first preflight:** staging starts with every external/risky kill
-  switch off. `deploy:doctor` must fail when a required env/provider binding is
-  removed. Hosted smoke must fail when auth/route/key is invalid. Restore the
-  real configuration only after the negative controls are captured.
+  switch off. `rtk pnpm deploy:doctor staging` and
+  `rtk pnpm deploy:doctor production` must each fail when their required
+  environment/provider binding is removed. Hosted smoke must fail when auth/
+  route/key is invalid. Restore the real configuration only after the negative
+  controls are captured.
 - **Implementation sequence:**
-  1. Pin release commit, generated manifest, migration set, Slack manifest,
-     provider/app IDs, approved model/prompt/eval receipt, capacity receipt, and
-     env-name manifest.
+  1. Pin `productReleaseCommit`, generated manifest, migration set, Slack
+     manifest, provider/app IDs, approved model/prompt/eval receipt, capacity
+     receipt, and env-name manifest.
   2. Run `rtk just verify-full`; archive exact output and commit hash.
   3. Deploy schema expand, run staging migration dry-runs, deploy compatible
      writers, execute/backfill/verify, then compatible readers. Do not contract
      fields until rollback window closes.
-  4. Run `rtk pnpm deploy:doctor`, the approved deploy command, hosted HTTP,
-     browser, accessibility, visual, auth, Nango Connect, multi-channel live/
+  4. Run `rtk pnpm deploy:doctor staging`,
+     `rtk proxy .buildkite/scripts/staging-deploy.sh`, hosted HTTP, browser,
+     accessibility, visual, auth, Nango Connect, multi-channel live/
      recent/deep, edit/delete, lifecycle, Ask, Slack-private, API/MCP, and
      export smokes using synthetic/pilot data.
   5. Perform rollback drill: disable each risky subsystem, revert web/backend to
      previous compatible release, let leases expire, verify exact capture/read
      safety, then roll forward and reconcile. Prove no schema/data
      down-migration is required.
-  6. Pilot with at least five design-partner agencies inside capacity. Track
-     activation, first accepted Brief, useful cited answer, second-surface use,
-     weekly admin time, correction/restore rate, spend, and incidents.
-  7. Launch only if pilot and zero-incident gates pass; enable by organization
-     cohort, not globally. Keep rollback owner and observation window active.
-- **Go/no-go:** >=80% pilots get accepted Client Brief proposal; >=70% rate a
-  cited answer useful; >=50% use Slack or MCP in week one; median Brain admin
-  <10 min/week; zero cross-client disclosure, Slack audience, key-scope, or
-  unverified-webhook incident. Any security incident is automatic no-go.
+  6. Pilot with at least five design-partner agencies for at least seven days.
+     Track activation, first accepted Brief, useful cited answer, second-surface
+     use, weekly admin time, correction/restore rate, spend, and incidents.
+  7. If every gate passes, run `rtk pnpm deploy:doctor production` and
+     `rtk proxy .buildkite/scripts/production-promote.sh`, then enable by
+     organization cohort, not globally. Keep rollback owner/window active.
+- **Go/no-go:** with ceiling-rounded integer numerators, >=80% pilots get an
+  accepted Client Brief proposal, >=70% rate a cited answer useful, and >=50%
+  use Slack or MCP in week one; median time to first reviewable cited proposal
+  or explicit insufficient-evidence result is <15 minutes; median Brain admin is
+  <10 minutes/week; each active client averages <2 manual maintenance actions/
+  week; and there are zero cross-client disclosure, Slack-audience, key-scope,
+  or unverified-webhook incidents. Any such incident is automatic no-go.
 - **Typed contract / state:** release packet is
-  `{ releaseCommit, buildId, deployId, manifestHashes, migrationReceipt, evalReceipt, capacityReceipt, pilotMetrics, incidents, approvers, rollbackReceipt, verdict }`;
-  release state is
-  `candidate -> staging -> pilot -> launch_approved | no_go -> cohort_enabled -> general`.
+  `{ productReleaseCommit, attestationCommit, buildId, deployId, manifestHashes, migrationReceipt, evalReceipt, capacityReceipt, pilotMetrics, incidents, inheritedEvidence, approvers, rollbackReceipt, verdict }`.
+  Release state is `candidate -> staging -> pilot`, then either terminal `no_go`
+  or `launch_approved -> cohort_enabled -> general`.
 - **Migration / rollback:** follow Appendix K. Schema contraction and legacy
   field removal are a later PR after observation window. Rollback uses feature
   flags/compatible binaries, never destructive reverse migrations. Revoked/
   redacted state remains monotonic.
-- **Focused verification:** all release commands in Appendix L, provider-backed
-  Slack rate-class receipt, real Claude Code MCP connection, `rtk gh pr checks`
-  or CI equivalent, hosted smokes, migration/rollback drill, and security
-  review.
+- **Evidence inheritance:** the attestation commit may differ only by scoped
+  evidence/docs and names the tested `productReleaseCommit`. Any source,
+  dependency, generated contract, environment, migration, provider policy,
+  model/prompt/tool schema, or capacity change creates a new candidate and
+  requires full restaging plus a new pilot window. A docs-only correction may
+  inherit evidence only when approvers sign a materiality record containing the
+  old/new hashes and unaffected gates.
+- **Focused verification:** all exact release commands in Appendix L,
+  authoritative Buildkite step keys, provider-backed Slack rate-class receipt,
+  real Claude Code MCP connection, hosted smokes, migration/rollback drill, and
+  security review.
 - **Completion receipt:** one signed release packet with commit/build/deploy
   IDs, command output, manifests/hashes, migration counts, screenshots,
   provider/eval/capacity results, pilot metrics, incidents, go/no-go approvers,
   and rollback proof.
-- **Commit / PR boundary:** branch `codex/brain-s13-launch-evidence`; commit
+- **Commit / PR boundary:** branch `codex/brain-s14-launch-evidence`; commit
   `docs: record Brain launch evidence`; final release PR. Fixes discovered here
-  use separate narrowly scoped PRs and rerun affected evidence.
+  create a new product candidate and follow the evidence-inheritance rule above.
 
 ---
 
 ## Appendix A — Exact Task Dependency, Classification, And Slice Budget Matrix
 
-`est source lines` is an early planning estimate, not permission to exceed the
-binding 300-line source diff. Generated output must still be reviewed. If a task
-crosses the limit, split it into an additional stack before implementation; do
-not deepen an existing stack beyond four.
+`est source lines` counts hand-authored production source only. Tests, generated
+output, and docs are reported separately in the StackPlan receipt and fully
+reviewed; generator dry-runs enumerate them before implementation. The binding
+hand-authored source limit remains 300. If the dry-run plus exact custom-file
+plan cannot credibly fit, split into an additional stack before implementation;
+do not deepen an existing stack beyond four.
 
 | Task    | Exact prerequisite | Work-package classification                      | Est. source lines |
 | ------- | ------------------ | ------------------------------------------------ | ----------------: |
 | S00-T01 | none               | template-gap `TB-DEVEX-CONVEX-01`                |                 0 |
-| S00-T02 | S00-T01            | template-gap backlog registration                |                 0 |
-| S00-T03 | S00-T02            | pattern-instance StackPlan validator             |                 0 |
+| S00-T02 | S00-T01            | template-gap backlog/StackPlan contract          |                 0 |
+| S00-T03 | S00-T02            | template-gap `TB-DEPLOY-ISOLATION-01`            |               280 |
 | S00-T04 | S00-T03            | template-gap migration pattern                   |               230 |
 | S01-T01 | S00 complete       | template-gap `TB-AUTHKIT-01`                     |               240 |
 | S01-T02 | S01-T01            | template-gap + existing-module repair            |               260 |
-| S01-T03 | S01-T02            | fixture-to-real `auth/workspaces`                |               280 |
-| S01-T04 | S01-T03            | existing access pattern-instance                 |               260 |
+| S01-T03 | S01-T02            | template-gap authorized tenancy                  |               280 |
+| S01-T04 | S01-T03            | template-gap access UI                           |               260 |
 | S02-T01 | S01 complete       | template-gap authorized Brain schema             |               260 |
-| S02-T02 | S02-T01            | existing `brain/pages` pattern-instance          |               280 |
+| S02-T02 | S02-T01            | template-gap authorized pages                    |               280 |
 | S02-T03 | S02-T02            | fixture-to-real `ops/versioning`/`ops/knowledge` |               290 |
-| S02-T04 | S02-T03            | editor sync pattern-instance                     |               250 |
+| S02-T04 | S02-T03            | template-gap authorized editor sync              |               250 |
 | S03-T01 | S02 complete       | template-gap Brain UI                            |               240 |
 | S03-T02 | S03-T01            | template-gap Client Brief UI                     |               280 |
 | S03-T03 | S03-T02            | template-gap Brain workspace UI                  |               290 |
-| S03-T04 | S03-T03            | revision pattern-instance + UI gap               |               260 |
+| S03-T04 | S03-T03            | template-gap revision/review UI                  |               260 |
 | S04-T01 | S01, S03           | template-gap Nango provider                      |               260 |
 | S04-T02 | S04-T01            | template-gap connection/channel directory        |               280 |
 | S04-T03 | S04-T02            | template-gap verified webhook                    |               290 |
@@ -2674,34 +2883,35 @@ not deepen an existing stack beyond four.
 | S06-T01 | S05 complete       | fixture-to-real `jobs/workpool`                  |               280 |
 | S06-T02 | S06-T01            | template-gap deterministic scheduler             |               260 |
 | S06-T03 | S06-T02            | template-gap Nango history adapter               |               290 |
-| S06-T04 | S06-T03            | reconciliation/admin pattern-instance            |               260 |
-| S07-T01 | S05, S06           | fixture-to-real `ops/dataLifecycle`              |               280 |
+| S06-T04 | S06-T03            | template-gap reconciliation/admin UI             |               260 |
+| S07-T01 | S05, S06           | template-gap lifecycle envelope                  |               280 |
 | S07-T02 | S07-T01            | template-gap propagation workflow                |               290 |
-| S07-T03 | S07-T02            | fixture-to-real lifecycle execution              |               290 |
-| S07-T04 | S07-T03            | lifecycle UI pattern-instance                    |               260 |
+| S07-T03 | S07-T02            | template-gap lifecycle execution                 |               290 |
+| S07-T04 | S07-T03            | template-gap lifecycle UI                        |               260 |
 | S08-T01 | S02, S05, S07      | template-gap structured LLM                      |               290 |
 | S08-T02 | S08-T01            | template-gap internal workflow generator         |               260 |
-| S08-T03 | S08-T02            | generated capability/workflow instance           |               295 |
-| S08-T04 | S08-T03            | generated capability/workflow instance           |               295 |
+| S08-T03 | S08-T02            | generated capability/workflow pattern-instance   |               295 |
+| S08-T04 | S08-T03            | generated capability/workflow pattern-instance   |               295 |
 | S09-T01 | S07, S08           | template-gap async search                        |               240 |
 | S09-T02 | S09-T01            | template-gap search projection                   |               280 |
-| S09-T03 | S09-T02, S02       | generated headless capability instance           |               290 |
-| S09-T04 | S09-T03, S08       | generated Ask capability instance                |               290 |
+| S09-T03 | S09-T02, S02       | generated headless capability pattern-instance   |               290 |
+| S09-T04 | S09-T03, S08       | generated Ask capability pattern-instance        |               290 |
 | S10-T01 | S04, S09           | template-gap Slack identity                      |               260 |
-| S10-T02 | S10-T01            | capability instance + transport gap              |               290 |
+| S10-T02 | S10-T01            | capability pattern-instance + transport gap      |               290 |
 | S10-T03 | S10-T02            | template-gap outbox/provider action              |               280 |
-| S10-T04 | S10-T03            | Settings/Connections pattern-instance            |               240 |
+| S10-T04 | S10-T03            | template-gap Slack recovery UI                   |               240 |
 | S11-T01 | S09 complete       | template-gap `TB-HEADLESS-01`                    |               280 |
 | S11-T02 | S11-T01            | template-gap bearer dispatcher                   |               280 |
 | S11-T03 | S11-T02            | generated manifest pattern-instance              |               260 |
 | S11-T04 | S11-T03            | template-gap Streamable HTTP MCP                 |               290 |
 | S12-T01 | S07, S11           | template-gap deterministic export                |               260 |
-| S12-T02 | S12-T01            | capability instance + storage gap                |               290 |
-| S12-T03 | S12-T02            | export UI pattern-instance                       |               240 |
-| S13-T01 | S08, S09, S10      | eval harness pattern-instance                    |               280 |
+| S12-T02 | S12-T01            | capability pattern-instance + storage gap        |               290 |
+| S12-T03 | S12-T02            | template-gap export UI                           |               240 |
+| S13-T01 | S08, S09, S10      | template-gap reproducible eval harness           |               280 |
 | S13-T02 | S13-T01, S06       | template-gap capacity harness                    |               260 |
-| S13-T03 | S13-T02            | operations primitives pattern-instance           |               280 |
-| S13-T04 | all prior tasks    | release process pattern-instance                 |                 0 |
+| S13-T03 | S13-T02            | template-gap operations policy                   |               260 |
+| S13-T04 | S13-T03            | template-gap operations UI/recovery              |               250 |
+| S14-T01 | all prior tasks    | template-gap release evidence                    |                 0 |
 
 ## Appendix B — Canonical Role And Capability Matrix
 
@@ -2711,35 +2921,41 @@ admins receive the existing capped administrator baseline; direct workspace
 membership may be more restrictive. Service principals never participate in
 human role inheritance.
 
-| Action                                                        | Viewer | Editor |   Admin   |   Owner   | Extra binding/rule                                                             |
-| ------------------------------------------------------------- | :----: | :----: | :-------: | :-------: | ------------------------------------------------------------------------------ |
-| List/read Brain pages and citations                           | allow  | allow  |   allow   |   allow   | Current active Brain membership                                                |
-| Search/read routed source                                     | allow  | allow  |   allow   |   allow   | Active route + lifecycle generation                                            |
-| Ask through web                                               | allow  | allow  |   allow   |   allow   | Current role rechecked before response                                         |
-| Ask through Slack                                             | allow  | allow  |   allow   |   allow   | Verified Slack identity + requester-private destination                        |
-| Use existing read-only service-principal key                  | allow  | allow  |   allow   |   allow   | Key scope/Brain/generations also valid; user role is irrelevant to key request |
-| Create/edit/rename/move/favorite/archive page                 |  deny  | allow  |   allow   |   allow   | Expected current revision required                                             |
-| Restore page revision                                         |  deny  | allow  |   allow   |   allow   | Appends a new revision                                                         |
-| Review/accept/edit/reject maintenance proposal                |  deny  | allow  |   allow   |   allow   | Citation and generation checks still apply                                     |
-| Create/invite/remove Brain members; change non-owner roles    |  deny  |  deny  |   allow   |   allow   | Last-owner protections                                                         |
-| Enable/disable Autopilot or change Brain model policy         |  deny  |  deny  |   allow   |   allow   | Passing eval receipt required to enable                                        |
-| Create/list/revoke/rotate Brain API keys                      |  deny  |  deny  |   allow   |   allow   | Viewer ceiling, display-once secret                                            |
-| Request/download/purge Brain export artifact                  |  deny  |  deny  |   allow   |   allow   | Final auth/lifecycle fence                                                     |
-| Archive Brain                                                 |  deny  |  deny  |   allow   |   allow   | Does not purge data                                                            |
-| Delete Brain                                                  |  deny  |  deny  |   deny    |   allow   | Reviewed lifecycle job and confirmation                                        |
-| Transfer Brain ownership                                      |  deny  |  deny  |   deny    |   allow   | Cannot leave zero owners                                                       |
-| Connect/reauthorize/disconnect agency Slack                   |  deny  |  deny  | org admin | org owner | Organization scope only                                                        |
-| Reconcile directory, set/bulk-change channel policy/allowlist |  deny  |  deny  | org admin | org owner | Joined channels and authorized target Brains only                              |
-| Review Classify route proposal/no-route                       |  deny  |  deny  | org admin | org owner | Reviewer can select only pinned allowlist                                      |
-| Emergency historical route revoke/reroute                     |  deny  |  deny  | org admin | org owner | Separate audited action and derived-data remediation                           |
-| Change organization retention/model-egress/capacity policy    |  deny  |  deny  | org admin | org owner | Immutable policy epoch and preview                                             |
-| Create/release legal hold                                     |  deny  |  deny  | org admin | org owner | Release may require configured second approval                                 |
-| Delete organization                                           |  deny  |  deny  |   deny    | org owner | Second approval + exact confirmation                                           |
-| Billing/organization ownership                                |  deny  |  deny  |   deny    | org owner | Existing template ownership rule                                               |
+| Action                                                        | Viewer | Editor |   Admin   |   Owner   | Extra binding/rule                                      |
+| ------------------------------------------------------------- | :----: | :----: | :-------: | :-------: | ------------------------------------------------------- |
+| List/read Brain pages and citations                           | allow  | allow  |   allow   |   allow   | Current active Brain membership                         |
+| Search/read routed source                                     | allow  | allow  |   allow   |   allow   | Active route + lifecycle generation                     |
+| Ask through web                                               | allow  | allow  |   allow   |   allow   | Current role rechecked before response                  |
+| Ask through Slack                                             | allow  | allow  |   allow   |   allow   | Verified Slack identity + requester-private destination |
+| Create/edit/rename/move/favorite/archive page                 |  deny  | allow  |   allow   |   allow   | Expected current revision required                      |
+| Restore page revision                                         |  deny  | allow  |   allow   |   allow   | Appends a new revision                                  |
+| Review/accept/edit/reject maintenance proposal                |  deny  | allow  |   allow   |   allow   | Citation and generation checks still apply              |
+| Create/invite/remove Brain members; change non-owner roles    |  deny  |  deny  |   allow   |   allow   | Last-owner protections                                  |
+| Enable/disable Autopilot or change Brain model policy         |  deny  |  deny  |   allow   |   allow   | Passing eval receipt required to enable                 |
+| Create/list/revoke/rotate Brain API keys                      |  deny  |  deny  |   allow   |   allow   | Viewer ceiling, display-once secret                     |
+| Request/download/purge Brain export artifact                  |  deny  |  deny  |   allow   |   allow   | Final auth/lifecycle fence                              |
+| Archive Brain                                                 |  deny  |  deny  |   allow   |   allow   | Does not purge data                                     |
+| Delete Brain                                                  |  deny  |  deny  |   deny    |   allow   | Reviewed lifecycle job and confirmation                 |
+| Transfer Brain ownership                                      |  deny  |  deny  |   deny    |   allow   | Cannot leave zero owners                                |
+| Connect/reauthorize/disconnect agency Slack                   |  deny  |  deny  | org admin | org owner | Organization scope only                                 |
+| Reconcile directory, set/bulk-change channel policy/allowlist |  deny  |  deny  | org admin | org owner | Joined channels and authorized target Brains only       |
+| Review Classify route proposal/no-route                       |  deny  |  deny  | org admin | org owner | Reviewer can select only pinned allowlist               |
+| Emergency historical route revoke/reroute                     |  deny  |  deny  | org admin | org owner | Separate audited action and derived-data remediation    |
+| Change organization retention/model-egress/capacity policy    |  deny  |  deny  | org admin | org owner | Immutable policy epoch and preview                      |
+| Create/release legal hold                                     |  deny  |  deny  | org admin | org owner | Release may require configured second approval          |
+| Delete organization                                           |  deny  |  deny  |   deny    | org owner | Second approval + exact confirmation                    |
+| Billing/organization ownership                                |  deny  |  deny  |   deny    | org owner | Existing template ownership rule                        |
 
 Every row receives table-driven tests at web capability, Slack adapter, API
 executor, and MCP executor boundaries where the action is exposed. A UI-hidden
 button without server denial does not satisfy the matrix.
+
+Service principals use a separate matrix because no ambient human session or
+role participates in a key-authenticated request:
+
+| Principal               | Allowed scopes                     | Role ceiling | Tenant source                             | Revocation checks                                                 |
+| ----------------------- | ---------------------------------- | ------------ | ----------------------------------------- | ----------------------------------------------------------------- |
+| Brain service principal | `brain:read`, optional `brain:ask` | `viewer`     | One Brain injected from verified key hash | key, principal, Brain, organization, expiry, lifecycle generation |
 
 ## Appendix C — Canonical Durable Table And Compound-Index Inventory
 
@@ -2765,7 +2981,7 @@ envelope.
 | `channelRoutingPolicies`         | S04         | `by_channel_epoch`, `by_channel_active`, `by_organization_created`                                                                         | Immutable epoch; Direct one target, Classify finite target set, Capture-only none |
 | `channelDeliveryPolicies`        | S04         | `by_channel_generation`, `by_channel_active`                                                                                               | Slack Connect only `capture_only`; internal may be requester-private              |
 | `channelSyncStates`              | S04/S06     | `by_channel`, `by_live_lag`, `by_recent_next_retry`, `by_deep_next_retry`, `by_access_state`                                               | Independent live/recent/deep cursors and fenced lease generations                 |
-| `providerEventReceipts`          | S05         | `by_connection_event_id`, `by_observation_key`, `by_received_at`, `by_outcome`                                                             | One logical event/observation receipt with redacted verification metadata         |
+| `providerEventReceipts`          | S05         | `by_connection_transport_delivery`, `by_observation_key`, `by_received_at`, `by_outcome`                                                   | One transport receipt; many receipts may cite one logical observation             |
 | `sourceArtifacts`                | S05         | `by_channel_provider_object`, `by_source_key`, `by_thread_key`, `by_lifecycle_purge_after`                                                 | Stable message/source object and total-ordered latest pointer                     |
 | `sourceRevisions`                | S05         | `by_source_revision_key`, `by_source_provider_order`, `by_source_created`, `by_lifecycle_purge_after`                                      | Immutable exact observation/tombstone; preserves `A -> B -> A`                    |
 | `sourceUnits`                    | S05         | `by_channel_unit_key`, `by_source_unit_key`, `by_latest_revision`                                                                          | Stable thread-or-message unit with latest snapshot pointer                        |
@@ -2776,6 +2992,8 @@ envelope.
 | `retentionPolicies`              | S07         | `by_organization_epoch`, `by_organization_active`                                                                                          | Immutable policy epochs                                                           |
 | `legalHolds`                     | S07         | `by_organization_status`, `by_resource_key`, `by_expires_at`                                                                               | Hold blocks purge, never access revocation                                        |
 | `lifecycleJobs`                  | S07         | `by_organization_status_next_retry`, `by_effect_key`, `by_resource_key`                                                                    | Resumable audited propagation/purge effect                                        |
+| `dataSubjectBindings`            | S07         | `by_organization_workos_subject`, `by_organization_team_slack_user`, `by_status`                                                           | Exact reviewed WorkOS/Slack identity equivalence; no email/display-name authority |
+| `dataSubjectOccurrences`         | S07         | `by_subject_resource`, `by_resource_subject`, `by_organization_created`                                                                    | Deterministic exact-author/descendant DSAR inventory; free text remains reviewed  |
 | `modelCallReceipts`              | S08         | `by_attempt_key`, `by_workflow_stage`, `by_model_prompt`, `by_request_hash`                                                                | No raw prompts/completions; immutable hashes/usage/versions                       |
 | `classificationDecisions`        | S08         | `by_unit_policy_epoch`, `by_status_created`, `by_effect_key`, `by_target_brain`                                                            | Exactly one nullable target; one reviewed accepted decision                       |
 | `brainMaintenanceProposals`      | S08         | `by_workspace_status_created`, `by_page_status`, `by_effect_key`, `by_model_prompt`                                                        | Cited no-op/revision proposal and review/autopilot receipt                        |
@@ -2814,10 +3032,8 @@ envelope.
 | `NANGO_SECRET_KEY`                           | server secret                | S04         | Create Connect sessions and call Nango server API                |
 | `NANGO_BASE_URL`                             | server/browser config        | S04         | Pinned Nango Cloud/self-host endpoint                            |
 | `NANGO_SLACK_PROVIDER_CONFIG_KEY`            | server config                | S04         | Exact reviewed Slack provider configuration                      |
-| `NANGO_WEBHOOK_SECRET_CURRENT`               | server secret                | S04         | Verify Nango forwarding when selected                            |
-| `NANGO_WEBHOOK_SECRET_PREVIOUS`              | server secret, optional      | S04         | Bounded rotation overlap only                                    |
-| `SLACK_SIGNING_SECRET_CURRENT`               | server secret, conditional   | S04         | Only when the Maestro-owned native Events receiver is selected   |
-| `SLACK_SIGNING_SECRET_PREVIOUS`              | server secret, conditional   | S04         | Native receiver rotation overlap                                 |
+| `SLACK_SIGNING_SECRET_CURRENT`               | server secret                | S04         | Verify the Maestro-owned native Events receiver                  |
+| `SLACK_SIGNING_SECRET_PREVIOUS`              | server secret, optional      | S04         | Bounded native-receiver rotation overlap                         |
 | `OPENROUTER_API_KEY`                         | server secret                | S08         | Existing provider-neutral LLM endpoint credential                |
 | `OPENROUTER_BASE_URL`                        | server config                | S08         | Exact allowlisted endpoint; no arbitrary per-request URL         |
 | `MAESTRO_PUBLIC_APP_URL`                     | server/browser config        | S01/S10/S11 | Link callbacks and public remote MCP URL                         |
@@ -2881,8 +3097,8 @@ admin scopes, user-token-only broad scopes, and any auto-join Nango option.
 - Bot credential is the default ingestion/proxy identity; user tokens are not
   used to infer bot membership.
 - Auth webhook/Connect callback preserves the stable Maestro `connectionKey`.
-- Slack forwarding must be signed/durable according to S04-T03 or the native
-  Slack Events receiver is selected.
+- Slack Events request URL targets the Maestro-owned native receiver; Nango
+  forwarding is disabled for live capture.
 - Channel directory sync is full and paginated. Message history is called only
   by Maestro's one-channel bounded scheduler, never Nango's stock all-channel
   loop.
@@ -2975,6 +3191,7 @@ type ClassificationRequest = {
 
 type ClassificationDecision = {
   sourceUnitRevisionKey: string;
+  contentScope: "single_target" | "mixed_client" | "no_target";
   targetBrainKey: string | null;
   confidence: number;
   rationale: string;
@@ -2983,57 +3200,67 @@ type ClassificationDecision = {
 ```
 
 Confidence/rationale are diagnostic only. The structural pipe verifies key/hash,
-zero-or-one target, allowlist membership, exact quotes, policy/generations, and
-review authority; it does not reinterpret the decision.
+content-scope/target consistency, zero-or-one target, allowlist membership,
+exact quotes, policy/generations, and review authority. `mixed_client` requires
+a null target and cannot be reviewer-overridden to a route in V1; the pipe does
+not otherwise reinterpret the decision.
 
 ## Appendix G — Complete State-Machine Inventory
 
-Every transition is persisted with the actor/principal, causation/effect key,
-prior and next state, relevant generation/epoch, and timestamp. A transition not
-listed here is invalid. Terminal or monotonic states cannot be reopened by a
-retry; recovery creates a new generation, attempt, revision, or job.
+This table covers durable entity machines. Every durable transition persists
+actor/principal key, causation/effect key, prior/next state, relevant
+generation/ epoch, and timestamp; raw tokens and customer text are never
+transition data. Transient request flows appear separately and produce only
+redacted audit events at security boundaries. An unlisted durable transition is
+invalid. Terminal or monotonic states cannot be reopened by retry; recovery
+creates a new generation, attempt, revision, or job.
 
-| Machine                     | States and permitted transitions                                                                                                                                | Owning task / commit fence                                             |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| Host plugin readiness       | `unknown -> missing \| installed -> verified`; `verified` is required on three distinct hosts                                                                   | S00-T01; fresh-session discovery                                       |
-| Stack execution             | `unprojected -> projected -> validated -> in_progress -> merged -> receipt_archived`; drift returns to `unprojected`                                            | S00-T03; validated manifest hash                                       |
-| Migration run               | `planned -> running -> complete \| failed`; `failed -> running` only from last committed cursor                                                                 | S00-T04; migration name/cursor/generation                              |
-| Human auth snapshot         | `signed_out \| authenticated`; token expiry/revocation returns to `signed_out`                                                                                  | S01-T01; current WorkOS subject/token                                  |
-| Organization                | `provisioning -> active -> suspended -> active \| deleting -> deleted`; `deleted` is terminal                                                                   | S01-T02/S07-T03; organization generation                               |
-| Brain                       | `provisioning -> active -> archived -> active \| deleting -> deleted`; lifecycle may move active/archived content to redacted/purged                            | S01-T03/S07-T03; Brain/lifecycle generation                            |
-| Membership                  | `pending -> active -> revoked`; a new grant creates a new membership generation                                                                                 | S01-T04; current effective-role generation                             |
-| Invitation                  | existing typed pending/accepted/expired/revoked terminal rules remain authoritative                                                                             | S01-T04; invitation token/status                                       |
-| Page                        | `active -> archived -> active \| redacted -> purged`; redaction/purge are monotonic                                                                             | S02-T01/S07; lifecycle generation                                      |
-| Page revision               | `draft -> proposed -> published \| rejected`; any non-purged state may become `redacted -> purged`; published rows are immutable                                | S02-T01/T03; expected current revision + effect key                    |
-| Editor commit               | `editing -> commit_pending -> committed \| stale \| revoked`; stale/revoked attempts never update the current pointer                                           | S02-T04; expected revision/lifecycle generation                        |
-| Provider connection         | `pending -> active -> reauthorization_required -> active \| disconnected`; reconnect increments generation, never reuses credentials                            | S04-T01/T02; connection/team/app/bot generation                        |
-| Channel membership          | `discovered_not_joined -> joined_needs_policy -> joined_active -> access_lost \| archived`; re-add creates a new access generation and resumes saved cursors    | S04-T02/S06-T04; bot membership generation                             |
-| Routing policy              | immutable epochs with mode `direct \| classify \| capture_only`; active pointer moves only after validation and audit                                           | S04-T04; policy epoch                                                  |
-| Delivery policy             | immutable generation `requester_private \| capture_only`; Slack Connect is structurally fixed to `capture_only`                                                 | S04-T04/S10; delivery generation                                       |
-| Live/recent/deep sync lane  | `idle -> queued -> running -> waiting_rate_limit \| retry_wait -> idle \| access_lost \| dead_letter`; each lane has its own cursor and lease                   | S04-T02/S06; cursor + lease fence                                      |
-| Provider event receipt      | `received -> verified -> committed -> acknowledged` or `received -> rejected`; acknowledgement cannot precede atomic capture intent                             | S04-T03/S05-T02; event/observation key                                 |
-| Source artifact             | `active -> deleted_tombstone -> redacted -> purged`; latest pointer advances by total provider order only                                                       | S05-T01/T02/S07; provider order + lifecycle generation                 |
-| Source revision             | immutable `observed \| edit \| tombstone`, then `redacted -> purged`; `A -> B -> A` remains three revisions                                                     | S05-T02/S07; revision key/order/hash                                   |
-| Source unit                 | `open -> cut`; each later fixed cut creates a new immutable source-unit revision                                                                                | S05-T03; fixed-cut key/hash                                            |
-| Source processing job       | `queued -> claimed -> running -> succeeded \| retry_wait \| dead_letter \| superseded \| revoked`; only current lease may commit                                | S05-T04/S06/S07; lease, stage, policy, route and lifecycle generations |
-| Source route                | `awaiting_policy \| capture_only \| proposed -> active -> revoked \| superseded`; one active effect per unit/Brain/generation                                   | S05-T04/S07/S08-T03; route effect/policy/lifecycle generation          |
-| Rate-limit bucket           | `available -> blocked_until -> available`; admission may be queued/rejected but never silently dropped                                                          | S06-T02/S13-T02; connection/method budget epoch                        |
-| Legal hold                  | `planned -> active -> released \| expired`; it blocks purge only, never current-read revocation                                                                 | S07-T01/T03; hold generation/approval                                  |
-| Lifecycle job               | `planned -> approved -> queued -> running -> complete \| failed \| superseded`; failed work resumes idempotently                                                | S07; effect key/resource generation                                    |
-| Model call                  | `planned -> admitted -> running -> succeeded \| typed_failure \| budget_rejected`; raw prompt/completion never enters receipts                                  | S08-T01; request hash/model/prompt/tool versions                       |
-| Classification decision     | `gathered -> proposed_zero \| proposed_one -> accepted \| changed_to_allowed \| no_route \| rejected \| superseded`; only reviewed terminal decisions may route | S08-T03; unit/policy/allowlist/review generations                      |
-| Maintenance proposal        | `gathered -> proposed_noop \| proposed_revision -> accepted \| edited_and_accepted \| rejected \| superseded`; Autopilot is an explicit reviewed policy path    | S08-T04; page/route/model/policy/lifecycle generations                 |
-| Search projection           | `pending -> active -> inactive -> purged`; inactive rows cannot be candidates                                                                                   | S09-T02; source/page revision + route/lifecycle generation             |
-| Retrieval/answer            | `gathering -> manifest_pinned -> model_running -> cited_answer \| insufficient_evidence -> reauthorized -> returned \| revoked`                                 | S09-T03/T04; immutable manifest + final auth generations               |
-| Slack identity binding      | `unlinked -> pending_verification -> active -> revoked`; relink creates a new binding generation                                                                | S10-T01; org/team/Slack user/WorkOS subject                            |
-| Slack question              | `received -> scope_required \| scoped -> answering -> outbox_pending \| abstained \| denied`; ambiguity never guesses a Brain                                   | S10-T02/T04; requester and scope receipt                               |
-| Outbound delivery           | `pending -> authorized -> sending -> sent \| ambiguous -> reconciled_sent \| retry_wait \| denied \| revoked`; at most one logical visible effect               | S10-T03; outbox effect + audience/auth generations                     |
-| Service principal / API key | `active -> expired \| revoked`; rotation creates a new key and revokes the old generation                                                                       | S11-T01; key hash/principal generation                                 |
-| Headless request            | `received -> authenticated -> authorized -> decoded -> dispatched -> reauthorized -> returned`; any denial terminates before the next sensitive stage           | S11-T02/T04; request/principal/auth generations                        |
-| Export job/artifact         | `requested -> gathering -> encoded -> stored -> available -> expired -> purged` or `denied \| revoked \| failed`; publication reauthorizes                      | S12; export effect/lifecycle generation                                |
-| Model/prompt approval       | `candidate -> evaluated -> approved \| rejected`; approval is immutable for a suite/fixture hash                                                                | S13-T01; eval receipt hash                                             |
-| Subsystem policy            | `enabled -> paused -> enabled`, with emergency `disabled`; enabling requires current operator authority and evidence                                            | S13-T03; policy epoch                                                  |
-| Release                     | `candidate -> staging -> pilot -> launch_approved \| no_go -> cohort_enabled -> general`; incident returns to `no_go`/rollback, never erases evidence           | S13-T04; release commit/build/deploy IDs                               |
+| Machine                     | States and permitted transitions                                                                                                                                                                   | Owning task / commit fence                                             |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Host plugin readiness       | `unknown -> missing \| installed -> verified`; `verified` is required on three distinct hosts                                                                                                      | S00-T01; fresh-session discovery                                       |
+| Stack execution             | `unprojected -> projected -> validated -> in_progress -> merged -> receipt_archived`; drift returns to `unprojected`                                                                               | S00-T02; validated manifest hash                                       |
+| Migration run               | `planned -> running -> complete \| failed`; `failed -> running` only from last committed cursor                                                                                                    | S00-T04; migration name/cursor/generation                              |
+| Organization                | `provisioning -> active -> suspended -> active \| deleting -> deleted`; `deleted` is terminal                                                                                                      | S01-T02/S07-T03; organization generation                               |
+| Brain                       | `provisioning -> active -> archived -> active \| deleting -> deleted`; lifecycle may move active/archived content to redacted/purged                                                               | S01-T03/S07-T03; Brain/lifecycle generation                            |
+| Membership                  | `pending -> active -> revoked`; a new grant creates a new membership generation                                                                                                                    | S01-T04; current effective-role generation                             |
+| Invitation                  | existing typed pending/accepted/expired/revoked terminal rules remain authoritative                                                                                                                | S01-T04; invitation token/status                                       |
+| Page                        | `active -> archived -> active \| redacted -> purged`; redaction/purge are monotonic                                                                                                                | S02-T01/S07; lifecycle generation                                      |
+| Page revision               | `draft -> proposed -> published \| rejected`; any non-purged state may become `redacted -> purged`; published rows are immutable                                                                   | S02-T01/T03; expected current revision + effect key                    |
+| Provider connection         | `not_connected -> authorizing -> verifying -> active \| error`; `active -> reauthorizing -> active \| error`; `active \| error -> revoked`; replacement creates a new generation                   | S04-T01/T02; connection/team/app/bot generation                        |
+| Channel membership          | `discovered_not_joined -> joined_needs_policy -> joined_active -> access_lost \| archived`; re-add creates a new access generation and resumes saved cursors                                       | S04-T02/S06-T04; bot membership generation                             |
+| Routing policy              | immutable epochs with mode `direct \| classify \| capture_only`; active pointer moves only after validation and audit                                                                              | S04-T04; policy epoch                                                  |
+| Delivery policy             | immutable generation `requester_private \| capture_only`; Slack Connect is structurally fixed to `capture_only`                                                                                    | S04-T04/S10; delivery generation                                       |
+| Live/recent/deep sync lane  | `idle -> queued -> running -> waiting_rate_limit \| retry_wait -> idle \| access_lost \| dead_letter`; each lane has its own cursor and lease                                                      | S04-T02/S06; cursor + lease fence                                      |
+| Provider event receipt      | `received -> verified -> committed -> acknowledged` or `received -> rejected`; acknowledgement cannot precede atomic capture intent                                                                | S04-T03/S05-T02; event/observation key                                 |
+| Source artifact             | `active -> deleted_tombstone -> redacted -> purged`; latest pointer advances by total provider order only                                                                                          | S05-T01/T02/S07; provider order + lifecycle generation                 |
+| Source revision             | immutable `observed \| edit \| tombstone`, then `redacted -> purged`; `A -> B -> A` remains three revisions                                                                                        | S05-T02/S07; revision key/order/hash                                   |
+| Source unit                 | `open -> cut`; every revision contains one first-observed policy epoch, and cross-epoch replies create separate immutable segments                                                                 | S05-T03; fixed-cut/segment key/hash                                    |
+| Source processing job       | `queued -> leased -> running -> succeeded \| retry_wait \| dead_letter \| superseded \| revoked \| cancelled`; only current lease may commit                                                       | S05-T04/S06/S07; lease, stage, policy, route and lifecycle generations |
+| Source route                | `proposed -> active -> revoked \| superseded`; Direct may create `active` mechanically; awaiting-policy/capture-only are job states, not route states                                              | S05-T04/S07/S08-T03; route effect/policy/lifecycle generation          |
+| Rate-limit bucket           | `available -> blocked_until -> available`; admission may be queued/rejected but never silently dropped                                                                                             | S06-T02/S13-T02; connection/method budget epoch                        |
+| Legal hold                  | `planned -> active -> released \| expired`; it blocks purge only, never current-read revocation                                                                                                    | S07-T01/T03; hold generation/approval                                  |
+| Lifecycle job               | `planned -> approved -> running -> complete \| failed \| blocked_by_hold`; failed/blocked work resumes as a new fenced attempt                                                                     | S07; effect key/resource generation                                    |
+| Model call                  | `queued -> running -> succeeded \| retryable_failure \| permanent_failure \| cancelled`; budget/policy denial occurs before queueing                                                               | S08-T01; request hash/model/prompt/tool versions                       |
+| Classification decision     | `gathered -> proposed_zero \| proposed_one -> accepted \| changed_to_allowed \| no_route \| mixed_client_no_route \| rejected \| superseded`; only reviewed non-mixed terminal decisions may route | S08-T03; unit/policy/allowlist/review generations                      |
+| Maintenance proposal        | `gathered -> proposed_noop \| proposed_revision -> accepted \| edited_and_accepted \| rejected \| superseded`; Autopilot is an explicit reviewed policy path                                       | S08-T04; page/route/model/policy/lifecycle generations                 |
+| Search projection           | `pending -> active -> inactive -> purged`; inactive rows cannot be candidates                                                                                                                      | S09-T02; source/page revision + route/lifecycle generation             |
+| Retrieval/answer            | `gathering -> manifest_pinned -> model_running -> cited_answer \| insufficient_evidence -> reauthorized -> returned \| revoked`                                                                    | S09-T03/T04; immutable manifest + final auth generations               |
+| Slack identity binding      | `unlinked -> pending_verification -> active -> revoked`; relink creates a new binding generation                                                                                                   | S10-T01; org/team/Slack user/WorkOS subject                            |
+| Slack question              | `received -> scope_required \| scoped -> answering -> outbox_pending \| abstained \| denied`; ambiguity never guesses a Brain                                                                      | S10-T02/T04; requester and scope receipt                               |
+| Outbound delivery           | `pending -> authorized -> sending -> sent \| retry_wait \| ambiguous_no_retry \| denied \| revoked`; ephemeral ambiguity is terminal                                                               | S10-T03; outbox effect + audience/auth generations                     |
+| Service principal / API key | `active -> expired \| revoked`; rotation creates a new key and revokes the old generation                                                                                                          | S11-T01; key hash/principal generation                                 |
+| Export job/artifact         | `requested -> gathering -> encoding -> storing -> ready -> expired -> purged`, with `revoked \| failed` terminal outcomes                                                                          | S12; export effect/lifecycle generation                                |
+| Model/prompt approval       | `candidate -> evaluated -> approved \| rejected`; approval is immutable for a suite/fixture hash                                                                                                   | S13-T01; eval receipt hash                                             |
+| Subsystem policy            | `enabled -> paused -> enabled`, with emergency `disabled`; enabling requires current operator authority and evidence                                                                               | S13-T03; policy epoch                                                  |
+| Release                     | `candidate -> staging -> pilot`, then terminal `no_go` or `launch_approved -> cohort_enabled -> general`; incident triggers rollback/new candidate                                                 | S14-T01; product/attestation commit, build and deploy IDs              |
+
+Transient flows are ordered security checks, not durable state machines:
+
+| Flow             | Required order                                                                                 | Audit behavior                                                                 |
+| ---------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Human auth       | `signed_out                                                                                    | authenticated` per request                                                     | Persist no token; audit only redacted subject/config failure metadata |
+| Editor commit    | `editing -> commit_pending -> committed                                                        | stale                                                                          | revoked`                                                              | Persist only accepted revision or redacted denial/attempt metadata |
+| Headless request | `received -> authenticated -> authorized -> decoded -> dispatched -> reauthorized -> returned` | Persist request ID, principal key, operation, timing and redacted outcome only |
 
 ## Appendix H — Lifecycle Propagation Matrix
 
@@ -3042,23 +3269,24 @@ and delivery in the initiating transaction or through a monotonic generation
 fence. Physical purge may be asynchronous and resumable. Legal hold changes
 purge timing only.
 
-| Trigger                                      | Immediate authority/routing effect                                          | Raw and immutable source copies                                                 | Derived/indexed/model copies                                                                                      | Queued/delivered/exported copies                                                                    | Purge, hold, backup and proof                                                          |
-| -------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Slack edit                                   | Supersede old latest pointer; old revision remains non-current              | Append exact edit revision; preserve prior observations                         | Assemble new fixed cut; supersede stale decisions/routes/projections/proposals                                    | Fence stale jobs/answers/exports/outbox before commit                                               | Retain old revision per policy; prove `A -> B -> A` ordering                           |
-| Slack delete                                 | Revoke current readable text immediately                                    | Append tombstone; retain permitted hash/order metadata                          | Inactivate projections/routes, redact snapshots/decision context/citations                                        | Revoke queued work and unpublished answers/exports; delivered copies get audit marker only          | Purge text on schedule unless held; citation resolves redacted marker                  |
-| Emergency route revoke/reroute               | Deactivate affected Brain route immediately                                 | Organization-vault source remains subject to its own policy                     | Inactivate Brain projections; supersede maintenance/retrieval manifests; remediate derived page text under review | Fence jobs/outbox/exports; already downloaded/user-visible copies are recorded, not remotely erased | Lifecycle job records every descendant and unresolved external copy                    |
-| Bot removed/channel access lost              | Stop new capture; retain current read policy unless separately revoked      | Preserve captured revisions and cursors                                         | Stop new assembly/routing; mark freshness gap                                                                     | Pause lane jobs and sends requiring channel access                                                  | Re-add resumes/reconciles; irrecoverable Slack gaps remain explicit                    |
-| Channel policy changes                       | New immutable epoch; old jobs cannot route/commit                           | Exact capture continues in all modes                                            | Direct/Classify/Capture-only effects follow new epoch; stale proposals supersede                                  | Fence pending jobs/outbox/export inputs pinned to old policy                                        | Retain policy/audit epochs; no retroactive reroute without reviewed action             |
-| Membership/user/service-principal/key revoke | Deny next capability call and final delivery immediately                    | No source mutation solely from access revocation                                | Prevent retrieval/model input/projection reads for principal                                                      | Revoke in-flight return/send/download through generation check                                      | Preserve redacted access audit; key hash may remain as tombstone                       |
-| Brain archive                                | Hide from default lists; deny writes; reads follow explicit archive policy  | Vault sources unchanged                                                         | Pause maintenance and new projection admission; routes remain policy-controlled                                   | Fence writes/exports if archive policy disallows them                                               | Reversible until delete; retain history/audit                                          |
-| Brain delete                                 | Deny all Brain reads/writes immediately                                     | Vault source is retained only if another active lawful route/policy requires it | Revoke routes; redact/purge pages, revisions, citations, projections, decisions, receipts                         | Cancel jobs/outbox; expire/purge artifacts; downloaded copies disclosed as external                 | Reviewed lifecycle job, hold-aware purge, backup expiry/crypto-erasure proof           |
-| Organization delete                          | Revoke every connection, principal, membership and Brain                    | Stop capture; redact then purge all tenant raw data                             | Revoke/purge all derived/indexed/model context                                                                    | Cancel all jobs/sends; expire all artifacts                                                         | Second approval, exact confirmation, hold handling, provider disconnect, backup proof  |
-| Retention expiry                             | Deny expired text from current reads before async deletion                  | Mark eligible revisions/snapshots expired                                       | Inactivate/redact projections, citations, receipts and model context                                              | Fence jobs/answers/outbox/exports containing expired inputs                                         | Hold-aware idempotent purge; tombstone/hash metadata only                              |
-| DSAR erasure                                 | Revoke subject-linked text from current use after approved scope resolution | Redact/purge exact subject-bearing revisions where legally permitted            | Propagate to snapshots, pages, citations, search and model receipts without retaining text                        | Cancel or regenerate queued outputs/artifacts; record delivered/external limits                     | Approved plan, deterministic descendant inventory, hold exceptions, completion receipt |
-| Legal hold create/release                    | Does not grant access or reactivate revoked data                            | Marks eligible resources purge-blocked/unblocked                                | Same purge block across descendants; current-read rules unchanged                                                 | Jobs may preserve evidence but cannot deliver revoked text                                          | Immutable approvals; release resumes pending purge from cursor                         |
-| Model/provider policy revoke                 | Stop new egress/calls immediately                                           | Exact capture remains on                                                        | Pending semantic work pauses; deterministic processing continues                                                  | Prevent new model answers/proposals; existing authorized deterministic reads may continue           | Receipt identifies affected model/prompt/policy epochs                                 |
-| Export expiry/manual purge                   | Deny download immediately                                                   | Canonical Brain/source rows unchanged                                           | Export manifest retained without customer text as policy allows                                                   | Delete Convex storage object/signed URL; mark job purged                                            | Idempotent delete, expiry scan, artifact-not-found proof                               |
-| Backup expiry/crypto-erasure                 | No production authority change                                              | Backup copy becomes unreadable/deleted                                          | All derived backup copies follow same key/schedule                                                                | External downloaded copies remain outside control and disclosed                                     | Provider/key version, expiry/deletion result, restore-negative canary                  |
+| Trigger                                      | Immediate authority/routing effect                                                                                    | Raw and immutable source copies                                                                        | Derived/indexed/model copies                                                                                                | Queued/delivered/exported copies                                                                    | Purge, hold, backup and proof                                                                               |
+| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Slack edit                                   | Supersede old latest pointer; old revision remains non-current                                                        | Append exact edit revision; preserve prior observations                                                | Assemble new fixed cut; supersede stale decisions/routes/projections/proposals                                              | Fence stale jobs/answers/exports/outbox before commit                                               | Retain old revision per policy; prove `A -> B -> A` ordering                                                |
+| Slack delete                                 | Revoke current readable text immediately                                                                              | Append tombstone; retain permitted hash/order metadata                                                 | Inactivate routes/projections/citations and make every affected current page revision non-readable until safe replacement   | Revoke queued work and unpublished answers/exports; delivered copies get audit marker only          | Purge text on schedule unless held; citation resolves redacted marker                                       |
+| Emergency route revoke/reroute               | Deactivate affected Brain route immediately                                                                           | Organization-vault source remains subject to its own policy                                            | Inactivate projections/manifests and make affected current page revisions non-readable before reviewed replacement          | Fence jobs/outbox/exports; already downloaded/user-visible copies are recorded, not remotely erased | Lifecycle job records every descendant and unresolved external copy                                         |
+| Bot removed/channel access lost              | Stop new capture; retain current read policy unless separately revoked                                                | Preserve captured revisions and cursors                                                                | Stop new assembly/routing; mark freshness gap                                                                               | Pause lane jobs and sends requiring channel access                                                  | Re-add resumes/reconciles; irrecoverable Slack gaps remain explicit                                         |
+| Connection reauthorize/replace/disconnect    | Same connection increments credentials generation; replacement/disconnect revokes old generation                      | Preserve channel keys/cursors only for verified same-team/app reauth; otherwise freeze old mappings    | Fence old routes/projections and revoke old Slack identity bindings                                                         | Reject stale webhooks; pause jobs/outbox until replacement review                                   | Receipt distinguishes reauth, replacement, team/app change, uninstall and disconnect                        |
+| Channel policy changes                       | New immutable epoch; old jobs cannot route/commit                                                                     | Exact capture continues; messages retain first-observed epoch and threads assemble same-epoch segments | Direct/Classify/Capture-only effects follow new segment epoch; stale proposals supersede                                    | Fence pending jobs/outbox/export inputs pinned to old policy                                        | Retain policy/audit epochs; no retroactive reroute without reviewed action                                  |
+| Membership/user/service-principal/key revoke | Deny next capability call and final delivery immediately                                                              | No source mutation solely from access revocation                                                       | Prevent retrieval/model input/projection reads for principal                                                                | Revoke in-flight return/send/download through generation check                                      | Preserve redacted access audit; key hash may remain as tombstone                                            |
+| Brain archive                                | Hide from default lists; deny writes; reads follow explicit archive policy                                            | Vault sources unchanged                                                                                | Pause maintenance and new projection admission; routes remain policy-controlled                                             | Fence writes/exports if archive policy disallows them                                               | Reversible until delete; retain history/audit                                                               |
+| Brain delete                                 | Deny all Brain reads/writes immediately                                                                               | Vault source is retained only if another active lawful route/policy requires it                        | Revoke routes; redact/purge pages, revisions, citations, projections, decisions, receipts                                   | Cancel jobs/outbox; expire/purge artifacts; downloaded copies disclosed as external                 | Reviewed lifecycle job, hold-aware purge, backup expiry/crypto-erasure proof                                |
+| Organization delete                          | Revoke every connection, principal, membership and Brain                                                              | Stop capture; redact then purge all tenant raw data                                                    | Revoke/purge all derived/indexed/model context                                                                              | Cancel all jobs/sends; expire all artifacts                                                         | Second approval, exact confirmation, hold handling, provider disconnect, backup proof                       |
+| Retention expiry                             | Deny expired text from current reads before async deletion                                                            | Mark eligible revisions/snapshots expired                                                              | Inactivate/redact projections, citations, receipts and model context                                                        | Fence jobs/answers/outbox/exports containing expired inputs                                         | Hold-aware idempotent purge; tombstone/hash metadata only                                                   |
+| DSAR erasure                                 | Revoke exact linked-subject text after approved scope; free-text/inferred identity requires reviewed manual discovery | Redact/purge exact WorkOS/Slack author occurrences where legally permitted                             | Propagate keyed descendants to snapshots/pages/citations/search/model receipts; manual manifest records ambiguous free text | Cancel/regenerate queued outputs/artifacts; record delivered/provider/external limits               | Binding/occurrence inventory, reviewer, hold exceptions, provider deletion/retention and completion receipt |
+| Legal hold create/release                    | Does not grant access or reactivate revoked data                                                                      | Marks eligible resources purge-blocked/unblocked                                                       | Same purge block across descendants; current-read rules unchanged                                                           | Jobs may preserve evidence but cannot deliver revoked text                                          | Immutable approvals; release resumes pending purge from cursor                                              |
+| Model/provider policy revoke                 | Stop new egress/calls immediately                                                                                     | Exact capture remains on                                                                               | Pending semantic work pauses; deterministic processing continues                                                            | Prevent new model answers/proposals; existing authorized deterministic reads may continue           | Zero-retention proof or provider deletion/DSAR result and affected model/prompt/policy epochs               |
+| Export expiry/manual purge                   | Deny download immediately                                                                                             | Canonical Brain/source rows unchanged                                                                  | Export manifest retained without customer text as policy allows                                                             | Delete Convex storage object/signed URL; mark job purged                                            | Idempotent delete, expiry scan, artifact-not-found proof                                                    |
+| Backup expiry/crypto-erasure                 | No production authority change                                                                                        | Backup copy becomes unreadable/deleted                                                                 | All derived backup copies follow same key/schedule                                                                          | External downloaded copies remain outside control and disclosed                                     | Provider/key version, expiry/deletion result, restore-negative canary                                       |
 
 ## Appendix I — Negative And Adversarial Test Matrix
 
@@ -3066,43 +3294,56 @@ Every row is mandatory where the surface exists. Tests assert typed denial, zero
 unauthorized durable effects, redacted audit metadata, and that provider, model,
 storage, or delivery adapters were not called before authorization.
 
-| Attack/failure class         | Required adversarial fixtures                                                                                                          | Expected invariant                                                              | Primary tasks                       |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------- |
-| Authentication confusion     | missing/expired/malformed WorkOS token; wrong issuer/JWKS/org; fake mode in production                                                 | `Unauthorized`/startup failure; no tenant lookup or secret exposure             | S01-T01/T02                         |
-| Tenant/key forgery           | caller org/workspace/Brain/user/Convex ID; same stable key in another tenant                                                           | server-derived tenant wins; cross-tenant denial and no existence leak           | S01-T02/T03, S02, S11               |
-| RBAC race                    | demote/revoke after gather but before commit/return/send/download                                                                      | final reauthorization denies and accepted effect remains zero                   | S01-T04, S09-T04, S10-T03, S11, S12 |
-| Last-owner/invite abuse      | remove last owner; reuse/expire/revoke invite; self-escalate role                                                                      | typed denial; owner invariant preserved                                         | S01-T04                             |
-| Page/editor concurrency      | cycle, cross-Brain parent, duplicate sibling slug, stale revision, restore race, viewer write                                          | no pointer corruption; append-only history                                      | S02                                 |
-| OAuth/connection binding     | forged Connect state, wrong team/app/bot, stale generation, replayed callback, token in logs                                           | connection not activated; tokens remain in Nango                                | S04-T01/T02                         |
-| Webhook authenticity         | bad/current/previous signature boundaries, old/future timestamp, oversized body, replay, unknown connection                            | rejection before tenant write; redacted receipt only                            | S04-T03                             |
-| Bot membership/channel scope | event for unjoined/inaccessible/archived channel; first-channel/shared-cursor bug; auto-join attempt                                   | no unauthorized capture; every joined channel independent                       | S04-T02/T04, S06                    |
-| Slack Connect audience       | attempt Direct/Classify/delivery on Connect; channel-wide answer                                                                       | structural capture-only and zero send                                           | S04-T04, S10                        |
-| Event dedupe/order           | duplicate delivery, live/backfill race, equal timestamps, `A -> B -> A`, delete-before-edit                                            | one logical observation per key, total ordered immutable history                | S05-T01/T02                         |
-| Atomicity/crash              | crash before/after receipt/source/intent commit; retry after timeout                                                                   | either no effect or complete atomic intent; no lost/duplicate downstream effect | S05-T02, S06                        |
-| Snapshot contamination       | mutable latest read after fixed cut; oversized thread; cross-channel message; stale revision                                           | immutable bounded unit hash; stale job superseded                               | S05-T03                             |
-| Route/classification escape  | Direct invokes model; Classify returns two/out-of-list targets; no-route coerced to target; stale policy                               | zero model call for Direct; structural rejection; review required               | S05-T04, S08-T03                    |
-| Lease/fairness/rate          | expired/stolen lease, stale completion, 429/`Retry-After`, poison channel, giant deep backfill                                         | one accepted effect; cursors preserved; every channel progresses                | S06, S13-T02                        |
-| Lifecycle resurrection       | delete/revoke during job; retry old generation; legal hold treated as access grant; purge rerun                                        | monotonic revoke/purge; hold blocks purge only; idempotent receipt              | S07                                 |
-| Prompt/tool injection        | Slack/page/question/model/MCP text asks for other tenant, tools, instructions, secrets or delivery change                              | values remain data; closed tools/allowlist/audience unchanged                   | S08, S09, S11, S13-T01              |
-| Model schema/budget          | malformed JSON, missing citation, fabricated quote, timeout, provider 5xx, token/spend cap                                             | typed failure/abstention; exact data remains replayable; no heuristic fallback  | S08                                 |
-| Search/projection leak       | org-vault-only row, inactive route, revoked lifecycle, stale projection, malicious filter                                              | never a candidate; async lag reported honestly                                  | S09-T01/T02                         |
-| Retrieval/citation failure   | citation outside manifest, locator/hash mismatch, unsupported claim, no evidence, revoke before return                                 | cited answer or typed abstention; final denial on revoke                        | S09-T03/T04                         |
-| Slack identity/scope         | display-name/email spoof, unbound/ambiguous DM, removed member, unauthorized Brain selection                                           | exact binding and finite authorized scopes only; no guessed Brain               | S10-T01/T02                         |
-| Outbox ambiguity             | send timeout before/after provider acceptance, duplicate worker, audience mutation                                                     | reconciliation before retry; at most one logical visible answer                 | S10-T03                             |
-| API-key handling             | plaintext at rest/log/URL, hash timing probe, expired/revoked/over-scoped key, key from another Brain                                  | display once; uniform auth error; one-Brain viewer ceiling                      | S11-T01/T02                         |
-| MCP protocol                 | GET/cookie auth, invalid JSON-RPC/version/content type/origin/host, notification, batch/body/timeout/rate overflow, unknown/write tool | stateless POST bearer path only; reviewed seven-operation registry              | S11-T03/T04                         |
-| Export determinism/lifecycle | path traversal, unstable order/time, public Convex ID, revoke mid-build, expired URL, double purge                                     | byte-identical safe bundle or fenced failure; object purged                     | S12                                 |
-| Observability/secret leakage | raw webhook/token/header/prompt/source/error payload canaries; alert flood                                                             | canaries absent; IDs/hashes/counts only; alerts dedupe                          | S13-T03                             |
-| Release controls             | missing env/provider binding, invalid auth/route/key, rollback with active leases, security incident                                   | doctor/smoke fails red; rollback safe; automatic no-go                          | S13-T04                             |
+| Attack/failure class         | Required adversarial fixtures                                                                                                          | Expected invariant                                                                               | Primary tasks                       |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------- |
+| Authentication confusion     | missing/expired/malformed WorkOS token; wrong issuer/JWKS/org; fake mode in production                                                 | `Unauthorized`/startup failure; no tenant lookup or secret exposure                              | S01-T01/T02                         |
+| Tenant/key forgery           | caller org/workspace/Brain/user/Convex ID; same stable key in another tenant                                                           | server-derived tenant wins; cross-tenant denial and no existence leak                            | S01-T02/T03, S02, S11               |
+| RBAC race                    | demote/revoke after gather but before commit/return/send/download                                                                      | final reauthorization denies and accepted effect remains zero                                    | S01-T04, S09-T04, S10-T03, S11, S12 |
+| Last-owner/invite abuse      | remove last owner; reuse/expire/revoke invite; self-escalate role                                                                      | typed denial; owner invariant preserved                                                          | S01-T04                             |
+| Page/editor concurrency      | cycle, cross-Brain parent, duplicate sibling slug, stale revision, restore race, viewer write                                          | no pointer corruption; append-only history                                                       | S02                                 |
+| OAuth/connection binding     | forged Connect state, wrong team/app/bot, stale generation, replayed callback, token in logs                                           | connection not activated; tokens remain in Nango                                                 | S04-T01/T02                         |
+| Connection lifecycle         | same-team reauth, replacement, team/app change, disconnect/uninstall with old webhooks/jobs/routes/outbox/bindings                     | preserve keys/cursors only for verified reauth; every old-generation effect is fenced            | S04-T02, S07, S10                   |
+| Webhook authenticity         | bad/current/previous signature boundaries, old/future timestamp, oversized body, replay, unknown connection                            | rejection before tenant write; redacted receipt only                                             | S04-T03                             |
+| Bot membership/channel scope | event for unjoined/inaccessible/archived channel; first-channel/shared-cursor bug; auto-join attempt                                   | no unauthorized capture; every joined channel independent                                        | S04-T02/T04, S06                    |
+| Slack Connect audience       | Direct/Classify ingestion plus requester-private/channel delivery attempt on Connect                                                   | Direct/Classify capture/routing remains allowed; every answer delivery is zero-send              | S04-T04, S10                        |
+| Event dedupe/order           | duplicate transport delivery, live/backfill receipts for one observation, equal timestamps, `A -> B -> A`, delete-before-edit          | receipts remain distinct; one logical observation/source revision; deterministic total order     | S05-T01/T02                         |
+| Atomicity/crash              | crash before/after receipt/source/intent commit; retry after timeout                                                                   | either no effect or complete atomic intent; no lost/duplicate downstream effect                  | S05-T02, S06                        |
+| Snapshot contamination       | mutable latest read after fixed cut; oversized/cross-channel thread; stale revision; messages spanning policy epochs                   | immutable bounded same-epoch unit hash; old text never rerouted by a later reply                 | S05-T03                             |
+| Route/classification escape  | Direct invokes model; Classify returns two/out-of-list targets; no-route or mixed-client coerced to target; stale policy               | zero model call for Direct; mixed-client is mandatory no-route; structural rejection/review      | S05-T04, S08-T03                    |
+| Lease/fairness/rate          | expired/stolen lease, stale completion, 429/`Retry-After`, poison channel, giant deep backfill                                         | one accepted effect; cursors preserved; every channel progresses                                 | S06, S13-T02                        |
+| Lifecycle resurrection       | delete/revoke during job; retry old generation; legal hold treated as access grant; purge rerun                                        | monotonic revoke/purge; hold blocks purge only; idempotent receipt                               | S07                                 |
+| Prompt/tool injection        | Slack/page/question/model/MCP text asks for other tenant, tools, instructions, secrets or delivery change                              | values remain data; closed tools/allowlist/audience unchanged                                    | S08, S09, S11, S13-T01              |
+| Model schema/budget          | malformed JSON, missing citation, fabricated quote, timeout, provider 5xx, token/spend cap                                             | typed failure/abstention; exact data remains replayable; no heuristic fallback                   | S08                                 |
+| Search/projection leak       | org-vault-only row, inactive route, revoked lifecycle, stale projection, malicious filter                                              | never a candidate; async lag reported honestly                                                   | S09-T01/T02                         |
+| Retrieval/citation failure   | citation outside manifest, locator/hash mismatch, unsupported claim, no evidence, revoke before return                                 | cited answer or typed abstention; final denial on revoke                                         | S09-T03/T04                         |
+| Slack identity/scope         | display-name/email spoof, unbound/ambiguous DM, removed member, unauthorized Brain selection                                           | exact binding and finite authorized scopes only; no guessed Brain                                | S10-T01/T02                         |
+| Outbox ambiguity             | ephemeral/DM timeout before/after provider acceptance, duplicate worker, operator retry, audience mutation                             | ephemeral ambiguity is terminal/no-retry; DM retry only with verified idempotency/reconciliation | S10-T03                             |
+| API-key handling             | plaintext at rest/log/URL, hash timing probe, expired/revoked/over-scoped key, key from another Brain                                  | display once; uniform auth error; one-Brain viewer ceiling                                       | S11-T01/T02                         |
+| MCP protocol                 | GET/cookie auth, invalid JSON-RPC/version/content type/origin/host, notification, batch/body/timeout/rate overflow, unknown/write tool | stateless POST bearer path only; reviewed seven-operation registry                               | S11-T03/T04                         |
+| Export determinism/lifecycle | path traversal, unstable order/time, public Convex ID, revoke mid-build, expired URL, double purge                                     | byte-identical safe bundle or fenced failure; object purged                                      | S12                                 |
+| Observability/secret leakage | raw webhook/token/header/prompt/source/error payload canaries; alert flood                                                             | canaries absent; IDs/hashes/counts only; alerts dedupe                                           | S13-T03                             |
+| Release controls             | shared backend/demo seed, missing env/provider binding, invalid auth/route/key, rollback with active leases, security incident         | isolation/doctor/smoke fails red; rollback safe; automatic no-go                                 | S00-T03, S14-T01                    |
 
 ## Appendix J — Semantic-Eval Thresholds And Capacity Fixture
 
 ### Frozen semantic and safety suites
 
 All rates are computed on the untouched test split with immutable fixture IDs
-and hashes. Reports include numerator, denominator, confidence interval where
-meaningful, failures, model ID, prompt version, tool-schema version, and cost.
-No aggregate may hide a failed tenant, language, attack class, or no-route set.
+and hashes. Minimum test denominators are: 500 classification units including at
+least 100 no-route and 50 mixed-client units; 300 labeled factual answer claims
+plus 100 no-evidence questions; 200 maintenance proposals; 200 injection cases
+spanning every declared attack class; and at least 50 cases per each of five
+launch languages. Two human reviewers label independently and adjudicate
+disagreement before fixture freeze.
+
+Sampling parameters and provider seeds are pinned. Models that support
+deterministic temperature-zero inference run once; nondeterministic transports
+run three independent attempts and must pass every zero-tolerance invariant in
+every attempt. Thresholded rates gate on the lower bound of a two-sided 95%
+Wilson interval, both overall and for every declared subgroup with its minimum
+denominator. Reports include numerator, denominator, interval, failures, model,
+prompt/tool-schema versions, seed/attempt, and cost. No aggregate may hide a
+failed tenant, language, attack class, no-route, or mixed-client set.
 
 | Suite                    | Launch threshold                                                                                | Hard zero-tolerance gate                                                                                |
 | ------------------------ | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
@@ -3120,18 +3361,18 @@ new passing receipt before promotion. Runtime code may not import eval scorers.
 
 ### Deterministic launch-capacity fixture
 
-| Dimension          | Frozen value / assertion                                                                                                                        |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| Tenancy            | one agency, one Agency Brain, 25 Client Brains; isolation canaries in every Brain                                                               |
-| Channels           | 100 total: 75 Direct, 20 Classify, 5 Capture-only; each has independent live/recent/deep state                                                  |
-| Corpus             | 100,000 immutable source revisions including edits, deletes, threads and skewed large channels                                                  |
-| Burst              | 20 live events/second for 60 seconds while recent/deep backfill and reconciliation run                                                          |
-| Concurrency        | 10 simultaneous authorized Ask/MCP requests plus classification, projection and lifecycle work                                                  |
-| Synthetic live SLO | `>= 95%` of admitted live events visible in the source ledger within 60 seconds                                                                 |
-| Fairness           | every active channel advances in each observation window; no large channel starves another                                                      |
-| Correctness        | zero admitted-event loss, cross-tenant read/effect, shared cursor, duplicate logical effect or stale-lease commit                               |
-| Pressure behavior  | above-envelope configuration is rejected with `CapacityExceeded` or visibly queued; never silently accepted/dropped                             |
-| Report             | code/config/fixture/runner hashes; p50/p95/p99, queue/lease/rate waits, per-channel progress, attempts/effects, Ask latency, storage/model cost |
+| Dimension          | Frozen value / assertion                                                                                                                                   |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tenancy            | one loaded agency with Agency Brain + 25 Client Brains, plus a second lightweight adversarial canary agency; cross-Brain and cross-org checks are distinct |
+| Channels           | 100 total: 75 Direct, 20 Classify, 5 Capture-only; each has independent live/recent/deep state                                                             |
+| Corpus             | 100,000 immutable source revisions including edits, deletes, threads and skewed large channels                                                             |
+| Burst              | 20 live events/second for 60 seconds while recent/deep backfill and reconciliation run                                                                     |
+| Concurrency        | 10 simultaneous authorized Ask/MCP requests plus classification, projection and lifecycle work                                                             |
+| Synthetic live SLO | `>= 95%` of admitted live events visible within 60 seconds; `100%` drain within five minutes; zero admitted-event loss                                     |
+| Fairness           | 60-second windows; every runnable channel advances or records exact rate blocking; no channel misses two consecutive windows                               |
+| Correctness        | zero admitted-event loss, cross-tenant read/effect, shared cursor, duplicate logical effect or stale-lease commit                                          |
+| Pressure behavior  | above-envelope configuration is rejected with `CapacityExceeded` or visibly queued; never silently accepted/dropped                                        |
+| Report             | code/config/fixture/runner hashes; p50/p95/p99, queue/lease/rate waits, per-channel progress, attempts/effects, Ask latency, storage/model cost            |
 
 Provider-backed Slack receipts are reported separately by Slack rate class and
 cannot weaken the deterministic fixture. Raising a limit requires a new passing
@@ -3182,35 +3423,42 @@ roll forward with a narrow fix instead.
 
 Required migration receipt fields are
 `{ migrationName, releaseCommit, schemaBefore, schemaAfter, mode, batchSize, cursor, scanned, changed, skipped, failed, complete, parityChecks, startedAt, finishedAt, rollbackOwner, observationEndsAt }`
-plus redacted command results.
+plus redacted command results. S00-T04 emits one batch-run receipt for each
+cursor/batch and a parent release-migration receipt containing the release,
+schema, parity, rollback, and observation fields; the parent lists and hashes
+every child receipt.
 
 ## Appendix L — CI, Staging, Pilot, And Launch Evidence Contract
 
-Evidence is immutable, redacted, tied to one commit/build/deploy, and stored in
-the scoped receipt path. “Not run,” missing external context, and optional MCP
-tool failure are reported explicitly; they are never silently converted to pass.
-Optional planning MCP availability is not a product launch gate.
+Evidence is immutable, redacted, and tied to one `productReleaseCommit`, build,
+and deploy. A later docs-only `attestationCommit` may package it under S14's
+signed materiality rule. “Not run,” missing external context, and optional MCP
+tool failure are explicit, never pass. Optional planning MCP availability is not
+a product launch gate. When installed, direct focused test/coverage commands run
+as `rtk host-test-slot --class focused <command>`; the documented fallback is
+the same command without the wrapper.
 
-| Stage              | Required commands/evidence                                                                                                                                   | Passing verdict                                                                                         |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| Slice              | task's intentional red test, focused package tests/gates, generated diff where relevant, `rtk git diff --check`, `rtk just verify`                           | exact output, task/commit refs, no weakened gate, <=300 source lines                                    |
-| Stack              | temporary StackPlan hash + `rtk pnpm stack:check <absolute-temp-plan.json>`, all slice receipts, staging migration dry-run, `rtk just verify-full`           | <=4 slices, dependencies merged, all focused gates green                                                |
-| CI                 | Buildkite/GitHub/local required contexts, contract/generated/secret/access checks, artifact/build IDs                                                        | source-of-truth contexts green; unavailable context labeled missing and resolved before release         |
-| Staging            | `rtk pnpm deploy:doctor`, approved deploy, hosted HTTP/browser/a11y/visual/auth smokes, migration execute/verify, synthetic isolation/security matrix        | exact commit deployed; negative controls fail red then restored; zero high-severity finding             |
-| Provider staging   | Nango Connect/reconnect, manifest hash, joined multi-channel live/recent/deep, 429, edit/delete, app removal/re-add, private reply and Slack Connect no-send | signed/bound exact connection, independent cursors, honest gaps, no audience violation                  |
-| Headless staging   | API/CLI/MCP schema-hash parity, seven-operation list, revoked/expired key, origin/protocol/rate/timeout negatives, real Claude Code remote connection        | one-Brain viewer ceiling, stateless bearer each request, no write/admin tool                            |
-| Lifecycle/rollback | trigger matrix from Appendix H, backup/restore canary, subsystem kill switches, compatible-binary rollback and roll-forward reconciliation                   | immediate revoke, monotonic lifecycle, no destructive down-migration, complete descendant receipt       |
-| Pilot              | at least five design-partner agencies, capacity-enforced config, activation/time-to-value/usefulness/admin-time/correction/spend/incidents                   | >=80% accepted Brief, >=70% useful cited answer, >=50% second surface, median <10 min admin/week        |
-| Launch             | approved semantic/capacity receipts, zero-incident pilot, privacy/security review, go/no-go approvers, cohort plan, rollback owner/window                    | zero cross-client, Slack-audience, key-scope or unverified-webhook incident; any such incident is no-go |
+| Stage              | Required commands/evidence                                                                                                                                                                                      | Passing verdict                                                                                                                  |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Slice              | task's intentional red test, focused package tests/gates, generated diff where relevant, `rtk git diff --check`, `rtk just verify`                                                                              | exact output, task/commit refs, no weakened gate, <=300 source lines                                                             |
+| Stack              | temporary StackPlan hash + `rtk pnpm stack:check <absolute-temp-plan.json>`, all slice receipts, staging migration dry-run, `rtk just verify-full`                                                              | <=4 slices, dependencies merged, all focused gates green                                                                         |
+| CI                 | authoritative Buildkite keys `ci-self-protection`, `phase-1`, `taste`, `contract-review`, `mutation`, `staging-deploy`, `eval-artifacts`, `production-approval`, `production-promote`; GitHub/local are mirrors | every applicable key green; approval/promote occur only after signed go/no-go                                                    |
+| Staging            | `rtk pnpm deploy:doctor staging`, `rtk proxy .buildkite/scripts/staging-deploy.sh`, hosted HTTP/browser/a11y/visual/auth smokes, migration execute/verify, synthetic isolation/security matrix                  | isolated staging backend, exact commit deployed; negative controls fail red then restore                                         |
+| Provider staging   | Nango Connect/reconnect, manifest hash, joined multi-channel live/recent/deep, 429, edit/delete, app removal/re-add, private reply and Slack Connect no-send                                                    | signed/bound exact connection, independent cursors, honest gaps, no audience violation                                           |
+| Headless staging   | API/CLI/MCP schema-hash parity, seven-operation list, revoked/expired key, origin/protocol/rate/timeout negatives, real Claude Code remote connection                                                           | one-Brain viewer ceiling, stateless bearer each request, no write/admin tool                                                     |
+| Lifecycle/rollback | complete post-S12 trigger matrix from Appendix H, backup/restore canary, kill switches, compatible-binary rollback/roll-forward                                                                                 | immediate whole-page/current-use revoke, monotonic lifecycle, complete descendant receipt                                        |
+| Pilot              | >=5 agencies for >=7 days; exact activation, time-to-value, usefulness, second-surface, admin-time, manual-maintenance, spend/incidents numerators                                                              | ceiling-rounded >=80% Brief, >=70% useful, >=50% second surface; median TTV <15m, admin <10m/week, <2 manual actions/client/week |
+| Launch             | `rtk pnpm deploy:doctor production`, `rtk proxy .buildkite/scripts/production-promote.sh`, approved eval/capacity/pilot/security receipts and rollback owner/window                                             | zero cross-client, Slack-audience, key-scope or unverified-webhook incident; any such incident is no-go                          |
 
-The signed release packet contains commit/build/deploy IDs; dependency and
-generated manifest hashes; environment/provider names and versions (never
-values); migration counts; command/CI URLs and outputs; eval/capacity reports;
-hosted screenshots/transcripts; incident list; approvers; cohort; observation
-window; and rollback drill. Provider/customer text, tokens, raw webhooks,
-prompts, completions and authorization headers are forbidden.
+The signed release packet contains product-release and attestation commit IDs,
+materiality/inheritance record, build/deploy IDs; dependency and generated
+manifest hashes; environment/provider names and versions (never values);
+migration counts; command/CI URLs and outputs; eval/capacity reports; hosted
+screenshots/transcripts; incident list; approvers; cohort; observation window;
+and rollback drill. Provider/customer text, tokens, raw webhooks, prompts,
+completions and authorization headers are forbidden.
 
-## Appendix M — Requirement Coverage And Fifty-Five-Task Audit
+## Appendix M — Requirement Coverage And Fifty-Six-Task Audit
 
 ### Requirement-to-task coverage ledger
 
@@ -3224,7 +3472,7 @@ prompts, completions and authorization headers are forbidden.
 | IAM-03      | S01-T02, S02-T01, S05-T01, S12-T01         | stable-key uniqueness and public Convex-ID scans                    |
 | IAM-04      | S01-T04 plus downstream role tests         | Appendix B table-driven server denials/audits                       |
 | UI-01       | S03-T01                                    | exact navigation allowlist and hidden-route tests                   |
-| UI-02       | S01-T03, S03-T02                           | six ordinary pages and first-value timing receipt                   |
+| UI-02       | S01-T03, S03-T02, S14-T01                  | six ordinary pages and median first value under 15 minutes          |
 | UI-03       | S02-T02/T04, S03-T03                       | responsive tree/editor and viewer/stale-write tests                 |
 | UI-04       | S02-T03, S03-T04                           | citation/history/diff/restore/review walkthrough                    |
 | SLK-01      | S04-T01/T02                                | Nango Connect/reauthorize generation receipt                        |
@@ -3235,14 +3483,14 @@ prompts, completions and authorization headers are forbidden.
 | SLK-06      | S05-T03                                    | fixed-cut bounded immutable snapshot hashes                         |
 | SLK-07      | S06, S13-T02                               | fenced/fair/rate/reconciliation capacity receipt                    |
 | SLK-08      | S04-T04, S10-T02/T03/T04                   | Slack Connect no-send and requester-private delivery proof          |
-| SLK-09      | S10-T01/T03                                | exact identity binding and ambiguous-send reconciliation            |
+| SLK-09      | S10-T01/T03                                | exact binding and terminal ambiguous-ephemeral/no-blind-retry proof |
 | ZFC-01      | S05-T04, S08, S09-T04                      | model-disabled deterministic pipes and separate receipts            |
 | AI-01       | S08-T01                                    | structured gateway schema/version/budget/failure tests              |
 | AI-02       | S08-T03                                    | allowlist-closed review-first classification eval                   |
 | AI-03       | S08-T04                                    | cited review-first maintenance and Autopilot graduation proof       |
 | AI-04       | S08-T01/T04, S13-T01/T03                   | egress/injection/budget/tool/redaction gates                        |
 | KNW-01      | S02                                        | stable tree, immutable revisions/citations and editor fences        |
-| KNW-02      | S07 plus H                                 | complete descendant propagation/purge matrix receipts               |
+| KNW-02      | S07, S09-S12, S14-T01 plus H               | complete post-S12 descendant propagation/purge matrix receipts      |
 | KNW-03      | S09-T01/T02                                | async seam and active Brain-scoped projections                      |
 | KNW-04      | S09-T03/T04                                | immutable retrieval manifests, citations/abstention and final auth  |
 | KNW-05      | S12                                        | byte-identical lifecycle-fenced expiring export                     |
@@ -3252,62 +3500,66 @@ prompts, completions and authorization headers are forbidden.
 | REL-01      | S13-T01 and Appendix J                     | frozen semantic/safety thresholds by version                        |
 | REL-02      | S13-T02 and Appendix J                     | frozen capacity/fairness/loss/isolation receipt                     |
 | REL-03      | S13-T03                                    | redaction canaries, budgets, alerts, recovery and kill switches     |
-| REL-04      | S13-T04 and Appendix L                     | staging/pilot/launch/rollback signed packet                         |
+| REL-04      | S00-T03, S14-T01 and Appendix L            | isolated staging/pilot/promotion/rollback signed packet             |
 
 ### Task-packet audit
 
 Audit key: `C` one primary classification; `D` exact dependencies; `F` exact
 files; `P` pinned existing-code citation; `R` intentional red test/preflight;
 `T` typed contract/errors/state; `M` migration/compatibility/rollback; `G`
-focused commands; `E` completion receipt; `B` commit/PR boundary. `all` means
-all ten fields are present and internally consistent after this audit; it is a
+focused commands; `E` completion receipt; `B` commit/PR boundary. `ready` means
+all ten fields were semantically rechecked, not merely detected by heading.
+Hand-authored files are named; generator-owned files must be enumerated and
+hashed by the task's named dry-run before StackPlan validation. It is a
 plan-shape verdict, not implementation evidence.
 
 | Task    | Primary classification | Audit | Task    | Primary classification | Audit |
 | ------- | ---------------------- | ----- | ------- | ---------------------- | ----- |
-| S00-T01 | template-gap           | all   | S00-T02 | template-gap           | all   |
-| S00-T03 | pattern-instance       | all   | S00-T04 | template-gap           | all   |
-| S01-T01 | template-gap           | all   | S01-T02 | template-gap           | all   |
-| S01-T03 | fixture-to-real        | all   | S01-T04 | pattern-instance       | all   |
-| S02-T01 | template-gap           | all   | S02-T02 | pattern-instance       | all   |
-| S02-T03 | fixture-to-real        | all   | S02-T04 | pattern-instance       | all   |
-| S03-T01 | template-gap           | all   | S03-T02 | template-gap           | all   |
-| S03-T03 | template-gap           | all   | S03-T04 | pattern-instance       | all   |
-| S04-T01 | template-gap           | all   | S04-T02 | template-gap           | all   |
-| S04-T03 | template-gap           | all   | S04-T04 | template-gap           | all   |
-| S05-T01 | template-gap           | all   | S05-T02 | template-gap           | all   |
-| S05-T03 | template-gap           | all   | S05-T04 | pattern-instance       | all   |
-| S06-T01 | fixture-to-real        | all   | S06-T02 | template-gap           | all   |
-| S06-T03 | template-gap           | all   | S06-T04 | template-gap           | all   |
-| S07-T01 | fixture-to-real        | all   | S07-T02 | template-gap           | all   |
-| S07-T03 | fixture-to-real        | all   | S07-T04 | pattern-instance       | all   |
-| S08-T01 | template-gap           | all   | S08-T02 | template-gap           | all   |
-| S08-T03 | pattern-instance       | all   | S08-T04 | pattern-instance       | all   |
-| S09-T01 | template-gap           | all   | S09-T02 | template-gap           | all   |
-| S09-T03 | pattern-instance       | all   | S09-T04 | pattern-instance       | all   |
-| S10-T01 | template-gap           | all   | S10-T02 | pattern-instance       | all   |
-| S10-T03 | template-gap           | all   | S10-T04 | pattern-instance       | all   |
-| S11-T01 | template-gap           | all   | S11-T02 | template-gap           | all   |
-| S11-T03 | pattern-instance       | all   | S11-T04 | template-gap           | all   |
-| S12-T01 | template-gap           | all   | S12-T02 | pattern-instance       | all   |
-| S12-T03 | pattern-instance       | all   | S13-T01 | pattern-instance       | all   |
-| S13-T02 | template-gap           | all   | S13-T03 | pattern-instance       | all   |
-| S13-T04 | pattern-instance       | all   | —       | —                      | —     |
+| S00-T01 | template-gap           | ready | S00-T02 | template-gap           | ready |
+| S00-T03 | template-gap           | ready | S00-T04 | template-gap           | ready |
+| S01-T01 | template-gap           | ready | S01-T02 | template-gap           | ready |
+| S01-T03 | template-gap           | ready | S01-T04 | template-gap           | ready |
+| S02-T01 | template-gap           | ready | S02-T02 | template-gap           | ready |
+| S02-T03 | fixture-to-real        | ready | S02-T04 | template-gap           | ready |
+| S03-T01 | template-gap           | ready | S03-T02 | template-gap           | ready |
+| S03-T03 | template-gap           | ready | S03-T04 | template-gap           | ready |
+| S04-T01 | template-gap           | ready | S04-T02 | template-gap           | ready |
+| S04-T03 | template-gap           | ready | S04-T04 | template-gap           | ready |
+| S05-T01 | template-gap           | ready | S05-T02 | template-gap           | ready |
+| S05-T03 | template-gap           | ready | S05-T04 | pattern-instance       | ready |
+| S06-T01 | fixture-to-real        | ready | S06-T02 | template-gap           | ready |
+| S06-T03 | template-gap           | ready | S06-T04 | template-gap           | ready |
+| S07-T01 | template-gap           | ready | S07-T02 | template-gap           | ready |
+| S07-T03 | template-gap           | ready | S07-T04 | template-gap           | ready |
+| S08-T01 | template-gap           | ready | S08-T02 | template-gap           | ready |
+| S08-T03 | pattern-instance       | ready | S08-T04 | pattern-instance       | ready |
+| S09-T01 | template-gap           | ready | S09-T02 | template-gap           | ready |
+| S09-T03 | pattern-instance       | ready | S09-T04 | pattern-instance       | ready |
+| S10-T01 | template-gap           | ready | S10-T02 | pattern-instance       | ready |
+| S10-T03 | template-gap           | ready | S10-T04 | template-gap           | ready |
+| S11-T01 | template-gap           | ready | S11-T02 | template-gap           | ready |
+| S11-T03 | pattern-instance       | ready | S11-T04 | template-gap           | ready |
+| S12-T01 | template-gap           | ready | S12-T02 | pattern-instance       | ready |
+| S12-T03 | template-gap           | ready | S13-T01 | template-gap           | ready |
+| S13-T02 | template-gap           | ready | S13-T03 | template-gap           | ready |
+| S13-T04 | template-gap           | ready | S14-T01 | template-gap           | ready |
 
 The implementation owner reruns this audit at stack projection time against the
-then-current source pins. Drift changes the relevant row from `all` to open
+then-current source pins. Drift changes the relevant row from `ready` to open
 until a dated amendment restores all ten fields.
 
 ## Appendix N — Whole-Program Definition Of Done
 
-Maestro Brain V1 is done only when every statement below is true on the same
-release candidate. A local build, merged final task, unverified provider flow,
-or partially green pilot is not done.
+Maestro Brain V1 is done only when every statement below is true for one
+`productReleaseCommit`; its docs-only `attestationCommit` may differ only under
+Appendix L's signed materiality rule. A local build, merged final task,
+unverified provider flow, or partially green pilot is not done.
 
 - **Foundation:** S00's three-host plugin, pin/gap, stack-manifest and migration
-  receipts are complete; every one of the 55 task packets is merged in
-  dependency order with one intention/PR, <=300 changed source lines per slice,
-  <=4 slices per stack, focused green gates and archived receipts.
+  receipts are complete; staging/production are isolated with no demo seed;
+  every one of the 56 task packets is merged in dependency order with one
+  intention/PR, <=300 changed source lines per slice, <=4 slices per stack,
+  focused green gates and archived receipts.
 - **Identity and isolation:** production has no fake auth path; WorkOS identity,
   organization and exact `viewer | editor | admin | owner` roles authorize every
   entrypoint server-side; stable public keys reveal no Convex IDs; all
@@ -3320,8 +3572,9 @@ or partially green pilot is not done.
 - **Slack control plane and ledger:** one Nango connection preserves exact
   team/app/bot/generation binding; no auto-join occurs; every explicitly joined
   channel captures independently; Direct/Classify/Capture-only policies are
-  immutable; signed/replay-safe atomic capture preserves exact ordered history,
-  tombstones and fixed-cut source units.
+  immutable; the native Slack receiver and separate transport/logical-
+  observation keys preserve exact ordered history, tombstones and same-epoch
+  fixed-cut source units.
 - **Reliability and lifecycle:** fenced work, independent live/recent/deep
   cursors, rate budgets, reconciliation and dead-letter replay pass the frozen
   capacity fixture. Every Appendix H trigger immediately revokes current use and
@@ -3330,12 +3583,13 @@ or partially green pilot is not done.
 - **Cognition and knowledge:** deterministic pipes pass with models disabled;
   structured model adapters are provider-neutral, closed-tool, metered and
   versioned; classification is review-first zero-or-one within a human
-  allowlist; maintenance is cited/review-first and Autopilot requires explicit
-  graduation.
+  allowlist, with mixed-client units forced to no-route; maintenance is cited/
+  review-first and Autopilot requires explicit graduation.
 - **Retrieval and surfaces:** only active Brain projections are candidates;
   immutable retrieval manifests support cited answers or typed abstention; web,
   requester-private Slack, API, CLI and MCP share generated capabilities and
-  final reauthorization. Slack Connect never receives an answer.
+  final reauthorization. Slack Connect never receives an answer; ambiguous
+  ephemeral sends are terminal and never blindly retried.
 - **Headless and export:** display-once hashed expiring keys have a one-Brain
   viewer ceiling; stateless HTTPS MCP exposes exactly seven read/Ask operations
   with the full protocol/security matrix; deterministic Markdown/JSON exports
@@ -3344,17 +3598,19 @@ or partially green pilot is not done.
 - **Quality and capacity:** every Appendix J suite passes its frozen threshold
   and zero-tolerance gates for the approved model/prompt/tool versions; the full
   25-client/100-channel/100k-revision/burst/10-concurrent-request fixture passes
-  with fair progress, declared latency/cost/storage evidence and zero loss or
-  tenant bleed.
+  with its second canary agency, 60-second fairness windows, five-minute drain,
+  declared latency/cost/storage evidence and zero loss or tenant bleed.
 - **Operations:** redaction canaries prove no customer text, raw webhook,
   prompt/completion, token or authorization header in logs/receipts; budgets,
   admission controls, alerts, audited recovery and independent kill switches are
   tested; current runbooks name owners and rollback windows.
 - **Release:** all commands and source-of-truth CI contexts in Appendix L are
   green for the pinned commit; staging/provider/headless/lifecycle/rollback
-  smokes pass; at least five pilots meet every adoption/admin-time threshold;
-  there are zero cross-client, Slack-audience, key-scope or unverified-webhook
-  incidents; named approvers sign cohort launch and rollback evidence.
+  smokes pass; at least five pilots complete seven days and meet the Brief,
+  usefulness, second-surface, <15-minute time-to-value, admin-time, and <2
+  manual maintenance actions/client/week thresholds; there are zero
+  cross-client, Slack-audience, key-scope or unverified-webhook incidents; named
+  approvers sign cohort launch and rollback evidence.
 - **Documentation and handoff:** design, canonical plan, environment/provider
   names, privacy/security/retention/customer-limit docs, migration records and
   the signed release packet match the deployed state. Missing optional planning
