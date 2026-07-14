@@ -4,6 +4,8 @@ import {
   AuthConfigurationInvalid,
   buildAuthKitRuntimeConfig,
   getAuthSnapshot,
+  getClientAuthSnapshot,
+  toClientAuthSnapshot,
   Unauthorized,
   type WorkosServerAuth,
 } from "./authkit-server";
@@ -50,6 +52,49 @@ describe("AuthKit server bridge", () => {
       organizationId: "org_123",
       accessToken: "token-redacted",
     });
+  });
+
+  it("redacts access tokens from client-serialized auth snapshots", async () => {
+    const auth = {
+      user: {
+        id: "user_123",
+        email: "user@example.com",
+      },
+      sessionId: "session_123",
+      organizationId: "org_123",
+      accessToken: "token-redacted",
+    } as WorkosServerAuth;
+
+    const clientSnapshot = await getClientAuthSnapshot({
+      getAuth: async () => auth,
+    });
+
+    expect(clientSnapshot).toEqual({
+      status: "authenticated",
+      subject: "user_123",
+      email: "user@example.com",
+      organizationId: "org_123",
+    });
+    expect(JSON.stringify(clientSnapshot)).not.toContain("token-redacted");
+    expect("accessToken" in clientSnapshot).toBe(false);
+  });
+
+  it("redacts access tokens when converting existing server snapshots for clients", () => {
+    const clientSnapshot = toClientAuthSnapshot({
+      status: "authenticated",
+      subject: "user_123",
+      email: "user@example.com",
+      organizationId: "org_123",
+      accessToken: "token-redacted",
+    });
+
+    expect(clientSnapshot).toEqual({
+      status: "authenticated",
+      subject: "user_123",
+      email: "user@example.com",
+      organizationId: "org_123",
+    });
+    expect(JSON.stringify(clientSnapshot)).not.toContain("token-redacted");
   });
 
   it("maps malformed authenticated AuthKit responses to Unauthorized", async () => {
