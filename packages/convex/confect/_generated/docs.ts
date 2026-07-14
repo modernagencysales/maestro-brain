@@ -25,6 +25,7 @@ export type NotificationPreferencesDoc = Document.Document<typeof schemaDefiniti
 export type NotificationRecordsDoc = Document.Document<typeof schemaDefinition, "notificationRecords">;
 export type OrganizationMembersDoc = Document.Document<typeof schemaDefinition, "organizationMembers">;
 export type OrganizationsDoc = Document.Document<typeof schemaDefinition, "organizations">;
+export type PageRevisionsDoc = Document.Document<typeof schemaDefinition, "pageRevisions">;
 export type PoliciesDoc = Document.Document<typeof schemaDefinition, "policies">;
 export type PromptRegistryDoc = Document.Document<typeof schemaDefinition, "promptRegistry">;
 export type TransformBlocksDoc = Document.Document<typeof schemaDefinition, "transformBlocks">;
@@ -69,6 +70,7 @@ export interface Docs {
   notificationRecords: NotificationRecordsDoc;
   organizationMembers: OrganizationMembersDoc;
   organizations: OrganizationsDoc;
+  pageRevisions: PageRevisionsDoc;
   policies: PoliciesDoc;
   promptRegistry: PromptRegistryDoc;
   transformBlocks: TransformBlocksDoc;
