@@ -38,6 +38,7 @@ describe("one-Brain API key CRUD", () => {
       brainKey: "brain_client_alpha",
       name: "Client Alpha read key",
       scopes: ["brain:read"],
+      principalGeneration: 1,
       roleCeiling: "viewer",
       status: "active",
       createdByUserId: "user_admin",
@@ -65,6 +66,7 @@ describe("one-Brain API key CRUD", () => {
         name: "Client Alpha read key",
         displayPrefix: created.key.displayPrefix,
         scopes: ["brain:read"],
+        principalGeneration: 1,
         roleCeiling: "viewer",
         status: "active",
         createdByUserId: "user_admin",
@@ -86,6 +88,14 @@ describe("one-Brain API key CRUD", () => {
 
     await expect(
       createBrainApiKey({ ...baseInput, scopes: ["brain:read", "admin"] }),
+    ).rejects.toMatchObject({ _tag: "ApiKeyScopeInvalid" });
+
+    await expect(
+      createBrainApiKey({ ...baseInput, scopes: ["brain:ask"] }),
+    ).rejects.toMatchObject({ _tag: "ApiKeyScopeInvalid" });
+
+    await expect(
+      createBrainApiKey({ ...baseInput, scopes: [] }),
     ).rejects.toMatchObject({ _tag: "ApiKeyScopeInvalid" });
 
     await expect(
@@ -194,6 +204,33 @@ describe("one-Brain API key CRUD", () => {
         brainKey: "brain_client_alpha",
       }),
     ).resolves.toMatchObject({ ok: false, error: { code: "API_KEY_EXPIRED" } });
+
+    await expect(
+      verifyApiKey({
+        presentedKey: created.displayKey,
+        keys: [{ ...created.key, status: "expired", expiresAt: null }],
+        principals: [created.principal],
+        nowMs: 1_500,
+        requiredScope: "brain:read",
+        brainKey: "brain_client_alpha",
+      }),
+    ).resolves.toMatchObject({ ok: false, error: { code: "API_KEY_EXPIRED" } });
+
+    await expect(
+      verifyApiKey({
+        presentedKey: created.displayKey,
+        keys: [created.key],
+        principals: [
+          { ...created.principal, status: "expired", revokedAt: null },
+        ],
+        nowMs: 1_500,
+        requiredScope: "brain:read",
+        brainKey: "brain_client_alpha",
+      }),
+    ).resolves.toMatchObject({
+      ok: false,
+      error: { code: "SERVICE_PRINCIPAL_REVOKED" },
+    });
   });
 
   it("revokes and rotates keys without reusing the old secret", async () => {
@@ -215,8 +252,24 @@ describe("one-Brain API key CRUD", () => {
     expect(revoked.status).toBe("revoked");
     expect(rotated.revokedKey.status).toBe("revoked");
     expect(rotated.key.id).not.toBe(created.key.id);
+    expect(rotated.key.principalId).toBe(created.principal.id);
+    expect(rotated.key.principalGeneration).toBe(2);
     expect(rotated.displayKey).not.toBe(created.displayKey);
     expect(rotated.principal.generation).toBe(2);
+
+    await expect(
+      verifyApiKey({
+        presentedKey: rotated.displayKey,
+        keys: [rotated.key],
+        principals: [{ ...rotated.principal, generation: 3 }],
+        nowMs: 1_500,
+        requiredScope: "brain:read",
+        brainKey: "brain_client_alpha",
+      }),
+    ).resolves.toMatchObject({
+      ok: false,
+      error: { code: "SERVICE_PRINCIPAL_REVOKED" },
+    });
 
     await expect(
       rotateBrainApiKey({
@@ -233,11 +286,16 @@ describe("one-Brain API key CRUD", () => {
     expect(apiKeys.indexes).toMatchObject({
       by_key_hash: ["keyHash"],
       by_principal: ["principalId"],
+      by_principal_status: ["principalId", "status"],
       by_brain_status: ["workspaceId", "brainKey", "status"],
+      by_expiry: ["expiresAt"],
     });
     expect(servicePrincipals.indexes).toMatchObject({
       by_brain_status: ["workspaceId", "brainKey", "status"],
       by_workspace: ["workspaceId"],
+      by_workspace_status: ["workspaceId", "status"],
+      by_organization_status: ["organizationId", "status"],
+      by_principal_key: ["id"],
       by_created_by: ["createdByUserId"],
     });
   });

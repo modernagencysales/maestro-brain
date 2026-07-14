@@ -7,4 +7,6 @@ export default Table.make(() => ApiKeyRow)
   .index("by_workspace", ["workspaceId"])
   .index("by_workspace_status", ["workspaceId", "status"])
   .index("by_principal", ["principalId"])
-  .index("by_brain_status", ["workspaceId", "brainKey", "status"]);
+  .index("by_principal_status", ["principalId", "status"])
+  .index("by_brain_status", ["workspaceId", "brainKey", "status"])
+  .index("by_expiry", ["expiresAt"]);
