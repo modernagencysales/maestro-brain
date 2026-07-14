@@ -20,6 +20,7 @@ import dsarRequests from "./tables/dsarRequests";
 import entitlements from "./tables/entitlements";
 import featureFlagPolicies from "./tables/featureFlagPolicies";
 import invitations from "./tables/invitations";
+import modelCallReceipts from "./tables/modelCallReceipts";
 import notificationPreferences from "./tables/notificationPreferences";
 import notificationRecords from "./tables/notificationRecords";
 import organizationMembers from "./tables/organizationMembers";
@@ -27,6 +28,7 @@ import organizations from "./tables/organizations";
 import pageRevisions from "./tables/pageRevisions";
 import policies from "./tables/policies";
 import promptRegistry from "./tables/promptRegistry";
+import servicePrincipals from "./tables/servicePrincipals";
 import transformBlocks from "./tables/transformBlocks";
 import transformDefinitions from "./tables/transformDefinitions";
 import transformRuns from "./tables/transformRuns";
@@ -65,6 +67,7 @@ export default $defineSchema({
   entitlements: entitlements.tableDefinition,
   featureFlagPolicies: featureFlagPolicies.tableDefinition,
   invitations: invitations.tableDefinition,
+  modelCallReceipts: modelCallReceipts.tableDefinition,
   notificationPreferences: notificationPreferences.tableDefinition,
   notificationRecords: notificationRecords.tableDefinition,
   organizationMembers: organizationMembers.tableDefinition,
@@ -72,6 +75,7 @@ export default $defineSchema({
   pageRevisions: pageRevisions.tableDefinition,
   policies: policies.tableDefinition,
   promptRegistry: promptRegistry.tableDefinition,
+  servicePrincipals: servicePrincipals.tableDefinition,
   transformBlocks: transformBlocks.tableDefinition,
   transformDefinitions: transformDefinitions.tableDefinition,
   transformRuns: transformRuns.tableDefinition,

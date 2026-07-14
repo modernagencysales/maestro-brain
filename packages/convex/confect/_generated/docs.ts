@@ -21,6 +21,7 @@ export type DsarRequestsDoc = Document.Document<typeof schemaDefinition, "dsarRe
 export type EntitlementsDoc = Document.Document<typeof schemaDefinition, "entitlements">;
 export type FeatureFlagPoliciesDoc = Document.Document<typeof schemaDefinition, "featureFlagPolicies">;
 export type InvitationsDoc = Document.Document<typeof schemaDefinition, "invitations">;
+export type ModelCallReceiptsDoc = Document.Document<typeof schemaDefinition, "modelCallReceipts">;
 export type NotificationPreferencesDoc = Document.Document<typeof schemaDefinition, "notificationPreferences">;
 export type NotificationRecordsDoc = Document.Document<typeof schemaDefinition, "notificationRecords">;
 export type OrganizationMembersDoc = Document.Document<typeof schemaDefinition, "organizationMembers">;
@@ -28,6 +29,7 @@ export type OrganizationsDoc = Document.Document<typeof schemaDefinition, "organ
 export type PageRevisionsDoc = Document.Document<typeof schemaDefinition, "pageRevisions">;
 export type PoliciesDoc = Document.Document<typeof schemaDefinition, "policies">;
 export type PromptRegistryDoc = Document.Document<typeof schemaDefinition, "promptRegistry">;
+export type ServicePrincipalsDoc = Document.Document<typeof schemaDefinition, "servicePrincipals">;
 export type TransformBlocksDoc = Document.Document<typeof schemaDefinition, "transformBlocks">;
 export type TransformDefinitionsDoc = Document.Document<typeof schemaDefinition, "transformDefinitions">;
 export type TransformRunsDoc = Document.Document<typeof schemaDefinition, "transformRuns">;
@@ -66,6 +68,7 @@ export interface Docs {
   entitlements: EntitlementsDoc;
   featureFlagPolicies: FeatureFlagPoliciesDoc;
   invitations: InvitationsDoc;
+  modelCallReceipts: ModelCallReceiptsDoc;
   notificationPreferences: NotificationPreferencesDoc;
   notificationRecords: NotificationRecordsDoc;
   organizationMembers: OrganizationMembersDoc;
@@ -73,6 +76,7 @@ export interface Docs {
   pageRevisions: PageRevisionsDoc;
   policies: PoliciesDoc;
   promptRegistry: PromptRegistryDoc;
+  servicePrincipals: ServicePrincipalsDoc;
   transformBlocks: TransformBlocksDoc;
   transformDefinitions: TransformDefinitionsDoc;
   transformRuns: TransformRunsDoc;

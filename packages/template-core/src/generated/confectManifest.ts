@@ -233,6 +233,9 @@ const sharedConfectJsonSchemas = {
         workspaceId: {
           type: "string",
         },
+        organizationId: {
+          type: "string",
+        },
         slug: {
           type: "string",
         },
@@ -253,6 +256,90 @@ const sharedConfectJsonSchemas = {
           enum: ["markdown", "link", "note"],
         },
         updatedAt: {
+          type: "number",
+        },
+        pageKey: {
+          type: "string",
+          description:
+            "a string matching the pattern ^pag_[a-z0-9][a-z0-9_-]{2,}$",
+          pattern: "^pag_[a-z0-9][a-z0-9_-]{2,}$",
+        },
+        parentPageKey: {
+          anyOf: [
+            {
+              type: "string",
+              description:
+                "a string matching the pattern ^pag_[a-z0-9][a-z0-9_-]{2,}$",
+              pattern: "^pag_[a-z0-9][a-z0-9_-]{2,}$",
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        siblingSlug: {
+          type: "string",
+          description:
+            "a string matching the pattern ^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
+          pattern: "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
+        },
+        sortKey: {
+          type: "string",
+          description:
+            "a string matching the pattern ^\\d{10}(?:\\.[a-z0-9]{1,16})?$",
+          pattern: "^\\d{10}(?:\\.[a-z0-9]{1,16})?$",
+        },
+        favorite: {
+          type: "boolean",
+        },
+        status: {
+          type: "string",
+          enum: ["active", "archived", "redacted", "purged"],
+        },
+        currentRevisionKey: {
+          anyOf: [
+            {
+              type: "string",
+              description:
+                "a string matching the pattern ^rev_[a-z0-9][a-z0-9_-]{2,}$",
+              pattern: "^rev_[a-z0-9][a-z0-9_-]{2,}$",
+            },
+            {
+              type: "null",
+            },
+          ],
+        },
+        lifecycle: {
+          type: "object",
+          required: ["state", "generation", "updatedAt", "purgeAfter"],
+          properties: {
+            state: {
+              type: "string",
+              enum: ["active", "archived", "redacted", "purged"],
+            },
+            generation: {
+              type: "number",
+            },
+            updatedAt: {
+              type: "number",
+            },
+            purgeAfter: {
+              anyOf: [
+                {
+                  type: "number",
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+          },
+          additionalProperties: false,
+        },
+        createdAt: {
+          type: "number",
+        },
+        schemaVersion: {
           type: "number",
         },
       },
