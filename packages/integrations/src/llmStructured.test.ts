@@ -137,6 +137,32 @@ describe("structured provider-neutral LLM gateway", () => {
       cause: { _tag: "Fail", error: { _tag: "ModelReceiptMismatch" } },
     });
 
+    const providerMismatch = createStructuredLlmGateway({
+      mode: "test",
+      env: {},
+      transport: (input) =>
+        Effect.succeed({
+          provider: input.provider,
+          model: "other/model",
+          region: input.region,
+          requestHash: input.requestHash,
+          sourceHash: input.sourceHash,
+          text: JSON.stringify({ decision: "capture", confidence: 1 }),
+          usage: { inputTokens: 5, outputTokens: 5, costCents: 1 },
+        }),
+    });
+
+    const providerMismatchExit = await Effect.runPromiseExit(
+      providerMismatch.generate(baseRequest),
+    );
+    expect(providerMismatchExit).toMatchObject({
+      _tag: "Failure",
+      cause: {
+        _tag: "Fail",
+        error: { _tag: "ModelReceiptMismatch", field: "model" },
+      },
+    });
+
     const seenAttemptKeys = new Set<string>();
     const duplicate = createStructuredLlmGateway({
       mode: "fake",
@@ -187,6 +213,21 @@ describe("structured provider-neutral LLM gateway", () => {
     expect(limitedExit).toMatchObject({
       _tag: "Failure",
       cause: { _tag: "Fail", error: { _tag: "ProviderRateLimited" } },
+    });
+  });
+
+  it("does not silently use fake output in live mode without a transport", async () => {
+    const gateway = createStructuredLlmGateway({
+      mode: "live",
+      env: { OPENROUTER_API_KEY: "test-key" },
+      fakeStructuredOutput: { decision: "capture", confidence: 1 },
+    });
+
+    const result = await Effect.runPromiseExit(gateway.generate(baseRequest));
+
+    expect(result).toMatchObject({
+      _tag: "Failure",
+      cause: { _tag: "Fail", error: { _tag: "ModelPolicyDenied" } },
     });
   });
 

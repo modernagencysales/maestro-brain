@@ -177,10 +177,37 @@ const makeRequestHash = <A>(request: StructuredLlmRequest<A>): string =>
   });
 
 const validateReceiptEcho = (input: {
+  readonly expectedProvider: ModelProvider;
+  readonly expectedModel: string;
+  readonly expectedRegion: ModelRegion;
   readonly expectedRequestHash: string;
   readonly expectedSourceHash: string;
   readonly result: StructuredLlmTransportResult;
 }): true | ModelReceiptMismatch => {
+  if (input.result.provider !== input.expectedProvider) {
+    return new ModelReceiptMismatch({
+      field: "provider",
+      expected: input.expectedProvider,
+      actual: input.result.provider,
+    });
+  }
+
+  if (input.result.model !== input.expectedModel) {
+    return new ModelReceiptMismatch({
+      field: "model",
+      expected: input.expectedModel,
+      actual: input.result.model,
+    });
+  }
+
+  if (input.result.region !== input.expectedRegion) {
+    return new ModelReceiptMismatch({
+      field: "region",
+      expected: input.expectedRegion,
+      actual: input.result.region,
+    });
+  }
+
   if (input.result.requestHash !== input.expectedRequestHash) {
     return new ModelReceiptMismatch({
       field: "requestHash",
@@ -237,20 +264,29 @@ export const createStructuredLlmGateway = (
       };
       const transport =
         config.transport ??
-        ((input: StructuredLlmTransportInput) =>
-          Effect.succeed({
-            provider: input.provider,
-            model: input.model,
-            region: input.region,
-            requestHash: input.requestHash,
-            sourceHash: input.sourceHash,
-            text: JSON.stringify(config.fakeStructuredOutput ?? {}),
-            usage: {
-              inputTokens: policy.estimatedInputTokens,
-              outputTokens: request.modelPolicy.maxOutputTokens,
-              costCents: policy.estimatedSpendCents,
-            },
-          }));
+        (config.mode === "live"
+          ? () =>
+              Effect.fail(
+                new ModelPolicyDenied({
+                  reason: "Live structured LLM transport is not configured.",
+                  provider: request.modelPolicy.provider,
+                  model: request.modelPolicy.model,
+                }),
+              )
+          : (input: StructuredLlmTransportInput) =>
+              Effect.succeed({
+                provider: input.provider,
+                model: input.model,
+                region: input.region,
+                requestHash: input.requestHash,
+                sourceHash: input.sourceHash,
+                text: JSON.stringify(config.fakeStructuredOutput ?? {}),
+                usage: {
+                  inputTokens: policy.estimatedInputTokens,
+                  outputTokens: request.modelPolicy.maxOutputTokens,
+                  costCents: policy.estimatedSpendCents,
+                },
+              }));
       const providerResult = yield* transport(transportInput).pipe(
         Effect.mapError((error) =>
           isKnownStructuredError(error)
@@ -264,6 +300,9 @@ export const createStructuredLlmGateway = (
         ),
       );
       const receiptEcho = validateReceiptEcho({
+        expectedProvider: request.modelPolicy.provider,
+        expectedModel: request.modelPolicy.model,
+        expectedRegion: request.modelPolicy.region,
         expectedRequestHash: requestHash,
         expectedSourceHash: sourceHash,
         result: providerResult,
