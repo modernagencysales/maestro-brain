@@ -34,7 +34,7 @@ const branch = `fabro/review-${taskId.toLowerCase()}`;
 const workflow = resolve(".fabro/workflows/brain-build-task/workflow.fabro");
 mkdirSync(runDirectory, { recursive: true });
 mkdirSync(resolve(evidence, "lane-results", taskId), { recursive: true });
-runRtk(["git", "fetch", "origin", sourceRef]);
+runRtk(["git", "fetch", "origin"]);
 if (existsSync(workdir))
   runRtk(["git", "worktree", "remove", "--force", workdir]);
 const factoryBase = runRtk(["git", "rev-parse", "HEAD"], { quiet: true });
