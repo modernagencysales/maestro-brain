@@ -4,7 +4,10 @@ import { spawnSync } from "node:child_process";
 import { commandsForProfiles, type GateCommand } from "./gates.js";
 import { buildManifest } from "./manifest.js";
 import { isCompatibleProofHead } from "./proof.js";
-import { changedHandAuthoredSourceLines } from "./source-budget.js";
+import {
+  changedHandAuthoredSourceLines,
+  validSourceSlices,
+} from "./source-budget.js";
 
 interface ProofPacket {
   readonly baseSha: string;
@@ -87,18 +90,46 @@ if (
   throw new Error(
     `${taskId}: proof head ${proof.headSha} is not a same-tree checkpoint ancestor of ${head}`,
   );
-const numstat = spawnSync(
+const commitList = spawnSync(
   "rtk",
-  ["git", "diff", "--numstat", `${proof.baseSha}..${proof.headSha}`],
+  ["git", "rev-list", "--reverse", `${proof.baseSha}..${proof.headSha}`],
   { cwd: process.cwd(), encoding: "utf8" },
 );
-if (numstat.status !== 0)
-  throw new Error(`${taskId}: could not calculate source-line budget`);
-const changedSourceLines = changedHandAuthoredSourceLines(numstat.stdout);
-if (changedSourceLines > task.sourceLineBudget)
-  throw new Error(
-    `${taskId}: ${changedSourceLines} changed hand-authored source lines exceed budget ${task.sourceLineBudget}; split or simplify the task`,
+if (commitList.status !== 0)
+  throw new Error(`${taskId}: could not enumerate task slices`);
+const taskCommits = commitList.stdout.trim().split("\n").filter(Boolean);
+const sourceSlices = taskCommits.map((commit) => {
+  const numstat = spawnSync(
+    "rtk",
+    ["git", "show", "--numstat", "--format=", commit],
+    { cwd: process.cwd(), encoding: "utf8" },
   );
+  if (numstat.status !== 0)
+    throw new Error(`${taskId}: could not inspect slice ${commit}`);
+  return {
+    changedSourceLines: changedHandAuthoredSourceLines(numstat.stdout),
+    commit,
+  };
+});
+const oversizedSlice = sourceSlices.find(
+  (slice) => slice.changedSourceLines > task.sourceSliceBudget,
+);
+if (
+  !validSourceSlices(
+    sourceSlices.map((slice) => slice.changedSourceLines),
+    task.sourceSliceBudget,
+    4,
+  )
+)
+  throw new Error(
+    oversizedSlice
+      ? `${taskId}: slice ${oversizedSlice.commit} changes ${oversizedSlice.changedSourceLines} hand-authored source lines; split it below ${task.sourceSliceBudget}`
+      : `${taskId}: expected one to four task slice commits, got ${taskCommits.length}`,
+  );
+const changedSourceLines = sourceSlices.reduce(
+  (total, slice) => total + slice.changedSourceLines,
+  0,
+);
 run({
   program: "git",
   args: ["diff", "--check", `${proof.baseSha}..${proof.headSha}`],
@@ -129,7 +160,10 @@ writeFileSync(
       gateProfiles: task.gateProfiles,
       headSha: proof.headSha,
       changedSourceLines,
-      sourceLineBudget: task.sourceLineBudget,
+      estimateDrift: changedSourceLines > task.estimatedSourceLines,
+      estimatedSourceLines: task.estimatedSourceLines,
+      sourceSliceBudget: task.sourceSliceBudget,
+      sourceSlices,
       stage,
       status: "passed",
       taskId,

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   changedHandAuthoredSourceLines,
   isHandAuthoredSource,
+  validSourceSlices,
 } from "../src/source-budget.js";
 
 describe("Brain task source budgets", () => {
@@ -34,5 +35,11 @@ describe("Brain task source budgets", () => {
   it("recognizes only hand-authored source roots", () => {
     expect(isHandAuthoredSource("packages/search/src/index.ts")).toBe(true);
     expect(isHandAuthoredSource("scripts/tool.mjs")).toBe(false);
+  });
+
+  it("allows at most four individually bounded source slices", () => {
+    expect(validSourceSlices([280, 300, 90])).toBe(true);
+    expect(validSourceSlices([301])).toBe(false);
+    expect(validSourceSlices([10, 20, 30, 40, 50])).toBe(false);
   });
 });

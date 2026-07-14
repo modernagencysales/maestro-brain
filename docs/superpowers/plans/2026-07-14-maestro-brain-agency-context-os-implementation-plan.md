@@ -93,7 +93,11 @@ applying these rules:
 4. **Focused lane quality:** each lane writes tests before behavior, runs its
    task packet's focused commands plus its deterministic gate profile, receives
    an independent contract/security review, and emits a minimal proof packet.
-   Red gates return to implementation inside the same Fabro run.
+   Red gates return to implementation inside the same Fabro run. Appendix A's
+   source number is the task estimate. If the actual task cannot fit, the lane
+   records estimation drift and splits it into at most four coherent
+   one-intention commits; every commit remains <=300 changed hand-authored
+   source lines and the task is accepted only as one proof set.
 5. **Tranche integration:** one-intention task commits are cherry-picked into
    dependency-safe integration tranches.
    `rtk host-test-slot --class full pnpm verify` runs once on the integrated
@@ -3608,11 +3612,11 @@ unverified provider flow, or partially green pilot is not done.
 
 - **Foundation:** S00's three-host plugin, pin/gap, stack-manifest and migration
   receipts are complete; staging/production are isolated with no demo seed;
-  every one of the 56 task packets has one intention commit, is accepted only
-  after its original dependencies, and is merged through a green phase-scoped
-  integration tranche with <=300 changed hand-authored source lines, focused
-  lane gates, independent review, full tranche verification, and archived
-  receipts.
+  every one of the 56 task packets has one to four coherent intention commits,
+  is accepted only after its original dependencies, and is merged through a
+  green phase-scoped integration tranche with <=300 changed hand-authored source
+  lines per commit, focused lane gates, independent review, full tranche
+  verification, and archived receipts.
 - **Identity and isolation:** production has no fake auth path; WorkOS identity,
   organization and exact `viewer | editor | admin | owner` roles authorize every
   entrypoint server-side; stable public keys reveal no Convex IDs; all

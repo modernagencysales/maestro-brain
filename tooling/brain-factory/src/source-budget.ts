@@ -23,3 +23,12 @@ export const changedHandAuthoredSourceLines = (numstat: string): number =>
         (Number.isFinite(deletions) ? deletions : 0)
       );
     }, 0);
+
+export const validSourceSlices = (
+  sourceLines: readonly number[],
+  sliceBudget = 300,
+  maximumSlices = 4,
+): boolean =>
+  sourceLines.length >= 1 &&
+  sourceLines.length <= maximumSlices &&
+  sourceLines.every((lines) => lines >= 0 && lines <= sliceBudget);

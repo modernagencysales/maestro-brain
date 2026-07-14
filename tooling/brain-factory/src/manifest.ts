@@ -33,7 +33,8 @@ export interface BrainTaskContract {
   readonly kind: "docs" | "external" | "product" | "release";
   readonly lane: string;
   readonly requirements: readonly string[];
-  readonly sourceLineBudget: number;
+  readonly estimatedSourceLines: number;
+  readonly sourceSliceBudget: 300;
   readonly taskBlockHash: string;
   readonly taskId: string;
   readonly title: string;
@@ -218,7 +219,7 @@ const taskBlocks = (
 
 const acceptanceRows = (
   plan: string,
-): Map<string, { dependency: string; sourceLineBudget: number }> => {
+): Map<string, { dependency: string; estimatedSourceLines: number }> => {
   const appendix = plan.slice(
     plan.indexOf("## Appendix A"),
     plan.indexOf("## Appendix B"),
@@ -234,10 +235,10 @@ const acceptanceRows = (
           cells[2],
           `${taskId}: Appendix A row has no dependency`,
         );
-        const sourceLineBudget = Number(
+        const estimatedSourceLines = Number(
           required(cells[4], `${taskId}: Appendix A row has no source budget`),
         );
-        return [taskId, { dependency, sourceLineBudget }] as const;
+        return [taskId, { dependency, estimatedSourceLines }] as const;
       }),
   );
 };
@@ -296,6 +297,7 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
       acceptanceAfter: acceptanceContract.dependency,
       classification,
       codeStartAfter: START_OVERRIDES[taskId] ?? [],
+      estimatedSourceLines: acceptanceContract.estimatedSourceLines,
       fileLocks,
       gateProfiles: inferProfiles(taskId, lane, fileLocks),
       kind:
@@ -308,7 +310,7 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
               : "product",
       lane,
       requirements,
-      sourceLineBudget: acceptanceContract.sourceLineBudget,
+      sourceSliceBudget: 300,
       taskBlockHash: hash(body),
       taskId,
       title,
@@ -334,13 +336,15 @@ export const validateManifest = (manifest: BrainTaskManifest): string[] => {
     if (task.acceptanceAfter === "unknown")
       errors.push(`${task.taskId}: no acceptance prerequisite`);
     if (
-      !Number.isInteger(task.sourceLineBudget) ||
-      task.sourceLineBudget < 0 ||
-      task.sourceLineBudget > 300
+      !Number.isInteger(task.estimatedSourceLines) ||
+      task.estimatedSourceLines < 0 ||
+      task.estimatedSourceLines > 300
     )
       errors.push(
-        `${task.taskId}: invalid source-line budget ${task.sourceLineBudget}`,
+        `${task.taskId}: invalid source-line estimate ${task.estimatedSourceLines}`,
       );
+    if (task.sourceSliceBudget !== 300)
+      errors.push(`${task.taskId}: source slice budget must remain 300`);
     if (task.fileLocks.length === 0 && task.kind === "product")
       errors.push(`${task.taskId}: no file locks`);
     for (const dependency of task.codeStartAfter)
