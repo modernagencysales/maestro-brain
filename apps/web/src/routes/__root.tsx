@@ -21,9 +21,10 @@ import { TemplateToastProvider } from "@maestro-template/ui";
 
 import { createAuthKitProviderWithConvexProviderWithAuth } from "../auth/authkit-client";
 import {
-  getClientAuthSnapshot,
+  getRuntimeClientAuthSnapshot,
   type ClientAuthSnapshot,
 } from "../auth/authkit-server";
+import { getServerEnv } from "../server-env";
 import { MaestroSaasUiProvider } from "../saas-ui/provider";
 import {
   createBrowserWorkspaceStorage,
@@ -76,7 +77,10 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   ["loader"]: async (): Promise<{
     readonly authSnapshot: ClientAuthSnapshot;
   }> => ({
-    authSnapshot: await getClientAuthSnapshot({ getAuth }),
+    authSnapshot: await getRuntimeClientAuthSnapshot({
+      env: getServerEnv(),
+      getAuth,
+    }),
   }),
   component: RootComponent,
 });

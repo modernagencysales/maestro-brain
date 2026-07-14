@@ -59,8 +59,7 @@ const fakeProviderModes = new Set(["fake", "local"]);
 const productionModes = new Set(["prod", "production", "live"]);
 
 const isProductionEnv = (env: ServerEnvSource): boolean =>
-  productionModes.has((env.APP_ENV ?? "").trim().toLowerCase()) ||
-  productionModes.has((env.NODE_ENV ?? "").trim().toLowerCase());
+  productionModes.has((env.APP_ENV ?? "").trim().toLowerCase());
 
 const providerModeFor = (env: ServerEnvSource): string =>
   (env.APP_PROVIDER_MODE ?? env.AUTH_PROVIDER_MODE ?? "fake")
@@ -175,4 +174,15 @@ export async function getClientAuthSnapshot(input: {
   readonly getAuth: () => Promise<WorkosServerAuth>;
 }): Promise<ClientAuthSnapshot> {
   return toClientAuthSnapshot(await getAuthSnapshot(input));
+}
+
+export async function getRuntimeClientAuthSnapshot(input: {
+  readonly env: ServerEnvSource;
+  readonly getAuth: () => Promise<WorkosServerAuth>;
+}): Promise<ClientAuthSnapshot> {
+  const config = buildAuthKitRuntimeConfig(input.env);
+
+  if (config.mode === "fake") return { status: "signedOut" };
+
+  return getClientAuthSnapshot({ getAuth: input.getAuth });
 }

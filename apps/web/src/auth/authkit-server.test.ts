@@ -5,6 +5,7 @@ import {
   buildAuthKitRuntimeConfig,
   getAuthSnapshot,
   getClientAuthSnapshot,
+  getRuntimeClientAuthSnapshot,
   toClientAuthSnapshot,
   Unauthorized,
   type WorkosServerAuth,
@@ -79,6 +80,17 @@ describe("AuthKit server bridge", () => {
     expect("accessToken" in clientSnapshot).toBe(false);
   });
 
+  it("does not call WorkOS while resolving fake runtime auth", async () => {
+    await expect(
+      getRuntimeClientAuthSnapshot({
+        env: { APP_PROVIDER_MODE: "fake", NODE_ENV: "production" },
+        getAuth: async () => {
+          throw new Error("getAuth should not be called in fake mode");
+        },
+      }),
+    ).resolves.toEqual({ status: "signedOut" });
+  });
+
   it("redacts access tokens when converting existing server snapshots for clients", () => {
     const clientSnapshot = toClientAuthSnapshot({
       status: "authenticated",
@@ -138,6 +150,15 @@ describe("AuthKit server bridge", () => {
     expect(
       buildAuthKitRuntimeConfig({
         APP_ENV: "fake",
+        APP_PROVIDER_MODE: "fake",
+      }),
+    ).toEqual({ mode: "fake" });
+  });
+
+  it("allows fake provider mode during production web builds", () => {
+    expect(
+      buildAuthKitRuntimeConfig({
+        NODE_ENV: "production",
         APP_PROVIDER_MODE: "fake",
       }),
     ).toEqual({ mode: "fake" });
