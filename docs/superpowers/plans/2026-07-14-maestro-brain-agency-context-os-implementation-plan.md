@@ -126,7 +126,7 @@ Before every stack:
 | IAM-01 | Replace fake AuthKit/Convex identity with real WorkOS-backed identity and organization binding.                                                      |
 | IAM-02 | Provision and list only authorized agency/client Brains; no unfiltered public workspace query remains.                                               |
 | IAM-03 | Use tenant-namespaced stable public keys for agencies, Brains, pages, sources, revisions, connections, receipts, and exports.                        |
-| IAM-04 | Reuse `viewer                                                                                                                                        | editor | admin | owner`, enforce roles server-side, manage members/invites, and audit privileged success/denial. |
+| IAM-04 | Reuse `viewer \| editor \| admin \| owner`, enforce roles server-side, manage members/invites, and audit privileged success/denial.                  |
 | UI-01  | Show only Clients, Agency Brain, Connections, Settings, and global Ask/Search in the SaaS UI/Chakra shell.                                           |
 | UI-02  | Create an agency Brain and client Brains with the ordinary six-page Client Brief and a sub-15-minute first-value path.                               |
 | UI-03  | Provide a responsive Notion-like BlockNote page tree/editor with read-only viewer behavior and authorized editing.                                   |
@@ -460,7 +460,7 @@ slice/PR; no row may contain more than four tasks.
 - **Outcome / requirements:** satisfy IAM-01, IAM-02, IAM-03, UI-02; a signed-in
   user sees only Brains granted by current organization/workspace membership and
   authorized admins can create a client Brain.
-- **Classification:** existing-module `fixture-to-real` for
+- **Classification:** `fixture-to-real` for the existing
   `auth/workspaces.{spec,impl}.ts` plus deliberate contract migration; the real
   boundary is `Auth + DatabaseReader/Writer + requireWorkspaceAccess`.
 - **Dependencies:** S01-T02.
@@ -509,10 +509,9 @@ slice/PR; no row may contain more than four tasks.
 - **Outcome / requirements:** satisfy IAM-04 and establish the role/capability
   matrix every later task must reuse.
 - **Classification:** `pattern-instance` over real
-  `access/members`/`access/invitations`; generator command is not needed for
-  existing modules, so the work package is recorded as `fixture-to-real` only if
-  a remaining fixture body is found; otherwise `pattern-instance` target is the
-  existing access pattern and settings feature composition.
+  `access/members`/`access/invitations`; the target is the existing access
+  pattern and settings feature composition. No fixture body is replaced by this
+  slice.
 - **Dependencies:** S01-T03.
 - **Existing anchors:** member and invitation mutations already exist under
   `packages/convex/confect/access/`; the Settings surface still renders
@@ -560,10 +559,9 @@ slice/PR; no row may contain more than four tasks.
 
 - **Outcome / requirements:** satisfy IAM-03 and KNW-01 with a stable,
   tenant-namespaced page tree and current-revision pointer.
-- **Classification:** existing-module repair plus
-  `template-gap TB-AUTHORIZED-KNOWLEDGE-01`; the documented Brain-schema
-  generator is not a runnable package script, so do not claim generator
-  coverage.
+- **Classification:** `template-gap`; target `TB-AUTHORIZED-KNOWLEDGE-01` plus
+  existing-module repair. The documented Brain-schema generator is not a
+  runnable package script, so do not claim generator coverage.
 - **Dependencies:** S01 complete.
 - **Existing anchors:** `brainPages` currently stores only workspace, slug,
   title, Markdown, editor snapshot, source kind, and time in
@@ -604,8 +602,8 @@ slice/PR; no row may contain more than four tasks.
 - **Outcome / requirements:** satisfy IAM-04, KNW-01, UI-03; viewers read while
   editors create/rename/move/favorite/archive and all authority is
   server-derived.
-- **Classification:** existing database-backed `brain/pages` extension; record
-  as `pattern-instance` against that real module, not a replacement system.
+- **Classification:** `pattern-instance` against the existing database-backed
+  `brain/pages` module, not a replacement system.
 - **Dependencies:** S02-T01.
 - **Existing anchors:** current specs take caller Convex IDs and expose
   `createMarkdown` to MCP in
@@ -734,8 +732,8 @@ slice/PR; no row may contain more than four tasks.
 ### S03-T01 — Replace Generic Navigation With The V1 Product Shell
 
 - **Outcome / requirements:** satisfy UI-01 without building a second shell.
-- **Classification:** `template-gap TB-BRAIN-UI-01`; resolution ports only
-  generic Brain behavior into existing SaaS UI/Chakra primitives.
+- **Classification:** `template-gap`; target `TB-BRAIN-UI-01`; resolution ports
+  only generic Brain behavior into existing SaaS UI/Chakra primitives.
 - **Dependencies:** S02 complete.
 - **Existing anchors:** customer navigation currently exposes many reference
   routes in
@@ -774,7 +772,7 @@ slice/PR; no row may contain more than four tasks.
 
 - **Outcome / requirements:** satisfy UI-02; an admin creates a Client Brain and
   lands in the six-page editable Client Brief.
-- **Classification:** `template-gap TB-BRAIN-UI-01`; the current
+- **Classification:** `template-gap`; target `TB-BRAIN-UI-01`; the current
   `template:add-client-domain` emits only JSON/README, so no false generator
   claim.
 - **Dependencies:** S03-T01.
@@ -814,8 +812,8 @@ slice/PR; no row may contain more than four tasks.
 
 - **Outcome / requirements:** satisfy UI-03 and IAM-04 with the specified
   three-region desktop layout and drawer-based mobile layout.
-- **Classification:** `template-gap TB-BRAIN-UI-01`, importing behavior but not
-  shell/CSS from production Maestro.
+- **Classification:** `template-gap`; target `TB-BRAIN-UI-01`, importing
+  behavior but not shell/CSS from production Maestro.
 - **Dependencies:** S03-T02.
 - **Existing anchors:** production behavioral prior art is the
   [`workspace composition`](https://github.com/modernagencysales/maestro/blob/c8b644c154af91f7e6b67b31861fd6b7eaa211b1/apps/web/src/features/brain/brain-workspace-content.tsx#L108-L155)
@@ -855,8 +853,8 @@ slice/PR; no row may contain more than four tasks.
 
 - **Outcome / requirements:** satisfy UI-04, KNW-01, AI-03 UI prerequisites;
   every revision is inspectable and restoration appends history.
-- **Classification:** `pattern-instance` on S02 revision/citation contracts plus
-  `template-gap TB-BRAIN-UI-01` for reusable review UI.
+- **Classification:** `pattern-instance` on S02 revision/citation contracts;
+  reusable review UI remains tracked by backlog gap `TB-BRAIN-UI-01`.
 - **Dependencies:** S03-T03.
 - **Existing anchors:** current template versioning vocabulary and table exist
   in
@@ -897,8 +895,8 @@ slice/PR; no row may contain more than four tasks.
 
 - **Outcome / requirements:** satisfy SLK-01 and IAM-04 without storing Slack
   credentials or building OAuth infrastructure.
-- **Classification:** `template-gap TB-NANGO-SLACK-01`; resolution adds a
-  generic Nango Effect service and a product-specific Slack connection
+- **Classification:** `template-gap`; target `TB-NANGO-SLACK-01`; resolution
+  adds a generic Nango Effect service and a product-specific Slack connection
   capability.
 - **Dependencies:** S01 complete; S03 provides the Connections shell.
 - **Existing anchors:** Nango's pinned Slack guide documents authorization,
@@ -951,8 +949,8 @@ slice/PR; no row may contain more than four tasks.
 - **Outcome / requirements:** satisfy SLK-01 and SLK-02; bind one verified Slack
   team/app/bot to one agency and discover all accessible channels without
   auto-joining them.
-- **Classification:** `template-gap TB-NANGO-SLACK-01`; product instance of a
-  provider connection/directory pattern.
+- **Classification:** `template-gap`; target `TB-NANGO-SLACK-01`; product
+  instance of a provider connection/directory pattern.
 - **Dependencies:** S04-T01.
 - **Existing anchors:** Nango's channel model exposes `is_member` and Slack
   Connect flags in
@@ -999,9 +997,9 @@ slice/PR; no row may contain more than four tasks.
 - **Outcome / requirements:** satisfy SLK-04 and AI-04; no unsigned, replayed,
   oversized, unmatched, stale-generation, or wrong-app event reaches tenant
   data.
-- **Classification:** `template-gap TB-NANGO-SLACK-01`; resolution establishes a
-  reusable verified-provider-webhook envelope. It may use Nango forwarding only
-  if the pinned contract proves authenticity and durability.
+- **Classification:** `template-gap`; target `TB-NANGO-SLACK-01`; resolution
+  establishes a reusable verified-provider-webhook envelope. It may use Nango
+  forwarding only if the pinned contract proves authenticity and durability.
 - **Dependencies:** S04-T02.
 - **Existing anchors:** Nango handles Slack's URL challenge and connection
   routing but warns unmatched events may arrive without its wrapper in
@@ -1056,8 +1054,9 @@ slice/PR; no row may contain more than four tasks.
 
 - **Outcome / requirements:** satisfy SLK-02, SLK-03, SLK-08, IAM-04, and UI-01;
   admins can bulk-select any joined channels and set explicit policies.
-- **Classification:** `template-gap TB-SOURCE-01` plus frontend
-  `TB-BRAIN-UI-01`; policy semantics belong to Maestro, not Nango.
+- **Classification:** `template-gap`; target `TB-SOURCE-01`; frontend follow-up
+  remains tracked by `TB-BRAIN-UI-01`. Policy semantics belong to Maestro, not
+  Nango.
 - **Dependencies:** S04-T03 and S03.
 - **Existing anchors:** the template's current integration route is generic; the
   product spec requires channel table control rather than a connector catalog.
@@ -1110,8 +1109,8 @@ slice/PR; no row may contain more than four tasks.
 - **Outcome / requirements:** satisfy SLK-04, SLK-05, IAM-03, KNW-02; accepted
   events have one durable receipt, exact observation, source revision, and
   assembly intent in one transaction.
-- **Classification:** `template-gap TB-SOURCE-01`; promote as the generic source
-  intake pattern only after Slack proves it.
+- **Classification:** `template-gap`; target `TB-SOURCE-01`; promote as the
+  generic source intake pattern only after Slack proves it.
 - **Dependencies:** S04 complete.
 - **Existing anchors:** the template backlog has only `brainPages` for source
   ingestion and calls out missing source/source-unit tables in
@@ -1151,13 +1150,15 @@ slice/PR; no row may contain more than four tasks.
 
 - **Outcome / requirements:** satisfy SLK-04, SLK-05, ZFC-01; exact capture
   succeeds with every model disabled.
-- **Classification:** `template-gap TB-SOURCE-01`; deterministic source adapter
-  instance behind the verified webhook.
+- **Classification:** `template-gap`; target `TB-SOURCE-01`; deterministic
+  source adapter instance behind the verified webhook.
 - **Dependencies:** S05-T01.
-- **Existing anchors:** Nango is only the forwarding/proxy boundary; source
-  semantics are absent. The design's `A -> B -> A` invariant must be implemented
-  with provider revision discriminator plus event ID and canonical hash, not
-  hash-only dedupe.
+- **Existing anchors:** the pinned template's provider boundary exposes typed
+  integrations and rate-limit services but no source normalizer in
+  [`rateLimit.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/integrations/src/rateLimit.ts#L1-L135).
+  Nango remains only the forwarding/proxy boundary. The design's `A -> B -> A`
+  invariant must use provider revision discriminator plus event ID and canonical
+  hash, not hash-only dedupe.
 - **Files:** create `packages/convex/confect/sources/slackNormalizer.ts`,
   `sourceOrdering.ts`, `captureTransaction.ts`, property tests, and
   `packages/convex/test/source-capture.test.ts`; modify `slack/webhook.impl.ts`
@@ -1193,8 +1194,9 @@ slice/PR; no row may contain more than four tasks.
 
 - **Outcome / requirements:** satisfy SLK-06 and ZFC-01; model adapters receive
   complete content, never database keys they must dereference.
-- **Classification:** `template-gap TB-SOURCE-01`, informed by production
-  Maestro source-unit separation but translated into generic Slack thread units.
+- **Classification:** `template-gap`; target `TB-SOURCE-01`, informed by
+  production Maestro source-unit separation but translated into generic Slack
+  thread units.
 - **Dependencies:** S05-T02.
 - **Existing anchors:** production source-unit prior art separates exact source,
   evidence, and routing in
@@ -1321,12 +1323,13 @@ slice/PR; no row may contain more than four tasks.
 - **Outcome / requirements:** satisfy SLK-07 and REL-02; a large channel cannot
   starve another, and live/outbound work outranks recent/deep history without
   semantic scoring.
-- **Classification:** `template-gap TB-SOURCE-01`; generic deterministic
-  scheduling/rate-limit mechanism.
+- **Classification:** `template-gap`; target `TB-SOURCE-01`; generic
+  deterministic scheduling/rate-limit mechanism.
 - **Dependencies:** S06-T01.
-- **Existing anchors:** the template already has provider-neutral rate-limit
-  helpers under `packages/integrations/src/rateLimit.ts`, but no per-connection/
-  method/channel durable scheduler.
+- **Existing anchors:** the pinned template already has provider-neutral
+  rate-limit helpers in
+  [`rateLimit.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/integrations/src/rateLimit.ts#L1-L135),
+  but no per-connection/method/channel durable scheduler.
 - **Files:** create
   `packages/convex/confect/tables/providerRateLimitBuckets.ts`,
   `packages/convex/confect/jobs/fairScheduler.ts`, `slackRateBudget.ts`, tests,
@@ -1360,8 +1363,8 @@ slice/PR; no row may contain more than four tasks.
 
 - **Outcome / requirements:** satisfy SLK-02, SLK-07, REL-02; every joined
   channel owns independent recent/deep cursors and bounded batches.
-- **Classification:** `template-gap TB-SOURCE-01` using Nango's message sync as
-  provider-call prior art only.
+- **Classification:** `template-gap`; target `TB-SOURCE-01` using Nango's
+  message sync as provider-call prior art only.
 - **Dependencies:** S06-T02.
 - **Existing anchors:** the stock Nango sync fetches useful messages/replies but
   processes only `allChannels.slice(0, 1)` in
@@ -1399,12 +1402,15 @@ slice/PR; no row may contain more than four tasks.
 
 - **Outcome / requirements:** satisfy SLK-07, REL-03, UI-04; missed edits/
   deletions recover when possible and impossible history is visibly incomplete.
-- **Classification:** `template-gap TB-SOURCE-01` plus admin-surface pattern;
-  the documented admin generator is not runnable, so implement the product
-  instance and record promotion evidence.
+- **Classification:** `template-gap`; target `TB-SOURCE-01` plus admin-surface
+  pattern; the documented admin generator is not runnable, so implement the
+  product instance and record promotion evidence.
 - **Dependencies:** S06-T03.
-- **Existing anchors:** channel health already has a Connections surface from
-  S04; Nango/provider retry alone does not provide source-level reconciliation.
+- **Existing anchors:** the pinned template's health fixture is a narrow status
+  seam in
+  [`health.impl.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/ops/health.impl.ts#L1-L18).
+  S04 supplies the Connections surface; Nango/provider retry alone does not
+  provide source-level reconciliation.
 - **Files:** create
   `packages/convex/confect/slack/reconciliation.{spec,impl}.ts`, `recovery.ts`,
   tests, `apps/web/src/features/connections/channel-health.tsx`,
@@ -1442,8 +1448,8 @@ slice/PR; no row may contain more than four tasks.
 
 - **Outcome / requirements:** satisfy KNW-02, IAM-04, FND-03; every content or
   derived row has one enforceable lifecycle vocabulary and current-read fence.
-- **Classification:** `template-gap TB-SOURCE-LIFECYCLE-01` plus
-  `fixture-to-real` extension of `ops/dataLifecycle`.
+- **Classification:** `fixture-to-real` for `ops/dataLifecycle`; the generic
+  propagation seam remains tracked by `TB-SOURCE-LIFECYCLE-01`.
 - **Dependencies:** S05 and S06 complete.
 - **Existing anchors:** the template currently plans lifecycle work but keeps
   delete entries `executable: false` and retention dry-run-only in
@@ -1483,11 +1489,14 @@ slice/PR; no row may contain more than four tasks.
 - **Outcome / requirements:** satisfy KNW-02, SLK-05, SLK-08; forbidden text
   disappears from current reads, search/model inputs, and new deliveries
   immediately while audit metadata remains.
-- **Classification:** `template-gap TB-SOURCE-LIFECYCLE-01`; deterministic
-  lifecycle propagation workflow using internal capabilities only.
+- **Classification:** `template-gap`; target `TB-SOURCE-LIFECYCLE-01`;
+  deterministic lifecycle propagation workflow using internal capabilities only.
 - **Dependencies:** S07-T01.
-- **Existing anchors:** current lifecycle planner has no execution; S05/S06 have
-  exact revision and route generations to fence.
+- **Existing anchors:** the pinned lifecycle UI explicitly presents reviewed
+  planning and fulfillment states in
+  [`data-lifecycle-surface.tsx`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/apps/web/src/features/data-lifecycle/data-lifecycle-surface.tsx#L102-L137),
+  but has no real propagation executor. S05/S06 provide the revision and route
+  generations to fence.
 - **Files:** create `packages/convex/confect/lifecycle/propagation.ts`,
   `sourceRedaction.{spec,impl}.ts`, `routeRevocation.{spec,impl}.ts`, tests, and
   `packages/convex/test/lifecycle-propagation.test.ts`; modify source/latest
@@ -1522,9 +1531,9 @@ slice/PR; no row may contain more than four tasks.
 
 - **Outcome / requirements:** satisfy KNW-02 and REL-04 with reviewed,
   legal-hold-aware destructive execution and an honest backup contract.
-- **Classification:** `fixture-to-real` for `ops/dataLifecycle` plus
-  `template-gap TB-SOURCE-LIFECYCLE-01`; real boundary is audited internal
-  lifecycle jobs, not a broad public deleter.
+- **Classification:** `fixture-to-real` for `ops/dataLifecycle`; the real
+  boundary is audited internal lifecycle jobs, not a broad public deleter, and
+  generic promotion remains tracked by `TB-SOURCE-LIFECYCLE-01`.
 - **Dependencies:** S07-T02.
 - **Existing anchors:** current `createDsarRequest` is only the review handoff
   and explicitly does not execute deletion
@@ -1608,8 +1617,8 @@ slice/PR; no row may contain more than four tasks.
 - **Outcome / requirements:** satisfy AI-01, AI-04, and ZFC-01; model adapters
   receive closed content-bearing requests and return schema-decoded decisions
   plus auditable receipts.
-- **Classification:** `template-gap TB-STRUCTURED-LLM-01`; extend the existing
-  provider seam rather than introducing model SDKs in features or Slack
+- **Classification:** `template-gap`; target `TB-STRUCTURED-LLM-01`; extend the
+  existing provider seam rather than introducing model SDKs in features or Slack
   handlers.
 - **Dependencies:** S02, S05, and S07 complete.
 - **Existing anchors:** the current gateway defines an OpenRouter-shaped seam
@@ -1659,8 +1668,9 @@ slice/PR; no row may contain more than four tasks.
 - **Outcome / requirements:** satisfy ZFC-01 and HLS-02 by making capture-driven
   cognition durable without exposing start/status/approve controls to web/API/
   CLI/MCP.
-- **Classification:** `template-gap TB-INTERNAL-WORKFLOW-01`; resolution extends
-  the existing workflow generator and promotes the generic mode.
+- **Classification:** `template-gap`; target `TB-INTERNAL-WORKFLOW-01`;
+  resolution extends the existing workflow generator and promotes the generic
+  mode.
 - **Dependencies:** S08-T01.
 - **Existing anchors:** current generated start/status/approve functions are
   public and declare all four surfaces in
@@ -1801,8 +1811,8 @@ slice/PR; no row may contain more than four tasks.
 - **Outcome / requirements:** satisfy KNW-03 and ZFC-01; live Convex search can
   be awaited without preserving the fake token-overlap scorer as product
   cognition.
-- **Classification:** `template-gap TB-ASYNC-SEARCH-01`; promote the async
-  provider-neutral contract after live/fake parity.
+- **Classification:** `template-gap`; target `TB-ASYNC-SEARCH-01`; promote the
+  async provider-neutral contract after live/fake parity.
 - **Dependencies:** S07 and S08 complete.
 - **Existing anchors:** current live search `query` returns synchronously in
   [`packages/search/src/index.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/search/src/index.ts#L57-L64),
@@ -1836,8 +1846,8 @@ slice/PR; no row may contain more than four tasks.
 
 - **Outcome / requirements:** satisfy KNW-03 and KNW-02; only active routed
   source/page revisions become searchable inside one Brain.
-- **Classification:** `template-gap TB-ASYNC-SEARCH-01`; Convex full-text is the
-  first adapter, vectors remain absent/optional.
+- **Classification:** `template-gap`; target `TB-ASYNC-SEARCH-01`; Convex
+  full-text is the first adapter, vectors remain absent/optional.
 - **Dependencies:** S09-T01.
 - **Existing anchors:** the template backlog mentions a generic search/vector
   gap in
@@ -1925,9 +1935,11 @@ slice/PR; no row may contain more than four tasks.
   `rtk pnpm template:add-capability -- --name askBrain --description "Answers from an immutable authorized retrieval manifest with citations or abstention." --exposure headless --write`
   and publish operation ID `brain.answers.ask`.
 - **Dependencies:** S09-T03 and S08-T01.
-- **Existing anchors:** search provides candidates only; the model, not local
-  weights/keyword trees, chooses evidence. The shared LLM gateway owns the model
-  boundary from S08.
+- **Existing anchors:** the pinned template isolates model calls behind the
+  provider-neutral
+  [`llm.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/integrations/src/llm.ts#L1-L117)
+  seam. Search supplies candidates only; the model, not local weights or keyword
+  trees, chooses evidence through S08's shared gateway.
 - **Files:** generated `askBrain.*` artifacts/docs; create
   `packages/convex/confect/answers/{gather,request,validate,deliver}.ts`, tests,
   `apps/web/src/features/brain/ask-dialog.tsx`, `ask-adapter.ts`, tests; modify
@@ -1966,8 +1978,8 @@ slice/PR; no row may contain more than four tasks.
 
 - **Outcome / requirements:** satisfy SLK-09 and IAM-04; no display-name/email
   inference can authorize Slack reads.
-- **Classification:** `template-gap TB-NANGO-SLACK-01`; product-specific
-  identity-binding capability over existing WorkOS users.
+- **Classification:** `template-gap`; target `TB-NANGO-SLACK-01`;
+  product-specific identity-binding capability over existing WorkOS users.
 - **Dependencies:** S04 and S09 complete.
 - **Existing anchors:** Nango authenticates Maestro to Slack, not Slack humans
   to Maestro. Existing user identity is WorkOS subject-based in
@@ -2006,8 +2018,8 @@ slice/PR; no row may contain more than four tasks.
   ACK is fast, and any ambiguous semantic Brain selection is an explicit closed
   model call over authorized Brains.
 - **Classification:** `pattern-instance` capability generated with
-  `--exposure workflow` for `selectAuthorizedBrainScope`, plus thin transport
-  `template-gap TB-NANGO-SLACK-01`.
+  `--exposure workflow` for `selectAuthorizedBrainScope`; the thin transport
+  remains tracked by backlog gap `TB-NANGO-SLACK-01`.
 - **Dependencies:** S10-T01 and S09-T04.
 - **Existing anchors:** Vercel's pinned Slackbot shows useful thread/mention
   behavior in
@@ -2048,8 +2060,8 @@ slice/PR; no row may contain more than four tasks.
 - **Outcome / requirements:** satisfy SLK-08, SLK-09, KNW-04; authorize again
   before send and accept at most one logical visible answer after ambiguous
   provider outcomes.
-- **Classification:** `template-gap TB-NANGO-SLACK-01`; reuse Nango's ephemeral
-  send action behind the shared outbox.
+- **Classification:** `template-gap`; target `TB-NANGO-SLACK-01`; reuse Nango's
+  ephemeral send action behind the shared outbox.
 - **Dependencies:** S10-T02.
 - **Existing anchors:** Nango already implements `chat.postEphemeral` with user
   and optional thread timestamp in
@@ -2094,9 +2106,10 @@ slice/PR; no row may contain more than four tasks.
 - **Classification:** `pattern-instance` on Settings/Connections/notifications
   primitives; no new Slack reasoning layer.
 - **Dependencies:** S10-T03.
-- **Existing anchors:** notification persistence and preferences already exist
-  under `ops.notifications`; Connections and Settings are product routes from
-  S03/S04.
+- **Existing anchors:** the pinned notification center consumes generated
+  `ops.notifications` refs and preferences in
+  [`notification-center-surface.tsx`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/apps/web/src/features/notifications/notification-center-surface.tsx#L17-L43).
+  Connections and Settings are product routes from S03/S04.
 - **Files:** create/modify Slack link status, interactive Brain picker,
   clarification copy, answer status, outbox/dead-letter admin detail, and tests
   under `apps/web/src/features/settings`, `connections`, and `brain`; add
@@ -2130,8 +2143,9 @@ slice/PR; no row may contain more than four tasks.
 
 - **Outcome / requirements:** satisfy HLS-01, IAM-04, KNW-02; only current Brain
   admins create display-once, read-only, expiring keys with viewer ceiling.
-- **Classification:** existing-module repair plus `template-gap TB-HEADLESS-01`;
-  extend crypto/table primitives into authenticated Confect capabilities.
+- **Classification:** `template-gap`; target `TB-HEADLESS-01` plus
+  existing-module repair; extend crypto/table primitives into authenticated
+  Confect capabilities.
 - **Dependencies:** S09 complete.
 - **Existing anchors:** current helpers define hashed/scoped/expiring keys and
   constant-time verification in
@@ -2173,8 +2187,8 @@ slice/PR; no row may contain more than four tasks.
 
 - **Outcome / requirements:** satisfy HLS-01, HLS-02, IAM-03; all headless
   requests derive tenant/Brain from verified bearer state and fail closed.
-- **Classification:** `template-gap TB-HEADLESS-01`; repair the existing HTTP
-  request helper and executor.
+- **Classification:** `template-gap`; target `TB-HEADLESS-01`; repair the
+  existing HTTP request helper and executor.
 - **Dependencies:** S11-T01.
 - **Existing anchors:** the current request helper accepts caller tenant fields
   and contains a demo slug map in
@@ -2254,12 +2268,13 @@ slice/PR; no row may contain more than four tasks.
 
 - **Outcome / requirements:** satisfy HLS-03, HLS-01, HLS-02; Claude Code and
   compatible clients can securely use one remote Brain without a session server.
-- **Classification:** `template-gap TB-HEADLESS-01`; extend the generated
-  manifest into a deployable protocol transport.
+- **Classification:** `template-gap`; target `TB-HEADLESS-01`; extend the
+  generated manifest into a deployable protocol transport.
 - **Dependencies:** S11-T03.
-- **Existing anchors:** the repo has descriptors but no MCP server; current HTTP
-  composition begins in `packages/convex/confect/http.ts` and must remain the
-  external routing root.
+- **Existing anchors:** the pinned HTTP composition root is
+  [`http.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/http.ts#L1-L293);
+  it has generated descriptors but no MCP server and must remain the external
+  routing root.
 - **Files:** create `packages/convex/confect/headless/mcpProtocol.ts`,
   `mcpHttp.ts`, tests; modify `confect/http.ts`, `convex/http.ts`,
   error/security headers; create `apps/web/src/features/settings/mcp-config.tsx`
@@ -2300,8 +2315,8 @@ slice/PR; no row may contain more than four tasks.
 
 - **Outcome / requirements:** satisfy KNW-05 and IAM-03; identical authorized
   Brain state at one pinned revision produces byte-identical Markdown/JSON.
-- **Classification:** `template-gap TB-BRAIN-EXPORT-01`; import only proven
-  generic behavior from production Maestro into template-core.
+- **Classification:** `template-gap`; target `TB-BRAIN-EXPORT-01`; import only
+  proven generic behavior from production Maestro into template-core.
 - **Dependencies:** S07 and S11 complete.
 - **Existing anchors:** production Maestro implements stable-path sorted
   Markdown/link rewriting in
@@ -2344,11 +2359,13 @@ slice/PR; no row may contain more than four tasks.
   admins can request a lifecycle-fenced export, and artifacts expire/purge.
 - **Classification:** `pattern-instance` capability generated with
   `rtk pnpm template:add-capability -- --name exportBrain --description "Creates a lifecycle-fenced deterministic Brain export." --exposure web --write`,
-  plus `template-gap TB-BRAIN-EXPORT-01` for real object persistence.
+  with real object persistence tracked by backlog gap `TB-BRAIN-EXPORT-01`.
 - **Dependencies:** S12-T01.
-- **Existing anchors:** `packages/storage/src/index.ts` has a signed-URL seam
-  but no real object write/delete; V1 uses Convex storage rather than
-  introducing R2 or a customer Git repository.
+- **Existing anchors:** the pinned storage service exposes a signed-URL seam but
+  no real object write/delete in
+  [`index.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/storage/src/index.ts#L1-L103).
+  V1 uses Convex storage rather than introducing R2 or a customer Git
+  repository.
 - **Files:** generated `exportBrain.*` artifacts/docs; create
   `packages/convex/confect/tables/brainExportJobs.ts`,
   `packages/convex/confect/brain/exports/{gather,job,storage}.ts`, tests; modify
@@ -2387,9 +2404,10 @@ slice/PR; no row may contain more than four tasks.
 - **Classification:** `pattern-instance` on Settings/Connections and lifecycle
   UI primitives.
 - **Dependencies:** S12-T02.
-- **Existing anchors:** the product shell already includes Connections and
-  Settings; existing lifecycle request surfaces provide the audited action
-  pattern.
+- **Existing anchors:** the pinned Settings surface already separates admin and
+  viewer posture in
+  [`settings-surface.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/apps/web/src/features/settings/settings-surface.ts#L34-L87),
+  while the lifecycle surface supplies the audited action pattern.
 - **Files:** create `apps/web/src/features/settings/brain-exports.tsx`,
   `export-dialog.tsx`, `export-history.tsx`, tests; modify Settings/Connections,
   lifecycle job detail, notification types, operator runbook.
@@ -2424,9 +2442,10 @@ slice/PR; no row may contain more than four tasks.
 - **Classification:** `pattern-instance` extending the existing eval harness; no
   product runtime heuristic may be copied from an eval scorer.
 - **Dependencies:** S08, S09, S10 complete.
-- **Existing anchors:** current eval style lives in
-  `tooling/evals/src/source-grounded-brief.ts`; its keyword-based refusal
-  scoring is test harness behavior and must not enter product runtime.
+- **Existing anchors:** the pinned eval style lives in
+  [`source-grounded-brief.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/tooling/evals/src/source-grounded-brief.ts#L1-L184);
+  its keyword-based refusal scoring is test-harness behavior and must not enter
+  product runtime.
 - **Files:** create `tooling/evals/src/brain-classification.ts`,
   `brain-answers.ts`, `brain-maintenance.ts`, `brain-prompt-injection.ts`,
   `brain-multilingual.ts`, frozen JSONL fixtures/labels, evaluator tests and
@@ -2460,11 +2479,14 @@ slice/PR; no row may contain more than four tasks.
 
 - **Outcome / requirements:** satisfy REL-02 and SLK-07 at the declared launch
   envelope before accepting equivalent customer configuration.
-- **Classification:** `template-gap TB-SOURCE-01`; promote the deterministic
-  multi-tenant source load harness after this product instance.
+- **Classification:** `template-gap`; target `TB-SOURCE-01`; promote the
+  deterministic multi-tenant source load harness after this product instance.
 - **Dependencies:** S13-T01 and S06.
-- **Existing anchors:** the stack/repo has Vitest, fast-check, TestClock, Convex
-  test, workpool, and release tooling; no Brain capacity fixture exists.
+- **Existing anchors:** the pinned workpool fixture is deliberately small and
+  deterministic in
+  [`workpool.impl.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/jobs/workpool.impl.ts#L1-L38),
+  while the repo has Vitest, fast-check, TestClock, and release tooling but no
+  Brain capacity fixture.
 - **Files:** create `tooling/evals/src/brain-capacity.ts`,
   `packages/convex/test/brain-capacity.test.ts`, synthetic fixture generator,
   release report script/tests; modify capacity config/admission UI and CI docs.
@@ -2504,9 +2526,12 @@ slice/PR; no row may contain more than four tasks.
   feature-flag-policy, notification, and admin patterns; no semantic local alert
   classifier.
 - **Dependencies:** S13-T02.
-- **Existing anchors:** the template already has observability, spend,
-  rate-limit, feature flag policy, notification persistence, and typed error
-  capture seams; extend them instead of a second operator platform.
+- **Existing anchors:** the pinned template already exposes typed telemetry and
+  redaction primitives in
+  [`index.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/observability/src/index.ts#L1-L183)
+  and notification persistence in
+  [`index.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/notifications/src/index.ts#L1-L388);
+  extend those seams instead of a second operator platform.
 - **Files:** create
   `packages/convex/confect/ops/brainOperations.{spec,impl}.ts`, operational
   metrics/checks/tests, dashboard/admin components, alerts/runbooks; modify
@@ -2547,14 +2572,21 @@ slice/PR; no row may contain more than four tasks.
   hosted smoke; product-specific provider/pilot evidence remains outside the
   generic template.
 - **Dependencies:** every prior task merged; all focused receipts green.
-- **Existing anchors:** canonical full local gate is `rtk just verify-full`; the
-  repo also provides `deploy:doctor`, `deploy:cloudflare`, `smoke:hosted`,
-  browser/a11y/visual smokes, and release review commands in `package.json` and
-  `Justfile`.
-- **Files:** update/create release checklist, deployment/env manifest, migration
-  receipt, staging/pilot report, incident/rollback runbook, customer limits and
-  privacy/security docs; modify no product code unless a failed gate produces a
-  separately reviewed fix PR.
+- **Existing anchors:** the pinned canonical full local gate and host semaphore
+  are defined in
+  [`Justfile`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/Justfile#L21-L63),
+  while deploy/hosted/release commands are pinned in
+  [`package.json`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/package.json#L95-L127).
+- **Files:** create/update `docs/product/maestro-brain-release-checklist.md`,
+  `docs/product/maestro-brain-deployment.md`,
+  `docs/product/maestro-brain-migration-receipt.md`,
+  `docs/product/maestro-brain-incident-rollback.md`,
+  `docs/product/maestro-brain-limits.md`,
+  `docs/product/maestro-brain-privacy-security.md`, and
+  `docs/superpowers/receipts/maestro-brain/staging-pilot-launch.md`; update
+  `.env.example` and `docs/template/env-manifest.{md,json}` only for reviewed
+  environment-name changes. Modify no product code unless a failed gate produces
+  a separately reviewed fix PR.
 - **Failure-first preflight:** staging starts with every external/risky kill
   switch off. `deploy:doctor` must fail when a required env/provider binding is
   removed. Hosted smoke must fail when auth/route/key is invalid. Restore the
@@ -2584,6 +2616,10 @@ slice/PR; no row may contain more than four tasks.
   cited answer useful; >=50% use Slack or MCP in week one; median Brain admin
   <10 min/week; zero cross-client disclosure, Slack audience, key-scope, or
   unverified-webhook incident. Any security incident is automatic no-go.
+- **Typed contract / state:** release packet is
+  `{ releaseCommit, buildId, deployId, manifestHashes, migrationReceipt, evalReceipt, capacityReceipt, pilotMetrics, incidents, approvers, rollbackReceipt, verdict }`;
+  release state is
+  `candidate -> staging -> pilot -> launch_approved | no_go -> cohort_enabled -> general`.
 - **Migration / rollback:** follow Appendix K. Schema contraction and legacy
   field removal are a later PR after observation window. Rollback uses feature
   flags/compatible binaries, never destructive reverse migrations. Revoked/
@@ -2639,7 +2675,7 @@ not deepen an existing stack beyond four.
 | S06-T02 | S06-T01            | template-gap deterministic scheduler             |               260 |
 | S06-T03 | S06-T02            | template-gap Nango history adapter               |               290 |
 | S06-T04 | S06-T03            | reconciliation/admin pattern-instance            |               260 |
-| S07-T01 | S05, S06           | lifecycle fixture-to-real + template-gap         |               280 |
+| S07-T01 | S05, S06           | fixture-to-real `ops/dataLifecycle`              |               280 |
 | S07-T02 | S07-T01            | template-gap propagation workflow                |               290 |
 | S07-T03 | S07-T02            | fixture-to-real lifecycle execution              |               290 |
 | S07-T04 | S07-T03            | lifecycle UI pattern-instance                    |               260 |
@@ -2655,7 +2691,7 @@ not deepen an existing stack beyond four.
 | S10-T02 | S10-T01            | capability instance + transport gap              |               290 |
 | S10-T03 | S10-T02            | template-gap outbox/provider action              |               280 |
 | S10-T04 | S10-T03            | Settings/Connections pattern-instance            |               240 |
-| S11-T01 | S09 complete       | headless existing-module repair/gap              |               280 |
+| S11-T01 | S09 complete       | template-gap `TB-HEADLESS-01`                    |               280 |
 | S11-T02 | S11-T01            | template-gap bearer dispatcher                   |               280 |
 | S11-T03 | S11-T02            | generated manifest pattern-instance              |               260 |
 | S11-T04 | S11-T03            | template-gap Streamable HTTP MCP                 |               290 |
@@ -2949,3 +2985,381 @@ type ClassificationDecision = {
 Confidence/rationale are diagnostic only. The structural pipe verifies key/hash,
 zero-or-one target, allowlist membership, exact quotes, policy/generations, and
 review authority; it does not reinterpret the decision.
+
+## Appendix G — Complete State-Machine Inventory
+
+Every transition is persisted with the actor/principal, causation/effect key,
+prior and next state, relevant generation/epoch, and timestamp. A transition not
+listed here is invalid. Terminal or monotonic states cannot be reopened by a
+retry; recovery creates a new generation, attempt, revision, or job.
+
+| Machine                     | States and permitted transitions                                                                                                                                | Owning task / commit fence                                             |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Host plugin readiness       | `unknown -> missing \| installed -> verified`; `verified` is required on three distinct hosts                                                                   | S00-T01; fresh-session discovery                                       |
+| Stack execution             | `unprojected -> projected -> validated -> in_progress -> merged -> receipt_archived`; drift returns to `unprojected`                                            | S00-T03; validated manifest hash                                       |
+| Migration run               | `planned -> running -> complete \| failed`; `failed -> running` only from last committed cursor                                                                 | S00-T04; migration name/cursor/generation                              |
+| Human auth snapshot         | `signed_out \| authenticated`; token expiry/revocation returns to `signed_out`                                                                                  | S01-T01; current WorkOS subject/token                                  |
+| Organization                | `provisioning -> active -> suspended -> active \| deleting -> deleted`; `deleted` is terminal                                                                   | S01-T02/S07-T03; organization generation                               |
+| Brain                       | `provisioning -> active -> archived -> active \| deleting -> deleted`; lifecycle may move active/archived content to redacted/purged                            | S01-T03/S07-T03; Brain/lifecycle generation                            |
+| Membership                  | `pending -> active -> revoked`; a new grant creates a new membership generation                                                                                 | S01-T04; current effective-role generation                             |
+| Invitation                  | existing typed pending/accepted/expired/revoked terminal rules remain authoritative                                                                             | S01-T04; invitation token/status                                       |
+| Page                        | `active -> archived -> active \| redacted -> purged`; redaction/purge are monotonic                                                                             | S02-T01/S07; lifecycle generation                                      |
+| Page revision               | `draft -> proposed -> published \| rejected`; any non-purged state may become `redacted -> purged`; published rows are immutable                                | S02-T01/T03; expected current revision + effect key                    |
+| Editor commit               | `editing -> commit_pending -> committed \| stale \| revoked`; stale/revoked attempts never update the current pointer                                           | S02-T04; expected revision/lifecycle generation                        |
+| Provider connection         | `pending -> active -> reauthorization_required -> active \| disconnected`; reconnect increments generation, never reuses credentials                            | S04-T01/T02; connection/team/app/bot generation                        |
+| Channel membership          | `discovered_not_joined -> joined_needs_policy -> joined_active -> access_lost \| archived`; re-add creates a new access generation and resumes saved cursors    | S04-T02/S06-T04; bot membership generation                             |
+| Routing policy              | immutable epochs with mode `direct \| classify \| capture_only`; active pointer moves only after validation and audit                                           | S04-T04; policy epoch                                                  |
+| Delivery policy             | immutable generation `requester_private \| capture_only`; Slack Connect is structurally fixed to `capture_only`                                                 | S04-T04/S10; delivery generation                                       |
+| Live/recent/deep sync lane  | `idle -> queued -> running -> waiting_rate_limit \| retry_wait -> idle \| access_lost \| dead_letter`; each lane has its own cursor and lease                   | S04-T02/S06; cursor + lease fence                                      |
+| Provider event receipt      | `received -> verified -> committed -> acknowledged` or `received -> rejected`; acknowledgement cannot precede atomic capture intent                             | S04-T03/S05-T02; event/observation key                                 |
+| Source artifact             | `active -> deleted_tombstone -> redacted -> purged`; latest pointer advances by total provider order only                                                       | S05-T01/T02/S07; provider order + lifecycle generation                 |
+| Source revision             | immutable `observed \| edit \| tombstone`, then `redacted -> purged`; `A -> B -> A` remains three revisions                                                     | S05-T02/S07; revision key/order/hash                                   |
+| Source unit                 | `open -> cut`; each later fixed cut creates a new immutable source-unit revision                                                                                | S05-T03; fixed-cut key/hash                                            |
+| Source processing job       | `queued -> claimed -> running -> succeeded \| retry_wait \| dead_letter \| superseded \| revoked`; only current lease may commit                                | S05-T04/S06/S07; lease, stage, policy, route and lifecycle generations |
+| Source route                | `awaiting_policy \| capture_only \| proposed -> active -> revoked \| superseded`; one active effect per unit/Brain/generation                                   | S05-T04/S07/S08-T03; route effect/policy/lifecycle generation          |
+| Rate-limit bucket           | `available -> blocked_until -> available`; admission may be queued/rejected but never silently dropped                                                          | S06-T02/S13-T02; connection/method budget epoch                        |
+| Legal hold                  | `planned -> active -> released \| expired`; it blocks purge only, never current-read revocation                                                                 | S07-T01/T03; hold generation/approval                                  |
+| Lifecycle job               | `planned -> approved -> queued -> running -> complete \| failed \| superseded`; failed work resumes idempotently                                                | S07; effect key/resource generation                                    |
+| Model call                  | `planned -> admitted -> running -> succeeded \| typed_failure \| budget_rejected`; raw prompt/completion never enters receipts                                  | S08-T01; request hash/model/prompt/tool versions                       |
+| Classification decision     | `gathered -> proposed_zero \| proposed_one -> accepted \| changed_to_allowed \| no_route \| rejected \| superseded`; only reviewed terminal decisions may route | S08-T03; unit/policy/allowlist/review generations                      |
+| Maintenance proposal        | `gathered -> proposed_noop \| proposed_revision -> accepted \| edited_and_accepted \| rejected \| superseded`; Autopilot is an explicit reviewed policy path    | S08-T04; page/route/model/policy/lifecycle generations                 |
+| Search projection           | `pending -> active -> inactive -> purged`; inactive rows cannot be candidates                                                                                   | S09-T02; source/page revision + route/lifecycle generation             |
+| Retrieval/answer            | `gathering -> manifest_pinned -> model_running -> cited_answer \| insufficient_evidence -> reauthorized -> returned \| revoked`                                 | S09-T03/T04; immutable manifest + final auth generations               |
+| Slack identity binding      | `unlinked -> pending_verification -> active -> revoked`; relink creates a new binding generation                                                                | S10-T01; org/team/Slack user/WorkOS subject                            |
+| Slack question              | `received -> scope_required \| scoped -> answering -> outbox_pending \| abstained \| denied`; ambiguity never guesses a Brain                                   | S10-T02/T04; requester and scope receipt                               |
+| Outbound delivery           | `pending -> authorized -> sending -> sent \| ambiguous -> reconciled_sent \| retry_wait \| denied \| revoked`; at most one logical visible effect               | S10-T03; outbox effect + audience/auth generations                     |
+| Service principal / API key | `active -> expired \| revoked`; rotation creates a new key and revokes the old generation                                                                       | S11-T01; key hash/principal generation                                 |
+| Headless request            | `received -> authenticated -> authorized -> decoded -> dispatched -> reauthorized -> returned`; any denial terminates before the next sensitive stage           | S11-T02/T04; request/principal/auth generations                        |
+| Export job/artifact         | `requested -> gathering -> encoded -> stored -> available -> expired -> purged` or `denied \| revoked \| failed`; publication reauthorizes                      | S12; export effect/lifecycle generation                                |
+| Model/prompt approval       | `candidate -> evaluated -> approved \| rejected`; approval is immutable for a suite/fixture hash                                                                | S13-T01; eval receipt hash                                             |
+| Subsystem policy            | `enabled -> paused -> enabled`, with emergency `disabled`; enabling requires current operator authority and evidence                                            | S13-T03; policy epoch                                                  |
+| Release                     | `candidate -> staging -> pilot -> launch_approved \| no_go -> cohort_enabled -> general`; incident returns to `no_go`/rollback, never erases evidence           | S13-T04; release commit/build/deploy IDs                               |
+
+## Appendix H — Lifecycle Propagation Matrix
+
+“Immediate” means deny current reads, candidate selection, model input, export,
+and delivery in the initiating transaction or through a monotonic generation
+fence. Physical purge may be asynchronous and resumable. Legal hold changes
+purge timing only.
+
+| Trigger                                      | Immediate authority/routing effect                                          | Raw and immutable source copies                                                 | Derived/indexed/model copies                                                                                      | Queued/delivered/exported copies                                                                    | Purge, hold, backup and proof                                                          |
+| -------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Slack edit                                   | Supersede old latest pointer; old revision remains non-current              | Append exact edit revision; preserve prior observations                         | Assemble new fixed cut; supersede stale decisions/routes/projections/proposals                                    | Fence stale jobs/answers/exports/outbox before commit                                               | Retain old revision per policy; prove `A -> B -> A` ordering                           |
+| Slack delete                                 | Revoke current readable text immediately                                    | Append tombstone; retain permitted hash/order metadata                          | Inactivate projections/routes, redact snapshots/decision context/citations                                        | Revoke queued work and unpublished answers/exports; delivered copies get audit marker only          | Purge text on schedule unless held; citation resolves redacted marker                  |
+| Emergency route revoke/reroute               | Deactivate affected Brain route immediately                                 | Organization-vault source remains subject to its own policy                     | Inactivate Brain projections; supersede maintenance/retrieval manifests; remediate derived page text under review | Fence jobs/outbox/exports; already downloaded/user-visible copies are recorded, not remotely erased | Lifecycle job records every descendant and unresolved external copy                    |
+| Bot removed/channel access lost              | Stop new capture; retain current read policy unless separately revoked      | Preserve captured revisions and cursors                                         | Stop new assembly/routing; mark freshness gap                                                                     | Pause lane jobs and sends requiring channel access                                                  | Re-add resumes/reconciles; irrecoverable Slack gaps remain explicit                    |
+| Channel policy changes                       | New immutable epoch; old jobs cannot route/commit                           | Exact capture continues in all modes                                            | Direct/Classify/Capture-only effects follow new epoch; stale proposals supersede                                  | Fence pending jobs/outbox/export inputs pinned to old policy                                        | Retain policy/audit epochs; no retroactive reroute without reviewed action             |
+| Membership/user/service-principal/key revoke | Deny next capability call and final delivery immediately                    | No source mutation solely from access revocation                                | Prevent retrieval/model input/projection reads for principal                                                      | Revoke in-flight return/send/download through generation check                                      | Preserve redacted access audit; key hash may remain as tombstone                       |
+| Brain archive                                | Hide from default lists; deny writes; reads follow explicit archive policy  | Vault sources unchanged                                                         | Pause maintenance and new projection admission; routes remain policy-controlled                                   | Fence writes/exports if archive policy disallows them                                               | Reversible until delete; retain history/audit                                          |
+| Brain delete                                 | Deny all Brain reads/writes immediately                                     | Vault source is retained only if another active lawful route/policy requires it | Revoke routes; redact/purge pages, revisions, citations, projections, decisions, receipts                         | Cancel jobs/outbox; expire/purge artifacts; downloaded copies disclosed as external                 | Reviewed lifecycle job, hold-aware purge, backup expiry/crypto-erasure proof           |
+| Organization delete                          | Revoke every connection, principal, membership and Brain                    | Stop capture; redact then purge all tenant raw data                             | Revoke/purge all derived/indexed/model context                                                                    | Cancel all jobs/sends; expire all artifacts                                                         | Second approval, exact confirmation, hold handling, provider disconnect, backup proof  |
+| Retention expiry                             | Deny expired text from current reads before async deletion                  | Mark eligible revisions/snapshots expired                                       | Inactivate/redact projections, citations, receipts and model context                                              | Fence jobs/answers/outbox/exports containing expired inputs                                         | Hold-aware idempotent purge; tombstone/hash metadata only                              |
+| DSAR erasure                                 | Revoke subject-linked text from current use after approved scope resolution | Redact/purge exact subject-bearing revisions where legally permitted            | Propagate to snapshots, pages, citations, search and model receipts without retaining text                        | Cancel or regenerate queued outputs/artifacts; record delivered/external limits                     | Approved plan, deterministic descendant inventory, hold exceptions, completion receipt |
+| Legal hold create/release                    | Does not grant access or reactivate revoked data                            | Marks eligible resources purge-blocked/unblocked                                | Same purge block across descendants; current-read rules unchanged                                                 | Jobs may preserve evidence but cannot deliver revoked text                                          | Immutable approvals; release resumes pending purge from cursor                         |
+| Model/provider policy revoke                 | Stop new egress/calls immediately                                           | Exact capture remains on                                                        | Pending semantic work pauses; deterministic processing continues                                                  | Prevent new model answers/proposals; existing authorized deterministic reads may continue           | Receipt identifies affected model/prompt/policy epochs                                 |
+| Export expiry/manual purge                   | Deny download immediately                                                   | Canonical Brain/source rows unchanged                                           | Export manifest retained without customer text as policy allows                                                   | Delete Convex storage object/signed URL; mark job purged                                            | Idempotent delete, expiry scan, artifact-not-found proof                               |
+| Backup expiry/crypto-erasure                 | No production authority change                                              | Backup copy becomes unreadable/deleted                                          | All derived backup copies follow same key/schedule                                                                | External downloaded copies remain outside control and disclosed                                     | Provider/key version, expiry/deletion result, restore-negative canary                  |
+
+## Appendix I — Negative And Adversarial Test Matrix
+
+Every row is mandatory where the surface exists. Tests assert typed denial, zero
+unauthorized durable effects, redacted audit metadata, and that provider, model,
+storage, or delivery adapters were not called before authorization.
+
+| Attack/failure class         | Required adversarial fixtures                                                                                                          | Expected invariant                                                              | Primary tasks                       |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------- |
+| Authentication confusion     | missing/expired/malformed WorkOS token; wrong issuer/JWKS/org; fake mode in production                                                 | `Unauthorized`/startup failure; no tenant lookup or secret exposure             | S01-T01/T02                         |
+| Tenant/key forgery           | caller org/workspace/Brain/user/Convex ID; same stable key in another tenant                                                           | server-derived tenant wins; cross-tenant denial and no existence leak           | S01-T02/T03, S02, S11               |
+| RBAC race                    | demote/revoke after gather but before commit/return/send/download                                                                      | final reauthorization denies and accepted effect remains zero                   | S01-T04, S09-T04, S10-T03, S11, S12 |
+| Last-owner/invite abuse      | remove last owner; reuse/expire/revoke invite; self-escalate role                                                                      | typed denial; owner invariant preserved                                         | S01-T04                             |
+| Page/editor concurrency      | cycle, cross-Brain parent, duplicate sibling slug, stale revision, restore race, viewer write                                          | no pointer corruption; append-only history                                      | S02                                 |
+| OAuth/connection binding     | forged Connect state, wrong team/app/bot, stale generation, replayed callback, token in logs                                           | connection not activated; tokens remain in Nango                                | S04-T01/T02                         |
+| Webhook authenticity         | bad/current/previous signature boundaries, old/future timestamp, oversized body, replay, unknown connection                            | rejection before tenant write; redacted receipt only                            | S04-T03                             |
+| Bot membership/channel scope | event for unjoined/inaccessible/archived channel; first-channel/shared-cursor bug; auto-join attempt                                   | no unauthorized capture; every joined channel independent                       | S04-T02/T04, S06                    |
+| Slack Connect audience       | attempt Direct/Classify/delivery on Connect; channel-wide answer                                                                       | structural capture-only and zero send                                           | S04-T04, S10                        |
+| Event dedupe/order           | duplicate delivery, live/backfill race, equal timestamps, `A -> B -> A`, delete-before-edit                                            | one logical observation per key, total ordered immutable history                | S05-T01/T02                         |
+| Atomicity/crash              | crash before/after receipt/source/intent commit; retry after timeout                                                                   | either no effect or complete atomic intent; no lost/duplicate downstream effect | S05-T02, S06                        |
+| Snapshot contamination       | mutable latest read after fixed cut; oversized thread; cross-channel message; stale revision                                           | immutable bounded unit hash; stale job superseded                               | S05-T03                             |
+| Route/classification escape  | Direct invokes model; Classify returns two/out-of-list targets; no-route coerced to target; stale policy                               | zero model call for Direct; structural rejection; review required               | S05-T04, S08-T03                    |
+| Lease/fairness/rate          | expired/stolen lease, stale completion, 429/`Retry-After`, poison channel, giant deep backfill                                         | one accepted effect; cursors preserved; every channel progresses                | S06, S13-T02                        |
+| Lifecycle resurrection       | delete/revoke during job; retry old generation; legal hold treated as access grant; purge rerun                                        | monotonic revoke/purge; hold blocks purge only; idempotent receipt              | S07                                 |
+| Prompt/tool injection        | Slack/page/question/model/MCP text asks for other tenant, tools, instructions, secrets or delivery change                              | values remain data; closed tools/allowlist/audience unchanged                   | S08, S09, S11, S13-T01              |
+| Model schema/budget          | malformed JSON, missing citation, fabricated quote, timeout, provider 5xx, token/spend cap                                             | typed failure/abstention; exact data remains replayable; no heuristic fallback  | S08                                 |
+| Search/projection leak       | org-vault-only row, inactive route, revoked lifecycle, stale projection, malicious filter                                              | never a candidate; async lag reported honestly                                  | S09-T01/T02                         |
+| Retrieval/citation failure   | citation outside manifest, locator/hash mismatch, unsupported claim, no evidence, revoke before return                                 | cited answer or typed abstention; final denial on revoke                        | S09-T03/T04                         |
+| Slack identity/scope         | display-name/email spoof, unbound/ambiguous DM, removed member, unauthorized Brain selection                                           | exact binding and finite authorized scopes only; no guessed Brain               | S10-T01/T02                         |
+| Outbox ambiguity             | send timeout before/after provider acceptance, duplicate worker, audience mutation                                                     | reconciliation before retry; at most one logical visible answer                 | S10-T03                             |
+| API-key handling             | plaintext at rest/log/URL, hash timing probe, expired/revoked/over-scoped key, key from another Brain                                  | display once; uniform auth error; one-Brain viewer ceiling                      | S11-T01/T02                         |
+| MCP protocol                 | GET/cookie auth, invalid JSON-RPC/version/content type/origin/host, notification, batch/body/timeout/rate overflow, unknown/write tool | stateless POST bearer path only; reviewed seven-operation registry              | S11-T03/T04                         |
+| Export determinism/lifecycle | path traversal, unstable order/time, public Convex ID, revoke mid-build, expired URL, double purge                                     | byte-identical safe bundle or fenced failure; object purged                     | S12                                 |
+| Observability/secret leakage | raw webhook/token/header/prompt/source/error payload canaries; alert flood                                                             | canaries absent; IDs/hashes/counts only; alerts dedupe                          | S13-T03                             |
+| Release controls             | missing env/provider binding, invalid auth/route/key, rollback with active leases, security incident                                   | doctor/smoke fails red; rollback safe; automatic no-go                          | S13-T04                             |
+
+## Appendix J — Semantic-Eval Thresholds And Capacity Fixture
+
+### Frozen semantic and safety suites
+
+All rates are computed on the untouched test split with immutable fixture IDs
+and hashes. Reports include numerator, denominator, confidence interval where
+meaningful, failures, model ID, prompt version, tool-schema version, and cost.
+No aggregate may hide a failed tenant, language, attack class, or no-route set.
+
+| Suite                    | Launch threshold                                                                                | Hard zero-tolerance gate                                                                                |
+| ------------------------ | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Classification           | `>= 90%` human-label agreement including no-route                                               | `100%` accepted targets inside pinned allowlist; at most one target; zero committed cross-client routes |
+| Answer entailment        | `>= 95%` factual claims entailed by cited exact revision                                        | `100%` citation locators resolve or return explicit redaction; no citation outside retrieval manifest   |
+| No-evidence questions    | `>= 95%` typed abstention                                                                       | zero invented sources/tenant expansion/tool use                                                         |
+| Client Brief maintenance | `>= 80%` proposals accepted without factual correction                                          | `100%` factual changes cited; zero stale/revoked publish                                                |
+| Prompt injection         | all reviewed attack classes pass                                                                | `100%` tenant, allowlist, instruction, tool and delivery invariants                                     |
+| Multilingual/paraphrase  | same classification/abstention/authorization thresholds as primary suite, reported per language | zero language-specific authorization or allowlist bypass                                                |
+| Restore/replay           | accepted decision/proposal reproduces the same structural effect from pinned inputs             | zero dependence on mutable latest state or hidden provider fetch                                        |
+
+Any fixture/label change creates a new suite version and requires human review.
+Any model, prompt, tool schema, retrieval policy, or provider change requires a
+new passing receipt before promotion. Runtime code may not import eval scorers.
+
+### Deterministic launch-capacity fixture
+
+| Dimension          | Frozen value / assertion                                                                                                                        |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tenancy            | one agency, one Agency Brain, 25 Client Brains; isolation canaries in every Brain                                                               |
+| Channels           | 100 total: 75 Direct, 20 Classify, 5 Capture-only; each has independent live/recent/deep state                                                  |
+| Corpus             | 100,000 immutable source revisions including edits, deletes, threads and skewed large channels                                                  |
+| Burst              | 20 live events/second for 60 seconds while recent/deep backfill and reconciliation run                                                          |
+| Concurrency        | 10 simultaneous authorized Ask/MCP requests plus classification, projection and lifecycle work                                                  |
+| Synthetic live SLO | `>= 95%` of admitted live events visible in the source ledger within 60 seconds                                                                 |
+| Fairness           | every active channel advances in each observation window; no large channel starves another                                                      |
+| Correctness        | zero admitted-event loss, cross-tenant read/effect, shared cursor, duplicate logical effect or stale-lease commit                               |
+| Pressure behavior  | above-envelope configuration is rejected with `CapacityExceeded` or visibly queued; never silently accepted/dropped                             |
+| Report             | code/config/fixture/runner hashes; p50/p95/p99, queue/lease/rate waits, per-channel progress, attempts/effects, Ask latency, storage/model cost |
+
+Provider-backed Slack receipts are reported separately by Slack rate class and
+cannot weaken the deterministic fixture. Raising a limit requires a new passing
+capacity receipt; lowering one requires enforced admission and customer notice.
+
+## Appendix K — Migration, Backfill, Cutover, And Rollback Protocol
+
+Every durable change follows this protocol and uses the S00-T04 registry. A task
+may omit a phase only when its packet explicitly proves there is no durable or
+public-contract change.
+
+1. **Pin and preflight.** Record release/base commit, table/schema/spec hashes,
+   row counts, indexes, generated refs/manifests, provider policy generations,
+   owner, batch cap, abort conditions, and rollback observation window. Run a
+   dry-run and negative unknown-name/cursor test.
+2. **Expand.** Add optional/new fields, tables, indexes, typed errors and
+   compatible readers. Never rename/drop/reinterpret in place. Deploy with new
+   writes disabled where a kill switch exists.
+3. **Compatible write.** Enable dual-write or new append-only writes with one
+   effect key. Old readers must remain correct. Record mismatch counters; any
+   mismatch or tenant-key collision stops the cutover.
+4. **Backfill.** Process deterministic tenant-scoped batches with a durable
+   cursor, lease/fence, idempotent predicate, scanned/changed/skipped/failed
+   counts and retry budget. No model/provider call may decide migration
+   semantics. Sensitive rows never appear in receipts.
+5. **Verify.** Compare counts, uniqueness queries, hashes, referential
+   integrity, lifecycle envelopes, cross-tenant canaries, public-ID scans and
+   old/new read parity. Inject failure, resume, and rerun to prove idempotency.
+6. **Cut over reads.** Move compatible readers by cohort/feature flag. Monitor
+   typed error, mismatch, latency and lifecycle metrics. Keep old data readable
+   internally during the rollback window but never expose legacy authority.
+7. **Cut over writes.** Stop legacy writes only after every reader is compatible
+   and staging/pilot verification is green. Fence old binaries/jobs with schema
+   and lifecycle generations.
+8. **Observe.** Keep compatible binaries, old fields and rollback owner through
+   the declared window. Reconcile queues, leases, provider cursors and generated
+   contract hashes before contraction.
+9. **Contract later.** Remove legacy fields/indexes/adapters in a separate PR
+   after backups and rollback windows expire. Regenerate Confect/Convex output;
+   never hand-edit it.
+
+Rollback disables risky entrypoints, restores the previous compatible web and
+backend binaries, lets or forces stale leases to expire, returns reads to the
+old compatible representation, and reconciles forward. It never runs a
+destructive down-migration, deletes appended history, reactivates revoked data,
+or decrements a generation. If old binaries cannot safely read expanded data,
+roll forward with a narrow fix instead.
+
+Required migration receipt fields are
+`{ migrationName, releaseCommit, schemaBefore, schemaAfter, mode, batchSize, cursor, scanned, changed, skipped, failed, complete, parityChecks, startedAt, finishedAt, rollbackOwner, observationEndsAt }`
+plus redacted command results.
+
+## Appendix L — CI, Staging, Pilot, And Launch Evidence Contract
+
+Evidence is immutable, redacted, tied to one commit/build/deploy, and stored in
+the scoped receipt path. “Not run,” missing external context, and optional MCP
+tool failure are reported explicitly; they are never silently converted to pass.
+Optional planning MCP availability is not a product launch gate.
+
+| Stage              | Required commands/evidence                                                                                                                                   | Passing verdict                                                                                         |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| Slice              | task's intentional red test, focused package tests/gates, generated diff where relevant, `rtk git diff --check`, `rtk just verify`                           | exact output, task/commit refs, no weakened gate, <=300 source lines                                    |
+| Stack              | temporary StackPlan hash + `rtk pnpm stack:check <absolute-temp-plan.json>`, all slice receipts, staging migration dry-run, `rtk just verify-full`           | <=4 slices, dependencies merged, all focused gates green                                                |
+| CI                 | Buildkite/GitHub/local required contexts, contract/generated/secret/access checks, artifact/build IDs                                                        | source-of-truth contexts green; unavailable context labeled missing and resolved before release         |
+| Staging            | `rtk pnpm deploy:doctor`, approved deploy, hosted HTTP/browser/a11y/visual/auth smokes, migration execute/verify, synthetic isolation/security matrix        | exact commit deployed; negative controls fail red then restored; zero high-severity finding             |
+| Provider staging   | Nango Connect/reconnect, manifest hash, joined multi-channel live/recent/deep, 429, edit/delete, app removal/re-add, private reply and Slack Connect no-send | signed/bound exact connection, independent cursors, honest gaps, no audience violation                  |
+| Headless staging   | API/CLI/MCP schema-hash parity, seven-operation list, revoked/expired key, origin/protocol/rate/timeout negatives, real Claude Code remote connection        | one-Brain viewer ceiling, stateless bearer each request, no write/admin tool                            |
+| Lifecycle/rollback | trigger matrix from Appendix H, backup/restore canary, subsystem kill switches, compatible-binary rollback and roll-forward reconciliation                   | immediate revoke, monotonic lifecycle, no destructive down-migration, complete descendant receipt       |
+| Pilot              | at least five design-partner agencies, capacity-enforced config, activation/time-to-value/usefulness/admin-time/correction/spend/incidents                   | >=80% accepted Brief, >=70% useful cited answer, >=50% second surface, median <10 min admin/week        |
+| Launch             | approved semantic/capacity receipts, zero-incident pilot, privacy/security review, go/no-go approvers, cohort plan, rollback owner/window                    | zero cross-client, Slack-audience, key-scope or unverified-webhook incident; any such incident is no-go |
+
+The signed release packet contains commit/build/deploy IDs; dependency and
+generated manifest hashes; environment/provider names and versions (never
+values); migration counts; command/CI URLs and outputs; eval/capacity reports;
+hosted screenshots/transcripts; incident list; approvers; cohort; observation
+window; and rollback drill. Provider/customer text, tokens, raw webhooks,
+prompts, completions and authorization headers are forbidden.
+
+## Appendix M — Requirement Coverage And Fifty-Five-Task Audit
+
+### Requirement-to-task coverage ledger
+
+| Requirement | Owning task(s)                             | Acceptance evidence                                                 |
+| ----------- | ------------------------------------------ | ------------------------------------------------------------------- |
+| FND-01      | S00-T01                                    | three distinct verified host receipts                               |
+| FND-02      | S00-T02/T03                                | pinned source/gap ledger and validated just-in-time stack manifests |
+| FND-03      | S00-T04; every durable task via Appendix K | fail/resume/idempotent migration receipts                           |
+| IAM-01      | S01-T01/T02/T03                            | real WorkOS identity/org binding and authorized provisioning        |
+| IAM-02      | S01-T03                                    | signed-out/cross-tenant list/create denials                         |
+| IAM-03      | S01-T02, S02-T01, S05-T01, S12-T01         | stable-key uniqueness and public Convex-ID scans                    |
+| IAM-04      | S01-T04 plus downstream role tests         | Appendix B table-driven server denials/audits                       |
+| UI-01       | S03-T01                                    | exact navigation allowlist and hidden-route tests                   |
+| UI-02       | S01-T03, S03-T02                           | six ordinary pages and first-value timing receipt                   |
+| UI-03       | S02-T02/T04, S03-T03                       | responsive tree/editor and viewer/stale-write tests                 |
+| UI-04       | S02-T03, S03-T04                           | citation/history/diff/restore/review walkthrough                    |
+| SLK-01      | S04-T01/T02                                | Nango Connect/reauthorize generation receipt                        |
+| SLK-02      | S04-T02/T04, S05, S06                      | 100-channel independent capture/cursor proof                        |
+| SLK-03      | S04-T04, S05-T04, S08-T03                  | immutable policy and zero-or-one reviewed route proof               |
+| SLK-04      | S04-T03, S05-T02                           | auth/replay/binding/idempotency negative matrix                     |
+| SLK-05      | S05-T01/T02                                | duplicate/race/order/`A -> B -> A`/tombstone tests                  |
+| SLK-06      | S05-T03                                    | fixed-cut bounded immutable snapshot hashes                         |
+| SLK-07      | S06, S13-T02                               | fenced/fair/rate/reconciliation capacity receipt                    |
+| SLK-08      | S04-T04, S10-T02/T03/T04                   | Slack Connect no-send and requester-private delivery proof          |
+| SLK-09      | S10-T01/T03                                | exact identity binding and ambiguous-send reconciliation            |
+| ZFC-01      | S05-T04, S08, S09-T04                      | model-disabled deterministic pipes and separate receipts            |
+| AI-01       | S08-T01                                    | structured gateway schema/version/budget/failure tests              |
+| AI-02       | S08-T03                                    | allowlist-closed review-first classification eval                   |
+| AI-03       | S08-T04                                    | cited review-first maintenance and Autopilot graduation proof       |
+| AI-04       | S08-T01/T04, S13-T01/T03                   | egress/injection/budget/tool/redaction gates                        |
+| KNW-01      | S02                                        | stable tree, immutable revisions/citations and editor fences        |
+| KNW-02      | S07 plus H                                 | complete descendant propagation/purge matrix receipts               |
+| KNW-03      | S09-T01/T02                                | async seam and active Brain-scoped projections                      |
+| KNW-04      | S09-T03/T04                                | immutable retrieval manifests, citations/abstention and final auth  |
+| KNW-05      | S12                                        | byte-identical lifecycle-fenced expiring export                     |
+| HLS-01      | S11-T01                                    | display-once hashed expiring one-Brain key matrix                   |
+| HLS-02      | S09-T03/T04, S11-T02/T03                   | shared generated capability/schema parity                           |
+| HLS-03      | S11-T03/T04                                | seven read/Ask operations and protocol security matrix              |
+| REL-01      | S13-T01 and Appendix J                     | frozen semantic/safety thresholds by version                        |
+| REL-02      | S13-T02 and Appendix J                     | frozen capacity/fairness/loss/isolation receipt                     |
+| REL-03      | S13-T03                                    | redaction canaries, budgets, alerts, recovery and kill switches     |
+| REL-04      | S13-T04 and Appendix L                     | staging/pilot/launch/rollback signed packet                         |
+
+### Task-packet audit
+
+Audit key: `C` one primary classification; `D` exact dependencies; `F` exact
+files; `P` pinned existing-code citation; `R` intentional red test/preflight;
+`T` typed contract/errors/state; `M` migration/compatibility/rollback; `G`
+focused commands; `E` completion receipt; `B` commit/PR boundary. `all` means
+all ten fields are present and internally consistent after this audit; it is a
+plan-shape verdict, not implementation evidence.
+
+| Task    | Primary classification | Audit | Task    | Primary classification | Audit |
+| ------- | ---------------------- | ----- | ------- | ---------------------- | ----- |
+| S00-T01 | template-gap           | all   | S00-T02 | template-gap           | all   |
+| S00-T03 | pattern-instance       | all   | S00-T04 | template-gap           | all   |
+| S01-T01 | template-gap           | all   | S01-T02 | template-gap           | all   |
+| S01-T03 | fixture-to-real        | all   | S01-T04 | pattern-instance       | all   |
+| S02-T01 | template-gap           | all   | S02-T02 | pattern-instance       | all   |
+| S02-T03 | fixture-to-real        | all   | S02-T04 | pattern-instance       | all   |
+| S03-T01 | template-gap           | all   | S03-T02 | template-gap           | all   |
+| S03-T03 | template-gap           | all   | S03-T04 | pattern-instance       | all   |
+| S04-T01 | template-gap           | all   | S04-T02 | template-gap           | all   |
+| S04-T03 | template-gap           | all   | S04-T04 | template-gap           | all   |
+| S05-T01 | template-gap           | all   | S05-T02 | template-gap           | all   |
+| S05-T03 | template-gap           | all   | S05-T04 | pattern-instance       | all   |
+| S06-T01 | fixture-to-real        | all   | S06-T02 | template-gap           | all   |
+| S06-T03 | template-gap           | all   | S06-T04 | template-gap           | all   |
+| S07-T01 | fixture-to-real        | all   | S07-T02 | template-gap           | all   |
+| S07-T03 | fixture-to-real        | all   | S07-T04 | pattern-instance       | all   |
+| S08-T01 | template-gap           | all   | S08-T02 | template-gap           | all   |
+| S08-T03 | pattern-instance       | all   | S08-T04 | pattern-instance       | all   |
+| S09-T01 | template-gap           | all   | S09-T02 | template-gap           | all   |
+| S09-T03 | pattern-instance       | all   | S09-T04 | pattern-instance       | all   |
+| S10-T01 | template-gap           | all   | S10-T02 | pattern-instance       | all   |
+| S10-T03 | template-gap           | all   | S10-T04 | pattern-instance       | all   |
+| S11-T01 | template-gap           | all   | S11-T02 | template-gap           | all   |
+| S11-T03 | pattern-instance       | all   | S11-T04 | template-gap           | all   |
+| S12-T01 | template-gap           | all   | S12-T02 | pattern-instance       | all   |
+| S12-T03 | pattern-instance       | all   | S13-T01 | pattern-instance       | all   |
+| S13-T02 | template-gap           | all   | S13-T03 | pattern-instance       | all   |
+| S13-T04 | pattern-instance       | all   | —       | —                      | —     |
+
+The implementation owner reruns this audit at stack projection time against the
+then-current source pins. Drift changes the relevant row from `all` to open
+until a dated amendment restores all ten fields.
+
+## Appendix N — Whole-Program Definition Of Done
+
+Maestro Brain V1 is done only when every statement below is true on the same
+release candidate. A local build, merged final task, unverified provider flow,
+or partially green pilot is not done.
+
+- **Foundation:** S00's three-host plugin, pin/gap, stack-manifest and migration
+  receipts are complete; every one of the 55 task packets is merged in
+  dependency order with one intention/PR, <=300 changed source lines per slice,
+  <=4 slices per stack, focused green gates and archived receipts.
+- **Identity and isolation:** production has no fake auth path; WorkOS identity,
+  organization and exact `viewer | editor | admin | owner` roles authorize every
+  entrypoint server-side; stable public keys reveal no Convex IDs; all
+  cross-tenant and final-reauthorization tests pass with zero unauthorized
+  effect.
+- **Product surface:** the SaaS UI contains only the approved V1 navigation; an
+  admin provisions the ordinary six-page Client Brief, viewers remain read-only,
+  editors use the responsive stable page tree/BlockNote workspace, and
+  history/diff/citations/restore/review states work accessibly.
+- **Slack control plane and ledger:** one Nango connection preserves exact
+  team/app/bot/generation binding; no auto-join occurs; every explicitly joined
+  channel captures independently; Direct/Classify/Capture-only policies are
+  immutable; signed/replay-safe atomic capture preserves exact ordered history,
+  tombstones and fixed-cut source units.
+- **Reliability and lifecycle:** fenced work, independent live/recent/deep
+  cursors, rate budgets, reconciliation and dead-letter replay pass the frozen
+  capacity fixture. Every Appendix H trigger immediately revokes current use and
+  propagates hold-aware redaction/purge through all listed descendants without
+  resurrection.
+- **Cognition and knowledge:** deterministic pipes pass with models disabled;
+  structured model adapters are provider-neutral, closed-tool, metered and
+  versioned; classification is review-first zero-or-one within a human
+  allowlist; maintenance is cited/review-first and Autopilot requires explicit
+  graduation.
+- **Retrieval and surfaces:** only active Brain projections are candidates;
+  immutable retrieval manifests support cited answers or typed abstention; web,
+  requester-private Slack, API, CLI and MCP share generated capabilities and
+  final reauthorization. Slack Connect never receives an answer.
+- **Headless and export:** display-once hashed expiring keys have a one-Brain
+  viewer ceiling; stateless HTTPS MCP exposes exactly seven read/Ask operations
+  with the full protocol/security matrix; deterministic Markdown/JSON exports
+  are lifecycle-fenced, temporarily stored, expiring and purgeable. V1 contains
+  no import, Git sync or write MCP.
+- **Quality and capacity:** every Appendix J suite passes its frozen threshold
+  and zero-tolerance gates for the approved model/prompt/tool versions; the full
+  25-client/100-channel/100k-revision/burst/10-concurrent-request fixture passes
+  with fair progress, declared latency/cost/storage evidence and zero loss or
+  tenant bleed.
+- **Operations:** redaction canaries prove no customer text, raw webhook,
+  prompt/completion, token or authorization header in logs/receipts; budgets,
+  admission controls, alerts, audited recovery and independent kill switches are
+  tested; current runbooks name owners and rollback windows.
+- **Release:** all commands and source-of-truth CI contexts in Appendix L are
+  green for the pinned commit; staging/provider/headless/lifecycle/rollback
+  smokes pass; at least five pilots meet every adoption/admin-time threshold;
+  there are zero cross-client, Slack-audience, key-scope or unverified-webhook
+  incidents; named approvers sign cohort launch and rollback evidence.
+- **Documentation and handoff:** design, canonical plan, environment/provider
+  names, privacy/security/retention/customer-limit docs, migration records and
+  the signed release packet match the deployed state. Missing optional planning
+  MCP context is disclosed but does not block; missing required CI/provider/live
+  evidence does block.
+
+The final release verdict is binary: all clauses and evidence are present, or
+the program remains not done and the failed clause names the next scoped task.
