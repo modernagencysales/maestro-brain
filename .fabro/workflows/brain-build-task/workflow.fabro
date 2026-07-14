@@ -23,7 +23,10 @@ digraph BrainBuildTask {
 
   complete [shape=parallelogram, goal_gate=true, retry_target=complete, max_retries=1, timeout="300s", script="set -euo pipefail; cd {{ inputs.workdir|default('.') }}; TASK='{{ inputs.task_id|default('S01-T01') }}'; E='{{ inputs.evidence_dir|default('.fabro/state/maestro-brain/evidence') }}'; HEAD_SHA=$(rtk git rev-parse HEAD); rtk proxy node -e \"const fs=require('fs'); const p=process.argv[1]; const taskId=process.argv[2]; const headSha=process.argv[3]; fs.writeFileSync(p, JSON.stringify({schemaVersion:'maestro-brain-lane-result/v1',taskId,headSha,status:'lane_green'},null,2)+'\\n')\" \"$E/lane-results/$TASK/lane-result.json\" \"$TASK\" \"$HEAD_SHA\""]
 
-  start -> preflight -> implement -> gates
+  start -> preflight
+  preflight -> implement [condition="outcome=succeeded"]
+  preflight -> exit [label="blocked"]
+  implement -> gates
   gates -> review [condition="outcome=succeeded"]
   gates -> implement [label="red"]
   review -> final_gates

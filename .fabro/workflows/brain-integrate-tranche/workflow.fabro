@@ -15,7 +15,10 @@ digraph BrainIntegrateTranche {
   review [label="Cross-Domain Review", max_visits=2, timeout="5400s", prompt="Review the integrated tranche {{ inputs.tranche|default('C1-contract-spine') }} against every included task packet and proof. Check cross-lane contract compatibility, generated refs, tenant isolation, lifecycle monotonicity, provider boundaries, typed errors, test honesty, and shared-file ownership. Fix only integration defects, preserving one-intention task history. Update integration-result.json with reviewVerdict pass or rework. Do not claim tasks accepted yet."]
   gates [shape=parallelogram, goal_gate=true, retry_target=integrate, timeout="10800s", script="set -euo pipefail; cd {{ inputs.workdir|default('.') }}; rtk host-test-slot --class full pnpm verify; rtk git diff --check; STATUS=$(rtk git status --porcelain); rtk proxy test -z \"$STATUS\""]
   record [label="Record Integration", timeout="1800s", prompt="The full tranche gate passed for {{ inputs.tranche|default('C1-contract-spine') }}. Update the absolute integration-result.json with the exact integrated head and status passed. For every included task, update its lane-result.json status to integrated and record tranche/head without changing its proof. Do not mark accepted unless its original acceptanceAfter condition is also present on this head; if it is, record accepted separately. Leave the integration worktree clean."]
-  start -> preflight -> integrate -> review -> gates
+  start -> preflight
+  preflight -> integrate [condition="outcome=succeeded"]
+  preflight -> exit [label="blocked"]
+  integrate -> review -> gates
   gates -> record [condition="outcome=succeeded"]
   gates -> integrate [label="red"]
   record -> exit
