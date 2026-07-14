@@ -18,8 +18,10 @@ import {
   Text,
 } from "@saas-ui/react";
 import {
+  GLOBAL_WORKSPACE_ACTIONS,
   TEMPLATE_NAV_CATEGORIES,
   TEMPLATE_ROUTE_ITEMS,
+  type ProductRouteKey,
   type TemplateRouteKey,
 } from "../navigation/workspace";
 import { DataLifecycleSurface } from "../features/data-lifecycle/data-lifecycle-surface";
@@ -52,27 +54,11 @@ import {
 } from "lucide-react";
 
 const navIconByKey = {
-  admin: ShieldCheck,
-  agents: Users,
-  analytics: BarChart3,
-  api: FileCode2,
-  billing: CreditCard,
   brain: FileText,
-  capabilities: KeyRound,
-  dataLifecycle: FileDown,
-  dataMap: Map,
-  documents: FileText,
-  health: HeartPulse,
-  home: Home,
-  integrations: Plug,
-  legal: Scale,
-  notifications: Bell,
-  onboarding: UserRoundCheck,
-  runs: Activity,
+  clients: Building2,
+  connections: Plug,
   settings: Settings,
-  sources: Building2,
-  workflows: Workflow,
-} as const satisfies Record<TemplateRouteKey, ComponentType>;
+} as const satisfies Record<ProductRouteKey, ComponentType>;
 
 const metrics = [
   { label: "Pipeline", value: "$428K", delta: "+12.4%" },
@@ -156,8 +142,8 @@ const sectionDetails = {
     status: "Current",
   },
   brain: {
-    title: "Brain",
-    description: "Organize shared knowledge and approved source context.",
+    title: "Agency Brain",
+    description: "Organize agency knowledge and approved source context.",
     icon: FileText,
     metric: "42 notes",
     status: "Indexed",
@@ -259,7 +245,7 @@ export type BusinessSectionKey = keyof typeof sectionDetails;
 
 const routePathByKey = Object.fromEntries(
   TEMPLATE_ROUTE_ITEMS.map((item) => [item.key, item.path]),
-) as Record<TemplateRouteKey, string>;
+) as Partial<Record<TemplateRouteKey, string>>;
 
 export function BusinessDashboardRoute() {
   return (
@@ -505,7 +491,7 @@ export function BusinessSectionRoute({
 }) {
   const details = sectionDetails[section];
   const IconComponent = details.icon;
-  const activePath = routePathByKey[section];
+  const activePath = routePathByKey[section] ?? "/";
 
   return (
     <BusinessAppShell activePath={activePath}>
@@ -609,7 +595,7 @@ export function BusinessDataLifecycleRoute() {
   );
 }
 
-function BusinessAppShell({
+export function BusinessAppShell({
   activePath = "/",
   children,
 }: {
@@ -650,6 +636,7 @@ function BusinessAppShell({
               </BusinessNavLink>
             ),
           )}
+          <GlobalAskSearchButton layout="mobile" />
         </HStack>
       </Box>
       <Box
@@ -692,6 +679,8 @@ function BusinessAppShell({
                 ))}
               </Stack>
             ))}
+            <Separator />
+            <GlobalAskSearchButton layout="desktop" />
           </Stack>
         </Stack>
       </Box>
@@ -702,7 +691,11 @@ function BusinessAppShell({
   );
 }
 
-function BusinessPageRoot({ children }: { readonly children: ReactNode }) {
+export function BusinessPageRoot({
+  children,
+}: {
+  readonly children: ReactNode;
+}) {
   return (
     <Page.Root
       bg="gray.50"
@@ -726,7 +719,7 @@ function BusinessNavLink({
   readonly children: ReactNode;
   readonly isActive: boolean;
   readonly layout: "desktop" | "mobile";
-  readonly routeKey: TemplateRouteKey;
+  readonly routeKey: ProductRouteKey;
   readonly to: string;
 }) {
   const IconComponent = navIconByKey[routeKey];
@@ -759,6 +752,27 @@ function BusinessNavLink({
         </Text>
       </HStack>
     </Link>
+  );
+}
+
+function GlobalAskSearchButton({
+  layout,
+}: {
+  readonly layout: "desktop" | "mobile";
+}) {
+  const [action] = GLOBAL_WORKSPACE_ACTIONS;
+
+  return (
+    <Button
+      aria-label={action.label}
+      flex={layout === "mobile" ? "0 0 auto" : undefined}
+      justifyContent={layout === "desktop" ? "flex-start" : "center"}
+      variant="outline"
+      width={layout === "desktop" ? "100%" : undefined}
+    >
+      <Icon as={Search} boxSize="4" />
+      {action.label}
+    </Button>
   );
 }
 
