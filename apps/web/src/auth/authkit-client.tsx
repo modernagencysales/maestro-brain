@@ -7,7 +7,7 @@ import {
 } from "@workos/authkit-tanstack-react-start/client";
 import type { ReactNode } from "react";
 
-import type { AuthSnapshot } from "./authkit-server";
+import type { ClientAuthSnapshot } from "./authkit-server";
 
 type AuthKitInitialAuth = NonNullable<AuthKitProviderProps["initialAuth"]>;
 
@@ -22,7 +22,7 @@ type WorkosConvexAuthState = {
 };
 
 export const authSnapshotToInitialAuth = (
-  snapshot: AuthSnapshot,
+  snapshot: ClientAuthSnapshot,
 ): AuthKitInitialAuth => {
   if (snapshot.status === "signedOut") return { user: null };
 
@@ -68,7 +68,7 @@ export function AuthKitProviderWithConvexProviderWithAuth({
 }: {
   readonly children: ReactNode;
   readonly client: ConvexReactClient;
-  readonly initialAuthSnapshot: AuthSnapshot;
+  readonly initialAuthSnapshot: ClientAuthSnapshot;
 }) {
   return (
     <AuthKitProvider

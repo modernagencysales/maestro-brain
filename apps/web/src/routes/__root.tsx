@@ -12,7 +12,10 @@ import type { ReactNode } from "react";
 import { TemplateToastProvider } from "@maestro-template/ui";
 
 import { AuthKitProviderWithConvexProviderWithAuth } from "../auth/authkit-client";
-import { getAuthSnapshot, type AuthSnapshot } from "../auth/authkit-server";
+import {
+  getClientAuthSnapshot,
+  type ClientAuthSnapshot,
+} from "../auth/authkit-server";
 import { MaestroSaasUiProvider } from "../saas-ui/provider";
 import {
   createBrowserWorkspaceStorage,
@@ -40,8 +43,10 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         { rel: "stylesheet", href: appCssUrl },
       ],
     }),
-  ["loader"]: async (): Promise<{ readonly authSnapshot: AuthSnapshot }> => ({
-    authSnapshot: await getAuthSnapshot(),
+  ["loader"]: async (): Promise<{
+    readonly authSnapshot: ClientAuthSnapshot;
+  }> => ({
+    authSnapshot: await getClientAuthSnapshot(),
   }),
   component: RootComponent,
 });

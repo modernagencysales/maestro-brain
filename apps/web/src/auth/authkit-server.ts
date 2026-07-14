@@ -16,6 +16,15 @@ export type AuthSnapshot =
       readonly accessToken: string;
     };
 
+export type ClientAuthSnapshot =
+  | { readonly status: "signedOut" }
+  | {
+      readonly status: "authenticated";
+      readonly subject: string;
+      readonly email: string;
+      readonly organizationId: string;
+    };
+
 export class Unauthorized extends Error {
   constructor(message = "Unauthorized") {
     super(message);
@@ -149,10 +158,31 @@ export const toAuthSnapshot = (auth: WorkosServerAuth): AuthSnapshot => {
   };
 };
 
+export const toClientAuthSnapshot = (
+  snapshot: AuthSnapshot,
+): ClientAuthSnapshot => {
+  if (snapshot.status === "signedOut") return snapshot;
+
+  return {
+    status: "authenticated",
+    subject: snapshot.subject,
+    email: snapshot.email,
+    organizationId: snapshot.organizationId,
+  };
+};
+
 export async function getAuthSnapshot(
   input: {
     readonly getAuth?: () => Promise<WorkosServerAuth>;
   } = {},
 ): Promise<AuthSnapshot> {
   return toAuthSnapshot(await (input.getAuth ?? getAuth)());
+}
+
+export async function getClientAuthSnapshot(
+  input: {
+    readonly getAuth?: () => Promise<WorkosServerAuth>;
+  } = {},
+): Promise<ClientAuthSnapshot> {
+  return toClientAuthSnapshot(await getAuthSnapshot(input));
 }
