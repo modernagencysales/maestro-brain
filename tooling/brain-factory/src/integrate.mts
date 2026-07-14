@@ -18,7 +18,12 @@ const runs = resolve(state, "runs");
 const workflow = resolve(
   ".fabro/workflows/brain-integrate-tranche/workflow.fabro",
 );
-const workdir = resolve(".fabro/workdirs", `integration-${tranche}`);
+const workdir = resolve(
+  root,
+  "..",
+  ".maestro-brain-fabro-workdirs",
+  `integration-${tranche}`,
+);
 const branch = `fabro/brain-${tranche.toLowerCase()}`;
 const baseSha = runRtk(["git", "rev-parse", "HEAD"], { quiet: true });
 if (!existsSync(workflow)) throw new Error(`missing workflow ${workflow}`);
@@ -37,6 +42,8 @@ const output = runRtk(
     "--detach",
     "--json",
     "--no-upgrade-check",
+    "--environment",
+    "local",
     "--label",
     `tranche=${tranche}`,
     "-I",

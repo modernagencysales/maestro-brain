@@ -34,7 +34,7 @@ if (!Number.isInteger(maximum) || maximum < 1)
 
 const root = process.cwd();
 const state = resolve(valueAfter("--state") ?? ".fabro/state/maestro-brain");
-const worktreeRoot = resolve(".fabro/workdirs");
+const worktreeRoot = resolve(root, "..", ".maestro-brain-fabro-workdirs");
 const workflow = resolve(".fabro/workflows/brain-build-task/workflow.fabro");
 const evidence = resolve(state, "evidence");
 const runDirectory = resolve(state, "runs");
@@ -138,6 +138,8 @@ for (const task of selected) {
       "--detach",
       "--json",
       "--no-upgrade-check",
+      "--environment",
+      "local",
       "--label",
       `task=${task.taskId}`,
       "-I",

@@ -3755,7 +3755,8 @@ rtk pnpm brain:factory:dispatch -- --max 6
 rtk pnpm brain:factory:integrate -- --tranche <id>
 ```
 
-Local state and disposable worktrees live under ignored `.fabro/state/` and
-`.fabro/workdirs/`. Durable task contracts and workflow definitions are
-versioned. Secrets, provider payloads, customer text, and raw prompts never
+Local state lives under ignored `.fabro/state/`; disposable worktrees live in
+the sibling `.maestro-brain-fabro-workdirs/` directory so repository-wide tools
+never traverse nested clones. Durable task contracts and workflow definitions
+are versioned. Secrets, provider payloads, customer text, and raw prompts never
 enter factory artifacts.
