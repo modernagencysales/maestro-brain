@@ -9,9 +9,17 @@ import type { ConvexQueryClient } from "@convex-dev/react-query";
 import type { ConvexReactClient } from "convex/react";
 import type { QueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import type { AuthKitClientBridge } from "../auth/authkit-client";
+import { getAuth } from "@workos/authkit-tanstack-react-start";
+import {
+  AuthKitProvider as WorkosAuthKitProvider,
+  useAccessToken,
+  useAuth,
+  type AuthKitProviderProps,
+} from "@workos/authkit-tanstack-react-start/client";
 import { TemplateToastProvider } from "@maestro-template/ui";
 
-import { AuthKitProviderWithConvexProviderWithAuth } from "../auth/authkit-client";
+import { createAuthKitProviderWithConvexProviderWithAuth } from "../auth/authkit-client";
 import {
   getClientAuthSnapshot,
   type ClientAuthSnapshot,
@@ -28,6 +36,28 @@ import { WebRouteUxBoundary } from "../navigation/route-ux-boundary";
 import { buildTemplateRouteHead } from "../adapters/route-head";
 import appCssUrl from "../index.css?url";
 import xyflowCssUrl from "@xyflow/react/dist/style.css?url";
+
+const WorkosAuthKitProviderBoundary: AuthKitClientBridge["AuthKitProvider"] = ({
+  children,
+  initialAuth,
+}) => {
+  const workosInitialAuth = initialAuth as NonNullable<
+    AuthKitProviderProps["initialAuth"]
+  >;
+
+  return (
+    <WorkosAuthKitProvider initialAuth={workosInitialAuth}>
+      {children}
+    </WorkosAuthKitProvider>
+  );
+};
+
+const AuthKitProviderWithConvexProviderWithAuth =
+  createAuthKitProviderWithConvexProviderWithAuth({
+    AuthKitProvider: WorkosAuthKitProviderBoundary,
+    useAccessToken,
+    useAuth,
+  });
 
 export type RouterContext = {
   readonly queryClient: QueryClient;
@@ -46,7 +76,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   ["loader"]: async (): Promise<{
     readonly authSnapshot: ClientAuthSnapshot;
   }> => ({
-    authSnapshot: await getClientAuthSnapshot(),
+    authSnapshot: await getClientAuthSnapshot({ getAuth }),
   }),
   component: RootComponent,
 });

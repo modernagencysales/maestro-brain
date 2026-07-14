@@ -1,9 +1,3 @@
-import {
-  getAuth,
-  type NoUserInfo,
-  type UserInfo,
-} from "@workos/authkit-tanstack-react-start";
-
 import { readRequiredServerEnv, type ServerEnvSource } from "../server-env";
 
 export type AuthSnapshot =
@@ -53,7 +47,13 @@ export type AuthKitRuntimeConfig =
       readonly jwksUrl: string;
     };
 
-export type WorkosServerAuth = UserInfo | NoUserInfo;
+export type WorkosServerAuth =
+  | {
+      readonly user: { readonly id?: string; readonly email?: string } | null;
+      readonly organizationId?: string;
+      readonly accessToken?: string;
+    }
+  | { readonly user: null };
 
 const fakeProviderModes = new Set(["fake", "local"]);
 const productionModes = new Set(["prod", "production", "live"]);
@@ -165,18 +165,14 @@ export const toClientAuthSnapshot = (
   };
 };
 
-export async function getAuthSnapshot(
-  input: {
-    readonly getAuth?: () => Promise<WorkosServerAuth>;
-  } = {},
-): Promise<AuthSnapshot> {
-  return toAuthSnapshot(await (input.getAuth ?? getAuth)());
+export async function getAuthSnapshot(input: {
+  readonly getAuth: () => Promise<WorkosServerAuth>;
+}): Promise<AuthSnapshot> {
+  return toAuthSnapshot(await input.getAuth());
 }
 
-export async function getClientAuthSnapshot(
-  input: {
-    readonly getAuth?: () => Promise<WorkosServerAuth>;
-  } = {},
-): Promise<ClientAuthSnapshot> {
+export async function getClientAuthSnapshot(input: {
+  readonly getAuth: () => Promise<WorkosServerAuth>;
+}): Promise<ClientAuthSnapshot> {
   return toClientAuthSnapshot(await getAuthSnapshot(input));
 }
