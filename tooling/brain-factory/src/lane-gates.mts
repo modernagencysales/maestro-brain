@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 import { commandsForProfiles, type GateCommand } from "./gates.js";
 import { buildManifest } from "./manifest.js";
 import { isCompatibleProofHead } from "./proof.js";
+import { changedHandAuthoredSourceLines } from "./source-budget.js";
 
 interface ProofPacket {
   readonly baseSha: string;
@@ -86,6 +87,18 @@ if (
   throw new Error(
     `${taskId}: proof head ${proof.headSha} is not a same-tree checkpoint ancestor of ${head}`,
   );
+const numstat = spawnSync(
+  "rtk",
+  ["git", "diff", "--numstat", `${proof.baseSha}..${proof.headSha}`],
+  { cwd: process.cwd(), encoding: "utf8" },
+);
+if (numstat.status !== 0)
+  throw new Error(`${taskId}: could not calculate source-line budget`);
+const changedSourceLines = changedHandAuthoredSourceLines(numstat.stdout);
+if (changedSourceLines > task.sourceLineBudget)
+  throw new Error(
+    `${taskId}: ${changedSourceLines} changed hand-authored source lines exceed budget ${task.sourceLineBudget}; split or simplify the task`,
+  );
 run({
   program: "git",
   args: ["diff", "--check", `${proof.baseSha}..${proof.headSha}`],
@@ -115,6 +128,8 @@ writeFileSync(
       schemaVersion: "maestro-brain-lane-gate/v1",
       gateProfiles: task.gateProfiles,
       headSha: proof.headSha,
+      changedSourceLines,
+      sourceLineBudget: task.sourceLineBudget,
       stage,
       status: "passed",
       taskId,

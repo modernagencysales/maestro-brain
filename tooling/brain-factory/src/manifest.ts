@@ -33,6 +33,7 @@ export interface BrainTaskContract {
   readonly kind: "docs" | "external" | "product" | "release";
   readonly lane: string;
   readonly requirements: readonly string[];
+  readonly sourceLineBudget: number;
   readonly taskBlockHash: string;
   readonly taskId: string;
   readonly title: string;
@@ -215,7 +216,9 @@ const taskBlocks = (
   );
 };
 
-const acceptanceRows = (plan: string): Map<string, string> => {
+const acceptanceRows = (
+  plan: string,
+): Map<string, { dependency: string; sourceLineBudget: number }> => {
   const appendix = plan.slice(
     plan.indexOf("## Appendix A"),
     plan.indexOf("## Appendix B"),
@@ -231,7 +234,10 @@ const acceptanceRows = (plan: string): Map<string, string> => {
           cells[2],
           `${taskId}: Appendix A row has no dependency`,
         );
-        return [taskId, dependency] as const;
+        const sourceLineBudget = Number(
+          required(cells[4], `${taskId}: Appendix A row has no source budget`),
+        );
+        return [taskId, { dependency, sourceLineBudget }] as const;
       }),
   );
 };
@@ -274,6 +280,9 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
     if (!classification) throw new Error(`${taskId}: missing classification`);
     const fileLocks = fileLocksFor(body);
     const lane = laneFor(taskId);
+    const acceptanceContract = acceptance.get(taskId);
+    if (!acceptanceContract)
+      throw new Error(`${taskId}: missing Appendix A acceptance row`);
     const requirements = [
       ...new Set(
         body
@@ -284,7 +293,7 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
       ),
     ].sort();
     return {
-      acceptanceAfter: acceptance.get(taskId) ?? "unknown",
+      acceptanceAfter: acceptanceContract.dependency,
       classification,
       codeStartAfter: START_OVERRIDES[taskId] ?? [],
       fileLocks,
@@ -299,6 +308,7 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
               : "product",
       lane,
       requirements,
+      sourceLineBudget: acceptanceContract.sourceLineBudget,
       taskBlockHash: hash(body),
       taskId,
       title,
@@ -323,6 +333,14 @@ export const validateManifest = (manifest: BrainTaskManifest): string[] => {
     if (task.lane === "unknown") errors.push(`${task.taskId}: unknown lane`);
     if (task.acceptanceAfter === "unknown")
       errors.push(`${task.taskId}: no acceptance prerequisite`);
+    if (
+      !Number.isInteger(task.sourceLineBudget) ||
+      task.sourceLineBudget < 0 ||
+      task.sourceLineBudget > 300
+    )
+      errors.push(
+        `${task.taskId}: invalid source-line budget ${task.sourceLineBudget}`,
+      );
     if (task.fileLocks.length === 0 && task.kind === "product")
       errors.push(`${task.taskId}: no file locks`);
     for (const dependency of task.codeStartAfter)
