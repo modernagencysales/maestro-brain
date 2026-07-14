@@ -64,6 +64,19 @@ const byPath = (bundle: ReturnType<typeof encodeBrainExport>, path: string) =>
   bundle.files.find((file) => file.path === path)?.text;
 
 describe("encodeBrainExport", () => {
+  it("accepts deterministic sha256 content hashes without treating them as raw IDs", () => {
+    const input = baseExport();
+    input.sources[0] = {
+      ...input.sources[0]!,
+      contentHash: `sha256:${"a".repeat(64)}`,
+    };
+
+    const bundle = encodeBrainExport(input);
+    expect(byPath(bundle, "sources/index.jsonl")).toContain(
+      `"contentHash":"sha256:${"a".repeat(64)}"`,
+    );
+  });
+
   it("produces byte-identical sorted files for shuffled repeated input", () => {
     const first = encodeBrainExport(baseExport());
     const shuffled = baseExport();
@@ -83,6 +96,9 @@ describe("encodeBrainExport", () => {
       "revisions/sources.jsonl",
     ]);
     expect(first.manifest.createdAt).toBe("2026-07-14T12:00:00.000Z");
+    expect(first.manifest.files["pages/home.md"]).toBe(
+      "sha256:7a01e1f7862a4a298aefe385f4cd250173f5f7111177b284f8ab439b018a1d34",
+    );
   });
 
   it("rewrites nested stable links and preserves Unicode/newlines", () => {
@@ -139,5 +155,12 @@ describe("encodeBrainExport", () => {
   it("exports the codec from the package barrel", async () => {
     const barrel = await import("./index");
     expect(barrel.encodeBrainExport).toBe(encodeBrainExport);
+  });
+
+  it("does not pull Node-only crypto into the browser-safe barrel", async () => {
+    const source = await import("node:fs/promises").then((fs) =>
+      fs.readFile(new URL("./brainExport.ts", import.meta.url), "utf8"),
+    );
+    expect(source).not.toContain("node:crypto");
   });
 });
