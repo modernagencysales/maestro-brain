@@ -53,4 +53,29 @@ describe("brain task scheduler", () => {
       }).selected,
     ).toEqual([]);
   });
+
+  it("keeps locks held for lane-green tasks awaiting integration", () => {
+    const manifest = buildManifest();
+    const laneGreen = manifest.tasks.find(
+      (candidate) => candidate.taskId === "S12-T01",
+    );
+    const candidate = manifest.tasks.find((task) => task.taskId === "S09-T01");
+    expect(laneGreen).toBeDefined();
+    expect(candidate).toBeDefined();
+    if (!laneGreen || !candidate)
+      throw new Error("scheduler fixtures missing from manifest");
+
+    const overlappingCandidate = {
+      ...candidate,
+      fileLocks: laneGreen.fileLocks,
+    };
+    expect(
+      selectReadyTasks({
+        activeTaskIds: new Set([laneGreen.taskId]),
+        completedTaskIds: new Set(),
+        maximum: 1,
+        tasks: [laneGreen, overlappingCandidate],
+      }).selected,
+    ).toEqual([]);
+  });
 });

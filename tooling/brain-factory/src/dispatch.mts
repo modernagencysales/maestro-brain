@@ -81,8 +81,10 @@ const isActive = (record: RunRecord | undefined): boolean => {
 };
 
 const manifest = buildManifest(root);
-const activeTasks = manifest.tasks.filter((task) =>
-  isActive(readRecord(task.taskId)),
+const activeTasks = manifest.tasks.filter(
+  (task) =>
+    isActive(readRecord(task.taskId)) ||
+    resultStatus(task.taskId) === "lane_green",
 );
 const completedTaskIds = new Set(
   manifest.tasks
