@@ -103,11 +103,9 @@ export const loadWorkosConvexAuthConfig = (
     return fakeAuthConfig;
   }
 
-  const values: Record<(typeof requiredLiveEnv)[number], string> = {
-    WORKOS_CLIENT_ID: readRequired("WORKOS_CLIENT_ID", env),
-    WORKOS_AUTHKIT_ISSUER: readRequired("WORKOS_AUTHKIT_ISSUER", env),
-    WORKOS_AUTHKIT_JWKS_URL: readRequired("WORKOS_AUTHKIT_JWKS_URL", env),
-  };
+  const values = Object.fromEntries(
+    requiredLiveEnv.map((name) => [name, readRequired(name, env)]),
+  ) as Record<(typeof requiredLiveEnv)[number], string>;
 
   const urlEnv = ["WORKOS_AUTHKIT_ISSUER", "WORKOS_AUTHKIT_JWKS_URL"] as const;
   const invalidUrls = urlEnv.filter((name) => !isValidHttpsUrl(values[name]));

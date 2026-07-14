@@ -106,15 +106,9 @@ export const buildAuthKitRuntimeConfig = (
     return { mode: "fake" };
   }
 
-  const values: Record<(typeof requiredLiveEnv)[number], string> = {
-    WORKOS_API_KEY: readLiveEnv("WORKOS_API_KEY", env),
-    WORKOS_CLIENT_ID: readLiveEnv("WORKOS_CLIENT_ID", env),
-    WORKOS_COOKIE_PASSWORD: readLiveEnv("WORKOS_COOKIE_PASSWORD", env),
-    WORKOS_REDIRECT_URI: readLiveEnv("WORKOS_REDIRECT_URI", env),
-    WORKOS_LOGOUT_URI: readLiveEnv("WORKOS_LOGOUT_URI", env),
-    WORKOS_AUTHKIT_ISSUER: readLiveEnv("WORKOS_AUTHKIT_ISSUER", env),
-    WORKOS_AUTHKIT_JWKS_URL: readLiveEnv("WORKOS_AUTHKIT_JWKS_URL", env),
-  };
+  const values = Object.fromEntries(
+    requiredLiveEnv.map((name) => [name, readLiveEnv(name, env)]),
+  ) as Record<(typeof requiredLiveEnv)[number], string>;
   const urlEnv = [
     "WORKOS_REDIRECT_URI",
     "WORKOS_LOGOUT_URI",

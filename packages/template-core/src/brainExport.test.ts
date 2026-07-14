@@ -63,11 +63,18 @@ const baseExport = (): BrainExportInput => ({
 const byPath = (bundle: ReturnType<typeof encodeBrainExport>, path: string) =>
   bundle.files.find((file) => file.path === path)?.text;
 
+const getItem = <T>(items: readonly T[], index: number): T => {
+  const item = items[index];
+  if (item === undefined)
+    throw new Error(`missing test item at index ${index}`);
+  return item;
+};
+
 describe("encodeBrainExport", () => {
   it("accepts deterministic sha256 content hashes without treating them as raw IDs", () => {
     const input = baseExport();
     input.sources[0] = {
-      ...input.sources[0]!,
+      ...getItem(input.sources, 0),
       contentHash: `sha256:${"a".repeat(64)}`,
     };
 
@@ -118,35 +125,45 @@ describe("encodeBrainExport", () => {
     const input = baseExport();
     input.pages = [
       ...input.pages,
-      { ...input.pages[1]!, pageKey: "page_other", path: "Home/Strategy Cafe" },
+      {
+        ...getItem(input.pages, 1),
+        pageKey: "page_other",
+        path: "Home/Strategy Cafe",
+      },
     ];
     expect(() => encodeBrainExport(input)).toThrow(ExportPathConflict);
   });
 
   it("rejects missing citation references", () => {
     const input = baseExport();
-    input.pages[0] = { ...input.pages[0]!, citationKeys: ["cite_missing"] };
+    input.pages[0] = {
+      ...getItem(input.pages, 0),
+      citationKeys: ["cite_missing"],
+    };
     expect(() => encodeBrainExport(input)).toThrow(ExportReferenceMissing);
   });
 
   it("rejects archived, redacted, or purged sources", () => {
     for (const lifecycleState of ["archived", "redacted", "purged"] as const) {
       const input = baseExport();
-      input.sources[0] = { ...input.sources[0]!, lifecycleState };
+      input.sources[0] = { ...getItem(input.sources, 0), lifecycleState };
       expect(() => encodeBrainExport(input)).toThrow(ExportLifecycleDenied);
     }
   });
 
   it("rejects unsafe paths and raw provider identifiers", () => {
     const unsafePath = baseExport();
-    unsafePath.pages[0] = { ...unsafePath.pages[0]!, path: "../secret" };
+    unsafePath.pages[0] = {
+      ...getItem(unsafePath.pages, 0),
+      path: "../secret",
+    };
     expect(() => encodeBrainExport(unsafePath)).toThrow(ExportValueUnsafe);
 
     const rawProvider = baseExport();
     const providerField = ["provider", "Payload"].join("");
     const rawId = `jh${"7123456789abcdefghijklmno"}`;
     rawProvider.sources[0] = {
-      ...rawProvider.sources[0]!,
+      ...getItem(rawProvider.sources, 0),
       [providerField]: { convexId: rawId },
     };
     expect(() => encodeBrainExport(rawProvider)).toThrow(ExportValueUnsafe);

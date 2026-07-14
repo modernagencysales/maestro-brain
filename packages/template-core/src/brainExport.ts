@@ -88,6 +88,20 @@ const unsafeValuePattern =
   /\b(?:[a-z0-9]{20,}|(?:api|access|refresh|secret|token)[_-]?[a-z0-9]*[:=][^\s"']+)/i;
 const safeHashPattern = /^sha256:[a-f0-9]{64}$/i;
 const encoder = new TextEncoder();
+const getAt = <T>(items: ArrayLike<T>, index: number): T => {
+  const item = items[index];
+  if (item === undefined) {
+    throw new ExportReferenceMissing(`missing export value at index ${index}`);
+  }
+  return item;
+};
+const getMapValue = <K, V>(items: Map<K, V>, key: K, label: string): V => {
+  const item = items.get(key);
+  if (item === undefined) {
+    throw new ExportReferenceMissing(`missing ${label}: ${String(key)}`);
+  }
+  return item;
+};
 const sha256RoundConstants = [
   0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1,
   0x923f82a4, 0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3,
@@ -125,12 +139,13 @@ const sha256 = (text: string): string => {
       words[index] = view.getUint32(offset + index * 4);
     }
     for (let index = 16; index < 64; index += 1) {
-      const left = words[index - 15]!;
-      const right = words[index - 2]!;
+      const left = getAt(words, index - 15);
+      const right = getAt(words, index - 2);
       const s0 = rotateRight(left, 7) ^ rotateRight(left, 18) ^ (left >>> 3);
       const s1 =
         rotateRight(right, 17) ^ rotateRight(right, 19) ^ (right >>> 10);
-      words[index] = (words[index - 16]! + s0 + words[index - 7]! + s1) >>> 0;
+      words[index] =
+        (getAt(words, index - 16) + s0 + getAt(words, index - 7) + s1) >>> 0;
     }
     let a = h0,
       b = h1,
@@ -144,7 +159,12 @@ const sha256 = (text: string): string => {
       const s1 = rotateRight(e, 6) ^ rotateRight(e, 11) ^ rotateRight(e, 25);
       const ch = (e & f) ^ (~e & g);
       const temp1 =
-        (h + s1 + ch + sha256RoundConstants[index]! + words[index]!) >>> 0;
+        (h +
+          s1 +
+          ch +
+          getAt(sha256RoundConstants, index) +
+          getAt(words, index)) >>>
+        0;
       const s0 = rotateRight(a, 2) ^ rotateRight(a, 13) ^ rotateRight(a, 22);
       const maj = (a & b) ^ (a & c) ^ (b & c);
       const temp2 = (s0 + maj) >>> 0;
@@ -299,10 +319,10 @@ export const encodeBrainExport = (
     }
   }
   const sortedPages = sortBy(input.pages, (page) =>
-    pathByPageKey.get(page.pageKey)!,
+    getMapValue(pathByPageKey, page.pageKey, "page path"),
   );
   const pageFiles = sortedPages.map((page) => {
-    const path = pathByPageKey.get(page.pageKey)!;
+    const path = getMapValue(pathByPageKey, page.pageKey, "page path");
     const body = page.body.replace(
       /\[\[([^\]]+)\]\]/g,
       (match, pageKey: string) => {
@@ -391,7 +411,9 @@ export const encodeBrainExport = (
   );
   const orderedPaths = [
     "manifest.json",
-    ...sortedPages.map((page) => pathByPageKey.get(page.pageKey)!),
+    ...sortedPages.map((page) =>
+      getMapValue(pathByPageKey, page.pageKey, "page path"),
+    ),
     "sources/index.jsonl",
     "citations/index.jsonl",
     "revisions/pages.jsonl",
@@ -402,6 +424,8 @@ export const encodeBrainExport = (
   );
   return {
     manifest,
-    files: orderedPaths.map((path) => filesByPath.get(path)!),
+    files: orderedPaths.map((path) =>
+      getMapValue(filesByPath, path, "export file"),
+    ),
   };
 };
