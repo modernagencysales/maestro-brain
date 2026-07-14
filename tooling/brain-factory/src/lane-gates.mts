@@ -1,7 +1,11 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
-import { commandsForProfiles, type GateCommand } from "./gates.js";
+import {
+  commandsForProfiles,
+  type GateCommand,
+  lintCommandForFiles,
+} from "./gates.js";
 import { buildManifest } from "./manifest.js";
 import { isCompatibleProofHead } from "./proof.js";
 import {
@@ -142,6 +146,8 @@ if (existingChangedFiles.length > 0)
     program: "pnpm",
     args: ["exec", "prettier", "--check", ...existingChangedFiles],
   });
+const lintCommand = lintCommandForFiles(existingChangedFiles);
+if (lintCommand) run(lintCommand);
 for (const command of commandsForProfiles(task.gateProfiles)) run(command);
 const status = spawnSync("rtk", ["proxy", "git", "status", "--porcelain"], {
   cwd: process.cwd(),

@@ -5,6 +5,17 @@ export interface GateCommand {
   readonly program: string;
 }
 
+export const lintCommandForFiles = (
+  files: readonly string[],
+): GateCommand | undefined => {
+  const lintable = [
+    ...new Set(files.filter((file) => /\.[cm]?[jt]sx?$/.test(file))),
+  ];
+  return lintable.length > 0
+    ? { program: "pnpm", args: ["exec", "eslint", ...lintable] }
+    : undefined;
+};
+
 const packageGate = (directory: string): readonly GateCommand[] => [
   { program: "pnpm", args: ["--dir", directory, "typecheck"] },
   {

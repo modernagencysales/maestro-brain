@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { commandsForProfiles } from "../src/gates.js";
+import { commandsForProfiles, lintCommandForFiles } from "../src/gates.js";
 
 describe("brain lane gate profiles", () => {
   it("deduplicates package gates", () => {
@@ -21,5 +21,20 @@ describe("brain lane gate profiles", () => {
 
   it("does not invent local gates for external receipts", () => {
     expect(commandsForProfiles(["external"])).toEqual([]);
+  });
+
+  it("lints changed source without passing docs or env files", () => {
+    expect(
+      lintCommandForFiles([
+        "apps/web/src/example.tsx",
+        "apps/web/src/example.tsx",
+        "docs/example.md",
+        ".env.example",
+      ]),
+    ).toEqual({
+      program: "pnpm",
+      args: ["exec", "eslint", "apps/web/src/example.tsx"],
+    });
+    expect(lintCommandForFiles(["docs/example.md"])).toBeUndefined();
   });
 });
