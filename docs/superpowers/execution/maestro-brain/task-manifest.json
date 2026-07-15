@@ -914,7 +914,6 @@
       "fileInventoryIssues": [],
       "fileInventoryStatus": "ready",
       "fileLocks": [
-        "@dependencies",
         "docs/template/generator-output-contract.md",
         "docs/template/how-to-add-workflow.md",
         "package.json",
@@ -1003,7 +1002,6 @@
       "fileInventoryIssues": [],
       "fileInventoryStatus": "ready",
       "fileLocks": [
-        "@dependencies",
         "docs/product/maestro-brain-lifecycle-adoption.md",
         "docs/template/porting-backlog.md",
         "packages/search/package.json",
@@ -1406,7 +1404,6 @@
       ],
       "fileInventoryStatus": "open:F",
       "fileLocks": [
-        "@dependencies",
         "docs/product/maestro-brain-evals.md",
         "tooling/evals/package.json",
         "tooling/evals/src/brain-classification.ts",
@@ -1430,7 +1427,6 @@
       "fileInventoryIssues": [],
       "fileInventoryStatus": "ready",
       "fileLocks": [
-        "@dependencies",
         "docs/product/maestro-brain-capacity.md",
         "packages/convex/test/brain-capacity.test.ts",
         "tooling/evals/package.json",

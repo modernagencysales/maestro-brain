@@ -376,8 +376,7 @@ const fileLocksFor = (
       issues.add(`Files text contains placeholder ${placeholder.source}`);
   }
   if (/route tree/i.test(files)) locks.add("@route-tree");
-  if (/package\.json|pnpm-lock|pnpm-workspace/i.test(files))
-    locks.add("@dependencies");
+  if (/pnpm-lock|pnpm-workspace/i.test(files)) locks.add("@dependencies");
   if (/\.env|env-manifest|project\.config/i.test(files))
     locks.add("@environment");
   return { issues: [...issues].sort(), locks: [...locks].sort() };

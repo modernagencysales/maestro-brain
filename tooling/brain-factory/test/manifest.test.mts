@@ -84,6 +84,7 @@ describe("Maestro Brain execution manifest", () => {
     const generator = manifest.tasks.find((task) => task.taskId === "S08-T02");
     expect(deployment?.gateProfiles).toEqual(["release"]);
     expect(generator?.gateProfiles).toEqual(["generators"]);
+    expect(generator?.fileLocks).not.toContain("@dependencies");
   });
 
   it("binds packet audit status and rejects unsafe ready pseudo-locks", () => {
