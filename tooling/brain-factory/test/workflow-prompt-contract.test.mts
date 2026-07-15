@@ -111,6 +111,24 @@ describe("Fabro workflow prompt contracts", () => {
     expect(release).toContain("Do not fabricate live credentials");
   });
 
+  it("keeps task review writes proof-only and avoids malformed patch retries", () => {
+    const buildTask = readFileSync(
+      resolve(
+        import.meta.dirname,
+        "../../../.fabro/workflows/brain-build-task/workflow.fabro",
+      ),
+      "utf8",
+    );
+    const review = buildTask
+      .split("\n")
+      .find((line) => line.trimStart().startsWith("review ["));
+    expect(review).toContain(
+      "The only allowed write is that exact proof packet",
+    );
+    expect(review).toContain("Do not use native apply_patch");
+    expect(review).toContain("one guarded targeted shell write");
+  });
+
   it("binds cross-tranche integration to one immutable selection and full gate", () => {
     const wave = readFileSync(
       resolve(
