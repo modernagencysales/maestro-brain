@@ -48,6 +48,7 @@ describe("worktree dependency hydration", () => {
         "--frozen-lockfile",
         "--prefer-offline",
         "--ignore-scripts",
+        "--force",
       ],
       { cwd: workdir },
     );
@@ -72,6 +73,7 @@ describe("worktree dependency hydration", () => {
         "--frozen-lockfile",
         "--prefer-offline",
         "--ignore-scripts",
+        "--force",
       ],
       { cwd: workdir },
     );
@@ -142,6 +144,7 @@ describe("worktree dependency hydration", () => {
         "--frozen-lockfile",
         "--prefer-offline",
         "--ignore-scripts",
+        "--force",
       ],
       { cwd: workdir },
     );

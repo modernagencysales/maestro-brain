@@ -17,6 +17,7 @@ export const hydrateWorktreeDependencies = (
       "--frozen-lockfile",
       "--prefer-offline",
       "--ignore-scripts",
+      "--force",
     ],
     { cwd: workdir },
   );
