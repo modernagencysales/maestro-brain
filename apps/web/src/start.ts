@@ -1,5 +1,5 @@
 import { createCsrfMiddleware, createStart } from "@tanstack/react-start";
-import { createWorkosAuthkitMiddleware } from "./auth/authkit-runtime";
+import { createWorkosAuthkitMiddleware } from "./auth/workos-server-adapter";
 import { buildAuthKitRuntimeConfig } from "./auth/authkit-server";
 import { getServerEnv } from "./server-env";
 

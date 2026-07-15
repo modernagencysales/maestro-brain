@@ -13,13 +13,11 @@ import { TemplateToastProvider } from "@maestro-template/ui";
 
 import { createAuthKitProviderWithConvexProviderWithAuth } from "../auth/authkit-client";
 import {
-  getWorkosServerAuth,
-  workosAuthKitClientBridge,
-} from "../auth/authkit-runtime";
-import {
   getRuntimeClientAuthSnapshot,
   type ClientAuthSnapshot,
 } from "../auth/authkit-server";
+import { workosAuthKitClientBridge } from "../auth/workos-client-runtime";
+import { getWorkosServerAuth } from "../auth/workos-server-adapter";
 import { getServerEnv } from "../server-env";
 import { MaestroSaasUiProvider } from "../saas-ui/provider";
 import {
@@ -51,7 +49,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         { rel: "stylesheet", href: appCssUrl },
       ],
     }),
-  ["loader"]: async (): Promise<{
+  loader: async (): Promise<{
     readonly authSnapshot: ClientAuthSnapshot;
   }> => ({
     authSnapshot: await getRuntimeClientAuthSnapshot({
@@ -65,6 +63,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 function RootComponent() {
   const { convexClient } = Route.useRouteContext();
   const { authSnapshot } = Route.useLoaderData();
+  const serverEnv = getServerEnv();
   const location = useRouterState({ select: (state) => state.location });
 
   return (
@@ -73,7 +72,10 @@ function RootComponent() {
       initialAuthSnapshot={authSnapshot}
     >
       <WorkspaceProvider
-        operations={createRuntimeWorkspaceOperations(authSnapshot)}
+        operations={createRuntimeWorkspaceOperations({
+          authSnapshot,
+          env: serverEnv,
+        })}
         storage={createBrowserWorkspaceStorage()}
       >
         <CookieConsentBoundary>

@@ -26,8 +26,8 @@ const allowedProviderBoundaryPrefixes = [
 ] as const;
 
 const allowedProviderBoundaryFiles = new Set([
-  "apps/web/src/routes/__root.tsx",
-  "apps/web/src/start.ts",
+  "apps/web/src/auth/workos-client-runtime.tsx",
+  "apps/web/src/auth/workos-server-adapter.ts",
   "packages/convex/convex/convex.config.ts",
   "packages/convex/confect/observability/posthog.ts",
 ]);
