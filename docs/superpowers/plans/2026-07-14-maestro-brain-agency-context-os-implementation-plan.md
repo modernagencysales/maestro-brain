@@ -453,9 +453,11 @@ manifest.
   component to prove an internal migration runs in bounded batches, starts with
   an explicit `null` initial cursor, resumes after an injected production
   component failure from the last committed cursor, skips already-migrated rows,
-  decodes the component's dry-run rollback into truthful counts without a write,
-  refuses unknown/reserved/destructive migrations, rejects forged cursors and
-  concurrent lease owners, aggregates deterministic child hashes, reruns
+  decodes the component's dry-run rollback into its truthful
+  component-observable `scanned` count without a write, marks definition-owned
+  counts unavailable rather than inventing them when the component cannot return
+  them, refuses unknown/reserved/destructive migrations, rejects forged cursors
+  and concurrent lease owners, aggregates deterministic child hashes, reruns
   idempotently, and exposes no public/MCP/API function. A spy-only adapter,
   hand-implemented paginator, fabricated component reference, or string search
   over a spec is not acceptance evidence.
@@ -476,29 +478,47 @@ manifest.
   cursor, or an unbounded batch size. The server supplies `null`, never
   `undefined`, for the first component batch. Decode only the component's typed
   dry-run rollback payload as a successful rolled-back result; every other
-  component failure follows the production failure-persistence path. A durable
-  migration-run coordinator acquires an atomic lease/fence generation before
-  invoking a batch, enforces `planned -> running -> complete | failed`, releases
-  the lease on every terminal batch outcome, and permits `failed -> running`
-  only from its last committed component cursor after release/deployment/schema
-  preconditions match. Cursor authority and ordering use an explicit monotonic
-  batch sequence plus fence generation, never timestamps or receipt insertion
-  order.
+  component failure follows the failure-persistence path without retrying the
+  request in execute mode. A durable migration-run coordinator acquires an
+  atomic lease/fence generation before invoking a batch, enforces
+  `planned -> running -> complete | failed`, releases the lease on every
+  terminal batch outcome, and permits `failed -> running` only from its last
+  committed component cursor after release/deployment/schema preconditions
+  match. Cursor authority and ordering use an explicit monotonic batch sequence
+  plus fence generation, never timestamps or receipt insertion order.
 
-  Receipts are append-only with one parent and many child receipts per release
+  Receipts are append-only with one stable release-parent ID, one final release
+  parent, zero or more failure checkpoints, and many child receipts per release
   migration. Each batch appends one child containing
   `{ migrationName, mode, cursor, scanned, changed, skipped, failed, complete, startedAt, finishedAt }`;
-  the single terminal parent adds
+  every child binds its immutable receipt ID and the stable release-parent ID
+  before insertion. A production component failure appends its failed child and
+  a distinct `failure_checkpoint` that lists child hashes through that failure,
+  then returns `MigrationBatchFailed`; a checkpoint is not the release parent
+  and never makes the run complete. After a later resume, the single final
+  `release_parent` adds
   `{ releaseCommit, schemaBefore, schemaAfter, parityChecks, rollbackOwner, observationEndsAt }`
   and lists every child hash exactly once in batch-sequence order. Hash the full
   redacted receipt with a recursive canonical serializer and SHA-256; bind the
   parent ID, batch sequence, fence generation, actor, deployment/build IDs, and
-  prior/next cursor. Production component failure must durably append its failed
-  child and terminal parent before returning `MigrationBatchFailed`. Counts are
-  definition-owned and truthful: `scanned` is component processed rows,
-  `changed` counts rows whose idempotent predicate produced a write, `skipped`
-  counts already-migrated rows, and `failed` counts failed rows; never infer all
-  four from `processed` alone.
+  prior/next cursor. Completed reruns return the stored terminal result without
+  inserting or patching a receipt. Counts are definition-owned and truthful:
+  `scanned` is the component's processed rows; `changed` counts rows whose
+  idempotent predicate produced a write; `skipped` counts already-migrated rows;
+  and `failed` counts failed rows. Because `@convex-dev/migrations` returns only
+  `{ continueCursor, isDone, processed }` and rolls back dry-run side effects,
+  `changed` and `skipped` are nullable with explicit `unavailable` provenance
+  unless a migration definition supplies exact execute-mode counters. Never
+  infer them from `processed`, duplicate pagination/predicate evaluation, or use
+  a no-op fixture as evidence.
+
+  Component execution and coordinator settlement are separate transactions. The
+  coordinator therefore guarantees idempotent replay, not impossible
+  cross-component atomicity: settlement requires an unexpired matching
+  owner/fence, `priorCursor` equal to the durable committed cursor, and the next
+  monotonic sequence. Inject a crash after a real component batch commits but
+  before settlement, then prove replay deduplicates target effects and advances
+  the cursor/receipts exactly once.
 
   Before dispatching a C1 contract-spine task, conditionally inspect whether an
   isolated C1 lane has already authored undeployed schema additions. If so,
@@ -522,11 +542,15 @@ manifest.
   `rtk pnpm check:headless-surface-contract`. Tests reject unknown names, forged
   cursors, reset/next, invalid batch sizes, cross-release resume, concurrent
   start, destructive expand/backfill definitions, public refs, and any dry-run
-  write. Broad verification belongs to tranche integration.
-- **Completion receipt:** attach real-component dry-run rollback,
-  injected-production-failure/resume, concurrent-fence rejection, idempotent
-  rerun, deterministic parent/child hash aggregation, generated-diff, and
-  generated no-public-ref evidence.
+  write. The failure/resume test must commit a real component cursor `C1`, fail
+  the next component batch, resume from `C1` under a new fence, complete, and
+  rerun byte-for-byte idempotently; fabricated cursors are forbidden. Broad
+  verification belongs to tranche integration.
+- **Completion receipt:** attach real-component dry-run rollback, real-cursor
+  production-failure/resume, post-component/pre-settlement crash replay,
+  expired/concurrent-fence rejection, idempotent rerun, deterministic
+  child/checkpoint/final-parent hash aggregation, generated-diff, and generated
+  no-public-ref evidence.
 - **Lane branch / commit boundary:** branch `codex/brain-s00-migration-harness`;
   at most four commits, each changing no more than 300 hand-authored production
   source lines: failure-first tests; Confect/component contracts and tables;
@@ -4074,10 +4098,15 @@ roll forward with a narrow fix instead.
 
 Required migration receipt fields are
 `{ migrationName, releaseCommit, schemaBefore, schemaAfter, mode, batchSize, cursor, scanned, changed, skipped, failed, complete, parityChecks, startedAt, finishedAt, rollbackOwner, observationEndsAt }`
-plus redacted command results. S00-T04 emits one batch-run receipt for each
-cursor/batch and a parent release-migration receipt containing the release,
-schema, parity, rollback, and observation fields; the parent lists and hashes
-every child receipt.
+plus count provenance and redacted command results. `changed` and `skipped` are
+nullable only when the mounted component cannot observe them; unavailable is
+explicit and never encoded as zero. S00-T04 emits one append-only child receipt
+for each cursor/batch, an append-only failure checkpoint before a typed batch
+failure, and exactly one final release-migration parent after completion. Every
+child binds the stable final-parent ID; each checkpoint lists children through
+its failure, while the final parent contains the release, schema, parity,
+rollback, and observation fields and lists every child hash once in global
+batch-sequence order.
 
 ## Appendix L — CI, Staging, Pilot, And Launch Evidence Contract
 

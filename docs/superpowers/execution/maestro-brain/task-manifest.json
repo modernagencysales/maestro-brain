@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "2f7e1f6dc33c5a126d078d81e95c44d56de90fcab393c3c4b285a6a1744ca8aa",
+  "planSha256": "909a86537a9cba73de63744600a12aca43f0c6505029a232c36f4ca10e57e2ab",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -103,7 +103,7 @@
       "lane": "foundation",
       "requirements": ["FND-03"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "5d85ce3372505067d390e876d74d8ba833659a5245269a2466f0c3440f8458ba",
+      "taskBlockHash": "14cb8f5699f656208b9a51eddb200035dfecef8159e0499a6099c3f545b2a613",
       "taskId": "S00-T04",
       "title": "Add A Resumable Expand/Backfill/Contract Migration Harness",
       "tranche": "F0-foundation"
