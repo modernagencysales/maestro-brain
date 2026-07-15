@@ -62,4 +62,16 @@ describe("Maestro Brain execution manifest", () => {
     expect(isolation?.fileLocks).toContain(".buildkite/pipeline.yml");
     expect(migrations?.codeStartAfter).toEqual(["S00-T03"]);
   });
+
+  it("keeps durable identity and provider work behind foundation gates", () => {
+    const manifest = buildManifest();
+    const stableIdentity = manifest.tasks.find(
+      (task) => task.taskId === "S01-T02",
+    );
+    const providerSetup = manifest.tasks.find(
+      (task) => task.taskId === "S04-T01",
+    );
+    expect(stableIdentity?.codeStartAfter).toEqual(["S00-T04", "S01-T01"]);
+    expect(providerSetup?.codeStartAfter).toEqual(["S00-T03", "S01-T02"]);
+  });
 });

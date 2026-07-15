@@ -125,7 +125,7 @@
     {
       "acceptanceAfter": "S01-T01",
       "classification": "template-gap",
-      "codeStartAfter": ["S01-T01"],
+      "codeStartAfter": ["S00-T04", "S01-T01"],
       "estimatedSourceLines": 260,
       "fileLocks": [
         "packages/convex/confect/access/provisioning.ts",
@@ -387,7 +387,7 @@
     {
       "acceptanceAfter": "S01, S03",
       "classification": "template-gap",
-      "codeStartAfter": ["S01-T02"],
+      "codeStartAfter": ["S00-T03", "S01-T02"],
       "estimatedSourceLines": 260,
       "fileLocks": [
         ".env.example",
