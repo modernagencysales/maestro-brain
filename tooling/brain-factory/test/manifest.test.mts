@@ -109,7 +109,7 @@ describe("Maestro Brain execution manifest", () => {
     ).not.toContain("@generated-confect");
   });
 
-  it("runs generated checks once and documents the sole zero-delta check", () => {
+  it("runs task-local generated checks and documents the sole zero-delta check", () => {
     const plan = readFileSync(resolve(REPO_ROOT, PLAN_RELATIVE), "utf8");
     const helperTests = [
       ...plan.matchAll(
@@ -120,7 +120,7 @@ describe("Maestro Brain execution manifest", () => {
         ? [match[1]]
         : [],
     );
-    expect(helperTests).toEqual(["S00-T04"]);
+    expect(helperTests).toEqual(["S00-T04", "S01-T02"]);
     expect(plan.match(/`rtk pnpm check:confect-manifest`/g)).toHaveLength(1);
     expect(plan).toMatch(
       /the\s+Confect manifest check is a zero-delta assertion because this\s+task consumes/,
