@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
@@ -6,11 +7,33 @@ import {
   ModelTimeout,
   ProviderRateLimited,
 } from "./llmStructured";
+import { canonicalOutputSchemaHash } from "./llmEgressPolicy";
 
 const Decision = Schema.Struct({
   decision: Schema.Literal("capture", "direct", "abstain"),
   confidence: Schema.Number,
 });
+
+const sha256 = (value: string): string =>
+  `sha256:${createHash("sha256").update(value).digest("hex")}`;
+
+const stableJson = (value: unknown): string => {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .filter(([, nested]) => nested !== undefined)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, nested]) => `${JSON.stringify(key)}:${stableJson(nested)}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+};
+
+const sourceHashFor = (contentHashes: readonly string[]): string =>
+  sha256(stableJson({ contentHashes }));
+
+const artifactText = "Classify exact source text.";
+const artifactHash = sha256(artifactText);
 
 const baseRequest = {
   organizationId: "org_acme",
@@ -18,10 +41,17 @@ const baseRequest = {
   trustedInstructionVersion: "classify-v1",
   toolSchemaVersion: "routing-v1",
   immutableContentManifest: {
-    sourceHash: "sha256:source-001",
-    contentHashes: ["sha256:item-001"],
-    contentArtifacts: [{ hash: "sha256:item-001", tokens: 4 }],
-    schemaHash: "sha256:schema-001",
+    sourceHash: sourceHashFor([artifactHash]),
+    contentHashes: [artifactHash],
+    contentArtifacts: [
+      {
+        hash: artifactHash,
+        mediaType: "text/plain",
+        bytes: artifactText,
+        tokens: 4,
+      },
+    ],
+    schemaHash: canonicalOutputSchemaHash(Decision),
     schemaGeneration: 1,
   },
   outputSchema: Decision,
@@ -60,9 +90,21 @@ describe("structured provider-neutral LLM gateway", () => {
         modelPolicy: { ...baseRequest.modelPolicy, maxInputTokens: 25 },
         immutableContentManifest: {
           ...baseRequest.immutableContentManifest,
+          sourceHash: sourceHashFor([
+            sha256(
+              "Private client source text that exceeds the exact request budget.",
+            ),
+          ]),
+          contentHashes: [
+            sha256(
+              "Private client source text that exceeds the exact request budget.",
+            ),
+          ],
           contentArtifacts: [
             {
-              hash: "sha256:item-001",
+              hash: sha256(
+                "Private client source text that exceeds the exact request budget.",
+              ),
               mediaType: "text/plain",
               bytes:
                 "Private client source text that exceeds the exact request budget.",
@@ -72,10 +114,62 @@ describe("structured provider-neutral LLM gateway", () => {
       }),
     );
 
-    expect(result).toMatchObject({
-      _tag: "Failure",
-      cause: { _tag: "Fail", error: { _tag: "ModelInputTooLarge" } },
+    expect(JSON.stringify(result)).toContain("ModelInputTooLarge");
+  });
+
+  it("rejects missing bytes, hash mismatches, stale source roots, and unsupported media before transport", async () => {
+    let calls = 0;
+    const gateway = createStructuredLlmGateway({
+      mode: "test",
+      env: {},
+      transport: () => {
+        calls += 1;
+        return Effect.die("transport must not run");
+      },
     });
+
+    const cases = [
+      {
+        contentArtifacts: [{ hash: artifactHash, mediaType: "text/plain" }],
+      },
+      {
+        contentArtifacts: [
+          {
+            hash: sha256("other"),
+            mediaType: "text/plain",
+            bytes: artifactText,
+          },
+        ],
+      },
+      {
+        sourceHash: sourceHashFor([sha256("other")]),
+      },
+      {
+        contentArtifacts: [
+          {
+            hash: artifactHash,
+            mediaType: "application/octet-stream",
+            bytes: artifactText,
+          },
+        ],
+      },
+    ];
+
+    for (const manifestPatch of cases) {
+      const result = await Effect.runPromiseExit(
+        gateway.generate({
+          ...baseRequest,
+          attemptKey: `attempt-reject-${calls}-${JSON.stringify(manifestPatch).length}`,
+          immutableContentManifest: {
+            ...baseRequest.immutableContentManifest,
+            ...manifestPatch,
+          },
+        }),
+      );
+      expect(JSON.stringify(result)).toContain("ModelPolicyDenied");
+    }
+
+    expect(calls).toBe(0);
   });
 
   it("hashes exact immutable content and schema admission fields", async () => {
@@ -130,7 +224,7 @@ describe("structured provider-neutral LLM gateway", () => {
         state: "succeeded",
         requestHash: expect.stringMatching(/^sha256:/) as string,
         responseHash: expect.stringMatching(/^sha256:/) as string,
-        sourceHash: "sha256:source-001",
+        sourceHash: sourceHashFor([artifactHash]),
         generatedAt: "2026-07-01T00:00:00.000Z",
       },
     });

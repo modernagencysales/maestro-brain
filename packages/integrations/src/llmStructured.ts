@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import type { ProviderMode } from "./index";
 import {
+  canonicalOutputSchemaHash,
   enforceStructuredModelPolicy,
   type ImmutableContentManifest,
   ModelBudgetExceeded,
@@ -173,7 +174,7 @@ const serializeProviderRequest = <A>(
     },
     outputSchema: {
       name: outputSchemaName(request.outputSchema),
-      hash: request.immutableContentManifest.schemaHash,
+      hash: canonicalOutputSchemaHash(request.outputSchema),
       generation: request.immutableContentManifest.schemaGeneration,
     },
     policy: {
@@ -287,11 +288,27 @@ export const createStructuredLlmGateway = (
         );
       }
 
+      if (
+        request.immutableContentManifest.schemaHash !==
+        canonicalOutputSchemaHash(request.outputSchema)
+      ) {
+        return yield* Effect.fail(
+          new ModelPolicyDenied({
+            reason:
+              "Output schema hash must be derived from the actual schema.",
+            provider: request.modelPolicy.provider,
+            model: request.modelPolicy.model,
+          }),
+        );
+      }
+
       const serializedProviderRequest = serializeProviderRequest(request);
-      const policy = enforceStructuredModelPolicy({
-        ...request,
-        serializedProviderRequest,
-      });
+      const policy = yield* Effect.promise(() =>
+        enforceStructuredModelPolicy({
+          ...request,
+          serializedProviderRequest,
+        }),
+      );
 
       if (
         policy instanceof ModelPolicyDenied ||
