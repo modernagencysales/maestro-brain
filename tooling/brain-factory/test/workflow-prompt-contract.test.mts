@@ -148,6 +148,53 @@ describe("Fabro workflow prompt contracts", () => {
     expect(implement).toContain("rtk proxy python3");
   });
 
+  it("bounds task reconnaissance and leaves deterministic gates to the workflow", () => {
+    const buildTask = readFileSync(
+      resolve(
+        import.meta.dirname,
+        "../../../.fabro/workflows/brain-build-task/workflow.fabro",
+      ),
+      "utf8",
+    );
+    const implement = buildTask
+      .split("\n")
+      .find((line) => line.trimStart().startsWith("implement ["));
+    const review = buildTask
+      .split("\n")
+      .find((line) => line.trimStart().startsWith("review ["));
+
+    expect(implement).toContain(
+      "Contract reading is not reconnaissance and is never skipped",
+    );
+    expect(implement).toContain(
+      "at most one scoped inventory pass per declared file-lock root",
+    );
+    expect(implement).toContain(
+      "one exact-symbol or named-reference lookup per required seam",
+    );
+    expect(implement).toContain(
+      "report a contract or template gap instead of widening the search",
+    );
+    expect(implement).toContain(
+      "During implementation run only the smallest new or failing test needed to iterate",
+    );
+    expect(implement).toContain(
+      "Do not invoke brain:factory:lane-gates yourself",
+    );
+    expect(implement).toContain(
+      "the next deterministic workflow node owns the complete focused gate",
+    );
+    expect(review).toContain(
+      "exact passed pre-review lane-gate report for the same head and task contract",
+    );
+    expect(review).toContain(
+      "Rerun a focused command only when that report or its evidence is inconsistent",
+    );
+    expect(review).toContain(
+      "semantic inspection of the tests and diff remains mandatory",
+    );
+  });
+
   it("binds lane-green results to the manifest tranche", () => {
     const buildTask = readFileSync(
       resolve(
