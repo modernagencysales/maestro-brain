@@ -1,0 +1,35 @@
+digraph BrainRepairTranche {
+  graph [
+    goal="Repair a reviewed Maestro Brain tranche without repeating integration",
+    inputs="workdir,evidence_dir,tranche",
+    model_stylesheet="
+      #repair { provider: codex-lb; model: codex-lb-gpt-5.5; reasoning_effort: high; }
+      #review { provider: codex-lb; model: codex-lb-gpt-5.5; reasoning_effort: high; }
+    ",
+    rankdir=LR
+  ]
+  start [shape=Mdiamond]
+  exit [shape=Msquare]
+
+  preflight [shape=parallelogram, goal_gate=true, retry_target=preflight, max_retries=1, timeout="600s", script="set -euo pipefail; cd {{ inputs.workdir|default('.') }}; rtk proxy test -s docs/superpowers/execution/maestro-brain/task-manifest.json; rtk proxy test -d '{{ inputs.evidence_dir|default('.fabro/state/maestro-brain/evidence') }}/lane-results'; rtk proxy test -s '{{ inputs.evidence_dir|default('.fabro/state/maestro-brain/evidence') }}/integration/{{ inputs.tranche|default('C1-contract-spine') }}/integration-result.json'; rtk proxy git rev-parse --verify HEAD"]
+
+  repair [label="Repair Reviewed Tranche", max_visits=6, timeout="10800s", prompt="Continue the already-integrated tranche {{ inputs.tranche|default('C1-contract-spine') }} in the exact workdir {{ inputs.workdir|default('.') }}. Do not cherry-pick task lanes again and do not reset or discard the existing dirty repair diff. Read root AGENTS.md, the tranche integration-result.json under the absolute evidence directory, the committed and uncommitted diff, and the complete packets/proofs for included tasks. Before every mutation verify the target is inside the exact integration workdir; the only external writes allowed are this tranche's evidence JSON files. Resolve every recorded critical/high rework finding, including content-bearing structured LLM requests with canonical schema and admission over exact serialized provider payload; server-derived public API-key scope; explicit fake-only workspace tenancy; external-artifact-only eval approval with mechanically scored answer/citation artifacts; page/revision/citation export lifecycle fencing; and organization/lifecycle/policy/schema-complete model receipts. Preserve real provider session IDs and server/client provider boundaries. Add honest negative tests first. Split repairs into coherent commits of at most 300 hand-authored source lines; never weaken a gate or generated contract. Run only focused lint/type/tests here. Update integration-result.json to ready_for_review with the exact head, repair commits, resolved findings, and any remaining blockers. If any critical/high finding remains, keep reviewVerdict rework. Do not run broad verify. If native apply_patch fails once, switch to a targeted edit and inspect git diff immediately."]
+
+  review [label="Independent Repair Review", max_visits=6, timeout="7200s", prompt="Independently review the repaired tranche {{ inputs.tranche|default('C1-contract-spine') }} in the exact integration workdir against its task packets, proofs, root AGENTS.md, integration-result.json, and complete diff. Check tenant authority, lifecycle deletion/revocation, exact LLM content/schema admission, public/internal surface separation, provider bundling, generated refs, typed errors, source-slice budgets, and whether evals consume real run artifacts rather than fixture assertions. Before every mutation verify the path is inside the integration workdir; only this tranche's absolute evidence JSON may be written outside it. Fix narrow integration defects, add negative tests first, commit coherent repairs, and run focused checks only. Never set reviewVerdict pass while any critical/high finding is known, any worktree change is uncommitted, or the evidence head differs from HEAD. Otherwise update the result to status ready_for_review, reviewVerdict pass, exact headSha, reviewed findings, and focused checks. Do not run broad verify. If native apply_patch fails once, switch to a targeted edit and inspect git diff immediately."]
+
+  review_gate [shape=parallelogram, goal_gate=true, retry_target=repair, timeout="300s", script="set -euo pipefail; cd {{ inputs.workdir|default('.') }}; RESULT='{{ inputs.evidence_dir|default('.fabro/state/maestro-brain/evidence') }}/integration/{{ inputs.tranche|default('C1-contract-spine') }}/integration-result.json'; rtk proxy jq -e '.status == \"ready_for_review\" and .reviewVerdict == \"pass\"' \"$RESULT\"; HEAD_SHA=$(rtk git rev-parse HEAD); rtk proxy jq -e --arg head \"$HEAD_SHA\" '.headSha == $head' \"$RESULT\"; STATUS=$(rtk proxy git status --porcelain); rtk proxy test -z \"$STATUS\""]
+
+  gates [shape=parallelogram, goal_gate=true, retry_target=repair, timeout="10800s", script="set -euo pipefail; cd {{ inputs.workdir|default('.') }}; rtk host-test-slot --class full pnpm verify; rtk git diff --check; STATUS=$(rtk proxy git status --porcelain); rtk proxy test -z \"$STATUS\""]
+
+  record [label="Record Repaired Integration", timeout="1800s", prompt="The deterministic full gate passed for repaired tranche {{ inputs.tranche|default('C1-contract-spine') }}. Mutate only the exact integration workdir and the named tranche/task JSON files under the absolute evidence directory. Update integration-result.json with the exact HEAD, status passed, reviewVerdict pass, gate command/result, and preserved failure/repair history. For every included task, update lane-result.json to integrated with tranche/head without changing its proof. Mark accepted only when its original acceptanceAfter condition is actually present on this head. Leave the integration worktree clean. If native apply_patch fails once, switch to a targeted write method."]
+
+  start -> preflight
+  preflight -> repair [condition="outcome=succeeded"]
+  preflight -> exit [label="blocked"]
+  repair -> review -> review_gate
+  review_gate -> gates [condition="outcome=succeeded"]
+  review_gate -> repair [label="rework"]
+  gates -> record [condition="outcome=succeeded"]
+  gates -> repair [label="red"]
+  record -> exit
+}
