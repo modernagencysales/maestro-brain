@@ -2,7 +2,11 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { hydrateWorktreeDependencies } from "../src/dependencies.js";
+import {
+  hydrateChangedIntegrationDependencies,
+  hydrateWorktreeDependencies,
+  isWorkspaceDependencyInput,
+} from "../src/dependencies.js";
 
 const temporaryDirectories: string[] = [];
 const fixture = () => {
@@ -71,5 +75,89 @@ describe("worktree dependency hydration", () => {
       ],
       { cwd: workdir },
     );
+  });
+
+  it("classifies only root workspace dependency inputs", () => {
+    for (const file of [
+      "package.json",
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml",
+      "apps/web/package.json",
+      "packages/convex/package.json",
+      "tooling/brain-factory/package.json",
+      "tooling/patches/@convex-dev__migrations@0.3.5.patch",
+    ]) {
+      expect(isWorkspaceDependencyInput(file), file).toBe(true);
+    }
+    for (const file of [
+      "packages/convex/confect/internal/migrations.ts",
+      "packages/convex/test/migrations.test.ts",
+      "repos/effect/package.json",
+      "docs/package.json",
+    ]) {
+      expect(isWorkspaceDependencyInput(file), file).toBe(false);
+    }
+  });
+
+  it("reinstalls after an integrated dependency input changes", () => {
+    const { workdir } = fixture();
+    const runner = vi
+      .fn()
+      .mockReturnValueOnce(
+        [
+          "packages/convex/confect/internal/migrations.ts",
+          "tooling/patches/@convex-dev__migrations@0.3.5.patch",
+          "packages/convex/package.json",
+          "pnpm-lock.yaml",
+          "pnpm-workspace.yaml",
+        ].join("\n"),
+      )
+      .mockReturnValue("");
+
+    expect(
+      hydrateChangedIntegrationDependencies({
+        baseSha: "a".repeat(40),
+        runner,
+        workdir,
+      }),
+    ).toEqual({
+      changedFiles: [
+        "packages/convex/package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "tooling/patches/@convex-dev__migrations@0.3.5.patch",
+      ],
+      mode: "installed",
+    });
+    expect(runner).toHaveBeenNthCalledWith(
+      1,
+      ["proxy", "git", "diff", "--name-only", `${"a".repeat(40)}..HEAD`],
+      { cwd: workdir, quiet: true },
+    );
+    expect(runner).toHaveBeenNthCalledWith(
+      2,
+      [
+        "pnpm",
+        "install",
+        "--frozen-lockfile",
+        "--prefer-offline",
+        "--ignore-scripts",
+      ],
+      { cwd: workdir },
+    );
+  });
+
+  it("skips reinstall when the integrated delta has no dependency input", () => {
+    const { workdir } = fixture();
+    const runner = vi.fn(() => "packages/convex/test/migrations.test.ts\n");
+
+    expect(
+      hydrateChangedIntegrationDependencies({
+        baseSha: "b".repeat(40),
+        runner,
+        workdir,
+      }),
+    ).toEqual({ changedFiles: [], mode: "unchanged" });
+    expect(runner).toHaveBeenCalledTimes(1);
   });
 });

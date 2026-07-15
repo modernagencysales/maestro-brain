@@ -169,6 +169,13 @@ describe("Fabro workflow prompt contracts", () => {
     expect(review).toContain("reviewed is not a valid status");
     expect(reviewGate).toContain('.status == \\"ready_for_review\\"');
     expect(wave).toContain("integration-wave-selection-check.mts");
+    expect(wave).toContain("hydrate-integration-dependencies.mts");
+    expect(wave).toContain("integrate -> dependencies");
+    expect(wave).toContain("repair -> dependencies");
+    expect(wave).toContain(
+      'dependencies -> review [condition="outcome=succeeded"]',
+    );
+    expect(wave).toContain("review -> review_gate");
     expect(wave.match(/host-test-slot --class full pnpm verify/g)).toHaveLength(
       2,
     );
