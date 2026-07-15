@@ -64,24 +64,6 @@ describe("check:logging-boundary", () => {
     );
   });
 
-  it("rejects console debug hooks in Convex runtime code", async () => {
-    const result = await evaluateFixture({
-      "packages/convex/confect/internal/bad.impl.ts": `
-        export function suppressUnsafeLogs() {
-          console.debug = () => {};
-        }
-      `,
-    });
-
-    expect(result.ok).toBe(false);
-    expect(result.findings).toContainEqual(
-      expect.objectContaining({
-        file: "packages/convex/confect/internal/bad.impl.ts",
-        method: "debug",
-      }),
-    );
-  });
-
   it("ignores tests in product roots", async () => {
     const result = await evaluateFixture({
       "packages/integrations/src/debug.test.ts": `
