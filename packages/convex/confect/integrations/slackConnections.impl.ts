@@ -752,19 +752,197 @@ const claimSlackConnectAttempt = FunctionImpl.make(
   databaseSchema,
   slackConnections,
   "claimSlackConnectAttempt",
-  () => Effect.fail(new ConnectSessionInvalid()),
+  (input) =>
+    Effect.gen(function* () {
+      if (isSecretShaped(input.connectionId)) {
+        return yield* Effect.fail(new ConnectSessionInvalid());
+      }
+      const row = (yield* providerReader(yield* DatabaseReader)
+        .table("providerConnections")
+        .index("by_connect_session", (q) =>
+          q.eq("connectSessionId", input.connectSessionId),
+        )
+        .first()
+        .pipe(
+          Effect.map(Option.getOrNull),
+          Effect.orDie,
+        )) as ProviderConnectionRow | null;
+      if (row === null) {
+        return yield* Effect.fail(new ConnectSessionInvalid());
+      }
+      if (
+        row.nangoEndUserId !== input.providerEndUserId ||
+        row.nangoOrganizationId !== input.providerOrganizationKey ||
+        row.providerConfigKey !== input.providerConfigKey ||
+        row.correlationTag !== input.correlationTag
+      ) {
+        return yield* Effect.fail(new TenantMismatch());
+      }
+      if (
+        row.status === "verifying" &&
+        row.nangoConnectionId === input.connectionId
+      ) {
+        return {
+          connectionKey: row.connectionKey,
+          status: "verifying" as const,
+        };
+      }
+      if (
+        (row.status !== "authorizing" && row.status !== "reauthorizing") ||
+        (row.nangoConnectionId !== undefined &&
+          row.nangoConnectionId !== null &&
+          row.nangoConnectionId !== input.connectionId)
+      ) {
+        return yield* Effect.fail(new ConnectSessionInvalid());
+      }
+      return { connectionKey: row.connectionKey, status: "verifying" as const };
+    }),
 );
+
 const authorizeSlackConnectCompletion = FunctionImpl.make(
   databaseSchema,
   slackConnections,
   "authorizeSlackConnectCompletion",
-  () => Effect.fail(new ConnectSessionInvalid()),
+  (input) =>
+    Effect.gen(function* () {
+      const auth = yield* Auth;
+      const rawIdentity = yield* auth.getUserIdentity.pipe(
+        Effect.mapError(() => new Unauthorized()),
+      );
+      const identity = yield* extractSlackIdentityProfile(rawIdentity);
+      const subject = identity.subject;
+      const row = (yield* providerReader(yield* DatabaseReader)
+        .table("providerConnections")
+        .index("by_connect_session", (q) =>
+          q.eq("connectSessionId", input.connectSessionId),
+        )
+        .first()
+        .pipe(
+          Effect.map(Option.getOrNull),
+          Effect.orDie,
+        )) as ProviderConnectionRow | null;
+      if (row === null) {
+        return yield* Effect.fail(new ConnectSessionInvalid());
+      }
+      const user = yield* (yield* DatabaseReader)
+        .table("users")
+        .index("by_subject", (q) => q.eq("subject", subject.trim()))
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      if (user === null) {
+        return yield* Effect.fail(
+          new Forbidden({ reason: "Provisioned user required." }),
+        );
+      }
+      const memberships = yield* (yield* DatabaseReader)
+        .table("organizationMembers")
+        .index("by_user", (q) => q.eq("userId", user._id))
+        .take(10)
+        .pipe(Effect.orDie);
+      const organizations = new Map<string, SlackOrganizationRecord>();
+      for (const membership of memberships) {
+        const organization = yield* (yield* DatabaseReader)
+          .table("organizations")
+          .get(asGenericId<"organizations">(membership.organizationId))
+          .pipe(Effect.orDie);
+        if (organization !== null) {
+          organizations.set(membership.organizationId, organization);
+        }
+      }
+      const current = yield* selectCurrentSlackOrganization({
+        memberships,
+        organizationsById: organizations,
+        ...(typeof identity.workosOrganizationId === "string"
+          ? { currentWorkosOrganizationId: identity.workosOrganizationId }
+          : {}),
+      });
+      const authorization = authorizeSlackConnectCompletionPlan({
+        row,
+        connectionId: input.connectionId,
+        currentOrganizationKey: current.agencyKey ?? null,
+        now: input.now,
+      });
+      if (Either.isLeft(authorization)) {
+        return yield* Effect.fail(authorization.left);
+      }
+      return authorization.right;
+    }),
 );
+
 const finalizeSlackConnectAttempt = FunctionImpl.make(
   databaseSchema,
   slackConnections,
   "finalizeSlackConnectAttempt",
-  () => Effect.fail(new ConnectSessionInvalid()),
+  (input) =>
+    Effect.gen(function* () {
+      const auth = yield* Auth;
+      const rawIdentity = yield* auth.getUserIdentity.pipe(
+        Effect.mapError(() => new Unauthorized()),
+      );
+      const identity = yield* extractSlackIdentityProfile(rawIdentity);
+      const subject = identity.subject;
+      const row = (yield* providerReader(yield* DatabaseReader)
+        .table("providerConnections")
+        .index("by_connect_session", (q) =>
+          q.eq("connectSessionId", input.connectSessionId),
+        )
+        .first()
+        .pipe(
+          Effect.map(Option.getOrNull),
+          Effect.orDie,
+        )) as ProviderConnectionRow | null;
+      if (row === null) return yield* Effect.fail(new ConnectSessionInvalid());
+      const user = yield* (yield* DatabaseReader)
+        .table("users")
+        .index("by_subject", (q) => q.eq("subject", subject.trim()))
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      if (user === null) {
+        return yield* Effect.fail(
+          new Forbidden({ reason: "Provisioned user required." }),
+        );
+      }
+      const memberships = yield* (yield* DatabaseReader)
+        .table("organizationMembers")
+        .index("by_user", (q) => q.eq("userId", user._id))
+        .take(10)
+        .pipe(Effect.orDie);
+      const organizations = new Map<string, SlackOrganizationRecord>();
+      for (const membership of memberships) {
+        const organization = yield* (yield* DatabaseReader)
+          .table("organizations")
+          .get(asGenericId<"organizations">(membership.organizationId))
+          .pipe(Effect.orDie);
+        if (organization !== null) {
+          organizations.set(membership.organizationId, organization);
+        }
+      }
+      const current = yield* selectCurrentSlackOrganization({
+        memberships,
+        organizationsById: organizations,
+        ...(typeof identity.workosOrganizationId === "string"
+          ? { currentWorkosOrganizationId: identity.workosOrganizationId }
+          : {}),
+      });
+      if (current.agencyKey !== row.organizationKey) {
+        return yield* Effect.fail(new TenantMismatch());
+      }
+      const result = finalizeSlackConnectAttemptPlan({
+        row,
+        connectionId: input.connectionId,
+        expectedConnectionGeneration: input.expectedConnectionGeneration,
+        now: input.now,
+      });
+      if (Either.isLeft(result)) return yield* Effect.fail(result.left);
+      yield* providerWriter(yield* DatabaseWriter)
+        .table("providerConnections")
+        .patch(result.right.rowId, result.right.patch)
+        .pipe(Effect.orDie);
+      return {
+        connectionKey: result.right.connectionKey,
+        status: result.right.status,
+      };
+    }),
 );
 
 export default GroupImpl.make(databaseSchema, slackConnections).pipe(
