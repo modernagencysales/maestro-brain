@@ -7,7 +7,12 @@ import * as Option from "effect/Option";
 
 import databaseSchema from "../_generated/schema";
 import { Auth, DatabaseReader, DatabaseWriter } from "../_generated/services";
-import { ProvisioningConflict, Unauthorized } from "../errors";
+import {
+  Forbidden,
+  ProvisioningConflict,
+  Unauthorized,
+  ValidationFailed,
+} from "../errors";
 import { asGenericId } from "./handlerContext";
 import provisioning from "./provisioning.spec";
 import {
@@ -24,6 +29,7 @@ import {
   isStableAgencyKey,
   isStableBrainKey,
 } from "../identity/stableKeys";
+import { roleAtLeast } from "./roles";
 
 const conflict = (resource: string, message: string) =>
   new ProvisioningConflict({ resource, message });
@@ -412,7 +418,148 @@ const ensureProvisioned = FunctionImpl.make(
           .pipe(Effect.orDie);
       }
 
-      return { workspaceId };
+      const persistedWorkspace = yield* reader
+        .table("workspaces")
+        .get(workspaceId)
+        .pipe(Effect.orDie);
+      if (persistedWorkspace?.brainKey === undefined) {
+        return yield* Effect.fail(
+          conflict(
+            "workspaces.brainKey",
+            "Provisioned Brain key was not persisted.",
+          ),
+        );
+      }
+
+      return { brainKey: persistedWorkspace.brainKey };
+    }),
+);
+
+const createClientBrain = FunctionImpl.make(
+  databaseSchema,
+  provisioning,
+  "createClientBrain",
+  ({ name, clientSlug }) =>
+    Effect.gen(function* () {
+      const normalizedName = name.trim();
+      const normalizedSlug = clientSlug.trim().toLowerCase();
+      if (normalizedName.length === 0) {
+        return yield* new ValidationFailed({
+          field: "name",
+          message: "Client Brain name is required.",
+        });
+      }
+      if (!/^[a-z0-9][a-z0-9-]{1,62}$/.test(normalizedSlug)) {
+        return yield* new ValidationFailed({
+          field: "clientSlug",
+          message:
+            "Client slug must be lower-case letters, numbers, or dashes.",
+        });
+      }
+
+      const auth = yield* Auth;
+      const identity = yield* extractIdentityProfile(
+        yield* auth.getUserIdentity.pipe(
+          Effect.mapError(() => new Unauthorized()),
+        ),
+      );
+      const reader = yield* DatabaseReader;
+      const writer = yield* DatabaseWriter;
+      const now = yield* Clock.currentTimeMillis;
+      const user = yield* reader
+        .table("users")
+        .index("by_subject", (q) => q.eq("subject", identity.subject))
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      if (user === null || user.status !== "active") {
+        return yield* new Unauthorized();
+      }
+
+      const orgMemberships = yield* reader
+        .table("organizationMembers")
+        .index("by_user", (q) => q.eq("userId", user._id))
+        .collect()
+        .pipe(Effect.orDie);
+      const activeAdminMemberships = orgMemberships.filter(
+        (member) =>
+          member.status === "active" &&
+          member.acceptedAt !== null &&
+          member.revokedAt === null &&
+          roleAtLeast(member.role, "admin"),
+      );
+      if (activeAdminMemberships.length !== 1) {
+        return yield* new Forbidden({
+          reason: "Admin organization role required.",
+        });
+      }
+      const activeAdminMembership = activeAdminMemberships[0];
+      if (activeAdminMembership === undefined) {
+        return yield* new Forbidden({
+          reason: "Admin organization role required.",
+        });
+      }
+      const organizationId = asGenericId<"organizations">(
+        activeAdminMembership.organizationId,
+      );
+      const organization = yield* reader
+        .table("organizations")
+        .get(asGenericId<"organizations">(organizationId))
+        .pipe(Effect.orDie);
+      if (organization === null || organization.status !== "active") {
+        return yield* new ProvisioningConflict({
+          resource: "organizations",
+          message:
+            "Active organization is required for client Brain provisioning.",
+        });
+      }
+
+      const existing = yield* reader
+        .table("workspaces")
+        .index("by_organization", (q) => q.eq("organizationId", organizationId))
+        .collect()
+        .pipe(Effect.orDie);
+      if (
+        existing.some(
+          (row) => row.clientSlug === normalizedSlug && row.status === "active",
+        )
+      ) {
+        return yield* new ProvisioningConflict({
+          resource: "workspaces.clientSlug",
+          message: "Client Brain slug already exists.",
+        });
+      }
+      const workspaceId = yield* writer
+        .table("workspaces")
+        .insert({
+          organizationId,
+          ownerUserId: user._id,
+          slug: normalizedSlug,
+          name: normalizedName,
+          kind: "client",
+          clientSlug: normalizedSlug,
+          status: "active",
+          dataClassification: "confidential",
+          createdAt: now,
+          updatedAt: now,
+          lifecycleGeneration: 0,
+          revocationGeneration: 0,
+        })
+        .pipe(Effect.orDie);
+      const inserted = yield* reader
+        .table("workspaces")
+        .get(workspaceId)
+        .pipe(Effect.orDie);
+      const brainKey = deriveStableBrainKey({
+        _id: workspaceId,
+        createdAt: now,
+        _creationTime: inserted?._creationTime,
+      });
+      yield* assertUniqueBrainKey({ workspaceId, organizationId, brainKey });
+      yield* writer
+        .table("workspaces")
+        .patch(workspaceId, { brainKey })
+        .pipe(Effect.orDie);
+      return { brainKey };
     }),
 );
 
@@ -436,5 +583,6 @@ const toProvisioningUser = (user: {
 
 export default GroupImpl.make(databaseSchema, provisioning).pipe(
   Layer.provide(ensureProvisioned),
+  Layer.provide(createClientBrain),
   GroupImpl.finalize,
 );
