@@ -1,8 +1,4 @@
-import {
-  buildAuthKitRuntimeConfig,
-  type ClientAuthSnapshot,
-} from "../auth/authkit-server";
-import type { ServerEnvSource } from "../server-env";
+import type { ClientAuthSnapshot } from "../auth/authkit-server";
 import type { WorkspaceOperations, WorkspaceSummary } from "./workspace";
 
 const demoWorkspace: WorkspaceSummary = {
@@ -34,13 +30,15 @@ export const createFailClosedWorkspaceOperations = (): WorkspaceOperations => ({
   },
 });
 
-export const createRuntimeWorkspaceOperations = (input: {
+export type SafeWorkspaceRuntime = {
+  readonly mode: "fake" | "live" | "test";
   readonly authSnapshot: ClientAuthSnapshot;
-  readonly env: ServerEnvSource;
-}): WorkspaceOperations => {
-  const config = buildAuthKitRuntimeConfig(input.env);
+};
 
-  if (config.mode === "fake") return createFakeWorkspaceOperations();
+export const createRuntimeWorkspaceOperations = (
+  runtime: SafeWorkspaceRuntime,
+): WorkspaceOperations => {
+  if (runtime.mode === "fake") return createFakeWorkspaceOperations();
 
   return createFailClosedWorkspaceOperations();
 };

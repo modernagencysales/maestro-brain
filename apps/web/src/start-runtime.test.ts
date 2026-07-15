@@ -75,7 +75,8 @@ describe("TanStack Start runtime contract", () => {
     const index = read("src/routes/index.tsx");
 
     expect(root).toContain("loader:");
-    expect(root).toContain("getRuntimeClientAuthSnapshot");
+    expect(root).toContain("getSafeClientRuntime");
+    expect(root).not.toContain("const serverEnv = getServerEnv()");
     expect(root).not.toContain("beforeLoad:");
     expect(index).not.toContain("loader:");
     expect(index).not.toContain("beforeLoad:");

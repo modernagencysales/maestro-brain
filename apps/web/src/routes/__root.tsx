@@ -13,8 +13,9 @@ import { TemplateToastProvider } from "@maestro-template/ui";
 
 import { createAuthKitProviderWithConvexProviderWithAuth } from "../auth/authkit-client";
 import {
-  getRuntimeClientAuthSnapshot,
+  getSafeClientRuntime,
   type ClientAuthSnapshot,
+  type SafeClientRuntime,
 } from "../auth/authkit-server";
 import { workosAuthKitClientBridge } from "../auth/workos-client-runtime";
 import { getWorkosServerAuth } from "../auth/workos-server-adapter";
@@ -49,21 +50,17 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         { rel: "stylesheet", href: appCssUrl },
       ],
     }),
-  loader: async (): Promise<{
-    readonly authSnapshot: ClientAuthSnapshot;
-  }> => ({
-    authSnapshot: await getRuntimeClientAuthSnapshot({
+  loader: async (): Promise<SafeClientRuntime> =>
+    getSafeClientRuntime({
       env: getServerEnv(),
       getAuth: getWorkosServerAuth,
     }),
-  }),
   component: RootComponent,
 });
 
 function RootComponent() {
   const { convexClient } = Route.useRouteContext();
-  const { authSnapshot } = Route.useLoaderData();
-  const serverEnv = getServerEnv();
+  const { authSnapshot, workspaceRuntimeMode } = Route.useLoaderData();
   const location = useRouterState({ select: (state) => state.location });
 
   return (
@@ -74,7 +71,7 @@ function RootComponent() {
       <WorkspaceProvider
         operations={createRuntimeWorkspaceOperations({
           authSnapshot,
-          env: serverEnv,
+          mode: workspaceRuntimeMode,
         })}
         storage={createBrowserWorkspaceStorage()}
       >
