@@ -7,6 +7,11 @@ import {
   type GateCommand,
   lintCommandForFiles,
 } from "./gates.js";
+import {
+  canReusePreReviewGate,
+  deduplicateGateCommands,
+  gateCommandSetHash,
+} from "./lane-gate-cache.js";
 import { buildManifest } from "./manifest.js";
 import { isCompatibleProofHead } from "./proof.js";
 import {
@@ -31,12 +36,17 @@ const valueAfter = (flag: string): string | undefined => {
 const taskId = valueAfter("--task");
 const evidence = valueAfter("--evidence");
 const stage = valueAfter("--stage") ?? "pre-review";
+const reusePreReview = process.argv.includes("--reuse-pre-review");
 if (!taskId || !evidence) {
   console.error(
-    "usage: lane-gates --task <id> --evidence <absolute-dir> [--stage pre-review|final]",
+    "usage: lane-gates --task <id> --evidence <absolute-dir> [--stage pre-review|final] [--reuse-pre-review]",
   );
   process.exit(2);
 }
+if (!new Set(["pre-review", "final"]).has(stage))
+  throw new Error("--stage must be pre-review or final");
+if (reusePreReview && stage !== "final")
+  throw new Error("--reuse-pre-review requires --stage final");
 
 const run = (command: GateCommand): void => {
   console.log(`+ rtk ${command.program} ${command.args.join(" ")}`);
@@ -56,6 +66,7 @@ const task = manifest.tasks.find((candidate) => candidate.taskId === taskId);
 if (!task) throw new Error(`unknown task ${taskId}`);
 const laneDirectory = resolve(evidence, "lane-results", taskId);
 const proofPath = resolve(laneDirectory, "ci-proof-packet.json");
+const reportPath = resolve(laneDirectory, "lane-gate-report.json");
 if (!existsSync(proofPath)) throw new Error(`${taskId}: missing ${proofPath}`);
 const proof = JSON.parse(readFileSync(proofPath, "utf8")) as ProofPacket;
 if (proof.taskId !== taskId) throw new Error(`${taskId}: proof task mismatch`);
@@ -74,6 +85,24 @@ const focusedCommands = proof.focusedCommands.map((command) => {
     );
   }
 });
+const existingChangedFiles = proof.changedFiles.filter((file) =>
+  existsSync(resolve(file)),
+);
+const lintCommand = lintCommandForFiles(existingChangedFiles);
+const gateCommands = deduplicateGateCommands([
+  ...(existingChangedFiles.length > 0
+    ? [
+        {
+          program: "pnpm",
+          args: ["exec", "prettier", "--check", ...existingChangedFiles],
+        } satisfies GateCommand,
+      ]
+    : []),
+  ...(lintCommand ? [lintCommand] : []),
+  ...focusedCommands,
+  ...commandsForProfiles(task.gateProfiles),
+]);
+const commandSetHash = gateCommandSetHash(gateCommands);
 
 const requiredTaskFiles: Readonly<Record<string, readonly string[]>> = {
   "S09-T01": [
@@ -91,6 +120,13 @@ const head = spawnSync("rtk", ["git", "rev-parse", "HEAD"], {
   cwd: process.cwd(),
   encoding: "utf8",
 }).stdout.trim();
+const treeResult = spawnSync("rtk", ["git", "rev-parse", "HEAD^{tree}"], {
+  cwd: process.cwd(),
+  encoding: "utf8",
+});
+if (treeResult.status !== 0)
+  throw new Error(`${taskId}: could not resolve current tree`);
+const currentTreeSha = treeResult.stdout.trim();
 const ancestor = spawnSync(
   "rtk",
   ["git", "merge-base", "--is-ancestor", proof.headSha, head],
@@ -156,18 +192,27 @@ run({
   program: "git",
   args: ["diff", "--check", `${proof.baseSha}..${proof.headSha}`],
 });
-const existingChangedFiles = proof.changedFiles.filter((file) =>
-  existsSync(resolve(file)),
-);
-if (existingChangedFiles.length > 0)
-  run({
-    program: "pnpm",
-    args: ["exec", "prettier", "--check", ...existingChangedFiles],
+let preReviewReport: unknown;
+if (reusePreReview && existsSync(reportPath)) {
+  try {
+    preReviewReport = JSON.parse(readFileSync(reportPath, "utf8"));
+  } catch {
+    preReviewReport = undefined;
+  }
+}
+const reusedPreReview =
+  reusePreReview &&
+  canReusePreReviewGate(preReviewReport, {
+    commandSetHash,
+    currentHeadSha: head,
+    currentTreeSha,
+    reviewVerdict: proof.reviewVerdict,
   });
-const lintCommand = lintCommandForFiles(existingChangedFiles);
-if (lintCommand) run(lintCommand);
-for (const command of focusedCommands) run(command);
-for (const command of commandsForProfiles(task.gateProfiles)) run(command);
+if (reusedPreReview) {
+  console.log(`${taskId}: reusing exact-head pre-review command results`);
+} else {
+  for (const command of gateCommands) run(command);
+}
 const status = spawnSync("rtk", ["proxy", "git", "status", "--porcelain"], {
   cwd: process.cwd(),
   encoding: "utf8",
@@ -175,13 +220,18 @@ const status = spawnSync("rtk", ["proxy", "git", "status", "--porcelain"], {
 if (status.status !== 0 || status.stdout.trim() !== "")
   throw new Error(`${taskId}: lane worktree is not clean after gates`);
 
-const reportPath = resolve(laneDirectory, "lane-gate-report.json");
 mkdirSync(dirname(reportPath), { recursive: true });
 writeFileSync(
   reportPath,
   `${JSON.stringify(
     {
       schemaVersion: "maestro-brain-lane-gate/v1",
+      commandSetHash,
+      commands: gateCommands.map(
+        (command) => `rtk ${command.program} ${command.args.join(" ")}`,
+      ),
+      currentHeadSha: head,
+      currentTreeSha,
       gateProfiles: task.gateProfiles,
       headSha: proof.headSha,
       changedSourceLines,
@@ -192,6 +242,7 @@ writeFileSync(
       stage,
       status: "passed",
       taskId,
+      reusedPreReview,
     },
     null,
     2,
