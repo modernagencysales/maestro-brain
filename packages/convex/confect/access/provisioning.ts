@@ -37,7 +37,7 @@ export type IdentityProfile = {
 type UserStatus = "active" | "suspended" | "deleted";
 type OrganizationStatus = "active" | "suspended" | "archived";
 type MembershipStatus = "pending" | "active" | "revoked";
-type WorkspaceStatus = "active" | "archived";
+type WorkspaceStatus = "provisioning" | "active" | "archived";
 type DataClassification = "public" | "internal" | "confidential";
 
 export type UserProvisioningRow = {
@@ -410,6 +410,7 @@ const planWorkspace = (input: {
   const value: {
     brainKey?: string;
     kind?: BrainKind;
+    status?: WorkspaceStatus;
     lifecycleGeneration?: number;
     revocationGeneration?: number;
   } = {};
@@ -417,6 +418,7 @@ const planWorkspace = (input: {
     value.brainKey = deriveStableBrainKey(stableBrainKeySeed(input.existing));
   }
   if (input.existing.kind === undefined) value.kind = "agency";
+  if (input.existing.status === "provisioning") value.status = "active";
   if (input.existing.lifecycleGeneration === undefined) {
     value.lifecycleGeneration = 0;
   }
