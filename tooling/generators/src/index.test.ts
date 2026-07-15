@@ -866,6 +866,7 @@ describe("template app factory generators", () => {
       name: "sourceGroundedPlan",
       pascalName: "SourceGroundedPlan",
     });
+    expect(generated.exposure).toBeUndefined();
     expect(generated.files.map((file) => file.path)).toEqual([
       "packages/convex/confect/workflowContracts/sourceGroundedPlan.spec.ts",
       "packages/convex/confect/workflowContracts/sourceGroundedPlan.impl.ts",
@@ -941,6 +942,7 @@ describe("template app factory generators", () => {
     expect(docs).toContain(
       "packages/convex/convex/workflowRunners/sourceGroundedPlan.ts",
     );
+    expect(docs).not.toContain("Exposure: `public`");
     expect(docs).toContain(
       "plain Convex `defineWorkflow` durable replay handler",
     );
@@ -949,6 +951,188 @@ describe("template app factory generators", () => {
     expect(docs).toContain("pnpm --dir packages/convex exec convex codegen");
     expect(docs).toContain("workflowContracts.sourceGroundedPlan.approve");
     expect(docs).toContain("concrete `buildArgs` mappers");
+  });
+
+  it("keeps default public workflow output byte-identical to the preserved baseline", () => {
+    const generated = buildWorkflowFiles({
+      name: "source grounded plan",
+      description: "Builds a sourced plan with approval and receipt.",
+    });
+    const baselinePath = join(
+      repoRoot,
+      "tooling/generators/__fixtures__/workflow/public.expected.json",
+    );
+    const baseline = JSON.parse(readFileSync(baselinePath, "utf8"));
+
+    expect(generated).toEqual(baseline);
+    for (const [index, file] of generated.files.entries()) {
+      expect(file.path).toBe(baseline.files[index]?.path);
+      expect(file.content).toBe(baseline.files[index]?.content);
+    }
+  });
+
+  it("builds internal workflow generator files without client-callable surfaces", () => {
+    const generated = buildWorkflowFiles({
+      name: "source classification",
+      description: "Classifies source units behind internal fences.",
+      exposure: "internal",
+    });
+
+    expect(generated).toMatchObject({
+      name: "sourceClassification",
+      pascalName: "SourceClassification",
+      exposure: "internal",
+    });
+
+    const spec = generated.files[0]?.content ?? "";
+    const impl = generated.files[1]?.content ?? "";
+    const runner = generated.files[3]?.content ?? "";
+    const docs = generated.files[5]?.content ?? "";
+
+    expect(spec).toContain("FunctionSpec.internalMutation");
+    expect(spec).toContain("FunctionSpec.internalQuery");
+    expect(spec).toContain("surfaces: []");
+    expect(spec).not.toContain("FunctionSpec.publicMutation");
+    expect(spec).not.toContain("FunctionSpec.publicQuery");
+    expect(spec).not.toContain('surfaces: ["web", "api", "cli", "mcp"]');
+    expect(impl).not.toContain("requireWorkspaceAccess");
+    expect(impl).not.toContain("../capabilities/_kit/workspaceAccess");
+    expect(impl).toContain("SystemPrincipal");
+    expect(impl).toContain('surface: "workflow" as const');
+    expect(impl).toContain('name: "sourceClassification"');
+    expect(impl).toContain(
+      'startedByUserId: "system:" + principal.surface + ":" + principal.name',
+    );
+    expect(generated.files.map((file) => file.path)).not.toContain(
+      "packages/convex/confect/workflowContracts/sourceClassification.headless.json",
+    );
+    expect(runner).toContain("runDurableGraphWorkflow");
+    expect(runner).toContain(
+      "capabilityRegistry: {} satisfies InternalWorkflowCapabilityRegistry",
+    );
+    expect(runner).toContain("DurableGraphCapabilityEntry");
+    expect(runner).not.toContain("Record<string, FunctionReference");
+    expect(docs).toContain("Exposure: `internal`");
+    expect(docs).toContain("Headless exposure: none");
+    expect(docs).toContain(
+      "Authorization is inherited from the reviewed internal capability or job fence",
+    );
+  });
+
+  it("proves internal workflow capability composition only accepts internal refs", () => {
+    const runner =
+      buildWorkflowFiles({
+        name: "source classification",
+        exposure: "internal",
+      }).files[3]?.content ?? "";
+
+    expect(runner).toContain(
+      'import type { DurableGraphCapabilityEntry } from "../../confect/workflows/_kit/graphRunner"',
+    );
+    expect(runner).toContain(
+      "type InternalWorkflowCapabilityRegistry = Readonly<",
+    );
+    expect(runner).toContain("Record<string, DurableGraphCapabilityEntry>");
+    expect(runner).toContain(
+      "capabilityRegistry: {} satisfies InternalWorkflowCapabilityRegistry",
+    );
+  });
+
+  it("rejects unknown workflow exposure through the CLI", () => {
+    const result = runGeneratorCli([
+      "add-workflow",
+      "--name",
+      "source classification",
+      "--exposure",
+      "partner",
+    ]);
+
+    expect(result).toEqual({
+      exitCode: 1,
+      stdout: "",
+      stderr: "Unknown workflow exposure: partner\n",
+    });
+  });
+
+  it("rejects missing workflow exposure values through the CLI", () => {
+    const result = runGeneratorCli([
+      "add-workflow",
+      "--name",
+      "source classification",
+      "--exposure",
+    ]);
+
+    expect(result).toEqual({
+      exitCode: 1,
+      stdout: "",
+      stderr: "Unknown workflow exposure: missing value\n",
+    });
+  });
+
+  it("rejects workflow exposure flags without a value before another flag", () => {
+    const result = runGeneratorCli([
+      "add-workflow",
+      "--name",
+      "source classification",
+      "--exposure",
+      "--write",
+    ]);
+
+    expect(result).toEqual({
+      exitCode: 1,
+      stdout: "",
+      stderr: "Unknown workflow exposure: missing value\n",
+    });
+  });
+
+  it("ships workflow exposure fixtures for public, internal, and invalid modes", () => {
+    const fixtureRoot = join(
+      repoRoot,
+      "tooling/generators/__fixtures__/workflow",
+    );
+    const publicFixture = JSON.parse(
+      readFileSync(join(fixtureRoot, "public.expected.json"), "utf8"),
+    );
+    const internalFixture = JSON.parse(
+      readFileSync(join(fixtureRoot, "internal.expected.json"), "utf8"),
+    );
+    const invalidFixture = JSON.parse(
+      readFileSync(join(fixtureRoot, "invalid-exposure.json"), "utf8"),
+    );
+
+    expect(publicFixture).toMatchObject({
+      name: "sourceGroundedPlan",
+      pascalName: "SourceGroundedPlan",
+    });
+    expect(publicFixture.exposure).toBeUndefined();
+    const publicSpec = publicFixture.files[0]?.content ?? "";
+    expect(publicSpec).toContain("FunctionSpec.publicMutation");
+    expect(publicSpec).toContain("FunctionSpec.publicQuery");
+    expect(publicSpec).toContain('surfaces: ["web", "api", "cli", "mcp"]');
+    expect(
+      publicFixture.files.some((file: { path: string }) =>
+        file.path.endsWith(".headless.json"),
+      ),
+    ).toBe(false);
+    expect(internalFixture).toMatchObject({
+      exposure: "internal",
+      specVisibility: "internal",
+      manifestSurfaces: [],
+      emittedHeadlessDescriptor: false,
+      authority: "internal capability or job fence",
+      ambientHumanAuth: false,
+    });
+    expect(invalidFixture).toEqual({
+      args: [
+        "add-workflow",
+        "--name",
+        "source classification",
+        "--exposure",
+        "partner",
+      ],
+      exitCode: 1,
+      stderr: "Unknown workflow exposure: partner\n",
+    });
   });
 
   it("writes generated workflow files through the CLI", () => {
@@ -1131,6 +1315,9 @@ describe("template app factory generators", () => {
       "tsx tooling/generators/src/index.ts add-agent-seat",
     );
     expect(existsSync(smokeScriptPath)).toBe(true);
+    expect(readFileSync(smokeScriptPath, "utf8")).toContain(
+      "CONVEX_DEPLOYMENT",
+    );
     expect(smokeWorkflowName).toBe("generatedWorkflowSmoke");
   });
 
