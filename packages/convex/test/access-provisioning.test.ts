@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import refs from "../confect/_generated/refs";
 import databaseSchema from "../confect/_generated/schema";
 import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
+import { asGenericId } from "../confect/access/handlerContext";
 import {
   buildProvisioningPlan,
   extractIdentityProfile,
@@ -391,7 +392,7 @@ describe("access provisioning", () => {
           const organization = workspace
             ? yield* reader
                 .table("organizations")
-                .get(workspace.organizationId)
+                .get(asGenericId<"organizations">(workspace.organizationId))
                 .pipe(Effect.orDie)
             : null;
           return { organization, workspace };
@@ -412,7 +413,7 @@ describe("access provisioning", () => {
           const organization = workspace
             ? yield* reader
                 .table("organizations")
-                .get(workspace.organizationId)
+                .get(asGenericId<"organizations">(workspace.organizationId))
                 .pipe(Effect.orDie)
             : null;
           return { organization, workspace };
@@ -680,7 +681,7 @@ describe("access provisioning", () => {
               })
               .pipe(Effect.orDie);
           }),
-          Schema.Void,
+          Schema.Any,
         );
         return yield* confect
           .withIdentity({
@@ -701,7 +702,7 @@ describe("access provisioning", () => {
     for (const [kind, resource] of cases) {
       const error = await runCase(kind);
       expect(error).toBeInstanceOf(ProvisioningConflict);
-      expect(error.resource).toBe(resource);
+      expect(error).toMatchObject({ resource });
     }
   });
 

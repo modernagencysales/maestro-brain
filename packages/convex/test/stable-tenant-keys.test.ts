@@ -235,14 +235,14 @@ describe("stable tenant keys", () => {
     const secondBrainKey = sameOwner.workspaces[1]?.brainKey;
     expect(firstAgencyKey).not.toBe(secondAgencyKey);
     expect(firstBrainKey).not.toBe(secondBrainKey);
-    expect(firstAgencyKey !== undefined && secondAgencyKey !== undefined).toBe(
-      true,
-    );
-    expect(firstBrainKey !== undefined && secondBrainKey !== undefined).toBe(
-      true,
-    );
-    expect(firstAgencyKey! < secondAgencyKey!).toBe(true);
-    expect(firstBrainKey! < secondBrainKey!).toBe(true);
+    if (firstAgencyKey === undefined || secondAgencyKey === undefined) {
+      throw new Error("Expected both agency keys to be derived");
+    }
+    if (firstBrainKey === undefined || secondBrainKey === undefined) {
+      throw new Error("Expected both Brain keys to be derived");
+    }
+    expect(firstAgencyKey < secondAgencyKey).toBe(true);
+    expect(firstBrainKey < secondBrainKey).toBe(true);
   });
 
   it("keeps realistic epoch microsecond prefixes lexically ordered", () => {

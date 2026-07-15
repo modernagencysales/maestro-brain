@@ -14,6 +14,10 @@ import {
   releaseParentKey,
 } from "../confect/internal/migrations";
 import {
+  deriveStableAgencyKey,
+  deriveStableBrainKey,
+} from "../confect/identity/stableKeys";
+import {
   MigrationBatchReceipt,
   MigrationParentReceipt,
 } from "../confect/internal/migrations.spec";
@@ -124,6 +128,29 @@ const failureCheckpoints = (rows: Awaited<ReturnType<typeof listRows>>) =>
 
 const parseChild = (row: ReturnType<typeof childReceipts>[number]) =>
   MigrationBatchReceipt.make(JSON.parse(row.payloadJson));
+const stableTenantExecuteChildren = (
+  rows: Awaited<ReturnType<typeof listRows>>,
+) =>
+  childReceipts(rows)
+    .map(parseChild)
+    .filter(
+      (
+        receipt,
+      ): receipt is MigrationBatchReceipt & {
+        readonly changed: number;
+        readonly skipped: number;
+      } =>
+        receipt.mode === "execute" &&
+        receipt.migrationName.startsWith("stableTenant.") &&
+        receipt.countProvenance === "component" &&
+        typeof receipt.changed === "number" &&
+        typeof receipt.skipped === "number",
+    )
+    .sort(
+      (left, right) =>
+        left.migrationName.localeCompare(right.migrationName) ||
+        left.batchSequence - right.batchSequence,
+    );
 const parseParent = (row: ReturnType<typeof releaseParents>[number]) =>
   MigrationParentReceipt.make(JSON.parse(row.payloadJson));
 const errorTags = (
@@ -141,6 +168,71 @@ const errorTags = (
     ),
   ];
 };
+
+const stableOrgArgs = {
+  ...args,
+  migrationName: "stableTenant.organizationKeys.expand",
+  releaseCommit: "release-stable-org",
+  schemaAfter: "sha256:stable-org-after",
+  batchSize: 1,
+};
+const stableWorkspaceArgs = {
+  ...args,
+  migrationName: "stableTenant.workspaceKeys.expand",
+  releaseCommit: "release-stable-workspace",
+  schemaAfter: "sha256:stable-workspace-after",
+  batchSize: 1,
+};
+
+const seedStableTenantTargets = async (t: TestHarness) => {
+  await t.run(async (ctx) => {
+    const userId = await ctx.db.insert("users", {
+      subject: "workos|stable-migration",
+      email: "stable-migration@example.com",
+      displayName: "Stable Migration",
+      status: "active",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    const organizationOne = await ctx.db.insert("organizations", {
+      ownerUserId: userId,
+      slug: "stable-one",
+      name: "Stable One",
+      status: "active",
+      createdAt: 10,
+      updatedAt: 10,
+    });
+    const organizationTwo = await ctx.db.insert("organizations", {
+      ownerUserId: userId,
+      slug: "stable-two",
+      name: "Stable Two",
+      status: "active",
+      createdAt: 20,
+      updatedAt: 20,
+    });
+    await ctx.db.insert("workspaces", {
+      organizationId: organizationOne,
+      ownerUserId: userId,
+      slug: "stable-workspace-one",
+      name: "Stable Workspace One",
+      status: "active",
+      dataClassification: "internal",
+      createdAt: 30,
+      updatedAt: 30,
+    });
+    await ctx.db.insert("workspaces", {
+      organizationId: organizationTwo,
+      ownerUserId: userId,
+      slug: "stable-workspace-two",
+      name: "Stable Workspace Two",
+      status: "active",
+      dataClassification: "internal",
+      createdAt: 40,
+      updatedAt: 40,
+    });
+  });
+};
+
 const expectRejectTag = async (promise: Promise<unknown>, tag: string) => {
   const error = await promise.then(
     () => undefined,
@@ -807,6 +899,296 @@ describe("Maestro Brain migration harness", () => {
     expect(logs.join("\n")).not.toContain("DRY RUN: Example change");
   });
 
+  it("fails closed on invalid or duplicate persisted stable tenant migration rows", async () => {
+    const cases = [
+      ["duplicateWorkos", stableOrgArgs],
+      ["invalidAgency", stableOrgArgs],
+      ["duplicateAgency", stableOrgArgs],
+      ["invalidBrain", stableWorkspaceArgs],
+      ["duplicateBrain", stableWorkspaceArgs],
+    ] as const;
+
+    for (const [kind, runArgs] of cases) {
+      const t = makeTest();
+      await t.run(async (ctx) => {
+        const owner = await ctx.db.insert("users", {
+          subject: `workos|${kind}`,
+          email: `${kind}@example.com`,
+          displayName: kind,
+          status: "active",
+          createdAt: 1,
+          updatedAt: 1,
+        });
+        const other = await ctx.db.insert("users", {
+          subject: `workos|${kind}-other`,
+          email: `${kind}-other@example.com`,
+          displayName: `${kind} other`,
+          status: "active",
+          createdAt: 2,
+          updatedAt: 2,
+        });
+        const organizationId = await ctx.db.insert("organizations", {
+          ownerUserId: owner,
+          workosOrganizationId: `org_workos_${kind}`,
+          agencyKey:
+            kind === "invalidAgency"
+              ? "ag_not-valid"
+              : "ag_01J0000000000000000000000A",
+          slug: kind,
+          name: kind,
+          status: "active",
+          createdAt: 10,
+          updatedAt: 10,
+        });
+        if (kind === "duplicateWorkos" || kind === "duplicateAgency") {
+          await ctx.db.insert("organizations", {
+            ownerUserId: other,
+            ...(kind === "duplicateWorkos"
+              ? { workosOrganizationId: `org_workos_${kind}` }
+              : {}),
+            ...(kind === "duplicateAgency"
+              ? { agencyKey: "ag_01J0000000000000000000000A" }
+              : {}),
+            slug: `${kind}-other`,
+            name: `${kind} other`,
+            status: "active",
+            createdAt: 11,
+            updatedAt: 11,
+          });
+        }
+        await ctx.db.insert("workspaces", {
+          organizationId,
+          ownerUserId: owner,
+          brainKey:
+            kind === "invalidBrain"
+              ? "br_not-valid"
+              : "br_01J0000000000000000000000A",
+          slug: `${kind}-workspace`,
+          name: `${kind} Workspace`,
+          status: "active",
+          dataClassification: "internal",
+          createdAt: 20,
+          updatedAt: 20,
+        });
+        if (kind === "duplicateBrain") {
+          await ctx.db.insert("workspaces", {
+            organizationId,
+            ownerUserId: other,
+            brainKey: "br_01J0000000000000000000000A",
+            slug: `${kind}-duplicate`,
+            name: `${kind} Duplicate`,
+            status: "active",
+            dataClassification: "internal",
+            createdAt: 21,
+            updatedAt: 21,
+          });
+        }
+      });
+      const before = await t.run(async (ctx) => ({
+        organizations: await ctx.db.query("organizations").collect(),
+        workspaces: await ctx.db.query("workspaces").collect(),
+      }));
+      await expectRejectTag(
+        runAction(t, migrationRefs.runRegisteredMigration, runArgs),
+        "MigrationBatchFailed",
+      );
+      const after = await t.run(async (ctx) => ({
+        organizations: await ctx.db.query("organizations").collect(),
+        workspaces: await ctx.db.query("workspaces").collect(),
+      }));
+      expect(after).toEqual(before);
+      const rows = await listRows(t);
+      const failedRun = expectOne(
+        rows.runs.find((row) => row.migrationName === runArgs.migrationName),
+        `${kind} stable tenant failed run`,
+      );
+      expect(failedRun.status).toBe("failed");
+      expect(failureCheckpoints(rows)).toHaveLength(1);
+      expect(
+        parseChild(expectOne(childReceipts(rows)[0], `${kind} failed child`)),
+      ).toMatchObject({
+        migrationName: runArgs.migrationName,
+        failed: 1,
+      });
+    }
+  });
+
+  it("routes stable tenant migrations through Confect refs with safe dry-run and resumable execute", async () => {
+    const t = makeTest();
+    await seedStableTenantTargets(t);
+    const logs: string[] = [];
+    const originalDebug = console.debug;
+    console.debug = (...values: unknown[]) =>
+      logs.push(values.map((value) => JSON.stringify(value)).join(" "));
+    try {
+      for (const runArgs of [stableOrgArgs, stableWorkspaceArgs] as const) {
+        let dryRun = await runAction(t, migrationRefs.runRegisteredMigration, {
+          ...runArgs,
+          mode: "dryRun",
+        });
+        while (dryRun.status !== "dryRunComplete") {
+          expect(dryRun.scanned).toBeLessThanOrEqual(1);
+          dryRun = await runAction(t, migrationRefs.runRegisteredMigration, {
+            ...runArgs,
+            mode: "dryRun",
+          });
+        }
+      }
+    } finally {
+      console.debug = originalDebug;
+    }
+    const afterDryRun = await t.run(async (ctx) => ({
+      organizations: await ctx.db.query("organizations").collect(),
+      workspaces: await ctx.db.query("workspaces").collect(),
+    }));
+    expect(
+      afterDryRun.organizations.every((row) => row.agencyKey === undefined),
+    ).toBe(true);
+    expect(
+      afterDryRun.workspaces.every((row) => row.brainKey === undefined),
+    ).toBe(true);
+    expect(logs.join("\n")).not.toContain("Stable One");
+    expect(logs.join("\n")).not.toContain("Stable Workspace One");
+    expect(logs.join("\n")).not.toContain("stable-workspace-one");
+    expect(logs.join("\n")).not.toContain("before");
+    expect(logs.join("\n")).not.toContain("after");
+
+    const orgFirst = await runAction(
+      t,
+      migrationRefs.runRegisteredMigration,
+      stableOrgArgs,
+    );
+    expect(orgFirst).toMatchObject({ status: "running", scanned: 1 });
+    let orgSecond = await runAction(
+      t,
+      migrationRefs.runRegisteredMigration,
+      stableOrgArgs,
+    );
+    for (
+      let attempt = 0;
+      attempt < 4 && orgSecond.status !== "complete";
+      attempt += 1
+    ) {
+      orgSecond = await runAction(
+        t,
+        migrationRefs.runRegisteredMigration,
+        stableOrgArgs,
+      );
+    }
+    expect(orgSecond.status).toBe("complete");
+    const orgBeforeRerun = await listRows(t);
+    const orgRerun = await runAction(
+      t,
+      migrationRefs.runRegisteredMigration,
+      stableOrgArgs,
+    );
+    expect(orgRerun).toEqual(orgSecond);
+    expect(await listRows(t)).toEqual(orgBeforeRerun);
+
+    const workspaceFirst = await runAction(
+      t,
+      migrationRefs.runRegisteredMigration,
+      stableWorkspaceArgs,
+    );
+    expect(workspaceFirst).toMatchObject({ status: "running", scanned: 1 });
+    let workspaceSecond = await runAction(
+      t,
+      migrationRefs.runRegisteredMigration,
+      stableWorkspaceArgs,
+    );
+    for (
+      let attempt = 0;
+      attempt < 4 && workspaceSecond.status !== "complete";
+      attempt += 1
+    ) {
+      workspaceSecond = await runAction(
+        t,
+        migrationRefs.runRegisteredMigration,
+        stableWorkspaceArgs,
+      );
+    }
+    expect(workspaceSecond.status).toBe("complete");
+    const workspaceBeforeRerun = await listRows(t);
+    const workspaceRerun = await runAction(
+      t,
+      migrationRefs.runRegisteredMigration,
+      stableWorkspaceArgs,
+    );
+    expect(workspaceRerun).toEqual(workspaceSecond);
+    expect(await listRows(t)).toEqual(workspaceBeforeRerun);
+
+    const rows = await t.run(async (ctx) => ({
+      organizations: await ctx.db.query("organizations").collect(),
+      workspaces: await ctx.db.query("workspaces").collect(),
+    }));
+    for (const organization of rows.organizations) {
+      expect(organization.agencyKey).toBe(
+        deriveStableAgencyKey({
+          _id: organization._id,
+          createdAt: organization.createdAt,
+          _creationTime: organization._creationTime,
+        }),
+      );
+    }
+    for (const workspace of rows.workspaces) {
+      expect(workspace.brainKey).toBe(
+        deriveStableBrainKey({
+          _id: workspace._id,
+          createdAt: workspace.createdAt,
+          _creationTime: workspace._creationTime,
+        }),
+      );
+    }
+    const stableChildren = stableTenantExecuteChildren(await listRows(t));
+    expect(
+      stableChildren.map(
+        ({ migrationName, changed, skipped, countProvenance }) => ({
+          migrationName,
+          changed,
+          skipped,
+          countProvenance,
+        }),
+      ),
+    ).toEqual([
+      {
+        migrationName: "stableTenant.organizationKeys.expand",
+        changed: 1,
+        skipped: 0,
+        countProvenance: "component",
+      },
+      {
+        migrationName: "stableTenant.organizationKeys.expand",
+        changed: 1,
+        skipped: 0,
+        countProvenance: "component",
+      },
+      {
+        migrationName: "stableTenant.organizationKeys.expand",
+        changed: 0,
+        skipped: 0,
+        countProvenance: "component",
+      },
+      {
+        migrationName: "stableTenant.workspaceKeys.expand",
+        changed: 1,
+        skipped: 0,
+        countProvenance: "component",
+      },
+      {
+        migrationName: "stableTenant.workspaceKeys.expand",
+        changed: 1,
+        skipped: 0,
+        countProvenance: "component",
+      },
+      {
+        migrationName: "stableTenant.workspaceKeys.expand",
+        changed: 0,
+        skipped: 0,
+        countProvenance: "component",
+      },
+    ]);
+  });
+
   it("keeps migration functions internal-only through generated Confect refs", () => {
     expect(Ref.getFunctionReference(migrationRefs.probeExpand)).toBeDefined();
     expect(
@@ -814,6 +1196,14 @@ describe("Maestro Brain migration harness", () => {
     ).toBeDefined();
     expect(Ref.getFunctionReference(migrationRefs.acquireLease)).toBeDefined();
     expect(Ref.getFunctionReference(migrationRefs.settleBatch)).toBeDefined();
+    expect(
+      Ref.getFunctionReference(
+        migrationRefs.stableTenantOrganizationKeysExpand,
+      ),
+    ).toBeDefined();
+    expect(
+      Ref.getFunctionReference(migrationRefs.stableTenantWorkspaceKeysExpand),
+    ).toBeDefined();
     expect("migrations" in (refs.public as object)).toBe(false);
   });
 });
