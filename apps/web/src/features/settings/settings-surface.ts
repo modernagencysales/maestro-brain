@@ -32,6 +32,7 @@ export const buildSettingsDocumentSections = ({
   }
 
   const canAdminister = viewer.role === "admin" || viewer.role === "owner";
+  const canTransferOwnership = viewer.role === "owner";
 
   return [
     {
@@ -47,8 +48,11 @@ export const buildSettingsDocumentSections = ({
       heading: "Members",
       body: [
         canAdminister
-          ? "Member invites, role changes, and ownership changes must go through server-verified tenancy mutations."
+          ? "Member invites, role changes, and removals use generated access refs and server RBAC."
           : "Member management is hidden for non-admin roles.",
+        canTransferOwnership
+          ? "Owners may transfer Brain ownership without leaving zero owners."
+          : "Ownership transfer remains owner-only.",
       ],
     },
     {
