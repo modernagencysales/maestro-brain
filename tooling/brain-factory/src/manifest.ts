@@ -255,16 +255,11 @@ const fileLocksFor = (body: string): string[] => {
     if (
       (value.includes("/") || /\.[a-z]+(?:\}|$)/i.test(value)) &&
       !value.includes(" --") &&
-      !value.startsWith("http")
+      !value.startsWith("http") &&
+      !value.includes("/_generated/")
     )
       locks.add(value);
   }
-  if (
-    /generated (?:Confect|Convex)|(?:Confect|Convex).{0,40}generated|confect:codegen/i.test(
-      files,
-    )
-  )
-    locks.add("@generated-confect");
   if (/route tree/i.test(files)) locks.add("@route-tree");
   if (/package\.json|pnpm-lock|pnpm-workspace/i.test(files))
     locks.add("@dependencies");

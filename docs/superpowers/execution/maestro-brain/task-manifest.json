@@ -76,7 +76,6 @@
       "codeStartAfter": ["S00-T03"],
       "estimatedSourceLines": 230,
       "fileLocks": [
-        "@generated-confect",
         "docs/product/maestro-brain-migrations.md",
         "docs/template/porting-backlog.md",
         "packages/convex/confect/internal/migrations.impl.ts",
@@ -224,7 +223,6 @@
       "codeStartAfter": ["S02-T01", "S01-T03"],
       "estimatedSourceLines": 280,
       "fileLocks": [
-        "@generated-confect",
         "packages/convex/confect/brain/pageTree.ts",
         "packages/convex/confect/brain/pages.{spec,impl}.ts",
         "packages/convex/test/brain-pages-crud.test.ts"

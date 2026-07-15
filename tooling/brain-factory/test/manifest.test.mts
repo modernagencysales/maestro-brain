@@ -43,11 +43,13 @@ describe("Maestro Brain execution manifest", () => {
     );
   });
 
-  it("locks generated and environment ownership", () => {
+  it("reserves generated output for integration and locks environment ownership", () => {
     const manifest = buildManifest();
     expect(
-      manifest.tasks.some((task) =>
-        task.fileLocks.includes("@generated-confect"),
+      manifest.tasks.every(
+        (task) =>
+          !task.fileLocks.includes("@generated-confect") &&
+          task.fileLocks.every((file) => !file.includes("/_generated/")),
       ),
     ).toBe(true);
     expect(
