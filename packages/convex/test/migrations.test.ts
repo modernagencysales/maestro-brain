@@ -1048,8 +1048,11 @@ describe("Maestro Brain migration harness", () => {
       afterDryRun.workspaces.every((row) => row.brainKey === undefined),
     ).toBe(true);
     expect(logs.join("\n")).not.toContain("Stable One");
+    expect(logs.join("\n")).not.toContain("Stable Two");
     expect(logs.join("\n")).not.toContain("Stable Workspace One");
+    expect(logs.join("\n")).not.toContain("Stable Workspace Two");
     expect(logs.join("\n")).not.toContain("stable-workspace-one");
+    expect(logs.join("\n")).not.toContain("stable-workspace-two");
     expect(logs.join("\n")).not.toContain("before");
     expect(logs.join("\n")).not.toContain("after");
 

@@ -564,16 +564,30 @@ const runRegisteredMigration = FunctionImpl.make(
           ? { ...complete, status: "dryRunComplete" as const }
           : complete;
       }
-      const component = yield* safeMutation(
-        runner,
-        ref,
-        {
-          cursor: lease.cursor,
-          dryRun: isDryRun,
-          oneBatchOnly: true,
-          batchSize: args.batchSize,
-        },
-        args.migrationName,
+      const definition = yield* findExecutableMigration(args.migrationName);
+      const suppressRawDryRunLogs =
+        isDryRun && definition.dryRunSafety === "patchedNoRawDocumentLogs";
+      const originalDebug = console.debug;
+      const componentInput = {
+        cursor: lease.cursor,
+        dryRun: isDryRun,
+        oneBatchOnly: true,
+        batchSize: args.batchSize,
+      };
+      const component = yield* (
+        suppressRawDryRunLogs
+          ? Effect.acquireUseRelease(
+              Effect.sync(() => {
+                console.debug = () => {};
+              }),
+              () =>
+                safeMutation(runner, ref, componentInput, args.migrationName),
+              () =>
+                Effect.sync(() => {
+                  console.debug = originalDebug;
+                }),
+            )
+          : safeMutation(runner, ref, componentInput, args.migrationName)
       ).pipe(Effect.exit);
       const batch = isDryRun
         ? decodeDryRunRollback(component)
@@ -592,7 +606,6 @@ const runRegisteredMigration = FunctionImpl.make(
         if (crashProbe.crashed)
           return yield* failBatch(args.migrationName, lease.batchSequence + 1);
       }
-      const definition = yield* findExecutableMigration(args.migrationName);
       const settled = yield* safeMutation(
         runner,
         refs.internal.internal.migrations.settleBatch,
