@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  "@convex-dev/migrations@0.3.5":
+    hash: 374fd930822dab9a1f3fc2170c92865ea2b8c6e02d1faef50dee2792e1575928
+    path: tooling/patches/@convex-dev__migrations@0.3.5.patch
+
 overrides:
   "@internationalized/date": 3.7.0
   "@internationalized/number": 3.5.0
@@ -249,7 +254,7 @@ importers:
         specifier: 9.1.5
         version: 9.1.5(@confect/core@9.1.5(convex@1.42.1(react@19.1.0))(effect@3.21.4))(@confect/server@9.1.5(245075d047b38d8e4559463b286de0c9))(convex-test@0.0.54(convex@1.42.1(react@19.1.0)))(convex@1.42.1(react@19.1.0))(effect@3.21.4)
       "@convex-dev/migrations":
-        specifier: ^0.3.5
+        specifier: 0.3.5
         version: 0.3.5(convex-helpers@0.1.120(@standard-schema/spec@1.1.0)(convex@1.42.1(react@19.1.0))(react@19.1.0)(typescript@5.9.3)(zod@4.4.3))(convex@1.42.1(react@19.1.0))
       "@convex-dev/prosemirror-sync":
         specifier: 0.2.5

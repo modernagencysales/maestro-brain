@@ -1,7 +1,12 @@
 import { FunctionSpec, GroupSpec } from "@confect/core";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import type { probeExpand, probeFail } from "./migrations";
+import type {
+  probeExpand,
+  probeFail,
+  stableTenantOrganizationKeysExpand,
+  stableTenantWorkspaceKeysExpand,
+} from "./migrations";
 const NonEmpty = Schema.String.pipe(Schema.minLength(1));
 const MigrationNameField = { migrationName: Schema.String };
 export class MigrationNotFound extends Schema.TaggedError<MigrationNotFound>()(
@@ -146,9 +151,18 @@ const probeSafe = {
   rollbackOwner: "platform-migrations",
   observationWindowMs: 5 * 60_000,
 } as const;
+const stableTenantExpand = {
+  phase: "expand",
+  hasExactExecuteCounters: true,
+  dryRunSafety: "patchedNoRawDocumentLogs",
+  rollbackOwner: "identity-tenancy",
+  observationWindowMs: 24 * 60 * 60_000,
+} as const;
 export const executableMigrations = {
   "probe.expand": probeSafe,
   "probe.fail": probeSafe,
+  "stableTenant.organizationKeys.expand": stableTenantExpand,
+  "stableTenant.workspaceKeys.expand": stableTenantExpand,
 } as const;
 type ExecutableMigrationDefinition =
   (typeof executableMigrations)[keyof typeof executableMigrations];
@@ -294,6 +308,16 @@ const componentMutation = FunctionSpec.convexInternalMutation;
 export default GroupSpec.make()
   .addFunction(componentMutation<typeof probeExpand>()("probeExpand"))
   .addFunction(componentMutation<typeof probeFail>()("probeFail"))
+  .addFunction(
+    componentMutation<typeof stableTenantOrganizationKeysExpand>()(
+      "stableTenantOrganizationKeysExpand",
+    ),
+  )
+  .addFunction(
+    componentMutation<typeof stableTenantWorkspaceKeysExpand>()(
+      "stableTenantWorkspaceKeysExpand",
+    ),
+  )
   .addFunction(runRegisteredMigration)
   .addFunction(acquireLease)
   .addFunction(maybeCrashAfterComponent)
