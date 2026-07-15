@@ -13,7 +13,7 @@ import {
   type LaneCompletionResult,
 } from "./factory-state.js";
 import { buildManifest } from "./manifest.js";
-import { gitIsAncestor, runRtk } from "./process.js";
+import { gitBranchExists, gitIsAncestor, runRtk } from "./process.js";
 import { selectReadyTasks } from "./scheduler.js";
 
 interface RunRecord {
@@ -116,8 +116,7 @@ if (recoverTaskId) {
   const workdir = resolve(worktreeRoot, task.taskId.toLowerCase());
   recoverTaskReservation({
     auditPath,
-    branchExists:
-      runRtk(["git", "branch", "--list", branch], { quiet: true }).length > 0,
+    branchExists: gitBranchExists(branch, root),
     now,
     ...(recoveryReason ? { reason: recoveryReason } : {}),
     recordPath: recordPath(task.taskId),
@@ -179,7 +178,7 @@ for (const task of selected) {
       `${task.taskId}: unresolved worktree exists at ${workdir}; no force removal is allowed`,
     );
   }
-  if (runRtk(["git", "branch", "--list", branch], { quiet: true }).length > 0) {
+  if (gitBranchExists(branch, root)) {
     throw new Error(
       `${task.taskId}: unresolved branch ${branch} exists; explicit audited recovery is required`,
     );

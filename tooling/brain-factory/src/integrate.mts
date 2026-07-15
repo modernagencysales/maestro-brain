@@ -5,7 +5,7 @@ import {
   type IntegrationAttemptState,
   nextIntegrationId,
 } from "./factory-state.js";
-import { gitIsAncestor, runRtk } from "./process.js";
+import { gitBranchExists, gitIsAncestor, runRtk } from "./process.js";
 
 const valueAfter = (flag: string): string | undefined => {
   const index = process.argv.indexOf(flag);
@@ -36,9 +36,7 @@ const stateFor = (integrationId: string): IntegrationAttemptState => {
   const runRecord = resolve(runs, `integration-${integrationId}.json`);
   const workdir = resolve(worktreeRoot, `integration-${integrationId}`);
   const branch = `fabro/brain-${integrationId.toLowerCase()}`;
-  const existingBranch = runRtk(["git", "branch", "--list", branch], {
-    quiet: true,
-  });
+  const existingBranch = gitBranchExists(branch, root);
   const result = existsSync(integrationResult)
     ? (JSON.parse(readFileSync(integrationResult, "utf8")) as {
         readonly headSha?: string;
@@ -54,7 +52,7 @@ const stateFor = (integrationId: string): IntegrationAttemptState => {
         : []),
       ...(existsSync(runRecord) ? [`run record ${runRecord}`] : []),
       ...(existsSync(workdir) ? [`worktree ${workdir}`] : []),
-      ...(existingBranch.length > 0 ? [`branch ${branch}`] : []),
+      ...(existingBranch ? [`branch ${branch}`] : []),
     ],
     ...(headSha !== undefined ? { headSha } : {}),
     ...(result?.status !== undefined ? { status: result.status } : {}),

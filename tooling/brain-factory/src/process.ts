@@ -16,6 +16,12 @@ export const runRtk = (
   return result.stdout.trim();
 };
 
+export const gitBranchExists = (branch: string, cwd = process.cwd()): boolean =>
+  runRtk(["proxy", "git", "branch", "--list", branch], {
+    cwd,
+    quiet: true,
+  }).length > 0;
+
 export const gitIsAncestor = (
   ancestor: string,
   descendant: string,
