@@ -866,6 +866,7 @@ describe("template app factory generators", () => {
       name: "sourceGroundedPlan",
       pascalName: "SourceGroundedPlan",
     });
+    expect(generated.exposure).toBeUndefined();
     expect(generated.files.map((file) => file.path)).toEqual([
       "packages/convex/confect/workflowContracts/sourceGroundedPlan.spec.ts",
       "packages/convex/confect/workflowContracts/sourceGroundedPlan.impl.ts",
@@ -941,6 +942,7 @@ describe("template app factory generators", () => {
     expect(docs).toContain(
       "packages/convex/convex/workflowRunners/sourceGroundedPlan.ts",
     );
+    expect(docs).not.toContain("Exposure: `public`");
     expect(docs).toContain(
       "plain Convex `defineWorkflow` durable replay handler",
     );
@@ -949,6 +951,108 @@ describe("template app factory generators", () => {
     expect(docs).toContain("pnpm --dir packages/convex exec convex codegen");
     expect(docs).toContain("workflowContracts.sourceGroundedPlan.approve");
     expect(docs).toContain("concrete `buildArgs` mappers");
+  });
+
+  it("builds internal workflow generator files without client-callable surfaces", () => {
+    const generated = buildWorkflowFiles({
+      name: "source classification",
+      description: "Classifies source units behind internal fences.",
+      exposure: "internal",
+    });
+
+    expect(generated).toMatchObject({
+      name: "sourceClassification",
+      pascalName: "SourceClassification",
+      exposure: "internal",
+    });
+
+    const spec = generated.files[0]?.content ?? "";
+    const runner = generated.files[3]?.content ?? "";
+    const docs = generated.files[5]?.content ?? "";
+
+    expect(spec).toContain("FunctionSpec.internalMutation");
+    expect(spec).toContain("FunctionSpec.internalQuery");
+    expect(spec).toContain("surfaces: []");
+    expect(spec).not.toContain("FunctionSpec.publicMutation");
+    expect(spec).not.toContain("FunctionSpec.publicQuery");
+    expect(spec).not.toContain('surfaces: ["web", "api", "cli", "mcp"]');
+    expect(generated.files.map((file) => file.path)).not.toContain(
+      "packages/convex/confect/workflowContracts/sourceClassification.headless.json",
+    );
+    expect(runner).toContain("runDurableGraphWorkflow");
+    expect(runner).toContain("capabilityRegistry: {}");
+    expect(docs).toContain("Exposure: `internal`");
+    expect(docs).toContain("Headless exposure: none");
+  });
+
+  it("rejects unknown workflow exposure through the CLI", () => {
+    const result = runGeneratorCli([
+      "add-workflow",
+      "--name",
+      "source classification",
+      "--exposure",
+      "partner",
+    ]);
+
+    expect(result).toEqual({
+      exitCode: 1,
+      stdout: "",
+      stderr: "Unknown workflow exposure: partner\n",
+    });
+  });
+
+  it("rejects missing workflow exposure values through the CLI", () => {
+    const result = runGeneratorCli([
+      "add-workflow",
+      "--name",
+      "source classification",
+      "--exposure",
+    ]);
+
+    expect(result).toEqual({
+      exitCode: 1,
+      stdout: "",
+      stderr: "Unknown workflow exposure: missing value\n",
+    });
+  });
+
+  it("ships workflow exposure fixtures for public, internal, and invalid modes", () => {
+    const fixtureRoot = join(
+      repoRoot,
+      "tooling/generators/__fixtures__/workflow",
+    );
+    const publicFixture = JSON.parse(
+      readFileSync(join(fixtureRoot, "public.expected.json"), "utf8"),
+    );
+    const internalFixture = JSON.parse(
+      readFileSync(join(fixtureRoot, "internal.expected.json"), "utf8"),
+    );
+    const invalidFixture = JSON.parse(
+      readFileSync(join(fixtureRoot, "invalid-exposure.json"), "utf8"),
+    );
+
+    expect(publicFixture).toMatchObject({
+      exposure: "public",
+      specVisibility: "public",
+      manifestSurfaces: ["web", "api", "cli", "mcp"],
+    });
+    expect(internalFixture).toMatchObject({
+      exposure: "internal",
+      specVisibility: "internal",
+      manifestSurfaces: [],
+      emittedHeadlessDescriptor: false,
+    });
+    expect(invalidFixture).toEqual({
+      args: [
+        "add-workflow",
+        "--name",
+        "source classification",
+        "--exposure",
+        "partner",
+      ],
+      exitCode: 1,
+      stderr: "Unknown workflow exposure: partner\n",
+    });
   });
 
   it("writes generated workflow files through the CLI", () => {

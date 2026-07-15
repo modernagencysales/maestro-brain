@@ -169,15 +169,19 @@ export type CapabilityGeneratorResult = {
   readonly files: readonly GeneratedFile[];
 };
 
+export type WorkflowExposure = "public" | "internal";
+
 export type WorkflowGeneratorOptions = {
   readonly name: string;
   readonly description?: string;
+  readonly exposure?: WorkflowExposure;
   readonly write?: boolean;
 };
 
 export type WorkflowGeneratorResult = {
   readonly name: string;
   readonly pascalName: string;
+  readonly exposure?: WorkflowExposure;
   readonly files: readonly GeneratedFile[];
 };
 
@@ -1746,6 +1750,20 @@ export const buildWorkflowFiles = (
   const description =
     options.description ??
     `Generated ${name} workflow. Replace the source-to-receipt graph after review.`;
+  const exposure = options.exposure ?? "public";
+  const controlVisibility = exposure === "internal" ? "internal" : "public";
+  const manifestSurfaces =
+    exposure === "internal" ? "[]" : '["web", "api", "cli", "mcp"]';
+  const internalContractDocs =
+    exposure === "internal"
+      ? `## Generated Contract
+
+- Exposure: \`internal\`
+- Headless exposure: none; internal workflow controls do not emit API, CLI, MCP, OpenAPI, or headless descriptors.
+- Web exposure: none; internal callers dispatch through reviewed capabilities or jobs.
+
+`
+      : "";
   const files: readonly GeneratedFile[] = [
     {
       path: `packages/convex/confect/workflowContracts/${name}.spec.ts`,
@@ -1801,7 +1819,7 @@ const ApproveReturns = Schema.Struct({
 });
 
 export const start = defineContractFunction(
-  FunctionSpec.publicMutation({
+  FunctionSpec.${controlVisibility}Mutation({
     name: "start",
     args: () => StartArgs,
     returns: () => StartReturns,
@@ -1812,7 +1830,7 @@ export const start = defineContractFunction(
     name: "start",
     operationId: "workflows.${name}.start",
     kind: "mutation",
-    surfaces: ["web", "api", "cli", "mcp"],
+    surfaces: ${manifestSurfaces},
     typedErrors: [
       "Unauthorized",
       "MemberNotInWorkspace",
@@ -1829,7 +1847,7 @@ export const start = defineContractFunction(
 );
 
 export const status = defineContractFunction(
-  FunctionSpec.publicQuery({
+  FunctionSpec.${controlVisibility}Query({
     name: "status",
     args: () => StatusArgs,
     returns: () => WorkflowStatusResult,
@@ -1840,7 +1858,7 @@ export const status = defineContractFunction(
     name: "status",
     operationId: "workflows.${name}.status",
     kind: "query",
-    surfaces: ["web", "api", "cli", "mcp"],
+    surfaces: ${manifestSurfaces},
     typedErrors: [
       "Unauthorized",
       "MemberNotInWorkspace",
@@ -1857,7 +1875,7 @@ export const status = defineContractFunction(
 );
 
 export const approve = defineContractFunction(
-  FunctionSpec.publicMutation({
+  FunctionSpec.${controlVisibility}Mutation({
     name: "approve",
     args: () => ApproveArgs,
     returns: () => ApproveReturns,
@@ -1868,7 +1886,7 @@ export const approve = defineContractFunction(
     name: "approve",
     operationId: "workflows.${name}.approve",
     kind: "mutation",
-    surfaces: ["web", "api", "cli", "mcp"],
+    surfaces: ${manifestSurfaces},
     typedErrors: [
       "Unauthorized",
       "MemberNotInWorkspace",
@@ -2236,7 +2254,7 @@ describe("${name} durable workflow scaffold", () => {
 
 ${description}
 
-## Generated Files
+${internalContractDocs}## Generated Files
 
 - \`packages/convex/convex/workflowRunners/${name}.ts\`: plain Convex \`defineWorkflow\` durable replay handler.
 - \`packages/convex/confect/workflowContracts/${name}.spec.ts\`: typed start, status, and approval contract.
@@ -2260,6 +2278,7 @@ ${description}
   return {
     name,
     pascalName,
+    ...(exposure === "internal" ? { exposure } : {}),
     files: withGeneratorProvenance("add-workflow", name, files),
   };
 };
@@ -2919,6 +2938,7 @@ const parseArgs = (
   readonly fixture: string | undefined;
   readonly mode: ProviderMode;
   readonly exposure: "web" | "workflow" | "headless";
+  readonly workflowExposure: WorkflowExposure;
   readonly description: string | undefined;
   readonly write: boolean;
   readonly path: string;
@@ -2936,8 +2956,11 @@ const parseArgs = (
   const mode = modeIndex >= 0 ? argv[modeIndex + 1] : undefined;
   const blueprint =
     blueprintIndex >= 0 ? argv[blueprintIndex + 1] : defaultBlueprintId;
-  const exposure =
-    exposureIndex >= 0 ? (argv[exposureIndex + 1] ?? "headless") : "headless";
+  const exposureValue =
+    exposureIndex >= 0 ? argv[exposureIndex + 1] : undefined;
+  const exposure = exposureValue ?? "headless";
+  const workflowExposure =
+    exposureIndex >= 0 ? (exposureValue ?? "missing value") : "public";
 
   if (
     plannedBlueprintIds.includes(
@@ -2953,12 +2976,19 @@ const parseArgs = (
     throw new Error(`Unknown blueprint: ${blueprint}`);
   }
 
-  if (mode && !["fake", "test", "live"].includes(mode)) {
-    throw new Error(`Unknown mode: ${mode}`);
+  if (command === "add-workflow") {
+    if (
+      !workflowExposure ||
+      !["public", "internal"].includes(workflowExposure)
+    ) {
+      throw new Error(`Unknown workflow exposure: ${workflowExposure ?? ""}`);
+    }
+  } else if (!["web", "workflow", "headless"].includes(exposure)) {
+    throw new Error(`Unknown exposure: ${exposure}`);
   }
 
-  if (!["web", "workflow", "headless"].includes(exposure)) {
-    throw new Error(`Unknown exposure: ${exposure}`);
+  if (mode && !["fake", "test", "live"].includes(mode)) {
+    throw new Error(`Unknown mode: ${mode}`);
   }
 
   const path = pathIndex >= 0 ? argv[pathIndex + 1] : undefined;
@@ -2972,6 +3002,7 @@ const parseArgs = (
     fixture: fixtureIndex >= 0 ? argv[fixtureIndex + 1] : undefined,
     mode: (mode ?? "fake") as ProviderMode,
     exposure: exposure as "web" | "workflow" | "headless",
+    workflowExposure: workflowExposure as WorkflowExposure,
     description: descriptionIndex >= 0 ? argv[descriptionIndex + 1] : undefined,
     write: argv.includes("--write"),
     path: path || "template-instance.json",
@@ -3005,7 +3036,7 @@ export const runGeneratorCli = (
             "template:handoff [--blueprint <supported-blueprint>] [--name <name>] [--mode fake|test|live] [--write]",
             "template:add-client-domain --name <name> [--description <text>] [--write]",
             "template:add-capability --name <name> [--description <text>] [--exposure web|workflow|headless] [--write]",
-            "template:add-workflow --name <name> [--description <text>] [--write]",
+            "template:add-workflow --name <name> [--description <text>] [--exposure public|internal] [--write]",
             "template:add-agent --name <name> [--description <text>] [--write]",
             "template:add-agent-seat --name <name> [--description <text>] [--write]",
             "template:promote-capability --name <name> [--description <text>] [--write]",
@@ -3221,6 +3252,7 @@ export const runGeneratorCli = (
 
       const result = buildWorkflowFiles({
         name: args.name,
+        exposure: args.workflowExposure,
         ...(args.description ? { description: args.description } : {}),
       });
 

@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
 export const smokeWorkflowName = "generatedWorkflowSmoke";
+export const internalSmokeWorkflowName = "generatedInternalWorkflowSmoke";
 export const workflowOutputSmokeScriptName = "template:workflow-output-smoke";
 
 type SmokeCommand = {
@@ -148,6 +149,23 @@ export const runWorkflowOutputSmoke = (
           smokeWorkflowName,
           "--description",
           "Generated workflow output smoke check.",
+          "--write",
+        ],
+      },
+      {
+        label: "Generate internal workflow output",
+        command: "pnpm",
+        args: [
+          "--dir",
+          tempRepoRoot,
+          "template:add-workflow",
+          "--",
+          "--name",
+          internalSmokeWorkflowName,
+          "--description",
+          "Generated internal workflow output smoke check.",
+          "--exposure",
+          "internal",
           "--write",
         ],
       },

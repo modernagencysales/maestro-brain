@@ -1,0 +1,6 @@
+{
+  "exposure": "public",
+  "specVisibility": "public",
+  "manifestSurfaces": ["web", "api", "cli", "mcp"],
+  "emittedHeadlessDescriptor": false
+}
