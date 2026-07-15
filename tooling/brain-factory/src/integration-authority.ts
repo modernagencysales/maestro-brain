@@ -65,9 +65,9 @@ export const authoritativeIntegrationResultBindsLane = (input: {
     matchingTasks.length === 1 &&
     matchingTasks[0]?.laneHeadSha === input.laneHeadSha &&
     (!input.taskTranche ||
-      (typeof matchingTasks[0].tranche !== "string" &&
-        typeof matchingTasks[0].manifestTranche !== "string") ||
-      matchingTasks[0].tranche === input.taskTranche ||
-      matchingTasks[0].manifestTranche === input.taskTranche)
+      ((typeof matchingTasks[0].tranche !== "string" ||
+        matchingTasks[0].tranche === input.taskTranche) &&
+        (typeof matchingTasks[0].manifestTranche !== "string" ||
+          matchingTasks[0].manifestTranche === input.taskTranche)))
   );
 };

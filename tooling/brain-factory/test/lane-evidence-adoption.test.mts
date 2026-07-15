@@ -317,6 +317,29 @@ describe("legacy integrated lane evidence adoption", () => {
     expect(readFileSync(value.lanePath, "utf8")).toBe(before);
   });
 
+  it("rejects an integration task with contradictory tranche identity", () => {
+    const value = fixture();
+    const result = readRecord(value.resultPath);
+    result.includedTasks = [
+      {
+        laneHeadSha: "1".repeat(40),
+        manifestTranche: "C1-contract-spine",
+        taskId: value.taskId,
+        tranche: "wrong-tranche",
+      },
+    ];
+    writeJson(value.resultPath, result);
+    expect(() =>
+      adoptLegacyIntegratedLaneEvidence({
+        controlRoot: value.root,
+        currentHeadSha: "5".repeat(40),
+        evidenceDirectory: value.evidence,
+        isAncestor: () => true,
+        workdir: value.root,
+      }),
+    ).toThrow(/0 authoritative integration results/);
+  });
+
   it("records S13 acceptance as deferred instead of inventing acceptance", () => {
     const value = fixture({
       acceptanceAfter: "S10, S11, S12 complete",
