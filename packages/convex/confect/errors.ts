@@ -66,6 +66,16 @@ export class WorkspaceNotFound extends Schema.TaggedError<WorkspaceNotFound>()(
   },
 ) {}
 
+export class OrganizationNotFound extends Schema.TaggedError<OrganizationNotFound>()(
+  "OrganizationNotFound",
+  { workosOrganizationId: Schema.String },
+) {}
+
+export class BrainAlreadyExists extends Schema.TaggedError<BrainAlreadyExists>()(
+  "BrainAlreadyExists",
+  { brainKey: Schema.String },
+) {}
+
 export class ValidationFailed extends Schema.TaggedError<ValidationFailed>()(
   "ValidationFailed",
   {
