@@ -7,7 +7,7 @@ import * as Option from "effect/Option";
 
 import databaseSchema from "../_generated/schema";
 import { Auth, DatabaseReader, DatabaseWriter } from "../_generated/services";
-import { Unauthorized } from "../errors";
+import { ProvisioningConflict, Unauthorized } from "../errors";
 import { asGenericId } from "./handlerContext";
 import provisioning from "./provisioning.spec";
 import {
@@ -18,6 +18,99 @@ import {
   selectLiveOwnedWorkspace,
   type UserProvisioningRow,
 } from "./provisioning";
+import {
+  deriveStableAgencyKey,
+  deriveStableBrainKey,
+  isStableAgencyKey,
+  isStableBrainKey,
+} from "../identity/stableKeys";
+
+const conflict = (resource: string, message: string) =>
+  new ProvisioningConflict({ resource, message });
+
+const assertNoOtherWorkosBinding = (input: {
+  readonly workosOrganizationId: string | undefined;
+  readonly organizationId: GenericId<"organizations"> | null;
+}) =>
+  Effect.gen(function* () {
+    if (input.workosOrganizationId === undefined) return;
+    const rows = yield* (yield* DatabaseReader)
+      .table("organizations")
+      .index("by_workos_organization", (q) =>
+        q.eq("workosOrganizationId", input.workosOrganizationId),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    if (rows.some((row) => row._id !== input.organizationId)) {
+      return yield* Effect.fail(
+        conflict(
+          "organizations.workosOrganizationId",
+          "Authenticated WorkOS organization is already bound.",
+        ),
+      );
+    }
+  });
+
+const assertUniqueAgencyKey = (input: {
+  readonly organizationId: GenericId<"organizations">;
+  readonly agencyKey: string;
+}) =>
+  Effect.gen(function* () {
+    if (!isStableAgencyKey(input.agencyKey)) {
+      return yield* Effect.fail(
+        conflict(
+          "organizations.agencyKey",
+          "Persisted agency key syntax is invalid.",
+        ),
+      );
+    }
+    const rows = yield* (yield* DatabaseReader)
+      .table("organizations")
+      .index("by_agency_key", (q) => q.eq("agencyKey", input.agencyKey))
+      .collect()
+      .pipe(Effect.orDie);
+    if (rows.some((row) => row._id !== input.organizationId)) {
+      return yield* Effect.fail(
+        conflict(
+          "organizations.agencyKey",
+          "Persisted agency key is duplicated.",
+        ),
+      );
+    }
+  });
+
+const assertUniqueBrainKey = (input: {
+  readonly workspaceId: GenericId<"workspaces">;
+  readonly organizationId: GenericId<"organizations">;
+  readonly brainKey: string;
+}) =>
+  Effect.gen(function* () {
+    if (!isStableBrainKey(input.brainKey)) {
+      return yield* Effect.fail(
+        conflict(
+          "workspaces.brainKey",
+          "Persisted Brain key syntax is invalid.",
+        ),
+      );
+    }
+    const rows = yield* (yield* DatabaseReader)
+      .table("workspaces")
+      .index("by_organization_brain_key", (q) =>
+        q
+          .eq("organizationId", input.organizationId)
+          .eq("brainKey", input.brainKey),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    if (rows.some((row) => row._id !== input.workspaceId)) {
+      return yield* Effect.fail(
+        conflict(
+          "workspaces.organizationId.brainKey",
+          "Persisted Brain key is duplicated inside organization.",
+        ),
+      );
+    }
+  });
 
 const ensureProvisioned = FunctionImpl.make(
   databaseSchema,
@@ -124,6 +217,31 @@ const ensureProvisioned = FunctionImpl.make(
               .first()
               .pipe(Effect.map(Option.getOrNull), Effect.orDie);
 
+      yield* assertNoOtherWorkosBinding({
+        workosOrganizationId: identity.workosOrganizationId,
+        organizationId:
+          existingOrganization === null
+            ? null
+            : asGenericId<"organizations">(existingOrganization._id),
+      });
+      if (existingOrganization?.agencyKey !== undefined) {
+        yield* assertUniqueAgencyKey({
+          organizationId: asGenericId<"organizations">(
+            existingOrganization._id,
+          ),
+          agencyKey: existingOrganization.agencyKey,
+        });
+      }
+      if (existingWorkspace?.brainKey !== undefined) {
+        yield* assertUniqueBrainKey({
+          workspaceId: asGenericId<"workspaces">(existingWorkspace._id),
+          organizationId: asGenericId<"organizations">(
+            existingWorkspace.organizationId,
+          ),
+          brainKey: existingWorkspace.brainKey,
+        });
+      }
+
       const plan = yield* buildProvisioningPlan({
         identity,
         state: {
@@ -136,28 +254,114 @@ const ensureProvisioned = FunctionImpl.make(
         now,
       });
 
-      const organizationId: GenericId<"organizations"> =
+      const existingOrganizationId =
         existingOrganization === null
-          ? yield* writer
-              .table("organizations")
-              .insert({
-                ...requireInsertValue(plan.organization, "organization"),
-                ownerUserId: userId,
-              })
-              .pipe(Effect.orDie)
+          ? null
           : asGenericId<"organizations">(existingOrganization._id);
+      const organizationInsert =
+        existingOrganizationId === null
+          ? requireInsertValue(plan.organization, "organization")
+          : null;
+      const organizationId: GenericId<"organizations"> =
+        existingOrganizationId ??
+        (yield* writer
+          .table("organizations")
+          .insert({
+            ...requireInsertValue(plan.organization, "organization"),
+            ownerUserId: userId,
+          })
+          .pipe(Effect.orDie));
 
-      const workspaceId: GenericId<"workspaces"> =
+      if (organizationInsert !== null) {
+        const inserted = yield* reader
+          .table("organizations")
+          .get(organizationId)
+          .pipe(Effect.orDie);
+        const agencyKey = deriveStableAgencyKey({
+          _id: organizationId,
+          createdAt: organizationInsert.createdAt,
+          _creationTime: inserted?._creationTime,
+        });
+        yield* assertUniqueAgencyKey({ organizationId, agencyKey });
+        yield* writer
+          .table("organizations")
+          .patch(organizationId, { agencyKey })
+          .pipe(Effect.orDie);
+      }
+
+      if (
+        existingOrganization !== null &&
+        plan.organization.action === "patch"
+      ) {
+        if (plan.organization.value.agencyKey !== undefined) {
+          yield* assertUniqueAgencyKey({
+            organizationId: asGenericId<"organizations">(
+              existingOrganization._id,
+            ),
+            agencyKey: plan.organization.value.agencyKey,
+          });
+        }
+        yield* writer
+          .table("organizations")
+          .patch(
+            asGenericId<"organizations">(existingOrganization._id),
+            plan.organization.value,
+          )
+          .pipe(Effect.orDie);
+      }
+
+      const existingWorkspaceId =
         existingWorkspace === null
-          ? yield* writer
-              .table("workspaces")
-              .insert({
-                ...requireInsertValue(plan.workspace, "workspace"),
-                organizationId,
-                ownerUserId: userId,
-              })
-              .pipe(Effect.orDie)
+          ? null
           : asGenericId<"workspaces">(existingWorkspace._id);
+      const workspaceInsert =
+        existingWorkspaceId === null
+          ? requireInsertValue(plan.workspace, "workspace")
+          : null;
+      const workspaceId: GenericId<"workspaces"> =
+        existingWorkspaceId ??
+        (yield* writer
+          .table("workspaces")
+          .insert({
+            ...requireInsertValue(plan.workspace, "workspace"),
+            organizationId,
+            ownerUserId: userId,
+          })
+          .pipe(Effect.orDie));
+
+      if (workspaceInsert !== null) {
+        const inserted = yield* reader
+          .table("workspaces")
+          .get(workspaceId)
+          .pipe(Effect.orDie);
+        const brainKey = deriveStableBrainKey({
+          _id: workspaceId,
+          createdAt: workspaceInsert.createdAt,
+          _creationTime: inserted?._creationTime,
+        });
+        yield* assertUniqueBrainKey({ workspaceId, organizationId, brainKey });
+        yield* writer
+          .table("workspaces")
+          .patch(workspaceId, { brainKey })
+          .pipe(Effect.orDie);
+      }
+
+      if (existingWorkspace !== null && plan.workspace.action === "patch") {
+        if (plan.workspace.value.brainKey !== undefined) {
+          yield* assertUniqueBrainKey({
+            workspaceId: asGenericId<"workspaces">(existingWorkspace._id),
+            organizationId,
+            brainKey: plan.workspace.value.brainKey,
+          });
+        }
+        yield* writer
+          .table("workspaces")
+          .patch(
+            asGenericId<"workspaces">(existingWorkspace._id),
+            plan.workspace.value,
+          )
+          .pipe(Effect.orDie);
+      }
 
       // The two membership upserts below are deliberately kept inline rather than
       // factored into a shared `upsertMembership<T extends TableNames>` helper.
