@@ -42,10 +42,16 @@ export type BrainEvalReceipt = {
 };
 export type ModelPromptStatus =
   "candidate" | "evaluated" | "approved" | "rejected";
+export type BrainEvalRunArtifact = {
+  readonly schemaVersion: "maestro-brain-suite-run-artifact/v1";
+  readonly artifactUri: string;
+  readonly artifactHash: string;
+};
 export type BrainEvalSuiteResult = {
   readonly suiteName: string;
   readonly receipt: BrainEvalReceipt;
   readonly status: ModelPromptStatus;
+  readonly runArtifact?: BrainEvalRunArtifact;
 };
 export type BrainEvalApprovalArtifact = {
   readonly schemaVersion: "maestro-brain-eval-approval-artifact/v1";
@@ -228,11 +234,53 @@ export const approveBrainEvalArtifact = (
       "Brain eval approval requires all external suite artifacts to pass.",
     );
   }
+  for (const suite of suiteResults) {
+    const value = assertRecord(suite, "suite result");
+    assertExternalRunArtifact(value.runArtifact);
+  }
   return {
     schemaVersion: "maestro-brain-eval-approval-artifact/v1",
     runId,
     generatedAt: assertString(record.generatedAt, "Brain eval generatedAt"),
     suiteResults: suiteResults as readonly BrainEvalSuiteResult[],
+  };
+};
+
+const assertExternalRunArtifact = (value: unknown): BrainEvalRunArtifact => {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(
+      "Brain eval approval requires immutable external run artifacts.",
+    );
+  }
+  const artifact = value as Record<string, unknown>;
+  const artifactUri = assertString(artifact.artifactUri, "suite artifact URI");
+  const artifactHash = assertString(
+    artifact.artifactHash,
+    "suite artifact hash",
+  );
+
+  if (artifact.schemaVersion !== "maestro-brain-suite-run-artifact/v1") {
+    throw new Error(
+      "Brain eval approval requires immutable external run artifacts.",
+    );
+  }
+
+  if (artifactUri.trim().length === 0 || artifactUri.startsWith("fixture:")) {
+    throw new Error(
+      "Brain eval approval requires immutable external run artifacts.",
+    );
+  }
+
+  if (!/^sha256:[a-f0-9]{64}$/i.test(artifactHash)) {
+    throw new Error(
+      "Brain eval approval requires immutable external run artifacts.",
+    );
+  }
+
+  return {
+    schemaVersion: "maestro-brain-suite-run-artifact/v1",
+    artifactUri,
+    artifactHash,
   };
 };
 

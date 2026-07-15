@@ -131,7 +131,9 @@ export const evaluateBrainAnswers = (
       : parseBrainAnswerRun(runInput).results
     ).map((result) => [result.caseId, result.output]),
   );
-  const outputFor = (entry: BrainAnswerCase): BrainAnswerOutput | null => {
+  const outputFor = (
+    entry: BrainAnswerCase,
+  ): BrainAnswerArtifactOutput | null => {
     const output = runResults.get(entry.id);
     if (output === undefined) {
       failures.push({

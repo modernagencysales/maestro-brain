@@ -34,10 +34,33 @@ describe("Brain eval report", () => {
         ...suite,
         status: "approved",
         receipt: { ...suite.receipt, passed: true, failures: [] },
+        runArtifact: {
+          schemaVersion: "maestro-brain-suite-run-artifact/v1",
+          artifactUri: `s3://maestro-brain-evals/${suite.suiteName}.jsonl`,
+          artifactHash:
+            "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        },
       })),
     });
 
     expect(approved.runId).toBe("external-run-2026-07-14");
+  });
+
+  it("rejects passing receipts that do not name immutable external run artifacts", () => {
+    const report = buildBrainEvalReport();
+
+    expect(() =>
+      approveBrainEvalArtifact({
+        schemaVersion: "maestro-brain-eval-approval-artifact/v1",
+        runId: "external-run-2026-07-14",
+        generatedAt: "2026-07-14T00:00:00.000Z",
+        suiteResults: report.suites.map((suite) => ({
+          ...suite,
+          status: "approved",
+          receipt: { ...suite.receipt, passed: true, failures: [] },
+        })),
+      }),
+    ).toThrow("Brain eval approval requires immutable external run artifacts.");
   });
 
   it("checks frozen fixture completeness and Appendix J denominators", () => {
