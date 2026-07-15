@@ -120,7 +120,7 @@ describe("Maestro Brain execution manifest", () => {
         ? [match[1]]
         : [],
     );
-    expect(helperTests).toEqual(["S00-T04", "S01-T02"]);
+    expect(helperTests).toEqual(["S00-T04", "S01-T02", "S01-T03"]);
     expect(plan.match(/`rtk pnpm check:confect-manifest`/g)).toHaveLength(1);
     expect(plan).toMatch(
       /the\s+Confect manifest check is a zero-delta assertion because this\s+task consumes/,

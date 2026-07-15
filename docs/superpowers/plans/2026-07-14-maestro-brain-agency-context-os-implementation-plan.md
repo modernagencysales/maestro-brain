@@ -755,9 +755,9 @@ manifest.
   never exposes it. Roll back the web adapter and public spec together; creation
   remains additive and audit-preserving.
 - **Focused verification:**
-  `rtk host-test-slot --class focused pnpm --dir packages/convex test authorized-brain-provisioning workspace-access`,
+  `rtk pnpm brain:factory:check-confect-codegen -- --test authorized-brain-provisioning --test access-provisioning`,
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test workspace-access`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test workspace-operations workspace`,
-  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:confect-contracts`, `rtk pnpm check:access-audit-events`,
   broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** table-driven role results, cross-tenant denials,

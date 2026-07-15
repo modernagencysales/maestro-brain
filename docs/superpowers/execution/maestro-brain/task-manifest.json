@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "1259755ce8c8a65bf517baee2404cc26eb25da49ca29b452b96bf095ba66d4a1",
+  "planSha256": "cdef7d7b41c39a321e93a84df0c247826e834b2c9c0df65ecd85f1fcec4af950",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -203,7 +203,7 @@
       "lane": "identity",
       "requirements": ["IAM-01", "IAM-02", "IAM-03", "UI-02"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "f3a295b8773d1c53252fc888a36f3ce9ded62b22a1ea29724c66216a4f7fdb42",
+      "taskBlockHash": "2acbd29281e9daefb7c8c6ab97be1aa460521b0c42c5e2fe4d41dbc6ca11776e",
       "taskId": "S01-T03",
       "title": "Authorize Workspace Listing And Brain Provisioning",
       "tranche": "D2-domain-bodies"
