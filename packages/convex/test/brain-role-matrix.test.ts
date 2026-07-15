@@ -1,6 +1,12 @@
+import { TestConfect } from "@confect/test";
 import { describe, expect, it } from "vitest";
+import * as Effect from "effect/Effect";
 import * as Either from "effect/Either";
+import * as Schema from "effect/Schema";
 
+import refs from "../confect/_generated/refs";
+import databaseSchema from "../confect/_generated/schema";
+import { DatabaseWriter } from "../confect/_generated/services";
 import {
   accessAuditEventInsert,
   denialAuditReason,
@@ -8,6 +14,7 @@ import {
   privilegedAccessAuditActions,
 } from "../confect/access/audit";
 import { resolveEffectiveWorkspaceRole } from "../confect/access/auth";
+import { asGenericId } from "../confect/access/handlerContext";
 import {
   changeMemberRole,
   removeMember,
@@ -15,15 +22,138 @@ import {
   type WorkspaceMemberLifecycleRef,
 } from "../confect/access/lifecycle";
 import { canManageWorkspaceMembers } from "../confect/access/members.impl";
+import { testConfectLayer } from "./support/confect";
 import {
   Forbidden,
   LastOwnerProtected,
   MemberNotInWorkspace,
   MembershipNotLive,
+  Unauthorized,
 } from "../confect/errors";
 
 const now = 1_782_924_800_000;
 const roles = ["viewer", "editor", "admin", "owner"] as const;
+
+const privilegedMutationSetup = Effect.gen(function* () {
+  const writer = yield* DatabaseWriter;
+  const ownerUserId = yield* writer
+    .table("users")
+    .insert({
+      subject: "owner-subject",
+      email: "owner@example.com",
+      displayName: "Owner",
+      status: "active",
+      createdAt: now,
+      updatedAt: now,
+    })
+    .pipe(Effect.orDie);
+  const outsiderUserId = yield* writer
+    .table("users")
+    .insert({
+      subject: "outsider-subject",
+      email: "outsider@example.com",
+      displayName: "Outsider",
+      status: "active",
+      createdAt: now,
+      updatedAt: now,
+    })
+    .pipe(Effect.orDie);
+  yield* writer
+    .table("users")
+    .insert({
+      subject: "attacker-subject",
+      email: "attacker@example.com",
+      displayName: "Attacker",
+      status: "active",
+      createdAt: now,
+      updatedAt: now,
+    })
+    .pipe(Effect.orDie);
+  const organizationId = yield* writer
+    .table("organizations")
+    .insert({
+      ownerUserId,
+      name: "Acme",
+      slug: "acme",
+      status: "active",
+      createdAt: now,
+      updatedAt: now,
+    })
+    .pipe(Effect.orDie);
+  const workspaceId = yield* writer
+    .table("workspaces")
+    .insert({
+      organizationId,
+      ownerUserId,
+      name: "Acme Workspace",
+      slug: "acme-demo",
+      status: "active",
+      dataClassification: "internal",
+      createdAt: now,
+      updatedAt: now,
+    })
+    .pipe(Effect.orDie);
+  const ownerMembershipId = yield* writer
+    .table("workspaceMembers")
+    .insert({
+      workspaceId,
+      userId: ownerUserId,
+      role: "owner",
+      status: "active",
+      acceptedAt: now,
+      revokedAt: null,
+      deletedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .pipe(Effect.orDie);
+  const deletedMembershipId = yield* writer
+    .table("workspaceMembers")
+    .insert({
+      workspaceId,
+      userId: outsiderUserId,
+      role: "editor",
+      status: "active",
+      acceptedAt: now,
+      revokedAt: null,
+      deletedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .pipe(Effect.orDie);
+  const targetMembershipId = yield* writer
+    .table("workspaceMembers")
+    .insert({
+      workspaceId,
+      userId: outsiderUserId,
+      role: "viewer",
+      status: "active",
+      acceptedAt: now,
+      revokedAt: null,
+      deletedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .pipe(Effect.orDie);
+  yield* writer
+    .table("workspaceMembers")
+    .delete(deletedMembershipId)
+    .pipe(Effect.orDie);
+
+  return {
+    deletedMembershipId,
+    ownerMembershipId,
+    targetMembershipId,
+    workspaceId,
+  };
+});
+
+const PrivilegedMutationSetup = Schema.Struct({
+  deletedMembershipId: Schema.String,
+  ownerMembershipId: Schema.String,
+  targetMembershipId: Schema.String,
+  workspaceId: Schema.String,
+});
 
 const member = (
   overrides: Partial<WorkspaceMemberLifecycleRef>,
@@ -226,6 +356,82 @@ describe("Brain role matrix", () => {
     expect(Either.isLeft(removal)).toBe(true);
     if (Either.isLeft(removal)) {
       expect(removal.left).toBeInstanceOf(LastOwnerProtected);
+    }
+  });
+
+  it("does not reveal arbitrary membership IDs to unauthenticated callers", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const seeded = yield* confect.run(
+        privilegedMutationSetup,
+        PrivilegedMutationSetup,
+      );
+
+      return yield* Effect.either(
+        confect.mutation(refs.public.access.members.changeRole, {
+          workspaceId: asGenericId<"workspaces">(seeded.workspaceId),
+          membershipId: asGenericId<"workspaceMembers">(
+            seeded.targetMembershipId,
+          ),
+          newRole: "viewer",
+        }),
+      );
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(Either.isLeft(result)).toBe(true);
+    if (Either.isLeft(result)) {
+      expect(result.left).toBeInstanceOf(Unauthorized);
+    }
+  });
+
+  it("does not reveal arbitrary membership IDs to unauthorized callers", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const seeded = yield* confect.run(
+        privilegedMutationSetup,
+        PrivilegedMutationSetup,
+      );
+
+      const outsider = confect.withIdentity({ subject: "attacker-subject" });
+      const validTarget = yield* Effect.either(
+        outsider.mutation(refs.public.access.members.remove, {
+          workspaceId: asGenericId<"workspaces">(seeded.workspaceId),
+          membershipId: asGenericId<"workspaceMembers">(
+            seeded.ownerMembershipId,
+          ),
+        }),
+      );
+      const missingTarget = yield* Effect.either(
+        outsider.mutation(refs.public.access.members.remove, {
+          workspaceId: asGenericId<"workspaces">(seeded.workspaceId),
+          membershipId: asGenericId<"workspaceMembers">(
+            seeded.deletedMembershipId,
+          ),
+        }),
+      );
+
+      return { validTarget, missingTarget };
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(Either.isLeft(result.validTarget)).toBe(true);
+    expect(Either.isLeft(result.missingTarget)).toBe(true);
+    if (Either.isLeft(result.validTarget)) {
+      expect(result.validTarget.left).toBeInstanceOf(Forbidden);
+    }
+    if (Either.isLeft(result.missingTarget)) {
+      expect(result.missingTarget.left).toBeInstanceOf(Forbidden);
     }
   });
 
