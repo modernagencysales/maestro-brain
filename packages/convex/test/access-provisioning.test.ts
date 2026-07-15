@@ -387,8 +387,15 @@ describe("access provisioning", () => {
           const reader = yield* DatabaseReader;
           const workspace = yield* reader
             .table("workspaces")
-            .get(first.workspaceId)
-            .pipe(Effect.orDie);
+            .index("by_slug")
+            .collect()
+            .pipe(
+              Effect.map(
+                (rows) =>
+                  rows.find((row) => row.brainKey === first.brainKey) ?? null,
+              ),
+              Effect.orDie,
+            );
           const organization = workspace
             ? yield* reader
                 .table("organizations")
@@ -408,8 +415,15 @@ describe("access provisioning", () => {
           const reader = yield* DatabaseReader;
           const workspace = yield* reader
             .table("workspaces")
-            .get(second.workspaceId)
-            .pipe(Effect.orDie);
+            .index("by_slug")
+            .collect()
+            .pipe(
+              Effect.map(
+                (rows) =>
+                  rows.find((row) => row.brainKey === second.brainKey) ?? null,
+              ),
+              Effect.orDie,
+            );
           const organization = workspace
             ? yield* reader
                 .table("organizations")
