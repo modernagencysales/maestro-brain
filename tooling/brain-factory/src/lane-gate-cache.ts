@@ -11,6 +11,15 @@ export interface LaneGateCacheIdentity {
   readonly taskBlockHash: string;
 }
 
+export type LaneGateStage = "final" | "pre-review";
+export type LaneReviewVerdict = "pass" | "pending" | "rework";
+
+export const reviewVerdictMatchesGateStage = (
+  stage: LaneGateStage,
+  verdict: LaneReviewVerdict,
+): boolean =>
+  stage === "pre-review" ? verdict === "pending" : verdict === "pass";
+
 const commandKey = (command: GateCommand): string =>
   `${command.program}\0${command.args.join("\0")}`;
 

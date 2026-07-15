@@ -12,6 +12,7 @@ import {
   canReusePreReviewGate,
   deduplicateGateCommands,
   gateCommandSetHash,
+  reviewVerdictMatchesGateStage,
 } from "./lane-gate-cache.js";
 import { buildManifest } from "./manifest.js";
 import {
@@ -45,7 +46,7 @@ const valueAfter = (flag: string): string | undefined => {
 
 const taskId = valueAfter("--task");
 const evidence = valueAfter("--evidence");
-const stage = valueAfter("--stage") ?? "pre-review";
+const stageValue = valueAfter("--stage") ?? "pre-review";
 const reusePreReview = process.argv.includes("--reuse-pre-review");
 if (!taskId || !evidence) {
   console.error(
@@ -53,8 +54,9 @@ if (!taskId || !evidence) {
   );
   process.exit(2);
 }
-if (!new Set(["pre-review", "final"]).has(stage))
+if (!new Set(["pre-review", "final"]).has(stageValue))
   throw new Error("--stage must be pre-review or final");
+const stage = stageValue as "final" | "pre-review";
 if (reusePreReview && stage !== "final")
   throw new Error("--reuse-pre-review requires --stage final");
 
@@ -92,8 +94,13 @@ validateProofContract(proof as unknown as Record<string, unknown>, {
   taskBlockHash: task.taskBlockHash,
   taskId,
 });
-if (stage === "final" && proof.reviewVerdict !== "pass")
-  throw new Error(`${taskId}: final proof lacks independent PASS review`);
+if (!reviewVerdictMatchesGateStage(stage, proof.reviewVerdict)) {
+  throw new Error(
+    stage === "final"
+      ? `${taskId}: final proof lacks independent PASS review`
+      : `${taskId}: implementation proof must await independent review`,
+  );
+}
 if (!Array.isArray(proof.changedFiles) || proof.changedFiles.length === 0)
   throw new Error(`${taskId}: proof has no changed files`);
 if (!Array.isArray(proof.focusedCommands) || proof.focusedCommands.length === 0)

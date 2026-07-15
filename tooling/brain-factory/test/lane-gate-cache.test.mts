@@ -6,6 +6,7 @@ import {
   canReusePreReviewGate,
   deduplicateGateCommands,
   gateCommandSetHash,
+  reviewVerdictMatchesGateStage,
 } from "../src/lane-gate-cache.js";
 
 const typecheck = {
@@ -18,6 +19,15 @@ const focusedTest = {
 } satisfies GateCommand;
 
 describe("brain lane gate command cache", () => {
+  it("reserves PASS for the independent final-review stage", () => {
+    expect(reviewVerdictMatchesGateStage("pre-review", "pending")).toBe(true);
+    expect(reviewVerdictMatchesGateStage("pre-review", "pass")).toBe(false);
+    expect(reviewVerdictMatchesGateStage("pre-review", "rework")).toBe(false);
+    expect(reviewVerdictMatchesGateStage("final", "pass")).toBe(true);
+    expect(reviewVerdictMatchesGateStage("final", "pending")).toBe(false);
+    expect(reviewVerdictMatchesGateStage("final", "rework")).toBe(false);
+  });
+
   it("deduplicates focused and profile commands globally in first-seen order", () => {
     expect(
       deduplicateGateCommands([
