@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "847e02fe98b85a54b9ac7bcdb5c911b9e2c1398e546b1977fb03f82d4b01922c",
+  "planSha256": "efb5cd2277540250ab4a5b773c7e997c60a248fe943a88809a6136fcbffdafdf",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -143,24 +143,35 @@
       "acceptanceAfter": "S01-T01",
       "classification": "template-gap",
       "codeStartAfter": ["S00-T04", "S01-T01"],
-      "estimatedSourceLines": 260,
+      "estimatedSourceLines": 1050,
       "fileInventoryIssues": [],
       "fileInventoryStatus": "ready",
       "fileLocks": [
+        "@dependencies",
+        "docs/product/maestro-brain-migrations.md",
+        "packages/convex/confect/access/provisioning.impl.ts",
         "packages/convex/confect/access/provisioning.ts",
         "packages/convex/confect/access/tenancySchemas.ts",
         "packages/convex/confect/identity/stableKeys.ts",
+        "packages/convex/confect/internal/migrations.impl.ts",
+        "packages/convex/confect/internal/migrations.spec.ts",
         "packages/convex/confect/internal/migrations.ts",
         "packages/convex/confect/tables/organizations.ts",
         "packages/convex/confect/tables/workspaces.ts",
-        "packages/convex/test/stable-tenant-keys.test.ts"
+        "packages/convex/package.json",
+        "packages/convex/test/access-provisioning.test.ts",
+        "packages/convex/test/migrations.test.ts",
+        "packages/convex/test/stable-tenant-keys.test.ts",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "tooling/patches/@convex-dev__migrations@0.3.5.patch"
       ],
-      "gateProfiles": ["convex"],
+      "gateProfiles": ["convex", "tooling"],
       "kind": "product",
       "lane": "identity",
       "requirements": ["FND-03", "IAM-01", "IAM-03"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "b4f948b5d4fac3c27db6c69aaba8217e7dc2a96db3703aaa656112eac009d000",
+      "taskBlockHash": "47d4a62a70f709317800942d4e81b6e0dc6ed134b43373096960faa31854a54c",
       "taskId": "S01-T02",
       "title": "Add WorkOS Organization Binding And Stable Agency/Brain Keys",
       "tranche": "C1-contract-spine"

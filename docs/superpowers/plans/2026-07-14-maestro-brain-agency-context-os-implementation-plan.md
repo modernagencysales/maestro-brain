@@ -630,18 +630,41 @@ manifest.
   `packages/convex/confect/tables/organizations.ts`,
   `packages/convex/confect/tables/workspaces.ts`,
   `packages/convex/confect/access/provisioning.ts`, and
-  `packages/convex/confect/internal/migrations.ts`; create
+  `packages/convex/confect/access/provisioning.impl.ts`,
+  `packages/convex/confect/internal/migrations.ts`,
+  `packages/convex/confect/internal/migrations.spec.ts`, and
+  `packages/convex/confect/internal/migrations.impl.ts`,
+  `packages/convex/package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`,
+  `docs/product/maestro-brain-migrations.md`,
+  `packages/convex/test/access-provisioning.test.ts`, and
+  `packages/convex/test/migrations.test.ts`; create
+  `tooling/patches/@convex-dev__migrations@0.3.5.patch`,
   `packages/convex/confect/identity/stableKeys.ts` and
   `packages/convex/test/stable-tenant-keys.test.ts`.
 - **Failure-first tests:** duplicate WorkOS org binding, duplicate
   `(organizationId, agencyKey)`, duplicate `(organizationId, brainKey)`, invalid
   key syntax, cross-organization resolution, and public Convex-ID serialization
-  all fail. Backfill is deterministic and idempotent for existing demo rows.
+  all fail. Lexical order follows creation order and multiple organizations or
+  Brains owned by the same user receive distinct keys. A later authenticated
+  sign-in persists missing WorkOS/stable-key metadata on legacy rows. The real
+  registered component migrations prove dry-run, bounded execute, resume, and
+  idempotent rerun through generated Confect refs rather than a pure helper. A
+  log sentinel proves dry-run never emits before/after tenant documents or
+  customer-bearing fields.
 - **Implementation:** add `workosOrganizationId`, `agencyKey`, tenant lifecycle
   and revocation generation to organizations; add `brainKey`,
   `kind: agency | client`, `clientSlug?`, lifecycle and revocation generation to
-  workspaces. Generate opaque sortable stable keys once; names/slugs never form
-  authorization. Add compound indexes `by_workos_organization`, `by_agency_key`,
+  workspaces. Generate opaque sortable stable keys once from the entity's
+  persisted creation time plus unique entity ID, and preserve them thereafter;
+  owner IDs, names, and slugs never supply uniqueness or authorization. Apply
+  planner patches in the provisioning writer so legacy rows self-heal when the
+  authenticated WorkOS organization binding is available. Register the stable
+  tenant expand migrations in the S00-T04 harness and route them through typed
+  Confect specs/impls. Pin and patch `@convex-dev/migrations@0.3.5` through
+  pnpm's checked-in patched-dependency mechanism so component dry-run returns
+  typed rollback evidence without logging raw before/after rows; promote that
+  no-log boundary as the generic template path and update the migration status
+  doc. Add compound indexes `by_workos_organization`, `by_agency_key`,
   `by_organization_brain_key`, and `by_organization_kind`.
 - **Typed contract / errors:** internal resolvers accept server-derived
   organization plus stable key and return typed IDs after authorization; errors
@@ -651,10 +674,12 @@ manifest.
   dual-read legacy rows; backfill in bounded batches; verify zero null/duplicate
   keys; switch writers then readers; make fields required in a later contract
   deploy. Roll back readers to legacy IDs while leaving additive keys; never
-  delete generated keys.
+  delete generated keys. Roll back the component patch only by restoring the
+  sensitive-migration fail-closed classification before reverting the pinned
+  package patch.
 - **Focused verification:**
-  `rtk host-test-slot --class focused pnpm --dir packages/convex test stable-tenant-keys access-provisioning`,
-  `rtk pnpm brain:factory:check-confect-codegen`,
+  `rtk pnpm brain:factory:check-confect-codegen -- --test stable-tenant-keys`,
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test access-provisioning`,
   `rtk pnpm check:confect-contracts`, `rtk pnpm check:schema-migration-notes`,
   broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** migration dry-run/execute/idempotent-rerun counts,
@@ -3537,7 +3562,7 @@ source materialized into `acceptanceAfter`.
 | S00-T03 | S00-T02                 | template-gap `TB-DEPLOY-ISOLATION-01`            |               280 |
 | S00-T04 | S00-T03                 | template-gap migration pattern                   |               780 |
 | S01-T01 | S00 complete            | template-gap `TB-AUTHKIT-01`                     |               240 |
-| S01-T02 | S01-T01                 | template-gap + existing-module repair            |               260 |
+| S01-T02 | S01-T01                 | template-gap + existing-module repair            |              1050 |
 | S01-T03 | S01-T02                 | template-gap authorized tenancy                  |               280 |
 | S01-T04 | S01-T03                 | template-gap access UI                           |               260 |
 | S02-T01 | S01 complete            | template-gap authorized Brain schema             |               260 |
