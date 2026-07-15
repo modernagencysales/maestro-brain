@@ -1,7 +1,11 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildManifest,
+  PLAN_RELATIVE,
   parseTaskPacketAuditRows,
+  REPO_ROOT,
   readyWidth,
   validateManifest,
 } from "../src/manifest.js";
@@ -20,9 +24,43 @@ describe("Maestro Brain execution manifest", () => {
       ),
     ).toEqual({
       "fixture-to-real": 2,
-      "pattern-instance": 8,
-      "template-gap": 46,
+      "pattern-instance": 7,
+      "template-gap": 47,
     });
+  });
+
+  it("keeps every focused verification packet executable", () => {
+    const plan = readFileSync(resolve(REPO_ROOT, PLAN_RELATIVE), "utf8");
+    const shorthand = [
+      "accessibility smoke",
+      "accessibility test",
+      "all exact release commands",
+      "codegen/manifest",
+      "generator/codegen/manifest",
+      "integration fake tests",
+      "property/concurrency tests",
+      "schema/property tests",
+      "targeted web tests",
+    ];
+    for (const match of plan.matchAll(
+      /^### (S\d{2}-T\d{2}) — [^\n]+\n([\s\S]*?)(?=^### S\d{2}-T\d{2} — |^---$)/gm,
+    )) {
+      const taskId = match[1];
+      const body = match[2] ?? "";
+      const focused = body.match(
+        /- \*\*Focused verification:\*\*([\s\S]*?)(?=\n- \*\*)/,
+      )?.[1];
+      expect(focused, `${taskId}: focused verification missing`).toBeDefined();
+      expect(focused, `${taskId}: no exact rtk verification command`).toContain(
+        "`rtk ",
+      );
+      for (const phrase of shorthand) {
+        expect(
+          focused?.toLowerCase(),
+          `${taskId}: shorthand ${phrase}`,
+        ).not.toContain(phrase);
+      }
+    }
   });
 
   it("exposes a real contract-first parallel frontier", () => {
@@ -39,7 +77,6 @@ describe("Maestro Brain execution manifest", () => {
         "S03-T01",
         "S08-T01",
         "S09-T01",
-        "S13-T01",
       ]),
     );
   });
@@ -60,8 +97,19 @@ describe("Maestro Brain execution manifest", () => {
 
   it("serializes migrations behind deployment isolation", () => {
     const manifest = buildManifest();
+    const sourceContract = manifest.tasks.find(
+      (task) => task.taskId === "S00-T02",
+    );
     const isolation = manifest.tasks.find((task) => task.taskId === "S00-T03");
     const migrations = manifest.tasks.find((task) => task.taskId === "S00-T04");
+    expect(sourceContract?.kind).toBe("product");
+    expect(sourceContract?.fileLocks).toEqual(
+      expect.arrayContaining([
+        "@dependencies",
+        "package.json",
+        "pnpm-workspace.yaml",
+      ]),
+    );
     expect(isolation?.fileLocks).toContain(".buildkite/pipeline.yml");
     expect(migrations?.codeStartAfter).toEqual(["S00-T03"]);
   });
@@ -76,6 +124,33 @@ describe("Maestro Brain execution manifest", () => {
     );
     expect(stableIdentity?.codeStartAfter).toEqual(["S00-T04", "S01-T01"]);
     expect(providerSetup?.codeStartAfter).toEqual(["S00-T03", "S01-T02"]);
+  });
+
+  it("keeps S13 MCP and export work behind the reviewed contracts", () => {
+    const manifest = buildManifest();
+    const semanticEvals = manifest.tasks.find(
+      (task) => task.taskId === "S13-T01",
+    );
+    const capacity = manifest.tasks.find((task) => task.taskId === "S13-T02");
+    const operations = manifest.tasks.find((task) => task.taskId === "S13-T03");
+    expect(semanticEvals?.acceptanceAfter).toBe("S10, S11, S12 complete");
+    expect(semanticEvals?.codeStartAfter).toEqual([
+      "S08-T04",
+      "S09-T04",
+      "S11-T03",
+    ]);
+    expect(capacity?.codeStartAfter).toEqual(["S13-T01", "S06-T02", "S11-T04"]);
+    expect(operations?.codeStartAfter).toEqual([
+      "S06-T02",
+      "S08-T01",
+      "S11-T04",
+      "S12-T02",
+    ]);
+    expect(
+      manifest.tasks
+        .filter((task) => task.taskId.startsWith("S13-"))
+        .every((task) => task.tranche === "X3-convergence"),
+    ).toBe(true);
   });
 
   it("uses only package-relevant profiles for the next frontier", () => {

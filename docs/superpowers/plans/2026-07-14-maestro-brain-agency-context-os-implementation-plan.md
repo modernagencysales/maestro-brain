@@ -264,8 +264,9 @@ manifest.
 - **Migration / rollback:** no data migration. If the plugin breaks a host,
   remove only that plugin using the CLI's documented remove command, record the
   failure, and keep the program blocked; never continue with two hosts.
-- **Focused verification:** three `plugin list` results, three fresh-session
-  discovery results,
+- **Focused verification:** external-only acceptance: run
+  `rtk codex plugin list` and a fresh-session Convex capability discovery on
+  each of the three named hosts; then run
   `rtk pnpm exec prettier --check docs/superpowers/receipts/maestro-brain/convex-plugin-readiness.md`,
   and `rtk git diff --check`.
 - **Completion receipt:** the Markdown file contains exactly three redacted host
@@ -275,10 +276,11 @@ manifest.
   `codex/brain-s00-convex-plugin-readiness`; commit
   `chore: attest Convex plugin readiness`; docs-only first slice.
 
-### S00-T02 — Freeze Sources, Register Gaps, And Prove Stack Receipts
+### S00-T02 — Freeze Sources, Repair Pnpm Settings, And Prove Stack Receipts
 
 - **Outcome / requirements:** satisfy FND-02, make every later `template-gap`
-  reviewable, and prove the just-in-time StackPlan projection fails closed.
+  reviewable, restore the ignored root pnpm override contract, and prove the
+  just-in-time StackPlan projection fails closed.
 - **Classification:** `template-gap`; target the missing Maestro Brain pattern
   ledger; backlog reference `docs/template/porting-backlog.md`; resolution is to
   register gaps and their promotion/import paths.
@@ -289,37 +291,48 @@ manifest.
   while the current backlog already identifies source ingestion, migrations, and
   lifecycle gaps in
   [`porting-backlog.md`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/docs/template/porting-backlog.md#L506-L541).
-- **Files:** modify `docs/template/porting-backlog.md`; create
+- **Files:** modify `package.json`, `pnpm-workspace.yaml`, and
+  `docs/template/porting-backlog.md`; create
   `docs/superpowers/receipts/maestro-brain/source-baseline.md` and
   `docs/superpowers/receipts/maestro-brain/stack-execution-contract.md`; do not
   modify the design or this plan except through an explicit drift amendment.
-- **Failure-first gate:** run `rtk git rev-parse HEAD`; verify the
-  implementation base contains `123adb18c0abfe81fe98dd531c910b6cf493c8dd`;
-  verify the five external repositories at the pinned commits in **Source
-  Pins**. Fail if any pin cannot be resolved or if an anchor disagrees with the
-  design. Create the temporary S00 manifest outside the repo, omit
-  `workPackages.followUpGates`, use `estLines: 301`, and add a fifth slice in
-  separate trials; `rtk pnpm stack:check <absolute-temp-plan.json>` must reject
-  each before the corrected manifest passes.
-- **Implementation:** add backlog entries with exact IDs and ownership:
-  `TB-DEVEX-CONVEX-01`, `TB-AUTHKIT-01`, `TB-BRAIN-UI-01`, `TB-NANGO-SLACK-01`,
-  `TB-SOURCE-01`, `TB-SOURCE-LIFECYCLE-01`, `TB-AUTHORIZED-KNOWLEDGE-01`,
-  `TB-STRUCTURED-LLM-01`, `TB-INTERNAL-WORKFLOW-01`, `TB-ASYNC-SEARCH-01`,
-  `TB-HEADLESS-01`, `TB-BRAIN-EXPORT-01`, `TB-DEPLOY-ISOLATION-01`,
-  `TB-AUTHORIZED-TENANCY-01`, `TB-ACCESS-UI-01`, `TB-EVALS-01`,
-  `TB-OPERATIONS-01`, and `TB-RELEASE-EVIDENCE-01`. Each entry names current
-  absence, generic template lesson, product-specific first implementation path,
-  promotion criteria, owner, and focused gates. Document the StackPlan fields,
-  source-line audit, generated/test/docs review totals, and split-not-waive
-  rule. Record source pins without customer data and delete the temporary JSON
-  after preserving its hash/result.
+- **Failure-first gate:** run `rtk pnpm --version` and
+  `rtk pnpm config get overrides`; fail while pnpm 10 reports that
+  `package.json#pnpm.overrides` is ignored or the configured override map is
+  unavailable. Run `rtk git rev-parse HEAD`; verify the implementation base
+  contains `123adb18c0abfe81fe98dd531c910b6cf493c8dd`; verify the five external
+  repositories at the pinned commits in **Source Pins**. Fail if any pin cannot
+  be resolved or if an anchor disagrees with the design. Create the temporary
+  S00 manifest outside the repo, omit `workPackages.followUpGates`, use
+  `estLines: 301`, and add a fifth slice in separate trials;
+  `rtk pnpm stack:check <absolute-temp-plan.json>` must reject each before the
+  corrected manifest passes.
+- **Implementation:** move the existing override map unchanged from
+  `package.json#pnpm.overrides` to the root `overrides` setting in
+  `pnpm-workspace.yaml`; do not change package pins or regenerate the lockfile
+  unless pnpm reports a real resolution change. Add backlog entries with exact
+  IDs and ownership: `TB-DEVEX-CONVEX-01`, `TB-AUTHKIT-01`, `TB-BRAIN-UI-01`,
+  `TB-NANGO-SLACK-01`, `TB-SOURCE-01`, `TB-SOURCE-LIFECYCLE-01`,
+  `TB-AUTHORIZED-KNOWLEDGE-01`, `TB-STRUCTURED-LLM-01`,
+  `TB-INTERNAL-WORKFLOW-01`, `TB-ASYNC-SEARCH-01`, `TB-HEADLESS-01`,
+  `TB-BRAIN-EXPORT-01`, `TB-DEPLOY-ISOLATION-01`, `TB-AUTHORIZED-TENANCY-01`,
+  `TB-ACCESS-UI-01`, `TB-EVALS-01`, `TB-OPERATIONS-01`, and
+  `TB-RELEASE-EVIDENCE-01`. Each entry names current absence, generic template
+  lesson, product-specific first implementation path, promotion criteria, owner,
+  and focused gates. Document the StackPlan fields, source-line audit,
+  generated/test/docs review totals, and split-not-waive rule. Record source
+  pins without customer data and delete the temporary JSON after preserving its
+  hash/result.
 - **Contract / state:** a gap is
   `registered -> product instance -> proven -> promoted | retained product-specific`;
   no task may call a gap “complete” just because the product instance exists.
-- **Migration / rollback:** docs only. Revert the slice if the pin or gap names
-  are wrong; never renumber an ID after a dependent PR references it.
+- **Migration / rollback:** workspace configuration plus docs only. Revert the
+  setting relocation if pnpm does not resolve the identical override map. Revert
+  the docs if a pin or gap name is wrong; never renumber an ID after a dependent
+  PR references it.
 - **Focused verification:**
   `rtk pnpm exec prettier --check docs/template/porting-backlog.md docs/superpowers/receipts/maestro-brain/source-baseline.md docs/superpowers/receipts/maestro-brain/stack-execution-contract.md`,
+  `rtk pnpm --version`, `rtk pnpm config get overrides`,
   `rtk host-test-slot --class focused pnpm test:stack`,
   `rtk pnpm check:docs-freshness`, `rtk git diff --check`, broad verification is
   deferred to tranche acceptance under Appendix L.
@@ -329,7 +342,7 @@ manifest.
   JSON plan is treated as authority.
 - **Lane branch / commit boundary:** branch
   `codex/brain-s00-source-gap-stack-contract` stacked on T01; commit
-  `docs: define Brain execution contract`.
+  `chore: define Brain execution contract`.
 
 ### S00-T03 — Isolate Staging And Production Deployments
 
@@ -380,13 +393,11 @@ manifest.
   tenant environment.
 - **Focused verification:** lane-local gates are
   `rtk host-test-slot --class focused pnpm --dir tooling/release test`,
-  `rtk pnpm --dir tooling/release typecheck`, script/config fixture tests
-  proving distinct URL/deployment/key names, required callback origins, no
-  `demo/showcase:seed`, no missing-receipt promotion fallback, staged
-  schema/manifest matching, incompatible rollback rejection, and
-  `rtk pnpm check:env-boundary`. Provider-backed
-  `rtk pnpm deploy:doctor staging` and `rtk pnpm deploy:doctor production` are
-  acceptance gates when credentials are available; broad verification belongs to
+  `rtk pnpm --dir tooling/release typecheck`,
+  `rtk host-test-slot --class focused pnpm --dir tooling/release test deployment-isolation callback-origin demo-seed receipt-promotion schema-manifest rollback-compatibility`,
+  and `rtk pnpm check:env-boundary`. External-only acceptance when credentials
+  are available: `rtk pnpm deploy:doctor staging` and
+  `rtk pnpm deploy:doctor production` are green; broad verification belongs to
   tranche integration.
 - **Completion receipt:** redacted deployment names/URL hashes, distinct-key
   owner metadata, negative cross-deploy attempts, staged/promotion/rollback-plan
@@ -611,9 +622,9 @@ manifest.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test authorized-brain-provisioning workspace-access`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test workspace-operations workspace`,
-  codegen/manifest, `rtk pnpm check:confect-contracts`,
-  `rtk pnpm check:access-audit-events`, broad verification is deferred to
-  tranche acceptance under Appendix L.
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm check:confect-contracts`, `rtk pnpm check:access-audit-events`,
+  broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** table-driven role results, cross-tenant denials,
   generated-ref diff, stable response sample, and audit event sample with no
   customer text.
@@ -667,9 +678,9 @@ manifest.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test access brain-role-matrix`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test settings`,
-  codegen/manifest, `rtk pnpm check:access-audit-events`,
-  `rtk pnpm check:layer-boundaries`, and broad verification is deferred to
-  tranche acceptance under Appendix L.
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm check:access-audit-events`, `rtk pnpm check:layer-boundaries`, and
+  broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** complete matrix output, last-owner/cross-tenant
   denials, audit vocabulary diff, UI state screenshots, and generated refs.
 - **Lane branch / commit boundary:** branch `codex/brain-s01-rbac-settings`;
@@ -718,9 +729,9 @@ manifest.
   contract later. Rollback reads legacy Markdown and leaves revisions dormant.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test brain-page-schema`,
-  codegen/manifest, `rtk pnpm check:schema-migration-notes`,
-  `rtk pnpm check:confect-contracts`, broad verification is deferred to tranche
-  acceptance under Appendix L.
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm check:schema-migration-notes`, `rtk pnpm check:confect-contracts`,
+  broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** migration counts/hash comparison, index inventory,
   cycle/cross-tenant denials, generated diff, rollback marker.
 - **Lane branch / commit boundary:** branch `codex/brain-s02-page-tree-schema`;
@@ -764,7 +775,8 @@ manifest.
   UI/spec as one deployment while keeping appended revisions.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test brain-pages`,
-  codegen/manifest, `rtk pnpm check:confect-contracts`,
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm check:confect-contracts`,
   `rtk pnpm check:headless-surface-contract`, broad verification is deferred to
   tranche acceptance under Appendix L.
 - **Completion receipt:** role matrix, stale/cycle/cross-tenant denials,
@@ -816,9 +828,9 @@ manifest.
   rollback current pointer reads without deleting appended rows.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test brain-revisions versioning knowledge`,
-  codegen/manifest, `rtk pnpm check:confect-contracts`,
-  `rtk pnpm check:schema-migration-notes`, broad verification is deferred to
-  tranche acceptance under Appendix L.
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm check:confect-contracts`, `rtk pnpm check:schema-migration-notes`,
+  broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** fixture-to-real checklist, migration counts, exact
   citation resolution, restore history, effect-key idempotency, and
   authorization denials.
@@ -863,8 +875,9 @@ manifest.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test editor brain-editor-revision-fence`,
   `rtk host-test-slot --class focused pnpm --dir packages/editor-react test`,
-  codegen/manifest, `rtk pnpm check:layer-boundaries`, broad verification is
-  deferred to tranche acceptance under Appendix L.
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm check:layer-boundaries`, broad verification is deferred to tranche
+  acceptance under Appendix L.
 - **Completion receipt:** viewer/editor/revocation/concurrency results,
   stable-to-internal resolution trace with redacted IDs, and appended revision
   proof.
@@ -963,9 +976,9 @@ manifest.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test client-brief`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test clients`,
-  codegen/manifest, `rtk pnpm check:confect-contracts`,
-  `rtk pnpm check:route-tree`, and broad verification is deferred to tranche
-  acceptance under Appendix L.
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm check:confect-contracts`, `rtk pnpm check:route-tree`, and broad
+  verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** role/idempotency/capacity tests, six-page stable tree
   sample, UI states, and atomic-failure proof.
 - **Lane branch / commit boundary:** branch `codex/brain-s03-client-brief`;
@@ -1016,8 +1029,8 @@ manifest.
   `rtk host-test-slot --class focused pnpm --dir apps/web test brain`,
   `rtk host-test-slot --class focused pnpm --dir packages/editor-react test`,
   `rtk pnpm check:route-tree`, `rtk pnpm check:layer-boundaries`,
-  accessibility-focused Playwright for tree and drawers, broad verification is
-  deferred to tranche acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir apps/web test brain accessibility`,
+  broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** role/state screenshots at desktop/mobile, keyboard and
   screen-reader output, stale-edit proof, route denial, and layer imports.
 - **Lane branch / commit boundary:** branch `codex/brain-s03-notion-workspace`;
@@ -1065,8 +1078,9 @@ manifest.
   rollback.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir apps/web test brain revision citation review`,
-  accessibility test, `rtk pnpm check:layer-boundaries`, broad verification is
-  deferred to tranche acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir apps/web test accessibility`,
+  `rtk pnpm check:layer-boundaries`, broad verification is deferred to tranche
+  acceptance under Appendix L.
 - **Completion receipt:** revision/restore/redaction/viewer-denial screenshots,
   XSS fixture result, and empty/ready queue states.
 - **Lane branch / commit boundary:** branch `codex/brain-s03-history-review-ui`;
@@ -1130,9 +1144,10 @@ manifest.
   `rtk host-test-slot --class focused pnpm --dir packages/integrations test nango`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test slack-connections`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test nango-connect`,
-  codegen/manifest, `rtk pnpm check:provider-boundary`,
-  `rtk pnpm check:env-boundary`, `rtk pnpm check:secret-canaries`, broad
-  verification is deferred to tranche acceptance under Appendix L.
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm check:provider-boundary`, `rtk pnpm check:env-boundary`,
+  `rtk pnpm check:secret-canaries`, broad verification is deferred to tranche
+  acceptance under Appendix L.
 - **Completion receipt:** package versions, fake/live adapter tests, role
   denials, redacted Nango sandbox connection result, and log canary result.
 - **Lane branch / commit boundary:** branch `codex/brain-s04-nango-connect`;
@@ -1192,9 +1207,9 @@ manifest.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test slack-directory`,
   `rtk host-test-slot --class focused pnpm --dir packages/integrations test slack`,
-  codegen/manifest, `rtk pnpm check:schema-migration-notes`,
-  `rtk pnpm check:provider-boundary`, broad verification is deferred to tranche
-  acceptance under Appendix L.
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm check:schema-migration-notes`, `rtk pnpm check:provider-boundary`,
+  broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** multi-page fixture counts, exact bot identity receipt,
   rename/re-add behavior, no-auto-join call assertion, and index inventory.
 - **Lane branch / commit boundary:** branch `codex/brain-s04-slack-directory`;
@@ -1260,9 +1275,10 @@ manifest.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/integrations test eventsVerifier`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test slack-webhook-security`,
-  codegen/manifest, `rtk pnpm check:provider-boundary`,
-  `rtk pnpm check:logging-boundary`, `rtk pnpm check:secret-canaries`, and broad
-  verification is deferred to tranche acceptance under Appendix L.
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm check:provider-boundary`, `rtk pnpm check:logging-boundary`,
+  `rtk pnpm check:secret-canaries`, and broad verification is deferred to
+  tranche acceptance under Appendix L.
 - **Completion receipt:** native signature/replay/size matrix, raw-byte verifier
   evidence, manifest hash, secret-name inventory, redacted pre-tenant telemetry
   samples, and proof rejected payloads made zero tenant writes.
@@ -1319,8 +1335,11 @@ manifest.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test channel-policies`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test connections`,
-  codegen/manifest, route/layer/access-audit gates, accessibility test, and
-  broad verification is deferred to tranche acceptance under Appendix L.
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm check:route-tree`, `rtk pnpm check:layer-boundaries`,
+  `rtk pnpm check:access-audit-events`,
+  `rtk host-test-slot --class focused pnpm --dir apps/web test accessibility`,
+  and broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** all role/policy invariants, 100-channel selection
   fixture, Slack Connect Direct/Classify ingestion allowed plus
   requester-private delivery denial, bulk atomicity, UI screenshots, and audit
@@ -1375,10 +1394,11 @@ manifest.
 - **Migration / compatibility / rollback:** new tables only. Rollback stops new
   capture and retains exact rows; never delete captured evidence to revert code.
   Re-enable only after the new binary understands every stored schema version.
-- **Focused verification:** schema/property tests,
+- **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test source-ledger-schema`,
-  codegen/manifest, schema-migration/confect-contract gates, broad verification
-  is deferred to tranche acceptance under Appendix L.
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm check:schema-migration-notes`, `rtk pnpm check:confect-contracts`,
+  broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** table/index inventory, schema version, tenant/key/
   partial-write tests, and lifecycle declarations.
 - **Lane branch / commit boundary:** branch
@@ -1427,8 +1447,10 @@ manifest.
   disables webhook acceptance rather than writing with an older schema.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test source-capture`,
-  adversarial property tests, provider/logging boundary gates, codegen/manifest,
-  and broad verification is deferred to tranche acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test source-capture property adversarial`,
+  `rtk pnpm check:provider-boundary`, `rtk pnpm check:logging-boundary`,
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`, and broad
+  verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** `A -> B -> A` rows, crash matrix, duplicate/race
   outcome, zero model calls, ACK timing, and no raw webhook log proof.
 - **Lane branch / commit boundary:** branch `codex/brain-s05-atomic-capture`;
@@ -1475,8 +1497,10 @@ manifest.
   Rollback stops new assembly and leaves pending intents resumable.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test source-unit`,
-  property/concurrency tests, codegen/manifest, schema/lifecycle gates, and
-  broad verification is deferred to tranche acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test source-unit property concurrency`,
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm check:schema-migration-notes`, `rtk pnpm check:access-audit-events`,
+  and broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** fixed-cut race proof, bounds, deterministic repeated
   hash, supersession, tenant isolation, and no LLM/provider imports.
 - **Lane branch / commit boundary:** branch
@@ -1522,10 +1546,15 @@ manifest.
 - **Migration / compatibility / rollback:** additive route table. A normal
   rollback writes a prospective Capture-only epoch; historical route deletion is
   forbidden and emergency deactivation is S07.
-- **Focused verification:** generator dry-run then write, codegen/manifest,
+- **Focused verification:**
+  `rtk pnpm template:add-capability -- --name commitSourceRoute --description "Commits an authorized source route without semantic reinterpretation." --exposure workflow`,
+  `rtk pnpm template:add-capability -- --name commitSourceRoute --description "Commits an authorized source route without semantic reinterpretation." --exposure workflow --write`,
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test commitSourceRoute direct-routing`,
-  Confect/workflow/headless contract gates, zero-LLM import/call assertion, and
-  broad verification is deferred to tranche acceptance under Appendix L.
+  `rtk pnpm check:confect-contracts`, `rtk pnpm check:workflow-graph-boundary`,
+  `rtk pnpm check:headless-surface-contract`,
+  `rtk pnpm check:provider-boundary`, and broad verification is deferred to
+  tranche acceptance under Appendix L.
 - **Completion receipt:** generator provenance, Direct/Capture-only/no-policy
   state results, exact route row, idempotency/fencing, and manifest proof that
   no public route-commit tool exists.
@@ -1573,7 +1602,8 @@ manifest.
   leases expire; never clear pending jobs.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test source-workpool`,
-  codegen/manifest, workpool contract tests,
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test source-workpool contract`,
   `rtk pnpm check:workflow-graph-boundary`, and broad verification is deferred
   to tranche acceptance under Appendix L.
 - **Completion receipt:** full crash matrix, duplicate external-call versus one
@@ -1624,9 +1654,10 @@ manifest.
   concurrency to zero for history pools while live capture continues.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test source-fairness slack-rate-budget`,
-  property/TestClock tests, schema/codegen gates, no-text scheduler dependency
-  assertion, broad verification is deferred to tranche acceptance under Appendix
-  L.
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test source-fairness property TestClock scheduler-dependency`,
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm check:schema-migration-notes`, broad verification is deferred to
+  tranche acceptance under Appendix L.
 - **Completion receipt:** fairness distribution, priority latency, 429 timeline,
   noisy-neighbor isolation, and configured launch limits.
 - **Lane branch / commit boundary:** branch `codex/brain-s06-fair-scheduler`;
@@ -1669,11 +1700,12 @@ manifest.
   `BatchTooLarge`, `ProviderMalformed`.
 - **Migration / compatibility / rollback:** new cursors start null. Rollback
   pauses history pools without resetting cursors; live capture remains enabled.
-- **Focused verification:** integration fake tests,
+- **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test slack-backfill`,
   `rtk host-test-slot --class focused pnpm --dir packages/integrations test slackHistory`,
-  provider/logging gates, codegen/manifest, broad verification is deferred to
-  tranche acceptance under Appendix L.
+  `rtk pnpm check:provider-boundary`, `rtk pnpm check:logging-boundary`,
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`, broad verification is
+  deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** 100-channel cursor independence, batch memory bound,
   crash/CAS proof, live-race idempotency, recent/deep status, and no first-
   channel sampling.
@@ -1724,8 +1756,10 @@ manifest.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test slack-reconciliation`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test channel-health`,
-  notification/access/logging gates, accessibility test, broad verification is
-  deferred to tranche acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir packages/notifications test`,
+  `rtk pnpm check:access-audit-events`, `rtk pnpm check:logging-boundary`,
+  `rtk host-test-slot --class focused pnpm --dir apps/web test accessibility`,
+  broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** repairable/unrecoverable fixtures, dead-letter replay
   authorization, independent progress, UI screenshots, and operator audit.
 - **Lane branch / commit boundary:** branch `codex/brain-s06-reconciliation`;
@@ -1787,8 +1821,10 @@ manifest.
   preserve the stricter visibility decision.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test dataLifecycle lifecycle-envelope`,
-  codegen/manifest, schema migration/access audit/contract gates, and broad
-  verification is deferred to tranche acceptance under Appendix L.
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm check:schema-migration-notes`, `rtk pnpm check:access-audit-events`,
+  `rtk pnpm check:confect-contracts`, and broad verification is deferred to
+  tranche acceptance under Appendix L.
 - **Completion receipt:** resource owner/export/delete/retention inventory,
   migration counts, hold/generation denials, and current-read filter proof.
 - **Lane branch / commit boundary:** branch
@@ -1842,9 +1878,12 @@ manifest.
   Redaction/revocation is monotonic; rollback may restore service code but never
   make redacted text current. An authorized re-route creates new active derived
   rows from still-retained source, not resurrected old rows.
-- **Focused verification:** lifecycle propagation/race tests, codegen/manifest,
-  logging/access audit/schema gates, broad verification is deferred to tranche
-  acceptance under Appendix L.
+- **Focused verification:**
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test lifecycle-propagation race`,
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm check:logging-boundary`, `rtk pnpm check:access-audit-events`,
+  `rtk pnpm check:schema-migration-notes`, broad verification is deferred to
+  tranche acceptance under Appendix L.
 - **Completion receipt:** extant-resource matrix results, immediate
   page/current-read/history/editor denial, in-flight fencing, idempotent resume,
   redacted citation marker, and the explicit S09-S12 adoption ledger.
@@ -1903,7 +1942,9 @@ manifest.
   must reapply tombstones/revocation journal before serving traffic.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test dataLifecycle purge dsar`,
-  schema/access/logging/secret gates, staging rehearsal, broad verification is
+  `rtk pnpm check:schema-migration-notes`, `rtk pnpm check:access-audit-events`,
+  `rtk pnpm check:logging-boundary`, `rtk pnpm check:secret-canaries`;
+  external-only acceptance: staging purge/DSAR rehearsal; broad verification is
   deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** approval/manifest hashes, per-resource counts, hold
   denial, resume result, provider backup evidence/window, and restored-backup
@@ -1949,8 +1990,10 @@ manifest.
   for that.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir apps/web test data-lifecycle retention legal-holds`,
-  accessibility test, route/layer/logging/access gates, and broad verification
-  is deferred to tranche acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir apps/web test accessibility`,
+  `rtk pnpm check:route-tree`, `rtk pnpm check:layer-boundaries`,
+  `rtk pnpm check:logging-boundary`, `rtk pnpm check:access-audit-events`, and
+  broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** role/state screenshots, redacted citation UX,
   destructive confirmation, telemetry canary, and operator recovery rehearsal.
 - **Lane branch / commit boundary:** branch `codex/brain-s07-lifecycle-ui`;
@@ -2013,8 +2056,10 @@ manifest.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/integrations test llm`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test model-call-receipts`,
-  codegen/manifest, provider/env/logging/secret gates, broad verification is
-  deferred to tranche acceptance under Appendix L.
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm check:provider-boundary`, `rtk pnpm check:env-boundary`,
+  `rtk pnpm check:logging-boundary`, `rtk pnpm check:secret-canaries`, broad
+  verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** selected transport/package pin, fake and sandbox
   structured calls, every typed failure, egress policy, request/response hashes,
   cost/token bounds, and log canary.
@@ -2128,11 +2173,18 @@ manifest.
   until eval and UI evidence pass; existing captured units stay replayable.
   Rollback disables new classification and leaves proposals pending; never
   guess/fallback to a Brain.
-- **Focused verification:** generator dry-run/write, codegen/manifest,
+- **Focused verification:**
+  `rtk pnpm template:add-capability -- --name classifySourceUnit --description "Returns a typed zero-or-one route proposal from an immutable source unit." --exposure workflow`,
+  `rtk pnpm template:add-capability -- --name classifySourceUnit --description "Returns a typed zero-or-one route proposal from an immutable source unit." --exposure workflow --write`,
+  `rtk pnpm template:add-workflow -- --name sourceClassification --description "Gathers, classifies, reviews, and commits one source route." --exposure internal`,
+  `rtk pnpm template:add-workflow -- --name sourceClassification --description "Gathers, classifies, reviews, and commits one source route." --exposure internal --write`,
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test classification`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test review-queue`,
-  workflow/confect/headless/layer gates, classification eval smoke, broad
-  verification is deferred to tranche acceptance under Appendix L.
+  `rtk pnpm check:workflow-graph-boundary`, `rtk pnpm check:confect-contracts`,
+  `rtk pnpm check:headless-surface-contract`, `rtk pnpm check:layer-boundaries`,
+  `rtk host-test-slot --class focused pnpm --dir tooling/evals test classification`,
+  broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** generator provenance, zero-call Direct proof,
   allowlist/zero-one/mixed-client fixtures, admin review actions, duplicate
   model attempts versus one route, injection fixtures, and no public cognition
@@ -2196,11 +2248,18 @@ manifest.
 - **Migration / compatibility / rollback:** additive proposals/policy fields.
   Rollback sets maintenance `Off`, cancels/fences pending commits, and preserves
   all proposals/revisions. It never rolls back exact source capture.
-- **Focused verification:** generator/codegen/manifest,
+- **Focused verification:**
+  `rtk pnpm template:add-capability -- --name maintainBrainPage --description "Returns cited Brain revision proposals from an immutable context pack." --exposure workflow`,
+  `rtk pnpm template:add-capability -- --name maintainBrainPage --description "Returns cited Brain revision proposals from an immutable context pack." --exposure workflow --write`,
+  `rtk pnpm template:add-workflow -- --name sourceToBrainMaintenance --description "Gathers routed evidence and proposes cited Brain revisions." --exposure internal`,
+  `rtk pnpm template:add-workflow -- --name sourceToBrainMaintenance --description "Gathers routed evidence and proposes cited Brain revisions." --exposure internal --write`,
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test brain-maintenance`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test maintenance-review`,
-  workflow/headless/layer gates, maintenance/injection eval smoke, broad
-  verification is deferred to tranche acceptance under Appendix L.
+  `rtk pnpm check:workflow-graph-boundary`,
+  `rtk pnpm check:headless-surface-contract`, `rtk pnpm check:layer-boundaries`,
+  `rtk host-test-slot --class focused pnpm --dir tooling/evals test maintenance injection`,
+  broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** no-op/review/autopilot states, citation and stale-race
   proof, model-change downgrade, revision budget, prompt-injection matrix,
   generator provenance, and no public workflow controls.
@@ -2300,9 +2359,10 @@ manifest.
   page/source APIs.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test search-projections`,
-  codegen/manifest, schema/lifecycle/confect gates, cross-tenant and redaction
-  races, and broad verification is deferred to tranche acceptance under Appendix
-  L.
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm check:schema-migration-notes`, `rtk pnpm check:access-audit-events`,
+  `rtk pnpm check:confect-contracts`, broad verification is deferred to tranche
+  acceptance under Appendix L.
 - **Completion receipt:** projection/index inventory, backfill counts, vault-
   exclusion proof, revoke/delete behavior, and authorization-before-query trace.
 - **Lane branch / commit boundary:** branch
@@ -2315,8 +2375,13 @@ manifest.
   headless later consume one stable, authorized read contract.
 - **Classification:** `pattern-instance`; dry-run then generate
   `rtk pnpm template:add-capability -- --name brainContextRead --description "Reads stable pages, sources, search candidates, and bounded Brain context." --exposure headless --write`,
-  then replace the single starter operation with the reviewed operation set in
-  Appendix F and run `docs/template/how-to-add-capability.md` follow-up gates.
+  then replace its single starter operation with the six reviewed read
+  operations in Appendix F. S09-T03 exclusively owns this `brainContextRead`
+  scaffold and those six operations; S09-T04 exclusively owns the generated
+  `askBrain` scaffold and seventh operation. Together those two scaffold-first
+  slices own all seven registry inputs before S11-T03 assembles them without
+  rerunning either generator. Run the exact
+  `docs/template/how-to-add-capability.md` follow-up gates.
 - **Dependencies:** S09-T02 and S02.
 - **Existing anchors:** current Brain list is web-only while `createMarkdown` is
   incorrectly headless in
@@ -2349,10 +2414,15 @@ manifest.
 - **Migration / compatibility / rollback:** additive receipt table and read
   contracts. Keep web adapter compatibility through S11; rollback disables
   headless metadata while web reads remain generated-ref based.
-- **Focused verification:** generator/codegen/manifest,
+- **Focused verification:**
+  `rtk pnpm template:add-capability -- --name brainContextRead --description "Reads stable pages, sources, search candidates, and bounded Brain context." --exposure headless`,
+  `rtk pnpm template:add-capability -- --name brainContextRead --description "Reads stable pages, sources, search candidates, and bounded Brain context." --exposure headless --write`,
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test brain-context-read retrieval`,
-  Confect/headless/lifecycle gates, public-ID scan, broad verification is
-  deferred to tranche acceptance under Appendix L.
+  `rtk pnpm check:confect-contracts`,
+  `rtk pnpm check:headless-surface-contract`,
+  `rtk pnpm check:access-audit-events`, broad verification is deferred to
+  tranche acceptance under Appendix L.
 - **Completion receipt:** operation schemas, role/cross-tenant/redaction tests,
   immutable manifest/hash, stable response examples, and generated surface diff.
 - **Lane branch / commit boundary:** branch `codex/brain-s09-context-reads`;
@@ -2404,11 +2474,16 @@ manifest.
 - **Migration / compatibility / rollback:** additive receipt fields. Feature
   flag Ask off if eval threshold is red; exact reads remain. Rollback does not
   alter source/pages.
-- **Focused verification:** generator/codegen/manifest,
+- **Focused verification:**
+  `rtk pnpm template:add-capability -- --name askBrain --description "Answers from an immutable authorized retrieval manifest with citations or abstention." --exposure headless`,
+  `rtk pnpm template:add-capability -- --name askBrain --description "Answers from an immutable authorized retrieval manifest with citations or abstention." --exposure headless --write`,
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test ask-brain`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test ask`,
-  headless/confect/layer gates, answer eval smoke, broad verification is
-  deferred to tranche acceptance under Appendix L.
+  `rtk pnpm check:headless-surface-contract`,
+  `rtk pnpm check:confect-contracts`, `rtk pnpm check:layer-boundaries`,
+  `rtk host-test-slot --class focused pnpm --dir tooling/evals test answers`,
+  broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** cited/abstention examples, final-auth race, injection/
   multilingual results, duplicate attempts/one accepted receipt, UI states, and
   no local semantic heuristic scan.
@@ -2463,8 +2538,10 @@ manifest.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test slack-identity-links`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test slack-identity`,
-  codegen/manifest, access/logging/secret gates, broad verification is deferred
-  to tranche acceptance under Appendix L.
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm check:access-audit-events`, `rtk pnpm check:logging-boundary`,
+  `rtk pnpm check:secret-canaries`, broad verification is deferred to tranche
+  acceptance under Appendix L.
 - **Completion receipt:** link/replay/spoof/revocation matrix, exact binding
   metadata sample, role recheck, and no-secret log result.
 - **Lane branch / commit boundary:** branch `codex/brain-s10-slack-identity`;
@@ -2516,10 +2593,15 @@ manifest.
 - **Migration / compatibility / rollback:** additive answer jobs. Rollback stops
   answer-job claims; capture continues. Pending mentions receive a generic
   requester-private unavailable response only through the outbox after T03.
-- **Focused verification:** generator/codegen/manifest,
+- **Focused verification:**
+  `rtk pnpm template:add-capability -- --name selectAuthorizedBrainScope --description "Selects zero or one authorized Brain for a verified Slack requester." --exposure workflow`,
+  `rtk pnpm template:add-capability -- --name selectAuthorizedBrainScope --description "Selects zero or one authorized Brain for a verified Slack requester." --exposure workflow --write`,
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test slack-intake scope-selection`,
-  webhook ACK timing, workflow/headless/layer gates, broad verification is
-  deferred to tranche acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test webhook-ack-timing`,
+  `rtk pnpm check:workflow-graph-boundary`,
+  `rtk pnpm check:headless-surface-contract`, `rtk pnpm check:layer-boundaries`,
+  broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** direct/DM/clarification flows, Slack Connect denial,
   spoof/replay/auth results, ACK latency, injection fixture, no matcher scan.
 - **Lane branch / commit boundary:** branch `codex/brain-s10-slack-intake`;
@@ -2579,9 +2661,11 @@ manifest.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test slack-outbox`,
   `rtk host-test-slot --class focused pnpm --dir packages/integrations test slack-send`,
-  codegen/manifest, logging/provider/lifecycle gates, ambiguous-send crash
-  tests, and broad verification is deferred to tranche acceptance under Appendix
-  L.
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm check:logging-boundary`, `rtk pnpm check:provider-boundary`,
+  `rtk pnpm check:access-audit-events`,
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test slack-outbox ambiguous-send crash`,
+  broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** audience matrix, final-auth race, sanitize fixtures,
   terminal ambiguous-ephemeral proof, DM idempotency/reconciliation evidence or
   terminal ambiguity, self-event suppression, and redacted logs.
@@ -2623,9 +2707,12 @@ manifest.
   operator-retryable.
 - **Migration / compatibility / rollback:** no migration. UI rollback hides
   actions; server kill switch stops intake/send independently.
-- **Focused verification:** targeted web tests, accessibility/visual smoke,
-  notification/logging/access gates, provider sandbox end-to-end, and broad
-  verification is deferred to tranche acceptance under Appendix L.
+- **Focused verification:**
+  `rtk host-test-slot --class focused pnpm --dir apps/web test slack-answer-recovery accessibility visual`,
+  `rtk host-test-slot --class focused pnpm --dir packages/notifications test`,
+  `rtk pnpm check:logging-boundary`, `rtk pnpm check:access-audit-events`;
+  external-only acceptance: provider sandbox end-to-end; broad verification is
+  deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** full signed-in/link/mention/DM/clarify/deliver/revoke
   walkthrough, screenshots, provider timestamps, audience assertion, and
   recovery drill.
@@ -2679,8 +2766,10 @@ manifest.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test headless-auth api-keys`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test api-keys`,
-  codegen/manifest, access/lifecycle/secret/headless gates, broad verification
-  is deferred to tranche acceptance under Appendix L.
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm check:access-audit-events`, `rtk pnpm check:secret-canaries`,
+  `rtk pnpm check:headless-surface-contract`, broad verification is deferred to
+  tranche acceptance under Appendix L.
 - **Completion receipt:** full role/scope/expiry/revoke/rotation table,
   display-once proof, database secret canary, service-principal row, audit
   events.
@@ -2729,9 +2818,11 @@ manifest.
   headless routes rather than accepting legacy tenant args.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test headless http-request`,
-  codegen/manifest, headless/confect/logging/secret/access gates, negative
-  timing test, and broad verification is deferred to tranche acceptance under
-  Appendix L.
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm check:headless-surface-contract`,
+  `rtk pnpm check:confect-contracts`, `rtk pnpm check:logging-boundary`,
+  `rtk pnpm check:secret-canaries`, `rtk pnpm check:access-audit-events`, broad
+  verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** auth-before-decode/provider trace, field rejection,
   revocation matrix, error envelopes, no-header log proof, and demo-map removal.
 - **Lane branch / commit boundary:** branch
@@ -2743,11 +2834,12 @@ manifest.
 - **Outcome / requirements:** satisfy HLS-02 and HLS-03; API/CLI/MCP registry
   contains exactly the seven V1 operations and no write/cognition/admin
   controls.
-- **Classification:** `pattern-instance` follow-up for the generated targets
-  owned exclusively by S09-T03 (`brainContextRead`) and S09-T04 (`askBrain`). Do
-  not rerun either generator here. Complete the reviewed operation registry and
-  run `docs/template/how-to-add-capability.md` manifest/headless follow-up gates
-  against those existing generated targets.
+- **Classification:** `template-gap`; target `TB-HEADLESS-01`. The capability
+  generators are owned exclusively by S09-T03 (`brainContextRead`, six reads)
+  and S09-T04 (`askBrain`, one Ask operation); no generator scaffolds this
+  cross-surface registry integration, so do not rerun either generator here.
+  Assemble the seven reviewed inputs and promote the reusable registry wiring
+  through the backlog path after manifest/headless parity gates pass.
 - **Dependencies:** S11-T02 and S09-T04.
 - **Existing anchors:** MCP descriptors are generated from Confect metadata in
   [`manifest/mcp.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/manifest/mcp.ts#L17-L25);
@@ -2777,9 +2869,12 @@ manifest.
 - **Migration / compatibility / rollback:** generated manifest change only.
   Remove old `createMarkdown` headless exposure and static CLI response in the
   same slice. Rollback disables the registry rather than re-exposing writes.
-- **Focused verification:** codegen/manifest, `rtk pnpm check:confect-manifest`,
-  `rtk pnpm check:headless-surface-contract`, focused Convex/CLI tests,
-  public-ID/tenant-field scans, broad verification is deferred to tranche
+- **Focused verification:** `rtk pnpm confect:codegen`,
+  `rtk pnpm confect:manifest`, `rtk pnpm check:confect-manifest`,
+  `rtk pnpm check:headless-surface-contract`,
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test headless-surface-parity`,
+  `rtk host-test-slot --class focused pnpm --dir apps/cli test headless-security`,
+  `rtk pnpm check:confect-contracts`, broad verification is deferred to tranche
   acceptance under Appendix L.
 - **Completion receipt:** exact registry diff, schema hash parity across four
   projections, negative tool list, final-auth race, stable sample responses.
@@ -2826,10 +2921,14 @@ manifest.
 - **Migration / compatibility / rollback:** new route behind kill switch. First
   deploy with route disabled, run security smoke, enable pilot keys. Rollback
   disables route/revokes pilot principals; web/Slack remain.
-- **Focused verification:** focused MCP protocol/security tests,
-  `rtk pnpm check:headless-surface-contract`, manifest/route/env/logging/secret
-  gates, Claude Code sandbox connection, hosted smoke, and broad verification is
-  deferred to tranche acceptance under Appendix L.
+- **Focused verification:**
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test mcp-http protocol security`,
+  `rtk host-test-slot --class focused pnpm --dir apps/web test mcp-config`,
+  `rtk pnpm check:headless-surface-contract`, `rtk pnpm check:confect-manifest`,
+  `rtk pnpm check:route-tree`, `rtk pnpm check:env-boundary`,
+  `rtk pnpm check:logging-boundary`, `rtk pnpm check:secret-canaries`;
+  external-only acceptance: Claude Code sandbox connection and hosted smoke;
+  broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** full negative matrix, protocol transcript with
   redacted key, exact tool list/schema hashes, origin/rate/timeout results,
   copy-config UX, route kill-switch drill.
@@ -2877,8 +2976,9 @@ manifest.
   valid and outside control.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/template-core test brainExport`,
-  property/golden tests, `rtk pnpm check:secret-canaries`,
-  public-ID/raw-provider scans, and broad verification is deferred to tranche
+  `rtk host-test-slot --class focused pnpm --dir packages/template-core test brainExport property golden`,
+  `rtk pnpm check:secret-canaries`, `rtk pnpm check:headless-surface-contract`,
+  `rtk pnpm check:provider-boundary`, broad verification is deferred to tranche
   acceptance under Appendix L.
 - **Completion receipt:** byte-identical hashes across shuffled/repeated runs,
   golden tree, redaction/path/link tests, schema/version manifest.
@@ -2927,9 +3027,16 @@ manifest.
   adapter. Feature disabled until purge cron/job is proven. Rollback revokes
   download publication and purges temporary artifacts; downloaded copies cannot
   be recalled.
-- **Focused verification:** generator/codegen/manifest, focused
-  template-core/storage/Convex export tests, headless-surface/lifecycle/secret/
-  logging gates, expiration TestClock, broad verification is deferred to tranche
+- **Focused verification:**
+  `rtk pnpm template:add-capability -- --name exportBrain --description "Creates a lifecycle-fenced deterministic Brain export." --exposure web`,
+  `rtk pnpm template:add-capability -- --name exportBrain --description "Creates a lifecycle-fenced deterministic Brain export." --exposure web --write`,
+  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk host-test-slot --class focused pnpm --dir packages/template-core test brainExport`,
+  `rtk host-test-slot --class focused pnpm --dir packages/storage test`,
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test brain-export-job TestClock`,
+  `rtk pnpm check:headless-surface-contract`,
+  `rtk pnpm check:access-audit-events`, `rtk pnpm check:secret-canaries`,
+  `rtk pnpm check:logging-boundary`, broad verification is deferred to tranche
   acceptance under Appendix L.
 - **Completion receipt:** role/final-auth races, job states, artifact/hash/size,
   expiring URL, partial cleanup, no-MCP exposure, and Convex storage proof.
@@ -2970,9 +3077,11 @@ manifest.
   complete until object publish and final authorization succeed.
 - **Migration / compatibility / rollback:** no data migration. UI rollback
   disables requests/downloads; server cleanup remains active.
-- **Focused verification:** targeted web tests, accessibility/visual smoke,
-  lifecycle/logging/access gates, staging artifact expiry/purge rehearsal, and
-  broad verification is deferred to tranche acceptance under Appendix L.
+- **Focused verification:**
+  `rtk host-test-slot --class focused pnpm --dir apps/web test brain-export accessibility visual`,
+  `rtk pnpm check:logging-boundary`, `rtk pnpm check:access-audit-events`;
+  external-only acceptance: staging artifact expiry/purge rehearsal; broad
+  verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** request/download/expiry/purge walkthrough, role and
   final-auth denial, manifest hash, screenshots, telemetry canary.
 - **Lane branch / commit boundary:** branch `codex/brain-s12-export-ui`; commit
@@ -2989,7 +3098,7 @@ manifest.
 - **Classification:** `template-gap`; target `TB-EVALS-01`; extend the existing
   harness into a reproducible semantic-suite pattern without importing scorers
   into product runtime.
-- **Dependencies:** S08, S09, S10 complete.
+- **Dependencies:** S10, S11, S12 complete.
 - **Existing anchors:** the pinned eval style lives in
   [`source-grounded-brief.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/tooling/evals/src/source-grounded-brief.ts#L1-L184);
   its keyword-based refusal scoring is test-harness behavior and must not enter
@@ -3199,8 +3308,8 @@ manifest.
   `rtk host-test-slot --class focused pnpm --dir apps/web test brain-operations`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test brain-alerts`,
   `rtk pnpm check:logging-boundary`, `rtk pnpm check:access-audit-events`,
-  accessibility smoke, broad verification is deferred to tranche acceptance
-  under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir apps/web test accessibility`,
+  broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** role/redaction screenshots, alert dedupe timeline,
   every kill-switch/recovery drill, exact-capture continuity, and audit samples.
 - **Lane branch / commit boundary:** branch `codex/brain-s13-operations-ui`;
@@ -3293,10 +3402,15 @@ manifest.
   requires full restaging plus a new pilot window. A docs-only correction may
   inherit evidence only when approvers sign a materiality record containing the
   old/new hashes and unaffected gates.
-- **Focused verification:** all exact release commands in Appendix L,
-  authoritative Buildkite step keys, provider-backed Slack rate-class receipt,
-  real Claude Code MCP connection, hosted smokes, migration/rollback drill, and
-  security review.
+- **Focused verification:** `rtk host-test-slot --class full pnpm verify`,
+  `rtk pnpm deploy:doctor staging`,
+  `rtk proxy .buildkite/scripts/staging-deploy.sh`,
+  `rtk pnpm deploy:doctor production`,
+  `rtk proxy .buildkite/scripts/production-promote.sh`, and
+  `rtk git diff --check`; external-only acceptance: authoritative Appendix L
+  Buildkite step keys, provider-backed Slack rate-class receipt, real Claude
+  Code MCP connection, hosted smokes, migration/rollback drill, and security
+  review.
 - **Completion receipt:** one signed release packet with commit/build/deploy
   IDs, command output, manifests/hashes, migration counts, screenshots,
   provider/eval/capacity results, pilot metrics, incidents, go/no-go approvers,
@@ -3325,7 +3439,7 @@ source materialized into `acceptanceAfter`.
 | Task    | Acceptance prerequisite | Work-package classification                      | Est. source lines |
 | ------- | ----------------------- | ------------------------------------------------ | ----------------: |
 | S00-T01 | none                    | template-gap `TB-DEVEX-CONVEX-01`                |                 0 |
-| S00-T02 | S00-T01                 | template-gap backlog/StackPlan contract          |                 0 |
+| S00-T02 | S00-T01                 | template-gap backlog/pnpm/StackPlan contract     |                 0 |
 | S00-T03 | S00-T02                 | template-gap `TB-DEPLOY-ISOLATION-01`            |               280 |
 | S00-T04 | S00-T03                 | template-gap migration pattern                   |               230 |
 | S01-T01 | S00 complete            | template-gap `TB-AUTHKIT-01`                     |               240 |
@@ -3370,12 +3484,12 @@ source materialized into `acceptanceAfter`.
 | S10-T04 | S10-T03                 | template-gap Slack recovery UI                   |               240 |
 | S11-T01 | S09 complete            | template-gap `TB-HEADLESS-01`                    |               280 |
 | S11-T02 | S11-T01                 | template-gap bearer dispatcher                   |               280 |
-| S11-T03 | S11-T02                 | generated manifest pattern-instance              |               260 |
+| S11-T03 | S11-T02                 | template-gap `TB-HEADLESS-01` registry           |               260 |
 | S11-T04 | S11-T03                 | template-gap Streamable HTTP MCP                 |               290 |
 | S12-T01 | S07, S11                | template-gap deterministic export                |               260 |
 | S12-T02 | S12-T01                 | capability pattern-instance + storage gap        |               290 |
 | S12-T03 | S12-T02                 | template-gap export UI                           |               240 |
-| S13-T01 | S08, S09, S10           | template-gap reproducible eval harness           |               280 |
+| S13-T01 | S10, S11, S12 complete  | template-gap reproducible eval harness           |               280 |
 | S13-T02 | S13-T01, S06            | template-gap capacity harness                    |               260 |
 | S13-T03 | S13-T02                 | template-gap operations policy                   |               260 |
 | S13-T04 | S13-T03                 | template-gap operations UI/recovery              |               250 |
@@ -4018,7 +4132,7 @@ implementation evidence.
 | S10-T01 | template-gap           | ready | S10-T02 | pattern-instance       | ready |
 | S10-T03 | template-gap           | ready | S10-T04 | template-gap           | ready |
 | S11-T01 | template-gap           | ready | S11-T02 | template-gap           | ready |
-| S11-T03 | pattern-instance       | ready | S11-T04 | template-gap           | ready |
+| S11-T03 | template-gap           | ready | S11-T04 | template-gap           | ready |
 | S12-T01 | template-gap           | ready | S12-T02 | pattern-instance       | ready |
 | S12-T03 | template-gap           | ready | S13-T01 | template-gap           | ready |
 | S13-T02 | template-gap           | ready | S13-T03 | template-gap           | ready |
