@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildManifest,
+  parseTaskPacketAuditRows,
   readyWidth,
   validateManifest,
 } from "../src/manifest.js";
@@ -75,5 +76,77 @@ describe("Maestro Brain execution manifest", () => {
     );
     expect(stableIdentity?.codeStartAfter).toEqual(["S00-T04", "S01-T01"]);
     expect(providerSetup?.codeStartAfter).toEqual(["S00-T03", "S01-T02"]);
+  });
+
+  it("uses only package-relevant profiles for the next frontier", () => {
+    const manifest = buildManifest();
+    const deployment = manifest.tasks.find((task) => task.taskId === "S00-T03");
+    const generator = manifest.tasks.find((task) => task.taskId === "S08-T02");
+    expect(deployment?.gateProfiles).toEqual(["release"]);
+    expect(generator?.gateProfiles).toEqual(["generators"]);
+  });
+
+  it("binds packet audit status and rejects unsafe ready pseudo-locks", () => {
+    const manifest = buildManifest();
+    expect(
+      manifest.tasks.find((task) => task.taskId === "S01-T01")
+        ?.fileInventoryStatus,
+    ).toBe("open:F");
+    const unsafe = manifest.tasks.map((task) =>
+      task.taskId === "S00-T03"
+        ? {
+            ...task,
+            fileInventoryIssues: ["settings.test.ts: basename"],
+          }
+        : task,
+    );
+    expect(validateManifest({ ...manifest, tasks: unsafe })).toContain(
+      "S00-T03: ready file inventory is unsafe: settings.test.ts: basename",
+    );
+  });
+
+  it("rejects duplicate, unknown, missing, and misclassified audit rows", () => {
+    const expected = new Map([
+      ["S00-T01", "template-gap" as const],
+      ["S00-T02", "pattern-instance" as const],
+    ]);
+    const heading = "### Task-packet audit\n";
+    expect(
+      parseTaskPacketAuditRows(
+        `${heading}| S00-T01 | template-gap | ready | S00-T02 | pattern-instance | open:F |`,
+        expected,
+      ),
+    ).toEqual(
+      new Map([
+        ["S00-T01", "ready"],
+        ["S00-T02", "open:F"],
+      ]),
+    );
+    expect(() =>
+      parseTaskPacketAuditRows(
+        `${heading}| S00-T01 | template-gap | ready | S00-T01 | template-gap | ready |`,
+        expected,
+      ),
+    ).toThrow("duplicate task-packet audit row");
+    expect(() =>
+      parseTaskPacketAuditRows(
+        `${heading}| S00-T01 | template-gap | ready | S00-T03 | template-gap | ready |`,
+        expected,
+      ),
+    ).toThrow("S00-T03: unknown task-packet audit row");
+    expect(() =>
+      parseTaskPacketAuditRows(
+        `${heading}| S00-T01 | fixture-to-real | ready | S00-T02 | pattern-instance | open:F |`,
+        expected,
+      ),
+    ).toThrow(
+      "audit classification fixture-to-real does not match template-gap",
+    );
+    expect(() =>
+      parseTaskPacketAuditRows(
+        `${heading}| S00-T01 | template-gap | ready | S00-T02 | pattern-instance | open:F |`,
+        new Map([...expected, ["S00-T03", "template-gap" as const] as const]),
+      ),
+    ).toThrow("S00-T03: missing task-packet audit row");
   });
 });

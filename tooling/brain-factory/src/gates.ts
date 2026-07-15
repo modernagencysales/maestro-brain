@@ -65,20 +65,21 @@ export const commandsForProfiles = (
           ? packageGate("apps/web")
           : profile === "integrations"
             ? packageGate("packages/integrations")
-            : profile === "search"
-              ? packageGate("packages/search")
-              : profile === "cli"
-                ? packageGate("apps/cli")
-                : profile === "template-core"
-                  ? packageGate("packages/template-core")
-                  : profile === "release"
-                    ? packageGate("tooling/release")
-                    : profile === "tooling"
-                      ? [
-                          ...packageGate("tooling/evals"),
-                          ...packageGate("tooling/generators"),
-                        ]
-                      : [];
+            : profile === "evals"
+              ? packageGate("tooling/evals")
+              : profile === "generators"
+                ? packageGate("tooling/generators")
+                : profile === "search"
+                  ? packageGate("packages/search")
+                  : profile === "cli"
+                    ? packageGate("apps/cli")
+                    : profile === "template-core"
+                      ? packageGate("packages/template-core")
+                      : profile === "release"
+                        ? packageGate("tooling/release")
+                        : profile === "tooling"
+                          ? []
+                          : [];
     for (const command of profileCommands) add(command);
   }
   return commands;

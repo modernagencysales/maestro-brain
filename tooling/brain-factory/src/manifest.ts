@@ -11,12 +11,15 @@ export const REPO_ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 
 export type WorkClassification =
   "fixture-to-real" | "pattern-instance" | "template-gap";
+export type FileInventoryStatus = "open:F" | "ready";
 
 export type GateProfile =
   | "cli"
   | "convex"
   | "docs"
+  | "evals"
   | "external"
+  | "generators"
   | "integrations"
   | "release"
   | "search"
@@ -28,6 +31,8 @@ export interface BrainTaskContract {
   readonly acceptanceAfter: string;
   readonly classification: WorkClassification;
   readonly codeStartAfter: readonly string[];
+  readonly fileInventoryIssues: readonly string[];
+  readonly fileInventoryStatus: FileInventoryStatus;
   readonly fileLocks: readonly string[];
   readonly gateProfiles: readonly GateProfile[];
   readonly kind: "docs" | "external" | "product" | "release";
@@ -185,7 +190,15 @@ const inferProfiles = (
     profiles.add("search");
   if (files.includes("packages/template-core")) profiles.add("template-core");
   if (files.includes("apps/cli") || lane === "headless") profiles.add("cli");
-  if (files.includes("tooling/") || lane === "operations")
+  if (files.includes("tooling/evals")) profiles.add("evals");
+  if (files.includes("tooling/generators")) profiles.add("generators");
+  if (
+    lane === "operations" ||
+    (files.includes("tooling/") &&
+      !files.includes("tooling/evals") &&
+      !files.includes("tooling/generators") &&
+      !files.includes("tooling/release"))
+  )
     profiles.add("tooling");
   if (files.includes(".buildkite") || files.includes("tooling/release"))
     profiles.add("release");
@@ -247,9 +260,98 @@ const acceptanceRows = (
   );
 };
 
-const fileLocksFor = (body: string): string[] => {
+export const parseTaskPacketAuditRows = (
+  plan: string,
+  expectedClassifications: ReadonlyMap<string, WorkClassification>,
+): Map<string, FileInventoryStatus> => {
+  const appendix = plan.slice(plan.indexOf("### Task-packet audit"));
+  const statuses = new Map<string, FileInventoryStatus>();
+  for (const line of appendix.split("\n")) {
+    if (!/^\| S\d{2}-T\d{2} /.test(line)) continue;
+    const cells = line.split("|").map((cell) => cell.trim());
+    for (const offset of [1, 4]) {
+      const taskId = cells[offset];
+      const classification = cells[offset + 1] as
+        WorkClassification | undefined;
+      const status = cells[offset + 2] as FileInventoryStatus | undefined;
+      if (!taskId || !classification || !status) {
+        throw new Error(`malformed task-packet audit row: ${line}`);
+      }
+      const expectedClassification = expectedClassifications.get(taskId);
+      if (!expectedClassification) {
+        throw new Error(`${taskId}: unknown task-packet audit row`);
+      }
+      if (classification !== expectedClassification) {
+        throw new Error(
+          `${taskId}: audit classification ${classification} does not match ${expectedClassification}`,
+        );
+      }
+      if (!new Set<FileInventoryStatus>(["open:F", "ready"]).has(status)) {
+        throw new Error(
+          `${taskId}: invalid task-packet audit status ${status}`,
+        );
+      }
+      if (statuses.has(taskId)) {
+        throw new Error(`${taskId}: duplicate task-packet audit row`);
+      }
+      statuses.set(taskId, status);
+    }
+  }
+  for (const taskId of expectedClassifications.keys()) {
+    if (!statuses.has(taskId)) {
+      throw new Error(`${taskId}: missing task-packet audit row`);
+    }
+  }
+  return statuses;
+};
+
+const ROOT_FILE_LOCKS = new Set([
+  ".env.example",
+  ".gitignore",
+  "AGENTS.md",
+  "Justfile",
+  "package.json",
+  "pnpm-lock.yaml",
+  "pnpm-workspace.yaml",
+  "project.config.json",
+]);
+const PATH_ROOTS = new Set([
+  ".buildkite",
+  ".github",
+  "agent-patterns",
+  "apps",
+  "docs",
+  "packages",
+  "tooling",
+]);
+
+const fileLockIssue = (value: string): string | undefined => {
+  if (value.startsWith("@")) return undefined;
+  if (/[{}*?]/.test(value) || value.includes("[") || value.includes("]"))
+    return `${value}: glob or brace pseudo-path`;
+  if (/\s/.test(value)) return `${value}: whitespace placeholder`;
+  if (!value.includes("/")) {
+    return ROOT_FILE_LOCKS.has(value)
+      ? undefined
+      : `${value}: basename is not an exact repository-relative path`;
+  }
+  const [root] = value.split("/");
+  if (!root || !PATH_ROOTS.has(root)) {
+    return `${value}: path is not rooted at a known repository directory`;
+  }
+  if (value.endsWith("/")) return `${value}: directory-only lock`;
+  return undefined;
+};
+
+const fileLocksFor = (
+  body: string,
+): {
+  readonly issues: readonly string[];
+  readonly locks: readonly string[];
+} => {
   const files = body.match(/- \*\*Files:\*\*([\s\S]*?)(?=\n- \*\*)/)?.[1] ?? "";
   const locks = new Set<string>();
+  const issues = new Set<string>();
   for (const match of files.matchAll(/`([^`]+)`/g)) {
     const value = required(match[1], "empty file lock capture").trim();
     if (
@@ -257,15 +359,28 @@ const fileLocksFor = (body: string): string[] => {
       !value.includes(" --") &&
       !value.startsWith("http") &&
       !value.includes("/_generated/")
-    )
-      locks.add(value);
+    ) {
+      const issue = fileLockIssue(value);
+      if (issue) issues.add(issue);
+      else locks.add(value);
+    }
+  }
+  for (const placeholder of [
+    /\band tests\b/i,
+    /\bjob table\b/i,
+    /\bpackage CLI help\b/i,
+    /\bgenerator output contract\b/i,
+    /\btemplate backlog\b/i,
+  ]) {
+    if (placeholder.test(files))
+      issues.add(`Files text contains placeholder ${placeholder.source}`);
   }
   if (/route tree/i.test(files)) locks.add("@route-tree");
   if (/package\.json|pnpm-lock|pnpm-workspace/i.test(files))
     locks.add("@dependencies");
   if (/\.env|env-manifest|project\.config/i.test(files))
     locks.add("@environment");
-  return [...locks].sort();
+  return { issues: [...issues].sort(), locks: [...locks].sort() };
 };
 
 export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
@@ -273,14 +388,25 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
   const plan = readFileSync(planPath, "utf8");
   const blocks = taskBlocks(plan);
   const acceptance = acceptanceRows(plan);
+  const classifications = new Map(
+    [...blocks].map(([taskId, { body }]) => {
+      const classification = body.match(
+        /- \*\*Classification:\*\* `(fixture-to-real|pattern-instance|template-gap)`/,
+      )?.[1] as WorkClassification | undefined;
+      if (!classification) throw new Error(`${taskId}: missing classification`);
+      return [taskId, classification] as const;
+    }),
+  );
+  const audit = parseTaskPacketAuditRows(plan, classifications);
   const tasks = [...blocks].map(([taskId, { body, title }]) => {
-    const classification = body.match(
-      /- \*\*Classification:\*\* `(fixture-to-real|pattern-instance|template-gap)`/,
-    )?.[1] as WorkClassification | undefined;
-    if (!classification) throw new Error(`${taskId}: missing classification`);
+    const classification = required(
+      classifications.get(taskId),
+      `${taskId}: missing classification`,
+    );
+    const parsedFileLocks = fileLocksFor(body);
     const fileLocks = [
       ...new Set([
-        ...fileLocksFor(body),
+        ...parsedFileLocks.locks,
         ...(FILE_LOCK_OVERRIDES[taskId] ?? []),
       ]),
     ].sort();
@@ -288,6 +414,10 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
     const acceptanceContract = acceptance.get(taskId);
     if (!acceptanceContract)
       throw new Error(`${taskId}: missing Appendix A acceptance row`);
+    const fileInventoryStatus = required(
+      audit.get(taskId),
+      `${taskId}: missing task-packet audit row`,
+    );
     const requirements = [
       ...new Set(
         body
@@ -302,6 +432,8 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
       classification,
       codeStartAfter: START_OVERRIDES[taskId] ?? [],
       estimatedSourceLines: acceptanceContract.estimatedSourceLines,
+      fileInventoryIssues: parsedFileLocks.issues,
+      fileInventoryStatus,
       fileLocks,
       gateProfiles: inferProfiles(taskId, lane, fileLocks),
       kind:
@@ -349,7 +481,20 @@ export const validateManifest = (manifest: BrainTaskManifest): string[] => {
       );
     if (task.sourceSliceBudget !== 300)
       errors.push(`${task.taskId}: source slice budget must remain 300`);
-    if (task.fileLocks.length === 0 && task.kind === "product")
+    if (
+      task.fileInventoryStatus === "ready" &&
+      task.fileInventoryIssues.length > 0
+    )
+      errors.push(
+        ...task.fileInventoryIssues.map(
+          (issue) => `${task.taskId}: ready file inventory is unsafe: ${issue}`,
+        ),
+      );
+    if (
+      task.fileInventoryStatus === "ready" &&
+      task.fileLocks.length === 0 &&
+      task.kind === "product"
+    )
       errors.push(`${task.taskId}: no file locks`);
     for (const dependency of task.codeStartAfter)
       if (!ids.has(dependency))
@@ -389,9 +534,11 @@ export const readyWidth = (manifest: BrainTaskManifest): number => {
     return value;
   };
   const widths = new Map<number, number>();
-  for (const task of manifest.tasks) {
+  for (const task of manifest.tasks.filter(
+    (candidate) => candidate.fileInventoryStatus === "ready",
+  )) {
     const level = depth(task.taskId);
     widths.set(level, (widths.get(level) ?? 0) + 1);
   }
-  return Math.max(...widths.values());
+  return widths.size === 0 ? 0 : Math.max(...widths.values());
 };

@@ -27,6 +27,24 @@ describe("brain lane gate profiles", () => {
     expect(commandsForProfiles(["external"])).toEqual([]);
   });
 
+  it("keeps eval and generator package gates independent", () => {
+    expect(
+      commandsForProfiles(["evals"]).map((command) => command.args),
+    ).toEqual([
+      ["--dir", "tooling/evals", "typecheck"],
+      ["--class", "focused", "pnpm", "--dir", "tooling/evals", "test"],
+    ]);
+    expect(
+      commandsForProfiles(["generators"]).map((command) => command.args),
+    ).toEqual([
+      ["--dir", "tooling/generators", "typecheck"],
+      ["--class", "focused", "pnpm", "--dir", "tooling/generators", "test"],
+    ]);
+    expect(
+      commandsForProfiles(["tooling"]).map((command) => command.args),
+    ).toEqual([]);
+  });
+
   it("lints changed source without passing docs or env files", () => {
     expect(
       lintCommandForFiles([

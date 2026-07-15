@@ -26,6 +26,7 @@ export const selectReadyTasks = ({
   );
   const ready = tasks.filter(
     (task) =>
+      task.fileInventoryStatus === "ready" &&
       task.kind !== "external" &&
       task.kind !== "release" &&
       (requestedTaskIds.size === 0 || requestedTaskIds.has(task.taskId)) &&
