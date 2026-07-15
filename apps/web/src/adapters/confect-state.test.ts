@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { QueryResult } from "@confect/react";
+import { QueryResult, type InvokeReturn } from "@confect/react";
 import * as Either from "effect/Either";
 import {
   classifyConfectMutationResult,
@@ -9,6 +9,7 @@ import {
   normalizeMutationPending,
   normalizeMutationSuccess,
   notifyTemplateMutation,
+  useTemplateAction,
   TEMPLATE_DATA_STATUSES,
   TEMPLATE_MUTATION_STATUSES,
   toastForTemplateMutation,
@@ -16,6 +17,7 @@ import {
   type TemplateMutationState,
 } from "./confect-state";
 import { normalizeReactQueryResult } from "./react-query-state";
+import { templateConfectRefs } from "@maestro-template/convex/refs";
 
 type TypedError = {
   readonly _tag: "ValidationFailed";
@@ -249,6 +251,13 @@ describe("Confect React data-state adapter", () => {
     expectTypeOf<
       Extract<Mutation, { mutation: "success" }>["data"]
     >().toEqualTypeOf<{ readonly id: string }>();
+  });
+
+  it("keeps action hook inference aligned with Confect InvokeReturn", () => {
+    const ref = templateConfectRefs.public.access.invitations.create;
+    type Action = ReturnType<typeof useTemplateAction<typeof ref>>;
+
+    expectTypeOf<Action>().returns.toEqualTypeOf<InvokeReturn<typeof ref>>();
   });
 
   it("keeps typed mutation result inference without importing backend source into the web project", () => {
