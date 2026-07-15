@@ -5,6 +5,7 @@ import * as Fiber from "effect/Fiber";
 import {
   createAsyncSearchService,
   SearchProvider,
+  SearchCursorInvalid,
   SearchQueryInvalid,
   SearchTimeout,
   SearchUnavailable,
@@ -212,6 +213,31 @@ describe("async search service", () => {
       ),
       SearchTimeout.name,
     );
+  });
+
+  it("rejects malformed cursors before reaching providers", async () => {
+    const calls: unknown[] = [];
+    const live = createAsyncSearchService({ mode: "live" });
+
+    await expectFailureTag(
+      runWithProvider(
+        live.search({
+          workspaceSlug: "acme-demo",
+          brainKey: "brain_client_acme",
+          query: "pricing",
+          cursor: "bad cursor",
+        }),
+        {
+          search: (input) => {
+            calls.push(input);
+            return Effect.succeed({ candidates: [], nextCursor: null });
+          },
+        },
+      ),
+      SearchCursorInvalid.name,
+    );
+
+    expect(calls).toEqual([]);
   });
 
   it("interrupts the provider when the search is interrupted", async () => {
