@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import refs from "../confect/_generated/refs";
 import databaseSchema from "../confect/_generated/schema";
-import { DatabaseWriter } from "../confect/_generated/services";
+import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
 import { ProvisioningConflict, Unauthorized } from "../confect/errors";
 import {
   deriveStableAgencyKey,
@@ -116,6 +116,73 @@ describe("authorized Brain provisioning", () => {
     );
 
     expect(error).toBeInstanceOf(Unauthorized);
+  });
+
+  it("creates client Brain membership and audit event for the authorized admin", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const identity = {
+        subject: "workos|client-admin",
+        name: "Client Admin",
+        email: "client-admin@example.com",
+        emailVerified: true,
+        organizationId: "org_workos_client_admin",
+      };
+
+      yield* confect
+        .withIdentity(identity)
+        .mutation(refs.public.access.provisioning.ensureProvisioned, {});
+      const created = yield* confect
+        .withIdentity(identity)
+        .mutation(refs.public.access.provisioning.createClientBrain, {
+          name: "Northwind",
+          clientSlug: "northwind",
+        });
+      const sideEffects = yield* confect.run(
+        readClientProvisioningSideEffects(
+          identity.subject,
+          identity.organizationId,
+          created.brainKey,
+        ),
+        Schema.Any,
+      );
+
+      return { created, sideEffects };
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.sideEffects.workspace).toEqual(
+      expect.objectContaining({
+        brainKey: result.created.brainKey,
+        clientSlug: "northwind",
+        kind: "client",
+        status: "active",
+      }),
+    );
+    expect(result.sideEffects.membership).toEqual(
+      expect.objectContaining({
+        role: "owner",
+        status: "active",
+        revokedAt: null,
+        deletedAt: null,
+      }),
+    );
+    expect(result.sideEffects.auditEvent).toEqual(
+      expect.objectContaining({
+        action: "member.ownershipTransferred",
+        actorUserId: result.sideEffects.user._id,
+        subjectKind: "workspaceMember",
+        subjectId: result.sideEffects.membership._id,
+      }),
+    );
+    expect(JSON.parse(result.sideEffects.auditEvent.metadataJson)).toEqual({
+      role: "owner",
+    });
   });
 
   it("returns stable brainKey from provisioning instead of a Convex workspace id", async () => {
@@ -473,4 +540,68 @@ const seedDuplicateAgencyBrains = () =>
         })
         .pipe(Effect.orDie);
     }
+  });
+
+const readClientProvisioningSideEffects = (
+  subject: string,
+  workosOrganizationId: string,
+  brainKey: string,
+) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const users = yield* reader
+      .table("users")
+      .index("by_subject", (q) => q.eq("subject", subject))
+      .collect()
+      .pipe(Effect.orDie);
+    const user = users[0];
+    if (user === undefined) throw new Error("expected seeded user");
+
+    const organizations = yield* reader
+      .table("organizations")
+      .index("by_workos_organization", (q) =>
+        q.eq("workosOrganizationId", workosOrganizationId),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const organization = organizations[0];
+    if (organization === undefined) {
+      throw new Error("expected provisioned organization");
+    }
+
+    const workspaces = yield* reader
+      .table("workspaces")
+      .index("by_organization_brain_key", (q) =>
+        q.eq("organizationId", organization._id).eq("brainKey", brainKey),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const workspace = workspaces[0];
+    if (workspace === undefined) throw new Error("expected client workspace");
+
+    const memberships = yield* reader
+      .table("workspaceMembers")
+      .index("by_workspace_user", (q) =>
+        q.eq("workspaceId", workspace._id).eq("userId", user._id),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const membership = memberships[0];
+    if (membership === undefined) {
+      throw new Error("expected creator workspace membership");
+    }
+
+    const auditEvents = yield* reader
+      .table("accessAuditEvents")
+      .index("by_subject", (q) =>
+        q.eq("subjectKind", "workspaceMember").eq("subjectId", membership._id),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const auditEvent = auditEvents[0];
+    if (auditEvent === undefined) {
+      throw new Error("expected creator membership audit event");
+    }
+
+    return { user, organization, workspace, membership, auditEvent };
   });

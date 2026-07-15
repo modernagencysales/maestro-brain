@@ -1,11 +1,14 @@
 import { FunctionSpec, GroupSpec } from "@confect/core";
 import * as Schema from "effect/Schema";
 
+import { Id } from "../_generated/id";
+import { Unauthorized, ValidationFailed } from "../errors";
 import {
-  ProvisioningConflict,
-  Unauthorized,
-  ValidationFailed,
-} from "../errors";
+  AgencyNotFound,
+  BrainNotFound,
+  StableKeyConflict,
+  TenantMismatch,
+} from "./stableKeys";
 
 export const ResolveBrainKeyArgs = Schema.Struct({
   agencyKey: Schema.String,
@@ -13,8 +16,8 @@ export const ResolveBrainKeyArgs = Schema.Struct({
 });
 
 export const ResolveBrainKeyReturns = Schema.Struct({
-  organizationId: Schema.String,
-  workspaceId: Schema.String,
+  organizationId: Id("organizations"),
+  workspaceId: Id("workspaces"),
 });
 
 const resolveBrainKey = FunctionSpec.internalQuery({
@@ -22,7 +25,14 @@ const resolveBrainKey = FunctionSpec.internalQuery({
   args: () => ResolveBrainKeyArgs,
   returns: () => ResolveBrainKeyReturns,
   error: () =>
-    Schema.Union(Unauthorized, ValidationFailed, ProvisioningConflict),
+    Schema.Union(
+      Unauthorized,
+      ValidationFailed,
+      AgencyNotFound,
+      BrainNotFound,
+      StableKeyConflict,
+      TenantMismatch,
+    ),
 });
 
 export default GroupSpec.make().addFunction(resolveBrainKey);

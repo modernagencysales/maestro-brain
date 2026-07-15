@@ -14,6 +14,7 @@ import {
   ValidationFailed,
 } from "../errors";
 import { asGenericId } from "./handlerContext";
+import { recordAccessLifecycleEvents } from "./audit";
 import provisioning from "./provisioning.spec";
 import {
   buildProvisioningPlan,
@@ -475,41 +476,61 @@ const createClientBrain = FunctionImpl.make(
         return yield* new Unauthorized();
       }
 
-      const orgMemberships = yield* reader
-        .table("organizationMembers")
-        .index("by_user", (q) => q.eq("userId", user._id))
+      if (identity.workosOrganizationId === undefined) {
+        return yield* new Unauthorized();
+      }
+      const organizations = yield* reader
+        .table("organizations")
+        .index("by_workos_organization", (q) =>
+          q.eq("workosOrganizationId", identity.workosOrganizationId),
+        )
         .collect()
         .pipe(Effect.orDie);
-      const activeAdminMemberships = orgMemberships.filter(
+      const activeOrganizations = organizations.filter(
+        (row) => row.status === "active",
+      );
+      if (activeOrganizations.length !== 1) {
+        return yield* new ProvisioningConflict({
+          resource: "organizations.workosOrganizationId",
+          message:
+            "Authenticated WorkOS organization must resolve to one active organization.",
+        });
+      }
+      const organization = activeOrganizations[0];
+      if (organization === undefined) {
+        return yield* new ProvisioningConflict({
+          resource: "organizations.workosOrganizationId",
+          message:
+            "Authenticated WorkOS organization must resolve to one active organization.",
+        });
+      }
+      const organizationId = asGenericId<"organizations">(organization._id);
+      const orgMemberships = yield* reader
+        .table("organizationMembers")
+        .index("by_organization_user", (q) =>
+          q.eq("organizationId", organizationId).eq("userId", user._id),
+        )
+        .collect()
+        .pipe(Effect.orDie);
+      const liveMemberships = orgMemberships.filter(
         (member) =>
           member.status === "active" &&
           member.acceptedAt !== null &&
-          member.revokedAt === null &&
-          roleAtLeast(member.role, "admin"),
+          member.revokedAt === null,
       );
-      if (activeAdminMemberships.length !== 1) {
-        return yield* new Forbidden({
-          reason: "Admin organization role required.",
-        });
-      }
-      const activeAdminMembership = activeAdminMemberships[0];
-      if (activeAdminMembership === undefined) {
-        return yield* new Forbidden({
-          reason: "Admin organization role required.",
-        });
-      }
-      const organizationId = asGenericId<"organizations">(
-        activeAdminMembership.organizationId,
-      );
-      const organization = yield* reader
-        .table("organizations")
-        .get(asGenericId<"organizations">(organizationId))
-        .pipe(Effect.orDie);
-      if (organization === null || organization.status !== "active") {
+      if (liveMemberships.length > 1) {
         return yield* new ProvisioningConflict({
-          resource: "organizations",
-          message:
-            "Active organization is required for client Brain provisioning.",
+          resource: "organizationMembers.organizationId.userId",
+          message: "Duplicate live organization memberships found.",
+        });
+      }
+      const liveMembership = liveMemberships[0];
+      if (
+        liveMembership === undefined ||
+        !roleAtLeast(liveMembership.role, "admin")
+      ) {
+        return yield* new Forbidden({
+          reason: "Admin organization role required.",
         });
       }
 
@@ -518,11 +539,16 @@ const createClientBrain = FunctionImpl.make(
         .index("by_organization", (q) => q.eq("organizationId", organizationId))
         .collect()
         .pipe(Effect.orDie);
-      if (
-        existing.some(
-          (row) => row.clientSlug === normalizedSlug && row.status === "active",
-        )
-      ) {
+      const activeAgencyBrains = existing.filter(
+        (row) => row.status === "active" && (row.kind ?? "agency") === "agency",
+      );
+      if (activeAgencyBrains.length !== 1) {
+        return yield* new ProvisioningConflict({
+          resource: "workspaces.organizationId.kind",
+          message: "Exactly one active Agency Brain is required.",
+        });
+      }
+      if (existing.some((row) => row.clientSlug === normalizedSlug)) {
         return yield* new ProvisioningConflict({
           resource: "workspaces.clientSlug",
           message: "Client Brain slug already exists.",
@@ -559,6 +585,34 @@ const createClientBrain = FunctionImpl.make(
         .table("workspaces")
         .patch(workspaceId, { brainKey })
         .pipe(Effect.orDie);
+      const membershipId = yield* writer
+        .table("workspaceMembers")
+        .insert({
+          workspaceId,
+          userId: user._id,
+          role: "owner",
+          status: "active",
+          acceptedAt: now,
+          revokedAt: null,
+          deletedAt: null,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .pipe(Effect.orDie);
+      yield* recordAccessLifecycleEvents(
+        writer,
+        [
+          {
+            action: "member.ownershipTransferred",
+            workspaceId,
+            actorUserId: user._id,
+            subjectKind: "workspaceMember",
+            subjectId: membershipId,
+            metadata: { role: "owner" },
+          },
+        ],
+        now,
+      );
       return { brainKey };
     }),
 );

@@ -6,7 +6,7 @@ import * as Layer from "effect/Layer";
 import databaseSchema from "../_generated/schema";
 import { DatabaseReader } from "../_generated/services";
 import { resolveEffectiveWorkspaceRole } from "../access/auth";
-import { loadCurrentUser } from "../access/handlerContext";
+import { asGenericId, loadCurrentUser } from "../access/handlerContext";
 import { ProvisioningConflict, Unauthorized } from "../errors";
 import workspaces from "./workspaces.spec";
 
@@ -17,11 +17,6 @@ const list = FunctionImpl.make(databaseSchema, workspaces, "list", () =>
     if (user.status !== "active") {
       return yield* new Unauthorized();
     }
-    const organizations = yield* reader
-      .table("organizations")
-      .index("by_status", (q) => q.eq("status", "active"))
-      .take(200)
-      .pipe(Effect.orDie);
     const organizationMembers = yield* reader
       .table("organizationMembers")
       .index("by_user", (q) => q.eq("userId", user._id))
@@ -32,6 +27,48 @@ const list = FunctionImpl.make(databaseSchema, workspaces, "list", () =>
       .index("by_user", (q) => q.eq("userId", user._id))
       .collect()
       .pipe(Effect.orDie);
+    const liveOrganizationMemberships = organizationMembers.filter(
+      (member) =>
+        member.status === "active" &&
+        member.acceptedAt !== null &&
+        member.revokedAt === null,
+    );
+    const liveWorkspaceMemberships = workspaceMembers.filter(
+      (member) =>
+        member.status === "active" &&
+        member.acceptedAt !== null &&
+        member.revokedAt === null &&
+        member.deletedAt === null,
+    );
+    const membershipCounts = new Map<string, number>();
+    for (const member of liveOrganizationMemberships) {
+      membershipCounts.set(
+        member.organizationId,
+        (membershipCounts.get(member.organizationId) ?? 0) + 1,
+      );
+    }
+    if ([...membershipCounts.values()].some((count) => count > 1)) {
+      return yield* new ProvisioningConflict({
+        resource: "organizationMembers.organizationId.userId",
+        message: "Duplicate live organization memberships found.",
+      });
+    }
+    const organizationIds = new Set(membershipCounts.keys());
+    for (const member of liveWorkspaceMemberships) {
+      const workspace = yield* reader
+        .table("workspaces")
+        .get(asGenericId<"workspaces">(member.workspaceId))
+        .pipe(Effect.orDie);
+      if (workspace !== null) organizationIds.add(workspace.organizationId);
+    }
+    const organizations = [];
+    for (const organizationId of organizationIds) {
+      const organization = yield* reader
+        .table("organizations")
+        .get(asGenericId<"organizations">(organizationId))
+        .pipe(Effect.orDie);
+      if (organization?.status === "active") organizations.push(organization);
+    }
     const nowMs = yield* Clock.currentTimeMillis;
 
     const summaries = [];
