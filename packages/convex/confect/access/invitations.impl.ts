@@ -26,7 +26,6 @@ import { roleAtLeast, type Role } from "./roles";
 import {
   Forbidden,
   InvitationNotAccessible,
-  Unauthorized,
   WorkspaceNotFound,
 } from "../errors";
 import {
