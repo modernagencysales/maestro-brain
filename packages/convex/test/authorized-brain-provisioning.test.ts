@@ -345,6 +345,70 @@ describe("authorized Brain provisioning", () => {
     expect(result.listed[0]?.brainKey).toBe(result.result.brainKey);
   });
 
+  it("translates duplicate live workspace memberships during public list", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const seeded = yield* confect.run(seedAuthorizedBrains(), SeedRows);
+      yield* confect.run(
+        seedDuplicatePublicListWorkspaceMembership(seeded.clientBrainKey),
+        Schema.Any,
+      );
+
+      return yield* confect
+        .withIdentity({
+          subject: "client-subject",
+          email: "client@example.com",
+          emailVerified: true,
+          organizationId: "org_workos_acme",
+        })
+        .query(refs.public.auth.workspaces.list, {})
+        .pipe(Effect.flip);
+    });
+
+    const error = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(error).toBeInstanceOf(ProvisioningConflict);
+    expect(error).toMatchObject({
+      resource: "workspaceMembers.workspaceId.userId",
+    });
+  });
+
+  it("translates duplicate live organization memberships during public list", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      yield* confect.run(seedAuthorizedBrains(), SeedRows);
+      yield* confect.run(
+        seedDuplicatePublicListOrganizationMembership(),
+        Schema.Any,
+      );
+
+      return yield* confect
+        .withIdentity({
+          subject: "admin-subject",
+          email: "admin@example.com",
+          emailVerified: true,
+          organizationId: "org_workos_acme",
+        })
+        .query(refs.public.auth.workspaces.list, {})
+        .pipe(Effect.flip);
+    });
+
+    const error = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(error).toBeInstanceOf(ProvisioningConflict);
+    expect(error).toMatchObject({
+      resource: "organizationMembers.organizationId.userId",
+    });
+  });
+
   it("fails closed on duplicate active agency Brain keys", async () => {
     const program = Effect.gen(function* () {
       const confect = yield* Effect.serviceOptional(
@@ -961,6 +1025,87 @@ const seedAuthorizedBrains = () =>
       })
       .pipe(Effect.orDie);
     return { agencyKey, agencyBrainKey, clientBrainKey };
+  });
+
+const seedDuplicatePublicListWorkspaceMembership = (brainKey: string) =>
+  Effect.gen(function* () {
+    const writer = yield* DatabaseWriter;
+    const reader = yield* DatabaseReader;
+    const organizations = yield* reader
+      .table("organizations")
+      .index("by_workos_organization", (q) =>
+        q.eq("workosOrganizationId", "org_workos_acme"),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const seededOrganizationId = organizations[0]?._id;
+    if (seededOrganizationId === undefined)
+      throw new Error("expected seeded org");
+    const workspaces = yield* reader
+      .table("workspaces")
+      .index("by_organization_brain_key", (q) =>
+        q.eq("organizationId", seededOrganizationId).eq("brainKey", brainKey),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const workspace = workspaces[0];
+    if (workspace === undefined) throw new Error("expected seeded workspace");
+    const users = yield* reader
+      .table("users")
+      .index("by_subject", (q) => q.eq("subject", "client-subject"))
+      .collect()
+      .pipe(Effect.orDie);
+    const user = users[0];
+    if (user === undefined) throw new Error("expected seeded user");
+    yield* writer
+      .table("workspaceMembers")
+      .insert({
+        workspaceId: workspace._id,
+        userId: user._id,
+        role: "viewer",
+        status: "active",
+        acceptedAt: now,
+        revokedAt: null,
+        deletedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
+  });
+
+const seedDuplicatePublicListOrganizationMembership = () =>
+  Effect.gen(function* () {
+    const writer = yield* DatabaseWriter;
+    const reader = yield* DatabaseReader;
+    const users = yield* reader
+      .table("users")
+      .index("by_subject", (q) => q.eq("subject", "admin-subject"))
+      .collect()
+      .pipe(Effect.orDie);
+    const user = users[0];
+    if (user === undefined) throw new Error("expected seeded user");
+    const organizations = yield* reader
+      .table("organizations")
+      .index("by_workos_organization", (q) =>
+        q.eq("workosOrganizationId", "org_workos_acme"),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const organization = organizations[0];
+    if (organization === undefined) throw new Error("expected seeded org");
+    yield* writer
+      .table("organizationMembers")
+      .insert({
+        organizationId: organization._id,
+        userId: user._id,
+        role: "admin",
+        status: "active",
+        acceptedAt: now,
+        revokedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
   });
 
 const seedSuspendedAuthorizedUser = () =>

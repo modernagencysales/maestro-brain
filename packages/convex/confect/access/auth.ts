@@ -6,7 +6,7 @@ export type WorkspaceAccessReason =
 export type WorkspaceRef = {
   readonly id: string;
   readonly organizationId: string;
-  readonly status: "active" | "archived";
+  readonly status: "provisioning" | "active" | "archived";
 };
 
 export type OrganizationRef = {
@@ -206,7 +206,7 @@ export const highestCandidate = (
 export const resolveEffectiveWorkspaceRole = (
   snapshot: WorkspaceAccessSnapshot,
 ): WorkspaceRoleResolution => {
-  if (snapshot.workspace.status === "archived") {
+  if (snapshot.workspace.status !== "active") {
     return { ok: false, reason: "WORKSPACE_ARCHIVED" };
   }
 
