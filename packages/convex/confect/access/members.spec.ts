@@ -24,6 +24,7 @@ const MemberRow = Schema.Struct({
   userId: Id("users"),
   email: Schema.String,
   role: Role,
+  isCurrentActor: Schema.Boolean,
   status: Schema.Literal("pending", "active", "revoked"),
 });
 
