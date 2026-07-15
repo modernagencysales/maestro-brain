@@ -8,10 +8,12 @@ import {
   acquireDispatcherLock,
   archiveTerminalTaskRecord,
   promoteTaskReservation,
+  recoveryCoordinatesForRecord,
   recoverTaskReservation,
   reserveTaskPreparing,
   runRecordOwnsTask,
 } from "../src/dispatch-ownership.js";
+import { validateResumeSource } from "../src/resume-support.js";
 
 const roots: string[] = [];
 const fixture = () => {
@@ -42,6 +44,114 @@ describe("brain dispatch ownership", () => {
     expect(resume).toContain("archiveTerminalTaskRecord");
     expect(resume).not.toContain('"worktree", "remove"');
     expect(resume).not.toContain('"-B"');
+    const validation = resume.indexOf("validateResumeSource({");
+    expect(validation).toBeGreaterThan(-1);
+    expect(validation).toBeLessThan(
+      resume.indexOf("if (existsSync(recordPath))"),
+    );
+    expect(validation).toBeLessThan(
+      resume.indexOf("  archiveTerminalTaskRecord({"),
+    );
+    expect(validation).toBeLessThan(
+      resume.indexOf("reserveTaskPreparing(recordPath"),
+    );
+    expect(validation).toBeLessThan(
+      resume.indexOf('runRtk(["git", "worktree", "add"'),
+    );
+  });
+
+  it("validates a nonempty descendant source range before resume side effects", () => {
+    const calls: string[] = [];
+    const runGit = (args: readonly string[]): string => {
+      calls.push(args.join(" "));
+      if (args[1] === "rev-parse" && args.at(-1) === "base^{commit}")
+        return "base-sha";
+      if (args[1] === "rev-parse" && args.at(-1) === "source^{commit}")
+        return "source-sha";
+      if (args[1] === "rev-list") return "commit-a\ncommit-b";
+      if (args[1] === "diff-tree") return "owned.ts";
+      return "";
+    };
+    expect(
+      validateResumeSource({
+        runGit,
+        sourceRef: "source",
+        taskBase: "base",
+        taskId: "S00-T04",
+      }),
+    ).toEqual({
+      sourceHeadSha: "source-sha",
+      taskBaseSha: "base-sha",
+      taskCommits: ["commit-a", "commit-b"],
+    });
+    expect(calls).toEqual([
+      "git rev-parse --verify base^{commit}",
+      "git rev-parse --verify source^{commit}",
+      "git merge-base --is-ancestor base-sha source-sha",
+      "git rev-list --reverse base-sha..source-sha",
+      "git diff-tree --no-commit-id --name-only -r commit-a",
+      "git diff-tree --no-commit-id --name-only -r commit-b",
+    ]);
+
+    expect(() =>
+      validateResumeSource({
+        runGit: (args) => {
+          if (args[1] === "rev-parse")
+            return args.at(-1) === "base^{commit}" ? "same" : "same";
+          return "";
+        },
+        sourceRef: "reset-source",
+        taskBase: "base",
+        taskId: "S00-T04",
+      }),
+    ).toThrow("has no commits after");
+  });
+
+  it("recovers the exact recorded resume-review coordinates", () => {
+    expect(
+      recoveryCoordinatesForRecord({
+        record: {
+          branch: "fabro/review-s00-t04",
+          mode: "resume-review",
+          taskId: "S00-T04",
+          workdir: "/tmp/resume-s00-t04",
+        },
+        requestedTaskId: "S00-T04",
+      }),
+    ).toEqual({
+      branch: "fabro/review-s00-t04",
+      workdir: "/tmp/resume-s00-t04",
+    });
+    expect(() =>
+      recoveryCoordinatesForRecord({
+        record: {
+          branch: "fabro/review-s00-t04",
+          taskId: "S00-T03",
+          workdir: "/tmp/resume-s00-t04",
+        },
+        requestedTaskId: "S00-T04",
+      }),
+    ).toThrow("record taskId S00-T03 does not match");
+  });
+
+  it("dispatch recovery inspects recorded coordinates before archiving", () => {
+    const dispatch = readFileSync(
+      new URL("../src/dispatch.mts", import.meta.url),
+      "utf8",
+    );
+    const recoveryBlock = dispatch.slice(
+      dispatch.indexOf("if (recoverTaskId)"),
+      dispatch.indexOf("const completedTaskIds"),
+    );
+    expect(recoveryBlock).toContain("recoveryCoordinatesForRecord({");
+    expect(recoveryBlock).toContain("gitBranchExists(recovery.branch, root)");
+    expect(recoveryBlock).toContain("existsSync(recovery.workdir)");
+    expect(
+      recoveryBlock.indexOf("recoveryCoordinatesForRecord({"),
+    ).toBeLessThan(recoveryBlock.indexOf("recoverTaskReservation({"));
+    expect(recoveryBlock).not.toContain(
+      "const branch = `fabro/brain-${task.taskId.toLowerCase()}`;\n  const workdir",
+    );
   });
 
   it("acquires one exclusive dispatcher lock", () => {

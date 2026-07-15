@@ -434,41 +434,85 @@ manifest.
   [`convex.config.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/convex/convex.config.ts#L1-L25),
   and the backlog explicitly calls for a real example in
   [`porting-backlog.md`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/docs/template/porting-backlog.md#L524-L526).
+  Use `packages/convex/confect/jobs/workpool.spec.ts` and
+  `packages/convex/confect/jobs/workpool.impl.ts` as the plain-function
+  registration anchor: the spec imports the plain Convex function with
+  `import type` and `FunctionSpec.convexInternalMutation`, while the impl
+  imports its runtime value and binds it with `FunctionImpl.make`.
 - **Files:** create `packages/convex/confect/internal/migrations.ts`,
   `packages/convex/test/migrations.test.ts`, and
   `packages/convex/confect/internal/migrations.spec.ts`,
   `packages/convex/confect/internal/migrations.impl.ts`,
+  `packages/convex/confect/tables/migrationRuns.ts`,
   `packages/convex/confect/tables/migrationReceipts.ts`, and
   `docs/product/maestro-brain-migrations.md`; modify
   `docs/template/porting-backlog.md`. Confect generates
   packages/convex/convex/internal/migrations.ts and the remaining generated
   contract output only in tranche integration.
-- **Failure-first tests:** prove an internal migration runs in bounded batches,
-  resumes from a cursor after injected failure, skips already-migrated rows,
-  supports dry-run counts, refuses an unknown migration name, and exposes no
-  public/MCP/API function.
-- **Implementation:** wrap the installed component with named internal
-  migrations behind a literal server-owned allowlist and internal Confect
-  boundary. Execute mode never accepts raw function values, `reset`, `next`, a
-  caller cursor, or an unbounded batch size; resume reads only the last
-  committed component cursor after release/deployment/schema preconditions
-  match. A batch-run receipt is
+- **Failure-first tests:** use generated Confect refs and the real mounted
+  component to prove an internal migration runs in bounded batches, starts with
+  an explicit `null` initial cursor, resumes after an injected production
+  component failure from the last committed cursor, skips already-migrated rows,
+  decodes the component's dry-run rollback into truthful counts without a write,
+  refuses unknown/reserved/destructive migrations, rejects forged cursors and
+  concurrent lease owners, aggregates deterministic child hashes, reruns
+  idempotently, and exposes no public/MCP/API function. A spy-only adapter,
+  hand-implemented paginator, fabricated component reference, or string search
+  over a spec is not acceptance evidence.
+- **Implementation:** instantiate `componentMigrations` with the real generated
+  `components.migrations`; never fabricate component function references or cast
+  the component API. Define the executable probe/real migration entrypoints as
+  plain internal mutations with `componentMigrations.define`, register their
+  types through `FunctionSpec.convexInternalMutation`, bind the runtime values
+  through `FunctionImpl.make`, and call them through the Confect
+  `MutationRunner` bridge using generated Confect refs. Raw `RegisteredMutation`
+  values, empty fake contexts, `as unknown`/`as never` bridges, and duplicated
+  component pagination are forbidden. Keep the future organization/Brain/page
+  migration names in a separate server-owned reserved registry; they are
+  non-executable until the task that supplies their real idempotent predicate
+  activates each name.
+
+  Execute mode never accepts raw function values, `reset`, `next`, a caller
+  cursor, or an unbounded batch size. The server supplies `null`, never
+  `undefined`, for the first component batch. Decode only the component's typed
+  dry-run rollback payload as a successful rolled-back result; every other
+  component failure follows the production failure-persistence path. A durable
+  migration-run coordinator acquires an atomic lease/fence generation before
+  invoking a batch, enforces `planned -> running -> complete | failed`, releases
+  the lease on every terminal batch outcome, and permits `failed -> running`
+  only from its last committed component cursor after release/deployment/schema
+  preconditions match. Cursor authority and ordering use an explicit monotonic
+  batch sequence plus fence generation, never timestamps or receipt insertion
+  order.
+
+  Receipts are append-only with one parent and many child receipts per release
+  migration. Each batch appends one child containing
   `{ migrationName, mode, cursor, scanned, changed, skipped, failed, complete, startedAt, finishedAt }`;
-  its parent release-migration receipt adds
+  the single terminal parent adds
   `{ releaseCommit, schemaBefore, schemaAfter, parityChecks, rollbackOwner, observationEndsAt }`
-  and is the Appendix K contract. Require explicit `dryRun | execute`, a fixed
-  batch cap, idempotent row predicate, and no delete operation in
-  expand/backfill phases. Store redacted append-only receipts with actor,
-  deployment/build identifiers and hashes/counts only. Reserve names for
-  organization/Brain/page keys; do not execute them yet. Before dispatching a C1
-  contract-spine task, conditionally inspect whether an isolated C1 lane has
-  already authored undeployed schema additions. If so, first prove there is no
-  tenant deployment and no affected row; otherwise inventory the additions as
-  expand-phase drift and add backfill/parity work before claiming completion.
+  and lists every child hash exactly once in batch-sequence order. Hash the full
+  redacted receipt with a recursive canonical serializer and SHA-256; bind the
+  parent ID, batch sequence, fence generation, actor, deployment/build IDs, and
+  prior/next cursor. Production component failure must durably append its failed
+  child and terminal parent before returning `MigrationBatchFailed`. Counts are
+  definition-owned and truthful: `scanned` is component processed rows,
+  `changed` counts rows whose idempotent predicate produced a write, `skipped`
+  counts already-migrated rows, and `failed` counts failed rows; never infer all
+  four from `processed` alone.
+
+  Before dispatching a C1 contract-spine task, conditionally inspect whether an
+  isolated C1 lane has already authored undeployed schema additions. If so,
+  first prove there is no tenant deployment and no affected row; otherwise
+  inventory the additions as expand-phase drift and add backfill/parity work
+  before claiming completion.
+
 - **Typed errors / state:** errors are `MigrationNotFound`,
   `MigrationAlreadyRunning`, `MigrationCursorInvalid`, and
-  `MigrationBatchFailed`; run state is `planned -> running -> complete | failed`
-  and a failed run resumes from its last committed cursor.
+  `MigrationBatchFailed`; every declared error must be reachable through the
+  generated internal Confect function and tested there. Run state is
+  `planned -> running -> complete | failed`; a failed run resumes from its last
+  committed cursor, including `null` when no batch committed, under a new fence
+  generation.
 - **Migration / rollback:** this task creates the harness only. Rollback removes
   the wrapper after proving no migration rows/runs were created. Later schema
   tasks must state their own dual-read/write and rollback.
@@ -479,11 +523,15 @@ manifest.
   cursors, reset/next, invalid batch sizes, cross-release resume, concurrent
   start, destructive expand/backfill definitions, public refs, and any dry-run
   write. Broad verification belongs to tranche integration.
-- **Completion receipt:** attach dry-run, injected-failure/resume, idempotent
-  rerun, generated-diff, and no-public-ref evidence.
+- **Completion receipt:** attach real-component dry-run rollback,
+  injected-production-failure/resume, concurrent-fence rejection, idempotent
+  rerun, deterministic parent/child hash aggregation, generated-diff, and
+  generated no-public-ref evidence.
 - **Lane branch / commit boundary:** branch `codex/brain-s00-migration-harness`;
-  commit `feat: add resumable migration harness`; final S00 slice and release
-  checkpoint.
+  at most four commits, each changing no more than 300 hand-authored production
+  source lines: failure-first tests; Confect/component contracts and tables;
+  generated-ref execution plus lease/fence; receipt/failure integration and
+  docs. Final S00 slice and release checkpoint.
 
 ---
 
@@ -3457,7 +3505,7 @@ source materialized into `acceptanceAfter`.
 | S00-T01 | none                    | template-gap `TB-DEVEX-CONVEX-01`                |                 0 |
 | S00-T02 | S00-T01                 | template-gap backlog/pnpm/StackPlan contract     |                 0 |
 | S00-T03 | S00-T02                 | template-gap `TB-DEPLOY-ISOLATION-01`            |               280 |
-| S00-T04 | S00-T03                 | template-gap migration pattern                   |               230 |
+| S00-T04 | S00-T03                 | template-gap migration pattern                   |               780 |
 | S01-T01 | S00 complete            | template-gap `TB-AUTHKIT-01`                     |               240 |
 | S01-T02 | S01-T01                 | template-gap + existing-module repair            |               260 |
 | S01-T03 | S01-T02                 | template-gap authorized tenancy                  |               280 |

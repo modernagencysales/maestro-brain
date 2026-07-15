@@ -473,7 +473,7 @@ export const validateManifest = (manifest: BrainTaskManifest): string[] => {
     if (
       !Number.isInteger(task.estimatedSourceLines) ||
       task.estimatedSourceLines < 0 ||
-      task.estimatedSourceLines > 300
+      task.estimatedSourceLines > task.sourceSliceBudget * 4
     )
       errors.push(
         `${task.taskId}: invalid source-line estimate ${task.estimatedSourceLines}`,

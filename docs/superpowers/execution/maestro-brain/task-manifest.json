@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "124a7a9f56592f1c67fe9d65ef0a2c4a9ab47183acc1c58b2b88b1fc28c8826f",
+  "planSha256": "2f7e1f6dc33c5a126d078d81e95c44d56de90fcab393c3c4b285a6a1744ca8aa",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -85,7 +85,7 @@
       "acceptanceAfter": "S00-T03",
       "classification": "template-gap",
       "codeStartAfter": ["S00-T03"],
-      "estimatedSourceLines": 230,
+      "estimatedSourceLines": 780,
       "fileInventoryIssues": [],
       "fileInventoryStatus": "ready",
       "fileLocks": [
@@ -95,6 +95,7 @@
         "packages/convex/confect/internal/migrations.spec.ts",
         "packages/convex/confect/internal/migrations.ts",
         "packages/convex/confect/tables/migrationReceipts.ts",
+        "packages/convex/confect/tables/migrationRuns.ts",
         "packages/convex/test/migrations.test.ts"
       ],
       "gateProfiles": ["convex"],
@@ -102,7 +103,7 @@
       "lane": "foundation",
       "requirements": ["FND-03"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "ec52adcf2d2ab4cbb8b85b76f4c1a113b7aa64da05873eb959d872e4c218c54d",
+      "taskBlockHash": "5d85ce3372505067d390e876d74d8ba833659a5245269a2466f0c3440f8458ba",
       "taskId": "S00-T04",
       "title": "Add A Resumable Expand/Backfill/Contract Migration Harness",
       "tranche": "F0-foundation"

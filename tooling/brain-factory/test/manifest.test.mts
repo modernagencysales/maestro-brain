@@ -150,12 +150,61 @@ describe("Maestro Brain execution manifest", () => {
       ]),
     );
     expect(migrations?.codeStartAfter).toEqual(["S00-T03"]);
+    expect(migrations?.estimatedSourceLines).toBe(780);
+    expect(migrations?.sourceSliceBudget).toBe(300);
     expect(migrations?.fileLocks).toContain(
       "packages/convex/confect/internal/migrations.ts",
     );
     expect(migrations?.fileLocks).not.toContain(
       "packages/convex/convex/migrations.ts",
     );
+    expect(migrations?.fileLocks).toContain(
+      "packages/convex/confect/tables/migrationRuns.ts",
+    );
+    const plan = readFileSync(resolve(REPO_ROOT, PLAN_RELATIVE), "utf8");
+    const packet = plan.slice(
+      plan.indexOf("### S00-T04"),
+      plan.indexOf("### S01-T01"),
+    );
+    const normalizedPacket = packet.replace(/\s+/g, " ");
+    for (const required of [
+      "real generated",
+      "`components.migrations`",
+      "FunctionSpec.convexInternalMutation",
+      "FunctionImpl.make",
+      "generated Confect refs",
+      "explicit `null` initial cursor",
+      "dry-run rollback",
+      "lease/fence generation",
+      "one parent and many child receipts",
+      "jobs/workpool",
+      "four commits",
+    ]) {
+      expect(normalizedPacket, `S00-T04 missing ${required}`).toContain(
+        required,
+      );
+    }
+    const atFourSlices = {
+      ...manifest,
+      tasks: manifest.tasks.map((task) =>
+        task.taskId === "S00-T04"
+          ? { ...task, estimatedSourceLines: 1_200 }
+          : task,
+      ),
+    };
+    expect(validateManifest(atFourSlices)).not.toContain(
+      "S00-T04: invalid source-line estimate 1200",
+    );
+    expect(
+      validateManifest({
+        ...atFourSlices,
+        tasks: atFourSlices.tasks.map((task) =>
+          task.taskId === "S00-T04"
+            ? { ...task, estimatedSourceLines: 1_201 }
+            : task,
+        ),
+      }),
+    ).toContain("S00-T04: invalid source-line estimate 1201");
   });
 
   it("keeps durable identity and provider work behind foundation gates", () => {

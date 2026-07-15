@@ -9,6 +9,7 @@ import {
 } from "./dispatch-ownership.js";
 import { buildManifest } from "./manifest.js";
 import { gitBranchExists, runRtk } from "./process.js";
+import { validateResumeSource } from "./resume-support.js";
 
 interface ResumeRecord {
   readonly branch: string;
@@ -83,7 +84,12 @@ const releaseDispatcherLock = acquireDispatcherLock({
 });
 process.once("exit", releaseDispatcherLock);
 const factoryBase = runRtk(["git", "rev-parse", "HEAD"], { quiet: true });
-const sourceHeadSha = runRtk(["git", "rev-parse", sourceRef], { quiet: true });
+const { sourceHeadSha, taskBaseSha, taskCommits } = validateResumeSource({
+  runGit: (args) => runRtk(args, { quiet: true }),
+  sourceRef,
+  taskBase,
+  taskId,
+});
 const recordPath = resolve(runDirectory, `${taskId}.json`);
 if (existsSync(recordPath)) {
   const record = JSON.parse(readFileSync(recordPath, "utf8")) as ResumeRecord;
@@ -103,7 +109,7 @@ if (existsSync(recordPath)) {
     record.mode === "resume-review" &&
     record.taskId === taskId &&
     record.sourceHeadSha === sourceHeadSha &&
-    record.taskBaseSha === taskBase &&
+    record.taskBaseSha === taskBaseSha &&
     record.branch === branch &&
     record.workdir === workdir;
   if (!terminal) {
@@ -141,26 +147,11 @@ reserveTaskPreparing(recordPath, {
   mode: "resume-review",
   sourceHeadSha,
   status: "preparing",
-  taskBaseSha: taskBase,
+  taskBaseSha,
   taskId,
   workdir,
 });
 runRtk(["git", "worktree", "add", "-b", branch, workdir, factoryBase]);
-const taskCommits = runRtk(
-  ["git", "rev-list", "--reverse", `${taskBase}..${sourceRef}`],
-  { quiet: true },
-)
-  .split("\n")
-  .filter(Boolean)
-  .filter(
-    (commit) =>
-      runRtk(
-        ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", commit],
-        { quiet: true },
-      ) !== "",
-  );
-if (taskCommits.length === 0)
-  throw new Error(`${taskId}: ${sourceRef} has no commits after ${taskBase}`);
 for (const commit of taskCommits)
   runRtk(["git", "cherry-pick", commit], { cwd: workdir });
 const startSha = runRtk(["git", "rev-parse", "HEAD"], {
@@ -205,7 +196,7 @@ promoteTaskReservation(recordPath, {
   runId,
   sourceHeadSha,
   status: "launched",
-  taskBaseSha: taskBase,
+  taskBaseSha,
   taskId,
   workdir,
 });

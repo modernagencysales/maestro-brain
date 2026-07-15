@@ -4,6 +4,7 @@ import { hydrateWorktreeDependencies } from "./dependencies.js";
 import {
   acquireDispatcherLock,
   promoteTaskReservation,
+  recoveryCoordinatesForRecord,
   recoverTaskReservation,
   reserveTaskPreparing,
   runRecordOwnsTask,
@@ -112,16 +113,21 @@ if (recoverTaskId) {
     (candidate) => candidate.taskId === recoverTaskId,
   );
   if (!task) throw new Error(`unknown recovery task ${recoverTaskId}`);
-  const branch = `fabro/brain-${task.taskId.toLowerCase()}`;
-  const workdir = resolve(worktreeRoot, task.taskId.toLowerCase());
+  const record = readRecord(task.taskId);
+  if (!record)
+    throw new Error(`${task.taskId}: no task reservation exists to recover`);
+  const recovery = recoveryCoordinatesForRecord({
+    record,
+    requestedTaskId: task.taskId,
+  });
   recoverTaskReservation({
     auditPath,
-    branchExists: gitBranchExists(branch, root),
+    branchExists: gitBranchExists(recovery.branch, root),
     now,
     ...(recoveryReason ? { reason: recoveryReason } : {}),
     recordPath: recordPath(task.taskId),
     taskId: task.taskId,
-    worktreeExists: existsSync(workdir),
+    worktreeExists: existsSync(recovery.workdir),
   });
 }
 const completedTaskIds = completedTaskIdsForControlHead({

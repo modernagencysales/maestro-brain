@@ -99,6 +99,35 @@ export const promoteTaskReservation = (
   renameSync(temporary, path);
 };
 
+export const recoveryCoordinatesForRecord = (input: {
+  readonly record: {
+    readonly branch?: unknown;
+    readonly mode?: unknown;
+    readonly taskId?: unknown;
+    readonly workdir?: unknown;
+  };
+  readonly requestedTaskId: string;
+}): { readonly branch: string; readonly workdir: string } => {
+  if (input.record.taskId !== input.requestedTaskId) {
+    throw new Error(
+      `${input.requestedTaskId}: record taskId ${String(input.record.taskId)} does not match requested task`,
+    );
+  }
+  if (typeof input.record.branch !== "string" || !input.record.branch.trim()) {
+    throw new Error(`${input.requestedTaskId}: record branch is missing`);
+  }
+  if (
+    typeof input.record.workdir !== "string" ||
+    !input.record.workdir.trim()
+  ) {
+    throw new Error(`${input.requestedTaskId}: record workdir is missing`);
+  }
+  return {
+    branch: input.record.branch,
+    workdir: input.record.workdir,
+  };
+};
+
 export const recoverTaskReservation = (input: {
   readonly auditPath: string;
   readonly branchExists: boolean;
