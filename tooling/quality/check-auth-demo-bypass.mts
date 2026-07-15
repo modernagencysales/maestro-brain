@@ -92,13 +92,18 @@ function checkWorkspaceMemberGuards(
   const failures: string[] = [];
 
   for (const file of files) {
-    if (!file.content.includes('table("workspaceMembers")')) continue;
+    const membershipQueries = file.content
+      .split('table("workspaceMembers")')
+      .slice(1)
+      .map((query) => query.split(";")[0] ?? query)
+      .filter((query) => query.includes(".index("));
+    const hasUnguardedQuery = membershipQueries.some(
+      (query) =>
+        !query.includes('q.eq("workspaceId"') &&
+        !query.includes("q.eq('workspaceId'"),
+    );
 
-    const hasWorkspaceGuard =
-      file.content.includes('q.eq("workspaceId"') ||
-      file.content.includes("q.eq('workspaceId'");
-
-    if (!hasWorkspaceGuard) {
+    if (hasUnguardedQuery) {
       failures.push(
         `${file.path}: workspaceMembers access must include a workspace guard before joining or returning membership rows.`,
       );

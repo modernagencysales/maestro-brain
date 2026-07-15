@@ -7,7 +7,7 @@ import databaseSchema from "../_generated/schema";
 import { Auth, DatabaseReader } from "../_generated/services";
 import { resolveEffectiveWorkspaceRole } from "../access/auth";
 import { extractIdentityProfile } from "../access/provisioning";
-import { asGenericId, loadCurrentUser } from "../access/handlerContext";
+import { loadCurrentUser } from "../access/handlerContext";
 import {
   ProvisioningConflict,
   Unauthorized,
@@ -73,11 +73,6 @@ const list = FunctionImpl.make(databaseSchema, workspaces, "list", (args) =>
       )
       .collect()
       .pipe(Effect.orDie);
-    const workspaceMembers = yield* reader
-      .table("workspaceMembers")
-      .index("by_user", (q) => q.eq("userId", user._id))
-      .collect()
-      .pipe(Effect.orDie);
     const liveOrganizationMemberships = organizationMembers.filter(
       (member) =>
         member.status === "active" &&
@@ -90,27 +85,6 @@ const list = FunctionImpl.make(databaseSchema, workspaces, "list", (args) =>
         message: "Duplicate live organization memberships found.",
       });
     }
-    const workspaceIds = new Set<string>();
-    for (const member of workspaceMembers) {
-      if (
-        member.status !== "active" ||
-        member.acceptedAt === null ||
-        member.revokedAt !== null ||
-        member.deletedAt !== null
-      ) {
-        continue;
-      }
-      const workspace = yield* reader
-        .table("workspaces")
-        .get(asGenericId<"workspaces">(member.workspaceId))
-        .pipe(Effect.orDie);
-      if (workspace?.organizationId === organization._id) {
-        workspaceIds.add(workspace._id);
-      }
-    }
-    const scopedWorkspaceMembers = workspaceMembers.filter((member) =>
-      workspaceIds.has(member.workspaceId),
-    );
     const nowMs = yield* Clock.currentTimeMillis;
 
     const summaries = [];
@@ -123,6 +97,17 @@ const list = FunctionImpl.make(databaseSchema, workspaces, "list", (args) =>
         .collect()
         .pipe(Effect.orDie);
       const activeRows = rows.filter((row) => row.status === "active");
+      const scopedWorkspaceMembers = [];
+      for (const workspace of activeRows) {
+        const members = yield* reader
+          .table("workspaceMembers")
+          .index("by_workspace_user", (q) =>
+            q.eq("workspaceId", workspace._id).eq("userId", user._id),
+          )
+          .collect()
+          .pipe(Effect.orDie);
+        scopedWorkspaceMembers.push(...members);
+      }
       const agencyRows = activeRows.filter(
         (row) => (row.kind ?? "agency") === "agency",
       );
