@@ -20,7 +20,14 @@ import {
   createBrowserWorkspaceStorage,
   WorkspaceProvider,
 } from "../providers/workspace";
-import { createRuntimeWorkspaceOperations } from "../providers/workspace-operations";
+import {
+  useTemplateMutation,
+  useTemplateQuery,
+} from "../adapters/confect-state";
+import {
+  createRuntimeWorkspaceOperations,
+  workspaceOperationRefs,
+} from "../providers/workspace-operations";
 import { PostHogWebProvider } from "../providers/posthog";
 import { CookieConsentBoundary } from "../providers/cookie-consent";
 import { WebRouteUxBoundary } from "../navigation/route-ux-boundary";
@@ -54,6 +61,11 @@ function RootComponent() {
   const { authSnapshot, workspaceRuntimeMode } = Route.useLoaderData();
   const location = useRouterState({ select: (state) => state.location });
 
+  const workspaceList = useTemplateQuery(workspaceOperationRefs.list, {});
+  const ensureProvisioned = useTemplateMutation(
+    workspaceOperationRefs.ensureProvisioned,
+  );
+
   return (
     <AuthKitProviderWithConvexProviderWithAuth
       client={convexClient}
@@ -63,6 +75,7 @@ function RootComponent() {
         operations={createRuntimeWorkspaceOperations({
           authSnapshot,
           mode: workspaceRuntimeMode,
+          liveRefs: { listResult: workspaceList, ensureProvisioned },
         })}
         storage={createBrowserWorkspaceStorage()}
       >
