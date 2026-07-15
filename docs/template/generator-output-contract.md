@@ -35,7 +35,11 @@ tests, and optional headless metadata. It does not create a nested
 `template:add-workflow` emits durable graph JSON data, Confect
 `start`/`status`/`control` spec, impl, tests, docs, and a plain Convex
 `defineWorkflow` durable replay handler. The Confect contract owns public
-start/status/control access; the plain Convex handler owns replay.
+start/status/control access by default; `--exposure internal` switches those
+controls to Confect internal functions with empty manifest surfaces and no API,
+CLI, MCP, OpenAPI, or headless descriptors. Internal controls require a system
+caller principal from the reviewed internal capability/job fence instead of
+ambient human Auth. The plain Convex handler owns replay in both modes.
 
 `template:add-agent` emits the agent spec, impl, tool grants, tests, and docs.
 Generated agents default to web-only exposure. API, CLI, or MCP exposure

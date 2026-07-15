@@ -13,12 +13,14 @@ import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
 export const smokeWorkflowName = "generatedWorkflowSmoke";
+export const internalSmokeWorkflowName = "generatedInternalWorkflowSmoke";
 export const workflowOutputSmokeScriptName = "template:workflow-output-smoke";
 
 type SmokeCommand = {
   readonly label: string;
   readonly command: string;
   readonly args: readonly string[];
+  readonly requiresConvexDeployment?: boolean;
 };
 
 const ignoredPathSegments = new Set([
@@ -152,9 +154,27 @@ export const runWorkflowOutputSmoke = (
         ],
       },
       {
+        label: "Generate internal workflow output",
+        command: "pnpm",
+        args: [
+          "--dir",
+          tempRepoRoot,
+          "template:add-workflow",
+          "--",
+          "--name",
+          internalSmokeWorkflowName,
+          "--description",
+          "Generated internal workflow output smoke check.",
+          "--exposure",
+          "internal",
+          "--write",
+        ],
+      },
+      {
         label: "Regenerate Convex refs",
         command: "pnpm",
         args: ["--dir", convexPackage, "exec", "convex", "codegen"],
+        requiresConvexDeployment: true,
       },
       {
         label: "Typecheck generated Convex package output",
@@ -164,6 +184,15 @@ export const runWorkflowOutputSmoke = (
     ];
 
     for (const step of steps) {
+      if (step.requiresConvexDeployment && !process.env.CONVEX_DEPLOYMENT) {
+        process.stdout.write(
+          "\n[workflow-output-smoke] Skipping " +
+            step.label +
+            ": CONVEX_DEPLOYMENT is not set.\n",
+        );
+        continue;
+      }
+
       runSmokeCommand(tempRepoRoot, step);
     }
   } finally {
