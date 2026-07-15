@@ -6,7 +6,9 @@ export interface LaneGateCacheIdentity {
   readonly commandSetHash: string;
   readonly currentHeadSha: string;
   readonly currentTreeSha: string;
+  readonly planSha256: string;
   readonly reviewVerdict: "pass" | "pending" | "rework";
+  readonly taskBlockHash: string;
 }
 
 const commandKey = (command: GateCommand): string =>
@@ -54,6 +56,8 @@ export const canReusePreReviewGate = (
     value.status === "passed" &&
     value.currentHeadSha === identity.currentHeadSha &&
     value.currentTreeSha === identity.currentTreeSha &&
+    value.planSha256 === identity.planSha256 &&
+    value.taskBlockHash === identity.taskBlockHash &&
     value.commandSetHash === identity.commandSetHash
   );
 };

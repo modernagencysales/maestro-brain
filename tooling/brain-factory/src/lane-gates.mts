@@ -14,7 +14,11 @@ import {
   gateCommandSetHash,
 } from "./lane-gate-cache.js";
 import { buildManifest } from "./manifest.js";
-import { isCompatibleProofHead, proofChangedFilesMatch } from "./proof.js";
+import {
+  isCompatibleProofHead,
+  proofChangedFilesMatch,
+  validateProofContract,
+} from "./proof.js";
 import {
   changedHandAuthoredSourceLines,
   validSourceSlices,
@@ -25,7 +29,10 @@ interface ProofPacket {
   readonly changedFiles: readonly string[];
   readonly focusedCommands: readonly string[];
   readonly headSha: string;
+  readonly planSha256: string;
   readonly reviewVerdict: "pass" | "pending" | "rework";
+  readonly schemaVersion: "maestro-brain-ci-proof/v1";
+  readonly taskBlockHash: string;
   readonly taskId: string;
 }
 
@@ -70,7 +77,11 @@ const proofPath = resolve(laneDirectory, "ci-proof-packet.json");
 const reportPath = resolve(laneDirectory, "lane-gate-report.json");
 if (!existsSync(proofPath)) throw new Error(`${taskId}: missing ${proofPath}`);
 const proof = JSON.parse(readFileSync(proofPath, "utf8")) as ProofPacket;
-if (proof.taskId !== taskId) throw new Error(`${taskId}: proof task mismatch`);
+validateProofContract(proof as unknown as Record<string, unknown>, {
+  planSha256: manifest.planSha256,
+  taskBlockHash: task.taskBlockHash,
+  taskId,
+});
 if (stage === "final" && proof.reviewVerdict !== "pass")
   throw new Error(`${taskId}: final proof lacks independent PASS review`);
 if (!Array.isArray(proof.changedFiles) || proof.changedFiles.length === 0)
@@ -214,7 +225,9 @@ const reusedPreReview =
     commandSetHash,
     currentHeadSha: head,
     currentTreeSha,
+    planSha256: manifest.planSha256,
     reviewVerdict: proof.reviewVerdict,
+    taskBlockHash: task.taskBlockHash,
   });
 if (reusedPreReview) {
   console.log(`${taskId}: reusing exact-head pre-review command results`);
@@ -242,6 +255,7 @@ writeFileSync(
       currentTreeSha,
       gateProfiles: task.gateProfiles,
       headSha: proof.headSha,
+      planSha256: manifest.planSha256,
       changedSourceLines,
       estimateDrift: changedSourceLines > task.estimatedSourceLines,
       estimatedSourceLines: task.estimatedSourceLines,
@@ -250,6 +264,7 @@ writeFileSync(
       stage,
       status: "passed",
       taskId,
+      taskBlockHash: task.taskBlockHash,
       reusedPreReview,
     },
     null,

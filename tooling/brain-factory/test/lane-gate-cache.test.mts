@@ -41,15 +41,19 @@ describe("brain lane gate command cache", () => {
       commandSetHash: "commands",
       currentHeadSha: "head",
       currentTreeSha: "tree",
+      planSha256: "plan",
       reviewVerdict: "pass" as const,
+      taskBlockHash: "task",
     };
     const report = {
       schemaVersion: "maestro-brain-lane-gate/v1",
       commandSetHash: "commands",
       currentHeadSha: "head",
       currentTreeSha: "tree",
+      planSha256: "plan",
       stage: "pre-review",
       status: "passed",
+      taskBlockHash: "task",
     };
     expect(canReusePreReviewGate(report, identity)).toBe(true);
     expect(
@@ -68,6 +72,18 @@ describe("brain lane gate command cache", () => {
       canReusePreReviewGate(report, {
         ...identity,
         commandSetHash: "new-commands",
+      }),
+    ).toBe(false);
+    expect(
+      canReusePreReviewGate(report, {
+        ...identity,
+        planSha256: "new-plan",
+      }),
+    ).toBe(false);
+    expect(
+      canReusePreReviewGate(report, {
+        ...identity,
+        taskBlockHash: "new-task",
       }),
     ).toBe(false);
     expect(
@@ -103,7 +119,16 @@ describe("brain lane gate command cache", () => {
     const review = workflow
       .split("\n")
       .find((line) => line.trimStart().startsWith("review ["));
+    const implement = workflow
+      .split("\n")
+      .find((line) => line.trimStart().startsWith("implement ["));
+    expect(implement).toContain("maestro-brain-ci-proof/v1");
+    expect(implement).toContain("planSha256");
+    expect(implement).toContain("taskBlockHash");
+    expect(implement).toContain("Do not use native apply_patch");
+    expect(implement).not.toContain("apply_patch fails once");
     expect(review).toContain("Read-Only Contract Review");
+    expect(review).toContain("exact current planSha256/taskBlockHash");
     expect(review).toContain(
       "Never edit, amend, or commit product/worktree files",
     );
