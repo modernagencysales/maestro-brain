@@ -188,7 +188,7 @@ try {
       throw new Error(`${task.taskId}: lane-green proof chain drift`);
     }
     const changedFiles = runRtk(
-      ["git", "diff", "--name-only", `${proofBase}..${laneHead}`],
+      ["proxy", "git", "diff", "--name-only", `${proofBase}..${laneHead}`],
       { quiet: true },
     )
       .split("\n")

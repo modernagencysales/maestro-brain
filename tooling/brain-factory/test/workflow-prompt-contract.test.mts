@@ -177,4 +177,13 @@ describe("Fabro workflow prompt contracts", () => {
       ).toContain("GLOBAL_INTEGRATION_LOCK");
     }
   });
+
+  it("uses unfiltered git output for wave changed-file identity", () => {
+    const integrateWave = readFileSync(
+      resolve(import.meta.dirname, "../src/integrate-wave.mts"),
+      "utf8",
+    );
+
+    expect(integrateWave).toContain('["proxy", "git", "diff", "--name-only"');
+  });
 });
