@@ -1,5 +1,6 @@
 import * as Schema from "effect/Schema";
 
+import { privilegedAccessAuditActions } from "./audit";
 import { Role } from "./roles";
 
 export const UserStatus = Schema.Literal("active", "suspended", "deleted");
@@ -18,17 +19,12 @@ export const InvitationStatus = Schema.Literal(
   "expired",
 );
 export const AccessAuditAction = Schema.Literal(
-  "member.roleChanged",
-  "member.removed",
-  "member.ownershipTransferred",
-  "invitation.created",
-  "invitation.accepted",
-  "invitation.declined",
-  "invitation.cancelled",
+  ...privilegedAccessAuditActions,
 );
 export const AccessAuditSubjectKind = Schema.Literal(
   "workspaceMember",
   "invitation",
+  "privilegedAction",
 );
 
 const NullableNumber = Schema.NullOr(Schema.Number);
