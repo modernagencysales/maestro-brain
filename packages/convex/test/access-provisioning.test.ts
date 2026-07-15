@@ -172,6 +172,55 @@ describe("access provisioning", () => {
     });
   });
 
+  it("plans provisioning workspace transition to active", () => {
+    const result = buildProvisioningPlan({
+      identity: {
+        subject: "workos|user_12345678",
+        displayName: "Ada Lovelace",
+        email: "ada@example.com",
+      },
+      state: {
+        ...emptyState,
+        user: {
+          _id: "users_1",
+          subject: "workos|user_12345678",
+          email: "ada@example.com",
+          displayName: "Ada Lovelace",
+          status: "active",
+          createdAt: now - 100,
+          updatedAt: now - 100,
+        },
+        liveOrganization: {
+          _id: "organizations_1",
+          ownerUserId: "users_1",
+          slug: "ada",
+          name: "Ada",
+          status: "active",
+          createdAt: now - 100,
+          updatedAt: now - 100,
+        },
+        liveWorkspace: {
+          _id: "workspaces_1",
+          organizationId: "organizations_1",
+          ownerUserId: "users_1",
+          slug: "ada",
+          name: "Ada Workspace",
+          status: "provisioning",
+          dataClassification: "internal",
+          createdAt: now - 100,
+          updatedAt: now - 100,
+        },
+      },
+      now,
+    });
+
+    expect(Either.isRight(result)).toBe(true);
+    expect(Either.getOrThrow(result).workspace).toMatchObject({
+      action: "patch",
+      value: { status: "active" },
+    });
+  });
+
   it("is idempotent for an already provisioned active owner", () => {
     const result = buildProvisioningPlan({
       identity: {
@@ -387,8 +436,15 @@ describe("access provisioning", () => {
           const reader = yield* DatabaseReader;
           const workspace = yield* reader
             .table("workspaces")
-            .get(first.workspaceId)
-            .pipe(Effect.orDie);
+            .index("by_slug")
+            .collect()
+            .pipe(
+              Effect.map(
+                (rows) =>
+                  rows.find((row) => row.brainKey === first.brainKey) ?? null,
+              ),
+              Effect.orDie,
+            );
           const organization = workspace
             ? yield* reader
                 .table("organizations")
@@ -408,8 +464,15 @@ describe("access provisioning", () => {
           const reader = yield* DatabaseReader;
           const workspace = yield* reader
             .table("workspaces")
-            .get(second.workspaceId)
-            .pipe(Effect.orDie);
+            .index("by_slug")
+            .collect()
+            .pipe(
+              Effect.map(
+                (rows) =>
+                  rows.find((row) => row.brainKey === second.brainKey) ?? null,
+              ),
+              Effect.orDie,
+            );
           const organization = workspace
             ? yield* reader
                 .table("organizations")

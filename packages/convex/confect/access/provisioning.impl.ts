@@ -7,8 +7,16 @@ import * as Option from "effect/Option";
 
 import databaseSchema from "../_generated/schema";
 import { Auth, DatabaseReader, DatabaseWriter } from "../_generated/services";
-import { ProvisioningConflict, Unauthorized } from "../errors";
+import {
+  BrainAlreadyExists,
+  Forbidden,
+  OrganizationNotFound,
+  ProvisioningConflict,
+  Unauthorized,
+  ValidationFailed,
+} from "../errors";
 import { asGenericId } from "./handlerContext";
+import { recordAccessLifecycleEvents } from "./audit";
 import provisioning from "./provisioning.spec";
 import {
   buildProvisioningPlan,
@@ -24,6 +32,7 @@ import {
   isStableAgencyKey,
   isStableBrainKey,
 } from "../identity/stableKeys";
+import { roleAtLeast } from "./roles";
 
 const conflict = (resource: string, message: string) =>
   new ProvisioningConflict({ resource, message });
@@ -412,7 +421,211 @@ const ensureProvisioned = FunctionImpl.make(
           .pipe(Effect.orDie);
       }
 
-      return { workspaceId };
+      const persistedWorkspace = yield* reader
+        .table("workspaces")
+        .get(workspaceId)
+        .pipe(Effect.orDie);
+      if (persistedWorkspace?.brainKey === undefined) {
+        return yield* Effect.fail(
+          conflict(
+            "workspaces.brainKey",
+            "Provisioned Brain key was not persisted.",
+          ),
+        );
+      }
+
+      return { brainKey: persistedWorkspace.brainKey };
+    }),
+);
+
+const createClientBrain = FunctionImpl.make(
+  databaseSchema,
+  provisioning,
+  "createClientBrain",
+  ({ name, clientSlug }) =>
+    Effect.gen(function* () {
+      const normalizedName = name.trim();
+      const normalizedSlug = clientSlug.trim().toLowerCase();
+      if (normalizedName.length === 0) {
+        return yield* new ValidationFailed({
+          field: "name",
+          message: "Client Brain name is required.",
+        });
+      }
+      if (!/^[a-z0-9][a-z0-9-]{1,62}$/.test(normalizedSlug)) {
+        return yield* new ValidationFailed({
+          field: "clientSlug",
+          message:
+            "Client slug must be lower-case letters, numbers, or dashes.",
+        });
+      }
+
+      const auth = yield* Auth;
+      const identity = yield* extractIdentityProfile(
+        yield* auth.getUserIdentity.pipe(
+          Effect.mapError(() => new Unauthorized()),
+        ),
+      );
+      const reader = yield* DatabaseReader;
+      const writer = yield* DatabaseWriter;
+      const now = yield* Clock.currentTimeMillis;
+      const user = yield* reader
+        .table("users")
+        .index("by_subject", (q) => q.eq("subject", identity.subject))
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      if (user === null || user.status !== "active") {
+        return yield* new Unauthorized();
+      }
+
+      if (identity.workosOrganizationId === undefined) {
+        return yield* new Unauthorized();
+      }
+      const organizations = yield* reader
+        .table("organizations")
+        .index("by_workos_organization", (q) =>
+          q.eq("workosOrganizationId", identity.workosOrganizationId),
+        )
+        .collect()
+        .pipe(Effect.orDie);
+      const activeOrganizations = organizations.filter(
+        (row) => row.status === "active",
+      );
+      if (activeOrganizations.length === 0) {
+        return yield* new OrganizationNotFound({
+          workosOrganizationId: identity.workosOrganizationId,
+        });
+      }
+      if (activeOrganizations.length > 1) {
+        return yield* new ProvisioningConflict({
+          resource: "organizations.workosOrganizationId",
+          message:
+            "Authenticated WorkOS organization resolved to multiple active organizations.",
+        });
+      }
+      const organization = activeOrganizations[0];
+      if (organization === undefined) {
+        return yield* new OrganizationNotFound({
+          workosOrganizationId: identity.workosOrganizationId,
+        });
+      }
+      const organizationId = asGenericId<"organizations">(organization._id);
+      if (organization.agencyKey === undefined) {
+        return yield* new ProvisioningConflict({
+          resource: "organizations.agencyKey",
+          message: "Active organization is missing a stable agency key.",
+        });
+      }
+      yield* assertUniqueAgencyKey({
+        organizationId,
+        agencyKey: organization.agencyKey,
+      });
+      const orgMemberships = yield* reader
+        .table("organizationMembers")
+        .index("by_organization_user", (q) =>
+          q.eq("organizationId", organizationId).eq("userId", user._id),
+        )
+        .collect()
+        .pipe(Effect.orDie);
+      const liveMemberships = orgMemberships.filter(
+        (member) =>
+          member.status === "active" &&
+          member.acceptedAt !== null &&
+          member.revokedAt === null,
+      );
+      if (liveMemberships.length > 1) {
+        return yield* new ProvisioningConflict({
+          resource: "organizationMembers.organizationId.userId",
+          message: "Duplicate live organization memberships found.",
+        });
+      }
+      const liveMembership = liveMemberships[0];
+      if (
+        liveMembership === undefined ||
+        !roleAtLeast(liveMembership.role, "admin")
+      ) {
+        return yield* new Forbidden({
+          reason: "Admin organization role required.",
+        });
+      }
+
+      const existing = yield* reader
+        .table("workspaces")
+        .index("by_organization", (q) => q.eq("organizationId", organizationId))
+        .collect()
+        .pipe(Effect.orDie);
+      const activeAgencyBrains = existing.filter(
+        (row) => row.status === "active" && (row.kind ?? "agency") === "agency",
+      );
+      if (activeAgencyBrains.length !== 1) {
+        return yield* new ProvisioningConflict({
+          resource: "workspaces.organizationId.kind",
+          message: "Exactly one active Agency Brain is required.",
+        });
+      }
+      if (existing.some((row) => row.clientSlug === normalizedSlug)) {
+        return yield* new BrainAlreadyExists({ brainKey: normalizedSlug });
+      }
+      const workspaceId = yield* writer
+        .table("workspaces")
+        .insert({
+          organizationId,
+          ownerUserId: user._id,
+          slug: normalizedSlug,
+          name: normalizedName,
+          kind: "client",
+          clientSlug: normalizedSlug,
+          status: "active",
+          dataClassification: "confidential",
+          createdAt: now,
+          updatedAt: now,
+          lifecycleGeneration: 0,
+          revocationGeneration: 0,
+        })
+        .pipe(Effect.orDie);
+      const inserted = yield* reader
+        .table("workspaces")
+        .get(workspaceId)
+        .pipe(Effect.orDie);
+      const brainKey = deriveStableBrainKey({
+        _id: workspaceId,
+        createdAt: now,
+        _creationTime: inserted?._creationTime,
+      });
+      yield* assertUniqueBrainKey({ workspaceId, organizationId, brainKey });
+      yield* writer
+        .table("workspaces")
+        .patch(workspaceId, { brainKey })
+        .pipe(Effect.orDie);
+      const membershipId = yield* writer
+        .table("workspaceMembers")
+        .insert({
+          workspaceId,
+          userId: user._id,
+          role: "owner",
+          status: "active",
+          acceptedAt: now,
+          revokedAt: null,
+          deletedAt: null,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .pipe(Effect.orDie);
+      yield* recordAccessLifecycleEvents(
+        writer,
+        [
+          {
+            action: "member.ownershipTransferred",
+            workspaceId,
+            actorUserId: user._id,
+            subjectKind: "workspaceMember",
+            subjectId: membershipId,
+            metadata: { role: "owner" },
+          },
+        ],
+        now,
+      );
+      return { brainKey };
     }),
 );
 
@@ -436,5 +649,6 @@ const toProvisioningUser = (user: {
 
 export default GroupImpl.make(databaseSchema, provisioning).pipe(
   Layer.provide(ensureProvisioned),
+  Layer.provide(createClientBrain),
   GroupImpl.finalize,
 );
