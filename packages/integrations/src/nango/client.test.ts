@@ -25,7 +25,7 @@ describe("Nango provider client boundary", () => {
       invalidEnv: ["NANGO_SECRET_KEY"],
     });
     expect(JSON.stringify(result)).not.toContain(`sk_${"live"}_secret`);
-    expect(validateNangoEnv("fake", {})).toBe(true);
+    expect(validateNangoEnv("test", {})).toBe(true);
   });
 
   it("rejects raw token shaped connection ids before provider calls", async () => {
@@ -33,7 +33,7 @@ describe("Nango provider client boundary", () => {
 
     await expect(
       client.verifyConnectSession({
-        connectSessionId: "cs_org_acme_1782924800000",
+        connectSessionId: "maestro-session-org-acme",
         connectionId: `xox${"b"}-raw-slack-token`,
       }),
     ).rejects.toMatchObject({ _tag: "ConnectSessionInvalid" });
@@ -48,11 +48,11 @@ describe("Nango provider client boundary", () => {
       correlationTag: "slack-connect:org_acme:1782924800000",
     });
 
-    expect(session).toEqual({
-      connectSessionId: "cs_org_acme_1782924800000",
-      connectSessionToken: `connect_public_${"org_acme"}_1782924800000`,
-      expiresAt: 1_782_925_100_000,
-    });
+    expect(session.connectSessionId).toBe(
+      "maestro-session-org_acme-1782924800000",
+    );
+    expect(session.connectSessionToken).not.toBe(session.connectSessionId);
+    expect(session.expiresAt).toBe(1_782_925_100_000);
     expect(JSON.stringify(session)).not.toContain("secret");
 
     await expect(
@@ -108,16 +108,17 @@ describe("Nango provider client boundary", () => {
         endUserId: "org_acme",
         providerConfigKey: "slack",
         correlationTag: "slack-connect:org_acme:1782924800000",
+        connectSessionId: "maestro-session-live",
       }),
     ).resolves.toEqual({
-      connectSessionId: "connect_public_org_acme",
+      connectSessionId: "maestro-session-live",
       connectSessionToken: "connect_public_org_acme",
       expiresAt: Date.parse("2026-07-15T12:05:00.000Z"),
     });
     await expect(
       client.verifyConnectSession({
-        connectSessionId: "connect_public_org_acme",
-        connectionId: "conn_org_acme",
+        connectSessionId: "maestro-session-live",
+        connectionId: "opaque-provider-connection",
       }),
     ).resolves.toEqual({
       organizationKey: "org_acme",
@@ -135,11 +136,19 @@ describe("Nango provider client boundary", () => {
           tags: { correlationTag: "slack-connect:org_acme:1782924800000" },
         },
       ],
-      ["get", "slack", "conn_org_acme"],
+      ["get", "slack", "opaque-provider-connection"],
     ]);
   });
 
-  it("selects fake or live provider layers from validated mode", async () => {
+  it("selects fake/test or live provider layers from validated mode", async () => {
+    await expect(
+      Effect.runPromise(
+        Effect.scoped(
+          Layer.build(createNangoProviderLayer({ mode: "fake", env: {} })),
+        ),
+      ),
+    ).resolves.toBeTruthy();
+
     await expect(
       Effect.runPromise(
         Effect.scoped(
@@ -187,13 +196,13 @@ describe("Nango provider client boundary", () => {
         provider: "nango",
         connectSessionToken: `connect_public_${"org_acme"}_1782924800000`,
         secretKey: `sk_${"live"}_secret`,
-        connectionId: "conn_org_acme",
+        connectionId: "opaque-provider-connection",
       }),
     ).toEqual({
       provider: "nango",
       connectSessionToken: "[redacted]",
       secretKey: "[redacted]",
-      connectionId: "conn_org_acme",
+      connectionId: "opaque-provider-connection",
     });
   });
 });

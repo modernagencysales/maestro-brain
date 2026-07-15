@@ -143,6 +143,8 @@ const connectionKeyFor = (organizationKey: string) =>
   `slack_${organizationKey}`;
 const attemptIdFor = (organizationKey: string, now: number) =>
   `attempt_${organizationKey}_${now}`;
+const connectSessionIdFor = (organizationKey: string, now: number) =>
+  `maestro-session-${organizationKey}-${now}`;
 const correlationTagFor = (organizationKey: string, now: number) =>
   `slack-connect:${organizationKey}:${now}`;
 
@@ -162,7 +164,10 @@ export const beginSlackConnectPlan = (input: {
     }
     return {
       organizationKey: principal.organizationKey,
-      connectSessionId: `cs_${principal.organizationKey}_${input.now}`,
+      connectSessionId: connectSessionIdFor(
+        principal.organizationKey,
+        input.now,
+      ),
       connectSessionToken: `connect_public_${principal.organizationKey}_${input.now}`,
       expiresAt: input.now + 300_000,
       providerConfigKey: "slack" as const,
@@ -193,7 +198,7 @@ export const completeSlackConnectPlan = (input: {
       input.pending === null ||
       input.pending.connectSessionId !== input.connectSessionId ||
       isSecretShaped(input.connectionId) ||
-      !input.connectionId.startsWith("conn_")
+      input.connectionId.trim().length === 0
     ) {
       return yield* Either.left(new ConnectSessionInvalid());
     }
@@ -327,6 +332,10 @@ const prepareSlackConnectAttempt = FunctionImpl.make(
         providerConfigKey: "slack" as const,
         correlationTag: correlationTagFor(organization.agencyKey, input.now),
         attemptId: attemptIdFor(organization.agencyKey, input.now),
+        connectSessionId: connectSessionIdFor(
+          organization.agencyKey,
+          input.now,
+        ),
       };
     }),
 );
@@ -386,10 +395,7 @@ const claimSlackConnectAttempt = FunctionImpl.make(
   "claimSlackConnectAttempt",
   (input) =>
     Effect.gen(function* () {
-      if (
-        isSecretShaped(input.connectionId) ||
-        !input.connectionId.startsWith("conn_")
-      ) {
+      if (isSecretShaped(input.connectionId)) {
         return yield* Effect.fail(new ConnectSessionInvalid());
       }
       const row = (yield* providerReader(yield* DatabaseReader)
@@ -545,7 +551,7 @@ const mapNangoError = (error: unknown): SlackConnectionError => {
 };
 
 const nangoProviderMode =
-  process.env.NANGO_PROVIDER_MODE === "live" ? "live" : "fake";
+  process.env.NANGO_PROVIDER_MODE === "live" ? "live" : "test";
 const loadNangoProvider = NangoProvider.pipe(
   Effect.provide(
     createNangoProviderLayer({
@@ -576,6 +582,7 @@ const beginSlackConnect = FunctionImpl.make(
             endUserId: attempt.nangoEndUserId,
             providerConfigKey: attempt.providerConfigKey,
             correlationTag: attempt.correlationTag,
+            connectSessionId: attempt.connectSessionId,
           }),
         catch: mapNangoError,
       });
@@ -583,7 +590,7 @@ const beginSlackConnect = FunctionImpl.make(
         generatedRefs.internal.integrations.slackConnections
           .reserveSlackConnectAttempt,
         {
-          connectSessionId: session.connectSessionId,
+          connectSessionId: attempt.connectSessionId,
           organizationKey: attempt.organizationKey,
           connectionKey: attempt.connectionKey,
           nangoEndUserId: attempt.nangoEndUserId,

@@ -67,7 +67,7 @@ describe("Slack connection capability contract", () => {
       connectionKey: "slack_org_acme",
       connectionGeneration: 0,
       status: "authorizing",
-      connectSessionId: "cs_org_acme_1",
+      connectSessionId: "maestro-session-org-acme-1",
       nangoEndUserId: "org_acme",
       nangoOrganizationId: "org_acme",
       correlationTag: "slack-connect:org_acme:1",
@@ -80,7 +80,7 @@ describe("Slack connection capability contract", () => {
     expect(row).toMatchObject({
       status: "authorizing",
       connectionGeneration: 0,
-      connectSessionId: "cs_org_acme_1",
+      connectSessionId: "maestro-session-org-acme-1",
     });
     expect(JSON.stringify(row)).not.toContain("connectSessionToken");
     expect(JSON.stringify(row)).not.toContain("xox");
@@ -114,7 +114,7 @@ describe("Slack connection capability contract", () => {
       connectionKey: "slack_org_acme",
       connectionGeneration: 1,
       status: "active",
-      nangoConnectionId: "conn_org_acme",
+      nangoConnectionId: "opaque-nango-connection",
     };
 
     const duplicate = beginSlackConnectPlan({
@@ -156,7 +156,7 @@ describe("Slack connection capability contract", () => {
       const result = completeSlackConnectPlan({
         principal,
         pending,
-        connectionId: "conn_org_acme",
+        connectionId: "opaque-nango-connection",
         connectSessionId: pending.connectSessionId,
         providerOrganizationKey: "org_acme",
       });
@@ -180,7 +180,7 @@ describe("Slack connection capability contract", () => {
     const tenantMismatch = completeSlackConnectPlan({
       principal: { organizationKey: "org_acme", role: "owner" },
       pending,
-      connectionId: "conn_other",
+      connectionId: "opaque-other-connection",
       connectSessionId: pending.connectSessionId,
       providerOrganizationKey: "org_other",
     });
@@ -194,7 +194,7 @@ describe("Slack connection capability contract", () => {
         completeSlackConnectPlan({
           principal: { organizationKey: "org_acme", role: "owner" },
           pending,
-          connectionId: "conn_org_acme",
+          connectionId: "opaque-nango-connection",
           connectSessionId: pending.connectSessionId,
           providerOrganizationKey: "org_acme",
         }),
@@ -205,5 +205,29 @@ describe("Slack connection capability contract", () => {
       connectionGeneration: 0,
     });
     expect(JSON.stringify(pending)).not.toContain("secret");
+  });
+
+  it("treats Nango event identifiers as opaque and keeps Maestro sessions separate from provider tokens", () => {
+    const pending = Either.getOrThrow(
+      beginSlackConnectPlan({
+        principal: { organizationKey: "org_acme", role: "owner" },
+        existingConnection: null,
+        now: 1_782_924_800_000,
+      }),
+    );
+
+    expect(pending.connectSessionId).not.toBe(pending.connectSessionToken);
+    expect(pending.connectSessionId).not.toContain("connect_public_");
+    expect(
+      Either.getOrThrow(
+        completeSlackConnectPlan({
+          principal: { organizationKey: "org_acme", role: "owner" },
+          pending,
+          connectionId: "opaque-provider-event-value",
+          connectSessionId: pending.connectSessionId,
+          providerOrganizationKey: "org_acme",
+        }),
+      ),
+    ).toMatchObject({ status: "verifying" });
   });
 });

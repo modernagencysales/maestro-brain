@@ -4,7 +4,9 @@ import { openNangoConnect, openNangoConnectWithSdk } from "./connectBrowser";
 
 describe("Nango browser adapter", () => {
   it("opens connect through the injected frontend boundary", async () => {
-    const open = vi.fn(async () => ({ connectionId: "conn_org_acme" }));
+    const open = vi.fn(async () => ({
+      connectionId: "opaque-provider-connection",
+    }));
 
     await expect(
       openNangoConnect({
@@ -12,7 +14,7 @@ describe("Nango browser adapter", () => {
         expiresAt: Date.now() + 60_000,
         open,
       }),
-    ).resolves.toEqual({ connectionId: "conn_org_acme" });
+    ).resolves.toEqual({ connectionId: "opaque-provider-connection" });
     expect(open).toHaveBeenCalledWith({
       token: `connect_public_${"org_acme"}`,
     });
@@ -30,7 +32,7 @@ describe("Nango browser adapter", () => {
         setTimeout(() =>
           params.onEvent({
             type: "connect",
-            payload: { connectionId: "conn_org_acme" },
+            payload: { connectionId: "opaque-provider-connection" },
           }),
         );
         return { open: () => opened.push("open"), close: vi.fn() };
@@ -42,7 +44,7 @@ describe("Nango browser adapter", () => {
         connectSessionToken: `connect_public_${"org_acme"}`,
         NangoFrontend: FakeNangoFrontend,
       }),
-    ).resolves.toEqual({ connectionId: "conn_org_acme" });
+    ).resolves.toEqual({ connectionId: "opaque-provider-connection" });
     expect(opened).toEqual([
       {
         config: { connectSessionToken: `connect_public_${"org_acme"}` },

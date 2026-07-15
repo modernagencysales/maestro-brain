@@ -23,8 +23,7 @@ export const openNangoConnect = async (input: {
 }): Promise<{ readonly connectionId: string }> => {
   if (
     input.expiresAt <= (input.now ?? Date.now()) ||
-    isSecretShapedNangoValue(input.connectSessionToken) ||
-    !input.connectSessionToken.startsWith("connect_public_")
+    isSecretShapedNangoValue(input.connectSessionToken)
   ) {
     throw new ConnectSessionInvalid();
   }
@@ -44,7 +43,7 @@ const connectionIdFromEvent = (event: unknown): string | null => {
   if (maybeEvent.type !== "connect") return null;
   const connectionId =
     maybeEvent.payload?.connectionId ?? maybeEvent.payload?.connection_id;
-  return typeof connectionId === "string" && connectionId.startsWith("conn_")
+  return typeof connectionId === "string" && connectionId.trim().length > 0
     ? connectionId
     : null;
 };

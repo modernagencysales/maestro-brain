@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import * as Context from "effect/Context";
 import { Nango } from "@nangohq/node";
 import * as Layer from "effect/Layer";
@@ -76,6 +78,7 @@ export type NangoClient = {
     readonly endUserId: string;
     readonly providerConfigKey: string;
     readonly correlationTag: string;
+    readonly connectSessionId?: string;
   }) => Promise<NangoConnectSession>;
   readonly verifyConnectSession: (input: {
     readonly connectSessionId: string;
@@ -95,7 +98,7 @@ export const validateNangoEnv = (
   mode: ProviderMode,
   env: Readonly<Record<string, string | undefined>>,
 ): true | NangoConfigError => {
-  if (mode === "fake") return true;
+  if (mode !== "live") return true;
 
   const missingEnv: string[] = [];
   const invalidEnv: string[] = [];
@@ -130,10 +133,11 @@ export const redactNangoDiagnostic = <T extends Record<string, unknown>>(
 export const createFakeNangoClient = (input: {
   readonly now: number;
 }): NangoClient => ({
-  createConnectSession: async ({ organizationKey }) => {
+  createConnectSession: async ({ organizationKey, connectSessionId }) => {
     if (organizationKey === "timeout") throw new ProviderUnavailable();
     return {
-      connectSessionId: `cs_${organizationKey}_${input.now}`,
+      connectSessionId:
+        connectSessionId ?? `maestro-session-${organizationKey}-${input.now}`,
       connectSessionToken: `connect_public_${organizationKey}_${input.now}`,
       expiresAt: input.now + 300_000,
     };
@@ -141,15 +145,16 @@ export const createFakeNangoClient = (input: {
   verifyConnectSession: async ({ connectSessionId, connectionId }) => {
     if (isSecretShapedNangoValue(connectionId))
       throw new ConnectSessionInvalid();
-    if (!connectionId.startsWith("conn_")) throw new ConnectSessionInvalid();
-    const [, organizationKey = ""] =
-      connectSessionId.match(/^cs_(.+)_\d+$/) ?? [];
-    if (organizationKey.length === 0) throw new ConnectSessionInvalid();
+    const [, organizationKey = "", timestamp = ""] =
+      connectSessionId.match(/^maestro-session-(.+)-(\d+)$/) ?? [];
+    if (organizationKey.length === 0 || timestamp.length === 0) {
+      throw new ConnectSessionInvalid();
+    }
     return {
       organizationKey,
       endUserId: organizationKey,
       providerConfigKey: "slack",
-      correlationTag: `slack-connect:${organizationKey}:${connectSessionId.split("_").at(-1)}`,
+      correlationTag: `slack-connect:${organizationKey}:${timestamp}`,
     };
   },
 });
@@ -173,6 +178,7 @@ export const createLiveNangoClient = (input: {
       endUserId,
       providerConfigKey,
       correlationTag,
+      connectSessionId,
     }) => {
       if (providerConfigKey !== input.providerConfigKey) {
         throw new ConnectSessionInvalid();
@@ -191,7 +197,7 @@ export const createLiveNangoClient = (input: {
         throw new ProviderUnavailable();
       }
       return {
-        connectSessionId: token,
+        connectSessionId: connectSessionId ?? randomUUID(),
         connectSessionToken: token,
         expiresAt: expiresAtMs,
       };
@@ -252,7 +258,7 @@ export const createNangoProviderLayer = (input: {
     readonly providerConfigKey: string;
   }) => NangoSdk;
 }): Layer.Layer<NangoProvider> => {
-  if (input.mode === "fake" || input.mode === "test") return NangoProviderFake;
+  if (input.mode !== "live") return NangoProviderFake;
   const envResult = validateNangoEnv(input.mode, input.env);
   if (envResult !== true) throw envResult;
   const secretKey = input.env.NANGO_SECRET_KEY?.trim() ?? "";

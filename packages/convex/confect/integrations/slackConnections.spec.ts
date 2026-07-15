@@ -112,6 +112,7 @@ const prepareSlackConnectAttempt = FunctionSpec.internalMutation({
       providerConfigKey: Schema.Literal("slack"),
       correlationTag: Schema.String,
       attemptId: Schema.String,
+      connectSessionId: Schema.String,
     }),
   error: slackConnectError,
 });
