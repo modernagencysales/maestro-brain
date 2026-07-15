@@ -330,7 +330,7 @@ manifest.
   and both pinned deploy scripts seed `demo/showcase` after backend deploy
   ([staging](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/.buildkite/scripts/staging-deploy.sh#L19-L35),
   [production](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/.buildkite/scripts/production-promote.sh#L24-L41)).
-- **Files:** modify `project.config.json`,
+- **Files:** modify `project.config.json`, `.buildkite/pipeline.yml`,
   `.buildkite/scripts/staging-deploy.sh`,
   `.buildkite/scripts/production-promote.sh`, `tooling/release/src/index.ts`,
   `tooling/release/src/index.test.ts`, `.env.example`,
@@ -343,11 +343,16 @@ manifest.
   versa; promotion of an unstaged SHA and rollback to an incompatible schema
   fail closed.
 - **Implementation:** provision/configure distinct deployment names, URLs and
-  namespaced deploy keys; remove demo seeding from both tenant deploy paths;
-  require explicit `deploy-doctor staging` and `deploy-doctor production`;
-  backend-first staging records the staged SHA/schema/manifest, and production
-  promotion accepts only that compatible staged SHA. Add a rollback-plan command
-  that selects the prior compatible binary without data down-migration.
+  namespaced deploy-key environment names and callback-origin slots; later
+  provider tasks populate the WorkOS/Nango callback registrations. Remove demo
+  seeding from both tenant deploy paths; require explicit
+  `deploy-doctor staging` and `deploy-doctor production`; backend-first staging
+  emits a signed release packet containing commit, deployment hash, schema hash,
+  manifest hash, build ID, and timestamp. Production promotion requires that
+  exact packet and never defaults a missing staged SHA to the current SHA. Add
+  `rollback-plan <current-release-packet> <candidate-release-packet>`; it
+  selects only a prior binary whose schema/manifest contract is
+  forward-compatible and never performs a data down-migration.
 - **Typed errors / state:** environment is
   `unconfigured -> isolated -> staged -> promoted | rollback_ready`; errors are
   `SharedBackendForbidden`, `EnvironmentCredentialMismatch`,
@@ -356,10 +361,16 @@ manifest.
   the production deployment empty, verify isolation canaries, and destroy only
   erroneous empty deployments. Never copy the shared demo database into either
   tenant environment.
-- **Focused verification:** `rtk pnpm --dir tooling/release test`,
-  `rtk pnpm deploy:doctor staging`, `rtk pnpm deploy:doctor production`, script
-  static tests proving no `demo/showcase:seed`, distinct-URL/credential
-  canaries, `rtk pnpm check:env-boundary`, and `rtk just verify-full`.
+- **Focused verification:** lane-local gates are
+  `rtk host-test-slot --class focused pnpm --dir tooling/release test`,
+  `rtk pnpm --dir tooling/release typecheck`, script/config fixture tests
+  proving distinct URL/deployment/key names, required callback origins, no
+  `demo/showcase:seed`, no missing-receipt promotion fallback, staged
+  schema/manifest matching, incompatible rollback rejection, and
+  `rtk pnpm check:env-boundary`. Provider-backed
+  `rtk pnpm deploy:doctor staging` and `rtk pnpm deploy:doctor production` are
+  acceptance gates when credentials are available; broad verification belongs to
+  tranche integration.
 - **Completion receipt:** redacted deployment names/URL hashes, distinct-key
   owner metadata, negative cross-deploy attempts, staged/promotion/rollback-plan
   results, and no-demo-seed scan.
@@ -381,6 +392,9 @@ manifest.
   [`porting-backlog.md`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/docs/template/porting-backlog.md#L524-L526).
 - **Files:** create `packages/convex/convex/migrations.ts`,
   `packages/convex/test/migrations.test.ts`, and
+  `packages/convex/confect/internal/migrations.spec.ts`,
+  `packages/convex/confect/internal/migrations.impl.ts`,
+  `packages/convex/confect/tables/migrationReceipts.ts`, and
   `docs/product/maestro-brain-migrations.md`; modify
   `docs/template/porting-backlog.md` and generated Convex API only through
   codegen.
@@ -389,14 +403,22 @@ manifest.
   supports dry-run counts, refuses an unknown migration name, and exposes no
   public/MCP/API function.
 - **Implementation:** wrap the installed component with named internal
-  migrations. A batch-run receipt is
+  migrations behind a literal server-owned allowlist and internal Confect
+  boundary. Execute mode never accepts raw function values, `reset`, `next`, a
+  caller cursor, or an unbounded batch size; resume reads only the last
+  committed component cursor after release/deployment/schema preconditions
+  match. A batch-run receipt is
   `{ migrationName, mode, cursor, scanned, changed, skipped, failed, complete, startedAt, finishedAt }`;
   its parent release-migration receipt adds
   `{ releaseCommit, schemaBefore, schemaAfter, parityChecks, rollbackOwner, observationEndsAt }`
   and is the Appendix K contract. Require explicit `dryRun | execute`, a fixed
   batch cap, idempotent row predicate, and no delete operation in
-  expand/backfill phases. Reserve names for organization/Brain/page keys; do not
-  execute them yet.
+  expand/backfill phases. Store redacted append-only receipts with actor,
+  deployment/build identifiers and hashes/counts only. Reserve names for
+  organization/Brain/page keys; do not execute them yet. Because C1 has already
+  authored undeployed schema additions, dispatch first proves no tenant
+  deployment and no affected rows; otherwise inventory them as expand-phase
+  drift and add backfill/parity work before claiming completion.
 - **Typed errors / state:** errors are `MigrationNotFound`,
   `MigrationAlreadyRunning`, `MigrationCursorInvalid`, and
   `MigrationBatchFailed`; run state is `planned -> running -> complete | failed`
@@ -404,10 +426,15 @@ manifest.
 - **Migration / rollback:** this task creates the harness only. Rollback removes
   the wrapper after proving no migration rows/runs were created. Later schema
   tasks must state their own dual-read/write and rollback.
-- **Focused verification:** `rtk pnpm --dir packages/convex test migrations`,
+- **Focused verification:**
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test migrations`,
   `rtk pnpm --dir packages/convex typecheck`, `rtk pnpm check:convex`,
-  `rtk pnpm check:schema-migration-notes`, `rtk pnpm check:generated-files`, and
-  `rtk just verify-full`.
+  `rtk pnpm check:schema-migration-notes`, `rtk pnpm check:generated-files`,
+  `rtk pnpm check:confect-manifest`, and
+  `rtk pnpm check:headless-surface-contract`. Tests reject unknown names, forged
+  cursors, reset/next, invalid batch sizes, cross-release resume, concurrent
+  start, destructive expand/backfill definitions, public refs, and any dry-run
+  write. Broad verification belongs to tranche integration.
 - **Completion receipt:** attach dry-run, injected-failure/resume, idempotent
   rerun, generated-diff, and no-public-ref evidence.
 - **Commit / PR boundary:** branch `codex/brain-s00-migration-harness`; commit
@@ -1959,28 +1986,33 @@ manifest.
   which cannot wrap a Convex query.
 - **Files:** modify `packages/search/src/index.ts`,
   `packages/search/src/index.test.ts`, and `packages/search/package.json`;
-  create `packages/search/src/asyncSearch.ts` and `asyncSearch.test.ts`; update
-  `docs/template/porting-backlog.md` and
-  `docs/product/maestro-brain-lifecycle-adoption.md`. The pinned baseline has no
-  external first-party consumer; drift preflight enumerates any new one.
+  create `packages/search/src/asyncSearch.ts`, `asyncSearch.test.ts`, and (when
+  still absent) `docs/product/maestro-brain-lifecycle-adoption.md`; update
+  `docs/template/porting-backlog.md`. The pinned baseline has no external
+  first-party consumer; drift preflight enumerates any new one.
 - **Failure-first tests:** async fake/live parity, cancellation, timeout,
   provider failure, explicit cap/filter propagation, deterministic fake order,
   and a compile test rejecting synchronous consumer use.
-- **Implementation:** expose an Effect/Promise-based
-  `SearchService.search({ query, filters, limit, cursor })`; results are
-  candidates with exact stable revision/projection keys and provider score/order
-  only. Keep token-overlap implementation fake/test-only and label it so product
-  runtime cannot import it. Semantic evidence choice remains a model call.
+- **Implementation:** expose an Effect service whose operation is
+  `SearchService.search(input): Effect.Effect<SearchPage, SearchError, SearchProvider>`;
+  `SearchError` is the closed union below and interruption cancels the provider
+  request. Results are candidates with exact stable revision/projection keys and
+  provider score/order only. Keep token-overlap implementation fake/test-only
+  and label it so product runtime cannot import it. Semantic evidence choice
+  remains a model call.
 - **Typed errors / state:** `SearchUnavailable`, `SearchTimeout`,
   `SearchQueryInvalid`, `SearchCursorInvalid`; request is stateless and
   cancellation-safe.
 - **Migration / compatibility / rollback:** compatibility-wrap synchronous test
   fixtures during one slice, then remove all production sync consumers. Rollback
   switches to the async fake service, not old product scoring.
-- **Focused verification:** `rtk pnpm --dir packages/search test`,
-  `rtk pnpm --dir packages/search typecheck`, `rtk pnpm typecheck`,
-  `rtk pnpm check:knip`, `rtk pnpm check:layer-boundaries`, and
-  `rtk just verify`.
+- **Focused verification:**
+  `rtk host-test-slot --class focused pnpm --dir packages/search test`,
+  `rtk pnpm --dir packages/search typecheck`, `rtk pnpm check:knip`, and
+  `rtk pnpm check:layer-boundaries`; the lane gate requires both async
+  source/test files and a compile assertion that production consumers cannot use
+  a synchronous API. Broad root typecheck and verification belong to tranche
+  integration.
 - **Completion receipt:** consumer inventory, compile failure/pass, fake/live
   contract parity, cancellation/timeout, and runtime import scan.
 - **Commit / PR boundary:** branch `codex/brain-s09-async-search`; commit

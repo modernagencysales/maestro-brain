@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "4e4caf7d25b31b73e40c6345c26ac4ba93ba9cf3682ed87c71da1f8184bdd050",
+  "planSha256": "cfb3327ae8afb0259a1a7c1b9ba47a297fe7ef25fbebda6233da9c73a6fcb423",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -65,7 +65,7 @@
       "lane": "foundation",
       "requirements": ["FND-02", "REL-04"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "6a4db9523b09a415efda0495d38cc57b2ea66abe7dcae130f70185161a9f91f1",
+      "taskBlockHash": "fb7914a90dfe25722d85e8bfc036f5e610c0aa2389536a2c62d2c27d6ad09790",
       "taskId": "S00-T03",
       "title": "Isolate Staging And Production Deployments",
       "tranche": "F0-foundation"
@@ -79,6 +79,9 @@
         "@generated-confect",
         "docs/product/maestro-brain-migrations.md",
         "docs/template/porting-backlog.md",
+        "packages/convex/confect/internal/migrations.impl.ts",
+        "packages/convex/confect/internal/migrations.spec.ts",
+        "packages/convex/confect/tables/migrationReceipts.ts",
         "packages/convex/convex/migrations.ts",
         "packages/convex/test/migrations.test.ts"
       ],
@@ -87,7 +90,7 @@
       "lane": "foundation",
       "requirements": ["FND-03"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "fe5e59d3e24b8d8d6fb692c99aa328cc11d9afb983b1c1743bf690a040c85181",
+      "taskBlockHash": "05f6def6a62eb65d0885b040886e987894fa8758c52f1320ab5d31d8316af133",
       "taskId": "S00-T04",
       "title": "Add A Resumable Expand/Backfill/Contract Migration Harness",
       "tranche": "F0-foundation"
@@ -879,7 +882,7 @@
       "lane": "retrieval",
       "requirements": ["KNW-03", "ZFC-01"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "20cad771e1095f73b2e663bd5a864ec0a46a5e1be43770fa46f4f3db70638e6c",
+      "taskBlockHash": "ac337eaf751333f1d832ffc4306ae8c690d9c2e1198ddcfc18dfbb1739848537",
       "taskId": "S09-T01",
       "title": "Migrate The Search Seam To Asynchronous Effect Semantics",
       "tranche": "C1-contract-spine"
