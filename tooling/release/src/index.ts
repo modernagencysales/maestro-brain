@@ -139,6 +139,8 @@ export type DeployPlan = {
   readonly convexDeployName: string;
   readonly convexUrl?: string;
   readonly releasePacket?: ReleasePacket;
+  readonly expectedSchemaHash?: string;
+  readonly expectedManifestHash?: string;
   readonly failure?: ReleaseFailure;
   readonly refusal?: string;
   readonly alert?: ReleaseAlertPlan;
@@ -255,17 +257,63 @@ const manifestRequiredFor = (
 ): readonly string[] =>
   environment === "production" ? ["live", "deploy"] : ["deploy"];
 
+const envNameBelongsToEnvironment = (
+  name: string,
+  environment: DeployEnvironmentName,
+): boolean => {
+  if (name.includes("_STAGING_")) return environment === "staging";
+  if (name.includes("_PRODUCTION_")) return environment === "production";
+  return true;
+};
+
+const deployConfigManagedEnvNames = (
+  selected: DeployEnvironmentConfig,
+): ReadonlySet<string> => {
+  const requiredSecrets = new Set(selected.requiredSecrets);
+  const managed = new Set([
+    "CLOUDFLARE_PAGES_BRANCH",
+    "CLOUDFLARE_PAGES_PROJECT",
+    "MAESTRO_BRAIN_RELEASE_SIGNER",
+    "MAESTRO_BRAIN_RELEASE_SIGNING_KEY_ID",
+    "MAESTRO_BRAIN_RELEASE_SIGNING_SECRET",
+    "TEMPLATE_HOSTED_URL",
+  ]);
+
+  if (
+    selected.convexDeployKeyEnv &&
+    requiredSecrets.has(selected.convexDeployKeyEnv)
+  ) {
+    managed.add("CONVEX_DEPLOY_KEY");
+    managed.add(selected.convexDeployKeyEnv);
+  }
+
+  for (const secretName of requiredSecrets) {
+    if (secretName.endsWith("_CLOUDFLARE_API_TOKEN")) {
+      managed.add("CLOUDFLARE_API_TOKEN");
+      managed.add(secretName);
+    }
+
+    if (secretName.endsWith("_CLOUDFLARE_ACCOUNT_ID")) {
+      managed.add("CLOUDFLARE_ACCOUNT_ID");
+      managed.add(secretName);
+    }
+  }
+
+  return managed;
+};
+
 const manifestRequiredEnvNames = (
   manifest: EnvManifest | undefined,
   groups: readonly string[],
-  environment: DeployEnvironmentName,
+  selected: DeployEnvironmentConfig,
 ): readonly string[] => {
   if (!manifest) {
     return [];
   }
 
   const expandedGroups = new Set(expandEnvGroups(groups));
-  const requiredFor = new Set(manifestRequiredFor(environment));
+  const requiredFor = new Set(manifestRequiredFor(selected.name));
+  const configManagedNames = deployConfigManagedEnvNames(selected);
 
   return [
     ...new Set(
@@ -274,7 +322,9 @@ const manifestRequiredEnvNames = (
         .filter((variable) =>
           variable.requiredFor.some((mode) => requiredFor.has(mode)),
         )
-        .map((variable) => variable.name),
+        .map((variable) => variable.name)
+        .filter((name) => !configManagedNames.has(name))
+        .filter((name) => envNameBelongsToEnvironment(name, selected.name)),
     ),
   ].sort();
 };
@@ -426,7 +476,7 @@ export const buildDeployDoctorReport = (options: {
       ...manifestRequiredEnvNames(
         manifest,
         selected.requiredEnvGroups,
-        selected.name,
+        selected,
       ),
       ...(selected.callbackOriginEnv ? [selected.callbackOriginEnv] : []),
     ]),
@@ -597,6 +647,8 @@ export const buildProductionPromotePlan = (options: {
   readonly repoRoot?: string;
   readonly stagedSha: string;
   readonly currentSha: string;
+  readonly expectedSchemaHash?: string;
+  readonly expectedManifestHash?: string;
   readonly releasePacket?: string | ReleasePacket;
   readonly trustedSigningKeys?: Readonly<Record<string, string>>;
 }): DeployPlan => {
@@ -654,6 +706,42 @@ export const buildProductionPromotePlan = (options: {
   }
 
   if (
+    (options.expectedSchemaHash &&
+      releasePacket.schemaHash !== options.expectedSchemaHash) ||
+    (options.expectedManifestHash &&
+      releasePacket.manifestHash !== options.expectedManifestHash)
+  ) {
+    const plan: Omit<DeployPlan, "alert"> = {
+      ok: false,
+      environment: "production",
+      commitSha: options.currentSha,
+      domain: selected.domain,
+      cloudflarePagesProject: selected.cloudflarePagesProject,
+      cloudflareBranch: selected.cloudflareBranch,
+      convexDeployName: selected.convexDeployName,
+      ...(selected.convexUrl ? { convexUrl: selected.convexUrl } : {}),
+      ...(options.expectedSchemaHash
+        ? { expectedSchemaHash: options.expectedSchemaHash }
+        : {}),
+      ...(options.expectedManifestHash
+        ? { expectedManifestHash: options.expectedManifestHash }
+        : {}),
+      failure: releaseFailure(
+        "UnstagedCommit",
+        "production promotion requires staged schema/manifest hashes to match the current repository contract",
+      ),
+      refusal:
+        "UnstagedCommit: production promotion requires staged schema/manifest hashes to match the current repository contract.",
+    };
+    const alert = productionPromoteAlert(plan);
+
+    return {
+      ...plan,
+      ...(alert ? { alert } : {}),
+    };
+  }
+
+  if (
     !options.trustedSigningKeys ||
     !verifyReleasePacket(releasePacket, options.trustedSigningKeys)
   ) {
@@ -690,6 +778,12 @@ export const buildProductionPromotePlan = (options: {
     cloudflareBranch: selected.cloudflareBranch,
     convexDeployName: selected.convexDeployName,
     ...(selected.convexUrl ? { convexUrl: selected.convexUrl } : {}),
+    ...(options.expectedSchemaHash
+      ? { expectedSchemaHash: options.expectedSchemaHash }
+      : {}),
+    ...(options.expectedManifestHash
+      ? { expectedManifestHash: options.expectedManifestHash }
+      : {}),
     releasePacket,
   };
 };
@@ -698,7 +792,16 @@ export const buildRollbackPlan = (options: {
   readonly current: ReleasePacket;
   readonly candidate: ReleasePacket;
 }): RollbackPlan => {
+  const candidateTime = Date.parse(options.candidate.timestamp);
+  const currentTime = Date.parse(options.current.timestamp);
+  const isPriorBinary =
+    Number.isFinite(candidateTime) &&
+    Number.isFinite(currentTime) &&
+    candidateTime < currentTime &&
+    options.candidate.commitSha !== options.current.commitSha &&
+    options.candidate.buildId !== options.current.buildId;
   const compatible =
+    isPriorBinary &&
     options.current.schemaHash === options.candidate.schemaHash &&
     options.current.manifestHash === options.candidate.manifestHash;
 
@@ -1532,7 +1635,9 @@ export const runReleaseCli = (
   if (command === "promote-plan") {
     const stagedSha = argv[1];
     const currentSha = argv[2];
-    const releasePacket = argv[3];
+    const expectedSchemaHash = argv[3];
+    const expectedManifestHash = argv[4];
+    const releasePacket = argv[5];
     const trustedSigningKeys = process.env.MAESTRO_BRAIN_RELEASE_SIGNING_KEY_ID
       ? {
           [process.env.MAESTRO_BRAIN_RELEASE_SIGNING_KEY_ID]:
@@ -1540,12 +1645,18 @@ export const runReleaseCli = (
         }
       : undefined;
 
-    if (!stagedSha || !currentSha || !releasePacket) {
+    if (
+      !stagedSha ||
+      !currentSha ||
+      !expectedSchemaHash ||
+      !expectedManifestHash ||
+      !releasePacket
+    ) {
       return {
         exitCode: 1,
         stdout: "",
         stderr:
-          "Usage: promote-plan <staged-sha> <current-sha> <release-packet-json>\n",
+          "Usage: promote-plan <staged-sha> <current-sha> <expected-schema-hash> <expected-manifest-hash> <release-packet-json>\n",
       };
     }
 
@@ -1553,6 +1664,8 @@ export const runReleaseCli = (
       repoRoot: cwd,
       stagedSha,
       currentSha,
+      expectedSchemaHash,
+      expectedManifestHash,
       releasePacket,
       ...(trustedSigningKeys ? { trustedSigningKeys } : {}),
     });
