@@ -511,6 +511,56 @@ export const authorizeSlackConnectCompletionPlan = (input: {
   });
 };
 
+const generatedRefs = {
+  internal: {
+    integrations: {
+      slackConnections: {
+        prepareSlackConnectAttempt: Ref.make(
+          "integrations/slackConnections",
+          prepareSlackConnectAttemptSpec,
+        ),
+        claimSlackConnectAttempt: Ref.make(
+          "integrations/slackConnections",
+          claimSlackConnectAttemptSpec,
+        ),
+        authorizeSlackConnectCompletion: Ref.make(
+          "integrations/slackConnections",
+          authorizeSlackConnectCompletionSpec,
+        ),
+        markSlackConnectAttemptFailed: Ref.make(
+          "integrations/slackConnections",
+          markSlackConnectAttemptFailedSpec,
+        ),
+        reconcileSlackConnectSessionExpiry: Ref.make(
+          "integrations/slackConnections",
+          reconcileSlackConnectSessionExpirySpec,
+        ),
+        finalizeSlackConnectAttempt: Ref.make(
+          "integrations/slackConnections",
+          finalizeSlackConnectAttemptSpec,
+        ),
+      },
+    },
+  },
+};
+
+const currentConnectionFor = (organizationKey: string) =>
+  Effect.gen(function* () {
+    const rows = yield* providerReader(yield* DatabaseReader)
+      .table("providerConnections")
+      .index("by_organization", (q) => q.eq("organizationKey", organizationKey))
+      .take(20)
+      .pipe(Effect.orDie);
+    return (
+      (rows as readonly ProviderConnectionRow[]).find(
+        (row) =>
+          row.provider === "nango" &&
+          row.providerConfigKey === "slack" &&
+          row.status !== "revoked",
+      ) ?? null
+    );
+  });
+
 const beginSlackConnect = FunctionImpl.make(
   databaseSchema,
   slackConnections,
@@ -527,20 +577,177 @@ const prepareSlackConnectAttempt = FunctionImpl.make(
   databaseSchema,
   slackConnections,
   "prepareSlackConnectAttempt",
-  () => Effect.fail(new ProviderUnavailable()),
+  (input) =>
+    Effect.gen(function* () {
+      const auth = yield* Auth;
+      const rawIdentity = yield* auth.getUserIdentity.pipe(
+        Effect.mapError(() => new Unauthorized()),
+      );
+      const identity = yield* extractSlackIdentityProfile(rawIdentity);
+      const subject = identity.subject;
+      const user = yield* (yield* DatabaseReader)
+        .table("users")
+        .index("by_subject", (q) => q.eq("subject", subject))
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      if (user === null) {
+        return yield* Effect.fail(
+          new Forbidden({ reason: "Provisioned user required." }),
+        );
+      }
+      const memberships = yield* (yield* DatabaseReader)
+        .table("organizationMembers")
+        .index("by_user", (q) => q.eq("userId", user._id))
+        .take(10)
+        .pipe(Effect.orDie);
+      const organizations = new Map<string, SlackOrganizationRecord>();
+      for (const membership of memberships) {
+        const organization = yield* (yield* DatabaseReader)
+          .table("organizations")
+          .get(asGenericId<"organizations">(membership.organizationId))
+          .pipe(Effect.orDie);
+        if (organization !== null) {
+          organizations.set(membership.organizationId, organization);
+        }
+      }
+      const organization = yield* selectCurrentSlackOrganization({
+        memberships,
+        organizationsById: organizations,
+        ...(typeof identity.workosOrganizationId === "string"
+          ? { currentWorkosOrganizationId: identity.workosOrganizationId }
+          : {}),
+      });
+      const organizationKey = organization.agencyKey;
+      if (organizationKey === undefined) {
+        return yield* Effect.fail(
+          new Forbidden({ reason: "Active organization required." }),
+        );
+      }
+      const current = yield* currentConnectionFor(organizationKey);
+      const ids = makeSlackConnectAttemptIds({
+        organizationKey,
+        nonce: input.nonce,
+        now: input.now,
+      });
+      const reservation = reserveSlackConnectAttemptPlan({
+        organizationKey,
+        connectSessionId: ids.connectSessionId,
+        currentConnection: current,
+        now: input.now,
+      });
+      if (Either.isLeft(reservation)) {
+        return yield* Effect.fail(reservation.left);
+      }
+      const connectionKey =
+        current?.connectionKey ?? connectionKeyFor(organizationKey);
+      const connectionGeneration = slackConnectAttemptGenerationFor({
+        currentConnection: current,
+      });
+      const row = {
+        provider: "nango" as const,
+        providerConfigKey: "slack" as const,
+        organizationKey,
+        connectionKey,
+        connectionGeneration,
+        status: slackConnectAttemptStatusFor({ currentConnection: current }),
+        connectSessionId: ids.connectSessionId,
+        nangoConnectionId: null,
+        nangoEndUserId: ids.nangoEndUserId,
+        nangoOrganizationId: ids.nangoOrganizationId,
+        correlationTag: ids.correlationTag,
+        attemptId: ids.attemptId,
+        attemptExpiresAt: input.attemptExpiresAt,
+        completedAt: null,
+        updatedAt: input.now,
+      };
+      if (current === null) {
+        yield* providerWriter(yield* DatabaseWriter)
+          .table("providerConnections")
+          .insert({ ...row, createdAt: input.now })
+          .pipe(Effect.orDie);
+      } else if (reservation.right.status !== "idempotent") {
+        yield* providerWriter(yield* DatabaseWriter)
+          .table("providerConnections")
+          .patch(current._id, row)
+          .pipe(Effect.orDie);
+      }
+      return {
+        organizationKey,
+        connectionKey,
+        connectionGeneration,
+        providerConfigKey: "slack" as const,
+        ...ids,
+      };
+    }),
 );
+
 const markSlackConnectAttemptFailed = FunctionImpl.make(
   databaseSchema,
   slackConnections,
   "markSlackConnectAttemptFailed",
-  () => Effect.fail(new ConnectSessionInvalid()),
+  (input) =>
+    Effect.gen(function* () {
+      const row = (yield* providerReader(yield* DatabaseReader)
+        .table("providerConnections")
+        .index("by_connect_session", (q) =>
+          q.eq("connectSessionId", input.connectSessionId),
+        )
+        .first()
+        .pipe(
+          Effect.map(Option.getOrNull),
+          Effect.orDie,
+        )) as ProviderConnectionRow | null;
+      if (
+        row === null ||
+        row.connectionGeneration !== input.expectedConnectionGeneration ||
+        (row.status !== "authorizing" && row.status !== "reauthorizing")
+      ) {
+        return yield* Effect.fail(new ConnectSessionInvalid());
+      }
+      yield* providerWriter(yield* DatabaseWriter)
+        .table("providerConnections")
+        .patch(row._id, {
+          status: "error",
+          completedAt: null,
+          updatedAt: input.now,
+        })
+        .pipe(Effect.orDie);
+      return { connectionKey: row.connectionKey, status: "error" as const };
+    }),
 );
+
 const reconcileSlackConnectSessionExpiry = FunctionImpl.make(
   databaseSchema,
   slackConnections,
   "reconcileSlackConnectSessionExpiry",
-  () => Effect.fail(new ConnectSessionInvalid()),
+  (input) =>
+    Effect.gen(function* () {
+      const row = (yield* providerReader(yield* DatabaseReader)
+        .table("providerConnections")
+        .index("by_connect_session", (q) =>
+          q.eq("connectSessionId", input.connectSessionId),
+        )
+        .first()
+        .pipe(
+          Effect.map(Option.getOrNull),
+          Effect.orDie,
+        )) as ProviderConnectionRow | null;
+      const result = reconcileSlackConnectSessionExpiryPlan({ row, ...input });
+      if (Either.isLeft(result)) return yield* Effect.fail(result.left);
+      yield* providerWriter(yield* DatabaseWriter)
+        .table("providerConnections")
+        .patch(result.right.rowId, {
+          attemptExpiresAt: result.right.attemptExpiresAt,
+          updatedAt: input.now,
+        })
+        .pipe(Effect.orDie);
+      return {
+        connectionKey: result.right.connectionKey,
+        attemptExpiresAt: result.right.attemptExpiresAt,
+      };
+    }),
 );
+
 const claimSlackConnectAttempt = FunctionImpl.make(
   databaseSchema,
   slackConnections,
