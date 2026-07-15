@@ -1,5 +1,10 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { evaluateBrainAnswers } from "./brain-answers";
+import { evaluateBrainClassification } from "./brain-classification";
+import { evaluateBrainMaintenance } from "./brain-maintenance";
+import { evaluateBrainMultilingual } from "./brain-multilingual";
+import { evaluateBrainPromptInjection } from "./brain-prompt-injection";
 import {
   approveBrainEvalArtifact,
   buildBrainEvalReport,
@@ -17,20 +22,93 @@ const suiteKey = (suiteName: string): string =>
 
 const rawArtifactFor = (suiteName: string): unknown => {
   const fixture = structuredClone(frozenSuite(suiteKey(suiteName)));
-  return suiteName === "answers" ? answerRunFor(fixture) : fixture;
+  return {
+    fixture,
+    run:
+      suiteName === "answers"
+        ? answerRunFor(fixture)
+        : suiteName === "classification"
+          ? classificationRunFor(fixture)
+          : genericRunFor(fixture),
+  };
 };
 
 const recomputedReceiptFor = (suiteName: string, rawArtifact: unknown) => {
+  const raw = rawArtifact as { fixture: unknown; run: unknown };
   if (suiteName === "answers") {
-    const raw = rawArtifact as { fixture: unknown; run: unknown };
     return evaluateBrainAnswers(raw.fixture, raw.run).receipt;
   }
-  const suite = buildBrainEvalReport().suites.find(
-    (entry) => entry.suiteName === suiteName,
-  );
-  if (suite === undefined) throw new Error(`missing suite ${suiteName}`);
-  return suite.receipt;
+  if (suiteName === "classification") {
+    return evaluateBrainClassification(raw.fixture, raw.run).receipt;
+  }
+  if (suiteName === "maintenance") {
+    return evaluateBrainMaintenance(raw.fixture, raw.run).receipt;
+  }
+  if (suiteName === "promptInjection") {
+    return evaluateBrainPromptInjection(raw.fixture, raw.run).receipt;
+  }
+  if (suiteName === "multilingual") {
+    return evaluateBrainMultilingual(raw.fixture, raw.run).receipt;
+  }
+  throw new Error(`missing suite ${suiteName}`);
 };
+
+const classificationRunFor = (fixture: unknown): unknown => {
+  const suite = fixture as {
+    cases: Array<{
+      id: string;
+      outputTargets: readonly string[];
+      committedTarget: string | null;
+    }>;
+  };
+  return {
+    schemaVersion: "maestro-brain-classification-run/v1",
+    results: suite.cases.map((entry) => ({
+      caseId: entry.id,
+      outputTargets: entry.outputTargets,
+      committedTarget: entry.committedTarget,
+    })),
+  };
+};
+
+const genericRunFor = (fixture: unknown): unknown => {
+  const suite = fixture as { cases: Array<{ id: string; output: unknown }> };
+  return {
+    schemaVersion: "maestro-brain-suite-run/v1",
+    results: suite.cases.map((entry) => ({
+      caseId: entry.id,
+      output: entry.output,
+    })),
+  };
+};
+
+const badOutputFor = (suiteName: string): Record<string, boolean> => {
+  if (suiteName === "maintenance") {
+    return {
+      factualChangeCited: false,
+      acceptedWithoutFactualCorrection: true,
+      staleOrRevokedPublish: false,
+    };
+  }
+  if (suiteName === "promptInjection") {
+    return {
+      tenantInvariant: false,
+      allowlistInvariant: true,
+      instructionInvariant: true,
+      toolInvariant: true,
+      deliveryInvariant: true,
+    };
+  }
+  return {
+    semanticMatch: true,
+    abstainedWhenNoEvidence: true,
+    authorizationInvariant: false,
+    keywordOnlyBypass: false,
+  };
+};
+
+const rawSha256 = (value: string): string =>
+  `sha256:${createHash("sha256").update(value).digest("hex")}`;
 
 const answerRunFor = (fixture: unknown): unknown => {
   const suite = fixture as {
@@ -40,30 +118,29 @@ const answerRunFor = (fixture: unknown): unknown => {
     .filter((entry) => entry.kind === "claim")
     .map((entry) => {
       const bytes = `${entry.id} Verified source quote for ${entry.id}`;
-      const hash = `sha256:${sha256(bytes)}`;
+      const hash = rawSha256(bytes);
       return { hash, bytes };
     });
   return {
-    fixture: suite,
-    run: {
-      schemaVersion: "maestro-brain-answer-run/v1",
-      sourceArtifacts,
-      results: suite.cases.map((entry) => ({
-        caseId: entry.id,
-        output:
-          entry.kind === "claim"
-            ? {
-                ...entry.output,
-                claimText: entry.id,
-                citedQuote: `${entry.id} Verified source quote for ${entry.id}`,
-                citationLocator: `brain://page/rev#${entry.id}`,
-                sourceArtifactHash: `sha256:${sha256(
-                  `${entry.id} Verified source quote for ${entry.id}`,
-                )}`,
-              }
-            : entry.output,
-      })),
-    },
+    schemaVersion: "maestro-brain-answer-run/v1",
+    sourceArtifacts,
+    results: suite.cases.map((entry) => ({
+      caseId: entry.id,
+      output:
+        entry.kind === "claim"
+          ? {
+              ...entry.output,
+              claimEntailed: true,
+              citationLocatorResolved: true,
+              claimText: entry.id,
+              citedQuote: `${entry.id} Verified source quote for ${entry.id}`,
+              citationLocator: `brain://page/rev#${entry.id}`,
+              sourceArtifactHash: rawSha256(
+                `${entry.id} Verified source quote for ${entry.id}`,
+              ),
+            }
+          : entry.output,
+    })),
   };
 };
 
@@ -85,31 +162,89 @@ describe("Brain eval report", () => {
     );
   });
 
-  it("approves only raw external artifacts with recomputed passing receipts", () => {
+  it("approves a real all-suite external run with recomputed passing receipts", () => {
     const report = buildBrainEvalReport();
-    expect(() =>
-      approveBrainEvalArtifact({
-        schemaVersion: "maestro-brain-eval-approval-artifact/v1",
-        runId: "external-run-2026-07-14",
-        generatedAt: "2026-07-14T00:00:00.000Z",
-        suiteResults: report.suites.map((suite) => {
-          const rawArtifact = rawArtifactFor(suite.suiteName);
-          return {
-            ...suite,
-            status: "approved",
-            receipt: recomputedReceiptFor(suite.suiteName, rawArtifact),
-            runArtifact: {
-              schemaVersion: "maestro-brain-suite-run-artifact/v1",
-              artifactUri: `s3://maestro-brain-evals/${suite.suiteName}.jsonl`,
-              artifactHash: `sha256:${sha256(rawArtifact)}`,
-              rawArtifact,
-            },
-          };
-        }),
+    const approval = approveBrainEvalArtifact({
+      schemaVersion: "maestro-brain-eval-approval-artifact/v1",
+      runId: "external-run-2026-07-14",
+      generatedAt: "2026-07-14T00:00:00.000Z",
+      suiteResults: report.suites.map((suite) => {
+        const rawArtifact = rawArtifactFor(suite.suiteName);
+        return {
+          ...suite,
+          status: "approved",
+          receipt: recomputedReceiptFor(suite.suiteName, rawArtifact),
+          runArtifact: {
+            schemaVersion: "maestro-brain-suite-run-artifact/v1",
+            artifactUri: `s3://maestro-brain-evals/${suite.suiteName}.jsonl`,
+            artifactHash: `sha256:${sha256(rawArtifact)}`,
+            rawArtifact,
+          },
+        };
       }),
-    ).toThrow(
-      "Brain eval approval requires all external suite artifacts to pass.",
+    });
+
+    expect(approval.suiteResults).toHaveLength(5);
+    expect(approval.suiteResults.map((suite) => suite.suiteName)).toEqual([
+      "classification",
+      "answers",
+      "maintenance",
+      "promptInjection",
+      "multilingual",
+    ]);
+    expect(approval.suiteResults.every((suite) => suite.receipt.passed)).toBe(
+      true,
     );
+  });
+
+  it("rejects bad external maintenance, prompt-injection, and multilingual runs", () => {
+    const report = buildBrainEvalReport();
+    for (const badSuiteName of [
+      "maintenance",
+      "promptInjection",
+      "multilingual",
+    ]) {
+      expect(() =>
+        approveBrainEvalArtifact({
+          schemaVersion: "maestro-brain-eval-approval-artifact/v1",
+          runId: `external-run-bad-${badSuiteName}`,
+          generatedAt: "2026-07-14T00:00:00.000Z",
+          suiteResults: report.suites.map((suite) => {
+            const rawArtifact = rawArtifactFor(suite.suiteName) as {
+              fixture: unknown;
+              run: { results: Array<{ caseId: string; output: unknown }> };
+            };
+            const effectiveArtifact =
+              suite.suiteName === badSuiteName
+                ? {
+                    ...rawArtifact,
+                    run: {
+                      ...rawArtifact.run,
+                      results: rawArtifact.run.results.map((result, index) =>
+                        index === 0
+                          ? { ...result, output: badOutputFor(badSuiteName) }
+                          : result,
+                      ),
+                    },
+                  }
+                : rawArtifact;
+            return {
+              ...suite,
+              status: "approved",
+              receipt: recomputedReceiptFor(suite.suiteName, effectiveArtifact),
+              runArtifact: {
+                schemaVersion: "maestro-brain-suite-run-artifact/v1",
+                artifactUri: `s3://maestro-brain-evals/${suite.suiteName}.jsonl`,
+                artifactHash: `sha256:${sha256(effectiveArtifact)}`,
+                rawArtifact: effectiveArtifact,
+              },
+            };
+          }),
+        }),
+      ).toThrow(
+        "Brain eval approval requires all external suite artifacts to pass.",
+      );
+    }
   });
 
   it("rejects passing receipts that do not name immutable external run artifacts", () => {
