@@ -6,6 +6,13 @@ import {
   Unauthorized,
   ValidationFailed,
 } from "../errors";
+import {
+  deriveStableAgencyKey,
+  deriveStableBrainKey,
+  stableAgencyKeySeed,
+  stableBrainKeySeed,
+  type BrainKind,
+} from "../identity/stableKeys";
 import { normalizeEmail } from "./email";
 import type { Role } from "./roles";
 
@@ -15,12 +22,16 @@ export type IdentityClaims = {
   readonly name?: string | null;
   readonly email?: string | null;
   readonly emailVerified?: boolean | null;
+  readonly organizationId?: string | null;
+  readonly org_id?: string | null;
+  readonly workosOrganizationId?: string | null;
 };
 
 export type IdentityProfile = {
   readonly subject: string;
   readonly displayName: string;
   readonly email: string;
+  readonly workosOrganizationId?: string | undefined;
 };
 
 type UserStatus = "active" | "suspended" | "deleted";
@@ -42,23 +53,32 @@ export type UserProvisioningRow = {
 export type OrganizationProvisioningRow = {
   readonly _id: string;
   readonly ownerUserId: string;
+  readonly workosOrganizationId?: string | undefined;
+  readonly agencyKey?: string | undefined;
   readonly slug: string;
   readonly name: string;
   readonly status: OrganizationStatus;
   readonly createdAt: number;
   readonly updatedAt: number;
+  readonly lifecycleGeneration?: number | undefined;
+  readonly revocationGeneration?: number | undefined;
 };
 
 export type WorkspaceProvisioningRow = {
   readonly _id: string;
   readonly organizationId: string;
   readonly ownerUserId: string;
+  readonly brainKey?: string | undefined;
   readonly slug: string;
   readonly name: string;
+  readonly kind?: BrainKind | undefined;
+  readonly clientSlug?: string | undefined;
   readonly status: WorkspaceStatus;
   readonly dataClassification: DataClassification;
   readonly createdAt: number;
   readonly updatedAt: number;
+  readonly lifecycleGeneration?: number | undefined;
+  readonly revocationGeneration?: number | undefined;
 };
 
 export type OrganizationMembershipProvisioningRow = {
@@ -148,6 +168,7 @@ export const extractIdentityProfile = (
           ? displayName
           : emailResult.email,
       email: emailResult.email,
+      workosOrganizationId: extractWorkosOrganizationId(claims),
     };
   });
 
@@ -298,20 +319,52 @@ const planOrganization = (
   ownerUserId: string,
   seed: ProvisioningSeed,
   now: number,
-): RowPlan<Omit<OrganizationProvisioningRow, "_id">> =>
-  existing === null
-    ? {
-        action: "insert",
-        value: {
-          ownerUserId,
-          slug: seed.slug,
-          name: seed.organizationName,
-          status: "active",
-          createdAt: now,
-          updatedAt: now,
-        },
-      }
-    : { action: "none" };
+): RowPlan<Omit<OrganizationProvisioningRow, "_id">> => {
+  if (existing === null) {
+    return {
+      action: "insert",
+      value: {
+        ownerUserId,
+        workosOrganizationId: seed.workosOrganizationId,
+        agencyKey: deriveStableAgencyKey(ownerUserId),
+        slug: seed.slug,
+        name: seed.organizationName,
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+        lifecycleGeneration: 0,
+        revocationGeneration: 0,
+      },
+    };
+  }
+
+  if (seed.workosOrganizationId === undefined) return { action: "none" };
+
+  const value: {
+    workosOrganizationId?: string;
+    agencyKey?: string;
+    lifecycleGeneration?: number;
+    revocationGeneration?: number;
+  } = {};
+  if (existing.workosOrganizationId !== seed.workosOrganizationId) {
+    value.workosOrganizationId = seed.workosOrganizationId;
+  }
+  if (existing.agencyKey === undefined) {
+    value.agencyKey = deriveStableAgencyKey(stableAgencyKeySeed(existing));
+  }
+  if (existing.lifecycleGeneration === undefined) {
+    value.lifecycleGeneration = 0;
+  }
+  if (existing.revocationGeneration === undefined) {
+    value.revocationGeneration = 0;
+  }
+  if (Object.keys(value).length === 0) return { action: "none" };
+  return {
+    action: "patch",
+    id: existing._id,
+    value: { ...value, updatedAt: now },
+  };
+};
 
 const planWorkspace = (input: {
   readonly existing: WorkspaceProvisioningRow | null;
@@ -319,22 +372,52 @@ const planWorkspace = (input: {
   readonly ownerUserId: string;
   readonly seed: ProvisioningSeed;
   readonly now: number;
-}): RowPlan<Omit<WorkspaceProvisioningRow, "_id">> =>
-  input.existing === null
-    ? {
-        action: "insert",
-        value: {
-          organizationId: input.organizationId,
-          ownerUserId: input.ownerUserId,
-          slug: input.seed.slug,
-          name: input.seed.workspaceName,
-          status: "active",
-          dataClassification: "internal",
-          createdAt: input.now,
-          updatedAt: input.now,
-        },
-      }
-    : { action: "none" };
+}): RowPlan<Omit<WorkspaceProvisioningRow, "_id">> => {
+  if (input.existing === null) {
+    return {
+      action: "insert",
+      value: {
+        organizationId: input.organizationId,
+        ownerUserId: input.ownerUserId,
+        brainKey: deriveStableBrainKey(input.ownerUserId),
+        slug: input.seed.slug,
+        name: input.seed.workspaceName,
+        kind: "agency",
+        status: "active",
+        dataClassification: "internal",
+        createdAt: input.now,
+        updatedAt: input.now,
+        lifecycleGeneration: 0,
+        revocationGeneration: 0,
+      },
+    };
+  }
+
+  if (input.seed.workosOrganizationId === undefined) return { action: "none" };
+
+  const value: {
+    brainKey?: string;
+    kind?: BrainKind;
+    lifecycleGeneration?: number;
+    revocationGeneration?: number;
+  } = {};
+  if (input.existing.brainKey === undefined) {
+    value.brainKey = deriveStableBrainKey(stableBrainKeySeed(input.existing));
+  }
+  if (input.existing.kind === undefined) value.kind = "agency";
+  if (input.existing.lifecycleGeneration === undefined) {
+    value.lifecycleGeneration = 0;
+  }
+  if (input.existing.revocationGeneration === undefined) {
+    value.revocationGeneration = 0;
+  }
+  if (Object.keys(value).length === 0) return { action: "none" };
+  return {
+    action: "patch",
+    id: input.existing._id,
+    value: { ...value, updatedAt: input.now },
+  };
+};
 
 const planOrganizationMembership = (input: {
   readonly existing: OrganizationMembershipProvisioningRow | null;
@@ -418,6 +501,7 @@ type ProvisioningSeed = {
   readonly slug: string;
   readonly organizationName: string;
   readonly workspaceName: string;
+  readonly workosOrganizationId: string | undefined;
 };
 
 const provisioningSeed = (identity: IdentityProfile): ProvisioningSeed => {
@@ -432,5 +516,17 @@ const provisioningSeed = (identity: IdentityProfile): ProvisioningSeed => {
     slug: `${slugBase}-${suffix.length > 0 ? suffix : "starter"}`,
     organizationName: identity.displayName,
     workspaceName: `${identity.displayName} Workspace`,
+    workosOrganizationId: identity.workosOrganizationId,
   };
+};
+
+const extractWorkosOrganizationId = (
+  claims: IdentityClaims | null,
+): string | undefined => {
+  const value =
+    claims?.workosOrganizationId ?? claims?.organizationId ?? claims?.org_id;
+  const normalized = value?.trim();
+  return normalized === undefined || normalized.length === 0
+    ? undefined
+    : normalized;
 };
