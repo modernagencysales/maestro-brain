@@ -94,6 +94,7 @@ export type AsyncSearchService = {
 const DEFAULT_CAP = 10;
 const DEFAULT_TIMEOUT_MILLIS = 5_000;
 const SNIPPET_LENGTH = 160;
+const CURSOR_PATTERN = /^[A-Za-z0-9._:-]+$/;
 
 const tokenize = (value: string): readonly string[] =>
   value
@@ -125,7 +126,7 @@ const scoreDocument = (
 
 const validate = (
   input: SearchInput,
-): ValidatedSearchInput | SearchQueryInvalid => {
+): ValidatedSearchInput | SearchQueryInvalid | SearchCursorInvalid => {
   const query = input.query.trim();
   if (query.length === 0) {
     return new SearchQueryInvalid({ reason: "empty-query" });
@@ -134,6 +135,10 @@ const validate = (
   const cap = input.cap ?? DEFAULT_CAP;
   if (!Number.isInteger(cap) || cap < 1 || cap > MAX_SEARCH_LIMIT) {
     return new SearchQueryInvalid({ reason: "invalid-cap" });
+  }
+
+  if (input.cursor !== undefined && !CURSOR_PATTERN.test(input.cursor)) {
+    return new SearchCursorInvalid({ cursor: input.cursor });
   }
 
   return {
@@ -196,7 +201,10 @@ export const createAsyncSearchService = (options: {
   const search = (input: SearchInput) =>
     Effect.gen(function* () {
       const validated = validate(input);
-      if (validated instanceof SearchQueryInvalid) {
+      if (
+        validated instanceof SearchQueryInvalid ||
+        validated instanceof SearchCursorInvalid
+      ) {
         return yield* Effect.fail(validated);
       }
 
