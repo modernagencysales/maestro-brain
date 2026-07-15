@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "efb5cd2277540250ab4a5b773c7e997c60a248fe943a88809a6136fcbffdafdf",
+  "planSha256": "2ea2db5b494f6c2dca0a7c5b76b536129eb02d0e38fb3dda91824effa7c5e0aa",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -171,7 +171,7 @@
       "lane": "identity",
       "requirements": ["FND-03", "IAM-01", "IAM-03"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "47d4a62a70f709317800942d4e81b6e0dc6ed134b43373096960faa31854a54c",
+      "taskBlockHash": "bdadb2d3e9e952b77f0e71ed128c1ce73278a3b8d6008408318e20b0582e64e2",
       "taskId": "S01-T02",
       "title": "Add WorkOS Organization Binding And Stable Agency/Brain Keys",
       "tranche": "C1-contract-spine"
@@ -180,7 +180,7 @@
       "acceptanceAfter": "S01-T02",
       "classification": "template-gap",
       "codeStartAfter": ["S01-T02"],
-      "estimatedSourceLines": 280,
+      "estimatedSourceLines": 520,
       "fileInventoryIssues": [],
       "fileInventoryStatus": "ready",
       "fileLocks": [
@@ -191,6 +191,9 @@
         "packages/convex/confect/access/provisioning.ts",
         "packages/convex/confect/auth/workspaces.impl.ts",
         "packages/convex/confect/auth/workspaces.spec.ts",
+        "packages/convex/confect/identity/stableKeys.impl.ts",
+        "packages/convex/confect/identity/stableKeys.spec.ts",
+        "packages/convex/confect/identity/stableKeys.ts",
         "packages/convex/test/authorized-brain-provisioning.test.ts"
       ],
       "gateProfiles": ["convex", "web"],
@@ -198,7 +201,7 @@
       "lane": "identity",
       "requirements": ["IAM-01", "IAM-02", "IAM-03", "UI-02"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "8fbe59c175cb0fb6d2a8c5f6dc16c4e04aeb71cf6b74f7f7bb43cdc536ffabc6",
+      "taskBlockHash": "aed53ba213e0fd58149e70abfc3dcbb5af1cd9e539eb54274a8ba7c64702961f",
       "taskId": "S01-T03",
       "title": "Authorize Workspace Listing And Brain Provisioning",
       "tranche": "D2-domain-bodies"

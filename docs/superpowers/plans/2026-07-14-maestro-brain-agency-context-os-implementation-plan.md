@@ -621,7 +621,11 @@ manifest.
 - **Classification:** `template-gap`; target `TB-AUTHKIT-01` plus
   existing-module repair of organizations/workspaces; resolve through
   expand/backfill/contract migrations rather than a parallel tenant model.
-- **Dependencies:** S01-T01.
+- **Dependencies:** S01-T01. Code may start after S01-T01 and S00-T04 under the
+  Appendix O start override. The additive schema, provisioning-writer, and
+  migration work unlock S01-T03, but S01-T02 records `accepted: false` with an
+  explicit downstream blocker until S01-T03 removes the legacy public ID and
+  lands the typed resolver contract.
 - **Existing anchors:** organizations currently lack a WorkOS organization ID in
   [`tenancySchemas.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/access/tenancySchemas.ts#L37-L55),
   while workspaces are already organization-owned in
@@ -641,16 +645,19 @@ manifest.
   `tooling/patches/@convex-dev__migrations@0.3.5.patch`,
   `packages/convex/confect/identity/stableKeys.ts` and
   `packages/convex/test/stable-tenant-keys.test.ts`.
-- **Failure-first tests:** duplicate WorkOS org binding, duplicate
-  `(organizationId, agencyKey)`, duplicate `(organizationId, brainKey)`, invalid
-  key syntax, cross-organization resolution, and public Convex-ID serialization
-  all fail. Lexical order follows creation order and multiple organizations or
-  Brains owned by the same user receive distinct keys. A later authenticated
-  sign-in persists missing WorkOS/stable-key metadata on legacy rows. The real
-  registered component migrations prove dry-run, bounded execute, resume, and
-  idempotent rerun through generated Confect refs rather than a pure helper. A
-  log sentinel proves dry-run never emits before/after tenant documents or
-  customer-bearing fields.
+- **Failure-first tests:** duplicate WorkOS org binding, duplicate persisted
+  `(organizationId, agencyKey)` and `(organizationId, brainKey)` bindings, and
+  invalid key syntax fail through database-backed writer or migration paths, not
+  only array helpers. Lexical order follows creation order and multiple
+  organizations or Brains owned by the same user receive distinct keys. A real
+  first-sign-in handler test proves keys use the inserted Convex ID plus its
+  persisted creation time and remain byte-identical on retry. A later
+  authenticated sign-in persists missing WorkOS/stable-key metadata on legacy
+  rows. Both real registered component migrations prove dry-run, bounded
+  execute, resume, exact derived keys, terminal counts/receipts, uniqueness, and
+  idempotent rerun through generated Confect refs rather than a pure helper. Log
+  sentinels for both tenant tables prove dry-run never emits before/after
+  documents or customer-bearing fields.
 - **Implementation:** add `workosOrganizationId`, `agencyKey`, tenant lifecycle
   and revocation generation to organizations; add `brainKey`,
   `kind: agency | client`, `clientSlug?`, lifecycle and revocation generation to
@@ -666,10 +673,14 @@ manifest.
   no-log boundary as the generic template path and update the migration status
   doc. Add compound indexes `by_workos_organization`, `by_agency_key`,
   `by_organization_brain_key`, and `by_organization_kind`.
-- **Typed contract / errors:** internal resolvers accept server-derived
-  organization plus stable key and return typed IDs after authorization; errors
-  are `AgencyNotFound`, `BrainNotFound`, `StableKeyConflict`, and
-  `TenantMismatch`.
+- **Typed contract / errors:** this slice establishes persistence and internal
+  derivation only; it does not certify the existing public provisioning return,
+  which still exposes a legacy Convex ID. S01-T03 owns the generated Confect
+  resolvers that accept server-derived organization plus stable key, return
+  typed IDs after authorization, remove public Convex-ID serialization, and
+  expose `AgencyNotFound`, `BrainNotFound`, `StableKeyConflict`, and
+  `TenantMismatch`. S01-T02 must record `accepted: false` until that downstream
+  contract is integrated.
 - **Migration / compatibility / rollback:** expand optional fields/indexes;
   dual-read legacy rows; backfill in bounded batches; verify zero null/duplicate
   keys; switch writers then readers; make fields required in a later contract
@@ -682,9 +693,10 @@ manifest.
   `rtk host-test-slot --class focused pnpm --dir packages/convex test access-provisioning`,
   `rtk pnpm check:confect-contracts`, `rtk pnpm check:schema-migration-notes`,
   broad verification is deferred to tranche acceptance under Appendix L.
-- **Completion receipt:** migration dry-run/execute/idempotent-rerun counts,
-  uniqueness query, no-public-Convex-ID scan, generated diff, and rollback
-  checkpoint.
+- **Completion receipt:** migration dry-run/execute/idempotent-rerun counts for
+  both tenant tables, uniqueness queries, exact ID/time-derived key samples,
+  generated diff, and rollback checkpoint. The no-public-Convex-ID scan belongs
+  to S01-T03 and remains the explicit S01-T02 acceptance blocker.
 - **Lane branch / commit boundary:** branch
   `codex/brain-s01-stable-tenant-keys`; commit
   `feat: add stable agency and Brain identity`.
@@ -708,22 +720,33 @@ manifest.
   `packages/convex/confect/access/provisioning.spec.ts`,
   `packages/convex/confect/access/provisioning.impl.ts`,
   `packages/convex/confect/access/provisioning.ts`,
+  `packages/convex/confect/identity/stableKeys.ts`,
   `apps/web/src/providers/workspace-operations.ts`, and
   `apps/web/src/providers/workspace-operations.test.ts`; create
+  `packages/convex/confect/identity/stableKeys.spec.ts`,
+  `packages/convex/confect/identity/stableKeys.impl.ts`,
   `packages/convex/test/authorized-brain-provisioning.test.ts`.
 - **Failure-first tests:** signed-out list/create, suspended user/org, unrelated
-  org, viewer/editor client creation, duplicate client slug/key, caller-supplied
-  org/workspace ID, and archived Brain all fail with typed errors. Org admin
-  sees its authorized Brains; direct client member sees only granted Brains.
+  org, viewer/editor client creation, duplicate client slug/key, duplicate
+  agency/Brain key resolution, invalid key syntax, cross-organization
+  resolution, caller-supplied org/workspace ID, public Convex-ID serialization,
+  and archived Brain all fail with typed errors. Org admin sees its authorized
+  Brains; direct client member sees only granted Brains.
 - **Implementation:** make list args empty and derive identity server-side;
   return stable summaries
   `{ agencyKey, brainKey, name, kind, clientSlug, effectiveRole, status, freshness }`.
-  Add admin-only `createClientBrain({ name, clientSlug })`, create
-  membership/audit rows atomically, and ensure exactly one Agency Brain per
-  organization. Replace fake web operations with generated refs; preserve the
-  workspace controller interface.
+  Add generated internal Confect resolvers that accept only a server-derived
+  organization plus a validated stable key, query the compound indexes, reject
+  zero/multiple/cross-tenant results, and return typed organization/workspace
+  IDs only to server code. Change the public provisioning contract to return a
+  stable `brainKey` rather than `workspaceId`; no public function serializes a
+  Convex document ID. Add admin-only `createClientBrain({ name, clientSlug })`,
+  create membership/audit rows atomically, and ensure exactly one Agency Brain
+  per organization. Replace fake web operations with generated refs; preserve
+  the workspace controller interface.
 - **Typed errors / state:** `Unauthorized`, `Forbidden`, `OrganizationNotFound`,
-  `BrainNotFound`, `BrainAlreadyExists`, `ProvisioningConflict`; Brain state is
+  `AgencyNotFound`, `BrainNotFound`, `StableKeyConflict`, `TenantMismatch`,
+  `BrainAlreadyExists`, `ProvisioningConflict`; Brain state is
   `provisioning -> active`, `active <-> archived`, and
   `active | archived -> deleting -> deleted`; only active rows list by default.
 - **Migration / compatibility / rollback:** dual-return legacy `workspaceId`
@@ -737,8 +760,9 @@ manifest.
   `rtk pnpm check:confect-contracts`, `rtk pnpm check:access-audit-events`,
   broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** table-driven role results, cross-tenant denials,
-  generated-ref diff, stable response sample, and audit event sample with no
-  customer text.
+  generated-ref diff, stable response sample, no-public-Convex-ID scan, and
+  audit event sample with no customer text. This receipt releases S01-T02's
+  deferred acceptance blocker.
 - **Lane branch / commit boundary:** branch
   `codex/brain-s01-authorized-provisioning`; commit
   `feat: authorize Brain provisioning`.
@@ -3563,7 +3587,7 @@ source materialized into `acceptanceAfter`.
 | S00-T04 | S00-T03                 | template-gap migration pattern                   |               780 |
 | S01-T01 | S00 complete            | template-gap `TB-AUTHKIT-01`                     |               240 |
 | S01-T02 | S01-T01                 | template-gap + existing-module repair            |              1050 |
-| S01-T03 | S01-T02                 | template-gap authorized tenancy                  |               280 |
+| S01-T03 | S01-T02                 | template-gap authorized tenancy                  |               520 |
 | S01-T04 | S01-T03                 | template-gap access UI                           |               260 |
 | S02-T01 | S01 complete            | template-gap authorized Brain schema             |               260 |
 | S02-T02 | S02-T01                 | template-gap authorized pages                    |               280 |
