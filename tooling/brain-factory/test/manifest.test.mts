@@ -61,6 +61,12 @@ describe("Maestro Brain execution manifest", () => {
           `${taskId}: shorthand ${phrase}`,
         ).not.toContain(phrase);
       }
+      expect(
+        focused,
+        `${taskId}: mutating generated-file command must use the transient helper`,
+      ).not.toMatch(
+        /`rtk pnpm (?:(?:--dir packages\/convex )?(?:confect:codegen|check:convex)|confect:manifest)(?:[ `])/,
+      );
     }
   });
 
@@ -98,6 +104,27 @@ describe("Maestro Brain execution manifest", () => {
     expect(
       manifest.tasks.some((task) => task.fileLocks.includes("@environment")),
     ).toBe(true);
+    expect(
+      readFileSync(resolve(REPO_ROOT, PLAN_RELATIVE), "utf8"),
+    ).not.toContain("@generated-confect");
+  });
+
+  it("runs generated checks once and documents the sole zero-delta check", () => {
+    const plan = readFileSync(resolve(REPO_ROOT, PLAN_RELATIVE), "utf8");
+    const helperTests = [
+      ...plan.matchAll(
+        /^### (S\d{2}-T\d{2})[^\n]*\n([\s\S]*?)(?=^### S\d{2}-T\d{2}|^---$)/gm,
+      ),
+    ].flatMap((match) =>
+      match[2]?.includes("brain:factory:check-confect-codegen -- --test")
+        ? [match[1]]
+        : [],
+    );
+    expect(helperTests).toEqual(["S00-T04"]);
+    expect(plan.match(/`rtk pnpm check:confect-manifest`/g)).toHaveLength(1);
+    expect(plan).toMatch(
+      /the\s+Confect manifest check is a zero-delta assertion because this\s+task consumes/,
+    );
   });
 
   it("serializes migrations behind deployment isolation", () => {

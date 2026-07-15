@@ -474,8 +474,7 @@ manifest.
   tasks must state their own dual-read/write and rollback.
 - **Focused verification:**
   `rtk pnpm brain:factory:check-confect-codegen -- --test migrations`,
-  `rtk pnpm check:schema-migration-notes`, `rtk pnpm check:generated-files`,
-  `rtk pnpm check:confect-manifest`, and
+  `rtk pnpm check:schema-migration-notes`, `rtk pnpm check:generated-files`, and
   `rtk pnpm check:headless-surface-contract`. Tests reject unknown names, forged
   cursors, reset/next, invalid batch sizes, cross-release resume, concurrent
   start, destructive expand/backfill definitions, public refs, and any dry-run
@@ -583,7 +582,7 @@ manifest.
   delete generated keys.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test stable-tenant-keys access-provisioning`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:confect-contracts`, `rtk pnpm check:schema-migration-notes`,
   broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** migration dry-run/execute/idempotent-rerun counts,
@@ -637,7 +636,7 @@ manifest.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test authorized-brain-provisioning workspace-access`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test workspace-operations workspace`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:confect-contracts`, `rtk pnpm check:access-audit-events`,
   broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** table-driven role results, cross-tenant denials,
@@ -693,7 +692,7 @@ manifest.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test access brain-role-matrix`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test settings`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:access-audit-events`, `rtk pnpm check:layer-boundaries`, and
   broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** complete matrix output, last-owner/cross-tenant
@@ -744,7 +743,7 @@ manifest.
   contract later. Rollback reads legacy Markdown and leaves revisions dormant.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test brain-page-schema`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:schema-migration-notes`, `rtk pnpm check:confect-contracts`,
   broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** migration counts/hash comparison, index inventory,
@@ -769,8 +768,8 @@ manifest.
   `packages/convex/confect/brain/pages.impl.ts`; create
   `packages/convex/confect/brain/pageTree.ts` and
   `packages/convex/test/brain-pages-crud.test.ts`. Generated Confect/Convex
-  output is locked by `@generated-confect` and enumerated by the named dry-run
-  manifest
+  output is integration-owned and enumerated by the named dry-run manifest; the
+  isolated lane never commits that output:
   `docs/superpowers/receipts/maestro-brain/file-inventories/S02-T02-confect-generated-files.json`.
 - **Failure-first tests:** role table for list/get/create/rename/move/favorite/
   archive; caller tenant/Convex fields rejected; concurrent move conflict;
@@ -790,7 +789,7 @@ manifest.
   UI/spec as one deployment while keeping appended revisions.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test brain-pages`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:confect-contracts`,
   `rtk pnpm check:headless-surface-contract`, broad verification is deferred to
   tranche acceptance under Appendix L.
@@ -843,7 +842,7 @@ manifest.
   rollback current pointer reads without deleting appended rows.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test brain-revisions versioning knowledge`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:confect-contracts`, `rtk pnpm check:schema-migration-notes`,
   broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** fixture-to-real checklist, migration counts, exact
@@ -890,7 +889,7 @@ manifest.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test editor brain-editor-revision-fence`,
   `rtk host-test-slot --class focused pnpm --dir packages/editor-react test`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:layer-boundaries`, broad verification is deferred to tranche
   acceptance under Appendix L.
 - **Completion receipt:** viewer/editor/revocation/concurrency results,
@@ -991,7 +990,7 @@ manifest.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test client-brief`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test clients`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:confect-contracts`, `rtk pnpm check:route-tree`, and broad
   verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** role/idempotency/capacity tests, six-page stable tree
@@ -1159,7 +1158,7 @@ manifest.
   `rtk host-test-slot --class focused pnpm --dir packages/integrations test nango`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test slack-connections`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test nango-connect`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:provider-boundary`, `rtk pnpm check:env-boundary`,
   `rtk pnpm check:secret-canaries`, broad verification is deferred to tranche
   acceptance under Appendix L.
@@ -1222,7 +1221,7 @@ manifest.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test slack-directory`,
   `rtk host-test-slot --class focused pnpm --dir packages/integrations test slack`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:schema-migration-notes`, `rtk pnpm check:provider-boundary`,
   broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** multi-page fixture counts, exact bot identity receipt,
@@ -1256,7 +1255,8 @@ manifest.
   `docs/template/env-manifest.md`, `docs/template/env-manifest.json`,
   `tooling/quality/check-provider-boundary.mts`, and
   `tooling/quality/check-logging-boundary.mts`. Generated Confect/Convex output
-  is locked by `@generated-confect` and enumerated by
+  is integration-owned and enumerated by the named dry-run manifest; the
+  isolated lane never commits that output:
   `docs/superpowers/receipts/maestro-brain/file-inventories/S04-T03-confect-generated-files.json`.
 - **Failure-first tests:** invalid Slack signature secret, current/previous
   signature rotation boundaries, stale/future timestamp, duplicate request
@@ -1290,7 +1290,7 @@ manifest.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/integrations test eventsVerifier`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test slack-webhook-security`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:provider-boundary`, `rtk pnpm check:logging-boundary`,
   `rtk pnpm check:secret-canaries`, and broad verification is deferred to
   tranche acceptance under Appendix L.
@@ -1350,9 +1350,8 @@ manifest.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test channel-policies`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test connections`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
-  `rtk pnpm check:route-tree`, `rtk pnpm check:layer-boundaries`,
-  `rtk pnpm check:access-audit-events`,
+  `rtk pnpm brain:factory:check-confect-codegen`, `rtk pnpm check:route-tree`,
+  `rtk pnpm check:layer-boundaries`, `rtk pnpm check:access-audit-events`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test accessibility`,
   and broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** all role/policy invariants, 100-channel selection
@@ -1411,7 +1410,7 @@ manifest.
   Re-enable only after the new binary understands every stored schema version.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test source-ledger-schema`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:schema-migration-notes`, `rtk pnpm check:confect-contracts`,
   broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** table/index inventory, schema version, tenant/key/
@@ -1464,8 +1463,8 @@ manifest.
   `rtk host-test-slot --class focused pnpm --dir packages/convex test source-capture`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test source-capture property adversarial`,
   `rtk pnpm check:provider-boundary`, `rtk pnpm check:logging-boundary`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`, and broad
-  verification is deferred to tranche acceptance under Appendix L.
+  `rtk pnpm brain:factory:check-confect-codegen`, and broad verification is
+  deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** `A -> B -> A` rows, crash matrix, duplicate/race
   outcome, zero model calls, ACK timing, and no raw webhook log proof.
 - **Lane branch / commit boundary:** branch `codex/brain-s05-atomic-capture`;
@@ -1513,7 +1512,7 @@ manifest.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test source-unit`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test source-unit property concurrency`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:schema-migration-notes`, `rtk pnpm check:access-audit-events`,
   and broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** fixed-cut race proof, bounds, deterministic repeated
@@ -1564,7 +1563,7 @@ manifest.
 - **Focused verification:**
   `rtk pnpm template:add-capability -- --name commitSourceRoute --description "Commits an authorized source route without semantic reinterpretation." --exposure workflow`,
   `rtk pnpm template:add-capability -- --name commitSourceRoute --description "Commits an authorized source route without semantic reinterpretation." --exposure workflow --write`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test commitSourceRoute direct-routing`,
   `rtk pnpm check:confect-contracts`, `rtk pnpm check:workflow-graph-boundary`,
   `rtk pnpm check:headless-surface-contract`,
@@ -1616,7 +1615,7 @@ manifest.
   leases expire; never clear pending jobs.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test source-workpool`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test source-workpool contract`,
   `rtk pnpm check:workflow-graph-boundary`, and broad verification is deferred
   to tranche acceptance under Appendix L.
@@ -1669,7 +1668,7 @@ manifest.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test source-fairness slack-rate-budget`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test source-fairness property TestClock scheduler-dependency`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:schema-migration-notes`, broad verification is deferred to
   tranche acceptance under Appendix L.
 - **Completion receipt:** fairness distribution, priority latency, 429 timeline,
@@ -1718,8 +1717,8 @@ manifest.
   `rtk host-test-slot --class focused pnpm --dir packages/convex test slack-backfill`,
   `rtk host-test-slot --class focused pnpm --dir packages/integrations test slackHistory`,
   `rtk pnpm check:provider-boundary`, `rtk pnpm check:logging-boundary`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`, broad verification is
-  deferred to tranche acceptance under Appendix L.
+  `rtk pnpm brain:factory:check-confect-codegen`, broad verification is deferred
+  to tranche acceptance under Appendix L.
 - **Completion receipt:** 100-channel cursor independence, batch memory bound,
   crash/CAS proof, live-race idempotency, recent/deep status, and no first-
   channel sampling.
@@ -1836,7 +1835,7 @@ manifest.
   preserve the stricter visibility decision.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test dataLifecycle lifecycle-envelope`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:schema-migration-notes`, `rtk pnpm check:access-audit-events`,
   `rtk pnpm check:confect-contracts`, and broad verification is deferred to
   tranche acceptance under Appendix L.
@@ -1895,7 +1894,7 @@ manifest.
   rows from still-retained source, not resurrected old rows.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test lifecycle-propagation race`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:logging-boundary`, `rtk pnpm check:access-audit-events`,
   `rtk pnpm check:schema-migration-notes`, broad verification is deferred to
   tranche acceptance under Appendix L.
@@ -2071,7 +2070,7 @@ manifest.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/integrations test llm`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test model-call-receipts`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:provider-boundary`, `rtk pnpm check:env-boundary`,
   `rtk pnpm check:logging-boundary`, `rtk pnpm check:secret-canaries`, broad
   verification is deferred to tranche acceptance under Appendix L.
@@ -2193,7 +2192,7 @@ manifest.
   `rtk pnpm template:add-capability -- --name classifySourceUnit --description "Returns a typed zero-or-one route proposal from an immutable source unit." --exposure workflow --write`,
   `rtk pnpm template:add-workflow -- --name sourceClassification --description "Gathers, classifies, reviews, and commits one source route." --exposure internal`,
   `rtk pnpm template:add-workflow -- --name sourceClassification --description "Gathers, classifies, reviews, and commits one source route." --exposure internal --write`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test classification`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test review-queue`,
   `rtk pnpm check:workflow-graph-boundary`, `rtk pnpm check:confect-contracts`,
@@ -2268,7 +2267,7 @@ manifest.
   `rtk pnpm template:add-capability -- --name maintainBrainPage --description "Returns cited Brain revision proposals from an immutable context pack." --exposure workflow --write`,
   `rtk pnpm template:add-workflow -- --name sourceToBrainMaintenance --description "Gathers routed evidence and proposes cited Brain revisions." --exposure internal`,
   `rtk pnpm template:add-workflow -- --name sourceToBrainMaintenance --description "Gathers routed evidence and proposes cited Brain revisions." --exposure internal --write`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test brain-maintenance`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test maintenance-review`,
   `rtk pnpm check:workflow-graph-boundary`,
@@ -2374,7 +2373,7 @@ manifest.
   page/source APIs.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test search-projections`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:schema-migration-notes`, `rtk pnpm check:access-audit-events`,
   `rtk pnpm check:confect-contracts`, broad verification is deferred to tranche
   acceptance under Appendix L.
@@ -2432,7 +2431,7 @@ manifest.
 - **Focused verification:**
   `rtk pnpm template:add-capability -- --name brainContextRead --description "Reads stable pages, sources, search candidates, and bounded Brain context." --exposure headless`,
   `rtk pnpm template:add-capability -- --name brainContextRead --description "Reads stable pages, sources, search candidates, and bounded Brain context." --exposure headless --write`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test brain-context-read retrieval`,
   `rtk pnpm check:confect-contracts`,
   `rtk pnpm check:headless-surface-contract`,
@@ -2492,7 +2491,7 @@ manifest.
 - **Focused verification:**
   `rtk pnpm template:add-capability -- --name askBrain --description "Answers from an immutable authorized retrieval manifest with citations or abstention." --exposure headless`,
   `rtk pnpm template:add-capability -- --name askBrain --description "Answers from an immutable authorized retrieval manifest with citations or abstention." --exposure headless --write`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test ask-brain`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test ask`,
   `rtk pnpm check:headless-surface-contract`,
@@ -2553,7 +2552,7 @@ manifest.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test slack-identity-links`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test slack-identity`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:access-audit-events`, `rtk pnpm check:logging-boundary`,
   `rtk pnpm check:secret-canaries`, broad verification is deferred to tranche
   acceptance under Appendix L.
@@ -2611,7 +2610,7 @@ manifest.
 - **Focused verification:**
   `rtk pnpm template:add-capability -- --name selectAuthorizedBrainScope --description "Selects zero or one authorized Brain for a verified Slack requester." --exposure workflow`,
   `rtk pnpm template:add-capability -- --name selectAuthorizedBrainScope --description "Selects zero or one authorized Brain for a verified Slack requester." --exposure workflow --write`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test slack-intake scope-selection`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test webhook-ack-timing`,
   `rtk pnpm check:workflow-graph-boundary`,
@@ -2676,7 +2675,7 @@ manifest.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test slack-outbox`,
   `rtk host-test-slot --class focused pnpm --dir packages/integrations test slack-send`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:logging-boundary`, `rtk pnpm check:provider-boundary`,
   `rtk pnpm check:access-audit-events`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test slack-outbox ambiguous-send crash`,
@@ -2781,7 +2780,7 @@ manifest.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test headless-auth api-keys`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test api-keys`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:access-audit-events`, `rtk pnpm check:secret-canaries`,
   `rtk pnpm check:headless-surface-contract`, broad verification is deferred to
   tranche acceptance under Appendix L.
@@ -2833,7 +2832,7 @@ manifest.
   headless routes rather than accepting legacy tenant args.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test headless http-request`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:headless-surface-contract`,
   `rtk pnpm check:confect-contracts`, `rtk pnpm check:logging-boundary`,
   `rtk pnpm check:secret-canaries`, `rtk pnpm check:access-audit-events`, broad
@@ -2867,7 +2866,8 @@ manifest.
   `apps/cli/src/index.test.ts`; create
   `packages/convex/test/headless-surface-parity.test.ts` and
   `apps/cli/src/headless-security.test.ts`. Generated capability and manifest
-  output is locked by `@generated-confect` and enumerated by
+  output is integration-owned and enumerated by the named dry-run manifest; the
+  isolated lane never commits that output:
   `docs/superpowers/receipts/maestro-brain/file-inventories/S11-T03-headless-generated-files.json`.
 - **Failure-first tests:** exact allowlist mismatch,
   write/admin/workflow/capture/ generic-prompt tool exposure, schema drift among
@@ -2884,8 +2884,7 @@ manifest.
 - **Migration / compatibility / rollback:** generated manifest change only.
   Remove old `createMarkdown` headless exposure and static CLI response in the
   same slice. Rollback disables the registry rather than re-exposing writes.
-- **Focused verification:** `rtk pnpm confect:codegen`,
-  `rtk pnpm confect:manifest`, `rtk pnpm check:confect-manifest`,
+- **Focused verification:** `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:headless-surface-contract`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test headless-surface-parity`,
   `rtk host-test-slot --class focused pnpm --dir apps/cli test headless-security`,
@@ -2941,9 +2940,11 @@ manifest.
   `rtk host-test-slot --class focused pnpm --dir apps/web test mcp-config`,
   `rtk pnpm check:headless-surface-contract`, `rtk pnpm check:confect-manifest`,
   `rtk pnpm check:route-tree`, `rtk pnpm check:env-boundary`,
-  `rtk pnpm check:logging-boundary`, `rtk pnpm check:secret-canaries`;
-  external-only acceptance: Claude Code sandbox connection and hosted smoke;
-  broad verification is deferred to tranche acceptance under Appendix L.
+  `rtk pnpm check:logging-boundary`, `rtk pnpm check:secret-canaries`; the
+  Confect manifest check is a zero-delta assertion because this task consumes
+  S11-T03's registry and changes no manifest source registry; external-only
+  acceptance: Claude Code sandbox connection and hosted smoke; broad
+  verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** full negative matrix, protocol transcript with
   redacted key, exact tool list/schema hashes, origin/rate/timeout results,
   copy-config UX, route kill-switch drill.
@@ -3045,7 +3046,7 @@ manifest.
 - **Focused verification:**
   `rtk pnpm template:add-capability -- --name exportBrain --description "Creates a lifecycle-fenced deterministic Brain export." --exposure web`,
   `rtk pnpm template:add-capability -- --name exportBrain --description "Creates a lifecycle-fenced deterministic Brain export." --exposure web --write`,
-  `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
+  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk host-test-slot --class focused pnpm --dir packages/template-core test brainExport`,
   `rtk host-test-slot --class focused pnpm --dir packages/storage test`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test brain-export-job TestClock`,
@@ -4271,10 +4272,12 @@ edges, not for unrelated UI or provider bodies. The dispatcher proves the actual
 ready width and refuses intersecting file locks; a hand-maintained wave number
 is never authority.
 
-Shared locks include `@generated-confect`, `@route-tree`, `@dependencies`,
-`@environment`, and every exact path extracted from the task's **Files** field.
-A task that discovers an undeclared shared path stops and amends its contract;
-it does not opportunistically edit the file.
+Shared locks include `@route-tree`, `@dependencies`, `@environment`, and every
+exact path extracted from the task's **Files** field. The factory reserves all
+generated Confect, Convex, manifest, and route-tree output for tranche
+integration without exposing a lane-owned generated lock. A task that discovers
+an undeclared shared path stops and amends its contract; it does not
+opportunistically edit the file.
 
 Task states are:
 

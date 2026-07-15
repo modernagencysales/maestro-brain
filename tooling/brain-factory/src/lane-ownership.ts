@@ -6,6 +6,8 @@ const HAND_AUTHORED_CONVEX_FILES = new Set([
 ]);
 
 export const isIntegrationOwnedGeneratedFile = (file: string): boolean =>
+  file === "apps/web/src/routeTree.gen.ts" ||
+  file === "packages/template-core/src/generated/confectManifest.ts" ||
   file.startsWith("packages/convex/confect/_generated/") ||
   (file.startsWith("packages/convex/convex/") &&
     !HAND_AUTHORED_CONVEX_FILES.has(file));

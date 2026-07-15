@@ -29,13 +29,22 @@ describe("lane file ownership", () => {
         [
           "packages/convex/confect/_generated/schema.ts",
           "packages/convex/convex/internal/example.ts",
+          "packages/template-core/src/generated/confectManifest.ts",
+          "apps/web/src/routeTree.gen.ts",
           "tooling/quality/undeclared.mts",
         ],
-        ["packages/convex/confect/internal/example.ts"],
+        [
+          "packages/convex/confect/internal/example.ts",
+          "packages/convex/confect/_generated/schema.ts",
+          "packages/template-core/src/generated/confectManifest.ts",
+          "apps/web/src/routeTree.gen.ts",
+        ],
       ),
     ).toEqual([
       "packages/convex/confect/_generated/schema.ts: generated output is integration-owned",
       "packages/convex/convex/internal/example.ts: generated output is integration-owned",
+      "packages/template-core/src/generated/confectManifest.ts: generated output is integration-owned",
+      "apps/web/src/routeTree.gen.ts: generated output is integration-owned",
       "tooling/quality/undeclared.mts: not declared in manifest fileLocks",
     ]);
   });

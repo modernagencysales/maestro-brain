@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -6,6 +7,8 @@ import { hydrateWorktreeDependencies } from "./dependencies.js";
 import { runRtk } from "./process.js";
 
 const CONVEX_GENERATED_ROOT = "packages/convex/convex/";
+const CONFECT_MANIFEST =
+  "packages/template-core/src/generated/confectManifest.ts";
 const RESERVED_CONVEX_FILES = new Set([
   "packages/convex/convex/auth.config.ts",
   "packages/convex/convex/convex.config.ts",
@@ -19,6 +22,7 @@ export const generatedConfectDeltaIssues = (
   files.filter(
     (file) =>
       !file.startsWith("packages/convex/confect/_generated/") &&
+      file !== CONFECT_MANIFEST &&
       (!file.startsWith(CONVEX_GENERATED_ROOT) ||
         RESERVED_CONVEX_FILES.has(file)),
   );
@@ -32,6 +36,9 @@ export const sameGeneratedFileSet = (
 ): boolean =>
   JSON.stringify([...expected].sort()) === JSON.stringify([...actual].sort());
 
+const patchHash = (patch: string): string =>
+  createHash("sha256").update(patch).digest("hex");
+
 const diffFiles = (workdir: string, cached = false): string[] =>
   runRtk(
     ["proxy", "git", "diff", ...(cached ? ["--cached"] : []), "--name-only"],
@@ -43,14 +50,85 @@ const diffFiles = (workdir: string, cached = false): string[] =>
     .split("\n")
     .filter(Boolean);
 
+const stagedPatchHash = (workdir: string): string =>
+  patchHash(
+    runRtk(["proxy", "git", "diff", "--cached", "--binary", "--no-ext-diff"], {
+      cwd: workdir,
+      quiet: true,
+    }),
+  );
+
+interface TransientConfectCodegenHooks {
+  readonly generate: (workdir: string) => void;
+  readonly hydrate: (root: string, workdir: string) => void;
+  readonly validate: (workdir: string, testPattern?: string) => void;
+}
+
+const productionHooks: TransientConfectCodegenHooks = {
+  generate: (workdir) => {
+    runRtk(["pnpm", "--dir", "packages/convex", "confect:codegen"], {
+      cwd: workdir,
+    });
+    runRtk(["pnpm", "confect:manifest"], { cwd: workdir });
+  },
+  hydrate: (root, workdir) => {
+    hydrateWorktreeDependencies(root, workdir);
+  },
+  validate: (workdir, testPattern) => {
+    runRtk(["pnpm", "--dir", "packages/convex", "check:convex"], {
+      cwd: workdir,
+    });
+    runRtk(
+      [
+        "host-test-slot",
+        "--class",
+        "focused",
+        "pnpm",
+        "--dir",
+        "tooling/confect-manifest",
+        "test",
+      ],
+      { cwd: workdir },
+    );
+    runRtk(["pnpm", "--dir", "tooling/confect-manifest", "typecheck"], {
+      cwd: workdir,
+    });
+    runRtk(["pnpm", "confect:manifest"], { cwd: workdir });
+    runRtk(["git", "diff", "--exit-code", CONFECT_MANIFEST], { cwd: workdir });
+    runRtk(["pnpm", "--dir", "packages/convex", "typecheck"], {
+      cwd: workdir,
+    });
+    if (testPattern) {
+      runRtk(
+        [
+          "host-test-slot",
+          "--class",
+          "focused",
+          "pnpm",
+          "--dir",
+          "packages/convex",
+          "test",
+          testPattern,
+        ],
+        { cwd: workdir },
+      );
+    }
+  },
+};
+
 export const runTransientConfectCodegen = (input: {
+  readonly hooks?: TransientConfectCodegenHooks;
   readonly root: string;
   readonly testPattern?: string;
 }): readonly string[] => {
   const root = resolve(input.root);
-  if (input.testPattern && !safeFocusedTestPattern(input.testPattern)) {
+  if (
+    input.testPattern !== undefined &&
+    !safeFocusedTestPattern(input.testPattern)
+  ) {
     throw new Error(`unsafe focused test pattern ${input.testPattern}`);
   }
+  const hooks = input.hooks ?? productionHooks;
   if (
     runRtk(["proxy", "git", "status", "--porcelain"], {
       cwd: root,
@@ -68,10 +146,8 @@ export const runTransientConfectCodegen = (input: {
       cwd: root,
     });
     attached = true;
-    hydrateWorktreeDependencies(root, workdir);
-    runRtk(["pnpm", "--dir", "packages/convex", "confect:codegen"], {
-      cwd: workdir,
-    });
+    hooks.hydrate(root, workdir);
+    hooks.generate(workdir);
     runRtk(
       [
         "git",
@@ -79,6 +155,7 @@ export const runTransientConfectCodegen = (input: {
         "-N",
         "packages/convex/confect/_generated",
         "packages/convex/convex",
+        CONFECT_MANIFEST,
       ],
       { cwd: workdir },
     );
@@ -98,30 +175,12 @@ export const runTransientConfectCodegen = (input: {
         "add",
         "packages/convex/confect/_generated",
         "packages/convex/convex",
+        CONFECT_MANIFEST,
       ],
       { cwd: workdir },
     );
-    runRtk(["pnpm", "--dir", "packages/convex", "check:convex"], {
-      cwd: workdir,
-    });
-    runRtk(["pnpm", "--dir", "packages/convex", "typecheck"], {
-      cwd: workdir,
-    });
-    if (input.testPattern) {
-      runRtk(
-        [
-          "host-test-slot",
-          "--class",
-          "focused",
-          "pnpm",
-          "--dir",
-          "packages/convex",
-          "test",
-          input.testPattern,
-        ],
-        { cwd: workdir },
-      );
-    }
+    const generatedPatchHash = stagedPatchHash(workdir);
+    hooks.validate(workdir, input.testPattern);
     runRtk(["git", "diff", "--cached", "--check"], { cwd: workdir });
     if (diffFiles(workdir).length > 0) {
       throw new Error("Confect generated output changed after freshness check");
@@ -129,6 +188,11 @@ export const runTransientConfectCodegen = (input: {
     if (!sameGeneratedFileSet(generatedFiles, diffFiles(workdir, true))) {
       throw new Error(
         "Confect freshness check changed the staged generated delta",
+      );
+    }
+    if (generatedPatchHash !== stagedPatchHash(workdir)) {
+      throw new Error(
+        "Confect freshness check changed the staged generated patch",
       );
     }
     return generatedFiles;
