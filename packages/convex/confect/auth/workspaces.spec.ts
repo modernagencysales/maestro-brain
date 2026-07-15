@@ -1,13 +1,29 @@
 import { FunctionSpec, GroupSpec } from "@confect/core";
 import * as Schema from "effect/Schema";
-import workspaces from "../_generated/tables/workspaces";
-import { NoRecoverableError } from "../errors";
+
+import { Forbidden, ProvisioningConflict, Unauthorized } from "../errors";
+import { Role } from "../access/roles";
+
+export const WorkspaceSummary = Schema.Struct({
+  agencyKey: Schema.String,
+  brainKey: Schema.String,
+  name: Schema.String,
+  kind: Schema.Literal("agency", "client"),
+  clientSlug: Schema.optional(Schema.String),
+  effectiveRole: Role,
+  status: Schema.Literal("active", "archived"),
+  freshness: Schema.Struct({
+    updatedAt: Schema.Number,
+    lifecycleGeneration: Schema.Number,
+    revocationGeneration: Schema.Number,
+  }),
+});
 
 const list = FunctionSpec.publicQuery({
   name: "list",
   args: () => Schema.Struct({}),
-  returns: () => Schema.Array(workspaces.Doc),
-  error: () => NoRecoverableError,
+  returns: () => Schema.Array(WorkspaceSummary),
+  error: () => Schema.Union(Unauthorized, Forbidden, ProvisioningConflict),
 });
 
 export default GroupSpec.make().addFunction(list);
