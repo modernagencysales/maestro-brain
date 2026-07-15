@@ -4,6 +4,12 @@ import * as Schema from "effect/Schema";
 
 import schema from "../../convex/schema";
 import { components } from "../../convex/_generated/api";
+import {
+  deriveStableAgencyKey,
+  deriveStableBrainKey,
+  stableAgencyKeySeed,
+  stableBrainKeySeed,
+} from "../identity/stableKeys";
 import { sha256Hex } from "../shared/sha256";
 import {
   type AcquireLeaseResult,
@@ -34,6 +40,47 @@ export const probeExpand = componentMigrations.define({
         ? { actor: "write-count:1" }
         : {}),
     });
+  },
+});
+
+export const stableTenantOrganizationKeysExpand = componentMigrations.define({
+  table: "organizations",
+  batchSize: 100,
+  migrateOne: async (ctx, row) => {
+    const patch = {
+      ...(row.agencyKey === undefined
+        ? { agencyKey: deriveStableAgencyKey(stableAgencyKeySeed(row)) }
+        : {}),
+      ...(row.lifecycleGeneration === undefined
+        ? { lifecycleGeneration: 0 }
+        : {}),
+      ...(row.revocationGeneration === undefined
+        ? { revocationGeneration: 0 }
+        : {}),
+    };
+    if (Object.keys(patch).length === 0) return;
+    await ctx.db.patch(row._id, patch);
+  },
+});
+
+export const stableTenantWorkspaceKeysExpand = componentMigrations.define({
+  table: "workspaces",
+  batchSize: 100,
+  migrateOne: async (ctx, row) => {
+    const patch = {
+      ...(row.brainKey === undefined
+        ? { brainKey: deriveStableBrainKey(stableBrainKeySeed(row)) }
+        : {}),
+      ...(row.kind === undefined ? { kind: "agency" as const } : {}),
+      ...(row.lifecycleGeneration === undefined
+        ? { lifecycleGeneration: 0 }
+        : {}),
+      ...(row.revocationGeneration === undefined
+        ? { revocationGeneration: 0 }
+        : {}),
+    };
+    if (Object.keys(patch).length === 0) return;
+    await ctx.db.patch(row._id, patch);
   },
 });
 
