@@ -1479,10 +1479,7 @@ describe("Brain role matrix", () => {
       const confect = yield* Effect.serviceOptional(
         TestConfect.TestConfect<typeof databaseSchema>(),
       );
-      const seeded = yield* confect.run(
-        privilegedMutationSetup,
-        PrivilegedMutationSetup,
-      );
+      yield* confect.run(privilegedMutationSetup, PrivilegedMutationSetup);
       const cases = yield* confect.run(
         Effect.gen(function* () {
           const seedNow = yield* Clock.currentTimeMillis;
