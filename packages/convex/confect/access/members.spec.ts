@@ -15,6 +15,7 @@ const changeRole = FunctionSpec.publicMutation({
   name: "changeRole",
   args: () =>
     Schema.Struct({
+      workspaceId: Id("workspaces"),
       membershipId: Id("workspaceMembers"),
       newRole: Role,
     }),
@@ -33,6 +34,7 @@ const remove = FunctionSpec.publicMutation({
   name: "remove",
   args: () =>
     Schema.Struct({
+      workspaceId: Id("workspaces"),
       membershipId: Id("workspaceMembers"),
     }),
   returns: () => Schema.Null,
@@ -50,6 +52,7 @@ const transferOwnership = FunctionSpec.publicMutation({
   name: "transferOwnership",
   args: () =>
     Schema.Struct({
+      workspaceId: Id("workspaces"),
       membershipId: Id("workspaceMembers"),
     }),
   returns: () => Schema.Null,

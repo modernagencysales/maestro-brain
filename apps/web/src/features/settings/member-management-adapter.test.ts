@@ -71,10 +71,12 @@ describe("member management adapter", () => {
       role: "editor",
     });
     expect(runMutation).toHaveBeenNthCalledWith(2, refs.members.changeRole, {
+      workspaceId: "workspaces_1",
       membershipId: "workspaceMembers_1",
       newRole: "viewer",
     });
     expect(runMutation).toHaveBeenNthCalledWith(3, refs.members.remove, {
+      workspaceId: "workspaces_1",
       membershipId: "workspaceMembers_1",
     });
     expect(runMutation).toHaveBeenNthCalledWith(4, refs.invitations.cancel, {
@@ -105,6 +107,7 @@ describe("member management adapter", () => {
     });
     await owner.transferOwnership({ membershipId: "workspaceMembers_2" });
     expect(ownerMutation).toHaveBeenCalledWith(refs.members.transferOwnership, {
+      workspaceId: "workspaces_1",
       membershipId: "workspaceMembers_2",
     });
   });
