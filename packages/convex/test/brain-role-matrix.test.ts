@@ -3,6 +3,8 @@ import * as Either from "effect/Either";
 
 import {
   accessAuditEventInsert,
+  denialAuditReason,
+  deniedPrivilegedAccessAuditEvent,
   privilegedAccessAuditActions,
 } from "../confect/access/audit";
 import {
@@ -140,6 +142,55 @@ describe("Brain role matrix", () => {
     if (Either.isLeft(removal)) {
       expect(removal.left).toBeInstanceOf(LastOwnerProtected);
     }
+  });
+
+  it("builds redacted member denial audit metadata from typed server errors", () => {
+    const row = accessAuditEventInsert(
+      deniedPrivilegedAccessAuditEvent({
+        action: "member.roleChanged",
+        workspaceId: "workspaces_brain",
+        actorUserId: "users_viewer",
+        subjectKind: "workspaceMember",
+        subjectId: "workspaceMembers_target",
+        reason: denialAuditReason(
+          new Forbidden({ reason: "Member management requires admin." }),
+        ),
+      }),
+      now,
+    );
+
+    expect(row).toMatchObject({
+      action: "member.roleChanged",
+      actorUserId: "users_viewer",
+      subjectKind: "workspaceMember",
+      subjectId: "workspaceMembers_target",
+      metadataJson: '{"outcome":"denied","reason":"Forbidden"}',
+    });
+    expect(row.metadataJson).not.toContain("viewer@example.com");
+  });
+
+  it("builds redacted invitation denial audit metadata from typed server errors", () => {
+    const row = accessAuditEventInsert(
+      deniedPrivilegedAccessAuditEvent({
+        action: "invitation.cancelled",
+        workspaceId: "workspaces_brain",
+        actorUserId: "users_viewer",
+        subjectKind: "invitation",
+        subjectId: "invitations_pending",
+        reason: denialAuditReason(
+          new Forbidden({ reason: "Insufficient workspace role." }),
+        ),
+      }),
+      now,
+    );
+
+    expect(row).toMatchObject({
+      action: "invitation.cancelled",
+      subjectKind: "invitation",
+      subjectId: "invitations_pending",
+      metadataJson: '{"outcome":"denied","reason":"Forbidden"}',
+    });
+    expect(row.metadataJson).not.toContain("invitee@example.com");
   });
 
   it("declares one redacted privileged audit vocabulary for later Brain actions", () => {
