@@ -1,7 +1,12 @@
 import { FunctionSpec, GroupSpec } from "@confect/core";
 import * as Schema from "effect/Schema";
 
-import { Forbidden, ProvisioningConflict, Unauthorized } from "../errors";
+import {
+  Forbidden,
+  ProvisioningConflict,
+  Unauthorized,
+  ValidationFailed,
+} from "../errors";
 import { Role } from "../access/roles";
 
 export const WorkspaceSummary = Schema.Struct({
@@ -21,9 +26,19 @@ export const WorkspaceSummary = Schema.Struct({
 
 const list = FunctionSpec.publicQuery({
   name: "list",
-  args: () => Schema.Struct({}),
+  args: () =>
+    Schema.Struct({
+      organizationId: Schema.optional(Schema.String),
+      workspaceId: Schema.optional(Schema.String),
+    }),
   returns: () => Schema.Array(WorkspaceSummary),
-  error: () => Schema.Union(Unauthorized, Forbidden, ProvisioningConflict),
+  error: () =>
+    Schema.Union(
+      Unauthorized,
+      Forbidden,
+      ValidationFailed,
+      ProvisioningConflict,
+    ),
 });
 
 export default GroupSpec.make().addFunction(list);

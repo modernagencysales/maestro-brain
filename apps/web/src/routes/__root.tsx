@@ -20,7 +20,14 @@ import {
   createBrowserWorkspaceStorage,
   WorkspaceProvider,
 } from "../providers/workspace";
-import { createRuntimeWorkspaceOperations } from "../providers/workspace-operations";
+import {
+  useTemplateMutation,
+  useTemplateQuery,
+} from "../adapters/confect-state";
+import {
+  createRuntimeWorkspaceOperations,
+  createWorkspaceLiveRefs,
+} from "../providers/workspace-operations";
 import { PostHogWebProvider } from "../providers/posthog";
 import { CookieConsentBoundary } from "../providers/cookie-consent";
 import { WebRouteUxBoundary } from "../navigation/route-ux-boundary";
@@ -52,40 +59,58 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 function RootComponent() {
   const { convexClient } = Route.useRouteContext();
   const { authSnapshot, workspaceRuntimeMode } = Route.useLoaderData();
-  const location = useRouterState({ select: (state) => state.location });
 
   return (
     <AuthKitProviderWithConvexProviderWithAuth
       client={convexClient}
       initialAuthSnapshot={authSnapshot}
     >
-      <WorkspaceProvider
-        operations={createRuntimeWorkspaceOperations({
-          authSnapshot,
-          mode: workspaceRuntimeMode,
-        })}
-        storage={createBrowserWorkspaceStorage()}
-      >
-        <CookieConsentBoundary>
-          {(analyticsConsent) => (
-            <PostHogWebProvider analyticsConsent={analyticsConsent}>
-              <RootDocument>
-                <WebRouteUxBoundary
-                  href={location.href}
-                  pathname={location.pathname}
-                >
-                  <MaestroSaasUiProvider>
-                    <TemplateToastProvider>
-                      <Outlet />
-                    </TemplateToastProvider>
-                  </MaestroSaasUiProvider>
-                </WebRouteUxBoundary>
-              </RootDocument>
-            </PostHogWebProvider>
-          )}
-        </CookieConsentBoundary>
-      </WorkspaceProvider>
+      <WorkspaceRuntimeBoundary
+        authSnapshot={authSnapshot}
+        workspaceRuntimeMode={workspaceRuntimeMode}
+      />
     </AuthKitProviderWithConvexProviderWithAuth>
+  );
+}
+
+function WorkspaceRuntimeBoundary({
+  authSnapshot,
+  workspaceRuntimeMode,
+}: Pick<SafeClientRuntime, "authSnapshot" | "workspaceRuntimeMode">) {
+  const location = useRouterState({ select: (state) => state.location });
+  const liveRefs = createWorkspaceLiveRefs({
+    useQuery: useTemplateQuery,
+    useMutation: useTemplateMutation,
+  });
+
+  return (
+    <WorkspaceProvider
+      operations={createRuntimeWorkspaceOperations({
+        authSnapshot,
+        mode: workspaceRuntimeMode,
+        liveRefs,
+      })}
+      storage={createBrowserWorkspaceStorage()}
+    >
+      <CookieConsentBoundary>
+        {(analyticsConsent) => (
+          <PostHogWebProvider analyticsConsent={analyticsConsent}>
+            <RootDocument>
+              <WebRouteUxBoundary
+                href={location.href}
+                pathname={location.pathname}
+              >
+                <MaestroSaasUiProvider>
+                  <TemplateToastProvider>
+                    <Outlet />
+                  </TemplateToastProvider>
+                </MaestroSaasUiProvider>
+              </WebRouteUxBoundary>
+            </RootDocument>
+          </PostHogWebProvider>
+        )}
+      </CookieConsentBoundary>
+    </WorkspaceProvider>
   );
 }
 

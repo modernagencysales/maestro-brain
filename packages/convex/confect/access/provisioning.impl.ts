@@ -440,8 +440,18 @@ const createClientBrain = FunctionImpl.make(
   databaseSchema,
   provisioning,
   "createClientBrain",
-  ({ name, clientSlug }) =>
+  (args) =>
     Effect.gen(function* () {
+      const { name, clientSlug } = args;
+      if (args.organizationId !== undefined || args.workspaceId !== undefined) {
+        return yield* new ValidationFailed({
+          field:
+            args.organizationId !== undefined
+              ? "organizationId"
+              : "workspaceId",
+          message: "Tenant ids are derived from the authenticated session.",
+        });
+      }
       const normalizedName = name.trim();
       const normalizedSlug = clientSlug.trim().toLowerCase();
       if (normalizedName.length === 0) {

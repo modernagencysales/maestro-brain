@@ -2,7 +2,7 @@ import { FunctionSpec, GroupSpec } from "@confect/core";
 import * as Schema from "effect/Schema";
 
 import { Id } from "../_generated/id";
-import { Unauthorized, ValidationFailed } from "../errors";
+import { Forbidden, Unauthorized, ValidationFailed } from "../errors";
 import {
   AgencyNotFound,
   BrainNotFound,
@@ -28,6 +28,7 @@ const resolveBrainKey = FunctionSpec.internalQuery({
     Schema.Union(
       Unauthorized,
       ValidationFailed,
+      Forbidden,
       AgencyNotFound,
       BrainNotFound,
       StableKeyConflict,
