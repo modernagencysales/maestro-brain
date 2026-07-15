@@ -169,15 +169,19 @@ export type CapabilityGeneratorResult = {
   readonly files: readonly GeneratedFile[];
 };
 
+export type WorkflowExposure = "public" | "internal";
+
 export type WorkflowGeneratorOptions = {
   readonly name: string;
   readonly description?: string;
+  readonly exposure?: WorkflowExposure;
   readonly write?: boolean;
 };
 
 export type WorkflowGeneratorResult = {
   readonly name: string;
   readonly pascalName: string;
+  readonly exposure?: WorkflowExposure;
   readonly files: readonly GeneratedFile[];
 };
 
@@ -1746,6 +1750,97 @@ export const buildWorkflowFiles = (
   const description =
     options.description ??
     `Generated ${name} workflow. Replace the source-to-receipt graph after review.`;
+  const exposure = options.exposure ?? "public";
+  const controlVisibility = exposure === "internal" ? "internal" : "public";
+  const manifestSurfaces =
+    exposure === "internal" ? "[]" : '["web", "api", "cli", "mcp"]';
+  const internalContractDocs =
+    exposure === "internal"
+      ? `## Generated Contract
+
+- Exposure: \`internal\`
+- Headless exposure: none; internal workflow controls do not emit API, CLI, MCP, OpenAPI, or headless descriptors.
+- Web exposure: none; internal callers dispatch through reviewed capabilities or jobs.
+- Authorization is inherited from the reviewed internal capability or job fence via a required system caller principal; generated controls never load ambient human Auth.
+
+`
+      : "";
+  const internalRunnerCapabilityRegistryType =
+    exposure === "internal"
+      ? `
+import type { DurableGraphCapabilityEntry } from "../../confect/workflows/_kit/graphRunner";
+
+type InternalWorkflowCapabilityRegistry = Readonly<
+  Record<string, DurableGraphCapabilityEntry>
+>;
+`
+      : "";
+  const runnerCapabilityRegistry =
+    exposure === "internal"
+      ? "{} satisfies InternalWorkflowCapabilityRegistry"
+      : "{}";
+  const internalAuthoritySpecImport =
+    exposure === "internal"
+      ? 'import { SystemPrincipal } from "../capabilities/_kit/principal";\n'
+      : "";
+  const internalCallerArg =
+    exposure === "internal" ? "  caller: SystemPrincipal,\n" : "";
+  const workspaceAccessImport =
+    exposure === "internal"
+      ? ""
+      : 'import { requireWorkspaceAccess } from "../capabilities/_kit/workspaceAccess";\n';
+  const internalPrincipalImplImport =
+    exposure === "internal"
+      ? 'import * as Schema from "effect/Schema";\nimport { SystemPrincipal } from "../capabilities/_kit/principal";\n'
+      : "";
+  const internalAuthorityHelpers =
+    exposure === "internal"
+      ? `
+type InternalWorkflowCaller = Schema.Schema.Type<typeof SystemPrincipal>;
+
+export const ${name}WorkflowPrincipal = {
+  kind: "system",
+  name: "${name}",
+  surface: "workflow" as const,
+} satisfies InternalWorkflowCaller;
+
+const requireInternalWorkflowCaller = (caller: InternalWorkflowCaller) =>
+  caller.kind === "system" &&
+  (caller.surface === "workflow" || caller.surface === "internal")
+    ? Effect.succeed(caller)
+    : Effect.fail(new Unauthorized());
+`
+      : "";
+  const startArgsPattern =
+    exposure === "internal"
+      ? "({ workspaceId, idempotencyKey, caller })"
+      : "({ workspaceId, idempotencyKey })";
+  const statusArgsPattern =
+    exposure === "internal"
+      ? "({ workspaceId, componentWorkflowId, caller })"
+      : "({ workspaceId, componentWorkflowId })";
+  const approveArgsPattern =
+    exposure === "internal"
+      ? "({ workspaceId, componentWorkflowId, nodeId, caller })"
+      : "({ workspaceId, componentWorkflowId, nodeId })";
+  const startAuthorityCheck =
+    exposure === "internal"
+      ? "const principal = yield* requireInternalWorkflowCaller(caller);"
+      : `const access = yield* withConfectClock(
+        requireWorkspaceAccess(workspaceId, "editor"),
+      );`;
+  const statusAuthorityCheck =
+    exposure === "internal"
+      ? "yield* requireInternalWorkflowCaller(caller);"
+      : 'yield* withConfectClock(requireWorkspaceAccess(workspaceId, "viewer"));';
+  const approveAuthorityCheck =
+    exposure === "internal"
+      ? "yield* requireInternalWorkflowCaller(caller);"
+      : 'yield* withConfectClock(requireWorkspaceAccess(workspaceId, "editor"));';
+  const startedByUserId =
+    exposure === "internal"
+      ? '"system:" + principal.surface + ":" + principal.name'
+      : "access.userId";
   const files: readonly GeneratedFile[] = [
     {
       path: `packages/convex/confect/workflowContracts/${name}.spec.ts`,
@@ -1756,7 +1851,7 @@ import {
   collectContractSchemas,
   defineContractFunction,
 } from "../capabilities/_kit/capability";
-import {
+${internalAuthoritySpecImport}import {
   MemberNotInWorkspace,
   NotFound,
   Unauthorized,
@@ -1777,7 +1872,7 @@ const WorkflowErrors = Schema.Union(
 const StartArgs = Schema.Struct({
   workspaceId: Id("workspaces"),
   idempotencyKey: Schema.String,
-});
+${internalCallerArg}});
 
 const StartReturns = Schema.Struct({
   status: Schema.Literal("queued"),
@@ -1788,20 +1883,20 @@ const StartReturns = Schema.Struct({
 const StatusArgs = Schema.Struct({
   workspaceId: Id("workspaces"),
   componentWorkflowId: Schema.String,
-});
+${internalCallerArg}});
 
 const ApproveArgs = Schema.Struct({
   workspaceId: Id("workspaces"),
   componentWorkflowId: Schema.String,
   nodeId: Schema.String,
-});
+${internalCallerArg}});
 
 const ApproveReturns = Schema.Struct({
   eventId: Schema.String,
 });
 
 export const start = defineContractFunction(
-  FunctionSpec.publicMutation({
+  FunctionSpec.${controlVisibility}Mutation({
     name: "start",
     args: () => StartArgs,
     returns: () => StartReturns,
@@ -1812,7 +1907,7 @@ export const start = defineContractFunction(
     name: "start",
     operationId: "workflows.${name}.start",
     kind: "mutation",
-    surfaces: ["web", "api", "cli", "mcp"],
+    surfaces: ${manifestSurfaces},
     typedErrors: [
       "Unauthorized",
       "MemberNotInWorkspace",
@@ -1829,7 +1924,7 @@ export const start = defineContractFunction(
 );
 
 export const status = defineContractFunction(
-  FunctionSpec.publicQuery({
+  FunctionSpec.${controlVisibility}Query({
     name: "status",
     args: () => StatusArgs,
     returns: () => WorkflowStatusResult,
@@ -1840,7 +1935,7 @@ export const status = defineContractFunction(
     name: "status",
     operationId: "workflows.${name}.status",
     kind: "query",
-    surfaces: ["web", "api", "cli", "mcp"],
+    surfaces: ${manifestSurfaces},
     typedErrors: [
       "Unauthorized",
       "MemberNotInWorkspace",
@@ -1857,7 +1952,7 @@ export const status = defineContractFunction(
 );
 
 export const approve = defineContractFunction(
-  FunctionSpec.publicMutation({
+  FunctionSpec.${controlVisibility}Mutation({
     name: "approve",
     args: () => ApproveArgs,
     returns: () => ApproveReturns,
@@ -1868,7 +1963,7 @@ export const approve = defineContractFunction(
     name: "approve",
     operationId: "workflows.${name}.approve",
     kind: "mutation",
-    surfaces: ["web", "api", "cli", "mcp"],
+    surfaces: ${manifestSurfaces},
     typedErrors: [
       "Unauthorized",
       "MemberNotInWorkspace",
@@ -1908,7 +2003,7 @@ import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import {
+${internalPrincipalImplImport}import {
   componentsGeneric,
   makeFunctionReference,
   type FunctionReference,
@@ -1919,8 +2014,7 @@ import {
   MutationCtx,
   QueryCtx,
 } from "../_generated/services";
-import { requireWorkspaceAccess } from "../capabilities/_kit/workspaceAccess";
-import {
+${workspaceAccessImport}import {
   MemberNotInWorkspace,
   NotFound,
   Unauthorized,
@@ -1988,7 +2082,7 @@ type WorkflowError =
   | WorkspaceNotFound
   | NotFound
   | ValidationFailed;
-
+${internalAuthorityHelpers}
 const toWorkflowError = (error: unknown): WorkflowError => {
   if (
     error instanceof Unauthorized ||
@@ -2035,11 +2129,9 @@ const startImpl = FunctionImpl.make(
   databaseSchema,
   ${name},
   "start",
-  ({ workspaceId, idempotencyKey }) =>
+  ${startArgsPattern} =>
     Effect.gen(function* () {
-      const access = yield* withConfectClock(
-        requireWorkspaceAccess(workspaceId, "editor"),
-      );
+      ${startAuthorityCheck}
       const startedAt = yield* withConfectClock(Clock.currentTimeMillis);
       const componentWorkflowId = yield* startWorkflowAndRecordOwnership({
         workflowRef: ${name}RunRef,
@@ -2049,7 +2141,7 @@ const startImpl = FunctionImpl.make(
         workflowVersion: ${name}Graph.version,
         graphJson: JSON.stringify(${name}Graph),
         idempotencyKey,
-        startedByUserId: access.userId,
+        startedByUserId: ${startedByUserId},
         startedAt: startedAt,
         workflowKind: "workflow.${name}",
       }).pipe(Effect.mapError(toWorkflowValidationFailed));
@@ -2066,9 +2158,9 @@ const statusImpl = FunctionImpl.make(
   databaseSchema,
   ${name},
   "status",
-  ({ workspaceId, componentWorkflowId }) =>
+  ${statusArgsPattern} =>
     Effect.gen(function* () {
-      yield* withConfectClock(requireWorkspaceAccess(workspaceId, "viewer"));
+      ${statusAuthorityCheck}
       const run = yield* findWorkflowRun(workspaceId, componentWorkflowId);
       const ctx = yield* QueryCtx;
       const rawStatus = yield* Effect.promise(() =>
@@ -2094,9 +2186,9 @@ const approveImpl = FunctionImpl.make(
   databaseSchema,
   ${name},
   "approve",
-  ({ workspaceId, componentWorkflowId, nodeId }) =>
+  ${approveArgsPattern} =>
     Effect.gen(function* () {
-      yield* withConfectClock(requireWorkspaceAccess(workspaceId, "editor"));
+      ${approveAuthorityCheck}
       yield* findWorkflowRun(workspaceId, componentWorkflowId);
       const ctx = yield* MutationCtx;
       const eventId = yield* Effect.promise(() =>
@@ -2162,7 +2254,7 @@ import {
   type RunDurableGraphStep,
 } from "../../confect/workflows/_kit/graphRunner";
 import { ${name}Graph } from "../../confect/workflows/${name}.graph";
-
+${internalRunnerCapabilityRegistryType}
 export const run = defineWorkflow(components.workflow, {
   args: {
     workspaceId: v.string(),
@@ -2174,7 +2266,7 @@ export const run = defineWorkflow(components.workflow, {
     graph: ${name}Graph,
     inputs: args,
     policySnapshot: {},
-    capabilityRegistry: {},
+    capabilityRegistry: ${runnerCapabilityRegistry},
   }),
 );
 `,
@@ -2236,7 +2328,7 @@ describe("${name} durable workflow scaffold", () => {
 
 ${description}
 
-## Generated Files
+${internalContractDocs}## Generated Files
 
 - \`packages/convex/convex/workflowRunners/${name}.ts\`: plain Convex \`defineWorkflow\` durable replay handler.
 - \`packages/convex/confect/workflowContracts/${name}.spec.ts\`: typed start, status, and approval contract.
@@ -2260,6 +2352,7 @@ ${description}
   return {
     name,
     pascalName,
+    ...(exposure === "internal" ? { exposure } : {}),
     files: withGeneratorProvenance("add-workflow", name, files),
   };
 };
@@ -2919,6 +3012,7 @@ const parseArgs = (
   readonly fixture: string | undefined;
   readonly mode: ProviderMode;
   readonly exposure: "web" | "workflow" | "headless";
+  readonly workflowExposure: WorkflowExposure;
   readonly description: string | undefined;
   readonly write: boolean;
   readonly path: string;
@@ -2936,8 +3030,16 @@ const parseArgs = (
   const mode = modeIndex >= 0 ? argv[modeIndex + 1] : undefined;
   const blueprint =
     blueprintIndex >= 0 ? argv[blueprintIndex + 1] : defaultBlueprintId;
-  const exposure =
-    exposureIndex >= 0 ? (argv[exposureIndex + 1] ?? "headless") : "headless";
+  const rawExposureValue =
+    exposureIndex >= 0 ? argv[exposureIndex + 1] : undefined;
+  const exposureValue = rawExposureValue ?? undefined;
+  const workflowExposureValue =
+    rawExposureValue && !rawExposureValue.startsWith("--")
+      ? rawExposureValue
+      : undefined;
+  const exposure = exposureValue ?? "headless";
+  const workflowExposure =
+    exposureIndex >= 0 ? (workflowExposureValue ?? "missing value") : "public";
 
   if (
     plannedBlueprintIds.includes(
@@ -2953,12 +3055,19 @@ const parseArgs = (
     throw new Error(`Unknown blueprint: ${blueprint}`);
   }
 
-  if (mode && !["fake", "test", "live"].includes(mode)) {
-    throw new Error(`Unknown mode: ${mode}`);
+  if (command === "add-workflow") {
+    if (
+      !workflowExposure ||
+      !["public", "internal"].includes(workflowExposure)
+    ) {
+      throw new Error(`Unknown workflow exposure: ${workflowExposure ?? ""}`);
+    }
+  } else if (!["web", "workflow", "headless"].includes(exposure)) {
+    throw new Error(`Unknown exposure: ${exposure}`);
   }
 
-  if (!["web", "workflow", "headless"].includes(exposure)) {
-    throw new Error(`Unknown exposure: ${exposure}`);
+  if (mode && !["fake", "test", "live"].includes(mode)) {
+    throw new Error(`Unknown mode: ${mode}`);
   }
 
   const path = pathIndex >= 0 ? argv[pathIndex + 1] : undefined;
@@ -2972,6 +3081,7 @@ const parseArgs = (
     fixture: fixtureIndex >= 0 ? argv[fixtureIndex + 1] : undefined,
     mode: (mode ?? "fake") as ProviderMode,
     exposure: exposure as "web" | "workflow" | "headless",
+    workflowExposure: workflowExposure as WorkflowExposure,
     description: descriptionIndex >= 0 ? argv[descriptionIndex + 1] : undefined,
     write: argv.includes("--write"),
     path: path || "template-instance.json",
@@ -3005,7 +3115,7 @@ export const runGeneratorCli = (
             "template:handoff [--blueprint <supported-blueprint>] [--name <name>] [--mode fake|test|live] [--write]",
             "template:add-client-domain --name <name> [--description <text>] [--write]",
             "template:add-capability --name <name> [--description <text>] [--exposure web|workflow|headless] [--write]",
-            "template:add-workflow --name <name> [--description <text>] [--write]",
+            "template:add-workflow --name <name> [--description <text>] [--exposure public|internal] [--write]",
             "template:add-agent --name <name> [--description <text>] [--write]",
             "template:add-agent-seat --name <name> [--description <text>] [--write]",
             "template:promote-capability --name <name> [--description <text>] [--write]",
@@ -3221,6 +3331,7 @@ export const runGeneratorCli = (
 
       const result = buildWorkflowFiles({
         name: args.name,
+        exposure: args.workflowExposure,
         ...(args.description ? { description: args.description } : {}),
       });
 

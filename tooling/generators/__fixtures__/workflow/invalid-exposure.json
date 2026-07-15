@@ -1,0 +1,11 @@
+{
+  "args": [
+    "add-workflow",
+    "--name",
+    "source classification",
+    "--exposure",
+    "partner"
+  ],
+  "exitCode": 1,
+  "stderr": "Unknown workflow exposure: partner\n"
+}

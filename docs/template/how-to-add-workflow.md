@@ -12,6 +12,14 @@ Write the generated files:
 pnpm template:add-workflow -- --name sourceToBrief --description "Turns approved sources into a reviewed brief." --write
 ```
 
+Generate an internal-only workflow for capture-driven jobs or workflow-owned
+review loops that must not expose start/status/approve controls to web, API,
+CLI, or MCP:
+
+```bash
+pnpm template:add-workflow -- --name sourceClassification --description "Classifies source units behind internal fences." --exposure internal --write
+```
+
 `template:add-workflow` writes the production-target workflow contract, durable
 graph JSON data, runner, test scaffold, and generated docs directly. Do not run
 `template:promote-workflow` as the normal next step for files created by
@@ -48,11 +56,16 @@ data.
 - `packages/convex/test/<name>.workflow.test.ts`;
 - `docs/template/generated/workflows/<name>.md`.
 
-Generated control nodes are only usable through the generated
+Public generated control nodes are only usable through the generated
 `workflowContracts.<name>` control mutation, which checks workspace access
-before calling the durable event/control path. Generated capability nodes are
-only usable when their registry entries include a concrete `buildArgs` mapper
-for the target internal capability ref.
+before calling the durable event/control path. Internal generated controls use
+Confect internal functions, publish an empty manifest surface list, and do not
+create API, CLI, MCP, OpenAPI, or headless descriptors. They require a system
+caller principal supplied by the reviewed internal capability, job, or workflow
+runner that already owns the tenant and lifecycle fence; generated internal
+controls must not load ambient human Auth. Generated capability nodes are only
+usable when their registry entries include a concrete `buildArgs` mapper for the
+target internal capability ref.
 
 Use `template:promote-workflow` only for older review artifacts or private
 package promotion flows that still need promotion into production-target paths.
@@ -74,7 +87,8 @@ those production-target paths.
 
 - `pnpm confect:codegen`
 - `pnpm confect:manifest`
-- `pnpm template:workflow-output-smoke`
+- `pnpm template:workflow-output-smoke` (generates both default public and
+  `--exposure internal` workflow output)
 - `pnpm --dir packages/convex typecheck`
 - `pnpm --dir packages/convex test workflows`
 - `pnpm --dir apps/web test src/features/workflows`
