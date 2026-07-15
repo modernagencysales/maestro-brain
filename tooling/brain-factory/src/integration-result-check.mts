@@ -7,6 +7,7 @@ import {
   record,
   string,
 } from "./integration-check-support.js";
+import { archiveIntegrationEvidence } from "./evidence-archive.js";
 import { validateIntegratedLanes } from "./integration-lane-check.js";
 
 export interface IntegrationResultCheckInput {
@@ -131,5 +132,12 @@ if (process.argv[1]?.endsWith("integration-result-check.mts")) {
     integrationId,
     manifestTranche,
   });
-  console.log(`${integrationId}: integration record check passed`);
+  const archived = archiveIntegrationEvidence({
+    evidenceDirectory: evidence,
+    integrationId,
+    manifestTranche,
+  });
+  console.log(
+    `${integrationId}: integration record check passed; archived ${archived.contentSha256}`,
+  );
 }

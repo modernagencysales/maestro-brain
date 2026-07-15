@@ -1,8 +1,39 @@
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { hydrateWorktreeDependencies } from "./dependencies.js";
+import {
+  acquireDispatcherLock,
+  archiveTerminalTaskRecord,
+  promoteTaskReservation,
+  reserveTaskPreparing,
+} from "./dispatch-ownership.js";
 import { buildManifest } from "./manifest.js";
-import { runRtk } from "./process.js";
+import { gitBranchExists, runRtk } from "./process.js";
+
+interface ResumeRecord {
+  readonly branch: string;
+  readonly mode?: "resume-review";
+  readonly runId?: string;
+  readonly sourceHeadSha?: string;
+  readonly status?: "launched" | "preparing";
+  readonly taskBaseSha?: string;
+  readonly taskId: string;
+  readonly workdir: string;
+}
+
+const inspectedStatus = (runId: string): string => {
+  const parsed = JSON.parse(
+    runRtk(["fabro", "inspect", runId, "--json", "--quiet"], { quiet: true }),
+  ) as
+    | { status?: { kind?: string } | string }
+    | readonly { status?: { kind?: string } | string }[];
+  const item = Array.isArray(parsed) ? parsed[0] : parsed;
+  const status =
+    typeof item?.status === "string" ? item.status : item?.status?.kind;
+  if (!status)
+    throw new Error(`Fabro run ${runId} has no status; ownership is unknown`);
+  return status;
+};
 
 const valueAfter = (flag: string): string | undefined => {
   const index = process.argv.indexOf(flag);
@@ -36,10 +67,85 @@ const workflow = resolve(".fabro/workflows/brain-build-task/workflow.fabro");
 mkdirSync(runDirectory, { recursive: true });
 mkdirSync(resolve(evidence, "lane-results", taskId), { recursive: true });
 runRtk(["git", "fetch", "origin"]);
-if (existsSync(workdir))
-  runRtk(["git", "worktree", "remove", "--force", workdir]);
+const now = new Date().toISOString();
+const auditPath = resolve(state, "recovery-audit.jsonl");
+const releaseDispatcherLock = acquireDispatcherLock({
+  auditPath,
+  lockPath: resolve(state, "dispatch.lock"),
+  now,
+  owner: {
+    controlRoot: root,
+    mode: "resume-review",
+    pid: process.pid,
+    startedAt: now,
+    taskId,
+  },
+});
+process.once("exit", releaseDispatcherLock);
 const factoryBase = runRtk(["git", "rev-parse", "HEAD"], { quiet: true });
-runRtk(["git", "worktree", "add", "-B", branch, workdir, factoryBase]);
+const sourceHeadSha = runRtk(["git", "rev-parse", sourceRef], { quiet: true });
+const recordPath = resolve(runDirectory, `${taskId}.json`);
+if (existsSync(recordPath)) {
+  const record = JSON.parse(readFileSync(recordPath, "utf8")) as ResumeRecord;
+  if (!record.runId) {
+    throw new Error(
+      `${taskId}: incomplete task reservation owns resume; audited recovery is required`,
+    );
+  }
+  const status = inspectedStatus(record.runId);
+  const terminal = new Set([
+    "canceled",
+    "cancelled",
+    "failed",
+    "succeeded",
+  ]).has(status);
+  const exactResume =
+    record.mode === "resume-review" &&
+    record.taskId === taskId &&
+    record.sourceHeadSha === sourceHeadSha &&
+    record.taskBaseSha === taskBase &&
+    record.branch === branch &&
+    record.workdir === workdir;
+  if (!terminal) {
+    if (exactResume && existsSync(workdir) && gitBranchExists(branch, root)) {
+      console.log(
+        `${taskId}: resume already owned by ${record.runId} (${status})`,
+      );
+      process.exit(0);
+    }
+    throw new Error(
+      `${taskId}: live or unknown Fabro run ${record.runId} (${status}) owns this task`,
+    );
+  }
+  archiveTerminalTaskRecord({
+    auditPath,
+    now,
+    recordPath,
+    runId: record.runId,
+    status,
+    taskId,
+  });
+}
+if (existsSync(workdir)) {
+  throw new Error(
+    `${taskId}: resume worktree already exists at ${workdir}; no force removal is allowed`,
+  );
+}
+if (gitBranchExists(branch, root)) {
+  throw new Error(
+    `${taskId}: resume branch ${branch} already exists; no reset is allowed`,
+  );
+}
+reserveTaskPreparing(recordPath, {
+  branch,
+  mode: "resume-review",
+  sourceHeadSha,
+  status: "preparing",
+  taskBaseSha: taskBase,
+  taskId,
+  workdir,
+});
+runRtk(["git", "worktree", "add", "-b", branch, workdir, factoryBase]);
 const taskCommits = runRtk(
   ["git", "rev-list", "--reverse", `${taskBase}..${sourceRef}`],
   { quiet: true },
@@ -93,8 +199,14 @@ const parsed = JSON.parse(output) as { run_id?: string; runId?: string };
 const runId = parsed.run_id ?? parsed.runId;
 if (!runId)
   throw new Error(`${taskId}: Fabro did not return a run ID: ${output}`);
-writeFileSync(
-  resolve(runDirectory, `${taskId}.json`),
-  `${JSON.stringify({ branch, runId, taskId, workdir }, null, 2)}\n`,
-);
+promoteTaskReservation(recordPath, {
+  branch,
+  mode: "resume-review",
+  runId,
+  sourceHeadSha,
+  status: "launched",
+  taskBaseSha: taskBase,
+  taskId,
+  workdir,
+});
 console.log(`${taskId}: resumed ${sourceRef} as ${runId}`);

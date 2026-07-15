@@ -18,8 +18,9 @@ import {
   deduplicateGateCommands,
   gateCommandSetHash,
 } from "./lane-gate-cache.js";
+import { validateLaneAcceptance } from "./lane-acceptance.js";
 import type { GateProfile } from "./manifest.js";
-import { proofChangedFilesMatch } from "./proof.js";
+import { proofChangedFilesMatch, validateProofContract } from "./proof.js";
 
 export interface IntegratedLaneCheckInput {
   readonly baseSha: string;
@@ -32,28 +33,37 @@ export interface IntegratedLaneCheckInput {
   readonly workdir: string;
 }
 
-const manifestTasksFor = (controlRoot: string): Map<string, JsonRecord> => {
+const manifestFor = (
+  controlRoot: string,
+): { readonly planSha256: string; readonly tasks: Map<string, JsonRecord> } => {
   const manifest = readJson(
     resolve(
       controlRoot,
       "docs/superpowers/execution/maestro-brain/task-manifest.json",
     ),
   );
+  if (manifest.schemaVersion !== "maestro-brain-task-manifest/v1") {
+    throw new Error("unexpected task manifest schema");
+  }
   if (!Array.isArray(manifest.tasks))
     throw new Error("task manifest has no tasks");
-  return new Map(
-    manifest.tasks.map((value, index) => {
-      const task = record(value, `manifest.tasks[${index}]`);
-      return [string(task.taskId, `manifest.tasks[${index}].taskId`), task];
-    }),
-  );
+  return {
+    planSha256: string(manifest.planSha256, "manifest.planSha256"),
+    tasks: new Map(
+      manifest.tasks.map((value, index) => {
+        const task = record(value, `manifest.tasks[${index}]`);
+        return [string(task.taskId, `manifest.tasks[${index}].taskId`), task];
+      }),
+    ),
+  };
 };
 
 export const validateIntegratedLanes = (
   input: IntegratedLaneCheckInput,
 ): void => {
   if (input.includedTasks.length === 0) throw new Error("no included tasks");
-  const manifestTasks = manifestTasksFor(input.controlRoot);
+  const manifest = manifestFor(input.controlRoot);
+  const manifestTasks = manifest.tasks;
   const includedTaskIds = input.includedTasks.map((value, index) =>
     string(
       record(value, `includedTasks[${index}]`).taskId,
@@ -115,21 +125,55 @@ export const validateIntegratedLanes = (
         );
       }
       const dependencyLane = readJson(dependencyLanePath);
+      const dependencyIntegrationHead = string(
+        dependencyLane.integrationHeadSha,
+        `${dependencyId}: integrationHeadSha`,
+      );
       if (
         !new Set(["integrated", "accepted"]).has(
           String(dependencyLane.status),
         ) ||
-        !gitIsAncestor(
-          input.workdir,
-          string(
-            dependencyLane.integrationHeadSha,
-            `${dependencyId}: integrationHeadSha`,
-          ),
-          input.baseSha,
-        )
+        !gitIsAncestor(input.workdir, dependencyIntegrationHead, input.baseSha)
       ) {
         throw new Error(
           `${taskId}: dependency ${dependencyId} is not present on integration base`,
+        );
+      }
+      validateLaneAcceptance(dependencyLane, dependencyId);
+      const dependencyIntegrationId = string(
+        dependencyLane.integrationId,
+        `${dependencyId}: integrationId`,
+      );
+      const dependencyResultPath = resolve(
+        input.evidenceDirectory,
+        "integration",
+        dependencyIntegrationId,
+        "integration-result.json",
+      );
+      if (!existsSync(dependencyResultPath))
+        throw new Error(
+          `${taskId}: dependency ${dependencyId} has no authoritative integration result`,
+        );
+      const dependencyResult = readJson(dependencyResultPath);
+      const boundTask = Array.isArray(dependencyResult.includedTasks)
+        ? dependencyResult.includedTasks
+            .map((item, index) =>
+              record(item, `${dependencyId}: prior includedTasks[${index}]`),
+            )
+            .find((item) => item.taskId === dependencyId)
+        : undefined;
+      if (
+        dependencyResult.schemaVersion !==
+          "maestro-brain-integration-result/v1" ||
+        dependencyResult.status !== "passed" ||
+        dependencyResult.reviewVerdict !== "pass" ||
+        dependencyResult.headSha !== dependencyIntegrationHead ||
+        dependencyResult.integrationId !== dependencyIntegrationId ||
+        !boundTask ||
+        boundTask.laneHeadSha !== dependencyLane.headSha
+      ) {
+        throw new Error(
+          `${taskId}: dependency ${dependencyId} is not bound by its authoritative integration result`,
         );
       }
     }
@@ -143,9 +187,7 @@ export const validateIntegratedLanes = (
     if (!existsSync(lanePath))
       throw new Error(`${taskId}: missing lane result`);
     const lane = readJson(lanePath);
-    if (!new Set(["integrated", "accepted"]).has(String(lane.status))) {
-      throw new Error(`${taskId}: lane result not integrated`);
-    }
+    validateLaneAcceptance(lane, taskId);
     if (lane.integrationHeadSha !== input.headSha) {
       throw new Error(`${taskId}: integration head mismatch`);
     }
@@ -157,6 +199,14 @@ export const validateIntegratedLanes = (
     }
     const laneHeadSha = string(lane.headSha, `${taskId}: lane headSha`);
     const proof = readJson(resolve(laneDirectory, "ci-proof-packet.json"));
+    validateProofContract(proof, {
+      planSha256: manifest.planSha256,
+      taskBlockHash: string(
+        manifestTask.taskBlockHash,
+        `${taskId}: manifest taskBlockHash`,
+      ),
+      taskId,
+    });
     const proofBaseSha = string(proof.baseSha, `${taskId}: proof baseSha`);
     if (
       proof.taskId !== taskId ||
@@ -236,6 +286,8 @@ export const validateIntegratedLanes = (
       gate.status !== "passed" ||
       gate.headSha !== laneHeadSha ||
       gate.currentHeadSha !== laneHeadSha ||
+      gate.planSha256 !== manifest.planSha256 ||
+      gate.taskBlockHash !== manifestTask.taskBlockHash ||
       gate.commandSetHash !== gateCommandSetHash(gateCommands) ||
       JSON.stringify(gate.commands) !== JSON.stringify(commands)
     ) {

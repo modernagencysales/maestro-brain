@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import {
+  existsSync,
   mkdtempSync,
   mkdirSync,
   readFileSync,
@@ -13,6 +14,7 @@ import { resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { validateIntegrationResult } from "../src/integration-result-check.mjs";
+import { archiveIntegrationEvidence } from "../src/evidence-archive.js";
 import { gateCommandSetHash } from "../src/lane-gate-cache.js";
 
 const temporaryDirectories: string[] = [];
@@ -34,6 +36,8 @@ const fixture = () => {
   const integrationId = "C1-contract-spine-w2";
   const manifestTranche = "C1-contract-spine";
   const taskId = "S09-T01";
+  const planSha256 = "1".repeat(64);
+  const taskBlockHash = "2".repeat(64);
   const manifestDirectory = resolve(
     root,
     "docs/superpowers/execution/maestro-brain",
@@ -41,9 +45,12 @@ const fixture = () => {
   mkdirSync(manifestDirectory, { recursive: true });
   const manifestPath = resolve(manifestDirectory, "task-manifest.json");
   writeJson(manifestPath, {
+    schemaVersion: "maestro-brain-task-manifest/v1",
+    planSha256,
     tasks: [
       {
         taskId,
+        taskBlockHash,
         tranche: manifestTranche,
         codeStartAfter: [],
         fileInventoryStatus: "ready",
@@ -97,6 +104,8 @@ const fixture = () => {
     includedTasks: [{ taskId }],
   });
   writeJson(lanePath, {
+    acceptanceBlocker: "external acceptance evidence is not yet present",
+    accepted: false,
     taskId,
     headSha: laneHeadSha,
     status: "integrated",
@@ -106,7 +115,10 @@ const fixture = () => {
   });
   const proofPath = resolve(laneDirectory, "ci-proof-packet.json");
   writeJson(proofPath, {
+    schemaVersion: "maestro-brain-ci-proof/v1",
     taskId,
+    planSha256,
+    taskBlockHash,
     baseSha,
     changedFiles: ["source.ts"],
     headSha: laneHeadSha,
@@ -127,6 +139,8 @@ const fixture = () => {
     taskId,
     headSha: laneHeadSha,
     currentHeadSha: laneHeadSha,
+    planSha256,
+    taskBlockHash,
     commandSetHash: gateCommandSetHash(gateCommands),
     commands: gateCommands.map(
       (gateCommand) =>
@@ -136,6 +150,7 @@ const fixture = () => {
     status: "passed",
   });
   return {
+    baseSha,
     controlRoot: root,
     evidence,
     headSha,
@@ -144,8 +159,10 @@ const fixture = () => {
     lanePath,
     manifestPath,
     manifestTranche,
+    planSha256,
     proofPath,
     resultPath,
+    taskBlockHash,
     workdir,
   };
 };
@@ -171,6 +188,72 @@ describe("normal integration result check", () => {
         manifestTranche: value.manifestTranche,
       }),
     ).not.toThrow();
+  });
+
+  it("rejects legacy integrated records without explicit acceptance state", () => {
+    const value = fixture();
+    const lane = readRecord(value.lanePath);
+    delete lane.accepted;
+    delete lane.acceptanceBlocker;
+    writeJson(value.lanePath, lane);
+    expect(() =>
+      validateIntegrationResult({
+        controlRoot: value.controlRoot,
+        evidenceDirectory: value.evidence,
+        expectedWorkdir: value.workdir,
+        integrationId: value.integrationId,
+        manifestTranche: value.manifestTranche,
+      }),
+    ).toThrow(/migrate and re-prove legacy records/);
+  });
+
+  it("archives final integration evidence by content hash and rejects drift", () => {
+    const value = fixture();
+    validateIntegrationResult({
+      controlRoot: value.controlRoot,
+      evidenceDirectory: value.evidence,
+      expectedWorkdir: value.workdir,
+      integrationId: value.integrationId,
+      manifestTranche: value.manifestTranche,
+    });
+    const archived = archiveIntegrationEvidence({
+      evidenceDirectory: value.evidence,
+      integrationId: value.integrationId,
+      manifestTranche: value.manifestTranche,
+    });
+    expect(archived.contentSha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(archived.artifactPath).toContain(archived.contentSha256);
+    expect(existsSync(archived.artifactPath)).toBe(true);
+    expect(existsSync(archived.manifestPath)).toBe(true);
+    expect(
+      archiveIntegrationEvidence({
+        evidenceDirectory: value.evidence,
+        integrationId: value.integrationId,
+        manifestTranche: value.manifestTranche,
+      }),
+    ).toEqual(archived);
+
+    const proof = readRecord(value.proofPath);
+    proof.archiveDrift = true;
+    writeJson(value.proofPath, proof);
+    expect(() =>
+      archiveIntegrationEvidence({
+        evidenceDirectory: value.evidence,
+        integrationId: value.integrationId,
+        manifestTranche: value.manifestTranche,
+      }),
+    ).toThrow("archived evidence drift");
+  });
+
+  it("rejects archive path traversal identities", () => {
+    const value = fixture();
+    expect(() =>
+      archiveIntegrationEvidence({
+        evidenceDirectory: value.evidence,
+        integrationId: "..",
+        manifestTranche: value.manifestTranche,
+      }),
+    ).toThrow("integrationId is not a safe path segment");
   });
 
   it("rejects integration identity and head drift", () => {
@@ -241,12 +324,56 @@ describe("normal integration result check", () => {
     ).toThrow("S09-T01: proof changedFiles do not match the task diff");
   });
 
+  it("rejects proof schema, plan, and task-block drift", () => {
+    const value = fixture();
+    const original = readRecord(value.proofPath);
+    const cases = [
+      ["schemaVersion", "legacy", "unexpected CI proof schema"],
+      ["planSha256", "stale", "proof plan hash mismatch"],
+      ["taskBlockHash", "stale", "proof task block hash mismatch"],
+    ] as const;
+    for (const [field, replacement, message] of cases) {
+      writeJson(value.proofPath, { ...original, [field]: replacement });
+      expect(() =>
+        validateIntegrationResult({
+          controlRoot: value.controlRoot,
+          evidenceDirectory: value.evidence,
+          expectedWorkdir: value.workdir,
+          integrationId: value.integrationId,
+          manifestTranche: value.manifestTranche,
+        }),
+      ).toThrow(message);
+    }
+    writeJson(value.proofPath, original);
+  });
+
+  it("rejects final gates from another plan or task block", () => {
+    for (const field of ["planSha256", "taskBlockHash"] as const) {
+      const value = fixture();
+      const gate = readRecord(value.gatePath);
+      gate[field] = "stale";
+      writeJson(value.gatePath, gate);
+      expect(() =>
+        validateIntegrationResult({
+          controlRoot: value.controlRoot,
+          evidenceDirectory: value.evidence,
+          expectedWorkdir: value.workdir,
+          integrationId: value.integrationId,
+          manifestTranche: value.manifestTranche,
+        }),
+      ).toThrow("final lane gate does not bind the lane head");
+    }
+  });
+
   it("rejects a task outside the manifest tranche", () => {
     const value = fixture();
     writeJson(value.manifestPath, {
+      schemaVersion: "maestro-brain-task-manifest/v1",
+      planSha256: value.planSha256,
       tasks: [
         {
           taskId: "S09-T01",
+          taskBlockHash: value.taskBlockHash,
           tranche: "D2-domain-bodies",
           codeStartAfter: [],
           fileInventoryStatus: "ready",
@@ -300,9 +427,12 @@ describe("normal integration result check", () => {
   it("rejects an unsatisfied code-start dependency", () => {
     const value = fixture();
     writeJson(value.manifestPath, {
+      schemaVersion: "maestro-brain-task-manifest/v1",
+      planSha256: value.planSha256,
       tasks: [
         {
           taskId: "S09-T01",
+          taskBlockHash: value.taskBlockHash,
           tranche: value.manifestTranche,
           codeStartAfter: ["S08-T01"],
           fileInventoryStatus: "ready",
@@ -322,12 +452,87 @@ describe("normal integration result check", () => {
     ).toThrow("S09-T01: dependency S08-T01 has no lane result");
   });
 
+  it("trusts prior integration provenance after legitimate later file edits", () => {
+    const value = fixture();
+    const manifest = readRecord(value.manifestPath);
+    const tasks = manifest.tasks as Record<string, unknown>[];
+    const currentTask = tasks[0];
+    if (!currentTask) throw new Error("current task fixture missing");
+    currentTask.codeStartAfter = ["S08-T01"];
+    tasks.push({
+      codeStartAfter: [],
+      fileInventoryStatus: "ready",
+      fileLocks: ["prior-owned-doc.md"],
+      gateProfiles: ["docs"],
+      taskBlockHash: "3".repeat(64),
+      taskId: "S08-T01",
+      tranche: "D2-domain-bodies",
+    });
+    writeJson(value.manifestPath, manifest);
+    const dependencyLaneDirectory = resolve(
+      value.evidence,
+      "lane-results",
+      "S08-T01",
+    );
+    mkdirSync(dependencyLaneDirectory, { recursive: true });
+    writeJson(resolve(dependencyLaneDirectory, "lane-result.json"), {
+      acceptanceBlocker: "external acceptance evidence is pending",
+      accepted: false,
+      headSha: value.baseSha,
+      integrationHeadSha: value.baseSha,
+      integrationId: "D2-domain-bodies-w1",
+      status: "integrated",
+      taskId: "S08-T01",
+      tranche: "D2-domain-bodies",
+    });
+    const priorResultPath = resolve(
+      value.evidence,
+      "integration",
+      "D2-domain-bodies-w1",
+      "integration-result.json",
+    );
+    mkdirSync(resolve(priorResultPath, ".."), { recursive: true });
+    writeJson(priorResultPath, {
+      headSha: value.baseSha,
+      includedTasks: [{ laneHeadSha: value.baseSha, taskId: "S08-T01" }],
+      integrationId: "D2-domain-bodies-w1",
+      reviewVerdict: "pass",
+      schemaVersion: "maestro-brain-integration-result/v1",
+      status: "passed",
+    });
+    expect(() =>
+      validateIntegrationResult({
+        controlRoot: value.controlRoot,
+        evidenceDirectory: value.evidence,
+        expectedWorkdir: value.workdir,
+        integrationId: value.integrationId,
+        manifestTranche: value.manifestTranche,
+      }),
+    ).not.toThrow();
+
+    const prior = readRecord(priorResultPath);
+    prior.includedTasks = [{ laneHeadSha: "c".repeat(40), taskId: "S08-T01" }];
+    writeJson(priorResultPath, prior);
+    expect(() =>
+      validateIntegrationResult({
+        controlRoot: value.controlRoot,
+        evidenceDirectory: value.evidence,
+        expectedWorkdir: value.workdir,
+        integrationId: value.integrationId,
+        manifestTranche: value.manifestTranche,
+      }),
+    ).toThrow(/not bound by its authoritative integration result/);
+  });
+
   it("rejects conflicting included-task locks", () => {
     const value = fixture();
     writeJson(value.manifestPath, {
+      schemaVersion: "maestro-brain-task-manifest/v1",
+      planSha256: value.planSha256,
       tasks: [
         {
           taskId: "S09-T01",
+          taskBlockHash: value.taskBlockHash,
           tranche: value.manifestTranche,
           codeStartAfter: [],
           fileInventoryStatus: "ready",
@@ -336,6 +541,7 @@ describe("normal integration result check", () => {
         },
         {
           taskId: "S09-T02",
+          taskBlockHash: "3".repeat(64),
           tranche: value.manifestTranche,
           codeStartAfter: [],
           fileInventoryStatus: "ready",

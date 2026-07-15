@@ -1,8 +1,23 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 import { buildManifest } from "../src/manifest.js";
-import { selectReadyTasks } from "../src/scheduler.js";
+import { availableDispatchSlots, selectReadyTasks } from "../src/scheduler.js";
 
 describe("brain task scheduler", () => {
+  it("treats max as total active capacity across repeated dispatches", () => {
+    expect(availableDispatchSlots(20, 0)).toBe(20);
+    expect(availableDispatchSlots(20, 7)).toBe(13);
+    expect(availableDispatchSlots(20, 20)).toBe(0);
+    expect(availableDispatchSlots(20, 23)).toBe(0);
+    const dispatch = readFileSync(
+      new URL("../src/dispatch.mts", import.meta.url),
+      "utf8",
+    );
+    expect(dispatch).toContain("totalActiveCapacity: maximum");
+    expect(dispatch).toContain("maximum: availableSlots");
+  });
+
   it("starts independent contract lanes together", () => {
     const manifest = buildManifest();
     const result = selectReadyTasks({
@@ -55,6 +70,33 @@ describe("brain task scheduler", () => {
         tasks: [task],
       }).selected,
     ).toEqual([]);
+  });
+
+  it("does not dispatch S13 operations before MCP and export contracts", () => {
+    const manifest = buildManifest();
+    const task = manifest.tasks.find(
+      (candidate) => candidate.taskId === "S13-T03",
+    );
+    expect(task).toBeDefined();
+    if (!task) throw new Error("S13-T03 missing from manifest");
+    const completed = new Set(["S06-T02", "S08-T01", "S11-T04"]);
+    expect(
+      selectReadyTasks({
+        activeTaskIds: new Set(),
+        completedTaskIds: completed,
+        maximum: 1,
+        tasks: [task],
+      }).selected,
+    ).toEqual([]);
+    completed.add("S12-T02");
+    expect(
+      selectReadyTasks({
+        activeTaskIds: new Set(),
+        completedTaskIds: completed,
+        maximum: 1,
+        tasks: [task],
+      }).selected.map((candidate) => candidate.taskId),
+    ).toEqual(["S13-T03"]);
   });
 
   it("does not dispatch a task whose exact file inventory is open", () => {

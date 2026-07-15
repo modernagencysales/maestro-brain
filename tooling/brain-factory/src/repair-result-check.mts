@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 
 import { changedHandAuthoredSourceLines } from "./source-budget.js";
 import { fabroRunId, gitSha } from "./integration-recovery.js";
+import { validateLaneAcceptance } from "./lane-acceptance.js";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -270,24 +271,12 @@ export const validateRepairResult = (input: RepairCheckInput): void => {
         "lane-result.json",
       ),
     );
-    if (!new Set(["integrated", "accepted"]).has(String(lane.status)))
-      throw new Error(`${taskId}: lane result not integrated`);
+    validateLaneAcceptance(lane, taskId);
     if (
       gitSha(lane.integrationHeadSha, `${taskId} integrationHeadSha`) !==
       headSha
     )
       throw new Error(`${taskId}: integration head mismatch`);
-    if (
-      lane.status === "integrated" &&
-      (lane.accepted !== false ||
-        typeof lane.acceptanceBlocker !== "string" ||
-        lane.acceptanceBlocker.trim() === "")
-    )
-      throw new Error(
-        `${taskId}: integrated task must remain accepted:false with acceptanceBlocker`,
-      );
-    if (lane.status === "accepted" && lane.accepted !== true)
-      throw new Error(`${taskId}: accepted status requires accepted:true`);
   }
 };
 

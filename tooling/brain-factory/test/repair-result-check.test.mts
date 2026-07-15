@@ -234,9 +234,10 @@ describe("Brain repair result check", () => {
     expect(workflow).toContain("must not block integration or review pass");
     expect(workflow).toContain("Never fabricate external acceptance evidence");
     expect(workflow).toContain("accepted:false with an acceptanceBlocker");
-    expect(workflow).toContain("Never use repo-wide glob discovery");
-    expect(workflow).toContain("targeted rtk rg --files");
-    expect(workflow).toContain("targeted rtk grep");
+    expect(workflow).toContain("scoped rtk rg --files <target-path>");
+    expect(workflow).toContain(
+      "Never search the home directory, a repository parent",
+    );
     expect(workflow).toContain(
       "Do not scan repos/, node_modules, or the whole worktree",
     );

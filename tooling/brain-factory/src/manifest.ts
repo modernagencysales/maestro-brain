@@ -105,9 +105,9 @@ const START_OVERRIDES: Readonly<Record<string, readonly string[]>> = {
   "S12-T01": [],
   "S12-T02": ["S12-T01", "S11-T02", "S07-T01"],
   "S12-T03": ["S12-T02", "S03-T01"],
-  "S13-T01": [],
-  "S13-T02": ["S13-T01", "S06-T02"],
-  "S13-T03": ["S06-T02", "S08-T01"],
+  "S13-T01": ["S08-T04", "S09-T04", "S11-T03"],
+  "S13-T02": ["S13-T01", "S06-T02", "S11-T04"],
+  "S13-T03": ["S06-T02", "S08-T01", "S11-T04", "S12-T02"],
   "S13-T04": ["S13-T03", "S03-T01"],
   "S14-T01": ["S10-T04", "S11-T04", "S12-T03", "S13-T04"],
 };
@@ -156,13 +156,12 @@ const trancheFor = (taskId: string): string => {
       "S09-T01",
       "S11-T01",
       "S12-T01",
-      "S13-T01",
     ]).has(taskId)
   )
     return "C1-contract-spine";
   if (taskId.startsWith("S14")) return "R4-release";
   if (
-    /^S(?:08-T0[34]|09-T0[34]|10-|11-T0[34]|12-T0[23]|13-T0[234])/.test(taskId)
+    /^S(?:08-T0[34]|09-T0[34]|10-|11-T0[34]|12-T0[23]|13-T0[1-4])/.test(taskId)
   )
     return "X3-convergence";
   return "D2-domain-bodies";
@@ -441,11 +440,9 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
       kind:
         taskId === "S00-T01"
           ? "external"
-          : taskId === "S00-T02"
-            ? "docs"
-            : taskId === "S14-T01"
-              ? "release"
-              : "product",
+          : taskId === "S14-T01"
+            ? "release"
+            : "product",
       lane,
       requirements,
       sourceSliceBudget: 300,
