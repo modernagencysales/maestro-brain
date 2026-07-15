@@ -46,6 +46,7 @@ export type BrainEvalRunArtifact = {
   readonly schemaVersion: "maestro-brain-suite-run-artifact/v1";
   readonly artifactUri: string;
   readonly artifactHash: string;
+  readonly rawArtifact: unknown;
 };
 export type BrainEvalSuiteResult = {
   readonly suiteName: string;
@@ -224,19 +225,62 @@ export const approveBrainEvalArtifact = (
   if (!Array.isArray(suiteResults) || suiteResults.length === 0) {
     throw new Error("Brain eval approval requires suite result artifacts.");
   }
-  const failed = suiteResults.find((suite) => {
-    const value = assertRecord(suite, "suite result");
-    const receipt = assertRecord(value.receipt, "suite receipt");
-    return receipt.passed !== true || value.status !== "approved";
-  });
-  if (failed !== undefined) {
-    throw new Error(
-      "Brain eval approval requires all external suite artifacts to pass.",
-    );
-  }
+  const expected = new Map(
+    runFrozenBrainEvalSuites().map((suite) => [suite.suiteName, suite]),
+  );
+  const seen = new Set<string>();
   for (const suite of suiteResults) {
     const value = assertRecord(suite, "suite result");
-    assertExternalRunArtifact(value.runArtifact);
+    const suiteName = assertString(value.suiteName, "suite name");
+    const expectedSuite = expected.get(suiteName);
+    if (expectedSuite === undefined || seen.has(suiteName)) {
+      throw new Error(
+        "Brain eval approval requires the exact external suite set.",
+      );
+    }
+    seen.add(suiteName);
+    const artifact = assertExternalRunArtifact(value.runArtifact);
+    if (artifact.artifactHash !== `sha256:${sha256(artifact.rawArtifact)}`) {
+      throw new Error(
+        "Brain eval approval requires raw artifact hashes to match.",
+      );
+    }
+    let recomputed: BrainEvalSuiteResult;
+    try {
+      recomputed = recomputeSuiteFromRawArtifact(
+        suiteName,
+        artifact.rawArtifact,
+      );
+    } catch {
+      throw new Error(
+        "Brain eval approval requires recomputed suite receipts.",
+      );
+    }
+    const receipt = assertRecord(value.receipt, "suite receipt");
+    if (
+      receipt.suiteVersion !== recomputed.receipt.suiteVersion ||
+      receipt.fixtureHash !== recomputed.receipt.fixtureHash ||
+      receipt.modelId !== recomputed.receipt.modelId ||
+      receipt.promptVersion !== recomputed.receipt.promptVersion ||
+      receipt.toolSchemaVersion !== recomputed.receipt.toolSchemaVersion
+    ) {
+      throw new Error("Brain eval approval requires suite version bindings.");
+    }
+    if (canonicalJson(recomputed.receipt) !== canonicalJson(receipt)) {
+      throw new Error(
+        "Brain eval approval requires recomputed suite receipts.",
+      );
+    }
+    if (value.status !== "approved" || recomputed.receipt.passed !== true) {
+      throw new Error(
+        "Brain eval approval requires all external suite artifacts to pass.",
+      );
+    }
+  }
+  if (seen.size !== expected.size) {
+    throw new Error(
+      "Brain eval approval requires the exact external suite set.",
+    );
   }
   return {
     schemaVersion: "maestro-brain-eval-approval-artifact/v1",
@@ -281,7 +325,32 @@ const assertExternalRunArtifact = (value: unknown): BrainEvalRunArtifact => {
     schemaVersion: "maestro-brain-suite-run-artifact/v1",
     artifactUri,
     artifactHash,
+    rawArtifact: artifact.rawArtifact,
   };
+};
+
+const recomputeSuiteFromRawArtifact = (
+  suiteName: string,
+  rawArtifact: unknown,
+): BrainEvalSuiteResult => {
+  const root = assertRecord(rawArtifact, "raw eval suite artifact");
+  const fixture = root.fixture ?? root;
+  switch (suiteName) {
+    case "classification":
+      return evaluateBrainClassification(fixture);
+    case "answers":
+      return evaluateBrainAnswers(fixture, root.run);
+    case "maintenance":
+      return evaluateBrainMaintenance(fixture);
+    case "promptInjection":
+      return evaluateBrainPromptInjection(fixture);
+    case "multilingual":
+      return evaluateBrainMultilingual(fixture);
+    default:
+      throw new Error(
+        "Brain eval approval requires the exact external suite set.",
+      );
+  }
 };
 
 export const writeBrainEvalReport = (path: string): void => {

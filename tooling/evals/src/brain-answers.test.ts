@@ -1,9 +1,12 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { evaluateBrainAnswers } from "./brain-answers";
 import { assertRecord, loadFrozenBrainEvalFixture } from "./brain-eval-report";
 
 const fixture = () =>
   assertRecord(loadFrozenBrainEvalFixture(), "fixture").answers;
+const sha256 = (value: string): string =>
+  `sha256:${createHash("sha256").update(value).digest("hex")}`;
 
 describe("Brain answers eval", () => {
   it("does not approve fixture answer booleans without claim/citation/source artifacts", () => {
@@ -14,7 +17,9 @@ describe("Brain answers eval", () => {
   });
 
   it("scores answer claims from artifact fields instead of trusting booleans", () => {
-    const result = evaluateBrainAnswers({
+    const sourceBytes = "Agency key is stable across exports";
+    const sourceArtifactHash = sha256(sourceBytes);
+    const suite = {
       suiteVersion: "artifact-v1",
       modelId: "candidate",
       promptVersion: "prompt",
@@ -38,8 +43,7 @@ describe("Brain answers eval", () => {
             claimText: "Agency key is stable",
             citedQuote: "Agency key is stable across exports",
             citationLocator: "brain://page/rev#L1",
-            sourceArtifactHash:
-              "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            sourceArtifactHash,
           },
         },
         {
@@ -60,6 +64,14 @@ describe("Brain answers eval", () => {
           },
         },
       ],
+    };
+    const result = evaluateBrainAnswers(suite, {
+      schemaVersion: "maestro-brain-answer-run/v1",
+      sourceArtifacts: [{ hash: sourceArtifactHash, bytes: sourceBytes }],
+      results: suite.cases.map((entry) => ({
+        caseId: entry.id,
+        output: entry.output,
+      })),
     });
 
     expect(result.receipt.metrics.entailment?.numerator).toBe(1);

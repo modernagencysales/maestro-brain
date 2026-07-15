@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   assertLabels,
   assertRecord,
@@ -29,9 +30,14 @@ export type BrainAnswerRunResult = {
   readonly output: BrainAnswerArtifactOutput;
 };
 
+export type BrainAnswerSourceArtifact = {
+  readonly hash: string;
+  readonly bytes: string;
+};
 export type BrainAnswerRun = {
   readonly schemaVersion: "maestro-brain-answer-run/v1";
   readonly results: readonly BrainAnswerRunResult[];
+  readonly sourceArtifacts: readonly BrainAnswerSourceArtifact[];
 };
 
 export type BrainAnswerCase = BrainEvalCaseBase & {
@@ -82,7 +88,13 @@ const parseOutput = (value: unknown): BrainAnswerArtifactOutput => {
   };
 };
 
-const hasArtifactSupport = (output: BrainAnswerArtifactOutput): boolean =>
+const sha256 = (value: string): string =>
+  `sha256:${createHash("sha256").update(value).digest("hex")}`;
+
+const hasArtifactSupport = (
+  output: BrainAnswerArtifactOutput,
+  sourceArtifacts: ReadonlyMap<string, string>,
+): boolean =>
   typeof output.claimText === "string" &&
   output.claimText.length > 0 &&
   typeof output.citedQuote === "string" &&
@@ -91,7 +103,13 @@ const hasArtifactSupport = (output: BrainAnswerArtifactOutput): boolean =>
   typeof output.citationLocator === "string" &&
   output.citationLocator.length > 0 &&
   typeof output.sourceArtifactHash === "string" &&
-  /^sha256:[a-f0-9]{64}$/i.test(output.sourceArtifactHash);
+  /^sha256:[a-f0-9]{64}$/i.test(output.sourceArtifactHash) &&
+  sourceArtifacts.get(output.sourceArtifactHash) !== undefined &&
+  sha256(sourceArtifacts.get(output.sourceArtifactHash) ?? "") ===
+    output.sourceArtifactHash &&
+  sourceArtifacts
+    .get(output.sourceArtifactHash)
+    ?.includes(output.citedQuote) === true;
 
 export const parseBrainAnswerRun = (value: unknown): BrainAnswerRun => {
   const record = assertRecord(value, "answer run");
@@ -101,8 +119,18 @@ export const parseBrainAnswerRun = (value: unknown): BrainAnswerRun => {
   if (!Array.isArray(record.results)) {
     throw new Error("answer run results must be an array.");
   }
+  const sourceArtifacts = Array.isArray(record.sourceArtifacts)
+    ? record.sourceArtifacts.map((entry) => {
+        const artifact = assertRecord(entry, "answer source artifact");
+        return {
+          hash: assertString(artifact.hash, "answer source artifact hash"),
+          bytes: assertString(artifact.bytes, "answer source artifact bytes"),
+        };
+      })
+    : [];
   return {
     schemaVersion: "maestro-brain-answer-run/v1",
+    sourceArtifacts,
     results: record.results.map((entry) => {
       const result = assertRecord(entry, "answer run result");
       return {
@@ -125,11 +153,19 @@ export const evaluateBrainAnswers = (
     (entry) => entry.kind === "no-evidence",
   );
   const failures: BrainEvalFailure[] = [];
+  const parsedRun =
+    runInput === undefined ? undefined : parseBrainAnswerRun(runInput);
   const runResults = new Map(
-    (runInput === undefined
+    (parsedRun === undefined
       ? testCases.map((entry) => ({ caseId: entry.id, output: entry.output }))
-      : parseBrainAnswerRun(runInput).results
+      : parsedRun.results
     ).map((result) => [result.caseId, result.output]),
+  );
+  const sourceArtifacts = new Map(
+    (parsedRun?.sourceArtifacts ?? []).map((artifact) => [
+      artifact.hash,
+      artifact.bytes,
+    ]),
   );
   const outputFor = (
     entry: BrainAnswerCase,
@@ -149,7 +185,8 @@ export const evaluateBrainAnswers = (
     const output = outputFor(entry);
     if (output === null) return false;
     const passed =
-      reviewedLabelPassed(entry.labels) && hasArtifactSupport(output);
+      reviewedLabelPassed(entry.labels) &&
+      hasArtifactSupport(output, sourceArtifacts);
     if (!passed)
       failures.push({
         caseId: entry.id,
