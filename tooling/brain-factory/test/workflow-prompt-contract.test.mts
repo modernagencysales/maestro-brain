@@ -129,6 +129,25 @@ describe("Fabro workflow prompt contracts", () => {
     expect(review).toContain("one guarded targeted shell write");
   });
 
+  it("uses RTK pass-through commands for implementation guards and scripts", () => {
+    const buildTask = readFileSync(
+      resolve(
+        import.meta.dirname,
+        "../../../.fabro/workflows/brain-build-task/workflow.fabro",
+      ),
+      "utf8",
+    );
+    const implement = buildTask
+      .split("\n")
+      .find((line) => line.trimStart().startsWith("implement ["));
+
+    expect(implement).toContain("use rtk proxy test for shell guards");
+    expect(implement).toContain("never rtk test");
+    expect(implement).toContain("Never invoke rtk python");
+    expect(implement).toContain("native write_file tool");
+    expect(implement).toContain("rtk proxy python3");
+  });
+
   it("binds lane-green results to the manifest tranche", () => {
     const buildTask = readFileSync(
       resolve(
