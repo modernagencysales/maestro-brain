@@ -3,9 +3,9 @@ import * as Schema from "effect/Schema";
 
 import {
   Forbidden,
+  OrganizationNotFound,
   ProvisioningConflict,
   Unauthorized,
-  ValidationFailed,
 } from "../errors";
 import { Role } from "../access/roles";
 
@@ -26,17 +26,13 @@ export const WorkspaceSummary = Schema.Struct({
 
 const list = FunctionSpec.publicQuery({
   name: "list",
-  args: () =>
-    Schema.Struct({
-      organizationId: Schema.optional(Schema.String),
-      workspaceId: Schema.optional(Schema.String),
-    }),
+  args: () => Schema.Struct({}),
   returns: () => Schema.Array(WorkspaceSummary),
   error: () =>
     Schema.Union(
       Unauthorized,
       Forbidden,
-      ValidationFailed,
+      OrganizationNotFound,
       ProvisioningConflict,
     ),
 });
