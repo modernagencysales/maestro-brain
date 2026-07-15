@@ -1248,9 +1248,11 @@ manifest.
   `packages/integrations/src/nango/connectBrowser.test.ts`,
   `packages/convex/confect/integrations/slackConnections.spec.ts`,
   `packages/convex/confect/integrations/slackConnections.impl.ts`,
+  `packages/convex/confect/tables/providerConnections.ts`,
   `packages/convex/test/slack-connections.test.ts`, and
   `apps/web/src/features/connections/nango-connect-button.tsx` and
-  `apps/web/src/features/connections/nango-connect-button.test.tsx`.
+  `apps/web/src/features/connections/nango-connect-button.test.tsx`; modify
+  `packages/convex/confect/internal/migrations.ts`.
 - **Failure-first tests:** signed-out/non-org-admin connect, raw token input,
   forged/expired Connect session, second active Slack connection, provider
   timeout, and connection ID from another organization all fail. Tests assert no
@@ -1258,19 +1260,35 @@ manifest.
 - **Implementation:** pin `@nangohq/node@0.71.0` and `@nangohq/frontend@0.71.0`
   inside `packages/integrations`; web imports only the narrow `connectBrowser`
   adapter, never a provider SDK. An authenticated org-admin capability creates a
-  short-lived Nango Connect session and returns only its client token/expiry.
-  The browser opens Nango Connect. The authenticated callback persists the
-  returned `connectionId` through the backend; no Slack access/refresh token
-  crosses Maestro code.
+  short-lived Nango Connect session plus a Maestro-generated opaque
+  `connectSessionId`. Store the current attempt ID, organization/end-user
+  binding, exact provider configuration, correlation tag, expiry, lifecycle
+  status, completed session/connection IDs, stable connection key,
+  generation-zero marker, nullable T02 identity fields, and attempt/audit
+  timestamps on the durable provider-connection row; never persist the Nango
+  client token. Reserve, claim, and finalize the attempt through internal atomic
+  mutations so duplicate callbacks and replay with a different connection fail
+  closed, while the exact completed attempt/connection pair is idempotent. The
+  browser opens Nango Connect, obtains `connectionId` only from its typed
+  `connect` event, and pairs it with the retained Maestro `connectSessionId`.
+  Completion verifies the connection server-side through Nango connection
+  metadata against the exact Slack integration, Nango end-user/organization
+  binding, and session correlation tag before persisting a `verifying`
+  provider-connection row. It never trusts a browser-supplied provider
+  organization key and never fetches or persists Slack credentials. T02 alone
+  performs bot/team verification and transitions the row to `active | error`.
+  Public `beginSlackConnect` and `completeSlackConnect` are actions that
+  orchestrate provider calls plus those internal queries/mutations; they are not
+  network-calling public mutations.
 - **Typed contract / errors:**
-  `beginSlackConnect({}) -> { connectSessionToken, expiresAt }`;
+  `beginSlackConnect({}) -> { connectSessionId, connectSessionToken, expiresAt }`;
   `completeSlackConnect({ connectionId, connectSessionId }) -> { connectionKey, status }`;
   errors are `Unauthorized`, `Forbidden`, `ConnectionAlreadyExists`,
   `ConnectSessionInvalid`, `ProviderUnavailable`, and `TenantMismatch`.
-- **State:** `not_connected -> authorizing -> verifying -> active | error`;
-  reauthorization is `active -> reauthorizing -> active | error`, preserves
-  `connectionKey`, and increments `connectionGeneration` only after successful
-  bot/team verification.
+- **State:** this task owns `not_connected -> authorizing -> verifying`; T02
+  owns `verifying -> active | error` and later revocation; reauthorization is
+  `active -> reauthorizing -> active | error`, preserves `connectionKey`, and
+  increments `connectionGeneration` only after successful bot/team verification.
 - **Migration / compatibility / rollback:** no legacy Slack data. Feature-flag
   Connect UI off until webhook security in T03 is green. Rollback disables new
   sessions and marks the connection unavailable without deleting Nango's
@@ -1301,7 +1319,7 @@ manifest.
   [`channels.ts`](https://github.com/NangoHQ/integration-templates/blob/e286bd20c5795f9e8bfbc9053e65669941c08c89/integrations/slack/syncs/channels.ts#L6-L24),
   but its optional auto-join behavior must remain disabled
   ([source](https://github.com/NangoHQ/integration-templates/blob/e286bd20c5795f9e8bfbc9053e65669941c08c89/integrations/slack/syncs/channels.ts#L147-L163)).
-- **Files:** create `packages/convex/confect/tables/providerConnections.ts`,
+- **Files:** consume the provider-connection contract established by T01; create
   `packages/convex/confect/tables/sourceChannels.ts`,
   `packages/convex/confect/tables/channelSyncStates.ts`,
   `packages/convex/confect/integrations/slackDirectory.spec.ts`,

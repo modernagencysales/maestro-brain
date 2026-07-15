@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "eecf36c8d13528ced2e9daf63eb5ee5d10c4943aa1e6a2f018d2e2186222cd2a",
+  "planSha256": "5aac5e9c282490dd5d5bdbdce1df78149ca5021d2fee5472bf60d096b2d4674a",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -486,6 +486,8 @@
         "docs/template/env-manifest.md",
         "packages/convex/confect/integrations/slackConnections.impl.ts",
         "packages/convex/confect/integrations/slackConnections.spec.ts",
+        "packages/convex/confect/internal/migrations.ts",
+        "packages/convex/confect/tables/providerConnections.ts",
         "packages/convex/package.json",
         "packages/convex/test/slack-connections.test.ts",
         "packages/integrations/package.json",
@@ -501,7 +503,7 @@
       "lane": "slack-source",
       "requirements": ["IAM-04", "SLK-01"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "d76a9136b360ac459b590dfff621022ff003a5463c0e26faa3d43ea6e04f1d27",
+      "taskBlockHash": "ec9719d827c31a9df7a2af68e9727c17978c822877afac5c85526ae9a47c72ab",
       "taskId": "S04-T01",
       "title": "Add The Nango Provider Boundary And Admin Connect Session",
       "tranche": "C1-contract-spine"
@@ -520,7 +522,6 @@
         "packages/convex/confect/integrations/slackDirectory.ts",
         "packages/convex/confect/internal/migrations.ts",
         "packages/convex/confect/tables/channelSyncStates.ts",
-        "packages/convex/confect/tables/providerConnections.ts",
         "packages/convex/confect/tables/sourceChannels.ts",
         "packages/convex/test/slack-directory.test.ts"
       ],
@@ -529,7 +530,7 @@
       "lane": "slack-source",
       "requirements": ["SLK-01", "SLK-02"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "77253a36956f32fbced84ff6668728cfceca110d05d6cf3c6a40b7a23886e1ce",
+      "taskBlockHash": "cef1f5cd3b861482465c24d07a8e86924eb0351d2668871dbfd71ecb2ed56da8",
       "taskId": "S04-T02",
       "title": "Persist Exact Connection, Bot Identity, And Channel Directory State",
       "tranche": "D2-domain-bodies"
