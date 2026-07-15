@@ -134,7 +134,7 @@ describe("Fabro workflow prompt contracts", () => {
     );
   });
 
-  it("uses RTK pass-through commands for implementation guards and scripts", () => {
+  it("uses RTK pass-through commands for guards, scripts, and proof data", () => {
     const buildTask = readFileSync(
       resolve(
         import.meta.dirname,
@@ -145,12 +145,20 @@ describe("Fabro workflow prompt contracts", () => {
     const implement = buildTask
       .split("\n")
       .find((line) => line.trimStart().startsWith("implement ["));
+    const review = buildTask
+      .split("\n")
+      .find((line) => line.trimStart().startsWith("review ["));
 
     expect(implement).toContain("use rtk proxy test for shell guards");
     expect(implement).toContain("never rtk test");
     expect(implement).toContain("Never invoke rtk python");
     expect(implement).toContain("native write_file tool");
     expect(implement).toContain("rtk proxy python3");
+    for (const prompt of [implement, review]) {
+      expect(prompt).toContain("machine-parsed for the proof packet");
+      expect(prompt).toContain("use rtk proxy git");
+      expect(prompt).toContain("must never feed structured evidence");
+    }
   });
 
   it("bounds task reconnaissance and leaves deterministic gates to the workflow", () => {
