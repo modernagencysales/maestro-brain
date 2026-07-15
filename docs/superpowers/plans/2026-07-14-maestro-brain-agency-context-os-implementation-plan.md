@@ -1,6 +1,9 @@
 # Maestro Brain: Agency Context OS Implementation Plan
 
-> **Status:** implementation-ready, parallel-factory execution plan
+> **Status:** parallel-factory execution plan; implementation-ready only for
+> task packets marked `ready` in Appendix M. Every `open:F` packet is blocked
+> until its exact hand-authored path and shared-lock inventory is completed and
+> the binding manifest is regenerated.
 >
 > **Plan date:** 2026-07-14  
 > **Canonical design:**
@@ -23,6 +26,10 @@ the originating conversation. Each task names its requirements, dependency,
 template classification, existing anchors, exact files, test-first sequence,
 typed contract, state changes, migration and rollback, commands, receipt, and
 commit/PR boundary.
+
+The binding task manifest contains exactly 56 task contracts. That count is
+authoritative and supersedes any stale instruction, receipt, or handoff that
+refers to 55 tasks.
 
 ## Product And Architecture Outcome
 
@@ -94,18 +101,25 @@ applying these rules:
    task packet's focused commands plus its deterministic gate profile, receives
    an independent contract/security review, and emits a minimal proof packet.
    Red gates return to implementation inside the same Fabro run. Appendix A's
-   source number is the task estimate. If the actual task cannot fit, the lane
-   records estimation drift and splits it into at most four coherent
-   one-intention commits; every commit remains <=300 changed hand-authored
-   source lines and the task is accepted only as one proof set.
+   source number is the task estimate. A slice is one task contract. A task
+   remains one slice and may produce one to four coherent one-intention commits;
+   every commit remains <=300 changed hand-authored source lines and the task is
+   accepted only as one proof set. If a task requires more than four coherent
+   commits, or any coherent commit cannot fit the limit, split the task contract
+   and regenerate the binding manifest before implementation.
 5. **Tranche integration:** one-intention task commits are cherry-picked into
    dependency-safe integration tranches.
    `rtk host-test-slot --class full pnpm verify` runs once on the integrated
    tranche; tasks become complete only after that gate passes. Broad
    verification is not duplicated in every isolated lane.
-6. **Phase-scoped delivery:** use roughly twelve to sixteen tranche PRs rather
-   than one PR for every micro-task. Preserve one intention per task commit and
-   its receipt. Graphite ordering is optional PR hygiene, never the scheduler.
+6. **Phase-scoped delivery:** a temporary StackPlan contains at most four whole
+   slices and is a planning/receipt unit, not a PR boundary. A manifest tranche
+   contains one or more validated StackPlans and is the unit of full
+   host-slotted verification and PR delivery. The binding manifest currently
+   defines five tranches. Use one PR per manifest tranche; if size requires
+   subdivision, materialize unique sub-tranche IDs in the manifest before
+   dispatch. Preserve one intention per task commit and its receipt. Graphite
+   ordering is optional PR hygiene, never the scheduler.
 7. **Just-in-time context:** the approved design, this task packet, its named
    anchors/playbook, and directly relevant vendored examples are sufficient. Do
    not rerun global product research, plan review, task-plan generation, or AI
@@ -306,7 +320,8 @@ manifest.
 - **Focused verification:**
   `rtk pnpm exec prettier --check docs/template/porting-backlog.md docs/superpowers/receipts/maestro-brain/source-baseline.md docs/superpowers/receipts/maestro-brain/stack-execution-contract.md`,
   `rtk pnpm test:stack`, `rtk pnpm check:docs-freshness`,
-  `rtk git diff --check`, and `rtk just verify`.
+  `rtk git diff --check`, broad verification is deferred to tranche acceptance
+  under Appendix L.
 - **Completion receipt:** source commit, resolved URL, verification date, gap
   IDs/promotion paths, adversarial fail/pass transcript, temporary manifest
   hash, depth, and source estimates are present; no floating source or stale
@@ -487,7 +502,8 @@ manifest.
 - **Focused verification:** `rtk pnpm --dir apps/web test auth start-runtime`,
   `rtk pnpm --dir packages/convex test workos-auth-config`,
   `rtk pnpm check:env-boundary`, `rtk pnpm check:auth-demo-bypass`,
-  `rtk pnpm check:secret-canaries`, and `rtk just verify`.
+  `rtk pnpm check:secret-canaries`, broad verification is deferred to tranche
+  acceptance under Appendix L.
 - **Completion receipt:** redacted successful/failed auth traces, environment
   name inventory, client-bundle secret scan, and test output.
 - **Commit / PR boundary:** branch `codex/brain-s01-real-authkit`; commit
@@ -535,7 +551,7 @@ manifest.
   `rtk pnpm --dir packages/convex test stable-tenant-keys access-provisioning`,
   `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
   `rtk pnpm check:confect-contracts`, `rtk pnpm check:schema-migration-notes`,
-  and `rtk just verify`.
+  broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** migration dry-run/execute/idempotent-rerun counts,
   uniqueness query, no-public-Convex-ID scan, generated diff, and rollback
   checkpoint.
@@ -558,7 +574,9 @@ manifest.
   [`access/auth.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/access/auth.ts#L118-L249).
 - **Files:** modify `packages/convex/confect/auth/workspaces.spec.ts`,
   `packages/convex/confect/auth/workspaces.impl.ts`,
-  `packages/convex/confect/access/provisioning.{spec,impl,ts}`,
+  `packages/convex/confect/access/provisioning.spec.ts`,
+  `packages/convex/confect/access/provisioning.impl.ts`,
+  `packages/convex/confect/access/provisioning.ts`,
   `apps/web/src/providers/workspace-operations.ts`, and
   `apps/web/src/providers/workspace-operations.test.ts`; create
   `packages/convex/test/authorized-brain-provisioning.test.ts`.
@@ -585,7 +603,8 @@ manifest.
   `rtk pnpm --dir packages/convex test authorized-brain-provisioning workspace-access`,
   `rtk pnpm --dir apps/web test workspace-operations workspace`,
   codegen/manifest, `rtk pnpm check:confect-contracts`,
-  `rtk pnpm check:access-audit-events`, and `rtk just verify`.
+  `rtk pnpm check:access-audit-events`, broad verification is deferred to
+  tranche acceptance under Appendix L.
 - **Completion receipt:** table-driven role results, cross-tenant denials,
   generated-ref diff, stable response sample, and audit event sample with no
   customer text.
@@ -606,13 +625,17 @@ manifest.
   [`settings-surface.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/apps/web/src/features/settings/settings-surface.ts#L34-L52).
 - **Files:** modify `packages/convex/confect/access/tenancySchemas.ts`,
   `packages/convex/confect/access/audit.ts`,
-  `packages/convex/confect/access/members.{spec,impl}.ts`,
-  `packages/convex/confect/access/invitations.{spec,impl}.ts`,
+  `packages/convex/confect/access/members.spec.ts`,
+  `packages/convex/confect/access/members.impl.ts`,
+  `packages/convex/confect/access/invitations.spec.ts`,
+  `packages/convex/confect/access/invitations.impl.ts`,
   `apps/web/src/features/settings/settings-surface.ts`,
-  `settings-surface.test.ts`, and `apps/web/src/routes/_workspace.settings.tsx`;
-  create `apps/web/src/features/settings/member-management-adapter.ts`,
-  `member-management-adapter.test.ts`, `member-management.tsx`,
-  `member-management.test.tsx`, and
+  `apps/web/src/features/settings/settings-surface.test.ts`, and
+  `apps/web/src/routes/_workspace.settings.tsx`; create
+  `apps/web/src/features/settings/member-management-adapter.ts`,
+  `apps/web/src/features/settings/member-management-adapter.test.ts`,
+  `apps/web/src/features/settings/member-management.tsx`,
+  `apps/web/src/features/settings/member-management.test.tsx`, and
   `packages/convex/test/brain-role-matrix.test.ts`.
 - **Failure-first tests:** exercise every operation in Appendix B for all four
   roles, direct workspace membership, organization-admin baseline, revoked
@@ -635,7 +658,7 @@ manifest.
   `rtk pnpm --dir packages/convex test access brain-role-matrix`,
   `rtk pnpm --dir apps/web test settings`, codegen/manifest,
   `rtk pnpm check:access-audit-events`, `rtk pnpm check:layer-boundaries`, and
-  `rtk just verify-full`.
+  broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** complete matrix output, last-owner/cross-tenant
   denials, audit vocabulary diff, UI state screenshots, and generated refs.
 - **Commit / PR boundary:** branch `codex/brain-s01-rbac-settings`; commit
@@ -672,8 +695,10 @@ manifest.
   publish state, and lifecycle. Add compound indexes from Appendix C.
 - **Typed errors / state:** `PageNotFound`, `ParentPageNotFound`,
   `PageTreeConflict`, `PageCycle`, `RevisionNotFound`, `TenantMismatch`; page is
-  `active <-> archived`, then `active | archived -> redacted -> purged`;
-  revision is `draft -> proposed -> published | rejected -> redacted -> purged`.
+  `active <-> archived`, then `active | archived -> redacted -> purged`.
+  Revision transitions are `draft -> proposed` and
+  `proposed -> published | rejected`; any non-purged revision may transition to
+  `redacted`, and `redacted -> purged`.
 - **Migration / compatibility / rollback:** expand optional fields; backfill
   deterministic keys/root parents/revision seeds from current Markdown; verify
   hashes and sibling uniqueness; dual-write old snapshot fields through S02;
@@ -681,7 +706,7 @@ manifest.
 - **Focused verification:**
   `rtk pnpm --dir packages/convex test brain-page-schema`, codegen/manifest,
   `rtk pnpm check:schema-migration-notes`, `rtk pnpm check:confect-contracts`,
-  and `rtk just verify`.
+  broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** migration counts/hash comparison, index inventory,
   cycle/cross-tenant denials, generated diff, rollback marker.
 - **Commit / PR boundary:** branch `codex/brain-s02-page-tree-schema`; commit
@@ -722,7 +747,8 @@ manifest.
   UI/spec as one deployment while keeping appended revisions.
 - **Focused verification:** `rtk pnpm --dir packages/convex test brain-pages`,
   codegen/manifest, `rtk pnpm check:confect-contracts`,
-  `rtk pnpm check:headless-surface-contract`, and `rtk just verify`.
+  `rtk pnpm check:headless-surface-contract`, broad verification is deferred to
+  tranche acceptance under Appendix L.
 - **Completion receipt:** role matrix, stale/cycle/cross-tenant denials,
   manifest diff proving no write MCP tool, and revision/audit samples.
 - **Commit / PR boundary:** branch `codex/brain-s02-page-crud`; commit
@@ -768,7 +794,8 @@ manifest.
 - **Focused verification:**
   `rtk pnpm --dir packages/convex test brain-revisions versioning knowledge`,
   codegen/manifest, `rtk pnpm check:confect-contracts`,
-  `rtk pnpm check:schema-migration-notes`, and `rtk just verify`.
+  `rtk pnpm check:schema-migration-notes`, broad verification is deferred to
+  tranche acceptance under Appendix L.
 - **Completion receipt:** fixture-to-real checklist, migration counts, exact
   citation resolution, restore history, effect-key idempotency, and
   authorization denials.
@@ -789,7 +816,10 @@ manifest.
   and current server access resolves a raw page ID then effective role in
   [`editor/sync.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/editor/sync.ts#L24-L63).
 - **Files:** modify `packages/convex/confect/editor/documentTargets.ts`,
-  `editor/sync.ts`, `editor/syncApi.ts`, `brain/pages.{spec,impl}.ts`, and
+  `packages/convex/confect/editor/sync.ts`,
+  `packages/convex/confect/editor/syncApi.ts`,
+  `packages/convex/confect/brain/pages.spec.ts`,
+  `packages/convex/confect/brain/pages.impl.ts`, and
   `packages/convex/test/editor-sync.test.ts`; create
   `packages/convex/test/brain-editor-revision-fence.test.ts`.
 - **Failure-first tests:** forged stable key, cross-Brain key collision, viewer
@@ -809,7 +839,8 @@ manifest.
 - **Focused verification:**
   `rtk pnpm --dir packages/convex test editor brain-editor-revision-fence`,
   `rtk pnpm --dir packages/editor-react test`, codegen/manifest,
-  `rtk pnpm check:layer-boundaries`, and `rtk just verify-full`.
+  `rtk pnpm check:layer-boundaries`, broad verification is deferred to tranche
+  acceptance under Appendix L.
 - **Completion receipt:** viewer/editor/revocation/concurrency results,
   stable-to-internal resolution trace with redacted IDs, and appended revision
   proof.
@@ -831,11 +862,17 @@ manifest.
   [`workspace.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/apps/web/src/navigation/workspace.ts#L37-L179),
   and the Brain route delegates to a generic card surface in
   [`business-shell.tsx`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/apps/web/src/saas-ui/business-shell.tsx#L501-L587).
-- **Files:** modify `apps/web/src/navigation/workspace.ts`, navigation tests,
-  `apps/web/src/saas-ui/business-shell.tsx`, and route registry; create
-  `_workspace.clients.tsx`, `_workspace.connections.tsx`,
-  `features/clients/clients-screen.tsx`, and
-  `features/connections/connections-screen.tsx` with state tests.
+- **Files:** modify `apps/web/src/navigation/workspace.ts`,
+  `apps/web/src/navigation/workspace.test.ts`,
+  `apps/web/src/saas-ui/business-shell.tsx`, and
+  `apps/web/src/platform-routes.test.ts`; create
+  `apps/web/src/routes/_workspace.clients.tsx`,
+  `apps/web/src/routes/_workspace.connections.tsx`,
+  `apps/web/src/features/clients/clients-screen.tsx`,
+  `apps/web/src/features/clients/clients-screen.test.tsx`,
+  `apps/web/src/features/connections/connections-screen.tsx`, and
+  `apps/web/src/features/connections/connections-screen.test.tsx`. Generated
+  route-tree changes remain codegen-owned.
 - **Failure-first tests:** route/navigation manifest must contain only Clients,
   Agency Brain, Connections, Settings, and global Ask/Search; hidden reference
   URLs cannot appear in product nav; loading/empty/typed/transport/ready states
@@ -853,7 +890,8 @@ manifest.
 - **Focused verification:**
   `rtk pnpm --dir apps/web test navigation clients connections`,
   `rtk pnpm check:route-tree`, `rtk pnpm check:frontend-effect-boundary`,
-  `rtk pnpm check:layer-boundaries`, and `rtk just verify`.
+  `rtk pnpm check:layer-boundaries`, broad verification is deferred to tranche
+  acceptance under Appendix L.
 - **Completion receipt:** desktop/mobile/keyboard screenshots, route manifest
   output, hidden-reference-route assertion, and layer gate.
 - **Commit / PR boundary:** branch `codex/brain-s03-product-shell`; commit
@@ -892,8 +930,8 @@ manifest.
   creation but retains created Brains/pages/audit history.
 - **Focused verification:** `rtk pnpm --dir packages/convex test client-brief`,
   `rtk pnpm --dir apps/web test clients`, codegen/manifest,
-  `rtk pnpm check:confect-contracts`, `rtk pnpm check:route-tree`, and
-  `rtk just verify`.
+  `rtk pnpm check:confect-contracts`, `rtk pnpm check:route-tree`, and broad
+  verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** role/idempotency/capacity tests, six-page stable tree
   sample, UI states, and atomic-failure proof.
 - **Commit / PR boundary:** branch `codex/brain-s03-client-brief`; commit
@@ -934,7 +972,8 @@ manifest.
 - **Focused verification:** `rtk pnpm --dir apps/web test brain`,
   `rtk pnpm --dir packages/editor-react test`, `rtk pnpm check:route-tree`,
   `rtk pnpm check:layer-boundaries`, accessibility-focused Playwright for tree
-  and drawers, and `rtk just verify`.
+  and drawers, broad verification is deferred to tranche acceptance under
+  Appendix L.
 - **Completion receipt:** role/state screenshots at desktop/mobile, keyboard and
   screen-reader output, stale-edit proof, route denial, and layer imports.
 - **Commit / PR boundary:** branch `codex/brain-s03-notion-workspace`; commit
@@ -954,12 +993,17 @@ manifest.
   and
   [`versionedEntries.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/tables/versionedEntries.ts#L4-L35).
 - **Files:** create `apps/web/src/features/brain/revision-history.tsx`,
-  `revision-diff.tsx`, `citation-list.tsx`, `restore-dialog.tsx`,
-  `review-queue.tsx`, `revision-history.test.tsx`, `revision-diff.test.tsx`,
-  `citation-list.test.tsx`, `restore-dialog.test.tsx`, and
-  `review-queue.test.tsx`; modify
+  `apps/web/src/features/brain/revision-diff.tsx`,
+  `apps/web/src/features/brain/citation-list.tsx`,
+  `apps/web/src/features/brain/restore-dialog.tsx`,
+  `apps/web/src/features/brain/review-queue.tsx`,
+  `apps/web/src/features/brain/revision-history.test.tsx`,
+  `apps/web/src/features/brain/revision-diff.test.tsx`,
+  `apps/web/src/features/brain/citation-list.test.tsx`,
+  `apps/web/src/features/brain/restore-dialog.test.tsx`, and
+  `apps/web/src/features/brain/review-queue.test.tsx`; modify
   `apps/web/src/features/brain/brain-evidence-drawer.tsx` and
-  `brain-adapter.ts`.
+  `apps/web/src/features/brain/brain-adapter.ts`.
 - **Failure-first tests:** viewer cannot restore/review; editor restores;
   redacted citation shows marker not text; unresolved legacy citation cannot
   authorize publication; stale restore fails; diff escapes untrusted HTML; queue
@@ -976,7 +1020,8 @@ manifest.
   rollback.
 - **Focused verification:**
   `rtk pnpm --dir apps/web test brain revision citation review`, accessibility
-  test, `rtk pnpm check:layer-boundaries`, and `rtk just verify-full`.
+  test, `rtk pnpm check:layer-boundaries`, broad verification is deferred to
+  tranche acceptance under Appendix L.
 - **Completion receipt:** revision/restore/redaction/viewer-denial screenshots,
   XSS fixture result, and empty/ready queue states.
 - **Commit / PR boundary:** branch `codex/brain-s03-history-review-ui`; commit
@@ -1002,12 +1047,16 @@ manifest.
 - **Files:** modify `packages/integrations/package.json`,
   `packages/convex/package.json`, `pnpm-lock.yaml`, `.env.example`,
   `docs/template/env-manifest.md`, and `docs/template/env-manifest.json`; create
-  `packages/integrations/src/nango/client.ts`, `nango/connectBrowser.ts`,
-  `nango/slack.ts`, `nango/client.test.ts`, `nango/connectBrowser.test.ts`,
-  `packages/convex/confect/integrations/slackConnections.{spec,impl}.ts`,
+  `packages/integrations/src/nango/client.ts`,
+  `packages/integrations/src/nango/connectBrowser.ts`,
+  `packages/integrations/src/nango/slack.ts`,
+  `packages/integrations/src/nango/client.test.ts`,
+  `packages/integrations/src/nango/connectBrowser.test.ts`,
+  `packages/convex/confect/integrations/slackConnections.spec.ts`,
+  `packages/convex/confect/integrations/slackConnections.impl.ts`,
   `packages/convex/test/slack-connections.test.ts`, and
   `apps/web/src/features/connections/nango-connect-button.tsx` and
-  `nango-connect-button.test.tsx`.
+  `apps/web/src/features/connections/nango-connect-button.test.tsx`.
 - **Failure-first tests:** signed-out/non-org-admin connect, raw token input,
   forged/expired Connect session, second active Slack connection, provider
   timeout, and connection ID from another organization all fail. Tests assert no
@@ -1036,7 +1085,8 @@ manifest.
   `rtk pnpm --dir packages/convex test slack-connections`,
   `rtk pnpm --dir apps/web test nango-connect`, codegen/manifest,
   `rtk pnpm check:provider-boundary`, `rtk pnpm check:env-boundary`,
-  `rtk pnpm check:secret-canaries`, and `rtk just verify`.
+  `rtk pnpm check:secret-canaries`, broad verification is deferred to tranche
+  acceptance under Appendix L.
 - **Completion receipt:** package versions, fake/live adapter tests, role
   denials, redacted Nango sandbox connection result, and log canary result.
 - **Commit / PR boundary:** branch `codex/brain-s04-nango-connect`; commit
@@ -1056,10 +1106,14 @@ manifest.
   but its optional auto-join behavior must remain disabled
   ([source](https://github.com/NangoHQ/integration-templates/blob/e286bd20c5795f9e8bfbc9053e65669941c08c89/integrations/slack/syncs/channels.ts#L147-L163)).
 - **Files:** create `packages/convex/confect/tables/providerConnections.ts`,
-  `sourceChannels.ts`, `channelSyncStates.ts`,
-  `packages/convex/confect/integrations/slackDirectory.{spec,impl}.ts`,
-  `packages/convex/confect/integrations/slackDirectory.ts`, and tests; modify
-  migration registry and lifecycle inventory.
+  `packages/convex/confect/tables/sourceChannels.ts`,
+  `packages/convex/confect/tables/channelSyncStates.ts`,
+  `packages/convex/confect/integrations/slackDirectory.spec.ts`,
+  `packages/convex/confect/integrations/slackDirectory.impl.ts`,
+  `packages/convex/confect/integrations/slackDirectory.ts`, and
+  `packages/convex/test/slack-directory.test.ts`; modify
+  `packages/convex/convex/migrations.ts` and
+  `docs/product/maestro-brain-lifecycle-adoption.md`.
 - **Failure-first tests:** duplicate active connection/team/app binding,
   `is_member` derived from installer user token, auto-join invocation, channel
   from a stale connection generation, team mismatch, channel rename creating a
@@ -1080,9 +1134,12 @@ manifest.
   `reconcileChannels({ connectionKey, expectedGeneration, cursor, limit }) -> { upserted, accessGained, accessLost, nextCursor }`;
   errors `ConnectionNotFound`, `ConnectionGenerationMismatch`,
   `BotIdentityMismatch`, `ProviderRateLimited`, `ProviderUnavailable`.
-- **State:** connection `verifying -> active | error | revoked`; channel
-  membership `unknown -> not_joined | joined -> access_lost -> joined`; routing
-  state is added in T04, independent from directory state.
+- **State:** connection verification is `verifying -> active | error`, and
+  `active | error -> revoked`. Channel membership is
+  `discovered_not_joined -> joined_needs_policy -> joined_active`, then
+  `joined_active -> access_lost | archived`;
+  `access_lost -> joined_needs_policy` is permitted only under a new access
+  generation. Routing state is added in T04, independent from directory state.
 - **Migration / compatibility / rollback:** additive tables. A failed initial
   reconciliation keeps connection `error` and Connect disabled for ingestion;
   rollback stops reconciliation and retains rows as inactive diagnostics.
@@ -1090,7 +1147,7 @@ manifest.
   `rtk pnpm --dir packages/convex test slack-directory`,
   `rtk pnpm --dir packages/integrations test slack`, codegen/manifest,
   `rtk pnpm check:schema-migration-notes`, `rtk pnpm check:provider-boundary`,
-  and `rtk just verify`.
+  broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** multi-page fixture counts, exact bot identity receipt,
   rename/re-add behavior, no-auto-join call assertion, and index inventory.
 - **Commit / PR boundary:** branch `codex/brain-s04-slack-directory`; commit
@@ -1117,25 +1174,31 @@ manifest.
   `packages/convex/test/slack-webhook-security.test.ts`; modify
   `packages/convex/confect/http.ts`, env manifests, provider/logging gates, and
   generated refs.
-- **Failure-first tests:** invalid/current/previous Slack signature secret,
-  stale/future timestamp, duplicate request ID/event ID, oversized body,
-  malformed JSON, raw unmatched Slack payload, inactive connection,
-  generation/team/app/bot mismatch, and revoked connection. Denials write only
-  redacted metadata and do not invoke the capture transaction.
+- **Failure-first tests:** invalid Slack signature secret, current/previous
+  signature rotation boundaries, stale/future timestamp, duplicate request
+  ID/event ID, oversized body, malformed JSON, raw unmatched Slack payload,
+  inactive connection, generation/team/app/bot mismatch, and revoked connection.
+  Invalid signature, timestamp, size, malformed-body, and unmatched-connection
+  denials emit only redacted pre-tenant security telemetry; they create no
+  Convex tenant row and do not invoke the capture transaction.
 - **Implementation:** use one narrow Maestro-owned Slack Events receiver. Verify
   Slack's native signature over the exact raw bytes and timestamp before JSON
   decode, handle URL verification without tenant writes, and normalize only
-  after verification. Nango continues to own OAuth/tokens/API proxy/history/send
-  actions. Bind
-  `providerConfigKey + connectionId + generation + teamId + apiAppId` to exactly
-  one active org before capture.
+  after verification. After native signature verification, decode the minimum
+  binding fields, resolve exactly one active organization/connection generation,
+  and only then create the tenant-scoped provider-event receipt. Unknown or
+  unmatched connections emit non-tenant security telemetry and make zero tenant
+  writes. Nango continues to own OAuth/tokens/API proxy/history/send actions.
+  Bind `providerConfigKey + connectionId + generation + teamId + apiAppId` to
+  exactly one active org before capture.
 - **Manifest:** request only scopes/events in Appendix E; auto-join scopes and
   `users:read.email` are absent. The checked-in manifest is the deployment
   source of truth and its hash is recorded after Slack/Nango configuration.
 - **Typed errors / state:** `WebhookUnverified`, `WebhookExpired`,
   `WebhookReplay`, `PayloadTooLarge`, `ConnectionUnmatched`,
-  `ConnectionGenerationMismatch`, `TeamAppMismatch`; request outcome is
-  `rejected | quarantined_metadata_only | accepted_duplicate | accepted`.
+  `ConnectionGenerationMismatch`, `TeamAppMismatch`; tenant receipt outcome is
+  `rejected_after_binding | accepted_duplicate | accepted`. Pre-verification and
+  unmatched-connection failures are telemetry, not receipt states.
 - **Migration / compatibility / rollback:** add current/previous webhook secret
   names, never values. Rotate by deploy-current-as-previous, add-new-current,
   verify, then remove old. Rollback disables the native receiver and capture;
@@ -1144,11 +1207,11 @@ manifest.
   `rtk pnpm --dir packages/integrations test eventsVerifier`,
   `rtk pnpm --dir packages/convex test slack-webhook-security`,
   codegen/manifest, `rtk pnpm check:provider-boundary`,
-  `rtk pnpm check:logging-boundary`, `rtk pnpm check:secret-canaries`, and
-  `rtk just verify`.
+  `rtk pnpm check:logging-boundary`, `rtk pnpm check:secret-canaries`, and broad
+  verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** native signature/replay/size matrix, raw-byte verifier
-  evidence, manifest hash, secret-name inventory, and proof rejected payloads
-  made zero tenant writes.
+  evidence, manifest hash, secret-name inventory, redacted pre-tenant telemetry
+  samples, and proof rejected payloads made zero tenant writes.
 - **Commit / PR boundary:** branch `codex/brain-s04-webhook-security`; commit
   `feat: verify Slack webhook bindings`.
 
@@ -1186,9 +1249,9 @@ manifest.
   accepting policy. Bulk change is all-or-nothing and audited.
 - **Typed errors / state:** `ChannelNotJoined`, `PolicyInvalid`,
   `TargetBrainForbidden`, `PolicyGenerationMismatch`, `CapacityExceeded`;
-  channel is `needs_policy -> streaming | capture_only`, bot loss moves either
-  to `access_lost`, and provider failures to `error`. Backfill has its own
-  state.
+  routing status is `needs_policy -> streaming | capture_only`, and
+  `streaming | capture_only -> access_lost | error`. Channel membership retains
+  T02's canonical names. Backfill has its own state.
 - **Migration / compatibility / rollback:** additive policy tables. Normal
   changes are prospective by first-observed time. Rollback creates a new policy
   epoch; it never rewrites the prior one. Emergency historical revocation is
@@ -1196,8 +1259,8 @@ manifest.
 - **Focused verification:**
   `rtk pnpm --dir packages/convex test channel-policies`,
   `rtk pnpm --dir apps/web test connections`, codegen/manifest,
-  route/layer/access-audit gates, accessibility test, and
-  `rtk just verify-full`.
+  route/layer/access-audit gates, accessibility test, and broad verification is
+  deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** all role/policy invariants, 100-channel selection
   fixture, Slack Connect Direct/Classify ingestion allowed plus
   requester-private delivery denial, bulk atomicity, UI screenshots, and audit
@@ -1249,7 +1312,8 @@ manifest.
   Re-enable only after the new binary understands every stored schema version.
 - **Focused verification:** schema/property tests,
   `rtk pnpm --dir packages/convex test source-ledger-schema`, codegen/manifest,
-  schema-migration/confect-contract gates, and `rtk just verify`.
+  schema-migration/confect-contract gates, broad verification is deferred to
+  tranche acceptance under Appendix L.
 - **Completion receipt:** table/index inventory, schema version, tenant/key/
   partial-write tests, and lifecycle declarations.
 - **Commit / PR boundary:** branch `codex/brain-s05-source-ledger-schema`;
@@ -1294,8 +1358,8 @@ manifest.
   disables webhook acceptance rather than writing with an older schema.
 - **Focused verification:**
   `rtk pnpm --dir packages/convex test source-capture`, adversarial property
-  tests, provider/logging boundary gates, codegen/manifest, and
-  `rtk just verify`.
+  tests, provider/logging boundary gates, codegen/manifest, and broad
+  verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** `A -> B -> A` rows, crash matrix, duplicate/race
   outcome, zero model calls, ACK timing, and no raw webhook log proof.
 - **Commit / PR boundary:** branch `codex/brain-s05-atomic-capture`; commit
@@ -1314,9 +1378,13 @@ manifest.
   [`source-unit-knowledge-model.md`](https://github.com/modernagencysales/maestro/blob/c8b644c154af91f7e6b67b31861fd6b7eaa211b1/docs/architecture/source-unit-knowledge-model.md);
   do not import its content-generation taxonomy.
 - **Files:** create `packages/convex/confect/tables/sourceUnits.ts`,
-  `sourceUnitRevisions.ts`, `packages/convex/confect/sources/assembler.ts`,
-  `sourceUnits.{spec,impl}.ts`, and tests; modify job schema/lifecycle
-  inventory.
+  `packages/convex/confect/tables/sourceUnitRevisions.ts`,
+  `packages/convex/confect/sources/assembler.ts`,
+  `packages/convex/confect/sources/sourceUnits.spec.ts`,
+  `packages/convex/confect/sources/sourceUnits.impl.ts`, and
+  `packages/convex/test/source-unit.test.ts`; modify
+  `packages/convex/confect/tables/sourceProcessingJobs.ts` and
+  `docs/product/maestro-brain-lifecycle-adoption.md`.
 - **Failure-first tests:** standalone and thread assembly, out-of-order replies,
   reply arriving during assembly, a thread spanning a policy change, edit/delete
   at the cut, over-message/byte/token bounds, stale lease, duplicate assembly
@@ -1338,7 +1406,7 @@ manifest.
   Rollback stops new assembly and leaves pending intents resumable.
 - **Focused verification:** `rtk pnpm --dir packages/convex test source-unit`,
   property/concurrency tests, codegen/manifest, schema/lifecycle gates, and
-  `rtk just verify`.
+  broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** fixed-cut race proof, bounds, deterministic repeated
   hash, supersession, tenant isolation, and no LLM/provider imports.
 - **Commit / PR boundary:** branch `codex/brain-s05-source-unit-snapshots`;
@@ -1383,7 +1451,7 @@ manifest.
 - **Focused verification:** generator dry-run then write, codegen/manifest,
   `rtk pnpm --dir packages/convex test commitSourceRoute direct-routing`,
   Confect/workflow/headless contract gates, zero-LLM import/call assertion, and
-  `rtk just verify-full`.
+  broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** generator provenance, Direct/Capture-only/no-policy
   state results, exact route row, idempotency/fencing, and manifest proof that
   no public route-commit tool exists.
@@ -1404,9 +1472,13 @@ manifest.
 - **Existing anchors:** the workpool is mounted but current enqueue/status/
   background work is demo behavior in
   [`workpool.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/jobs/workpool.ts#L18-L86).
-- **Files:** modify `packages/convex/confect/jobs/workpool.{spec,impl,ts}`,
-  `packages/convex/convex/jobs/workpool.ts`, and job table; create
-  `packages/convex/confect/jobs/leases.ts`, `jobState.ts`, and
+- **Files:** modify `packages/convex/confect/jobs/workpool.spec.ts`,
+  `packages/convex/confect/jobs/workpool.impl.ts`,
+  `packages/convex/confect/jobs/workpool.ts`,
+  `packages/convex/convex/jobs/workpool.ts`, and
+  `packages/convex/confect/tables/sourceProcessingJobs.ts`; create
+  `packages/convex/confect/jobs/leases.ts`,
+  `packages/convex/confect/jobs/jobState.ts`, and
   `packages/convex/test/source-workpool.test.ts`.
 - **Failure-first tests:** crash before/after claim, after external response,
   before/after commit, and before ACK; lease expiry/reclaim; stale worker
@@ -1426,8 +1498,8 @@ manifest.
   leases expire; never clear pending jobs.
 - **Focused verification:**
   `rtk pnpm --dir packages/convex test source-workpool`, codegen/manifest,
-  workpool contract tests, `rtk pnpm check:workflow-graph-boundary`, and
-  `rtk just verify`.
+  workpool contract tests, `rtk pnpm check:workflow-graph-boundary`, and broad
+  verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** full crash matrix, duplicate external-call versus one
   accepted effect proof, lease fencing, terminal/retry states, no public
   control.
@@ -1463,7 +1535,7 @@ manifest.
   Admission above the approved channel/job/concurrency policy returns
   `CapacityExceeded` or an explicit bounded queued state; it never silently
   accepts work that the scheduler will drop.
-- **Typed errors / state:** bucket `available -> throttled -> available`;
+- **Typed errors / state:** bucket `available -> blocked_until -> available`;
   admission `accepted | queued | capacity_rejected`; errors
   `RateBudgetExceeded`, `ProviderRateLimited`, `CapacityExceeded`.
 - **Migration / compatibility / rollback:** additive rows/config. Launch
@@ -1472,7 +1544,8 @@ manifest.
 - **Focused verification:**
   `rtk pnpm --dir packages/convex test source-fairness slack-rate-budget`,
   property/TestClock tests, schema/codegen gates, no-text- scheduler dependency
-  assertion, and `rtk just verify`.
+  assertion, broad verification is deferred to tranche acceptance under Appendix
+  L.
 - **Completion receipt:** fairness distribution, priority latency, 429 timeline,
   noisy-neighbor isolation, and configured launch limits.
 - **Commit / PR boundary:** branch `codex/brain-s06-fair-scheduler`; commit
@@ -1510,7 +1583,8 @@ manifest.
 - **Focused verification:** integration fake tests,
   `rtk pnpm --dir packages/convex test slack-backfill`,
   `rtk pnpm --dir packages/integrations test slackHistory`, provider/logging
-  gates, codegen/manifest, and `rtk just verify`.
+  gates, codegen/manifest, broad verification is deferred to tranche acceptance
+  under Appendix L.
 - **Completion receipt:** 100-channel cursor independence, batch memory bound,
   crash/CAS proof, live-race idempotency, recent/deep status, and no first-
   channel sampling.
@@ -1530,15 +1604,18 @@ manifest.
   [`health.impl.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/ops/health.impl.ts#L1-L18).
   S04 supplies the Connections surface; Nango/provider retry alone does not
   provide source-level reconciliation.
-- **Files:** create
-  `packages/convex/confect/slack/reconciliation.{spec,impl}.ts`, `recovery.ts`,
+- **Files:** create `packages/convex/confect/slack/reconciliation.spec.ts`,
+  `packages/convex/confect/slack/reconciliation.impl.ts`,
+  `packages/convex/confect/slack/recovery.ts`,
   `packages/convex/test/slack-reconciliation.test.ts`,
   `apps/web/src/features/connections/channel-health.tsx`,
-  `channel-health.test.tsx`, `dead-letter-dialog.tsx`, and
-  `dead-letter-dialog.test.tsx`; modify
+  `apps/web/src/features/connections/channel-health.test.tsx`,
+  `apps/web/src/features/connections/dead-letter-dialog.tsx`, and
+  `apps/web/src/features/connections/dead-letter-dialog.test.tsx`; modify
   `packages/convex/confect/jobs/fairScheduler.ts`,
   `packages/convex/confect/tables/channelSyncStates.ts`,
-  `packages/convex/confect/ops/notifications.{spec,impl}.ts`, and
+  `packages/convex/confect/ops/notifications.spec.ts`,
+  `packages/convex/confect/ops/notifications.impl.ts`, and
   `packages/convex/confect/access/audit.ts`.
 - **Failure-first tests:** missed edit/delete in overlap, bot removed/re-added,
   message expired during access loss, permanent poison record, max attempts,
@@ -1558,7 +1635,8 @@ manifest.
 - **Focused verification:**
   `rtk pnpm --dir packages/convex test slack-reconciliation`,
   `rtk pnpm --dir apps/web test channel-health`, notification/access/logging
-  gates, accessibility test, and `rtk just verify-full`.
+  gates, accessibility test, broad verification is deferred to tranche
+  acceptance under Appendix L.
 - **Completion receipt:** repairable/unrecoverable fixtures, dead-letter replay
   authorization, independent progress, UI screenshots, and operator audit.
 - **Commit / PR boundary:** branch `codex/brain-s06-reconciliation`; commit
@@ -1608,8 +1686,8 @@ manifest.
   preserve the stricter visibility decision.
 - **Focused verification:**
   `rtk pnpm --dir packages/convex test dataLifecycle lifecycle-envelope`,
-  codegen/manifest, schema migration/access audit/contract gates, and
-  `rtk just verify`.
+  codegen/manifest, schema migration/access audit/contract gates, and broad
+  verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** resource owner/export/delete/retention inventory,
   migration counts, hold/generation denials, and current-read filter proof.
 - **Commit / PR boundary:** branch `codex/brain-s07-lifecycle-envelope`; commit
@@ -1655,7 +1733,8 @@ manifest.
   make redacted text current. An authorized re-route creates new active derived
   rows from still-retained source, not resurrected old rows.
 - **Focused verification:** lifecycle propagation/race tests, codegen/manifest,
-  logging/access audit/schema gates, and `rtk just verify`.
+  logging/access audit/schema gates, broad verification is deferred to tranche
+  acceptance under Appendix L.
 - **Completion receipt:** extant-resource matrix results, immediate
   page/current- read/history/editor denial, in-flight fencing, idempotent
   resume, redacted citation marker, and the explicit S09-S12 adoption ledger.
@@ -1673,13 +1752,17 @@ manifest.
 - **Existing anchors:** current `createDsarRequest` is only the review handoff
   and explicitly does not execute deletion
   ([source](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/docs/template/data-lifecycle.md#L44-L55)).
-- **Files:** modify `packages/convex/confect/ops/dataLifecycle.{spec,impl,ts}`
-  and `packages/convex/confect/tables/dsarRequests.ts`; create
+- **Files:** modify `packages/convex/confect/ops/dataLifecycle.spec.ts`,
+  `packages/convex/confect/ops/dataLifecycle.impl.ts`,
+  `packages/convex/confect/ops/dataLifecycle.ts`, and
+  `packages/convex/confect/tables/dsarRequests.ts`; create
   `packages/convex/confect/tables/dataSubjectBindings.ts`,
-  `dataSubjectOccurrences.ts`,
+  `packages/convex/confect/tables/dataSubjectOccurrences.ts`,
   `packages/convex/confect/lifecycle/dataSubjects.ts`,
-  `packages/convex/confect/lifecycle/executor.ts`, `purge.ts`,
-  `backupPolicy.ts`, `packages/convex/test/data-subject-scope.test.ts`,
+  `packages/convex/confect/lifecycle/executor.ts`,
+  `packages/convex/confect/lifecycle/purge.ts`,
+  `packages/convex/confect/lifecycle/backupPolicy.ts`,
+  `packages/convex/test/data-subject-scope.test.ts`,
   `packages/convex/test/lifecycle-executor.test.ts`, and
   `docs/product/maestro-brain-data-handling.md`.
 - **Failure-first tests:** wrong confirmation, non-owner organization delete,
@@ -1709,7 +1792,8 @@ manifest.
   must reapply tombstones/revocation journal before serving traffic.
 - **Focused verification:**
   `rtk pnpm --dir packages/convex test dataLifecycle purge dsar`,
-  schema/access/logging/secret gates, staging rehearsal, and `rtk just verify`.
+  schema/access/logging/secret gates, staging rehearsal, broad verification is
+  deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** approval/manifest hashes, per-resource counts, hold
   denial, resume result, provider backup evidence/window, and restored-backup
   tombstone replay test.
@@ -1729,12 +1813,15 @@ manifest.
   [`data-lifecycle.md`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/docs/template/data-lifecycle.md#L52-L63).
 - **Files:** modify
   `apps/web/src/features/data-lifecycle/data-lifecycle-surface.tsx`,
-  `data-lifecycle-surface.test.tsx`,
+  `apps/web/src/features/data-lifecycle/data-lifecycle-surface.test.tsx`,
   `apps/web/src/routes/_workspace.data-lifecycle.tsx`, and
   `apps/web/src/features/brain/evidence-drawer.tsx`; create
   `apps/web/src/features/settings/retention-policy.tsx`,
-  `retention-policy.test.tsx`, `legal-holds.tsx`, `legal-holds.test.tsx`,
-  `lifecycle-job-detail.tsx`, `lifecycle-job-detail.test.tsx`, and
+  `apps/web/src/features/settings/retention-policy.test.tsx`,
+  `apps/web/src/features/settings/legal-holds.tsx`,
+  `apps/web/src/features/settings/legal-holds.test.tsx`,
+  `apps/web/src/features/settings/lifecycle-job-detail.tsx`,
+  `apps/web/src/features/settings/lifecycle-job-detail.test.tsx`, and
   `docs/product/maestro-brain-lifecycle-operations.md`.
 - **Failure-first tests:** viewer/editor policy/hold/job denial, redacted
   citation rendering, failed job retry stale generation, purge preview counts,
@@ -1751,8 +1838,8 @@ manifest.
   for that.
 - **Focused verification:**
   `rtk pnpm --dir apps/web test data-lifecycle retention legal-holds`,
-  accessibility test, route/layer/logging/access gates, and
-  `rtk just verify-full`.
+  accessibility test, route/layer/logging/access gates, and broad verification
+  is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** role/state screenshots, redacted citation UX,
   destructive confirmation, telemetry canary, and operator recovery rehearsal.
 - **Commit / PR boundary:** branch `codex/brain-s07-lifecycle-ui`; commit
@@ -1776,12 +1863,20 @@ manifest.
   [`llm.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/integrations/src/llm.ts#L53-L95)
   and
   [`llm.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/integrations/src/llm.ts#L167-L248).
-- **Files:** modify `packages/integrations/src/llm.ts`, `llmResponse.ts`, tests,
-  package/lock/env manifests; create
-  `packages/integrations/src/llmStructured.ts`, `llmReceipt.ts`,
-  `llmEgressPolicy.ts`, tests, and
+- **Files:** modify `packages/integrations/src/llm.ts`,
+  `packages/integrations/src/llmResponse.ts`,
+  `packages/integrations/src/llm.test.ts`,
+  `packages/integrations/src/llmResponse.test.ts`,
+  `packages/integrations/package.json`, `pnpm-lock.yaml`, `.env.example`,
+  `docs/template/env-manifest.md`, and `docs/template/env-manifest.json`; create
+  `packages/integrations/src/llmStructured.ts`,
+  `packages/integrations/src/llmReceipt.ts`,
+  `packages/integrations/src/llmEgressPolicy.ts`,
+  `packages/integrations/src/llmStructured.test.ts`,
+  `packages/integrations/src/llmReceipt.test.ts`,
+  `packages/integrations/src/llmEgressPolicy.test.ts`, and
   `packages/convex/confect/tables/modelCallReceipts.ts`; modify lifecycle
-  registry.
+  inventory `docs/product/maestro-brain-lifecycle-adoption.md`.
 - **Failure-first tests:** valid structured output, malformed JSON/schema, wrong
   request/source hash, provider/model mismatch, timeout, cancellation, rate
   limit, spend/token/input bounds, disallowed provider/model/region,
@@ -1806,7 +1901,8 @@ manifest.
   remain append-only.
 - **Focused verification:** `rtk pnpm --dir packages/integrations test llm`,
   `rtk pnpm --dir packages/convex test model-call-receipts`, codegen/manifest,
-  provider/env/logging/secret gates, and `rtk just verify`.
+  provider/env/logging/secret gates, broad verification is deferred to tranche
+  acceptance under Appendix L.
 - **Completion receipt:** selected transport/package pin, fake and sandbox
   structured calls, every typed failure, egress policy, request/response hashes,
   cost/token bounds, and log canary.
@@ -1825,9 +1921,16 @@ manifest.
 - **Existing anchors:** current generated start/status/approve functions are
   public and declare all four surfaces in
   [`tooling/generators/src/index.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/tooling/generators/src/index.ts#L1803-L1875).
-- **Files:** modify `tooling/generators/src/index.ts` and tests,
-  `docs/template/how-to-add-workflow.md`, generator output contract, package CLI
-  help, and template backlog; add adversarial generator fixtures.
+- **Files:** modify `tooling/generators/src/index.ts`,
+  `tooling/generators/src/index.test.ts`,
+  `tooling/generators/src/workflow-output-smoke.ts`,
+  `tooling/generators/package.json`, root `package.json`,
+  `docs/template/how-to-add-workflow.md`, and
+  `docs/template/generator-output-contract.md`; create
+  `tooling/generators/__fixtures__/workflow/internal.expected.json`,
+  `tooling/generators/__fixtures__/workflow/public.expected.json`, and
+  `tooling/generators/__fixtures__/workflow/invalid-exposure.json`. S08 owns no
+  template-backlog edit; S09-T01 owns the async-search backlog update.
 - **Failure-first tests:** `--exposure internal` is initially rejected; after
   implementation its generated spec uses internal functions, manifest surfaces
   are empty, no OpenAPI/MCP/CLI descriptor exists, durable runner still composes
@@ -1847,8 +1950,7 @@ manifest.
   migration that preserves generated contracts.
 - **Focused verification:** `rtk pnpm --dir tooling/generators test`,
   `rtk pnpm template:workflow-output-smoke`, `rtk pnpm test:workflow`,
-  `rtk pnpm check:generators`, `rtk pnpm check:headless-surface-contract`, and
-  `rtk just verify`.
+  `rtk pnpm check:generators`, and `rtk pnpm check:headless-surface-contract`.
 - **Completion receipt:** before/after generator output tree, provenance,
   byte-identical public fixture, no-surface manifest, and CLI help.
 - **Commit / PR boundary:** branch `codex/brain-s08-internal-workflows`; commit
@@ -1870,14 +1972,17 @@ manifest.
 - **Existing anchors:** generated capability drafts are public mutations by
   default, so the named workflow exposure and manifest review are mandatory
   ([source](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/tooling/generators/src/index.ts#L1143-L1178)).
-- **Files:** generator dry-runs enumerate/hash the generated
-  `classifySourceUnit` capability and `sourceClassification` workflow targets;
-  create `packages/convex/confect/tables/classificationDecisions.ts`,
-  `packages/convex/confect/classification/{gather,request,review,commit}.ts`,
+- **Files:** generator dry-runs enumerate/hash the generated classifySourceUnit
+  capability and sourceClassification workflow targets; create
+  `packages/convex/confect/tables/classificationDecisions.ts`,
+  `packages/convex/confect/classification/gather.ts`,
+  `packages/convex/confect/classification/request.ts`,
+  `packages/convex/confect/classification/review.ts`,
+  `packages/convex/confect/classification/commit.ts`,
   `packages/convex/test/source-classification.test.ts`,
   `apps/web/src/features/connections/classification-review-queue.tsx`, and
-  `classification-review-queue.test.tsx`; modify
-  `packages/convex/confect/tables/sourceProcessingJobs.ts`,
+  `apps/web/src/features/connections/classification-review-queue.test.tsx`;
+  modify `packages/convex/confect/tables/sourceProcessingJobs.ts`,
   `docs/product/maestro-brain-lifecycle-adoption.md`, and generated manifests.
 - **Failure-first tests:** Direct/Capture-only makes zero calls; empty/multiple/
   out-of-allowlist target, wrong snapshot/hash/policy, unresolved evidence
@@ -1905,7 +2010,8 @@ manifest.
 - **Focused verification:** generator dry-run/write, codegen/manifest,
   `rtk pnpm --dir packages/convex test classification`,
   `rtk pnpm --dir apps/web test review-queue`, workflow/confect/headless/layer
-  gates, classification eval smoke, and `rtk just verify`.
+  gates, classification eval smoke, broad verification is deferred to tranche
+  acceptance under Appendix L.
 - **Completion receipt:** generator provenance, zero-call Direct proof,
   allowlist/zero-one/mixed-client fixtures, admin review actions, duplicate
   model attempts versus one route, injection fixtures, and no public cognition
@@ -1929,13 +2035,16 @@ manifest.
   LLM seam is now structured from T01. The repo layer law requires workflows to
   compose capabilities and provider calls to stay behind adapters
   ([source](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/AGENTS.md#L50-L58)).
-- **Files:** generator dry-runs enumerate/hash the generated `maintainBrainPage`
-  capability and `sourceToBrainMaintenance` workflow targets; create
+- **Files:** generator dry-runs enumerate/hash the generated maintainBrainPage
+  capability and sourceToBrainMaintenance workflow targets; create
   `packages/convex/confect/tables/brainMaintenanceProposals.ts`,
-  `packages/convex/confect/maintenance/{gather,request,policy,commit}.ts`,
+  `packages/convex/confect/maintenance/gather.ts`,
+  `packages/convex/confect/maintenance/request.ts`,
+  `packages/convex/confect/maintenance/policy.ts`,
+  `packages/convex/confect/maintenance/commit.ts`,
   `packages/convex/test/brain-maintenance.test.ts`,
   `apps/web/src/features/brain/maintenance-review.tsx`, and
-  `maintenance-review.test.tsx`; modify
+  `apps/web/src/features/brain/maintenance-review.test.tsx`; modify
   `packages/convex/confect/tables/sourceProcessingJobs.ts`,
   `docs/product/maestro-brain-lifecycle-adoption.md`, generated manifests, and
   `tooling/evals/src/index.ts`.
@@ -1962,7 +2071,8 @@ manifest.
 - **Focused verification:** generator/codegen/manifest,
   `rtk pnpm --dir packages/convex test brain-maintenance`,
   `rtk pnpm --dir apps/web test maintenance-review`, workflow/headless/layer
-  gates, maintenance/injection eval smoke, and `rtk just verify-full`.
+  gates, maintenance/injection eval smoke, broad verification is deferred to
+  tranche acceptance under Appendix L.
 - **Completion receipt:** no-op/review/autopilot states, citation and stale-race
   proof, model-change downgrade, revision budget, prompt-injection matrix,
   generator provenance, and no public workflow controls.
@@ -1986,8 +2096,9 @@ manifest.
   which cannot wrap a Convex query.
 - **Files:** modify `packages/search/src/index.ts`,
   `packages/search/src/index.test.ts`, and `packages/search/package.json`;
-  create `packages/search/src/asyncSearch.ts`, `asyncSearch.test.ts`, and (when
-  still absent) `docs/product/maestro-brain-lifecycle-adoption.md`; update
+  create `packages/search/src/asyncSearch.ts`,
+  `packages/search/src/asyncSearch.test.ts`, and (when still absent)
+  `docs/product/maestro-brain-lifecycle-adoption.md`; update
   `docs/template/porting-backlog.md`. The pinned baseline has no external
   first-party consumer; drift preflight enumerates any new one.
 - **Failure-first tests:** async fake/live parity, cancellation, timeout,
@@ -2044,17 +2155,18 @@ manifest.
   Define a Convex search index filtered by organization/workspace/active/kind.
   Authorization is resolved before query; every returned candidate is rechecked
   against current generations.
-- **Typed errors / state:** projection
-  `pending -> active -> inactive | redacted -> purged`; `ProjectionStale`,
-  `RouteInactive`, `LifecycleRevoked`, `TenantMismatch`, `DuplicateEffect`.
+- **Typed errors / state:** projection is `pending -> active`;
+  `active -> inactive | redacted`; `inactive | redacted -> purged`. Errors are
+  `ProjectionStale`, `RouteInactive`, `LifecycleRevoked`, `TenantMismatch`,
+  `DuplicateEffect`.
 - **Migration / compatibility / rollback:** backfill active pages/routes in
   bounded batches after dry-run counts; do not index vault-only source. Rollback
   disables the live adapter and deactivates new projections; reads use exact
   page/source APIs.
 - **Focused verification:**
   `rtk pnpm --dir packages/convex test search-projections`, codegen/manifest,
-  schema/lifecycle/confect gates, cross-tenant and redaction races, and
-  `rtk just verify`.
+  schema/lifecycle/confect gates, cross-tenant and redaction races, and broad
+  verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** projection/index inventory, backfill counts, vault-
   exclusion proof, revoke/delete behavior, and authorization-before-query trace.
 - **Commit / PR boundary:** branch `codex/brain-s09-search-projections`; commit
@@ -2075,10 +2187,11 @@ manifest.
   generated MCP descriptors come from manifest metadata
   ([source](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/manifest/mcp.ts#L17-L25)).
 - **Files:** the generator dry-run enumerates/hashes the generated
-  `brainContextRead` target; modify
-  `packages/convex/confect/brain/pages.{spec,impl}.ts`; create
+  brainContextRead target; modify `packages/convex/confect/brain/pages.spec.ts`,
+  `packages/convex/confect/brain/pages.impl.ts`; create
   `packages/convex/confect/tables/retrievalReceipts.ts`,
-  `packages/convex/confect/retrieval/{manifest,reads}.ts`, and
+  `packages/convex/confect/retrieval/manifest.ts`,
+  `packages/convex/confect/retrieval/reads.ts`, and
   `packages/convex/test/brain-context-read.test.ts`; update
   `docs/product/maestro-brain-lifecycle-adoption.md` and generated manifests.
 - **Failure-first tests:** signed-out/wrong role, caller tenant/Convex fields,
@@ -2088,8 +2201,10 @@ manifest.
 - **Implementation:** implement `brain.pages.list/get/history`,
   `brain.sources.search/get`, and `brain.context.get`. Principal supplies no
   tenant args; adapter injects current Brain. Return stable keys, `asOf`,
-  freshness/watermarks, exact citations, and bounded content. Persist immutable
-  retrieval candidate manifest/filters/generations/hash before any answer model.
+  freshness/watermarks, exact citations, and bounded content. Persist the query
+  hash, normalized filter manifest/hash, immutable retrieval candidate manifest,
+  generations, and canonical manifest hash before any answer model. The receipt
+  never stores raw query text.
 - **Typed errors / state:** `Unauthorized`, `Forbidden`, `PageNotFound`,
   `SourceNotFound`, `SourceRedacted`, `ContextLimitExceeded`,
   `RetrievalManifestStale`, `LifecycleRevoked`; receipt
@@ -2099,7 +2214,8 @@ manifest.
   headless metadata while web reads remain generated-ref based.
 - **Focused verification:** generator/codegen/manifest,
   `rtk pnpm --dir packages/convex test brain-context-read retrieval`,
-  Confect/headless/lifecycle gates, public-ID scan, and `rtk just verify`.
+  Confect/headless/lifecycle gates, public-ID scan, broad verification is
+  deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** operation schemas, role/cross-tenant/redaction tests,
   immutable manifest/hash, stable response examples, and generated surface diff.
 - **Commit / PR boundary:** branch `codex/brain-s09-context-reads`; commit
@@ -2119,12 +2235,16 @@ manifest.
   [`llm.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/integrations/src/llm.ts#L1-L117)
   seam. Search supplies candidates only; the model, not local weights or keyword
   trees, chooses evidence through S08's shared gateway.
-- **Files:** the generator dry-run enumerates/hashes the generated `askBrain`
-  target; create
-  `packages/convex/confect/answers/{gather,request,validate,deliver}.ts`,
+- **Files:** the generator dry-run enumerates/hashes the generated askBrain
+  target; create `packages/convex/confect/answers/gather.ts`,
+  `packages/convex/confect/answers/request.ts`,
+  `packages/convex/confect/answers/validate.ts`,
+  `packages/convex/confect/answers/deliver.ts`,
   `packages/convex/test/brain-ask.test.ts`,
-  `apps/web/src/features/brain/ask-dialog.tsx`, `ask-dialog.test.tsx`,
-  `ask-adapter.ts`, and `ask-adapter.test.ts`; modify
+  `apps/web/src/features/brain/ask-dialog.tsx`,
+  `apps/web/src/features/brain/ask-dialog.test.tsx`,
+  `apps/web/src/features/brain/ask-adapter.ts`, and
+  `apps/web/src/features/brain/ask-adapter.test.ts`; modify
   `packages/convex/confect/tables/retrievalReceipts.ts`,
   `docs/product/maestro-brain-lifecycle-adoption.md`, and
   `apps/web/src/features/brain/brain-workspace.tsx`.
@@ -2147,7 +2267,7 @@ manifest.
 - **Focused verification:** generator/codegen/manifest,
   `rtk pnpm --dir packages/convex test ask-brain`,
   `rtk pnpm --dir apps/web test ask`, headless/confect/layer gates, answer eval
-  smoke, and `rtk just verify-full`.
+  smoke, broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** cited/abstention examples, final-auth race, injection/
   multilingual results, duplicate attempts/one accepted receipt, UI states, and
   no local semantic heuristic scan.
@@ -2184,15 +2304,17 @@ manifest.
   Removing one workspace membership only revokes that Brain's access through the
   current role generation; it does not unlink the Slack identity from other
   authorized Brains. Every request rechecks binding and current Brain role.
-- **Typed errors / state:** `unlinked -> pending -> verified -> revoked`;
-  `LinkExpired`, `LinkReplay`, `SlackIdentityAlreadyBound`, `TeamMismatch`,
-  `BindingRevoked`, auth errors.
+- **Typed errors / state:**
+  `unlinked -> pending_verification -> active -> revoked`; `LinkExpired`,
+  `LinkReplay`, `SlackIdentityAlreadyBound`, `TeamMismatch`, `BindingRevoked`,
+  auth errors.
 - **Migration / compatibility / rollback:** new table. Rollback revokes active
   Slack answering while keeping audit rows; capture is unaffected.
 - **Focused verification:**
   `rtk pnpm --dir packages/convex test slack-identity-links`,
   `rtk pnpm --dir apps/web test slack-identity`, codegen/manifest,
-  access/logging/secret gates, and `rtk just verify`.
+  access/logging/secret gates, broad verification is deferred to tranche
+  acceptance under Appendix L.
 - **Completion receipt:** link/replay/spoof/revocation matrix, exact binding
   metadata sample, role recheck, and no-secret log result.
 - **Commit / PR boundary:** branch `codex/brain-s10-slack-identity`; commit
@@ -2215,9 +2337,12 @@ manifest.
   [`handle-app-mention.ts`](https://github.com/vercel-labs/ai-sdk-slackbot/blob/7d84809865ba4624a38eab4dd6dbb2aecc3758bc/lib/handle-app-mention.ts#L29-L56),
   but its static token client must not be copied.
 - **Files:** the generator dry-run enumerates/hashes the generated
-  `selectAuthorizedBrainScope` capability target; create
-  `packages/convex/confect/slack/intake.{spec,impl}.ts`, `answerJobs.ts`,
-  `scopeSelection.ts`, and `packages/convex/test/slack-intake.test.ts`; modify
+  selectAuthorizedBrainScope capability target; create
+  `packages/convex/confect/slack/intake.spec.ts`,
+  `packages/convex/confect/slack/intake.impl.ts`,
+  `packages/convex/confect/slack/answerJobs.ts`,
+  `packages/convex/confect/slack/scopeSelection.ts`, and
+  `packages/convex/test/slack-intake.test.ts`; modify
   `packages/convex/confect/slack/webhook.impl.ts`,
   `packages/convex/confect/tables/sourceProcessingJobs.ts`,
   `docs/product/maestro-brain-lifecycle-adoption.md`, and generated manifests.
@@ -2231,8 +2356,11 @@ manifest.
   closed scope-selection model over authorized stable descriptors; interactive
   picker selection is mechanical. Result is one Brain or `needs_clarification`;
   handler has no matching heuristics or Ask prompt.
-- **Typed errors / state:** answer job
-  `received -> scope_pending -> scoped | needs_clarification | denied | retry_wait | superseded`;
+- **Typed errors / state:** answer job is
+  `received -> scope_required | scoped | denied`;
+  `scope_required -> scoped | needs_clarification | denied`;
+  `scoped -> answering`; and
+  `answering -> outbox_pending | abstained | retry_wait | superseded`;
   `SlackBindingRequired`, `DeliveryNotAllowed`, `BrainAccessDenied`,
   `ScopeNotAllowed`, `NeedsClarification`, model errors.
 - **Migration / compatibility / rollback:** additive answer jobs. Rollback stops
@@ -2240,7 +2368,8 @@ manifest.
   requester-private unavailable response only through the outbox after T03.
 - **Focused verification:** generator/codegen/manifest,
   `rtk pnpm --dir packages/convex test slack-intake scope-selection`, webhook
-  ACK timing, workflow/headless/layer gates, and `rtk just verify`.
+  ACK timing, workflow/headless/layer gates, broad verification is deferred to
+  tranche acceptance under Appendix L.
 - **Completion receipt:** direct/DM/clarification flows, Slack Connect denial,
   spoof/replay/auth results, ACK latency, injection fixture, no matcher scan.
 - **Commit / PR boundary:** branch `codex/brain-s10-slack-intake`; commit
@@ -2266,19 +2395,23 @@ manifest.
   Slack timeout before/after accepted ephemeral/DM send, forbidden retry of an
   ambiguous ephemeral, duplicate worker, rate limit, self-authored event loop,
   and DM to different user.
-- **Implementation:** before provider call persist outbox row with exact
-  requester, audience, answer/retrieval receipt, authorization generations,
-  destination, sanitized payload hash, and unique effect key. Reauthorize
-  immediately before send. Internal channel uses ephemeral requester/thread; DM
-  uses exact verified user. Persist Slack timestamp/response hash. On ambiguous
-  timeout, an ephemeral row stops terminally at `ambiguous_no_retry` because
-  Slack cannot read ephemeral history. Operators may mark the receipt observed
-  but cannot resend it; the requester may create a new answer request/effect. DM
-  retries are enabled only when the selected Nango action proves a stable
-  idempotency or reconciliation contract; otherwise DM ambiguity is also
-  terminal.
-- **Typed errors / state:**
-  `pending -> sending -> delivered | retry_wait | ambiguous_no_retry | denied | revoked | dead_letter`;
+- **Implementation:** before the provider call, persist the exact sanitized
+  payload bytes, payload schema/render version, payload hash, requester,
+  audience, destination, answer/retrieval receipt keys, authorization
+  generations, lifecycle generation, and unique effect key. The payload is an
+  encrypted lifecycle-bound content field on the outbox, not audit/receipt
+  metadata. Logs, audits, and completion receipts contain only its hash, size,
+  schema version, and status. Retry sends the persisted bytes and never
+  rerenders from mutable answer or page state. Reauthorize immediately before
+  send. Internal channel uses ephemeral requester/thread; DM uses exact verified
+  user. Persist Slack timestamp/response hash. On ambiguous timeout, an
+  ephemeral row stops terminally at `ambiguous_no_retry` because Slack cannot
+  read ephemeral history. Operators may mark the receipt observed but cannot
+  resend it; the requester may create a new answer request/effect. DM retries
+  are enabled only when the selected Nango action proves a stable idempotency or
+  reconciliation contract; otherwise DM ambiguity is also terminal.
+- **Typed errors / state:** `pending -> authorized -> sending`, then
+  `sending -> delivered | retry_wait | ambiguous_no_retry | denied | revoked | dead_letter`;
   `DeliveryAudienceDenied`, `StaleAuthorization`, `ProviderRateLimited`,
   `AmbiguousProviderOutcome`, `PayloadUnsafe`.
 - **Migration / compatibility / rollback:** new outbox. Rollback stops sends but
@@ -2286,8 +2419,8 @@ manifest.
   direct provider retry.
 - **Focused verification:** `rtk pnpm --dir packages/convex test slack-outbox`,
   `rtk pnpm --dir packages/integrations test slack-send`, codegen/manifest,
-  logging/provider/lifecycle gates, ambiguous-send crash tests, and
-  `rtk just verify`.
+  logging/provider/lifecycle gates, ambiguous-send crash tests, and broad
+  verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** audience matrix, final-auth race, sanitize fixtures,
   terminal ambiguous-ephemeral proof, DM idempotency/reconciliation evidence or
   terminal ambiguity, self-event suppression, and redacted logs.
@@ -2306,13 +2439,16 @@ manifest.
   [`notification-center-surface.tsx`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/apps/web/src/features/notifications/notification-center-surface.tsx#L17-L43).
   Connections and Settings are product routes from S03/S04.
 - **Files:** create `apps/web/src/features/settings/slack-link-status.tsx`,
-  `slack-link-status.test.tsx`,
+  `apps/web/src/features/settings/slack-link-status.test.tsx`,
   `apps/web/src/features/brain/slack-scope-picker.tsx`,
-  `slack-scope-picker.test.tsx`,
+  `apps/web/src/features/brain/slack-scope-picker.test.tsx`,
   `apps/web/src/features/connections/slack-answer-status.tsx`,
-  `slack-answer-status.test.tsx`, `outbox-detail.tsx`, `outbox-detail.test.tsx`,
-  and `docs/product/maestro-brain-slack-recovery.md`; modify
-  `packages/convex/confect/ops/notifications.{spec,impl}.ts`.
+  `apps/web/src/features/connections/slack-answer-status.test.tsx`,
+  `apps/web/src/features/connections/outbox-detail.tsx`,
+  `apps/web/src/features/connections/outbox-detail.test.tsx`, and
+  `docs/product/maestro-brain-slack-recovery.md`; modify
+  `packages/convex/confect/ops/notifications.spec.ts` and
+  `packages/convex/confect/ops/notifications.impl.ts`.
 - **Failure-first tests:** expired link recovery, ambiguous DM picker, denied
   Brain, revoked binding/key while dialog open, ambiguous delivery admin action,
   viewer/admin UI visibility, accessibility, and no client text in
@@ -2327,8 +2463,8 @@ manifest.
 - **Migration / compatibility / rollback:** no migration. UI rollback hides
   actions; server kill switch stops intake/send independently.
 - **Focused verification:** targeted web tests, accessibility/visual smoke,
-  notification/logging/access gates, provider sandbox end-to-end, and
-  `rtk just verify-full`.
+  notification/logging/access gates, provider sandbox end-to-end, and broad
+  verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** full signed-in/link/mention/DM/clarify/deliver/revoke
   walkthrough, screenshots, provider timestamps, audience assertion, and
   recovery drill.
@@ -2367,7 +2503,7 @@ manifest.
   256-bit secret, show once, store hash/prefix only, list metadata,
   revoke/rotate by Brain admin. Key calls never inherit creator session or
   permissions.
-- **Typed errors / state:** principal/key `active -> revoked -> expired`;
+- **Typed errors / state:** principal/key `active -> expired | revoked`;
   `ApiKeyScopeInvalid`, `ApiKeyExpiryInvalid`, `ApiKeyNotFound`,
   `ApiKeyRevoked`, `ApiKeyExpired`, `ServicePrincipalRevoked`, auth errors.
 - **Migration / compatibility / rollback:** migrate any template demo keys to
@@ -2376,7 +2512,8 @@ manifest.
 - **Focused verification:**
   `rtk pnpm --dir packages/convex test headless-auth api-keys`,
   `rtk pnpm --dir apps/web test api-keys`, codegen/manifest,
-  access/lifecycle/secret/headless gates, and `rtk just verify`.
+  access/lifecycle/secret/headless gates, broad verification is deferred to
+  tranche acceptance under Appendix L.
 - **Completion receipt:** full role/scope/expiry/revoke/rotation table,
   display-once proof, database secret canary, service-principal row, audit
   events.
@@ -2395,10 +2532,16 @@ manifest.
   [`httpRequest.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/httpRequest.ts#L6-L10)
   and
   [`httpRequest.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/httpRequest.ts#L40-L56).
-- **Files:** modify `packages/convex/confect/httpRequest.ts`, `http.ts`,
-  `manifest/executor.ts`, `headless/auth.ts`, error envelope and tests; create
-  `packages/convex/confect/headless/principal.ts`, `authorizeOperation.ts`, and
-  request security tests.
+- **Files:** modify `packages/convex/confect/httpRequest.ts`,
+  `packages/convex/confect/http.ts`,
+  `packages/convex/confect/manifest/executor.ts`,
+  `packages/convex/confect/headless/auth.ts`,
+  `packages/convex/confect/headless/errorEnvelope.ts`,
+  `packages/convex/test/headless-auth.test.ts`, and
+  `packages/convex/test/headless-executor.test.ts`; create
+  `packages/convex/confect/headless/principal.ts`,
+  `packages/convex/confect/headless/authorizeOperation.ts`, and
+  `packages/convex/test/http-request-security.test.ts`.
 - **Failure-first tests:** missing/malformed/header-in-URL key, tenant fields,
   wrong scope/Brain, revoked/expired key/principal/Brain/org, changed
   generation, unknown operation, operation not headless, payload
@@ -2419,8 +2562,8 @@ manifest.
   headless routes rather than accepting legacy tenant args.
 - **Focused verification:**
   `rtk pnpm --dir packages/convex test headless http-request`, codegen/manifest,
-  headless/confect/logging/secret/access gates, negative timing test, and
-  `rtk just verify`.
+  headless/confect/logging/secret/access gates, negative timing test, and broad
+  verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** auth-before-decode/provider trace, field rejection,
   revocation matrix, error envelopes, no-header log proof, and demo-map removal.
 - **Commit / PR boundary:** branch `codex/brain-s11-headless-principal`; commit
@@ -2462,7 +2605,8 @@ manifest.
   same slice. Rollback disables the registry rather than re-exposing writes.
 - **Focused verification:** codegen/manifest, `rtk pnpm check:confect-manifest`,
   `rtk pnpm check:headless-surface-contract`, focused Convex/CLI tests,
-  public-ID/tenant-field scans, and `rtk just verify`.
+  public-ID/tenant-field scans, broad verification is deferred to tranche
+  acceptance under Appendix L.
 - **Completion receipt:** exact registry diff, schema hash parity across four
   projections, negative tool list, final-auth race, stable sample responses.
 - **Commit / PR boundary:** branch `codex/brain-s11-read-registry`; commit
@@ -2503,8 +2647,8 @@ manifest.
   disables route/revokes pilot principals; web/Slack remain.
 - **Focused verification:** focused MCP protocol/security tests,
   `rtk pnpm check:headless-surface-contract`, manifest/route/env/logging/secret
-  gates, Claude Code sandbox connection, hosted smoke, and
-  `rtk just verify-full`.
+  gates, Claude Code sandbox connection, hosted smoke, and broad verification is
+  deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** full negative matrix, protocol transcript with
   redacted key, exact tool list/schema hashes, origin/rate/timeout results,
   copy-config UX, route kill-switch drill.
@@ -2551,7 +2695,7 @@ manifest.
 - **Focused verification:**
   `rtk pnpm --dir packages/template-core test brainExport`, property/golden
   tests, `rtk pnpm check:secret-canaries`, public-ID/raw-provider scans, and
-  `rtk just verify`.
+  broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** byte-identical hashes across shuffled/repeated runs,
   golden tree, redaction/path/link tests, schema/version manifest.
 - **Commit / PR boundary:** branch `codex/brain-s12-export-codec`; commit
@@ -2571,9 +2715,11 @@ manifest.
   [`index.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/storage/src/index.ts#L1-L103).
   V1 uses Convex storage rather than introducing R2 or a customer Git
   repository.
-- **Files:** the generator dry-run enumerates/hashes the generated `exportBrain`
+- **Files:** the generator dry-run enumerates/hashes the generated exportBrain
   target; create `packages/convex/confect/tables/brainExportJobs.ts`,
-  `packages/convex/confect/brain/exports/{gather,job,storage}.ts`, and
+  `packages/convex/confect/brain/exports/gather.ts`,
+  `packages/convex/confect/brain/exports/job.ts`,
+  `packages/convex/confect/brain/exports/storage.ts`, and
   `packages/convex/test/brain-export-job.test.ts`; modify
   `packages/storage/src/index.ts`, `packages/storage/src/index.test.ts`,
   `packages/convex/confect/http.ts`,
@@ -2599,7 +2745,8 @@ manifest.
   be recalled.
 - **Focused verification:** generator/codegen/manifest, focused
   template-core/storage/Convex export tests, headless-surface/lifecycle/secret/
-  logging gates, expiration TestClock, and `rtk just verify`.
+  logging gates, expiration TestClock, broad verification is deferred to tranche
+  acceptance under Appendix L.
 - **Completion receipt:** role/final-auth races, job states, artifact/hash/size,
   expiring URL, partial cleanup, no-MCP exposure, and Convex storage proof.
 - **Commit / PR boundary:** branch `codex/brain-s12-export-job`; commit
@@ -2617,11 +2764,15 @@ manifest.
   [`settings-surface.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/apps/web/src/features/settings/settings-surface.ts#L34-L87),
   while the lifecycle surface supplies the audited action pattern.
 - **Files:** create `apps/web/src/features/settings/brain-exports.tsx`,
-  `brain-exports.test.tsx`, `export-dialog.tsx`, `export-dialog.test.tsx`,
-  `export-history.tsx`, and `export-history.test.tsx`; modify
+  `apps/web/src/features/settings/brain-exports.test.tsx`,
+  `apps/web/src/features/settings/export-dialog.tsx`,
+  `apps/web/src/features/settings/export-dialog.test.tsx`,
+  `apps/web/src/features/settings/export-history.tsx`, and
+  `apps/web/src/features/settings/export-history.test.tsx`; modify
   `apps/web/src/features/settings/settings-surface.ts`,
   `apps/web/src/features/settings/lifecycle-job-detail.tsx`,
-  `packages/convex/confect/ops/notifications.{spec,impl}.ts`, and
+  `packages/convex/confect/ops/notifications.spec.ts`,
+  `packages/convex/confect/ops/notifications.impl.ts`, and
   `docs/product/maestro-brain-lifecycle-operations.md`.
 - **Failure-first tests:** viewer/editor request denial, admin request/download,
   URL expired, lifecycle revoked while dialog open, failed/purge states,
@@ -2637,7 +2788,7 @@ manifest.
   disables requests/downloads; server cleanup remains active.
 - **Focused verification:** targeted web tests, accessibility/visual smoke,
   lifecycle/logging/access gates, staging artifact expiry/purge rehearsal, and
-  `rtk just verify-full`.
+  broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** request/download/expiry/purge walkthrough, role and
   final-auth denial, manifest hash, screenshots, telemetry canary.
 - **Commit / PR boundary:** branch `codex/brain-s12-export-ui`; commit
@@ -2675,8 +2826,11 @@ manifest.
   including no-route/mixed-client, 100% allowlist, zero cross-client commits.
   Answers: >=95% claim entailment, 100% locator resolution/redaction marker,
   > =95% no-evidence abstention. Maintenance: 100% factual citation coverage,
-  > =80% accepted without factual correction. Injection/multilingual
-  > authorization invariants pass 100% in every subgroup and repeat.
+  > =80% accepted without factual correction. Multilingual evaluation includes
+  > at least 74 cases per launch language and per thresholded language subgroup
+  > so a perfect observed rate can attain a >=95% two-sided Wilson lower bound.
+  > Injection/multilingual authorization invariants pass 100% in every subgroup
+  > and repeat.
 - **Typed contract / state:** eval receipt
   `{ suiteVersion, fixtureHash, modelId, promptVersion, toolSchemaVersion, totals, metrics, failures, passed }`;
   model/prompt status `candidate -> evaluated -> approved | rejected`.
@@ -2686,7 +2840,8 @@ manifest.
 - **Focused verification:** `rtk pnpm --dir tooling/evals test`,
   `rtk pnpm --dir tooling/evals brain:eval`,
   `rtk pnpm --dir tooling/evals brain:fixture-check`,
-  `rtk pnpm check:provider-boundary`, and `rtk just verify`.
+  `rtk pnpm check:provider-boundary`, broad verification is deferred to tranche
+  acceptance under Appendix L.
 - **Completion receipt:** frozen hashes, per-suite/model/prompt reports,
   intentional-red then green proof, failure examples, reviewer signoff.
 - **Commit / PR boundary:** branch `codex/brain-s13-semantic-evals`; commit
@@ -2705,10 +2860,11 @@ manifest.
   while the repo has Vitest, fast-check, TestClock, and release tooling but no
   Brain capacity fixture.
 - **Files:** create `tooling/evals/src/brain-capacity.ts`,
-  `brain-capacity.test.ts`, `brain-capacity-fixture.ts`,
-  `brain-capacity-report.ts`, and `packages/convex/test/brain-capacity.test.ts`;
-  modify `tooling/evals/package.json` and
-  `docs/product/maestro-brain-capacity.md`.
+  `tooling/evals/src/brain-capacity.test.ts`,
+  `tooling/evals/src/brain-capacity-fixture.ts`,
+  `tooling/evals/src/brain-capacity-report.ts`, and
+  `packages/convex/test/brain-capacity.test.ts`; modify
+  `tooling/evals/package.json` and `docs/product/maestro-brain-capacity.md`.
 - **Failure-first tests:** intentionally set shared cursor, concurrency 1 with
   unfair FIFO, dropped event, queue overflow, cross-Brain leak, and a second
   canary agency's cross-tenant key/read/commit/delivery attempts; harness must
@@ -2733,7 +2889,8 @@ manifest.
 - **Focused verification:** `rtk pnpm --dir tooling/evals brain:capacity`,
   `rtk pnpm --dir tooling/evals test brain-capacity`,
   `rtk pnpm --dir packages/convex test brain-capacity`,
-  `rtk pnpm check:coverage-ratchet`, and `rtk just verify`.
+  `rtk pnpm check:coverage-ratchet`, broad verification is deferred to tranche
+  acceptance under Appendix L.
 - **Completion receipt:** fixture/config/runner hashes, latency/fairness/loss/
   isolation report, overload proof, cost/storage estimates, raw synthetic-only
   artifacts.
@@ -2755,13 +2912,14 @@ manifest.
   and notification persistence in
   [`index.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/notifications/src/index.ts#L1-L388);
   extend those seams instead of a second operator platform.
-- **Files:** create
-  `packages/convex/confect/ops/brainOperations.{spec,impl}.ts`,
+- **Files:** create `packages/convex/confect/ops/brainOperations.spec.ts`,
+  `packages/convex/confect/ops/brainOperations.impl.ts`,
   `packages/convex/confect/ops/brainOperationPolicy.ts`,
   `packages/convex/test/brain-operation-policy.test.ts`, and
   `packages/observability/src/brainMetrics.ts`; modify
   `packages/observability/src/index.ts`,
-  `packages/convex/confect/ops/flags.{spec,impl}.ts`,
+  `packages/convex/confect/ops/flags.spec.ts`,
+  `packages/convex/confect/ops/flags.impl.ts`,
   `tooling/quality/check-logging-boundary.mts`, and
   `docs/product/maestro-brain-operations.md`.
 - **Failure-first tests:** prompt/source/token/header logging canaries; model
@@ -2786,7 +2944,8 @@ manifest.
   `rtk pnpm --dir packages/convex test brain-operation-policy`,
   `rtk pnpm --dir packages/observability test brainMetrics`,
   `rtk pnpm check:logging-boundary`, `rtk pnpm check:secret-canaries`,
-  `rtk pnpm check:access-audit-events`, and `rtk just verify`.
+  `rtk pnpm check:access-audit-events`, broad verification is deferred to
+  tranche acceptance under Appendix L.
 - **Completion receipt:** metric dictionary, every kill-switch drill, canary
   result, budget enforcement, and redacted audit samples.
 - **Commit / PR boundary:** branch `codex/brain-s13-operations`; commit
@@ -2809,12 +2968,15 @@ manifest.
   while operator authorization must continue through audited Confect
   capabilities rather than direct metric/provider access.
 - **Files:** create `apps/web/src/features/health/brain-operations.tsx`,
-  `brain-operations.test.tsx`,
-  `packages/convex/confect/ops/brainAlerts.{spec,impl}.ts`,
+  `apps/web/src/features/health/brain-operations.test.tsx`,
+  `packages/convex/confect/ops/brainAlerts.spec.ts`,
+  `packages/convex/confect/ops/brainAlerts.impl.ts`,
   `packages/convex/test/brain-alerts.test.ts`, and
   `docs/product/maestro-brain-recovery-runbook.md`; modify
-  `apps/web/src/features/health/health-surface.tsx`, `health-surface.test.tsx`,
-  `packages/convex/confect/ops/notifications.{spec,impl}.ts`, and
+  `apps/web/src/features/health/health-surface.tsx`,
+  `apps/web/src/features/health/health-surface.test.tsx`,
+  `packages/convex/confect/ops/notifications.spec.ts`,
+  `packages/convex/confect/ops/notifications.impl.ts`, and
   `docs/product/maestro-brain-operations.md`.
 - **Failure-first tests:** viewer/editor operator denial, stale admin role,
   customer-text metric canary, alert flood/dedupe, expired kill switch, recovery
@@ -2835,7 +2997,8 @@ manifest.
 - **Focused verification:** `rtk pnpm --dir apps/web test brain-operations`,
   `rtk pnpm --dir packages/convex test brain-alerts`,
   `rtk pnpm check:logging-boundary`, `rtk pnpm check:access-audit-events`,
-  accessibility smoke, and `rtk just verify-full`.
+  accessibility smoke, broad verification is deferred to tranche acceptance
+  under Appendix L.
 - **Completion receipt:** role/redaction screenshots, alert dedupe timeline,
   every kill-switch/recovery drill, exact-capture continuity, and audit samples.
 - **Commit / PR boundary:** branch `codex/brain-s13-operations-ui`; commit
@@ -2896,13 +3059,23 @@ manifest.
   7. If every gate passes, run `rtk pnpm deploy:doctor production` and
      `rtk proxy .buildkite/scripts/production-promote.sh`, then enable by
      organization cohort, not globally. Keep rollback owner/window active.
-- **Go/no-go:** with ceiling-rounded integer numerators, >=80% pilots get an
-  accepted Client Brief proposal, >=70% rate a cited answer useful, and >=50%
-  use Slack or MCP in week one; median time to first reviewable cited proposal
-  or explicit insufficient-evidence result is <15 minutes; median Brain admin is
-  <10 minutes/week; each active client averages <2 manual maintenance actions/
-  week; and there are zero cross-client disclosure, Slack-audience, key-scope,
-  or unverified-webhook incidents. Any such incident is automatic no-go.
+- **Go/no-go:** freeze cohort membership and missing-data treatment before
+  scoring. The denominator is every enrolled agency that reaches its seven-day
+  observation cut; nonresponse fails Brief acceptance and cited-answer
+  usefulness. With ceiling-rounded integer numerators, >=80% get an accepted
+  Client Brief proposal, >=70% rate a cited answer useful, and >=50% use Slack
+  or MCP in week one. Report second-surface use against both the full cohort and
+  activated agencies; the full-cohort threshold gates launch. Median time to
+  first reviewable cited proposal or explicit insufficient-evidence result is
+  <15 minutes; median Brain admin is <10 minutes/week; each active client-week,
+  including zero-action weeks, averages <2 manual maintenance actions; and there
+  are zero cross-client disclosure, Slack-audience, key-scope, or
+  unverified-webhook incidents. Any such incident is automatic no-go. The
+  release packet records the deployed Slack app distribution mode and verified
+  history/replies rate class. A fast deep-history launch promise requires Tier 3
+  or equivalent qualification; otherwise the limits and UI copy must publish the
+  measured slower catch-up window and keep recent/deep status separate. A
+  nonqualifying class with an unchanged fast-history promise is automatic no-go.
 - **Typed contract / state:** release packet is
   `{ productReleaseCommit, attestationCommit, buildId, deployId, manifestHashes, migrationReceipt, evalReceipt, capacityReceipt, pilotMetrics, incidents, inheritedEvidence, approvers, rollbackReceipt, verdict }`.
   Release state is `candidate -> staging -> pilot`, then either terminal `no_go`
@@ -2937,9 +3110,11 @@ manifest.
 `est source lines` counts hand-authored production source only. Tests, generated
 output, and docs are reported separately in the StackPlan receipt and fully
 reviewed; generator dry-runs enumerate them before implementation. The binding
-hand-authored source limit remains 300. If the dry-run plus exact custom-file
-plan cannot credibly fit, split into an additional stack before implementation;
-do not deepen an existing stack beyond four.
+hand-authored source limit remains 300 per commit. If a task requires more than
+four coherent commits, or any coherent commit cannot fit the limit, split the
+task contract and regenerate the manifest. If a StackPlan would exceed four
+slices, move whole slices into another StackPlan; moving a task does not relax
+its commit budget.
 
 | Task    | Exact prerequisite | Work-package classification                      | Est. source lines |
 | ------- | ------------------ | ------------------------------------------------ | ----------------: |
@@ -3052,45 +3227,45 @@ before insert/update. Every durable row includes timestamps and a schema
 version; every customer-bearing or derived row includes the S07 lifecycle
 envelope.
 
-| Table                            | Stack       | Required indexes/search index                                                                                                              | Canonical invariant                                                               |
-| -------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
-| `users` (modify)                 | S01         | existing `by_subject`, `by_email`                                                                                                          | WorkOS subject is canonical human identity; email never authorizes                |
-| `organizations` (modify)         | S01         | `by_workos_organization`, `by_agency_key`, `by_owner`, `by_status`                                                                         | One internal org per WorkOS org; tenant-scoped stable `agencyKey`                 |
-| `organizationMembers` (existing) | S01         | `by_organization_user`, `by_organization_status`                                                                                           | One active membership per org/user                                                |
-| `workspaces` (modify)            | S01         | `by_organization`, `by_organization_brain_key`, `by_organization_kind`, `by_organization_status`                                           | Exactly one Agency Brain; unique Brain key inside org                             |
-| `workspaceMembers` (existing)    | S01         | `by_workspace_user`, `by_workspace_status`                                                                                                 | Canonical direct Brain role                                                       |
-| `accessAuditEvents` (modify)     | S01         | `by_workspace_created`, `by_organization_created`, `by_action_created`                                                                     | Redacted privileged success/denial journal                                        |
-| `brainPages` (modify)            | S02         | `by_workspace_page_key`, `by_workspace_parent_sort`, `by_workspace_parent_slug`, `by_workspace_status`                                     | Unique page key and active sibling slug inside Brain                              |
-| `pageRevisions`                  | S02         | `by_workspace_revision_key`, `by_page_created`, `by_page_hash`, `by_effect_key`                                                            | Immutable content; one accepted revision effect                                   |
-| `citations` (modify)             | S02         | `by_page_revision`, `by_answer_receipt`, `by_source_revision`, `by_citation_key`                                                           | Exact source-revision locator and quote hash                                      |
-| `providerConnections`            | S04         | `by_organization_provider_status`, `by_connection_key`, `by_nango_connection_generation`, `by_team_app_generation`                         | One active Slack connection per org; exact generation binding                     |
-| `sourceChannels`                 | S04         | `by_connection_external_channel`, `by_channel_key`, `by_organization_membership_state`, `by_connection_generation`                         | External ID unique inside connection generation; exact bot membership             |
-| `channelRoutingPolicies`         | S04         | `by_channel_epoch`, `by_channel_active`, `by_organization_created`                                                                         | Immutable epoch; Direct one target, Classify finite target set, Capture-only none |
-| `channelDeliveryPolicies`        | S04         | `by_channel_generation`, `by_channel_active`                                                                                               | Slack Connect only `capture_only`; internal may be requester-private              |
-| `channelSyncStates`              | S04/S06     | `by_channel`, `by_live_lag`, `by_recent_next_retry`, `by_deep_next_retry`, `by_access_state`                                               | Independent live/recent/deep cursors and fenced lease generations                 |
-| `providerEventReceipts`          | S05         | `by_connection_transport_delivery`, `by_observation_key`, `by_received_at`, `by_outcome`                                                   | One transport receipt; many receipts may cite one logical observation             |
-| `sourceArtifacts`                | S05         | `by_channel_provider_object`, `by_source_key`, `by_thread_key`, `by_lifecycle_purge_after`                                                 | Stable message/source object and total-ordered latest pointer                     |
-| `sourceRevisions`                | S05         | `by_source_revision_key`, `by_source_provider_order`, `by_source_created`, `by_lifecycle_purge_after`                                      | Immutable exact observation/tombstone; preserves `A -> B -> A`                    |
-| `sourceUnits`                    | S05         | `by_channel_unit_key`, `by_source_unit_key`, `by_latest_revision`                                                                          | Stable thread-or-message unit with latest snapshot pointer                        |
-| `sourceUnitRevisions`            | S05         | `by_unit_revision_key`, `by_unit_fixed_cut`, `by_hash`, `by_lifecycle_purge_after`                                                         | Immutable ordered content snapshot at fixed cut                                   |
-| `sourceProcessingJobs`           | S05/S06/S08 | `by_stage_status_next_retry`, `by_effect_key`, `by_unit_stage`, `by_lease_expiry`, `by_organization_status`                                | At-least-once attempt with one accepted effect and fenced lease                   |
-| `sourceRoutes`                   | S05         | `by_workspace_unit_active`, `by_source_revision_active`, `by_effect_key`, `by_route_generation`                                            | Brain-readable only through active route; one logical route effect                |
-| `providerRateLimitBuckets`       | S06         | `by_provider_connection_method`, `by_blocked_until`, `by_organization`                                                                     | Central deterministic rate/admission state                                        |
-| `retentionPolicies`              | S07         | `by_organization_epoch`, `by_organization_active`                                                                                          | Immutable policy epochs                                                           |
-| `legalHolds`                     | S07         | `by_organization_status`, `by_resource_key`, `by_expires_at`                                                                               | Hold blocks purge, never access revocation                                        |
-| `lifecycleJobs`                  | S07         | `by_organization_status_next_retry`, `by_effect_key`, `by_resource_key`                                                                    | Resumable audited propagation/purge effect                                        |
-| `dataSubjectBindings`            | S07         | `by_organization_workos_subject`, `by_organization_team_slack_user`, `by_status`                                                           | Exact reviewed WorkOS/Slack identity equivalence; no email/display-name authority |
-| `dataSubjectOccurrences`         | S07         | `by_subject_resource`, `by_resource_subject`, `by_organization_created`                                                                    | Deterministic exact-author/descendant DSAR inventory; free text remains reviewed  |
-| `modelCallReceipts`              | S08         | `by_attempt_key`, `by_workflow_stage`, `by_model_prompt`, `by_request_hash`                                                                | No raw prompts/completions; immutable hashes/usage/versions                       |
-| `classificationDecisions`        | S08         | `by_unit_policy_epoch`, `by_status_created`, `by_effect_key`, `by_target_brain`                                                            | Exactly one nullable target; one reviewed accepted decision                       |
-| `brainMaintenanceProposals`      | S08         | `by_workspace_status_created`, `by_page_status`, `by_effect_key`, `by_model_prompt`                                                        | Cited no-op/revision proposal and review/autopilot receipt                        |
-| `workspaceSearchProjections`     | S09         | indexes `by_workspace_revision`, `by_route_effect`, `by_lifecycle_state`; search index `search_text` filtered by org/workspace/active/kind | Only active page/routed-source text enters a Brain corpus                         |
-| `retrievalReceipts`              | S09         | `by_receipt_key`, `by_workspace_created`, `by_effect_key`, `by_lifecycle_purge_after`                                                      | Immutable candidate/result/generation manifest and hash                           |
-| `slackIdentityBindings`          | S10         | `by_organization_team_slack_user`, `by_organization_user_status`, `by_link_token_hash`                                                     | One active Maestro user per exact org/team/Slack user                             |
-| `outboundDeliveryOutbox`         | S10         | `by_effect_key`, `by_status_next_attempt`, `by_destination_answer`, `by_lease_expiry`                                                      | Persist/authorize before send; one logical visible answer                         |
-| `servicePrincipals`              | S11         | `by_principal_key`, `by_workspace_status`, `by_organization_status`                                                                        | One-Brain viewer ceiling and revocation generation                                |
-| `apiKeys` (modify)               | S11         | `by_key_hash`, `by_workspace_status`, `by_principal_status`, `by_expiry`                                                                   | Hash only; display once; read/Ask scopes only                                     |
-| `brainExportJobs`                | S12         | `by_workspace_status_created`, `by_effect_key`, `by_artifact_expiry`, `by_lifecycle_generation`                                            | One pinned authorized export effect and temporary artifact                        |
+| Table                            | Stack       | Required indexes/search index                                                                                                              | Canonical invariant                                                                                                                        |
+| -------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `users` (modify)                 | S01         | existing `by_subject`, `by_email`                                                                                                          | WorkOS subject is canonical human identity; email never authorizes                                                                         |
+| `organizations` (modify)         | S01         | `by_workos_organization`, `by_agency_key`, `by_owner`, `by_status`                                                                         | One internal org per WorkOS org; tenant-scoped stable `agencyKey`                                                                          |
+| `organizationMembers` (existing) | S01         | `by_organization_user`, `by_organization_status`                                                                                           | One active membership per org/user                                                                                                         |
+| `workspaces` (modify)            | S01         | `by_organization`, `by_organization_brain_key`, `by_organization_kind`, `by_organization_status`                                           | Exactly one Agency Brain; unique Brain key inside org                                                                                      |
+| `workspaceMembers` (existing)    | S01         | `by_workspace_user`, `by_workspace_status`                                                                                                 | Canonical direct Brain role                                                                                                                |
+| `accessAuditEvents` (modify)     | S01         | `by_workspace_created`, `by_organization_created`, `by_action_created`                                                                     | Redacted privileged success/denial journal                                                                                                 |
+| `brainPages` (modify)            | S02         | `by_workspace_page_key`, `by_workspace_parent_sort`, `by_workspace_parent_slug`, `by_workspace_status`                                     | Unique page key and active sibling slug inside Brain                                                                                       |
+| `pageRevisions`                  | S02         | `by_workspace_revision_key`, `by_page_created`, `by_page_hash`, `by_effect_key`                                                            | Immutable content; one accepted revision effect                                                                                            |
+| `citations` (modify)             | S02         | `by_page_revision`, `by_answer_receipt`, `by_source_revision`, `by_citation_key`                                                           | Exact source-revision locator and quote hash                                                                                               |
+| `providerConnections`            | S04         | `by_organization_provider_status`, `by_connection_key`, `by_nango_connection_generation`, `by_team_app_generation`                         | One active Slack connection per org; exact generation binding                                                                              |
+| `sourceChannels`                 | S04         | `by_connection_external_channel`, `by_channel_key`, `by_organization_membership_state`, `by_connection_generation`                         | External ID unique inside connection generation; exact bot membership                                                                      |
+| `channelRoutingPolicies`         | S04         | `by_channel_epoch`, `by_channel_active`, `by_organization_created`                                                                         | Immutable epoch; Direct one target, Classify finite target set, Capture-only none                                                          |
+| `channelDeliveryPolicies`        | S04         | `by_channel_generation`, `by_channel_active`                                                                                               | Slack Connect only `capture_only`; internal may be requester-private                                                                       |
+| `channelSyncStates`              | S04/S06     | `by_channel`, `by_live_lag`, `by_recent_next_retry`, `by_deep_next_retry`, `by_access_state`                                               | Independent live/recent/deep cursors and fenced lease generations                                                                          |
+| `providerEventReceipts`          | S05         | `by_connection_transport_delivery`, `by_observation_key`, `by_received_at`, `by_outcome`                                                   | One transport receipt; many receipts may cite one logical observation                                                                      |
+| `sourceArtifacts`                | S05         | `by_channel_provider_object`, `by_source_key`, `by_thread_key`, `by_lifecycle_purge_after`                                                 | Stable message/source object and total-ordered latest pointer                                                                              |
+| `sourceRevisions`                | S05         | `by_source_revision_key`, `by_source_provider_order`, `by_source_created`, `by_lifecycle_purge_after`                                      | Immutable exact observation/tombstone; preserves `A -> B -> A`                                                                             |
+| `sourceUnits`                    | S05         | `by_channel_unit_key`, `by_source_unit_key`, `by_latest_revision`                                                                          | Stable thread-or-message unit with latest snapshot pointer                                                                                 |
+| `sourceUnitRevisions`            | S05         | `by_unit_revision_key`, `by_unit_fixed_cut`, `by_hash`, `by_lifecycle_purge_after`                                                         | Immutable ordered content snapshot at fixed cut                                                                                            |
+| `sourceProcessingJobs`           | S05/S06/S08 | `by_stage_status_next_retry`, `by_effect_key`, `by_unit_stage`, `by_lease_expiry`, `by_organization_status`                                | At-least-once attempt with one accepted effect and fenced lease                                                                            |
+| `sourceRoutes`                   | S05         | `by_workspace_unit_active`, `by_source_revision_active`, `by_effect_key`, `by_route_generation`                                            | Brain-readable only through active route; one logical route effect                                                                         |
+| `providerRateLimitBuckets`       | S06         | `by_provider_connection_method`, `by_blocked_until`, `by_organization`                                                                     | Central deterministic rate/admission state                                                                                                 |
+| `retentionPolicies`              | S07         | `by_organization_epoch`, `by_organization_active`                                                                                          | Immutable policy epochs                                                                                                                    |
+| `legalHolds`                     | S07         | `by_organization_status`, `by_resource_key`, `by_expires_at`                                                                               | Hold blocks purge, never access revocation                                                                                                 |
+| `lifecycleJobs`                  | S07         | `by_organization_status_next_retry`, `by_effect_key`, `by_resource_key`                                                                    | Resumable audited propagation/purge effect                                                                                                 |
+| `dataSubjectBindings`            | S07         | `by_organization_workos_subject`, `by_organization_team_slack_user`, `by_status`                                                           | Exact reviewed WorkOS/Slack identity equivalence; no email/display-name authority                                                          |
+| `dataSubjectOccurrences`         | S07         | `by_subject_resource`, `by_resource_subject`, `by_organization_created`                                                                    | Deterministic exact-author/descendant DSAR inventory; free text remains reviewed                                                           |
+| `modelCallReceipts`              | S08         | `by_attempt_key`, `by_workflow_stage`, `by_model_prompt`, `by_request_hash`                                                                | No raw prompts/completions; immutable hashes/usage/versions                                                                                |
+| `classificationDecisions`        | S08         | `by_unit_policy_epoch`, `by_status_created`, `by_effect_key`, `by_target_brain`                                                            | Exactly one nullable target; one reviewed accepted decision                                                                                |
+| `brainMaintenanceProposals`      | S08         | `by_workspace_status_created`, `by_page_status`, `by_effect_key`, `by_model_prompt`                                                        | Cited no-op/revision proposal and review/autopilot receipt                                                                                 |
+| `workspaceSearchProjections`     | S09         | indexes `by_workspace_revision`, `by_route_effect`, `by_lifecycle_state`; search index `search_text` filtered by org/workspace/active/kind | Only active page/routed-source text enters a Brain corpus                                                                                  |
+| `retrievalReceipts`              | S09         | `by_receipt_key`, `by_workspace_created`, `by_effect_key`, `by_lifecycle_purge_after`                                                      | Query hash, normalized filter manifest/hash, immutable candidate/result/generation manifest; no raw query text                             |
+| `slackIdentityBindings`          | S10         | `by_organization_team_slack_user`, `by_organization_user_status`, `by_link_token_hash`                                                     | One active Maestro user per exact org/team/Slack user                                                                                      |
+| `outboundDeliveryOutbox`         | S10         | `by_effect_key`, `by_status_next_attempt`, `by_destination_answer`, `by_lease_expiry`                                                      | Encrypted sanitized payload, payload hash/render version, requester/audience/answer/auth/lifecycle generations; one logical visible answer |
+| `servicePrincipals`              | S11         | `by_principal_key`, `by_workspace_status`, `by_organization_status`                                                                        | One-Brain viewer ceiling and revocation generation                                                                                         |
+| `apiKeys` (modify)               | S11         | `by_key_hash`, `by_workspace_status`, `by_principal_status`, `by_expiry`                                                                   | Hash only; display once; read/Ask scopes only                                                                                              |
+| `brainExportJobs`                | S12         | `by_workspace_status_created`, `by_effect_key`, `by_artifact_expiry`, `by_lifecycle_generation`                                            | One pinned authorized export effect and temporary artifact                                                                                 |
 
 ### Stable-Key Formats
 
@@ -3302,51 +3477,51 @@ redacted audit events at security boundaries. An unlisted durable transition is
 invalid. Terminal or monotonic states cannot be reopened by retry; recovery
 creates a new generation, attempt, revision, or job.
 
-| Machine                     | States and permitted transitions                                                                                                                                                                   | Owning task / commit fence                                             |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| Host plugin readiness       | `unknown -> missing \| installed -> verified`; `verified` is required on three distinct hosts                                                                                                      | S00-T01; fresh-session discovery                                       |
-| Stack execution             | `unprojected -> projected -> validated -> in_progress -> merged -> receipt_archived`; drift returns to `unprojected`                                                                               | S00-T02; validated manifest hash                                       |
-| Migration run               | `planned -> running -> complete \| failed`; `failed -> running` only from last committed cursor                                                                                                    | S00-T04; migration name/cursor/generation                              |
-| Organization                | `provisioning -> active -> suspended -> active \| deleting -> deleted`; `deleted` is terminal                                                                                                      | S01-T02/S07-T03; organization generation                               |
-| Brain                       | `provisioning -> active -> archived -> active \| deleting -> deleted`; lifecycle may move active/archived content to redacted/purged                                                               | S01-T03/S07-T03; Brain/lifecycle generation                            |
-| Membership                  | `pending -> active -> revoked`; a new grant creates a new membership generation                                                                                                                    | S01-T04; current effective-role generation                             |
-| Invitation                  | existing typed pending/accepted/expired/revoked terminal rules remain authoritative                                                                                                                | S01-T04; invitation token/status                                       |
-| Page                        | `active -> archived -> active \| redacted -> purged`; redaction/purge are monotonic                                                                                                                | S02-T01/S07; lifecycle generation                                      |
-| Page revision               | `draft -> proposed -> published \| rejected`; any non-purged state may become `redacted -> purged`; published rows are immutable                                                                   | S02-T01/T03; expected current revision + effect key                    |
-| Provider connection         | `not_connected -> authorizing -> verifying -> active \| error`; `active -> reauthorizing -> active \| error`; `active \| error -> revoked`; replacement creates a new generation                   | S04-T01/T02; connection/team/app/bot generation                        |
-| Channel membership          | `discovered_not_joined -> joined_needs_policy -> joined_active -> access_lost \| archived`; re-add creates a new access generation and resumes saved cursors                                       | S04-T02/S06-T04; bot membership generation                             |
-| Routing policy              | immutable epochs with mode `direct \| classify \| capture_only`; active pointer moves only after validation and audit                                                                              | S04-T04; policy epoch                                                  |
-| Delivery policy             | immutable generation `requester_private \| capture_only`; Slack Connect is structurally fixed to `capture_only`                                                                                    | S04-T04/S10; delivery generation                                       |
-| Live/recent/deep sync lane  | `idle -> queued -> running -> waiting_rate_limit \| retry_wait -> idle \| access_lost \| dead_letter`; each lane has its own cursor and lease                                                      | S04-T02/S06; cursor + lease fence                                      |
-| Provider event receipt      | `received -> verified -> committed -> acknowledged` or `received -> rejected`; acknowledgement cannot precede atomic capture intent                                                                | S04-T03/S05-T02; event/observation key                                 |
-| Source artifact             | `active -> deleted_tombstone -> redacted -> purged`; latest pointer advances by total provider order only                                                                                          | S05-T01/T02/S07; provider order + lifecycle generation                 |
-| Source revision             | immutable `observed \| edit \| tombstone`, then `redacted -> purged`; `A -> B -> A` remains three revisions                                                                                        | S05-T02/S07; revision key/order/hash                                   |
-| Source unit                 | `open -> cut`; every revision contains one first-observed policy epoch, and cross-epoch replies create separate immutable segments                                                                 | S05-T03; fixed-cut/segment key/hash                                    |
-| Source processing job       | `queued -> leased -> running -> succeeded \| retry_wait \| dead_letter \| superseded \| revoked \| cancelled`; only current lease may commit                                                       | S05-T04/S06/S07; lease, stage, policy, route and lifecycle generations |
-| Source route                | `proposed -> active -> revoked \| superseded`; Direct may create `active` mechanically; awaiting-policy/capture-only are job states, not route states                                              | S05-T04/S07/S08-T03; route effect/policy/lifecycle generation          |
-| Rate-limit bucket           | `available -> blocked_until -> available`; admission may be queued/rejected but never silently dropped                                                                                             | S06-T02/S13-T02; connection/method budget epoch                        |
-| Legal hold                  | `planned -> active -> released \| expired`; it blocks purge only, never current-read revocation                                                                                                    | S07-T01/T03; hold generation/approval                                  |
-| Lifecycle job               | `planned -> approved -> running -> complete \| failed \| blocked_by_hold`; failed/blocked work resumes as a new fenced attempt                                                                     | S07; effect key/resource generation                                    |
-| Model call                  | `queued -> running -> succeeded \| retryable_failure \| permanent_failure \| cancelled`; budget/policy denial occurs before queueing                                                               | S08-T01; request hash/model/prompt/tool versions                       |
-| Classification decision     | `gathered -> proposed_zero \| proposed_one -> accepted \| changed_to_allowed \| no_route \| mixed_client_no_route \| rejected \| superseded`; only reviewed non-mixed terminal decisions may route | S08-T03; unit/policy/allowlist/review generations                      |
-| Maintenance proposal        | `gathered -> proposed_noop \| proposed_revision -> accepted \| edited_and_accepted \| rejected \| superseded`; Autopilot is an explicit reviewed policy path                                       | S08-T04; page/route/model/policy/lifecycle generations                 |
-| Search projection           | `pending -> active -> inactive -> purged`; inactive rows cannot be candidates                                                                                                                      | S09-T02; source/page revision + route/lifecycle generation             |
-| Retrieval/answer            | `gathering -> manifest_pinned -> model_running -> cited_answer \| insufficient_evidence -> reauthorized -> returned \| revoked`                                                                    | S09-T03/T04; immutable manifest + final auth generations               |
-| Slack identity binding      | `unlinked -> pending_verification -> active -> revoked`; relink creates a new binding generation                                                                                                   | S10-T01; org/team/Slack user/WorkOS subject                            |
-| Slack question              | `received -> scope_required \| scoped -> answering -> outbox_pending \| abstained \| denied`; ambiguity never guesses a Brain                                                                      | S10-T02/T04; requester and scope receipt                               |
-| Outbound delivery           | `pending -> authorized -> sending -> sent \| retry_wait \| ambiguous_no_retry \| denied \| revoked`; ephemeral ambiguity is terminal                                                               | S10-T03; outbox effect + audience/auth generations                     |
-| Service principal / API key | `active -> expired \| revoked`; rotation creates a new key and revokes the old generation                                                                                                          | S11-T01; key hash/principal generation                                 |
-| Export job/artifact         | `requested -> gathering -> encoding -> storing -> ready -> expired -> purged`, with `revoked \| failed` terminal outcomes                                                                          | S12; export effect/lifecycle generation                                |
-| Model/prompt approval       | `candidate -> evaluated -> approved \| rejected`; approval is immutable for a suite/fixture hash                                                                                                   | S13-T01; eval receipt hash                                             |
-| Subsystem policy            | `enabled -> paused -> enabled`, with emergency `disabled`; enabling requires current operator authority and evidence                                                                               | S13-T03; policy epoch                                                  |
-| Release                     | `candidate -> staging -> pilot`, then terminal `no_go` or `launch_approved -> cohort_enabled -> general`; incident triggers rollback/new candidate                                                 | S14-T01; product/attestation commit, build and deploy IDs              |
+| Machine                     | States and permitted transitions                                                                                                                                                                             | Owning task / commit fence                                             |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| Host plugin readiness       | `unknown -> missing \| installed -> verified`; `verified` is required on three distinct hosts                                                                                                                | S00-T01; fresh-session discovery                                       |
+| Stack execution             | `unprojected -> projected -> validated -> in_progress -> merged -> receipt_archived`; drift returns to `unprojected`                                                                                         | S00-T02; validated manifest hash                                       |
+| Migration run               | `planned -> running -> complete \| failed`; `failed -> running` only from last committed cursor                                                                                                              | S00-T04; migration name/cursor/generation                              |
+| Organization                | `provisioning -> active -> suspended -> active \| deleting -> deleted`; `deleted` is terminal                                                                                                                | S01-T02/S07-T03; organization generation                               |
+| Brain                       | `provisioning -> active -> archived -> active \| deleting -> deleted`; lifecycle may move active/archived content to redacted/purged                                                                         | S01-T03/S07-T03; Brain/lifecycle generation                            |
+| Membership                  | `pending -> active -> revoked`; a new grant creates a new membership generation                                                                                                                              | S01-T04; current effective-role generation                             |
+| Invitation                  | existing typed pending/accepted/expired/revoked terminal rules remain authoritative                                                                                                                          | S01-T04; invitation token/status                                       |
+| Page                        | `active -> archived -> active \| redacted -> purged`; redaction/purge are monotonic                                                                                                                          | S02-T01/S07; lifecycle generation                                      |
+| Page revision               | `draft -> proposed -> published \| rejected`; any non-purged state may become `redacted -> purged`; published rows are immutable                                                                             | S02-T01/T03; expected current revision + effect key                    |
+| Provider connection         | `not_connected -> authorizing -> verifying -> active \| error`; `active -> reauthorizing -> active \| error`; `active \| error -> revoked`; replacement creates a new generation                             | S04-T01/T02; connection/team/app/bot generation                        |
+| Channel membership          | `discovered_not_joined -> joined_needs_policy -> joined_active -> access_lost \| archived`; re-add creates a new access generation and resumes saved cursors                                                 | S04-T02/S06-T04; bot membership generation                             |
+| Routing policy              | immutable epochs with mode `direct \| classify \| capture_only`; active pointer moves only after validation and audit                                                                                        | S04-T04; policy epoch                                                  |
+| Delivery policy             | immutable generation `requester_private \| capture_only`; Slack Connect is structurally fixed to `capture_only`                                                                                              | S04-T04/S10; delivery generation                                       |
+| Live/recent/deep sync lane  | `idle -> queued -> running -> waiting_rate_limit \| retry_wait -> idle \| access_lost \| dead_letter`; each lane has its own cursor and lease                                                                | S04-T02/S06; cursor + lease fence                                      |
+| Provider event receipt      | `verified -> committed -> acknowledged` or `verified -> rejected_after_binding`; pre-verification and unmatched-connection failures are non-durable redacted security telemetry                              | S04-T03/S05-T02; event/observation key                                 |
+| Source artifact             | `active -> deleted_tombstone -> redacted -> purged`; latest pointer advances by total provider order only                                                                                                    | S05-T01/T02/S07; provider order + lifecycle generation                 |
+| Source revision             | immutable `observed \| edit \| tombstone`, then `redacted -> purged`; `A -> B -> A` remains three revisions                                                                                                  | S05-T02/S07; revision key/order/hash                                   |
+| Source unit                 | `open -> cut`; every revision contains one first-observed policy epoch, and cross-epoch replies create separate immutable segments                                                                           | S05-T03; fixed-cut/segment key/hash                                    |
+| Source processing job       | `queued -> leased -> running -> succeeded \| retry_wait \| dead_letter \| superseded \| revoked \| cancelled`; only current lease may commit                                                                 | S05-T04/S06/S07; lease, stage, policy, route and lifecycle generations |
+| Source route                | `proposed -> active -> revoked \| superseded`; Direct may create `active` mechanically; awaiting-policy/capture-only are job states, not route states                                                        | S05-T04/S07/S08-T03; route effect/policy/lifecycle generation          |
+| Rate-limit bucket           | `available -> blocked_until -> available`; admission may be queued/rejected but never silently dropped                                                                                                       | S06-T02/S13-T02; connection/method budget epoch                        |
+| Legal hold                  | `planned -> active -> released \| expired`; it blocks purge only, never current-read revocation                                                                                                              | S07-T01/T03; hold generation/approval                                  |
+| Lifecycle job               | `planned -> approved -> running -> complete \| failed \| blocked_by_hold`; failed/blocked work resumes as a new fenced attempt                                                                               | S07; effect key/resource generation                                    |
+| Model call                  | `queued -> running -> succeeded \| retryable_failure \| permanent_failure \| cancelled`; budget/policy denial occurs before queueing                                                                         | S08-T01; request hash/model/prompt/tool versions                       |
+| Classification decision     | `gathered -> proposed_zero \| proposed_one -> accepted \| changed_to_allowed \| no_route \| mixed_client_no_route \| rejected \| superseded`; only reviewed non-mixed terminal decisions may route           | S08-T03; unit/policy/allowlist/review generations                      |
+| Maintenance proposal        | `gathered -> proposed_noop \| proposed_revision -> accepted \| edited_and_accepted \| rejected \| superseded`; Autopilot is an explicit reviewed policy path                                                 | S08-T04; page/route/model/policy/lifecycle generations                 |
+| Search projection           | `pending -> active`; `active -> inactive \| redacted`; `inactive \| redacted -> purged`; inactive/redacted rows cannot be candidates                                                                         | S09-T02; source/page revision + route/lifecycle generation             |
+| Retrieval/answer            | `gathering -> manifest_pinned -> model_running -> cited_answer \| insufficient_evidence -> reauthorized -> returned \| revoked`                                                                              | S09-T03/T04; immutable manifest + final auth generations               |
+| Slack identity binding      | `unlinked -> pending_verification -> active -> revoked`; relink creates a new binding generation                                                                                                             | S10-T01; org/team/Slack user/WorkOS subject                            |
+| Slack question              | `received -> scope_required \| scoped \| denied`; `scope_required -> scoped \| needs_clarification \| denied`; `scoped -> answering`; `answering -> outbox_pending \| abstained \| retry_wait \| superseded` | S10-T02/T04; requester and scope receipt                               |
+| Outbound delivery           | `pending -> authorized -> sending`; `sending -> delivered \| retry_wait \| ambiguous_no_retry \| denied \| revoked \| dead_letter`; ephemeral ambiguity is terminal                                          | S10-T03; outbox effect + audience/auth/lifecycle generations           |
+| Service principal / API key | `active -> expired \| revoked`; rotation creates a new key and revokes the old generation                                                                                                                    | S11-T01; key hash/principal generation                                 |
+| Export job/artifact         | `requested -> gathering -> encoding -> storing -> ready -> expired -> purged`, with `revoked \| failed` terminal outcomes                                                                                    | S12; export effect/lifecycle generation                                |
+| Model/prompt approval       | `candidate -> evaluated -> approved \| rejected`; approval is immutable for a suite/fixture hash                                                                                                             | S13-T01; eval receipt hash                                             |
+| Subsystem policy            | `enabled -> paused -> enabled`, with emergency `disabled`; enabling requires current operator authority and evidence                                                                                         | S13-T03; policy epoch                                                  |
+| Release                     | `candidate -> staging -> pilot`, then terminal `no_go` or `launch_approved -> cohort_enabled -> general`; incident triggers rollback/new candidate                                                           | S14-T01; product/attestation commit, build and deploy IDs              |
 
 Transient flows are ordered security checks, not durable state machines:
 
 | Flow             | Required order                                                                                 | Audit behavior                                                                 |
 | ---------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Human auth       | `signed_out                                                                                    | authenticated` per request                                                     | Persist no token; audit only redacted subject/config failure metadata |
-| Editor commit    | `editing -> commit_pending -> committed                                                        | stale                                                                          | revoked`                                                              | Persist only accepted revision or redacted denial/attempt metadata |
+| Human auth       | `signed_out` or `authenticated` per request                                                    | Persist no token; audit only redacted subject/config failure metadata          |
+| Editor commit    | `editing -> commit_pending -> committed \| stale \| revoked`                                   | Persist only accepted revision or redacted denial/attempt metadata             |
 | Headless request | `received -> authenticated -> authorized -> decoded -> dispatched -> reauthorized -> returned` | Persist request ID, principal key, operation, timing and redacted outcome only |
 
 ## Appendix H — Lifecycle Propagation Matrix
@@ -3381,35 +3556,35 @@ Every row is mandatory where the surface exists. Tests assert typed denial, zero
 unauthorized durable effects, redacted audit metadata, and that provider, model,
 storage, or delivery adapters were not called before authorization.
 
-| Attack/failure class         | Required adversarial fixtures                                                                                                          | Expected invariant                                                                               | Primary tasks                       |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------- |
-| Authentication confusion     | missing/expired/malformed WorkOS token; wrong issuer/JWKS/org; fake mode in production                                                 | `Unauthorized`/startup failure; no tenant lookup or secret exposure                              | S01-T01/T02                         |
-| Tenant/key forgery           | caller org/workspace/Brain/user/Convex ID; same stable key in another tenant                                                           | server-derived tenant wins; cross-tenant denial and no existence leak                            | S01-T02/T03, S02, S11               |
-| RBAC race                    | demote/revoke after gather but before commit/return/send/download                                                                      | final reauthorization denies and accepted effect remains zero                                    | S01-T04, S09-T04, S10-T03, S11, S12 |
-| Last-owner/invite abuse      | remove last owner; reuse/expire/revoke invite; self-escalate role                                                                      | typed denial; owner invariant preserved                                                          | S01-T04                             |
-| Page/editor concurrency      | cycle, cross-Brain parent, duplicate sibling slug, stale revision, restore race, viewer write                                          | no pointer corruption; append-only history                                                       | S02                                 |
-| OAuth/connection binding     | forged Connect state, wrong team/app/bot, stale generation, replayed callback, token in logs                                           | connection not activated; tokens remain in Nango                                                 | S04-T01/T02                         |
-| Connection lifecycle         | same-team reauth, replacement, team/app change, disconnect/uninstall with old webhooks/jobs/routes/outbox/bindings                     | preserve keys/cursors only for verified reauth; every old-generation effect is fenced            | S04-T02, S07, S10                   |
-| Webhook authenticity         | bad/current/previous signature boundaries, old/future timestamp, oversized body, replay, unknown connection                            | rejection before tenant write; redacted receipt only                                             | S04-T03                             |
-| Bot membership/channel scope | event for unjoined/inaccessible/archived channel; first-channel/shared-cursor bug; auto-join attempt                                   | no unauthorized capture; every joined channel independent                                        | S04-T02/T04, S06                    |
-| Slack Connect audience       | Direct/Classify ingestion plus requester-private/channel delivery attempt on Connect                                                   | Direct/Classify capture/routing remains allowed; every answer delivery is zero-send              | S04-T04, S10                        |
-| Event dedupe/order           | duplicate transport delivery, live/backfill receipts for one observation, equal timestamps, `A -> B -> A`, delete-before-edit          | receipts remain distinct; one logical observation/source revision; deterministic total order     | S05-T01/T02                         |
-| Atomicity/crash              | crash before/after receipt/source/intent commit; retry after timeout                                                                   | either no effect or complete atomic intent; no lost/duplicate downstream effect                  | S05-T02, S06                        |
-| Snapshot contamination       | mutable latest read after fixed cut; oversized/cross-channel thread; stale revision; messages spanning policy epochs                   | immutable bounded same-epoch unit hash; old text never rerouted by a later reply                 | S05-T03                             |
-| Route/classification escape  | Direct invokes model; Classify returns two/out-of-list targets; no-route or mixed-client coerced to target; stale policy               | zero model call for Direct; mixed-client is mandatory no-route; structural rejection/review      | S05-T04, S08-T03                    |
-| Lease/fairness/rate          | expired/stolen lease, stale completion, 429/`Retry-After`, poison channel, giant deep backfill                                         | one accepted effect; cursors preserved; every channel progresses                                 | S06, S13-T02                        |
-| Lifecycle resurrection       | delete/revoke during job; retry old generation; legal hold treated as access grant; purge rerun                                        | monotonic revoke/purge; hold blocks purge only; idempotent receipt                               | S07                                 |
-| Prompt/tool injection        | Slack/page/question/model/MCP text asks for other tenant, tools, instructions, secrets or delivery change                              | values remain data; closed tools/allowlist/audience unchanged                                    | S08, S09, S11, S13-T01              |
-| Model schema/budget          | malformed JSON, missing citation, fabricated quote, timeout, provider 5xx, token/spend cap                                             | typed failure/abstention; exact data remains replayable; no heuristic fallback                   | S08                                 |
-| Search/projection leak       | org-vault-only row, inactive route, revoked lifecycle, stale projection, malicious filter                                              | never a candidate; async lag reported honestly                                                   | S09-T01/T02                         |
-| Retrieval/citation failure   | citation outside manifest, locator/hash mismatch, unsupported claim, no evidence, revoke before return                                 | cited answer or typed abstention; final denial on revoke                                         | S09-T03/T04                         |
-| Slack identity/scope         | display-name/email spoof, unbound/ambiguous DM, removed member, unauthorized Brain selection                                           | exact binding and finite authorized scopes only; no guessed Brain                                | S10-T01/T02                         |
-| Outbox ambiguity             | ephemeral/DM timeout before/after provider acceptance, duplicate worker, operator retry, audience mutation                             | ephemeral ambiguity is terminal/no-retry; DM retry only with verified idempotency/reconciliation | S10-T03                             |
-| API-key handling             | plaintext at rest/log/URL, hash timing probe, expired/revoked/over-scoped key, key from another Brain                                  | display once; uniform auth error; one-Brain viewer ceiling                                       | S11-T01/T02                         |
-| MCP protocol                 | GET/cookie auth, invalid JSON-RPC/version/content type/origin/host, notification, batch/body/timeout/rate overflow, unknown/write tool | stateless POST bearer path only; reviewed seven-operation registry                               | S11-T03/T04                         |
-| Export determinism/lifecycle | path traversal, unstable order/time, public Convex ID, revoke mid-build, expired URL, double purge                                     | byte-identical safe bundle or fenced failure; object purged                                      | S12                                 |
-| Observability/secret leakage | raw webhook/token/header/prompt/source/error payload canaries; alert flood                                                             | canaries absent; IDs/hashes/counts only; alerts dedupe                                           | S13-T03                             |
-| Release controls             | shared backend/demo seed, missing env/provider binding, invalid auth/route/key, rollback with active leases, security incident         | isolation/doctor/smoke fails red; rollback safe; automatic no-go                                 | S00-T03, S14-T01                    |
+| Attack/failure class         | Required adversarial fixtures                                                                                                          | Expected invariant                                                                                                  | Primary tasks                       |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| Authentication confusion     | missing/expired/malformed WorkOS token; wrong issuer/JWKS/org; fake mode in production                                                 | `Unauthorized`/startup failure; no tenant lookup or secret exposure                                                 | S01-T01/T02                         |
+| Tenant/key forgery           | caller org/workspace/Brain/user/Convex ID; same stable key in another tenant                                                           | server-derived tenant wins; cross-tenant denial and no existence leak                                               | S01-T02/T03, S02, S11               |
+| RBAC race                    | demote/revoke after gather but before commit/return/send/download                                                                      | final reauthorization denies and accepted effect remains zero                                                       | S01-T04, S09-T04, S10-T03, S11, S12 |
+| Last-owner/invite abuse      | remove last owner; reuse/expire/revoke invite; self-escalate role                                                                      | typed denial; owner invariant preserved                                                                             | S01-T04                             |
+| Page/editor concurrency      | cycle, cross-Brain parent, duplicate sibling slug, stale revision, restore race, viewer write                                          | no pointer corruption; append-only history                                                                          | S02                                 |
+| OAuth/connection binding     | forged Connect state, wrong team/app/bot, stale generation, replayed callback, token in logs                                           | connection not activated; tokens remain in Nango                                                                    | S04-T01/T02                         |
+| Connection lifecycle         | same-team reauth, replacement, team/app change, disconnect/uninstall with old webhooks/jobs/routes/outbox/bindings                     | preserve keys/cursors only for verified reauth; every old-generation effect is fenced                               | S04-T02, S07, S10                   |
+| Webhook authenticity         | bad/current/previous signature boundaries, old/future timestamp, oversized body, replay, unknown connection                            | rejection before tenant write; pre-verification/unmatched failures emit redacted pre-tenant security telemetry only | S04-T03                             |
+| Bot membership/channel scope | event for unjoined/inaccessible/archived channel; first-channel/shared-cursor bug; auto-join attempt                                   | no unauthorized capture; every joined channel independent                                                           | S04-T02/T04, S06                    |
+| Slack Connect audience       | Direct/Classify ingestion plus requester-private/channel delivery attempt on Connect                                                   | Direct/Classify capture/routing remains allowed; every answer delivery is zero-send                                 | S04-T04, S10                        |
+| Event dedupe/order           | duplicate transport delivery, live/backfill receipts for one observation, equal timestamps, `A -> B -> A`, delete-before-edit          | receipts remain distinct; one logical observation/source revision; deterministic total order                        | S05-T01/T02                         |
+| Atomicity/crash              | crash before/after receipt/source/intent commit; retry after timeout                                                                   | either no effect or complete atomic intent; no lost/duplicate downstream effect                                     | S05-T02, S06                        |
+| Snapshot contamination       | mutable latest read after fixed cut; oversized/cross-channel thread; stale revision; messages spanning policy epochs                   | immutable bounded same-epoch unit hash; old text never rerouted by a later reply                                    | S05-T03                             |
+| Route/classification escape  | Direct invokes model; Classify returns two/out-of-list targets; no-route or mixed-client coerced to target; stale policy               | zero model call for Direct; mixed-client is mandatory no-route; structural rejection/review                         | S05-T04, S08-T03                    |
+| Lease/fairness/rate          | expired/stolen lease, stale completion, 429/`Retry-After`, poison channel, giant deep backfill                                         | one accepted effect; cursors preserved; every channel progresses                                                    | S06, S13-T02                        |
+| Lifecycle resurrection       | delete/revoke during job; retry old generation; legal hold treated as access grant; purge rerun                                        | monotonic revoke/purge; hold blocks purge only; idempotent receipt                                                  | S07                                 |
+| Prompt/tool injection        | Slack/page/question/model/MCP text asks for other tenant, tools, instructions, secrets or delivery change                              | values remain data; closed tools/allowlist/audience unchanged                                                       | S08, S09, S11, S13-T01              |
+| Model schema/budget          | malformed JSON, missing citation, fabricated quote, timeout, provider 5xx, token/spend cap                                             | typed failure/abstention; exact data remains replayable; no heuristic fallback                                      | S08                                 |
+| Search/projection leak       | org-vault-only row, inactive route, revoked lifecycle, stale projection, malicious filter                                              | never a candidate; async lag reported honestly                                                                      | S09-T01/T02                         |
+| Retrieval/citation failure   | citation outside manifest, locator/hash mismatch, unsupported claim, no evidence, revoke before return                                 | cited answer or typed abstention; final denial on revoke                                                            | S09-T03/T04                         |
+| Slack identity/scope         | display-name/email spoof, unbound/ambiguous DM, removed member, unauthorized Brain selection                                           | exact binding and finite authorized scopes only; no guessed Brain                                                   | S10-T01/T02                         |
+| Outbox ambiguity             | ephemeral/DM timeout before/after provider acceptance, duplicate worker, operator retry, audience mutation                             | ephemeral ambiguity is terminal/no-retry; DM retry only with verified idempotency/reconciliation                    | S10-T03                             |
+| API-key handling             | plaintext at rest/log/URL, hash timing probe, expired/revoked/over-scoped key, key from another Brain                                  | display once; uniform auth error; one-Brain viewer ceiling                                                          | S11-T01/T02                         |
+| MCP protocol                 | GET/cookie auth, invalid JSON-RPC/version/content type/origin/host, notification, batch/body/timeout/rate overflow, unknown/write tool | stateless POST bearer path only; reviewed seven-operation registry                                                  | S11-T03/T04                         |
+| Export determinism/lifecycle | path traversal, unstable order/time, public Convex ID, revoke mid-build, expired URL, double purge                                     | byte-identical safe bundle or fenced failure; object purged                                                         | S12                                 |
+| Observability/secret leakage | raw webhook/token/header/prompt/source/error payload canaries; alert flood                                                             | canaries absent; IDs/hashes/counts only; alerts dedupe                                                              | S13-T03                             |
+| Release controls             | shared backend/demo seed, missing env/provider binding, invalid auth/route/key, rollback with active leases, security incident         | isolation/doctor/smoke fails red; rollback safe; automatic no-go                                                    | S00-T03, S14-T01                    |
 
 ## Appendix J — Semantic-Eval Thresholds And Capacity Fixture
 
@@ -3419,9 +3594,11 @@ All rates are computed on the untouched test split with immutable fixture IDs
 and hashes. Minimum test denominators are: 500 classification units including at
 least 100 no-route and 50 mixed-client units; 300 labeled factual answer claims
 plus 100 no-evidence questions; 200 maintenance proposals; 200 injection cases
-spanning every declared attack class; and at least 50 cases per each of five
-launch languages. Two human reviewers label independently and adjudicate
-disagreement before fixture freeze.
+spanning every declared attack class; and at least 74 cases per each of five
+launch languages and per thresholded language subgroup. This minimum makes a
+perfect observed rate mathematically capable of reaching a >=95% lower bound
+under the required two-sided 95% Wilson interval. Two human reviewers label
+independently and adjudicate disagreement before fixture freeze.
 
 Sampling parameters and provider seeds are pinned. Models that support
 deterministic temperature-zero inference run once; nondeterministic transports
@@ -3519,23 +3696,26 @@ every child receipt.
 
 Evidence is immutable, redacted, and tied to one `productReleaseCommit`, build,
 and deploy. A later docs-only `attestationCommit` may package it under S14's
-signed materiality rule. “Not run,” missing external context, and optional MCP
-tool failure are explicit, never pass. Optional planning MCP availability is not
-a product launch gate. When installed, direct focused test/coverage commands run
-as `rtk host-test-slot --class focused <command>`; the documented fallback is
-the same command without the wrapper.
+signed materiality rule. “Not run” and missing required CI, provider, hosted,
+migration, security, or live-product evidence are failures. Optional planning
+MCP failures are recorded as unavailable and do not affect task, tranche, or
+launch verdicts. Product MCP staging evidence remains required by the Headless
+staging row. When installed, direct focused test/coverage commands run as
+`rtk host-test-slot --class focused <command>`; the documented fallback is the
+same command without the wrapper.
 
-| Stage              | Required commands/evidence                                                                                                                                                                                      | Passing verdict                                                                                                                  |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| Slice              | task's intentional red test, focused package tests/gates, generated diff where relevant, `rtk git diff --check`, `rtk just verify`                                                                              | exact output, task/commit refs, no weakened gate, <=300 source lines                                                             |
-| Stack              | temporary StackPlan hash + `rtk pnpm stack:check <absolute-temp-plan.json>`, all slice receipts, staging migration dry-run, `rtk just verify-full`                                                              | <=4 slices, dependencies merged, all focused gates green                                                                         |
-| CI                 | authoritative Buildkite keys `ci-self-protection`, `phase-1`, `taste`, `contract-review`, `mutation`, `staging-deploy`, `eval-artifacts`, `production-approval`, `production-promote`; GitHub/local are mirrors | every applicable key green; approval/promote occur only after signed go/no-go                                                    |
-| Staging            | `rtk pnpm deploy:doctor staging`, `rtk proxy .buildkite/scripts/staging-deploy.sh`, hosted HTTP/browser/a11y/visual/auth smokes, migration execute/verify, synthetic isolation/security matrix                  | isolated staging backend, exact commit deployed; negative controls fail red then restore                                         |
-| Provider staging   | Nango Connect/reconnect, manifest hash, joined multi-channel live/recent/deep, 429, edit/delete, app removal/re-add, private reply and Slack Connect no-send                                                    | signed/bound exact connection, independent cursors, honest gaps, no audience violation                                           |
-| Headless staging   | API/CLI/MCP schema-hash parity, seven-operation list, revoked/expired key, origin/protocol/rate/timeout negatives, real Claude Code remote connection                                                           | one-Brain viewer ceiling, stateless bearer each request, no write/admin tool                                                     |
-| Lifecycle/rollback | complete post-S12 trigger matrix from Appendix H, backup/restore canary, kill switches, compatible-binary rollback/roll-forward                                                                                 | immediate whole-page/current-use revoke, monotonic lifecycle, complete descendant receipt                                        |
-| Pilot              | >=5 agencies for >=7 days; exact activation, time-to-value, usefulness, second-surface, admin-time, manual-maintenance, spend/incidents numerators                                                              | ceiling-rounded >=80% Brief, >=70% useful, >=50% second surface; median TTV <15m, admin <10m/week, <2 manual actions/client/week |
-| Launch             | `rtk pnpm deploy:doctor production`, `rtk proxy .buildkite/scripts/production-promote.sh`, approved eval/capacity/pilot/security receipts and rollback owner/window                                             | zero cross-client, Slack-audience, key-scope or unverified-webhook incident; any such incident is no-go                          |
+| Stage              | Required commands/evidence                                                                                                                                                                                                                        | Passing verdict                                                                                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Slice              | task's intentional red test, exact focused package commands/gates, generated diff where relevant, `rtk git diff --check`, source-budget computation                                                                                               | exact output, task/commit refs, no weakened gate, <=300 source lines per commit                                                                          |
+| StackPlan          | temporary StackPlan hash + `rtk pnpm stack:check <absolute-temp-plan.json>`, <=4 complete slice receipts, staging migration dry-run where applicable                                                                                              | plan shape/ownership green; all focused gates green; no broad gate                                                                                       |
+| Tranche            | all included StackPlans/proofs, dependency/lock validation, `rtk host-test-slot --class full pnpm verify`, `rtk git diff --check`, clean status                                                                                                   | exact tranche head green; only then mark tasks accepted                                                                                                  |
+| CI                 | authoritative Buildkite keys `ci-self-protection`, `phase-1`, `taste`, `contract-review`, `mutation`, `staging-deploy`, `eval-artifacts`, `production-approval`, `production-promote`; GitHub/local are mirrors                                   | every applicable key green; approval/promote occur only after signed go/no-go                                                                            |
+| Staging            | `rtk pnpm deploy:doctor staging`, `rtk proxy .buildkite/scripts/staging-deploy.sh`, hosted HTTP/browser/a11y/visual/auth smokes, migration execute/verify, synthetic isolation/security matrix                                                    | isolated staging backend, exact commit deployed; negative controls fail red then restore                                                                 |
+| Provider staging   | Nango Connect/reconnect, manifest hash, joined multi-channel live/recent/deep, 429, edit/delete, app removal/re-add, private reply, Slack Connect no-send, deployed Slack distribution mode and verified history/replies rate class               | signed/bound exact connection, independent cursors, honest gaps, no audience violation; fast-history promise requires Tier 3 or equivalent qualification |
+| Headless staging   | API/CLI/MCP schema-hash parity, seven-operation list, revoked/expired key, origin/protocol/rate/timeout negatives, real Claude Code remote connection                                                                                             | one-Brain viewer ceiling, stateless bearer each request, no write/admin tool                                                                             |
+| Lifecycle/rollback | complete post-S12 trigger matrix from Appendix H, backup/restore canary, kill switches, compatible-binary rollback/roll-forward                                                                                                                   | immediate whole-page/current-use revoke, monotonic lifecycle, complete descendant receipt                                                                |
+| Pilot              | >=5 agencies for >=7 days; frozen full-cohort denominator/missing-data rule; exact activation, time-to-value, usefulness, full-cohort and activated-agency second-surface, admin-time, active-client-week maintenance, spend/incidents numerators | ceiling-rounded >=80% Brief, >=70% useful, >=50% full-cohort second surface; median TTV <15m, admin <10m/week, <2 manual actions/active client-week      |
+| Launch             | `rtk pnpm deploy:doctor production`, `rtk proxy .buildkite/scripts/production-promote.sh`, approved eval/capacity/pilot/security receipts and rollback owner/window                                                                               | zero cross-client, Slack-audience, key-scope or unverified-webhook incident; any such incident is no-go                                                  |
 
 The signed release packet contains product-release and attestation commit IDs,
 materiality/inheritance record, build/deploy IDs; dependency and generated
@@ -3592,44 +3772,48 @@ completions and authorization headers are forbidden.
 ### Task-packet audit
 
 Audit key: `C` one primary classification; `D` exact dependencies; `F` exact
-files; `P` pinned existing-code citation; `R` intentional red test/preflight;
-`T` typed contract/errors/state; `M` migration/compatibility/rollback; `G`
-focused commands; `E` completion receipt; `B` commit/PR boundary. `ready` means
-all ten fields were semantically rechecked, not merely detected by heading.
-Hand-authored files are named; generator-owned files must be enumerated and
-hashed by the task's named dry-run before StackPlan validation. It is a
-plan-shape verdict, not implementation evidence.
+paths and shared locks; `P` pinned existing-code citation; `R` intentional red
+test/preflight; `T` typed contract/errors/state; `M`
+migration/compatibility/rollback; `G` focused commands; `E` completion receipt;
+`B` commit/PR boundary. `ready` means all ten fields were semantically
+rechecked, not merely detected by heading. Hand-authored paths and matching
+manifest locks must be exact. Basenames, globs, “and tests,” registry/inventory
+placeholders, and directory-only locks do not satisfy `F`. Generator-owned files
+must be enumerated and hashed by the task's named dry-run before StackPlan
+validation. `open:F` means the remaining exact inventory cannot be derived
+safely from the current binding manifest. This is a plan-shape verdict, not
+implementation evidence.
 
-| Task    | Primary classification | Audit | Task    | Primary classification | Audit |
-| ------- | ---------------------- | ----- | ------- | ---------------------- | ----- |
-| S00-T01 | template-gap           | ready | S00-T02 | template-gap           | ready |
-| S00-T03 | template-gap           | ready | S00-T04 | template-gap           | ready |
-| S01-T01 | template-gap           | ready | S01-T02 | template-gap           | ready |
-| S01-T03 | template-gap           | ready | S01-T04 | template-gap           | ready |
-| S02-T01 | template-gap           | ready | S02-T02 | template-gap           | ready |
-| S02-T03 | fixture-to-real        | ready | S02-T04 | template-gap           | ready |
-| S03-T01 | template-gap           | ready | S03-T02 | template-gap           | ready |
-| S03-T03 | template-gap           | ready | S03-T04 | template-gap           | ready |
-| S04-T01 | template-gap           | ready | S04-T02 | template-gap           | ready |
-| S04-T03 | template-gap           | ready | S04-T04 | template-gap           | ready |
-| S05-T01 | template-gap           | ready | S05-T02 | template-gap           | ready |
-| S05-T03 | template-gap           | ready | S05-T04 | pattern-instance       | ready |
-| S06-T01 | fixture-to-real        | ready | S06-T02 | template-gap           | ready |
-| S06-T03 | template-gap           | ready | S06-T04 | template-gap           | ready |
-| S07-T01 | template-gap           | ready | S07-T02 | template-gap           | ready |
-| S07-T03 | template-gap           | ready | S07-T04 | template-gap           | ready |
-| S08-T01 | template-gap           | ready | S08-T02 | template-gap           | ready |
-| S08-T03 | pattern-instance       | ready | S08-T04 | pattern-instance       | ready |
-| S09-T01 | template-gap           | ready | S09-T02 | template-gap           | ready |
-| S09-T03 | pattern-instance       | ready | S09-T04 | pattern-instance       | ready |
-| S10-T01 | template-gap           | ready | S10-T02 | pattern-instance       | ready |
-| S10-T03 | template-gap           | ready | S10-T04 | template-gap           | ready |
-| S11-T01 | template-gap           | ready | S11-T02 | template-gap           | ready |
-| S11-T03 | pattern-instance       | ready | S11-T04 | template-gap           | ready |
-| S12-T01 | template-gap           | ready | S12-T02 | pattern-instance       | ready |
-| S12-T03 | template-gap           | ready | S13-T01 | template-gap           | ready |
-| S13-T02 | template-gap           | ready | S13-T03 | template-gap           | ready |
-| S13-T04 | template-gap           | ready | S14-T01 | template-gap           | ready |
+| Task    | Primary classification | Audit  | Task    | Primary classification | Audit  |
+| ------- | ---------------------- | ------ | ------- | ---------------------- | ------ |
+| S00-T01 | template-gap           | ready  | S00-T02 | template-gap           | ready  |
+| S00-T03 | template-gap           | ready  | S00-T04 | template-gap           | ready  |
+| S01-T01 | template-gap           | open:F | S01-T02 | template-gap           | open:F |
+| S01-T03 | template-gap           | ready  | S01-T04 | template-gap           | ready  |
+| S02-T01 | template-gap           | open:F | S02-T02 | template-gap           | open:F |
+| S02-T03 | fixture-to-real        | open:F | S02-T04 | template-gap           | ready  |
+| S03-T01 | template-gap           | ready  | S03-T02 | template-gap           | open:F |
+| S03-T03 | template-gap           | open:F | S03-T04 | template-gap           | ready  |
+| S04-T01 | template-gap           | ready  | S04-T02 | template-gap           | ready  |
+| S04-T03 | template-gap           | open:F | S04-T04 | template-gap           | open:F |
+| S05-T01 | template-gap           | open:F | S05-T02 | template-gap           | open:F |
+| S05-T03 | template-gap           | ready  | S05-T04 | pattern-instance       | ready  |
+| S06-T01 | fixture-to-real        | ready  | S06-T02 | template-gap           | open:F |
+| S06-T03 | template-gap           | open:F | S06-T04 | template-gap           | ready  |
+| S07-T01 | template-gap           | open:F | S07-T02 | template-gap           | open:F |
+| S07-T03 | template-gap           | ready  | S07-T04 | template-gap           | ready  |
+| S08-T01 | template-gap           | ready  | S08-T02 | template-gap           | ready  |
+| S08-T03 | pattern-instance       | ready  | S08-T04 | pattern-instance       | ready  |
+| S09-T01 | template-gap           | ready  | S09-T02 | template-gap           | open:F |
+| S09-T03 | pattern-instance       | ready  | S09-T04 | pattern-instance       | ready  |
+| S10-T01 | template-gap           | open:F | S10-T02 | pattern-instance       | ready  |
+| S10-T03 | template-gap           | open:F | S10-T04 | template-gap           | ready  |
+| S11-T01 | template-gap           | open:F | S11-T02 | template-gap           | ready  |
+| S11-T03 | pattern-instance       | open:F | S11-T04 | template-gap           | open:F |
+| S12-T01 | template-gap           | open:F | S12-T02 | pattern-instance       | ready  |
+| S12-T03 | template-gap           | ready  | S13-T01 | template-gap           | open:F |
+| S13-T02 | template-gap           | ready  | S13-T03 | template-gap           | ready  |
+| S13-T04 | template-gap           | ready  | S14-T01 | template-gap           | ready  |
 
 The implementation owner reruns this audit at stack projection time against the
 then-current source pins. Drift changes the relevant row from `ready` to open
@@ -3666,9 +3850,13 @@ unverified provider flow, or partially green pilot is not done.
   fixed-cut source units.
 - **Reliability and lifecycle:** fenced work, independent live/recent/deep
   cursors, rate budgets, reconciliation and dead-letter replay pass the frozen
-  capacity fixture. Every Appendix H trigger immediately revokes current use and
-  propagates hold-aware redaction/purge through all listed descendants without
-  resurrection.
+  capacity fixture. Destructive Appendix H triggers revoke current use and
+  propagate hold-aware redaction/purge through their listed descendants without
+  resurrection. Slack edits append a new revision and advance current pointers
+  without purging history; bot removal stops capture and fences old-generation
+  work without deleting retained history; normal policy changes remain
+  prospective. Every other trigger follows its row-specific Appendix H
+  transition and evidence contract.
 - **Cognition and knowledge:** deterministic pipes pass with models disabled;
   structured model adapters are provider-neutral, closed-tool, metered and
   versioned; classification is review-first zero-or-one within a human

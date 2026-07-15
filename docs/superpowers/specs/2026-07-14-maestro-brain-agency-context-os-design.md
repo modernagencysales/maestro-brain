@@ -762,7 +762,9 @@ signature verification, timestamp/replay-window checks, request-size limits, and
 secret-rotation policy, then bind
 `providerConfigKey + connectionId + connectionGeneration + team_id + api_app_id`
 to exactly one active organization. Unmatched or unverifiable raw payloads
-create redacted health metadata only; tenant inference is forbidden.
+create non-durable redacted pre-tenant security telemetry only; tenant inference
+and tenant-scoped receipt writes are forbidden. The durable tenant
+`providerEventReceipt` begins only after native verification and exact binding.
 
 Nango is not a complete conversational Slackbot or multi-tenant ingestion
 runtime. Maestro still needs a thin bot handler and a product-specific
@@ -1002,13 +1004,16 @@ Nango already maintains a `chat.postEphemeral` action with `user_id` and
 optional `thread_ts`
 ([source](https://github.com/NangoHQ/integration-templates/blob/e286bd20c5795f9e8bfbc9053e65669941c08c89/integrations/slack/actions/send-ephemeral-message.ts#L4-L35)).
 Use it for internal-channel V1 answers. Ephemeral delivery is at-most-once:
-persist the outbox effect before the call and never retry an ambiguous timeout,
-because ephemeral history cannot be reliably reconciled. Report the outcome as
-unknown and let the requester create a new answer request with a new effect key.
-DM delivery may retry only behind a provider action with a verified idempotency
-or reconciliation contract. Mechanically identify and suppress the bot's own
-answer events from maintenance/classification while retaining a receipt. Escape
-mass mentions and unsafe links before delivery.
+persist the exact encrypted sanitized payload bytes, render version, hash,
+destination, authorization/lifecycle generations, and outbox effect before the
+call. A retry sends those persisted bytes rather than rerendering mutable state.
+Logs and receipts contain only payload hash/size/version. Never retry an
+ambiguous timeout, because ephemeral history cannot be reliably reconciled.
+Report the outcome as unknown and let the requester create a new answer request
+with a new effect key. DM delivery may retry only behind a provider action with
+a verified idempotency or reconciliation contract. Mechanically identify and
+suppress the bot's own answer events from maintenance/classification while
+retaining a receipt. Escape mass mentions and unsafe links before delivery.
 
 The Vercel AI SDK Slackbot is useful behavioral prior art for fetching thread
 context and replying in a thread
@@ -1048,12 +1053,13 @@ which retrieval tools and queries to use, selects evidence from their
 candidates, and returns cited text plus a retrieval manifest. The application
 does not use a local decision tree to choose "the best" retrieval path.
 
-Every Ask run pins an immutable candidate manifest before the answer call. It
-records the principal, Brain, query and filters, exact page/source revision
-keys, projection version, policy epochs, route/revocation generations, and a
-canonical hash. The model can cite only entries in that manifest. Immediately
-before web return, MCP return, or Slack delivery, the response pipe re-resolves
-the principal's current Brain role and compares every pinned generation. A role
+Every Ask run pins an immutable candidate manifest before the answer call. Its
+receipt records the principal, Brain, query hash, normalized filter manifest and
+hash, exact page/source revision keys, projection version, policy epochs,
+route/revocation generations, and a canonical hash; it never stores raw query
+text. The model can cite only entries in that manifest. Immediately before web
+return, MCP return, or Slack delivery, the response pipe re-resolves the
+principal's current Brain role and compares every pinned generation. A role
 revocation, route revocation, deletion, or redaction fails with a typed stale
 authorization result; it never returns the now-forbidden answer.
 
@@ -1251,30 +1257,30 @@ replace realtime tenancy, webhooks, indexing, and editor sync.
 
 Extend the Confect schema with these durable concepts:
 
-| Table/concept                | Tenant columns                    | Essential contract                                                                                                                                                      |
-| ---------------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `providerConnections`        | `organizationId`                  | Stable connection key, provider, Nango connection ID, `teamId`, `apiAppId`, `botUserId`, connection generation, status; one active Slack connection per organization    |
-| `slackIdentityBindings`      | `organizationId`, `userId`        | Verified `teamId + slackUserId`, single-use link receipt, verified/revoked times, binding generation; one active Maestro user per Slack identity in an organization     |
-| `sourceChannels`             | `organizationId`, connection key  | Stable channel key, external channel ID, name, shared/private flags, exact-bot membership, capture state; unique by connection generation plus channel ID               |
-| `channelRoutingPolicies`     | `organizationId`, channel key     | Immutable epoch; `direct \| classify \| capture_only`; one Direct Brain or finite Classify descriptors; review policy, actor, effective cut, route generation           |
-| `channelDeliveryPolicies`    | `organizationId`, channel key     | Immutable audience generation and `capture_only \| requester_private`; Slack Connect is structurally capture-only in V1                                                 |
-| `channelSyncStates`          | `organizationId`, channel key     | Separate live/recent/deep cursors, fenced lease generation, retry time, lag, access gap, typed last error                                                               |
-| `providerEventReceipts`      | `organizationId`, connection key  | Provider event ID, signature/replay receipt, provider revision/order discriminator, canonical hash, outcome; unique logical observation key                             |
-| `sourceArtifacts`            | `organizationId`, channel key     | Stable provider object key, thread key, latest ordered revision pointer, lifecycle state                                                                                |
-| `sourceRevisions`            | `organizationId`, source key      | Immutable canonical text/blocks, author/time snapshots, permalink, provider order, observation sequence, hash, tombstone, lifecycle fields                              |
-| `sourceUnits`                | `organizationId`, channel key     | Stable thread-or-message key, latest snapshot pointer, assembly generation                                                                                              |
-| `sourceUnitRevisions`        | `organizationId`, source-unit key | Immutable content-bearing ordered source-revision snapshot, fixed cut, assembly-policy version, canonical hash                                                          |
-| `sourceProcessingJobs`       | `organizationId`, source-unit key | Stage, pinned policy/prompt/model/tool-schema versions, idempotency/effect key, lease and fence generations, attempts, CAS status, retry/error, lifecycle fields        |
-| `classificationDecisions`    | `organizationId`, source-unit key | Exactly one nullable `targetBrainKey`, evidence, diagnostic confidence, model receipt, review action/actor; unique accepted decision per unit revision and policy epoch |
-| `sourceRoutes`               | `organizationId`, `workspaceId`   | Brain/source-unit revisions, included source revisions, origin, policy epoch, route/revocation generations, active interval, unique logical route effect                |
-| `brainPages`                 | `organizationId`, `workspaceId`   | Stable page key, tree/current-revision pointers, archive/favorite state, lifecycle fields; unique stable key and sibling slug within a Brain                            |
-| `pageRevisions`              | `organizationId`, `workspaceId`   | Immutable BlockNote/Markdown snapshot, parent, hash, causation, actor/model receipt, publish and lifecycle state                                                        |
-| `citations`                  | `organizationId`, `workspaceId`   | Page/answer revision, exact source revision, quote/range/locator, redacted-resolution state                                                                             |
-| `workspaceSearchProjections` | `organizationId`, `workspaceId`   | Exact page/source revision, projection version, policy/route/lifecycle generations, searchable text, active/redacted state; unique projection effect                    |
-| `retrievalReceipts`          | `organizationId`, `workspaceId`   | Principal, query/filters, immutable candidate/result manifests, generation snapshot, hashes, model receipt, delivery status                                             |
-| `apiKeys`                    | `organizationId`, `workspaceId`   | Hashed secret, display prefix, scopes, `viewer` ceiling, service-principal generation, expiry/revocation/last-used metadata                                             |
-| `outboundDeliveryOutbox`     | `organizationId`, `workspaceId`   | Requester binding, team/channel/user destination, answer receipt, audience/revocation generations, unique effect key, attempts, Slack timestamp, terminal state         |
-| `retentionPoliciesAndJobs`   | `organizationId`                  | Policy epoch, legal holds, affected resource keys, redaction/purge action, fence generation, approvals, receipts, completion state                                      |
+| Table/concept                | Tenant columns                    | Essential contract                                                                                                                                                                                              |
+| ---------------------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `providerConnections`        | `organizationId`                  | Stable connection key, provider, Nango connection ID, `teamId`, `apiAppId`, `botUserId`, connection generation, status; one active Slack connection per organization                                            |
+| `slackIdentityBindings`      | `organizationId`, `userId`        | Verified `teamId + slackUserId`, single-use link receipt, verified/revoked times, binding generation; one active Maestro user per Slack identity in an organization                                             |
+| `sourceChannels`             | `organizationId`, connection key  | Stable channel key, external channel ID, name, shared/private flags, exact-bot membership, capture state; unique by connection generation plus channel ID                                                       |
+| `channelRoutingPolicies`     | `organizationId`, channel key     | Immutable epoch; `direct \| classify \| capture_only`; one Direct Brain or finite Classify descriptors; review policy, actor, effective cut, route generation                                                   |
+| `channelDeliveryPolicies`    | `organizationId`, channel key     | Immutable audience generation and `capture_only \| requester_private`; Slack Connect is structurally capture-only in V1                                                                                         |
+| `channelSyncStates`          | `organizationId`, channel key     | Separate live/recent/deep cursors, fenced lease generation, retry time, lag, access gap, typed last error                                                                                                       |
+| `providerEventReceipts`      | `organizationId`, connection key  | Begins after native verification and exact tenant binding; provider event ID, signature/replay receipt, provider revision/order discriminator, canonical hash, outcome; unique logical observation key          |
+| `sourceArtifacts`            | `organizationId`, channel key     | Stable provider object key, thread key, latest ordered revision pointer, lifecycle state                                                                                                                        |
+| `sourceRevisions`            | `organizationId`, source key      | Immutable canonical text/blocks, author/time snapshots, permalink, provider order, observation sequence, hash, tombstone, lifecycle fields                                                                      |
+| `sourceUnits`                | `organizationId`, channel key     | Stable thread-or-message key, latest snapshot pointer, assembly generation                                                                                                                                      |
+| `sourceUnitRevisions`        | `organizationId`, source-unit key | Immutable content-bearing ordered source-revision snapshot, fixed cut, assembly-policy version, canonical hash                                                                                                  |
+| `sourceProcessingJobs`       | `organizationId`, source-unit key | Stage, pinned policy/prompt/model/tool-schema versions, idempotency/effect key, lease and fence generations, attempts, CAS status, retry/error, lifecycle fields                                                |
+| `classificationDecisions`    | `organizationId`, source-unit key | Exactly one nullable `targetBrainKey`, evidence, diagnostic confidence, model receipt, review action/actor; unique accepted decision per unit revision and policy epoch                                         |
+| `sourceRoutes`               | `organizationId`, `workspaceId`   | Brain/source-unit revisions, included source revisions, origin, policy epoch, route/revocation generations, active interval, unique logical route effect                                                        |
+| `brainPages`                 | `organizationId`, `workspaceId`   | Stable page key, tree/current-revision pointers, archive/favorite state, lifecycle fields; unique stable key and sibling slug within a Brain                                                                    |
+| `pageRevisions`              | `organizationId`, `workspaceId`   | Immutable BlockNote/Markdown snapshot, parent, hash, causation, actor/model receipt, publish and lifecycle state                                                                                                |
+| `citations`                  | `organizationId`, `workspaceId`   | Page/answer revision, exact source revision, quote/range/locator, redacted-resolution state                                                                                                                     |
+| `workspaceSearchProjections` | `organizationId`, `workspaceId`   | Exact page/source revision, projection version, policy/route/lifecycle generations, searchable text, active/redacted state; unique projection effect                                                            |
+| `retrievalReceipts`          | `organizationId`, `workspaceId`   | Principal, query hash, normalized filter manifest/hash, immutable candidate/result manifests, generation snapshot, model receipt, delivery status; no raw query text                                            |
+| `apiKeys`                    | `organizationId`, `workspaceId`   | Hashed secret, display prefix, scopes, `viewer` ceiling, service-principal generation, expiry/revocation/last-used metadata                                                                                     |
+| `outboundDeliveryOutbox`     | `organizationId`, `workspaceId`   | Encrypted exact sanitized payload, render version/hash, requester binding, destination, answer receipt, audience/revocation/lifecycle generations, unique effect key, attempts, Slack timestamp, terminal state |
+| `retentionPoliciesAndJobs`   | `organizationId`                  | Policy epoch, legal holds, affected resource keys, redaction/purge action, fence generation, approvals, receipts, completion state                                                                              |
 
 Every durable row carries `organizationId`; every Brain-readable row also
 carries `workspaceId`, and commits verify that the workspace belongs to that
@@ -1733,7 +1739,10 @@ Focused gates:
   correction. Scores are reported by model and prompt version, not hidden in a
   single aggregate.
 - Adversarial and multilingual evals must pass the same authorization,
-  allowlist, abstention, and prompt-injection safety invariants.
+  allowlist, abstention, and prompt-injection safety invariants. Every launch
+  language and thresholded language subgroup has at least 74 cases so a perfect
+  observed rate can attain a >=95% lower bound under a two-sided 95% Wilson
+  interval.
 
 ### Read-Only MCP And API
 
@@ -1773,14 +1782,17 @@ Focused gates:
 - The product blocks or explicitly queues configuration above the verified
   envelope; it never accepts it and silently drops channels, events, or jobs.
 - Before general V1 launch, at least five design-partner agencies complete a
-  minimum seven-day observation window. Thresholds use exact integer numerators
-  with ceiling rounding: at least 80% get an accepted Client Brief proposal, at
-  least 70% rate a cited answer useful, at least 50% use Slack or MCP in
-  addition to web during week one, median time to first reviewable cited
+  minimum seven-day observation window. Freeze cohort membership and
+  missing-data treatment before scoring. The denominator is every enrolled
+  agency that reaches its seven-day cut; nonresponse fails Brief acceptance and
+  cited-answer usefulness. Thresholds use exact integer numerators with ceiling
+  rounding: at least 80% get an accepted Client Brief proposal, at least 70%
+  rate a cited answer useful, at least 50% of the full cohort use Slack or MCP
+  in addition to web during week one, median time to first reviewable cited
   proposal or explicit insufficient-evidence result is under 15 minutes, median
   Brain administration stays under ten minutes per active agency per week, and
-  each active client averages fewer than two manual Brain-maintenance actions
-  per week.
+  each active client-week, including zero-action weeks, averages fewer than two
+  manual Brain-maintenance actions.
 - The pilot has zero cross-client disclosure, Slack audience, key-scope, or
   unverified-webhook incidents. Any such incident blocks launch regardless of
   aggregate adoption scores.
@@ -1806,8 +1818,9 @@ Focused gates:
 - **Isolation:** zero cross-client source disclosures.
 - **Autonomy:** fewer than two manual Brain-maintenance actions per active
   client per week.
-- **Usefulness:** at least 50% of activated agencies use a second surface (Slack
-  or MCP) within the first week.
+- **Usefulness:** at least 50% of the frozen full pilot cohort use a second
+  surface (Slack or MCP) within the first week; activated-agency usage is also
+  reported but does not replace the launch denominator.
 
 ## Final Product Test
 
