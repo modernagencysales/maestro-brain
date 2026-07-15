@@ -328,6 +328,94 @@ describe("release tooling", () => {
     }
   });
 
+  it("passes the committed staging deploy doctor with only staging-scoped deploy inputs", () => {
+    const repoRoot = resolve(__dirname, "../../..");
+
+    expect(
+      buildDeployDoctorReport({
+        repoRoot,
+        environment: "staging",
+        env: {
+          MAESTRO_BRAIN_STAGING_CONVEX_DEPLOY_KEY: "staging-key",
+          MAESTRO_BRAIN_STAGING_CLOUDFLARE_API_TOKEN: "cf-token",
+          MAESTRO_BRAIN_STAGING_CLOUDFLARE_ACCOUNT_ID: "cf-account",
+          MAESTRO_BRAIN_STAGING_CALLBACK_ORIGIN:
+            "https://maestro-template-staging.pages.dev",
+        },
+      }),
+    ).toMatchObject({
+      ok: true,
+      missingSecretNames: [],
+      missingEnvNames: [],
+      requiredEnvNames: ["MAESTRO_BRAIN_STAGING_CALLBACK_ORIGIN"],
+      requiredSecretNames: [
+        "MAESTRO_BRAIN_STAGING_CONVEX_DEPLOY_KEY",
+        "MAESTRO_BRAIN_STAGING_CLOUDFLARE_API_TOKEN",
+        "MAESTRO_BRAIN_STAGING_CLOUDFLARE_ACCOUNT_ID",
+      ],
+    });
+  });
+
+  it("passes staging deploy doctor with only staging-scoped deploy inputs", () => {
+    const repoRoot = makeRepo();
+
+    try {
+      writeProjectConfig(repoRoot, {
+        project: { name: "maestro-template" },
+        environments: {
+          staging: {
+            ...isolatedProjectConfig.environments.staging,
+            requiredEnvGroups: ["cloudflare", "convex", "fake-providers"],
+          },
+          production: isolatedProjectConfig.environments.production,
+        },
+      });
+      writeEnvManifest(repoRoot, [
+        {
+          name: "MAESTRO_BRAIN_STAGING_CALLBACK_ORIGIN",
+          group: "convex",
+          requiredFor: ["deploy"],
+        },
+        {
+          name: "MAESTRO_BRAIN_PRODUCTION_CALLBACK_ORIGIN",
+          group: "convex",
+          requiredFor: ["deploy"],
+        },
+        {
+          name: "MAESTRO_BRAIN_PRODUCTION_CONVEX_DEPLOY_KEY",
+          group: "convex",
+          requiredFor: ["deploy", "live"],
+        },
+      ]);
+
+      expect(
+        buildDeployDoctorReport({
+          repoRoot,
+          environment: "staging",
+          env: {
+            MAESTRO_BRAIN_STAGING_CONVEX_DEPLOY_KEY: "staging-key",
+            MAESTRO_BRAIN_STAGING_CLOUDFLARE_API_TOKEN: "cf-token",
+            MAESTRO_BRAIN_STAGING_CLOUDFLARE_ACCOUNT_ID: "cf-account",
+            MAESTRO_BRAIN_STAGING_CALLBACK_ORIGIN:
+              "https://maestro-template-staging.pages.dev",
+          },
+        }),
+      ).toMatchObject({
+        ok: true,
+        requiredSecretNames: expect.not.arrayContaining([
+          "MAESTRO_BRAIN_PRODUCTION_CONVEX_DEPLOY_KEY",
+        ]),
+        requiredEnvNames: expect.not.arrayContaining([
+          "MAESTRO_BRAIN_PRODUCTION_CALLBACK_ORIGIN",
+        ]),
+        missingSecretNames: [],
+        missingEnvNames: [],
+      });
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
   it("rejects cross-environment Convex deploy key wiring", () => {
     const repoRoot = makeRepo();
 
@@ -393,6 +481,8 @@ describe("release tooling", () => {
           repoRoot,
           stagedSha: "abc123",
           currentSha: "abc123",
+          expectedSchemaHash: "schema-hash",
+          expectedManifestHash: "manifest-hash",
           releasePacket: staged,
           trustedSigningKeys: { "release-key-1": "test-signing-secret" },
         }),
@@ -407,6 +497,46 @@ describe("release tooling", () => {
         ok: false,
         failure: { code: "UnstagedCommit" },
         refusal: expect.stringMatching(/UnstagedCommit/),
+      });
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects signed production packets with stale schema or manifest hashes", () => {
+    const repoRoot = makeRepo();
+
+    try {
+      writeProjectConfig(repoRoot);
+      const stale = buildStagedReleasePacket({
+        repoRoot,
+        commitSha: "abc123",
+        deploymentHash: "deploy-hash",
+        schemaHash: "old-schema",
+        manifestHash: "old-manifest",
+        buildId: "build-1",
+        timestamp: "2026-07-14T00:00:00.000Z",
+        signing: {
+          signer: "release-bot@example.test",
+          keyId: "release-key-1",
+          secret: "test-signing-secret",
+        },
+      });
+
+      expect(
+        buildProductionPromotePlan({
+          repoRoot,
+          stagedSha: "abc123",
+          currentSha: "abc123",
+          expectedSchemaHash: "schema-hash",
+          expectedManifestHash: "manifest-hash",
+          releasePacket: stale,
+          trustedSigningKeys: { "release-key-1": "test-signing-secret" },
+        }),
+      ).toMatchObject({
+        ok: false,
+        failure: { code: "UnstagedCommit" },
+        refusal: expect.stringMatching(/schema\/manifest/),
       });
     } finally {
       rmSync(repoRoot, { recursive: true, force: true });
@@ -449,6 +579,61 @@ describe("release tooling", () => {
       ok: false,
       refusal: expect.stringMatching(/IncompatibleRollback/),
     });
+  });
+
+  it("rejects rollback candidates that are not prior binaries", () => {
+    const repoRoot = makeRepo();
+    writeProjectConfig(repoRoot);
+    const makePacket = (
+      commitSha: string,
+      buildId: string,
+      timestamp: string,
+    ) =>
+      buildStagedReleasePacket({
+        repoRoot,
+        commitSha,
+        deploymentHash: `deploy-${commitSha}`,
+        schemaHash: "schema-v2",
+        manifestHash: "manifest-v2",
+        buildId,
+        timestamp,
+        signing: {
+          signer: "release-bot@example.test",
+          keyId: "release-key-1",
+          secret: "test-signing-secret",
+        },
+      });
+    const current = makePacket(
+      "current",
+      "build-2",
+      "2026-07-14T01:00:00.000Z",
+    );
+
+    expect(buildRollbackPlan({ current, candidate: current })).toMatchObject({
+      ok: false,
+      refusal: expect.stringMatching(/prior binary/),
+    });
+    expect(
+      buildRollbackPlan({
+        current,
+        candidate: makePacket("future", "build-3", "2026-07-14T02:00:00.000Z"),
+      }),
+    ).toMatchObject({
+      ok: false,
+      refusal: expect.stringMatching(/prior binary/),
+    });
+    expect(
+      buildRollbackPlan({
+        current,
+        candidate: makePacket(
+          "previous",
+          "build-1",
+          "2026-07-14T00:00:00.000Z",
+        ),
+      }),
+    ).toMatchObject({ ok: true });
+
+    rmSync(repoRoot, { recursive: true, force: true });
   });
 
   it("requires signed release packets with trusted signer and key verification", () => {
@@ -993,6 +1178,8 @@ ${productionScript}`).not.toContain("test-signing-secret");
           repoRoot,
           stagedSha: "abc123",
           currentSha: "abc123",
+          expectedSchemaHash: "schema-hash",
+          expectedManifestHash: "manifest-hash",
           releasePacket,
           trustedSigningKeys: { "release-key-1": "test-signing-secret" },
         }),
@@ -1223,7 +1410,14 @@ ${productionScript}`).not.toContain("test-signing-secret");
       expect(
         JSON.parse(
           runReleaseCli(
-            ["promote-plan", "abc123", "def456", stagedPacket],
+            [
+              "promote-plan",
+              "abc123",
+              "def456",
+              "schema-hash",
+              "manifest-hash",
+              stagedPacket,
+            ],
             repoRoot,
           ).stdout,
         ),
