@@ -9,6 +9,10 @@ import { runRtk } from "./process.js";
 interface GeneratedProofHooks {
   readonly generate: (workdir: string) => void;
   readonly hydrate: (root: string, workdir: string) => void;
+  readonly format?: (
+    workdir: string,
+    generatedFiles: readonly string[],
+  ) => void;
 }
 
 const productionHooks: GeneratedProofHooks = {
@@ -34,6 +38,12 @@ const productionHooks: GeneratedProofHooks = {
       ],
       { cwd: workdir },
     );
+  },
+  format: (workdir, generatedFiles) => {
+    if (generatedFiles.length === 0) return;
+    runRtk(["pnpm", "exec", "prettier", "--write", "--", ...generatedFiles], {
+      cwd: workdir,
+    });
   },
   hydrate: hydrateWorktreeDependencies,
 };
@@ -88,6 +98,7 @@ export const proveIntegrationGeneratedOutput = (input: {
       }
     }
     hooks.generate(workdir);
+    hooks.format?.(workdir, generatedFiles);
     const status = runRtk(["proxy", "git", "status", "--porcelain"], {
       cwd: workdir,
       quiet: true,

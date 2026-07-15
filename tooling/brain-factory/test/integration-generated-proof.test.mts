@@ -44,6 +44,7 @@ afterEach(() => {
 describe("integration generated-output proof", () => {
   it("accepts only output reproduced from exact-head source", () => {
     const value = repository();
+    const formatted: string[][] = [];
     expect(
       proveIntegrationGeneratedOutput({
         ...value,
@@ -54,6 +55,13 @@ describe("integration generated-output proof", () => {
             mkdirSync(resolve(workdir, "generated"), { recursive: true });
             writeFileSync(
               resolve(workdir, "generated/output.ts"),
+              "export const value=1;\n",
+            );
+          },
+          format: (workdir, generatedFiles) => {
+            formatted.push([...generatedFiles]);
+            writeFileSync(
+              resolve(workdir, "generated/output.ts"),
               "export const value = 1;\n",
             );
           },
@@ -61,6 +69,7 @@ describe("integration generated-output proof", () => {
         },
       }),
     ).toMatch(/^[0-9a-f]{64}$/);
+    expect(formatted).toEqual([["generated/output.ts"]]);
   });
 
   it("rejects an arbitrary generated-path addition and cleans up", () => {
