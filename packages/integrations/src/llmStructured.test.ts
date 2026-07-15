@@ -76,6 +76,37 @@ const baseRequest = {
 };
 
 describe("structured provider-neutral LLM gateway", () => {
+  it("uses a cryptographic schema digest and rejects schema substitution", async () => {
+    const Alternate = Schema.Struct({
+      decision: Schema.Literal("capture", "direct", "abstain"),
+      confidence: Schema.Number,
+      rationale: Schema.String,
+    });
+    const decisionHash = canonicalOutputSchemaHash(Decision);
+    const alternateHash = canonicalOutputSchemaHash(Alternate);
+
+    expect(decisionHash).toMatch(/^sha256:[a-f0-9]{64}$/);
+    expect(decisionHash).not.toMatch(/^sha256:0{56}[a-f0-9]{8}$/);
+    expect(decisionHash).not.toBe(alternateHash);
+
+    const gateway = createStructuredLlmGateway({
+      mode: "test",
+      env: {},
+      transport: () => Effect.die("transport must not run"),
+    });
+    const result = await Effect.runPromiseExit(
+      gateway.generate({
+        ...baseRequest,
+        immutableContentManifest: {
+          ...baseRequest.immutableContentManifest,
+          schemaHash: alternateHash,
+        },
+      }),
+    );
+
+    expect(JSON.stringify(result)).toContain("ModelPolicyDenied");
+  });
+
   it("admits against exact serialized provider payload before transport", async () => {
     const gateway = createStructuredLlmGateway({
       mode: "test",

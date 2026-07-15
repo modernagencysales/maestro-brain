@@ -12,14 +12,12 @@ import type { ReactNode } from "react";
 import { TemplateToastProvider } from "@maestro-template/ui";
 
 import { createAuthKitProviderWithConvexProviderWithAuth } from "../auth/authkit-client";
-import {
-  getSafeClientRuntime,
-  type ClientAuthSnapshot,
-  type SafeClientRuntime,
+import type {
+  ClientAuthSnapshot,
+  SafeClientRuntime,
 } from "../auth/authkit-server";
 import { workosAuthKitClientBridge } from "../auth/workos-client-runtime";
-import { getWorkosServerAuth } from "../auth/workos-server-adapter";
-import { getServerEnv } from "../server-env";
+import { loadSafeClientRuntime } from "../auth/safe-client-runtime.server";
 import { MaestroSaasUiProvider } from "../saas-ui/provider";
 import {
   createBrowserWorkspaceStorage,
@@ -50,11 +48,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         { rel: "stylesheet", href: appCssUrl },
       ],
     }),
-  loader: async (): Promise<SafeClientRuntime> =>
-    getSafeClientRuntime({
-      env: getServerEnv(),
-      getAuth: getWorkosServerAuth,
-    }),
+  loader: async (): Promise<SafeClientRuntime> => loadSafeClientRuntime(),
   component: RootComponent,
 });
 

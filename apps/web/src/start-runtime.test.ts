@@ -75,8 +75,13 @@ describe("TanStack Start runtime contract", () => {
     const index = read("src/routes/index.tsx");
 
     expect(root).toContain("loader:");
-    expect(root).toContain("getSafeClientRuntime");
-    expect(root).not.toContain("const serverEnv = getServerEnv()");
+    expect(root).toContain("loadSafeClientRuntime");
+    expect(root).not.toContain("getSafeClientRuntime");
+    expect(root).not.toContain("getServerEnv");
+    expect(root).not.toContain("getWorkosServerAuth");
+    expect(read("src/auth/safe-client-runtime.server.ts")).toContain(
+      "createServerFn",
+    );
     expect(root).not.toContain("beforeLoad:");
     expect(index).not.toContain("loader:");
     expect(index).not.toContain("beforeLoad:");

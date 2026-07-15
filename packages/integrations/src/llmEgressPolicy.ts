@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import * as Schema from "effect/Schema";
 
 export type ModelProvider = "openrouter";
@@ -39,17 +40,8 @@ export const canonicalContentRootHash = async (
 
 export const canonicalOutputSchemaHash = (schema: {
   readonly ast: unknown;
-}): string => {
-  // This lightweight canonicalizer pins the actual Effect schema AST shape used
-  // for the provider request; source code or caller-provided labels are not trusted.
-  const json = stableJson(schema.ast);
-  let hash = 0x811c9dc5;
-  for (let index = 0; index < json.length; index += 1) {
-    hash ^= json.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-  return `sha256:${hash.toString(16).padStart(64, "0")}`;
-};
+}): string =>
+  `sha256:${createHash("sha256").update(stableJson(schema.ast)).digest("hex")}`;
 
 export class ModelPolicyDenied extends Schema.TaggedError<ModelPolicyDenied>()(
   "ModelPolicyDenied",
