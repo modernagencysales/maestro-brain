@@ -296,7 +296,8 @@ describe("Maestro Brain execution manifest", () => {
         ...manifest,
         tasks: manifest.tasks.map((task) => {
           if (task.taskId !== "S04-T01") return task;
-          const { sourceSliceLimit: _, ...withoutLimit } = task;
+          const { sourceSliceLimit, ...withoutLimit } = task;
+          expect(sourceSliceLimit).toBe(5);
           return withoutLimit;
         }),
       }),
