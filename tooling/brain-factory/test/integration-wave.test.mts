@@ -206,7 +206,7 @@ describe("integration wave planner", () => {
       baseSha: "a".repeat(40),
       integrationId: "wave-000001",
       mode: "recover" as const,
-      reservationToken: "123e4567-e89b-42d3-a456-426614174000",
+      reservationToken: "fixture",
       runId: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
       selectionPath: "/tmp/wave-selection.json",
       selectionSha256: "b".repeat(64),
