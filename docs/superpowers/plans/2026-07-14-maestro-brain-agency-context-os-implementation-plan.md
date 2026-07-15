@@ -848,6 +848,8 @@ manifest.
   broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** complete matrix output, last-owner/cross-tenant
   denials, audit vocabulary diff, UI state screenshots, and generated refs.
+- **Source-slice contract:** up to 3,300 demonstrated hand-authored source lines
+  in at most eleven linear commits; each commit remains at or below 300 lines.
 - **Lane branch / commit boundary:** branch `codex/brain-s01-rbac-settings`;
   commit `feat: apply Brain RBAC to settings`; final S01 checkpoint.
 
@@ -3644,7 +3646,7 @@ direct acceptance edge and is the source materialized into `acceptanceAfter`.
 | S01-T01 | S00 complete            | template-gap `TB-AUTHKIT-01`                     |               240 |
 | S01-T02 | S01-T01                 | template-gap + existing-module repair            |              1050 |
 | S01-T03 | S01-T02                 | template-gap authorized tenancy                  |               880 |
-| S01-T04 | S01-T03                 | template-gap access UI                           |              2100 |
+| S01-T04 | S01-T03                 | template-gap access UI                           |              3300 |
 | S02-T01 | S01 complete            | template-gap authorized Brain schema             |               260 |
 | S02-T02 | S02-T01                 | template-gap authorized pages                    |               280 |
 | S02-T03 | S02-T02                 | fixture-to-real `ops/versioning`/`ops/knowledge` |               290 |

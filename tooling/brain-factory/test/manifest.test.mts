@@ -244,8 +244,8 @@ describe("Maestro Brain execution manifest", () => {
       ]),
     );
     expect(providerSetup?.codeStartAfter).toEqual(["S00-T03", "S01-T02"]);
-    expect(rbacSettings?.sourceSliceLimit).toBe(8);
-    expect(rbacSettings?.estimatedSourceLines).toBe(2_100);
+    expect(rbacSettings?.sourceSliceLimit).toBe(11);
+    expect(rbacSettings?.estimatedSourceLines).toBe(3_300);
     expect(rbacSettings?.fileLocks).toContain(
       "packages/convex/confect/access/auth.ts",
     );
@@ -272,23 +272,23 @@ describe("Maestro Brain execution manifest", () => {
       ...manifest,
       tasks: manifest.tasks.map((task) =>
         task.taskId === "S01-T04"
-          ? { ...task, estimatedSourceLines: 2_400 }
+          ? { ...task, estimatedSourceLines: 3_300 }
           : task,
       ),
     };
     expect(validateManifest(s01AtExpandedSlices)).not.toContain(
-      "S01-T04: invalid source-line estimate 2400",
+      "S01-T04: invalid source-line estimate 3300",
     );
     expect(
       validateManifest({
         ...s01AtExpandedSlices,
         tasks: s01AtExpandedSlices.tasks.map((task) =>
           task.taskId === "S01-T04"
-            ? { ...task, estimatedSourceLines: 2_401 }
+            ? { ...task, estimatedSourceLines: 3_301 }
             : task,
         ),
       }),
-    ).toContain("S01-T04: invalid source-line estimate 2401");
+    ).toContain("S01-T04: invalid source-line estimate 3301");
     const s04AtExpandedSlices = {
       ...manifest,
       tasks: manifest.tasks.map((task) =>

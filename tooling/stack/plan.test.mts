@@ -75,10 +75,20 @@ test("bounds a task estimate by its declared source slices", () => {
       plan({ slices: [slice({ estLines: 2_700, sourceSliceLimit: 10 })] }),
     ),
   ).toEqual([]);
+  expect(
+    validatePlan(
+      plan({ slices: [slice({ estLines: 3_300, sourceSliceLimit: 11 })] }),
+    ),
+  ).toEqual([]);
+  expect(
+    validatePlan(
+      plan({ slices: [slice({ estLines: 3_600, sourceSliceLimit: 12 })] }),
+    ),
+  ).toEqual([]);
 });
 
 test("rejects invalid source slice limits", () => {
-  for (const sourceSliceLimit of [0, 1.5, 11]) {
+  for (const sourceSliceLimit of [0, 1.5, 13]) {
     expect(
       validatePlan(plan({ slices: [slice({ sourceSliceLimit })] })).some(
         (error) => error.includes("sourceSliceLimit"),
