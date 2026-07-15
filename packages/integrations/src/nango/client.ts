@@ -1,3 +1,7 @@
+import * as Context from "effect/Context";
+import { Nango } from "@nangohq/node";
+import * as Layer from "effect/Layer";
+
 import type { ProviderMode } from "../index";
 
 export class NangoConfigError extends Error {
@@ -43,6 +47,27 @@ export type NangoConnectionMetadata = {
   readonly endUserId: string;
   readonly providerConfigKey: string;
   readonly correlationTag: string;
+};
+
+type NangoSdk = {
+  readonly createConnectSession: (body: unknown) => Promise<{
+    readonly data?: {
+      readonly token?: unknown;
+      readonly expires_at?: unknown;
+    };
+  }>;
+  readonly getConnection: (
+    providerConfigKey: string,
+    connectionId: string,
+  ) => Promise<{
+    readonly provider_config_key?: unknown;
+    readonly end_user?: {
+      readonly id?: unknown;
+      readonly organization?: { readonly id?: unknown } | null;
+      readonly tags?: Record<string, unknown> | null;
+    } | null;
+    readonly tags?: Record<string, unknown> | null;
+  }>;
 };
 
 export type NangoClient = {
@@ -128,3 +153,119 @@ export const createFakeNangoClient = (input: {
     };
   },
 });
+const stringField = (value: unknown): string | null =>
+  typeof value === "string" && value.trim().length > 0 ? value : null;
+
+export const createLiveNangoClient = (input: {
+  readonly secretKey: string;
+  readonly providerConfigKey: string;
+  readonly nango?: NangoSdk;
+}): NangoClient => {
+  const nango =
+    input.nango ??
+    new Nango({
+      apiKey: input.secretKey,
+    });
+
+  return {
+    createConnectSession: async ({
+      organizationKey,
+      endUserId,
+      providerConfigKey,
+      correlationTag,
+    }) => {
+      if (providerConfigKey !== input.providerConfigKey) {
+        throw new ConnectSessionInvalid();
+      }
+      const response = await nango.createConnectSession({
+        allowed_integrations: [providerConfigKey],
+        end_user: { id: endUserId },
+        organization: { id: organizationKey },
+        tags: { correlationTag },
+      });
+      const token = stringField(response.data?.token);
+      const expiresAt = stringField(response.data?.expires_at);
+      const expiresAtMs =
+        expiresAt === null ? Number.NaN : Date.parse(expiresAt);
+      if (token === null || !Number.isFinite(expiresAtMs)) {
+        throw new ProviderUnavailable();
+      }
+      return {
+        connectSessionId: token,
+        connectSessionToken: token,
+        expiresAt: expiresAtMs,
+      };
+    },
+    verifyConnectSession: async ({ connectionId }) => {
+      if (isSecretShapedNangoValue(connectionId)) {
+        throw new ConnectSessionInvalid();
+      }
+      const connection = await nango.getConnection(
+        input.providerConfigKey,
+        connectionId,
+      );
+      const providerConfigKey = stringField(connection.provider_config_key);
+      const endUserId = stringField(connection.end_user?.id);
+      const organizationKey = stringField(
+        connection.end_user?.organization?.id,
+      );
+      const correlationTag = stringField(
+        connection.end_user?.tags?.correlationTag ??
+          connection.tags?.correlationTag,
+      );
+      if (
+        providerConfigKey !== input.providerConfigKey ||
+        endUserId === null ||
+        organizationKey === null ||
+        correlationTag === null
+      ) {
+        throw new ConnectSessionInvalid();
+      }
+      return {
+        organizationKey,
+        endUserId,
+        providerConfigKey,
+        correlationTag,
+      };
+    },
+  };
+};
+
+export type NangoProviderService = {
+  readonly clientFor: (input: { readonly now: number }) => NangoClient;
+};
+
+export class NangoProvider extends Context.Tag("NangoProvider")<
+  NangoProvider,
+  NangoProviderService
+>() {}
+
+export const NangoProviderFake = Layer.succeed(NangoProvider, {
+  clientFor: createFakeNangoClient,
+});
+
+export const createNangoProviderLayer = (input: {
+  readonly mode: ProviderMode;
+  readonly env: Readonly<Record<string, string | undefined>>;
+  readonly nangoFactory?: (input: {
+    readonly secretKey: string;
+    readonly providerConfigKey: string;
+  }) => NangoSdk;
+}): Layer.Layer<NangoProvider> => {
+  if (input.mode === "fake" || input.mode === "test") return NangoProviderFake;
+  const envResult = validateNangoEnv(input.mode, input.env);
+  if (envResult !== true) throw envResult;
+  const secretKey = input.env.NANGO_SECRET_KEY?.trim() ?? "";
+  const providerConfigKey =
+    input.env.NANGO_CONNECT_INTEGRATION_ID?.trim() ?? "slack";
+  return Layer.succeed(NangoProvider, {
+    clientFor: () => {
+      const nango = input.nangoFactory?.({ secretKey, providerConfigKey });
+      return createLiveNangoClient({
+        secretKey,
+        providerConfigKey,
+        ...(nango === undefined ? {} : { nango }),
+      });
+    },
+  });
+};

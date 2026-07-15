@@ -35,7 +35,10 @@ export const startNangoConnect = async (input: {
     connectionId,
     connectSessionId: session.connectSessionId,
   });
-  input.log?.("slack_connect_completed", { connectionId });
+  input.log?.("slack_connect_completed", {
+    provider: "nango",
+    status: result.status,
+  });
   return result;
 };
 

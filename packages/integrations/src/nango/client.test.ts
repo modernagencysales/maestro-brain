@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 
 import {
   NangoConfigError,
   createFakeNangoClient,
+  createLiveNangoClient,
+  createNangoProviderLayer,
   redactNangoDiagnostic,
   validateNangoEnv,
 } from "./client";
@@ -59,6 +63,122 @@ describe("Nango provider client boundary", () => {
         correlationTag: "slack-connect:timeout:1782924800000",
       }),
     ).rejects.toMatchObject({ _tag: "ProviderUnavailable" });
+  });
+
+  it("adapts live @nangohq/node connect sessions and metadata without credential reads", async () => {
+    const calls: unknown[] = [];
+    const client = createLiveNangoClient({
+      secretKey: `sk_${"live"}_secret`,
+      providerConfigKey: "slack",
+      nango: {
+        createConnectSession: async (body: unknown) => {
+          calls.push(["create", body]);
+          return {
+            data: {
+              token: `connect_public_${"org_acme"}`,
+              connect_link: "https://connect.nango.dev/session",
+              expires_at: "2026-07-15T12:05:00.000Z",
+            },
+          };
+        },
+        getConnection: async (
+          providerConfigKey: string,
+          connectionId: string,
+        ) => {
+          calls.push(["get", providerConfigKey, connectionId]);
+          return {
+            provider_config_key: providerConfigKey,
+            connection_id: connectionId,
+            end_user: {
+              id: "org_acme",
+              display_name: null,
+              email: null,
+              tags: { correlationTag: "slack-connect:org_acme:1782924800000" },
+              organization: { id: "org_acme", display_name: null },
+            },
+            tags: { correlationTag: "slack-connect:org_acme:1782924800000" },
+          };
+        },
+      },
+    });
+
+    await expect(
+      client.createConnectSession({
+        organizationKey: "org_acme",
+        endUserId: "org_acme",
+        providerConfigKey: "slack",
+        correlationTag: "slack-connect:org_acme:1782924800000",
+      }),
+    ).resolves.toEqual({
+      connectSessionId: "connect_public_org_acme",
+      connectSessionToken: "connect_public_org_acme",
+      expiresAt: Date.parse("2026-07-15T12:05:00.000Z"),
+    });
+    await expect(
+      client.verifyConnectSession({
+        connectSessionId: "connect_public_org_acme",
+        connectionId: "conn_org_acme",
+      }),
+    ).resolves.toEqual({
+      organizationKey: "org_acme",
+      endUserId: "org_acme",
+      providerConfigKey: "slack",
+      correlationTag: "slack-connect:org_acme:1782924800000",
+    });
+    expect(calls).toEqual([
+      [
+        "create",
+        {
+          allowed_integrations: ["slack"],
+          end_user: { id: "org_acme" },
+          organization: { id: "org_acme" },
+          tags: { correlationTag: "slack-connect:org_acme:1782924800000" },
+        },
+      ],
+      ["get", "slack", "conn_org_acme"],
+    ]);
+  });
+
+  it("selects fake or live provider layers from validated mode", async () => {
+    await expect(
+      Effect.runPromise(
+        Effect.scoped(
+          Layer.build(
+            createNangoProviderLayer({
+              mode: "live",
+              env: {
+                NANGO_SECRET_KEY: `sk_${"live"}_secret`,
+                NANGO_CONNECT_INTEGRATION_ID: "slack",
+              },
+              nangoFactory: () => ({
+                createConnectSession: async () => ({
+                  data: {
+                    token: "connect_public_live",
+                    connect_link: "https://connect.nango.dev/session",
+                    expires_at: "2026-07-15T12:05:00.000Z",
+                  },
+                }),
+                getConnection: async () => ({
+                  provider_config_key: "slack",
+                  end_user: {
+                    id: "org_acme",
+                    organization: { id: "org_acme" },
+                    tags: {
+                      correlationTag: "slack-connect:org_acme:1782924800000",
+                    },
+                  },
+                  tags: {},
+                }),
+              }),
+            }),
+          ),
+        ),
+      ),
+    ).resolves.toBeTruthy();
+
+    expect(() => createNangoProviderLayer({ mode: "live", env: {} })).toThrow(
+      NangoConfigError,
+    );
   });
 
   it("redacts provider diagnostics before logging", () => {

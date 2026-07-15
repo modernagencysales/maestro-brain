@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import * as Either from "effect/Either";
 import { describe, expect, it } from "vitest";
 
@@ -40,6 +41,21 @@ describe("Slack connection capability contract", () => {
       _tag: "ConnectionAlreadyExists",
     });
     expect(new TenantMismatch()).toMatchObject({ _tag: "TenantMismatch" });
+  });
+
+  it("keeps public actions behind the injected Nango provider service", () => {
+    const source = readFileSync(
+      new URL(
+        "../confect/integrations/slackConnections.impl.ts",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+
+    expect(source).not.toContain("NangoProviderFake");
+    expect(source).not.toContain("createFakeNangoClient");
+    expect(source).not.toContain("Effect.provide(NangoProvider");
+    expect(source).toContain("NangoProvider");
   });
 
   it("declares durable provider connection attempts without token fields", () => {

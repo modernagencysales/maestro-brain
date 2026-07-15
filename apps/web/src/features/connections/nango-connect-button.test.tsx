@@ -41,8 +41,10 @@ describe("NangoConnectButton", () => {
       connectSessionId: "cs_org_acme",
     });
     expect(log).toHaveBeenCalledWith("slack_connect_completed", {
-      connectionId: "conn_org_acme",
+      provider: "nango",
+      status: "verifying",
     });
+    expect(JSON.stringify(log.mock.calls)).not.toContain("conn_org_acme");
     expect(JSON.stringify(log.mock.calls)).not.toContain("connect_public");
     expect(JSON.stringify(log.mock.calls)).not.toContain("cs_org_acme");
   });
