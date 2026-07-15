@@ -1,14 +1,18 @@
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { hydrateWorktreeDependencies } from "./dependencies.js";
-import { runRtk } from "./process.js";
+import {
+  type IntegrationAttemptState,
+  nextIntegrationId,
+} from "./factory-state.js";
+import { gitIsAncestor, runRtk } from "./process.js";
 
 const valueAfter = (flag: string): string | undefined => {
   const index = process.argv.indexOf(flag);
   return index >= 0 ? process.argv[index + 1] : undefined;
 };
-const tranche = valueAfter("--tranche");
-if (!tranche) {
+const manifestTranche = valueAfter("--tranche");
+if (!manifestTranche) {
   console.error("usage: brain:factory:integrate -- --tranche <id>");
   process.exit(2);
 }
@@ -19,17 +23,53 @@ const runs = resolve(state, "runs");
 const workflow = resolve(
   ".fabro/workflows/brain-integrate-tranche/workflow.fabro",
 );
-const workdir = resolve(
-  root,
-  "..",
-  ".maestro-brain-fabro-workdirs",
-  `integration-${tranche}`,
-);
-const branch = `fabro/brain-${tranche.toLowerCase()}`;
+const worktreeRoot = resolve(root, "..", ".maestro-brain-fabro-workdirs");
 const baseSha = runRtk(["git", "rev-parse", "HEAD"], { quiet: true });
 if (!existsSync(workflow)) throw new Error(`missing workflow ${workflow}`);
-if (existsSync(workdir))
-  runRtk(["git", "worktree", "remove", "--force", workdir]);
+const stateFor = (integrationId: string): IntegrationAttemptState => {
+  const integrationResult = resolve(
+    evidence,
+    "integration",
+    integrationId,
+    "integration-result.json",
+  );
+  const runRecord = resolve(runs, `integration-${integrationId}.json`);
+  const workdir = resolve(worktreeRoot, `integration-${integrationId}`);
+  const branch = `fabro/brain-${integrationId.toLowerCase()}`;
+  const existingBranch = runRtk(["git", "branch", "--list", branch], {
+    quiet: true,
+  });
+  const result = existsSync(integrationResult)
+    ? (JSON.parse(readFileSync(integrationResult, "utf8")) as {
+        readonly headSha?: string;
+        readonly integrationHeadSha?: string;
+        readonly status?: string;
+      })
+    : undefined;
+  const headSha = result?.headSha ?? result?.integrationHeadSha;
+  return {
+    existingArtifacts: [
+      ...(existsSync(integrationResult)
+        ? [`evidence ${integrationResult}`]
+        : []),
+      ...(existsSync(runRecord) ? [`run record ${runRecord}`] : []),
+      ...(existsSync(workdir) ? [`worktree ${workdir}`] : []),
+      ...(existingBranch.length > 0 ? [`branch ${branch}`] : []),
+    ],
+    ...(headSha !== undefined ? { headSha } : {}),
+    ...(result?.status !== undefined ? { status: result.status } : {}),
+  };
+};
+const integrationId = nextIntegrationId({
+  controlHead: baseSha,
+  isAncestor: (ancestor, descendant) =>
+    gitIsAncestor(ancestor, descendant, root),
+  manifestTranche,
+  stateFor,
+});
+const workdir = resolve(worktreeRoot, `integration-${integrationId}`);
+const branch = `fabro/brain-${integrationId.toLowerCase()}`;
+const runRecord = resolve(runs, `integration-${integrationId}.json`);
 runRtk(["git", "worktree", "add", "-B", branch, workdir, baseSha]);
 hydrateWorktreeDependencies(root, workdir);
 const output = runRtk(
@@ -43,13 +83,21 @@ const output = runRtk(
     "--environment",
     "local",
     "--label",
-    `tranche=${tranche}`,
+    `tranche=${manifestTranche}`,
+    "--label",
+    `integration=${integrationId}`,
     "-I",
     `workdir=${workdir}`,
     "-I",
+    `control_root=${root}`,
+    "-I",
     `evidence_dir=${evidence}`,
     "-I",
-    `tranche=${tranche}`,
+    `tranche=${manifestTranche}`,
+    "-I",
+    `manifest_tranche=${manifestTranche}`,
+    "-I",
+    `integration_id=${integrationId}`,
     "-I",
     `base_sha=${baseSha}`,
   ],
@@ -60,7 +108,21 @@ const runId = parsed.run_id ?? parsed.runId;
 if (!runId) throw new Error(`Fabro did not return a run ID: ${output}`);
 mkdirSync(runs, { recursive: true });
 writeFileSync(
-  resolve(runs, `integration-${tranche}.json`),
-  `${JSON.stringify({ baseSha, branch, runId, tranche, workdir }, null, 2)}\n`,
+  runRecord,
+  `${JSON.stringify(
+    {
+      baseSha,
+      branch,
+      integrationId,
+      manifestTranche,
+      runId,
+      tranche: manifestTranche,
+      workdir,
+    },
+    null,
+    2,
+  )}\n`,
 );
-console.log(`${tranche}: launched integration ${runId}`);
+console.log(
+  `${manifestTranche}: launched integration ${integrationId} as ${runId}`,
+);
