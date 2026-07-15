@@ -87,12 +87,11 @@ describe("Maestro Brain execution manifest", () => {
     expect(generator?.fileLocks).not.toContain("@dependencies");
   });
 
-  it("binds packet audit status and rejects unsafe ready pseudo-locks", () => {
+  it("binds completed packet audits and rejects unsafe ready pseudo-locks", () => {
     const manifest = buildManifest();
     expect(
-      manifest.tasks.find((task) => task.taskId === "S01-T01")
-        ?.fileInventoryStatus,
-    ).toBe("open:F");
+      manifest.tasks.every((task) => task.fileInventoryStatus === "ready"),
+    ).toBe(true);
     const unsafe = manifest.tasks.map((task) =>
       task.taskId === "S00-T03"
         ? {

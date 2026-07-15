@@ -12,7 +12,7 @@ describe("brain task scheduler", () => {
       tasks: manifest.tasks,
     });
     expect(result.selected.map((task) => task.taskId)).toEqual(
-      expect.arrayContaining(["S00-T02", "S03-T01", "S08-T01"]),
+      expect.arrayContaining(["S00-T02", "S01-T01", "S02-T01", "S03-T01"]),
     );
     expect(
       result.selected.every((task) => task.fileInventoryStatus === "ready"),
@@ -62,13 +62,19 @@ describe("brain task scheduler", () => {
     const task = manifest.tasks.find(
       (candidate) => candidate.taskId === "S01-T01",
     );
-    expect(task?.fileInventoryStatus).toBe("open:F");
+    expect(task?.fileInventoryStatus).toBe("ready");
+    const openTask = task
+      ? ({
+          ...task,
+          fileInventoryStatus: "open:F" as const,
+        } satisfies typeof task)
+      : undefined;
     expect(
       selectReadyTasks({
         activeTaskIds: new Set(),
         completedTaskIds: new Set(),
         maximum: 1,
-        tasks: task ? [task] : [],
+        tasks: openTask ? [openTask] : [],
       }).selected,
     ).toEqual([]);
   });
