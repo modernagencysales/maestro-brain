@@ -15,8 +15,15 @@ import {
 } from "../errors";
 import workspaces from "./workspaces.spec";
 
-const list = FunctionImpl.make(databaseSchema, workspaces, "list", () =>
+const list = FunctionImpl.make(databaseSchema, workspaces, "list", (args) =>
   Effect.gen(function* () {
+    if (args.organizationId !== undefined || args.workspaceId !== undefined) {
+      return yield* new ValidationFailed({
+        field:
+          args.organizationId !== undefined ? "organizationId" : "workspaceId",
+        message: "Tenant ids are derived from the authenticated session.",
+      });
+    }
     const auth = yield* Auth;
     const identity = yield* extractIdentityProfile(
       yield* auth.getUserIdentity.pipe(

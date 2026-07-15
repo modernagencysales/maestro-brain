@@ -25,6 +25,8 @@ const createClientBrain = FunctionSpec.publicMutation({
     Schema.Struct({
       name: Schema.String,
       clientSlug: Schema.String,
+      organizationId: Schema.optional(Schema.String),
+      workspaceId: Schema.optional(Schema.String),
     }),
   returns: () =>
     Schema.Struct({
