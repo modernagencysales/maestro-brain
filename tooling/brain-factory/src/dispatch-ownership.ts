@@ -130,6 +130,33 @@ export const recoverTaskReservation = (input: {
   });
 };
 
+export const archiveTerminalTaskRecord = (input: {
+  readonly auditPath: string;
+  readonly now: string;
+  readonly recordPath: string;
+  readonly runId: string;
+  readonly status: string;
+  readonly taskId: string;
+}): string => {
+  if (
+    !new Set(["canceled", "cancelled", "failed", "succeeded"]).has(input.status)
+  )
+    throw new Error(
+      `${input.taskId}: refusing to archive non-terminal run ${input.runId}`,
+    );
+  const archivedPath = `${input.recordPath}.terminal-${input.now.replaceAll(":", "-")}`;
+  renameSync(input.recordPath, archivedPath);
+  appendAudit(input.auditPath, {
+    action: "archive-terminal-task-run",
+    archivedPath,
+    at: input.now,
+    runId: input.runId,
+    status: input.status,
+    taskId: input.taskId,
+  });
+  return archivedPath;
+};
+
 export const runRecordOwnsTask = (input: {
   readonly inspect: () => string | undefined;
   readonly recordExists: boolean;

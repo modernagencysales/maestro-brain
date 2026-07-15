@@ -1,8 +1,23 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 import { buildManifest } from "../src/manifest.js";
-import { selectReadyTasks } from "../src/scheduler.js";
+import { availableDispatchSlots, selectReadyTasks } from "../src/scheduler.js";
 
 describe("brain task scheduler", () => {
+  it("treats max as total active capacity across repeated dispatches", () => {
+    expect(availableDispatchSlots(20, 0)).toBe(20);
+    expect(availableDispatchSlots(20, 7)).toBe(13);
+    expect(availableDispatchSlots(20, 20)).toBe(0);
+    expect(availableDispatchSlots(20, 23)).toBe(0);
+    const dispatch = readFileSync(
+      new URL("../src/dispatch.mts", import.meta.url),
+      "utf8",
+    );
+    expect(dispatch).toContain("totalActiveCapacity: maximum");
+    expect(dispatch).toContain("maximum: availableSlots");
+  });
+
   it("starts independent contract lanes together", () => {
     const manifest = buildManifest();
     const result = selectReadyTasks({

@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   acquireDispatcherLock,
+  archiveTerminalTaskRecord,
   promoteTaskReservation,
   recoverTaskReservation,
   reserveTaskPreparing,
@@ -31,6 +32,18 @@ afterEach(() => {
 });
 
 describe("brain dispatch ownership", () => {
+  it("keeps resume locked, idempotent, and non-destructive", () => {
+    const resume = readFileSync(
+      new URL("../src/resume.mts", import.meta.url),
+      "utf8",
+    );
+    expect(resume).toContain("acquireDispatcherLock");
+    expect(resume).toContain("resume already owned by");
+    expect(resume).toContain("archiveTerminalTaskRecord");
+    expect(resume).not.toContain('"worktree", "remove"');
+    expect(resume).not.toContain('"-B"');
+  });
+
   it("acquires one exclusive dispatcher lock", () => {
     const value = fixture();
     const release = acquireDispatcherLock({
@@ -116,5 +129,32 @@ describe("brain dispatch ownership", () => {
     expect(readFileSync(value.auditPath, "utf8")).toContain(
       "recover-task-reservation",
     );
+  });
+
+  it("archives only terminal ownership without removing its worktree", () => {
+    const value = fixture();
+    reserveTaskPreparing(value.recordPath, {
+      runId: "run-1",
+      taskId: "S08-T02",
+    });
+    expect(() =>
+      archiveTerminalTaskRecord({
+        auditPath: value.auditPath,
+        now: "2026-07-14T00:00:00.000Z",
+        recordPath: value.recordPath,
+        runId: "run-1",
+        status: "running",
+        taskId: "S08-T02",
+      }),
+    ).toThrow(/refusing to archive non-terminal/);
+    const archived = archiveTerminalTaskRecord({
+      auditPath: value.auditPath,
+      now: "2026-07-14T00:00:00.000Z",
+      recordPath: value.recordPath,
+      runId: "run-1",
+      status: "failed",
+      taskId: "S08-T02",
+    });
+    expect(readFileSync(archived, "utf8")).toContain("run-1");
   });
 });

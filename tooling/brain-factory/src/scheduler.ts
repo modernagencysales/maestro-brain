@@ -13,6 +13,17 @@ export interface SelectionResult {
   readonly selected: readonly BrainTaskContract[];
 }
 
+export const availableDispatchSlots = (
+  totalActiveCapacity: number,
+  activeTaskCount: number,
+): number => {
+  if (!Number.isInteger(totalActiveCapacity) || totalActiveCapacity < 1)
+    throw new Error("total active capacity must be a positive integer");
+  if (!Number.isInteger(activeTaskCount) || activeTaskCount < 0)
+    throw new Error("active task count must be a non-negative integer");
+  return Math.max(0, totalActiveCapacity - activeTaskCount);
+};
+
 export const selectReadyTasks = ({
   activeTaskIds,
   completedTaskIds,

@@ -14,7 +14,7 @@ import {
 } from "./factory-state.js";
 import { buildManifest } from "./manifest.js";
 import { gitBranchExists, gitIsAncestor, runRtk } from "./process.js";
-import { selectReadyTasks } from "./scheduler.js";
+import { availableDispatchSlots, selectReadyTasks } from "./scheduler.js";
 
 interface RunRecord {
   readonly branch: string;
@@ -40,7 +40,7 @@ const requested = new Set(
     .filter(Boolean),
 );
 if (!Number.isInteger(maximum) || maximum < 1)
-  throw new Error("--max must be a positive integer");
+  throw new Error("--max total-active-capacity must be a positive integer");
 if ((recoverDispatchLock || recoverTaskId) && !recoveryReason?.trim()) {
   throw new Error("explicit recovery requires --recovery-reason");
 }
@@ -137,10 +137,11 @@ const activeTasks = manifest.tasks.filter(
     (recordOwnsTask(readRecord(task.taskId)) ||
       resultStatus(task.taskId) === "lane_green"),
 );
+const availableSlots = availableDispatchSlots(maximum, activeTasks.length);
 const { ready: candidates, selected } = selectReadyTasks({
   activeTaskIds: new Set(activeTasks.map((task) => task.taskId)),
   completedTaskIds,
-  maximum,
+  maximum: availableSlots,
   requestedTaskIds: requested,
   tasks: manifest.tasks,
 });
@@ -149,7 +150,9 @@ console.log(
   JSON.stringify(
     {
       active: activeTasks.map((task) => task.taskId),
+      availableSlots,
       launch,
+      totalActiveCapacity: maximum,
       ready: candidates.map((task) => task.taskId),
       selected: selected.map((task) => task.taskId),
     },
