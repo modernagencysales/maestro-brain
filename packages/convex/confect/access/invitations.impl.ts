@@ -16,6 +16,7 @@ import {
   recordAccessAuditEvent,
   recordAccessLifecycleEvents,
 } from "./audit";
+import { resolveEffectiveWorkspaceRole } from "./auth";
 import {
   Forbidden,
   InvitationNotAccessible,
@@ -49,7 +50,7 @@ const create = FunctionImpl.make(
       const now = yield* Clock.currentTimeMillis;
       const reader = yield* DatabaseReader;
       const writer = yield* DatabaseWriter;
-      const actor = yield* loadActorForWorkspace(reader, workspaceId);
+      const actor = yield* loadActorForWorkspace(reader, workspaceId, now);
       yield* requireActorRole(actor, "admin").pipe(
         auditDeniedInvitationAction(writer, now, {
           action: "invitation.created",
@@ -194,7 +195,7 @@ const cancel = FunctionImpl.make(
       const now = yield* Clock.currentTimeMillis;
       const reader = yield* DatabaseReader;
       const writer = yield* DatabaseWriter;
-      const actor = yield* loadActorForWorkspace(reader, workspaceId);
+      const actor = yield* loadActorForWorkspace(reader, workspaceId, now);
       yield* requireActorRole(actor, "admin").pipe(
         auditDeniedInvitationAction(writer, now, {
           action: "invitation.cancelled",
@@ -268,22 +269,113 @@ const auditDeniedInvitationAction =
 const loadActorForWorkspace = (
   reader: Reader,
   workspaceId: GenericId<"workspaces"> | string,
+  nowMs: number,
 ) =>
   Effect.gen(function* () {
     const user = yield* loadCurrentUser(reader);
-    const membership = yield* loadOptionalLiveWorkspaceMemberForUser(
+    const workspace = yield* loadWorkspaceForAccess(reader, workspaceId);
+    const organization = yield* loadOrganizationForAccess(
       reader,
-      workspaceId,
-      user._id,
+      workspace.organizationId,
     );
-    if (membership === null) {
-      return yield* new Forbidden({ reason: "No live workspace membership." });
+    const [workspaceMembers, organizationMembers] = yield* Effect.all([
+      loadWorkspaceMembershipsForUser(reader, workspaceId, user._id),
+      loadOrganizationMembershipsForUser(
+        reader,
+        workspace.organizationId,
+        user._id,
+      ),
+    ]);
+    const resolution = resolveEffectiveWorkspaceRole({
+      nowMs,
+      userId: user._id,
+      workspace: {
+        id: workspace._id,
+        organizationId: workspace.organizationId,
+        status: workspace.status,
+      },
+      organization: {
+        id: organization._id,
+        status: organization.status,
+      },
+      workspaceMembers,
+      organizationMembers,
+      guestGrants: [],
+    });
+
+    if (!resolution.ok) {
+      return yield* Effect.fail(new Forbidden({ reason: resolution.reason }));
     }
+
     return {
       userId: user._id,
-      role: membership.role,
+      role: resolution.role,
     };
   });
+
+const loadWorkspaceForAccess = (
+  reader: Reader,
+  workspaceId: GenericId<"workspaces"> | string,
+) =>
+  reader
+    .table("workspaces")
+    .get(asGenericId<"workspaces">(workspaceId))
+    .pipe(
+      Effect.catchAll((error) =>
+        error._tag === "GetByIdFailure"
+          ? Effect.fail(
+              new Forbidden({
+                reason: "Workspace access could not be resolved.",
+              }),
+            )
+          : Effect.die(error),
+      ),
+    );
+
+const loadOrganizationForAccess = (reader: Reader, organizationId: string) =>
+  reader
+    .table("organizations")
+    .get(asGenericId<"organizations">(organizationId))
+    .pipe(
+      Effect.catchAll((error) =>
+        error._tag === "GetByIdFailure"
+          ? Effect.fail(
+              new Forbidden({
+                reason: "Workspace access could not be resolved.",
+              }),
+            )
+          : Effect.die(error),
+      ),
+    );
+
+const loadWorkspaceMembershipsForUser = (
+  reader: Reader,
+  workspaceId: GenericId<"workspaces"> | string,
+  userId: GenericId<"users"> | string,
+) =>
+  reader
+    .table("workspaceMembers")
+    .index("by_workspace_user", (q) =>
+      q.eq("workspaceId", workspaceId).eq("userId", userId),
+    )
+    .collect()
+    .pipe(
+      Effect.map((members_) => members_.map(toLifecycleMember)),
+      Effect.orDie,
+    );
+
+const loadOrganizationMembershipsForUser = (
+  reader: Reader,
+  organizationId: string,
+  userId: GenericId<"users"> | string,
+) =>
+  reader
+    .table("organizationMembers")
+    .index("by_organization_user", (q) =>
+      q.eq("organizationId", organizationId).eq("userId", userId),
+    )
+    .collect()
+    .pipe(Effect.orDie);
 
 const loadInvitationForResponse = (
   reader: Reader,
