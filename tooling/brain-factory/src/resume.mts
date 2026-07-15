@@ -152,13 +152,13 @@ reserveTaskPreparing(recordPath, {
   workdir,
 });
 runRtk(["git", "worktree", "add", "-b", branch, workdir, factoryBase]);
+hydrateWorktreeDependencies(root, workdir);
 for (const commit of taskCommits)
   runRtk(["git", "cherry-pick", commit], { cwd: workdir });
 const startSha = runRtk(["git", "rev-parse", "HEAD"], {
   cwd: workdir,
   quiet: true,
 });
-hydrateWorktreeDependencies(root, workdir);
 const output = runRtk(
   [
     "fabro",

@@ -58,6 +58,13 @@ describe("brain dispatch ownership", () => {
     expect(validation).toBeLessThan(
       resume.indexOf('runRtk(["git", "worktree", "add"'),
     );
+    const worktreeAdd = resume.indexOf('runRtk(["git", "worktree", "add"');
+    const hydration = resume.indexOf(
+      "hydrateWorktreeDependencies(root, workdir);",
+    );
+    const cherryPick = resume.indexOf('runRtk(["git", "cherry-pick", commit]');
+    expect(hydration).toBeGreaterThan(worktreeAdd);
+    expect(hydration).toBeLessThan(cherryPick);
   });
 
   it("validates a nonempty descendant source range before resume side effects", () => {
