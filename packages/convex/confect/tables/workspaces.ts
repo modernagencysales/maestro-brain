@@ -10,7 +10,7 @@ export default Table.make(() =>
     name: Schema.String,
     kind: Schema.optional(Schema.Literal("agency", "client")),
     clientSlug: Schema.optional(Schema.String),
-    status: Schema.Literal("active", "archived"),
+    status: Schema.Literal("provisioning", "active", "archived"),
     dataClassification: Schema.Literal("public", "internal", "confidential"),
     createdAt: Schema.Number,
     updatedAt: Schema.Number,
