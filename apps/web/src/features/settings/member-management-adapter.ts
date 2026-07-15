@@ -37,6 +37,7 @@ export type MemberManagementMutations = {
 export type MemberManagementAdapter = {
   readonly role: WorkspaceRole;
   readonly canManageMembers: boolean;
+  readonly canManageRole: (role: WorkspaceRole) => boolean;
   readonly canTransferOwnership: boolean;
   readonly inviteMember: (input: {
     readonly email: string;
@@ -67,6 +68,8 @@ export const createMemberManagementAdapter = ({
   readonly mutations: MemberManagementMutations;
 }): MemberManagementAdapter => {
   const canManageMembers = role === "admin" || role === "owner";
+  const canManageRole = (targetRole: WorkspaceRole) =>
+    canManageMembers && (role === "owner" || targetRole !== "owner");
   const canTransferOwnership = role === "owner";
 
   const requireMemberManager = () => {
@@ -83,6 +86,7 @@ export const createMemberManagementAdapter = ({
   return {
     role,
     canManageMembers,
+    canManageRole,
     canTransferOwnership,
     inviteMember: async ({ email, role }) => {
       requireMemberManager();
