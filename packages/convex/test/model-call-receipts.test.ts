@@ -26,6 +26,7 @@ describe("model call receipt table", () => {
     expect(() => Schema.decodeUnknownSync(ModelCallState)("unknown")).toThrow();
 
     const row = Schema.decodeUnknownSync(ModelCallReceiptRow)({
+      organizationId: "org_123",
       workspaceId: "workspaces_123",
       attemptKey: "attempt-001",
       provider: "openrouter",
@@ -34,6 +35,10 @@ describe("model call receipt table", () => {
       state: "succeeded",
       trustedInstructionVersion: "classify-v1",
       toolSchemaVersion: "routing-v1",
+      schemaGeneration: 1,
+      policyGeneration: 3,
+      lifecycleGeneration: 7,
+      redactionState: "none",
       requestHash: "sha256:req",
       responseHash: "sha256:res",
       sourceHash: "sha256:source",
@@ -45,6 +50,11 @@ describe("model call receipt table", () => {
     });
 
     expect(row).toMatchObject({
+      organizationId: "org_123",
+      schemaGeneration: 1,
+      policyGeneration: 3,
+      lifecycleGeneration: 7,
+      redactionState: "none",
       requestHash: "sha256:req",
       responseHash: "sha256:res",
     });

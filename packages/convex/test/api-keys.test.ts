@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createApiKey,
   createBrainApiKey,
+  createPublicBrainApiKey,
   listApiKeyMetadata,
   rotateBrainApiKey,
   revokeBrainApiKey,
@@ -90,6 +91,40 @@ describe("one-Brain API key CRUD", () => {
         lastUsedAt: null,
       },
     ]);
+  });
+
+  it("derives public Brain API key authority server-side and strips internal ids", async () => {
+    const created = await createPublicBrainApiKey({
+      publicInput: {
+        name: "Client Alpha read key",
+        scopes: ["brain:read"],
+        actor: adminActor,
+        nowMs: 1_000,
+        expiresAt: 2_000,
+        randomBytes: () => new Uint8Array(32).fill(9),
+      },
+      serverScope: {
+        organizationId: "org_server",
+        workspaceId: "workspace_server",
+        brainKey: "brain_server",
+      },
+    });
+
+    expect(created.displayKey).toMatch(/^mbk_live_/);
+    expect(created.key).toEqual({
+      name: "Client Alpha read key",
+      displayPrefix: expect.stringMatching(/^mbk_live_/),
+      scopes: ["brain:read"],
+      roleCeiling: "viewer",
+      status: "active",
+      createdAt: 1_000,
+      expiresAt: 2_000,
+    });
+    expect(JSON.stringify(created.key)).not.toContain("org_server");
+    expect(JSON.stringify(created.key)).not.toContain("workspace_server");
+    expect(JSON.stringify(created.key)).not.toContain("brain_server");
+    expect(JSON.stringify(created.key)).not.toContain("api_key_");
+    expect(JSON.stringify(created.key)).not.toContain("service_principal_");
   });
 
   it("rejects non-admin creators, invalid scopes, no expiry, and overlong expiry", async () => {

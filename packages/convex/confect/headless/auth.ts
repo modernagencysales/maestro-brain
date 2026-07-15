@@ -107,10 +107,22 @@ export type ApiKeyCreateInput = {
   readonly randomBytes?: () => Uint8Array;
 };
 
-export type BrainApiKeyCreateInput = {
+export type BrainApiKeyServerScope = {
   readonly organizationId: string;
   readonly workspaceId: string;
   readonly brainKey: string;
+};
+
+export type BrainApiKeyCreateInput = BrainApiKeyServerScope & {
+  readonly name: string;
+  readonly scopes: readonly string[];
+  readonly actor: { readonly userId: string; readonly role: Role };
+  readonly nowMs: number;
+  readonly expiresAt?: number | undefined;
+  readonly randomBytes?: () => Uint8Array;
+};
+
+export type PublicBrainApiKeyCreateInput = {
   readonly name: string;
   readonly scopes: readonly string[];
   readonly actor: { readonly userId: string; readonly role: Role };
@@ -128,6 +140,25 @@ export type BrainApiKeyCreateResult = {
   readonly displayKey: string;
   readonly key: ApiKeyMetadata & { readonly keyHash: string };
   readonly principal: ServicePrincipalRow;
+};
+
+export const PublicApiKeyMetadataSchema = Schema.Struct({
+  name: Schema.String,
+  displayPrefix: Schema.String,
+  scopes: Schema.Array(HeadlessApiKeyScope),
+  roleCeiling: Schema.Literal("viewer"),
+  status: ApiKeyStatus,
+  createdAt: Schema.Number,
+  expiresAt: NullableNumber,
+});
+
+export type PublicApiKeyMetadata = Schema.Schema.Type<
+  typeof PublicApiKeyMetadataSchema
+>;
+
+export type PublicBrainApiKeyCreateResult = {
+  readonly displayKey: string;
+  readonly key: PublicApiKeyMetadata;
 };
 
 export type ApiKeyVerificationSuccess = {
@@ -354,6 +385,29 @@ export const createBrainApiKey = async (
   };
 
   return { displayKey, key, principal };
+};
+
+export const createPublicBrainApiKey = async (input: {
+  readonly publicInput: PublicBrainApiKeyCreateInput;
+  readonly serverScope: BrainApiKeyServerScope;
+}): Promise<PublicBrainApiKeyCreateResult> => {
+  const created = await createBrainApiKey({
+    ...input.serverScope,
+    ...input.publicInput,
+  });
+
+  return {
+    displayKey: created.displayKey,
+    key: {
+      name: created.key.name,
+      displayPrefix: created.key.displayPrefix,
+      scopes: created.key.scopes,
+      roleCeiling: created.key.roleCeiling,
+      status: created.key.status,
+      createdAt: created.key.createdAt,
+      expiresAt: created.key.expiresAt,
+    },
+  };
 };
 
 export const parseBearerApiKey = (

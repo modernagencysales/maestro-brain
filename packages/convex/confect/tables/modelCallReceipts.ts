@@ -11,6 +11,7 @@ export const ModelCallState = Schema.Literal(
 );
 
 export const ModelCallReceiptRow = Schema.Struct({
+  organizationId: Schema.String,
   workspaceId: Schema.String,
   attemptKey: Schema.String,
   provider: Schema.Literal("openrouter"),
@@ -19,6 +20,10 @@ export const ModelCallReceiptRow = Schema.Struct({
   state: ModelCallState,
   trustedInstructionVersion: Schema.String,
   toolSchemaVersion: Schema.String,
+  schemaGeneration: Schema.Number,
+  policyGeneration: Schema.Number,
+  lifecycleGeneration: Schema.Number,
+  redactionState: Schema.Literal("none", "redacted"),
   requestHash: Schema.String,
   responseHash: Schema.optional(Schema.String),
   sourceHash: Schema.String,
@@ -30,10 +35,14 @@ export const ModelCallReceiptRow = Schema.Struct({
 });
 
 export default Table.make(() => ModelCallReceiptRow)
+  .index("by_organization", ["organizationId"])
   .index("by_workspace", ["workspaceId"])
   .index("by_attempt", ["attemptKey"])
   .index("by_workspace_attempt", ["workspaceId", "attemptKey"])
   .index("by_workspace_state", ["workspaceId", "state"])
+  .index("by_organization_state", ["organizationId", "state"])
+  .index("by_workspace_policy", ["workspaceId", "policyGeneration"])
+  .index("by_workspace_schema", ["workspaceId", "schemaGeneration"])
   .index("by_request_hash", ["requestHash"])
   .index("by_source_hash", ["sourceHash"])
   .index("by_provider_model", ["provider", "model"]);

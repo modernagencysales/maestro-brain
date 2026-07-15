@@ -4,7 +4,7 @@ import * as Schema from "effect/Schema";
 import { Forbidden, Unauthorized } from "../errors";
 import {
   ApiKeyExpiryInvalid,
-  ApiKeyMetadataSchema,
+  PublicApiKeyMetadataSchema,
   ApiKeyNotFound,
   ApiKeyRevoked,
   ApiKeyScopeInvalid,
@@ -14,9 +14,6 @@ const create = FunctionSpec.publicMutation({
   name: "create",
   args: () =>
     Schema.Struct({
-      organizationId: Schema.String,
-      workspaceId: Schema.String,
-      brainKey: Schema.String,
       name: Schema.String,
       scopes: Schema.Array(Schema.String),
       expiresAt: Schema.Number,
@@ -24,7 +21,7 @@ const create = FunctionSpec.publicMutation({
   returns: () =>
     Schema.Struct({
       displayKey: Schema.String,
-      key: ApiKeyMetadataSchema,
+      key: PublicApiKeyMetadataSchema,
     }),
   error: () =>
     Schema.Union(
@@ -37,12 +34,8 @@ const create = FunctionSpec.publicMutation({
 
 const list = FunctionSpec.publicQuery({
   name: "list",
-  args: () =>
-    Schema.Struct({
-      workspaceId: Schema.String,
-      brainKey: Schema.String,
-    }),
-  returns: () => Schema.Array(ApiKeyMetadataSchema),
+  args: () => Schema.Struct({}),
+  returns: () => Schema.Array(PublicApiKeyMetadataSchema),
   error: () => Schema.Union(Unauthorized, Forbidden),
 });
 
