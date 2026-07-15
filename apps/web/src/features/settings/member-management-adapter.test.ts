@@ -65,6 +65,23 @@ describe("member management adapter", () => {
     ).rejects.toThrow("denied");
   });
 
+  it("exposes target-aware role management for convenient hiding", () => {
+    const admin = createMemberManagementAdapter({
+      role: "admin",
+      workspaceId,
+      mutations: mutations(),
+    });
+    const owner = createMemberManagementAdapter({
+      role: "owner",
+      workspaceId,
+      mutations: mutations(),
+    });
+
+    expect(admin.canManageRole("admin")).toBe(true);
+    expect(admin.canManageRole("owner")).toBe(false);
+    expect(owner.canManageRole("owner")).toBe(true);
+  });
+
   it("dispatches admin member operations through typed access actions", async () => {
     const mutationSet = mutations();
     const adapter = createMemberManagementAdapter({

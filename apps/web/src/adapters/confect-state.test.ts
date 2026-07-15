@@ -259,10 +259,10 @@ describe("Confect React data-state adapter", () => {
   });
 
   it("keeps action hook inference aligned with Confect InvokeReturn", () => {
-    const ref = templateConfectRefs.public.access.invitations.create;
-    type Action = ReturnType<typeof useTemplateAction<typeof ref>>;
+    type Ref = typeof templateConfectRefs.public.access.invitations.create;
+    type Action = ReturnType<typeof useTemplateAction<Ref>>;
 
-    expectTypeOf<Action>().returns.toEqualTypeOf<InvokeReturn<typeof ref>>();
+    expectTypeOf<Action>().returns.toEqualTypeOf<InvokeReturn<Ref>>();
   });
 
   it("keeps typed mutation result inference without importing backend source into the web project", () => {
