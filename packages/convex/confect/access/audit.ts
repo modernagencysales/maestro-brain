@@ -24,7 +24,7 @@ export const privilegedAccessAuditActions = [
 export type PrivilegedAccessAuditAction =
   (typeof privilegedAccessAuditActions)[number];
 
-type PrivilegedAccessAuditEvent = {
+export type PrivilegedAccessAuditEvent = {
   readonly workspaceId: string;
   readonly action: PrivilegedAccessAuditAction;
   readonly actorUserId?: string;
@@ -34,7 +34,8 @@ type PrivilegedAccessAuditEvent = {
   readonly metadata: Record<string, string | number | boolean>;
 };
 
-type AccessAuditEvent = AccessLifecycleEvent | PrivilegedAccessAuditEvent;
+export type AccessAuditEvent =
+  AccessLifecycleEvent | PrivilegedAccessAuditEvent;
 
 export type AccessAuditEventInsert = {
   readonly workspaceId: string;
@@ -63,14 +64,49 @@ export const accessAuditEventInsert = (
   createdAt,
 });
 
+export const deniedPrivilegedAccessAuditEvent = (input: {
+  readonly workspaceId: string;
+  readonly action: PrivilegedAccessAuditAction;
+  readonly actorUserId?: string;
+  readonly actorEmail?: string;
+  readonly subjectKind: PrivilegedAccessAuditEvent["subjectKind"];
+  readonly subjectId: string;
+  readonly reason: string;
+}): PrivilegedAccessAuditEvent => ({
+  workspaceId: input.workspaceId,
+  action: input.action,
+  ...(input.actorUserId === undefined
+    ? {}
+    : { actorUserId: input.actorUserId }),
+  ...(input.actorEmail === undefined ? {} : { actorEmail: input.actorEmail }),
+  subjectKind: input.subjectKind,
+  subjectId: input.subjectId,
+  metadata: { outcome: "denied", reason: input.reason },
+});
+
+export const denialAuditReason = (error: unknown): string =>
+  typeof error === "object" &&
+  error !== null &&
+  "_tag" in error &&
+  typeof error._tag === "string"
+    ? error._tag
+    : "UnknownDenied";
+
+export const recordAccessAuditEvent = (
+  writer: Writer,
+  event: AccessAuditEvent,
+  createdAt: number,
+): Effect.Effect<void, never> =>
+  writer
+    .table("accessAuditEvents")
+    .insert(accessAuditEventInsert(event, createdAt))
+    .pipe(Effect.orDie, Effect.asVoid);
+
 export const recordAccessLifecycleEvents = (
   writer: Writer,
   events: readonly AccessLifecycleEvent[],
   createdAt: number,
 ): Effect.Effect<void, never> =>
   Effect.forEach(events, (event) =>
-    writer
-      .table("accessAuditEvents")
-      .insert(accessAuditEventInsert(event, createdAt))
-      .pipe(Effect.orDie),
+    recordAccessAuditEvent(writer, event, createdAt),
   ).pipe(Effect.asVoid);
