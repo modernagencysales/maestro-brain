@@ -129,6 +129,23 @@ describe("Fabro workflow prompt contracts", () => {
     expect(review).toContain("one guarded targeted shell write");
   });
 
+  it("binds lane-green results to the manifest tranche", () => {
+    const buildTask = readFileSync(
+      resolve(
+        import.meta.dirname,
+        "../../../.fabro/workflows/brain-build-task/workflow.fabro",
+      ),
+      "utf8",
+    );
+    const complete = buildTask
+      .split("\n")
+      .find((line) => line.trimStart().startsWith("complete ["));
+
+    expect(complete).toContain("task-manifest.json");
+    expect(complete).toContain("manifest tranche missing");
+    expect(complete).toContain("tranche:task.tranche");
+  });
+
   it("binds cross-tranche integration to one immutable selection and full gate", () => {
     const wave = readFileSync(
       resolve(
