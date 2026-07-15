@@ -1,23 +1,38 @@
+import type { Ref } from "@confect/core";
+import type { InvokeReturn } from "@confect/react";
+import type { templateConfectRefs } from "@maestro-template/convex/refs";
+import * as Either from "effect/Either";
+
 import type { WorkspaceRole } from "../../providers/workspace";
 
-type AccessMutationRef = unknown;
+export type AccessRefs = typeof templateConfectRefs.public.access;
+type CreateInvitationRef = AccessRefs["invitations"]["create"];
+type CancelInvitationRef = AccessRefs["invitations"]["cancel"];
+type ChangeRoleRef = AccessRefs["members"]["changeRole"];
+type RemoveMemberRef = AccessRefs["members"]["remove"];
+type TransferOwnershipRef = AccessRefs["members"]["transferOwnership"];
 
-type MemberManagementRefs = {
-  readonly members: {
-    readonly changeRole: AccessMutationRef;
-    readonly remove: AccessMutationRef;
-    readonly transferOwnership: AccessMutationRef;
-  };
-  readonly invitations: {
-    readonly create: AccessMutationRef;
-    readonly cancel: AccessMutationRef;
-  };
+export type WorkspaceId = Ref.Args<CreateInvitationRef>["workspaceId"];
+export type MembershipId = Ref.Args<ChangeRoleRef>["membershipId"];
+export type InvitationId = Ref.Args<CancelInvitationRef>["invitationId"];
+
+export type MemberManagementMutations = {
+  readonly createInvitation: (
+    args: Ref.Args<CreateInvitationRef>,
+  ) => InvokeReturn<CreateInvitationRef>;
+  readonly cancelInvitation: (
+    args: Ref.Args<CancelInvitationRef>,
+  ) => InvokeReturn<CancelInvitationRef>;
+  readonly changeRole: (
+    args: Ref.Args<ChangeRoleRef>,
+  ) => InvokeReturn<ChangeRoleRef>;
+  readonly removeMember: (
+    args: Ref.Args<RemoveMemberRef>,
+  ) => InvokeReturn<RemoveMemberRef>;
+  readonly transferOwnership: (
+    args: Ref.Args<TransferOwnershipRef>,
+  ) => InvokeReturn<TransferOwnershipRef>;
 };
-
-type MutationRunner = (
-  ref: AccessMutationRef,
-  args: Record<string, unknown>,
-) => Promise<unknown>;
 
 export type MemberManagementAdapter = {
   readonly role: WorkspaceRole;
@@ -28,30 +43,28 @@ export type MemberManagementAdapter = {
     readonly role: WorkspaceRole;
   }) => Promise<string>;
   readonly changeRole: (input: {
-    readonly membershipId: string;
+    readonly membershipId: MembershipId;
     readonly role: WorkspaceRole;
   }) => Promise<void>;
   readonly removeMember: (input: {
-    readonly membershipId: string;
+    readonly membershipId: MembershipId;
   }) => Promise<void>;
   readonly cancelInvitation: (input: {
-    readonly invitationId: string;
+    readonly invitationId: InvitationId;
   }) => Promise<void>;
   readonly transferOwnership: (input: {
-    readonly membershipId: string;
+    readonly membershipId: MembershipId;
   }) => Promise<void>;
 };
 
 export const createMemberManagementAdapter = ({
   role,
   workspaceId,
-  refs,
-  runMutation,
+  mutations,
 }: {
   readonly role: WorkspaceRole;
-  readonly workspaceId: string;
-  readonly refs: MemberManagementRefs;
-  readonly runMutation: MutationRunner;
+  readonly workspaceId: WorkspaceId;
+  readonly mutations: MemberManagementMutations;
 }): MemberManagementAdapter => {
   const canManageMembers = role === "admin" || role === "owner";
   const canTransferOwnership = role === "owner";
@@ -73,38 +86,50 @@ export const createMemberManagementAdapter = ({
     canTransferOwnership,
     inviteMember: async ({ email, role }) => {
       requireMemberManager();
-      const invitationId = await runMutation(refs.invitations.create, {
-        workspaceId,
-        email,
-        role,
-      });
+      const invitationId = unwrapActionResult(
+        await mutations.createInvitation({
+          workspaceId,
+          email,
+          role,
+        }),
+      );
       return String(invitationId);
     },
     changeRole: async ({ membershipId, role }) => {
       requireMemberManager();
-      await runMutation(refs.members.changeRole, {
-        workspaceId,
-        membershipId,
-        newRole: role,
-      });
+      unwrapActionResult(
+        await mutations.changeRole({
+          workspaceId,
+          membershipId,
+          newRole: role,
+        }),
+      );
     },
     removeMember: async ({ membershipId }) => {
       requireMemberManager();
-      await runMutation(refs.members.remove, { workspaceId, membershipId });
+      unwrapActionResult(
+        await mutations.removeMember({ workspaceId, membershipId }),
+      );
     },
     cancelInvitation: async ({ invitationId }) => {
       requireMemberManager();
-      await runMutation(refs.invitations.cancel, {
-        invitationId,
-        workspaceId,
-      });
+      unwrapActionResult(
+        await mutations.cancelInvitation({ invitationId, workspaceId }),
+      );
     },
     transferOwnership: async ({ membershipId }) => {
       requireOwner();
-      await runMutation(refs.members.transferOwnership, {
-        workspaceId,
-        membershipId,
-      });
+      unwrapActionResult(
+        await mutations.transferOwnership({ workspaceId, membershipId }),
+      );
     },
   };
+};
+
+const unwrapActionResult = <A, E>(result: A | Either.Either<A, E>): A => {
+  if (Either.isEither(result)) {
+    if (Either.isLeft(result)) throw result.left;
+    return result.right;
+  }
+  return result;
 };

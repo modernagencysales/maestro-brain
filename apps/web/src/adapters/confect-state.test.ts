@@ -97,14 +97,17 @@ describe("Confect React data-state adapter", () => {
       status: "typed_failure",
       error,
     });
+    const anyTypeError: unknown = expect.any(TypeError);
+    const anySyntaxError: unknown = expect.any(SyntaxError);
+
     expect(normalizeMutationError(new TypeError("network down"))).toEqual({
       status: "transport_failure",
-      error: expect.any(TypeError),
+      error: anyTypeError,
       message: "network down",
     });
     expect(normalizeMutationError(new SyntaxError("bad json"))).toEqual({
       status: "parse_failure",
-      error: expect.any(SyntaxError),
+      error: anySyntaxError,
       message: "bad json",
     });
     expect(normalizeMutationError("boom")).toEqual({
@@ -229,11 +232,13 @@ describe("Confect React data-state adapter", () => {
       status: "empty",
       data: null,
     });
+    const anyError: unknown = expect.any(Error);
+
     expect(
       normalizeReactQueryResult({ status: "error", error: new Error("boom") }),
     ).toEqual({
       status: "transport_failure",
-      error: expect.any(Error),
+      error: anyError,
       message: "boom",
     });
   });
