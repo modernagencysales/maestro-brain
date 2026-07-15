@@ -247,8 +247,8 @@ const adoptLegacyIntegratedLaneEvidenceUnlocked = (
     if (embedded && JSON.stringify(embedded) !== JSON.stringify(adoption)) {
       throw new Error(`${taskId}: adopted lane provenance drift`);
     }
-    const { acceptedBecause: _acceptedBecause, ...laneWithoutAcceptedBecause } =
-      lane;
+    const laneWithoutAcceptedBecause = { ...lane };
+    delete laneWithoutAcceptedBecause.acceptedBecause;
     const nextLane =
       embedded && !retainsAcceptedBecause
         ? lane
