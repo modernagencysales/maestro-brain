@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isCompatibleProofHead } from "../src/proof.js";
+import { isCompatibleProofHead, proofChangedFilesMatch } from "../src/proof.js";
 
 describe("Fabro checkpoint proof heads", () => {
   it("accepts the exact proved head", () => {
@@ -33,5 +33,15 @@ describe("Fabro checkpoint proof heads", () => {
         treeDiffExit: 1,
       }),
     ).toBe(false);
+  });
+
+  it("requires the proof to enumerate every changed file exactly once", () => {
+    expect(proofChangedFilesMatch(["b.ts", "a.ts"], ["a.ts", "b.ts"])).toBe(
+      true,
+    );
+    expect(proofChangedFilesMatch(["a.ts"], ["a.ts", "release.sh"])).toBe(
+      false,
+    );
+    expect(proofChangedFilesMatch(["a.ts", "a.ts"], ["a.ts"])).toBe(false);
   });
 });

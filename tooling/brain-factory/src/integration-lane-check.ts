@@ -2,8 +2,8 @@ import { existsSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   commandsForProfiles,
+  formatCommandForFiles,
   focusedGateCommand,
-  type GateCommand,
   lintCommandForFiles,
 } from "./gates.js";
 import {
@@ -19,6 +19,7 @@ import {
   gateCommandSetHash,
 } from "./lane-gate-cache.js";
 import type { GateProfile } from "./manifest.js";
+import { proofChangedFilesMatch } from "./proof.js";
 
 export interface IntegratedLaneCheckInput {
   readonly baseSha: string;
@@ -192,22 +193,34 @@ export const validateIntegratedLanes = (
       }
     }
 
+    const actualChangedFiles = git(input.workdir, [
+      "diff",
+      "--name-only",
+      `${proofBaseSha}..${laneHeadSha}`,
+    ])
+      .split("\n")
+      .filter(Boolean);
+    if (
+      !proofChangedFilesMatch(
+        proof.changedFiles as string[],
+        actualChangedFiles,
+      )
+    ) {
+      throw new Error(
+        `${taskId}: proof changedFiles do not match the task diff`,
+      );
+    }
+
     const focusedCommands = (proof.focusedCommands as string[]).map((command) =>
       focusedGateCommand(command),
     );
     const changedFiles = (proof.changedFiles as string[]).filter((file) =>
       existsSync(resolve(input.workdir, file)),
     );
+    const formatCommand = formatCommandForFiles(changedFiles);
     const lintCommand = lintCommandForFiles(changedFiles);
     const gateCommands = deduplicateGateCommands([
-      ...(changedFiles.length > 0
-        ? [
-            {
-              program: "pnpm",
-              args: ["exec", "prettier", "--check", ...changedFiles],
-            } satisfies GateCommand,
-          ]
-        : []),
+      ...(formatCommand ? [formatCommand] : []),
       ...(lintCommand ? [lintCommand] : []),
       ...focusedCommands,
       ...commandsForProfiles(manifestTask.gateProfiles as GateProfile[]),

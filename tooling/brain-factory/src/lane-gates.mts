@@ -14,7 +14,7 @@ import {
   gateCommandSetHash,
 } from "./lane-gate-cache.js";
 import { buildManifest } from "./manifest.js";
-import { isCompatibleProofHead } from "./proof.js";
+import { isCompatibleProofHead, proofChangedFilesMatch } from "./proof.js";
 import {
   changedHandAuthoredSourceLines,
   validSourceSlices,
@@ -77,6 +77,19 @@ if (!Array.isArray(proof.changedFiles) || proof.changedFiles.length === 0)
   throw new Error(`${taskId}: proof has no changed files`);
 if (!Array.isArray(proof.focusedCommands) || proof.focusedCommands.length === 0)
   throw new Error(`${taskId}: proof has no focused commands`);
+const changedFilesResult = spawnSync(
+  "rtk",
+  ["proxy", "git", "diff", "--name-only", `${proof.baseSha}..${proof.headSha}`],
+  { cwd: process.cwd(), encoding: "utf8" },
+);
+if (changedFilesResult.status !== 0)
+  throw new Error(`${taskId}: could not enumerate changed files`);
+const actualChangedFiles = changedFilesResult.stdout
+  .trim()
+  .split("\n")
+  .filter(Boolean);
+if (!proofChangedFilesMatch(proof.changedFiles, actualChangedFiles))
+  throw new Error(`${taskId}: proof changedFiles do not match the task diff`);
 const focusedCommands = proof.focusedCommands.map((command) => {
   try {
     return focusedGateCommand(command);

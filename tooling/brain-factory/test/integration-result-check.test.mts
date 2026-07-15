@@ -114,7 +114,10 @@ const fixture = () => {
     focusedCommands: ["rtk pnpm --dir packages/search typecheck"],
   });
   const gateCommands = [
-    { program: "pnpm", args: ["exec", "prettier", "--check", "source.ts"] },
+    {
+      program: "pnpm",
+      args: ["exec", "prettier", "--check", "--ignore-unknown", "source.ts"],
+    },
     { program: "pnpm", args: ["exec", "eslint", "source.ts"] },
     { program: "pnpm", args: ["--dir", "packages/search", "typecheck"] },
   ];
@@ -220,6 +223,22 @@ describe("normal integration result check", () => {
         manifestTranche: value.manifestTranche,
       }),
     ).toThrow("S09-T01: integrationId mismatch");
+  });
+
+  it("rejects a proof that omits a changed file", () => {
+    const value = fixture();
+    const proof = readRecord(value.proofPath);
+    proof.changedFiles = ["integration.ts"];
+    writeJson(value.proofPath, proof);
+    expect(() =>
+      validateIntegrationResult({
+        controlRoot: value.controlRoot,
+        evidenceDirectory: value.evidence,
+        expectedWorkdir: value.workdir,
+        integrationId: value.integrationId,
+        manifestTranche: value.manifestTranche,
+      }),
+    ).toThrow("S09-T01: proof changedFiles do not match the task diff");
   });
 
   it("rejects a task outside the manifest tranche", () => {
