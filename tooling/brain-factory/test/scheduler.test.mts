@@ -1,8 +1,25 @@
 import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
+import type { BrainTaskContract } from "../src/manifest.js";
 import { buildManifest } from "../src/manifest.js";
 import { availableDispatchSlots, selectReadyTasks } from "../src/scheduler.js";
+
+const syntheticTask = (
+  template: BrainTaskContract,
+  input: {
+    readonly estimatedSourceLines: number;
+    readonly fileLocks: readonly string[];
+    readonly taskId: string;
+    readonly codeStartAfter?: readonly string[];
+  },
+): BrainTaskContract => ({
+  ...template,
+  codeStartAfter: input.codeStartAfter ?? [],
+  estimatedSourceLines: input.estimatedSourceLines,
+  fileLocks: input.fileLocks,
+  taskId: input.taskId,
+});
 
 describe("brain task scheduler", () => {
   it("treats max as total active capacity across repeated dispatches", () => {
@@ -53,6 +70,156 @@ describe("brain task scheduler", () => {
       tasks: [s01, synthetic],
     });
     expect(result.selected).toHaveLength(1);
+  });
+
+  it("advances the weighted critical path at the W3 frontier", () => {
+    const manifest = buildManifest();
+    const completedTaskIds = new Set([
+      "S00-T02",
+      "S00-T03",
+      "S00-T04",
+      "S01-T01",
+      "S01-T02",
+      "S01-T03",
+      "S01-T04",
+      "S02-T01",
+      "S02-T02",
+      "S03-T01",
+      "S03-T02",
+      "S04-T01",
+      "S04-T02",
+      "S08-T01",
+      "S08-T02",
+      "S09-T01",
+      "S11-T01",
+      "S11-T02",
+      "S12-T01",
+      "S13-T01",
+    ]);
+
+    const result = selectReadyTasks({
+      activeTaskIds: new Set(),
+      completedTaskIds,
+      maximum: 1,
+      tasks: manifest.tasks,
+    });
+
+    expect(result.ready.map((task) => task.taskId)).toEqual([
+      "S02-T03",
+      "S02-T04",
+      "S03-T03",
+      "S04-T03",
+      "S04-T04",
+      "S05-T01",
+      "S10-T01",
+    ]);
+    expect(result.selected.map((task) => task.taskId)).toEqual(["S05-T01"]);
+  });
+
+  it("finds the exact maximum-value conflict-free subset", () => {
+    const template = buildManifest().tasks.find(
+      (task) => task.taskId === "S01-T01",
+    );
+    expect(template).toBeDefined();
+    if (!template) throw new Error("scheduler template task missing");
+    const broad = syntheticTask(template, {
+      estimatedSourceLines: 300,
+      fileLocks: ["shared-a", "shared-b"],
+      taskId: "S20-T01",
+    });
+    const left = syntheticTask(template, {
+      estimatedSourceLines: 150,
+      fileLocks: ["shared-a"],
+      taskId: "S20-T02",
+    });
+    const right = syntheticTask(template, {
+      estimatedSourceLines: 150,
+      fileLocks: ["shared-b"],
+      taskId: "S20-T03",
+    });
+
+    expect(
+      selectReadyTasks({
+        activeTaskIds: new Set(),
+        completedTaskIds: new Set(),
+        maximum: 3,
+        tasks: [broad, left, right],
+      }).selected.map((task) => task.taskId),
+    ).toEqual(["S20-T02", "S20-T03"]);
+  });
+
+  it("is permutation-invariant with a stable task-ID tie-break", () => {
+    const template = buildManifest().tasks.find(
+      (task) => task.taskId === "S01-T01",
+    );
+    expect(template).toBeDefined();
+    if (!template) throw new Error("scheduler template task missing");
+    const earlier = syntheticTask(template, {
+      estimatedSourceLines: 200,
+      fileLocks: ["shared"],
+      taskId: "S20-T01",
+    });
+    const later = syntheticTask(template, {
+      estimatedSourceLines: 200,
+      fileLocks: ["shared"],
+      taskId: "S20-T02",
+    });
+    const independent = syntheticTask(template, {
+      estimatedSourceLines: 100,
+      fileLocks: ["independent"],
+      taskId: "S20-T03",
+    });
+    const selections = [
+      [later, independent, earlier],
+      [independent, earlier, later],
+      [earlier, later, independent],
+    ].map((tasks) =>
+      selectReadyTasks({
+        activeTaskIds: new Set(),
+        completedTaskIds: new Set(),
+        maximum: 3,
+        tasks,
+      }).selected.map((task) => task.taskId),
+    );
+
+    expect(selections).toEqual([
+      ["S20-T01", "S20-T03"],
+      ["S20-T01", "S20-T03"],
+      ["S20-T01", "S20-T03"],
+    ]);
+  });
+
+  it("gives zero-source contract work a minimum scheduling unit", () => {
+    const template = buildManifest().tasks.find(
+      (task) => task.taskId === "S01-T01",
+    );
+    expect(template).toBeDefined();
+    if (!template) throw new Error("scheduler template task missing");
+    const contract = syntheticTask(template, {
+      estimatedSourceLines: 0,
+      fileLocks: ["shared"],
+      taskId: "S20-T01",
+    });
+    const contractConsumer = syntheticTask(template, {
+      codeStartAfter: [contract.taskId],
+      estimatedSourceLines: 300,
+      fileLocks: ["consumer"],
+      taskId: "S20-T02",
+    });
+    const standalone = syntheticTask(template, {
+      estimatedSourceLines: 300,
+      fileLocks: ["shared"],
+      taskId: "S20-T03",
+    });
+
+    expect(
+      selectReadyTasks({
+        activeTaskIds: new Set(),
+        completedTaskIds: new Set(),
+        maximum: 1,
+        tasks: [standalone, contractConsumer, contract],
+      }).selected.map((task) => task.taskId),
+    ).toEqual(["S20-T01"]);
   });
 
   it("requires integrated code-start dependencies", () => {
