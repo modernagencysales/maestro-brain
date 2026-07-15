@@ -57,10 +57,27 @@ const packageGate = (directory: string): readonly GateCommand[] => [
   },
 ];
 
+export const validatesTransientConfectSnapshot = (
+  command: GateCommand,
+): boolean => {
+  if (
+    command.program !== "pnpm" ||
+    command.args[0] !== "brain:factory:check-confect-codegen"
+  ) {
+    return false;
+  }
+  const testFlag = command.args.indexOf("--test");
+  return testFlag >= 0 && Boolean(command.args[testFlag + 1]);
+};
+
 export const commandsForProfiles = (
   profiles: readonly GateProfile[],
+  focusedCommands: readonly GateCommand[] = [],
 ): GateCommand[] => {
   const commands: GateCommand[] = [];
+  const generatedConfectSnapshot = focusedCommands.some(
+    validatesTransientConfectSnapshot,
+  );
   const seen = new Set<string>();
   const add = (command: GateCommand): void => {
     const key = `${command.program}\0${command.args.join("\0")}`;
@@ -72,7 +89,9 @@ export const commandsForProfiles = (
   for (const profile of profiles) {
     const profileCommands: readonly GateCommand[] =
       profile === "convex"
-        ? packageGate("packages/convex")
+        ? generatedConfectSnapshot
+          ? []
+          : packageGate("packages/convex")
         : profile === "web"
           ? packageGate("apps/web")
           : profile === "integrations"

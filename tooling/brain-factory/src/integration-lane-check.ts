@@ -281,7 +281,10 @@ export const validateIntegratedLanes = (
       ...(formatCommand ? [formatCommand] : []),
       ...(lintCommand ? [lintCommand] : []),
       ...focusedCommands,
-      ...commandsForProfiles(manifestTask.gateProfiles as GateProfile[]),
+      ...commandsForProfiles(
+        manifestTask.gateProfiles as GateProfile[],
+        focusedCommands,
+      ),
     ]);
     const gate = readJson(resolve(laneDirectory, "lane-gate-report.json"));
     const commands = gateCommands.map(

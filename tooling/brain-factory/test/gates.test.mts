@@ -4,6 +4,7 @@ import {
   formatCommandForFiles,
   focusedGateCommand,
   lintCommandForFiles,
+  validatesTransientConfectSnapshot,
 } from "../src/gates.js";
 
 describe("brain lane gate profiles", () => {
@@ -22,6 +23,20 @@ describe("brain lane gate profiles", () => {
       program: "host-test-slot",
       args: ["--class", "focused", "pnpm", "--dir", "apps/web", "test"],
     });
+  });
+
+  it("uses a tested transient Confect snapshot instead of the stale generated tree", () => {
+    const transient = focusedGateCommand(
+      "rtk pnpm brain:factory:check-confect-codegen -- --test migrations",
+    );
+    expect(validatesTransientConfectSnapshot(transient)).toBe(true);
+    expect(commandsForProfiles(["convex"], [transient])).toEqual([]);
+    expect(
+      commandsForProfiles(
+        ["convex"],
+        [focusedGateCommand("rtk pnpm brain:factory:check-confect-codegen")],
+      ),
+    ).toHaveLength(2);
   });
 
   it("does not invent local gates for external receipts", () => {

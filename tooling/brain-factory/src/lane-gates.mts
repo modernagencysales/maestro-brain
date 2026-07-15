@@ -126,7 +126,7 @@ const gateCommands = deduplicateGateCommands([
   ...(formatCommand ? [formatCommand] : []),
   ...(lintCommand ? [lintCommand] : []),
   ...focusedCommands,
-  ...commandsForProfiles(task.gateProfiles),
+  ...commandsForProfiles(task.gateProfiles, focusedCommands),
 ]);
 const commandSetHash = gateCommandSetHash(gateCommands);
 
