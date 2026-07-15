@@ -222,6 +222,9 @@ describe("Maestro Brain execution manifest", () => {
     const authorizedTenancy = manifest.tasks.find(
       (task) => task.taskId === "S01-T03",
     );
+    const rbacSettings = manifest.tasks.find(
+      (task) => task.taskId === "S01-T04",
+    );
     const headlessPrincipal = manifest.tasks.find(
       (task) => task.taskId === "S11-T02",
     );
@@ -241,6 +244,11 @@ describe("Maestro Brain execution manifest", () => {
       ]),
     );
     expect(providerSetup?.codeStartAfter).toEqual(["S00-T03", "S01-T02"]);
+    expect(rbacSettings?.sourceSliceLimit).toBe(8);
+    expect(rbacSettings?.estimatedSourceLines).toBe(2_100);
+    expect(rbacSettings?.fileLocks).toContain(
+      "packages/convex/confect/access/auth.ts",
+    );
     expect(providerSetup?.sourceSliceLimit).toBe(10);
     expect(providerSetup?.estimatedSourceLines).toBe(2_700);
     expect(providerSetup?.fileLocks).toContain(
@@ -258,8 +266,29 @@ describe("Maestro Brain execution manifest", () => {
     expect(headlessPrincipal?.acceptanceAfter).toBe("S11-T01, S01-T03");
   });
 
-  it("reserves the expanded slice exception for S04-T01", () => {
+  it("reserves explicit expanded slice contracts", () => {
     const manifest = buildManifest();
+    const s01AtExpandedSlices = {
+      ...manifest,
+      tasks: manifest.tasks.map((task) =>
+        task.taskId === "S01-T04"
+          ? { ...task, estimatedSourceLines: 2_400 }
+          : task,
+      ),
+    };
+    expect(validateManifest(s01AtExpandedSlices)).not.toContain(
+      "S01-T04: invalid source-line estimate 2400",
+    );
+    expect(
+      validateManifest({
+        ...s01AtExpandedSlices,
+        tasks: s01AtExpandedSlices.tasks.map((task) =>
+          task.taskId === "S01-T04"
+            ? { ...task, estimatedSourceLines: 2_401 }
+            : task,
+        ),
+      }),
+    ).toContain("S01-T04: invalid source-line estimate 2401");
     const s04AtExpandedSlices = {
       ...manifest,
       tasks: manifest.tasks.map((task) =>
@@ -290,7 +319,7 @@ describe("Maestro Brain execution manifest", () => {
             : task,
         ),
       }),
-    ).toContain("S00-T04: only S04-T01 may use ten source slices");
+    ).toContain("S00-T04: source slice limit must be the default four");
     expect(
       validateManifest({
         ...manifest,
@@ -301,7 +330,7 @@ describe("Maestro Brain execution manifest", () => {
           return withoutLimit;
         }),
       }),
-    ).toContain("S04-T01: source slice limit must be ten");
+    ).toContain("S04-T01: source slice limit must be 10");
   });
 
   it("keeps S13 lane proofs behind their real product dependencies", () => {

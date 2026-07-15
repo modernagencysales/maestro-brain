@@ -795,6 +795,7 @@ manifest.
   placeholder copy in
   [`settings-surface.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/apps/web/src/features/settings/settings-surface.ts#L34-L52).
 - **Files:** modify `packages/convex/confect/access/tenancySchemas.ts`,
+  `packages/convex/confect/access/auth.ts`,
   `packages/convex/confect/access/audit.ts`,
   `packages/convex/confect/access/members.spec.ts`,
   `packages/convex/confect/access/members.impl.ts`,
@@ -812,16 +813,27 @@ manifest.
   roles, direct workspace membership, organization-admin baseline, revoked
   membership, last-owner removal, and cross-Brain access. Denials must occur
   before provider/model/storage calls and emit redacted audit metadata for
-  privileged attempts.
+  privileged attempts. Handler-level tests must prove authorization precedes
+  target lookup, so valid-versus-missing IDs cannot become a membership oracle;
+  historical revoked membership generations cannot shadow the current live
+  generation; invitation accept/cancel recheck Brain and organization lifecycle
+  plus tenant binding; and every denied mutation leaves product state unchanged.
 - **Implementation:** render member/invite management from generated refs;
   preserve role ordering and last-owner rules; add named audit actions for Slack
   connection/policy, retention, model egress, Autopilot, export, and API key
   administration so later capabilities reuse one vocabulary. UI hiding is only
-  convenience.
+  convenience. Generated-ref adapters must preserve each operation's typed
+  args/returns instead of erasing them to `unknown`. Direct workspace membership
+  is authoritative when present, including when it is more restrictive than the
+  capped organization-admin baseline. Denial audit writes must cross a durable
+  committed boundary; an audit insert in the same failing Convex mutation is
+  rolled back and is not acceptable evidence.
 - **Typed errors / state:** reuse `Unauthorized`, `Forbidden`,
   `MemberNotInWorkspace`, `CannotRemoveLastOwner`, `Invitation*`; membership
   remains `pending -> active -> revoked`, invitations retain their existing
-  terminal states.
+  terminal states. Expiration must be durably materialized (or represented by an
+  explicit derived-state contract) so an expired invitation is never still
+  treated as pending by listing, acceptance, or cancellation.
 - **Migration / compatibility / rollback:** additive audit-action enum/schema
   migration; no membership rewrite. Rollback may hide the UI but must not remove
   audit events or weaken server checks.
@@ -3629,7 +3641,7 @@ direct acceptance edge and is the source materialized into `acceptanceAfter`.
 | S01-T01 | S00 complete            | template-gap `TB-AUTHKIT-01`                     |               240 |
 | S01-T02 | S01-T01                 | template-gap + existing-module repair            |              1050 |
 | S01-T03 | S01-T02                 | template-gap authorized tenancy                  |               880 |
-| S01-T04 | S01-T03                 | template-gap access UI                           |               260 |
+| S01-T04 | S01-T03                 | template-gap access UI                           |              2100 |
 | S02-T01 | S01 complete            | template-gap authorized Brain schema             |               260 |
 | S02-T02 | S02-T01                 | template-gap authorized pages                    |               280 |
 | S02-T03 | S02-T02                 | fixture-to-real `ops/versioning`/`ops/knowledge` |               290 |

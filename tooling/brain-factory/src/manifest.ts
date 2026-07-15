@@ -40,7 +40,7 @@ export interface BrainTaskContract {
   readonly requirements: readonly string[];
   readonly estimatedSourceLines: number;
   readonly sourceSliceBudget: 300;
-  readonly sourceSliceLimit?: 10;
+  readonly sourceSliceLimit?: number;
   readonly taskBlockHash: string;
   readonly taskId: string;
   readonly title: string;
@@ -111,6 +111,11 @@ const START_OVERRIDES: Readonly<Record<string, readonly string[]>> = {
   "S13-T03": ["S06-T02", "S08-T01", "S11-T04", "S12-T02"],
   "S13-T04": ["S13-T03", "S03-T01"],
   "S14-T01": ["S10-T04", "S11-T04", "S12-T03", "S13-T04"],
+};
+
+const SOURCE_SLICE_LIMITS: Readonly<Record<string, number>> = {
+  "S01-T04": 8,
+  "S04-T01": 10,
 };
 
 const FILE_LOCK_OVERRIDES: Readonly<Record<string, readonly string[]>> = {
@@ -447,7 +452,9 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
       lane,
       requirements,
       sourceSliceBudget: 300,
-      ...(taskId === "S04-T01" ? { sourceSliceLimit: 10 as const } : {}),
+      ...(SOURCE_SLICE_LIMITS[taskId] === undefined
+        ? {}
+        : { sourceSliceLimit: SOURCE_SLICE_LIMITS[taskId] }),
       taskBlockHash: hash(body),
       taskId,
       title,
@@ -484,10 +491,11 @@ export const validateManifest = (manifest: BrainTaskManifest): string[] => {
       );
     if (task.sourceSliceBudget !== 300)
       errors.push(`${task.taskId}: source slice budget must remain 300`);
-    if (task.taskId === "S04-T01" && task.sourceSliceLimit !== 10)
-      errors.push(`${task.taskId}: source slice limit must be ten`);
-    if (task.taskId !== "S04-T01" && task.sourceSliceLimit !== undefined)
-      errors.push(`${task.taskId}: only S04-T01 may use ten source slices`);
+    const expectedSliceLimit = SOURCE_SLICE_LIMITS[task.taskId];
+    if (task.sourceSliceLimit !== expectedSliceLimit)
+      errors.push(
+        `${task.taskId}: source slice limit must be ${expectedSliceLimit ?? "the default four"}`,
+      );
     if (
       task.fileInventoryStatus === "ready" &&
       task.fileInventoryIssues.length > 0
