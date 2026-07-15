@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   integrationWaveId,
+  laneTrancheMatchesManifest,
   planIntegrationWave,
   validateIntegrationWaveSelection,
   type IntegrationWaveCandidate,
@@ -60,6 +61,19 @@ const candidate = (value: BrainTaskContract): IntegrationWaveCandidate => ({
 });
 
 describe("integration wave planner", () => {
+  it("accepts legacy absent lane tranches but rejects contradictory identity", () => {
+    expect(laneTrancheMatchesManifest(undefined, "C1-contract-spine")).toBe(
+      true,
+    );
+    expect(
+      laneTrancheMatchesManifest("C1-contract-spine", "C1-contract-spine"),
+    ).toBe(true);
+    expect(laneTrancheMatchesManifest(null, "C1-contract-spine")).toBe(false);
+    expect(
+      laneTrancheMatchesManifest("D2-domain-bodies", "C1-contract-spine"),
+    ).toBe(false);
+  });
+
   it("selects independent mixed-tranche tasks and binds an immutable hash", () => {
     const tasks = [
       task("S01-T03", "D2-domain-bodies", ["S01-T02"]),

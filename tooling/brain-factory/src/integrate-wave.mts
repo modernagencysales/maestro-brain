@@ -23,6 +23,7 @@ import {
 } from "./integration-recovery.js";
 import {
   integrationWaveId,
+  laneTrancheMatchesManifest,
   planIntegrationWave,
   type IntegrationWaveCandidate,
 } from "./integration-wave.js";
@@ -150,7 +151,10 @@ try {
     const laneContent = readFileSync(lanePath, "utf8");
     const lane = readJson(lanePath);
     if (lane.status !== "lane_green") continue;
-    if (lane.taskId !== task.taskId || lane.tranche !== task.tranche) {
+    if (
+      lane.taskId !== task.taskId ||
+      !laneTrancheMatchesManifest(lane.tranche, task.tranche)
+    ) {
       throw new Error(`${task.taskId}: lane-green identity mismatch`);
     }
     const proofPath = resolve(laneDirectory, "ci-proof-packet.json");

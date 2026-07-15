@@ -5,6 +5,11 @@ import type { BrainTaskContract } from "./manifest.js";
 export const INTEGRATION_WAVE_SCHEMA =
   "maestro-brain-integration-wave-selection/v2" as const;
 
+export const laneTrancheMatchesManifest = (
+  laneTranche: unknown,
+  manifestTranche: string,
+): boolean => laneTranche === undefined || laneTranche === manifestTranche;
+
 export interface IntegrationWaveCandidate {
   readonly changedFiles: readonly string[];
   readonly gateHeadSha: string;
