@@ -28,6 +28,7 @@ import {
   waveModeForWorktree,
   waveWorktreeRecoveryAction,
 } from "../src/integration-wave-launch.js";
+import { taskReservationOwnsIntegrationCandidate } from "../src/dispatch-ownership.js";
 
 const task = (
   taskId: string,
@@ -260,6 +261,52 @@ describe("integration wave planner", () => {
         tasks: [value],
       }),
     ).toThrow("proof/gate head mismatch");
+  });
+
+  it("selects S01-T03 alone while active stale S01-T04 is reserved", () => {
+    const s01t03 = task("S01-T03", "D2-domain-bodies");
+    const s01t04 = task("S01-T04", "D2-domain-bodies");
+    const reservation = {
+      branch: "fabro/review-s01-t04",
+      runId: "01KXKWXJVX88C8HCM9YPP21VZR",
+      status: "launched",
+      taskId: "S01-T04",
+      workdir: "/tmp/resume-s01-t04",
+    };
+    const candidates = [candidate(s01t03), candidate(s01t04)].filter(
+      (value) =>
+        value.taskId !== "S01-T04" ||
+        !taskReservationOwnsIntegrationCandidate(
+          reservation,
+          value.taskId,
+          () => "running",
+        ),
+    );
+    const selection = planIntegrationWave({
+      baseSha: "base",
+      candidates,
+      completedTaskIds: new Set(),
+      integrationId: integrationWaveId(5),
+      planSha256: "plan",
+      tasks: [s01t03, s01t04],
+    });
+    expect(selection.selectedTasks.map((value) => value.taskId)).toEqual([
+      "S01-T03",
+    ]);
+  });
+
+  it("still rejects an unreserved stale green candidate", () => {
+    const value = task("S01-T04", "D2-domain-bodies");
+    expect(() =>
+      planIntegrationWave({
+        baseSha: "base",
+        candidates: [{ ...candidate(value), taskBlockHash: "stale" }],
+        completedTaskIds: new Set(),
+        integrationId: integrationWaveId(6),
+        planSha256: "plan",
+        tasks: [value],
+      }),
+    ).toThrow("candidate plan or task-block drift");
   });
 
   it("fails closed on control divergence and recovers a post-merge crash", () => {

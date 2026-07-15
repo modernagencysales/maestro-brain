@@ -12,6 +12,7 @@ import {
   recoverTaskReservation,
   reserveTaskPreparing,
   runRecordOwnsTask,
+  taskReservationOwnsIntegrationCandidate,
 } from "../src/dispatch-ownership.js";
 import { validateResumeSource } from "../src/resume-support.js";
 
@@ -34,6 +35,75 @@ afterEach(() => {
 });
 
 describe("brain dispatch ownership", () => {
+  it("keeps active resumed tasks out of integration selection", () => {
+    expect(
+      taskReservationOwnsIntegrationCandidate(
+        {
+          branch: "fabro/review-s01-t04",
+          mode: "resume-review",
+          status: "preparing",
+          taskId: "S01-T04",
+          workdir: "/tmp/resume-s01-t04",
+        },
+        "S01-T04",
+        () => "running",
+      ),
+    ).toBe(true);
+    expect(
+      taskReservationOwnsIntegrationCandidate(
+        {
+          branch: "fabro/review-s01-t04",
+          runId: "01KXKWXJVX88C8HCM9YPP21VZR",
+          status: "launched",
+          taskId: "S01-T04",
+          workdir: "/tmp/resume-s01-t04",
+        },
+        "S01-T04",
+        () => "running",
+      ),
+    ).toBe(true);
+    expect(
+      taskReservationOwnsIntegrationCandidate(
+        {
+          branch: "fabro/review-s01-t03",
+          runId: "01KXKZ2RVP6AED7454PP4RJA4H",
+          status: "launched",
+          taskId: "S01-T03",
+          workdir: "/tmp/resume-s01-t03",
+        },
+        "S01-T03",
+        () => "succeeded",
+      ),
+    ).toBe(false);
+  });
+
+  it("fails closed when a task reservation cannot prove ownership", () => {
+    expect(() =>
+      taskReservationOwnsIntegrationCandidate(
+        {
+          branch: "fabro/review-s01-t04",
+          status: "preparing",
+          taskId: "S01-T03",
+          workdir: "/tmp/resume-s01-t04",
+        },
+        "S01-T04",
+        () => "running",
+      ),
+    ).toThrow("reservation task identity mismatch");
+    expect(() =>
+      taskReservationOwnsIntegrationCandidate(
+        {
+          branch: "fabro/review-s01-t04",
+          status: "launched",
+          taskId: "S01-T04",
+          workdir: "/tmp/resume-s01-t04",
+        },
+        "S01-T04",
+        () => "running",
+      ),
+    ).toThrow("launched reservation has no run ID");
+  });
+
   it("keeps resume locked, idempotent, and non-destructive", () => {
     const resume = readFileSync(
       new URL("../src/resume.mts", import.meta.url),

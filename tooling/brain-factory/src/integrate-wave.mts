@@ -9,6 +9,7 @@ import {
 import { resolve } from "node:path";
 
 import { hydrateWorktreeDependencies } from "./dependencies.js";
+import { taskReservationOwnsIntegrationCandidate } from "./dispatch-ownership.js";
 import {
   completedTaskIdsForControlHead,
   type LaneCompletionResult,
@@ -49,6 +50,15 @@ const valueAfter = (flag: string): string | undefined => {
 };
 const sha256 = (value: string): string =>
   createHash("sha256").update(value).digest("hex");
+const inspectedTaskRunStatus = (runId: string): string | undefined => {
+  const parsed = JSON.parse(
+    runRtk(["fabro", "inspect", runId, "--json", "--quiet"], { quiet: true }),
+  ) as
+    | { status?: { kind?: string } | string }
+    | readonly { status?: { kind?: string } | string }[];
+  const item = Array.isArray(parsed) ? parsed[0] : parsed;
+  return typeof item?.status === "string" ? item.status : item?.status?.kind;
+};
 
 const root = process.cwd();
 const state = safeAbsolutePath(
@@ -173,6 +183,21 @@ try {
   });
   const candidates: IntegrationWaveCandidate[] = [];
   for (const task of manifest.tasks) {
+    const taskReservationPath = resolve(runs, `${task.taskId}.json`);
+    if (existsSync(taskReservationPath)) {
+      const reservation = JSON.parse(
+        readFileSync(taskReservationPath, "utf8"),
+      ) as unknown;
+      if (
+        taskReservationOwnsIntegrationCandidate(
+          reservation,
+          task.taskId,
+          inspectedTaskRunStatus,
+        )
+      ) {
+        continue;
+      }
+    }
     const laneDirectory = resolve(laneRoot, task.taskId);
     const lanePath = resolve(laneDirectory, "lane-result.json");
     if (!existsSync(lanePath)) continue;

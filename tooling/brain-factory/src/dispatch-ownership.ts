@@ -13,6 +13,50 @@ import { dirname } from "node:path";
 
 type JsonRecord = Record<string, unknown>;
 
+const jsonRecord = (value: unknown, label: string): JsonRecord => {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`${label} is not a JSON object`);
+  }
+  return value as JsonRecord;
+};
+
+const nonemptyString = (value: unknown, label: string): string => {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`${label} is missing`);
+  }
+  return value;
+};
+
+export const taskReservationOwnsIntegrationCandidate = (
+  value: unknown,
+  expectedTaskId: string,
+  inspect: (runId: string) => string | undefined,
+): boolean => {
+  const reservation = jsonRecord(value, `${expectedTaskId}: task reservation`);
+  if (reservation.taskId !== expectedTaskId) {
+    throw new Error(`${expectedTaskId}: reservation task identity mismatch`);
+  }
+  nonemptyString(reservation.branch, `${expectedTaskId}: reservation branch`);
+  nonemptyString(reservation.workdir, `${expectedTaskId}: reservation workdir`);
+  if (reservation.status === "preparing") return true;
+  if (reservation.status === "launched") {
+    const runId = nonemptyString(
+      reservation.runId,
+      `${expectedTaskId}: launched reservation has no run ID`,
+    );
+    let status: string | undefined;
+    try {
+      status = inspect(runId);
+    } catch {
+      return true;
+    }
+    return !new Set(["canceled", "cancelled", "failed", "succeeded"]).has(
+      status ?? "unknown",
+    );
+  }
+  throw new Error(`${expectedTaskId}: task reservation status is invalid`);
+};
+
 const errorCode = (error: unknown): string | undefined =>
   typeof error === "object" && error !== null && "code" in error
     ? String((error as { readonly code?: unknown }).code)
