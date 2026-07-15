@@ -1,14 +1,19 @@
 import { FunctionImpl, GroupImpl } from "@confect/server";
 import type { GenericId } from "convex/values";
 import * as Clock from "effect/Clock";
+import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Either from "effect/Either";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 
 import type { InvitationsDoc } from "../_generated/docs";
+import refs from "../_generated/refs";
 import databaseSchema from "../_generated/schema";
-import { DatabaseReader, DatabaseWriter } from "../_generated/services";
+import {
+  DatabaseReader,
+  DatabaseWriter,
+  MutationRunner,
+} from "../_generated/services";
 import { stableFingerprint } from "../shared/tokenCrypto";
 import {
   deniedPrivilegedAccessAuditEvent,
@@ -21,6 +26,7 @@ import { roleAtLeast, type Role } from "./roles";
 import {
   Forbidden,
   InvitationNotAccessible,
+  Unauthorized,
   WorkspaceNotFound,
 } from "../errors";
 import {
@@ -42,32 +48,18 @@ import {
 } from "./lifecycle";
 import invitations from "./invitations.spec";
 
-const create = FunctionImpl.make(
+const createCore = FunctionImpl.make(
   databaseSchema,
   invitations,
-  "create",
+  "createCore",
   ({ workspaceId, email, role }) =>
     Effect.gen(function* () {
       const now = yield* Clock.currentTimeMillis;
       const reader = yield* DatabaseReader;
       const writer = yield* DatabaseWriter;
       const actor = yield* loadActorForWorkspace(reader, workspaceId, now);
-      yield* requireActorRole(actor, "admin").pipe(
-        auditDeniedInvitationAction(writer, now, {
-          action: "invitation.created",
-          workspaceId,
-          actorUserId: actor.userId,
-          subjectId: "pending-invitation",
-        }),
-      );
-      yield* requireActorCanInviteRole(actor, role).pipe(
-        auditDeniedInvitationAction(writer, now, {
-          action: "invitation.created",
-          workspaceId,
-          actorUserId: actor.userId,
-          subjectId: "pending-invitation",
-        }),
-      );
+      yield* requireActorRole(actor, "admin");
+      yield* requireActorCanInviteRole(actor, role);
       const workspace = yield* reader
         .table("workspaces")
         .get(workspaceId)
@@ -194,49 +186,30 @@ const decline = FunctionImpl.make(
     }),
 );
 
-const cancel = FunctionImpl.make(
+const cancelCore = FunctionImpl.make(
   databaseSchema,
   invitations,
-  "cancel",
+  "cancelCore",
   ({ invitationId, workspaceId }) =>
     Effect.gen(function* () {
       const now = yield* Clock.currentTimeMillis;
       const reader = yield* DatabaseReader;
       const writer = yield* DatabaseWriter;
       const actor = yield* loadActorForWorkspace(reader, workspaceId, now);
-      yield* requireActorRole(actor, "admin").pipe(
-        auditDeniedInvitationAction(writer, now, {
-          action: "invitation.cancelled",
-          workspaceId,
-          actorUserId: actor.userId,
-          subjectId: invitationId,
-        }),
-      );
+      yield* requireActorRole(actor, "admin");
       const invitation = yield* loadCancellableInvitation(
         reader,
         invitationId,
         workspaceId,
-      ).pipe(
-        auditDeniedInvitationAction(writer, now, {
-          action: "invitation.cancelled",
-          workspaceId,
-          actorUserId: actor.userId,
-          subjectId: invitationId,
-        }),
+        now,
       );
+      yield* requireActorCanInviteRole(actor, invitation.role);
       const plan = yield* effectFromEither(
         cancelInvitation({
           invitation,
           workspaceId,
           actorUserId: actor.userId,
           now,
-        }),
-      ).pipe(
-        auditDeniedInvitationAction(writer, now, {
-          action: "invitation.cancelled",
-          workspaceId,
-          actorUserId: actor.userId,
-          subjectId: invitation.id,
         }),
       );
 
@@ -252,38 +225,153 @@ const cancel = FunctionImpl.make(
     }),
 );
 
+const list = FunctionImpl.make(
+  databaseSchema,
+  invitations,
+  "list",
+  ({ workspaceId }) =>
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis;
+      const reader = yield* DatabaseReader;
+      yield* loadActorForWorkspace(reader, workspaceId, now);
+      const workspace = yield* reader
+        .table("workspaces")
+        .get(workspaceId)
+        .pipe(Effect.orDie);
+      const rows = yield* reader
+        .table("invitations")
+        .index("by_workspace_status", (q) =>
+          q.eq("workspaceId", workspaceId).eq("status", "pending"),
+        )
+        .collect()
+        .pipe(Effect.orDie);
+      return rows
+        .filter(
+          (row) =>
+            row.organizationId === workspace.organizationId &&
+            row.expiresAt > now,
+        )
+        .map((row) => ({
+          invitationId: row._id,
+          email: row.email,
+          role: row.role,
+          status: row.status,
+          expiresAt: row.expiresAt,
+        }));
+    }),
+);
+
+const create = FunctionImpl.make(
+  databaseSchema,
+  invitations,
+  "create",
+  (args) =>
+    Effect.gen(function* () {
+      const runMutation = yield* MutationRunner;
+      return yield* runMutation(
+        refs.internal.access.invitations.createCore,
+        args,
+      ).pipe(
+        Effect.catchTags({
+          Forbidden: (error) =>
+            recordInvitationDenial(runMutation, {
+              workspaceId: args.workspaceId,
+              action: "invitation.created",
+              subjectId: "pending-invitation",
+              reason: denialAuditReason(error),
+            }).pipe(Effect.flatMap(() => Effect.fail(error))),
+          ValidationFailed: (error) =>
+            recordInvitationDenial(runMutation, {
+              workspaceId: args.workspaceId,
+              action: "invitation.created",
+              subjectId: "pending-invitation",
+              reason: denialAuditReason(error),
+            }).pipe(Effect.flatMap(() => Effect.fail(error))),
+          WorkspaceNotFound: (error) =>
+            recordInvitationDenial(runMutation, {
+              workspaceId: args.workspaceId,
+              action: "invitation.created",
+              subjectId: "pending-invitation",
+              reason: denialAuditReason(error),
+            }).pipe(Effect.flatMap(() => Effect.fail(error))),
+          ParseError: (error) => Effect.die(error),
+        }),
+      );
+    }),
+);
+
+const cancel = FunctionImpl.make(
+  databaseSchema,
+  invitations,
+  "cancel",
+  (args) =>
+    Effect.gen(function* () {
+      const runMutation = yield* MutationRunner;
+      yield* runMutation(
+        refs.internal.access.invitations.cancelCore,
+        args,
+      ).pipe(
+        Effect.catchTags({
+          Forbidden: (error) =>
+            recordInvitationDenial(runMutation, {
+              workspaceId: args.workspaceId,
+              action: "invitation.cancelled",
+              subjectId: args.invitationId,
+              reason: denialAuditReason(error),
+            }).pipe(Effect.flatMap(() => Effect.fail(error))),
+          ParseError: (error) => Effect.die(error),
+        }),
+      );
+      return null;
+    }),
+);
+
+const recordDenialAudit = FunctionImpl.make(
+  databaseSchema,
+  invitations,
+  "recordDenialAudit",
+  ({ workspaceId, action, subjectId, reason }) =>
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis;
+      const reader = yield* DatabaseReader;
+      const writer = yield* DatabaseWriter;
+      const actor = yield* loadCurrentUser(reader);
+      yield* recordAccessAuditEvent(
+        writer,
+        deniedPrivilegedAccessAuditEvent({
+          action,
+          workspaceId,
+          actorUserId: actor._id,
+          subjectKind: "invitation",
+          subjectId,
+          reason,
+        }),
+        now,
+      );
+      return null;
+    }),
+);
+
+const recordInvitationDenial = (
+  runMutation: Context.Tag.Service<typeof MutationRunner>,
+  input: {
+    readonly workspaceId: GenericId<"workspaces"> | string;
+    readonly action: "invitation.created" | "invitation.cancelled";
+    readonly subjectId: string;
+    readonly reason: string;
+  },
+): Effect.Effect<void> =>
+  runMutation(refs.internal.access.invitations.recordDenialAudit, {
+    ...input,
+    workspaceId: asGenericId<"workspaces">(input.workspaceId),
+  }).pipe(Effect.orDie, Effect.asVoid);
+
 const effectFromEither = <A, E>(
   either: Either.Either<A, E>,
 ): Effect.Effect<A, E> =>
   Either.isLeft(either)
     ? Effect.fail(either.left)
     : Effect.succeed(either.right);
-
-const auditDeniedInvitationAction =
-  (
-    writer: Parameters<typeof recordAccessAuditEvent>[0],
-    now: number,
-    input: {
-      readonly action: "invitation.created" | "invitation.cancelled";
-      readonly workspaceId: string;
-      readonly actorUserId: string;
-      readonly subjectId: string;
-    },
-  ) =>
-  <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<A, E> =>
-    effect.pipe(
-      Effect.tapError((error) =>
-        recordAccessAuditEvent(
-          writer,
-          deniedPrivilegedAccessAuditEvent({
-            ...input,
-            subjectKind: "invitation",
-            reason: denialAuditReason(error),
-          }),
-          now,
-        ),
-      ),
-    );
 
 const requireActorCanInviteRole = (
   actor: { readonly role: Role },
@@ -514,10 +602,50 @@ const requireLoadedInvitation = (
     ? Effect.fail(new InvitationNotAccessible())
     : Effect.succeed(invitation);
 
+const requireInvitationWorkspaceLive = (
+  reader: Reader,
+  invitation: InvitationRef,
+): Effect.Effect<void, InvitationNotAccessible> =>
+  Effect.gen(function* () {
+    const workspace = yield* reader
+      .table("workspaces")
+      .get(asGenericId<"workspaces">(invitation.workspaceId))
+      .pipe(
+        Effect.catchAll((error) =>
+          error._tag === "GetByIdFailure"
+            ? Effect.fail(new InvitationNotAccessible())
+            : Effect.die(error),
+        ),
+      );
+    if (
+      workspace.status !== "active" ||
+      workspace.organizationId !== invitation.organizationId
+    ) {
+      return yield* Effect.fail(new InvitationNotAccessible());
+    }
+    const organization = yield* reader
+      .table("organizations")
+      .get(asGenericId<"organizations">(invitation.organizationId))
+      .pipe(
+        Effect.catchAll((error) =>
+          error._tag === "GetByIdFailure"
+            ? Effect.fail(new InvitationNotAccessible())
+            : Effect.die(error),
+        ),
+      );
+    if (organization.status !== "active") {
+      return yield* Effect.fail(new InvitationNotAccessible());
+    }
+  });
+
 export default GroupImpl.make(databaseSchema, invitations).pipe(
+  Layer.provide(list),
   Layer.provide(create),
+  Layer.provide(createCore),
   Layer.provide(accept),
   Layer.provide(decline),
   Layer.provide(cancel),
+  Layer.provide(cancelCore),
+  Layer.provide(recordDenialAudit),
   GroupImpl.finalize,
 );
