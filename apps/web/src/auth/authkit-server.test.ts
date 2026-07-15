@@ -6,6 +6,7 @@ import {
   getAuthSnapshot,
   getClientAuthSnapshot,
   getRuntimeClientAuthSnapshot,
+  getSafeClientRuntime,
   toClientAuthSnapshot,
   Unauthorized,
   type WorkosServerAuth,
@@ -95,6 +96,59 @@ describe("AuthKit server bridge", () => {
         },
       }),
     ).resolves.toEqual({ status: "signedOut" });
+  });
+
+  it("returns safe runtime metadata without calling WorkOS in fake mode", async () => {
+    await expect(
+      getSafeClientRuntime({
+        env: {
+          APP_ENV: "build",
+          APP_PROVIDER_MODE: "fake",
+          NODE_ENV: "production",
+        },
+        getAuth: async () => {
+          throw new Error("getAuth should not be called in fake mode");
+        },
+      }),
+    ).resolves.toEqual({
+      authSnapshot: { status: "signedOut" },
+      workspaceRuntimeMode: "fake",
+    });
+  });
+
+  it("returns redacted live safe runtime metadata from server auth", async () => {
+    await expect(
+      getSafeClientRuntime({
+        env: validLiveEnv,
+        getAuth: async () => ({
+          user: { id: "user_123", email: "user@example.com" },
+          sessionId: "session_123",
+          organizationId: "org_123",
+          accessToken: "token-redacted",
+        }),
+      }),
+    ).resolves.toEqual({
+      authSnapshot: {
+        status: "authenticated",
+        subject: "user_123",
+        email: "user@example.com",
+        organizationId: "org_123",
+        sessionId: "session_123",
+      },
+      workspaceRuntimeMode: "live",
+    });
+  });
+
+  it("marks safe runtime metadata as test mode for test provider config", async () => {
+    await expect(
+      getSafeClientRuntime({
+        env: { ...validLiveEnv, APP_PROVIDER_MODE: "test" },
+        getAuth: async () => ({ user: null }),
+      }),
+    ).resolves.toEqual({
+      authSnapshot: { status: "signedOut" },
+      workspaceRuntimeMode: "test",
+    });
   });
 
   it("redacts access tokens when converting existing server snapshots for clients", () => {
