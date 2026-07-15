@@ -29,6 +29,8 @@ import {
   probeExpand,
   probeFail,
   releaseParentKey,
+  stableTenantOrganizationKeysExpand,
+  stableTenantWorkspaceKeysExpand,
   runKeyForMigration,
 } from "./migrations";
 import migrations, {
@@ -54,7 +56,8 @@ const parseArgs = (input: unknown) => validateExecuteRequest(input);
 const assertDryRunSafeDefinition = (args: Args) =>
   findExecutableMigration(args.migrationName).pipe(
     Effect.flatMap((definition) =>
-      definition.dryRunSafety === "probeSafeNonSensitive"
+      definition.dryRunSafety === "probeSafeNonSensitive" ||
+      definition.dryRunSafety === "patchedNoRawDocumentLogs"
         ? Effect.void
         : Effect.fail(
             cursorError(
@@ -343,6 +346,18 @@ const probeFailImpl = FunctionImpl.make(
   "probeFail",
   probeFail,
 );
+const stableTenantOrganizationKeysExpandImpl = FunctionImpl.make(
+  databaseSchema,
+  migrations,
+  "stableTenantOrganizationKeysExpand",
+  stableTenantOrganizationKeysExpand,
+);
+const stableTenantWorkspaceKeysExpandImpl = FunctionImpl.make(
+  databaseSchema,
+  migrations,
+  "stableTenantWorkspaceKeysExpand",
+  stableTenantWorkspaceKeysExpand,
+);
 const maybeCrashAfterComponent = FunctionImpl.make(
   databaseSchema,
   migrations,
@@ -512,6 +527,15 @@ const settleBatch = FunctionImpl.make(
       };
     }),
 );
+const migrationRef = (migrationName: string) => {
+  if (migrationName === "probe.fail")
+    return refs.internal.internal.migrations.probeFail;
+  if (migrationName === "stableTenant.organizationKeys.expand")
+    return refs.internal.internal.migrations.stableTenantOrganizationKeysExpand;
+  if (migrationName === "stableTenant.workspaceKeys.expand")
+    return refs.internal.internal.migrations.stableTenantWorkspaceKeysExpand;
+  return refs.internal.internal.migrations.probeExpand;
+};
 const runRegisteredMigration = FunctionImpl.make(
   databaseSchema,
   migrations,
@@ -522,10 +546,7 @@ const runRegisteredMigration = FunctionImpl.make(
       const isDryRun = args.mode === "dryRun";
       if (isDryRun) yield* assertDryRunSafeDefinition(args);
       const runner = yield* MutationRunner;
-      const ref =
-        args.migrationName === "probe.fail"
-          ? refs.internal.internal.migrations.probeFail
-          : refs.internal.internal.migrations.probeExpand;
+      const ref = migrationRef(args.migrationName);
       const lease = yield* safeMutation(
         runner,
         refs.internal.internal.migrations.acquireLease,
@@ -543,6 +564,7 @@ const runRegisteredMigration = FunctionImpl.make(
           ? { ...complete, status: "dryRunComplete" as const }
           : complete;
       }
+      const definition = yield* findExecutableMigration(args.migrationName);
       const component = yield* safeMutation(
         runner,
         ref,
@@ -581,6 +603,9 @@ const runRegisteredMigration = FunctionImpl.make(
           nextCursor: batch.isDone ? null : batch.continueCursor,
           complete: batch.isDone,
           processed: batch.processed,
+          changed: batch.changed,
+          skipped: batch.skipped,
+          hasExactExecuteCounters: definition.hasExactExecuteCounters,
         }),
         args.migrationName,
       );
@@ -592,6 +617,8 @@ const runRegisteredMigration = FunctionImpl.make(
 export default GroupImpl.make(databaseSchema, migrations).pipe(
   Layer.provide(probeExpandImpl),
   Layer.provide(probeFailImpl),
+  Layer.provide(stableTenantOrganizationKeysExpandImpl),
+  Layer.provide(stableTenantWorkspaceKeysExpandImpl),
   Layer.provide(runRegisteredMigration),
   Layer.provide(acquireLease),
   Layer.provide(maybeCrashAfterComponent),

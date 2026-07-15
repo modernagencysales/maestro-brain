@@ -8,3 +8,7 @@ export const probeFail = registeredFunctions.probeFail;
 export const runRegisteredMigration =
   registeredFunctions.runRegisteredMigration;
 export const settleBatch = registeredFunctions.settleBatch;
+export const stableTenantOrganizationKeysExpand =
+  registeredFunctions.stableTenantOrganizationKeysExpand;
+export const stableTenantWorkspaceKeysExpand =
+  registeredFunctions.stableTenantWorkspaceKeysExpand;

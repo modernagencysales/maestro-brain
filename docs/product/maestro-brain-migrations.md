@@ -7,7 +7,10 @@ Confect specs/impls, durable run rows, and append-only receipt rows.
 ## Scope
 
 - Classification: `template-gap` for the migrations component pattern.
-- Executable probe migrations: `probe.expand` and `probe.fail` only.
+- Executable probe migrations: `probe.expand` and `probe.fail`.
+- Stable tenant expand migrations: `stableTenant.organizationKeys.expand` and
+  `stableTenant.workspaceKeys.expand`, routed through typed Confect refs and
+  bounded with batch size 1 during proof.
 - Reserved future names are server-owned and intentionally non-executable until
   their owning task supplies the idempotent predicate.
 - No public, API, CLI, or MCP surface is exposed; callers use generated internal
@@ -55,14 +58,22 @@ Rollback for this harness is to remove the wrapper only after proving no
 migration run or receipt rows exist. Product schema migrations must document
 their own expand/backfill/verify/contract rollback in their owning task.
 
+Stable tenant rollback checkpoint: verify zero null or duplicate agency/Brain
+keys before any reader/writer switch; if rollback is required, restore readers
+to legacy IDs while preserving additive keys; restore sensitive dry-run
+fail-closed classification before reverting the dependency patch.
+
 ## Dry-run log safety
 
-The upstream `@convex-dev/migrations` dry-run path logs before/after document
-examples from inside the component mutation. Until the template promotes a
-patched no-log component boundary, executable dry-run evidence is restricted by
-a server-owned migration definition classification. Only definitions explicitly
-marked `probeSafeNonSensitive` may invoke upstream dry-run. Missing, unknown,
-reserved, or sensitive definitions fail closed before the component call, so
-sensitive rows cannot reach upstream debug logs. Promotion backlog: replace this
-restriction with a patched/no-log component execution boundary before any
-Brain/source or customer-content migration is made dry-run executable.
+`@convex-dev/migrations` is pinned to `0.3.5` and checked in through pnpm's
+patched-dependency mechanism at
+`tooling/patches/@convex-dev__migrations@0.3.5.patch`. The patch preserves the
+typed dry-run rollback payload but redacts the component's example-change debug
+object so before/after documents and customer-bearing fields are never emitted.
+
+Executable dry-run evidence remains server-classified. Probe definitions are
+`probeSafeNonSensitive`; stable tenant expand definitions are
+`patchedNoRawDocumentLogs`. Missing, unknown, reserved, or otherwise sensitive
+definitions fail closed before the component call. Tests install a console
+sentinel around stable-tenant dry-run to prove no raw tenant names, before/after
+documents, or writes escape the rollback path.
