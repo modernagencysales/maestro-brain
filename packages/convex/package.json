@@ -32,6 +32,7 @@
     "@confect/server": "9.1.5",
     "@confect/test": "9.1.5",
     "@convex-dev/prosemirror-sync": "0.2.5",
+    "@maestro-template/integrations": "workspace:*",
     "@maestro-template/observability": "workspace:*",
     "@maestro-template/template-core": "workspace:*",
     "@maestro-template/workflow-tooling": "workspace:*",
