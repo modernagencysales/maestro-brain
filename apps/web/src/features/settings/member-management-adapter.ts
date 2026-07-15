@@ -83,13 +83,14 @@ export const createMemberManagementAdapter = ({
     changeRole: async ({ membershipId, role }) => {
       requireMemberManager();
       await runMutation(refs.members.changeRole, {
+        workspaceId,
         membershipId,
         newRole: role,
       });
     },
     removeMember: async ({ membershipId }) => {
       requireMemberManager();
-      await runMutation(refs.members.remove, { membershipId });
+      await runMutation(refs.members.remove, { workspaceId, membershipId });
     },
     cancelInvitation: async ({ invitationId }) => {
       requireMemberManager();
@@ -100,7 +101,10 @@ export const createMemberManagementAdapter = ({
     },
     transferOwnership: async ({ membershipId }) => {
       requireOwner();
-      await runMutation(refs.members.transferOwnership, { membershipId });
+      await runMutation(refs.members.transferOwnership, {
+        workspaceId,
+        membershipId,
+      });
     },
   };
 };

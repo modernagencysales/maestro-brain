@@ -17,6 +17,7 @@ import {
   recordAccessLifecycleEvents,
 } from "./audit";
 import { resolveEffectiveWorkspaceRole } from "./auth";
+import { roleAtLeast, type Role } from "./roles";
 import {
   Forbidden,
   InvitationNotAccessible,
@@ -52,6 +53,14 @@ const create = FunctionImpl.make(
       const writer = yield* DatabaseWriter;
       const actor = yield* loadActorForWorkspace(reader, workspaceId, now);
       yield* requireActorRole(actor, "admin").pipe(
+        auditDeniedInvitationAction(writer, now, {
+          action: "invitation.created",
+          workspaceId,
+          actorUserId: actor.userId,
+          subjectId: "pending-invitation",
+        }),
+      );
+      yield* requireActorCanInviteRole(actor, role).pipe(
         auditDeniedInvitationAction(writer, now, {
           action: "invitation.created",
           workspaceId,
@@ -204,7 +213,18 @@ const cancel = FunctionImpl.make(
           subjectId: invitationId,
         }),
       );
-      const invitation = yield* loadInvitationForResponse(reader, invitationId);
+      const invitation = yield* loadCancellableInvitation(
+        reader,
+        invitationId,
+        workspaceId,
+      ).pipe(
+        auditDeniedInvitationAction(writer, now, {
+          action: "invitation.cancelled",
+          workspaceId,
+          actorUserId: actor.userId,
+          subjectId: invitationId,
+        }),
+      );
       const plan = yield* effectFromEither(
         cancelInvitation({
           invitation,
@@ -217,7 +237,7 @@ const cancel = FunctionImpl.make(
           action: "invitation.cancelled",
           workspaceId,
           actorUserId: actor.userId,
-          subjectId: invitationId,
+          subjectId: invitation.id,
         }),
       );
 
@@ -265,6 +285,18 @@ const auditDeniedInvitationAction =
         ),
       ),
     );
+
+const requireActorCanInviteRole = (
+  actor: { readonly role: Role },
+  invitedRole: Role,
+): Effect.Effect<void, Forbidden> =>
+  roleAtLeast(actor.role, invitedRole)
+    ? Effect.void
+    : Effect.fail(
+        new Forbidden({
+          reason: "Cannot invite a role higher than your own.",
+        }),
+      );
 
 const loadActorForWorkspace = (
   reader: Reader,
@@ -394,6 +426,27 @@ const loadInvitationForResponse = (
           : Effect.die(error),
       ),
     );
+
+const loadCancellableInvitation = (
+  reader: Reader,
+  invitationId: GenericId<"invitations">,
+  workspaceId: GenericId<"workspaces"> | string,
+): Effect.Effect<InvitationRef, Forbidden> =>
+  loadInvitationForResponse(reader, invitationId).pipe(
+    Effect.flatMap((invitation) => {
+      if (invitation === null || invitation.workspaceId !== workspaceId) {
+        return Effect.fail(
+          new Forbidden({ reason: "Invitation access could not be resolved." }),
+        );
+      }
+      if (invitation.status !== "pending") {
+        return Effect.fail(
+          new Forbidden({ reason: "Invitation is not pending." }),
+        );
+      }
+      return Effect.succeed(invitation);
+    }),
+  );
 
 const loadOptionalLiveWorkspaceMemberForUser = (
   reader: Reader,
