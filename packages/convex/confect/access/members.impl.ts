@@ -42,16 +42,16 @@ const changeRole = FunctionImpl.make(
   databaseSchema,
   members,
   "changeRole",
-  ({ membershipId, newRole }) =>
+  ({ workspaceId, membershipId, newRole }) =>
     Effect.gen(function* () {
       const now = yield* Clock.currentTimeMillis;
       const reader = yield* DatabaseReader;
       const writer = yield* DatabaseWriter;
-      const target = yield* loadMember(reader, membershipId);
-      const actor = yield* loadActorForWorkspace(
+      const actor = yield* loadActorForWorkspace(reader, workspaceId, now);
+      const target = yield* loadMemberInWorkspace(
         reader,
-        target.workspaceId,
-        now,
+        workspaceId,
+        membershipId,
       );
       yield* requireMemberManager(actor).pipe(
         auditDeniedMemberAction(writer, now, {
@@ -98,16 +98,16 @@ const remove = FunctionImpl.make(
   databaseSchema,
   members,
   "remove",
-  ({ membershipId }) =>
+  ({ workspaceId, membershipId }) =>
     Effect.gen(function* () {
       const now = yield* Clock.currentTimeMillis;
       const reader = yield* DatabaseReader;
       const writer = yield* DatabaseWriter;
-      const target = yield* loadMember(reader, membershipId);
-      const actor = yield* loadActorForWorkspace(
+      const actor = yield* loadActorForWorkspace(reader, workspaceId, now);
+      const target = yield* loadMemberInWorkspace(
         reader,
-        target.workspaceId,
-        now,
+        workspaceId,
+        membershipId,
       );
       yield* requireMemberManager(actor).pipe(
         auditDeniedMemberAction(writer, now, {
@@ -153,16 +153,16 @@ const transferOwnershipImpl = FunctionImpl.make(
   databaseSchema,
   members,
   "transferOwnership",
-  ({ membershipId }) =>
+  ({ workspaceId, membershipId }) =>
     Effect.gen(function* () {
       const now = yield* Clock.currentTimeMillis;
       const reader = yield* DatabaseReader;
       const writer = yield* DatabaseWriter;
-      const target = yield* loadMember(reader, membershipId);
-      const actor = yield* loadActorForWorkspace(
+      const actor = yield* loadActorForWorkspace(reader, workspaceId, now);
+      const target = yield* loadMemberInWorkspace(
         reader,
-        target.workspaceId,
-        now,
+        workspaceId,
+        membershipId,
       );
       yield* requireActorRole(actor, "owner").pipe(
         auditDeniedMemberAction(writer, now, {
@@ -362,8 +362,9 @@ const loadOrganizationMembershipsForUser = (
     .collect()
     .pipe(Effect.orDie);
 
-const loadMember = (
+const loadMemberInWorkspace = (
   reader: Reader,
+  workspaceId: GenericId<"workspaces"> | string,
   membershipId: GenericId<"workspaceMembers">,
 ): Effect.Effect<WorkspaceMemberLifecycleRef, MemberNotInWorkspace> =>
   reader
@@ -371,10 +372,17 @@ const loadMember = (
     .get(membershipId)
     .pipe(
       Effect.map(toLifecycleMember),
+      Effect.flatMap((membership) =>
+        membership.workspaceId === workspaceId
+          ? Effect.succeed(membership)
+          : Effect.fail(new MemberNotInWorkspace({ membershipId })),
+      ),
       Effect.catchAll((error) =>
-        error._tag === "GetByIdFailure"
-          ? Effect.fail(new MemberNotInWorkspace({ membershipId }))
-          : Effect.die(error),
+        error instanceof MemberNotInWorkspace
+          ? Effect.fail(error)
+          : error._tag === "GetByIdFailure"
+            ? Effect.fail(new MemberNotInWorkspace({ membershipId }))
+            : Effect.die(error),
       ),
     );
 
