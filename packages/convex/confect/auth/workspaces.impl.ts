@@ -9,31 +9,20 @@ import { resolveEffectiveWorkspaceRole } from "../access/auth";
 import { extractIdentityProfile } from "../access/provisioning";
 import { loadCurrentUser } from "../access/handlerContext";
 import {
+  OrganizationNotFound,
   ProvisioningConflict,
   Unauthorized,
-  ValidationFailed,
 } from "../errors";
 import workspaces from "./workspaces.spec";
 
-const list = FunctionImpl.make(databaseSchema, workspaces, "list", (args) =>
+const list = FunctionImpl.make(databaseSchema, workspaces, "list", () =>
   Effect.gen(function* () {
-    if (args.organizationId !== undefined || args.workspaceId !== undefined) {
-      return yield* new ValidationFailed({
-        field:
-          args.organizationId !== undefined ? "organizationId" : "workspaceId",
-        message: "Tenant ids are derived from the authenticated session.",
-      });
-    }
     const auth = yield* Auth;
     const identity = yield* extractIdentityProfile(
       yield* auth.getUserIdentity.pipe(
         Effect.mapError(() => new Unauthorized()),
       ),
-    ).pipe(
-      Effect.mapError((error) =>
-        error instanceof ValidationFailed ? new Unauthorized() : error,
-      ),
-    );
+    ).pipe(Effect.mapError(() => new Unauthorized()));
     if (identity.workosOrganizationId === undefined) {
       return yield* new Unauthorized();
     }
@@ -63,7 +52,9 @@ const list = FunctionImpl.make(databaseSchema, workspaces, "list", (args) =>
     }
     const organization = organizations[0];
     if (organization === undefined) {
-      return [];
+      return yield* new OrganizationNotFound({
+        workosOrganizationId: identity.workosOrganizationId,
+      });
     }
 
     const organizationMembers = yield* reader

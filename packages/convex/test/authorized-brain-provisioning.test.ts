@@ -7,7 +7,9 @@ import refs from "../confect/_generated/refs";
 import databaseSchema from "../confect/_generated/schema";
 import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
 import {
+  BrainAlreadyExists,
   Forbidden,
+  OrganizationNotFound,
   ProvisioningConflict,
   Unauthorized,
   ValidationFailed,
@@ -105,7 +107,7 @@ describe("authorized Brain provisioning", () => {
     expect(JSON.stringify(result.adminList)).not.toContain("organizations_");
   });
 
-  it("does not list another organization when the session switches WorkOS organization", async () => {
+  it("returns a typed organization-not-found error when the session switches WorkOS organization", async () => {
     const program = Effect.gen(function* () {
       const confect = yield* Effect.serviceOptional(
         TestConfect.TestConfect<typeof databaseSchema>(),
@@ -119,14 +121,15 @@ describe("authorized Brain provisioning", () => {
           emailVerified: true,
           organizationId: "org_workos_unrelated",
         })
-        .query(refs.public.auth.workspaces.list, {});
+        .query(refs.public.auth.workspaces.list, {})
+        .pipe(Effect.flip);
     });
 
     const result = await Effect.runPromise(
       program.pipe(Effect.provide(testConfectLayer())),
     );
 
-    expect(result).toEqual([]);
+    expect(result).toBeInstanceOf(OrganizationNotFound);
   });
 
   it("rejects suspended users before listing otherwise authorized Brains", async () => {
@@ -351,49 +354,88 @@ describe("authorized Brain provisioning", () => {
       program.pipe(Effect.provide(testConfectLayer())),
     );
 
-    expect(error).toBeInstanceOf(ProvisioningConflict);
-    expect(error).toMatchObject({ resource: "workspaces.clientSlug" });
+    expect(error).toBeInstanceOf(BrainAlreadyExists);
+    expect(error).toMatchObject({ brainKey: "existing-client" });
   });
 
-  it("rejects caller-supplied organization and workspace ids on public operations", async () => {
+  it("omits caller-supplied tenant ids from public operation specs", async () => {
+    const workspaceSpec = JSON.stringify(refs.public.auth.workspaces.list);
+    const createSpec = JSON.stringify(
+      refs.public.access.provisioning.createClientBrain,
+    );
+
+    expect(workspaceSpec).not.toContain("organizationId");
+    expect(workspaceSpec).not.toContain("workspaceId");
+    expect(createSpec).not.toContain("organizationId");
+    expect(createSpec).not.toContain("workspaceId");
+  });
+
+  it("allows org admins to resolve active workspace keys without direct membership", async () => {
     const program = Effect.gen(function* () {
       const confect = yield* Effect.serviceOptional(
         TestConfect.TestConfect<typeof databaseSchema>(),
       );
-      yield* confect.run(seedClientBrainCreatorRoles(), Schema.Any);
-      const identity = {
-        subject: "admin-subject",
-        email: "admin@example.com",
-        emailVerified: true,
-        organizationId: "org_workos_roles",
-      };
+      const seeded = yield* confect.run(
+        seedStableKeyResolutionCases(),
+        StableKeyRows,
+      );
 
-      const listError = yield* confect
-        .withIdentity(identity)
-        .query(refs.public.auth.workspaces.list, {
-          organizationId: "organizations_attacker",
-          workspaceId: "workspaces_attacker",
+      return yield* confect
+        .withIdentity({
+          subject: "org-admin-subject",
+          email: "org-admin@example.com",
+          emailVerified: true,
+          organizationId: "org_workos_resolve",
         })
-        .pipe(Effect.flip);
-      const createError = yield* confect
-        .withIdentity(identity)
-        .mutation(refs.public.access.provisioning.createClientBrain, {
-          name: "Injected Client",
-          clientSlug: "injected-client",
-          organizationId: "organizations_attacker",
-          workspaceId: "workspaces_attacker",
-        })
-        .pipe(Effect.flip);
-
-      return { listError, createError };
+        .query(refs.internal.identity.stableKeys.resolveBrainKey, {
+          agencyKey: seeded.agencyKey,
+          brainKey: seeded.brainKey,
+        });
     });
 
     const result = await Effect.runPromise(
       program.pipe(Effect.provide(testConfectLayer())),
     );
 
-    expect(result.listError).toBeInstanceOf(ValidationFailed);
-    expect(result.createError).toBeInstanceOf(ValidationFailed);
+    expect(result.workspaceId).toBeDefined();
+  });
+
+  it("translates duplicate direct workspace memberships during key resolution", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const seeded = yield* confect.run(
+        seedStableKeyResolutionCases(),
+        StableKeyRows,
+      );
+      yield* confect.run(
+        seedDuplicateWorkspaceMembership(seeded.workspaceId),
+        Schema.Any,
+      );
+
+      return yield* confect
+        .withIdentity({
+          subject: "member-subject",
+          email: "member@example.com",
+          emailVerified: true,
+          organizationId: "org_workos_resolve",
+        })
+        .query(refs.internal.identity.stableKeys.resolveBrainKey, {
+          agencyKey: seeded.agencyKey,
+          brainKey: seeded.brainKey,
+        })
+        .pipe(Effect.flip);
+    });
+
+    const error = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(error).toBeInstanceOf(ProvisioningConflict);
+    expect(error).toMatchObject({
+      resource: "workspaceMembers.workspaceId.userId",
+    });
   });
 
   it("resolves stable keys only for live current organization members", async () => {
@@ -1023,6 +1065,17 @@ const seedStableKeyResolutionCases = () =>
         updatedAt: now,
       })
       .pipe(Effect.orDie);
+    const orgAdminUserId = yield* writer
+      .table("users")
+      .insert({
+        subject: "org-admin-subject",
+        email: "org-admin@example.com",
+        displayName: "Org Admin",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
     const nonmemberUserId = yield* writer
       .table("users")
       .insert({
@@ -1047,19 +1100,24 @@ const seedStableKeyResolutionCases = () =>
         updatedAt: now,
       })
       .pipe(Effect.orDie);
-    yield* writer
-      .table("organizationMembers")
-      .insert({
-        organizationId,
-        userId: memberUserId,
-        role: "viewer",
-        status: "active",
-        acceptedAt: now,
-        revokedAt: null,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .pipe(Effect.orDie);
+    for (const [userId, role] of [
+      [memberUserId, "viewer"],
+      [orgAdminUserId, "admin"],
+    ] as const) {
+      yield* writer
+        .table("organizationMembers")
+        .insert({
+          organizationId,
+          userId,
+          role,
+          status: "active",
+          acceptedAt: now,
+          revokedAt: null,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .pipe(Effect.orDie);
+    }
     const workspaceId = yield* writer
       .table("workspaces")
       .insert({
@@ -1164,4 +1222,31 @@ const seedStableKeyResolutionCases = () =>
       otherWorkspaceId,
       nonmemberUserId,
     };
+  });
+
+const seedDuplicateWorkspaceMembership = (workspaceId: string) =>
+  Effect.gen(function* () {
+    const writer = yield* DatabaseWriter;
+    const reader = yield* DatabaseReader;
+    const users = yield* reader
+      .table("users")
+      .index("by_subject", (q) => q.eq("subject", "member-subject"))
+      .collect()
+      .pipe(Effect.orDie);
+    const user = users[0];
+    if (user === undefined) throw new Error("expected member user");
+    yield* writer
+      .table("workspaceMembers")
+      .insert({
+        workspaceId,
+        userId: user._id,
+        role: "viewer",
+        status: "active",
+        acceptedAt: now,
+        revokedAt: null,
+        deletedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
   });

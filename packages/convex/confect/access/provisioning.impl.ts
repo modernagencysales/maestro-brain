@@ -8,7 +8,9 @@ import * as Option from "effect/Option";
 import databaseSchema from "../_generated/schema";
 import { Auth, DatabaseReader, DatabaseWriter } from "../_generated/services";
 import {
+  BrainAlreadyExists,
   Forbidden,
+  OrganizationNotFound,
   ProvisioningConflict,
   Unauthorized,
   ValidationFailed,
@@ -440,18 +442,8 @@ const createClientBrain = FunctionImpl.make(
   databaseSchema,
   provisioning,
   "createClientBrain",
-  (args) =>
+  ({ name, clientSlug }) =>
     Effect.gen(function* () {
-      const { name, clientSlug } = args;
-      if (args.organizationId !== undefined || args.workspaceId !== undefined) {
-        return yield* new ValidationFailed({
-          field:
-            args.organizationId !== undefined
-              ? "organizationId"
-              : "workspaceId",
-          message: "Tenant ids are derived from the authenticated session.",
-        });
-      }
       const normalizedName = name.trim();
       const normalizedSlug = clientSlug.trim().toLowerCase();
       if (normalizedName.length === 0) {
@@ -499,19 +491,22 @@ const createClientBrain = FunctionImpl.make(
       const activeOrganizations = organizations.filter(
         (row) => row.status === "active",
       );
-      if (activeOrganizations.length !== 1) {
+      if (activeOrganizations.length === 0) {
+        return yield* new OrganizationNotFound({
+          workosOrganizationId: identity.workosOrganizationId,
+        });
+      }
+      if (activeOrganizations.length > 1) {
         return yield* new ProvisioningConflict({
           resource: "organizations.workosOrganizationId",
           message:
-            "Authenticated WorkOS organization must resolve to one active organization.",
+            "Authenticated WorkOS organization resolved to multiple active organizations.",
         });
       }
       const organization = activeOrganizations[0];
       if (organization === undefined) {
-        return yield* new ProvisioningConflict({
-          resource: "organizations.workosOrganizationId",
-          message:
-            "Authenticated WorkOS organization must resolve to one active organization.",
+        return yield* new OrganizationNotFound({
+          workosOrganizationId: identity.workosOrganizationId,
         });
       }
       const organizationId = asGenericId<"organizations">(organization._id);
@@ -559,10 +554,7 @@ const createClientBrain = FunctionImpl.make(
         });
       }
       if (existing.some((row) => row.clientSlug === normalizedSlug)) {
-        return yield* new ProvisioningConflict({
-          resource: "workspaces.clientSlug",
-          message: "Client Brain slug already exists.",
-        });
+        return yield* new BrainAlreadyExists({ brainKey: normalizedSlug });
       }
       const workspaceId = yield* writer
         .table("workspaces")

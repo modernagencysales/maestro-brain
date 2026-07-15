@@ -4,7 +4,13 @@ import * as Layer from "effect/Layer";
 
 import databaseSchema from "../_generated/schema";
 import { Auth, DatabaseReader } from "../_generated/services";
-import { Forbidden, Unauthorized, ValidationFailed } from "../errors";
+import {
+  Forbidden,
+  ProvisioningConflict,
+  Unauthorized,
+  ValidationFailed,
+} from "../errors";
+import { resolveEffectiveWorkspaceRole } from "../access/auth";
 import { asGenericId, loadCurrentUser } from "../access/handlerContext";
 import { extractIdentityProfile } from "../access/provisioning";
 import stableKeys from "./stableKeys.spec";
@@ -100,9 +106,10 @@ const resolveBrainKey = FunctionImpl.make(
           member.acceptedAt !== null &&
           member.revokedAt === null,
       );
-      if (liveOrganizationMemberships.length !== 1) {
-        return yield* new Forbidden({
-          reason: "Live organization membership required.",
+      if (liveOrganizationMemberships.length > 1) {
+        return yield* new ProvisioningConflict({
+          resource: "organizationMembers.organizationId.userId",
+          message: "Duplicate live organization memberships found.",
         });
       }
 
@@ -137,9 +144,28 @@ const resolveBrainKey = FunctionImpl.make(
           member.revokedAt === null &&
           member.deletedAt === null,
       );
-      if (liveWorkspaceMemberships.length !== 1) {
+      if (liveWorkspaceMemberships.length > 1) {
+        return yield* new ProvisioningConflict({
+          resource: "workspaceMembers.workspaceId.userId",
+          message: "Duplicate live workspace memberships found.",
+        });
+      }
+      const resolution = resolveEffectiveWorkspaceRole({
+        nowMs: Date.now(),
+        userId: user._id,
+        workspace: {
+          id: workspace._id,
+          organizationId: workspace.organizationId,
+          status: workspace.status,
+        },
+        organization: { id: organization._id, status: organization.status },
+        workspaceMembers: liveWorkspaceMemberships,
+        organizationMembers: liveOrganizationMemberships,
+        guestGrants: [],
+      });
+      if (!resolution.ok) {
         return yield* new Forbidden({
-          reason: "Live workspace membership required.",
+          reason: "Live workspace or organization admin membership required.",
         });
       }
 

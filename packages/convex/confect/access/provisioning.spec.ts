@@ -2,7 +2,9 @@ import { FunctionSpec, GroupSpec } from "@confect/core";
 import * as Schema from "effect/Schema";
 
 import {
+  BrainAlreadyExists,
   Forbidden,
+  OrganizationNotFound,
   ProvisioningConflict,
   Unauthorized,
   ValidationFailed,
@@ -25,8 +27,6 @@ const createClientBrain = FunctionSpec.publicMutation({
     Schema.Struct({
       name: Schema.String,
       clientSlug: Schema.String,
-      organizationId: Schema.optional(Schema.String),
-      workspaceId: Schema.optional(Schema.String),
     }),
   returns: () =>
     Schema.Struct({
@@ -37,6 +37,8 @@ const createClientBrain = FunctionSpec.publicMutation({
       Unauthorized,
       Forbidden,
       ValidationFailed,
+      OrganizationNotFound,
+      BrainAlreadyExists,
       ProvisioningConflict,
     ),
 });
