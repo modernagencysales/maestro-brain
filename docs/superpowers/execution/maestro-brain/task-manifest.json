@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "67282c1924e380b207e131a80e6db1771f53956aa857d44c6d583b53d116cd7e",
+  "planSha256": "eecf36c8d13528ced2e9daf63eb5ee5d10c4943aa1e6a2f018d2e2186222cd2a",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -195,6 +195,7 @@
         "packages/convex/confect/identity/stableKeys.impl.ts",
         "packages/convex/confect/identity/stableKeys.spec.ts",
         "packages/convex/confect/identity/stableKeys.ts",
+        "packages/convex/test/access-provisioning.test.ts",
         "packages/convex/test/authorized-brain-provisioning.test.ts"
       ],
       "gateProfiles": ["convex", "web"],
@@ -202,7 +203,7 @@
       "lane": "identity",
       "requirements": ["IAM-01", "IAM-02", "IAM-03", "UI-02"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "4122284fbd719a3e54307a16c920db3acece1829edf11fd7c7e54e60eece3548",
+      "taskBlockHash": "f3a295b8773d1c53252fc888a36f3ce9ded62b22a1ea29724c66216a4f7fdb42",
       "taskId": "S01-T03",
       "title": "Authorize Workspace Listing And Brain Provisioning",
       "tranche": "D2-domain-bodies"
