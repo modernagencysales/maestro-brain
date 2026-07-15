@@ -10,6 +10,8 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@nangohq/frontend": "0.71.0",
+    "@nangohq/node": "0.71.0",
     "effect": "3.21.4"
   },
   "devDependencies": {
