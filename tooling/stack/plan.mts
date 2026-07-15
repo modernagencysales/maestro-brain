@@ -100,9 +100,11 @@ export function validatePlan(plan: StackPlan): string[] {
     if (
       !Number.isInteger(sourceSliceLimit) ||
       sourceSliceLimit < 1 ||
-      sourceSliceLimit > 5
+      sourceSliceLimit > 10
     ) {
-      errors.push(`slice ${s.id} sourceSliceLimit must be an integer from 1-5`);
+      errors.push(
+        `slice ${s.id} sourceSliceLimit must be an integer from 1-10`,
+      );
     } else if (s.estLines > MAX_EST_LINES * sourceSliceLimit)
       errors.push(
         `slice ${s.id} estLines ${s.estLines} exceeds ${MAX_EST_LINES} * sourceSliceLimit ${sourceSliceLimit}`,

@@ -215,7 +215,7 @@ describe("Fabro workflow prompt contracts", () => {
     expect(implement).toContain(
       "sourceSliceLimit from the task manifest, defaulting to four",
     );
-    expect(implement).toContain("S04-T01 permits five");
+    expect(implement).toContain("honor an explicit expanded task limit");
     expect(implement).not.toContain("one to four real task commits");
     expect(implement).not.toContain("more than four real commits");
   });

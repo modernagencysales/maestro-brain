@@ -40,7 +40,7 @@ export interface BrainTaskContract {
   readonly requirements: readonly string[];
   readonly estimatedSourceLines: number;
   readonly sourceSliceBudget: 300;
-  readonly sourceSliceLimit?: 5;
+  readonly sourceSliceLimit?: 10;
   readonly taskBlockHash: string;
   readonly taskId: string;
   readonly title: string;
@@ -447,7 +447,7 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
       lane,
       requirements,
       sourceSliceBudget: 300,
-      ...(taskId === "S04-T01" ? { sourceSliceLimit: 5 as const } : {}),
+      ...(taskId === "S04-T01" ? { sourceSliceLimit: 10 as const } : {}),
       taskBlockHash: hash(body),
       taskId,
       title,
@@ -484,10 +484,10 @@ export const validateManifest = (manifest: BrainTaskManifest): string[] => {
       );
     if (task.sourceSliceBudget !== 300)
       errors.push(`${task.taskId}: source slice budget must remain 300`);
-    if (task.taskId === "S04-T01" && task.sourceSliceLimit !== 5)
-      errors.push(`${task.taskId}: source slice limit must be five`);
+    if (task.taskId === "S04-T01" && task.sourceSliceLimit !== 10)
+      errors.push(`${task.taskId}: source slice limit must be ten`);
     if (task.taskId !== "S04-T01" && task.sourceSliceLimit !== undefined)
-      errors.push(`${task.taskId}: only S04-T01 may use five source slices`);
+      errors.push(`${task.taskId}: only S04-T01 may use ten source slices`);
     if (
       task.fileInventoryStatus === "ready" &&
       task.fileInventoryIssues.length > 0

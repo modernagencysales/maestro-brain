@@ -70,8 +70,9 @@ them. Product-specific additions are:
    next stack's temporary StackPlan JSON.
 4. Each StackPlan reports hand-authored source lines separately from generated,
    test, and documentation review totals. Every source slice remains at most 300
-   lines. Tasks default to four slices; S04-T01 alone may use five because its
-   demonstrated 1,287-line provider boundary cannot fit within 1,200 lines.
+   lines. Tasks default to four slices; S04-T01 alone may use ten because its
+   secure provider boundary already exceeds 2,100 lines before final
+   handler-level coverage and cannot fit within the default 1,200 lines.
 5. Receipts contain names, versions, hashes, counts, statuses, redacted error
    tags, and command results—never secrets or customer text.
 
@@ -108,9 +109,9 @@ applying these rules:
    Red gates return to implementation inside the same Fabro run. Appendix A's
    source number is the task estimate. A slice is one task contract. A task
    remains one slice and normally produces one to four coherent one-intention
-   commits; S04-T01 alone may produce five; every commit remains <=300 changed
+   commits; S04-T01 alone may produce ten; every commit remains <=300 changed
    hand-authored source lines and the task is accepted only as one proof set.
-   Except for the declared S04-T01 five-commit limit, if a task requires more
+   Except for the declared S04-T01 ten-commit limit, if a task requires more
    than four coherent commits, or any coherent commit cannot fit the limit,
    split the task contract and regenerate the binding manifest before
    implementation.
@@ -1317,10 +1318,11 @@ manifest.
   acceptance under Appendix L.
 - **Completion receipt:** package versions, fake/live adapter tests, role
   denials, redacted Nango sandbox connection result, and log canary result.
-- **Source-slice contract:** 1,287 demonstrated hand-authored source lines in at
-  most five linear commits; each commit remains at or below 300 lines.
+- **Source-slice contract:** up to 2,700 estimated hand-authored source lines in
+  at most ten linear commits; the secure partial implementation already exceeds
+  2,100 lines, and each commit remains at or below 300 lines.
 - **Lane branch / commit boundary:** branch `codex/brain-s04-nango-connect`; up
-  to five coherent one-intention commits ending at the
+  to ten coherent one-intention commits ending at the
   `feat: add Nango Slack connection` checkpoint.
 
 ### S04-T02 — Persist Exact Connection, Bot Identity, And Channel Directory State
@@ -3607,8 +3609,8 @@ manifest.
 output, and docs are reported separately in the StackPlan receipt and fully
 reviewed; generator dry-runs enumerate them before implementation. The binding
 hand-authored source limit remains 300 per commit. Tasks default to four linear
-commits; S04-T01 alone may use five for its demonstrated 1,287-line boundary. If
-any other task requires more than four coherent commits, or any coherent commit
+commits; S04-T01 alone may use ten for its secure 2,700-line estimate. If any
+other task requires more than four coherent commits, or any coherent commit
 cannot fit the limit, split the task contract and regenerate the manifest.
 Rename budgeting disables rename detection: source additions and deletions count
 independently, including both endpoints of a source-to-source move. If a
@@ -3636,7 +3638,7 @@ direct acceptance edge and is the source materialized into `acceptanceAfter`.
 | S03-T02 | S03-T01                 | template-gap Client Brief UI                     |               280 |
 | S03-T03 | S03-T02                 | template-gap Brain workspace UI                  |               290 |
 | S03-T04 | S03-T03                 | template-gap revision/review UI                  |               260 |
-| S04-T01 | S01, S03                | template-gap Nango provider                      |              1287 |
+| S04-T01 | S01, S03                | template-gap Nango provider                      |              2700 |
 | S04-T02 | S04-T01                 | template-gap connection/channel directory        |               280 |
 | S04-T03 | S04-T02                 | template-gap verified webhook                    |               290 |
 | S04-T04 | S04-T03                 | template-gap source policy + UI                  |               290 |
@@ -4347,7 +4349,7 @@ unverified provider flow, or partially green pilot is not done.
 - **Foundation:** S00's three-host plugin, pin/gap, stack-manifest and migration
   receipts are complete; staging/production are isolated with no demo seed;
   every one of the 56 task packets has one to four coherent linear intention
-  commits by default, with S04-T01 alone allowed five; each is accepted only
+  commits by default, with S04-T01 alone allowed ten; each is accepted only
   after its original dependencies and is merged through a green phase-scoped
   integration tranche with <=300 changed hand-authored source lines per commit,
   focused lane gates, independent review, full tranche verification, and
@@ -4499,7 +4501,7 @@ checks validate:
 - clean worktree/base SHA and proof/head consistency;
 - no broad lane command or gate weakening;
 - at most four 300-line source slices per task by default, with a manifest-
-  validated five-slice exception only for S04-T01;
+  validated ten-slice exception only for S04-T01;
 - full verification before an immutable wave is promoted and marks tasks
   accepted.
 

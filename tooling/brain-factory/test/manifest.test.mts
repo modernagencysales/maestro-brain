@@ -241,8 +241,8 @@ describe("Maestro Brain execution manifest", () => {
       ]),
     );
     expect(providerSetup?.codeStartAfter).toEqual(["S00-T03", "S01-T02"]);
-    expect(providerSetup?.sourceSliceLimit).toBe(5);
-    expect(providerSetup?.estimatedSourceLines).toBe(1_287);
+    expect(providerSetup?.sourceSliceLimit).toBe(10);
+    expect(providerSetup?.estimatedSourceLines).toBe(2_700);
     expect(providerSetup?.fileLocks).toContain(
       "packages/convex/confect/tables/providerConnections.ts",
     );
@@ -258,50 +258,50 @@ describe("Maestro Brain execution manifest", () => {
     expect(headlessPrincipal?.acceptanceAfter).toBe("S11-T01, S01-T03");
   });
 
-  it("reserves the five-slice exception for S04-T01", () => {
+  it("reserves the expanded slice exception for S04-T01", () => {
     const manifest = buildManifest();
-    const s04AtFiveSlices = {
+    const s04AtExpandedSlices = {
       ...manifest,
       tasks: manifest.tasks.map((task) =>
         task.taskId === "S04-T01"
-          ? { ...task, estimatedSourceLines: 1_500 }
+          ? { ...task, estimatedSourceLines: 3_000 }
           : task,
       ),
     };
-    expect(validateManifest(s04AtFiveSlices)).not.toContain(
-      "S04-T01: invalid source-line estimate 1500",
+    expect(validateManifest(s04AtExpandedSlices)).not.toContain(
+      "S04-T01: invalid source-line estimate 3000",
     );
     expect(
       validateManifest({
-        ...s04AtFiveSlices,
-        tasks: s04AtFiveSlices.tasks.map((task) =>
+        ...s04AtExpandedSlices,
+        tasks: s04AtExpandedSlices.tasks.map((task) =>
           task.taskId === "S04-T01"
-            ? { ...task, estimatedSourceLines: 1_501 }
+            ? { ...task, estimatedSourceLines: 3_001 }
             : task,
         ),
       }),
-    ).toContain("S04-T01: invalid source-line estimate 1501");
+    ).toContain("S04-T01: invalid source-line estimate 3001");
     expect(
       validateManifest({
         ...manifest,
         tasks: manifest.tasks.map((task) =>
           task.taskId === "S00-T04"
-            ? { ...task, sourceSliceLimit: 5 as const }
+            ? { ...task, sourceSliceLimit: 10 as const }
             : task,
         ),
       }),
-    ).toContain("S00-T04: only S04-T01 may use five source slices");
+    ).toContain("S00-T04: only S04-T01 may use ten source slices");
     expect(
       validateManifest({
         ...manifest,
         tasks: manifest.tasks.map((task) => {
           if (task.taskId !== "S04-T01") return task;
           const { sourceSliceLimit, ...withoutLimit } = task;
-          expect(sourceSliceLimit).toBe(5);
+          expect(sourceSliceLimit).toBe(10);
           return withoutLimit;
         }),
       }),
-    ).toContain("S04-T01: source slice limit must be five");
+    ).toContain("S04-T01: source slice limit must be ten");
   });
 
   it("keeps S13 lane proofs behind their real product dependencies", () => {

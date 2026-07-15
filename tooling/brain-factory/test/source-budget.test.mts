@@ -43,10 +43,18 @@ describe("Brain task source budgets", () => {
     expect(validSourceSlices([10, 20, 30, 40, 50])).toBe(false);
   });
 
-  it("supports an explicit five-slice task contract", () => {
-    expect(validSourceSlices([280, 272, 229, 57, 261], 300, 5)).toBe(true);
-    expect(validSourceSlices([280, 272, 229, 57, 301], 300, 5)).toBe(false);
-    expect(validSourceSlices([1, 2, 3, 4, 5, 6], 300, 5)).toBe(false);
+  it("supports an explicit expanded task contract", () => {
+    expect(
+      validSourceSlices([280, 272, 229, 257, 261, 240, 280, 281, 290], 300, 10),
+    ).toBe(true);
+    expect(validSourceSlices([280, 272, 229, 257, 301], 300, 10)).toBe(false);
+    expect(
+      validSourceSlices(
+        Array.from({ length: 11 }, () => 1),
+        300,
+        10,
+      ),
+    ).toBe(false);
   });
 
   it("counts the source endpoint of an excluded-path rename", () => {
