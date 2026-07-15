@@ -4,6 +4,7 @@ import {
   mkdirSync,
   readFileSync,
   renameSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { dirname } from "node:path";
@@ -25,4 +26,21 @@ export const atomicWrite = (path: string, content: string): void => {
     writeFileSync(temporary, content, { flag: "wx" });
   }
   renameSync(temporary, path);
+};
+
+const errorCode = (error: unknown): string | undefined =>
+  typeof error === "object" && error !== null && "code" in error
+    ? String((error as { readonly code?: unknown }).code)
+    : undefined;
+
+export const acquireEvidenceWriteLock = (path: string): (() => void) => {
+  try {
+    mkdirSync(path);
+  } catch (error) {
+    if (errorCode(error) === "EEXIST") {
+      throw new Error(`evidence adoption lock already exists at ${path}`);
+    }
+    throw error;
+  }
+  return () => rmSync(path, { recursive: true });
 };

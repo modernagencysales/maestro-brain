@@ -1,7 +1,12 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { relative, resolve } from "node:path";
 
-import { atomicWrite, fileSha256, jsonContent } from "./evidence-write.js";
+import {
+  acquireEvidenceWriteLock,
+  atomicWrite,
+  fileSha256,
+  jsonContent,
+} from "./evidence-write.js";
 import {
   gitIsAncestor,
   type JsonRecord,
@@ -169,7 +174,7 @@ const receiptFor = (input: {
  * result must bind the exact task, lane head, integration head, broad gate,
  * and current ancestry before any provenance or acceptance field is written.
  */
-export const adoptLegacyIntegratedLaneEvidence = (
+const adoptLegacyIntegratedLaneEvidenceUnlocked = (
   input: LaneEvidenceAdoptionInput,
 ): readonly LaneEvidenceAdoptionResult[] => {
   const tasks = manifestTasks(input.controlRoot);
@@ -281,4 +286,20 @@ export const adoptLegacyIntegratedLaneEvidence = (
     }
   }
   return adopted;
+};
+
+export const adoptLegacyIntegratedLaneEvidence = (
+  input: LaneEvidenceAdoptionInput,
+): readonly LaneEvidenceAdoptionResult[] => {
+  if (input.apply === false) {
+    return adoptLegacyIntegratedLaneEvidenceUnlocked(input);
+  }
+  const release = acquireEvidenceWriteLock(
+    resolve(input.evidenceDirectory, ".lane-evidence-adoption.lock"),
+  );
+  try {
+    return adoptLegacyIntegratedLaneEvidenceUnlocked(input);
+  } finally {
+    release();
+  }
 };

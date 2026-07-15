@@ -1,8 +1,10 @@
 import { createHash } from "node:crypto";
+import { execFileSync, spawnSync } from "node:child_process";
 import {
   mkdtempSync,
   mkdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -21,6 +23,11 @@ const writeJson = (path: string, value: unknown): void =>
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
 const readRecord = (path: string): Record<string, unknown> =>
   JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+const git = (directory: string, ...args: string[]): string =>
+  execFileSync("rtk", ["proxy", "git", ...args], {
+    cwd: directory,
+    encoding: "utf8",
+  }).trim();
 
 const fixture = (input?: {
   readonly acceptanceAfter?: string;
@@ -257,6 +264,19 @@ describe("legacy integrated lane evidence adoption", () => {
     expect(readRecord(receiptPath).laneResultSha256After).toBe(
       sha256(readFileSync(value.lanePath, "utf8")),
     );
+    rmSync(receiptPath);
+    expect(
+      adoptLegacyIntegratedLaneEvidence({
+        controlRoot: value.root,
+        currentHeadSha: "5".repeat(40),
+        evidenceDirectory: value.evidence,
+        isAncestor: () => true,
+        workdir: value.root,
+      }),
+    ).toEqual([]);
+    expect(readRecord(receiptPath).laneResultSha256After).toBe(
+      sha256(readFileSync(value.lanePath, "utf8")),
+    );
     expect(
       adoptLegacyIntegratedLaneEvidence({
         controlRoot: value.root,
@@ -340,6 +360,24 @@ describe("legacy integrated lane evidence adoption", () => {
     ).toThrow(/0 authoritative integration results/);
   });
 
+  it("fails closed while another adopter owns the evidence lock", () => {
+    const value = fixture();
+    const before = readFileSync(value.lanePath, "utf8");
+    const lockPath = resolve(value.evidence, ".lane-evidence-adoption.lock");
+    mkdirSync(lockPath);
+    expect(() =>
+      adoptLegacyIntegratedLaneEvidence({
+        controlRoot: value.root,
+        currentHeadSha: "5".repeat(40),
+        evidenceDirectory: value.evidence,
+        isAncestor: () => true,
+        workdir: value.root,
+      }),
+    ).toThrow(/evidence adoption lock already exists/);
+    expect(readFileSync(value.lanePath, "utf8")).toBe(before);
+    rmSync(lockPath, { recursive: true });
+  });
+
   it("records S13 acceptance as deferred instead of inventing acceptance", () => {
     const value = fixture({
       acceptanceAfter: "S10, S11, S12 complete",
@@ -357,6 +395,55 @@ describe("legacy integrated lane evidence adoption", () => {
         "Acceptance remains deferred until S10, S11, S12 complete; adopted integration evidence proves integration only.",
       accepted: false,
       status: "integrated",
+    });
+  });
+
+  it("previews, applies, and re-previews through the standalone CLI", () => {
+    const value = fixture();
+    git(value.root, "init", "-q");
+    git(value.root, "config", "user.email", "brain@example.test");
+    git(value.root, "config", "user.name", "Brain Test");
+    git(value.root, "add", ".");
+    git(value.root, "commit", "-qm", "test: seed adoption state");
+    const currentHeadSha = git(value.root, "rev-parse", "HEAD");
+    const lane = readRecord(value.lanePath);
+    lane.integrationHeadSha = currentHeadSha;
+    writeJson(value.lanePath, lane);
+    const result = readRecord(value.resultPath);
+    result.headSha = currentHeadSha;
+    result.broadGate = {
+      command: "rtk host-test-slot --class full pnpm verify",
+      headSha: currentHeadSha,
+      status: "passed",
+    };
+    writeJson(value.resultPath, result);
+    const tsx = realpathSync(
+      resolve(process.cwd(), "../../node_modules/.bin/tsx"),
+    );
+    const script = resolve(process.cwd(), "src/adopt-lane-evidence.mts");
+    const run = (...args: string[]) =>
+      spawnSync(tsx, [script, "--state", value.root, ...args], {
+        cwd: value.root,
+        encoding: "utf8",
+      });
+
+    const preview = run();
+    expect(preview.status, preview.stderr).toBe(0);
+    expect(JSON.parse(preview.stdout)).toMatchObject({
+      mode: "preview",
+      pendingCount: 1,
+    });
+    const apply = run("--apply");
+    expect(apply.status, apply.stderr).toBe(0);
+    expect(JSON.parse(apply.stdout)).toMatchObject({
+      mode: "apply",
+      pendingCount: 1,
+    });
+    const secondPreview = run();
+    expect(secondPreview.status, secondPreview.stderr).toBe(0);
+    expect(JSON.parse(secondPreview.stdout)).toMatchObject({
+      mode: "preview",
+      pendingCount: 0,
     });
   });
 });
