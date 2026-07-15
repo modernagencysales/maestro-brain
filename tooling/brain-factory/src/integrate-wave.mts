@@ -9,7 +9,7 @@ import {
 import { resolve } from "node:path";
 
 import { hydrateWorktreeDependencies } from "./dependencies.js";
-import { taskReservationOwnsIntegrationCandidate } from "./dispatch-ownership.js";
+import { taskIsAvailableIntegrationCandidate } from "./dispatch-ownership.js";
 import {
   completedTaskIdsForControlHead,
   type LaneCompletionResult,
@@ -183,21 +183,20 @@ try {
   });
   const candidates: IntegrationWaveCandidate[] = [];
   for (const task of manifest.tasks) {
+    if (completedTaskIds.has(task.taskId)) continue;
     const taskReservationPath = resolve(runs, `${task.taskId}.json`);
-    if (existsSync(taskReservationPath)) {
-      const reservation = JSON.parse(
-        readFileSync(taskReservationPath, "utf8"),
-      ) as unknown;
-      if (
-        taskReservationOwnsIntegrationCandidate(
-          reservation,
-          task.taskId,
-          inspectedTaskRunStatus,
-        )
-      ) {
-        continue;
-      }
-    }
+    const reservation = existsSync(taskReservationPath)
+      ? (JSON.parse(readFileSync(taskReservationPath, "utf8")) as unknown)
+      : undefined;
+    if (
+      !taskIsAvailableIntegrationCandidate({
+        completed: false,
+        inspect: inspectedTaskRunStatus,
+        reservation,
+        taskId: task.taskId,
+      })
+    )
+      continue;
     const laneDirectory = resolve(laneRoot, task.taskId);
     const lanePath = resolve(laneDirectory, "lane-result.json");
     if (!existsSync(lanePath)) continue;

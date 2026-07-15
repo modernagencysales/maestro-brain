@@ -28,7 +28,7 @@ import {
   waveModeForWorktree,
   waveWorktreeRecoveryAction,
 } from "../src/integration-wave-launch.js";
-import { taskReservationOwnsIntegrationCandidate } from "../src/dispatch-ownership.js";
+import { taskIsAvailableIntegrationCandidate } from "../src/dispatch-ownership.js";
 
 const task = (
   taskId: string,
@@ -263,32 +263,55 @@ describe("integration wave planner", () => {
     ).toThrow("proof/gate head mismatch");
   });
 
-  it("selects S01-T03 alone while active stale S01-T04 is reserved", () => {
+  it("ignores completed legacy records and selects T03 around active T04", () => {
+    const s00t02 = task("S00-T02", "C1-contract-spine");
     const s01t03 = task("S01-T03", "D2-domain-bodies");
     const s01t04 = task("S01-T04", "D2-domain-bodies");
-    const reservation = {
-      branch: "fabro/review-s01-t04",
-      runId: "01KXKWXJVX88C8HCM9YPP21VZR",
-      status: "launched",
-      taskId: "S01-T04",
-      workdir: "/tmp/resume-s01-t04",
-    };
-    const candidates = [candidate(s01t03), candidate(s01t04)].filter(
-      (value) =>
-        value.taskId !== "S01-T04" ||
-        !taskReservationOwnsIntegrationCandidate(
-          reservation,
-          value.taskId,
-          () => "running",
-        ),
-    );
+    const completedTaskIds = new Set([s00t02.taskId]);
+    const reservations = new Map<string, unknown>([
+      [s00t02.taskId, { status: "integrated", taskId: s00t02.taskId }],
+      [
+        s01t04.taskId,
+        {
+          branch: "fabro/review-s01-t04",
+          runId: "01KXKWXJVX88C8HCM9YPP21VZR",
+          status: "launched",
+          taskId: "S01-T04",
+          workdir: "/tmp/resume-s01-t04",
+        },
+      ],
+    ]);
+    const candidates = [s00t02, s01t03, s01t04]
+      .filter((value) =>
+        taskIsAvailableIntegrationCandidate({
+          completed: completedTaskIds.has(value.taskId),
+          inspect: () => "running",
+          reservation: reservations.get(value.taskId),
+          taskId: value.taskId,
+        }),
+      )
+      .map(candidate);
+    expect(candidates.map((value) => value.taskId)).toEqual(["S01-T03"]);
+    expect(() =>
+      taskIsAvailableIntegrationCandidate({
+        completed: false,
+        inspect: () => "running",
+        reservation: {
+          branch: "fabro/legacy-s99-t99",
+          status: "integrated",
+          taskId: "S99-T99",
+          workdir: "/tmp/legacy-s99-t99",
+        },
+        taskId: "S99-T99",
+      }),
+    ).toThrow("task reservation status is invalid");
     const selection = planIntegrationWave({
       baseSha: "base",
       candidates,
-      completedTaskIds: new Set(),
+      completedTaskIds,
       integrationId: integrationWaveId(5),
       planSha256: "plan",
-      tasks: [s01t03, s01t04],
+      tasks: [s00t02, s01t03, s01t04],
     });
     expect(selection.selectedTasks.map((value) => value.taskId)).toEqual([
       "S01-T03",

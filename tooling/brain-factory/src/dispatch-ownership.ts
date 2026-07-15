@@ -57,6 +57,21 @@ export const taskReservationOwnsIntegrationCandidate = (
   throw new Error(`${expectedTaskId}: task reservation status is invalid`);
 };
 
+export const taskIsAvailableIntegrationCandidate = (input: {
+  readonly completed: boolean;
+  readonly inspect: (runId: string) => string | undefined;
+  readonly reservation?: unknown;
+  readonly taskId: string;
+}): boolean => {
+  if (input.completed) return false;
+  if (input.reservation === undefined) return true;
+  return !taskReservationOwnsIntegrationCandidate(
+    input.reservation,
+    input.taskId,
+    input.inspect,
+  );
+};
+
 const errorCode = (error: unknown): string | undefined =>
   typeof error === "object" && error !== null && "code" in error
     ? String((error as { readonly code?: unknown }).code)
