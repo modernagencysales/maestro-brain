@@ -1030,18 +1030,26 @@ export const inspectRepairRunPhase = (
           record(inspected.status, "Fabro repair status").kind,
           "Fabro repair status kind",
         );
-  if (new Set(["created", "pending", "submitted"]).has(status)) {
+  // Fabro 0.254 can report runnable or pending after accepting start. Only
+  // created/submitted prove that this exact run still needs its first start.
+  if (new Set(["created", "submitted"]).has(status)) {
     return "startable";
   }
   if (
     new Set([
       "blocked",
       "cancelled",
+      "dead",
       "failed",
       "interrupted",
+      "paused",
+      "pending",
       "pending_control",
       "queued",
+      "removing",
+      "runnable",
       "running",
+      "starting",
       "succeeded",
       "waiting",
     ]).has(status)

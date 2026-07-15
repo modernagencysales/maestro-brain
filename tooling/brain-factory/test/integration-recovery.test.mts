@@ -1004,6 +1004,74 @@ describe("legacy integration recovery", () => {
     });
   });
 
+  it("recovers a starting runnable run without create or a second start", () => {
+    const fixtureRoot = root();
+    const resultPath = resolve(fixtureRoot, "runnable-integration-result.json");
+    const auditPath = resolve(fixtureRoot, "runnable-recovery-audit.jsonl");
+    const repairRecordPath = resolve(fixtureRoot, "runnable-repair.json");
+    const authority = validInput();
+    const plan = planLegacyIntegrationRecovery(authority);
+    writeFileSync(
+      resultPath,
+      `${JSON.stringify(authority.integrationResult, null, 2)}\n`,
+    );
+    let createCalls = 0;
+    let discoverCalls = 0;
+    let startCalls = 0;
+    let crashAfterStart = true;
+    const run = () =>
+      reconcileLegacyIntegrationRecovery({
+        auditPath,
+        create: (identity) => {
+          createCalls += 1;
+          return foundCreatedRun(identity).receipt;
+        },
+        discoverCreatedRun: () => {
+          discoverCalls += 1;
+          return { kind: "absent" };
+        },
+        fault: (point) => {
+          if (point === "after-launch" && crashAfterStart) {
+            crashAfterStart = false;
+            throw new Error("simulated crash after exact-ID start");
+          }
+        },
+        inspectRun: (identity) =>
+          inspectRepairRunPhase(
+            repairInspection(identity, {
+              status: startCalls === 0 ? "submitted" : "runnable",
+            }),
+            identity,
+          ),
+        identity: {
+          baseSha: plan.repairBaseSha,
+          sourceReviewRun: plan.sourceReviewRun,
+          tranche: authority.tranche,
+          workdir: authority.worktreePath,
+        },
+        plan,
+        repairRecordPath,
+        resultPath,
+        start: (identity) => {
+          startCalls += 1;
+          expect(identity.runId).toBe(REPAIR_RUN_ID);
+        },
+      });
+
+    expect(run).toThrow("simulated crash after exact-ID start");
+    expect(JSON.parse(readFileSync(repairRecordPath, "utf8"))).toMatchObject({
+      createdRunId: REPAIR_RUN_ID,
+      launchAttempt: 1,
+      startAttempt: 1,
+      status: "starting",
+    });
+    expect(run()).toEqual({ runId: REPAIR_RUN_ID, status: "launched" });
+    expect(run()).toEqual({ runId: REPAIR_RUN_ID, status: "launched" });
+    expect(createCalls).toBe(1);
+    expect(discoverCalls).toBe(1);
+    expect(startCalls).toBe(1);
+  });
+
   it.each(["reservationToken", "attempt", "taskIds", "receiptSha256"] as const)(
     "rejects a durable launch receipt with tampered %s",
     (field) => {
@@ -1132,7 +1200,7 @@ describe("legacy integration recovery", () => {
         repairInspection(identity, { status: "pending" }),
         identity,
       ),
-    ).toBe("startable");
+    ).toBe("accepted");
     expect(
       inspectRepairRunPhase(
         repairInspection(identity, { status: "submitted" }),
@@ -1145,6 +1213,17 @@ describe("legacy integration recovery", () => {
         identity,
       ),
     ).toBe("accepted");
+    for (const status of [
+      "runnable",
+      "starting",
+      "paused",
+      "removing",
+      "dead",
+    ]) {
+      expect(
+        inspectRepairRunPhase(repairInspection(identity, { status }), identity),
+      ).toBe("accepted");
+    }
   });
 
   it("does not use workflow-most-recent to resolve create without an exact ID", () => {
