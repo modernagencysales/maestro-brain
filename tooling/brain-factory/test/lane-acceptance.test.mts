@@ -31,4 +31,29 @@ describe("lane acceptance records", () => {
       ),
     ).toThrow(/retains an acceptanceBlocker/);
   });
+
+  it("rejects positive acceptance evidence on an integrated task", () => {
+    expect(() =>
+      validateLaneAcceptance(
+        {
+          accepted: false,
+          acceptanceBlocker: "acceptance still needs independent proof",
+          acceptedBecause: "the prerequisite is present",
+          status: "integrated",
+        },
+        "S08-T02",
+      ),
+    ).toThrow(/retains acceptedBecause despite accepted:false/);
+    expect(() =>
+      validateLaneAcceptance(
+        {
+          accepted: false,
+          acceptanceBlocker: "acceptance still needs independent proof",
+          acceptedBecause: "",
+          status: "integrated",
+        },
+        "S08-T02",
+      ),
+    ).toThrow(/retains acceptedBecause despite accepted:false/);
+  });
 });

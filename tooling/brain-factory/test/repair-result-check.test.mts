@@ -234,6 +234,9 @@ describe("Brain repair result check", () => {
     expect(workflow).toContain("must not block integration or review pass");
     expect(workflow).toContain("Never fabricate external acceptance evidence");
     expect(workflow).toContain("accepted:false with an acceptanceBlocker");
+    expect(workflow).toContain(
+      "Remove acceptedBecause whenever accepted:false",
+    );
     expect(workflow).toContain("scoped rtk rg --files <target-path>");
     expect(workflow).toContain(
       "Never search the home directory, a repository parent",

@@ -200,12 +200,14 @@ const adoptLegacyIntegratedLaneEvidenceUnlocked = (
       lane.evidenceAdoption !== null
         ? record(lane.evidenceAdoption, `${taskId}: evidenceAdoption`)
         : undefined;
+    const retainsAcceptedBecause = Object.hasOwn(lane, "acceptedBecause");
     const needsAdoption =
       typeof lane.integrationId !== "string" ||
       !lane.integrationId ||
       lane.accepted !== false ||
       typeof lane.acceptanceBlocker !== "string" ||
-      !lane.acceptanceBlocker.trim();
+      !lane.acceptanceBlocker.trim() ||
+      retainsAcceptedBecause;
     if (!needsAdoption && !embedded) continue;
 
     const authority = authorityFor({
@@ -245,43 +247,66 @@ const adoptLegacyIntegratedLaneEvidenceUnlocked = (
     if (embedded && JSON.stringify(embedded) !== JSON.stringify(adoption)) {
       throw new Error(`${taskId}: adopted lane provenance drift`);
     }
-    const nextLane = embedded
-      ? lane
-      : {
-          ...lane,
-          acceptanceBlocker,
-          accepted: false,
-          evidenceAdoption: adoption,
-          integrationId: authority.integrationId,
-          tranche: task.tranche,
-        };
-    if (!embedded && input.apply === false) {
+    const { acceptedBecause: _acceptedBecause, ...laneWithoutAcceptedBecause } =
+      lane;
+    const nextLane =
+      embedded && !retainsAcceptedBecause
+        ? lane
+        : {
+            ...laneWithoutAcceptedBecause,
+            acceptanceBlocker,
+            accepted: false,
+            evidenceAdoption: adoption,
+            integrationId: authority.integrationId,
+            tranche: task.tranche,
+          };
+    const changesLane = JSON.stringify(nextLane) !== JSON.stringify(lane);
+    if (changesLane && input.apply === false) {
       adopted.push({ integrationId: authority.integrationId, taskId });
       continue;
     }
-    if (!embedded) atomicWrite(lanePath, jsonContent(nextLane));
+    const beforeCleanupSha256 = fileSha256(lanePath);
+    const receiptPath = resolve(
+      laneRoot,
+      taskId,
+      "lane-evidence-adoption.json",
+    );
+    if (changesLane && embedded && existsSync(receiptPath)) {
+      const existingReceipt = readJson(receiptPath);
+      const expectedExistingReceipt = receiptFor({
+        adoption: embedded,
+        laneResultSha256After: beforeCleanupSha256,
+        taskId,
+      });
+      if (
+        JSON.stringify(existingReceipt) !==
+        JSON.stringify(expectedExistingReceipt)
+      ) {
+        throw new Error(`${taskId}: lane evidence adoption receipt drift`);
+      }
+    }
+    if (changesLane) atomicWrite(lanePath, jsonContent(nextLane));
     const afterSha256 = fileSha256(lanePath);
     const receipt = receiptFor({
       adoption,
       laneResultSha256After: afterSha256,
       taskId,
     });
-    const receiptPath = resolve(
-      laneRoot,
-      taskId,
-      "lane-evidence-adoption.json",
-    );
     const receiptContent = jsonContent(receipt);
     if (existsSync(receiptPath)) {
       if (readFileSync(receiptPath, "utf8") !== receiptContent) {
-        throw new Error(`${taskId}: lane evidence adoption receipt drift`);
+        if (changesLane && embedded) {
+          atomicWrite(receiptPath, receiptContent);
+        } else {
+          throw new Error(`${taskId}: lane evidence adoption receipt drift`);
+        }
       }
     } else if (input.apply !== false) {
       atomicWrite(receiptPath, receiptContent);
     } else {
       throw new Error(`${taskId}: adopted lane evidence has no receipt`);
     }
-    if (!embedded) {
+    if (changesLane) {
       adopted.push({ integrationId: authority.integrationId, taskId });
     }
   }

@@ -175,6 +175,33 @@ describe("Fabro workflow prompt contracts", () => {
     expect(wave).toContain("--wave-selection");
   });
 
+  it("keeps positive acceptance evidence out of unaccepted lane records", () => {
+    for (const workflow of [
+      "brain-integrate-tranche",
+      "brain-integrate-wave",
+      "brain-repair-tranche",
+    ]) {
+      const source = readFileSync(
+        resolve(
+          import.meta.dirname,
+          "../../../.fabro/workflows",
+          workflow,
+          "workflow.fabro",
+        ),
+        "utf8",
+      );
+      const record = source
+        .split("\n")
+        .find((line) => line.trimStart().startsWith("record ["));
+      expect(record, `${workflow}.record prompt`).toContain(
+        "Remove acceptedBecause whenever accepted:false",
+      );
+      expect(record, `${workflow}.record prompt`).toContain(
+        "acceptedBecause may exist only with accepted:true and status accepted",
+      );
+    }
+  });
+
   it("serializes legacy and wave integration through one global lock", () => {
     for (const file of [
       "integrate.mts",

@@ -19,6 +19,11 @@ export const validateLaneAcceptance = (
         `${taskId}: integrated task must remain accepted:false with acceptanceBlocker; migrate and re-prove legacy records`,
       );
     }
+    if (Object.hasOwn(lane, "acceptedBecause")) {
+      throw new Error(
+        `${taskId}: integrated task retains acceptedBecause despite accepted:false`,
+      );
+    }
     return;
   }
   if (lane.status === "accepted") {

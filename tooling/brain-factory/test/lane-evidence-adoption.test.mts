@@ -34,6 +34,7 @@ const fixture = (input?: {
   readonly integrationId?: string;
   readonly laneAccepted?: boolean;
   readonly laneAcceptanceBlocker?: string;
+  readonly laneAcceptedBecause?: string;
   readonly laneIntegrationId?: string;
   readonly laneTranche?: string;
   readonly manifestTranche?: string;
@@ -90,6 +91,9 @@ const fixture = (input?: {
     ...(input?.laneAccepted === undefined
       ? {}
       : { accepted: input.laneAccepted }),
+    ...(input?.laneAcceptedBecause
+      ? { acceptedBecause: input.laneAcceptedBecause }
+      : {}),
     headSha: laneHeadSha,
     ...(input?.laneIntegrationId
       ? { integrationId: input.laneIntegrationId }
@@ -286,6 +290,54 @@ describe("legacy integrated lane evidence adoption", () => {
         workdir: value.root,
       }),
     ).toEqual([]);
+  });
+
+  it("removes contradictory acceptedBecause evidence during adoption", () => {
+    const value = fixture({
+      laneAccepted: true,
+      laneAcceptedBecause:
+        "acceptanceAfter S08-T01 is present on the integration head",
+      taskId: "S08-T02",
+    });
+    const args = {
+      controlRoot: value.root,
+      currentHeadSha: "5".repeat(40),
+      evidenceDirectory: value.evidence,
+      isAncestor: () => true,
+      workdir: value.root,
+    };
+
+    expect(adoptLegacyIntegratedLaneEvidence(args)).toHaveLength(1);
+    const adopted = readRecord(value.lanePath);
+    expect(adopted).not.toHaveProperty("acceptedBecause");
+    expect(() => validateLaneAcceptance(adopted, value.taskId)).not.toThrow();
+
+    const contaminated = {
+      ...adopted,
+      acceptedBecause:
+        "acceptanceAfter S08-T01 is present on the integration head",
+    };
+    writeJson(value.lanePath, contaminated);
+    const receiptPath = resolve(
+      value.evidence,
+      "lane-results",
+      value.taskId,
+      "lane-evidence-adoption.json",
+    );
+    const receipt = readRecord(receiptPath);
+    receipt.laneResultSha256After = sha256(
+      readFileSync(value.lanePath, "utf8"),
+    );
+    writeJson(receiptPath, receipt);
+
+    expect(
+      adoptLegacyIntegratedLaneEvidence({ ...args, apply: false }),
+    ).toEqual([{ integrationId: "C1-contract-spine", taskId: "S08-T02" }]);
+    expect(adoptLegacyIntegratedLaneEvidence(args)).toHaveLength(1);
+    expect(readRecord(value.lanePath)).not.toHaveProperty("acceptedBecause");
+    expect(readRecord(receiptPath).laneResultSha256After).toBe(
+      sha256(readFileSync(value.lanePath, "utf8")),
+    );
   });
 
   it("rejects unproven and ambiguous records without changing the lane", () => {
