@@ -801,6 +801,8 @@ manifest.
   `packages/convex/confect/access/members.impl.ts`,
   `packages/convex/confect/access/invitations.spec.ts`,
   `packages/convex/confect/access/invitations.impl.ts`,
+  `apps/web/src/adapters/confect-state.ts`,
+  `apps/web/src/adapters/confect-state.test.ts`,
   `apps/web/src/features/settings/settings-surface.ts`,
   `apps/web/src/features/settings/settings-surface.test.ts`, and
   `apps/web/src/routes/_workspace.settings.tsx`; create

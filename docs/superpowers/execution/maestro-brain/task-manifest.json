@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "ac1af7f311392ff06a0cd6333b4e2a79c5ea12f33d359ff1cbd2a027a9665710",
+  "planSha256": "5779574f7307c2cc91fa7e9a8c35592c3bfa649e559bf7a825b4f31731c37cfc",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -221,6 +221,8 @@
       "fileInventoryIssues": [],
       "fileInventoryStatus": "ready",
       "fileLocks": [
+        "apps/web/src/adapters/confect-state.test.ts",
+        "apps/web/src/adapters/confect-state.ts",
         "apps/web/src/features/settings/member-management-adapter.test.ts",
         "apps/web/src/features/settings/member-management-adapter.ts",
         "apps/web/src/features/settings/member-management.test.tsx",
@@ -243,7 +245,7 @@
       "requirements": ["IAM-04"],
       "sourceSliceBudget": 300,
       "sourceSliceLimit": 8,
-      "taskBlockHash": "a4e76008c037d302a170a58f589407cc1619f101b47eaa9e96b98f77ee8777d5",
+      "taskBlockHash": "8152658971fe0f15208c77d5cdacff2858156a9201b0eac7a21078b595e61f39",
       "taskId": "S01-T04",
       "title": "Apply Existing RBAC To Members, Settings, And Privileged Actions",
       "tranche": "D2-domain-bodies"
