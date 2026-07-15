@@ -47,6 +47,9 @@ describe("settings surface", () => {
     expect(sections[0]?.body).toContain(
       "Admin controls are available for workspace setup and provider posture.",
     );
+    expect(sections[1]?.body).toContain(
+      "Owners may transfer Brain ownership without leaving zero owners.",
+    );
     expect(sections[3]?.body.join("\n")).toContain("Fake billing");
     expect(sections[4]?.body.join("\n")).toContain(
       "must never render secret values",
@@ -62,6 +65,7 @@ describe("settings surface", () => {
 
     expect(sections[1]?.body).toEqual([
       "Member management is hidden for non-admin roles.",
+      "Ownership transfer remains owner-only.",
     ]);
   });
 });
