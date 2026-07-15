@@ -2223,8 +2223,8 @@ manifest.
   [`packages/search/src/index.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/search/src/index.ts#L57-L64),
   which cannot wrap a Convex query.
 - **Files:** modify `packages/search/src/index.ts`,
-  `packages/search/src/index.test.ts`, and `packages/search/package.json`;
-  create `packages/search/src/asyncSearch.ts`,
+  `packages/search/src/index.test.ts`, `packages/search/package.json`, and
+  `pnpm-lock.yaml`; create `packages/search/src/asyncSearch.ts`,
   `packages/search/src/asyncSearch.test.ts`, and (when still absent)
   `docs/product/maestro-brain-lifecycle-adoption.md`; update
   `docs/template/porting-backlog.md`. The pinned baseline has no external
