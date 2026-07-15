@@ -251,7 +251,14 @@ export const approveBrainEvalArtifact = (
         suiteName,
         artifact.rawArtifact,
       );
-    } catch {
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message ===
+          "Brain eval approval requires raw results bound to the frozen corpus."
+      ) {
+        throw error;
+      }
       throw new Error(
         "Brain eval approval requires recomputed suite receipts.",
       );
@@ -334,23 +341,41 @@ const recomputeSuiteFromRawArtifact = (
   rawArtifact: unknown,
 ): BrainEvalSuiteResult => {
   const root = assertRecord(rawArtifact, "raw eval suite artifact");
-  const fixture = root.fixture ?? root;
+  const frozenFixture = frozenSuiteFixture(suiteName);
+  const suppliedFixture = root.fixture ?? root;
+  if (sha256(suppliedFixture) !== sha256(frozenFixture)) {
+    throw new Error(
+      "Brain eval approval requires raw results bound to the frozen corpus.",
+    );
+  }
+
   switch (suiteName) {
     case "classification":
-      return evaluateBrainClassification(fixture);
+      return evaluateBrainClassification(frozenFixture, root.run);
     case "answers":
-      return evaluateBrainAnswers(fixture, root.run);
+      return evaluateBrainAnswers(frozenFixture, root.run);
     case "maintenance":
-      return evaluateBrainMaintenance(fixture);
+      return evaluateBrainMaintenance(frozenFixture);
     case "promptInjection":
-      return evaluateBrainPromptInjection(fixture);
+      return evaluateBrainPromptInjection(frozenFixture);
     case "multilingual":
-      return evaluateBrainMultilingual(fixture);
+      return evaluateBrainMultilingual(frozenFixture);
     default:
       throw new Error(
         "Brain eval approval requires the exact external suite set.",
       );
   }
+};
+
+const frozenSuiteFixture = (suiteName: string): unknown => {
+  const fixture = frozenFixtureRoot();
+  const suite = fixture[suiteName];
+  if (suite === undefined) {
+    throw new Error(
+      "Brain eval approval requires the exact external suite set.",
+    );
+  }
+  return suite;
 };
 
 export const writeBrainEvalReport = (path: string): void => {

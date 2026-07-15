@@ -1,6 +1,7 @@
 import { TestConfect } from "@confect/test";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   appendModelCallReceipt,
@@ -193,5 +194,63 @@ describe("model call receipt repository", () => {
         existing,
       }),
     ).toThrow(ModelReceiptDuplicate);
+  });
+
+  it("allows the same attempt key in a different workspace tenant", async () => {
+    const otherWorkspaceReceipt = {
+      ...receipt,
+      workspaceId: "workspaces_456",
+    } as const;
+    const InsertResult = Schema.Struct({ inserted: Schema.Boolean });
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      yield* confect.run(
+        writeModelCallReceipt({
+          receipt,
+          tenant: {
+            organizationId: "org_123",
+            workspaceId: "workspaces_123",
+            lifecycleGeneration: 7,
+          },
+        }),
+        ModelCallReceiptRow,
+      );
+      return yield* confect.run(
+        writeModelCallReceipt({
+          receipt: otherWorkspaceReceipt,
+          tenant: {
+            organizationId: "org_123",
+            workspaceId: "workspaces_456",
+            lifecycleGeneration: 7,
+          },
+        }).pipe(
+          Effect.match({
+            onFailure: () => ({ inserted: false }),
+            onSuccess: () => ({ inserted: true }),
+          }),
+        ),
+        InsertResult,
+      );
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+    expect(result.inserted).toBe(true);
+  });
+
+  it("routes production writes through authenticated workspace tenancy", () => {
+    const source = readFileSync(
+      new URL(
+        "../confect/capabilities/sourceGroundedBrief.impl.ts",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+
+    expect(source).toContain("writeAuthenticatedModelCallReceipt");
+    expect(source).not.toContain("writeModelCallReceipt({");
   });
 });

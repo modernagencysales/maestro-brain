@@ -1,8 +1,15 @@
+import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { DatabaseReader, DatabaseWriter } from "../_generated/services";
+import { Auth, DatabaseReader, DatabaseWriter } from "../_generated/services";
 import { ModelCallReceiptRow } from "../tables/modelCallReceipts";
+import { requireWorkspaceAccess } from "../capabilities/_kit/workspaceAccess";
+import {
+  MemberNotInWorkspace,
+  Unauthorized,
+  WorkspaceNotFound,
+} from "../errors";
 
 type ModelCallReceiptRowValue = Schema.Schema.Type<typeof ModelCallReceiptRow>;
 
@@ -75,13 +82,18 @@ export const writeModelCallReceipt = (input: {
     const reader = yield* DatabaseReader;
     const existing = yield* reader
       .table("modelCallReceipts")
-      .index("by_attempt", (q) => q.eq("attemptKey", receipt.attemptKey))
+      .index("by_workspace_attempt", (q) =>
+        q
+          .eq("workspaceId", tenant.workspaceId)
+          .eq("attemptKey", receipt.attemptKey),
+      )
       .first()
       .pipe(Effect.map(Option.getOrNull), Effect.orDie);
 
     if (
       existing !== null &&
-      existing.organizationId === receipt.organizationId
+      existing.organizationId === receipt.organizationId &&
+      existing.workspaceId === receipt.workspaceId
     ) {
       return yield* Effect.fail(new ModelReceiptDuplicate());
     }
@@ -90,4 +102,45 @@ export const writeModelCallReceipt = (input: {
     yield* writer.table("modelCallReceipts").insert(receipt).pipe(Effect.orDie);
 
     return receipt;
+  });
+
+export const writeAuthenticatedModelCallReceipt = (input: {
+  readonly workspaceId: string;
+  readonly receipt: Omit<
+    ModelCallReceiptRowValue,
+    "organizationId" | "workspaceId"
+  >;
+}): Effect.Effect<
+  ModelCallReceiptRowValue,
+  | ModelReceiptTenantMismatch
+  | ModelReceiptDuplicate
+  | Unauthorized
+  | WorkspaceNotFound
+  | MemberNotInWorkspace,
+  Auth | DatabaseReader | DatabaseWriter | Clock.Clock
+> =>
+  Effect.gen(function* () {
+    yield* requireWorkspaceAccess(input.workspaceId as never, "editor");
+    const reader = yield* DatabaseReader;
+    const workspace = yield* reader
+      .table("workspaces")
+      .get(input.workspaceId as never)
+      .pipe(Effect.orDie);
+    if (workspace === null) {
+      return yield* Effect.fail(new ModelReceiptTenantMismatch());
+    }
+    const receipt: ModelCallReceiptRowValue = {
+      ...input.receipt,
+      organizationId: workspace.organizationId,
+      workspaceId: input.workspaceId,
+    };
+
+    return yield* writeModelCallReceipt({
+      receipt,
+      tenant: {
+        organizationId: workspace.organizationId,
+        workspaceId: input.workspaceId,
+        lifecycleGeneration: receipt.lifecycleGeneration,
+      },
+    });
   });

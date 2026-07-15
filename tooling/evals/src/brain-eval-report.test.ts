@@ -41,10 +41,6 @@ const answerRunFor = (fixture: unknown): unknown => {
     .map((entry) => {
       const bytes = `${entry.id} Verified source quote for ${entry.id}`;
       const hash = `sha256:${sha256(bytes)}`;
-      entry.output.claimText = entry.id;
-      entry.output.citedQuote = bytes;
-      entry.output.citationLocator = `brain://page/rev#${entry.id}`;
-      entry.output.sourceArtifactHash = hash;
       return { hash, bytes };
     });
   return {
@@ -54,7 +50,18 @@ const answerRunFor = (fixture: unknown): unknown => {
       sourceArtifacts,
       results: suite.cases.map((entry) => ({
         caseId: entry.id,
-        output: entry.output,
+        output:
+          entry.kind === "claim"
+            ? {
+                ...entry.output,
+                claimText: entry.id,
+                citedQuote: `${entry.id} Verified source quote for ${entry.id}`,
+                citationLocator: `brain://page/rev#${entry.id}`,
+                sourceArtifactHash: `sha256:${sha256(
+                  `${entry.id} Verified source quote for ${entry.id}`,
+                )}`,
+              }
+            : entry.output,
       })),
     },
   };
@@ -147,7 +154,81 @@ describe("Brain eval report", () => {
           };
         }),
       }),
-    ).toThrow("Brain eval approval requires recomputed suite receipts.");
+    ).toThrow(
+      "Brain eval approval requires raw results bound to the frozen corpus.",
+    );
+  });
+
+  it("rejects fabricated raw fixtures that rewrite frozen labels and expected outputs", () => {
+    const report = buildBrainEvalReport();
+    const classification = structuredClone(
+      frozenSuite("classification"),
+    ) as Record<string, unknown>;
+    const cases = classification.cases as Array<Record<string, unknown>>;
+    for (const entry of cases) {
+      if (entry.split !== "test") continue;
+      const target =
+        Array.isArray(entry.allowedTargets) && entry.allowedTargets.length > 0
+          ? String(entry.allowedTargets[0])
+          : "no-route";
+      entry.expectedTarget = target === "no-route" ? null : target;
+      entry.outputTargets = target === "no-route" ? [] : [target];
+      entry.committedTarget = target === "no-route" ? null : target;
+      entry.labels = {
+        reviewerA: target,
+        reviewerB: target,
+        adjudicated: target,
+      };
+    }
+    const rawArtifact = {
+      fixture: classification,
+      run: {
+        schemaVersion: "maestro-brain-classification-run/v1",
+        results: cases
+          .filter((entry) => entry.split === "test")
+          .map((entry) => ({
+            caseId: entry.id,
+            outputTargets: entry.outputTargets,
+            committedTarget: entry.committedTarget,
+          })),
+      },
+    };
+
+    expect(() =>
+      approveBrainEvalArtifact({
+        schemaVersion: "maestro-brain-eval-approval-artifact/v1",
+        runId: "external-run-2026-07-14",
+        generatedAt: "2026-07-14T00:00:00.000Z",
+        suiteResults: report.suites.map((suite) => ({
+          ...suite,
+          status: "approved",
+          receipt:
+            suite.suiteName === "classification"
+              ? {
+                  ...suite.receipt,
+                  fixtureHash: sha256(classification),
+                  passed: true,
+                  failures: [],
+                }
+              : suite.receipt,
+          runArtifact: {
+            schemaVersion: "maestro-brain-suite-run-artifact/v1",
+            artifactUri: `s3://maestro-brain-evals/${suite.suiteName}.jsonl`,
+            artifactHash: `sha256:${sha256(
+              suite.suiteName === "classification"
+                ? rawArtifact
+                : rawArtifactFor(suite.suiteName),
+            )}`,
+            rawArtifact:
+              suite.suiteName === "classification"
+                ? rawArtifact
+                : rawArtifactFor(suite.suiteName),
+          },
+        })),
+      }),
+    ).toThrow(
+      "Brain eval approval requires raw results bound to the frozen corpus.",
+    );
   });
 
   it("checks frozen fixture completeness and Appendix J denominators", () => {
