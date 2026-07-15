@@ -1,14 +1,25 @@
 import { FunctionImpl, GroupImpl } from "@confect/server";
 import type { GenericId } from "convex/values";
 import * as Clock from "effect/Clock";
+import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Either from "effect/Either";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 
+import refs from "../_generated/refs";
 import databaseSchema from "../_generated/schema";
-import { DatabaseReader, DatabaseWriter } from "../_generated/services";
-import { Forbidden, MemberNotInWorkspace } from "../errors";
+import {
+  DatabaseReader,
+  DatabaseWriter,
+  MutationRunner,
+} from "../_generated/services";
+import {
+  Forbidden,
+  LastOwnerProtected,
+  MemberNotInWorkspace,
+  MembershipNotLive,
+  Unauthorized,
+} from "../errors";
 import {
   deniedPrivilegedAccessAuditEvent,
   denialAuditReason,
@@ -48,18 +59,11 @@ const changeRole = FunctionImpl.make(
       const reader = yield* DatabaseReader;
       const writer = yield* DatabaseWriter;
       const actor = yield* loadActorForWorkspace(reader, workspaceId, now);
+      yield* requireMemberManager(actor);
       const target = yield* loadMemberInWorkspace(
         reader,
         workspaceId,
         membershipId,
-      );
-      yield* requireMemberManager(actor).pipe(
-        auditDeniedMemberAction(writer, now, {
-          action: "member.roleChanged",
-          workspaceId: target.workspaceId,
-          actorUserId: actor.userId,
-          subjectId: target.id,
-        }),
       );
       const liveMembers = yield* liveWorkspaceMembersOrDie(
         reader,
@@ -75,13 +79,6 @@ const changeRole = FunctionImpl.make(
           newRole,
           now,
         }),
-      ).pipe(
-        auditDeniedMemberAction(writer, now, {
-          action: "member.roleChanged",
-          workspaceId: target.workspaceId,
-          actorUserId: actor.userId,
-          subjectId: target.id,
-        }),
       );
 
       yield* writer
@@ -94,28 +91,21 @@ const changeRole = FunctionImpl.make(
     }),
 );
 
-const remove = FunctionImpl.make(
+const removeCore = FunctionImpl.make(
   databaseSchema,
   members,
-  "remove",
+  "removeCore",
   ({ workspaceId, membershipId }) =>
     Effect.gen(function* () {
       const now = yield* Clock.currentTimeMillis;
       const reader = yield* DatabaseReader;
       const writer = yield* DatabaseWriter;
       const actor = yield* loadActorForWorkspace(reader, workspaceId, now);
+      yield* requireMemberManager(actor);
       const target = yield* loadMemberInWorkspace(
         reader,
         workspaceId,
         membershipId,
-      );
-      yield* requireMemberManager(actor).pipe(
-        auditDeniedMemberAction(writer, now, {
-          action: "member.removed",
-          workspaceId: target.workspaceId,
-          actorUserId: actor.userId,
-          subjectId: target.id,
-        }),
       );
       const liveMembers = yield* liveWorkspaceMembersOrDie(
         reader,
@@ -130,13 +120,6 @@ const remove = FunctionImpl.make(
           liveWorkspaceMembers: liveMembers,
           now,
         }),
-      ).pipe(
-        auditDeniedMemberAction(writer, now, {
-          action: "member.removed",
-          workspaceId: target.workspaceId,
-          actorUserId: actor.userId,
-          subjectId: target.id,
-        }),
       );
 
       yield* writer
@@ -149,28 +132,21 @@ const remove = FunctionImpl.make(
     }),
 );
 
-const transferOwnershipImpl = FunctionImpl.make(
+const transferOwnershipCore = FunctionImpl.make(
   databaseSchema,
   members,
-  "transferOwnership",
+  "transferOwnershipCore",
   ({ workspaceId, membershipId }) =>
     Effect.gen(function* () {
       const now = yield* Clock.currentTimeMillis;
       const reader = yield* DatabaseReader;
       const writer = yield* DatabaseWriter;
       const actor = yield* loadActorForWorkspace(reader, workspaceId, now);
+      yield* requireActorRole(actor, "owner");
       const target = yield* loadMemberInWorkspace(
         reader,
         workspaceId,
         membershipId,
-      );
-      yield* requireActorRole(actor, "owner").pipe(
-        auditDeniedMemberAction(writer, now, {
-          action: "member.ownershipTransferred",
-          workspaceId: target.workspaceId,
-          actorUserId: actor.userId,
-          subjectId: target.id,
-        }),
       );
       const actorMembership = yield* loadLiveWorkspaceMemberForUser(
         reader,
@@ -185,13 +161,6 @@ const transferOwnershipImpl = FunctionImpl.make(
           actorMembership,
           now,
         }),
-      ).pipe(
-        auditDeniedMemberAction(writer, now, {
-          action: "member.ownershipTransferred",
-          workspaceId: target.workspaceId,
-          actorUserId: actor.userId,
-          subjectId: target.id,
-        }),
       );
 
       yield* Effect.forEach(plan.patches, (patch) =>
@@ -205,6 +174,221 @@ const transferOwnershipImpl = FunctionImpl.make(
       return null;
     }),
 );
+
+const changeRole = FunctionImpl.make(
+  databaseSchema,
+  members,
+  "changeRole",
+  (args) =>
+    Effect.gen(function* () {
+      const runMutation = yield* MutationRunner;
+      yield* runMutation(
+        refs.internal.access.members.changeRoleCore,
+        args,
+      ).pipe(
+        Effect.catchTags({
+          Forbidden: (error) =>
+            recordMemberDenial(
+              runMutation,
+              {
+                workspaceId: args.workspaceId,
+                action: "member.roleChanged",
+                subjectId: args.membershipId,
+              },
+              error,
+            ),
+          MemberNotInWorkspace: (error) =>
+            recordMemberDenial(
+              runMutation,
+              {
+                workspaceId: args.workspaceId,
+                action: "member.roleChanged",
+                subjectId: args.membershipId,
+              },
+              error,
+            ),
+          MembershipNotLive: (error) =>
+            recordMemberDenial(
+              runMutation,
+              {
+                workspaceId: args.workspaceId,
+                action: "member.roleChanged",
+                subjectId: args.membershipId,
+              },
+              error,
+            ),
+          LastOwnerProtected: (error) =>
+            recordMemberDenial(
+              runMutation,
+              {
+                workspaceId: args.workspaceId,
+                action: "member.roleChanged",
+                subjectId: args.membershipId,
+              },
+              error,
+            ),
+          ParseError: (error) => Effect.die(error),
+        }),
+      );
+      return null;
+    }),
+);
+
+const remove = FunctionImpl.make(databaseSchema, members, "remove", (args) =>
+  Effect.gen(function* () {
+    const runMutation = yield* MutationRunner;
+    yield* runMutation(refs.internal.access.members.removeCore, args).pipe(
+      Effect.catchTags({
+        Forbidden: (error) =>
+          recordMemberDenial(
+            runMutation,
+            {
+              workspaceId: args.workspaceId,
+              action: "member.removed",
+              subjectId: args.membershipId,
+            },
+            error,
+          ),
+        MemberNotInWorkspace: (error) =>
+          recordMemberDenial(
+            runMutation,
+            {
+              workspaceId: args.workspaceId,
+              action: "member.removed",
+              subjectId: args.membershipId,
+            },
+            error,
+          ),
+        MembershipNotLive: (error) =>
+          recordMemberDenial(
+            runMutation,
+            {
+              workspaceId: args.workspaceId,
+              action: "member.removed",
+              subjectId: args.membershipId,
+            },
+            error,
+          ),
+        LastOwnerProtected: (error) =>
+          recordMemberDenial(
+            runMutation,
+            {
+              workspaceId: args.workspaceId,
+              action: "member.removed",
+              subjectId: args.membershipId,
+            },
+            error,
+          ),
+        ParseError: (error) => Effect.die(error),
+      }),
+    );
+    return null;
+  }),
+);
+
+const transferOwnershipImpl = FunctionImpl.make(
+  databaseSchema,
+  members,
+  "transferOwnership",
+  (args) =>
+    Effect.gen(function* () {
+      const runMutation = yield* MutationRunner;
+      yield* runMutation(
+        refs.internal.access.members.transferOwnershipCore,
+        args,
+      ).pipe(
+        Effect.catchTags({
+          Forbidden: (error) =>
+            recordMemberDenial(
+              runMutation,
+              {
+                workspaceId: args.workspaceId,
+                action: "member.ownershipTransferred",
+                subjectId: args.membershipId,
+              },
+              error,
+            ),
+          MemberNotInWorkspace: (error) =>
+            recordMemberDenial(
+              runMutation,
+              {
+                workspaceId: args.workspaceId,
+                action: "member.ownershipTransferred",
+                subjectId: args.membershipId,
+              },
+              error,
+            ),
+          MembershipNotLive: (error) =>
+            recordMemberDenial(
+              runMutation,
+              {
+                workspaceId: args.workspaceId,
+                action: "member.ownershipTransferred",
+                subjectId: args.membershipId,
+              },
+              error,
+            ),
+          LastOwnerProtected: (error) =>
+            recordMemberDenial(
+              runMutation,
+              {
+                workspaceId: args.workspaceId,
+                action: "member.ownershipTransferred",
+                subjectId: args.membershipId,
+              },
+              error,
+            ),
+          ParseError: (error) => Effect.die(error),
+        }),
+      );
+      return null;
+    }),
+);
+
+const recordDenialAudit = FunctionImpl.make(
+  databaseSchema,
+  members,
+  "recordDenialAudit",
+  ({ workspaceId, action, subjectId, reason }) =>
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis;
+      const reader = yield* DatabaseReader;
+      const writer = yield* DatabaseWriter;
+      const actor = yield* loadCurrentUser(reader);
+      yield* recordAccessAuditEvent(
+        writer,
+        deniedPrivilegedAccessAuditEvent({
+          action,
+          workspaceId,
+          actorUserId: actor._id,
+          subjectKind: "workspaceMember",
+          subjectId,
+          reason,
+        }),
+        now,
+      );
+      return null;
+    }),
+);
+
+const recordMemberDenial = <E>(
+  runMutation: Context.Tag.Service<typeof MutationRunner>,
+  input: {
+    readonly workspaceId: GenericId<"workspaces"> | string;
+    readonly action:
+      "member.roleChanged" | "member.removed" | "member.ownershipTransferred";
+    readonly subjectId: string;
+  },
+  error: E,
+): Effect.Effect<never, E> =>
+  runMutation(refs.internal.access.members.recordDenialAudit, {
+    ...input,
+    workspaceId: asGenericId<"workspaces">(input.workspaceId),
+    reason: denialAuditReason(error),
+  }).pipe(
+    Effect.orDie,
+    Effect.flatMap(() => Effect.fail(error)),
+  );
 
 const effectFromEither = <A, E>(
   either: Either.Either<A, E>,
@@ -438,8 +622,13 @@ const liveWorkspaceMembersOrDie = (
     );
 
 export default GroupImpl.make(databaseSchema, members).pipe(
+  Layer.provide(list),
   Layer.provide(changeRole),
+  Layer.provide(changeRoleCore),
   Layer.provide(remove),
+  Layer.provide(removeCore),
   Layer.provide(transferOwnershipImpl),
+  Layer.provide(transferOwnershipCore),
+  Layer.provide(recordDenialAudit),
   GroupImpl.finalize,
 );
