@@ -184,6 +184,9 @@ describe("Fabro workflow prompt contracts", () => {
     expect(implement).toContain(
       "the next deterministic workflow node owns the complete focused gate",
     );
+    expect(implement).toContain(
+      "after any repair, if it contains more than four commits",
+    );
     expect(review).toContain(
       "exact passed pre-review lane-gate report for the same head and task contract",
     );
