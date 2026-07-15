@@ -1,6 +1,12 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join, resolve } from "node:path";
+import { readProjectConfigFile } from "./project-config";
+import type {
+  ProjectConfig,
+  ProjectEnvironment as DeployEnvironmentConfig,
+  ProjectEnvironmentName as DeployEnvironmentName,
+} from "./project-config";
 
 export type WebStaticSmokeReport = {
   readonly ok: boolean;
@@ -69,31 +75,15 @@ export type ClientReleaseReport = {
   }[];
 };
 
-export type DeployEnvironmentName = "staging" | "production";
-
-export type DeployEnvironmentConfig = {
-  readonly name: DeployEnvironmentName;
-  readonly domain: string;
-  readonly cloudflarePagesProject: string;
-  readonly cloudflareBranch: string;
-  readonly convexDeployName: string;
-  readonly requiredEnvGroups: readonly string[];
-  readonly requiredSecrets: readonly string[];
-};
-
-export type ProjectConfig = {
-  readonly project: {
-    readonly name: string;
-  };
-  readonly environments: Record<DeployEnvironmentName, DeployEnvironmentConfig>;
-};
-
 export type DeployDoctorReport = {
   readonly ok: boolean;
   readonly environment: DeployEnvironmentName;
   readonly domain: string;
   readonly cloudflarePagesProject: string;
   readonly convexDeployName: string;
+  readonly convexUrl?: string;
+  readonly convexDeployKeyEnv?: string;
+  readonly callbackOriginEnv?: string;
   readonly requiredEnvGroups: readonly string[];
   readonly manifestPath: string;
   readonly requiredEnvNames: readonly string[];
@@ -101,6 +91,15 @@ export type DeployDoctorReport = {
   readonly missingEnvNames: readonly string[];
   readonly missingSecretNames: readonly string[];
   readonly alert?: ReleaseAlertPlan;
+};
+
+export type ReleasePacket = {
+  readonly commitSha: string;
+  readonly deploymentHash: string;
+  readonly schemaHash: string;
+  readonly manifestHash: string;
+  readonly buildId: string;
+  readonly timestamp: string;
 };
 
 export type DeployPlan = {
@@ -111,8 +110,17 @@ export type DeployPlan = {
   readonly cloudflarePagesProject: string;
   readonly cloudflareBranch: string;
   readonly convexDeployName: string;
+  readonly convexUrl?: string;
+  readonly releasePacket?: ReleasePacket;
   readonly refusal?: string;
   readonly alert?: ReleaseAlertPlan;
+};
+
+export type RollbackPlan = {
+  readonly ok: boolean;
+  readonly current: ReleasePacket;
+  readonly candidate: ReleasePacket;
+  readonly refusal?: string;
 };
 
 export type ReleaseAlertPlan = {
@@ -134,13 +142,6 @@ const fail = (id: string, detail: string) => ({
   status: "fail" as const,
   detail,
 });
-
-const readProjectConfig = (repoRoot: string): ProjectConfig => {
-  const path = resolve(repoRoot, "project.config.json");
-  const parsed = JSON.parse(readFileSync(path, "utf8")) as ProjectConfig;
-
-  return parsed;
-};
 
 type EnvManifestVariable = {
   readonly name: string;
@@ -272,11 +273,29 @@ const productionPromoteAlert = (
   };
 };
 
+const validateIsolatedBackends = (config: ProjectConfig): void => {
+  const { staging, production } = config.environments;
+  if (
+    staging.convexDeployName === production.convexDeployName ||
+    (staging.convexUrl && staging.convexUrl === production.convexUrl)
+  ) {
+    throw new Error(
+      "SharedBackendForbidden: staging and production must use distinct Convex deployments and URLs.",
+    );
+  }
+};
+
+const readValidatedProjectConfig = (repoRoot: string): ProjectConfig => {
+  const config = readProjectConfigFile(repoRoot);
+  validateIsolatedBackends(config);
+  return config;
+};
+
 const deployEnvironment = (
   repoRoot: string,
   environment: DeployEnvironmentName,
 ): DeployEnvironmentConfig => {
-  const config = readProjectConfig(repoRoot);
+  const config = readValidatedProjectConfig(repoRoot);
   const selected = config.environments[environment];
 
   if (!selected) {
@@ -295,11 +314,16 @@ export const buildDeployDoctorReport = (options: {
   const env = options.env ?? process.env;
   const selected = deployEnvironment(repoRoot, options.environment);
   const manifest = readEnvManifest(repoRoot);
-  const requiredEnvNames = manifestRequiredEnvNames(
-    manifest,
-    selected.requiredEnvGroups,
-    selected.name,
-  );
+  const requiredEnvNames = [
+    ...new Set([
+      ...manifestRequiredEnvNames(
+        manifest,
+        selected.requiredEnvGroups,
+        selected.name,
+      ),
+      ...(selected.callbackOriginEnv ? [selected.callbackOriginEnv] : []),
+    ]),
+  ].sort();
   const missingEnvNames = requiredEnvNames.filter((name) => !env[name]?.trim());
   const missingSecretNames = selected.requiredSecrets.filter(
     (name) => !env[name]?.trim(),
@@ -311,6 +335,13 @@ export const buildDeployDoctorReport = (options: {
     domain: selected.domain,
     cloudflarePagesProject: selected.cloudflarePagesProject,
     convexDeployName: selected.convexDeployName,
+    ...(selected.convexUrl ? { convexUrl: selected.convexUrl } : {}),
+    ...(selected.convexDeployKeyEnv
+      ? { convexDeployKeyEnv: selected.convexDeployKeyEnv }
+      : {}),
+    ...(selected.callbackOriginEnv
+      ? { callbackOriginEnv: selected.callbackOriginEnv }
+      : {}),
     requiredEnvGroups: selected.requiredEnvGroups,
     manifestPath: envManifestPath(repoRoot),
     requiredEnvNames,
@@ -342,13 +373,49 @@ export const buildStagingDeployPlan = (options: {
     cloudflarePagesProject: selected.cloudflarePagesProject,
     cloudflareBranch: selected.cloudflareBranch,
     convexDeployName: selected.convexDeployName,
+    ...(selected.convexUrl ? { convexUrl: selected.convexUrl } : {}),
   };
+};
+
+export const buildStagedReleasePacket = (options: {
+  readonly repoRoot?: string;
+  readonly commitSha: string;
+  readonly deploymentHash: string;
+  readonly schemaHash: string;
+  readonly manifestHash: string;
+  readonly buildId: string;
+  readonly timestamp?: string;
+}): ReleasePacket => {
+  deployEnvironment(options.repoRoot ?? process.cwd(), "staging");
+
+  return {
+    commitSha: options.commitSha,
+    deploymentHash: options.deploymentHash,
+    schemaHash: options.schemaHash,
+    manifestHash: options.manifestHash,
+    buildId: options.buildId,
+    timestamp: options.timestamp ?? new Date().toISOString(),
+  };
+};
+
+const parseReleasePacket = (
+  input: string | ReleasePacket | undefined,
+): ReleasePacket | undefined => {
+  if (!input) return undefined;
+  if (typeof input !== "string") return input;
+
+  try {
+    return JSON.parse(input) as ReleasePacket;
+  } catch {
+    return undefined;
+  }
 };
 
 export const buildProductionPromotePlan = (options: {
   readonly repoRoot?: string;
   readonly stagedSha: string;
   readonly currentSha: string;
+  readonly releasePacket?: string | ReleasePacket;
 }): DeployPlan => {
   const repoRoot = options.repoRoot ?? process.cwd();
   const selected = deployEnvironment(repoRoot, "production");
@@ -372,6 +439,29 @@ export const buildProductionPromotePlan = (options: {
     };
   }
 
+  const releasePacket = parseReleasePacket(options.releasePacket);
+
+  if (!releasePacket || releasePacket.commitSha !== options.currentSha) {
+    const plan: Omit<DeployPlan, "alert"> = {
+      ok: false,
+      environment: "production",
+      commitSha: options.currentSha,
+      domain: selected.domain,
+      cloudflarePagesProject: selected.cloudflarePagesProject,
+      cloudflareBranch: selected.cloudflareBranch,
+      convexDeployName: selected.convexDeployName,
+      ...(selected.convexUrl ? { convexUrl: selected.convexUrl } : {}),
+      refusal:
+        "UnstagedCommit: production promotion requires an exact staged release packet for the current SHA.",
+    };
+    const alert = productionPromoteAlert(plan);
+
+    return {
+      ...plan,
+      ...(alert ? { alert } : {}),
+    };
+  }
+
   return {
     ok: true,
     environment: "production",
@@ -380,7 +470,28 @@ export const buildProductionPromotePlan = (options: {
     cloudflarePagesProject: selected.cloudflarePagesProject,
     cloudflareBranch: selected.cloudflareBranch,
     convexDeployName: selected.convexDeployName,
+    ...(selected.convexUrl ? { convexUrl: selected.convexUrl } : {}),
+    releasePacket,
   };
+};
+
+export const buildRollbackPlan = (options: {
+  readonly current: ReleasePacket;
+  readonly candidate: ReleasePacket;
+}): RollbackPlan => {
+  const compatible =
+    options.current.schemaHash === options.candidate.schemaHash &&
+    options.current.manifestHash === options.candidate.manifestHash;
+
+  return compatible
+    ? { ok: true, current: options.current, candidate: options.candidate }
+    : {
+        ok: false,
+        current: options.current,
+        candidate: options.candidate,
+        refusal:
+          "IncompatibleRollback: rollback only selects a prior binary with matching schema and manifest contracts; data down-migrations are forbidden.",
+      };
 };
 
 const readinessArtifacts = [
@@ -970,7 +1081,7 @@ export const runReleaseCli = (
     return {
       exitCode: 0,
       stdout:
-        "release-tooling smoke-web-static | review-readiness | review-completion | client-release <template-version> <client-version> | deploy-doctor [staging|production] | deploy-plan staging <sha> | promote-plan <staged-sha> <current-sha>\n",
+        "release-tooling smoke-web-static | review-readiness | review-completion | client-release <template-version> <client-version> | deploy-doctor [staging|production] | deploy-plan staging <sha> | staged-release-packet <sha> <deployment-hash> <schema-hash> <manifest-hash> <build-id> | promote-plan <staged-sha> <current-sha> <release-packet-json> | rollback-plan <current-packet-json> <candidate-packet-json>\n",
       stderr: "",
     };
   }
@@ -1072,15 +1183,52 @@ export const runReleaseCli = (
     };
   }
 
-  if (command === "promote-plan") {
-    const stagedSha = argv[1];
-    const currentSha = argv[2];
+  if (command === "staged-release-packet") {
+    const [commitSha, deploymentHash, schemaHash, manifestHash, buildId] =
+      argv.slice(1);
 
-    if (!stagedSha || !currentSha) {
+    if (
+      !commitSha ||
+      !deploymentHash ||
+      !schemaHash ||
+      !manifestHash ||
+      !buildId
+    ) {
       return {
         exitCode: 1,
         stdout: "",
-        stderr: "Usage: promote-plan <staged-sha> <current-sha>\n",
+        stderr:
+          "Usage: staged-release-packet <sha> <deployment-hash> <schema-hash> <manifest-hash> <build-id>\n",
+      };
+    }
+
+    const report = buildStagedReleasePacket({
+      repoRoot: cwd,
+      commitSha,
+      deploymentHash,
+      schemaHash,
+      manifestHash,
+      buildId,
+    });
+
+    return {
+      exitCode: 0,
+      stdout: `${JSON.stringify(report)}\n`,
+      stderr: "",
+    };
+  }
+
+  if (command === "promote-plan") {
+    const stagedSha = argv[1];
+    const currentSha = argv[2];
+    const releasePacket = argv[3];
+
+    if (!stagedSha || !currentSha || !releasePacket) {
+      return {
+        exitCode: 1,
+        stdout: "",
+        stderr:
+          "Usage: promote-plan <staged-sha> <current-sha> <release-packet-json>\n",
       };
     }
 
@@ -1088,7 +1236,30 @@ export const runReleaseCli = (
       repoRoot: cwd,
       stagedSha,
       currentSha,
+      releasePacket,
     });
+
+    return {
+      exitCode: report.ok ? 0 : 1,
+      stdout: `${JSON.stringify(report, null, 2)}\n`,
+      stderr: "",
+    };
+  }
+
+  if (command === "rollback-plan") {
+    const current = parseReleasePacket(argv[1]);
+    const candidate = parseReleasePacket(argv[2]);
+
+    if (!current || !candidate) {
+      return {
+        exitCode: 1,
+        stdout: "",
+        stderr:
+          "Usage: rollback-plan <current-packet-json> <candidate-packet-json>\n",
+      };
+    }
+
+    const report = buildRollbackPlan({ current, candidate });
 
     return {
       exitCode: report.ok ? 0 : 1,
