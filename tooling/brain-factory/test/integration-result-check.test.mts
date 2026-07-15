@@ -740,12 +740,11 @@ describe("normal integration result check", () => {
     ).toThrow("S09-T01: lifecycle adoption record remains a task-owned stub");
   });
 
-  it("rejects proof schema, plan, and task-block drift", () => {
+  it("rejects proof schema and task-block drift", () => {
     const value = fixture();
     const original = readRecord(value.proofPath);
     const cases = [
       ["schemaVersion", "legacy", "unexpected CI proof schema"],
-      ["planSha256", "stale", "proof plan hash mismatch"],
       ["taskBlockHash", "stale", "proof task block hash mismatch"],
     ] as const;
     for (const [field, replacement, message] of cases) {
@@ -763,22 +762,53 @@ describe("normal integration result check", () => {
     writeJson(value.proofPath, original);
   });
 
-  it("rejects final gates from another plan or task block", () => {
-    for (const field of ["planSha256", "taskBlockHash"] as const) {
-      const value = fixture();
-      const gate = readRecord(value.gatePath);
-      gate[field] = "stale";
-      writeJson(value.gatePath, gate);
-      expect(() =>
-        validateIntegrationResult({
-          controlRoot: value.controlRoot,
-          evidenceDirectory: value.evidence,
-          expectedWorkdir: value.workdir,
-          integrationId: value.integrationId,
-          manifestTranche: value.manifestTranche,
-        }),
-      ).toThrow("final lane gate does not bind the lane head");
-    }
+  it("accepts prior plan provenance when the task block is unchanged", () => {
+    const value = fixture();
+    const manifest = readRecord(value.manifestPath);
+    manifest.planSha256 = "new-global-plan";
+    writeJson(value.manifestPath, manifest);
+
+    expect(() =>
+      validateIntegrationResult({
+        controlRoot: value.controlRoot,
+        evidenceDirectory: value.evidence,
+        expectedWorkdir: value.workdir,
+        integrationId: value.integrationId,
+        manifestTranche: value.manifestTranche,
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects final gates with mismatched plan provenance", () => {
+    const value = fixture();
+    const gate = readRecord(value.gatePath);
+    gate.planSha256 = "stale";
+    writeJson(value.gatePath, gate);
+    expect(() =>
+      validateIntegrationResult({
+        controlRoot: value.controlRoot,
+        evidenceDirectory: value.evidence,
+        expectedWorkdir: value.workdir,
+        integrationId: value.integrationId,
+        manifestTranche: value.manifestTranche,
+      }),
+    ).toThrow("final lane gate does not bind the lane head");
+  });
+
+  it("rejects final gates with a mismatched task block", () => {
+    const value = fixture();
+    const gate = readRecord(value.gatePath);
+    gate.taskBlockHash = "stale";
+    writeJson(value.gatePath, gate);
+    expect(() =>
+      validateIntegrationResult({
+        controlRoot: value.controlRoot,
+        evidenceDirectory: value.evidence,
+        expectedWorkdir: value.workdir,
+        integrationId: value.integrationId,
+        manifestTranche: value.manifestTranche,
+      }),
+    ).toThrow("final lane gate does not bind the lane head");
   });
 
   it("rejects a task outside the manifest tranche", () => {

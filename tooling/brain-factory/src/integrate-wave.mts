@@ -166,8 +166,7 @@ try {
     const gateContent = readFileSync(gatePath, "utf8");
     const proof = readJson(proofPath);
     const gate = readJson(gatePath);
-    validateProofContract(proof, {
-      planSha256: manifest.planSha256,
+    const proofPlanSha256 = validateProofContract(proof, {
       taskBlockHash: task.taskBlockHash,
       taskId: task.taskId,
     });
@@ -181,7 +180,7 @@ try {
       gate.status !== "passed" ||
       gate.headSha !== laneHead ||
       gate.currentHeadSha !== laneHead ||
-      gate.planSha256 !== manifest.planSha256 ||
+      gate.planSha256 !== proofPlanSha256 ||
       gate.taskBlockHash !== task.taskBlockHash ||
       !gitIsAncestor(proofBase, laneHead, root)
     ) {

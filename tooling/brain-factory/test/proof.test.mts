@@ -50,10 +50,9 @@ describe("Fabro checkpoint proof heads", () => {
     expect(proofChangedFilesMatch(["a.ts", "a.ts"], ["a.ts"])).toBe(false);
   });
 
-  it("requires a versioned proof bound to the current plan and task block", () => {
+  it("requires versioned proof provenance bound to the current task block", () => {
     const identity = {
       taskId: "S09-T01",
-      planSha256: "plan",
       taskBlockHash: "task",
     };
     const proof = {
@@ -62,11 +61,14 @@ describe("Fabro checkpoint proof heads", () => {
       planSha256: "plan",
       taskBlockHash: "task",
     };
-    expect(() => validateProofContract(proof, identity)).not.toThrow();
+    expect(validateProofContract(proof, identity)).toBe("plan");
+    expect(
+      validateProofContract({ ...proof, planSha256: "prior-plan" }, identity),
+    ).toBe("prior-plan");
 
     for (const [field, value, message] of [
       ["schemaVersion", "legacy", "unexpected CI proof schema"],
-      ["planSha256", "stale", "proof plan hash mismatch"],
+      ["planSha256", "", "proof plan provenance missing"],
       ["taskBlockHash", "stale", "proof task block hash mismatch"],
       ["taskId", "S09-T02", "proof task mismatch"],
     ] as const) {

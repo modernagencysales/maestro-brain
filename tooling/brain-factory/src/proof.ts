@@ -25,7 +25,6 @@ export const proofChangedFilesMatch = (
 export const CI_PROOF_SCHEMA_VERSION = "maestro-brain-ci-proof/v1";
 
 export interface ProofContractIdentity {
-  readonly planSha256: string;
   readonly taskBlockHash: string;
   readonly taskId: string;
 }
@@ -33,17 +32,17 @@ export interface ProofContractIdentity {
 export const validateProofContract = (
   proof: Record<string, unknown>,
   identity: ProofContractIdentity,
-): void => {
+): string => {
   if (proof.schemaVersion !== CI_PROOF_SCHEMA_VERSION) {
     throw new Error(`${identity.taskId}: unexpected CI proof schema`);
   }
   if (proof.taskId !== identity.taskId) {
     throw new Error(`${identity.taskId}: proof task mismatch`);
   }
-  if (proof.planSha256 !== identity.planSha256) {
-    throw new Error(`${identity.taskId}: proof plan hash mismatch`);
-  }
+  if (typeof proof.planSha256 !== "string" || proof.planSha256.length === 0)
+    throw new Error(`${identity.taskId}: proof plan provenance missing`);
   if (proof.taskBlockHash !== identity.taskBlockHash) {
     throw new Error(`${identity.taskId}: proof task block hash mismatch`);
   }
+  return proof.planSha256;
 };

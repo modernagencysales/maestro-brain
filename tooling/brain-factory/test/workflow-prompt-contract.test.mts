@@ -193,6 +193,11 @@ describe("Fabro workflow prompt contracts", () => {
     expect(review).toContain(
       "semantic inspection of the tests and diff remains mandatory",
     );
+    expect(review).toContain("planSha256 is retained provenance");
+    expect(review).toContain(
+      "an unrelated global plan change is not contract drift when this task's taskBlockHash is unchanged",
+    );
+    expect(review).toContain("any taskBlockHash drift is rework");
   });
 
   it("binds lane-green results to the manifest tranche", () => {

@@ -89,11 +89,13 @@ const proofPath = resolve(laneDirectory, "ci-proof-packet.json");
 const reportPath = resolve(laneDirectory, "lane-gate-report.json");
 if (!existsSync(proofPath)) throw new Error(`${taskId}: missing ${proofPath}`);
 const proof = JSON.parse(readFileSync(proofPath, "utf8")) as ProofPacket;
-validateProofContract(proof as unknown as Record<string, unknown>, {
-  planSha256: manifest.planSha256,
-  taskBlockHash: task.taskBlockHash,
-  taskId,
-});
+const proofPlanSha256 = validateProofContract(
+  proof as unknown as Record<string, unknown>,
+  {
+    taskBlockHash: task.taskBlockHash,
+    taskId,
+  },
+);
 if (!reviewVerdictMatchesGateStage(stage, proof.reviewVerdict)) {
   throw new Error(
     stage === "final"
@@ -248,7 +250,7 @@ const reusedPreReview =
     commandSetHash,
     currentHeadSha: head,
     currentTreeSha,
-    planSha256: manifest.planSha256,
+    planSha256: proofPlanSha256,
     reviewVerdict: proof.reviewVerdict,
     taskBlockHash: task.taskBlockHash,
   });
@@ -278,7 +280,7 @@ writeFileSync(
       currentTreeSha,
       gateProfiles: task.gateProfiles,
       headSha: proof.headSha,
-      planSha256: manifest.planSha256,
+      planSha256: proofPlanSha256,
       changedSourceLines,
       estimateDrift: changedSourceLines > task.estimatedSourceLines,
       estimatedSourceLines: task.estimatedSourceLines,

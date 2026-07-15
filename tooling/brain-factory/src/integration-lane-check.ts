@@ -268,8 +268,7 @@ export const validateIntegratedLanes = (
       throw new Error(`${taskId}: included lane head mismatch`);
     }
     const proof = readJson(resolve(laneDirectory, "ci-proof-packet.json"));
-    validateProofContract(proof, {
-      planSha256: manifest.planSha256,
+    const proofPlanSha256 = validateProofContract(proof, {
       taskBlockHash: string(
         manifestTask.taskBlockHash,
         `${taskId}: manifest taskBlockHash`,
@@ -390,7 +389,7 @@ export const validateIntegratedLanes = (
       gate.status !== "passed" ||
       gate.headSha !== laneHeadSha ||
       gate.currentHeadSha !== laneHeadSha ||
-      gate.planSha256 !== manifest.planSha256 ||
+      gate.planSha256 !== proofPlanSha256 ||
       gate.taskBlockHash !== manifestTask.taskBlockHash ||
       gate.commandSetHash !== gateCommandSetHash(gateCommands) ||
       JSON.stringify(gate.commands) !== JSON.stringify(commands)
