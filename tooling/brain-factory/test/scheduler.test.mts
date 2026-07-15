@@ -116,7 +116,49 @@ describe("brain task scheduler", () => {
     expect(result.selected.map((task) => task.taskId)).toEqual(["S05-T01"]);
   });
 
-  it("finds the exact maximum-value conflict-free subset", () => {
+  it("maximizes safe parallelism at the audited Wave 5 frontier", () => {
+    const manifest = buildManifest();
+    const completedTaskIds = new Set([
+      "S01-T02",
+      "S02-T01",
+      "S02-T03",
+      "S03-T03",
+      "S04-T02",
+      "S05-T01",
+      "S05-T02",
+      "S06-T01",
+    ]);
+    const requestedTaskIds = new Set([
+      "S03-T04",
+      "S05-T03",
+      "S06-T02",
+      "S07-T01",
+      "S10-T01",
+    ]);
+
+    const result = selectReadyTasks({
+      activeTaskIds: new Set(),
+      completedTaskIds,
+      maximum: 40,
+      requestedTaskIds,
+      tasks: manifest.tasks,
+    });
+
+    expect(result.ready.map((task) => task.taskId)).toEqual([
+      "S03-T04",
+      "S05-T03",
+      "S06-T02",
+      "S07-T01",
+      "S10-T01",
+    ]);
+    expect(result.selected.map((task) => task.taskId)).toEqual([
+      "S03-T04",
+      "S06-T02",
+      "S10-T01",
+    ]);
+  });
+
+  it("finds the exact maximum-cardinality conflict-free subset", () => {
     const template = buildManifest().tasks.find(
       (task) => task.taskId === "S01-T01",
     );

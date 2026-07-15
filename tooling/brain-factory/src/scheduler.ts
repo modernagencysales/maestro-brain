@@ -98,11 +98,11 @@ const isBetterScore = (
   incumbent: SelectionScore | undefined,
 ): boolean => {
   if (!incumbent) return true;
-  if (candidate.weightedBottomLevel !== incumbent.weightedBottomLevel) {
-    return candidate.weightedBottomLevel > incumbent.weightedBottomLevel;
-  }
   if (candidate.cardinality !== incumbent.cardinality) {
     return candidate.cardinality > incumbent.cardinality;
+  }
+  if (candidate.weightedBottomLevel !== incumbent.weightedBottomLevel) {
+    return candidate.weightedBottomLevel > incumbent.weightedBottomLevel;
   }
   return lexicographicallyEarlier(candidate.taskIds, incumbent.taskIds);
 };
