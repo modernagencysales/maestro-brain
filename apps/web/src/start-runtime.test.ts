@@ -31,6 +31,24 @@ describe("TanStack Start runtime contract", () => {
     expect(source).toContain("reactGlobal.React ??= React");
   });
 
+  it("keeps WorkOS SDK imports inside dedicated auth adapters", () => {
+    const root = read("src/routes/__root.tsx");
+    const start = read("src/start.ts");
+    const authClient = read("src/auth/authkit-client.tsx");
+    const authServer = read("src/auth/authkit-server.ts");
+    const clientRuntime = read("src/auth/workos-client-runtime.tsx");
+    const serverAdapter = read("src/auth/workos-server-adapter.ts");
+
+    expect(root).not.toContain("@workos/");
+    expect(start).not.toContain("@workos/");
+    expect(authClient).not.toContain("@workos/");
+    expect(authServer).not.toContain("@workos/");
+    expect(clientRuntime).toContain(
+      "@workos/authkit-tanstack-react-start/client",
+    );
+    expect(serverAdapter).toContain("@workos/authkit-tanstack-react-start");
+  });
+
   it("keeps the root route as a provider boundary", () => {
     const source = read("src/routes/__root.tsx");
 
@@ -52,11 +70,21 @@ describe("TanStack Start runtime contract", () => {
     expect(source).not.toContain("TemplateReferenceApp");
   });
 
-  it("keeps route loaders out of feature view-model shaping", () => {
+  it("keeps route loaders limited to runtime boundary data", () => {
     const root = read("src/routes/__root.tsx");
     const index = read("src/routes/index.tsx");
 
-    expect(root).not.toContain("loader:");
+    expect(root).toContain("loader:");
+    expect(root).toContain("loadSafeClientRuntime");
+    expect(root).toContain('from "../auth/safe-client-runtime"');
+    expect(root).not.toContain("safe-client-runtime.server");
+    expect(root).not.toContain("getSafeClientRuntime");
+    expect(root).not.toContain("getServerEnv");
+    expect(root).not.toContain("getWorkosServerAuth");
+    expect(read("src/auth/safe-client-runtime.ts")).toContain("createServerFn");
+    expect(read("src/auth/safe-client-runtime.ts")).toContain(
+      "./safe-client-runtime.server",
+    );
     expect(root).not.toContain("beforeLoad:");
     expect(index).not.toContain("loader:");
     expect(index).not.toContain("beforeLoad:");

@@ -1,5 +1,13 @@
-import { describe, expect, it } from "vitest";
-import { resolveWebEnv, WebEnvConfigError } from "./env";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  isReferenceRoutesEnabled,
+  resolveWebEnv,
+  WebEnvConfigError,
+} from "./env";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("web environment", () => {
   it("uses a fake-safe Convex fallback when no URL is configured", () => {
@@ -41,5 +49,25 @@ describe("web environment", () => {
       expect(error).toMatchObject({ invalidEnv: ["VITE_CONVEX_URL"] });
       expect(JSON.stringify(error)).not.toContain("acme-demo");
     }
+  });
+
+  it("enables reference routes only for the explicit non-production flag", () => {
+    vi.stubEnv("PROD", false);
+    vi.stubEnv("VITE_ENABLE_REFERENCE_ROUTES", "true");
+
+    expect(isReferenceRoutesEnabled()).toBe(true);
+
+    vi.stubEnv("VITE_ENABLE_REFERENCE_ROUTES", "false");
+    expect(isReferenceRoutesEnabled()).toBe(false);
+
+    vi.stubEnv("VITE_ENABLE_REFERENCE_ROUTES", undefined);
+    expect(isReferenceRoutesEnabled()).toBe(false);
+  });
+
+  it("keeps reference routes disabled in production even when flagged", () => {
+    vi.stubEnv("PROD", true);
+    vi.stubEnv("VITE_ENABLE_REFERENCE_ROUTES", "true");
+
+    expect(isReferenceRoutesEnabled()).toBe(false);
   });
 });

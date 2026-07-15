@@ -20,12 +20,15 @@ import dsarRequests from "./tables/dsarRequests";
 import entitlements from "./tables/entitlements";
 import featureFlagPolicies from "./tables/featureFlagPolicies";
 import invitations from "./tables/invitations";
+import modelCallReceipts from "./tables/modelCallReceipts";
 import notificationPreferences from "./tables/notificationPreferences";
 import notificationRecords from "./tables/notificationRecords";
 import organizationMembers from "./tables/organizationMembers";
 import organizations from "./tables/organizations";
+import pageRevisions from "./tables/pageRevisions";
 import policies from "./tables/policies";
 import promptRegistry from "./tables/promptRegistry";
+import servicePrincipals from "./tables/servicePrincipals";
 import transformBlocks from "./tables/transformBlocks";
 import transformDefinitions from "./tables/transformDefinitions";
 import transformRuns from "./tables/transformRuns";
@@ -64,12 +67,15 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof entitlements |
   typeof featureFlagPolicies |
   typeof invitations |
+  typeof modelCallReceipts |
   typeof notificationPreferences |
   typeof notificationRecords |
   typeof organizationMembers |
   typeof organizations |
+  typeof pageRevisions |
   typeof policies |
   typeof promptRegistry |
+  typeof servicePrincipals |
   typeof transformBlocks |
   typeof transformDefinitions |
   typeof transformRuns |
@@ -107,12 +113,15 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   entitlements,
   featureFlagPolicies,
   invitations,
+  modelCallReceipts,
   notificationPreferences,
   notificationRecords,
   organizationMembers,
   organizations,
+  pageRevisions,
   policies,
   promptRegistry,
+  servicePrincipals,
   transformBlocks,
   transformDefinitions,
   transformRuns,

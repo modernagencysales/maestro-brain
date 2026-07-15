@@ -1,6 +1,7 @@
-export type TemplateRouteKey =
+export type ProductRouteKey = "clients" | "brain" | "connections" | "settings";
+
+export type ReferenceRouteKey =
   | "home"
-  | "brain"
   | "workflows"
   | "capabilities"
   | "agents"
@@ -13,12 +14,13 @@ export type TemplateRouteKey =
   | "dataMap"
   | "dataLifecycle"
   | "notifications"
-  | "settings"
   | "legal"
   | "billing"
   | "analytics"
   | "health"
   | "admin";
+
+export type TemplateRouteKey = ProductRouteKey | ReferenceRouteKey;
 
 export type TemplateRouteItem = {
   readonly key: TemplateRouteKey;
@@ -28,27 +30,54 @@ export type TemplateRouteItem = {
   readonly description: string;
 };
 
+export type ProductRouteItem = Omit<TemplateRouteItem, "key"> & {
+  readonly key: ProductRouteKey;
+};
+
 export type TemplateNavCategory = {
   readonly label: string;
   readonly defaultExpanded?: boolean;
-  readonly items: readonly TemplateRouteItem[];
+  readonly items: readonly ProductRouteItem[];
 };
 
-export const TEMPLATE_ROUTE_ITEMS: readonly TemplateRouteItem[] = [
+export type WorkspaceAction = {
+  readonly key: "askSearch";
+  readonly label: string;
+  readonly description: string;
+};
+
+export const PRODUCT_ROUTE_ITEMS: readonly ProductRouteItem[] = [
   {
-    key: "home",
-    label: "Overview",
-    path: "/",
-    icon: "M",
-    description: "Template story, delivery leverage, and operating model.",
+    key: "clients",
+    label: "Clients",
+    path: "/clients",
+    icon: "C",
+    description: "Client Brains, freshness, and next actions.",
   },
   {
     key: "brain",
-    label: "Brain",
+    label: "Agency Brain",
     path: "/brain",
     icon: "B",
-    description: "Source-backed company context and context packs.",
+    description: "Agency-wide context, pages, and source-backed answers.",
   },
+  {
+    key: "connections",
+    label: "Connections",
+    path: "/connections",
+    icon: "N",
+    description: "Workspace data connections and sync posture.",
+  },
+  {
+    key: "settings",
+    label: "Settings",
+    path: "/settings",
+    icon: "T",
+    description: "Workspace settings, members, and tenancy controls.",
+  },
+] as const;
+
+export const REFERENCE_ROUTE_ITEMS: readonly TemplateRouteItem[] = [
   {
     key: "workflows",
     label: "Workflows",
@@ -135,13 +164,6 @@ export const TEMPLATE_ROUTE_ITEMS: readonly TemplateRouteItem[] = [
     description: "Email and event messages with fake/local defaults.",
   },
   {
-    key: "settings",
-    label: "Settings",
-    path: "/settings",
-    icon: "T",
-    description: "Workspace settings, business preferences, and tenancy.",
-  },
-  {
     key: "legal",
     label: "Legal",
     path: "/legal",
@@ -178,58 +200,30 @@ export const TEMPLATE_ROUTE_ITEMS: readonly TemplateRouteItem[] = [
   },
 ] as const;
 
+export const TEMPLATE_ROUTE_ITEMS: readonly ProductRouteItem[] =
+  PRODUCT_ROUTE_ITEMS;
+
+export const GLOBAL_WORKSPACE_ACTIONS = [
+  {
+    key: "askSearch",
+    label: "Ask / Search",
+    description: "Search approved context or ask the Brain for a cited answer.",
+  },
+] as const;
+
 export const TEMPLATE_NAV_CATEGORIES: readonly TemplateNavCategory[] = [
   {
-    label: "Build",
+    label: "Workspace",
     defaultExpanded: true,
-    items: TEMPLATE_ROUTE_ITEMS.filter((item) =>
-      ["home", "brain", "documents", "sources", "onboarding"].includes(
-        item.key,
-      ),
-    ),
-  },
-  {
-    label: "Operate",
-    defaultExpanded: true,
-    items: TEMPLATE_ROUTE_ITEMS.filter((item) =>
-      [
-        "workflows",
-        "capabilities",
-        "agents",
-        "runs",
-        "integrations",
-        "api",
-      ].includes(item.key),
-    ),
-  },
-  {
-    label: "Control",
-    defaultExpanded: true,
-    items: TEMPLATE_ROUTE_ITEMS.filter((item) =>
-      [
-        "dataMap",
-        "dataLifecycle",
-        "notifications",
-        "settings",
-        "legal",
-        "billing",
-        "analytics",
-        "health",
-        "admin",
-      ].includes(item.key),
-    ),
+    items: TEMPLATE_ROUTE_ITEMS,
   },
 ] as const;
 
 export function activeTemplateRouteKey(
   pathname: string,
-): TemplateRouteKey | null {
+): ProductRouteKey | null {
   const normalized = pathname.split(/[?#]/, 1)[0] || "/";
   const matches = TEMPLATE_ROUTE_ITEMS.filter((item) => {
-    if (item.path === "/") {
-      return normalized === "/";
-    }
-
     return normalized === item.path || normalized.startsWith(`${item.path}/`);
   }).sort((a, b) => b.path.length - a.path.length);
 
