@@ -37,6 +37,18 @@ export const lintCommandForFiles = (
     : undefined;
 };
 
+export const formatCommandForFiles = (
+  files: readonly string[],
+): GateCommand | undefined => {
+  const existing = [...new Set(files)];
+  return existing.length > 0
+    ? {
+        program: "pnpm",
+        args: ["exec", "prettier", "--check", "--ignore-unknown", ...existing],
+      }
+    : undefined;
+};
+
 const packageGate = (directory: string): readonly GateCommand[] => [
   { program: "pnpm", args: ["--dir", directory, "typecheck"] },
   {

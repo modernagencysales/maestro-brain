@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   commandsForProfiles,
+  formatCommandForFiles,
   focusedGateCommand,
   lintCommandForFiles,
 } from "../src/gates.js";
@@ -58,6 +59,29 @@ describe("brain lane gate profiles", () => {
       args: ["exec", "eslint", "apps/web/src/example.tsx"],
     });
     expect(lintCommandForFiles(["docs/example.md"])).toBeUndefined();
+  });
+
+  it("formats supported files while ignoring unknown changed files", () => {
+    expect(
+      formatCommandForFiles([
+        "docs/example.md",
+        ".buildkite/scripts/release.sh",
+        ".env.example",
+        "docs/example.md",
+      ]),
+    ).toEqual({
+      program: "pnpm",
+      args: [
+        "exec",
+        "prettier",
+        "--check",
+        "--ignore-unknown",
+        "docs/example.md",
+        ".buildkite/scripts/release.sh",
+        ".env.example",
+      ],
+    });
+    expect(formatCommandForFiles([])).toBeUndefined();
   });
 
   it("parses narrow recorded gates without a shell", () => {

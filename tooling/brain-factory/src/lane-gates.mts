@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import {
   commandsForProfiles,
+  formatCommandForFiles,
   focusedGateCommand,
   type GateCommand,
   lintCommandForFiles,
@@ -88,16 +89,10 @@ const focusedCommands = proof.focusedCommands.map((command) => {
 const existingChangedFiles = proof.changedFiles.filter((file) =>
   existsSync(resolve(file)),
 );
+const formatCommand = formatCommandForFiles(existingChangedFiles);
 const lintCommand = lintCommandForFiles(existingChangedFiles);
 const gateCommands = deduplicateGateCommands([
-  ...(existingChangedFiles.length > 0
-    ? [
-        {
-          program: "pnpm",
-          args: ["exec", "prettier", "--check", ...existingChangedFiles],
-        } satisfies GateCommand,
-      ]
-    : []),
+  ...(formatCommand ? [formatCommand] : []),
   ...(lintCommand ? [lintCommand] : []),
   ...focusedCommands,
   ...commandsForProfiles(task.gateProfiles),
