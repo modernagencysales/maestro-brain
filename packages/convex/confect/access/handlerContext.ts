@@ -34,7 +34,7 @@ export const loadCurrentUser = (reader: Reader) =>
       .pipe(
         Effect.map(Option.getOrNull),
         Effect.flatMap((user) =>
-          user === null
+          user === null || user.status !== "active"
             ? Effect.fail(new Unauthorized())
             : Effect.succeed(user),
         ),
