@@ -1,10 +1,15 @@
+import { TestConfect } from "@confect/test";
+import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import {
   appendModelCallReceipt,
+  writeModelCallReceipt,
   ModelReceiptDuplicate,
   ModelReceiptTenantMismatch,
 } from "../confect/modelReceipts/repository";
+import databaseSchema from "../confect/_generated/schema";
+import { testConfectLayer } from "./support/confect";
 import modelCallReceipts, {
   ModelCallReceiptRow,
   ModelCallState,
@@ -128,6 +133,51 @@ describe("model call receipt repository", () => {
         existing,
       }),
     ).toThrow(ModelReceiptTenantMismatch);
+  });
+
+  it("persists receipts through DatabaseWriter with tenant-scoped uniqueness", async () => {
+    const DuplicateResult = Schema.Struct({ duplicate: Schema.Boolean });
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      yield* confect.run(
+        writeModelCallReceipt({
+          receipt,
+          tenant: {
+            organizationId: "org_123",
+            workspaceId: "workspaces_123",
+            lifecycleGeneration: 7,
+          },
+        }),
+        ModelCallReceiptRow,
+      );
+      return yield* confect.run(
+        Effect.gen(function* () {
+          return yield* writeModelCallReceipt({
+            receipt,
+            tenant: {
+              organizationId: "org_123",
+              workspaceId: "workspaces_123",
+              lifecycleGeneration: 7,
+            },
+          }).pipe(
+            Effect.match({
+              onFailure: (error) => ({
+                duplicate: error instanceof ModelReceiptDuplicate,
+              }),
+              onSuccess: () => ({ duplicate: false }),
+            }),
+          );
+        }),
+        DuplicateResult,
+      );
+    });
+
+    const duplicate = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+    expect(duplicate.duplicate).toBe(true);
   });
 
   it("rejects duplicate attempt writes for the same tenant", () => {

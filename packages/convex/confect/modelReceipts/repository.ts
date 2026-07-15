@@ -1,4 +1,7 @@
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import { DatabaseReader, DatabaseWriter } from "../_generated/services";
 import { ModelCallReceiptRow } from "../tables/modelCallReceipts";
 
 type ModelCallReceiptRowValue = Schema.Schema.Type<typeof ModelCallReceiptRow>;
@@ -49,3 +52,42 @@ export const appendModelCallReceipt = (input: {
 
   return receipt;
 };
+
+export const writeModelCallReceipt = (input: {
+  readonly receipt: ModelCallReceiptRowValue;
+  readonly tenant: ModelReceiptTenantFence;
+}): Effect.Effect<
+  ModelCallReceiptRowValue,
+  ModelReceiptTenantMismatch | ModelReceiptDuplicate,
+  DatabaseReader | DatabaseWriter
+> =>
+  Effect.gen(function* () {
+    const { receipt, tenant } = input;
+
+    if (
+      receipt.organizationId !== tenant.organizationId ||
+      receipt.workspaceId !== tenant.workspaceId ||
+      receipt.lifecycleGeneration !== tenant.lifecycleGeneration
+    ) {
+      return yield* Effect.fail(new ModelReceiptTenantMismatch());
+    }
+
+    const reader = yield* DatabaseReader;
+    const existing = yield* reader
+      .table("modelCallReceipts")
+      .index("by_attempt", (q) => q.eq("attemptKey", receipt.attemptKey))
+      .first()
+      .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+
+    if (
+      existing !== null &&
+      existing.organizationId === receipt.organizationId
+    ) {
+      return yield* Effect.fail(new ModelReceiptDuplicate());
+    }
+
+    const writer = yield* DatabaseWriter;
+    yield* writer.table("modelCallReceipts").insert(receipt).pipe(Effect.orDie);
+
+    return receipt;
+  });
