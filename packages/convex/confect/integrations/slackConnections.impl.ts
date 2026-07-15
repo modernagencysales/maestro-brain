@@ -250,20 +250,266 @@ export const validateOpaqueSlackConnectIds = (input: {
   !input.nangoOrganizationId.includes(input.organizationKey) &&
   input.correlationTag === correlationTagFor(input.connectSessionId);
 
-export const beginSlackConnectPlan = () =>
-  Either.left(new ProviderUnavailable());
-export const completeSlackConnectPlan = () =>
-  Either.left(new ConnectSessionInvalid());
-export const reserveSlackConnectAttemptPlan = () =>
-  Either.right({ status: "insert" as const });
-export const slackConnectAttemptGenerationFor = () => 0;
-export const slackConnectAttemptStatusFor = () => "authorizing" as const;
-export const reconcileSlackConnectSessionExpiryPlan = () =>
-  Either.left(new ConnectSessionInvalid());
-export const finalizeSlackConnectAttemptPlan = () =>
-  Either.left(new ConnectSessionInvalid());
-export const authorizeSlackConnectCompletionPlan = () =>
-  Either.left(new ConnectSessionInvalid());
+export const beginSlackConnectPlan = (input: {
+  readonly principal: SlackPrincipal | null;
+  readonly existingConnection: SlackConnectionState | null;
+  readonly now: number;
+  readonly nonce?: string;
+}): Either.Either<PendingSlackConnect, SlackConnectionError> =>
+  Either.gen(function* () {
+    const principal = yield* requireAdmin(input.principal);
+    if (
+      input.existingConnection !== null &&
+      input.existingConnection.status !== "active"
+    ) {
+      return yield* Either.left(
+        new ConnectionAlreadyExists({
+          organizationKey: principal.organizationKey,
+        }),
+      );
+    }
+    const ids = makeSlackConnectAttemptIds({
+      organizationKey: principal.organizationKey,
+      nonce: input.nonce ?? `local-${input.now}-fallback-nonce`,
+      now: input.now,
+    });
+    return {
+      organizationKey: principal.organizationKey,
+      connectSessionToken: `connect_public_${ids.connectSessionId}`,
+      expiresAt: input.now + 300_000,
+      providerConfigKey: "slack" as const,
+      ...ids,
+    };
+  });
+
+export const completeSlackConnectPlan = (input: {
+  readonly principal: SlackPrincipal | null;
+  readonly pending: PendingSlackConnect | null;
+  readonly connectionId: string;
+  readonly connectSessionId: string;
+  readonly providerOrganizationKey: string;
+}): Either.Either<
+  {
+    readonly connectionKey: string;
+    readonly status: "verifying";
+    readonly connectionGeneration: number;
+  },
+  SlackConnectionError
+> =>
+  Either.gen(function* () {
+    const principal = yield* requireAdmin(input.principal);
+    if (
+      input.pending === null ||
+      input.pending.connectSessionId !== input.connectSessionId ||
+      isSecretShaped(input.connectionId) ||
+      input.connectionId.trim().length === 0
+    ) {
+      return yield* Either.left(new ConnectSessionInvalid());
+    }
+    if (
+      input.pending.organizationKey !== principal.organizationKey ||
+      input.providerOrganizationKey !== principal.organizationKey
+    ) {
+      return yield* Either.left(new TenantMismatch());
+    }
+    return {
+      connectionKey: connectionKeyFor(principal.organizationKey),
+      status: "verifying" as const,
+      connectionGeneration: 0,
+    };
+  });
+
+export const reserveSlackConnectAttemptPlan = (input: {
+  readonly organizationKey: string;
+  readonly connectSessionId: string;
+  readonly currentConnection: ProviderConnectionRow | null;
+  readonly now: number;
+}): Either.Either<
+  { readonly status: "insert" | "idempotent" | "reauthorize" | "takeover" },
+  ConnectionAlreadyExists
+> => {
+  const current = input.currentConnection;
+  if (current === null) return Either.right({ status: "insert" as const });
+  if (current.connectSessionId === input.connectSessionId) {
+    return Either.right({ status: "idempotent" as const });
+  }
+  if (current.status === "active") {
+    return Either.right({ status: "reauthorize" as const });
+  }
+  if (current.status === "error" || current.attemptExpiresAt <= input.now) {
+    return Either.right({ status: "takeover" as const });
+  }
+  return Either.left(
+    new ConnectionAlreadyExists({ organizationKey: input.organizationKey }),
+  );
+};
+
+export const slackConnectAttemptGenerationFor = (input: {
+  readonly currentConnection: ProviderConnectionRow | null;
+}): number => input.currentConnection?.connectionGeneration ?? 0;
+
+export const slackConnectAttemptStatusFor = (input: {
+  readonly currentConnection: ProviderConnectionRow | null;
+}): "authorizing" | "reauthorizing" => {
+  const row = input.currentConnection;
+  if (row === null) return "authorizing";
+  const hasEstablishedBinding =
+    row.connectionGeneration > 0 ||
+    row.teamId !== undefined ||
+    row.apiAppId !== undefined ||
+    row.botUserId !== undefined ||
+    (row.nangoConnectionId !== undefined && row.nangoConnectionId !== null);
+  return hasEstablishedBinding ? "reauthorizing" : "authorizing";
+};
+
+export const reconcileSlackConnectSessionExpiryPlan = (input: {
+  readonly row: ProviderConnectionRow | null;
+  readonly attemptId: string;
+  readonly expectedConnectionGeneration: number;
+  readonly providerExpiresAt: number;
+  readonly localMaxExpiresAt: number;
+  readonly now: number;
+}): Either.Either<
+  {
+    readonly rowId: GenericId<"providerConnections">;
+    readonly connectionKey: string;
+    readonly attemptExpiresAt: number;
+  },
+  ConnectSessionInvalid | ProviderUnavailable
+> => {
+  const row = input.row;
+  if (
+    row === null ||
+    row.attemptId !== input.attemptId ||
+    row.connectionGeneration !== input.expectedConnectionGeneration ||
+    (row.status !== "authorizing" && row.status !== "reauthorizing")
+  ) {
+    return Either.left(new ConnectSessionInvalid());
+  }
+  if (
+    !Number.isFinite(input.providerExpiresAt) ||
+    input.providerExpiresAt <= input.now ||
+    input.providerExpiresAt > input.localMaxExpiresAt
+  ) {
+    return Either.left(new ProviderUnavailable());
+  }
+  return Either.right({
+    rowId: row._id,
+    connectionKey: row.connectionKey,
+    attemptExpiresAt: input.providerExpiresAt,
+  });
+};
+
+export const finalizeSlackConnectAttemptPlan = (input: {
+  readonly row: ProviderConnectionRow | null;
+  readonly connectionId: string;
+  readonly expectedConnectionGeneration: number;
+  readonly now: number;
+}): Either.Either<
+  {
+    readonly connectionKey: string;
+    readonly status: "verifying";
+    readonly rowId: GenericId<"providerConnections">;
+    readonly patch: {
+      readonly status: "verifying";
+      readonly nangoConnectionId: string;
+      readonly completedAt: number;
+      readonly updatedAt: number;
+    };
+  },
+  ConnectSessionInvalid
+> => {
+  const row = input.row;
+  if (
+    row === null ||
+    row.connectionGeneration !== input.expectedConnectionGeneration ||
+    (row.status !== "verifying" && row.attemptExpiresAt <= input.now) ||
+    (row.status !== "authorizing" &&
+      row.status !== "reauthorizing" &&
+      !(
+        row.status === "verifying" &&
+        row.nangoConnectionId === input.connectionId
+      )) ||
+    (row.nangoConnectionId !== undefined &&
+      row.nangoConnectionId !== null &&
+      row.nangoConnectionId !== input.connectionId)
+  ) {
+    return Either.left(new ConnectSessionInvalid());
+  }
+  return Either.right({
+    rowId: row._id,
+    connectionKey: row.connectionKey,
+    status: "verifying" as const,
+    patch: {
+      status: "verifying" as const,
+      nangoConnectionId: input.connectionId,
+      completedAt: input.now,
+      updatedAt: input.now,
+    },
+  });
+};
+
+export const authorizeSlackConnectCompletionPlan = (input: {
+  readonly row: ProviderConnectionRow;
+  readonly connectionId: string;
+  readonly currentOrganizationKey: string | null;
+  readonly now: number;
+}): Either.Either<
+  {
+    readonly organizationKey: string;
+    readonly connectionGeneration: number;
+    readonly nangoOrganizationId: string;
+    readonly nangoEndUserId: string;
+    readonly providerConfigKey: "slack";
+    readonly correlationTag: string;
+    readonly alreadyCompleted: boolean;
+    readonly connectionKey: string;
+    readonly status: "verifying";
+  },
+  Forbidden | TenantMismatch | ConnectSessionInvalid
+> => {
+  const row = input.row;
+  if (input.currentOrganizationKey === null) {
+    return Either.left(
+      new Forbidden({
+        reason: "Slack connections require organization admin.",
+      }),
+    );
+  }
+  if (input.currentOrganizationKey !== row.organizationKey) {
+    return Either.left(new TenantMismatch());
+  }
+  if (row.status === "verifying") {
+    if (row.nangoConnectionId !== input.connectionId) {
+      return Either.left(new ConnectSessionInvalid());
+    }
+    return Either.right({
+      organizationKey: row.organizationKey,
+      connectionGeneration: row.connectionGeneration,
+      nangoOrganizationId: row.nangoOrganizationId,
+      nangoEndUserId: row.nangoEndUserId,
+      providerConfigKey: row.providerConfigKey,
+      correlationTag: row.correlationTag,
+      alreadyCompleted: true,
+      connectionKey: row.connectionKey,
+      status: "verifying" as const,
+    });
+  }
+  if (row.attemptExpiresAt <= input.now) {
+    return Either.left(new ConnectSessionInvalid());
+  }
+  return Either.right({
+    organizationKey: row.organizationKey,
+    connectionGeneration: row.connectionGeneration,
+    nangoOrganizationId: row.nangoOrganizationId,
+    nangoEndUserId: row.nangoEndUserId,
+    providerConfigKey: row.providerConfigKey,
+    correlationTag: row.correlationTag,
+    alreadyCompleted: false,
+    connectionKey: row.connectionKey,
+    status: "verifying" as const,
+  });
+};
 
 const beginSlackConnect = FunctionImpl.make(
   databaseSchema,
