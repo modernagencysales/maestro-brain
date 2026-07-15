@@ -297,3 +297,300 @@ const safeMutation = <M extends Ref.AnyMutation>(
         : cursorError(migrationName, "component invocation failed"),
     ),
   );
+const settleFailedBatch = (
+  runner: MutationBridge,
+  args: Args,
+  lease: Lease,
+  mode: "execute" | "dryRun",
+) =>
+  safeMutation(
+    runner,
+    refs.internal.internal.migrations.settleBatch,
+    makeSettlementInput({
+      args,
+      lease,
+      mode,
+      nextCursor: lease.cursor,
+      complete: true,
+      processed: 0,
+      failed: 1,
+    }),
+    args.migrationName,
+  ).pipe(
+    Effect.flatMap(({ batchSequence }) =>
+      failBatch(args.migrationName, batchSequence),
+    ),
+  );
+const decodeDryRunRollback = <A, E>(exit: Exit.Exit<A, E>) =>
+  exit._tag === "Failure"
+    ? (Array.from(Cause.defects(exit.cause))
+        .map(componentResultFromDryRun)
+        .find(Boolean) ?? null)
+    : null;
+const probeExpandImpl = FunctionImpl.make(
+  databaseSchema,
+  migrations,
+  "probeExpand",
+  probeExpand,
+);
+const probeFailImpl = FunctionImpl.make(
+  databaseSchema,
+  migrations,
+  "probeFail",
+  probeFail,
+);
+const maybeCrashAfterComponent = FunctionImpl.make(
+  databaseSchema,
+  migrations,
+  "maybeCrashAfterComponent",
+  (input) =>
+    Effect.gen(function* () {
+      const args = yield* parseArgs(input);
+      const run = (yield* loadRun(args)) as Run | null;
+      if (!run || run.fenceGeneration !== input.fenceGeneration)
+        return { crashed: false };
+      const targets = yield* (yield* DatabaseReader)
+        .table("migrationRuns")
+        .index("by_status")
+        .collect()
+        .pipe(Effect.orDie);
+      const probe = targets.find(
+        (row) =>
+          row.migrationName === "probe-target" &&
+          row.actor === "write-count:1" &&
+          row.schemaAfter === args.schemaAfter,
+      );
+      if (!probe) return { crashed: false };
+      yield* (yield* DatabaseWriter)
+        .table("migrationRuns")
+        .patch(probe._id, {
+          actor: "write-count:1;post-crash",
+        })
+        .pipe(Effect.orDie);
+      yield* patchRun(run, { leaseExpiresAt: 0 });
+      return { crashed: true };
+    }),
+);
+const settleBatch = FunctionImpl.make(
+  databaseSchema,
+  migrations,
+  "settleBatch",
+  (input) =>
+    Effect.gen(function* () {
+      const args = yield* parseArgs(input);
+      const now = yield* Clock.currentTimeMillis;
+      const run = (yield* loadRun(args)) as Run | null;
+      if (!run)
+        return yield* Effect.fail(
+          cursorError(args.migrationName, "run not found"),
+        );
+      if (run.cursor !== input.priorCursor)
+        return yield* Effect.fail(
+          cursorError(args.migrationName, "prior cursor mismatch"),
+        );
+      if (
+        run.leaseOwner !== input.expectedLeaseOwner ||
+        run.fenceGeneration !== input.expectedFenceGeneration
+      )
+        return yield* Effect.fail(
+          runningError(args.migrationName, run.leaseOwner ?? "released"),
+        );
+      if (
+        (run.leaseExpiresAt ?? 0) !== input.expectedLeaseExpiresAt ||
+        input.expectedLeaseExpiresAt <= now
+      )
+        return yield* Effect.fail(runningError(args.migrationName, "expired"));
+      const status =
+        input.failed > 0 ? "failed" : input.complete ? "complete" : "running";
+      const sequence = run.lastCommittedBatchSequence + 1;
+      yield* patchRun(run, {
+        status,
+        cursor: input.nextCursor,
+        leaseOwner: null,
+        leaseStartedAt: null,
+        leaseExpiresAt: null,
+        lastCommittedBatchSequence: sequence,
+        updatedAt: now,
+      });
+      const parentKey =
+        status === "failed"
+          ? failureCheckpointKey(run.runKey, run.fenceGeneration)
+          : releaseParentKey(run.runKey);
+      const child = makeBatchReceipt({
+        runKey: run.runKey,
+        migrationName: args.migrationName,
+        mode: input.mode,
+        priorCursor: input.priorCursor,
+        nextCursor: input.nextCursor,
+        batchSequence: sequence,
+        fenceGeneration: run.fenceGeneration,
+        actor: args.actor,
+        deploymentId: args.deploymentId,
+        buildId: args.buildId,
+        counts: input,
+        complete: status !== "running",
+        startedAt: input.batchStartedAt,
+        finishedAt: now,
+      });
+      const childHash = yield* insertReceiptOnce({
+        receiptKey: child.receiptKey,
+        runKey: child.runKey,
+        parentReceiptKey: parentKey,
+        kind: "child",
+        migrationName: child.migrationName,
+        mode: child.mode,
+        batchSequence: child.batchSequence,
+        fenceGeneration: child.fenceGeneration,
+        receiptHash: childReceiptHash(child),
+        payloadJson: JSON.stringify(batchReceiptJson(child)),
+        createdAt: now,
+      });
+      let parentHash: string | undefined;
+      if (status !== "running") {
+        const definition = yield* definitionEvidencePolicy(args);
+        const childReceipts = yield* childReceiptsFor(run.runKey);
+        const checks =
+          status === "failed"
+            ? [`failed-batch-sequence:${sequence}`, "failure-checkpoint-only"]
+            : [
+                input.complete && input.nextCursor === null
+                  ? "component-cursor-complete"
+                  : "component-cursor-incomplete",
+                `ordered-child-hashes:${childReceipts.length}`,
+                input.changed === null || input.skipped === null
+                  ? "definition-counts-unavailable"
+                  : `definition-counts:${input.changed}:${input.skipped}`,
+              ];
+        const receipt: MigrationParentReceipt = parentReceipt({
+          ...args,
+          receiptKey: parentKey,
+          runKey: run.runKey,
+          parityChecks: checks,
+          rollbackOwner: definition.rollbackOwner,
+          observationEndsAt: now + definition.observationWindowMs,
+          fenceGeneration: run.fenceGeneration,
+          cursor: input.nextCursor,
+          batchSequence: sequence,
+          childReceipts,
+          complete: status === "complete",
+        });
+        parentHash = yield* insertReceiptOnce({
+          receiptKey: receipt.receiptKey,
+          runKey: receipt.runKey,
+          parentReceiptKey: null,
+          kind: status === "failed" ? "failure_checkpoint" : "release_parent",
+          migrationName: receipt.migrationName,
+          mode: input.mode,
+          batchSequence: 0,
+          fenceGeneration: receipt.fenceGeneration,
+          receiptHash: parentReceiptHash(receipt),
+          payloadJson: JSON.stringify(receipt),
+          createdAt: now,
+        });
+      }
+      return {
+        runKey: run.runKey,
+        migrationName: args.migrationName,
+        status,
+        initialCursor: null,
+        nextCursor: input.nextCursor,
+        componentCursor: input.priorCursor,
+        leaseOwner: null,
+        batchSequence: sequence,
+        fenceGeneration: run.fenceGeneration,
+        scanned: input.scanned,
+        changed: input.changed,
+        skipped: input.skipped,
+        failed: input.failed,
+        countProvenance: input.countProvenance,
+        childReceiptHash: childHash,
+        ...(parentHash ? { parentReceiptHash: parentHash } : {}),
+      };
+    }),
+);
+const runRegisteredMigration = FunctionImpl.make(
+  databaseSchema,
+  migrations,
+  "runRegisteredMigration",
+  (input) =>
+    Effect.gen(function* () {
+      const args = yield* parseArgs(input);
+      const isDryRun = args.mode === "dryRun";
+      if (isDryRun) yield* assertDryRunSafeDefinition(args);
+      const runner = yield* MutationRunner;
+      const ref =
+        args.migrationName === "probe.fail"
+          ? refs.internal.internal.migrations.probeFail
+          : refs.internal.internal.migrations.probeExpand;
+      const lease = yield* safeMutation(
+        runner,
+        refs.internal.internal.migrations.acquireLease,
+        { ...args, leaseOwner: args.actor },
+        args.migrationName,
+      );
+      if (lease.status === "complete") {
+        if (lease.childReceiptHash === undefined)
+          return yield* failBatch(args.migrationName, lease.batchSequence);
+        const complete = completeActionResult(args, {
+          ...lease,
+          childReceiptHash: lease.childReceiptHash,
+        });
+        return isDryRun
+          ? { ...complete, status: "dryRunComplete" as const }
+          : complete;
+      }
+      const component = yield* safeMutation(
+        runner,
+        ref,
+        {
+          cursor: lease.cursor,
+          dryRun: isDryRun,
+          oneBatchOnly: true,
+          batchSize: args.batchSize,
+        },
+        args.migrationName,
+      ).pipe(Effect.exit);
+      const batch = isDryRun
+        ? decodeDryRunRollback(component)
+        : component._tag === "Success"
+          ? component.value
+          : null;
+      if (!batch)
+        return yield* settleFailedBatch(runner, args, lease, args.mode);
+      if (!isDryRun) {
+        const crashProbe = yield* safeMutation(
+          runner,
+          refs.internal.internal.migrations.maybeCrashAfterComponent,
+          { ...args, fenceGeneration: lease.fenceGeneration },
+          args.migrationName,
+        );
+        if (crashProbe.crashed)
+          return yield* failBatch(args.migrationName, lease.batchSequence + 1);
+      }
+      const settled = yield* safeMutation(
+        runner,
+        refs.internal.internal.migrations.settleBatch,
+        makeSettlementInput({
+          args,
+          lease,
+          mode: args.mode,
+          nextCursor: batch.isDone ? null : batch.continueCursor,
+          complete: batch.isDone,
+          processed: batch.processed,
+        }),
+        args.migrationName,
+      );
+      return isDryRun && batch.isDone
+        ? { ...settled, status: "dryRunComplete" as const }
+        : settled;
+    }),
+);
+export default GroupImpl.make(databaseSchema, migrations).pipe(
+  Layer.provide(probeExpandImpl),
+  Layer.provide(probeFailImpl),
+  Layer.provide(runRegisteredMigration),
+  Layer.provide(acquireLease),
+  Layer.provide(maybeCrashAfterComponent),
+  Layer.provide(settleBatch),
+  GroupImpl.finalize,
+);
