@@ -14,7 +14,7 @@ import { TemplateToastProvider } from "@maestro-template/ui";
 import { createAuthKitProviderWithConvexProviderWithAuth } from "../auth/authkit-client";
 import type { SafeClientRuntime } from "../auth/authkit-server";
 import { workosAuthKitClientBridge } from "../auth/workos-client-runtime";
-import { loadSafeClientRuntime } from "../auth/safe-client-runtime.server";
+import { loadSafeClientRuntime } from "../auth/safe-client-runtime";
 import { MaestroSaasUiProvider } from "../saas-ui/provider";
 import {
   createBrowserWorkspaceStorage,
