@@ -35,6 +35,7 @@ const slackConnectError = () =>
 
 export const PrepareSlackConnectAttemptArgs = Schema.Struct({
   now: Schema.Number,
+  nonce: Schema.String,
 });
 
 export const ReserveSlackConnectAttemptArgs = Schema.Struct({
@@ -68,6 +69,7 @@ export const AuthorizeSlackConnectCompletionArgs = Schema.Struct({
 export const FinalizeSlackConnectAttemptArgs = Schema.Struct({
   connectSessionId: Schema.String,
   connectionId: Schema.String,
+  expectedConnectionGeneration: Schema.Number,
   now: Schema.Number,
 });
 
@@ -96,7 +98,12 @@ const completeSlackConnect = FunctionSpec.publicAction({
       connectionId: Schema.String,
       connectSessionId: Schema.String,
     }),
-  returns: connectResult,
+  returns: () =>
+    Schema.Struct({
+      connectionKey: Schema.String,
+      status: Schema.Literal("verifying", "error"),
+      connectionGeneration: Schema.Number,
+    }),
   error: slackConnectError,
 });
 
@@ -134,7 +141,11 @@ const claimSlackConnectAttempt = FunctionSpec.internalMutation({
 const authorizeSlackConnectCompletion = FunctionSpec.internalMutation({
   name: "authorizeSlackConnectCompletion",
   args: () => AuthorizeSlackConnectCompletionArgs,
-  returns: () => Schema.Struct({ organizationKey: Schema.String }),
+  returns: () =>
+    Schema.Struct({
+      organizationKey: Schema.String,
+      connectionGeneration: Schema.Number,
+    }),
   error: slackConnectError,
 });
 

@@ -43,14 +43,15 @@ describe("Nango provider client boundary", () => {
     const client = createFakeNangoClient({ now: 1_782_924_800_000 });
     const session = await client.createConnectSession({
       organizationKey: "org_acme",
-      endUserId: "org_acme",
+      endUserId: "nango-user-opaque",
       providerConfigKey: "slack",
-      correlationTag: "slack-connect:org_acme:1782924800000",
+      correlationTag: "slack-connect:opaque-session",
     });
 
-    expect(session.connectSessionId).toBe(
-      "maestro-session-org_acme-1782924800000",
+    expect(session.connectSessionId).toMatch(
+      /^maestro-session-[A-Fa-f0-9]{32}$/,
     );
+    expect(session.connectSessionId).not.toContain("org_acme");
     expect(session.connectSessionToken).not.toBe(session.connectSessionId);
     expect(session.expiresAt).toBe(1_782_925_100_000);
     expect(JSON.stringify(session)).not.toContain("secret");
@@ -90,13 +91,13 @@ describe("Nango provider client boundary", () => {
             provider_config_key: providerConfigKey,
             connection_id: connectionId,
             end_user: {
-              id: "org_acme",
+              id: "nango-user-opaque",
               display_name: null,
               email: null,
-              tags: { correlationTag: "slack-connect:org_acme:1782924800000" },
+              tags: { correlationTag: "slack-connect:opaque-session" },
               organization: { id: "org_acme", display_name: null },
             },
-            tags: { correlationTag: "slack-connect:org_acme:1782924800000" },
+            tags: { correlationTag: "slack-connect:opaque-session" },
           };
         },
       },
@@ -105,9 +106,9 @@ describe("Nango provider client boundary", () => {
     await expect(
       client.createConnectSession({
         organizationKey: "org_acme",
-        endUserId: "org_acme",
+        endUserId: "nango-user-opaque",
         providerConfigKey: "slack",
-        correlationTag: "slack-connect:org_acme:1782924800000",
+        correlationTag: "slack-connect:opaque-session",
         connectSessionId: "maestro-session-live",
       }),
     ).resolves.toEqual({
@@ -122,18 +123,18 @@ describe("Nango provider client boundary", () => {
       }),
     ).resolves.toEqual({
       organizationKey: "org_acme",
-      endUserId: "org_acme",
+      endUserId: "nango-user-opaque",
       providerConfigKey: "slack",
-      correlationTag: "slack-connect:org_acme:1782924800000",
+      correlationTag: "slack-connect:opaque-session",
     });
     expect(calls).toEqual([
       [
         "create",
         {
           allowed_integrations: ["slack"],
-          end_user: { id: "org_acme" },
+          end_user: { id: "nango-user-opaque" },
           organization: { id: "org_acme" },
-          tags: { correlationTag: "slack-connect:org_acme:1782924800000" },
+          tags: { correlationTag: "slack-connect:opaque-session" },
         },
       ],
       ["get", "slack", "opaque-provider-connection"],
@@ -170,10 +171,10 @@ describe("Nango provider client boundary", () => {
                 getConnection: async () => ({
                   provider_config_key: "slack",
                   end_user: {
-                    id: "org_acme",
+                    id: "nango-user-opaque",
                     organization: { id: "org_acme" },
                     tags: {
-                      correlationTag: "slack-connect:org_acme:1782924800000",
+                      correlationTag: "slack-connect:opaque-session",
                     },
                   },
                   tags: {},

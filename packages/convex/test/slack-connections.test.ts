@@ -9,6 +9,12 @@ import slackConnections, {
 import {
   beginSlackConnectPlan,
   completeSlackConnectPlan,
+  finalizeSlackConnectAttemptPlan,
+  makeSlackConnectAttemptIds,
+  reserveSlackConnectAttemptPlan,
+  selectCurrentSlackOrganization,
+  validateOpaqueSlackConnectIds,
+  type ProviderConnectionRow as ProviderConnectionRowValue,
   type SlackConnectionState,
 } from "../confect/integrations/slackConnections.impl";
 import providerConnections, {
@@ -86,6 +92,143 @@ describe("Slack connection capability contract", () => {
     expect(JSON.stringify(row)).not.toContain("xox");
   });
 
+  it("selects the current WorkOS organization instead of the first membership", () => {
+    const result = selectCurrentSlackOrganization({
+      memberships: [
+        { organizationId: "organizations_1", role: "owner", status: "active" },
+        { organizationId: "organizations_2", role: "admin", status: "active" },
+      ],
+      organizationsById: new Map([
+        [
+          "organizations_1",
+          {
+            _id: "organizations_1",
+            agencyKey: "agency_wrong",
+            status: "active",
+            workosOrganizationId: "org_wrong",
+          },
+        ],
+        [
+          "organizations_2",
+          {
+            _id: "organizations_2",
+            agencyKey: "agency_current",
+            status: "active",
+            workosOrganizationId: "org_current",
+          },
+        ],
+      ]),
+      currentWorkosOrganizationId: "org_current",
+    });
+
+    expect(Either.getOrThrow(result)).toMatchObject({
+      agencyKey: "agency_current",
+    });
+  });
+
+  it("uses opaque nondeterministic Maestro session ids and opaque Nango tenant ids", () => {
+    const ids = makeSlackConnectAttemptIds({
+      organizationKey: "agency_acme",
+      nonce: "aB0_-cdefghijklmnopqrstu",
+      now: 1_782_924_800_000,
+    });
+
+    expect(
+      validateOpaqueSlackConnectIds({ ...ids, organizationKey: "agency_acme" }),
+    ).toBe(true);
+    expect(ids.connectSessionId).toMatch(/^maestro-session-/);
+    expect(ids.connectSessionId).not.toContain("agency_acme");
+    expect(ids.nangoEndUserId).not.toContain("agency_acme");
+    expect(ids.nangoOrganizationId).not.toContain("agency_acme");
+  });
+
+  it("reserves only one current attempt while allowing active reauthorization", () => {
+    const activeRow: ProviderConnectionRowValue = {
+      _id: "providerConnections_active" as never,
+      provider: "nango",
+      providerConfigKey: "slack",
+      organizationKey: "agency_acme",
+      connectionKey: "slack_agency_acme",
+      connectionGeneration: 3,
+      status: "active",
+      connectSessionId: "maestro-session-oldopaque0000000000",
+      nangoEndUserId: "nango-user-old",
+      nangoOrganizationId: "nango-org-old",
+      correlationTag: "slack-connect:maestro-session-oldopaque0000000000",
+      attemptId: "attempt_old",
+      attemptExpiresAt: 2,
+    };
+    const authorizingRow: ProviderConnectionRowValue = {
+      ...activeRow,
+      status: "authorizing",
+      connectSessionId: "maestro-session-currentopaque000000",
+    };
+
+    expect(
+      Either.getOrThrow(
+        reserveSlackConnectAttemptPlan({
+          organizationKey: "agency_acme",
+          connectSessionId: "maestro-session-newopaque0000000000",
+          currentConnection: activeRow,
+        }),
+      ),
+    ).toEqual({ status: "reauthorize" });
+    const concurrent = reserveSlackConnectAttemptPlan({
+      organizationKey: "agency_acme",
+      connectSessionId: "maestro-session-otheropaque0000000",
+      currentConnection: authorizingRow,
+    });
+    expect(Either.isLeft(concurrent)).toBe(true);
+    if (Either.isLeft(concurrent)) {
+      expect(concurrent.left).toMatchObject({
+        _tag: "ConnectionAlreadyExists",
+      });
+    }
+  });
+
+  it("finalizes by patching only the current attempt generation", () => {
+    const row: ProviderConnectionRowValue = {
+      _id: "providerConnections_finalize" as never,
+      provider: "nango",
+      providerConfigKey: "slack",
+      organizationKey: "agency_acme",
+      connectionKey: "slack_agency_acme",
+      connectionGeneration: 2,
+      status: "reauthorizing",
+      connectSessionId: "maestro-session-currentopaque000000",
+      nangoEndUserId: "nango-user-opaque",
+      nangoOrganizationId: "nango-org-opaque",
+      correlationTag: "slack-connect:maestro-session-currentopaque000000",
+      attemptId: "attempt_current",
+      attemptExpiresAt: 3,
+    };
+
+    const stale = finalizeSlackConnectAttemptPlan({
+      row,
+      connectionId: "provider-conn-current",
+      expectedConnectionGeneration: 1,
+      now: 2,
+    });
+    expect(Either.isLeft(stale)).toBe(true);
+    expect(
+      Either.getOrThrow(
+        finalizeSlackConnectAttemptPlan({
+          row,
+          connectionId: "provider-conn-current",
+          expectedConnectionGeneration: 2,
+          now: 2,
+        }),
+      ),
+    ).toMatchObject({
+      connectionKey: "slack_agency_acme",
+      status: "verifying",
+      patch: {
+        status: "verifying",
+        nangoConnectionId: "provider-conn-current",
+      },
+    });
+  });
+
   it("denies signed-out and non-admin users before creating provider sessions", () => {
     const signedOut = beginSlackConnectPlan({
       principal: null,
@@ -108,7 +251,7 @@ describe("Slack connection capability contract", () => {
     }
   });
 
-  it("rejects a second active connection and raw token shaped callback values", () => {
+  it("allows active reauthorization but rejects raw token shaped callback values", () => {
     const existingConnection: SlackConnectionState = {
       organizationKey: "org_acme",
       connectionKey: "slack_org_acme",
@@ -117,7 +260,7 @@ describe("Slack connection capability contract", () => {
       nangoConnectionId: "opaque-nango-connection",
     };
 
-    const duplicate = beginSlackConnectPlan({
+    const reauthorization = beginSlackConnectPlan({
       principal: { organizationKey: "org_acme", role: "admin" },
       existingConnection,
       now: 1,
@@ -130,10 +273,7 @@ describe("Slack connection capability contract", () => {
       providerOrganizationKey: "org_acme",
     });
 
-    expect(Either.isLeft(duplicate)).toBe(true);
-    if (Either.isLeft(duplicate)) {
-      expect(duplicate.left).toMatchObject({ _tag: "ConnectionAlreadyExists" });
-    }
+    expect(Either.isRight(reauthorization)).toBe(true);
     expect(Either.isLeft(rawToken)).toBe(true);
     if (Either.isLeft(rawToken)) {
       expect(rawToken.left).toMatchObject({ _tag: "ConnectSessionInvalid" });

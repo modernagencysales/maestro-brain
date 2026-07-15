@@ -133,28 +133,31 @@ export const redactNangoDiagnostic = <T extends Record<string, unknown>>(
 export const createFakeNangoClient = (input: {
   readonly now: number;
 }): NangoClient => ({
-  createConnectSession: async ({ organizationKey, connectSessionId }) => {
+  createConnectSession: async ({
+    organizationKey,
+    endUserId,
+    connectSessionId,
+  }) => {
     if (organizationKey === "timeout") throw new ProviderUnavailable();
+    const sessionId =
+      connectSessionId ?? `maestro-session-${randomUUID().replace(/-/g, "")}`;
     return {
-      connectSessionId:
-        connectSessionId ?? `maestro-session-${organizationKey}-${input.now}`,
-      connectSessionToken: `connect_public_${organizationKey}_${input.now}`,
+      connectSessionId: sessionId,
+      connectSessionToken: `connect_public_${sessionId}`,
       expiresAt: input.now + 300_000,
     };
   },
   verifyConnectSession: async ({ connectSessionId, connectionId }) => {
     if (isSecretShapedNangoValue(connectionId))
       throw new ConnectSessionInvalid();
-    const [, organizationKey = "", timestamp = ""] =
-      connectSessionId.match(/^maestro-session-(.+)-(\d+)$/) ?? [];
-    if (organizationKey.length === 0 || timestamp.length === 0) {
+    if (!connectSessionId.startsWith("maestro-session-")) {
       throw new ConnectSessionInvalid();
     }
     return {
-      organizationKey,
-      endUserId: organizationKey,
+      organizationKey: `nango-org-${connectSessionId.slice(-7)}`,
+      endUserId: `nango-user-${connectSessionId.slice(-7)}`,
       providerConfigKey: "slack",
-      correlationTag: `slack-connect:${organizationKey}:${timestamp}`,
+      correlationTag: `slack-connect:${connectSessionId}`,
     };
   },
 });

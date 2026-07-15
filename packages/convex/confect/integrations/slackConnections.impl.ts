@@ -71,7 +71,7 @@ type SlackConnectionError =
   | ProviderUnavailable
   | TenantMismatch;
 
-type ProviderConnectionRow = {
+export type ProviderConnectionRow = {
   readonly _id: GenericId<"providerConnections">;
   readonly provider: "nango";
   readonly providerConfigKey: "slack";
@@ -141,40 +141,124 @@ const isSecretShaped = (value: string): boolean =>
   /^(sk_|xox[a-z]-|nango_secret)/i.test(value);
 const connectionKeyFor = (organizationKey: string) =>
   `slack_${organizationKey}`;
-const attemptIdFor = (organizationKey: string, now: number) =>
-  `attempt_${organizationKey}_${now}`;
-const connectSessionIdFor = (organizationKey: string, now: number) =>
-  `maestro-session-${organizationKey}-${now}`;
-const correlationTagFor = (organizationKey: string, now: number) =>
-  `slack-connect:${organizationKey}:${now}`;
+
+const sessionIdPattern = /^maestro-session-[A-Za-z0-9_-]{22,}$/;
+
+const opaqueNangoOrganizationIdFor = (nonce: string) =>
+  `nango-org-${nonce.slice(-7)}`;
+const opaqueNangoEndUserIdFor = (nonce: string) =>
+  `nango-user-${nonce.slice(-7)}`;
+const attemptIdFor = (connectSessionId: string) =>
+  `attempt_${connectSessionId.replace(/^maestro-session-/, "")}`;
+const connectSessionIdFor = (nonce: string) => `maestro-session-${nonce}`;
+const correlationTagFor = (connectSessionId: string) =>
+  `slack-connect:${connectSessionId}`;
+
+export type SlackOrganizationMembership = {
+  readonly organizationId: string;
+  readonly role: Role;
+  readonly status: string;
+};
+
+export type SlackOrganizationRecord = {
+  readonly _id: unknown;
+  readonly agencyKey?: string | undefined;
+  readonly status: string;
+  readonly workosOrganizationId?: string | undefined;
+};
+
+export const selectCurrentSlackOrganization = (input: {
+  readonly memberships: readonly SlackOrganizationMembership[];
+  readonly organizationsById: ReadonlyMap<string, SlackOrganizationRecord>;
+  readonly currentWorkosOrganizationId?: string | undefined;
+}): Either.Either<SlackOrganizationRecord, Forbidden> => {
+  const candidates = input.memberships
+    .filter(
+      (membership) =>
+        membership.status === "active" && roleAtLeast(membership.role, "admin"),
+    )
+    .map((membership) => input.organizationsById.get(membership.organizationId))
+    .filter(
+      (organization): organization is SlackOrganizationRecord =>
+        organization !== undefined &&
+        organization.status === "active" &&
+        organization.agencyKey !== undefined,
+    );
+  const current =
+    input.currentWorkosOrganizationId === undefined
+      ? candidates[0]
+      : candidates.find(
+          (organization) =>
+            organization.workosOrganizationId ===
+            input.currentWorkosOrganizationId,
+        );
+  if (current === undefined) {
+    return Either.left(
+      new Forbidden({
+        reason: "Slack connections require organization admin.",
+      }),
+    );
+  }
+  return Either.right(current);
+};
+
+export const makeSlackConnectAttemptIds = (input: {
+  readonly organizationKey: string;
+  readonly nonce: string;
+  readonly now: number;
+}) => {
+  const connectSessionId = connectSessionIdFor(input.nonce);
+  return {
+    connectSessionId,
+    nangoEndUserId: opaqueNangoEndUserIdFor(input.nonce),
+    nangoOrganizationId: opaqueNangoOrganizationIdFor(input.nonce),
+    correlationTag: correlationTagFor(connectSessionId),
+    attemptId: attemptIdFor(connectSessionId),
+  };
+};
+
+export const validateOpaqueSlackConnectIds = (input: {
+  readonly connectSessionId: string;
+  readonly nangoEndUserId: string;
+  readonly nangoOrganizationId: string;
+  readonly correlationTag: string;
+  readonly organizationKey: string;
+}): boolean =>
+  sessionIdPattern.test(input.connectSessionId) &&
+  !input.connectSessionId.includes(input.organizationKey) &&
+  !input.nangoEndUserId.includes(input.organizationKey) &&
+  !input.nangoOrganizationId.includes(input.organizationKey) &&
+  input.correlationTag === correlationTagFor(input.connectSessionId);
 
 export const beginSlackConnectPlan = (input: {
   readonly principal: SlackPrincipal | null;
   readonly existingConnection: SlackConnectionState | null;
   readonly now: number;
+  readonly nonce?: string;
 }): Either.Either<PendingSlackConnect, SlackConnectionError> =>
   Either.gen(function* () {
     const principal = yield* requireAdmin(input.principal);
-    if (input.existingConnection?.status === "active") {
+    if (
+      input.existingConnection !== null &&
+      input.existingConnection.status !== "active"
+    ) {
       return yield* Either.left(
         new ConnectionAlreadyExists({
           organizationKey: principal.organizationKey,
         }),
       );
     }
+    const ids = makeSlackConnectAttemptIds({
+      organizationKey: principal.organizationKey,
+      nonce: input.nonce ?? `local-${input.now}-fallback-nonce`,
+      now: input.now,
+    });
     return {
       organizationKey: principal.organizationKey,
-      connectSessionId: connectSessionIdFor(
-        principal.organizationKey,
-        input.now,
-      ),
-      connectSessionToken: `connect_public_${principal.organizationKey}_${input.now}`,
+      connectSessionToken: `connect_public_${ids.connectSessionId}`,
       expiresAt: input.now + 300_000,
       providerConfigKey: "slack" as const,
-      nangoEndUserId: principal.organizationKey,
-      nangoOrganizationId: principal.organizationKey,
-      correlationTag: correlationTagFor(principal.organizationKey, input.now),
-      attemptId: attemptIdFor(principal.organizationKey, input.now),
+      ...ids,
     };
   });
 
@@ -215,6 +299,70 @@ export const completeSlackConnectPlan = (input: {
     };
   });
 
+export const reserveSlackConnectAttemptPlan = (input: {
+  readonly organizationKey: string;
+  readonly connectSessionId: string;
+  readonly currentConnection: ProviderConnectionRow | null;
+}): Either.Either<
+  { readonly status: "insert" | "idempotent" | "reauthorize" },
+  ConnectionAlreadyExists
+> => {
+  const current = input.currentConnection;
+  if (current === null) return Either.right({ status: "insert" as const });
+  if (current.connectSessionId === input.connectSessionId) {
+    return Either.right({ status: "idempotent" as const });
+  }
+  if (current.status === "active") {
+    return Either.right({ status: "reauthorize" as const });
+  }
+  return Either.left(
+    new ConnectionAlreadyExists({ organizationKey: input.organizationKey }),
+  );
+};
+
+export const finalizeSlackConnectAttemptPlan = (input: {
+  readonly row: ProviderConnectionRow | null;
+  readonly connectionId: string;
+  readonly expectedConnectionGeneration: number;
+  readonly now: number;
+}): Either.Either<
+  {
+    readonly connectionKey: string;
+    readonly status: "verifying";
+    readonly rowId: GenericId<"providerConnections">;
+    readonly patch: {
+      readonly status: "verifying";
+      readonly nangoConnectionId: string;
+      readonly completedAt: number;
+      readonly updatedAt: number;
+    };
+  },
+  ConnectSessionInvalid
+> => {
+  const row = input.row;
+  if (
+    row === null ||
+    row.connectionGeneration !== input.expectedConnectionGeneration ||
+    (row.status !== "authorizing" && row.status !== "reauthorizing") ||
+    (row.nangoConnectionId !== undefined &&
+      row.nangoConnectionId !== null &&
+      row.nangoConnectionId !== input.connectionId)
+  ) {
+    return Either.left(new ConnectSessionInvalid());
+  }
+  return Either.right({
+    rowId: row._id,
+    connectionKey: row.connectionKey,
+    status: "verifying" as const,
+    patch: {
+      status: "verifying" as const,
+      nangoConnectionId: input.connectionId,
+      completedAt: input.now,
+      updatedAt: input.now,
+    },
+  });
+};
+
 const internalMutationRef = (name: keyof typeof slackConnections.functions) => {
   const mutation = slackConnections.functions[
     name
@@ -246,20 +394,22 @@ const generatedRefs = {
   },
 };
 
-const activeConnectionFor = (organizationKey: string) =>
+const currentConnectionFor = (organizationKey: string) =>
   Effect.gen(function* () {
     const rows = yield* providerReader(yield* DatabaseReader)
       .table("providerConnections")
-      .index("by_organization_provider_status", (q) =>
-        q
-          .eq("organizationKey", organizationKey)
-          .eq("provider", "nango")
-          .eq("providerConfigKey", "slack")
-          .eq("status", "active"),
-      )
-      .take(2)
+      .index("by_organization", (q) => q.eq("organizationKey", organizationKey))
+      .take(20)
       .pipe(Effect.orDie);
-    return (rows[0] ?? null) as ProviderConnectionRow | null;
+    return (
+      (rows as readonly ProviderConnectionRow[]).find(
+        (row) =>
+          row.provider === "nango" &&
+          row.providerConfigKey === "slack" &&
+          row.status !== "revoked" &&
+          row.status !== "error",
+      ) ?? null
+    );
   });
 
 const prepareSlackConnectAttempt = FunctionImpl.make(
@@ -287,55 +437,50 @@ const prepareSlackConnectAttempt = FunctionImpl.make(
           new Forbidden({ reason: "Provisioned user required." }),
         );
       }
-      const membership = yield* (yield* DatabaseReader)
+      const memberships = yield* (yield* DatabaseReader)
         .table("organizationMembers")
         .index("by_user", (q) => q.eq("userId", user._id))
-        .first()
-        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
-      if (
-        membership === null ||
-        membership.status !== "active" ||
-        !roleAtLeast(membership.role, "admin")
-      ) {
-        return yield* Effect.fail(
-          new Forbidden({
-            reason: "Slack connections require organization admin.",
-          }),
-        );
-      }
-      const organization = yield* (yield* DatabaseReader)
-        .table("organizations")
-        .get(asGenericId<"organizations">(membership.organizationId))
+        .take(10)
         .pipe(Effect.orDie);
-      if (
-        organization === null ||
-        organization.status !== "active" ||
-        organization.agencyKey === undefined
-      ) {
+      const organizations = new Map<string, SlackOrganizationRecord>();
+      for (const membership of memberships) {
+        const organization = yield* (yield* DatabaseReader)
+          .table("organizations")
+          .get(asGenericId<"organizations">(membership.organizationId))
+          .pipe(Effect.orDie);
+        if (organization !== null) {
+          organizations.set(membership.organizationId, organization);
+        }
+      }
+      const organization = yield* selectCurrentSlackOrganization({
+        memberships,
+        organizationsById: organizations,
+        ...(typeof identity.workosOrganizationId === "string"
+          ? { currentWorkosOrganizationId: identity.workosOrganizationId }
+          : {}),
+      });
+      const organizationKey = organization.agencyKey;
+      if (organizationKey === undefined) {
         return yield* Effect.fail(
           new Forbidden({ reason: "Active organization required." }),
         );
       }
-      const active = yield* activeConnectionFor(organization.agencyKey);
-      if (active !== null) {
+      const current = yield* currentConnectionFor(organizationKey);
+      if (current !== null && current.status !== "active") {
         return yield* Effect.fail(
-          new ConnectionAlreadyExists({
-            organizationKey: organization.agencyKey,
-          }),
+          new ConnectionAlreadyExists({ organizationKey }),
         );
       }
+      const ids = makeSlackConnectAttemptIds({
+        organizationKey,
+        nonce: input.nonce,
+        now: input.now,
+      });
       return {
-        organizationKey: organization.agencyKey,
-        connectionKey: connectionKeyFor(organization.agencyKey),
-        nangoEndUserId: organization.agencyKey,
-        nangoOrganizationId: organization.agencyKey,
+        organizationKey,
+        connectionKey: connectionKeyFor(organizationKey),
         providerConfigKey: "slack" as const,
-        correlationTag: correlationTagFor(organization.agencyKey, input.now),
-        attemptId: attemptIdFor(organization.agencyKey, input.now),
-        connectSessionId: connectSessionIdFor(
-          organization.agencyKey,
-          input.now,
-        ),
+        ...ids,
       };
     }),
 );
@@ -346,14 +491,14 @@ const reserveSlackConnectAttempt = FunctionImpl.make(
   "reserveSlackConnectAttempt",
   (input) =>
     Effect.gen(function* () {
-      const active = yield* activeConnectionFor(input.organizationKey);
-      if (active !== null) {
-        return yield* Effect.fail(
-          new ConnectionAlreadyExists({
-            organizationKey: input.organizationKey,
-          }),
-        );
-      }
+      const current = yield* currentConnectionFor(input.organizationKey);
+      const reservation = reserveSlackConnectAttemptPlan({
+        organizationKey: input.organizationKey,
+        connectSessionId: input.connectSessionId,
+        currentConnection: current,
+      });
+      if (Either.isLeft(reservation))
+        return yield* Effect.fail(reservation.left);
       const bySession = yield* providerReader(yield* DatabaseReader)
         .table("providerConnections")
         .index("by_connect_session", (q) =>
@@ -365,6 +510,24 @@ const reserveSlackConnectAttempt = FunctionImpl.make(
         return {
           connectionKey: (bySession as ProviderConnectionRow).connectionKey,
         };
+      }
+      if (current?.status === "active") {
+        yield* providerWriter(yield* DatabaseWriter)
+          .table("providerConnections")
+          .patch(current._id, {
+            status: "reauthorizing",
+            connectSessionId: input.connectSessionId,
+            nangoConnectionId: null,
+            nangoEndUserId: input.nangoEndUserId,
+            nangoOrganizationId: input.nangoOrganizationId,
+            correlationTag: input.correlationTag,
+            attemptId: input.attemptId,
+            attemptExpiresAt: input.attemptExpiresAt,
+            completedAt: null,
+            updatedAt: input.now,
+          })
+          .pipe(Effect.orDie);
+        return { connectionKey: current.connectionKey };
       }
       yield* providerWriter(yield* DatabaseWriter)
         .table("providerConnections")
@@ -412,7 +575,6 @@ const claimSlackConnectAttempt = FunctionImpl.make(
         return yield* Effect.fail(new ConnectSessionInvalid());
       }
       if (
-        row.organizationKey !== input.providerOrganizationKey ||
         row.nangoEndUserId !== input.providerEndUserId ||
         row.nangoOrganizationId !== input.providerOrganizationKey ||
         row.providerConfigKey !== input.providerConfigKey ||
@@ -430,21 +592,13 @@ const claimSlackConnectAttempt = FunctionImpl.make(
         };
       }
       if (
-        row.status !== "authorizing" ||
+        (row.status !== "authorizing" && row.status !== "reauthorizing") ||
         (row.nangoConnectionId !== undefined &&
+          row.nangoConnectionId !== null &&
           row.nangoConnectionId !== input.connectionId)
       ) {
         return yield* Effect.fail(new ConnectSessionInvalid());
       }
-      yield* providerWriter(yield* DatabaseWriter)
-        .table("providerConnections")
-        .patch(row._id, {
-          status: "verifying",
-          nangoConnectionId: input.connectionId,
-          completedAt: input.now,
-          updatedAt: input.now,
-        })
-        .pipe(Effect.orDie);
       return { connectionKey: row.connectionKey, status: "verifying" as const };
     }),
 );
@@ -492,26 +646,30 @@ const authorizeSlackConnectCompletion = FunctionImpl.make(
         .index("by_user", (q) => q.eq("userId", user._id))
         .take(10)
         .pipe(Effect.orDie);
+      const organizations = new Map<string, SlackOrganizationRecord>();
       for (const membership of memberships) {
-        if (
-          membership.status !== "active" ||
-          !roleAtLeast(membership.role, "admin")
-        ) {
-          continue;
-        }
         const organization = yield* (yield* DatabaseReader)
           .table("organizations")
           .get(asGenericId<"organizations">(membership.organizationId))
           .pipe(Effect.orDie);
-        if (organization?.agencyKey === row.organizationKey) {
-          return { organizationKey: row.organizationKey };
+        if (organization !== null) {
+          organizations.set(membership.organizationId, organization);
         }
       }
-      return yield* Effect.fail(
-        new Forbidden({
-          reason: "Slack connections require organization admin.",
-        }),
-      );
+      const current = yield* selectCurrentSlackOrganization({
+        memberships,
+        organizationsById: organizations,
+        ...(typeof identity.workosOrganizationId === "string"
+          ? { currentWorkosOrganizationId: identity.workosOrganizationId }
+          : {}),
+      });
+      if (current.agencyKey !== row.organizationKey) {
+        return yield* Effect.fail(new TenantMismatch());
+      }
+      return {
+        organizationKey: row.organizationKey,
+        connectionGeneration: row.connectionGeneration,
+      };
     }),
 );
 
@@ -531,14 +689,21 @@ const finalizeSlackConnectAttempt = FunctionImpl.make(
           Effect.map(Option.getOrNull),
           Effect.orDie,
         )) as ProviderConnectionRow | null;
-      if (
-        row === null ||
-        row.nangoConnectionId !== input.connectionId ||
-        row.status !== "verifying"
-      ) {
-        return yield* Effect.fail(new ConnectSessionInvalid());
-      }
-      return { connectionKey: row.connectionKey, status: "verifying" as const };
+      const result = finalizeSlackConnectAttemptPlan({
+        row,
+        connectionId: input.connectionId,
+        expectedConnectionGeneration: input.expectedConnectionGeneration,
+        now: input.now,
+      });
+      if (Either.isLeft(result)) return yield* Effect.fail(result.left);
+      yield* providerWriter(yield* DatabaseWriter)
+        .table("providerConnections")
+        .patch(result.right.rowId, result.right.patch)
+        .pipe(Effect.orDie);
+      return {
+        connectionKey: result.right.connectionKey,
+        status: result.right.status,
+      };
     }),
 );
 
@@ -572,7 +737,7 @@ const beginSlackConnect = FunctionImpl.make(
       const attempt = yield* runMutation(
         generatedRefs.internal.integrations.slackConnections
           .prepareSlackConnectAttempt,
-        { now },
+        { now, nonce: crypto.randomUUID().replace(/-/g, "") },
       );
       const nango = (yield* loadNangoProvider).clientFor({ now });
       const session = yield* Effect.tryPromise({
@@ -617,7 +782,7 @@ const completeSlackConnect = FunctionImpl.make(
       }
       const now = yield* Clock.currentTimeMillis;
       const runMutation = yield* MutationRunner;
-      yield* runMutation(
+      const authorization = yield* runMutation(
         generatedRefs.internal.integrations.slackConnections
           .authorizeSlackConnectCompletion,
         { connectSessionId: input.connectSessionId, now },
@@ -644,15 +809,20 @@ const completeSlackConnect = FunctionImpl.make(
           now,
         },
       );
-      return yield* runMutation(
+      const finalized = yield* runMutation(
         generatedRefs.internal.integrations.slackConnections
           .finalizeSlackConnectAttempt,
         {
           connectSessionId: input.connectSessionId,
           connectionId: input.connectionId,
+          expectedConnectionGeneration: authorization.connectionGeneration,
           now,
         },
       );
+      return {
+        ...finalized,
+        connectionGeneration: authorization.connectionGeneration,
+      };
     }),
 );
 
