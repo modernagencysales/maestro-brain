@@ -7,6 +7,7 @@ import {
   deniedPrivilegedAccessAuditEvent,
   privilegedAccessAuditActions,
 } from "../confect/access/audit";
+import { resolveEffectiveWorkspaceRole } from "../confect/access/auth";
 import {
   changeMemberRole,
   removeMember,
@@ -112,6 +113,90 @@ describe("Brain role matrix", () => {
     if (Either.isLeft(crossBrain)) {
       expect(crossBrain.left).toBeInstanceOf(MemberNotInWorkspace);
     }
+  });
+
+  it("grants organization admins the capped member-management baseline", () => {
+    const resolution = resolveEffectiveWorkspaceRole({
+      nowMs: now,
+      userId: "users_org_owner",
+      workspace: {
+        id: "workspaces_brain",
+        organizationId: "organizations_agency",
+        status: "active",
+      },
+      organization: { id: "organizations_agency", status: "active" },
+      workspaceMembers: [],
+      organizationMembers: [
+        {
+          organizationId: "organizations_agency",
+          userId: "users_org_owner",
+          role: "owner",
+          status: "active",
+          acceptedAt: now - 100,
+          revokedAt: null,
+        },
+      ],
+      guestGrants: [],
+    });
+
+    expect(resolution).toMatchObject({
+      ok: true,
+      role: "admin",
+      source: "organization",
+    });
+    expect(resolution.ok && canManageWorkspaceMembers(resolution.role)).toBe(
+      true,
+    );
+  });
+
+  it("denies revoked organization baseline and cross-Brain organization members", () => {
+    const revoked = resolveEffectiveWorkspaceRole({
+      nowMs: now,
+      userId: "users_org_admin",
+      workspace: {
+        id: "workspaces_brain",
+        organizationId: "organizations_agency",
+        status: "active",
+      },
+      organization: { id: "organizations_agency", status: "active" },
+      workspaceMembers: [],
+      organizationMembers: [
+        {
+          organizationId: "organizations_agency",
+          userId: "users_org_admin",
+          role: "admin",
+          status: "revoked",
+          acceptedAt: now - 100,
+          revokedAt: now - 1,
+        },
+      ],
+      guestGrants: [],
+    });
+    const crossBrain = resolveEffectiveWorkspaceRole({
+      nowMs: now,
+      userId: "users_org_admin",
+      workspace: {
+        id: "workspaces_brain",
+        organizationId: "organizations_agency",
+        status: "active",
+      },
+      organization: { id: "organizations_agency", status: "active" },
+      workspaceMembers: [],
+      organizationMembers: [
+        {
+          organizationId: "organizations_other",
+          userId: "users_org_admin",
+          role: "admin",
+          status: "active",
+          acceptedAt: now - 100,
+          revokedAt: null,
+        },
+      ],
+      guestGrants: [],
+    });
+
+    expect(revoked).toEqual({ ok: false, reason: "NO_WORKSPACE_ACCESS" });
+    expect(crossBrain).toEqual({ ok: false, reason: "NO_WORKSPACE_ACCESS" });
   });
 
   it("preserves last-owner protection for demotion and removal", () => {
