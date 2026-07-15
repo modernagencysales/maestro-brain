@@ -52,11 +52,14 @@ test("rejects a slice missing layer-required contract risks", () => {
 });
 
 test("rejects an oversized estimate", () => {
-  const errs = validatePlan(plan({ slices: [slice({ estLines: 301 })] }));
+  const errs = validatePlan(plan({ slices: [slice({ estLines: 1_201 })] }));
   expect(errs.some((e) => e.includes("estLines"))).toBe(true);
 });
 
 test("bounds a task estimate by its declared source slices", () => {
+  expect(validatePlan(plan({ slices: [slice({ estLines: 880 })] }))).toEqual(
+    [],
+  );
   expect(
     validatePlan(
       plan({ slices: [slice({ estLines: 1_200, sourceSliceLimit: 4 })] }),

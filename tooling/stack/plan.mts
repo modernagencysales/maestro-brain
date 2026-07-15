@@ -22,7 +22,7 @@ type Slice = {
   readonly taskRefs: readonly string[];
   readonly rationale: string; // advisory only
   readonly estLines: number; // total task estimate; each actual commit is checked at submit
-  readonly sourceSliceLimit?: number; // coherent commit count; defaults to one
+  readonly sourceSliceLimit?: number; // coherent commit count; defaults to four
 };
 
 type WorkPackageKind = "fixture-to-real" | "pattern-instance" | "template-gap";
@@ -96,7 +96,7 @@ export function validatePlan(plan: StackPlan): string[] {
   const errors: string[] = [];
 
   for (const s of plan.slices) {
-    const sourceSliceLimit = s.sourceSliceLimit ?? 1;
+    const sourceSliceLimit = s.sourceSliceLimit ?? 4;
     if (
       !Number.isInteger(sourceSliceLimit) ||
       sourceSliceLimit < 1 ||

@@ -165,7 +165,7 @@ Before every stack:
    per task, total `estLines <= 300 * sourceSliceLimit`, no more than four task
    contracts in the temporary StackPlan, all task refs present, contract risk
    IDs populated, and each work package classified. Copy each task's
-   manifest-bound source-slice limit; omitted limits default to one.
+   manifest-bound source-slice limit; omitted limits default to four.
 6. Run `rtk pnpm stack:check <absolute-temp-plan.json>`. A passing receipt is a
    prerequisite to the first code commit in the stack.
 

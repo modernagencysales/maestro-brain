@@ -227,6 +227,10 @@ describe("Maestro Brain execution manifest", () => {
     );
     expect(stableIdentity?.codeStartAfter).toEqual(["S00-T04", "S01-T01"]);
     expect(authorizedTenancy?.estimatedSourceLines).toBe(880);
+    expect(
+      (authorizedTenancy?.sourceSliceLimit ?? 4) *
+        (authorizedTenancy?.sourceSliceBudget ?? 0),
+    ).toBeGreaterThanOrEqual(authorizedTenancy?.estimatedSourceLines ?? 0);
     expect(authorizedTenancy?.fileLocks).toEqual(
       expect.arrayContaining([
         "packages/convex/confect/access/auth.ts",
