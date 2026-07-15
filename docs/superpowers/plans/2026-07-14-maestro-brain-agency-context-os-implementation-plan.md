@@ -25,7 +25,7 @@ This plan is deliberately executable by an engineer or agent with no access to
 the originating conversation. Each task names its requirements, dependency,
 template classification, existing anchors, exact files, test-first sequence,
 typed contract, state changes, migration and rollback, commands, receipt, and
-commit/PR boundary.
+lane branch/commit boundary.
 
 The binding task manifest contains exactly 56 task contracts. That count is
 authoritative and supersedes any stale instruction, receipt, or handoff that
@@ -163,45 +163,45 @@ Before every stack:
 
 ## Requirement Ledger
 
-| ID     | Requirement                                                                                                                                          |
-| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| FND-01 | Install and verify the curated Convex Codex plugin on all three working computers before source implementation.                                      |
-| FND-02 | Pin source revisions, detect drift, use temporary validated stack manifests, and preserve unrelated work.                                            |
-| FND-03 | Use expand/backfill/verify/contract migrations with resumable, idempotent batches and explicit rollback.                                             |
-| IAM-01 | Replace fake AuthKit/Convex identity with real WorkOS-backed identity and organization binding.                                                      |
-| IAM-02 | Provision and list only authorized agency/client Brains; no unfiltered public workspace query remains.                                               |
-| IAM-03 | Use tenant-namespaced stable public keys for agencies, Brains, pages, sources, revisions, connections, receipts, and exports.                        |
-| IAM-04 | Reuse `viewer \| editor \| admin \| owner`, enforce roles server-side, manage members/invites, and audit privileged success/denial.                  |
-| UI-01  | Show only Clients, Agency Brain, Connections, Settings, and global Ask/Search in the SaaS UI/Chakra shell.                                           |
-| UI-02  | Create an agency Brain and client Brains with the ordinary six-page Client Brief and a sub-15-minute first-value path.                               |
-| UI-03  | Provide a responsive Notion-like BlockNote page tree/editor with read-only viewer behavior and authorized editing.                                   |
-| UI-04  | Expose citations, page history/diff, restore-as-new-revision, source freshness, and review queues.                                                   |
-| SLK-01 | Connect one Slack workspace per agency through Nango Connect; reauthorization preserves connection identity and increments generation.               |
-| SLK-02 | Capture every explicitly joined channel independently; never auto-join, sample, use a shared cursor, or stop after one channel.                      |
-| SLK-03 | Support immutable Direct, Classify-with-finite-allowlist, and Capture-only channel policies; classification selects zero or one Brain.               |
-| SLK-04 | Verify forwarding authenticity, replay window, size, team/app/bot/connection binding, bot membership, and event idempotency before tenant writes.    |
-| SLK-05 | Preserve exact append-only observations, `A -> B -> A` edits, tombstones, total ordering, hashes, permalinks, and immutable latest pointers.         |
-| SLK-06 | Assemble bounded immutable source-unit snapshots at a fixed cut before any model call.                                                               |
-| SLK-07 | Run fenced, fair, bounded live/recent/deep/reconciliation work with atomic cursors, rate limits, dead letters, and honest gaps.                      |
-| SLK-08 | Keep Slack Connect delivery capture-only while allowing reviewed Direct/Classify ingestion; send internal answers only to a current requester.       |
-| SLK-09 | Link exact Slack/Maestro identities and use an idempotent, authorization-fenced outbound delivery outbox.                                            |
-| ZFC-01 | Keep capture/gather/commit pipes deterministic and model adapters semantic, separately typed, metered, observable, and testable.                     |
-| AI-01  | Provide provider-neutral schema-constrained LLM calls with immutable request/response hashes, versions, usage, budgets, and typed failures.          |
-| AI-02  | Make Classify review-first, allowlist-closed, zero-or-one target, no-confidence-authority, and independently replayable.                             |
-| AI-03  | Make Brain maintenance cited, review-first, budgeted, restorable, and explicitly administrator-graduated to Autopilot.                               |
-| AI-04  | Treat every customer/provider/model value as untrusted data and enforce model egress, retention, prompt-injection, cost, and tool boundaries.        |
-| KNW-01 | Store stable page trees, immutable page revisions, exact source-revision citations, and optimistic-concurrency/fencing metadata.                     |
-| KNW-02 | Propagate edit/delete/revocation/retention/DSAR/legal-hold actions across every raw, derived, indexed, queued, delivered, exported, and backup copy. |
-| KNW-03 | Use an asynchronous search seam and Brain-scoped active search projections; organization-vault rows never enter client search directly.              |
-| KNW-04 | Pin immutable retrieval candidate manifests, return cited answers or typed abstention, and reauthorize immediately before delivery.                  |
-| KNW-05 | Export deterministic Markdown/JSON bundles with stable paths, lifecycle fences, temporary Convex storage, expiry, and purge; no import or Git sync.  |
-| HLS-01 | Create display-once, hashed, expiring, revocable, one-Brain service-principal keys with `viewer` ceiling and `brain:read`/`brain:ask` scopes.        |
-| HLS-02 | Dispatch web, Slack, API, CLI, and MCP through the same generated server capabilities with server-owned tenant injection.                            |
-| HLS-03 | Expose only reviewed read/Ask tools through stateless HTTPS `POST /mcp` with strict protocol, origin, size, timeout, rate, and redaction controls.   |
-| REL-01 | Pass frozen classification, citation-entailment, abstention, maintenance, multilingual, and prompt-injection evaluations by model/prompt version.    |
-| REL-02 | Pass the declared 25-client/100-channel/100k-revision/burst/concurrency capacity fixture with fair progress and no tenant bleed.                     |
-| REL-03 | Ship redacted observability, spend/rate/storage budgets, overload admission control, audited recovery, and kill switches.                            |
-| REL-04 | Prove staging, pilot value, rollback, and launch evidence; any cross-client, audience, key-scope, or webhook incident blocks launch.                 |
+| ID     | Requirement                                                                                                                                                |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FND-01 | Install and verify the curated Convex Codex plugin on all three working computers before source implementation.                                            |
+| FND-02 | Pin source revisions, detect drift, use temporary validated stack manifests, and preserve unrelated work.                                                  |
+| FND-03 | Use expand/backfill/verify/contract migrations with resumable, idempotent batches and explicit rollback.                                                   |
+| IAM-01 | Replace fake AuthKit/Convex identity with real WorkOS-backed identity and organization binding.                                                            |
+| IAM-02 | Provision and list only authorized agency/client Brains; no unfiltered public workspace query remains.                                                     |
+| IAM-03 | Use tenant-namespaced stable public keys for agencies, Brains, pages, sources, revisions, connections, receipts, and exports.                              |
+| IAM-04 | Reuse `viewer \| editor \| admin \| owner`, enforce roles server-side, manage members/invites, and audit privileged success/denial.                        |
+| UI-01  | Show only Clients, Agency Brain, Connections, Settings, and global Ask/Search in the SaaS UI/Chakra shell.                                                 |
+| UI-02  | Create an agency Brain and client Brains with the ordinary six-page Client Brief and a sub-15-minute first-value path.                                     |
+| UI-03  | Provide a responsive Notion-like BlockNote page tree/editor with read-only viewer behavior and authorized editing.                                         |
+| UI-04  | Expose citations, page history/diff, restore-as-new-revision, source freshness, and review queues.                                                         |
+| SLK-01 | Connect one Slack workspace per agency through Nango Connect; reauthorization preserves connection identity and increments generation.                     |
+| SLK-02 | Capture every explicitly joined channel independently; never auto-join, sample, use a shared cursor, or stop after one channel.                            |
+| SLK-03 | Support immutable Direct, Classify-with-finite-allowlist, and Capture-only channel policies; classification selects zero or one Brain.                     |
+| SLK-04 | Verify native Slack Events authenticity, replay window, size, team/app/bot/connection binding, bot membership, and event idempotency before tenant writes. |
+| SLK-05 | Preserve exact append-only observations, `A -> B -> A` edits, tombstones, total ordering, hashes, permalinks, and immutable latest pointers.               |
+| SLK-06 | Assemble bounded immutable source-unit snapshots at a fixed cut before any model call.                                                                     |
+| SLK-07 | Run fenced, fair, bounded live/recent/deep/reconciliation work with atomic cursors, rate limits, dead letters, and honest gaps.                            |
+| SLK-08 | Keep Slack Connect delivery capture-only while allowing reviewed Direct/Classify ingestion; send internal answers only to a current requester.             |
+| SLK-09 | Link exact Slack/Maestro identities and use an idempotent, authorization-fenced outbound delivery outbox.                                                  |
+| ZFC-01 | Keep capture/gather/commit pipes deterministic and model adapters semantic, separately typed, metered, observable, and testable.                           |
+| AI-01  | Provide provider-neutral schema-constrained LLM calls with immutable request/response hashes, versions, usage, budgets, and typed failures.                |
+| AI-02  | Make Classify review-first, allowlist-closed, zero-or-one target, no-confidence-authority, and independently replayable.                                   |
+| AI-03  | Make Brain maintenance cited, review-first, budgeted, restorable, and explicitly administrator-graduated to Autopilot.                                     |
+| AI-04  | Treat every customer/provider/model value as untrusted data and enforce model egress, retention, prompt-injection, cost, and tool boundaries.              |
+| KNW-01 | Store stable page trees, immutable page revisions, exact source-revision citations, and optimistic-concurrency/fencing metadata.                           |
+| KNW-02 | Propagate edit/delete/revocation/retention/DSAR/legal-hold actions across every raw, derived, indexed, queued, delivered, exported, and backup copy.       |
+| KNW-03 | Use an asynchronous search seam and Brain-scoped active search projections; organization-vault rows never enter client search directly.                    |
+| KNW-04 | Pin immutable retrieval candidate manifests, return cited answers or typed abstention, and reauthorize immediately before delivery.                        |
+| KNW-05 | Export deterministic Markdown/JSON bundles with stable paths, lifecycle fences, temporary Convex storage, expiry, and purge; no import or Git sync.        |
+| HLS-01 | Create display-once, hashed, expiring, revocable, one-Brain service-principal keys with `viewer` ceiling and `brain:read`/`brain:ask` scopes.              |
+| HLS-02 | Dispatch web, Slack, API, CLI, and MCP through the same generated server capabilities with server-owned tenant injection.                                  |
+| HLS-03 | Expose only reviewed read/Ask tools through stateless HTTPS `POST /mcp` with strict protocol, origin, size, timeout, rate, and redaction controls.         |
+| REL-01 | Pass frozen classification, citation-entailment, abstention, maintenance, multilingual, and prompt-injection evaluations by model/prompt version.          |
+| REL-02 | Pass the declared 25-client/100-channel/100k-revision/burst/concurrency capacity fixture with fair progress and no tenant bleed.                           |
+| REL-03 | Ship redacted observability, spend/rate/storage budgets, overload admission control, audited recovery, and kill switches.                                  |
+| REL-04 | Prove staging, pilot value, rollback, and launch evidence; any cross-client, audience, key-scope, or webhook incident blocks launch.                       |
 
 ## Acceptance Delivery Map
 
@@ -271,8 +271,9 @@ manifest.
 - **Completion receipt:** the Markdown file contains exactly three redacted host
   rows, all `verified`, plus the command/version evidence. Any missing row keeps
   S00 open.
-- **Commit / PR boundary:** branch `codex/brain-s00-convex-plugin-readiness`;
-  commit `chore: attest Convex plugin readiness`; docs-only first slice.
+- **Lane branch / commit boundary:** branch
+  `codex/brain-s00-convex-plugin-readiness`; commit
+  `chore: attest Convex plugin readiness`; docs-only first slice.
 
 ### S00-T02 — Freeze Sources, Register Gaps, And Prove Stack Receipts
 
@@ -319,15 +320,16 @@ manifest.
   are wrong; never renumber an ID after a dependent PR references it.
 - **Focused verification:**
   `rtk pnpm exec prettier --check docs/template/porting-backlog.md docs/superpowers/receipts/maestro-brain/source-baseline.md docs/superpowers/receipts/maestro-brain/stack-execution-contract.md`,
-  `rtk pnpm test:stack`, `rtk pnpm check:docs-freshness`,
-  `rtk git diff --check`, broad verification is deferred to tranche acceptance
-  under Appendix L.
+  `rtk host-test-slot --class focused pnpm test:stack`,
+  `rtk pnpm check:docs-freshness`, `rtk git diff --check`, broad verification is
+  deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** source commit, resolved URL, verification date, gap
   IDs/promotion paths, adversarial fail/pass transcript, temporary manifest
   hash, depth, and source estimates are present; no floating source or stale
   JSON plan is treated as authority.
-- **Commit / PR boundary:** branch `codex/brain-s00-source-gap-stack-contract`
-  stacked on T01; commit `docs: define Brain execution contract`.
+- **Lane branch / commit boundary:** branch
+  `codex/brain-s00-source-gap-stack-contract` stacked on T01; commit
+  `docs: define Brain execution contract`.
 
 ### S00-T03 — Isolate Staging And Production Deployments
 
@@ -389,8 +391,9 @@ manifest.
 - **Completion receipt:** redacted deployment names/URL hashes, distinct-key
   owner metadata, negative cross-deploy attempts, staged/promotion/rollback-plan
   results, and no-demo-seed scan.
-- **Commit / PR boundary:** branch `codex/brain-s00-deployment-isolation`;
-  commit `fix: isolate tenant deployments`.
+- **Lane branch / commit boundary:** branch
+  `codex/brain-s00-deployment-isolation`; commit
+  `fix: isolate tenant deployments`.
 
 ### S00-T04 — Add A Resumable Expand/Backfill/Contract Migration Harness
 
@@ -430,10 +433,11 @@ manifest.
   batch cap, idempotent row predicate, and no delete operation in
   expand/backfill phases. Store redacted append-only receipts with actor,
   deployment/build identifiers and hashes/counts only. Reserve names for
-  organization/Brain/page keys; do not execute them yet. Because C1 has already
-  authored undeployed schema additions, dispatch first proves no tenant
-  deployment and no affected rows; otherwise inventory them as expand-phase
-  drift and add backfill/parity work before claiming completion.
+  organization/Brain/page keys; do not execute them yet. Before dispatching a C1
+  contract-spine task, conditionally inspect whether an isolated C1 lane has
+  already authored undeployed schema additions. If so, first prove there is no
+  tenant deployment and no affected row; otherwise inventory the additions as
+  expand-phase drift and add backfill/parity work before claiming completion.
 - **Typed errors / state:** errors are `MigrationNotFound`,
   `MigrationAlreadyRunning`, `MigrationCursorInvalid`, and
   `MigrationBatchFailed`; run state is `planned -> running -> complete | failed`
@@ -452,8 +456,8 @@ manifest.
   write. Broad verification belongs to tranche integration.
 - **Completion receipt:** attach dry-run, injected-failure/resume, idempotent
   rerun, generated-diff, and no-public-ref evidence.
-- **Commit / PR boundary:** branch `codex/brain-s00-migration-harness`; commit
-  `feat: add resumable migration harness`; final S00 slice and release
+- **Lane branch / commit boundary:** branch `codex/brain-s00-migration-harness`;
+  commit `feat: add resumable migration harness`; final S00 slice and release
   checkpoint.
 
 ---
@@ -501,15 +505,16 @@ manifest.
   adapter in test fixtures only. Roll back by restoring the prior web deployment
   and auth config together; never deploy a web root expecting real tokens
   against fake Convex JWT settings.
-- **Focused verification:** `rtk pnpm --dir apps/web test auth start-runtime`,
-  `rtk pnpm --dir packages/convex test workos-auth-config`,
+- **Focused verification:**
+  `rtk host-test-slot --class focused pnpm --dir apps/web test auth start-runtime`,
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test workos-auth-config`,
   `rtk pnpm check:env-boundary`, `rtk pnpm check:auth-demo-bypass`,
   `rtk pnpm check:secret-canaries`, broad verification is deferred to tranche
   acceptance under Appendix L.
 - **Completion receipt:** redacted successful/failed auth traces, environment
   name inventory, client-bundle secret scan, and test output.
-- **Commit / PR boundary:** branch `codex/brain-s01-real-authkit`; commit
-  `feat: wire real AuthKit identity`.
+- **Lane branch / commit boundary:** branch `codex/brain-s01-real-authkit`;
+  commit `feat: wire real AuthKit identity`.
 
 ### S01-T02 — Add WorkOS Organization Binding And Stable Agency/Brain Keys
 
@@ -551,14 +556,15 @@ manifest.
   deploy. Roll back readers to legacy IDs while leaving additive keys; never
   delete generated keys.
 - **Focused verification:**
-  `rtk pnpm --dir packages/convex test stable-tenant-keys access-provisioning`,
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test stable-tenant-keys access-provisioning`,
   `rtk pnpm confect:codegen`, `rtk pnpm confect:manifest`,
   `rtk pnpm check:confect-contracts`, `rtk pnpm check:schema-migration-notes`,
   broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** migration dry-run/execute/idempotent-rerun counts,
   uniqueness query, no-public-Convex-ID scan, generated diff, and rollback
   checkpoint.
-- **Commit / PR boundary:** branch `codex/brain-s01-stable-tenant-keys`; commit
+- **Lane branch / commit boundary:** branch
+  `codex/brain-s01-stable-tenant-keys`; commit
   `feat: add stable agency and Brain identity`.
 
 ### S01-T03 — Authorize Workspace Listing And Brain Provisioning
@@ -603,16 +609,17 @@ manifest.
   never exposes it. Roll back the web adapter and public spec together; creation
   remains additive and audit-preserving.
 - **Focused verification:**
-  `rtk pnpm --dir packages/convex test authorized-brain-provisioning workspace-access`,
-  `rtk pnpm --dir apps/web test workspace-operations workspace`,
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test authorized-brain-provisioning workspace-access`,
+  `rtk host-test-slot --class focused pnpm --dir apps/web test workspace-operations workspace`,
   codegen/manifest, `rtk pnpm check:confect-contracts`,
   `rtk pnpm check:access-audit-events`, broad verification is deferred to
   tranche acceptance under Appendix L.
 - **Completion receipt:** table-driven role results, cross-tenant denials,
   generated-ref diff, stable response sample, and audit event sample with no
   customer text.
-- **Commit / PR boundary:** branch `codex/brain-s01-authorized-provisioning`;
-  commit `feat: authorize Brain provisioning`.
+- **Lane branch / commit boundary:** branch
+  `codex/brain-s01-authorized-provisioning`; commit
+  `feat: authorize Brain provisioning`.
 
 ### S01-T04 — Apply Existing RBAC To Members, Settings, And Privileged Actions
 
@@ -658,14 +665,15 @@ manifest.
   migration; no membership rewrite. Rollback may hide the UI but must not remove
   audit events or weaken server checks.
 - **Focused verification:**
-  `rtk pnpm --dir packages/convex test access brain-role-matrix`,
-  `rtk pnpm --dir apps/web test settings`, codegen/manifest,
-  `rtk pnpm check:access-audit-events`, `rtk pnpm check:layer-boundaries`, and
-  broad verification is deferred to tranche acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test access brain-role-matrix`,
+  `rtk host-test-slot --class focused pnpm --dir apps/web test settings`,
+  codegen/manifest, `rtk pnpm check:access-audit-events`,
+  `rtk pnpm check:layer-boundaries`, and broad verification is deferred to
+  tranche acceptance under Appendix L.
 - **Completion receipt:** complete matrix output, last-owner/cross-tenant
   denials, audit vocabulary diff, UI state screenshots, and generated refs.
-- **Commit / PR boundary:** branch `codex/brain-s01-rbac-settings`; commit
-  `feat: apply Brain RBAC to settings`; final S01 checkpoint.
+- **Lane branch / commit boundary:** branch `codex/brain-s01-rbac-settings`;
+  commit `feat: apply Brain RBAC to settings`; final S01 checkpoint.
 
 ---
 
@@ -709,13 +717,14 @@ manifest.
   hashes and sibling uniqueness; dual-write old snapshot fields through S02;
   contract later. Rollback reads legacy Markdown and leaves revisions dormant.
 - **Focused verification:**
-  `rtk pnpm --dir packages/convex test brain-page-schema`, codegen/manifest,
-  `rtk pnpm check:schema-migration-notes`, `rtk pnpm check:confect-contracts`,
-  broad verification is deferred to tranche acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test brain-page-schema`,
+  codegen/manifest, `rtk pnpm check:schema-migration-notes`,
+  `rtk pnpm check:confect-contracts`, broad verification is deferred to tranche
+  acceptance under Appendix L.
 - **Completion receipt:** migration counts/hash comparison, index inventory,
   cycle/cross-tenant denials, generated diff, rollback marker.
-- **Commit / PR boundary:** branch `codex/brain-s02-page-tree-schema`; commit
-  `feat: add stable Brain page tree`.
+- **Lane branch / commit boundary:** branch `codex/brain-s02-page-tree-schema`;
+  commit `feat: add stable Brain page tree`.
 
 ### S02-T02 — Complete Authorized Page Tree CRUD
 
@@ -753,13 +762,14 @@ manifest.
 - **Migration / compatibility / rollback:** keep a web adapter compatibility
   layer for current route code until S03; no public legacy ID args. Rollback the
   UI/spec as one deployment while keeping appended revisions.
-- **Focused verification:** `rtk pnpm --dir packages/convex test brain-pages`,
+- **Focused verification:**
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test brain-pages`,
   codegen/manifest, `rtk pnpm check:confect-contracts`,
   `rtk pnpm check:headless-surface-contract`, broad verification is deferred to
   tranche acceptance under Appendix L.
 - **Completion receipt:** role matrix, stale/cycle/cross-tenant denials,
   manifest diff proving no write MCP tool, and revision/audit samples.
-- **Commit / PR boundary:** branch `codex/brain-s02-page-crud`; commit
+- **Lane branch / commit boundary:** branch `codex/brain-s02-page-crud`; commit
   `feat: complete authorized page CRUD`.
 
 ### S02-T03 — Replace Versioning/Knowledge Fixtures With Authorized Revisions And Citations
@@ -805,14 +815,15 @@ manifest.
   `legacy_unresolved` and never use them for Autopilot. Dual-read through S03;
   rollback current pointer reads without deleting appended rows.
 - **Focused verification:**
-  `rtk pnpm --dir packages/convex test brain-revisions versioning knowledge`,
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test brain-revisions versioning knowledge`,
   codegen/manifest, `rtk pnpm check:confect-contracts`,
   `rtk pnpm check:schema-migration-notes`, broad verification is deferred to
   tranche acceptance under Appendix L.
 - **Completion receipt:** fixture-to-real checklist, migration counts, exact
   citation resolution, restore history, effect-key idempotency, and
   authorization denials.
-- **Commit / PR boundary:** branch `codex/brain-s02-revisions-citations`; commit
+- **Lane branch / commit boundary:** branch
+  `codex/brain-s02-revisions-citations`; commit
   `feat: persist authorized Brain revisions`.
 
 ### S02-T04 — Bind Realtime Editor Sync To Stable Pages And Revision Fences
@@ -850,15 +861,15 @@ manifest.
   a bounded migration adapter disabled after S03; rollback can re-enable it but
   cannot bypass current role checks.
 - **Focused verification:**
-  `rtk pnpm --dir packages/convex test editor brain-editor-revision-fence`,
-  `rtk pnpm --dir packages/editor-react test`, codegen/manifest,
-  `rtk pnpm check:layer-boundaries`, broad verification is deferred to tranche
-  acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test editor brain-editor-revision-fence`,
+  `rtk host-test-slot --class focused pnpm --dir packages/editor-react test`,
+  codegen/manifest, `rtk pnpm check:layer-boundaries`, broad verification is
+  deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** viewer/editor/revocation/concurrency results,
   stable-to-internal resolution trace with redacted IDs, and appended revision
   proof.
-- **Commit / PR boundary:** branch `codex/brain-s02-editor-fences`; commit
-  `feat: fence Brain editor revisions`; final S02 checkpoint.
+- **Lane branch / commit boundary:** branch `codex/brain-s02-editor-fences`;
+  commit `feat: fence Brain editor revisions`; final S02 checkpoint.
 
 ---
 
@@ -901,14 +912,14 @@ manifest.
   manifest and route components together; do not delete underlying template
   primitives.
 - **Focused verification:**
-  `rtk pnpm --dir apps/web test navigation clients connections`,
+  `rtk host-test-slot --class focused pnpm --dir apps/web test navigation clients connections`,
   `rtk pnpm check:route-tree`, `rtk pnpm check:frontend-effect-boundary`,
   `rtk pnpm check:layer-boundaries`, broad verification is deferred to tranche
   acceptance under Appendix L.
 - **Completion receipt:** desktop/mobile/keyboard screenshots, route manifest
   output, hidden-reference-route assertion, and layer gate.
-- **Commit / PR boundary:** branch `codex/brain-s03-product-shell`; commit
-  `feat: simplify the Brain product shell`.
+- **Lane branch / commit boundary:** branch `codex/brain-s03-product-shell`;
+  commit `feat: simplify the Brain product shell`.
 
 ### S03-T02 — Build Clients List, Creation, And Standard Client Brief
 
@@ -949,14 +960,16 @@ manifest.
 - **Migration / compatibility / rollback:** no existing clients are reseeded. A
   separate admin action may seed missing pages after preview. Rollback hides
   creation but retains created Brains/pages/audit history.
-- **Focused verification:** `rtk pnpm --dir packages/convex test client-brief`,
-  `rtk pnpm --dir apps/web test clients`, codegen/manifest,
-  `rtk pnpm check:confect-contracts`, `rtk pnpm check:route-tree`, and broad
-  verification is deferred to tranche acceptance under Appendix L.
+- **Focused verification:**
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test client-brief`,
+  `rtk host-test-slot --class focused pnpm --dir apps/web test clients`,
+  codegen/manifest, `rtk pnpm check:confect-contracts`,
+  `rtk pnpm check:route-tree`, and broad verification is deferred to tranche
+  acceptance under Appendix L.
 - **Completion receipt:** role/idempotency/capacity tests, six-page stable tree
   sample, UI states, and atomic-failure proof.
-- **Commit / PR boundary:** branch `codex/brain-s03-client-brief`; commit
-  `feat: create client Brains with a Brief`.
+- **Lane branch / commit boundary:** branch `codex/brain-s03-client-brief`;
+  commit `feat: create client Brains with a Brief`.
 
 ### S03-T03 — Build The Responsive Page Tree And BlockNote Workspace
 
@@ -999,15 +1012,16 @@ manifest.
 - **Migration / compatibility / rollback:** no data migration. Keep the old
   generic Brain fixture only in isolated story/test data; rollback the route to
   a read-only maintenance screen without changing backend data.
-- **Focused verification:** `rtk pnpm --dir apps/web test brain`,
-  `rtk pnpm --dir packages/editor-react test`, `rtk pnpm check:route-tree`,
-  `rtk pnpm check:layer-boundaries`, accessibility-focused Playwright for tree
-  and drawers, broad verification is deferred to tranche acceptance under
-  Appendix L.
+- **Focused verification:**
+  `rtk host-test-slot --class focused pnpm --dir apps/web test brain`,
+  `rtk host-test-slot --class focused pnpm --dir packages/editor-react test`,
+  `rtk pnpm check:route-tree`, `rtk pnpm check:layer-boundaries`,
+  accessibility-focused Playwright for tree and drawers, broad verification is
+  deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** role/state screenshots at desktop/mobile, keyboard and
   screen-reader output, stale-edit proof, route denial, and layer imports.
-- **Commit / PR boundary:** branch `codex/brain-s03-notion-workspace`; commit
-  `feat: build the Client Brain workspace`.
+- **Lane branch / commit boundary:** branch `codex/brain-s03-notion-workspace`;
+  commit `feat: build the Client Brain workspace`.
 
 ### S03-T04 — Add History, Diff, Citations, Restore, And Review Queue Shells
 
@@ -1040,8 +1054,9 @@ manifest.
   exposes age/status/no-route without customer text in telemetry.
 - **Implementation:** show causation/actor/time/model receipt metadata, safe
   BlockNote/Markdown diff, exact citation locator/permalink/freshness, and
-  restore confirmation. Add empty review queue states now; wire classification
-  in S08. Do not infer semantic change type locally.
+  restore confirmation. Add the empty Brain-maintenance review queue shell now
+  and wire it from S08-T04. S08-T03 owns the separate Connections-scoped
+  classification queue. Do not infer semantic change type locally.
 - **Typed contract / state:** revision display is
   `published | proposed | rejected | redacted`; citation resolution is
   `resolved | redacted | legacy_unresolved`; restore returns a new revision key.
@@ -1049,13 +1064,13 @@ manifest.
   drawers/dialogs but preserves all history. Never delete a bad revision as UI
   rollback.
 - **Focused verification:**
-  `rtk pnpm --dir apps/web test brain revision citation review`, accessibility
-  test, `rtk pnpm check:layer-boundaries`, broad verification is deferred to
-  tranche acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir apps/web test brain revision citation review`,
+  accessibility test, `rtk pnpm check:layer-boundaries`, broad verification is
+  deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** revision/restore/redaction/viewer-denial screenshots,
   XSS fixture result, and empty/ready queue states.
-- **Commit / PR boundary:** branch `codex/brain-s03-history-review-ui`; commit
-  `feat: add Brain history and review UI`; final S03 checkpoint.
+- **Lane branch / commit boundary:** branch `codex/brain-s03-history-review-ui`;
+  commit `feat: add Brain history and review UI`; final S03 checkpoint.
 
 ---
 
@@ -1111,16 +1126,17 @@ manifest.
   Connect UI off until webhook security in T03 is green. Rollback disables new
   sessions and marks the connection unavailable without deleting Nango's
   connection or captured data.
-- **Focused verification:** `rtk pnpm --dir packages/integrations test nango`,
-  `rtk pnpm --dir packages/convex test slack-connections`,
-  `rtk pnpm --dir apps/web test nango-connect`, codegen/manifest,
-  `rtk pnpm check:provider-boundary`, `rtk pnpm check:env-boundary`,
-  `rtk pnpm check:secret-canaries`, broad verification is deferred to tranche
-  acceptance under Appendix L.
+- **Focused verification:**
+  `rtk host-test-slot --class focused pnpm --dir packages/integrations test nango`,
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test slack-connections`,
+  `rtk host-test-slot --class focused pnpm --dir apps/web test nango-connect`,
+  codegen/manifest, `rtk pnpm check:provider-boundary`,
+  `rtk pnpm check:env-boundary`, `rtk pnpm check:secret-canaries`, broad
+  verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** package versions, fake/live adapter tests, role
   denials, redacted Nango sandbox connection result, and log canary result.
-- **Commit / PR boundary:** branch `codex/brain-s04-nango-connect`; commit
-  `feat: add Nango Slack connection`.
+- **Lane branch / commit boundary:** branch `codex/brain-s04-nango-connect`;
+  commit `feat: add Nango Slack connection`.
 
 ### S04-T02 — Persist Exact Connection, Bot Identity, And Channel Directory State
 
@@ -1174,14 +1190,15 @@ manifest.
   reconciliation keeps connection `error` and Connect disabled for ingestion;
   rollback stops reconciliation and retains rows as inactive diagnostics.
 - **Focused verification:**
-  `rtk pnpm --dir packages/convex test slack-directory`,
-  `rtk pnpm --dir packages/integrations test slack`, codegen/manifest,
-  `rtk pnpm check:schema-migration-notes`, `rtk pnpm check:provider-boundary`,
-  broad verification is deferred to tranche acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test slack-directory`,
+  `rtk host-test-slot --class focused pnpm --dir packages/integrations test slack`,
+  codegen/manifest, `rtk pnpm check:schema-migration-notes`,
+  `rtk pnpm check:provider-boundary`, broad verification is deferred to tranche
+  acceptance under Appendix L.
 - **Completion receipt:** multi-page fixture counts, exact bot identity receipt,
   rename/re-add behavior, no-auto-join call assertion, and index inventory.
-- **Commit / PR boundary:** branch `codex/brain-s04-slack-directory`; commit
-  `feat: persist Slack channel directory`.
+- **Lane branch / commit boundary:** branch `codex/brain-s04-slack-directory`;
+  commit `feat: persist Slack channel directory`.
 
 ### S04-T03 — Pin Slack Manifest And Verify Every Webhook Before Tenant Resolution
 
@@ -1241,16 +1258,16 @@ manifest.
   verify, then remove old. Rollback disables the native receiver and capture;
   never accept Nango or unsigned forwarding as fallback.
 - **Focused verification:**
-  `rtk pnpm --dir packages/integrations test eventsVerifier`,
-  `rtk pnpm --dir packages/convex test slack-webhook-security`,
+  `rtk host-test-slot --class focused pnpm --dir packages/integrations test eventsVerifier`,
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test slack-webhook-security`,
   codegen/manifest, `rtk pnpm check:provider-boundary`,
   `rtk pnpm check:logging-boundary`, `rtk pnpm check:secret-canaries`, and broad
   verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** native signature/replay/size matrix, raw-byte verifier
   evidence, manifest hash, secret-name inventory, redacted pre-tenant telemetry
   samples, and proof rejected payloads made zero tenant writes.
-- **Commit / PR boundary:** branch `codex/brain-s04-webhook-security`; commit
-  `feat: verify Slack webhook bindings`.
+- **Lane branch / commit boundary:** branch `codex/brain-s04-webhook-security`;
+  commit `feat: verify Slack webhook bindings`.
 
 ### S04-T04 — Build Multi-Channel Routing And Delivery Policy Control Plane
 
@@ -1300,16 +1317,17 @@ manifest.
   epoch; it never rewrites the prior one. Emergency historical revocation is
   S07.
 - **Focused verification:**
-  `rtk pnpm --dir packages/convex test channel-policies`,
-  `rtk pnpm --dir apps/web test connections`, codegen/manifest,
-  route/layer/access-audit gates, accessibility test, and broad verification is
-  deferred to tranche acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test channel-policies`,
+  `rtk host-test-slot --class focused pnpm --dir apps/web test connections`,
+  codegen/manifest, route/layer/access-audit gates, accessibility test, and
+  broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** all role/policy invariants, 100-channel selection
   fixture, Slack Connect Direct/Classify ingestion allowed plus
   requester-private delivery denial, bulk atomicity, UI screenshots, and audit
   rows.
-- **Commit / PR boundary:** branch `codex/brain-s04-channel-control-plane`;
-  commit `feat: add multi-channel policy control`; final S04 checkpoint.
+- **Lane branch / commit boundary:** branch
+  `codex/brain-s04-channel-control-plane`; commit
+  `feat: add multi-channel policy control`; final S04 checkpoint.
 
 ---
 
@@ -1358,13 +1376,14 @@ manifest.
   capture and retains exact rows; never delete captured evidence to revert code.
   Re-enable only after the new binary understands every stored schema version.
 - **Focused verification:** schema/property tests,
-  `rtk pnpm --dir packages/convex test source-ledger-schema`, codegen/manifest,
-  schema-migration/confect-contract gates, broad verification is deferred to
-  tranche acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test source-ledger-schema`,
+  codegen/manifest, schema-migration/confect-contract gates, broad verification
+  is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** table/index inventory, schema version, tenant/key/
   partial-write tests, and lifecycle declarations.
-- **Commit / PR boundary:** branch `codex/brain-s05-source-ledger-schema`;
-  commit `feat: add exact source ledger schema`.
+- **Lane branch / commit boundary:** branch
+  `codex/brain-s05-source-ledger-schema`; commit
+  `feat: add exact source ledger schema`.
 
 ### S05-T02 — Implement Deterministic Slack Normalization, Ordering, And Atomic Capture
 
@@ -1407,13 +1426,13 @@ manifest.
   normalizer and keep old decoder support for rows already written. Rollback
   disables webhook acceptance rather than writing with an older schema.
 - **Focused verification:**
-  `rtk pnpm --dir packages/convex test source-capture`, adversarial property
-  tests, provider/logging boundary gates, codegen/manifest, and broad
-  verification is deferred to tranche acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test source-capture`,
+  adversarial property tests, provider/logging boundary gates, codegen/manifest,
+  and broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** `A -> B -> A` rows, crash matrix, duplicate/race
   outcome, zero model calls, ACK timing, and no raw webhook log proof.
-- **Commit / PR boundary:** branch `codex/brain-s05-atomic-capture`; commit
-  `feat: capture exact Slack revisions`.
+- **Lane branch / commit boundary:** branch `codex/brain-s05-atomic-capture`;
+  commit `feat: capture exact Slack revisions`.
 
 ### S05-T03 — Assemble Immutable Bounded Source-Unit Revisions At A Fixed Cut
 
@@ -1454,13 +1473,15 @@ manifest.
 - **Migration / compatibility / rollback:** new tables. Oversized units enter
   typed review/dead-letter state; code does not semantically split them.
   Rollback stops new assembly and leaves pending intents resumable.
-- **Focused verification:** `rtk pnpm --dir packages/convex test source-unit`,
+- **Focused verification:**
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test source-unit`,
   property/concurrency tests, codegen/manifest, schema/lifecycle gates, and
   broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** fixed-cut race proof, bounds, deterministic repeated
   hash, supersession, tenant isolation, and no LLM/provider imports.
-- **Commit / PR boundary:** branch `codex/brain-s05-source-unit-snapshots`;
-  commit `feat: assemble immutable source units`.
+- **Lane branch / commit boundary:** branch
+  `codex/brain-s05-source-unit-snapshots`; commit
+  `feat: assemble immutable source units`.
 
 ### S05-T04 — Dispatch Capture-Only And Direct Routes Mechanically
 
@@ -1491,21 +1512,25 @@ manifest.
   interval, origin, generations, reviewer/policy actor, and effect key. For
   `needs_policy` retain the unit only in organization vault; when first policy
   arrives, enqueue bounded pending units.
-- **Typed errors / state:** job
-  `assembled -> awaiting_policy | capture_only | route_pending -> routed | superseded | revoked`;
-  errors `PolicyNotFound`, `PolicyGenerationMismatch`, `TenantMismatch`,
-  `DuplicateEffect`, `LifecycleRevoked`.
+- **Typed errors / state:** the source-processing job has orthogonal fields.
+  Execution status uses Appendix G's claim/lease machine. Routing stage is
+  `assembled -> awaiting_policy | capture_only | route_pending`;
+  `awaiting_policy -> capture_only | route_pending`; `route_pending -> routed`;
+  and any non-terminal stage may become `superseded | revoked`. Errors are
+  `PolicyNotFound`, `PolicyGenerationMismatch`, `TenantMismatch`,
+  `DuplicateEffect`, and `LifecycleRevoked`.
 - **Migration / compatibility / rollback:** additive route table. A normal
   rollback writes a prospective Capture-only epoch; historical route deletion is
   forbidden and emergency deactivation is S07.
 - **Focused verification:** generator dry-run then write, codegen/manifest,
-  `rtk pnpm --dir packages/convex test commitSourceRoute direct-routing`,
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test commitSourceRoute direct-routing`,
   Confect/workflow/headless contract gates, zero-LLM import/call assertion, and
   broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** generator provenance, Direct/Capture-only/no-policy
   state results, exact route row, idempotency/fencing, and manifest proof that
   no public route-commit tool exists.
-- **Commit / PR boundary:** branch `codex/brain-s05-mechanical-routing`; commit
+- **Lane branch / commit boundary:** branch
+  `codex/brain-s05-mechanical-routing`; commit
   `feat: commit direct source routes`; final S05 checkpoint.
 
 ---
@@ -1547,14 +1572,15 @@ manifest.
   fixtures; new source jobs use schema version 1. Rollback stops claims and lets
   leases expire; never clear pending jobs.
 - **Focused verification:**
-  `rtk pnpm --dir packages/convex test source-workpool`, codegen/manifest,
-  workpool contract tests, `rtk pnpm check:workflow-graph-boundary`, and broad
-  verification is deferred to tranche acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test source-workpool`,
+  codegen/manifest, workpool contract tests,
+  `rtk pnpm check:workflow-graph-boundary`, and broad verification is deferred
+  to tranche acceptance under Appendix L.
 - **Completion receipt:** full crash matrix, duplicate external-call versus one
   accepted effect proof, lease fencing, terminal/retry states, no public
   control.
-- **Commit / PR boundary:** branch `codex/brain-s06-fenced-workpool`; commit
-  `feat: fence source workpool jobs`.
+- **Lane branch / commit boundary:** branch `codex/brain-s06-fenced-workpool`;
+  commit `feat: fence source workpool jobs`.
 
 ### S06-T02 — Add Fair Priority Pools And Central Slack Rate Budgets
 
@@ -1597,14 +1623,14 @@ manifest.
   defaults are policy data, not hard-coded customer semantics. Rollback sets
   concurrency to zero for history pools while live capture continues.
 - **Focused verification:**
-  `rtk pnpm --dir packages/convex test source-fairness slack-rate-budget`,
-  property/TestClock tests, schema/codegen gates, no-text- scheduler dependency
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test source-fairness slack-rate-budget`,
+  property/TestClock tests, schema/codegen gates, no-text scheduler dependency
   assertion, broad verification is deferred to tranche acceptance under Appendix
   L.
 - **Completion receipt:** fairness distribution, priority latency, 429 timeline,
   noisy-neighbor isolation, and configured launch limits.
-- **Commit / PR boundary:** branch `codex/brain-s06-fair-scheduler`; commit
-  `feat: schedule Slack work fairly`.
+- **Lane branch / commit boundary:** branch `codex/brain-s06-fair-scheduler`;
+  commit `feat: schedule Slack work fairly`.
 
 ### S06-T03 — Implement Bounded Recent And Deep History Backfill
 
@@ -1634,23 +1660,25 @@ manifest.
   atomically, or observations then cursor CAS only after all succeed. Recent is
   a fixed newest time/message window; deep continues to retention boundary.
   Never accumulate connection-wide messages or classify in the adapter.
-- **Typed errors / state:** independent `recent`/`deep` state
-  `not_started -> running -> complete | retry_wait | error | access_lost`; batch
-  returns counts, cursor, oldest/newest timestamps, and typed gap; errors
-  `ProviderRateLimited`, `ChannelAccessLost`, `CursorConflict`, `BatchTooLarge`,
-  `ProviderMalformed`.
+- **Typed errors / state:** each independent `recent`/`deep` lane uses the
+  Appendix G sync-lane machine: `not_started | idle -> queued -> running`;
+  `running -> complete | waiting_rate_limit | retry_wait | access_lost | dead_letter`;
+  and retry/access restoration returns through `queued` without resetting the
+  cursor. A batch returns counts, cursor, oldest/newest timestamps, and typed
+  gap; errors `ProviderRateLimited`, `ChannelAccessLost`, `CursorConflict`,
+  `BatchTooLarge`, `ProviderMalformed`.
 - **Migration / compatibility / rollback:** new cursors start null. Rollback
   pauses history pools without resetting cursors; live capture remains enabled.
 - **Focused verification:** integration fake tests,
-  `rtk pnpm --dir packages/convex test slack-backfill`,
-  `rtk pnpm --dir packages/integrations test slackHistory`, provider/logging
-  gates, codegen/manifest, broad verification is deferred to tranche acceptance
-  under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test slack-backfill`,
+  `rtk host-test-slot --class focused pnpm --dir packages/integrations test slackHistory`,
+  provider/logging gates, codegen/manifest, broad verification is deferred to
+  tranche acceptance under Appendix L.
 - **Completion receipt:** 100-channel cursor independence, batch memory bound,
   crash/CAS proof, live-race idempotency, recent/deep status, and no first-
   channel sampling.
-- **Commit / PR boundary:** branch `codex/brain-s06-slack-backfill`; commit
-  `feat: backfill every Slack channel`.
+- **Lane branch / commit boundary:** branch `codex/brain-s06-slack-backfill`;
+  commit `feat: backfill every Slack channel`.
 
 ### S06-T04 — Add Reconciliation, Dead-Letter Replay, And Honest Gap Recovery
 
@@ -1694,14 +1722,14 @@ manifest.
 - **Migration / compatibility / rollback:** additive status/receipts. Rollback
   disables reconciliation/replay, not live capture; retain visible gaps.
 - **Focused verification:**
-  `rtk pnpm --dir packages/convex test slack-reconciliation`,
-  `rtk pnpm --dir apps/web test channel-health`, notification/access/logging
-  gates, accessibility test, broad verification is deferred to tranche
-  acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test slack-reconciliation`,
+  `rtk host-test-slot --class focused pnpm --dir apps/web test channel-health`,
+  notification/access/logging gates, accessibility test, broad verification is
+  deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** repairable/unrecoverable fixtures, dead-letter replay
   authorization, independent progress, UI screenshots, and operator audit.
-- **Commit / PR boundary:** branch `codex/brain-s06-reconciliation`; commit
-  `feat: reconcile Slack capture gaps`; final S06 checkpoint.
+- **Lane branch / commit boundary:** branch `codex/brain-s06-reconciliation`;
+  commit `feat: reconcile Slack capture gaps`; final S06 checkpoint.
 
 ---
 
@@ -1758,12 +1786,13 @@ manifest.
   ignore new policy only before any redaction; after a redaction, rollback must
   preserve the stricter visibility decision.
 - **Focused verification:**
-  `rtk pnpm --dir packages/convex test dataLifecycle lifecycle-envelope`,
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test dataLifecycle lifecycle-envelope`,
   codegen/manifest, schema migration/access audit/contract gates, and broad
   verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** resource owner/export/delete/retention inventory,
   migration counts, hold/generation denials, and current-read filter proof.
-- **Commit / PR boundary:** branch `codex/brain-s07-lifecycle-envelope`; commit
+- **Lane branch / commit boundary:** branch
+  `codex/brain-s07-lifecycle-envelope`; commit
   `feat: add enforceable lifecycle policies`.
 
 ### S07-T02 — Propagate Slack Edit/Delete And Emergency Route Revocation
@@ -1817,10 +1846,11 @@ manifest.
   logging/access audit/schema gates, broad verification is deferred to tranche
   acceptance under Appendix L.
 - **Completion receipt:** extant-resource matrix results, immediate
-  page/current- read/history/editor denial, in-flight fencing, idempotent
-  resume, redacted citation marker, and the explicit S09-S12 adoption ledger.
-- **Commit / PR boundary:** branch `codex/brain-s07-revocation-propagation`;
-  commit `feat: propagate source revocations`.
+  page/current-read/history/editor denial, in-flight fencing, idempotent resume,
+  redacted citation marker, and the explicit S09-S12 adoption ledger.
+- **Lane branch / commit boundary:** branch
+  `codex/brain-s07-revocation-propagation`; commit
+  `feat: propagate source revocations`.
 
 ### S07-T03 — Execute Retention, DSAR, Purge, Organization/Brain Delete, And Backup Policy
 
@@ -1872,13 +1902,13 @@ manifest.
   rehearsal. Application rollback cannot restore purged text; backup restore
   must reapply tombstones/revocation journal before serving traffic.
 - **Focused verification:**
-  `rtk pnpm --dir packages/convex test dataLifecycle purge dsar`,
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test dataLifecycle purge dsar`,
   schema/access/logging/secret gates, staging rehearsal, broad verification is
   deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** approval/manifest hashes, per-resource counts, hold
   denial, resume result, provider backup evidence/window, and restored-backup
   tombstone replay test.
-- **Commit / PR boundary:** branch `codex/brain-s07-dsar-purge`; commit
+- **Lane branch / commit boundary:** branch `codex/brain-s07-dsar-purge`; commit
   `feat: execute audited lifecycle jobs`.
 
 ### S07-T04 — Expose Lifecycle Health, Holds, Recovery, And Redacted Citations
@@ -1896,7 +1926,7 @@ manifest.
   `apps/web/src/features/data-lifecycle/data-lifecycle-surface.tsx`,
   `apps/web/src/features/data-lifecycle/data-lifecycle-surface.test.tsx`,
   `apps/web/src/routes/_workspace.data-lifecycle.tsx`, and
-  `apps/web/src/features/brain/evidence-drawer.tsx`; create
+  `apps/web/src/features/brain/brain-evidence-drawer.tsx`; create
   `apps/web/src/features/settings/retention-policy.tsx`,
   `apps/web/src/features/settings/retention-policy.test.tsx`,
   `apps/web/src/features/settings/legal-holds.tsx`,
@@ -1918,13 +1948,13 @@ manifest.
   controls but does not stop already-approved jobs; use the server kill switch
   for that.
 - **Focused verification:**
-  `rtk pnpm --dir apps/web test data-lifecycle retention legal-holds`,
+  `rtk host-test-slot --class focused pnpm --dir apps/web test data-lifecycle retention legal-holds`,
   accessibility test, route/layer/logging/access gates, and broad verification
   is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** role/state screenshots, redacted citation UX,
   destructive confirmation, telemetry canary, and operator recovery rehearsal.
-- **Commit / PR boundary:** branch `codex/brain-s07-lifecycle-ui`; commit
-  `feat: expose Brain lifecycle controls`; final S07 checkpoint.
+- **Lane branch / commit boundary:** branch `codex/brain-s07-lifecycle-ui`;
+  commit `feat: expose Brain lifecycle controls`; final S07 checkpoint.
 
 ---
 
@@ -1980,15 +2010,16 @@ manifest.
   deterministic fake/test adapter. Live traffic remains feature-flagged.
   Rollback disables cognition and leaves capture/read paths live; receipts
   remain append-only.
-- **Focused verification:** `rtk pnpm --dir packages/integrations test llm`,
-  `rtk pnpm --dir packages/convex test model-call-receipts`, codegen/manifest,
-  provider/env/logging/secret gates, broad verification is deferred to tranche
-  acceptance under Appendix L.
+- **Focused verification:**
+  `rtk host-test-slot --class focused pnpm --dir packages/integrations test llm`,
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test model-call-receipts`,
+  codegen/manifest, provider/env/logging/secret gates, broad verification is
+  deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** selected transport/package pin, fake and sandbox
   structured calls, every typed failure, egress policy, request/response hashes,
   cost/token bounds, and log canary.
-- **Commit / PR boundary:** branch `codex/brain-s08-structured-llm`; commit
-  `feat: add structured LLM gateway`.
+- **Lane branch / commit boundary:** branch `codex/brain-s08-structured-llm`;
+  commit `feat: add structured LLM gateway`.
 
 ### S08-T02 — Add An Internal-Only Workflow Generator Mode
 
@@ -2029,12 +2060,15 @@ manifest.
   workflow output remains byte-identical. Rollback removes the new mode only if
   no generated internal workflow has landed; afterward, revert via a forward
   migration that preserves generated contracts.
-- **Focused verification:** `rtk pnpm --dir tooling/generators test`,
-  `rtk pnpm template:workflow-output-smoke`, `rtk pnpm test:workflow`,
+- **Focused verification:**
+  `rtk host-test-slot --class focused pnpm --dir tooling/generators test`,
+  `rtk pnpm template:workflow-output-smoke`,
+  `rtk host-test-slot --class focused pnpm test:workflow`,
   `rtk pnpm check:generators`, and `rtk pnpm check:headless-surface-contract`.
 - **Completion receipt:** before/after generator output tree, provenance,
   byte-identical public fixture, no-surface manifest, and CLI help.
-- **Commit / PR boundary:** branch `codex/brain-s08-internal-workflows`; commit
+- **Lane branch / commit boundary:** branch
+  `codex/brain-s08-internal-workflows`; commit
   `feat: generate internal workflows`.
 
 ### S08-T03 — Implement Review-First Zero-Or-One Classification
@@ -2080,25 +2114,31 @@ manifest.
   mark any proposal mixed-client/no-route, but cannot change `mixed_client` to a
   route in V1 because no target-safe span splitter exists. Commit rechecks
   current authority/generations and calls the mechanical route capability once.
-- **Typed errors / state:**
-  `awaiting_classification -> classifying -> awaiting_classification_review -> routed | classified_no_route | mixed_client_no_route | retry_wait | superseded | revoked`;
-  errors `MalformedModelOutput`, `TargetNotAllowed`, `EvidenceMismatch`,
-  `ReviewForbidden`, `StaleGeneration`, `DuplicateEffect`.
+  This Connections-scoped classification queue is distinct from S03-T04's
+  Brain-maintenance review queue shell.
+- **Typed errors / state:** the source-processing job's orthogonal stage is
+  `awaiting_classification -> classifying -> awaiting_classification_review`,
+  then
+  `routed | classified_no_route | mixed_client_no_route | superseded | revoked`;
+  retry remains an execution status rather than a decision stage. The durable
+  classification decision uses Appendix G's canonical proposal/review machine.
+  Errors are `MalformedModelOutput`, `TargetNotAllowed`, `EvidenceMismatch`,
+  `ReviewForbidden`, `StaleGeneration`, and `DuplicateEffect`.
 - **Migration / compatibility / rollback:** Classify policies remain disabled
   until eval and UI evidence pass; existing captured units stay replayable.
   Rollback disables new classification and leaves proposals pending; never
   guess/fallback to a Brain.
 - **Focused verification:** generator dry-run/write, codegen/manifest,
-  `rtk pnpm --dir packages/convex test classification`,
-  `rtk pnpm --dir apps/web test review-queue`, workflow/confect/headless/layer
-  gates, classification eval smoke, broad verification is deferred to tranche
-  acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test classification`,
+  `rtk host-test-slot --class focused pnpm --dir apps/web test review-queue`,
+  workflow/confect/headless/layer gates, classification eval smoke, broad
+  verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** generator provenance, zero-call Direct proof,
   allowlist/zero-one/mixed-client fixtures, admin review actions, duplicate
   model attempts versus one route, injection fixtures, and no public cognition
   tools.
-- **Commit / PR boundary:** branch `codex/brain-s08-classification`; commit
-  `feat: classify source units for review`.
+- **Lane branch / commit boundary:** branch `codex/brain-s08-classification`;
+  commit `feat: classify source units for review`.
 
 ### S08-T04 — Implement Cited Review-First Brain Maintenance And Autopilot Gate
 
@@ -2141,24 +2181,31 @@ manifest.
   policy, budgets, and generations; it does not rewrite/rerank model meaning.
   Pilot defaults Review-first. Brain admin may enable Autopilot only for a
   model/prompt pair with passing eval receipt and reviewed sample count. Changed
-  pair returns to Review-first. Restore remains a human action from S02/S03.
-- **Typed errors / state:** proposal
-  `gathering -> proposed_noop | awaiting_review -> published | rejected | superseded | revoked`;
-  `CitationRequired`, `CitationNotInManifest`, `RevisionBudgetExceeded`,
-  `AutopilotNotEligible`, `StaleRevision`, `LifecycleRevoked`.
+  pair returns to Review-first. Restore remains a human action from S02/S03. The
+  Brain maintenance surface reuses and completes S03-T04's `review-queue.tsx`
+  shell; it does not create a second generic review queue.
+- **Typed errors / state:** the maintenance proposal uses Appendix G's canonical
+  machine: `gathering -> proposed_noop | proposed_revision`;
+  `proposed_noop -> accepted_noop | rejected | superseded`;
+  `proposed_revision -> awaiting_review`; and
+  `awaiting_review -> published | edited_and_published | rejected | superseded | revoked`.
+  Autopilot may move a proven `proposed_revision` directly to `published` under
+  the same commit fences. Errors are `CitationRequired`,
+  `CitationNotInManifest`, `RevisionBudgetExceeded`, `AutopilotNotEligible`,
+  `StaleRevision`, and `LifecycleRevoked`.
 - **Migration / compatibility / rollback:** additive proposals/policy fields.
   Rollback sets maintenance `Off`, cancels/fences pending commits, and preserves
   all proposals/revisions. It never rolls back exact source capture.
 - **Focused verification:** generator/codegen/manifest,
-  `rtk pnpm --dir packages/convex test brain-maintenance`,
-  `rtk pnpm --dir apps/web test maintenance-review`, workflow/headless/layer
-  gates, maintenance/injection eval smoke, broad verification is deferred to
-  tranche acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test brain-maintenance`,
+  `rtk host-test-slot --class focused pnpm --dir apps/web test maintenance-review`,
+  workflow/headless/layer gates, maintenance/injection eval smoke, broad
+  verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** no-op/review/autopilot states, citation and stale-race
   proof, model-change downgrade, revision budget, prompt-injection matrix,
   generator provenance, and no public workflow controls.
-- **Commit / PR boundary:** branch `codex/brain-s08-maintenance`; commit
-  `feat: maintain cited Client Briefs`; final S08 checkpoint.
+- **Lane branch / commit boundary:** branch `codex/brain-s08-maintenance`;
+  commit `feat: maintain cited Client Briefs`; final S08 checkpoint.
 
 ---
 
@@ -2207,8 +2254,8 @@ manifest.
   integration.
 - **Completion receipt:** consumer inventory, compile failure/pass, fake/live
   contract parity, cancellation/timeout, and runtime import scan.
-- **Commit / PR boundary:** branch `codex/brain-s09-async-search`; commit
-  `refactor: make search asynchronous`.
+- **Lane branch / commit boundary:** branch `codex/brain-s09-async-search`;
+  commit `refactor: make search asynchronous`.
 
 ### S09-T02 — Build Authorized Workspace Search Projections
 
@@ -2252,12 +2299,14 @@ manifest.
   disables the live adapter and deactivates new projections; reads use exact
   page/source APIs.
 - **Focused verification:**
-  `rtk pnpm --dir packages/convex test search-projections`, codegen/manifest,
-  schema/lifecycle/confect gates, cross-tenant and redaction races, and broad
-  verification is deferred to tranche acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test search-projections`,
+  codegen/manifest, schema/lifecycle/confect gates, cross-tenant and redaction
+  races, and broad verification is deferred to tranche acceptance under Appendix
+  L.
 - **Completion receipt:** projection/index inventory, backfill counts, vault-
   exclusion proof, revoke/delete behavior, and authorization-before-query trace.
-- **Commit / PR boundary:** branch `codex/brain-s09-search-projections`; commit
+- **Lane branch / commit boundary:** branch
+  `codex/brain-s09-search-projections`; commit
   `feat: index authorized Brain projections`.
 
 ### S09-T03 — Add Shared Page/Source/Context Reads And Immutable Retrieval Receipts
@@ -2301,13 +2350,13 @@ manifest.
   contracts. Keep web adapter compatibility through S11; rollback disables
   headless metadata while web reads remain generated-ref based.
 - **Focused verification:** generator/codegen/manifest,
-  `rtk pnpm --dir packages/convex test brain-context-read retrieval`,
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test brain-context-read retrieval`,
   Confect/headless/lifecycle gates, public-ID scan, broad verification is
   deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** operation schemas, role/cross-tenant/redaction tests,
   immutable manifest/hash, stable response examples, and generated surface diff.
-- **Commit / PR boundary:** branch `codex/brain-s09-context-reads`; commit
-  `feat: add stable Brain context reads`.
+- **Lane branch / commit boundary:** branch `codex/brain-s09-context-reads`;
+  commit `feat: add stable Brain context reads`.
 
 ### S09-T04 — Implement Cited Ask With Abstention And Final Reauthorization
 
@@ -2346,20 +2395,24 @@ manifest.
   principal role and every generation immediately before return. Record receipt
   and accepted answer hash; never return stale content.
 - **Typed errors / state:** answer
-  `gathering -> answering -> ready | insufficient_evidence | stale_authorization | retryable_failure | revoked`;
-  `CitationRequired`, `CitationNotInManifest`, `InsufficientEvidence`,
-  `RetrievalManifestStale`, `Model*` errors.
+  `gathering -> manifest_pinned -> model_running`;
+  `model_running -> cited_answer | insufficient_evidence | retryable_failure`;
+  both content results must pass `reauthorized -> returned`, or terminate as
+  `stale_authorization | revoked`. Errors are `CitationRequired`,
+  `CitationNotInManifest`, `InsufficientEvidence`, `RetrievalManifestStale`, and
+  the typed `Model*` errors.
 - **Migration / compatibility / rollback:** additive receipt fields. Feature
   flag Ask off if eval threshold is red; exact reads remain. Rollback does not
   alter source/pages.
 - **Focused verification:** generator/codegen/manifest,
-  `rtk pnpm --dir packages/convex test ask-brain`,
-  `rtk pnpm --dir apps/web test ask`, headless/confect/layer gates, answer eval
-  smoke, broad verification is deferred to tranche acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test ask-brain`,
+  `rtk host-test-slot --class focused pnpm --dir apps/web test ask`,
+  headless/confect/layer gates, answer eval smoke, broad verification is
+  deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** cited/abstention examples, final-auth race, injection/
   multilingual results, duplicate attempts/one accepted receipt, UI states, and
   no local semantic heuristic scan.
-- **Commit / PR boundary:** branch `codex/brain-s09-ask`; commit
+- **Lane branch / commit boundary:** branch `codex/brain-s09-ask`; commit
   `feat: answer from cited Brain context`; final S09 checkpoint.
 
 ---
@@ -2408,14 +2461,14 @@ manifest.
 - **Migration / compatibility / rollback:** new table. Rollback revokes active
   Slack answering while keeping audit rows; capture is unaffected.
 - **Focused verification:**
-  `rtk pnpm --dir packages/convex test slack-identity-links`,
-  `rtk pnpm --dir apps/web test slack-identity`, codegen/manifest,
-  access/logging/secret gates, broad verification is deferred to tranche
-  acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test slack-identity-links`,
+  `rtk host-test-slot --class focused pnpm --dir apps/web test slack-identity`,
+  codegen/manifest, access/logging/secret gates, broad verification is deferred
+  to tranche acceptance under Appendix L.
 - **Completion receipt:** link/replay/spoof/revocation matrix, exact binding
   metadata sample, role recheck, and no-secret log result.
-- **Commit / PR boundary:** branch `codex/brain-s10-slack-identity`; commit
-  `feat: link Slack users to Maestro`.
+- **Lane branch / commit boundary:** branch `codex/brain-s10-slack-identity`;
+  commit `feat: link Slack users to Maestro`.
 
 ### S10-T02 — Capture Mentions/DMs And Select Only An Authorized Brain Scope
 
@@ -2464,13 +2517,13 @@ manifest.
   answer-job claims; capture continues. Pending mentions receive a generic
   requester-private unavailable response only through the outbox after T03.
 - **Focused verification:** generator/codegen/manifest,
-  `rtk pnpm --dir packages/convex test slack-intake scope-selection`, webhook
-  ACK timing, workflow/headless/layer gates, broad verification is deferred to
-  tranche acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test slack-intake scope-selection`,
+  webhook ACK timing, workflow/headless/layer gates, broad verification is
+  deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** direct/DM/clarification flows, Slack Connect denial,
   spoof/replay/auth results, ACK latency, injection fixture, no matcher scan.
-- **Commit / PR boundary:** branch `codex/brain-s10-slack-intake`; commit
-  `feat: authorize Slack answer intake`.
+- **Lane branch / commit boundary:** branch `codex/brain-s10-slack-intake`;
+  commit `feat: authorize Slack answer intake`.
 
 ### S10-T03 — Add A Fenced Outbox And Requester-Private Slack Delivery
 
@@ -2523,15 +2576,17 @@ manifest.
 - **Migration / compatibility / rollback:** new outbox. Rollback stops sends but
   preserves pending rows and accepted answer receipts. Never bypass outbox for a
   direct provider retry.
-- **Focused verification:** `rtk pnpm --dir packages/convex test slack-outbox`,
-  `rtk pnpm --dir packages/integrations test slack-send`, codegen/manifest,
-  logging/provider/lifecycle gates, ambiguous-send crash tests, and broad
-  verification is deferred to tranche acceptance under Appendix L.
+- **Focused verification:**
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test slack-outbox`,
+  `rtk host-test-slot --class focused pnpm --dir packages/integrations test slack-send`,
+  codegen/manifest, logging/provider/lifecycle gates, ambiguous-send crash
+  tests, and broad verification is deferred to tranche acceptance under Appendix
+  L.
 - **Completion receipt:** audience matrix, final-auth race, sanitize fixtures,
   terminal ambiguous-ephemeral proof, DM idempotency/reconciliation evidence or
   terminal ambiguity, self-event suppression, and redacted logs.
-- **Commit / PR boundary:** branch `codex/brain-s10-slack-outbox`; commit
-  `feat: deliver private Slack answers`.
+- **Lane branch / commit boundary:** branch `codex/brain-s10-slack-outbox`;
+  commit `feat: deliver private Slack answers`.
 
 ### S10-T04 — Complete Slack Linking, Clarification, Delivery, And Recovery UX
 
@@ -2574,7 +2629,7 @@ manifest.
 - **Completion receipt:** full signed-in/link/mention/DM/clarify/deliver/revoke
   walkthrough, screenshots, provider timestamps, audience assertion, and
   recovery drill.
-- **Commit / PR boundary:** branch `codex/brain-s10-slack-ux`; commit
+- **Lane branch / commit boundary:** branch `codex/brain-s10-slack-ux`; commit
   `feat: complete private Slack Q&A`; final S10 checkpoint.
 
 ---
@@ -2622,14 +2677,14 @@ manifest.
   disabled legacy state; no legacy key authenticates V1. Rollback revokes newly
   issued keys and hides UI; never restore plaintext.
 - **Focused verification:**
-  `rtk pnpm --dir packages/convex test headless-auth api-keys`,
-  `rtk pnpm --dir apps/web test api-keys`, codegen/manifest,
-  access/lifecycle/secret/headless gates, broad verification is deferred to
-  tranche acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test headless-auth api-keys`,
+  `rtk host-test-slot --class focused pnpm --dir apps/web test api-keys`,
+  codegen/manifest, access/lifecycle/secret/headless gates, broad verification
+  is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** full role/scope/expiry/revoke/rotation table,
   display-once proof, database secret canary, service-principal row, audit
   events.
-- **Commit / PR boundary:** branch `codex/brain-s11-api-keys`; commit
+- **Lane branch / commit boundary:** branch `codex/brain-s11-api-keys`; commit
   `feat: issue read-only Brain keys`.
 
 ### S11-T02 — Resolve Bearer Principals Before Decoding Or Dispatching Requests
@@ -2673,12 +2728,14 @@ manifest.
   support in one contract deploy. No compatibility fallback. Rollback disables
   headless routes rather than accepting legacy tenant args.
 - **Focused verification:**
-  `rtk pnpm --dir packages/convex test headless http-request`, codegen/manifest,
-  headless/confect/logging/secret/access gates, negative timing test, and broad
-  verification is deferred to tranche acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test headless http-request`,
+  codegen/manifest, headless/confect/logging/secret/access gates, negative
+  timing test, and broad verification is deferred to tranche acceptance under
+  Appendix L.
 - **Completion receipt:** auth-before-decode/provider trace, field rejection,
   revocation matrix, error envelopes, no-header log proof, and demo-map removal.
-- **Commit / PR boundary:** branch `codex/brain-s11-headless-principal`; commit
+- **Lane branch / commit boundary:** branch
+  `codex/brain-s11-headless-principal`; commit
   `feat: derive headless Brain principals`.
 
 ### S11-T03 — Expose Only The Reviewed Read And Ask Capability Registry
@@ -2686,12 +2743,11 @@ manifest.
 - **Outcome / requirements:** satisfy HLS-02 and HLS-03; API/CLI/MCP registry
   contains exactly the seven V1 operations and no write/cognition/admin
   controls.
-- **Classification:** `pattern-instance` completing the generated targets from
-  `rtk pnpm template:add-capability -- --name brainContextRead --description "Reads stable pages, sources, search candidates, and bounded Brain context." --exposure headless --write`
-  and
-  `rtk pnpm template:add-capability -- --name askBrain --description "Answers from an immutable authorized retrieval manifest with citations or abstention." --exposure headless --write`;
-  follow `docs/template/how-to-add-capability.md` and its manifest/headless
-  gates.
+- **Classification:** `pattern-instance` follow-up for the generated targets
+  owned exclusively by S09-T03 (`brainContextRead`) and S09-T04 (`askBrain`). Do
+  not rerun either generator here. Complete the reviewed operation registry and
+  run `docs/template/how-to-add-capability.md` manifest/headless follow-up gates
+  against those existing generated targets.
 - **Dependencies:** S11-T02 and S09-T04.
 - **Existing anchors:** MCP descriptors are generated from Confect metadata in
   [`manifest/mcp.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/manifest/mcp.ts#L17-L25);
@@ -2727,8 +2783,8 @@ manifest.
   acceptance under Appendix L.
 - **Completion receipt:** exact registry diff, schema hash parity across four
   projections, negative tool list, final-auth race, stable sample responses.
-- **Commit / PR boundary:** branch `codex/brain-s11-read-registry`; commit
-  `feat: publish Brain read contracts`.
+- **Lane branch / commit boundary:** branch `codex/brain-s11-read-registry`;
+  commit `feat: publish Brain read contracts`.
 
 ### S11-T04 — Implement Stateless Streamable HTTP MCP And Copyable Client Config
 
@@ -2777,8 +2833,8 @@ manifest.
 - **Completion receipt:** full negative matrix, protocol transcript with
   redacted key, exact tool list/schema hashes, origin/rate/timeout results,
   copy-config UX, route kill-switch drill.
-- **Commit / PR boundary:** branch `codex/brain-s11-mcp-transport`; commit
-  `feat: serve read-only Brain MCP`; final S11 checkpoint.
+- **Lane branch / commit boundary:** branch `codex/brain-s11-mcp-transport`;
+  commit `feat: serve read-only Brain MCP`; final S11 checkpoint.
 
 ---
 
@@ -2820,13 +2876,14 @@ manifest.
   a new version. Rollback stops new exports; prior downloaded bundles remain
   valid and outside control.
 - **Focused verification:**
-  `rtk pnpm --dir packages/template-core test brainExport`, property/golden
-  tests, `rtk pnpm check:secret-canaries`, public-ID/raw-provider scans, and
-  broad verification is deferred to tranche acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir packages/template-core test brainExport`,
+  property/golden tests, `rtk pnpm check:secret-canaries`,
+  public-ID/raw-provider scans, and broad verification is deferred to tranche
+  acceptance under Appendix L.
 - **Completion receipt:** byte-identical hashes across shuffled/repeated runs,
   golden tree, redaction/path/link tests, schema/version manifest.
-- **Commit / PR boundary:** branch `codex/brain-s12-export-codec`; commit
-  `feat: encode deterministic Brain exports`.
+- **Lane branch / commit boundary:** branch `codex/brain-s12-export-codec`;
+  commit `feat: encode deterministic Brain exports`.
 
 ### S12-T02 — Add Authorized Export Jobs And Temporary Convex Storage
 
@@ -2876,7 +2933,7 @@ manifest.
   acceptance under Appendix L.
 - **Completion receipt:** role/final-auth races, job states, artifact/hash/size,
   expiring URL, partial cleanup, no-MCP exposure, and Convex storage proof.
-- **Commit / PR boundary:** branch `codex/brain-s12-export-job`; commit
+- **Lane branch / commit boundary:** branch `codex/brain-s12-export-job`; commit
   `feat: generate authorized Brain exports`.
 
 ### S12-T03 — Add Export UI, Audit History, Expiry, And Purge Recovery
@@ -2918,7 +2975,7 @@ manifest.
   broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** request/download/expiry/purge walkthrough, role and
   final-auth denial, manifest hash, screenshots, telemetry canary.
-- **Commit / PR boundary:** branch `codex/brain-s12-export-ui`; commit
+- **Lane branch / commit boundary:** branch `codex/brain-s12-export-ui`; commit
   `feat: expose Brain export lifecycle`; final S12 checkpoint.
 
 ---
@@ -2966,27 +3023,28 @@ manifest.
   seed/repeat/95%-Wilson-lower-bound algorithm. Classification: >=90% agreement
   including no-route/mixed-client, 100% allowlist, zero cross-client commits.
   Answers: >=95% claim entailment, 100% locator resolution/redaction marker,
-  > =95% no-evidence abstention. Maintenance: 100% factual citation coverage,
-  > =80% accepted without factual correction. Multilingual evaluation includes
-  > at least 74 cases per launch language and per thresholded language subgroup
-  > so a perfect observed rate can attain a >=95% two-sided Wilson lower bound.
-  > Injection/multilingual authorization invariants pass 100% in every subgroup
-  > and repeat.
+  with a no-evidence abstention threshold of `>=95%`. Maintenance requires 100%
+  factual citation coverage and `>=80%` accepted without factual correction.
+  Multilingual evaluation includes at least 74 cases per launch language and per
+  thresholded language subgroup so a perfect observed rate can attain a `>=95%`
+  two-sided Wilson lower bound. Injection/multilingual authorization invariants
+  pass 100% in every subgroup and repeat.
 - **Typed contract / state:** eval receipt
   `{ suiteVersion, fixtureHash, modelId, promptVersion, toolSchemaVersion, totals, metrics, failures, passed }`;
   model/prompt status `candidate -> evaluated -> approved | rejected`.
 - **Migration / compatibility / rollback:** no product data migration. Fixture
   changes create a new suite version and require re-baseline review; never edit
   labels simply to pass. Rollback model/prompt to last approved receipt.
-- **Focused verification:** `rtk pnpm --dir tooling/evals test`,
+- **Focused verification:**
+  `rtk host-test-slot --class focused pnpm --dir tooling/evals test`,
   `rtk pnpm --dir tooling/evals brain:eval`,
   `rtk pnpm --dir tooling/evals brain:fixture-check`,
   `rtk pnpm check:provider-boundary`, broad verification is deferred to tranche
   acceptance under Appendix L.
 - **Completion receipt:** frozen hashes, per-suite/model/prompt reports,
   intentional-red then green proof, failure examples, reviewer signoff.
-- **Commit / PR boundary:** branch `codex/brain-s13-semantic-evals`; commit
-  `test: add Brain semantic evals`.
+- **Lane branch / commit boundary:** branch `codex/brain-s13-semantic-evals`;
+  commit `test: add Brain semantic evals`.
 
 ### S13-T02 — Build And Pass The Declared Capacity/Fairness Harness
 
@@ -3028,14 +3086,14 @@ manifest.
   requires a new passing receipt. Rollback selects the last passing capacity
   policy already enforced by S04/S06; never stop exact capture already admitted.
 - **Focused verification:** `rtk pnpm --dir tooling/evals brain:capacity`,
-  `rtk pnpm --dir tooling/evals test brain-capacity`,
-  `rtk pnpm --dir packages/convex test brain-capacity`,
-  `rtk pnpm check:coverage-ratchet`, broad verification is deferred to tranche
-  acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir tooling/evals test brain-capacity`,
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test brain-capacity`,
+  `rtk host-test-slot --class focused pnpm check:coverage-ratchet`, broad
+  verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** fixture/config/runner hashes, latency/fairness/loss/
   isolation report, overload proof, cost/storage estimates, raw synthetic-only
   artifacts.
-- **Commit / PR boundary:** branch `codex/brain-s13-capacity`; commit
+- **Lane branch / commit boundary:** branch `codex/brain-s13-capacity`; commit
   `test: prove Brain launch capacity`.
 
 ### S13-T03 — Add Redacted Telemetry, Budgets, And Kill Switches
@@ -3057,7 +3115,8 @@ manifest.
   `packages/convex/confect/ops/brainOperations.impl.ts`,
   `packages/convex/confect/ops/brainOperationPolicy.ts`,
   `packages/convex/test/brain-operation-policy.test.ts`, and
-  `packages/observability/src/brainMetrics.ts`; modify
+  `packages/observability/src/brainMetrics.ts`, and
+  `packages/observability/src/brainMetrics.test.ts`; modify
   `packages/observability/src/index.ts`,
   `packages/convex/confect/ops/flags.spec.ts`,
   `packages/convex/confect/ops/flags.impl.ts`,
@@ -3082,14 +3141,14 @@ manifest.
   Default risky external surfaces off until launch enablement. Rollback via kill
   switches first, code deploy second; retain audit/receipts.
 - **Focused verification:**
-  `rtk pnpm --dir packages/convex test brain-operation-policy`,
-  `rtk pnpm --dir packages/observability test brainMetrics`,
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test brain-operation-policy`,
+  `rtk host-test-slot --class focused pnpm --dir packages/observability test brainMetrics`,
   `rtk pnpm check:logging-boundary`, `rtk pnpm check:secret-canaries`,
   `rtk pnpm check:access-audit-events`, broad verification is deferred to
   tranche acceptance under Appendix L.
 - **Completion receipt:** metric dictionary, every kill-switch drill, canary
   result, budget enforcement, and redacted audit samples.
-- **Commit / PR boundary:** branch `codex/brain-s13-operations`; commit
+- **Lane branch / commit boundary:** branch `codex/brain-s13-operations`; commit
   `feat: operate Brain safely`.
 
 ### S13-T04 — Add Operations Dashboard, Alerts, And Recovery Drills
@@ -3129,21 +3188,23 @@ manifest.
   never edits prior receipts. Drill each kill switch independently and prove
   exact capture can remain live while semantic/deep/delivery surfaces pause.
 - **Typed errors / state:** alert `open -> acknowledged -> resolved` with a new
-  alert on recurrence; recovery
-  `planned -> running -> complete | failed | generation_mismatch`; errors
-  `OperatorForbidden`, `AlertStale`, and `RecoveryGenerationMismatch`.
+  alert on recurrence; audited recovery attempt
+  `planned -> running -> complete | failed | generation_mismatch`. Both machines
+  are canonical Appendix G rows. Errors are `OperatorForbidden`, `AlertStale`,
+  and `RecoveryGenerationMismatch`.
 - **Migration / compatibility / rollback:** additive notification/alert fields.
   UI rollback hides controls; server policies remain authoritative and existing
   recovery attempts finish or fail under their generation fence.
-- **Focused verification:** `rtk pnpm --dir apps/web test brain-operations`,
-  `rtk pnpm --dir packages/convex test brain-alerts`,
+- **Focused verification:**
+  `rtk host-test-slot --class focused pnpm --dir apps/web test brain-operations`,
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test brain-alerts`,
   `rtk pnpm check:logging-boundary`, `rtk pnpm check:access-audit-events`,
   accessibility smoke, broad verification is deferred to tranche acceptance
   under Appendix L.
 - **Completion receipt:** role/redaction screenshots, alert dedupe timeline,
   every kill-switch/recovery drill, exact-capture continuity, and audit samples.
-- **Commit / PR boundary:** branch `codex/brain-s13-operations-ui`; commit
-  `feat: expose safe Brain operations`; final S13 checkpoint.
+- **Lane branch / commit boundary:** branch `codex/brain-s13-operations-ui`;
+  commit `feat: expose safe Brain operations`; final S13 checkpoint.
 
 ---
 
@@ -3240,13 +3301,14 @@ manifest.
   IDs, command output, manifests/hashes, migration counts, screenshots,
   provider/eval/capacity results, pilot metrics, incidents, go/no-go approvers,
   and rollback proof.
-- **Commit / PR boundary:** branch `codex/brain-s14-launch-evidence`; commit
-  `docs: record Brain launch evidence`; final release PR. Fixes discovered here
-  create a new product candidate and follow the evidence-inheritance rule above.
+- **Lane branch / commit boundary:** branch `codex/brain-s14-launch-evidence`;
+  commit `docs: record Brain launch evidence`; final release PR. Fixes
+  discovered here create a new product candidate and follow the
+  evidence-inheritance rule above.
 
 ---
 
-## Appendix A — Exact Acceptance Dependency, Classification, And Slice Budget Matrix
+## Appendix A — Acceptance Dependency, Classification, And Slice Budget Matrix
 
 `est source lines` counts hand-authored production source only. Tests, generated
 output, and docs are reported separately in the StackPlan receipt and fully
@@ -3255,66 +3317,69 @@ hand-authored source limit remains 300 per commit. If a task requires more than
 four coherent commits, or any coherent commit cannot fit the limit, split the
 task contract and regenerate the manifest. If a StackPlan would exceed four
 slices, move whole slices into another StackPlan; moving a task does not relax
-its commit budget.
+its commit budget. The prerequisite column intentionally uses transitive stack
+completion shorthand where a whole stack is required; the task packet's
+**Dependencies** field remains the exact direct acceptance edge and is the
+source materialized into `acceptanceAfter`.
 
-| Task    | Exact prerequisite | Work-package classification                      | Est. source lines |
-| ------- | ------------------ | ------------------------------------------------ | ----------------: |
-| S00-T01 | none               | template-gap `TB-DEVEX-CONVEX-01`                |                 0 |
-| S00-T02 | S00-T01            | template-gap backlog/StackPlan contract          |                 0 |
-| S00-T03 | S00-T02            | template-gap `TB-DEPLOY-ISOLATION-01`            |               280 |
-| S00-T04 | S00-T03            | template-gap migration pattern                   |               230 |
-| S01-T01 | S00 complete       | template-gap `TB-AUTHKIT-01`                     |               240 |
-| S01-T02 | S01-T01            | template-gap + existing-module repair            |               260 |
-| S01-T03 | S01-T02            | template-gap authorized tenancy                  |               280 |
-| S01-T04 | S01-T03            | template-gap access UI                           |               260 |
-| S02-T01 | S01 complete       | template-gap authorized Brain schema             |               260 |
-| S02-T02 | S02-T01            | template-gap authorized pages                    |               280 |
-| S02-T03 | S02-T02            | fixture-to-real `ops/versioning`/`ops/knowledge` |               290 |
-| S02-T04 | S02-T03            | template-gap authorized editor sync              |               250 |
-| S03-T01 | S02 complete       | template-gap Brain UI                            |               240 |
-| S03-T02 | S03-T01            | template-gap Client Brief UI                     |               280 |
-| S03-T03 | S03-T02            | template-gap Brain workspace UI                  |               290 |
-| S03-T04 | S03-T03            | template-gap revision/review UI                  |               260 |
-| S04-T01 | S01, S03           | template-gap Nango provider                      |               260 |
-| S04-T02 | S04-T01            | template-gap connection/channel directory        |               280 |
-| S04-T03 | S04-T02            | template-gap verified webhook                    |               290 |
-| S04-T04 | S04-T03            | template-gap source policy + UI                  |               290 |
-| S05-T01 | S04 complete       | template-gap source ledger                       |               260 |
-| S05-T02 | S05-T01            | template-gap Slack normalizer/capture            |               290 |
-| S05-T03 | S05-T02            | template-gap source-unit assembly                |               280 |
-| S05-T04 | S05-T03            | generated capability pattern-instance            |               290 |
-| S06-T01 | S05 complete       | fixture-to-real `jobs/workpool`                  |               280 |
-| S06-T02 | S06-T01            | template-gap deterministic scheduler             |               260 |
-| S06-T03 | S06-T02            | template-gap Nango history adapter               |               290 |
-| S06-T04 | S06-T03            | template-gap reconciliation/admin UI             |               260 |
-| S07-T01 | S05, S06           | template-gap lifecycle envelope                  |               280 |
-| S07-T02 | S07-T01            | template-gap propagation workflow                |               290 |
-| S07-T03 | S07-T02            | template-gap lifecycle execution                 |               290 |
-| S07-T04 | S07-T03            | template-gap lifecycle UI                        |               260 |
-| S08-T01 | S02, S05, S07      | template-gap structured LLM                      |               290 |
-| S08-T02 | S08-T01            | template-gap internal workflow generator         |               260 |
-| S08-T03 | S08-T02            | generated capability/workflow pattern-instance   |               295 |
-| S08-T04 | S08-T03            | generated capability/workflow pattern-instance   |               295 |
-| S09-T01 | S07, S08           | template-gap async search                        |               240 |
-| S09-T02 | S09-T01            | template-gap search projection                   |               280 |
-| S09-T03 | S09-T02, S02       | generated headless capability pattern-instance   |               290 |
-| S09-T04 | S09-T03, S08       | generated Ask capability pattern-instance        |               290 |
-| S10-T01 | S04, S09           | template-gap Slack identity                      |               260 |
-| S10-T02 | S10-T01            | capability pattern-instance + transport gap      |               290 |
-| S10-T03 | S10-T02            | template-gap outbox/provider action              |               280 |
-| S10-T04 | S10-T03            | template-gap Slack recovery UI                   |               240 |
-| S11-T01 | S09 complete       | template-gap `TB-HEADLESS-01`                    |               280 |
-| S11-T02 | S11-T01            | template-gap bearer dispatcher                   |               280 |
-| S11-T03 | S11-T02            | generated manifest pattern-instance              |               260 |
-| S11-T04 | S11-T03            | template-gap Streamable HTTP MCP                 |               290 |
-| S12-T01 | S07, S11           | template-gap deterministic export                |               260 |
-| S12-T02 | S12-T01            | capability pattern-instance + storage gap        |               290 |
-| S12-T03 | S12-T02            | template-gap export UI                           |               240 |
-| S13-T01 | S08, S09, S10      | template-gap reproducible eval harness           |               280 |
-| S13-T02 | S13-T01, S06       | template-gap capacity harness                    |               260 |
-| S13-T03 | S13-T02            | template-gap operations policy                   |               260 |
-| S13-T04 | S13-T03            | template-gap operations UI/recovery              |               250 |
-| S14-T01 | all prior tasks    | template-gap release evidence                    |                 0 |
+| Task    | Acceptance prerequisite | Work-package classification                      | Est. source lines |
+| ------- | ----------------------- | ------------------------------------------------ | ----------------: |
+| S00-T01 | none                    | template-gap `TB-DEVEX-CONVEX-01`                |                 0 |
+| S00-T02 | S00-T01                 | template-gap backlog/StackPlan contract          |                 0 |
+| S00-T03 | S00-T02                 | template-gap `TB-DEPLOY-ISOLATION-01`            |               280 |
+| S00-T04 | S00-T03                 | template-gap migration pattern                   |               230 |
+| S01-T01 | S00 complete            | template-gap `TB-AUTHKIT-01`                     |               240 |
+| S01-T02 | S01-T01                 | template-gap + existing-module repair            |               260 |
+| S01-T03 | S01-T02                 | template-gap authorized tenancy                  |               280 |
+| S01-T04 | S01-T03                 | template-gap access UI                           |               260 |
+| S02-T01 | S01 complete            | template-gap authorized Brain schema             |               260 |
+| S02-T02 | S02-T01                 | template-gap authorized pages                    |               280 |
+| S02-T03 | S02-T02                 | fixture-to-real `ops/versioning`/`ops/knowledge` |               290 |
+| S02-T04 | S02-T03                 | template-gap authorized editor sync              |               250 |
+| S03-T01 | S02 complete            | template-gap Brain UI                            |               240 |
+| S03-T02 | S03-T01                 | template-gap Client Brief UI                     |               280 |
+| S03-T03 | S03-T02                 | template-gap Brain workspace UI                  |               290 |
+| S03-T04 | S03-T03                 | template-gap revision/review UI                  |               260 |
+| S04-T01 | S01, S03                | template-gap Nango provider                      |               260 |
+| S04-T02 | S04-T01                 | template-gap connection/channel directory        |               280 |
+| S04-T03 | S04-T02                 | template-gap verified webhook                    |               290 |
+| S04-T04 | S04-T03                 | template-gap source policy + UI                  |               290 |
+| S05-T01 | S04 complete            | template-gap source ledger                       |               260 |
+| S05-T02 | S05-T01                 | template-gap Slack normalizer/capture            |               290 |
+| S05-T03 | S05-T02                 | template-gap source-unit assembly                |               280 |
+| S05-T04 | S05-T03                 | generated capability pattern-instance            |               290 |
+| S06-T01 | S05 complete            | fixture-to-real `jobs/workpool`                  |               280 |
+| S06-T02 | S06-T01                 | template-gap deterministic scheduler             |               260 |
+| S06-T03 | S06-T02                 | template-gap Nango history adapter               |               290 |
+| S06-T04 | S06-T03                 | template-gap reconciliation/admin UI             |               260 |
+| S07-T01 | S05, S06                | template-gap lifecycle envelope                  |               280 |
+| S07-T02 | S07-T01                 | template-gap propagation workflow                |               290 |
+| S07-T03 | S07-T02                 | template-gap lifecycle execution                 |               290 |
+| S07-T04 | S07-T03                 | template-gap lifecycle UI                        |               260 |
+| S08-T01 | S02, S05, S07           | template-gap structured LLM                      |               290 |
+| S08-T02 | S08-T01                 | template-gap internal workflow generator         |               260 |
+| S08-T03 | S08-T02                 | generated capability/workflow pattern-instance   |               295 |
+| S08-T04 | S08-T03                 | generated capability/workflow pattern-instance   |               295 |
+| S09-T01 | S07, S08                | template-gap async search                        |               240 |
+| S09-T02 | S09-T01                 | template-gap search projection                   |               280 |
+| S09-T03 | S09-T02, S02            | generated headless capability pattern-instance   |               290 |
+| S09-T04 | S09-T03, S08            | generated Ask capability pattern-instance        |               290 |
+| S10-T01 | S04, S09                | template-gap Slack identity                      |               260 |
+| S10-T02 | S10-T01                 | capability pattern-instance + transport gap      |               290 |
+| S10-T03 | S10-T02                 | template-gap outbox/provider action              |               280 |
+| S10-T04 | S10-T03                 | template-gap Slack recovery UI                   |               240 |
+| S11-T01 | S09 complete            | template-gap `TB-HEADLESS-01`                    |               280 |
+| S11-T02 | S11-T01                 | template-gap bearer dispatcher                   |               280 |
+| S11-T03 | S11-T02                 | generated manifest pattern-instance              |               260 |
+| S11-T04 | S11-T03                 | template-gap Streamable HTTP MCP                 |               290 |
+| S12-T01 | S07, S11                | template-gap deterministic export                |               260 |
+| S12-T02 | S12-T01                 | capability pattern-instance + storage gap        |               290 |
+| S12-T03 | S12-T02                 | template-gap export UI                           |               240 |
+| S13-T01 | S08, S09, S10           | template-gap reproducible eval harness           |               280 |
+| S13-T02 | S13-T01, S06            | template-gap capacity harness                    |               260 |
+| S13-T03 | S13-T02                 | template-gap operations policy                   |               260 |
+| S13-T04 | S13-T03                 | template-gap operations UI/recovery              |               250 |
+| S14-T01 | all prior tasks         | template-gap release evidence                    |                 0 |
 
 ## Appendix B — Canonical Role And Capability Matrix
 
@@ -3536,21 +3601,21 @@ where relevant.
 
 ### Human-authenticated web capability registry
 
-| Group                                   | Operations                                        | Minimum role                                            |
-| --------------------------------------- | ------------------------------------------------- | ------------------------------------------------------- |
-| `auth.workspaces`                       | list authorized Brains                            | authenticated membership                                |
-| `access.provisioning`                   | ensure agency/Agency Brain; create Client Brain   | org admin for client create                             |
-| `access.members` / `access.invitations` | existing member/invite operations                 | Brain admin/owner per Appendix B                        |
-| `brain.pages`                           | list/get/create/rename/move/favorite/archive/save | viewer for read, editor for write                       |
-| `brain.revisions`                       | history/diff/restore                              | viewer read, editor restore                             |
-| `slack.connections`                     | begin/complete/reauthorize/disconnect             | org admin                                               |
-| `slack.channelPolicies`                 | list/bulk set policy/allowlist/delivery           | org admin                                               |
-| `classification.review`                 | accept/change-to-allowed/no-route                 | org admin                                               |
-| `maintenance.review`                    | accept/edit/reject proposal                       | Brain editor                                            |
-| `brain.policy`                          | maintenance mode/Autopilot/model policy           | Brain admin                                             |
-| `dataLifecycle`                         | plan/list; execute/hold/revoke                    | viewer plan reads; admin/owner mutations per Appendix B |
-| `headless.apiKeys`                      | create/list/revoke/rotate                         | Brain admin                                             |
-| `brain.exports`                         | request/list/download/purge                       | Brain admin                                             |
+| Group                                   | Operations                                        | Minimum role                                                         |
+| --------------------------------------- | ------------------------------------------------- | -------------------------------------------------------------------- |
+| `auth.workspaces`                       | list authorized Brains                            | authenticated membership                                             |
+| `access.provisioning`                   | ensure agency/Agency Brain; create Client Brain   | org admin for client create                                          |
+| `access.members` / `access.invitations` | existing member/invite operations                 | Brain admin/owner per Appendix B                                     |
+| `brain.pages`                           | list/get/create/rename/move/favorite/archive/save | viewer for read, editor for write                                    |
+| `brain.revisions`                       | history/diff/restore                              | viewer read, editor restore                                          |
+| `slack.connections`                     | begin/complete/reauthorize/disconnect             | org admin                                                            |
+| `slack.channelPolicies`                 | list/bulk set policy/allowlist/delivery           | org admin                                                            |
+| `classification.review`                 | accept/change-to-allowed/no-route                 | org admin                                                            |
+| `maintenance.review`                    | accept/edit/reject proposal                       | Brain editor                                                         |
+| `brain.policy`                          | maintenance mode/Autopilot/model policy           | Brain admin                                                          |
+| `dataLifecycle`                         | plan/list; execute/hold/revoke                    | admin/owner only, with destructive actions restricted per Appendix B |
+| `headless.apiKeys`                      | create/list/revoke/rotate                         | Brain admin                                                          |
+| `brain.exports`                         | request/list/download/purge                       | Brain admin                                                          |
 
 ### Internal-only capability/workflow registry
 
@@ -3619,44 +3684,46 @@ redacted audit events at security boundaries. An unlisted durable transition is
 invalid. Terminal or monotonic states cannot be reopened by retry; recovery
 creates a new generation, attempt, revision, or job.
 
-| Machine                     | States and permitted transitions                                                                                                                                                                             | Owning task / commit fence                                             |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
-| Host plugin readiness       | `unknown -> missing \| installed -> verified`; `verified` is required on three distinct hosts                                                                                                                | S00-T01; fresh-session discovery                                       |
-| Stack execution             | `unprojected -> projected -> validated -> in_progress -> merged -> receipt_archived`; drift returns to `unprojected`                                                                                         | S00-T02; validated manifest hash                                       |
-| Migration run               | `planned -> running -> complete \| failed`; `failed -> running` only from last committed cursor                                                                                                              | S00-T04; migration name/cursor/generation                              |
-| Organization                | `provisioning -> active -> suspended -> active \| deleting -> deleted`; `deleted` is terminal                                                                                                                | S01-T02/S07-T03; organization generation                               |
-| Brain                       | `provisioning -> active -> archived -> active \| deleting -> deleted`; lifecycle may move active/archived content to redacted/purged                                                                         | S01-T03/S07-T03; Brain/lifecycle generation                            |
-| Membership                  | `pending -> active -> revoked`; a new grant creates a new membership generation                                                                                                                              | S01-T04; current effective-role generation                             |
-| Invitation                  | existing typed pending/accepted/expired/revoked terminal rules remain authoritative                                                                                                                          | S01-T04; invitation token/status                                       |
-| Page                        | `active -> archived -> active \| redacted -> purged`; redaction/purge are monotonic                                                                                                                          | S02-T01/S07; lifecycle generation                                      |
-| Page revision               | `draft -> proposed -> published \| rejected`; any non-purged state may become `redacted -> purged`; published rows are immutable                                                                             | S02-T01/T03; expected current revision + effect key                    |
-| Provider connection         | `not_connected -> authorizing -> verifying -> active \| error`; `active -> reauthorizing -> active \| error`; `active \| error -> revoked`; replacement creates a new generation                             | S04-T01/T02; connection/team/app/bot generation                        |
-| Channel membership          | `discovered_not_joined -> joined_needs_policy -> joined_active -> access_lost \| archived`; re-add creates a new access generation and resumes saved cursors                                                 | S04-T02/S06-T04; bot membership generation                             |
-| Routing policy              | immutable epochs with mode `direct \| classify \| capture_only`; active pointer moves only after validation and audit                                                                                        | S04-T04; policy epoch                                                  |
-| Delivery policy             | immutable generation `requester_private \| capture_only`; Slack Connect is structurally fixed to `capture_only`                                                                                              | S04-T04/S10; delivery generation                                       |
-| Live/recent/deep sync lane  | `idle -> queued -> running -> waiting_rate_limit \| retry_wait -> idle \| access_lost \| dead_letter`; each lane has its own cursor and lease                                                                | S04-T02/S06; cursor + lease fence                                      |
-| Provider event receipt      | `verified -> committed -> acknowledged` or `verified -> rejected_after_binding`; pre-verification and unmatched-connection failures are non-durable redacted security telemetry                              | S04-T03/S05-T02; event/observation key                                 |
-| Source artifact             | `active -> deleted_tombstone -> redacted -> purged`; latest pointer advances by total provider order only                                                                                                    | S05-T01/T02/S07; provider order + lifecycle generation                 |
-| Source revision             | immutable `observed \| edit \| tombstone`, then `redacted -> purged`; `A -> B -> A` remains three revisions                                                                                                  | S05-T02/S07; revision key/order/hash                                   |
-| Source unit                 | `open -> cut`; every revision contains one first-observed policy epoch, and cross-epoch replies create separate immutable segments                                                                           | S05-T03; fixed-cut/segment key/hash                                    |
-| Source processing job       | `queued -> leased -> running -> succeeded \| retry_wait \| dead_letter \| superseded \| revoked \| cancelled`; only current lease may commit                                                                 | S05-T04/S06/S07; lease, stage, policy, route and lifecycle generations |
-| Source route                | `proposed -> active -> revoked \| superseded`; Direct may create `active` mechanically; awaiting-policy/capture-only are job states, not route states                                                        | S05-T04/S07/S08-T03; route effect/policy/lifecycle generation          |
-| Rate-limit bucket           | `available -> blocked_until -> available`; admission may be queued/rejected but never silently dropped                                                                                                       | S06-T02/S13-T02; connection/method budget epoch                        |
-| Legal hold                  | `planned -> active -> released \| expired`; it blocks purge only, never current-read revocation                                                                                                              | S07-T01/T03; hold generation/approval                                  |
-| Lifecycle job               | `planned -> approved -> running -> complete \| failed \| blocked_by_hold`; failed/blocked work resumes as a new fenced attempt                                                                               | S07; effect key/resource generation                                    |
-| Model call                  | `queued -> running -> succeeded \| retryable_failure \| permanent_failure \| cancelled`; budget/policy denial occurs before queueing                                                                         | S08-T01; request hash/model/prompt/tool versions                       |
-| Classification decision     | `gathered -> proposed_zero \| proposed_one -> accepted \| changed_to_allowed \| no_route \| mixed_client_no_route \| rejected \| superseded`; only reviewed non-mixed terminal decisions may route           | S08-T03; unit/policy/allowlist/review generations                      |
-| Maintenance proposal        | `gathered -> proposed_noop \| proposed_revision -> accepted \| edited_and_accepted \| rejected \| superseded`; Autopilot is an explicit reviewed policy path                                                 | S08-T04; page/route/model/policy/lifecycle generations                 |
-| Search projection           | `pending -> active`; `active -> inactive \| redacted`; `inactive \| redacted -> purged`; inactive/redacted rows cannot be candidates                                                                         | S09-T02; source/page revision + route/lifecycle generation             |
-| Retrieval/answer            | `gathering -> manifest_pinned -> model_running -> cited_answer \| insufficient_evidence -> reauthorized -> returned \| revoked`                                                                              | S09-T03/T04; immutable manifest + final auth generations               |
-| Slack identity binding      | `unlinked -> pending_verification -> active -> revoked`; relink creates a new binding generation                                                                                                             | S10-T01; org/team/Slack user/WorkOS subject                            |
-| Slack question              | `received -> scope_required \| scoped \| denied`; `scope_required -> scoped \| needs_clarification \| denied`; `scoped -> answering`; `answering -> outbox_pending \| abstained \| retry_wait \| superseded` | S10-T02/T04; requester and scope receipt                               |
-| Outbound delivery           | `pending -> authorized -> sending`; `sending -> delivered \| retry_wait \| ambiguous_no_retry \| denied \| revoked \| dead_letter`; ephemeral ambiguity is terminal                                          | S10-T03; outbox effect + audience/auth/lifecycle generations           |
-| Service principal / API key | `active -> expired \| revoked`; rotation creates a new key and revokes the old generation                                                                                                                    | S11-T01; key hash/principal generation                                 |
-| Export job/artifact         | `requested -> gathering -> encoding -> storing -> ready -> expired -> purged`, with `revoked \| failed` terminal outcomes                                                                                    | S12; export effect/lifecycle generation                                |
-| Model/prompt approval       | `candidate -> evaluated -> approved \| rejected`; approval is immutable for a suite/fixture hash                                                                                                             | S13-T01; eval receipt hash                                             |
-| Subsystem policy            | `enabled -> paused -> enabled`, with emergency `disabled`; enabling requires current operator authority and evidence                                                                                         | S13-T03; policy epoch                                                  |
-| Release                     | `candidate -> staging -> pilot`, then terminal `no_go` or `launch_approved -> cohort_enabled -> general`; incident triggers rollback/new candidate                                                           | S14-T01; product/attestation commit, build and deploy IDs              |
+| Machine                     | States and permitted transitions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Owning task / commit fence                                                 |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Host plugin readiness       | `unknown -> missing \| installed -> verified`; `verified` is required on three distinct hosts                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | S00-T01; fresh-session discovery                                           |
+| Stack execution             | `unprojected -> projected -> validated -> in_progress -> merged -> receipt_archived`; drift returns to `unprojected`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | S00-T02; validated manifest hash                                           |
+| Migration run               | `planned -> running -> complete \| failed`; `failed -> running` only from last committed cursor                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | S00-T04; migration name/cursor/generation                                  |
+| Organization                | `provisioning -> active -> suspended -> active \| deleting -> deleted`; `deleted` is terminal                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | S01-T02/S07-T03; organization generation                                   |
+| Brain                       | `provisioning -> active -> archived -> active \| deleting -> deleted`; lifecycle may move active/archived content to redacted/purged                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | S01-T03/S07-T03; Brain/lifecycle generation                                |
+| Membership                  | `pending -> active -> revoked`; a new grant creates a new membership generation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | S01-T04; current effective-role generation                                 |
+| Invitation                  | existing typed pending/accepted/expired/revoked terminal rules remain authoritative                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | S01-T04; invitation token/status                                           |
+| Page                        | `active -> archived -> active \| redacted -> purged`; redaction/purge are monotonic                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | S02-T01/S07; lifecycle generation                                          |
+| Page revision               | `draft -> proposed -> published \| rejected`; any non-purged state may become `redacted -> purged`; published rows are immutable                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | S02-T01/T03; expected current revision + effect key                        |
+| Provider connection         | `not_connected -> authorizing -> verifying -> active \| error`; `active -> reauthorizing -> active \| error`; `active \| error -> revoked`; replacement creates a new generation                                                                                                                                                                                                                                                                                                                                                                                                                                            | S04-T01/T02; connection/team/app/bot generation                            |
+| Channel membership          | `discovered_not_joined -> joined_needs_policy -> joined_active -> access_lost \| archived`; re-add creates a new access generation and resumes saved cursors                                                                                                                                                                                                                                                                                                                                                                                                                                                                | S04-T02/S06-T04; bot membership generation                                 |
+| Routing policy              | immutable epochs with mode `direct \| classify \| capture_only`; active pointer moves only after validation and audit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | S04-T04; policy epoch                                                      |
+| Delivery policy             | immutable generation `requester_private \| capture_only`; Slack Connect is structurally fixed to `capture_only`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | S04-T04/S10; delivery generation                                           |
+| Live/recent/deep sync lane  | `not_started \| idle -> queued -> running`; `running -> complete \| waiting_rate_limit \| retry_wait \| access_lost \| dead_letter`; retry/access restoration returns through `queued` without resetting the cursor; live lanes cycle `running -> idle`                                                                                                                                                                                                                                                                                                                                                                     | S04-T02/S06; cursor + lease fence                                          |
+| Provider event receipt      | `verified -> committed -> acknowledged` or `verified -> rejected_after_binding`; pre-verification and unmatched-connection failures are non-durable redacted security telemetry                                                                                                                                                                                                                                                                                                                                                                                                                                             | S04-T03/S05-T02; event/observation key                                     |
+| Source artifact             | `active -> deleted_tombstone -> redacted -> purged`; latest pointer advances by total provider order only                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | S05-T01/T02/S07; provider order + lifecycle generation                     |
+| Source revision             | immutable `observed \| edit \| tombstone`, then `redacted -> purged`; `A -> B -> A` remains three revisions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | S05-T02/S07; revision key/order/hash                                       |
+| Source unit                 | `open -> cut`; every revision contains one first-observed policy epoch, and cross-epoch replies create separate immutable segments                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | S05-T03; fixed-cut/segment key/hash                                        |
+| Source processing job       | Orthogonal `executionStatus` is `queued -> leased -> running -> succeeded \| retry_wait \| dead_letter \| superseded \| revoked \| cancelled`. Routing `stage` is `assembled -> awaiting_policy \| capture_only \| route_pending \| awaiting_classification`; `awaiting_policy -> capture_only \| route_pending \| awaiting_classification`; `route_pending -> routed`; `awaiting_classification -> classifying -> awaiting_classification_review -> routed \| classified_no_route \| mixed_client_no_route`; any non-terminal stage may become `superseded \| revoked`. Only current execution and stage fences may commit | S05-T04/S06/S07/S08; lease, stage, policy, route and lifecycle generations |
+| Source route                | `proposed -> active -> revoked \| superseded`; Direct may create `active` mechanically; awaiting-policy/capture-only are job states, not route states                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | S05-T04/S07/S08-T03; route effect/policy/lifecycle generation              |
+| Rate-limit bucket           | `available -> blocked_until -> available`; admission may be queued/rejected but never silently dropped                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | S06-T02/S13-T02; connection/method budget epoch                            |
+| Legal hold                  | `planned -> active -> released \| expired`; it blocks purge only, never current-read revocation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | S07-T01/T03; hold generation/approval                                      |
+| Lifecycle job               | `planned -> approved -> running -> complete \| failed \| blocked_by_hold`; failed/blocked work resumes as a new fenced attempt                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | S07; effect key/resource generation                                        |
+| Model call                  | `queued -> running -> succeeded \| retryable_failure \| permanent_failure \| cancelled`; budget/policy denial occurs before queueing                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | S08-T01; request hash/model/prompt/tool versions                           |
+| Classification decision     | `gathered -> proposed_zero \| proposed_one \| proposed_mixed`; `proposed_zero -> no_route \| rejected \| superseded`; `proposed_mixed -> mixed_client_no_route \| rejected \| superseded`; `proposed_one -> accepted \| changed_to_allowed \| no_route \| rejected \| superseded`; only reviewed non-mixed terminal decisions may route                                                                                                                                                                                                                                                                                     | S08-T03; unit/policy/allowlist/review generations                          |
+| Maintenance proposal        | `gathering -> proposed_noop \| proposed_revision`; `proposed_noop -> accepted_noop \| rejected \| superseded`; `proposed_revision -> awaiting_review`; `awaiting_review -> published \| edited_and_published \| rejected \| superseded \| revoked`; eligible Autopilot may move a proven proposal directly to `published`                                                                                                                                                                                                                                                                                                   | S08-T04; page/route/model/policy/lifecycle generations                     |
+| Search projection           | `pending -> active`; `active -> inactive \| redacted`; `inactive \| redacted -> purged`; inactive/redacted rows cannot be candidates                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | S09-T02; source/page revision + route/lifecycle generation                 |
+| Retrieval/answer            | `gathering -> manifest_pinned -> model_running`; `model_running -> cited_answer \| insufficient_evidence \| retryable_failure`; both content results require `reauthorized -> returned`, or terminate as `stale_authorization \| revoked`                                                                                                                                                                                                                                                                                                                                                                                   | S09-T03/T04; immutable manifest + final auth generations                   |
+| Slack identity binding      | `unlinked -> pending_verification -> active -> revoked`; relink creates a new binding generation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | S10-T01; org/team/Slack user/WorkOS subject                                |
+| Slack question              | `received -> scope_required \| scoped \| denied`; `scope_required -> scoped \| needs_clarification \| denied`; `scoped -> answering`; `answering -> outbox_pending \| abstained \| retry_wait \| superseded`                                                                                                                                                                                                                                                                                                                                                                                                                | S10-T02/T04; requester and scope receipt                                   |
+| Outbound delivery           | `pending -> authorized -> sending`; `sending -> delivered \| retry_wait \| ambiguous_no_retry \| denied \| revoked \| dead_letter`; ephemeral ambiguity is terminal                                                                                                                                                                                                                                                                                                                                                                                                                                                         | S10-T03; outbox effect + audience/auth/lifecycle generations               |
+| Service principal / API key | `active -> expired \| revoked`; rotation creates a new key and revokes the old generation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | S11-T01; key hash/principal generation                                     |
+| Export job/artifact         | `requested -> gathering -> encoding -> storing -> ready -> expired -> purged`, with `revoked \| failed` terminal outcomes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | S12; export effect/lifecycle generation                                    |
+| Model/prompt approval       | `candidate -> evaluated -> approved \| rejected`; approval is immutable for a suite/fixture hash                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | S13-T01; eval receipt hash                                                 |
+| Subsystem policy            | `enabled -> paused -> enabled`, with emergency `disabled`; enabling requires current operator authority and evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | S13-T03; policy epoch                                                      |
+| Operations alert            | `open -> acknowledged -> resolved`; recurrence creates a new alert rather than reopening the resolved row                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | S13-T04; subsystem/error/generation/window key                             |
+| Recovery attempt            | `planned -> running -> complete \| failed \| generation_mismatch`; retry creates a new fenced attempt                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | S13-T04; recovery generation/attempt key                                   |
+| Release                     | `candidate -> staging -> pilot`, then terminal `no_go` or `launch_approved -> cohort_enabled -> general`; incident triggers rollback/new candidate                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | S14-T01; product/attestation commit, build and deploy IDs                  |
 
 Transient flows are ordered security checks, not durable state machines:
 
@@ -3871,45 +3938,45 @@ completions and authorization headers are forbidden.
 
 ### Requirement-to-task coverage ledger
 
-| Requirement | Owning task(s)                             | Acceptance evidence                                                 |
-| ----------- | ------------------------------------------ | ------------------------------------------------------------------- |
-| FND-01      | S00-T01                                    | three distinct verified host receipts                               |
-| FND-02      | S00-T02/T03                                | pinned source/gap ledger and validated just-in-time stack manifests |
-| FND-03      | S00-T04; every durable task via Appendix K | fail/resume/idempotent migration receipts                           |
-| IAM-01      | S01-T01/T02/T03                            | real WorkOS identity/org binding and authorized provisioning        |
-| IAM-02      | S01-T03                                    | signed-out/cross-tenant list/create denials                         |
-| IAM-03      | S01-T02, S02-T01, S05-T01, S12-T01         | stable-key uniqueness and public Convex-ID scans                    |
-| IAM-04      | S01-T04 plus downstream role tests         | Appendix B table-driven server denials/audits                       |
-| UI-01       | S03-T01                                    | exact navigation allowlist and hidden-route tests                   |
-| UI-02       | S01-T03, S03-T02, S14-T01                  | six ordinary pages and median first value under 15 minutes          |
-| UI-03       | S02-T02/T04, S03-T03                       | responsive tree/editor and viewer/stale-write tests                 |
-| UI-04       | S02-T03, S03-T04                           | citation/history/diff/restore/review walkthrough                    |
-| SLK-01      | S04-T01/T02                                | Nango Connect/reauthorize generation receipt                        |
-| SLK-02      | S04-T02/T04, S05, S06                      | 100-channel independent capture/cursor proof                        |
-| SLK-03      | S04-T04, S05-T04, S08-T03                  | immutable policy and zero-or-one reviewed route proof               |
-| SLK-04      | S04-T03, S05-T02                           | auth/replay/binding/idempotency negative matrix                     |
-| SLK-05      | S05-T01/T02                                | duplicate/race/order/`A -> B -> A`/tombstone tests                  |
-| SLK-06      | S05-T03                                    | fixed-cut bounded immutable snapshot hashes                         |
-| SLK-07      | S06, S13-T02                               | fenced/fair/rate/reconciliation capacity receipt                    |
-| SLK-08      | S04-T04, S10-T02/T03/T04                   | Slack Connect no-send and requester-private delivery proof          |
-| SLK-09      | S10-T01/T03                                | exact binding and terminal ambiguous-ephemeral/no-blind-retry proof |
-| ZFC-01      | S05-T04, S08, S09-T04                      | model-disabled deterministic pipes and separate receipts            |
-| AI-01       | S08-T01                                    | structured gateway schema/version/budget/failure tests              |
-| AI-02       | S08-T03                                    | allowlist-closed review-first classification eval                   |
-| AI-03       | S08-T04                                    | cited review-first maintenance and Autopilot graduation proof       |
-| AI-04       | S08-T01/T04, S13-T01/T03                   | egress/injection/budget/tool/redaction gates                        |
-| KNW-01      | S02                                        | stable tree, immutable revisions/citations and editor fences        |
-| KNW-02      | S07, S09-S12, S14-T01 plus H               | complete post-S12 descendant propagation/purge matrix receipts      |
-| KNW-03      | S09-T01/T02                                | async seam and active Brain-scoped projections                      |
-| KNW-04      | S09-T03/T04                                | immutable retrieval manifests, citations/abstention and final auth  |
-| KNW-05      | S12                                        | byte-identical lifecycle-fenced expiring export                     |
-| HLS-01      | S11-T01                                    | display-once hashed expiring one-Brain key matrix                   |
-| HLS-02      | S09-T03/T04, S11-T02/T03                   | shared generated capability/schema parity                           |
-| HLS-03      | S11-T03/T04                                | seven read/Ask operations and protocol security matrix              |
-| REL-01      | S13-T01 and Appendix J                     | frozen semantic/safety thresholds by version                        |
-| REL-02      | S13-T02 and Appendix J                     | frozen capacity/fairness/loss/isolation receipt                     |
-| REL-03      | S13-T03                                    | redaction canaries, budgets, alerts, recovery and kill switches     |
-| REL-04      | S00-T03, S14-T01 and Appendix L            | isolated staging/pilot/promotion/rollback signed packet             |
+| Requirement | Exact owning task(s)                                                                              | Acceptance evidence                                                 |
+| ----------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| FND-01      | S00-T01                                                                                           | three distinct verified host receipts                               |
+| FND-02      | S00-T02, S00-T03                                                                                  | pinned source/gap ledger and validated just-in-time stack manifests |
+| FND-03      | S00-T04, S01-T02, S07-T01                                                                         | fail/resume/idempotent migration receipts                           |
+| IAM-01      | S01-T01, S01-T02, S01-T03                                                                         | real WorkOS identity/org binding and authorized provisioning        |
+| IAM-02      | S01-T03                                                                                           | signed-out/cross-tenant list/create denials                         |
+| IAM-03      | S01-T02, S01-T03, S02-T01, S05-T01, S09-T03, S11-T02, S12-T01                                     | stable-key uniqueness and public Convex-ID scans                    |
+| IAM-04      | S01-T04, S02-T02, S02-T04, S03-T03, S04-T01, S04-T04, S07-T01, S08-T03, S10-T01, S11-T01, S12-T02 | Appendix B table-driven server denials/audits                       |
+| UI-01       | S03-T01, S04-T04, S09-T04                                                                         | exact navigation allowlist and hidden-route tests                   |
+| UI-02       | S01-T03, S03-T02                                                                                  | six ordinary pages and median first value under 15 minutes          |
+| UI-03       | S02-T02, S02-T04, S03-T03                                                                         | responsive tree/editor and viewer/stale-write tests                 |
+| UI-04       | S02-T03, S03-T04, S06-T04, S07-T04, S08-T04, S10-T04, S12-T03                                     | citation/history/diff/restore/review walkthrough                    |
+| SLK-01      | S04-T01, S04-T02                                                                                  | Nango Connect/reauthorize generation receipt                        |
+| SLK-02      | S04-T02, S04-T04, S06-T03                                                                         | 100-channel independent capture/cursor proof                        |
+| SLK-03      | S04-T04, S05-T04, S08-T03                                                                         | immutable policy and zero-or-one reviewed route proof               |
+| SLK-04      | S04-T03, S05-T01, S05-T02                                                                         | auth/replay/binding/idempotency negative matrix                     |
+| SLK-05      | S05-T01, S05-T02, S07-T02                                                                         | duplicate/race/order/`A -> B -> A`/tombstone tests                  |
+| SLK-06      | S05-T03                                                                                           | fixed-cut bounded immutable snapshot hashes                         |
+| SLK-07      | S06-T01, S06-T02, S06-T03, S06-T04, S13-T02, S13-T03                                              | fenced/fair/rate/reconciliation capacity receipt                    |
+| SLK-08      | S04-T04, S07-T02, S10-T02, S10-T03, S10-T04                                                       | Slack Connect no-send and requester-private delivery proof          |
+| SLK-09      | S10-T01, S10-T02, S10-T03, S10-T04                                                                | exact binding and terminal ambiguous-ephemeral/no-blind-retry proof |
+| ZFC-01      | S02-T03, S05-T02, S05-T03, S05-T04, S06-T01, S08-T01, S08-T02, S08-T03, S09-T01, S10-T02          | model-disabled deterministic pipes and separate receipts            |
+| AI-01       | S08-T01                                                                                           | structured gateway schema/version/budget/failure tests              |
+| AI-02       | S08-T03, S13-T01                                                                                  | allowlist-closed review-first classification eval                   |
+| AI-03       | S03-T04, S08-T04, S13-T01                                                                         | cited review-first maintenance and Autopilot graduation proof       |
+| AI-04       | S04-T03, S08-T01, S08-T04, S09-T04, S13-T01, S13-T03                                              | egress/injection/budget/tool/redaction gates                        |
+| KNW-01      | S02-T01, S02-T02, S02-T03, S02-T04, S03-T04, S05-T04, S08-T04                                     | stable tree, immutable revisions/citations and editor fences        |
+| KNW-02      | S05-T01, S07-T01, S07-T02, S07-T03, S07-T04, S09-T02, S11-T01, S12-T02                            | complete Appendix H descendant propagation/purge receipts           |
+| KNW-03      | S09-T01, S09-T02                                                                                  | async seam and active Brain-scoped projections                      |
+| KNW-04      | S09-T03, S09-T04, S10-T03, S13-T01                                                                | immutable retrieval manifests, citations/abstention and final auth  |
+| KNW-05      | S12-T01, S12-T02, S12-T03                                                                         | byte-identical lifecycle-fenced expiring export                     |
+| HLS-01      | S11-T01, S11-T02, S11-T04                                                                         | display-once hashed expiring one-Brain key matrix                   |
+| HLS-02      | S08-T02, S09-T03, S09-T04, S10-T02, S11-T02, S11-T03, S11-T04                                     | shared generated capability/schema parity                           |
+| HLS-03      | S11-T03, S11-T04                                                                                  | seven read/Ask operations and protocol security matrix              |
+| REL-01      | S13-T01                                                                                           | frozen semantic/safety thresholds by version                        |
+| REL-02      | S06-T02, S06-T03, S13-T02                                                                         | frozen capacity/fairness/loss/isolation receipt                     |
+| REL-03      | S06-T04, S07-T04, S10-T04, S12-T03, S13-T03, S13-T04                                              | redaction canaries, budgets, alerts, recovery and kill switches     |
+| REL-04      | S00-T03, S07-T03, S14-T01                                                                         | isolated staging/pilot/promotion/rollback signed packet             |
 
 ### Task-packet audit
 
@@ -3917,7 +3984,7 @@ Audit key: `C` one primary classification; `D` exact dependencies; `F` exact
 paths and shared locks; `P` pinned existing-code citation; `R` intentional red
 test/preflight; `T` typed contract/errors/state; `M`
 migration/compatibility/rollback; `G` focused commands; `E` completion receipt;
-`B` commit/PR boundary. `ready` means all ten fields were semantically
+`B` lane branch/commit boundary. `ready` means all ten fields were semantically
 rechecked, not merely detected by heading. Hand-authored paths and matching
 manifest locks must be exact. Basenames, globs, “and tests,” registry/inventory
 placeholders, and directory-only locks do not satisfy `F`. Generator-owned files
@@ -4086,7 +4153,7 @@ and the full tranche gate. Only `accepted` satisfies Appendix M/N.
 
 ## Appendix P — Lightweight Fabro Factory Contract
 
-The checked-in factory intentionally has four workflows:
+The checked-in factory intentionally has five workflows:
 
 1. `brain-build-task`: preflight, test-first implementation, deterministic
    focused gates, independent review, final gates, task commit and proof.
@@ -4095,7 +4162,10 @@ The checked-in factory intentionally has four workflows:
    tranche verdict.
 3. `brain-repair-check`: diagnose one red focused/CI context, make the narrow
    owning-task repair, rerun the exact failure, and update proof.
-4. `brain-release-evidence`: freeze one release candidate and record staging,
+4. `brain-repair-tranche`: repair an already integrated tranche from an
+   independent review verdict, rerun focused repair checks and the full
+   host-slotted gate, and preserve the original integration evidence chain.
+5. `brain-release-evidence`: freeze one release candidate and record staging,
    rollback, pilot, promotion and final evidence without hiding product fixes.
 
 The factory does not run global research, a second plan-review gauntlet, an LLM

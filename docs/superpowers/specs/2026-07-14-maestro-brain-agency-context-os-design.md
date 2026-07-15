@@ -669,6 +669,7 @@ It returns a closed structured result such as:
 ```ts
 type ClassificationDecision = {
   sourceUnitRevisionKey: string;
+  contentScope: "single_target" | "mixed_client" | "no_target";
   targetBrainKey: string | null;
   confidence: number;
   rationale: string;
@@ -676,13 +677,15 @@ type ClassificationDecision = {
 };
 ```
 
-The validation pipe verifies that a non-null `targetBrainKey` is in the pinned
-allowlist, the source-unit key/hash and evidence quotes resolve, and all fields
-are structurally valid. Model confidence is diagnostic only; it never grants
-access or publication. An organization administrator then accepts the proposal,
-changes it to another allowed target, or selects no route. The commit pipe
-applies that reviewed command mechanically. A valid null target becomes
-`classified_no_route`; code does not invent a fallback.
+The validation pipe verifies that `single_target` has exactly one non-null
+`targetBrainKey` in the pinned allowlist, while `mixed_client` and `no_target`
+have a null target. It also verifies that the source-unit key/hash and evidence
+quotes resolve and all fields are structurally valid. Model confidence is
+diagnostic only; it never grants access or publication. An organization
+administrator then accepts a single-target proposal, changes it to another
+allowed target, or selects no route. A `mixed_client` result is structurally
+forced to no-route in V1 and cannot be overridden into a route. The commit pipe
+applies that reviewed command mechanically; code does not invent a fallback.
 
 Capture, assembly, cognition, review, and commit have separate idempotency keys,
 attempts, status, latency, cost, and error records. External calls and workers

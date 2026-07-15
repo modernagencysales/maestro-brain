@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "3d2563624b7e08f7c86f222e856bc9000d45bd8cc3462ba9e99012b77cbd929c",
+  "planSha256": "68aa105e2b57d82d5cd8d7525b10a6cd88f1ab746f3e9c63bceed6445b59da96",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -18,7 +18,7 @@
       "lane": "foundation",
       "requirements": ["FND-01"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "08022ca88021bf6cb9e2c70c4a097e853c887bf86d099081c7583e635d54afac",
+      "taskBlockHash": "6ae09d33ae98b8db1872402ca26240afc8455f1f43f749d45fce38f88b0b2e02",
       "taskId": "S00-T01",
       "title": "Install And Attest The Convex Codex Plugin On Three Hosts",
       "tranche": "F0-foundation"
@@ -40,7 +40,7 @@
       "lane": "foundation",
       "requirements": ["FND-02"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "996f90d7fcca73660703548c115ee16083cf3d2ee27faee186438862e3765470",
+      "taskBlockHash": "b9019c7f07f7e75ed2b3c6f9234b411bc94c00247f936c7b7301f74a9fbd34b4",
       "taskId": "S00-T02",
       "title": "Freeze Sources, Register Gaps, And Prove Stack Receipts",
       "tranche": "F0-foundation"
@@ -71,7 +71,7 @@
       "lane": "foundation",
       "requirements": ["FND-02", "REL-04"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "fb7914a90dfe25722d85e8bfc036f5e610c0aa2389536a2c62d2c27d6ad09790",
+      "taskBlockHash": "fb9f521406e350fb8892e16faea885a14893c8d46ae8649cbb811861f7b5b32d",
       "taskId": "S00-T03",
       "title": "Isolate Staging And Production Deployments",
       "tranche": "F0-foundation"
@@ -97,7 +97,7 @@
       "lane": "foundation",
       "requirements": ["FND-03"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "05f6def6a62eb65d0885b040886e987894fa8758c52f1320ab5d31d8316af133",
+      "taskBlockHash": "736779b58b5ee78ef1e550b6115df075f65d5de52f36d26f3475d590734fc038",
       "taskId": "S00-T04",
       "title": "Add A Resumable Expand/Backfill/Contract Migration Harness",
       "tranche": "F0-foundation"
@@ -128,7 +128,7 @@
       "lane": "identity",
       "requirements": ["IAM-01"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "4f50bd8ed1801242ee87e47cf339a318e315ddc3b392923c4de7764c284860a8",
+      "taskBlockHash": "a8aa34429fd96052cc10c1c5f3e102960c8d41797e14e8653564e63d73cc68e2",
       "taskId": "S01-T01",
       "title": "Wire Real AuthKit Identity Into TanStack Start And Convex",
       "tranche": "C1-contract-spine"
@@ -154,7 +154,7 @@
       "lane": "identity",
       "requirements": ["FND-03", "IAM-01", "IAM-03"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "a8d4e17f4f7d4308aeedec91eb757d67c85018d5c020a2284b43fcde96fa3c0c",
+      "taskBlockHash": "a59a29ddbfce727b62b29f74708fb6548d98d0fadb5dccb0301fda2795d69a48",
       "taskId": "S01-T02",
       "title": "Add WorkOS Organization Binding And Stable Agency/Brain Keys",
       "tranche": "C1-contract-spine"
@@ -181,7 +181,7 @@
       "lane": "identity",
       "requirements": ["IAM-01", "IAM-02", "IAM-03", "UI-02"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "eb5119ea2a5eb317b53505dd8d2edeb85d4205d2d472c8772b70981cde6eab03",
+      "taskBlockHash": "8ade9ff0e4493ee9366618af158cc75ca88ee25397fb88c4c1aa615fca2fb313",
       "taskId": "S01-T03",
       "title": "Authorize Workspace Listing And Brain Provisioning",
       "tranche": "D2-domain-bodies"
@@ -214,7 +214,7 @@
       "lane": "identity",
       "requirements": ["IAM-04"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "d9847ab509e4ac342f11c403e4e48f740d142a3a39c49920002b77ad99624502",
+      "taskBlockHash": "7651f449e12ead281282cc10e39259f19abd93fdfbb45e49f5f80ef6e0b37c1e",
       "taskId": "S01-T04",
       "title": "Apply Existing RBAC To Members, Settings, And Privileged Actions",
       "tranche": "D2-domain-bodies"
@@ -239,7 +239,7 @@
       "lane": "brain",
       "requirements": ["IAM-03", "KNW-01"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "6a6a14aa35bcdad8f7a3f5bf474c614aa6b616b0b8eabb3b4f2911df88c4f910",
+      "taskBlockHash": "84d1e943301e3c6b956e439a4c95f5e8eab6c6b0694519718779f8753b7e51b2",
       "taskId": "S02-T01",
       "title": "Expand Brain Pages To Stable Tree Identity",
       "tranche": "C1-contract-spine"
@@ -263,7 +263,7 @@
       "lane": "brain",
       "requirements": ["IAM-04", "KNW-01", "UI-03"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "241af9ea3077b84e2df4705903251132d9819d3182b62f8103db29ec6bf7a8c4",
+      "taskBlockHash": "1679e340cd87c77bc894f526dc1bf032a35a0f2a9833247b849230cfa0a27443",
       "taskId": "S02-T02",
       "title": "Complete Authorized Page Tree CRUD",
       "tranche": "D2-domain-bodies"
@@ -292,7 +292,7 @@
       "lane": "brain",
       "requirements": ["KNW-01", "UI-04", "ZFC-01"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "b4ab5473dcd79f9762f3facd196f5ce7ad713c89c76984e255e6f22bf4add336",
+      "taskBlockHash": "7a6b4e75af9cad33ba191f370e383456c82fcb413e034a3a6d74d0ff9fb2f881",
       "taskId": "S02-T03",
       "title": "Replace Versioning/Knowledge Fixtures With Authorized Revisions And Citations",
       "tranche": "D2-domain-bodies"
@@ -318,7 +318,7 @@
       "lane": "brain",
       "requirements": ["IAM-04", "KNW-01", "UI-03"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "03f2676101f60701fa3a6a79558201d7e2ba42650950238de120f837213fd2ba",
+      "taskBlockHash": "623311f41d16bdce220eca05dce90da9dcd173fb21782c722b4811a96cf15d64",
       "taskId": "S02-T04",
       "title": "Bind Realtime Editor Sync To Stable Pages And Revision Fences",
       "tranche": "D2-domain-bodies"
@@ -347,7 +347,7 @@
       "lane": "web",
       "requirements": ["UI-01"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "37e305626fbb8aec2534469b74173482bd2a575911ecc636c0ccb2f77a8e818e",
+      "taskBlockHash": "1f6d60ac93a690c8a9cbfb765b9291308bd71953e818b0c0258250d18ff87ca0",
       "taskId": "S03-T01",
       "title": "Replace Generic Navigation With The V1 Product Shell",
       "tranche": "C1-contract-spine"
@@ -378,7 +378,7 @@
       "lane": "web",
       "requirements": ["UI-02"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "d9612e7ef401b5c0fd2d9783a368c80e4a48ce0e57553f7556b13fe3db9d5a04",
+      "taskBlockHash": "8794bf92c12ca33fa32326ee04d6ee3d344a3a493e5496e44b82b88cd5368eea",
       "taskId": "S03-T02",
       "title": "Build Clients List, Creation, And Standard Client Brief",
       "tranche": "D2-domain-bodies"
@@ -411,7 +411,7 @@
       "lane": "web",
       "requirements": ["IAM-04", "UI-03"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "ad6b6c95b272d27c48481e3f614edd6bfcea30b10ed840d48143e4194027a38c",
+      "taskBlockHash": "7e44fa53b3d36bbe4b944b032d4fce1f25df2978d560460cb9a5884df6831074",
       "taskId": "S03-T03",
       "title": "Build The Responsive Page Tree And BlockNote Workspace",
       "tranche": "D2-domain-bodies"
@@ -442,7 +442,7 @@
       "lane": "web",
       "requirements": ["AI-03", "KNW-01", "UI-04"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "f468d4336a8fd0e272d8a88b788518a7ee5d5ce5205f4ffba52231a602534bbc",
+      "taskBlockHash": "78ff255c4d73997e48185b402800166ff93609d29da250287371ef90b4c53108",
       "taskId": "S03-T04",
       "title": "Add History, Diff, Citations, Restore, And Review Queue Shells",
       "tranche": "D2-domain-bodies"
@@ -479,7 +479,7 @@
       "lane": "slack-source",
       "requirements": ["IAM-04", "SLK-01"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "c4ccbb9fc3a3788226af2f890a96522aa02b9f690fa9839de21448c78b212445",
+      "taskBlockHash": "8b1f578fb083d82c9621f53f47d3fb3d54c2995e6c45aa0c3d3228735e4928a1",
       "taskId": "S04-T01",
       "title": "Add The Nango Provider Boundary And Admin Connect Session",
       "tranche": "C1-contract-spine"
@@ -507,7 +507,7 @@
       "lane": "slack-source",
       "requirements": ["SLK-01", "SLK-02"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "63be1d1e4ef037a283e9a59a4c8810c60960ea6ba693e0c4ac8a4705b33a7a08",
+      "taskBlockHash": "9a967a453205747a1247b7e253970f75f1822a57cf771a2f1977c858efc2a597",
       "taskId": "S04-T02",
       "title": "Persist Exact Connection, Bot Identity, And Channel Directory State",
       "tranche": "D2-domain-bodies"
@@ -542,7 +542,7 @@
       "lane": "slack-source",
       "requirements": ["AI-04", "SLK-04"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "3fb51d1f725aa9f0837d7608988fc161394c5284b41eebb6c6f24de4109f1689",
+      "taskBlockHash": "f75fac2a8282f948a2540568b23c5f46969f40eaa1d03b47cc9f592eec75d11d",
       "taskId": "S04-T03",
       "title": "Pin Slack Manifest And Verify Every Webhook Before Tenant Resolution",
       "tranche": "D2-domain-bodies"
@@ -574,7 +574,7 @@
       "lane": "slack-source",
       "requirements": ["IAM-04", "SLK-02", "SLK-03", "SLK-08", "UI-01"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "cefc628a8453d191d083b23dda9435be6ea4f0b5345eaecc562db4c71ba26f50",
+      "taskBlockHash": "bfae1710cf8f5e0a8cfd1fb2837196c3ef010179e9f8092a2e3b13a4027c9f76",
       "taskId": "S04-T04",
       "title": "Build Multi-Channel Routing And Delivery Policy Control Plane",
       "tranche": "D2-domain-bodies"
@@ -601,7 +601,7 @@
       "lane": "slack-source",
       "requirements": ["IAM-03", "KNW-02", "SLK-04", "SLK-05"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "c89b2c18c5e9d9179259b9ee5a332d4e9b97e2d651c3644eb2528e0fed519d90",
+      "taskBlockHash": "5d61136eb1500166dd5acc1563f8954630f744a3f5c75316e1c4d9c8da5f6f29",
       "taskId": "S05-T01",
       "title": "Add The Organization Source Ledger And Atomic Capture Tables",
       "tranche": "C1-contract-spine"
@@ -626,7 +626,7 @@
       "lane": "slack-source",
       "requirements": ["SLK-04", "SLK-05", "ZFC-01"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "7afd51def2b9659be61436be4b2602d423b3a47f12cf12ac850d555d4e8de9f6",
+      "taskBlockHash": "79e4563bd9e950b60b47fa231fe24c2bd0b4756eae2c8556c4aee8423db7fbd0",
       "taskId": "S05-T02",
       "title": "Implement Deterministic Slack Normalization, Ordering, And Atomic Capture",
       "tranche": "D2-domain-bodies"
@@ -653,7 +653,7 @@
       "lane": "slack-source",
       "requirements": ["SLK-06", "ZFC-01"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "474d73c9fd84ae516bea1357484beede8aba889e1f683445ea60368773357074",
+      "taskBlockHash": "a8f2eee22fea73f41e75edae63e9d56607d60c6ba11bd4e8171fe8fbd39beea1",
       "taskId": "S05-T03",
       "title": "Assemble Immutable Bounded Source-Unit Revisions At A Fixed Cut",
       "tranche": "D2-domain-bodies"
@@ -677,7 +677,7 @@
       "lane": "slack-source",
       "requirements": ["KNW-01", "SLK-03", "ZFC-01"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "7eb60a1f518268338fa010647fc76a05b158448eb8fba03b6d7d73cb6f1d1f1e",
+      "taskBlockHash": "ab610547327a6cd4af51c8e0c073605b6c9125cfaa61ea2bdc4c8087977141ad",
       "taskId": "S05-T04",
       "title": "Dispatch Capture-Only And Direct Routes Mechanically",
       "tranche": "D2-domain-bodies"
@@ -704,7 +704,7 @@
       "lane": "slack-source",
       "requirements": ["SLK-07", "ZFC-01"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "de5b2572499fed1d0e46f955d20242e12355d951b99d9229928eda048fbee809",
+      "taskBlockHash": "1a724832da7f83888759323cd3711fff10d439c1fb77a7133b17f79ea608c2f0",
       "taskId": "S06-T01",
       "title": "Replace The Demo Workpool With Fenced Source Job Claims",
       "tranche": "D2-domain-bodies"
@@ -732,7 +732,7 @@
       "lane": "slack-source",
       "requirements": ["REL-02", "SLK-07"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "fcbaf35382136a77f0acb368e4ca774e27d9cd376eba60b4913a2854a9169042",
+      "taskBlockHash": "3759d296a76e6c6726fb42f6dd134f49ae80a4c1786998770e04eae0daff76d1",
       "taskId": "S06-T02",
       "title": "Add Fair Priority Pools And Central Slack Rate Budgets",
       "tranche": "D2-domain-bodies"
@@ -760,7 +760,7 @@
       "lane": "slack-source",
       "requirements": ["REL-02", "SLK-02", "SLK-07"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "ebc43a1ff161b51b04291423c1b167667ee5e0eabc319fc6a7b35860cdd1318d",
+      "taskBlockHash": "39ed2d22c1cd2460822c994bcdf1a435f46bf68558719aaa2ac1726464cc98cb",
       "taskId": "S06-T03",
       "title": "Implement Bounded Recent And Deep History Backfill",
       "tranche": "D2-domain-bodies"
@@ -792,7 +792,7 @@
       "lane": "slack-source",
       "requirements": ["REL-03", "SLK-07", "UI-04"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "52dce43a34940ff8813cbfedab719a83add208d83204d2687fe6cf645ed33ecb",
+      "taskBlockHash": "5f8f24ef30cf07f0d423c9f1f252ae5a7448bd41df7dd105d8b939ec9ddd5ba8",
       "taskId": "S06-T04",
       "title": "Add Reconciliation, Dead-Letter Replay, And Honest Gap Recovery",
       "tranche": "D2-domain-bodies"
@@ -831,7 +831,7 @@
       "lane": "lifecycle",
       "requirements": ["FND-03", "IAM-04", "KNW-02"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "d30511faa0db5cbf44767aecff2d1302a41564dd56fd9a6e1ed263144ab4fb3e",
+      "taskBlockHash": "a54c35ae6cbf155cc18669b067be2726be584e34065bf30dd8a2ed9b6de000a1",
       "taskId": "S07-T01",
       "title": "Add The Shared Lifecycle Envelope, Policies, Holds, And Jobs",
       "tranche": "C1-contract-spine"
@@ -863,7 +863,7 @@
       "lane": "lifecycle",
       "requirements": ["KNW-02", "SLK-05", "SLK-08"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "b23380efd00dd0c4f8856cd960c0eeb7617170182be466b1c92022089555bb77",
+      "taskBlockHash": "5a47b51b93e6c8ea2936794f0256b3dbca97cb8da473641f823bf5bd9fd9416b",
       "taskId": "S07-T02",
       "title": "Propagate Slack Edit/Delete And Emergency Route Revocation",
       "tranche": "D2-domain-bodies"
@@ -895,7 +895,7 @@
       "lane": "lifecycle",
       "requirements": ["KNW-02", "REL-04"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "b0a170a70666122805ce8b3d791e6bdff22ad2f15c70d93510787d2c043cb867",
+      "taskBlockHash": "0ce9b22499035995a7d0e5d8d1df3ff138baff059bd58bed20239c6782164729",
       "taskId": "S07-T03",
       "title": "Execute Retention, DSAR, Purge, Organization/Brain Delete, And Backup Policy",
       "tranche": "D2-domain-bodies"
@@ -908,7 +908,7 @@
       "fileInventoryIssues": [],
       "fileInventoryStatus": "ready",
       "fileLocks": [
-        "apps/web/src/features/brain/evidence-drawer.tsx",
+        "apps/web/src/features/brain/brain-evidence-drawer.tsx",
         "apps/web/src/features/data-lifecycle/data-lifecycle-surface.test.tsx",
         "apps/web/src/features/data-lifecycle/data-lifecycle-surface.tsx",
         "apps/web/src/features/settings/legal-holds.test.tsx",
@@ -925,7 +925,7 @@
       "lane": "lifecycle",
       "requirements": ["KNW-02", "REL-03", "UI-04"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "f85a60d8d8750b0b9ba55db255d3870639a41e4468f2dcc5949a79edf43ffa4b",
+      "taskBlockHash": "f925e7416f75cbe1456fb6d01da0beb23a41b96b8a081737dccb5382ed9acf93",
       "taskId": "S07-T04",
       "title": "Expose Lifecycle Health, Holds, Recovery, And Redacted Citations",
       "tranche": "D2-domain-bodies"
@@ -963,7 +963,7 @@
       "lane": "cognition",
       "requirements": ["AI-01", "AI-04", "ZFC-01"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "a6f6be244513cc114239ffaab1a1a12c3a8d9025e9473674e53ba420f31d712e",
+      "taskBlockHash": "d27a707566ce9f0f6202e2dd066814348178d98acaed58593c7cabf6e26d881e",
       "taskId": "S08-T01",
       "title": "Replace The Text Placeholder With A Structured Provider-Neutral LLM Gateway",
       "tranche": "C1-contract-spine"
@@ -992,7 +992,7 @@
       "lane": "cognition",
       "requirements": ["HLS-02", "ZFC-01"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "c1aa2e8d0900cfa242bd370cdb2b18aa72294437c7e8d7b6cab4eab6581c5260",
+      "taskBlockHash": "3207e19ec5825c2a9e8e72388c43716fdffecb1e7d13758292576fcb3fc54480",
       "taskId": "S08-T02",
       "title": "Add An Internal-Only Workflow Generator Mode",
       "tranche": "D2-domain-bodies"
@@ -1021,7 +1021,7 @@
       "lane": "cognition",
       "requirements": ["AI-02", "IAM-04", "SLK-03", "ZFC-01"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "25b7dc282a3c9f7c7deda32c8f5a05adc4b6393e77b7f63bef2d2c24446add6e",
+      "taskBlockHash": "23d420bf70c61e27c98b78a1b9c6c785c400777c31f60547f2b91792611797e0",
       "taskId": "S08-T03",
       "title": "Implement Review-First Zero-Or-One Classification",
       "tranche": "X3-convergence"
@@ -1051,7 +1051,7 @@
       "lane": "cognition",
       "requirements": ["AI-03", "AI-04", "KNW-01", "UI-04"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "d2fc006f3b437879787a5abc2d38c48eac8a6be5de0590769c1abd2e7b1d9404",
+      "taskBlockHash": "8b3242bdcec2a576607001d90f9fb10c22b410456eafc01892d837259a6769fa",
       "taskId": "S08-T04",
       "title": "Implement Cited Review-First Brain Maintenance And Autopilot Gate",
       "tranche": "X3-convergence"
@@ -1077,7 +1077,7 @@
       "lane": "retrieval",
       "requirements": ["KNW-03", "ZFC-01"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "4f0949dacd6568edd9054a068ac0746fba9630fe7635a1c54744c3b9cdd8d828",
+      "taskBlockHash": "db93a94c66c2552d9f58cf8da00d4fd5af8d79b11017b6fef18984b949be61f6",
       "taskId": "S09-T01",
       "title": "Migrate The Search Seam To Asynchronous Effect Semantics",
       "tranche": "C1-contract-spine"
@@ -1107,7 +1107,7 @@
       "lane": "retrieval",
       "requirements": ["KNW-02", "KNW-03"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "f1a30d7fea0d506ce40ce418e4f413c66042f7db2d867fab2f2cbda9fd4062d5",
+      "taskBlockHash": "0584f2523200f39d30b3eb03d9aa0989fdeba247eeb550245ee44bddc3f6b409",
       "taskId": "S09-T02",
       "title": "Build Authorized Workspace Search Projections",
       "tranche": "D2-domain-bodies"
@@ -1133,7 +1133,7 @@
       "lane": "retrieval",
       "requirements": ["HLS-02", "IAM-03", "KNW-04"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "5afedaf5f509381d94f0bd26ac91857f8d98eee60c1ca5a92b5b4c21c4af451e",
+      "taskBlockHash": "01d084b7f3a677160c996e2ea20cc387820d99a2ab0ba37af7cf6fa8f0c4d346",
       "taskId": "S09-T03",
       "title": "Add Shared Page/Source/Context Reads And Immutable Retrieval Receipts",
       "tranche": "X3-convergence"
@@ -1164,7 +1164,7 @@
       "lane": "retrieval",
       "requirements": ["AI-04", "HLS-02", "KNW-04", "UI-01"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "a4268ba7ebb2a929e1d2821f2b03e5910eae991d0a91aa4e66fd2d43d3ae12e5",
+      "taskBlockHash": "1f57bb58772e6b14e41abace922a89784e9e018c557ee635f42929a746ef6b55",
       "taskId": "S09-T04",
       "title": "Implement Cited Ask With Abstention And Final Reauthorization",
       "tranche": "X3-convergence"
@@ -1196,7 +1196,7 @@
       "lane": "slack-answer",
       "requirements": ["IAM-04", "SLK-09"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "f9f7b44d0e36d1d5335346848070c3461d0b7e74167d7ae233d64c2a1ecb74ed",
+      "taskBlockHash": "2ea7cc0ba87d0e73e5ed2ab8bacb747f3b10cc806641813e7d40921f9d086bb6",
       "taskId": "S10-T01",
       "title": "Link Exact Slack Users To Current Maestro Users",
       "tranche": "X3-convergence"
@@ -1223,7 +1223,7 @@
       "lane": "slack-answer",
       "requirements": ["HLS-02", "SLK-08", "SLK-09", "ZFC-01"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "3306b566a156f46de3cc047d527a202d55539cf11e75f8dcefd2a3d8051478db",
+      "taskBlockHash": "a659d81cb7e769566042bfbaeb1fa5aa3d409c438cddc7e7b32591ae8dfe8820",
       "taskId": "S10-T02",
       "title": "Capture Mentions/DMs And Select Only An Authorized Brain Scope",
       "tranche": "X3-convergence"
@@ -1255,7 +1255,7 @@
       "lane": "slack-answer",
       "requirements": ["KNW-04", "SLK-08", "SLK-09"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "96ad55c97ddcdaa497bbd1e991d7c909ac25947411b8c436107e6b557da175ac",
+      "taskBlockHash": "1acf1558a07779a26b29682074e043570709242eec11afa33957925f198ef44c",
       "taskId": "S10-T03",
       "title": "Add A Fenced Outbox And Requester-Private Slack Delivery",
       "tranche": "X3-convergence"
@@ -1285,7 +1285,7 @@
       "lane": "slack-answer",
       "requirements": ["REL-03", "SLK-08", "SLK-09", "UI-04"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "813d4b538a5ea876015c285144b24de898a45686c8558370ee4c805bf5ae2b42",
+      "taskBlockHash": "cb378d2285544e1afe9b95bd44ba74edf85e7c32620133586b48770fdf95c30b",
       "taskId": "S10-T04",
       "title": "Complete Slack Linking, Clarification, Delivery, And Recovery UX",
       "tranche": "X3-convergence"
@@ -1314,7 +1314,7 @@
       "lane": "headless",
       "requirements": ["HLS-01", "IAM-04", "KNW-02"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "d93eacad067773b30881fbbcaa8915ff978d845c459979a975fa8bb9c7f77e58",
+      "taskBlockHash": "97663c5d038cb5db0fbfdc73f6af8342ec44c6cd796722c8cef52e8f1cfc0fc1",
       "taskId": "S11-T01",
       "title": "Add Human-Authorized One-Brain API Key CRUD And Service Principals",
       "tranche": "C1-contract-spine"
@@ -1343,7 +1343,7 @@
       "lane": "headless",
       "requirements": ["HLS-01", "HLS-02", "IAM-03"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "bd20f27c60e50b9a73edafa3b01de4f0ca9676e15caa000690d0235f895ecc3f",
+      "taskBlockHash": "e024d522b7e8303ae5e13af0b972ae84ec688d4e037901bef731fb0c55943a23",
       "taskId": "S11-T02",
       "title": "Resolve Bearer Principals Before Decoding Or Dispatching Requests",
       "tranche": "D2-domain-bodies"
@@ -1372,7 +1372,7 @@
       "lane": "headless",
       "requirements": ["HLS-02", "HLS-03"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "63b274e08e9129bf722d40da891191969add236026ab36b25509baf5581bd5be",
+      "taskBlockHash": "b8c0e8d11cd096082cdf93aa752a50371c9542c8f601bb67f1701739363779bc",
       "taskId": "S11-T03",
       "title": "Expose Only The Reviewed Read And Ask Capability Registry",
       "tranche": "X3-convergence"
@@ -1405,7 +1405,7 @@
       "lane": "headless",
       "requirements": ["HLS-01", "HLS-02", "HLS-03"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "ca278670c8bfb7a217ed3f4e9592c3807c20445c6c0e33c65e823de3d0ac2731",
+      "taskBlockHash": "5193fb92021768d9c1d3ef6884c942c6326f15819c7131559db188548d2fb67e",
       "taskId": "S11-T04",
       "title": "Implement Stateless Streamable HTTP MCP And Copyable Client Config",
       "tranche": "X3-convergence"
@@ -1429,7 +1429,7 @@
       "lane": "export",
       "requirements": ["IAM-03", "KNW-05"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "6dadc23a126e90f7d279b3725504c37aa98738a27c53ca76e4c92f22e06f6626",
+      "taskBlockHash": "37b5618ac032da73ee3bacdd3645ba62911f7a40f8dae039d1b85fa73082e785",
       "taskId": "S12-T01",
       "title": "Build The Deterministic Stable-Key Export Codec",
       "tranche": "C1-contract-spine"
@@ -1458,7 +1458,7 @@
       "lane": "export",
       "requirements": ["IAM-04", "KNW-02", "KNW-05"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "0241d6ad2fdfb04ede29ea51c6ec587051e041f2f6aed6979009446748badaf4",
+      "taskBlockHash": "a6bf3147c01925e41515ea4ac8b60a5ebd9290ab6856d6eb1cc284d3d5e6f20e",
       "taskId": "S12-T02",
       "title": "Add Authorized Export Jobs And Temporary Convex Storage",
       "tranche": "X3-convergence"
@@ -1488,7 +1488,7 @@
       "lane": "export",
       "requirements": ["KNW-05", "REL-03", "UI-04"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "9c46045130e468f7081f65653d0d4292f63e92741d51413298b1883d215d7e05",
+      "taskBlockHash": "0af49263fe096fe2dfcd82c275c533fd2db12cadeaa045c8510bf8215d62a025",
       "taskId": "S12-T03",
       "title": "Add Export UI, Audit History, Expiry, And Purge Recovery",
       "tranche": "X3-convergence"
@@ -1528,7 +1528,7 @@
       "lane": "operations",
       "requirements": ["AI-02", "AI-03", "AI-04", "KNW-04", "REL-01"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "6e893a5455340730f07a9b07c97402781f421446420954db52305f35d520fc0e",
+      "taskBlockHash": "031b7023b009f8a3b1377ae2734adce8fe7140ec4ff9fdcc4d6c34fb2ab17586",
       "taskId": "S13-T01",
       "title": "Build Frozen Semantic And Security Evaluation Suites",
       "tranche": "C1-contract-spine"
@@ -1554,7 +1554,7 @@
       "lane": "operations",
       "requirements": ["REL-02", "SLK-07"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "9570b224e2e0545c007d940cdcf22c3483ff6ff5c5b8b4ec697eee733bfe2373",
+      "taskBlockHash": "2b76ab1991d07a9978da3c321cbcc4f73ffc5ae9b4e3eb3512e2ff3dd4251072",
       "taskId": "S13-T02",
       "title": "Build And Pass The Declared Capacity/Fairness Harness",
       "tranche": "X3-convergence"
@@ -1574,6 +1574,7 @@
         "packages/convex/confect/ops/flags.impl.ts",
         "packages/convex/confect/ops/flags.spec.ts",
         "packages/convex/test/brain-operation-policy.test.ts",
+        "packages/observability/src/brainMetrics.test.ts",
         "packages/observability/src/brainMetrics.ts",
         "packages/observability/src/index.ts",
         "tooling/quality/check-logging-boundary.mts"
@@ -1583,7 +1584,7 @@
       "lane": "operations",
       "requirements": ["AI-04", "REL-03", "SLK-07"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "d3d3f2577c36f7bdb2a1cde721f485906092c15a4f986ef39e5558829fd32a6d",
+      "taskBlockHash": "13c071bc2c78035c5563f494b38160a96c981ab2962984f056be4e18853e137e",
       "taskId": "S13-T03",
       "title": "Add Redacted Telemetry, Budgets, And Kill Switches",
       "tranche": "X3-convergence"
@@ -1613,7 +1614,7 @@
       "lane": "operations",
       "requirements": ["REL-03"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "231d153194b7641c5d30e0bee3e356769a7ccf24024fbbbd601adb2be2f12fb3",
+      "taskBlockHash": "e15e9e08be007b20f0995b587809027a67da32f872b89a147ef036fe15e85fb4",
       "taskId": "S13-T04",
       "title": "Add Operations Dashboard, Alerts, And Recovery Drills",
       "tranche": "X3-convergence"
@@ -1639,7 +1640,7 @@
       "lane": "release",
       "requirements": ["REL-04"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "a8c813eb85cd2598677f1a81a920492706c0149891a286f335f42fbaf44bc962",
+      "taskBlockHash": "6194cfc497ddc6bfe196dda5a2cee13b162ab743426c4dca55cfd7bc251ecb5a",
       "taskId": "S14-T01",
       "title": "Stage, Pilot, Launch, And Prove Rollback",
       "tranche": "R4-release"
