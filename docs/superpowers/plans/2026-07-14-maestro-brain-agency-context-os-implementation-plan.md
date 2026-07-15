@@ -4017,9 +4017,17 @@ every child receipt.
 
 ## Appendix L — CI, Staging, Pilot, And Launch Evidence Contract
 
-Evidence is immutable, redacted, and tied to one `productReleaseCommit`, build,
-and deploy. A later docs-only `attestationCommit` may package it under S14's
-signed materiality rule. “Not run” and missing required CI, provider, hosted,
+Lane proof, gate, and integration-result files are redacted working evidence:
+they may change during implementation, independent review, repair, and final
+recording, but every proof uses schema `maestro-brain-ci-proof/v1` and binds the
+current plan hash, task-block hash, and lane head. Final lane gates bind those
+same hashes. After the exact-head tranche gate and record step pass, the
+integration checker writes one versioned, content-addressed archive containing
+the final integration result and every included lane's proof, gate, and result;
+its write-once manifest rejects later evidence drift. That archived evidence is
+immutable, redacted, and tied to one `productReleaseCommit`, build, and deploy.
+A later docs-only `attestationCommit` may package it under S14's signed
+materiality rule. “Not run” and missing required CI, provider, hosted,
 migration, security, or live-product evidence are failures. Optional planning
 MCP failures are recorded as unavailable and do not affect task, tranche, or
 launch verdicts. Product MCP staging evidence remains required by the Headless
