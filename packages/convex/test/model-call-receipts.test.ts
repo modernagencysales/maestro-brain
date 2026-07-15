@@ -241,7 +241,18 @@ describe("model call receipt repository", () => {
     expect(result.inserted).toBe(true);
   });
 
-  it("routes production writes through authenticated workspace tenancy", () => {
+  it("keeps authenticated receipt writer ready for a future Node action", () => {
+    const source = readFileSync(
+      new URL("../confect/modelReceipts/repository.ts", import.meta.url),
+      "utf8",
+    );
+
+    expect(source).toContain("writeAuthenticatedModelCallReceipt");
+    expect(source).toContain("requireWorkspaceAccess");
+    expect(source).toContain("writeModelCallReceipt");
+  });
+
+  it("keeps sourceGroundedBrief fixture deployable in the Convex isolate", () => {
     const source = readFileSync(
       new URL(
         "../confect/capabilities/sourceGroundedBrief.impl.ts",
@@ -250,15 +261,10 @@ describe("model call receipt repository", () => {
       "utf8",
     );
 
-    expect(source).toContain("writeAuthenticatedModelCallReceipt");
-    expect(source).toContain("createStructuredLlmGateway");
-    expect(source).not.toContain("runFakeSourceGroundedBrief");
-    expect(source).not.toContain("writeModelCallReceipt({");
-    expect(source).not.toContain("sha256:source-grounded-brief-request-");
-    expect(source).not.toContain("sha256:source-grounded-brief-response-");
-    expect(source).not.toContain("sha256:source-grounded-brief-source-");
-    expect(source).not.toContain(
-      'model: "openrouter/fake-source-grounded-brief"',
-    );
+    expect(source).not.toContain("@maestro-template/integrations");
+    expect(source).not.toContain("node:crypto");
+    expect(source).not.toContain("createStructuredLlmGateway");
+    expect(source).not.toContain("writeAuthenticatedModelCallReceipt");
+    expect(source).toContain("runFakeSourceGroundedBrief");
   });
 });
