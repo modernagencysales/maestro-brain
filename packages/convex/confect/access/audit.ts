@@ -4,12 +4,44 @@ import * as Effect from "effect/Effect";
 import { DatabaseWriter } from "../_generated/services";
 import type { AccessLifecycleEvent } from "./lifecycle";
 
-export type AccessAuditEventInsert = {
+export const privilegedAccessAuditActions = [
+  "member.roleChanged",
+  "member.removed",
+  "member.ownershipTransferred",
+  "invitation.created",
+  "invitation.accepted",
+  "invitation.declined",
+  "invitation.cancelled",
+  "slack.connectionChanged",
+  "slack.channelPolicyChanged",
+  "retention.policyChanged",
+  "model.egressPolicyChanged",
+  "autopilot.policyChanged",
+  "export.administered",
+  "apiKey.administered",
+] as const;
+
+export type PrivilegedAccessAuditAction =
+  (typeof privilegedAccessAuditActions)[number];
+
+type PrivilegedAccessAuditEvent = {
   readonly workspaceId: string;
-  readonly action: AccessLifecycleEvent["action"];
+  readonly action: PrivilegedAccessAuditAction;
   readonly actorUserId?: string;
   readonly actorEmail?: string;
-  readonly subjectKind: AccessLifecycleEvent["subjectKind"];
+  readonly subjectKind: "workspaceMember" | "invitation" | "privilegedAction";
+  readonly subjectId: string;
+  readonly metadata: Record<string, string | number | boolean>;
+};
+
+type AccessAuditEvent = AccessLifecycleEvent | PrivilegedAccessAuditEvent;
+
+export type AccessAuditEventInsert = {
+  readonly workspaceId: string;
+  readonly action: AccessAuditEvent["action"];
+  readonly actorUserId?: string;
+  readonly actorEmail?: string;
+  readonly subjectKind: AccessAuditEvent["subjectKind"];
   readonly subjectId: string;
   readonly metadataJson: string;
   readonly createdAt: number;
@@ -18,7 +50,7 @@ export type AccessAuditEventInsert = {
 type Writer = Context.Tag.Service<typeof DatabaseWriter>;
 
 export const accessAuditEventInsert = (
-  event: AccessLifecycleEvent,
+  event: AccessAuditEvent,
   createdAt: number,
 ): AccessAuditEventInsert => ({
   workspaceId: event.workspaceId,
