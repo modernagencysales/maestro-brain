@@ -570,9 +570,11 @@ split before implementation rather than exempted after the fact.
     `search` stub). `schema/brainRetrievalChunks.ts` (`.vectorIndex` 1536-dim +
     filterFields), `schema/claims.ts` (`.searchIndex`),
     `domain/brainRetrieval.ts`. The canonical Convex RAG shape.
-87. **Migrations component pattern** — LOW — partial. maestro migrations usage
-    of `@convex-dev/migrations` (already installed in the template's
-    convex.config — wire an example migration).
+87. **Migrations component pattern** — LOW — partial. S00-T04 adds the
+    internal-only Confect/Convex harness, durable run/receipt tables, and probe
+    migrations documented in `docs/product/maestro-brain-migrations.md`. Promote
+    this into a generator/template pattern after two product migrations use the
+    harness unchanged.
 88. **crons.ts static-kickoff pattern** — LOW — no. `crons.ts`. "Static interval
     → dispatcher mutation" for scheduled internal kickoffs (distinct from the
     per-workspace schedule engine in item 55).
