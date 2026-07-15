@@ -1,8 +1,11 @@
 import { templateConfectRefs } from "@maestro-template/convex/refs";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { useTemplateMutation } from "../adapters/confect-state";
-import { createMemberManagementAdapter } from "../features/settings/member-management-adapter";
+import { useTemplateAction, useTemplateQuery } from "../adapters/confect-state";
+import {
+  createMemberManagementAdapter,
+  type WorkspaceId,
+} from "../features/settings/member-management-adapter";
 import { MemberManagement } from "../features/settings/member-management";
 import { useWorkspace } from "../providers/workspace";
 import { BusinessSettingsRoute } from "../saas-ui/business-shell";
@@ -10,6 +13,7 @@ import { BusinessSettingsRoute } from "../saas-ui/business-shell";
 const accessRefs = {
   members: templateConfectRefs.public.access.members,
   invitations: {
+    list: templateConfectRefs.public.access.invitations.list,
     create: templateConfectRefs.public.access.invitations.create,
     cancel: templateConfectRefs.public.access.invitations.cancel,
   },
@@ -21,12 +25,24 @@ export const Route = createFileRoute("/_workspace/settings")({
 
 function WorkspaceSettingsRoute() {
   const workspace = useWorkspace();
-  const createInvitation = useTemplateMutation(accessRefs.invitations.create);
-  const cancelInvitation = useTemplateMutation(accessRefs.invitations.cancel);
-  const changeRole = useTemplateMutation(accessRefs.members.changeRole);
-  const removeMember = useTemplateMutation(accessRefs.members.remove);
-  const transferOwnership = useTemplateMutation(
+  const createInvitation = useTemplateAction(accessRefs.invitations.create);
+  const cancelInvitation = useTemplateAction(accessRefs.invitations.cancel);
+  const changeRole = useTemplateAction(accessRefs.members.changeRole);
+  const removeMember = useTemplateAction(accessRefs.members.remove);
+  const transferOwnership = useTemplateAction(
     accessRefs.members.transferOwnership,
+  );
+  const workspaceId =
+    workspace.status === "ready"
+      ? (workspace.activeWorkspace.workspaceId as WorkspaceId)
+      : null;
+  const members = useTemplateQuery(
+    accessRefs.members.list,
+    workspaceId === null ? "skip" : { workspaceId },
+  );
+  const invitations = useTemplateQuery(
+    accessRefs.invitations.list,
+    workspaceId === null ? "skip" : { workspaceId },
   );
 
   if (workspace.status !== "ready") {
@@ -35,34 +51,53 @@ function WorkspaceSettingsRoute() {
 
   const adapter = createMemberManagementAdapter({
     role: workspace.activeWorkspace.role,
-    workspaceId: workspace.activeWorkspace.workspaceId,
-    refs: accessRefs,
-    runMutation: async (ref, args) => {
-      if (ref === accessRefs.invitations.create) {
-        return createInvitation(args as Parameters<typeof createInvitation>[0]);
-      }
-      if (ref === accessRefs.invitations.cancel) {
-        return cancelInvitation(args as Parameters<typeof cancelInvitation>[0]);
-      }
-      if (ref === accessRefs.members.changeRole) {
-        return changeRole(args as Parameters<typeof changeRole>[0]);
-      }
-      if (ref === accessRefs.members.remove) {
-        return removeMember(args as Parameters<typeof removeMember>[0]);
-      }
-      if (ref === accessRefs.members.transferOwnership) {
-        return transferOwnership(
-          args as Parameters<typeof transferOwnership>[0],
-        );
-      }
-      throw new Error("Unknown member management mutation ref.");
+    workspaceId: workspace.activeWorkspace.workspaceId as WorkspaceId,
+    mutations: {
+      createInvitation,
+      cancelInvitation,
+      changeRole,
+      removeMember,
+      transferOwnership,
     },
   });
 
   return (
     <>
       <BusinessSettingsRoute />
-      <MemberManagement adapter={adapter} />
+      <MemberManagement
+        adapter={adapter}
+        members={toRowsState(members, "Member list access denied.")}
+        invitations={toRowsState(invitations, "Invitation list access denied.")}
+      />
     </>
   );
 }
+
+const toRowsState = <T, E>(
+  state:
+    | { readonly status: "ready"; readonly data: readonly T[] }
+    | { readonly status: "loading" }
+    | { readonly status: "skipped" }
+    | { readonly status: "empty"; readonly data: readonly T[] }
+    | {
+        readonly status: "parse_failure" | "transport_failure" | "defect";
+        readonly message: string;
+      }
+    | { readonly status: "typed_failure"; readonly error: E },
+  deniedMessage: string,
+) => {
+  switch (state.status) {
+    case "ready":
+    case "empty":
+      return { status: "ready" as const, data: state.data };
+    case "loading":
+    case "skipped":
+      return { status: "loading" as const };
+    case "typed_failure":
+      return { status: "denied" as const, message: deniedMessage };
+    case "parse_failure":
+    case "transport_failure":
+    case "defect":
+      return { status: "error" as const, message: state.message };
+  }
+};
