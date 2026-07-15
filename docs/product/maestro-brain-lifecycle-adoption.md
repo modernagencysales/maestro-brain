@@ -1,0 +1,9 @@
+# Maestro Brain Lifecycle Adoption
+
+## Async search seam
+
+S09-T01 moves search callers to an asynchronous Effect service. Product runtime
+must use provider-neutral async adapters; rollback uses the async test provider
+rather than the removed synchronous token-overlap API. The deterministic token
+overlap scorer is scoped to test/rollback wiring only and is not a public
+production mode.
