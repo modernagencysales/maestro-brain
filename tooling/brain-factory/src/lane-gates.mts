@@ -23,6 +23,7 @@ import {
   changedHandAuthoredSourceLines,
   validSourceSlices,
 } from "./source-budget.js";
+import { laneFileOwnershipIssues } from "./lane-ownership.js";
 
 interface ProofPacket {
   readonly baseSha: string;
@@ -101,6 +102,12 @@ const actualChangedFiles = changedFilesResult.stdout
   .filter(Boolean);
 if (!proofChangedFilesMatch(proof.changedFiles, actualChangedFiles))
   throw new Error(`${taskId}: proof changedFiles do not match the task diff`);
+const ownershipIssues = laneFileOwnershipIssues(
+  actualChangedFiles,
+  task.fileLocks,
+);
+if (ownershipIssues.length > 0)
+  throw new Error(`${taskId}: ${ownershipIssues.join("; ")}`);
 const focusedCommands = proof.focusedCommands.map((command) => {
   try {
     return focusedGateCommand(command);

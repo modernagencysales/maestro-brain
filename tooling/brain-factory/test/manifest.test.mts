@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { isIntegrationOwnedGeneratedFile } from "../src/lane-ownership.js";
 import {
   buildManifest,
   PLAN_RELATIVE,
@@ -81,13 +82,17 @@ describe("Maestro Brain execution manifest", () => {
     );
   });
 
-  it("reserves generated output for integration and locks environment ownership", () => {
+  it("reserves every generated output path for integration", () => {
     const manifest = buildManifest();
     expect(
       manifest.tasks.every(
         (task) =>
           !task.fileLocks.includes("@generated-confect") &&
-          task.fileLocks.every((file) => !file.includes("/_generated/")),
+          task.fileLocks.every(
+            (file) =>
+              !file.includes("/_generated/") &&
+              !isIntegrationOwnedGeneratedFile(file),
+          ),
       ),
     ).toBe(true);
     expect(
@@ -118,6 +123,12 @@ describe("Maestro Brain execution manifest", () => {
       ]),
     );
     expect(migrations?.codeStartAfter).toEqual(["S00-T03"]);
+    expect(migrations?.fileLocks).toContain(
+      "packages/convex/confect/internal/migrations.ts",
+    );
+    expect(migrations?.fileLocks).not.toContain(
+      "packages/convex/convex/migrations.ts",
+    );
   });
 
   it("keeps durable identity and provider work behind foundation gates", () => {

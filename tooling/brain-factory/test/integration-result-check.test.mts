@@ -324,6 +324,23 @@ describe("normal integration result check", () => {
     ).toThrow("S09-T01: proof changedFiles do not match the task diff");
   });
 
+  it("rejects a lane diff outside its exact manifest locks", () => {
+    const value = fixture();
+    const manifest = readRecord(value.manifestPath);
+    const tasks = manifest.tasks as Array<Record<string, unknown>>;
+    tasks[0] = { ...tasks[0], fileLocks: ["another-source.ts"] };
+    writeJson(value.manifestPath, manifest);
+    expect(() =>
+      validateIntegrationResult({
+        controlRoot: value.controlRoot,
+        evidenceDirectory: value.evidence,
+        expectedWorkdir: value.workdir,
+        integrationId: value.integrationId,
+        manifestTranche: value.manifestTranche,
+      }),
+    ).toThrow("S09-T01: source.ts: not declared in manifest fileLocks");
+  });
+
   it("rejects proof schema, plan, and task-block drift", () => {
     const value = fixture();
     const original = readRecord(value.proofPath);

@@ -19,6 +19,7 @@
     "brain:factory:integrate": "tsx tooling/brain-factory/src/integrate.mts",
     "brain:factory:recover-integration": "tsx tooling/brain-factory/src/recover-integration.mts",
     "brain:factory:lane-gates": "tsx tooling/brain-factory/src/lane-gates.mts",
+    "brain:factory:check-confect-codegen": "tsx tooling/brain-factory/src/check-confect-codegen.mts",
     "brain:factory:resume": "tsx tooling/brain-factory/src/resume.mts",
     "stack:check": "tsx tooling/stack/check.mts",
     "stack:status": "tsx tooling/stack/status.mts",

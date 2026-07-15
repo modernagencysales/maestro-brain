@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "e4e4e5993fee79d0361851dddd952b8d90186621958b36ccbcc5b08f7bf8a1d0",
+  "planSha256": "aa8b45f1897d9398cf76b424bd4ea82263fab3f92421787af446570df25f8459",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -93,8 +93,8 @@
         "docs/template/porting-backlog.md",
         "packages/convex/confect/internal/migrations.impl.ts",
         "packages/convex/confect/internal/migrations.spec.ts",
+        "packages/convex/confect/internal/migrations.ts",
         "packages/convex/confect/tables/migrationReceipts.ts",
-        "packages/convex/convex/migrations.ts",
         "packages/convex/test/migrations.test.ts"
       ],
       "gateProfiles": ["convex"],
@@ -102,7 +102,7 @@
       "lane": "foundation",
       "requirements": ["FND-03"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "736779b58b5ee78ef1e550b6115df075f65d5de52f36d26f3475d590734fc038",
+      "taskBlockHash": "4e0046e21b70233742b0dac426417682eaac8f2f8a29e56b6d274aefb629a74b",
       "taskId": "S00-T04",
       "title": "Add A Resumable Expand/Backfill/Contract Migration Harness",
       "tranche": "F0-foundation"
@@ -149,9 +149,9 @@
         "packages/convex/confect/access/provisioning.ts",
         "packages/convex/confect/access/tenancySchemas.ts",
         "packages/convex/confect/identity/stableKeys.ts",
+        "packages/convex/confect/internal/migrations.ts",
         "packages/convex/confect/tables/organizations.ts",
         "packages/convex/confect/tables/workspaces.ts",
-        "packages/convex/convex/migrations.ts",
         "packages/convex/test/stable-tenant-keys.test.ts"
       ],
       "gateProfiles": ["convex"],
@@ -159,7 +159,7 @@
       "lane": "identity",
       "requirements": ["FND-03", "IAM-01", "IAM-03"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "a59a29ddbfce727b62b29f74708fb6548d98d0fadb5dccb0301fda2795d69a48",
+      "taskBlockHash": "60e30635340af6572fcec551e5807da7191514ba98abd70c284794976da848b5",
       "taskId": "S01-T02",
       "title": "Add WorkOS Organization Binding And Stable Agency/Brain Keys",
       "tranche": "C1-contract-spine"
@@ -234,9 +234,9 @@
       "fileLocks": [
         "docs/product/maestro-brain-lifecycle-adoption.md",
         "packages/convex/confect/brain/pageSchemas.ts",
+        "packages/convex/confect/internal/migrations.ts",
         "packages/convex/confect/tables/brainPages.ts",
         "packages/convex/confect/tables/pageRevisions.ts",
-        "packages/convex/convex/migrations.ts",
         "packages/convex/test/brain-page-schema.test.ts"
       ],
       "gateProfiles": ["convex"],
@@ -244,7 +244,7 @@
       "lane": "brain",
       "requirements": ["IAM-03", "KNW-01"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "c127819aebab5807bdd2d6d808cc6cd99b94091fad25d18842d52a9b39b98685",
+      "taskBlockHash": "68cbce370c3a47a37121d5cad1f955704048300d8f2036583b9a7112f1ab5a7c",
       "taskId": "S02-T01",
       "title": "Expand Brain Pages To Stable Tree Identity",
       "tranche": "C1-contract-spine"
@@ -283,13 +283,13 @@
       "fileLocks": [
         "packages/convex/confect/brain/citations.ts",
         "packages/convex/confect/brain/revisions.ts",
+        "packages/convex/confect/internal/migrations.ts",
         "packages/convex/confect/ops/knowledge.impl.ts",
         "packages/convex/confect/ops/knowledge.spec.ts",
         "packages/convex/confect/ops/versioning.impl.ts",
         "packages/convex/confect/ops/versioning.spec.ts",
         "packages/convex/confect/tables/citations.ts",
         "packages/convex/confect/tables/versionedEntries.ts",
-        "packages/convex/convex/migrations.ts",
         "packages/convex/test/brain-revisions.test.ts"
       ],
       "gateProfiles": ["convex"],
@@ -297,7 +297,7 @@
       "lane": "brain",
       "requirements": ["KNW-01", "UI-04", "ZFC-01"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "bd421705121ac4cd27c8d7aa347851f6d0f779b39d542cb04eab2c0660f3e9d0",
+      "taskBlockHash": "45df51405c417f55a01a61499ce6fdf213acee438b69409245e3862d2bac38a9",
       "taskId": "S02-T03",
       "title": "Replace Versioning/Knowledge Fixtures With Authorized Revisions And Citations",
       "tranche": "D2-domain-bodies"
@@ -501,10 +501,10 @@
         "packages/convex/confect/integrations/slackDirectory.impl.ts",
         "packages/convex/confect/integrations/slackDirectory.spec.ts",
         "packages/convex/confect/integrations/slackDirectory.ts",
+        "packages/convex/confect/internal/migrations.ts",
         "packages/convex/confect/tables/channelSyncStates.ts",
         "packages/convex/confect/tables/providerConnections.ts",
         "packages/convex/confect/tables/sourceChannels.ts",
-        "packages/convex/convex/migrations.ts",
         "packages/convex/test/slack-directory.test.ts"
       ],
       "gateProfiles": ["convex", "integrations"],
@@ -512,7 +512,7 @@
       "lane": "slack-source",
       "requirements": ["SLK-01", "SLK-02"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "19ec0275ff1bca2080af9b2691bb40534e21b8b850f4acd52bd654adb3719e98",
+      "taskBlockHash": "4de28c974a696c36d4c9111984b1aef6e23c75dcb863a6b241f18359a504f37e",
       "taskId": "S04-T02",
       "title": "Persist Exact Connection, Bot Identity, And Channel Directory State",
       "tranche": "D2-domain-bodies"
@@ -533,8 +533,8 @@
         "packages/convex/confect/http.ts",
         "packages/convex/confect/slack/webhook.impl.ts",
         "packages/convex/confect/slack/webhook.spec.ts",
+        "packages/convex/confect/slack/webhook.ts",
         "packages/convex/confect/slack/webhookSecurity.ts",
-        "packages/convex/convex/slackWebhook.ts",
         "packages/convex/test/slack-webhook-security.test.ts",
         "packages/integrations/config/slack/maestro-brain-manifest.json",
         "packages/integrations/src/slack/eventsVerifier.test.ts",
@@ -547,7 +547,7 @@
       "lane": "slack-source",
       "requirements": ["AI-04", "SLK-04"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "ed738064434072d07ca1a841fdfc7884b1d3e14bce6dd32843eb5de2c183d2e3",
+      "taskBlockHash": "1bdc6fa12298f3a5f9fa8049da03b69de1f6a4cbf6125a4c3af948110b136a4c",
       "taskId": "S04-T03",
       "title": "Pin Slack Manifest And Verify Every Webhook Before Tenant Resolution",
       "tranche": "D2-domain-bodies"
@@ -593,12 +593,12 @@
       "fileInventoryStatus": "ready",
       "fileLocks": [
         "docs/product/maestro-brain-lifecycle-adoption.md",
+        "packages/convex/confect/internal/migrations.ts",
         "packages/convex/confect/sources/sourceSchemas.ts",
         "packages/convex/confect/tables/providerEventReceipts.ts",
         "packages/convex/confect/tables/sourceArtifacts.ts",
         "packages/convex/confect/tables/sourceProcessingJobs.ts",
         "packages/convex/confect/tables/sourceRevisions.ts",
-        "packages/convex/convex/migrations.ts",
         "packages/convex/test/source-ledger-schema.test.ts"
       ],
       "gateProfiles": ["convex", "integrations"],
@@ -606,7 +606,7 @@
       "lane": "slack-source",
       "requirements": ["IAM-03", "KNW-02", "SLK-04", "SLK-05"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "b167d4459652fce912dc19b9e6b0576ef50d90982a00be0f345c363474d6b90d",
+      "taskBlockHash": "15bc7bfc045b44ce6d66512f065739bc43c5bc1cdc67c4b1a75053342d9ced04",
       "taskId": "S05-T01",
       "title": "Add The Organization Source Ledger And Atomic Capture Tables",
       "tranche": "C1-contract-spine"
@@ -701,7 +701,6 @@
         "packages/convex/confect/jobs/workpool.spec.ts",
         "packages/convex/confect/jobs/workpool.ts",
         "packages/convex/confect/tables/sourceProcessingJobs.ts",
-        "packages/convex/convex/jobs/workpool.ts",
         "packages/convex/test/source-workpool.test.ts"
       ],
       "gateProfiles": ["convex", "integrations"],
@@ -709,7 +708,7 @@
       "lane": "slack-source",
       "requirements": ["SLK-07", "ZFC-01"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "8e447ea7d5c73bc7dc133f6e3e185df14f3691096c359e682e723b326773ef4e",
+      "taskBlockHash": "c89eda687612f8fa5c1384ae70485c635fccc6357be5c8107f5777453a3c0e8f",
       "taskId": "S06-T01",
       "title": "Replace The Demo Workpool With Fenced Source Job Claims",
       "tranche": "D2-domain-bodies"
@@ -812,6 +811,7 @@
       "fileLocks": [
         "docs/product/maestro-brain-lifecycle-adoption.md",
         "docs/template/data-lifecycle.md",
+        "packages/convex/confect/internal/migrations.ts",
         "packages/convex/confect/lifecycle/envelope.ts",
         "packages/convex/confect/ops/dataLifecycle.impl.ts",
         "packages/convex/confect/ops/dataLifecycle.spec.ts",
@@ -828,7 +828,6 @@
         "packages/convex/confect/tables/sourceProcessingJobs.ts",
         "packages/convex/confect/tables/sourceRevisions.ts",
         "packages/convex/confect/tables/sourceRoutes.ts",
-        "packages/convex/convex/migrations.ts",
         "packages/convex/test/lifecycle-envelope.test.ts"
       ],
       "gateProfiles": ["convex"],
@@ -836,7 +835,7 @@
       "lane": "lifecycle",
       "requirements": ["FND-03", "IAM-04", "KNW-02"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "683f8919f9f77c3a2f9a9bc80646d61b310dc2fd0ff2d800afa39d343d838836",
+      "taskBlockHash": "a6cc2c9e2dca7a02e5ad25e34615dff0059f54375150f63df34978f6f0b53044",
       "taskId": "S07-T01",
       "title": "Add The Shared Lifecycle Envelope, Policies, Holds, And Jobs",
       "tranche": "C1-contract-spine"
@@ -1099,6 +1098,7 @@
       "fileLocks": [
         "docs/product/maestro-brain-lifecycle-adoption.md",
         "packages/convex/confect/brain/revisions.ts",
+        "packages/convex/confect/internal/migrations.ts",
         "packages/convex/confect/lifecycle/propagation.ts",
         "packages/convex/confect/search/convexSearch.ts",
         "packages/convex/confect/search/projectionWriter.ts",
@@ -1106,7 +1106,6 @@
         "packages/convex/confect/search/projections.spec.ts",
         "packages/convex/confect/sources/policyDispatch.ts",
         "packages/convex/confect/tables/workspaceSearchProjections.ts",
-        "packages/convex/convex/migrations.ts",
         "packages/convex/test/search-projections.test.ts"
       ],
       "gateProfiles": ["convex", "search"],
@@ -1114,7 +1113,7 @@
       "lane": "retrieval",
       "requirements": ["KNW-02", "KNW-03"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "8ba6a72b219c9ca1afd19216f80e1b157f34ec0cd41d33aed49f43048f6b1eb7",
+      "taskBlockHash": "b3bc3073cf95efac0d041dd2737d77c9cdc93455f911255e0502bccea6a2e909",
       "taskId": "S09-T02",
       "title": "Build Authorized Workspace Search Projections",
       "tranche": "D2-domain-bodies"
@@ -1191,11 +1190,11 @@
         "apps/web/src/features/settings/slack-link-status.test.tsx",
         "apps/web/src/features/settings/slack-link-status.tsx",
         "docs/product/maestro-brain-lifecycle-adoption.md",
+        "packages/convex/confect/internal/migrations.ts",
         "packages/convex/confect/slack/identityLink.ts",
         "packages/convex/confect/slack/identityLinks.impl.ts",
         "packages/convex/confect/slack/identityLinks.spec.ts",
         "packages/convex/confect/tables/slackIdentityBindings.ts",
-        "packages/convex/convex/migrations.ts",
         "packages/convex/test/slack-identity-links.test.ts"
       ],
       "gateProfiles": ["convex", "integrations", "web"],
@@ -1203,7 +1202,7 @@
       "lane": "slack-answer",
       "requirements": ["IAM-04", "SLK-09"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "bb9d0e764ff306f05100aa19f34485f14c86f1f6f4ee226aa056ce0c23e02c4a",
+      "taskBlockHash": "7db099143c8569c81a909181cc326807d7579e83198f553ffa055e0af420e4c8",
       "taskId": "S10-T01",
       "title": "Link Exact Slack Users To Current Maestro Users",
       "tranche": "X3-convergence"
@@ -1311,9 +1310,9 @@
         "packages/convex/confect/headless/apiKeys.impl.ts",
         "packages/convex/confect/headless/apiKeys.spec.ts",
         "packages/convex/confect/headless/auth.ts",
+        "packages/convex/confect/internal/migrations.ts",
         "packages/convex/confect/tables/apiKeys.ts",
         "packages/convex/confect/tables/servicePrincipals.ts",
-        "packages/convex/convex/migrations.ts",
         "packages/convex/test/api-keys.test.ts"
       ],
       "gateProfiles": ["cli", "convex", "web"],
@@ -1321,7 +1320,7 @@
       "lane": "headless",
       "requirements": ["HLS-01", "IAM-04", "KNW-02"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "c94dddfcd6e719662ca0dd820034048a2b92bb5c6bfd31c97b7be8ff304e2605",
+      "taskBlockHash": "2cb916255378327d8ed926614c32418c5c4987479bc51578d33a0562f1225b20",
       "taskId": "S11-T01",
       "title": "Add Human-Authorized One-Brain API Key CRUD And Service Principals",
       "tranche": "C1-contract-spine"

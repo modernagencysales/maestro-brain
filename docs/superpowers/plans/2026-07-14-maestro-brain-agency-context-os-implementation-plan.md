@@ -434,14 +434,15 @@ manifest.
   [`convex.config.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/convex/convex.config.ts#L1-L25),
   and the backlog explicitly calls for a real example in
   [`porting-backlog.md`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/docs/template/porting-backlog.md#L524-L526).
-- **Files:** create `packages/convex/convex/migrations.ts`,
+- **Files:** create `packages/convex/confect/internal/migrations.ts`,
   `packages/convex/test/migrations.test.ts`, and
   `packages/convex/confect/internal/migrations.spec.ts`,
   `packages/convex/confect/internal/migrations.impl.ts`,
   `packages/convex/confect/tables/migrationReceipts.ts`, and
   `docs/product/maestro-brain-migrations.md`; modify
-  `docs/template/porting-backlog.md` and generated Convex API only through
-  codegen.
+  `docs/template/porting-backlog.md`. Confect generates
+  packages/convex/convex/internal/migrations.ts and the remaining generated
+  contract output only in tranche integration.
 - **Failure-first tests:** prove an internal migration runs in bounded batches,
   resumes from a cursor after injected failure, skips already-migrated rows,
   supports dry-run counts, refuses an unknown migration name, and exposes no
@@ -472,8 +473,7 @@ manifest.
   the wrapper after proving no migration rows/runs were created. Later schema
   tasks must state their own dual-read/write and rollback.
 - **Focused verification:**
-  `rtk host-test-slot --class focused pnpm --dir packages/convex test migrations`,
-  `rtk pnpm --dir packages/convex typecheck`, `rtk pnpm check:convex`,
+  `rtk pnpm brain:factory:check-confect-codegen -- --test migrations`,
   `rtk pnpm check:schema-migration-notes`, `rtk pnpm check:generated-files`,
   `rtk pnpm check:confect-manifest`, and
   `rtk pnpm check:headless-surface-contract`. Tests reject unknown names, forged
@@ -559,7 +559,7 @@ manifest.
   `packages/convex/confect/tables/organizations.ts`,
   `packages/convex/confect/tables/workspaces.ts`,
   `packages/convex/confect/access/provisioning.ts`, and
-  `packages/convex/convex/migrations.ts`; create
+  `packages/convex/confect/internal/migrations.ts`; create
   `packages/convex/confect/identity/stableKeys.ts` and
   `packages/convex/test/stable-tenant-keys.test.ts`.
 - **Failure-first tests:** duplicate WorkOS org binding, duplicate
@@ -719,7 +719,7 @@ manifest.
   production Maestro demonstrates stable keys and parent/export identity in
   [`brainPages.ts`](https://github.com/modernagencysales/maestro/blob/c8b644c154af91f7e6b67b31861fd6b7eaa211b1/packages/convex/convex/schema/brainPages.ts#L22-L83).
 - **Files:** modify `packages/convex/confect/tables/brainPages.ts`,
-  `packages/convex/convex/migrations.ts`, and
+  `packages/convex/confect/internal/migrations.ts`, and
   `docs/product/maestro-brain-lifecycle-adoption.md`; create
   `packages/convex/confect/tables/pageRevisions.ts`,
   `packages/convex/confect/brain/pageSchemas.ts`, and
@@ -818,7 +818,7 @@ manifest.
   `packages/convex/confect/ops/knowledge.impl.ts`,
   `packages/convex/confect/tables/citations.ts`,
   `packages/convex/confect/tables/versionedEntries.ts`, and
-  `packages/convex/convex/migrations.ts`; create
+  `packages/convex/confect/internal/migrations.ts`; create
   `packages/convex/confect/brain/revisions.ts`,
   `packages/convex/confect/brain/citations.ts`, and
   `packages/convex/test/brain-revisions.test.ts`.
@@ -1188,7 +1188,7 @@ manifest.
   `packages/convex/confect/integrations/slackDirectory.impl.ts`,
   `packages/convex/confect/integrations/slackDirectory.ts`, and
   `packages/convex/test/slack-directory.test.ts`; modify
-  `packages/convex/convex/migrations.ts` and
+  `packages/convex/confect/internal/migrations.ts` and
   `docs/product/maestro-brain-lifecycle-adoption.md`.
 - **Failure-first tests:** duplicate active connection/team/app binding,
   `is_member` derived from installer user token, auto-join invocation, channel
@@ -1250,7 +1250,7 @@ manifest.
   `packages/convex/confect/slack/webhook.spec.ts`,
   `packages/convex/confect/slack/webhook.impl.ts`,
   `packages/convex/confect/slack/webhookSecurity.ts`,
-  `packages/convex/convex/slackWebhook.ts`, and
+  `packages/convex/confect/slack/webhook.ts`, and
   `packages/convex/test/slack-webhook-security.test.ts`; modify
   `packages/convex/confect/http.ts`, `.env.example`,
   `docs/template/env-manifest.md`, `docs/template/env-manifest.json`,
@@ -1386,7 +1386,7 @@ manifest.
   `packages/convex/confect/tables/sourceProcessingJobs.ts`,
   `packages/convex/confect/sources/sourceSchemas.ts`, and
   `packages/convex/test/source-ledger-schema.test.ts`; modify
-  `packages/convex/convex/migrations.ts` and
+  `packages/convex/confect/internal/migrations.ts` and
   `docs/product/maestro-brain-lifecycle-adoption.md`.
 - **Failure-first tests:** missing organization/channel binding, duplicate
   transport receipt, multiple receipts for one logical observation, conflicting
@@ -1594,7 +1594,6 @@ manifest.
 - **Files:** modify `packages/convex/confect/jobs/workpool.spec.ts`,
   `packages/convex/confect/jobs/workpool.impl.ts`,
   `packages/convex/confect/jobs/workpool.ts`,
-  `packages/convex/convex/jobs/workpool.ts`, and
   `packages/convex/confect/tables/sourceProcessingJobs.ts`; create
   `packages/convex/confect/jobs/leases.ts`,
   `packages/convex/confect/jobs/jobState.ts`, and
@@ -1814,9 +1813,10 @@ manifest.
   `packages/convex/confect/ops/dataLifecycle.spec.ts`,
   `packages/convex/confect/ops/dataLifecycle.impl.ts`,
   `packages/convex/confect/ops/dataLifecycle.ts`,
-  `packages/convex/convex/migrations.ts`, and `docs/template/data-lifecycle.md`.
-  The adoption document assigns exact S09-S12 descendant files/tests to their
-  owning future tasks; S07 does not name nonexistent files as its own diff.
+  `packages/convex/confect/internal/migrations.ts`, and
+  `docs/template/data-lifecycle.md`. The adoption document assigns exact S09-S12
+  descendant files/tests to their owning future tasks; S07 does not name
+  nonexistent files as its own diff.
 - **Failure-first tests:** missing lifecycle owner/posture, stale lifecycle
   generation read/commit, purge under active hold, policy from non-org-admin,
   retroactive shortening without preview/approval, and cross-org job target.
@@ -2353,7 +2353,7 @@ manifest.
   `packages/convex/confect/sources/policyDispatch.ts`,
   `packages/convex/confect/brain/revisions.ts`,
   `packages/convex/confect/lifecycle/propagation.ts`,
-  `packages/convex/convex/migrations.ts`, and
+  `packages/convex/confect/internal/migrations.ts`, and
   `docs/product/maestro-brain-lifecycle-adoption.md`.
 - **Failure-first tests:** organization-vault-only source, inactive/revoked/
   redacted route, wrong workspace/org, stale projection generation, duplicate
@@ -2530,7 +2530,7 @@ manifest.
   `apps/web/src/features/settings/slack-link-button.test.tsx`,
   `apps/web/src/features/settings/slack-link-status.tsx`, and
   `apps/web/src/features/settings/slack-link-status.test.tsx`; modify
-  `packages/convex/convex/migrations.ts` and
+  `packages/convex/confect/internal/migrations.ts` and
   `docs/product/maestro-brain-lifecycle-adoption.md`.
 - **Failure-first tests:** forged/replayed/expired link token, wrong team/user,
   display-name/email match, binding identity already linked to another active
@@ -2754,7 +2754,7 @@ manifest.
   but no authenticated CRUD exists.
 - **Files:** modify `packages/convex/confect/headless/auth.ts`,
   `packages/convex/confect/tables/apiKeys.ts`,
-  `packages/convex/convex/migrations.ts`, and
+  `packages/convex/confect/internal/migrations.ts`, and
   `docs/product/maestro-brain-lifecycle-adoption.md`; create
   `packages/convex/confect/tables/servicePrincipals.ts`,
   `packages/convex/confect/headless/apiKeys.spec.ts`,
@@ -4315,6 +4315,8 @@ checks validate:
 - acyclic `codeStartAfter` and preserved `acceptanceAfter` metadata;
 - known gate profiles, tranche/lane ownership, and shared-file locks;
 - no duplicate active task or shared-lock owner;
+- exact lane diffs stay within hand-authored manifest locks while disposable
+  codegen worktrees prove Confect-generated deltas before centralized codegen;
 - clean worktree/base SHA and proof/head consistency;
 - no broad lane command or gate weakening;
 - full verification before a tranche marks tasks accepted.

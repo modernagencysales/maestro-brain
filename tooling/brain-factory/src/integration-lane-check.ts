@@ -19,6 +19,7 @@ import {
   gateCommandSetHash,
 } from "./lane-gate-cache.js";
 import { validateLaneAcceptance } from "./lane-acceptance.js";
+import { laneFileOwnershipIssues } from "./lane-ownership.js";
 import type { GateProfile } from "./manifest.js";
 import { proofChangedFilesMatch, validateProofContract } from "./proof.js";
 
@@ -259,6 +260,13 @@ export const validateIntegratedLanes = (
       throw new Error(
         `${taskId}: proof changedFiles do not match the task diff`,
       );
+    }
+    const ownershipIssues = laneFileOwnershipIssues(
+      actualChangedFiles,
+      manifestTask.fileLocks as string[],
+    );
+    if (ownershipIssues.length > 0) {
+      throw new Error(`${taskId}: ${ownershipIssues.join("; ")}`);
     }
 
     const focusedCommands = (proof.focusedCommands as string[]).map((command) =>
