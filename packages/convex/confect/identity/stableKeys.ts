@@ -137,21 +137,69 @@ export const resolveBrainByKey = (input: {
   const valid = validateStableBrainKey(input.brainKey);
   if (Either.isLeft(valid)) return Either.left(valid.left);
 
-  const sameKey = input.workspaces.filter(
-    (workspace) => workspace.brainKey === input.brainKey,
-  );
-  const sameTenant = sameKey.filter(
-    (workspace) => workspace.organizationId === input.organizationId,
+  const sameTenant = input.workspaces.filter(
+    (workspace) =>
+      workspace.organizationId === input.organizationId &&
+      workspace.brainKey === input.brainKey,
   );
   if (sameTenant.length > 1) {
     return Either.left(
       new StableKeyConflict({ resource: "workspaces", key: input.brainKey }),
     );
   }
-  if (sameTenant[0] !== undefined) return Either.right(sameTenant[0]);
-  return sameKey.length > 0
-    ? Either.left(new TenantMismatch())
+  return sameTenant[0] !== undefined
+    ? Either.right(sameTenant[0])
     : Either.left(new BrainNotFound());
+};
+
+export const assertUniqueStableTenantKeys = (input: {
+  readonly organizations: readonly OrganizationKeyRow[];
+  readonly workspaces: readonly BrainKeyRow[];
+}): Either.Either<void, StableKeyConflict> => {
+  const seenWorkos = new Set<string>();
+  const seenAgency = new Set<string>();
+  const seenBrain = new Set<string>();
+
+  for (const organization of input.organizations) {
+    if (organization.workosOrganizationId !== undefined) {
+      if (seenWorkos.has(organization.workosOrganizationId)) {
+        return Either.left(
+          new StableKeyConflict({
+            resource: "organizations.workosOrganizationId",
+            key: organization.workosOrganizationId,
+          }),
+        );
+      }
+      seenWorkos.add(organization.workosOrganizationId);
+    }
+    if (organization.agencyKey !== undefined) {
+      if (seenAgency.has(organization.agencyKey)) {
+        return Either.left(
+          new StableKeyConflict({
+            resource: "organizations.agencyKey",
+            key: organization.agencyKey,
+          }),
+        );
+      }
+      seenAgency.add(organization.agencyKey);
+    }
+  }
+
+  for (const workspace of input.workspaces) {
+    if (workspace.brainKey === undefined) continue;
+    const scopedBrainKey = `${workspace.organizationId}:${workspace.brainKey}`;
+    if (seenBrain.has(scopedBrainKey)) {
+      return Either.left(
+        new StableKeyConflict({
+          resource: "workspaces.organizationId.brainKey",
+          key: workspace.brainKey,
+        }),
+      );
+    }
+    seenBrain.add(scopedBrainKey);
+  }
+
+  return Either.right(undefined);
 };
 
 export const stableTenantKeyBackfill = <

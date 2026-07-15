@@ -20,12 +20,16 @@ export type IdentityClaims = {
   readonly name?: string | null;
   readonly email?: string | null;
   readonly emailVerified?: boolean | null;
+  readonly organizationId?: string | null;
+  readonly org_id?: string | null;
+  readonly workosOrganizationId?: string | null;
 };
 
 export type IdentityProfile = {
   readonly subject: string;
   readonly displayName: string;
   readonly email: string;
+  readonly workosOrganizationId?: string | undefined;
 };
 
 type UserStatus = "active" | "suspended" | "deleted";
@@ -162,6 +166,7 @@ export const extractIdentityProfile = (
           ? displayName
           : emailResult.email,
       email: emailResult.email,
+      workosOrganizationId: extractWorkosOrganizationId(claims),
     };
   });
 
@@ -457,6 +462,17 @@ const provisioningSeed = (identity: IdentityProfile): ProvisioningSeed => {
     organizationName: identity.displayName,
     workspaceName: `${identity.displayName} Workspace`,
     identitySubject: identity.subject,
-    workosOrganizationId: undefined,
+    workosOrganizationId: identity.workosOrganizationId,
   };
+};
+
+const extractWorkosOrganizationId = (
+  claims: IdentityClaims | null,
+): string | undefined => {
+  const value =
+    claims?.workosOrganizationId ?? claims?.organizationId ?? claims?.org_id;
+  const normalized = value?.trim();
+  return normalized === undefined || normalized.length === 0
+    ? undefined
+    : normalized;
 };

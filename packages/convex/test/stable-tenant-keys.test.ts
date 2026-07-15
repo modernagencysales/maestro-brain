@@ -1,7 +1,13 @@
+import * as Effect from "effect/Effect";
 import * as Either from "effect/Either";
 import { describe, expect, it } from "vitest";
 
 import {
+  buildProvisioningPlan,
+  extractIdentityProfile,
+} from "../confect/access/provisioning";
+import {
+  assertUniqueStableTenantKeys,
   deriveStableAgencyKey,
   deriveStableBrainKey,
   isStableAgencyKey,
@@ -16,6 +22,10 @@ import {
 
 const raiseMissingOrganization = () => {
   throw new Error("expected organization fixture");
+};
+
+const raiseMissingBrain = () => {
+  throw new Error("expected Brain fixture");
 };
 
 const organizations: readonly OrganizationKeyRow[] = [
@@ -47,6 +57,38 @@ const brains: readonly BrainKeyRow[] = [
 ];
 
 describe("stable tenant keys", () => {
+  it("extracts and plans the server-derived WorkOS organization binding", () => {
+    const identity = Effect.runSync(
+      extractIdentityProfile({
+        subject: "workos|user_12345678",
+        name: "Ada Lovelace",
+        email: "ada@example.com",
+        emailVerified: true,
+        organizationId: " org_workos_123 ",
+      }),
+    );
+
+    const plan = Either.getOrThrow(
+      buildProvisioningPlan({
+        identity,
+        state: {
+          user: null,
+          liveOrganization: null,
+          liveWorkspace: null,
+          organizationMembership: null,
+          workspaceMembership: null,
+        },
+        now: 1_782_924_800_000,
+      }),
+    );
+
+    expect(identity.workosOrganizationId).toBe("org_workos_123");
+    expect(plan.organization).toMatchObject({
+      action: "insert",
+      value: { workosOrganizationId: "org_workos_123" },
+    });
+  });
+
   it("generates opaque sortable agency and Brain keys with strict syntax", () => {
     const agencyKey = deriveStableAgencyKey("organizations_abc123");
     const brainKey = deriveStableBrainKey("workspaces_abc123");
@@ -104,11 +146,59 @@ describe("stable tenant keys", () => {
       ),
     ).toEqual(brains[0]);
 
+    const crossTenant = resolveBrainByKey({
+      workspaces: brains,
+      organizationId: "org_missing",
+      brainKey: "br_01J0000000000000000000000A",
+    });
+
+    expect(crossTenant._tag).toBe("Left");
+    if (Either.isLeft(crossTenant)) {
+      expect(crossTenant.left._tag).toBe("BrainNotFound");
+    }
+  });
+
+  it("detects duplicate WorkOS, agency, and same-tenant Brain bindings", () => {
     expect(
-      resolveBrainByKey({
-        workspaces: brains,
-        organizationId: "org_missing",
-        brainKey: "br_01J0000000000000000000000A",
+      assertUniqueStableTenantKeys({
+        organizations: [
+          organizations[0] ?? raiseMissingOrganization(),
+          {
+            _id: "org_dup_workos",
+            workosOrganizationId: "org_workos_a",
+            agencyKey: "ag_01J0000000000000000000000C",
+          },
+        ],
+        workspaces: [],
+      })._tag,
+    ).toBe("Left");
+
+    expect(
+      assertUniqueStableTenantKeys({
+        organizations: [
+          organizations[0] ?? raiseMissingOrganization(),
+          {
+            _id: "org_dup_agency",
+            workosOrganizationId: "org_workos_c",
+            agencyKey: "ag_01J0000000000000000000000A",
+          },
+        ],
+        workspaces: [],
+      })._tag,
+    ).toBe("Left");
+
+    expect(
+      assertUniqueStableTenantKeys({
+        organizations,
+        workspaces: [
+          brains[0] ?? raiseMissingBrain(),
+          {
+            _id: "workspace_dup",
+            organizationId: "org_a",
+            brainKey: "br_01J0000000000000000000000A",
+            kind: "client",
+          },
+        ],
       })._tag,
     ).toBe("Left");
   });

@@ -4,6 +4,10 @@ import * as Schema from "effect/Schema";
 
 import schema from "../../convex/schema";
 import { components } from "../../convex/_generated/api";
+import {
+  deriveStableAgencyKey,
+  deriveStableBrainKey,
+} from "../identity/stableKeys";
 import { sha256Hex } from "../shared/sha256";
 import {
   type AcquireLeaseResult,
@@ -33,6 +37,33 @@ export const probeExpand = componentMigrations.define({
       ...(row.actor === "inject-post-component-crash"
         ? { actor: "write-count:1" }
         : {}),
+    });
+  },
+});
+
+export const stableTenantOrganizationKeysExpand = componentMigrations.define({
+  table: "organizations",
+  batchSize: 100,
+  migrateOne: async (ctx, row) => {
+    if (row.agencyKey !== undefined) return;
+    await ctx.db.patch(row._id, {
+      agencyKey: deriveStableAgencyKey(row._id),
+      lifecycleGeneration: row.lifecycleGeneration ?? 0,
+      revocationGeneration: row.revocationGeneration ?? 0,
+    });
+  },
+});
+
+export const stableTenantWorkspaceKeysExpand = componentMigrations.define({
+  table: "workspaces",
+  batchSize: 100,
+  migrateOne: async (ctx, row) => {
+    if (row.brainKey !== undefined) return;
+    await ctx.db.patch(row._id, {
+      brainKey: deriveStableBrainKey(row._id),
+      kind: row.kind ?? "agency",
+      lifecycleGeneration: row.lifecycleGeneration ?? 0,
+      revocationGeneration: row.revocationGeneration ?? 0,
     });
   },
 });
