@@ -127,6 +127,11 @@ describe("Fabro workflow prompt contracts", () => {
     );
     expect(review).toContain("Do not use native apply_patch");
     expect(review).toContain("one guarded targeted shell write");
+    expect(buildTask).toContain("review -> review_gate");
+    expect(buildTask).toContain('review_gate -> review [label="pending"]');
+    expect(buildTask).toContain(
+      "independent review left a non-terminal verdict",
+    );
   });
 
   it("uses RTK pass-through commands for implementation guards and scripts", () => {
