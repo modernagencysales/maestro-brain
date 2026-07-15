@@ -18,6 +18,7 @@ import {
   deduplicateGateCommands,
   gateCommandSetHash,
 } from "./lane-gate-cache.js";
+import { validateLaneAcceptance } from "./lane-acceptance.js";
 import type { GateProfile } from "./manifest.js";
 import { proofChangedFilesMatch, validateProofContract } from "./proof.js";
 
@@ -124,21 +125,55 @@ export const validateIntegratedLanes = (
         );
       }
       const dependencyLane = readJson(dependencyLanePath);
+      const dependencyIntegrationHead = string(
+        dependencyLane.integrationHeadSha,
+        `${dependencyId}: integrationHeadSha`,
+      );
       if (
         !new Set(["integrated", "accepted"]).has(
           String(dependencyLane.status),
         ) ||
-        !gitIsAncestor(
-          input.workdir,
-          string(
-            dependencyLane.integrationHeadSha,
-            `${dependencyId}: integrationHeadSha`,
-          ),
-          input.baseSha,
-        )
+        !gitIsAncestor(input.workdir, dependencyIntegrationHead, input.baseSha)
       ) {
         throw new Error(
           `${taskId}: dependency ${dependencyId} is not present on integration base`,
+        );
+      }
+      validateLaneAcceptance(dependencyLane, dependencyId);
+      const dependencyIntegrationId = string(
+        dependencyLane.integrationId,
+        `${dependencyId}: integrationId`,
+      );
+      const dependencyResultPath = resolve(
+        input.evidenceDirectory,
+        "integration",
+        dependencyIntegrationId,
+        "integration-result.json",
+      );
+      if (!existsSync(dependencyResultPath))
+        throw new Error(
+          `${taskId}: dependency ${dependencyId} has no authoritative integration result`,
+        );
+      const dependencyResult = readJson(dependencyResultPath);
+      const boundTask = Array.isArray(dependencyResult.includedTasks)
+        ? dependencyResult.includedTasks
+            .map((item, index) =>
+              record(item, `${dependencyId}: prior includedTasks[${index}]`),
+            )
+            .find((item) => item.taskId === dependencyId)
+        : undefined;
+      if (
+        dependencyResult.schemaVersion !==
+          "maestro-brain-integration-result/v1" ||
+        dependencyResult.status !== "passed" ||
+        dependencyResult.reviewVerdict !== "pass" ||
+        dependencyResult.headSha !== dependencyIntegrationHead ||
+        dependencyResult.integrationId !== dependencyIntegrationId ||
+        !boundTask ||
+        boundTask.laneHeadSha !== dependencyLane.headSha
+      ) {
+        throw new Error(
+          `${taskId}: dependency ${dependencyId} is not bound by its authoritative integration result`,
         );
       }
     }
@@ -152,9 +187,7 @@ export const validateIntegratedLanes = (
     if (!existsSync(lanePath))
       throw new Error(`${taskId}: missing lane result`);
     const lane = readJson(lanePath);
-    if (!new Set(["integrated", "accepted"]).has(String(lane.status))) {
-      throw new Error(`${taskId}: lane result not integrated`);
-    }
+    validateLaneAcceptance(lane, taskId);
     if (lane.integrationHeadSha !== input.headSha) {
       throw new Error(`${taskId}: integration head mismatch`);
     }

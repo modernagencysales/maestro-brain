@@ -41,15 +41,19 @@ describe("brain lane gate command cache", () => {
       commandSetHash: "commands",
       currentHeadSha: "head",
       currentTreeSha: "tree",
+      planSha256: "plan",
       reviewVerdict: "pass" as const,
+      taskBlockHash: "task",
     };
     const report = {
       schemaVersion: "maestro-brain-lane-gate/v1",
       commandSetHash: "commands",
       currentHeadSha: "head",
       currentTreeSha: "tree",
+      planSha256: "plan",
       stage: "pre-review",
       status: "passed",
+      taskBlockHash: "task",
     };
     expect(canReusePreReviewGate(report, identity)).toBe(true);
     expect(

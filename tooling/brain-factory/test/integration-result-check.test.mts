@@ -104,6 +104,8 @@ const fixture = () => {
     includedTasks: [{ taskId }],
   });
   writeJson(lanePath, {
+    acceptanceBlocker: "external acceptance evidence is not yet present",
+    accepted: false,
     taskId,
     headSha: laneHeadSha,
     status: "integrated",
@@ -148,6 +150,7 @@ const fixture = () => {
     status: "passed",
   });
   return {
+    baseSha,
     controlRoot: root,
     evidence,
     headSha,
@@ -185,6 +188,23 @@ describe("normal integration result check", () => {
         manifestTranche: value.manifestTranche,
       }),
     ).not.toThrow();
+  });
+
+  it("rejects legacy integrated records without explicit acceptance state", () => {
+    const value = fixture();
+    const lane = readRecord(value.lanePath);
+    delete lane.accepted;
+    delete lane.acceptanceBlocker;
+    writeJson(value.lanePath, lane);
+    expect(() =>
+      validateIntegrationResult({
+        controlRoot: value.controlRoot,
+        evidenceDirectory: value.evidence,
+        expectedWorkdir: value.workdir,
+        integrationId: value.integrationId,
+        manifestTranche: value.manifestTranche,
+      }),
+    ).toThrow(/migrate and re-prove legacy records/);
   });
 
   it("archives final integration evidence by content hash and rejects drift", () => {
@@ -430,6 +450,78 @@ describe("normal integration result check", () => {
         manifestTranche: value.manifestTranche,
       }),
     ).toThrow("S09-T01: dependency S08-T01 has no lane result");
+  });
+
+  it("trusts prior integration provenance after legitimate later file edits", () => {
+    const value = fixture();
+    const manifest = readRecord(value.manifestPath);
+    const tasks = manifest.tasks as Record<string, unknown>[];
+    const currentTask = tasks[0];
+    if (!currentTask) throw new Error("current task fixture missing");
+    currentTask.codeStartAfter = ["S08-T01"];
+    tasks.push({
+      codeStartAfter: [],
+      fileInventoryStatus: "ready",
+      fileLocks: ["prior-owned-doc.md"],
+      gateProfiles: ["docs"],
+      taskBlockHash: "3".repeat(64),
+      taskId: "S08-T01",
+      tranche: "D2-domain-bodies",
+    });
+    writeJson(value.manifestPath, manifest);
+    const dependencyLaneDirectory = resolve(
+      value.evidence,
+      "lane-results",
+      "S08-T01",
+    );
+    mkdirSync(dependencyLaneDirectory, { recursive: true });
+    writeJson(resolve(dependencyLaneDirectory, "lane-result.json"), {
+      acceptanceBlocker: "external acceptance evidence is pending",
+      accepted: false,
+      headSha: value.baseSha,
+      integrationHeadSha: value.baseSha,
+      integrationId: "D2-domain-bodies-w1",
+      status: "integrated",
+      taskId: "S08-T01",
+      tranche: "D2-domain-bodies",
+    });
+    const priorResultPath = resolve(
+      value.evidence,
+      "integration",
+      "D2-domain-bodies-w1",
+      "integration-result.json",
+    );
+    mkdirSync(resolve(priorResultPath, ".."), { recursive: true });
+    writeJson(priorResultPath, {
+      headSha: value.baseSha,
+      includedTasks: [{ laneHeadSha: value.baseSha, taskId: "S08-T01" }],
+      integrationId: "D2-domain-bodies-w1",
+      reviewVerdict: "pass",
+      schemaVersion: "maestro-brain-integration-result/v1",
+      status: "passed",
+    });
+    expect(() =>
+      validateIntegrationResult({
+        controlRoot: value.controlRoot,
+        evidenceDirectory: value.evidence,
+        expectedWorkdir: value.workdir,
+        integrationId: value.integrationId,
+        manifestTranche: value.manifestTranche,
+      }),
+    ).not.toThrow();
+
+    const prior = readRecord(priorResultPath);
+    prior.includedTasks = [{ laneHeadSha: "c".repeat(40), taskId: "S08-T01" }];
+    writeJson(priorResultPath, prior);
+    expect(() =>
+      validateIntegrationResult({
+        controlRoot: value.controlRoot,
+        evidenceDirectory: value.evidence,
+        expectedWorkdir: value.workdir,
+        integrationId: value.integrationId,
+        manifestTranche: value.manifestTranche,
+      }),
+    ).toThrow(/not bound by its authoritative integration result/);
   });
 
   it("rejects conflicting included-task locks", () => {
