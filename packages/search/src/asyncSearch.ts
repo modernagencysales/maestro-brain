@@ -1,7 +1,12 @@
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { MAX_SEARCH_LIMIT, type SearchMode } from "./index";
+
+export type SearchMode = "test" | "live";
+
+// invariant: retrieval feeds bounded prompt context; higher recall comes from
+// re-querying, not from raising this cap.
+export const MAX_SEARCH_LIMIT = 50;
 
 export type SearchDocument = {
   readonly workspaceSlug: string;
