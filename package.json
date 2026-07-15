@@ -15,6 +15,7 @@
     "test:stack": "pnpm --dir tooling/stack test",
     "brain:factory:materialize": "tsx tooling/brain-factory/src/materialize.mts",
     "brain:factory:check": "tsx tooling/brain-factory/src/check.mts",
+    "brain:factory:adopt-evidence": "tsx tooling/brain-factory/src/adopt-lane-evidence.mts",
     "brain:factory:dispatch": "tsx tooling/brain-factory/src/dispatch.mts",
     "brain:factory:integrate": "tsx tooling/brain-factory/src/integrate.mts",
     "brain:factory:integrate-wave": "tsx tooling/brain-factory/src/integrate-wave.mts",

@@ -17,6 +17,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { validateIntegrationResult } from "../src/integration-result-check.mjs";
 import { archiveIntegrationEvidence } from "../src/evidence-archive.js";
 import { gateCommandSetHash } from "../src/lane-gate-cache.js";
+import { adoptLegacyIntegratedLaneEvidence } from "../src/lane-evidence-adoption.js";
 import { planIntegrationWave } from "../src/integration-wave.js";
 import type { BrainTaskContract } from "../src/manifest.js";
 
@@ -31,14 +32,14 @@ const command = (directory: string, ...args: string[]): string =>
 const writeJson = (path: string, value: unknown): void =>
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
 
-const fixture = () => {
+const fixture = (options?: { readonly taskId?: string }) => {
   const root = mkdtempSync(resolve(tmpdir(), "brain-integration-check-"));
   temporaryDirectories.push(root);
   const workdir = resolve(root, "integration");
   const evidence = resolve(root, "evidence");
   const integrationId = "C1-contract-spine-w2";
   const manifestTranche = "C1-contract-spine";
-  const taskId = "S09-T01";
+  const taskId = options?.taskId ?? "S09-T01";
   const planSha256 = "1".repeat(64);
   const taskBlockHash = "2".repeat(64);
   const manifestDirectory = resolve(
@@ -52,6 +53,7 @@ const fixture = () => {
     planSha256,
     tasks: [
       {
+        acceptanceAfter: "none",
         taskId,
         taskBlockHash,
         tranche: manifestTranche,
@@ -858,6 +860,79 @@ describe("normal integration result check", () => {
         manifestTranche: value.manifestTranche,
       }),
     ).toThrow(/not bound by its authoritative integration result/);
+  });
+
+  it("adopts the historical S01-T01 prerequisite before checking S01-T02", () => {
+    const value = fixture({ taskId: "S01-T02" });
+    const manifest = readRecord(value.manifestPath);
+    const tasks = manifest.tasks as Record<string, unknown>[];
+    const currentTask = tasks[0];
+    if (!currentTask) throw new Error("current task fixture missing");
+    currentTask.codeStartAfter = ["S01-T01"];
+    tasks.push({
+      acceptanceAfter: "S00 complete",
+      codeStartAfter: [],
+      fileInventoryStatus: "ready",
+      fileLocks: ["prior-owned.ts"],
+      gateProfiles: ["docs"],
+      taskBlockHash: "3".repeat(64),
+      taskId: "S01-T01",
+      tranche: value.manifestTranche,
+    });
+    writeJson(value.manifestPath, manifest);
+    const dependencyDirectory = resolve(
+      value.evidence,
+      "lane-results",
+      "S01-T01",
+    );
+    mkdirSync(dependencyDirectory, { recursive: true });
+    writeJson(resolve(dependencyDirectory, "lane-result.json"), {
+      headSha: value.baseSha,
+      integrationHeadSha: value.baseSha,
+      schemaVersion: "maestro-brain-lane-result/v1",
+      status: "integrated",
+      taskId: "S01-T01",
+      tranche: value.manifestTranche,
+    });
+    const priorIntegrationId = "C1-contract-spine-prior";
+    const priorResultPath = resolve(
+      value.evidence,
+      "integration",
+      priorIntegrationId,
+      "integration-result.json",
+    );
+    mkdirSync(resolve(priorResultPath, ".."), { recursive: true });
+    writeJson(priorResultPath, {
+      broadGate: {
+        command: "rtk host-test-slot --class full pnpm verify",
+        headSha: value.baseSha,
+        status: "passed",
+      },
+      headSha: value.baseSha,
+      includedTasks: [{ laneHeadSha: value.baseSha, taskId: "S01-T01" }],
+      remainingFindings: [],
+      reviewVerdict: "pass",
+      schemaVersion: "maestro-brain-integration-result/v1",
+      status: "passed",
+      tranche: priorIntegrationId,
+    });
+    expect(
+      adoptLegacyIntegratedLaneEvidence({
+        controlRoot: value.controlRoot,
+        currentHeadSha: value.headSha,
+        evidenceDirectory: value.evidence,
+        workdir: value.workdir,
+      }),
+    ).toEqual([{ integrationId: priorIntegrationId, taskId: "S01-T01" }]);
+    expect(() =>
+      validateIntegrationResult({
+        controlRoot: value.controlRoot,
+        evidenceDirectory: value.evidence,
+        expectedWorkdir: value.workdir,
+        integrationId: value.integrationId,
+        manifestTranche: value.manifestTranche,
+      }),
+    ).not.toThrow();
   });
 
   it("rejects conflicting included-task locks", () => {

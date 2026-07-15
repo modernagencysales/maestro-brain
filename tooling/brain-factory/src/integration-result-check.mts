@@ -8,6 +8,7 @@ import {
   string,
 } from "./integration-check-support.js";
 import { archiveIntegrationEvidence } from "./evidence-archive.js";
+import { adoptLegacyIntegratedLaneEvidence } from "./lane-evidence-adoption.js";
 import { validateIntegratedLanes } from "./integration-lane-check.js";
 import {
   type IntegrationWaveSelection,
@@ -239,6 +240,19 @@ if (process.argv[1]?.endsWith("integration-result-check.mts")) {
     throw new Error(
       "usage: integration-result-check --control-root ... --workdir ... --evidence ... " +
         "--integration-id ... (--manifest-tranche ... | --wave-selection ...)",
+    );
+  }
+  const adopted = adoptLegacyIntegratedLaneEvidence({
+    controlRoot,
+    currentHeadSha: git(realpathSync(workdir), ["rev-parse", "HEAD"]),
+    evidenceDirectory: evidence,
+    workdir,
+  });
+  if (adopted.length > 0) {
+    console.log(
+      `adopted authoritative legacy lane evidence: ${adopted
+        .map(({ integrationId: id, taskId }) => `${taskId}@${id}`)
+        .join(", ")}`,
     );
   }
   validateIntegrationResult({
