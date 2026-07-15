@@ -1,114 +1,119 @@
+import * as Either from "effect/Either";
 import { describe, expect, it, vi } from "vitest";
 
-import { createMemberManagementAdapter } from "./member-management-adapter";
+import {
+  createMemberManagementAdapter,
+  type InvitationId,
+  type MembershipId,
+  type WorkspaceId,
+} from "./member-management-adapter";
 
-const refs = {
-  members: {
-    changeRole: {
-      functionNamespace: "access/members",
-      functionSpec: { name: "changeRole" },
-    },
-    remove: {
-      functionNamespace: "access/members",
-      functionSpec: { name: "remove" },
-    },
-    transferOwnership: {
-      functionNamespace: "access/members",
-      functionSpec: { name: "transferOwnership" },
-    },
-  },
-  invitations: {
-    create: {
-      functionNamespace: "access/invitations",
-      functionSpec: { name: "create" },
-    },
-    cancel: {
-      functionNamespace: "access/invitations",
-      functionSpec: { name: "cancel" },
-    },
-  },
-} as const;
+const workspaceId = "workspaces_1" as WorkspaceId;
+const membershipId = "workspaceMembers_1" as MembershipId;
+const invitationId = "invitations_1" as InvitationId;
+
+const mutations = () => ({
+  createInvitation: vi.fn().mockResolvedValue(Either.right(invitationId)),
+  cancelInvitation: vi.fn().mockResolvedValue(Either.right(null)),
+  changeRole: vi.fn().mockResolvedValue(Either.right(null)),
+  removeMember: vi.fn().mockResolvedValue(Either.right(null)),
+  transferOwnership: vi.fn().mockResolvedValue(Either.right(null)),
+});
 
 describe("member management adapter", () => {
   it("hides privileged mutations from viewer and editor roles", async () => {
-    const runMutation = vi.fn();
+    const mutationSet = mutations();
     const adapter = createMemberManagementAdapter({
       role: "editor",
-      workspaceId: "workspaces_1",
-      refs,
-      runMutation,
+      workspaceId,
+      mutations: mutationSet,
     });
 
     expect(adapter.canManageMembers).toBe(false);
     await expect(
       adapter.inviteMember({ email: "ada@example.com", role: "viewer" }),
     ).rejects.toThrow("admin or owner");
-    expect(runMutation).not.toHaveBeenCalled();
+    expect(mutationSet.createInvitation).not.toHaveBeenCalled();
   });
 
-  it("dispatches admin member operations through generated access refs", async () => {
-    const runMutation = vi.fn().mockResolvedValue("invitations_1");
+  it("unwraps a successful typed action invitation id", async () => {
+    const mutationSet = mutations();
     const adapter = createMemberManagementAdapter({
       role: "admin",
-      workspaceId: "workspaces_1",
-      refs,
-      runMutation,
+      workspaceId,
+      mutations: mutationSet,
     });
 
     await expect(
       adapter.inviteMember({ email: "ada@example.com", role: "editor" }),
-    ).resolves.toBe("invitations_1");
-    await adapter.changeRole({
-      membershipId: "workspaceMembers_1",
-      role: "viewer",
-    });
-    await adapter.removeMember({ membershipId: "workspaceMembers_1" });
-    await adapter.cancelInvitation({ invitationId: "invitations_1" });
+    ).resolves.toBe(invitationId);
+  });
 
-    expect(runMutation).toHaveBeenNthCalledWith(1, refs.invitations.create, {
-      workspaceId: "workspaces_1",
-      email: "ada@example.com",
-      role: "editor",
+  it("throws typed Left action errors instead of stringifying or ignoring them", async () => {
+    const mutationSet = mutations();
+    mutationSet.createInvitation.mockResolvedValue(
+      Either.left(new Error("denied")),
+    );
+    const adapter = createMemberManagementAdapter({
+      role: "admin",
+      workspaceId,
+      mutations: mutationSet,
     });
-    expect(runMutation).toHaveBeenNthCalledWith(2, refs.members.changeRole, {
-      workspaceId: "workspaces_1",
-      membershipId: "workspaceMembers_1",
+
+    await expect(
+      adapter.inviteMember({ email: "ada@example.com", role: "editor" }),
+    ).rejects.toThrow("denied");
+  });
+
+  it("dispatches admin member operations through typed access actions", async () => {
+    const mutationSet = mutations();
+    const adapter = createMemberManagementAdapter({
+      role: "admin",
+      workspaceId,
+      mutations: mutationSet,
+    });
+
+    await adapter.changeRole({ membershipId, role: "viewer" });
+    await adapter.removeMember({ membershipId });
+    await adapter.cancelInvitation({ invitationId });
+
+    expect(mutationSet.changeRole).toHaveBeenCalledWith({
+      workspaceId,
+      membershipId,
       newRole: "viewer",
     });
-    expect(runMutation).toHaveBeenNthCalledWith(3, refs.members.remove, {
-      workspaceId: "workspaces_1",
-      membershipId: "workspaceMembers_1",
+    expect(mutationSet.removeMember).toHaveBeenCalledWith({
+      workspaceId,
+      membershipId,
     });
-    expect(runMutation).toHaveBeenNthCalledWith(4, refs.invitations.cancel, {
-      invitationId: "invitations_1",
-      workspaceId: "workspaces_1",
+    expect(mutationSet.cancelInvitation).toHaveBeenCalledWith({
+      invitationId,
+      workspaceId,
     });
   });
 
   it("keeps ownership transfer owner-only in the UI adapter", async () => {
-    const adminMutation = vi.fn();
+    const adminMutations = mutations();
     const admin = createMemberManagementAdapter({
       role: "admin",
-      workspaceId: "workspaces_1",
-      refs,
-      runMutation: adminMutation,
+      workspaceId,
+      mutations: adminMutations,
     });
-    await expect(
-      admin.transferOwnership({ membershipId: "workspaceMembers_2" }),
-    ).rejects.toThrow("owner");
-    expect(adminMutation).not.toHaveBeenCalled();
+    await expect(admin.transferOwnership({ membershipId })).rejects.toThrow(
+      "owner",
+    );
+    expect(adminMutations.transferOwnership).not.toHaveBeenCalled();
 
-    const ownerMutation = vi.fn().mockResolvedValue(null);
+    const ownerMutations = mutations();
     const owner = createMemberManagementAdapter({
       role: "owner",
-      workspaceId: "workspaces_1",
-      refs,
-      runMutation: ownerMutation,
+      workspaceId,
+      mutations: ownerMutations,
     });
-    await owner.transferOwnership({ membershipId: "workspaceMembers_2" });
-    expect(ownerMutation).toHaveBeenCalledWith(refs.members.transferOwnership, {
-      workspaceId: "workspaces_1",
-      membershipId: "workspaceMembers_2",
+    await owner.transferOwnership({ membershipId });
+    expect(ownerMutations.transferOwnership).toHaveBeenCalledWith({
+      workspaceId,
+      membershipId,
     });
   });
 });
