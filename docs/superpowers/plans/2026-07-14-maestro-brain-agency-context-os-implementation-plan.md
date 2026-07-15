@@ -796,6 +796,7 @@ manifest.
   [`settings-surface.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/apps/web/src/features/settings/settings-surface.ts#L34-L52).
 - **Files:** modify `packages/convex/confect/access/tenancySchemas.ts`,
   `packages/convex/confect/access/auth.ts`,
+  `packages/convex/confect/access/handlerContext.ts`,
   `packages/convex/confect/access/audit.ts`,
   `packages/convex/confect/access/members.spec.ts`,
   `packages/convex/confect/access/members.impl.ts`,

@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "5779574f7307c2cc91fa7e9a8c35592c3bfa649e559bf7a825b4f31731c37cfc",
+  "planSha256": "aa3ccebdd4381f459d3f389effb452e6fee2c78e12cb1f848e1f535810f0d94f",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -232,6 +232,7 @@
         "apps/web/src/routes/_workspace.settings.tsx",
         "packages/convex/confect/access/audit.ts",
         "packages/convex/confect/access/auth.ts",
+        "packages/convex/confect/access/handlerContext.ts",
         "packages/convex/confect/access/invitations.impl.ts",
         "packages/convex/confect/access/invitations.spec.ts",
         "packages/convex/confect/access/members.impl.ts",
@@ -245,7 +246,7 @@
       "requirements": ["IAM-04"],
       "sourceSliceBudget": 300,
       "sourceSliceLimit": 8,
-      "taskBlockHash": "8152658971fe0f15208c77d5cdacff2858156a9201b0eac7a21078b595e61f39",
+      "taskBlockHash": "90f069041a92dc9dc3c2cb44fffdaf6fea4cfe78de14f95b11d450f50d908ca9",
       "taskId": "S01-T04",
       "title": "Apply Existing RBAC To Members, Settings, And Privileged Actions",
       "tranche": "D2-domain-bodies"
