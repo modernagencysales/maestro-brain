@@ -188,6 +188,30 @@ describe("feature flag Confect contracts", () => {
               updatedAt: 1_782_924_800_000,
             })
             .pipe(Effect.orDie);
+          const orgAdminUserId = yield* writer
+            .table("users")
+            .insert({
+              subject: "org-admin-subject",
+              email: "org-admin@example.com",
+              displayName: "Org Admin",
+              status: "active",
+              createdAt: 1_782_924_800_000,
+              updatedAt: 1_782_924_800_000,
+            })
+            .pipe(Effect.orDie);
+          yield* writer
+            .table("organizationMembers")
+            .insert({
+              organizationId: seeded.organizationId,
+              userId: orgAdminUserId,
+              role: "admin",
+              status: "active",
+              acceptedAt: 1_782_924_800_000,
+              revokedAt: null,
+              createdAt: 1_782_924_800_000,
+              updatedAt: 1_782_924_800_000,
+            })
+            .pipe(Effect.orDie);
           yield* writer
             .table("workspaceMembers")
             .insert({
@@ -221,6 +245,14 @@ describe("feature flag Confect contracts", () => {
       );
       const adminEvaluation = yield* confect
         .withIdentity({
+          subject: "org-admin-subject",
+          email: "org-admin@example.com",
+        })
+        .query(refs.public.ops.flags.evaluate, {
+          workspaceId: seeded.workspaceId,
+        });
+      const restrictedMemberEvaluation = yield* confect
+        .withIdentity({
           subject: "member-subject",
           email: "member@example.com",
         })
@@ -236,7 +268,12 @@ describe("feature flag Confect contracts", () => {
           workspaceId: seeded.workspaceId,
         });
 
-      return { adminEvaluation, memberEvaluation, policy };
+      return {
+        adminEvaluation,
+        memberEvaluation,
+        policy,
+        restrictedMemberEvaluation,
+      };
     });
 
     const result = await Effect.runPromise(
@@ -245,6 +282,10 @@ describe("feature flag Confect contracts", () => {
     const adminDecision = result.adminEvaluation.decisions.find(
       (decision) => decision.key === "template.notifications.center",
     );
+    const restrictedMemberDecision =
+      result.restrictedMemberEvaluation.decisions.find(
+        (decision) => decision.key === "template.notifications.center",
+      );
     const memberDecision = result.memberEvaluation.decisions.find(
       (decision) => decision.key === "template.notifications.center",
     );
@@ -258,6 +299,11 @@ describe("feature flag Confect contracts", () => {
     expect(adminDecision).toMatchObject({
       enabled: true,
       reason: "enabled",
+      source: "workspace",
+    });
+    expect(restrictedMemberDecision).toMatchObject({
+      enabled: false,
+      reason: "audience",
       source: "workspace",
     });
     expect(memberDecision).toMatchObject({
