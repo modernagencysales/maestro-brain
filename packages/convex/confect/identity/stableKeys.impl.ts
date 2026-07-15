@@ -4,8 +4,8 @@ import * as Layer from "effect/Layer";
 
 import databaseSchema from "../_generated/schema";
 import { Auth, DatabaseReader } from "../_generated/services";
-import { Unauthorized, ValidationFailed } from "../errors";
-import { asGenericId } from "../access/handlerContext";
+import { Forbidden, Unauthorized, ValidationFailed } from "../errors";
+import { asGenericId, loadCurrentUser } from "../access/handlerContext";
 import { extractIdentityProfile } from "../access/provisioning";
 import stableKeys from "./stableKeys.spec";
 import {
@@ -47,6 +47,10 @@ const resolveBrainKey = FunctionImpl.make(
       }
 
       const reader = yield* DatabaseReader;
+      const user = yield* loadCurrentUser(reader);
+      if (user.status !== "active") {
+        return yield* new Unauthorized();
+      }
       const currentOrganizations = yield* reader
         .table("organizations")
         .index("by_workos_organization", (q) =>
@@ -83,6 +87,24 @@ const resolveBrainKey = FunctionImpl.make(
       if (organization._id !== currentOrganization._id) {
         return yield* new TenantMismatch({ agencyKey, brainKey });
       }
+      const organizationMemberships = yield* reader
+        .table("organizationMembers")
+        .index("by_organization_user", (q) =>
+          q.eq("organizationId", organization._id).eq("userId", user._id),
+        )
+        .collect()
+        .pipe(Effect.orDie);
+      const liveOrganizationMemberships = organizationMemberships.filter(
+        (member) =>
+          member.status === "active" &&
+          member.acceptedAt !== null &&
+          member.revokedAt === null,
+      );
+      if (liveOrganizationMemberships.length !== 1) {
+        return yield* new Forbidden({
+          reason: "Live organization membership required.",
+        });
+      }
 
       const workspaces = yield* reader
         .table("workspaces")
@@ -100,6 +122,25 @@ const resolveBrainKey = FunctionImpl.make(
       const workspace = workspaces[0];
       if (workspace === undefined || workspace.status !== "active") {
         return yield* new BrainNotFound({ brainKey });
+      }
+      const workspaceMemberships = yield* reader
+        .table("workspaceMembers")
+        .index("by_workspace_user", (q) =>
+          q.eq("workspaceId", workspace._id).eq("userId", user._id),
+        )
+        .collect()
+        .pipe(Effect.orDie);
+      const liveWorkspaceMemberships = workspaceMemberships.filter(
+        (member) =>
+          member.status === "active" &&
+          member.acceptedAt !== null &&
+          member.revokedAt === null &&
+          member.deletedAt === null,
+      );
+      if (liveWorkspaceMemberships.length !== 1) {
+        return yield* new Forbidden({
+          reason: "Live workspace membership required.",
+        });
       }
 
       return {

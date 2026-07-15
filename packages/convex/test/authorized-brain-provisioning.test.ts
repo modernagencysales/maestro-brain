@@ -6,10 +6,18 @@ import { describe, expect, it } from "vitest";
 import refs from "../confect/_generated/refs";
 import databaseSchema from "../confect/_generated/schema";
 import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
-import { ProvisioningConflict, Unauthorized } from "../confect/errors";
+import {
+  Forbidden,
+  ProvisioningConflict,
+  Unauthorized,
+  ValidationFailed,
+} from "../confect/errors";
 import {
   deriveStableAgencyKey,
   deriveStableBrainKey,
+  BrainNotFound,
+  StableKeyConflict,
+  TenantMismatch,
 } from "../confect/identity/stableKeys";
 import { testConfectLayer } from "./support/confect";
 
@@ -273,6 +281,241 @@ describe("authorized Brain provisioning", () => {
 
     expect(error).toBeInstanceOf(ProvisioningConflict);
     expect(error).toMatchObject({ resource: "workspaces.organizationId.kind" });
+  });
+
+  it("denies viewer and editor client Brain creation", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      yield* confect.run(seedClientBrainCreatorRoles(), Schema.Any);
+
+      const viewerError = yield* confect
+        .withIdentity({
+          subject: "viewer-subject",
+          email: "viewer@example.com",
+          emailVerified: true,
+          organizationId: "org_workos_roles",
+        })
+        .mutation(refs.public.access.provisioning.createClientBrain, {
+          name: "Viewer Client",
+          clientSlug: "viewer-client",
+        })
+        .pipe(Effect.flip);
+      const editorError = yield* confect
+        .withIdentity({
+          subject: "editor-subject",
+          email: "editor@example.com",
+          emailVerified: true,
+          organizationId: "org_workos_roles",
+        })
+        .mutation(refs.public.access.provisioning.createClientBrain, {
+          name: "Editor Client",
+          clientSlug: "editor-client",
+        })
+        .pipe(Effect.flip);
+
+      return { viewerError, editorError };
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.viewerError).toBeInstanceOf(Forbidden);
+    expect(result.editorError).toBeInstanceOf(Forbidden);
+  });
+
+  it("rejects duplicate client slugs during client Brain creation", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      yield* confect.run(seedClientBrainCreatorRoles(), Schema.Any);
+
+      return yield* confect
+        .withIdentity({
+          subject: "admin-subject",
+          email: "admin@example.com",
+          emailVerified: true,
+          organizationId: "org_workos_roles",
+        })
+        .mutation(refs.public.access.provisioning.createClientBrain, {
+          name: "Existing Client",
+          clientSlug: "existing-client",
+        })
+        .pipe(Effect.flip);
+    });
+
+    const error = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(error).toBeInstanceOf(ProvisioningConflict);
+    expect(error).toMatchObject({ resource: "workspaces.clientSlug" });
+  });
+
+  it("rejects caller-supplied organization and workspace ids on public operations", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      yield* confect.run(seedClientBrainCreatorRoles(), Schema.Any);
+      const identity = {
+        subject: "admin-subject",
+        email: "admin@example.com",
+        emailVerified: true,
+        organizationId: "org_workos_roles",
+      };
+
+      const listError = yield* confect
+        .withIdentity(identity)
+        .query(refs.public.auth.workspaces.list, {
+          organizationId: "organizations_attacker",
+          workspaceId: "workspaces_attacker",
+        })
+        .pipe(Effect.flip);
+      const createError = yield* confect
+        .withIdentity(identity)
+        .mutation(refs.public.access.provisioning.createClientBrain, {
+          name: "Injected Client",
+          clientSlug: "injected-client",
+          organizationId: "organizations_attacker",
+          workspaceId: "workspaces_attacker",
+        })
+        .pipe(Effect.flip);
+
+      return { listError, createError };
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.listError).toBeInstanceOf(ValidationFailed);
+    expect(result.createError).toBeInstanceOf(ValidationFailed);
+  });
+
+  it("resolves stable keys only for live current organization members", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const seeded = yield* confect.run(
+        seedStableKeyResolutionCases(),
+        StableKeyRows,
+      );
+
+      const resolved = yield* confect
+        .withIdentity({
+          subject: "member-subject",
+          email: "member@example.com",
+          emailVerified: true,
+          organizationId: "org_workos_resolve",
+        })
+        .query(refs.internal.identity.stableKeys.resolveBrainKey, {
+          agencyKey: seeded.agencyKey,
+          brainKey: seeded.brainKey,
+        });
+      const invalidAgency = yield* confect
+        .withIdentity({
+          subject: "member-subject",
+          email: "member@example.com",
+          emailVerified: true,
+          organizationId: "org_workos_resolve",
+        })
+        .query(refs.internal.identity.stableKeys.resolveBrainKey, {
+          agencyKey: "not-an-agency-key",
+          brainKey: seeded.brainKey,
+        })
+        .pipe(Effect.flip);
+      const invalidBrain = yield* confect
+        .withIdentity({
+          subject: "member-subject",
+          email: "member@example.com",
+          emailVerified: true,
+          organizationId: "org_workos_resolve",
+        })
+        .query(refs.internal.identity.stableKeys.resolveBrainKey, {
+          agencyKey: seeded.agencyKey,
+          brainKey: "not-a-brain-key",
+        })
+        .pipe(Effect.flip);
+      const crossOrg = yield* confect
+        .withIdentity({
+          subject: "member-subject",
+          email: "member@example.com",
+          emailVerified: true,
+          organizationId: "org_workos_resolve",
+        })
+        .query(refs.internal.identity.stableKeys.resolveBrainKey, {
+          agencyKey: seeded.otherAgencyKey,
+          brainKey: seeded.otherBrainKey,
+        })
+        .pipe(Effect.flip);
+      const duplicateBrainKey = yield* confect
+        .withIdentity({
+          subject: "member-subject",
+          email: "member@example.com",
+          emailVerified: true,
+          organizationId: "org_workos_resolve",
+        })
+        .query(refs.internal.identity.stableKeys.resolveBrainKey, {
+          agencyKey: seeded.agencyKey,
+          brainKey: seeded.duplicateBrainKey,
+        })
+        .pipe(Effect.flip);
+      const archivedBrain = yield* confect
+        .withIdentity({
+          subject: "member-subject",
+          email: "member@example.com",
+          emailVerified: true,
+          organizationId: "org_workos_resolve",
+        })
+        .query(refs.internal.identity.stableKeys.resolveBrainKey, {
+          agencyKey: seeded.agencyKey,
+          brainKey: seeded.archivedBrainKey,
+        })
+        .pipe(Effect.flip);
+      const missingMembership = yield* confect
+        .withIdentity({
+          subject: "nonmember-subject",
+          email: "nonmember@example.com",
+          emailVerified: true,
+          organizationId: "org_workos_resolve",
+        })
+        .query(refs.internal.identity.stableKeys.resolveBrainKey, {
+          agencyKey: seeded.agencyKey,
+          brainKey: seeded.brainKey,
+        })
+        .pipe(Effect.flip);
+
+      return {
+        seeded,
+        resolved,
+        invalidAgency,
+        invalidBrain,
+        crossOrg,
+        duplicateBrainKey,
+        archivedBrain,
+        missingMembership,
+      };
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.resolved).toEqual({
+      organizationId: result.seeded.organizationId,
+      workspaceId: result.seeded.workspaceId,
+    });
+    expect(result.invalidAgency).toBeInstanceOf(ValidationFailed);
+    expect(result.invalidBrain).toBeInstanceOf(ValidationFailed);
+    expect(result.crossOrg).toBeInstanceOf(TenantMismatch);
+    expect(result.duplicateBrainKey).toBeInstanceOf(StableKeyConflict);
+    expect(result.archivedBrain).toBeInstanceOf(BrainNotFound);
+    expect(result.missingMembership).toBeInstanceOf(Forbidden);
   });
 
   it("declares stable-key resolver Confect specs without public visibility", async () => {
@@ -636,4 +879,289 @@ const readClientProvisioningSideEffects = (
     }
 
     return { user, organization, workspace, membership, auditEvent };
+  });
+
+const StableKeyRows = Schema.Struct({
+  organizationId: Schema.String,
+  workspaceId: Schema.String,
+  agencyKey: Schema.String,
+  brainKey: Schema.String,
+  archivedBrainKey: Schema.String,
+  duplicateBrainKey: Schema.String,
+  otherAgencyKey: Schema.String,
+  otherBrainKey: Schema.String,
+});
+
+const seedClientBrainCreatorRoles = () =>
+  Effect.gen(function* () {
+    const writer = yield* DatabaseWriter;
+    const adminUserId = yield* writer
+      .table("users")
+      .insert({
+        subject: "admin-subject",
+        email: "admin@example.com",
+        displayName: "Admin",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
+    const viewerUserId = yield* writer
+      .table("users")
+      .insert({
+        subject: "viewer-subject",
+        email: "viewer@example.com",
+        displayName: "Viewer",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
+    const editorUserId = yield* writer
+      .table("users")
+      .insert({
+        subject: "editor-subject",
+        email: "editor@example.com",
+        displayName: "Editor",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
+    const organizationId = yield* writer
+      .table("organizations")
+      .insert({
+        ownerUserId: adminUserId,
+        workosOrganizationId: "org_workos_roles",
+        agencyKey: "ag_01J0000000000000000000000R",
+        slug: "roles",
+        name: "Roles Org",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
+    for (const [userId, role] of [
+      [adminUserId, "admin"],
+      [viewerUserId, "viewer"],
+      [editorUserId, "editor"],
+    ] as const) {
+      yield* writer
+        .table("organizationMembers")
+        .insert({
+          organizationId,
+          userId,
+          role,
+          status: "active",
+          acceptedAt: now,
+          revokedAt: null,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .pipe(Effect.orDie);
+    }
+    const agencyWorkspaceId = yield* writer
+      .table("workspaces")
+      .insert({
+        organizationId,
+        ownerUserId: adminUserId,
+        brainKey: "br_01J0000000000000000000000R",
+        slug: "agency",
+        name: "Agency Brain",
+        kind: "agency",
+        status: "active",
+        dataClassification: "internal",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
+    yield* writer
+      .table("workspaces")
+      .insert({
+        organizationId,
+        ownerUserId: adminUserId,
+        brainKey: "br_01J0000000000000000000000S",
+        slug: "existing-client",
+        name: "Existing Client",
+        kind: "client",
+        clientSlug: "existing-client",
+        status: "active",
+        dataClassification: "confidential",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
+    for (const userId of [viewerUserId, editorUserId] as const) {
+      yield* writer
+        .table("workspaceMembers")
+        .insert({
+          workspaceId: agencyWorkspaceId,
+          userId,
+          role: userId === viewerUserId ? "viewer" : "editor",
+          status: "active",
+          acceptedAt: now,
+          revokedAt: null,
+          deletedAt: null,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .pipe(Effect.orDie);
+    }
+  });
+
+const seedStableKeyResolutionCases = () =>
+  Effect.gen(function* () {
+    const writer = yield* DatabaseWriter;
+    const memberUserId = yield* writer
+      .table("users")
+      .insert({
+        subject: "member-subject",
+        email: "member@example.com",
+        displayName: "Member",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
+    const nonmemberUserId = yield* writer
+      .table("users")
+      .insert({
+        subject: "nonmember-subject",
+        email: "nonmember@example.com",
+        displayName: "Nonmember",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
+    const organizationId = yield* writer
+      .table("organizations")
+      .insert({
+        ownerUserId: memberUserId,
+        workosOrganizationId: "org_workos_resolve",
+        agencyKey: "ag_01J0000000000000000000000M",
+        slug: "resolve",
+        name: "Resolve Org",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
+    yield* writer
+      .table("organizationMembers")
+      .insert({
+        organizationId,
+        userId: memberUserId,
+        role: "viewer",
+        status: "active",
+        acceptedAt: now,
+        revokedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
+    const workspaceId = yield* writer
+      .table("workspaces")
+      .insert({
+        organizationId,
+        ownerUserId: memberUserId,
+        brainKey: "br_01J0000000000000000000000M",
+        slug: "client",
+        name: "Client Brain",
+        kind: "client",
+        status: "active",
+        dataClassification: "confidential",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
+    yield* writer
+      .table("workspaceMembers")
+      .insert({
+        workspaceId,
+        userId: memberUserId,
+        role: "viewer",
+        status: "active",
+        acceptedAt: now,
+        revokedAt: null,
+        deletedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
+    const archivedWorkspaceId = yield* writer
+      .table("workspaces")
+      .insert({
+        organizationId,
+        ownerUserId: memberUserId,
+        brainKey: "br_01J0000000000000000000000N",
+        slug: "archived-resolve",
+        name: "Archived Resolve",
+        kind: "client",
+        status: "archived",
+        dataClassification: "confidential",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
+    const duplicateBrainKey = "br_01J0000000000000000000000P";
+    for (const slug of ["dupe-one", "dupe-two"] as const) {
+      yield* writer
+        .table("workspaces")
+        .insert({
+          organizationId,
+          ownerUserId: memberUserId,
+          brainKey: duplicateBrainKey,
+          slug,
+          name: slug,
+          kind: "client",
+          status: "active",
+          dataClassification: "confidential",
+          createdAt: now,
+          updatedAt: now,
+        })
+        .pipe(Effect.orDie);
+    }
+    const otherOrganizationId = yield* writer
+      .table("organizations")
+      .insert({
+        ownerUserId: memberUserId,
+        workosOrganizationId: "org_workos_other_resolve",
+        agencyKey: "ag_01J0000000000000000000000Q",
+        slug: "other-resolve",
+        name: "Other Resolve Org",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
+    const otherWorkspaceId = yield* writer
+      .table("workspaces")
+      .insert({
+        organizationId: otherOrganizationId,
+        ownerUserId: memberUserId,
+        brainKey: "br_01J0000000000000000000000Q",
+        slug: "other-client",
+        name: "Other Client Brain",
+        kind: "client",
+        status: "active",
+        dataClassification: "confidential",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
+
+    return {
+      organizationId,
+      workspaceId,
+      agencyKey: "ag_01J0000000000000000000000M",
+      brainKey: "br_01J0000000000000000000000M",
+      archivedBrainKey: "br_01J0000000000000000000000N",
+      duplicateBrainKey,
+      otherAgencyKey: "ag_01J0000000000000000000000Q",
+      otherBrainKey: "br_01J0000000000000000000000Q",
+      archivedWorkspaceId,
+      otherWorkspaceId,
+      nonmemberUserId,
+    };
   });
