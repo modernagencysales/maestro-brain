@@ -1,5 +1,6 @@
 import { TestConfect } from "@confect/test";
 import * as Effect from "effect/Effect";
+import * as Either from "effect/Either";
 import * as Schema from "effect/Schema";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
@@ -101,39 +102,47 @@ describe("model call receipt repository", () => {
 
   it("derives tenant fences and rejects wrong-org/workspace/stale-generation writes", () => {
     const existing: (typeof receipt)[] = [];
-    expect(() =>
-      appendModelCallReceipt({
-        receipt,
-        tenant: {
-          organizationId: "org_other",
-          workspaceId: "workspaces_123",
-          lifecycleGeneration: 7,
-        },
-        existing,
-      }),
-    ).toThrow(ModelReceiptTenantMismatch);
-    expect(() =>
-      appendModelCallReceipt({
-        receipt,
-        tenant: {
-          organizationId: "org_123",
-          workspaceId: "workspaces_other",
-          lifecycleGeneration: 7,
-        },
-        existing,
-      }),
-    ).toThrow(ModelReceiptTenantMismatch);
-    expect(() =>
-      appendModelCallReceipt({
-        receipt,
-        tenant: {
-          organizationId: "org_123",
-          workspaceId: "workspaces_123",
-          lifecycleGeneration: 8,
-        },
-        existing,
-      }),
-    ).toThrow(ModelReceiptTenantMismatch);
+    const wrongOrganization = appendModelCallReceipt({
+      receipt,
+      tenant: {
+        organizationId: "org_other",
+        workspaceId: "workspaces_123",
+        lifecycleGeneration: 7,
+      },
+      existing,
+    });
+    expect(Either.isLeft(wrongOrganization)).toBe(true);
+    if (Either.isLeft(wrongOrganization)) {
+      expect(wrongOrganization.left).toBeInstanceOf(ModelReceiptTenantMismatch);
+    }
+
+    const wrongWorkspace = appendModelCallReceipt({
+      receipt,
+      tenant: {
+        organizationId: "org_123",
+        workspaceId: "workspaces_other",
+        lifecycleGeneration: 7,
+      },
+      existing,
+    });
+    expect(Either.isLeft(wrongWorkspace)).toBe(true);
+    if (Either.isLeft(wrongWorkspace)) {
+      expect(wrongWorkspace.left).toBeInstanceOf(ModelReceiptTenantMismatch);
+    }
+
+    const staleGeneration = appendModelCallReceipt({
+      receipt,
+      tenant: {
+        organizationId: "org_123",
+        workspaceId: "workspaces_123",
+        lifecycleGeneration: 8,
+      },
+      existing,
+    });
+    expect(Either.isLeft(staleGeneration)).toBe(true);
+    if (Either.isLeft(staleGeneration)) {
+      expect(staleGeneration.left).toBeInstanceOf(ModelReceiptTenantMismatch);
+    }
   });
 
   it("persists receipts through DatabaseWriter with tenant-scoped uniqueness", async () => {
@@ -181,17 +190,20 @@ describe("model call receipt repository", () => {
 
   it("rejects duplicate attempt writes for the same tenant", () => {
     const existing = [receipt];
-    expect(() =>
-      appendModelCallReceipt({
-        receipt,
-        tenant: {
-          organizationId: "org_123",
-          workspaceId: "workspaces_123",
-          lifecycleGeneration: 7,
-        },
-        existing,
-      }),
-    ).toThrow(ModelReceiptDuplicate);
+    const result = appendModelCallReceipt({
+      receipt,
+      tenant: {
+        organizationId: "org_123",
+        workspaceId: "workspaces_123",
+        lifecycleGeneration: 7,
+      },
+      existing,
+    });
+
+    expect(Either.isLeft(result)).toBe(true);
+    if (Either.isLeft(result)) {
+      expect(result.left).toBeInstanceOf(ModelReceiptDuplicate);
+    }
   });
 
   it("allows the same attempt key in a different workspace tenant", async () => {

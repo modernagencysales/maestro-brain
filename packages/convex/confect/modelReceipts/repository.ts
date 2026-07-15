@@ -1,5 +1,6 @@
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
+import * as Either from "effect/Either";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Auth, DatabaseReader, DatabaseWriter } from "../_generated/services";
@@ -33,7 +34,10 @@ export const appendModelCallReceipt = (input: {
   readonly receipt: ModelCallReceiptRowValue;
   readonly tenant: ModelReceiptTenantFence;
   readonly existing: readonly ModelCallReceiptRowValue[];
-}): ModelCallReceiptRowValue => {
+}): Either.Either<
+  ModelCallReceiptRowValue,
+  ModelReceiptTenantMismatch | ModelReceiptDuplicate
+> => {
   const { receipt, tenant } = input;
 
   if (
@@ -41,7 +45,7 @@ export const appendModelCallReceipt = (input: {
     receipt.workspaceId !== tenant.workspaceId ||
     receipt.lifecycleGeneration !== tenant.lifecycleGeneration
   ) {
-    throw new ModelReceiptTenantMismatch();
+    return Either.left(new ModelReceiptTenantMismatch());
   }
 
   const duplicate = input.existing.some(
@@ -51,9 +55,9 @@ export const appendModelCallReceipt = (input: {
       existing.attemptKey === receipt.attemptKey,
   );
 
-  if (duplicate) throw new ModelReceiptDuplicate();
+  if (duplicate) return Either.left(new ModelReceiptDuplicate());
 
-  return receipt;
+  return Either.right(receipt);
 };
 
 export const writeModelCallReceipt = (input: {
