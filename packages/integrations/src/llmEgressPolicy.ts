@@ -48,6 +48,14 @@ export type StructuredModelPolicy = {
 export type ImmutableContentManifest = {
   readonly sourceHash: string;
   readonly contentHashes: readonly string[];
+  readonly contentArtifacts: readonly {
+    readonly hash: string;
+    readonly mediaType?: string;
+    readonly bytes?: string;
+    readonly tokens?: number;
+  }[];
+  readonly schemaHash: string;
+  readonly schemaGeneration: number;
   readonly canary?: string;
 };
 
@@ -56,22 +64,17 @@ export type StructuredPolicyCheck = {
   readonly estimatedSpendCents: number;
 };
 
+export type SerializedStructuredProviderRequest = {
+  readonly canonicalJson: string;
+};
+
 export type StructuredPolicyError =
   ModelPolicyDenied | ModelInputTooLarge | ModelBudgetExceeded;
 
 export const estimateStructuredInputTokens = (input: {
-  readonly trustedInstructionVersion: string;
-  readonly toolSchemaVersion: string;
-  readonly immutableContentManifest: ImmutableContentManifest;
+  readonly serializedProviderRequest: SerializedStructuredProviderRequest;
 }): number =>
-  Math.ceil(
-    [
-      input.trustedInstructionVersion,
-      input.toolSchemaVersion,
-      input.immutableContentManifest.sourceHash,
-      ...input.immutableContentManifest.contentHashes,
-    ].join(" ").length / 4,
-  );
+  Math.ceil(input.serializedProviderRequest.canonicalJson.length / 4);
 
 export const estimateStructuredSpendCents = (
   inputTokens: number,
@@ -83,6 +86,7 @@ export const enforceStructuredModelPolicy = (input: {
   readonly trustedInstructionVersion: string;
   readonly toolSchemaVersion: string;
   readonly immutableContentManifest: ImmutableContentManifest;
+  readonly serializedProviderRequest: SerializedStructuredProviderRequest;
   readonly modelPolicy: StructuredModelPolicy;
 }): StructuredPolicyCheck | StructuredPolicyError => {
   const { modelPolicy } = input;
@@ -116,7 +120,9 @@ export const enforceStructuredModelPolicy = (input: {
     });
   }
 
-  const estimatedInputTokens = estimateStructuredInputTokens(input);
+  const estimatedInputTokens = estimateStructuredInputTokens({
+    serializedProviderRequest: input.serializedProviderRequest,
+  });
 
   if (estimatedInputTokens > modelPolicy.maxInputTokens) {
     return new ModelInputTooLarge({

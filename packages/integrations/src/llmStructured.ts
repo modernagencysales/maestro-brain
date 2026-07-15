@@ -9,6 +9,7 @@ import {
   ModelPolicyDenied,
   type ModelProvider,
   type ModelRegion,
+  type SerializedStructuredProviderRequest,
   type StructuredModelPolicy,
   type StructuredPolicyError,
 } from "./llmEgressPolicy";
@@ -59,6 +60,8 @@ export type StructuredLlmTransportInput = {
   readonly requestHash: string;
   readonly sourceHash: string;
   readonly outputSchemaName: string;
+  readonly outputSchemaHash: string;
+  readonly serializedProviderRequest: SerializedStructuredProviderRequest;
 };
 
 export type StructuredLlmTransportResult = {
@@ -72,10 +75,14 @@ export type StructuredLlmTransportResult = {
 };
 
 export type StructuredLlmRequest<A> = {
+  readonly organizationId: string;
   readonly workspaceSlug: string;
   readonly trustedInstructionVersion: string;
   readonly toolSchemaVersion: string;
   readonly modelPolicy: StructuredModelPolicy;
+  readonly policyGeneration: number;
+  readonly lifecycleGeneration: number;
+  readonly redactionState: "none" | "redacted";
   readonly immutableContentManifest: ImmutableContentManifest;
   readonly outputSchema: Schema.Schema<A>;
   readonly attemptKey: string;
@@ -127,6 +134,61 @@ const outputSchemaName = (schema: {
   readonly ast: { readonly _tag: string };
 }): string => schema.ast._tag;
 
+const stableJson = (value: unknown): string => {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableJson).join(",")}]`;
+  }
+
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .filter(([, nested]) => nested !== undefined)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, nested]) => `${JSON.stringify(key)}:${stableJson(nested)}`)
+      .join(",")}}`;
+  }
+
+  return JSON.stringify(value);
+};
+
+const serializeProviderRequest = <A>(
+  request: StructuredLlmRequest<A>,
+): SerializedStructuredProviderRequest => ({
+  canonicalJson: stableJson({
+    provider: request.modelPolicy.provider,
+    model: request.modelPolicy.model,
+    region: request.modelPolicy.region,
+    instruction: { version: request.trustedInstructionVersion },
+    tools: { version: request.toolSchemaVersion },
+    content: {
+      sourceHash: request.immutableContentManifest.sourceHash,
+      contentHashes: request.immutableContentManifest.contentHashes,
+      artifacts: request.immutableContentManifest.contentArtifacts.map(
+        (artifact) => ({
+          hash: artifact.hash,
+          mediaType: artifact.mediaType,
+          bytes: artifact.bytes,
+          tokens: artifact.tokens,
+        }),
+      ),
+    },
+    outputSchema: {
+      name: outputSchemaName(request.outputSchema),
+      hash: request.immutableContentManifest.schemaHash,
+      generation: request.immutableContentManifest.schemaGeneration,
+    },
+    policy: {
+      generation: request.policyGeneration,
+      maxOutputTokens: request.modelPolicy.maxOutputTokens,
+      retention: request.modelPolicy.retention,
+      training: request.modelPolicy.training,
+    },
+    lifecycle: {
+      generation: request.lifecycleGeneration,
+      redactionState: request.redactionState,
+    },
+  }),
+});
+
 const parseStructuredOutput = <A>(input: {
   readonly text: string;
   readonly schema: Schema.Schema<A>;
@@ -156,25 +218,9 @@ const parseStructuredOutput = <A>(input: {
   }
 };
 
-const makeRequestHash = <A>(request: StructuredLlmRequest<A>): string =>
-  hashModelPayload({
-    trustedInstructionVersion: request.trustedInstructionVersion,
-    toolSchemaVersion: request.toolSchemaVersion,
-    modelPolicy: {
-      provider: request.modelPolicy.provider,
-      model: request.modelPolicy.model,
-      region: request.modelPolicy.region,
-      maxInputTokens: request.modelPolicy.maxInputTokens,
-      maxOutputTokens: request.modelPolicy.maxOutputTokens,
-      retention: request.modelPolicy.retention,
-      training: request.modelPolicy.training,
-    },
-    immutableContentManifest: {
-      sourceHash: request.immutableContentManifest.sourceHash,
-      contentHashes: request.immutableContentManifest.contentHashes,
-    },
-    outputSchema: outputSchemaName(request.outputSchema),
-  });
+const makeRequestHash = (
+  serializedProviderRequest: SerializedStructuredProviderRequest,
+): string => hashModelPayload(serializedProviderRequest);
 
 const validateReceiptEcho = (input: {
   readonly expectedProvider: ModelProvider;
@@ -241,7 +287,11 @@ export const createStructuredLlmGateway = (
         );
       }
 
-      const policy = enforceStructuredModelPolicy(request);
+      const serializedProviderRequest = serializeProviderRequest(request);
+      const policy = enforceStructuredModelPolicy({
+        ...request,
+        serializedProviderRequest,
+      });
 
       if (
         policy instanceof ModelPolicyDenied ||
@@ -251,7 +301,7 @@ export const createStructuredLlmGateway = (
         return yield* Effect.fail(policy);
       }
 
-      const requestHash = makeRequestHash(request);
+      const requestHash = makeRequestHash(serializedProviderRequest);
       const sourceHash = request.immutableContentManifest.sourceHash;
       const startedAt = Date.now();
       const transportInput: StructuredLlmTransportInput = {
@@ -261,6 +311,8 @@ export const createStructuredLlmGateway = (
         requestHash,
         sourceHash,
         outputSchemaName: outputSchemaName(request.outputSchema),
+        outputSchemaHash: request.immutableContentManifest.schemaHash,
+        serializedProviderRequest,
       };
       const transport =
         config.transport ??
@@ -325,6 +377,7 @@ export const createStructuredLlmGateway = (
 
       const receipt = makeModelCallReceipt({
         attemptKey: request.attemptKey,
+        organizationId: request.organizationId,
         workspaceSlug: request.workspaceSlug,
         provider: providerResult.provider,
         mode: config.mode,
@@ -332,6 +385,10 @@ export const createStructuredLlmGateway = (
         region: providerResult.region,
         trustedInstructionVersion: request.trustedInstructionVersion,
         toolSchemaVersion: request.toolSchemaVersion,
+        schemaGeneration: request.immutableContentManifest.schemaGeneration,
+        policyGeneration: request.policyGeneration,
+        lifecycleGeneration: request.lifecycleGeneration,
+        redactionState: request.redactionState,
         requestHash,
         responseHash: hashModelPayload(output),
         sourceHash,

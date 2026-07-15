@@ -31,6 +31,7 @@ export type ModelCallUsage = {
 
 export type ModelCallReceipt = {
   readonly attemptKey: string;
+  readonly organizationId: string;
   readonly workspaceSlug: string;
   readonly provider: ModelProvider;
   readonly mode: ProviderMode;
@@ -39,6 +40,10 @@ export type ModelCallReceipt = {
   readonly state: ModelCallState;
   readonly trustedInstructionVersion: string;
   readonly toolSchemaVersion: string;
+  readonly schemaGeneration: number;
+  readonly policyGeneration: number;
+  readonly lifecycleGeneration: number;
+  readonly redactionState: "none" | "redacted";
   readonly requestHash: string;
   readonly responseHash: string;
   readonly sourceHash: string;

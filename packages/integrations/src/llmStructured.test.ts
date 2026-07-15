@@ -13,14 +13,21 @@ const Decision = Schema.Struct({
 });
 
 const baseRequest = {
+  organizationId: "org_acme",
   workspaceSlug: "acme-demo",
   trustedInstructionVersion: "classify-v1",
   toolSchemaVersion: "routing-v1",
   immutableContentManifest: {
     sourceHash: "sha256:source-001",
     contentHashes: ["sha256:item-001"],
+    contentArtifacts: [{ hash: "sha256:item-001", tokens: 4 }],
+    schemaHash: "sha256:schema-001",
+    schemaGeneration: 1,
   },
   outputSchema: Decision,
+  policyGeneration: 3,
+  lifecycleGeneration: 7,
+  redactionState: "none" as const,
   modelPolicy: {
     provider: "openrouter" as const,
     model: "openrouter/fake-structured",
@@ -39,6 +46,71 @@ const baseRequest = {
 };
 
 describe("structured provider-neutral LLM gateway", () => {
+  it("admits against exact serialized provider payload before transport", async () => {
+    const gateway = createStructuredLlmGateway({
+      mode: "test",
+      env: {},
+      transport: () =>
+        Effect.die("transport must not run after payload admission fails"),
+    });
+
+    const result = await Effect.runPromiseExit(
+      gateway.generate({
+        ...baseRequest,
+        modelPolicy: { ...baseRequest.modelPolicy, maxInputTokens: 25 },
+        immutableContentManifest: {
+          ...baseRequest.immutableContentManifest,
+          contentArtifacts: [
+            {
+              hash: "sha256:item-001",
+              mediaType: "text/plain",
+              bytes:
+                "Private client source text that exceeds the exact request budget.",
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(result).toMatchObject({
+      _tag: "Failure",
+      cause: { _tag: "Fail", error: { _tag: "ModelInputTooLarge" } },
+    });
+  });
+
+  it("hashes exact immutable content and schema admission fields", async () => {
+    const hashes: string[] = [];
+    const gateway = createStructuredLlmGateway({
+      mode: "test",
+      env: {},
+      transport: (input) => {
+        hashes.push(input.requestHash);
+        return Effect.succeed({
+          provider: input.provider,
+          model: input.model,
+          region: input.region,
+          requestHash: input.requestHash,
+          sourceHash: input.sourceHash,
+          text: JSON.stringify({ decision: "capture", confidence: 1 }),
+          usage: { inputTokens: 5, outputTokens: 5, costCents: 1 },
+        });
+      },
+    });
+
+    await Effect.runPromise(gateway.generate(baseRequest));
+    await Effect.runPromise(
+      gateway.generate({
+        ...baseRequest,
+        attemptKey: "attempt-002",
+        immutableContentManifest: {
+          ...baseRequest.immutableContentManifest,
+          schemaGeneration: 2,
+        },
+      }),
+    );
+
+    expect(hashes[0]).not.toBe(hashes[1]);
+  });
   it("returns schema-decoded fake output with immutable hashes and no prompt text", async () => {
     const gateway = createStructuredLlmGateway({
       mode: "fake",
@@ -307,8 +379,7 @@ describe("structured provider-neutral LLM gateway", () => {
       gateway.generate({
         ...baseRequest,
         immutableContentManifest: {
-          sourceHash: "sha256:source-001",
-          contentHashes: ["sha256:item-001"],
+          ...baseRequest.immutableContentManifest,
           canary: "Private client source text",
         },
       }),
