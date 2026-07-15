@@ -1764,6 +1764,20 @@ export const buildWorkflowFiles = (
 
 `
       : "";
+  const internalRunnerCapabilityRegistryType =
+    exposure === "internal"
+      ? `
+import type { DurableGraphCapabilityEntry } from "../../confect/workflows/_kit/graphRunner";
+
+type InternalWorkflowCapabilityRegistry = Readonly<
+  Record<string, DurableGraphCapabilityEntry>
+>;
+`
+      : "";
+  const runnerCapabilityRegistry =
+    exposure === "internal"
+      ? "{} satisfies InternalWorkflowCapabilityRegistry"
+      : "{}";
   const files: readonly GeneratedFile[] = [
     {
       path: `packages/convex/confect/workflowContracts/${name}.spec.ts`,
@@ -2180,7 +2194,7 @@ import {
   type RunDurableGraphStep,
 } from "../../confect/workflows/_kit/graphRunner";
 import { ${name}Graph } from "../../confect/workflows/${name}.graph";
-
+${internalRunnerCapabilityRegistryType}
 export const run = defineWorkflow(components.workflow, {
   args: {
     workspaceId: v.string(),
@@ -2192,7 +2206,7 @@ export const run = defineWorkflow(components.workflow, {
     graph: ${name}Graph,
     inputs: args,
     policySnapshot: {},
-    capabilityRegistry: {},
+    capabilityRegistry: ${runnerCapabilityRegistry},
   }),
 );
 `,
@@ -2956,11 +2970,16 @@ const parseArgs = (
   const mode = modeIndex >= 0 ? argv[modeIndex + 1] : undefined;
   const blueprint =
     blueprintIndex >= 0 ? argv[blueprintIndex + 1] : defaultBlueprintId;
-  const exposureValue =
+  const rawExposureValue =
     exposureIndex >= 0 ? argv[exposureIndex + 1] : undefined;
+  const exposureValue = rawExposureValue ?? undefined;
+  const workflowExposureValue =
+    rawExposureValue && !rawExposureValue.startsWith("--")
+      ? rawExposureValue
+      : undefined;
   const exposure = exposureValue ?? "headless";
   const workflowExposure =
-    exposureIndex >= 0 ? (exposureValue ?? "missing value") : "public";
+    exposureIndex >= 0 ? (workflowExposureValue ?? "missing value") : "public";
 
   if (
     plannedBlueprintIds.includes(

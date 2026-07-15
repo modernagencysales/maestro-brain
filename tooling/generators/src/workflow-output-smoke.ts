@@ -20,6 +20,7 @@ type SmokeCommand = {
   readonly label: string;
   readonly command: string;
   readonly args: readonly string[];
+  readonly requiresConvexDeployment?: boolean;
 };
 
 const ignoredPathSegments = new Set([
@@ -173,6 +174,7 @@ export const runWorkflowOutputSmoke = (
         label: "Regenerate Convex refs",
         command: "pnpm",
         args: ["--dir", convexPackage, "exec", "convex", "codegen"],
+        requiresConvexDeployment: true,
       },
       {
         label: "Typecheck generated Convex package output",
@@ -182,6 +184,15 @@ export const runWorkflowOutputSmoke = (
     ];
 
     for (const step of steps) {
+      if (step.requiresConvexDeployment && !process.env.CONVEX_DEPLOYMENT) {
+        process.stdout.write(
+          "\n[workflow-output-smoke] Skipping " +
+            step.label +
+            ": CONVEX_DEPLOYMENT is not set.\n",
+        );
+        continue;
+      }
+
       runSmokeCommand(tempRepoRoot, step);
     }
   } finally {

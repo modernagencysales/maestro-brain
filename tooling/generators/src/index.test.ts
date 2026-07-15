@@ -953,6 +953,24 @@ describe("template app factory generators", () => {
     expect(docs).toContain("concrete `buildArgs` mappers");
   });
 
+  it("keeps default public workflow output byte-identical to the preserved baseline", () => {
+    const generated = buildWorkflowFiles({
+      name: "source grounded plan",
+      description: "Builds a sourced plan with approval and receipt.",
+    });
+    const baselinePath = join(
+      repoRoot,
+      "tooling/generators/__fixtures__/workflow/public.expected.json",
+    );
+    const baseline = JSON.parse(readFileSync(baselinePath, "utf8"));
+
+    expect(generated).toEqual(baseline);
+    for (const [index, file] of generated.files.entries()) {
+      expect(file.path).toBe(baseline.files[index]?.path);
+      expect(file.content).toBe(baseline.files[index]?.content);
+    }
+  });
+
   it("builds internal workflow generator files without client-callable surfaces", () => {
     const generated = buildWorkflowFiles({
       name: "source classification",
@@ -980,9 +998,32 @@ describe("template app factory generators", () => {
       "packages/convex/confect/workflowContracts/sourceClassification.headless.json",
     );
     expect(runner).toContain("runDurableGraphWorkflow");
-    expect(runner).toContain("capabilityRegistry: {}");
+    expect(runner).toContain(
+      "capabilityRegistry: {} satisfies InternalWorkflowCapabilityRegistry",
+    );
+    expect(runner).toContain("DurableGraphCapabilityEntry");
+    expect(runner).not.toContain("Record<string, FunctionReference");
     expect(docs).toContain("Exposure: `internal`");
     expect(docs).toContain("Headless exposure: none");
+  });
+
+  it("proves internal workflow capability composition only accepts internal refs", () => {
+    const runner =
+      buildWorkflowFiles({
+        name: "source classification",
+        exposure: "internal",
+      }).files[3]?.content ?? "";
+
+    expect(runner).toContain(
+      'import type { DurableGraphCapabilityEntry } from "../../confect/workflows/_kit/graphRunner"',
+    );
+    expect(runner).toContain(
+      "type InternalWorkflowCapabilityRegistry = Readonly<",
+    );
+    expect(runner).toContain("Record<string, DurableGraphCapabilityEntry>");
+    expect(runner).toContain(
+      "capabilityRegistry: {} satisfies InternalWorkflowCapabilityRegistry",
+    );
   });
 
   it("rejects unknown workflow exposure through the CLI", () => {
@@ -1016,6 +1057,22 @@ describe("template app factory generators", () => {
     });
   });
 
+  it("rejects workflow exposure flags without a value before another flag", () => {
+    const result = runGeneratorCli([
+      "add-workflow",
+      "--name",
+      "source classification",
+      "--exposure",
+      "--write",
+    ]);
+
+    expect(result).toEqual({
+      exitCode: 1,
+      stdout: "",
+      stderr: "Unknown workflow exposure: missing value\n",
+    });
+  });
+
   it("ships workflow exposure fixtures for public, internal, and invalid modes", () => {
     const fixtureRoot = join(
       repoRoot,
@@ -1032,10 +1089,19 @@ describe("template app factory generators", () => {
     );
 
     expect(publicFixture).toMatchObject({
-      exposure: "public",
-      specVisibility: "public",
-      manifestSurfaces: ["web", "api", "cli", "mcp"],
+      name: "sourceGroundedPlan",
+      pascalName: "SourceGroundedPlan",
     });
+    expect(publicFixture.exposure).toBeUndefined();
+    const publicSpec = publicFixture.files[0]?.content ?? "";
+    expect(publicSpec).toContain("FunctionSpec.publicMutation");
+    expect(publicSpec).toContain("FunctionSpec.publicQuery");
+    expect(publicSpec).toContain('surfaces: ["web", "api", "cli", "mcp"]');
+    expect(
+      publicFixture.files.some((file: { path: string }) =>
+        file.path.endsWith(".headless.json"),
+      ),
+    ).toBe(false);
     expect(internalFixture).toMatchObject({
       exposure: "internal",
       specVisibility: "internal",
@@ -1235,6 +1301,9 @@ describe("template app factory generators", () => {
       "tsx tooling/generators/src/index.ts add-agent-seat",
     );
     expect(existsSync(smokeScriptPath)).toBe(true);
+    expect(readFileSync(smokeScriptPath, "utf8")).toContain(
+      "CONVEX_DEPLOYMENT",
+    );
     expect(smokeWorkflowName).toBe("generatedWorkflowSmoke");
   });
 
