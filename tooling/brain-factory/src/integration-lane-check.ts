@@ -20,6 +20,7 @@ import {
   gateCommandSetHash,
 } from "./lane-gate-cache.js";
 import { validateLaneAcceptance } from "./lane-acceptance.js";
+import { authoritativeIntegrationResultBindsLane } from "./integration-authority.js";
 import { laneFileOwnershipIssues } from "./lane-ownership.js";
 import { lifecycleAdoptionRecordIssues } from "./lifecycle-adoption.js";
 import type { GateProfile } from "./manifest.js";
@@ -201,24 +202,26 @@ export const validateIntegratedLanes = (
           `${taskId}: dependency ${dependencyId} has no authoritative integration result`,
         );
       const dependencyResult = readJson(dependencyResultPath);
-      const boundTask = Array.isArray(dependencyResult.includedTasks)
-        ? dependencyResult.includedTasks
-            .map((item, index) =>
-              record(item, `${dependencyId}: prior includedTasks[${index}]`),
-            )
-            .find((item) => item.taskId === dependencyId)
-        : undefined;
       if (
-        !new Set([
-          "maestro-brain-integration-result/v1",
-          "maestro-brain-integration-result/v2",
-        ]).has(String(dependencyResult.schemaVersion)) ||
-        dependencyResult.status !== "passed" ||
-        dependencyResult.reviewVerdict !== "pass" ||
-        dependencyResult.headSha !== dependencyIntegrationHead ||
-        dependencyResult.integrationId !== dependencyIntegrationId ||
-        !boundTask ||
-        boundTask.laneHeadSha !== dependencyLane.headSha
+        !authoritativeIntegrationResultBindsLane({
+          integrationHeadSha: dependencyIntegrationHead,
+          integrationId: dependencyIntegrationId,
+          laneHeadSha: string(
+            dependencyLane.headSha,
+            `${dependencyId}: lane headSha`,
+          ),
+          result: dependencyResult,
+          resultDirectory: resolve(
+            input.evidenceDirectory,
+            "integration",
+            dependencyIntegrationId,
+          ),
+          taskId: dependencyId,
+          taskTranche: string(
+            manifestTasks.get(dependencyId)?.tranche,
+            `${dependencyId}: manifest tranche`,
+          ),
+        })
       ) {
         throw new Error(
           `${taskId}: dependency ${dependencyId} is not bound by its authoritative integration result`,

@@ -823,9 +823,15 @@ describe("normal integration result check", () => {
     );
     mkdirSync(resolve(priorResultPath, ".."), { recursive: true });
     writeJson(priorResultPath, {
+      broadGate: {
+        command: "rtk host-test-slot --class full pnpm verify",
+        headSha: value.baseSha,
+        status: "passed",
+      },
       headSha: value.baseSha,
       includedTasks: [{ laneHeadSha: value.baseSha, taskId: "S08-T01" }],
       integrationId: "D2-domain-bodies-w1",
+      remainingFindings: [],
       reviewVerdict: "pass",
       schemaVersion: "maestro-brain-integration-result/v2",
       status: "passed",
