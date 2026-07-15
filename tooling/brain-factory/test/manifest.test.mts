@@ -219,8 +219,16 @@ describe("Maestro Brain execution manifest", () => {
     const providerSetup = manifest.tasks.find(
       (task) => task.taskId === "S04-T01",
     );
+    const headlessPrincipal = manifest.tasks.find(
+      (task) => task.taskId === "S11-T02",
+    );
     expect(stableIdentity?.codeStartAfter).toEqual(["S00-T04", "S01-T01"]);
     expect(providerSetup?.codeStartAfter).toEqual(["S00-T03", "S01-T02"]);
+    expect(headlessPrincipal?.codeStartAfter).toEqual([
+      "S11-T01",
+      "S01-T02",
+      "S01-T03",
+    ]);
   });
 
   it("keeps S13 lane proofs behind their real product dependencies", () => {

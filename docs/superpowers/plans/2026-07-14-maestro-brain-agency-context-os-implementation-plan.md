@@ -622,10 +622,9 @@ manifest.
   existing-module repair of organizations/workspaces; resolve through
   expand/backfill/contract migrations rather than a parallel tenant model.
 - **Dependencies:** S01-T01. Code may start after S01-T01 and S00-T04 under the
-  Appendix O start override. The additive schema, provisioning-writer, and
-  migration work unlock S01-T03, but S01-T02 records `accepted: false` with an
-  explicit downstream blocker until S01-T03 removes the legacy public ID and
-  lands the typed resolver contract.
+  Appendix O start override. This slice accepts only the additive schema,
+  provisioning-writer, and migration contract; S01-T03 separately owns and
+  accepts the public stable-identity resolver surface.
 - **Existing anchors:** organizations currently lack a WorkOS organization ID in
   [`tenancySchemas.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/access/tenancySchemas.ts#L37-L55),
   while workspaces are already organization-owned in
@@ -679,8 +678,7 @@ manifest.
   resolvers that accept server-derived organization plus stable key, return
   typed IDs after authorization, remove public Convex-ID serialization, and
   expose `AgencyNotFound`, `BrainNotFound`, `StableKeyConflict`, and
-  `TenantMismatch`. S01-T02 must record `accepted: false` until that downstream
-  contract is integrated.
+  `TenantMismatch`.
 - **Migration / compatibility / rollback:** expand optional fields/indexes;
   dual-read legacy rows; backfill in bounded batches; verify zero null/duplicate
   keys; switch writers then readers; make fields required in a later contract
@@ -690,13 +688,13 @@ manifest.
   package patch.
 - **Focused verification:**
   `rtk pnpm brain:factory:check-confect-codegen -- --test stable-tenant-keys`,
-  `rtk host-test-slot --class focused pnpm --dir packages/convex test access-provisioning`,
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test access-provisioning migrations`,
   `rtk pnpm check:confect-contracts`, `rtk pnpm check:schema-migration-notes`,
   broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** migration dry-run/execute/idempotent-rerun counts for
   both tenant tables, uniqueness queries, exact ID/time-derived key samples,
   generated diff, and rollback checkpoint. The no-public-Convex-ID scan belongs
-  to S01-T03 and remains the explicit S01-T02 acceptance blocker.
+  to S01-T03's separate acceptance receipt.
 - **Lane branch / commit boundary:** branch
   `codex/brain-s01-stable-tenant-keys`; commit
   `feat: add stable agency and Brain identity`.
@@ -721,6 +719,7 @@ manifest.
   `packages/convex/confect/access/provisioning.impl.ts`,
   `packages/convex/confect/access/provisioning.ts`,
   `packages/convex/confect/identity/stableKeys.ts`,
+  `apps/web/src/routes/__root.tsx`,
   `apps/web/src/providers/workspace-operations.ts`, and
   `apps/web/src/providers/workspace-operations.test.ts`; create
   `packages/convex/confect/identity/stableKeys.spec.ts`,
@@ -761,8 +760,7 @@ manifest.
   broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** table-driven role results, cross-tenant denials,
   generated-ref diff, stable response sample, no-public-Convex-ID scan, and
-  audit event sample with no customer text. This receipt releases S01-T02's
-  deferred acceptance blocker.
+  audit event sample with no customer text.
 - **Lane branch / commit boundary:** branch
   `codex/brain-s01-authorized-provisioning`; commit
   `feat: authorize Brain provisioning`.
@@ -2922,7 +2920,7 @@ manifest.
   requests derive tenant/Brain from verified bearer state and fail closed.
 - **Classification:** `template-gap`; target `TB-HEADLESS-01`; repair the
   existing HTTP request helper and executor.
-- **Dependencies:** S11-T01.
+- **Dependencies:** S11-T01 and S01-T03.
 - **Existing anchors:** the current request helper accepts caller tenant fields
   and contains a demo slug map in
   [`httpRequest.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/httpRequest.ts#L6-L10)
@@ -2944,11 +2942,12 @@ manifest.
   decoded/provider called before auth, timing-safe not-found/revoked behavior,
   and raw header logging.
 - **Implementation:** parse Authorization header only; hash and indexed lookup;
-  resolve active key/principal/org/workspace/Brain/generations; authorize
-  required manifest scope; inject internal IDs/stable Brain; only then decode
-  tool args and call generated ref. Reject
-  organization/workspace/brain/user/Convex ID fields at schema boundary. Update
-  last-used asynchronously without changing authorization result.
+  reuse S01-T03's generated stable-key resolver to resolve active
+  key/principal/org/workspace/Brain/generations; authorize required manifest
+  scope; inject internal IDs/stable Brain; only then decode tool args and call
+  generated ref. Reject organization/workspace/brain/user/Convex ID fields at
+  schema boundary. Update last-used asynchronously without changing
+  authorization result.
 - **Typed errors / state:** uniform external
   `Unauthorized | Forbidden | ValidationFailed | RateLimited`; internal reason
   codes remain redacted audit metadata. Request state
@@ -4425,19 +4424,22 @@ and the full tranche gate. Only `accepted` satisfies Appendix M/N.
 
 ## Appendix P — Lightweight Fabro Factory Contract
 
-The checked-in factory intentionally has five workflows:
+The checked-in factory intentionally has six workflows:
 
 1. `brain-build-task`: preflight, test-first implementation, deterministic
    focused gates, independent review, final gates, task commit and proof.
-2. `brain-integrate-tranche`: validate proofs/ownership, integrate task commits,
-   run centralized codegen once, run the full host-slotted gate, and emit the
-   tranche verdict.
-3. `brain-repair-check`: diagnose one red focused/CI context, make the narrow
+2. `brain-integrate-tranche`: preserve the legacy single-tranche recovery path;
+   validate proofs/ownership, integrate task commits, run centralized codegen
+   once, run the full host-slotted gate, and emit the tranche verdict.
+3. `brain-integrate-wave`: select the maximum conflict-free set of green lanes
+   across tranches, bind one immutable selection, centralize generated output,
+   run one full host-slotted gate, and promote only its reviewed result.
+4. `brain-repair-check`: diagnose one red focused/CI context, make the narrow
    owning-task repair, rerun the exact failure, and update proof.
-4. `brain-repair-tranche`: repair an already integrated tranche from an
+5. `brain-repair-tranche`: repair an already integrated tranche from an
    independent review verdict, rerun focused repair checks and the full
    host-slotted gate, and preserve the original integration evidence chain.
-5. `brain-release-evidence`: freeze one release candidate and record staging,
+6. `brain-release-evidence`: freeze one release candidate and record staging,
    rollback, pilot, promotion and final evidence without hiding product fixes.
 
 The factory does not run global research, a second plan-review gauntlet, an LLM
@@ -4445,7 +4447,8 @@ task-plan factory, AI CI-risk scoring, or always-on PR rescue. The
 implementation plan already supplies those decisions. Deterministic factory
 checks validate:
 
-- exactly 56 task contracts and all 37 requirement owners;
+- exactly 56 task contracts; Appendix M remains the independently reviewed
+  requirement-owner audit until a dedicated matrix checker is promoted;
 - one primary work-package classification per task;
 - acyclic `codeStartAfter` and preserved `acceptanceAfter` metadata;
 - known gate profiles, tranche/lane ownership, and shared-file locks;
@@ -4461,8 +4464,9 @@ The canonical commands are:
 ```bash
 rtk pnpm brain:factory:materialize
 rtk pnpm brain:factory:check
-rtk pnpm brain:factory:dispatch -- --max 6
-rtk pnpm brain:factory:integrate -- --tranche <id>
+rtk pnpm brain:factory:dispatch -- --max 40
+rtk pnpm brain:factory:integrate-wave
+rtk pnpm brain:factory:promote-wave -- --integration-id <wave-id>
 ```
 
 Local state lives under ignored `.fabro/state/`; disposable worktrees live in
