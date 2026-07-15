@@ -510,6 +510,16 @@ const createClientBrain = FunctionImpl.make(
         });
       }
       const organizationId = asGenericId<"organizations">(organization._id);
+      if (organization.agencyKey === undefined) {
+        return yield* new ProvisioningConflict({
+          resource: "organizations.agencyKey",
+          message: "Active organization is missing a stable agency key.",
+        });
+      }
+      yield* assertUniqueAgencyKey({
+        organizationId,
+        agencyKey: organization.agencyKey,
+      });
       const orgMemberships = yield* reader
         .table("organizationMembers")
         .index("by_organization_user", (q) =>

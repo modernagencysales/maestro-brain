@@ -1,4 +1,5 @@
 import { FunctionImpl, GroupImpl } from "@confect/server";
+import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
@@ -150,8 +151,9 @@ const resolveBrainKey = FunctionImpl.make(
           message: "Duplicate live workspace memberships found.",
         });
       }
+      const nowMs = yield* Clock.currentTimeMillis;
       const resolution = resolveEffectiveWorkspaceRole({
-        nowMs: Date.now(),
+        nowMs,
         userId: user._id,
         workspace: {
           id: workspace._id,

@@ -87,7 +87,10 @@ const list = FunctionImpl.make(databaseSchema, workspaces, "list", () =>
         )
         .collect()
         .pipe(Effect.orDie);
-      const activeRows = rows.filter((row) => row.status === "active");
+      const activeRows = rows.filter(
+        (row): row is typeof row & { readonly status: "active" } =>
+          row.status === "active",
+      );
       const scopedWorkspaceMembers = [];
       for (const workspace of activeRows) {
         const members = yield* reader
