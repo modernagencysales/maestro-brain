@@ -12,10 +12,7 @@ import type { ReactNode } from "react";
 import { TemplateToastProvider } from "@maestro-template/ui";
 
 import { createAuthKitProviderWithConvexProviderWithAuth } from "../auth/authkit-client";
-import type {
-  ClientAuthSnapshot,
-  SafeClientRuntime,
-} from "../auth/authkit-server";
+import type { SafeClientRuntime } from "../auth/authkit-server";
 import { workosAuthKitClientBridge } from "../auth/workos-client-runtime";
 import { loadSafeClientRuntime } from "../auth/safe-client-runtime.server";
 import { MaestroSaasUiProvider } from "../saas-ui/provider";

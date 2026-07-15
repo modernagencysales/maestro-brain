@@ -251,6 +251,14 @@ describe("model call receipt repository", () => {
     );
 
     expect(source).toContain("writeAuthenticatedModelCallReceipt");
+    expect(source).toContain("createStructuredLlmGateway");
+    expect(source).not.toContain("runFakeSourceGroundedBrief");
     expect(source).not.toContain("writeModelCallReceipt({");
+    expect(source).not.toContain("sha256:source-grounded-brief-request-");
+    expect(source).not.toContain("sha256:source-grounded-brief-response-");
+    expect(source).not.toContain("sha256:source-grounded-brief-source-");
+    expect(source).not.toContain(
+      'model: "openrouter/fake-source-grounded-brief"',
+    );
   });
 });
