@@ -723,7 +723,10 @@ manifest.
   `apps/web/src/providers/workspace-operations.test.ts`; create
   `packages/convex/confect/identity/stableKeys.spec.ts`,
   `packages/convex/confect/identity/stableKeys.impl.ts`,
-  `packages/convex/test/authorized-brain-provisioning.test.ts`.
+  `packages/convex/test/access-provisioning.test.ts`,
+  `packages/convex/test/authorized-brain-provisioning.test.ts`,
+  `docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md`,
+  `docs/superpowers/execution/maestro-brain/task-manifest.json`.
 - **Failure-first tests:** signed-out list/create, suspended user/org, unrelated
   org, viewer/editor client creation, duplicate client slug/key, duplicate
   agency/Brain key resolution, invalid key syntax, cross-organization
