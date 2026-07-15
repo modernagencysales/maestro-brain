@@ -24,6 +24,17 @@ const string = (value: unknown, label: string): string => {
 const readJson = (path: string): JsonRecord =>
   record(JSON.parse(readFileSync(path, "utf8")), path);
 
+const isAcceptanceOnlyFinding = (finding: JsonRecord): boolean => {
+  const identity = [finding.contract, finding.id, finding.kind, finding.summary]
+    .map((value) => String(value ?? ""))
+    .join(" ");
+  return (
+    finding.contract === "acceptanceAfter" ||
+    /acceptanceAfter/i.test(identity) ||
+    /unsatisfied-acceptance-(?:dependency|prerequisite)/i.test(identity)
+  );
+};
+
 const git = (workdir: string, args: readonly string[]): string => {
   const result = spawnSync("git", args, { cwd: workdir, encoding: "utf8" });
   if (result.status !== 0)
@@ -80,8 +91,6 @@ export const validateRepairResult = (input: RepairCheckInput): void => {
     throw new Error("integration workdir mismatch");
   if (gitSha(result.headSha, "headSha") !== headSha)
     throw new Error("evidence head does not match HEAD");
-  if (result.reviewVerdict !== "pass")
-    throw new Error("review verdict is not pass");
   if (git(workdir, ["status", "--porcelain"]) !== "")
     throw new Error("integration worktree is not clean");
   git(workdir, ["merge-base", "--is-ancestor", repairBaseSha, headSha]);
@@ -164,6 +173,12 @@ export const validateRepairResult = (input: RepairCheckInput): void => {
         record(item, `remainingFindings[${index}]`),
       )
     : [];
+  if (remaining.some(isAcceptanceOnlyFinding))
+    throw new Error(
+      "acceptanceAfter blocks accepted:true only; record accepted:false with acceptanceBlocker instead of blocking integration review",
+    );
+  if (result.reviewVerdict !== "pass")
+    throw new Error("review verdict is not pass");
   if (
     remaining.some((finding) =>
       /^(?:critical|high|no-merge)$/i.test(String(finding.severity ?? "")),
@@ -262,6 +277,17 @@ export const validateRepairResult = (input: RepairCheckInput): void => {
       headSha
     )
       throw new Error(`${taskId}: integration head mismatch`);
+    if (
+      lane.status === "integrated" &&
+      (lane.accepted !== false ||
+        typeof lane.acceptanceBlocker !== "string" ||
+        lane.acceptanceBlocker.trim() === "")
+    )
+      throw new Error(
+        `${taskId}: integrated task must remain accepted:false with acceptanceBlocker`,
+      );
+    if (lane.status === "accepted" && lane.accepted !== true)
+      throw new Error(`${taskId}: accepted status requires accepted:true`);
   }
 };
 

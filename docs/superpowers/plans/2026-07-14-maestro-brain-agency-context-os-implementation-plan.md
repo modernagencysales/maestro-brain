@@ -60,7 +60,10 @@ suppression, and worktree rules come from [`AGENTS.md`](../../../AGENTS.md) and
 the linked app-factory/playbook sources; this plan does not restate or weaken
 them. Product-specific additions are:
 
-1. S00-T01's three-host Convex plugin receipt gates source implementation.
+1. S00-T01's three-host Convex plugin receipt is acceptance and deployment
+   authority. It does not block isolated source preparation, integration, or
+   review; affected tasks remain explicitly unaccepted until the receipt is
+   green.
 2. The pinned SaaS UI/Chakra fork is the implementation base; external Maestro
    is read-only prior art.
 3. This Markdown is canonical. Generate, validate, hash, and discard only the
@@ -89,10 +92,11 @@ applying these rules:
    generations, provider interfaces, capability/workflow specs, and receipt
    shapes unblock consumers. Consumers use generated refs or deterministic
    fixtures; they do not duplicate a missing upstream body.
-2. **Speculative isolation:** S00-T01 remains the merge gate for product source,
-   but independent code may be prepared in isolated worktrees while the three
-   host receipts are collected. No speculative branch is integrated or deployed
-   before the receipt is green.
+2. **Speculative isolation:** S00-T01 remains external acceptance and deployment
+   authority while independent code is prepared, reviewed, and integrated.
+   Integrated records whose original dependency is unmet must say
+   `accepted: false` and name the `acceptanceBlocker`; no candidate is deployed
+   before the three-host receipt is green.
 3. **Central shared ownership:** generated Convex/Confect output, route trees,
    root dependency files, canonical schema registries, environment manifests,
    and other manifest-declared shared locks have one live owner. Parallel lanes
@@ -234,12 +238,13 @@ manifest.
 
 ### S00-T01 — Install And Attest The Convex Codex Plugin On Three Hosts
 
-- **Outcome / requirements:** satisfy FND-01 before any source implementation;
-  produce three distinct, redacted, reproducible host receipts.
+- **Outcome / requirements:** satisfy FND-01 before product acceptance or
+  deployment; produce three distinct, redacted, reproducible host receipts.
 - **Classification:** `template-gap`; target `TB-DEVEX-CONVEX-01` (multi-host
   plugin readiness is not represented by a repo generator); resolution is a host
   bootstrap receipt, not application code.
-- **Dependencies:** none. This is the absolute implementation gate.
+- **Dependencies:** none. This is external acceptance and deployment authority,
+  not a code-start, integration, or review gate.
 - **Existing anchors:** the repo already uses Convex/Confect and mounts Convex
   components in
   [`convex.config.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/convex/convex.config.ts#L1-L25);
@@ -263,7 +268,8 @@ manifest.
   already-installed result is acceptable after the fresh-session check.
 - **Migration / rollback:** no data migration. If the plugin breaks a host,
   remove only that plugin using the CLI's documented remove command, record the
-  failure, and keep the program blocked; never continue with two hosts.
+  failure, and keep acceptance and deployment blocked; never attest readiness
+  with two hosts.
 - **Focused verification:** external-only acceptance: run
   `rtk codex plugin list` and a fresh-session Convex capability discovery on
   each of the three named hosts; then run
@@ -364,14 +370,17 @@ manifest.
   `.buildkite/scripts/staging-deploy.sh`,
   `.buildkite/scripts/production-promote.sh`, `tooling/release/src/index.ts`,
   `tooling/release/src/index.test.ts`, `.env.example`,
-  `docs/template/env-manifest.md`, and `docs/template/env-manifest.json`; create
+  `docs/template/env-manifest.md`, `docs/template/env-manifest.json`,
+  `tooling/quality/src/check-definitions.mts`, and
+  `tooling/quality/check-config-drift.test.mts`; create
   `tooling/release/src/project-config.ts` and
   `docs/superpowers/receipts/maestro-brain/deployment-isolation.md`.
 - **Failure-first tests:** current config fails because staging/production
   `convexUrl` values match; current scripts fail because they invoke
   `demo/showcase:seed`; staging credentials cannot deploy production and vice
   versa; promotion of an unstaged SHA and rollback to an incompatible schema
-  fail closed.
+  fail closed. `rtk pnpm check:config-drift` must fail while its static
+  descriptor still requires `sharedConvexBackendNote` and `demo/showcase:seed`.
 - **Implementation:** provision/configure distinct deployment names, URLs and
   namespaced deploy-key environment names and callback-origin slots; later
   provider tasks populate the WorkOS/Nango callback registrations. Remove demo
@@ -382,7 +391,10 @@ manifest.
   exact packet and never defaults a missing staged SHA to the current SHA. Add
   `rollback-plan <current-release-packet> <candidate-release-packet>`; it
   selects only a prior binary whose schema/manifest contract is
-  forward-compatible and never performs a data down-migration.
+  forward-compatible and never performs a data down-migration. Update the
+  config-drift descriptor in the same slice to require the isolated deployment,
+  key, callback, and release-packet shape and to forbid the shared-backend note
+  and tenant demo seeding.
 - **Typed errors / state:** environment is
   `unconfigured -> isolated -> staged -> promoted | rollback_ready`; errors are
   `SharedBackendForbidden`, `EnvironmentCredentialMismatch`,
@@ -394,11 +406,14 @@ manifest.
 - **Focused verification:** lane-local gates are
   `rtk host-test-slot --class focused pnpm --dir tooling/release test`,
   `rtk pnpm --dir tooling/release typecheck`,
-  `rtk host-test-slot --class focused pnpm --dir tooling/release test deployment-isolation callback-origin demo-seed receipt-promotion schema-manifest rollback-compatibility`,
-  and `rtk pnpm check:env-boundary`. External-only acceptance when credentials
-  are available: `rtk pnpm deploy:doctor staging` and
-  `rtk pnpm deploy:doctor production` are green; broad verification belongs to
-  tranche integration.
+  `rtk host-test-slot --class focused pnpm --dir tooling/quality test check-config-drift`,
+  `rtk pnpm check:config-drift`, script/config fixture tests proving distinct
+  URL/deployment/key names, required callback origins, no `demo/showcase:seed`,
+  no missing-receipt promotion fallback, staged schema/manifest matching,
+  incompatible rollback rejection, and `rtk pnpm check:env-boundary`.
+  Provider-backed `rtk pnpm deploy:doctor staging` and
+  `rtk pnpm deploy:doctor production` are acceptance gates when credentials are
+  available; broad verification belongs to tranche integration.
 - **Completion receipt:** redacted deployment names/URL hashes, distinct-key
   owner metadata, negative cross-deploy attempts, staged/promotion/rollback-plan
   results, and no-demo-seed scan.

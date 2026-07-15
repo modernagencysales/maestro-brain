@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "a094e5ac7d42c8bdf170c023ec869cb1399bbf74556f4e2f3dd37f0910c6ad66",
+  "planSha256": "e4e4e5993fee79d0361851dddd952b8d90186621958b36ccbcc5b08f7bf8a1d0",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -18,7 +18,7 @@
       "lane": "foundation",
       "requirements": ["FND-01"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "2294aad8c570c379c425b96df27195e53d6d160f0af6cbdc20591fd82451b96b",
+      "taskBlockHash": "612e1f9cedc6b6644b40a195811c3b670fd76d0834dee44212fe84bd4da167d3",
       "taskId": "S00-T01",
       "title": "Install And Attest The Convex Codex Plugin On Three Hosts",
       "tranche": "F0-foundation"
@@ -65,16 +65,18 @@
         "docs/template/env-manifest.json",
         "docs/template/env-manifest.md",
         "project.config.json",
+        "tooling/quality/check-config-drift.test.mts",
+        "tooling/quality/src/check-definitions.mts",
         "tooling/release/src/index.test.ts",
         "tooling/release/src/index.ts",
         "tooling/release/src/project-config.ts"
       ],
-      "gateProfiles": ["release"],
+      "gateProfiles": ["release", "tooling"],
       "kind": "product",
       "lane": "foundation",
       "requirements": ["FND-02", "REL-04"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "abad6053c348e5b9daf25081f40aca7755b484cdcda77ca6df36f231b6534923",
+      "taskBlockHash": "42193b160bc04a7d9bc3ef7f883545c8eaeb4506f9f848f6b02ba801d08410ac",
       "taskId": "S00-T03",
       "title": "Isolate Staging And Production Deployments",
       "tranche": "F0-foundation"

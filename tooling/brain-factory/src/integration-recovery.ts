@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   appendFileSync,
   existsSync,
@@ -15,6 +15,11 @@ import {
 import { dirname, isAbsolute, resolve } from "node:path";
 
 type JsonRecord = Record<string, unknown>;
+
+const hashText = (value: string): string =>
+  createHash("sha256").update(value).digest("hex");
+
+const hashJson = (value: unknown): string => hashText(JSON.stringify(value));
 
 const record = (value: unknown, label: string): JsonRecord => {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -566,6 +571,7 @@ export const persistLegacyIntegrationRecovery = (input: {
     }
   } else {
     writeFileSync(temporary, normalizedContent, { flag: "wx" });
+    input.fault?.("after-recovery-stage");
   }
   if (!auditExists) {
     mkdirSync(dirname(input.auditPath), { recursive: true });
@@ -582,10 +588,14 @@ export const persistLegacyIntegrationRecovery = (input: {
 
 export type RecoveryFaultPoint =
   | "after-audit-append"
+  | "after-create-output"
+  | "after-create-record"
   | "after-launch"
   | "after-normalization"
   | "after-promotion-stage"
-  | "after-reservation";
+  | "after-recovery-stage"
+  | "after-reservation"
+  | "after-start-reservation";
 
 export const reserveRepairLaunch = (
   path: string,
@@ -631,12 +641,24 @@ export const promoteRepairLaunch = (
   const reservation = record(JSON.parse(reservationContent), "reservation");
   if (
     reservation.reservationToken !== reservationToken ||
-    !new Set(["launch_failed", "preparing"]).has(String(reservation.status))
+    !new Set([
+      "created",
+      "launch_failed",
+      "launch_unknown",
+      "preparing",
+      "starting",
+    ]).has(String(reservation.status))
   ) {
     throw new Error(`repair launch reservation changed at ${path}`);
   }
   const promotedContent = `${JSON.stringify(
-    { ...recordValue, reservationToken },
+    {
+      ...recordValue,
+      priorLaunchAttempt: reservation.launchAttempt,
+      priorStartAttempt: reservation.startAttempt,
+      priorStatus: reservation.status,
+      reservationToken,
+    },
     null,
     2,
   )}\n`;
@@ -664,12 +686,26 @@ export interface RepairRecoveryIdentity {
 
 interface RepairReservation extends JsonRecord {
   readonly baseSha: string;
+  readonly createReceipt?: unknown;
+  readonly createdRunId?: string;
+  readonly integrationBaseSha: string;
   readonly launchAttempt: number;
+  readonly recoveryAt: string;
+  readonly recoveryReason: string;
   readonly reservationToken: string;
   readonly schemaVersion: "maestro-brain-repair-reservation/v1";
   readonly sourceReviewRun: string;
-  readonly status: "launch_failed" | "launched" | "preparing";
+  readonly startAttempt: number;
+  readonly status:
+    | "created"
+    | "launch_failed"
+    | "launch_unknown"
+    | "launched"
+    | "preparing"
+    | "starting";
+  readonly taskIds: readonly string[];
   readonly tranche: string;
+  readonly transitionHash: string;
   readonly workdir: string;
 }
 
@@ -685,6 +721,10 @@ const repairReservation = (
     identity.baseSha
   )
     throw new Error("repair reservation base mismatch");
+  gitSha(
+    reservation.integrationBaseSha,
+    "repair reservation integrationBaseSha",
+  );
   if (
     fabroRunId(
       reservation.sourceReviewRun,
@@ -709,16 +749,52 @@ const repairReservation = (
   }
   if (
     !Number.isInteger(reservation.launchAttempt) ||
-    Number(reservation.launchAttempt) < 1
+    Number(reservation.launchAttempt) < 1 ||
+    !Number.isInteger(reservation.startAttempt) ||
+    Number(reservation.startAttempt) < 0
   ) {
     throw new Error("repair reservation launch attempt is invalid");
   }
   if (
-    !new Set(["launch_failed", "launched", "preparing"]).has(
-      String(reservation.status),
-    )
+    typeof reservation.recoveryAt !== "string" ||
+    Number.isNaN(Date.parse(reservation.recoveryAt)) ||
+    typeof reservation.recoveryReason !== "string" ||
+    reservation.recoveryReason.length === 0 ||
+    typeof reservation.transitionHash !== "string" ||
+    !/^[0-9a-f]{64}$/.test(reservation.transitionHash) ||
+    !Array.isArray(reservation.taskIds) ||
+    reservation.taskIds.length === 0 ||
+    reservation.taskIds.some(
+      (taskId) => typeof taskId !== "string" || !/^S\d{2}-T\d{2}$/.test(taskId),
+    ) ||
+    new Set(reservation.taskIds).size !== reservation.taskIds.length
+  ) {
+    throw new Error("repair reservation transition identity is invalid");
+  }
+  if (
+    !new Set([
+      "created",
+      "launch_failed",
+      "launch_unknown",
+      "launched",
+      "preparing",
+      "starting",
+    ]).has(String(reservation.status))
   ) {
     throw new Error("repair reservation status is invalid");
+  }
+  const hasCreatedRun = new Set(["created", "starting", "launched"]).has(
+    String(reservation.status),
+  );
+  if (hasCreatedRun) {
+    fabroRunId(reservation.createdRunId, "repair reservation createdRunId");
+    record(reservation.createReceipt, "repair reservation createReceipt");
+  } else if (
+    reservation.createdRunId !== undefined ||
+    reservation.createReceipt !== undefined ||
+    reservation.startAttempt !== 0
+  ) {
+    throw new Error("uncreated repair reservation has created-run state");
   }
   return reservation as unknown as RepairReservation;
 };
@@ -739,6 +815,352 @@ const repairIdentityFromRecord = (value: unknown): RepairRecoveryIdentity => {
   };
 };
 
+const reservationTransitionFields = (reservation: RepairReservation) => ({
+  ...(reservation.createReceipt !== undefined
+    ? { createReceipt: reservation.createReceipt }
+    : {}),
+  ...(reservation.createdRunId !== undefined
+    ? { createdRunId: reservation.createdRunId }
+    : {}),
+  integrationBaseSha: reservation.integrationBaseSha,
+  recoveryAt: reservation.recoveryAt,
+  recoveryReason: reservation.recoveryReason,
+  startAttempt: reservation.startAttempt,
+  taskIds: reservation.taskIds,
+  transitionHash: reservation.transitionHash,
+});
+
+export interface RepairLaunchReceiptInput {
+  readonly attempt: number;
+  readonly baseSha: string;
+  readonly integrationBaseSha: string;
+  readonly reservationToken: string;
+  readonly runId: string;
+  readonly sourceReviewRun: string;
+  readonly taskIds: readonly string[];
+  readonly tranche: string;
+  readonly workdir: string;
+}
+
+export type RepairLaunchAttempt = RepairLaunchReceiptInput;
+
+const buildRepairRunReceipt = (
+  input: RepairLaunchReceiptInput,
+  phase: "create" | "launch",
+): JsonRecord => {
+  const payload = {
+    attempt: input.attempt,
+    baseSha: gitSha(input.baseSha, `${phase} receipt baseSha`),
+    integrationBaseSha: gitSha(
+      input.integrationBaseSha,
+      `${phase} receipt integrationBaseSha`,
+    ),
+    reservationToken: input.reservationToken,
+    runId: fabroRunId(input.runId, `${phase} receipt runId`),
+    schemaVersion: `maestro-brain-repair-${phase}-receipt/v1`,
+    sourceReviewRun: fabroRunId(
+      input.sourceReviewRun,
+      `${phase} receipt sourceReviewRun`,
+    ),
+    taskIds: [...input.taskIds].sort(),
+    tranche: safeTranche(input.tranche, `${phase} receipt tranche`),
+    workdir: safeAbsolutePath(input.workdir, `${phase} receipt workdir`),
+    workflow: "BrainRepairTranche",
+  };
+  if (
+    !Number.isInteger(payload.attempt) ||
+    payload.attempt < 1 ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
+      payload.reservationToken,
+    ) ||
+    payload.taskIds.length === 0 ||
+    payload.taskIds.some((taskId) => !/^S\d{2}-T\d{2}$/.test(taskId)) ||
+    new Set(payload.taskIds).size !== payload.taskIds.length
+  ) {
+    throw new Error(`${phase} receipt identity is invalid`);
+  }
+  return { ...payload, receiptSha256: hashJson(payload) };
+};
+
+export const buildRepairCreateReceipt = (
+  input: RepairLaunchReceiptInput,
+): JsonRecord => buildRepairRunReceipt(input, "create");
+
+export const buildRepairLaunchReceipt = (
+  input: RepairLaunchReceiptInput,
+): JsonRecord => buildRepairRunReceipt(input, "launch");
+
+const validateRepairRunReceipt = (
+  value: unknown,
+  reservation: RepairReservation,
+  phase: "create" | "launch",
+): string => {
+  const receipt = record(value, `repair ${phase} receipt`);
+  const expected = buildRepairRunReceipt(
+    {
+      attempt: reservation.launchAttempt,
+      baseSha: reservation.baseSha,
+      integrationBaseSha: reservation.integrationBaseSha,
+      reservationToken: reservation.reservationToken,
+      runId: receipt.runId as string,
+      sourceReviewRun: reservation.sourceReviewRun,
+      taskIds: reservation.taskIds,
+      tranche: reservation.tranche,
+      workdir: reservation.workdir,
+    },
+    phase,
+  );
+  if (JSON.stringify(receipt) !== JSON.stringify(expected)) {
+    throw new Error(`repair ${phase} receipt identity or digest mismatch`);
+  }
+  return fabroRunId(receipt.runId, `repair ${phase} receipt runId`);
+};
+
+const validateRepairLaunchReceipt = (
+  value: unknown,
+  reservation: RepairReservation,
+): string => validateRepairRunReceipt(value, reservation, "launch");
+
+const validateRepairCreateReceipt = (
+  value: unknown,
+  reservation: RepairReservation,
+): string => validateRepairRunReceipt(value, reservation, "create");
+
+export type RepairCreateDiscovery =
+  | { readonly kind: "absent" }
+  | { readonly kind: "ambiguous"; readonly reason: string }
+  | { readonly kind: "found"; readonly receipt: unknown };
+
+export const dispatchIntegrationRecovery = (input: {
+  readonly integrationResult: unknown;
+  readonly reconcileDurable: () => string | undefined;
+  readonly reconcileFromEvidence: () => string;
+  readonly repairRecordExists: boolean;
+}): string => {
+  const result = record(input.integrationResult, "integration result");
+  const recovery =
+    typeof result.recovery === "object" &&
+    result.recovery !== null &&
+    !Array.isArray(result.recovery)
+      ? (result.recovery as JsonRecord)
+      : undefined;
+  const normalizedRecoveryExists =
+    result.schemaVersion === "maestro-brain-integration-result/v1" &&
+    result.sourceRunStatus === "failed" &&
+    recovery?.schemaVersion === "maestro-brain-integration-recovery/v1" &&
+    recovery.sourceRunStatus === "failed";
+  if (input.repairRecordExists && normalizedRecoveryExists) {
+    const durable = input.reconcileDurable();
+    if (durable !== undefined) return durable;
+  }
+  return input.reconcileFromEvidence();
+};
+
+export const verifyRepairLaunchInspection = (
+  value: unknown,
+  expected: RepairLaunchAttempt,
+): void => {
+  const items = Array.isArray(value) ? value : [value];
+  if (items.length !== 1) {
+    throw new Error("Fabro repair inspection must contain exactly one run");
+  }
+  const run = record(items[0], "Fabro repair run");
+  if (fabroRunId(run.run_id, "Fabro repair run ID") !== expected.runId) {
+    throw new Error("Fabro repair inspection run ID mismatch");
+  }
+  const runSpec = record(run.run_spec, "Fabro repair run spec");
+  const settings = record(runSpec.settings, "Fabro repair run settings");
+  const configuration = record(settings.run, "Fabro repair configuration");
+  const inputs = record(configuration.inputs, "Fabro repair inputs");
+  const metadata = record(
+    configuration.metadata ?? runSpec.labels ?? run.labels,
+    "Fabro repair metadata labels",
+  );
+  const graph =
+    typeof runSpec.graph === "object" &&
+    runSpec.graph !== null &&
+    !Array.isArray(runSpec.graph)
+      ? (runSpec.graph as JsonRecord)
+      : undefined;
+  const workflow =
+    typeof run.workflow === "object" &&
+    run.workflow !== null &&
+    !Array.isArray(run.workflow)
+      ? (run.workflow as JsonRecord)
+      : undefined;
+  const graphName =
+    graph?.name ??
+    graph?.id ??
+    workflow?.graph_name ??
+    run.workflow_graph_name ??
+    run.workflow_name;
+  if (string(graphName, "Fabro repair graph name") !== "BrainRepairTranche") {
+    throw new Error("Fabro repair workflow mismatch");
+  }
+  if (
+    string(metadata.recovery_token, "Fabro recovery token label") !==
+      expected.reservationToken ||
+    Number(metadata.launch_attempt) !== expected.attempt ||
+    string(metadata.tranche, "Fabro repair tranche label") !==
+      expected.tranche ||
+    fabroRunId(inputs.source_review_run, "Fabro repair source run") !==
+      expected.sourceReviewRun ||
+    gitSha(inputs.base_sha, "Fabro repair base SHA") !== expected.baseSha ||
+    safeAbsolutePath(inputs.workdir, "Fabro repair workdir") !==
+      expected.workdir ||
+    string(inputs.tranche, "Fabro repair tranche input") !== expected.tranche
+  ) {
+    throw new Error("Fabro repair labels or inputs do not match reservation");
+  }
+};
+
+export type RepairRunPhase = "accepted" | "startable";
+
+export const inspectRepairRunPhase = (
+  inspection: unknown,
+  expected: RepairLaunchAttempt,
+): RepairRunPhase => {
+  verifyRepairLaunchInspection(inspection, expected);
+  const values = Array.isArray(inspection) ? inspection : [inspection];
+  const inspected = record(values[0], "Fabro repair inspection");
+  const status =
+    typeof inspected.status === "string"
+      ? inspected.status
+      : string(
+          record(inspected.status, "Fabro repair status").kind,
+          "Fabro repair status kind",
+        );
+  // Fabro 0.254 can report runnable or pending after accepting start. Only
+  // created/submitted prove that this exact run still needs its first start.
+  if (new Set(["created", "submitted"]).has(status)) {
+    return "startable";
+  }
+  if (
+    new Set([
+      "blocked",
+      "cancelled",
+      "dead",
+      "failed",
+      "interrupted",
+      "paused",
+      "pending",
+      "pending_control",
+      "queued",
+      "removing",
+      "runnable",
+      "running",
+      "starting",
+      "succeeded",
+      "waiting",
+    ]).has(status)
+  ) {
+    return "accepted";
+  }
+  throw new Error(`Fabro repair run has unknown status ${status}`);
+};
+
+export const discoverCreatedRepairRun = (input: {
+  readonly identity: Omit<RepairLaunchReceiptInput, "runId">;
+  readonly inspect: (target: string) => unknown;
+  readonly outcomePath: string;
+  readonly rawPath: string;
+  readonly receiptPath: string;
+}): RepairCreateDiscovery => {
+  const persistReceipt = (receipt: JsonRecord): void => {
+    const content = `${JSON.stringify(receipt, null, 2)}\n`;
+    if (existsSync(input.receiptPath)) {
+      if (readFileSync(input.receiptPath, "utf8") !== content) {
+        throw new Error(
+          `repair create receipt conflicts at ${input.receiptPath}`,
+        );
+      }
+      return;
+    }
+    writeFileSync(input.receiptPath, content, { flag: "wx" });
+  };
+  const receiptFromRunId = (runId: string): JsonRecord => {
+    verifyRepairLaunchInspection(input.inspect(runId), {
+      ...input.identity,
+      runId,
+    });
+    const receipt = buildRepairCreateReceipt({ ...input.identity, runId });
+    persistReceipt(receipt);
+    return receipt;
+  };
+  const authoritativePreSpawnFailure = (): boolean => {
+    if (!existsSync(input.outcomePath)) return false;
+    try {
+      const outcome = readJsonRecord(input.outcomePath);
+      const rawOutput = readFileSync(input.rawPath, "utf8");
+      // ENOENT from spawnSync is the one recorded outcome that proves the rtk
+      // child never began; signals and every other null-status case are ambiguous.
+      return (
+        outcome.schemaVersion === "maestro-rtk-file-outcome/v2" &&
+        outcome.kind === "spawn_error" &&
+        outcome.errorCode === "ENOENT" &&
+        outcome.errorSyscall === "spawnSync rtk" &&
+        outcome.outputPath === resolve(input.rawPath) &&
+        rawOutput.length === 0 &&
+        outcome.outputSha256 === hashText(rawOutput) &&
+        outcome.signal === null &&
+        outcome.status === null
+      );
+    } catch {
+      return false;
+    }
+  };
+
+  if (existsSync(input.receiptPath)) {
+    try {
+      const receipt = readJsonRecord(input.receiptPath);
+      const runId = fabroRunId(
+        receipt.runId,
+        "structured repair create run ID",
+      );
+      const expected = buildRepairCreateReceipt({ ...input.identity, runId });
+      if (JSON.stringify(receipt) !== JSON.stringify(expected)) {
+        throw new Error("structured repair create receipt identity mismatch");
+      }
+      verifyRepairLaunchInspection(input.inspect(runId), {
+        ...input.identity,
+        runId,
+      });
+      return { kind: "found", receipt };
+    } catch (error) {
+      return {
+        kind: "ambiguous",
+        reason: `structured create receipt could not be verified: ${String(error)}`,
+      };
+    }
+  }
+  if (!existsSync(input.rawPath)) return { kind: "absent" };
+
+  let rawRunId: string;
+  try {
+    const raw = JSON.parse(readFileSync(input.rawPath, "utf8")) as {
+      readonly run_id?: unknown;
+      readonly runId?: unknown;
+    };
+    rawRunId = fabroRunId(raw.run_id ?? raw.runId, "raw repair create run ID");
+  } catch (error) {
+    if (authoritativePreSpawnFailure()) {
+      return { kind: "absent" };
+    }
+    return {
+      kind: "ambiguous",
+      reason: `create output has no exact run ID and remote acceptance is unknown: ${String(error)}`,
+    };
+  }
+  try {
+    return { kind: "found", receipt: receiptFromRunId(rawRunId) };
+  } catch (error) {
+    return {
+      kind: "ambiguous",
+      reason: `exact created run could not be verified: ${String(error)}`,
+    };
+  }
+};
+
 const writeRepairReservation = (
   path: string,
   current: RepairReservation,
@@ -747,7 +1169,13 @@ const writeRepairReservation = (
   const temporary = `${path}.next`;
   const currentContent = readFileSync(path, "utf8");
   const nextContent = `${JSON.stringify(
-    { ...next, reservationToken: current.reservationToken },
+    {
+      ...next,
+      priorLaunchAttempt: current.launchAttempt,
+      priorStartAttempt: current.startAttempt,
+      priorStatus: current.status,
+      reservationToken: current.reservationToken,
+    },
     null,
     2,
   )}\n`;
@@ -761,22 +1189,167 @@ const writeRepairReservation = (
   if (readFileSync(path, "utf8") !== currentContent) {
     throw new Error(`repair launch reservation changed at ${path}`);
   }
-  renameSync(temporary, path);
-  return record(
+  const staged = repairReservation(
     JSON.parse(nextContent),
-    "repair reservation",
-  ) as unknown as RepairReservation;
+    repairIdentityFromRecord(current),
+  );
+  validateRepairTransition(current, staged);
+  renameSync(temporary, path);
+  return staged;
+};
+
+const validateRepairTransition = (
+  current: RepairReservation,
+  staged: RepairReservation,
+): void => {
+  if (
+    current.reservationToken !== staged.reservationToken ||
+    current.baseSha !== staged.baseSha ||
+    current.integrationBaseSha !== staged.integrationBaseSha ||
+    current.sourceReviewRun !== staged.sourceReviewRun ||
+    current.tranche !== staged.tranche ||
+    current.workdir !== staged.workdir ||
+    current.recoveryAt !== staged.recoveryAt ||
+    current.recoveryReason !== staged.recoveryReason ||
+    current.transitionHash !== staged.transitionHash ||
+    JSON.stringify(current.taskIds) !== JSON.stringify(staged.taskIds) ||
+    staged.priorStatus !== current.status ||
+    staged.priorLaunchAttempt !== current.launchAttempt ||
+    staged.priorStartAttempt !== current.startAttempt ||
+    (current.createdRunId !== undefined &&
+      current.createdRunId !== staged.createdRunId) ||
+    (current.createReceipt !== undefined &&
+      JSON.stringify(current.createReceipt) !==
+        JSON.stringify(staged.createReceipt))
+  ) {
+    throw new Error(
+      "repair promotion residue is not an exact owned transition",
+    );
+  }
+  if (new Set(["created", "starting", "launched"]).has(staged.status)) {
+    const createdRunId = validateRepairCreateReceipt(
+      staged.createReceipt,
+      staged,
+    );
+    if (staged.createdRunId !== createdRunId) {
+      throw new Error("repair created run ID does not match its receipt");
+    }
+  }
+  if (staged.status === "launched") {
+    const launchedRunId = validateRepairLaunchReceipt(
+      staged.launchReceipt,
+      staged,
+    );
+    if (
+      staged.createdRunId !== launchedRunId ||
+      staged.runId !== launchedRunId
+    ) {
+      throw new Error("repair launched run ID does not match created run");
+    }
+  }
+  const legal =
+    (current.status === "preparing" &&
+      staged.launchAttempt === current.launchAttempt &&
+      staged.startAttempt === 0 &&
+      new Set(["created", "launch_failed", "launch_unknown"]).has(
+        staged.status,
+      )) ||
+    (current.status === "launch_unknown" &&
+      staged.launchAttempt === current.launchAttempt &&
+      staged.startAttempt === 0 &&
+      new Set(["created", "launch_failed"]).has(staged.status)) ||
+    (current.status === "launch_failed" &&
+      staged.startAttempt === 0 &&
+      ((staged.status === "preparing" &&
+        staged.launchAttempt === current.launchAttempt + 1) ||
+        (staged.status === "created" &&
+          staged.launchAttempt === current.launchAttempt))) ||
+    (current.status === "created" &&
+      staged.launchAttempt === current.launchAttempt &&
+      ((staged.status === "starting" &&
+        staged.startAttempt === current.startAttempt + 1) ||
+        (staged.status === "launched" &&
+          staged.startAttempt === current.startAttempt))) ||
+    (current.status === "starting" &&
+      staged.launchAttempt === current.launchAttempt &&
+      ((staged.status === "starting" &&
+        staged.startAttempt === current.startAttempt + 1) ||
+        (staged.status === "launched" &&
+          staged.startAttempt === current.startAttempt)));
+  if (!legal)
+    throw new Error("repair promotion residue is an illegal transition");
+};
+
+const recoveryTransition = (plan: LegacyIntegrationRecoveryPlan) => {
+  const audit = record(plan.auditEvent, "recovery audit transition");
+  if (!Array.isArray(audit.legacyIncludedTaskIds)) {
+    throw new Error("recovery transition has no task IDs");
+  }
+  return {
+    integrationBaseSha: gitSha(
+      audit.baseSha,
+      "recovery transition integrationBaseSha",
+    ),
+    recoveryAt: string(audit.at, "recovery transition at"),
+    recoveryReason: string(audit.reason, "recovery transition reason"),
+    taskIds: audit.legacyIncludedTaskIds
+      .map((taskId, index) =>
+        string(taskId, `recovery transition taskIds[${index}]`),
+      )
+      .sort(),
+    transitionHash: hashJson({
+      auditEvent: plan.auditEvent,
+      normalizedResult: plan.normalizedResult,
+    }),
+  };
+};
+
+const canonicalRecoveryPlan = (
+  plan: LegacyIntegrationRecoveryPlan,
+  reservation: RepairReservation,
+): LegacyIntegrationRecoveryPlan => {
+  const requested = recoveryTransition(plan);
+  if (requested.recoveryReason !== reservation.recoveryReason) {
+    throw new Error("recovery reason does not match reserved transition");
+  }
+  const normalizedResult = structuredClone(plan.normalizedResult);
+  const recovery = record(normalizedResult.recovery, "normalized recovery");
+  recovery.at = reservation.recoveryAt;
+  const auditEvent = structuredClone(plan.auditEvent);
+  auditEvent.at = reservation.recoveryAt;
+  const canonical = {
+    ...plan,
+    auditEvent,
+    normalizedResult,
+  } satisfies LegacyIntegrationRecoveryPlan;
+  const canonicalTransition = recoveryTransition(canonical);
+  if (
+    canonicalTransition.integrationBaseSha !== reservation.integrationBaseSha ||
+    JSON.stringify(canonicalTransition.taskIds) !==
+      JSON.stringify(reservation.taskIds) ||
+    canonicalTransition.transitionHash !== reservation.transitionHash
+  ) {
+    throw new Error(
+      "reconstructed recovery transition does not match reservation",
+    );
+  }
+  return canonical;
 };
 
 const ensureRepairReservation = (
   path: string,
   identity: RepairRecoveryIdentity,
+  plan?: LegacyIntegrationRecoveryPlan,
 ): { readonly created: boolean; readonly reservation: RepairReservation } => {
   if (!existsSync(path)) {
+    if (!plan) throw new Error("new recovery reservation requires a plan");
+    const transition = recoveryTransition(plan);
     reserveRepairLaunch(path, {
       ...identity,
+      ...transition,
       launchAttempt: 1,
       schemaVersion: "maestro-brain-repair-reservation/v1",
+      startAttempt: 0,
       status: "preparing",
     });
     return {
@@ -787,9 +1360,7 @@ const ensureRepairReservation = (
   if (existsSync(`${path}.next`)) {
     const current = repairReservation(readJsonRecord(path), identity);
     const staged = repairReservation(readJsonRecord(`${path}.next`), identity);
-    if (current.reservationToken !== staged.reservationToken) {
-      throw new Error("repair promotion residue has different ownership");
-    }
+    validateRepairTransition(current, staged);
     renameSync(`${path}.next`, path);
   }
   return {
@@ -800,55 +1371,319 @@ const ensureRepairReservation = (
 
 export interface ReconcileRecoveryInput {
   readonly auditPath: string;
-  readonly discoverLaunchedRun: (input: {
-    readonly attempt: number;
-    readonly reservationToken: string;
-  }) => string | undefined;
+  readonly create: (input: Omit<RepairLaunchReceiptInput, "runId">) => unknown;
+  readonly discoverCreatedRun: (
+    input: Omit<RepairLaunchReceiptInput, "runId">,
+  ) => RepairCreateDiscovery;
   readonly fault?: (point: RecoveryFaultPoint) => void;
   readonly identity: RepairRecoveryIdentity;
-  readonly launch: (input: {
-    readonly attempt: number;
-    readonly reservationToken: string;
-  }) => string;
+  readonly inspectRun: (input: RepairLaunchAttempt) => RepairRunPhase;
   readonly plan: LegacyIntegrationRecoveryPlan;
   readonly repairRecordPath: string;
   readonly resultPath: string;
+  readonly start: (input: RepairStartInput) => unknown;
 }
 
+export interface RepairStartInput extends RepairLaunchReceiptInput {
+  readonly startAttempt: number;
+}
+
+const repairLaunchInput = (
+  reservation: RepairReservation,
+): Omit<RepairLaunchReceiptInput, "runId"> => ({
+  attempt: reservation.launchAttempt,
+  baseSha: reservation.baseSha,
+  integrationBaseSha: reservation.integrationBaseSha,
+  reservationToken: reservation.reservationToken,
+  sourceReviewRun: reservation.sourceReviewRun,
+  taskIds: reservation.taskIds,
+  tranche: reservation.tranche,
+  workdir: reservation.workdir,
+});
+
+const verifiedCreateDiscovery = (
+  discovery: RepairCreateDiscovery,
+  reservation: RepairReservation,
+): { readonly receipt: JsonRecord; readonly runId: string } | undefined => {
+  if (discovery.kind !== "found") return undefined;
+  const runId = validateRepairCreateReceipt(discovery.receipt, reservation);
+  return {
+    receipt: record(discovery.receipt, "repair create receipt"),
+    runId,
+  };
+};
+
+const recordUnknownLaunch = (
+  path: string,
+  reservation: RepairReservation,
+  reason: string,
+): RepairReservation => {
+  if (
+    reservation.status === "launch_unknown" ||
+    reservation.status === "launch_failed"
+  ) {
+    return reservation;
+  }
+  return writeRepairReservation(path, reservation, {
+    ...repairIdentityFromRecord(reservation),
+    ...reservationTransitionFields(reservation),
+    failure: reason,
+    launchAttempt: reservation.launchAttempt,
+    schemaVersion: "maestro-brain-repair-reservation/v1",
+    status: "launch_unknown",
+  });
+};
+
+const promoteVerifiedRepairLaunch = (input: {
+  readonly fault?: (point: RecoveryFaultPoint) => void;
+  readonly path: string;
+  readonly receipt: JsonRecord;
+  readonly reservation: RepairReservation;
+  readonly runId: string;
+}): void => {
+  promoteRepairLaunch(
+    input.path,
+    input.reservation.reservationToken,
+    {
+      ...repairIdentityFromRecord(input.reservation),
+      ...reservationTransitionFields(input.reservation),
+      launchAttempt: input.reservation.launchAttempt,
+      launchReceipt: input.receipt,
+      runId: input.runId,
+      schemaVersion: "maestro-brain-repair-reservation/v1",
+      status: "launched",
+    },
+    input.fault,
+  );
+};
+
+const recordCreatedRepairRun = (input: {
+  readonly path: string;
+  readonly receipt: JsonRecord;
+  readonly reservation: RepairReservation;
+  readonly runId: string;
+}): RepairReservation =>
+  writeRepairReservation(input.path, input.reservation, {
+    ...repairIdentityFromRecord(input.reservation),
+    ...reservationTransitionFields(input.reservation),
+    createReceipt: input.receipt,
+    createdRunId: input.runId,
+    launchAttempt: input.reservation.launchAttempt,
+    schemaVersion: "maestro-brain-repair-reservation/v1",
+    startAttempt: 0,
+    status: "created",
+  });
+
+const reconcileCreatedRepairRun = (input: {
+  readonly fault?: (point: RecoveryFaultPoint) => void;
+  readonly inspectRun: (input: RepairLaunchAttempt) => RepairRunPhase;
+  readonly path: string;
+  readonly reservation: RepairReservation;
+  readonly start: (input: RepairStartInput) => unknown;
+}): { readonly runId: string; readonly status: "launched" } => {
+  let reservation = input.reservation;
+  const runId = validateRepairCreateReceipt(
+    reservation.createReceipt,
+    reservation,
+  );
+  if (reservation.createdRunId !== runId) {
+    throw new Error("repair reservation created run ID mismatch");
+  }
+  const launchIdentity = { ...repairLaunchInput(reservation), runId };
+  let phase: RepairRunPhase;
+  try {
+    phase = input.inspectRun(launchIdentity);
+  } catch (error) {
+    throw new Error(`exact created-run inspection failed: ${String(error)}`, {
+      cause: error,
+    });
+  }
+  if (phase === "accepted") {
+    const receipt = buildRepairLaunchReceipt(launchIdentity);
+    promoteVerifiedRepairLaunch({
+      ...(input.fault ? { fault: input.fault } : {}),
+      path: input.path,
+      receipt,
+      reservation,
+      runId,
+    });
+    return { runId, status: "launched" };
+  }
+  reservation = writeRepairReservation(input.path, reservation, {
+    ...repairIdentityFromRecord(reservation),
+    ...reservationTransitionFields(reservation),
+    launchAttempt: reservation.launchAttempt,
+    schemaVersion: "maestro-brain-repair-reservation/v1",
+    startAttempt: reservation.startAttempt + 1,
+    status: "starting",
+  });
+  input.fault?.("after-start-reservation");
+  let startError: unknown;
+  try {
+    input.start({
+      ...repairLaunchInput(reservation),
+      runId,
+      startAttempt: reservation.startAttempt,
+    });
+  } catch (error) {
+    startError = error;
+  }
+  input.fault?.("after-launch");
+  try {
+    phase = input.inspectRun({ ...repairLaunchInput(reservation), runId });
+  } catch (error) {
+    throw new Error(`exact started-run inspection failed: ${String(error)}`, {
+      cause: startError ?? error,
+    });
+  }
+  if (phase !== "accepted") {
+    if (startError !== undefined) throw startError;
+    throw new Error("exact repair run remained startable after fabro start");
+  }
+  const receipt = buildRepairLaunchReceipt({
+    ...repairLaunchInput(reservation),
+    runId,
+  });
+  promoteVerifiedRepairLaunch({
+    ...(input.fault ? { fault: input.fault } : {}),
+    path: input.path,
+    receipt,
+    reservation,
+    runId,
+  });
+  return { runId, status: "launched" };
+};
+
+const validateRecoveryEvidence = (input: {
+  readonly auditPath: string;
+  readonly manifestTaskIds: readonly string[];
+  readonly reservation: RepairReservation;
+  readonly resultPath: string;
+}): void => {
+  const { reservation } = input;
+  const manifestTaskIds = new Set(input.manifestTaskIds);
+  if (
+    manifestTaskIds.size !== input.manifestTaskIds.length ||
+    reservation.taskIds.some((taskId) => !manifestTaskIds.has(taskId))
+  ) {
+    throw new Error(
+      "repair reservation tasks are outside the manifest tranche",
+    );
+  }
+  const result = readJsonRecord(input.resultPath);
+  const recovery = record(result.recovery, "normalized recovery history");
+  if (
+    result.schemaVersion !== "maestro-brain-integration-result/v1" ||
+    result.tranche !== reservation.tranche ||
+    result.integrationId !== reservation.tranche ||
+    result.manifestTranche !== reservation.tranche ||
+    result.sourceRunStatus !== "failed" ||
+    result.sourceReviewRun !== reservation.sourceReviewRun ||
+    recovery.schemaVersion !== "maestro-brain-integration-recovery/v1" ||
+    recovery.at !== reservation.recoveryAt ||
+    recovery.reason !== reservation.recoveryReason ||
+    recovery.sourceRunStatus !== "failed" ||
+    recovery.sourceReviewRun !== reservation.sourceReviewRun ||
+    recovery.legacyBaseHeadSha !== reservation.integrationBaseSha ||
+    recovery.legacyIntegrationHeadSha !== reservation.baseSha ||
+    safeAbsolutePath(recovery.legacyWorktree, "recovery legacyWorktree") !==
+      reservation.workdir ||
+    !Array.isArray(recovery.legacyIncludedTaskIds) ||
+    JSON.stringify([...recovery.legacyIncludedTaskIds].sort()) !==
+      JSON.stringify([...reservation.taskIds].sort())
+  ) {
+    throw new Error("durable repair normalized recovery evidence mismatch");
+  }
+  const auditEvents = readFileSync(input.auditPath, "utf8")
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => record(JSON.parse(line), "recovery audit event"));
+  const matchingAudit = auditEvents.filter(
+    (audit) =>
+      audit.schemaVersion === "maestro-brain-integration-recovery-audit/v1" &&
+      audit.action === "recover-legacy-integration" &&
+      audit.at === reservation.recoveryAt &&
+      audit.reason === reservation.recoveryReason &&
+      audit.sourceRunStatus === "failed" &&
+      audit.sourceReviewRun === reservation.sourceReviewRun &&
+      audit.tranche === reservation.tranche &&
+      audit.baseSha === reservation.integrationBaseSha &&
+      audit.headSha === reservation.baseSha &&
+      Array.isArray(audit.legacyIncludedTaskIds) &&
+      JSON.stringify([...audit.legacyIncludedTaskIds].sort()) ===
+        JSON.stringify([...reservation.taskIds].sort()),
+  );
+  if (matchingAudit.length !== 1) {
+    throw new Error("durable repair audit event mismatch");
+  }
+};
+
 export const reconcileDurableRepairLaunch = (input: {
-  readonly discoverLaunchedRun: (input: {
-    readonly attempt: number;
-    readonly reservationToken: string;
-  }) => string | undefined;
+  readonly auditPath: string;
+  readonly expected: RepairRecoveryIdentity & {
+    readonly integrationBaseSha: string;
+  };
+  readonly inspectRun: (input: RepairLaunchAttempt) => RepairRunPhase;
+  readonly manifestTaskIds: readonly string[];
   readonly repairRecordPath: string;
+  readonly resultPath: string;
+  readonly start: (input: RepairStartInput) => unknown;
 }): { readonly runId: string; readonly status: "launched" } | undefined => {
   if (!existsSync(input.repairRecordPath)) return undefined;
-  const raw = readJsonRecord(input.repairRecordPath);
-  const identity = repairIdentityFromRecord(raw);
+  const identity: RepairRecoveryIdentity = {
+    baseSha: gitSha(input.expected.baseSha, "durable repair baseSha"),
+    sourceReviewRun: fabroRunId(
+      input.expected.sourceReviewRun,
+      "durable repair sourceReviewRun",
+    ),
+    tranche: safeTranche(input.expected.tranche, "durable repair tranche"),
+    workdir: safeAbsolutePath(input.expected.workdir, "durable repair workdir"),
+  };
   const { reservation } = ensureRepairReservation(
     input.repairRecordPath,
     identity,
   );
+  if (
+    reservation.integrationBaseSha !==
+    gitSha(input.expected.integrationBaseSha, "durable integration baseSha")
+  ) {
+    throw new Error("repair reservation integration base mismatch");
+  }
+  validateRecoveryEvidence({
+    auditPath: input.auditPath,
+    manifestTaskIds: input.manifestTaskIds,
+    reservation,
+    resultPath: input.resultPath,
+  });
   if (reservation.status === "launched") {
+    const runId = validateRepairLaunchReceipt(
+      reservation.launchReceipt,
+      reservation,
+    );
+    if (reservation.runId !== runId) {
+      throw new Error("repair reservation run ID does not match its receipt");
+    }
+    if (
+      reservation.createdRunId !== runId ||
+      input.inspectRun({ ...repairLaunchInput(reservation), runId }) !==
+        "accepted"
+    ) {
+      throw new Error("durable repair run is not the accepted created run");
+    }
     return {
-      runId: fabroRunId(reservation.runId, "repair reservation runId"),
+      runId,
       status: "launched",
     };
   }
-  const discovered = input.discoverLaunchedRun({
-    attempt: reservation.launchAttempt,
-    reservationToken: reservation.reservationToken,
+  if (!new Set(["created", "starting"]).has(reservation.status)) {
+    return undefined;
+  }
+  return reconcileCreatedRepairRun({
+    inspectRun: input.inspectRun,
+    path: input.repairRecordPath,
+    reservation,
+    start: input.start,
   });
-  if (discovered === undefined) return undefined;
-  const runId = fabroRunId(discovered, "discovered repair runId");
-  promoteRepairLaunch(input.repairRecordPath, reservation.reservationToken, {
-    ...identity,
-    launchAttempt: reservation.launchAttempt,
-    runId,
-    schemaVersion: "maestro-brain-repair-reservation/v1",
-    status: "launched",
-  });
-  return { runId, status: "launched" };
 };
 
 export const reconcileLegacyIntegrationRecovery = (
@@ -872,85 +1707,155 @@ export const reconcileLegacyIntegrationRecovery = (
   ) {
     throw new Error("recovery plan does not match reservation identity");
   }
-  const ensured = ensureRepairReservation(input.repairRecordPath, identity);
+  const ensured = ensureRepairReservation(
+    input.repairRecordPath,
+    identity,
+    input.plan,
+  );
   let reservation = ensured.reservation;
+  const plan = canonicalRecoveryPlan(input.plan, reservation);
   if (ensured.created) input.fault?.("after-reservation");
   if (reservation.status === "launched") {
+    const createdRunId = validateRepairCreateReceipt(
+      reservation.createReceipt,
+      reservation,
+    );
+    const runId = validateRepairLaunchReceipt(
+      reservation.launchReceipt,
+      reservation,
+    );
+    if (
+      reservation.runId !== runId ||
+      reservation.createdRunId !== runId ||
+      createdRunId !== runId ||
+      input.inspectRun({ ...repairLaunchInput(reservation), runId }) !==
+        "accepted"
+    ) {
+      throw new Error("repair reservation run ID does not match created run");
+    }
     return {
-      runId: fabroRunId(reservation.runId, "repair reservation runId"),
+      runId,
       status: "launched",
     };
   }
-  const discoveredRunId = input.discoverLaunchedRun({
-    attempt: reservation.launchAttempt,
-    reservationToken: reservation.reservationToken,
-  });
-  if (discoveredRunId !== undefined) {
-    const runId = fabroRunId(discoveredRunId, "discovered repair runId");
-    promoteRepairLaunch(
+  if (new Set(["created", "starting"]).has(reservation.status)) {
+    return reconcileCreatedRepairRun({
+      ...(input.fault ? { fault: input.fault } : {}),
+      path: input.repairRecordPath,
+      inspectRun: input.inspectRun,
+      reservation,
+      start: input.start,
+    });
+  }
+  let discovery = input.discoverCreatedRun(repairLaunchInput(reservation));
+  let created = verifiedCreateDiscovery(discovery, reservation);
+  if (created) {
+    reservation = recordCreatedRepairRun({
+      path: input.repairRecordPath,
+      receipt: created.receipt,
+      reservation,
+      runId: created.runId,
+    });
+    input.fault?.("after-create-record");
+    return reconcileCreatedRepairRun({
+      ...(input.fault ? { fault: input.fault } : {}),
+      inspectRun: input.inspectRun,
+      path: input.repairRecordPath,
+      reservation,
+      start: input.start,
+    });
+  }
+  if (discovery.kind === "ambiguous") {
+    reservation = recordUnknownLaunch(
       input.repairRecordPath,
-      reservation.reservationToken,
-      {
-        ...identity,
-        launchAttempt: reservation.launchAttempt,
-        runId,
-        schemaVersion: "maestro-brain-repair-reservation/v1",
-        status: "launched",
-      },
-      input.fault,
+      reservation,
+      discovery.reason,
     );
-    return { runId, status: "launched" };
+    throw new Error(`repair create outcome is ambiguous: ${discovery.reason}`);
+  }
+  if (reservation.status === "launch_unknown") {
+    reservation = writeRepairReservation(input.repairRecordPath, reservation, {
+      ...identity,
+      ...reservationTransitionFields(reservation),
+      failure: "authoritative discovery found no accepted run",
+      launchAttempt: reservation.launchAttempt,
+      schemaVersion: "maestro-brain-repair-reservation/v1",
+      status: "launch_failed",
+    });
   }
   persistLegacyIntegrationRecovery({
     auditPath: input.auditPath,
     ...(input.fault ? { fault: input.fault } : {}),
-    plan: input.plan,
+    plan,
     resultPath: input.resultPath,
   });
   if (reservation.status === "launch_failed") {
     reservation = writeRepairReservation(input.repairRecordPath, reservation, {
       ...identity,
+      ...reservationTransitionFields(reservation),
       launchAttempt: reservation.launchAttempt + 1,
       schemaVersion: "maestro-brain-repair-reservation/v1",
+      startAttempt: 0,
       status: "preparing",
     });
   }
-  let runId: string;
+  let createError: unknown;
+  let returnedCreate: unknown;
   try {
-    runId = fabroRunId(
-      input.launch({
-        attempt: reservation.launchAttempt,
-        reservationToken: reservation.reservationToken,
-      }),
-      "launched repair runId",
-    );
+    returnedCreate = input.create(repairLaunchInput(reservation));
   } catch (error) {
-    writeRepairReservation(input.repairRecordPath, reservation, {
-      ...identity,
-      failure: "repair launch failed",
-      launchAttempt: reservation.launchAttempt,
-      schemaVersion: "maestro-brain-repair-reservation/v1",
-      status: "launch_failed",
-    });
-    throw error;
+    createError = error;
   }
-  input.fault?.("after-launch");
-  promoteRepairLaunch(
-    input.repairRecordPath,
-    reservation.reservationToken,
-    {
-      ...identity,
-      launchAttempt: reservation.launchAttempt,
+  if (createError === undefined) {
+    const runId = validateRepairCreateReceipt(returnedCreate, reservation);
+    created = {
+      receipt: record(returnedCreate, "repair create receipt"),
       runId,
-      schemaVersion: "maestro-brain-repair-reservation/v1",
-      status: "launched",
-    },
-    input.fault,
-  );
-  return { runId, status: "launched" };
+    };
+    input.fault?.("after-create-output");
+  } else {
+    discovery = input.discoverCreatedRun(repairLaunchInput(reservation));
+    created = verifiedCreateDiscovery(discovery, reservation);
+    if (!created) {
+      const ambiguous =
+        discovery.kind === "ambiguous" ? discovery.reason : undefined;
+      reservation = writeRepairReservation(
+        input.repairRecordPath,
+        reservation,
+        {
+          ...identity,
+          ...reservationTransitionFields(reservation),
+          failure: ambiguous ?? "repair create failed before allocation",
+          launchAttempt: reservation.launchAttempt,
+          schemaVersion: "maestro-brain-repair-reservation/v1",
+          status: ambiguous ? "launch_unknown" : "launch_failed",
+        },
+      );
+      if (ambiguous) {
+        throw new Error(`repair create outcome is ambiguous: ${ambiguous}`, {
+          cause: createError,
+        });
+      }
+      throw createError;
+    }
+  }
+  reservation = recordCreatedRepairRun({
+    path: input.repairRecordPath,
+    receipt: created.receipt,
+    reservation,
+    runId: created.runId,
+  });
+  input.fault?.("after-create-record");
+  return reconcileCreatedRepairRun({
+    ...(input.fault ? { fault: input.fault } : {}),
+    inspectRun: input.inspectRun,
+    path: input.repairRecordPath,
+    reservation,
+    start: input.start,
+  });
 };
 
-export const repairWorkflowArgs = (input: {
+export const repairWorkflowCreateArgs = (input: {
   readonly controlRoot: string;
   readonly evidenceDirectory: string;
   readonly launchAttempt: number;
@@ -988,9 +1893,8 @@ export const repairWorkflowArgs = (input: {
   const workflow = safeAbsolutePath(input.workflow, "workflow");
   return [
     "fabro",
-    "run",
+    "create",
     workflow,
-    "--detach",
     "--json",
     "--no-upgrade-check",
     "--environment",
@@ -1017,6 +1921,15 @@ export const repairWorkflowArgs = (input: {
     `control_root=${controlRoot}`,
   ];
 };
+
+export const repairWorkflowStartArgs = (runId: string): readonly string[] => [
+  "fabro",
+  "start",
+  fabroRunId(runId, "repair start run ID"),
+  "--json",
+  "--no-upgrade-check",
+  "--quiet",
+];
 
 export const readJsonRecord = (path: string): JsonRecord =>
   record(JSON.parse(readFileSync(path, "utf8")), path);

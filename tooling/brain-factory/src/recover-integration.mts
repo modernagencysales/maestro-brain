@@ -1,17 +1,23 @@
-import { existsSync, readFileSync, realpathSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { resolve } from "node:path";
 
 import {
   acquireIntegrationOwnership,
+  discoverCreatedRepairRun,
+  dispatchIntegrationRecovery,
   fabroRunId,
   gitSha,
+  inspectRepairRunPhase,
   integrationLockPath,
   planLegacyIntegrationRecovery,
   readJsonRecord,
   reconcileDurableRepairLaunch,
   reconcileLegacyIntegrationRecovery,
-  repairWorkflowArgs,
+  repairWorkflowCreateArgs,
+  repairWorkflowStartArgs,
   safeAbsolutePath,
+  type RepairCreateDiscovery,
+  type RepairLaunchReceiptInput,
 } from "./integration-recovery.js";
 import { gitIsAncestor, runRtk, runRtkToFile } from "./process.js";
 
@@ -53,19 +59,33 @@ const resultPath = resolve(
 );
 const runRecordPath = resolve(state, "runs", `integration-${tranche}.json`);
 const repairRecordPath = resolve(state, "runs", `repair-${tranche}.json`);
-const receiptPath = (attempt: number): string =>
-  `${repairRecordPath}.launch-${attempt}.json`;
-const readReceipt = (attempt: number): string | undefined => {
-  const path = receiptPath(attempt);
-  if (!existsSync(path)) return undefined;
-  const output = readFileSync(path, "utf8").trim();
-  if (output.length === 0) return undefined;
-  const parsed = JSON.parse(output) as { run_id?: string; runId?: string };
-  return fabroRunId(
-    parsed.run_id ?? parsed.runId,
-    "repair launch receipt run ID",
+const createReceiptPath = (attempt: number): string =>
+  `${repairRecordPath}.create-${attempt}.json`;
+const rawCreatePath = (attempt: number): string =>
+  `${repairRecordPath}.create-${attempt}.raw`;
+const createOutcomePath = (attempt: number): string =>
+  `${rawCreatePath(attempt)}.outcome.json`;
+const rawStartPath = (attempt: number, startAttempt: number): string =>
+  `${repairRecordPath}.start-${attempt}-${startAttempt}.raw`;
+const startOutcomePath = (attempt: number, startAttempt: number): string =>
+  `${rawStartPath(attempt, startAttempt)}.outcome.json`;
+type LaunchIdentity = Omit<RepairLaunchReceiptInput, "runId">;
+const inspectFabro = (target: string): unknown =>
+  JSON.parse(
+    runRtk(["fabro", "inspect", target, "--json", "--quiet"], {
+      quiet: true,
+    }),
   );
-};
+const discoverCreate = (identity: LaunchIdentity): RepairCreateDiscovery =>
+  discoverCreatedRepairRun({
+    identity,
+    inspect: inspectFabro,
+    outcomePath: createOutcomePath(identity.attempt),
+    rawPath: rawCreatePath(identity.attempt),
+    receiptPath: createReceiptPath(identity.attempt),
+  });
+const inspectRun = (identity: RepairLaunchReceiptInput) =>
+  inspectRepairRunPhase(inspectFabro(identity.runId), identity);
 const auditPath = resolve(state, "recovery-audit.jsonl");
 const expectedWorkdir = resolve(
   root,
@@ -126,10 +146,15 @@ const releaseOwnership = acquireIntegrationOwnership({
 });
 
 try {
-  const durableLaunch = reconcileDurableRepairLaunch({
-    discoverLaunchedRun: ({ attempt }) => readReceipt(attempt),
-    repairRecordPath,
-  });
+  const durableRunRecord = readJsonRecord(runRecordPath);
+  const durableResult = readJsonRecord(resultPath);
+  const durableRecovery =
+    typeof durableResult.recovery === "object" &&
+    durableResult.recovery !== null &&
+    !Array.isArray(durableResult.recovery)
+      ? (durableResult.recovery as Record<string, unknown>)
+      : undefined;
+  const durableWorkdir = realpathSync(expectedWorkdir);
   const reconcileFromEvidence = (): string => {
     const runRecord = readJsonRecord(runRecordPath);
     const integrationResult = readJsonRecord(resultPath);
@@ -195,42 +220,88 @@ try {
     });
     const reconciled = reconcileLegacyIntegrationRecovery({
       auditPath,
-      discoverLaunchedRun: ({ attempt }) => readReceipt(attempt),
+      create: (identity) => {
+        runRtkToFile(
+          repairWorkflowCreateArgs({
+            controlRoot: root,
+            evidenceDirectory,
+            launchAttempt: identity.attempt,
+            recoveryAuditPath: auditPath,
+            repairBaseSha: identity.baseSha,
+            reservationToken: identity.reservationToken,
+            sourceReviewRun: identity.sourceReviewRun,
+            tranche,
+            workdir: worktreePath,
+            workflow,
+          }),
+          rawCreatePath(identity.attempt),
+          { outcomePath: createOutcomePath(identity.attempt) },
+        );
+        const discovery = discoverCreate(identity);
+        if (discovery.kind !== "found") {
+          throw new Error(
+            discovery.kind === "ambiguous"
+              ? discovery.reason
+              : "successful create produced no exact run receipt",
+          );
+        }
+        return discovery.receipt;
+      },
+      discoverCreatedRun: discoverCreate,
       identity: {
         baseSha: plan.repairBaseSha,
         sourceReviewRun: plan.sourceReviewRun,
         tranche,
         workdir: worktreePath,
       },
-      launch: ({ attempt, reservationToken }) => {
-        const output = runRtkToFile(
-          repairWorkflowArgs({
-            controlRoot: root,
-            evidenceDirectory,
-            launchAttempt: attempt,
-            recoveryAuditPath: auditPath,
-            repairBaseSha: plan.repairBaseSha,
-            reservationToken,
-            sourceReviewRun: plan.sourceReviewRun,
-            tranche,
-            workdir: worktreePath,
-            workflow,
-          }),
-          receiptPath(attempt),
-        );
-        const parsed = JSON.parse(output) as {
-          run_id?: string;
-          runId?: string;
-        };
-        return fabroRunId(parsed.run_id ?? parsed.runId, "repair Fabro run ID");
-      },
+      inspectRun,
       plan,
       repairRecordPath,
       resultPath,
+      start: ({ attempt, runId, startAttempt }) =>
+        runRtkToFile(
+          repairWorkflowStartArgs(runId),
+          rawStartPath(attempt, startAttempt),
+          { outcomePath: startOutcomePath(attempt, startAttempt) },
+        ),
     });
     return reconciled.runId;
   };
-  const repairRunId = durableLaunch?.runId ?? reconcileFromEvidence();
+  const repairRunId = dispatchIntegrationRecovery({
+    integrationResult: durableResult,
+    reconcileDurable: () =>
+      reconcileDurableRepairLaunch({
+        auditPath,
+        expected: {
+          baseSha: gitSha(
+            durableRecovery?.legacyIntegrationHeadSha,
+            "durable recovery legacy integration head",
+          ),
+          integrationBaseSha: gitSha(
+            durableRunRecord.baseSha,
+            "run record baseSha",
+          ),
+          sourceReviewRun: fabroRunId(
+            durableRunRecord.runId,
+            "run record runId",
+          ),
+          tranche,
+          workdir: durableWorkdir,
+        },
+        inspectRun,
+        manifestTaskIds,
+        repairRecordPath,
+        resultPath,
+        start: ({ attempt, runId, startAttempt }) =>
+          runRtkToFile(
+            repairWorkflowStartArgs(runId),
+            rawStartPath(attempt, startAttempt),
+            { outcomePath: startOutcomePath(attempt, startAttempt) },
+          ),
+      })?.runId,
+    reconcileFromEvidence,
+    repairRecordExists: existsSync(repairRecordPath),
+  });
   console.log(
     `${tranche}: normalized failed legacy attempt and launched repair ${repairRunId}`,
   );
