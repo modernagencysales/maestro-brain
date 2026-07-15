@@ -20,6 +20,8 @@ import dsarRequests from "./tables/dsarRequests";
 import entitlements from "./tables/entitlements";
 import featureFlagPolicies from "./tables/featureFlagPolicies";
 import invitations from "./tables/invitations";
+import migrationReceipts from "./tables/migrationReceipts";
+import migrationRuns from "./tables/migrationRuns";
 import modelCallReceipts from "./tables/modelCallReceipts";
 import notificationPreferences from "./tables/notificationPreferences";
 import notificationRecords from "./tables/notificationRecords";
@@ -67,6 +69,8 @@ export default $defineSchema({
   entitlements: entitlements.tableDefinition,
   featureFlagPolicies: featureFlagPolicies.tableDefinition,
   invitations: invitations.tableDefinition,
+  migrationReceipts: migrationReceipts.tableDefinition,
+  migrationRuns: migrationRuns.tableDefinition,
   modelCallReceipts: modelCallReceipts.tableDefinition,
   notificationPreferences: notificationPreferences.tableDefinition,
   notificationRecords: notificationRecords.tableDefinition,

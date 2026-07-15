@@ -21,6 +21,8 @@ export type DsarRequestsDoc = Document.Document<typeof schemaDefinition, "dsarRe
 export type EntitlementsDoc = Document.Document<typeof schemaDefinition, "entitlements">;
 export type FeatureFlagPoliciesDoc = Document.Document<typeof schemaDefinition, "featureFlagPolicies">;
 export type InvitationsDoc = Document.Document<typeof schemaDefinition, "invitations">;
+export type MigrationReceiptsDoc = Document.Document<typeof schemaDefinition, "migrationReceipts">;
+export type MigrationRunsDoc = Document.Document<typeof schemaDefinition, "migrationRuns">;
 export type ModelCallReceiptsDoc = Document.Document<typeof schemaDefinition, "modelCallReceipts">;
 export type NotificationPreferencesDoc = Document.Document<typeof schemaDefinition, "notificationPreferences">;
 export type NotificationRecordsDoc = Document.Document<typeof schemaDefinition, "notificationRecords">;
@@ -68,6 +70,8 @@ export interface Docs {
   entitlements: EntitlementsDoc;
   featureFlagPolicies: FeatureFlagPoliciesDoc;
   invitations: InvitationsDoc;
+  migrationReceipts: MigrationReceiptsDoc;
+  migrationRuns: MigrationRunsDoc;
   modelCallReceipts: ModelCallReceiptsDoc;
   notificationPreferences: NotificationPreferencesDoc;
   notificationRecords: NotificationRecordsDoc;
