@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   integrationWaveId,
@@ -12,6 +12,13 @@ import {
   type IntegrationWaveCandidate,
 } from "../src/integration-wave.js";
 import type { BrainTaskContract } from "../src/manifest.js";
+import {
+  buildIntegrationWaveSupersessionReceipt,
+  materializeImmutableWaveSupersession,
+  nextIntegrationWaveId,
+  priorIntegrationWaveResolution,
+  validateIntegrationWaveSupersessionReceipt,
+} from "../src/integration-wave-supersession.js";
 import {
   materializeImmutableWaveSelection,
   promotionAction,
@@ -59,6 +66,90 @@ const candidate = (value: BrainTaskContract): IntegrationWaveCandidate => ({
   taskId: value.taskId,
   tranche: value.tranche,
 });
+
+const supersessionFixture = (
+  statuses: readonly ("cancelled" | "failed" | "running" | "succeeded")[] = [
+    "failed",
+    "cancelled",
+  ],
+) => {
+  const root = mkdtempSync(resolve(tmpdir(), "brain-wave-supersession-"));
+  const baseSha = "a".repeat(40);
+  const controlHeadSha = "b".repeat(40);
+  const planSha256 = "c".repeat(64);
+  const integrationId = "wave-000002";
+  const selectionPath = resolve(root, "selection.json");
+  const workdir = resolve(root, "workdir");
+  const value = task("S01-T03", "D2-domain-bodies");
+  const selection = planIntegrationWave({
+    baseSha,
+    candidates: [{ ...candidate(value), planSha256 }],
+    completedTaskIds: new Set(),
+    integrationId,
+    planSha256,
+    tasks: [value],
+  });
+  const selectionContent = `${JSON.stringify(selection, null, 2)}\n`;
+  const runIds = [
+    "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "01BX5ZZKBKACTAV9WEVGEMMVRZ",
+  ].slice(0, statuses.length);
+  const reservationToken = "wave-reservation";
+  const runRecordContent = `${JSON.stringify(
+    {
+      attempt: runIds.length,
+      baseSha,
+      integrationId,
+      reservationToken,
+      runId: runIds.at(-1),
+      runIds,
+      schemaVersion: "maestro-brain-integration-wave-run/v2",
+      selection,
+      selectionPath,
+      selectionSha256: selection.selectionSha256,
+      status: "launched",
+      workdir,
+    },
+    null,
+    2,
+  )}\n`;
+  const runInspections = runIds.map((runId, index) => ({
+    run_id: runId,
+    status: { kind: statuses[index] },
+    run_spec: {
+      settings: {
+        run: {
+          inputs: {
+            attempt: index + 1,
+            base_sha: baseSha,
+            integration_id: integrationId,
+            mode: index === 0 ? "integrate" : "recover",
+            reservation_token: reservationToken,
+            selection_path: selectionPath,
+            selection_sha256: selection.selectionSha256,
+            workdir,
+          },
+          metadata: {
+            attempt: index + 1,
+            integration: integrationId,
+            "integration-mode": "wave-v2",
+            reservation: reservationToken,
+          },
+        },
+      },
+    },
+  }));
+  return {
+    baseSha,
+    controlHeadSha,
+    integrationId,
+    root,
+    runInspections,
+    runRecordContent,
+    selectionContent,
+    selectionPath,
+  };
+};
 
 describe("integration wave planner", () => {
   it("accepts legacy absent lane tranches but rejects contradictory identity", () => {
@@ -283,5 +374,201 @@ describe("integration wave planner", () => {
         identity,
       ),
     ).toThrow("identity mismatch");
+  });
+});
+
+describe("integration wave supersession", () => {
+  it("requires an explicit resolution and rejects ambiguous promotion state", () => {
+    const validatePromotion = vi.fn();
+    const validateSupersession = vi.fn();
+    expect(() =>
+      priorIntegrationWaveResolution({
+        integrationId: "wave-000002",
+        promotionExists: false,
+        supersessionExists: false,
+        validatePromotion,
+        validateSupersession,
+      }),
+    ).toThrow("unresolved global integration wave");
+    expect(() =>
+      priorIntegrationWaveResolution({
+        integrationId: "wave-000002",
+        promotionExists: true,
+        supersessionExists: true,
+        validatePromotion,
+        validateSupersession,
+      }),
+    ).toThrow("promotion and supersession both exist");
+    expect(validatePromotion).not.toHaveBeenCalled();
+    expect(validateSupersession).not.toHaveBeenCalled();
+  });
+
+  it("keeps supersession distinct from promotion and advances the sequence", () => {
+    const resolution = priorIntegrationWaveResolution({
+      integrationId: "wave-000002",
+      promotionExists: false,
+      supersessionExists: true,
+      validatePromotion: () => {
+        throw new Error("promotion must not be consulted");
+      },
+      validateSupersession: () => undefined,
+    });
+    expect(resolution).toBe("superseded");
+    expect(nextIntegrationWaveId(["wave-000001", "wave-000002"])).toBe(
+      "wave-000003",
+    );
+    expect(() => nextIntegrationWaveId(["deleted-wave"])).toThrow(
+      "invalid wave identity",
+    );
+  });
+
+  it("binds a receipt to exact control, selection, run record, and task identity", () => {
+    const fixture = supersessionFixture();
+    const receipt = buildIntegrationWaveSupersessionReceipt({
+      ...fixture,
+      createdAt: "2026-07-15T12:00:00.000Z",
+      evidence: ["wave-000002-non-lane-hand-authored-files"],
+      expectedIntegrationId: fixture.integrationId,
+      reason: "Immutable selection ownership was violated",
+    });
+    expect(receipt.status).toBe("superseded");
+    expect(receipt.selectedTaskIds).toEqual(["S01-T03"]);
+    expect(receipt.runAttempts.map((attempt) => attempt.status)).toEqual([
+      "failed",
+      "cancelled",
+    ]);
+    expect(() =>
+      validateIntegrationWaveSupersessionReceipt({
+        currentControlHead: fixture.controlHeadSha,
+        expectedIntegrationId: fixture.integrationId,
+        isAncestor: (ancestor, descendant) =>
+          ancestor === fixture.controlHeadSha && descendant === ancestor,
+        receipt,
+        runRecordContent: fixture.runRecordContent,
+        selectionContent: fixture.selectionContent,
+        selectionPath: fixture.selectionPath,
+      }),
+    ).not.toThrow();
+    expect(() =>
+      validateIntegrationWaveSupersessionReceipt({
+        currentControlHead: fixture.controlHeadSha,
+        expectedIntegrationId: "wave-000003",
+        isAncestor: () => true,
+        receipt,
+        runRecordContent: fixture.runRecordContent,
+        selectionContent: fixture.selectionContent,
+        selectionPath: fixture.selectionPath,
+      }),
+    ).toThrow("run/selection identity mismatch");
+    rmSync(fixture.root, { recursive: true });
+  });
+
+  it.each(["running", "succeeded"] as const)(
+    "refuses to supersede a %s Fabro attempt",
+    (status) => {
+      const fixture = supersessionFixture([status]);
+      expect(() =>
+        buildIntegrationWaveSupersessionReceipt({
+          ...fixture,
+          createdAt: "2026-07-15T12:00:00.000Z",
+          evidence: ["terminal review finding"],
+          expectedIntegrationId: fixture.integrationId,
+          reason: "The prior immutable wave is abandoned",
+        }),
+      ).toThrow("is not terminal failed/cancelled");
+      rmSync(fixture.root, { recursive: true });
+    },
+  );
+
+  it("rejects stale or tampered run records and selections", () => {
+    const fixture = supersessionFixture();
+    const receipt = buildIntegrationWaveSupersessionReceipt({
+      ...fixture,
+      createdAt: "2026-07-15T12:00:00.000Z",
+      evidence: ["terminal review finding"],
+      expectedIntegrationId: fixture.integrationId,
+      reason: "The prior immutable wave is abandoned",
+    });
+    const validate = (overrides: {
+      runRecordContent?: string;
+      selectionContent?: string;
+    }) =>
+      validateIntegrationWaveSupersessionReceipt({
+        currentControlHead: fixture.controlHeadSha,
+        expectedIntegrationId: fixture.integrationId,
+        isAncestor: () => true,
+        receipt,
+        runRecordContent:
+          overrides.runRecordContent ?? fixture.runRecordContent,
+        selectionContent:
+          overrides.selectionContent ?? fixture.selectionContent,
+        selectionPath: fixture.selectionPath,
+      });
+    expect(() =>
+      validate({
+        runRecordContent: fixture.runRecordContent.replace(
+          '"status": "launched"',
+          '"status": "changed"',
+        ),
+      }),
+    ).toThrow();
+    expect(() =>
+      validate({
+        selectionContent: fixture.selectionContent.replace(
+          fixture.baseSha,
+          "d".repeat(40),
+        ),
+      }),
+    ).toThrow();
+    expect(() =>
+      validate({
+        runRecordContent: `${fixture.runRecordContent} `,
+      }),
+    ).toThrow("identity or digest mismatch");
+    rmSync(fixture.root, { recursive: true });
+  });
+
+  it("requires the supersession control identity to be on current HEAD", () => {
+    const fixture = supersessionFixture();
+    const receipt = buildIntegrationWaveSupersessionReceipt({
+      ...fixture,
+      createdAt: "2026-07-15T12:00:00.000Z",
+      evidence: ["terminal review finding"],
+      expectedIntegrationId: fixture.integrationId,
+      reason: "The prior immutable wave is abandoned",
+    });
+    expect(() =>
+      validateIntegrationWaveSupersessionReceipt({
+        currentControlHead: "d".repeat(40),
+        expectedIntegrationId: fixture.integrationId,
+        isAncestor: () => false,
+        receipt,
+        runRecordContent: fixture.runRecordContent,
+        selectionContent: fixture.selectionContent,
+        selectionPath: fixture.selectionPath,
+      }),
+    ).toThrow("receipt is not on control HEAD");
+    rmSync(fixture.root, { recursive: true });
+  });
+
+  it("materializes only a byte-identical immutable receipt", () => {
+    const fixture = supersessionFixture();
+    const receipt = buildIntegrationWaveSupersessionReceipt({
+      ...fixture,
+      createdAt: "2026-07-15T12:00:00.000Z",
+      evidence: ["terminal review finding"],
+      expectedIntegrationId: fixture.integrationId,
+      reason: "The prior immutable wave is abandoned",
+    });
+    const path = resolve(fixture.root, "supersession.json");
+    materializeImmutableWaveSupersession(path, receipt);
+    materializeImmutableWaveSupersession(path, receipt);
+    expect(() =>
+      materializeImmutableWaveSupersession(path, {
+        ...receipt,
+        reason: "A different reason is forbidden",
+      }),
+    ).toThrow("conflicts with existing receipt");
+    rmSync(fixture.root, { recursive: true });
   });
 });

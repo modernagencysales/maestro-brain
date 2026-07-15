@@ -22,11 +22,15 @@ import {
   safeAbsolutePath,
 } from "./integration-recovery.js";
 import {
-  integrationWaveId,
   laneTrancheMatchesManifest,
   planIntegrationWave,
   type IntegrationWaveCandidate,
 } from "./integration-wave.js";
+import {
+  nextIntegrationWaveId,
+  priorIntegrationWaveResolution,
+  validateIntegrationWaveSupersessionReceipt,
+} from "./integration-wave-supersession.js";
 import {
   materializeImmutableWaveSelection,
   replaceWaveRunRecord,
@@ -100,35 +104,59 @@ try {
   for (const { name, match } of recordNames) {
     const integrationId = match[1];
     if (!integrationId) throw new Error(`${name}: invalid wave identity`);
-    const promotionPath = resolve(
+    const integrationDirectory = resolve(
       evidence,
       "integration",
       integrationId,
-      "promotion.json",
     );
-    if (!existsSync(promotionPath)) {
-      throw new Error(`${integrationId}: unresolved global integration wave`);
-    }
-    const promotion = readJson(promotionPath);
-    const promotedHead = gitSha(
-      promotion.headSha,
-      `${integrationId}: promoted head`,
+    const promotionPath = resolve(integrationDirectory, "promotion.json");
+    const supersessionPath = resolve(integrationDirectory, "supersession.json");
+    const selectionPath = resolve(
+      runs,
+      `integration-${integrationId}-selection.json`,
     );
-    if (
-      promotion.schemaVersion !==
-        "maestro-brain-integration-wave-promotion/v2" ||
-      promotion.status !== "promoted" ||
-      promotion.integrationId !== integrationId ||
-      !gitIsAncestor(promotedHead, baseSha, root)
-    ) {
-      throw new Error(
-        `${integrationId}: promotion receipt is not on control HEAD`,
-      );
-    }
+    priorIntegrationWaveResolution({
+      integrationId,
+      promotionExists: existsSync(promotionPath),
+      supersessionExists: existsSync(supersessionPath),
+      validatePromotion: () => {
+        const promotion = readJson(promotionPath);
+        const promotedHead = gitSha(
+          promotion.headSha,
+          `${integrationId}: promoted head`,
+        );
+        if (
+          promotion.schemaVersion !==
+            "maestro-brain-integration-wave-promotion/v2" ||
+          promotion.status !== "promoted" ||
+          promotion.integrationId !== integrationId ||
+          !gitIsAncestor(promotedHead, baseSha, root)
+        ) {
+          throw new Error(
+            `${integrationId}: promotion receipt is not on control HEAD`,
+          );
+        }
+      },
+      validateSupersession: () => {
+        if (!existsSync(selectionPath)) {
+          throw new Error(`${integrationId}: immutable selection is missing`);
+        }
+        validateIntegrationWaveSupersessionReceipt({
+          currentControlHead: baseSha,
+          expectedIntegrationId: integrationId,
+          isAncestor: (ancestor, descendant) =>
+            gitIsAncestor(ancestor, descendant, root),
+          receipt: readJson(supersessionPath),
+          runRecordContent: readFileSync(resolve(runs, name), "utf8"),
+          selectionContent: readFileSync(selectionPath, "utf8"),
+          selectionPath,
+        });
+      },
+    });
   }
-  const sequence =
-    Math.max(0, ...recordNames.map(({ match }) => Number(match[2]))) + 1;
-  const integrationId = integrationWaveId(sequence);
+  const integrationId = nextIntegrationWaveId(
+    recordNames.map(({ match }) => match[1] ?? ""),
+  );
   const manifest = buildManifest(root);
   const readLane = (taskId: string): LaneCompletionResult | undefined => {
     const path = resolve(laneRoot, taskId, "lane-result.json");
