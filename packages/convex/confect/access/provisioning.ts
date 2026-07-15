@@ -6,6 +6,11 @@ import {
   Unauthorized,
   ValidationFailed,
 } from "../errors";
+import {
+  deriveStableAgencyKey,
+  deriveStableBrainKey,
+  type BrainKind,
+} from "../identity/stableKeys";
 import { normalizeEmail } from "./email";
 import type { Role } from "./roles";
 
@@ -42,23 +47,32 @@ export type UserProvisioningRow = {
 export type OrganizationProvisioningRow = {
   readonly _id: string;
   readonly ownerUserId: string;
+  readonly workosOrganizationId?: string | undefined;
+  readonly agencyKey?: string | undefined;
   readonly slug: string;
   readonly name: string;
   readonly status: OrganizationStatus;
   readonly createdAt: number;
   readonly updatedAt: number;
+  readonly lifecycleGeneration?: number | undefined;
+  readonly revocationGeneration?: number | undefined;
 };
 
 export type WorkspaceProvisioningRow = {
   readonly _id: string;
   readonly organizationId: string;
   readonly ownerUserId: string;
+  readonly brainKey?: string | undefined;
   readonly slug: string;
   readonly name: string;
+  readonly kind?: BrainKind | undefined;
+  readonly clientSlug?: string | undefined;
   readonly status: WorkspaceStatus;
   readonly dataClassification: DataClassification;
   readonly createdAt: number;
   readonly updatedAt: number;
+  readonly lifecycleGeneration?: number | undefined;
+  readonly revocationGeneration?: number | undefined;
 };
 
 export type OrganizationMembershipProvisioningRow = {
@@ -304,11 +318,15 @@ const planOrganization = (
         action: "insert",
         value: {
           ownerUserId,
+          workosOrganizationId: seed.workosOrganizationId,
+          agencyKey: deriveStableAgencyKey(seed.identitySubject),
           slug: seed.slug,
           name: seed.organizationName,
           status: "active",
           createdAt: now,
           updatedAt: now,
+          lifecycleGeneration: 0,
+          revocationGeneration: 0,
         },
       }
     : { action: "none" };
@@ -326,12 +344,16 @@ const planWorkspace = (input: {
         value: {
           organizationId: input.organizationId,
           ownerUserId: input.ownerUserId,
+          brainKey: deriveStableBrainKey(input.seed.identitySubject),
           slug: input.seed.slug,
           name: input.seed.workspaceName,
+          kind: "agency",
           status: "active",
           dataClassification: "internal",
           createdAt: input.now,
           updatedAt: input.now,
+          lifecycleGeneration: 0,
+          revocationGeneration: 0,
         },
       }
     : { action: "none" };
@@ -418,6 +440,8 @@ type ProvisioningSeed = {
   readonly slug: string;
   readonly organizationName: string;
   readonly workspaceName: string;
+  readonly identitySubject: string;
+  readonly workosOrganizationId: string | undefined;
 };
 
 const provisioningSeed = (identity: IdentityProfile): ProvisioningSeed => {
@@ -432,5 +456,7 @@ const provisioningSeed = (identity: IdentityProfile): ProvisioningSeed => {
     slug: `${slugBase}-${suffix.length > 0 ? suffix : "starter"}`,
     organizationName: identity.displayName,
     workspaceName: `${identity.displayName} Workspace`,
+    identitySubject: identity.subject,
+    workosOrganizationId: undefined,
   };
 };
