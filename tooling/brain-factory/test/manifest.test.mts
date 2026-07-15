@@ -176,7 +176,11 @@ describe("Maestro Brain execution manifest", () => {
       "explicit `null` initial cursor",
       "dry-run rollback",
       "lease/fence generation",
-      "one parent and many child receipts",
+      "one stable release-parent ID",
+      "`failure_checkpoint`",
+      "`release_parent`",
+      "nullable with explicit `unavailable` provenance",
+      "post-component/pre-settlement crash",
       "jobs/workpool",
       "four commits",
     ]) {
