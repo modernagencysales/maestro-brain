@@ -285,9 +285,58 @@ const validateIsolatedBackends = (config: ProjectConfig): void => {
   }
 };
 
+const validateEnvironmentCredentialScope = (config: ProjectConfig): void => {
+  const { staging, production } = config.environments;
+
+  for (const selected of [staging, production]) {
+    const opposite = selected.name === "staging" ? production : staging;
+
+    if (
+      selected.convexDeployKeyEnv &&
+      !selected.requiredSecrets.includes(selected.convexDeployKeyEnv)
+    ) {
+      throw new Error(
+        `EnvironmentCredentialMismatch: ${selected.name} deploy secrets must include ${selected.convexDeployKeyEnv}.`,
+      );
+    }
+
+    if (
+      opposite.convexDeployKeyEnv &&
+      selected.requiredSecrets.includes(opposite.convexDeployKeyEnv)
+    ) {
+      throw new Error(
+        `EnvironmentCredentialMismatch: ${selected.name} deploy secrets must not include ${opposite.convexDeployKeyEnv}.`,
+      );
+    }
+  }
+};
+
+const validateTenantDeployScripts = (repoRoot: string): void => {
+  for (const scriptPath of [
+    ".buildkite/scripts/staging-deploy.sh",
+    ".buildkite/scripts/production-promote.sh",
+  ]) {
+    const fullPath = resolve(repoRoot, scriptPath);
+
+    if (!existsSync(fullPath)) {
+      continue;
+    }
+
+    const content = readFileSync(fullPath, "utf8");
+
+    if (/demo\/showcase:seed/.test(content)) {
+      throw new Error(
+        `DemoSeedForbidden: tenant deploy path ${scriptPath} must not seed demo/showcase.`,
+      );
+    }
+  }
+};
+
 const readValidatedProjectConfig = (repoRoot: string): ProjectConfig => {
   const config = readProjectConfigFile(repoRoot);
   validateIsolatedBackends(config);
+  validateEnvironmentCredentialScope(config);
+  validateTenantDeployScripts(repoRoot);
   return config;
 };
 

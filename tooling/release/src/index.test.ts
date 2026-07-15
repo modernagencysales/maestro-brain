@@ -327,6 +327,46 @@ describe("release tooling", () => {
     }
   });
 
+  it("rejects cross-environment Convex deploy key wiring", () => {
+    const repoRoot = makeRepo();
+
+    try {
+      writeProjectConfig(repoRoot, {
+        project: { name: "maestro-template" },
+        environments: {
+          staging: {
+            ...isolatedProjectConfig.environments.staging,
+            requiredSecrets: ["MAESTRO_BRAIN_PRODUCTION_CONVEX_DEPLOY_KEY"],
+          },
+          production: isolatedProjectConfig.environments.production,
+        },
+      });
+
+      expect(() =>
+        buildDeployDoctorReport({ repoRoot, environment: "staging", env: {} }),
+      ).toThrow(/EnvironmentCredentialMismatch/);
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects tenant deploy scripts that seed demo showcase data", () => {
+    const repoRoot = makeRepo();
+
+    try {
+      writeProjectConfig(repoRoot);
+      const scriptPath = join(repoRoot, ".buildkite/scripts/staging-deploy.sh");
+      mkdirSync(dirname(scriptPath), { recursive: true });
+      writeFileSync(scriptPath, "pnpm exec convex run demo/showcase:seed\n");
+
+      expect(() =>
+        buildDeployDoctorReport({ repoRoot, environment: "staging", env: {} }),
+      ).toThrow(/DemoSeedForbidden/);
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
   it("requires an exact staged release packet before production promotion", () => {
     const repoRoot = makeRepo();
 
