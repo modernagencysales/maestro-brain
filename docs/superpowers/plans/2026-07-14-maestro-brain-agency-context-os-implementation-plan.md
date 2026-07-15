@@ -475,8 +475,10 @@ manifest.
   fake values in
   [`auth.config.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/convex/auth.config.ts#L13-L36).
 - **Files:** create `apps/web/src/auth/authkit-server.ts`,
-  `apps/web/src/auth/authkit-client.tsx`, and matching `.test.ts(x)` files;
-  modify `apps/web/src/routes/__root.tsx`, `apps/web/src/start.ts`,
+  `apps/web/src/auth/authkit-server.test.ts`,
+  `apps/web/src/auth/authkit-client.tsx`, and
+  `apps/web/src/auth/authkit-client.test.tsx`; modify
+  `apps/web/src/routes/__root.tsx`, `apps/web/src/start.ts`,
   `apps/web/src/server-env.ts`, `packages/convex/convex/auth.config.ts`,
   `.env.example`, `docs/template/env-manifest.md`, and
   `docs/template/env-manifest.json`.
@@ -525,8 +527,9 @@ manifest.
 - **Files:** modify `packages/convex/confect/access/tenancySchemas.ts`,
   `packages/convex/confect/tables/organizations.ts`,
   `packages/convex/confect/tables/workspaces.ts`,
-  `packages/convex/confect/access/provisioning.ts`, and migration registry;
-  create `packages/convex/confect/identity/stableKeys.ts` and
+  `packages/convex/confect/access/provisioning.ts`, and
+  `packages/convex/convex/migrations.ts`; create
+  `packages/convex/confect/identity/stableKeys.ts` and
   `packages/convex/test/stable-tenant-keys.test.ts`.
 - **Failure-first tests:** duplicate WorkOS org binding, duplicate
   `(organizationId, agencyKey)`, duplicate `(organizationId, brainKey)`, invalid
@@ -681,10 +684,12 @@ manifest.
   [`brainPages.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/tables/brainPages.ts#L5-L18);
   production Maestro demonstrates stable keys and parent/export identity in
   [`brainPages.ts`](https://github.com/modernagencysales/maestro/blob/c8b644c154af91f7e6b67b31861fd6b7eaa211b1/packages/convex/convex/schema/brainPages.ts#L22-L83).
-- **Files:** modify `packages/convex/confect/tables/brainPages.ts` and migration
-  registry; create `packages/convex/confect/tables/pageRevisions.ts`,
+- **Files:** modify `packages/convex/confect/tables/brainPages.ts`,
+  `packages/convex/convex/migrations.ts`, and
+  `docs/product/maestro-brain-lifecycle-adoption.md`; create
+  `packages/convex/confect/tables/pageRevisions.ts`,
   `packages/convex/confect/brain/pageSchemas.ts`, and
-  `packages/convex/test/brain-page-schema.test.ts`; update lifecycle docs.
+  `packages/convex/test/brain-page-schema.test.ts`.
 - **Failure-first tests:** reject duplicate `(workspaceId,pageKey)`, duplicate
   active sibling slug, parent in another Brain, cycles, invalid sort key,
   current revision from another page, and public Convex IDs.
@@ -725,10 +730,13 @@ manifest.
   [`pages.spec.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/brain/pages.spec.ts#L26-L99),
   while the impl already calls `requireWorkspaceAccess` in
   [`pages.impl.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/brain/pages.impl.ts#L18-L63).
-- **Files:** modify `packages/convex/confect/brain/pages.{spec,impl}.ts`; create
+- **Files:** modify `packages/convex/confect/brain/pages.spec.ts` and
+  `packages/convex/confect/brain/pages.impl.ts`; create
   `packages/convex/confect/brain/pageTree.ts` and
-  `packages/convex/test/brain-pages-crud.test.ts`; update generated refs and
-  manifests.
+  `packages/convex/test/brain-pages-crud.test.ts`. Generated Confect/Convex
+  output is locked by `@generated-confect` and enumerated by the named dry-run
+  manifest
+  `docs/superpowers/receipts/maestro-brain/file-inventories/S02-T02-confect-generated-files.json`.
 - **Failure-first tests:** role table for list/get/create/rename/move/favorite/
   archive; caller tenant/Convex fields rejected; concurrent move conflict;
   cycle/cross-Brain parent; archived Brain; stale expected revision; and MCP
@@ -767,10 +775,15 @@ manifest.
   [`versioning.impl.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/ops/versioning.impl.ts#L36-L160),
   and current citations point to generic source IDs in
   [`citations.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/tables/citations.ts#L4-L20).
-- **Files:** modify `packages/convex/confect/ops/versioning.{spec,impl}.ts`,
-  `ops/knowledge.{spec,impl}.ts`, `tables/citations.ts`,
-  `tables/versionedEntries.ts`, and migration registry; create
-  `packages/convex/confect/brain/revisions.ts`, `brain/citations.ts`, and
+- **Files:** modify `packages/convex/confect/ops/versioning.spec.ts`,
+  `packages/convex/confect/ops/versioning.impl.ts`,
+  `packages/convex/confect/ops/knowledge.spec.ts`,
+  `packages/convex/confect/ops/knowledge.impl.ts`,
+  `packages/convex/confect/tables/citations.ts`,
+  `packages/convex/confect/tables/versionedEntries.ts`, and
+  `packages/convex/convex/migrations.ts`; create
+  `packages/convex/confect/brain/revisions.ts`,
+  `packages/convex/confect/brain/citations.ts`, and
   `packages/convex/test/brain-revisions.test.ts`.
 - **Failure-first tests:** restore deletes history, citation points outside the
   supplied candidate set/Brain, quote/range/hash mismatch, uncited factual
@@ -909,9 +922,17 @@ manifest.
   [`buildClientDomainFiles`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/tooling/generators/src/index.ts#L1086-L1140);
   authorized provisioning comes from S01-T03.
 - **Files:** create `apps/web/src/features/clients/clients-adapter.ts`,
-  `clients-state.ts`, `clients-table.tsx`, `create-client-dialog.tsx`, tests,
-  and `packages/convex/confect/brain/clientBrief.ts`; modify the Clients route
-  and provisioning impl/test.
+  `apps/web/src/features/clients/clients-adapter.test.ts`,
+  `apps/web/src/features/clients/clients-state.ts`,
+  `apps/web/src/features/clients/clients-state.test.ts`,
+  `apps/web/src/features/clients/clients-table.tsx`,
+  `apps/web/src/features/clients/clients-table.test.tsx`,
+  `apps/web/src/features/clients/create-client-dialog.tsx`,
+  `apps/web/src/features/clients/create-client-dialog.test.tsx`, and
+  `packages/convex/confect/brain/clientBrief.ts`; modify the Clients route
+  `apps/web/src/routes/_workspace.clients.tsx`,
+  `packages/convex/confect/access/provisioning.impl.ts`, and
+  `packages/convex/test/authorized-brain-provisioning.test.ts`.
 - **Failure-first tests:** viewer/editor creation denial, duplicate slug,
   partial six-page creation rollback, retry idempotency, archived client,
   empty/list states, and route-to-new-Brain behavior. Six pages are ordinary
@@ -950,11 +971,20 @@ manifest.
   [`page tree`](https://github.com/modernagencysales/maestro/blob/c8b644c154af91f7e6b67b31861fd6b7eaa211b1/apps/web/src/features/brain/brain-page-tree.tsx#L57-L118);
   the fork already has the reusable
   [`BlockNoteSyncEditor`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/editor-react/src/BlockNoteSyncEditor.tsx#L20-L69).
-- **Files:** replace `apps/web/src/features/brain/brain-surface.ts` and tests
-  with state/view-model modules; create `brain-adapter.ts`,
-  `brain-workspace.tsx`, `brain-page-tree.tsx`, `brain-editor-pane.tsx`,
-  `brain-evidence-drawer.tsx`, and tests; modify `_workspace.brain.tsx` and
-  shell composition.
+- **Files:** replace `apps/web/src/features/brain/brain-surface.ts` and
+  `apps/web/src/features/brain/brain-surface.test.ts` with state/view-model
+  modules; create `apps/web/src/features/brain/brain-adapter.ts`,
+  `apps/web/src/features/brain/brain-adapter.test.ts`,
+  `apps/web/src/features/brain/brain-workspace.tsx`,
+  `apps/web/src/features/brain/brain-workspace.test.tsx`,
+  `apps/web/src/features/brain/brain-page-tree.tsx`,
+  `apps/web/src/features/brain/brain-page-tree.test.tsx`,
+  `apps/web/src/features/brain/brain-editor-pane.tsx`,
+  `apps/web/src/features/brain/brain-editor-pane.test.tsx`,
+  `apps/web/src/features/brain/brain-evidence-drawer.tsx`, and
+  `apps/web/src/features/brain/brain-evidence-drawer.test.tsx`; modify
+  `apps/web/src/routes/_workspace.brain.tsx` and
+  `apps/web/src/saas-ui/business-shell.tsx`.
 - **Failure-first tests:** loading/empty/not-found/typed/transport states;
   viewer read-only; editor save; tree create/rename/move/archive/favorite;
   mobile drawers; keyboard tree navigation; unsaved/conflict state; cross-Brain
@@ -1166,14 +1196,21 @@ manifest.
   raw events may bypass its wrapper in
   [`webhooks.mdx`](https://github.com/NangoHQ/nango/blob/0bef47367085384c037a0ccca83c7d5bfc696d7f/docs/api-integrations/slack/webhooks.mdx#L45-L99),
   so forwarding is not the V1 trust boundary.
-- **Files:** create `config/slack/maestro-brain-manifest.json`,
+- **Files:** create
+  `packages/integrations/config/slack/maestro-brain-manifest.json`,
   `packages/integrations/src/slack/eventsVerifier.ts` and
-  `eventsVerifier.test.ts`, `packages/convex/confect/slack/webhook.spec.ts`,
-  `webhook.impl.ts`, `webhookSecurity.ts`,
+  `packages/integrations/src/slack/eventsVerifier.test.ts`,
+  `packages/convex/confect/slack/webhook.spec.ts`,
+  `packages/convex/confect/slack/webhook.impl.ts`,
+  `packages/convex/confect/slack/webhookSecurity.ts`,
   `packages/convex/convex/slackWebhook.ts`, and
   `packages/convex/test/slack-webhook-security.test.ts`; modify
-  `packages/convex/confect/http.ts`, env manifests, provider/logging gates, and
-  generated refs.
+  `packages/convex/confect/http.ts`, `.env.example`,
+  `docs/template/env-manifest.md`, `docs/template/env-manifest.json`,
+  `tooling/quality/check-provider-boundary.mts`, and
+  `tooling/quality/check-logging-boundary.mts`. Generated Confect/Convex output
+  is locked by `@generated-confect` and enumerated by
+  `docs/superpowers/receipts/maestro-brain/file-inventories/S04-T03-confect-generated-files.json`.
 - **Failure-first tests:** invalid Slack signature secret, current/previous
   signature rotation boundaries, stale/future timestamp, duplicate request
   ID/event ID, oversized body, malformed JSON, raw unmatched Slack payload,
@@ -1228,12 +1265,18 @@ manifest.
   Existing workspace role resolution remains authoritative
   ([source](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/capabilities/_kit/workspaceAccess.ts#L28-L212)).
 - **Files:** create `packages/convex/confect/tables/channelRoutingPolicies.ts`,
-  `channelDeliveryPolicies.ts`,
-  `packages/convex/confect/slack/channelPolicies.{spec,impl}.ts`,
-  `channelPolicy.ts`, tests,
+  `packages/convex/confect/tables/channelDeliveryPolicies.ts`,
+  `packages/convex/confect/slack/channelPolicies.spec.ts`,
+  `packages/convex/confect/slack/channelPolicies.impl.ts`,
+  `packages/convex/confect/slack/channelPolicy.ts`,
+  `packages/convex/test/channel-policies.test.ts`,
   `apps/web/src/features/connections/channel-table.tsx`,
-  `channel-policy-dialog.tsx`, `connections-adapter.ts`, view-model/tests;
-  modify the Connections route and lifecycle inventory.
+  `apps/web/src/features/connections/channel-policy-dialog.tsx`,
+  `apps/web/src/features/connections/connections-adapter.ts`,
+  `apps/web/src/features/connections/channel-policy-view-model.ts`,
+  `apps/web/src/features/connections/channel-policy-view-model.test.ts`; modify
+  `apps/web/src/routes/_workspace.connections.tsx` and
+  `docs/product/maestro-brain-lifecycle-adoption.md`.
 - **Failure-first tests:** non-org-admin policy change, Direct with zero/two
   targets, Classify with empty/duplicate/unauthorized/cross-org target,
   Capture-only with targets, Slack Connect requester-private delivery, stale
@@ -1286,9 +1329,13 @@ manifest.
   production Maestro's source-unit separation is prior art
   ([schema](https://github.com/modernagencysales/maestro/blob/c8b644c154af91f7e6b67b31861fd6b7eaa211b1/packages/convex/convex/schema/sourceUnits.ts#L85-L140)).
 - **Files:** create `packages/convex/confect/tables/providerEventReceipts.ts`,
-  `sourceArtifacts.ts`, `sourceRevisions.ts`, `sourceProcessingJobs.ts`,
-  `packages/convex/confect/sources/sourceSchemas.ts`, and schema tests; modify
-  migration/lifecycle registries.
+  `packages/convex/confect/tables/sourceArtifacts.ts`,
+  `packages/convex/confect/tables/sourceRevisions.ts`,
+  `packages/convex/confect/tables/sourceProcessingJobs.ts`,
+  `packages/convex/confect/sources/sourceSchemas.ts`, and
+  `packages/convex/test/source-ledger-schema.test.ts`; modify
+  `packages/convex/convex/migrations.ts` and
+  `docs/product/maestro-brain-lifecycle-adoption.md`.
 - **Failure-first tests:** missing organization/channel binding, duplicate
   transport receipt, multiple receipts for one logical observation, conflicting
   observation identity, invalid source key/revision key, cross-org channel,
@@ -1332,9 +1379,12 @@ manifest.
   Nango remains the API/history boundary. The design's `A -> B -> A` invariant
   separates transport event IDs from logical observation identity.
 - **Files:** create `packages/convex/confect/sources/slackNormalizer.ts`,
-  `sourceOrdering.ts`, `captureTransaction.ts`, property tests, and
-  `packages/convex/test/source-capture.test.ts`; modify `slack/webhook.impl.ts`
-  to call only the capture transaction before ACK.
+  `packages/convex/confect/sources/sourceOrdering.ts`,
+  `packages/convex/confect/sources/captureTransaction.ts`,
+  `packages/convex/test/source-capture.property.test.ts`, and
+  `packages/convex/test/source-capture.test.ts`; modify
+  `packages/convex/confect/slack/webhook.impl.ts` to call only the capture
+  transaction before ACK.
 - **Failure-first tests:** repeated delivery, live/backfill race, out-of-order
   edit, `A -> B -> A`, delete-before-create, thread reply, bot-authored answer,
   malformed permalink, Unicode/newline normalization, crash before commit, crash
@@ -1520,9 +1570,14 @@ manifest.
   but no per-connection/method/channel durable scheduler.
 - **Files:** create
   `packages/convex/confect/tables/providerRateLimitBuckets.ts`,
-  `packages/convex/confect/jobs/fairScheduler.ts`, `slackRateBudget.ts`, tests,
-  and `packages/convex/test/source-fairness.test.ts`; modify sync/job schemas
-  and lifecycle inventory.
+  `packages/convex/confect/jobs/fairScheduler.ts`,
+  `packages/convex/confect/jobs/fairScheduler.test.ts`,
+  `packages/convex/confect/jobs/slackRateBudget.ts`,
+  `packages/convex/confect/jobs/slackRateBudget.test.ts`, and
+  `packages/convex/test/source-fairness.test.ts`; modify
+  `packages/convex/confect/tables/channelSyncStates.ts`,
+  `packages/convex/confect/tables/sourceProcessingJobs.ts`, and
+  `docs/product/maestro-brain-lifecycle-adoption.md`.
 - **Failure-first tests:** 100-channel round-robin, one huge queue, one failing
   channel, live burst while deep backfill runs, connection/method 429 with
   `Retry-After`, organization concurrency cap, above-envelope admission, noisy
@@ -1561,9 +1616,15 @@ manifest.
 - **Existing anchors:** the stock Nango sync fetches useful messages/replies but
   processes only `allChannels.slice(0, 1)` in
   [`messages-received.ts`](https://github.com/NangoHQ/integration-templates/blob/e286bd20c5795f9e8bfbc9053e65669941c08c89/integrations/slack/syncs/messages-received.ts#L70-L93).
-- **Files:** create `packages/integrations/src/nango/slackHistory.ts` and tests,
-  `packages/convex/confect/slack/backfill.{spec,impl}.ts`, `backfillBatch.ts`,
-  and tests; modify channel sync/job tables and Connections status view-model.
+- **Files:** create `packages/integrations/src/nango/slackHistory.ts`,
+  `packages/integrations/src/nango/slackHistory.test.ts`,
+  `packages/convex/confect/slack/backfill.spec.ts`,
+  `packages/convex/confect/slack/backfill.impl.ts`,
+  `packages/convex/confect/slack/backfillBatch.ts`, and
+  `packages/convex/test/slack-backfill.test.ts`; modify
+  `packages/convex/confect/tables/channelSyncStates.ts`,
+  `packages/convex/confect/tables/sourceProcessingJobs.ts`, and
+  `apps/web/src/features/connections/channel-health-view-model.ts`.
 - **Failure-first tests:** multiple channels, paginated messages and replies,
   crash before/after observation commit and cursor CAS, duplicate live/backfill
   event, partial page failure, access loss, edited/deleted retained item,
@@ -1659,14 +1720,26 @@ manifest.
   delete entries `executable: false` and retention dry-run-only in
   [`data-lifecycle.md`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/docs/template/data-lifecycle.md#L30-L63).
 - **Files:** create `packages/convex/confect/lifecycle/envelope.ts`,
-  `packages/convex/confect/tables/retentionPolicies.ts`, `legalHolds.ts`,
-  `lifecycleJobs.ts`, `packages/convex/test/lifecycle-envelope.test.ts`, and
-  `docs/product/maestro-brain-lifecycle-adoption.md`; modify the S02/S05/S06
-  page/citation/source/route/job tables,
-  `packages/convex/confect/ops/dataLifecycle.{spec,impl,ts}`, migration
-  registry, and `docs/template/data-lifecycle.md`. The adoption document assigns
-  exact S09-S12 descendant files/tests to their owning future tasks; S07 does
-  not name nonexistent files as its own diff.
+  `packages/convex/confect/tables/retentionPolicies.ts`,
+  `packages/convex/confect/tables/legalHolds.ts`,
+  `packages/convex/confect/tables/lifecycleJobs.ts`,
+  `packages/convex/test/lifecycle-envelope.test.ts`, and
+  `docs/product/maestro-brain-lifecycle-adoption.md`; modify
+  `packages/convex/confect/tables/brainPages.ts`,
+  `packages/convex/confect/tables/pageRevisions.ts`,
+  `packages/convex/confect/tables/citations.ts`,
+  `packages/convex/confect/tables/providerEventReceipts.ts`,
+  `packages/convex/confect/tables/sourceArtifacts.ts`,
+  `packages/convex/confect/tables/sourceRevisions.ts`,
+  `packages/convex/confect/tables/sourceProcessingJobs.ts`,
+  `packages/convex/confect/tables/sourceRoutes.ts`,
+  `packages/convex/confect/tables/channelSyncStates.ts`,
+  `packages/convex/confect/ops/dataLifecycle.spec.ts`,
+  `packages/convex/confect/ops/dataLifecycle.impl.ts`,
+  `packages/convex/confect/ops/dataLifecycle.ts`,
+  `packages/convex/convex/migrations.ts`, and `docs/template/data-lifecycle.md`.
+  The adoption document assigns exact S09-S12 descendant files/tests to their
+  owning future tasks; S07 does not name nonexistent files as its own diff.
 - **Failure-first tests:** missing lifecycle owner/posture, stale lifecycle
   generation read/commit, purge under active hold, policy from non-org-admin,
   retroactive shortening without preview/approval, and cross-org job target.
@@ -1707,9 +1780,17 @@ manifest.
   but has no real propagation executor. S05/S06 provide the revision and route
   generations to fence.
 - **Files:** create `packages/convex/confect/lifecycle/propagation.ts`,
-  `sourceRedaction.{spec,impl}.ts`, `routeRevocation.{spec,impl}.ts`, and
-  `packages/convex/test/lifecycle-propagation.test.ts`; modify only existing
-  source/latest-pointer, route, page/citation, and job handlers plus
+  `packages/convex/confect/lifecycle/sourceRedaction.spec.ts`,
+  `packages/convex/confect/lifecycle/sourceRedaction.impl.ts`,
+  `packages/convex/confect/lifecycle/routeRevocation.spec.ts`,
+  `packages/convex/confect/lifecycle/routeRevocation.impl.ts`, and
+  `packages/convex/test/lifecycle-propagation.test.ts`; modify
+  `packages/convex/confect/sources/captureTransaction.ts`,
+  `packages/convex/confect/sources/sourceOrdering.ts`,
+  `packages/convex/confect/sources/policyDispatch.ts`,
+  `packages/convex/confect/brain/revisions.ts`,
+  `packages/convex/confect/brain/citations.ts`,
+  `packages/convex/confect/jobs/workpool.impl.ts`, and
   `docs/product/maestro-brain-lifecycle-adoption.md`.
 - **Failure-first tests:** Slack delete after page citation, emergency revoke
   during existing route/page/job work, current page read/history/editor snapshot
@@ -2143,9 +2224,16 @@ manifest.
   indexing.
 - **Files:** create
   `packages/convex/confect/tables/workspaceSearchProjections.ts`,
-  `packages/convex/confect/search/projections.{spec,impl}.ts`,
-  `projectionWriter.ts`, `convexSearch.ts`, tests; modify source-route/page-
-  revision commit and lifecycle propagation, migration/lifecycle registries.
+  `packages/convex/confect/search/projections.spec.ts`,
+  `packages/convex/confect/search/projections.impl.ts`,
+  `packages/convex/confect/search/projectionWriter.ts`,
+  `packages/convex/confect/search/convexSearch.ts`, and
+  `packages/convex/test/search-projections.test.ts`; modify
+  `packages/convex/confect/sources/policyDispatch.ts`,
+  `packages/convex/confect/brain/revisions.ts`,
+  `packages/convex/confect/lifecycle/propagation.ts`,
+  `packages/convex/convex/migrations.ts`, and
+  `docs/product/maestro-brain-lifecycle-adoption.md`.
 - **Failure-first tests:** organization-vault-only source, inactive/revoked/
   redacted route, wrong workspace/org, stale projection generation, duplicate
   effect, edit/delete, page restore, route revocation, and cross-client query.
@@ -2289,9 +2377,18 @@ manifest.
   to Maestro. Existing user identity is WorkOS subject-based in
   [`tenancySchemas.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/access/tenancySchemas.ts#L37-L45).
 - **Files:** create `packages/convex/confect/tables/slackIdentityBindings.ts`,
-  `packages/convex/confect/slack/identityLinks.{spec,impl}.ts`,
-  `identityLink.ts`, tests, and migration/lifecycle entries; create Settings UI
-  adapter/button/status and tests.
+  `packages/convex/confect/slack/identityLinks.spec.ts`,
+  `packages/convex/confect/slack/identityLinks.impl.ts`,
+  `packages/convex/confect/slack/identityLink.ts`,
+  `packages/convex/test/slack-identity-links.test.ts`,
+  `apps/web/src/features/settings/slack-link-adapter.ts`,
+  `apps/web/src/features/settings/slack-link-adapter.test.ts`,
+  `apps/web/src/features/settings/slack-link-button.tsx`,
+  `apps/web/src/features/settings/slack-link-button.test.tsx`,
+  `apps/web/src/features/settings/slack-link-status.tsx`, and
+  `apps/web/src/features/settings/slack-link-status.test.tsx`; modify
+  `packages/convex/convex/migrations.ts` and
+  `docs/product/maestro-brain-lifecycle-adoption.md`.
 - **Failure-first tests:** forged/replayed/expired link token, wrong team/user,
   display-name/email match, binding identity already linked to another active
   user, revoked WorkOS user/membership, stale connection generation, and token
@@ -2387,9 +2484,18 @@ manifest.
   and optional thread timestamp in
   [`send-ephemeral-message.ts`](https://github.com/NangoHQ/integration-templates/blob/e286bd20c5795f9e8bfbc9053e65669941c08c89/integrations/slack/actions/send-ephemeral-message.ts#L4-L35).
 - **Files:** create `packages/convex/confect/tables/outboundDeliveryOutbox.ts`,
-  `packages/convex/confect/slack/outbox.{spec,impl}.ts`, `deliveryPolicy.ts`,
-  `sanitizeSlack.ts`, tests; create Nango send/reconcile adapter tests; modify
-  answer/lifecycle/rate scheduler.
+  `packages/convex/confect/slack/outbox.spec.ts`,
+  `packages/convex/confect/slack/outbox.impl.ts`,
+  `packages/convex/confect/slack/deliveryPolicy.ts`,
+  `packages/convex/confect/slack/sanitizeSlack.ts`,
+  `packages/convex/test/slack-outbox.test.ts`,
+  `packages/integrations/src/nango/slackSend.ts`,
+  `packages/integrations/src/nango/slackSend.test.ts`,
+  `packages/integrations/src/nango/slackReconcile.ts`, and
+  `packages/integrations/src/nango/slackReconcile.test.ts`; modify
+  `packages/convex/confect/answers/deliver.ts`,
+  `packages/convex/confect/lifecycle/propagation.ts`, and
+  `packages/convex/confect/jobs/slackRateBudget.ts`.
 - **Failure-first tests:** Slack Connect destination, wrong user/channel/team,
   role/binding/route/lifecycle revoked after answer, mass mention/unsafe link,
   Slack timeout before/after accepted ephemeral/DM send, forbidden retry of an
@@ -2490,9 +2596,15 @@ manifest.
   [`headless/auth.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/headless/auth.ts#L109-L196),
   but no authenticated CRUD exists.
 - **Files:** modify `packages/convex/confect/headless/auth.ts`,
-  `tables/apiKeys.ts`, migration/lifecycle registries; create
+  `packages/convex/confect/tables/apiKeys.ts`,
+  `packages/convex/convex/migrations.ts`, and
+  `docs/product/maestro-brain-lifecycle-adoption.md`; create
   `packages/convex/confect/tables/servicePrincipals.ts`,
-  `headless/apiKeys.{spec,impl}.ts`, tests, Settings API key UI/tests.
+  `packages/convex/confect/headless/apiKeys.spec.ts`,
+  `packages/convex/confect/headless/apiKeys.impl.ts`,
+  `packages/convex/test/api-keys.test.ts`,
+  `apps/web/src/features/settings/api-keys.tsx`, and
+  `apps/web/src/features/settings/api-keys.test.tsx`.
 - **Failure-first tests:** viewer/editor creation, wrong Brain, requested write/
   admin/workflow scope, role above viewer, plaintext persistence, second
   display, no expiry/overlong expiry, revoked creator/member/Brain/org,
@@ -2584,10 +2696,16 @@ manifest.
 - **Existing anchors:** MCP descriptors are generated from Confect metadata in
   [`manifest/mcp.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/manifest/mcp.ts#L17-L25);
   current CLI is a static demonstration and must call the shared dispatcher.
-- **Files:** modify S09 capability specs/impls,
-  `manifest/{executor,mcp,openapi}.ts`, generated manifest,
-  `apps/cli/src/index.ts` and tests; create parity/security contract tests under
-  `packages/convex/test` and `apps/cli`.
+- **Files:** modify `packages/convex/confect/brain/pages.spec.ts`,
+  `packages/convex/confect/brain/pages.impl.ts`,
+  `packages/convex/confect/manifest/executor.ts`,
+  `packages/convex/confect/manifest/mcp.ts`,
+  `packages/convex/confect/manifest/openapi.ts`, `apps/cli/src/index.ts`, and
+  `apps/cli/src/index.test.ts`; create
+  `packages/convex/test/headless-surface-parity.test.ts` and
+  `apps/cli/src/headless-security.test.ts`. Generated capability and manifest
+  output is locked by `@generated-confect` and enumerated by
+  `docs/superpowers/receipts/maestro-brain/file-inventories/S11-T03-headless-generated-files.json`.
 - **Failure-first tests:** exact allowlist mismatch,
   write/admin/workflow/capture/ generic-prompt tool exposure, schema drift among
   API/CLI/MCP, caller tenant field, Convex ID response, final reauthorization
@@ -2624,9 +2742,16 @@ manifest.
   it has generated descriptors but no MCP server and must remain the external
   routing root.
 - **Files:** create `packages/convex/confect/headless/mcpProtocol.ts`,
-  `mcpHttp.ts`, tests; modify `confect/http.ts`, `convex/http.ts`,
-  error/security headers; create `apps/web/src/features/settings/mcp-config.tsx`
-  and tests; update deployment/env/security docs.
+  `packages/convex/confect/headless/mcpHttp.ts`,
+  `packages/convex/test/mcp-http.test.ts`; modify
+  `packages/convex/confect/http.ts`, `packages/convex/convex/http.ts`,
+  `packages/convex/confect/headless/errorEnvelope.ts`, and
+  `packages/convex/confect/headless/securityHeaders.ts`; create
+  `apps/web/src/features/settings/mcp-config.tsx` and
+  `apps/web/src/features/settings/mcp-config.test.tsx`; update
+  `docs/product/maestro-brain-deployment.md`, `docs/template/env-manifest.md`,
+  `docs/template/env-manifest.json`, and
+  `docs/product/maestro-brain-privacy-security.md`.
 - **Failure-first tests:** non-POST/GET, no bearer, unsupported protocol
   version, wrong `Accept`/`Content-Type`, invalid JSON-RPC, notifications,
   oversized body/batch, timeout/cancel, unknown tool, disallowed Origin/CORS,
@@ -2671,9 +2796,11 @@ manifest.
   [`exports.ts`](https://github.com/modernagencysales/maestro/blob/c8b644c154af91f7e6b67b31861fd6b7eaa211b1/packages/convex/convex/capabilities/brain/exports.ts#L27-L86),
   while the template has a Markdown/OKF codec in
   [`knowledge.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/template-core/src/knowledge.ts#L219-L250).
-- **Files:** create `packages/template-core/src/brainExport.ts` and tests;
-  modify `packages/template-core/src/index.ts`, knowledge codec only where
-  generic behavior belongs, and export docs.
+- **Files:** create `packages/template-core/src/brainExport.ts` and
+  `packages/template-core/src/brainExport.test.ts`; modify
+  `packages/template-core/src/index.ts`,
+  `packages/template-core/src/knowledge.ts`, and
+  `docs/product/maestro-brain-export.md`.
 - **Failure-first tests:** shuffled input, repeated export, Unicode/newlines,
   duplicate sibling path, nested links, archived/redacted/purged source, missing
   citation, unsafe path, Convex ID/token/raw provider field, and timestamp
@@ -2811,9 +2938,23 @@ manifest.
   its keyword-based refusal scoring is test-harness behavior and must not enter
   product runtime.
 - **Files:** create `tooling/evals/src/brain-classification.ts`,
-  `brain-answers.ts`, `brain-maintenance.ts`, `brain-prompt-injection.ts`,
-  `brain-multilingual.ts`, `brain-eval-report.ts`, matching `.test.ts` files,
-  and frozen fixtures under `tooling/evals/fixtures/maestro-brain/`; modify
+  `tooling/evals/src/brain-classification.test.ts`,
+  `tooling/evals/src/brain-answers.ts`,
+  `tooling/evals/src/brain-answers.test.ts`,
+  `tooling/evals/src/brain-maintenance.ts`,
+  `tooling/evals/src/brain-maintenance.test.ts`,
+  `tooling/evals/src/brain-prompt-injection.ts`,
+  `tooling/evals/src/brain-prompt-injection.test.ts`,
+  `tooling/evals/src/brain-multilingual.ts`,
+  `tooling/evals/src/brain-multilingual.test.ts`,
+  `tooling/evals/src/brain-eval-report.ts`,
+  `tooling/evals/src/brain-eval-report.test.ts`,
+  `tooling/evals/fixtures/maestro-brain/classification.jsonl`,
+  `tooling/evals/fixtures/maestro-brain/answers.jsonl`,
+  `tooling/evals/fixtures/maestro-brain/maintenance.jsonl`,
+  `tooling/evals/fixtures/maestro-brain/prompt-injection.jsonl`,
+  `tooling/evals/fixtures/maestro-brain/multilingual.jsonl`, and
+  `tooling/evals/fixtures/maestro-brain/fixture-manifest.json`; modify
   `tooling/evals/package.json`, `tooling/evals/src/index.ts`, and
   `docs/product/maestro-brain-evals.md`.
 - **Failure-first tests:** each suite fails against deliberately wrong fixtures:
@@ -3316,8 +3457,9 @@ values.
 
 ## Appendix E — Slack App Manifest, Scopes, Events, And Nango Settings
 
-The checked-in `config/slack/maestro-brain-manifest.json` is authoritative. The
-installed Slack/Nango configuration hash must match it before live ingestion.
+The checked-in `packages/integrations/config/slack/maestro-brain-manifest.json`
+is authoritative. The installed Slack/Nango configuration hash must match it
+before live ingestion.
 
 ### Bot scopes
 
@@ -3784,36 +3926,36 @@ validation. `open:F` means the remaining exact inventory cannot be derived
 safely from the current binding manifest. This is a plan-shape verdict, not
 implementation evidence.
 
-| Task    | Primary classification | Audit  | Task    | Primary classification | Audit  |
-| ------- | ---------------------- | ------ | ------- | ---------------------- | ------ |
-| S00-T01 | template-gap           | ready  | S00-T02 | template-gap           | ready  |
-| S00-T03 | template-gap           | ready  | S00-T04 | template-gap           | ready  |
-| S01-T01 | template-gap           | open:F | S01-T02 | template-gap           | open:F |
-| S01-T03 | template-gap           | ready  | S01-T04 | template-gap           | ready  |
-| S02-T01 | template-gap           | open:F | S02-T02 | template-gap           | open:F |
-| S02-T03 | fixture-to-real        | open:F | S02-T04 | template-gap           | ready  |
-| S03-T01 | template-gap           | ready  | S03-T02 | template-gap           | open:F |
-| S03-T03 | template-gap           | open:F | S03-T04 | template-gap           | ready  |
-| S04-T01 | template-gap           | ready  | S04-T02 | template-gap           | ready  |
-| S04-T03 | template-gap           | open:F | S04-T04 | template-gap           | open:F |
-| S05-T01 | template-gap           | open:F | S05-T02 | template-gap           | open:F |
-| S05-T03 | template-gap           | ready  | S05-T04 | pattern-instance       | ready  |
-| S06-T01 | fixture-to-real        | ready  | S06-T02 | template-gap           | open:F |
-| S06-T03 | template-gap           | open:F | S06-T04 | template-gap           | ready  |
-| S07-T01 | template-gap           | open:F | S07-T02 | template-gap           | open:F |
-| S07-T03 | template-gap           | ready  | S07-T04 | template-gap           | ready  |
-| S08-T01 | template-gap           | ready  | S08-T02 | template-gap           | ready  |
-| S08-T03 | pattern-instance       | ready  | S08-T04 | pattern-instance       | ready  |
-| S09-T01 | template-gap           | ready  | S09-T02 | template-gap           | open:F |
-| S09-T03 | pattern-instance       | ready  | S09-T04 | pattern-instance       | ready  |
-| S10-T01 | template-gap           | open:F | S10-T02 | pattern-instance       | ready  |
-| S10-T03 | template-gap           | open:F | S10-T04 | template-gap           | ready  |
-| S11-T01 | template-gap           | open:F | S11-T02 | template-gap           | ready  |
-| S11-T03 | pattern-instance       | open:F | S11-T04 | template-gap           | open:F |
-| S12-T01 | template-gap           | open:F | S12-T02 | pattern-instance       | ready  |
-| S12-T03 | template-gap           | ready  | S13-T01 | template-gap           | open:F |
-| S13-T02 | template-gap           | ready  | S13-T03 | template-gap           | ready  |
-| S13-T04 | template-gap           | ready  | S14-T01 | template-gap           | ready  |
+| Task    | Primary classification | Audit | Task    | Primary classification | Audit |
+| ------- | ---------------------- | ----- | ------- | ---------------------- | ----- |
+| S00-T01 | template-gap           | ready | S00-T02 | template-gap           | ready |
+| S00-T03 | template-gap           | ready | S00-T04 | template-gap           | ready |
+| S01-T01 | template-gap           | ready | S01-T02 | template-gap           | ready |
+| S01-T03 | template-gap           | ready | S01-T04 | template-gap           | ready |
+| S02-T01 | template-gap           | ready | S02-T02 | template-gap           | ready |
+| S02-T03 | fixture-to-real        | ready | S02-T04 | template-gap           | ready |
+| S03-T01 | template-gap           | ready | S03-T02 | template-gap           | ready |
+| S03-T03 | template-gap           | ready | S03-T04 | template-gap           | ready |
+| S04-T01 | template-gap           | ready | S04-T02 | template-gap           | ready |
+| S04-T03 | template-gap           | ready | S04-T04 | template-gap           | ready |
+| S05-T01 | template-gap           | ready | S05-T02 | template-gap           | ready |
+| S05-T03 | template-gap           | ready | S05-T04 | pattern-instance       | ready |
+| S06-T01 | fixture-to-real        | ready | S06-T02 | template-gap           | ready |
+| S06-T03 | template-gap           | ready | S06-T04 | template-gap           | ready |
+| S07-T01 | template-gap           | ready | S07-T02 | template-gap           | ready |
+| S07-T03 | template-gap           | ready | S07-T04 | template-gap           | ready |
+| S08-T01 | template-gap           | ready | S08-T02 | template-gap           | ready |
+| S08-T03 | pattern-instance       | ready | S08-T04 | pattern-instance       | ready |
+| S09-T01 | template-gap           | ready | S09-T02 | template-gap           | ready |
+| S09-T03 | pattern-instance       | ready | S09-T04 | pattern-instance       | ready |
+| S10-T01 | template-gap           | ready | S10-T02 | pattern-instance       | ready |
+| S10-T03 | template-gap           | ready | S10-T04 | template-gap           | ready |
+| S11-T01 | template-gap           | ready | S11-T02 | template-gap           | ready |
+| S11-T03 | pattern-instance       | ready | S11-T04 | template-gap           | ready |
+| S12-T01 | template-gap           | ready | S12-T02 | pattern-instance       | ready |
+| S12-T03 | template-gap           | ready | S13-T01 | template-gap           | ready |
+| S13-T02 | template-gap           | ready | S13-T03 | template-gap           | ready |
+| S13-T04 | template-gap           | ready | S14-T01 | template-gap           | ready |
 
 The implementation owner reruns this audit at stack projection time against the
 then-current source pins. Drift changes the relevant row from `ready` to open
