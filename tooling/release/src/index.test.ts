@@ -1,9 +1,10 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   buildDeployDoctorReport,
+  buildDeploymentIsolationReceipt,
   buildProductionPromotePlan,
   buildRollbackPlan,
   buildStagedReleasePacket,
@@ -380,6 +381,11 @@ describe("release tooling", () => {
         manifestHash: "manifest-hash",
         buildId: "build-1",
         timestamp: "2026-07-14T00:00:00.000Z",
+        signing: {
+          signer: "release-bot@example.test",
+          keyId: "release-key-1",
+          secret: "test-signing-secret",
+        },
       });
 
       expect(
@@ -388,6 +394,7 @@ describe("release tooling", () => {
           stagedSha: "abc123",
           currentSha: "abc123",
           releasePacket: staged,
+          trustedSigningKeys: { "release-key-1": "test-signing-secret" },
         }),
       ).toMatchObject({ ok: true, releasePacket: staged });
       expect(
@@ -398,6 +405,7 @@ describe("release tooling", () => {
         }),
       ).toMatchObject({
         ok: false,
+        failure: { code: "UnstagedCommit" },
         refusal: expect.stringMatching(/UnstagedCommit/),
       });
     } finally {
@@ -406,27 +414,204 @@ describe("release tooling", () => {
   });
 
   it("rejects rollback candidates with incompatible schema or manifest", () => {
-    const current = {
+    const repoRoot = makeRepo();
+    writeProjectConfig(repoRoot);
+    const current = buildStagedReleasePacket({
+      repoRoot,
       commitSha: "current",
       deploymentHash: "deploy-current",
       schemaHash: "schema-v2",
       manifestHash: "manifest-v2",
       buildId: "build-current",
       timestamp: "2026-07-14T01:00:00.000Z",
-    };
-    const candidate = {
-      ...current,
+      signing: {
+        signer: "release-bot@example.test",
+        keyId: "release-key-1",
+        secret: "test-signing-secret",
+      },
+    });
+    const candidate = buildStagedReleasePacket({
+      repoRoot,
       commitSha: "previous",
       deploymentHash: "deploy-previous",
       schemaHash: "schema-v1",
+      manifestHash: "manifest-v2",
       buildId: "build-previous",
       timestamp: "2026-07-14T00:00:00.000Z",
-    };
+      signing: {
+        signer: "release-bot@example.test",
+        keyId: "release-key-1",
+        secret: "test-signing-secret",
+      },
+    });
 
     expect(buildRollbackPlan({ current, candidate })).toMatchObject({
       ok: false,
       refusal: expect.stringMatching(/IncompatibleRollback/),
     });
+  });
+
+  it("requires signed release packets with trusted signer and key verification", () => {
+    const repoRoot = makeRepo();
+
+    try {
+      writeProjectConfig(repoRoot);
+      const packet = buildStagedReleasePacket({
+        repoRoot,
+        commitSha: "abc123",
+        deploymentHash: "deploy-hash",
+        schemaHash: "schema-hash",
+        manifestHash: "manifest-hash",
+        buildId: "build-1",
+        timestamp: "2026-07-14T00:00:00.000Z",
+        signing: {
+          signer: "release-bot@example.test",
+          keyId: "release-key-1",
+          secret: "test-signing-secret",
+        },
+      });
+
+      expect(packet.signature).toMatchObject({
+        algorithm: "hmac-sha256",
+        signer: "release-bot@example.test",
+        keyId: "release-key-1",
+      });
+      expect(
+        buildProductionPromotePlan({
+          repoRoot,
+          stagedSha: "abc123",
+          currentSha: "abc123",
+          releasePacket: { ...packet, manifestHash: "tampered" },
+          trustedSigningKeys: { "release-key-1": "test-signing-secret" },
+        }),
+      ).toMatchObject({
+        ok: false,
+        failure: { code: "UnstagedCommit" },
+      });
+      expect(
+        buildProductionPromotePlan({
+          repoRoot,
+          stagedSha: "abc123",
+          currentSha: "abc123",
+          releasePacket: packet,
+          trustedSigningKeys: { "other-key": "test-signing-secret" },
+        }),
+      ).toMatchObject({
+        ok: false,
+        failure: { code: "UnstagedCommit" },
+      });
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("wires release signing secret names into scoped Buildkite deploy jobs", () => {
+    const pipeline = readFileSync(
+      resolve(process.cwd(), "../../.buildkite/pipeline.yml"),
+      "utf8",
+    );
+    const stagingStep = pipeline.slice(
+      pipeline.indexOf('key: "staging-deploy"'),
+      pipeline.indexOf('key: "production-approval"'),
+    );
+    const productionStep = pipeline.slice(
+      pipeline.indexOf('key: "production-promote"'),
+      pipeline.indexOf("  - wait: ~"),
+    );
+
+    expect(stagingStep).toContain("MAESTRO_BRAIN_RELEASE_SIGNER");
+    expect(stagingStep).toContain("MAESTRO_BRAIN_RELEASE_SIGNING_KEY_ID");
+    expect(stagingStep).toContain("MAESTRO_BRAIN_RELEASE_SIGNING_SECRET");
+    expect(productionStep).toContain("MAESTRO_BRAIN_RELEASE_SIGNING_KEY_ID");
+    expect(productionStep).toContain("MAESTRO_BRAIN_RELEASE_SIGNING_SECRET");
+
+    const stagingScript = readFileSync(
+      resolve(process.cwd(), "../../.buildkite/scripts/staging-deploy.sh"),
+      "utf8",
+    );
+    const productionScript = readFileSync(
+      resolve(process.cwd(), "../../.buildkite/scripts/production-promote.sh"),
+      "utf8",
+    );
+    expect(stagingScript).toContain(
+      "MAESTRO_BRAIN_RELEASE_SIGNING_KEY_ID is required",
+    );
+    expect(stagingScript).toContain(
+      "MAESTRO_BRAIN_RELEASE_SIGNING_SECRET is required",
+    );
+    expect(productionScript).toContain(
+      "MAESTRO_BRAIN_RELEASE_SIGNING_KEY_ID is required",
+    );
+    expect(productionScript).toContain(
+      "MAESTRO_BRAIN_RELEASE_SIGNING_SECRET is required",
+    );
+    expect(`${pipeline}
+${stagingScript}
+${productionScript}`).not.toContain("test-signing-secret");
+  });
+
+  it("records a deployment isolation receipt without raw URLs or secrets", () => {
+    const repoRoot = makeRepo();
+
+    try {
+      writeProjectConfig(repoRoot);
+      const receipt = buildDeploymentIsolationReceipt({
+        repoRoot,
+        commandResults: [
+          { command: "rtk pnpm --dir tooling/release typecheck", ok: true },
+          {
+            command: "rtk pnpm deploy:doctor staging",
+            ok: false,
+            detail: "credentials unavailable",
+          },
+        ],
+      });
+
+      expect(receipt).toMatchObject({
+        ok: true,
+        environments: {
+          staging: {
+            convexUrlHash: expect.stringMatching(/^sha256:/),
+            deployKeyOwner: "Backend owner",
+          },
+          production: {
+            convexUrlHash: expect.stringMatching(/^sha256:/),
+            deployKeyOwner: "Backend owner",
+          },
+        },
+        negativeCrossDeployAttempts: expect.arrayContaining([
+          expect.objectContaining({
+            attemptedEnvironment: "staging",
+            providedKeyEnv: "MAESTRO_BRAIN_PRODUCTION_CONVEX_DEPLOY_KEY",
+            failure: expect.objectContaining({
+              code: "EnvironmentCredentialMismatch",
+            }),
+          }),
+        ]),
+        noDemoSeedTranscript: expect.arrayContaining([
+          expect.objectContaining({
+            path: ".buildkite/scripts/staging-deploy.sh",
+            status: "pass",
+          }),
+          expect.objectContaining({
+            path: ".buildkite/scripts/production-promote.sh",
+            status: "pass",
+          }),
+        ]),
+        commandResults: expect.arrayContaining([
+          expect.objectContaining({
+            command: "rtk pnpm --dir tooling/release typecheck",
+            ok: true,
+          }),
+        ]),
+      });
+      expect(JSON.stringify(receipt)).not.toContain(
+        "https://staging.convex.cloud",
+      );
+      expect(JSON.stringify(receipt)).not.toContain("test-signing-secret");
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
   });
 
   it("builds an investor readiness report", () => {
@@ -797,6 +982,11 @@ describe("release tooling", () => {
         manifestHash: "manifest-hash",
         buildId: "build-1",
         timestamp: "2026-07-14T00:00:00.000Z",
+        signing: {
+          signer: "release-bot@example.test",
+          keyId: "release-key-1",
+          secret: "test-signing-secret",
+        },
       });
       expect(
         buildProductionPromotePlan({
@@ -804,6 +994,7 @@ describe("release tooling", () => {
           stagedSha: "abc123",
           currentSha: "abc123",
           releasePacket,
+          trustedSigningKeys: { "release-key-1": "test-signing-secret" },
         }),
       ).toMatchObject({
         ok: true,
@@ -820,8 +1011,9 @@ describe("release tooling", () => {
         }),
       ).toMatchObject({
         ok: false,
+        failure: { code: "UnstagedCommit" },
         refusal:
-          "Refusing production promotion: staged SHA abc123 does not match current SHA def456.",
+          "UnstagedCommit: staged SHA abc123 does not match current SHA def456.",
         alert: {
           severity: "critical",
           title: "Production promotion refused",
@@ -830,7 +1022,7 @@ describe("release tooling", () => {
             environment: "production",
             commitSha: "def456",
             refusal:
-              "Refusing production promotion: staged SHA abc123 does not match current SHA def456.",
+              "UnstagedCommit: staged SHA abc123 does not match current SHA def456.",
           },
         },
       });
@@ -1037,8 +1229,9 @@ describe("release tooling", () => {
         ),
       ).toMatchObject({
         ok: false,
+        failure: { code: "UnstagedCommit" },
         refusal:
-          "Refusing production promotion: staged SHA abc123 does not match current SHA def456.",
+          "UnstagedCommit: staged SHA abc123 does not match current SHA def456.",
       });
     } finally {
       rmSync(repoRoot, { recursive: true, force: true });

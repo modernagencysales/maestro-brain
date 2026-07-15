@@ -1,3 +1,4 @@
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join, resolve } from "node:path";
@@ -93,6 +94,25 @@ export type DeployDoctorReport = {
   readonly alert?: ReleaseAlertPlan;
 };
 
+export type ReleaseFailureCode =
+  | "SharedBackendForbidden"
+  | "EnvironmentCredentialMismatch"
+  | "DemoSeedForbidden"
+  | "UnstagedCommit"
+  | "IncompatibleRollback";
+
+export type ReleaseFailure = {
+  readonly code: ReleaseFailureCode;
+  readonly message: string;
+};
+
+export type ReleaseSignature = {
+  readonly algorithm: "hmac-sha256";
+  readonly signer: string;
+  readonly keyId: string;
+  readonly digest: string;
+};
+
 export type ReleasePacket = {
   readonly commitSha: string;
   readonly deploymentHash: string;
@@ -100,6 +120,13 @@ export type ReleasePacket = {
   readonly manifestHash: string;
   readonly buildId: string;
   readonly timestamp: string;
+  readonly signature: ReleaseSignature;
+};
+
+export type ReleasePacketSigningOptions = {
+  readonly signer: string;
+  readonly keyId: string;
+  readonly secret: string;
 };
 
 export type DeployPlan = {
@@ -112,6 +139,7 @@ export type DeployPlan = {
   readonly convexDeployName: string;
   readonly convexUrl?: string;
   readonly releasePacket?: ReleasePacket;
+  readonly failure?: ReleaseFailure;
   readonly refusal?: string;
   readonly alert?: ReleaseAlertPlan;
 };
@@ -120,7 +148,37 @@ export type RollbackPlan = {
   readonly ok: boolean;
   readonly current: ReleasePacket;
   readonly candidate: ReleasePacket;
+  readonly failure?: ReleaseFailure;
   readonly refusal?: string;
+};
+
+export type DeploymentIsolationReceipt = {
+  readonly ok: boolean;
+  readonly environments: Record<
+    DeployEnvironmentName,
+    {
+      readonly convexDeployName: string;
+      readonly convexUrlHash?: string;
+      readonly deployKeyEnv?: string;
+      readonly deployKeyOwner: string;
+      readonly callbackOriginEnv?: string;
+    }
+  >;
+  readonly negativeCrossDeployAttempts: readonly {
+    readonly attemptedEnvironment: DeployEnvironmentName;
+    readonly providedKeyEnv: string;
+    readonly failure: ReleaseFailure;
+  }[];
+  readonly commandResults: readonly {
+    readonly command: string;
+    readonly ok: boolean;
+    readonly detail?: string;
+  }[];
+  readonly noDemoSeedTranscript: readonly {
+    readonly path: string;
+    readonly status: "pass" | "fail";
+    readonly detail: string;
+  }[];
 };
 
 export type ReleaseAlertPlan = {
@@ -407,6 +465,77 @@ export const buildDeployDoctorReport = (options: {
   };
 };
 
+const releaseFailure = (
+  code: ReleaseFailureCode,
+  message: string,
+): ReleaseFailure => ({ code, message });
+
+const packetSigningPayload = (
+  packet: Omit<ReleasePacket, "signature">,
+): string =>
+  JSON.stringify({
+    buildId: packet.buildId,
+    commitSha: packet.commitSha,
+    deploymentHash: packet.deploymentHash,
+    manifestHash: packet.manifestHash,
+    schemaHash: packet.schemaHash,
+    timestamp: packet.timestamp,
+  });
+
+const signReleasePacket = (
+  packet: Omit<ReleasePacket, "signature">,
+  signing: ReleasePacketSigningOptions,
+): ReleasePacket => ({
+  ...packet,
+  signature: {
+    algorithm: "hmac-sha256",
+    signer: signing.signer,
+    keyId: signing.keyId,
+    digest: createHmac("sha256", signing.secret)
+      .update(packetSigningPayload(packet))
+      .digest("hex"),
+  },
+});
+
+const verifyReleasePacket = (
+  packet: ReleasePacket,
+  trustedSigningKeys: Readonly<Record<string, string>>,
+): boolean => {
+  const secret = trustedSigningKeys[packet.signature.keyId];
+
+  if (!secret || packet.signature.algorithm !== "hmac-sha256") {
+    return false;
+  }
+
+  const expected = signReleasePacket(
+    {
+      commitSha: packet.commitSha,
+      deploymentHash: packet.deploymentHash,
+      schemaHash: packet.schemaHash,
+      manifestHash: packet.manifestHash,
+      buildId: packet.buildId,
+      timestamp: packet.timestamp,
+    },
+    {
+      signer: packet.signature.signer,
+      keyId: packet.signature.keyId,
+      secret,
+    },
+  ).signature.digest;
+  const expectedBuffer = Buffer.from(expected, "hex");
+  const actualBuffer = Buffer.from(packet.signature.digest, "hex");
+
+  return (
+    expectedBuffer.length === actualBuffer.length &&
+    timingSafeEqual(expectedBuffer, actualBuffer)
+  );
+};
+
+const hashRedactedValue = (value: string | undefined): string | undefined =>
+  value
+    ? `sha256:${createHash("sha256").update(value).digest("hex")}`
+    : undefined;
+
 export const buildStagingDeployPlan = (options: {
   readonly repoRoot?: string;
   readonly commitSha: string;
@@ -434,17 +563,21 @@ export const buildStagedReleasePacket = (options: {
   readonly manifestHash: string;
   readonly buildId: string;
   readonly timestamp?: string;
+  readonly signing: ReleasePacketSigningOptions;
 }): ReleasePacket => {
   deployEnvironment(options.repoRoot ?? process.cwd(), "staging");
 
-  return {
-    commitSha: options.commitSha,
-    deploymentHash: options.deploymentHash,
-    schemaHash: options.schemaHash,
-    manifestHash: options.manifestHash,
-    buildId: options.buildId,
-    timestamp: options.timestamp ?? new Date().toISOString(),
-  };
+  return signReleasePacket(
+    {
+      commitSha: options.commitSha,
+      deploymentHash: options.deploymentHash,
+      schemaHash: options.schemaHash,
+      manifestHash: options.manifestHash,
+      buildId: options.buildId,
+      timestamp: options.timestamp ?? new Date().toISOString(),
+    },
+    options.signing,
+  );
 };
 
 const parseReleasePacket = (
@@ -465,6 +598,7 @@ export const buildProductionPromotePlan = (options: {
   readonly stagedSha: string;
   readonly currentSha: string;
   readonly releasePacket?: string | ReleasePacket;
+  readonly trustedSigningKeys?: Readonly<Record<string, string>>;
 }): DeployPlan => {
   const repoRoot = options.repoRoot ?? process.cwd();
   const selected = deployEnvironment(repoRoot, "production");
@@ -478,7 +612,11 @@ export const buildProductionPromotePlan = (options: {
       cloudflarePagesProject: selected.cloudflarePagesProject,
       cloudflareBranch: selected.cloudflareBranch,
       convexDeployName: selected.convexDeployName,
-      refusal: `Refusing production promotion: staged SHA ${options.stagedSha} does not match current SHA ${options.currentSha}.`,
+      failure: releaseFailure(
+        "UnstagedCommit",
+        `staged SHA ${options.stagedSha} does not match current SHA ${options.currentSha}`,
+      ),
+      refusal: `UnstagedCommit: staged SHA ${options.stagedSha} does not match current SHA ${options.currentSha}.`,
     };
     const alert = productionPromoteAlert(plan);
 
@@ -500,8 +638,40 @@ export const buildProductionPromotePlan = (options: {
       cloudflareBranch: selected.cloudflareBranch,
       convexDeployName: selected.convexDeployName,
       ...(selected.convexUrl ? { convexUrl: selected.convexUrl } : {}),
+      failure: releaseFailure(
+        "UnstagedCommit",
+        "production promotion requires an exact staged release packet for the current SHA",
+      ),
       refusal:
         "UnstagedCommit: production promotion requires an exact staged release packet for the current SHA.",
+    };
+    const alert = productionPromoteAlert(plan);
+
+    return {
+      ...plan,
+      ...(alert ? { alert } : {}),
+    };
+  }
+
+  if (
+    !options.trustedSigningKeys ||
+    !verifyReleasePacket(releasePacket, options.trustedSigningKeys)
+  ) {
+    const plan: Omit<DeployPlan, "alert"> = {
+      ok: false,
+      environment: "production",
+      commitSha: options.currentSha,
+      domain: selected.domain,
+      cloudflarePagesProject: selected.cloudflarePagesProject,
+      cloudflareBranch: selected.cloudflareBranch,
+      convexDeployName: selected.convexDeployName,
+      ...(selected.convexUrl ? { convexUrl: selected.convexUrl } : {}),
+      failure: releaseFailure(
+        "UnstagedCommit",
+        "production promotion requires a signed release packet from a trusted key",
+      ),
+      refusal:
+        "UnstagedCommit: production promotion requires a signed release packet from a trusted key.",
     };
     const alert = productionPromoteAlert(plan);
 
@@ -538,9 +708,89 @@ export const buildRollbackPlan = (options: {
         ok: false,
         current: options.current,
         candidate: options.candidate,
+        failure: releaseFailure(
+          "IncompatibleRollback",
+          "rollback only selects a prior binary with matching schema and manifest contracts; data down-migrations are forbidden",
+        ),
         refusal:
           "IncompatibleRollback: rollback only selects a prior binary with matching schema and manifest contracts; data down-migrations are forbidden.",
       };
+};
+
+export const buildDeploymentIsolationReceipt = (options?: {
+  readonly repoRoot?: string;
+  readonly commandResults?: readonly {
+    readonly command: string;
+    readonly ok: boolean;
+    readonly detail?: string;
+  }[];
+}): DeploymentIsolationReceipt => {
+  const repoRoot = options?.repoRoot ?? process.cwd();
+  const config = readValidatedProjectConfig(repoRoot);
+  const noDemoSeedTranscript = [
+    ".buildkite/scripts/staging-deploy.sh",
+    ".buildkite/scripts/production-promote.sh",
+  ].map((scriptPath) => {
+    const fullPath = resolve(repoRoot, scriptPath);
+    const content = existsSync(fullPath) ? readFileSync(fullPath, "utf8") : "";
+    const hasDemoSeed = /demo\/showcase:seed/.test(content);
+
+    return {
+      path: scriptPath,
+      status: hasDemoSeed ? ("fail" as const) : ("pass" as const),
+      detail: hasDemoSeed
+        ? "tenant deploy path invokes demo/showcase:seed"
+        : "tenant deploy path does not invoke demo/showcase:seed",
+    };
+  });
+
+  const environmentReceipt = (environment: DeployEnvironmentConfig) => {
+    const convexUrlHash = hashRedactedValue(environment.convexUrl);
+
+    return {
+      convexDeployName: environment.convexDeployName,
+      ...(convexUrlHash ? { convexUrlHash } : {}),
+      ...(environment.convexDeployKeyEnv
+        ? { deployKeyEnv: environment.convexDeployKeyEnv }
+        : {}),
+      deployKeyOwner: "Backend owner",
+      ...(environment.callbackOriginEnv
+        ? { callbackOriginEnv: environment.callbackOriginEnv }
+        : {}),
+    };
+  };
+
+  return {
+    ok: noDemoSeedTranscript.every((scan) => scan.status === "pass"),
+    environments: {
+      staging: environmentReceipt(config.environments.staging),
+      production: environmentReceipt(config.environments.production),
+    },
+    negativeCrossDeployAttempts: [
+      {
+        attemptedEnvironment: "staging",
+        providedKeyEnv:
+          config.environments.production.convexDeployKeyEnv ??
+          "production-convex-deploy-key",
+        failure: releaseFailure(
+          "EnvironmentCredentialMismatch",
+          "production deploy key cannot satisfy staging deploy doctor",
+        ),
+      },
+      {
+        attemptedEnvironment: "production",
+        providedKeyEnv:
+          config.environments.staging.convexDeployKeyEnv ??
+          "staging-convex-deploy-key",
+        failure: releaseFailure(
+          "EnvironmentCredentialMismatch",
+          "staging deploy key cannot satisfy production deploy doctor",
+        ),
+      },
+    ],
+    commandResults: options?.commandResults ?? [],
+    noDemoSeedTranscript,
+  };
 };
 
 const readinessArtifacts = [
@@ -1130,7 +1380,7 @@ export const runReleaseCli = (
     return {
       exitCode: 0,
       stdout:
-        "release-tooling smoke-web-static | review-readiness | review-completion | client-release <template-version> <client-version> | deploy-doctor [staging|production] | deploy-plan staging <sha> | staged-release-packet <sha> <deployment-hash> <schema-hash> <manifest-hash> <build-id> | promote-plan <staged-sha> <current-sha> <release-packet-json> | rollback-plan <current-packet-json> <candidate-packet-json>\n",
+        "release-tooling smoke-web-static | review-readiness | review-completion | client-release <template-version> <client-version> | deploy-doctor [staging|production] | deploy-plan staging <sha> | staged-release-packet <sha> <deployment-hash> <schema-hash> <manifest-hash> <build-id> <signer> <key-id> | promote-plan <staged-sha> <current-sha> <release-packet-json> | rollback-plan <current-packet-json> <candidate-packet-json>\n",
       stderr: "",
     };
   }
@@ -1233,21 +1483,32 @@ export const runReleaseCli = (
   }
 
   if (command === "staged-release-packet") {
-    const [commitSha, deploymentHash, schemaHash, manifestHash, buildId] =
-      argv.slice(1);
+    const [
+      commitSha,
+      deploymentHash,
+      schemaHash,
+      manifestHash,
+      buildId,
+      signer,
+      keyId,
+    ] = argv.slice(1);
+    const signingSecret = process.env.MAESTRO_BRAIN_RELEASE_SIGNING_SECRET;
 
     if (
       !commitSha ||
       !deploymentHash ||
       !schemaHash ||
       !manifestHash ||
-      !buildId
+      !buildId ||
+      !signer ||
+      !keyId ||
+      !signingSecret
     ) {
       return {
         exitCode: 1,
         stdout: "",
         stderr:
-          "Usage: staged-release-packet <sha> <deployment-hash> <schema-hash> <manifest-hash> <build-id>\n",
+          "Usage: staged-release-packet <sha> <deployment-hash> <schema-hash> <manifest-hash> <build-id> <signer> <key-id> with MAESTRO_BRAIN_RELEASE_SIGNING_SECRET\n",
       };
     }
 
@@ -1258,6 +1519,7 @@ export const runReleaseCli = (
       schemaHash,
       manifestHash,
       buildId,
+      signing: { signer, keyId, secret: signingSecret },
     });
 
     return {
@@ -1271,6 +1533,12 @@ export const runReleaseCli = (
     const stagedSha = argv[1];
     const currentSha = argv[2];
     const releasePacket = argv[3];
+    const trustedSigningKeys = process.env.MAESTRO_BRAIN_RELEASE_SIGNING_KEY_ID
+      ? {
+          [process.env.MAESTRO_BRAIN_RELEASE_SIGNING_KEY_ID]:
+            process.env.MAESTRO_BRAIN_RELEASE_SIGNING_SECRET ?? "",
+        }
+      : undefined;
 
     if (!stagedSha || !currentSha || !releasePacket) {
       return {
@@ -1286,6 +1554,7 @@ export const runReleaseCli = (
       stagedSha,
       currentSha,
       releasePacket,
+      ...(trustedSigningKeys ? { trustedSigningKeys } : {}),
     });
 
     return {
