@@ -60,8 +60,9 @@ describe("frontend platform routes", () => {
     );
 
     const shellSource = read("src/saas-ui/business-shell.tsx");
-    expect(shellSource).toContain("VITE_ENABLE_REFERENCE_ROUTES");
-    expect(shellSource).toContain("!import.meta.env.PROD");
+    expect(shellSource).toContain("isReferenceRoutesEnabled()");
+    expect(shellSource).not.toContain("import.meta.env");
+    expect(read("src/env.ts")).toContain("VITE_ENABLE_REFERENCE_ROUTES");
     expect(shellSource).toContain("ReferenceRouteUnavailable");
     expect(shellSource).toContain("This reference route is hidden");
   });

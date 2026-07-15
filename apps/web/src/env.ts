@@ -2,6 +2,10 @@ export type WebEnv = {
   readonly VITE_CONVEX_URL: string;
 };
 
+export const isReferenceRoutesEnabled = (): boolean =>
+  !import.meta.env.PROD &&
+  import.meta.env.VITE_ENABLE_REFERENCE_ROUTES === "true";
+
 export class WebEnvConfigError extends Error {
   readonly invalidEnv: readonly string[];
 

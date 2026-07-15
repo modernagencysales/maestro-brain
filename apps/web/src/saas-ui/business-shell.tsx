@@ -24,6 +24,7 @@ import {
   type ProductRouteKey,
   type TemplateRouteKey,
 } from "../navigation/workspace";
+import { isReferenceRoutesEnabled } from "../env";
 import { DataLifecycleSurface } from "../features/data-lifecycle/data-lifecycle-surface";
 import { LiveWorkflowRunsPanel } from "../features/workflows/live-runs-panel";
 import {
@@ -241,9 +242,7 @@ export type BusinessSectionKey = keyof typeof sectionDetails;
 
 const productBusinessSections = new Set<BusinessSectionKey>(["brain"]);
 
-const referenceRoutesEnabled =
-  !import.meta.env.PROD &&
-  import.meta.env.VITE_ENABLE_REFERENCE_ROUTES === "true";
+const referenceRoutesEnabled = isReferenceRoutesEnabled();
 
 const routePathByKey = Object.fromEntries(
   TEMPLATE_ROUTE_ITEMS.map((item) => [item.key, item.path]),
