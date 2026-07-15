@@ -1,14 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
+  approveBrainEvalArtifact,
   buildBrainEvalReport,
   checkFrozenBrainFixtures,
   wilsonLowerBound95,
 } from "./brain-eval-report";
 
 describe("Brain eval report", () => {
-  it("builds approved receipts with immutable fixture hashes", () => {
+  it("builds fixture reports without approving model promotion", () => {
     const report = buildBrainEvalReport();
-    expect(report.passed).toBe(true);
+    expect(report.passed).toBe(false);
+    expect(report.approval).toBe("rejected-fixture-only");
     expect(report.fixtureHash).toMatch(/^[a-f0-9]{64}$/);
     expect(report.suites.map((suite) => suite.suiteName)).toEqual([
       "classification",
@@ -17,6 +19,25 @@ describe("Brain eval report", () => {
       "promptInjection",
       "multilingual",
     ]);
+    expect(() => approveBrainEvalArtifact(report)).toThrow(
+      "Brain eval approval requires an external run artifact.",
+    );
+  });
+
+  it("approves only external run artifacts with passing suite receipts", () => {
+    const report = buildBrainEvalReport();
+    const approved = approveBrainEvalArtifact({
+      schemaVersion: "maestro-brain-eval-approval-artifact/v1",
+      runId: "external-run-2026-07-14",
+      generatedAt: "2026-07-14T00:00:00.000Z",
+      suiteResults: report.suites.map((suite) => ({
+        ...suite,
+        status: "approved",
+        receipt: { ...suite.receipt, passed: true, failures: [] },
+      })),
+    });
+
+    expect(approved.runId).toBe("external-run-2026-07-14");
   });
 
   it("checks frozen fixture completeness and Appendix J denominators", () => {

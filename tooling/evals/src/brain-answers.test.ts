@@ -6,11 +6,64 @@ const fixture = () =>
   assertRecord(loadFrozenBrainEvalFixture(), "fixture").answers;
 
 describe("Brain answers eval", () => {
-  it("approves the frozen answer fixture", () => {
+  it("does not approve fixture answer booleans without claim/citation/source artifacts", () => {
     const result = evaluateBrainAnswers(fixture());
-    expect(result.receipt.passed).toBe(true);
+    expect(result.receipt.passed).toBe(false);
     expect(result.receipt.totals.testCases).toBe(400);
-    expect(result.receipt.metrics.entailment?.passed).toBe(true);
+    expect(result.receipt.metrics.entailment?.passed).toBe(false);
+  });
+
+  it("scores answer claims from artifact fields instead of trusting booleans", () => {
+    const result = evaluateBrainAnswers({
+      suiteVersion: "artifact-v1",
+      modelId: "candidate",
+      promptVersion: "prompt",
+      toolSchemaVersion: "tool",
+      cases: [
+        {
+          id: "claim-a",
+          split: "test",
+          labels: {
+            reviewerA: "entailed",
+            reviewerB: "entailed",
+            adjudicated: "entailed",
+          },
+          kind: "claim",
+          output: {
+            claimEntailed: false,
+            citationLocatorResolved: true,
+            redactionMarker: false,
+            abstained: false,
+            inventedSource: false,
+            claimText: "Agency key is stable",
+            citedQuote: "Agency key is stable across exports",
+            citationLocator: "brain://page/rev#L1",
+            sourceArtifactHash:
+              "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          },
+        },
+        {
+          id: "abstain-a",
+          split: "test",
+          labels: {
+            reviewerA: "abstain",
+            reviewerB: "abstain",
+            adjudicated: "abstain",
+          },
+          kind: "no-evidence",
+          output: {
+            claimEntailed: false,
+            citationLocatorResolved: false,
+            redactionMarker: true,
+            abstained: true,
+            inventedSource: false,
+          },
+        },
+      ],
+    });
+
+    expect(result.receipt.metrics.entailment?.numerator).toBe(1);
+    expect(result.receipt.failures).toEqual([]);
   });
 
   it("fails unsupported claims, bad citations, and no-evidence invention", () => {

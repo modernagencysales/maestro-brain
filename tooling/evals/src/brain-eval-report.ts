@@ -47,6 +47,12 @@ export type BrainEvalSuiteResult = {
   readonly receipt: BrainEvalReceipt;
   readonly status: ModelPromptStatus;
 };
+export type BrainEvalApprovalArtifact = {
+  readonly schemaVersion: "maestro-brain-eval-approval-artifact/v1";
+  readonly runId: string;
+  readonly generatedAt: string;
+  readonly suiteResults: readonly BrainEvalSuiteResult[];
+};
 
 type FixtureRoot = Record<string, unknown>;
 
@@ -190,10 +196,43 @@ export const buildBrainEvalReport = () => {
   return {
     generatedBy: "@maestro-template/evals brain:eval",
     fixtureHash: sha256(fixture),
+    mode: "fixture-only",
     suites,
-    passed: suites.every(
-      (suite) => suite.receipt.passed && suite.status === "approved",
-    ),
+    passed: false,
+    approval: "rejected-fixture-only",
+  };
+};
+
+export const approveBrainEvalArtifact = (
+  artifact: unknown,
+): BrainEvalApprovalArtifact => {
+  const record = assertRecord(artifact, "Brain eval approval artifact");
+  if (record.schemaVersion !== "maestro-brain-eval-approval-artifact/v1") {
+    throw new Error("Brain eval approval requires an external run artifact.");
+  }
+  const runId = assertString(record.runId, "Brain eval run id").trim();
+  if (runId.length === 0 || runId === "fixture" || runId === "fixture-only") {
+    throw new Error("Brain eval approval requires a non-fixture run id.");
+  }
+  const suiteResults = record.suiteResults;
+  if (!Array.isArray(suiteResults) || suiteResults.length === 0) {
+    throw new Error("Brain eval approval requires suite result artifacts.");
+  }
+  const failed = suiteResults.find((suite) => {
+    const value = assertRecord(suite, "suite result");
+    const receipt = assertRecord(value.receipt, "suite receipt");
+    return receipt.passed !== true || value.status !== "approved";
+  });
+  if (failed !== undefined) {
+    throw new Error(
+      "Brain eval approval requires all external suite artifacts to pass.",
+    );
+  }
+  return {
+    schemaVersion: "maestro-brain-eval-approval-artifact/v1",
+    runId,
+    generatedAt: assertString(record.generatedAt, "Brain eval generatedAt"),
+    suiteResults: suiteResults as readonly BrainEvalSuiteResult[],
   };
 };
 

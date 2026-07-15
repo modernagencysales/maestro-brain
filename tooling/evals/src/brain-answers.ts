@@ -17,10 +17,16 @@ export type BrainAnswerOutput = {
   readonly abstained: boolean;
   readonly inventedSource: boolean;
 };
+export type BrainAnswerArtifactOutput = BrainAnswerOutput & {
+  readonly claimText?: string;
+  readonly citedQuote?: string;
+  readonly citationLocator?: string;
+  readonly sourceArtifactHash?: string;
+};
 
 export type BrainAnswerRunResult = {
   readonly caseId: string;
-  readonly output: BrainAnswerOutput;
+  readonly output: BrainAnswerArtifactOutput;
 };
 
 export type BrainAnswerRun = {
@@ -30,7 +36,7 @@ export type BrainAnswerRun = {
 
 export type BrainAnswerCase = BrainEvalCaseBase & {
   readonly kind: "claim" | "no-evidence";
-  readonly output: BrainAnswerOutput;
+  readonly output: BrainAnswerArtifactOutput;
 };
 
 export const parseBrainAnswerCases = (
@@ -53,7 +59,7 @@ export const parseBrainAnswerCases = (
   });
 };
 
-const parseOutput = (value: unknown): BrainAnswerOutput => {
+const parseOutput = (value: unknown): BrainAnswerArtifactOutput => {
   const output = assertRecord(value, "answer output");
   return {
     claimEntailed: output.claimEntailed === true,
@@ -61,8 +67,31 @@ const parseOutput = (value: unknown): BrainAnswerOutput => {
     redactionMarker: output.redactionMarker === true,
     abstained: output.abstained === true,
     inventedSource: output.inventedSource === true,
+    ...(typeof output.claimText === "string"
+      ? { claimText: output.claimText }
+      : {}),
+    ...(typeof output.citedQuote === "string"
+      ? { citedQuote: output.citedQuote }
+      : {}),
+    ...(typeof output.citationLocator === "string"
+      ? { citationLocator: output.citationLocator }
+      : {}),
+    ...(typeof output.sourceArtifactHash === "string"
+      ? { sourceArtifactHash: output.sourceArtifactHash }
+      : {}),
   };
 };
+
+const hasArtifactSupport = (output: BrainAnswerArtifactOutput): boolean =>
+  typeof output.claimText === "string" &&
+  output.claimText.length > 0 &&
+  typeof output.citedQuote === "string" &&
+  output.citedQuote.length > 0 &&
+  output.citedQuote.includes(output.claimText) &&
+  typeof output.citationLocator === "string" &&
+  output.citationLocator.length > 0 &&
+  typeof output.sourceArtifactHash === "string" &&
+  /^sha256:[a-f0-9]{64}$/i.test(output.sourceArtifactHash);
 
 export const parseBrainAnswerRun = (value: unknown): BrainAnswerRun => {
   const record = assertRecord(value, "answer run");
@@ -117,7 +146,8 @@ export const evaluateBrainAnswers = (
   const entailed = claimCases.filter((entry) => {
     const output = outputFor(entry);
     if (output === null) return false;
-    const passed = reviewedLabelPassed(entry.labels) && output.claimEntailed;
+    const passed =
+      reviewedLabelPassed(entry.labels) && hasArtifactSupport(output);
     if (!passed)
       failures.push({
         caseId: entry.id,
@@ -128,7 +158,11 @@ export const evaluateBrainAnswers = (
   const locators = testCases.filter((entry) => {
     const output = outputFor(entry);
     if (output === null) return false;
-    const passed = output.citationLocatorResolved || output.redactionMarker;
+    const passed =
+      output.redactionMarker ||
+      (output.citationLocatorResolved &&
+        typeof output.citationLocator === "string" &&
+        output.citationLocator.length > 0);
     if (!passed)
       failures.push({
         caseId: entry.id,

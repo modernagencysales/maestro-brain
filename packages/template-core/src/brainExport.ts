@@ -31,6 +31,8 @@ export type BrainExportPage = {
   path: string;
   title: string;
   body: string;
+  lifecycleState: BrainExportLifecycleState;
+  lifecycleGeneration: number;
   revisionKey: string;
   updatedAt: string;
   citationKeys: string[];
@@ -40,6 +42,7 @@ export type BrainExportSource = {
   title: string;
   kind: string;
   lifecycleState: BrainExportLifecycleState;
+  lifecycleGeneration: number;
   revisionKey: string;
   contentHash: string;
   updatedAt: string;
@@ -50,6 +53,8 @@ export type BrainExportCitation = {
   pageKey: string;
   sourceKey: string;
   quote: string;
+  lifecycleState: BrainExportLifecycleState;
+  lifecycleGeneration: number;
   revisionKey: string;
 };
 export type BrainExportInput = {
@@ -284,12 +289,46 @@ export const encodeBrainExport = (
     seenPaths.set(path, page.pageKey);
     pathByPageKey.set(page.pageKey, path);
   }
-  for (const source of input.sources) {
-    if (source.lifecycleState !== "active") {
+  const assertExportableLifecycle = (item: {
+    readonly kind: "page" | "source" | "citation";
+    readonly key: string;
+    readonly lifecycleState: BrainExportLifecycleState;
+    readonly lifecycleGeneration: number;
+  }): void => {
+    if (item.lifecycleState !== "active") {
       throw new ExportLifecycleDenied(
-        `source is not exportable: ${source.sourceKey}`,
+        `${item.kind} is not exportable: ${item.key}`,
       );
     }
+    if (item.lifecycleGeneration !== input.lifecycleGeneration) {
+      throw new ExportLifecycleDenied(
+        `${item.kind} lifecycle generation is stale: ${item.key}`,
+      );
+    }
+  };
+  for (const page of input.pages) {
+    assertExportableLifecycle({
+      kind: "page",
+      key: page.pageKey,
+      lifecycleState: page.lifecycleState,
+      lifecycleGeneration: page.lifecycleGeneration,
+    });
+  }
+  for (const source of input.sources) {
+    assertExportableLifecycle({
+      kind: "source",
+      key: source.sourceKey,
+      lifecycleState: source.lifecycleState,
+      lifecycleGeneration: source.lifecycleGeneration,
+    });
+  }
+  for (const citation of input.citations) {
+    assertExportableLifecycle({
+      kind: "citation",
+      key: citation.citationKey,
+      lifecycleState: citation.lifecycleState,
+      lifecycleGeneration: citation.lifecycleGeneration,
+    });
   }
   for (const page of input.pages) {
     if (page.parentPageKey !== null && !pagesByKey.has(page.parentPageKey)) {
@@ -366,6 +405,7 @@ export const encodeBrainExport = (
     sortBy(input.pages, (page) => page.revisionKey)
       .map((page) =>
         jsonLine({
+          lifecycleGeneration: page.lifecycleGeneration,
           pageKey: page.pageKey,
           revisionKey: page.revisionKey,
           updatedAt: page.updatedAt,
@@ -379,6 +419,7 @@ export const encodeBrainExport = (
       .map((source) =>
         jsonLine({
           contentHash: source.contentHash,
+          lifecycleGeneration: source.lifecycleGeneration,
           revisionKey: source.revisionKey,
           sourceKey: source.sourceKey,
           updatedAt: source.updatedAt,

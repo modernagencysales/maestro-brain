@@ -23,6 +23,8 @@ const baseExport = (): BrainExportInput => ({
       path: "Home",
       title: "Home",
       body: "Welcome to [[page_strategy]].\nSee citation [^cite_welcome].",
+      lifecycleState: "active",
+      lifecycleGeneration: 7,
       revisionKey: "page-rev-home",
       updatedAt: "2026-07-13T10:00:00.000Z",
       citationKeys: ["cite_welcome"],
@@ -33,6 +35,8 @@ const baseExport = (): BrainExportInput => ({
       path: "Home/Strategy & Café",
       title: "Strategy & Café",
       body: "Nested link back to [[page_home]] and Unicode: café 🚀.",
+      lifecycleState: "active",
+      lifecycleGeneration: 7,
       revisionKey: "page-rev-strategy",
       updatedAt: "2026-07-13T11:00:00.000Z",
       citationKeys: [],
@@ -44,6 +48,7 @@ const baseExport = (): BrainExportInput => ({
       title: "Discovery Notes",
       kind: "note",
       lifecycleState: "active",
+      lifecycleGeneration: 7,
       revisionKey: "source-rev-notes",
       contentHash: "sha256:notes",
       updatedAt: "2026-07-12T10:00:00.000Z",
@@ -55,6 +60,8 @@ const baseExport = (): BrainExportInput => ({
       pageKey: "page_home",
       sourceKey: "source_notes",
       quote: "Line one\nLine two",
+      lifecycleState: "active",
+      lifecycleGeneration: 7,
       revisionKey: "source-rev-notes",
     },
   ],
@@ -143,12 +150,28 @@ describe("encodeBrainExport", () => {
     expect(() => encodeBrainExport(input)).toThrow(ExportReferenceMissing);
   });
 
-  it("rejects archived, redacted, or purged sources", () => {
+  it("rejects archived, redacted, purged, or stale lifecycle records", () => {
     for (const lifecycleState of ["archived", "redacted", "purged"] as const) {
       const input = baseExport();
       input.sources[0] = { ...getItem(input.sources, 0), lifecycleState };
       expect(() => encodeBrainExport(input)).toThrow(ExportLifecycleDenied);
     }
+
+    const stalePage = baseExport();
+    stalePage.pages[0] = {
+      ...getItem(stalePage.pages, 0),
+      lifecycleGeneration: 6,
+    };
+    expect(() => encodeBrainExport(stalePage)).toThrow(ExportLifecycleDenied);
+
+    const staleCitation = baseExport();
+    staleCitation.citations[0] = {
+      ...getItem(staleCitation.citations, 0),
+      lifecycleGeneration: 6,
+    };
+    expect(() => encodeBrainExport(staleCitation)).toThrow(
+      ExportLifecycleDenied,
+    );
   });
 
   it("rejects unsafe paths and raw provider identifiers", () => {
