@@ -21,7 +21,8 @@ type Slice = {
   readonly workPackages: readonly WorkPackage[];
   readonly taskRefs: readonly string[];
   readonly rationale: string; // advisory only
-  readonly estLines: number; // planning estimate; binding size is actual diff at submit
+  readonly estLines: number; // total task estimate; each actual commit is checked at submit
+  readonly sourceSliceLimit?: number; // coherent commit count; defaults to one
 };
 
 type WorkPackageKind = "fixture-to-real" | "pattern-instance" | "template-gap";
@@ -95,9 +96,16 @@ export function validatePlan(plan: StackPlan): string[] {
   const errors: string[] = [];
 
   for (const s of plan.slices) {
-    if (s.estLines > MAX_EST_LINES)
+    const sourceSliceLimit = s.sourceSliceLimit ?? 1;
+    if (
+      !Number.isInteger(sourceSliceLimit) ||
+      sourceSliceLimit < 1 ||
+      sourceSliceLimit > 5
+    ) {
+      errors.push(`slice ${s.id} sourceSliceLimit must be an integer from 1-5`);
+    } else if (s.estLines > MAX_EST_LINES * sourceSliceLimit)
       errors.push(
-        `slice ${s.id} estLines ${s.estLines} exceeds ${MAX_EST_LINES}`,
+        `slice ${s.id} estLines ${s.estLines} exceeds ${MAX_EST_LINES} * sourceSliceLimit ${sourceSliceLimit}`,
       );
     const contractRiskIds = contractRiskIdsFor(s);
     const unknownRiskIds = unknownContractRiskIds(contractRiskIds);

@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "06d79032c84bc5c2839c0b5cd66d2bf6c523104bd9978aab3f18683f35c56c53",
+  "planSha256": "67674de1dabe335930eaba03fc1f8fe3a7bb15602fe2b6c84af8e68b7f332490",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -180,30 +180,35 @@
       "acceptanceAfter": "S01-T02",
       "classification": "template-gap",
       "codeStartAfter": ["S01-T02"],
-      "estimatedSourceLines": 520,
+      "estimatedSourceLines": 880,
       "fileInventoryIssues": [],
       "fileInventoryStatus": "ready",
       "fileLocks": [
         "apps/web/src/providers/workspace-operations.test.ts",
         "apps/web/src/providers/workspace-operations.ts",
         "apps/web/src/routes/__root.tsx",
+        "packages/convex/confect/access/auth.ts",
         "packages/convex/confect/access/provisioning.impl.ts",
         "packages/convex/confect/access/provisioning.spec.ts",
         "packages/convex/confect/access/provisioning.ts",
         "packages/convex/confect/auth/workspaces.impl.ts",
         "packages/convex/confect/auth/workspaces.spec.ts",
+        "packages/convex/confect/errors.ts",
         "packages/convex/confect/identity/stableKeys.impl.ts",
         "packages/convex/confect/identity/stableKeys.spec.ts",
         "packages/convex/confect/identity/stableKeys.ts",
+        "packages/convex/confect/tables/workspaces.ts",
         "packages/convex/test/access-provisioning.test.ts",
-        "packages/convex/test/authorized-brain-provisioning.test.ts"
+        "packages/convex/test/authorized-brain-provisioning.test.ts",
+        "tooling/quality/check-auth-demo-bypass.mts",
+        "tooling/quality/check-auth-demo-bypass.test.mts"
       ],
-      "gateProfiles": ["convex", "web"],
+      "gateProfiles": ["convex", "tooling", "web"],
       "kind": "product",
       "lane": "identity",
       "requirements": ["IAM-01", "IAM-02", "IAM-03", "UI-02"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "2acbd29281e9daefb7c8c6ab97be1aa460521b0c42c5e2fe4d41dbc6ca11776e",
+      "taskBlockHash": "b8855d34c2ab0f77517e385ab4ea3fc14c5d5ef820d2615b3e278c78f963faa0",
       "taskId": "S01-T03",
       "title": "Authorize Workspace Listing And Brain Provisioning",
       "tranche": "D2-domain-bodies"

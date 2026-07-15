@@ -219,10 +219,23 @@ describe("Maestro Brain execution manifest", () => {
     const providerSetup = manifest.tasks.find(
       (task) => task.taskId === "S04-T01",
     );
+    const authorizedTenancy = manifest.tasks.find(
+      (task) => task.taskId === "S01-T03",
+    );
     const headlessPrincipal = manifest.tasks.find(
       (task) => task.taskId === "S11-T02",
     );
     expect(stableIdentity?.codeStartAfter).toEqual(["S00-T04", "S01-T01"]);
+    expect(authorizedTenancy?.estimatedSourceLines).toBe(880);
+    expect(authorizedTenancy?.fileLocks).toEqual(
+      expect.arrayContaining([
+        "packages/convex/confect/access/auth.ts",
+        "packages/convex/confect/errors.ts",
+        "packages/convex/confect/tables/workspaces.ts",
+        "tooling/quality/check-auth-demo-bypass.mts",
+        "tooling/quality/check-auth-demo-bypass.test.mts",
+      ]),
+    );
     expect(providerSetup?.codeStartAfter).toEqual(["S00-T03", "S01-T02"]);
     expect(providerSetup?.sourceSliceLimit).toBe(5);
     expect(providerSetup?.estimatedSourceLines).toBe(1_287);

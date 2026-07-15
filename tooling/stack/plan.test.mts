@@ -56,6 +56,34 @@ test("rejects an oversized estimate", () => {
   expect(errs.some((e) => e.includes("estLines"))).toBe(true);
 });
 
+test("bounds a task estimate by its declared source slices", () => {
+  expect(
+    validatePlan(
+      plan({ slices: [slice({ estLines: 1_200, sourceSliceLimit: 4 })] }),
+    ),
+  ).toEqual([]);
+  expect(
+    validatePlan(
+      plan({ slices: [slice({ estLines: 1_201, sourceSliceLimit: 4 })] }),
+    ).some((error) => error.includes("estLines")),
+  ).toBe(true);
+  expect(
+    validatePlan(
+      plan({ slices: [slice({ estLines: 1_287, sourceSliceLimit: 5 })] }),
+    ),
+  ).toEqual([]);
+});
+
+test("rejects invalid source slice limits", () => {
+  for (const sourceSliceLimit of [0, 1.5, 6]) {
+    expect(
+      validatePlan(plan({ slices: [slice({ sourceSliceLimit })] })).some(
+        (error) => error.includes("sourceSliceLimit"),
+      ),
+    ).toBe(true);
+  }
+});
+
 test("rejects out-of-order layers (capability below its schema)", () => {
   const errs = validatePlan(
     plan({

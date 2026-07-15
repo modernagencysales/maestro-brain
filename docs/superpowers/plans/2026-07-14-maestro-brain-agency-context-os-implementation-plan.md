@@ -162,9 +162,10 @@ Before every stack:
    that states the old/new revisions, changed assumptions, affected tasks, and
    re-run review evidence.
 5. Build the temporary StackPlan JSON against that exact `HEAD`, with one slice
-   per task, `estLines <= 300`, no more than four task contracts in the
-   temporary StackPlan, all task refs present, contract risk IDs populated, and
-   each work package classified.
+   per task, total `estLines <= 300 * sourceSliceLimit`, no more than four task
+   contracts in the temporary StackPlan, all task refs present, contract risk
+   IDs populated, and each work package classified. Copy each task's
+   manifest-bound source-slice limit; omitted limits default to one.
 6. Run `rtk pnpm stack:check <absolute-temp-plan.json>`. A passing receipt is a
    prerequisite to the first code commit in the stack.
 
@@ -718,10 +719,15 @@ manifest.
   [`access/auth.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/access/auth.ts#L118-L249).
 - **Files:** modify `packages/convex/confect/auth/workspaces.spec.ts`,
   `packages/convex/confect/auth/workspaces.impl.ts`,
+  `packages/convex/confect/access/auth.ts`,
   `packages/convex/confect/access/provisioning.spec.ts`,
   `packages/convex/confect/access/provisioning.impl.ts`,
   `packages/convex/confect/access/provisioning.ts`,
+  `packages/convex/confect/errors.ts`,
+  `packages/convex/confect/tables/workspaces.ts`,
   `packages/convex/confect/identity/stableKeys.ts`,
+  `tooling/quality/check-auth-demo-bypass.mts`,
+  `tooling/quality/check-auth-demo-bypass.test.mts`,
   `apps/web/src/routes/__root.tsx`,
   `apps/web/src/providers/workspace-operations.ts`, and
   `apps/web/src/providers/workspace-operations.test.ts`; create
@@ -762,11 +768,15 @@ manifest.
   `rtk pnpm brain:factory:check-confect-codegen -- --test authorized-brain-provisioning --test access-provisioning`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test workspace-access`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test workspace-operations workspace`,
-  `rtk pnpm check:confect-contracts`, `rtk pnpm check:access-audit-events`,
-  broad verification is deferred to tranche acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir tooling/quality test check-auth-demo-bypass`,
+  `rtk pnpm check:auth-demo-bypass`, `rtk pnpm check:confect-contracts`,
+  `rtk pnpm check:access-audit-events`, broad verification is deferred to
+  tranche acceptance under Appendix L.
 - **Completion receipt:** table-driven role results, cross-tenant denials,
   generated-ref diff, stable response sample, no-public-Convex-ID scan, and
   audit event sample with no customer text.
+- **Source-slice contract:** 880 demonstrated hand-authored source lines in at
+  most four linear commits; each commit remains at or below 300 lines.
 - **Lane branch / commit boundary:** branch
   `codex/brain-s01-authorized-provisioning`; commit
   `feat: authorize Brain provisioning`.
@@ -3616,7 +3626,7 @@ direct acceptance edge and is the source materialized into `acceptanceAfter`.
 | S00-T04 | S00-T03                 | template-gap migration pattern                   |               780 |
 | S01-T01 | S00 complete            | template-gap `TB-AUTHKIT-01`                     |               240 |
 | S01-T02 | S01-T01                 | template-gap + existing-module repair            |              1050 |
-| S01-T03 | S01-T02                 | template-gap authorized tenancy                  |               520 |
+| S01-T03 | S01-T02                 | template-gap authorized tenancy                  |               880 |
 | S01-T04 | S01-T03                 | template-gap access UI                           |               260 |
 | S02-T01 | S01 complete            | template-gap authorized Brain schema             |               260 |
 | S02-T02 | S02-T01                 | template-gap authorized pages                    |               280 |
