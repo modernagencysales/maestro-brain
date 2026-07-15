@@ -160,6 +160,9 @@ describe("Fabro workflow prompt contracts", () => {
     const reviewGate = wave
       .split("\n")
       .find((line) => line.trimStart().startsWith("review_gate ["));
+    const record = wave
+      .split("\n")
+      .find((line) => line.trimStart().startsWith("record ["));
     expect(wave).toContain("never use a repository-wide glob");
     expect(wave).toContain("Never discover or add a late lane");
     expect(wave).toContain("same-wave edges");
@@ -180,6 +183,11 @@ describe("Fabro workflow prompt contracts", () => {
       2,
     );
     expect(wave).toContain("--wave-selection");
+    expect(record).toContain("integrationWorkdir exactly");
+    expect(record).toContain(
+      "The required field name is integrationWorkdir, not workdir",
+    );
+    expect(record).toContain("never retry malformed apply_patch calls");
   });
 
   it("keeps positive acceptance evidence out of unaccepted lane records", () => {
