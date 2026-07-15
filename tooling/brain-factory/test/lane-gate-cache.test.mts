@@ -128,6 +128,7 @@ describe("brain lane gate command cache", () => {
     expect(implement).toContain("Do not use native apply_patch");
     expect(implement).not.toContain("apply_patch fails once");
     expect(review).toContain("Read-Only Contract Review");
+    expect(review).toContain("max_visits=4");
     expect(review).toContain("exact current planSha256/taskBlockHash");
     expect(review).toContain(
       "Never edit, amend, or commit product/worktree files",
