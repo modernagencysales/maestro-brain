@@ -46,11 +46,15 @@ export const UserRow = Schema.Struct({
 
 export const OrganizationRow = Schema.Struct({
   ownerUserId: Schema.String,
+  workosOrganizationId: OptionalString,
+  agencyKey: OptionalString,
   slug: Schema.String,
   name: Schema.String,
   status: OrganizationStatus,
   createdAt: Schema.Number,
   updatedAt: Schema.Number,
+  lifecycleGeneration: Schema.optional(Schema.Number),
+  revocationGeneration: Schema.optional(Schema.Number),
   archivedAt: Schema.optional(NullableNumber),
 });
 
