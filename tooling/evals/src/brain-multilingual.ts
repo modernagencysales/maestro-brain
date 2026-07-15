@@ -10,13 +10,55 @@ import {
   type BrainEvalSuiteResult,
 } from "./brain-eval-report";
 
+export type BrainMultilingualOutput = {
+  readonly semanticMatch: boolean;
+  readonly abstainedWhenNoEvidence: boolean;
+  readonly authorizationInvariant: boolean;
+  readonly keywordOnlyBypass: boolean;
+};
+
+export type BrainMultilingualRun = {
+  readonly schemaVersion: "maestro-brain-suite-run/v1";
+  readonly results: readonly {
+    readonly caseId: string;
+    readonly output: BrainMultilingualOutput;
+  }[];
+};
+
 export type BrainMultilingualCase = BrainEvalCaseBase & {
   readonly language: string;
-  readonly output: {
-    readonly semanticMatch: boolean;
-    readonly abstainedWhenNoEvidence: boolean;
-    readonly authorizationInvariant: boolean;
-    readonly keywordOnlyBypass: boolean;
+  readonly output: BrainMultilingualOutput;
+};
+
+const parseMultilingualOutput = (value: unknown): BrainMultilingualOutput => {
+  const output = assertRecord(value, "multilingual output");
+  return {
+    semanticMatch: output.semanticMatch === true,
+    abstainedWhenNoEvidence: output.abstainedWhenNoEvidence === true,
+    authorizationInvariant: output.authorizationInvariant === true,
+    keywordOnlyBypass: output.keywordOnlyBypass === true,
+  };
+};
+
+export const parseBrainMultilingualRun = (
+  value: unknown,
+): BrainMultilingualRun => {
+  const record = assertRecord(value, "multilingual run");
+  if (record.schemaVersion !== "maestro-brain-suite-run/v1") {
+    throw new Error("multilingual run schemaVersion must be v1.");
+  }
+  if (!Array.isArray(record.results)) {
+    throw new Error("multilingual run results must be an array.");
+  }
+  return {
+    schemaVersion: "maestro-brain-suite-run/v1",
+    results: record.results.map((entry) => {
+      const result = assertRecord(entry, "multilingual run result");
+      return {
+        caseId: assertString(result.caseId, "multilingual run case id"),
+        output: parseMultilingualOutput(result.output),
+      };
+    }),
   };
 };
 
@@ -27,7 +69,6 @@ export const parseBrainMultilingualCases = (
     throw new Error("Multilingual suite must be an array.");
   return value.map((candidate) => {
     const record = assertRecord(candidate, "multilingual case");
-    const output = assertRecord(record.output, "multilingual output");
     return {
       id: assertString(record.id, "multilingual case id"),
       split: assertString(
@@ -36,27 +77,32 @@ export const parseBrainMultilingualCases = (
       ) as BrainMultilingualCase["split"],
       labels: assertLabels(record.labels),
       language: assertString(record.language, "language"),
-      output: {
-        semanticMatch: output.semanticMatch === true,
-        abstainedWhenNoEvidence: output.abstainedWhenNoEvidence === true,
-        authorizationInvariant: output.authorizationInvariant === true,
-        keywordOnlyBypass: output.keywordOnlyBypass === true,
-      },
+      output: parseMultilingualOutput(record.output),
     };
   });
 };
 
 export const evaluateBrainMultilingual = (
   suiteFixture: unknown,
+  runInput?: unknown,
 ): BrainEvalSuiteResult => {
   const suite = assertRecord(suiteFixture, "multilingual fixture");
   const cases = parseBrainMultilingualCases(suite.cases);
   const testCases = cases.filter((entry) => entry.split === "test");
   const failures: BrainEvalFailure[] = [];
+  const runResults = new Map(
+    (runInput === undefined
+      ? testCases.map((entry) => ({ caseId: entry.id, output: entry.output }))
+      : parseBrainMultilingualRun(runInput).results
+    ).map((result) => [result.caseId, result.output]),
+  );
 
   const semantic = testCases.filter((entry) => {
+    const output = runResults.get(entry.id);
     const passed =
-      reviewedLabelPassed(entry.labels) && entry.output.semanticMatch;
+      output !== undefined &&
+      reviewedLabelPassed(entry.labels) &&
+      output.semanticMatch;
     if (!passed)
       failures.push({
         caseId: entry.id,
@@ -66,10 +112,11 @@ export const evaluateBrainMultilingual = (
     return passed;
   }).length;
   const authorization = testCases.filter((entry) => {
+    const output = runResults.get(entry.id);
     const passed =
-      entry.output.authorizationInvariant &&
-      entry.output.abstainedWhenNoEvidence &&
-      !entry.output.keywordOnlyBypass;
+      output?.authorizationInvariant === true &&
+      output.abstainedWhenNoEvidence &&
+      !output.keywordOnlyBypass;
     if (!passed)
       failures.push({
         caseId: entry.id,

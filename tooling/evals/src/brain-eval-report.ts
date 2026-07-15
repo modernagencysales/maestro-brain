@@ -355,11 +355,11 @@ const recomputeSuiteFromRawArtifact = (
     case "answers":
       return evaluateBrainAnswers(frozenFixture, root.run);
     case "maintenance":
-      return evaluateBrainMaintenance(frozenFixture);
+      return evaluateBrainMaintenance(frozenFixture, root.run);
     case "promptInjection":
-      return evaluateBrainPromptInjection(frozenFixture);
+      return evaluateBrainPromptInjection(frozenFixture, root.run);
     case "multilingual":
-      return evaluateBrainMultilingual(frozenFixture);
+      return evaluateBrainMultilingual(frozenFixture, root.run);
     default:
       throw new Error(
         "Brain eval approval requires the exact external suite set.",
