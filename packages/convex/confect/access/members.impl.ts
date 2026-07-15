@@ -7,8 +7,9 @@ import * as Option from "effect/Option";
 
 import databaseSchema from "../_generated/schema";
 import { DatabaseReader, DatabaseWriter } from "../_generated/services";
-import { MemberNotInWorkspace } from "../errors";
+import { Forbidden, MemberNotInWorkspace } from "../errors";
 import { recordAccessLifecycleEvents } from "./audit";
+import { roleAtLeast, type Role } from "./roles";
 import {
   asGenericId,
   loadCurrentUser,
@@ -27,6 +28,9 @@ import members from "./members.spec";
 
 const MEMBER_SCAN_CAP = 200;
 
+export const canManageWorkspaceMembers = (role: Role): boolean =>
+  roleAtLeast(role, "admin");
+
 const changeRole = FunctionImpl.make(
   databaseSchema,
   members,
@@ -38,7 +42,7 @@ const changeRole = FunctionImpl.make(
       const writer = yield* DatabaseWriter;
       const target = yield* loadMember(reader, membershipId);
       const actor = yield* loadActorForWorkspace(reader, target.workspaceId);
-      yield* requireActorRole(actor, "admin");
+      yield* requireMemberManager(actor);
       const liveMembers = yield* liveWorkspaceMembersOrDie(
         reader,
         target.workspaceId,
@@ -74,7 +78,7 @@ const remove = FunctionImpl.make(
       const writer = yield* DatabaseWriter;
       const target = yield* loadMember(reader, membershipId);
       const actor = yield* loadActorForWorkspace(reader, target.workspaceId);
-      yield* requireActorRole(actor, "admin");
+      yield* requireMemberManager(actor);
       const liveMembers = yield* liveWorkspaceMembersOrDie(
         reader,
         target.workspaceId,
@@ -134,6 +138,17 @@ const transferOwnershipImpl = FunctionImpl.make(
       return null;
     }),
 );
+
+const requireMemberManager = (actor: {
+  readonly role: Role;
+}): Effect.Effect<void, Forbidden> =>
+  canManageWorkspaceMembers(actor.role)
+    ? Effect.void
+    : Effect.fail(
+        new Forbidden({
+          reason: "Member management requires admin or owner role.",
+        }),
+      );
 
 const loadActorForWorkspace = (
   reader: Reader,
