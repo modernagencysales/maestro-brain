@@ -1,7 +1,9 @@
 import {
   QueryResult,
+  useAction as useConfectAction,
   useMutation as useConfectMutation,
   useQuery as useConfectQuery,
+  type InvokeReturn,
   type ReactMutation,
 } from "@confect/react";
 import type { Ref } from "@confect/core";
@@ -200,6 +202,12 @@ export function useTemplateMutation<Mutation extends Ref.AnyPublicMutation>(
   ref: Mutation,
 ): ReactMutation<Mutation> {
   return useConfectMutation(ref);
+}
+
+export function useTemplateAction<Action extends Ref.AnyPublicAction>(
+  ref: Action,
+): (...args: Ref.OptionalArgs<Action>) => InvokeReturn<Action> {
+  return useConfectAction(ref);
 }
 
 export function readyOrEmpty<T>(
