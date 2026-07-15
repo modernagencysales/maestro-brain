@@ -2,13 +2,19 @@ import { FunctionImpl, GroupImpl } from "@confect/server";
 import type { GenericId } from "convex/values";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
+import * as Either from "effect/Either";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import databaseSchema from "../_generated/schema";
 import { DatabaseReader, DatabaseWriter } from "../_generated/services";
 import { Forbidden, MemberNotInWorkspace } from "../errors";
-import { recordAccessLifecycleEvents } from "./audit";
+import {
+  deniedPrivilegedAccessAuditEvent,
+  denialAuditReason,
+  recordAccessAuditEvent,
+  recordAccessLifecycleEvents,
+} from "./audit";
 import { roleAtLeast, type Role } from "./roles";
 import {
   asGenericId,
@@ -42,20 +48,36 @@ const changeRole = FunctionImpl.make(
       const writer = yield* DatabaseWriter;
       const target = yield* loadMember(reader, membershipId);
       const actor = yield* loadActorForWorkspace(reader, target.workspaceId);
-      yield* requireMemberManager(actor);
+      yield* requireMemberManager(actor).pipe(
+        auditDeniedMemberAction(writer, now, {
+          action: "member.roleChanged",
+          workspaceId: target.workspaceId,
+          actorUserId: actor.userId,
+          subjectId: target.id,
+        }),
+      );
       const liveMembers = yield* liveWorkspaceMembersOrDie(
         reader,
         target.workspaceId,
       );
-      const plan = yield* changeMemberRole({
-        actorUserId: actor.userId,
-        actorRole: actor.role,
-        workspaceId: target.workspaceId,
-        target,
-        liveWorkspaceMembers: liveMembers,
-        newRole,
-        now,
-      });
+      const plan = yield* effectFromEither(
+        changeMemberRole({
+          actorUserId: actor.userId,
+          actorRole: actor.role,
+          workspaceId: target.workspaceId,
+          target,
+          liveWorkspaceMembers: liveMembers,
+          newRole,
+          now,
+        }),
+      ).pipe(
+        auditDeniedMemberAction(writer, now, {
+          action: "member.roleChanged",
+          workspaceId: target.workspaceId,
+          actorUserId: actor.userId,
+          subjectId: target.id,
+        }),
+      );
 
       yield* writer
         .table("workspaceMembers")
@@ -78,19 +100,35 @@ const remove = FunctionImpl.make(
       const writer = yield* DatabaseWriter;
       const target = yield* loadMember(reader, membershipId);
       const actor = yield* loadActorForWorkspace(reader, target.workspaceId);
-      yield* requireMemberManager(actor);
+      yield* requireMemberManager(actor).pipe(
+        auditDeniedMemberAction(writer, now, {
+          action: "member.removed",
+          workspaceId: target.workspaceId,
+          actorUserId: actor.userId,
+          subjectId: target.id,
+        }),
+      );
       const liveMembers = yield* liveWorkspaceMembersOrDie(
         reader,
         target.workspaceId,
       );
-      const plan = yield* removeMember({
-        actorUserId: actor.userId,
-        actorRole: actor.role,
-        workspaceId: target.workspaceId,
-        target,
-        liveWorkspaceMembers: liveMembers,
-        now,
-      });
+      const plan = yield* effectFromEither(
+        removeMember({
+          actorUserId: actor.userId,
+          actorRole: actor.role,
+          workspaceId: target.workspaceId,
+          target,
+          liveWorkspaceMembers: liveMembers,
+          now,
+        }),
+      ).pipe(
+        auditDeniedMemberAction(writer, now, {
+          action: "member.removed",
+          workspaceId: target.workspaceId,
+          actorUserId: actor.userId,
+          subjectId: target.id,
+        }),
+      );
 
       yield* writer
         .table("workspaceMembers")
@@ -113,19 +151,35 @@ const transferOwnershipImpl = FunctionImpl.make(
       const writer = yield* DatabaseWriter;
       const target = yield* loadMember(reader, membershipId);
       const actor = yield* loadActorForWorkspace(reader, target.workspaceId);
-      yield* requireActorRole(actor, "owner");
+      yield* requireActorRole(actor, "owner").pipe(
+        auditDeniedMemberAction(writer, now, {
+          action: "member.ownershipTransferred",
+          workspaceId: target.workspaceId,
+          actorUserId: actor.userId,
+          subjectId: target.id,
+        }),
+      );
       const actorMembership = yield* loadLiveWorkspaceMemberForUser(
         reader,
         target.workspaceId,
         actor.userId,
       );
-      const plan = yield* transferOwnership({
-        actorUserId: actor.userId,
-        workspaceId: target.workspaceId,
-        target,
-        actorMembership,
-        now,
-      });
+      const plan = yield* effectFromEither(
+        transferOwnership({
+          actorUserId: actor.userId,
+          workspaceId: target.workspaceId,
+          target,
+          actorMembership,
+          now,
+        }),
+      ).pipe(
+        auditDeniedMemberAction(writer, now, {
+          action: "member.ownershipTransferred",
+          workspaceId: target.workspaceId,
+          actorUserId: actor.userId,
+          subjectId: target.id,
+        }),
+      );
 
       yield* Effect.forEach(plan.patches, (patch) =>
         writer
@@ -138,6 +192,40 @@ const transferOwnershipImpl = FunctionImpl.make(
       return null;
     }),
 );
+
+const effectFromEither = <A, E>(
+  either: Either.Either<A, E>,
+): Effect.Effect<A, E> =>
+  Either.isLeft(either)
+    ? Effect.fail(either.left)
+    : Effect.succeed(either.right);
+
+const auditDeniedMemberAction =
+  (
+    writer: Parameters<typeof recordAccessAuditEvent>[0],
+    now: number,
+    input: {
+      readonly action:
+        "member.roleChanged" | "member.removed" | "member.ownershipTransferred";
+      readonly workspaceId: string;
+      readonly actorUserId: string;
+      readonly subjectId: string;
+    },
+  ) =>
+  <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<A, E> =>
+    effect.pipe(
+      Effect.tapError((error) =>
+        recordAccessAuditEvent(
+          writer,
+          deniedPrivilegedAccessAuditEvent({
+            ...input,
+            subjectKind: "workspaceMember",
+            reason: denialAuditReason(error),
+          }),
+          now,
+        ),
+      ),
+    );
 
 const requireMemberManager = (actor: {
   readonly role: Role;
