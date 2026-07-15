@@ -561,6 +561,42 @@
       "notes": "Storage secret access key for live providers."
     },
     {
+      "name": "NANGO_SECRET_KEY",
+      "group": "nango",
+      "services": ["convex"],
+      "visibility": "server-secret",
+      "requiredFor": ["fake", "test", "live"],
+      "fakeExampleAllowed": true,
+      "fakeExample": "fake_local_key",
+      "owner": "Integrations owner",
+      "rotation": "Rotate before live enablement, after integration admin changes, and after callback/session exposure.",
+      "notes": "Server-side Nango API key for Connect sessions; Slack access and refresh tokens stay inside Nango."
+    },
+    {
+      "name": "NANGO_CONNECT_INTEGRATION_ID",
+      "group": "nango",
+      "services": ["convex", "web"],
+      "visibility": "server-config",
+      "requiredFor": ["fake", "test", "live"],
+      "fakeExampleAllowed": true,
+      "fakeExample": "slack",
+      "owner": "Integrations owner",
+      "rotation": "Review when the Nango Slack integration changes.",
+      "notes": "Nango integration identifier used for Slack Connect sessions."
+    },
+    {
+      "name": "NANGO_CONNECT_PUBLIC_KEY",
+      "group": "nango",
+      "services": ["web"],
+      "visibility": "browser-public",
+      "requiredFor": ["fake", "test", "live"],
+      "fakeExampleAllowed": true,
+      "fakeExample": "fake_public_key",
+      "owner": "Integrations owner",
+      "rotation": "Review when public Connect configuration changes.",
+      "notes": "Browser-visible Nango Connect public key; never use a server secret here."
+    },
+    {
       "name": "SEARCH_PROVIDER",
       "group": "search",
       "services": ["convex", "web"],
