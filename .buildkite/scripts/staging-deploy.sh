@@ -34,7 +34,11 @@ DEPLOYMENT_HASH="$(git rev-parse HEAD:packages/convex 2>/dev/null || git rev-par
 SCHEMA_HASH="$(git ls-files packages/convex/confect/tables packages/convex/convex/schema.ts | xargs git hash-object | git hash-object --stdin)"
 MANIFEST_HASH="$(git hash-object project.config.json docs/template/env-manifest.json)"
 BUILD_ID="${BUILDKITE_BUILD_ID:-local}"
-RELEASE_PACKET="$(pnpm exec tsx tooling/release/src/index.ts staged-release-packet "${COMMIT_SHA}" "${DEPLOYMENT_HASH}" "${SCHEMA_HASH}" "${MANIFEST_HASH}" "${BUILD_ID}")"
+RELEASE_SIGNER="${MAESTRO_BRAIN_RELEASE_SIGNER:-buildkite-staging}"
+: "${MAESTRO_BRAIN_RELEASE_SIGNING_KEY_ID:?MAESTRO_BRAIN_RELEASE_SIGNING_KEY_ID is required}"
+: "${MAESTRO_BRAIN_RELEASE_SIGNING_SECRET:?MAESTRO_BRAIN_RELEASE_SIGNING_SECRET is required}"
+RELEASE_KEY_ID="${MAESTRO_BRAIN_RELEASE_SIGNING_KEY_ID}"
+RELEASE_PACKET="$(pnpm exec tsx tooling/release/src/index.ts staged-release-packet "${COMMIT_SHA}" "${DEPLOYMENT_HASH}" "${SCHEMA_HASH}" "${MANIFEST_HASH}" "${BUILD_ID}" "${RELEASE_SIGNER}" "${RELEASE_KEY_ID}")"
 
 if command -v buildkite-agent >/dev/null 2>&1; then
   buildkite-agent meta-data set staged-sha "${COMMIT_SHA}"

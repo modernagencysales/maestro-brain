@@ -179,6 +179,41 @@
       "notes": "Expected production callback origin registered with provider tasks."
     },
     {
+      "name": "MAESTRO_BRAIN_RELEASE_SIGNER",
+      "group": "convex",
+      "services": ["deploy", "ci"],
+      "visibility": "server-config",
+      "requiredFor": ["deploy"],
+      "fakeExampleAllowed": true,
+      "fakeExample": "local-release-bot",
+      "owner": "Deploy owner",
+      "rotation": "Review on release signing key changes.",
+      "notes": "Non-secret release packet signer identity recorded in signed staging packets."
+    },
+    {
+      "name": "MAESTRO_BRAIN_RELEASE_SIGNING_KEY_ID",
+      "group": "convex",
+      "services": ["deploy", "ci"],
+      "visibility": "server-config",
+      "requiredFor": ["deploy"],
+      "fakeExampleAllowed": true,
+      "fakeExample": "maestro-brain-release-local",
+      "owner": "Deploy owner",
+      "rotation": "Rotate with the release signing secret and before production cutover.",
+      "notes": "Key identifier trusted by production promotion for staged release packet verification."
+    },
+    {
+      "name": "MAESTRO_BRAIN_RELEASE_SIGNING_SECRET",
+      "group": "convex",
+      "services": ["deploy", "ci"],
+      "visibility": "ci-secret",
+      "requiredFor": ["deploy", "live"],
+      "fakeExampleAllowed": false,
+      "owner": "Deploy owner",
+      "rotation": "Rotate before production cutover, after release-admin changes, and after suspected exposure.",
+      "notes": "CI-only HMAC secret for signing and verifying release packets; never printed in receipts."
+    },
+    {
       "name": "WORKOS_CLIENT_ID",
       "group": "workos",
       "services": ["web", "convex"],
