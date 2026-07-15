@@ -101,18 +101,20 @@ const loadRun = (args: Args) =>
     );
   });
 const rowsForMigrationName = (migrationName: string) =>
-  Effect.gen(function* () {
-    return yield* (yield* DatabaseReader)
-      .table("migrationRuns")
-      .index("by_status")
-      .collect()
-      .pipe(
-        Effect.map((rows) =>
-          rows.filter((row) => row.migrationName === migrationName),
+  DatabaseReader.pipe(
+    Effect.flatMap((reader) =>
+      reader
+        .table("migrationRuns")
+        .index("by_status")
+        .collect()
+        .pipe(
+          Effect.map((rows) =>
+            rows.filter((row) => row.migrationName === migrationName),
+          ),
+          Effect.orDie,
         ),
-        Effect.orDie,
-      );
-  });
+    ),
+  );
 const sameStableIdentity = (row: Run, args: Args) =>
   row.releaseCommit === args.releaseCommit &&
   row.schemaBefore === args.schemaBefore &&
@@ -163,13 +165,15 @@ const patchRun = (run: Run, patch: Partial<Run>) =>
         .pipe(Effect.orDie);
   });
 const receiptRows = (runKey: string) =>
-  Effect.gen(function* () {
-    return yield* (yield* DatabaseReader)
-      .table("migrationReceipts")
-      .index("by_run_sequence", (query) => query.eq("runKey", runKey))
-      .collect()
-      .pipe(Effect.orDie);
-  });
+  DatabaseReader.pipe(
+    Effect.flatMap((reader) =>
+      reader
+        .table("migrationReceipts")
+        .index("by_run_sequence", (query) => query.eq("runKey", runKey))
+        .collect()
+        .pipe(Effect.orDie),
+    ),
+  );
 const childReceiptsFor = (runKey: string) =>
   receiptRows(runKey).pipe(
     Effect.map((rows) =>
