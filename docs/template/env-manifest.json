@@ -133,6 +133,52 @@
       "notes": "Namespaced CI secret fallback used by template Buildkite scripts."
     },
     {
+      "name": "MAESTRO_BRAIN_STAGING_CONVEX_DEPLOY_KEY",
+      "group": "convex",
+      "services": ["deploy", "ci"],
+      "visibility": "ci-secret",
+      "requiredFor": ["deploy", "live"],
+      "fakeExampleAllowed": false,
+      "owner": "Deploy owner",
+      "rotation": "Rotate before production cutover, after deploy-admin changes, and after suspected exposure.",
+      "notes": "Staging-only Convex deploy key; must not grant production deployment access."
+    },
+    {
+      "name": "MAESTRO_BRAIN_PRODUCTION_CONVEX_DEPLOY_KEY",
+      "group": "convex",
+      "services": ["deploy", "ci"],
+      "visibility": "ci-secret",
+      "requiredFor": ["deploy", "live"],
+      "fakeExampleAllowed": false,
+      "owner": "Deploy owner",
+      "rotation": "Rotate before production cutover, after deploy-admin changes, and after suspected exposure.",
+      "notes": "Production-only Convex deploy key; must not grant staging deployment access."
+    },
+    {
+      "name": "MAESTRO_BRAIN_STAGING_CALLBACK_ORIGIN",
+      "group": "convex",
+      "services": ["deploy", "ci"],
+      "visibility": "public-config",
+      "requiredFor": ["deploy"],
+      "fakeExampleAllowed": true,
+      "fakeExample": "https://maestro-template-staging.pages.dev",
+      "owner": "Deploy owner",
+      "rotation": "Review whenever staging domain or provider callback registrations change.",
+      "notes": "Expected staging callback origin registered with provider tasks."
+    },
+    {
+      "name": "MAESTRO_BRAIN_PRODUCTION_CALLBACK_ORIGIN",
+      "group": "convex",
+      "services": ["deploy", "ci"],
+      "visibility": "public-config",
+      "requiredFor": ["deploy"],
+      "fakeExampleAllowed": true,
+      "fakeExample": "https://maestro-template.pages.dev",
+      "owner": "Deploy owner",
+      "rotation": "Review whenever production domain or provider callback registrations change.",
+      "notes": "Expected production callback origin registered with provider tasks."
+    },
+    {
       "name": "WORKOS_CLIENT_ID",
       "group": "workos",
       "services": ["web", "convex"],
@@ -560,6 +606,50 @@
       "owner": "Deploy owner",
       "rotation": "Rotate with Cloudflare deploy credentials.",
       "notes": "Namespaced CI account-id fallback used by template Buildkite scripts."
+    },
+    {
+      "name": "MAESTRO_BRAIN_STAGING_CLOUDFLARE_API_TOKEN",
+      "group": "cloudflare",
+      "services": ["deploy", "ci"],
+      "visibility": "ci-secret",
+      "requiredFor": ["deploy", "live"],
+      "fakeExampleAllowed": false,
+      "owner": "Deploy owner",
+      "rotation": "Rotate before production cutover, after deploy-admin changes, and after suspected exposure.",
+      "notes": "Staging-only Cloudflare token scoped to the staging Pages project."
+    },
+    {
+      "name": "MAESTRO_BRAIN_STAGING_CLOUDFLARE_ACCOUNT_ID",
+      "group": "cloudflare",
+      "services": ["deploy", "ci"],
+      "visibility": "ci-secret",
+      "requiredFor": ["deploy", "live"],
+      "fakeExampleAllowed": false,
+      "owner": "Deploy owner",
+      "rotation": "Rotate before production cutover, after deploy-admin changes, and after suspected exposure.",
+      "notes": "Cloudflare account identifier for staging deploys."
+    },
+    {
+      "name": "MAESTRO_BRAIN_PRODUCTION_CLOUDFLARE_API_TOKEN",
+      "group": "cloudflare",
+      "services": ["deploy", "ci"],
+      "visibility": "ci-secret",
+      "requiredFor": ["deploy", "live"],
+      "fakeExampleAllowed": false,
+      "owner": "Deploy owner",
+      "rotation": "Rotate before production cutover, after deploy-admin changes, and after suspected exposure.",
+      "notes": "Production-only Cloudflare token scoped to the production Pages project."
+    },
+    {
+      "name": "MAESTRO_BRAIN_PRODUCTION_CLOUDFLARE_ACCOUNT_ID",
+      "group": "cloudflare",
+      "services": ["deploy", "ci"],
+      "visibility": "ci-secret",
+      "requiredFor": ["deploy", "live"],
+      "fakeExampleAllowed": false,
+      "owner": "Deploy owner",
+      "rotation": "Rotate before production cutover, after deploy-admin changes, and after suspected exposure.",
+      "notes": "Cloudflare account identifier for production deploys."
     },
     {
       "name": "CLOUDFLARE_PAGES_PROJECT",
