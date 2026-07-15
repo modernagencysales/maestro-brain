@@ -14,6 +14,7 @@ import {
   denialAuditReason,
   deniedPrivilegedAccessAuditEvent,
   privilegedAccessAuditActions,
+  type AccessAuditEventInsert,
 } from "../confect/access/audit";
 import { resolveEffectiveWorkspaceRole } from "../confect/access/auth";
 import { asGenericId } from "../confect/access/handlerContext";
@@ -453,6 +454,15 @@ type LifecycleInvitationCaseValue = {
   invitationId: string;
 };
 
+type AccessAuditRowValue = Omit<
+  AccessAuditEventInsert,
+  "actorUserId" | "actorEmail" | "metadataJson"
+> & {
+  actorUserId: string | undefined;
+  actorEmail: string | undefined;
+  metadataJson: string;
+};
+
 const ProductMembershipSnapshotRow = Schema.Struct({
   id: Schema.String,
   role: Schema.String,
@@ -472,10 +482,18 @@ const ProductStateSnapshot = Schema.Struct({
   invitations: Schema.Array(ProductInvitationSnapshotRow),
 }) as unknown as Schema.Schema<ProductStateSnapshotValue, Value>;
 
-const AccessAuditRows = Schema.Array(Schema.Any) as unknown as Schema.Schema<
-  readonly any[],
-  Value
->;
+const AccessAuditRows = Schema.Array(
+  Schema.Struct({
+    workspaceId: Schema.String,
+    action: Schema.String,
+    actorUserId: Schema.optional(Schema.String),
+    actorEmail: Schema.optional(Schema.String),
+    subjectKind: Schema.String,
+    subjectId: Schema.String,
+    metadataJson: Schema.String,
+    createdAt: Schema.Number,
+  }),
+) as unknown as Schema.Schema<AccessAuditRowValue[], Value>;
 
 const UserMembershipGenerationRow = Schema.Struct({
   id: Schema.String,
@@ -512,11 +530,21 @@ type PrivilegedMatrixRun = (
 const accessAuditRows = (workspaceId: string) =>
   Effect.gen(function* () {
     const reader = yield* DatabaseReader;
-    return yield* reader
+    const rows = yield* reader
       .table("accessAuditEvents")
       .index("by_workspace_created", (q) => q.eq("workspaceId", workspaceId))
       .collect()
       .pipe(Effect.orDie);
+    return rows.map((row) => ({
+      workspaceId: row.workspaceId,
+      action: row.action,
+      actorUserId: row.actorUserId,
+      actorEmail: row.actorEmail,
+      subjectKind: row.subjectKind,
+      subjectId: row.subjectId,
+      metadataJson: row.metadataJson,
+      createdAt: row.createdAt,
+    }));
   });
 
 const userMembershipGenerations = (input: {
@@ -1557,10 +1585,7 @@ describe("Brain role matrix", () => {
       const confect = yield* Effect.serviceOptional(
         TestConfect.TestConfect<typeof databaseSchema>(),
       );
-      const seeded = yield* confect.run(
-        privilegedMutationSetup,
-        PrivilegedMutationSetup,
-      );
+      yield* confect.run(privilegedMutationSetup, PrivilegedMutationSetup);
       const cases = yield* confect.run(
         Effect.gen(function* () {
           const seedNow = yield* Clock.currentTimeMillis;

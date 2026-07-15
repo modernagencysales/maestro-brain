@@ -13,13 +13,7 @@ import {
   DatabaseWriter,
   MutationRunner,
 } from "../_generated/services";
-import {
-  Forbidden,
-  LastOwnerProtected,
-  MemberNotInWorkspace,
-  MembershipNotLive,
-  Unauthorized,
-} from "../errors";
+import { Forbidden, MemberNotInWorkspace } from "../errors";
 import {
   deniedPrivilegedAccessAuditEvent,
   denialAuditReason,
@@ -78,6 +72,7 @@ const list = FunctionImpl.make(
               userId: asGenericId<"users">(row.userId),
               email: user.email,
               role: row.role,
+              isCurrentActor: row.userId === actor.userId,
               status: row.status,
             })),
           ),
