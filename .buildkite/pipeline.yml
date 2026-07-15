@@ -32,8 +32,8 @@ env:
 
 # Steps route to Buildkite hosted queues by weight (linux-small/medium/large).
 # Secrets come from cluster secrets via the step-level `secrets:` attribute;
-# the template's Convex key is namespaced TEMPLATE_CONVEX_DEPLOY_KEY so this
-# pipeline can never pick up another pipeline's deploy key by accident.
+# staging and production deploy secrets are independently namespaced so this
+# pipeline can never use one environment's backend key for the other.
 steps:
   # Secretless self-protection: fail before any credentialed job runs if the
   # PR weakens the CI gate structure. This step must never receive secrets.
@@ -89,9 +89,10 @@ steps:
     depends_on: "phase-1"
     command: ".buildkite/scripts/staging-deploy.sh"
     secrets:
-      - TEMPLATE_CLOUDFLARE_API_TOKEN
-      - TEMPLATE_CLOUDFLARE_ACCOUNT_ID
-      - TEMPLATE_CONVEX_DEPLOY_KEY
+      - MAESTRO_BRAIN_STAGING_CLOUDFLARE_API_TOKEN
+      - MAESTRO_BRAIN_STAGING_CLOUDFLARE_ACCOUNT_ID
+      - MAESTRO_BRAIN_STAGING_CONVEX_DEPLOY_KEY
+      - MAESTRO_BRAIN_STAGING_CALLBACK_ORIGIN
     agents:
       queue: "linux-medium"
 
@@ -106,9 +107,10 @@ steps:
     depends_on: "production-approval"
     command: ".buildkite/scripts/production-promote.sh"
     secrets:
-      - TEMPLATE_CLOUDFLARE_API_TOKEN
-      - TEMPLATE_CLOUDFLARE_ACCOUNT_ID
-      - TEMPLATE_CONVEX_DEPLOY_KEY
+      - MAESTRO_BRAIN_PRODUCTION_CLOUDFLARE_API_TOKEN
+      - MAESTRO_BRAIN_PRODUCTION_CLOUDFLARE_ACCOUNT_ID
+      - MAESTRO_BRAIN_PRODUCTION_CONVEX_DEPLOY_KEY
+      - MAESTRO_BRAIN_PRODUCTION_CALLBACK_ORIGIN
     agents:
       queue: "linux-medium"
 
