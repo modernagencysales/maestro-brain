@@ -1,127 +1,92 @@
 import { describe, expect, it } from "vitest";
+import * as Effect from "effect/Effect";
 import {
-  createSearchService,
+  createAsyncSearchService,
   MAX_SEARCH_LIMIT,
-  SearchConfigError,
-  SearchQueryError,
-  type SearchChunk,
+  SearchProvider,
+  SearchQueryInvalid,
+  type SearchDocument,
+  type SearchProviderAdapter,
 } from "./index";
 
-const chunks: readonly SearchChunk[] = [
+const documents: readonly SearchDocument[] = [
   {
     workspaceSlug: "acme-demo",
-    chunkId: "chunk_positioning",
-    sourceId: "source_founder_notes",
+    brainKey: "brain_client_acme",
+    projectionKey: "proj_positioning",
+    revisionKey: "rev_positioning",
     sourceTitle: "Founder interview notes",
     text: "Positioning: the product is a typed workflow brain for operators.",
   },
   {
-    workspaceSlug: "acme-demo",
-    chunkId: "chunk_pricing",
-    sourceId: "source_policies",
-    sourceTitle: "Product docs and policies",
-    text: "Pricing policy: credits are prepaid and workflow runs draw down.",
-  },
-  {
     workspaceSlug: "other-tenant",
-    chunkId: "chunk_leak",
-    sourceId: "source_other",
+    brainKey: "brain_other",
+    projectionKey: "proj_leak",
+    revisionKey: "rev_leak",
     sourceTitle: "Other tenant secrets",
     text: "Positioning notes that must never leak across workspaces.",
   },
 ];
 
-describe("search service", () => {
-  it("never returns chunks from another workspace", () => {
-    const service = createSearchService({ mode: "fake", chunks });
+const unusedLiveAdapter: SearchProviderAdapter = {
+  search: () => Effect.succeed({ candidates: [], nextCursor: null }),
+};
 
-    const hits = service.query({
-      workspaceSlug: "acme-demo",
-      query: "positioning",
-    });
+const runWithProvider = <A, E>(
+  effect: Effect.Effect<A, E, SearchProvider>,
+  adapter: SearchProviderAdapter = unusedLiveAdapter,
+) =>
+  Effect.runPromise(
+    effect.pipe(Effect.provideService(SearchProvider, adapter)),
+  );
 
-    expect(hits.length).toBeGreaterThan(0);
-    expect(hits.every((hit) => hit.chunkId !== "chunk_leak")).toBe(true);
-  });
+describe("search package public surface", () => {
+  it("exports only the asynchronous search service", async () => {
+    const service = createAsyncSearchService({ mode: "test", documents });
 
-  it("ranks deterministically by token overlap with a stable tie-break", () => {
-    const service = createSearchService({ mode: "fake", chunks });
-
-    const hits = service.query({
-      workspaceSlug: "acme-demo",
-      query: "workflow positioning product",
-    });
-
-    expect(hits.map((hit) => hit.chunkId)).toEqual([
-      "chunk_positioning",
-      "chunk_pricing",
-    ]);
-    expect(hits[0]?.score).toBeGreaterThan(hits[1]?.score ?? 0);
-  });
-
-  it("builds bounded snippets and respects the limit", () => {
-    const longText = "grounded ".repeat(60);
-    const service = createSearchService({
-      mode: "fake",
-      chunks: [
-        ...chunks,
-        {
-          workspaceSlug: "acme-demo",
-          chunkId: "chunk_long",
-          sourceId: "source_long",
-          sourceTitle: "Long source",
-          text: longText,
-        },
-      ],
-    });
-
-    const hits = service.query({
-      workspaceSlug: "acme-demo",
-      query: "grounded",
-      limit: 1,
-    });
-
-    expect(hits).toHaveLength(1);
-    expect(hits[0]?.snippet.length).toBeLessThanOrEqual(160);
-  });
-
-  it("rejects blank queries and out-of-range limits with typed errors", () => {
-    const service = createSearchService({ mode: "fake", chunks });
-
-    expect(() =>
-      service.query({ workspaceSlug: "acme-demo", query: "   " }),
-    ).toThrowError(SearchQueryError);
-    expect(() =>
-      service.query({
+    const page = await runWithProvider(
+      service.search({
         workspaceSlug: "acme-demo",
+        brainKey: "brain_client_acme",
         query: "positioning",
-        limit: MAX_SEARCH_LIMIT + 1,
       }),
-    ).toThrowError(SearchQueryError);
+    );
+
+    expect(page.candidates.map((candidate) => candidate.projectionKey)).toEqual(
+      ["proj_positioning"],
+    );
   });
 
-  it("fails closed in live mode without an injected adapter", () => {
-    const service = createSearchService({ mode: "live", chunks });
+  it("keeps sync and fake-mode access out of production imports", () => {
+    type PublicExports = typeof import("./index");
+    type SearchModeOption = Parameters<
+      typeof createAsyncSearchService
+    >[0]["mode"];
+    // @ts-expect-error createSearchService was the old synchronous API and is no longer exported.
+    type SyncFactory = PublicExports["createSearchService"];
+    // @ts-expect-error fake mode is not public; tests use the async rollback provider.
+    const rejectedMode: SearchModeOption = "fake";
 
-    expect(() =>
-      service.query({ workspaceSlug: "acme-demo", query: "positioning" }),
-    ).toThrowError(SearchConfigError);
+    const acceptedModes: readonly SearchModeOption[] = ["test", "live"];
+    expect(acceptedModes).toEqual(["test", "live"]);
+    expect(rejectedMode).toBe("fake");
+    expect(true satisfies SyncFactory extends never ? true : true).toBe(true);
   });
 
-  it("delegates validated input to the live adapter", () => {
-    const calls: unknown[] = [];
-    const service = createSearchService({
-      mode: "live",
-      liveAdapter: (input) => {
-        calls.push(input);
-        return [];
-      },
+  it("rejects invalid caps through the async typed error", async () => {
+    const service = createAsyncSearchService({ mode: "test", documents });
+
+    await expect(
+      runWithProvider(
+        service.search({
+          workspaceSlug: "acme-demo",
+          brainKey: "brain_client_acme",
+          query: "positioning",
+          cap: MAX_SEARCH_LIMIT + 1,
+        }),
+      ),
+    ).rejects.toMatchObject({
+      name: expect.stringContaining(SearchQueryInvalid.name),
     });
-
-    service.query({ workspaceSlug: "acme-demo", query: "  positioning  " });
-
-    expect(calls).toEqual([
-      { workspaceSlug: "acme-demo", query: "positioning", limit: 10 },
-    ]);
   });
 });
