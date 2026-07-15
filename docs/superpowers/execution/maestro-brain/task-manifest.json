@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "297dcde8f368cfa5cc665d1837550fa29d9af01068334071154b29d7e66fa4fa",
+  "planSha256": "67282c1924e380b207e131a80e6db1771f53956aa857d44c6d583b53d116cd7e",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -1342,7 +1342,7 @@
       "tranche": "C1-contract-spine"
     },
     {
-      "acceptanceAfter": "S11-T01",
+      "acceptanceAfter": "S11-T01, S01-T03",
       "classification": "template-gap",
       "codeStartAfter": ["S11-T01", "S01-T02", "S01-T03"],
       "estimatedSourceLines": 280,

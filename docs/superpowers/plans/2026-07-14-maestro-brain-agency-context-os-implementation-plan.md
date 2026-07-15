@@ -111,19 +111,18 @@ applying these rules:
    accepted only as one proof set. If a task requires more than four coherent
    commits, or any coherent commit cannot fit the limit, split the task contract
    and regenerate the binding manifest before implementation.
-5. **Tranche integration:** one-intention task commits are cherry-picked into
-   dependency-safe integration tranches.
+5. **Wave integration:** one-intention task commits are selected into an
+   immutable dependency-safe, conflict-free integration wave across tranches.
    `rtk host-test-slot --class full pnpm verify` runs once on the integrated
-   tranche; tasks become complete only after that gate passes. Broad
-   verification is not duplicated in every isolated lane.
+   wave; tasks become complete and accepted only after that wave is promoted.
+   Broad verification is not duplicated in every isolated lane.
 6. **Phase-scoped delivery:** a temporary StackPlan contains at most four whole
-   slices and is a planning/receipt unit, not a PR boundary. A manifest tranche
-   contains one or more validated StackPlans and is the unit of full
-   host-slotted verification and PR delivery. The binding manifest currently
-   defines five tranches. Use one PR per manifest tranche; if size requires
-   subdivision, materialize unique sub-tranche IDs in the manifest before
-   dispatch. Preserve one intention per task commit and its receipt. Graphite
-   ordering is optional PR hygiene, never the scheduler.
+   slices and is a planning/receipt unit, not a PR boundary. Manifest tranches
+   remain ownership/scheduling metadata and the legacy single-tranche recovery
+   boundary; immutable promoted waves are the canonical unit of full
+   host-slotted verification and PR delivery. A wave may contain non-conflicting
+   tasks from multiple tranches. Preserve one intention per task commit and its
+   receipt. Graphite ordering is optional PR hygiene, never the scheduler.
 7. **Just-in-time context:** the approved design, this task packet, its named
    anchors/playbook, and directly relevant vendored examples are sufficient. Do
    not rerun global product research, plan review, task-plan generation, or AI
@@ -3625,7 +3624,7 @@ source materialized into `acceptanceAfter`.
 | S10-T03 | S10-T02                 | template-gap outbox/provider action              |               280 |
 | S10-T04 | S10-T03                 | template-gap Slack recovery UI                   |               240 |
 | S11-T01 | S09 complete            | template-gap `TB-HEADLESS-01`                    |               280 |
-| S11-T02 | S11-T01                 | template-gap bearer dispatcher                   |               280 |
+| S11-T02 | S11-T01, S01-T03        | template-gap bearer dispatcher                   |               280 |
 | S11-T03 | S11-T02                 | template-gap `TB-HEADLESS-01` registry           |               260 |
 | S11-T04 | S11-T03                 | template-gap Streamable HTTP MCP                 |               290 |
 | S12-T01 | S07, S11                | template-gap deterministic export                |               260 |
@@ -4457,7 +4456,8 @@ checks validate:
   codegen worktrees prove Confect-generated deltas before centralized codegen;
 - clean worktree/base SHA and proof/head consistency;
 - no broad lane command or gate weakening;
-- full verification before a tranche marks tasks accepted.
+- full verification before an immutable wave is promoted and marks tasks
+  accepted.
 
 The canonical commands are:
 

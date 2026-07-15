@@ -229,6 +229,7 @@ describe("Maestro Brain execution manifest", () => {
       "S01-T02",
       "S01-T03",
     ]);
+    expect(headlessPrincipal?.acceptanceAfter).toBe("S11-T01, S01-T03");
   });
 
   it("keeps S13 lane proofs behind their real product dependencies", () => {
