@@ -100,5 +100,13 @@ describe("brain lane gate command cache", () => {
       .find((line) => line.trimStart().startsWith("final_gates ["));
     expect(preReview).not.toContain("--reuse-pre-review");
     expect(final).toContain("--stage final --reuse-pre-review");
+    const review = workflow
+      .split("\n")
+      .find((line) => line.trimStart().startsWith("review ["));
+    expect(review).toContain("Read-Only Contract Review");
+    expect(review).toContain(
+      "Never edit, amend, or commit product/worktree files",
+    );
+    expect(review).not.toContain("Fix narrow defects directly");
   });
 });
