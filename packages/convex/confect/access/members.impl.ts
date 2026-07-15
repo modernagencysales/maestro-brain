@@ -49,10 +49,46 @@ const MEMBER_SCAN_CAP = 200;
 export const canManageWorkspaceMembers = (role: Role): boolean =>
   roleAtLeast(role, "admin");
 
-const changeRole = FunctionImpl.make(
+const list = FunctionImpl.make(
   databaseSchema,
   members,
-  "changeRole",
+  "list",
+  ({ workspaceId }) =>
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis;
+      const reader = yield* DatabaseReader;
+      yield* loadActorForWorkspace(reader, workspaceId, now);
+      const rows = yield* reader
+        .table("workspaceMembers")
+        .index("by_workspace_status", (q) => q.eq("workspaceId", workspaceId))
+        .collect()
+        .pipe(Effect.orDie);
+      const liveRows = rows
+        .map(toLifecycleMember)
+        .filter(isLiveWorkspaceMembership)
+        .slice(0, MEMBER_SCAN_CAP);
+      return yield* Effect.forEach(liveRows, (row) =>
+        reader
+          .table("users")
+          .get(asGenericId<"users">(row.userId))
+          .pipe(
+            Effect.orDie,
+            Effect.map((user) => ({
+              membershipId: asGenericId<"workspaceMembers">(row.id),
+              userId: asGenericId<"users">(row.userId),
+              email: user.email,
+              role: row.role,
+              status: row.status,
+            })),
+          ),
+      );
+    }),
+);
+
+const changeRoleCore = FunctionImpl.make(
+  databaseSchema,
+  members,
+  "changeRoleCore",
   ({ workspaceId, membershipId, newRole }) =>
     Effect.gen(function* () {
       const now = yield* Clock.currentTimeMillis;
@@ -397,33 +433,6 @@ const effectFromEither = <A, E>(
     ? Effect.fail(either.left)
     : Effect.succeed(either.right);
 
-const auditDeniedMemberAction =
-  (
-    writer: Parameters<typeof recordAccessAuditEvent>[0],
-    now: number,
-    input: {
-      readonly action:
-        "member.roleChanged" | "member.removed" | "member.ownershipTransferred";
-      readonly workspaceId: string;
-      readonly actorUserId: string;
-      readonly subjectId: string;
-    },
-  ) =>
-  <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<A, E> =>
-    effect.pipe(
-      Effect.tapError((error) =>
-        recordAccessAuditEvent(
-          writer,
-          deniedPrivilegedAccessAuditEvent({
-            ...input,
-            subjectKind: "workspaceMember",
-            reason: denialAuditReason(error),
-          }),
-          now,
-        ),
-      ),
-    );
-
 const requireMemberManager = (actor: {
   readonly role: Role;
 }): Effect.Effect<void, Forbidden> =>
@@ -574,31 +583,46 @@ const loadLiveWorkspaceMemberForUser = (
   reader: Reader,
   workspaceId: GenericId<"workspaces"> | string,
   userId: GenericId<"users"> | string,
-): Effect.Effect<WorkspaceMemberLifecycleRef, MemberNotInWorkspace> =>
+): Effect.Effect<
+  WorkspaceMemberLifecycleRef,
+  MemberNotInWorkspace | Forbidden
+> =>
   reader
     .table("workspaceMembers")
     .index("by_workspace_user", (q) =>
       q.eq("workspaceId", workspaceId).eq("userId", userId),
     )
-    .first()
+    .collect()
     .pipe(
-      Effect.map(Option.getOrNull),
-      Effect.flatMap((membership) =>
-        membership === null
-          ? Effect.fail(new MemberNotInWorkspace({ membershipId: "actor" }))
-          : Effect.succeed(toLifecycleMember(membership)),
+      Effect.orDie,
+      Effect.map((members_) =>
+        members_.map(toLifecycleMember).filter(isLiveWorkspaceMembership),
       ),
-      Effect.flatMap((membership) =>
-        isLiveWorkspaceMembership(membership)
-          ? Effect.succeed(membership)
-          : Effect.fail(
-              new MemberNotInWorkspace({ membershipId: membership.id }),
-            ),
+      Effect.flatMap(
+        (
+          members_,
+        ): Effect.Effect<
+          WorkspaceMemberLifecycleRef,
+          MemberNotInWorkspace | Forbidden
+        > => {
+          const member = members_[0];
+          if (member === undefined) {
+            return Effect.fail(
+              new MemberNotInWorkspace({ membershipId: "actor" }),
+            );
+          }
+          if (members_.length > 1) {
+            return Effect.fail(
+              new Forbidden({
+                reason: "Duplicate live workspace membership rows.",
+              }),
+            );
+          }
+          return Effect.succeed(member);
+        },
       ),
-      // Keep the typed MemberNotInWorkspace; a decode/system failure is a real
-      // defect, not a spurious "member not found".
       Effect.catchAll((error) =>
-        error instanceof MemberNotInWorkspace
+        error instanceof MemberNotInWorkspace || error instanceof Forbidden
           ? Effect.fail(error)
           : Effect.die(error),
       ),
