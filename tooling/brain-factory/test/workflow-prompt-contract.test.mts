@@ -154,9 +154,20 @@ describe("Fabro workflow prompt contracts", () => {
       ),
       "utf8",
     );
+    const review = wave
+      .split("\n")
+      .find((line) => line.trimStart().startsWith("review ["));
+    const reviewGate = wave
+      .split("\n")
+      .find((line) => line.trimStart().startsWith("review_gate ["));
     expect(wave).toContain("never use a repository-wide glob");
     expect(wave).toContain("Never discover or add a late lane");
     expect(wave).toContain("same-wave edges");
+    expect(review).toContain(
+      "Preserve status ready_for_review through this review",
+    );
+    expect(review).toContain("reviewed is not a valid status");
+    expect(reviewGate).toContain('.status == \\"ready_for_review\\"');
     expect(wave).toContain("integration-wave-selection-check.mts");
     expect(wave.match(/host-test-slot --class full pnpm verify/g)).toHaveLength(
       2,
