@@ -127,8 +127,15 @@ describe("Fabro workflow prompt contracts", () => {
     );
     expect(review).toContain("Do not use native apply_patch");
     expect(review).toContain("one guarded targeted shell write");
-    expect(buildTask).toContain("review -> review_gate");
-    expect(buildTask).toContain('review_gate -> review [label="pending"]');
+    expect(buildTask).toContain("gates -> review_snapshot");
+    expect(buildTask).toContain("review_snapshot -> review");
+    expect(buildTask).toContain("review -> review_immutability");
+    expect(buildTask).toContain("review_immutability -> review_gate");
+    expect(buildTask).toContain("review-worktree-guard.mts capture");
+    expect(buildTask).toContain("review-worktree-guard.mts verify");
+    expect(buildTask).toContain(
+      'review_gate -> review_snapshot [label="pending"]',
+    );
     expect(buildTask).toContain(
       "independent review left a non-terminal verdict",
     );
