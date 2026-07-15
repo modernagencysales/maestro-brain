@@ -1,14 +1,21 @@
 import { runTransientConfectCodegen } from "./transient-confect-codegen.js";
 
-const valueAfter = (flag: string): string | undefined => {
-  const index = process.argv.indexOf(flag);
-  return index >= 0 ? process.argv[index + 1] : undefined;
+const valuesAfter = (flag: string): string[] => {
+  const values: string[] = [];
+  for (const [index, argument] of process.argv.entries()) {
+    if (argument !== flag) continue;
+    const value = process.argv[index + 1];
+    if (!value || value.startsWith("--"))
+      throw new Error(`${flag} requires a value`);
+    values.push(value);
+  }
+  return values;
 };
 
-const testPattern = valueAfter("--test");
+const testPatterns = valuesAfter("--test");
 const generatedFiles = runTransientConfectCodegen({
   root: process.cwd(),
-  ...(testPattern === undefined ? {} : { testPattern }),
+  testPatterns,
 });
 console.log(
   `transient Confect codegen passed (${generatedFiles.length} generated files)`,

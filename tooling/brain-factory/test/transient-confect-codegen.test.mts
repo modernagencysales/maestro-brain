@@ -98,13 +98,13 @@ describe("transient Confect codegen", () => {
     expect(safeFocusedTestPattern("migrations;rm")).toBe(false);
   });
 
-  it("uses a disposable worktree and never mutates the source checkout", () => {
+  it("forwards multiple tests in one disposable worktree without mutating the source checkout", () => {
     const value = fixture();
     let disposableWorktree = "";
     try {
       const generated = runTransientConfectCodegen({
         root: value.root,
-        testPattern: "migrations",
+        testPatterns: ["stable-tenant-keys", "migrations"],
         hooks: {
           hydrate: (root, workdir) => {
             expect(root).toBe(value.root);
@@ -124,8 +124,8 @@ describe("transient Confect codegen", () => {
               "export const manifest = 2;\n",
             );
           },
-          validate: (_workdir, testPattern) => {
-            expect(testPattern).toBe("migrations");
+          validate: (_workdir, testPatterns) => {
+            expect(testPatterns).toEqual(["stable-tenant-keys", "migrations"]);
           },
         },
       });

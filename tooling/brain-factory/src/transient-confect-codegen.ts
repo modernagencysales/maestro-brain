@@ -61,7 +61,7 @@ const stagedPatchHash = (workdir: string): string =>
 interface TransientConfectCodegenHooks {
   readonly generate: (workdir: string) => void;
   readonly hydrate: (root: string, workdir: string) => void;
-  readonly validate: (workdir: string, testPattern?: string) => void;
+  readonly validate: (workdir: string, testPatterns: readonly string[]) => void;
 }
 
 const productionHooks: TransientConfectCodegenHooks = {
@@ -74,7 +74,7 @@ const productionHooks: TransientConfectCodegenHooks = {
   hydrate: (root, workdir) => {
     hydrateWorktreeDependencies(root, workdir);
   },
-  validate: (workdir, testPattern) => {
+  validate: (workdir, testPatterns) => {
     runRtk(["pnpm", "--dir", "packages/convex", "check:convex"], {
       cwd: workdir,
     });
@@ -98,7 +98,7 @@ const productionHooks: TransientConfectCodegenHooks = {
     runRtk(["pnpm", "--dir", "packages/convex", "typecheck"], {
       cwd: workdir,
     });
-    if (testPattern) {
+    if (testPatterns.length > 0) {
       runRtk(
         [
           "host-test-slot",
@@ -108,7 +108,7 @@ const productionHooks: TransientConfectCodegenHooks = {
           "--dir",
           "packages/convex",
           "test",
-          testPattern,
+          ...testPatterns,
         ],
         { cwd: workdir },
       );
@@ -119,14 +119,15 @@ const productionHooks: TransientConfectCodegenHooks = {
 export const runTransientConfectCodegen = (input: {
   readonly hooks?: TransientConfectCodegenHooks;
   readonly root: string;
-  readonly testPattern?: string;
+  readonly testPatterns?: readonly string[];
 }): readonly string[] => {
   const root = resolve(input.root);
-  if (
-    input.testPattern !== undefined &&
-    !safeFocusedTestPattern(input.testPattern)
-  ) {
-    throw new Error(`unsafe focused test pattern ${input.testPattern}`);
+  const testPatterns = input.testPatterns ?? [];
+  const unsafeTestPattern = testPatterns.find(
+    (testPattern) => !safeFocusedTestPattern(testPattern),
+  );
+  if (unsafeTestPattern !== undefined) {
+    throw new Error(`unsafe focused test pattern ${unsafeTestPattern}`);
   }
   const hooks = input.hooks ?? productionHooks;
   if (
@@ -180,7 +181,7 @@ export const runTransientConfectCodegen = (input: {
       { cwd: workdir },
     );
     const generatedPatchHash = stagedPatchHash(workdir);
-    hooks.validate(workdir, input.testPattern);
+    hooks.validate(workdir, testPatterns);
     runRtk(["git", "diff", "--cached", "--check"], { cwd: workdir });
     if (diffFiles(workdir).length > 0) {
       throw new Error("Confect generated output changed after freshness check");

@@ -17,6 +17,14 @@ export const focusedGateCommand = (value: string): GateCommand => {
   if (!program) throw new Error("focused gate has no program");
   const normalized = [program, ...args].join(" ");
   if (
+    /^pnpm (?:(?:--dir packages\/convex )?(?:confect:codegen|check:convex)|confect:manifest)(?:\s|$)/.test(
+      normalized,
+    )
+  )
+    throw new Error(
+      "generated-tree mutator must use `pnpm brain:factory:check-confect-codegen`",
+    );
+  if (
     /^(?:pnpm (?:verify|test|typecheck)|just verify(?:-full)?)(?:\s|$)/.test(
       normalized,
     ) ||

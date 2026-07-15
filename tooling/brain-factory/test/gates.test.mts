@@ -141,4 +141,17 @@ describe("brain lane gate profiles", () => {
       focusedGateCommand("rtk pnpm --dir packages/search test && rm -rf /"),
     ).toThrow(/shell syntax/);
   });
+
+  it("rejects direct generated-tree mutators", () => {
+    for (const command of [
+      "rtk pnpm confect:codegen",
+      "rtk pnpm --dir packages/convex confect:codegen",
+      "rtk pnpm --dir packages/convex check:convex",
+      "rtk pnpm confect:manifest",
+    ]) {
+      expect(() => focusedGateCommand(command), command).toThrow(
+        /generated-tree mutator/,
+      );
+    }
+  });
 });
