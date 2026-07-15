@@ -6,6 +6,7 @@ import {
   canReusePreReviewGate,
   deduplicateGateCommands,
   gateCommandSetHash,
+  reviewCycleMarker,
   reviewVerdictMatchesGateStage,
 } from "../src/lane-gate-cache.js";
 
@@ -44,6 +45,40 @@ describe("brain lane gate command cache", () => {
     expect(original).toMatch(/^[a-f0-9]{64}$/);
     expect(gateCommandSetHash([typecheck, focusedTest])).toBe(original);
     expect(gateCommandSetHash([focusedTest, typecheck])).not.toBe(original);
+  });
+
+  it("binds Fabro cycle detection to canonical independent-review state", () => {
+    const proof = {
+      headSha: "head-a",
+      reviewFindings: [{ id: "REVIEW-002" }, { id: "REVIEW-001" }],
+      reviewVerdict: "rework",
+    };
+    const marker = reviewCycleMarker(proof);
+
+    expect(marker).toMatch(
+      /^brain-review-state=[a-f0-9]{64} verdict=rework head=head-a /,
+    );
+    expect(marker).toContain("findings=REVIEW-001%2CREVIEW-002");
+    expect(
+      reviewCycleMarker({
+        ...proof,
+        reviewFindings: [
+          { id: "REVIEW-001" },
+          { id: "REVIEW-002" },
+          { id: "REVIEW-001" },
+        ],
+      }),
+    ).toBe(marker);
+    expect(reviewCycleMarker({ ...proof, headSha: "head-b" })).not.toBe(marker);
+    expect(
+      reviewCycleMarker({
+        ...proof,
+        reviewFindings: [{ id: "REVIEW-003" }],
+      }),
+    ).not.toBe(marker);
+    expect(reviewCycleMarker({ ...proof, reviewVerdict: "pass" })).not.toBe(
+      marker,
+    );
   });
 
   it("reuses only a passing pre-review report for the exact head, tree, and commands", () => {
@@ -114,6 +149,10 @@ describe("brain lane gate command cache", () => {
       .find((line) => line.trimStart().startsWith("final_gates ["));
     expect(preReview).not.toContain("--reuse-pre-review");
     expect(final).toContain("--stage final --reuse-pre-review");
+    expect(final).toContain("review-cycle-marker.mts");
+    expect(final?.indexOf("review-cycle-marker.mts")).toBeLessThan(
+      final?.indexOf("brain:factory:lane-gates") ?? -1,
+    );
     const review = workflow
       .split("\n")
       .find((line) => line.trimStart().startsWith("review ["));

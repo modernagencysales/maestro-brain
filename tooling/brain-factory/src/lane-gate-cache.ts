@@ -14,6 +14,50 @@ export interface LaneGateCacheIdentity {
 export type LaneGateStage = "final" | "pre-review";
 export type LaneReviewVerdict = "pass" | "pending" | "rework";
 
+const stringField = (value: Record<string, unknown>, field: string): string =>
+  typeof value[field] === "string" && value[field].length > 0
+    ? value[field]
+    : "<missing>";
+
+export const reviewCycleMarker = (proof: unknown): string => {
+  const value =
+    typeof proof === "object" && proof !== null && !Array.isArray(proof)
+      ? (proof as Record<string, unknown>)
+      : {};
+  const reviewVerdict = stringField(value, "reviewVerdict");
+  const headSha = stringField(value, "headSha");
+  const rawFindings = Array.isArray(value.reviewFindings)
+    ? value.reviewFindings
+    : [];
+  const findingIds = [
+    ...new Set(
+      rawFindings.map((finding) =>
+        typeof finding === "object" &&
+        finding !== null &&
+        !Array.isArray(finding) &&
+        typeof (finding as Record<string, unknown>).id === "string" &&
+        (finding as Record<string, unknown>).id !== ""
+          ? ((finding as Record<string, unknown>).id as string)
+          : "<invalid>",
+      ),
+    ),
+  ].sort();
+  const canonicalState = JSON.stringify({
+    findingIds,
+    headSha,
+    reviewVerdict,
+  });
+  const digest = createHash("sha256").update(canonicalState).digest("hex");
+  const displayFindings = findingIds.length > 0 ? findingIds.join(",") : "none";
+
+  return [
+    `brain-review-state=${digest}`,
+    `verdict=${encodeURIComponent(reviewVerdict)}`,
+    `head=${encodeURIComponent(headSha)}`,
+    `findings=${encodeURIComponent(displayFindings)}`,
+  ].join(" ");
+};
+
 export const reviewVerdictMatchesGateStage = (
   stage: LaneGateStage,
   verdict: LaneReviewVerdict,
