@@ -61,7 +61,8 @@ const fixture = () => {
     headSha: laneHeadSha,
     status: "passed",
   });
-  writeJson(resolve(laneDirectory, "lane-result.json"), {
+  const laneResultPath = resolve(laneDirectory, "lane-result.json");
+  writeJson(laneResultPath, {
     headSha: laneHeadSha,
     status: "lane_green",
   });
@@ -114,7 +115,15 @@ const fixture = () => {
     sourceRunStatus: "failed",
     sourceReviewRun,
   });
-  return { auditPath, baseSha, evidence, resultPath, workdir };
+  return {
+    auditPath,
+    baseSha,
+    evidence,
+    headSha,
+    laneResultPath,
+    resultPath,
+    workdir,
+  };
 };
 
 const validate = (
@@ -154,7 +163,86 @@ describe("Brain repair result check", () => {
     expect(() => validate(value)).toThrow(/findings remain/);
   });
 
-  it("uses verifier-owned recovery findings despite mutable result claims", () => {
+  it("rejects treating unmet acceptanceAfter as an integration blocker", () => {
+    const value = fixture();
+    const result = JSON.parse(readFileSync(value.resultPath, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    result.reviewVerdict = "rework";
+    result.remainingFindings = [
+      {
+        contract: "acceptanceAfter",
+        id: "f0-s00-t02-unsatisfied-acceptance-dependency",
+        severity: "high",
+      },
+    ];
+    writeJson(value.resultPath, result);
+    expect(() => validate(value)).toThrow(
+      /acceptanceAfter blocks accepted:true only/,
+    );
+  });
+
+  it("requires integrated tasks to remain explicitly unaccepted with a blocker", () => {
+    const value = fixture();
+    const result = JSON.parse(readFileSync(value.resultPath, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    result.status = "passed";
+    result.broadGate = { status: "passed", headSha: value.headSha };
+    writeJson(value.resultPath, result);
+    writeJson(value.laneResultPath, {
+      accepted: false,
+      headSha: "a".repeat(40),
+      integrationHeadSha: value.headSha,
+      status: "integrated",
+    });
+    expect(() => validate(value, { stage: "record" })).toThrow(
+      /integrated task must remain accepted:false with acceptanceBlocker/,
+    );
+  });
+
+  it("accepts integrated tasks with explicit unaccepted evidence", () => {
+    const value = fixture();
+    const result = JSON.parse(readFileSync(value.resultPath, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    result.status = "passed";
+    result.broadGate = { status: "passed", headSha: value.headSha };
+    writeJson(value.resultPath, result);
+    writeJson(value.laneResultPath, {
+      acceptanceBlocker: "S00-T01 external host attestation is not present",
+      accepted: false,
+      headSha: "a".repeat(40),
+      integrationHeadSha: value.headSha,
+      status: "integrated",
+    });
+    expect(() => validate(value, { stage: "record" })).not.toThrow();
+  });
+
+  it("pins acceptance-only semantics in the repair workflow", () => {
+    const workflow = readFileSync(
+      new URL(
+        "../../../.fabro/workflows/brain-repair-tranche/workflow.fabro",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    expect(workflow).toContain("acceptanceAfter blocks accepted:true only");
+    expect(workflow).toContain("must not block integration or review pass");
+    expect(workflow).toContain("Never fabricate external acceptance evidence");
+    expect(workflow).toContain("accepted:false with an acceptanceBlocker");
+    expect(workflow).toContain("Never use repo-wide glob discovery");
+    expect(workflow).toContain("targeted rtk rg --files");
+    expect(workflow).toContain("targeted rtk grep");
+    expect(workflow).toContain(
+      "Do not scan repos/, node_modules, or the whole worktree",
+    );
+  });
+
+  it("uses evidence-owned required finding IDs for non-C1 repairs", () => {
     const value = fixture();
     const result = JSON.parse(readFileSync(value.resultPath, "utf8")) as Record<
       string,
