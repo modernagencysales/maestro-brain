@@ -4,6 +4,14 @@ import * as Schema from "effect/Schema";
 
 import schema from "../../convex/schema";
 import { components } from "../../convex/_generated/api";
+import {
+  deriveStableAgencyKey,
+  deriveStableBrainKey,
+  isStableAgencyKey,
+  isStableBrainKey,
+  stableAgencyKeySeed,
+  stableBrainKeySeed,
+} from "../identity/stableKeys";
 import { sha256Hex } from "../shared/sha256";
 import {
   type AcquireLeaseResult,
@@ -34,6 +42,76 @@ export const probeExpand = componentMigrations.define({
         ? { actor: "write-count:1" }
         : {}),
     });
+  },
+});
+
+export const stableTenantOrganizationKeysExpand = componentMigrations.define({
+  table: "organizations",
+  batchSize: 1,
+  migrateOne: async (ctx, row) => {
+    if (row.workosOrganizationId !== undefined) {
+      const sameWorkos = (await ctx.db.query("organizations").collect()).filter(
+        (candidate) =>
+          candidate.workosOrganizationId === row.workosOrganizationId,
+      );
+      if (sameWorkos.some((candidate) => candidate._id !== row._id)) {
+        throw new Error("duplicate WorkOS organization binding");
+      }
+    }
+    if (row.agencyKey !== undefined && !isStableAgencyKey(row.agencyKey)) {
+      throw new Error("invalid agency key syntax");
+    }
+    const derivedAgencyKey =
+      row.agencyKey ?? deriveStableAgencyKey(stableAgencyKeySeed(row));
+    const sameAgencyKey = (
+      await ctx.db.query("organizations").collect()
+    ).filter((candidate) => candidate.agencyKey === derivedAgencyKey);
+    if (sameAgencyKey.some((candidate) => candidate._id !== row._id)) {
+      throw new Error("duplicate agency key binding");
+    }
+    const patch = {
+      ...(row.agencyKey === undefined ? { agencyKey: derivedAgencyKey } : {}),
+      ...(row.lifecycleGeneration === undefined
+        ? { lifecycleGeneration: 0 }
+        : {}),
+      ...(row.revocationGeneration === undefined
+        ? { revocationGeneration: 0 }
+        : {}),
+    };
+    if (Object.keys(patch).length === 0) return;
+    await ctx.db.patch(row._id, patch);
+  },
+});
+
+export const stableTenantWorkspaceKeysExpand = componentMigrations.define({
+  table: "workspaces",
+  batchSize: 1,
+  migrateOne: async (ctx, row) => {
+    if (row.brainKey !== undefined && !isStableBrainKey(row.brainKey)) {
+      throw new Error("invalid Brain key syntax");
+    }
+    const derivedBrainKey =
+      row.brainKey ?? deriveStableBrainKey(stableBrainKeySeed(row));
+    const sameBrainKey = (await ctx.db.query("workspaces").collect()).filter(
+      (candidate) =>
+        candidate.organizationId === row.organizationId &&
+        candidate.brainKey === derivedBrainKey,
+    );
+    if (sameBrainKey.some((candidate) => candidate._id !== row._id)) {
+      throw new Error("duplicate organization Brain key binding");
+    }
+    const patch = {
+      ...(row.brainKey === undefined ? { brainKey: derivedBrainKey } : {}),
+      ...(row.kind === undefined ? { kind: "agency" as const } : {}),
+      ...(row.lifecycleGeneration === undefined
+        ? { lifecycleGeneration: 0 }
+        : {}),
+      ...(row.revocationGeneration === undefined
+        ? { revocationGeneration: 0 }
+        : {}),
+    };
+    if (Object.keys(patch).length === 0) return;
+    await ctx.db.patch(row._id, patch);
   },
 });
 
@@ -101,6 +179,8 @@ export type ComponentBatchResult = Readonly<{
   continueCursor: string;
   isDone: boolean;
   processed: number;
+  changed?: number;
+  skipped?: number;
 }>;
 
 export const componentResultFromDryRun = (
@@ -116,7 +196,10 @@ export const componentResultFromDryRun = (
   )
     return null;
   const result = tagged.result as Partial<
-    Record<"continueCursor" | "isDone" | "processed", unknown>
+    Record<
+      "continueCursor" | "isDone" | "processed" | "changed" | "skipped",
+      unknown
+    >
   >;
   return typeof result.continueCursor === "string" &&
     typeof result.isDone === "boolean" &&
@@ -125,6 +208,12 @@ export const componentResultFromDryRun = (
         continueCursor: result.continueCursor,
         isDone: result.isDone,
         processed: result.processed,
+        ...(typeof result.changed === "number"
+          ? { changed: result.changed }
+          : {}),
+        ...(typeof result.skipped === "number"
+          ? { skipped: result.skipped }
+          : {}),
       }
     : null;
 };
@@ -187,19 +276,37 @@ export const makeSettlementInput = (input: {
   readonly nextCursor: string | null;
   readonly complete: boolean;
   readonly processed: number;
+  readonly changed?: number | undefined;
+  readonly skipped?: number | undefined;
   readonly failed?: number;
-}) => ({
-  ...input.args,
-  mode: input.mode,
-  expectedLeaseOwner: input.lease.leaseOwner ?? input.args.actor,
-  expectedFenceGeneration: input.lease.fenceGeneration,
-  expectedLeaseExpiresAt: input.lease.leaseExpiresAt,
-  batchStartedAt: input.lease.leaseStartedAt,
-  priorCursor: input.lease.cursor,
-  nextCursor: input.nextCursor,
-  complete: input.complete,
-  ...unavailableMigrationCounts(input.processed, input.failed ?? 0),
-});
+  readonly hasExactExecuteCounters?: boolean | undefined;
+}) => {
+  const failed = input.failed ?? 0;
+  const counts =
+    input.hasExactExecuteCounters !== true ||
+    input.changed === undefined ||
+    input.skipped === undefined
+      ? unavailableMigrationCounts(input.processed, failed)
+      : {
+          scanned: input.processed,
+          changed: input.changed,
+          skipped: input.skipped,
+          failed,
+          countProvenance: "component" as const,
+        };
+  return {
+    ...input.args,
+    mode: input.mode,
+    expectedLeaseOwner: input.lease.leaseOwner ?? input.args.actor,
+    expectedFenceGeneration: input.lease.fenceGeneration,
+    expectedLeaseExpiresAt: input.lease.leaseExpiresAt,
+    batchStartedAt: input.lease.leaseStartedAt,
+    priorCursor: input.lease.cursor,
+    nextCursor: input.nextCursor,
+    complete: input.complete,
+    ...counts,
+  };
+};
 
 export const completeActionResult = (
   args: ExecuteMigrationArgs,
