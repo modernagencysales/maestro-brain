@@ -154,23 +154,21 @@ describe("model call receipt repository", () => {
         ModelCallReceiptRow,
       );
       return yield* confect.run(
-        Effect.gen(function* () {
-          return yield* writeModelCallReceipt({
-            receipt,
-            tenant: {
-              organizationId: "org_123",
-              workspaceId: "workspaces_123",
-              lifecycleGeneration: 7,
-            },
-          }).pipe(
-            Effect.match({
-              onFailure: (error) => ({
-                duplicate: error instanceof ModelReceiptDuplicate,
-              }),
-              onSuccess: () => ({ duplicate: false }),
+        writeModelCallReceipt({
+          receipt,
+          tenant: {
+            organizationId: "org_123",
+            workspaceId: "workspaces_123",
+            lifecycleGeneration: 7,
+          },
+        }).pipe(
+          Effect.match({
+            onFailure: (error) => ({
+              duplicate: error instanceof ModelReceiptDuplicate,
             }),
-          );
-        }),
+            onSuccess: () => ({ duplicate: false }),
+          }),
+        ),
         DuplicateResult,
       );
     });

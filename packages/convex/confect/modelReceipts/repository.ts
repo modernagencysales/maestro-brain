@@ -13,19 +13,15 @@ import {
 
 type ModelCallReceiptRowValue = Schema.Schema.Type<typeof ModelCallReceiptRow>;
 
-export class ModelReceiptTenantMismatch extends Error {
-  constructor(message = "Model receipt tenant fence mismatch.") {
-    super(message);
-    this.name = "ModelReceiptTenantMismatch";
-  }
-}
+export class ModelReceiptTenantMismatch extends Schema.TaggedError<ModelReceiptTenantMismatch>()(
+  "ModelReceiptTenantMismatch",
+  {},
+) {}
 
-export class ModelReceiptDuplicate extends Error {
-  constructor(message = "Duplicate model receipt attempt.") {
-    super(message);
-    this.name = "ModelReceiptDuplicate";
-  }
-}
+export class ModelReceiptDuplicate extends Schema.TaggedError<ModelReceiptDuplicate>()(
+  "ModelReceiptDuplicate",
+  {},
+) {}
 
 export type ModelReceiptTenantFence = {
   readonly organizationId: string;

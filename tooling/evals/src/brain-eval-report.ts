@@ -254,8 +254,10 @@ export const approveBrainEvalArtifact = (
     } catch (error) {
       if (
         error instanceof Error &&
-        error.message ===
-          "Brain eval approval requires raw results bound to the frozen corpus."
+        (error.message ===
+          "Brain eval approval requires raw results bound to the frozen corpus." ||
+          error.message ===
+            "Brain eval approval requires every suite external run payload.")
       ) {
         throw error;
       }
@@ -349,17 +351,28 @@ const recomputeSuiteFromRawArtifact = (
     );
   }
 
+  const externalRun = root.run;
+  if (
+    typeof externalRun !== "object" ||
+    externalRun === null ||
+    Array.isArray(externalRun)
+  ) {
+    throw new Error(
+      "Brain eval approval requires every suite external run payload.",
+    );
+  }
+
   switch (suiteName) {
     case "classification":
-      return evaluateBrainClassification(frozenFixture, root.run);
+      return evaluateBrainClassification(frozenFixture, externalRun);
     case "answers":
-      return evaluateBrainAnswers(frozenFixture, root.run);
+      return evaluateBrainAnswers(frozenFixture, externalRun);
     case "maintenance":
-      return evaluateBrainMaintenance(frozenFixture, root.run);
+      return evaluateBrainMaintenance(frozenFixture, externalRun);
     case "promptInjection":
-      return evaluateBrainPromptInjection(frozenFixture, root.run);
+      return evaluateBrainPromptInjection(frozenFixture, externalRun);
     case "multilingual":
-      return evaluateBrainMultilingual(frozenFixture, root.run);
+      return evaluateBrainMultilingual(frozenFixture, externalRun);
     default:
       throw new Error(
         "Brain eval approval requires the exact external suite set.",

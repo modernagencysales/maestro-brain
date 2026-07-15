@@ -247,6 +247,48 @@ describe("Brain eval report", () => {
     }
   });
 
+  it("rejects approval artifacts missing any suite external run payload", () => {
+    const report = buildBrainEvalReport();
+    for (const missingRunSuiteName of [
+      "classification",
+      "answers",
+      "maintenance",
+      "promptInjection",
+      "multilingual",
+    ]) {
+      expect(() =>
+        approveBrainEvalArtifact({
+          schemaVersion: "maestro-brain-eval-approval-artifact/v1",
+          runId: `external-run-missing-${missingRunSuiteName}`,
+          generatedAt: "2026-07-14T00:00:00.000Z",
+          suiteResults: report.suites.map((suite) => {
+            const rawArtifact = rawArtifactFor(suite.suiteName) as {
+              fixture: unknown;
+              run?: unknown;
+            };
+            const effectiveArtifact =
+              suite.suiteName === missingRunSuiteName
+                ? { fixture: rawArtifact.fixture }
+                : rawArtifact;
+            return {
+              ...suite,
+              status: "approved",
+              receipt: recomputedReceiptFor(suite.suiteName, rawArtifact),
+              runArtifact: {
+                schemaVersion: "maestro-brain-suite-run-artifact/v1",
+                artifactUri: `s3://maestro-brain-evals/${suite.suiteName}.jsonl`,
+                artifactHash: `sha256:${sha256(effectiveArtifact)}`,
+                rawArtifact: effectiveArtifact,
+              },
+            };
+          }),
+        }),
+      ).toThrow(
+        "Brain eval approval requires every suite external run payload.",
+      );
+    }
+  });
+
   it("rejects passing receipts that do not name immutable external run artifacts", () => {
     const report = buildBrainEvalReport();
 
