@@ -7,12 +7,27 @@ const STABLE_KEY_BODY = "[0-9A-HJKMNP-TV-Z]{26}";
 const AGENCY_KEY = new RegExp(`^ag_${STABLE_KEY_BODY}$`);
 const BRAIN_KEY = new RegExp(`^br_${STABLE_KEY_BODY}$`);
 
+export class AgencyNotFound extends Schema.TaggedError<AgencyNotFound>()(
+  "AgencyNotFound",
+  { agencyKey: Schema.String },
+) {}
+
+export class BrainNotFound extends Schema.TaggedError<BrainNotFound>()(
+  "BrainNotFound",
+  { brainKey: Schema.String },
+) {}
+
 export class StableKeyConflict extends Schema.TaggedError<StableKeyConflict>()(
   "StableKeyConflict",
   {
     resource: Schema.String,
     key: Schema.String,
   },
+) {}
+
+export class TenantMismatch extends Schema.TaggedError<TenantMismatch>()(
+  "TenantMismatch",
+  { agencyKey: Schema.String, brainKey: Schema.String },
 ) {}
 
 export type TenantLifecycleStatus =
