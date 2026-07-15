@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   buildDeployDoctorReport,
@@ -32,6 +33,54 @@ const makeRepo = (): string => {
   writeFileSync(join(assets, "index.js"), "console.log('ok');");
 
   return repoRoot;
+};
+
+const releaseToolingRepoRoot = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../..",
+);
+
+const readReleaseRepoFile = (path: string): string =>
+  readFileSync(resolve(releaseToolingRepoRoot, path), "utf8");
+
+const expectBuildkiteSigningSecretWiring = () => {
+  const pipeline = readReleaseRepoFile(".buildkite/pipeline.yml");
+  const stagingStep = pipeline.slice(
+    pipeline.indexOf('key: "staging-deploy"'),
+    pipeline.indexOf('key: "production-approval"'),
+  );
+  const productionStep = pipeline.slice(
+    pipeline.indexOf('key: "production-promote"'),
+    pipeline.indexOf("  - wait: ~"),
+  );
+
+  expect(stagingStep).toContain("MAESTRO_BRAIN_RELEASE_SIGNER");
+  expect(stagingStep).toContain("MAESTRO_BRAIN_RELEASE_SIGNING_KEY_ID");
+  expect(stagingStep).toContain("MAESTRO_BRAIN_RELEASE_SIGNING_SECRET");
+  expect(productionStep).toContain("MAESTRO_BRAIN_RELEASE_SIGNING_KEY_ID");
+  expect(productionStep).toContain("MAESTRO_BRAIN_RELEASE_SIGNING_SECRET");
+
+  const stagingScript = readReleaseRepoFile(
+    ".buildkite/scripts/staging-deploy.sh",
+  );
+  const productionScript = readReleaseRepoFile(
+    ".buildkite/scripts/production-promote.sh",
+  );
+  expect(stagingScript).toContain(
+    "MAESTRO_BRAIN_RELEASE_SIGNING_KEY_ID is required",
+  );
+  expect(stagingScript).toContain(
+    "MAESTRO_BRAIN_RELEASE_SIGNING_SECRET is required",
+  );
+  expect(productionScript).toContain(
+    "MAESTRO_BRAIN_RELEASE_SIGNING_KEY_ID is required",
+  );
+  expect(productionScript).toContain(
+    "MAESTRO_BRAIN_RELEASE_SIGNING_SECRET is required",
+  );
+  expect(`${pipeline}
+${stagingScript}
+${productionScript}`).not.toContain("test-signing-secret");
 };
 
 const makeStartRepo = (): string => {
@@ -691,48 +740,20 @@ describe("release tooling", () => {
   });
 
   it("wires release signing secret names into scoped Buildkite deploy jobs", () => {
-    const pipeline = readFileSync(
-      resolve(process.cwd(), "../../.buildkite/pipeline.yml"),
-      "utf8",
-    );
-    const stagingStep = pipeline.slice(
-      pipeline.indexOf('key: "staging-deploy"'),
-      pipeline.indexOf('key: "production-approval"'),
-    );
-    const productionStep = pipeline.slice(
-      pipeline.indexOf('key: "production-promote"'),
-      pipeline.indexOf("  - wait: ~"),
-    );
+    expectBuildkiteSigningSecretWiring();
+  });
 
-    expect(stagingStep).toContain("MAESTRO_BRAIN_RELEASE_SIGNER");
-    expect(stagingStep).toContain("MAESTRO_BRAIN_RELEASE_SIGNING_KEY_ID");
-    expect(stagingStep).toContain("MAESTRO_BRAIN_RELEASE_SIGNING_SECRET");
-    expect(productionStep).toContain("MAESTRO_BRAIN_RELEASE_SIGNING_KEY_ID");
-    expect(productionStep).toContain("MAESTRO_BRAIN_RELEASE_SIGNING_SECRET");
+  it("checks Buildkite release signing wiring independent of cwd", () => {
+    const originalCwd = process.cwd();
+    const repoRoot = makeRepo();
 
-    const stagingScript = readFileSync(
-      resolve(process.cwd(), "../../.buildkite/scripts/staging-deploy.sh"),
-      "utf8",
-    );
-    const productionScript = readFileSync(
-      resolve(process.cwd(), "../../.buildkite/scripts/production-promote.sh"),
-      "utf8",
-    );
-    expect(stagingScript).toContain(
-      "MAESTRO_BRAIN_RELEASE_SIGNING_KEY_ID is required",
-    );
-    expect(stagingScript).toContain(
-      "MAESTRO_BRAIN_RELEASE_SIGNING_SECRET is required",
-    );
-    expect(productionScript).toContain(
-      "MAESTRO_BRAIN_RELEASE_SIGNING_KEY_ID is required",
-    );
-    expect(productionScript).toContain(
-      "MAESTRO_BRAIN_RELEASE_SIGNING_SECRET is required",
-    );
-    expect(`${pipeline}
-${stagingScript}
-${productionScript}`).not.toContain("test-signing-secret");
+    try {
+      process.chdir(repoRoot);
+      expectBuildkiteSigningSecretWiring();
+    } finally {
+      process.chdir(originalCwd);
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
   });
 
   it("records a deployment isolation receipt without raw URLs or secrets", () => {
