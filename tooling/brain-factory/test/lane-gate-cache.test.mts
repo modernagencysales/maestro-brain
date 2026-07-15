@@ -104,6 +104,7 @@ describe("brain lane gate command cache", () => {
       .split("\n")
       .find((line) => line.trimStart().startsWith("review ["));
     expect(review).toContain("Read-Only Contract Review");
+    expect(review).toContain("max_visits=4");
     expect(review).toContain(
       "Never edit, amend, or commit product/worktree files",
     );
