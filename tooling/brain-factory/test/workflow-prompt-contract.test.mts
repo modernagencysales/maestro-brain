@@ -200,6 +200,11 @@ describe("Fabro workflow prompt contracts", () => {
     expect(implement).toContain(
       "after any repair, if it contains more than four commits",
     );
+    expect(implement).toContain("never create empty padding commits");
+    expect(implement).toContain("or use --allow-empty");
+    expect(implement).toContain(
+      "factory's exact gate-counted source-line calculation",
+    );
     expect(review).toContain(
       "exact passed pre-review lane-gate report for the same head and task contract",
     );
