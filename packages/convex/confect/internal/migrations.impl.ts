@@ -565,29 +565,16 @@ const runRegisteredMigration = FunctionImpl.make(
           : complete;
       }
       const definition = yield* findExecutableMigration(args.migrationName);
-      const suppressRawDryRunLogs =
-        isDryRun && definition.dryRunSafety === "patchedNoRawDocumentLogs";
-      const originalDebug = console.debug;
-      const componentInput = {
-        cursor: lease.cursor,
-        dryRun: isDryRun,
-        oneBatchOnly: true,
-        batchSize: args.batchSize,
-      };
-      const component = yield* (
-        suppressRawDryRunLogs
-          ? Effect.acquireUseRelease(
-              Effect.sync(() => {
-                console.debug = () => {};
-              }),
-              () =>
-                safeMutation(runner, ref, componentInput, args.migrationName),
-              () =>
-                Effect.sync(() => {
-                  console.debug = originalDebug;
-                }),
-            )
-          : safeMutation(runner, ref, componentInput, args.migrationName)
+      const component = yield* safeMutation(
+        runner,
+        ref,
+        {
+          cursor: lease.cursor,
+          dryRun: isDryRun,
+          oneBatchOnly: true,
+          batchSize: args.batchSize,
+        },
+        args.migrationName,
       ).pipe(Effect.exit);
       const batch = isDryRun
         ? decodeDryRunRollback(component)
