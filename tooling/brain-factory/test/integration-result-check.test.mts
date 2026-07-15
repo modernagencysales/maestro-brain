@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   existsSync,
@@ -278,6 +278,90 @@ const waveFixture = () => {
     selectionPath,
   };
 };
+
+const addLegacyS01Dependency = (value: ReturnType<typeof fixture>): string => {
+  const manifest = readRecord(value.manifestPath);
+  const tasks = manifest.tasks as Record<string, unknown>[];
+  const currentTask = tasks[0];
+  if (!currentTask) throw new Error("current task fixture missing");
+  currentTask.codeStartAfter = ["S01-T01"];
+  tasks.push({
+    acceptanceAfter: "S00 complete",
+    codeStartAfter: [],
+    fileInventoryStatus: "ready",
+    fileLocks: ["prior-owned.ts"],
+    gateProfiles: ["docs"],
+    taskBlockHash: "3".repeat(64),
+    taskId: "S01-T01",
+    tranche: value.manifestTranche,
+  });
+  writeJson(value.manifestPath, manifest);
+  const dependencyDirectory = resolve(
+    value.evidence,
+    "lane-results",
+    "S01-T01",
+  );
+  mkdirSync(dependencyDirectory, { recursive: true });
+  const dependencyLanePath = resolve(dependencyDirectory, "lane-result.json");
+  writeJson(dependencyLanePath, {
+    headSha: value.baseSha,
+    integrationHeadSha: value.baseSha,
+    schemaVersion: "maestro-brain-lane-result/v1",
+    status: "integrated",
+    taskId: "S01-T01",
+    tranche: value.manifestTranche,
+  });
+  const priorIntegrationId = "C1-contract-spine-prior";
+  const priorResultPath = resolve(
+    value.evidence,
+    "integration",
+    priorIntegrationId,
+    "integration-result.json",
+  );
+  mkdirSync(resolve(priorResultPath, ".."), { recursive: true });
+  writeJson(priorResultPath, {
+    broadGate: {
+      command: "rtk host-test-slot --class full pnpm verify",
+      headSha: value.baseSha,
+      status: "passed",
+    },
+    headSha: value.baseSha,
+    includedTasks: [{ laneHeadSha: value.baseSha, taskId: "S01-T01" }],
+    remainingFindings: [],
+    reviewVerdict: "pass",
+    schemaVersion: "maestro-brain-integration-result/v1",
+    status: "passed",
+    tranche: priorIntegrationId,
+  });
+  return dependencyLanePath;
+};
+
+const runIntegrationResultCli = (
+  value: ReturnType<typeof fixture>,
+  extraArguments: readonly string[] = [],
+) =>
+  spawnSync(
+    "rtk",
+    [
+      "proxy",
+      "pnpm",
+      "exec",
+      "tsx",
+      resolve(process.cwd(), "src/integration-result-check.mts"),
+      "--control-root",
+      value.controlRoot,
+      "--workdir",
+      value.workdir,
+      "--evidence",
+      value.evidence,
+      "--integration-id",
+      value.integrationId,
+      "--manifest-tranche",
+      value.manifestTranche,
+      ...extraArguments,
+    ],
+    { cwd: process.cwd(), encoding: "utf8" },
+  );
 
 afterEach(() => {
   for (const directory of temporaryDirectories.splice(0)) {
@@ -864,58 +948,8 @@ describe("normal integration result check", () => {
 
   it("adopts the historical S01-T01 prerequisite before checking S01-T02", () => {
     const value = fixture({ taskId: "S01-T02" });
-    const manifest = readRecord(value.manifestPath);
-    const tasks = manifest.tasks as Record<string, unknown>[];
-    const currentTask = tasks[0];
-    if (!currentTask) throw new Error("current task fixture missing");
-    currentTask.codeStartAfter = ["S01-T01"];
-    tasks.push({
-      acceptanceAfter: "S00 complete",
-      codeStartAfter: [],
-      fileInventoryStatus: "ready",
-      fileLocks: ["prior-owned.ts"],
-      gateProfiles: ["docs"],
-      taskBlockHash: "3".repeat(64),
-      taskId: "S01-T01",
-      tranche: value.manifestTranche,
-    });
-    writeJson(value.manifestPath, manifest);
-    const dependencyDirectory = resolve(
-      value.evidence,
-      "lane-results",
-      "S01-T01",
-    );
-    mkdirSync(dependencyDirectory, { recursive: true });
-    writeJson(resolve(dependencyDirectory, "lane-result.json"), {
-      headSha: value.baseSha,
-      integrationHeadSha: value.baseSha,
-      schemaVersion: "maestro-brain-lane-result/v1",
-      status: "integrated",
-      taskId: "S01-T01",
-      tranche: value.manifestTranche,
-    });
+    addLegacyS01Dependency(value);
     const priorIntegrationId = "C1-contract-spine-prior";
-    const priorResultPath = resolve(
-      value.evidence,
-      "integration",
-      priorIntegrationId,
-      "integration-result.json",
-    );
-    mkdirSync(resolve(priorResultPath, ".."), { recursive: true });
-    writeJson(priorResultPath, {
-      broadGate: {
-        command: "rtk host-test-slot --class full pnpm verify",
-        headSha: value.baseSha,
-        status: "passed",
-      },
-      headSha: value.baseSha,
-      includedTasks: [{ laneHeadSha: value.baseSha, taskId: "S01-T01" }],
-      remainingFindings: [],
-      reviewVerdict: "pass",
-      schemaVersion: "maestro-brain-integration-result/v1",
-      status: "passed",
-      tranche: priorIntegrationId,
-    });
     expect(
       adoptLegacyIntegratedLaneEvidence({
         controlRoot: value.controlRoot,
@@ -933,6 +967,54 @@ describe("normal integration result check", () => {
         manifestTranche: value.manifestTranche,
       }),
     ).not.toThrow();
+  });
+
+  it("keeps the default CLI read-only and adopts only with the explicit flag", () => {
+    const value = fixture({ taskId: "S01-T02" });
+    const dependencyLanePath = addLegacyS01Dependency(value);
+    const before = readFileSync(dependencyLanePath, "utf8");
+
+    const readOnly = runIntegrationResultCli(value);
+    expect(readOnly.status).not.toBe(0);
+    expect(readFileSync(dependencyLanePath, "utf8")).toBe(before);
+
+    const adopting = runIntegrationResultCli(value, [
+      "--adopt-legacy-evidence",
+    ]);
+    expect(adopting.status, adopting.stderr).toBe(0);
+    expect(readRecord(dependencyLanePath)).toMatchObject({
+      accepted: false,
+      integrationId: "C1-contract-spine-prior",
+      status: "integrated",
+    });
+  });
+
+  it("preflights malformed result identity before CLI adoption", () => {
+    const value = fixture({ taskId: "S01-T02" });
+    const dependencyLanePath = addLegacyS01Dependency(value);
+    const before = readFileSync(dependencyLanePath, "utf8");
+    const result = readRecord(value.resultPath);
+    result.integrationId = "wrong-integration";
+    writeJson(value.resultPath, result);
+
+    const malformed = runIntegrationResultCli(value, [
+      "--adopt-legacy-evidence",
+    ]);
+    expect(malformed.status).not.toBe(0);
+    expect(readFileSync(dependencyLanePath, "utf8")).toBe(before);
+  });
+
+  it("rejects unsafe CLI integration IDs before adoption", () => {
+    const value = fixture({ taskId: "S01-T02" });
+    const dependencyLanePath = addLegacyS01Dependency(value);
+    const before = readFileSync(dependencyLanePath, "utf8");
+
+    const malformed = runIntegrationResultCli(
+      { ...value, integrationId: "../wrong-integration" },
+      ["--adopt-legacy-evidence"],
+    );
+    expect(malformed.status).not.toBe(0);
+    expect(readFileSync(dependencyLanePath, "utf8")).toBe(before);
   });
 
   it("rejects conflicting included-task locks", () => {

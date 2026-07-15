@@ -3,6 +3,7 @@ import { isAbsolute, resolve } from "node:path";
 import {
   git,
   gitIsAncestor,
+  type JsonRecord,
   readJson,
   record,
   string,
@@ -26,9 +27,19 @@ export interface IntegrationResultCheckInput {
   readonly selectionPath?: string;
 }
 
-export const validateIntegrationResult = (
+interface ValidatedIntegrationEnvelope {
+  readonly baseSha: string;
+  readonly controlRoot: string;
+  readonly headSha: string;
+  readonly includedTasks: readonly unknown[];
+  readonly result: JsonRecord;
+  readonly waveSelection?: IntegrationWaveSelection;
+  readonly workdir: string;
+}
+
+const validatedIntegrationEnvelope = (
   input: IntegrationResultCheckInput,
-): void => {
+): ValidatedIntegrationEnvelope => {
   if (
     !isAbsolute(input.controlRoot) ||
     !isAbsolute(input.expectedWorkdir) ||
@@ -37,6 +48,13 @@ export const validateIntegrationResult = (
     throw new Error(
       "control root, workdir, and evidence directory must be absolute",
     );
+  }
+  if (
+    !/^[A-Za-z0-9._-]+$/.test(input.integrationId) ||
+    input.integrationId === "." ||
+    input.integrationId === ".."
+  ) {
+    throw new Error("integrationId is not a safe path segment");
   }
 
   const controlRoot = realpathSync(input.controlRoot);
@@ -132,12 +150,41 @@ export const validateIntegrationResult = (
   if (!Array.isArray(result.includedTasks)) {
     throw new Error("no included tasks");
   }
+  return {
+    baseSha,
+    controlRoot,
+    headSha,
+    includedTasks: result.includedTasks,
+    result,
+    ...(waveSelection ? { waveSelection } : {}),
+    workdir,
+  };
+};
+
+export const validateIntegrationResultEnvelope = (
+  input: IntegrationResultCheckInput,
+): void => {
+  validatedIntegrationEnvelope(input);
+};
+
+export const validateIntegrationResult = (
+  input: IntegrationResultCheckInput,
+): void => {
+  const {
+    baseSha,
+    controlRoot,
+    headSha,
+    includedTasks,
+    result,
+    waveSelection,
+    workdir,
+  } = validatedIntegrationEnvelope(input);
   validateIntegratedLanes({
     baseSha,
     controlRoot,
     evidenceDirectory: input.evidenceDirectory,
     headSha,
-    includedTasks: result.includedTasks,
+    includedTasks,
     integrationId: input.integrationId,
     ...(input.manifestTranche
       ? { manifestTranche: input.manifestTranche }
@@ -230,6 +277,7 @@ if (process.argv[1]?.endsWith("integration-result-check.mts")) {
   const manifestTranche = valueAfter("--manifest-tranche");
   const selectionPath = valueAfter("--wave-selection");
   const integrationId = valueAfter("--integration-id");
+  const adoptLegacyEvidence = process.argv.includes("--adopt-legacy-evidence");
   if (
     !controlRoot ||
     !workdir ||
@@ -242,27 +290,31 @@ if (process.argv[1]?.endsWith("integration-result-check.mts")) {
         "--integration-id ... (--manifest-tranche ... | --wave-selection ...)",
     );
   }
-  const adopted = adoptLegacyIntegratedLaneEvidence({
-    controlRoot,
-    currentHeadSha: git(realpathSync(workdir), ["rev-parse", "HEAD"]),
-    evidenceDirectory: evidence,
-    workdir,
-  });
-  if (adopted.length > 0) {
-    console.log(
-      `adopted authoritative legacy lane evidence: ${adopted
-        .map(({ integrationId: id, taskId }) => `${taskId}@${id}`)
-        .join(", ")}`,
-    );
-  }
-  validateIntegrationResult({
+  const checkInput = {
     controlRoot,
     evidenceDirectory: evidence,
     expectedWorkdir: workdir,
     integrationId,
     ...(manifestTranche ? { manifestTranche } : {}),
     ...(selectionPath ? { selectionPath } : {}),
-  });
+  };
+  if (adoptLegacyEvidence) {
+    validateIntegrationResultEnvelope(checkInput);
+    const adopted = adoptLegacyIntegratedLaneEvidence({
+      controlRoot,
+      currentHeadSha: git(realpathSync(workdir), ["rev-parse", "HEAD"]),
+      evidenceDirectory: evidence,
+      workdir,
+    });
+    if (adopted.length > 0) {
+      console.log(
+        `adopted authoritative legacy lane evidence: ${adopted
+          .map(({ integrationId: id, taskId }) => `${taskId}@${id}`)
+          .join(", ")}`,
+      );
+    }
+  }
+  validateIntegrationResult(checkInput);
   const archived = archiveIntegrationEvidence({
     evidenceDirectory: evidence,
     integrationId,
