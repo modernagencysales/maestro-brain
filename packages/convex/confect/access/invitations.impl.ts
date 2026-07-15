@@ -2,6 +2,7 @@ import { FunctionImpl, GroupImpl } from "@confect/server";
 import type { GenericId } from "convex/values";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
+import * as Either from "effect/Either";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
@@ -9,7 +10,12 @@ import type { InvitationsDoc } from "../_generated/docs";
 import databaseSchema from "../_generated/schema";
 import { DatabaseReader, DatabaseWriter } from "../_generated/services";
 import { stableFingerprint } from "../shared/tokenCrypto";
-import { recordAccessLifecycleEvents } from "./audit";
+import {
+  deniedPrivilegedAccessAuditEvent,
+  denialAuditReason,
+  recordAccessAuditEvent,
+  recordAccessLifecycleEvents,
+} from "./audit";
 import {
   Forbidden,
   InvitationNotAccessible,
@@ -44,7 +50,14 @@ const create = FunctionImpl.make(
       const reader = yield* DatabaseReader;
       const writer = yield* DatabaseWriter;
       const actor = yield* loadActorForWorkspace(reader, workspaceId);
-      yield* requireActorRole(actor, "admin");
+      yield* requireActorRole(actor, "admin").pipe(
+        auditDeniedInvitationAction(writer, now, {
+          action: "invitation.created",
+          workspaceId,
+          actorUserId: actor.userId,
+          subjectId: "pending-invitation",
+        }),
+      );
       const workspace = yield* reader
         .table("workspaces")
         .get(workspaceId)
@@ -182,14 +195,30 @@ const cancel = FunctionImpl.make(
       const reader = yield* DatabaseReader;
       const writer = yield* DatabaseWriter;
       const actor = yield* loadActorForWorkspace(reader, workspaceId);
-      yield* requireActorRole(actor, "admin");
+      yield* requireActorRole(actor, "admin").pipe(
+        auditDeniedInvitationAction(writer, now, {
+          action: "invitation.cancelled",
+          workspaceId,
+          actorUserId: actor.userId,
+          subjectId: invitationId,
+        }),
+      );
       const invitation = yield* loadInvitationForResponse(reader, invitationId);
-      const plan = yield* cancelInvitation({
-        invitation,
-        workspaceId,
-        actorUserId: actor.userId,
-        now,
-      });
+      const plan = yield* effectFromEither(
+        cancelInvitation({
+          invitation,
+          workspaceId,
+          actorUserId: actor.userId,
+          now,
+        }),
+      ).pipe(
+        auditDeniedInvitationAction(writer, now, {
+          action: "invitation.cancelled",
+          workspaceId,
+          actorUserId: actor.userId,
+          subjectId: invitationId,
+        }),
+      );
 
       if (plan.invitationPatch !== null) {
         yield* writer
@@ -202,6 +231,39 @@ const cancel = FunctionImpl.make(
       return null;
     }),
 );
+
+const effectFromEither = <A, E>(
+  either: Either.Either<A, E>,
+): Effect.Effect<A, E> =>
+  Either.isLeft(either)
+    ? Effect.fail(either.left)
+    : Effect.succeed(either.right);
+
+const auditDeniedInvitationAction =
+  (
+    writer: Parameters<typeof recordAccessAuditEvent>[0],
+    now: number,
+    input: {
+      readonly action: "invitation.created" | "invitation.cancelled";
+      readonly workspaceId: string;
+      readonly actorUserId: string;
+      readonly subjectId: string;
+    },
+  ) =>
+  <A, E>(effect: Effect.Effect<A, E>): Effect.Effect<A, E> =>
+    effect.pipe(
+      Effect.tapError((error) =>
+        recordAccessAuditEvent(
+          writer,
+          deniedPrivilegedAccessAuditEvent({
+            ...input,
+            subjectKind: "invitation",
+            reason: denialAuditReason(error),
+          }),
+          now,
+        ),
+      ),
+    );
 
 const loadActorForWorkspace = (
   reader: Reader,
