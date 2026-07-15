@@ -5,6 +5,27 @@ export interface GateCommand {
   readonly program: string;
 }
 
+const unsafeShellToken = /[;&|<>`$\\'"]/;
+
+export const focusedGateCommand = (value: string): GateCommand => {
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("rtk "))
+    throw new Error("focused gate must start with `rtk `");
+  if (unsafeShellToken.test(trimmed))
+    throw new Error("focused gate must not contain shell syntax or quoting");
+  const [program, ...args] = trimmed.slice(4).trim().split(/\s+/);
+  if (!program) throw new Error("focused gate has no program");
+  const normalized = [program, ...args].join(" ");
+  if (
+    /^(?:pnpm (?:verify|test|typecheck)|just verify(?:-full)?)(?:\s|$)/.test(
+      normalized,
+    ) ||
+    /(?:^|\s)(?:pr:preflight|check:debt|check:gates)(?:\s|$)/.test(normalized)
+  )
+    throw new Error("broad command recorded as a lane-focused gate");
+  return { program, args };
+};
+
 export const lintCommandForFiles = (
   files: readonly string[],
 ): GateCommand | undefined => {

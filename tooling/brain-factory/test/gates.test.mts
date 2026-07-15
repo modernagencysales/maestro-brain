@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { commandsForProfiles, lintCommandForFiles } from "../src/gates.js";
+import {
+  commandsForProfiles,
+  focusedGateCommand,
+  lintCommandForFiles,
+} from "../src/gates.js";
 
 describe("brain lane gate profiles", () => {
   it("deduplicates package gates", () => {
@@ -36,5 +40,27 @@ describe("brain lane gate profiles", () => {
       args: ["exec", "eslint", "apps/web/src/example.tsx"],
     });
     expect(lintCommandForFiles(["docs/example.md"])).toBeUndefined();
+  });
+
+  it("parses narrow recorded gates without a shell", () => {
+    expect(
+      focusedGateCommand(
+        "rtk host-test-slot --class focused pnpm --dir packages/search test",
+      ),
+    ).toEqual({
+      program: "host-test-slot",
+      args: ["--class", "focused", "pnpm", "--dir", "packages/search", "test"],
+    });
+  });
+
+  it("rejects broad or shell-bearing recorded gates", () => {
+    expect(() => focusedGateCommand("rtk pnpm verify")).toThrow(/broad/);
+    expect(() => focusedGateCommand("rtk pnpm test")).toThrow(/broad/);
+    expect(() => focusedGateCommand("pnpm --dir packages/search test")).toThrow(
+      /start with/,
+    );
+    expect(() =>
+      focusedGateCommand("rtk pnpm --dir packages/search test && rm -rf /"),
+    ).toThrow(/shell syntax/);
   });
 });

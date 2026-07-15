@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import {
   commandsForProfiles,
+  focusedGateCommand,
   type GateCommand,
   lintCommandForFiles,
 } from "./gates.js";
@@ -64,10 +65,27 @@ if (!Array.isArray(proof.changedFiles) || proof.changedFiles.length === 0)
   throw new Error(`${taskId}: proof has no changed files`);
 if (!Array.isArray(proof.focusedCommands) || proof.focusedCommands.length === 0)
   throw new Error(`${taskId}: proof has no focused commands`);
-const forbidden =
-  /(?:^|\s)(?:pnpm verify|just verify|pnpm pr:preflight|check:debt|check:gates)(?:\s|$)/;
-if (proof.focusedCommands.some((command) => forbidden.test(command)))
-  throw new Error(`${taskId}: broad command recorded as a lane-focused gate`);
+const focusedCommands = proof.focusedCommands.map((command) => {
+  try {
+    return focusedGateCommand(command);
+  } catch (error) {
+    throw new Error(
+      `${taskId}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+});
+
+const requiredTaskFiles: Readonly<Record<string, readonly string[]>> = {
+  "S09-T01": [
+    "packages/search/src/asyncSearch.ts",
+    "packages/search/src/asyncSearch.test.ts",
+  ],
+};
+for (const requiredFile of requiredTaskFiles[taskId] ?? [])
+  if (!existsSync(resolve(requiredFile)))
+    throw new Error(
+      `${taskId}: missing required task artifact ${requiredFile}`,
+    );
 
 const head = spawnSync("rtk", ["git", "rev-parse", "HEAD"], {
   cwd: process.cwd(),
@@ -148,6 +166,7 @@ if (existingChangedFiles.length > 0)
   });
 const lintCommand = lintCommandForFiles(existingChangedFiles);
 if (lintCommand) run(lintCommand);
+for (const command of focusedCommands) run(command);
 for (const command of commandsForProfiles(task.gateProfiles)) run(command);
 const status = spawnSync("rtk", ["proxy", "git", "status", "--porcelain"], {
   cwd: process.cwd(),

@@ -54,4 +54,12 @@ describe("Maestro Brain execution manifest", () => {
       manifest.tasks.some((task) => task.fileLocks.includes("@environment")),
     ).toBe(true);
   });
+
+  it("serializes migrations behind deployment isolation", () => {
+    const manifest = buildManifest();
+    const isolation = manifest.tasks.find((task) => task.taskId === "S00-T03");
+    const migrations = manifest.tasks.find((task) => task.taskId === "S00-T04");
+    expect(isolation?.fileLocks).toContain(".buildkite/pipeline.yml");
+    expect(migrations?.codeStartAfter).toEqual(["S00-T03"]);
+  });
 });

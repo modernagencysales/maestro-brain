@@ -47,6 +47,7 @@
       "codeStartAfter": ["S00-T02"],
       "estimatedSourceLines": 280,
       "fileLocks": [
+        ".buildkite/pipeline.yml",
         ".buildkite/scripts/production-promote.sh",
         ".buildkite/scripts/staging-deploy.sh",
         ".env.example",
@@ -72,7 +73,7 @@
     {
       "acceptanceAfter": "S00-T03",
       "classification": "template-gap",
-      "codeStartAfter": ["S00-T02"],
+      "codeStartAfter": ["S00-T03"],
       "estimatedSourceLines": 230,
       "fileLocks": [
         "@generated-confect",

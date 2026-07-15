@@ -52,7 +52,7 @@ const START_OVERRIDES: Readonly<Record<string, readonly string[]>> = {
   "S00-T01": [],
   "S00-T02": [],
   "S00-T03": ["S00-T02"],
-  "S00-T04": ["S00-T02"],
+  "S00-T04": ["S00-T03"],
   "S01-T01": [],
   "S01-T02": ["S01-T01"],
   "S01-T03": ["S01-T02"],
@@ -105,6 +105,10 @@ const START_OVERRIDES: Readonly<Record<string, readonly string[]>> = {
   "S13-T03": ["S06-T02", "S08-T01"],
   "S13-T04": ["S13-T03", "S03-T01"],
   "S14-T01": ["S10-T04", "S11-T04", "S12-T03", "S13-T04"],
+};
+
+const FILE_LOCK_OVERRIDES: Readonly<Record<string, readonly string[]>> = {
+  "S00-T03": [".buildkite/pipeline.yml"],
 };
 
 const laneFor = (taskId: string): string => {
@@ -279,7 +283,12 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
       /- \*\*Classification:\*\* `(fixture-to-real|pattern-instance|template-gap)`/,
     )?.[1] as WorkClassification | undefined;
     if (!classification) throw new Error(`${taskId}: missing classification`);
-    const fileLocks = fileLocksFor(body);
+    const fileLocks = [
+      ...new Set([
+        ...fileLocksFor(body),
+        ...(FILE_LOCK_OVERRIDES[taskId] ?? []),
+      ]),
+    ].sort();
     const lane = laneFor(taskId);
     const acceptanceContract = acceptance.get(taskId);
     if (!acceptanceContract)
