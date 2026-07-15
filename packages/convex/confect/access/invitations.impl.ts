@@ -126,22 +126,21 @@ const accept = FunctionImpl.make(
       const writer = yield* DatabaseWriter;
       const user = yield* loadCurrentUser(reader);
       const invitation = yield* loadInvitationForResponse(reader, invitationId);
+      const acceptedInvitation = yield* requireLoadedInvitation(invitation);
+      yield* requireInvitationWorkspaceLive(reader, acceptedInvitation);
       const existingLiveMembership =
-        invitation === null
-          ? null
-          : yield* loadOptionalLiveWorkspaceMemberForUser(
-              reader,
-              invitation.workspaceId,
-              user._id,
-            );
+        yield* loadOptionalLiveWorkspaceMemberForUser(
+          reader,
+          acceptedInvitation.workspaceId,
+          user._id,
+        );
       const plan = yield* acceptInvitation({
-        invitation,
+        invitation: acceptedInvitation,
         verifiedEmail: user.email,
         userId: user._id,
         existingLiveMembership,
         now,
       });
-      const acceptedInvitation = yield* requireLoadedInvitation(invitation);
 
       yield* writer
         .table("invitations")
@@ -431,6 +430,7 @@ const loadCancellableInvitation = (
   reader: Reader,
   invitationId: GenericId<"invitations">,
   workspaceId: GenericId<"workspaces"> | string,
+  now: number,
 ): Effect.Effect<InvitationRef, Forbidden> =>
   loadInvitationForResponse(reader, invitationId).pipe(
     Effect.flatMap((invitation) => {
@@ -439,12 +439,30 @@ const loadCancellableInvitation = (
           new Forbidden({ reason: "Invitation access could not be resolved." }),
         );
       }
-      if (invitation.status !== "pending") {
-        return Effect.fail(
-          new Forbidden({ reason: "Invitation is not pending." }),
+      return reader
+        .table("workspaces")
+        .get(asGenericId<"workspaces">(workspaceId))
+        .pipe(
+          Effect.orDie,
+          Effect.flatMap((workspace) => {
+            if (workspace.organizationId !== invitation.organizationId) {
+              return Effect.fail(
+                new Forbidden({
+                  reason: "Invitation access could not be resolved.",
+                }),
+              );
+            }
+            if (
+              invitation.status !== "pending" ||
+              invitation.expiresAt <= now
+            ) {
+              return Effect.fail(
+                new Forbidden({ reason: "Invitation is not pending." }),
+              );
+            }
+            return Effect.succeed(invitation);
+          }),
         );
-      }
-      return Effect.succeed(invitation);
     }),
   );
 
@@ -452,24 +470,24 @@ const loadOptionalLiveWorkspaceMemberForUser = (
   reader: Reader,
   workspaceId: GenericId<"workspaces"> | string,
   userId: GenericId<"users"> | string,
-): Effect.Effect<WorkspaceMemberLifecycleRef | null, never> =>
+): Effect.Effect<WorkspaceMemberLifecycleRef | null, InvitationNotAccessible> =>
   reader
     .table("workspaceMembers")
     .index("by_workspace_user", (q) =>
       q.eq("workspaceId", workspaceId).eq("userId", userId),
     )
-    .first()
+    .collect()
     .pipe(
-      Effect.map(Option.getOrNull),
-      Effect.map((membership) =>
-        membership === null ? null : toLifecycleMember(membership),
-      ),
-      Effect.map((membership) =>
-        membership !== null && isLiveWorkspaceMembership(membership)
-          ? membership
-          : null,
-      ),
       Effect.orDie,
+      Effect.map((members_) =>
+        members_.map(toLifecycleMember).filter(isLiveWorkspaceMembership),
+      ),
+      Effect.flatMap((members_) => {
+        if (members_.length > 1) {
+          return Effect.fail(new InvitationNotAccessible());
+        }
+        return Effect.succeed(members_[0] ?? null);
+      }),
     );
 
 const toInvitationRef = (invitation: InvitationsDoc): InvitationRef => ({
