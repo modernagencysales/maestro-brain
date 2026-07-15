@@ -209,11 +209,12 @@ export const completeSlackConnectPlan = (input: {
     };
   });
 
-const internalMutationRef = (name: keyof typeof slackConnections.functions) =>
-  Ref.make(
-    "integrations/slackConnections",
-    slackConnections.functions[name]!,
-  ) as Ref.AnyMutation;
+const internalMutationRef = (name: keyof typeof slackConnections.functions) => {
+  const mutation = slackConnections.functions[
+    name
+  ] as (typeof slackConnections.functions)[typeof name];
+  return Ref.make("integrations/slackConnections", mutation) as Ref.AnyMutation;
+};
 
 const generatedRefs = {
   internal: {
@@ -373,4 +374,201 @@ const reserveSlackConnectAttempt = FunctionImpl.make(
         .pipe(Effect.orDie);
       return { connectionKey: input.connectionKey };
     }),
+);
+
+const claimSlackConnectAttempt = FunctionImpl.make(
+  databaseSchema,
+  slackConnections,
+  "claimSlackConnectAttempt",
+  (input) =>
+    Effect.gen(function* () {
+      if (
+        isSecretShaped(input.connectionId) ||
+        !input.connectionId.startsWith("conn_")
+      ) {
+        return yield* Effect.fail(new ConnectSessionInvalid());
+      }
+      const row = (yield* providerReader(yield* DatabaseReader)
+        .table("providerConnections")
+        .index("by_connect_session", (q) =>
+          q.eq("connectSessionId", input.connectSessionId),
+        )
+        .first()
+        .pipe(
+          Effect.map(Option.getOrNull),
+          Effect.orDie,
+        )) as ProviderConnectionRow | null;
+      if (row === null || row.attemptExpiresAt <= input.now) {
+        return yield* Effect.fail(new ConnectSessionInvalid());
+      }
+      if (
+        row.organizationKey !== input.providerOrganizationKey ||
+        row.nangoEndUserId !== input.providerEndUserId ||
+        row.nangoOrganizationId !== input.providerOrganizationKey ||
+        row.providerConfigKey !== input.providerConfigKey ||
+        row.correlationTag !== input.correlationTag
+      ) {
+        return yield* Effect.fail(new TenantMismatch());
+      }
+      if (
+        row.status === "verifying" &&
+        row.nangoConnectionId === input.connectionId
+      ) {
+        return {
+          connectionKey: row.connectionKey,
+          status: "verifying" as const,
+        };
+      }
+      if (
+        row.status !== "authorizing" ||
+        (row.nangoConnectionId !== undefined &&
+          row.nangoConnectionId !== input.connectionId)
+      ) {
+        return yield* Effect.fail(new ConnectSessionInvalid());
+      }
+      yield* providerWriter(yield* DatabaseWriter)
+        .table("providerConnections")
+        .patch(row._id, {
+          status: "verifying",
+          nangoConnectionId: input.connectionId,
+          completedAt: input.now,
+          updatedAt: input.now,
+        })
+        .pipe(Effect.orDie);
+      return { connectionKey: row.connectionKey, status: "verifying" as const };
+    }),
+);
+
+const finalizeSlackConnectAttempt = FunctionImpl.make(
+  databaseSchema,
+  slackConnections,
+  "finalizeSlackConnectAttempt",
+  (input) =>
+    Effect.gen(function* () {
+      const row = (yield* providerReader(yield* DatabaseReader)
+        .table("providerConnections")
+        .index("by_connect_session", (q) =>
+          q.eq("connectSessionId", input.connectSessionId),
+        )
+        .first()
+        .pipe(
+          Effect.map(Option.getOrNull),
+          Effect.orDie,
+        )) as ProviderConnectionRow | null;
+      if (
+        row === null ||
+        row.nangoConnectionId !== input.connectionId ||
+        row.status !== "verifying"
+      ) {
+        return yield* Effect.fail(new ConnectSessionInvalid());
+      }
+      return { connectionKey: row.connectionKey, status: "verifying" as const };
+    }),
+);
+
+const mapNangoError = (error: unknown): SlackConnectionError => {
+  if (error instanceof NangoConnectSessionInvalid)
+    return new ConnectSessionInvalid();
+  if (error instanceof NangoProviderUnavailable)
+    return new ProviderUnavailable();
+  return new ProviderUnavailable();
+};
+
+const beginSlackConnect = FunctionImpl.make(
+  databaseSchema,
+  slackConnections,
+  "beginSlackConnect",
+  () =>
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis;
+      const runMutation = yield* MutationRunner;
+      const attempt = yield* runMutation(
+        generatedRefs.internal.integrations.slackConnections
+          .prepareSlackConnectAttempt,
+        { now },
+      );
+      const nango = createFakeNangoClient({ now });
+      const session = yield* Effect.tryPromise({
+        try: () =>
+          nango.createConnectSession({
+            organizationKey: attempt.organizationKey,
+            endUserId: attempt.nangoEndUserId,
+            providerConfigKey: attempt.providerConfigKey,
+            correlationTag: attempt.correlationTag,
+          }),
+        catch: mapNangoError,
+      });
+      yield* runMutation(
+        generatedRefs.internal.integrations.slackConnections
+          .reserveSlackConnectAttempt,
+        {
+          connectSessionId: session.connectSessionId,
+          organizationKey: attempt.organizationKey,
+          connectionKey: attempt.connectionKey,
+          nangoEndUserId: attempt.nangoEndUserId,
+          nangoOrganizationId: attempt.nangoOrganizationId,
+          providerConfigKey: attempt.providerConfigKey,
+          correlationTag: attempt.correlationTag,
+          attemptId: attempt.attemptId,
+          attemptExpiresAt: session.expiresAt,
+          now,
+        },
+      );
+      return session;
+    }),
+);
+
+const completeSlackConnect = FunctionImpl.make(
+  databaseSchema,
+  slackConnections,
+  "completeSlackConnect",
+  (input) =>
+    Effect.gen(function* () {
+      if (isSecretShaped(input.connectionId)) {
+        return yield* Effect.fail(new ConnectSessionInvalid());
+      }
+      const now = yield* Clock.currentTimeMillis;
+      const nango = createFakeNangoClient({ now });
+      const metadata = yield* Effect.tryPromise({
+        try: () =>
+          nango.verifyConnectSession({
+            connectSessionId: input.connectSessionId,
+            connectionId: input.connectionId,
+          }),
+        catch: mapNangoError,
+      });
+      const runMutation = yield* MutationRunner;
+      yield* runMutation(
+        generatedRefs.internal.integrations.slackConnections
+          .claimSlackConnectAttempt,
+        {
+          connectSessionId: input.connectSessionId,
+          connectionId: input.connectionId,
+          providerOrganizationKey: metadata.organizationKey,
+          providerEndUserId: metadata.endUserId,
+          providerConfigKey: metadata.providerConfigKey,
+          correlationTag: metadata.correlationTag,
+          now,
+        },
+      );
+      return yield* runMutation(
+        generatedRefs.internal.integrations.slackConnections
+          .finalizeSlackConnectAttempt,
+        {
+          connectSessionId: input.connectSessionId,
+          connectionId: input.connectionId,
+          now,
+        },
+      );
+    }),
+);
+
+export default GroupImpl.make(databaseSchema, slackConnections).pipe(
+  Layer.provide(beginSlackConnect),
+  Layer.provide(completeSlackConnect),
+  Layer.provide(prepareSlackConnectAttempt),
+  Layer.provide(reserveSlackConnectAttempt),
+  Layer.provide(claimSlackConnectAttempt),
+  Layer.provide(finalizeSlackConnectAttempt),
+  GroupImpl.finalize,
 );
