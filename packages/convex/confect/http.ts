@@ -1,6 +1,5 @@
 import { confectManifest } from "@maestro-template/template-core/generated/confectManifest";
 import { httpActionGeneric, httpRouter } from "convex/server";
-import { api } from "../convex/_generated/api";
 import {
   executeHeadlessOperation,
   type HeadlessExecutorRequest,
@@ -16,6 +15,9 @@ type ManifestFunction = (typeof confectManifest.functions)[number];
 
 const hasSurface = (entry: ManifestFunction, surface: string): boolean =>
   (entry.surfaces as readonly string[]).includes(surface);
+
+const isLegacyCreateMarkdownOperation = (operationId: string): boolean =>
+  operationId === "brain.pages.createMarkdown";
 
 export type TemplateHttpRoute = {
   readonly path: string;
@@ -49,9 +51,7 @@ const staticTemplateRoutes: Record<string, TemplateRouteMatch | undefined> = {
   "/api/docs": { kind: "docs" },
 };
 
-const operationRefs = {
-  "brain.pages.createMarkdown": api.brain.pages.createMarkdown,
-} satisfies Record<string, unknown>;
+const operationRefs = {} satisfies Record<string, unknown>;
 
 export const securityHeaders = {
   "content-security-policy":
@@ -74,7 +74,11 @@ export const templateHttpRoutes = [
     description: "Serves the Scalar API documentation shell.",
   },
   ...confectManifest.functions
-    .filter((entry) => hasSurface(entry, "api"))
+    .filter(
+      (entry) =>
+        hasSurface(entry, "api") &&
+        !isLegacyCreateMarkdownOperation(entry.operationId),
+    )
     .map((entry) => ({
       path: `/api/${entry.operationId}`,
       method: "POST" as const,
@@ -141,7 +145,9 @@ const runTemplateApiOperation = async (
 const templateRouteForPath = (pathname: string): TemplateRouteMatch => {
   const apiEntry = confectManifest.functions.find(
     (entry) =>
-      hasSurface(entry, "api") && `/api/${entry.operationId}` === pathname,
+      hasSurface(entry, "api") &&
+      !isLegacyCreateMarkdownOperation(entry.operationId) &&
+      `/api/${entry.operationId}` === pathname,
   );
   const route =
     staticTemplateRoutes[pathname] ??
@@ -189,7 +195,7 @@ const filteredOpenApiDocument = (): ReturnType<
 
 const openApiRouteResponse = (request: Request): Response =>
   request.method === "GET"
-    ? jsonResponse(buildGeneratedOpenApiDocument())
+    ? jsonResponse(filteredOpenApiDocument())
     : jsonResponse({
         ok: false,
         error: {
