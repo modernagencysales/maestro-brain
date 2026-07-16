@@ -31,12 +31,15 @@ const workflows = {
 } as const;
 
 describe("Fabro workflow prompt contracts", () => {
-  it("requires every S03-T02 client creation artifact before lane green", () => {
+  it("requires amended task artifacts before lane green", () => {
     const laneGates = readFileSync(
       resolve(import.meta.dirname, "../src/lane-gates.mts"),
       "utf8",
     );
     for (const file of [
+      "docs/superpowers/receipts/maestro-brain/file-inventories/S02-T02-confect-generated-files.json",
+      "packages/convex/confect/brain/pageTree.ts",
+      "packages/convex/test/brain-pages-crud.test.ts",
       "apps/web/src/features/clients/clients-adapter.test.ts",
       "apps/web/src/features/clients/clients-adapter.ts",
       "apps/web/src/features/clients/clients-state.test.ts",
@@ -46,6 +49,11 @@ describe("Fabro workflow prompt contracts", () => {
       "apps/web/src/features/clients/create-client-dialog.test.tsx",
       "apps/web/src/features/clients/create-client-dialog.tsx",
       "packages/convex/confect/brain/clientBrief.ts",
+      "packages/convex/confect/headless/apiKeys.impl.ts",
+      "packages/convex/confect/headless/apiKeys.spec.ts",
+      "packages/convex/confect/headless/authorizeOperation.ts",
+      "packages/convex/confect/headless/principal.ts",
+      "packages/convex/test/http-request-security.test.ts",
     ]) {
       expect(laneGates).toContain(file);
     }

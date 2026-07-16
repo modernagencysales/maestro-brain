@@ -153,6 +153,11 @@ const gateCommands = deduplicateGateCommands([
 const commandSetHash = gateCommandSetHash(gateCommands);
 
 const requiredTaskFiles: Readonly<Record<string, readonly string[]>> = {
+  "S02-T02": [
+    "docs/superpowers/receipts/maestro-brain/file-inventories/S02-T02-confect-generated-files.json",
+    "packages/convex/confect/brain/pageTree.ts",
+    "packages/convex/test/brain-pages-crud.test.ts",
+  ],
   "S03-T02": [
     "apps/web/src/features/clients/clients-adapter.test.ts",
     "apps/web/src/features/clients/clients-adapter.ts",
@@ -167,6 +172,13 @@ const requiredTaskFiles: Readonly<Record<string, readonly string[]>> = {
   "S09-T01": [
     "packages/search/src/asyncSearch.ts",
     "packages/search/src/asyncSearch.test.ts",
+  ],
+  "S11-T02": [
+    "packages/convex/confect/headless/apiKeys.impl.ts",
+    "packages/convex/confect/headless/apiKeys.spec.ts",
+    "packages/convex/confect/headless/authorizeOperation.ts",
+    "packages/convex/confect/headless/principal.ts",
+    "packages/convex/test/http-request-security.test.ts",
   ],
 };
 for (const requiredFile of requiredTaskFiles[taskId] ?? [])
