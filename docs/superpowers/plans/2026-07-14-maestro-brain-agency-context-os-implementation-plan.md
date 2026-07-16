@@ -924,6 +924,7 @@ manifest.
   `apps/web/src/sample/templateData.ts`,
   `packages/convex/confect/brain/pages.spec.ts`,
   `packages/convex/confect/brain/pages.impl.ts`,
+  `packages/convex/confect/capabilities/catalog.impl.ts`,
   `packages/convex/confect/http.ts`, `packages/convex/confect/httpRequest.ts`,
   `packages/convex/confect/manifest/executor.ts`,
   `packages/convex/test/brain-pages.contract.test.ts`,
@@ -965,10 +966,11 @@ manifest.
   editor snapshot commits. Remove the legacy `createMarkdown` write from live
   HTTP/OpenAPI/MCP, CLI, workflow, and web sample consumers plus their
   behavioral contracts; do not leave a caller-ID compatibility route or a
-  hard-coded public generated ref. Reserve headless read exposure for S11. Every
-  mutation takes an `expectedCurrentRevisionKey`. Keep the shared headless
-  surface predicate generic over generated surface literals so a web-only
-  manifest remains type-safe without widening any operation's declared exposure.
+  hard-coded public generated ref, and remove its API advertisement from the
+  capability catalog. Reserve headless read exposure for S11. Every mutation
+  takes an `expectedCurrentRevisionKey`. Keep the shared headless surface
+  predicate generic over generated surface literals so a web-only manifest
+  remains type-safe without widening any operation's declared exposure.
 - **Typed contract / errors:** args/returns are detailed in Appendix F; errors
   include `Unauthorized`, `Forbidden`, `BrainNotFound`, `PageNotFound`,
   `PageTreeConflict`, `StaleRevision`, and `LifecycleRevoked`.
