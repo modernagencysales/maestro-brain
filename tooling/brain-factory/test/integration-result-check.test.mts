@@ -402,6 +402,60 @@ describe("normal integration result check", () => {
     ).toThrow("no included tasks");
   });
 
+  it("honors the immutable selected gate across later policy drift", () => {
+    const value = waveFixture();
+    const gate = readRecord(value.gatePath);
+    const historicalCommands = [
+      { program: "pnpm", args: ["--dir", "packages/search", "typecheck"] },
+    ];
+    gate.commands = historicalCommands.map(
+      (command) => `rtk ${command.program} ${command.args.join(" ")}`,
+    );
+    gate.commandSetHash = gateCommandSetHash(historicalCommands);
+    writeJson(value.gatePath, gate);
+
+    const selection = readRecord(value.selectionPath);
+    const selectedTask = (
+      selection.selectedTasks as Record<string, unknown>[]
+    )[0];
+    if (!selectedTask) throw new Error("fixture wave task missing");
+    selectedTask.gateSha256 = sha256File(value.gatePath);
+    const { selectionSha256: _oldSelectionSha256, ...selectionPayload } =
+      selection;
+    selection.selectionSha256 = createHash("sha256")
+      .update(JSON.stringify(selectionPayload))
+      .digest("hex");
+    writeJson(value.selectionPath, selection);
+    const result = readRecord(value.resultPath);
+    result.selectionSha256 = selection.selectionSha256;
+    writeJson(value.resultPath, result);
+
+    expect(() =>
+      validateIntegrationResult({
+        controlRoot: value.controlRoot,
+        evidenceDirectory: value.evidence,
+        expectedWorkdir: value.workdir,
+        integrationId: value.integrationId,
+        selectionPath: value.selectionPath,
+      }),
+    ).not.toThrow();
+
+    gate.commands = [
+      ...(gate.commands as string[]),
+      "rtk pnpm check:confect-v9",
+    ];
+    writeJson(value.gatePath, gate);
+    expect(() =>
+      validateIntegrationResult({
+        controlRoot: value.controlRoot,
+        evidenceDirectory: value.evidence,
+        expectedWorkdir: value.workdir,
+        integrationId: value.integrationId,
+        selectionPath: value.selectionPath,
+      }),
+    ).toThrow("immutable wave selection drift");
+  });
+
   it("rejects v2 remaining findings and missing lane-head provenance", () => {
     const value = waveFixture();
     const result = readRecord(value.resultPath);
@@ -457,6 +511,58 @@ describe("normal integration result check", () => {
     const lane = readRecord(value.lanePath);
     lane.integrationHeadSha = headSha;
     writeJson(value.lanePath, lane);
+    writeJson(value.resultPath, result);
+    expect(() =>
+      validateIntegrationResult({
+        controlRoot: value.controlRoot,
+        evidenceDirectory: value.evidence,
+        expectedWorkdir: value.workdir,
+        integrationId: value.integrationId,
+        selectionPath: value.selectionPath,
+      }),
+    ).toThrow("non-lane, non-generated files");
+  });
+
+  it("allows only recorded recovery commit files outside lane ownership", () => {
+    const value = waveFixture();
+    writeFileSync(
+      resolve(value.workdir, "repair.ts"),
+      "export const repaired = true;\n",
+    );
+    command(value.workdir, "add", "repair.ts");
+    command(value.workdir, "commit", "-qm", "fix: repair integration");
+    const repairSha = command(value.workdir, "rev-parse", "HEAD");
+    const result = readRecord(value.resultPath);
+    result.mode = "recover";
+    result.headSha = repairSha;
+    result.broadGate = {
+      status: "passed",
+      headSha: repairSha,
+      command: "rtk host-test-slot --class full pnpm verify",
+    };
+    result.repairCommits = [
+      {
+        sha: repairSha,
+        summary: "Reviewed repair",
+        taskId: "integration-recovery",
+      },
+    ];
+    writeJson(value.resultPath, result);
+    const lane = readRecord(value.lanePath);
+    lane.integrationHeadSha = repairSha;
+    writeJson(value.lanePath, lane);
+
+    expect(() =>
+      validateIntegrationResult({
+        controlRoot: value.controlRoot,
+        evidenceDirectory: value.evidence,
+        expectedWorkdir: value.workdir,
+        integrationId: value.integrationId,
+        selectionPath: value.selectionPath,
+      }),
+    ).not.toThrow();
+
+    result.repairCommits = [];
     writeJson(value.resultPath, result);
     expect(() =>
       validateIntegrationResult({
