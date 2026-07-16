@@ -286,6 +286,54 @@ describe("editor sync registration", () => {
     ).rejects.toThrow("workspace membership");
   });
 
+  it("does not mirror Brain page snapshots without stable page, revision, or Brain keys", async () => {
+    for (const input of [
+      {
+        pageKey: undefined,
+        currentRevisionKey: "rev_current",
+        brainKey: "br_0123456789ABCDEFGHJKMNPQRS",
+      },
+      {
+        pageKey: "pag_page-1",
+        currentRevisionKey: null,
+        brainKey: "br_0123456789ABCDEFGHJKMNPQRS",
+      },
+      {
+        pageKey: "pag_page-1",
+        currentRevisionKey: "rev_current",
+        brainKey: undefined,
+      },
+    ]) {
+      const runMutation = vi.fn<
+        (_ref: unknown, _args: unknown) => Promise<null>
+      >(async () => null);
+      const ctx = {
+        db: {
+          normalizeId: vi.fn(() => "page_1"),
+          get: vi.fn(async (id: string) => {
+            if (id === "page_1") {
+              return {
+                _id: "page_1",
+                workspaceId: "workspace_1",
+                pageKey: input.pageKey,
+                currentRevisionKey: input.currentRevisionKey,
+              };
+            }
+            if (id === "workspace_1") {
+              return { _id: "workspace_1", brainKey: input.brainKey };
+            }
+            return null;
+          }),
+        },
+        runMutation,
+      } as unknown as GenericMutationCtx<DataModel>;
+
+      await recordEditorSnapshot(ctx, "brainPage:page_1", '{"type":"doc"}', 42);
+
+      expect(runMutation).not.toHaveBeenCalled();
+    }
+  });
+
   it("records Brain page snapshots through the internal mirror mutation", async () => {
     const runMutation = vi.fn<(_ref: unknown, _args: unknown) => Promise<null>>(
       async () => null,
@@ -293,10 +341,23 @@ describe("editor sync registration", () => {
     const ctx = {
       db: {
         normalizeId: vi.fn(() => "page_1"),
-        get: vi.fn(async () => ({
-          _id: "page_1",
-          workspaceId: "workspace_1",
-        })),
+        get: vi.fn(async (id: string) => {
+          if (id === "page_1") {
+            return {
+              _id: "page_1",
+              workspaceId: "workspace_1",
+              pageKey: "pag_page-1",
+              currentRevisionKey: "rev_current",
+            };
+          }
+          if (id === "workspace_1") {
+            return {
+              _id: "workspace_1",
+              brainKey: "br_0123456789ABCDEFGHJKMNPQRS",
+            };
+          }
+          return null;
+        }),
       },
       runMutation,
     } as unknown as GenericMutationCtx<DataModel>;
@@ -307,8 +368,9 @@ describe("editor sync registration", () => {
     const firstCall = runMutation.mock.calls[0];
     expect(firstCall).toBeDefined();
     expect(firstCall?.[1]).toEqual({
-      workspaceId: "workspace_1",
-      pageId: "page_1",
+      brainKey: "br_0123456789ABCDEFGHJKMNPQRS",
+      pageKey: "pag_page-1",
+      expectedCurrentRevisionKey: "rev_current",
       snapshot: '{"type":"doc"}',
       version: 42,
     });
