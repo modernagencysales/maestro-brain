@@ -8,7 +8,8 @@ import refs from "../confect/_generated/refs";
 import databaseSchema from "../confect/_generated/schema";
 import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
 import {
-  BrainAlreadyExists,
+  CapacityExceeded,
+  ClientBrainAlreadyExists,
   Forbidden,
   OrganizationNotFound,
   ProvisioningConflict,
@@ -27,6 +28,8 @@ import {
   ResolveBrainKeyArgs,
   ResolveBrainKeyReturns,
 } from "../confect/identity/stableKeys.spec";
+import { standardClientBriefPages } from "../confect/brain/clientBrief";
+import { insertStandardClientBriefPages } from "../confect/access/provisioning.impl";
 import { testConfectLayer } from "./support/confect";
 
 const now = 1_782_924_800_000;
@@ -216,6 +219,7 @@ describe("authorized Brain provisioning", () => {
         .mutation(refs.public.access.provisioning.createClientBrain, {
           name: "Northwind",
           clientSlug: "northwind",
+          idempotencyKey: "idem-northwind-01",
         });
       const sideEffects = yield* confect.run(
         readClientProvisioningSideEffects(
@@ -260,6 +264,310 @@ describe("authorized Brain provisioning", () => {
     expect(JSON.parse(result.sideEffects.auditEvent.metadataJson)).toEqual({
       role: "owner",
     });
+  });
+
+  it("retries the same client creation key without rewriting durable rows", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const identity = {
+        subject: "workos|retry-admin",
+        name: "Retry Admin",
+        email: "retry-admin@example.com",
+        emailVerified: true,
+        organizationId: "org_workos_retry_admin",
+      };
+      yield* confect
+        .withIdentity(identity)
+        .mutation(refs.public.access.provisioning.ensureProvisioned, {});
+      const first = yield* confect
+        .withIdentity(identity)
+        .mutation(refs.public.access.provisioning.createClientBrain, {
+          name: "Retry Client",
+          clientSlug: "retry-client",
+          idempotencyKey: "idem-retry-client",
+        });
+      const before = yield* confect.run(
+        countClientWorkspaces(identity.organizationId),
+        Schema.Number,
+      );
+      yield* confect.run(
+        renameAndReorderClientBrief(identity.organizationId, first.brainKey),
+        Schema.Any,
+      );
+      const retry = yield* confect
+        .withIdentity(identity)
+        .mutation(refs.public.access.provisioning.createClientBrain, {
+          name: "Retry Client",
+          clientSlug: "retry-client",
+          idempotencyKey: "idem-retry-client",
+        });
+      const pages = yield* confect.run(
+        readClientBriefPages(identity.organizationId, first.brainKey),
+        Schema.Any,
+      );
+      const after = yield* confect.run(
+        countClientWorkspaces(identity.organizationId),
+        Schema.Number,
+      );
+      return { first, retry, before, after, pages };
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.retry).toEqual(result.first);
+    expect(result.before).toBe(1);
+    expect(result.after).toBe(1);
+    expect(
+      result.pages
+        .map((page: { readonly pageKey: string }) => page.pageKey)
+        .sort(),
+    ).toEqual(result.first.pages.map((page) => page.pageKey).sort());
+  });
+
+  it("keeps same-slug client Brief page keys tenant scoped", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const firstIdentity = {
+        subject: "workos|same-slug-one",
+        name: "Same Slug One",
+        email: "same-slug-one@example.com",
+        emailVerified: true,
+        organizationId: "org_workos_same_slug_one",
+      };
+      const secondIdentity = {
+        subject: "workos|same-slug-two",
+        name: "Same Slug Two",
+        email: "same-slug-two@example.com",
+        emailVerified: true,
+        organizationId: "org_workos_same_slug_two",
+      };
+      yield* confect
+        .withIdentity(firstIdentity)
+        .mutation(refs.public.access.provisioning.ensureProvisioned, {});
+      yield* confect
+        .withIdentity(secondIdentity)
+        .mutation(refs.public.access.provisioning.ensureProvisioned, {});
+      const first = yield* confect
+        .withIdentity(firstIdentity)
+        .mutation(refs.public.access.provisioning.createClientBrain, {
+          name: "Shared Slug",
+          clientSlug: "shared-slug",
+          idempotencyKey: "idem-shared-slug-one",
+        });
+      const second = yield* confect
+        .withIdentity(secondIdentity)
+        .mutation(refs.public.access.provisioning.createClientBrain, {
+          name: "Shared Slug",
+          clientSlug: "shared-slug",
+          idempotencyKey: "idem-shared-slug-two",
+        });
+      return { first, second };
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.first.brainKey).not.toBe(result.second.brainKey);
+    expect(result.first.pages.map((page) => page.pageKey)).not.toEqual(
+      result.second.pages.map((page) => page.pageKey),
+    );
+  });
+
+  it("rejects same idempotency key for different payloads", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const identity = {
+        subject: "workos|conflict-admin",
+        name: "Conflict Admin",
+        email: "conflict-admin@example.com",
+        emailVerified: true,
+        organizationId: "org_workos_conflict_admin",
+      };
+      yield* confect
+        .withIdentity(identity)
+        .mutation(refs.public.access.provisioning.ensureProvisioned, {});
+      yield* confect
+        .withIdentity(identity)
+        .mutation(refs.public.access.provisioning.createClientBrain, {
+          name: "Conflict Client",
+          clientSlug: "conflict-client",
+          idempotencyKey: "idem-conflict-client",
+        });
+      return yield* confect
+        .withIdentity(identity)
+        .mutation(refs.public.access.provisioning.createClientBrain, {
+          name: "Changed Client",
+          clientSlug: "changed-client",
+          idempotencyKey: "idem-conflict-client",
+        })
+        .pipe(Effect.flip);
+    });
+
+    const error = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(error).toBeInstanceOf(ProvisioningConflict);
+    expect(error).toMatchObject({
+      resource: "workspaces.organizationId.clientCreationIdempotencyKey",
+    });
+  });
+
+  it("rejects duplicate persisted idempotency rows", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const identity = {
+        subject: "workos|dupe-idem-admin",
+        name: "Dupe Idem Admin",
+        email: "dupe-idem-admin@example.com",
+        emailVerified: true,
+        organizationId: "org_workos_dupe_idem_admin",
+      };
+      yield* confect
+        .withIdentity(identity)
+        .mutation(refs.public.access.provisioning.ensureProvisioned, {});
+      yield* confect
+        .withIdentity(identity)
+        .mutation(refs.public.access.provisioning.createClientBrain, {
+          name: "Dupe Idem Client",
+          clientSlug: "dupe-idem-client",
+          idempotencyKey: "idem-dupe-idem-client",
+        });
+      yield* confect.run(
+        insertDuplicateClientIdempotencyRow(
+          identity.subject,
+          identity.organizationId,
+          "idem-dupe-idem-client",
+        ),
+        Schema.Any,
+      );
+      return yield* confect
+        .withIdentity(identity)
+        .mutation(refs.public.access.provisioning.createClientBrain, {
+          name: "Dupe Idem Client",
+          clientSlug: "dupe-idem-client",
+          idempotencyKey: "idem-dupe-idem-client",
+        })
+        .pipe(Effect.flip);
+    });
+
+    const error = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(error).toBeInstanceOf(ProvisioningConflict);
+    expect(error).toMatchObject({
+      resource: "workspaces.organizationId.clientCreationIdempotencyKey",
+    });
+  });
+
+  it("rejects idempotent replay after the created client is archived", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const identity = {
+        subject: "workos|archived-replay-admin",
+        name: "Archived Replay Admin",
+        email: "archived-replay-admin@example.com",
+        emailVerified: true,
+        organizationId: "org_workos_archived_replay_admin",
+      };
+      yield* confect
+        .withIdentity(identity)
+        .mutation(refs.public.access.provisioning.ensureProvisioned, {});
+      const created = yield* confect
+        .withIdentity(identity)
+        .mutation(refs.public.access.provisioning.createClientBrain, {
+          name: "Archived Replay Client",
+          clientSlug: "archived-replay-client",
+          idempotencyKey: "idem-archived-replay-client",
+        });
+      yield* confect.run(
+        archiveClientWorkspace(identity.organizationId, created.brainKey),
+        Schema.Any,
+      );
+      return yield* confect
+        .withIdentity(identity)
+        .mutation(refs.public.access.provisioning.createClientBrain, {
+          name: "Archived Replay Client",
+          clientSlug: "archived-replay-client",
+          idempotencyKey: "idem-archived-replay-client",
+        })
+        .pipe(Effect.flip);
+    });
+
+    const error = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(error).toBeInstanceOf(ProvisioningConflict);
+    expect(error).toMatchObject({
+      resource: "workspaces.organizationId.clientCreationIdempotencyKey",
+    });
+  });
+
+  it("seeds the six ordinary Client Brief pages for new client Brains", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const identity = {
+        subject: "workos|brief-admin",
+        name: "Brief Admin",
+        email: "brief-admin@example.com",
+        emailVerified: true,
+        organizationId: "org_workos_brief_admin",
+      };
+
+      yield* confect
+        .withIdentity(identity)
+        .mutation(refs.public.access.provisioning.ensureProvisioned, {});
+      const created = yield* confect
+        .withIdentity(identity)
+        .mutation(refs.public.access.provisioning.createClientBrain, {
+          name: "Brief Client",
+          clientSlug: "brief-client",
+          idempotencyKey: "idem-brief-client-03",
+        });
+
+      const pages = yield* confect.run(
+        readClientBriefPages(identity.organizationId, created.brainKey),
+        Schema.Any,
+      );
+      return { created, pages };
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.pages).toEqual(
+      result.created.pages.map((page) =>
+        expect.objectContaining({
+          pageKey: page.pageKey,
+          title: page.title,
+          siblingSlug: page.slug,
+          sortKey: page.sortKey,
+          status: "active",
+        }),
+      ),
+    );
+    expect(result.created.initialPageKey).toBe(
+      result.created.pages[0]?.pageKey,
+    );
+    expect(result.pages).toHaveLength(standardClientBriefPages.length);
   });
 
   it("rejects existing suspended and deleted users before provisioning durable rows", async () => {
@@ -451,6 +759,7 @@ describe("authorized Brain provisioning", () => {
         .mutation(refs.public.access.provisioning.createClientBrain, {
           name: "Viewer Client",
           clientSlug: "viewer-client",
+          idempotencyKey: "idem-viewer-client-04",
         })
         .pipe(Effect.flip);
       const editorError = yield* confect
@@ -463,6 +772,7 @@ describe("authorized Brain provisioning", () => {
         .mutation(refs.public.access.provisioning.createClientBrain, {
           name: "Editor Client",
           clientSlug: "editor-client",
+          idempotencyKey: "idem-editor-client-05",
         })
         .pipe(Effect.flip);
 
@@ -494,6 +804,7 @@ describe("authorized Brain provisioning", () => {
         .mutation(refs.public.access.provisioning.createClientBrain, {
           name: "Existing Client",
           clientSlug: "existing-client",
+          idempotencyKey: "idem-existing-client-06",
         })
         .pipe(Effect.flip);
     });
@@ -502,8 +813,8 @@ describe("authorized Brain provisioning", () => {
       program.pipe(Effect.provide(testConfectLayer())),
     );
 
-    expect(error).toBeInstanceOf(BrainAlreadyExists);
-    expect(error).toMatchObject({ brainKey: "existing-client" });
+    expect(error).toBeInstanceOf(ClientBrainAlreadyExists);
+    expect(error).toMatchObject({ clientSlug: "existing-client" });
   });
 
   it("omits caller-supplied tenant ids from public operation specs", async () => {
@@ -527,6 +838,7 @@ describe("authorized Brain provisioning", () => {
         .mutation(refs.public.access.provisioning.createClientBrain, {
           name: "Signed Out",
           clientSlug: "signed-out",
+          idempotencyKey: "idem-signed-out-07",
         })
         .pipe(Effect.flip);
     });
@@ -554,6 +866,7 @@ describe("authorized Brain provisioning", () => {
         .mutation(refs.public.access.provisioning.createClientBrain, {
           name: "Suspended",
           clientSlug: "suspended",
+          idempotencyKey: "idem-suspended-08",
         })
         .pipe(Effect.flip);
       const deleted = yield* confect
@@ -566,6 +879,7 @@ describe("authorized Brain provisioning", () => {
         .mutation(refs.public.access.provisioning.createClientBrain, {
           name: "Deleted",
           clientSlug: "deleted",
+          idempotencyKey: "idem-deleted-09",
         })
         .pipe(Effect.flip);
       return { suspended, deleted };
@@ -594,6 +908,7 @@ describe("authorized Brain provisioning", () => {
         .mutation(refs.public.access.provisioning.createClientBrain, {
           name: "Missing",
           clientSlug: "missing",
+          idempotencyKey: "idem-missing-10",
         })
         .pipe(Effect.flip);
       const duplicate = yield* confect
@@ -606,6 +921,7 @@ describe("authorized Brain provisioning", () => {
         .mutation(refs.public.access.provisioning.createClientBrain, {
           name: "Duplicate",
           clientSlug: "duplicate",
+          idempotencyKey: "idem-duplicate-11",
         })
         .pipe(Effect.flip);
       return { missing, duplicate };
@@ -621,6 +937,108 @@ describe("authorized Brain provisioning", () => {
     expect(result.duplicate).toBeInstanceOf(ProvisioningConflict);
     expect(result.duplicate).toMatchObject({
       resource: "organizations.agencyKey",
+    });
+  });
+
+  it("enforces client capacity at 25 while excluding archived clients", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const identity = {
+        subject: "workos|capacity-admin",
+        name: "Capacity Admin",
+        email: "capacity-admin@example.com",
+        emailVerified: true,
+        organizationId: "org_workos_capacity_admin",
+      };
+      yield* confect
+        .withIdentity(identity)
+        .mutation(refs.public.access.provisioning.ensureProvisioned, {});
+      const archived = yield* confect
+        .withIdentity(identity)
+        .mutation(refs.public.access.provisioning.createClientBrain, {
+          name: "Archived Capacity Client",
+          clientSlug: "archived-capacity-client",
+          idempotencyKey: "idem-archived-capacity-client",
+        });
+      yield* confect.run(
+        archiveClientWorkspace(identity.organizationId, archived.brainKey),
+        Schema.Any,
+      );
+      let lastCapacity: (typeof archived)["capacity"] | undefined = undefined;
+      for (let index = 0; index < 25; index += 1) {
+        const created = yield* confect
+          .withIdentity(identity)
+          .mutation(refs.public.access.provisioning.createClientBrain, {
+            name: `Capacity Client ${index}`,
+            clientSlug: `capacity-client-${index}`,
+            idempotencyKey: `idem-capacity-client-${index}`,
+          });
+        lastCapacity = created.capacity;
+      }
+      const overLimit = yield* confect
+        .withIdentity(identity)
+        .mutation(refs.public.access.provisioning.createClientBrain, {
+          name: "Capacity Overflow",
+          clientSlug: "capacity-overflow",
+          idempotencyKey: "idem-capacity-overflow",
+        })
+        .pipe(Effect.flip);
+      return { lastCapacity, overLimit };
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.lastCapacity).toEqual({
+      clientBrains: 25,
+      clientBrainLimit: 25,
+      remainingClientBrains: 0,
+    });
+    expect(result.overLimit).toBeInstanceOf(CapacityExceeded);
+  });
+
+  it("rolls back workspace, pages, membership, and audit on partial page seed failure", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const before = yield* confect.run(
+        countClientProvisioningRows(
+          "org_workos_partial_seed",
+          "partial-seed-client",
+        ),
+        ClientProvisioningRowCounts,
+      );
+      const failureExit = yield* Effect.exit(
+        confect.run(seedPartialClientCreationFailure(), Schema.Any),
+      );
+      const after = yield* confect.run(
+        countClientProvisioningRows(
+          "org_workos_partial_seed",
+          "partial-seed-client",
+        ),
+        ClientProvisioningRowCounts,
+      );
+      return { before, failureExit, after };
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    if (result.failureExit._tag !== "Failure") {
+      throw new Error("expected partial seed failure");
+    }
+    expect(String(result.failureExit.cause)).toContain("ProvisioningConflict");
+    expect(result.before).toEqual(result.after);
+    expect(result.after).toEqual({
+      workspaces: 0,
+      workspaceMembers: 0,
+      pages: 0,
+      auditEvents: 0,
     });
   });
 
@@ -644,6 +1062,7 @@ describe("authorized Brain provisioning", () => {
         .mutation(refs.public.access.provisioning.createClientBrain, {
           name: "Archived Client",
           clientSlug: "archived-client",
+          idempotencyKey: "idem-archived-client-12",
         })
         .pipe(Effect.flip);
       const after = yield* confect.run(
@@ -656,7 +1075,7 @@ describe("authorized Brain provisioning", () => {
     const result = await Effect.runPromise(
       program.pipe(Effect.provide(testConfectLayer())),
     );
-    expect(result.error).toBeInstanceOf(BrainAlreadyExists);
+    expect(result.error).toBeInstanceOf(ClientBrainAlreadyExists);
     expect(result.after).toBe(result.before);
   });
 
@@ -965,6 +1384,8 @@ const seedAuthorizedBrains = () =>
         name: "Client Brain",
         kind: "client",
         clientSlug: "client",
+        clientCreationIdempotencyKey: "seed-client",
+        clientCreationPayloadHash: "client:Client Brain",
         status: "active",
         dataClassification: "confidential",
         createdAt: now,
@@ -980,6 +1401,8 @@ const seedAuthorizedBrains = () =>
         name: "Archived Brain",
         kind: "client",
         clientSlug: "archived",
+        clientCreationIdempotencyKey: "seed-archived",
+        clientCreationPayloadHash: "archived:Archived Brain",
         status: "archived",
         dataClassification: "confidential",
         createdAt: now,
@@ -1342,6 +1765,41 @@ const seedDuplicateAgencyBrains = () =>
     }
   });
 
+const readClientBriefPages = (workosOrganizationId: string, brainKey: string) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const organizations = yield* reader
+      .table("organizations")
+      .index("by_workos_organization", (q) =>
+        q.eq("workosOrganizationId", workosOrganizationId),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const organization = organizations[0];
+    if (organization === undefined) throw new Error("expected organization");
+    const workspaces = yield* reader
+      .table("workspaces")
+      .index("by_organization_brain_key", (q) =>
+        q.eq("organizationId", organization._id).eq("brainKey", brainKey),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const workspace = workspaces[0];
+    if (workspace === undefined) throw new Error("expected workspace");
+    return yield* reader
+      .table("brainPages")
+      .index("by_workspace", (q) => q.eq("workspaceId", workspace._id))
+      .collect()
+      .pipe(
+        Effect.map((pages) =>
+          [...pages].sort((a, b) =>
+            (a.sortKey ?? "").localeCompare(b.sortKey ?? ""),
+          ),
+        ),
+        Effect.orDie,
+      );
+  });
+
 const readClientProvisioningSideEffects = (
   subject: string,
   workosOrganizationId: string,
@@ -1510,6 +1968,8 @@ const seedClientBrainCreatorRoles = () =>
         name: "Existing Client",
         kind: "client",
         clientSlug: "existing-client",
+        clientCreationIdempotencyKey: "seed-existing",
+        clientCreationPayloadHash: "existing-client:Existing Client",
         status: "active",
         dataClassification: "confidential",
         createdAt: now,
@@ -1526,6 +1986,8 @@ const seedClientBrainCreatorRoles = () =>
         name: "Archived Client",
         kind: "client",
         clientSlug: "archived-client",
+        clientCreationIdempotencyKey: "seed-archived-client",
+        clientCreationPayloadHash: "archived-client:Archived Client",
         status: "archived",
         dataClassification: "confidential",
         createdAt: now,
@@ -1744,6 +2206,312 @@ const seedDuplicateWorkspaceMembership = (workspaceId: string) =>
         acceptedAt: now,
         revokedAt: null,
         deletedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
+  });
+
+const seedPartialClientCreationFailure = () =>
+  Effect.gen(function* () {
+    const writer = yield* DatabaseWriter;
+    const nowMs = now + 7;
+    const userId = yield* writer
+      .table("users")
+      .insert({
+        subject: "partial-seed-subject",
+        email: "partial-seed@example.com",
+        displayName: "Partial Seed",
+        status: "active",
+        createdAt: nowMs,
+        updatedAt: nowMs,
+      })
+      .pipe(Effect.orDie);
+    const organizationId = yield* writer
+      .table("organizations")
+      .insert({
+        ownerUserId: userId,
+        workosOrganizationId: "org_workos_partial_seed",
+        agencyKey: "ag_01J00000000000000000000PS",
+        slug: "partial-seed",
+        name: "Partial Seed Org",
+        status: "active",
+        createdAt: nowMs,
+        updatedAt: nowMs,
+      })
+      .pipe(Effect.orDie);
+    const workspaceId = yield* writer
+      .table("workspaces")
+      .insert({
+        organizationId,
+        ownerUserId: userId,
+        slug: "partial-seed-client",
+        name: "Partial Seed Client",
+        kind: "client",
+        clientSlug: "partial-seed-client",
+        clientCreationIdempotencyKey: "idem-partial-seed-client",
+        clientCreationPayloadHash: "partial-seed-client:Partial Seed Client",
+        status: "active",
+        dataClassification: "confidential",
+        createdAt: nowMs,
+        updatedAt: nowMs,
+      })
+      .pipe(Effect.orDie);
+    const brainKey = deriveStableBrainKey({
+      _id: workspaceId,
+      createdAt: nowMs,
+    });
+    yield* writer
+      .table("workspaces")
+      .patch(workspaceId, { brainKey })
+      .pipe(Effect.orDie);
+    const membershipId = yield* writer
+      .table("workspaceMembers")
+      .insert({
+        workspaceId,
+        userId,
+        role: "owner",
+        status: "active",
+        acceptedAt: nowMs,
+        revokedAt: null,
+        deletedAt: null,
+        createdAt: nowMs,
+        updatedAt: nowMs,
+      })
+      .pipe(Effect.orDie);
+    yield* writer
+      .table("accessAuditEvents")
+      .insert({
+        workspaceId,
+        action: "member.ownershipTransferred",
+        actorUserId: userId,
+        subjectKind: "workspaceMember",
+        subjectId: membershipId,
+        metadataJson: JSON.stringify({ role: "owner" }),
+        createdAt: nowMs,
+      })
+      .pipe(Effect.orDie);
+    let inserted = 0;
+    yield* insertStandardClientBriefPages({
+      brainKey,
+      insertPage: (page) =>
+        Effect.gen(function* () {
+          inserted += 1;
+          yield* writer
+            .table("brainPages")
+            .insert({
+              workspaceId,
+              organizationId,
+              slug: page.slug,
+              title: page.title,
+              markdown: page.markdown,
+              sourceKind: "markdown",
+              updatedAt: nowMs,
+              pageKey: page.pageKey,
+              parentPageKey: null,
+              siblingSlug: page.slug,
+              sortKey: page.sortKey,
+              favorite: page.favorite,
+              status: "active",
+              currentRevisionKey: null,
+              lifecycle: {
+                state: "active",
+                generation: 0,
+                updatedAt: nowMs,
+                purgeAfter: null,
+              },
+              createdAt: nowMs,
+              schemaVersion: 1,
+            })
+            .pipe(Effect.orDie);
+          if (inserted === 3) {
+            return yield* new ProvisioningConflict({
+              resource: "brainPages.seed",
+              message: "Injected partial page seed failure in test helper.",
+            });
+          }
+        }),
+    });
+  });
+
+const ClientProvisioningRowCounts = Schema.Struct({
+  workspaces: Schema.Number,
+  workspaceMembers: Schema.Number,
+  pages: Schema.Number,
+  auditEvents: Schema.Number,
+});
+
+const countClientProvisioningRows = (
+  workosOrganizationId: string,
+  clientSlug: string,
+) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const organizations = yield* reader
+      .table("organizations")
+      .index("by_workos_organization", (q) =>
+        q.eq("workosOrganizationId", workosOrganizationId),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const organization = organizations[0];
+    if (organization === undefined) {
+      return { workspaces: 0, workspaceMembers: 0, pages: 0, auditEvents: 0 };
+    }
+    const workspaces = yield* reader
+      .table("workspaces")
+      .index("by_organization_client_slug", (q) =>
+        q.eq("organizationId", organization._id).eq("clientSlug", clientSlug),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    let workspaceMembers = 0;
+    let pages = 0;
+    let auditEvents = 0;
+    for (const workspace of workspaces) {
+      const members = yield* reader
+        .table("workspaceMembers")
+        .index("by_workspace_status", (q) => q.eq("workspaceId", workspace._id))
+        .collect()
+        .pipe(Effect.orDie);
+      workspaceMembers += members.length;
+      const workspacePages = yield* reader
+        .table("brainPages")
+        .index("by_workspace", (q) => q.eq("workspaceId", workspace._id))
+        .collect()
+        .pipe(Effect.orDie);
+      pages += workspacePages.length;
+      for (const member of members) {
+        const events = yield* reader
+          .table("accessAuditEvents")
+          .index("by_subject", (q) =>
+            q.eq("subjectKind", "workspaceMember").eq("subjectId", member._id),
+          )
+          .collect()
+          .pipe(Effect.orDie);
+        auditEvents += events.length;
+      }
+    }
+    return {
+      workspaces: workspaces.length,
+      workspaceMembers,
+      pages,
+      auditEvents,
+    };
+  });
+
+const renameAndReorderClientBrief = (
+  workosOrganizationId: string,
+  brainKey: string,
+) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const writer = yield* DatabaseWriter;
+    const organizations = yield* reader
+      .table("organizations")
+      .index("by_workos_organization", (q) =>
+        q.eq("workosOrganizationId", workosOrganizationId),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const organization = organizations[0];
+    if (organization === undefined) throw new Error("expected organization");
+    const workspaces = yield* reader
+      .table("workspaces")
+      .index("by_organization_brain_key", (q) =>
+        q.eq("organizationId", organization._id).eq("brainKey", brainKey),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const workspace = workspaces[0];
+    if (workspace === undefined) throw new Error("expected workspace");
+    const pages = yield* reader
+      .table("brainPages")
+      .index("by_workspace", (q) => q.eq("workspaceId", workspace._id))
+      .collect()
+      .pipe(Effect.orDie);
+    for (const [index, page] of pages.entries()) {
+      yield* writer
+        .table("brainPages")
+        .patch(page._id, {
+          title: `${page.title} renamed`,
+          slug: `${page.slug}-renamed`,
+          siblingSlug: `${page.slug}-renamed`,
+          sortKey: String(pages.length - index).padStart(10, "0"),
+        })
+        .pipe(Effect.orDie);
+    }
+  });
+
+const archiveClientWorkspace = (
+  workosOrganizationId: string,
+  brainKey: string,
+) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const writer = yield* DatabaseWriter;
+    const organizations = yield* reader
+      .table("organizations")
+      .index("by_workos_organization", (q) =>
+        q.eq("workosOrganizationId", workosOrganizationId),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const organization = organizations[0];
+    if (organization === undefined) throw new Error("expected organization");
+    const workspaces = yield* reader
+      .table("workspaces")
+      .index("by_organization_brain_key", (q) =>
+        q.eq("organizationId", organization._id).eq("brainKey", brainKey),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const workspace = workspaces[0];
+    if (workspace === undefined) throw new Error("expected workspace");
+    yield* writer
+      .table("workspaces")
+      .patch(workspace._id, { status: "archived", updatedAt: now + 1 })
+      .pipe(Effect.orDie);
+  });
+
+const insertDuplicateClientIdempotencyRow = (
+  subject: string,
+  workosOrganizationId: string,
+  idempotencyKey: string,
+) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const writer = yield* DatabaseWriter;
+    const users = yield* reader
+      .table("users")
+      .index("by_subject", (q) => q.eq("subject", subject))
+      .collect()
+      .pipe(Effect.orDie);
+    const user = users[0];
+    if (user === undefined) throw new Error("expected user");
+    const organizations = yield* reader
+      .table("organizations")
+      .index("by_workos_organization", (q) =>
+        q.eq("workosOrganizationId", workosOrganizationId),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const organization = organizations[0];
+    if (organization === undefined) throw new Error("expected organization");
+    yield* writer
+      .table("workspaces")
+      .insert({
+        organizationId: organization._id,
+        ownerUserId: user._id,
+        brainKey: "br_01J0000000000000000000DUP",
+        slug: "dupe-idem-shadow",
+        name: "Dupe Idem Shadow",
+        kind: "client",
+        clientSlug: "dupe-idem-shadow",
+        clientCreationIdempotencyKey: idempotencyKey,
+        clientCreationPayloadHash: "dupe-idem-client:Dupe Idem Client",
+        status: "active",
+        dataClassification: "confidential",
         createdAt: now,
         updatedAt: now,
       })
