@@ -83,7 +83,7 @@ const connectResult = () =>
     status: Schema.Literal("verifying", "error"),
   });
 
-const beginSlackConnect = FunctionSpec.publicAction({
+export const beginSlackConnect = FunctionSpec.publicAction({
   name: "beginSlackConnect",
   args: () => Schema.Struct({}),
   returns: () =>
@@ -92,10 +92,10 @@ const beginSlackConnect = FunctionSpec.publicAction({
       connectSessionToken: Schema.String,
       expiresAt: Schema.Number,
     }),
-  error: slackConnectError,
+  error: () => slackConnectError(),
 });
 
-const completeSlackConnect = FunctionSpec.publicAction({
+export const completeSlackConnect = FunctionSpec.publicAction({
   name: "completeSlackConnect",
   args: () =>
     Schema.Struct({
@@ -108,7 +108,7 @@ const completeSlackConnect = FunctionSpec.publicAction({
       status: Schema.Literal("verifying", "error"),
       connectionGeneration: Schema.Number,
     }),
-  error: slackConnectError,
+  error: () => slackConnectError(),
 });
 
 export const prepareSlackConnectAttempt = FunctionSpec.internalMutation({
@@ -126,14 +126,14 @@ export const prepareSlackConnectAttempt = FunctionSpec.internalMutation({
       connectSessionId: Schema.String,
       connectionGeneration: Schema.Number,
     }),
-  error: slackConnectError,
+  error: () => slackConnectError(),
 });
 
 export const claimSlackConnectAttempt = FunctionSpec.internalMutation({
   name: "claimSlackConnectAttempt",
   args: () => ClaimSlackConnectAttemptArgs,
-  returns: connectResult,
-  error: slackConnectError,
+  returns: () => connectResult(),
+  error: () => slackConnectError(),
 });
 
 export const authorizeSlackConnectCompletion = FunctionSpec.internalMutation({
@@ -151,7 +151,7 @@ export const authorizeSlackConnectCompletion = FunctionSpec.internalMutation({
       connectionKey: Schema.String,
       status: Schema.Literal("verifying"),
     }),
-  error: slackConnectError,
+  error: () => slackConnectError(),
 });
 
 export const markSlackConnectAttemptFailed = FunctionSpec.internalMutation({
@@ -162,7 +162,7 @@ export const markSlackConnectAttemptFailed = FunctionSpec.internalMutation({
       connectionKey: Schema.String,
       status: Schema.Literal("error"),
     }),
-  error: slackConnectError,
+  error: () => slackConnectError(),
 });
 
 export const reconcileSlackConnectSessionExpiry = FunctionSpec.internalMutation(
@@ -174,15 +174,15 @@ export const reconcileSlackConnectSessionExpiry = FunctionSpec.internalMutation(
         connectionKey: Schema.String,
         attemptExpiresAt: Schema.Number,
       }),
-    error: slackConnectError,
+    error: () => slackConnectError(),
   },
 );
 
 export const finalizeSlackConnectAttempt = FunctionSpec.internalMutation({
   name: "finalizeSlackConnectAttempt",
   args: () => FinalizeSlackConnectAttemptArgs,
-  returns: connectResult,
-  error: slackConnectError,
+  returns: () => connectResult(),
+  error: () => slackConnectError(),
 });
 
 export default GroupSpec.make()
