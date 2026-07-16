@@ -27,6 +27,7 @@ import {
   ResolveBrainKeyArgs,
   ResolveBrainKeyReturns,
 } from "../confect/identity/stableKeys.spec";
+import { standardClientBriefPages } from "../confect/brain/clientBrief";
 import { testConfectLayer } from "./support/confect";
 
 const now = 1_782_924_800_000;
@@ -260,6 +261,52 @@ describe("authorized Brain provisioning", () => {
     expect(JSON.parse(result.sideEffects.auditEvent.metadataJson)).toEqual({
       role: "owner",
     });
+  });
+
+  it("seeds the six ordinary Client Brief pages for new client Brains", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const identity = {
+        subject: "workos|brief-admin",
+        name: "Brief Admin",
+        email: "brief-admin@example.com",
+        emailVerified: true,
+        organizationId: "org_workos_brief_admin",
+      };
+
+      yield* confect
+        .withIdentity(identity)
+        .mutation(refs.public.access.provisioning.ensureProvisioned, {});
+      const created = yield* confect
+        .withIdentity(identity)
+        .mutation(refs.public.access.provisioning.createClientBrain, {
+          name: "Brief Client",
+          clientSlug: "brief-client",
+        });
+
+      return yield* confect.run(
+        readClientBriefPages(identity.organizationId, created.brainKey),
+        Schema.Any,
+      );
+    });
+
+    const pages = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(pages).toEqual(
+      standardClientBriefPages.map((page) =>
+        expect.objectContaining({
+          pageKey: page.pageKey,
+          title: page.title,
+          siblingSlug: page.slug,
+          sortKey: page.sortKey,
+          status: "active",
+        }),
+      ),
+    );
   });
 
   it("rejects existing suspended and deleted users before provisioning durable rows", async () => {
@@ -1340,6 +1387,41 @@ const seedDuplicateAgencyBrains = () =>
         })
         .pipe(Effect.orDie);
     }
+  });
+
+const readClientBriefPages = (workosOrganizationId: string, brainKey: string) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const organizations = yield* reader
+      .table("organizations")
+      .index("by_workos_organization", (q) =>
+        q.eq("workosOrganizationId", workosOrganizationId),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const organization = organizations[0];
+    if (organization === undefined) throw new Error("expected organization");
+    const workspaces = yield* reader
+      .table("workspaces")
+      .index("by_organization_brain_key", (q) =>
+        q.eq("organizationId", organization._id).eq("brainKey", brainKey),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const workspace = workspaces[0];
+    if (workspace === undefined) throw new Error("expected workspace");
+    return yield* reader
+      .table("brainPages")
+      .index("by_workspace", (q) => q.eq("workspaceId", workspace._id))
+      .collect()
+      .pipe(
+        Effect.map((pages) =>
+          [...pages].sort((a, b) =>
+            (a.sortKey ?? "").localeCompare(b.sortKey ?? ""),
+          ),
+        ),
+        Effect.orDie,
+      );
   });
 
 const readClientProvisioningSideEffects = (

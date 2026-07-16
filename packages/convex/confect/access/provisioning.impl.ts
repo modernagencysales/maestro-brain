@@ -32,6 +32,7 @@ import {
   isStableAgencyKey,
   isStableBrainKey,
 } from "../identity/stableKeys";
+import { standardClientBriefPages } from "../brain/clientBrief";
 import { roleAtLeast } from "./roles";
 
 const conflict = (resource: string, message: string) =>
@@ -597,6 +598,35 @@ const createClientBrain = FunctionImpl.make(
         .table("workspaces")
         .patch(workspaceId, { brainKey })
         .pipe(Effect.orDie);
+      for (const page of standardClientBriefPages) {
+        yield* writer
+          .table("brainPages")
+          .insert({
+            workspaceId,
+            organizationId,
+            slug: page.slug,
+            title: page.title,
+            markdown: page.markdown,
+            sourceKind: "markdown",
+            updatedAt: now,
+            pageKey: page.pageKey,
+            parentPageKey: null,
+            siblingSlug: page.slug,
+            sortKey: page.sortKey,
+            favorite: page.slug === "overview",
+            status: "active",
+            currentRevisionKey: null,
+            lifecycle: {
+              state: "active",
+              generation: 0,
+              updatedAt: now,
+              purgeAfter: null,
+            },
+            createdAt: now,
+            schemaVersion: 1,
+          })
+          .pipe(Effect.orDie);
+      }
       const membershipId = yield* writer
         .table("workspaceMembers")
         .insert({
