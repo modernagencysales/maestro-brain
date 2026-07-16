@@ -11,7 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { gitBranchExists, runRtkToFile } from "../src/process.js";
+import { gitBranchExists, runRtk, runRtkToFile } from "../src/process.js";
 
 const roots: string[] = [];
 const git = (cwd: string, ...args: string[]): void => {
@@ -24,6 +24,33 @@ afterEach(() => {
 });
 
 describe("brain factory process helpers", () => {
+  it("includes filtered child output in command failures", () => {
+    expect(() =>
+      runRtk([
+        "proxy",
+        "node",
+        "-e",
+        "process.stdout.write('TS2367: generated snapshot typecheck failed');process.exit(2)",
+      ]),
+    ).toThrow(
+      "rtk proxy node -e process.stdout.write('TS2367: generated snapshot typecheck failed');process.exit(2) failed (2)\n\n## output\nTS2367: generated snapshot typecheck failed",
+    );
+  });
+
+  it("includes quiet stderr in command failures", () => {
+    expect(() =>
+      runRtk(
+        [
+          "proxy",
+          "node",
+          "-e",
+          "process.stderr.write('quiet diagnostic');process.exit(1)",
+        ],
+        { quiet: true },
+      ),
+    ).toThrow("## output\nquiet diagnostic");
+  });
+
   it("uses unfiltered Git output for exact branch existence", () => {
     const root = mkdtempSync(resolve(tmpdir(), "brain-process-"));
     roots.push(root);

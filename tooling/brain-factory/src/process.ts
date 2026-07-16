@@ -12,10 +12,18 @@ export const runRtk = (
     encoding: "utf8",
     stdio: options.quiet ? "pipe" : ["ignore", "pipe", "inherit"],
   });
-  if (result.status !== 0)
+  if (result.status !== 0) {
+    const output = [result.stdout, options.quiet ? result.stderr : undefined]
+      .filter((value): value is string => typeof value === "string")
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .join("\n");
     throw new Error(
-      `rtk ${args.join(" ")} failed (${result.status ?? "unknown"})`,
+      `rtk ${args.join(" ")} failed (${result.status ?? "unknown"})${
+        output.length > 0 ? `\n\n## output\n${output}` : ""
+      }`,
     );
+  }
   return result.stdout.trim();
 };
 
