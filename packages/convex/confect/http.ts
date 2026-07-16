@@ -48,9 +48,7 @@ const staticTemplateRoutes: Record<string, TemplateRouteMatch | undefined> = {
   "/api/docs": { kind: "docs" },
 };
 
-const operationRefs = {
-  "brain.pages.createMarkdown": api.brain.pages.createMarkdown,
-} satisfies Record<string, unknown>;
+const operationRefs = {} satisfies Record<string, unknown>;
 
 export const securityHeaders = {
   "content-security-policy":
@@ -73,7 +71,11 @@ export const templateHttpRoutes = [
     description: "Serves the Scalar API documentation shell.",
   },
   ...confectManifest.functions
-    .filter((entry) => hasSurface(entry, "api"))
+    .filter(
+      (entry) =>
+        hasSurface(entry, "api") &&
+        (entry.operationId as string) !== "brain.pages.createMarkdown",
+    )
     .map((entry) => ({
       path: `/api/${entry.operationId}`,
       method: "POST" as const,
@@ -140,7 +142,9 @@ const runTemplateApiOperation = async (
 const templateRouteForPath = (pathname: string): TemplateRouteMatch => {
   const apiEntry = confectManifest.functions.find(
     (entry) =>
-      hasSurface(entry, "api") && `/api/${entry.operationId}` === pathname,
+      hasSurface(entry, "api") &&
+      (entry.operationId as string) !== "brain.pages.createMarkdown" &&
+      `/api/${entry.operationId}` === pathname,
   );
   const route =
     staticTemplateRoutes[pathname] ??

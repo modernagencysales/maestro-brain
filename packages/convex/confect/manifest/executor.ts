@@ -105,7 +105,7 @@ export const resolveHeadlessOperation = (
 const isPlainObject = (
   value: object,
 ): value is { readonly [key: string]: unknown } => {
-  const prototype = Object.getPrototypeOf(value);
+  const prototype = Object.getPrototypeOf(value) as object | null;
   return prototype === Object.prototype || prototype === null;
 };
 
@@ -143,7 +143,7 @@ const isObjectJsonValue = (value: object, seen: WeakSet<object>): boolean => {
   if (!seen.has(value)) {
     seen.add(value);
     result = Array.isArray(value)
-      ? value.every((item) => isJsonValue(item, seen))
+      ? value.every((item: unknown) => isJsonValue(item, seen))
       : isPlainJsonObject(value, seen);
   }
 

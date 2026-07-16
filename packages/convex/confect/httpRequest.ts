@@ -25,23 +25,6 @@ type ExecutorRequestResult =
   | { readonly ok: true; readonly request: HeadlessExecutorRequest }
   | TemplateHttpFailure;
 
-type CreateMarkdownInputs = {
-  readonly slug: string;
-  readonly title: string;
-  readonly markdown: string;
-};
-
-const createMarkdownInputFields = [
-  "slug",
-  "title",
-  "markdown",
-] as const satisfies readonly (keyof CreateMarkdownInputs)[];
-
-// Demo HTTP requests use the same reviewer-facing slug seeded in tenancy tests.
-const demoWorkspaceIdsBySlug = {
-  "acme-demo": "workspace_123",
-} as const satisfies Record<string, string>;
-
 const validationFailed = (message: string): TemplateHttpFailure => ({
   ok: false,
   error: {
@@ -49,11 +32,6 @@ const validationFailed = (message: string): TemplateHttpFailure => ({
     message,
   },
 });
-
-const workspaceSlugToId = (workspaceSlug: string): string | undefined =>
-  demoWorkspaceIdsBySlug[
-    workspaceSlug.trim() as keyof typeof demoWorkspaceIdsBySlug
-  ];
 
 export const readJsonBody = async (
   request: Request,
@@ -108,12 +86,6 @@ export const executorRequestFor = (
   operationId: string,
   body: TemplateApiRequestBody,
 ): ExecutorRequestResult => {
-  if (operationId === "brain.pages.createMarkdown") {
-    return validationFailed(
-      "Operation brain.pages.createMarkdown is not exposed on the HTTP API.",
-    );
-  }
-
   const input = body.input ?? {};
   return genericExecutorRequest(operationId, body, input);
 };
@@ -133,131 +105,3 @@ const genericExecutorRequest = (
       : { idempotencyKey: body.idempotencyKey }),
   },
 });
-
-const createMarkdownExecutorRequest = (
-  operationId: string,
-  body: TemplateApiRequestBody,
-  input: Record<string, JsonValue>,
-): ExecutorRequestResult => {
-  let result: ExecutorRequestResult | undefined =
-    createMarkdownIdempotencyFailure(body);
-
-  if (result === undefined) {
-    result = createMarkdownExecutorRequestWithIdempotency(
-      operationId,
-      body,
-      input,
-    );
-  }
-
-  return result;
-};
-
-// Compatibility-removal marker: the legacy createMarkdown adapter remains
-// intentionally unreachable while S02 removes live HTTP exposure.
-void createMarkdownExecutorRequest;
-
-const createMarkdownIdempotencyFailure = (
-  body: TemplateApiRequestBody,
-): TemplateHttpFailure | undefined => {
-  const hasInvalidIdempotencyKey =
-    body.idempotencyKey?.trim() === "" || body.idempotencyKey === undefined;
-  return hasInvalidIdempotencyKey
-    ? validationFailed(
-        "Operation brain.pages.createMarkdown requires a nonblank idempotencyKey.",
-      )
-    : undefined;
-};
-
-const createMarkdownExecutorRequestWithIdempotency = (
-  operationId: string,
-  body: TemplateApiRequestBody,
-  input: Record<string, JsonValue>,
-): ExecutorRequestResult => {
-  const workspaceId = createMarkdownWorkspaceId(body, input);
-  const result: ExecutorRequestResult = workspaceId
-    ? createMarkdownExecutorRequestWithWorkspace(
-        operationId,
-        body,
-        input,
-        workspaceId,
-      )
-    : validationFailed(
-        "Operation brain.pages.createMarkdown requires input.workspaceId or a known workspaceSlug.",
-      );
-
-  return result;
-};
-
-const createMarkdownWorkspaceId = (
-  body: TemplateApiRequestBody,
-  input: Record<string, JsonValue>,
-): string | undefined =>
-  typeof input.workspaceId === "string" && input.workspaceId.trim()
-    ? input.workspaceId.trim()
-    : body.workspaceSlug === undefined
-      ? undefined
-      : workspaceSlugToId(body.workspaceSlug);
-
-const createMarkdownExecutorRequestWithWorkspace = (
-  operationId: string,
-  body: TemplateApiRequestBody,
-  input: Record<string, JsonValue>,
-  workspaceId: string,
-): ExecutorRequestResult => {
-  const fields = requiredCreateMarkdownInputs(operationId, input);
-  const result: ExecutorRequestResult = fields.ok
-    ? {
-        ok: true,
-        request: {
-          operationId,
-          surface: "api",
-          input: {
-            workspaceId,
-            ...fields.values,
-          },
-          ...(body.idempotencyKey === undefined
-            ? {}
-            : { idempotencyKey: body.idempotencyKey }),
-        },
-      }
-    : fields;
-
-  return result;
-};
-
-const requiredCreateMarkdownInputs = (
-  operationId: string,
-  input: Record<string, JsonValue>,
-):
-  | { readonly ok: true; readonly values: CreateMarkdownInputs }
-  | TemplateHttpFailure => {
-  const invalidField = createMarkdownInputFields.find(
-    (field) => !hasRequiredStringInput(input, field),
-  );
-  const result =
-    invalidField === undefined
-      ? {
-          ok: true as const,
-          values: {
-            slug: input.slug as string,
-            title: input.title as string,
-            markdown: input.markdown as string,
-          },
-        }
-      : validationFailed(
-          `Operation ${operationId} requires nonblank input.${invalidField}.`,
-        );
-
-  return result;
-};
-
-const hasRequiredStringInput = (
-  input: Record<string, JsonValue>,
-  field: keyof CreateMarkdownInputs,
-): boolean => {
-  const value = input[field];
-  const result = typeof value === "string" ? value.trim().length > 0 : false;
-
-  return result;
-};

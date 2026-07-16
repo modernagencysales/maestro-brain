@@ -195,7 +195,7 @@ const definePageMutation = <
       idempotent: false,
       argsSchemaName: `brain.pages.${name}.args`,
       returnsSchemaName: `brain.pages.${name}.returns`,
-      argsSchema: args,
+      argsSchema: inputSchema,
       returnsSchema: PageSummary,
     },
   );
