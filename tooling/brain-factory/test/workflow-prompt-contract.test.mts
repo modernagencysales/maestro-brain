@@ -337,6 +337,9 @@ describe("Fabro workflow prompt contracts", () => {
     const review = wave
       .split("\n")
       .find((line) => line.trimStart().startsWith("review ["));
+    const integrate = wave
+      .split("\n")
+      .find((line) => line.trimStart().startsWith("integrate ["));
     const reviewGate = wave
       .split("\n")
       .find((line) => line.trimStart().startsWith("review_gate ["));
@@ -356,6 +359,18 @@ describe("Fabro workflow prompt contracts", () => {
     expect(reviewGate).toContain('.status == \\"ready_for_review\\"');
     expect(wave).toContain("integration-wave-selection-check.mts");
     expect(wave).toContain("hydrate-integration-dependencies.mts");
+    expect(integrate).toContain(
+      "Immediately after all selected source ranges are applied",
+    );
+    expect(integrate).toContain(
+      "before any Confect, Convex, manifest, or route codegen or focused check",
+    );
+    expect(integrate).toContain(
+      "exec tsx src/hydrate-integration-dependencies.mts --workdir",
+    );
+    expect(integrate).toMatch(
+      /all selected source ranges are applied.*hydrate-integration-dependencies\.mts.*Run centralized Confect/,
+    );
     expect(wave).toContain("integrate -> dependencies");
     expect(wave).toContain("repair -> dependencies");
     expect(repair).toContain("max_visits=2");
