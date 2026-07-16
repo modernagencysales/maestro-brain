@@ -682,7 +682,7 @@ export const checkDescriptors = {
       {
         file: "docs/template/confect-effect-guide.md",
         includes: [
-          'withMutationErrorCapture("brain/pages.createMarkdown", effect)',
+          'withMutationErrorCapture("brain/pages.create", effect)',
           'withActionErrorCapture("group/functionName", effect)',
           "preserves and",
           "re-fails the original cause",
@@ -694,7 +694,7 @@ export const checkDescriptors = {
       {
         file: "docs/template/effectification-status.md",
         includes: [
-          "brain/pages.createMarkdown",
+          "brain/pages.create",
           "Remaining Confect groups are still unwrapped pending rollout/factory support",
         ],
         message:
@@ -751,9 +751,9 @@ export const checkDescriptors = {
       },
       {
         file: "packages/convex/confect/brain/pages.impl.ts",
-        includes: ["withMutationErrorCapture", "brain/pages.createMarkdown"],
+        includes: ["withMutationErrorCapture", "brain/pages.create"],
         message:
-          "brain/pages.createMarkdown must be the first wrapped Confect mutation",
+          "brain/pages.create must remain the first wrapped Confect mutation",
       },
     ],
   },

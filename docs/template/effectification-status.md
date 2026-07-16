@@ -46,8 +46,8 @@ contract family.
   metadata until migrated.
 - PostHog failure capture currently covers selected mutation/action paths; query
   failure telemetry still needs a future durable event path.
-- `brain/pages.createMarkdown` is the first Confect mutation wrapped with
-  backend PostHog failure capture.
+- `brain/pages.create` is the first Confect mutation wrapped with backend
+  PostHog failure capture.
 - Remaining Confect groups are still unwrapped pending rollout/factory support.
 - Access lifecycle planners emit audit-event values, including invitation
   lifecycle events, and member/invitation lifecycle mutations now persist them

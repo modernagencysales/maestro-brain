@@ -89,7 +89,7 @@ Confect mutation and action implementations that own meaningful write or side
 effect paths can add backend failure telemetry around their Effect program:
 
 ```ts
-withMutationErrorCapture("brain/pages.createMarkdown", effect);
+withMutationErrorCapture("brain/pages.create", effect);
 withActionErrorCapture("group/functionName", effect);
 ```
 

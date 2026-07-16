@@ -45,7 +45,7 @@ Effect programs with `withMutationErrorCapture(functionPath, effect)` or
 
 The event contract is intentionally small and public-safe:
 
-- `functionPath`, such as `brain/pages.createMarkdown`
+- `functionPath`, such as `brain/pages.create`
 - `kind`, either `mutation` or `action`
 - public error tag
 - redacted public message
