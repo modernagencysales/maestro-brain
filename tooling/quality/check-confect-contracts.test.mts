@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { expectDescriptorPassesAndFails } from "./src/check-test-helpers.mts";
+import {
+  expectDescriptorPassesAndFails,
+  withTempRepo,
+} from "./src/check-test-helpers.mts";
+import { evaluateStaticCheck } from "./src/gate.mts";
 import {
   ambientDateNow,
   descriptor,
@@ -11,6 +15,39 @@ import {
 describe("check:confect-contracts", () => {
   it("passes and fails on its declared requirements", async () => {
     await expectDescriptorPassesAndFails(descriptor);
+  });
+
+  it("pins stable page contract shape instead of legacy workspace errors", async () => {
+    const pageRequirement = descriptor.requirements.find(
+      (requirement) =>
+        requirement.file === "packages/convex/confect/brain/pages.spec.ts",
+    );
+    expect(pageRequirement?.includes).toEqual(
+      expect.arrayContaining([
+        "FunctionSpec.publicQuery",
+        "FunctionSpec.publicMutation",
+        "Schema.Struct",
+        "error:",
+        "GroupSpec.make",
+        ".addFunction",
+      ]),
+    );
+    expect(pageRequirement?.includes).not.toContain("WorkspaceNotFound");
+    expect(pageRequirement?.includes).not.toContain("brainPages.Doc");
+
+    const files = Object.fromEntries(
+      descriptor.requirements.map((requirement) => [
+        requirement.file,
+        (requirement.includes ?? []).join("\n"),
+      ]),
+    );
+    await withTempRepo(files, async (repo) => {
+      await expect(
+        evaluateStaticCheck(repo, descriptor),
+      ).resolves.toMatchObject({
+        ok: true,
+      });
+    });
   });
 
   it("rejects public specs without declared typed errors", () => {

@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "c137ea7755846194d7c5d03596749f6251bc04d2209a54d0e7bc9894de98a6a2",
+  "planSha256": "d9ed483d242ae11c2150ebcb253f438eb60642bcfd927aad501b35497a04c002",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -288,6 +288,7 @@
         "apps/cli/src/index.test.ts",
         "apps/cli/src/index.ts",
         "apps/web/src/adapters/confect-generated-refs.test.ts",
+        "apps/web/src/sample/templateData.test.ts",
         "apps/web/src/sample/templateData.ts",
         "docs/superpowers/receipts/maestro-brain/file-inventories/S02-T02-confect-generated-files.json",
         "packages/convex/confect/brain/pageTree.ts",
@@ -313,7 +314,7 @@
       "lane": "brain",
       "requirements": ["IAM-04", "KNW-01", "UI-03"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "9e2859f08a1098398d5990e2976c9a3b98af1c855910a4bd25468bcb540a09bf",
+      "taskBlockHash": "d5a628b00106f479ff0e02e032d4bdfb44efd5d7f62f1bf428e6262b0bfd3354",
       "taskId": "S02-T02",
       "title": "Complete Authorized Page Tree CRUD",
       "tranche": "D2-domain-bodies"

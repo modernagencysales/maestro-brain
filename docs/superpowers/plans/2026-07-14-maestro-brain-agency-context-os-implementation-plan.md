@@ -922,6 +922,7 @@ manifest.
 - **Files:** modify `apps/cli/src/index.ts`, `apps/cli/src/index.test.ts`,
   `apps/web/src/adapters/confect-generated-refs.test.ts`,
   `apps/web/src/sample/templateData.ts`,
+  `apps/web/src/sample/templateData.test.ts`,
   `packages/convex/confect/brain/pages.spec.ts`,
   `packages/convex/confect/brain/pages.impl.ts`,
   `packages/convex/confect/capabilities/catalog.impl.ts`,
@@ -978,12 +979,13 @@ manifest.
   layer for current route code until S03; no public legacy ID args. Rollback the
   UI/spec as one deployment while keeping appended revisions.
 - **Focused verification:**
-  `rtk pnpm brain:factory:check-confect-codegen -- --test brain-pages --test http-docs --test confect-contracts --test workspace-access --test headless-executor --test observability-error-capture`,
+  `rtk pnpm brain:factory:check-confect-codegen -- --check confect-contracts --check headless-surface-contract --profile web --test brain-pages --test http-docs --test confect-contracts --test workspace-access --test headless-executor --test observability-error-capture`,
   `rtk host-test-slot --class focused pnpm --dir apps/cli test`,
-  `rtk host-test-slot --class focused pnpm --dir tooling/workflow test`,
-  `rtk pnpm check:confect-contracts`,
-  `rtk pnpm check:headless-surface-contract`, broad verification is deferred to
-  tranche acceptance under Appendix L.
+  `rtk host-test-slot --class focused pnpm --dir tooling/workflow test`. The
+  Confect and headless-surface checks run inside the transient generated
+  snapshot; standalone copies would inspect stale committed output in this
+  generated-tree-mutating lane. Broad verification is deferred to tranche
+  acceptance under Appendix L.
 - **Completion receipt:** role matrix, stale/cycle/cross-tenant denials,
   manifest diff proving no write MCP tool, and revision/audit samples.
 - **Lane branch / commit boundary:** branch `codex/brain-s02-page-crud`; commit

@@ -9,6 +9,15 @@ import { runRtk } from "./process.js";
 const CONVEX_GENERATED_ROOT = "packages/convex/convex/";
 const CONFECT_MANIFEST =
   "packages/template-core/src/generated/confectManifest.ts";
+const TRANSIENT_CHECKS = [
+  "confect-contracts",
+  "headless-surface-contract",
+] as const;
+export type TransientConfectCheck = (typeof TRANSIENT_CHECKS)[number];
+const transientCheckNames = new Set<string>(TRANSIENT_CHECKS);
+const TRANSIENT_PROFILES = ["web"] as const;
+export type TransientConfectProfile = (typeof TRANSIENT_PROFILES)[number];
+const transientProfileNames = new Set<string>(TRANSIENT_PROFILES);
 const RESERVED_CONVEX_FILES = new Set([
   "packages/convex/convex/auth.config.ts",
   "packages/convex/convex/convex.config.ts",
@@ -29,6 +38,14 @@ export const generatedConfectDeltaIssues = (
 
 export const safeFocusedTestPattern = (value: string): boolean =>
   /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value);
+
+export const safeTransientConfectCheck = (
+  value: string,
+): value is TransientConfectCheck => transientCheckNames.has(value);
+
+export const safeTransientConfectProfile = (
+  value: string,
+): value is TransientConfectProfile => transientProfileNames.has(value);
 
 export const sameGeneratedFileSet = (
   expected: readonly string[],
@@ -61,7 +78,12 @@ const stagedPatchHash = (workdir: string): string =>
 interface TransientConfectCodegenHooks {
   readonly generate: (workdir: string) => void;
   readonly hydrate: (root: string, workdir: string) => void;
-  readonly validate: (workdir: string, testPatterns: readonly string[]) => void;
+  readonly validate: (
+    workdir: string,
+    testPatterns: readonly string[],
+    checks: readonly TransientConfectCheck[],
+    profiles: readonly TransientConfectProfile[],
+  ) => void;
 }
 
 const productionHooks: TransientConfectCodegenHooks = {
@@ -74,7 +96,7 @@ const productionHooks: TransientConfectCodegenHooks = {
   hydrate: (root, workdir) => {
     hydrateWorktreeDependencies(root, workdir);
   },
-  validate: (workdir, testPatterns) => {
+  validate: (workdir, testPatterns, checks, profiles) => {
     runRtk(["pnpm", "--dir", "packages/convex", "check:convex"], {
       cwd: workdir,
     });
@@ -95,6 +117,26 @@ const productionHooks: TransientConfectCodegenHooks = {
     });
     runRtk(["pnpm", "confect:manifest"], { cwd: workdir });
     runRtk(["git", "diff", "--exit-code", CONFECT_MANIFEST], { cwd: workdir });
+    for (const check of checks) {
+      runRtk(["pnpm", `check:${check}`], { cwd: workdir });
+    }
+    for (const profile of profiles) {
+      if (profile === "web") {
+        runRtk(["pnpm", "--dir", "apps/web", "typecheck"], { cwd: workdir });
+        runRtk(
+          [
+            "host-test-slot",
+            "--class",
+            "focused",
+            "pnpm",
+            "--dir",
+            "apps/web",
+            "test",
+          ],
+          { cwd: workdir },
+        );
+      }
+    }
     runRtk(["pnpm", "--dir", "packages/convex", "typecheck"], {
       cwd: workdir,
     });
@@ -117,11 +159,27 @@ const productionHooks: TransientConfectCodegenHooks = {
 };
 
 export const runTransientConfectCodegen = (input: {
+  readonly checks?: readonly string[];
   readonly hooks?: TransientConfectCodegenHooks;
+  readonly profiles?: readonly string[];
   readonly root: string;
   readonly testPatterns?: readonly string[];
 }): readonly string[] => {
   const root = resolve(input.root);
+  const checks = input.checks ?? [];
+  const unsafeCheck = checks.find((check) => !safeTransientConfectCheck(check));
+  if (unsafeCheck !== undefined) {
+    throw new Error(`unsupported transient Confect check ${unsafeCheck}`);
+  }
+  const validatedChecks = checks as readonly TransientConfectCheck[];
+  const profiles = input.profiles ?? [];
+  const unsafeProfile = profiles.find(
+    (profile) => !safeTransientConfectProfile(profile),
+  );
+  if (unsafeProfile !== undefined) {
+    throw new Error(`unsupported transient Confect profile ${unsafeProfile}`);
+  }
+  const validatedProfiles = profiles as readonly TransientConfectProfile[];
   const testPatterns = input.testPatterns ?? [];
   const unsafeTestPattern = testPatterns.find(
     (testPattern) => !safeFocusedTestPattern(testPattern),
@@ -181,7 +239,7 @@ export const runTransientConfectCodegen = (input: {
       { cwd: workdir },
     );
     const generatedPatchHash = stagedPatchHash(workdir);
-    hooks.validate(workdir, testPatterns);
+    hooks.validate(workdir, testPatterns, validatedChecks, validatedProfiles);
     runRtk(["git", "diff", "--cached", "--check"], { cwd: workdir });
     if (diffFiles(workdir).length > 0) {
       throw new Error("Confect generated output changed after freshness check");

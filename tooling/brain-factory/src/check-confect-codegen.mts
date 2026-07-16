@@ -13,7 +13,11 @@ const valuesAfter = (flag: string): string[] => {
 };
 
 const testPatterns = valuesAfter("--test");
+const checks = valuesAfter("--check");
+const profiles = valuesAfter("--profile");
 const generatedFiles = runTransientConfectCodegen({
+  checks,
+  profiles,
   root: process.cwd(),
   testPatterns,
 });

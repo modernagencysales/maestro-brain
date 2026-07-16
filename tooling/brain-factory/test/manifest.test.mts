@@ -116,7 +116,8 @@ describe("Maestro Brain execution manifest", () => {
         /^### (S\d{2}-T\d{2})[^\n]*\n([\s\S]*?)(?=^### S\d{2}-T\d{2}|^---$)/gm,
       ),
     ].flatMap((match) =>
-      match[2]?.includes("brain:factory:check-confect-codegen -- --test")
+      match[2]?.includes("brain:factory:check-confect-codegen -- --") &&
+      match[2]?.includes("--test")
         ? [match[1]]
         : [],
     );

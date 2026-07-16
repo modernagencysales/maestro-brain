@@ -5,6 +5,7 @@ import {
   focusedGateCommand,
   lintCommandForFiles,
   validatesTransientConfectSnapshot,
+  validatesTransientConfectProfile,
 } from "../src/gates.js";
 
 describe("brain lane gate profiles", () => {
@@ -37,6 +38,21 @@ describe("brain lane gate profiles", () => {
         [focusedGateCommand("rtk pnpm brain:factory:check-confect-codegen")],
       ),
     ).toHaveLength(2);
+  });
+
+  it("suppresses web gates only when the transient snapshot validates web", () => {
+    const transientWeb = focusedGateCommand(
+      "rtk pnpm brain:factory:check-confect-codegen -- --profile web --test brain-pages",
+    );
+    const transientWithoutWeb = focusedGateCommand(
+      "rtk pnpm brain:factory:check-confect-codegen -- --test brain-pages",
+    );
+    expect(validatesTransientConfectProfile(transientWeb, "web")).toBe(true);
+    expect(validatesTransientConfectProfile(transientWithoutWeb, "web")).toBe(
+      false,
+    );
+    expect(commandsForProfiles(["convex", "web"], [transientWeb])).toEqual([]);
+    expect(commandsForProfiles(["web"], [transientWithoutWeb])).toHaveLength(2);
   });
 
   it("does not invent local gates for external receipts", () => {

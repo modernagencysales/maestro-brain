@@ -15,6 +15,8 @@ import {
   generatedConfectDeltaIssues,
   runTransientConfectCodegen,
   safeFocusedTestPattern,
+  safeTransientConfectCheck,
+  safeTransientConfectProfile,
   sameGeneratedFileSet,
 } from "../src/transient-confect-codegen.js";
 
@@ -98,11 +100,28 @@ describe("transient Confect codegen", () => {
     expect(safeFocusedTestPattern("migrations;rm")).toBe(false);
   });
 
+  it("allows only named transient contract checks", () => {
+    expect(safeTransientConfectCheck("confect-contracts")).toBe(true);
+    expect(safeTransientConfectCheck("headless-surface-contract")).toBe(true);
+    expect(safeTransientConfectCheck("verify")).toBe(false);
+    expect(safeTransientConfectCheck("headless-surface-contract;rm")).toBe(
+      false,
+    );
+  });
+
+  it("allows only named transient package profiles", () => {
+    expect(safeTransientConfectProfile("web")).toBe(true);
+    expect(safeTransientConfectProfile("convex")).toBe(false);
+    expect(safeTransientConfectProfile("web;rm")).toBe(false);
+  });
+
   it("forwards multiple tests in one disposable worktree without mutating the source checkout", () => {
     const value = fixture();
     let disposableWorktree = "";
     try {
       const generated = runTransientConfectCodegen({
+        checks: ["confect-contracts", "headless-surface-contract"],
+        profiles: ["web"],
         root: value.root,
         testPatterns: ["stable-tenant-keys", "migrations"],
         hooks: {
@@ -124,8 +143,13 @@ describe("transient Confect codegen", () => {
               "export const manifest = 2;\n",
             );
           },
-          validate: (_workdir, testPatterns) => {
+          validate: (_workdir, testPatterns, checks, profiles) => {
             expect(testPatterns).toEqual(["stable-tenant-keys", "migrations"]);
+            expect(checks).toEqual([
+              "confect-contracts",
+              "headless-surface-contract",
+            ]);
+            expect(profiles).toEqual(["web"]);
           },
         },
       });
@@ -144,6 +168,40 @@ describe("transient Confect codegen", () => {
         disposableWorktree,
       );
       expect(existsSync(disposableWorktree)).toBe(false);
+    } finally {
+      rmSync(value.root, { force: true, recursive: true });
+    }
+  });
+
+  it("rejects unsupported transient checks before creating a worktree", () => {
+    const value = fixture();
+    try {
+      expect(() =>
+        runTransientConfectCodegen({
+          checks: ["verify"],
+          root: value.root,
+        }),
+      ).toThrow("unsupported transient Confect check verify");
+      expect(git(value.root, "worktree", "list", "--porcelain")).not.toContain(
+        "maestro-confect-codegen-",
+      );
+    } finally {
+      rmSync(value.root, { force: true, recursive: true });
+    }
+  });
+
+  it("rejects unsupported transient profiles before creating a worktree", () => {
+    const value = fixture();
+    try {
+      expect(() =>
+        runTransientConfectCodegen({
+          profiles: ["convex"],
+          root: value.root,
+        }),
+      ).toThrow("unsupported transient Confect profile convex");
+      expect(git(value.root, "worktree", "list", "--porcelain")).not.toContain(
+        "maestro-confect-codegen-",
+      );
     } finally {
       rmSync(value.root, { force: true, recursive: true });
     }

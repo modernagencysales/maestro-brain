@@ -426,8 +426,10 @@ export const checkDescriptors = {
         includes: [
           "FunctionSpec.publicQuery",
           "FunctionSpec.publicMutation",
-          "WorkspaceNotFound",
-          "brainPages.Doc",
+          "Schema.Struct",
+          "error:",
+          "GroupSpec.make",
+          ".addFunction",
         ],
         message: "Brain pages must expose typed Confect contracts",
       },

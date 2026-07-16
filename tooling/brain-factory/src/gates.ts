@@ -78,6 +78,17 @@ export const validatesTransientConfectSnapshot = (
   return testFlag >= 0 && Boolean(command.args[testFlag + 1]);
 };
 
+export const validatesTransientConfectProfile = (
+  command: GateCommand,
+  profile: "web",
+): boolean => {
+  if (!validatesTransientConfectSnapshot(command)) return false;
+  return command.args.some(
+    (argument, index) =>
+      argument === "--profile" && command.args[index + 1] === profile,
+  );
+};
+
 export const commandsForProfiles = (
   profiles: readonly GateProfile[],
   focusedCommands: readonly GateCommand[] = [],
@@ -85,6 +96,9 @@ export const commandsForProfiles = (
   const commands: GateCommand[] = [];
   const generatedConfectSnapshot = focusedCommands.some(
     validatesTransientConfectSnapshot,
+  );
+  const transientWebSnapshot = focusedCommands.some((command) =>
+    validatesTransientConfectProfile(command, "web"),
   );
   const seen = new Set<string>();
   const add = (command: GateCommand): void => {
@@ -101,7 +115,9 @@ export const commandsForProfiles = (
           ? []
           : packageGate("packages/convex")
         : profile === "web"
-          ? packageGate("apps/web")
+          ? transientWebSnapshot
+            ? []
+            : packageGate("apps/web")
           : profile === "integrations"
             ? packageGate("packages/integrations")
             : profile === "evals"
