@@ -6,9 +6,11 @@ import {
   Heading,
   Page,
   Stack,
-  Table,
   Text,
 } from "@saas-ui/react";
+import { ClientsTable } from "./clients-table";
+import { CreateClientDialog } from "./create-client-dialog";
+import type { ClientOnboardingState, CreateClientInput } from "./clients-state";
 
 export type ClientsScreenState =
   | { readonly status: "loading" }
@@ -26,12 +28,17 @@ export type ClientRow = {
   readonly health: string;
   readonly freshness: string;
   readonly connections: number;
+  readonly recentChanges: number;
 };
 
 export function ClientsScreen({
   state,
+  onboarding = { status: "idle" },
+  onCreateClient = () => undefined,
 }: {
   readonly state: ClientsScreenState;
+  readonly onboarding?: ClientOnboardingState;
+  readonly onCreateClient?: (input: CreateClientInput) => void;
 }) {
   return (
     <>
@@ -40,7 +47,13 @@ export function ClientsScreen({
         description="Client Brains, freshness, and recent activity in one focused workspace."
       />
       <Page.Body px={{ base: "4", md: "6" }} pb="8">
-        <ClientsStateCard state={state} />
+        <Stack gap="4">
+          <CreateClientDialog
+            onboarding={onboarding}
+            onSubmit={onCreateClient}
+          />
+          <ClientsStateCard state={state} />
+        </Stack>
       </Page.Body>
     </>
   );
@@ -99,32 +112,7 @@ function ClientsStateCard({ state }: { readonly state: ClientsScreenState }) {
         </Flex>
       </Card.Header>
       <Card.Body pt="0">
-        <Box aria-label="Clients table" overflowX="auto" tabIndex={0}>
-          <Table.Root minW="640px">
-            <Table.Header>
-              <Table.Row>
-                <Table.ColumnHeader>Client</Table.ColumnHeader>
-                <Table.ColumnHeader>Health</Table.ColumnHeader>
-                <Table.ColumnHeader>Freshness</Table.ColumnHeader>
-                <Table.ColumnHeader textAlign="end">
-                  Connections
-                </Table.ColumnHeader>
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
-              {state.clients.map((client) => (
-                <Table.Row key={client.key}>
-                  <Table.Cell fontWeight="medium">{client.name}</Table.Cell>
-                  <Table.Cell>
-                    <Badge colorPalette="green">{client.health}</Badge>
-                  </Table.Cell>
-                  <Table.Cell>{client.freshness}</Table.Cell>
-                  <Table.Cell textAlign="end">{client.connections}</Table.Cell>
-                </Table.Row>
-              ))}
-            </Table.Body>
-          </Table.Root>
-        </Box>
+        <ClientsTable clients={state.clients} />
       </Card.Body>
     </Card.Root>
   );
