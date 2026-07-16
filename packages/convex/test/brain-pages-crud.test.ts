@@ -371,10 +371,11 @@ const collectPageAuditEvents = (workspaceId: GenericId<"workspaces">) =>
       .index("by_workspace_created", (q) => q.eq("workspaceId", workspaceId))
       .collect();
     return rows.map((row) => {
-      const { _id: id, _creationTime: creationTime, ...event } = row as Record<
-        string,
-        unknown
-      >;
+      const {
+        _id: id,
+        _creationTime: creationTime,
+        ...event
+      } = row as Record<string, unknown>;
       void id;
       void creationTime;
       return event;
@@ -382,6 +383,30 @@ const collectPageAuditEvents = (workspaceId: GenericId<"workspaces">) =>
   });
 
 describe("authorized Brain page CRUD", () => {
+  it("advertises current web-only page create capability behaviorally", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      return yield* confect.query(refs.public.capabilities.catalog.list, {});
+    });
+    const rows = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "brain.page.create",
+          headlessExposure: "web",
+        }),
+      ]),
+    );
+    expect(rows.map((row) => row.key)).not.toContain(
+      "brain.page.createMarkdown",
+    );
+  });
+
   it("keeps every pages manifest entry web-only", () => {
     expect(manifest).toHaveLength(7);
     for (const entry of manifest) {
@@ -897,9 +922,9 @@ describe("authorized Brain page CRUD", () => {
       expect(event.effectKey).toBe(
         `brain.pages.${effectKindByAction[event.action]}:${event.pageKey}:${event.revisionKey}`,
       );
-      expect(revisionCreatedAtByKey.has(`${event.pageKey}:${event.revisionKey}`)).toBe(
-        true,
-      );
+      expect(
+        revisionCreatedAtByKey.has(`${event.pageKey}:${event.revisionKey}`),
+      ).toBe(true);
       expect(event.createdAt).toBe(
         revisionCreatedAtByKey.get(`${event.pageKey}:${event.revisionKey}`),
       );

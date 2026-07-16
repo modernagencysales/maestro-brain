@@ -4,7 +4,9 @@ import { describe, expect, it } from "vitest";
 import refs from "../confect/_generated/refs";
 import { manifest, schemaRegistry } from "../confect/brain/pages.spec";
 
-const requireSchema = (name: string): Schema.Schema<unknown, unknown, never> => {
+const requireSchema = (
+  name: string,
+): Schema.Schema<unknown, unknown, never> => {
   const schema = schemaRegistry[name];
   if (schema === undefined) throw new Error(`Missing schema ${name}`);
   return schema as Schema.Schema<unknown, unknown, never>;
@@ -26,7 +28,11 @@ describe("brain pages Confect contract", () => {
       "brain.pages.favorite",
       "brain.pages.archive",
     ]);
-    expect(manifest.every((entry) => entry.surfaces.length === 1 && entry.surfaces[0] === "web")).toBe(true);
+    expect(
+      manifest.every(
+        (entry) => entry.surfaces.length === 1 && entry.surfaces[0] === "web",
+      ),
+    ).toBe(true);
     expect(() =>
       Schema.decodeUnknownSync(requireSchema("brain.pages.create.args"))(
         {
