@@ -179,7 +179,7 @@ const templateRouteResponse = async (
 
 const openApiRouteResponse = (request: Request): Response =>
   request.method === "GET"
-    ? jsonResponse(buildGeneratedOpenApiDocument())
+    ? jsonResponse(filteredOpenApiDocument())
     : jsonResponse({
         ok: false,
         error: {

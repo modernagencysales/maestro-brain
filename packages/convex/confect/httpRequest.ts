@@ -108,13 +108,14 @@ export const executorRequestFor = (
   operationId: string,
   body: TemplateApiRequestBody,
 ): ExecutorRequestResult => {
-  const input = body.input ?? {};
-  const result =
-    operationId === "brain.pages.createMarkdown"
-      ? createMarkdownExecutorRequest(operationId, body, input)
-      : genericExecutorRequest(operationId, body, input);
+  if (operationId === "brain.pages.createMarkdown") {
+    return validationFailed(
+      "Operation brain.pages.createMarkdown is not exposed on the HTTP API.",
+    );
+  }
 
-  return result;
+  const input = body.input ?? {};
+  return genericExecutorRequest(operationId, body, input);
 };
 
 const genericExecutorRequest = (
@@ -151,6 +152,10 @@ const createMarkdownExecutorRequest = (
 
   return result;
 };
+
+// Compatibility-removal marker: the legacy createMarkdown adapter remains
+// intentionally unreachable while S02 removes live HTTP exposure.
+void createMarkdownExecutorRequest;
 
 const createMarkdownIdempotencyFailure = (
   body: TemplateApiRequestBody,
