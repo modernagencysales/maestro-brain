@@ -227,7 +227,7 @@ describe("authorized Brain provisioning", () => {
           identity.organizationId,
           created.brainKey,
         ),
-        Schema.Any,
+        ClientProvisioningSideEffects,
       );
 
       return { created, sideEffects };
@@ -305,7 +305,7 @@ describe("authorized Brain provisioning", () => {
         });
       const pages = yield* confect.run(
         readClientBriefPages(identity.organizationId, first.brainKey),
-        Schema.Any,
+        ClientBriefPageRows,
       );
       const after = yield* confect.run(
         countClientWorkspaces(identity.organizationId),
@@ -544,7 +544,7 @@ describe("authorized Brain provisioning", () => {
 
       const pages = yield* confect.run(
         readClientBriefPages(identity.organizationId, created.brainKey),
-        Schema.Any,
+        ClientBriefPageRows,
       );
       return { created, pages };
     });
@@ -1290,6 +1290,40 @@ const ProvisioningRowCounts = Schema.Struct({
   workspaces: Schema.Number,
   organizationMembers: Schema.Number,
   workspaceMembers: Schema.Number,
+});
+
+const ClientBriefPageRows = Schema.Array(
+  Schema.Struct({
+    pageKey: Schema.String,
+    title: Schema.String,
+    siblingSlug: Schema.String,
+    sortKey: Schema.String,
+    status: Schema.String,
+  }),
+);
+
+const ClientProvisioningSideEffects = Schema.Struct({
+  user: Schema.Struct({ _id: Schema.String }),
+  workspace: Schema.Struct({
+    brainKey: Schema.String,
+    clientSlug: Schema.String,
+    kind: Schema.String,
+    status: Schema.String,
+  }),
+  membership: Schema.Struct({
+    _id: Schema.String,
+    role: Schema.String,
+    status: Schema.String,
+    revokedAt: Schema.NullOr(Schema.Number),
+    deletedAt: Schema.NullOr(Schema.Number),
+  }),
+  auditEvent: Schema.Struct({
+    action: Schema.String,
+    actorUserId: Schema.String,
+    subjectKind: Schema.String,
+    subjectId: Schema.String,
+    metadataJson: Schema.String,
+  }),
 });
 
 const seedAuthorizedBrains = () =>
