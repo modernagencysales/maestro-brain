@@ -126,6 +126,12 @@ describe("Fabro workflow prompt contracts", () => {
     expect(repair).toContain("pre_review_gate -> review");
     expect(repair).toContain("review -> complete");
     expect(repair).toContain("complete -> final_gate");
+    expect(repair).toContain(
+      "Validate behavior only through the proof packet's exact focusedCommands",
+    );
+    expect(repair).toContain(
+      "do not run raw generated-dependent package tests outside the task's transient codegen command",
+    );
     expect(repair).toContain('final_gate -> repair [label="red or rework"]');
     expect(repair).toContain("--stage final --reuse-pre-review");
     expect(repair).toContain(
