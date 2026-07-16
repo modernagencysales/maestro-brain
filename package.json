@@ -8,7 +8,7 @@
     "lint": "eslint .",
     "typecheck": "turbo run typecheck",
     "check:effect-diagnostics": "effect-language-service diagnostics --project packages/convex/tsconfig.json --format github-actions --strict",
-    "test": "turbo run test",
+    "test": "turbo run test --concurrency=4 -- --maxWorkers=2",
     "test:tooling": "pnpm --dir tooling/quality test && pnpm --dir tooling/workflow test && pnpm --dir tooling/generators test && pnpm --dir tooling/evals test && pnpm --dir tooling/release test && pnpm --dir tooling/brain-factory test",
     "test:workflow": "pnpm --dir tooling/workflow test",
     "test:pr-backlog": "pnpm --dir tooling/pr-backlog test",

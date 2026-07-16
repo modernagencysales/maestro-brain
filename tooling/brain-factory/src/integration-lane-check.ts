@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import {
+  commandsForTaskFiles,
   commandsForProfiles,
   formatCommandForFiles,
   focusedGateCommand,
@@ -373,6 +374,11 @@ export const validateIntegratedLanes = (
       ...(formatCommand ? [formatCommand] : []),
       ...(lintCommand ? [lintCommand] : []),
       ...focusedCommands,
+      ...commandsForTaskFiles(
+        actualChangedFiles,
+        manifestTask.fileLocks as string[],
+        focusedCommands,
+      ),
       ...commandsForProfiles(
         manifestTask.gateProfiles as GateProfile[],
         focusedCommands,
