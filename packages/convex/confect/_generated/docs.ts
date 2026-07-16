@@ -31,6 +31,7 @@ export type OrganizationsDoc = Document.Document<typeof schemaDefinition, "organ
 export type PageRevisionsDoc = Document.Document<typeof schemaDefinition, "pageRevisions">;
 export type PoliciesDoc = Document.Document<typeof schemaDefinition, "policies">;
 export type PromptRegistryDoc = Document.Document<typeof schemaDefinition, "promptRegistry">;
+export type ProviderConnectionsDoc = Document.Document<typeof schemaDefinition, "providerConnections">;
 export type ServicePrincipalsDoc = Document.Document<typeof schemaDefinition, "servicePrincipals">;
 export type TransformBlocksDoc = Document.Document<typeof schemaDefinition, "transformBlocks">;
 export type TransformDefinitionsDoc = Document.Document<typeof schemaDefinition, "transformDefinitions">;
@@ -80,6 +81,7 @@ export interface Docs {
   pageRevisions: PageRevisionsDoc;
   policies: PoliciesDoc;
   promptRegistry: PromptRegistryDoc;
+  providerConnections: ProviderConnectionsDoc;
   servicePrincipals: ServicePrincipalsDoc;
   transformBlocks: TransformBlocksDoc;
   transformDefinitions: TransformDefinitionsDoc;

@@ -30,6 +30,7 @@ import organizations from "./tables/organizations";
 import pageRevisions from "./tables/pageRevisions";
 import policies from "./tables/policies";
 import promptRegistry from "./tables/promptRegistry";
+import providerConnections from "./tables/providerConnections";
 import servicePrincipals from "./tables/servicePrincipals";
 import transformBlocks from "./tables/transformBlocks";
 import transformDefinitions from "./tables/transformDefinitions";
@@ -79,6 +80,7 @@ export default $defineSchema({
   pageRevisions: pageRevisions.tableDefinition,
   policies: policies.tableDefinition,
   promptRegistry: promptRegistry.tableDefinition,
+  providerConnections: providerConnections.tableDefinition,
   servicePrincipals: servicePrincipals.tableDefinition,
   transformBlocks: transformBlocks.tableDefinition,
   transformDefinitions: transformDefinitions.tableDefinition,
