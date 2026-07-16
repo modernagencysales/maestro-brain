@@ -58,6 +58,7 @@ describe("brain lane gate profiles", () => {
   });
 
   it("pins S02 to one exact transient snapshot command packet", () => {
+    expect(S02_T02_FOCUSED_COMMANDS[0]).toContain("--test editor-sync");
     expect(
       focusedCommandContractIssues("S02-T02", S02_T02_FOCUSED_COMMANDS),
     ).toEqual([]);

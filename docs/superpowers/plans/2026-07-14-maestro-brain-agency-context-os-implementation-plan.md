@@ -981,7 +981,7 @@ manifest.
   layer for current route code until S03; no public legacy ID args. Rollback the
   UI/spec as one deployment while keeping appended revisions.
 - **Focused verification:**
-  `rtk pnpm brain:factory:check-confect-codegen -- --check confect-contracts --check headless-surface-contract --profile web --test brain-pages --test http-docs --test confect-contracts --test workspace-access --test headless-executor --test observability-error-capture`,
+  `rtk pnpm brain:factory:check-confect-codegen -- --check confect-contracts --check headless-surface-contract --profile web --test brain-pages --test editor-sync --test http-docs --test confect-contracts --test workspace-access --test headless-executor --test observability-error-capture`,
   `rtk host-test-slot --class focused pnpm --dir apps/cli test`,
   `rtk host-test-slot --class focused pnpm --dir tooling/workflow test`. The
   Confect and headless-surface checks run inside the transient generated

@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "e56185a81f7714c2184b4cde7f02821f15ec10428f33fd33449d6299bc8d8b0b",
+  "planSha256": "868331c0af5ab06b495ca802724f4a3578c854e07b8342c9de4b93107a264499",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -316,7 +316,7 @@
       "lane": "brain",
       "requirements": ["IAM-04", "KNW-01", "UI-03"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "f93c91cbb95ccfac6fa6202b8546dc9dd8e966fa0897bd15dba3d0e82ddf5e21",
+      "taskBlockHash": "01dafeb6e139c6a8e096ef1598d667bae42a04227bedab7521db9d71869f35a7",
       "taskId": "S02-T02",
       "title": "Complete Authorized Page Tree CRUD",
       "tranche": "D2-domain-bodies"
