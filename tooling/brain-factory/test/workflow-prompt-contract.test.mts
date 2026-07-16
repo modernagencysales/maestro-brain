@@ -132,6 +132,9 @@ describe("Fabro workflow prompt contracts", () => {
     expect(repair).toContain(
       "do not run raw generated-dependent package tests outside the task's transient codegen command",
     );
+    expect(repair).toContain(
+      "Do not use native apply_patch; update that proof with one guarded targeted shell or write_file operation",
+    );
     expect(repair).toContain('final_gate -> repair [label="red or rework"]');
     expect(repair).toContain("--stage final --reuse-pre-review");
     expect(repair).toContain(
