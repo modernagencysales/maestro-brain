@@ -25,9 +25,9 @@ digraph BrainBuildTask {
 
   review_gate [shape=parallelogram, goal_gate=true, retry_target=review, timeout="300s", script="set -euo pipefail; PROOF='{{ inputs.evidence_dir|default('.fabro/state/maestro-brain/evidence') }}/lane-results/{{ inputs.task_id|default('S01-T01') }}/ci-proof-packet.json'; rtk proxy node -e \"const p=require(process.argv[1]); if(!['pass','rework'].includes(p.reviewVerdict)) throw new Error('independent review left a non-terminal verdict')\" \"$PROOF\""]
 
-  final_gates [shape=parallelogram, goal_gate=true, retry_target=implement, timeout="5400s", script="set -euo pipefail; cd {{ inputs.workdir|default('.') }}; rtk proxy node --import tsx tooling/brain-factory/src/review-cycle-marker.mts --task '{{ inputs.task_id|default('S01-T01') }}' --evidence '{{ inputs.evidence_dir|default('.fabro/state/maestro-brain/evidence') }}'; rtk proxy node --import tsx tooling/brain-factory/src/lane-gates.mts --task '{{ inputs.task_id|default('S01-T01') }}' --evidence '{{ inputs.evidence_dir|default('.fabro/state/maestro-brain/evidence') }}' --stage final --reuse-pre-review"]
-
   complete [shape=parallelogram, goal_gate=true, retry_target=complete, max_retries=1, timeout="300s", script="set -euo pipefail; cd {{ inputs.workdir|default('.') }}; TASK='{{ inputs.task_id|default('S01-T01') }}'; E='{{ inputs.evidence_dir|default('.fabro/state/maestro-brain/evidence') }}'; HEAD_SHA=$(rtk proxy git rev-parse HEAD); rtk proxy node -e \"const fs=require('fs'); const p=process.argv[1]; const taskId=process.argv[2]; const headSha=process.argv[3]; const manifest=JSON.parse(fs.readFileSync('docs/superpowers/execution/maestro-brain/task-manifest.json','utf8')); const task=manifest.tasks.find((candidate)=>candidate.taskId===taskId); if(!task || typeof task.tranche!=='string') throw new Error(taskId+': manifest tranche missing'); fs.writeFileSync(p, JSON.stringify({schemaVersion:'maestro-brain-lane-result/v1',taskId,headSha,tranche:task.tranche,status:'lane_green'},null,2)+'\\n')\" \"$E/lane-results/$TASK/lane-result.json\" \"$TASK\" \"$HEAD_SHA\""]
+
+  final_gates [shape=parallelogram, goal_gate=true, retry_target=implement, timeout="5400s", script="set -euo pipefail; cd {{ inputs.workdir|default('.') }}; rtk proxy node --import tsx tooling/brain-factory/src/review-cycle-marker.mts --task '{{ inputs.task_id|default('S01-T01') }}' --evidence '{{ inputs.evidence_dir|default('.fabro/state/maestro-brain/evidence') }}'; rtk proxy node --import tsx tooling/brain-factory/src/lane-gates.mts --task '{{ inputs.task_id|default('S01-T01') }}' --evidence '{{ inputs.evidence_dir|default('.fabro/state/maestro-brain/evidence') }}' --stage final --reuse-pre-review"]
 
   start -> preflight
   preflight -> implement [condition="outcome=succeeded"]
@@ -40,9 +40,9 @@ digraph BrainBuildTask {
   review -> review_immutability
   review_immutability -> review_gate [condition="outcome=succeeded"]
   review_immutability -> implement [label="mutated"]
-  review_gate -> final_gates [condition="outcome=succeeded"]
+  review_gate -> complete [condition="outcome=succeeded"]
   review_gate -> review_snapshot [label="pending"]
-  final_gates -> complete [condition="outcome=succeeded"]
+  complete -> final_gates
+  final_gates -> exit [condition="outcome=succeeded"]
   final_gates -> implement [label="red"]
-  complete -> exit
 }

@@ -124,9 +124,13 @@ describe("Fabro workflow prompt contracts", () => {
     );
     expect(repair).toContain("repair -> pre_review_gate");
     expect(repair).toContain("pre_review_gate -> review");
-    expect(repair).toContain("review -> final_gate");
+    expect(repair).toContain("review -> complete");
+    expect(repair).toContain("complete -> final_gate");
     expect(repair).toContain('final_gate -> repair [label="red or rework"]');
     expect(repair).toContain("--stage final --reuse-pre-review");
+    expect(repair).toContain(
+      "After the first apply_patch expects raw patch text failure",
+    );
 
     const release = readFileSync(
       resolve(
@@ -324,6 +328,20 @@ describe("Fabro workflow prompt contracts", () => {
     expect(complete).toContain("task-manifest.json");
     expect(complete).toContain("manifest tranche missing");
     expect(complete).toContain("tranche:task.tranche");
+    expect(buildTask).toContain(
+      'review_gate -> complete [condition="outcome=succeeded"]',
+    );
+    expect(buildTask).toContain("complete -> final_gates");
+    expect(buildTask).toContain(
+      'final_gates -> exit [condition="outcome=succeeded"]',
+    );
+
+    const laneGates = readFileSync(
+      resolve(import.meta.dirname, "../src/lane-gates.mts"),
+      "utf8",
+    );
+    expect(laneGates).toContain('if (stage === "final")');
+    expect(laneGates).toContain("validateFinalLaneResult");
   });
 
   it("binds cross-tranche integration to one immutable selection and full gate", () => {

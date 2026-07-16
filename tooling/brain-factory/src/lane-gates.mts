@@ -32,6 +32,7 @@ import {
   laneHistoryShapeIssues,
 } from "./lane-ownership.js";
 import { lifecycleAdoptionRecordIssues } from "./lifecycle-adoption.js";
+import { validateFinalLaneResult } from "./lane-result.js";
 
 interface ProofPacket {
   readonly baseSha: string;
@@ -93,6 +94,7 @@ if (lifecycleIssues.length > 0) {
 const laneDirectory = resolve(evidence, "lane-results", taskId);
 const proofPath = resolve(laneDirectory, "ci-proof-packet.json");
 const reportPath = resolve(laneDirectory, "lane-gate-report.json");
+const resultPath = resolve(laneDirectory, "lane-result.json");
 if (!existsSync(proofPath)) throw new Error(`${taskId}: missing ${proofPath}`);
 const proof = JSON.parse(readFileSync(proofPath, "utf8")) as ProofPacket;
 const proofPlanSha256 = validateProofContract(
@@ -233,6 +235,14 @@ if (
   throw new Error(
     `${taskId}: proof head ${proof.headSha} is not a same-tree checkpoint ancestor of ${head}`,
   );
+if (stage === "final") {
+  if (!existsSync(resultPath))
+    throw new Error(`${taskId}: missing final lane result ${resultPath}`);
+  validateFinalLaneResult(
+    JSON.parse(readFileSync(resultPath, "utf8")) as Record<string, unknown>,
+    { currentHeadSha: head, taskId },
+  );
+}
 const commitList = spawnSync(
   "rtk",
   [
