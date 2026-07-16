@@ -70,15 +70,20 @@ const failure = (
   },
 });
 
+const isLegacyCreateMarkdownOperation = (operationId: string): boolean =>
+  operationId === "brain.pages.createMarkdown";
+
 export const findHeadlessOperation = (
   operationId: string,
   surface: HeadlessSurface,
 ): HeadlessManifestOperation | undefined =>
-  confectManifest.functions.find(
-    (operation) =>
-      operation.operationId === operationId &&
-      operation.surfaces.some((candidate) => candidate === surface),
-  );
+  isLegacyCreateMarkdownOperation(operationId)
+    ? undefined
+    : confectManifest.functions.find(
+        (operation) =>
+          operation.operationId === operationId &&
+          operation.surfaces.some((candidate: string) => candidate === surface),
+      );
 
 export const resolveHeadlessOperation = (
   request: HeadlessExecutorRequest,
