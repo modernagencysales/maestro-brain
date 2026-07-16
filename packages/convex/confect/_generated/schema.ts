@@ -7,6 +7,7 @@ import actionJobs from "./tables/actionJobs";
 import actionTriggers from "./tables/actionTriggers";
 import apiKeys from "./tables/apiKeys";
 import billingPlans from "./tables/billingPlans";
+import brainPageAuditEvents from "./tables/brainPageAuditEvents";
 import brainPages from "./tables/brainPages";
 import citations from "./tables/citations";
 import claims from "./tables/claims";
@@ -30,6 +31,7 @@ import organizations from "./tables/organizations";
 import pageRevisions from "./tables/pageRevisions";
 import policies from "./tables/policies";
 import promptRegistry from "./tables/promptRegistry";
+import providerConnections from "./tables/providerConnections";
 import servicePrincipals from "./tables/servicePrincipals";
 import transformBlocks from "./tables/transformBlocks";
 import transformDefinitions from "./tables/transformDefinitions";
@@ -56,6 +58,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof actionTriggers |
   typeof apiKeys |
   typeof billingPlans |
+  typeof brainPageAuditEvents |
   typeof brainPages |
   typeof citations |
   typeof claims |
@@ -79,6 +82,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof pageRevisions |
   typeof policies |
   typeof promptRegistry |
+  typeof providerConnections |
   typeof servicePrincipals |
   typeof transformBlocks |
   typeof transformDefinitions |
@@ -104,6 +108,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   actionTriggers,
   apiKeys,
   billingPlans,
+  brainPageAuditEvents,
   brainPages,
   citations,
   claims,
@@ -127,6 +132,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   pageRevisions,
   policies,
   promptRegistry,
+  providerConnections,
   servicePrincipals,
   transformBlocks,
   transformDefinitions,

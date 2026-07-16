@@ -8,6 +8,7 @@ export type ActionJobsDoc = Document.Document<typeof schemaDefinition, "actionJo
 export type ActionTriggersDoc = Document.Document<typeof schemaDefinition, "actionTriggers">;
 export type ApiKeysDoc = Document.Document<typeof schemaDefinition, "apiKeys">;
 export type BillingPlansDoc = Document.Document<typeof schemaDefinition, "billingPlans">;
+export type BrainPageAuditEventsDoc = Document.Document<typeof schemaDefinition, "brainPageAuditEvents">;
 export type BrainPagesDoc = Document.Document<typeof schemaDefinition, "brainPages">;
 export type CitationsDoc = Document.Document<typeof schemaDefinition, "citations">;
 export type ClaimsDoc = Document.Document<typeof schemaDefinition, "claims">;
@@ -31,6 +32,7 @@ export type OrganizationsDoc = Document.Document<typeof schemaDefinition, "organ
 export type PageRevisionsDoc = Document.Document<typeof schemaDefinition, "pageRevisions">;
 export type PoliciesDoc = Document.Document<typeof schemaDefinition, "policies">;
 export type PromptRegistryDoc = Document.Document<typeof schemaDefinition, "promptRegistry">;
+export type ProviderConnectionsDoc = Document.Document<typeof schemaDefinition, "providerConnections">;
 export type ServicePrincipalsDoc = Document.Document<typeof schemaDefinition, "servicePrincipals">;
 export type TransformBlocksDoc = Document.Document<typeof schemaDefinition, "transformBlocks">;
 export type TransformDefinitionsDoc = Document.Document<typeof schemaDefinition, "transformDefinitions">;
@@ -57,6 +59,7 @@ export interface Docs {
   actionTriggers: ActionTriggersDoc;
   apiKeys: ApiKeysDoc;
   billingPlans: BillingPlansDoc;
+  brainPageAuditEvents: BrainPageAuditEventsDoc;
   brainPages: BrainPagesDoc;
   citations: CitationsDoc;
   claims: ClaimsDoc;
@@ -80,6 +83,7 @@ export interface Docs {
   pageRevisions: PageRevisionsDoc;
   policies: PoliciesDoc;
   promptRegistry: PromptRegistryDoc;
+  providerConnections: ProviderConnectionsDoc;
   servicePrincipals: ServicePrincipalsDoc;
   transformBlocks: TransformBlocksDoc;
   transformDefinitions: TransformDefinitionsDoc;
