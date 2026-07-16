@@ -928,12 +928,16 @@ manifest.
   archive; caller tenant/Convex fields rejected; concurrent move conflict;
   cycle/cross-Brain parent; archived Brain; stale expected revision; and MCP
   write exposure all fail.
-- **Implementation:** public web functions accept stable page keys and derive
-  the active workspace from the authenticated web principal. Return stable
-  `PageSummary`/`PageDetail`. Use an internal mutation for editor snapshot
-  commits. Remove external write exposure; reserve headless read exposure for
-  S11. Every mutation writes a page revision/audit event atomically and takes an
-  `expectedCurrentRevisionKey`.
+- **Implementation:** public web functions accept a stable `brainKey` selector
+  plus stable page keys. `brainKey` selects a candidate Brain but never grants
+  authority: resolve it through the S01-T03 stable-key resolver, then derive and
+  verify the caller's current workspace membership, role, lifecycle, and
+  generation server-side before any read or write. Never select the first
+  workspace membership, and reject caller organization/workspace/Brain/user or
+  Convex IDs at the schema boundary. Return stable `PageSummary`/`PageDetail`.
+  Use an internal mutation for editor snapshot commits. Remove external write
+  exposure; reserve headless read exposure for S11. Every mutation writes a page
+  revision/audit event atomically and takes an `expectedCurrentRevisionKey`.
 - **Typed contract / errors:** args/returns are detailed in Appendix F; errors
   include `Unauthorized`, `Forbidden`, `BrainNotFound`, `PageNotFound`,
   `PageTreeConflict`, `StaleRevision`, and `LifecycleRevoked`.
@@ -1120,9 +1124,14 @@ manifest.
   `apps/web/src/features/clients/clients-table.test.tsx`,
   `apps/web/src/features/clients/create-client-dialog.tsx`,
   `apps/web/src/features/clients/create-client-dialog.test.tsx`, and
-  `packages/convex/confect/brain/clientBrief.ts`; modify the Clients route
+  `packages/convex/confect/brain/clientBrief.ts`; modify
+  `apps/web/src/features/clients/clients-screen.tsx`,
+  `apps/web/src/features/clients/clients-screen.test.tsx`, the Clients route
   `apps/web/src/routes/_workspace.clients.tsx`,
-  `packages/convex/confect/access/provisioning.impl.ts`, and
+  `packages/convex/confect/access/provisioning.spec.ts`,
+  `packages/convex/confect/access/provisioning.impl.ts`,
+  `packages/convex/confect/errors.ts`,
+  `packages/convex/confect/tables/workspaces.ts`, and
   `packages/convex/test/authorized-brain-provisioning.test.ts`.
 - **Failure-first tests:** viewer/editor creation denial, duplicate slug,
   partial six-page creation rollback, retry idempotency, archived client,
@@ -1131,8 +1140,13 @@ manifest.
 - **Implementation:** one idempotent `createClientBrain` transaction creates
   Brain, admin membership, Overview, Stakeholders, Decisions, Commitments and
   next steps, Risks and open questions, and Proof and assets with stable page
-  keys/order. Return stable keys. Render freshness, connection health, recent
-  changes, and explicit capacity-envelope counts.
+  keys/order. Persist the creation idempotency key on the workspace with an
+  organization-scoped lookup index and transaction-enforced uniqueness so the
+  same request resumes safely while a different request cannot alias an existing
+  slug. Return stable keys and the capacity envelope from the authorized
+  provisioning boundary. Render freshness, connection health, recent changes,
+  and explicit capacity-envelope counts; sources not yet owned by this tranche
+  render explicit zero or not-connected states rather than fabricated live data.
 - **Typed errors / state:** `ClientBrainAlreadyExists`, `CapacityExceeded`,
   `ProvisioningConflict`, auth errors; onboarding is
   `creating -> seeding -> ready | failed` with same idempotency key resuming
@@ -1141,7 +1155,7 @@ manifest.
   separate admin action may seed missing pages after preview. Rollback hides
   creation but retains created Brains/pages/audit history.
 - **Focused verification:**
-  `rtk host-test-slot --class focused pnpm --dir packages/convex test client-brief`,
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test authorized-brain-provisioning`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test clients`,
   `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:confect-contracts`, `rtk pnpm check:route-tree`, and broad
@@ -2975,7 +2989,9 @@ manifest.
 - **Outcome / requirements:** satisfy HLS-01, HLS-02, IAM-03; all headless
   requests derive tenant/Brain from verified bearer state and fail closed.
 - **Classification:** `template-gap`; target `TB-HEADLESS-01`; repair the
-  existing HTTP request helper and executor.
+  existing HTTP request helper and executor. This task also repairs the missing
+  internal indexed API-key/principal lookup boundary that S11-T01's accepted
+  lane omitted; public CRUD remains owned by the S11-T01 contract.
 - **Dependencies:** S11-T01 and S01-T03.
 - **Existing anchors:** the current request helper accepts caller tenant fields
   and contains a demo slug map in
@@ -2986,7 +3002,10 @@ manifest.
   `packages/convex/confect/http.ts`,
   `packages/convex/confect/manifest/executor.ts`,
   `packages/convex/confect/headless/auth.ts`,
+  `packages/convex/confect/headless/apiKeys.spec.ts`,
+  `packages/convex/confect/headless/apiKeys.impl.ts`,
   `packages/convex/confect/headless/errorEnvelope.ts`,
+  `packages/convex/test/api-keys.test.ts`,
   `packages/convex/test/headless-auth.test.ts`, and
   `packages/convex/test/headless-executor.test.ts`; create
   `packages/convex/confect/headless/principal.ts`,
@@ -2998,12 +3017,17 @@ manifest.
   decoded/provider called before auth, timing-safe not-found/revoked behavior,
   and raw header logging.
 - **Implementation:** parse Authorization header only; hash and indexed lookup;
-  reuse S01-T03's generated stable-key resolver to resolve active
-  key/principal/org/workspace/Brain/generations; authorize required manifest
-  scope; inject internal IDs/stable Brain; only then decode tool args and call
-  generated ref. Reject organization/workspace/brain/user/Convex ID fields at
-  schema boundary. Update last-used asynchronously without changing
-  authorization result.
+  restore an internal Confect indexed key/principal lookup plus fenced last-used
+  update behind `headless/apiKeys`. An unauthenticated bearer request must not
+  call S01-T03's human-session `resolveBrainKey` entrypoint. After verifying the
+  key and active principal, use their server-owned organization ID, workspace
+  ID, and stable `brainKey` to resolve and verify the exact active organization,
+  workspace/Brain, lifecycle, and generations through indexed internal reads,
+  preserving S01-T03's stable-key invariants. Authorize the exact closed
+  reviewed operation scope; inject internal IDs/stable Brain; only then decode
+  tool args and call a generated ref. Reject
+  organization/workspace/brain/user/Convex ID fields at schema boundary. Update
+  last-used asynchronously without changing authorization result.
 - **Typed errors / state:** uniform external
   `Unauthorized | Forbidden | ValidationFailed | RateLimited`; internal reason
   codes remain redacted audit metadata. Request state
@@ -3648,11 +3672,11 @@ direct acceptance edge and is the source materialized into `acceptanceAfter`.
 | S01-T03 | S01-T02                 | template-gap authorized tenancy                  |               880 |
 | S01-T04 | S01-T03                 | template-gap access UI                           |              3300 |
 | S02-T01 | S01 complete            | template-gap authorized Brain schema             |               260 |
-| S02-T02 | S02-T01                 | template-gap authorized pages                    |               280 |
+| S02-T02 | S02-T01                 | template-gap authorized pages                    |              1100 |
 | S02-T03 | S02-T02                 | fixture-to-real `ops/versioning`/`ops/knowledge` |               290 |
 | S02-T04 | S02-T03                 | template-gap authorized editor sync              |               250 |
 | S03-T01 | S02 complete            | template-gap Brain UI                            |               240 |
-| S03-T02 | S03-T01                 | template-gap Client Brief UI                     |               280 |
+| S03-T02 | S03-T01                 | template-gap Client Brief UI                     |              2100 |
 | S03-T03 | S03-T02                 | template-gap Brain workspace UI                  |               290 |
 | S03-T04 | S03-T03                 | template-gap revision/review UI                  |               260 |
 | S04-T01 | S01, S03                | template-gap Nango provider                      |              2700 |
@@ -3684,7 +3708,7 @@ direct acceptance edge and is the source materialized into `acceptanceAfter`.
 | S10-T03 | S10-T02                 | template-gap outbox/provider action              |               280 |
 | S10-T04 | S10-T03                 | template-gap Slack recovery UI                   |               240 |
 | S11-T01 | S09 complete            | template-gap `TB-HEADLESS-01`                    |               280 |
-| S11-T02 | S11-T01, S01-T03        | template-gap bearer dispatcher                   |               280 |
+| S11-T02 | S11-T01, S01-T03        | template-gap bearer dispatcher                   |              2400 |
 | S11-T03 | S11-T02                 | template-gap `TB-HEADLESS-01` registry           |               260 |
 | S11-T04 | S11-T03                 | template-gap Streamable HTTP MCP                 |               290 |
 | S12-T01 | S07, S11                | template-gap deterministic export                |               260 |

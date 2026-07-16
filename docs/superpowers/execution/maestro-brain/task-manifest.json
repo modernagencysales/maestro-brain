@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "b8ada73857cd9fb2c5308baa03160da4210a9d4a1b51ede28889e08776812b57",
+  "planSha256": "5d21d781e20fcb6e463e8d9901395a42bba375457f79845e00cc9f7e07364c21",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -280,7 +280,7 @@
       "acceptanceAfter": "S02-T01",
       "classification": "template-gap",
       "codeStartAfter": ["S02-T01", "S01-T03"],
-      "estimatedSourceLines": 280,
+      "estimatedSourceLines": 1100,
       "fileInventoryIssues": [],
       "fileInventoryStatus": "ready",
       "fileLocks": [
@@ -295,7 +295,7 @@
       "lane": "brain",
       "requirements": ["IAM-04", "KNW-01", "UI-03"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "e39e5f1748da36a9f1f8350f9e87d426b5ed0788e579ab9bf309fe0893e7c777",
+      "taskBlockHash": "9d4a1aeac7f26e5bf3121cf5382059fe8f73501a10641094835f5b8dea8a0612",
       "taskId": "S02-T02",
       "title": "Complete Authorized Page Tree CRUD",
       "tranche": "D2-domain-bodies"
@@ -388,12 +388,14 @@
       "acceptanceAfter": "S03-T01",
       "classification": "template-gap",
       "codeStartAfter": ["S03-T01", "S01-T03"],
-      "estimatedSourceLines": 280,
+      "estimatedSourceLines": 2100,
       "fileInventoryIssues": [],
       "fileInventoryStatus": "ready",
       "fileLocks": [
         "apps/web/src/features/clients/clients-adapter.test.ts",
         "apps/web/src/features/clients/clients-adapter.ts",
+        "apps/web/src/features/clients/clients-screen.test.tsx",
+        "apps/web/src/features/clients/clients-screen.tsx",
         "apps/web/src/features/clients/clients-state.test.ts",
         "apps/web/src/features/clients/clients-state.ts",
         "apps/web/src/features/clients/clients-table.test.tsx",
@@ -402,7 +404,10 @@
         "apps/web/src/features/clients/create-client-dialog.tsx",
         "apps/web/src/routes/_workspace.clients.tsx",
         "packages/convex/confect/access/provisioning.impl.ts",
+        "packages/convex/confect/access/provisioning.spec.ts",
         "packages/convex/confect/brain/clientBrief.ts",
+        "packages/convex/confect/errors.ts",
+        "packages/convex/confect/tables/workspaces.ts",
         "packages/convex/test/authorized-brain-provisioning.test.ts"
       ],
       "gateProfiles": ["convex", "web"],
@@ -410,7 +415,8 @@
       "lane": "web",
       "requirements": ["UI-02"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "6d66c547a339a580682d86621f6c986709e676a8b03c4a93e9d627d7da50c3c2",
+      "sourceSliceLimit": 7,
+      "taskBlockHash": "eb377d38b3860f95621ed32d2478c4091cb7afe63b942802110a62c9de7d726a",
       "taskId": "S03-T02",
       "title": "Build Clients List, Creation, And Standard Client Brief",
       "tranche": "D2-domain-bodies"
@@ -1357,10 +1363,12 @@
       "acceptanceAfter": "S11-T01, S01-T03",
       "classification": "template-gap",
       "codeStartAfter": ["S11-T01", "S01-T02", "S01-T03"],
-      "estimatedSourceLines": 280,
+      "estimatedSourceLines": 2400,
       "fileInventoryIssues": [],
       "fileInventoryStatus": "ready",
       "fileLocks": [
+        "packages/convex/confect/headless/apiKeys.impl.ts",
+        "packages/convex/confect/headless/apiKeys.spec.ts",
         "packages/convex/confect/headless/auth.ts",
         "packages/convex/confect/headless/authorizeOperation.ts",
         "packages/convex/confect/headless/errorEnvelope.ts",
@@ -1368,6 +1376,7 @@
         "packages/convex/confect/http.ts",
         "packages/convex/confect/httpRequest.ts",
         "packages/convex/confect/manifest/executor.ts",
+        "packages/convex/test/api-keys.test.ts",
         "packages/convex/test/headless-auth.test.ts",
         "packages/convex/test/headless-executor.test.ts",
         "packages/convex/test/http-request-security.test.ts"
@@ -1377,7 +1386,8 @@
       "lane": "headless",
       "requirements": ["HLS-01", "HLS-02", "IAM-03"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "d084f2b7c29b16db08de47bd9e184317fad69ac96e5c7b44e6e062bfe80cd7eb",
+      "sourceSliceLimit": 8,
+      "taskBlockHash": "31f8fe3487404a4b1b993bbe46fa96da48e1cb40bc07da612b4aabc8f8e208c7",
       "taskId": "S11-T02",
       "title": "Resolve Bearer Principals Before Decoding Or Dispatching Requests",
       "tranche": "D2-domain-bodies"

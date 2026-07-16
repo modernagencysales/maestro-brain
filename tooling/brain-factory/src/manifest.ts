@@ -115,7 +115,9 @@ const START_OVERRIDES: Readonly<Record<string, readonly string[]>> = {
 
 const SOURCE_SLICE_LIMITS: Readonly<Record<string, number>> = {
   "S01-T04": 11,
+  "S03-T02": 7,
   "S04-T01": 10,
+  "S11-T02": 8,
 };
 
 const FILE_LOCK_OVERRIDES: Readonly<Record<string, readonly string[]>> = {
