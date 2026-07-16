@@ -557,7 +557,7 @@ describe("Brain role matrix", () => {
     );
   });
 
-  it("lets direct workspace membership restrict org-admin baseline while revoked direct falls back", () => {
+  it("keeps org-admin baseline above lower direct membership while revoked direct falls back", () => {
     const baseline = {
       nowMs: now,
       userId: "users_org_admin",
@@ -611,8 +611,8 @@ describe("Brain role matrix", () => {
 
     expect(directViewer).toMatchObject({
       ok: true,
-      role: "viewer",
-      source: "direct",
+      role: "admin",
+      source: "organization",
     });
     expect(revokedDirect).toMatchObject({
       ok: true,

@@ -180,11 +180,8 @@ export const resolveRoleCandidates = (
 
 export const highestCandidate = (
   candidates: readonly RoleCandidate[],
-): RoleCandidate | undefined => {
-  const direct = candidates.find((candidate) => candidate.source === "direct");
-  if (direct) return direct;
-
-  return candidates.reduce<RoleCandidate | undefined>((highest, candidate) => {
+): RoleCandidate | undefined =>
+  candidates.reduce<RoleCandidate | undefined>((highest, candidate) => {
     if (!highest) {
       return candidate;
     }
@@ -205,7 +202,6 @@ export const highestCandidate = (
 
     return highest;
   }, undefined);
-};
 
 export const resolveEffectiveWorkspaceRole = (
   snapshot: WorkspaceAccessSnapshot,
