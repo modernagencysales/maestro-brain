@@ -1,7 +1,6 @@
 import { FunctionSpec, GroupSpec } from "@confect/core";
 import * as Schema from "effect/Schema";
-import { Forbidden, NotFound, Unauthorized, ValidationFailed } from "../errors";
-import { Id } from "../_generated/id";
+import { Forbidden, Unauthorized, ValidationFailed } from "../errors";
 import {
   collectContractManifest,
   collectContractSchemas,
@@ -117,8 +116,9 @@ const ArchiveArgs = Schema.extend(
 );
 
 export const RecordSnapshotArgs = Schema.Struct({
-  workspaceId: Id("workspaces"),
-  pageId: Id("brainPages"),
+  brainKey: BrainKey,
+  pageKey: PageKey,
+  expectedCurrentRevisionKey: RevisionKey,
   snapshot: Schema.String,
   version: Schema.Number,
 });
@@ -212,7 +212,7 @@ const recordSnapshotInternal = FunctionSpec.internalMutation({
   name: "recordSnapshotInternal",
   args: () => RecordSnapshotArgs,
   returns: () => RecordSnapshotReturns,
-  error: () => Schema.Union(NotFound, ValidationFailed),
+  error: () => BrainPageWriteError,
 });
 
 const contractFunctions = [
