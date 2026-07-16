@@ -919,10 +919,21 @@ manifest.
   [`pages.spec.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/brain/pages.spec.ts#L26-L99),
   while the impl already calls `requireWorkspaceAccess` in
   [`pages.impl.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/brain/pages.impl.ts#L18-L63).
-- **Files:** modify `packages/convex/confect/brain/pages.spec.ts`,
+- **Files:** modify `apps/cli/src/index.ts`, `apps/cli/src/index.test.ts`,
+  `apps/web/src/adapters/confect-generated-refs.test.ts`,
+  `apps/web/src/sample/templateData.ts`,
+  `packages/convex/confect/brain/pages.spec.ts`,
   `packages/convex/confect/brain/pages.impl.ts`,
-  `packages/convex/confect/manifest/executor.ts`; create
-  `packages/convex/confect/brain/pageTree.ts`,
+  `packages/convex/confect/http.ts`, `packages/convex/confect/httpRequest.ts`,
+  `packages/convex/confect/manifest/executor.ts`,
+  `packages/convex/test/brain-pages.contract.test.ts`,
+  `packages/convex/test/confect-contracts.test.ts`,
+  `packages/convex/test/headless-executor.test.ts`,
+  `packages/convex/test/http-docs.test.ts`,
+  `packages/convex/test/observability-error-capture.test.ts`,
+  `packages/convex/test/workspace-access.contract.test.ts`,
+  `tooling/workflow/src/index.ts`, and `tooling/workflow/src/index.test.ts`;
+  create `packages/convex/confect/brain/pageTree.ts`,
   `packages/convex/confect/tables/brainPageAuditEvents.ts`, and
   `packages/convex/test/brain-pages-crud.test.ts`. Generated Confect/Convex
   output is integration-owned and enumerated by the named dry-run manifest; the
@@ -950,12 +961,14 @@ manifest.
   `actorUserId`, the exact action above, `effectKey`, `createdAt`, and
   `schemaVersion`; metadata is redacted and never contains title, Markdown,
   editor snapshots, or raw requests. Do not encode page mutations as membership
-  or invitation lifecycle events. Use an internal mutation for editor snapshot
-  commits. Remove external write exposure; reserve headless read exposure for
-  S11. Every mutation takes an `expectedCurrentRevisionKey`. Keep the shared
-  headless surface predicate generic over generated surface literals so a
-  web-only manifest remains type-safe without widening any operation's declared
-  exposure.
+  or invitation lifecycle events. Use an internal-only, stable-key mutation for
+  editor snapshot commits. Remove the legacy `createMarkdown` write from live
+  HTTP/OpenAPI/MCP, CLI, workflow, and web sample consumers plus their
+  behavioral contracts; do not leave a caller-ID compatibility route or a
+  hard-coded public generated ref. Reserve headless read exposure for S11. Every
+  mutation takes an `expectedCurrentRevisionKey`. Keep the shared headless
+  surface predicate generic over generated surface literals so a web-only
+  manifest remains type-safe without widening any operation's declared exposure.
 - **Typed contract / errors:** args/returns are detailed in Appendix F; errors
   include `Unauthorized`, `Forbidden`, `BrainNotFound`, `PageNotFound`,
   `PageTreeConflict`, `StaleRevision`, and `LifecycleRevoked`.
@@ -964,6 +977,10 @@ manifest.
   UI/spec as one deployment while keeping appended revisions.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test brain-pages`,
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test http-docs confect-contracts workspace-access headless-executor observability-error-capture`,
+  `rtk host-test-slot --class focused pnpm --dir apps/web test confect-generated-refs`,
+  `rtk host-test-slot --class focused pnpm --dir apps/cli test`,
+  `rtk host-test-slot --class focused pnpm --dir tooling/workflow test`,
   `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:confect-contracts`,
   `rtk pnpm check:headless-surface-contract`, broad verification is deferred to
