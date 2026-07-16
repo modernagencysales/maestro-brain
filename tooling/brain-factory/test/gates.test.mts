@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  commandsForTaskFiles,
   commandsForProfiles,
   formatCommandForFiles,
   focusedGateCommand,
@@ -114,6 +115,43 @@ describe("brain lane gate profiles", () => {
       },
       { program: "pnpm", args: ["check:config-drift"] },
     ]);
+  });
+
+  it("requires Confect v9 validation for owned hand-authored specs", () => {
+    const expected = [{ program: "pnpm", args: ["check:confect-v9"] }];
+
+    expect(
+      commandsForTaskFiles(["packages/convex/confect/ops/actions.spec.ts"], []),
+    ).toEqual(expected);
+    expect(
+      commandsForTaskFiles([], ["packages/convex/confect/editorSync.spec.ts"]),
+    ).toEqual(expected);
+  });
+
+  it("does not mistake generated, adjacent, or traversing paths for specs", () => {
+    for (const file of [
+      "packages/convex/confect/_generated/ops/actions.spec.ts",
+      "packages/convex/confect/ops/actions.spec.ts.bak",
+      "packages/convex/confect/ops/actions.impl.ts",
+      "packages/convex/confect/../outside.spec.ts",
+      "packages/convex/confectish/ops/actions.spec.ts",
+      "packages/convex/test/actions.spec.ts",
+    ]) {
+      expect(commandsForTaskFiles([file], []), file).toEqual([]);
+      expect(commandsForTaskFiles([], [file]), file).toEqual([]);
+    }
+  });
+
+  it("does not duplicate a recorded Confect v9 focused command", () => {
+    const focused = focusedGateCommand("rtk pnpm check:confect-v9");
+
+    expect(
+      commandsForTaskFiles(
+        ["packages/convex/confect/ops/actions.spec.ts"],
+        [],
+        [focused],
+      ),
+    ).toEqual([]);
   });
 
   it("lints changed source without passing docs or env files", () => {

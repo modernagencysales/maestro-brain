@@ -5,6 +5,40 @@ export interface GateCommand {
   readonly program: string;
 }
 
+const CONFECT_ROOT = "packages/convex/confect/";
+
+const isHandAuthoredConfectSpec = (file: string): boolean => {
+  if (!file.startsWith(CONFECT_ROOT) || !file.endsWith(".spec.ts")) {
+    return false;
+  }
+  const parts = file.slice(CONFECT_ROOT.length).split("/");
+  return (
+    parts.length > 0 &&
+    parts[0] !== "_generated" &&
+    parts.every((part) => part !== "" && part !== "." && part !== "..")
+  );
+};
+
+const CONFECT_V9_GATE: GateCommand = {
+  program: "pnpm",
+  args: ["check:confect-v9"],
+};
+
+const sameCommand = (left: GateCommand, right: GateCommand): boolean =>
+  left.program === right.program &&
+  left.args.length === right.args.length &&
+  left.args.every((argument, index) => argument === right.args[index]);
+
+export const commandsForTaskFiles = (
+  changedFiles: readonly string[],
+  fileLocks: readonly string[],
+  focusedCommands: readonly GateCommand[] = [],
+): GateCommand[] =>
+  [...changedFiles, ...fileLocks].some(isHandAuthoredConfectSpec) &&
+  !focusedCommands.some((command) => sameCommand(command, CONFECT_V9_GATE))
+    ? [CONFECT_V9_GATE]
+    : [];
+
 export const S02_T02_FOCUSED_COMMANDS = [
   "rtk pnpm brain:factory:check-confect-codegen -- --check confect-contracts --check headless-surface-contract --profile web --test brain-pages --test editor-sync --test http-docs --test confect-contracts --test workspace-access --test headless-executor --test observability-error-capture",
   "rtk host-test-slot --class focused pnpm --dir apps/cli test",

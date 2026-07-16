@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import {
+  commandsForTaskFiles,
   commandsForProfiles,
   formatCommandForFiles,
   focusedGateCommand,
@@ -155,6 +156,7 @@ const gateCommands = deduplicateGateCommands([
   ...(formatCommand ? [formatCommand] : []),
   ...(lintCommand ? [lintCommand] : []),
   ...focusedCommands,
+  ...commandsForTaskFiles(actualChangedFiles, task.fileLocks, focusedCommands),
   ...commandsForProfiles(task.gateProfiles, focusedCommands),
 ]);
 const commandSetHash = gateCommandSetHash(gateCommands);
