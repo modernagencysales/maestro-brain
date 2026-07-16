@@ -1,5 +1,11 @@
 import { confectManifest } from "@maestro-template/template-core/generated/confectManifest";
 import {
+  authorizeHeadlessOperation,
+  reviewedHeadlessPolicyFor,
+  type HeadlessOperationPolicy,
+} from "../headless/authorizeOperation";
+import type { HeadlessPrincipal } from "../headless/principal";
+import {
   type IdempotencyKeyValidationError,
   validateCallerIdempotencyKey,
 } from "../shared/idempotencyKey";
@@ -21,10 +27,15 @@ export type HeadlessExecutorRequest = {
   readonly idempotencyKey?: string;
 };
 
+export type AuthorizedHeadlessExecutorRequest = HeadlessExecutorRequest & {
+  readonly principal: HeadlessPrincipal;
+  readonly policy: HeadlessOperationPolicy;
+};
+
 export type HeadlessFailureResult = {
   readonly ok: false;
   readonly error: {
-    readonly _tag: "NotFound" | "ValidationFailed";
+    readonly _tag: "NotFound" | "ValidationFailed" | "Forbidden";
     readonly message: string;
   };
 };
@@ -352,4 +363,33 @@ export const executeHeadlessOperation = async (
     : execution;
 
   return result;
+};
+
+export const executeAuthorizedHeadlessOperation = async (
+  adapter: HeadlessExecutionAdapter,
+  request: AuthorizedHeadlessExecutorRequest,
+): Promise<HeadlessExecutorResult> => {
+  const resolved = resolveHeadlessOperation(request);
+  if (!resolved.ok) return resolved;
+  if (
+    reviewedHeadlessPolicyFor(request.operationId, [request.policy]) ===
+    undefined
+  ) {
+    return failure("Forbidden", "Headless operation is not available.");
+  }
+  const authorization = authorizeHeadlessOperation({
+    operationId: resolved.operation.operationId,
+    principal: request.principal,
+    operationInput: request.input,
+    policy: request.policy,
+  });
+  if (!authorization.ok) return authorization;
+  return executeHeadlessOperation(adapter, {
+    operationId: request.operationId,
+    surface: request.surface,
+    input: authorization.input,
+    ...(request.idempotencyKey === undefined
+      ? {}
+      : { idempotencyKey: request.idempotencyKey }),
+  });
 };
