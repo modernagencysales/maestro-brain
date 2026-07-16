@@ -10,13 +10,7 @@ import { extractIdentityProfile } from "../access/provisioning";
 import { roleAtLeast, type Role } from "../access/roles";
 import databaseSchema from "../_generated/schema";
 import { Auth, DatabaseReader, DatabaseWriter } from "../_generated/services";
-import {
-  Forbidden,
-  MemberNotInWorkspace,
-  NotFound,
-  Unauthorized,
-  ValidationFailed,
-} from "../errors";
+import { Forbidden, NotFound, Unauthorized, ValidationFailed } from "../errors";
 import { withMutationErrorCapture } from "../observability/errorCapture";
 import { sha256Hex } from "../shared/sha256";
 import {
@@ -25,6 +19,8 @@ import {
   PageNotFound,
   PageTreeConflict,
   StaleRevision,
+  cycleConflict,
+  usableTitle,
 } from "./pageTree";
 import { toPublicPageSummary, type BrainPage } from "./pageSchemas";
 import pages from "./pages.spec";
@@ -193,49 +189,303 @@ const requireCurrentRevision = (
         }),
       );
 
-const notImplemented = <A>(effect: Effect.Effect<A, PageTreeConflict>) =>
-  effect;
-const create = FunctionImpl.make(databaseSchema, pages, "create", () =>
+const writePageRevision = (args: {
+  readonly brain: BrainContext;
+  readonly page: Omit<BrainPage, "currentRevisionKey"> & {
+    readonly currentRevisionKey: string;
+  };
+  readonly priorRevisionKey: string | null;
+  readonly revisionKey: string;
+  readonly kind: MutationKind;
+  readonly at: number;
+}) =>
+  Effect.gen(function* () {
+    const writer = yield* DatabaseWriter;
+    yield* writer
+      .table("pageRevisions")
+      .insert({
+        workspaceId: args.brain.workspaceId,
+        organizationId: args.brain.organizationId,
+        pageKey: args.page.pageKey,
+        revisionKey: args.revisionKey,
+        priorRevisionKey: args.priorRevisionKey,
+        blockNoteJson: args.page.editorSnapshotJson ?? "",
+        markdown: args.page.markdown,
+        contentHash: hashJson({
+          title: args.page.title,
+          markdown: args.page.markdown,
+        }),
+        causation: "human-edit",
+        actor: { kind: "user", id: args.brain.actorId },
+        modelReceiptKey: null,
+        effectKey: effectKeyFor(args.kind, args.page.pageKey, args.revisionKey),
+        state: "published",
+        lifecycle: {
+          state: "active",
+          generation: 1,
+          updatedAt: args.at,
+          purgeAfter: null,
+        },
+        createdAt: args.at,
+        schemaVersion: 1,
+      })
+      .pipe(Effect.orDie);
+  });
+
+const list = FunctionImpl.make(databaseSchema, pages, "list", (args) =>
+  Effect.gen(function* () {
+    const brain = yield* requireBrainAccess(args.brainKey, "viewer");
+    const rows = yield* collectPages(brain);
+    return {
+      brainKey: brain.brainKey,
+      asOf: yield* unsafeAssumeClockProvided(Clock.currentTimeMillis),
+      freshness: { status: "current" as const },
+      pages: rows
+        .filter(
+          (page) =>
+            page.status === "active" ||
+            (args.includeArchived === true && page.status === "archived"),
+        )
+        .sort((left, right) =>
+          `${left.parentPageKey ?? ""}:${left.sortKey}:${left.pageKey}`.localeCompare(
+            `${right.parentPageKey ?? ""}:${right.sortKey}:${right.pageKey}`,
+          ),
+        )
+        .map(toPublicPageSummary),
+    };
+  }),
+);
+
+const get = FunctionImpl.make(databaseSchema, pages, "get", (args) =>
+  Effect.gen(function* () {
+    const brain = yield* requireBrainAccess(args.brainKey, "viewer");
+    const page = yield* loadPage(brain, args.pageKey);
+    return {
+      page: toPublicPageSummary(page),
+      markdown: page.markdown,
+      editorSnapshotJson: page.editorSnapshotJson,
+      editorSnapshotVersion: page.editorSnapshotVersion,
+      updatedAt: page.updatedAt,
+    };
+  }),
+);
+
+const create = FunctionImpl.make(databaseSchema, pages, "create", (args) =>
   withMutationErrorCapture(
     "brain/pages.create",
-    notImplemented(Effect.fail(new PageTreeConflict({ reason: "Pending." }))),
+    Effect.gen(function* () {
+      const title = usableTitle(args.title);
+      if (title === null)
+        return yield* new ValidationFailed({
+          field: "title",
+          message: "Invalid title.",
+        });
+      const brain = yield* requireBrainAccess(args.brainKey, "editor");
+      if (args.expectedCurrentRevisionKey !== null)
+        return yield* new StaleRevision({
+          pageKey: "pag_new",
+          expectedCurrentRevisionKey: args.expectedCurrentRevisionKey,
+          actualCurrentRevisionKey: null,
+        });
+      const existing = yield* collectPages(brain);
+      if (
+        args.parentPageKey !== null &&
+        !existing.some(
+          (p) =>
+            p.pageKey === args.parentPageKey &&
+            p.status === "active" &&
+            p.lifecycle.state === "active",
+        )
+      )
+        return yield* new PageNotFound({ pageKey: args.parentPageKey });
+      if (
+        existing.some(
+          (p) =>
+            p.status === "active" &&
+            p.parentPageKey === args.parentPageKey &&
+            p.siblingSlug === args.siblingSlug,
+        )
+      )
+        return yield* new PageTreeConflict({
+          reason: "Duplicate sibling slug.",
+        });
+      const at = yield* unsafeAssumeClockProvided(Clock.currentTimeMillis);
+      const pageKey = nextKey("pag", at + existing.length);
+      const revisionKey = revisionKeyFor("create", pageKey, at, 1);
+      const createdPage = {
+        workspaceId: brain.workspaceId,
+        organizationId: brain.organizationId,
+        slug: args.siblingSlug,
+        title,
+        markdown: args.markdown,
+        sourceKind: "markdown" as const,
+        updatedAt: at,
+        pageKey,
+        parentPageKey: args.parentPageKey,
+        siblingSlug: args.siblingSlug,
+        sortKey: args.sortKey,
+        favorite: false,
+        status: "active" as const,
+        currentRevisionKey: revisionKey,
+        lifecycle: {
+          state: "active" as const,
+          generation: 1,
+          updatedAt: at,
+          purgeAfter: null,
+        },
+        createdAt: at,
+        schemaVersion: 1,
+      };
+      const writer = yield* DatabaseWriter;
+      yield* writer.table("brainPages").insert(createdPage).pipe(Effect.orDie);
+      yield* writePageRevision({
+        brain,
+        page: createdPage,
+        priorRevisionKey: null,
+        revisionKey,
+        kind: "create",
+        at,
+      });
+      return toPublicPageSummary(createdPage);
+    }),
   ),
 );
-const rename = FunctionImpl.make(databaseSchema, pages, "rename", () =>
-  withMutationErrorCapture(
-    "brain/pages.rename",
-    notImplemented(Effect.fail(new PageTreeConflict({ reason: "Pending." }))),
-  ),
-);
-const move = FunctionImpl.make(databaseSchema, pages, "move", () =>
+
+const patchPage = (args: {
+  brainKey: string;
+  pageKey: string;
+  expectedCurrentRevisionKey: string;
+  patch: Partial<
+    Pick<PageDoc, "parentPageKey" | "sortKey" | "favorite" | "status">
+  >;
+  title?: string;
+  kind: MutationKind;
+}) =>
+  Effect.gen(function* () {
+    const brain = yield* requireBrainAccess(args.brainKey, "editor");
+    const page = yield* loadPage(brain, args.pageKey);
+    yield* requireCurrentRevision(page, args.expectedCurrentRevisionKey);
+    const at = yield* unsafeAssumeClockProvided(Clock.currentTimeMillis);
+    const nextRevisionKey = revisionKeyFor(
+      args.kind,
+      page.pageKey,
+      at,
+      page.lifecycle.generation + 1,
+    );
+    const patchedPage = {
+      ...page,
+      ...args.patch,
+      ...(args.title === undefined ? {} : { title: args.title }),
+      currentRevisionKey: nextRevisionKey,
+      updatedAt: at,
+      lifecycle: {
+        ...page.lifecycle,
+        ...(args.kind === "archive" ? { state: "archived" as const } : {}),
+        generation: page.lifecycle.generation + 1,
+        updatedAt: at,
+      },
+    };
+    const writer = yield* DatabaseWriter;
+    yield* writer
+      .table("brainPages")
+      .patch(page._id, {
+        ...args.patch,
+        ...(args.title === undefined ? {} : { title: args.title }),
+        currentRevisionKey: nextRevisionKey,
+        updatedAt: at,
+        lifecycle: patchedPage.lifecycle,
+      })
+      .pipe(Effect.orDie);
+    yield* writePageRevision({
+      brain,
+      page: patchedPage,
+      priorRevisionKey: page.currentRevisionKey,
+      revisionKey: nextRevisionKey,
+      kind: args.kind,
+      at,
+    });
+    return toPublicPageSummary(patchedPage);
+  });
+
+const rename = FunctionImpl.make(databaseSchema, pages, "rename", (args) => {
+  const title = usableTitle(args.title);
+  return title === null
+    ? Effect.fail(
+        new ValidationFailed({ field: "title", message: "Invalid title." }),
+      )
+    : withMutationErrorCapture(
+        "brain/pages.rename",
+        patchPage({ ...args, title, patch: {}, kind: "rename" }),
+      );
+});
+
+const move = FunctionImpl.make(databaseSchema, pages, "move", (args) =>
   withMutationErrorCapture(
     "brain/pages.move",
-    notImplemented(Effect.fail(new PageTreeConflict({ reason: "Pending." }))),
+    Effect.gen(function* () {
+      const brain = yield* requireBrainAccess(args.brainKey, "editor");
+      const page = yield* loadPage(brain, args.pageKey);
+      yield* requireCurrentRevision(page, args.expectedCurrentRevisionKey);
+      const activePages = (yield* collectPages(brain)).filter(
+        (candidate) =>
+          candidate.status === "active" &&
+          candidate.lifecycle.state === "active",
+      );
+      const parentByPageKey = new Map(
+        activePages.map((p) => [p.pageKey, p.parentPageKey]),
+      );
+      if (
+        args.parentPageKey !== null &&
+        !parentByPageKey.has(args.parentPageKey)
+      )
+        return yield* new PageNotFound({ pageKey: args.parentPageKey });
+      const conflict = cycleConflict({
+        pageKey: page.pageKey,
+        parentPageKey: args.parentPageKey,
+        parentByPageKey,
+      });
+      if (conflict !== null) return yield* conflict;
+      if (
+        activePages.some(
+          (candidate) =>
+            candidate.pageKey !== page.pageKey &&
+            candidate.parentPageKey === args.parentPageKey &&
+            candidate.siblingSlug === page.siblingSlug,
+        )
+      )
+        return yield* new PageTreeConflict({
+          reason: "Duplicate sibling slug.",
+        });
+      return yield* patchPage({
+        ...args,
+        patch: { parentPageKey: args.parentPageKey, sortKey: args.sortKey },
+        kind: "move",
+      });
+    }),
   ),
 );
-const favorite = FunctionImpl.make(databaseSchema, pages, "favorite", () =>
+
+const favorite = FunctionImpl.make(databaseSchema, pages, "favorite", (args) =>
   withMutationErrorCapture(
     "brain/pages.favorite",
-    notImplemented(Effect.fail(new PageTreeConflict({ reason: "Pending." }))),
+    patchPage({
+      ...args,
+      patch: { favorite: args.favorite },
+      kind: "favorite",
+    }),
   ),
 );
-const archive = FunctionImpl.make(databaseSchema, pages, "archive", () =>
+const archive = FunctionImpl.make(databaseSchema, pages, "archive", (args) =>
   withMutationErrorCapture(
     "brain/pages.archive",
-    notImplemented(Effect.fail(new PageTreeConflict({ reason: "Pending." }))),
+    patchPage({
+      ...args,
+      patch: { status: "archived" },
+      kind: "archive",
+    }),
   ),
 );
-const createMarkdown = FunctionImpl.make(
-  databaseSchema,
-  pages,
-  "createMarkdown",
-  () =>
-    Effect.fail(
-      new MemberNotInWorkspace({
-        membershipId: "legacy-createMarkdown-disabled",
-      }),
-    ),
-);
+
 const recordSnapshotInternal = FunctionImpl.make(
   databaseSchema,
   pages,
@@ -275,7 +525,6 @@ export default GroupImpl.make(databaseSchema, pages).pipe(
   Layer.provide(move),
   Layer.provide(favorite),
   Layer.provide(archive),
-  Layer.provide(createMarkdown),
   Layer.provide(recordSnapshotInternal),
   GroupImpl.finalize,
 );
