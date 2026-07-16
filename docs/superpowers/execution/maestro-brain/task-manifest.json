@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "51b4735b05594f70a16fd670c664ccad98cf2a6ba8d6dd1aab8881fa74faefb5",
+  "planSha256": "6da034dd33e0cba26216e8ea759685e5257b60522c6f584d474946b2e1224cde",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -289,6 +289,7 @@
         "packages/convex/confect/brain/pageTree.ts",
         "packages/convex/confect/brain/pages.impl.ts",
         "packages/convex/confect/brain/pages.spec.ts",
+        "packages/convex/confect/manifest/executor.ts",
         "packages/convex/test/brain-pages-crud.test.ts"
       ],
       "gateProfiles": ["convex"],
@@ -296,7 +297,7 @@
       "lane": "brain",
       "requirements": ["IAM-04", "KNW-01", "UI-03"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "9d4a1aeac7f26e5bf3121cf5382059fe8f73501a10641094835f5b8dea8a0612",
+      "taskBlockHash": "ef318443afc7857dd3341f2b8eaef28ab0880c12082d7fa775c863cdfbb589c4",
       "taskId": "S02-T02",
       "title": "Complete Authorized Page Tree CRUD",
       "tranche": "D2-domain-bodies"
@@ -1361,9 +1362,9 @@
       "tranche": "C1-contract-spine"
     },
     {
-      "acceptanceAfter": "S11-T01, S01-T03, S01-T04",
+      "acceptanceAfter": "S11-T01, S01-T03, S01-T04, S02-T02",
       "classification": "template-gap",
-      "codeStartAfter": ["S11-T01", "S01-T02", "S01-T03", "S01-T04"],
+      "codeStartAfter": ["S11-T01", "S01-T02", "S01-T03", "S01-T04", "S02-T02"],
       "estimatedSourceLines": 3000,
       "fileInventoryIssues": [],
       "fileInventoryStatus": "ready",
@@ -1401,7 +1402,7 @@
       "requirements": ["HLS-01", "HLS-02", "IAM-03"],
       "sourceSliceBudget": 300,
       "sourceSliceLimit": 10,
-      "taskBlockHash": "59ea5802cb90de68191aecab48b2511c895d5d362a29f76d33d67eb5695fd67e",
+      "taskBlockHash": "2b484dad01173ead7ca99d710455998926b3666713d025943ef5824aed334ff6",
       "taskId": "S11-T02",
       "title": "Resolve Bearer Principals Before Decoding Or Dispatching Requests",
       "tranche": "D2-domain-bodies"
