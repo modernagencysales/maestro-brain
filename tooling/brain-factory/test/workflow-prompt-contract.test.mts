@@ -355,6 +355,12 @@ describe("Fabro workflow prompt contracts", () => {
       "the next deterministic workflow node owns the complete focused gate",
     );
     expect(implement).toContain(
+      "On a repair or archived resume, preserve focusedCommands exactly as declared by the existing proof and task contract",
+    );
+    expect(implement).toContain(
+      "record newly run lint, typecheck, coverage, or diagnostic commands only as supplemental command results",
+    );
+    expect(implement).toContain(
       "after any repair, if it exceeds the manifest sourceSliceLimit",
     );
     expect(implement).toContain("never create empty padding commits");
