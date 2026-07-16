@@ -9,12 +9,16 @@ import {
 } from "./dispatch-ownership.js";
 import { buildManifest } from "./manifest.js";
 import { gitBranchExists, runRtk } from "./process.js";
-import { validateResumeSource } from "./resume-support.js";
+import {
+  serializeResumeCommits,
+  validateResumeSource,
+} from "./resume-support.js";
 
 interface ResumeRecord {
   readonly branch: string;
   readonly mode?: "resume-review";
   readonly runId?: string;
+  readonly resumeStrategy?: "in-lane-cherry-pick" | "prelaunch-cherry-pick";
   readonly sourceHeadSha?: string;
   readonly status?: "launched" | "preparing";
   readonly taskBaseSha?: string;
@@ -43,9 +47,13 @@ const valueAfter = (flag: string): string | undefined => {
 const taskId = valueAfter("--task");
 const sourceRef = valueAfter("--ref");
 const taskBase = valueAfter("--base");
+const conflictAware = process.argv.includes("--conflict-aware");
+const resumeStrategy = conflictAware
+  ? "in-lane-cherry-pick"
+  : "prelaunch-cherry-pick";
 if (!taskId || !sourceRef || !taskBase) {
   console.error(
-    "usage: brain:factory:resume -- --task <id> --ref <git-ref> --base <sha>",
+    "usage: brain:factory:resume -- --task <id> --ref <git-ref> --base <sha> [--conflict-aware]",
   );
   process.exit(2);
 }
@@ -110,6 +118,7 @@ if (existsSync(recordPath)) {
     record.taskId === taskId &&
     record.sourceHeadSha === sourceHeadSha &&
     record.taskBaseSha === taskBaseSha &&
+    (record.resumeStrategy ?? "prelaunch-cherry-pick") === resumeStrategy &&
     record.branch === branch &&
     record.workdir === workdir;
   if (!terminal) {
@@ -145,6 +154,7 @@ if (gitBranchExists(branch, root)) {
 reserveTaskPreparing(recordPath, {
   branch,
   mode: "resume-review",
+  resumeStrategy,
   sourceHeadSha,
   status: "preparing",
   taskBaseSha,
@@ -153,12 +163,26 @@ reserveTaskPreparing(recordPath, {
 });
 runRtk(["git", "worktree", "add", "-b", branch, workdir, factoryBase]);
 hydrateWorktreeDependencies(root, workdir);
-for (const commit of taskCommits)
-  runRtk(["git", "cherry-pick", commit], { cwd: workdir });
+if (!conflictAware) {
+  for (const commit of taskCommits)
+    runRtk(["git", "cherry-pick", commit], { cwd: workdir });
+}
 const startSha = runRtk(["git", "rev-parse", "HEAD"], {
   cwd: workdir,
   quiet: true,
 });
+const resumeInputs = conflictAware
+  ? [
+      "-I",
+      "resume_mode=conflict-aware",
+      "-I",
+      `resume_source_head=${sourceHeadSha}`,
+      "-I",
+      `resume_task_base=${taskBaseSha}`,
+      "-I",
+      `resume_commits=${serializeResumeCommits(taskId, taskCommits)}`,
+    ]
+  : [];
 const output = runRtk(
   [
     "fabro",
@@ -183,6 +207,7 @@ const output = runRtk(
     `base_sha=${factoryBase}`,
     "-I",
     `start_sha=${startSha}`,
+    ...resumeInputs,
   ],
   { quiet: true },
 );
@@ -193,6 +218,7 @@ if (!runId)
 promoteTaskReservation(recordPath, {
   branch,
   mode: "resume-review",
+  resumeStrategy,
   runId,
   sourceHeadSha,
   status: "launched",

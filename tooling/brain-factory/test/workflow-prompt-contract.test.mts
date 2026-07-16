@@ -174,6 +174,41 @@ describe("Fabro workflow prompt contracts", () => {
     );
   });
 
+  it("applies archived resume commits inside the owning Fabro lane", () => {
+    const buildTask = readFileSync(
+      resolve(
+        import.meta.dirname,
+        "../../../.fabro/workflows/brain-build-task/workflow.fabro",
+      ),
+      "utf8",
+    );
+    expect(buildTask).toContain("resume_mode");
+    expect(buildTask).toContain("resume_source_head");
+    expect(buildTask).toContain("resume_task_base");
+    expect(buildTask).toContain("resume_commits");
+    expect(buildTask).toContain("preflight -> apply_archive");
+    expect(buildTask).toContain("apply_archive -> implement");
+    expect(buildTask).toContain('rtk proxy git cherry-pick \\"$@\\"');
+    expect(buildTask).not.toContain('rtk proxy git cherry-pick \\"$COMMIT\\"');
+    expect(
+      buildTask.indexOf(
+        'rtk proxy git cat-file -e \\"$COMMIT^{commit}\\"; done',
+      ),
+    ).toBeLessThan(buildTask.indexOf('rtk proxy git cherry-pick \\"$@\\"'));
+    expect(buildTask).toContain(
+      "If an archived resume cherry-pick is in progress",
+    );
+    expect(buildTask).toContain(
+      "run rtk proxy git cherry-pick --continue until the pinned sequence is complete",
+    );
+    expect(buildTask).toContain(
+      "if resolution requires an out-of-scope file, stop and report a contract gap",
+    );
+    expect(buildTask.indexOf("preflight -> apply_archive")).toBeLessThan(
+      buildTask.indexOf("apply_archive -> implement"),
+    );
+  });
+
   it("uses RTK pass-through commands for guards, scripts, and proof data", () => {
     const buildTask = readFileSync(
       resolve(

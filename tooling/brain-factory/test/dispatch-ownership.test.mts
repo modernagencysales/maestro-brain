@@ -14,7 +14,10 @@ import {
   runRecordOwnsTask,
   taskReservationOwnsIntegrationCandidate,
 } from "../src/dispatch-ownership.js";
-import { validateResumeSource } from "../src/resume-support.js";
+import {
+  serializeResumeCommits,
+  validateResumeSource,
+} from "../src/resume-support.js";
 
 const roots: string[] = [];
 const fixture = () => {
@@ -135,6 +138,25 @@ describe("brain dispatch ownership", () => {
     const cherryPick = resume.indexOf('runRtk(["git", "cherry-pick", commit]');
     expect(hydration).toBeGreaterThan(worktreeAdd);
     expect(hydration).toBeLessThan(cherryPick);
+    expect(resume).toContain('process.argv.includes("--conflict-aware")');
+    expect(resume).toContain('"resume_mode=conflict-aware"');
+    expect(resume).toContain("serializeResumeCommits(taskId, taskCommits)");
+    expect(resume).toContain("if (!conflictAware)");
+    expect(resume.indexOf("if (!conflictAware)")).toBeLessThan(cherryPick);
+  });
+
+  it("pins conflict-aware resume commits as immutable workflow input", () => {
+    const first = "a".repeat(40);
+    const second = "b".repeat(40);
+    expect(serializeResumeCommits("S11-T02", [first, second])).toBe(
+      `${first},${second}`,
+    );
+    expect(() => serializeResumeCommits("S11-T02", [])).toThrow(
+      "requires task commits",
+    );
+    expect(() => serializeResumeCommits("S11-T02", ["archive-ref"])).toThrow(
+      "invalid resume commit",
+    );
   });
 
   it("validates a nonempty descendant source range before resume side effects", () => {

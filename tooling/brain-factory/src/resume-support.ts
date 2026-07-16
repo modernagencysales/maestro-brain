@@ -1,5 +1,18 @@
 export type ResumeGitRunner = (args: readonly string[]) => string;
 
+export const serializeResumeCommits = (
+  taskId: string,
+  commits: readonly string[],
+): string => {
+  if (commits.length === 0)
+    throw new Error(`${taskId}: conflict-aware resume requires task commits`);
+  for (const commit of commits) {
+    if (!/^[0-9a-f]{40}$/i.test(commit))
+      throw new Error(`${taskId}: invalid resume commit ${commit}`);
+  }
+  return commits.join(",");
+};
+
 const requiredOutput = (value: string, label: string): string => {
   const output = value.trim();
   if (!output) throw new Error(`${label} resolved to an empty value`);
