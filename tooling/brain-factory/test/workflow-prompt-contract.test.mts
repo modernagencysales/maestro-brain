@@ -339,6 +339,9 @@ describe("Fabro workflow prompt contracts", () => {
     const reviewGate = wave
       .split("\n")
       .find((line) => line.trimStart().startsWith("review_gate ["));
+    const repair = wave
+      .split("\n")
+      .find((line) => line.trimStart().startsWith("repair ["));
     const record = wave
       .split("\n")
       .find((line) => line.trimStart().startsWith("record ["));
@@ -354,6 +357,9 @@ describe("Fabro workflow prompt contracts", () => {
     expect(wave).toContain("hydrate-integration-dependencies.mts");
     expect(wave).toContain("integrate -> dependencies");
     expect(wave).toContain("repair -> dependencies");
+    expect(repair).toContain("max_visits=1");
+    expect(repair).toContain("Never edit hand-authored product code or tests");
+    expect(repair).toContain("terminate promptly");
     expect(wave).toContain(
       'dependencies -> review [condition="outcome=succeeded"]',
     );
