@@ -140,6 +140,14 @@ describe("Fabro workflow prompt contracts", () => {
     expect(repair).toContain(
       "After the first apply_patch expects raw patch text failure",
     );
+    expect(repair).toContain("set reviewVerdict='pending'");
+    expect(repair).toContain(
+      "preserve focusedCommands exactly as declared by the existing proof and task contract",
+    );
+    expect(repair).toContain("Do not invoke brain:factory:lane-gates yourself");
+    expect(repair).toContain(
+      "the next deterministic pre_review_gate node owns the complete focused gate",
+    );
 
     const release = readFileSync(
       resolve(
