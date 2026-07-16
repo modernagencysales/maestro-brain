@@ -1,10 +1,19 @@
 import {
+  HeadlessAuthError,
+  hashPresentedApiKey,
+  parseBearerApiKey,
+} from "./headless/auth";
+import {
+  authorizeHeadlessOperation,
+  reviewedHeadlessPolicyFor,
+} from "./headless/authorizeOperation";
+import type { HeadlessPrincipal } from "./headless/principal";
+import {
   type HeadlessExecutorRequest,
   type JsonValue,
 } from "./manifest/executor";
 
 export type TemplateApiRequestBody = {
-  readonly workspaceSlug?: string;
   readonly input?: Record<string, JsonValue>;
   readonly idempotencyKey?: string;
 };
@@ -12,7 +21,7 @@ export type TemplateApiRequestBody = {
 type TemplateHttpFailure = {
   readonly ok: false;
   readonly error: {
-    readonly _tag: "ValidationFailed";
+    readonly _tag: "Unauthorized" | "Forbidden" | "ValidationFailed";
     readonly message: string;
   };
 };
@@ -25,22 +34,17 @@ type ExecutorRequestResult =
   | { readonly ok: true; readonly request: HeadlessExecutorRequest }
   | TemplateHttpFailure;
 
-type CreateMarkdownInputs = {
-  readonly slug: string;
-  readonly title: string;
-  readonly markdown: string;
-};
+export type HeadlessBearerKeyHash =
+  { readonly ok: true; readonly keyHash: string } | TemplateHttpFailure;
 
-const createMarkdownInputFields = [
-  "slug",
-  "title",
-  "markdown",
-] as const satisfies readonly (keyof CreateMarkdownInputs)[];
-
-// Demo HTTP requests use the same reviewer-facing slug seeded in tenancy tests.
-const demoWorkspaceIdsBySlug = {
-  "acme-demo": "workspace_123",
-} as const satisfies Record<string, string>;
+export type HeadlessBearerAuthentication =
+  | {
+      readonly ok: true;
+      readonly principal: HeadlessPrincipal;
+      readonly keyHash: string;
+      readonly keyId?: string;
+    }
+  | TemplateHttpFailure;
 
 const validationFailed = (message: string): TemplateHttpFailure => ({
   ok: false,
@@ -50,10 +54,85 @@ const validationFailed = (message: string): TemplateHttpFailure => ({
   },
 });
 
-const workspaceSlugToId = (workspaceSlug: string): string | undefined =>
-  demoWorkspaceIdsBySlug[
-    workspaceSlug.trim() as keyof typeof demoWorkspaceIdsBySlug
-  ];
+const unauthorized = (): TemplateHttpFailure => ({
+  ok: false,
+  error: { _tag: "Unauthorized", message: "Unauthorized." },
+});
+
+const forbidden = (): TemplateHttpFailure => ({
+  ok: false,
+  error: { _tag: "Forbidden", message: "Forbidden." },
+});
+
+const authFailureFor = (error: HeadlessAuthError): TemplateHttpFailure =>
+  error.code === "API_KEY_FORBIDDEN" ? forbidden() : unauthorized();
+
+export const bearerKeyHashForRequest = async (
+  authorization: string | undefined,
+): Promise<HeadlessBearerKeyHash> => {
+  const presented = parseBearerApiKey(authorization);
+  if (presented instanceof HeadlessAuthError) return authFailureFor(presented);
+
+  return { ok: true, keyHash: await hashPresentedApiKey(presented) };
+};
+
+export const authenticateBearerRequest = async (input: {
+  readonly keyHash: string;
+  readonly runAuthenticate: (keyHash: string) => Promise<unknown>;
+}): Promise<HeadlessBearerAuthentication> => {
+  try {
+    return normalizeAuthenticatedPrincipal(
+      await input.runAuthenticate(input.keyHash),
+      input.keyHash,
+    );
+  } catch {
+    return unauthorized();
+  }
+};
+
+const normalizeAuthenticatedPrincipal = (
+  value: unknown,
+  fallbackKeyHash: string,
+): HeadlessBearerAuthentication => {
+  if (!isObjectRecord(value) || !isObjectRecord(value.principal)) {
+    return unauthorized();
+  }
+  const principal = value.principal;
+  if (
+    typeof principal.organizationId !== "string" ||
+    typeof principal.workspaceId !== "string" ||
+    typeof principal.brainKey !== "string" ||
+    principal.roleCeiling !== "viewer" ||
+    typeof principal.keyId !== "string" ||
+    typeof principal.principalId !== "string" ||
+    !Array.isArray(principal.scopes) ||
+    !principal.scopes.every(
+      (scope) => scope === "brain:read" || scope === "brain:ask",
+    )
+  ) {
+    return unauthorized();
+  }
+  return {
+    ok: true,
+    principal: principal as HeadlessPrincipal,
+    keyHash:
+      typeof value.keyHash === "string" ? value.keyHash : fallbackKeyHash,
+    ...(typeof value.keyId === "string" ? { keyId: value.keyId } : {}),
+  };
+};
+
+export const authorizeOperationBeforeDecode = (input: {
+  readonly operationId: string;
+  readonly principal: HeadlessPrincipal;
+}):
+  | { readonly ok: true; readonly principal: HeadlessPrincipal }
+  | TemplateHttpFailure => {
+  const policy = reviewedHeadlessPolicyFor(input.operationId);
+  if (policy === undefined) return forbidden();
+  if (!input.principal.scopes.includes(policy.requiredScope))
+    return forbidden();
+  return { ok: true, principal: input.principal };
+};
 
 export const readJsonBody = async (
   request: Request,
