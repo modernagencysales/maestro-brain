@@ -49,9 +49,7 @@ const staticTemplateRoutes: Record<string, TemplateRouteMatch | undefined> = {
   "/api/docs": { kind: "docs" },
 };
 
-const operationRefs = {
-  "brain.pages.createMarkdown": api.brain.pages.createMarkdown,
-} satisfies Record<string, unknown>;
+const operationRefs = {} satisfies Record<string, unknown>;
 
 export const securityHeaders = {
   "content-security-policy":
