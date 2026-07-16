@@ -1,6 +1,7 @@
 import { TestConfect } from "@confect/test";
 import type { GenericId } from "convex/values";
 import * as Effect from "effect/Effect";
+import * as Either from "effect/Either";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
@@ -32,10 +33,20 @@ const archivedBrainKey = "br_2123456789ABCDEFGHJKMNPQRS";
 const matrixBrainKey = "br_5123456789ABCDEFGHJKMNPQRS";
 
 const PageRevisionRows = Schema.mutable(Schema.Array(PageRevisionRow));
-const PageAuditEventRows = Schema.mutable(Schema.Array(Schema.Any));
 const NullReturn: Schema.Schema<null, null, never> = Schema.Null;
 
 type PageTitle = { readonly title: string };
+type PageListResult = { readonly pages: readonly PageTitle[] };
+type PageDetailResult = {
+  readonly page: { readonly currentRevisionKey: string | null };
+  readonly markdown: string;
+  readonly editorSnapshotJson?: string | null;
+  readonly editorSnapshotVersion?: number | null;
+};
+type PageMutationSnapshot = {
+  readonly revisions: readonly string[];
+  readonly audits: readonly PageAuditEvent[];
+};
 type PageAuditEvent = {
   readonly workspaceId: string;
   readonly organizationId: string;
@@ -52,6 +63,28 @@ type PageAuditEvent = {
 type RaceOutcome =
   | { readonly _tag: "Right" }
   | { readonly _tag: "Left"; readonly left: unknown };
+
+const PageAuditEventRow = Schema.Struct({
+  workspaceId: Schema.String,
+  organizationId: Schema.String,
+  brainKey: Schema.String,
+  pageKey: Schema.String,
+  revisionKey: Schema.String,
+  actorUserId: Schema.String,
+  action: Schema.String,
+  effectKey: Schema.String,
+  metadata: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+  createdAt: Schema.Number,
+  schemaVersion: Schema.Number,
+});
+const PageMutationSnapshotSchema: Schema.Schema<
+  PageMutationSnapshot,
+  PageMutationSnapshot
+> = Schema.Struct({
+  revisions: Schema.Array(Schema.String),
+  audits: Schema.Array(PageAuditEventRow),
+});
+const PageAuditEventRows = Schema.mutable(Schema.Array(PageAuditEventRow));
 
 const requireSchema = (
   name: string,
@@ -254,7 +287,10 @@ const patchPageStatus = (input: {
       .index("by_workspace", (q) => q.eq("workspaceId", input.workspaceId))
       .collect()
       .pipe(Effect.orDie);
-    const row = rows.find((candidate) => candidate.pageKey === input.pageKey);
+    const row = rows.find(
+      (candidate: { readonly pageKey: string }) =>
+        candidate.pageKey === input.pageKey,
+    );
     if (row !== undefined) {
       yield* writer
         .table("brainPages")
@@ -375,10 +411,11 @@ const collectPageAuditEvents = (workspaceId: GenericId<"workspaces">) =>
       .index("by_workspace_created", (q) => q.eq("workspaceId", workspaceId))
       .collect();
     return rows.map((row) => {
-      const { _id: id, _creationTime: creationTime, ...event } = row as Record<
-        string,
-        unknown
-      >;
+      const {
+        _id: id,
+        _creationTime: creationTime,
+        ...event
+      } = row as Record<string, unknown>;
       void id;
       void creationTime;
       return event;
@@ -386,6 +423,30 @@ const collectPageAuditEvents = (workspaceId: GenericId<"workspaces">) =>
   });
 
 describe("authorized Brain page CRUD", () => {
+  it("advertises current web-only page create capability behaviorally", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      return yield* confect.query(refs.public.capabilities.catalog.list, {});
+    });
+    const rows = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: "brain.page.create",
+          headlessExposure: "web",
+        }),
+      ]),
+    );
+    expect(rows.map((row) => row.key)).not.toContain(
+      "brain.page.createMarkdown",
+    );
+  });
+
   it("keeps every pages manifest entry web-only", () => {
     expect(manifest).toHaveLength(7);
     for (const entry of manifest) {
@@ -420,14 +481,14 @@ describe("authorized Brain page CRUD", () => {
         markdown: "# Client Brief",
         expectedCurrentRevisionKey: null,
       });
-      const list = yield* editor.query(refs.public.brain.pages.list, {
+      const list = (yield* editor.query(refs.public.brain.pages.list, {
         brainKey: editorBrainKey,
         includeArchived: false,
-      });
-      const detail = yield* editor.query(refs.public.brain.pages.get, {
+      })) as PageListResult;
+      const detail = (yield* editor.query(refs.public.brain.pages.get, {
         brainKey: editorBrainKey,
         pageKey: page.pageKey,
-      });
+      })) as PageDetailResult;
       const revisions = yield* confect.run(
         collectPageRevisions(seeded.workspaceId, page.pageKey),
         PageRevisionRows,
@@ -513,7 +574,7 @@ describe("authorized Brain page CRUD", () => {
       });
       const before = yield* confect.run(
         pageMutationSnapshot(seeded.workspaceId),
-        Schema.Any,
+        PageMutationSnapshotSchema,
       );
       const saved = yield* editor.mutation(
         refs.internal.brain.pages.recordSnapshotInternal,
@@ -527,13 +588,13 @@ describe("authorized Brain page CRUD", () => {
           version: 7,
         },
       );
-      const afterSave = yield* editor.query(refs.public.brain.pages.get, {
+      const afterSave = (yield* editor.query(refs.public.brain.pages.get, {
         brainKey: editorBrainKey,
         pageKey: page.pageKey,
-      });
+      })) as PageDetailResult;
       const afterSaveMutationRows = yield* confect.run(
         pageMutationSnapshot(seeded.workspaceId),
-        Schema.Any,
+        PageMutationSnapshotSchema,
       );
       const stale = yield* editor
         .mutation(refs.internal.brain.pages.recordSnapshotInternal, {
@@ -566,17 +627,17 @@ describe("authorized Brain page CRUD", () => {
           version: 9,
         })
         .pipe(Effect.either);
-      const afterDenials = yield* editor.query(refs.public.brain.pages.get, {
+      const afterDenials = (yield* editor.query(refs.public.brain.pages.get, {
         brainKey: editorBrainKey,
         pageKey: page.pageKey,
-      });
+      })) as PageDetailResult;
       const afterDeniedMutationRows = yield* confect.run(
         pageMutationSnapshot(seeded.workspaceId),
-        Schema.Any,
+        PageMutationSnapshotSchema,
       );
       const otherMutationRows = yield* confect.run(
         pageMutationSnapshot(otherSeeded.workspaceId),
-        Schema.Any,
+        PageMutationSnapshotSchema,
       );
       return {
         saved,
@@ -586,6 +647,8 @@ describe("authorized Brain page CRUD", () => {
         stale,
         staleVersion,
         crossBrain,
+        page,
+        seeded,
         afterDenials,
         afterDeniedMutationRows,
         otherMutationRows,
@@ -603,12 +666,18 @@ describe("authorized Brain page CRUD", () => {
       result.afterDenials.page.currentRevisionKey,
     );
     expect(result.afterSaveMutationRows).toEqual(result.before);
-    expect(result.stale._tag).toBe("Left");
-    expect(result.stale.left).toBeInstanceOf(StaleRevision);
-    expect(result.staleVersion._tag).toBe("Left");
-    expect(result.staleVersion.left).toBeInstanceOf(ValidationFailed);
-    expect(result.crossBrain._tag).toBe("Left");
-    expect(result.crossBrain.left).toBeInstanceOf(PageNotFound);
+    expect(Either.isLeft(result.stale)).toBe(true);
+    if (Either.isLeft(result.stale)) {
+      expect(result.stale.left).toBeInstanceOf(StaleRevision);
+    }
+    expect(Either.isLeft(result.staleVersion)).toBe(true);
+    if (Either.isLeft(result.staleVersion)) {
+      expect(result.staleVersion.left).toBeInstanceOf(ValidationFailed);
+    }
+    expect(Either.isLeft(result.crossBrain)).toBe(true);
+    if (Either.isLeft(result.crossBrain)) {
+      expect(result.crossBrain.left).toBeInstanceOf(PageNotFound);
+    }
     expect(result.afterDenials.editorSnapshotJson).toBe(
       '{"type":"doc","content":[]}',
     );
@@ -616,19 +685,18 @@ describe("authorized Brain page CRUD", () => {
     expect(result.afterDeniedMutationRows).toEqual(
       result.afterSaveMutationRows,
     );
-    expect(result.otherMutationRows).toEqual({
-      revisions: [expect.any(String)],
-      audits: [expect.any(String)],
-    });
+    expect(result.otherMutationRows.revisions).toEqual([expect.any(String)]);
+    expect(result.otherMutationRows.audits).toHaveLength(1);
+    expect(result.otherMutationRows.audits[0]?.action).toBe("page.created");
     expect(() =>
       Schema.decodeUnknownSync(RecordSnapshotArgs)(
         {
           brainKey: editorBrainKey,
-          pageKey: page.pageKey,
+          pageKey: result.page.pageKey,
           expectedCurrentRevisionKey: requireRevisionKey(
-            page.currentRevisionKey,
+            result.page.currentRevisionKey,
           ),
-          workspaceId: seeded.workspaceId,
+          workspaceId: result.seeded.workspaceId,
           snapshot: '{"type":"doc"}',
           version: 10,
         },
@@ -680,17 +748,17 @@ describe("authorized Brain page CRUD", () => {
         "viewer@example.com",
         "shared-editor",
       );
-      const read = yield* viewer.query(refs.public.brain.pages.list, {
+      const read = (yield* viewer.query(refs.public.brain.pages.list, {
         brainKey: viewerBrainKey,
         includeArchived: false,
-      });
-      const detail = yield* viewer.query(refs.public.brain.pages.get, {
+      })) as PageListResult;
+      const detail = (yield* viewer.query(refs.public.brain.pages.get, {
         brainKey: viewerBrainKey,
         pageKey: page.pageKey,
-      });
+      })) as PageDetailResult;
       const beforeViewerWrite = yield* confect.run(
         pageMutationSnapshot(seeded.workspaceId),
-        Schema.Any,
+        PageMutationSnapshotSchema,
       );
       const viewerWrite = yield* viewer
         .mutation(refs.public.brain.pages.create, {
@@ -705,7 +773,7 @@ describe("authorized Brain page CRUD", () => {
         .pipe(Effect.flip);
       const afterViewerWrite = yield* confect.run(
         pageMutationSnapshot(seeded.workspaceId),
-        Schema.Any,
+        PageMutationSnapshotSchema,
       );
       return { read, detail, viewerWrite, beforeViewerWrite, afterViewerWrite };
     });
@@ -755,7 +823,7 @@ describe("authorized Brain page CRUD", () => {
       });
       const beforeCycle = yield* confect.run(
         pageMutationSnapshot(seeded.workspaceId),
-        Schema.Any,
+        PageMutationSnapshotSchema,
       );
       const cycle = yield* editor
         .mutation(refs.public.brain.pages.move, {
@@ -770,7 +838,7 @@ describe("authorized Brain page CRUD", () => {
         .pipe(Effect.flip);
       const afterCycle = yield* confect.run(
         pageMutationSnapshot(seeded.workspaceId),
-        Schema.Any,
+        PageMutationSnapshotSchema,
       );
       const archived = yield* editor.mutation(refs.public.brain.pages.archive, {
         brainKey: editorBrainKey,
@@ -813,14 +881,14 @@ describe("authorized Brain page CRUD", () => {
         }),
         NullReturn,
       );
-      const defaultList = yield* editor.query(refs.public.brain.pages.list, {
+      const defaultList = (yield* editor.query(refs.public.brain.pages.list, {
         brainKey: editorBrainKey,
         includeArchived: false,
-      });
-      const archivedList = yield* editor.query(refs.public.brain.pages.list, {
+      })) as PageListResult;
+      const archivedList = (yield* editor.query(refs.public.brain.pages.list, {
         brainKey: editorBrainKey,
         includeArchived: true,
-      });
+      })) as PageListResult;
       const renamed = yield* editor.mutation(refs.public.brain.pages.rename, {
         brainKey: editorBrainKey,
         pageKey: root.pageKey,
@@ -858,7 +926,7 @@ describe("authorized Brain page CRUD", () => {
       );
       const beforeStale = yield* confect.run(
         pageMutationSnapshot(seeded.workspaceId),
-        Schema.Any,
+        PageMutationSnapshotSchema,
       );
       const stale = yield* editor
         .mutation(refs.public.brain.pages.rename, {
@@ -872,7 +940,7 @@ describe("authorized Brain page CRUD", () => {
         .pipe(Effect.flip);
       const afterStale = yield* confect.run(
         pageMutationSnapshot(seeded.workspaceId),
-        Schema.Any,
+        PageMutationSnapshotSchema,
       );
       const crossBrainSeed = yield* confect.run(
         seedBrain({
@@ -889,7 +957,7 @@ describe("authorized Brain page CRUD", () => {
       );
       const beforeCrossBrain = yield* confect.run(
         pageMutationSnapshot(seeded.workspaceId),
-        Schema.Any,
+        PageMutationSnapshotSchema,
       );
       const crossBrain = yield* editor
         .mutation(refs.public.brain.pages.move, {
@@ -904,7 +972,7 @@ describe("authorized Brain page CRUD", () => {
         .pipe(Effect.flip);
       const afterCrossBrain = yield* confect.run(
         pageMutationSnapshot(seeded.workspaceId),
-        Schema.Any,
+        PageMutationSnapshotSchema,
       );
       yield* confect.run(
         seedBrain({
@@ -918,7 +986,7 @@ describe("authorized Brain page CRUD", () => {
       );
       const beforeArchivedBrain = yield* confect.run(
         pageMutationSnapshot(seeded.workspaceId),
-        Schema.Any,
+        PageMutationSnapshotSchema,
       );
       const archivedBrain = yield* actor(
         confect,
@@ -937,7 +1005,7 @@ describe("authorized Brain page CRUD", () => {
         .pipe(Effect.flip);
       const afterArchivedBrain = yield* confect.run(
         pageMutationSnapshot(seeded.workspaceId),
-        Schema.Any,
+        PageMutationSnapshotSchema,
       );
       const brainNotFound = yield* editor
         .query(refs.public.brain.pages.list, {
@@ -1031,7 +1099,7 @@ describe("authorized Brain page CRUD", () => {
     expect(result.childRevisions[1]?.effectKey).toContain(
       "brain.pages.archive",
     );
-    const auditEvents = result.auditEventsBeforeDenials as PageAuditEvent[];
+    const auditEvents = result.auditEventsBeforeDenials;
     expect(auditEvents.map((event) => event.action)).toEqual([
       "page.created",
       "page.created",
@@ -1078,9 +1146,9 @@ describe("authorized Brain page CRUD", () => {
       expect(event.effectKey).toBe(
         `brain.pages.${effectKindByAction[event.action]}:${event.pageKey}:${event.revisionKey}`,
       );
-      expect(revisionCreatedAtByKey.has(`${event.pageKey}:${event.revisionKey}`)).toBe(
-        true,
-      );
+      expect(
+        revisionCreatedAtByKey.has(`${event.pageKey}:${event.revisionKey}`),
+      ).toBe(true);
       expect(event.createdAt).toBe(
         revisionCreatedAtByKey.get(`${event.pageKey}:${event.revisionKey}`),
       );
@@ -1310,7 +1378,7 @@ describe("authorized Brain page CRUD", () => {
       );
       const beforeDuplicateSibling = yield* confect.run(
         pageMutationSnapshot(seeded.workspaceId),
-        Schema.Any,
+        PageMutationSnapshotSchema,
       );
       const duplicateSibling = yield* editor
         .mutation(refs.public.brain.pages.create, {
@@ -1325,7 +1393,7 @@ describe("authorized Brain page CRUD", () => {
         .pipe(Effect.flip);
       const afterDuplicateSibling = yield* confect.run(
         pageMutationSnapshot(seeded.workspaceId),
-        Schema.Any,
+        PageMutationSnapshotSchema,
       );
       const racePage = yield* owner.mutation(refs.public.brain.pages.create, {
         brainKey: matrixBrainKey,
@@ -1338,7 +1406,7 @@ describe("authorized Brain page CRUD", () => {
       });
       const beforeRace = yield* confect.run(
         pageMutationSnapshot(seeded.workspaceId),
-        Schema.Any,
+        PageMutationSnapshotSchema,
       );
       const race = yield* Effect.all(
         [
@@ -1369,7 +1437,7 @@ describe("authorized Brain page CRUD", () => {
       );
       const afterRace = yield* confect.run(
         pageMutationSnapshot(seeded.workspaceId),
-        Schema.Any,
+        PageMutationSnapshotSchema,
       );
       const moved = yield* editor.mutation(refs.public.brain.pages.move, {
         brainKey: matrixBrainKey,
@@ -1382,7 +1450,7 @@ describe("authorized Brain page CRUD", () => {
       });
       const beforeStaleMove = yield* confect.run(
         pageMutationSnapshot(seeded.workspaceId),
-        Schema.Any,
+        PageMutationSnapshotSchema,
       );
       const staleMove = yield* editor
         .mutation(refs.public.brain.pages.move, {
@@ -1397,7 +1465,7 @@ describe("authorized Brain page CRUD", () => {
         .pipe(Effect.flip);
       const afterStaleMove = yield* confect.run(
         pageMutationSnapshot(seeded.workspaceId),
-        Schema.Any,
+        PageMutationSnapshotSchema,
       );
       yield* confect.run(
         seedBrain({
