@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "d9ed483d242ae11c2150ebcb253f438eb60642bcfd927aad501b35497a04c002",
+  "planSha256": "e56185a81f7714c2184b4cde7f02821f15ec10428f33fd33449d6299bc8d8b0b",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -295,6 +295,7 @@
         "packages/convex/confect/brain/pages.impl.ts",
         "packages/convex/confect/brain/pages.spec.ts",
         "packages/convex/confect/capabilities/catalog.impl.ts",
+        "packages/convex/confect/editor/syncApi.ts",
         "packages/convex/confect/http.ts",
         "packages/convex/confect/httpRequest.ts",
         "packages/convex/confect/manifest/executor.ts",
@@ -302,6 +303,7 @@
         "packages/convex/test/brain-pages-crud.test.ts",
         "packages/convex/test/brain-pages.contract.test.ts",
         "packages/convex/test/confect-contracts.test.ts",
+        "packages/convex/test/editor-sync.test.ts",
         "packages/convex/test/headless-executor.test.ts",
         "packages/convex/test/http-docs.test.ts",
         "packages/convex/test/observability-error-capture.test.ts",
@@ -314,7 +316,7 @@
       "lane": "brain",
       "requirements": ["IAM-04", "KNW-01", "UI-03"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "d5a628b00106f479ff0e02e032d4bdfb44efd5d7f62f1bf428e6262b0bfd3354",
+      "taskBlockHash": "f93c91cbb95ccfac6fa6202b8546dc9dd8e966fa0897bd15dba3d0e82ddf5e21",
       "taskId": "S02-T02",
       "title": "Complete Authorized Page Tree CRUD",
       "tranche": "D2-domain-bodies"

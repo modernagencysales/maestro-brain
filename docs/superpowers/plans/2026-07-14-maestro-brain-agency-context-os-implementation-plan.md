@@ -925,6 +925,7 @@ manifest.
   `apps/web/src/sample/templateData.test.ts`,
   `packages/convex/confect/brain/pages.spec.ts`,
   `packages/convex/confect/brain/pages.impl.ts`,
+  `packages/convex/confect/editor/syncApi.ts`,
   `packages/convex/confect/capabilities/catalog.impl.ts`,
   `packages/convex/confect/http.ts`, `packages/convex/confect/httpRequest.ts`,
   `packages/convex/confect/manifest/executor.ts`,
@@ -933,6 +934,7 @@ manifest.
   `packages/convex/test/headless-executor.test.ts`,
   `packages/convex/test/http-docs.test.ts`,
   `packages/convex/test/observability-error-capture.test.ts`,
+  `packages/convex/test/editor-sync.test.ts`,
   `packages/convex/test/workspace-access.contract.test.ts`,
   `tooling/workflow/src/index.ts`, and `tooling/workflow/src/index.test.ts`;
   create `packages/convex/confect/brain/pageTree.ts`,
