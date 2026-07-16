@@ -26,6 +26,11 @@ const hasSurface = (
 const isReservedBrainPageOperation = (entry: ManifestFunction): boolean =>
   (entry.operationId as string).startsWith("brain.pages.");
 
+const generatedHeadlessFunctions = (): readonly ManifestFunction[] =>
+  confectManifest.functions.filter(
+    (entry) => !isReservedBrainPageOperation(entry),
+  );
+
 export type HeadlessOperation = {
   readonly id: string;
   readonly surface: ManifestSurface;
@@ -157,7 +162,7 @@ export const buildHeadlessOperations = (
   _registry?: TemplateRegistry,
 ): readonly HeadlessOperation[] => {
   void _registry;
-  return confectManifest.functions.flatMap((entry) =>
+  return generatedHeadlessFunctions().flatMap((entry) =>
     entry.surfaces.map((surface) => ({
       id: `${surface}:${entry.operationId}`,
       surface,

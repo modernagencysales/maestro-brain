@@ -20,10 +20,10 @@ describe("Confect backend contracts", () => {
         functionVisibility: "public",
       },
     });
-    expect(refs.public.brain.pages.createMarkdown).toMatchObject({
+    expect(refs.public.brain.pages.create).toMatchObject({
       functionNamespace: "brain/pages",
       functionSpec: {
-        name: "createMarkdown",
+        name: "create",
         functionVisibility: "public",
       },
     });
