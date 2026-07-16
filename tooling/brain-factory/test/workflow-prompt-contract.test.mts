@@ -357,9 +357,9 @@ describe("Fabro workflow prompt contracts", () => {
     expect(wave).toContain("hydrate-integration-dependencies.mts");
     expect(wave).toContain("integrate -> dependencies");
     expect(wave).toContain("repair -> dependencies");
-    expect(repair).toContain("max_visits=1");
+    expect(repair).toContain("max_visits=2");
     expect(repair).toContain("Never edit hand-authored product code or tests");
-    expect(repair).toContain("terminate promptly");
+    expect(repair).toContain("exactly one repair attempt");
     expect(wave).toContain(
       'dependencies -> review [condition="outcome=succeeded"]',
     );
