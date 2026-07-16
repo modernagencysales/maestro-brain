@@ -296,3 +296,63 @@ export const listApiKeysForBrain = (input: PublicApiKeyServerContext) =>
       .map(publicMetadata);
   });
 
+export const revokeApiKeyForBrain = (
+  input: PublicApiKeyServerContext & {
+    readonly keyId: string;
+    readonly nowMs: number;
+  },
+) =>
+  Effect.gen(function* () {
+    yield* requireAdmin(input.actor);
+    yield* assertActiveBrainScope(input.serverScope);
+    const reader = yield* DatabaseReader;
+    const keys = yield* reader
+      .table("apiKeys")
+      .index("by_brain_status", (q) =>
+        q
+          .eq("workspaceId", input.serverScope.workspaceId)
+          .eq("brainKey", input.serverScope.brainKey),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const key = requireExactlyOne(
+      keys.filter(
+        (candidate) =>
+          candidate.id === input.keyId &&
+          candidate.organizationId === input.serverScope.organizationId,
+      ),
+    );
+    if (key === undefined) {
+      return yield* Effect.fail(new ApiKeyNotFound({ keyId: input.keyId }));
+    }
+    const revoked = yield* Effect.try({
+      try: () =>
+        revokeBrainApiKey({ key, actor: input.actor, nowMs: input.nowMs }),
+      catch: knownRevokeError,
+    });
+    const principal = yield* reader
+      .table("servicePrincipals")
+      .index("by_principal_key", (q) => q.eq("id", key.principalId ?? ""))
+      .collect()
+      .pipe(Effect.orDie, Effect.map(requireExactlyOne));
+    const writer = yield* DatabaseWriter;
+    if (principal !== undefined) {
+      yield* writer
+        .table("servicePrincipals")
+        .patch(asGenericId<"servicePrincipals">(principal._id), {
+          status: "revoked" as const,
+          generation: principal.generation + 1,
+          revokedAt: input.nowMs,
+        })
+        .pipe(Effect.orDie);
+    }
+    yield* writer
+      .table("apiKeys")
+      .patch(asGenericId<"apiKeys">(key._id), {
+        status: revoked.status,
+        revokedAt: revoked.revokedAt,
+      })
+      .pipe(Effect.orDie);
+    return null;
+  });
+
