@@ -151,8 +151,11 @@ describe("brain lane gate command cache", () => {
     expect(final).toContain("--stage final --reuse-pre-review");
     expect(final).toContain("review-cycle-marker.mts");
     expect(final?.indexOf("review-cycle-marker.mts")).toBeLessThan(
-      final?.indexOf("brain:factory:lane-gates") ?? -1,
+      final?.indexOf("lane-gates.mts") ?? -1,
     );
+    expect(preReview).toContain("node --import tsx");
+    expect(final).toContain("node --import tsx");
+    expect(workflow).not.toContain("pnpm brain:factory:lane-gates");
     const review = workflow
       .split("\n")
       .find((line) => line.trimStart().startsWith("review ["));
