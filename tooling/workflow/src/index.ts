@@ -14,7 +14,8 @@ import {
 } from "./workflow-compat";
 
 type ManifestFunction = (typeof confectManifest.functions)[number];
-type ManifestSurface = ManifestFunction["surfaces"][number];
+type ManifestSurface =
+  "api" | "cli" | "mcp" | ManifestFunction["surfaces"][number];
 
 const hasSurface = (
   entry: ManifestFunction,
@@ -22,13 +23,8 @@ const hasSurface = (
 ): surface is ManifestSurface =>
   (entry.surfaces as readonly string[]).includes(surface);
 
-export const generatedCliOperationRefs: Readonly<Record<string, string>> = {
-  "brain.pages.createMarkdown": "brain.pages.createMarkdown",
-};
-
-export const generatedMcpOperationRefs: Readonly<Record<string, string>> = {
-  "brain.pages.createMarkdown": "template.brain.pages.createMarkdown",
-};
+const isReservedBrainPageOperation = (entry: ManifestFunction): boolean =>
+  (entry.operationId as string).startsWith("brain.pages.");
 
 export type HeadlessOperation = {
   readonly id: string;
