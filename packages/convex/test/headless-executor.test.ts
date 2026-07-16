@@ -5,16 +5,39 @@ import {
   type HeadlessExecutionAdapter,
 } from "../confect/manifest/executor";
 
+const sampleOperation = {
+  namespace: "test.sample",
+  name: "write",
+  operationId: "test.sample.write",
+  kind: "mutation",
+  surfaces: ["api", "cli", "mcp"],
+  typedErrors: ["ValidationFailed"],
+  idempotent: false,
+  argsSchemaName: "test.sample.write.args",
+  returnsSchemaName: "test.sample.write.returns",
+} as const;
+
+const mockManifest = (operation = sampleOperation) => {
+  vi.resetModules();
+  vi.doMock("@maestro-template/template-core/generated/confectManifest", () => ({
+    confectManifest: {
+      version: 1,
+      generatedAt: "1970-01-01T00:00:00.000Z",
+      functions: [operation],
+    },
+  }));
+};
+
 const createAdapter = (
   overrides: Partial<HeadlessExecutionAdapter> = {},
 ): HeadlessExecutionAdapter => ({
   refs: {
-    "brain.pages.createMarkdown": "brain.pages.createMarkdown.ref",
+    "test.sample.write": "test.sample.write.ref",
   },
   runQuery: async () => {
     throw new Error("runQuery should not be called");
   },
-  runMutation: async () => "brainPage_123",
+  runMutation: async () => ({ id: "sample_123" }),
   runAction: async () => {
     throw new Error("runAction should not be called");
   },
@@ -22,28 +45,14 @@ const createAdapter = (
 });
 
 describe("headless executor", () => {
-  it("does not expose web-only operations on headless API surfaces", () => {
+  it("does not expose web-only operations or the deleted legacy page write", () => {
     expect(findHeadlessOperation("brain.pages.list", "api")).toBeUndefined();
+    expect(
+      findHeadlessOperation("brain.pages.createMarkdown", "api"),
+    ).toBeUndefined();
   });
 
-  it("requires idempotency keys for non-idempotent headless writes", async () => {
-    const result = await executeHeadlessOperation(createAdapter(), {
-      operationId: "brain.pages.createMarkdown",
-      surface: "api",
-      input: { title: "A note" },
-    });
-
-    expect(result).toEqual({
-      ok: false,
-      error: {
-        _tag: "ValidationFailed",
-        message:
-          "Operation brain.pages.createMarkdown requires a nonblank idempotencyKey.",
-      },
-    });
-  });
-
-  it("rejects padded and non-URL-safe idempotency keys before dispatch", async () => {
+  it("returns NotFound for the deleted legacy page write without dispatch", async () => {
     const adapter = createAdapter({
       runMutation: async () => {
         throw new Error("runMutation should not be called");
@@ -53,6 +62,56 @@ describe("headless executor", () => {
     await expect(
       executeHeadlessOperation(adapter, {
         operationId: "brain.pages.createMarkdown",
+        surface: "api",
+        input: {},
+        idempotencyKey: "idem_123",
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      error: {
+        _tag: "NotFound",
+        message:
+          "No headless operation brain.pages.createMarkdown exposed on api.",
+      },
+    });
+  });
+
+  it("requires idempotency keys for synthetic non-idempotent headless writes", async () => {
+    mockManifest();
+    const { executeHeadlessOperation: executeWithMockedManifest } = await import(
+      "../confect/manifest/executor"
+    );
+
+    const result = await executeWithMockedManifest(createAdapter(), {
+      operationId: "test.sample.write",
+      surface: "api",
+      input: { title: "A note" },
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: {
+        _tag: "ValidationFailed",
+        message:
+          "Operation test.sample.write requires a nonblank idempotencyKey.",
+      },
+    });
+  });
+
+  it("rejects padded and non-URL-safe idempotency keys before dispatch", async () => {
+    mockManifest();
+    const { executeHeadlessOperation: executeWithMockedManifest } = await import(
+      "../confect/manifest/executor"
+    );
+    const adapter = createAdapter({
+      runMutation: async () => {
+        throw new Error("runMutation should not be called");
+      },
+    });
+
+    await expect(
+      executeWithMockedManifest(adapter, {
+        operationId: "test.sample.write",
         surface: "api",
         input: { title: "A note" },
         idempotencyKey: " idem_123 ",
@@ -62,12 +121,12 @@ describe("headless executor", () => {
       error: {
         _tag: "ValidationFailed",
         message:
-          "Operation brain.pages.createMarkdown received invalid idempotencyKey: idempotencyKey must not have leading or trailing whitespace.",
+          "Operation test.sample.write received invalid idempotencyKey: idempotencyKey must not have leading or trailing whitespace.",
       },
     });
     await expect(
-      executeHeadlessOperation(adapter, {
-        operationId: "brain.pages.createMarkdown",
+      executeWithMockedManifest(adapter, {
+        operationId: "test.sample.write",
         surface: "api",
         input: { title: "A note" },
         idempotencyKey: "idem/123",
@@ -77,145 +136,112 @@ describe("headless executor", () => {
       error: {
         _tag: "ValidationFailed",
         message:
-          "Operation brain.pages.createMarkdown received invalid idempotencyKey: idempotencyKey must contain only URL-safe letters, numbers, '.', '_', '~', or '-'.",
+          "Operation test.sample.write received invalid idempotencyKey: idempotencyKey must contain only URL-safe letters, numbers, '.', '_', '~', or '-'.",
       },
     });
   });
 
-  it("dispatches exposed writes through the adapter ref with idempotency input", async () => {
+  it("dispatches synthetic exposed writes through the adapter ref", async () => {
+    mockManifest();
+    const { executeHeadlessOperation: executeWithMockedManifest } = await import(
+      "../confect/manifest/executor"
+    );
     const calls: unknown[] = [];
     const adapter = createAdapter({
       runMutation: async (ref, input) => {
         calls.push([ref, input]);
-        return { id: "brainPage_123" };
+        return { id: "sample_123" };
       },
     });
 
-    const result = await executeHeadlessOperation(adapter, {
-      operationId: "brain.pages.createMarkdown",
+    const result = await executeWithMockedManifest(adapter, {
+      operationId: "test.sample.write",
       surface: "api",
       input: { title: "A note" },
       idempotencyKey: "idem_123",
     });
 
     expect(calls).toEqual([
-      [
-        "brain.pages.createMarkdown.ref",
-        { title: "A note", idempotencyKey: "idem_123" },
-      ],
+      ["test.sample.write.ref", { title: "A note", idempotencyKey: "idem_123" }],
     ]);
     expect(result).toEqual({
       ok: true,
-      operationId: "brain.pages.createMarkdown",
-      result: { id: "brainPage_123" },
+      operationId: "test.sample.write",
+      result: { id: "sample_123" },
     });
   });
 
-  it("fails when an exposed operation has no adapter ref", async () => {
-    const result = await executeHeadlessOperation(createAdapter({ refs: {} }), {
-      operationId: "brain.pages.createMarkdown",
-      surface: "api",
-      input: {},
-      idempotencyKey: "idem_123",
-    });
+  it("keeps generic ref/input/result/kind validation behavior", async () => {
+    mockManifest();
+    const { executeHeadlessOperation: executeWithMockedManifest } = await import(
+      "../confect/manifest/executor"
+    );
 
-    expect(result).toEqual({
-      ok: false,
-      error: {
-        _tag: "NotFound",
-        message:
-          "No generated function ref registered for operation brain.pages.createMarkdown.",
-      },
-    });
-  });
-
-  it("rejects non-JSON-safe adapter results", async () => {
-    const result = await executeHeadlessOperation(
-      createAdapter({
-        runMutation: async () => undefined,
-      }),
-      {
-        operationId: "brain.pages.createMarkdown",
+    await expect(
+      executeWithMockedManifest(createAdapter({ refs: {} }), {
+        operationId: "test.sample.write",
         surface: "api",
         input: {},
         idempotencyKey: "idem_123",
+      }),
+    ).resolves.toMatchObject({
+      ok: false,
+      error: {
+        _tag: "NotFound",
+        message: "No generated function ref registered for operation test.sample.write.",
       },
-    );
-
-    expect(result).toEqual({
+    });
+    await expect(
+      executeWithMockedManifest(
+        createAdapter({ runMutation: async () => undefined }),
+        {
+          operationId: "test.sample.write",
+          surface: "api",
+          input: {},
+          idempotencyKey: "idem_123",
+        },
+      ),
+    ).resolves.toMatchObject({
       ok: false,
       error: {
         _tag: "ValidationFailed",
-        message:
-          "Operation brain.pages.createMarkdown returned a non-JSON-safe result.",
+        message: "Operation test.sample.write returned a non-JSON-safe result.",
       },
     });
-  });
-
-  it("rejects non-JSON-safe request input before adapter execution", async () => {
-    const adapter = createAdapter({
-      runMutation: async () => {
-        throw new Error("runMutation should not be called");
-      },
-    });
-
     await expect(
-      executeHeadlessOperation(adapter, {
-        operationId: "brain.pages.createMarkdown",
+      executeWithMockedManifest(createAdapter(), {
+        operationId: "test.sample.write",
         surface: "api",
         input: { createdAt: new Date("2026-07-03T00:00:00.000Z") } as never,
         idempotencyKey: "idem_123",
       }),
-    ).resolves.toEqual({
+    ).resolves.toMatchObject({
       ok: false,
       error: {
         _tag: "ValidationFailed",
-        message:
-          "Operation brain.pages.createMarkdown received non-JSON-safe input.",
+        message: "Operation test.sample.write received non-JSON-safe input.",
       },
     });
   });
 
-  it("rejects unsupported manifest operation kinds instead of dispatching them as actions", async () => {
-    vi.resetModules();
-    vi.doMock(
-      "@maestro-template/template-core/generated/confectManifest",
-      () => ({
-        confectManifest: {
-          version: 1,
-          generatedAt: "1970-01-01T00:00:00.000Z",
-          functions: [
-            {
-              namespace: "brain.pages",
-              name: "createMarkdown",
-              operationId: "brain.pages.createMarkdown",
-              kind: "future",
-              surfaces: ["api"],
-              typedErrors: [],
-              idempotent: true,
-              argsSchemaName: "brain.pages.createMarkdown.args",
-              returnsSchemaName: "brain.pages.createMarkdown.returns",
-            },
-          ],
-        },
-      }),
+  it("rejects unsupported manifest operation kinds", async () => {
+    mockManifest({ ...sampleOperation, kind: "future" });
+    const { executeHeadlessOperation: executeWithMockedManifest } = await import(
+      "../confect/manifest/executor"
     );
-
-    const { executeHeadlessOperation: executeWithMockedManifest } =
-      await import("../confect/manifest/executor");
 
     await expect(
       executeWithMockedManifest(createAdapter(), {
-        operationId: "brain.pages.createMarkdown",
+        operationId: "test.sample.write",
         surface: "api",
         input: {},
+        idempotencyKey: "idem_123",
       }),
     ).resolves.toEqual({
       ok: false,
       error: {
         _tag: "ValidationFailed",
-        message:
-          "Operation brain.pages.createMarkdown has unsupported kind future.",
+        message: "Operation test.sample.write has unsupported kind future.",
       },
     });
   });

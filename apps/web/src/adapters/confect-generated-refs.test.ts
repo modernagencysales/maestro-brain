@@ -11,7 +11,7 @@ import {
 
 type BrainPageListRef = TemplateConfectRefs["public"]["brain"]["pages"]["list"];
 type BrainPageCreateRef =
-  TemplateConfectRefs["public"]["brain"]["pages"]["createMarkdown"];
+  TemplateConfectRefs["public"]["brain"]["pages"]["create"];
 type TemplateQueryResult<Query extends Ref.AnyPublicQuery> = ReturnType<
   typeof useTemplateQuery<Query>
 >;
@@ -25,13 +25,11 @@ type WorkspaceNotFoundVariant<Error> = Extract<
 describe("generated Confect refs through the web adapter", () => {
   it("infers generated query args, returns, and typed failures", () => {
     expectTypeOf<BrainPageListRef>().toMatchTypeOf<Ref.AnyPublicQuery>();
-    expectTypeOf<Ref.Args<BrainPageListRef>>().toHaveProperty("workspaceId");
-    expectTypeOf<Ref.Returns<BrainPageListRef>>().toMatchTypeOf<
-      ReadonlyArray<{ readonly workspaceId: string; readonly title: string }>
-    >();
-    expectTypeOf<WorkspaceNotFoundVariant<Ref.Error<BrainPageListRef>>>()
-      .toHaveProperty("workspaceId")
-      .toEqualTypeOf<string>();
+    expectTypeOf<Ref.Args<BrainPageListRef>>().toHaveProperty("brainKey");
+    expectTypeOf<Ref.Returns<BrainPageListRef>>().toMatchTypeOf<{
+      readonly brainKey: string;
+      readonly pages: ReadonlyArray<{ readonly pageKey: string; readonly title: string }>;
+    }>();
 
     expectTypeOf<TemplateQueryResult<BrainPageListRef>>().toEqualTypeOf<
       TemplateDataState<
@@ -44,15 +42,15 @@ describe("generated Confect refs through the web adapter", () => {
   it("infers generated mutation args, results, and typed failures", () => {
     expectTypeOf<BrainPageCreateRef>().toMatchTypeOf<Ref.AnyPublicMutation>();
     expectTypeOf<Ref.Args<BrainPageCreateRef>>().toMatchTypeOf<{
-      readonly workspaceId: string;
-      readonly slug: string;
+      readonly brainKey: string;
+      readonly parentPageKey: string | null;
+      readonly siblingSlug: string;
+      readonly sortKey: string;
       readonly title: string;
       readonly markdown: string;
     }>();
-    expectTypeOf<Ref.Returns<BrainPageCreateRef>>().toMatchTypeOf<string>();
-    expectTypeOf<WorkspaceNotFoundVariant<Ref.Error<BrainPageCreateRef>>>()
-      .toHaveProperty("workspaceId")
-      .toEqualTypeOf<string>();
+    expectTypeOf<Ref.Args<BrainPageCreateRef>>().toHaveProperty("expectedCurrentRevisionKey");
+    expectTypeOf<Ref.Returns<BrainPageCreateRef>>().toHaveProperty("pageKey");
 
     expectTypeOf<TemplateMutationResult<BrainPageCreateRef>>().toEqualTypeOf<
       ReactMutation<BrainPageCreateRef>
