@@ -31,6 +31,13 @@ const generatedHeadlessFunctions = (): readonly ManifestFunction[] =>
     (entry) => !isReservedBrainPageOperation(entry),
   );
 
+export const generatedMcpOperationRefs: Readonly<Record<string, string>> =
+  Object.fromEntries(
+    generatedHeadlessFunctions()
+      .filter((entry) => hasSurface(entry, "mcp"))
+      .map((entry) => [entry.operationId, `template.${entry.operationId}`]),
+  );
+
 export type HeadlessOperation = {
   readonly id: string;
   readonly surface: ManifestSurface;
@@ -370,7 +377,7 @@ export const buildGeneratedMcpTools = (
   return generatedHeadlessFunctions()
     .filter((entry) => hasSurface(entry, "mcp"))
     .map((entry) => ({
-      name: `template.${entry.operationId}`,
+      name: generatedMcpOperationRefs[entry.operationId],
       description: `Invoke ${entry.operationId} through the generated Confect contract manifest.`,
       inputSchema: mcpInputSchemaFor(entry.argsSchemaName),
       typedErrors: entry.typedErrors,
@@ -442,7 +449,7 @@ export const callMcpTool = (
   const operation = generatedHeadlessFunctions().find(
     (candidate) =>
       hasSurface(candidate, "mcp") &&
-      `template.${candidate.operationId}` === toolName,
+      generatedMcpOperationRefs[candidate.operationId] === toolName,
   );
 
   if (!operation) {

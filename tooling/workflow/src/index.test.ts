@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildApiCatalog,
   buildGeneratedMcpTools,
+  generatedMcpOperationRefs,
   buildHeadlessOperations,
   buildMcpTools,
   buildOpenApiDocument,
@@ -54,6 +55,9 @@ describe("workflow headless registry", () => {
     expect(buildGeneratedMcpTools()).not.toContainEqual(
       expect.objectContaining({ name: "template.brain.pages.createMarkdown" }),
     );
+    expect(generatedMcpOperationRefs).not.toHaveProperty(
+      "brain.pages.createMarkdown",
+    );
     expect(Object.keys(buildOpenApiDocument().paths)).not.toContain(
       "/api/brain.pages.createMarkdown",
     );
@@ -66,6 +70,22 @@ describe("workflow headless registry", () => {
       }),
       typedErrors: [],
     });
+  });
+
+  it("exports generated MCP operation refs for non-reserved manifest tools", () => {
+    const generatedTools = buildGeneratedMcpTools();
+
+    expect(Object.keys(generatedMcpOperationRefs).length).toBe(
+      generatedTools.length,
+    );
+    for (const tool of generatedTools) {
+      const operationId = tool.name.replace(/^template\./, "");
+
+      expect(generatedMcpOperationRefs[operationId]).toBe(tool.name);
+    }
+    expect(
+      generatedTools.some((tool) => tool.name.includes("brain.pages.")),
+    ).toBe(false);
   });
 
   it("returns NotFound for removed Brain page headless operations", () => {
