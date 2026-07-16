@@ -83,7 +83,7 @@ const connectResult = () =>
     status: Schema.Literal("verifying", "error"),
   });
 
-const beginSlackConnect = FunctionSpec.publicAction({
+export const beginSlackConnect = FunctionSpec.publicAction({
   name: "beginSlackConnect",
   args: () => Schema.Struct({}),
   returns: () =>
@@ -95,7 +95,7 @@ const beginSlackConnect = FunctionSpec.publicAction({
   error: slackConnectError,
 });
 
-const completeSlackConnect = FunctionSpec.publicAction({
+export const completeSlackConnect = FunctionSpec.publicAction({
   name: "completeSlackConnect",
   args: () =>
     Schema.Struct({
