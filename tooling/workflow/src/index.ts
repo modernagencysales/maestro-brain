@@ -376,12 +376,20 @@ export const buildGeneratedMcpTools = (
   void _registry;
   return generatedHeadlessFunctions()
     .filter((entry) => hasSurface(entry, "mcp"))
-    .map((entry) => ({
-      name: generatedMcpOperationRefs[entry.operationId],
-      description: `Invoke ${entry.operationId} through the generated Confect contract manifest.`,
-      inputSchema: mcpInputSchemaFor(entry.argsSchemaName),
-      typedErrors: entry.typedErrors,
-    }));
+    .flatMap((entry) => {
+      const name = generatedMcpOperationRefs[entry.operationId];
+
+      if (name === undefined) return [];
+
+      return [
+        {
+          name,
+          description: `Invoke ${entry.operationId} through the generated Confect contract manifest.`,
+          inputSchema: mcpInputSchemaFor(entry.argsSchemaName),
+          typedErrors: entry.typedErrors,
+        },
+      ];
+    });
 };
 
 const workflowRunMcpTool: McpToolEntry = {
