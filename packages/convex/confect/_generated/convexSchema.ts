@@ -7,6 +7,7 @@ import actionJobs from "./tables/actionJobs";
 import actionTriggers from "./tables/actionTriggers";
 import apiKeys from "./tables/apiKeys";
 import billingPlans from "./tables/billingPlans";
+import brainPageAuditEvents from "./tables/brainPageAuditEvents";
 import brainPages from "./tables/brainPages";
 import citations from "./tables/citations";
 import claims from "./tables/claims";
@@ -30,6 +31,7 @@ import organizations from "./tables/organizations";
 import pageRevisions from "./tables/pageRevisions";
 import policies from "./tables/policies";
 import promptRegistry from "./tables/promptRegistry";
+import providerConnections from "./tables/providerConnections";
 import servicePrincipals from "./tables/servicePrincipals";
 import transformBlocks from "./tables/transformBlocks";
 import transformDefinitions from "./tables/transformDefinitions";
@@ -56,6 +58,7 @@ export default $defineSchema({
   actionTriggers: actionTriggers.tableDefinition,
   apiKeys: apiKeys.tableDefinition,
   billingPlans: billingPlans.tableDefinition,
+  brainPageAuditEvents: brainPageAuditEvents.tableDefinition,
   brainPages: brainPages.tableDefinition,
   citations: citations.tableDefinition,
   claims: claims.tableDefinition,
@@ -79,6 +82,7 @@ export default $defineSchema({
   pageRevisions: pageRevisions.tableDefinition,
   policies: policies.tableDefinition,
   promptRegistry: promptRegistry.tableDefinition,
+  providerConnections: providerConnections.tableDefinition,
   servicePrincipals: servicePrincipals.tableDefinition,
   transformBlocks: transformBlocks.tableDefinition,
   transformDefinitions: transformDefinitions.tableDefinition,
