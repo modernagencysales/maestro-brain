@@ -77,7 +77,7 @@ export const findHeadlessOperation = (
   confectManifest.functions.find(
     (operation) =>
       operation.operationId === operationId &&
-      operation.surfaces.some((candidate) => candidate === surface),
+      operation.surfaces.some((candidate: string) => candidate === surface),
   );
 
 export const resolveHeadlessOperation = (
