@@ -2,7 +2,11 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
 import refs from "../confect/_generated/refs";
-import { manifest, schemaRegistry } from "../confect/brain/pages.spec";
+import {
+  manifest,
+  RecordSnapshotArgs,
+  schemaRegistry,
+} from "../confect/brain/pages.spec";
 
 const requireSchema = (name: string): Schema.Schema<unknown, unknown, never> => {
   const schema = schemaRegistry[name];
@@ -42,5 +46,18 @@ describe("brain pages Confect contract", () => {
         { onExcessProperty: "error" },
       ),
     ).toThrow(/workspaceId/);
+    expect(() =>
+      Schema.decodeUnknownSync(RecordSnapshotArgs)(
+        {
+          brainKey: "br_0123456789ABCDEFGHJKMNPQRS",
+          pageKey: "pag_client-brief",
+          expectedCurrentRevisionKey: "rev_current",
+          pageId: "forged",
+          snapshot: '{"type":"doc"}',
+          version: 1,
+        },
+        { onExcessProperty: "error" },
+      ),
+    ).toThrow(/pageId/);
   });
 });
