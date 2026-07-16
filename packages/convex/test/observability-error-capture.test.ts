@@ -41,10 +41,9 @@ describe("Confect observability error capture", () => {
     };
 
     const exit = await Effect.runPromiseExit(
-      withMutationErrorCapture(
-        "brain/pages.createMarkdown",
-        Effect.fail(failure),
-      ).pipe(Effect.provideService(MutationCtx, ctx as never)),
+      withMutationErrorCapture("brain/pages.create", Effect.fail(failure)).pipe(
+        Effect.provideService(MutationCtx, ctx as never),
+      ),
     );
 
     expect(exit._tag).toBe("Failure");

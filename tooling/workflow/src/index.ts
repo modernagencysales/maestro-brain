@@ -14,7 +14,8 @@ import {
 } from "./workflow-compat";
 
 type ManifestFunction = (typeof confectManifest.functions)[number];
-type ManifestSurface = ManifestFunction["surfaces"][number];
+type ManifestSurface =
+  "api" | "cli" | "mcp" | ManifestFunction["surfaces"][number];
 
 const hasSurface = (
   entry: ManifestFunction,
@@ -22,13 +23,19 @@ const hasSurface = (
 ): surface is ManifestSurface =>
   (entry.surfaces as readonly string[]).includes(surface);
 
-export const generatedCliOperationRefs: Readonly<Record<string, string>> = {
-  "brain.pages.createMarkdown": "brain.pages.createMarkdown",
-};
+const removedHeadlessOperationIds = new Set<string>([
+  "brain.pages.createMarkdown",
+]);
 
-export const generatedMcpOperationRefs: Readonly<Record<string, string>> = {
-  "brain.pages.createMarkdown": "template.brain.pages.createMarkdown",
-};
+const isGeneratedHeadlessOperation = (entry: ManifestFunction): boolean =>
+  !removedHeadlessOperationIds.has(entry.operationId);
+
+const generatedHeadlessFunctions = (): readonly ManifestFunction[] =>
+  confectManifest.functions.filter(isGeneratedHeadlessOperation);
+
+export const generatedCliOperationRefs: Readonly<Record<string, string>> = {};
+
+export const generatedMcpOperationRefs: Readonly<Record<string, string>> = {};
 
 export type HeadlessOperation = {
   readonly id: string;
@@ -161,13 +168,15 @@ export const buildHeadlessOperations = (
   _registry?: TemplateRegistry,
 ): readonly HeadlessOperation[] => {
   void _registry;
-  return confectManifest.functions.flatMap((entry) =>
+  return generatedHeadlessFunctions().flatMap((entry) =>
     entry.surfaces.map((surface) => ({
       id: `${surface}:${entry.operationId}`,
       surface,
       capability: entry.operationId,
       route:
-        surface === "api" ? `/api/${entry.operationId}` : entry.operationId,
+        (surface as string) === "api"
+          ? `/api/${entry.operationId}`
+          : entry.operationId,
       authScope: "workspace member",
       typedErrors: entry.typedErrors,
     })),
@@ -196,7 +205,7 @@ export const buildApiCatalog = (
   _registry?: TemplateRegistry,
 ): readonly ApiCatalogEntry[] => {
   void _registry;
-  return confectManifest.functions
+  return generatedHeadlessFunctions()
     .filter((entry) => hasSurface(entry, "api"))
     .map((entry) => ({
       operationId: entry.operationId,
@@ -261,7 +270,7 @@ export const buildGeneratedOpenApiDocument = (
       description: "Generated from Confect contract manifest metadata.",
     },
     paths: Object.fromEntries(
-      confectManifest.functions
+      generatedHeadlessFunctions()
         .filter((entry) => hasSurface(entry, "api"))
         .map((entry) => [
           `/api/${entry.operationId}`,
@@ -303,7 +312,7 @@ export const runTemplateApiOperation = (
   runtime?: TemplateRuntimeAdapter,
 ): TemplateApiResult => {
   const surface = request.surface ?? "cli";
-  const manifestEntry = confectManifest.functions.find(
+  const manifestEntry = generatedHeadlessFunctions().find(
     (entry) => entry.operationId === operationId && hasSurface(entry, surface),
   );
 
@@ -364,7 +373,7 @@ export const buildGeneratedMcpTools = (
   _registry?: TemplateRegistry,
 ): readonly McpToolEntry[] => {
   void _registry;
-  return confectManifest.functions
+  return generatedHeadlessFunctions()
     .filter((entry) => hasSurface(entry, "mcp"))
     .map((entry) => ({
       name:
@@ -438,7 +447,7 @@ export const callMcpTool = (
     return mcpText(runTemplateWorkflow(registry));
   }
 
-  const operation = confectManifest.functions.find(
+  const operation = generatedHeadlessFunctions().find(
     (candidate) =>
       hasSurface(candidate, "mcp") &&
       generatedMcpOperationRefs[candidate.operationId] === toolName,
