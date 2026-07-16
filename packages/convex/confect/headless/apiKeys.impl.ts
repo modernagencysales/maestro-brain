@@ -655,3 +655,273 @@ const currentBrainContext = (brainKey: string) =>
       return yield* Effect.fail(new Unauthorized());
     const members = yield* reader
       .table("workspaceMembers")
+      .index("by_workspace_user", (q) =>
+        q.eq("workspaceId", workspace._id).eq("userId", user._id),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const organizationMembers = yield* reader
+      .table("organizationMembers")
+      .index("by_organization_user", (q) =>
+        q.eq("organizationId", organization._id).eq("userId", user._id),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const nowMs = yield* Clock.currentTimeMillis;
+    const resolution = resolveEffectiveWorkspaceRole({
+      nowMs,
+      userId: user._id,
+      workspace: {
+        id: workspace._id,
+        organizationId: organization._id,
+        status: workspace.status,
+      },
+      organization: { id: organization._id, status: organization.status },
+      workspaceMembers: members,
+      organizationMembers,
+      guestGrants: [],
+    });
+    if (!resolution.ok)
+      return yield* Effect.fail(
+        new Forbidden({ reason: "Workspace admin required." }),
+      );
+    return {
+      serverScope: {
+        organizationId: organization._id,
+        workspaceId: workspace._id,
+        brainKey: workspace.brainKey,
+      },
+      actor: { userId: user._id, role: resolution.role },
+    };
+  });
+
+type GeneratedPublicError =
+  | Forbidden
+  | Unauthorized
+  | ValidationFailed
+  | HeadlessAuthError
+  | ApiKeyScopeInvalid
+  | ApiKeyExpiryInvalid
+  | ApiKeyConflict
+  | ApiKeyNotFound
+  | ApiKeyRevoked;
+
+const toPublicForbidden = (
+  error: GeneratedPublicError,
+): Forbidden | Unauthorized => {
+  if (error instanceof HeadlessAuthError)
+    return new Forbidden({ reason: "Brain scope is not available." });
+  if (error instanceof Forbidden || error instanceof Unauthorized) return error;
+  throw error;
+};
+
+const toCreateError = (
+  error: GeneratedPublicError,
+):
+  | Forbidden
+  | Unauthorized
+  | ApiKeyScopeInvalid
+  | ApiKeyExpiryInvalid
+  | ApiKeyConflict => {
+  if (
+    error instanceof ApiKeyScopeInvalid ||
+    error instanceof ApiKeyExpiryInvalid ||
+    error instanceof ApiKeyConflict
+  ) {
+    return error;
+  }
+  return toPublicForbidden(error);
+};
+
+const toRevokeError = (
+  error: GeneratedPublicError,
+):
+  | Forbidden
+  | Unauthorized
+  | ApiKeyNotFound
+  | ApiKeyRevoked
+  | ApiKeyConflict => {
+  if (
+    error instanceof ApiKeyNotFound ||
+    error instanceof ApiKeyRevoked ||
+    error instanceof ApiKeyConflict
+  ) {
+    return error;
+  }
+  return toPublicForbidden(error);
+};
+
+const toRotateError = (
+  error: GeneratedPublicError,
+):
+  | Forbidden
+  | Unauthorized
+  | ApiKeyNotFound
+  | ApiKeyRevoked
+  | ApiKeyExpiryInvalid
+  | ApiKeyConflict => {
+  if (
+    error instanceof ApiKeyNotFound ||
+    error instanceof ApiKeyRevoked ||
+    error instanceof ApiKeyExpiryInvalid ||
+    error instanceof ApiKeyConflict
+  ) {
+    return error;
+  }
+  return toPublicForbidden(error);
+};
+
+const create = FunctionImpl.make(
+  databaseSchema,
+  apiKeysSpec,
+  "create",
+  (input) =>
+    Effect.gen(function* () {
+      const context = yield* currentBrainContext(input.brainKey);
+      const nowMs = yield* Clock.currentTimeMillis;
+      return yield* createApiKeyForBrain({
+        ...context,
+        publicInput: input,
+        nowMs,
+      });
+    }).pipe(Effect.mapError((error) => toCreateError(error))),
+);
+
+const list = FunctionImpl.make(databaseSchema, apiKeysSpec, "list", (input) =>
+  currentBrainContext(input.brainKey).pipe(
+    Effect.flatMap(listApiKeysForBrain),
+    Effect.mapError((error) => toPublicForbidden(error)),
+  ),
+);
+
+const revoke = FunctionImpl.make(
+  databaseSchema,
+  apiKeysSpec,
+  "revoke",
+  ({ brainKey, keyId }) =>
+    Effect.gen(function* () {
+      const context = yield* currentBrainContext(brainKey);
+      const nowMs = yield* Clock.currentTimeMillis;
+      return yield* revokeApiKeyForBrain({ ...context, keyId, nowMs });
+    }).pipe(Effect.mapError((error) => toRevokeError(error))),
+);
+
+const rotateApiKeyForBrain = (
+  input: PublicApiKeyServerContext & {
+    readonly keyId: string;
+    readonly expiresAt: number;
+    readonly nowMs: number;
+  },
+) =>
+  Effect.gen(function* () {
+    yield* requireAdmin(input.actor);
+    const { organization, workspace } = yield* assertActiveBrainScope(
+      input.serverScope,
+    );
+    const reader = yield* DatabaseReader;
+    const keys = yield* reader
+      .table("apiKeys")
+      .index("by_brain_status", (q) =>
+        q
+          .eq("workspaceId", input.serverScope.workspaceId)
+          .eq("brainKey", input.serverScope.brainKey),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const key = requireExactlyOne(
+      keys.filter(
+        (candidate) =>
+          candidate.id === input.keyId &&
+          candidate.organizationId === input.serverScope.organizationId,
+      ),
+    );
+    if (key === undefined) {
+      return yield* Effect.fail(new ApiKeyNotFound({ keyId: input.keyId }));
+    }
+    const principal = yield* reader
+      .table("servicePrincipals")
+      .index("by_principal_key", (q) => q.eq("id", key.principalId ?? ""))
+      .collect()
+      .pipe(Effect.map(requireExactlyOne), Effect.orDie);
+    if (principal === undefined) {
+      return yield* Effect.fail(new ApiKeyNotFound({ keyId: input.keyId }));
+    }
+    const rotated = yield* Effect.tryPromise({
+      try: () =>
+        rotateBrainApiKey({
+          key,
+          principal,
+          actor: input.actor,
+          nowMs: input.nowMs,
+          expiresAt: input.expiresAt,
+        }),
+      catch: knownRotateError,
+    });
+    const writer = yield* DatabaseWriter;
+    yield* writer
+      .table("servicePrincipals")
+      .patch(asGenericId<"servicePrincipals">(principal._id), {
+        generation: rotated.principal.generation,
+      })
+      .pipe(Effect.orDie);
+    yield* writer
+      .table("apiKeys")
+      .patch(asGenericId<"apiKeys">(key._id), {
+        status: rotated.revokedKey.status,
+        revokedAt: rotated.revokedKey.revokedAt,
+      })
+      .pipe(Effect.orDie);
+    yield* writer
+      .table("apiKeys")
+      .insert({
+        ...rotated.key,
+        organizationGeneration: organization.lifecycleGeneration ?? 0,
+        organizationRevocationGeneration:
+          organization.revocationGeneration ?? 0,
+        workspaceGeneration: workspace.lifecycleGeneration ?? 0,
+        workspaceRevocationGeneration: workspace.revocationGeneration ?? 0,
+      })
+      .pipe(Effect.orDie);
+    return { displayKey: rotated.displayKey, key: publicMetadata(rotated.key) };
+  });
+
+const rotate = FunctionImpl.make(
+  databaseSchema,
+  apiKeysSpec,
+  "rotate",
+  ({ brainKey, keyId, expiresAt }) =>
+    Effect.gen(function* () {
+      const context = yield* currentBrainContext(brainKey);
+      const nowMs = yield* Clock.currentTimeMillis;
+      return yield* rotateApiKeyForBrain({
+        ...context,
+        keyId,
+        expiresAt,
+        nowMs,
+      });
+    }).pipe(Effect.mapError((error) => toRotateError(error))),
+);
+
+const authenticate = FunctionImpl.make(
+  databaseSchema,
+  apiKeysSpec,
+  "authenticate",
+  authenticateBrainKeyHash,
+);
+
+const markLastUsed = FunctionImpl.make(
+  databaseSchema,
+  apiKeysSpec,
+  "markLastUsed",
+  (input) => markApiKeyLastUsed(input).pipe(Effect.as(null)),
+);
+
+export default GroupImpl.make(databaseSchema, apiKeysSpec).pipe(
+  Layer.provide(create),
+  Layer.provide(list),
+  Layer.provide(revoke),
+  Layer.provide(rotate),
+  Layer.provide(authenticate),
+  Layer.provide(markLastUsed),
+  GroupImpl.finalize,
+);
