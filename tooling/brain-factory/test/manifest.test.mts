@@ -226,6 +226,7 @@ describe("Maestro Brain execution manifest", () => {
     const rbacSettings = manifest.tasks.find(
       (task) => task.taskId === "S01-T04",
     );
+    const pageCrud = manifest.tasks.find((task) => task.taskId === "S02-T02");
     const headlessPrincipal = manifest.tasks.find(
       (task) => task.taskId === "S11-T02",
     );
@@ -247,6 +248,7 @@ describe("Maestro Brain execution manifest", () => {
     expect(providerSetup?.codeStartAfter).toEqual(["S00-T03", "S01-T02"]);
     expect(rbacSettings?.sourceSliceLimit).toBe(11);
     expect(rbacSettings?.estimatedSourceLines).toBe(3_300);
+    expect(pageCrud?.sourceSliceLimit).toBe(5);
     expect(rbacSettings?.fileLocks).toContain(
       "packages/convex/confect/access/auth.ts",
     );
