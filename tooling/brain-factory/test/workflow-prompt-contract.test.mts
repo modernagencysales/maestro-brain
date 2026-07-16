@@ -330,8 +330,15 @@ describe("Fabro workflow prompt contracts", () => {
       'dependencies -> review [condition="outcome=succeeded"]',
     );
     expect(wave).toContain("review -> review_gate");
-    expect(wave.match(/host-test-slot --class full pnpm verify/g)).toHaveLength(
-      2,
+    expect(wave).not.toContain("host-test-slot --class full pnpm verify");
+    expect(wave).toContain("integration-broad-gate.mts");
+    expect(wave).toContain("broad-gate-HEAD.json sidecar");
+    const broadGateRunner = readFileSync(
+      resolve(import.meta.dirname, "../src/integration-broad-gate.ts"),
+      "utf8",
+    );
+    expect(broadGateRunner).toContain(
+      '"rtk host-test-slot --class full pnpm verify"',
     );
     expect(wave).toContain("--wave-selection");
     expect(record).toContain("integrationWorkdir exactly");

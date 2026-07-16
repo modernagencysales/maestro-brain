@@ -1,5 +1,6 @@
-import { realpathSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 import {
   git,
   gitIsAncestor,
@@ -17,6 +18,11 @@ import {
 } from "./integration-wave.js";
 import { integrationGeneratedFileAllowlist } from "./lane-ownership.js";
 import { changedHandAuthoredSourceLines } from "./source-budget.js";
+import {
+  broadGateReceiptPath,
+  readBroadGateReceipt,
+  validateBroadGateReceipt,
+} from "./integration-broad-gate.js";
 
 export interface IntegrationResultCheckInput {
   readonly controlRoot: string;
@@ -146,6 +152,18 @@ const validatedIntegrationEnvelope = (
     broadGate.command !== "rtk host-test-slot --class full pnpm verify"
   ) {
     throw new Error("broad gate receipt does not prove this head");
+  }
+  const receiptPath = broadGateReceiptPath(
+    input.evidenceDirectory,
+    input.integrationId,
+    headSha,
+  );
+  if (existsSync(receiptPath)) {
+    const sidecar = readBroadGateReceipt(receiptPath);
+    validateBroadGateReceipt(sidecar, headSha);
+    if (!isDeepStrictEqual(broadGate, sidecar)) {
+      throw new Error("recorded broad gate does not match its audited sidecar");
+    }
   }
   if (!Array.isArray(result.includedTasks)) {
     throw new Error("no included tasks");
