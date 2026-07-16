@@ -36,6 +36,18 @@ const repository = () => {
   return { baseSha, headSha: git(root, "rev-parse", "HEAD"), root };
 };
 
+const addMigrationsWrapper = (root: string): void => {
+  mkdirSync(resolve(root, "packages/convex/convex/internal"), {
+    recursive: true,
+  });
+  writeFileSync(
+    resolve(root, "packages/convex/convex/internal/migrations.ts"),
+    "export const migration =\n  registeredFunctions.migration;\n",
+  );
+  git(root, "add", "packages/convex/convex/internal/migrations.ts");
+  git(root, "commit", "-qm", "test: add migrations wrapper");
+};
+
 afterEach(() => {
   for (const root of roots.splice(0))
     rmSync(root, { force: true, recursive: true });
@@ -88,5 +100,46 @@ describe("integration generated-output proof", () => {
     expect(git(value.root, "worktree", "list", "--porcelain")).not.toContain(
       "brain-wave-generated-",
     );
+  });
+
+  it("formats the unchanged migrations wrapper after reconstructed codegen", () => {
+    const original = repository();
+    addMigrationsWrapper(original.root);
+    const value = {
+      ...original,
+      headSha: git(original.root, "rev-parse", "HEAD"),
+    };
+    const formatted: string[][] = [];
+
+    expect(
+      proveIntegrationGeneratedOutput({
+        ...value,
+        generatedFiles: ["generated/output.ts"],
+        hooks: {
+          generate: (workdir) => {
+            mkdirSync(resolve(workdir, "generated"), { recursive: true });
+            writeFileSync(
+              resolve(workdir, "generated/output.ts"),
+              "export const value = 1;\n",
+            );
+            writeFileSync(
+              resolve(workdir, "packages/convex/convex/internal/migrations.ts"),
+              "export const migration = registeredFunctions.migration;\n",
+            );
+          },
+          format: (workdir, generatedFiles) => {
+            formatted.push([...generatedFiles]);
+            writeFileSync(
+              resolve(workdir, "packages/convex/convex/internal/migrations.ts"),
+              "export const migration =\n  registeredFunctions.migration;\n",
+            );
+          },
+          hydrate: () => undefined,
+        },
+      }),
+    ).toMatch(/^[0-9a-f]{64}$/);
+    expect(formatted).toEqual([
+      ["generated/output.ts", "packages/convex/convex/internal/migrations.ts"],
+    ]);
   });
 });

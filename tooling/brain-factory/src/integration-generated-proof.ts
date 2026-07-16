@@ -1,10 +1,13 @@
 import { createHash } from "node:crypto";
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 import { hydrateWorktreeDependencies } from "./dependencies.js";
 import { runRtk } from "./process.js";
+
+const GENERATED_MIGRATIONS_WRAPPER =
+  "packages/convex/convex/internal/migrations.ts";
 
 interface GeneratedProofHooks {
   readonly generate: (workdir: string) => void;
@@ -98,7 +101,12 @@ export const proveIntegrationGeneratedOutput = (input: {
       }
     }
     hooks.generate(workdir);
-    hooks.format?.(workdir, generatedFiles);
+    const formatFiles = existsSync(
+      resolve(workdir, GENERATED_MIGRATIONS_WRAPPER),
+    )
+      ? [...new Set([...generatedFiles, GENERATED_MIGRATIONS_WRAPPER])].sort()
+      : generatedFiles;
+    hooks.format?.(workdir, formatFiles);
     const status = runRtk(["proxy", "git", "status", "--porcelain"], {
       cwd: workdir,
       quiet: true,
