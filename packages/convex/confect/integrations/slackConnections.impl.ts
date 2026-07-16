@@ -963,6 +963,13 @@ const claimSlackConnectAttempt = FunctionImpl.make(
       ) {
         return yield* Effect.fail(new ConnectSessionInvalid());
       }
+      yield* providerWriter(yield* DatabaseWriter)
+        .table("providerConnections")
+        .patch(row._id, {
+          nangoConnectionId: input.connectionId,
+          updatedAt: input.now,
+        })
+        .pipe(Effect.orDie);
       return { connectionKey: row.connectionKey, status: "verifying" as const };
     }),
 );
