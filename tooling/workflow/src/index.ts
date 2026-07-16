@@ -14,7 +14,8 @@ import {
 } from "./workflow-compat";
 
 type ManifestFunction = (typeof confectManifest.functions)[number];
-type ManifestSurface = ManifestFunction["surfaces"][number];
+type ManifestSurface =
+  "api" | "cli" | "mcp" | ManifestFunction["surfaces"][number];
 
 const hasSurface = (
   entry: ManifestFunction,
