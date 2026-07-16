@@ -9,7 +9,6 @@
     "src/**/*.ts",
     "src/**/*.mts",
     "src/**/*.tsx",
-    "../../packages/convex/confect/**/*.ts",
-    "../../packages/integrations/src/**/*.ts"
+    "../../packages/convex/confect/**/*.ts"
   ]
 }
