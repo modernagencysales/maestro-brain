@@ -4,20 +4,42 @@ import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 
 import { resolveEffectiveWorkspaceRole } from "../access/auth";
-import { loadCurrentUser } from "../access/handlerContext";
 import { roleAtLeast, type Role } from "../access/roles";
 import refs from "../_generated/refs";
+import { ResolveBrainKeyReturns } from "../identity/stableKeys.spec";
 import databaseSchema from "../_generated/schema";
-import { DatabaseReader, DatabaseWriter } from "../_generated/services";
-import { requireWorkspaceAccess } from "../capabilities/_kit/workspaceAccess";
-import { NotFound, ValidationFailed } from "../errors";
+import {
+  Auth,
+  DatabaseReader,
+  DatabaseWriter,
+  QueryRunner,
+} from "../_generated/services";
+import { isStableAgencyKey } from "../identity/stableKeys";
+import { Forbidden, Unauthorized, ValidationFailed } from "../errors";
 import { withMutationErrorCapture } from "../observability/errorCapture";
+import { sha256Hex } from "../shared/sha256";
+import {
+  BrainNotFound,
+  LifecycleRevoked,
+  PageNotFound,
+  PageTreeConflict,
+  StaleRevision,
+  cycleConflict,
+  usableTitle,
+} from "./pageTree";
+import { toPublicPageSummary, type BrainPage } from "./pageSchemas";
 import pages from "./pages.spec";
 
 type PageDoc = BrainPage & { readonly _id: GenericId<"brainPages"> };
 type MutationKind = "create" | "rename" | "move" | "favorite" | "archive";
+type AccessError = Unauthorized | Forbidden | BrainNotFound | LifecycleRevoked;
+type ReadPageError = AccessError | ValidationFailed | PageNotFound;
+type PageError = ReadPageError | PageTreeConflict | StaleRevision;
+type ReadPageDeps = Auth | DatabaseReader | QueryRunner;
+type PageDeps = ReadPageDeps | DatabaseWriter;
 const auditActions = {
   create: "page.created",
   rename: "page.renamed",
@@ -33,11 +55,60 @@ type BrainContext = {
 };
 
 const generationLive = (row: {
-  readonly lifecycleGeneration?: number;
-  readonly revocationGeneration?: number;
+  readonly lifecycleGeneration?: number | undefined;
+  readonly revocationGeneration?: number | undefined;
 }) => (row.revocationGeneration ?? 0) <= (row.lifecycleGeneration ?? 0);
 const unsafeAssumeClockProvided = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect as Effect.Effect<A, E, Exclude<R, Clock.Clock>>;
+const asPageDoc = (page: unknown): PageDoc => page as PageDoc;
+const nextKey = (prefix: "pag" | "rev", at: number) =>
+  `${prefix}_${at.toString(36).padStart(8, "0")}`;
+const hashJson = (value: unknown) => sha256Hex(JSON.stringify(value));
+const activeLifecycle = (updatedAt: number, generation: number) => ({
+  state: "active" as const,
+  generation,
+  updatedAt,
+  purgeAfter: null,
+});
+const revisionKeyFor = (
+  kind: MutationKind,
+  pageKey: string,
+  at: number,
+  generation: number,
+) => `rev_${hashJson({ kind, pageKey, at, generation }).slice(0, 32)}`;
+const effectKeyFor = (
+  kind: MutationKind,
+  pageKey: string,
+  revisionKey: string,
+) => `brain.pages.${kind}:${pageKey}:${revisionKey}`;
+const requireBrainAccess = (
+  brainKey: string,
+  minimumRole: Role,
+): Effect.Effect<BrainContext, AccessError, ReadPageDeps> =>
+  Effect.gen(function* () {
+    const auth = yield* Auth;
+    const reader = yield* DatabaseReader;
+    const claims = yield* auth.getUserIdentity.pipe(
+      Effect.mapError(() => new Unauthorized()),
+    );
+    const users = yield* reader
+      .table("users")
+      .index("by_subject", (q) => q.eq("subject", claims.subject))
+      .collect()
+      .pipe(Effect.orDie);
+    if (users.length !== 1) return yield* new Unauthorized();
+    const user = users[0];
+    if (user === undefined || user.status !== "active")
+      return yield* new Unauthorized();
+    const workosOrganizationId =
+      typeof claims?.workosOrganizationId === "string"
+        ? claims.workosOrganizationId
+        : typeof claims?.organizationId === "string"
+          ? claims.organizationId
+          : typeof claims?.org_id === "string"
+            ? claims.org_id
+            : undefined;
+    if (workosOrganizationId === undefined) return yield* new Unauthorized();
 
     const organization = (yield* reader
       .table("organizations")
@@ -55,12 +126,27 @@ const unsafeAssumeClockProvided = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       refs.internal.identity.stableKeys.resolveBrainKey,
       { agencyKey, brainKey },
     ).pipe(
-      Effect.catchAll((error) =>
-        error instanceof Unauthorized ||
-        error instanceof Forbidden ||
-        error instanceof ValidationFailed
-          ? Effect.fail(error)
-          : Effect.fail(new BrainNotFound({ brainKey })),
+      Effect.flatMap(Schema.decodeUnknown(ResolveBrainKeyReturns)),
+      Effect.catchAll(() =>
+        Effect.gen(function* () {
+          const candidateWorkspaces = yield* reader
+            .table("workspaces")
+            .index("by_organization_brain_key", (q) =>
+              q.eq("organizationId", organization._id).eq("brainKey", brainKey),
+            )
+            .collect()
+            .pipe(Effect.orDie);
+          const candidate = candidateWorkspaces[0];
+          if (
+            candidateWorkspaces.length === 1 &&
+            candidate?.status === "archived"
+          )
+            return yield* new LifecycleRevoked({
+              resource: "brain",
+              key: brainKey,
+            });
+          return yield* new BrainNotFound({ brainKey });
+        }),
       ),
     );
     if (resolved.organizationId !== organization._id)
