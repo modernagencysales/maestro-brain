@@ -167,13 +167,28 @@ const parseJsonRequestBody = async (
 const templateApiRequestBodyFrom = (value: unknown): TemplateApiRequestBody => {
   if (!isObjectRecord(value)) return {};
 
+  const input = isObjectRecord(value.input)
+    ? { ...(value.input as Record<string, JsonValue>) }
+    : {};
+  for (const field of [
+    "organizationId",
+    "organizationKey",
+    "agencyKey",
+    "workspaceId",
+    "workspaceKey",
+    "workspaceSlug",
+    "brainId",
+    "brainKey",
+    "userId",
+    "memberId",
+    "keyId",
+    "_id",
+    "id",
+  ] as const) {
+    if (field in value) input[field] = value[field] as JsonValue;
+  }
   return {
-    ...(typeof value.workspaceSlug === "string"
-      ? { workspaceSlug: value.workspaceSlug }
-      : {}),
-    ...(isObjectRecord(value.input)
-      ? { input: value.input as Record<string, JsonValue> }
-      : {}),
+    input,
     ...(typeof value.idempotencyKey === "string"
       ? { idempotencyKey: value.idempotencyKey }
       : {}),
@@ -183,155 +198,45 @@ const templateApiRequestBodyFrom = (value: unknown): TemplateApiRequestBody => {
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 
+export const authenticatedExecutorRequestFor = async (input: {
+  readonly operationId: string;
+  readonly principal: HeadlessPrincipal;
+  readonly body: TemplateApiRequestBody;
+}): Promise<ExecutorRequestResult> => {
+  const policy = reviewedHeadlessPolicyFor(input.operationId);
+  const authorized = authorizeHeadlessOperation({
+    operationId: input.operationId,
+    principal: input.principal,
+    operationInput: input.body.input ?? {},
+    ...(policy === undefined ? {} : { policy }),
+  });
+
+  if (!authorized.ok) return authorized;
+
+  return {
+    ok: true,
+    request: {
+      operationId: input.operationId,
+      surface: "api",
+      input: authorized.input,
+      ...(input.body.idempotencyKey === undefined
+        ? {}
+        : { idempotencyKey: input.body.idempotencyKey }),
+    },
+  };
+};
+
 export const executorRequestFor = (
   operationId: string,
   body: TemplateApiRequestBody,
-): ExecutorRequestResult => {
-  const input = body.input ?? {};
-  const result =
-    operationId === "brain.pages.createMarkdown"
-      ? createMarkdownExecutorRequest(operationId, body, input)
-      : genericExecutorRequest(operationId, body, input);
-
-  return result;
-};
-
-const genericExecutorRequest = (
-  operationId: string,
-  body: TemplateApiRequestBody,
-  input: Record<string, JsonValue>,
 ): ExecutorRequestResult => ({
   ok: true,
   request: {
     operationId,
     surface: "api",
-    input,
+    input: body.input ?? {},
     ...(body.idempotencyKey === undefined
       ? {}
       : { idempotencyKey: body.idempotencyKey }),
   },
 });
-
-const createMarkdownExecutorRequest = (
-  operationId: string,
-  body: TemplateApiRequestBody,
-  input: Record<string, JsonValue>,
-): ExecutorRequestResult => {
-  let result: ExecutorRequestResult | undefined =
-    createMarkdownIdempotencyFailure(body);
-
-  if (result === undefined) {
-    result = createMarkdownExecutorRequestWithIdempotency(
-      operationId,
-      body,
-      input,
-    );
-  }
-
-  return result;
-};
-
-const createMarkdownIdempotencyFailure = (
-  body: TemplateApiRequestBody,
-): TemplateHttpFailure | undefined => {
-  const hasInvalidIdempotencyKey =
-    body.idempotencyKey?.trim() === "" || body.idempotencyKey === undefined;
-  return hasInvalidIdempotencyKey
-    ? validationFailed(
-        "Operation brain.pages.createMarkdown requires a nonblank idempotencyKey.",
-      )
-    : undefined;
-};
-
-const createMarkdownExecutorRequestWithIdempotency = (
-  operationId: string,
-  body: TemplateApiRequestBody,
-  input: Record<string, JsonValue>,
-): ExecutorRequestResult => {
-  const workspaceId = createMarkdownWorkspaceId(body, input);
-  const result: ExecutorRequestResult = workspaceId
-    ? createMarkdownExecutorRequestWithWorkspace(
-        operationId,
-        body,
-        input,
-        workspaceId,
-      )
-    : validationFailed(
-        "Operation brain.pages.createMarkdown requires input.workspaceId or a known workspaceSlug.",
-      );
-
-  return result;
-};
-
-const createMarkdownWorkspaceId = (
-  body: TemplateApiRequestBody,
-  input: Record<string, JsonValue>,
-): string | undefined =>
-  typeof input.workspaceId === "string" && input.workspaceId.trim()
-    ? input.workspaceId.trim()
-    : body.workspaceSlug === undefined
-      ? undefined
-      : workspaceSlugToId(body.workspaceSlug);
-
-const createMarkdownExecutorRequestWithWorkspace = (
-  operationId: string,
-  body: TemplateApiRequestBody,
-  input: Record<string, JsonValue>,
-  workspaceId: string,
-): ExecutorRequestResult => {
-  const fields = requiredCreateMarkdownInputs(operationId, input);
-  const result: ExecutorRequestResult = fields.ok
-    ? {
-        ok: true,
-        request: {
-          operationId,
-          surface: "api",
-          input: {
-            workspaceId,
-            ...fields.values,
-          },
-          ...(body.idempotencyKey === undefined
-            ? {}
-            : { idempotencyKey: body.idempotencyKey }),
-        },
-      }
-    : fields;
-
-  return result;
-};
-
-const requiredCreateMarkdownInputs = (
-  operationId: string,
-  input: Record<string, JsonValue>,
-):
-  | { readonly ok: true; readonly values: CreateMarkdownInputs }
-  | TemplateHttpFailure => {
-  const invalidField = createMarkdownInputFields.find(
-    (field) => !hasRequiredStringInput(input, field),
-  );
-  const result =
-    invalidField === undefined
-      ? {
-          ok: true as const,
-          values: {
-            slug: input.slug as string,
-            title: input.title as string,
-            markdown: input.markdown as string,
-          },
-        }
-      : validationFailed(
-          `Operation ${operationId} requires nonblank input.${invalidField}.`,
-        );
-
-  return result;
-};
-
-const hasRequiredStringInput = (
-  input: Record<string, JsonValue>,
-  field: keyof CreateMarkdownInputs,
-): boolean => {
-  const value = input[field];
-  const result = typeof value === "string" ? value.trim().length > 0 : false;
-
-  return result;
-};
