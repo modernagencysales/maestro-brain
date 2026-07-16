@@ -77,10 +77,13 @@ export const openApiDocument = buildOpenApiDocument(templateRegistry);
 
 const buildOpenApiSummary = (
   document: OpenApiDocument,
-  primaryOperationPath: string,
   docsRoute: string,
 ): OpenApiSummary => {
-  const primaryOperation = document.paths[primaryOperationPath]?.post;
+  const primaryOperation = Object.values(document.paths)
+    .flatMap((pathItem) =>
+      openApiOperationMethods.map((method) => pathItem[method]),
+    )
+    .find((operation) => operation !== undefined);
   const operationCount = Object.values(document.paths).reduce(
     (count, pathItem) =>
       count +
@@ -104,7 +107,6 @@ const scalarApiDocsRoute =
 
 export const openApiSummary = buildOpenApiSummary(
   openApiDocument,
-  "/api/brain.pages.createMarkdown",
   scalarApiDocsRoute,
 );
 
