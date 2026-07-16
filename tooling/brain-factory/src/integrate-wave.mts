@@ -15,6 +15,10 @@ import {
   type LaneCompletionResult,
 } from "./factory-state.js";
 import {
+  durableTaskWorkdir,
+  durableTaskWorktreeMatchesEvidence,
+} from "./integration-candidate-worktree.js";
+import {
   acquireIntegrationOwnership,
   fabroRunId,
   GLOBAL_INTEGRATION_LOCK,
@@ -182,6 +186,7 @@ try {
     taskIds: manifest.tasks.map((task) => task.taskId),
   });
   const candidates: IntegrationWaveCandidate[] = [];
+  const candidateWorkdirs = new Map<string, string | undefined>();
   for (const task of manifest.tasks) {
     if (completedTaskIds.has(task.taskId)) continue;
     const taskReservationPath = resolve(runs, `${task.taskId}.json`);
@@ -257,6 +262,16 @@ try {
     if (ownershipIssues.length > 0) {
       throw new Error(`${task.taskId}: ${ownershipIssues.join("; ")}`);
     }
+    const taskWorkdir = durableTaskWorkdir(reservation, task.taskId);
+    if (
+      !durableTaskWorktreeMatchesEvidence({
+        evidenceHeadSha: laneHead,
+        taskId: task.taskId,
+        workdir: taskWorkdir,
+      })
+    )
+      continue;
+    candidateWorkdirs.set(task.taskId, taskWorkdir);
     candidates.push({
       changedFiles,
       gateHeadSha: string(gate.headSha, `${task.taskId}: gate head`),
@@ -283,6 +298,19 @@ try {
       planSha256: manifest.planSha256,
       tasks: manifest.tasks,
     });
+    for (const task of selection.selectedTasks) {
+      if (
+        !durableTaskWorktreeMatchesEvidence({
+          evidenceHeadSha: task.headSha,
+          taskId: task.taskId,
+          workdir: candidateWorkdirs.get(task.taskId),
+        })
+      ) {
+        throw new Error(
+          `${task.taskId}: durable task worktree changed during wave selection`,
+        );
+      }
+    }
     const branch = `fabro/brain-${integrationId}`;
     const workdir = resolve(worktreeRoot, `integration-${integrationId}`);
     const selectionPath = resolve(
