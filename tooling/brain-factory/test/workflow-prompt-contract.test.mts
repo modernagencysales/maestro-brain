@@ -148,6 +148,10 @@ describe("Fabro workflow prompt contracts", () => {
     expect(repair).toContain(
       "the next deterministic pre_review_gate node owns the complete focused gate",
     );
+    expect(repair).toContain(
+      "factory's exact gate-counted hand-authored source-line calculation",
+    );
+    expect(repair).toContain("never copy a stale pre-amend count");
 
     const release = readFileSync(
       resolve(
