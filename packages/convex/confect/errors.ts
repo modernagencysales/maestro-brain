@@ -76,6 +76,16 @@ export class BrainAlreadyExists extends Schema.TaggedError<BrainAlreadyExists>()
   { brainKey: Schema.String },
 ) {}
 
+export class ClientBrainAlreadyExists extends Schema.TaggedError<ClientBrainAlreadyExists>()(
+  "ClientBrainAlreadyExists",
+  { clientSlug: Schema.String },
+) {}
+
+export class CapacityExceeded extends Schema.TaggedError<CapacityExceeded>()(
+  "CapacityExceeded",
+  { limit: Schema.Number },
+) {}
+
 export class ValidationFailed extends Schema.TaggedError<ValidationFailed>()(
   "ValidationFailed",
   {

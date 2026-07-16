@@ -10,6 +10,8 @@ export default Table.make(() =>
     name: Schema.String,
     kind: Schema.optional(Schema.Literal("agency", "client")),
     clientSlug: Schema.optional(Schema.String),
+    clientCreationIdempotencyKey: Schema.optional(Schema.String),
+    clientCreationPayloadHash: Schema.optional(Schema.String),
     status: Schema.Literal("provisioning", "active", "archived"),
     dataClassification: Schema.Literal("public", "internal", "confidential"),
     createdAt: Schema.Number,
@@ -22,4 +24,9 @@ export default Table.make(() =>
   .index("by_organization", ["organizationId"])
   .index("by_owner", ["ownerUserId"])
   .index("by_organization_brain_key", ["organizationId", "brainKey"])
-  .index("by_organization_kind", ["organizationId", "kind"]);
+  .index("by_organization_kind", ["organizationId", "kind"])
+  .index("by_organization_client_slug", ["organizationId", "clientSlug"])
+  .index("by_organization_client_idempotency", [
+    "organizationId",
+    "clientCreationIdempotencyKey",
+  ]);
