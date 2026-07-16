@@ -4,20 +4,48 @@ import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 
 import { resolveEffectiveWorkspaceRole } from "../access/auth";
 import { loadCurrentUser } from "../access/handlerContext";
 import { roleAtLeast, type Role } from "../access/roles";
 import refs from "../_generated/refs";
+import { ResolveBrainKeyReturns } from "../identity/stableKeys.spec";
 import databaseSchema from "../_generated/schema";
-import { DatabaseReader, DatabaseWriter } from "../_generated/services";
-import { requireWorkspaceAccess } from "../capabilities/_kit/workspaceAccess";
-import { NotFound, ValidationFailed } from "../errors";
+import {
+  Auth,
+  DatabaseReader,
+  DatabaseWriter,
+  QueryRunner,
+} from "../_generated/services";
+import { isStableAgencyKey } from "../identity/stableKeys";
+import { Forbidden, Unauthorized, ValidationFailed } from "../errors";
 import { withMutationErrorCapture } from "../observability/errorCapture";
+import { sha256Hex } from "../shared/sha256";
+import {
+  BrainNotFound,
+  LifecycleRevoked,
+  PageNotFound,
+  PageTreeConflict,
+  StaleRevision,
+  cycleConflict,
+  usableTitle,
+} from "./pageTree";
+import { toPublicPageSummary, type BrainPage } from "./pageSchemas";
 import pages from "./pages.spec";
 
 type PageDoc = BrainPage & { readonly _id: GenericId<"brainPages"> };
 type MutationKind = "create" | "rename" | "move" | "favorite" | "archive";
+type PageError =
+  | Unauthorized
+  | Forbidden
+  | ValidationFailed
+  | BrainNotFound
+  | PageNotFound
+  | PageTreeConflict
+  | StaleRevision
+  | LifecycleRevoked;
+type PageDeps = Auth | DatabaseReader | DatabaseWriter | QueryRunner;
 const auditActions = {
   create: "page.created",
   rename: "page.renamed",
@@ -33,11 +61,46 @@ type BrainContext = {
 };
 
 const generationLive = (row: {
-  readonly lifecycleGeneration?: number;
-  readonly revocationGeneration?: number;
+  readonly lifecycleGeneration: number | undefined;
+  readonly revocationGeneration: number | undefined;
 }) => (row.revocationGeneration ?? 0) <= (row.lifecycleGeneration ?? 0);
 const unsafeAssumeClockProvided = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect as Effect.Effect<A, E, Exclude<R, Clock.Clock>>;
+const asPageDoc = (page: unknown): PageDoc => page as PageDoc;
+const nextKey = (prefix: "pag" | "rev", at: number) =>
+  `${prefix}_${at.toString(36).padStart(8, "0")}`;
+const hashJson = (value: unknown) => sha256Hex(JSON.stringify(value));
+const activeLifecycle = (updatedAt: number, generation: number) => ({
+  state: "active" as const,
+  generation,
+  updatedAt,
+  purgeAfter: null,
+});
+const revisionKeyFor = (
+  kind: MutationKind,
+  pageKey: string,
+  at: number,
+  generation: number,
+) => `rev_${hashJson({ kind, pageKey, at, generation }).slice(0, 32)}`;
+const effectKeyFor = (
+  kind: MutationKind,
+  pageKey: string,
+  revisionKey: string,
+) => `brain.pages.${kind}:${pageKey}:${revisionKey}`;
+const requireBrainAccess = (
+  brainKey: string,
+  minimumRole: Role,
+): Effect.Effect<BrainContext, PageError, PageDeps> =>
+  Effect.gen(function* () {
+    const auth = yield* Auth;
+    const reader = yield* DatabaseReader;
+    const claims = yield* auth.getUserIdentity.pipe(
+      Effect.mapError(() => new Unauthorized()),
+    );
+    const user = yield* loadCurrentUser(reader);
+    const workosOrganizationId =
+      claims?.workosOrganizationId ?? claims?.organizationId ?? claims?.org_id;
+    if (workosOrganizationId === undefined) return yield* new Unauthorized();
 
     const organization = (yield* reader
       .table("organizations")
@@ -55,13 +118,8 @@ const unsafeAssumeClockProvided = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       refs.internal.identity.stableKeys.resolveBrainKey,
       { agencyKey, brainKey },
     ).pipe(
-      Effect.catchAll((error) =>
-        error instanceof Unauthorized ||
-        error instanceof Forbidden ||
-        error instanceof ValidationFailed
-          ? Effect.fail(error)
-          : Effect.fail(new BrainNotFound({ brainKey })),
-      ),
+      Effect.flatMap(Schema.decodeUnknown(ResolveBrainKeyReturns)),
+      Effect.catchAll(() => Effect.fail(new BrainNotFound({ brainKey }))),
     );
     if (resolved.organizationId !== organization._id)
       return yield* new BrainNotFound({ brainKey });
@@ -155,13 +213,181 @@ const requireCurrentRevision = (
           actualCurrentRevisionKey: page.currentRevisionKey ?? null,
         }),
       );
-      const reader = yield* DatabaseReader;
-      return yield* reader
-        .table("brainPages")
-        .index("by_workspace", (q) => q.eq("workspaceId", workspaceId))
-        .collect()
-        .pipe(Effect.orDie);
+
+const writePageRevision = (args: {
+  readonly brain: BrainContext;
+  readonly page: Omit<BrainPage, "currentRevisionKey"> & {
+    readonly currentRevisionKey: string;
+  };
+  readonly priorRevisionKey: string | null;
+  readonly revisionKey: string;
+  readonly kind: MutationKind;
+  readonly at: number;
+}) =>
+  Effect.gen(function* () {
+    const writer = yield* DatabaseWriter;
+    const effectKey = effectKeyFor(
+      args.kind,
+      args.page.pageKey,
+      args.revisionKey,
+    );
+    yield* writer
+      .table("pageRevisions")
+      .insert({
+        workspaceId: args.brain.workspaceId,
+        organizationId: args.brain.organizationId,
+        pageKey: args.page.pageKey,
+        revisionKey: args.revisionKey,
+        priorRevisionKey: args.priorRevisionKey,
+        blockNoteJson: args.page.editorSnapshotJson ?? "",
+        markdown: args.page.markdown,
+        contentHash: hashJson({
+          title: args.page.title,
+          markdown: args.page.markdown,
+        }),
+        causation: "human-edit",
+        actor: { kind: "user", id: args.brain.actorId },
+        modelReceiptKey: null,
+        effectKey,
+        state: "published",
+        lifecycle: {
+          state: "active",
+          generation: 1,
+          updatedAt: args.at,
+          purgeAfter: null,
+        },
+        createdAt: args.at,
+        schemaVersion: 1,
+      })
+      .pipe(Effect.orDie);
+    yield* writer
+      .table("brainPageAuditEvents")
+      .insert({
+        workspaceId: args.brain.workspaceId,
+        organizationId: args.brain.organizationId,
+        brainKey: args.brain.brainKey,
+        pageKey: args.page.pageKey,
+        revisionKey: args.revisionKey,
+        actorUserId: args.brain.actorId,
+        action: auditActions[args.kind],
+        effectKey,
+        metadata: {},
+        createdAt: args.at,
+        schemaVersion: 1,
+      })
+      .pipe(Effect.orDie);
+  });
+
+const list = FunctionImpl.make(databaseSchema, pages, "list", (args) =>
+  Effect.gen(function* () {
+    const brain = yield* requireBrainAccess(args.brainKey, "viewer");
+    const rows = yield* collectPages(brain);
+    return {
+      brainKey: brain.brainKey,
+      asOf: yield* unsafeAssumeClockProvided(Clock.currentTimeMillis),
+      freshness: { status: "current" as const },
+      pages: rows
+        .filter(
+          (page) =>
+            page.status === "active" ||
+            (args.includeArchived === true && page.status === "archived"),
+        )
+        .sort((left, right) =>
+          `${left.parentPageKey ?? ""}:${left.sortKey}:${left.pageKey}`.localeCompare(
+            `${right.parentPageKey ?? ""}:${right.sortKey}:${right.pageKey}`,
+          ),
+        )
+        .map(toPublicPageSummary),
+    };
+  }),
+);
+const get = FunctionImpl.make(databaseSchema, pages, "get", (args) =>
+  Effect.gen(function* () {
+    const brain = yield* requireBrainAccess(args.brainKey, "viewer");
+    const page = yield* loadPage(brain, args.pageKey);
+    return {
+      page: toPublicPageSummary(page),
+      markdown: page.markdown,
+      editorSnapshotJson: page.editorSnapshotJson,
+      editorSnapshotVersion: page.editorSnapshotVersion,
+      updatedAt: page.updatedAt,
+    };
+  }),
+);
+const create = FunctionImpl.make(databaseSchema, pages, "create", (args) =>
+  withMutationErrorCapture(
+    "brain/pages.create",
+    Effect.gen(function* () {
+      const title = usableTitle(args.title);
+      if (title === null)
+        return yield* new ValidationFailed({
+          field: "title",
+          message: "Invalid title.",
+        });
+      const brain = yield* requireBrainAccess(args.brainKey, "editor");
+      if (args.expectedCurrentRevisionKey !== null)
+        return yield* new StaleRevision({
+          pageKey: "pag_new",
+          expectedCurrentRevisionKey: args.expectedCurrentRevisionKey,
+          actualCurrentRevisionKey: null,
+        });
+      const existing = yield* collectPages(brain);
+      if (
+        args.parentPageKey !== null &&
+        !existing.some(
+          (p) =>
+            p.pageKey === args.parentPageKey &&
+            p.status === "active" &&
+            p.lifecycle.state === "active",
+        )
+      )
+        return yield* new PageNotFound({ pageKey: args.parentPageKey });
+      if (
+        existing.some(
+          (p) =>
+            p.status === "active" &&
+            p.parentPageKey === args.parentPageKey &&
+            p.siblingSlug === args.siblingSlug,
+        )
+      )
+        return yield* new PageTreeConflict({
+          reason: "Duplicate sibling slug.",
+        });
+      const at = yield* unsafeAssumeClockProvided(Clock.currentTimeMillis);
+      const pageKey = nextKey("pag", at + existing.length);
+      const revisionKey = revisionKeyFor("create", pageKey, at, 1);
+      const createdPage = {
+        workspaceId: brain.workspaceId,
+        organizationId: brain.organizationId,
+        slug: args.siblingSlug,
+        title,
+        markdown: args.markdown,
+        sourceKind: "markdown" as const,
+        updatedAt: at,
+        pageKey,
+        parentPageKey: args.parentPageKey,
+        siblingSlug: args.siblingSlug,
+        sortKey: args.sortKey,
+        favorite: false,
+        status: "active" as const,
+        currentRevisionKey: revisionKey,
+        lifecycle: activeLifecycle(at, 1),
+        createdAt: at,
+        schemaVersion: 1,
+      };
+      const writer = yield* DatabaseWriter;
+      yield* writer.table("brainPages").insert(createdPage).pipe(Effect.orDie);
+      yield* writePageRevision({
+        brain,
+        page: createdPage,
+        priorRevisionKey: null,
+        revisionKey,
+        kind: "create",
+        at,
+      });
+      return toPublicPageSummary(createdPage);
     }),
+  ),
 );
 
 const patchPage = (args: {
@@ -292,45 +518,46 @@ const recordSnapshotInternal = FunctionImpl.make(
   databaseSchema,
   pages,
   "recordSnapshotInternal",
-  ({ brainKey, pageKey, expectedCurrentRevisionKey, snapshot, version }) =>
+  ({
+    brainKey,
+    pageKey,
+    expectedCurrentRevisionKey,
+    snapshot,
+    version,
+  }): Effect.Effect<{ readonly ok: true }, PageError, PageDeps> =>
     Effect.gen(function* () {
-      const reader = yield* DatabaseReader;
-      const writer = yield* DatabaseWriter;
-      const page = yield* reader
-        .table("brainPages")
-        .get(pageId)
-        .pipe(Effect.orDie);
-
-      if (page === null) {
-        return yield* new NotFound({ resource: "brainPages", id: pageId });
-      }
-
-      if (page.workspaceId !== workspaceId) {
+      const brain = yield* requireBrainAccess(brainKey, "editor");
+      const page = yield* loadPage(brain, pageKey);
+      yield* requireCurrentRevision(page, expectedCurrentRevisionKey);
+      if (
+        !Number.isSafeInteger(version) ||
+        version <= 0 ||
+        version <= (page.editorSnapshotVersion ?? 0)
+      )
         return yield* new ValidationFailed({
-          field: "workspaceId",
-          message: "Brain page does not belong to workspace.",
+          field: "version",
+          message: "Snapshot version must be a newer positive safe integer.",
         });
-      }
-
-      const updatedAt = yield* unsafeAssumeClockProvided(
-        Clock.currentTimeMillis,
-      );
+      const writer = yield* DatabaseWriter;
       yield* writer
         .table("brainPages")
-        .patch(pageId, {
+        .patch(page._id, {
           editorSnapshotJson: snapshot,
           editorSnapshotVersion: version,
-          updatedAt,
+          updatedAt: yield* unsafeAssumeClockProvided(Clock.currentTimeMillis),
         })
         .pipe(Effect.orDie);
-
       return { ok: true as const };
     }),
 );
-
 export default GroupImpl.make(databaseSchema, pages).pipe(
   Layer.provide(list),
-  Layer.provide(createMarkdown),
+  Layer.provide(get),
+  Layer.provide(create),
+  Layer.provide(rename),
+  Layer.provide(move),
+  Layer.provide(favorite),
+  Layer.provide(archive),
   Layer.provide(recordSnapshotInternal),
   GroupImpl.finalize,
 );
