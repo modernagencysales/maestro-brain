@@ -362,32 +362,7 @@ export const validateIntegratedLanes = (
       throw new Error(`${taskId}: ${ownershipIssues.join("; ")}`);
     }
 
-    const focusedCommands = (proof.focusedCommands as string[]).map((command) =>
-      focusedGateCommand(command),
-    );
-    const changedFiles = (proof.changedFiles as string[]).filter((file) =>
-      existsSync(resolve(input.workdir, file)),
-    );
-    const formatCommand = formatCommandForFiles(changedFiles);
-    const lintCommand = lintCommandForFiles(changedFiles);
-    const gateCommands = deduplicateGateCommands([
-      ...(formatCommand ? [formatCommand] : []),
-      ...(lintCommand ? [lintCommand] : []),
-      ...focusedCommands,
-      ...commandsForTaskFiles(
-        actualChangedFiles,
-        manifestTask.fileLocks as string[],
-        focusedCommands,
-      ),
-      ...commandsForProfiles(
-        manifestTask.gateProfiles as GateProfile[],
-        focusedCommands,
-      ),
-    ]);
     const gate = readJson(resolve(laneDirectory, "lane-gate-report.json"));
-    const commands = gateCommands.map(
-      (command) => `rtk ${command.program} ${command.args.join(" ")}`,
-    );
     if (
       gate.schemaVersion !== "maestro-brain-lane-gate/v1" ||
       gate.taskId !== taskId ||
@@ -396,11 +371,47 @@ export const validateIntegratedLanes = (
       gate.headSha !== laneHeadSha ||
       gate.currentHeadSha !== laneHeadSha ||
       gate.planSha256 !== proofPlanSha256 ||
-      gate.taskBlockHash !== manifestTask.taskBlockHash ||
-      gate.commandSetHash !== gateCommandSetHash(gateCommands) ||
-      JSON.stringify(gate.commands) !== JSON.stringify(commands)
+      gate.taskBlockHash !== manifestTask.taskBlockHash
     ) {
       throw new Error(`${taskId}: final lane gate does not bind the lane head`);
+    }
+    // A v2 wave selection SHA-binds the exact lane-gate report before
+    // integration. Recomputing that historical command set with current
+    // policy would reject valid immutable evidence whenever gate policy grows.
+    if (!input.waveSelection) {
+      const focusedCommands = (proof.focusedCommands as string[]).map(
+        (command) => focusedGateCommand(command),
+      );
+      const changedFiles = (proof.changedFiles as string[]).filter((file) =>
+        existsSync(resolve(input.workdir, file)),
+      );
+      const formatCommand = formatCommandForFiles(changedFiles);
+      const lintCommand = lintCommandForFiles(changedFiles);
+      const gateCommands = deduplicateGateCommands([
+        ...(formatCommand ? [formatCommand] : []),
+        ...(lintCommand ? [lintCommand] : []),
+        ...focusedCommands,
+        ...commandsForTaskFiles(
+          actualChangedFiles,
+          manifestTask.fileLocks as string[],
+          focusedCommands,
+        ),
+        ...commandsForProfiles(
+          manifestTask.gateProfiles as GateProfile[],
+          focusedCommands,
+        ),
+      ]);
+      const commands = gateCommands.map(
+        (command) => `rtk ${command.program} ${command.args.join(" ")}`,
+      );
+      if (
+        gate.commandSetHash !== gateCommandSetHash(gateCommands) ||
+        JSON.stringify(gate.commands) !== JSON.stringify(commands)
+      ) {
+        throw new Error(
+          `${taskId}: final lane gate does not bind the lane head`,
+        );
+      }
     }
   }
 

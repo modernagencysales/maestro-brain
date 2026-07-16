@@ -230,7 +230,41 @@ export const validateIntegrationResult = (
         `wave integration omits lane-owned files: ${missing.join(", ")}`,
       );
     }
-    const generatedFiles = changedFiles.filter((file) => !laneFiles.has(file));
+    const commits = git(workdir, [
+      "rev-list",
+      "--reverse",
+      `${baseSha}..${headSha}`,
+    ])
+      .split("\n")
+      .filter(Boolean);
+    const commitSet = new Set(commits);
+    const repairFiles = new Set<string>();
+    if (result.mode === "recover") {
+      if (!Array.isArray(result.repairCommits)) {
+        throw new Error("recovery integration has no repair commits");
+      }
+      for (const [index, value] of result.repairCommits.entries()) {
+        const repair = record(value, `repairCommits[${index}]`);
+        const sha = string(repair.sha, `repairCommits[${index}].sha`);
+        string(repair.summary, `repairCommits[${index}].summary`);
+        string(repair.taskId, `repairCommits[${index}].taskId`);
+        if (!commitSet.has(sha)) {
+          throw new Error(`${sha}: repair commit is outside the integration`);
+        }
+        for (const file of git(workdir, [
+          "diff",
+          "--name-only",
+          `${sha}^1..${sha}`,
+        ])
+          .split("\n")
+          .filter(Boolean)) {
+          repairFiles.add(file);
+        }
+      }
+    }
+    const generatedFiles = changedFiles.filter(
+      (file) => !laneFiles.has(file) && !repairFiles.has(file),
+    );
     const baseFiles = git(workdir, ["ls-tree", "-r", "--name-only", baseSha])
       .split("\n")
       .filter(Boolean);
@@ -249,13 +283,6 @@ export const validateIntegrationResult = (
     ) {
       throw new Error("wave generated-file receipt mismatch");
     }
-    const commits = git(workdir, [
-      "rev-list",
-      "--reverse",
-      `${baseSha}..${headSha}`,
-    ])
-      .split("\n")
-      .filter(Boolean);
     for (const commit of commits) {
       const commitFiles = git(workdir, [
         "show",

@@ -157,14 +157,16 @@ describe("brain lane gate profiles", () => {
     ).toEqual([]);
   });
 
-  it("recomputes integration receipts with the same file gates as lanes", () => {
+  it("recomputes legacy receipts but preserves immutable wave gates", () => {
     const source = readFileSync(
       resolve(import.meta.dirname, "../src/integration-lane-check.ts"),
       "utf8",
     );
 
+    expect(source).toContain("if (!input.waveSelection)");
+    expect(source).toContain("commandsForTaskFiles(");
     expect(source).toContain(
-      "commandsForTaskFiles(\n        actualChangedFiles,\n        manifestTask.fileLocks as string[],\n        focusedCommands,\n      )",
+      "A v2 wave selection SHA-binds the exact lane-gate report",
     );
   });
 
