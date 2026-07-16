@@ -176,6 +176,16 @@ const templateRouteResponse = async (
   return response;
 };
 
+const filteredOpenApiDocument = (): ReturnType<
+  typeof buildGeneratedOpenApiDocument
+> => {
+  const document = buildGeneratedOpenApiDocument();
+  const { ["/api/brain.pages.createMarkdown"]: _legacy, ...paths } =
+    document.paths;
+  void _legacy;
+  return { ...document, paths };
+};
+
 const openApiRouteResponse = (request: Request): Response =>
   request.method === "GET"
     ? jsonResponse(filteredOpenApiDocument())
