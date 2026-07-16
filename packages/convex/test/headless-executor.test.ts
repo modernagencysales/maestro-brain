@@ -55,7 +55,7 @@ describe("headless executor", () => {
     ).toBeUndefined();
   });
 
-  it("returns NotFound for the deleted legacy page write without dispatch", async () => {
+  it("returns ValidationFailed for the deleted legacy page write without dispatch", async () => {
     const adapter = createAdapter({
       runMutation: async () => {
         throw new Error("runMutation should not be called");
@@ -72,9 +72,8 @@ describe("headless executor", () => {
     ).resolves.toEqual({
       ok: false,
       error: {
-        _tag: "NotFound",
-        message:
-          "No headless operation brain.pages.createMarkdown exposed on api.",
+        _tag: "ValidationFailed",
+        message: "Headless operation is not available.",
       },
     });
   });
@@ -174,6 +173,17 @@ describe("headless executor", () => {
     });
   });
 
+  it("exposes RateLimited in the uniform external failure union", () => {
+    type FailureTag = Extract<
+      Awaited<ReturnType<typeof executeHeadlessOperation>>,
+      { readonly ok: false }
+    >["error"]["_tag"];
+
+    const rateLimited: FailureTag = "RateLimited";
+
+    expect(rateLimited).toBe("RateLimited");
+  });
+
   it("keeps generic ref/input/result/kind validation behavior", async () => {
     mockManifest();
     const { executeHeadlessOperation: executeWithMockedManifest } =
@@ -189,9 +199,8 @@ describe("headless executor", () => {
     ).resolves.toMatchObject({
       ok: false,
       error: {
-        _tag: "NotFound",
-        message:
-          "No generated function ref registered for operation test.sample.write.",
+        _tag: "ValidationFailed",
+        message: "Headless operation is not available.",
       },
     });
     await expect(
