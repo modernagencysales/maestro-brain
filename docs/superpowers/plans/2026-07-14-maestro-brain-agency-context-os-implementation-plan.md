@@ -978,12 +978,9 @@ manifest.
   layer for current route code until S03; no public legacy ID args. Rollback the
   UI/spec as one deployment while keeping appended revisions.
 - **Focused verification:**
-  `rtk host-test-slot --class focused pnpm --dir packages/convex test brain-pages`,
-  `rtk host-test-slot --class focused pnpm --dir packages/convex test http-docs confect-contracts workspace-access headless-executor observability-error-capture`,
-  `rtk host-test-slot --class focused pnpm --dir apps/web test confect-generated-refs`,
+  `rtk pnpm brain:factory:check-confect-codegen -- --test brain-pages --test http-docs --test confect-contracts --test workspace-access --test headless-executor --test observability-error-capture`,
   `rtk host-test-slot --class focused pnpm --dir apps/cli test`,
   `rtk host-test-slot --class focused pnpm --dir tooling/workflow test`,
-  `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:confect-contracts`,
   `rtk pnpm check:headless-surface-contract`, broad verification is deferred to
   tranche acceptance under Appendix L.
