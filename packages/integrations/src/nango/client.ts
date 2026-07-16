@@ -4,7 +4,6 @@ import * as Config from "effect/Config";
 import * as ConfigError from "effect/ConfigError";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
-import { Nango } from "@nangohq/node";
 import * as Layer from "effect/Layer";
 
 import type { ProviderMode } from "../index";
@@ -150,11 +149,7 @@ export const redactNangoDiagnostic = <T extends Record<string, unknown>>(
 export const createFakeNangoClient = (input: {
   readonly now: number;
 }): NangoClient => ({
-  createConnectSession: async ({
-    organizationKey,
-    endUserId,
-    connectSessionId,
-  }) => {
+  createConnectSession: async ({ organizationKey, connectSessionId }) => {
     if (organizationKey === "timeout") throw new ProviderUnavailable();
     const sessionId =
       connectSessionId ?? `maestro-session-${randomUUID().replace(/-/g, "")}`;
@@ -186,11 +181,18 @@ export const createLiveNangoClient = (input: {
   readonly providerConfigKey: string;
   readonly nango?: NangoSdk;
 }): NangoClient => {
-  const nango =
-    input.nango ??
-    new Nango({
-      apiKey: input.secretKey,
-    });
+  let nangoPromise: Promise<NangoSdk> | undefined;
+  const loadNango = () => {
+    nangoPromise ??= input.nango
+      ? Promise.resolve(input.nango)
+      : import("@nangohq/node").then(
+          ({ Nango }) =>
+            new Nango({
+              apiKey: input.secretKey,
+            }) as NangoSdk,
+        );
+    return nangoPromise;
+  };
 
   return {
     createConnectSession: async ({
@@ -203,6 +205,7 @@ export const createLiveNangoClient = (input: {
       if (providerConfigKey !== input.providerConfigKey) {
         throw new ConnectSessionInvalid();
       }
+      const nango = await loadNango();
       const response = await nango.createConnectSession({
         allowed_integrations: [providerConfigKey],
         end_user: { id: endUserId },
@@ -226,6 +229,7 @@ export const createLiveNangoClient = (input: {
       if (isUnsafeNangoConnectionId(connectionId)) {
         throw new ConnectSessionInvalid();
       }
+      const nango = await loadNango();
       const connection = await nango.getConnection(
         input.providerConfigKey,
         connectionId,
