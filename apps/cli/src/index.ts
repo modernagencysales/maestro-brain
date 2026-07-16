@@ -13,9 +13,7 @@ import type {
 export { decodeCliRuntimeConfig };
 export type { CliResult, CliRuntimeConfig };
 
-export const staticCliOperationRefs: Readonly<Record<string, string>> = {
-  "brain.pages.createMarkdown": "brain.pages.createMarkdown",
-};
+export const staticCliOperationRefs: Readonly<Record<string, string>> = {};
 
 export const staticCliCapabilityIds: ReadonlySet<string> = new Set(
   Object.keys(staticCliOperationRefs),
