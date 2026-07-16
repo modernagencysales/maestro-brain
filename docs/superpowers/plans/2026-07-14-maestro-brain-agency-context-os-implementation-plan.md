@@ -811,7 +811,9 @@ manifest.
   `apps/web/src/features/settings/member-management-adapter.test.ts`,
   `apps/web/src/features/settings/member-management.tsx`,
   `apps/web/src/features/settings/member-management.test.tsx`, and
-  `packages/convex/test/brain-role-matrix.test.ts`.
+  `packages/convex/test/brain-role-matrix.test.ts`; modify
+  `packages/convex/test/flags.test.ts` to keep feature-flag audience fixtures
+  aligned with the authoritative direct-membership rule.
 - **Failure-first tests:** exercise every operation in Appendix B for all four
   roles, direct workspace membership, organization-admin baseline, revoked
   membership, last-owner removal, and cross-Brain access. Denials must occur
@@ -841,7 +843,7 @@ manifest.
   migration; no membership rewrite. Rollback may hide the UI but must not remove
   audit events or weaken server checks.
 - **Focused verification:**
-  `rtk host-test-slot --class focused pnpm --dir packages/convex test access brain-role-matrix`,
+  `rtk host-test-slot --class focused pnpm --dir packages/convex test access brain-role-matrix flags`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test settings`,
   `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:access-audit-events`, `rtk pnpm check:layer-boundaries`, and
@@ -1107,8 +1109,10 @@ manifest.
 
 ### S03-T02 — Build Clients List, Creation, And Standard Client Brief
 
-- **Outcome / requirements:** satisfy UI-02; an admin creates a Client Brain and
-  lands in the six-page editable Client Brief.
+- **Outcome / requirements:** satisfy UI-02; an admin creates a Client Brain
+  with the six-page Client Brief and hands its stable `brainKey`/`pageKey` to
+  the registered Brain route. S03-T03 exclusively owns consuming that route
+  handoff and rendering the editable destination.
 - **Classification:** `template-gap`; target `TB-BRAIN-UI-01`; the current
   `template:add-client-domain` emits only JSON/README, so no false generator
   claim.
@@ -1135,8 +1139,9 @@ manifest.
   `packages/convex/test/authorized-brain-provisioning.test.ts`.
 - **Failure-first tests:** viewer/editor creation denial, duplicate slug,
   partial six-page creation rollback, retry idempotency, archived client,
-  empty/list states, and route-to-new-Brain behavior. Six pages are ordinary
-  renameable pages, not schema enums.
+  empty/list states, and registered-route handoff to the new Brain keys. Six
+  pages are ordinary renameable pages, not schema enums; this task does not
+  replace or validate the S03-T03-owned Brain route destination.
 - **Implementation:** one idempotent `createClientBrain` transaction creates
   Brain, admin membership, Overview, Stakeholders, Decisions, Commitments and
   next steps, Risks and open questions, and Proof and assets with stable page
@@ -1161,7 +1166,8 @@ manifest.
   `rtk pnpm check:confect-contracts`, `rtk pnpm check:route-tree`, and broad
   verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** role/idempotency/capacity tests, six-page stable tree
-  sample, UI states, and atomic-failure proof.
+  sample, UI states, registered-route handoff, and atomic-failure proof. The
+  editable destination receipt belongs to S03-T03.
 - **Lane branch / commit boundary:** branch `codex/brain-s03-client-brief`;
   commit `feat: create client Brains with a Brief`.
 
@@ -2991,8 +2997,8 @@ manifest.
 - **Classification:** `template-gap`; target `TB-HEADLESS-01`; repair the
   existing HTTP request helper and executor. This task also repairs the missing
   internal indexed API-key/principal lookup boundary that S11-T01's accepted
-  lane omitted; public CRUD remains owned by the S11-T01 contract.
-- **Dependencies:** S11-T01 and S01-T03.
+  lane omitted, plus its incomplete audited Settings CRUD surface.
+- **Dependencies:** S11-T01, S01-T03, and S01-T04.
 - **Existing anchors:** the current request helper accepts caller tenant fields
   and contains a demo slug map in
   [`httpRequest.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/httpRequest.ts#L6-L10)
@@ -3005,17 +3011,31 @@ manifest.
   `packages/convex/confect/headless/apiKeys.spec.ts`,
   `packages/convex/confect/headless/apiKeys.impl.ts`,
   `packages/convex/confect/headless/errorEnvelope.ts`,
+  `packages/convex/confect/access/tenancySchemas.ts`,
+  `packages/convex/confect/access/lifecycle.ts`,
+  `packages/convex/confect/access/audit.ts`,
   `packages/convex/test/api-keys.test.ts`,
   `packages/convex/test/headless-auth.test.ts`, and
-  `packages/convex/test/headless-executor.test.ts`; create
+  `packages/convex/test/headless-executor.test.ts`,
+  `apps/web/src/features/settings/api-keys.ts`,
+  `apps/web/src/features/settings/api-keys.test.ts`,
+  `apps/web/src/features/settings/settings-surface.ts`,
+  `apps/web/src/features/settings/settings-surface.test.ts`, and
+  `apps/web/src/routes/_workspace.settings.tsx`; create
   `packages/convex/confect/headless/principal.ts`,
-  `packages/convex/confect/headless/authorizeOperation.ts`, and
-  `packages/convex/test/http-request-security.test.ts`.
+  `packages/convex/confect/headless/authorizeOperation.ts`,
+  `packages/convex/test/http-request-security.test.ts`,
+  `packages/convex/test/access-audit-events.test.ts`,
+  `apps/web/src/features/settings/api-keys-adapter.ts`,
+  `apps/web/src/features/settings/api-keys-adapter.test.ts`,
+  `apps/web/src/features/settings/api-keys-panel.tsx`, and
+  `apps/web/src/features/settings/api-keys-panel.test.tsx`.
 - **Failure-first tests:** missing/malformed/header-in-URL key, tenant fields,
   wrong scope/Brain, revoked/expired key/principal/Brain/org, changed
   generation, unknown operation, operation not headless, payload
   decoded/provider called before auth, timing-safe not-found/revoked behavior,
-  and raw header logging.
+  raw header logging, audited API-key create/rotate/revoke success and denial,
+  display-once secrets, and non-admin UI hiding plus server denial.
 - **Implementation:** parse Authorization header only; hash and indexed lookup;
   restore an internal Confect indexed key/principal lookup plus fenced last-used
   update behind `headless/apiKeys`. An unauthenticated bearer request must not
@@ -3027,7 +3047,11 @@ manifest.
   reviewed operation scope; inject internal IDs/stable Brain; only then decode
   tool args and call a generated ref. Reject
   organization/workspace/brain/user/Convex ID fields at schema boundary. Update
-  last-used asynchronously without changing authorization result.
+  last-used asynchronously without changing authorization result. Extend the
+  shared typed audit vocabulary for API-key subjects/actions and wire the
+  Settings panel through generated refs; UI hiding never replaces server-side
+  authorization, and the stable `brainKey` remains a selector rather than
+  authority.
 - **Typed errors / state:** uniform external
   `Unauthorized | Forbidden | ValidationFailed | RateLimited`; internal reason
   codes remain redacted audit metadata. Request state
@@ -3040,10 +3064,15 @@ manifest.
   `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:headless-surface-contract`,
   `rtk pnpm check:confect-contracts`, `rtk pnpm check:logging-boundary`,
-  `rtk pnpm check:secret-canaries`, `rtk pnpm check:access-audit-events`, broad
-  verification is deferred to tranche acceptance under Appendix L.
+  `rtk pnpm check:secret-canaries`, `rtk pnpm check:access-audit-events`,
+  `rtk host-test-slot --class focused pnpm --dir apps/web test api-keys settings`,
+  broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** auth-before-decode/provider trace, field rejection,
-  revocation matrix, error envelopes, no-header log proof, and demo-map removal.
+  revocation matrix, error envelopes, no-header log proof, demo-map removal,
+  audited CRUD actions, display-once secret behavior, and role-aware Settings UI
+  proof.
+- **Source-slice contract:** up to 3,000 demonstrated hand-authored source lines
+  in at most ten linear commits; each commit remains at or below 300 lines.
 - **Lane branch / commit boundary:** branch
   `codex/brain-s11-headless-principal`; commit
   `feat: derive headless Brain principals`.
@@ -3661,64 +3690,64 @@ column intentionally uses transitive stack completion shorthand where a whole
 stack is required; the task packet's **Dependencies** field remains the exact
 direct acceptance edge and is the source materialized into `acceptanceAfter`.
 
-| Task    | Acceptance prerequisite | Work-package classification                      | Est. source lines |
-| ------- | ----------------------- | ------------------------------------------------ | ----------------: |
-| S00-T01 | none                    | template-gap `TB-DEVEX-CONVEX-01`                |                 0 |
-| S00-T02 | S00-T01                 | template-gap backlog/pnpm/StackPlan contract     |                 0 |
-| S00-T03 | S00-T02                 | template-gap `TB-DEPLOY-ISOLATION-01`            |               280 |
-| S00-T04 | S00-T03                 | template-gap migration pattern                   |               780 |
-| S01-T01 | S00 complete            | template-gap `TB-AUTHKIT-01`                     |               240 |
-| S01-T02 | S01-T01                 | template-gap + existing-module repair            |              1050 |
-| S01-T03 | S01-T02                 | template-gap authorized tenancy                  |               880 |
-| S01-T04 | S01-T03                 | template-gap access UI                           |              3300 |
-| S02-T01 | S01 complete            | template-gap authorized Brain schema             |               260 |
-| S02-T02 | S02-T01                 | template-gap authorized pages                    |              1100 |
-| S02-T03 | S02-T02                 | fixture-to-real `ops/versioning`/`ops/knowledge` |               290 |
-| S02-T04 | S02-T03                 | template-gap authorized editor sync              |               250 |
-| S03-T01 | S02 complete            | template-gap Brain UI                            |               240 |
-| S03-T02 | S03-T01                 | template-gap Client Brief UI                     |              2100 |
-| S03-T03 | S03-T02                 | template-gap Brain workspace UI                  |               290 |
-| S03-T04 | S03-T03                 | template-gap revision/review UI                  |               260 |
-| S04-T01 | S01, S03                | template-gap Nango provider                      |              2700 |
-| S04-T02 | S04-T01                 | template-gap connection/channel directory        |               280 |
-| S04-T03 | S04-T02                 | template-gap verified webhook                    |               290 |
-| S04-T04 | S04-T03                 | template-gap source policy + UI                  |               290 |
-| S05-T01 | S04 complete            | template-gap source ledger                       |               260 |
-| S05-T02 | S05-T01                 | template-gap Slack normalizer/capture            |               290 |
-| S05-T03 | S05-T02                 | template-gap source-unit assembly                |               280 |
-| S05-T04 | S05-T03                 | generated capability pattern-instance            |               290 |
-| S06-T01 | S05 complete            | fixture-to-real `jobs/workpool`                  |               280 |
-| S06-T02 | S06-T01                 | template-gap deterministic scheduler             |               260 |
-| S06-T03 | S06-T02                 | template-gap Nango history adapter               |               290 |
-| S06-T04 | S06-T03                 | template-gap reconciliation/admin UI             |               260 |
-| S07-T01 | S05, S06                | template-gap lifecycle envelope                  |               280 |
-| S07-T02 | S07-T01                 | template-gap propagation workflow                |               290 |
-| S07-T03 | S07-T02                 | template-gap lifecycle execution                 |               290 |
-| S07-T04 | S07-T03                 | template-gap lifecycle UI                        |               260 |
-| S08-T01 | S02, S05, S07           | template-gap structured LLM                      |               290 |
-| S08-T02 | S08-T01                 | template-gap internal workflow generator         |               260 |
-| S08-T03 | S08-T02                 | generated capability/workflow pattern-instance   |               295 |
-| S08-T04 | S08-T03                 | generated capability/workflow pattern-instance   |               295 |
-| S09-T01 | S07, S08                | template-gap async search                        |               240 |
-| S09-T02 | S09-T01                 | template-gap search projection                   |               280 |
-| S09-T03 | S09-T02, S02            | generated headless capability pattern-instance   |               290 |
-| S09-T04 | S09-T03, S08            | generated Ask capability pattern-instance        |               290 |
-| S10-T01 | S04, S09                | template-gap Slack identity                      |               260 |
-| S10-T02 | S10-T01                 | capability pattern-instance + transport gap      |               290 |
-| S10-T03 | S10-T02                 | template-gap outbox/provider action              |               280 |
-| S10-T04 | S10-T03                 | template-gap Slack recovery UI                   |               240 |
-| S11-T01 | S09 complete            | template-gap `TB-HEADLESS-01`                    |               280 |
-| S11-T02 | S11-T01, S01-T03        | template-gap bearer dispatcher                   |              2400 |
-| S11-T03 | S11-T02                 | template-gap `TB-HEADLESS-01` registry           |               260 |
-| S11-T04 | S11-T03                 | template-gap Streamable HTTP MCP                 |               290 |
-| S12-T01 | S07, S11                | template-gap deterministic export                |               260 |
-| S12-T02 | S12-T01                 | capability pattern-instance + storage gap        |               290 |
-| S12-T03 | S12-T02                 | template-gap export UI                           |               240 |
-| S13-T01 | S10, S11, S12 complete  | template-gap reproducible eval harness           |               280 |
-| S13-T02 | S13-T01, S06            | template-gap capacity harness                    |               260 |
-| S13-T03 | S13-T02                 | template-gap operations policy                   |               260 |
-| S13-T04 | S13-T03                 | template-gap operations UI/recovery              |               250 |
-| S14-T01 | all prior tasks         | template-gap release evidence                    |                 0 |
+| Task    | Acceptance prerequisite   | Work-package classification                      | Est. source lines |
+| ------- | ------------------------- | ------------------------------------------------ | ----------------: |
+| S00-T01 | none                      | template-gap `TB-DEVEX-CONVEX-01`                |                 0 |
+| S00-T02 | S00-T01                   | template-gap backlog/pnpm/StackPlan contract     |                 0 |
+| S00-T03 | S00-T02                   | template-gap `TB-DEPLOY-ISOLATION-01`            |               280 |
+| S00-T04 | S00-T03                   | template-gap migration pattern                   |               780 |
+| S01-T01 | S00 complete              | template-gap `TB-AUTHKIT-01`                     |               240 |
+| S01-T02 | S01-T01                   | template-gap + existing-module repair            |              1050 |
+| S01-T03 | S01-T02                   | template-gap authorized tenancy                  |               880 |
+| S01-T04 | S01-T03                   | template-gap access UI                           |              3300 |
+| S02-T01 | S01 complete              | template-gap authorized Brain schema             |               260 |
+| S02-T02 | S02-T01                   | template-gap authorized pages                    |              1100 |
+| S02-T03 | S02-T02                   | fixture-to-real `ops/versioning`/`ops/knowledge` |               290 |
+| S02-T04 | S02-T03                   | template-gap authorized editor sync              |               250 |
+| S03-T01 | S02 complete              | template-gap Brain UI                            |               240 |
+| S03-T02 | S03-T01                   | template-gap Client Brief UI                     |              2100 |
+| S03-T03 | S03-T02                   | template-gap Brain workspace UI                  |               290 |
+| S03-T04 | S03-T03                   | template-gap revision/review UI                  |               260 |
+| S04-T01 | S01, S03                  | template-gap Nango provider                      |              2700 |
+| S04-T02 | S04-T01                   | template-gap connection/channel directory        |               280 |
+| S04-T03 | S04-T02                   | template-gap verified webhook                    |               290 |
+| S04-T04 | S04-T03                   | template-gap source policy + UI                  |               290 |
+| S05-T01 | S04 complete              | template-gap source ledger                       |               260 |
+| S05-T02 | S05-T01                   | template-gap Slack normalizer/capture            |               290 |
+| S05-T03 | S05-T02                   | template-gap source-unit assembly                |               280 |
+| S05-T04 | S05-T03                   | generated capability pattern-instance            |               290 |
+| S06-T01 | S05 complete              | fixture-to-real `jobs/workpool`                  |               280 |
+| S06-T02 | S06-T01                   | template-gap deterministic scheduler             |               260 |
+| S06-T03 | S06-T02                   | template-gap Nango history adapter               |               290 |
+| S06-T04 | S06-T03                   | template-gap reconciliation/admin UI             |               260 |
+| S07-T01 | S05, S06                  | template-gap lifecycle envelope                  |               280 |
+| S07-T02 | S07-T01                   | template-gap propagation workflow                |               290 |
+| S07-T03 | S07-T02                   | template-gap lifecycle execution                 |               290 |
+| S07-T04 | S07-T03                   | template-gap lifecycle UI                        |               260 |
+| S08-T01 | S02, S05, S07             | template-gap structured LLM                      |               290 |
+| S08-T02 | S08-T01                   | template-gap internal workflow generator         |               260 |
+| S08-T03 | S08-T02                   | generated capability/workflow pattern-instance   |               295 |
+| S08-T04 | S08-T03                   | generated capability/workflow pattern-instance   |               295 |
+| S09-T01 | S07, S08                  | template-gap async search                        |               240 |
+| S09-T02 | S09-T01                   | template-gap search projection                   |               280 |
+| S09-T03 | S09-T02, S02              | generated headless capability pattern-instance   |               290 |
+| S09-T04 | S09-T03, S08              | generated Ask capability pattern-instance        |               290 |
+| S10-T01 | S04, S09                  | template-gap Slack identity                      |               260 |
+| S10-T02 | S10-T01                   | capability pattern-instance + transport gap      |               290 |
+| S10-T03 | S10-T02                   | template-gap outbox/provider action              |               280 |
+| S10-T04 | S10-T03                   | template-gap Slack recovery UI                   |               240 |
+| S11-T01 | S09 complete              | template-gap `TB-HEADLESS-01`                    |               280 |
+| S11-T02 | S11-T01, S01-T03, S01-T04 | template-gap bearer dispatcher + audited UI      |              3000 |
+| S11-T03 | S11-T02                   | template-gap `TB-HEADLESS-01` registry           |               260 |
+| S11-T04 | S11-T03                   | template-gap Streamable HTTP MCP                 |               290 |
+| S12-T01 | S07, S11                  | template-gap deterministic export                |               260 |
+| S12-T02 | S12-T01                   | capability pattern-instance + storage gap        |               290 |
+| S12-T03 | S12-T02                   | template-gap export UI                           |               240 |
+| S13-T01 | S10, S11, S12 complete    | template-gap reproducible eval harness           |               280 |
+| S13-T02 | S13-T01, S06              | template-gap capacity harness                    |               260 |
+| S13-T03 | S13-T02                   | template-gap operations policy                   |               260 |
+| S13-T04 | S13-T03                   | template-gap operations UI/recovery              |               250 |
+| S14-T01 | all prior tasks           | template-gap release evidence                    |                 0 |
 
 ## Appendix B — Canonical Role And Capability Matrix
 

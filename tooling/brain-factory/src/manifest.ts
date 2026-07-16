@@ -100,7 +100,7 @@ const START_OVERRIDES: Readonly<Record<string, readonly string[]>> = {
   "S10-T03": ["S10-T02"],
   "S10-T04": ["S10-T03", "S03-T01"],
   "S11-T01": [],
-  "S11-T02": ["S11-T01", "S01-T02", "S01-T03"],
+  "S11-T02": ["S11-T01", "S01-T02", "S01-T03", "S01-T04"],
   "S11-T03": ["S11-T02", "S09-T04"],
   "S11-T04": ["S11-T03"],
   "S12-T01": [],
@@ -117,7 +117,7 @@ const SOURCE_SLICE_LIMITS: Readonly<Record<string, number>> = {
   "S01-T04": 11,
   "S03-T02": 7,
   "S04-T01": 10,
-  "S11-T02": 8,
+  "S11-T02": 10,
 };
 
 const FILE_LOCK_OVERRIDES: Readonly<Record<string, readonly string[]>> = {

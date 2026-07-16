@@ -44,7 +44,13 @@ describe("brain task scheduler", () => {
       tasks: manifest.tasks,
     });
     expect(result.selected.map((task) => task.taskId)).toEqual(
-      expect.arrayContaining(["S00-T02", "S01-T01", "S02-T01", "S03-T01"]),
+      expect.arrayContaining([
+        "S00-T02",
+        "S01-T01",
+        "S03-T01",
+        "S11-T01",
+        "S12-T01",
+      ]),
     );
     expect(
       result.selected.every((task) => task.fileInventoryStatus === "ready"),

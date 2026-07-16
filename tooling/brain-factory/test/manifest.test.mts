@@ -262,8 +262,13 @@ describe("Maestro Brain execution manifest", () => {
       "S11-T01",
       "S01-T02",
       "S01-T03",
+      "S01-T04",
     ]);
-    expect(headlessPrincipal?.acceptanceAfter).toBe("S11-T01, S01-T03");
+    expect(headlessPrincipal?.acceptanceAfter).toBe(
+      "S11-T01, S01-T03, S01-T04",
+    );
+    expect(headlessPrincipal?.estimatedSourceLines).toBe(3_000);
+    expect(headlessPrincipal?.sourceSliceLimit).toBe(10);
   });
 
   it("reserves explicit expanded slice contracts", () => {

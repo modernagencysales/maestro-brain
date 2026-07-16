@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "5d21d781e20fcb6e463e8d9901395a42bba375457f79845e00cc9f7e07364c21",
+  "planSha256": "51b4735b05594f70a16fd670c664ccad98cf2a6ba8d6dd1aab8881fa74faefb5",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -238,7 +238,8 @@
         "packages/convex/confect/access/members.impl.ts",
         "packages/convex/confect/access/members.spec.ts",
         "packages/convex/confect/access/tenancySchemas.ts",
-        "packages/convex/test/brain-role-matrix.test.ts"
+        "packages/convex/test/brain-role-matrix.test.ts",
+        "packages/convex/test/flags.test.ts"
       ],
       "gateProfiles": ["convex", "web"],
       "kind": "product",
@@ -246,7 +247,7 @@
       "requirements": ["IAM-04"],
       "sourceSliceBudget": 300,
       "sourceSliceLimit": 11,
-      "taskBlockHash": "a377159e6ba55f3508fbc27b475a62f7c40dd6dc13116f9dfdb0fb6fb73de3a3",
+      "taskBlockHash": "6a9ca40be899a1a64692e5b55e5f5ce0aa7a60d41e9132551e6a503b3e5bf412",
       "taskId": "S01-T04",
       "title": "Apply Existing RBAC To Members, Settings, And Privileged Actions",
       "tranche": "D2-domain-bodies"
@@ -416,7 +417,7 @@
       "requirements": ["UI-02"],
       "sourceSliceBudget": 300,
       "sourceSliceLimit": 7,
-      "taskBlockHash": "eb377d38b3860f95621ed32d2478c4091cb7afe63b942802110a62c9de7d726a",
+      "taskBlockHash": "33aadcbccd2318744168364f4fb5be5d5704b125e9cf0cee21211fc8d8cde1c5",
       "taskId": "S03-T02",
       "title": "Build Clients List, Creation, And Standard Client Brief",
       "tranche": "D2-domain-bodies"
@@ -1360,13 +1361,25 @@
       "tranche": "C1-contract-spine"
     },
     {
-      "acceptanceAfter": "S11-T01, S01-T03",
+      "acceptanceAfter": "S11-T01, S01-T03, S01-T04",
       "classification": "template-gap",
-      "codeStartAfter": ["S11-T01", "S01-T02", "S01-T03"],
-      "estimatedSourceLines": 2400,
+      "codeStartAfter": ["S11-T01", "S01-T02", "S01-T03", "S01-T04"],
+      "estimatedSourceLines": 3000,
       "fileInventoryIssues": [],
       "fileInventoryStatus": "ready",
       "fileLocks": [
+        "apps/web/src/features/settings/api-keys-adapter.test.ts",
+        "apps/web/src/features/settings/api-keys-adapter.ts",
+        "apps/web/src/features/settings/api-keys-panel.test.tsx",
+        "apps/web/src/features/settings/api-keys-panel.tsx",
+        "apps/web/src/features/settings/api-keys.test.ts",
+        "apps/web/src/features/settings/api-keys.ts",
+        "apps/web/src/features/settings/settings-surface.test.ts",
+        "apps/web/src/features/settings/settings-surface.ts",
+        "apps/web/src/routes/_workspace.settings.tsx",
+        "packages/convex/confect/access/audit.ts",
+        "packages/convex/confect/access/lifecycle.ts",
+        "packages/convex/confect/access/tenancySchemas.ts",
         "packages/convex/confect/headless/apiKeys.impl.ts",
         "packages/convex/confect/headless/apiKeys.spec.ts",
         "packages/convex/confect/headless/auth.ts",
@@ -1376,18 +1389,19 @@
         "packages/convex/confect/http.ts",
         "packages/convex/confect/httpRequest.ts",
         "packages/convex/confect/manifest/executor.ts",
+        "packages/convex/test/access-audit-events.test.ts",
         "packages/convex/test/api-keys.test.ts",
         "packages/convex/test/headless-auth.test.ts",
         "packages/convex/test/headless-executor.test.ts",
         "packages/convex/test/http-request-security.test.ts"
       ],
-      "gateProfiles": ["cli", "convex"],
+      "gateProfiles": ["cli", "convex", "web"],
       "kind": "product",
       "lane": "headless",
       "requirements": ["HLS-01", "HLS-02", "IAM-03"],
       "sourceSliceBudget": 300,
-      "sourceSliceLimit": 8,
-      "taskBlockHash": "31f8fe3487404a4b1b993bbe46fa96da48e1cb40bc07da612b4aabc8f8e208c7",
+      "sourceSliceLimit": 10,
+      "taskBlockHash": "59ea5802cb90de68191aecab48b2511c895d5d362a29f76d33d67eb5695fd67e",
       "taskId": "S11-T02",
       "title": "Resolve Bearer Principals Before Decoding Or Dispatching Requests",
       "tranche": "D2-domain-bodies"
