@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "6da034dd33e0cba26216e8ea759685e5257b60522c6f584d474946b2e1224cde",
+  "planSha256": "0473b1a57d0e4b3850555d80f6f3822d952f4ab558c86a2ca20848ecf2c1a260",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -286,6 +286,7 @@
       "fileInventoryStatus": "ready",
       "fileLocks": [
         "docs/superpowers/receipts/maestro-brain/file-inventories/S02-T02-confect-generated-files.json",
+        "packages/convex/confect/access/tenancySchemas.ts",
         "packages/convex/confect/brain/pageTree.ts",
         "packages/convex/confect/brain/pages.impl.ts",
         "packages/convex/confect/brain/pages.spec.ts",
@@ -297,7 +298,7 @@
       "lane": "brain",
       "requirements": ["IAM-04", "KNW-01", "UI-03"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "ef318443afc7857dd3341f2b8eaef28ab0880c12082d7fa775c863cdfbb589c4",
+      "taskBlockHash": "fdbd5378d9bfc1b92db46ac9510d4f3a64d9d5b188e17f54cbcbff8c752bf48e",
       "taskId": "S02-T02",
       "title": "Complete Authorized Page Tree CRUD",
       "tranche": "D2-domain-bodies"

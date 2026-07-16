@@ -920,7 +920,8 @@ manifest.
   while the impl already calls `requireWorkspaceAccess` in
   [`pages.impl.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/convex/confect/brain/pages.impl.ts#L18-L63).
 - **Files:** modify `packages/convex/confect/brain/pages.spec.ts`,
-  `packages/convex/confect/brain/pages.impl.ts`, and
+  `packages/convex/confect/brain/pages.impl.ts`,
+  `packages/convex/confect/access/tenancySchemas.ts`, and
   `packages/convex/confect/manifest/executor.ts`; create
   `packages/convex/confect/brain/pageTree.ts` and
   `packages/convex/test/brain-pages-crud.test.ts`. Generated Confect/Convex
@@ -929,10 +930,12 @@ manifest.
   `docs/superpowers/receipts/maestro-brain/file-inventories/S02-T02-confect-generated-files.json`.
 - **Failure-first tests:** role table for list/get/create/rename/move/favorite/
   archive; caller tenant/Convex fields rejected; concurrent move conflict;
-  cycle/cross-Brain parent; archived Brain; stale expected revision; and MCP
-  write exposure all fail. A generated manifest containing no headless page
-  surfaces must still typecheck, and headless lookup must return no page
-  operation rather than forcing a false `api | cli | mcp` surface.
+  cycle/cross-Brain parent; archived Brain; stale expected revision; atomic
+  `brainPage.created | renamed | moved | favorited | archived` audit events with
+  a `brainPage` subject; and MCP write exposure all fail. A generated manifest
+  containing no headless page surfaces must still typecheck, and headless lookup
+  must return no page operation rather than forcing a false `api | cli | mcp`
+  surface.
 - **Implementation:** public web functions accept a stable `brainKey` selector
   plus stable page keys. `brainKey` selects a candidate Brain but never grants
   authority: resolve it through the S01-T03 stable-key resolver, then derive and
@@ -940,12 +943,14 @@ manifest.
   generation server-side before any read or write. Never select the first
   workspace membership, and reject caller organization/workspace/Brain/user or
   Convex IDs at the schema boundary. Return stable `PageSummary`/`PageDetail`.
-  Use an internal mutation for editor snapshot commits. Remove external write
-  exposure; reserve headless read exposure for S11. Every mutation writes a page
-  revision/audit event atomically and takes an `expectedCurrentRevisionKey`.
-  Keep the shared headless surface predicate generic over generated surface
-  literals so a web-only manifest remains type-safe without widening any
-  operation's declared exposure.
+  Extend the access-audit schema with the exact `brainPage.*` actions above and
+  the `brainPage` subject kind; do not encode page mutations as membership or
+  invitation lifecycle events. Use an internal mutation for editor snapshot
+  commits. Remove external write exposure; reserve headless read exposure for
+  S11. Every mutation writes a page revision/audit event atomically and takes an
+  `expectedCurrentRevisionKey`. Keep the shared headless surface predicate
+  generic over generated surface literals so a web-only manifest remains
+  type-safe without widening any operation's declared exposure.
 - **Typed contract / errors:** args/returns are detailed in Appendix F; errors
   include `Unauthorized`, `Forbidden`, `BrainNotFound`, `PageNotFound`,
   `PageTreeConflict`, `StaleRevision`, and `LifecycleRevoked`.
