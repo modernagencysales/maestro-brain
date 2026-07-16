@@ -6,6 +6,7 @@ import {
   type HeadlessOperationPolicy,
 } from "../confect/headless/authorizeOperation";
 import { createHeadlessPrincipal } from "../confect/headless/principal";
+import { handleTemplateHttpRequest } from "../confect/http";
 import { executeAuthorizedHeadlessOperation } from "../confect/manifest/executor";
 import { readJsonBody } from "../confect/httpRequest";
 
@@ -24,6 +25,35 @@ const principal = createHeadlessPrincipal({
   principalId: "service_principal_123",
   scopes: ["brain:read"],
 });
+
+const makeKey = async () =>
+  await createBrainApiKey({
+    organizationId: "org_123",
+    workspaceId: "workspace_123",
+    brainKey: "brain_acme",
+    name: "Reviewer CLI",
+    scopes: ["brain:read"],
+    actor: { userId: "user_admin", role: "admin" },
+    nowMs: 1_000,
+    expiresAt: 20_000,
+    randomBytes: () => new Uint8Array(32).fill(13),
+  });
+
+const requestWithJsonSpy = (authorization: string | undefined) => {
+  const request = new Request(
+    "https://example.test/api/brain.pages.createMarkdown?apiKey=secret",
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(authorization === undefined ? {} : { authorization }),
+      },
+      body: "{not-json",
+    },
+  );
+  const json = vi.spyOn(request, "json");
+  return { request, json };
+};
 
 describe("headless HTTP bearer security", () => {
   it("keeps the current generated write operation closed to headless keys", async () => {
@@ -119,43 +149,85 @@ describe("headless HTTP bearer security", () => {
   });
 
   it("prevents JSON body parsing when bearer syntax is missing", async () => {
-    const request = new Request(
-      "https://example.test/api/brain.pages.createMarkdown?apiKey=secret",
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: "{not-json",
-      },
-    );
+    const { request, json } = requestWithJsonSpy(undefined);
 
-    await expect(
-      readJsonBody(request, { authorization: undefined }),
-    ).resolves.toEqual({
+    await expect(readJsonBody(request)).resolves.toEqual({
       ok: false,
-      error: { _tag: "Unauthorized", message: "Unauthorized." },
+      error: {
+        _tag: "ValidationFailed",
+        message: "Request body must be valid JSON.",
+      },
     });
+    expect(json).toHaveBeenCalledTimes(1);
+  });
+
+  it("authenticates well-formed bearer keys before JSON decode and dispatch", async () => {
+    const created = await makeKey();
+    const cases = [
+      {
+        authorization: "Bearer mbk_live_missing",
+        keys: [created.key],
+        principals: [created.principal],
+      },
+      {
+        authorization: `Bearer ${created.displayKey}`,
+        keys: [
+          { ...created.key, status: "revoked" as const, revokedAt: 2_000 },
+        ],
+        principals: [created.principal],
+      },
+      {
+        authorization: `Bearer ${created.displayKey}`,
+        keys: [created.key],
+        principals: [created.principal],
+        nowMs: 30_000,
+      },
+    ];
+
+    for (const item of cases) {
+      const { request, json } = requestWithJsonSpy(item.authorization);
+      const runMutation = vi.fn(async () => ({ id: "brainPage_123" }));
+      const response = await handleTemplateHttpRequest(
+        {
+          runQuery: async () => undefined,
+          runMutation,
+          runAction: async () => undefined,
+          apiKeys: item.keys,
+          servicePrincipals: item.principals,
+          nowMs: item.nowMs ?? 10_000,
+        },
+        request,
+      );
+
+      expect(await response.json()).toEqual({
+        ok: false,
+        error: { _tag: "Unauthorized", message: "Unauthorized." },
+      });
+      expect(json).not.toHaveBeenCalled();
+      expect(runMutation).not.toHaveBeenCalled();
+    }
   });
 
   it("never logs raw Authorization values through public errors", async () => {
-    const created = await createBrainApiKey({
-      organizationId: "org_123",
-      workspaceId: "workspace_123",
-      brainKey: "brain_acme",
-      name: "Reviewer CLI",
-      scopes: ["brain:read"],
-      actor: { userId: "user_admin", role: "admin" },
-      nowMs: 1_000,
-      expiresAt: 20_000,
-      randomBytes: () => new Uint8Array(32).fill(13),
-    });
+    const created = await makeKey();
 
-    const parsed = await readJsonBody(
+    const parsed = await handleTemplateHttpRequest(
+      {
+        runQuery: async () => undefined,
+        runMutation: async () => undefined,
+        runAction: async () => undefined,
+        apiKeys: [created.key],
+        servicePrincipals: [created.principal],
+        nowMs: 10_000,
+      },
       new Request("https://example.test/api/brain.pages.createMarkdown", {
         method: "POST",
+        headers: { authorization: `Basic ${created.displayKey}` },
       }),
-      { authorization: `Basic ${created.displayKey}` },
     );
 
-    expect(JSON.stringify(parsed)).not.toContain(created.displayKey);
+    expect(JSON.stringify(await parsed.json())).not.toContain(
+      created.displayKey,
+    );
   });
 });

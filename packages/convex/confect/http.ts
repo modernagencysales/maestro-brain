@@ -7,7 +7,9 @@ import {
 } from "./manifest/executor";
 import { buildGeneratedOpenApiDocument } from "./manifest/openapi";
 import {
+  authenticateBearerRequest,
   authenticatedExecutorRequestFor,
+  authorizeOperationBeforeDecode,
   readJsonBody,
   type TemplateApiRequestBody,
 } from "./httpRequest";
@@ -227,14 +229,26 @@ const executeTemplateApiRoute = async (
   request: Request,
   operationId: string,
 ): Promise<Response> => {
-  const parsedBody = await readJsonBody(request, {
+  const authenticated = await authenticateBearerRequest({
     authorization: request.headers.get("authorization") ?? undefined,
+    keys: ctx.apiKeys ?? [],
+    principals: ctx.servicePrincipals ?? [],
+    nowMs: ctx.nowMs ?? Date.now(),
   });
+  if (!authenticated.ok) return jsonResponse(authenticated);
+
+  const preauthorized = authorizeOperationBeforeDecode({
+    operationId,
+    principal: authenticated.principal,
+  });
+  if (!preauthorized.ok) return jsonResponse(preauthorized);
+
+  const parsedBody = await readJsonBody(request);
   const response = parsedBody.ok
     ? await responseForParsedTemplateApiBody(
         ctx,
-        request,
         operationId,
+        authenticated.principal,
         parsedBody.body,
       )
     : jsonResponse(parsedBody);
@@ -244,17 +258,14 @@ const executeTemplateApiRoute = async (
 
 const responseForParsedTemplateApiBody = async (
   ctx: HeadlessHttpCtx,
-  request: Request,
   operationId: string,
+  principal: import("./headless/principal").HeadlessPrincipal,
   body: TemplateApiRequestBody,
 ): Promise<Response> => {
   const executorRequest = await authenticatedExecutorRequestFor({
     operationId,
-    authorization: request.headers.get("authorization") ?? undefined,
+    principal,
     body,
-    keys: ctx.apiKeys ?? [],
-    principals: ctx.servicePrincipals ?? [],
-    nowMs: ctx.nowMs ?? Date.now(),
   });
   const response = executorRequest.ok
     ? jsonResponse(await runTemplateApiOperation(ctx, executorRequest.request))

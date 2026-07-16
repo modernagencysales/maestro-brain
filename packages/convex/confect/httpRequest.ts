@@ -5,8 +5,14 @@ import {
   type ApiKeyRow,
   type ServicePrincipalRow,
 } from "./headless/auth";
-import { authorizeHeadlessOperation } from "./headless/authorizeOperation";
-import { headlessPrincipalFromVerification } from "./headless/principal";
+import {
+  authorizeHeadlessOperation,
+  reviewedHeadlessPolicyFor,
+} from "./headless/authorizeOperation";
+import {
+  headlessPrincipalFromVerification,
+  type HeadlessPrincipal,
+} from "./headless/principal";
 import {
   type HeadlessExecutorRequest,
   type JsonValue,
@@ -40,6 +46,10 @@ export type HeadlessBearerAuthContext = {
   readonly nowMs: number;
 };
 
+export type HeadlessBearerAuthentication =
+  | { readonly ok: true; readonly principal: HeadlessPrincipal }
+  | TemplateHttpFailure;
+
 const validationFailed = (message: string): TemplateHttpFailure => ({
   ok: false,
   error: {
@@ -61,17 +71,39 @@ const forbidden = (): TemplateHttpFailure => ({
 const authFailureFor = (error: HeadlessAuthError): TemplateHttpFailure =>
   error.code === "API_KEY_FORBIDDEN" ? forbidden() : unauthorized();
 
+export const authenticateBearerRequest = async (
+  input: HeadlessBearerAuthContext,
+): Promise<HeadlessBearerAuthentication> => {
+  const presented = parseBearerApiKey(input.authorization);
+  if (presented instanceof HeadlessAuthError) return authFailureFor(presented);
+
+  const verification = await verifyApiKey({
+    presentedKey: presented,
+    keys: input.keys ?? [],
+    principals: input.principals ?? [],
+    nowMs: input.nowMs,
+    requiredScope: "brain:read",
+  });
+  if (!verification.ok) return authFailureFor(verification.error);
+
+  const principal = headlessPrincipalFromVerification(verification);
+  return principal === undefined ? unauthorized() : { ok: true, principal };
+};
+
+export const authorizeOperationBeforeDecode = (input: {
+  readonly operationId: string;
+  readonly principal: HeadlessPrincipal;
+}): HeadlessBearerAuthentication => {
+  const policy = reviewedHeadlessPolicyFor(input.operationId);
+  if (policy === undefined) return forbidden();
+  if (!input.principal.scopes.includes(policy.requiredScope))
+    return forbidden();
+  return { ok: true, principal: input.principal };
+};
+
 export const readJsonBody = async (
   request: Request,
-  auth?: { readonly authorization: string | undefined },
 ): Promise<ParsedTemplateApiRequestBody> => {
-  if (
-    auth !== undefined &&
-    parseBearerApiKey(auth.authorization) instanceof HeadlessAuthError
-  ) {
-    return unauthorized();
-  }
-
   let parsed: ParsedTemplateApiRequestBody = { ok: true, body: {} };
 
   if (hasJsonRequestBody(request)) {
@@ -117,33 +149,15 @@ const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
 
 export const authenticatedExecutorRequestFor = async (input: {
   readonly operationId: string;
-  readonly authorization: string | undefined;
+  readonly principal: HeadlessPrincipal;
   readonly body: TemplateApiRequestBody;
-  readonly keys?: readonly ApiKeyRow[];
-  readonly principals?: readonly ServicePrincipalRow[];
-  readonly nowMs: number;
 }): Promise<ExecutorRequestResult> => {
-  const presented = parseBearerApiKey(input.authorization);
-
-  if (presented instanceof HeadlessAuthError) return authFailureFor(presented);
-
-  const verification = await verifyApiKey({
-    presentedKey: presented,
-    keys: input.keys ?? [],
-    principals: input.principals ?? [],
-    nowMs: input.nowMs,
-    requiredScope: "brain:read",
-  });
-
-  if (!verification.ok) return authFailureFor(verification.error);
-
-  const principal = headlessPrincipalFromVerification(verification);
-  if (principal === undefined) return unauthorized();
-
+  const policy = reviewedHeadlessPolicyFor(input.operationId);
   const authorized = authorizeHeadlessOperation({
     operationId: input.operationId,
-    principal,
+    principal: input.principal,
     operationInput: input.body.input ?? {},
+    ...(policy === undefined ? {} : { policy }),
   });
 
   if (!authorized.ok) return authorized;
