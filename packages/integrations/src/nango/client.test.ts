@@ -4,6 +4,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
 import {
+  type NangoProviderService,
   NangoConfigError,
   NangoProvider,
   createFakeNangoClient,
@@ -283,7 +284,10 @@ describe("Nango provider client boundary", () => {
       ),
     );
 
-    const client = layer.unsafeMap.get(NangoProvider.key).clientFor({ now: 1 });
+    const provider: NangoProviderService = layer.unsafeMap.get(
+      NangoProvider.key,
+    );
+    const client = provider.clientFor({ now: 1 });
     await expect(
       client.createConnectSession({
         organizationKey: "nango-org-opaque",
