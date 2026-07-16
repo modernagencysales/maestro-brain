@@ -179,7 +179,8 @@ export type HeadlessAuthErrorCode =
   | "API_KEY_EXPIRED"
   | "API_KEY_FORBIDDEN"
   | "SERVICE_PRINCIPAL_MISSING"
-  | "SERVICE_PRINCIPAL_REVOKED";
+  | "SERVICE_PRINCIPAL_REVOKED"
+  | "TENANT_INACTIVE";
 
 export class HeadlessAuthError extends Schema.TaggedError<HeadlessAuthError>()(
   "HeadlessAuthError",
@@ -192,6 +193,7 @@ export class HeadlessAuthError extends Schema.TaggedError<HeadlessAuthError>()(
       "API_KEY_FORBIDDEN",
       "SERVICE_PRINCIPAL_MISSING",
       "SERVICE_PRINCIPAL_REVOKED",
+      "TENANT_INACTIVE",
     ),
     message: Schema.String,
   },
@@ -269,8 +271,11 @@ const displayPrefixFor = (displayKey: string): string =>
 const makeSecret = (randomBytes?: () => Uint8Array): string =>
   base64UrlEncode((randomBytes ?? defaultRandomBytes)());
 
-const makeKeyHash = async (displayKey: string): Promise<string> =>
-  sha256Base64Url(displayKey);
+export const hashPresentedApiKey = async (
+  displayKey: string,
+): Promise<string> => sha256Base64Url(displayKey);
+
+const makeKeyHash = hashPresentedApiKey;
 
 const validateBrainScopes = (
   scopes: readonly string[],
@@ -635,4 +640,47 @@ export const rotateBrainApiKey = async (input: {
     },
     revokedKey: { ...input.key, status: "revoked", revokedAt: input.nowMs },
   };
+};
+
+export type HeadlessTenantLifecycle = {
+  readonly organization: {
+    readonly id: string;
+    readonly status: string;
+    readonly generation?: number;
+  };
+  readonly workspace: {
+    readonly id: string;
+    readonly organizationId: string;
+    readonly status: string;
+    readonly brainKey?: string;
+    readonly lifecycleGeneration?: number;
+    readonly revocationGeneration?: number;
+  };
+};
+
+export const verifyApiKeyTenantLifecycle = (input: {
+  readonly verification: ApiKeyVerificationSuccess;
+  readonly lifecycle: HeadlessTenantLifecycle | undefined;
+}): ApiKeyVerificationResult => {
+  const { verification, lifecycle } = input;
+  if (lifecycle === undefined) {
+    return {
+      ok: false,
+      error: makeAuthError("TENANT_INACTIVE", "Tenant binding is inactive."),
+    };
+  }
+  if (
+    lifecycle.organization.id !== verification.organizationId ||
+    lifecycle.workspace.id !== verification.workspaceId ||
+    lifecycle.workspace.organizationId !== lifecycle.organization.id ||
+    lifecycle.workspace.brainKey !== verification.brainKey ||
+    lifecycle.organization.status !== "active" ||
+    lifecycle.workspace.status !== "active"
+  ) {
+    return {
+      ok: false,
+      error: makeAuthError("TENANT_INACTIVE", "Tenant binding is inactive."),
+    };
+  }
+  return verification;
 };
