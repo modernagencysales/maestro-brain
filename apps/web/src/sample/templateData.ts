@@ -104,7 +104,6 @@ const scalarApiDocsRoute =
 
 export const openApiSummary = buildOpenApiSummary(
   openApiDocument,
-  "/api/brain.pages.createMarkdown",
   scalarApiDocsRoute,
 );
 
