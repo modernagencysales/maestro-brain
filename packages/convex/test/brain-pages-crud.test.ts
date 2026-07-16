@@ -6,11 +6,15 @@ import { describe, expect, it } from "vitest";
 
 import type { Role } from "../confect/access/roles";
 import refs from "../confect/_generated/refs";
-import { manifest, schemaRegistry } from "../confect/brain/pages.spec";
+import {
+  manifest,
+  RecordSnapshotArgs,
+  schemaRegistry,
+} from "../confect/brain/pages.spec";
 import databaseSchema from "../confect/_generated/schema";
 import { Id } from "../confect/_generated/id";
 import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
-import { Forbidden, Unauthorized } from "../confect/errors";
+import { Forbidden, Unauthorized, ValidationFailed } from "../confect/errors";
 import {
   BrainNotFound,
   LifecycleRevoked,
@@ -454,6 +458,183 @@ describe("authorized Brain page CRUD", () => {
     expect(result.revisions[0]?.priorRevisionKey).toBeNull();
     expect(result.revisions[0]?.actor.kind).toBe("user");
     expect(result.revisions[0]?.effectKey).toContain("brain.pages.create");
+  });
+
+  it("records editor snapshots by stable keys and denies stale or foreign snapshots without mutating", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const seeded = yield* confect.run(
+        seedBrain({
+          role: "editor",
+          subject: "snapshot-editor",
+          email: "snapshot-editor@example.com",
+          brainKey: editorBrainKey,
+        }),
+        SeededBrain,
+      );
+      const otherSeeded = yield* confect.run(
+        seedBrain({
+          role: "editor",
+          subject: "snapshot-other",
+          email: "snapshot-other@example.com",
+          brainKey: viewerBrainKey,
+        }),
+        SeededBrain,
+      );
+      const editor = actor(
+        confect,
+        "snapshot-editor",
+        "snapshot-editor@example.com",
+      );
+      const page = yield* editor.mutation(refs.public.brain.pages.create, {
+        brainKey: editorBrainKey,
+        parentPageKey: null,
+        siblingSlug: "snapshot-page",
+        sortKey: "0000000001",
+        title: "Snapshot Page",
+        markdown: "# Snapshot Page",
+        expectedCurrentRevisionKey: null,
+      });
+      const other = actor(
+        confect,
+        "snapshot-other",
+        "snapshot-other@example.com",
+      );
+      yield* other.mutation(refs.public.brain.pages.create, {
+        brainKey: viewerBrainKey,
+        parentPageKey: null,
+        siblingSlug: "other-page",
+        sortKey: "0000000001",
+        title: "Other Page",
+        markdown: "# Other Page",
+        expectedCurrentRevisionKey: null,
+      });
+      const before = yield* confect.run(
+        pageMutationSnapshot(seeded.workspaceId),
+        Schema.Any,
+      );
+      const saved = yield* editor.mutation(
+        refs.internal.brain.pages.recordSnapshotInternal,
+        {
+          brainKey: editorBrainKey,
+          pageKey: page.pageKey,
+          expectedCurrentRevisionKey: requireRevisionKey(
+            page.currentRevisionKey,
+          ),
+          snapshot: '{"type":"doc","content":[]}',
+          version: 7,
+        },
+      );
+      const afterSave = yield* editor.query(refs.public.brain.pages.get, {
+        brainKey: editorBrainKey,
+        pageKey: page.pageKey,
+      });
+      const afterSaveMutationRows = yield* confect.run(
+        pageMutationSnapshot(seeded.workspaceId),
+        Schema.Any,
+      );
+      const stale = yield* editor
+        .mutation(refs.internal.brain.pages.recordSnapshotInternal, {
+          brainKey: editorBrainKey,
+          pageKey: page.pageKey,
+          expectedCurrentRevisionKey: "rev_stale",
+          snapshot: '{"type":"doc","stale":true}',
+          version: 8,
+        })
+        .pipe(Effect.either);
+      const staleVersion = yield* editor
+        .mutation(refs.internal.brain.pages.recordSnapshotInternal, {
+          brainKey: editorBrainKey,
+          pageKey: page.pageKey,
+          expectedCurrentRevisionKey: requireRevisionKey(
+            page.currentRevisionKey,
+          ),
+          snapshot: '{"type":"doc","oldVersion":true}',
+          version: 7,
+        })
+        .pipe(Effect.either);
+      const crossBrain = yield* other
+        .mutation(refs.internal.brain.pages.recordSnapshotInternal, {
+          brainKey: viewerBrainKey,
+          pageKey: page.pageKey,
+          expectedCurrentRevisionKey: requireRevisionKey(
+            page.currentRevisionKey,
+          ),
+          snapshot: '{"type":"doc","foreign":true}',
+          version: 9,
+        })
+        .pipe(Effect.either);
+      const afterDenials = yield* editor.query(refs.public.brain.pages.get, {
+        brainKey: editorBrainKey,
+        pageKey: page.pageKey,
+      });
+      const afterDeniedMutationRows = yield* confect.run(
+        pageMutationSnapshot(seeded.workspaceId),
+        Schema.Any,
+      );
+      const otherMutationRows = yield* confect.run(
+        pageMutationSnapshot(otherSeeded.workspaceId),
+        Schema.Any,
+      );
+      return {
+        saved,
+        before,
+        afterSave,
+        afterSaveMutationRows,
+        stale,
+        staleVersion,
+        crossBrain,
+        afterDenials,
+        afterDeniedMutationRows,
+        otherMutationRows,
+      };
+    });
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+    expect(result.saved).toEqual({ ok: true });
+    expect(result.afterSave.editorSnapshotJson).toBe(
+      '{"type":"doc","content":[]}',
+    );
+    expect(result.afterSave.editorSnapshotVersion).toBe(7);
+    expect(result.afterSave.page.currentRevisionKey).toBe(
+      result.afterDenials.page.currentRevisionKey,
+    );
+    expect(result.afterSaveMutationRows).toEqual(result.before);
+    expect(result.stale._tag).toBe("Left");
+    expect(result.stale.left).toBeInstanceOf(StaleRevision);
+    expect(result.staleVersion._tag).toBe("Left");
+    expect(result.staleVersion.left).toBeInstanceOf(ValidationFailed);
+    expect(result.crossBrain._tag).toBe("Left");
+    expect(result.crossBrain.left).toBeInstanceOf(PageNotFound);
+    expect(result.afterDenials.editorSnapshotJson).toBe(
+      '{"type":"doc","content":[]}',
+    );
+    expect(result.afterDenials.editorSnapshotVersion).toBe(7);
+    expect(result.afterDeniedMutationRows).toEqual(
+      result.afterSaveMutationRows,
+    );
+    expect(result.otherMutationRows).toEqual({
+      revisions: [expect.any(String)],
+      audits: [expect.any(String)],
+    });
+    expect(() =>
+      Schema.decodeUnknownSync(RecordSnapshotArgs)(
+        {
+          brainKey: editorBrainKey,
+          pageKey: page.pageKey,
+          expectedCurrentRevisionKey: requireRevisionKey(
+            page.currentRevisionKey,
+          ),
+          workspaceId: seeded.workspaceId,
+          snapshot: '{"type":"doc"}',
+          version: 10,
+        },
+        { onExcessProperty: "error" },
+      ),
+    ).toThrow(/workspaceId/);
   });
 
   it("allows viewer reads and denies viewer writes with Forbidden", async () => {
