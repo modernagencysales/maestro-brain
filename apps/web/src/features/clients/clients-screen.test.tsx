@@ -34,6 +34,7 @@ describe("ClientsScreen", () => {
           health: "Ready",
           freshness: "Updated today",
           connections: 2,
+          recentChanges: 0,
         },
       ],
     });
@@ -41,5 +42,6 @@ describe("ClientsScreen", () => {
     expect(html).toContain("Clients");
     expect(html).toContain("Acme Co");
     expect(html).toContain("Updated today");
+    expect(html).toContain("Create client Brain");
   });
 });
