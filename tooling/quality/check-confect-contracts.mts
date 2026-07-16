@@ -145,25 +145,54 @@ export function ambientDateNow(source: string): string | undefined {
     : undefined;
 }
 
-const stablePageOperationIds = [
-  "brain.pages.list",
-  "brain.pages.get",
-  "brain.pages.create",
-  "brain.pages.rename",
-  "brain.pages.move",
-  "brain.pages.favorite",
-  "brain.pages.archive",
+const stablePageOperationNames = [
+  "list",
+  "get",
+  "create",
+  "rename",
+  "move",
+  "favorite",
+  "archive",
 ] as const;
+
+function declaredStablePageOperations(source: string): ReadonlySet<string> {
+  const sourceFile = ts.createSourceFile(
+    "brain-pages.spec.ts",
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  const operations = new Set<string>();
+  const visit = (node: ts.Node): void => {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      ["definePageQuery", "definePageMutation"].includes(node.expression.text)
+    ) {
+      const name = node.arguments[0];
+      if (name && ts.isStringLiteral(name)) operations.add(name.text);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  return operations;
+}
 
 export function brainPagesStableContract(source: string): string | undefined {
   if (!source.includes("BrainKey")) return undefined;
+  const operations = declaredStablePageOperations(source);
   const required = [
     "BrainNotFound",
     "PageNotFound",
     "operationId: `brain.pages.${name}`",
-    ...stablePageOperationIds,
   ];
   const missing = required.filter((marker) => !source.includes(marker));
+  missing.push(
+    ...stablePageOperationNames
+      .filter((name) => !operations.has(name))
+      .map((name) => `brain.pages.${name}`),
+  );
   if (source.includes("createMarkdown")) missing.push("no createMarkdown");
   return missing.length === 0
     ? undefined

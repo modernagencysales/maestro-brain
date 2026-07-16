@@ -51,7 +51,7 @@ describe("check:confect-contracts", () => {
     });
   });
 
-  it("requires stable page errors, operation template, and exact operations", () => {
+  it("requires stable page errors, operation template, and exact declarations", () => {
     expect(brainPagesStableContract("const legacy = true;")).toBeUndefined();
     expect(brainPagesStableContract("const BrainKey = true;")).toContain(
       "BrainNotFound",
@@ -61,15 +61,13 @@ describe("check:confect-contracts", () => {
         const BrainKey = true;
         const errors = [BrainNotFound, PageNotFound];
         const operation = { operationId: \`brain.pages.\${name}\` };
-        const ids = [
-          "brain.pages.list",
-          "brain.pages.get",
-          "brain.pages.create",
-          "brain.pages.rename",
-          "brain.pages.move",
-          "brain.pages.favorite",
-          "brain.pages.archive",
-        ];
+        definePageQuery("list", ListArgs, ListReturns);
+        definePageQuery("get", GetArgs, PageDetail);
+        definePageMutation("create", CreateArgs);
+        definePageMutation("rename", RenameArgs);
+        definePageMutation("move", MoveArgs);
+        definePageMutation("favorite", FavoriteArgs);
+        definePageMutation("archive", ArchiveArgs);
       `),
     ).toBeUndefined();
     expect(
@@ -77,18 +75,29 @@ describe("check:confect-contracts", () => {
         const BrainKey = true;
         const errors = [BrainNotFound, PageNotFound];
         const operation = { operationId: \`brain.pages.\${name}\` };
-        const ids = [
-          "brain.pages.list",
-          "brain.pages.get",
-          "brain.pages.create",
-          "brain.pages.rename",
-          "brain.pages.move",
-          "brain.pages.favorite",
-          "brain.pages.archive",
-          "createMarkdown",
-        ];
+        definePageQuery("list", ListArgs, ListReturns);
+        definePageQuery("get", GetArgs, PageDetail);
+        definePageMutation("create", CreateArgs);
+        definePageMutation("rename", RenameArgs);
+        definePageMutation("move", MoveArgs);
+        definePageMutation("favorite", FavoriteArgs);
+        definePageMutation("archive", ArchiveArgs);
+        definePageMutation("createMarkdown", LegacyArgs);
       `),
     ).toContain("no createMarkdown");
+    expect(
+      brainPagesStableContract(`
+        const BrainKey = true;
+        const errors = [BrainNotFound, PageNotFound];
+        const operation = { operationId: \`brain.pages.\${name}\` };
+        definePageQuery("list", ListArgs, ListReturns);
+        definePageQuery("get", GetArgs, PageDetail);
+        definePageMutation("create", CreateArgs);
+        definePageMutation("rename", RenameArgs);
+        definePageMutation("move", MoveArgs);
+        definePageMutation("favorite", FavoriteArgs);
+      `),
+    ).toContain("brain.pages.archive");
   });
 
   it("rejects public specs without declared typed errors", () => {
