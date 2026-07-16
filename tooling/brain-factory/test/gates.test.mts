@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { describe, expect, it } from "vitest";
 import {
   commandsForTaskFiles,
@@ -152,6 +155,17 @@ describe("brain lane gate profiles", () => {
         [focused],
       ),
     ).toEqual([]);
+  });
+
+  it("recomputes integration receipts with the same file gates as lanes", () => {
+    const source = readFileSync(
+      resolve(import.meta.dirname, "../src/integration-lane-check.ts"),
+      "utf8",
+    );
+
+    expect(source).toContain(
+      "commandsForTaskFiles(\n        actualChangedFiles,\n        manifestTask.fileLocks as string[],\n        focusedCommands,\n      )",
+    );
   });
 
   it("lints changed source without passing docs or env files", () => {
