@@ -153,6 +153,17 @@ const gateCommands = deduplicateGateCommands([
 const commandSetHash = gateCommandSetHash(gateCommands);
 
 const requiredTaskFiles: Readonly<Record<string, readonly string[]>> = {
+  "S03-T02": [
+    "apps/web/src/features/clients/clients-adapter.test.ts",
+    "apps/web/src/features/clients/clients-adapter.ts",
+    "apps/web/src/features/clients/clients-state.test.ts",
+    "apps/web/src/features/clients/clients-state.ts",
+    "apps/web/src/features/clients/clients-table.test.tsx",
+    "apps/web/src/features/clients/clients-table.tsx",
+    "apps/web/src/features/clients/create-client-dialog.test.tsx",
+    "apps/web/src/features/clients/create-client-dialog.tsx",
+    "packages/convex/confect/brain/clientBrief.ts",
+  ],
   "S09-T01": [
     "packages/search/src/asyncSearch.ts",
     "packages/search/src/asyncSearch.test.ts",

@@ -31,6 +31,26 @@ const workflows = {
 } as const;
 
 describe("Fabro workflow prompt contracts", () => {
+  it("requires every S03-T02 client creation artifact before lane green", () => {
+    const laneGates = readFileSync(
+      resolve(import.meta.dirname, "../src/lane-gates.mts"),
+      "utf8",
+    );
+    for (const file of [
+      "apps/web/src/features/clients/clients-adapter.test.ts",
+      "apps/web/src/features/clients/clients-adapter.ts",
+      "apps/web/src/features/clients/clients-state.test.ts",
+      "apps/web/src/features/clients/clients-state.ts",
+      "apps/web/src/features/clients/clients-table.test.tsx",
+      "apps/web/src/features/clients/clients-table.tsx",
+      "apps/web/src/features/clients/create-client-dialog.test.tsx",
+      "apps/web/src/features/clients/create-client-dialog.tsx",
+      "packages/convex/confect/brain/clientBrief.ts",
+    ]) {
+      expect(laneGates).toContain(file);
+    }
+  });
+
   it("keeps file discovery scoped in every agent prompt", () => {
     for (const [workflow, contract] of Object.entries(workflows)) {
       const path = resolve(
