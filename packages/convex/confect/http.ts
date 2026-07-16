@@ -1,6 +1,5 @@
 import { confectManifest } from "@maestro-template/template-core/generated/confectManifest";
 import { httpActionGeneric, httpRouter } from "convex/server";
-import { api } from "../convex/_generated/api";
 import {
   executeHeadlessOperation,
   type HeadlessExecutorRequest,
