@@ -135,6 +135,15 @@ describe("Fabro workflow prompt contracts", () => {
     expect(repair).toContain(
       "Do not use native apply_patch; update that proof with one guarded targeted shell or write_file operation",
     );
+    expect(repair).toContain(
+      "When that receipt is passed and bound to the exact current head, tree, and command set",
+    );
+    expect(repair).toContain(
+      "do not invoke brain:factory:lane-gates and do not rerun its focused commands",
+    );
+    expect(repair).toContain(
+      "Rerun a focused command only when the receipt or its evidence is inconsistent",
+    );
     expect(repair).toContain('final_gate -> repair [label="red or rework"]');
     expect(repair).toContain("--stage final --reuse-pre-review");
     expect(repair).toContain(
