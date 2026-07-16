@@ -47,6 +47,46 @@ export const safeTransientConfectProfile = (
   value: string,
 ): value is TransientConfectProfile => transientProfileNames.has(value);
 
+export const parseTransientConfectArgs = (
+  args: readonly string[],
+): {
+  readonly checks: readonly string[];
+  readonly profiles: readonly string[];
+  readonly testPatterns: readonly string[];
+} => {
+  const checks: string[] = [];
+  const profiles: string[] = [];
+  const testPatterns: string[] = [];
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index];
+    if (argument === "--") continue;
+    const target =
+      argument === "--check"
+        ? checks
+        : argument === "--profile"
+          ? profiles
+          : argument === "--test"
+            ? testPatterns
+            : undefined;
+    if (target === undefined) {
+      throw new Error(`unknown transient Confect argument ${String(argument)}`);
+    }
+    const value = args[index + 1];
+    if (!value || value.startsWith("--")) {
+      throw new Error(`${argument} requires a value`);
+    }
+    target.push(value);
+    index += 1;
+  }
+  return { checks, profiles, testPatterns };
+};
+
+export const unexpectedUntrackedFiles = (status: string): string[] =>
+  status
+    .split("\n")
+    .filter((line) => line.startsWith("?? "))
+    .map((line) => line.slice(3));
+
 export const sameGeneratedFileSet = (
   expected: readonly string[],
   actual: readonly string[],
@@ -240,6 +280,20 @@ export const runTransientConfectCodegen = (input: {
     );
     const generatedPatchHash = stagedPatchHash(workdir);
     hooks.validate(workdir, testPatterns, validatedChecks, validatedProfiles);
+    const untrackedFiles = unexpectedUntrackedFiles(
+      runRtk(
+        ["proxy", "git", "status", "--porcelain", "--untracked-files=all"],
+        {
+          cwd: workdir,
+          quiet: true,
+        },
+      ),
+    );
+    if (untrackedFiles.length > 0) {
+      throw new Error(
+        `transient validation created untracked artifacts: ${untrackedFiles.join(", ")}`,
+      );
+    }
     runRtk(["git", "diff", "--cached", "--check"], { cwd: workdir });
     if (diffFiles(workdir).length > 0) {
       throw new Error("Confect generated output changed after freshness check");

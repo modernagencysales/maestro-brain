@@ -37,6 +37,7 @@ describe("Fabro workflow prompt contracts", () => {
       "utf8",
     );
     for (const file of [
+      "apps/web/src/sample/templateData.test.ts",
       "docs/superpowers/receipts/maestro-brain/file-inventories/S02-T02-confect-generated-files.json",
       "packages/convex/confect/brain/pageTree.ts",
       "packages/convex/test/brain-pages-crud.test.ts",

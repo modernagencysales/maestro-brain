@@ -145,6 +145,31 @@ export function ambientDateNow(source: string): string | undefined {
     : undefined;
 }
 
+const stablePageOperationIds = [
+  "brain.pages.list",
+  "brain.pages.get",
+  "brain.pages.create",
+  "brain.pages.rename",
+  "brain.pages.move",
+  "brain.pages.favorite",
+  "brain.pages.archive",
+] as const;
+
+export function brainPagesStableContract(source: string): string | undefined {
+  if (!source.includes("BrainKey")) return undefined;
+  const required = [
+    "BrainNotFound",
+    "PageNotFound",
+    "operationId: `brain.pages.${name}`",
+    ...stablePageOperationIds,
+  ];
+  const missing = required.filter((marker) => !source.includes(marker));
+  if (source.includes("createMarkdown")) missing.push("no createMarkdown");
+  return missing.length === 0
+    ? undefined
+    : `Stable Brain page contract is missing: ${missing.join(", ")}.`;
+}
+
 export function plainConvexValueImports(source: string): string | undefined {
   const importPattern =
     /import\s+(?!type\b)([\s\S]*?)\s+from\s+["']convex\/[^"']+["']/g;
@@ -206,6 +231,10 @@ export async function collectConfectContractFindings(
 
     if (importMessage) findings.push({ file, message: importMessage });
     if (errorMessage) findings.push({ file, message: errorMessage });
+    if (file === "packages/convex/confect/brain/pages.spec.ts") {
+      const pageMessage = brainPagesStableContract(source);
+      if (pageMessage) findings.push({ file, message: pageMessage });
+    }
   }
 
   for (const file of allFiles.filter((path) => path.endsWith(".impl.ts"))) {

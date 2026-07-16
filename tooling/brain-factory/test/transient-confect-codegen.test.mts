@@ -13,11 +13,13 @@ import { describe, expect, it } from "vitest";
 import { runRtk } from "../src/process.js";
 import {
   generatedConfectDeltaIssues,
+  parseTransientConfectArgs,
   runTransientConfectCodegen,
   safeFocusedTestPattern,
   safeTransientConfectCheck,
   safeTransientConfectProfile,
   sameGeneratedFileSet,
+  unexpectedUntrackedFiles,
 } from "../src/transient-confect-codegen.js";
 
 const git = (root: string, ...args: string[]): string =>
@@ -113,6 +115,40 @@ describe("transient Confect codegen", () => {
     expect(safeTransientConfectProfile("web")).toBe(true);
     expect(safeTransientConfectProfile("convex")).toBe(false);
     expect(safeTransientConfectProfile("web;rm")).toBe(false);
+  });
+
+  it("parses repeatable known flags and rejects unknown arguments", () => {
+    expect(
+      parseTransientConfectArgs([
+        "--",
+        "--check",
+        "confect-contracts",
+        "--check",
+        "headless-surface-contract",
+        "--profile",
+        "web",
+        "--test",
+        "brain-pages",
+      ]),
+    ).toEqual({
+      checks: ["confect-contracts", "headless-surface-contract"],
+      profiles: ["web"],
+      testPatterns: ["brain-pages"],
+    });
+    expect(() => parseTransientConfectArgs(["--unknown", "value"])).toThrow(
+      "unknown transient Confect argument --unknown",
+    );
+    expect(() => parseTransientConfectArgs(["--test"])).toThrow(
+      "--test requires a value",
+    );
+  });
+
+  it("reports only unexpected untracked artifacts", () => {
+    expect(
+      unexpectedUntrackedFiles(
+        "M  tracked.ts\n?? artifact.txt\n?? nested/x.ts\n",
+      ),
+    ).toEqual(["artifact.txt", "nested/x.ts"]);
   });
 
   it("forwards multiple tests in one disposable worktree without mutating the source checkout", () => {
@@ -242,6 +278,35 @@ describe("transient Confect codegen", () => {
       expect(git(value.root, "worktree", "list", "--porcelain")).not.toContain(
         disposableWorktree,
       );
+      expect(existsSync(disposableWorktree)).toBe(false);
+    } finally {
+      rmSync(value.root, { force: true, recursive: true });
+    }
+  });
+
+  it("rejects untracked validation artifacts and removes the worktree", () => {
+    const value = fixture();
+    let disposableWorktree = "";
+    try {
+      expect(() =>
+        runTransientConfectCodegen({
+          root: value.root,
+          hooks: {
+            hydrate: (_root, workdir) => {
+              disposableWorktree = workdir;
+            },
+            generate: (workdir) => {
+              writeFileSync(
+                join(workdir, "packages/convex/confect/_generated/schema.ts"),
+                "export const schema = 2;\n",
+              );
+            },
+            validate: (workdir) => {
+              writeFileSync(join(workdir, "unexpected.txt"), "artifact\n");
+            },
+          },
+        }),
+      ).toThrow("transient validation created untracked artifacts");
       expect(existsSync(disposableWorktree)).toBe(false);
     } finally {
       rmSync(value.root, { force: true, recursive: true });

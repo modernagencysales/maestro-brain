@@ -5,6 +5,7 @@ import {
   commandsForProfiles,
   formatCommandForFiles,
   focusedGateCommand,
+  focusedCommandContractIssues,
   type GateCommand,
   lintCommandForFiles,
 } from "./gates.js";
@@ -111,6 +112,12 @@ if (!Array.isArray(proof.changedFiles) || proof.changedFiles.length === 0)
   throw new Error(`${taskId}: proof has no changed files`);
 if (!Array.isArray(proof.focusedCommands) || proof.focusedCommands.length === 0)
   throw new Error(`${taskId}: proof has no focused commands`);
+const focusedCommandIssues = focusedCommandContractIssues(
+  taskId,
+  proof.focusedCommands,
+);
+if (focusedCommandIssues.length > 0)
+  throw new Error(`${taskId}: ${focusedCommandIssues.join("; ")}`);
 const changedFilesResult = spawnSync(
   "rtk",
   ["proxy", "git", "diff", "--name-only", `${proof.baseSha}..${proof.headSha}`],
@@ -154,6 +161,7 @@ const commandSetHash = gateCommandSetHash(gateCommands);
 
 const requiredTaskFiles: Readonly<Record<string, readonly string[]>> = {
   "S02-T02": [
+    "apps/web/src/sample/templateData.test.ts",
     "docs/superpowers/receipts/maestro-brain/file-inventories/S02-T02-confect-generated-files.json",
     "packages/convex/confect/brain/pageTree.ts",
     "packages/convex/test/brain-pages-crud.test.ts",

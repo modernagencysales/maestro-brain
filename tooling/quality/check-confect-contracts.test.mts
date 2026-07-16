@@ -6,6 +6,7 @@ import {
 import { evaluateStaticCheck } from "./src/gate.mts";
 import {
   ambientDateNow,
+  brainPagesStableContract,
   descriptor,
   plainConvexValueImports,
   publicSpecMissingError,
@@ -48,6 +49,46 @@ describe("check:confect-contracts", () => {
         ok: true,
       });
     });
+  });
+
+  it("requires stable page errors, operation template, and exact operations", () => {
+    expect(brainPagesStableContract("const legacy = true;")).toBeUndefined();
+    expect(brainPagesStableContract("const BrainKey = true;")).toContain(
+      "BrainNotFound",
+    );
+    expect(
+      brainPagesStableContract(`
+        const BrainKey = true;
+        const errors = [BrainNotFound, PageNotFound];
+        const operation = { operationId: \`brain.pages.\${name}\` };
+        const ids = [
+          "brain.pages.list",
+          "brain.pages.get",
+          "brain.pages.create",
+          "brain.pages.rename",
+          "brain.pages.move",
+          "brain.pages.favorite",
+          "brain.pages.archive",
+        ];
+      `),
+    ).toBeUndefined();
+    expect(
+      brainPagesStableContract(`
+        const BrainKey = true;
+        const errors = [BrainNotFound, PageNotFound];
+        const operation = { operationId: \`brain.pages.\${name}\` };
+        const ids = [
+          "brain.pages.list",
+          "brain.pages.get",
+          "brain.pages.create",
+          "brain.pages.rename",
+          "brain.pages.move",
+          "brain.pages.favorite",
+          "brain.pages.archive",
+          "createMarkdown",
+        ];
+      `),
+    ).toContain("no createMarkdown");
   });
 
   it("rejects public specs without declared typed errors", () => {

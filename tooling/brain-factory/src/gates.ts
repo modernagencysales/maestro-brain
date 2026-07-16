@@ -5,6 +5,22 @@ export interface GateCommand {
   readonly program: string;
 }
 
+export const S02_T02_FOCUSED_COMMANDS = [
+  "rtk pnpm brain:factory:check-confect-codegen -- --check confect-contracts --check headless-surface-contract --profile web --test brain-pages --test http-docs --test confect-contracts --test workspace-access --test headless-executor --test observability-error-capture",
+  "rtk host-test-slot --class focused pnpm --dir apps/cli test",
+  "rtk host-test-slot --class focused pnpm --dir tooling/workflow test",
+] as const;
+
+export const focusedCommandContractIssues = (
+  taskId: string,
+  commands: readonly string[],
+): string[] => {
+  if (taskId !== "S02-T02") return [];
+  return JSON.stringify(commands) === JSON.stringify(S02_T02_FOCUSED_COMMANDS)
+    ? []
+    : ["S02-T02 focused commands must match the transient snapshot contract"];
+};
+
 const unsafeShellToken = /[;&|<>`$\\'"]/;
 
 export const focusedGateCommand = (value: string): GateCommand => {

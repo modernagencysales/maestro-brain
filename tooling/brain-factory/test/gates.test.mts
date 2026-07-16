@@ -3,7 +3,9 @@ import {
   commandsForProfiles,
   formatCommandForFiles,
   focusedGateCommand,
+  focusedCommandContractIssues,
   lintCommandForFiles,
+  S02_T02_FOCUSED_COMMANDS,
   validatesTransientConfectSnapshot,
   validatesTransientConfectProfile,
 } from "../src/gates.js";
@@ -53,6 +55,21 @@ describe("brain lane gate profiles", () => {
     );
     expect(commandsForProfiles(["convex", "web"], [transientWeb])).toEqual([]);
     expect(commandsForProfiles(["web"], [transientWithoutWeb])).toHaveLength(2);
+  });
+
+  it("pins S02 to one exact transient snapshot command packet", () => {
+    expect(
+      focusedCommandContractIssues("S02-T02", S02_T02_FOCUSED_COMMANDS),
+    ).toEqual([]);
+    expect(
+      focusedCommandContractIssues("S02-T02", [
+        ...S02_T02_FOCUSED_COMMANDS,
+        "rtk pnpm check:headless-surface-contract",
+      ]),
+    ).toEqual([
+      "S02-T02 focused commands must match the transient snapshot contract",
+    ]);
+    expect(focusedCommandContractIssues("S03-T02", [])).toEqual([]);
   });
 
   it("does not invent local gates for external receipts", () => {
