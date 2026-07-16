@@ -356,3 +356,302 @@ export const revokeApiKeyForBrain = (
     return null;
   });
 
+export const authenticateBrainKeyHash = (input: {
+  readonly keyHash: string;
+  readonly requiredScope: HeadlessApiKeyScope;
+}): Effect.Effect<
+  {
+    readonly principal: HeadlessPrincipal;
+    readonly keyHash: string;
+    readonly keyId: string;
+  },
+  HeadlessAuthError,
+  DatabaseReader
+> =>
+  Effect.gen(function* () {
+    const nowMs = yield* Clock.currentTimeMillis;
+    const reader = yield* DatabaseReader;
+    const keys = yield* reader
+      .table("apiKeys")
+      .index("by_key_hash", (q) => q.eq("keyHash", input.keyHash))
+      .collect()
+      .pipe(Effect.orDie);
+    const key = requireExactlyOne(keys);
+    if (key === undefined) {
+      return yield* Effect.fail(
+        authError("API_KEY_NOT_FOUND", "API key was not found."),
+      );
+    }
+    const principalId = key.principalId;
+    const principal =
+      principalId === undefined
+        ? null
+        : ((yield* reader
+            .table("servicePrincipals")
+            .index("by_principal_key", (q) => q.eq("id", principalId))
+            .collect()
+            .pipe(Effect.map(requireExactlyOne), Effect.orDie)) ?? null);
+    const rowVerification = verifyStoredKeyRow(
+      key,
+      principal,
+      nowMs,
+      input.requiredScope,
+    );
+    if (!rowVerification.ok) return yield* Effect.fail(rowVerification.error);
+    const active = yield* assertActiveBrainScope({
+      organizationId: rowVerification.organizationId ?? "",
+      workspaceId: rowVerification.workspaceId,
+      brainKey: rowVerification.brainKey ?? "",
+    });
+    if (
+      key.organizationGeneration !== undefined &&
+      key.organizationGeneration !==
+        (active.organization.lifecycleGeneration ?? 0)
+    )
+      return yield* Effect.fail(
+        authError("TENANT_INACTIVE", "Tenant generation changed."),
+      );
+    if (
+      key.organizationRevocationGeneration !== undefined &&
+      key.organizationRevocationGeneration !==
+        (active.organization.revocationGeneration ?? 0)
+    )
+      return yield* Effect.fail(
+        authError("TENANT_INACTIVE", "Tenant revocation changed."),
+      );
+    if (
+      key.workspaceGeneration !== undefined &&
+      key.workspaceGeneration !== (active.workspace.lifecycleGeneration ?? 0)
+    )
+      return yield* Effect.fail(
+        authError("TENANT_INACTIVE", "Brain generation changed."),
+      );
+    if (
+      key.workspaceRevocationGeneration !== undefined &&
+      key.workspaceRevocationGeneration !==
+        (active.workspace.revocationGeneration ?? 0)
+    )
+      return yield* Effect.fail(
+        authError("TENANT_INACTIVE", "Brain revocation changed."),
+      );
+    const headlessPrincipal =
+      headlessPrincipalFromVerification(rowVerification);
+    if (headlessPrincipal === undefined) {
+      return yield* Effect.fail(
+        authError("API_KEY_FORBIDDEN", "API key is not a Brain principal."),
+      );
+    }
+    return {
+      principal: headlessPrincipal,
+      keyHash: input.keyHash,
+      keyId: key._id,
+    };
+  });
+
+const verifyStoredKeyRow = (
+  key: ApiKeyRow,
+  principal: import("./auth").ServicePrincipalRow | null,
+  nowMs: number,
+  requiredScope: HeadlessApiKeyScope,
+) => {
+  if (key.status === "revoked" || key.revokedAt !== null) {
+    return {
+      ok: false as const,
+      error: authError("API_KEY_REVOKED", "API key has been revoked."),
+    };
+  }
+  if (
+    key.status === "expired" ||
+    (key.expiresAt !== null && key.expiresAt <= nowMs)
+  ) {
+    return {
+      ok: false as const,
+      error: authError("API_KEY_EXPIRED", "API key has expired."),
+    };
+  }
+  if (principal == null) {
+    return {
+      ok: false as const,
+      error: authError(
+        "SERVICE_PRINCIPAL_MISSING",
+        "Brain API keys require an active service principal.",
+      ),
+    };
+  }
+  if (principal.status !== "active" || principal.revokedAt !== null) {
+    return {
+      ok: false as const,
+      error: authError(
+        "SERVICE_PRINCIPAL_REVOKED",
+        "Service principal has been revoked.",
+      ),
+    };
+  }
+  if (!key.scopes.includes(requiredScope)) {
+    return {
+      ok: false as const,
+      error: authError(
+        "API_KEY_FORBIDDEN",
+        "API key does not include the required scope.",
+      ),
+    };
+  }
+  if (
+    key.organizationId === undefined ||
+    key.brainKey === undefined ||
+    key.roleCeiling !== "viewer" ||
+    key.principalId === undefined
+  ) {
+    return {
+      ok: false as const,
+      error: authError(
+        "API_KEY_FORBIDDEN",
+        "API key is not a Brain principal.",
+      ),
+    };
+  }
+  const scopes = key.scopes.filter(
+    (scope): scope is HeadlessApiKeyScope =>
+      scope === "brain:read" || scope === "brain:ask",
+  );
+  return {
+    ok: true as const,
+    organizationId: key.organizationId,
+    workspaceId: key.workspaceId,
+    brainKey: key.brainKey,
+    roleCeiling: key.roleCeiling,
+    keyId: key.id,
+    principalId: key.principalId,
+    scopes,
+  };
+};
+
+export const authenticateBrainBearer = (input: {
+  readonly authorization: string | undefined;
+  readonly requiredScope: HeadlessApiKeyScope;
+}) =>
+  Effect.gen(function* () {
+    const presented = parseBearerApiKey(input.authorization);
+    if (presented instanceof HeadlessAuthError)
+      return yield* Effect.fail(presented);
+    const keyHash = yield* Effect.promise(() => hashPresentedApiKey(presented));
+    return yield* authenticateBrainKeyHash({
+      keyHash,
+      requiredScope: input.requiredScope,
+    });
+  });
+
+export const markApiKeyLastUsed = (input: {
+  readonly keyId: string;
+  readonly keyHash: string;
+  readonly principalId: string;
+  readonly organizationId: string;
+  readonly workspaceId: string;
+  readonly brainKey: string;
+}): Effect.Effect<void, never, DatabaseReader | DatabaseWriter> =>
+  Effect.gen(function* () {
+    const nowMs = yield* Clock.currentTimeMillis;
+    const reader = yield* DatabaseReader;
+    const keys = yield* reader
+      .table("apiKeys")
+      .index("by_key_hash", (q) => q.eq("keyHash", input.keyHash))
+      .collect()
+      .pipe(Effect.orDie);
+    const key = requireExactlyOne(keys);
+    if (
+      key === undefined ||
+      key._id !== input.keyId ||
+      key.keyHash !== input.keyHash ||
+      key.principalId !== input.principalId ||
+      key.organizationId !== input.organizationId ||
+      key.workspaceId !== input.workspaceId ||
+      key.brainKey !== input.brainKey ||
+      key.status !== "active" ||
+      key.revokedAt !== null ||
+      (key.expiresAt !== null && key.expiresAt <= nowMs)
+    ) {
+      return;
+    }
+    const principal = yield* reader
+      .table("servicePrincipals")
+      .index("by_principal_key", (q) => q.eq("id", input.principalId))
+      .collect()
+      .pipe(Effect.map(requireExactlyOne), Effect.orDie);
+    if (
+      principal == null ||
+      principal.id !== input.principalId ||
+      principal.organizationId !== input.organizationId ||
+      principal.workspaceId !== input.workspaceId ||
+      principal.brainKey !== input.brainKey ||
+      principal.status !== "active" ||
+      principal.revokedAt !== null ||
+      key.principalGeneration !== principal.generation
+    ) {
+      return;
+    }
+    const active = yield* assertActiveBrainScope({
+      organizationId: input.organizationId,
+      workspaceId: input.workspaceId,
+      brainKey: input.brainKey,
+    }).pipe(Effect.catchAll(() => Effect.succeed(null)));
+    if (
+      active === null ||
+      (key.organizationGeneration !== undefined &&
+        key.organizationGeneration !==
+          (active.organization.lifecycleGeneration ?? 0)) ||
+      (key.organizationRevocationGeneration !== undefined &&
+        key.organizationRevocationGeneration !==
+          (active.organization.revocationGeneration ?? 0)) ||
+      (key.workspaceGeneration !== undefined &&
+        key.workspaceGeneration !==
+          (active.workspace.lifecycleGeneration ?? 0)) ||
+      (key.workspaceRevocationGeneration !== undefined &&
+        key.workspaceRevocationGeneration !==
+          (active.workspace.revocationGeneration ?? 0))
+    ) {
+      return;
+    }
+    yield* (yield* DatabaseWriter)
+      .table("apiKeys")
+      .patch(asGenericId<"apiKeys">(key._id), { lastUsedAt: nowMs })
+      .pipe(Effect.catchAll(() => Effect.void));
+  });
+
+const currentBrainContext = (brainKey: string) =>
+  Effect.gen(function* () {
+    const auth = yield* Auth;
+    const identity = yield* extractIdentityProfile(
+      yield* auth.getUserIdentity.pipe(
+        Effect.mapError(() => new Unauthorized()),
+      ),
+    );
+    if (identity.workosOrganizationId === undefined)
+      return yield* Effect.fail(new Unauthorized());
+    const reader = yield* DatabaseReader;
+    const user = yield* loadCurrentUser(reader);
+    const organizations = yield* reader
+      .table("organizations")
+      .index("by_workos_organization", (q) =>
+        q.eq("workosOrganizationId", identity.workosOrganizationId),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const organization = requireExactlyOne(
+      organizations.filter((row) => row.status === "active"),
+    );
+    if (organization === undefined)
+      return yield* Effect.fail(new Unauthorized());
+    const workspaces = yield* reader
+      .table("workspaces")
+      .index("by_organization", (q) => q.eq("organizationId", organization._id))
+      .collect()
+      .pipe(Effect.orDie);
+    const workspace = requireExactlyOne(
+      workspaces.filter(
+        (row) => row.status === "active" && row.brainKey === brainKey,
+      ),
+    );
+    if (workspace === undefined || workspace.brainKey === undefined)
+      return yield* Effect.fail(new Unauthorized());
+    const members = yield* reader
+      .table("workspaceMembers")
