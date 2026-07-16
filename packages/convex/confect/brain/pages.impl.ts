@@ -203,6 +203,7 @@ const requireCurrentRevision = (
           actualCurrentRevisionKey: page.currentRevisionKey ?? null,
         }),
       );
+
 const writePageRevision = (args: {
   readonly brain: BrainContext;
   readonly page: Omit<BrainPage, "currentRevisionKey"> & {

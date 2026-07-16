@@ -71,7 +71,11 @@ export const templateHttpRoutes = [
     description: "Serves the Scalar API documentation shell.",
   },
   ...confectManifest.functions
-    .filter((entry) => hasSurface(entry, "api"))
+    .filter(
+      (entry) =>
+        hasSurface(entry, "api") &&
+        (entry.operationId as string) !== "brain.pages.createMarkdown",
+    )
     .map((entry) => ({
       path: `/api/${entry.operationId}`,
       method: "POST" as const,
@@ -138,7 +142,9 @@ const runTemplateApiOperation = async (
 const templateRouteForPath = (pathname: string): TemplateRouteMatch => {
   const apiEntry = confectManifest.functions.find(
     (entry) =>
-      hasSurface(entry, "api") && `/api/${entry.operationId}` === pathname,
+      hasSurface(entry, "api") &&
+      (entry.operationId as string) !== "brain.pages.createMarkdown" &&
+      `/api/${entry.operationId}` === pathname,
   );
   const route =
     staticTemplateRoutes[pathname] ??
@@ -174,9 +180,19 @@ const templateRouteResponse = async (
   return response;
 };
 
+const filteredOpenApiDocument = (): ReturnType<
+  typeof buildGeneratedOpenApiDocument
+> => {
+  const document = buildGeneratedOpenApiDocument();
+  const { ["/api/brain.pages.createMarkdown"]: _legacy, ...paths } =
+    document.paths;
+  void _legacy;
+  return { ...document, paths };
+};
+
 const openApiRouteResponse = (request: Request): Response =>
   request.method === "GET"
-    ? jsonResponse(buildGeneratedOpenApiDocument())
+    ? jsonResponse(filteredOpenApiDocument())
     : jsonResponse({
         ok: false,
         error: {

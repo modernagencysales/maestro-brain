@@ -439,10 +439,10 @@ export const callMcpTool = (
     return mcpText(runTemplateWorkflow(registry));
   }
 
-  const operation = confectManifest.functions.find(
+  const operation = generatedHeadlessFunctions().find(
     (candidate) =>
       hasSurface(candidate, "mcp") &&
-      generatedMcpOperationRefs[candidate.operationId] === toolName,
+      `template.${candidate.operationId}` === toolName,
   );
 
   if (!operation) {
