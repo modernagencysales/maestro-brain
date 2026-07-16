@@ -321,11 +321,9 @@ describe("authorized Brain provisioning", () => {
     expect(result.retry).toEqual(result.first);
     expect(result.before).toBe(1);
     expect(result.after).toBe(1);
-    expect(
-      result.pages
-        .map((page: { readonly pageKey: string }) => page.pageKey)
-        .sort(),
-    ).toEqual(result.first.pages.map((page) => page.pageKey).sort());
+    expect(result.pages.map((page) => page.pageKey).sort()).toEqual(
+      result.first.pages.map((page) => page.pageKey).sort(),
+    );
   });
 
   it("keeps same-slug client Brief page keys tenant scoped", async () => {
@@ -1292,28 +1290,33 @@ const ProvisioningRowCounts = Schema.Struct({
   workspaceMembers: Schema.Number,
 });
 
-const ClientBriefPageRows = Schema.Array(
-  Schema.Struct({
-    pageKey: Schema.String,
-    title: Schema.String,
-    siblingSlug: Schema.String,
-    sortKey: Schema.String,
-    status: Schema.String,
-  }),
+const ClientBriefPageRows = Schema.mutable(
+  Schema.Array(
+    Schema.Struct({
+      pageKey: Schema.String,
+      title: Schema.String,
+      siblingSlug: Schema.UndefinedOr(Schema.String),
+      sortKey: Schema.UndefinedOr(Schema.String),
+      status: Schema.UndefinedOr(
+        Schema.Literal("active", "archived", "redacted", "purged"),
+      ),
+    }),
+  ),
 );
 
 const ClientProvisioningSideEffects = Schema.Struct({
   user: Schema.Struct({ _id: Schema.String }),
+  organization: Schema.Struct({ _id: Schema.String }),
   workspace: Schema.Struct({
-    brainKey: Schema.String,
-    clientSlug: Schema.String,
-    kind: Schema.String,
-    status: Schema.String,
+    brainKey: Schema.UndefinedOr(Schema.String),
+    clientSlug: Schema.UndefinedOr(Schema.String),
+    kind: Schema.UndefinedOr(Schema.Literal("agency", "client")),
+    status: Schema.Literal("provisioning", "active", "archived"),
   }),
   membership: Schema.Struct({
     _id: Schema.String,
-    role: Schema.String,
-    status: Schema.String,
+    role: Schema.Literal("viewer", "editor", "admin", "owner"),
+    status: Schema.Literal("active", "pending", "revoked"),
     revokedAt: Schema.NullOr(Schema.Number),
     deletedAt: Schema.NullOr(Schema.Number),
   }),
@@ -1826,9 +1829,20 @@ const readClientBriefPages = (workosOrganizationId: string, brainKey: string) =>
       .collect()
       .pipe(
         Effect.map((pages) =>
-          [...pages].sort((a, b) =>
-            (a.sortKey ?? "").localeCompare(b.sortKey ?? ""),
-          ),
+          [...pages]
+            .sort((a, b) => (a.sortKey ?? "").localeCompare(b.sortKey ?? ""))
+            .map((page) => {
+              if (page.pageKey === undefined) {
+                throw new Error("expected client Brief page key");
+              }
+              return {
+                pageKey: page.pageKey,
+                title: page.title,
+                siblingSlug: page.siblingSlug,
+                sortKey: page.sortKey,
+                status: page.status,
+              };
+            }),
         ),
         Effect.orDie,
       );
@@ -1895,7 +1909,30 @@ const readClientProvisioningSideEffects = (
       throw new Error("expected creator membership audit event");
     }
 
-    return { user, organization, workspace, membership, auditEvent };
+    return {
+      user: { _id: String(user._id) },
+      organization: { _id: String(organization._id) },
+      workspace: {
+        brainKey: workspace.brainKey,
+        clientSlug: workspace.clientSlug,
+        kind: workspace.kind,
+        status: workspace.status,
+      },
+      membership: {
+        _id: String(membership._id),
+        role: membership.role,
+        status: membership.status,
+        revokedAt: membership.revokedAt ?? null,
+        deletedAt: membership.deletedAt ?? null,
+      },
+      auditEvent: {
+        action: auditEvent.action,
+        actorUserId: String(auditEvent.actorUserId),
+        subjectKind: auditEvent.subjectKind,
+        subjectId: String(auditEvent.subjectId),
+        metadataJson: auditEvent.metadataJson,
+      },
+    };
   });
 
 const StableKeyRows = Schema.Struct({
