@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import templateHttp from "../confect/http";
-import { buildGeneratedMcpTools } from "../confect/manifest/mcp";
 import {
   type HeadlessHttpCtx,
   handleTemplateHttpRequest,
@@ -41,7 +40,7 @@ describe("template HTTP docs routes", () => {
     );
   });
 
-  it("declares OpenAPI, Scalar docs, and executable API routes", () => {
+  it("declares docs routes and omits the deleted legacy page route", () => {
     expect(templateHttpRoutes).toEqual(
       expect.arrayContaining([
         {
@@ -54,16 +53,14 @@ describe("template HTTP docs routes", () => {
           method: "GET",
           description: "Serves the Scalar API documentation shell.",
         },
-        {
-          path: "/api/brain.pages.createMarkdown",
-          method: "POST",
-          description: "Executes brain.pages.createMarkdown.",
-        },
       ]),
+    );
+    expect(templateHttpRoutes).not.toContainEqual(
+      expect.objectContaining({ path: "/api/brain.pages.createMarkdown" }),
     );
   });
 
-  it("serves generated OpenAPI JSON", async () => {
+  it("serves generated OpenAPI JSON without the deleted legacy page operation", async () => {
     const response = await handleTemplateHttpRequest(
       noopCtx,
       new Request("https://template.local/api/openapi.json"),
@@ -71,68 +68,10 @@ describe("template HTTP docs routes", () => {
     const body = await readJson(response);
 
     expect(response.headers.get("content-type")).toContain("application/json");
-    expect(body).toMatchObject({
-      openapi: "3.1.0",
-      paths: {
-        "/api/brain.pages.createMarkdown": {
-          post: {
-            operationId: "brain.pages.createMarkdown",
-            tags: ["template-headless"],
-            "x-maestro-auth-scope": "workspace member",
-            "x-maestro-typed-errors": [
-              "Unauthorized",
-              "MemberNotInWorkspace",
-              "WorkspaceNotFound",
-              "ValidationFailed",
-            ],
-            requestBody: {
-              required: true,
-              content: {
-                "application/json": {
-                  schema: {
-                    type: "object",
-                    additionalProperties: false,
-                    required: ["input", "idempotencyKey"],
-                    properties: {
-                      input: {
-                        type: "object",
-                        required: ["workspaceId", "slug", "title", "markdown"],
-                      },
-                      idempotencyKey: { type: "string" },
-                    },
-                  },
-                },
-              },
-            },
-            responses: {
-              "200": { description: "Typed operation result." },
-              "400": { description: "Declared typed failure." },
-            },
-          },
-        },
-      },
-    });
-  });
-
-  it("serves MCP tools with generated Effect JSON schemas", () => {
-    const createMarkdownTool = buildGeneratedMcpTools().find(
-      (tool) => tool.name === "template.brain.pages.createMarkdown",
-    );
-
-    expect(createMarkdownTool?.inputSchema).toMatchObject({
-      type: "object",
-      required: ["workspaceId", "slug", "title", "markdown"],
-      properties: {
-        workspaceId: { type: "string" },
-        slug: { type: "string" },
-        title: { type: "string" },
-        markdown: { type: "string" },
-      },
-    });
-    expect(createMarkdownTool?.inputSchema).not.toEqual({
-      type: "object",
-      additionalProperties: true,
-    });
+    expect(body).toMatchObject({ openapi: "3.1.0" });
+    expect(
+      (body as { paths: Record<string, unknown> }).paths,
+    ).not.toHaveProperty("/api/brain.pages.createMarkdown");
   });
 
   it("applies security headers to every HTTP response", async () => {
@@ -176,212 +115,59 @@ describe("template HTTP docs routes", () => {
     expect(html).toContain('data-url="/api/openapi.json"');
   });
 
-  it("executes a generated API operation through the Convex adapter runner", async () => {
-    const calls: unknown[] = [];
+  it("returns NotFound for POST to the deleted legacy page route without runner calls", async () => {
+    const calls: string[] = [];
     const ctx: HeadlessHttpCtx = {
-      ...noopCtx,
-      runMutation: async (ref, input) => {
-        calls.push([ref, input]);
-        return { id: "brainPage_123", source: "adapter-runner" };
+      runQuery: async () => {
+        calls.push("query");
+        throw new Error("runQuery should not be called");
+      },
+      runMutation: async () => {
+        calls.push("mutation");
+        throw new Error("runMutation should not be called");
+      },
+      runAction: async () => {
+        calls.push("action");
+        throw new Error("runAction should not be called");
       },
     };
-    const response = await handleTemplateHttpRequest(
-      ctx,
-      new Request("https://template.local/api/brain.pages.createMarkdown", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          workspaceSlug: "acme-demo",
-          input: { slug: "a-note", title: "A note", markdown: "# A note" },
-          idempotencyKey: "brain-page-example-001",
+    const body = await readJson(
+      await handleTemplateHttpRequest(
+        ctx,
+        new Request("https://template.local/api/brain.pages.createMarkdown", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ input: {}, idempotencyKey: "old-write" }),
         }),
+      ),
+    );
+
+    expect(body).toEqual({
+      ok: false,
+      error: {
+        _tag: "NotFound",
+        message: "Unknown template HTTP route: /api/brain.pages.createMarkdown",
+      },
+    });
+    expect(calls).toEqual([]);
+  });
+
+  it("does not translate deleted createMarkdown requests through legacy caller-ID compatibility", async () => {
+    const { executorRequestFor } = await import("../confect/httpRequest");
+
+    expect(
+      executorRequestFor("brain.pages.createMarkdown", {
+        workspaceSlug: "acme-demo",
+        input: { slug: "legacy", title: "Legacy", markdown: "# Legacy" },
+        idempotencyKey: "legacy-write",
       }),
-    );
-    const body = await readJson(response);
-
-    expect(body).toMatchObject({
+    ).toEqual({
       ok: true,
-      operationId: "brain.pages.createMarkdown",
-      result: {
-        id: "brainPage_123",
-        source: "adapter-runner",
-      },
-    });
-    expect(calls).toHaveLength(1);
-    expect(calls[0]).toMatchObject([
-      expect.anything(),
-      {
-        workspaceId: "workspace_123",
-        slug: "a-note",
-        title: "A note",
-        markdown: "# A note",
-        idempotencyKey: "brain-page-example-001",
-      },
-    ]);
-  });
-
-  it("executes the documented OpenAPI request envelope", async () => {
-    const calls: unknown[] = [];
-    const ctx: HeadlessHttpCtx = {
-      ...noopCtx,
-      runMutation: async (ref, input) => {
-        calls.push([ref, input]);
-        return { id: "brainPage_456", source: "openapi-envelope" };
-      },
-    };
-    const response = await handleTemplateHttpRequest(
-      ctx,
-      new Request("https://template.local/api/brain.pages.createMarkdown", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          input: {
-            workspaceId: "workspace_openapi",
-            slug: "openapi-note",
-            title: "OpenAPI note",
-            markdown: "# OpenAPI note",
-          },
-          idempotencyKey: "openapi-envelope-001",
-        }),
-      }),
-    );
-
-    expect(await readJson(response)).toMatchObject({
-      ok: true,
-      operationId: "brain.pages.createMarkdown",
-      result: {
-        id: "brainPage_456",
-        source: "openapi-envelope",
-      },
-    });
-    expect(calls[0]).toMatchObject([
-      expect.anything(),
-      {
-        workspaceId: "workspace_openapi",
-        slug: "openapi-note",
-        title: "OpenAPI note",
-        markdown: "# OpenAPI note",
-        idempotencyKey: "openapi-envelope-001",
-      },
-    ]);
-  });
-
-  it("fails closed when generated API request fields cannot be mapped", async () => {
-    const body = await readJson(
-      await handleTemplateHttpRequest(
-        noopCtx,
-        new Request("https://template.local/api/brain.pages.createMarkdown", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            workspaceSlug: "unknown-workspace",
-            input: { slug: "a-note", title: "A note", markdown: "# A note" },
-            idempotencyKey: "brain-page-example-001",
-          }),
-        }),
-      ),
-    );
-
-    expect(body).toEqual({
-      ok: false,
-      error: {
-        _tag: "ValidationFailed",
-        message:
-          "Operation brain.pages.createMarkdown requires input.workspaceId or a known workspaceSlug.",
-      },
-    });
-  });
-
-  it("returns typed validation errors for malformed JSON requests", async () => {
-    const body = await readJson(
-      await handleTemplateHttpRequest(
-        noopCtx,
-        new Request("https://template.local/api/brain.pages.createMarkdown", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: "{",
-        }),
-      ),
-    );
-
-    expect(body).toEqual({
-      ok: false,
-      error: {
-        _tag: "ValidationFailed",
-        message: "Request body must be valid JSON.",
-      },
-    });
-  });
-
-  it("returns typed validation errors for generated API operations", async () => {
-    const body = await readJson(
-      await handleTemplateHttpRequest(
-        noopCtx,
-        new Request("https://template.local/api/brain.pages.createMarkdown", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            workspaceSlug: "acme-demo",
-            input: {},
-          }),
-        }),
-      ),
-    );
-
-    expect(body).toEqual({
-      ok: false,
-      error: {
-        _tag: "ValidationFailed",
-        message:
-          "Operation brain.pages.createMarkdown requires a nonblank idempotencyKey.",
-      },
-    });
-  });
-
-  it("returns typed validation errors for non-string API envelope fields", async () => {
-    const invalidIdempotencyKey = await readJson(
-      await handleTemplateHttpRequest(
-        noopCtx,
-        new Request("https://template.local/api/brain.pages.createMarkdown", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            workspaceSlug: "acme-demo",
-            input: { slug: "a-note", title: "A note", markdown: "# A note" },
-            idempotencyKey: 42,
-          }),
-        }),
-      ),
-    );
-    const invalidWorkspaceSlug = await readJson(
-      await handleTemplateHttpRequest(
-        noopCtx,
-        new Request("https://template.local/api/brain.pages.createMarkdown", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            workspaceSlug: true,
-            input: { slug: "a-note", title: "A note", markdown: "# A note" },
-            idempotencyKey: "brain-page-example-001",
-          }),
-        }),
-      ),
-    );
-
-    expect(invalidIdempotencyKey).toEqual({
-      ok: false,
-      error: {
-        _tag: "ValidationFailed",
-        message:
-          "Operation brain.pages.createMarkdown requires a nonblank idempotencyKey.",
-      },
-    });
-    expect(invalidWorkspaceSlug).toEqual({
-      ok: false,
-      error: {
-        _tag: "ValidationFailed",
-        message:
-          "Operation brain.pages.createMarkdown requires input.workspaceId or a known workspaceSlug.",
+      request: {
+        operationId: "brain.pages.createMarkdown",
+        surface: "api",
+        input: { slug: "legacy", title: "Legacy", markdown: "# Legacy" },
+        idempotencyKey: "legacy-write",
       },
     });
   });
