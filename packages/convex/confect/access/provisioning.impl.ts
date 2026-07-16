@@ -8,7 +8,8 @@ import * as Option from "effect/Option";
 import databaseSchema from "../_generated/schema";
 import { Auth, DatabaseReader, DatabaseWriter } from "../_generated/services";
 import {
-  BrainAlreadyExists,
+  CapacityExceeded,
+  ClientBrainAlreadyExists,
   Forbidden,
   OrganizationNotFound,
   ProvisioningConflict,
@@ -32,6 +33,7 @@ import {
   isStableAgencyKey,
   isStableBrainKey,
 } from "../identity/stableKeys";
+import { buildStandardClientBriefPages } from "../brain/clientBrief";
 import { roleAtLeast } from "./roles";
 
 const conflict = (resource: string, message: string) =>
@@ -438,14 +440,79 @@ const ensureProvisioned = FunctionImpl.make(
     }),
 );
 
+type ClientBriefPageInsert = (page: {
+  readonly slug: string;
+  readonly title: string;
+  readonly markdown: string;
+  readonly sortKey: string;
+  readonly pageKey: string;
+  readonly favorite: boolean;
+}) => Effect.Effect<unknown, ProvisioningConflict, never>;
+
+export const insertStandardClientBriefPages = (input: {
+  readonly brainKey: string;
+  readonly insertPage: ClientBriefPageInsert;
+}) =>
+  Effect.gen(function* () {
+    const pages = buildStandardClientBriefPages(input.brainKey);
+    for (const page of pages) {
+      yield* input.insertPage({
+        slug: page.slug,
+        title: page.title,
+        markdown: page.markdown,
+        sortKey: page.sortKey,
+        pageKey: page.pageKey,
+        favorite: page.slug === "overview",
+      });
+    }
+    return pages;
+  });
+
+const CLIENT_BRAIN_LIMIT = 25;
+
+const normalizeIdempotencyKey = (idempotencyKey: string) => {
+  const normalized = idempotencyKey.trim();
+  return /^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/.test(normalized)
+    ? normalized
+    : null;
+};
+
+const payloadHash = (input: {
+  readonly name: string;
+  readonly clientSlug: string;
+}) => `${input.clientSlug}:${input.name}`;
+
+const toClientBrainResult = (input: {
+  readonly brainKey: string;
+  readonly pages: readonly ReturnType<
+    typeof buildStandardClientBriefPages
+  >[number][];
+  readonly clientBrains: number;
+}) => ({
+  brainKey: input.brainKey,
+  initialPageKey: input.pages[0]?.pageKey ?? "",
+  pages: input.pages.map(({ pageKey, slug, title, sortKey }) => ({
+    pageKey,
+    slug,
+    title,
+    sortKey,
+  })),
+  capacity: {
+    clientBrains: input.clientBrains,
+    clientBrainLimit: CLIENT_BRAIN_LIMIT,
+    remainingClientBrains: Math.max(0, CLIENT_BRAIN_LIMIT - input.clientBrains),
+  },
+});
+
 const createClientBrain = FunctionImpl.make(
   databaseSchema,
   provisioning,
   "createClientBrain",
-  ({ name, clientSlug }) =>
+  ({ name, clientSlug, idempotencyKey }) =>
     Effect.gen(function* () {
       const normalizedName = name.trim();
       const normalizedSlug = clientSlug.trim().toLowerCase();
+      const normalizedKey = normalizeIdempotencyKey(idempotencyKey);
       if (normalizedName.length === 0) {
         return yield* new ValidationFailed({
           field: "name",
@@ -457,6 +524,12 @@ const createClientBrain = FunctionImpl.make(
           field: "clientSlug",
           message:
             "Client slug must be lower-case letters, numbers, or dashes.",
+        });
+      }
+      if (normalizedKey === null) {
+        return yield* new ValidationFailed({
+          field: "idempotencyKey",
+          message: "Idempotency key must be stable and at least 8 characters.",
         });
       }
 
@@ -474,13 +547,11 @@ const createClientBrain = FunctionImpl.make(
         .index("by_subject", (q) => q.eq("subject", identity.subject))
         .first()
         .pipe(Effect.map(Option.getOrNull), Effect.orDie);
-      if (user === null || user.status !== "active") {
+      if (user === null || user.status !== "active")
         return yield* new Unauthorized();
-      }
+      if (identity.workosOrganizationId === undefined)
+        return yield* new Unauthorized();
 
-      if (identity.workosOrganizationId === undefined) {
-        return yield* new Unauthorized();
-      }
       const organizations = yield* reader
         .table("organizations")
         .index("by_workos_organization", (q) =>
@@ -520,6 +591,7 @@ const createClientBrain = FunctionImpl.make(
         organizationId,
         agencyKey: organization.agencyKey,
       });
+
       const orgMemberships = yield* reader
         .table("organizationMembers")
         .index("by_organization_user", (q) =>
@@ -563,9 +635,88 @@ const createClientBrain = FunctionImpl.make(
           message: "Exactly one active Agency Brain is required.",
         });
       }
-      if (existing.some((row) => row.clientSlug === normalizedSlug)) {
-        return yield* new BrainAlreadyExists({ brainKey: normalizedSlug });
+
+      const idempotencyRows = yield* reader
+        .table("workspaces")
+        .index("by_organization_client_idempotency", (q) =>
+          q
+            .eq("organizationId", organizationId)
+            .eq("clientCreationIdempotencyKey", normalizedKey),
+        )
+        .collect()
+        .pipe(Effect.orDie);
+      if (idempotencyRows.length > 1) {
+        return yield* new ProvisioningConflict({
+          resource: "workspaces.organizationId.clientCreationIdempotencyKey",
+          message: "Duplicate client creation idempotency rows found.",
+        });
       }
+      const requestHash = payloadHash({
+        name: normalizedName,
+        clientSlug: normalizedSlug,
+      });
+      const idempotentRow = idempotencyRows[0];
+      if (idempotentRow !== undefined) {
+        if (
+          idempotentRow.status !== "active" ||
+          (idempotentRow.kind ?? "agency") !== "client" ||
+          idempotentRow.clientSlug !== normalizedSlug ||
+          idempotentRow.name !== normalizedName ||
+          idempotentRow.clientCreationPayloadHash !== requestHash ||
+          idempotentRow.brainKey === undefined
+        ) {
+          return yield* new ProvisioningConflict({
+            resource: "workspaces.organizationId.clientCreationIdempotencyKey",
+            message:
+              "Idempotency key does not reference an active matching client Brain.",
+          });
+        }
+        const pageRows = yield* reader
+          .table("brainPages")
+          .index("by_workspace", (q) => q.eq("workspaceId", idempotentRow._id))
+          .collect()
+          .pipe(Effect.orDie);
+        const expectedPages = buildStandardClientBriefPages(
+          idempotentRow.brainKey,
+        );
+        const activePageKeys = pageRows
+          .filter((page) => page.status === "active")
+          .map((page) => page.pageKey);
+        const expectedPageKeys = expectedPages.map((page) => page.pageKey);
+        if (
+          activePageKeys.length !== expectedPageKeys.length ||
+          new Set(activePageKeys).size !== activePageKeys.length ||
+          expectedPageKeys.some((pageKey) => !activePageKeys.includes(pageKey))
+        ) {
+          return yield* new ProvisioningConflict({
+            resource: "brainPages.workspaceId.pageKey",
+            message:
+              "Idempotent client Brain replay found an incomplete Brief seed.",
+          });
+        }
+        const activeClientCount = existing.filter(
+          (row) =>
+            row.status === "active" && (row.kind ?? "agency") === "client",
+        ).length;
+        return toClientBrainResult({
+          brainKey: idempotentRow.brainKey,
+          pages: expectedPages,
+          clientBrains: activeClientCount,
+        });
+      }
+
+      if (existing.some((row) => row.clientSlug === normalizedSlug)) {
+        return yield* new ClientBrainAlreadyExists({
+          clientSlug: normalizedSlug,
+        });
+      }
+      const activeClientCount = existing.filter(
+        (row) => row.status === "active" && (row.kind ?? "agency") === "client",
+      ).length;
+      if (activeClientCount >= CLIENT_BRAIN_LIMIT) {
+        return yield* new CapacityExceeded({ limit: CLIENT_BRAIN_LIMIT });
+      }
+
       const workspaceId = yield* writer
         .table("workspaces")
         .insert({
@@ -575,6 +726,8 @@ const createClientBrain = FunctionImpl.make(
           name: normalizedName,
           kind: "client",
           clientSlug: normalizedSlug,
+          clientCreationIdempotencyKey: normalizedKey,
+          clientCreationPayloadHash: requestHash,
           status: "active",
           dataClassification: "confidential",
           createdAt: now,
@@ -597,6 +750,38 @@ const createClientBrain = FunctionImpl.make(
         .table("workspaces")
         .patch(workspaceId, { brainKey })
         .pipe(Effect.orDie);
+
+      const pages = yield* insertStandardClientBriefPages({
+        brainKey,
+        insertPage: (page) =>
+          writer
+            .table("brainPages")
+            .insert({
+              workspaceId,
+              organizationId,
+              slug: page.slug,
+              title: page.title,
+              markdown: page.markdown,
+              sourceKind: "markdown",
+              updatedAt: now,
+              pageKey: page.pageKey,
+              parentPageKey: null,
+              siblingSlug: page.slug,
+              sortKey: page.sortKey,
+              favorite: page.favorite,
+              status: "active",
+              currentRevisionKey: null,
+              lifecycle: {
+                state: "active",
+                generation: 0,
+                updatedAt: now,
+                purgeAfter: null,
+              },
+              createdAt: now,
+              schemaVersion: 1,
+            })
+            .pipe(Effect.orDie),
+      });
       const membershipId = yield* writer
         .table("workspaceMembers")
         .insert({
@@ -625,7 +810,11 @@ const createClientBrain = FunctionImpl.make(
         ],
         now,
       );
-      return { brainKey };
+      return toClientBrainResult({
+        brainKey,
+        pages,
+        clientBrains: activeClientCount + 1,
+      });
     }),
 );
 
