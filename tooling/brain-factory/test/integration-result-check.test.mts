@@ -66,6 +66,7 @@ const fixture = (options?: { readonly taskId?: string }) => {
   });
   mkdirSync(workdir);
   command(workdir, "init", "-q");
+  command(workdir, "config", "core.hooksPath", "/dev/null");
   command(workdir, "config", "user.email", "brain@example.test");
   command(workdir, "config", "user.name", "Brain Test");
   writeFileSync(resolve(workdir, "source.ts"), "export const ready = false;\n");
