@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "maestro-brain-file-inventory/v1",
+  "taskId": "S02-T02",
+  "classification": "integration-owned-transient-output",
+  "files": [
+    "packages/convex/convex/brain/pages.ts",
+    "packages/convex/convex/internal/migrations.ts",
+    "packages/template-core/src/generated/confectManifest.ts"
+  ]
+}

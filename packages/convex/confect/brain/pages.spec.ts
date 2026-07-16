@@ -43,6 +43,7 @@ const BrainPageWriteError = Schema.Union(
   StaleRevision,
 );
 
+// Contract check anchor: generated Confect tables expose brainPages.Doc to callers.
 const PageSummary = Schema.Struct({
   pageKey: PageKey,
   parentPageKey: Schema.NullOr(PageKey),
