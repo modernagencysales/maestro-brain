@@ -418,6 +418,15 @@ describe("Fabro workflow prompt contracts", () => {
       "Preserve status ready_for_review through this review",
     );
     expect(review).toContain("reviewed is not a valid status");
+    expect(review).toContain(
+      "Preserve schemaVersion maestro-brain-integration-result/v2 and every integration-produced field",
+    );
+    expect(review).toContain(
+      "canonical budget evidence is each selected lane's exact-head final lane-gate sourceSlices",
+    );
+    expect(review).toContain(
+      "do not recompute budgets from integration cherry-pick commit numstat",
+    );
     expect(reviewGate).toContain('.status == \\"ready_for_review\\"');
     expect(wave).toContain("integration-wave-selection-check.mts");
     expect(wave).toContain("hydrate-integration-dependencies.mts");
