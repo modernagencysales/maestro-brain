@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Role } from "../confect/access/roles";
 import refs from "../confect/_generated/refs";
-import { schemaRegistry } from "../confect/brain/pages.spec";
+import { manifest, schemaRegistry } from "../confect/brain/pages.spec";
 import databaseSchema from "../confect/_generated/schema";
 import { Id } from "../confect/_generated/id";
 import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
@@ -220,6 +220,7 @@ const seedDuplicateOrganizationBinding = (input: {
         updatedAt: now,
       })
       .pipe(Effect.orDie);
+    return null;
   });
 
 const patchPageStatus = (input: {
@@ -250,6 +251,7 @@ const patchPageStatus = (input: {
         })
         .pipe(Effect.orDie);
     }
+    return null;
   });
 
 const seedForeignParent = (workspaceId: GenericId<"workspaces">) =>
@@ -282,10 +284,11 @@ const seedForeignParent = (workspaceId: GenericId<"workspaces">) =>
         schemaVersion: 1,
       })
       .pipe(Effect.orDie);
+    return null;
   });
 
 const actor = (
-  confect: TestConfect.TestConfect.Service<typeof databaseSchema>,
+  confect: TestConfect.TestConfect<typeof databaseSchema>,
   subject: string,
   email: string,
   orgSubject = subject,
@@ -318,6 +321,16 @@ const collectPageRevisions = (
   });
 
 describe("authorized Brain page CRUD", () => {
+  it("keeps every pages manifest entry web-only", () => {
+    expect(manifest).toHaveLength(7);
+    for (const entry of manifest) {
+      expect(entry.operationId).toMatch(/^brain\.pages\./);
+      expect(entry.surfaces).toEqual(["web"]);
+      expect(entry.surfaces).not.toEqual(
+        expect.arrayContaining(["api", "cli", "mcp"]),
+      );
+    }
+  });
   it("returns stable summaries and rejects forged caller tenant args", async () => {
     const program = Effect.gen(function* () {
       const confect = yield* Effect.serviceOptional(
@@ -352,7 +365,7 @@ describe("authorized Brain page CRUD", () => {
       });
       const revisions = yield* confect.run(
         collectPageRevisions(seeded.workspaceId, page.pageKey),
-        Schema.Array(PageRevisionRow),
+        PageRevisionRows,
       );
       return { page, list, detail, revisions };
     });
@@ -360,12 +373,12 @@ describe("authorized Brain page CRUD", () => {
       program.pipe(Effect.provide(testConfectLayer())),
     );
     expect(result.page.pageKey).toMatch(/^pag_/);
-    expect(result.page.currentRevisionKey).toMatch(/^rev_/);
+    expect(requireRevisionKey(result.page.currentRevisionKey)).toMatch(/^rev_/);
     expect(result.list.pages).toHaveLength(1);
     expect(JSON.stringify(result.list)).not.toContain("workspaces_");
     expect(result.detail.markdown).toBe("# Client Brief");
     expect(() =>
-      Schema.decodeUnknownSync(schemaRegistry["brain.pages.list.args"])(
+      Schema.decodeUnknownSync(requireSchema("brain.pages.list.args"))(
         {
           brainKey: editorBrainKey,
           workspaceId: "forged",
@@ -375,7 +388,7 @@ describe("authorized Brain page CRUD", () => {
     ).toThrow(/workspaceId/);
     expect(result.revisions).toHaveLength(1);
     expect(result.revisions[0]?.revisionKey).toBe(
-      result.page.currentRevisionKey,
+      requireRevisionKey(result.page.currentRevisionKey),
     );
     expect(result.revisions[0]?.priorRevisionKey).toBeNull();
     expect(result.revisions[0]?.actor.kind).toBe("user");
@@ -449,7 +462,9 @@ describe("authorized Brain page CRUD", () => {
     const result = await Effect.runPromise(
       program.pipe(Effect.provide(testConfectLayer())),
     );
-    expect(result.read.pages.map((page) => page.title)).toEqual(["Visible"]);
+    expect(result.read.pages.map((page: PageTitle) => page.title)).toEqual([
+      "Visible",
+    ]);
     expect(result.detail.markdown).toBe("# Visible");
     expect(result.viewerWrite).toBeInstanceOf(Forbidden);
   });
@@ -493,13 +508,17 @@ describe("authorized Brain page CRUD", () => {
           pageKey: root.pageKey,
           parentPageKey: child.pageKey,
           sortKey: "0000000002",
-          expectedCurrentRevisionKey: root.currentRevisionKey,
+          expectedCurrentRevisionKey: requireRevisionKey(
+            root.currentRevisionKey,
+          ),
         })
         .pipe(Effect.flip);
       const archived = yield* editor.mutation(refs.public.brain.pages.archive, {
         brainKey: editorBrainKey,
         pageKey: child.pageKey,
-        expectedCurrentRevisionKey: child.currentRevisionKey,
+        expectedCurrentRevisionKey: requireRevisionKey(
+          child.currentRevisionKey,
+        ),
       });
       const redacted = yield* editor.mutation(refs.public.brain.pages.create, {
         brainKey: editorBrainKey,
@@ -525,7 +544,7 @@ describe("authorized Brain page CRUD", () => {
           pageKey: redacted.pageKey,
           status: "redacted",
         }),
-        Schema.Void,
+        NullReturn,
       );
       yield* confect.run(
         patchPageStatus({
@@ -533,7 +552,7 @@ describe("authorized Brain page CRUD", () => {
           pageKey: purged.pageKey,
           status: "purged",
         }),
-        Schema.Void,
+        NullReturn,
       );
       const defaultList = yield* editor.query(refs.public.brain.pages.list, {
         brainKey: editorBrainKey,
@@ -547,35 +566,41 @@ describe("authorized Brain page CRUD", () => {
         brainKey: editorBrainKey,
         pageKey: root.pageKey,
         title: "Fresh root",
-        expectedCurrentRevisionKey: root.currentRevisionKey,
+        expectedCurrentRevisionKey: requireRevisionKey(root.currentRevisionKey),
       });
       const favored = yield* editor.mutation(refs.public.brain.pages.favorite, {
         brainKey: editorBrainKey,
         pageKey: root.pageKey,
         favorite: true,
-        expectedCurrentRevisionKey: renamed.currentRevisionKey,
+        expectedCurrentRevisionKey: requireRevisionKey(
+          renamed.currentRevisionKey,
+        ),
       });
       const moved = yield* editor.mutation(refs.public.brain.pages.move, {
         brainKey: editorBrainKey,
         pageKey: root.pageKey,
         parentPageKey: null,
         sortKey: "0000000003",
-        expectedCurrentRevisionKey: favored.currentRevisionKey,
+        expectedCurrentRevisionKey: requireRevisionKey(
+          favored.currentRevisionKey,
+        ),
       });
       const rootRevisions = yield* confect.run(
         collectPageRevisions(seeded.workspaceId, root.pageKey),
-        Schema.Array(PageRevisionRow),
+        PageRevisionRows,
       );
       const childRevisions = yield* confect.run(
         collectPageRevisions(seeded.workspaceId, child.pageKey),
-        Schema.Array(PageRevisionRow),
+        PageRevisionRows,
       );
       const stale = yield* editor
         .mutation(refs.public.brain.pages.rename, {
           brainKey: editorBrainKey,
           pageKey: root.pageKey,
           title: "Stale root",
-          expectedCurrentRevisionKey: root.currentRevisionKey,
+          expectedCurrentRevisionKey: requireRevisionKey(
+            root.currentRevisionKey,
+          ),
         })
         .pipe(Effect.flip);
       const crossBrainSeed = yield* confect.run(
@@ -589,7 +614,7 @@ describe("authorized Brain page CRUD", () => {
       );
       yield* confect.run(
         seedForeignParent(crossBrainSeed.workspaceId),
-        Schema.Void,
+        NullReturn,
       );
       const crossBrain = yield* editor
         .mutation(refs.public.brain.pages.move, {
@@ -597,7 +622,9 @@ describe("authorized Brain page CRUD", () => {
           pageKey: root.pageKey,
           parentPageKey: "pag_foreign",
           sortKey: "0000000002",
-          expectedCurrentRevisionKey: moved.currentRevisionKey,
+          expectedCurrentRevisionKey: requireRevisionKey(
+            moved.currentRevisionKey,
+          ),
         })
         .pipe(Effect.flip);
       yield* confect.run(
@@ -649,12 +676,12 @@ describe("authorized Brain page CRUD", () => {
     );
     expect(result.archived.status).toBe("archived");
     expect(result.stale).toBeInstanceOf(StaleRevision);
-    expect(result.defaultList.pages.map((page) => page.title)).toEqual([
-      "Root",
-    ]);
-    expect(result.archivedList.pages.map((page) => page.title).sort()).toEqual(
-      ["Child", "Root"].sort(),
-    );
+    expect(
+      result.defaultList.pages.map((page: PageTitle) => page.title),
+    ).toEqual(["Root"]);
+    expect(
+      result.archivedList.pages.map((page: PageTitle) => page.title).sort(),
+    ).toEqual(["Child", "Root"].sort());
     expect(JSON.stringify(result.archivedList)).not.toContain("Redacted");
     expect(JSON.stringify(result.archivedList)).not.toContain("Purged");
     expect(
@@ -663,7 +690,7 @@ describe("authorized Brain page CRUD", () => {
       result.rootRevisions[0]?.revisionKey,
       result.rootRevisions[1]?.revisionKey,
       result.rootRevisions[2]?.revisionKey,
-      result.moved.currentRevisionKey,
+      requireRevisionKey(result.moved.currentRevisionKey),
     ]);
     expect(
       result.rootRevisions.map((revision) => revision.priorRevisionKey),
@@ -795,7 +822,9 @@ describe("authorized Brain page CRUD", () => {
                 brainKey: matrixBrainKey,
                 pageKey: page.pageKey,
                 title: "Rename viewer",
-                expectedCurrentRevisionKey: page.currentRevisionKey,
+                expectedCurrentRevisionKey: requireRevisionKey(
+                  page.currentRevisionKey,
+                ),
               })
               .pipe(Effect.flip);
             const move = yield* client
@@ -804,7 +833,9 @@ describe("authorized Brain page CRUD", () => {
                 pageKey: page.pageKey,
                 parentPageKey: null,
                 sortKey: "0000000020",
-                expectedCurrentRevisionKey: page.currentRevisionKey,
+                expectedCurrentRevisionKey: requireRevisionKey(
+                  page.currentRevisionKey,
+                ),
               })
               .pipe(Effect.flip);
             const favorite = yield* client
@@ -812,14 +843,18 @@ describe("authorized Brain page CRUD", () => {
                 brainKey: matrixBrainKey,
                 pageKey: page.pageKey,
                 favorite: true,
-                expectedCurrentRevisionKey: page.currentRevisionKey,
+                expectedCurrentRevisionKey: requireRevisionKey(
+                  page.currentRevisionKey,
+                ),
               })
               .pipe(Effect.flip);
             const archive = yield* client
               .mutation(refs.public.brain.pages.archive, {
                 brainKey: matrixBrainKey,
                 pageKey: page.pageKey,
-                expectedCurrentRevisionKey: page.currentRevisionKey,
+                expectedCurrentRevisionKey: requireRevisionKey(
+                  page.currentRevisionKey,
+                ),
               })
               .pipe(Effect.flip);
             return {
@@ -848,7 +883,9 @@ describe("authorized Brain page CRUD", () => {
               brainKey: matrixBrainKey,
               pageKey: created.pageKey,
               title: `Rename ${role}`,
-              expectedCurrentRevisionKey: created.currentRevisionKey,
+              expectedCurrentRevisionKey: requireRevisionKey(
+                created.currentRevisionKey,
+              ),
             },
           );
           const movedRow = yield* client.mutation(
@@ -858,7 +895,9 @@ describe("authorized Brain page CRUD", () => {
               pageKey: created.pageKey,
               parentPageKey: null,
               sortKey: `000000002${roles.indexOf(role)}`,
-              expectedCurrentRevisionKey: renamed.currentRevisionKey,
+              expectedCurrentRevisionKey: requireRevisionKey(
+                renamed.currentRevisionKey,
+              ),
             },
           );
           const favored = yield* client.mutation(
@@ -867,7 +906,9 @@ describe("authorized Brain page CRUD", () => {
               brainKey: matrixBrainKey,
               pageKey: created.pageKey,
               favorite: true,
-              expectedCurrentRevisionKey: movedRow.currentRevisionKey,
+              expectedCurrentRevisionKey: requireRevisionKey(
+                movedRow.currentRevisionKey,
+              ),
             },
           );
           const archivedRow = yield* client.mutation(
@@ -875,7 +916,9 @@ describe("authorized Brain page CRUD", () => {
             {
               brainKey: matrixBrainKey,
               pageKey: created.pageKey,
-              expectedCurrentRevisionKey: favored.currentRevisionKey,
+              expectedCurrentRevisionKey: requireRevisionKey(
+                favored.currentRevisionKey,
+              ),
             },
           );
           return {
@@ -921,7 +964,9 @@ describe("authorized Brain page CRUD", () => {
               pageKey: racePage.pageKey,
               parentPageKey: null,
               sortKey: "0000000030",
-              expectedCurrentRevisionKey: racePage.currentRevisionKey,
+              expectedCurrentRevisionKey: requireRevisionKey(
+                racePage.currentRevisionKey,
+              ),
             })
             .pipe(Effect.either),
           editor
@@ -930,7 +975,9 @@ describe("authorized Brain page CRUD", () => {
               pageKey: racePage.pageKey,
               parentPageKey: null,
               sortKey: "0000000031",
-              expectedCurrentRevisionKey: racePage.currentRevisionKey,
+              expectedCurrentRevisionKey: requireRevisionKey(
+                racePage.currentRevisionKey,
+              ),
             })
             .pipe(Effect.either),
         ],
@@ -941,7 +988,9 @@ describe("authorized Brain page CRUD", () => {
         pageKey: sibling.pageKey,
         parentPageKey: null,
         sortKey: "0000000030",
-        expectedCurrentRevisionKey: sibling.currentRevisionKey,
+        expectedCurrentRevisionKey: requireRevisionKey(
+          sibling.currentRevisionKey,
+        ),
       });
       const staleMove = yield* editor
         .mutation(refs.public.brain.pages.move, {
@@ -949,7 +998,9 @@ describe("authorized Brain page CRUD", () => {
           pageKey: sibling.pageKey,
           parentPageKey: null,
           sortKey: "0000000031",
-          expectedCurrentRevisionKey: sibling.currentRevisionKey,
+          expectedCurrentRevisionKey: requireRevisionKey(
+            sibling.currentRevisionKey,
+          ),
         })
         .pipe(Effect.flip);
       yield* confect.run(
@@ -994,7 +1045,7 @@ describe("authorized Brain page CRUD", () => {
           brainKey: "br_7123456789ABCDEFGHJKMNPQRS",
           workosOrganizationId: "org_dupe-org-a",
         }),
-        Schema.Void,
+        NullReturn,
       );
       const duplicateOrganization = yield* actor(
         confect,
@@ -1032,10 +1083,10 @@ describe("authorized Brain page CRUD", () => {
     }
     expect(result.duplicateSibling).toBeInstanceOf(PageTreeConflict);
     expect(
-      result.race.filter((outcome) => outcome._tag === "Right"),
+      result.race.filter((outcome: RaceOutcome) => outcome._tag === "Right"),
     ).toHaveLength(1);
     const raceFailures = result.race.filter(
-      (outcome) => outcome._tag === "Left",
+      (outcome: RaceOutcome) => outcome._tag === "Left",
     );
     expect(raceFailures).toHaveLength(1);
     expect(
