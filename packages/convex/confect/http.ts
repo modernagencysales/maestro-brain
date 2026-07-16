@@ -7,10 +7,11 @@ import {
 } from "./manifest/executor";
 import { buildGeneratedOpenApiDocument } from "./manifest/openapi";
 import {
-  executorRequestFor,
+  authenticatedExecutorRequestFor,
   readJsonBody,
   type TemplateApiRequestBody,
 } from "./httpRequest";
+import type { ApiKeyRow, ServicePrincipalRow } from "./headless/auth";
 
 type ManifestFunction = (typeof confectManifest.functions)[number];
 
@@ -36,6 +37,9 @@ export type HeadlessHttpCtx = {
     ref: unknown,
     input: Record<string, unknown>,
   ) => Promise<unknown>;
+  readonly apiKeys?: readonly ApiKeyRow[];
+  readonly servicePrincipals?: readonly ServicePrincipalRow[];
+  readonly nowMs?: number;
 };
 
 type TemplateRouteMatch =
@@ -223,9 +227,16 @@ const executeTemplateApiRoute = async (
   request: Request,
   operationId: string,
 ): Promise<Response> => {
-  const parsedBody = await readJsonBody(request);
+  const parsedBody = await readJsonBody(request, {
+    authorization: request.headers.get("authorization") ?? undefined,
+  });
   const response = parsedBody.ok
-    ? await responseForParsedTemplateApiBody(ctx, operationId, parsedBody.body)
+    ? await responseForParsedTemplateApiBody(
+        ctx,
+        request,
+        operationId,
+        parsedBody.body,
+      )
     : jsonResponse(parsedBody);
 
   return response;
@@ -233,10 +244,18 @@ const executeTemplateApiRoute = async (
 
 const responseForParsedTemplateApiBody = async (
   ctx: HeadlessHttpCtx,
+  request: Request,
   operationId: string,
   body: TemplateApiRequestBody,
 ): Promise<Response> => {
-  const executorRequest = executorRequestFor(operationId, body);
+  const executorRequest = await authenticatedExecutorRequestFor({
+    operationId,
+    authorization: request.headers.get("authorization") ?? undefined,
+    body,
+    keys: ctx.apiKeys ?? [],
+    principals: ctx.servicePrincipals ?? [],
+    nowMs: ctx.nowMs ?? Date.now(),
+  });
   const response = executorRequest.ok
     ? jsonResponse(await runTemplateApiOperation(ctx, executorRequest.request))
     : jsonResponse(executorRequest);

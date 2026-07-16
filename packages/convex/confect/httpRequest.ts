@@ -1,10 +1,18 @@
 import {
+  HeadlessAuthError,
+  parseBearerApiKey,
+  verifyApiKey,
+  type ApiKeyRow,
+  type ServicePrincipalRow,
+} from "./headless/auth";
+import { authorizeHeadlessOperation } from "./headless/authorizeOperation";
+import { headlessPrincipalFromVerification } from "./headless/principal";
+import {
   type HeadlessExecutorRequest,
   type JsonValue,
 } from "./manifest/executor";
 
 export type TemplateApiRequestBody = {
-  readonly workspaceSlug?: string;
   readonly input?: Record<string, JsonValue>;
   readonly idempotencyKey?: string;
 };
@@ -12,7 +20,7 @@ export type TemplateApiRequestBody = {
 type TemplateHttpFailure = {
   readonly ok: false;
   readonly error: {
-    readonly _tag: "ValidationFailed";
+    readonly _tag: "Unauthorized" | "Forbidden" | "ValidationFailed";
     readonly message: string;
   };
 };
@@ -25,22 +33,12 @@ type ExecutorRequestResult =
   | { readonly ok: true; readonly request: HeadlessExecutorRequest }
   | TemplateHttpFailure;
 
-type CreateMarkdownInputs = {
-  readonly slug: string;
-  readonly title: string;
-  readonly markdown: string;
+export type HeadlessBearerAuthContext = {
+  readonly authorization: string | undefined;
+  readonly keys?: readonly ApiKeyRow[];
+  readonly principals?: readonly ServicePrincipalRow[];
+  readonly nowMs: number;
 };
-
-const createMarkdownInputFields = [
-  "slug",
-  "title",
-  "markdown",
-] as const satisfies readonly (keyof CreateMarkdownInputs)[];
-
-// Demo HTTP requests use the same reviewer-facing slug seeded in tenancy tests.
-const demoWorkspaceIdsBySlug = {
-  "acme-demo": "workspace_123",
-} as const satisfies Record<string, string>;
 
 const validationFailed = (message: string): TemplateHttpFailure => ({
   ok: false,
@@ -50,14 +48,30 @@ const validationFailed = (message: string): TemplateHttpFailure => ({
   },
 });
 
-const workspaceSlugToId = (workspaceSlug: string): string | undefined =>
-  demoWorkspaceIdsBySlug[
-    workspaceSlug.trim() as keyof typeof demoWorkspaceIdsBySlug
-  ];
+const unauthorized = (): TemplateHttpFailure => ({
+  ok: false,
+  error: { _tag: "Unauthorized", message: "Unauthorized." },
+});
+
+const forbidden = (): TemplateHttpFailure => ({
+  ok: false,
+  error: { _tag: "Forbidden", message: "Forbidden." },
+});
+
+const authFailureFor = (error: HeadlessAuthError): TemplateHttpFailure =>
+  error.code === "API_KEY_FORBIDDEN" ? forbidden() : unauthorized();
 
 export const readJsonBody = async (
   request: Request,
+  auth?: { readonly authorization: string | undefined },
 ): Promise<ParsedTemplateApiRequestBody> => {
+  if (
+    auth !== undefined &&
+    parseBearerApiKey(auth.authorization) instanceof HeadlessAuthError
+  ) {
+    return unauthorized();
+  }
+
   let parsed: ParsedTemplateApiRequestBody = { ok: true, body: {} };
 
   if (hasJsonRequestBody(request)) {
@@ -89,9 +103,6 @@ const templateApiRequestBodyFrom = (value: unknown): TemplateApiRequestBody => {
   if (!isObjectRecord(value)) return {};
 
   return {
-    ...(typeof value.workspaceSlug === "string"
-      ? { workspaceSlug: value.workspaceSlug }
-      : {}),
     ...(isObjectRecord(value.input)
       ? { input: value.input as Record<string, JsonValue> }
       : {}),
@@ -104,155 +115,63 @@ const templateApiRequestBodyFrom = (value: unknown): TemplateApiRequestBody => {
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 
+export const authenticatedExecutorRequestFor = async (input: {
+  readonly operationId: string;
+  readonly authorization: string | undefined;
+  readonly body: TemplateApiRequestBody;
+  readonly keys?: readonly ApiKeyRow[];
+  readonly principals?: readonly ServicePrincipalRow[];
+  readonly nowMs: number;
+}): Promise<ExecutorRequestResult> => {
+  const presented = parseBearerApiKey(input.authorization);
+
+  if (presented instanceof HeadlessAuthError) return authFailureFor(presented);
+
+  const verification = await verifyApiKey({
+    presentedKey: presented,
+    keys: input.keys ?? [],
+    principals: input.principals ?? [],
+    nowMs: input.nowMs,
+    requiredScope: "brain:read",
+  });
+
+  if (!verification.ok) return authFailureFor(verification.error);
+
+  const principal = headlessPrincipalFromVerification(verification);
+  if (principal === undefined) return unauthorized();
+
+  const authorized = authorizeHeadlessOperation({
+    operationId: input.operationId,
+    principal,
+    operationInput: input.body.input ?? {},
+  });
+
+  if (!authorized.ok) return authorized;
+
+  return {
+    ok: true,
+    request: {
+      operationId: input.operationId,
+      surface: "api",
+      input: authorized.input,
+      ...(input.body.idempotencyKey === undefined
+        ? {}
+        : { idempotencyKey: input.body.idempotencyKey }),
+    },
+  };
+};
+
 export const executorRequestFor = (
   operationId: string,
   body: TemplateApiRequestBody,
-): ExecutorRequestResult => {
-  const input = body.input ?? {};
-  const result =
-    operationId === "brain.pages.createMarkdown"
-      ? createMarkdownExecutorRequest(operationId, body, input)
-      : genericExecutorRequest(operationId, body, input);
-
-  return result;
-};
-
-const genericExecutorRequest = (
-  operationId: string,
-  body: TemplateApiRequestBody,
-  input: Record<string, JsonValue>,
 ): ExecutorRequestResult => ({
   ok: true,
   request: {
     operationId,
     surface: "api",
-    input,
+    input: body.input ?? {},
     ...(body.idempotencyKey === undefined
       ? {}
       : { idempotencyKey: body.idempotencyKey }),
   },
 });
-
-const createMarkdownExecutorRequest = (
-  operationId: string,
-  body: TemplateApiRequestBody,
-  input: Record<string, JsonValue>,
-): ExecutorRequestResult => {
-  let result: ExecutorRequestResult | undefined =
-    createMarkdownIdempotencyFailure(body);
-
-  if (result === undefined) {
-    result = createMarkdownExecutorRequestWithIdempotency(
-      operationId,
-      body,
-      input,
-    );
-  }
-
-  return result;
-};
-
-const createMarkdownIdempotencyFailure = (
-  body: TemplateApiRequestBody,
-): TemplateHttpFailure | undefined => {
-  const hasInvalidIdempotencyKey =
-    body.idempotencyKey?.trim() === "" || body.idempotencyKey === undefined;
-  return hasInvalidIdempotencyKey
-    ? validationFailed(
-        "Operation brain.pages.createMarkdown requires a nonblank idempotencyKey.",
-      )
-    : undefined;
-};
-
-const createMarkdownExecutorRequestWithIdempotency = (
-  operationId: string,
-  body: TemplateApiRequestBody,
-  input: Record<string, JsonValue>,
-): ExecutorRequestResult => {
-  const workspaceId = createMarkdownWorkspaceId(body, input);
-  const result: ExecutorRequestResult = workspaceId
-    ? createMarkdownExecutorRequestWithWorkspace(
-        operationId,
-        body,
-        input,
-        workspaceId,
-      )
-    : validationFailed(
-        "Operation brain.pages.createMarkdown requires input.workspaceId or a known workspaceSlug.",
-      );
-
-  return result;
-};
-
-const createMarkdownWorkspaceId = (
-  body: TemplateApiRequestBody,
-  input: Record<string, JsonValue>,
-): string | undefined =>
-  typeof input.workspaceId === "string" && input.workspaceId.trim()
-    ? input.workspaceId.trim()
-    : body.workspaceSlug === undefined
-      ? undefined
-      : workspaceSlugToId(body.workspaceSlug);
-
-const createMarkdownExecutorRequestWithWorkspace = (
-  operationId: string,
-  body: TemplateApiRequestBody,
-  input: Record<string, JsonValue>,
-  workspaceId: string,
-): ExecutorRequestResult => {
-  const fields = requiredCreateMarkdownInputs(operationId, input);
-  const result: ExecutorRequestResult = fields.ok
-    ? {
-        ok: true,
-        request: {
-          operationId,
-          surface: "api",
-          input: {
-            workspaceId,
-            ...fields.values,
-          },
-          ...(body.idempotencyKey === undefined
-            ? {}
-            : { idempotencyKey: body.idempotencyKey }),
-        },
-      }
-    : fields;
-
-  return result;
-};
-
-const requiredCreateMarkdownInputs = (
-  operationId: string,
-  input: Record<string, JsonValue>,
-):
-  | { readonly ok: true; readonly values: CreateMarkdownInputs }
-  | TemplateHttpFailure => {
-  const invalidField = createMarkdownInputFields.find(
-    (field) => !hasRequiredStringInput(input, field),
-  );
-  const result =
-    invalidField === undefined
-      ? {
-          ok: true as const,
-          values: {
-            slug: input.slug as string,
-            title: input.title as string,
-            markdown: input.markdown as string,
-          },
-        }
-      : validationFailed(
-          `Operation ${operationId} requires nonblank input.${invalidField}.`,
-        );
-
-  return result;
-};
-
-const hasRequiredStringInput = (
-  input: Record<string, JsonValue>,
-  field: keyof CreateMarkdownInputs,
-): boolean => {
-  const value = input[field];
-  const result = typeof value === "string" ? value.trim().length > 0 : false;
-
-  return result;
-};
