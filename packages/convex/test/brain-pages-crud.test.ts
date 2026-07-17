@@ -15,7 +15,7 @@ import {
 import databaseSchema from "../confect/_generated/schema";
 import { Id } from "../confect/_generated/id";
 import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
-import { Forbidden, Unauthorized, ValidationFailed } from "../confect/errors";
+import { Forbidden, Unauthorized } from "../confect/errors";
 import {
   BrainNotFound,
   LifecycleRevoked,
@@ -736,7 +736,7 @@ describe("authorized Brain page CRUD", () => {
     }
     expect(Either.isLeft(result.staleVersion)).toBe(true);
     if (Either.isLeft(result.staleVersion)) {
-      expect(result.staleVersion.left).toBeInstanceOf(ValidationFailed);
+      expect(result.staleVersion.left).toBeInstanceOf(StaleRevision);
     }
     expect(Either.isLeft(result.crossBrain)).toBe(true);
     if (Either.isLeft(result.crossBrain)) {
