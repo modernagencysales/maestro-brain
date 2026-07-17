@@ -1,5 +1,4 @@
 import { FunctionImpl, GroupImpl } from "@confect/server";
-import type { GenericId } from "convex/values";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -11,7 +10,7 @@ import { asGenericId, loadCurrentUser } from "../access/handlerContext";
 import { resolveEffectiveWorkspaceRole } from "../access/auth";
 import type { Role } from "../access/roles";
 import { extractIdentityProfile } from "../access/provisioning";
-import apiKeysSpec, { PublicApiKeyListItemSchema } from "./apiKeys.spec";
+import apiKeysSpec from "./apiKeys.spec";
 import {
   ApiKeyConflict,
   ApiKeyNotFound,
@@ -30,7 +29,6 @@ import {
   revokeBrainApiKey,
   rotateBrainApiKey,
   type ApiKeyRow,
-  type ServicePrincipalRow,
 } from "./auth";
 import {
   headlessPrincipalFromVerification,
@@ -61,7 +59,7 @@ const knownCreateError = (error: unknown) => {
   ) {
     return error;
   }
-  throw error;
+  return new Forbidden({ reason: "Unable to create API key." });
 };
 
 const knownRevokeError = (error: unknown) => {
@@ -73,7 +71,7 @@ const knownRevokeError = (error: unknown) => {
   ) {
     return error;
   }
-  throw error;
+  return new Forbidden({ reason: "Unable to revoke API key." });
 };
 
 const knownRotateError = (error: unknown) => {
@@ -86,7 +84,7 @@ const knownRotateError = (error: unknown) => {
   ) {
     return error;
   }
-  throw error;
+  return new Forbidden({ reason: "Unable to rotate API key." });
 };
 
 const requireAdmin = (actor: { readonly role: Role }) =>
@@ -712,7 +710,9 @@ const toPublicForbidden = (
   if (error instanceof HeadlessAuthError)
     return new Forbidden({ reason: "Brain scope is not available." });
   if (error instanceof Forbidden || error instanceof Unauthorized) return error;
-  throw error;
+  if (error instanceof ValidationFailed)
+    return new Forbidden({ reason: error.message });
+  return new Forbidden({ reason: "API key operation is not available." });
 };
 
 const toCreateError = (
