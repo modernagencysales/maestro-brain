@@ -8,7 +8,6 @@ import { TestConfect } from "@confect/test";
 import { defineSchema } from "convex/server";
 import * as Effect from "effect/Effect";
 import * as Either from "effect/Either";
-import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
