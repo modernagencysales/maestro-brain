@@ -51,9 +51,15 @@ export const isTransientVitestWorkerRpcTimeout = (output: string): boolean =>
 export const runBroadGateAttempts = (
   expectedHead: string,
   runner: BroadGateRunner,
+  priorAttempts: readonly BroadGateAttempt[] = [],
 ): BroadGateReceipt => {
-  const attempts: BroadGateAttempt[] = [];
-  for (let attempt = 1; attempt <= 2; attempt += 1) {
+  const attempts: BroadGateAttempt[] = [...priorAttempts];
+  for (
+    let invocationAttempt = 1;
+    invocationAttempt <= 2;
+    invocationAttempt += 1
+  ) {
+    const attempt = attempts.length + 1;
     if (runner.head() !== expectedHead) {
       throw new Error("integration broad gate HEAD changed before an attempt");
     }
@@ -75,7 +81,7 @@ export const runBroadGateAttempts = (
       transientVitestWorkerRpcTimeout: transient,
     });
     if (result.status === 0) break;
-    if (!transient || attempt === 2) break;
+    if (!transient || invocationAttempt === 2) break;
   }
   return {
     attempts,
@@ -118,10 +124,17 @@ export const validateBroadGateReceipt = (
     value.command !== BROAD_GATE_COMMAND ||
     value.headSha !== expectedHead ||
     !Array.isArray(value.attempts) ||
-    value.attempts.length < 1 ||
-    value.attempts.length > 2
+    value.attempts.length < 1
   ) {
     throw new Error("invalid broad gate receipt envelope");
+  }
+  for (const attempt of value.attempts.slice(0, -1)) {
+    if (
+      attempt.status !== "failed" ||
+      !attempt.transientVitestWorkerRpcTimeout
+    ) {
+      throw new Error("broad gate retry lacks the known transient signature");
+    }
   }
   for (const [index, attempt] of value.attempts.entries()) {
     if (
@@ -133,15 +146,6 @@ export const validateBroadGateReceipt = (
       typeof attempt.transientVitestWorkerRpcTimeout !== "boolean"
     ) {
       throw new Error("invalid broad gate attempt receipt");
-    }
-  }
-  if (value.attempts.length === 2) {
-    const first = value.attempts[0];
-    if (
-      first?.status !== "failed" ||
-      first.transientVitestWorkerRpcTimeout !== true
-    ) {
-      throw new Error("broad gate retry lacks the known transient signature");
     }
   }
   if (value.attempts.at(-1)?.status !== "passed") {
@@ -172,35 +176,42 @@ export const runIntegrationBroadGate = (input: {
     if (existing.headSha === headSha && existing.status === "passed") {
       return existing;
     }
-    throw new Error("existing broad gate receipt is not reusable");
+    if (existing.headSha !== headSha) {
+      throw new Error("existing broad gate receipt is not reusable");
+    }
   }
-  const receipt = runBroadGateAttempts(headSha, {
-    head: () =>
-      runRtk(["proxy", "git", "rev-parse", "HEAD"], {
-        cwd: workdir,
-        quiet: true,
-      }),
-    runVerify: () => {
-      const result = spawnSync(
-        "rtk",
-        ["host-test-slot", "--class", "full", "pnpm", "verify"],
-        { cwd: workdir, encoding: "utf8", maxBuffer: 128 * 1024 * 1024 },
-      );
-      const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
-      process.stdout.write(result.stdout ?? "");
-      process.stderr.write(result.stderr ?? "");
-      return { output, status: result.status };
+  const existingAttempts = existsSync(receiptPath)
+    ? readBroadGateReceipt(receiptPath).attempts
+    : [];
+  const receipt = runBroadGateAttempts(
+    headSha,
+    {
+      head: () =>
+        runRtk(["proxy", "git", "rev-parse", "HEAD"], {
+          cwd: workdir,
+          quiet: true,
+        }),
+      runVerify: () => {
+        const result = spawnSync(
+          "rtk",
+          ["host-test-slot", "--class", "full", "pnpm", "verify"],
+          { cwd: workdir, encoding: "utf8", maxBuffer: 128 * 1024 * 1024 },
+        );
+        const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+        process.stdout.write(result.stdout ?? "");
+        process.stderr.write(result.stderr ?? "");
+        return { output, status: result.status };
+      },
+      status: () =>
+        runRtk(["proxy", "git", "status", "--porcelain"], {
+          cwd: workdir,
+          quiet: true,
+        }),
     },
-    status: () =>
-      runRtk(["proxy", "git", "status", "--porcelain"], {
-        cwd: workdir,
-        quiet: true,
-      }),
-  });
+    existingAttempts,
+  );
   mkdirSync(dirname(receiptPath), { recursive: true });
-  writeFileSync(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`, {
-    flag: "wx",
-  });
+  writeFileSync(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`);
   if (receipt.status !== "passed") {
     throw new Error("integration broad gate failed");
   }

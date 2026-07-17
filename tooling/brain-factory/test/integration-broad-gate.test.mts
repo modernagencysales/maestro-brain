@@ -63,6 +63,30 @@ describe("integration broad gate transient retry", () => {
     expect(receipt.status).toBe("failed");
   });
 
+  it("appends a bounded recovery invocation to failed exact-head history", () => {
+    const first = runBroadGateAttempts(
+      "a".repeat(40),
+      cleanRunner([
+        { output: 'Timeout calling "onTaskUpdate"', status: 1 },
+        { output: 'Timeout calling "onTaskUpdate"', status: 1 },
+      ]).runner,
+    );
+    const { runner, runVerify } = cleanRunner([
+      { output: "verify passed", status: 0 },
+    ]);
+
+    const recovered = runBroadGateAttempts(
+      "a".repeat(40),
+      runner,
+      first.attempts,
+    );
+
+    expect(runVerify).toHaveBeenCalledTimes(1);
+    expect(recovered.attempts).toHaveLength(3);
+    expect(recovered.attempts.map(({ attempt }) => attempt)).toEqual([1, 2, 3]);
+    expect(recovered.status).toBe("passed");
+  });
+
   it("refuses to retry after immutable HEAD drift", () => {
     let headCalls = 0;
     const runVerify = vi.fn().mockReturnValue({
