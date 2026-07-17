@@ -1,6 +1,8 @@
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { hydrateWorktreeDependencies } from "./dependencies.js";
+import { buildTaskLaunchEnv } from "./build-task-launch-env.js";
+import { materializeBuildTaskRunConfig } from "./build-task-run-config.js";
 import {
   acquireDispatcherLock,
   promoteTaskReservation,
@@ -194,11 +196,29 @@ for (const task of selected) {
   }
   runRtk(["git", "worktree", "add", "-B", branch, workdir, baseSha]);
   hydrateWorktreeDependencies(root, workdir);
+  const launchEnv = buildTaskLaunchEnv({
+    baseSha,
+    evidence,
+    hostTestMaxLoad1m: "20",
+    reproofRequest: "none",
+    resumeCommits: "none",
+    resumeMode: "none",
+    resumeSourceHead: "none",
+    resumeTaskBase: "none",
+    startSha: baseSha,
+    taskId: task.taskId,
+    workdir,
+  });
+  const runConfig = materializeBuildTaskRunConfig({
+    env: launchEnv,
+    graph: workflow,
+    path: resolve(state, "launch-configs", `${task.taskId}.toml`),
+  });
   const output = runRtk(
     [
       "fabro",
       "run",
-      workflow,
+      runConfig,
       "--detach",
       "--json",
       "--no-upgrade-check",
@@ -217,7 +237,10 @@ for (const task of selected) {
       "-I",
       `start_sha=${baseSha}`,
     ],
-    { quiet: true },
+    {
+      quiet: true,
+      env: launchEnv,
+    },
   );
   const parsed = JSON.parse(output) as { run_id?: string; runId?: string };
   const runId = parsed.run_id ?? parsed.runId;

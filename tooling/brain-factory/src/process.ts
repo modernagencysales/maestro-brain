@@ -5,10 +5,15 @@ import { resolve } from "node:path";
 
 export const runRtk = (
   args: readonly string[],
-  options: { readonly cwd?: string; readonly quiet?: boolean } = {},
+  options: {
+    readonly cwd?: string;
+    readonly env?: NodeJS.ProcessEnv;
+    readonly quiet?: boolean;
+  } = {},
 ): string => {
   const result = spawnSync("rtk", [...args], {
     cwd: options.cwd,
+    env: options.env,
     encoding: "utf8",
     stdio: options.quiet ? "pipe" : ["ignore", "pipe", "inherit"],
   });

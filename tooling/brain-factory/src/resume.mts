@@ -1,6 +1,8 @@
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { hydrateWorktreeDependencies } from "./dependencies.js";
+import { buildTaskLaunchEnv } from "./build-task-launch-env.js";
+import { materializeBuildTaskRunConfig } from "./build-task-run-config.js";
 import {
   acquireDispatcherLock,
   archiveTerminalTaskRecord,
@@ -183,11 +185,35 @@ const resumeInputs = conflictAware
       `resume_commits=${serializeResumeCommits(taskId, taskCommits)}`,
     ]
   : [];
+const launchEnv = buildTaskLaunchEnv({
+  baseSha: factoryBase,
+  evidence,
+  hostTestMaxLoad1m: "20",
+  reproofRequest: "none",
+  resumeCommits:
+    resumeStrategy === "in-lane-cherry-pick"
+      ? serializeResumeCommits(taskId, taskCommits)
+      : "none",
+  resumeMode:
+    resumeStrategy === "in-lane-cherry-pick" ? "conflict-aware" : "none",
+  resumeSourceHead:
+    resumeStrategy === "in-lane-cherry-pick" ? sourceHeadSha : "none",
+  resumeTaskBase:
+    resumeStrategy === "in-lane-cherry-pick" ? taskBaseSha : "none",
+  startSha,
+  taskId,
+  workdir,
+});
+const runConfig = materializeBuildTaskRunConfig({
+  env: launchEnv,
+  graph: workflow,
+  path: resolve(state, "launch-configs", `resume-${taskId}.toml`),
+});
 const output = runRtk(
   [
     "fabro",
     "run",
-    workflow,
+    runConfig,
     "--detach",
     "--json",
     "--no-upgrade-check",
@@ -209,7 +235,10 @@ const output = runRtk(
     `start_sha=${startSha}`,
     ...resumeInputs,
   ],
-  { quiet: true },
+  {
+    quiet: true,
+    env: launchEnv,
+  },
 );
 const parsed = JSON.parse(output) as { run_id?: string; runId?: string };
 const runId = parsed.run_id ?? parsed.runId;

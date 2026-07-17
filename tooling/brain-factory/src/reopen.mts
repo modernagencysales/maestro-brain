@@ -3,6 +3,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { buildContractReproofRequest } from "./contract-reproof.js";
+import { buildTaskLaunchEnv } from "./build-task-launch-env.js";
+import { materializeBuildTaskRunConfig } from "./build-task-run-config.js";
 import { hydrateWorktreeDependencies } from "./dependencies.js";
 import {
   acquireDispatcherLock,
@@ -269,12 +271,30 @@ reserveTaskPreparing(recordPath, {
 runRtk(["git", "worktree", "add", "-b", branch, workdir, controlHeadSha]);
 hydrateWorktreeDependencies(root, workdir);
 const workflow = resolve(".fabro/workflows/brain-build-task/workflow.fabro");
+const launchEnv = buildTaskLaunchEnv({
+  baseSha: controlHeadSha,
+  evidence,
+  hostTestMaxLoad1m: "20",
+  reproofRequest: requestPath,
+  resumeCommits: "none",
+  resumeMode: "none",
+  resumeSourceHead: "none",
+  resumeTaskBase: "none",
+  startSha: controlHeadSha,
+  taskId,
+  workdir,
+});
+const runConfig = materializeBuildTaskRunConfig({
+  env: launchEnv,
+  graph: workflow,
+  path: resolve(state, "launch-configs", `reproof-${taskId}.toml`),
+});
 const output = JSON.parse(
   runRtk(
     [
       "fabro",
       "run",
-      workflow,
+      runConfig,
       "--detach",
       "--json",
       "--no-upgrade-check",
@@ -297,7 +317,10 @@ const output = JSON.parse(
       "-I",
       `reproof_request=${requestPath}`,
     ],
-    { quiet: true },
+    {
+      quiet: true,
+      env: launchEnv,
+    },
   ),
 ) as { run_id?: string; runId?: string };
 const runId = output.run_id ?? output.runId;

@@ -156,14 +156,16 @@ describe("brain lane gate command cache", () => {
     expect(preReview).toContain("node --import tsx");
     expect(final).toContain("node --import tsx");
     expect(workflow).not.toContain("pnpm brain:factory:lane-gates");
-    const review = workflow
-      .split("\n")
-      .find((line) => line.trimStart().startsWith("review ["));
-    expect(review).toContain("Read-Only Contract Review");
-    expect(review).toContain("max_visits=10");
-    expect(review).toContain(
-      "Never edit, amend, or commit product/worktree files",
-    );
-    expect(review).not.toContain("Fix narrow defects directly");
+    for (const lens of ["contract", "safety", "quality"]) {
+      const review = workflow
+        .split("\n")
+        .find((line) => line.trimStart().startsWith(`review_${lens} [`));
+      expect(review).toContain(
+        `Exhaustive ${lens[0]?.toUpperCase() ?? ""}${lens.slice(1)} Review`,
+      );
+      expect(review).toContain("max_visits=10");
+      expect(review).toContain("Never edit or commit product/worktree files");
+      expect(review).not.toContain("Fix narrow defects directly");
+    }
   });
 });
