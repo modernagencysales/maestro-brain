@@ -68,28 +68,6 @@ export async function recordCurrentEditorSnapshot(
   return await commitEditorSnapshot(ctx, resolved, snapshot, version);
 }
 
-const resolveStableEditorSnapshotTarget = async (
-  ctx: GenericMutationCtx<DataModel>,
-  brainKey: string,
-  pageKey: string,
-): Promise<ResolvedEditorSnapshotTarget | null> => {
-  const workspaces = await ctx.db.query("workspaces").collect();
-  const workspace = workspaces.find((row) => row.brainKey === brainKey);
-  if (workspace === undefined) return null;
-  const page = await ctx.db
-    .query("brainPages")
-    .withIndex("by_workspace_page_key", (q) =>
-      q.eq("workspaceId", workspace._id).eq("pageKey", pageKey),
-    )
-    .unique();
-  if (!isReadableSnapshotPage(page)) return null;
-  return {
-    brainKey,
-    pageKey: page.pageKey,
-    currentRevisionKey: page.currentRevisionKey,
-  };
-};
-
 const resolveLegacyEditorSnapshotTarget = async (
   ctx: GenericMutationCtx<DataModel>,
   legacyPageId: string,
