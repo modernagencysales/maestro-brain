@@ -239,6 +239,27 @@ describe("Fabro workflow prompt contracts", () => {
     );
   });
 
+  it("salvages only the pinned dirty S04-T02 repair through Fabro", () => {
+    const salvage = readFileSync(
+      resolve(
+        import.meta.dirname,
+        "../../../.fabro/workflows/brain-salvage-s04-t02/workflow.fabro",
+      ),
+      "utf8",
+    );
+    expect(salvage).toContain("expected_head");
+    expect(salvage).toContain("allowed_dirty_files");
+    expect(salvage).toContain('rtk proxy test \\"$ACTUAL\\" = \\"$ALLOWED\\"');
+    expect(salvage).toContain("sourceSliceLimit !== 5");
+    expect(salvage).toContain("exactly five coherent intention commits");
+    expect(salvage).toContain("Never use --allow-empty");
+    expect(salvage).toContain("slack-directory");
+    expect(salvage).toContain("packages/convex typecheck");
+    expect(salvage).toContain('rtk proxy test -z \\"$STATUS\\"');
+    expect(salvage).toContain("reviewVerdict !== 'pending'");
+    expect(salvage).toContain("Never use git add .");
+  });
+
   it("uses RTK pass-through commands for guards, scripts, and proof data", () => {
     const buildTask = readFileSync(
       resolve(
