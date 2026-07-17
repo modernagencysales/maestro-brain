@@ -420,6 +420,22 @@ describe("Fabro workflow prompt contracts", () => {
     expect(laneGates).toContain("validateFinalLaneResult");
   });
 
+  it("propagates the authorized host load ceiling to lane gates", () => {
+    const buildTask = readFileSync(
+      resolve(
+        import.meta.dirname,
+        "../../../.fabro/workflows/brain-build-task/workflow.fabro",
+      ),
+      "utf8",
+    );
+
+    expect(buildTask).toContain("host_test_max_load_1m");
+    expect(buildTask).toContain(
+      "export HOST_TEST_MAX_LOAD_1M='{{ inputs.host_test_max_load_1m|default('20') }}'",
+    );
+    expect(buildTask.match(/export HOST_TEST_MAX_LOAD_1M=/g)).toHaveLength(2);
+  });
+
   it("binds cross-tranche integration to one immutable selection and full gate", () => {
     const wave = readFileSync(
       resolve(
