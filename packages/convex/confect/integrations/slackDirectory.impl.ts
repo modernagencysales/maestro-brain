@@ -330,3 +330,270 @@ export const revokeSlackConnectionPlan = (input: {
     },
   });
 };
+
+export const reconcileSlackChannelDirectoryPlan = (input: {
+  readonly connectionKey: string;
+  readonly expectedGeneration: number;
+  readonly connection: SlackDirectoryConnection | null;
+  readonly existingChannels: readonly SourceChannelRowValue[];
+  readonly now: number;
+  readonly cursor: string | null;
+  readonly limit: number;
+  readonly providerChannels?: readonly ProviderSlackChannel[];
+  readonly providerNextCursor?: string | null;
+}): Either.Either<
+  {
+    readonly upserts: readonly PlannedUpsert[];
+    readonly accessGained: number;
+    readonly accessLost: number;
+    readonly nextCursor: string | null;
+    readonly providerCalls: readonly string[];
+  },
+  | ConnectionNotFound
+  | ConnectionGenerationMismatch
+  | BotIdentityMismatch
+  | ProviderRateLimited
+  | ProviderUnavailable
+> => {
+  const validated = validateReconcileConnection(input);
+  if (Either.isLeft(validated)) return Either.left(validated.left);
+  const connection = validated.right;
+  const start = input.cursor === null ? 0 : Number.parseInt(input.cursor, 10);
+  if (!Number.isFinite(start) || start < 0 || input.limit < 1) {
+    return Either.left(new ProviderUnavailable());
+  }
+  const providerChannels = input.providerChannels;
+  if (providerChannels === undefined) {
+    return Either.left(new ProviderUnavailable());
+  }
+  const page =
+    input.providerNextCursor === undefined
+      ? providerChannels.slice(start, start + input.limit)
+      : providerChannels;
+  const existingByExternalId = new Map(
+    input.existingChannels
+      .filter((row) => row.connectionKey === connection.connectionKey)
+      .map((row) => [row.externalChannelId, row]),
+  );
+  let accessGained = 0;
+  let accessLost = 0;
+  const upserts = page.map((channel): PlannedUpsert => {
+    const existing = existingByExternalId.get(channel.id);
+    const membershipStatus = membershipStatusFor({ channel, existing });
+    if (
+      existing?.isMember !== true &&
+      channel.is_member &&
+      !channel.is_archived
+    )
+      accessGained += 1;
+    if (
+      existing?.isMember === true &&
+      (!channel.is_member || channel.is_archived)
+    )
+      accessLost += 1;
+    const rowId = (
+      existing as { readonly _id?: GenericId<"sourceChannels"> } | undefined
+    )?._id;
+    return {
+      ...(rowId ? { rowId } : {}),
+      organizationKey: connection.organizationKey,
+      connectionKey: connection.connectionKey,
+      connectionGeneration: connection.connectionGeneration,
+      channelKey:
+        existing?.channelKey ??
+        channelKeyFor(connection.connectionKey, channel.id),
+      externalChannelId: channel.id,
+      name: channel.name,
+      normalizedName: normalizeChannelName(channel.name),
+      isMember: channel.is_member,
+      isShared: channel.is_shared === true,
+      isExtShared: channel.is_ext_shared === true,
+      isArchived: channel.is_archived === true,
+      membershipStatus,
+      accessGeneration:
+        existing === undefined
+          ? channel.is_member
+            ? 1
+            : 0
+          : existing.isMember === false &&
+              channel.is_member &&
+              !channel.is_archived
+            ? existing.accessGeneration + 1
+            : existing.accessGeneration,
+      firstDiscoveredAt: existing?.firstDiscoveredAt ?? input.now,
+      lastSeenAt: input.now,
+      updatedAt: input.now,
+    };
+  });
+  const next = start + page.length;
+  return Either.right({
+    upserts,
+    accessGained,
+    accessLost,
+    nextCursor:
+      input.providerNextCursor === undefined
+        ? next < providerChannels.length
+          ? String(next)
+          : null
+        : input.providerNextCursor,
+    providerCalls: ["auth.test", "conversations.list"],
+  });
+};
+
+type RawIndexBuilder = {
+  readonly eq: (field: string, value: unknown) => RawIndexBuilder;
+};
+type RawQuery = {
+  readonly index: (
+    name: string,
+    range: (builder: RawIndexBuilder) => RawIndexBuilder,
+  ) => RawQuery;
+  readonly first: () => Effect.Effect<Option.Option<unknown>, unknown>;
+  readonly take: (count: number) => Effect.Effect<readonly unknown[], unknown>;
+};
+type RawWriterTable = {
+  readonly insert: (
+    row: Record<string, unknown>,
+  ) => Effect.Effect<unknown, unknown>;
+  readonly patch: (
+    id: GenericId<string>,
+    patch: Record<string, unknown>,
+  ) => Effect.Effect<unknown, unknown>;
+};
+type SlackDirectoryActionConnection = Omit<SlackDirectoryConnection, "_id">;
+
+const directoryRefs = {
+  readConnection: Ref.make(
+    "integrations/slackDirectory",
+    readReconcileConnection,
+  ),
+  commitIdentity: Ref.make(
+    "integrations/slackDirectory",
+    commitReconcileIdentity,
+  ),
+  commitInitialFailure: Ref.make(
+    "integrations/slackDirectory",
+    commitInitialReconcileFailure,
+  ),
+  commitChannels: Ref.make(
+    "integrations/slackDirectory",
+    commitReconcileChannels,
+  ),
+};
+
+type RawReader = { readonly table: (name: string) => RawQuery };
+type RawWriter = { readonly table: (name: string) => RawWriterTable };
+const rawReader = (reader: unknown): RawReader => reader as RawReader;
+const rawWriter = (writer: unknown): RawWriter => writer as RawWriter;
+
+const loadSlackDirectoryConnection = (input: {
+  readonly connectionKey: string;
+  readonly expectedGeneration: number;
+}) =>
+  Effect.gen(function* () {
+    const reader = rawReader(yield* DatabaseReader);
+    const connection = (yield* reader
+      .table("providerConnections")
+      .index("by_connection_key", (q) =>
+        q.eq("connectionKey", input.connectionKey),
+      )
+      .first()
+      .pipe(
+        Effect.map(Option.getOrNull),
+        Effect.orDie,
+      )) as SlackDirectoryConnection | null;
+    const activationCandidate = validateActivationConnection({
+      ...input,
+      connection,
+    });
+    if (Either.isLeft(activationCandidate)) {
+      return yield* Effect.fail(activationCandidate.left);
+    }
+    return activationCandidate.right;
+  });
+
+const activeSlackConnectionsFor = (input: {
+  readonly organizationKey: string;
+}) =>
+  Effect.gen(function* () {
+    const reader = rawReader(yield* DatabaseReader);
+    return (yield* reader
+      .table("providerConnections")
+      .index("by_organization_provider_status", (q) =>
+        q
+          .eq("organizationKey", input.organizationKey)
+          .eq("provider", "nango")
+          .eq("providerConfigKey", "slack")
+          .eq("status", "active"),
+      )
+      .take(1_000)
+      .pipe(Effect.orDie)) as readonly SlackDirectoryConnection[];
+  });
+
+const applyReplacementRevocation = (input: {
+  readonly connection: SlackDirectoryConnection;
+  readonly now: number;
+}) =>
+  Effect.gen(function* () {
+    const reader = rawReader(yield* DatabaseReader);
+    const writer = rawWriter(yield* DatabaseWriter);
+    const revoked = revokeSlackConnectionPlan({
+      connectionKey: input.connection.connectionKey,
+      connection: input.connection,
+      reason: "team_or_app_or_bot_changed",
+      now: input.now,
+    });
+    if (Either.isLeft(revoked)) return yield* Effect.fail(revoked.left);
+    if (input.connection._id) {
+      yield* writer
+        .table("providerConnections")
+        .patch(
+          input.connection._id as GenericId<"providerConnections">,
+          revoked.right.connectionPatch,
+        )
+        .pipe(Effect.orDie);
+    }
+    const sourceRows = (yield* reader
+      .table("sourceChannels")
+      .index("by_connection_generation", (q) =>
+        q
+          .eq("connectionKey", input.connection.connectionKey)
+          .eq("connectionGeneration", input.connection.connectionGeneration),
+      )
+      .take(1_000)
+      .pipe(Effect.orDie)) as readonly (SourceChannelRowValue & {
+      readonly _id?: GenericId<"sourceChannels">;
+    })[];
+    for (const channel of sourceRows) {
+      if (!channel._id) continue;
+      yield* writer
+        .table("sourceChannels")
+        .patch(channel._id, {
+          isMember: false,
+          membershipStatus: "access_lost" as const,
+          updatedAt: input.now,
+        })
+        .pipe(Effect.orDie);
+    }
+    const lanes = ["live", "recent", "deep", "reconciliation"] as const;
+    for (const lane of lanes) {
+      const syncRows = (yield* reader
+        .table("channelSyncStates")
+        .index("by_connection_lane", (q) =>
+          q
+            .eq("connectionKey", input.connection.connectionKey)
+            .eq("lane", lane),
+        )
+        .take(1_000)
+        .pipe(Effect.orDie)) as readonly {
+        readonly _id?: GenericId<"channelSyncStates">;
+      }[];
+      for (const sync of syncRows) {
+        if (!sync._id) continue;
+        yield* writer
+          .table("channelSyncStates")
+          .patch(sync._id, revoked.right.syncPatch)
+          .pipe(Effect.orDie);
+      }
+    }
+  });
