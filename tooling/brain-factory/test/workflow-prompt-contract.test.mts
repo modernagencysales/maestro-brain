@@ -444,6 +444,15 @@ describe("Fabro workflow prompt contracts", () => {
     expect(review).toContain(
       "Preserve status ready_for_review through this review",
     );
+    expect(review).toContain(
+      "selected lane results must remain status lane_green until the record node",
+    );
+    expect(review).toContain(
+      "Do not run integration-result-check.mts or validateIntegratedLanes before record",
+    );
+    expect(review).toContain(
+      "superseded integration overlay metadata is provenance, not a blocker",
+    );
     expect(review).toContain("reviewed is not a valid status");
     expect(review).toContain(
       "Preserve schemaVersion maestro-brain-integration-result/v2 and every integration-produced field",
@@ -478,6 +487,12 @@ describe("Fabro workflow prompt contracts", () => {
       'dependencies -> review [condition="outcome=succeeded"]',
     );
     expect(wave).toContain("review -> review_gate");
+    expect(wave.indexOf("review -> review_gate")).toBeLessThan(
+      wave.indexOf("gates -> record"),
+    );
+    expect(wave.indexOf("gates -> record")).toBeLessThan(
+      wave.indexOf("record -> post_record"),
+    );
     expect(wave).not.toContain("host-test-slot --class full pnpm verify");
     expect(wave).toContain("integration-broad-gate.mts");
     expect(wave).toContain("broad-gate-HEAD.json sidecar");
