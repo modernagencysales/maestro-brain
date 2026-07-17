@@ -113,7 +113,6 @@ describe("brain task scheduler", () => {
     expect(result.ready.map((task) => task.taskId)).toEqual([
       "S02-T03",
       "S02-T04",
-      "S03-T03",
       "S04-T03",
       "S04-T04",
       "S05-T01",

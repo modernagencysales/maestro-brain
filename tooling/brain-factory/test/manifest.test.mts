@@ -121,7 +121,13 @@ describe("Maestro Brain execution manifest", () => {
         ? [match[1]]
         : [],
     );
-    expect(helperTests).toEqual(["S00-T04", "S01-T02", "S01-T03", "S02-T02"]);
+    expect(helperTests).toEqual([
+      "S00-T04",
+      "S01-T02",
+      "S01-T03",
+      "S02-T02",
+      "S03-T03",
+    ]);
     expect(plan.match(/`rtk pnpm check:confect-manifest`/g)).toHaveLength(1);
     expect(plan).toMatch(
       /the\s+Confect manifest check is a zero-delta assertion because this\s+task consumes/,
@@ -340,6 +346,38 @@ describe("Maestro Brain execution manifest", () => {
         }),
       }),
     ).toContain("S04-T01: source slice limit must be 10");
+  });
+
+  it("gives S03-T03 the revision-fenced BlockNote seam", () => {
+    const task = buildManifest().tasks.find(
+      (candidate) => candidate.taskId === "S03-T03",
+    );
+    expect(task?.codeStartAfter).toContain("S02-T04");
+    expect(task?.gateProfiles).toEqual(["convex", "web"]);
+    expect(task?.estimatedSourceLines).toBe(1_800);
+    expect(task?.sourceSliceLimit).toBe(7);
+    expect(task?.fileLocks).toEqual(
+      expect.arrayContaining([
+        "packages/editor-react/src/BlockNoteSyncEditor.test.tsx",
+        "packages/editor-react/src/BlockNoteSyncEditor.tsx",
+        "packages/convex/confect/brain/pages.impl.ts",
+        "packages/convex/confect/brain/pages.spec.ts",
+        "packages/convex/confect/editor/syncApi.ts",
+        "packages/convex/test/brain-editor-revision-fence.test.ts",
+      ]),
+    );
+    const plan = readFileSync(resolve(REPO_ROOT, PLAN_RELATIVE), "utf8");
+    const packet = plan.slice(
+      plan.indexOf("### S03-T03"),
+      plan.indexOf("### S03-T04"),
+    );
+    for (const command of [
+      "rtk pnpm brain:factory:check-confect-codegen -- --profile web --test brain-editor-revision-fence --test brain-pages-crud",
+      "rtk pnpm --dir packages/editor-react typecheck",
+      "rtk host-test-slot --class focused pnpm --dir packages/editor-react test",
+    ]) {
+      expect(packet).toContain(`\`${command}\``);
+    }
   });
 
   it("keeps S13 lane proofs behind their real product dependencies", () => {

@@ -1213,7 +1213,9 @@ manifest.
   three-region desktop layout and drawer-based mobile layout.
 - **Classification:** `template-gap`; target `TB-BRAIN-UI-01`, importing
   behavior but not shell/CSS from production Maestro.
-- **Dependencies:** S03-T02.
+- **Dependencies:** S03-T02, S02-T04. The integrated editor-sync contract is the
+  base for this recovery; this recovery slice owns the missing revision-fenced
+  browser seam discovered during independent S03-T03 review.
 - **Existing anchors:** production behavioral prior art is the
   [`workspace composition`](https://github.com/modernagencysales/maestro/blob/c8b644c154af91f7e6b67b31861fd6b7eaa211b1/apps/web/src/features/brain/brain-workspace-content.tsx#L108-L155)
   and
@@ -1233,27 +1235,46 @@ manifest.
   `apps/web/src/features/brain/brain-evidence-drawer.tsx`, and
   `apps/web/src/features/brain/brain-evidence-drawer.test.tsx`; modify
   `apps/web/src/routes/_workspace.brain.tsx` and
-  `apps/web/src/saas-ui/business-shell.tsx`.
+  `apps/web/src/saas-ui/business-shell.tsx`; extend
+  `packages/editor-react/src/BlockNoteSyncEditor.tsx` and
+  `packages/editor-react/src/BlockNoteSyncEditor.test.tsx`; add the public
+  revision-fenced snapshot contract in
+  `packages/convex/confect/brain/pages.spec.ts` and
+  `packages/convex/confect/brain/pages.impl.ts`; repair stable snapshot
+  publication in `packages/convex/confect/editor/syncApi.ts`; and extend
+  `packages/convex/test/brain-editor-revision-fence.test.ts` and
+  `packages/convex/test/brain-pages-crud.test.ts`.
 - **Failure-first tests:** loading/empty/not-found/typed/transport states;
   viewer read-only; editor save; tree create/rename/move/archive/favorite;
   mobile drawers; keyboard tree navigation; unsaved/conflict state; cross-Brain
-  URL key fails without leaking existence.
+  URL key fails without leaking existence; mounted BlockNote reports its live
+  document, a save is fenced to the revision selected when editing began,
+  unfenced stable autosnapshots cannot silently publish, and typed stale or
+  lifecycle-revoked failures reach the workspace conflict state.
 - **Implementation:** left client/page tree, center title/freshness/BlockNote,
   right contextual evidence/history drawer, top Ask trigger placeholder. Use
   generated refs only in the adapter. Mount the S02 stable editor target and
-  display optimistic-concurrency conflicts rather than overwriting.
+  display optimistic-concurrency conflicts rather than overwriting. Keep
+  BlockNote editable for editors; expose live document/change and sync-error
+  callbacks from the reusable editor, publish through a public Confect page
+  mutation carrying `expectedCurrentRevisionKey`, and never resolve the fence
+  from mutable server state after the edit began. Generated refs and wrappers
+  remain integration-owned and are proved through transient codegen.
 - **Typed contract / state:** `BrainWorkspaceState` is
   `loading | empty | ready | not_found | forbidden | stale_revision | transport_failure`;
-  mutations return the typed S02 page contract.
+  mutations return the typed S02 page contract. The public snapshot commit
+  accepts the stable document ID, live content/version, and selected revision
+  fence, and preserves the closed `StaleRevision | LifecycleRevoked` failure
+  path for the web adapter.
 - **Migration / compatibility / rollback:** no data migration. Keep the old
   generic Brain fixture only in isolated story/test data; rollback the route to
   a read-only maintenance screen without changing backend data.
 - **Focused verification:**
-  `rtk host-test-slot --class focused pnpm --dir apps/web test brain`,
+  `rtk pnpm brain:factory:check-confect-codegen -- --profile web --test brain-editor-revision-fence --test brain-pages-crud`,
+  `rtk pnpm --dir packages/editor-react typecheck`,
   `rtk host-test-slot --class focused pnpm --dir packages/editor-react test`,
-  `rtk pnpm check:route-tree`, `rtk pnpm check:layer-boundaries`,
-  `rtk host-test-slot --class focused pnpm --dir apps/web test brain accessibility`,
-  broad verification is deferred to tranche acceptance under Appendix L.
+  `rtk pnpm check:route-tree`, `rtk pnpm check:layer-boundaries`, broad
+  verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** role/state screenshots at desktop/mobile, keyboard and
   screen-reader output, stale-edit proof, route denial, and layer imports.
 - **Lane branch / commit boundary:** branch `codex/brain-s03-notion-workspace`;
@@ -3742,7 +3763,7 @@ direct acceptance edge and is the source materialized into `acceptanceAfter`.
 | S02-T04 | S02-T03                            | template-gap authorized editor sync              |               250 |
 | S03-T01 | S02 complete                       | template-gap Brain UI                            |               240 |
 | S03-T02 | S03-T01                            | template-gap Client Brief UI                     |              2100 |
-| S03-T03 | S03-T02                            | template-gap Brain workspace UI                  |               290 |
+| S03-T03 | S03-T02, S02-T04 recovery          | template-gap Brain workspace + fenced editor     |              1800 |
 | S03-T04 | S03-T03                            | template-gap revision/review UI                  |               260 |
 | S04-T01 | S01, S03                           | template-gap Nango provider                      |              2700 |
 | S04-T02 | S04-T01                            | template-gap connection/channel directory        |               280 |

@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "868331c0af5ab06b495ca802724f4a3578c854e07b8342c9de4b93107a264499",
+  "planSha256": "73f04c3509416bd35dd0835c2991a7d5ed9331a4a903125b965d94a7fc6fc4e5",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -444,10 +444,10 @@
       "tranche": "D2-domain-bodies"
     },
     {
-      "acceptanceAfter": "S03-T02",
+      "acceptanceAfter": "S03-T02, S02-T04 recovery",
       "classification": "template-gap",
-      "codeStartAfter": ["S03-T01", "S02-T02"],
-      "estimatedSourceLines": 290,
+      "codeStartAfter": ["S03-T01", "S02-T02", "S02-T04"],
+      "estimatedSourceLines": 1800,
       "fileInventoryIssues": [],
       "fileInventoryStatus": "ready",
       "fileLocks": [
@@ -464,14 +464,22 @@
         "apps/web/src/features/brain/brain-workspace.test.tsx",
         "apps/web/src/features/brain/brain-workspace.tsx",
         "apps/web/src/routes/_workspace.brain.tsx",
-        "apps/web/src/saas-ui/business-shell.tsx"
+        "apps/web/src/saas-ui/business-shell.tsx",
+        "packages/convex/confect/brain/pages.impl.ts",
+        "packages/convex/confect/brain/pages.spec.ts",
+        "packages/convex/confect/editor/syncApi.ts",
+        "packages/convex/test/brain-editor-revision-fence.test.ts",
+        "packages/convex/test/brain-pages-crud.test.ts",
+        "packages/editor-react/src/BlockNoteSyncEditor.test.tsx",
+        "packages/editor-react/src/BlockNoteSyncEditor.tsx"
       ],
-      "gateProfiles": ["web"],
+      "gateProfiles": ["convex", "web"],
       "kind": "product",
       "lane": "web",
       "requirements": ["IAM-04", "UI-03"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "945ecf108b88a943e27247c0ad6c447e240dbbe432d9b49ffb3a5bb512b9ae34",
+      "sourceSliceLimit": 7,
+      "taskBlockHash": "3a7700f634eb5cfe0aff367e11eb6955536af87bdf17c934174c434ed22e1e67",
       "taskId": "S03-T03",
       "title": "Build The Responsive Page Tree And BlockNote Workspace",
       "tranche": "D2-domain-bodies"
