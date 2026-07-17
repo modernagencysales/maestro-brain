@@ -15,8 +15,12 @@ import {
   buildBrainWorkspaceState,
   nextPageSortKey,
   type BrainWorkspaceData,
+  type BrainWorkspaceFailure,
+  type BrainWorkspaceRole,
   type BrainWorkspaceState,
 } from "./brain-surface";
+import { useWorkspace } from "../../providers/workspace";
+import type { BrainMarkdownSaveArgs } from "./brain-workspace";
 
 type PageRefs = TemplateConfectRefs["public"]["brain"]["pages"];
 type PageCreateRef = PageRefs["create"];
@@ -42,17 +46,24 @@ export type BrainRouteArgs = {
   readonly detailArgs: PageGetArgs | "skip";
 };
 
+type EditorSnapshotRef =
+  TemplateConfectRefs["public"]["editorSync"]["submitSnapshot"];
 type BrainPageWriteReturn = Ref.Returns<PageCreateRef>;
 type BrainPageWriteError = Ref.Error<PageCreateRef>;
+type BrainSnapshotWriteReturn = Ref.Returns<EditorSnapshotRef>;
+type BrainSnapshotWriteError = Ref.Error<EditorSnapshotRef>;
 
-type BrainPageMutation<Args> = (
-  args: Args,
-) => Promise<
-  | BrainPageWriteReturn
-  | Either.Either<BrainPageWriteReturn, BrainPageWriteError>
+type BrainPageMutation<
+  Args,
+  Returns = BrainPageWriteReturn,
+  Error = BrainPageWriteError,
+> = (args: Args) => Promise<Returns | Either.Either<Returns, Error>>;
+
+export type SaveBrainMarkdownMutation = BrainPageMutation<
+  BrainMarkdownSaveArgs,
+  BrainSnapshotWriteReturn,
+  BrainSnapshotWriteError
 >;
-
-export type SaveBrainMarkdownMutation = BrainPageMutation<PageCreateArgs>;
 
 export const brainRefs: { readonly pages: PageRefs } = {
   pages: templateConfectRefs.public.brain.pages,
@@ -70,15 +81,31 @@ export function buildBrainRouteArgs(keys: BrainRouteKeys): BrainRouteArgs {
 
 export async function saveBrainMarkdown(
   mutation: SaveBrainMarkdownMutation,
-  input: PageCreateArgs,
-): Promise<TemplateMutationState<BrainPageWriteReturn, BrainPageWriteError>> {
-  return classifyPageMutation(mutation, input);
+  args: BrainMarkdownSaveArgs | null,
+): Promise<
+  TemplateMutationState<
+    BrainSnapshotWriteReturn,
+    BrainSnapshotWriteError | BrainWorkspaceFailure
+  >
+> {
+  if (args === null) {
+    return {
+      status: "typed_failure",
+      error: { _tag: "ValidationFailed" },
+    };
+  }
+
+  return classifyPageMutation(mutation, args);
 }
 
-async function classifyPageMutation<Args>(
-  mutation: BrainPageMutation<Args>,
+async function classifyPageMutation<
+  Args,
+  Returns = BrainPageWriteReturn,
+  Error = BrainPageWriteError,
+>(
+  mutation: BrainPageMutation<Args, Returns, Error>,
   input: Args,
-): Promise<TemplateMutationState<BrainPageWriteReturn, BrainPageWriteError>> {
+): Promise<TemplateMutationState<Returns, Error>> {
   try {
     return classifyConfectMutationResult(await mutation(input), {
       mode: "edit",
@@ -108,9 +135,12 @@ export type BrainWorkspaceController = {
     revisionKey: string | null,
   ) => void;
   readonly onSaveMarkdown: (
-    input: PageCreateArgs,
+    args: BrainMarkdownSaveArgs | null,
   ) => Promise<
-    TemplateMutationState<BrainPageWriteReturn, BrainPageWriteError>
+    TemplateMutationState<
+      BrainSnapshotWriteReturn,
+      BrainSnapshotWriteError | BrainWorkspaceFailure
+    >
   >;
   readonly onSelectPage: (pageKey: string) => void;
 };
@@ -119,11 +149,17 @@ export function useBrainWorkspaceController(
   keys: BrainRouteKeys,
 ): BrainWorkspaceController {
   const args = buildBrainRouteArgs(keys);
+  const workspace = useWorkspace();
+  const role: BrainWorkspaceRole =
+    workspace.status === "ready" ? workspace.activeWorkspace.role : "viewer";
   const listState = useTemplateQuery(brainRefs.pages.list, args.listArgs, {
     isEmpty: (value) => value.pages.length === 0,
   });
   const detailState = useTemplateQuery(brainRefs.pages.get, args.detailArgs);
   const createMutation = useTemplateMutation(brainRefs.pages.create);
+  const saveMutation = useTemplateMutation(
+    templateConfectRefs.public.editorSync.submitSnapshot,
+  );
   const renameMutation = useTemplateMutation(brainRefs.pages.rename);
   const moveMutation = useTemplateMutation(brainRefs.pages.move);
   const favoriteMutation = useTemplateMutation(brainRefs.pages.favorite);
@@ -137,7 +173,7 @@ export function useBrainWorkspaceController(
             ...listState.data,
             selectedPage:
               detailState.status === "ready" ? detailState.data : null,
-            role: "editor",
+            role,
           } satisfies BrainWorkspaceData,
         }
       : listState,
@@ -162,7 +198,7 @@ export function useBrainWorkspaceController(
     },
     onCreatePage: () => {
       if (!keys.brainKey || state.status !== "ready") return;
-      void saveBrainMarkdown(createMutation, {
+      void classifyPageMutation<PageCreateArgs>(createMutation, {
         brainKey: keys.brainKey,
         parentPageKey: null,
         siblingSlug: "untitled-page",
@@ -200,8 +236,7 @@ export function useBrainWorkspaceController(
         expectedCurrentRevisionKey: revisionKey,
       });
     },
-    onSaveMarkdown: (input: PageCreateArgs) =>
-      saveBrainMarkdown(createMutation, input),
+    onSaveMarkdown: (args) => saveBrainMarkdown(saveMutation, args),
     onSelectPage: (pageKey) => {
       if (!keys.brainKey || pageKey === keys.pageKey) return;
       window.history.pushState(

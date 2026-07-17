@@ -219,6 +219,7 @@ export type BrainEditorTarget = {
   readonly brainKey: string;
   readonly pageKey: string;
   readonly revisionKey: string;
+  readonly documentId: `brainPage:${string}`;
   readonly snapshotVersion: number;
 };
 
@@ -321,12 +322,24 @@ export function toEditorTarget(
   detail: BrainPageDetail,
 ): BrainEditorTarget | null {
   if (detail.page.currentRevisionKey === null) return null;
+  const brainPageId = readBrainPageDocumentId(detail.page);
+  if (brainPageId === null) return null;
   return {
     brainKey,
     pageKey: detail.page.pageKey,
     revisionKey: detail.page.currentRevisionKey,
+    documentId: `brainPage:${brainPageId}`,
     snapshotVersion: detail.editorSnapshotVersion ?? 0,
   };
+}
+
+function readBrainPageDocumentId(page: BrainPageDetail["page"]): string | null {
+  const maybeDocument = page as BrainPageDetail["page"] & {
+    readonly _id?: unknown;
+  };
+  return typeof maybeDocument._id === "string" && maybeDocument._id.length > 0
+    ? maybeDocument._id
+    : null;
 }
 
 export function nextPageSortKey(

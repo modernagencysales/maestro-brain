@@ -33,18 +33,23 @@ const pages = [
   },
 ] as const;
 
+const selectedPage = {
+  page: {
+    ...pages[0],
+    _id: "j97f0k4knmzsk2a4tx9c6a4r497msf7s",
+  },
+  markdown: "# Overview\nTrusted client brief.",
+  editorSnapshotJson: "[]",
+  editorSnapshotVersion: 3,
+  updatedAt: 1_720_000_000_000,
+} satisfies NonNullable<BrainWorkspaceData["selectedPage"]>;
+
 const data: BrainWorkspaceData = {
   brainKey: "br_01HX0000000000000000000000",
   asOf: 1_720_000_000_000,
   freshness: { status: "current" },
   pages,
-  selectedPage: {
-    page: pages[0],
-    markdown: "# Overview\nTrusted client brief.",
-    editorSnapshotJson: "[]",
-    editorSnapshotVersion: 3,
-    updatedAt: 1_720_000_000_000,
-  },
+  selectedPage,
   role: "editor",
 };
 
@@ -74,6 +79,7 @@ describe("Brain workspace state", () => {
           brainKey: data.brainKey,
           pageKey: "pg_overview",
           revisionKey: "rev_overview",
+          documentId: "brainPage:j97f0k4knmzsk2a4tx9c6a4r497msf7s",
           snapshotVersion: 3,
         },
       }),
@@ -133,6 +139,25 @@ describe("Brain workspace state", () => {
     ).toMatchObject({ status: "transport_failure" });
   });
 
+  it("returns no editor target when the selected page has no row id or current revision", () => {
+    expect(
+      toEditorTarget(data.brainKey, {
+        ...selectedPage,
+        page: pages[0],
+      }),
+    ).toBeNull();
+    expect(
+      toEditorTarget(data.brainKey, {
+        ...selectedPage,
+        page: {
+          ...pages[0],
+          _id: "j97f0k4knmzsk2a4tx9c6a4r497msf7s",
+          currentRevisionKey: null,
+        },
+      }),
+    ).toBeNull();
+  });
+
   it("describes non-ready states and creates deterministic tree sort keys", () => {
     expect(describeBrainWorkspaceState({ status: "forbidden" })).toContain(
       "authorized",
@@ -140,9 +165,10 @@ describe("Brain workspace state", () => {
     expect(nextPageSortKey([{ sortKey: "001" }, { sortKey: "002" }])).toBe(
       "003",
     );
-    expect(toEditorTarget(data.brainKey, data.selectedPage)).toMatchObject({
+    expect(toEditorTarget(data.brainKey, selectedPage)).toMatchObject({
       pageKey: "pg_overview",
       revisionKey: "rev_overview",
+      documentId: "brainPage:j97f0k4knmzsk2a4tx9c6a4r497msf7s",
     });
   });
 });

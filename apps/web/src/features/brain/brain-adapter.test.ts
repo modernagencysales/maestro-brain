@@ -35,22 +35,28 @@ describe("brain adapter", () => {
     });
   });
 
-  it("saves markdown through the typed create contract and reports conflicts", async () => {
-    const create = vi.fn().mockResolvedValue({ pageKey: "pg_overview" });
+  it("routes existing-page markdown saves through row-id fenced editor sync args", async () => {
+    const save = vi.fn().mockResolvedValue({ pageKey: "pg_overview" });
+    const args = {
+      id: "brainPage:j97f0k4knmzsk2a4tx9c6a4r497msf7s",
+      version: 1,
+      content: "# Overview",
+    };
 
-    await expect(
-      saveBrainMarkdown(create, {
-        brainKey: "br_01HX0000000000000000000000",
-        parentPageKey: null,
-        siblingSlug: "overview",
-        sortKey: "001",
-        title: "Overview",
-        markdown: "# Overview",
-        expectedCurrentRevisionKey: "rev_overview",
-      }),
-    ).resolves.toMatchObject({ status: "ready" });
-    expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({ markdown: "# Overview" }),
-    );
+    await expect(saveBrainMarkdown(save, args)).resolves.toMatchObject({
+      status: "ready",
+      mutation: "success",
+    });
+    expect(save).toHaveBeenCalledWith(args);
+  });
+
+  it("does not fabricate success when save args cannot be built", async () => {
+    const save = vi.fn();
+
+    await expect(saveBrainMarkdown(save, null)).resolves.toMatchObject({
+      status: "typed_failure",
+      error: { _tag: "ValidationFailed" },
+    });
+    expect(save).not.toHaveBeenCalled();
   });
 });

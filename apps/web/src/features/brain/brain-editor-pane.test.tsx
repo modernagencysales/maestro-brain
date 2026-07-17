@@ -1,7 +1,11 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { MaestroSaasUiProvider } from "../../saas-ui/provider";
-import { BrainEditorPane, readMarkdownSaveDraft } from "./brain-editor-pane";
+import {
+  BrainEditorPane,
+  readEditorDocumentId,
+  readMarkdownSaveDraft,
+} from "./brain-editor-pane";
 import type { BrainSelectedPage } from "./brain-surface";
 
 const page: BrainSelectedPage = {
@@ -14,6 +18,7 @@ const page: BrainSelectedPage = {
     brainKey: "br_01HX0000000000000000000000",
     pageKey: "pg_overview",
     revisionKey: "rev_overview",
+    documentId: "brainPage:j97f0k4knmzsk2a4tx9c6a4r497msf7s",
     snapshotVersion: 1,
   },
 };
@@ -44,6 +49,13 @@ describe("BrainEditorPane", () => {
 
   it("submits the edited markdown fallback draft instead of the original page markdown", () => {
     expect(readMarkdownSaveDraft("# Original", "# Edited")).toBe("# Edited");
+  });
+
+  it("reads the row-id fenced editor document target for BlockNote sync", () => {
+    expect(readEditorDocumentId(page)).toBe(
+      "brainPage:j97f0k4knmzsk2a4tx9c6a4r497msf7s",
+    );
+    expect(readEditorDocumentId({ ...page, editorTarget: null })).toBeNull();
   });
 
   it("renders viewer read-only and stale conflict states", () => {

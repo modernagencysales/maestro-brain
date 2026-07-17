@@ -23,6 +23,12 @@ export function readMarkdownSaveDraft(
   return draft;
 }
 
+export function readEditorDocumentId(
+  page: BrainSelectedPage,
+): `brainPage:${string}` | null {
+  return page.editorTarget?.documentId ?? null;
+}
+
 export function BrainEditorPane({
   canEdit,
   conflict,
@@ -80,7 +86,7 @@ export function BrainEditorPane({
           {syncApi && page.editorTarget ? (
             <BlockNoteSyncEditor
               api={syncApi}
-              documentId={`${page.editorTarget.brainKey}:${page.editorTarget.pageKey}`}
+              documentId={readEditorDocumentId(page) ?? ""}
               editable={canEdit}
               snapshotDebounceMs={750}
             />
