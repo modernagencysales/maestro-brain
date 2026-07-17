@@ -118,7 +118,9 @@ describe("editor sync registration", () => {
   it("parses only supported editor document targets", () => {
     expect(parseEditorTarget("brainPage:page_1")).toEqual({
       kind: "brainPage",
-      id: "page_1",
+      brainKey: null,
+      pageKey: null,
+      legacyPageId: "page_1",
     });
     expect(() => parseEditorTarget("document_1")).toThrow(
       "Unsupported editor document target",
