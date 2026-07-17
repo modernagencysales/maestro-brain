@@ -1,3 +1,5 @@
+import type { Ref } from "@confect/core";
+import type { TemplateConfectRefs } from "@maestro-template/convex/refs";
 import type { BrainSource } from "@maestro-template/template-core";
 import type {
   TemplateDataState,
@@ -184,4 +186,191 @@ function typedFailureCopy(
     heading: "Brain request was rejected by policy",
     body: `The backend returned ${error}.`,
   };
+}
+
+type PageListRef = TemplateConfectRefs["public"]["brain"]["pages"]["list"];
+type PageGetRef = TemplateConfectRefs["public"]["brain"]["pages"]["get"];
+
+export type BrainPageSummary = Ref.Returns<PageListRef>["pages"][number];
+export type BrainPageDetail = Ref.Returns<PageGetRef>;
+export type BrainWorkspaceRole = "viewer" | "editor" | "admin" | "owner";
+
+export type BrainWorkspaceData = Ref.Returns<PageListRef> & {
+  readonly selectedPage: BrainPageDetail | null;
+  readonly role: BrainWorkspaceRole;
+};
+
+export type BrainWorkspaceFailure =
+  | { readonly _tag: "Unauthorized" }
+  | { readonly _tag: "Forbidden" }
+  | { readonly _tag: "BrainNotFound" }
+  | { readonly _tag: "PageNotFound"; readonly pageKey: string }
+  | { readonly _tag: "LifecycleRevoked" }
+  | { readonly _tag: "ValidationFailed" }
+  | {
+      readonly _tag: "StaleRevision";
+      readonly pageKey: string;
+      readonly expectedCurrentRevisionKey: string | null;
+      readonly actualCurrentRevisionKey: string | null;
+    }
+  | { readonly _tag: string };
+
+export type BrainEditorTarget = {
+  readonly brainKey: string;
+  readonly pageKey: string;
+  readonly revisionKey: string;
+  readonly documentId: `brainPage:${string}`;
+  readonly snapshotVersion: number;
+};
+
+export type BrainPageTreeItem = {
+  readonly pageKey: string;
+  readonly parentPageKey: string | null;
+  readonly title: string;
+  readonly sortKey: string;
+  readonly currentRevisionKey: string | null;
+  readonly isFavorite: boolean;
+  readonly isSelected: boolean;
+};
+
+export type BrainSelectedPage = {
+  readonly pageKey: string;
+  readonly title: string;
+  readonly markdown: string;
+  readonly updatedAt: number;
+  readonly currentRevisionKey: string | null;
+  readonly editorTarget: BrainEditorTarget | null;
+};
+
+export type BrainWorkspaceState =
+  | {
+      readonly status: "ready";
+      readonly brainKey: string;
+      readonly role: BrainWorkspaceRole;
+      readonly canEdit: boolean;
+      readonly asOf: number;
+      readonly freshness: "current";
+      readonly pages: readonly BrainPageTreeItem[];
+      readonly selectedPage: BrainSelectedPage | null;
+    }
+  | { readonly status: "loading" }
+  | { readonly status: "empty" }
+  | { readonly status: "not_found" }
+  | { readonly status: "forbidden" }
+  | { readonly status: "stale_revision" }
+  | { readonly status: "transport_failure" };
+
+export const canEditBrain = (role: BrainWorkspaceRole): boolean =>
+  role === "editor" || role === "admin" || role === "owner";
+
+export function buildBrainWorkspaceState(
+  state: TemplateDataState<BrainWorkspaceData | null, BrainWorkspaceFailure>,
+): BrainWorkspaceState {
+  if (state.status === "ready") {
+    if (state.data === null) return { status: "empty" };
+    const selectedPageKey = state.data.selectedPage?.page.pageKey ?? null;
+    return {
+      status: "ready",
+      brainKey: state.data.brainKey,
+      role: state.data.role,
+      canEdit: canEditBrain(state.data.role),
+      asOf: state.data.asOf,
+      freshness: state.data.freshness.status,
+      pages: state.data.pages
+        .filter((page: BrainPageSummary) => page.status === "active")
+        .sort((left: BrainPageSummary, right: BrainPageSummary) =>
+          left.sortKey.localeCompare(right.sortKey),
+        )
+        .map((page: BrainPageSummary) => ({
+          pageKey: page.pageKey,
+          parentPageKey: page.parentPageKey,
+          title: page.title,
+          sortKey: page.sortKey,
+          currentRevisionKey: page.currentRevisionKey,
+          isFavorite: page.favorite,
+          isSelected: page.pageKey === selectedPageKey,
+        })),
+      selectedPage: state.data.selectedPage
+        ? toSelectedPage(state.data.brainKey, state.data.selectedPage)
+        : null,
+    };
+  }
+  if (state.status === "empty") return { status: "empty" };
+  if (state.status === "loading" || state.status === "skipped") {
+    return { status: "loading" };
+  }
+  if (state.status === "typed_failure") return typedFailureState(state.error);
+  return { status: "transport_failure" };
+}
+
+export function toSelectedPage(
+  brainKey: string,
+  detail: BrainPageDetail,
+): BrainSelectedPage {
+  return {
+    pageKey: detail.page.pageKey,
+    title: detail.page.title,
+    markdown: detail.markdown,
+    updatedAt: detail.updatedAt,
+    currentRevisionKey: detail.page.currentRevisionKey,
+    editorTarget: toEditorTarget(brainKey, detail),
+  };
+}
+
+export function toEditorTarget(
+  brainKey: string,
+  detail: BrainPageDetail,
+): BrainEditorTarget | null {
+  if (detail.page.currentRevisionKey === null) return null;
+  return {
+    brainKey,
+    pageKey: detail.page.pageKey,
+    revisionKey: detail.page.currentRevisionKey,
+    documentId: `brainPage:${brainKey}:${detail.page.pageKey}`,
+    snapshotVersion: detail.editorSnapshotVersion ?? 0,
+  };
+}
+
+export function nextPageSortKey(
+  pages: readonly Pick<BrainPageTreeItem, "sortKey">[],
+): string {
+  const max = Math.max(
+    0,
+    ...pages.map((page) => Number.parseInt(page.sortKey, 10) || 0),
+  );
+  return String(max + 1).padStart(3, "0");
+}
+
+export function describeBrainWorkspaceState(
+  state: Exclude<BrainWorkspaceState, { readonly status: "ready" }>,
+): string {
+  switch (state.status) {
+    case "loading":
+      return "Loading Brain workspace.";
+    case "empty":
+      return "No pages in this Brain.";
+    case "not_found":
+      return "Brain page not found.";
+    case "forbidden":
+      return "Only authorized workspace members can open this Brain.";
+    case "stale_revision":
+      return "Newer revision available.";
+    case "transport_failure":
+      return "Brain workspace unavailable.";
+  }
+}
+
+function typedFailureState(error: BrainWorkspaceFailure): BrainWorkspaceState {
+  if (error._tag === "Forbidden" || error._tag === "Unauthorized") {
+    return { status: "forbidden" };
+  }
+  if (error._tag === "StaleRevision") return { status: "stale_revision" };
+  if (
+    error._tag === "BrainNotFound" ||
+    error._tag === "PageNotFound" ||
+    error._tag === "LifecycleRevoked"
+  ) {
+    return { status: "not_found" };
+  }
+  return { status: "transport_failure" };
 }
