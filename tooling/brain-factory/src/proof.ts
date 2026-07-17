@@ -1,3 +1,5 @@
+import type { ReviewAggregate } from "./review-lens.js";
+
 export const isCompatibleProofHead = ({
   ancestorExit,
   currentHead,
@@ -45,4 +47,26 @@ export const validateProofContract = (
     throw new Error(`${identity.taskId}: proof task block hash mismatch`);
   }
   return proof.planSha256;
+};
+
+export const withAggregatedReview = (
+  proof: Record<string, unknown>,
+  aggregate: ReviewAggregate,
+): Record<string, unknown> => {
+  for (const field of [
+    "taskId",
+    "planSha256",
+    "taskBlockHash",
+    "baseSha",
+    "headSha",
+  ] as const) {
+    if (proof[field] !== aggregate[field])
+      throw new Error(`${aggregate.taskId}: proof ${field} mismatch`);
+  }
+  return {
+    ...proof,
+    reviewVerdict: aggregate.reviewVerdict,
+    reviewFindings: aggregate.reviewFindings,
+    reviewHeadSha: aggregate.headSha,
+  };
 };
