@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { providerAdapters } from "../../sample/templateData";
-import { buildSettingsDocumentSections } from "./settings-surface";
+import {
+  buildSettingsDocumentSections,
+  selectStableApiKeyBrainKey,
+} from "./settings-surface";
 
 const workspace = {
   workspaceId: "workspace_template",
@@ -12,6 +15,15 @@ const workspace = {
 } as const;
 
 describe("settings surface", () => {
+  it("selects the stable Brain key for API-key refs instead of client slug", () => {
+    expect(
+      selectStableApiKeyBrainKey({
+        workspaceId: "br_01JSTABLEBRAINKEY000000000",
+        slug: "acme-client-slug",
+      }),
+    ).toBe("br_01JSTABLEBRAINKEY000000000");
+  });
+
   it("renders a missing-workspace state before settings controls are enabled", () => {
     const sections = buildSettingsDocumentSections({
       workspace: null,

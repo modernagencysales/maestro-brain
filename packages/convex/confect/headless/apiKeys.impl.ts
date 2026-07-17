@@ -120,44 +120,49 @@ const recordApiKeyAuditEvent = (input: {
   readonly event: PrivilegedAccessAuditEvent;
   readonly nowMs: number;
 }): Effect.Effect<void, never, DatabaseWriter> =>
-  Effect.gen(function* () {
-    yield* recordAccessAuditEvent(
-      yield* DatabaseWriter,
-      input.event,
-      input.nowMs,
-    );
-  });
+  DatabaseWriter.pipe(
+    Effect.flatMap((writer) =>
+      recordAccessAuditEvent(writer, input.event, input.nowMs),
+    ),
+  );
+
+const requireAdminProbeKey: ApiKeyRow = {
+  id: "probe",
+  principalId: "probe",
+  organizationId: "probe",
+  workspaceId: "probe",
+  brainKey: "probe",
+  name: "probe",
+  keyHash: "probe",
+  displayPrefix: "probe",
+  scopes: ["brain:read"],
+  principalGeneration: 1,
+  roleCeiling: "viewer",
+  status: "revoked",
+  createdByUserId: "probe",
+  createdAt: 0,
+  expiresAt: 1,
+  revokedAt: 0,
+  lastUsedAt: null,
+};
 
 const requireAdmin = (actor: { readonly role: Role }) =>
   Effect.try({
     try: () =>
       revokeBrainApiKey({
-        key: {
-          id: "probe",
-          principalId: "probe",
-          organizationId: "probe",
-          workspaceId: "probe",
-          brainKey: "probe",
-          name: "probe",
-          keyHash: "probe",
-          displayPrefix: "probe",
-          scopes: ["brain:read"],
-          principalGeneration: 1,
-          roleCeiling: "viewer",
-          status: "revoked",
-          createdByUserId: "probe",
-          createdAt: 0,
-          expiresAt: 1,
-          revokedAt: 0,
-          lastUsedAt: null,
-        },
+        key: requireAdminProbeKey,
         actor,
         nowMs: 0,
       }),
-    catch: (error) => error,
+    catch: (error) =>
+      error instanceof Forbidden
+        ? error
+        : new Forbidden({ reason: "Unable to verify API key administrator." }),
   }).pipe(
     Effect.catchAll((error) =>
-      error instanceof Forbidden ? Effect.fail(error) : Effect.void,
+      error.reason === "Only Brain admins may manage API keys."
+        ? Effect.fail(error)
+        : Effect.void,
     ),
     Effect.asVoid,
   );
@@ -581,6 +586,36 @@ const verifyStoredKeyRow = (
       error: authError(
         "SERVICE_PRINCIPAL_REVOKED",
         "Service principal has been revoked.",
+      ),
+    };
+  }
+  if (
+    key.principalGeneration !== undefined &&
+    key.principalGeneration !== principal.generation
+  ) {
+    return {
+      ok: false as const,
+      error: authError(
+        "SERVICE_PRINCIPAL_REVOKED",
+        "Service principal generation no longer matches the API key.",
+      ),
+    };
+  }
+  if (
+    key.principalId !== principal.id ||
+    key.organizationId === undefined ||
+    key.organizationId !== principal.organizationId ||
+    key.workspaceId !== principal.workspaceId ||
+    key.brainKey === undefined ||
+    key.brainKey !== principal.brainKey ||
+    key.roleCeiling !== "viewer" ||
+    principal.roleCeiling !== "viewer"
+  ) {
+    return {
+      ok: false as const,
+      error: authError(
+        "API_KEY_FORBIDDEN",
+        "API key principal binding does not match.",
       ),
     };
   }
