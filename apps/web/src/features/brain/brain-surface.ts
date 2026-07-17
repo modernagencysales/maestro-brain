@@ -338,7 +338,7 @@ export function nextPageSortKey(
     0,
     ...pages.map((page) => Number.parseInt(page.sortKey, 10) || 0),
   );
-  return String(max + 1).padStart(3, "0");
+  return String(max + 1).padStart(10, "0");
 }
 
 export function describeBrainWorkspaceState(

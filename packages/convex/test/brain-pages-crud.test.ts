@@ -633,8 +633,7 @@ describe("authorized Brain page CRUD", () => {
       const saved = yield* editor.mutation(
         refs.internal.brain.pages.recordSnapshotInternal,
         {
-          brainKey: editorBrainKey,
-          pageKey: page.pageKey,
+          documentId: `brainPage:${editorBrainKey}:${page.pageKey}`,
           expectedCurrentRevisionKey: requireRevisionKey(
             page.currentRevisionKey,
           ),
@@ -652,8 +651,7 @@ describe("authorized Brain page CRUD", () => {
       );
       const stale = yield* editor
         .mutation(refs.internal.brain.pages.recordSnapshotInternal, {
-          brainKey: editorBrainKey,
-          pageKey: page.pageKey,
+          documentId: `brainPage:${editorBrainKey}:${page.pageKey}`,
           expectedCurrentRevisionKey: "rev_stale",
           snapshot: '{"type":"doc","stale":true}',
           version: 8,
@@ -661,8 +659,7 @@ describe("authorized Brain page CRUD", () => {
         .pipe(Effect.either);
       const staleVersion = yield* editor
         .mutation(refs.internal.brain.pages.recordSnapshotInternal, {
-          brainKey: editorBrainKey,
-          pageKey: page.pageKey,
+          documentId: `brainPage:${editorBrainKey}:${page.pageKey}`,
           expectedCurrentRevisionKey: requireRevisionKey(
             page.currentRevisionKey,
           ),
@@ -672,8 +669,7 @@ describe("authorized Brain page CRUD", () => {
         .pipe(Effect.either);
       const crossBrain = yield* other
         .mutation(refs.internal.brain.pages.recordSnapshotInternal, {
-          brainKey: viewerBrainKey,
-          pageKey: page.pageKey,
+          documentId: `brainPage:${viewerBrainKey}:${page.pageKey}`,
           expectedCurrentRevisionKey: requireRevisionKey(
             page.currentRevisionKey,
           ),
@@ -758,8 +754,7 @@ describe("authorized Brain page CRUD", () => {
     expect(() =>
       Schema.decodeUnknownSync(RecordSnapshotArgs)(
         {
-          brainKey: editorBrainKey,
-          pageKey: result.page.pageKey,
+          documentId: `brainPage:${editorBrainKey}:${result.page.pageKey}`,
           expectedCurrentRevisionKey: requireRevisionKey(
             result.page.currentRevisionKey,
           ),

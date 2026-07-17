@@ -58,6 +58,15 @@ describe("BrainPageTree", () => {
     expect(html).toContain("Move page to root");
   });
 
+  it("renders editable rename inputs initialized with the current title", () => {
+    const html = render();
+
+    expect(html).toContain('aria-label="Rename Overview"');
+    expect(html).toContain('value="Overview"');
+    expect(html).toContain('aria-label="Rename Positioning"');
+    expect(html).toContain('value="Positioning"');
+  });
+
   it("hides mutating actions from viewers", () => {
     const html = render(false);
 
