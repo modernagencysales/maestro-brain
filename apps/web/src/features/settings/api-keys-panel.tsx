@@ -93,7 +93,7 @@ const ApiKeyRows = ({
               {key.name} — {key.status} — {key.displayPrefix}
             </Text>
             <Text>
-              {key.brainKey} — {key.scopes.join(", ")} — viewer ceiling
+              {adapter.brainKey} — {key.scopes.join(", ")} — viewer ceiling
             </Text>
             {adapter.canAdministerKeys ? (
               <form
