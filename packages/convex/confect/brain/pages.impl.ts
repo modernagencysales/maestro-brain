@@ -34,7 +34,8 @@ import { toPublicPageSummary, type BrainPage } from "./pageSchemas";
 import pages from "./pages.spec";
 
 type PageDoc = BrainPage & { readonly _id: GenericId<"brainPages"> };
-type MutationKind = "create" | "rename" | "move" | "favorite" | "archive";
+type MutationKind =
+  "create" | "rename" | "move" | "favorite" | "archive" | "snapshot";
 type AccessError = Unauthorized | Forbidden | BrainNotFound | LifecycleRevoked;
 type ReadPageError = AccessError | ValidationFailed | PageNotFound;
 type PageError = ReadPageError | PageTreeConflict | StaleRevision;
@@ -46,7 +47,7 @@ const auditActions = {
   move: "page.moved",
   favorite: "page.favoriteChanged",
   archive: "page.archived",
-} as const satisfies Record<MutationKind, string>;
+} as const satisfies Record<Exclude<MutationKind, "snapshot">, string>;
 type BrainContext = {
   readonly workspaceId: GenericId<"workspaces">;
   readonly organizationId: string;
@@ -254,6 +255,7 @@ const writePageRevision = (args: {
   readonly revisionKey: string;
   readonly kind: MutationKind;
   readonly at: number;
+  readonly audit?: boolean;
 }) =>
   Effect.gen(function* () {
     const writer = yield* DatabaseWriter;
@@ -275,6 +277,7 @@ const writePageRevision = (args: {
         contentHash: hashJson({
           title: args.page.title,
           markdown: args.page.markdown,
+          editorSnapshotJson: args.page.editorSnapshotJson ?? null,
         }),
         causation: "human-edit",
         actor: { kind: "user", id: args.brain.actorId },
@@ -291,22 +294,24 @@ const writePageRevision = (args: {
         schemaVersion: 1,
       })
       .pipe(Effect.orDie);
-    yield* writer
-      .table("brainPageAuditEvents")
-      .insert({
-        workspaceId: args.brain.workspaceId,
-        organizationId: args.brain.organizationId,
-        brainKey: args.brain.brainKey,
-        pageKey: args.page.pageKey,
-        revisionKey: args.revisionKey,
-        actorUserId: args.brain.actorId,
-        action: auditActions[args.kind],
-        effectKey,
-        metadata: {},
-        createdAt: args.at,
-        schemaVersion: 1,
-      })
-      .pipe(Effect.orDie);
+    if (args.audit !== false && args.kind !== "snapshot") {
+      yield* writer
+        .table("brainPageAuditEvents")
+        .insert({
+          workspaceId: args.brain.workspaceId,
+          organizationId: args.brain.organizationId,
+          brainKey: args.brain.brainKey,
+          pageKey: args.page.pageKey,
+          revisionKey: args.revisionKey,
+          actorUserId: args.brain.actorId,
+          action: auditActions[args.kind],
+          effectKey,
+          metadata: {},
+          createdAt: args.at,
+          schemaVersion: 1,
+        })
+        .pipe(Effect.orDie);
+    }
   });
 
 const list = FunctionImpl.make(
@@ -586,7 +591,16 @@ const recordSnapshotInternal = FunctionImpl.make(
     expectedCurrentRevisionKey,
     snapshot,
     version,
-  }): Effect.Effect<{ readonly ok: true }, PageError, PageDeps> =>
+  }): Effect.Effect<
+    {
+      readonly pageKey: string;
+      readonly pageRevisionKey: string;
+      readonly contentHash: string;
+      readonly savedAt: number;
+    },
+    PageError,
+    PageDeps
+  > =>
     Effect.gen(function* () {
       const brain = yield* requireBrainAccess(brainKey, "editor");
       const page = yield* loadPage(brain, pageKey);
@@ -600,16 +614,55 @@ const recordSnapshotInternal = FunctionImpl.make(
           field: "version",
           message: "Snapshot version must be a newer positive safe integer.",
         });
+      const at = yield* unsafeAssumeClockProvided(Clock.currentTimeMillis);
+      const nextRevisionKey = revisionKeyFor(
+        "snapshot",
+        page.pageKey,
+        at,
+        page.lifecycle.generation + 1,
+      );
+      const patchedPage = {
+        ...page,
+        editorSnapshotJson: snapshot,
+        editorSnapshotVersion: version,
+        currentRevisionKey: nextRevisionKey,
+        updatedAt: at,
+        lifecycle: {
+          ...page.lifecycle,
+          generation: page.lifecycle.generation + 1,
+          updatedAt: at,
+        },
+      };
       const writer = yield* DatabaseWriter;
       yield* writer
         .table("brainPages")
         .patch(page._id, {
           editorSnapshotJson: snapshot,
           editorSnapshotVersion: version,
-          updatedAt: yield* unsafeAssumeClockProvided(Clock.currentTimeMillis),
+          currentRevisionKey: nextRevisionKey,
+          updatedAt: at,
+          lifecycle: patchedPage.lifecycle,
         })
         .pipe(Effect.orDie);
-      return { ok: true as const };
+      yield* writePageRevision({
+        brain,
+        page: patchedPage,
+        priorRevisionKey: page.currentRevisionKey,
+        revisionKey: nextRevisionKey,
+        kind: "snapshot",
+        at,
+        audit: false,
+      });
+      return {
+        pageKey: page.pageKey,
+        pageRevisionKey: nextRevisionKey,
+        contentHash: hashJson({
+          title: patchedPage.title,
+          markdown: patchedPage.markdown,
+          editorSnapshotJson: snapshot,
+        }),
+        savedAt: at,
+      };
     }),
 );
 export default GroupImpl.make(databaseSchema, pages).pipe(
