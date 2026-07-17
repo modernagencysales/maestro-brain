@@ -115,6 +115,7 @@ describe("lane file ownership", () => {
     const root = mkdtempSync(resolve(tmpdir(), "brain-lane-history-"));
     try {
       git(root, "init", "-q");
+      git(root, "config", "core.hooksPath", "/dev/null");
       git(root, "config", "user.email", "lane-history@example.test");
       git(root, "config", "user.name", "Lane History Test");
       writeFileSync(resolve(root, "README.md"), "base\n");
