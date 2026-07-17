@@ -1,5 +1,4 @@
 import { FunctionImpl, GroupImpl } from "@confect/server";
-import type { GenericId } from "convex/values";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -8,10 +7,15 @@ import databaseSchema from "../_generated/schema";
 import { Auth, DatabaseReader, DatabaseWriter } from "../_generated/services";
 import { Forbidden, Unauthorized, ValidationFailed } from "../errors";
 import { asGenericId, loadCurrentUser } from "../access/handlerContext";
+import {
+  denialAuditReason,
+  recordAccessAuditEvent,
+  type PrivilegedAccessAuditEvent,
+} from "../access/audit";
 import { resolveEffectiveWorkspaceRole } from "../access/auth";
 import type { Role } from "../access/roles";
 import { extractIdentityProfile } from "../access/provisioning";
-import apiKeysSpec, { PublicApiKeyListItemSchema } from "./apiKeys.spec";
+import apiKeysSpec from "./apiKeys.spec";
 import {
   ApiKeyConflict,
   ApiKeyNotFound,
@@ -30,7 +34,6 @@ import {
   revokeBrainApiKey,
   rotateBrainApiKey,
   type ApiKeyRow,
-  type ServicePrincipalRow,
 } from "./auth";
 import {
   headlessPrincipalFromVerification,
@@ -61,7 +64,7 @@ const knownCreateError = (error: unknown) => {
   ) {
     return error;
   }
-  throw error;
+  return new Forbidden({ reason: "Unable to create API key." });
 };
 
 const knownRevokeError = (error: unknown) => {
@@ -73,7 +76,7 @@ const knownRevokeError = (error: unknown) => {
   ) {
     return error;
   }
-  throw error;
+  return new Forbidden({ reason: "Unable to revoke API key." });
 };
 
 const knownRotateError = (error: unknown) => {
@@ -86,8 +89,44 @@ const knownRotateError = (error: unknown) => {
   ) {
     return error;
   }
-  throw error;
+  return new Forbidden({ reason: "Unable to rotate API key." });
 };
+
+const apiKeyAuditEvent = (input: {
+  readonly workspaceId: string;
+  readonly actorUserId: string;
+  readonly subjectId: string;
+  readonly operation: "create" | "rotate" | "revoke";
+  readonly outcome: "success" | "denied";
+  readonly brainKey: string;
+  readonly scopes?: readonly string[];
+  readonly reason?: string;
+}): PrivilegedAccessAuditEvent => ({
+  workspaceId: input.workspaceId,
+  action: "apiKey.administered",
+  actorUserId: input.actorUserId,
+  subjectKind: "privilegedAction",
+  subjectId: input.subjectId,
+  metadata: {
+    outcome: input.outcome,
+    operation: input.operation,
+    brainKey: input.brainKey,
+    ...(input.scopes === undefined ? {} : { scopes: input.scopes.join(",") }),
+    ...(input.reason === undefined ? {} : { reason: input.reason }),
+  },
+});
+
+const recordApiKeyAuditEvent = (input: {
+  readonly event: PrivilegedAccessAuditEvent;
+  readonly nowMs: number;
+}): Effect.Effect<void, never, DatabaseWriter> =>
+  Effect.gen(function* () {
+    yield* recordAccessAuditEvent(
+      yield* DatabaseWriter,
+      input.event,
+      input.nowMs,
+    );
+  });
 
 const requireAdmin = (actor: { readonly role: Role }) =>
   Effect.try({
@@ -195,7 +234,25 @@ export const createApiKeyForBrain = (
   DatabaseReader | DatabaseWriter
 > =>
   Effect.gen(function* () {
-    yield* requireAdmin(input.actor);
+    yield* requireAdmin(input.actor).pipe(
+      Effect.catchAll((error) =>
+        recordApiKeyAuditEvent({
+          event: apiKeyAuditEvent({
+            workspaceId: input.serverScope.workspaceId,
+            actorUserId: input.actor.userId,
+            subjectId: input.publicInput.name,
+            operation: "create",
+            outcome: "denied",
+            reason: denialAuditReason(error),
+            brainKey: input.serverScope.brainKey,
+          }),
+          nowMs: input.nowMs,
+        }).pipe(
+          Effect.catchAllCause(() => Effect.void),
+          Effect.flatMap(() => Effect.fail(error)),
+        ),
+      ),
+    );
     const { organization, workspace } = yield* assertActiveBrainScope(
       input.serverScope,
     );
@@ -263,6 +320,19 @@ export const createApiKeyForBrain = (
         workspaceRevocationGeneration: workspace.revocationGeneration ?? 0,
       })
       .pipe(Effect.orDie);
+    yield* recordAccessAuditEvent(
+      writer,
+      apiKeyAuditEvent({
+        workspaceId: input.serverScope.workspaceId,
+        actorUserId: input.actor.userId,
+        subjectId: created.key.displayPrefix,
+        operation: "create",
+        outcome: "success",
+        brainKey: input.serverScope.brainKey,
+        scopes: created.key.scopes,
+      }),
+      input.nowMs,
+    );
 
     return {
       displayKey: created.displayKey,
@@ -303,8 +373,23 @@ export const revokeApiKeyForBrain = (
   },
 ) =>
   Effect.gen(function* () {
-    yield* requireAdmin(input.actor);
     yield* assertActiveBrainScope(input.serverScope);
+    yield* requireAdmin(input.actor).pipe(
+      Effect.catchAll((error) =>
+        recordApiKeyAuditEvent({
+          event: apiKeyAuditEvent({
+            workspaceId: input.serverScope.workspaceId,
+            actorUserId: input.actor.userId,
+            subjectId: input.keyId,
+            operation: "revoke",
+            outcome: "denied",
+            reason: denialAuditReason(error),
+            brainKey: input.serverScope.brainKey,
+          }),
+          nowMs: input.nowMs,
+        }).pipe(Effect.flatMap(() => Effect.fail(error))),
+      ),
+    );
     const reader = yield* DatabaseReader;
     const keys = yield* reader
       .table("apiKeys")
@@ -353,6 +438,18 @@ export const revokeApiKeyForBrain = (
         revokedAt: revoked.revokedAt,
       })
       .pipe(Effect.orDie);
+    yield* recordAccessAuditEvent(
+      writer,
+      apiKeyAuditEvent({
+        workspaceId: input.serverScope.workspaceId,
+        actorUserId: input.actor.userId,
+        subjectId: key.displayPrefix,
+        operation: "revoke",
+        outcome: "success",
+        brainKey: input.serverScope.brainKey,
+      }),
+      input.nowMs,
+    );
     return null;
   });
 
@@ -712,7 +809,9 @@ const toPublicForbidden = (
   if (error instanceof HeadlessAuthError)
     return new Forbidden({ reason: "Brain scope is not available." });
   if (error instanceof Forbidden || error instanceof Unauthorized) return error;
-  throw error;
+  if (error instanceof ValidationFailed)
+    return new Forbidden({ reason: error.message });
+  return new Forbidden({ reason: "API key operation is not available." });
 };
 
 const toCreateError = (
@@ -814,9 +913,24 @@ const rotateApiKeyForBrain = (
   },
 ) =>
   Effect.gen(function* () {
-    yield* requireAdmin(input.actor);
     const { organization, workspace } = yield* assertActiveBrainScope(
       input.serverScope,
+    );
+    yield* requireAdmin(input.actor).pipe(
+      Effect.catchAll((error) =>
+        recordApiKeyAuditEvent({
+          event: apiKeyAuditEvent({
+            workspaceId: input.serverScope.workspaceId,
+            actorUserId: input.actor.userId,
+            subjectId: input.keyId,
+            operation: "rotate",
+            outcome: "denied",
+            reason: denialAuditReason(error),
+            brainKey: input.serverScope.brainKey,
+          }),
+          nowMs: input.nowMs,
+        }).pipe(Effect.flatMap(() => Effect.fail(error))),
+      ),
     );
     const reader = yield* DatabaseReader;
     const keys = yield* reader
@@ -882,6 +996,18 @@ const rotateApiKeyForBrain = (
         workspaceRevocationGeneration: workspace.revocationGeneration ?? 0,
       })
       .pipe(Effect.orDie);
+    yield* recordAccessAuditEvent(
+      writer,
+      apiKeyAuditEvent({
+        workspaceId: input.serverScope.workspaceId,
+        actorUserId: input.actor.userId,
+        subjectId: rotated.key.displayPrefix,
+        operation: "rotate",
+        outcome: "success",
+        brainKey: input.serverScope.brainKey,
+      }),
+      input.nowMs,
+    );
     return { displayKey: rotated.displayKey, key: publicMetadata(rotated.key) };
   });
 
