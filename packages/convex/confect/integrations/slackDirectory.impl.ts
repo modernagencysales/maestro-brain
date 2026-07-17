@@ -1,0 +1,298 @@
+import { FunctionImpl, GroupImpl } from "@confect/server";
+import type { GenericId } from "convex/values";
+import * as Effect from "effect/Effect";
+import * as Either from "effect/Either";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+
+import databaseSchema from "../_generated/schema";
+import { DatabaseReader, DatabaseWriter } from "../_generated/services";
+import type { ProviderConnectionRow } from "./slackConnections.impl";
+import slackDirectory, {
+  BotIdentityMismatch,
+  ConnectionGenerationMismatch,
+  ConnectionNotFound,
+  ProviderUnavailable,
+} from "./slackDirectory.spec";
+import type { SourceChannelRowValue } from "../tables/sourceChannels";
+
+type ActiveSlackConnection = Pick<
+  ProviderConnectionRow,
+  | "organizationKey"
+  | "connectionKey"
+  | "connectionGeneration"
+  | "status"
+  | "teamId"
+  | "apiAppId"
+  | "botUserId"
+>;
+
+type ProviderSlackChannel = {
+  readonly id: string;
+  readonly name: string;
+  readonly is_member: boolean;
+  readonly is_shared?: boolean;
+  readonly is_ext_shared?: boolean;
+  readonly is_archived?: boolean;
+};
+
+type PlannedUpsert = Omit<
+  SourceChannelRowValue,
+  "firstDiscoveredAt" | "updatedAt" | "lastSeenAt"
+> & {
+  readonly rowId?: GenericId<"sourceChannels">;
+  readonly firstDiscoveredAt: number;
+  readonly updatedAt: number;
+  readonly lastSeenAt: number;
+};
+
+const fakeDirectory: readonly ProviderSlackChannel[] = [
+  { id: "C_general", name: "general", is_member: true },
+  { id: "C_random", name: "random", is_member: false },
+  {
+    id: "C_shared",
+    name: "shared-client",
+    is_member: true,
+    is_shared: true,
+    is_ext_shared: true,
+  },
+];
+
+const normalizeChannelName = (name: string) => name.trim().toLowerCase();
+const channelKeyFor = (connectionKey: string, externalChannelId: string) =>
+  `${connectionKey}:${externalChannelId}`;
+
+const membershipStatusFor = (input: {
+  readonly channel: ProviderSlackChannel;
+  readonly existing?: SourceChannelRowValue | undefined;
+}): SourceChannelRowValue["membershipStatus"] => {
+  if (input.channel.is_archived === true) return "archived";
+  if (!input.channel.is_member) {
+    return input.existing?.isMember === true
+      ? "access_lost"
+      : "discovered_not_joined";
+  }
+  return input.existing?.membershipStatus === "joined_active"
+    ? "joined_active"
+    : "joined_needs_policy";
+};
+
+export const reconcileSlackChannelDirectoryPlan = (input: {
+  readonly connectionKey: string;
+  readonly expectedGeneration: number;
+  readonly connection: ActiveSlackConnection | null;
+  readonly existingChannels: readonly SourceChannelRowValue[];
+  readonly now: number;
+  readonly cursor: string | null;
+  readonly limit: number;
+  readonly providerChannels?: readonly ProviderSlackChannel[];
+}): Either.Either<
+  {
+    readonly upserts: readonly PlannedUpsert[];
+    readonly accessGained: number;
+    readonly accessLost: number;
+    readonly nextCursor: string | null;
+    readonly providerCalls: readonly string[];
+  },
+  | ConnectionNotFound
+  | ConnectionGenerationMismatch
+  | BotIdentityMismatch
+  | ProviderUnavailable
+> => {
+  const connection = input.connection;
+  if (connection === null || connection.status !== "active") {
+    return Either.left(
+      new ConnectionNotFound({ connectionKey: input.connectionKey }),
+    );
+  }
+  if (connection.connectionGeneration !== input.expectedGeneration) {
+    return Either.left(
+      new ConnectionGenerationMismatch({
+        connectionKey: input.connectionKey,
+        expectedGeneration: input.expectedGeneration,
+        actualGeneration: connection.connectionGeneration,
+      }),
+    );
+  }
+  if (!connection.teamId || !connection.apiAppId || !connection.botUserId) {
+    return Either.left(
+      new BotIdentityMismatch({ connectionKey: input.connectionKey }),
+    );
+  }
+  const start = input.cursor === null ? 0 : Number.parseInt(input.cursor, 10);
+  if (!Number.isFinite(start) || start < 0 || input.limit < 1) {
+    return Either.left(new ProviderUnavailable());
+  }
+  const providerChannels = input.providerChannels ?? fakeDirectory;
+  const page = providerChannels.slice(start, start + input.limit);
+  const existingByExternalId = new Map(
+    input.existingChannels.map((row) => [row.externalChannelId, row]),
+  );
+  let accessGained = 0;
+  let accessLost = 0;
+  const upserts = page.map((channel): PlannedUpsert => {
+    const existing = existingByExternalId.get(channel.id);
+    const membershipStatus = membershipStatusFor({ channel, existing });
+    if (
+      existing?.isMember !== true &&
+      channel.is_member &&
+      !channel.is_archived
+    )
+      accessGained += 1;
+    if (
+      existing?.isMember === true &&
+      (!channel.is_member || channel.is_archived)
+    )
+      accessLost += 1;
+    const rowId = (
+      existing as { readonly _id?: GenericId<"sourceChannels"> } | undefined
+    )?._id;
+    return {
+      ...(rowId ? { rowId } : {}),
+      organizationKey: connection.organizationKey,
+      connectionKey: connection.connectionKey,
+      connectionGeneration: connection.connectionGeneration,
+      channelKey:
+        existing?.channelKey ??
+        channelKeyFor(connection.connectionKey, channel.id),
+      externalChannelId: channel.id,
+      name: channel.name,
+      normalizedName: normalizeChannelName(channel.name),
+      isMember: channel.is_member,
+      isShared: channel.is_shared === true,
+      isExtShared: channel.is_ext_shared === true,
+      isArchived: channel.is_archived === true,
+      membershipStatus,
+      accessGeneration:
+        existing?.accessGeneration ?? (channel.is_member ? 1 : 0),
+      firstDiscoveredAt: existing?.firstDiscoveredAt ?? input.now,
+      lastSeenAt: input.now,
+      updatedAt: input.now,
+    };
+  });
+  const next = start + page.length;
+  return Either.right({
+    upserts,
+    accessGained,
+    accessLost,
+    nextCursor: next < providerChannels.length ? String(next) : null,
+    providerCalls: ["auth.test", "conversations.list"],
+  });
+};
+
+type RawIndexBuilder = {
+  readonly eq: (field: string, value: unknown) => RawIndexBuilder;
+};
+type RawQuery = {
+  readonly index: (
+    name: string,
+    range: (builder: RawIndexBuilder) => RawIndexBuilder,
+  ) => RawQuery;
+  readonly first: () => Effect.Effect<Option.Option<unknown>, unknown>;
+  readonly take: (count: number) => Effect.Effect<readonly unknown[], unknown>;
+};
+type RawWriterTable = {
+  readonly insert: (
+    row: Record<string, unknown>,
+  ) => Effect.Effect<unknown, unknown>;
+  readonly patch: (
+    id: GenericId<string>,
+    patch: Record<string, unknown>,
+  ) => Effect.Effect<unknown, unknown>;
+};
+type RawReader = { readonly table: (name: string) => RawQuery };
+type RawWriter = { readonly table: (name: string) => RawWriterTable };
+const rawReader = (reader: unknown): RawReader => reader as RawReader;
+const rawWriter = (writer: unknown): RawWriter => writer as RawWriter;
+
+const reconcileChannels = FunctionImpl.make(
+  databaseSchema,
+  slackDirectory,
+  "reconcileChannels",
+  (input) =>
+    Effect.gen(function* () {
+      const reader = rawReader(yield* DatabaseReader);
+      const writer = rawWriter(yield* DatabaseWriter);
+      const connection = (yield* reader
+        .table("providerConnections")
+        .index("by_connection_key", (q) =>
+          q.eq("connectionKey", input.connectionKey),
+        )
+        .first()
+        .pipe(
+          Effect.map(Option.getOrNull),
+          Effect.orDie,
+        )) as ActiveSlackConnection | null;
+      const existingChannels = (yield* reader
+        .table("sourceChannels")
+        .index("by_connection_generation", (q) =>
+          q
+            .eq("connectionKey", input.connectionKey)
+            .eq("connectionGeneration", input.expectedGeneration),
+        )
+        .take(1_000)
+        .pipe(Effect.orDie)) as readonly SourceChannelRowValue[];
+      const now = Date.now();
+      const planned = reconcileSlackChannelDirectoryPlan({
+        ...input,
+        connection,
+        existingChannels,
+        now,
+      });
+      if (Either.isLeft(planned)) return yield* Effect.fail(planned.left);
+      for (const upsert of planned.right.upserts) {
+        const { rowId, ...row } = upsert;
+        if (rowId)
+          yield* writer
+            .table("sourceChannels")
+            .patch(rowId, row)
+            .pipe(Effect.orDie);
+        else
+          yield* writer.table("sourceChannels").insert(row).pipe(Effect.orDie);
+        const sync = yield* reader
+          .table("channelSyncStates")
+          .index("by_channel_lane", (q) =>
+            q.eq("channelKey", row.channelKey).eq("lane", "live"),
+          )
+          .first()
+          .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+        const syncRow = {
+          organizationKey: row.organizationKey,
+          connectionKey: row.connectionKey,
+          connectionGeneration: row.connectionGeneration,
+          channelKey: row.channelKey,
+          lane: "live" as const,
+          status: "idle" as const,
+          cursor: null,
+          leaseId: null,
+          leaseExpiresAt: null,
+          lastProgressAt: null,
+          updatedAt: now,
+        };
+        const syncId = (
+          sync as { readonly _id?: GenericId<"channelSyncStates"> } | null
+        )?._id;
+        if (syncId)
+          yield* writer
+            .table("channelSyncStates")
+            .patch(syncId, syncRow)
+            .pipe(Effect.orDie);
+        else
+          yield* writer
+            .table("channelSyncStates")
+            .insert({ ...syncRow, createdAt: now })
+            .pipe(Effect.orDie);
+      }
+      return {
+        upserted: planned.right.upserts.length,
+        accessGained: planned.right.accessGained,
+        accessLost: planned.right.accessLost,
+        nextCursor: planned.right.nextCursor,
+      };
+    }),
+);
+
+export default GroupImpl.make(databaseSchema, slackDirectory).pipe(
+  Layer.provide(reconcileChannels),
+  GroupImpl.finalize,
+);
