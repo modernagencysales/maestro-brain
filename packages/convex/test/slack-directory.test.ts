@@ -513,4 +513,171 @@ describe("Slack channel directory contract", () => {
     await Effect.runPromise(program.pipe(Effect.provide(mismatchLayer())));
     expect(listCalls).toBe(0);
   });
+
+  it("persists bot identity, channel rows, independent cursors, and generation fences", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof transientDatabaseSchema>(),
+      );
+      yield* confect.run(seedConnection(), Id("providerConnections"));
+
+      const first = yield* confect.mutation(directoryRefs.reconcile, {
+        connectionKey: "slack_agency_acme",
+        expectedGeneration: 2,
+        cursor: null,
+        limit: 2,
+      });
+      expect(first).toEqual({
+        upserted: 2,
+        accessGained: 1,
+        accessLost: 0,
+        nextCursor: "2",
+      });
+      yield* confect.run(
+        Effect.gen(function* () {
+          const reader = yield* DatabaseReader;
+          const writer = yield* DatabaseWriter;
+          const rawReader = reader as unknown as {
+            table: (name: string) => {
+              index: (
+                name: string,
+                range: (q: {
+                  eq: (field: string, value: unknown) => unknown;
+                }) => unknown,
+              ) => { first: () => Effect.Effect<unknown, unknown> };
+            };
+          };
+          const rawWriter = writer as unknown as {
+            table: (name: string) => {
+              patch: (
+                id: string,
+                patch: unknown,
+              ) => Effect.Effect<unknown, unknown>;
+            };
+          };
+          const cursorRow = yield* rawReader
+            .table("channelSyncStates")
+            .index("by_channel_lane", (q) =>
+              q.eq("channelKey", "slack_agency_acme:C_general"),
+            )
+            .first()
+            .pipe(Effect.orDie);
+          const sync =
+            "value" in (cursorRow as object)
+              ? (cursorRow as { value: { _id: string } }).value
+              : (cursorRow as { _id: string });
+          yield* rawWriter
+            .table("channelSyncStates")
+            .patch(sync._id, {
+              status: "running",
+              cursor: "ts-123",
+              leaseId: "lease-1",
+              leaseExpiresAt: 2_500,
+              lastProgressAt: 2_100,
+            })
+            .pipe(Effect.orDie);
+        }),
+        Schema.Any,
+      );
+      const replay = yield* confect.mutation(directoryRefs.reconcile, {
+        connectionKey: "slack_agency_acme",
+        expectedGeneration: 2,
+        cursor: null,
+        limit: 1,
+      });
+      expect(replay).toMatchObject({ upserted: 1, nextCursor: "1" });
+      const second = yield* confect.mutation(directoryRefs.reconcile, {
+        connectionKey: "slack_agency_acme",
+        expectedGeneration: 2,
+        cursor: first.nextCursor,
+        limit: 2,
+      });
+      expect(second).toMatchObject({ upserted: 1, nextCursor: null });
+
+      const rows = yield* confect.run(
+        Effect.gen(function* () {
+          const reader = yield* DatabaseReader;
+          const raw = reader as unknown as {
+            table: (name: string) => {
+              index: (
+                name: string,
+                range: (q: {
+                  eq: (field: string, value: unknown) => unknown;
+                }) => unknown,
+              ) => {
+                take: (count: number) => Effect.Effect<unknown, unknown>;
+                first: () => Effect.Effect<unknown, unknown>;
+              };
+            };
+          };
+          const channels = yield* raw
+            .table("sourceChannels")
+            .index("by_connection_generation", (q) =>
+              q.eq("connectionKey", "slack_agency_acme"),
+            )
+            .take(10)
+            .pipe(Effect.orDie);
+          const cursorRow = yield* raw
+            .table("channelSyncStates")
+            .index("by_channel_lane", (q) =>
+              q.eq("channelKey", "slack_agency_acme:C_general"),
+            )
+            .first()
+            .pipe(Effect.orDie);
+          const cursor =
+            "value" in (cursorRow as object)
+              ? (cursorRow as { value: unknown }).value
+              : cursorRow;
+          return { channels, cursor };
+        }),
+        Schema.Any,
+      );
+      expect(rows.channels).toHaveLength(3);
+      expect(rows.channels).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            channelKey: "slack_agency_acme:C_general",
+            membershipStatus: "joined_needs_policy",
+            isMember: true,
+          }),
+          expect.objectContaining({
+            channelKey: "slack_agency_acme:C_random",
+            membershipStatus: "discovered_not_joined",
+            isMember: false,
+          }),
+          expect.objectContaining({
+            channelKey: "slack_agency_acme:C_shared",
+            isShared: true,
+            isExtShared: true,
+          }),
+        ]),
+      );
+      expect(rows.cursor).toMatchObject({
+        lane: "live",
+        cursor: "ts-123",
+        status: "running",
+        leaseId: "lease-1",
+        lastProgressAt: 2_100,
+      });
+
+      const stale = yield* Effect.either(
+        confect.mutation(directoryRefs.reconcile, {
+          connectionKey: "slack_agency_acme",
+          expectedGeneration: 1,
+          cursor: null,
+          limit: 1,
+        }),
+      );
+      expect(Either.isLeft(stale)).toBe(true);
+      if (Either.isLeft(stale)) {
+        expect(stale.left).toMatchObject({
+          _tag: "ConnectionGenerationMismatch",
+        });
+      }
+    });
+
+    await Effect.runPromise(
+      program.pipe(Effect.provide(slackDirectoryTestLayer())),
+    );
+  });
 });
