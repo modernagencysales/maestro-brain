@@ -584,6 +584,18 @@ const verifyStoredKeyRow = (
       ),
     };
   }
+  if (
+    key.principalGeneration !== undefined &&
+    key.principalGeneration !== principal.generation
+  ) {
+    return {
+      ok: false as const,
+      error: authError(
+        "SERVICE_PRINCIPAL_REVOKED",
+        "Service principal generation no longer matches the API key.",
+      ),
+    };
+  }
   if (!key.scopes.includes(requiredScope)) {
     return {
       ok: false as const,

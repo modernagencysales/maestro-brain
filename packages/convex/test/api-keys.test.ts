@@ -656,6 +656,67 @@ describe("durable one-Brain API-key Confect handlers", () => {
     expect(result.generationError).toBe("TENANT_INACTIVE");
   });
 
+  it("rejects bearer auth when the service-principal generation changed", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+
+      return yield* confect.run(
+        Effect.gen(function* () {
+          const seeded = yield* seedApiKeyTenant();
+          const scope = {
+            organizationId: seeded.organizationId,
+            workspaceId: seeded.workspaceId,
+            brainKey: "brain_acme",
+          };
+          const created = yield* createApiKeyForBrain({
+            publicInput: {
+              name: "Client Alpha read key",
+              scopes: ["brain:read"],
+              expiresAt: Date.now() + 20_000,
+              randomBytes: () => new Uint8Array(32).fill(23),
+            },
+            serverScope: scope,
+            actor: { userId: seeded.adminUserId, role: "admin" },
+            nowMs: Date.now(),
+          });
+          const authenticated = yield* authenticateBrainBearer({
+            authorization: `Bearer ${created.displayKey}`,
+            requiredScope: "brain:read",
+          });
+          const principals = yield* (yield* DatabaseReader)
+            .table("servicePrincipals")
+            .index("by_principal_key", (q) =>
+              q.eq("id", authenticated.principal.principalId),
+            )
+            .collect()
+            .pipe(Effect.orDie);
+          const principal = principals[0];
+          if (principal === undefined) throw new Error("missing principal row");
+          yield* (yield* DatabaseWriter)
+            .table("servicePrincipals")
+            .patch(principal._id, { generation: 2 })
+            .pipe(Effect.orDie);
+
+          const generationError = yield* authenticateBrainBearer({
+            authorization: `Bearer ${created.displayKey}`,
+            requiredScope: "brain:read",
+          }).pipe(Effect.flip);
+
+          return generationError.code;
+        }),
+        Schema.Any,
+      );
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result).toBe("SERVICE_PRINCIPAL_REVOKED");
+  });
+
   it("records success and denial audit events for API-key administration", async () => {
     const program = Effect.gen(function* () {
       const confect = yield* Effect.serviceOptional(
