@@ -57,6 +57,15 @@ describe("ApiKeysPanel", () => {
     expect(html).not.toContain("keyHash");
   });
 
+  it("requires generated refs instead of fail-closed placeholders for admin CRUD", () => {
+    const html = render("admin");
+
+    expect(html).toContain("Create API key");
+    expect(html).not.toContain(
+      "Generated headless API-key refs are unavailable",
+    );
+  });
+
   it("hides create, rotate, and revoke controls from non-admin viewers", () => {
     const html = render("viewer");
 
