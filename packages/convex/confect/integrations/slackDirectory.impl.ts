@@ -597,3 +597,303 @@ const applyReplacementRevocation = (input: {
       }
     }
   });
+
+const readReconcileConnectionImpl = FunctionImpl.make(
+  databaseSchema,
+  slackDirectory,
+  "readReconcileConnection",
+  (input) =>
+    Effect.gen(function* () {
+      const connection = yield* loadSlackDirectoryConnection(input);
+      return {
+        organizationKey: connection.organizationKey,
+        connectionKey: connection.connectionKey,
+        connectionGeneration: connection.connectionGeneration,
+        status: connection.status,
+        teamId: connection.teamId ?? null,
+        apiAppId: connection.apiAppId ?? null,
+        botUserId: connection.botUserId ?? null,
+        nangoConnectionId: connection.nangoConnectionId ?? null,
+      };
+    }),
+);
+
+const commitReconcileIdentityImpl = FunctionImpl.make(
+  databaseSchema,
+  slackDirectory,
+  "commitReconcileIdentity",
+  (input) =>
+    Effect.gen(function* () {
+      const writer = rawWriter(yield* DatabaseWriter);
+      const connection = yield* loadSlackDirectoryConnection(input);
+      const activeConnections = yield* activeSlackConnectionsFor({
+        organizationKey: connection.organizationKey,
+      });
+      const activated = activateSlackConnectionPlan({
+        ...input,
+        connection,
+        activeConnections,
+        now: Date.now(),
+      });
+      if (Either.isLeft(activated)) {
+        if (connection.status !== "active") {
+          return yield* Effect.fail(activated.left);
+        }
+        yield* applyReplacementRevocation({ connection, now: Date.now() });
+        return { kind: "bot_identity_mismatch" as const };
+      }
+      if (connection._id) {
+        yield* writer
+          .table("providerConnections")
+          .patch(
+            connection._id as GenericId<"providerConnections">,
+            activated.right.patch,
+          )
+          .pipe(Effect.orDie);
+      }
+      return {
+        kind: "ok" as const,
+        connectionGeneration: activated.right.connection.connectionGeneration,
+      };
+    }),
+);
+
+const commitInitialReconcileFailureImpl = FunctionImpl.make(
+  databaseSchema,
+  slackDirectory,
+  "commitInitialReconcileFailure",
+  (input) =>
+    Effect.gen(function* () {
+      const writer = rawWriter(yield* DatabaseWriter);
+      const connection = yield* loadSlackDirectoryConnection(input);
+      if (connection._id) {
+        yield* writer
+          .table("providerConnections")
+          .patch(connection._id as GenericId<"providerConnections">, {
+            status: "error" as const,
+            errorReason: "initial_reconciliation_failed",
+            updatedAt: Date.now(),
+          })
+          .pipe(Effect.orDie);
+      }
+      return { upserted: 0, accessGained: 0, accessLost: 0, nextCursor: null };
+    }),
+);
+
+const commitReconcileChannelsImpl = FunctionImpl.make(
+  databaseSchema,
+  slackDirectory,
+  "commitReconcileChannels",
+  (input) =>
+    Effect.gen(function* () {
+      const reader = rawReader(yield* DatabaseReader);
+      const writer = rawWriter(yield* DatabaseWriter);
+      const connection = yield* loadSlackDirectoryConnection(input);
+      const activeConnections = yield* activeSlackConnectionsFor({
+        organizationKey: connection.organizationKey,
+      });
+      const activated = activateSlackConnectionPlan({
+        connectionKey: input.connectionKey,
+        expectedGeneration: input.expectedGeneration,
+        connection,
+        providerIdentity: input.providerIdentity,
+        activeConnections,
+        now: Date.now(),
+      });
+      if (Either.isLeft(activated)) {
+        if (connection.status === "active") {
+          yield* applyReplacementRevocation({ connection, now: Date.now() });
+          return yield* Effect.fail(
+            new BotIdentityMismatch({ connectionKey: input.connectionKey }),
+          );
+        }
+        return yield* Effect.fail(activated.left);
+      }
+      if (connection._id) {
+        yield* writer
+          .table("providerConnections")
+          .patch(
+            connection._id as GenericId<"providerConnections">,
+            activated.right.patch,
+          )
+          .pipe(Effect.orDie);
+      }
+      const existingChannels = (yield* reader
+        .table("sourceChannels")
+        .index("by_connection_generation", (q) =>
+          q.eq("connectionKey", activated.right.connection.connectionKey),
+        )
+        .take(1_000)
+        .pipe(Effect.orDie)) as readonly SourceChannelRowValue[];
+      const planned = reconcileSlackChannelDirectoryPlan({
+        connectionKey: input.connectionKey,
+        expectedGeneration: activated.right.connection.connectionGeneration,
+        connection: activated.right.connection,
+        existingChannels,
+        now: Date.now(),
+        cursor: input.cursor,
+        limit: input.limit,
+        providerChannels: input.providerChannels,
+        providerNextCursor: input.providerNextCursor,
+      });
+      if (Either.isLeft(planned)) return yield* Effect.fail(planned.left);
+      for (const upsert of planned.right.upserts) {
+        const { rowId, ...row } = upsert;
+        if (rowId)
+          yield* writer
+            .table("sourceChannels")
+            .patch(rowId, row)
+            .pipe(Effect.orDie);
+        else
+          yield* writer.table("sourceChannels").insert(row).pipe(Effect.orDie);
+        const sync = yield* reader
+          .table("channelSyncStates")
+          .index("by_channel_lane", (q) =>
+            q.eq("channelKey", row.channelKey).eq("lane", "live"),
+          )
+          .first()
+          .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+        const syncRow = {
+          organizationKey: row.organizationKey,
+          connectionKey: row.connectionKey,
+          connectionGeneration: row.connectionGeneration,
+          channelKey: row.channelKey,
+          lane: "live" as const,
+          updatedAt: Date.now(),
+        };
+        const syncId = (
+          sync as { readonly _id?: GenericId<"channelSyncStates"> } | null
+        )?._id;
+        if (syncId)
+          yield* writer
+            .table("channelSyncStates")
+            .patch(syncId, syncRow)
+            .pipe(Effect.orDie);
+        else
+          yield* writer
+            .table("channelSyncStates")
+            .insert({
+              ...syncRow,
+              status: "idle" as const,
+              cursor: null,
+              leaseId: null,
+              leaseExpiresAt: null,
+              lastProgressAt: null,
+              createdAt: Date.now(),
+            })
+            .pipe(Effect.orDie);
+      }
+      return {
+        upserted: planned.right.upserts.length,
+        accessGained: planned.right.accessGained,
+        accessLost: planned.right.accessLost,
+        nextCursor: planned.right.nextCursor,
+      };
+    }),
+);
+
+type QueryBridge = <Query extends Ref.AnyQuery>(
+  query: Query,
+  ...args: Ref.OptionalArgs<Query>
+) => Effect.Effect<Ref.Returns<Query>, Ref.Error<Query>>;
+type MutationBridge = <Mutation extends Ref.AnyMutation>(
+  mutation: Mutation,
+  ...args: Ref.OptionalArgs<Mutation>
+) => Effect.Effect<Ref.Returns<Mutation>, Ref.Error<Mutation>>;
+
+const makeReconcileChannels = (
+  slackDirectoryProvider: SlackDirectoryProviderService,
+) =>
+  FunctionImpl.make(
+    databaseSchema,
+    slackDirectory,
+    "reconcileChannels",
+    (input) =>
+      Effect.gen(function* () {
+        const query = yield* QueryRunner;
+        const mutation = yield* MutationRunner;
+        const connection = (yield* (query as QueryBridge)(
+          directoryRefs.readConnection,
+          {
+            connectionKey: input.connectionKey,
+            expectedGeneration: input.expectedGeneration,
+          },
+        )) as SlackDirectoryActionConnection;
+        const providerIdentity = yield* Effect.tryPromise({
+          try: () =>
+            slackDirectoryProvider.authTest({
+              connectionKey: input.connectionKey,
+              nangoConnectionId: connection.nangoConnectionId,
+            }),
+          catch: directoryProviderError,
+        });
+        const identityCommit = yield* (mutation as MutationBridge)(
+          directoryRefs.commitIdentity,
+          {
+            connectionKey: input.connectionKey,
+            expectedGeneration: input.expectedGeneration,
+            providerIdentity,
+          },
+        );
+        if (identityCommit.kind === "bot_identity_mismatch") {
+          return yield* Effect.fail(
+            new BotIdentityMismatch({ connectionKey: input.connectionKey }),
+          );
+        }
+        const providerPageResult = yield* Effect.either(
+          Effect.tryPromise({
+            try: () =>
+              slackDirectoryProvider.listChannels({
+                connectionKey: input.connectionKey,
+                nangoConnectionId: connection.nangoConnectionId,
+                cursor: input.cursor,
+                limit: input.limit,
+              }),
+            catch: directoryProviderError,
+          }),
+        );
+        if (Either.isLeft(providerPageResult)) {
+          if (connection.status === "verifying") {
+            return yield* (mutation as MutationBridge)(
+              directoryRefs.commitInitialFailure,
+              {
+                connectionKey: input.connectionKey,
+                expectedGeneration: identityCommit.connectionGeneration,
+              },
+            );
+          }
+          return yield* Effect.fail(providerPageResult.left);
+        }
+        return yield* (mutation as MutationBridge)(
+          directoryRefs.commitChannels,
+          {
+            connectionKey: input.connectionKey,
+            expectedGeneration: identityCommit.connectionGeneration,
+            providerIdentity,
+            cursor: input.cursor,
+            limit: input.limit,
+            providerChannels: providerPageResult.right.channels,
+            providerNextCursor: providerPageResult.right.nextCursor,
+          },
+        );
+      }),
+  );
+
+const unavailableSlackDirectoryProvider: SlackDirectoryProviderService = {
+  authTest: () => Promise.reject(new ProviderUnavailable()),
+  listChannels: () => Promise.reject(new ProviderUnavailable()),
+};
+
+export const makeSlackDirectoryImpl = (
+  slackDirectoryProvider: SlackDirectoryProviderService = unavailableSlackDirectoryProvider,
+) =>
+  GroupImpl.make(databaseSchema, slackDirectory).pipe(
+    Layer.provide(makeReconcileChannels(slackDirectoryProvider)),
+    Layer.provide(readReconcileConnectionImpl),
+    Layer.provide(commitReconcileIdentityImpl),
+    Layer.provide(commitInitialReconcileFailureImpl),
+    Layer.provide(commitReconcileChannelsImpl),
+    GroupImpl.finalize,
+  );
+
+export default makeSlackDirectoryImpl();
