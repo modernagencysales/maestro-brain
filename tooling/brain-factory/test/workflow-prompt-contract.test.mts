@@ -6,7 +6,12 @@ import { describe, expect, it } from "vitest";
 const workflows = {
   "brain-build-task": {
     evidencePath: "/lane-results/",
-    promptNodes: ["implement", "review"],
+    promptNodes: [
+      "implement",
+      "review_contract",
+      "review_safety",
+      "review_quality",
+    ],
   },
   "brain-integrate-tranche": {
     evidencePath: "/integration/",
@@ -174,7 +179,7 @@ describe("Fabro workflow prompt contracts", () => {
     expect(release).toContain("Do not fabricate live credentials");
   });
 
-  it("keeps task review writes proof-only and avoids malformed patch retries", () => {
+  it("fans out exhaustive read-only review lenses and joins them deterministically", () => {
     const buildTask = readFileSync(
       resolve(
         import.meta.dirname,
@@ -182,26 +187,32 @@ describe("Fabro workflow prompt contracts", () => {
       ),
       "utf8",
     );
-    const review = buildTask
-      .split("\n")
-      .find((line) => line.trimStart().startsWith("review ["));
-    expect(review).toContain(
-      "The only allowed write is that exact proof packet",
-    );
-    expect(review).toContain("Do not use native apply_patch");
-    expect(review).toContain("one guarded targeted shell write");
     expect(buildTask).toContain("gates -> review_snapshot");
-    expect(buildTask).toContain("review_snapshot -> review");
-    expect(buildTask).toContain("review -> review_immutability");
-    expect(buildTask).toContain("review_immutability -> review_gate");
+    for (const lens of ["contract", "safety", "quality"] as const) {
+      const node = `review_${lens}`;
+      const prompt = buildTask
+        .split("\n")
+        .find((line) => line.trimStart().startsWith(`${node} [`));
+      expect(buildTask).toContain(`review_snapshot -> ${node}`);
+      expect(buildTask).toContain(`${node} -> review_aggregate`);
+      expect(prompt).toContain(`/review-lenses/<exact-head>/${lens}.json`);
+      expect(prompt).toContain("every rubric item");
+      expect(prompt).toContain("Never edit the proof packet");
+      expect(prompt).toContain("Never edit or commit product/worktree files");
+    }
+    expect(buildTask).toContain("review-aggregate.mts");
+    expect(buildTask).toContain("review_aggregate -> aggregate_gate");
+    expect(buildTask).toContain(
+      'aggregate_gate -> final_gates [condition="outcome=succeeded"]',
+    );
+    expect(buildTask).toContain('aggregate_gate -> implement [label="rework"]');
+    expect(buildTask).toContain("final_gates -> complete");
+    expect(buildTask).toContain("complete -> exit");
+    expect(buildTask).not.toContain("complete -> final_gates");
+    expect(
+      buildTask.indexOf("review_aggregate -> aggregate_gate"),
+    ).toBeLessThan(buildTask.indexOf("aggregate_gate -> final_gates"));
     expect(buildTask).toContain("review-worktree-guard.mts capture");
-    expect(buildTask).toContain("review-worktree-guard.mts verify");
-    expect(buildTask).toContain(
-      'review_gate -> review_snapshot [label="pending"]',
-    );
-    expect(buildTask).toContain(
-      "independent review left a non-terminal verdict",
-    );
   });
 
   it("applies archived resume commits inside the owning Fabro lane", () => {
@@ -271,16 +282,19 @@ describe("Fabro workflow prompt contracts", () => {
     const implement = buildTask
       .split("\n")
       .find((line) => line.trimStart().startsWith("implement ["));
-    const review = buildTask
-      .split("\n")
-      .find((line) => line.trimStart().startsWith("review ["));
+    const reviews = ["review_contract", "review_safety", "review_quality"].map(
+      (node) =>
+        buildTask
+          .split("\n")
+          .find((line) => line.trimStart().startsWith(`${node} [`)),
+    );
 
     expect(implement).toContain("use rtk proxy test for shell guards");
     expect(implement).toContain("never rtk test");
     expect(implement).toContain("Never invoke rtk python");
     expect(implement).toContain("native write_file tool");
     expect(implement).toContain("rtk proxy python3");
-    for (const prompt of [implement, review]) {
+    for (const prompt of [implement, ...reviews]) {
       expect(prompt).toContain("machine-parsed for the proof packet");
       expect(prompt).toContain("use rtk proxy git");
       expect(prompt).toContain("must never feed structured evidence");
@@ -350,9 +364,12 @@ describe("Fabro workflow prompt contracts", () => {
     const implement = buildTask
       .split("\n")
       .find((line) => line.trimStart().startsWith("implement ["));
-    const review = buildTask
-      .split("\n")
-      .find((line) => line.trimStart().startsWith("review ["));
+    const reviews = ["review_contract", "review_safety", "review_quality"].map(
+      (node) =>
+        buildTask
+          .split("\n")
+          .find((line) => line.trimStart().startsWith(`${node} [`)),
+    );
 
     expect(implement).toContain(
       "Contract reading is not reconnaissance and is never skipped",
@@ -389,29 +406,16 @@ describe("Fabro workflow prompt contracts", () => {
     expect(implement).toContain(
       "factory's exact gate-counted source-line calculation",
     );
-    expect(review).toContain(
-      "exact passed pre-review lane-gate report for the same head and task contract",
-    );
-    expect(review).toContain(
-      "Rerun a focused command only when that report or its evidence is inconsistent",
-    );
-    expect(review).toContain(
-      "semantic inspection of the tests and diff remains mandatory",
-    );
-    expect(review).toContain(
-      "Generated Confect and Convex outputs are integration-owned",
-    );
-    expect(review).toContain(
-      "verify their expected registration and bridge paths through the exact-head transient codegen evidence",
-    );
-    expect(review).toContain(
-      "do not require those generated files in the lane diff",
-    );
-    expect(review).toContain("planSha256 is retained provenance");
-    expect(review).toContain(
-      "an unrelated global plan change is not contract drift when this task's taskBlockHash is unchanged",
-    );
-    expect(review).toContain("any taskBlockHash drift is rework");
+    for (const review of reviews) {
+      expect(review).toContain(
+        "exact passed pre-review lane-gate report for the same head and task contract",
+      );
+      expect(review).toContain(
+        "Semantic inspection of the tests and diff remains mandatory",
+      );
+      expect(review).toContain("planSha256 is retained provenance");
+      expect(review).toContain("any taskBlockHash drift is rework");
+    }
   });
 
   it("binds lane-green results to the manifest tranche", () => {
@@ -434,20 +438,20 @@ describe("Fabro workflow prompt contracts", () => {
     expect(writer).toContain("buildManifest");
     expect(writer).toContain("tranche: task.tranche");
     expect(writer).toContain("validateContractReproofRequest");
+    expect(writer).toContain("validateFinalLaneResult");
+    expect(writer).toContain("atomicWrite");
     expect(buildTask).toContain(
-      'review_gate -> complete [condition="outcome=succeeded"]',
+      'aggregate_gate -> final_gates [condition="outcome=succeeded"]',
     );
-    expect(buildTask).toContain("complete -> final_gates");
-    expect(buildTask).toContain(
-      'final_gates -> exit [condition="outcome=succeeded"]',
-    );
+    expect(buildTask).toContain("final_gates -> complete");
+    expect(buildTask).toContain("complete -> exit");
 
     const laneGates = readFileSync(
       resolve(import.meta.dirname, "../src/lane-gates.mts"),
       "utf8",
     );
-    expect(laneGates).toContain('if (stage === "final")');
-    expect(laneGates).toContain("validateFinalLaneResult");
+    expect(laneGates).not.toContain("validateFinalLaneResult");
+    expect(laneGates).not.toContain("missing final lane result");
   });
 
   it("propagates the authorized host load ceiling to lane gates", () => {
