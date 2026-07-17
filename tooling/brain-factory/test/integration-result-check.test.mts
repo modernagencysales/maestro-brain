@@ -420,8 +420,8 @@ describe("normal integration result check", () => {
     )[0];
     if (!selectedTask) throw new Error("fixture wave task missing");
     selectedTask.gateSha256 = sha256File(value.gatePath);
-    const { selectionSha256: _oldSelectionSha256, ...selectionPayload } =
-      selection;
+    const selectionPayload = { ...selection };
+    delete selectionPayload.selectionSha256;
     selection.selectionSha256 = createHash("sha256")
       .update(JSON.stringify(selectionPayload))
       .digest("hex");
