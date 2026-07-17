@@ -11,7 +11,6 @@ import {
 import { createHeadlessPrincipal } from "../confect/headless/principal";
 import { handleTemplateHttpRequest } from "../confect/http";
 import { executeAuthorizedHeadlessOperation } from "../confect/manifest/executor";
-import { readJsonBody } from "../confect/httpRequest";
 
 const syntheticReadOperation = {
   namespace: "test.sample",
@@ -229,17 +228,95 @@ describe("headless HTTP bearer security", () => {
     }
   });
 
-  it("prevents JSON body parsing when bearer syntax is missing", async () => {
-    const { request, json } = requestWithJsonSpy(undefined);
+  it("exposes RateLimited in the uniform HTTP failure union", async () => {
+    type FailureTag = Extract<
+      Awaited<
+        ReturnType<
+          typeof import("../confect/httpRequest").bearerKeyHashForRequest
+        >
+      >,
+      { readonly ok: false }
+    >["error"]["_tag"];
 
-    await expect(readJsonBody(request)).resolves.toEqual({
-      ok: false,
-      error: {
-        _tag: "ValidationFailed",
-        message: "Request body must be valid JSON.",
+    const rateLimited: FailureTag = "RateLimited";
+
+    expect(rateLimited).toBe("RateLimited");
+  });
+
+  it("prevents route JSON body parsing when bearer syntax is malformed", async () => {
+    mockHttpManifest();
+    const { handleTemplateHttpRequest: handleWithMockedManifest } =
+      await import("../confect/http");
+    const { request, json } = requestWithJsonSpy("Bearer   ");
+    const routeRequest = new Request(
+      "https://example.test/api/test.sample.read",
+      {
+        method: request.method,
+        headers: request.headers,
+        body: "{not-json",
       },
+    );
+    const routeJson = vi.spyOn(routeRequest, "json");
+    const runQuery = vi.fn(async () => authResult("unused"));
+    const runMutation = vi.fn(async () => null);
+    const runAction = vi.fn(async () => undefined);
+
+    const response = await handleWithMockedManifest(
+      {
+        runQuery,
+        runMutation,
+        runAction,
+        operationRefs: { "test.sample.read": "test.sample.read.ref" },
+        operationPolicies: { "test.sample.read": reviewedReadPolicy },
+      },
+      routeRequest,
+    );
+
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: { _tag: "Unauthorized", message: "Unauthorized." },
     });
-    expect(json).toHaveBeenCalledTimes(1);
+    expect(json).not.toHaveBeenCalled();
+    expect(routeJson).not.toHaveBeenCalled();
+    expect(runQuery).not.toHaveBeenCalled();
+    expect(runMutation).not.toHaveBeenCalled();
+    expect(runAction).not.toHaveBeenCalled();
+  });
+
+  it("prevents route JSON body parsing when bearer syntax is missing", async () => {
+    mockHttpManifest();
+    const { handleTemplateHttpRequest: handleWithMockedManifest } =
+      await import("../confect/http");
+    const { request, json } = requestWithJsonSpy(undefined);
+    const routeRequest = new Request(
+      "https://example.test/api/test.sample.read",
+      {
+        method: request.method,
+        headers: request.headers,
+        body: "{not-json",
+      },
+    );
+    const routeJson = vi.spyOn(routeRequest, "json");
+    const runQuery = vi.fn(async () => authResult("unused"));
+
+    const response = await handleWithMockedManifest(
+      {
+        runQuery,
+        runMutation: async () => null,
+        runAction: async () => undefined,
+        operationRefs: { "test.sample.read": "test.sample.read.ref" },
+        operationPolicies: { "test.sample.read": reviewedReadPolicy },
+      },
+      routeRequest,
+    );
+
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: { _tag: "Unauthorized", message: "Unauthorized." },
+    });
+    expect(json).not.toHaveBeenCalled();
+    expect(routeJson).not.toHaveBeenCalled();
+    expect(runQuery).not.toHaveBeenCalled();
   });
 
   it("does not decode or dispatch deleted HTTP operations", async () => {

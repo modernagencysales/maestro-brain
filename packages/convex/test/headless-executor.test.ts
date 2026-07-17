@@ -174,6 +174,17 @@ describe("headless executor", () => {
     });
   });
 
+  it("exposes RateLimited in the uniform external failure union", () => {
+    type FailureTag = Extract<
+      Awaited<ReturnType<typeof executeHeadlessOperation>>,
+      { readonly ok: false }
+    >["error"]["_tag"];
+
+    const rateLimited: FailureTag = "RateLimited";
+
+    expect(rateLimited).toBe("RateLimited");
+  });
+
   it("keeps generic ref/input/result/kind validation behavior", async () => {
     mockManifest();
     const { executeHeadlessOperation: executeWithMockedManifest } =
