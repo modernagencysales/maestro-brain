@@ -115,7 +115,10 @@ export const RecordSnapshotArgs = Schema.Struct({
 });
 
 export const RecordSnapshotReturns = Schema.Struct({
-  ok: Schema.Literal(true),
+  pageKey: PageKey,
+  pageRevisionKey: RevisionKey,
+  contentHash: Schema.String,
+  savedAt: Schema.Number,
 });
 
 const pageReadErrors = [
