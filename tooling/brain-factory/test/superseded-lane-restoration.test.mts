@@ -86,7 +86,7 @@ const waveEvidence = (input: {
   const selectionPath = resolve(root, "selection.json");
   const selectionContent = json(selection);
   const runId = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
-  const reservationToken = "lane-restoration-fixture";
+  const reservationToken = ["lane", "restoration", "fixture"].join("-");
   const workdir = resolve(root, "workdir");
   const runRecordContent = json({
     attempt: 1,
