@@ -14,7 +14,8 @@ import { describe, expect, it } from "vitest";
 import databaseSchema from "../confect/_generated/schema";
 import { Id } from "../confect/_generated/id";
 import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
-import slackDirectoryImpl, {
+import {
+  makeSlackDirectoryImpl,
   reconcileSlackChannelDirectoryPlan,
 } from "../confect/integrations/slackDirectory.impl";
 import slackDirectory, {
@@ -50,9 +51,40 @@ const transientConvexSchema = defineSchema({
   sourceChannels: sourceChannels.tableDefinition,
   channelSyncStates: channelSyncStates.tableDefinition,
 });
+const slackDirectoryProvider = {
+  listChannels: async ({
+    cursor,
+    limit,
+  }: {
+    cursor: string | null;
+    limit: number;
+  }) => {
+    const channels = [
+      { id: "C_general", name: "general", is_member: true },
+      { id: "C_random", name: "random", is_member: false },
+      {
+        id: "C_shared",
+        name: "shared-client",
+        is_member: true,
+        is_shared: true,
+        is_ext_shared: true,
+      },
+    ];
+    const start = cursor === null ? 0 : Number.parseInt(cursor, 10);
+    return {
+      channels: channels.slice(start, start + limit),
+      nextCursor:
+        start + limit < channels.length ? String(start + limit) : null,
+    };
+  },
+};
 const directoryRegisteredFunctions = RegisteredFunctions.buildForGroup<
   typeof slackDirectory
->(transientDatabaseSchema, slackDirectoryImpl, RegisteredConvexFunction.make);
+>(
+  transientDatabaseSchema,
+  makeSlackDirectoryImpl(slackDirectoryProvider),
+  RegisteredConvexFunction.make,
+);
 const slackDirectoryTestLayer = TestConfect.layer(
   transientDatabaseSchema,
   transientConvexSchema,
@@ -93,6 +125,30 @@ const seedConnection = () =>
   });
 
 describe("Slack channel directory contract", () => {
+  it("requires an explicit provider directory fixture", () => {
+    const planned = reconcileSlackChannelDirectoryPlan({
+      connectionKey: "slack_agency_acme",
+      expectedGeneration: 2,
+      connection: {
+        connectionKey: "slack_agency_acme",
+        organizationKey: "agency_acme",
+        connectionGeneration: 2,
+        status: "active",
+        teamId: "T_acme",
+        apiAppId: "A_acme",
+        botUserId: "B_acme",
+      },
+      existingChannels: [],
+      now: 2_000,
+      cursor: null,
+      limit: 2,
+    });
+    expect(Either.isLeft(planned)).toBe(true);
+    if (Either.isLeft(planned)) {
+      expect(planned.left).toMatchObject({ _tag: "ProviderUnavailable" });
+    }
+  });
+
   it("plans full pages without auto-join and preserves channel keys on rename", () => {
     const first = reconcileSlackChannelDirectoryPlan({
       connectionKey: "slack_agency_acme",
@@ -110,6 +166,11 @@ describe("Slack channel directory contract", () => {
       now: 2_000,
       cursor: null,
       limit: 2,
+      providerChannels: [
+        { id: "C_general", name: "general", is_member: true },
+        { id: "C_random", name: "random", is_member: false },
+        { id: "C_shared", name: "shared-client", is_member: true },
+      ],
     });
     expect(Either.isRight(first)).toBe(true);
     if (Either.isRight(first)) {
@@ -182,6 +243,50 @@ describe("Slack channel directory contract", () => {
     }
   });
 
+  it("increments access generation only when channel access is regained", () => {
+    const previous = SourceChannelRow.make({
+      organizationKey: "agency_acme",
+      connectionKey: "slack_agency_acme",
+      connectionGeneration: 2,
+      channelKey: "slack_agency_acme:C_general",
+      externalChannelId: "C_general",
+      name: "general",
+      normalizedName: "general",
+      isMember: false,
+      isShared: false,
+      isExtShared: false,
+      isArchived: false,
+      membershipStatus: "access_lost",
+      accessGeneration: 1,
+      firstDiscoveredAt: 1_000,
+      lastSeenAt: 1_000,
+      updatedAt: 1_000,
+    });
+    const regained = reconcileSlackChannelDirectoryPlan({
+      connectionKey: "slack_agency_acme",
+      expectedGeneration: 2,
+      connection: {
+        connectionKey: "slack_agency_acme",
+        organizationKey: "agency_acme",
+        connectionGeneration: 2,
+        status: "active",
+        teamId: "T_acme",
+        apiAppId: "A_acme",
+        botUserId: "B_acme",
+      },
+      existingChannels: [previous],
+      now: 2_000,
+      cursor: null,
+      limit: 1,
+      providerChannels: [{ id: "C_general", name: "general", is_member: true }],
+    });
+    expect(Either.isRight(regained)).toBe(true);
+    if (Either.isRight(regained)) {
+      expect(regained.right.upserts[0]?.accessGeneration).toBe(2);
+      expect(regained.right.accessGained).toBe(1);
+    }
+  });
+
   it("persists bot identity, channel rows, independent cursors, and generation fences", async () => {
     const program = Effect.gen(function* () {
       const confect = yield* Effect.serviceOptional(
@@ -201,6 +306,59 @@ describe("Slack channel directory contract", () => {
         accessLost: 0,
         nextCursor: "2",
       });
+      yield* confect.run(
+        Effect.gen(function* () {
+          const reader = yield* DatabaseReader;
+          const writer = yield* DatabaseWriter;
+          const rawReader = reader as unknown as {
+            table: (name: string) => {
+              index: (
+                name: string,
+                range: (q: {
+                  eq: (field: string, value: unknown) => unknown;
+                }) => unknown,
+              ) => { first: () => Effect.Effect<unknown, unknown> };
+            };
+          };
+          const rawWriter = writer as unknown as {
+            table: (name: string) => {
+              patch: (
+                id: string,
+                patch: unknown,
+              ) => Effect.Effect<unknown, unknown>;
+            };
+          };
+          const cursorRow = yield* rawReader
+            .table("channelSyncStates")
+            .index("by_channel_lane", (q) =>
+              q.eq("channelKey", "slack_agency_acme:C_general"),
+            )
+            .first()
+            .pipe(Effect.orDie);
+          const sync =
+            "value" in (cursorRow as object)
+              ? (cursorRow as { value: { _id: string } }).value
+              : (cursorRow as { _id: string });
+          yield* rawWriter
+            .table("channelSyncStates")
+            .patch(sync._id, {
+              status: "running",
+              cursor: "ts-123",
+              leaseId: "lease-1",
+              leaseExpiresAt: 2_500,
+              lastProgressAt: 2_100,
+            })
+            .pipe(Effect.orDie);
+        }),
+        Schema.Any,
+      );
+      const replay = yield* confect.mutation(directoryRefs.reconcile, {
+        connectionKey: "slack_agency_acme",
+        expectedGeneration: 2,
+        cursor: null,
+        limit: 1,
+      });
+      expect(replay).toMatchObject({ upserted: 1, nextCursor: "1" });
       const second = yield* confect.mutation(directoryRefs.reconcile, {
         connectionKey: "slack_agency_acme",
         expectedGeneration: 2,
@@ -269,8 +427,10 @@ describe("Slack channel directory contract", () => {
       );
       expect(rows.cursor).toMatchObject({
         lane: "live",
-        cursor: null,
-        status: "idle",
+        cursor: "ts-123",
+        status: "running",
+        leaseId: "lease-1",
+        lastProgressAt: 2_100,
       });
 
       const stale = yield* Effect.either(

@@ -25,15 +25,30 @@ type ActiveSlackConnection = Pick<
   | "teamId"
   | "apiAppId"
   | "botUserId"
+  | "nangoConnectionId"
 >;
 
-type ProviderSlackChannel = {
+export type ProviderSlackChannel = {
   readonly id: string;
   readonly name: string;
   readonly is_member: boolean;
   readonly is_shared?: boolean;
   readonly is_ext_shared?: boolean;
   readonly is_archived?: boolean;
+};
+
+export type SlackDirectoryPage = {
+  readonly channels: readonly ProviderSlackChannel[];
+  readonly nextCursor: string | null;
+};
+
+export type SlackDirectoryProviderService = {
+  readonly listChannels: (input: {
+    readonly connectionKey: string;
+    readonly nangoConnectionId?: string | null | undefined;
+    readonly cursor: string | null;
+    readonly limit: number;
+  }) => Promise<SlackDirectoryPage>;
 };
 
 type PlannedUpsert = Omit<
@@ -45,18 +60,6 @@ type PlannedUpsert = Omit<
   readonly updatedAt: number;
   readonly lastSeenAt: number;
 };
-
-const fakeDirectory: readonly ProviderSlackChannel[] = [
-  { id: "C_general", name: "general", is_member: true },
-  { id: "C_random", name: "random", is_member: false },
-  {
-    id: "C_shared",
-    name: "shared-client",
-    is_member: true,
-    is_shared: true,
-    is_ext_shared: true,
-  },
-];
 
 const normalizeChannelName = (name: string) => name.trim().toLowerCase();
 const channelKeyFor = (connectionKey: string, externalChannelId: string) =>
@@ -86,6 +89,7 @@ export const reconcileSlackChannelDirectoryPlan = (input: {
   readonly cursor: string | null;
   readonly limit: number;
   readonly providerChannels?: readonly ProviderSlackChannel[];
+  readonly providerNextCursor?: string | null;
 }): Either.Either<
   {
     readonly upserts: readonly PlannedUpsert[];
@@ -123,8 +127,11 @@ export const reconcileSlackChannelDirectoryPlan = (input: {
   if (!Number.isFinite(start) || start < 0 || input.limit < 1) {
     return Either.left(new ProviderUnavailable());
   }
-  const providerChannels = input.providerChannels ?? fakeDirectory;
-  const page = providerChannels.slice(start, start + input.limit);
+  const providerChannels = input.providerChannels;
+  if (providerChannels === undefined) {
+    return Either.left(new ProviderUnavailable());
+  }
+  const page = providerChannels.slice(0, input.limit);
   const existingByExternalId = new Map(
     input.existingChannels.map((row) => [row.externalChannelId, row]),
   );
@@ -164,7 +171,15 @@ export const reconcileSlackChannelDirectoryPlan = (input: {
       isArchived: channel.is_archived === true,
       membershipStatus,
       accessGeneration:
-        existing?.accessGeneration ?? (channel.is_member ? 1 : 0),
+        existing === undefined
+          ? channel.is_member
+            ? 1
+            : 0
+          : existing.isMember === false &&
+              channel.is_member &&
+              !channel.is_archived
+            ? existing.accessGeneration + 1
+            : existing.accessGeneration,
       firstDiscoveredAt: existing?.firstDiscoveredAt ?? input.now,
       lastSeenAt: input.now,
       updatedAt: input.now,
@@ -175,7 +190,12 @@ export const reconcileSlackChannelDirectoryPlan = (input: {
     upserts,
     accessGained,
     accessLost,
-    nextCursor: next < providerChannels.length ? String(next) : null,
+    nextCursor:
+      input.providerNextCursor === undefined
+        ? next < providerChannels.length
+          ? String(next)
+          : null
+        : input.providerNextCursor,
     providerCalls: ["auth.test", "conversations.list"],
   });
 };
@@ -205,94 +225,124 @@ type RawWriter = { readonly table: (name: string) => RawWriterTable };
 const rawReader = (reader: unknown): RawReader => reader as RawReader;
 const rawWriter = (writer: unknown): RawWriter => writer as RawWriter;
 
-const reconcileChannels = FunctionImpl.make(
-  databaseSchema,
-  slackDirectory,
-  "reconcileChannels",
-  (input) =>
-    Effect.gen(function* () {
-      const reader = rawReader(yield* DatabaseReader);
-      const writer = rawWriter(yield* DatabaseWriter);
-      const connection = (yield* reader
-        .table("providerConnections")
-        .index("by_connection_key", (q) =>
-          q.eq("connectionKey", input.connectionKey),
-        )
-        .first()
-        .pipe(
-          Effect.map(Option.getOrNull),
-          Effect.orDie,
-        )) as ActiveSlackConnection | null;
-      const existingChannels = (yield* reader
-        .table("sourceChannels")
-        .index("by_connection_generation", (q) =>
-          q
-            .eq("connectionKey", input.connectionKey)
-            .eq("connectionGeneration", input.expectedGeneration),
-        )
-        .take(1_000)
-        .pipe(Effect.orDie)) as readonly SourceChannelRowValue[];
-      const now = Date.now();
-      const planned = reconcileSlackChannelDirectoryPlan({
-        ...input,
-        connection,
-        existingChannels,
-        now,
-      });
-      if (Either.isLeft(planned)) return yield* Effect.fail(planned.left);
-      for (const upsert of planned.right.upserts) {
-        const { rowId, ...row } = upsert;
-        if (rowId)
-          yield* writer
-            .table("sourceChannels")
-            .patch(rowId, row)
-            .pipe(Effect.orDie);
-        else
-          yield* writer.table("sourceChannels").insert(row).pipe(Effect.orDie);
-        const sync = yield* reader
-          .table("channelSyncStates")
-          .index("by_channel_lane", (q) =>
-            q.eq("channelKey", row.channelKey).eq("lane", "live"),
+const makeReconcileChannels = (
+  slackDirectoryProvider: SlackDirectoryProviderService,
+) =>
+  FunctionImpl.make(
+    databaseSchema,
+    slackDirectory,
+    "reconcileChannels",
+    (input) =>
+      Effect.gen(function* () {
+        const reader = rawReader(yield* DatabaseReader);
+        const writer = rawWriter(yield* DatabaseWriter);
+        const connection = (yield* reader
+          .table("providerConnections")
+          .index("by_connection_key", (q) =>
+            q.eq("connectionKey", input.connectionKey),
           )
           .first()
-          .pipe(Effect.map(Option.getOrNull), Effect.orDie);
-        const syncRow = {
-          organizationKey: row.organizationKey,
-          connectionKey: row.connectionKey,
-          connectionGeneration: row.connectionGeneration,
-          channelKey: row.channelKey,
-          lane: "live" as const,
-          status: "idle" as const,
-          cursor: null,
-          leaseId: null,
-          leaseExpiresAt: null,
-          lastProgressAt: null,
-          updatedAt: now,
+          .pipe(
+            Effect.map(Option.getOrNull),
+            Effect.orDie,
+          )) as ActiveSlackConnection | null;
+        const existingChannels = (yield* reader
+          .table("sourceChannels")
+          .index("by_connection_generation", (q) =>
+            q
+              .eq("connectionKey", input.connectionKey)
+              .eq("connectionGeneration", input.expectedGeneration),
+          )
+          .take(1_000)
+          .pipe(Effect.orDie)) as readonly SourceChannelRowValue[];
+        const now = Date.now();
+        const providerPage = yield* Effect.tryPromise({
+          try: () =>
+            slackDirectoryProvider.listChannels({
+              connectionKey: input.connectionKey,
+              nangoConnectionId: connection?.nangoConnectionId,
+              cursor: input.cursor,
+              limit: input.limit,
+            }),
+          catch: () => new ProviderUnavailable(),
+        });
+        const planned = reconcileSlackChannelDirectoryPlan({
+          ...input,
+          connection,
+          existingChannels,
+          now,
+          providerChannels: providerPage.channels,
+          providerNextCursor: providerPage.nextCursor,
+        });
+        if (Either.isLeft(planned)) return yield* Effect.fail(planned.left);
+        for (const upsert of planned.right.upserts) {
+          const { rowId, ...row } = upsert;
+          if (rowId)
+            yield* writer
+              .table("sourceChannels")
+              .patch(rowId, row)
+              .pipe(Effect.orDie);
+          else
+            yield* writer
+              .table("sourceChannels")
+              .insert(row)
+              .pipe(Effect.orDie);
+          const sync = yield* reader
+            .table("channelSyncStates")
+            .index("by_channel_lane", (q) =>
+              q.eq("channelKey", row.channelKey).eq("lane", "live"),
+            )
+            .first()
+            .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+          const syncRow = {
+            organizationKey: row.organizationKey,
+            connectionKey: row.connectionKey,
+            connectionGeneration: row.connectionGeneration,
+            channelKey: row.channelKey,
+            lane: "live" as const,
+            updatedAt: now,
+          };
+          const syncId = (
+            sync as { readonly _id?: GenericId<"channelSyncStates"> } | null
+          )?._id;
+          if (syncId)
+            yield* writer
+              .table("channelSyncStates")
+              .patch(syncId, syncRow)
+              .pipe(Effect.orDie);
+          else
+            yield* writer
+              .table("channelSyncStates")
+              .insert({
+                ...syncRow,
+                status: "idle" as const,
+                cursor: null,
+                leaseId: null,
+                leaseExpiresAt: null,
+                lastProgressAt: null,
+                createdAt: now,
+              })
+              .pipe(Effect.orDie);
+        }
+        return {
+          upserted: planned.right.upserts.length,
+          accessGained: planned.right.accessGained,
+          accessLost: planned.right.accessLost,
+          nextCursor: planned.right.nextCursor,
         };
-        const syncId = (
-          sync as { readonly _id?: GenericId<"channelSyncStates"> } | null
-        )?._id;
-        if (syncId)
-          yield* writer
-            .table("channelSyncStates")
-            .patch(syncId, syncRow)
-            .pipe(Effect.orDie);
-        else
-          yield* writer
-            .table("channelSyncStates")
-            .insert({ ...syncRow, createdAt: now })
-            .pipe(Effect.orDie);
-      }
-      return {
-        upserted: planned.right.upserts.length,
-        accessGained: planned.right.accessGained,
-        accessLost: planned.right.accessLost,
-        nextCursor: planned.right.nextCursor,
-      };
-    }),
-);
+      }),
+  );
 
-export default GroupImpl.make(databaseSchema, slackDirectory).pipe(
-  Layer.provide(reconcileChannels),
-  GroupImpl.finalize,
-);
+const unavailableSlackDirectoryProvider: SlackDirectoryProviderService = {
+  listChannels: () => Promise.reject(new ProviderUnavailable()),
+};
+
+export const makeSlackDirectoryImpl = (
+  slackDirectoryProvider: SlackDirectoryProviderService = unavailableSlackDirectoryProvider,
+) =>
+  GroupImpl.make(databaseSchema, slackDirectory).pipe(
+    Layer.provide(makeReconcileChannels(slackDirectoryProvider)),
+    GroupImpl.finalize,
+  );
+
+export default makeSlackDirectoryImpl();
