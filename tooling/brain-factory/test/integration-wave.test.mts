@@ -11,6 +11,12 @@ import {
   validateIntegrationWaveSelection,
   type IntegrationWaveCandidate,
 } from "../src/integration-wave.js";
+import {
+  integrationTasksForRequest,
+  parseIntegrationWaveRequest,
+  previewOrLaunchIntegrationWave,
+  requireRequestedCandidates,
+} from "../src/integration-wave-request.js";
 import type { BrainTaskContract } from "../src/manifest.js";
 import {
   buildIntegrationWaveSupersessionReceipt,
@@ -153,6 +159,153 @@ const supersessionFixture = (
 };
 
 describe("integration wave planner", () => {
+  it("strictly parses exact requested task filters and rejects unknown input", () => {
+    const known = new Set(["S02-T04", "S03-T03"]);
+    expect(
+      parseIntegrationWaveRequest(
+        ["--", "--tasks", "S03-T03,S02-T04", "--preview"],
+        known,
+      ),
+    ).toEqual({
+      preview: true,
+      requestedTaskIds: ["S02-T04", "S03-T03"],
+    });
+    expect(() =>
+      parseIntegrationWaveRequest(["--task", "S02-T04"], known),
+    ).toThrow("unknown integrate-wave argument");
+    expect(() =>
+      parseIntegrationWaveRequest(["--tasks", "S99-T99"], known),
+    ).toThrow("unknown task IDs");
+    expect(() =>
+      parseIntegrationWaveRequest(["--tasks", "S02-T04,S02-T04"], known),
+    ).toThrow("duplicate task IDs");
+    expect(() =>
+      parseIntegrationWaveRequest(["--tasks", "S02-T04,"], known),
+    ).toThrow("exact task IDs");
+  });
+
+  it("ignores stale unrequested tasks and rejects missing requested candidates", () => {
+    const target = task("S02-T04", "D2-domain-bodies");
+    const stale = task("S11-T02", "D2-domain-bodies");
+    expect(
+      integrationTasksForRequest([target, stale], [target.taskId]).map(
+        ({ taskId }) => taskId,
+      ),
+    ).toEqual(["S02-T04"]);
+    expect(() => requireRequestedCandidates([target.taskId], [])).toThrow(
+      "not integration-ready",
+    );
+    expect(() =>
+      requireRequestedCandidates([target.taskId], [target.taskId]),
+    ).not.toThrow();
+    const selection = planIntegrationWave({
+      baseSha: "base",
+      candidates: [candidate(target)],
+      completedTaskIds: new Set(),
+      integrationId: integrationWaveId(13),
+      planSha256: "plan",
+      requestedTaskIds: [target.taskId],
+      tasks: [target, stale],
+    });
+    expect(selection.selectedTasks.map(({ taskId }) => taskId)).toEqual([
+      "S02-T04",
+    ]);
+  });
+
+  it("binds an exact requested filter into deterministic selection v2", () => {
+    const tasks = [
+      task("S02-T04", "D2-domain-bodies"),
+      task("S03-T03", "D2-domain-bodies"),
+    ];
+    const input = {
+      baseSha: "base",
+      candidates: [...tasks].reverse().map(candidate),
+      completedTaskIds: new Set<string>(),
+      integrationId: integrationWaveId(13),
+      planSha256: "plan",
+      requestedTaskIds: ["S03-T03", "S02-T04"],
+      tasks,
+    };
+    const first = planIntegrationWave(input);
+    const second = planIntegrationWave({
+      ...input,
+      candidates: tasks.map(candidate),
+      requestedTaskIds: ["S02-T04", "S03-T03"],
+    });
+    expect(first).toEqual(second);
+    expect(first.requestedTaskIds).toEqual(["S02-T04", "S03-T03"]);
+    expect(first.selectedTasks.map(({ taskId }) => taskId)).toEqual([
+      "S02-T04",
+      "S03-T03",
+    ]);
+    expect(() => validateIntegrationWaveSelection(first)).not.toThrow();
+    const unfiltered = planIntegrationWave({
+      ...input,
+      requestedTaskIds: [],
+    });
+    expect(unfiltered.requestedTaskIds).toEqual([]);
+    expect(unfiltered.selectedTasks.map(({ taskId }) => taskId)).toEqual([
+      "S02-T04",
+      "S03-T03",
+    ]);
+    expect(() =>
+      validateIntegrationWaveSelection({
+        ...first,
+        requestedTaskIds: ["S02-T04"],
+      }),
+    ).toThrow("selection hash mismatch");
+  });
+
+  it("rejects requested proof drift and requested lock conflicts", () => {
+    const first = task("S02-T04", "D2-domain-bodies", [], ["shared.ts"]);
+    const second = task("S03-T03", "D2-domain-bodies", [], ["shared.ts"]);
+    expect(() =>
+      planIntegrationWave({
+        baseSha: "base",
+        candidates: [
+          { ...candidate(first), gateHeadSha: "drifted" },
+          candidate(second),
+        ],
+        completedTaskIds: new Set(),
+        integrationId: integrationWaveId(13),
+        planSha256: "plan",
+        requestedTaskIds: [first.taskId, second.taskId],
+        tasks: [first, second],
+      }),
+    ).toThrow("proof/gate head mismatch");
+    expect(() =>
+      planIntegrationWave({
+        baseSha: "base",
+        candidates: [candidate(first), candidate(second)],
+        completedTaskIds: new Set(),
+        integrationId: integrationWaveId(13),
+        planSha256: "plan",
+        requestedTaskIds: [first.taskId, second.taskId],
+        tasks: [first, second],
+      }),
+    ).toThrow("not conflict-free");
+  });
+
+  it("returns preview without invoking mutation and launches by default", () => {
+    const launch = vi.fn(() => ({ launched: true }));
+    expect(
+      previewOrLaunchIntegrationWave({
+        launch,
+        preview: true,
+        previewValue: { launched: false },
+      }),
+    ).toEqual({ launched: false });
+    expect(launch).not.toHaveBeenCalled();
+    expect(
+      previewOrLaunchIntegrationWave({
+        launch,
+        preview: false,
+        previewValue: { launched: false },
+      }),
+    ).toEqual({ launched: true });
+    expect(launch).toHaveBeenCalledOnce();
+  });
+
   it("accepts legacy absent lane tranches but rejects contradictory identity", () => {
     expect(laneTrancheMatchesManifest(undefined, "C1-contract-spine")).toBe(
       true,

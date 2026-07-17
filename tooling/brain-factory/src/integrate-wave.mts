@@ -32,6 +32,12 @@ import {
   type IntegrationWaveCandidate,
 } from "./integration-wave.js";
 import {
+  integrationTasksForRequest,
+  parseIntegrationWaveRequest,
+  previewOrLaunchIntegrationWave,
+  requireRequestedCandidates,
+} from "./integration-wave-request.js";
+import {
   nextIntegrationWaveId,
   priorIntegrationWaveResolution,
   validateIntegrationWaveSupersessionReceipt,
@@ -48,10 +54,6 @@ import { buildManifest } from "./manifest.js";
 import { gitIsAncestor, runRtk, runRtkToFile } from "./process.js";
 import { proofChangedFilesMatch, validateProofContract } from "./proof.js";
 
-const valueAfter = (flag: string): string | undefined => {
-  const index = process.argv.indexOf(flag);
-  return index >= 0 ? process.argv[index + 1] : undefined;
-};
 const sha256 = (value: string): string =>
   createHash("sha256").update(value).digest("hex");
 const inspectedTaskRunStatus = (runId: string): string | undefined => {
@@ -65,8 +67,13 @@ const inspectedTaskRunStatus = (runId: string): string | undefined => {
 };
 
 const root = process.cwd();
+const manifest = buildManifest(root);
+const request = parseIntegrationWaveRequest(
+  process.argv.slice(2),
+  new Set(manifest.tasks.map((task) => task.taskId)),
+);
 const state = safeAbsolutePath(
-  resolve(valueAfter("--state") ?? ".fabro/state/maestro-brain"),
+  resolve(request.statePath ?? ".fabro/state/maestro-brain"),
   "state path",
 );
 const evidence = resolve(state, "evidence");
@@ -82,8 +89,12 @@ for (const [label, path] of [
 ] as const) {
   if (!existsSync(path)) throw new Error(`missing ${label} ${path}`);
 }
-mkdirSync(runs, { recursive: true });
-mkdirSync(worktreeRoot, { recursive: true });
+if (!request.preview) {
+  mkdirSync(runs, { recursive: true });
+  mkdirSync(worktreeRoot, { recursive: true });
+} else if (!existsSync(runs)) {
+  throw new Error(`missing run state ${runs}`);
+}
 const baseSha = gitSha(
   runRtk(["git", "rev-parse", "HEAD"], { quiet: true }),
   "control HEAD",
@@ -95,15 +106,20 @@ const gitCommonDirectory = safeAbsolutePath(
   ),
   "Git common directory",
 );
-const releaseOwnership = acquireIntegrationOwnership({
-  lockPath: integrationLockPath(gitCommonDirectory, GLOBAL_INTEGRATION_LOCK),
-  owner: {
-    action: "launch-integration-wave-v2",
-    at: new Date().toISOString(),
-    baseSha,
-    pid: process.pid,
-  },
-});
+const releaseOwnership = request.preview
+  ? () => undefined
+  : acquireIntegrationOwnership({
+      lockPath: integrationLockPath(
+        gitCommonDirectory,
+        GLOBAL_INTEGRATION_LOCK,
+      ),
+      owner: {
+        action: "launch-integration-wave-v2",
+        at: new Date().toISOString(),
+        baseSha,
+        pid: process.pid,
+      },
+    });
 
 try {
   const recordNames = readdirSync(runs)
@@ -171,7 +187,6 @@ try {
   const integrationId = nextIntegrationWaveId(
     recordNames.map(({ match }) => match[1] ?? ""),
   );
-  const manifest = buildManifest(root);
   const readLane = (taskId: string): LaneCompletionResult | undefined => {
     const path = resolve(laneRoot, taskId, "lane-result.json");
     return existsSync(path)
@@ -187,27 +202,48 @@ try {
   });
   const candidates: IntegrationWaveCandidate[] = [];
   const candidateWorkdirs = new Map<string, string | undefined>();
-  for (const task of manifest.tasks) {
-    if (completedTaskIds.has(task.taskId)) continue;
+  for (const task of integrationTasksForRequest(
+    manifest.tasks,
+    request.requestedTaskIds,
+  )) {
+    if (completedTaskIds.has(task.taskId)) {
+      if (request.requestedTaskIds !== undefined) {
+        throw new Error(`${task.taskId}: requested task is already completed`);
+      }
+      continue;
+    }
     const taskReservationPath = resolve(runs, `${task.taskId}.json`);
     const reservation = existsSync(taskReservationPath)
       ? (JSON.parse(readFileSync(taskReservationPath, "utf8")) as unknown)
       : undefined;
-    if (
-      !taskIsAvailableIntegrationCandidate({
-        completed: false,
-        inspect: inspectedTaskRunStatus,
-        reservation,
-        taskId: task.taskId,
-      })
-    )
+    const available = taskIsAvailableIntegrationCandidate({
+      completed: false,
+      inspect: inspectedTaskRunStatus,
+      reservation,
+      taskId: task.taskId,
+    });
+    if (!available) {
+      if (request.requestedTaskIds !== undefined) {
+        throw new Error(`${task.taskId}: requested task is not available`);
+      }
       continue;
+    }
     const laneDirectory = resolve(laneRoot, task.taskId);
     const lanePath = resolve(laneDirectory, "lane-result.json");
-    if (!existsSync(lanePath)) continue;
+    if (!existsSync(lanePath)) {
+      if (request.requestedTaskIds !== undefined) {
+        throw new Error(`${task.taskId}: requested task has no lane result`);
+      }
+      continue;
+    }
     const laneContent = readFileSync(lanePath, "utf8");
     const lane = readJson(lanePath);
-    if (lane.status !== "lane_green") continue;
+    if (lane.status !== "lane_green") {
+      if (request.requestedTaskIds !== undefined) {
+        throw new Error(`${task.taskId}: requested task is not lane_green`);
+      }
+      continue;
+    }
     if (
       lane.taskId !== task.taskId ||
       !laneTrancheMatchesManifest(lane.tranche, task.tranche)
@@ -269,8 +305,14 @@ try {
         taskId: task.taskId,
         workdir: taskWorkdir,
       })
-    )
+    ) {
+      if (request.requestedTaskIds !== undefined) {
+        throw new Error(
+          `${task.taskId}: requested task worktree is not stable`,
+        );
+      }
       continue;
+    }
     candidateWorkdirs.set(task.taskId, taskWorkdir);
     candidates.push({
       changedFiles,
@@ -286,6 +328,10 @@ try {
       tranche: task.tranche,
     });
   }
+  requireRequestedCandidates(
+    request.requestedTaskIds,
+    candidates.map((candidate) => candidate.taskId),
+  );
   if (candidates.length === 0) {
     console.log(JSON.stringify({ integrationId: null, selected: [] }, null, 2));
     process.exitCode = 0;
@@ -296,6 +342,7 @@ try {
       completedTaskIds,
       integrationId,
       planSha256: manifest.planSha256,
+      requestedTaskIds: request.requestedTaskIds ?? [],
       tasks: manifest.tasks,
     });
     for (const task of selection.selectedTasks) {
@@ -311,89 +358,100 @@ try {
         );
       }
     }
-    const branch = `fabro/brain-${integrationId}`;
-    const workdir = resolve(worktreeRoot, `integration-${integrationId}`);
-    const selectionPath = resolve(
-      runs,
-      `integration-${integrationId}-selection.json`,
-    );
-    const recordPath = resolve(runs, `integration-${integrationId}.json`);
-    const rawPath = `${recordPath}.launch-1.raw`;
-    const outcomePath = `${rawPath}.outcome.json`;
-    const reservationToken = randomUUID();
-    const reservation = {
-      attempt: 0,
-      baseSha,
-      branch,
-      integrationId,
-      reservationToken,
-      schemaVersion: "maestro-brain-integration-wave-run/v2",
-      selection,
-      selectionPath,
-      selectionSha256: selection.selectionSha256,
-      status: "preparing",
-      workdir,
-    };
-    writeFileSync(recordPath, `${JSON.stringify(reservation, null, 2)}\n`, {
-      flag: "wx",
-    });
-    materializeImmutableWaveSelection(selectionPath, selection);
-    runRtk(["git", "worktree", "add", "-B", branch, workdir, baseSha]);
-    hydrateWorktreeDependencies(root, workdir);
-    const identity = {
-      attempt: 1,
-      baseSha,
-      integrationId,
-      mode: "integrate" as const,
-      reservationToken,
-      selectionPath,
-      selectionSha256: selection.selectionSha256,
-      workdir,
-    };
-    const output = runRtkToFile(
-      waveWorkflowArgs({
-        ...identity,
-        controlRoot: root,
-        evidenceDirectory: evidence,
-        workflow,
-      }),
-      rawPath,
-      { outcomePath },
-    );
-    const parsed = JSON.parse(output) as { run_id?: unknown; runId?: unknown };
-    const runId = fabroRunId(
-      parsed.run_id ?? parsed.runId,
-      "wave Fabro run ID",
-    );
-    verifyWaveRunInspection(
-      JSON.parse(
-        runRtk(["fabro", "inspect", runId, "--json", "--quiet"], {
-          quiet: true,
-        }),
-      ),
-      { ...identity, runId },
-    );
-    const currentContent = readFileSync(recordPath, "utf8");
-    replaceWaveRunRecord(recordPath, currentContent, {
-      ...reservation,
-      activeMode: "integrate",
-      attempt: 1,
-      runId,
-      runIds: [runId],
-      status: "launched",
-    });
-    console.log(
-      JSON.stringify(
-        {
+    const summary = previewOrLaunchIntegrationWave({
+      preview: request.preview,
+      previewValue: {
+        deferred: selection.deferredTaskIds,
+        integrationId,
+        preview: true,
+        requested: selection.requestedTaskIds ?? [],
+        selected: selection.selectedTasks.map((task) => task.taskId),
+        selection,
+      },
+      launch: () => {
+        const branch = `fabro/brain-${integrationId}`;
+        const workdir = resolve(worktreeRoot, `integration-${integrationId}`);
+        const selectionPath = resolve(
+          runs,
+          `integration-${integrationId}-selection.json`,
+        );
+        const recordPath = resolve(runs, `integration-${integrationId}.json`);
+        const rawPath = `${recordPath}.launch-1.raw`;
+        const outcomePath = `${rawPath}.outcome.json`;
+        const reservationToken = randomUUID();
+        const reservation = {
+          attempt: 0,
+          baseSha,
+          branch,
+          integrationId,
+          reservationToken,
+          schemaVersion: "maestro-brain-integration-wave-run/v2",
+          selection,
+          selectionPath,
+          selectionSha256: selection.selectionSha256,
+          status: "preparing",
+          workdir,
+        };
+        writeFileSync(recordPath, `${JSON.stringify(reservation, null, 2)}\n`, {
+          flag: "wx",
+        });
+        materializeImmutableWaveSelection(selectionPath, selection);
+        runRtk(["git", "worktree", "add", "-B", branch, workdir, baseSha]);
+        hydrateWorktreeDependencies(root, workdir);
+        const identity = {
+          attempt: 1,
+          baseSha,
+          integrationId,
+          mode: "integrate" as const,
+          reservationToken,
+          selectionPath,
+          selectionSha256: selection.selectionSha256,
+          workdir,
+        };
+        const output = runRtkToFile(
+          waveWorkflowArgs({
+            ...identity,
+            controlRoot: root,
+            evidenceDirectory: evidence,
+            workflow,
+          }),
+          rawPath,
+          { outcomePath },
+        );
+        const parsed = JSON.parse(output) as {
+          run_id?: unknown;
+          runId?: unknown;
+        };
+        const runId = fabroRunId(
+          parsed.run_id ?? parsed.runId,
+          "wave Fabro run ID",
+        );
+        verifyWaveRunInspection(
+          JSON.parse(
+            runRtk(["fabro", "inspect", runId, "--json", "--quiet"], {
+              quiet: true,
+            }),
+          ),
+          { ...identity, runId },
+        );
+        const currentContent = readFileSync(recordPath, "utf8");
+        replaceWaveRunRecord(recordPath, currentContent, {
+          ...reservation,
+          activeMode: "integrate",
+          attempt: 1,
+          runId,
+          runIds: [runId],
+          status: "launched",
+        });
+        return {
           deferred: selection.deferredTaskIds,
           integrationId,
           runId,
           selected: selection.selectedTasks.map((task) => task.taskId),
-        },
-        null,
-        2,
-      ),
-    );
+        };
+      },
+    });
+    console.log(JSON.stringify(summary, null, 2));
   }
 } finally {
   releaseOwnership();

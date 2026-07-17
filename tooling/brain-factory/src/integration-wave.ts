@@ -34,6 +34,7 @@ export interface IntegrationWaveSelection {
   readonly deferredTaskIds: readonly string[];
   readonly integrationId: string;
   readonly planSha256: string;
+  readonly requestedTaskIds?: readonly string[];
   readonly schemaVersion: typeof INTEGRATION_WAVE_SCHEMA;
   readonly selectedTasks: readonly IntegrationWaveTaskSnapshot[];
   readonly selectionSha256: string;
@@ -97,12 +98,16 @@ const selectionPayload = (input: {
   readonly deferredTaskIds: readonly string[];
   readonly integrationId: string;
   readonly planSha256: string;
+  readonly requestedTaskIds?: readonly string[];
   readonly selectedTasks: readonly IntegrationWaveTaskSnapshot[];
 }) => ({
   baseSha: input.baseSha,
   deferredTaskIds: [...input.deferredTaskIds],
   integrationId: input.integrationId,
   planSha256: input.planSha256,
+  ...(input.requestedTaskIds === undefined
+    ? {}
+    : { requestedTaskIds: [...input.requestedTaskIds] }),
   schemaVersion: INTEGRATION_WAVE_SCHEMA,
   selectedTasks: input.selectedTasks.map((task) => ({
     changedFiles: [...task.changedFiles],
@@ -127,8 +132,22 @@ export const planIntegrationWave = (input: {
   readonly completedTaskIds: ReadonlySet<string>;
   readonly integrationId: string;
   readonly planSha256: string;
+  readonly requestedTaskIds?: readonly string[];
   readonly tasks: readonly BrainTaskContract[];
 }): IntegrationWaveSelection => {
+  const requestedTaskIds =
+    input.requestedTaskIds === undefined
+      ? undefined
+      : sortedUnique(input.requestedTaskIds);
+  const filteredRequest =
+    requestedTaskIds !== undefined && requestedTaskIds.length > 0;
+  if (
+    requestedTaskIds !== undefined &&
+    (requestedTaskIds.length !== input.requestedTaskIds?.length ||
+      requestedTaskIds.some((taskId) => !/^S\d{2}-T\d{2}$/.test(taskId)))
+  ) {
+    throw new Error("integration wave requested task IDs are invalid");
+  }
   const manifestTasks = new Map(input.tasks.map((task) => [task.taskId, task]));
   if (
     new Set(input.candidates.map((task) => task.taskId)).size !==
@@ -137,6 +156,13 @@ export const planIntegrationWave = (input: {
     throw new Error("integration wave has duplicate candidates");
   }
   const candidateIds = new Set(input.candidates.map((task) => task.taskId));
+  if (
+    filteredRequest &&
+    JSON.stringify([...candidateIds].sort()) !==
+      JSON.stringify(requestedTaskIds)
+  ) {
+    throw new Error("integration wave requested candidate set mismatch");
+  }
   const snapshots = input.candidates.map((candidate) => {
     const task = manifestTasks.get(candidate.taskId);
     if (!task) throw new Error(`${candidate.taskId}: absent from manifest`);
@@ -191,11 +217,17 @@ export const planIntegrationWave = (input: {
     .map((task) => task.taskId)
     .filter((taskId) => !selectedIds.has(taskId))
     .sort();
+  if (filteredRequest && deferredTaskIds.length > 0) {
+    throw new Error(
+      `requested integration tasks are not conflict-free: ${deferredTaskIds.join(", ")}`,
+    );
+  }
   const payload = selectionPayload({
     baseSha: input.baseSha,
     deferredTaskIds,
     integrationId: input.integrationId,
     planSha256: input.planSha256,
+    ...(requestedTaskIds === undefined ? {} : { requestedTaskIds }),
     selectedTasks,
   });
   return { ...payload, selectionSha256: hashJson(payload) };
@@ -219,6 +251,18 @@ export const validateIntegrationWaveSelection = (
     JSON.stringify(ids) !== JSON.stringify([...ids].sort())
   ) {
     throw new Error("integration wave selected task order is invalid");
+  }
+  if (value.requestedTaskIds !== undefined) {
+    const requested = [...value.requestedTaskIds];
+    if (
+      requested.some((taskId) => !/^S\d{2}-T\d{2}$/.test(taskId)) ||
+      new Set(requested).size !== requested.length ||
+      JSON.stringify(requested) !== JSON.stringify([...requested].sort()) ||
+      (requested.length > 0 &&
+        JSON.stringify(requested) !== JSON.stringify(ids))
+    ) {
+      throw new Error("integration wave requested task filter is invalid");
+    }
   }
   const locks = new Map<string, string>();
   for (const task of value.selectedTasks) {
