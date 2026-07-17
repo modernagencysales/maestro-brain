@@ -103,34 +103,32 @@ const normalizeAuthenticatedPrincipal = (
   value: unknown,
   fallbackKeyHash: string,
 ): HeadlessBearerAuthentication => {
-  if (!isObjectRecord(value) || !isHeadlessPrincipal(value.principal)) {
+  if (!isObjectRecord(value) || !isObjectRecord(value.principal)) {
     return unauthorized();
   }
-
+  const principal = value.principal;
+  if (
+    typeof principal.organizationId !== "string" ||
+    typeof principal.workspaceId !== "string" ||
+    typeof principal.brainKey !== "string" ||
+    principal.roleCeiling !== "viewer" ||
+    typeof principal.keyId !== "string" ||
+    typeof principal.principalId !== "string" ||
+    !Array.isArray(principal.scopes) ||
+    !principal.scopes.every(
+      (scope) => scope === "brain:read" || scope === "brain:ask",
+    )
+  ) {
+    return unauthorized();
+  }
   return {
     ok: true,
-    principal: value.principal,
+    principal: principal as HeadlessPrincipal,
     keyHash:
       typeof value.keyHash === "string" ? value.keyHash : fallbackKeyHash,
     ...(typeof value.keyId === "string" ? { keyId: value.keyId } : {}),
   };
 };
-
-const isHeadlessScope = (
-  scope: unknown,
-): scope is HeadlessPrincipal["scopes"][number] =>
-  scope === "brain:read" || scope === "brain:ask";
-
-const isHeadlessPrincipal = (value: unknown): value is HeadlessPrincipal =>
-  isObjectRecord(value) &&
-  typeof value.organizationId === "string" &&
-  typeof value.workspaceId === "string" &&
-  typeof value.brainKey === "string" &&
-  value.roleCeiling === "viewer" &&
-  typeof value.keyId === "string" &&
-  typeof value.principalId === "string" &&
-  Array.isArray(value.scopes) &&
-  value.scopes.every(isHeadlessScope);
 
 export const authorizeOperationBeforeDecode = (input: {
   readonly operationId: string;
@@ -179,8 +177,8 @@ const parseJsonRequestBody = async (
 const templateApiRequestBodyFrom = (value: unknown): TemplateApiRequestBody => {
   if (!isObjectRecord(value)) return {};
 
-  const input: Record<string, JsonValue> = isJsonRecord(value.input)
-    ? { ...value.input }
+  const input = isObjectRecord(value.input)
+    ? { ...(value.input as Record<string, JsonValue>) }
     : {};
   for (const field of [
     "organizationId",
@@ -197,8 +195,7 @@ const templateApiRequestBodyFrom = (value: unknown): TemplateApiRequestBody => {
     "_id",
     "id",
   ] as const) {
-    const candidate = value[field];
-    if (isJsonValue(candidate)) input[field] = candidate;
+    if (field in value) input[field] = value[field] as JsonValue;
   }
   return {
     input,
@@ -210,18 +207,6 @@ const templateApiRequestBodyFrom = (value: unknown): TemplateApiRequestBody => {
 
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === "object" && !Array.isArray(value);
-
-const isJsonValue = (value: unknown): value is JsonValue => {
-  if (value === null) return true;
-  if (typeof value === "string" || typeof value === "boolean") return true;
-  if (typeof value === "number") return Number.isFinite(value);
-  if (Array.isArray(value)) return value.every(isJsonValue);
-  if (!isObjectRecord(value)) return false;
-  return Object.values(value).every(isJsonValue);
-};
-
-const isJsonRecord = (value: unknown): value is Record<string, JsonValue> =>
-  isObjectRecord(value) && Object.values(value).every(isJsonValue);
 
 export const authenticatedExecutorRequestFor = async (input: {
   readonly operationId: string;
