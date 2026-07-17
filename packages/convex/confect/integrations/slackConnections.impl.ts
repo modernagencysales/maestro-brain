@@ -569,9 +569,10 @@ const mapNangoError = (error: unknown): SlackConnectionError => {
   return new ProviderUnavailable();
 };
 
-const loadNangoProvider = NangoProvider.pipe(
-  Effect.provide(createNangoProviderLayer()),
-);
+const loadNangoProvider = Effect.serviceFunction(
+  NangoProvider,
+  (provider) => () => provider,
+)().pipe(Effect.provide(createNangoProviderLayer()));
 
 const runSlackMutation = <Mutation extends Ref.AnyMutation>(
   runMutation: MutationRunner,
