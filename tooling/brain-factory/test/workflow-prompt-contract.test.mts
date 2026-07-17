@@ -473,6 +473,9 @@ describe("Fabro workflow prompt contracts", () => {
       "before any Confect, Convex, manifest, or route codegen or focused check",
     );
     expect(integrate).toContain(
+      "Format every generated candidate changed by codegen before calculating net generatedFiles",
+    );
+    expect(integrate).toContain(
       "exec tsx src/hydrate-integration-dependencies.mts --workdir",
     );
     expect(integrate).toMatch(

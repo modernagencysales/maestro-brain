@@ -1,13 +1,11 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 import { hydrateWorktreeDependencies } from "./dependencies.js";
+import { isIntegrationOwnedGeneratedFile } from "./lane-ownership.js";
 import { runRtk } from "./process.js";
-
-const GENERATED_MIGRATIONS_WRAPPER =
-  "packages/convex/convex/internal/migrations.ts";
 
 interface GeneratedProofHooks {
   readonly generate: (workdir: string) => void;
@@ -101,11 +99,26 @@ export const proveIntegrationGeneratedOutput = (input: {
       }
     }
     hooks.generate(workdir);
-    const formatFiles = existsSync(
-      resolve(workdir, GENERATED_MIGRATIONS_WRAPPER),
+    const discoveredGeneratedFiles = runRtk(
+      ["proxy", "git", "diff", "--name-only"],
+      { cwd: workdir, quiet: true },
     )
-      ? [...new Set([...generatedFiles, GENERATED_MIGRATIONS_WRAPPER])].sort()
-      : generatedFiles;
+      .split("\n")
+      .filter(Boolean);
+    const declaredGeneratedFiles = new Set(generatedFiles);
+    const nonGeneratedFiles = discoveredGeneratedFiles.filter(
+      (file) =>
+        !declaredGeneratedFiles.has(file) &&
+        !isIntegrationOwnedGeneratedFile(file),
+    );
+    if (nonGeneratedFiles.length > 0) {
+      throw new Error(
+        `generation changed non-generated files: ${nonGeneratedFiles.join(", ")}`,
+      );
+    }
+    const formatFiles = [
+      ...new Set([...generatedFiles, ...discoveredGeneratedFiles]),
+    ].sort();
     hooks.format?.(workdir, formatFiles);
     const status = runRtk(["proxy", "git", "status", "--porcelain"], {
       cwd: workdir,

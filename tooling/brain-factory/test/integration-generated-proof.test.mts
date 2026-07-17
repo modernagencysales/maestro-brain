@@ -48,6 +48,18 @@ const addMigrationsWrapper = (root: string): void => {
   git(root, "commit", "-qm", "test: add migrations wrapper");
 };
 
+const addSlackConnectionsWrapper = (root: string): void => {
+  mkdirSync(resolve(root, "packages/convex/convex/integrations"), {
+    recursive: true,
+  });
+  writeFileSync(
+    resolve(root, "packages/convex/convex/integrations/slackConnections.ts"),
+    "export const authorize =\n  registeredFunctions.authorize;\n",
+  );
+  git(root, "add", "packages/convex/convex/integrations/slackConnections.ts");
+  git(root, "commit", "-qm", "test: add Slack wrapper");
+};
+
 afterEach(() => {
   for (const root of roots.splice(0))
     rmSync(root, { force: true, recursive: true });
@@ -141,5 +153,60 @@ describe("integration generated-output proof", () => {
     expect(formatted).toEqual([
       ["generated/output.ts", "packages/convex/convex/internal/migrations.ts"],
     ]);
+  });
+
+  it("formats a discovered tracked generated wrapper when declared output is empty", () => {
+    const original = repository();
+    addSlackConnectionsWrapper(original.root);
+    const value = {
+      ...original,
+      headSha: git(original.root, "rev-parse", "HEAD"),
+    };
+    const formatted: string[][] = [];
+    const wrapper = "packages/convex/convex/integrations/slackConnections.ts";
+
+    expect(
+      proveIntegrationGeneratedOutput({
+        ...value,
+        generatedFiles: [],
+        hooks: {
+          generate: (workdir) => {
+            writeFileSync(
+              resolve(workdir, wrapper),
+              "export const authorize = registeredFunctions.authorize;\n",
+            );
+          },
+          format: (workdir, generatedFiles) => {
+            formatted.push([...generatedFiles]);
+            writeFileSync(
+              resolve(workdir, wrapper),
+              "export const authorize =\n  registeredFunctions.authorize;\n",
+            );
+          },
+          hydrate: () => undefined,
+        },
+      }),
+    ).toMatch(/^[0-9a-f]{64}$/);
+    expect(formatted).toEqual([[wrapper]]);
+  });
+
+  it("rejects a discovered non-generated tracked change", () => {
+    const value = repository();
+
+    expect(() =>
+      proveIntegrationGeneratedOutput({
+        ...value,
+        generatedFiles: [],
+        hooks: {
+          generate: (workdir) => {
+            writeFileSync(
+              resolve(workdir, "source.ts"),
+              "export const source = 2;\n",
+            );
+          },
+          hydrate: () => undefined,
+        },
+      }),
+    ).toThrow(/changed non-generated files.*source\.ts/);
   });
 });
