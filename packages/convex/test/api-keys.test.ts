@@ -1,3 +1,6 @@
+import { TestConfect } from "@confect/test";
+import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -11,6 +14,17 @@ import {
 } from "../confect/headless/auth";
 import apiKeys from "../confect/tables/apiKeys";
 import servicePrincipals from "../confect/tables/servicePrincipals";
+import databaseSchema from "../confect/_generated/schema";
+import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
+import { Forbidden } from "../confect/errors";
+import {
+  authenticateBrainBearer,
+  createApiKeyForBrain,
+  listApiKeysForBrain,
+  markApiKeyLastUsed,
+  revokeApiKeyForBrain,
+} from "../confect/headless/apiKeys.impl";
+import { testConfectLayer } from "./support/confect";
 
 const adminActor = {
   userId: "user_admin",
@@ -404,3 +418,440 @@ describe("one-Brain API key CRUD", () => {
     });
   });
 });
+
+describe("durable one-Brain API-key Confect handlers", () => {
+  it("derives public CRUD authority from server tenant and actor state", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+
+      return yield* confect.run(
+        Effect.gen(function* () {
+          const seeded = yield* seedApiKeyTenant();
+          const scope = {
+            organizationId: seeded.organizationId,
+            workspaceId: seeded.workspaceId,
+            brainKey: "brain_acme",
+          };
+          const actor = { userId: seeded.adminUserId, role: "admin" as const };
+          const created = yield* createApiKeyForBrain({
+            publicInput: {
+              name: "Client Alpha read key",
+              scopes: ["brain:read"],
+              expiresAt: 20_000,
+              randomBytes: () => new Uint8Array(32).fill(21),
+            },
+            serverScope: scope,
+            actor,
+            nowMs: 10_000,
+          });
+          const listed = yield* listApiKeysForBrain({
+            serverScope: scope,
+            actor,
+          });
+          yield* revokeApiKeyForBrain({
+            keyId: listed[0]?.id ?? "missing",
+            serverScope: scope,
+            actor,
+            nowMs: 12_000,
+          });
+          const revoked = yield* listApiKeysForBrain({
+            serverScope: scope,
+            actor,
+          });
+
+          return { created, listed, revoked };
+        }),
+        Schema.Any,
+      );
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.created.displayKey).toMatch(/^mbk_live_/);
+    expect(result.created.key).toEqual({
+      name: "Client Alpha read key",
+      displayPrefix: expect.stringMatching(/^mbk_live_/),
+      scopes: ["brain:read"],
+      roleCeiling: "viewer",
+      status: "active",
+      createdAt: 10_000,
+      expiresAt: 20_000,
+    });
+    expect(JSON.stringify(result.created.key)).not.toContain("organizations_");
+    expect(JSON.stringify(result.created.key)).not.toContain("workspaces_");
+    expect(result.listed).toHaveLength(1);
+    expect(result.listed[0]).toMatchObject({ status: "active" });
+    expect(result.revoked[0]).toMatchObject({ status: "revoked" });
+  });
+
+  it("rejects duplicate active names and revokes the service principal generation", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+
+      return yield* confect.run(
+        Effect.gen(function* () {
+          const seeded = yield* seedApiKeyTenant();
+          const scope = {
+            organizationId: seeded.organizationId,
+            workspaceId: seeded.workspaceId,
+            brainKey: "brain_acme",
+          };
+          const actor = { userId: seeded.adminUserId, role: "admin" as const };
+          yield* createApiKeyForBrain({
+            publicInput: {
+              name: "Client Alpha read key",
+              scopes: ["brain:read"],
+              expiresAt: 20_000,
+              randomBytes: () => new Uint8Array(32).fill(31),
+            },
+            serverScope: scope,
+            actor,
+            nowMs: 10_000,
+          });
+          const duplicate = yield* createApiKeyForBrain({
+            publicInput: {
+              name: "Client Alpha read key",
+              scopes: ["brain:read"],
+              expiresAt: 21_000,
+              randomBytes: () => new Uint8Array(32).fill(32),
+            },
+            serverScope: scope,
+            actor,
+            nowMs: 10_001,
+          }).pipe(Effect.flip);
+          const listed = yield* listApiKeysForBrain({
+            serverScope: scope,
+            actor,
+          });
+          yield* revokeApiKeyForBrain({
+            keyId: listed[0]?.id ?? "missing",
+            serverScope: scope,
+            actor,
+            nowMs: 12_000,
+          });
+          const keyRows = yield* (yield* DatabaseReader)
+            .table("apiKeys")
+            .index("by_brain_status", (q) =>
+              q
+                .eq("workspaceId", scope.workspaceId)
+                .eq("brainKey", scope.brainKey),
+            )
+            .collect()
+            .pipe(Effect.orDie);
+          const principal = yield* (yield* DatabaseReader)
+            .table("servicePrincipals")
+            .index("by_principal_key", (q) =>
+              q.eq("id", keyRows[0]?.principalId ?? ""),
+            )
+            .collect()
+            .pipe(Effect.orDie);
+          return { duplicateTag: duplicate._tag, principal };
+        }),
+        Schema.Any,
+      );
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.duplicateTag).toBe("ApiKeyConflict");
+    expect(result.principal).toHaveLength(1);
+    expect(result.principal[0]).toMatchObject({
+      status: "revoked",
+      generation: 2,
+      revokedAt: 12_000,
+    });
+  });
+
+  it("authenticates by indexed bearer hash before best-effort last-used", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+
+      return yield* confect.run(
+        Effect.gen(function* () {
+          const seeded = yield* seedApiKeyTenant();
+          const scope = {
+            organizationId: seeded.organizationId,
+            workspaceId: seeded.workspaceId,
+            brainKey: "brain_acme",
+          };
+          const created = yield* createApiKeyForBrain({
+            publicInput: {
+              name: "Client Alpha read key",
+              scopes: ["brain:read"],
+              expiresAt: Date.now() + 20_000,
+              randomBytes: () => new Uint8Array(32).fill(22),
+            },
+            serverScope: scope,
+            actor: { userId: seeded.adminUserId, role: "admin" },
+            nowMs: Date.now(),
+          });
+          const authenticated = yield* authenticateBrainBearer({
+            authorization: `Bearer ${created.displayKey}`,
+            requiredScope: "brain:read",
+          });
+          const beforeMark = yield* (yield* DatabaseReader)
+            .table("apiKeys")
+            .index("by_key_hash", (q) => q.eq("keyHash", authenticated.keyHash))
+            .first()
+            .pipe(Effect.orDie);
+          yield* markApiKeyLastUsed({
+            keyId: authenticated.keyId,
+            keyHash: authenticated.keyHash,
+            principalId: authenticated.principal.principalId,
+            organizationId: authenticated.principal.organizationId,
+            workspaceId: authenticated.principal.workspaceId,
+            brainKey: authenticated.principal.brainKey,
+          });
+          const afterMark = yield* (yield* DatabaseReader)
+            .table("apiKeys")
+            .index("by_key_hash", (q) => q.eq("keyHash", authenticated.keyHash))
+            .first()
+            .pipe(Effect.orDie);
+          yield* (yield* DatabaseWriter)
+            .table("workspaces")
+            .patch(seeded.workspaceId, { lifecycleGeneration: 2 })
+            .pipe(Effect.orDie);
+          const generationError = yield* authenticateBrainBearer({
+            authorization: `Bearer ${created.displayKey}`,
+            requiredScope: "brain:read",
+          }).pipe(Effect.flip);
+
+          return {
+            authenticated,
+            generationError: generationError.code,
+            beforeMark:
+              beforeMark._tag === "Some" ? beforeMark.value.lastUsedAt : null,
+            afterMark:
+              afterMark._tag === "Some" ? afterMark.value.lastUsedAt : null,
+          };
+        }),
+        Schema.Any,
+      );
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.authenticated.principal).toMatchObject({
+      organizationId: expect.stringContaining("organizations"),
+      workspaceId: expect.stringContaining("workspaces"),
+      brainKey: "brain_acme",
+      roleCeiling: "viewer",
+    });
+    expect(result.authenticated.keyHash).not.toMatch(/^mbk_live_/);
+    expect(result.beforeMark).toBeNull();
+    expect(result.afterMark).toEqual(expect.any(Number));
+    expect(result.afterMark).toBeGreaterThan(10_000);
+    expect(result.generationError).toBe("TENANT_INACTIVE");
+  });
+
+  it("records success and denial audit events for API-key administration", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+
+      return yield* confect.run(
+        Effect.gen(function* () {
+          const seeded = yield* seedApiKeyTenant();
+          const scope = {
+            organizationId: seeded.organizationId,
+            workspaceId: seeded.workspaceId,
+            brainKey: "brain_acme",
+          };
+          const actor = { userId: seeded.adminUserId, role: "admin" as const };
+          const created = yield* createApiKeyForBrain({
+            publicInput: {
+              name: "Client Alpha read key",
+              scopes: ["brain:read"],
+              expiresAt: 20_000,
+              randomBytes: () => new Uint8Array(32).fill(41),
+            },
+            serverScope: scope,
+            actor,
+            nowMs: 10_000,
+          });
+          const listed = yield* listApiKeysForBrain({
+            serverScope: scope,
+            actor,
+          });
+          const denied = yield* createApiKeyForBrain({
+            publicInput: {
+              name: "Blocked viewer key",
+              scopes: ["brain:read"],
+              expiresAt: 20_000,
+            },
+            serverScope: scope,
+            actor: { userId: seeded.viewerUserId, role: "viewer" },
+            nowMs: 10_100,
+          }).pipe(Effect.flip);
+          yield* revokeApiKeyForBrain({
+            keyId: listed[0]?.id ?? "missing",
+            serverScope: scope,
+            actor,
+            nowMs: 12_000,
+          });
+          const events = yield* (yield* DatabaseReader)
+            .table("accessAuditEvents")
+            .index("by_workspace_action", (q) =>
+              q
+                .eq("workspaceId", scope.workspaceId)
+                .eq("action", "apiKey.administered"),
+            )
+            .collect()
+            .pipe(Effect.orDie);
+
+          return {
+            created,
+            deniedTag: denied._tag,
+            events: events.map((event) => ({
+              subjectKind: event.subjectKind,
+              subjectId: event.subjectId,
+              actorUserId: event.actorUserId,
+              metadata: JSON.parse(event.metadataJson),
+              createdAt: event.createdAt,
+            })),
+          };
+        }),
+        Schema.Any,
+      );
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.deniedTag).toBe("Forbidden");
+    expect(result.events).toEqual([
+      {
+        subjectKind: "privilegedAction",
+        subjectId: result.created.key.displayPrefix,
+        actorUserId: expect.stringContaining("users"),
+        metadata: {
+          outcome: "success",
+          operation: "create",
+          brainKey: "brain_acme",
+          scopes: "brain:read",
+        },
+        createdAt: 10_000,
+      },
+      {
+        subjectKind: "privilegedAction",
+        subjectId: "Blocked viewer key",
+        actorUserId: expect.stringContaining("users"),
+        metadata: {
+          outcome: "denied",
+          operation: "create",
+          reason: "Forbidden",
+          brainKey: "brain_acme",
+        },
+        createdAt: 10_100,
+      },
+      {
+        subjectKind: "privilegedAction",
+        subjectId: result.created.key.displayPrefix,
+        actorUserId: expect.stringContaining("users"),
+        metadata: {
+          outcome: "success",
+          operation: "revoke",
+          brainKey: "brain_acme",
+        },
+        createdAt: 12_000,
+      },
+    ]);
+  });
+
+  it("rejects public CRUD for non-admin actors before durable writes", async () => {
+    const result = await Effect.runPromise(
+      createApiKeyForBrain({
+        publicInput: {
+          name: "Client Alpha read key",
+          scopes: ["brain:read"],
+          expiresAt: 20_000,
+        },
+        serverScope: {
+          organizationId: "organizations_blocked",
+          workspaceId: "workspaces_blocked",
+          brainKey: "brain_acme",
+        },
+        actor: { userId: "users_viewer", role: "viewer" },
+        nowMs: 10_000,
+      }).pipe(Effect.flip) as Effect.Effect<unknown, unknown, never>,
+    );
+
+    expect(result).toBeInstanceOf(Forbidden);
+  });
+});
+
+const seedApiKeyTenant = () =>
+  Effect.gen(function* () {
+    const now = 10_000;
+    const writer = yield* DatabaseWriter;
+    const adminUserId = yield* writer
+      .table("users")
+      .insert({
+        subject: "admin-subject",
+        email: "admin@example.com",
+        displayName: "Admin",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
+    const viewerUserId = yield* writer
+      .table("users")
+      .insert({
+        subject: "viewer-subject",
+        email: "viewer@example.com",
+        displayName: "Viewer",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
+    const organizationId = yield* writer
+      .table("organizations")
+      .insert({
+        ownerUserId: adminUserId,
+        agencyKey: "agency_acme",
+        slug: "acme",
+        name: "Acme",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+        lifecycleGeneration: 1,
+        revocationGeneration: 1,
+      })
+      .pipe(Effect.orDie);
+    const workspaceId = yield* writer
+      .table("workspaces")
+      .insert({
+        organizationId,
+        ownerUserId: adminUserId,
+        brainKey: "brain_acme",
+        slug: "acme",
+        name: "Acme",
+        kind: "client",
+        clientSlug: "acme",
+        status: "active",
+        dataClassification: "confidential",
+        createdAt: now,
+        updatedAt: now,
+        lifecycleGeneration: 1,
+        revocationGeneration: 1,
+      })
+      .pipe(Effect.orDie);
+
+    return { organizationId, workspaceId, adminUserId, viewerUserId };
+  });
