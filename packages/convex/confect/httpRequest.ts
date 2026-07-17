@@ -6,6 +6,7 @@ import {
 import {
   authorizeHeadlessOperation,
   reviewedHeadlessPolicyFor,
+  type HeadlessOperationPolicy,
 } from "./headless/authorizeOperation";
 import type { HeadlessPrincipal } from "./headless/principal";
 import {
@@ -14,6 +15,7 @@ import {
 } from "./manifest/executor";
 
 export type TemplateApiRequestBody = {
+  readonly workspaceSlug?: string;
   readonly input?: Record<string, JsonValue>;
   readonly idempotencyKey?: string;
 };
@@ -123,10 +125,11 @@ const normalizeAuthenticatedPrincipal = (
 export const authorizeOperationBeforeDecode = (input: {
   readonly operationId: string;
   readonly principal: HeadlessPrincipal;
+  readonly policy?: HeadlessOperationPolicy;
 }):
   | { readonly ok: true; readonly principal: HeadlessPrincipal }
   | TemplateHttpFailure => {
-  const policy = reviewedHeadlessPolicyFor(input.operationId);
+  const policy = input.policy ?? reviewedHeadlessPolicyFor(input.operationId);
   if (policy === undefined) return forbidden();
   if (!input.principal.scopes.includes(policy.requiredScope))
     return forbidden();
@@ -166,10 +169,28 @@ const parseJsonRequestBody = async (
 const templateApiRequestBodyFrom = (value: unknown): TemplateApiRequestBody => {
   if (!isObjectRecord(value)) return {};
 
+  const input = isObjectRecord(value.input)
+    ? { ...(value.input as Record<string, JsonValue>) }
+    : {};
+  for (const field of [
+    "organizationId",
+    "organizationKey",
+    "agencyKey",
+    "workspaceId",
+    "workspaceKey",
+    "workspaceSlug",
+    "brainId",
+    "brainKey",
+    "userId",
+    "memberId",
+    "keyId",
+    "_id",
+    "id",
+  ] as const) {
+    if (field in value) input[field] = value[field] as JsonValue;
+  }
   return {
-    ...(isObjectRecord(value.input)
-      ? { input: value.input as Record<string, JsonValue> }
-      : {}),
+    input,
     ...(typeof value.idempotencyKey === "string"
       ? { idempotencyKey: value.idempotencyKey }
       : {}),
@@ -179,46 +200,44 @@ const templateApiRequestBodyFrom = (value: unknown): TemplateApiRequestBody => {
 const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 
-export const executorRequestFor = (
-  operationId: string,
-  body: TemplateApiRequestBody,
-): ExecutorRequestResult => {
-  const input = body.input ?? {};
-  return genericExecutorRequest(operationId, body, input);
-};
-
-export const authenticatedExecutorRequestFor = (input: {
+export const authenticatedExecutorRequestFor = async (input: {
   readonly operationId: string;
   readonly principal: HeadlessPrincipal;
   readonly body: TemplateApiRequestBody;
-}): ExecutorRequestResult => {
-  const policy = reviewedHeadlessPolicyFor(input.operationId);
-  const operationInput = input.body.input ?? {};
+  readonly policy?: HeadlessOperationPolicy;
+}): Promise<ExecutorRequestResult> => {
+  const policy = input.policy ?? reviewedHeadlessPolicyFor(input.operationId);
   const authorized = authorizeHeadlessOperation({
     operationId: input.operationId,
     principal: input.principal,
-    operationInput,
+    operationInput: input.body.input ?? {},
     ...(policy === undefined ? {} : { policy }),
   });
+
   if (!authorized.ok) return authorized;
 
-  return genericExecutorRequest(
-    input.operationId,
-    input.body,
-    authorized.input,
-  );
+  return {
+    ok: true,
+    request: {
+      operationId: input.operationId,
+      surface: "api",
+      input: authorized.input,
+      ...(input.body.idempotencyKey === undefined
+        ? {}
+        : { idempotencyKey: input.body.idempotencyKey }),
+    },
+  };
 };
 
-const genericExecutorRequest = (
+export const executorRequestFor = (
   operationId: string,
   body: TemplateApiRequestBody,
-  input: Record<string, JsonValue>,
 ): ExecutorRequestResult => ({
   ok: true,
   request: {
     operationId,
     surface: "api",
-    input,
+    input: body.input ?? {},
     ...(body.idempotencyKey === undefined
       ? {}
       : { idempotencyKey: body.idempotencyKey }),
