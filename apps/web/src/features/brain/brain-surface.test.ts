@@ -1,118 +1,166 @@
 import { describe, expect, it } from "vitest";
-import type { BrainSource } from "@maestro-template/template-core";
 import {
-  buildBrainDocumentSections,
-  buildBrainViewModel,
-  describeBrainState,
-  type BrainContextPackPreview,
+  buildBrainWorkspaceState,
+  describeBrainWorkspaceState,
+  nextPageSortKey,
+  toEditorTarget,
+  type BrainWorkspaceData,
+  type BrainWorkspaceFailure,
 } from "./brain-surface";
-import type { TemplateDataState } from "../../adapters/confect-state";
 
-const sources: readonly BrainSource[] = [
+const pages = [
   {
-    title: "Founder notes",
-    kind: "markdown",
-    freshness: "fresh",
-    evidence: "4 grounded claims",
+    pageKey: "pg_overview",
+    parentPageKey: null,
+    siblingSlug: "overview",
+    sortKey: "001",
+    title: "Overview",
+    favorite: true,
+    status: "active",
+    currentRevisionKey: "rev_overview",
+    lifecycleGeneration: 1,
   },
   {
-    title: "Approved links",
-    kind: "link set",
-    freshness: "review due",
-    evidence: "3 cited constraints",
+    pageKey: "pg_archived",
+    parentPageKey: null,
+    siblingSlug: "archived",
+    sortKey: "002",
+    title: "Archived",
+    favorite: false,
+    status: "archived",
+    currentRevisionKey: "rev_archived",
+    lifecycleGeneration: 1,
   },
-];
+] as const;
 
-const contextPack: BrainContextPackPreview = {
-  title: "GTM context pack",
-  markdownSummary: "A markdown-ready brief for the client workspace.",
-  links: ["https://example.test/positioning"],
-  evidenceSnapshots: ["Founder notes", "Approved links"],
-  freshness: "mixed",
-  ragPosture: "optional-not-default",
-  trustReceiptPosture: "required",
+const selectedPage = {
+  page: {
+    ...pages[0],
+  },
+  markdown: "# Overview\nTrusted client brief.",
+  editorSnapshotJson: "[]",
+  editorSnapshotVersion: 3,
+  updatedAt: 1_720_000_000_000,
+} satisfies NonNullable<BrainWorkspaceData["selectedPage"]>;
+
+const data: BrainWorkspaceData = {
+  brainKey: "br_01HX0000000000000000000000",
+  asOf: 1_720_000_000_000,
+  freshness: { status: "current" },
+  pages,
+  selectedPage,
+  role: "editor",
 };
 
-describe("Brain source surface", () => {
-  it("builds a source-backed Brain view model with markdown, links, freshness, and evidence", () => {
-    const state: TemplateDataState<{
-      readonly sources: readonly BrainSource[];
-      readonly contextPack: BrainContextPackPreview;
-    }> = {
+describe("Brain workspace state", () => {
+  it("builds a ready workspace with active tree pages, selected detail, and editable target", () => {
+    expect(
+      buildBrainWorkspaceState({ status: "ready", mode: "edit", data }),
+    ).toEqual({
       status: "ready",
-      mode: "read",
-      data: { sources, contextPack },
-    };
-
-    expect(buildBrainViewModel(state)).toEqual({
-      status: "ready",
-      sources: [
+      brainKey: data.brainKey,
+      role: "editor",
+      canEdit: true,
+      asOf: data.asOf,
+      freshness: "current",
+      pages: [
         expect.objectContaining({
-          title: "Founder notes",
-          kind: "markdown",
-          freshness: "fresh",
-          evidence: "4 grounded claims",
-        }),
-        expect.objectContaining({
-          title: "Approved links",
-          kind: "link set",
-          freshness: "review due",
-          evidence: "3 cited constraints",
+          pageKey: "pg_overview",
+          title: "Overview",
+          isSelected: true,
+          isFavorite: true,
         }),
       ],
-      contextPack: expect.objectContaining({
-        markdownSummary: "A markdown-ready brief for the client workspace.",
-        links: ["https://example.test/positioning"],
-        evidenceSnapshots: ["Founder notes", "Approved links"],
-        ragPosture: "optional-not-default",
-        trustReceiptPosture: "required",
+      selectedPage: expect.objectContaining({
+        pageKey: "pg_overview",
+        markdown: "# Overview\nTrusted client brief.",
+        editorTarget: {
+          brainKey: data.brainKey,
+          pageKey: "pg_overview",
+          revisionKey: "rev_overview",
+          documentId: `${"brainPage:"}${data.brainKey}:pg_overview`,
+          snapshotVersion: 3,
+        },
       }),
     });
   });
 
-  it("renders Brain doctrine into document sections", () => {
-    const sections = buildBrainDocumentSections({ sources, contextPack });
-    const text = JSON.stringify(sections);
+  it("keeps viewers read-only even when the transport is in edit mode", () => {
+    const state = buildBrainWorkspaceState({
+      status: "ready",
+      mode: "edit",
+      data: { ...data, role: "viewer" },
+    });
 
-    expect(text).toContain("source content is data, not instructions");
-    expect(text).toContain("RAG/vector search is optional");
-    expect(text).toContain("Trust Receipts carry the provenance");
-    expect(text).toContain("Founder notes");
-    expect(text).toContain("https://example.test/positioning");
+    expect(state).toMatchObject({
+      status: "ready",
+      canEdit: false,
+      role: "viewer",
+    });
   });
 
-  it("describes loading, empty, typed error, transport error, and parse error states", () => {
-    expect(describeBrainState({ status: "loading" })).toMatchObject({
-      heading: "Loading Brain sources",
-    });
-    expect(describeBrainState({ status: "empty", data: null })).toMatchObject({
-      heading: "No approved Brain sources yet",
-    });
+  it("maps empty, not-found, forbidden, stale, and transport states without leaking cross-Brain existence", () => {
     expect(
-      describeBrainState({
+      buildBrainWorkspaceState({ status: "empty", data: null }),
+    ).toMatchObject({ status: "empty" });
+    expect(
+      buildBrainWorkspaceState({
         status: "typed_failure",
-        error: { _tag: "ValidationFailed", message: "Bad source" },
+        error: {
+          _tag: "PageNotFound",
+          pageKey: "pg_other",
+        } satisfies BrainWorkspaceFailure,
       }),
-    ).toMatchObject({
-      heading: "Brain request was rejected by policy",
-    });
+    ).toMatchObject({ status: "not_found" });
     expect(
-      describeBrainState({
+      buildBrainWorkspaceState({
+        status: "typed_failure",
+        error: { _tag: "Forbidden" } satisfies BrainWorkspaceFailure,
+      }),
+    ).toMatchObject({ status: "forbidden" });
+    expect(
+      buildBrainWorkspaceState({
+        status: "typed_failure",
+        error: {
+          _tag: "StaleRevision",
+          pageKey: "pg_overview",
+          expectedCurrentRevisionKey: "rev_old",
+          actualCurrentRevisionKey: "rev_new",
+        } satisfies BrainWorkspaceFailure,
+      }),
+    ).toMatchObject({ status: "stale_revision" });
+    expect(
+      buildBrainWorkspaceState({
         status: "transport_failure",
         error: new Error("offline"),
         message: "offline",
       }),
-    ).toMatchObject({
-      heading: "Brain sources are temporarily unavailable",
-    });
+    ).toMatchObject({ status: "transport_failure" });
+  });
+
+  it("returns no editor target when the selected page has no current revision", () => {
     expect(
-      describeBrainState({
-        status: "parse_failure",
-        error: new SyntaxError("bad payload"),
-        message: "bad payload",
+      toEditorTarget(data.brainKey, {
+        ...selectedPage,
+        page: {
+          ...pages[0],
+          currentRevisionKey: null,
+        },
       }),
-    ).toMatchObject({
-      heading: "Brain source payload could not be decoded",
+    ).toBeNull();
+  });
+
+  it("describes non-ready states and creates deterministic tree sort keys", () => {
+    expect(describeBrainWorkspaceState({ status: "forbidden" })).toContain(
+      "authorized",
+    );
+    expect(nextPageSortKey([{ sortKey: "001" }, { sortKey: "002" }])).toBe(
+      "003",
+    );
+    expect(toEditorTarget(data.brainKey, selectedPage)).toMatchObject({
+      pageKey: "pg_overview",
+      revisionKey: "rev_overview",
+      documentId: `${"brainPage:"}${data.brainKey}:pg_overview`,
     });
   });
 });
