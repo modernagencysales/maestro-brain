@@ -43,7 +43,17 @@ export type SlackDirectoryPage = {
   readonly nextCursor: string | null;
 };
 
+export type SlackBotIdentity = {
+  readonly teamId: string;
+  readonly apiAppId: string;
+  readonly botUserId: string;
+};
+
 export type SlackDirectoryProviderService = {
+  readonly authTest: (input: {
+    readonly connectionKey: string;
+    readonly nangoConnectionId?: string | null | undefined;
+  }) => Promise<SlackBotIdentity>;
   readonly listChannels: (input: {
     readonly connectionKey: string;
     readonly nangoConnectionId?: string | null | undefined;
@@ -113,7 +123,26 @@ const validateReconcileConnection = (input: {
 };
 
 const directoryProviderError = (error: unknown) =>
-  error instanceof ProviderRateLimited ? error : new ProviderUnavailable();
+  error instanceof ProviderRateLimited || error instanceof BotIdentityMismatch
+    ? error
+    : new ProviderUnavailable();
+
+const verifyBotIdentity = (input: {
+  readonly connectionKey: string;
+  readonly connection: ActiveSlackConnection;
+  readonly providerIdentity: SlackBotIdentity;
+}): Either.Either<void, BotIdentityMismatch> => {
+  if (
+    input.providerIdentity.teamId !== input.connection.teamId ||
+    input.providerIdentity.apiAppId !== input.connection.apiAppId ||
+    input.providerIdentity.botUserId !== input.connection.botUserId
+  ) {
+    return Either.left(
+      new BotIdentityMismatch({ connectionKey: input.connectionKey }),
+    );
+  }
+  return Either.right(undefined);
+};
 
 export const reconcileSlackChannelDirectoryPlan = (input: {
   readonly connectionKey: string;
@@ -274,6 +303,22 @@ const makeReconcileChannels = (
           connection,
         });
         if (Either.isLeft(validated)) return yield* Effect.fail(validated.left);
+        const providerIdentity = yield* Effect.tryPromise({
+          try: () =>
+            slackDirectoryProvider.authTest({
+              connectionKey: input.connectionKey,
+              nangoConnectionId: validated.right.nangoConnectionId,
+            }),
+          catch: directoryProviderError,
+        });
+        const verifiedIdentity = verifyBotIdentity({
+          connectionKey: input.connectionKey,
+          connection: validated.right,
+          providerIdentity,
+        });
+        if (Either.isLeft(verifiedIdentity)) {
+          return yield* Effect.fail(verifiedIdentity.left);
+        }
         const existingChannels = (yield* reader
           .table("sourceChannels")
           .index("by_connection_generation", (q) =>
@@ -362,6 +407,7 @@ const makeReconcileChannels = (
   );
 
 const unavailableSlackDirectoryProvider: SlackDirectoryProviderService = {
+  authTest: () => Promise.reject(new ProviderUnavailable()),
   listChannels: () => Promise.reject(new ProviderUnavailable()),
 };
 
