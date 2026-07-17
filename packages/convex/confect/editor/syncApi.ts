@@ -59,14 +59,11 @@ export async function recordCurrentEditorSnapshot(
 ): Promise<EditorSnapshotCommit | null> {
   const target = parseEditorTarget(documentId);
   if (target.kind !== "brainPage") return null;
-  const resolved =
-    target.legacyPageId === null
-      ? await resolveStableEditorSnapshotTarget(
-          ctx,
-          target.brainKey,
-          target.pageKey,
-        )
-      : await resolveLegacyEditorSnapshotTarget(ctx, target.legacyPageId);
+  if (target.legacyPageId === null) return null;
+  const resolved = await resolveLegacyEditorSnapshotTarget(
+    ctx,
+    target.legacyPageId,
+  );
   if (resolved === null) return null;
   return await commitEditorSnapshot(ctx, resolved, snapshot, version);
 }
