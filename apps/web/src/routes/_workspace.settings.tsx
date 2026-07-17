@@ -7,6 +7,8 @@ import {
   type WorkspaceId,
 } from "../features/settings/member-management-adapter";
 import { MemberManagement } from "../features/settings/member-management";
+import { createApiKeySettingsAdapter } from "../features/settings/api-keys-adapter";
+import { ApiKeysPanel } from "../features/settings/api-keys-panel";
 import { useWorkspace } from "../providers/workspace";
 import { BusinessSettingsRoute } from "../saas-ui/business-shell";
 
@@ -49,6 +51,11 @@ function WorkspaceSettingsRoute() {
     return <BusinessSettingsRoute />;
   }
 
+  const apiKeyAdapter = createApiKeySettingsAdapter({
+    role: workspace.activeWorkspace.role,
+    brainKey: workspace.activeWorkspace.slug,
+    mutations: unavailableApiKeyMutations,
+  });
   const adapter = createMemberManagementAdapter({
     role: workspace.activeWorkspace.role,
     workspaceId: workspace.activeWorkspace.workspaceId as WorkspaceId,
@@ -69,6 +76,7 @@ function WorkspaceSettingsRoute() {
         members={toRowsState(members, "Member list access denied.")}
         invitations={toRowsState(invitations, "Invitation list access denied.")}
       />
+      <ApiKeysPanel adapter={apiKeyAdapter} />
     </>
   );
 }
@@ -100,4 +108,16 @@ const toRowsState = <T, E>(
     case "defect":
       return { status: "error" as const, message: state.message };
   }
+};
+
+const unavailableApiKeyMutation = async () => {
+  throw new Error(
+    "Generated headless API-key refs are unavailable until centralized Confect codegen runs.",
+  );
+};
+
+const unavailableApiKeyMutations = {
+  create: unavailableApiKeyMutation,
+  rotate: unavailableApiKeyMutation,
+  revoke: unavailableApiKeyMutation,
 };

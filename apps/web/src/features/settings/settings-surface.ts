@@ -56,6 +56,15 @@ export const buildSettingsDocumentSections = ({
       ],
     },
     {
+      heading: "Brain API keys",
+      body: [
+        canAdminister
+          ? "Admins can create, rotate, and revoke display-once one-Brain keys through generated API-key refs."
+          : "API key creation, rotation, and revocation are hidden for non-admin roles.",
+        "Server-side authorization remains the enforcement boundary for every API-key action.",
+      ],
+    },
+    {
       heading: "Provider health",
       body: providers.map(
         (provider) =>
