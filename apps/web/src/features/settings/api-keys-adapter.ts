@@ -1,7 +1,7 @@
 import * as Either from "effect/Either";
 
 import type { WorkspaceRole } from "../../providers/workspace";
-import type { ApiKeySettingsMetadata } from "./api-keys";
+import type { PublicApiKeySettingsMetadata } from "./api-keys";
 
 export type ApiKeyMutationResult<T> = T | Either.Either<T, unknown>;
 
@@ -14,7 +14,7 @@ export type ApiKeyMutations = {
   }) => Promise<
     ApiKeyMutationResult<{
       readonly displayKey: string;
-      readonly key: ApiKeySettingsMetadata;
+      readonly key: PublicApiKeySettingsMetadata;
     }>
   >;
   readonly rotate: (args: {
@@ -24,7 +24,7 @@ export type ApiKeyMutations = {
   }) => Promise<
     ApiKeyMutationResult<{
       readonly displayKey: string;
-      readonly key: ApiKeySettingsMetadata;
+      readonly key: PublicApiKeySettingsMetadata;
     }>
   >;
   readonly revoke: (args: {
