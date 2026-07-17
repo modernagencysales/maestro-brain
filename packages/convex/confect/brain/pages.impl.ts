@@ -582,16 +582,21 @@ const archive = FunctionImpl.make(databaseSchema, pages, "archive", (args) =>
 );
 
 type RecordSnapshotArgs = {
-  readonly brainKey: string;
-  readonly pageKey: string;
+  readonly documentId: string;
   readonly expectedCurrentRevisionKey: string;
   readonly snapshot: string;
   readonly version: number;
 };
 
+const stablePageDocument = (documentId: string) => {
+  const [kind, brainKey, pageKey] = documentId.split(":");
+  return kind === "brainPage" && brainKey !== undefined && pageKey !== undefined
+    ? { brainKey, pageKey }
+    : null;
+};
+
 const recordSnapshotMutation = ({
-  brainKey,
-  pageKey,
+  documentId,
   expectedCurrentRevisionKey,
   snapshot,
   version,
@@ -606,8 +611,14 @@ const recordSnapshotMutation = ({
   PageDeps
 > =>
   Effect.gen(function* () {
-    const brain = yield* requireBrainAccess(brainKey, "editor");
-    const page = yield* loadPage(brain, pageKey);
+    const target = stablePageDocument(documentId);
+    if (target === null)
+      return yield* new ValidationFailed({
+        field: "documentId",
+        message: "Snapshot document must be a stable Brain page target.",
+      });
+    const brain = yield* requireBrainAccess(target.brainKey, "editor");
+    const page = yield* loadPage(brain, target.pageKey);
     yield* requireCurrentRevision(page, expectedCurrentRevisionKey);
     if (
       !Number.isSafeInteger(version) ||

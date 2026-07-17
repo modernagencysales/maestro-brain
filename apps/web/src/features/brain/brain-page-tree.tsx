@@ -1,5 +1,13 @@
-import { Badge, Button, Card, HStack, Stack, Text } from "@saas-ui/react";
-import type { KeyboardEvent } from "react";
+import {
+  Badge,
+  Button,
+  Card,
+  HStack,
+  Input,
+  Stack,
+  Text,
+} from "@saas-ui/react";
+import type { ChangeEvent, KeyboardEvent } from "react";
 import type { BrainPageTreeItem } from "./brain-surface";
 
 export function selectedTreePageId(
@@ -20,6 +28,14 @@ export function nextKeyboardPageKey(
     return pages[Math.min(index + 1, pages.length - 1)]?.pageKey;
   if (key === "ArrowUp") return pages[Math.max(index - 1, 0)]?.pageKey;
   return undefined;
+}
+
+export function renameTitleFromInput(
+  page: BrainPageTreeItem,
+  event: ChangeEvent<HTMLInputElement>,
+): string {
+  const title = event.currentTarget.value.trim();
+  return title.length > 0 ? title : page.title;
 }
 
 export function BrainPageTree({
@@ -116,20 +132,19 @@ export function BrainPageTree({
                   >
                     ★
                   </Button>
-                  <Button
-                    aria-label="Rename page"
+                  <Input
+                    aria-label={`Rename ${page.title}`}
+                    defaultValue={page.title}
                     size="xs"
-                    variant="ghost"
-                    onClick={() =>
+                    width="32"
+                    onBlur={(event) =>
                       onRenamePage(
                         page.pageKey,
-                        page.title,
+                        renameTitleFromInput(page, event),
                         page.currentRevisionKey,
                       )
                     }
-                  >
-                    Rename
-                  </Button>
+                  />
                   <Button
                     aria-label="Move page to root"
                     size="xs"

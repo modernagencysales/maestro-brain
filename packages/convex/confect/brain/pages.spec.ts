@@ -107,8 +107,7 @@ const FavoriteArgs = Schema.extend(
 const ArchiveArgs = PageRevisionSelector;
 
 export const RecordSnapshotArgs = Schema.Struct({
-  brainKey: BrainKey,
-  pageKey: PageKey,
+  documentId: Schema.String.pipe(Schema.pattern(/^brainPage:[^:]+:[^:]+$/)),
   expectedCurrentRevisionKey: RevisionKey,
   snapshot: Schema.String,
   version: Schema.Number,
