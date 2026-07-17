@@ -10,6 +10,10 @@ export type SettingsViewer = {
   readonly role: "viewer" | "editor" | "admin" | "owner";
 };
 
+export const selectStableApiKeyBrainKey = (
+  workspace: Pick<WorkspaceSummary, "workspaceId" | "slug">,
+): string => workspace.workspaceId;
+
 export const buildSettingsDocumentSections = ({
   workspace,
   viewer,
