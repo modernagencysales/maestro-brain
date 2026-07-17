@@ -708,7 +708,12 @@ describe("authorized Brain page CRUD", () => {
     const result = await Effect.runPromise(
       program.pipe(Effect.provide(testConfectLayer())),
     );
-    expect(result.saved).toEqual({ ok: true });
+    expect(result.saved).toEqual({
+      pageKey: result.page.pageKey,
+      pageRevisionKey: result.afterSave.page.currentRevisionKey,
+      contentHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+      savedAt: expect.any(Number),
+    });
     expect(result.afterSave.editorSnapshotJson).toBe(
       '{"type":"doc","content":[]}',
     );
@@ -716,7 +721,15 @@ describe("authorized Brain page CRUD", () => {
     expect(result.afterSave.page.currentRevisionKey).toBe(
       result.afterDenials.page.currentRevisionKey,
     );
-    expect(result.afterSaveMutationRows).toEqual(result.before);
+    expect(result.afterSaveMutationRows.audits).toEqual(result.before.audits);
+    expect(result.afterSaveMutationRows.revisions).toHaveLength(
+      result.before.revisions.length + 1,
+    );
+    expect(
+      result.afterSaveMutationRows.revisions.some((revision) =>
+        revision.includes(`:${result.saved.pageRevisionKey}:`),
+      ),
+    ).toBe(true);
     expect(Either.isLeft(result.stale)).toBe(true);
     if (Either.isLeft(result.stale)) {
       expect(result.stale.left).toBeInstanceOf(StaleRevision);
