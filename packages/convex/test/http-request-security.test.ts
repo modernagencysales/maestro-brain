@@ -13,11 +13,60 @@ import { handleTemplateHttpRequest } from "../confect/http";
 import { executeAuthorizedHeadlessOperation } from "../confect/manifest/executor";
 import { readJsonBody } from "../confect/httpRequest";
 
+const syntheticReadOperation = {
+  namespace: "test.sample",
+  name: "read",
+  operationId: "test.sample.read",
+  kind: "mutation",
+  surfaces: ["api"],
+  typedErrors: ["ValidationFailed"],
+  idempotent: true,
+  argsSchemaName: "test.sample.read.args",
+  returnsSchemaName: "test.sample.read.returns",
+} as const;
+
+const syntheticAskOperation = {
+  namespace: "test.sample",
+  name: "ask",
+  operationId: "test.sample.ask",
+  kind: "action",
+  surfaces: ["api"],
+  typedErrors: ["ValidationFailed"],
+  idempotent: true,
+  argsSchemaName: "test.sample.ask.args",
+  returnsSchemaName: "test.sample.ask.returns",
+} as const;
+
 const reviewedReadPolicy = {
-  operationId: "brain.pages.createMarkdown",
+  operationId: "test.sample.read",
   headless: true,
   requiredScope: "brain:read",
 } as const satisfies HeadlessOperationPolicy;
+
+const reviewedAskPolicy = {
+  operationId: "test.sample.ask",
+  headless: true,
+  requiredScope: "brain:ask",
+} as const satisfies HeadlessOperationPolicy;
+
+type SyntheticHttpOperation =
+  typeof syntheticReadOperation | typeof syntheticAskOperation;
+
+const mockHttpManifest = (
+  operation: SyntheticHttpOperation = syntheticReadOperation,
+) => {
+  vi.resetModules();
+  vi.doMock(
+    "@maestro-template/template-core/generated/confectManifest",
+    () => ({
+      confectManifest: {
+        version: 1,
+        generatedAt: "1970-01-01T00:00:00.000Z",
+        functions: [operation],
+      },
+    }),
+  );
+};
 
 const principal = createHeadlessPrincipal({
   organizationId: "org_123",
@@ -65,7 +114,7 @@ const requestWithJsonSpy = (authorization: string | undefined) => {
 };
 
 describe("headless HTTP bearer security", () => {
-  it("keeps the current generated write operation closed to headless keys", async () => {
+  it("keeps the deleted generated write operation closed to headless keys", async () => {
     const runMutation = vi.fn(async () => ({ id: "brainPage_123" }));
 
     const result = await executeAuthorizedHeadlessOperation(
@@ -94,8 +143,9 @@ describe("headless HTTP bearer security", () => {
     expect(result).toEqual({
       ok: false,
       error: {
-        _tag: "Forbidden",
-        message: "Headless operation is not available.",
+        _tag: "NotFound",
+        message:
+          "No headless operation brain.pages.createMarkdown exposed on api.",
       },
     });
     expect(runMutation).not.toHaveBeenCalled();
@@ -138,7 +188,7 @@ describe("headless HTTP bearer security", () => {
   it("rejects caller-supplied tenant aliases recursively at the schema boundary", () => {
     expect(
       authorizeHeadlessOperation({
-        operationId: "synthetic.read",
+        operationId: "test.sample.read",
         principal,
         operationInput: {
           nested: [{ userId: "user_attacker" }],
@@ -170,7 +220,7 @@ describe("headless HTTP bearer security", () => {
     ]) {
       expect(
         authorizeHeadlessOperation({
-          operationId: "synthetic.read",
+          operationId: "test.sample.read",
           principal,
           operationInput: { [field]: "attacker" },
           policy: reviewedReadPolicy,
@@ -192,7 +242,7 @@ describe("headless HTTP bearer security", () => {
     expect(json).toHaveBeenCalledTimes(1);
   });
 
-  it("authenticates by internal key-hash query before JSON decode and dispatch", async () => {
+  it("does not decode or dispatch deleted HTTP operations", async () => {
     const { request, json } = requestWithJsonSpy("Bearer mbk_live_missing");
     const runMutation = vi.fn(async () => ({ id: "brainPage_123" }));
     const runQuery = vi.fn(async () => undefined);
@@ -208,37 +258,68 @@ describe("headless HTTP bearer security", () => {
 
     expect(await response.json()).toEqual({
       ok: false,
-      error: { _tag: "Unauthorized", message: "Unauthorized." },
+      error: {
+        _tag: "NotFound",
+        message: "Unknown template HTTP route: /api/brain.pages.createMarkdown",
+      },
     });
-    expect(runQuery).toHaveBeenCalledWith(expect.anything(), {
-      keyHash: await hashPresentedApiKey("mbk_live_missing"),
-      requiredScope: "brain:read",
+    expect(runQuery).not.toHaveBeenCalled();
+    expect(json).not.toHaveBeenCalled();
+    expect(runMutation).not.toHaveBeenCalled();
+  });
+
+  it("returns the uniform validation envelope for unknown API routes without authentication", async () => {
+    const request = new Request("https://example.test/api/not.registered", {
+      method: "POST",
+      headers: {
+        authorization: "Bearer mbk_live_unknown",
+        "content-type": "application/json",
+      },
+      body: "{not-json",
     });
+    const json = vi.spyOn(request, "json");
+    const runQuery = vi.fn(async () => authResult("unused"));
+    const runMutation = vi.fn(async () => ({ id: "brainPage_123" }));
+
+    const response = await handleTemplateHttpRequest(
+      {
+        runQuery,
+        runMutation,
+        runAction: async () => undefined,
+      },
+      request,
+    );
+
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: {
+        _tag: "ValidationFailed",
+        message: "Headless operation is not available.",
+      },
+    });
+    expect(runQuery).not.toHaveBeenCalled();
     expect(json).not.toHaveBeenCalled();
     expect(runMutation).not.toHaveBeenCalled();
   });
 
   it("orders authenticate, authorize, decode, dispatch, reauthenticate, and mark", async () => {
+    mockHttpManifest();
+    const { handleTemplateHttpRequest: handleWithMockedManifest } =
+      await import("../confect/http");
     const calls: string[] = [];
     const displayKey = "mbk_live_order";
     const keyHash = await hashPresentedApiKey(displayKey);
-    const request = new Request(
-      "https://example.test/api/brain.pages.createMarkdown",
-      {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${displayKey}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          input: { title: "A note" },
-          idempotencyKey: "idem_123",
-        }),
+    const request = new Request("https://example.test/api/test.sample.read", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${displayKey}`,
+        "content-type": "application/json",
       },
-    );
-    const json = vi.spyOn(request, "json").mockImplementation(async () => {
+      body: JSON.stringify({ input: { title: "A note" } }),
+    });
+    vi.spyOn(request, "json").mockImplementation(async () => {
       calls.push("decode");
-      return { input: { title: "A note" }, idempotencyKey: "idem_123" };
+      return { input: { title: "A note" } };
     });
     const runQuery = vi.fn(async (_ref, input) => {
       calls.push("authenticate");
@@ -246,28 +327,94 @@ describe("headless HTTP bearer security", () => {
       return authResult(keyHash);
     });
     const runMutation = vi.fn(async (_ref, input) => {
-      if (input.keyId === "api_key_123" && input.keyHash === keyHash) {
+      if (input.keyHash === keyHash) {
+        expect(input).toMatchObject({ keyHash, keyId: "api_key_123" });
         calls.push("mark");
         return null;
       }
       calls.push("dispatch");
-      return { id: "brainPage_123" };
+      return input;
+    });
+    const runAction = vi.fn(async () => {
+      throw new Error("runAction should not be called");
     });
 
-    const response = await handleTemplateHttpRequest(
-      { runQuery, runMutation, runAction: async () => undefined },
+    const response = await handleWithMockedManifest(
+      {
+        runQuery,
+        runMutation,
+        runAction,
+        operationRefs: { "test.sample.read": "test.sample.read.ref" },
+        operationPolicies: { "test.sample.read": reviewedReadPolicy },
+      },
       request,
     );
 
     expect(await response.json()).toEqual({
-      ok: false,
-      error: { _tag: "Forbidden", message: "Forbidden." },
+      ok: true,
+      operationId: "test.sample.read",
+      result: {
+        title: "A note",
+        organizationId: "org_123",
+        workspaceId: "workspace_123",
+        brainKey: "brain_acme",
+      },
     });
-    expect(json).not.toHaveBeenCalled();
-    expect(calls).toEqual(["authenticate"]);
+    expect(calls).toEqual([
+      "authenticate",
+      "decode",
+      "dispatch",
+      "authenticate",
+      "mark",
+    ]);
+  });
+
+  it("authenticates HTTP routes with the operation-specific ask scope", async () => {
+    mockHttpManifest(syntheticAskOperation);
+    const { handleTemplateHttpRequest: handleWithMockedManifest } =
+      await import("../confect/http");
+    const displayKey = "mbk_live_ask";
+    const keyHash = await hashPresentedApiKey(displayKey);
+    const askPrincipal = { ...principal, scopes: ["brain:ask"] as const };
+    const runQuery = vi.fn(async (_ref, input) => {
+      expect(input).toEqual({ keyHash, requiredScope: "brain:ask" });
+      return { ...authResult(keyHash), principal: askPrincipal };
+    });
+    const runAction = vi.fn(async (_ref, input) => ({
+      answer: `asked ${input.question}`,
+      organizationId: input.organizationId,
+    }));
+
+    const response = await handleWithMockedManifest(
+      {
+        runQuery,
+        runMutation: async () => null,
+        runAction,
+        operationRefs: { "test.sample.ask": "test.sample.ask.ref" },
+        operationPolicies: { "test.sample.ask": reviewedAskPolicy },
+      },
+      new Request("https://example.test/api/test.sample.ask", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${displayKey}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ input: { question: "hello" } }),
+      }),
+    );
+
+    expect(await response.json()).toMatchObject({
+      ok: true,
+      operationId: "test.sample.ask",
+      result: { answer: "asked hello", organizationId: "org_123" },
+    });
+    expect(runAction).toHaveBeenCalledTimes(1);
   });
 
   it("fails closed when reauthorization fails after dispatch", async () => {
+    mockHttpManifest();
+    const { handleTemplateHttpRequest: handleWithMockedManifest } =
+      await import("../confect/http");
     const displayKey = "mbk_live_reauth";
     const keyHash = await hashPresentedApiKey(displayKey);
     let authCalls = 0;
@@ -276,45 +423,53 @@ describe("headless HTTP bearer security", () => {
       if (authCalls === 1) return authResult(keyHash);
       throw new Error("revoked");
     });
-    const runMutation = vi.fn(async () => ({ id: "brainPage_123" }));
+    const runMutation = vi.fn(async () => null);
 
-    const response = await handleTemplateHttpRequest(
-      { runQuery, runMutation, runAction: async () => undefined },
-      new Request("https://example.test/api/brain.pages.createMarkdown", {
+    const response = await handleWithMockedManifest(
+      {
+        runQuery,
+        runMutation,
+        runAction: async () => undefined,
+        operationRefs: { "test.sample.read": "test.sample.read.ref" },
+        operationPolicies: { "test.sample.read": reviewedReadPolicy },
+      },
+      new Request("https://example.test/api/test.sample.read", {
         method: "POST",
         headers: {
           authorization: `Bearer ${displayKey}`,
           "content-type": "application/json",
         },
-        body: JSON.stringify({
-          input: { title: "A note" },
-          idempotencyKey: "idem_123",
-        }),
+        body: JSON.stringify({ input: { title: "A note" } }),
       }),
     );
 
     expect(await response.json()).toEqual({
       ok: false,
-      error: { _tag: "Forbidden", message: "Forbidden." },
+      error: { _tag: "Unauthorized", message: "Unauthorized." },
     });
-    expect(runMutation).not.toHaveBeenCalled();
+    expect(runMutation).toHaveBeenCalledTimes(1);
   });
 
   it("redacts dispatch exceptions without logging bearer values", async () => {
+    mockHttpManifest();
+    const { handleTemplateHttpRequest: handleWithMockedManifest } =
+      await import("../confect/http");
     const displayKey = "mbk_live_dispatch_secret";
     const keyHash = await hashPresentedApiKey(displayKey);
     const errorSpy = vi
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
-    const response = await handleTemplateHttpRequest(
+    const response = await handleWithMockedManifest(
       {
         runQuery: async () => authResult(keyHash),
         runMutation: async () => {
           throw new Error(`internal reason ${displayKey}`);
         },
         runAction: async () => undefined,
+        operationRefs: { "test.sample.read": "test.sample.read.ref" },
+        operationPolicies: { "test.sample.read": reviewedReadPolicy },
       },
-      new Request("https://example.test/api/brain.pages.createMarkdown", {
+      new Request("https://example.test/api/test.sample.read", {
         method: "POST",
         headers: {
           authorization: `Bearer ${displayKey}`,
