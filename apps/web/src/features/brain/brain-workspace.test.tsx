@@ -21,6 +21,7 @@ import { MaestroSaasUiProvider } from "../../saas-ui/provider";
 import {
   BrainWorkspace,
   buildWorkspaceSaveArgs,
+  reduceMobileDrawerState,
   buildWorkspaceSyncApi,
   reduceSaveConflict,
 } from "./brain-workspace";
@@ -82,7 +83,7 @@ const render = (state: BrainWorkspaceState) =>
   );
 
 describe("BrainWorkspace", () => {
-  it("renders the responsive three-region workspace", () => {
+  it("renders mobile drawer controls with closed disclosure state", () => {
     const html = render(readyState);
 
     expect(html).toContain("Client Brain");
@@ -90,7 +91,30 @@ describe("BrainWorkspace", () => {
     expect(html).toContain("Overview");
     expect(html).toContain("Evidence and history");
     expect(html).toContain("Open page tree");
+    expect(html).toContain('aria-controls="brain-mobile-page-tree-drawer"');
+    expect(html).toContain('aria-expanded="false"');
     expect(html).toContain("Open evidence drawer");
+    expect(html).toContain('aria-controls="brain-mobile-evidence-drawer"');
+  });
+
+  it("hides inline side regions on mobile while closed drawers avoid duplicate content", () => {
+    const html = render(readyState);
+
+    expect(html).toContain('data-testid="brain-desktop-page-tree-region"');
+    expect(html).toContain('data-testid="brain-desktop-evidence-region"');
+    expect(html).toContain("display:none");
+    expect(html).toContain("min-width: 64rem");
+    expect(html).toContain("display:block");
+    expect(html).not.toContain('id="brain-mobile-page-tree-drawer"');
+    expect(html).not.toContain('id="brain-mobile-evidence-drawer"');
+    expect(html).not.toContain('role="dialog"');
+  });
+
+  it("opens and closes the mobile page tree and evidence drawers", () => {
+    expect(reduceMobileDrawerState(null, "open_tree")).toBe("tree");
+    expect(reduceMobileDrawerState("tree", "close")).toBeNull();
+    expect(reduceMobileDrawerState(null, "open_evidence")).toBe("evidence");
+    expect(reduceMobileDrawerState("evidence", "close")).toBeNull();
   });
 
   it("builds the generated editor sync API contract for BlockNote", () => {
@@ -110,6 +134,36 @@ describe("BrainWorkspace", () => {
       expectedCurrentRevisionKey: "rev_overview",
       snapshot: '{"type":"doc"}',
       version: 2,
+    });
+  });
+
+  it("preserves the editor-selected revision fence after workspace state advances", () => {
+    const advancedState: BrainWorkspaceState = {
+      ...readyState,
+      selectedPage: {
+        ...selectedPage,
+        currentRevisionKey: "rev_after_remote_save",
+        editorTarget: {
+          ...selectedPage.editorTarget,
+          revisionKey: "rev_after_remote_save",
+          snapshotVersion: 4,
+        },
+      },
+    };
+
+    expect(
+      buildWorkspaceSaveArgs(
+        advancedState,
+        '{"type":"doc"}',
+        5,
+        "rev_overview",
+      ),
+    ).toEqual({
+      brainKey: "br_01HX0000000000000000000000",
+      pageKey: "pg_overview",
+      expectedCurrentRevisionKey: "rev_overview",
+      snapshot: '{"type":"doc"}',
+      version: 5,
     });
   });
 
