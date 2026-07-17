@@ -446,8 +446,11 @@ describe("authorized Brain page CRUD", () => {
     );
   });
 
-  it("keeps every pages manifest entry web-only", () => {
-    expect(manifest).toHaveLength(7);
+  it("keeps every pages manifest entry web-only including fenced snapshots", () => {
+    expect(manifest).toHaveLength(8);
+    expect(manifest.map((entry) => entry.operationId)).toContain(
+      "brain.pages.recordSnapshot",
+    );
     for (const entry of manifest) {
       expect(entry.operationId).toMatch(/^brain\.pages\./);
       expect(entry.surfaces).toEqual(["web"]);
