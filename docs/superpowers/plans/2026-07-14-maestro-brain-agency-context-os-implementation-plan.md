@@ -70,9 +70,10 @@ them. Product-specific additions are:
    next stack's temporary StackPlan JSON.
 4. Each StackPlan reports hand-authored source lines separately from generated,
    test, and documentation review totals. Every source slice remains at most 300
-   lines. Tasks default to four slices; S04-T01 alone may use ten because its
-   secure provider boundary already exceeds 2,100 lines before final
-   handler-level coverage and cannot fit within the default 1,200 lines.
+   lines. Tasks default to four slices; S04-T01 may use ten because its secure
+   provider boundary already exceeds 2,100 lines before final handler-level
+   coverage, and S04-T02 may use five for its demonstrated 1,200-line secure
+   directory reconciliation boundary.
 5. Receipts contain names, versions, hashes, counts, statuses, redacted error
    tags, and command results—never secrets or customer text.
 
@@ -109,11 +110,11 @@ applying these rules:
    Red gates return to implementation inside the same Fabro run. Appendix A's
    source number is the task estimate. A slice is one task contract. A task
    remains one slice and normally produces one to four coherent one-intention
-   commits; S04-T01 alone may produce ten; every commit remains <=300 changed
-   hand-authored source lines and the task is accepted only as one proof set.
-   Except for the declared S04-T01 ten-commit limit, if a task requires more
-   than four coherent commits, or any coherent commit cannot fit the limit,
-   split the task contract and regenerate the binding manifest before
+   commits; S04-T01 may produce ten and S04-T02 may produce five; every commit
+   remains <=300 changed hand-authored source lines and the task is accepted
+   only as one proof set. Except for those declared expanded limits, if a task
+   requires more than four coherent commits, or any coherent commit cannot fit
+   the limit, split the task contract and regenerate the binding manifest before
    implementation.
 5. **Wave integration:** one-intention task commits are selected into an
    immutable dependency-safe, conflict-free integration wave across tranches.
@@ -1478,8 +1479,11 @@ manifest.
   broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** multi-page fixture counts, exact bot identity receipt,
   rename/re-add behavior, no-auto-join call assertion, and index inventory.
+- **Source-slice contract:** up to 1,500 estimated hand-authored source lines in
+  at most five linear commits; each commit remains at or below 300 lines.
 - **Lane branch / commit boundary:** branch `codex/brain-s04-slack-directory`;
-  commit `feat: persist Slack channel directory`.
+  up to five coherent one-intention commits ending at the
+  `feat: persist Slack channel directory` checkpoint.
 
 ### S04-T03 — Pin Slack Manifest And Verify Every Webhook Before Tenant Resolution
 
@@ -3736,16 +3740,18 @@ manifest.
 output, and docs are reported separately in the StackPlan receipt and fully
 reviewed; generator dry-runs enumerate them before implementation. The binding
 hand-authored source limit remains 300 per commit. Tasks default to four linear
-commits; S04-T01 alone may use ten for its secure 2,700-line estimate. If any
-other task requires more than four coherent commits, or any coherent commit
-cannot fit the limit, split the task contract and regenerate the manifest.
-Rename budgeting disables rename detection: source additions and deletions count
-independently, including both endpoints of a source-to-source move. If a
-StackPlan would exceed four task slices, move whole slices into another
-StackPlan; moving a task does not relax its commit budget. The prerequisite
-column intentionally uses transitive stack completion shorthand where a whole
-stack is required; the task packet's **Dependencies** field remains the exact
-direct acceptance edge and is the source materialized into `acceptanceAfter`.
+commits; S04-T01 may use ten for its secure 2,700-line estimate, and S04-T02 may
+use five for its secure 1,500-line estimate. Outside those declared expanded
+limits, if a task requires more than four coherent commits, or any coherent
+commit cannot fit the limit, split the task contract and regenerate the
+manifest. Rename budgeting disables rename detection: source additions and
+deletions count independently, including both endpoints of a source-to-source
+move. If a StackPlan would exceed four task slices, move whole slices into
+another StackPlan; moving a task does not relax its commit budget. The
+prerequisite column intentionally uses transitive stack completion shorthand
+where a whole stack is required; the task packet's **Dependencies** field
+remains the exact direct acceptance edge and is the source materialized into
+`acceptanceAfter`.
 
 | Task    | Acceptance prerequisite            | Work-package classification                      | Est. source lines |
 | ------- | ---------------------------------- | ------------------------------------------------ | ----------------: |
@@ -3766,7 +3772,7 @@ direct acceptance edge and is the source materialized into `acceptanceAfter`.
 | S03-T03 | S03-T02, S02-T04 recovery          | template-gap Brain workspace + fenced editor     |              1800 |
 | S03-T04 | S03-T03                            | template-gap revision/review UI                  |               260 |
 | S04-T01 | S01, S03                           | template-gap Nango provider                      |              2700 |
-| S04-T02 | S04-T01                            | template-gap connection/channel directory        |               280 |
+| S04-T02 | S04-T01                            | template-gap connection/channel directory        |              1500 |
 | S04-T03 | S04-T02                            | template-gap verified webhook                    |               290 |
 | S04-T04 | S04-T03                            | template-gap source policy + UI                  |               290 |
 | S05-T01 | S04 complete                       | template-gap source ledger                       |               260 |
@@ -4476,11 +4482,11 @@ unverified provider flow, or partially green pilot is not done.
 - **Foundation:** S00's three-host plugin, pin/gap, stack-manifest and migration
   receipts are complete; staging/production are isolated with no demo seed;
   every one of the 56 task packets has one to four coherent linear intention
-  commits by default, with S04-T01 alone allowed ten; each is accepted only
-  after its original dependencies and is merged through a green phase-scoped
-  integration tranche with <=300 changed hand-authored source lines per commit,
-  focused lane gates, independent review, full tranche verification, and
-  archived receipts.
+  commits by default, with S04-T01 allowed ten and S04-T02 allowed five; each is
+  accepted only after its original dependencies and is merged through a green
+  phase-scoped integration tranche with <=300 changed hand-authored source lines
+  per commit, focused lane gates, independent review, full tranche verification,
+  and archived receipts.
 - **Identity and isolation:** production has no fake auth path; WorkOS identity,
   organization and exact `viewer | editor | admin | owner` roles authorize every
   entrypoint server-side; stable public keys reveal no Convex IDs; all
@@ -4627,8 +4633,8 @@ checks validate:
   codegen worktrees prove Confect-generated deltas before centralized codegen;
 - clean worktree/base SHA and proof/head consistency;
 - no broad lane command or gate weakening;
-- at most four 300-line source slices per task by default, with a manifest-
-  validated ten-slice exception only for S04-T01;
+- at most four 300-line source slices per task by default, with manifest-
+  validated expanded limits of ten for S04-T01 and five for S04-T02;
 - full verification before an immutable wave is promoted and marks tasks
   accepted.
 

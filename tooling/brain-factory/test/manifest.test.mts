@@ -226,6 +226,9 @@ describe("Maestro Brain execution manifest", () => {
     const providerSetup = manifest.tasks.find(
       (task) => task.taskId === "S04-T01",
     );
+    const connectionDirectory = manifest.tasks.find(
+      (task) => task.taskId === "S04-T02",
+    );
     const authorizedTenancy = manifest.tasks.find(
       (task) => task.taskId === "S01-T03",
     );
@@ -260,6 +263,8 @@ describe("Maestro Brain execution manifest", () => {
     );
     expect(providerSetup?.sourceSliceLimit).toBe(10);
     expect(providerSetup?.estimatedSourceLines).toBe(2_700);
+    expect(connectionDirectory?.sourceSliceLimit).toBe(5);
+    expect(connectionDirectory?.estimatedSourceLines).toBe(1_500);
     expect(providerSetup?.fileLocks).toContain(
       "packages/convex/confect/tables/providerConnections.ts",
     );
@@ -325,6 +330,27 @@ describe("Maestro Brain execution manifest", () => {
         ),
       }),
     ).toContain("S04-T01: invalid source-line estimate 3001");
+    const s04DirectoryAtExpandedSlices = {
+      ...manifest,
+      tasks: manifest.tasks.map((task) =>
+        task.taskId === "S04-T02"
+          ? { ...task, estimatedSourceLines: 1_500 }
+          : task,
+      ),
+    };
+    expect(validateManifest(s04DirectoryAtExpandedSlices)).not.toContain(
+      "S04-T02: invalid source-line estimate 1500",
+    );
+    expect(
+      validateManifest({
+        ...s04DirectoryAtExpandedSlices,
+        tasks: s04DirectoryAtExpandedSlices.tasks.map((task) =>
+          task.taskId === "S04-T02"
+            ? { ...task, estimatedSourceLines: 1_501 }
+            : task,
+        ),
+      }),
+    ).toContain("S04-T02: invalid source-line estimate 1501");
     expect(
       validateManifest({
         ...manifest,
@@ -346,6 +372,17 @@ describe("Maestro Brain execution manifest", () => {
         }),
       }),
     ).toContain("S04-T01: source slice limit must be 10");
+    expect(
+      validateManifest({
+        ...manifest,
+        tasks: manifest.tasks.map((task) => {
+          if (task.taskId !== "S04-T02") return task;
+          const { sourceSliceLimit, ...withoutLimit } = task;
+          expect(sourceSliceLimit).toBe(5);
+          return withoutLimit;
+        }),
+      }),
+    ).toContain("S04-T02: source slice limit must be 5");
   });
 
   it("gives S03-T03 the revision-fenced BlockNote seam", () => {
