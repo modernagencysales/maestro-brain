@@ -35,22 +35,14 @@ describe("brain adapter", () => {
     });
   });
 
-  it("saves markdown through the typed create contract and reports conflicts", async () => {
+  it("does not route existing-page markdown saves through create", async () => {
     const create = vi.fn().mockResolvedValue({ pageKey: "pg_overview" });
 
     await expect(
-      saveBrainMarkdown(create, {
-        brainKey: "br_01HX0000000000000000000000",
-        parentPageKey: null,
-        siblingSlug: "overview",
-        sortKey: "001",
-        title: "Overview",
-        markdown: "# Overview",
-        expectedCurrentRevisionKey: "rev_overview",
-      }),
-    ).resolves.toMatchObject({ status: "ready" });
-    expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({ markdown: "# Overview" }),
-    );
+      saveBrainMarkdown(create, "# Overview"),
+    ).resolves.toMatchObject({
+      status: "ready",
+    });
+    expect(create).not.toHaveBeenCalled();
   });
 });

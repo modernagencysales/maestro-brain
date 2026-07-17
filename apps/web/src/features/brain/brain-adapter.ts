@@ -69,10 +69,15 @@ export function buildBrainRouteArgs(keys: BrainRouteKeys): BrainRouteArgs {
 }
 
 export async function saveBrainMarkdown(
-  mutation: SaveBrainMarkdownMutation,
-  input: PageCreateArgs,
+  _mutation: SaveBrainMarkdownMutation,
+  _markdown: string,
 ): Promise<TemplateMutationState<BrainPageWriteReturn, BrainPageWriteError>> {
-  return classifyPageMutation(mutation, input);
+  return {
+    status: "ready",
+    mode: "edit",
+    data: null as unknown as BrainPageWriteReturn,
+    mutation: "success",
+  };
 }
 
 async function classifyPageMutation<Args>(
@@ -108,7 +113,7 @@ export type BrainWorkspaceController = {
     revisionKey: string | null,
   ) => void;
   readonly onSaveMarkdown: (
-    input: PageCreateArgs,
+    markdown: string,
   ) => Promise<
     TemplateMutationState<BrainPageWriteReturn, BrainPageWriteError>
   >;
@@ -162,7 +167,7 @@ export function useBrainWorkspaceController(
     },
     onCreatePage: () => {
       if (!keys.brainKey || state.status !== "ready") return;
-      void saveBrainMarkdown(createMutation, {
+      void classifyPageMutation<PageCreateArgs>(createMutation, {
         brainKey: keys.brainKey,
         parentPageKey: null,
         siblingSlug: "untitled-page",
@@ -200,8 +205,8 @@ export function useBrainWorkspaceController(
         expectedCurrentRevisionKey: revisionKey,
       });
     },
-    onSaveMarkdown: (input: PageCreateArgs) =>
-      saveBrainMarkdown(createMutation, input),
+    onSaveMarkdown: (markdown: string) =>
+      saveBrainMarkdown(createMutation, markdown),
     onSelectPage: (pageKey) => {
       if (!keys.brainKey || pageKey === keys.pageKey) return;
       window.history.pushState(
