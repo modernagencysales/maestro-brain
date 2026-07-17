@@ -377,6 +377,15 @@ describe("Fabro workflow prompt contracts", () => {
     expect(review).toContain(
       "semantic inspection of the tests and diff remains mandatory",
     );
+    expect(review).toContain(
+      "Generated Confect and Convex outputs are integration-owned",
+    );
+    expect(review).toContain(
+      "verify their expected registration and bridge paths through the exact-head transient codegen evidence",
+    );
+    expect(review).toContain(
+      "do not require those generated files in the lane diff",
+    );
     expect(review).toContain("planSha256 is retained provenance");
     expect(review).toContain(
       "an unrelated global plan change is not contract drift when this task's taskBlockHash is unchanged",
