@@ -661,7 +661,7 @@ describe("authorized Brain page CRUD", () => {
           brainKey: editorBrainKey,
           pageKey: page.pageKey,
           expectedCurrentRevisionKey: requireRevisionKey(
-            page.currentRevisionKey,
+            afterSave.page.currentRevisionKey,
           ),
           snapshot: '{"type":"doc","oldVersion":true}',
           version: 7,
@@ -708,7 +708,12 @@ describe("authorized Brain page CRUD", () => {
     const result = await Effect.runPromise(
       program.pipe(Effect.provide(testConfectLayer())),
     );
-    expect(result.saved).toEqual({ ok: true });
+    expect(result.saved).toEqual({
+      pageKey: result.page.pageKey,
+      pageRevisionKey: result.afterSave.page.currentRevisionKey,
+      contentHash: expect.any(String),
+      savedAt: expect.any(Number),
+    });
     expect(result.afterSave.editorSnapshotJson).toBe(
       '{"type":"doc","content":[]}',
     );
@@ -716,7 +721,11 @@ describe("authorized Brain page CRUD", () => {
     expect(result.afterSave.page.currentRevisionKey).toBe(
       result.afterDenials.page.currentRevisionKey,
     );
-    expect(result.afterSaveMutationRows).toEqual(result.before);
+    expect(result.afterSaveMutationRows.revisions).toEqual([
+      result.before.revisions[0],
+      `${result.page.pageKey}:${result.afterSave.page.currentRevisionKey}:brain.pages.snapshot:${result.page.pageKey}:${result.afterSave.page.currentRevisionKey}`,
+    ]);
+    expect(result.afterSaveMutationRows.audits).toEqual(result.before.audits);
     expect(Either.isLeft(result.stale)).toBe(true);
     if (Either.isLeft(result.stale)) {
       expect(result.stale.left).toBeInstanceOf(StaleRevision);
