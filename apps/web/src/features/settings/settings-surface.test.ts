@@ -40,6 +40,7 @@ describe("settings surface", () => {
     expect(sections.map((section) => section.heading)).toEqual([
       "Workspace",
       "Members",
+      "Brain API keys",
       "Provider health",
       "Billing and credits",
       "Safe environment rendering",
@@ -50,8 +51,11 @@ describe("settings surface", () => {
     expect(sections[1]?.body).toContain(
       "Owners may transfer Brain ownership without leaving zero owners.",
     );
-    expect(sections[3]?.body.join("\n")).toContain("Fake billing");
-    expect(sections[4]?.body.join("\n")).toContain(
+    expect(sections[2]?.body.join("\n")).toContain(
+      "display-once one-Brain keys",
+    );
+    expect(sections[4]?.body.join("\n")).toContain("Fake billing");
+    expect(sections[5]?.body.join("\n")).toContain(
       "must never render secret values",
     );
   });
