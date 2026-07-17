@@ -1,6 +1,7 @@
 import { Ref } from "@confect/core";
 import { FunctionImpl, GroupImpl } from "@confect/server";
 import type { GenericId } from "convex/values";
+import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Either from "effect/Either";
 import * as Layer from "effect/Layer";
@@ -25,6 +26,7 @@ import slackDirectory, {
   commitReconcileIdentity,
   readReconcileConnection,
 } from "./slackDirectory.spec";
+import type { ChannelSyncStateRowValue } from "../tables/channelSyncStates";
 import type { SourceChannelRowValue } from "../tables/sourceChannels";
 
 type SlackDirectoryConnection = Pick<
@@ -85,6 +87,20 @@ type PlannedUpsert = Omit<
 const normalizeChannelName = (name: string) => name.trim().toLowerCase();
 const channelKeyFor = (connectionKey: string, externalChannelId: string) =>
   `${connectionKey}:${externalChannelId}`;
+
+const promoteReauthorizedChannelRows = (input: {
+  readonly existingChannels: readonly SourceChannelRowValue[];
+  readonly currentGeneration: number;
+}) =>
+  input.existingChannels
+    .filter((row) => row.connectionGeneration < input.currentGeneration)
+    .map((row) => ({
+      row: {
+        ...row,
+        connectionGeneration: input.currentGeneration,
+      },
+      patch: { connectionGeneration: input.currentGeneration },
+    }));
 
 const membershipStatusFor = (input: {
   readonly channel: ProviderSlackChannel;
@@ -450,6 +466,7 @@ type RawQuery = {
   ) => RawQuery;
   readonly first: () => Effect.Effect<Option.Option<unknown>, unknown>;
   readonly take: (count: number) => Effect.Effect<readonly unknown[], unknown>;
+  readonly collect: () => Effect.Effect<readonly unknown[], unknown>;
 };
 type RawWriterTable = {
   readonly insert: (
@@ -512,22 +529,23 @@ const loadSlackDirectoryConnection = (input: {
     return activationCandidate.right;
   });
 
-const activeSlackConnectionsFor = (input: {
-  readonly organizationKey: string;
-}) =>
+const activeSlackConnectionsForDuplicateCheck = () =>
   Effect.gen(function* () {
     const reader = rawReader(yield* DatabaseReader);
-    return (yield* reader
+    const connections = (yield* reader
       .table("providerConnections")
-      .index("by_organization_provider_status", (q) =>
-        q
-          .eq("organizationKey", input.organizationKey)
-          .eq("provider", "nango")
-          .eq("providerConfigKey", "slack")
-          .eq("status", "active"),
-      )
-      .take(1_000)
-      .pipe(Effect.orDie)) as readonly SlackDirectoryConnection[];
+      .index("by_connection_key", (q) => q)
+      .collect()
+      .pipe(Effect.orDie)) as readonly (SlackDirectoryConnection & {
+      readonly provider?: string;
+      readonly providerConfigKey?: string;
+    })[];
+    return connections.filter(
+      (connection) =>
+        connection.provider === "nango" &&
+        connection.providerConfigKey === "slack" &&
+        connection.status === "active",
+    );
   });
 
 const applyReplacementRevocation = (input: {
@@ -576,10 +594,11 @@ const applyReplacementRevocation = (input: {
         .pipe(Effect.orDie);
     }
     const lanes = ["live", "recent", "deep", "reconciliation"] as const;
+    let patchedSyncRows = 0;
     for (const lane of lanes) {
       const syncRows = (yield* reader
         .table("channelSyncStates")
-        .index("by_connection_lane", (q) =>
+        .index("by_access_state", (q) =>
           q
             .eq("connectionKey", input.connection.connectionKey)
             .eq("lane", lane),
@@ -590,11 +609,32 @@ const applyReplacementRevocation = (input: {
       }[];
       for (const sync of syncRows) {
         if (!sync._id) continue;
+        patchedSyncRows += 1;
         yield* writer
           .table("channelSyncStates")
           .patch(sync._id, revoked.right.syncPatch)
           .pipe(Effect.orDie);
       }
+    }
+    if (patchedSyncRows === 0) {
+      yield* writer
+        .table("channelSyncStates")
+        .insert({
+          organizationKey: input.connection.organizationKey,
+          connectionKey: input.connection.connectionKey,
+          connectionGeneration: input.connection.connectionGeneration,
+          channelKey: `${input.connection.connectionKey}:__replacement_audit__`,
+          lane: "reconciliation" as const,
+          status: "access_lost" as const,
+          cursor: null,
+          leaseId: null,
+          leaseExpiresAt: null,
+          lastProgressAt: null,
+          replacementAudit: revoked.right.audit,
+          createdAt: input.now,
+          updatedAt: input.now,
+        })
+        .pipe(Effect.orDie);
     }
   });
 
@@ -624,23 +664,26 @@ const commitReconcileIdentityImpl = FunctionImpl.make(
   "commitReconcileIdentity",
   (input) =>
     Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis;
       const writer = rawWriter(yield* DatabaseWriter);
       const connection = yield* loadSlackDirectoryConnection(input);
-      const activeConnections = yield* activeSlackConnectionsFor({
-        organizationKey: connection.organizationKey,
-      });
+      const activeConnections =
+        yield* activeSlackConnectionsForDuplicateCheck();
       const activated = activateSlackConnectionPlan({
         ...input,
         connection,
         activeConnections,
-        now: Date.now(),
+        now,
       });
       if (Either.isLeft(activated)) {
-        if (connection.status !== "active") {
-          return yield* Effect.fail(activated.left);
+        if (
+          connection.status === "active" ||
+          connection.status === "reauthorizing"
+        ) {
+          yield* applyReplacementRevocation({ connection, now });
+          return { kind: "bot_identity_mismatch" as const };
         }
-        yield* applyReplacementRevocation({ connection, now: Date.now() });
-        return { kind: "bot_identity_mismatch" as const };
+        return yield* Effect.fail(activated.left);
       }
       if (connection._id) {
         yield* writer
@@ -664,6 +707,7 @@ const commitInitialReconcileFailureImpl = FunctionImpl.make(
   "commitInitialReconcileFailure",
   (input) =>
     Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis;
       const writer = rawWriter(yield* DatabaseWriter);
       const connection = yield* loadSlackDirectoryConnection(input);
       if (connection._id) {
@@ -672,7 +716,7 @@ const commitInitialReconcileFailureImpl = FunctionImpl.make(
           .patch(connection._id as GenericId<"providerConnections">, {
             status: "error" as const,
             errorReason: "initial_reconciliation_failed",
-            updatedAt: Date.now(),
+            updatedAt: now,
           })
           .pipe(Effect.orDie);
       }
@@ -686,26 +730,27 @@ const commitReconcileChannelsImpl = FunctionImpl.make(
   "commitReconcileChannels",
   (input) =>
     Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis;
       const reader = rawReader(yield* DatabaseReader);
       const writer = rawWriter(yield* DatabaseWriter);
       const connection = yield* loadSlackDirectoryConnection(input);
-      const activeConnections = yield* activeSlackConnectionsFor({
-        organizationKey: connection.organizationKey,
-      });
+      const activeConnections =
+        yield* activeSlackConnectionsForDuplicateCheck();
       const activated = activateSlackConnectionPlan({
         connectionKey: input.connectionKey,
         expectedGeneration: input.expectedGeneration,
         connection,
         providerIdentity: input.providerIdentity,
         activeConnections,
-        now: Date.now(),
+        now,
       });
       if (Either.isLeft(activated)) {
-        if (connection.status === "active") {
-          yield* applyReplacementRevocation({ connection, now: Date.now() });
-          return yield* Effect.fail(
-            new BotIdentityMismatch({ connectionKey: input.connectionKey }),
-          );
+        if (
+          connection.status === "active" ||
+          connection.status === "reauthorizing"
+        ) {
+          yield* applyReplacementRevocation({ connection, now });
+          return { kind: "bot_identity_mismatch" as const };
         }
         return yield* Effect.fail(activated.left);
       }
@@ -725,18 +770,60 @@ const commitReconcileChannelsImpl = FunctionImpl.make(
         )
         .take(1_000)
         .pipe(Effect.orDie)) as readonly SourceChannelRowValue[];
+      const promotedChannels = promoteReauthorizedChannelRows({
+        existingChannels,
+        currentGeneration: activated.right.connection.connectionGeneration,
+      });
+      for (const promoted of promotedChannels) {
+        const rowId = (
+          promoted.row as { readonly _id?: GenericId<"sourceChannels"> }
+        )._id;
+        if (rowId) {
+          yield* writer
+            .table("sourceChannels")
+            .patch(rowId, promoted.patch)
+            .pipe(Effect.orDie);
+        }
+      }
       const planned = reconcileSlackChannelDirectoryPlan({
         connectionKey: input.connectionKey,
         expectedGeneration: activated.right.connection.connectionGeneration,
         connection: activated.right.connection,
-        existingChannels,
-        now: Date.now(),
+        existingChannels: existingChannels.map(
+          (row) =>
+            promotedChannels.find(
+              (promoted) =>
+                promoted.row.externalChannelId === row.externalChannelId,
+            )?.row ?? row,
+        ),
+        now,
         cursor: input.cursor,
         limit: input.limit,
         providerChannels: input.providerChannels,
         providerNextCursor: input.providerNextCursor,
       });
       if (Either.isLeft(planned)) return yield* Effect.fail(planned.left);
+      for (const promoted of promotedChannels) {
+        const syncRows = (yield* reader
+          .table("channelSyncStates")
+          .index("by_channel", (q) =>
+            q.eq("channelKey", promoted.row.channelKey),
+          )
+          .take(100)
+          .pipe(Effect.orDie)) as readonly {
+          readonly _id?: GenericId<"channelSyncStates">;
+        }[];
+        for (const sync of syncRows) {
+          if (!sync._id) continue;
+          yield* writer
+            .table("channelSyncStates")
+            .patch(sync._id, {
+              connectionGeneration: promoted.row.connectionGeneration,
+              updatedAt: now,
+            } satisfies Partial<ChannelSyncStateRowValue>)
+            .pipe(Effect.orDie);
+        }
+      }
       for (const upsert of planned.right.upserts) {
         const { rowId, ...row } = upsert;
         if (rowId)
@@ -748,7 +835,7 @@ const commitReconcileChannelsImpl = FunctionImpl.make(
           yield* writer.table("sourceChannels").insert(row).pipe(Effect.orDie);
         const sync = yield* reader
           .table("channelSyncStates")
-          .index("by_channel_lane", (q) =>
+          .index("by_channel", (q) =>
             q.eq("channelKey", row.channelKey).eq("lane", "live"),
           )
           .first()
@@ -759,7 +846,7 @@ const commitReconcileChannelsImpl = FunctionImpl.make(
           connectionGeneration: row.connectionGeneration,
           channelKey: row.channelKey,
           lane: "live" as const,
-          updatedAt: Date.now(),
+          updatedAt: now,
         };
         const syncId = (
           sync as { readonly _id?: GenericId<"channelSyncStates"> } | null
@@ -779,15 +866,18 @@ const commitReconcileChannelsImpl = FunctionImpl.make(
               leaseId: null,
               leaseExpiresAt: null,
               lastProgressAt: null,
-              createdAt: Date.now(),
+              createdAt: now,
             })
             .pipe(Effect.orDie);
       }
       return {
-        upserted: planned.right.upserts.length,
-        accessGained: planned.right.accessGained,
-        accessLost: planned.right.accessLost,
-        nextCursor: planned.right.nextCursor,
+        kind: "ok" as const,
+        result: {
+          upserted: planned.right.upserts.length,
+          accessGained: planned.right.accessGained,
+          accessLost: planned.right.accessLost,
+          nextCursor: planned.right.nextCursor,
+        },
       };
     }),
 );
@@ -864,7 +954,7 @@ const makeReconcileChannels = (
           }
           return yield* Effect.fail(providerPageResult.left);
         }
-        return yield* (mutation as MutationBridge)(
+        const channelCommit = yield* (mutation as MutationBridge)(
           directoryRefs.commitChannels,
           {
             connectionKey: input.connectionKey,
@@ -876,6 +966,12 @@ const makeReconcileChannels = (
             providerNextCursor: providerPageResult.right.nextCursor,
           },
         );
+        if (channelCommit.kind === "bot_identity_mismatch") {
+          return yield* Effect.fail(
+            new BotIdentityMismatch({ connectionKey: input.connectionKey }),
+          );
+        }
+        return channelCommit.result;
       }),
   );
 
