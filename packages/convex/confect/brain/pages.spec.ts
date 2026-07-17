@@ -202,6 +202,28 @@ const move = definePageMutation("move", MoveArgs);
 const favorite = definePageMutation("favorite", FavoriteArgs);
 const archive = definePageMutation("archive", ArchiveArgs);
 
+const recordSnapshot = defineContractFunction(
+  FunctionSpec.publicMutation({
+    name: "recordSnapshot",
+    args: () => RecordSnapshotArgs,
+    returns: () => RecordSnapshotReturns,
+    error: () => BrainPageWriteError,
+  }),
+  {
+    namespace: "brain.pages",
+    name: "recordSnapshot",
+    operationId: "brain.pages.recordSnapshot",
+    kind: "mutation",
+    surfaces: ["web"],
+    typedErrors: [...pageWriteErrors],
+    idempotent: false,
+    argsSchemaName: "brain.pages.recordSnapshot.args",
+    returnsSchemaName: "brain.pages.recordSnapshot.returns",
+    argsSchema: RecordSnapshotArgs,
+    returnsSchema: RecordSnapshotReturns,
+  },
+);
+
 const recordSnapshotInternal = FunctionSpec.internalMutation({
   name: "recordSnapshotInternal",
   args: () => RecordSnapshotArgs,
@@ -217,6 +239,7 @@ const contractFunctions = [
   move,
   favorite,
   archive,
+  recordSnapshot,
 ] as const;
 
 export const manifest = collectContractManifest(contractFunctions);
@@ -230,4 +253,5 @@ export default GroupSpec.make()
   .addFunction(move.spec)
   .addFunction(favorite.spec)
   .addFunction(archive.spec)
+  .addFunction(recordSnapshot.spec)
   .addFunction(recordSnapshotInternal);

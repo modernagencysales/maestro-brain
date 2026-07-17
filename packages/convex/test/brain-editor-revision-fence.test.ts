@@ -65,42 +65,15 @@ describe("Brain editor revision fences", () => {
     });
   });
 
-  it("binds the live stable snapshot callback to the current revision fence", async () => {
+  it("does not publish the live stable autosnapshot from mutable server state", async () => {
     const runMutation = vi.fn<
       (_ref: unknown, _args: unknown) => Promise<unknown>
-    >(async () => ({
-      pageKey: "pag_editor_fence",
-      pageRevisionKey: "rev_next",
-      contentHash: "hash_next",
-      savedAt: 123,
-    }));
-    const page = {
-      _id: "page_1",
-      workspaceId: "workspace_1",
-      pageKey: "pag_editor_fence",
-      currentRevisionKey: "rev_current",
-      status: "active",
-      lifecycle: { state: "active" },
-    };
-    const workspace = {
-      _id: "workspace_1",
-      brainKey: "br_0123456789ABCDEFGHJKMNPQRS",
-    };
+    >(async () => null);
     const ctx = {
       db: {
         normalizeId: vi.fn(() => null),
         get: vi.fn(),
-        query: vi.fn((table: string) => {
-          if (table === "workspaces") {
-            return { collect: vi.fn(async () => [workspace]) };
-          }
-          if (table === "brainPages") {
-            return {
-              withIndex: vi.fn(() => ({ unique: vi.fn(async () => page) })),
-            };
-          }
-          throw new Error(`Unexpected table ${table}`);
-        }),
+        query: vi.fn(),
       },
       runMutation,
     } as unknown as GenericMutationCtx<DataModel>;
@@ -112,21 +85,9 @@ describe("Brain editor revision fences", () => {
         '{"type":"doc"}',
         12,
       ),
-    ).resolves.toEqual({
-      pageKey: "pag_editor_fence",
-      pageRevisionKey: "rev_next",
-      contentHash: "hash_next",
-      savedAt: 123,
-    });
+    ).resolves.toBeNull();
 
-    expect(runMutation).toHaveBeenCalledTimes(1);
-    expect(runMutation.mock.calls[0]?.[1]).toEqual({
-      brainKey: "br_0123456789ABCDEFGHJKMNPQRS",
-      pageKey: "pag_editor_fence",
-      expectedCurrentRevisionKey: "rev_current",
-      snapshot: '{"type":"doc"}',
-      version: 12,
-    });
+    expect(runMutation).not.toHaveBeenCalled();
   });
 
   it("does not publish a stable editor snapshot without an explicit revision fence", async () => {
