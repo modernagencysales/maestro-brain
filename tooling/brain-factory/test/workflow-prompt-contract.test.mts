@@ -523,6 +523,26 @@ describe("Fabro workflow prompt contracts", () => {
     }
   });
 
+  it("records integrated wave lanes before acceptance", () => {
+    const wave = readFileSync(
+      resolve(
+        import.meta.dirname,
+        "../../../.fabro/workflows/brain-integrate-wave/workflow.fabro",
+      ),
+      "utf8",
+    );
+    const record = wave
+      .split("\n")
+      .find((line) => line.trimStart().startsWith("record ["));
+
+    expect(record).toContain(
+      "set lane status integrated whenever accepted:false",
+    );
+    expect(record).toContain(
+      "Set lane status accepted only when original acceptanceAfter evidence proves accepted:true",
+    );
+  });
+
   it("serializes legacy and wave integration through one global lock", () => {
     for (const file of [
       "integrate.mts",
