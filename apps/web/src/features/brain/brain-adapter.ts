@@ -1,4 +1,5 @@
 import type { Ref } from "@confect/core";
+import { makeFunctionReference } from "convex/server";
 import { useEffect } from "react";
 import type * as Either from "effect/Either";
 import {
@@ -23,9 +24,11 @@ import {
   type BrainWorkspaceState,
 } from "./brain-surface";
 import { useWorkspace } from "../../providers/workspace";
+import type { BlockNoteSyncEditorProps } from "@maestro-template/editor-react/client";
 import type { BrainMarkdownSaveArgs } from "./brain-workspace";
 
 type PageRefs = TemplateConfectRefs["public"]["brain"]["pages"];
+type EditorSyncRefs = BlockNoteSyncEditorProps["api"];
 type PageListArgs = Ref.Args<PageRefs["list"]>;
 type PageGetArgs = Ref.Args<PageRefs["get"]>;
 type PageListState = TemplateDataState<
@@ -66,6 +69,14 @@ export type SaveBrainMarkdownMutation = BrainPageMutation<
 >;
 export const brainRefs: TemplateConfectRefs["public"]["brain"] =
   templateConfectRefs.public.brain;
+
+export const buildWorkspaceSyncApi = (): EditorSyncRefs => ({
+  getSnapshot: makeFunctionReference("editorSync:getSnapshot"),
+  submitSnapshot: makeFunctionReference("editorSync:submitSnapshot"),
+  latestVersion: makeFunctionReference("editorSync:latestVersion"),
+  getSteps: makeFunctionReference("editorSync:getSteps"),
+  submitSteps: makeFunctionReference("editorSync:submitSteps"),
+});
 
 export function buildBrainRouteArgs(keys: BrainRouteKeys): BrainRouteArgs {
   if (!keys.brainKey) return { listArgs: "skip", detailArgs: "skip" };
@@ -186,6 +197,7 @@ export type BrainWorkspaceController = {
     >
   >;
   readonly onSelectPage: (pageKey: string) => void;
+  readonly syncApi: EditorSyncRefs;
 };
 
 export function useBrainWorkspaceController(
@@ -266,12 +278,12 @@ export function useBrainWorkspaceController(
       });
     },
     onMovePage: (pageKey, parentPageKey, revisionKey) => {
-      if (!keys.brainKey || !revisionKey) return;
+      if (!keys.brainKey || !revisionKey || state.status !== "ready") return;
       runPageMutation<Ref.Args<PageRefs["move"]>>(moveMutation, {
         brainKey: keys.brainKey,
         pageKey,
         parentPageKey,
-        sortKey: "001",
+        sortKey: nextPageSortKey(state.pages),
         expectedCurrentRevisionKey: revisionKey,
       });
     },
@@ -285,6 +297,7 @@ export function useBrainWorkspaceController(
       });
     },
     onSaveMarkdown: (args) => saveBrainMarkdown(saveMutation, args),
+    syncApi: buildWorkspaceSyncApi(),
     onSelectPage: (pageKey) => {
       if (!keys.brainKey || pageKey === keys.pageKey) return;
       window.history.pushState(

@@ -57,8 +57,7 @@ describe("Brain editor revision fences", () => {
 
     expect(runMutation).toHaveBeenCalledTimes(1);
     expect(runMutation.mock.calls[0]?.[1]).toEqual({
-      brainKey: "br_0123456789ABCDEFGHJKMNPQRS",
-      pageKey: "pag_editor_fence",
+      documentId: "brainPage:br_0123456789ABCDEFGHJKMNPQRS:pag_editor_fence",
       expectedCurrentRevisionKey: "rev_current",
       snapshot: '{"type":"doc"}',
       version: 10,

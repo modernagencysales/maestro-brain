@@ -3,6 +3,7 @@ import {
   buildBrainRouteArgs,
   buildBrainWorkspaceControllerState,
   brainRefs,
+  buildWorkspaceSyncApi,
   saveBrainMarkdown,
 } from "./brain-adapter";
 
@@ -15,6 +16,7 @@ describe("brain adapter", () => {
     expect(brainRefs.pages).toHaveProperty("move");
     expect(brainRefs.pages).toHaveProperty("favorite");
     expect(brainRefs.pages).toHaveProperty("archive");
+    expect(brainRefs.pages).toHaveProperty("recordSnapshot");
   });
 
   it("skips queries until stable Brain and page keys are present", () => {
@@ -49,7 +51,7 @@ describe("brain adapter", () => {
             pageKey: "pg_overview",
             parentPageKey: null,
             siblingSlug: "overview",
-            sortKey: "001",
+            sortKey: "0000000001",
             title: "Overview",
             favorite: false,
             status: "active",
@@ -82,7 +84,7 @@ describe("brain adapter", () => {
             pageKey: "pg_overview",
             parentPageKey: null,
             siblingSlug: "overview",
-            sortKey: "001",
+            sortKey: "0000000001",
             title: "Overview",
             favorite: false,
             status: "active",
@@ -127,11 +129,20 @@ describe("brain adapter", () => {
     ).toEqual({ status: "stale_revision" });
   });
 
+  it("builds generated editor sync refs in the adapter boundary", () => {
+    expect(buildWorkspaceSyncApi()).toEqual({
+      getSnapshot: expect.anything(),
+      submitSnapshot: expect.anything(),
+      latestVersion: expect.anything(),
+      getSteps: expect.anything(),
+      submitSteps: expect.anything(),
+    });
+  });
+
   it("routes existing-page snapshots through public revision-fenced args", async () => {
     const save = vi.fn().mockResolvedValue({ pageKey: "pg_overview" });
     const args = {
-      brainKey: "br_01HX0000000000000000000000",
-      pageKey: "pg_overview",
+      documentId: "brainPage:br_01HX0000000000000000000000:pg_overview",
       expectedCurrentRevisionKey: "rev_overview",
       snapshot: '{"type":"doc"}',
       version: 2,
