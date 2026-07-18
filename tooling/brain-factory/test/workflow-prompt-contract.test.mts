@@ -350,8 +350,9 @@ describe("Fabro workflow prompt contracts", () => {
       .filter((line) => line.includes('script="'))) {
       expect(line).not.toContain("{{ inputs.");
     }
+    const slash = "\\";
     for (const name of ["WORKDIR", "EVIDENCE_DIR", "TASK_ID"]) {
-      expect(buildTask).toContain(`\\\"$BRAIN_${name}\\\"`);
+      expect(buildTask).toContain(`${slash}"$BRAIN_${name}${slash}"`);
     }
     const configWriter = readFileSync(
       resolve(import.meta.dirname, "../src/build-task-run-config.ts"),

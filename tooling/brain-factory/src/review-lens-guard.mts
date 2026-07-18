@@ -8,18 +8,16 @@ const valueAfter = (flag: string): string | undefined => {
 const lens = valueAfter("--lens");
 if (!REVIEW_LENS_NAMES.includes(lens as (typeof REVIEW_LENS_NAMES)[number]))
   throw new Error("--lens must be contract, safety, or quality");
-for (const name of [
-  "BRAIN_WORKDIR",
-  "BRAIN_EVIDENCE_DIR",
-  "BRAIN_TASK_ID",
-  "BRAIN_REVIEW_ATTEMPT",
-])
-  if (!process.env[name]) throw new Error(`missing ${name}`);
+const requiredEnv = (name: string): string => {
+  const value = process.env[name];
+  if (!value) throw new Error(`missing ${name}`);
+  return value;
+};
 stageReviewLens({
-  attempt: process.env.BRAIN_REVIEW_ATTEMPT!,
+  attempt: requiredEnv("BRAIN_REVIEW_ATTEMPT"),
   controlWorktree: process.cwd(),
-  evidence: process.env.BRAIN_EVIDENCE_DIR!,
+  evidence: requiredEnv("BRAIN_EVIDENCE_DIR"),
   lens: lens as (typeof REVIEW_LENS_NAMES)[number],
-  taskId: process.env.BRAIN_TASK_ID!,
-  workdir: process.env.BRAIN_WORKDIR!,
+  taskId: requiredEnv("BRAIN_TASK_ID"),
+  workdir: requiredEnv("BRAIN_WORKDIR"),
 });

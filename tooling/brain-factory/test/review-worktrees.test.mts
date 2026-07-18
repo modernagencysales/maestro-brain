@@ -259,8 +259,11 @@ describe("managed review worktrees", () => {
       receipts.push(prepared.receiptRef);
       cleanupReviewWorktrees(input);
     }
-    for (const visit of [2, 4, 7])
-      git(root, "update-ref", "-d", receipts[visit - 1]!);
+    for (const visit of [2, 4, 7]) {
+      const receipt = receipts[visit - 1];
+      if (!receipt) throw new Error(`missing receipt for visit ${visit}`);
+      git(root, "update-ref", "-d", receipt);
+    }
     const next = prepareReviewWorktrees(input);
     expect(next.attemptId).toBe(`${input.attemptId}-v11`);
     cleanupReviewWorktrees(input);
