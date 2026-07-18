@@ -65,6 +65,30 @@ const sameWave = (otherTaskId: string): TaskCollisionMetadata => ({
   policy: "same_wave_fail_closed",
 });
 
+const AUDITED_19_COMPLETED_TASK_IDS = new Set([
+  "S00-T02",
+  "S00-T03",
+  "S00-T04",
+  "S01-T01",
+  "S01-T02",
+  "S01-T03",
+  "S01-T04",
+  "S02-T01",
+  "S02-T02",
+  "S02-T04",
+  "S03-T01",
+  "S03-T02",
+  "S03-T03",
+  "S08-T01",
+  "S08-T02",
+  "S09-T01",
+  "S11-T01",
+  "S12-T01",
+  "S13-T01",
+]);
+
+const AUDITED_ACTIVE_TASK_IDS = new Set(["S04-T01", "S04-T02", "S11-T02"]);
+
 describe("brain task scheduler", () => {
   it("treats max as total active capacity across repeated dispatches", () => {
     expect(availableDispatchSlots(20, 0)).toBe(20);
@@ -605,35 +629,66 @@ describe("brain task scheduler", () => {
       "S20-T04",
     ]);
     expect(result.selected).toEqual([]);
+
+    const twoSlots = selectReadyTasks({
+      activeTaskIds: new Set([active.taskId]),
+      completedTaskIds: new Set(),
+      contractArtifactSha256ByProducer: new Map(),
+      maximum: 2,
+      tasks: [active, bridge, right, farRight],
+    });
+    expect(twoSlots.selected.map((task) => task.taskId)).toEqual([
+      "S20-T03",
+      "S20-T04",
+    ]);
+    expect(twoSlots.mandatoryIntegrationGroups).toEqual([
+      ["S20-T01", "S20-T03", "S20-T04"],
+    ]);
+  });
+
+  it("pins the current pre-Task-6 frontier at six with all registry exclusions", () => {
+    const projection = loadManifestProjection();
+    const availableArtifacts = artifactAvailability(projection);
+    const result = selectReadyTasks({
+      activeTaskIds: AUDITED_ACTIVE_TASK_IDS,
+      completedTaskIds: AUDITED_19_COMPLETED_TASK_IDS,
+      contractArtifactSha256ByProducer: availableArtifacts,
+      maximum: 40,
+      tasks: projection.tasks,
+    });
+    const diagnostic = frontierDiagnostics(result);
+    expect(
+      result.ready.map((task) => task.taskId),
+      diagnostic,
+    ).toEqual([
+      "S03-T04",
+      "S06-T01",
+      "S08-T03",
+      "S08-T04",
+      "S13-T02",
+      "S13-T03",
+    ]);
+    const registrySerializedExclusions = [
+      "S02-T03",
+      "S05-T01",
+      "S07-T01",
+      "S09-T02",
+      "S10-T01",
+    ];
+    for (const taskId of registrySerializedExclusions) {
+      const blocker = result.blockers.find((item) => item.taskId === taskId);
+      expect(blocker?.reasons.join("\n")).toMatch(
+        /S04-T02.*packages\/convex\/confect\/internal\/migrations\.ts/,
+      );
+    }
   });
 
   it("pins the audited post-Task-6 frontier at eleven with limiter diagnostics", () => {
     const projection = loadManifestProjection();
     const availableArtifacts = artifactAvailability(projection);
-    const completedTaskIds = new Set([
-      "S00-T02",
-      "S00-T03",
-      "S00-T04",
-      "S01-T01",
-      "S01-T02",
-      "S01-T03",
-      "S01-T04",
-      "S02-T01",
-      "S02-T02",
-      "S02-T04",
-      "S03-T01",
-      "S03-T02",
-      "S03-T03",
-      "S08-T01",
-      "S08-T02",
-      "S09-T01",
-      "S11-T01",
-      "S12-T01",
-      "S13-T01",
-    ]);
     const result = selectReadyTasks({
-      activeTaskIds: new Set(["S04-T01", "S04-T02", "S11-T02"]),
-      completedTaskIds,
+      activeTaskIds: AUDITED_ACTIVE_TASK_IDS,
+      completedTaskIds: AUDITED_19_COMPLETED_TASK_IDS,
       contractArtifactSha256ByProducer: availableArtifacts,
       maximum: 40,
       task6RegistryReady: true,
