@@ -12,6 +12,7 @@ import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
 import {
+  integrationGeneratedFileAllowlist,
   laneFileOwnershipIssues,
   laneHistoryShapeIssues,
   laneHistoryOwnershipIssues,
@@ -26,6 +27,19 @@ const git = (cwd: string, ...args: string[]): string => {
 };
 
 describe("lane file ownership", () => {
+  it("authorizes route-tree output only when selected route inputs run its generator", () => {
+    expect(
+      integrationGeneratedFileAllowlist({ laneFiles: ["feature.ts"] }).has(
+        "apps/web/src/routeTree.gen.ts",
+      ),
+    ).toBe(false);
+    expect(
+      integrationGeneratedFileAllowlist({
+        laneFiles: ["apps/web/src/routes/_workspace.brain.tsx"],
+      }).has("apps/web/src/routeTree.gen.ts"),
+    ).toBe(true);
+  });
+
   it("accepts only exact manifest file locks", () => {
     expect(
       laneFileOwnershipIssues(

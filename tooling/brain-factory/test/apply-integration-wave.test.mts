@@ -754,6 +754,28 @@ describe("deterministic integration wave application", () => {
     ).toThrow(/unrelated|unrecorded/);
   });
 
+  it("rejects a recovered route tree when no selected route input runs its generator", () => {
+    const value = makeFixture({
+      laneSpecs: [{ files: ["a.ts"], taskId: "S01-T01" }],
+    });
+    git(value.workdir, "cherry-pick", value.lanes[0]?.headSha as string);
+    write(
+      resolve(value.workdir, "apps/web/src/routeTree.gen.ts"),
+      "export const forged = true;\n",
+    );
+    git(value.workdir, "add", ".");
+    git(
+      value.workdir,
+      "commit",
+      "-qm",
+      "chore: refresh integration generated output",
+    );
+
+    expect(() =>
+      applyIntegrationWave({ ...value.input, mode: "recover" }),
+    ).toThrow(/unrelated|unrecorded/);
+  });
+
   it("cleans tracked residue when hydration fails", () => {
     const value = makeFixture({
       laneSpecs: [{ files: ["a.ts"], taskId: "S01-T01" }],

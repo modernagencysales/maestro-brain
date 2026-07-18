@@ -17,7 +17,6 @@ const isGeneratedNamespaceFile = (file: string): boolean =>
 export const isIntegrationOwnedGeneratedFile = isGeneratedNamespaceFile;
 
 const fixedGeneratedFiles = new Set([
-  "apps/web/src/routeTree.gen.ts",
   "packages/convex/confect/_generated/spec.ts",
   "packages/template-core/src/generated/confectManifest.ts",
 ]);
@@ -28,6 +27,15 @@ export const integrationGeneratedFileAllowlist = (input: {
 }): ReadonlySet<string> => {
   const allowed = new Set<string>();
   for (const file of fixedGeneratedFiles) allowed.add(file);
+  if (
+    input.laneFiles.some(
+      (file) =>
+        file.startsWith("apps/web/src/routes/") &&
+        file !== "apps/web/src/routeTree.gen.ts",
+    )
+  ) {
+    allowed.add("apps/web/src/routeTree.gen.ts");
+  }
   const sources = new Set([
     ...input.laneFiles,
     ...(input.confectSourceFiles ?? []),
