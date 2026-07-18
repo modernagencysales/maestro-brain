@@ -2,8 +2,12 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 import type { BrainTaskContract } from "../src/manifest.js";
-import { buildManifest } from "../src/manifest.js";
-import { availableDispatchSlots, selectReadyTasks } from "../src/scheduler.js";
+import { buildManifest, loadManifestProjection } from "../src/manifest.js";
+import {
+  availableDispatchSlots,
+  frontierDiagnostics,
+  selectReadyTasks,
+} from "../src/scheduler.js";
 
 const syntheticTask = (
   template: BrainTaskContract,
@@ -284,6 +288,218 @@ describe("brain task scheduler", () => {
         tasks: [task],
       }).selected,
     ).toEqual([]);
+  });
+
+  it("distinguishes true dependencies from exact contract artifacts", () => {
+    const projection = loadManifestProjection();
+    const contractReady = projection.tasks.find(
+      (task) => task.taskId === "S04-T01",
+    );
+    const trueBlocked = projection.tasks.find(
+      (task) => task.taskId === "S04-T02",
+    );
+    expect(contractReady).toBeDefined();
+    expect(trueBlocked).toBeDefined();
+    if (!contractReady || !trueBlocked) {
+      throw new Error("classified scheduler fixtures missing");
+    }
+
+    expect(
+      selectReadyTasks({
+        activeTaskIds: new Set(),
+        completedTaskIds: new Set(),
+        maximum: 2,
+        tasks: [contractReady, trueBlocked],
+      }).ready.map((task) => task.taskId),
+    ).toEqual(["S04-T01"]);
+
+    const missing = selectReadyTasks({
+      activeTaskIds: new Set(),
+      completedTaskIds: new Set(),
+      contractArtifactSha256ByProducer: new Map(),
+      maximum: 2,
+      tasks: [contractReady],
+    });
+    expect(missing.ready).toEqual([]);
+    expect(missing.blockers[0]?.reasons).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(
+          /S00-T03.*task-packet.*42193b160bc04a7d9bc3ef7f883545c8eaeb4506f9f848f6b02ba801d08410ac/,
+        ),
+      ]),
+    );
+
+    const drifted = selectReadyTasks({
+      activeTaskIds: new Set(),
+      completedTaskIds: new Set(),
+      contractArtifactSha256ByProducer: new Map([
+        ["S00-T03", "0".repeat(64)],
+        ["S01-T02", "0".repeat(64)],
+      ]),
+      maximum: 2,
+      tasks: [contractReady],
+    });
+    expect(drifted.ready).toEqual([]);
+    expect(drifted.blockers[0]?.reasons.join("\n")).toMatch(
+      /S01-T02.*expected f8dfea31b91e435c11203c1641f2b5fd1cefe5e966e26f4ba105b1e7088d7204.*got 0000/,
+    );
+  });
+
+  it("enforces serialized active locks and atomically selects same-wave peers", () => {
+    const projection = loadManifestProjection();
+    const byId = new Map(projection.tasks.map((task) => [task.taskId, task]));
+    const serialized = selectReadyTasks({
+      activeTaskIds: new Set(["S11-T02"]),
+      completedTaskIds: new Set(["S12-T01"]),
+      maximum: 2,
+      tasks: projection.tasks,
+    });
+    expect(serialized.ready.map((task) => task.taskId)).not.toContain(
+      "S12-T02",
+    );
+    expect(serialized.activeSerializedPaths.join("\n")).toMatch(
+      /S11-T02.*S12-T02.*packages\/convex\/confect\/http\.ts/,
+    );
+
+    const peers = [byId.get("S08-T03"), byId.get("S08-T04")].filter(
+      (task): task is NonNullable<typeof task> => task !== undefined,
+    );
+    expect(peers).toHaveLength(2);
+    const oneSlot = selectReadyTasks({
+      activeTaskIds: new Set(),
+      completedTaskIds: new Set(["S08-T02"]),
+      maximum: 1,
+      tasks: peers,
+    });
+    expect(oneSlot.ready.map((task) => task.taskId)).toEqual([
+      "S08-T03",
+      "S08-T04",
+    ]);
+    expect(oneSlot.selected).toEqual([]);
+
+    const together = selectReadyTasks({
+      activeTaskIds: new Set(),
+      completedTaskIds: new Set(["S08-T02"]),
+      maximum: 2,
+      tasks: peers,
+    });
+    expect(together.selected.map((task) => task.taskId)).toEqual([
+      "S08-T03",
+      "S08-T04",
+    ]);
+    expect(together.mandatoryIntegrationGroups).toEqual([
+      ["S08-T03", "S08-T04"],
+    ]);
+    expect(() =>
+      selectReadyTasks({
+        activeTaskIds: new Set(),
+        completedTaskIds: new Set(["S08-T02"]),
+        maximum: 2,
+        requestedTaskIds: new Set(["S08-T03"]),
+        tasks: peers,
+      }),
+    ).toThrow("partial mandatory same-wave request: S08-T03,S08-T04");
+  });
+
+  it("serializes selected security owners and gates migration regeneration on Task 6", () => {
+    const projection = loadManifestProjection();
+    const byId = new Map(projection.tasks.map((task) => [task.taskId, task]));
+    const securityOwners = [byId.get("S04-T03"), byId.get("S11-T02")].filter(
+      (task): task is NonNullable<typeof task> => task !== undefined,
+    );
+    expect(securityOwners).toHaveLength(2);
+    const serialized = selectReadyTasks({
+      activeTaskIds: new Set(),
+      completedTaskIds: new Set(["S04-T02", "S11-T01"]),
+      maximum: 2,
+      tasks: securityOwners,
+    });
+    expect(serialized.ready).toHaveLength(2);
+    expect(serialized.selected).toHaveLength(1);
+
+    const migrationOwners = [byId.get("S02-T03"), byId.get("S04-T02")].filter(
+      (task): task is NonNullable<typeof task> => task !== undefined,
+    );
+    expect(migrationOwners).toHaveLength(2);
+    const beforeTask6 = selectReadyTasks({
+      activeTaskIds: new Set(),
+      completedTaskIds: new Set(["S02-T02", "S04-T01"]),
+      maximum: 2,
+      tasks: migrationOwners,
+    });
+    expect(beforeTask6.ready).toHaveLength(2);
+    expect(beforeTask6.selected).toHaveLength(1);
+
+    const afterTask6 = selectReadyTasks({
+      activeTaskIds: new Set(),
+      completedTaskIds: new Set(["S02-T02", "S04-T01"]),
+      maximum: 2,
+      task6RegistryReady: true,
+      tasks: migrationOwners,
+    });
+    expect(afterTask6.selected.map((task) => task.taskId)).toEqual([
+      "S02-T03",
+      "S04-T02",
+    ]);
+    expect(afterTask6.mandatoryIntegrationGroups).toEqual([
+      ["S02-T03", "S04-T02"],
+    ]);
+  });
+
+  it("pins the audited 19-task frontier at eleven with limiter diagnostics", () => {
+    const projection = loadManifestProjection();
+    const completedTaskIds = new Set([
+      "S00-T02",
+      "S00-T03",
+      "S00-T04",
+      "S01-T01",
+      "S01-T02",
+      "S01-T03",
+      "S01-T04",
+      "S02-T01",
+      "S02-T02",
+      "S02-T04",
+      "S03-T01",
+      "S03-T02",
+      "S03-T03",
+      "S08-T01",
+      "S08-T02",
+      "S09-T01",
+      "S11-T01",
+      "S12-T01",
+      "S13-T01",
+    ]);
+    const result = selectReadyTasks({
+      activeTaskIds: new Set(["S04-T01", "S04-T02", "S11-T02"]),
+      completedTaskIds,
+      maximum: 40,
+      tasks: projection.tasks,
+    });
+    const diagnostic = frontierDiagnostics(result);
+    expect(
+      result.ready.map((task) => task.taskId),
+      diagnostic,
+    ).toEqual([
+      "S02-T03",
+      "S03-T04",
+      "S05-T01",
+      "S06-T01",
+      "S07-T01",
+      "S08-T03",
+      "S08-T04",
+      "S09-T02",
+      "S10-T01",
+      "S13-T02",
+      "S13-T03",
+    ]);
+    expect(result.limitingTrueEdges).toEqual(
+      [...result.limitingTrueEdges].sort(),
+    );
+    expect(result.activeSerializedPaths).toEqual(
+      [...result.activeSerializedPaths].sort(),
+    );
+    expect(diagnostic).toContain("limiting true edges:");
+    expect(diagnostic).toContain("active serialized paths:");
   });
 
   it("does not dispatch S13 operations before MCP and export contracts", () => {

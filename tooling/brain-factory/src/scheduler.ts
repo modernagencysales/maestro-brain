@@ -1,14 +1,30 @@
-import type { BrainTaskContract } from "./manifest.js";
+import type {
+  BrainTaskContract,
+  ClassifiedCodeStartDependency,
+  ProjectedBrainTaskContract,
+  TaskCollisionMetadata,
+} from "./manifest.js";
 
 export interface SelectionInput {
   readonly activeTaskIds: ReadonlySet<string>;
   readonly completedTaskIds: ReadonlySet<string>;
+  readonly contractArtifactSha256ByProducer?: ReadonlyMap<string, string>;
   readonly maximum: number;
   readonly requestedTaskIds?: ReadonlySet<string>;
   readonly tasks: readonly BrainTaskContract[];
+  readonly task6RegistryReady?: boolean;
+}
+
+export interface SchedulerBlocker {
+  readonly reasons: readonly string[];
+  readonly taskId: string;
 }
 
 export interface SelectionResult {
+  readonly activeSerializedPaths: readonly string[];
+  readonly blockers: readonly SchedulerBlocker[];
+  readonly limitingTrueEdges: readonly string[];
+  readonly mandatoryIntegrationGroups: readonly (readonly string[])[];
   readonly ready: readonly BrainTaskContract[];
   readonly selected: readonly BrainTaskContract[];
 }
@@ -44,7 +60,9 @@ const weightedBottomLevels = (
     tasks.map((task) => [task.taskId, [] as string[]] as const),
   );
   for (const task of tasks) {
-    for (const dependency of task.codeStartAfter) {
+    for (const dependency of dependenciesFor(task)
+      .filter((edge) => edge.classification === "true")
+      .map((edge) => edge.producerTaskId)) {
       children.get(dependency)?.push(task.taskId);
     }
   }
@@ -108,25 +126,39 @@ const isBetterScore = (
 };
 
 const exactConflictFreeSelection = (input: {
+  readonly atomicGroups: readonly ReadonlySet<string>[];
   readonly candidates: readonly BrainTaskContract[];
-  readonly heldLocks: ReadonlySet<string>;
+  readonly conflicts: (
+    left: BrainTaskContract,
+    right: BrainTaskContract,
+  ) => boolean;
   readonly maximum: number;
   readonly weightedLevels: ReadonlyMap<string, number>;
 }): readonly BrainTaskContract[] => {
   if (input.maximum <= 0) return [];
-  const candidates = [...input.candidates]
-    .filter((task) => !task.fileLocks.some((lock) => input.heldLocks.has(lock)))
-    .sort((left, right) => left.taskId.localeCompare(right.taskId));
+  const candidates = [...input.candidates].sort((left, right) =>
+    left.taskId.localeCompare(right.taskId),
+  );
   let best: readonly BrainTaskContract[] = [];
   let bestScore: SelectionScore | undefined;
 
   const visit = (
     index: number,
     selected: BrainTaskContract[],
-    selectedLocks: Set<string>,
     weightedBottomLevel: number,
   ): void => {
     if (index === candidates.length || selected.length === input.maximum) {
+      const selectedIds = new Set(selected.map((task) => task.taskId));
+      if (
+        input.atomicGroups.some((group) => {
+          const count = [...group].filter((taskId) =>
+            selectedIds.has(taskId),
+          ).length;
+          return count > 0 && count !== group.size;
+        })
+      ) {
+        return;
+      }
       const score = {
         cardinality: selected.length,
         taskIds: selected.map((task) => task.taskId),
@@ -141,56 +173,250 @@ const exactConflictFreeSelection = (input: {
 
     const task = candidates[index];
     if (!task) return;
-    visit(index + 1, selected, selectedLocks, weightedBottomLevel);
-    if (task.fileLocks.some((lock) => selectedLocks.has(lock))) return;
+    visit(index + 1, selected, weightedBottomLevel);
+    if (selected.some((other) => input.conflicts(task, other))) return;
 
     selected.push(task);
-    const addedLocks = task.fileLocks.filter(
-      (lock) => !selectedLocks.has(lock),
-    );
-    for (const lock of addedLocks) selectedLocks.add(lock);
     visit(
       index + 1,
       selected,
-      selectedLocks,
       weightedBottomLevel + (input.weightedLevels.get(task.taskId) ?? 0),
     );
-    for (const lock of addedLocks) selectedLocks.delete(lock);
     selected.pop();
   };
 
-  visit(0, [], new Set(), 0);
+  visit(0, [], 0);
   return best;
 };
+
+const isProjectedTask = (
+  task: BrainTaskContract,
+): task is ProjectedBrainTaskContract =>
+  "classifiedCodeStartAfter" in task &&
+  Array.isArray(task.classifiedCodeStartAfter) &&
+  "collisions" in task &&
+  Array.isArray(task.collisions);
+
+const dependenciesFor = (
+  task: BrainTaskContract,
+): readonly ClassifiedCodeStartDependency[] =>
+  isProjectedTask(task)
+    ? task.classifiedCodeStartAfter
+    : task.codeStartAfter.map((producerTaskId) => ({
+        classification: "true" as const,
+        consumerTaskId: task.taskId,
+        producerTaskId,
+      }));
+
+const collisionBetween = (
+  left: BrainTaskContract,
+  right: BrainTaskContract,
+): TaskCollisionMetadata | undefined =>
+  isProjectedTask(left)
+    ? left.collisions.find(
+        (collision) => collision.otherTaskId === right.taskId,
+      )
+    : isProjectedTask(right)
+      ? right.collisions.find(
+          (collision) => collision.otherTaskId === left.taskId,
+        )
+      : undefined;
+
+const sharesLock = (
+  left: BrainTaskContract,
+  right: BrainTaskContract,
+): boolean => {
+  const rightLocks = new Set(right.fileLocks);
+  return left.fileLocks.some((lock) => rightLocks.has(lock));
+};
+
+const serializedCollision = (
+  collision: TaskCollisionMetadata | undefined,
+  task6RegistryReady: boolean,
+): boolean =>
+  collision?.policy === "serialize" ||
+  collision?.policy === "dependency_order" ||
+  (collision?.policy === "registry_after_task6" && !task6RegistryReady);
+
+const schedulingConflict = (
+  left: BrainTaskContract,
+  right: BrainTaskContract,
+  task6RegistryReady: boolean,
+): boolean => {
+  const collision = collisionBetween(left, right);
+  return collision
+    ? serializedCollision(collision, task6RegistryReady)
+    : sharesLock(left, right);
+};
+
+const mandatoryGroups = (
+  tasks: readonly BrainTaskContract[],
+  task6RegistryReady: boolean,
+): readonly ReadonlySet<string>[] => {
+  const adjacency = new Map<string, Set<string>>();
+  for (let leftIndex = 0; leftIndex < tasks.length; leftIndex += 1) {
+    const left = tasks[leftIndex];
+    if (!left) continue;
+    for (
+      let rightIndex = leftIndex + 1;
+      rightIndex < tasks.length;
+      rightIndex += 1
+    ) {
+      const right = tasks[rightIndex];
+      if (!right) continue;
+      const collision = collisionBetween(left, right);
+      const mandatory =
+        collision?.policy === "same_wave_fail_closed" ||
+        (collision?.policy === "registry_after_task6" && task6RegistryReady);
+      if (!mandatory) continue;
+      const leftPeers = adjacency.get(left.taskId) ?? new Set<string>();
+      const rightPeers = adjacency.get(right.taskId) ?? new Set<string>();
+      leftPeers.add(right.taskId);
+      rightPeers.add(left.taskId);
+      adjacency.set(left.taskId, leftPeers);
+      adjacency.set(right.taskId, rightPeers);
+    }
+  }
+  const groups: ReadonlySet<string>[] = [];
+  const seen = new Set<string>();
+  for (const taskId of [...adjacency.keys()].sort()) {
+    if (seen.has(taskId)) continue;
+    const group = new Set<string>([taskId]);
+    const queue = [taskId];
+    seen.add(taskId);
+    while (queue.length > 0) {
+      const current = queue.shift();
+      if (!current) break;
+      for (const peer of [...(adjacency.get(current) ?? [])].sort()) {
+        group.add(peer);
+        if (!seen.has(peer)) {
+          seen.add(peer);
+          queue.push(peer);
+        }
+      }
+    }
+    groups.push(group);
+  }
+  return groups;
+};
+
+const contractReason = (
+  edge: Extract<ClassifiedCodeStartDependency, { classification: "contract" }>,
+  artifacts: ReadonlyMap<string, string> | undefined,
+): string | undefined => {
+  if (artifacts === undefined) return undefined;
+  const actual = artifacts.get(edge.producerTaskId);
+  const identity = `${edge.producerTaskId} task-packet ${edge.artifact.path}#${edge.artifact.anchor}`;
+  return actual === edge.artifact.sha256
+    ? undefined
+    : actual === undefined
+      ? `${identity} expected ${edge.artifact.sha256} is missing`
+      : `${identity} expected ${edge.artifact.sha256}, got ${actual}`;
+};
+
+export const frontierDiagnostics = (result: SelectionResult): string =>
+  [
+    `ready width: ${result.ready.length}`,
+    `limiting true edges: ${result.limitingTrueEdges.join(", ") || "none"}`,
+    `active serialized paths: ${result.activeSerializedPaths.join(", ") || "none"}`,
+  ].join("\n");
 
 export const selectReadyTasks = ({
   activeTaskIds,
   completedTaskIds,
+  contractArtifactSha256ByProducer,
   maximum,
   requestedTaskIds = new Set(),
   tasks,
+  task6RegistryReady = false,
 }: SelectionInput): SelectionResult => {
   const byId = new Map(tasks.map((task) => [task.taskId, task]));
-  const heldLocks = new Set(
-    [...activeTaskIds].flatMap((taskId) => byId.get(taskId)?.fileLocks ?? []),
-  );
-  const ready = tasks.filter(
-    (task) =>
+  const activeTasks = [...activeTaskIds]
+    .map((taskId) => byId.get(taskId))
+    .filter((task): task is BrainTaskContract => task !== undefined);
+  const blockerMap = new Map<string, string[]>();
+  const limitingTrueEdges = new Set<string>();
+  const activeSerializedPaths = new Set<string>();
+  const otherwiseEligible = tasks.filter((task) => {
+    if (
       task.fileInventoryStatus === "ready" &&
       task.kind !== "external" &&
       task.kind !== "release" &&
-      (requestedTaskIds.size === 0 || requestedTaskIds.has(task.taskId)) &&
       !activeTaskIds.has(task.taskId) &&
-      !completedTaskIds.has(task.taskId) &&
-      task.codeStartAfter.every((dependency) =>
-        completedTaskIds.has(dependency),
-      ),
+      !completedTaskIds.has(task.taskId)
+    ) {
+      const reasons: string[] = [];
+      for (const edge of dependenciesFor(task)) {
+        if (edge.classification === "true") {
+          if (!completedTaskIds.has(edge.producerTaskId)) {
+            const reason = `${edge.consumerTaskId}<-${edge.producerTaskId}`;
+            limitingTrueEdges.add(reason);
+            reasons.push(`true dependency ${reason} is not integrated`);
+          }
+        } else {
+          const reason = contractReason(edge, contractArtifactSha256ByProducer);
+          if (reason) reasons.push(reason);
+        }
+      }
+      for (const active of activeTasks) {
+        const collision = collisionBetween(task, active);
+        if (collision?.policy === "serialize") {
+          const pair = [task.taskId, active.taskId].sort().join("|");
+          for (const path of collision?.paths ?? []) {
+            activeSerializedPaths.add(`${pair}:${path}`);
+          }
+          reasons.push(
+            `${pair} is serialized on ${(collision?.paths ?? []).join(", ")}`,
+          );
+        } else if (!collision && sharesLock(task, active)) {
+          reasons.push(
+            `${task.taskId} shares a held legacy file lock with ${active.taskId}`,
+          );
+        }
+      }
+      if (reasons.length === 0) return true;
+      blockerMap.set(task.taskId, reasons);
+    }
+    return false;
+  });
+  const allReadyGroups = mandatoryGroups(otherwiseEligible, task6RegistryReady);
+  if (requestedTaskIds.size > 0) {
+    for (const group of allReadyGroups) {
+      const requestedCount = [...group].filter((taskId) =>
+        requestedTaskIds.has(taskId),
+      ).length;
+      if (requestedCount > 0 && requestedCount !== group.size) {
+        throw new Error(
+          `partial mandatory same-wave request: ${[...group].sort().join(",")}`,
+        );
+      }
+    }
+  }
+  const ready = otherwiseEligible.filter(
+    (task) => requestedTaskIds.size === 0 || requestedTaskIds.has(task.taskId),
   );
+  const atomicGroups = mandatoryGroups(ready, task6RegistryReady);
   const selected = exactConflictFreeSelection({
+    atomicGroups,
     candidates: ready,
-    heldLocks,
+    conflicts: (left, right) =>
+      schedulingConflict(left, right, task6RegistryReady),
     maximum,
     weightedLevels: weightedBottomLevels(tasks, completedTaskIds),
   });
-  return { ready, selected };
+  const scheduled = [...activeTasks, ...selected];
+  const mandatoryIntegrationGroups = mandatoryGroups(
+    scheduled,
+    task6RegistryReady,
+  ).map((group) => [...group].sort());
+  return {
+    activeSerializedPaths: [...activeSerializedPaths].sort(),
+    blockers: [...blockerMap]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([taskId, reasons]) => ({ reasons: [...reasons].sort(), taskId })),
+    limitingTrueEdges: [...limitingTrueEdges].sort(),
+    mandatoryIntegrationGroups,
+    ready,
+    selected,
+  };
 };
