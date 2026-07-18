@@ -9,7 +9,7 @@ import {
 import { resolve } from "node:path";
 
 import { hydrateWorktreeDependencies } from "./dependencies.js";
-import { validateContractReproofRequest } from "./contract-reproof.js";
+import { admitContractReproof } from "./contract-reproof-admission.js";
 import { taskIsAvailableIntegrationCandidate } from "./dispatch-ownership.js";
 import {
   completedTaskIdsForControlHead,
@@ -267,36 +267,37 @@ try {
     const reproofRequestPath = reproof
       ? string(reproof.requestPath, `${task.taskId}: reproof requestPath`)
       : undefined;
-    const reproofRequestContent = reproofRequestPath
-      ? readFileSync(reproofRequestPath, "utf8")
-      : undefined;
-    if (
-      reproofRequestContent &&
-      sha256(reproofRequestContent) !== reproof?.requestSha256
-    ) {
-      throw new Error(`${task.taskId}: reproof request drift`);
-    }
-    if (reproofRequestContent) {
-      if (!reproofRequestPath?.startsWith(`${evidence}/`)) {
-        throw new Error(`${task.taskId}: reproof request path is unsafe`);
-      }
-      const request = validateContractReproofRequest(
-        JSON.parse(reproofRequestContent),
-        {
-          controlHeadSha: string(proof.baseSha, `${task.taskId}: proof base`),
+    const reproofAdmission = reproofRequestPath
+      ? admitContractReproof({
+          changedFilesBetween: (ancestor, descendant) =>
+            runRtk(
+              [
+                "proxy",
+                "git",
+                "diff",
+                "--no-renames",
+                "--name-only",
+                `${ancestor}..${descendant}`,
+              ],
+              { quiet: true },
+            )
+              .split("\n")
+              .filter(Boolean),
+          currentControlHead: baseSha,
+          evidenceDirectory: evidence,
+          fileLocks: task.fileLocks,
+          isAncestor: (ancestor, descendant) =>
+            gitIsAncestor(ancestor, descendant, root),
+          lanePriorIntegrationHeadSha: reproof?.priorIntegrationHeadSha,
+          lanePriorIntegrationId: reproof?.priorIntegrationId,
+          laneRequestSha256: reproof?.requestSha256,
           planSha256: manifest.planSha256,
+          proofBaseSha: string(proof.baseSha, `${task.taskId}: proof base`),
+          requestPath: reproofRequestPath,
           taskBlockHash: task.taskBlockHash,
           taskId: task.taskId,
-        },
-      );
-      if (
-        !request.priorEvidencePath.startsWith(`${evidence}/`) ||
-        sha256(readFileSync(request.priorEvidencePath, "utf8")) !==
-          request.priorArchiveSha256
-      ) {
-        throw new Error(`${task.taskId}: reproof prior evidence drift`);
-      }
-    }
+        })
+      : undefined;
     const proofPlanSha256 = validateProofContract(proof, {
       taskBlockHash: task.taskBlockHash,
       taskId: task.taskId,
@@ -361,8 +362,10 @@ try {
       planSha256: manifest.planSha256,
       proofHeadSha: string(proof.headSha, `${task.taskId}: proof head`),
       proofSha256: sha256(proofContent),
-      ...(reproofRequestContent
-        ? { reproofRequestSha256: sha256(reproofRequestContent) }
+      ...(reproofAdmission
+        ? {
+            reproofRequestSha256: reproofAdmission.reproofRequestSha256,
+          }
         : {}),
       taskBlockHash: task.taskBlockHash,
       taskId: task.taskId,
