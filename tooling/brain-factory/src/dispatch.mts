@@ -15,7 +15,7 @@ import {
   completedTaskIdsForControlHead,
   type LaneCompletionResult,
 } from "./factory-state.js";
-import { buildManifest } from "./manifest.js";
+import { loadManifestProjection } from "./manifest.js";
 import { gitBranchExists, gitIsAncestor, runRtk } from "./process.js";
 import { availableDispatchSlots, selectReadyTasks } from "./scheduler.js";
 
@@ -108,7 +108,15 @@ const recordOwnsTask = (record: RunRecord | undefined): boolean =>
     },
   });
 
-const manifest = buildManifest(root);
+const projection = loadManifestProjection(root);
+const manifest = projection.manifest;
+const contractArtifactSha256ByProducer = new Map(
+  projection.contract.edges.flatMap((edge) =>
+    edge.classification === "contract"
+      ? [[edge.producerTaskId, edge.artifact.sha256] as const]
+      : [],
+  ),
+);
 const controlHead = runRtk(["git", "rev-parse", "HEAD"], { quiet: true });
 if (recoverTaskId) {
   const task = manifest.tasks.find(
@@ -149,9 +157,10 @@ const availableSlots = availableDispatchSlots(maximum, activeTasks.length);
 const { ready: candidates, selected } = selectReadyTasks({
   activeTaskIds: new Set(activeTasks.map((task) => task.taskId)),
   completedTaskIds,
+  contractArtifactSha256ByProducer,
   maximum: availableSlots,
   requestedTaskIds: requested,
-  tasks: manifest.tasks,
+  tasks: projection.tasks,
 });
 
 console.log(

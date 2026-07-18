@@ -133,6 +133,7 @@ const exactConflictFreeSelection = (input: {
     right: BrainTaskContract,
   ) => boolean;
   readonly maximum: number;
+  readonly preselectedTaskIds: ReadonlySet<string>;
   readonly weightedLevels: ReadonlyMap<string, number>;
 }): readonly BrainTaskContract[] => {
   if (input.maximum <= 0) return [];
@@ -148,7 +149,10 @@ const exactConflictFreeSelection = (input: {
     weightedBottomLevel: number,
   ): void => {
     if (index === candidates.length || selected.length === input.maximum) {
-      const selectedIds = new Set(selected.map((task) => task.taskId));
+      const selectedIds = new Set([
+        ...input.preselectedTaskIds,
+        ...selected.map((task) => task.taskId),
+      ]);
       if (
         input.atomicGroups.some((group) => {
           const count = [...group].filter((taskId) =>
@@ -304,8 +308,7 @@ const contractReason = (
   edge: Extract<ClassifiedCodeStartDependency, { classification: "contract" }>,
   artifacts: ReadonlyMap<string, string> | undefined,
 ): string | undefined => {
-  if (artifacts === undefined) return undefined;
-  const actual = artifacts.get(edge.producerTaskId);
+  const actual = artifacts?.get(edge.producerTaskId);
   const identity = `${edge.producerTaskId} task-packet ${edge.artifact.path}#${edge.artifact.anchor}`;
   return actual === edge.artifact.sha256
     ? undefined
@@ -360,7 +363,7 @@ export const selectReadyTasks = ({
       }
       for (const active of activeTasks) {
         const collision = collisionBetween(task, active);
-        if (collision?.policy === "serialize") {
+        if (serializedCollision(collision, task6RegistryReady)) {
           const pair = [task.taskId, active.taskId].sort().join("|");
           for (const path of collision?.paths ?? []) {
             activeSerializedPaths.add(`${pair}:${path}`);
@@ -379,15 +382,31 @@ export const selectReadyTasks = ({
     }
     return false;
   });
-  const allReadyGroups = mandatoryGroups(otherwiseEligible, task6RegistryReady);
+  const globalMandatoryGroups = mandatoryGroups(tasks, task6RegistryReady);
+  const groupsWithin = (
+    taskIds: ReadonlySet<string>,
+  ): readonly ReadonlySet<string>[] =>
+    globalMandatoryGroups
+      .map(
+        (group) => new Set([...group].filter((taskId) => taskIds.has(taskId))),
+      )
+      .filter((group) => group.size > 1);
+  const eligibleOrActiveIds = new Set([
+    ...activeTaskIds,
+    ...otherwiseEligible.map((task) => task.taskId),
+  ]);
+  const allReadyGroups = groupsWithin(eligibleOrActiveIds);
   if (requestedTaskIds.size > 0) {
     for (const group of allReadyGroups) {
-      const requestedCount = [...group].filter((taskId) =>
+      const requestable = [...group].filter(
+        (taskId) => !activeTaskIds.has(taskId),
+      );
+      const requestedCount = requestable.filter((taskId) =>
         requestedTaskIds.has(taskId),
       ).length;
-      if (requestedCount > 0 && requestedCount !== group.size) {
+      if (requestedCount > 0 && requestedCount !== requestable.length) {
         throw new Error(
-          `partial mandatory same-wave request: ${[...group].sort().join(",")}`,
+          `partial mandatory same-wave request: ${requestable.sort().join(",")}`,
         );
       }
     }
@@ -395,19 +414,21 @@ export const selectReadyTasks = ({
   const ready = otherwiseEligible.filter(
     (task) => requestedTaskIds.size === 0 || requestedTaskIds.has(task.taskId),
   );
-  const atomicGroups = mandatoryGroups(ready, task6RegistryReady);
+  const atomicGroups = groupsWithin(
+    new Set([...activeTaskIds, ...ready.map((task) => task.taskId)]),
+  );
   const selected = exactConflictFreeSelection({
     atomicGroups,
     candidates: ready,
     conflicts: (left, right) =>
       schedulingConflict(left, right, task6RegistryReady),
     maximum,
+    preselectedTaskIds: activeTaskIds,
     weightedLevels: weightedBottomLevels(tasks, completedTaskIds),
   });
   const scheduled = [...activeTasks, ...selected];
-  const mandatoryIntegrationGroups = mandatoryGroups(
-    scheduled,
-    task6RegistryReady,
+  const mandatoryIntegrationGroups = groupsWithin(
+    new Set(scheduled.map((task) => task.taskId)),
   ).map((group) => [...group].sort());
   return {
     activeSerializedPaths: [...activeSerializedPaths].sort(),

@@ -1,7 +1,12 @@
 import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
-import type { BrainTaskContract } from "../src/manifest.js";
+import type {
+  BrainTaskContract,
+  BrainTaskManifestProjection,
+  ProjectedBrainTaskContract,
+  TaskCollisionMetadata,
+} from "../src/manifest.js";
 import { buildManifest, loadManifestProjection } from "../src/manifest.js";
 import {
   availableDispatchSlots,
@@ -25,6 +30,41 @@ const syntheticTask = (
   taskId: input.taskId,
 });
 
+const artifactAvailability = (
+  projection: BrainTaskManifestProjection,
+): ReadonlyMap<string, string> =>
+  new Map(
+    projection.contract.edges.flatMap((edge) =>
+      edge.classification === "contract"
+        ? [[edge.producerTaskId, edge.artifact.sha256] as const]
+        : [],
+    ),
+  );
+
+const projectedSyntheticTask = (
+  template: BrainTaskContract,
+  input: {
+    readonly collisions?: readonly TaskCollisionMetadata[];
+    readonly fileInventoryStatus?: BrainTaskContract["fileInventoryStatus"];
+    readonly taskId: string;
+  },
+): ProjectedBrainTaskContract => ({
+  ...template,
+  classifiedCodeStartAfter: [],
+  codeStartAfter: [],
+  collisions: input.collisions ?? [],
+  fileInventoryStatus: input.fileInventoryStatus ?? "ready",
+  fileLocks: [],
+  taskId: input.taskId,
+});
+
+const sameWave = (otherTaskId: string): TaskCollisionMetadata => ({
+  mandatorySameWave: true,
+  otherTaskId,
+  paths: [`shared/${otherTaskId}.ts`],
+  policy: "same_wave_fail_closed",
+});
+
 describe("brain task scheduler", () => {
   it("treats max as total active capacity across repeated dispatches", () => {
     expect(availableDispatchSlots(20, 0)).toBe(20);
@@ -37,6 +77,9 @@ describe("brain task scheduler", () => {
     );
     expect(dispatch).toContain("totalActiveCapacity: maximum");
     expect(dispatch).toContain("maximum: availableSlots");
+    expect(dispatch).toContain("loadManifestProjection");
+    expect(dispatch).toContain("contractArtifactSha256ByProducer");
+    expect(dispatch).toContain("tasks: projection.tasks");
   });
 
   it("starts independent contract lanes together", () => {
@@ -292,6 +335,7 @@ describe("brain task scheduler", () => {
 
   it("distinguishes true dependencies from exact contract artifacts", () => {
     const projection = loadManifestProjection();
+    const availableArtifacts = artifactAvailability(projection);
     const contractReady = projection.tasks.find(
       (task) => task.taskId === "S04-T01",
     );
@@ -308,10 +352,20 @@ describe("brain task scheduler", () => {
       selectReadyTasks({
         activeTaskIds: new Set(),
         completedTaskIds: new Set(),
+        contractArtifactSha256ByProducer: availableArtifacts,
         maximum: 2,
         tasks: [contractReady, trueBlocked],
       }).ready.map((task) => task.taskId),
     ).toEqual(["S04-T01"]);
+
+    const unspecified = selectReadyTasks({
+      activeTaskIds: new Set(),
+      completedTaskIds: new Set(),
+      maximum: 1,
+      tasks: [contractReady],
+    });
+    expect(unspecified.ready).toEqual([]);
+    expect(unspecified.blockers[0]?.reasons.join("\n")).toContain("is missing");
 
     const missing = selectReadyTasks({
       activeTaskIds: new Set(),
@@ -347,10 +401,12 @@ describe("brain task scheduler", () => {
 
   it("enforces serialized active locks and atomically selects same-wave peers", () => {
     const projection = loadManifestProjection();
+    const availableArtifacts = artifactAvailability(projection);
     const byId = new Map(projection.tasks.map((task) => [task.taskId, task]));
     const serialized = selectReadyTasks({
       activeTaskIds: new Set(["S11-T02"]),
       completedTaskIds: new Set(["S12-T01"]),
+      contractArtifactSha256ByProducer: availableArtifacts,
       maximum: 2,
       tasks: projection.tasks,
     });
@@ -368,6 +424,7 @@ describe("brain task scheduler", () => {
     const oneSlot = selectReadyTasks({
       activeTaskIds: new Set(),
       completedTaskIds: new Set(["S08-T02"]),
+      contractArtifactSha256ByProducer: availableArtifacts,
       maximum: 1,
       tasks: peers,
     });
@@ -380,6 +437,7 @@ describe("brain task scheduler", () => {
     const together = selectReadyTasks({
       activeTaskIds: new Set(),
       completedTaskIds: new Set(["S08-T02"]),
+      contractArtifactSha256ByProducer: availableArtifacts,
       maximum: 2,
       tasks: peers,
     });
@@ -394,6 +452,7 @@ describe("brain task scheduler", () => {
       selectReadyTasks({
         activeTaskIds: new Set(),
         completedTaskIds: new Set(["S08-T02"]),
+        contractArtifactSha256ByProducer: availableArtifacts,
         maximum: 2,
         requestedTaskIds: new Set(["S08-T03"]),
         tasks: peers,
@@ -403,6 +462,7 @@ describe("brain task scheduler", () => {
 
   it("serializes selected security owners and gates migration regeneration on Task 6", () => {
     const projection = loadManifestProjection();
+    const availableArtifacts = artifactAvailability(projection);
     const byId = new Map(projection.tasks.map((task) => [task.taskId, task]));
     const securityOwners = [byId.get("S04-T03"), byId.get("S11-T02")].filter(
       (task): task is NonNullable<typeof task> => task !== undefined,
@@ -411,6 +471,7 @@ describe("brain task scheduler", () => {
     const serialized = selectReadyTasks({
       activeTaskIds: new Set(),
       completedTaskIds: new Set(["S04-T02", "S11-T01"]),
+      contractArtifactSha256ByProducer: availableArtifacts,
       maximum: 2,
       tasks: securityOwners,
     });
@@ -424,6 +485,7 @@ describe("brain task scheduler", () => {
     const beforeTask6 = selectReadyTasks({
       activeTaskIds: new Set(),
       completedTaskIds: new Set(["S02-T02", "S04-T01"]),
+      contractArtifactSha256ByProducer: availableArtifacts,
       maximum: 2,
       tasks: migrationOwners,
     });
@@ -433,6 +495,7 @@ describe("brain task scheduler", () => {
     const afterTask6 = selectReadyTasks({
       activeTaskIds: new Set(),
       completedTaskIds: new Set(["S02-T02", "S04-T01"]),
+      contractArtifactSha256ByProducer: availableArtifacts,
       maximum: 2,
       task6RegistryReady: true,
       tasks: migrationOwners,
@@ -444,10 +507,109 @@ describe("brain task scheduler", () => {
     expect(afterTask6.mandatoryIntegrationGroups).toEqual([
       ["S02-T03", "S04-T02"],
     ]);
+
+    const activeBeforeTask6 = selectReadyTasks({
+      activeTaskIds: new Set(["S02-T03"]),
+      completedTaskIds: new Set(["S04-T01"]),
+      contractArtifactSha256ByProducer: availableArtifacts,
+      maximum: 1,
+      tasks: migrationOwners,
+    });
+    expect(activeBeforeTask6.ready.map((task) => task.taskId)).not.toContain(
+      "S04-T02",
+    );
+    expect(activeBeforeTask6.activeSerializedPaths.join("\n")).toMatch(
+      /S02-T03.*S04-T02.*migrations\.ts/,
+    );
   });
 
-  it("pins the audited 19-task frontier at eleven with limiter diagnostics", () => {
+  it("derives mandatory components through blocked bridge tasks", () => {
+    const template = buildManifest().tasks.find(
+      (task) => task.taskId === "S01-T01",
+    );
+    if (!template) throw new Error("scheduler template task missing");
+    const left = projectedSyntheticTask(template, {
+      collisions: [sameWave("S20-T02")],
+      taskId: "S20-T01",
+    });
+    const bridge = projectedSyntheticTask(template, {
+      collisions: [sameWave("S20-T01"), sameWave("S20-T03")],
+      fileInventoryStatus: "open:F",
+      taskId: "S20-T02",
+    });
+    const right = projectedSyntheticTask(template, {
+      collisions: [sameWave("S20-T02")],
+      taskId: "S20-T03",
+    });
+
+    const oneSlot = selectReadyTasks({
+      activeTaskIds: new Set(),
+      completedTaskIds: new Set(),
+      contractArtifactSha256ByProducer: new Map(),
+      maximum: 1,
+      tasks: [left, bridge, right],
+    });
+    expect(oneSlot.ready.map((task) => task.taskId)).toEqual([
+      "S20-T01",
+      "S20-T03",
+    ]);
+    expect(oneSlot.selected).toEqual([]);
+    expect(() =>
+      selectReadyTasks({
+        activeTaskIds: new Set(),
+        completedTaskIds: new Set(),
+        contractArtifactSha256ByProducer: new Map(),
+        maximum: 2,
+        requestedTaskIds: new Set(["S20-T01"]),
+        tasks: [left, bridge, right],
+      }),
+    ).toThrow("partial mandatory same-wave request: S20-T01,S20-T03");
+  });
+
+  it("completes a global mandatory component around active owners", () => {
+    const template = buildManifest().tasks.find(
+      (task) => task.taskId === "S01-T01",
+    );
+    if (!template) throw new Error("scheduler template task missing");
+    const active = projectedSyntheticTask(template, {
+      collisions: [sameWave("S20-T02")],
+      taskId: "S20-T01",
+    });
+    const bridge = projectedSyntheticTask(template, {
+      collisions: [
+        sameWave("S20-T01"),
+        sameWave("S20-T03"),
+        sameWave("S20-T04"),
+      ],
+      fileInventoryStatus: "open:F",
+      taskId: "S20-T02",
+    });
+    const right = projectedSyntheticTask(template, {
+      collisions: [sameWave("S20-T02")],
+      taskId: "S20-T03",
+    });
+    const farRight = projectedSyntheticTask(template, {
+      collisions: [sameWave("S20-T02")],
+      taskId: "S20-T04",
+    });
+
+    const result = selectReadyTasks({
+      activeTaskIds: new Set([active.taskId]),
+      completedTaskIds: new Set(),
+      contractArtifactSha256ByProducer: new Map(),
+      maximum: 1,
+      tasks: [active, bridge, right, farRight],
+    });
+    expect(result.ready.map((task) => task.taskId)).toEqual([
+      "S20-T03",
+      "S20-T04",
+    ]);
+    expect(result.selected).toEqual([]);
+  });
+
+  it("pins the audited post-Task-6 frontier at eleven with limiter diagnostics", () => {
     const projection = loadManifestProjection();
+    const availableArtifacts = artifactAvailability(projection);
     const completedTaskIds = new Set([
       "S00-T02",
       "S00-T03",
@@ -472,7 +634,9 @@ describe("brain task scheduler", () => {
     const result = selectReadyTasks({
       activeTaskIds: new Set(["S04-T01", "S04-T02", "S11-T02"]),
       completedTaskIds,
+      contractArtifactSha256ByProducer: availableArtifacts,
       maximum: 40,
+      task6RegistryReady: true,
       tasks: projection.tasks,
     });
     const diagnostic = frontierDiagnostics(result);
