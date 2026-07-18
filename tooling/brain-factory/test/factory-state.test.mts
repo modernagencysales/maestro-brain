@@ -1,12 +1,268 @@
 import { describe, expect, it } from "vitest";
 import {
+  classifyControllerTask,
+  classifyControllerWave,
   completedTaskIdsForControlHead,
   integrationIdForWave,
   nextIntegrationId,
+  normalizeControllerSnapshot,
+  type ControllerSnapshotInput,
   type LaneCompletionResult,
 } from "../src/factory-state.js";
 
+const SHA_40_A = "a".repeat(40);
+const SHA_40_B = "b".repeat(40);
+const SHA_64_A = "a".repeat(64);
+const SHA_64_B = "b".repeat(64);
+
+const snapshotInput = (
+  overrides: Partial<ControllerSnapshotInput> = {},
+): ControllerSnapshotInput => ({
+  controlHeadSha: SHA_40_A,
+  gateQueue: { capacity: 2, inUse: 1, waiting: 0 },
+  manifestSha256: SHA_64_A,
+  planSha256: SHA_64_B,
+  providerErrors: [],
+  tasks: [],
+  waves: [],
+  ...overrides,
+});
+
 describe("brain factory control state", () => {
+  it("normalizes tasks, waves, and provider errors into stable order", () => {
+    const normalized = normalizeControllerSnapshot(
+      snapshotInput({
+        providerErrors: [
+          { category: "unavailable", provider: "z-provider" },
+          { category: "malformed", provider: "a-provider" },
+        ],
+        tasks: [
+          { status: "pending", taskId: "S02-T01" },
+          { status: "pending", taskId: "S01-T01" },
+        ],
+        waves: [
+          {
+            identity: "exact",
+            inspection: "running",
+            integrationId: "wave-z",
+            runId: "run-z",
+          },
+          {
+            identity: "exact",
+            inspection: "failed",
+            integrationId: "wave-a",
+            ownershipId: "owner-a",
+            runId: "run-a",
+          },
+        ],
+      }),
+    );
+
+    expect(normalized).toEqual({
+      schemaVersion: "maestro-brain-controller-snapshot/v1",
+      controlHeadSha: SHA_40_A,
+      manifestSha256: SHA_64_A,
+      planSha256: SHA_64_B,
+      tasks: [
+        { stage: "pending", status: "pending", taskId: "S01-T01" },
+        { stage: "pending", status: "pending", taskId: "S02-T01" },
+      ],
+      waves: [
+        {
+          identity: "exact",
+          inspection: "failed",
+          integrationId: "wave-a",
+          ownershipId: "owner-a",
+          runId: "run-a",
+          stage: "recoverable",
+        },
+        {
+          identity: "exact",
+          inspection: "running",
+          integrationId: "wave-z",
+          runId: "run-z",
+          stage: "running",
+        },
+      ],
+      gateQueue: { capacity: 2, inUse: 1, waiting: 0 },
+      providerErrors: [
+        { category: "malformed", provider: "a-provider" },
+        { category: "unavailable", provider: "z-provider" },
+      ],
+    });
+  });
+
+  it("classifies lane green only after exact candidate admission", () => {
+    expect(
+      classifyControllerTask({
+        admission: "admissible",
+        headSha: SHA_40_B,
+        ownershipId: "task:S03-T03",
+        runId: "run-green",
+        status: "lane_green",
+        taskId: "S03-T03",
+      }),
+    ).toMatchObject({ stage: "lane_green" });
+  });
+
+  it.each([undefined, "rejected", "unknown"] as const)(
+    "fails closed for lane green with %s admission",
+    (admission) => {
+      expect(
+        classifyControllerTask({
+          ...(admission === undefined ? {} : { admission }),
+          headSha: SHA_40_B,
+          status: "lane_green",
+          taskId: "S03-T03",
+        }),
+      ).toMatchObject({ stage: "false_green" });
+    },
+  );
+
+  it("requires exact recovery coordinates before classifying a failed lane as recoverable", () => {
+    expect(
+      classifyControllerTask({
+        baseSha: SHA_40_A,
+        findingSha256: SHA_64_A,
+        headSha: SHA_40_B,
+        status: "failed",
+        taskId: "S04-T01",
+      }),
+    ).toMatchObject({ stage: "recoverable" });
+    expect(
+      classifyControllerTask({
+        baseSha: SHA_40_A,
+        status: "failed",
+        taskId: "S04-T01",
+      }),
+    ).toMatchObject({ stage: "unknown" });
+  });
+
+  it("classifies waves fail closed on identity drift or unavailable inspection", () => {
+    expect(
+      classifyControllerWave({
+        identity: "exact",
+        inspection: "succeeded",
+        integrationId: "wave-1",
+        runId: "run-1",
+      }),
+    ).toMatchObject({ stage: "promotable" });
+    expect(
+      classifyControllerWave({
+        identity: "drifted",
+        inspection: "succeeded",
+        integrationId: "wave-1",
+        runId: "run-1",
+      }),
+    ).toMatchObject({ stage: "unknown" });
+    expect(
+      classifyControllerWave({
+        identity: "exact",
+        inspection: "ambiguous",
+        integrationId: "wave-1",
+      }),
+    ).toMatchObject({ stage: "unknown" });
+  });
+
+  it.each([
+    [
+      "task",
+      snapshotInput({
+        tasks: [
+          { status: "pending", taskId: "S01-T01" },
+          { status: "running", taskId: "S01-T01" },
+        ],
+      }),
+      "duplicate taskId S01-T01",
+    ],
+    [
+      "wave",
+      snapshotInput({
+        waves: [
+          {
+            identity: "exact",
+            inspection: "running",
+            integrationId: "wave-1",
+          },
+          {
+            identity: "exact",
+            inspection: "failed",
+            integrationId: "wave-1",
+          },
+        ],
+      }),
+      "duplicate integrationId wave-1",
+    ],
+    [
+      "run",
+      snapshotInput({
+        tasks: [
+          { runId: "shared-run", status: "running", taskId: "S01-T01" },
+          { runId: "shared-run", status: "running", taskId: "S02-T01" },
+        ],
+      }),
+      "duplicate runId shared-run",
+    ],
+    [
+      "ownership",
+      snapshotInput({
+        tasks: [
+          {
+            ownershipId: "shared-owner",
+            status: "running",
+            taskId: "S01-T01",
+          },
+          {
+            ownershipId: "shared-owner",
+            status: "running",
+            taskId: "S02-T01",
+          },
+        ],
+      }),
+      "duplicate ownershipId shared-owner",
+    ],
+  ] as const)("rejects duplicate %s identities", (_name, input, message) => {
+    expect(() => normalizeControllerSnapshot(input)).toThrow(message);
+  });
+
+  it("rejects simultaneous active integration owners", () => {
+    expect(() =>
+      normalizeControllerSnapshot(
+        snapshotInput({
+          waves: [
+            {
+              identity: "exact",
+              inspection: "running",
+              integrationId: "wave-1",
+              ownershipId: "owner-1",
+            },
+            {
+              identity: "exact",
+              inspection: "running",
+              integrationId: "wave-2",
+              ownershipId: "owner-2",
+            },
+          ],
+        }),
+      ),
+    ).toThrow("multiple active integration owners: owner-1, owner-2");
+  });
+
+  it("rejects malformed hashes and impossible gate queue counts", () => {
+    expect(() =>
+      normalizeControllerSnapshot(
+        snapshotInput({ controlHeadSha: "not-a-sha" }),
+      ),
+    ).toThrow("controlHeadSha must be an exact 40-character Git SHA");
+    expect(() =>
+      normalizeControllerSnapshot(
+        snapshotInput({
+          gateQueue: { capacity: 1, inUse: 2, waiting: 0 },
+        }),
+      ),
+    ).toThrow("gateQueue.inUse cannot exceed capacity");
+  });
+
   it("counts integrated evidence only when its head is on control HEAD", () => {
     const results = new Map<string, LaneCompletionResult>([
       [

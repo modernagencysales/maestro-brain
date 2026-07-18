@@ -84,3 +84,285 @@ export const nextIntegrationId = (input: {
 
   throw new Error(`${input.manifestTranche}: integration wave limit exceeded`);
 };
+
+export type ControllerTaskStatus =
+  | "pending"
+  | "preparing"
+  | "running"
+  | "failed"
+  | "terminal"
+  | "lane_green"
+  | "integrated"
+  | "accepted"
+  | "unknown";
+
+export type ControllerTaskStage =
+  | "pending"
+  | "preparing"
+  | "running"
+  | "recoverable"
+  | "terminal"
+  | "lane_green"
+  | "false_green"
+  | "integrated"
+  | "accepted"
+  | "unknown";
+
+export type ControllerCandidateAdmission =
+  "admissible" | "rejected" | "unknown";
+
+export interface ControllerTaskObservation {
+  readonly admission?: ControllerCandidateAdmission;
+  readonly baseSha?: string;
+  readonly findingSha256?: string;
+  readonly headSha?: string;
+  readonly ownershipId?: string;
+  readonly runId?: string;
+  readonly status: ControllerTaskStatus;
+  readonly taskId: string;
+}
+
+export interface ControllerTaskState extends ControllerTaskObservation {
+  readonly stage: ControllerTaskStage;
+}
+
+export type ControllerWaveInspection =
+  "running" | "succeeded" | "failed" | "unknown" | "ambiguous";
+
+export type ControllerWaveIdentity = "exact" | "drifted" | "unknown";
+
+export type ControllerWaveStage =
+  "running" | "promotable" | "recoverable" | "unknown";
+
+export interface ControllerWaveObservation {
+  readonly headSha?: string;
+  readonly identity: ControllerWaveIdentity;
+  readonly inspection: ControllerWaveInspection;
+  readonly integrationId: string;
+  readonly ownershipId?: string;
+  readonly runId?: string;
+}
+
+export interface ControllerWaveState extends ControllerWaveObservation {
+  readonly stage: ControllerWaveStage;
+}
+
+export interface ControllerGateQueueState {
+  readonly capacity: number;
+  readonly inUse: number;
+  readonly waiting: number;
+}
+
+export type ControllerProviderErrorCategory =
+  "unavailable" | "malformed" | "ambiguous" | "unauthorized" | "unknown";
+
+export interface ControllerProviderError {
+  readonly category: ControllerProviderErrorCategory;
+  readonly provider: string;
+}
+
+export interface ControllerSnapshot {
+  readonly schemaVersion: "maestro-brain-controller-snapshot/v1";
+  readonly controlHeadSha: string;
+  readonly manifestSha256: string;
+  readonly planSha256: string;
+  readonly tasks: readonly ControllerTaskState[];
+  readonly waves: readonly ControllerWaveState[];
+  readonly gateQueue: ControllerGateQueueState;
+  readonly providerErrors: readonly ControllerProviderError[];
+}
+
+export interface ControllerSnapshotInput {
+  readonly controlHeadSha: string;
+  readonly manifestSha256: string;
+  readonly planSha256: string;
+  readonly tasks: readonly ControllerTaskObservation[];
+  readonly waves: readonly ControllerWaveObservation[];
+  readonly gateQueue: ControllerGateQueueState;
+  readonly providerErrors: readonly ControllerProviderError[];
+}
+
+const exactHex = (value: string, length: 40 | 64): boolean =>
+  new RegExp(`^[0-9a-f]{${length}}$`).test(value);
+
+const requireGitSha = (value: string, label: string): void => {
+  if (!exactHex(value, 40)) {
+    throw new Error(`${label} must be an exact 40-character Git SHA`);
+  }
+};
+
+const requireSha256 = (value: string, label: string): void => {
+  if (!exactHex(value, 64)) {
+    throw new Error(`${label} must be an exact 64-character SHA-256`);
+  }
+};
+
+const requireIdentity = (value: string, label: string): void => {
+  if (value.trim() !== value || value.length === 0) {
+    throw new Error(`${label} must be a non-empty normalized string`);
+  }
+};
+
+const validateOptionalTaskCoordinates = (
+  input: ControllerTaskObservation,
+): void => {
+  if (input.baseSha !== undefined)
+    requireGitSha(input.baseSha, `${input.taskId}.baseSha`);
+  if (input.headSha !== undefined)
+    requireGitSha(input.headSha, `${input.taskId}.headSha`);
+  if (input.findingSha256 !== undefined)
+    requireSha256(input.findingSha256, `${input.taskId}.findingSha256`);
+  if (input.runId !== undefined)
+    requireIdentity(input.runId, `${input.taskId}.runId`);
+  if (input.ownershipId !== undefined)
+    requireIdentity(input.ownershipId, `${input.taskId}.ownershipId`);
+};
+
+export const classifyControllerTask = (
+  input: ControllerTaskObservation,
+): ControllerTaskState => {
+  requireIdentity(input.taskId, "taskId");
+  validateOptionalTaskCoordinates(input);
+
+  let stage: ControllerTaskStage;
+  switch (input.status) {
+    case "lane_green":
+      stage = input.admission === "admissible" ? "lane_green" : "false_green";
+      break;
+    case "failed":
+      stage =
+        input.baseSha !== undefined &&
+        input.headSha !== undefined &&
+        input.findingSha256 !== undefined
+          ? "recoverable"
+          : "unknown";
+      break;
+    case "pending":
+    case "preparing":
+    case "running":
+    case "terminal":
+    case "integrated":
+    case "accepted":
+    case "unknown":
+      stage = input.status;
+      break;
+  }
+
+  return { ...input, stage };
+};
+
+export const classifyControllerWave = (
+  input: ControllerWaveObservation,
+): ControllerWaveState => {
+  requireIdentity(input.integrationId, "integrationId");
+  if (input.headSha !== undefined)
+    requireGitSha(input.headSha, `${input.integrationId}.headSha`);
+  if (input.runId !== undefined)
+    requireIdentity(input.runId, `${input.integrationId}.runId`);
+  if (input.ownershipId !== undefined)
+    requireIdentity(input.ownershipId, `${input.integrationId}.ownershipId`);
+
+  const stage: ControllerWaveStage =
+    input.identity !== "exact"
+      ? "unknown"
+      : input.inspection === "succeeded"
+        ? "promotable"
+        : input.inspection === "failed"
+          ? "recoverable"
+          : input.inspection === "running"
+            ? "running"
+            : "unknown";
+
+  return { ...input, stage };
+};
+
+const rejectDuplicates = (
+  values: readonly (string | undefined)[],
+  label: string,
+): void => {
+  const seen = new Set<string>();
+  for (const value of values) {
+    if (value === undefined) continue;
+    if (seen.has(value)) throw new Error(`duplicate ${label} ${value}`);
+    seen.add(value);
+  }
+};
+
+const validateGateQueue = (gateQueue: ControllerGateQueueState): void => {
+  for (const [name, value] of Object.entries(gateQueue)) {
+    if (!Number.isSafeInteger(value) || value < 0) {
+      throw new Error(`gateQueue.${name} must be a non-negative safe integer`);
+    }
+  }
+  if (gateQueue.inUse > gateQueue.capacity) {
+    throw new Error("gateQueue.inUse cannot exceed capacity");
+  }
+};
+
+export const normalizeControllerSnapshot = (
+  input: ControllerSnapshotInput,
+): ControllerSnapshot => {
+  requireGitSha(input.controlHeadSha, "controlHeadSha");
+  requireSha256(input.manifestSha256, "manifestSha256");
+  requireSha256(input.planSha256, "planSha256");
+  validateGateQueue(input.gateQueue);
+
+  rejectDuplicates(
+    input.tasks.map(({ taskId }) => taskId),
+    "taskId",
+  );
+  rejectDuplicates(
+    input.waves.map(({ integrationId }) => integrationId),
+    "integrationId",
+  );
+  const allObservations = [...input.tasks, ...input.waves];
+  rejectDuplicates(
+    allObservations.map(({ runId }) => runId),
+    "runId",
+  );
+  rejectDuplicates(
+    allObservations.map(({ ownershipId }) => ownershipId),
+    "ownershipId",
+  );
+
+  const tasks = input.tasks
+    .map(classifyControllerTask)
+    .sort((left, right) => left.taskId.localeCompare(right.taskId));
+  const waves = input.waves
+    .map(classifyControllerWave)
+    .sort((left, right) =>
+      left.integrationId.localeCompare(right.integrationId),
+    );
+  const activeIntegrationOwners = waves
+    .filter(({ stage }) => stage !== "unknown")
+    .map(({ ownershipId }) => ownershipId)
+    .filter((value): value is string => value !== undefined)
+    .sort();
+  if (activeIntegrationOwners.length > 1) {
+    throw new Error(
+      `multiple active integration owners: ${activeIntegrationOwners.join(", ")}`,
+    );
+  }
+
+  const providerErrors = [...input.providerErrors]
+    .map((error) => {
+      requireIdentity(error.provider, "provider error provider");
+      return { ...error };
+    })
+    .sort(
+      (left, right) =>
+        left.provider.localeCompare(right.provider) ||
+        left.category.localeCompare(right.category),
+    );
+
+  return {
+    schemaVersion: "maestro-brain-controller-snapshot/v1",
+    controlHeadSha: input.controlHeadSha,
+    manifestSha256: input.manifestSha256,
+    planSha256: input.planSha256,
+    tasks,
+    waves,
+    gateQueue: { ...input.gateQueue },
+    providerErrors,
+  };
+};
