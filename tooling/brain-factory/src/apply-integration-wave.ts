@@ -187,6 +187,9 @@ const stringArray = (value: unknown, label: string): readonly string[] => {
   return value as readonly string[];
 };
 
+const normalizedStringSet = (values: readonly string[]): readonly string[] =>
+  [...new Set(values)].sort();
+
 const validateLane = (input: {
   readonly baseSha: string;
   readonly evidenceDirectory: string;
@@ -207,8 +210,10 @@ const validateLane = (input: {
       stringArray(manifestTask.fileLocks, `${taskId}: fileLocks`),
     ) !== JSON.stringify(snapshot.fileLocks) ||
     JSON.stringify(
-      stringArray(manifestTask.codeStartAfter, `${taskId}: codeStartAfter`),
-    ) !== JSON.stringify(snapshot.codeStartAfter)
+      normalizedStringSet(
+        stringArray(manifestTask.codeStartAfter, `${taskId}: codeStartAfter`),
+      ),
+    ) !== JSON.stringify(normalizedStringSet(snapshot.codeStartAfter))
   ) {
     throw new Error(`${taskId}: immutable manifest contract drift`);
   }

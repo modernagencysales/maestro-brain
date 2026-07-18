@@ -366,6 +366,75 @@ describe("deterministic integration wave application", () => {
     );
   });
 
+  it("normalizes manifest dependency order while preserving membership", () => {
+    const value = makeFixture({
+      laneSpecs: [{ files: ["a.ts"], taskId: "S03-T02" }],
+    });
+    const sortedDependencies = ["S02-T02", "S02-T04", "S03-T01"];
+    const manifestPath = resolve(
+      value.controlRoot,
+      "docs/superpowers/execution/maestro-brain/task-manifest.json",
+    );
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
+      tasks: Array<Record<string, unknown>>;
+    };
+    const task = manifest.tasks[0] as Record<string, unknown>;
+    task.codeStartAfter = ["S03-T01", "S02-T02", "S02-T04"];
+    writeJson(manifestPath, manifest);
+    for (const dependencyId of sortedDependencies) {
+      writeJson(
+        resolve(
+          value.evidenceDirectory,
+          "lane-results",
+          dependencyId,
+          "lane-result.json",
+        ),
+        {
+          taskId: dependencyId,
+          status: "accepted",
+          integrationHeadSha: value.baseSha,
+        },
+      );
+    }
+    const snapshot = value.lanes[0]?.snapshot as IntegrationWaveTaskSnapshot;
+    const input = rewriteSelection(value, {
+      selectedTasks: [{ ...snapshot, codeStartAfter: sortedDependencies }],
+    });
+
+    expect(applyIntegrationWave(input).includedTasks[0]?.taskId).toBe(
+      "S03-T02",
+    );
+  });
+
+  it("rejects manifest dependency membership drift after normalization", () => {
+    const value = makeFixture({
+      laneSpecs: [{ files: ["a.ts"], taskId: "S03-T02" }],
+    });
+    const manifestPath = resolve(
+      value.controlRoot,
+      "docs/superpowers/execution/maestro-brain/task-manifest.json",
+    );
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
+      tasks: Array<Record<string, unknown>>;
+    };
+    const task = manifest.tasks[0] as Record<string, unknown>;
+    task.codeStartAfter = ["S03-T01", "S02-T02"];
+    writeJson(manifestPath, manifest);
+    const snapshot = value.lanes[0]?.snapshot as IntegrationWaveTaskSnapshot;
+    const input = rewriteSelection(value, {
+      selectedTasks: [
+        {
+          ...snapshot,
+          codeStartAfter: ["S02-T02", "S02-T04", "S03-T01"],
+        },
+      ],
+    });
+
+    expect(() => applyIntegrationWave(input)).toThrow(
+      "immutable manifest contract drift",
+    );
+  });
+
   it("accepts a completely present range during recovery", () => {
     const value = makeFixture({
       laneSpecs: [{ files: ["a.ts"], taskId: "S01-T01" }],
