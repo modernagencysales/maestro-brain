@@ -420,11 +420,13 @@ export const validateParallelismContract = (
   const errors: string[] = [];
   const tasks = new Map(manifest.tasks.map((task) => [task.taskId, task]));
   const expectedEdges = new Set(
-    manifest.tasks.flatMap((task) =>
-      task.codeStartAfter.map((producerTaskId) =>
-        edgeKey(task.taskId, producerTaskId),
+    manifest.tasks
+      .filter((task) => task.kind !== "control")
+      .flatMap((task) =>
+        task.codeStartAfter.map((producerTaskId) =>
+          edgeKey(task.taskId, producerTaskId),
+        ),
       ),
-    ),
   );
   if (contract.schemaVersion !== "maestro-brain-parallelism-contract/v1") {
     errors.push(`unsupported schema ${String(contract.schemaVersion)}`);

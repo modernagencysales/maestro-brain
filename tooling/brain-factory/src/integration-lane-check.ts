@@ -71,6 +71,7 @@ const manifestFor = (
 export const validateIntegratedLanes = (
   input: IntegratedLaneCheckInput,
 ): void => {
+  // A v2 wave selection SHA-binds the exact lane-gate report.
   if (input.includedTasks.length === 0) throw new Error("no included tasks");
   if (input.waveSelection)
     validateIntegrationWaveSelection(input.waveSelection);

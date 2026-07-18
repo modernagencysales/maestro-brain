@@ -43,12 +43,12 @@ describe("Maestro Brain execution manifest", () => {
     ).toEqual(generated.tasks);
     expect(
       projection.tasks.flatMap((task) => task.classifiedCodeStartAfter),
-    ).toHaveLength(94);
+    ).toHaveLength(93);
     expect(
       projection.tasks
         .flatMap((task) => task.classifiedCodeStartAfter)
         .filter((dependency) => dependency.classification === "true"),
-    ).toHaveLength(44);
+    ).toHaveLength(43);
     expect(
       projection.tasks
         .flatMap((task) => task.classifiedCodeStartAfter)

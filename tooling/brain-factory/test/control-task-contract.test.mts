@@ -18,8 +18,13 @@ describe("Task 5 control-lane contract", () => {
         "tooling/brain-factory/test/integration-result-check.test.mts",
         "tooling/brain-factory/test/integration-wave.test.mts",
       ],
-      controlCommitChain: ["b0cc84c", "d62222b", "d9b697c", "36b8c7e"],
-      controlHeadSha: "36b8c7e",
+      controlCommitChain: [
+        "b0cc84cb3f26315d643df3580c0c8da75d29681e",
+        "d62222b6d21751c84d559aad50a5be7ebaac8b56",
+        "d9b697c04ed04e7d4954319dc9678139767865c8",
+        "36b8c7e108044facc375d6f483abfdfcc5b4a813",
+      ],
+      controlHeadSha: "36b8c7e108044facc375d6f483abfdfcc5b4a813",
     });
     expect(
       manifest.tasks.filter((task) => task.kind !== "control"),

@@ -29,6 +29,9 @@ const sameCommand = (left: GateCommand, right: GateCommand): boolean =>
   left.args.length === right.args.length &&
   left.args.every((argument, index) => argument === right.args[index]);
 
+// A v2 wave selection SHA-binds the exact lane-gate report; tooling receipts
+// must preserve that same immutable identity discipline.
+
 export const commandsForTaskFiles = (
   changedFiles: readonly string[],
   fileLocks: readonly string[],

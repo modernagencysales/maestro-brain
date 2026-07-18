@@ -184,8 +184,13 @@ const CONTROL_TASK: BrainTaskContract = {
   taskId: "S15-T01",
   title: "Task 5 D factory control checkpoint",
   tranche: "F1-control",
-  controlCommitChain: ["b0cc84c", "d62222b", "d9b697c", "36b8c7e"],
-  controlHeadSha: "36b8c7e",
+  controlCommitChain: [
+    "b0cc84cb3f26315d643df3580c0c8da75d29681e",
+    "d62222b6d21751c84d559aad50a5be7ebaac8b56",
+    "d9b697c04ed04e7d4954319dc9678139767865c8",
+    "36b8c7e108044facc375d6f483abfdfcc5b4a813",
+  ],
+  controlHeadSha: "36b8c7e108044facc375d6f483abfdfcc5b4a813",
 };
 
 const laneFor = (taskId: string): string => {
@@ -593,19 +598,22 @@ export const loadManifestProjection = (
 
   const tasks = manifest.tasks.map((task) => ({
     ...task,
-    classifiedCodeStartAfter: task.codeStartAfter.map((producerTaskId) => {
-      const dependency = contract.edges.find(
-        (edge) =>
-          edge.consumerTaskId === task.taskId &&
-          edge.producerTaskId === producerTaskId,
-      );
-      if (!dependency) {
-        return projectionError([
-          `${task.taskId}: missing classified dependency ${producerTaskId}`,
-        ]);
-      }
-      return dependency;
-    }),
+    classifiedCodeStartAfter:
+      task.kind === "control"
+        ? []
+        : task.codeStartAfter.map((producerTaskId) => {
+            const dependency = contract.edges.find(
+              (edge) =>
+                edge.consumerTaskId === task.taskId &&
+                edge.producerTaskId === producerTaskId,
+            );
+            if (!dependency) {
+              return projectionError([
+                `${task.taskId}: missing classified dependency ${producerTaskId}`,
+              ]);
+            }
+            return dependency;
+          }),
     collisions: contract.collisions
       .flatMap((collision): TaskCollisionMetadata[] => {
         if (collision.leftTaskId === task.taskId) {
@@ -669,7 +677,9 @@ export const validateManifest = (manifest: BrainTaskManifest): string[] => {
         );
       if (
         task.controlCommitChain?.length !== 4 ||
-        task.controlHeadSha !== "36b8c7e"
+        task.controlCommitChain.some((sha) => !/^[0-9a-f]{40}$/.test(sha)) ||
+        new Set(task.controlCommitChain).size !== 4 ||
+        task.controlHeadSha !== task.controlCommitChain.at(-1)
       )
         errors.push(
           `${task.taskId}: control task must bind the approved commit chain and head`,

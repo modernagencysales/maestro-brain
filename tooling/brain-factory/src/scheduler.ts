@@ -345,6 +345,7 @@ export const selectReadyTasks = ({
       task.fileInventoryStatus === "ready" &&
       task.kind !== "external" &&
       task.kind !== "release" &&
+      task.kind !== "control" &&
       !activeTaskIds.has(task.taskId) &&
       !completedTaskIds.has(task.taskId)
     ) {
