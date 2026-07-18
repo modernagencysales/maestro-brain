@@ -30,6 +30,7 @@ import {
 import {
   laneTrancheMatchesManifest,
   planIntegrationWave,
+  selectionFileSha256 as hashSelectionFile,
   type IntegrationWaveCandidate,
 } from "./integration-wave.js";
 import {
@@ -115,7 +116,7 @@ const releaseOwnership = request.preview
         GLOBAL_INTEGRATION_LOCK,
       ),
       owner: {
-        action: "launch-integration-wave-v2",
+        action: "launch-integration-wave-v3",
         at: new Date().toISOString(),
         baseSha,
         pid: process.pid,
@@ -157,8 +158,10 @@ try {
           `${integrationId}: promoted head`,
         );
         if (
-          promotion.schemaVersion !==
-            "maestro-brain-integration-wave-promotion/v2" ||
+          (promotion.schemaVersion !==
+            "maestro-brain-integration-wave-promotion/v2" &&
+            promotion.schemaVersion !==
+              "maestro-brain-integration-wave-promotion/v3") ||
           promotion.status !== "promoted" ||
           promotion.integrationId !== integrationId ||
           !gitIsAncestor(promotedHead, baseSha, root)
@@ -423,16 +426,19 @@ try {
         const rawPath = `${recordPath}.launch-1.raw`;
         const outcomePath = `${rawPath}.outcome.json`;
         const reservationToken = randomUUID();
+        const selectionContent = `${JSON.stringify(selection, null, 2)}\n`;
+        const selectionFileSha256 = hashSelectionFile(selectionContent);
         const reservation = {
           attempt: 0,
           baseSha,
           branch,
           integrationId,
           reservationToken,
-          schemaVersion: "maestro-brain-integration-wave-run/v2",
+          schemaVersion: "maestro-brain-integration-wave-run/v3",
           selection,
+          selectionFileSha256,
           selectionPath,
-          selectionSha256: selection.selectionSha256,
+          selectionPayloadSha256: selection.selectionPayloadSha256,
           status: "preparing",
           workdir,
         };
@@ -440,6 +446,12 @@ try {
           flag: "wx",
         });
         materializeImmutableWaveSelection(selectionPath, selection);
+        if (
+          hashSelectionFile(readFileSync(selectionPath, "utf8")) !==
+          selectionFileSha256
+        ) {
+          throw new Error("immutable wave selection file hash drift");
+        }
         runRtk(["git", "worktree", "add", "-B", branch, workdir, baseSha]);
         hydrateWorktreeDependencies(root, workdir);
         const identity = {
@@ -448,8 +460,9 @@ try {
           integrationId,
           mode: "integrate" as const,
           reservationToken,
+          selectionFileSha256,
           selectionPath,
-          selectionSha256: selection.selectionSha256,
+          selectionPayloadSha256: selection.selectionPayloadSha256,
           workdir,
         };
         const output = runRtkToFile(

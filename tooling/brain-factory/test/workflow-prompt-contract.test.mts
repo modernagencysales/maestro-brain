@@ -3,6 +3,12 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import {
+  verifyWaveRunInspection,
+  waveWorkflowArgs,
+  type WaveRunIdentity,
+} from "../src/integration-wave-launch.js";
+
 const workflows = {
   "brain-build-task": {
     evidencePath: "/lane-results/",
@@ -19,7 +25,7 @@ const workflows = {
   },
   "brain-integrate-wave": {
     evidencePath: "/integration/",
-    promptNodes: ["integrate", "review", "repair", "record"],
+    promptNodes: ["review", "repair", "record"],
   },
   "brain-release-evidence": {
     evidencePath: "/release/release-result.json",
@@ -36,6 +42,98 @@ const workflows = {
 } as const;
 
 describe("Fabro workflow prompt contracts", () => {
+  it("binds new wave launches to the two unambiguous v3 hashes", () => {
+    const identity = {
+      attempt: 2,
+      baseSha: "a".repeat(40),
+      integrationId: "wave-000001",
+      mode: "recover" as const,
+      reservationToken: "fixture",
+      runId: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+      selectionFileSha256: "b".repeat(64),
+      selectionPath: "/tmp/wave-selection.json",
+      selectionPayloadSha256: "c".repeat(64),
+      workdir: "/tmp/wave-workdir",
+    } satisfies WaveRunIdentity & { readonly runId: string };
+    const args = waveWorkflowArgs({
+      ...identity,
+      controlRoot: "/tmp/control",
+      evidenceDirectory: "/tmp/evidence",
+      workflow: "/tmp/workflow.fabro",
+    });
+    expect(args).toContain("integration-mode=wave-v3");
+    expect(args).toContain(
+      `selection_payload_sha256=${identity.selectionPayloadSha256}`,
+    );
+    expect(args).toContain(
+      `selection_file_sha256=${identity.selectionFileSha256}`,
+    );
+    expect(args.some((arg) => arg.startsWith("selection_sha256="))).toBe(false);
+
+    const inspection = {
+      run_id: identity.runId,
+      run_spec: {
+        settings: {
+          run: {
+            inputs: {
+              attempt: identity.attempt,
+              base_sha: identity.baseSha,
+              integration_id: identity.integrationId,
+              mode: identity.mode,
+              reservation_token: identity.reservationToken,
+              selection_file_sha256: identity.selectionFileSha256,
+              selection_path: identity.selectionPath,
+              selection_payload_sha256: identity.selectionPayloadSha256,
+              workdir: identity.workdir,
+            },
+            metadata: {
+              attempt: identity.attempt,
+              integration: identity.integrationId,
+              "integration-mode": "wave-v3",
+              reservation: identity.reservationToken,
+            },
+          },
+        },
+      },
+    };
+    expect(() => verifyWaveRunInspection(inspection, identity)).not.toThrow();
+    expect(() =>
+      verifyWaveRunInspection(
+        {
+          ...inspection,
+          run_spec: {
+            settings: {
+              run: {
+                ...inspection.run_spec.settings.run,
+                inputs: {
+                  ...inspection.run_spec.settings.run.inputs,
+                  selection_sha256: identity.selectionPayloadSha256,
+                },
+              },
+            },
+          },
+        },
+        identity,
+      ),
+    ).toThrow("legacy selection_sha256");
+    expect(() =>
+      waveWorkflowArgs({
+        ...identity,
+        controlRoot: "/tmp/control",
+        evidenceDirectory: "/tmp/evidence",
+        selectionSha256: identity.selectionPayloadSha256,
+        workflow: "/tmp/workflow.fabro",
+      } as Parameters<typeof waveWorkflowArgs>[0]),
+    ).toThrow("ambiguous selection hash");
+    expect(() =>
+      verifyWaveRunInspection(inspection, {
+        ...identity,
+        selectionFileSha256: identity.selectionPayloadSha256,
+        selectionPayloadSha256: identity.selectionFileSha256,
+      }),
+    ).toThrow("identity mismatch");
+  });
+
   it("requires amended task artifacts before lane green", () => {
     const laneGates = readFileSync(
       resolve(import.meta.dirname, "../src/lane-gates.mts"),
@@ -529,9 +627,9 @@ describe("Fabro workflow prompt contracts", () => {
     const review = wave
       .split("\n")
       .find((line) => line.trimStart().startsWith("review ["));
-    const integrate = wave
+    const deterministicApply = wave
       .split("\n")
-      .find((line) => line.trimStart().startsWith("integrate ["));
+      .find((line) => line.trimStart().startsWith("apply_integration_wave ["));
     const reviewGate = wave
       .split("\n")
       .find((line) => line.trimStart().startsWith("review_gate ["));
@@ -542,7 +640,18 @@ describe("Fabro workflow prompt contracts", () => {
       .split("\n")
       .find((line) => line.trimStart().startsWith("record ["));
     expect(wave).toContain("never use a repository-wide glob");
-    expect(wave).toContain("Never discover or add a late lane");
+    expect(wave).not.toMatch(/^\s*integrate \[/m);
+    expect(wave).not.toContain("#integrate");
+    expect(wave).toContain("selection_payload_sha256");
+    expect(wave).toContain("selection_file_sha256");
+    expect(wave).not.toContain("selection_sha256");
+    expect(wave).toContain("--selection-payload-sha256");
+    expect(wave).toContain("--selection-file-sha256");
+    expect(deterministicApply).toContain("apply-integration-wave.mts");
+    expect(deterministicApply).toContain("max_retries=0");
+    expect(deterministicApply).toContain('--mode \\"$MODE\\"');
+    expect(wave).toContain("preflight -> apply_integration_wave");
+    expect(wave).toContain("apply_integration_wave -> dependencies");
     expect(wave).toContain("same-wave edges");
     expect(review).toContain(
       "Preserve status ready_for_review through this review",
@@ -558,7 +667,7 @@ describe("Fabro workflow prompt contracts", () => {
     );
     expect(review).toContain("reviewed is not a valid status");
     expect(review).toContain(
-      "Preserve schemaVersion maestro-brain-integration-result/v2 and every integration-produced field",
+      "Preserve schemaVersion maestro-brain-integration-result/v3 and every integration-produced field",
     );
     expect(review).toContain(
       "canonical budget evidence is each selected lane's exact-head final lane-gate sourceSlices",
@@ -569,22 +678,6 @@ describe("Fabro workflow prompt contracts", () => {
     expect(reviewGate).toContain('.status == \\"ready_for_review\\"');
     expect(wave).toContain("integration-wave-selection-check.mts");
     expect(wave).toContain("hydrate-integration-dependencies.mts");
-    expect(integrate).toContain(
-      "Immediately after all selected source ranges are applied",
-    );
-    expect(integrate).toContain(
-      "before any Confect, Convex, manifest, or route codegen or focused check",
-    );
-    expect(integrate).toContain(
-      "Format every generated candidate changed by codegen before calculating net generatedFiles",
-    );
-    expect(integrate).toContain(
-      "exec tsx src/hydrate-integration-dependencies.mts --workdir",
-    );
-    expect(integrate).toMatch(
-      /all selected source ranges are applied.*hydrate-integration-dependencies\.mts.*Run centralized Confect/,
-    );
-    expect(wave).toContain("integrate -> dependencies");
     expect(wave).toContain("repair -> dependencies");
     expect(repair).toContain("max_visits=2");
     expect(repair).toContain("Never edit hand-authored product code or tests");

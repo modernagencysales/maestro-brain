@@ -1,7 +1,8 @@
-import { readJson } from "./integration-check-support.js";
+import { readFileSync } from "node:fs";
+
 import {
-  type IntegrationWaveSelection,
-  validateIntegrationWaveSelection,
+  INTEGRATION_WAVE_SCHEMA,
+  readIntegrationWaveSelection,
 } from "./integration-wave.js";
 
 const valueAfter = (flag: string): string | undefined => {
@@ -12,21 +13,29 @@ const valueAfter = (flag: string): string | undefined => {
 const selectionPath = valueAfter("--selection");
 const integrationId = valueAfter("--integration-id");
 const baseSha = valueAfter("--base");
-const selectionSha256 = valueAfter("--selection-sha256");
-if (!selectionPath || !integrationId || !baseSha || !selectionSha256) {
+const selectionPayloadSha256 = valueAfter("--selection-payload-sha256");
+const selectionFileSha256 = valueAfter("--selection-file-sha256");
+if (
+  process.argv.includes("--selection-sha256") ||
+  !selectionPath ||
+  !integrationId ||
+  !baseSha ||
+  !selectionPayloadSha256 ||
+  !selectionFileSha256
+) {
   throw new Error(
-    "usage: integration-wave-selection-check --selection ... --integration-id ... --base ... --selection-sha256 ...",
+    "usage: integration-wave-selection-check --selection ... --integration-id ... --base ... --selection-payload-sha256 ... --selection-file-sha256 ...",
   );
 }
-const selection = readJson(
-  selectionPath,
-) as unknown as IntegrationWaveSelection;
-validateIntegrationWaveSelection(selection);
+const read = readIntegrationWaveSelection(readFileSync(selectionPath, "utf8"));
 if (
-  selection.integrationId !== integrationId ||
-  selection.baseSha !== baseSha ||
-  selection.selectionSha256 !== selectionSha256
+  read.legacy ||
+  read.selection.schemaVersion !== INTEGRATION_WAVE_SCHEMA ||
+  read.selection.integrationId !== integrationId ||
+  read.selection.baseSha !== baseSha ||
+  read.selectionPayloadSha256 !== selectionPayloadSha256 ||
+  read.selectionFileSha256 !== selectionFileSha256
 ) {
-  throw new Error("integration wave selection launch identity mismatch");
+  throw new Error("integration wave v3 selection launch identity mismatch");
 }
-console.log(`${integrationId}: immutable wave selection passed`);
+console.log(`${integrationId}: immutable v3 wave selection passed`);
