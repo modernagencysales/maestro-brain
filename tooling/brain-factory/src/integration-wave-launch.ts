@@ -40,6 +40,9 @@ export interface LegacyV2WaveRunIdentity {
   readonly workdir: string;
 }
 
+export type VersionedWaveRunIdentity =
+  WaveRunIdentity | LegacyV2WaveRunIdentity;
+
 export const promotionAction = (
   controlHead: string,
   baseSha: string,
@@ -244,11 +247,24 @@ export const verifyLegacyV2WaveRunInspection = (
   }
 };
 
-export const verifyPassedWaveRunInspection = (
+export const verifyVersionedWaveRunInspection = (
   value: unknown,
-  expected: WaveRunIdentity & { readonly runId: string },
+  expected: VersionedWaveRunIdentity & { readonly runId: string },
 ): void => {
-  verifyWaveRunInspection(value, expected);
+  if (Object.hasOwn(expected, "selectionSha256")) {
+    verifyLegacyV2WaveRunInspection(
+      value,
+      expected as LegacyV2WaveRunIdentity & { readonly runId: string },
+    );
+    return;
+  }
+  verifyWaveRunInspection(
+    value,
+    expected as WaveRunIdentity & { readonly runId: string },
+  );
+};
+
+const verifySucceededWaveRunStatus = (value: unknown, runId: string): void => {
   const items = Array.isArray(value) ? value : [value];
   const run = record(items[0], "wave run");
   const statusValue = run.status;
@@ -260,8 +276,24 @@ export const verifyPassedWaveRunInspection = (
           "wave run status kind",
         );
   if (status !== "succeeded") {
-    throw new Error(`wave run ${expected.runId} is not succeeded (${status})`);
+    throw new Error(`wave run ${runId} did not succeed (${status})`);
   }
+};
+
+export const verifyPassedVersionedWaveRunInspection = (
+  value: unknown,
+  expected: VersionedWaveRunIdentity & { readonly runId: string },
+): void => {
+  verifyVersionedWaveRunInspection(value, expected);
+  verifySucceededWaveRunStatus(value, expected.runId);
+};
+
+export const verifyPassedWaveRunInspection = (
+  value: unknown,
+  expected: WaveRunIdentity & { readonly runId: string },
+): void => {
+  verifyWaveRunInspection(value, expected);
+  verifySucceededWaveRunStatus(value, expected.runId);
 };
 
 export const replaceWaveRunRecord = (

@@ -86,7 +86,7 @@ try {
     throw new Error(`${integrationId}: promoted waves cannot be superseded`);
   }
   const runRecordContent = readFileSync(runRecordPath, "utf8");
-  const selectionContent = readFileSync(selectionPath, "utf8");
+  const selectionContent = readFileSync(selectionPath);
   if (existsSync(supersessionPath)) {
     const existing = JSON.parse(readFileSync(supersessionPath, "utf8")) as {
       evidence?: unknown;

@@ -27,7 +27,7 @@ if (
     "usage: integration-wave-selection-check --selection ... --integration-id ... --base ... --selection-payload-sha256 ... --selection-file-sha256 ...",
   );
 }
-const read = readIntegrationWaveSelection(readFileSync(selectionPath, "utf8"));
+const read = readIntegrationWaveSelection(readFileSync(selectionPath));
 if (
   read.legacy ||
   read.selection.schemaVersion !== INTEGRATION_WAVE_SCHEMA ||

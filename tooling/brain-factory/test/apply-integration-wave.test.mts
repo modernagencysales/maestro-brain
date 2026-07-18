@@ -67,7 +67,9 @@ interface Fixture {
 }
 
 const makeFixture = (options?: {
+  readonly deletedGenerated?: boolean;
   readonly generated?: boolean;
+  readonly generatedBase?: boolean;
   readonly laneSpecs?: readonly {
     readonly files: readonly string[];
     readonly taskId: string;
@@ -90,6 +92,15 @@ const makeFixture = (options?: {
   git(workdir, "config", "user.name", "Wave Test");
   write(resolve(workdir, ".gitignore"), ".tokensave/\n");
   write(resolve(workdir, "base.txt"), "base\n");
+  if (options?.generatedBase) {
+    write(
+      resolve(
+        workdir,
+        "packages/template-core/src/generated/confectManifest.ts",
+      ),
+      "export const generated = true;\n",
+    );
+  }
   git(workdir, "add", ".");
   git(workdir, "commit", "-qm", "test: base");
   const baseSha = git(workdir, "rev-parse", "HEAD");
@@ -239,6 +250,21 @@ const makeFixture = (options?: {
           ),
           "export const generated = true;\n",
         );
+      }
+      if (key === "pnpm confect:codegen" && options?.deletedGenerated) {
+        rmSync(
+          resolve(
+            cwd,
+            "packages/template-core/src/generated/confectManifest.ts",
+          ),
+          { force: true },
+        );
+      }
+      if (
+        key.startsWith("pnpm exec prettier --write --") &&
+        args.slice(5).some((file) => !existsSync(resolve(cwd, file)))
+      ) {
+        throw new Error("prettier received a missing generated file");
       }
       return "";
     },
@@ -444,6 +470,26 @@ describe("deterministic integration wave application", () => {
       "packages/template-core/src/generated/confectManifest.ts",
     ]);
     expect(git(value.workdir, "status", "--porcelain")).toBe("");
+  });
+
+  it("records generated deletions without passing absent paths to Prettier", () => {
+    const value = makeFixture({
+      deletedGenerated: true,
+      generatedBase: true,
+      laneSpecs: [{ files: ["a.ts"], taskId: "S01-T01" }],
+    });
+    const result = applyIntegrationWave(value.input);
+    expect(result.generatedFiles).toEqual([
+      "packages/template-core/src/generated/confectManifest.ts",
+    ]);
+    expect(
+      existsSync(
+        resolve(
+          value.workdir,
+          "packages/template-core/src/generated/confectManifest.ts",
+        ),
+      ),
+    ).toBe(false);
   });
 
   it("rejects a generator that commits outside the allowlist", () => {

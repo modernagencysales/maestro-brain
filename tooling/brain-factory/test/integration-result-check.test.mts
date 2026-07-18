@@ -467,6 +467,58 @@ describe("normal integration result check", () => {
     ).toThrow("v3 integration selection file hash mismatch");
   });
 
+  it("hashes selection file identity from raw bytes before UTF-8 decoding", () => {
+    const value = waveFixture();
+    const selection = readRecord(value.selectionPath);
+    const selectedTasks = selection.selectedTasks as Record<string, unknown>[];
+    const replacementTranche = "F0-\ufffd";
+    selectedTasks[0] = { ...selectedTasks[0], tranche: replacementTranche };
+    delete selection.selectionPayloadSha256;
+    selection.selectionPayloadSha256 = selectionPayloadSha256(selection);
+    writeJson(value.selectionPath, selection);
+
+    const manifest = readRecord(value.manifestPath);
+    const manifestTask = (manifest.tasks as Record<string, unknown>[])[0];
+    if (!manifestTask) throw new Error("fixture manifest task missing");
+    manifestTask.tranche = replacementTranche;
+    writeJson(value.manifestPath, manifest);
+    const lane = readRecord(value.lanePath);
+    lane.tranche = replacementTranche;
+    writeJson(value.lanePath, lane);
+    const result = readRecord(value.resultPath);
+    result.manifestTranches = [replacementTranche];
+    const includedTask = (result.includedTasks as Record<string, unknown>[])[0];
+    if (!includedTask) throw new Error("fixture included task missing");
+    includedTask.tranche = replacementTranche;
+    result.selectionPayloadSha256 = selection.selectionPayloadSha256;
+    const validBytes = readFileSync(value.selectionPath);
+    result.selectionFileSha256 = createHash("sha256")
+      .update(validBytes)
+      .digest("hex");
+    writeJson(value.resultPath, result);
+
+    const marker = Buffer.from("\ufffd");
+    const offset = validBytes.indexOf(marker);
+    expect(offset).toBeGreaterThanOrEqual(0);
+    const invalidBytes = Buffer.concat([
+      validBytes.subarray(0, offset),
+      Buffer.from([0xff]),
+      validBytes.subarray(offset + marker.length),
+    ]);
+    expect(invalidBytes.toString("utf8")).toBe(validBytes.toString("utf8"));
+    writeFileSync(value.selectionPath, invalidBytes);
+
+    expect(() =>
+      validateIntegrationResult({
+        controlRoot: value.controlRoot,
+        evidenceDirectory: value.evidence,
+        expectedWorkdir: value.workdir,
+        integrationId: value.integrationId,
+        selectionPath: value.selectionPath,
+      }),
+    ).toThrow("v3 integration selection file hash mismatch");
+  });
+
   it("rejects ambiguous legacy hash fields in a v3 result", () => {
     const value = waveFixture();
     const result = readRecord(value.resultPath);

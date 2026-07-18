@@ -115,7 +115,7 @@ const stringArray = (value: unknown, label: string): readonly string[] => {
 const sourceFromContents = (input: {
   readonly expectedIntegrationId: string;
   readonly runRecordContent: string;
-  readonly selectionContent: string;
+  readonly selectionContent: string | Uint8Array;
   readonly selectionPath: string;
 }): SupersessionSource => {
   const expectedIntegrationId = waveId(
@@ -273,7 +273,7 @@ export const buildIntegrationWaveSupersessionReceipt = (input: {
   readonly reason: string;
   readonly runInspections: readonly unknown[];
   readonly runRecordContent: string;
-  readonly selectionContent: string;
+  readonly selectionContent: string | Uint8Array;
   readonly selectionPath: string;
 }): IntegrationWaveSupersessionReceipt => {
   const source = sourceFromContents(input);
@@ -332,7 +332,7 @@ export const validateIntegrationWaveSupersessionReceipt = (input: {
   readonly isAncestor: (ancestor: string, descendant: string) => boolean;
   readonly receipt: unknown;
   readonly runRecordContent: string;
-  readonly selectionContent: string;
+  readonly selectionContent: string | Uint8Array;
   readonly selectionPath: string;
 }): IntegrationWaveSupersessionReceipt => {
   const source = sourceFromContents(input);

@@ -544,9 +544,19 @@ const generateStableOutput = (input: {
         `generation changed unauthorized files: ${unauthorized.join(", ")}`,
       );
     }
-    if (generatedFiles.length > 0) {
+    const generatedFilesToFormat = generatedFiles.filter((file) =>
+      existsSync(resolve(input.workdir, file)),
+    );
+    if (generatedFilesToFormat.length > 0) {
       input.hooks.run(
-        ["pnpm", "exec", "prettier", "--write", "--", ...generatedFiles],
+        [
+          "pnpm",
+          "exec",
+          "prettier",
+          "--write",
+          "--",
+          ...generatedFilesToFormat,
+        ],
         input.workdir,
       );
     }
@@ -554,9 +564,16 @@ const generateStableOutput = (input: {
       generatedFiles.map((file) => [file, fileDigest(input.workdir, file)]),
     );
     runGenerationPlan();
-    if (generatedFiles.length > 0) {
+    if (generatedFilesToFormat.length > 0) {
       input.hooks.run(
-        ["pnpm", "exec", "prettier", "--write", "--", ...generatedFiles],
+        [
+          "pnpm",
+          "exec",
+          "prettier",
+          "--write",
+          "--",
+          ...generatedFilesToFormat,
+        ],
         input.workdir,
       );
     }
@@ -629,8 +646,7 @@ export const applyIntegrationWave = (
   if (sha256(selectionBytes) !== selectionFileDigest) {
     throw new Error("selection file hash mismatch");
   }
-  const selectionContent = selectionBytes.toString("utf8");
-  const read = readIntegrationWaveSelection(selectionContent);
+  const read = readIntegrationWaveSelection(selectionBytes);
   if (read.legacy || read.selection.schemaVersion !== INTEGRATION_WAVE_SCHEMA) {
     throw new Error("deterministic apply requires a v3 selection");
   }

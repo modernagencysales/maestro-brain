@@ -16,9 +16,11 @@ import {
   materializeImmutableWaveSelection,
   replaceWaveRunRecord,
   verifyWaveRunInspection,
+  verifyVersionedWaveRunInspection,
   waveWorkflowArgs,
   waveModeForWorktree,
   waveWorktreeRecoveryAction,
+  type LegacyV2WaveRunIdentity,
   type WaveRunIdentity,
 } from "./integration-wave-launch.js";
 import {
@@ -121,7 +123,7 @@ try {
     );
   }
   const selectionRead = readIntegrationWaveSelection(
-    readFileSync(selectionPath, "utf8"),
+    readFileSync(selectionPath),
   );
   const selection = selectionRead.selection;
   if (
@@ -250,7 +252,7 @@ try {
   const identityFor = (
     mode: "integrate" | "recover",
     attempt: number,
-  ): WaveRunIdentity =>
+  ): WaveRunIdentity | LegacyV2WaveRunIdentity =>
     ({
       attempt,
       baseSha,
@@ -265,7 +267,7 @@ try {
             selectionPayloadSha256: selectionRead.selectionPayloadSha256,
           }),
       workdir,
-    }) as WaveRunIdentity;
+    }) as WaveRunIdentity | LegacyV2WaveRunIdentity;
   let runId =
     typeof runRecord.runId === "string"
       ? fabroRunId(runRecord.runId, "recorded wave run ID")
@@ -277,7 +279,7 @@ try {
       );
     }
     const rawPath = `${recordPath}.launch-1.raw`;
-    const integrateIdentity = identityFor("integrate", 1);
+    const integrateIdentity = identityFor("integrate", 1) as WaveRunIdentity;
     runId = launchOrDiscover(
       integrateIdentity,
       rawPath,
@@ -297,7 +299,7 @@ try {
   const activeMode =
     runRecord.activeMode === "recover" ? "recover" : ("integrate" as const);
   const exactInspection = inspect(runId);
-  verifyWaveRunInspection(exactInspection, {
+  verifyVersionedWaveRunInspection(exactInspection, {
     ...identityFor(activeMode, Number(runRecord.attempt ?? 1)),
     runId,
   });
@@ -337,7 +339,10 @@ try {
     const rawPath = `${recordPath}.launch-${attempt}.raw`;
     const outcomePath = `${rawPath}.outcome.json`;
     const recoveryMode = waveModeForWorktree(baseSha, worktreeHead);
-    const recoveryIdentity = identityFor(recoveryMode, attempt);
+    const recoveryIdentity = identityFor(
+      recoveryMode,
+      attempt,
+    ) as WaveRunIdentity;
     const recoveryRunId = launchOrDiscover(
       recoveryIdentity,
       rawPath,

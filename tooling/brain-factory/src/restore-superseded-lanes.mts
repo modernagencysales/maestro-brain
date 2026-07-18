@@ -115,7 +115,7 @@ const waveEvidence = (integrationId: string): SupersededWaveEvidence => {
       resolve(integrationDirectory, "promotion.json"),
     ),
     runRecordContent: readFileSync(runRecordPath, "utf8"),
-    selectionContent: readFileSync(selectionPath, "utf8"),
+    selectionContent: readFileSync(selectionPath),
     selectionPath,
     supersessionReceipt: JSON.parse(readFileSync(supersessionPath, "utf8")),
   };

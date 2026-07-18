@@ -18,7 +18,7 @@ export interface SupersededWaveEvidence {
   readonly integrationResult: unknown;
   readonly promotionExists: boolean;
   readonly runRecordContent: string;
-  readonly selectionContent: string;
+  readonly selectionContent: string | Uint8Array;
   readonly selectionPath: string;
   readonly supersessionReceipt: unknown;
 }

@@ -40,7 +40,9 @@ import {
   promotionAction,
   replaceWaveRunRecord,
   verifyLegacyV2WaveRunInspection,
+  verifyPassedVersionedWaveRunInspection,
   verifyPassedWaveRunInspection,
+  verifyVersionedWaveRunInspection,
   verifyWaveRunInspection,
   waveModeForWorktree,
   waveWorktreeRecoveryAction,
@@ -88,8 +90,8 @@ const candidate = (value: BrainTaskContract): IntegrationWaveCandidate => ({
 const legacySelection = (
   selection: IntegrationWaveSelectionV3,
 ): IntegrationWaveSelectionV2 => {
-  const { selectionPayloadSha256: _selectionPayloadSha256, ...v3Payload } =
-    selection;
+  const { selectionPayloadSha256, ...v3Payload } = selection;
+  void selectionPayloadSha256;
   const payload = {
     ...v3Payload,
     schemaVersion: LEGACY_INTEGRATION_WAVE_SCHEMA,
@@ -330,12 +332,15 @@ describe("integration wave planner", () => {
       task("S02-T04", "D2-domain-bodies"),
       task("S03-T03", "D2-domain-bodies"),
     ];
+    const firstTask = tasks[0];
+    const secondTask = tasks[1];
+    if (!firstTask || !secondTask) throw new Error("fixture tasks missing");
     const selection = planIntegrationWave({
       baseSha: "base",
       candidates: [
-        candidate(tasks[0]!),
+        candidate(firstTask),
         {
-          ...candidate(tasks[1]!),
+          ...candidate(secondTask),
           reproofRequestSha256: "a".repeat(64),
         },
       ],
@@ -979,6 +984,7 @@ describe("integration wave planner", () => {
     };
     const inspection = {
       run_id: identity.runId,
+      status: { kind: "succeeded" },
       run_spec: {
         settings: {
           run: {
@@ -1005,6 +1011,18 @@ describe("integration wave planner", () => {
     expect(() =>
       verifyLegacyV2WaveRunInspection(inspection, identity),
     ).not.toThrow();
+    expect(() =>
+      verifyVersionedWaveRunInspection(inspection, identity),
+    ).not.toThrow();
+    expect(() =>
+      verifyPassedVersionedWaveRunInspection(inspection, identity),
+    ).not.toThrow();
+    expect(() =>
+      verifyPassedVersionedWaveRunInspection(
+        { ...inspection, status: { kind: "running" } },
+        identity,
+      ),
+    ).toThrow("did not succeed");
     expect(() =>
       verifyLegacyV2WaveRunInspection(
         {

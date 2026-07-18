@@ -19,7 +19,7 @@ import {
 import { runRtk } from "./process.js";
 import {
   promotionAction,
-  verifyPassedWaveRunInspection,
+  verifyPassedVersionedWaveRunInspection,
 } from "./integration-wave-launch.js";
 
 const valueAfter = (flag: string): string | undefined => {
@@ -68,9 +68,7 @@ const selectionPath = safeAbsolutePath(
   runRecord.selectionPath,
   "wave selection path",
 );
-const selectionRead = readIntegrationWaveSelection(
-  readFileSync(selectionPath, "utf8"),
-);
+const selectionRead = readIntegrationWaveSelection(readFileSync(selectionPath));
 const selection: IntegrationWaveSelection = selectionRead.selection;
 const legacy = runSchema === "maestro-brain-integration-wave-run/v2";
 if (
@@ -144,7 +142,7 @@ const releaseOwnership = acquireIntegrationOwnership({
 try {
   const runId = fabroRunId(runRecord.runId, "wave run ID");
   const attempt = Number(runRecord.attempt);
-  const activeMode =
+  const activeMode: "integrate" | "recover" =
     runRecord.activeMode === "recover" ? "recover" : "integrate";
   const reservationToken = string(
     runRecord.reservationToken,
@@ -174,13 +172,13 @@ try {
         }),
     workdir,
   };
-  verifyPassedWaveRunInspection(
+  verifyPassedVersionedWaveRunInspection(
     JSON.parse(
       runRtk(["fabro", "inspect", runId, "--json", "--quiet"], {
         quiet: true,
       }),
     ),
-    inspectionIdentity as Parameters<typeof verifyPassedWaveRunInspection>[1],
+    inspectionIdentity,
   );
   const branchHead = gitSha(
     runRtk(["git", "rev-parse", `refs/heads/fabro/brain-${integrationId}`], {

@@ -182,7 +182,7 @@ try {
             gitIsAncestor(ancestor, descendant, root),
           receipt: readJson(supersessionPath),
           runRecordContent: readFileSync(resolve(runs, name), "utf8"),
-          selectionContent: readFileSync(selectionPath, "utf8"),
+          selectionContent: readFileSync(selectionPath),
           selectionPath,
         });
       },
@@ -447,8 +447,7 @@ try {
         });
         materializeImmutableWaveSelection(selectionPath, selection);
         if (
-          hashSelectionFile(readFileSync(selectionPath, "utf8")) !==
-          selectionFileSha256
+          hashSelectionFile(readFileSync(selectionPath)) !== selectionFileSha256
         ) {
           throw new Error("immutable wave selection file hash drift");
         }

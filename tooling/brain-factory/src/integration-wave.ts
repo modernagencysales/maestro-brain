@@ -66,7 +66,7 @@ export interface ReadIntegrationWaveSelectionResult {
   readonly legacy: boolean;
 }
 
-const sha256 = (value: string): string =>
+const sha256 = (value: string | Uint8Array): string =>
   createHash("sha256").update(value).digest("hex");
 
 const canonicalJsonString = (
@@ -168,7 +168,8 @@ export const canonicalSelectionPayload = (value: unknown): string =>
 export const selectionPayloadSha256 = (value: unknown): string =>
   sha256(canonicalSelectionPayload(value));
 
-export const selectionFileSha256 = (content: string): string => sha256(content);
+export const selectionFileSha256 = (content: string | Uint8Array): string =>
+  sha256(content);
 
 const sortedUnique = (values: readonly string[]): string[] =>
   [...new Set(values)].sort();
@@ -631,9 +632,13 @@ export const validateLaunchableIntegrationWaveSelection = (
 };
 
 export const readIntegrationWaveSelection = (
-  content: string,
+  content: string | Uint8Array,
 ): ReadIntegrationWaveSelectionResult => {
-  const parsed = JSON.parse(content) as unknown;
+  const text =
+    typeof content === "string"
+      ? content
+      : Buffer.from(content).toString("utf8");
+  const parsed = JSON.parse(text) as unknown;
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     throw new Error("integration wave selection must be an object");
   }

@@ -105,7 +105,7 @@ const validatedIntegrationEnvelope = (
       );
     }
     const selectionRead = readIntegrationWaveSelection(
-      readFileSync(input.selectionPath, "utf8"),
+      readFileSync(input.selectionPath),
     );
     waveSelection = selectionRead.selection;
     const selectedTranches = [
