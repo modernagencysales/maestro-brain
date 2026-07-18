@@ -3,15 +3,24 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { git } from "./integration-check-support.js";
+import { buildManifest } from "./manifest.js";
 
 const valueAfter = (flag: string): string | undefined => {
   const i = process.argv.indexOf(flag);
   return i >= 0 ? process.argv[i + 1] : undefined;
 };
 const workdir = resolve(valueAfter("--workdir") ?? process.cwd());
+const controlRoot = resolve(valueAfter("--control-root") ?? process.cwd());
 const evidenceRoot = valueAfter("--evidence");
 if (!evidenceRoot) throw new Error("--evidence is required");
 const headSha = git(workdir, ["rev-parse", "HEAD"]);
+const control = buildManifest().tasks.find((task) => task.taskId === "S15-T01");
+if (
+  !control ||
+  control.kind !== "control" ||
+  control.controlHeadSha !== headSha
+)
+  throw new Error("worktree HEAD is not the authorized S15-T01 control head");
 if (git(workdir, ["status", "--porcelain"]) !== "")
   throw new Error("control worktree is not clean");
 const commands: readonly (readonly [string, readonly string[]])[] = [
@@ -42,7 +51,10 @@ const commands: readonly (readonly [string, readonly string[]])[] = [
   ["pnpm", ["brain:factory:check"]],
 ];
 const output = commands.map(([program, args]) => {
-  const result = spawnSync(program, args, { cwd: workdir, encoding: "utf8" });
+  const result = spawnSync("rtk", [program, ...args], {
+    cwd: args[0] === "brain:factory:check" ? controlRoot : workdir,
+    encoding: "utf8",
+  });
   if (result.status !== 0)
     throw new Error(`${program} ${args.join(" ")} failed`);
   return {
