@@ -1,17 +1,119 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { isIntegrationOwnedGeneratedFile } from "../src/lane-ownership.js";
 import {
   buildManifest,
+  loadManifestProjection,
+  MANIFEST_RELATIVE,
   PLAN_RELATIVE,
   parseTaskPacketAuditRows,
   REPO_ROOT,
   readyWidth,
   validateManifest,
 } from "../src/manifest.js";
+import { PARALLELISM_CONTRACT_RELATIVE } from "../src/parallelism-contract.js";
+
+const copyFixture = (relative: string, root: string): void => {
+  const target = join(root, relative);
+  mkdirSync(dirname(target), { recursive: true });
+  writeFileSync(target, readFileSync(join(REPO_ROOT, relative)));
+};
 
 describe("Maestro Brain execution manifest", () => {
+  it("projects every dependency classification and collision without changing task contracts", () => {
+    const projection = loadManifestProjection();
+    const generated = buildManifest();
+
+    expect(projection.manifest).toEqual(generated);
+    expect(projection.tasks).toHaveLength(56);
+    expect(
+      projection.tasks.map(
+        ({
+          classifiedCodeStartAfter: _dependencies,
+          collisions: _collisions,
+          ...task
+        }) => task,
+      ),
+    ).toEqual(generated.tasks);
+    expect(
+      projection.tasks.flatMap((task) => task.classifiedCodeStartAfter),
+    ).toHaveLength(93);
+    expect(
+      projection.tasks
+        .flatMap((task) => task.classifiedCodeStartAfter)
+        .filter((dependency) => dependency.classification === "true"),
+    ).toHaveLength(43);
+    expect(
+      projection.tasks
+        .flatMap((task) => task.classifiedCodeStartAfter)
+        .filter((dependency) => dependency.classification === "contract"),
+    ).toHaveLength(50);
+
+    const providerSetup = projection.tasks.find(
+      (task) => task.taskId === "S04-T01",
+    );
+    expect(providerSetup?.classifiedCodeStartAfter).toEqual([
+      expect.objectContaining({
+        classification: "contract",
+        producerTaskId: "S00-T03",
+      }),
+      expect.objectContaining({
+        classification: "contract",
+        producerTaskId: "S01-T02",
+      }),
+    ]);
+    expect(providerSetup?.codeStartAfter).toEqual(["S00-T03", "S01-T02"]);
+    expect(providerSetup?.acceptanceAfter).toBe(
+      generated.tasks.find((task) => task.taskId === "S04-T01")
+        ?.acceptanceAfter,
+    );
+
+    const headless = projection.tasks.find((task) => task.taskId === "S11-T02");
+    expect(headless?.collisions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          otherTaskId: "S02-T02",
+          paths: expect.arrayContaining([
+            "packages/convex/confect/http.ts",
+            "packages/convex/confect/manifest/executor.ts",
+          ]),
+          policy: "serialize",
+        }),
+      ]),
+    );
+  });
+
+  it("rejects checked-in manifest plan and task hash drift before projection", () => {
+    const root = mkdtempSync(join(tmpdir(), "manifest-projection-"));
+    for (const relative of [
+      PLAN_RELATIVE,
+      MANIFEST_RELATIVE,
+      PARALLELISM_CONTRACT_RELATIVE,
+    ]) {
+      copyFixture(relative, root);
+    }
+    const path = join(root, MANIFEST_RELATIVE);
+    const manifest = JSON.parse(readFileSync(path, "utf8")) as {
+      planSha256: string;
+      tasks: Array<{ taskBlockHash: string; taskId: string }>;
+    };
+    manifest.planSha256 = "0".repeat(64);
+    manifest.tasks[0]!.taskBlockHash = "f".repeat(64);
+    writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`);
+
+    expect(() => loadManifestProjection(root)).toThrow(
+      /checked-in manifest plan hash .* generated plan hash/,
+    );
+
+    manifest.planSha256 = buildManifest(root).planSha256;
+    writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`);
+    expect(() => loadManifestProjection(root)).toThrow(
+      /S00-T01: checked-in task hash .* generated task hash/,
+    );
+  });
+
   it("preserves every audited task and classification", () => {
     const manifest = buildManifest();
     expect(validateManifest(manifest)).toEqual([]);

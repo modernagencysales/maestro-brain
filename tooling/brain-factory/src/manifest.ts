@@ -3,6 +3,15 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  loadParallelismContract,
+  validateParallelismContract,
+  verifyParallelismContractArtifacts,
+  type ParallelismCollision,
+  type ParallelismContract,
+  type ParallelismEdge,
+} from "./parallelism-contract.js";
+
 export const PLAN_RELATIVE =
   "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md";
 export const MANIFEST_RELATIVE =
@@ -52,6 +61,26 @@ export interface BrainTaskManifest {
   readonly planSha256: string;
   readonly schemaVersion: "maestro-brain-task-manifest/v1";
   readonly tasks: readonly BrainTaskContract[];
+}
+
+export type ClassifiedCodeStartDependency = ParallelismEdge;
+
+export interface TaskCollisionMetadata {
+  readonly mandatorySameWave?: true;
+  readonly otherTaskId: string;
+  readonly paths: readonly string[];
+  readonly policy: ParallelismCollision["policy"];
+}
+
+export interface ProjectedBrainTaskContract extends BrainTaskContract {
+  readonly classifiedCodeStartAfter: readonly ClassifiedCodeStartDependency[];
+  readonly collisions: readonly TaskCollisionMetadata[];
+}
+
+export interface BrainTaskManifestProjection {
+  readonly contract: ParallelismContract;
+  readonly manifest: BrainTaskManifest;
+  readonly tasks: readonly ProjectedBrainTaskContract[];
 }
 
 const START_OVERRIDES: Readonly<Record<string, readonly string[]>> = {
@@ -472,6 +501,110 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
     schemaVersion: "maestro-brain-task-manifest/v1",
     tasks,
   };
+};
+
+const projectionError = (errors: readonly string[]): never => {
+  throw new Error(
+    `manifest parallelism projection failed:\n${errors
+      .map((error) => `- ${error}`)
+      .join("\n")}`,
+  );
+};
+
+export const loadManifestProjection = (
+  root = REPO_ROOT,
+): BrainTaskManifestProjection => {
+  const manifest = JSON.parse(
+    readFileSync(resolve(root, MANIFEST_RELATIVE), "utf8"),
+  ) as BrainTaskManifest;
+  const generated = buildManifest(root);
+  if (manifest.planSha256 !== generated.planSha256) {
+    projectionError([
+      `checked-in manifest plan hash ${manifest.planSha256} does not match generated plan hash ${generated.planSha256}`,
+    ]);
+  }
+
+  const generatedTasks = new Map(
+    generated.tasks.map((task) => [task.taskId, task]),
+  );
+  const taskHashErrors = manifest.tasks.flatMap((task) => {
+    const expected = generatedTasks.get(task.taskId);
+    if (!expected)
+      return [`${task.taskId}: checked-in task is absent from generated plan`];
+    return task.taskBlockHash === expected.taskBlockHash
+      ? []
+      : [
+          `${task.taskId}: checked-in task hash ${task.taskBlockHash} does not match generated task hash ${expected.taskBlockHash}`,
+        ];
+  });
+  for (const task of generated.tasks) {
+    if (!manifest.tasks.some((candidate) => candidate.taskId === task.taskId)) {
+      taskHashErrors.push(
+        `${task.taskId}: generated task is absent from checked-in manifest`,
+      );
+    }
+  }
+  if (taskHashErrors.length > 0) projectionError(taskHashErrors);
+  if (JSON.stringify(manifest) !== JSON.stringify(generated)) {
+    projectionError([
+      "checked-in manifest does not match the generated task contract",
+    ]);
+  }
+
+  const contract = loadParallelismContract(root);
+  const errors = [
+    ...validateManifest(manifest),
+    ...validateParallelismContract(contract, manifest),
+    ...verifyParallelismContractArtifacts(contract, manifest, root),
+  ];
+  if (errors.length > 0) projectionError(errors);
+
+  const tasks = manifest.tasks.map((task) => ({
+    ...task,
+    classifiedCodeStartAfter: task.codeStartAfter.map((producerTaskId) => {
+      const dependency = contract.edges.find(
+        (edge) =>
+          edge.consumerTaskId === task.taskId &&
+          edge.producerTaskId === producerTaskId,
+      );
+      if (!dependency) {
+        return projectionError([
+          `${task.taskId}: missing classified dependency ${producerTaskId}`,
+        ]);
+      }
+      return dependency;
+    }),
+    collisions: contract.collisions
+      .flatMap((collision): TaskCollisionMetadata[] => {
+        if (collision.leftTaskId === task.taskId) {
+          return [
+            {
+              otherTaskId: collision.rightTaskId,
+              paths: collision.paths,
+              policy: collision.policy,
+              ...(collision.mandatorySameWave === true
+                ? { mandatorySameWave: true as const }
+                : {}),
+            },
+          ];
+        }
+        if (collision.rightTaskId === task.taskId) {
+          return [
+            {
+              otherTaskId: collision.leftTaskId,
+              paths: collision.paths,
+              policy: collision.policy,
+              ...(collision.mandatorySameWave === true
+                ? { mandatorySameWave: true as const }
+                : {}),
+            },
+          ];
+        }
+        return [];
+      })
+      .sort((left, right) => left.otherTaskId.localeCompare(right.otherTaskId)),
+  }));
+  return { contract, manifest, tasks };
 };
 
 export const validateManifest = (manifest: BrainTaskManifest): string[] => {
