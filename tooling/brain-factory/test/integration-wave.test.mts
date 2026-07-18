@@ -39,6 +39,7 @@ import {
   materializeImmutableWaveSelection,
   promotionAction,
   replaceWaveRunRecord,
+  verifyLegacyV2WaveRunInspection,
   verifyPassedWaveRunInspection,
   verifyWaveRunInspection,
   waveModeForWorktree,
@@ -964,7 +965,7 @@ describe("integration wave planner", () => {
     rmSync(root, { recursive: true });
   });
 
-  it("binds recovery to exact Fabro labels and inputs", () => {
+  it("binds legacy recovery to exact v2 Fabro labels and inputs", () => {
     const identity = {
       attempt: 2,
       baseSha: "a".repeat(40),
@@ -1001,18 +1002,73 @@ describe("integration wave planner", () => {
         },
       },
     };
+    expect(() =>
+      verifyLegacyV2WaveRunInspection(inspection, identity),
+    ).not.toThrow();
+    expect(() =>
+      verifyLegacyV2WaveRunInspection(
+        {
+          ...inspection,
+          run_spec: {
+            settings: {
+              run: {
+                ...inspection.run_spec.settings.run,
+                inputs: {
+                  ...inspection.run_spec.settings.run.inputs,
+                  selection_sha256: "c".repeat(64),
+                },
+              },
+            },
+          },
+        },
+        identity,
+      ),
+    ).toThrow("identity mismatch");
+  });
+
+  it("binds v3 recovery to both selection hashes", () => {
+    const identity = {
+      attempt: 2,
+      baseSha: "a".repeat(40),
+      integrationId: "wave-000001",
+      mode: "recover" as const,
+      reservationToken: "fixture",
+      runId: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+      selectionFileSha256: "c".repeat(64),
+      selectionPath: "/tmp/wave-selection.json",
+      selectionPayloadSha256: "b".repeat(64),
+      workdir: "/tmp/wave-workdir",
+    };
+    const inspection = {
+      run_id: identity.runId,
+      status: { kind: "succeeded" },
+      run_spec: {
+        settings: {
+          run: {
+            inputs: {
+              attempt: identity.attempt,
+              base_sha: identity.baseSha,
+              integration_id: identity.integrationId,
+              mode: identity.mode,
+              reservation_token: identity.reservationToken,
+              selection_file_sha256: identity.selectionFileSha256,
+              selection_path: identity.selectionPath,
+              selection_payload_sha256: identity.selectionPayloadSha256,
+              workdir: identity.workdir,
+            },
+            metadata: {
+              attempt: identity.attempt,
+              integration: identity.integrationId,
+              "integration-mode": "wave-v3",
+              reservation: identity.reservationToken,
+            },
+          },
+        },
+      },
+    };
     expect(() => verifyWaveRunInspection(inspection, identity)).not.toThrow();
     expect(() =>
-      verifyPassedWaveRunInspection(
-        { ...inspection, status: { kind: "failed" } },
-        identity,
-      ),
-    ).toThrow("is not succeeded");
-    expect(() =>
-      verifyPassedWaveRunInspection(
-        { ...inspection, status: { kind: "succeeded" } },
-        identity,
-      ),
+      verifyPassedWaveRunInspection(inspection, identity),
     ).not.toThrow();
     expect(() =>
       verifyWaveRunInspection(
@@ -1024,7 +1080,7 @@ describe("integration wave planner", () => {
                 ...inspection.run_spec.settings.run,
                 inputs: {
                   ...inspection.run_spec.settings.run.inputs,
-                  selection_sha256: "c".repeat(64),
+                  selection_file_sha256: "d".repeat(64),
                 },
               },
             },
