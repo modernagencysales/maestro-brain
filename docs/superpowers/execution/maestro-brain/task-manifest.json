@@ -1732,6 +1732,33 @@
       "taskId": "S14-T01",
       "title": "Stage, Pilot, Launch, And Prove Rollback",
       "tranche": "R4-release"
+    },
+    {
+      "acceptanceAfter": "S05-T01",
+      "classification": "pattern-instance",
+      "codeStartAfter": ["S05-T01"],
+      "estimatedSourceLines": 771,
+      "fileInventoryIssues": [],
+      "fileInventoryStatus": "ready",
+      "fileLocks": [
+        "tooling/brain-factory/src/integrate-wave.mts",
+        "tooling/brain-factory/src/integration-lane-check.ts",
+        "tooling/brain-factory/src/integration-wave.ts",
+        "tooling/brain-factory/test/integration-result-check.test.mts",
+        "tooling/brain-factory/test/integration-wave.test.mts"
+      ],
+      "gateProfiles": ["tooling"],
+      "kind": "control",
+      "lane": "control",
+      "requirements": [],
+      "sourceSliceBudget": 300,
+      "sourceSliceLimit": 4,
+      "taskBlockHash": "7f776c531b5bd1642a2b662efa8ccc206713f49abf64eb1deddbc7d20e74699a",
+      "taskId": "S15-T01",
+      "title": "Task 5 D factory control checkpoint",
+      "tranche": "F1-control",
+      "controlCommitChain": ["b0cc84c", "d62222b", "d9b697c", "36b8c7e"],
+      "controlHeadSha": "36b8c7e"
     }
   ]
 }

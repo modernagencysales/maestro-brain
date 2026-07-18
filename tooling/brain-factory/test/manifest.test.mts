@@ -27,7 +27,7 @@ describe("Maestro Brain execution manifest", () => {
     const generated = buildManifest();
 
     expect(projection.manifest).toEqual(generated);
-    expect(projection.tasks).toHaveLength(56);
+    expect(projection.tasks).toHaveLength(57);
     expect(
       projection.tasks.map(
         ({
@@ -39,12 +39,12 @@ describe("Maestro Brain execution manifest", () => {
     ).toEqual(generated.tasks);
     expect(
       projection.tasks.flatMap((task) => task.classifiedCodeStartAfter),
-    ).toHaveLength(93);
+    ).toHaveLength(94);
     expect(
       projection.tasks
         .flatMap((task) => task.classifiedCodeStartAfter)
         .filter((dependency) => dependency.classification === "true"),
-    ).toHaveLength(43);
+    ).toHaveLength(44);
     expect(
       projection.tasks
         .flatMap((task) => task.classifiedCodeStartAfter)
@@ -117,7 +117,7 @@ describe("Maestro Brain execution manifest", () => {
   it("preserves every audited task and classification", () => {
     const manifest = buildManifest();
     expect(validateManifest(manifest)).toEqual([]);
-    expect(manifest.tasks).toHaveLength(56);
+    expect(manifest.tasks).toHaveLength(57);
     expect(
       Object.fromEntries(
         ["template-gap", "pattern-instance", "fixture-to-real"].map((kind) => [
@@ -127,7 +127,7 @@ describe("Maestro Brain execution manifest", () => {
       ),
     ).toEqual({
       "fixture-to-real": 2,
-      "pattern-instance": 7,
+      "pattern-instance": 8,
       "template-gap": 47,
     });
   });

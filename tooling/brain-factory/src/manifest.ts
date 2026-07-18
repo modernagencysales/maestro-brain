@@ -44,7 +44,7 @@ export interface BrainTaskContract {
   readonly fileInventoryStatus: FileInventoryStatus;
   readonly fileLocks: readonly string[];
   readonly gateProfiles: readonly GateProfile[];
-  readonly kind: "docs" | "external" | "product" | "release";
+  readonly kind: "control" | "docs" | "external" | "product" | "release";
   readonly lane: string;
   readonly requirements: readonly string[];
   readonly estimatedSourceLines: number;
@@ -54,6 +54,9 @@ export interface BrainTaskContract {
   readonly taskId: string;
   readonly title: string;
   readonly tranche: string;
+  /** Present only for deterministic control checkpoints. */
+  readonly controlCommitChain?: readonly string[];
+  readonly controlHeadSha?: string;
 }
 
 export interface BrainTaskManifest {
@@ -154,6 +157,35 @@ const SOURCE_SLICE_LIMITS: Readonly<Record<string, number>> = {
 
 const FILE_LOCK_OVERRIDES: Readonly<Record<string, readonly string[]>> = {
   "S00-T03": [".buildkite/pipeline.yml"],
+};
+
+const CONTROL_TASK: BrainTaskContract = {
+  acceptanceAfter: "S05-T01",
+  classification: "pattern-instance",
+  codeStartAfter: ["S05-T01"],
+  estimatedSourceLines: 771,
+  fileInventoryIssues: [],
+  fileInventoryStatus: "ready",
+  fileLocks: [
+    "tooling/brain-factory/src/integrate-wave.mts",
+    "tooling/brain-factory/src/integration-lane-check.ts",
+    "tooling/brain-factory/src/integration-wave.ts",
+    "tooling/brain-factory/test/integration-result-check.test.mts",
+    "tooling/brain-factory/test/integration-wave.test.mts",
+  ],
+  gateProfiles: ["tooling"],
+  kind: "control",
+  lane: "control",
+  requirements: [],
+  sourceSliceBudget: 300,
+  sourceSliceLimit: 4,
+  taskBlockHash:
+    "7f776c531b5bd1642a2b662efa8ccc206713f49abf64eb1deddbc7d20e74699a",
+  taskId: "S15-T01",
+  title: "Task 5 D factory control checkpoint",
+  tranche: "F1-control",
+  controlCommitChain: ["b0cc84c", "d62222b", "d9b697c", "36b8c7e"],
+  controlHeadSha: "36b8c7e",
 };
 
 const laneFor = (taskId: string): string => {
@@ -499,7 +531,7 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
     planPath: PLAN_RELATIVE,
     planSha256: hash(plan),
     schemaVersion: "maestro-brain-task-manifest/v1",
-    tasks,
+    tasks: [...tasks, CONTROL_TASK],
   };
 };
 
@@ -611,13 +643,38 @@ export const validateManifest = (manifest: BrainTaskManifest): string[] => {
   const errors: string[] = [];
   const ids = new Set(manifest.tasks.map((task) => task.taskId));
   const lifecycleRecordOwners = new Map<string, string>();
-  if (manifest.tasks.length !== 56)
-    errors.push(`expected 56 tasks, got ${manifest.tasks.length}`);
+  const productCount = manifest.tasks.filter(
+    (task) => task.kind !== "control",
+  ).length;
+  const controlCount = manifest.tasks.filter(
+    (task) => task.kind === "control",
+  ).length;
+  if (productCount !== 56)
+    errors.push(`expected 56 product tasks, got ${productCount}`);
+  if (controlCount !== 1)
+    errors.push(`expected one control task, got ${controlCount}`);
   if (ids.size !== manifest.tasks.length) errors.push("duplicate task IDs");
   for (const task of manifest.tasks) {
     if (task.lane === "unknown") errors.push(`${task.taskId}: unknown lane`);
     if (task.acceptanceAfter === "unknown")
       errors.push(`${task.taskId}: no acceptance prerequisite`);
+    if (task.kind === "control") {
+      if (task.gateProfiles.length !== 1 || task.gateProfiles[0] !== "tooling")
+        errors.push(
+          `${task.taskId}: control task must use tooling gate profile`,
+        );
+      if (task.sourceSliceLimit !== 4)
+        errors.push(
+          `${task.taskId}: control task source slice limit must be four`,
+        );
+      if (
+        task.controlCommitChain?.length !== 4 ||
+        task.controlHeadSha !== "36b8c7e"
+      )
+        errors.push(
+          `${task.taskId}: control task must bind the approved commit chain and head`,
+        );
+    }
     if (
       !Number.isInteger(task.estimatedSourceLines) ||
       task.estimatedSourceLines < 0 ||
@@ -630,7 +687,7 @@ export const validateManifest = (manifest: BrainTaskManifest): string[] => {
     if (task.sourceSliceBudget !== 300)
       errors.push(`${task.taskId}: source slice budget must remain 300`);
     const expectedSliceLimit = SOURCE_SLICE_LIMITS[task.taskId];
-    if (task.sourceSliceLimit !== expectedSliceLimit)
+    if (task.kind !== "control" && task.sourceSliceLimit !== expectedSliceLimit)
       errors.push(
         `${task.taskId}: source slice limit must be ${expectedSliceLimit ?? "the default four"}`,
       );
