@@ -14,7 +14,9 @@ const controlRoot = resolve(valueAfter("--control-root") ?? process.cwd());
 const evidenceRoot = valueAfter("--evidence");
 if (!evidenceRoot) throw new Error("--evidence is required");
 const headSha = git(workdir, ["rev-parse", "HEAD"]);
-const control = buildManifest().tasks.find((task) => task.taskId === "S15-T01");
+const control = buildManifest(controlRoot).tasks.find(
+  (task) => task.taskId === "S15-T01",
+);
 if (
   !control ||
   control.kind !== "control" ||
