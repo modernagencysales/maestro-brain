@@ -58,13 +58,18 @@ const commands: readonly (readonly [string, readonly string[]])[] = [
   ],
   ["pnpm", ["brain:factory:check"]],
   [
-    "pnpm",
+    "host-test-slot",
     [
+      "--class",
+      "focused",
+      "pnpm",
+      "--dir",
+      "tooling/brain-factory",
       "exec",
       "vitest",
       "run",
-      "tooling/brain-factory/test/integration-result-check.test.mts",
-      "tooling/brain-factory/test/integration-wave.test.mts",
+      "test/integration-result-check.test.mts",
+      "test/integration-wave.test.mts",
     ],
   ],
 ];
