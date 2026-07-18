@@ -6,13 +6,14 @@ import { describe, expect, it } from "vitest";
 import {
   canonicalControllerJson,
   commandForControllerAction,
-  executeControllerTick,
-  planControllerTick,
+  executeControllerTick as executeControllerTickRaw,
+  planControllerTick as planControllerTickRaw,
   telemetryForControllerAction,
   tickIdForController,
   type ControllerAction,
   type ControllerPolicy,
 } from "../src/controller.js";
+import { buildManifest, type BrainTaskManifest } from "../src/manifest.js";
 import {
   normalizeControllerSnapshot,
   type ControllerSnapshot,
@@ -27,6 +28,26 @@ const policy: ControllerPolicy = {
   minimumBatchSize: 1,
   totalActiveCapacity: 10,
 };
+const manifest = buildManifest();
+const planControllerTick = (
+  observed: ControllerSnapshot,
+  controllerPolicy: ControllerPolicy,
+  selectedManifest: BrainTaskManifest = manifest,
+) =>
+  (
+    planControllerTickRaw as unknown as (
+      snapshot: ControllerSnapshot,
+      policy: ControllerPolicy,
+      manifest: BrainTaskManifest,
+    ) => ReturnType<typeof planControllerTickRaw>
+  )(observed, controllerPolicy, selectedManifest);
+const executeControllerTick = (
+  input: Omit<Parameters<typeof executeControllerTickRaw>[0], "manifest">,
+) =>
+  executeControllerTickRaw({
+    ...input,
+    manifest,
+  } as Parameters<typeof executeControllerTickRaw>[0]);
 
 const snapshot = (
   input: {
@@ -40,7 +61,7 @@ const snapshot = (
     controlHeadSha: git,
     gateQueue: input.gate ?? { capacity: 2, inUse: 0, waiting: 0 },
     manifestSha256: sha,
-    planSha256: "c".repeat(64),
+    planSha256: manifest.planSha256,
     providerErrors: input.errors ?? [],
     tasks: input.tasks ?? [],
     waves: input.waves ?? [],
@@ -224,6 +245,42 @@ describe("controller pure planner", () => {
     });
     expect(actions).toMatchObject([
       { kind: "dispatch_tasks", targetIds: ["S00-T02", "S01-T01"] },
+    ]);
+  });
+
+  it("uses only the injected manifest contract for frontier selection", () => {
+    const selectedManifest = {
+      ...manifest,
+      tasks: manifest.tasks.filter(({ taskId }) => taskId === "S00-T02"),
+    };
+    const actions = planControllerTick(
+      snapshot({ tasks: frontier() }),
+      { ...policy, totalActiveCapacity: 2 },
+      selectedManifest,
+    );
+    expect(actions).toMatchObject([
+      { kind: "dispatch_tasks", targetIds: ["S00-T02"] },
+    ]);
+  });
+
+  it("waits when any integration wave identity is unknown", () => {
+    const actions = planControllerTick(
+      snapshot({
+        waves: [
+          wave("wave-000001", "succeeded"),
+          {
+            ...wave("wave-000002", "unknown"),
+            identity: "unknown",
+          },
+        ],
+      }),
+      policy,
+    );
+    expect(actions).toMatchObject([
+      {
+        kind: "wait",
+        targetIds: ["integration_unknown:wave-000002"],
+      },
     ]);
   });
 
@@ -415,6 +472,45 @@ describe("controller audited executor", () => {
     expect(JSON.stringify(failed)).not.toContain("secret provider payload");
   });
 
+  it("retries a failed receipt after a fresh matching observation", () => {
+    const root = mkdtempSync(join(tmpdir(), "brain-controller-retry-"));
+    const observed = snapshot({ tasks: frontier() });
+    let calls = 0;
+    const run = () => {
+      calls += 1;
+      return {
+        exitCode: calls === 1 ? 1 : 0,
+        stderr: "provider unavailable",
+        stdout: "",
+      };
+    };
+    const reconcile = () =>
+      ({ kind: calls >= 2 ? "succeeded" : "not-started" }) as const;
+    const first = executeControllerTick({
+      action: dispatchAction(),
+      now: "2026-07-18T00:00:00.000Z",
+      observe: () => observed,
+      plannedSnapshot: observed,
+      policy: { ...policy, totalActiveCapacity: 1 },
+      reconcile,
+      run,
+      stateRoot: root,
+    });
+    const second = executeControllerTick({
+      action: dispatchAction(),
+      now: "2026-07-18T00:01:00.000Z",
+      observe: () => observed,
+      plannedSnapshot: observed,
+      policy: { ...policy, totalActiveCapacity: 1 },
+      reconcile,
+      run,
+      stateRoot: root,
+    });
+    expect(first.status).toBe("failed");
+    expect(second.status).toBe("succeeded");
+    expect(calls).toBe(2);
+  });
+
   it("rejects conflicting same-ID receipts", () => {
     const root = mkdtempSync(join(tmpdir(), "brain-controller-corrupt-"));
     const action = dispatchAction();
@@ -559,5 +655,32 @@ describe("controller audited executor", () => {
       schemaVersion: "maestro-brain-controller-telemetry/v1",
     });
     expect(JSON.stringify(value)).not.toContain("payload");
+  });
+
+  it("redacts untrusted telemetry outcome and provider tokens", () => {
+    const secret = "raw-provider-secret";
+    const observed = snapshot({
+      errors: [
+        {
+          category: secret,
+          provider: secret,
+        } as unknown as ControllerSnapshot["providerErrors"][number],
+      ],
+      tasks: [task("S01-T01", "unknown")],
+    });
+    const action = planControllerTick(observed, policy)[0];
+    if (!action) throw new Error("missing telemetry action");
+    const value = telemetryForControllerAction({
+      action,
+      durationMs: 1,
+      now: "2026-07-18T00:00:00.000Z",
+      outcome: secret,
+      readyToLaunchLatencyMs: 1,
+      snapshot: observed,
+      tickId: tickIdForController(observed, policy),
+    });
+    expect(value.outcome).toBe("unknown");
+    expect(value.providerErrorCategories).toEqual(["unknown:unknown"]);
+    expect(JSON.stringify(value)).not.toContain(secret);
   });
 });

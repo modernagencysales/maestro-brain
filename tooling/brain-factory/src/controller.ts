@@ -15,7 +15,7 @@ import type {
   ControllerTaskState,
   ControllerWaveState,
 } from "./factory-state.js";
-import { buildManifest } from "./manifest.js";
+import type { BrainTaskManifest } from "./manifest.js";
 import { availableDispatchSlots, selectReadyTasks } from "./scheduler.js";
 
 type JsonRecord = Record<string, unknown>;
@@ -191,10 +191,17 @@ const activeTaskStages = new Set([
 export const planControllerTick = (
   snapshot: ControllerSnapshot,
   policy: ControllerPolicy,
+  manifest: BrainTaskManifest,
 ): readonly ControllerAction[] => {
   validatePolicy(policy);
   if (snapshot.schemaVersion !== "maestro-brain-controller-snapshot/v1") {
     throw new Error("unsupported controller snapshot schema");
+  }
+  if (
+    manifest.schemaVersion !== "maestro-brain-task-manifest/v1" ||
+    manifest.planSha256 !== snapshot.planSha256
+  ) {
+    throw new Error("controller manifest does not bind the snapshot plan");
   }
 
   const archives = snapshot.tasks
@@ -222,7 +229,21 @@ export const planControllerTick = (
     return withFrontier(waitAction(providerReasons, snapshot, policy));
   }
 
-  const activeWaves = snapshot.waves.filter(({ stage }) => stage !== "unknown");
+  const unknownWaves = snapshot.waves.filter(
+    ({ stage }) => stage === "unknown",
+  );
+  if (unknownWaves.length > 0) {
+    return withFrontier(
+      waitAction(
+        unknownWaves.map(
+          ({ integrationId }) => `integration_unknown:${integrationId}`,
+        ),
+        snapshot,
+        policy,
+      ),
+    );
+  }
+  const activeWaves = snapshot.waves;
   if (activeWaves.length > 1) {
     throw new Error(
       `simultaneous active integration waves: ${activeWaves
@@ -336,7 +357,7 @@ export const planControllerTick = (
     completedTaskIds,
     maximum: available,
     requestedTaskIds: pendingTaskIds,
-    tasks: buildManifest().tasks,
+    tasks: manifest.tasks,
   }).selected;
   if (selected.length > 0) {
     return withFrontier(
@@ -511,6 +532,12 @@ const validReceiptTransition = (
       "succeeded",
       "failed",
       "superseded",
+    ]).has(next)) ||
+  (prior === "failed" &&
+    new Set<ControllerActionReceiptStatus>([
+      "executing",
+      "succeeded",
+      "superseded",
     ]).has(next));
 
 const recoverPendingReceiptTransition = (
@@ -574,6 +601,7 @@ export const executeControllerTick = (input: {
   readonly now: string;
   readonly observe: () => ControllerSnapshot;
   readonly plannedSnapshot: ControllerSnapshot;
+  readonly manifest: BrainTaskManifest;
   readonly policy: ControllerPolicy;
   readonly reconcile: (action: ControllerAction) => ControllerReconciliation;
   readonly run: (
@@ -586,6 +614,7 @@ export const executeControllerTick = (input: {
   const plannedActions = planControllerTick(
     input.plannedSnapshot,
     input.policy,
+    input.manifest,
   );
   const plannedAction = plannedActions.find(
     ({ actionId }) => actionId === input.action.actionId,
@@ -633,11 +662,7 @@ export const executeControllerTick = (input: {
       input.action,
       tickId,
     );
-    if (
-      receipt.status === "succeeded" ||
-      receipt.status === "failed" ||
-      receipt.status === "superseded"
-    ) {
+    if (receipt.status === "succeeded" || receipt.status === "superseded") {
       return receipt;
     }
   } else {
@@ -669,7 +694,7 @@ export const executeControllerTick = (input: {
   }
   if (priorResult.kind === "unresolved") return receipt;
 
-  if (receipt.status === "reserved") {
+  if (receipt.status === "reserved" || receipt.status === "failed") {
     const next = { ...receipt, status: "executing" } as const;
     transitionReceipt(receiptPath, receipt, next);
     receipt = next;
@@ -710,6 +735,24 @@ export interface ControllerTelemetry {
   readonly providerErrorCategories: readonly string[];
 }
 
+const telemetryOutcomes = new Set([
+  "failed",
+  "reserved",
+  "executing",
+  "succeeded",
+  "superseded",
+  "unresolved",
+  "wait",
+]);
+const telemetryProviders = new Set(["buildkite", "fabro", "github", "local"]);
+const telemetryProviderErrorCategories = new Set([
+  "ambiguous",
+  "malformed",
+  "unauthorized",
+  "unavailable",
+  "unknown",
+]);
+
 export const telemetryForControllerAction = (input: {
   readonly action: ControllerAction;
   readonly durationMs: number;
@@ -739,12 +782,15 @@ export const telemetryForControllerAction = (input: {
     actionId: input.action.actionId,
     actionKind: input.action.kind,
     durationMs: input.durationMs,
-    outcome: input.outcome,
+    outcome: telemetryOutcomes.has(input.outcome) ? input.outcome : "unknown",
     readyToLaunchLatencyMs: input.readyToLaunchLatencyMs,
     activeCounts,
     gateQueue: { ...input.snapshot.gateQueue },
     providerErrorCategories: input.snapshot.providerErrors.map(
-      ({ category, provider }) => `${provider}:${category}`,
+      ({ category, provider }) =>
+        `${telemetryProviders.has(provider) ? provider : "unknown"}:${
+          telemetryProviderErrorCategories.has(category) ? category : "unknown"
+        }`,
     ),
   };
 };
