@@ -70,6 +70,7 @@ const makeFixture = (options?: {
   readonly deletedGenerated?: boolean;
   readonly generated?: boolean;
   readonly generatedBase?: boolean;
+  readonly generatedFromExistingConfectImpl?: boolean;
   readonly historicalLaneWithoutTree?: boolean;
   readonly laneSpecs?: readonly {
     readonly files: readonly string[];
@@ -93,6 +94,15 @@ const makeFixture = (options?: {
   git(workdir, "config", "user.name", "Wave Test");
   write(resolve(workdir, ".gitignore"), ".tokensave/\n");
   write(resolve(workdir, "base.txt"), "base\n");
+  if (options?.generatedFromExistingConfectImpl) {
+    write(
+      resolve(
+        workdir,
+        "packages/convex/confect/integrations/slackConnections.impl.ts",
+      ),
+      "export const implementation = true;\n",
+    );
+  }
   if (options?.generatedBase) {
     write(
       resolve(
@@ -250,6 +260,22 @@ const makeFixture = (options?: {
             "packages/template-core/src/generated/confectManifest.ts",
           ),
           "export const generated = true;\n",
+        );
+      }
+      if (
+        key === "pnpm confect:codegen" &&
+        options?.generatedFromExistingConfectImpl
+      ) {
+        write(
+          resolve(cwd, "packages/convex/confect/_generated/spec.ts"),
+          "export const spec = true;\n",
+        );
+        write(
+          resolve(
+            cwd,
+            "packages/convex/convex/integrations/slackConnections.ts",
+          ),
+          "export const registered = true;\n",
         );
       }
       if (key === "pnpm confect:codegen" && options?.deletedGenerated) {
@@ -568,6 +594,18 @@ describe("deterministic integration wave application", () => {
     expect(git(value.workdir, "status", "--porcelain")).toBe("");
   });
 
+  it("allows deterministic output derived from pre-existing Confect implementations", () => {
+    const value = makeFixture({
+      generatedFromExistingConfectImpl: true,
+      laneSpecs: [{ files: ["a.ts"], taskId: "S01-T01" }],
+    });
+
+    expect(applyIntegrationWave(value.input).generatedFiles).toEqual([
+      "packages/convex/confect/_generated/spec.ts",
+      "packages/convex/convex/integrations/slackConnections.ts",
+    ]);
+  });
+
   it("records generated deletions without passing absent paths to Prettier", () => {
     const value = makeFixture({
       deletedGenerated: true,
@@ -613,6 +651,7 @@ describe("deterministic integration wave application", () => {
     );
     expect(git(value.workdir, "status", "--porcelain")).toBe("");
     expect(existsSync(resolve(value.workdir, "hand-authored.ts"))).toBe(false);
+    expect(git(value.workdir, "rev-parse", "HEAD")).toBe(value.baseSha);
   });
 
   it("rejects an unrelated generated-only commit during recovery", () => {
@@ -649,6 +688,7 @@ describe("deterministic integration wave application", () => {
       "hydrate failed",
     );
     expect(git(value.workdir, "status", "--porcelain")).toBe("");
+    expect(git(value.workdir, "rev-parse", "HEAD")).toBe(value.baseSha);
   });
 
   it("cleans tracked residue when a focused check fails", () => {
@@ -670,6 +710,7 @@ describe("deterministic integration wave application", () => {
       "focused failed",
     );
     expect(git(value.workdir, "status", "--porcelain")).toBe("");
+    expect(git(value.workdir, "rev-parse", "HEAD")).toBe(value.baseSha);
   });
 
   it("rejects an invalid API mode before mutation", () => {

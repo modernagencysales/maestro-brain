@@ -46,7 +46,12 @@ describe("final lane result", () => {
   });
 
   it("keeps missing tree bindings strict unless historical admission opts in", () => {
-    const { treeSha: _treeSha, ...historicalResult } = validResult;
+    const historicalResult = {
+      schemaVersion: validResult.schemaVersion,
+      taskId: validResult.taskId,
+      headSha: validResult.headSha,
+      status: validResult.status,
+    };
     expect(() => validateFinalLaneResult(historicalResult, expected)).toThrow(
       "treeSha",
     );
@@ -65,8 +70,12 @@ describe("final lane result", () => {
   });
 
   it("requires an exact-head passed final lane gate receipt", () => {
-    const { finalGateReport: _finalGateReport, ...expectedWithoutFinalGate } =
-      expected;
+    const expectedWithoutFinalGate = {
+      currentHeadSha,
+      currentTreeSha,
+      taskId,
+      proof,
+    };
     expect(() =>
       validateFinalLaneResult(validResult, expectedWithoutFinalGate),
     ).toThrow("final lane gate");

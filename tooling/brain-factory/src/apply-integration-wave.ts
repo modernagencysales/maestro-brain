@@ -508,8 +508,16 @@ const generateStableOutput = (input: {
   const baseFiles = lines(
     git(input.workdir, ["diff", "--name-only", `${input.baseSha}..HEAD`]),
   );
+  const confectSourceFiles = lines(
+    git(input.workdir, ["ls-files", "--", "packages/convex/confect"]),
+  ).filter(
+    (file) =>
+      file.endsWith(".impl.ts") ||
+      /^packages\/convex\/confect\/tables\/[^/]+\.ts$/.test(file),
+  );
   const allowlist = integrationGeneratedFileAllowlist({
     baseFiles,
+    confectSourceFiles,
     laneFiles: input.laneFiles,
   });
   const laneFileSet = new Set(input.laneFiles);
@@ -849,8 +857,8 @@ export const applyIntegrationWave = (
     }
     requireClean(workdir, "successful integration apply");
   } catch (error) {
-    if (git(workdir, ["rev-parse", "HEAD"]) !== cleanupHead) {
-      git(workdir, ["reset", "--hard", cleanupHead]);
+    if (git(workdir, ["rev-parse", "HEAD"]) !== initialHead) {
+      git(workdir, ["reset", "--hard", initialHead]);
     }
     cleanWorkingResidue(workdir);
     throw error;

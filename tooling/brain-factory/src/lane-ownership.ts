@@ -18,18 +18,24 @@ export const isIntegrationOwnedGeneratedFile = isGeneratedNamespaceFile;
 
 const fixedGeneratedFiles = new Set([
   "apps/web/src/routeTree.gen.ts",
+  "packages/convex/confect/_generated/spec.ts",
   "packages/template-core/src/generated/confectManifest.ts",
 ]);
 
 export const integrationGeneratedFileAllowlist = (input: {
   readonly baseFiles: readonly string[];
+  readonly confectSourceFiles?: readonly string[];
   readonly laneFiles: readonly string[];
 }): ReadonlySet<string> => {
   const allowed = new Set(
     input.baseFiles.filter((file) => isGeneratedNamespaceFile(file)),
   );
   for (const file of fixedGeneratedFiles) allowed.add(file);
-  for (const file of input.laneFiles) {
+  const sources = new Set([
+    ...input.laneFiles,
+    ...(input.confectSourceFiles ?? []),
+  ]);
+  for (const file of sources) {
     const implementation = /^packages\/convex\/confect\/(.+)\.impl\.ts$/.exec(
       file,
     );
