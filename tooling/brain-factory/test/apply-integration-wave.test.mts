@@ -79,6 +79,7 @@ const makeFixture = (options?: {
   readonly reverseCreation?: boolean;
   readonly secondPassConvergence?: boolean;
   readonly oscillatingGeneration?: boolean;
+  readonly transientFirstGeneration?: boolean;
 }): Fixture => {
   const controlRoot = mkdtempSync(resolve(tmpdir(), "brain-wave-control-"));
   const workdir = mkdtempSync(resolve(tmpdir(), "brain-wave-apply-"));
@@ -281,6 +282,17 @@ const makeFixture = (options?: {
           ),
           "export const registered = true;\n",
         );
+      }
+      if (key === "pnpm confect:codegen" && options?.transientFirstGeneration) {
+        const path = resolve(
+          cwd,
+          "packages/template-core/src/generated/confectManifest.ts",
+        );
+        if (confectGenerationRuns === 1) {
+          write(path, "export const transient = true;\n");
+        } else {
+          rmSync(path, { force: true });
+        }
       }
       if (
         key === "pnpm confect:codegen" &&
@@ -652,6 +664,15 @@ describe("deterministic integration wave application", () => {
     expect(applyIntegrationWave(value.input).generatedFiles).toEqual([
       "packages/template-core/src/generated/confectManifest.ts",
     ]);
+  });
+
+  it("allows transient generated drift that converges back to the exact head", () => {
+    const value = makeFixture({
+      transientFirstGeneration: true,
+      laneSpecs: [{ files: ["a.ts"], taskId: "S01-T01" }],
+    });
+
+    expect(applyIntegrationWave(value.input).generatedFiles).toEqual([]);
   });
 
   it("rejects oscillating generated output and restores the base", () => {

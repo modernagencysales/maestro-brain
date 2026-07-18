@@ -546,10 +546,21 @@ const generateStableOutput = (input: {
       }
     }
   };
+  const formatGeneratedFiles = (files: readonly string[]): void => {
+    const existing = files.filter((file) =>
+      existsSync(resolve(input.workdir, file)),
+    );
+    if (existing.length > 0) {
+      input.hooks.run(
+        ["pnpm", "exec", "prettier", "--write", "--", ...existing],
+        input.workdir,
+      );
+    }
+  };
   try {
     runGenerationPlan();
     const dirtyGeneratedFiles = gitStatusFiles(input.workdir);
-    const generatedFiles = [
+    let generatedFiles = [
       ...new Set([...preexistingGeneratedFiles, ...dirtyGeneratedFiles]),
     ].sort();
     const unauthorized = generatedFiles.filter((file) => !allowlist.has(file));
@@ -558,26 +569,10 @@ const generateStableOutput = (input: {
         `generation changed unauthorized files: ${unauthorized.join(", ")}`,
       );
     }
-    const generatedFilesToFormat = generatedFiles.filter((file) =>
-      existsSync(resolve(input.workdir, file)),
-    );
-    if (generatedFilesToFormat.length > 0) {
-      input.hooks.run(
-        [
-          "pnpm",
-          "exec",
-          "prettier",
-          "--write",
-          "--",
-          ...generatedFilesToFormat,
-        ],
-        input.workdir,
-      );
-    }
+    formatGeneratedFiles(generatedFiles);
     let expected = new Map(
       generatedFiles.map((file) => [file, fileDigest(input.workdir, file)]),
     );
-    const generatedFileSet = new Set(generatedFiles);
     let unstableFiles: readonly string[] = generatedFiles;
     for (
       let replay = 0;
@@ -585,19 +580,21 @@ const generateStableOutput = (input: {
       replay += 1
     ) {
       runGenerationPlan();
-      if (generatedFilesToFormat.length > 0) {
-        input.hooks.run(
-          [
-            "pnpm",
-            "exec",
-            "prettier",
-            "--write",
-            "--",
-            ...generatedFilesToFormat,
-          ],
-          input.workdir,
+      const replayCandidates = [
+        ...new Set([
+          ...preexistingGeneratedFiles,
+          ...gitStatusFiles(input.workdir),
+        ]),
+      ].sort();
+      const unauthorizedReplay = replayCandidates.filter(
+        (file) => !allowlist.has(file),
+      );
+      if (unauthorizedReplay.length > 0) {
+        throw new Error(
+          `generation changed unauthorized files: ${unauthorizedReplay.join(", ")}`,
         );
       }
+      formatGeneratedFiles(replayCandidates);
       const replayFiles = [
         ...new Set([
           ...preexistingGeneratedFiles,
@@ -605,18 +602,20 @@ const generateStableOutput = (input: {
         ]),
       ].sort();
       const replayFileSet = new Set(replayFiles);
+      const generatedFileSet = new Set(generatedFiles);
       const replaySetDrift = [
         ...generatedFiles.filter((file) => !replayFileSet.has(file)),
         ...replayFiles.filter((file) => !generatedFileSet.has(file)),
       ];
-      if (replaySetDrift.length > 0) {
-        throw new Error(
-          `generated output file set changed after replay: ${replaySetDrift.join(", ")}`,
-        );
-      }
-      unstableFiles = generatedFiles.filter(
-        (file) => expected.get(file) !== fileDigest(input.workdir, file),
+      const sharedDigestDrift = replayFiles.filter(
+        (file) =>
+          generatedFileSet.has(file) &&
+          expected.get(file) !== fileDigest(input.workdir, file),
       );
+      unstableFiles = [...replaySetDrift, ...sharedDigestDrift].filter(
+        (file, index, files) => files.indexOf(file) === index,
+      );
+      generatedFiles = replayFiles;
       expected = new Map(
         generatedFiles.map((file) => [file, fileDigest(input.workdir, file)]),
       );
