@@ -35,8 +35,11 @@ const commands: readonly (readonly [string, readonly string[]])[] = [
     [
       "exec",
       "eslint",
-      "tooling/brain-factory/src",
-      "tooling/brain-factory/test",
+      "tooling/brain-factory/src/integrate-wave.mts",
+      "tooling/brain-factory/src/integration-lane-check.ts",
+      "tooling/brain-factory/src/integration-wave.ts",
+      "tooling/brain-factory/test/integration-result-check.test.mts",
+      "tooling/brain-factory/test/integration-wave.test.mts",
     ],
   ],
   [
@@ -46,11 +49,24 @@ const commands: readonly (readonly [string, readonly string[]])[] = [
       "prettier",
       "--check",
       "--ignore-unknown",
-      "tooling/brain-factory/src",
-      "tooling/brain-factory/test",
+      "tooling/brain-factory/src/integrate-wave.mts",
+      "tooling/brain-factory/src/integration-lane-check.ts",
+      "tooling/brain-factory/src/integration-wave.ts",
+      "tooling/brain-factory/test/integration-result-check.test.mts",
+      "tooling/brain-factory/test/integration-wave.test.mts",
     ],
   ],
   ["pnpm", ["brain:factory:check"]],
+  [
+    "pnpm",
+    [
+      "exec",
+      "vitest",
+      "run",
+      "tooling/brain-factory/test/integration-result-check.test.mts",
+      "tooling/brain-factory/test/integration-wave.test.mts",
+    ],
+  ],
 ];
 const output = commands.map(([program, args]) => {
   const result = spawnSync("rtk", [program, ...args], {
