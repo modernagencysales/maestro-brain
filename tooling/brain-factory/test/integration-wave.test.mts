@@ -1196,6 +1196,62 @@ describe("integration wave supersession", () => {
     rmSync(fixture.root, { recursive: true });
   });
 
+  it("validates immutable historical v1 supersession receipt bytes", () => {
+    const fixture = supersessionFixture();
+    const current = buildIntegrationWaveSupersessionReceipt({
+      ...fixture,
+      createdAt: "2026-07-15T12:00:00.000Z",
+      evidence: ["wave-000002-non-lane-hand-authored-files"],
+      expectedIntegrationId: fixture.integrationId,
+      reason: "Immutable selection ownership was violated",
+    });
+    const payload = {
+      baseSha: current.baseSha,
+      controlHeadSha: current.controlHeadSha,
+      createdAt: current.createdAt,
+      evidence: current.evidence,
+      integrationId: current.integrationId,
+      planSha256: current.planSha256,
+      reason: current.reason,
+      runAttempts: current.runAttempts,
+      runRecordSha256: current.runRecordSha256,
+      schemaVersion: "maestro-brain-integration-wave-supersession/v1",
+      selectedTaskIds: current.selectedTaskIds,
+      selectionFileSha256: current.selectionFileSha256,
+      selectionSha256: current.selectionPayloadSha256,
+      status: "superseded",
+    } as const;
+    const receipt = {
+      ...payload,
+      receiptSha256: createHash("sha256")
+        .update(JSON.stringify(payload))
+        .digest("hex"),
+    };
+
+    expect(() =>
+      validateIntegrationWaveSupersessionReceipt({
+        currentControlHead: fixture.controlHeadSha,
+        expectedIntegrationId: fixture.integrationId,
+        isAncestor: (ancestor, descendant) =>
+          ancestor === fixture.controlHeadSha && descendant === ancestor,
+        receipt,
+        runRecordContent: fixture.runRecordContent,
+        selectionContent: fixture.selectionContent,
+        selectionPath: fixture.selectionPath,
+      }),
+    ).not.toThrow();
+    expect(
+      buildIntegrationWaveSupersessionReceipt({
+        ...fixture,
+        createdAt: "2026-07-15T12:00:00.000Z",
+        evidence: ["wave-000002-non-lane-hand-authored-files"],
+        expectedIntegrationId: fixture.integrationId,
+        reason: "Immutable selection ownership was violated",
+      }).schemaVersion,
+    ).toBe("maestro-brain-integration-wave-supersession/v2");
+    rmSync(fixture.root, { recursive: true });
+  });
+
   it.each(["running", "succeeded"] as const)(
     "refuses to supersede a %s Fabro attempt",
     (status) => {

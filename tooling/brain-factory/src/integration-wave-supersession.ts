@@ -50,6 +50,28 @@ export interface IntegrationWaveSupersessionReceipt {
   readonly status: "superseded";
 }
 
+export interface HistoricalIntegrationWaveSupersessionReceiptV1 {
+  readonly baseSha: string;
+  readonly controlHeadSha: string;
+  readonly createdAt: string;
+  readonly evidence: readonly string[];
+  readonly integrationId: string;
+  readonly planSha256: string;
+  readonly reason: string;
+  readonly receiptSha256: string;
+  readonly runAttempts: readonly SupersededWaveRunAttempt[];
+  readonly runRecordSha256: string;
+  readonly schemaVersion: "maestro-brain-integration-wave-supersession/v1";
+  readonly selectedTaskIds: readonly string[];
+  readonly selectionFileSha256: string;
+  readonly selectionSha256: string;
+  readonly status: "superseded";
+}
+
+export type ValidatedIntegrationWaveSupersessionReceipt =
+  | IntegrationWaveSupersessionReceipt
+  | HistoricalIntegrationWaveSupersessionReceiptV1;
+
 interface SupersessionSource {
   readonly baseSha: string;
   readonly integrationId: string;
@@ -265,6 +287,30 @@ const receiptPayload = (input: {
   status: "superseded" as const,
 });
 
+const historicalReceiptPayloadV1 = (input: {
+  readonly controlHeadSha: string;
+  readonly createdAt: string;
+  readonly evidence: readonly string[];
+  readonly reason: string;
+  readonly runAttempts: readonly SupersededWaveRunAttempt[];
+  readonly source: SupersessionSource;
+}) => ({
+  baseSha: input.source.baseSha,
+  controlHeadSha: gitSha(input.controlHeadSha, "supersession control HEAD"),
+  createdAt: timestamp(input.createdAt),
+  evidence: normalizedEvidence(input.evidence),
+  integrationId: input.source.integrationId,
+  planSha256: input.source.planSha256,
+  reason: normalizedText(input.reason, "supersession reason"),
+  runAttempts: normalizedRunAttempts(input.runAttempts, input.source),
+  runRecordSha256: input.source.runRecordSha256,
+  schemaVersion: "maestro-brain-integration-wave-supersession/v1" as const,
+  selectedTaskIds: input.source.selectedTaskIds,
+  selectionFileSha256: input.source.selectionFileSha256,
+  selectionSha256: input.source.selectionPayloadSha256,
+  status: "superseded" as const,
+});
+
 export const buildIntegrationWaveSupersessionReceipt = (input: {
   readonly controlHeadSha: string;
   readonly createdAt: string;
@@ -334,7 +380,7 @@ export const validateIntegrationWaveSupersessionReceipt = (input: {
   readonly runRecordContent: string;
   readonly selectionContent: string | Uint8Array;
   readonly selectionPath: string;
-}): IntegrationWaveSupersessionReceipt => {
+}): ValidatedIntegrationWaveSupersessionReceipt => {
   const source = sourceFromContents(input);
   const receipt = record(
     input.receipt,
@@ -358,18 +404,35 @@ export const validateIntegrationWaveSupersessionReceipt = (input: {
     };
   });
   const evidence = stringArray(receipt.evidence, "supersession evidence");
-  const payload = receiptPayload({
+  const payloadInput = {
     controlHeadSha: string(receipt.controlHeadSha, "supersession control HEAD"),
     createdAt: string(receipt.createdAt, "supersession createdAt"),
     evidence,
     reason: string(receipt.reason, "supersession reason"),
     runAttempts,
     source,
-  });
-  const expected = {
-    ...payload,
-    receiptSha256: sha256(JSON.stringify(payload)),
-  } satisfies IntegrationWaveSupersessionReceipt;
+  };
+  const expected: ValidatedIntegrationWaveSupersessionReceipt =
+    receipt.schemaVersion === "maestro-brain-integration-wave-supersession/v1"
+      ? (() => {
+          if (!source.legacy) {
+            throw new Error(
+              `${source.integrationId}: v1 supersession requires historical v2 selection evidence`,
+            );
+          }
+          const payload = historicalReceiptPayloadV1(payloadInput);
+          return {
+            ...payload,
+            receiptSha256: sha256(JSON.stringify(payload)),
+          } satisfies HistoricalIntegrationWaveSupersessionReceiptV1;
+        })()
+      : (() => {
+          const payload = receiptPayload(payloadInput);
+          return {
+            ...payload,
+            receiptSha256: sha256(JSON.stringify(payload)),
+          } satisfies IntegrationWaveSupersessionReceipt;
+        })();
   if (JSON.stringify(receipt) !== JSON.stringify(expected)) {
     throw new Error(
       `${source.integrationId}: supersession identity or digest mismatch`,

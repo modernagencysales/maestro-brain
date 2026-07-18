@@ -9,7 +9,7 @@ import {
   readIntegrationWaveSelection,
 } from "./integration-wave.js";
 import {
-  type IntegrationWaveSupersessionReceipt,
+  type ValidatedIntegrationWaveSupersessionReceipt,
   validateIntegrationWaveSupersessionReceipt,
 } from "./integration-wave-supersession.js";
 
@@ -29,7 +29,7 @@ export interface ValidatedSupersededWave {
   readonly selection: IntegrationWaveSelection;
   readonly selectionFileSha256: string;
   readonly selectionPayloadSha256: string;
-  readonly supersession: IntegrationWaveSupersessionReceipt;
+  readonly supersession: ValidatedIntegrationWaveSupersessionReceipt;
 }
 
 export const validateSupersededWaveEvidence = (input: {
