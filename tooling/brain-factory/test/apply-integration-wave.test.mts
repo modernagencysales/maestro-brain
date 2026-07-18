@@ -77,6 +77,8 @@ const makeFixture = (options?: {
     readonly taskId: string;
   }[];
   readonly reverseCreation?: boolean;
+  readonly secondPassConvergence?: boolean;
+  readonly oscillatingGeneration?: boolean;
 }): Fixture => {
   const controlRoot = mkdtempSync(resolve(tmpdir(), "brain-wave-control-"));
   const workdir = mkdtempSync(resolve(tmpdir(), "brain-wave-apply-"));
@@ -87,6 +89,7 @@ const makeFixture = (options?: {
     ".fabro/state/runs/selection.json",
   );
   const events: string[] = [];
+  let confectGenerationRuns = 0;
   const planSha256 = "1".repeat(64);
   git(workdir, "init", "-q");
   git(workdir, "config", "core.hooksPath", "/dev/null");
@@ -253,6 +256,7 @@ const makeFixture = (options?: {
     run: (args, cwd) => {
       const key = args.join(" ");
       events.push(key);
+      if (key === "pnpm confect:codegen") confectGenerationRuns += 1;
       if (key === "pnpm confect:codegen" && options?.generated) {
         write(
           resolve(
@@ -276,6 +280,21 @@ const makeFixture = (options?: {
             "packages/convex/convex/integrations/slackConnections.ts",
           ),
           "export const registered = true;\n",
+        );
+      }
+      if (
+        key === "pnpm confect:codegen" &&
+        (options?.secondPassConvergence || options?.oscillatingGeneration)
+      ) {
+        const generation = options.oscillatingGeneration
+          ? confectGenerationRuns % 2
+          : Math.min(confectGenerationRuns, 2);
+        write(
+          resolve(
+            cwd,
+            "packages/template-core/src/generated/confectManifest.ts",
+          ),
+          `export const generation = ${generation};\n`,
         );
       }
       if (key === "pnpm confect:codegen" && options?.deletedGenerated) {
@@ -502,6 +521,24 @@ describe("deterministic integration wave application", () => {
       new RegExp(`S01-T02.*${value.lanes[1]?.commits[0]}`),
     );
     expect(git(value.workdir, "status", "--porcelain")).toBe("");
+    expect(git(value.workdir, "rev-parse", "HEAD")).toBe(value.baseSha);
+  });
+
+  it("restores a recovery head when a later missing lane conflicts", () => {
+    const value = makeFixture({
+      laneSpecs: [
+        { files: ["conflict"], taskId: "S01-T01" },
+        { files: ["conflict/child.ts"], taskId: "S01-T02" },
+      ],
+    });
+    git(value.workdir, "cherry-pick", value.lanes[0]?.headSha as string);
+    const recoveryHead = git(value.workdir, "rev-parse", "HEAD");
+
+    expect(() =>
+      applyIntegrationWave({ ...value.input, mode: "recover" }),
+    ).toThrow(new RegExp(`S01-T02.*${value.lanes[1]?.commits[0]}`));
+    expect(git(value.workdir, "status", "--porcelain")).toBe("");
+    expect(git(value.workdir, "rev-parse", "HEAD")).toBe(recoveryHead);
   });
 
   it("rejects evidence digest drift before mutating that task", () => {
@@ -606,6 +643,28 @@ describe("deterministic integration wave application", () => {
     ]);
   });
 
+  it("reaches a bounded fixed point when generated output feeds later generation", () => {
+    const value = makeFixture({
+      secondPassConvergence: true,
+      laneSpecs: [{ files: ["a.ts"], taskId: "S01-T01" }],
+    });
+
+    expect(applyIntegrationWave(value.input).generatedFiles).toEqual([
+      "packages/template-core/src/generated/confectManifest.ts",
+    ]);
+  });
+
+  it("rejects oscillating generated output and restores the base", () => {
+    const value = makeFixture({
+      oscillatingGeneration: true,
+      laneSpecs: [{ files: ["a.ts"], taskId: "S01-T01" }],
+    });
+
+    expect(() => applyIntegrationWave(value.input)).toThrow(/byte-stable/);
+    expect(git(value.workdir, "status", "--porcelain")).toBe("");
+    expect(git(value.workdir, "rev-parse", "HEAD")).toBe(value.baseSha);
+  });
+
   it("records generated deletions without passing absent paths to Prettier", () => {
     const value = makeFixture({
       deletedGenerated: true,
@@ -673,6 +732,28 @@ describe("deterministic integration wave application", () => {
     ).toThrow(/unrelated|unrecorded/);
   });
 
+  it("rejects an exact-subject recovery commit with an underived generated path", () => {
+    const value = makeFixture({
+      laneSpecs: [{ files: ["a.ts"], taskId: "S01-T01" }],
+    });
+    git(value.workdir, "cherry-pick", value.lanes[0]?.headSha as string);
+    write(
+      resolve(value.workdir, "packages/convex/convex/forged.ts"),
+      "export const forged = true;\n",
+    );
+    git(value.workdir, "add", ".");
+    git(
+      value.workdir,
+      "commit",
+      "-qm",
+      "chore: refresh integration generated output",
+    );
+
+    expect(() =>
+      applyIntegrationWave({ ...value.input, mode: "recover" }),
+    ).toThrow(/unrelated|unrecorded/);
+  });
+
   it("cleans tracked residue when hydration fails", () => {
     const value = makeFixture({
       laneSpecs: [{ files: ["a.ts"], taskId: "S01-T01" }],
@@ -708,6 +789,26 @@ describe("deterministic integration wave application", () => {
     };
     expect(() => applyIntegrationWave({ ...value.input, hooks })).toThrow(
       "focused failed",
+    );
+    expect(git(value.workdir, "status", "--porcelain")).toBe("");
+    expect(git(value.workdir, "rev-parse", "HEAD")).toBe(value.baseSha);
+  });
+
+  it("restores the pre-call head when result persistence fails", () => {
+    const value = makeFixture({
+      laneSpecs: [{ files: ["a.ts"], taskId: "S01-T01" }],
+    });
+    const hooks: ApplyIntegrationWaveHooks & {
+      readonly writeResult: () => never;
+    } = {
+      ...(value.input.hooks as ApplyIntegrationWaveHooks),
+      writeResult: () => {
+        throw new Error("receipt failed");
+      },
+    };
+
+    expect(() => applyIntegrationWave({ ...value.input, hooks })).toThrow(
+      "receipt failed",
     );
     expect(git(value.workdir, "status", "--porcelain")).toBe("");
     expect(git(value.workdir, "rev-parse", "HEAD")).toBe(value.baseSha);

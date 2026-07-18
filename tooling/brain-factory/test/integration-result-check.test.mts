@@ -723,7 +723,11 @@ describe("normal integration result check", () => {
   });
   it("accepts exact integration-owned generated output", () => {
     const value = waveFixture();
-    const generatedFile = "packages/convex/convex/schema.ts";
+    const generatedFile =
+      "packages/template-core/src/generated/confectManifest.ts";
+    mkdirSync(resolve(value.workdir, "packages/template-core/src/generated"), {
+      recursive: true,
+    });
     writeFileSync(
       resolve(value.workdir, generatedFile),
       "export const generated = true;\n",

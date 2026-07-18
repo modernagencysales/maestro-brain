@@ -39,6 +39,7 @@ export type ApplyIntegrationWaveMode = "integrate" | "recover";
 export interface ApplyIntegrationWaveHooks {
   readonly hydrate: (controlRoot: string, workdir: string) => void;
   readonly run: (args: readonly string[], workdir: string) => string;
+  readonly writeResult?: (path: string, content: string) => void;
 }
 
 export interface ApplyIntegrationWaveInput {
@@ -516,7 +517,6 @@ const generateStableOutput = (input: {
       /^packages\/convex\/confect\/tables\/[^/]+\.ts$/.test(file),
   );
   const allowlist = integrationGeneratedFileAllowlist({
-    baseFiles,
     confectSourceFiles,
     laneFiles: input.laneFiles,
   });
@@ -574,36 +574,57 @@ const generateStableOutput = (input: {
         input.workdir,
       );
     }
-    const expected = new Map(
+    let expected = new Map(
       generatedFiles.map((file) => [file, fileDigest(input.workdir, file)]),
     );
-    runGenerationPlan();
-    if (generatedFilesToFormat.length > 0) {
-      input.hooks.run(
-        [
-          "pnpm",
-          "exec",
-          "prettier",
-          "--write",
-          "--",
-          ...generatedFilesToFormat,
-        ],
-        input.workdir,
+    const generatedFileSet = new Set(generatedFiles);
+    let unstableFiles: readonly string[] = generatedFiles;
+    for (
+      let replay = 0;
+      replay < 3 && (replay === 0 || unstableFiles.length > 0);
+      replay += 1
+    ) {
+      runGenerationPlan();
+      if (generatedFilesToFormat.length > 0) {
+        input.hooks.run(
+          [
+            "pnpm",
+            "exec",
+            "prettier",
+            "--write",
+            "--",
+            ...generatedFilesToFormat,
+          ],
+          input.workdir,
+        );
+      }
+      const replayFiles = [
+        ...new Set([
+          ...preexistingGeneratedFiles,
+          ...gitStatusFiles(input.workdir),
+        ]),
+      ].sort();
+      const replayFileSet = new Set(replayFiles);
+      const replaySetDrift = [
+        ...generatedFiles.filter((file) => !replayFileSet.has(file)),
+        ...replayFiles.filter((file) => !generatedFileSet.has(file)),
+      ];
+      if (replaySetDrift.length > 0) {
+        throw new Error(
+          `generated output file set changed after replay: ${replaySetDrift.join(", ")}`,
+        );
+      }
+      unstableFiles = generatedFiles.filter(
+        (file) => expected.get(file) !== fileDigest(input.workdir, file),
+      );
+      expected = new Map(
+        generatedFiles.map((file) => [file, fileDigest(input.workdir, file)]),
       );
     }
-    const replayFiles = [
-      ...new Set([
-        ...preexistingGeneratedFiles,
-        ...gitStatusFiles(input.workdir),
-      ]),
-    ].sort();
-    if (
-      JSON.stringify(replayFiles) !== JSON.stringify(generatedFiles) ||
-      generatedFiles.some(
-        (file) => expected.get(file) !== fileDigest(input.workdir, file),
-      )
-    ) {
-      throw new Error("generated output is not byte-stable after replay");
+    if (unstableFiles.length > 0) {
+      throw new Error(
+        `generated output is not byte-stable after replay: ${unstableFiles.join(", ")}`,
+      );
     }
     const changedForCommit = gitStatusFiles(input.workdir);
     if (changedForCommit.length > 0) {
@@ -733,8 +754,12 @@ export const applyIntegrationWave = (
     }
     const laneFiles = lanes.flatMap((lane) => lane.snapshot.changedFiles);
     const allowedGenerated = integrationGeneratedFileAllowlist({
-      baseFiles: lines(
-        git(workdir, ["diff", "--name-only", `${baseSha}..${initialHead}`]),
+      confectSourceFiles: lines(
+        git(workdir, ["ls-files", "--", "packages/convex/confect"]),
+      ).filter(
+        (file) =>
+          file.endsWith(".impl.ts") ||
+          /^packages\/convex\/confect\/tables\/[^/]+\.ts$/.test(file),
       ),
       laneFiles,
     });
@@ -777,85 +802,126 @@ export const applyIntegrationWave = (
     }
   }
 
-  for (const lane of lanes) {
-    const state =
-      rawInput.mode === "recover"
-        ? initialPatchStates.get(lane.snapshot.taskId)
-        : classifyPatch(workdir, git(workdir, ["rev-parse", "HEAD"]), lane);
-    if (state === "partial") {
-      throw new Error(
-        `${lane.snapshot.taskId}: partial lane range is forbidden`,
-      );
-    }
-    if (state === "all-present") {
-      if (rawInput.mode === "integrate") {
-        throw new Error(`${lane.snapshot.taskId}: duplicate lane input`);
+  try {
+    for (const lane of lanes) {
+      const state =
+        rawInput.mode === "recover"
+          ? initialPatchStates.get(lane.snapshot.taskId)
+          : classifyPatch(workdir, git(workdir, ["rev-parse", "HEAD"]), lane);
+      if (state === "partial") {
+        throw new Error(
+          `${lane.snapshot.taskId}: partial lane range is forbidden`,
+        );
+      }
+      if (state === "all-present") {
+        if (rawInput.mode === "integrate") {
+          throw new Error(`${lane.snapshot.taskId}: duplicate lane input`);
+        }
+        includedTasks.push({
+          commitShas: lane.commitShas,
+          laneHeadSha: lane.snapshot.headSha,
+          patchState: "already-present",
+          taskId: lane.snapshot.taskId,
+          tranche: lane.snapshot.tranche,
+        });
+        continue;
+      }
+      for (const commit of lane.commitShas) {
+        try {
+          git(workdir, ["cherry-pick", commit]);
+        } catch (error) {
+          abortCherryPick(workdir);
+          requireClean(workdir, `${lane.snapshot.taskId}: conflict cleanup`);
+          throw new Error(
+            `${lane.snapshot.taskId}: cherry-pick ${commit} conflicted: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
+      }
+      if (
+        classifyPatch(workdir, git(workdir, ["rev-parse", "HEAD"]), lane) !==
+        "all-present"
+      ) {
+        throw new Error(
+          `${lane.snapshot.taskId}: applied lane patch is absent`,
+        );
       }
       includedTasks.push({
         commitShas: lane.commitShas,
         laneHeadSha: lane.snapshot.headSha,
-        patchState: "already-present",
+        patchState: "applied",
         taskId: lane.snapshot.taskId,
         tranche: lane.snapshot.tranche,
       });
-      continue;
     }
-    for (const commit of lane.commitShas) {
-      try {
-        git(workdir, ["cherry-pick", commit]);
-      } catch (error) {
-        abortCherryPick(workdir);
-        requireClean(workdir, `${lane.snapshot.taskId}: conflict cleanup`);
-        throw new Error(
-          `${lane.snapshot.taskId}: cherry-pick ${commit} conflicted: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        );
-      }
-    }
-    if (
-      classifyPatch(workdir, git(workdir, ["rev-parse", "HEAD"]), lane) !==
-      "all-present"
-    ) {
-      throw new Error(`${lane.snapshot.taskId}: applied lane patch is absent`);
-    }
-    includedTasks.push({
-      commitShas: lane.commitShas,
-      laneHeadSha: lane.snapshot.headSha,
-      patchState: "applied",
-      taskId: lane.snapshot.taskId,
-      tranche: lane.snapshot.tranche,
-    });
-  }
 
-  let generatedFiles: readonly string[] = [];
-  const focusedChecks: string[] = [];
-  let cleanupHead = git(workdir, ["rev-parse", "HEAD"]);
-  try {
-    hooks.hydrate(controlRoot, workdir);
-    if (git(workdir, ["rev-parse", "HEAD"]) !== cleanupHead) {
-      throw new Error("dependency hydration changed HEAD");
-    }
-    generatedFiles = generateStableOutput({
-      baseSha,
-      hooks,
-      laneFiles: lanes.flatMap((lane) => lane.snapshot.changedFiles),
-      workdir,
-    });
-    cleanupHead = git(workdir, ["rev-parse", "HEAD"]);
-    const seenFocused = new Set<string>();
-    for (const command of lanes.flatMap((lane) => lane.focusedCommands)) {
-      const parsed = focusedGateCommand(command);
-      const normalized = `rtk ${parsed.program} ${parsed.args.join(" ")}`;
-      if (seenFocused.has(normalized)) continue;
-      seenFocused.add(normalized);
-      hooks.run([parsed.program, ...parsed.args], workdir);
+    let generatedFiles: readonly string[] = [];
+    const focusedChecks: string[] = [];
+    let cleanupHead = git(workdir, ["rev-parse", "HEAD"]);
+    try {
+      hooks.hydrate(controlRoot, workdir);
       if (git(workdir, ["rev-parse", "HEAD"]) !== cleanupHead) {
-        throw new Error(`focused check changed HEAD: ${normalized}`);
+        throw new Error("dependency hydration changed HEAD");
       }
-      focusedChecks.push(normalized);
+      generatedFiles = generateStableOutput({
+        baseSha,
+        hooks,
+        laneFiles: lanes.flatMap((lane) => lane.snapshot.changedFiles),
+        workdir,
+      });
+      cleanupHead = git(workdir, ["rev-parse", "HEAD"]);
+      const seenFocused = new Set<string>();
+      for (const command of lanes.flatMap((lane) => lane.focusedCommands)) {
+        const parsed = focusedGateCommand(command);
+        const normalized = `rtk ${parsed.program} ${parsed.args.join(" ")}`;
+        if (seenFocused.has(normalized)) continue;
+        seenFocused.add(normalized);
+        hooks.run([parsed.program, ...parsed.args], workdir);
+        if (git(workdir, ["rev-parse", "HEAD"]) !== cleanupHead) {
+          throw new Error(`focused check changed HEAD: ${normalized}`);
+        }
+        focusedChecks.push(normalized);
+      }
+      requireClean(workdir, "successful integration apply");
+    } catch (error) {
+      if (git(workdir, ["rev-parse", "HEAD"]) !== initialHead) {
+        git(workdir, ["reset", "--hard", initialHead]);
+      }
+      cleanWorkingResidue(workdir);
+      throw error;
     }
-    requireClean(workdir, "successful integration apply");
+    const headSha = git(workdir, ["rev-parse", "HEAD"]);
+    const result: ApplyIntegrationWaveResult = {
+      baseSha,
+      conflicts: [],
+      focusedChecks,
+      generatedFiles,
+      headSha,
+      includedTasks,
+      integrationId: rawInput.integrationId,
+      mode: rawInput.mode,
+      schemaVersion: "maestro-brain-integration-apply/v1",
+      selectionFileSha256: selectionFileDigest,
+      selectionPayloadSha256: selectionPayloadDigest,
+    };
+    const resultPath = resolve(
+      evidenceDirectory,
+      "integration",
+      rawInput.integrationId,
+      "integration-result.json",
+    );
+    mkdirSync(dirname(resultPath), { recursive: true });
+    (hooks.writeResult ?? atomicWrite)(
+      resultPath,
+      jsonContent({
+        ...result,
+        reviewVerdict: "pending",
+        schemaVersion: "maestro-brain-integration-result/v3",
+        status: "ready_for_review",
+      }),
+    );
+    return result;
   } catch (error) {
     if (git(workdir, ["rev-parse", "HEAD"]) !== initialHead) {
       git(workdir, ["reset", "--hard", initialHead]);
@@ -863,35 +929,4 @@ export const applyIntegrationWave = (
     cleanWorkingResidue(workdir);
     throw error;
   }
-  const headSha = git(workdir, ["rev-parse", "HEAD"]);
-  const result: ApplyIntegrationWaveResult = {
-    baseSha,
-    conflicts: [],
-    focusedChecks,
-    generatedFiles,
-    headSha,
-    includedTasks,
-    integrationId: rawInput.integrationId,
-    mode: rawInput.mode,
-    schemaVersion: "maestro-brain-integration-apply/v1",
-    selectionFileSha256: selectionFileDigest,
-    selectionPayloadSha256: selectionPayloadDigest,
-  };
-  const resultPath = resolve(
-    evidenceDirectory,
-    "integration",
-    rawInput.integrationId,
-    "integration-result.json",
-  );
-  mkdirSync(dirname(resultPath), { recursive: true });
-  atomicWrite(
-    resultPath,
-    jsonContent({
-      ...result,
-      reviewVerdict: "pending",
-      schemaVersion: "maestro-brain-integration-result/v3",
-      status: "ready_for_review",
-    }),
-  );
-  return result;
 };

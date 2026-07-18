@@ -303,11 +303,22 @@ export const validateIntegrationResult = (
     const generatedFiles = changedFiles.filter(
       (file) => !laneFiles.has(file) && !repairFiles.has(file),
     );
-    const baseFiles = git(workdir, ["ls-tree", "-r", "--name-only", baseSha])
+    const confectSourceFiles = git(workdir, [
+      "ls-tree",
+      "-r",
+      "--name-only",
+      headSha,
+      "--",
+      "packages/convex/confect",
+    ])
       .split("\n")
-      .filter(Boolean);
+      .filter(
+        (file) =>
+          file.endsWith(".impl.ts") ||
+          /^packages\/convex\/confect\/tables\/[^/]+\.ts$/.test(file),
+      );
     const generatedAllowlist = integrationGeneratedFileAllowlist({
-      baseFiles,
+      confectSourceFiles,
       laneFiles: [...laneFiles],
     });
     if (generatedFiles.some((file) => !generatedAllowlist.has(file))) {

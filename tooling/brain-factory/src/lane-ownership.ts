@@ -23,13 +23,10 @@ const fixedGeneratedFiles = new Set([
 ]);
 
 export const integrationGeneratedFileAllowlist = (input: {
-  readonly baseFiles: readonly string[];
   readonly confectSourceFiles?: readonly string[];
   readonly laneFiles: readonly string[];
 }): ReadonlySet<string> => {
-  const allowed = new Set(
-    input.baseFiles.filter((file) => isGeneratedNamespaceFile(file)),
-  );
+  const allowed = new Set<string>();
   for (const file of fixedGeneratedFiles) allowed.add(file);
   const sources = new Set([
     ...input.laneFiles,
