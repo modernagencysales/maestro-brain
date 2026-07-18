@@ -34,7 +34,11 @@ describe("Maestro Brain execution manifest", () => {
           classifiedCodeStartAfter: _dependencies,
           collisions: _collisions,
           ...task
-        }) => task,
+        }) => {
+          void _dependencies;
+          void _collisions;
+          return task;
+        },
       ),
     ).toEqual(generated.tasks);
     expect(
@@ -100,7 +104,9 @@ describe("Maestro Brain execution manifest", () => {
       tasks: Array<{ taskBlockHash: string; taskId: string }>;
     };
     manifest.planSha256 = "0".repeat(64);
-    manifest.tasks[0]!.taskBlockHash = "f".repeat(64);
+    const firstTask = manifest.tasks[0];
+    if (!firstTask) throw new Error("manifest task fixture is empty");
+    firstTask.taskBlockHash = "f".repeat(64);
     writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`);
 
     expect(() => loadManifestProjection(root)).toThrow(
