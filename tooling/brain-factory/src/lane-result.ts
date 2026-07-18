@@ -4,6 +4,7 @@ const exactSha = (value: unknown, length: 40 | 64): boolean =>
   typeof value === "string" && new RegExp(`^[0-9a-f]{${length}}$`).test(value);
 
 interface FinalLaneResultExpectation {
+  readonly allowHistoricalMissingTreeSha?: boolean;
   readonly currentHeadSha: string;
   readonly currentTreeSha: string;
   readonly finalGateReport?: unknown;
@@ -34,7 +35,10 @@ export const validateFinalLaneResult = (
       `${expected.taskId}: lane result headSha does not match current HEAD`,
     );
   }
-  if (lane.treeSha !== expected.currentTreeSha) {
+  if (
+    lane.treeSha !== expected.currentTreeSha &&
+    !(expected.allowHistoricalMissingTreeSha && lane.treeSha === undefined)
+  ) {
     throw new Error(
       `${expected.taskId}: lane result treeSha does not match current tree`,
     );

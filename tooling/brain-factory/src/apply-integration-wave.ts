@@ -283,6 +283,7 @@ const validateLane = (input: {
     taskId,
   });
   validateFinalLaneResult(lane, {
+    allowHistoricalMissingTreeSha: true,
     currentHeadSha: laneHead,
     currentTreeSha: git(input.workdir, ["rev-parse", `${laneHead}^{tree}`]),
     finalGateReport: gate,

@@ -70,6 +70,7 @@ const makeFixture = (options?: {
   readonly deletedGenerated?: boolean;
   readonly generated?: boolean;
   readonly generatedBase?: boolean;
+  readonly historicalLaneWithoutTree?: boolean;
   readonly laneSpecs?: readonly {
     readonly files: readonly string[];
     readonly taskId: string;
@@ -174,7 +175,7 @@ const makeFixture = (options?: {
       tranche: "F0-foundation",
       status: "lane_green",
       headSha,
-      treeSha,
+      ...(options?.historicalLaneWithoutTree ? {} : { treeSha }),
     });
     laneById.set(spec.taskId, {
       commits,
@@ -337,6 +338,12 @@ afterEach(() => {
 });
 
 describe("deterministic integration wave application", () => {
+  it("admits a historical lane whose exact tree is bound by its final gate", () => {
+    const value = makeFixture({ historicalLaneWithoutTree: true });
+
+    expect(applyIntegrationWave(value.input).includedTasks).toHaveLength(2);
+  });
+
   it("applies independent lanes in immutable selection order", () => {
     const value = makeFixture({ reverseCreation: true });
     const result = applyIntegrationWave(value.input);

@@ -45,6 +45,19 @@ describe("final lane result", () => {
     expect(() => validateFinalLaneResult(validResult, expected)).not.toThrow();
   });
 
+  it("keeps missing tree bindings strict unless historical admission opts in", () => {
+    const { treeSha: _treeSha, ...historicalResult } = validResult;
+    expect(() => validateFinalLaneResult(historicalResult, expected)).toThrow(
+      "treeSha",
+    );
+    expect(() =>
+      validateFinalLaneResult(historicalResult, {
+        ...expected,
+        allowHistoricalMissingTreeSha: true,
+      }),
+    ).not.toThrow();
+  });
+
   it("requires an exact-head passed final lane gate receipt", () => {
     const { finalGateReport: _finalGateReport, ...expectedWithoutFinalGate } =
       expected;
