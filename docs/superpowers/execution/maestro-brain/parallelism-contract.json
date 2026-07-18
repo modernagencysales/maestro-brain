@@ -1,0 +1,2237 @@
+{
+  "schemaVersion": "maestro-brain-parallelism-contract/v1",
+  "manifestPlanSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "edges": [
+    {
+      "consumerTaskId": "S00-T03",
+      "producerTaskId": "S00-T02",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S00-T04",
+      "producerTaskId": "S00-T03",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S01-T02",
+      "producerTaskId": "S00-T04",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S00-T04",
+        "sha256": "14cb8f5699f656208b9a51eddb200035dfecef8159e0499a6099c3f545b2a613"
+      }
+    },
+    {
+      "consumerTaskId": "S01-T02",
+      "producerTaskId": "S01-T01",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S01-T03",
+      "producerTaskId": "S01-T02",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S01-T04",
+      "producerTaskId": "S01-T02",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S02-T02",
+      "producerTaskId": "S01-T03",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S01-T03",
+        "sha256": "b8855d34c2ab0f77517e385ab4ea3fc14c5d5ef820d2615b3e278c78f963faa0"
+      }
+    },
+    {
+      "consumerTaskId": "S02-T02",
+      "producerTaskId": "S02-T01",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S02-T03",
+      "producerTaskId": "S02-T02",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S02-T04",
+      "producerTaskId": "S02-T02",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S03-T02",
+      "producerTaskId": "S01-T03",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S01-T03",
+        "sha256": "b8855d34c2ab0f77517e385ab4ea3fc14c5d5ef820d2615b3e278c78f963faa0"
+      }
+    },
+    {
+      "consumerTaskId": "S03-T02",
+      "producerTaskId": "S03-T01",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S03-T03",
+      "producerTaskId": "S02-T02",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S02-T02",
+        "sha256": "01dafeb6e139c6a8e096ef1598d667bae42a04227bedab7521db9d71869f35a7"
+      }
+    },
+    {
+      "consumerTaskId": "S03-T03",
+      "producerTaskId": "S02-T04",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S02-T04",
+        "sha256": "1dc9fb9ecdfc29278b9cae4e0108861343d437d9d84a171f135e3630eb187fdc"
+      }
+    },
+    {
+      "consumerTaskId": "S03-T03",
+      "producerTaskId": "S03-T01",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S03-T04",
+      "producerTaskId": "S02-T03",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S02-T03",
+        "sha256": "05e6e953af2e5fb125d0148d86d3b93a8488961fde0c7c29cb454d7d9170f5a1"
+      }
+    },
+    {
+      "consumerTaskId": "S03-T04",
+      "producerTaskId": "S03-T03",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S04-T01",
+      "producerTaskId": "S00-T03",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S00-T03",
+        "sha256": "42193b160bc04a7d9bc3ef7f883545c8eaeb4506f9f848f6b02ba801d08410ac"
+      }
+    },
+    {
+      "consumerTaskId": "S04-T01",
+      "producerTaskId": "S01-T02",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S01-T02",
+        "sha256": "f8dfea31b91e435c11203c1641f2b5fd1cefe5e966e26f4ba105b1e7088d7204"
+      }
+    },
+    {
+      "consumerTaskId": "S04-T02",
+      "producerTaskId": "S04-T01",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S04-T03",
+      "producerTaskId": "S04-T02",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S04-T04",
+      "producerTaskId": "S03-T01",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S03-T01",
+        "sha256": "1f6d60ac93a690c8a9cbfb765b9291308bd71953e818b0c0258250d18ff87ca0"
+      }
+    },
+    {
+      "consumerTaskId": "S04-T04",
+      "producerTaskId": "S04-T02",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S05-T01",
+      "producerTaskId": "S04-T02",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S04-T02",
+        "sha256": "cdeca2a0ba4a7101fd27959788455ac53609485617a9cf8146c29c86891a7958"
+      }
+    },
+    {
+      "consumerTaskId": "S05-T02",
+      "producerTaskId": "S04-T03",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S04-T03",
+        "sha256": "1f7e22267c39b3c0e49135dabb5108c55c14e35ac075914186a014ab800c24ab"
+      }
+    },
+    {
+      "consumerTaskId": "S05-T02",
+      "producerTaskId": "S05-T01",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S05-T03",
+      "producerTaskId": "S05-T02",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S05-T04",
+      "producerTaskId": "S04-T04",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S04-T04",
+        "sha256": "43fe7362c17307d938a689c31cfaa350124a5029c8ef938d09c8f08066ec12c5"
+      }
+    },
+    {
+      "consumerTaskId": "S05-T04",
+      "producerTaskId": "S05-T03",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S06-T01",
+      "producerTaskId": "S05-T01",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S05-T01",
+        "sha256": "7542539e334b2f682529977d6e29f15df1721ae541193cbcad5e9b9c92fd2891"
+      }
+    },
+    {
+      "consumerTaskId": "S06-T02",
+      "producerTaskId": "S06-T01",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S06-T03",
+      "producerTaskId": "S05-T02",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S05-T02",
+        "sha256": "316653727f9c5ffaf8af0aaf43ee793656006cd30094636d83734d794ba42d97"
+      }
+    },
+    {
+      "consumerTaskId": "S06-T03",
+      "producerTaskId": "S06-T02",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S06-T04",
+      "producerTaskId": "S06-T03",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S07-T01",
+      "producerTaskId": "S01-T02",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S01-T02",
+        "sha256": "f8dfea31b91e435c11203c1641f2b5fd1cefe5e966e26f4ba105b1e7088d7204"
+      }
+    },
+    {
+      "consumerTaskId": "S07-T01",
+      "producerTaskId": "S02-T01",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S02-T01",
+        "sha256": "dc205e57f25f69ecba7f6237744e0ce28cd01e3fab0c6cf506b7d0d7906cf6c9"
+      }
+    },
+    {
+      "consumerTaskId": "S07-T01",
+      "producerTaskId": "S05-T01",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S05-T01",
+        "sha256": "7542539e334b2f682529977d6e29f15df1721ae541193cbcad5e9b9c92fd2891"
+      }
+    },
+    {
+      "consumerTaskId": "S07-T02",
+      "producerTaskId": "S05-T02",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S05-T02",
+        "sha256": "316653727f9c5ffaf8af0aaf43ee793656006cd30094636d83734d794ba42d97"
+      }
+    },
+    {
+      "consumerTaskId": "S07-T02",
+      "producerTaskId": "S07-T01",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S07-T03",
+      "producerTaskId": "S06-T01",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S06-T01",
+        "sha256": "f2f6cb348272c704636b7e21bf8e8cbd66b812835d781b52e01bdcfa5b0fa97c"
+      }
+    },
+    {
+      "consumerTaskId": "S07-T03",
+      "producerTaskId": "S07-T02",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S07-T04",
+      "producerTaskId": "S03-T01",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S03-T01",
+        "sha256": "1f6d60ac93a690c8a9cbfb765b9291308bd71953e818b0c0258250d18ff87ca0"
+      }
+    },
+    {
+      "consumerTaskId": "S07-T04",
+      "producerTaskId": "S07-T01",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S08-T02",
+      "producerTaskId": "S08-T01",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S08-T03",
+      "producerTaskId": "S05-T03",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S05-T03",
+        "sha256": "7323a2abc0f68ee701724fa4f8c3375d6422eaa906703bed880d6949c4752156"
+      }
+    },
+    {
+      "consumerTaskId": "S08-T03",
+      "producerTaskId": "S07-T01",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S07-T01",
+        "sha256": "f107e1c6caf670a3d435915a04f797ef9ba8c861b288793182dfe2af7a1a8eb4"
+      }
+    },
+    {
+      "consumerTaskId": "S08-T03",
+      "producerTaskId": "S08-T02",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S08-T04",
+      "producerTaskId": "S02-T03",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S02-T03",
+        "sha256": "05e6e953af2e5fb125d0148d86d3b93a8488961fde0c7c29cb454d7d9170f5a1"
+      }
+    },
+    {
+      "consumerTaskId": "S08-T04",
+      "producerTaskId": "S07-T01",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S07-T01",
+        "sha256": "f107e1c6caf670a3d435915a04f797ef9ba8c861b288793182dfe2af7a1a8eb4"
+      }
+    },
+    {
+      "consumerTaskId": "S08-T04",
+      "producerTaskId": "S08-T02",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S09-T02",
+      "producerTaskId": "S02-T02",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S02-T02",
+        "sha256": "01dafeb6e139c6a8e096ef1598d667bae42a04227bedab7521db9d71869f35a7"
+      }
+    },
+    {
+      "consumerTaskId": "S09-T02",
+      "producerTaskId": "S07-T01",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S07-T01",
+        "sha256": "f107e1c6caf670a3d435915a04f797ef9ba8c861b288793182dfe2af7a1a8eb4"
+      }
+    },
+    {
+      "consumerTaskId": "S09-T02",
+      "producerTaskId": "S09-T01",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S09-T03",
+      "producerTaskId": "S02-T03",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S02-T03",
+        "sha256": "05e6e953af2e5fb125d0148d86d3b93a8488961fde0c7c29cb454d7d9170f5a1"
+      }
+    },
+    {
+      "consumerTaskId": "S09-T03",
+      "producerTaskId": "S09-T02",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S09-T04",
+      "producerTaskId": "S08-T01",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S08-T01",
+        "sha256": "f5f8b13c7e8c82f784bddb2b5a12834aec77b6a946cca14b167993fa33aaa0ea"
+      }
+    },
+    {
+      "consumerTaskId": "S09-T04",
+      "producerTaskId": "S09-T03",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S10-T01",
+      "producerTaskId": "S01-T02",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S01-T02",
+        "sha256": "f8dfea31b91e435c11203c1641f2b5fd1cefe5e966e26f4ba105b1e7088d7204"
+      }
+    },
+    {
+      "consumerTaskId": "S10-T01",
+      "producerTaskId": "S04-T02",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S04-T02",
+        "sha256": "cdeca2a0ba4a7101fd27959788455ac53609485617a9cf8146c29c86891a7958"
+      }
+    },
+    {
+      "consumerTaskId": "S10-T02",
+      "producerTaskId": "S09-T04",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S09-T04",
+        "sha256": "bc557e7c84fd2c2719e326bc2b47a4d48f0cf0e27790515d41d74364595a4fb1"
+      }
+    },
+    {
+      "consumerTaskId": "S10-T02",
+      "producerTaskId": "S10-T01",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S10-T03",
+      "producerTaskId": "S10-T02",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S10-T04",
+      "producerTaskId": "S03-T01",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S03-T01",
+        "sha256": "1f6d60ac93a690c8a9cbfb765b9291308bd71953e818b0c0258250d18ff87ca0"
+      }
+    },
+    {
+      "consumerTaskId": "S10-T04",
+      "producerTaskId": "S10-T03",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S11-T02",
+      "producerTaskId": "S01-T02",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S01-T02",
+        "sha256": "f8dfea31b91e435c11203c1641f2b5fd1cefe5e966e26f4ba105b1e7088d7204"
+      }
+    },
+    {
+      "consumerTaskId": "S11-T02",
+      "producerTaskId": "S01-T03",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S01-T03",
+        "sha256": "b8855d34c2ab0f77517e385ab4ea3fc14c5d5ef820d2615b3e278c78f963faa0"
+      }
+    },
+    {
+      "consumerTaskId": "S11-T02",
+      "producerTaskId": "S01-T04",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S01-T04",
+        "sha256": "6a9ca40be899a1a64692e5b55e5f5ce0aa7a60d41e9132551e6a503b3e5bf412"
+      }
+    },
+    {
+      "consumerTaskId": "S11-T02",
+      "producerTaskId": "S02-T02",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S02-T02",
+        "sha256": "01dafeb6e139c6a8e096ef1598d667bae42a04227bedab7521db9d71869f35a7"
+      }
+    },
+    {
+      "consumerTaskId": "S11-T02",
+      "producerTaskId": "S11-T01",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S11-T03",
+      "producerTaskId": "S09-T04",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S09-T04",
+        "sha256": "bc557e7c84fd2c2719e326bc2b47a4d48f0cf0e27790515d41d74364595a4fb1"
+      }
+    },
+    {
+      "consumerTaskId": "S11-T03",
+      "producerTaskId": "S11-T02",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S11-T04",
+      "producerTaskId": "S11-T03",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S12-T02",
+      "producerTaskId": "S07-T01",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S07-T01",
+        "sha256": "f107e1c6caf670a3d435915a04f797ef9ba8c861b288793182dfe2af7a1a8eb4"
+      }
+    },
+    {
+      "consumerTaskId": "S12-T02",
+      "producerTaskId": "S11-T02",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S11-T02",
+        "sha256": "2b484dad01173ead7ca99d710455998926b3666713d025943ef5824aed334ff6"
+      }
+    },
+    {
+      "consumerTaskId": "S12-T02",
+      "producerTaskId": "S12-T01",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S12-T03",
+      "producerTaskId": "S03-T01",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S03-T01",
+        "sha256": "1f6d60ac93a690c8a9cbfb765b9291308bd71953e818b0c0258250d18ff87ca0"
+      }
+    },
+    {
+      "consumerTaskId": "S12-T03",
+      "producerTaskId": "S12-T02",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S13-T01",
+      "producerTaskId": "S08-T04",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S08-T04",
+        "sha256": "56a596c2cbeb9f32aebbee6c2fa169c9d06b4e2455e8aefe4715e0ab3d3144e8"
+      }
+    },
+    {
+      "consumerTaskId": "S13-T01",
+      "producerTaskId": "S09-T04",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S09-T04",
+        "sha256": "bc557e7c84fd2c2719e326bc2b47a4d48f0cf0e27790515d41d74364595a4fb1"
+      }
+    },
+    {
+      "consumerTaskId": "S13-T01",
+      "producerTaskId": "S11-T03",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S11-T03",
+        "sha256": "50dab66d6aea141d5484b1ccd6cd1854ea733b061f5a74604a3bf376cef77411"
+      }
+    },
+    {
+      "consumerTaskId": "S13-T02",
+      "producerTaskId": "S06-T02",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S06-T02",
+        "sha256": "eac4adcd3cb13c713deeccd07cbaee1dcf41b2816d08cc5fe1fda8f8dcf1a69e"
+      }
+    },
+    {
+      "consumerTaskId": "S13-T02",
+      "producerTaskId": "S11-T04",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S11-T04",
+        "sha256": "a40dd120aa58eeb5c2a8ddfa9e3de213f237bfc9fa7c9086e3e748ae61c110f6"
+      }
+    },
+    {
+      "consumerTaskId": "S13-T02",
+      "producerTaskId": "S13-T01",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S13-T03",
+      "producerTaskId": "S06-T02",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S06-T02",
+        "sha256": "eac4adcd3cb13c713deeccd07cbaee1dcf41b2816d08cc5fe1fda8f8dcf1a69e"
+      }
+    },
+    {
+      "consumerTaskId": "S13-T03",
+      "producerTaskId": "S08-T01",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S08-T01",
+        "sha256": "f5f8b13c7e8c82f784bddb2b5a12834aec77b6a946cca14b167993fa33aaa0ea"
+      }
+    },
+    {
+      "consumerTaskId": "S13-T03",
+      "producerTaskId": "S11-T04",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S11-T04",
+        "sha256": "a40dd120aa58eeb5c2a8ddfa9e3de213f237bfc9fa7c9086e3e748ae61c110f6"
+      }
+    },
+    {
+      "consumerTaskId": "S13-T03",
+      "producerTaskId": "S12-T02",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S12-T02",
+        "sha256": "8a39a3b24feff027d7a7b79502404cd0ad4bf023fa64c8e6ef76dd4a42f8a06d"
+      }
+    },
+    {
+      "consumerTaskId": "S13-T04",
+      "producerTaskId": "S03-T01",
+      "classification": "contract",
+      "artifact": {
+        "kind": "task-packet",
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "anchor": "S03-T01",
+        "sha256": "1f6d60ac93a690c8a9cbfb765b9291308bd71953e818b0c0258250d18ff87ca0"
+      }
+    },
+    {
+      "consumerTaskId": "S13-T04",
+      "producerTaskId": "S13-T03",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S14-T01",
+      "producerTaskId": "S10-T04",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S14-T01",
+      "producerTaskId": "S11-T04",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S14-T01",
+      "producerTaskId": "S12-T03",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S14-T01",
+      "producerTaskId": "S13-T04",
+      "classification": "true"
+    }
+  ],
+  "collisions": [
+    {
+      "leftTaskId": "S00-T02",
+      "rightTaskId": "S00-T04",
+      "paths": ["docs/template/porting-backlog.md"],
+      "policy": "dependency_order"
+    },
+    {
+      "leftTaskId": "S00-T02",
+      "rightTaskId": "S01-T02",
+      "paths": ["@dependencies", "pnpm-workspace.yaml"],
+      "policy": "regenerate"
+    },
+    {
+      "leftTaskId": "S00-T02",
+      "rightTaskId": "S04-T01",
+      "paths": ["@dependencies"],
+      "policy": "regenerate"
+    },
+    {
+      "leftTaskId": "S00-T02",
+      "rightTaskId": "S08-T01",
+      "paths": ["@dependencies"],
+      "policy": "regenerate"
+    },
+    {
+      "leftTaskId": "S00-T02",
+      "rightTaskId": "S08-T02",
+      "paths": ["package.json"],
+      "policy": "regenerate"
+    },
+    {
+      "leftTaskId": "S00-T02",
+      "rightTaskId": "S09-T01",
+      "paths": ["@dependencies", "docs/template/porting-backlog.md"],
+      "policy": "regenerate"
+    },
+    {
+      "leftTaskId": "S00-T03",
+      "rightTaskId": "S01-T01",
+      "paths": [
+        ".env.example",
+        "@environment",
+        "docs/template/env-manifest.json",
+        "docs/template/env-manifest.md"
+      ],
+      "policy": "regenerate"
+    },
+    {
+      "leftTaskId": "S00-T03",
+      "rightTaskId": "S04-T01",
+      "paths": [
+        ".env.example",
+        "@environment",
+        "docs/template/env-manifest.json",
+        "docs/template/env-manifest.md"
+      ],
+      "policy": "regenerate"
+    },
+    {
+      "leftTaskId": "S00-T03",
+      "rightTaskId": "S04-T03",
+      "paths": [
+        ".env.example",
+        "@environment",
+        "docs/template/env-manifest.json",
+        "docs/template/env-manifest.md"
+      ],
+      "policy": "regenerate"
+    },
+    {
+      "leftTaskId": "S00-T03",
+      "rightTaskId": "S08-T01",
+      "paths": [
+        ".env.example",
+        "@environment",
+        "docs/template/env-manifest.json",
+        "docs/template/env-manifest.md"
+      ],
+      "policy": "regenerate"
+    },
+    {
+      "leftTaskId": "S00-T03",
+      "rightTaskId": "S11-T04",
+      "paths": [
+        "@environment",
+        "docs/template/env-manifest.json",
+        "docs/template/env-manifest.md"
+      ],
+      "policy": "regenerate"
+    },
+    {
+      "leftTaskId": "S00-T04",
+      "rightTaskId": "S01-T02",
+      "paths": [
+        "docs/product/maestro-brain-migrations.md",
+        "packages/convex/confect/internal/migrations.impl.ts",
+        "packages/convex/confect/internal/migrations.spec.ts",
+        "packages/convex/confect/internal/migrations.ts",
+        "packages/convex/test/migrations.test.ts"
+      ],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S00-T04",
+      "rightTaskId": "S02-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S00-T04",
+      "rightTaskId": "S02-T03",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S00-T04",
+      "rightTaskId": "S04-T02",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S00-T04",
+      "rightTaskId": "S05-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S00-T04",
+      "rightTaskId": "S07-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S00-T04",
+      "rightTaskId": "S09-T01",
+      "paths": ["docs/template/porting-backlog.md"],
+      "policy": "regenerate"
+    },
+    {
+      "leftTaskId": "S00-T04",
+      "rightTaskId": "S09-T02",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S00-T04",
+      "rightTaskId": "S10-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S00-T04",
+      "rightTaskId": "S11-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S01-T01",
+      "rightTaskId": "S01-T03",
+      "paths": ["apps/web/src/routes/__root.tsx"],
+      "policy": "dependency_order"
+    },
+    {
+      "leftTaskId": "S01-T01",
+      "rightTaskId": "S04-T01",
+      "paths": [
+        ".env.example",
+        "@environment",
+        "docs/template/env-manifest.json",
+        "docs/template/env-manifest.md"
+      ],
+      "policy": "regenerate"
+    },
+    {
+      "leftTaskId": "S01-T01",
+      "rightTaskId": "S04-T03",
+      "paths": [
+        ".env.example",
+        "@environment",
+        "docs/template/env-manifest.json",
+        "docs/template/env-manifest.md"
+      ],
+      "policy": "regenerate"
+    },
+    {
+      "leftTaskId": "S01-T01",
+      "rightTaskId": "S08-T01",
+      "paths": [
+        ".env.example",
+        "@environment",
+        "docs/template/env-manifest.json",
+        "docs/template/env-manifest.md"
+      ],
+      "policy": "regenerate"
+    },
+    {
+      "leftTaskId": "S01-T01",
+      "rightTaskId": "S11-T04",
+      "paths": [
+        "@environment",
+        "docs/template/env-manifest.json",
+        "docs/template/env-manifest.md"
+      ],
+      "policy": "regenerate"
+    },
+    {
+      "leftTaskId": "S01-T02",
+      "rightTaskId": "S01-T03",
+      "paths": [
+        "packages/convex/confect/access/provisioning.impl.ts",
+        "packages/convex/confect/access/provisioning.ts",
+        "packages/convex/confect/identity/stableKeys.ts",
+        "packages/convex/confect/tables/workspaces.ts",
+        "packages/convex/test/access-provisioning.test.ts"
+      ],
+      "policy": "dependency_order"
+    },
+    {
+      "leftTaskId": "S01-T02",
+      "rightTaskId": "S01-T04",
+      "paths": ["packages/convex/confect/access/tenancySchemas.ts"],
+      "policy": "dependency_order"
+    },
+    {
+      "leftTaskId": "S01-T02",
+      "rightTaskId": "S02-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S01-T02",
+      "rightTaskId": "S02-T03",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S01-T02",
+      "rightTaskId": "S03-T02",
+      "paths": [
+        "packages/convex/confect/access/provisioning.impl.ts",
+        "packages/convex/confect/tables/workspaces.ts"
+      ],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S01-T02",
+      "rightTaskId": "S04-T01",
+      "paths": [
+        "@dependencies",
+        "packages/convex/package.json",
+        "pnpm-lock.yaml"
+      ],
+      "policy": "regenerate"
+    },
+    {
+      "leftTaskId": "S01-T02",
+      "rightTaskId": "S04-T02",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S01-T02",
+      "rightTaskId": "S05-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S01-T02",
+      "rightTaskId": "S07-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S01-T02",
+      "rightTaskId": "S08-T01",
+      "paths": ["@dependencies", "pnpm-lock.yaml"],
+      "policy": "regenerate"
+    },
+    {
+      "leftTaskId": "S01-T02",
+      "rightTaskId": "S09-T01",
+      "paths": ["@dependencies", "pnpm-lock.yaml"],
+      "policy": "regenerate"
+    },
+    {
+      "leftTaskId": "S01-T02",
+      "rightTaskId": "S09-T02",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S01-T02",
+      "rightTaskId": "S10-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S01-T02",
+      "rightTaskId": "S11-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S01-T02",
+      "rightTaskId": "S11-T02",
+      "paths": ["packages/convex/confect/access/tenancySchemas.ts"],
+      "policy": "serialize"
+    },
+    {
+      "leftTaskId": "S01-T03",
+      "rightTaskId": "S01-T04",
+      "paths": ["packages/convex/confect/access/auth.ts"],
+      "policy": "serialize"
+    },
+    {
+      "leftTaskId": "S01-T03",
+      "rightTaskId": "S03-T02",
+      "paths": [
+        "packages/convex/confect/access/provisioning.impl.ts",
+        "packages/convex/confect/access/provisioning.spec.ts",
+        "packages/convex/confect/errors.ts",
+        "packages/convex/confect/tables/workspaces.ts",
+        "packages/convex/test/authorized-brain-provisioning.test.ts"
+      ],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S01-T04",
+      "rightTaskId": "S06-T04",
+      "paths": ["packages/convex/confect/access/audit.ts"],
+      "policy": "serialize"
+    },
+    {
+      "leftTaskId": "S01-T04",
+      "rightTaskId": "S11-T02",
+      "paths": [
+        "apps/web/src/features/settings/settings-surface.test.ts",
+        "apps/web/src/features/settings/settings-surface.ts",
+        "apps/web/src/routes/_workspace.settings.tsx",
+        "packages/convex/confect/access/audit.ts",
+        "packages/convex/confect/access/tenancySchemas.ts"
+      ],
+      "policy": "serialize"
+    },
+    {
+      "leftTaskId": "S01-T04",
+      "rightTaskId": "S12-T03",
+      "paths": ["apps/web/src/features/settings/settings-surface.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S02-T01",
+      "rightTaskId": "S02-T03",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "dependency_order"
+    },
+    {
+      "leftTaskId": "S02-T01",
+      "rightTaskId": "S04-T02",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S02-T01",
+      "rightTaskId": "S05-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S02-T01",
+      "rightTaskId": "S07-T01",
+      "paths": [
+        "packages/convex/confect/internal/migrations.ts",
+        "packages/convex/confect/tables/brainPages.ts",
+        "packages/convex/confect/tables/pageRevisions.ts"
+      ],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S02-T01",
+      "rightTaskId": "S09-T02",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S02-T01",
+      "rightTaskId": "S10-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S02-T01",
+      "rightTaskId": "S11-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S02-T02",
+      "rightTaskId": "S02-T04",
+      "paths": [
+        "packages/convex/confect/brain/pages.impl.ts",
+        "packages/convex/confect/brain/pages.spec.ts",
+        "packages/convex/confect/editor/syncApi.ts",
+        "packages/convex/test/editor-sync.test.ts"
+      ],
+      "policy": "dependency_order"
+    },
+    {
+      "leftTaskId": "S02-T02",
+      "rightTaskId": "S03-T03",
+      "paths": [
+        "packages/convex/confect/brain/pages.impl.ts",
+        "packages/convex/confect/brain/pages.spec.ts",
+        "packages/convex/confect/editor/syncApi.ts",
+        "packages/convex/test/brain-pages-crud.test.ts"
+      ],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S02-T02",
+      "rightTaskId": "S04-T03",
+      "paths": ["packages/convex/confect/http.ts"],
+      "policy": "serialize"
+    },
+    {
+      "leftTaskId": "S02-T02",
+      "rightTaskId": "S09-T03",
+      "paths": [
+        "packages/convex/confect/brain/pages.impl.ts",
+        "packages/convex/confect/brain/pages.spec.ts"
+      ],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S02-T02",
+      "rightTaskId": "S11-T02",
+      "paths": [
+        "packages/convex/confect/http.ts",
+        "packages/convex/confect/httpRequest.ts",
+        "packages/convex/confect/manifest/executor.ts",
+        "packages/convex/test/headless-executor.test.ts"
+      ],
+      "policy": "serialize"
+    },
+    {
+      "leftTaskId": "S02-T02",
+      "rightTaskId": "S11-T03",
+      "paths": [
+        "apps/cli/src/index.test.ts",
+        "apps/cli/src/index.ts",
+        "packages/convex/confect/brain/pages.impl.ts",
+        "packages/convex/confect/brain/pages.spec.ts",
+        "packages/convex/confect/manifest/executor.ts"
+      ],
+      "policy": "serialize"
+    },
+    {
+      "leftTaskId": "S02-T02",
+      "rightTaskId": "S11-T04",
+      "paths": ["packages/convex/confect/http.ts"],
+      "policy": "serialize"
+    },
+    {
+      "leftTaskId": "S02-T02",
+      "rightTaskId": "S12-T02",
+      "paths": ["packages/convex/confect/http.ts"],
+      "policy": "serialize"
+    },
+    {
+      "leftTaskId": "S02-T03",
+      "rightTaskId": "S04-T02",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S02-T03",
+      "rightTaskId": "S05-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S02-T03",
+      "rightTaskId": "S07-T01",
+      "paths": [
+        "packages/convex/confect/internal/migrations.ts",
+        "packages/convex/confect/tables/citations.ts"
+      ],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S02-T03",
+      "rightTaskId": "S07-T02",
+      "paths": [
+        "packages/convex/confect/brain/citations.ts",
+        "packages/convex/confect/brain/revisions.ts"
+      ],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S02-T03",
+      "rightTaskId": "S09-T02",
+      "paths": [
+        "packages/convex/confect/brain/revisions.ts",
+        "packages/convex/confect/internal/migrations.ts"
+      ],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S02-T03",
+      "rightTaskId": "S10-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S02-T03",
+      "rightTaskId": "S11-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S02-T04",
+      "rightTaskId": "S03-T03",
+      "paths": [
+        "packages/convex/confect/brain/pages.impl.ts",
+        "packages/convex/confect/brain/pages.spec.ts",
+        "packages/convex/confect/editor/syncApi.ts",
+        "packages/convex/test/brain-editor-revision-fence.test.ts"
+      ],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S02-T04",
+      "rightTaskId": "S09-T03",
+      "paths": [
+        "packages/convex/confect/brain/pages.impl.ts",
+        "packages/convex/confect/brain/pages.spec.ts"
+      ],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S02-T04",
+      "rightTaskId": "S11-T03",
+      "paths": [
+        "packages/convex/confect/brain/pages.impl.ts",
+        "packages/convex/confect/brain/pages.spec.ts"
+      ],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S03-T01",
+      "rightTaskId": "S03-T02",
+      "paths": [
+        "apps/web/src/features/clients/clients-screen.test.tsx",
+        "apps/web/src/features/clients/clients-screen.tsx",
+        "apps/web/src/routes/_workspace.clients.tsx"
+      ],
+      "policy": "dependency_order"
+    },
+    {
+      "leftTaskId": "S03-T01",
+      "rightTaskId": "S03-T03",
+      "paths": ["apps/web/src/saas-ui/business-shell.tsx"],
+      "policy": "dependency_order"
+    },
+    {
+      "leftTaskId": "S03-T01",
+      "rightTaskId": "S04-T04",
+      "paths": ["apps/web/src/routes/_workspace.connections.tsx"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S03-T03",
+      "rightTaskId": "S03-T04",
+      "paths": [
+        "apps/web/src/features/brain/brain-adapter.ts",
+        "apps/web/src/features/brain/brain-evidence-drawer.tsx"
+      ],
+      "policy": "dependency_order"
+    },
+    {
+      "leftTaskId": "S03-T03",
+      "rightTaskId": "S07-T04",
+      "paths": ["apps/web/src/features/brain/brain-evidence-drawer.tsx"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S03-T03",
+      "rightTaskId": "S09-T03",
+      "paths": [
+        "packages/convex/confect/brain/pages.impl.ts",
+        "packages/convex/confect/brain/pages.spec.ts"
+      ],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S03-T03",
+      "rightTaskId": "S09-T04",
+      "paths": ["apps/web/src/features/brain/brain-workspace.tsx"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S03-T03",
+      "rightTaskId": "S11-T03",
+      "paths": [
+        "packages/convex/confect/brain/pages.impl.ts",
+        "packages/convex/confect/brain/pages.spec.ts"
+      ],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S03-T04",
+      "rightTaskId": "S07-T04",
+      "paths": ["apps/web/src/features/brain/brain-evidence-drawer.tsx"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S04-T01",
+      "rightTaskId": "S04-T03",
+      "paths": [
+        ".env.example",
+        "@environment",
+        "docs/template/env-manifest.json",
+        "docs/template/env-manifest.md"
+      ],
+      "policy": "dependency_order"
+    },
+    {
+      "leftTaskId": "S04-T01",
+      "rightTaskId": "S08-T01",
+      "paths": [
+        ".env.example",
+        "@dependencies",
+        "@environment",
+        "docs/template/env-manifest.json",
+        "docs/template/env-manifest.md",
+        "packages/integrations/package.json",
+        "pnpm-lock.yaml"
+      ],
+      "policy": "regenerate"
+    },
+    {
+      "leftTaskId": "S04-T01",
+      "rightTaskId": "S09-T01",
+      "paths": ["@dependencies", "pnpm-lock.yaml"],
+      "policy": "regenerate"
+    },
+    {
+      "leftTaskId": "S04-T01",
+      "rightTaskId": "S11-T04",
+      "paths": [
+        "@environment",
+        "docs/template/env-manifest.json",
+        "docs/template/env-manifest.md"
+      ],
+      "policy": "regenerate"
+    },
+    {
+      "leftTaskId": "S04-T02",
+      "rightTaskId": "S05-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S04-T02",
+      "rightTaskId": "S06-T02",
+      "paths": ["packages/convex/confect/tables/channelSyncStates.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S04-T02",
+      "rightTaskId": "S06-T03",
+      "paths": ["packages/convex/confect/tables/channelSyncStates.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S04-T02",
+      "rightTaskId": "S06-T04",
+      "paths": ["packages/convex/confect/tables/channelSyncStates.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S04-T02",
+      "rightTaskId": "S07-T01",
+      "paths": [
+        "packages/convex/confect/internal/migrations.ts",
+        "packages/convex/confect/tables/channelSyncStates.ts"
+      ],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S04-T02",
+      "rightTaskId": "S09-T02",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S04-T02",
+      "rightTaskId": "S10-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S04-T02",
+      "rightTaskId": "S11-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S04-T03",
+      "rightTaskId": "S05-T02",
+      "paths": ["packages/convex/confect/slack/webhook.impl.ts"],
+      "policy": "serialize"
+    },
+    {
+      "leftTaskId": "S04-T03",
+      "rightTaskId": "S08-T01",
+      "paths": [
+        ".env.example",
+        "@environment",
+        "docs/template/env-manifest.json",
+        "docs/template/env-manifest.md"
+      ],
+      "policy": "regenerate"
+    },
+    {
+      "leftTaskId": "S04-T03",
+      "rightTaskId": "S10-T02",
+      "paths": ["packages/convex/confect/slack/webhook.impl.ts"],
+      "policy": "serialize"
+    },
+    {
+      "leftTaskId": "S04-T03",
+      "rightTaskId": "S11-T02",
+      "paths": ["packages/convex/confect/http.ts"],
+      "policy": "serialize"
+    },
+    {
+      "leftTaskId": "S04-T03",
+      "rightTaskId": "S11-T04",
+      "paths": [
+        "@environment",
+        "docs/template/env-manifest.json",
+        "docs/template/env-manifest.md",
+        "packages/convex/confect/http.ts"
+      ],
+      "policy": "serialize"
+    },
+    {
+      "leftTaskId": "S04-T03",
+      "rightTaskId": "S12-T02",
+      "paths": ["packages/convex/confect/http.ts"],
+      "policy": "serialize"
+    },
+    {
+      "leftTaskId": "S04-T03",
+      "rightTaskId": "S13-T03",
+      "paths": ["tooling/quality/check-logging-boundary.mts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S05-T01",
+      "rightTaskId": "S05-T03",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "dependency_order"
+    },
+    {
+      "leftTaskId": "S05-T01",
+      "rightTaskId": "S05-T04",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "dependency_order"
+    },
+    {
+      "leftTaskId": "S05-T01",
+      "rightTaskId": "S06-T01",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S05-T01",
+      "rightTaskId": "S06-T02",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S05-T01",
+      "rightTaskId": "S06-T03",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S05-T01",
+      "rightTaskId": "S07-T01",
+      "paths": [
+        "packages/convex/confect/internal/migrations.ts",
+        "packages/convex/confect/tables/providerEventReceipts.ts",
+        "packages/convex/confect/tables/sourceArtifacts.ts",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts",
+        "packages/convex/confect/tables/sourceRevisions.ts"
+      ],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S05-T01",
+      "rightTaskId": "S08-T03",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S05-T01",
+      "rightTaskId": "S08-T04",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S05-T01",
+      "rightTaskId": "S09-T02",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S05-T01",
+      "rightTaskId": "S10-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S05-T01",
+      "rightTaskId": "S10-T02",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S05-T01",
+      "rightTaskId": "S11-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S05-T02",
+      "rightTaskId": "S07-T02",
+      "paths": [
+        "packages/convex/confect/sources/captureTransaction.ts",
+        "packages/convex/confect/sources/sourceOrdering.ts"
+      ],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S05-T02",
+      "rightTaskId": "S10-T02",
+      "paths": ["packages/convex/confect/slack/webhook.impl.ts"],
+      "policy": "serialize"
+    },
+    {
+      "leftTaskId": "S05-T03",
+      "rightTaskId": "S05-T04",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "dependency_order"
+    },
+    {
+      "leftTaskId": "S05-T03",
+      "rightTaskId": "S06-T01",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S05-T03",
+      "rightTaskId": "S06-T02",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S05-T03",
+      "rightTaskId": "S06-T03",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S05-T03",
+      "rightTaskId": "S07-T01",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S05-T03",
+      "rightTaskId": "S08-T03",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S05-T03",
+      "rightTaskId": "S08-T04",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S05-T03",
+      "rightTaskId": "S10-T02",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S05-T04",
+      "rightTaskId": "S06-T01",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S05-T04",
+      "rightTaskId": "S06-T02",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S05-T04",
+      "rightTaskId": "S06-T03",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S05-T04",
+      "rightTaskId": "S07-T01",
+      "paths": [
+        "packages/convex/confect/tables/sourceProcessingJobs.ts",
+        "packages/convex/confect/tables/sourceRoutes.ts"
+      ],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S05-T04",
+      "rightTaskId": "S07-T02",
+      "paths": ["packages/convex/confect/sources/policyDispatch.ts"],
+      "policy": "serialize"
+    },
+    {
+      "leftTaskId": "S05-T04",
+      "rightTaskId": "S08-T03",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S05-T04",
+      "rightTaskId": "S08-T04",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S05-T04",
+      "rightTaskId": "S09-T02",
+      "paths": ["packages/convex/confect/sources/policyDispatch.ts"],
+      "policy": "serialize"
+    },
+    {
+      "leftTaskId": "S05-T04",
+      "rightTaskId": "S10-T02",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S06-T01",
+      "rightTaskId": "S06-T02",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "dependency_order"
+    },
+    {
+      "leftTaskId": "S06-T01",
+      "rightTaskId": "S06-T03",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "dependency_order"
+    },
+    {
+      "leftTaskId": "S06-T01",
+      "rightTaskId": "S07-T01",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S06-T01",
+      "rightTaskId": "S07-T02",
+      "paths": ["packages/convex/confect/jobs/workpool.impl.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S06-T01",
+      "rightTaskId": "S08-T03",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S06-T01",
+      "rightTaskId": "S08-T04",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S06-T01",
+      "rightTaskId": "S10-T02",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S06-T01",
+      "rightTaskId": "S12-T02",
+      "paths": ["packages/convex/confect/jobs/workpool.impl.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S06-T02",
+      "rightTaskId": "S06-T03",
+      "paths": [
+        "packages/convex/confect/tables/channelSyncStates.ts",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts"
+      ],
+      "policy": "dependency_order"
+    },
+    {
+      "leftTaskId": "S06-T02",
+      "rightTaskId": "S06-T04",
+      "paths": [
+        "packages/convex/confect/jobs/fairScheduler.ts",
+        "packages/convex/confect/tables/channelSyncStates.ts"
+      ],
+      "policy": "dependency_order"
+    },
+    {
+      "leftTaskId": "S06-T02",
+      "rightTaskId": "S07-T01",
+      "paths": [
+        "packages/convex/confect/tables/channelSyncStates.ts",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts"
+      ],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S06-T02",
+      "rightTaskId": "S08-T03",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S06-T02",
+      "rightTaskId": "S08-T04",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S06-T02",
+      "rightTaskId": "S10-T02",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S06-T02",
+      "rightTaskId": "S10-T03",
+      "paths": ["packages/convex/confect/jobs/slackRateBudget.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S06-T03",
+      "rightTaskId": "S06-T04",
+      "paths": ["packages/convex/confect/tables/channelSyncStates.ts"],
+      "policy": "dependency_order"
+    },
+    {
+      "leftTaskId": "S06-T03",
+      "rightTaskId": "S07-T01",
+      "paths": [
+        "packages/convex/confect/tables/channelSyncStates.ts",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts"
+      ],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S06-T03",
+      "rightTaskId": "S08-T03",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S06-T03",
+      "rightTaskId": "S08-T04",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S06-T03",
+      "rightTaskId": "S10-T02",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S06-T04",
+      "rightTaskId": "S07-T01",
+      "paths": ["packages/convex/confect/tables/channelSyncStates.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S06-T04",
+      "rightTaskId": "S10-T04",
+      "paths": [
+        "packages/convex/confect/ops/notifications.impl.ts",
+        "packages/convex/confect/ops/notifications.spec.ts"
+      ],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S06-T04",
+      "rightTaskId": "S11-T02",
+      "paths": ["packages/convex/confect/access/audit.ts"],
+      "policy": "serialize"
+    },
+    {
+      "leftTaskId": "S06-T04",
+      "rightTaskId": "S12-T03",
+      "paths": [
+        "packages/convex/confect/ops/notifications.impl.ts",
+        "packages/convex/confect/ops/notifications.spec.ts"
+      ],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S06-T04",
+      "rightTaskId": "S13-T04",
+      "paths": [
+        "packages/convex/confect/ops/notifications.impl.ts",
+        "packages/convex/confect/ops/notifications.spec.ts"
+      ],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S07-T01",
+      "rightTaskId": "S07-T03",
+      "paths": [
+        "packages/convex/confect/ops/dataLifecycle.impl.ts",
+        "packages/convex/confect/ops/dataLifecycle.spec.ts",
+        "packages/convex/confect/ops/dataLifecycle.ts"
+      ],
+      "policy": "dependency_order"
+    },
+    {
+      "leftTaskId": "S07-T01",
+      "rightTaskId": "S08-T03",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S07-T01",
+      "rightTaskId": "S08-T04",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S07-T01",
+      "rightTaskId": "S09-T02",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S07-T01",
+      "rightTaskId": "S10-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S07-T01",
+      "rightTaskId": "S10-T02",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S07-T01",
+      "rightTaskId": "S11-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S07-T02",
+      "rightTaskId": "S09-T02",
+      "paths": [
+        "packages/convex/confect/brain/revisions.ts",
+        "packages/convex/confect/lifecycle/propagation.ts",
+        "packages/convex/confect/sources/policyDispatch.ts"
+      ],
+      "policy": "serialize"
+    },
+    {
+      "leftTaskId": "S07-T02",
+      "rightTaskId": "S10-T03",
+      "paths": ["packages/convex/confect/lifecycle/propagation.ts"],
+      "policy": "serialize"
+    },
+    {
+      "leftTaskId": "S07-T02",
+      "rightTaskId": "S12-T02",
+      "paths": ["packages/convex/confect/jobs/workpool.impl.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S07-T04",
+      "rightTaskId": "S12-T03",
+      "paths": [
+        "apps/web/src/features/settings/lifecycle-job-detail.tsx",
+        "docs/product/maestro-brain-lifecycle-operations.md"
+      ],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S08-T01",
+      "rightTaskId": "S09-T01",
+      "paths": ["@dependencies", "pnpm-lock.yaml"],
+      "policy": "regenerate"
+    },
+    {
+      "leftTaskId": "S08-T01",
+      "rightTaskId": "S11-T04",
+      "paths": [
+        "@environment",
+        "docs/template/env-manifest.json",
+        "docs/template/env-manifest.md"
+      ],
+      "policy": "regenerate"
+    },
+    {
+      "leftTaskId": "S08-T03",
+      "rightTaskId": "S08-T04",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S08-T03",
+      "rightTaskId": "S10-T02",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S08-T04",
+      "rightTaskId": "S10-T02",
+      "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S08-T04",
+      "rightTaskId": "S13-T01",
+      "paths": ["tooling/evals/src/index.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S09-T02",
+      "rightTaskId": "S10-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S09-T02",
+      "rightTaskId": "S10-T03",
+      "paths": ["packages/convex/confect/lifecycle/propagation.ts"],
+      "policy": "serialize"
+    },
+    {
+      "leftTaskId": "S09-T02",
+      "rightTaskId": "S11-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S09-T03",
+      "rightTaskId": "S09-T04",
+      "paths": ["packages/convex/confect/tables/retrievalReceipts.ts"],
+      "policy": "dependency_order"
+    },
+    {
+      "leftTaskId": "S09-T03",
+      "rightTaskId": "S11-T03",
+      "paths": [
+        "packages/convex/confect/brain/pages.impl.ts",
+        "packages/convex/confect/brain/pages.spec.ts"
+      ],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S09-T04",
+      "rightTaskId": "S10-T03",
+      "paths": ["packages/convex/confect/answers/deliver.ts"],
+      "policy": "serialize"
+    },
+    {
+      "leftTaskId": "S10-T01",
+      "rightTaskId": "S10-T04",
+      "paths": [
+        "apps/web/src/features/settings/slack-link-status.test.tsx",
+        "apps/web/src/features/settings/slack-link-status.tsx"
+      ],
+      "policy": "dependency_order"
+    },
+    {
+      "leftTaskId": "S10-T01",
+      "rightTaskId": "S11-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S10-T04",
+      "rightTaskId": "S12-T03",
+      "paths": [
+        "packages/convex/confect/ops/notifications.impl.ts",
+        "packages/convex/confect/ops/notifications.spec.ts"
+      ],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S10-T04",
+      "rightTaskId": "S13-T04",
+      "paths": [
+        "packages/convex/confect/ops/notifications.impl.ts",
+        "packages/convex/confect/ops/notifications.spec.ts"
+      ],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S11-T01",
+      "rightTaskId": "S11-T02",
+      "paths": [
+        "packages/convex/confect/headless/apiKeys.impl.ts",
+        "packages/convex/confect/headless/apiKeys.spec.ts",
+        "packages/convex/confect/headless/auth.ts",
+        "packages/convex/test/api-keys.test.ts"
+      ],
+      "policy": "dependency_order"
+    },
+    {
+      "leftTaskId": "S11-T02",
+      "rightTaskId": "S11-T03",
+      "paths": ["packages/convex/confect/manifest/executor.ts"],
+      "policy": "dependency_order"
+    },
+    {
+      "leftTaskId": "S11-T02",
+      "rightTaskId": "S11-T04",
+      "paths": [
+        "packages/convex/confect/headless/errorEnvelope.ts",
+        "packages/convex/confect/http.ts"
+      ],
+      "policy": "dependency_order"
+    },
+    {
+      "leftTaskId": "S11-T02",
+      "rightTaskId": "S12-T02",
+      "paths": ["packages/convex/confect/http.ts"],
+      "policy": "serialize"
+    },
+    {
+      "leftTaskId": "S11-T02",
+      "rightTaskId": "S12-T03",
+      "paths": ["apps/web/src/features/settings/settings-surface.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S11-T04",
+      "rightTaskId": "S12-T02",
+      "paths": ["packages/convex/confect/http.ts"],
+      "policy": "serialize"
+    },
+    {
+      "leftTaskId": "S11-T04",
+      "rightTaskId": "S14-T01",
+      "paths": [
+        "docs/product/maestro-brain-deployment.md",
+        "docs/product/maestro-brain-privacy-security.md"
+      ],
+      "policy": "dependency_order"
+    },
+    {
+      "leftTaskId": "S12-T03",
+      "rightTaskId": "S13-T04",
+      "paths": [
+        "packages/convex/confect/ops/notifications.impl.ts",
+        "packages/convex/confect/ops/notifications.spec.ts"
+      ],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S13-T01",
+      "rightTaskId": "S13-T02",
+      "paths": ["tooling/evals/package.json"],
+      "policy": "dependency_order"
+    },
+    {
+      "leftTaskId": "S13-T03",
+      "rightTaskId": "S13-T04",
+      "paths": ["docs/product/maestro-brain-operations.md"],
+      "policy": "dependency_order"
+    }
+  ]
+}
