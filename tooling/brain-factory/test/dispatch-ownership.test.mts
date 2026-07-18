@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, renameSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
@@ -8,6 +8,7 @@ import {
   acquireDispatcherLock,
   archiveTerminalTaskRecord,
   promoteTaskReservation,
+  reconcilePreparingTaskReservation,
   recoveryCoordinatesForRecord,
   recoverTaskReservation,
   reserveTaskPreparing,
@@ -365,5 +366,226 @@ describe("brain dispatch ownership", () => {
       taskId: "S08-T02",
     });
     expect(readFileSync(archived, "utf8")).toContain("run-1");
+  });
+
+  it("replays one deterministic terminal archive without duplicating audit", () => {
+    const value = fixture();
+    const actionId = "a".repeat(64);
+    reserveTaskPreparing(value.recordPath, {
+      runId: "run-1",
+      status: "launched",
+      taskId: "S08-T02",
+    });
+    const first = archiveTerminalTaskRecord({
+      actionId,
+      auditPath: value.auditPath,
+      now: "2026-07-14T00:00:00.000Z",
+      recordPath: value.recordPath,
+      runId: "run-1",
+      status: "failed",
+      taskId: "S08-T02",
+    });
+    const replay = archiveTerminalTaskRecord({
+      actionId,
+      auditPath: value.auditPath,
+      now: "2026-07-14T00:05:00.000Z",
+      recordPath: value.recordPath,
+      runId: "run-1",
+      status: "failed",
+      taskId: "S08-T02",
+    });
+    expect(replay).toBe(first);
+    expect(first).toBe(`${value.recordPath}.terminal-${actionId}`);
+    expect(
+      readFileSync(value.auditPath, "utf8").trim().split("\n"),
+    ).toHaveLength(1);
+  });
+
+  it("finishes audit after a crash between deterministic rename and append", () => {
+    const value = fixture();
+    const actionId = "b".repeat(64);
+    reserveTaskPreparing(value.recordPath, {
+      runId: "run-2",
+      status: "launched",
+      taskId: "S08-T02",
+    });
+    const archivedPath = `${value.recordPath}.terminal-${actionId}`;
+    renameSync(value.recordPath, archivedPath);
+
+    expect(
+      archiveTerminalTaskRecord({
+        actionId,
+        auditPath: value.auditPath,
+        now: "2026-07-14T00:00:00.000Z",
+        recordPath: value.recordPath,
+        runId: "run-2",
+        status: "succeeded",
+        taskId: "S08-T02",
+      }),
+    ).toBe(archivedPath);
+    expect(readFileSync(value.auditPath, "utf8")).toContain(actionId);
+  });
+
+  it("rejects conflicting deterministic archive or audit replay", () => {
+    const value = fixture();
+    const actionId = "c".repeat(64);
+    const archivedPath = `${value.recordPath}.terminal-${actionId}`;
+    reserveTaskPreparing(value.recordPath, {
+      runId: "other-run",
+      status: "launched",
+      taskId: "S08-T02",
+    });
+    renameSync(value.recordPath, archivedPath);
+    expect(() =>
+      archiveTerminalTaskRecord({
+        actionId,
+        auditPath: value.auditPath,
+        now: "2026-07-14T00:00:00.000Z",
+        recordPath: value.recordPath,
+        runId: "run-3",
+        status: "failed",
+        taskId: "S08-T02",
+      }),
+    ).toThrow("archive identity mismatch");
+
+    reserveTaskPreparing(value.recordPath, {
+      runId: "run-3",
+      status: "launched",
+      taskId: "S08-T02",
+    });
+    const validAction = "e".repeat(64);
+    archiveTerminalTaskRecord({
+      actionId: validAction,
+      auditPath: value.auditPath,
+      now: "2026-07-14T00:00:00.000Z",
+      recordPath: value.recordPath,
+      runId: "run-3",
+      status: "failed",
+      taskId: "S08-T02",
+    });
+    expect(() =>
+      archiveTerminalTaskRecord({
+        actionId: validAction,
+        auditPath: value.auditPath,
+        now: "2026-07-14T00:01:00.000Z",
+        recordPath: value.recordPath,
+        runId: "run-3",
+        status: "succeeded",
+        taskId: "S08-T02",
+      }),
+    ).toThrow("archive audit identity mismatch");
+  });
+
+  const preparingConfigInputs = {
+    base_sha: "d".repeat(40),
+    evidence_dir: "/tmp/evidence",
+    start_sha: "d".repeat(40),
+    task_id: "S08-T02",
+    workdir: "/tmp/s08-t02",
+  } as const;
+  const preparingReservation = {
+    baseSha: "d".repeat(40),
+    branch: "fabro/brain-s08-t02",
+    status: "preparing",
+    taskId: "S08-T02",
+    workdir: "/tmp/s08-t02",
+  } as const;
+
+  const preparingInspection = (runId: string) => ({
+    branch: preparingReservation.branch,
+    inspection: {
+      run_id: runId,
+      run_spec: {
+        settings: {
+          run: {
+            inputs: preparingConfigInputs,
+            metadata: { task: preparingReservation.taskId },
+          },
+        },
+      },
+    },
+  });
+
+  it("reconciles zero candidates as retry and one exact candidate as promote", () => {
+    expect(
+      reconcilePreparingTaskReservation({
+        candidates: [],
+        expectedConfigInputs: preparingConfigInputs,
+        reservation: preparingReservation,
+      }),
+    ).toEqual({ kind: "not-launched" });
+    expect(
+      reconcilePreparingTaskReservation({
+        candidates: [preparingInspection("run-exact")],
+        expectedConfigInputs: preparingConfigInputs,
+        reservation: preparingReservation,
+      }),
+    ).toEqual({ kind: "launched", runId: "run-exact" });
+  });
+
+  it("fails closed for multiple exact preparing launches", () => {
+    expect(
+      reconcilePreparingTaskReservation({
+        candidates: [
+          preparingInspection("run-one"),
+          preparingInspection("run-two"),
+        ],
+        expectedConfigInputs: preparingConfigInputs,
+        reservation: preparingReservation,
+      }),
+    ).toEqual({ kind: "ambiguous" });
+  });
+
+  it("fails closed for unavailable, malformed, or drifted inspection", () => {
+    expect(
+      reconcilePreparingTaskReservation({
+        expectedConfigInputs: preparingConfigInputs,
+        reservation: preparingReservation,
+      }),
+    ).toEqual({ kind: "unknown" });
+    expect(
+      reconcilePreparingTaskReservation({
+        candidates: [{ branch: preparingReservation.branch, inspection: {} }],
+        expectedConfigInputs: preparingConfigInputs,
+        reservation: preparingReservation,
+      }),
+    ).toEqual({ kind: "unknown" });
+    expect(
+      reconcilePreparingTaskReservation({
+        candidates: [
+          {
+            ...preparingInspection("run-drift"),
+            branch: "fabro/brain-something-else",
+          },
+        ],
+        expectedConfigInputs: preparingConfigInputs,
+        reservation: preparingReservation,
+      }),
+    ).toEqual({ kind: "unknown" });
+    expect(
+      reconcilePreparingTaskReservation({
+        candidates: [
+          {
+            ...preparingInspection("run-input-drift"),
+            inspection: {
+              ...preparingInspection("run-input-drift").inspection,
+              run_spec: {
+                settings: {
+                  run: {
+                    inputs: {
+                      ...preparingConfigInputs,
+                      base_sha: "e".repeat(40),
+                    },
+                    metadata: { task: preparingReservation.taskId },
+                  },
+                },
+              },
+            },
+          },
+        ],
+        expectedConfigInputs: preparingConfigInputs,
+        reservation: preparingReservation,
+      }),
+    ).toEqual({ kind: "unknown" });
   });
 });

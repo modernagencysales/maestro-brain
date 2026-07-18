@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   appendFileSync,
   closeSync,
@@ -25,6 +26,107 @@ const nonemptyString = (value: unknown, label: string): string => {
     throw new Error(`${label} is missing`);
   }
   return value;
+};
+
+const canonicalize = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (typeof value !== "object" || value === null) return value;
+  return Object.fromEntries(
+    Object.entries(value as JsonRecord)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => [key, canonicalize(item)]),
+  );
+};
+
+const canonicalJson = (value: unknown): string =>
+  JSON.stringify(canonicalize(value));
+
+export type PreparingTaskReconciliation =
+  | { readonly kind: "ambiguous" }
+  | { readonly kind: "launched"; readonly runId: string }
+  | { readonly kind: "not-launched" }
+  | { readonly kind: "unknown" };
+
+export const reconcilePreparingTaskReservation = (input: {
+  readonly candidates?: readonly {
+    readonly branch?: unknown;
+    readonly inspection?: unknown;
+  }[];
+  readonly expectedConfigInputs: unknown;
+  readonly reservation: unknown;
+}): PreparingTaskReconciliation => {
+  if (input.candidates === undefined) return { kind: "unknown" };
+
+  let reservation: JsonRecord;
+  let taskId: string;
+  let branch: string;
+  let workdir: string;
+  let baseSha: string;
+  let configInputs: JsonRecord;
+  try {
+    reservation = jsonRecord(input.reservation, "preparing reservation");
+    if (reservation.status !== "preparing") return { kind: "unknown" };
+    taskId = nonemptyString(reservation.taskId, "reservation task ID");
+    branch = nonemptyString(reservation.branch, "reservation branch");
+    workdir = nonemptyString(reservation.workdir, "reservation workdir");
+    baseSha = nonemptyString(reservation.baseSha, "reservation base SHA");
+    configInputs = jsonRecord(input.expectedConfigInputs, "config inputs");
+    if (
+      configInputs.task_id !== taskId ||
+      configInputs.workdir !== workdir ||
+      configInputs.base_sha !== baseSha
+    ) {
+      return { kind: "unknown" };
+    }
+  } catch {
+    return { kind: "unknown" };
+  }
+
+  const runIds: string[] = [];
+  for (const candidate of input.candidates) {
+    try {
+      if (candidate.branch !== branch) return { kind: "unknown" };
+      const inspectionItems = Array.isArray(candidate.inspection)
+        ? candidate.inspection
+        : [candidate.inspection];
+      if (inspectionItems.length !== 1) return { kind: "unknown" };
+      const run = jsonRecord(inspectionItems[0], "Fabro candidate run");
+      const runId = nonemptyString(run.run_id, "Fabro candidate run ID");
+      const runSpec = jsonRecord(run.run_spec, "Fabro candidate run spec");
+      const settings = jsonRecord(
+        runSpec.settings,
+        "Fabro candidate run settings",
+      );
+      const configuration = jsonRecord(
+        settings.run,
+        "Fabro candidate run configuration",
+      );
+      const metadata = jsonRecord(
+        configuration.metadata ?? runSpec.labels ?? run.labels,
+        "Fabro candidate metadata",
+      );
+      const candidateInputs = jsonRecord(
+        configuration.inputs,
+        "Fabro candidate inputs",
+      );
+      if (
+        metadata.task !== taskId ||
+        canonicalJson(candidateInputs) !== canonicalJson(configInputs)
+      ) {
+        return { kind: "unknown" };
+      }
+      runIds.push(runId);
+    } catch {
+      return { kind: "unknown" };
+    }
+  }
+
+  if (runIds.length === 0) return { kind: "not-launched" };
+  if (runIds.length !== 1 || new Set(runIds).size !== 1)
+    return { kind: "ambiguous" };
+  const [runId] = runIds;
+  if (runId === undefined) return { kind: "unknown" };
+  return { kind: "launched", runId };
 };
 
 export const taskReservationOwnsIntegrationCandidate = (
@@ -219,6 +321,7 @@ export const recoverTaskReservation = (input: {
 };
 
 export const archiveTerminalTaskRecord = (input: {
+  readonly actionId?: string;
   readonly auditPath: string;
   readonly now: string;
   readonly recordPath: string;
@@ -232,16 +335,68 @@ export const archiveTerminalTaskRecord = (input: {
     throw new Error(
       `${input.taskId}: refusing to archive non-terminal run ${input.runId}`,
     );
-  const archivedPath = `${input.recordPath}.terminal-${input.now.replaceAll(":", "-")}`;
-  renameSync(input.recordPath, archivedPath);
-  appendAudit(input.auditPath, {
+  const actionId =
+    input.actionId ??
+    createHash("sha256")
+      .update(
+        canonicalJson({
+          recordPath: input.recordPath,
+          runId: input.runId,
+          status: input.status,
+          taskId: input.taskId,
+        }),
+      )
+      .digest("hex");
+  if (!/^[0-9a-zA-Z._-]+$/.test(actionId)) {
+    throw new Error(`${input.taskId}: archive action ID is unsafe`);
+  }
+  const archivedPath = `${input.recordPath}.terminal-${actionId}`;
+  if (existsSync(input.recordPath) && existsSync(archivedPath)) {
+    throw new Error(`${input.taskId}: deterministic archive path conflicts`);
+  }
+  if (existsSync(input.recordPath)) renameSync(input.recordPath, archivedPath);
+  if (!existsSync(archivedPath)) {
+    throw new Error(`${input.taskId}: terminal task record is missing`);
+  }
+  const archived = jsonRecord(
+    JSON.parse(readFileSync(archivedPath, "utf8")),
+    `${input.taskId}: archived task record`,
+  );
+  if (archived.taskId !== input.taskId || archived.runId !== input.runId) {
+    throw new Error(`${input.taskId}: archive identity mismatch`);
+  }
+  const auditEvent = {
     action: "archive-terminal-task-run",
+    actionId,
     archivedPath,
     at: input.now,
     runId: input.runId,
     status: input.status,
     taskId: input.taskId,
-  });
+  };
+  if (existsSync(input.auditPath)) {
+    const events = readFileSync(input.auditPath, "utf8")
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => jsonRecord(JSON.parse(line), "task audit event"));
+    const matching = events.filter((event) => event.actionId === actionId);
+    if (matching.length > 1) {
+      throw new Error(`${input.taskId}: duplicate archive audit events`);
+    }
+    if (matching.length === 1) {
+      const [prior] = matching;
+      if (prior === undefined) {
+        throw new Error(`${input.taskId}: archive audit disappeared`);
+      }
+      for (const [key, expected] of Object.entries(auditEvent)) {
+        if (key !== "at" && prior[key] !== expected) {
+          throw new Error(`${input.taskId}: archive audit identity mismatch`);
+        }
+      }
+      return archivedPath;
+    }
+  }
+  appendAudit(input.auditPath, auditEvent);
   return archivedPath;
 };
 
