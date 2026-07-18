@@ -495,7 +495,7 @@ describe("deterministic integration wave application", () => {
     expect(git(value.workdir, "rev-parse", "HEAD")).toBe(value.baseSha);
   });
 
-  it("rejects a proof based on an ancestor instead of the exact wave base", () => {
+  it("accepts a proof base shared by the lane and a later wave base", () => {
     const value = makeFixture({
       laneSpecs: [{ files: ["a.ts"], taskId: "S01-T01" }],
     });
@@ -505,10 +505,30 @@ describe("deterministic integration wave application", () => {
     const descendantBase = git(value.workdir, "rev-parse", "HEAD");
     const input = rewriteSelection(value, { baseSha: descendantBase });
 
-    expect(() => applyIntegrationWave(input)).toThrow(
-      /proof base.*exact wave base/,
+    expect(applyIntegrationWave(input).includedTasks[0]?.taskId).toBe(
+      "S01-T01",
     );
-    expect(git(value.workdir, "rev-parse", "HEAD")).toBe(descendantBase);
+    expect(
+      git(value.workdir, "merge-base", value.baseSha, descendantBase),
+    ).toBe(value.baseSha);
+  });
+
+  it("rejects a proof base outside the wave-base ancestry", () => {
+    const value = makeFixture({
+      laneSpecs: [{ files: ["a.ts"], taskId: "S01-T01" }],
+    });
+    git(value.workdir, "checkout", "-q", "--orphan", "unrelated-wave");
+    git(value.workdir, "rm", "-qrf", ".");
+    write(resolve(value.workdir, "unrelated.txt"), "unrelated wave base\n");
+    git(value.workdir, "add", ".");
+    git(value.workdir, "commit", "-qm", "test: unrelated wave base");
+    const unrelatedBase = git(value.workdir, "rev-parse", "HEAD");
+    const input = rewriteSelection(value, { baseSha: unrelatedBase });
+
+    expect(() => applyIntegrationWave(input)).toThrow(
+      /proof base.*ancestor.*wave base/,
+    );
+    expect(git(value.workdir, "rev-parse", "HEAD")).toBe(unrelatedBase);
   });
 
   it("hashes raw evidence bytes before lossy UTF-8 decoding", () => {

@@ -56,6 +56,12 @@ describe("final lane result", () => {
         allowHistoricalMissingTreeSha: true,
       }),
     ).not.toThrow();
+    expect(() =>
+      validateFinalLaneResult(
+        { ...validResult, treeSha: "f".repeat(40) },
+        { ...expected, allowHistoricalMissingTreeSha: true },
+      ),
+    ).toThrow("treeSha");
   });
 
   it("requires an exact-head passed final lane gate receipt", () => {

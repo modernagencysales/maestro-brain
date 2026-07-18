@@ -341,8 +341,8 @@ const validateLane = (input: {
     40,
     `${taskId}: proof base`,
   );
-  if (proofBase !== input.baseSha) {
-    throw new Error(`${taskId}: proof base does not equal the exact wave base`);
+  if (!gitIsAncestor(input.workdir, proofBase, input.baseSha)) {
+    throw new Error(`${taskId}: proof base is not an ancestor of wave base`);
   }
   if (!gitIsAncestor(input.workdir, proofBase, laneHead)) {
     throw new Error(`${taskId}: proof base is not an ancestor of lane head`);
