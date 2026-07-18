@@ -18,7 +18,11 @@ import { validateIntegrationResult } from "../src/integration-result-check.mjs";
 import { archiveIntegrationEvidence } from "../src/evidence-archive.js";
 import { gateCommandSetHash } from "../src/lane-gate-cache.js";
 import { adoptLegacyIntegratedLaneEvidence } from "../src/lane-evidence-adoption.js";
-import { planIntegrationWave } from "../src/integration-wave.js";
+import {
+  planIntegrationWave,
+  selectionFileSha256,
+  selectionPayloadSha256,
+} from "../src/integration-wave.js";
 import type { BrainTaskContract } from "../src/manifest.js";
 
 const temporaryDirectories: string[] = [];
@@ -185,7 +189,7 @@ const readRecord = (path: string): Record<string, unknown> =>
 const sha256File = (path: string): string =>
   createHash("sha256").update(readFileSync(path, "utf8")).digest("hex");
 
-const waveFixture = () => {
+const waveFixture = (options?: { readonly legacy?: boolean }) => {
   const value = fixture();
   command(value.workdir, "rm", "integration.ts");
   command(value.workdir, "commit", "-qm", "test: remove integration marker");
@@ -227,7 +231,26 @@ const waveFixture = () => {
     tasks: [plannerTask],
   });
   const selectionPath = resolve(value.evidence, "wave-000001-selection.json");
-  writeJson(selectionPath, selection);
+  const persistedSelection = options?.legacy
+    ? (() => {
+        const payload = { ...selection } as Record<string, unknown>;
+        delete payload.selectionPayloadSha256;
+        const legacyPayload = {
+          ...payload,
+          schemaVersion: "maestro-brain-integration-wave-selection/v2",
+        };
+        return {
+          ...legacyPayload,
+          selectionSha256: createHash("sha256")
+            .update(JSON.stringify(legacyPayload))
+            .digest("hex"),
+        };
+      })()
+    : selection;
+  writeJson(selectionPath, persistedSelection);
+  const persistedSelectionFileSha256 = selectionFileSha256(
+    readFileSync(selectionPath, "utf8"),
+  );
   const resultPath = resolve(
     value.evidence,
     "integration",
@@ -247,9 +270,20 @@ const waveFixture = () => {
     tranche: manifestTask.tranche,
   });
   writeJson(resultPath, {
-    schemaVersion: "maestro-brain-integration-result/v2",
+    schemaVersion: options?.legacy
+      ? "maestro-brain-integration-result/v2"
+      : "maestro-brain-integration-result/v3",
     integrationId: selection.integrationId,
-    selectionSha256: selection.selectionSha256,
+    ...(options?.legacy
+      ? {
+          selectionSha256: String(
+            (persistedSelection as Record<string, unknown>).selectionSha256,
+          ),
+        }
+      : {
+          selectionFileSha256: persistedSelectionFileSha256,
+          selectionPayloadSha256: selection.selectionPayloadSha256,
+        }),
     manifestTranches: [manifestTask.tranche],
     integrationWorkdir: realpathSync(value.workdir),
     baseSha: value.baseSha,
@@ -371,7 +405,7 @@ afterEach(() => {
 });
 
 describe("normal integration result check", () => {
-  it("accepts an exact v2 wave selection and rejects task-set drift", () => {
+  it("accepts an exact v3 wave selection and rejects task-set drift", () => {
     const value = waveFixture();
     expect(() =>
       validateIntegrationResult({
@@ -402,6 +436,66 @@ describe("normal integration result check", () => {
     ).toThrow("no included tasks");
   });
 
+  it("rejects v3 payload and file hash mismatches distinctly", () => {
+    const value = waveFixture();
+    const result = readRecord(value.resultPath);
+    result.selectionPayloadSha256 = "a".repeat(64);
+    writeJson(value.resultPath, result);
+    expect(() =>
+      validateIntegrationResult({
+        controlRoot: value.controlRoot,
+        evidenceDirectory: value.evidence,
+        expectedWorkdir: value.workdir,
+        integrationId: value.integrationId,
+        selectionPath: value.selectionPath,
+      }),
+    ).toThrow("v3 integration selection payload hash mismatch");
+
+    result.selectionPayloadSha256 = String(
+      readRecord(value.selectionPath).selectionPayloadSha256,
+    );
+    result.selectionFileSha256 = "b".repeat(64);
+    writeJson(value.resultPath, result);
+    expect(() =>
+      validateIntegrationResult({
+        controlRoot: value.controlRoot,
+        evidenceDirectory: value.evidence,
+        expectedWorkdir: value.workdir,
+        integrationId: value.integrationId,
+        selectionPath: value.selectionPath,
+      }),
+    ).toThrow("v3 integration selection file hash mismatch");
+  });
+
+  it("rejects ambiguous legacy hash fields in a v3 result", () => {
+    const value = waveFixture();
+    const result = readRecord(value.resultPath);
+    result.selectionSha256 = result.selectionPayloadSha256;
+    writeJson(value.resultPath, result);
+    expect(() =>
+      validateIntegrationResult({
+        controlRoot: value.controlRoot,
+        evidenceDirectory: value.evidence,
+        expectedWorkdir: value.workdir,
+        integrationId: value.integrationId,
+        selectionPath: value.selectionPath,
+      }),
+    ).toThrow("v3 integration result contains an ambiguous selection hash");
+  });
+
+  it("retains archived v2 selection reads through the legacy boundary", () => {
+    const value = waveFixture({ legacy: true });
+    expect(() =>
+      validateIntegrationResult({
+        controlRoot: value.controlRoot,
+        evidenceDirectory: value.evidence,
+        expectedWorkdir: value.workdir,
+        integrationId: value.integrationId,
+        selectionPath: value.selectionPath,
+      }),
+    ).not.toThrow();
+  });
+
   it("honors the immutable selected gate across later policy drift", () => {
     const value = waveFixture();
     const gate = readRecord(value.gatePath);
@@ -421,13 +515,14 @@ describe("normal integration result check", () => {
     if (!selectedTask) throw new Error("fixture wave task missing");
     selectedTask.gateSha256 = sha256File(value.gatePath);
     const selectionPayload = { ...selection };
-    delete selectionPayload.selectionSha256;
-    selection.selectionSha256 = createHash("sha256")
-      .update(JSON.stringify(selectionPayload))
-      .digest("hex");
+    delete selectionPayload.selectionPayloadSha256;
+    selection.selectionPayloadSha256 = selectionPayloadSha256(selectionPayload);
     writeJson(value.selectionPath, selection);
     const result = readRecord(value.resultPath);
-    result.selectionSha256 = selection.selectionSha256;
+    result.selectionPayloadSha256 = selection.selectionPayloadSha256;
+    result.selectionFileSha256 = selectionFileSha256(
+      readFileSync(value.selectionPath, "utf8"),
+    );
     writeJson(value.resultPath, result);
 
     expect(() =>

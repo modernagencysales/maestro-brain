@@ -11,10 +11,7 @@ import {
   safeAbsolutePath,
 } from "./integration-recovery.js";
 import { record, string } from "./integration-check-support.js";
-import {
-  type IntegrationWaveSelection,
-  validateIntegrationWaveSelection,
-} from "./integration-wave.js";
+import { readIntegrationWaveSelection } from "./integration-wave.js";
 import {
   materializeImmutableWaveSelection,
   replaceWaveRunRecord,
@@ -67,7 +64,7 @@ const gitCommonDirectory = safeAbsolutePath(
 const releaseOwnership = acquireIntegrationOwnership({
   lockPath: integrationLockPath(gitCommonDirectory, GLOBAL_INTEGRATION_LOCK),
   owner: {
-    action: "recover-integration-wave-v2",
+    action: "recover-integration-wave",
     at: new Date().toISOString(),
     integrationId,
     pid: process.pid,
@@ -78,8 +75,12 @@ const releaseOwnership = acquireIntegrationOwnership({
 try {
   let currentContent = readFileSync(recordPath, "utf8");
   let runRecord = record(JSON.parse(currentContent), "wave run record");
+  const runSchema = string(runRecord.schemaVersion, "wave run schema");
   if (
-    runRecord.schemaVersion !== "maestro-brain-integration-wave-run/v2" ||
+    !new Set([
+      "maestro-brain-integration-wave-run/v2",
+      "maestro-brain-integration-wave-run/v3",
+    ]).has(runSchema) ||
     runRecord.integrationId !== integrationId
   ) {
     throw new Error(`${integrationId}: run record identity mismatch`);
@@ -100,22 +101,51 @@ try {
     runRecord.selectionPath,
     "wave selection path",
   );
-  const selection = record(
-    runRecord.selection,
-    "reserved wave selection",
-  ) as unknown as IntegrationWaveSelection;
-  validateIntegrationWaveSelection(selection);
-  materializeImmutableWaveSelection(selectionPath, selection);
-  const selectionSha256 = string(
-    runRecord.selectionSha256,
-    "wave selection hash",
+  const legacy = runSchema === "maestro-brain-integration-wave-run/v2";
+  if (
+    !legacy &&
+    (Object.hasOwn(runRecord, "selectionSha256") ||
+      Object.hasOwn(runRecord, "selection_sha256"))
+  ) {
+    throw new Error(`${integrationId}: v3 run has an ambiguous selection hash`);
+  }
+  if (!existsSync(selectionPath)) {
+    if (legacy) {
+      throw new Error(
+        `${integrationId}: historical v2 selection bytes are missing and cannot be recreated`,
+      );
+    }
+    materializeImmutableWaveSelection(
+      selectionPath,
+      record(runRecord.selection, "reserved wave selection") as never,
+    );
+  }
+  const selectionRead = readIntegrationWaveSelection(
+    readFileSync(selectionPath, "utf8"),
   );
+  const selection = selectionRead.selection;
   if (
     selection.integrationId !== integrationId ||
     selection.baseSha !== baseSha ||
-    selection.selectionSha256 !== selectionSha256
+    selectionRead.legacy !== legacy ||
+    JSON.stringify(runRecord.selection) !== JSON.stringify(selection)
   ) {
     throw new Error(`${integrationId}: immutable selection drift`);
+  }
+  if (legacy) {
+    if (
+      string(runRecord.selectionSha256, "wave selection hash") !==
+      selectionRead.selectionPayloadSha256
+    ) {
+      throw new Error(`${integrationId}: immutable v2 selection drift`);
+    }
+  } else if (
+    string(runRecord.selectionPayloadSha256, "wave selection payload hash") !==
+      selectionRead.selectionPayloadSha256 ||
+    string(runRecord.selectionFileSha256, "wave selection file hash") !==
+      selectionRead.selectionFileSha256
+  ) {
+    throw new Error(`${integrationId}: immutable v3 selection drift`);
   }
   const worktreeAction = waveWorktreeRecoveryAction({
     branchExists: gitBranchExists(expectedBranch, root),
@@ -220,21 +250,32 @@ try {
   const identityFor = (
     mode: "integrate" | "recover",
     attempt: number,
-  ): WaveRunIdentity => ({
-    attempt,
-    baseSha,
-    integrationId,
-    mode,
-    reservationToken,
-    selectionPath,
-    selectionSha256,
-    workdir,
-  });
+  ): WaveRunIdentity =>
+    ({
+      attempt,
+      baseSha,
+      integrationId,
+      mode,
+      reservationToken,
+      selectionPath,
+      ...(legacy
+        ? { selectionSha256: selectionRead.selectionPayloadSha256 }
+        : {
+            selectionFileSha256: selectionRead.selectionFileSha256,
+            selectionPayloadSha256: selectionRead.selectionPayloadSha256,
+          }),
+      workdir,
+    }) as WaveRunIdentity;
   let runId =
     typeof runRecord.runId === "string"
       ? fabroRunId(runRecord.runId, "recorded wave run ID")
       : undefined;
   if (!runId) {
+    if (legacy) {
+      throw new Error(
+        `${integrationId}: historical v2 run has no launch and cannot create a new attempt`,
+      );
+    }
     const rawPath = `${recordPath}.launch-1.raw`;
     const integrateIdentity = identityFor("integrate", 1);
     runId = launchOrDiscover(
@@ -284,6 +325,11 @@ try {
       `${integrationId}: reconciled exact run ${runId} in status ${status}; no replacement launched`,
     );
   } else {
+    if (legacy) {
+      throw new Error(
+        `${integrationId}: historical v2 run failed; a new v2 recovery attempt is forbidden`,
+      );
+    }
     const attempt = Number(runRecord.attempt ?? 1) + 1;
     if (!Number.isInteger(attempt) || attempt < 2 || attempt > 20) {
       throw new Error(`${integrationId}: recovery attempt limit exceeded`);

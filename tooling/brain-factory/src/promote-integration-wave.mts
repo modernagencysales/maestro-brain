@@ -14,7 +14,7 @@ import { validateIntegrationResult } from "./integration-result-check.mjs";
 import { proveIntegrationGeneratedOutput } from "./integration-generated-proof.js";
 import {
   type IntegrationWaveSelection,
-  validateIntegrationWaveSelection,
+  readIntegrationWaveSelection,
 } from "./integration-wave.js";
 import { runRtk } from "./process.js";
 import {
@@ -54,8 +54,12 @@ const runRecord = record(
   JSON.parse(readFileSync(runRecordPath, "utf8")),
   "wave run record",
 );
+const runSchema = string(runRecord.schemaVersion, "wave run schema");
 if (
-  runRecord.schemaVersion !== "maestro-brain-integration-wave-run/v2" ||
+  !new Set([
+    "maestro-brain-integration-wave-run/v2",
+    "maestro-brain-integration-wave-run/v3",
+  ]).has(runSchema) ||
   runRecord.integrationId !== integrationId
 ) {
   throw new Error(`${integrationId}: wave run record mismatch`);
@@ -64,11 +68,18 @@ const selectionPath = safeAbsolutePath(
   runRecord.selectionPath,
   "wave selection path",
 );
-const selection = record(
-  JSON.parse(readFileSync(selectionPath, "utf8")),
-  "wave selection",
-) as unknown as IntegrationWaveSelection;
-validateIntegrationWaveSelection(selection);
+const selectionRead = readIntegrationWaveSelection(
+  readFileSync(selectionPath, "utf8"),
+);
+const selection: IntegrationWaveSelection = selectionRead.selection;
+const legacy = runSchema === "maestro-brain-integration-wave-run/v2";
+if (
+  !legacy &&
+  (Object.hasOwn(runRecord, "selectionSha256") ||
+    Object.hasOwn(runRecord, "selection_sha256"))
+) {
+  throw new Error(`${integrationId}: v3 run has an ambiguous selection hash`);
+}
 const result = record(
   JSON.parse(readFileSync(resultPath, "utf8")),
   "wave result",
@@ -80,17 +91,36 @@ const workdir = safeAbsolutePath(
   "wave integration workdir",
 );
 if (
-  result.schemaVersion !== "maestro-brain-integration-result/v2" ||
+  result.schemaVersion !==
+    (legacy
+      ? "maestro-brain-integration-result/v2"
+      : "maestro-brain-integration-result/v3") ||
   result.integrationId !== integrationId ||
   safeAbsolutePath(runRecord.workdir, "recorded wave workdir") !== workdir ||
   runRecord.branch !== `fabro/brain-${integrationId}` ||
   selection.baseSha !== baseSha ||
   JSON.stringify(runRecord.selection) !== JSON.stringify(selection) ||
-  selection.selectionSha256 !== result.selectionSha256 ||
-  string(runRecord.selectionSha256, "run selection hash") !==
-    selection.selectionSha256
+  selectionRead.legacy !== legacy
 ) {
   throw new Error(`${integrationId}: wave result selection mismatch`);
+}
+if (legacy) {
+  if (
+    result.selectionSha256 !== selectionRead.selectionPayloadSha256 ||
+    string(runRecord.selectionSha256, "run selection hash") !==
+      selectionRead.selectionPayloadSha256
+  ) {
+    throw new Error(`${integrationId}: v2 wave result selection mismatch`);
+  }
+} else if (
+  result.selectionPayloadSha256 !== selectionRead.selectionPayloadSha256 ||
+  result.selectionFileSha256 !== selectionRead.selectionFileSha256 ||
+  string(runRecord.selectionPayloadSha256, "run selection payload hash") !==
+    selectionRead.selectionPayloadSha256 ||
+  string(runRecord.selectionFileSha256, "run selection file hash") !==
+    selectionRead.selectionFileSha256
+) {
+  throw new Error(`${integrationId}: v3 wave result selection mismatch`);
 }
 const gitCommonDirectory = safeAbsolutePath(
   resolve(
@@ -102,7 +132,9 @@ const gitCommonDirectory = safeAbsolutePath(
 const releaseOwnership = acquireIntegrationOwnership({
   lockPath: integrationLockPath(gitCommonDirectory, GLOBAL_INTEGRATION_LOCK),
   owner: {
-    action: "promote-integration-wave-v2",
+    action: legacy
+      ? "promote-integration-wave-v2"
+      : "promote-integration-wave-v3",
     at: new Date().toISOString(),
     integrationId,
     pid: process.pid,
@@ -126,23 +158,29 @@ try {
   ) {
     throw new Error(`${integrationId}: wave run is not promotable`);
   }
+  const inspectionIdentity = {
+    attempt,
+    baseSha,
+    integrationId,
+    mode: activeMode,
+    reservationToken,
+    runId,
+    selectionPath,
+    ...(legacy
+      ? { selectionSha256: selectionRead.selectionPayloadSha256 }
+      : {
+          selectionFileSha256: selectionRead.selectionFileSha256,
+          selectionPayloadSha256: selectionRead.selectionPayloadSha256,
+        }),
+    workdir,
+  };
   verifyPassedWaveRunInspection(
     JSON.parse(
       runRtk(["fabro", "inspect", runId, "--json", "--quiet"], {
         quiet: true,
       }),
     ),
-    {
-      attempt,
-      baseSha,
-      integrationId,
-      mode: activeMode,
-      reservationToken,
-      runId,
-      selectionPath,
-      selectionSha256: selection.selectionSha256,
-      workdir,
-    },
+    inspectionIdentity as Parameters<typeof verifyPassedWaveRunInspection>[1],
   );
   const branchHead = gitSha(
     runRtk(["git", "rev-parse", `refs/heads/fabro/brain-${integrationId}`], {
@@ -196,11 +234,20 @@ try {
     );
     if (
       promotion.schemaVersion !==
-        "maestro-brain-integration-wave-promotion/v2" ||
+        (legacy
+          ? "maestro-brain-integration-wave-promotion/v2"
+          : "maestro-brain-integration-wave-promotion/v3") ||
       promotion.status !== "promoted" ||
       promotion.integrationId !== integrationId ||
       promotion.baseSha !== baseSha ||
       promotion.headSha !== headSha ||
+      (legacy
+        ? promotion.selectionSha256 !== selectionRead.selectionPayloadSha256
+        : promotion.selectionPayloadSha256 !==
+            selectionRead.selectionPayloadSha256 ||
+          promotion.selectionFileSha256 !== selectionRead.selectionFileSha256 ||
+          Object.hasOwn(promotion, "selectionSha256") ||
+          Object.hasOwn(promotion, "selection_sha256")) ||
       controlHead !== headSha
     ) {
       throw new Error(`${integrationId}: promotion receipt drift`);
@@ -226,8 +273,15 @@ try {
           baseSha,
           headSha,
           integrationId,
-          schemaVersion: "maestro-brain-integration-wave-promotion/v2",
-          selectionSha256: selection.selectionSha256,
+          schemaVersion: legacy
+            ? "maestro-brain-integration-wave-promotion/v2"
+            : "maestro-brain-integration-wave-promotion/v3",
+          ...(legacy
+            ? { selectionSha256: selectionRead.selectionPayloadSha256 }
+            : {
+                selectionFileSha256: selectionRead.selectionFileSha256,
+                selectionPayloadSha256: selectionRead.selectionPayloadSha256,
+              }),
           status: "promoted",
         },
         null,

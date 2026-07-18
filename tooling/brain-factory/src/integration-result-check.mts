@@ -1,4 +1,4 @@
-import { existsSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { isAbsolute, resolve } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import {
@@ -14,7 +14,7 @@ import { adoptLegacyIntegratedLaneEvidence } from "./lane-evidence-adoption.js";
 import { validateIntegratedLanes } from "./integration-lane-check.js";
 import {
   type IntegrationWaveSelection,
-  validateIntegrationWaveSelection,
+  readIntegrationWaveSelection,
 } from "./integration-wave.js";
 import { integrationGeneratedFileAllowlist } from "./lane-ownership.js";
 import { changedHandAuthoredSourceLines } from "./source-budget.js";
@@ -81,7 +81,8 @@ const validatedIntegrationEnvelope = (
   const schemaVersion = string(result.schemaVersion, "schemaVersion");
   if (
     schemaVersion !== "maestro-brain-integration-result/v1" &&
-    schemaVersion !== "maestro-brain-integration-result/v2"
+    schemaVersion !== "maestro-brain-integration-result/v2" &&
+    schemaVersion !== "maestro-brain-integration-result/v3"
   ) {
     throw new Error("unexpected integration result schema");
   }
@@ -100,30 +101,67 @@ const validatedIntegrationEnvelope = (
   } else {
     if (!input.selectionPath || !isAbsolute(input.selectionPath)) {
       throw new Error(
-        "v2 integration requires an absolute immutable selection path",
+        "wave integration requires an absolute immutable selection path",
       );
     }
-    waveSelection = readJson(
-      input.selectionPath,
-    ) as unknown as IntegrationWaveSelection;
-    validateIntegrationWaveSelection(waveSelection);
+    const selectionRead = readIntegrationWaveSelection(
+      readFileSync(input.selectionPath, "utf8"),
+    );
+    waveSelection = selectionRead.selection;
     const selectedTranches = [
       ...new Set(waveSelection.selectedTasks.map((task) => task.tranche)),
     ].sort();
+    if (waveSelection.integrationId !== input.integrationId) {
+      throw new Error(
+        `${schemaVersion.endsWith("/v3") ? "v3" : "v2"} integration selection integrationId mismatch`,
+      );
+    }
+    if (waveSelection.baseSha !== baseSha) {
+      throw new Error(
+        `${schemaVersion.endsWith("/v3") ? "v3" : "v2"} integration selection base mismatch`,
+      );
+    }
     if (
-      waveSelection.integrationId !== input.integrationId ||
-      waveSelection.baseSha !== baseSha ||
-      result.selectionSha256 !== waveSelection.selectionSha256 ||
       JSON.stringify(result.manifestTranches) !==
-        JSON.stringify(selectedTranches)
+      JSON.stringify(selectedTranches)
     ) {
-      throw new Error("v2 integration selection identity mismatch");
+      throw new Error(
+        `${schemaVersion.endsWith("/v3") ? "v3" : "v2"} integration selection tranche mismatch`,
+      );
+    }
+    if (schemaVersion === "maestro-brain-integration-result/v2") {
+      if (
+        !selectionRead.legacy ||
+        result.selectionSha256 !== selectionRead.selectionPayloadSha256
+      ) {
+        throw new Error("v2 integration selection identity mismatch");
+      }
+    } else {
+      if (selectionRead.legacy) {
+        throw new Error("v3 integration cannot use a legacy v2 selection");
+      }
+      if (
+        Object.hasOwn(result, "selectionSha256") ||
+        Object.hasOwn(result, "selection_sha256")
+      ) {
+        throw new Error(
+          "v3 integration result contains an ambiguous selection hash",
+        );
+      }
+      if (
+        result.selectionPayloadSha256 !== selectionRead.selectionPayloadSha256
+      ) {
+        throw new Error("v3 integration selection payload hash mismatch");
+      }
+      if (result.selectionFileSha256 !== selectionRead.selectionFileSha256) {
+        throw new Error("v3 integration selection file hash mismatch");
+      }
     }
     if (
       !Array.isArray(result.remainingFindings) ||
       result.remainingFindings.length !== 0
     ) {
-      throw new Error("v2 passed integration has remaining findings");
+      throw new Error("passed wave integration has remaining findings");
     }
   }
   if (

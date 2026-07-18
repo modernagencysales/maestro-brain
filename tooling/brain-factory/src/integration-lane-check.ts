@@ -393,9 +393,10 @@ export const validateIntegratedLanes = (
     ) {
       throw new Error(`${taskId}: final lane gate does not bind the lane head`);
     }
-    // A v2 wave selection SHA-binds the exact lane-gate report before
-    // integration. Recomputing that historical command set with current
-    // policy would reject valid immutable evidence whenever gate policy grows.
+    // A normalized v2/v3 wave selection binds the exact lane-gate report
+    // before integration. Recomputing that historical command set with
+    // current policy would reject valid immutable evidence whenever gate
+    // policy grows. Only the byte-aware reader may admit a v2 selection.
     if (!input.waveSelection) {
       const focusedCommands = (proof.focusedCommands as string[]).map(
         (command) => focusedGateCommand(command),
