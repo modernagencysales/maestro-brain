@@ -6,11 +6,14 @@ export const materializeBuildTaskRunConfig = (input: {
   readonly path: string;
 }): string => {
   const entries = Object.entries(input.env)
-    .filter(([key, value]) => key.startsWith("BRAIN_") && value !== undefined)
+    .filter(
+      (entry): entry is [string, string] =>
+        entry[0].startsWith("BRAIN_") && entry[1] !== undefined,
+    )
     .sort(([left], [right]) => left.localeCompare(right));
   if (entries.length === 0) throw new Error("build task environment is empty");
   for (const [key, value] of entries) {
-    if (!/^BRAIN_[A-Z0-9_]+$/.test(key) || value!.includes("\0"))
+    if (!/^BRAIN_[A-Z0-9_]+$/.test(key) || value.includes("\0"))
       throw new Error(`unsafe build task environment key ${key}`);
   }
   const content = [

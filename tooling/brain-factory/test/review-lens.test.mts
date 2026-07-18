@@ -101,8 +101,9 @@ describe("exact-head review lens contract", () => {
   });
 
   it("requires a complete non-blank trusted reviewer run map at runtime", () => {
-    const { reviewerRunIds: _reviewerRunIds, ...withoutReviewerRuns } =
-      expected;
+    const withoutReviewerRuns = Object.fromEntries(
+      Object.entries(expected).filter(([key]) => key !== "reviewerRunIds"),
+    );
     for (const reviewerRunIds of [
       undefined,
       {},

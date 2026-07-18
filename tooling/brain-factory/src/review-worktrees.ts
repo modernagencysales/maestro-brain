@@ -323,6 +323,15 @@ const readNamespace = (
   };
 };
 
+const requireNamespace = (
+  workdir: string,
+  ref: string,
+): NonNullable<ReturnType<typeof readNamespace>> => {
+  const namespace = readNamespace(workdir, ref);
+  if (!namespace) throw new Error(`managed review ref is missing: ${ref}`);
+  return namespace;
+};
+
 const attemptReceiptVisits = (
   workdir: string,
   receiptRef: string,
@@ -350,7 +359,7 @@ const attemptReceiptVisits = (
     .split("\n")
     .filter(Boolean)
     .flatMap((ref) => {
-      const receipt = readNamespace(workdir, ref)!;
+      const receipt = requireNamespace(workdir, ref);
       if (receipt.value.requestedAttemptId !== requestedAttemptId) return [];
       const effectiveAttempt = receipt.value.attemptId;
       if (
@@ -601,7 +610,8 @@ export const readCompletedReviewAggregation = (
       return undefined;
     throw error;
   }
-  const receipt = readNamespace(prepared.workdir, prepared.receiptRef)!;
+  const receipt = readNamespace(prepared.workdir, prepared.receiptRef);
+  if (!receipt) return undefined;
   if (
     receipt.value.status !== "cleaned" ||
     receipt.value.phase !== "promoted" ||
@@ -785,8 +795,8 @@ export const beginReviewAggregation = async (
   input: ReviewWorktreeCoordinates,
 ): Promise<ReviewAggregationLease> => {
   const prepared = resolveActivePrepared(input);
-  const active = readNamespace(prepared.workdir, prepared.namespaceRef)!;
-  const receipt = readNamespace(prepared.workdir, prepared.receiptRef)!;
+  const active = requireNamespace(prepared.workdir, prepared.namespaceRef);
+  const receipt = requireNamespace(prepared.workdir, prepared.receiptRef);
   if (active.object !== receipt.object)
     throw new Error("managed review attempt receipt mismatch");
   if (
@@ -813,9 +823,11 @@ export const beginReviewAggregation = async (
   } catch {
     throw new Error("review aggregation is already aggregating");
   }
-  const latestActive = readNamespace(prepared.workdir, prepared.namespaceRef)!;
-  const latestReceipt = readNamespace(prepared.workdir, prepared.receiptRef)!;
+  const latestActive = readNamespace(prepared.workdir, prepared.namespaceRef);
+  const latestReceipt = readNamespace(prepared.workdir, prepared.receiptRef);
   if (
+    !latestActive ||
+    !latestReceipt ||
     latestActive.object !== active.object ||
     latestReceipt.object !== receipt.object ||
     latestActive.object !== latestReceipt.object
@@ -876,9 +888,11 @@ export const bindReviewAggregationResult = (
   result: Record<string, unknown>,
 ): void => {
   const prepared = resolveActivePrepared(input);
-  const active = readNamespace(prepared.workdir, prepared.namespaceRef)!;
-  const receipt = readNamespace(prepared.workdir, prepared.receiptRef)!;
+  const active = readNamespace(prepared.workdir, prepared.namespaceRef);
+  const receipt = readNamespace(prepared.workdir, prepared.receiptRef);
   if (
+    !active ||
+    !receipt ||
     active.object !== receipt.object ||
     (active.value.status !== "aggregating" &&
       active.value.status !== "resuming") ||

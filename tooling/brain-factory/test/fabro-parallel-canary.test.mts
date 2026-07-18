@@ -239,8 +239,9 @@ TSX_IMPORT = ${JSON.stringify(tsxImport)}
         .split("\n")
         .find((ref) => ref.endsWith("/attempts/attempt-canary-v1"));
       expect(receiptRef).toBeDefined();
+      if (!receiptRef) throw new Error("canary review receipt ref is missing");
       const receipt = JSON.parse(
-        git(workdir, "cat-file", "blob", receiptRef!),
+        git(workdir, "cat-file", "blob", receiptRef),
       ) as Record<string, unknown>;
       expect(receipt).toMatchObject({
         status: "cleaned",

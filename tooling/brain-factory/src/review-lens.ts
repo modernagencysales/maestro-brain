@@ -392,8 +392,14 @@ export const aggregateReviewLenses = ({
   if (byName.size !== REVIEW_LENS_NAMES.length)
     throw new Error("unexpected review lens count");
 
+  const artifactFor = (name: ReviewLensName): ReviewLensArtifact => {
+    const artifact = byName.get(name);
+    if (!artifact) throw new Error(`missing review lens ${name}`);
+    return artifact;
+  };
+
   const reviewerRunIds = Object.fromEntries(
-    REVIEW_LENS_NAMES.map((name) => [name, byName.get(name)!.reviewerRunId]),
+    REVIEW_LENS_NAMES.map((name) => [name, artifactFor(name).reviewerRunId]),
   ) as unknown as Record<ReviewLensName, string>;
   assertUnique(
     Object.values(reviewerRunIds),
@@ -401,7 +407,7 @@ export const aggregateReviewLenses = ({
   );
 
   const findings = REVIEW_LENS_NAMES.flatMap((name) =>
-    byName.get(name)!.findings.map((finding) => ({ ...finding, lens: name })),
+    artifactFor(name).findings.map((finding) => ({ ...finding, lens: name })),
   );
   assertUnique(
     findings.map(({ id }) => id),

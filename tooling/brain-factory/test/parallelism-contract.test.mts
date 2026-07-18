@@ -168,8 +168,13 @@ describe("parallelism contract schema", () => {
       ),
     );
     expect(migration).toBeDefined();
-    expect(effectiveCollisionPolicy(migration!, false)).toBe("serialize");
-    expect(effectiveCollisionPolicy(migration!, true)).toBe("regenerate");
+    const migrationCollision = required(migration);
+    expect(effectiveCollisionPolicy(migrationCollision, false)).toBe(
+      "serialize",
+    );
+    expect(effectiveCollisionPolicy(migrationCollision, true)).toBe(
+      "regenerate",
+    );
   });
 
   test("requires same-wave collisions to declare mandatory co-integration", () => {
@@ -230,7 +235,7 @@ describe("parallelism contract queries", () => {
       expect(new Set(group).size).toBe(group.length);
     }
     expect(groups).toEqual(
-      [...groups].sort((a, b) => a[0]!.localeCompare(b[0]!)),
+      [...groups].sort((a, b) => required(a[0]).localeCompare(required(b[0]))),
     );
   });
 });

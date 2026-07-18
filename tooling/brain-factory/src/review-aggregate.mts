@@ -28,6 +28,16 @@ import {
 } from "./review-worktrees.js";
 import { releaseReviewAggregationSocketLease } from "./review-aggregation-lease.js";
 
+const requiredMapValue = <K, V>(
+  values: ReadonlyMap<K, V>,
+  key: K,
+  label: string,
+): V => {
+  const value = values.get(key);
+  if (value === undefined) throw new Error(`missing ${label}`);
+  return value;
+};
+
 interface UpdateProofInput {
   readonly taskId: string;
   readonly workdir: string;
@@ -168,7 +178,10 @@ export const collectParallelReviewLenses = (input: {
     throw new Error("unexpected current review ref count");
 
   const commits = Object.fromEntries(
-    REVIEW_LENS_NAMES.map((lens) => [lens, byLens.get(lens)!.commit]),
+    REVIEW_LENS_NAMES.map((lens) => [
+      lens,
+      requiredMapValue(byLens, lens, `${lens} current review ref`).commit,
+    ]),
   ) as Record<ReviewLensName, string>;
   if (new Set(Object.values(commits)).size !== REVIEW_LENS_NAMES.length)
     throw new Error("parallel review checkpoint commits must be distinct");
@@ -184,7 +197,10 @@ export const collectParallelReviewLenses = (input: {
   if (proofString(proof, "headSha", input.taskId) !== headSha)
     throw new Error(`${input.taskId}: proof headSha mismatch`);
   const reviewerRunIds = Object.fromEntries(
-    REVIEW_LENS_NAMES.map((lens) => [lens, byLens.get(lens)!.branch]),
+    REVIEW_LENS_NAMES.map((lens) => [
+      lens,
+      requiredMapValue(byLens, lens, `${lens} current review ref`).branch,
+    ]),
   ) as Record<ReviewLensName, string>;
   const expected = {
     taskId: input.taskId,
@@ -200,7 +216,11 @@ export const collectParallelReviewLenses = (input: {
   const artifactContents = {} as Record<ReviewLensName, string>;
   const artifactSha256 = {} as Record<ReviewLensName, string>;
   const artifacts = REVIEW_LENS_NAMES.map((lens) => {
-    const { commit } = byLens.get(lens)!;
+    const { commit } = requiredMapValue(
+      byLens,
+      lens,
+      `${lens} current review ref`,
+    );
     const parents = git(
       input.reviewRepo,
       "rev-list",
@@ -213,7 +233,8 @@ export const collectParallelReviewLenses = (input: {
       .filter(Boolean);
     if (parents.length !== 2)
       throw new Error(`${lens}: checkpoint must have exactly one parent`);
-    if (parents[1] !== headSha)
+    const parent = parents[1];
+    if (!parent || parent !== headSha)
       throw new Error(
         `${lens}: checkpoint parent does not match reviewed head`,
       );
@@ -225,7 +246,7 @@ export const collectParallelReviewLenses = (input: {
       "--name-only",
       "-r",
       "--no-renames",
-      parents[1]!,
+      parent,
       commit,
     )
       .split("\n")
@@ -275,7 +296,8 @@ export const aggregateParallelReviewBranches = async (input: {
   const lease = completed
     ? undefined
     : await beginReviewAggregation(coordinates);
-  const prepared = completed?.prepared ?? lease!.prepared;
+  const prepared = completed?.prepared ?? lease?.prepared;
+  if (!prepared) throw new Error("review aggregation preparation is missing");
   const collected = collectParallelReviewLenses({
     ...input,
     attempt: prepared.attemptId,
@@ -360,7 +382,8 @@ export const aggregateParallelReviewBranches = async (input: {
       throw new Error("completed review promotion replay state mismatch");
     return collected.aggregate;
   }
-  bindReviewAggregationResult(coordinates, lease!.token, {
+  if (!lease) throw new Error("review aggregation lease is missing");
+  bindReviewAggregationResult(coordinates, lease.token, {
     artifactSha256: collected.artifactSha256,
     commits: collected.commits,
     expectedProofSha256,
@@ -406,7 +429,7 @@ export const aggregateParallelReviewBranches = async (input: {
   if (fileSha256(proofPath) !== expectedProofSha256)
     throw new Error("review promotion proof replay mismatch");
   const aggregate = collected.aggregate;
-  bindReviewAggregationResult(coordinates, lease!.token, {
+  bindReviewAggregationResult(coordinates, lease.token, {
     artifactSha256: collected.artifactSha256,
     commits: collected.commits,
     expectedProofSha256,
@@ -424,7 +447,7 @@ export const aggregateParallelReviewBranches = async (input: {
   cleanupReviewWorktrees(coordinates);
   if (process.env.BRAIN_REVIEW_TEST_CRASH_AFTER_CLEANUP === "1")
     throw new Error("injected review promotion crash after cleanup");
-  await releaseReviewAggregationSocketLease(lease!.token);
+  await releaseReviewAggregationSocketLease(lease.token);
   return aggregate;
 };
 

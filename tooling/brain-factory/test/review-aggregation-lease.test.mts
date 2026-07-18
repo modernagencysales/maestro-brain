@@ -140,8 +140,10 @@ describe("review aggregation loopback lease", () => {
         ),
       ).toHaveLength(1);
       const winner = outcomes.findIndex((value) => value.startsWith("won:"));
-      contenders[winner]!.stdin.write("release\n");
-      await childExit(contenders[winner]!);
+      const winnerProcess = contenders[winner];
+      if (!winnerProcess) throw new Error("lease contender winner is missing");
+      winnerProcess.stdin.write("release\n");
+      await childExit(winnerProcess);
     } finally {
       for (const child of contenders) child.kill("SIGKILL");
     }
