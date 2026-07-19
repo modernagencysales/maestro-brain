@@ -115,3 +115,227 @@ export const createSourceJobState = (
   createdAt: input.now,
   updatedAt: input.now,
 });
+
+type LeaseInput = Readonly<{ leaseGeneration: number; leaseToken: string }>;
+type SourceJobResult<E> = Either.Either<SourceJobState, E>;
+type GenerationInput = Readonly<{
+  policyGeneration: number;
+  routeGeneration: number;
+  lifecycleGeneration: number;
+  emergencyGeneration: number;
+}>;
+
+export const tokenHash = (leaseToken: string): string =>
+  `lease-token:${leaseToken.length}:${leaseToken.slice(0, 4)}`;
+export const assertCurrentLease = (
+  job: SourceJobState,
+  input: LeaseInput,
+): Either.Either<void, LeaseLost> =>
+  job.leaseGeneration !== input.leaseGeneration ||
+  job.leaseToken !== input.leaseToken ||
+  job.executionStatus === "queued"
+    ? Either.left(new LeaseLost({ reason: "lease token is no longer current" }))
+    : Either.right(undefined);
+
+export const startSourceJob = (
+  job: SourceJobState,
+  input: Readonly<{
+    owner: string;
+    leaseToken: string;
+    leaseDurationMs: number;
+    now: number;
+  }>,
+): SourceJobResult<DuplicateEffect> => {
+  if (job.acceptedEffectKey === job.effectKey)
+    return Either.left(new DuplicateEffect({ effectKey: job.effectKey }));
+  const leaseGeneration = job.leaseGeneration + 1;
+  const attempt = job.attempt + 1;
+  return Either.right({
+    ...job,
+    executionStatus: "leased",
+    leaseGeneration,
+    leaseToken: input.leaseToken,
+    leaseOwner: input.owner,
+    leaseExpiresAt: input.now + input.leaseDurationMs,
+    attempt,
+    attemptReceipts: [
+      ...job.attemptReceipts,
+      {
+        attempt,
+        leaseGeneration,
+        leaseTokenHash: tokenHash(input.leaseToken),
+        owner: input.owner,
+        startedAt: input.now,
+      },
+    ],
+    updatedAt: input.now,
+  });
+};
+
+export const markSourceJobRunning = (
+  job: SourceJobState,
+  input: LeaseInput & { now: number },
+): SourceJobResult<LeaseLost> => {
+  const lease = assertCurrentLease(job, input);
+  if (Either.isLeft(lease)) return Either.left(lease.left);
+  return Either.right({
+    ...job,
+    executionStatus: "running",
+    updatedAt: input.now,
+  });
+};
+export const recordExternalResponse = (
+  job: SourceJobState,
+  input: LeaseInput & {
+    responseHash: string;
+    now: number;
+  },
+): SourceJobResult<LeaseLost> => {
+  const lease = assertCurrentLease(job, input);
+  if (Either.isLeft(lease)) return Either.left(lease.left);
+  return Either.right({
+    ...job,
+    externalResponseHash: input.responseHash,
+    attemptReceipts: updateCurrentReceipt(job, {
+      externalResponseHash: input.responseHash,
+    }),
+    updatedAt: input.now,
+  });
+};
+
+export const succeedSourceJob = (
+  job: SourceJobState,
+  input: LeaseInput &
+    GenerationInput & {
+      effectKey: string;
+      now: number;
+    },
+): SourceJobResult<LeaseLost | StaleGeneration | DuplicateEffect> => {
+  const lease = assertCurrentLease(job, input);
+  if (Either.isLeft(lease)) return Either.left(lease.left);
+  const generation = assertPinnedGenerations(job, input);
+  if (Either.isLeft(generation)) return Either.left(generation.left);
+  if (
+    job.acceptedEffectKey === input.effectKey ||
+    job.effectKey !== input.effectKey
+  ) {
+    return Either.left(new DuplicateEffect({ effectKey: input.effectKey }));
+  }
+  return Either.right({
+    ...job,
+    executionStatus: "succeeded",
+    acceptedEffectKey: input.effectKey,
+    attemptReceipts: updateCurrentReceipt(job, {
+      acceptedEffectKey: input.effectKey,
+      completedAt: input.now,
+    }),
+    updatedAt: input.now,
+  });
+};
+
+export const scheduleRetry = (
+  job: SourceJobState,
+  input: LeaseInput & {
+    reason: string;
+    retryAfterMs: number;
+    now: number;
+  },
+): SourceJobResult<LeaseLost> => {
+  const lease = assertCurrentLease(job, input);
+  if (Either.isLeft(lease)) return Either.left(lease.left);
+  if (job.attempt >= job.maxAttempts)
+    return Either.right(
+      deadLetter(job, "MaxAttemptsReached", input.reason, input.now),
+    );
+  return Either.right({
+    ...job,
+    executionStatus: "retry_wait",
+    leaseToken: undefined,
+    leaseOwner: undefined,
+    leaseExpiresAt: undefined,
+    nextRetryAt: input.now + input.retryAfterMs,
+    lastError: { tag: "RetryableJobFailure", reason: input.reason },
+    attemptReceipts: updateCurrentReceipt(job, {
+      completedAt: input.now,
+      errorTag: "RetryableJobFailure",
+      errorReason: input.reason,
+    }),
+    updatedAt: input.now,
+  });
+};
+
+export const failSourceJob = (
+  job: SourceJobState,
+  input:
+    | (LeaseInput & {
+        kind: "retryable" | "permanent";
+        reason: string;
+        now: number;
+      })
+    | { kind: "cancelled" | "revoked" | "superseded"; now: number },
+): SourceJobResult<LeaseLost> => {
+  if (!("leaseToken" in input))
+    return Either.right({
+      ...job,
+      executionStatus: input.kind,
+      updatedAt: input.now,
+    });
+  const lease = assertCurrentLease(job, input);
+  if (Either.isLeft(lease)) return Either.left(lease.left);
+  return Either.right(
+    deadLetter(
+      job,
+      input.kind === "retryable" ? "MaxAttemptsReached" : "PermanentJobFailure",
+      input.reason,
+      input.now,
+    ),
+  );
+};
+
+const deadLetter = (
+  job: SourceJobState,
+  tag: SourceJobErrorTag,
+  reason: string,
+  now: number,
+): SourceJobState => ({
+  ...job,
+  executionStatus: "dead_letter",
+  leaseToken: undefined,
+  leaseOwner: undefined,
+  leaseExpiresAt: undefined,
+  lastError: { tag, reason },
+  attemptReceipts: updateCurrentReceipt(job, {
+    completedAt: now,
+    errorTag: tag,
+    errorReason: reason,
+  }),
+  updatedAt: now,
+});
+const assertPinnedGenerations = (
+  job: SourceJobState,
+  input: GenerationInput,
+): Either.Either<void, StaleGeneration> => {
+  const staleGeneration =
+    job.policyGeneration !== input.policyGeneration
+      ? "policyGeneration"
+      : job.routeGeneration !== input.routeGeneration
+        ? "routeGeneration"
+        : job.lifecycleGeneration !== input.lifecycleGeneration
+          ? "lifecycleGeneration"
+          : job.emergencyGeneration !== input.emergencyGeneration
+            ? "emergencyGeneration"
+            : undefined;
+  return staleGeneration
+    ? Either.left(new StaleGeneration({ generation: staleGeneration }))
+    : Either.right(undefined);
+};
+const updateCurrentReceipt = (
+  job: SourceJobState,
+  update: Partial<SourceJobAttemptReceipt>,
+): readonly SourceJobAttemptReceipt[] =>
+  job.attemptReceipts.map((receipt) =>
+    receipt.attempt === job.attempt &&
+    receipt.leaseGeneration === job.leaseGeneration
+      ? { ...receipt, ...update }
+      : receipt,
+  );
