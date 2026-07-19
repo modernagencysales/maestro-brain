@@ -203,6 +203,7 @@ describe("contract reproof admission", () => {
       changedFilesBetween: () => [
         "docs/superpowers/execution/maestro-brain/task-manifest.json",
         "docs/superpowers/execution/maestro-brain/parallelism-contract.json",
+        ".superpowers/sdd/task-5-slice-c-report.md",
         "package.json",
         "tooling/brain-factory/src/manifest.ts",
       ],

@@ -77,6 +77,7 @@ const controlOnlyDelta = (changedFiles: readonly string[]): boolean =>
     (file) =>
       file === "package.json" ||
       file.startsWith("docs/superpowers/execution/maestro-brain/") ||
+      file.startsWith(".superpowers/sdd/") ||
       file.startsWith(".fabro/workflows/") ||
       file.startsWith("tooling/brain-factory/"),
   );
