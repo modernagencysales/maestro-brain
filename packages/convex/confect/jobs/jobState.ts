@@ -1,4 +1,4 @@
-import { Data } from "effect";
+import * as Data from "effect/Data";
 import * as Either from "effect/Either";
 
 export class LeaseLost extends Data.TaggedError("LeaseLost")<{
@@ -64,6 +64,9 @@ export type SourceJobState = Readonly<{
   stage: SourceJobStage;
   executionStatus: SourceJobExecutionStatus;
   effectKey: string;
+  idempotencyKey?: string;
+  organizationUnitIdempotencyKey?: string;
+  workId?: string;
   acceptedEffectKey?: string;
   policyGeneration: number;
   routeGeneration: number;
@@ -89,6 +92,9 @@ export const createSourceJobState = (
     unitKey: string;
     stage: SourceJobStage;
     effectKey: string;
+    idempotencyKey?: string;
+    organizationUnitIdempotencyKey?: string;
+    workId?: string;
     policyGeneration: number;
     routeGeneration: number;
     lifecycleGeneration: number;
@@ -96,25 +102,39 @@ export const createSourceJobState = (
     maxAttempts: number;
     now: number;
   }>,
-): SourceJobState => ({
-  schemaVersion: 1,
-  organizationKey: input.organizationKey,
-  unitKey: input.unitKey,
-  stage: input.stage,
-  executionStatus: "queued",
-  effectKey: input.effectKey,
-  policyGeneration: input.policyGeneration,
-  routeGeneration: input.routeGeneration,
-  lifecycleGeneration: input.lifecycleGeneration,
-  emergencyGeneration: input.emergencyGeneration,
-  leaseGeneration: 0,
-  attempt: 0,
-  maxAttempts: input.maxAttempts,
-  nextRetryAt: input.now,
-  attemptReceipts: [],
-  createdAt: input.now,
-  updatedAt: input.now,
-});
+): SourceJobState => {
+  const optionalFields: {
+    idempotencyKey?: string;
+    organizationUnitIdempotencyKey?: string;
+    workId?: string;
+  } = {};
+  if (input.idempotencyKey !== undefined)
+    optionalFields.idempotencyKey = input.idempotencyKey;
+  if (input.organizationUnitIdempotencyKey !== undefined)
+    optionalFields.organizationUnitIdempotencyKey =
+      input.organizationUnitIdempotencyKey;
+  if (input.workId !== undefined) optionalFields.workId = input.workId;
+  return {
+    schemaVersion: 1,
+    organizationKey: input.organizationKey,
+    unitKey: input.unitKey,
+    stage: input.stage,
+    executionStatus: "queued",
+    effectKey: input.effectKey,
+    ...optionalFields,
+    policyGeneration: input.policyGeneration,
+    routeGeneration: input.routeGeneration,
+    lifecycleGeneration: input.lifecycleGeneration,
+    emergencyGeneration: input.emergencyGeneration,
+    leaseGeneration: 0,
+    attempt: 0,
+    maxAttempts: input.maxAttempts,
+    nextRetryAt: input.now,
+    attemptReceipts: [],
+    createdAt: input.now,
+    updatedAt: input.now,
+  };
+};
 
 type LeaseInput = Readonly<{ leaseGeneration: number; leaseToken: string }>;
 type SourceJobResult<E> = Either.Either<SourceJobState, E>;

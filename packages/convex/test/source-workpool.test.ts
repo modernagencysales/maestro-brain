@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import * as Either from "effect/Either";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
@@ -283,6 +284,40 @@ describe("source workpool job state", () => {
       name: "statusSourceJob",
       functionVisibility: "internal",
     });
+  });
+
+  it("persists source job rows before enqueue and fences completion", () => {
+    const source = readFileSync(
+      new URL("../confect/jobs/workpool.ts", import.meta.url),
+      "utf8",
+    );
+    expect(source).toContain('.query("sourceProcessingJobs")');
+    expect(source).toContain(`.insert(
+        "sourceProcessingJobs"`);
+    expect(source).toContain("ctx.db.patch(row._id");
+    expect(source).toContain("succeedSourceJob");
+  });
+
+  it("scopes idempotency replays to one organization and unit", () => {
+    const source = readFileSync(
+      new URL("../confect/jobs/workpool.ts", import.meta.url),
+      "utf8",
+    );
+    const table = readFileSync(
+      new URL("../confect/tables/sourceProcessingJobs.ts", import.meta.url),
+      "utf8",
+    );
+    expect(source).toContain('withIndex("by_org_unit_idempotency_key"');
+    expect(source).toContain("const scopedIdempotencyKey");
+    expect(source).toContain("args.organizationKey");
+    expect(source).toContain("args.unitKey");
+    expect(source).toContain(
+      'q.eq("organizationUnitIdempotencyKey", scopedIdempotencyKey(args))',
+    );
+    expect(table).toContain("organizationUnitIdempotencyKey");
+    expect(table).toContain(
+      '.index("by_org_unit_idempotency_key", ["organizationUnitIdempotencyKey"])',
+    );
   });
 
   it("keeps sourceProcessingJobs row schema fenced for Confect", () => {
