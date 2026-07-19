@@ -1,0 +1,96 @@
+{
+  "lens": "safety",
+  "taskId": "S06-T01",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "f2f6cb348272c704636b7e21bf8e8cbd66b812835d781b52e01bdcfa5b0fa97c",
+  "baseSha": "64b5d90e9dce6146ac6cd49696658cd9a40a254c",
+  "headSha": "0eaad122a9cd905c2bc1f6e25b1d44122bd71575",
+  "treeSha": "5a9ff6b7368cd56bf2b6a737a13449469fd17685",
+  "reviewerRunId": "maestro/review/S06-T01/0eaad122a9cd905c2bc1f6e25b1d44122bd71575/034c9cb1-5991-4c1b-bb8a-55d004bfb9c1-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.ts:29-47 source-job enqueue args require organizationKey and unitKey, and packages/convex/confect/tables/sourceProcessingJobs.ts:50-56 persists organizationKey/unitKey with effectKey/status.",
+        "packages/convex/test/source-workpool.test.ts:29-41 constructs job state with organizationKey org_1 and unitKey slack:channel:C1:message:1700000000.000100, and line 288 verifies the row schema accepts the fenced source job row."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.spec.ts:14-23 registers enqueueSourceJob/statusSourceJob as convexInternalMutation/convexInternalQuery, keeping source-job controls off public/API/MCP surfaces.",
+        "packages/convex/test/source-workpool.test.ts:277-286 asserts enqueueSourceJob and statusSourceJob have functionVisibility internal."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/jobState.ts:23-45 includes superseded and revoked stages/statuses plus cancelled terminal execution status.",
+        "packages/convex/test/source-workpool.test.ts:209-275 verifies retry/dead-letter plus cancelled, revoked, and superseded terminal state transitions."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/jobState.ts:48-59 stores leaseTokenHash and externalResponseHash in attempt receipts, not raw external responses.",
+        "packages/convex/confect/jobs/jobState.ts:128-129 tokenHash derives a bounded token marker from token length/prefix, and packages/convex/test/source-workpool.test.ts:139-162 verifies only sha256:external-response is persisted for the external response."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "finding",
+      "findingIds": ["SAF-S06-T01-001"],
+      "evidence": [
+        "Task plan lines 1861-1864 require claim by compare-and-set with leaseGeneration/leaseToken and completion comparing pinned generations/effect key.",
+        "packages/convex/confect/jobs/jobState.ts:140-172 implements startSourceJob as an in-memory pure reducer incrementing leaseGeneration, but no changed runtime function reads or patches sourceProcessingJobs rows with a DB compare-and-set.",
+        "Scoped search for sourceProcessingJobs/SourceProcessingJob found only table schema and tests; packages/convex/confect/jobs/workpool.ts:95-118 only enqueue/status @convex-dev/workpool work and does not persist or claim sourceProcessingJobs rows."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "finding",
+      "findingIds": ["SAF-S06-T01-001"],
+      "evidence": [
+        "Task plan lines 1857-1860 require duplicate enqueue/effect and crash-before/after commit proof for at-least-once workers.",
+        "packages/convex/confect/jobs/workpool.ts:95-103 accepts idempotencyKey but forwards args directly to pool.enqueueAction without looking up or writing a sourceProcessingJobs row by idempotencyKey/effectKey.",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:93 indexes by effectKey, but scoped search shows no runtime caller uses that index to dedupe replayed enqueue/effect attempts."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "finding",
+      "findingIds": ["SAF-S06-T01-001"],
+      "evidence": [
+        "packages/convex/confect/jobs/jobState.ts:206-233 checks lease token, pinned generations, and effect key in the pure succeedSourceJob reducer.",
+        "packages/convex/confect/jobs/workpool.ts:121-130 has backgroundWork and onComplete handlers that return null and do not call succeedSourceJob, record attempt receipts, or fence stale @convex-dev/workpool completion callbacks against durable sourceProcessingJobs state."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "Changed files under packages/convex/confect/jobs and packages/convex/confect/tables import @convex-dev/workpool, convex, Effect, and local modules only; no live Slack/Nango/provider SDK or secret boundary is introduced.",
+        "packages/convex/confect/jobs/workpool.ts:121-130 keeps background work/onComplete deterministic placeholders with no provider payload logging or server-secret exposure."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "SAF-S06-T01-001",
+      "severity": "high",
+      "summary": "Source job lease fencing is modeled but not enforced by durable runtime claims",
+      "details": "S06-T01 requires replacing the demo workpool with fenced source job claims using sourceProcessingJobs leases/CAS so at-least-once duplicate workers accept only one logical effect. The implementation adds table schema and pure reducer tests, but the Confect runtime functions only enqueue @convex-dev/workpool actions and return pool status. No internal mutation creates/claims/heartbeats/completes a sourceProcessingJobs row with compare-and-set, idempotencyKey/effectKey dedupe, or stale onComplete fencing. As a result concurrent duplicate deliveries, replayed enqueue requests, or stale completion callbacks are not safety-enforced in persisted Convex state.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1861-1864 requires claim by compare-and-set with leaseGeneration, opaque leaseToken, owner, expiry, attempt, and completion comparing pinned generations/effect key.",
+        "packages/convex/confect/jobs/workpool.ts:95-103 enqueueSourceJob forwards args to pool.enqueueAction and does not create or dedupe sourceProcessingJobs rows.",
+        "packages/convex/confect/jobs/workpool.ts:121-130 backgroundWork/onComplete are null handlers and do not persist attempt receipts or enforce completion fences.",
+        "Scoped rg output for sourceProcessingJobs/SourceProcessingJob found no runtime usage outside table schema and tests."
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
