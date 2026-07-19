@@ -62,7 +62,9 @@ const failureCases: ReadonlyArray<
     "unfair FIFO",
     (run) => ({
       ...run,
-      windows: [{ ...run.windows[0]!, advancedChannels: 99 }],
+      windows: run.windows.map((window, index) =>
+        index === 0 ? { ...window, advancedChannels: 99 } : window,
+      ),
     }),
   ],
   ["dropped event", (run) => ({ ...run, droppedEvents: 1 })],
