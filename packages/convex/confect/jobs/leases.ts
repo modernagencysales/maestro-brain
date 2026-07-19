@@ -20,7 +20,7 @@ export const heartbeatLease = (
   },
 ): Either.Either<SourceJobState, LeaseLost> => {
   const lease = assertCurrentLease(job, input);
-  if (Either.isLeft(lease)) return lease;
+  if (Either.isLeft(lease)) return Either.left(lease.left);
   return Either.right({
     ...job,
     leaseExpiresAt: input.now + input.leaseDurationMs,
