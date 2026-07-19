@@ -1,4 +1,4 @@
-import { Data } from "effect";
+import * as Data from "effect/Data";
 import * as Either from "effect/Either";
 
 export class LeaseLost extends Data.TaggedError("LeaseLost")<{

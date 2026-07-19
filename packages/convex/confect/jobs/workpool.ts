@@ -8,6 +8,7 @@ import {
   type FunctionReference,
   internalActionGeneric,
   internalMutationGeneric,
+  internalQueryGeneric,
   makeFunctionReference,
   mutationGeneric,
   queryGeneric,
@@ -25,18 +26,33 @@ const pool = new Workpool(workpoolComponent, {
   },
 });
 
-const backgroundWorkRef = makeFunctionReference<
-  "action",
-  Record<string, never>,
-  null
->("jobs/workpool:backgroundWork") as unknown as FunctionReference<
-  "action",
-  "internal",
-  Record<string, never>,
-  null
->;
+const sourceJobArgs = {
+  organizationKey: v.string(),
+  unitKey: v.string(),
+  stage: v.union(
+    v.literal("assembled"),
+    v.literal("awaiting_policy"),
+    v.literal("capture_only"),
+    v.literal("route_pending"),
+    v.literal("awaiting_classification"),
+    v.literal("classifying"),
+    v.literal("awaiting_classification_review"),
+  ),
+  effectKey: v.string(),
+  policyGeneration: v.number(),
+  routeGeneration: v.number(),
+  lifecycleGeneration: v.number(),
+  emergencyGeneration: v.number(),
+  idempotencyKey: v.string(),
+};
+const sourceJobValidator = v.object(sourceJobArgs);
+type SourceJobArgs = Infer<typeof sourceJobValidator>;
 
-const onCompleteArgs = vOnCompleteArgs(v.null());
+const backgroundWorkRef = makeFunctionReference<"action", SourceJobArgs, null>(
+  "jobs/workpool:backgroundWork",
+) as unknown as FunctionReference<"action", "internal", SourceJobArgs, null>;
+
+const onCompleteArgs = vOnCompleteArgs(sourceJobValidator);
 type OnCompleteArgs = Infer<typeof onCompleteArgs>;
 
 const onCompleteRef = makeFunctionReference<"mutation", OnCompleteArgs, null>(
@@ -47,15 +63,17 @@ export const enqueue = mutationGeneric({
   args: {},
   returns: vWorkId,
   handler: async (ctx): Promise<WorkId> =>
-    await pool.enqueueAction(
-      ctx,
-      backgroundWorkRef,
-      {},
-      {
-        onComplete: onCompleteRef,
-        context: null,
-      },
-    ),
+    await pool.enqueueAction(ctx, backgroundWorkRef, {
+      organizationKey: "demo",
+      unitKey: "demo",
+      stage: "assembled",
+      effectKey: "demo",
+      policyGeneration: 0,
+      routeGeneration: 0,
+      lifecycleGeneration: 0,
+      emergencyGeneration: 0,
+      idempotencyKey: "demo",
+    }),
 });
 
 export const status = queryGeneric({
@@ -74,8 +92,34 @@ export const status = queryGeneric({
   handler: async (ctx, { workId }) => await pool.status(ctx, workId),
 });
 
+export const enqueueSourceJob = internalMutationGeneric({
+  args: sourceJobArgs,
+  returns: vWorkId,
+  handler: async (ctx, args): Promise<WorkId> =>
+    await pool.enqueueAction(ctx, backgroundWorkRef, args, {
+      onComplete: onCompleteRef,
+      context: args,
+    }),
+});
+
+export const statusSourceJob = internalQueryGeneric({
+  args: { workId: vWorkId },
+  returns: v.union(
+    v.object({
+      state: v.literal("pending"),
+      previousAttempts: v.number(),
+    }),
+    v.object({
+      state: v.literal("running"),
+      previousAttempts: v.number(),
+    }),
+    v.object({ state: v.literal("finished") }),
+  ),
+  handler: async (ctx, { workId }) => await pool.status(ctx, workId),
+});
+
 export const backgroundWork = internalActionGeneric({
-  args: {},
+  args: sourceJobArgs,
   returns: v.null(),
   handler: async (): Promise<null> => null,
 });
