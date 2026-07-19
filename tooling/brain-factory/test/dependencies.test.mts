@@ -1,4 +1,10 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -7,6 +13,7 @@ import {
   hydrateWorktreeDependencies,
   isWorkspaceDependencyInput,
 } from "../src/dependencies.js";
+import { runRtk } from "../src/process.js";
 
 const temporaryDirectories: string[] = [];
 const fixture = () => {
@@ -33,6 +40,73 @@ afterEach(() => {
 });
 
 describe("worktree dependency hydration", () => {
+  it("resolves lane-consumed private package exports after fresh hydration", () => {
+    const directory = mkdtempSync(join(tmpdir(), "brain-dependencies-real-"));
+    temporaryDirectories.push(directory);
+    const root = resolve(import.meta.dirname, "../../..");
+    const repository = resolve(directory, "repository.git");
+    const workdir = resolve(directory, "worktree");
+    const candidateSha =
+      runRtk(["proxy", "git", "stash", "create"], {
+        cwd: root,
+        quiet: true,
+      }) || "HEAD";
+
+    runRtk(["proxy", "git", "clone", "--shared", "--bare", root, repository], {
+      quiet: true,
+    });
+    runRtk(
+      [
+        "proxy",
+        "git",
+        "--git-dir",
+        repository,
+        "worktree",
+        "add",
+        "--detach",
+        workdir,
+        candidateSha,
+      ],
+      { quiet: true },
+    );
+    try {
+      hydrateWorktreeDependencies(root, workdir);
+      for (const packageDirectory of ["ui", "convex", "workflow-ui"])
+        expect(
+          existsSync(resolve(workdir, "packages", packageDirectory, "dist")),
+        ).toBe(false);
+
+      expect(() =>
+        runRtk(
+          [
+            "pnpm",
+            "--dir",
+            "apps/web",
+            "exec",
+            "tsx",
+            "--eval",
+            'Promise.all([import("@maestro-template/ui"), import("@maestro-template/convex/refs"), import("@maestro-template/workflow-ui/workflowCanvasState")])',
+          ],
+          { cwd: workdir, quiet: true },
+        ),
+      ).not.toThrow();
+    } finally {
+      runRtk(
+        [
+          "proxy",
+          "git",
+          "--git-dir",
+          repository,
+          "worktree",
+          "remove",
+          "--force",
+          workdir,
+        ],
+        { quiet: true },
+      );
+    }
+  }, 30_000);
+
   it("uses a lane-local frozen install when manifests match", () => {
     const { root, workdir } = fixture();
     const runner = vi.fn(() => "");

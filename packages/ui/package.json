@@ -2,16 +2,16 @@
   "name": "@maestro-template/ui",
   "private": true,
   "type": "module",
-  "main": "dist/src/index.js",
+  "main": "src/index.tsx",
   "types": "src/index.tsx",
   "exports": {
     ".": {
       "types": "./src/index.tsx",
-      "default": "./dist/src/index.js"
+      "default": "./src/index.tsx"
     },
     "./settings": {
       "types": "./src/settings/template-settings-panel.tsx",
-      "default": "./dist/src/settings/template-settings-panel.js"
+      "default": "./src/settings/template-settings-panel.tsx"
     }
   },
   "scripts": {
