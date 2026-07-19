@@ -75,6 +75,8 @@ const exactTaskLockIntersections = (
 const controlOnlyDelta = (changedFiles: readonly string[]): boolean =>
   changedFiles.every(
     (file) =>
+      file === "package.json" ||
+      file.startsWith("docs/superpowers/execution/maestro-brain/") ||
       file.startsWith(".fabro/workflows/") ||
       file.startsWith("tooling/brain-factory/"),
   );

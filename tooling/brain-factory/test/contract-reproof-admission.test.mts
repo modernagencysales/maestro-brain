@@ -196,6 +196,20 @@ describe("contract reproof admission", () => {
     expect(admitted.reproofRequestSha256).not.toBe(value.request.requestSha256);
   });
 
+  it("accepts the authorized manifest and package control-plane delta", () => {
+    const value = fixture();
+    const admitted = admitContractReproof({
+      ...value.input,
+      changedFilesBetween: () => [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json",
+        "docs/superpowers/execution/maestro-brain/parallelism-contract.json",
+        "package.json",
+        "tooling/brain-factory/src/manifest.ts",
+      ],
+    });
+    expect(admitted.request.taskId).toBe(value.request.taskId);
+  });
+
   it.each([
     ["non-ancestor request control", { isAncestor: () => false }, /ancestor/],
     [
