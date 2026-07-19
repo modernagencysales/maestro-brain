@@ -1,0 +1,111 @@
+{
+  "lens": "contract",
+  "taskId": "S06-T01",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "f2f6cb348272c704636b7e21bf8e8cbd66b812835d781b52e01bdcfa5b0fa97c",
+  "baseSha": "64b5d90e9dce6146ac6cd49696658cd9a40a254c",
+  "headSha": "90e58151e82012ffbdfc7b0c0d368a2f3e63cdd9",
+  "treeSha": "5a9ff6b7368cd56bf2b6a737a13449469fd17685",
+  "reviewerRunId": "maestro/review/S06-T01/90e58151e82012ffbdfc7b0c0d368a2f3e63cdd9/ccddb1eb-b971-4c15-88c6-0e4d3d9a8ac9-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "finding",
+      "evidence": [
+        "Task packet lines 1840-1884 require replacing jobs/workpool with @convex-dev/workpool plus sourceProcessingJobs leases/CAS, crash matrix proof, and internal/admin-observed controls.",
+        "packages/convex/confect/jobs/workpool.ts lines 94-131 only enqueue a component action and leave backgroundWork/onComplete handlers returning null; no sourceProcessingJobs read/write or CAS occurs in the changed function path.",
+        "packages/convex/confect/jobs/workpool.ts lines 51-72 retain public enqueue with canned demo organization/unit/stage/effect values."
+      ],
+      "findingIds": ["CONTRACT-S06-T01-001", "CONTRACT-S06-T01-002"]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "finding",
+      "evidence": [
+        "Task packet typed state/errors require LeaseLost, RetryableJobFailure, PermanentJobFailure, MaxAttemptsReached, StaleGeneration, and DuplicateEffect for the source workpool contract.",
+        "packages/convex/confect/jobs/workpool.spec.ts only registers inferred convexPublic/convexInternal functions and declares no error schema or typedErrors for source job operations.",
+        "packages/convex/confect/jobs/jobState.ts defines Data.TaggedError classes, but packages/convex/confect/jobs/workpool.ts does not expose claim/heartbeat/complete/fail controls that can return those typed failures."
+      ],
+      "findingIds": ["CONTRACT-S06-T01-003"]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/tables/sourceProcessingJobs.ts defines schemaVersion 1, lease fields, attempt receipts, and indexes for source jobs.",
+        "A scoped search for sourceProcessingJobs in packages/convex/confect and packages/convex/convex found no runtime usage outside tests and the table source; packages/convex/confect/jobs/workpool.ts never imports or mutates it.",
+        "Without persistence/CAS usage, durable invariants for one accepted effect, immutable receipts, external response hash before commit, and rollback-by-expiry are not enforced by the schema."
+      ],
+      "findingIds": ["CONTRACT-S06-T01-001"]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "finding",
+      "evidence": [
+        "Manifest entry S06-T01 classifies the work as fixture-to-real with file locks limited to the seven changed files and requirements SLK-07/ZFC-01.",
+        "Plan lines 1843-1872 name the real boundary as @convex-dev/workpool plus sourceProcessingJobs leases/CAS, and require claim, heartbeat, completion generation/effect compare, persisted receipts, and external response hashes.",
+        "The implemented source job behavior is confined to pure reducers in packages/convex/confect/jobs/jobState.ts and packages/convex/confect/jobs/leases.ts plus tests; the registered Convex functions remain placeholder/non-persistent."
+      ],
+      "findingIds": ["CONTRACT-S06-T01-001"]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "finding",
+      "evidence": [
+        "ci-proof-packet.json changedFiles exactly match the S06-T01 manifest fileLocks, and lane-gate-report.json currentHeadSha/headSha both equal 90e58151e82012ffbdfc7b0c0d368a2f3e63cdd9.",
+        "The task packet says status/control functions are internal/admin-observed, not API/MCP tools.",
+        "packages/convex/confect/jobs/workpool.spec.ts still registers enqueue and status as public, and packages/convex/confect/jobs/workpool.ts lines 51-91 still expose public demo enqueue/status."
+      ],
+      "findingIds": ["CONTRACT-S06-T01-002"]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "evidence": [
+        "Task packet lines 1857-1869 require crash before/after claim, after external response, before/after commit, before ACK, lease expiry/reclaim, stale worker commit, duplicate enqueue/effect, retryable/permanent error, max attempts, cancellation, and emergency generation fence.",
+        "packages/convex/test/source-workpool.test.ts covers pure helper cases for lease reclaim, stale completion, external response, duplicate effect, one stale generation variant, retry/permanent/max/cancel/revoke/supersede, and spec visibility checks.",
+        "No test drives the registered Convex functions through durable sourceProcessingJobs persistence, crash/ACK boundaries, or duplicate enqueue behavior; the Confect workpool functions cannot currently surface the declared typed failures."
+      ],
+      "findingIds": ["CONTRACT-S06-T01-001", "CONTRACT-S06-T01-003"]
+    }
+  ],
+  "findings": [
+    {
+      "id": "CONTRACT-S06-T01-001",
+      "severity": "blocker",
+      "summary": "Source workpool contract is not backed by durable sourceProcessingJobs claims/CAS.",
+      "details": "S06-T01 was a fixture-to-real swap from the demo workpool to @convex-dev/workpool plus sourceProcessingJobs leases/CAS. The changed registered functions only enqueue the background action and leave backgroundWork/onComplete as null handlers; all claim/heartbeat/complete/fail behavior exists as pure helpers and tests, not as durable Convex mutations against sourceProcessingJobs. This misses the accepted-effect, crash, receipt, and rollback-by-expiry contract.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1843-1872",
+        "packages/convex/confect/jobs/workpool.ts:94-131",
+        "packages/convex/confect/jobs/jobState.ts:140-340",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:1-96",
+        "packages/convex/test/source-workpool.test.ts:64-299"
+      ]
+    },
+    {
+      "id": "CONTRACT-S06-T01-002",
+      "severity": "major",
+      "summary": "Public demo enqueue/status remain exposed in the workpool contract.",
+      "details": "The task says to replace the demo workpool and keep status/control functions internal/admin-observed, not API/MCP tools. The implementation retains public enqueue/status in the Confect spec and keeps the public enqueue handler populated with canned demo source-job values, so the old demo API remains part of the contract.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1840-1884",
+        "packages/convex/confect/jobs/workpool.spec.ts:10-13",
+        "packages/convex/confect/jobs/workpool.ts:51-91"
+      ]
+    },
+    {
+      "id": "CONTRACT-S06-T01-003",
+      "severity": "major",
+      "summary": "Declared failure contract is not exposed as typed Confect/Convex API failures.",
+      "details": "LeaseLost, RetryableJobFailure, PermanentJobFailure, MaxAttemptsReached, StaleGeneration, and DuplicateEffect are defined only for local reducer helpers. The registered workpool spec has no error schemas or typedErrors for source job operations, and the Convex function surface has no claim/heartbeat/complete/fail APIs returning those errors, so callers cannot rely on the declared failure contract.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1867-1869",
+        "packages/convex/confect/jobs/workpool.spec.ts:1-29",
+        "packages/convex/confect/jobs/jobState.ts:4-21",
+        "packages/convex/confect/jobs/workpool.ts:94-131"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
