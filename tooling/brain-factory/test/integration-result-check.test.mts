@@ -16,6 +16,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { validateIntegrationResult } from "../src/integration-result-check.mjs";
 import { archiveIntegrationEvidence } from "../src/evidence-archive.js";
+import { buildContractReproofRequest } from "../src/contract-reproof.js";
 import { gateCommandSetHash } from "../src/lane-gate-cache.js";
 import { adoptLegacyIntegratedLaneEvidence } from "../src/lane-evidence-adoption.js";
 import {
@@ -189,7 +190,10 @@ const readRecord = (path: string): Record<string, unknown> =>
 const sha256File = (path: string): string =>
   createHash("sha256").update(readFileSync(path, "utf8")).digest("hex");
 
-const waveFixture = (options?: { readonly legacy?: boolean }) => {
+const waveFixture = (options?: {
+  readonly legacy?: boolean;
+  readonly reproof?: boolean;
+}) => {
   const value = fixture();
   command(value.workdir, "rm", "integration.ts");
   command(value.workdir, "commit", "-qm", "test: remove integration marker");
@@ -201,12 +205,48 @@ const waveFixture = (options?: { readonly legacy?: boolean }) => {
     ...manifestTask,
     kind: "product" as const,
   } as BrainTaskContract;
-  writeJson(value.lanePath, {
+  const reproofRequest = options?.reproof
+    ? buildContractReproofRequest({
+        controlHeadSha: value.baseSha,
+        planSha256: value.planSha256,
+        priorArchiveSha256: "3".repeat(64),
+        priorEvidencePath: resolve(value.evidence, "archive", "prior.json"),
+        priorIntegrationHeadSha: value.baseSha,
+        priorIntegrationId: "wave-prior",
+        priorIntegrationResultSha256: "4".repeat(64),
+        priorLaneResultSha256: "5".repeat(64),
+        reason: "reprove the canonical task contract",
+        taskBlockHash: value.taskBlockHash,
+        taskId: manifestTask.taskId,
+      })
+    : undefined;
+  const reproofRequestPath = resolve(
+    value.evidence,
+    "reproofs",
+    manifestTask.taskId,
+    "request.json",
+  );
+  if (reproofRequest) {
+    mkdirSync(resolve(reproofRequestPath, ".."), { recursive: true });
+    writeJson(reproofRequestPath, reproofRequest);
+  }
+  const laneGreen = {
     taskId: manifestTask.taskId,
     headSha: readRecord(value.proofPath).headSha,
     status: "lane_green",
     tranche: manifestTask.tranche,
-  });
+    ...(reproofRequest
+      ? {
+          reproof: {
+            priorIntegrationHeadSha: reproofRequest.priorIntegrationHeadSha,
+            priorIntegrationId: reproofRequest.priorIntegrationId,
+            requestPath: reproofRequestPath,
+            requestSha256: reproofRequest.requestSha256,
+          },
+        }
+      : {}),
+  };
+  writeJson(value.lanePath, laneGreen);
   const preIntegrationLaneResultSha256 = sha256File(value.lanePath);
   const selection = planIntegrationWave({
     baseSha: value.baseSha,
@@ -220,6 +260,9 @@ const waveFixture = (options?: { readonly legacy?: boolean }) => {
         planSha256: value.planSha256,
         proofHeadSha: String(readRecord(value.proofPath).headSha),
         proofSha256: sha256File(value.proofPath),
+        ...(reproofRequest
+          ? { reproofRequestSha256: reproofRequest.requestSha256 }
+          : {}),
         taskBlockHash: value.taskBlockHash,
         taskId: manifestTask.taskId,
         tranche: manifestTask.tranche,
@@ -266,6 +309,7 @@ const waveFixture = (options?: { readonly legacy?: boolean }) => {
     integrationHeadSha: headSha,
     integrationId: selection.integrationId,
     preIntegrationLaneResultSha256,
+    ...(reproofRequest ? { reproof: laneGreen.reproof } : {}),
     status: "integrated",
     tranche: manifestTask.tranche,
   });
@@ -465,6 +509,37 @@ describe("normal integration result check", () => {
         selectionPath: value.selectionPath,
       }),
     ).toThrow("v3 integration selection file hash mismatch");
+  });
+
+  it("validates reproof waves with canonical payload hashes", () => {
+    const value = waveFixture({ reproof: true });
+    expect(() =>
+      validateIntegrationResult({
+        controlRoot: value.controlRoot,
+        evidenceDirectory: value.evidence,
+        expectedWorkdir: value.workdir,
+        integrationId: value.integrationId,
+        selectionPath: value.selectionPath,
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects reproof lane metadata outside the canonical binding", () => {
+    const value = waveFixture({ reproof: true });
+    const lane = readRecord(value.lanePath);
+    const reproof = lane.reproof as Record<string, unknown>;
+    reproof.requestSha256 = "f".repeat(64);
+    writeJson(value.lanePath, lane);
+
+    expect(() =>
+      validateIntegrationResult({
+        controlRoot: value.controlRoot,
+        evidenceDirectory: value.evidence,
+        expectedWorkdir: value.workdir,
+        integrationId: value.integrationId,
+        selectionPath: value.selectionPath,
+      }),
+    ).toThrow("immutable wave selection drift");
   });
 
   it("hashes selection file identity from raw bytes before UTF-8 decoding", () => {

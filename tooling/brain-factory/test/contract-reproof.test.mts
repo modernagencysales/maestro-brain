@@ -53,4 +53,13 @@ describe("contract reproof provenance", () => {
       buildContractReproofRequest({ ...request(), taskId: "../S13-T01" }),
     ).toThrow(/safe segment/);
   });
+
+  it("rejects fields outside the signed request payload", () => {
+    expect(() =>
+      validateContractReproofRequest(
+        { ...request(), unsignedNote: "mutable" },
+        identity,
+      ),
+    ).toThrow(/unknown fields/);
+  });
 });

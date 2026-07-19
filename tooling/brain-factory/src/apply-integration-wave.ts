@@ -303,13 +303,6 @@ const validateLane = (input: {
       `${taskId}: reproof request`,
     );
     const requestBytes = readFileSync(requestPath);
-    const requestDigest = sha256(requestBytes);
-    if (
-      requestDigest !== snapshot.reproofRequestSha256 ||
-      reproof.requestSha256 !== requestDigest
-    ) {
-      throw new Error(`${taskId}: reproof request digest drift`);
-    }
     const request = validateContractReproofRequest(
       JSON.parse(requestBytes.toString("utf8")),
       {
@@ -319,6 +312,12 @@ const validateLane = (input: {
         taskId,
       },
     );
+    if (
+      request.requestSha256 !== snapshot.reproofRequestSha256 ||
+      reproof.requestSha256 !== request.requestSha256
+    ) {
+      throw new Error(`${taskId}: reproof request digest drift`);
+    }
     const priorEvidencePath = absoluteRealPath(
       request.priorEvidencePath,
       `${taskId}: prior evidence path`,

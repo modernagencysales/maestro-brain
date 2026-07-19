@@ -21,6 +21,22 @@ export interface ContractReproofRequest {
 
 type ReproofPayload = Omit<ContractReproofRequest, "requestSha256">;
 
+const CONTRACT_REPROOF_KEYS = [
+  "controlHeadSha",
+  "planSha256",
+  "priorArchiveSha256",
+  "priorEvidencePath",
+  "priorIntegrationHeadSha",
+  "priorIntegrationId",
+  "priorIntegrationResultSha256",
+  "priorLaneResultSha256",
+  "reason",
+  "requestSha256",
+  "schemaVersion",
+  "taskBlockHash",
+  "taskId",
+] as const;
+
 const sha256 = (value: string): string =>
   createHash("sha256").update(value).digest("hex");
 
@@ -106,6 +122,19 @@ export const validateContractReproofRequest = (
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error("contract reproof request must be an object");
   }
+  const ownKeys = Reflect.ownKeys(value);
+  if (
+    ownKeys.length !== CONTRACT_REPROOF_KEYS.length ||
+    ownKeys.some(
+      (key) =>
+        typeof key !== "string" ||
+        !CONTRACT_REPROOF_KEYS.includes(
+          key as (typeof CONTRACT_REPROOF_KEYS)[number],
+        ),
+    )
+  ) {
+    throw new Error("contract reproof request has unknown fields");
+  }
   const request = value as unknown as ContractReproofRequest;
   const rebuilt = buildContractReproofRequest(request);
   if (request.schemaVersion !== CONTRACT_REPROOF_SCHEMA) {
@@ -122,5 +151,5 @@ export const validateContractReproofRequest = (
   ) {
     throw new Error("contract reproof request does not bind current authority");
   }
-  return request;
+  return rebuilt;
 };

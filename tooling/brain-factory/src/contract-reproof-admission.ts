@@ -240,5 +240,5 @@ export const admitContractReproof = (
   }
   validateLaneAcceptance(archivedLaneResult, input.taskId);
 
-  return { reproofRequestSha256: sha256(requestContent), request };
+  return { reproofRequestSha256: request.requestSha256, request };
 };

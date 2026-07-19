@@ -188,12 +188,14 @@ afterEach(() => {
 });
 
 describe("contract reproof admission", () => {
-  it("accepts a canonical payload binding and preserves the raw file digest", () => {
+  it("binds the canonical payload instead of the raw request file", () => {
     const value = fixture();
     const admitted = admitContractReproof(value.input);
     expect(admitted.request).toEqual(value.request);
-    expect(admitted.reproofRequestSha256).toBe(sha256(value.requestContent));
-    expect(admitted.reproofRequestSha256).not.toBe(value.request.requestSha256);
+    expect(admitted.reproofRequestSha256).toBe(value.request.requestSha256);
+    expect(admitted.reproofRequestSha256).not.toBe(
+      sha256(value.requestContent),
+    );
   });
 
   it("accepts the authorized manifest and package control-plane delta", () => {

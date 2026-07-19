@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
+import { validateContractReproofRequest } from "./contract-reproof.js";
 import {
   commandsForTaskFiles,
   commandsForProfiles,
@@ -304,9 +305,9 @@ export const validateIntegratedLanes = (
         typeof lane.reproof === "object" && lane.reproof !== null
           ? record(lane.reproof, `${taskId}: reproof`)
           : undefined;
-      const reproofRequestSha256 = laneReproof
-        ? createHash("sha256")
-            .update(
+      const reproofRequest = laneReproof
+        ? validateContractReproofRequest(
+            JSON.parse(
               readFileSync(
                 string(
                   laneReproof.requestPath,
@@ -314,8 +315,17 @@ export const validateIntegratedLanes = (
                 ),
                 "utf8",
               ),
-            )
-            .digest("hex")
+            ) as unknown,
+            {
+              controlHeadSha: proofBaseSha,
+              planSha256: manifest.planSha256,
+              taskBlockHash: string(
+                manifestTask.taskBlockHash,
+                `${taskId}: manifest taskBlockHash`,
+              ),
+              taskId,
+            },
+          )
         : undefined;
       if (
         waveTask.tranche !== expectedTranche ||
@@ -324,7 +334,12 @@ export const validateIntegratedLanes = (
         waveTask.taskBlockHash !== manifestTask.taskBlockHash ||
         waveTask.proofSha256 !== fileHash("ci-proof-packet.json") ||
         waveTask.gateSha256 !== fileHash("lane-gate-report.json") ||
-        waveTask.reproofRequestSha256 !== reproofRequestSha256 ||
+        waveTask.reproofRequestSha256 !== reproofRequest?.requestSha256 ||
+        (laneReproof !== undefined &&
+          string(
+            laneReproof.requestSha256,
+            `${taskId}: reproof requestSha256`,
+          ) !== reproofRequest?.requestSha256) ||
         lane.preIntegrationLaneResultSha256 !== waveTask.laneResultSha256 ||
         JSON.stringify(waveTask.changedFiles) !==
           JSON.stringify([...(proof.changedFiles as string[])].sort()) ||
