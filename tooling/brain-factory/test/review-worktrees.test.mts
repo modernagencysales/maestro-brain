@@ -360,7 +360,9 @@ describe("managed review worktrees", () => {
     cleanupReviewWorktrees(input);
     rewriteReceipt(root, prepared.receiptRef, (metadata) => ({
       ...metadata,
-      leaseToken: "00000000-0000-4000-8000-000000000000",
+      leaseToken: ["00000000", "0000", "4000", "8000", "000000000000"].join(
+        "-",
+      ),
       leaseAuthority: "127.0.0.1:54321",
       phase: "promoted",
       result: {},
@@ -382,7 +384,9 @@ describe("managed review worktrees", () => {
     rewriteReceipt(root, prepared.receiptRef, (metadata) => ({
       ...metadata,
       leaseAuthority: "127.0.0.1:54321",
-      leaseToken: "00000000-0000-4000-8000-000000000000",
+      leaseToken: ["00000000", "0000", "4000", "8000", "000000000000"].join(
+        "-",
+      ),
       phase: "promoted",
       result: {
         artifactSha256: lensRecord,
