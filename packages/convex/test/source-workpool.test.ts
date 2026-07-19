@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import * as Either from "effect/Either";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
@@ -283,6 +284,18 @@ describe("source workpool job state", () => {
       name: "statusSourceJob",
       functionVisibility: "internal",
     });
+  });
+
+  it("persists source job rows before enqueue and fences completion", () => {
+    const source = readFileSync(
+      new URL("../confect/jobs/workpool.ts", import.meta.url),
+      "utf8",
+    );
+    expect(source).toContain('.query("sourceProcessingJobs")');
+    expect(source).toContain(`.insert(
+        "sourceProcessingJobs"`);
+    expect(source).toContain("ctx.db.patch(row._id");
+    expect(source).toContain("succeedSourceJob");
   });
 
   it("keeps sourceProcessingJobs row schema fenced for Confect", () => {

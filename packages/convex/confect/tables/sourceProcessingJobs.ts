@@ -54,6 +54,8 @@ export const SourceProcessingJobRow = Schema.Struct({
   stage: SourceJobStage,
   executionStatus: SourceJobExecutionStatus,
   effectKey: Schema.String,
+  idempotencyKey: Schema.optional(Schema.String),
+  workId: Schema.optional(Schema.String),
   acceptedEffectKey: Schema.optional(Schema.String),
   policyGeneration: Schema.Number,
   routeGeneration: Schema.Number,
@@ -91,6 +93,7 @@ export default Table.make(() => SourceProcessingJobRow)
     "nextRetryAt",
   ])
   .index("by_effect_key", ["effectKey"])
+  .index("by_idempotency_key", ["idempotencyKey"])
   .index("by_unit_stage", ["unitKey", "stage"])
   .index("by_lease_expiry", ["leaseExpiresAt"])
   .index("by_organization_status", ["organizationKey", "executionStatus"]);
