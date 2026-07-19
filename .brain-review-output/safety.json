@@ -1,0 +1,94 @@
+{
+  "lens": "safety",
+  "taskId": "S06-T01",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "f2f6cb348272c704636b7e21bf8e8cbd66b812835d781b52e01bdcfa5b0fa97c",
+  "baseSha": "64b5d90e9dce6146ac6cd49696658cd9a40a254c",
+  "headSha": "8a258d0bec8c15f95988b423b8aafedd87fb1aa0",
+  "treeSha": "4f6216570badfca4d74557dbf5e7934838d8baf3",
+  "reviewerRunId": "maestro/review/S06-T01/8a258d0bec8c15f95988b423b8aafedd87fb1aa0/034c9cb1-5991-4c1b-bb8a-55d004bfb9c1-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.ts:116-123 queries sourceProcessingJobs by by_idempotency_key using only args.idempotencyKey and returns existing.workId without comparing organizationKey or unitKey.",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:95-99 defines global by_idempotency_key and by_effect_key indexes, while tenancy fields organizationKey and unitKey are separate columns.",
+        "packages/convex/test/source-workpool.test.ts:278-299 proves internal controls and persistence textually but does not exercise cross-organization idempotency collisions."
+      ],
+      "findingIds": ["SAFETY-S06-T01-001"]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.spec.ts:14-31 registers enqueueSourceJob, statusSourceJob, backgroundWork, and onComplete as internal functions; only legacy demo enqueue/status remain public.",
+        "packages/convex/confect/jobs/workpool.ts:112-157 implements source job enqueue/status with internalMutationGeneric/internalQueryGeneric, and lines 159-210 keep worker callbacks internal."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/jobState.ts:23-45 and packages/convex/confect/tables/sourceProcessingJobs.ts:19-29 enumerate queued, leased, running, succeeded, retry_wait, dead_letter, superseded, revoked, and cancelled execution states.",
+        "packages/convex/confect/jobs/jobState.ts:247-304 records retry, dead-letter, cancelled, revoked, and superseded transitions, and packages/convex/test/source-workpool.test.ts:210-276 covers these lifecycle states."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/jobState.ts:139-140 stores attempt receipt leaseTokenHash as a derived token length/prefix rather than the full token in attemptReceipts.",
+        "packages/convex/confect/jobs/workpool.ts:66 and 188-195 persist only externalResponseHashFor(args.workId), not a raw provider payload or secret-bearing response body."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/jobState.ts:141-149 requires matching leaseGeneration and leaseToken before non-queued lease operations.",
+        "packages/convex/confect/jobs/leases.ts:31-47 reclaims only expired leases by starting a new generation, and packages/convex/test/source-workpool.test.ts:100-138 covers expiry reclaim plus stale completion rejection."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.ts:116-123 deduplicates replays by idempotencyKey alone and can return another tenant/unit's existing workId for a colliding idempotencyKey.",
+        "packages/convex/confect/jobs/workpool.ts:175 returns null when acceptedEffectKey already equals effectKey, but the enqueue path does not bind replay/idempotency to organizationKey, unitKey, or effectKey before returning existing work.",
+        "packages/convex/test/source-workpool.test.ts:165-191 covers duplicate effects at state level, but no test covers duplicate enqueue/effect isolation across organizations."
+      ],
+      "findingIds": ["SAFETY-S06-T01-001"]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/jobState.ts:217-245 accepts completion only after current lease validation, pinned policy/route/lifecycle/emergency generation checks, and effectKey duplicate checks.",
+        "packages/convex/test/source-workpool.test.ts:193-208 proves stale generation completion is rejected, and lines 121-138 prove stale lease completion is rejected."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.ts imports @convex-dev/workpool and Convex primitives only; no live provider SDK or secret-bearing adapter is imported in this task's changed files.",
+        "ci-proof-packet.json knownRisks states backgroundWork remains a deterministic local placeholder with no live provider side effects."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "SAFETY-S06-T01-001",
+      "severity": "high",
+      "summary": "Source job idempotency lookup is global across tenants and units.",
+      "details": "enqueueSourceJob queries sourceProcessingJobs by idempotencyKey alone and immediately returns an existing workId when present. Because idempotencyKey is caller-supplied source job input and the row also carries organizationKey/unitKey, a colliding idempotency key from another organization or unit can reuse the wrong workId and skip creating the tenant's own source job. This violates tenant isolation and replay/idempotency safety for the new fenced workpool boundary.",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.ts:116-123",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:95-99",
+        "packages/convex/test/source-workpool.test.ts:278-299"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
