@@ -1,0 +1,68 @@
+{
+  "lens": "contract",
+  "taskId": "S06-T01",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "f2f6cb348272c704636b7e21bf8e8cbd66b812835d781b52e01bdcfa5b0fa97c",
+  "baseSha": "64b5d90e9dce6146ac6cd49696658cd9a40a254c",
+  "headSha": "02c3ee79adba3239a55cb0928853d2e4efa248d3",
+  "treeSha": "7764d28ece57572d207af09a2287dda695f461ef",
+  "reviewerRunId": "maestro/review/S06-T01/02c3ee79adba3239a55cb0928853d2e4efa248d3/8a317a77-1f03-410e-99d0-e4ffee16a880-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1840-1881 defines S06-T01 acceptance: fixture-to-real workpool boundary, at-least-once duplicate attempts with one logical effect, lease/generation fencing, typed errors, internal/admin-observed controls, focused verification, and completion receipt.",
+        "packages/convex/test/source-workpool.test.ts:418-860 covers claim-before-enqueue, external-response recovery before commit, stale completion, lease reclaim, stale generation controls, failure persistence, heartbeat fencing, duplicate enqueue/effect, replay, crash before workId patch, and duplicate completion before ACK.",
+        "ci-proof-packet.json and lane-gate-report.json record taskId S06-T01, matching plan/task block hashes, headSha 02c3ee79adba3239a55cb0928853d2e4efa248d3, and a passed pre-review lane gate for the focused command set."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.spec.ts:1-45 registers the legacy public enqueue/status refs plus internal enqueueSourceJob, statusSourceJob, heartbeatSourceJob, reclaimSourceJob, failSourceJobControl, backgroundWork, and onComplete refs through the Confect spec.",
+        "packages/convex/confect/jobs/workpool.ts:43-85 defines Convex validators for source job args, completion args, reclaim args, and failure-control args, while lines 159-168, 314-321, 344-351, 367-377, and 380-389 expose typed internal functions with vWorkId/status/null returns.",
+        "packages/convex/confect/jobs/workpool.impl.ts:1-73 binds every added spec function to a FunctionImpl, and packages/convex/test/source-workpool.test.ts:395-416 asserts the source controls are internal."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:1-104 creates the durable Effect-schema-backed table with schemaVersion 1, execution statuses including queued/leased/running/succeeded/retry_wait/dead_letter/superseded/revoked/cancelled, generation fields, lease fields, effect/idempotency fields, external response hash, attempt receipts, and task-required indexes.",
+        "packages/convex/confect/jobs/jobState.ts:84-111 defines the matching SourceJobState shape, and lines 113-160 initializes schemaVersion 1 rows with generation fields, leaseGeneration 0, attempt 0, nextRetryAt, and immutable attemptReceipts array.",
+        "packages/convex/test/source-workpool.test.ts:873-883 decodes SourceProcessingJobRow with Effect Schema and verifies the initial fenced row contract."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1842-1845 classifies the work as fixture-to-real for jobs/workpool with @convex-dev/workpool plus sourceProcessingJobs leases/CAS as the real persistence boundary.",
+        "packages/convex/confect/jobs/workpool.ts:33-41 keeps @convex-dev/workpool mounted, lines 170-231 claim and enqueue source jobs against sourceProcessingJobs, and lines 267-284 implement compare-and-set patch checks over lease/effect/status state.",
+        "lane-gate-report.json:4-15 lists the plan-required focused commands plus codegen, workflow-boundary, typecheck, and package tests, and lane-gate-report.json:48-52 records status passed for pre-review with the matching taskBlockHash."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "rtk proxy git diff --name-only 64b5d90e9dce6146ac6cd49696658cd9a40a254c...HEAD in the managed contract worktree shows only packages/convex/confect/jobs/jobState.ts, packages/convex/confect/jobs/leases.ts, packages/convex/confect/jobs/workpool.impl.ts, packages/convex/confect/jobs/workpool.spec.ts, packages/convex/confect/jobs/workpool.ts, packages/convex/confect/tables/sourceProcessingJobs.ts, and packages/convex/test/source-workpool.test.ts changed.",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:762-769 locks exactly those seven files for S06-T01.",
+        "No generated Confect or Convex files appear in the changed file list; the implementation follows the existing jobs/workpool fixture-to-real seam named by AGENTS.md:68-80."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/jobState.ts:4-45 declares Effect Schema tagged errors LeaseLost, RetryableJobFailure, PermanentJobFailure, MaxAttemptsReached, StaleGeneration, and DuplicateEffect and the SourceWorkpoolError union.",
+        "packages/convex/confect/jobs/workpool.ts:176-180, 204-230, 273-284, 416-425, 451-457, 473-477, and 492-520 make DuplicateEffect, LeaseLost, and StaleGeneration reachable through enqueue, completion, reclaim, heartbeat/CAS, and failure-control paths instead of only synthetic reducer state.",
+        "packages/convex/test/source-workpool.test.ts:374-393 encodes all declared source workpool failures as public-safe tags without lease-token leakage, and lines 580-620 exercise StaleGeneration through retry/cancel controls."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
