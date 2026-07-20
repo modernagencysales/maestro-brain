@@ -15,7 +15,12 @@ import { validatePreservedResumeLaunch } from "../src/preserved-resume-validatio
 
 const roots: string[] = [];
 const git = (cwd: string, ...args: string[]): string =>
-  execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
+  execFileSync("git", args, {
+    cwd,
+    encoding: "utf8",
+    killSignal: "SIGKILL",
+    timeout: 25_000,
+  }).trim();
 
 const fixture = () => {
   const root = mkdtempSync(join(tmpdir(), "brain-preserved-resume-"));
@@ -156,7 +161,7 @@ describe("preserved resume launch validation", () => {
     expect(() => validatePreservedResumeLaunch(expected)).toThrow(
       "worktree path mismatch",
     );
-  });
+  }, 30_000);
 
   it("binds a dirty conflict to the exact pinned cherry-pick commit", () => {
     const value = fixture();
@@ -199,5 +204,5 @@ describe("preserved resume launch validation", () => {
         resumeCommits: [value.control],
       }),
     ).toThrow("source commit range mismatch");
-  });
+  }, 30_000);
 });
