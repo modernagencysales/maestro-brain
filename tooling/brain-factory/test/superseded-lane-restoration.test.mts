@@ -231,6 +231,7 @@ const fixture = () => {
     status: "integrated",
     proofHeadSha: prior.headSha,
     gateHeadSha: prior.headSha,
+    laneHeadSha: prior.headSha,
     proofSha256: "2".repeat(64),
     gateSha256: "3".repeat(64),
     laneResultSha256: sha256(priorContent),

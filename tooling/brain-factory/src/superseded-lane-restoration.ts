@@ -77,6 +77,7 @@ const removeRecordedProofOverlay = (lane: JsonRecord): JsonRecord => {
   const restored = removeIntegrationOverlay(lane);
   delete restored.proofHeadSha;
   delete restored.gateHeadSha;
+  delete restored.laneHeadSha;
   delete restored.proofSha256;
   delete restored.gateSha256;
   delete restored.taskBlockHash;
