@@ -175,6 +175,9 @@ describe("migration fragment registry", () => {
       execFileSync("pnpm", ["exec", "tsx", script, "--root-cwd", "--check"], {
         cwd: process.cwd(),
       });
+      execFileSync("pnpm", ["exec", "tsx", script, "--root", ".", "--check"], {
+        cwd: process.cwd(),
+      });
       execFileSync("pnpm", ["exec", "tsx", script, "--root", root, "--write"], {
         cwd: process.cwd(),
       });
