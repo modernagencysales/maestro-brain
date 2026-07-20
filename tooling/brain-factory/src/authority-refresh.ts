@@ -11,7 +11,10 @@ import {
 } from "node:fs";
 import { resolve } from "node:path";
 
-import type { AuthorityRepairTransition } from "./manifest.js";
+import type {
+  AuthorityRepairTransition,
+  OwnershipRehomeTransition,
+} from "./manifest.js";
 
 import { validateFinalLaneResult } from "./lane-result.js";
 import {
@@ -78,7 +81,8 @@ export interface AuthorityRefreshAdmission {
   readonly sourceHeadSha: string;
   readonly task: AuthorityRefreshTask;
   readonly taskBaseSha: string;
-  readonly transitionKind: "authority-refresh" | "authority-repair";
+  readonly transitionKind:
+    "authority-refresh" | "authority-repair" | "ownership-rehome";
   readonly supersededPaths: AuthorityRepairTransition["supersededPaths"];
 }
 
@@ -160,6 +164,7 @@ export const authorityRefreshCoordinates = (
 
 export const admitAuthorityRefresh = (input: {
   readonly authorityRepairTransition?: AuthorityRepairTransition;
+  readonly ownershipRehomeTransition?: OwnershipRehomeTransition;
   readonly controlHeadSha: string;
   readonly evidence: string;
   readonly root: string;
@@ -174,7 +179,12 @@ export const admitAuthorityRefresh = (input: {
 }): AuthorityRefreshAdmission => {
   const taskId = input.task.taskId;
   const transition = input.authorityRepairTransition;
+  const rehomeTransition = input.ownershipRehomeTransition;
+  if (transition && rehomeTransition)
+    throw new Error(`${taskId}: multiple authority transitions are forbidden`);
   const repair = transition !== undefined;
+  const rehome = rehomeTransition !== undefined;
+  const ownershipTransition = transition ?? rehomeTransition;
   const laneDirectory = resolve(input.evidence, "lane-results", taskId);
   const paths = {
     gate: resolve(laneDirectory, "lane-gate-report.json"),
@@ -240,12 +250,12 @@ export const admitAuthorityRefresh = (input: {
     ? undefined
     : jsonRecord(contents.lane ?? "", `${taskId}: lane result`);
   const sourceHeadSha = exactSha(
-    repair ? transition.sourceHeadSha : lane?.headSha,
+    ownershipTransition ? ownershipTransition.sourceHeadSha : lane?.headSha,
     40,
     `${taskId}: lane head`,
   );
   const sourceTreeSha = exactSha(
-    repair ? transition.sourceTreeSha : lane?.treeSha,
+    ownershipTransition ? ownershipTransition.sourceTreeSha : lane?.treeSha,
     40,
     `${taskId}: lane tree`,
   );
@@ -301,6 +311,33 @@ export const admitAuthorityRefresh = (input: {
         `${taskId}: authority-repair prerequisite is not integrated: ${missing.join(", ")}`,
       );
     }
+  } else if (rehome) {
+    if (
+      input.sourceRunId !== rehomeTransition.sourceRunId ||
+      rehomeTransition.fromPlanSha256 !== proof.planSha256 ||
+      rehomeTransition.fromTaskBlockHash !== proof.taskBlockHash ||
+      rehomeTransition.sourceBaseSha !== proof.baseSha ||
+      proof.reviewVerdict !== "pass" ||
+      proof.reviewHeadSha !== sourceHeadSha ||
+      !Array.isArray(proof.reviewFindings) ||
+      proof.reviewFindings.length !== 0
+    )
+      throw new Error(`${taskId}: ownership-rehome proof provenance mismatch`);
+    validateFinalLaneResult(lane as JsonRecord, {
+      currentHeadSha: sourceHeadSha,
+      currentTreeSha: sourceTreeSha,
+      finalGateReport: gate,
+      proof,
+      taskId,
+    });
+    const integrated = new Set(input.integratedTaskIds ?? []);
+    const missing = rehomeTransition.requiredIntegratedTaskIds.filter(
+      (prerequisite) => !integrated.has(prerequisite),
+    );
+    if (missing.length > 0)
+      throw new Error(
+        `${taskId}: ownership-rehome prerequisite is not integrated: ${missing.join(", ")}`,
+      );
   } else {
     validateFinalLaneResult(lane as JsonRecord, {
       currentHeadSha: sourceHeadSha,
@@ -386,10 +423,10 @@ export const admitAuthorityRefresh = (input: {
     throw new Error(`${taskId}: ${shapeIssues.join("; ")}`);
   const ownershipIssues = laneHistoryOwnershipIssues(
     histories,
-    repair
+    ownershipTransition
       ? [
           ...input.task.fileLocks,
-          ...transition.supersededPaths.map(({ path }) => path),
+          ...ownershipTransition.supersededPaths.map(({ path }) => path),
         ]
       : input.task.fileLocks,
   );
@@ -423,12 +460,14 @@ export const admitAuthorityRefresh = (input: {
     ]),
   );
   if (
-    repair &&
-    transition.supersededPaths.some(
+    ownershipTransition &&
+    ownershipTransition.supersededPaths.some(
       ({ path }) => !actualChangedFiles.includes(path),
     )
   ) {
-    throw new Error(`${taskId}: authority-repair superseded path is absent`);
+    throw new Error(
+      `${taskId}: ${rehome ? "ownership-rehome" : "authority-repair"} superseded path is absent`,
+    );
   }
   if (
     !Array.isArray(proof.changedFiles) ||
@@ -454,12 +493,23 @@ export const admitAuthorityRefresh = (input: {
           `${JSON.stringify(transition, null, 2)}\n`,
         ],
       ]
-    : [
-        ["prior-lane-result.json", contents.lane ?? ""],
-        ["prior-proof.json", contents.proof],
-        ["prior-final-gate.json", contents.gate],
-      ];
-  if (repair) {
+    : rehome
+      ? [
+          ["prior-lane-result.json", contents.lane ?? ""],
+          ["prior-proof.json", contents.proof],
+          ["prior-final-gate.json", contents.gate],
+          [
+            "ownership-rehome-transition.json",
+            `${JSON.stringify(rehomeTransition, null, 2)}\n`,
+          ],
+        ]
+      : [
+          ["prior-lane-result.json", contents.lane ?? ""],
+          ["prior-proof.json", contents.proof],
+          ["prior-final-gate.json", contents.gate],
+        ];
+  if (ownershipTransition) {
+    const reviewLabel = rehome ? "ownership-rehome" : "authority-repair";
     const lensDirectory = resolve(
       laneDirectory,
       "review-lenses",
@@ -470,9 +520,7 @@ export const admitAuthorityRefresh = (input: {
     for (const lens of REVIEW_LENS_NAMES) {
       const lensPath = resolve(lensDirectory, `${lens}.json`);
       if (!existsSync(lensPath)) {
-        throw new Error(
-          `${taskId}: authority-repair ${lens} review is missing`,
-        );
+        throw new Error(`${taskId}: ${reviewLabel} ${lens} review is missing`);
       }
       const content = readFileSync(lensPath, "utf8");
       const artifact = jsonRecord(content, `${taskId}: ${lens} review`);
@@ -480,7 +528,7 @@ export const admitAuthorityRefresh = (input: {
         artifact.lens !== lens ||
         typeof artifact.reviewerRunId !== "string"
       ) {
-        throw new Error(`${taskId}: authority-repair ${lens} review drifted`);
+        throw new Error(`${taskId}: ${reviewLabel} ${lens} review drifted`);
       }
       reviewerRunIds[lens] = artifact.reviewerRunId;
       lensValues.push(artifact);
@@ -488,24 +536,45 @@ export const admitAuthorityRefresh = (input: {
     }
     const aggregate = aggregateReviewLenses({
       expected: {
-        baseSha: transition.sourceBaseSha,
+        baseSha: ownershipTransition.sourceBaseSha,
         headSha: sourceHeadSha,
-        planSha256: transition.fromPlanSha256,
+        planSha256: ownershipTransition.fromPlanSha256,
         reviewerRunIds,
         rubricIds: DEFAULT_REVIEW_RUBRIC_IDS,
-        taskBlockHash: transition.fromTaskBlockHash,
+        taskBlockHash: ownershipTransition.fromTaskBlockHash,
         taskId,
         treeSha: sourceTreeSha,
       },
       lenses: lensValues,
     });
     if (
-      aggregate.reviewVerdict !== "rework" ||
+      aggregate.reviewVerdict !== (rehome ? "pass" : "rework") ||
       !isDeepStrictEqual(aggregate.reviewFindings, proof.reviewFindings)
     ) {
-      throw new Error(`${taskId}: authority-repair review findings drifted`);
+      throw new Error(`${taskId}: ${reviewLabel} review lenses drifted`);
     }
-    for (const finding of transition.immutableFindings) {
+    if (rehomeTransition) {
+      try {
+        if (
+          git(sourceWorkdir, [
+            "rev-parse",
+            rehomeTransition.immutableFinding.ref,
+          ]) !== rehomeTransition.immutableFinding.objectSha
+        )
+          throw new Error("immutable finding ref drifted");
+      } catch {
+        throw new Error(`${taskId}: immutable finding ref is missing`);
+      }
+    }
+    const findings: readonly {
+      readonly objectSha: string;
+      readonly contentSha256: string;
+    }[] = repair
+      ? transition.immutableFindings
+      : rehomeTransition
+        ? [rehomeTransition.immutableFinding]
+        : [];
+    for (const finding of findings) {
       let objectType: string;
       let content: string;
       try {
@@ -531,13 +600,19 @@ export const admitAuthorityRefresh = (input: {
     file,
     sha256: sha256(content),
   }));
-  const transitionKind = repair ? "authority-repair" : "authority-refresh";
+  const transitionKind = repair
+    ? "authority-repair"
+    : rehome
+      ? "ownership-rehome"
+      : "authority-refresh";
   const archiveManifestContent = `${JSON.stringify(
     {
       schemaVersion:
         transitionKind === "authority-repair"
           ? "maestro-brain-authority-repair-archive/v1"
-          : "maestro-brain-authority-refresh-archive/v1",
+          : transitionKind === "ownership-rehome"
+            ? "maestro-brain-ownership-rehome-archive/v1"
+            : "maestro-brain-authority-refresh-archive/v1",
       taskId,
       authorityId: coordinates.authorityId,
       currentAuthority: {
@@ -555,7 +630,7 @@ export const admitAuthorityRefresh = (input: {
         headSha: sourceHeadSha,
       },
       transitionKind,
-      supersededPaths: transition?.supersededPaths ?? [],
+      supersededPaths: ownershipTransition?.supersededPaths ?? [],
       artifacts: artifacts.map(({ file, sha256: digest }) => ({
         file,
         sha256: digest,
@@ -570,7 +645,7 @@ export const admitAuthorityRefresh = (input: {
     "authority-refreshes",
     taskId,
     coordinates.authorityId,
-    ...(repair ? [archiveManifestSha256] : []),
+    ...(ownershipTransition ? [archiveManifestSha256] : []),
   );
   if (existsSync(archiveDirectory)) {
     throw new Error(
@@ -593,7 +668,7 @@ export const admitAuthorityRefresh = (input: {
     task: input.task,
     taskBaseSha,
     transitionKind,
-    supersededPaths: transition?.supersededPaths ?? [],
+    supersededPaths: ownershipTransition?.supersededPaths ?? [],
   };
 };
 
