@@ -1,6 +1,7 @@
 import { FunctionSpec, GroupSpec } from "@confect/core";
 import * as Schema from "effect/Schema";
 
+import { Id } from "../_generated/id";
 import { Forbidden, Unauthorized } from "../errors";
 
 export class LinkExpired extends Schema.TaggedError<LinkExpired>()(
@@ -43,9 +44,11 @@ export const createSlackIdentityLinkIntent = FunctionSpec.publicMutation({
   name: "createSlackIdentityLinkIntent",
   args: () =>
     Schema.Struct({
+      workspaceId: Id("workspaces"),
       connectionKey: Schema.String,
       connectionGeneration: Schema.Number,
       teamId: Schema.String,
+      brainKey: Schema.optional(Schema.String),
       nonceHash: Schema.String,
       now: Schema.Number,
     }),
@@ -84,6 +87,7 @@ export const revokeSlackIdentityLink = FunctionSpec.publicMutation({
   name: "revokeSlackIdentityLink",
   args: () =>
     Schema.Struct({
+      workspaceId: Id("workspaces"),
       bindingKey: Schema.String,
       reason: Schema.String,
       now: Schema.Number,
@@ -97,7 +101,24 @@ export const revokeSlackIdentityLink = FunctionSpec.publicMutation({
   error: () => linkError(),
 });
 
+export const revokeSlackIdentityLinksForLifecycle =
+  FunctionSpec.internalMutation({
+    name: "revokeSlackIdentityLinksForLifecycle",
+    args: () =>
+      Schema.Struct({
+        organizationKey: Schema.String,
+        userId: Schema.optional(Schema.String),
+        connectionKey: Schema.optional(Schema.String),
+        connectionGeneration: Schema.optional(Schema.Number),
+        reason: Schema.String,
+        now: Schema.Number,
+      }),
+    returns: () => Schema.Struct({ revokedCount: Schema.Number }),
+    error: () => linkError(),
+  });
+
 export default GroupSpec.make()
   .addFunction(createSlackIdentityLinkIntent)
   .addFunction(consumeSlackIdentityLink)
-  .addFunction(revokeSlackIdentityLink);
+  .addFunction(revokeSlackIdentityLink)
+  .addFunction(revokeSlackIdentityLinksForLifecycle);
