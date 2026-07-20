@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "taskId": "S05-T01",
-  "taskBlockHash": "8c814c81e34129532e8467e567d99d48dfb60017ceda5ab0934454da2d348044",
+  "taskBlockHash": "1665eb4087239d8d137a8b4274f5f63c4bb965d699076b2678d1e618b1e34c54",
   "phase": "contract",
   "migrations": [],
   "implementationModule": null,

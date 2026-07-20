@@ -25,7 +25,7 @@ const expectedTaskHashes: Record<string, string> = {
   "S01-T02": "f8dfea31b91e435c11203c1641f2b5fd1cefe5e966e26f4ba105b1e7088d7204",
   "S02-T01": "dc205e57f25f69ecba7f6237744e0ce28cd01e3fab0c6cf506b7d0d7906cf6c9",
   "S02-T03": "05e6e953af2e5fb125d0148d86d3b93a8488961fde0c7c29cb454d7d9170f5a1",
-  "S05-T01": "8c814c81e34129532e8467e567d99d48dfb60017ceda5ab0934454da2d348044",
+  "S05-T01": "1665eb4087239d8d137a8b4274f5f63c4bb965d699076b2678d1e618b1e34c54",
 };
 const phaseRank: Record<MigrationPhase, number> = {
   expand: 0,

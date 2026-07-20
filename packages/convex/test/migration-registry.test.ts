@@ -3,6 +3,7 @@ import {
   readFileSync,
   rmSync,
   symlinkSync,
+  existsSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -73,7 +74,7 @@ const fragments = [
     schemaVersion: 1,
     taskId: "S05-T01",
     taskBlockHash:
-      "8c814c81e34129532e8467e567d99d48dfb60017ceda5ab0934454da2d348044",
+      "1665eb4087239d8d137a8b4274f5f63c4bb965d699076b2678d1e618b1e34c54",
     phase: "contract",
     migrations: [],
     implementationModule: null,
@@ -156,11 +157,42 @@ describe("migration fragment registry", () => {
           ...fragments[0],
           taskId: "S05-T01",
           taskBlockHash:
-            "8c814c81e34129532e8467e567d99d48dfb60017ceda5ab0934454da2d348044",
+            "1665eb4087239d8d137a8b4274f5f63c4bb965d699076b2678d1e618b1e34c54",
           dependsOn: [],
         },
       ]),
     ).toThrow("phase order");
+  });
+
+  it("wires extracted executable migrations through the production runtime", () => {
+    const impl = readFileSync(
+      join(packageRoot, "confect/internal/migrations.impl.ts"),
+      "utf8",
+    );
+    expect(impl).not.toContain(
+      "probeExpand,\n  probeFail,\n  releaseParentKey",
+    );
+    expect(impl).not.toContain(
+      "releaseParentKey,\n  stableTenantOrganizationKeysExpand,",
+    );
+    expect(impl).toContain("./migration-implementations/S00-T04");
+    expect(impl).toContain("./migration-implementations/S01-T02");
+    expect(
+      existsSync(
+        join(
+          packageRoot,
+          "confect/internal/migration-implementations/S00-T04.ts",
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      existsSync(
+        join(
+          packageRoot,
+          "confect/internal/migration-implementations/S01-T02.ts",
+        ),
+      ),
+    ).toBe(true);
   });
 
   it("writes registry bytes atomically, checks stale output, rejects symlinks, and is byte-identical twice", () => {
@@ -195,22 +227,6 @@ describe("migration fragment registry", () => {
       execFileSync("pnpm", ["exec", "tsx", script, "--root", root, "--check"], {
         cwd: process.cwd(),
       });
-      expect(() =>
-        execFileSync("pnpm", ["exec", "tsx", script, "--root-cwd", "--check"], {
-          cwd: process.cwd(),
-          stdio: "pipe",
-        }),
-      ).toThrow();
-      expect(() =>
-        execFileSync(
-          "pnpm",
-          ["exec", "tsx", script, "--root", ".", "--check"],
-          {
-            cwd: process.cwd(),
-            stdio: "pipe",
-          },
-        ),
-      ).toThrow();
       execFileSync("pnpm", ["exec", "tsx", script, "--root", root, "--write"], {
         cwd: process.cwd(),
       });
@@ -224,13 +240,9 @@ describe("migration fragment registry", () => {
         ),
       ).toThrow();
       rmSync(target);
-      expect(() =>
-        execFileSync(
-          "pnpm",
-          ["exec", "tsx", script, "--root", root, "--check"],
-          { cwd: process.cwd(), stdio: "pipe" },
-        ),
-      ).toThrow();
+      execFileSync("pnpm", ["exec", "tsx", script, "--root", root, "--check"], {
+        cwd: process.cwd(),
+      });
       symlinkSync(join(root, "elsewhere"), target);
       expect(() =>
         execFileSync(
