@@ -44,7 +44,7 @@ const tenantInputFields = new Set([
   "id",
 ]);
 
-const forbidden = (operationId: string): HeadlessAuthorizationFailure => ({
+const forbidden = (): HeadlessAuthorizationFailure => ({
   ok: false,
   error: {
     _tag: "Forbidden",
@@ -84,16 +84,17 @@ export const authorizeHeadlessOperation = (input: {
   readonly policy?: HeadlessOperationPolicy;
 }): HeadlessAuthorizationResult => {
   const policy = input.policy ?? reviewedHeadlessPolicyFor(input.operationId);
-  if (policy === undefined) return forbidden(input.operationId);
+  if (policy === undefined) return forbidden();
   if (containsTenantInputField(input.operationInput)) return validationFailed();
   if (!input.principal.scopes.includes(policy.requiredScope)) {
-    return forbidden(input.operationId);
+    return forbidden();
   }
 
   return {
     ok: true,
     input: {
       ...input.operationInput,
+      organizationId: input.principal.organizationId,
       workspaceId: input.principal.workspaceId,
       brainKey: input.principal.brainKey,
     },
