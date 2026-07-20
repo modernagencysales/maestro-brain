@@ -1,0 +1,70 @@
+{
+  "lens": "quality",
+  "taskId": "S13-T02",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "taskBlockHash": "2b76ab1991d07a9978da3c321cbcc4f73ffc5ae9b4e3eb3512e2ff3dd4251072",
+  "baseSha": "f66236e12f93bc254cc2350800a5b2a69d0caff5",
+  "headSha": "efc6da6647816263d85e7e94c02f2fe04273c566",
+  "treeSha": "c5d3266dcbdf1a7689061de23e0b6c78cc8f586b",
+  "reviewerRunId": "maestro/review/S13-T02/efc6da6647816263d85e7e94c02f2fe04273c566/b80b48dc-c033-46f3-9446-525805433680-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3517-3520 requires failure-first tests for shared cursor, unfair FIFO, dropped event, queue overflow, cross-Brain leak, and all canary tenant-denial attempts.",
+        "tooling/evals/src/brain-capacity.test.ts:38-106 enumerates those failure cases, including all four tenant-denial canaries and above-envelope admission failures.",
+        "tooling/evals/src/brain-capacity.test.ts:134-194 adds focused fairness tests for exact provider-rate blocks and two consecutive missed windows.",
+        "packages/convex/test/brain-capacity.test.ts:38-76 exercises the shared capacity harness from the Convex test surface and proves a tenant-denial failure path.",
+        "lane-gate-report.json:4-14 records passing focused eval, Convex brain-capacity, coverage ratchet, typecheck, lint, and full package tests at the reviewed head."
+      ]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "AGENTS.md:8-20 defines the relevant layer law.",
+        "tooling/evals/src/brain-capacity.ts:1-224 and tooling/evals/src/brain-capacity-report.ts:1-104 keep the deterministic harness in tooling/evals and do not import web routes, UI, provider SDKs, or Convex runtime APIs.",
+        "packages/convex/test/brain-capacity.test.ts:27-35 imports the tooling harness only in test code to prove the shared contract; no product Convex function bypasses Confect or capability layers."
+      ]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "pass",
+      "evidence": [
+        "tooling/evals/src/brain-capacity-fixture.ts:1-34 centralizes the launch envelope fixture instead of duplicating counts across report and tests.",
+        "tooling/evals/src/brain-capacity-report.ts:27-35 computes config and code hashes from the fixture and evaluator source rather than hard-coding provenance labels.",
+        "tooling/evals/src/brain-capacity.ts:90-108 derives channel IDs and fixture matching from the fixture, while tooling/evals/src/brain-capacity.test.ts:9-36 uses small mutation helpers for focused failure proofs."
+      ]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "docs/product/maestro-brain-capacity.md:19-37 documents the emitted receipt fields and pass/fail signals for fairness, loss, queue, cost/storage, latency, and tenant denial.",
+        "tooling/evals/src/brain-capacity.ts:60-84 defines the receipt metrics exposed by the harness, including lossEvents, queueDepthMax, attempts/effects, rateWaits, storageBytes, modelTokens, canaries, and above-envelope admission.",
+        "tooling/evals/src/brain-capacity-report.ts:11-24 marks reports rawSyntheticOnly and contains no provider payloads, customer text, tokens, or secrets."
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1656-1673 sets estimatedSourceLines 260, sourceSliceBudget 300, and taskBlockHash 2b76ab1991d07a9978da3c321cbcc4f73ffc5ae9b4e3eb3512e2ff3dd4251072 for S13-T02.",
+        "lane-gate-report.json:25-29 reports changedSourceLines 364 with estimateDrift true, sourceSliceBudget 300, and sourceSliceLimit 4.",
+        "lane-gate-report.json:30-47 shows four source slices with per-slice changedSourceLines 258, 104, 0, and 2, each below the 300-line source-slice budget and within the four-slice limit."
+      ]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "not_applicable",
+      "rationale": "The S13-T02 file inventory is a template-gap evaluation harness and documentation slice, not a Confect/Convex generated-source change or generator-owned integration output; no generated files were edited or required for this task.",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1653-1668 classifies S13-T02 as template-gap and locks only docs/product, packages/convex/test, and tooling/evals files.",
+        "git diff --name-only f66236e12f93bc254cc2350800a5b2a69d0caff5..HEAD lists docs/product/maestro-brain-capacity.md, packages/convex/test/brain-capacity.test.ts, tooling/evals/package.json, and tooling/evals/src/brain-capacity*.ts only."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
