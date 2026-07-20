@@ -433,7 +433,8 @@ export const validateTerminalAuthorityResumeOwner = (input: {
   if (!existsSync(lanePath)) {
     throw new Error(`${input.taskId}: authority owner lane result is missing`);
   }
-  const lane = JSON.parse(readFileSync(lanePath, "utf8")) as {
+  const laneContent = readFileSync(lanePath, "utf8");
+  const lane = JSON.parse(laneContent) as {
     readonly headSha?: unknown;
     readonly taskId?: unknown;
     readonly treeSha?: unknown;
@@ -474,12 +475,80 @@ export const validateTerminalAuthorityResumeOwner = (input: {
       `${input.taskId}: authority owner archived commit sequence mismatch`,
     );
   }
+  const currentTreeSha = git(["rev-parse", "HEAD^{tree}"]);
+  const laneMatchesCurrentHead =
+    lane.taskId === input.taskId &&
+    lane.headSha === input.sourceHeadSha &&
+    lane.treeSha === currentTreeSha;
+  if (laneMatchesCurrentHead) {
+    return {
+      branch: validated.branch,
+      factoryBaseSha: input.taskBaseSha,
+      proofHeadSha: input.sourceHeadSha,
+      resumeStrategy: "in-lane-cherry-pick",
+      startSha: validated.headSha,
+      workdir: validated.workdir,
+    };
+  }
   if (
-    lane.taskId !== input.taskId ||
-    lane.headSha !== input.sourceHeadSha ||
-    lane.treeSha !== git(["rev-parse", "HEAD^{tree}"])
+    input.status !== "failed" ||
+    input.sourceHeadSha === input.record.sourceHeadSha
   ) {
     throw new Error(`${input.taskId}: authority owner lane identity mismatch`);
+  }
+  const archivedLanePath = resolve(archiveDirectory, "prior-lane-result.json");
+  if (
+    !artifactFiles.has("prior-lane-result.json") ||
+    !existsSync(archivedLanePath) ||
+    readFileSync(archivedLanePath, "utf8") !== laneContent ||
+    lane.taskId !== input.taskId ||
+    lane.headSha !== input.record.sourceHeadSha ||
+    lane.treeSha !== git(["rev-parse", `${input.record.sourceHeadSha}^{tree}`])
+  ) {
+    throw new Error(
+      `${input.taskId}: authority owner archived lane identity mismatch`,
+    );
+  }
+  const proofPath = resolve(
+    input.evidence,
+    "lane-results",
+    input.taskId,
+    "ci-proof-packet.json",
+  );
+  const proof = JSON.parse(readFileSync(proofPath, "utf8")) as {
+    readonly headSha?: unknown;
+    readonly planSha256?: unknown;
+    readonly reviewFindings?: unknown;
+    readonly reviewHeadSha?: unknown;
+    readonly reviewVerdict?: unknown;
+    readonly schemaVersion?: unknown;
+    readonly taskBlockHash?: unknown;
+    readonly taskId?: unknown;
+  };
+  if (
+    proof.schemaVersion !== "maestro-brain-ci-proof/v1" ||
+    proof.taskId !== input.taskId ||
+    proof.headSha !== input.sourceHeadSha ||
+    typeof proof.planSha256 !== "string" ||
+    !/^[0-9a-f]{64}$/.test(proof.planSha256) ||
+    typeof proof.taskBlockHash !== "string" ||
+    !/^[0-9a-f]{64}$/.test(proof.taskBlockHash) ||
+    proof.reviewVerdict !== "rework" ||
+    proof.reviewHeadSha !== input.sourceHeadSha ||
+    !Array.isArray(proof.reviewFindings) ||
+    proof.reviewFindings.length === 0 ||
+    !proof.reviewFindings.every(
+      (finding) =>
+        typeof finding === "object" &&
+        finding !== null &&
+        !Array.isArray(finding) &&
+        typeof (finding as { readonly id?: unknown }).id === "string" &&
+        (finding as { readonly id: string }).id.length > 0,
+    )
+  ) {
+    throw new Error(
+      `${input.taskId}: authority owner failed review identity mismatch`,
+    );
   }
   return {
     branch: validated.branch,

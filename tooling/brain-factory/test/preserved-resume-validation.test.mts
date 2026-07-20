@@ -141,9 +141,18 @@ describe("preserved resume launch validation", () => {
       "--reverse",
       `${value.base}..${value.sourceHeadSha}`,
     ).split("\n");
+    const archivedLaneResult = JSON.stringify({
+      headSha: value.sourceHeadSha,
+      taskId,
+      treeSha: git(
+        authorityWorkdir,
+        "rev-parse",
+        `${value.sourceHeadSha}^{tree}`,
+      ),
+    });
     const artifactContents = {
       "prior-final-gate.json": '{"gate":"prior"}\n',
-      "prior-lane-result.json": '{"lane":"prior"}\n',
+      "prior-lane-result.json": archivedLaneResult,
       "prior-proof.json": '{"proof":"prior"}\n',
     } as const;
     for (const [file, content] of Object.entries(artifactContents))
@@ -383,8 +392,61 @@ describe("preserved resume launch validation", () => {
         treeSha: git(authorityWorkdir, "rev-parse", "HEAD^{tree}"),
       }),
     );
+    writeFileSync(join(authorityWorkdir, "current.txt"), "failed review\n");
+    git(authorityWorkdir, "commit", "-am", "failed review");
+    const failedHead = git(authorityWorkdir, "rev-parse", "HEAD");
+    const failedProof = {
+      schemaVersion: "maestro-brain-ci-proof/v1",
+      baseSha: currentBase,
+      headSha: failedHead,
+      planSha256: "c".repeat(64),
+      reviewFindings: [{ id: "review-finding" }],
+      reviewHeadSha: failedHead,
+      reviewVerdict: "rework",
+      taskBlockHash: "d".repeat(64),
+      taskId,
+    };
+    writeFileSync(join(proofDirectory, "lane-result.json"), archivedLaneResult);
+    writeFileSync(
+      join(proofDirectory, "ci-proof-packet.json"),
+      JSON.stringify(failedProof),
+    );
+    const failedInput = {
+      ...input,
+      resumeCommits: [currentHead, failedHead],
+      sourceHeadSha: failedHead,
+      status: "failed",
+    } as const;
+    expect(validateTerminalAuthorityResumeOwner(failedInput)).toMatchObject({
+      proofHeadSha: failedHead,
+      startSha: failedHead,
+    });
+    expect(() =>
+      validateTerminalAuthorityResumeOwner({
+        ...failedInput,
+        status: "succeeded",
+      }),
+    ).toThrow("authority owner lane identity mismatch");
+    writeFileSync(
+      join(proofDirectory, "ci-proof-packet.json"),
+      JSON.stringify({ ...failedProof, reviewHeadSha: currentHead }),
+    );
+    expect(() => validateTerminalAuthorityResumeOwner(failedInput)).toThrow(
+      "authority owner failed review identity mismatch",
+    );
+    writeFileSync(
+      join(proofDirectory, "ci-proof-packet.json"),
+      JSON.stringify({ ...failedProof, reviewVerdict: "pass" }),
+    );
+    expect(() => validateTerminalAuthorityResumeOwner(failedInput)).toThrow(
+      "authority owner failed review identity mismatch",
+    );
+    writeFileSync(
+      join(proofDirectory, "ci-proof-packet.json"),
+      JSON.stringify(failedProof),
+    );
     writeFileSync(join(authorityWorkdir, "dirty.txt"), "dirty\n");
-    expect(() => validateTerminalAuthorityResumeOwner(input)).toThrow(
+    expect(() => validateTerminalAuthorityResumeOwner(failedInput)).toThrow(
       "clean preserved worktree is dirty",
     );
   }, 30_000);
