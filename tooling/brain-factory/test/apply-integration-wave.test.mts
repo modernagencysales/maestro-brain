@@ -18,6 +18,7 @@ import {
   type ApplyIntegrationWaveHooks,
   type ApplyIntegrationWaveInput,
 } from "../src/apply-integration-wave.js";
+import { buildContractReproofRequest } from "../src/contract-reproof.js";
 import {
   INTEGRATION_WAVE_SCHEMA,
   selectionFileSha256,
@@ -48,6 +49,9 @@ const writeJson = (path: string, value: unknown): string => {
   return content;
 };
 
+const readJson = (path: string): Record<string, unknown> =>
+  JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+
 interface LaneFixture {
   readonly commits: readonly string[];
   readonly headSha: string;
@@ -77,6 +81,7 @@ const makeFixture = (options?: {
     readonly taskId: string;
   }[];
   readonly reverseCreation?: boolean;
+  readonly reproof?: boolean;
   readonly secondPassConvergence?: boolean;
   readonly oscillatingGeneration?: boolean;
   readonly transientFirstGeneration?: boolean;
@@ -183,6 +188,39 @@ const makeFixture = (options?: {
         taskBlockHash,
       },
     );
+    const priorEvidencePath = resolve(
+      evidenceDirectory,
+      "archive",
+      `${spec.taskId}.json`,
+    );
+    const priorArchiveContent = options?.reproof
+      ? writeJson(priorEvidencePath, {
+          taskId: spec.taskId,
+          status: "accepted",
+        })
+      : undefined;
+    const reproofRequest = priorArchiveContent
+      ? buildContractReproofRequest({
+          controlHeadSha: baseSha,
+          planSha256,
+          priorArchiveSha256: sha256(priorArchiveContent),
+          priorEvidencePath,
+          priorIntegrationHeadSha: baseSha,
+          priorIntegrationId: "wave-prior",
+          priorIntegrationResultSha256: "2".repeat(64),
+          priorLaneResultSha256: "3".repeat(64),
+          reason: "reprove the canonical task contract",
+          taskBlockHash,
+          taskId: spec.taskId,
+        })
+      : undefined;
+    const reproofRequestPath = resolve(
+      evidenceDirectory,
+      "reproofs",
+      spec.taskId,
+      "request.json",
+    );
+    if (reproofRequest) writeJson(reproofRequestPath, reproofRequest);
     const laneContent = writeJson(resolve(laneDirectory, "lane-result.json"), {
       schemaVersion: "maestro-brain-lane-result/v1",
       taskId: spec.taskId,
@@ -190,6 +228,16 @@ const makeFixture = (options?: {
       status: "lane_green",
       headSha,
       ...(options?.historicalLaneWithoutTree ? {} : { treeSha }),
+      ...(reproofRequest
+        ? {
+            reproof: {
+              priorIntegrationHeadSha: reproofRequest.priorIntegrationHeadSha,
+              priorIntegrationId: reproofRequest.priorIntegrationId,
+              requestPath: reproofRequestPath,
+              requestSha256: reproofRequest.requestSha256,
+            },
+          }
+        : {}),
     });
     laneById.set(spec.taskId, {
       commits,
@@ -205,6 +253,9 @@ const makeFixture = (options?: {
         planSha256,
         proofHeadSha: headSha,
         proofSha256: sha256(proofContent),
+        ...(reproofRequest
+          ? { reproofRequestSha256: reproofRequest.requestSha256 }
+          : {}),
         taskBlockHash,
         taskId: spec.taskId,
         tranche: "F0-foundation",
@@ -566,6 +617,79 @@ describe("deterministic integration wave application", () => {
     );
     expect(() => applyIntegrationWave(value.input)).toThrow(
       /proof.*digest|digest.*proof/,
+    );
+    expect(git(value.workdir, "rev-parse", "HEAD")).toBe(value.baseSha);
+  });
+
+  it("accepts a canonical reproof digest when pretty file bytes differ", () => {
+    const value = makeFixture({
+      laneSpecs: [{ files: ["a.ts"], taskId: "S01-T01" }],
+      reproof: true,
+    });
+    const requestPath = resolve(
+      value.evidenceDirectory,
+      "reproofs/S01-T01/request.json",
+    );
+    const request = readJson(requestPath);
+
+    expect(sha256(readFileSync(requestPath))).not.toBe(request.requestSha256);
+    expect(applyIntegrationWave(value.input).includedTasks[0]?.taskId).toBe(
+      "S01-T01",
+    );
+  });
+
+  it("rejects a selection reproof request digest mismatch", () => {
+    const value = makeFixture({
+      laneSpecs: [{ files: ["a.ts"], taskId: "S01-T01" }],
+      reproof: true,
+    });
+    const snapshot = value.lanes[0]?.snapshot as IntegrationWaveTaskSnapshot;
+    const input = rewriteSelection(value, {
+      selectedTasks: [{ ...snapshot, reproofRequestSha256: "f".repeat(64) }],
+    });
+
+    expect(() => applyIntegrationWave(input)).toThrow(
+      "reproof request digest drift",
+    );
+    expect(git(value.workdir, "rev-parse", "HEAD")).toBe(value.baseSha);
+  });
+
+  it("rejects a lane reproof request digest mismatch", () => {
+    const value = makeFixture({
+      laneSpecs: [{ files: ["a.ts"], taskId: "S01-T01" }],
+      reproof: true,
+    });
+    const lanePath = resolve(
+      value.evidenceDirectory,
+      "lane-results/S01-T01/lane-result.json",
+    );
+    const lane = readJson(lanePath);
+    const reproof = lane.reproof as Record<string, unknown>;
+    reproof.requestSha256 = "f".repeat(64);
+    const laneContent = writeJson(lanePath, lane);
+    const snapshot = value.lanes[0]?.snapshot as IntegrationWaveTaskSnapshot;
+    const input = rewriteSelection(value, {
+      selectedTasks: [{ ...snapshot, laneResultSha256: sha256(laneContent) }],
+    });
+
+    expect(() => applyIntegrationWave(input)).toThrow(
+      "reproof request digest drift",
+    );
+    expect(git(value.workdir, "rev-parse", "HEAD")).toBe(value.baseSha);
+  });
+
+  it("rejects prior archive bytes outside the bound digest", () => {
+    const value = makeFixture({
+      laneSpecs: [{ files: ["a.ts"], taskId: "S01-T01" }],
+      reproof: true,
+    });
+    write(
+      resolve(value.evidenceDirectory, "archive/S01-T01.json"),
+      '{"status":"drifted"}\n',
+    );
+
+    expect(() => applyIntegrationWave(value.input)).toThrow(
+      "prior reproof evidence drift",
     );
     expect(git(value.workdir, "rev-parse", "HEAD")).toBe(value.baseSha);
   });
