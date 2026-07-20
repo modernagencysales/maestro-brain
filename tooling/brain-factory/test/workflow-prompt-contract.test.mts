@@ -526,6 +526,53 @@ describe("Fabro workflow prompt contracts", () => {
     }
   });
 
+  it("reviews integration-owned generated output at the lane boundary", () => {
+    const buildTask = readFileSync(
+      resolve(
+        import.meta.dirname,
+        "../../../.fabro/workflows/brain-build-task/workflow.fabro",
+      ),
+      "utf8",
+    );
+    const prompts = ["review_contract", "review_safety", "review_quality"].map(
+      (node) =>
+        buildTask
+          .split("\n")
+          .find((line) => line.trimStart().startsWith(`${node} [`)),
+    );
+    const contract = prompts[0];
+    const quality = prompts[2];
+
+    for (const prompt of prompts) {
+      expect(prompt).toContain(
+        "Because aggregate admission requires zero findings, record only defects that require task rework",
+      );
+      expect(prompt).toContain(
+        "Do not emit optional nits or observations as findings",
+      );
+    }
+    for (const prompt of [contract, quality]) {
+      expect(prompt).toContain(
+        "Generated Confect and Convex output is integration-owned by Appendices O/P",
+      );
+      expect(prompt).toContain(
+        "absence from the checked-in generated tree is expected lane state, not a finding",
+      );
+      expect(prompt).toContain(
+        "the exact-head pre-review gate proves transient codegen passed and the task diff does not edit generated paths",
+      );
+      expect(prompt).toContain(
+        "integration review owns direct-ref cleanup after regeneration",
+      );
+    }
+    expect(contract).toContain(
+      "Review schema and ref registration in the transient snapshot",
+    );
+    expect(quality).toContain(
+      "Review generated refs in the transient snapshot",
+    );
+  });
+
   it("keeps integration Git proof raw and patch fallback bounded", () => {
     for (const workflow of [
       "brain-integrate-tranche",
