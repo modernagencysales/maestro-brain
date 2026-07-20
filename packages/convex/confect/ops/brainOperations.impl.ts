@@ -251,20 +251,58 @@ const loadOperationPolicy = (
   });
 
 const loadOperationPolicyReplay = (
-  _reader: Reader,
-  _workspaceId: GenericId<"workspaces">,
-  _subsystem: OperationSubsystem,
-  _idempotencyKey: string,
+  reader: Reader,
+  workspaceId: GenericId<"workspaces">,
+  subsystem: OperationSubsystem,
+  idempotencyKey: string,
 ): Effect.Effect<LoadedOperationPolicy | undefined, never> =>
-  Effect.succeed(undefined);
+  Effect.gen(function* () {
+    const rows = yield* reader
+      .table("policies")
+      .index("by_policy_version", (q) =>
+        q.eq("policyKey", operationPolicyKey(workspaceId, subsystem)),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const policies = rows.map((row) => operationPolicyFromRecord(row));
+    const policy = replayOperationPolicyByIdempotencyKey(
+      policies,
+      idempotencyKey,
+    );
+    if (policy === undefined) return undefined;
+    const row = rows.find(
+      (candidate) =>
+        operationPolicyFromRecord(candidate).generation === policy.generation,
+    );
+
+    return { policy, updatedAt: row?.activatedAt ?? 0 };
+  });
 
 const retireActiveOperationPolicy = (
-  _reader: Context.Tag.Service<typeof DatabaseReader>,
-  _writer: Context.Tag.Service<typeof DatabaseWriter>,
-  _workspaceId: GenericId<"workspaces">,
-  _subsystem: OperationSubsystem,
-  _retiredAt: number,
-): Effect.Effect<void, never> => Effect.succeed(undefined);
+  reader: Context.Tag.Service<typeof DatabaseReader>,
+  writer: Context.Tag.Service<typeof DatabaseWriter>,
+  workspaceId: GenericId<"workspaces">,
+  subsystem: OperationSubsystem,
+  retiredAt: number,
+): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    const existing = yield* reader
+      .table("policies")
+      .index("by_policy_version", (q) =>
+        q.eq("policyKey", operationPolicyKey(workspaceId, subsystem)),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+
+    for (const row of existing.filter(
+      (candidate) => candidate.status === "active",
+    )) {
+      yield* writer
+        .table("policies")
+        .patch(row._id, { status: "retired", retiredAt })
+        .pipe(Effect.orDie);
+    }
+  });
 
 const isExpiredOperationPolicy = (
   policy: OperationPolicy,

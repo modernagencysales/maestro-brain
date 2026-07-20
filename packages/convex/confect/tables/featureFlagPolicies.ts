@@ -7,6 +7,8 @@ export const FeatureFlagKey = Schema.Literal(
   "template.billing.liveCheckout",
   "template.notifications.center",
   "template.ai.liveGeneration",
+  "template.brain.semanticOperations",
+  "template.brain.externalDelivery",
 );
 
 export const FeatureFlagAudience = Schema.Literal(
