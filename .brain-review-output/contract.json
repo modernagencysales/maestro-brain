@@ -1,0 +1,70 @@
+{
+  "lens": "contract",
+  "taskId": "S05-T01",
+  "planSha256": "ce2b760a9efd332ff6f3201b8faf312601e4fd3d4fcb7dcb4253afe7cae25317",
+  "taskBlockHash": "d5212dbc84a10771993658fc840e29bc81671c08e7962dbf96fd34de2dda9ce5",
+  "baseSha": "5f682348711572faa32ac79066f8e470a1f2743f",
+  "headSha": "1578f7f20b8bd7b5580627030e9d40c040935ccd",
+  "treeSha": "f85d74a921a26da690537dd7d37874d531355474",
+  "reviewerRunId": "maestro/review/S05-T01/1578f7f20b8bd7b5580627030e9d40c040935ccd/66b6dbc5-0919-41cc-9380-c8895d722d47-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1-5 records plan provenance ce2b760a9efd332ff6f3201b8faf312601e4fd3d4fcb7dcb4253afe7cae25317 for the task packet.",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:S05-T01 entry records taskBlockHash d5212dbc84a10771993658fc840e29bc81671c08e7962dbf96fd34de2dda9ce5, required ownership, gate profiles, dependencies, and requirements.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1715-1795 defines S05-T01 acceptance, files, implementation boundaries, typed contract ownership, migration compatibility, and focused verification."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/internal/migrations.spec.ts:143-185 keeps executable migration lookup typed and preserves MigrationNotFound for reserved or unknown migration IDs instead of falling back to a probe.",
+        "packages/convex/confect/internal/migrations.spec.ts:186-214 keeps ExecuteMigrationArgs decoding and caller-control rejection mapped to typed MigrationCursorInvalid errors.",
+        "packages/convex/confect/internal/migrations.impl.ts:1-35 wires runtime implementations from task-owned migration-implementations modules while retaining the existing Confect migration spec boundary."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/providerEventReceipts.ts:5-15 defines provider receipt table indexes for delivery id, observation, received time, and outcome.",
+        "packages/convex/confect/tables/sourceArtifacts.ts:5-20 defines source artifact indexes for provider object, source key, thread key, and lifecycle purge.",
+        "packages/convex/confect/tables/sourceRevisions.ts:5-13 and packages/convex/confect/tables/sourceProcessingJobs.ts:5-10 define revision/job indexes required by the new source ledger.",
+        "packages/convex/confect/sources/sourceSchemas.ts:72-143 defines strict Effect schemas for receipt, artifact, revision, and processing-job rows with stable keys, hashes, lifecycle, and bounded payload fields."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1728-1749 lists the source-ledger tables, sourceSchemas, migration fragments, implementation modules, runtime extraction, generator, and migration-registry test owned by S05-T01.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1764-1780 constrains the task to schema/registry work, task-hash-bound fragments, extracted migration implementations, deterministic registry ordering, and no live receipt admission or capture behavior.",
+        "packages/convex/confect/internal/migrationFragment.ts:11-145 implements strict fragment schema validation, task hash checks, dependency/phase checks, duplicate rejection, and deterministic canonical registry bytes."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:S05-T01 fileLocks include the edited source-ledger schema/table files, migration fragments, migration implementation modules, migration runtime/spec/impl files, and focused tests.",
+        "rtk proxy git diff --name-only 5f682348711572faa32ac79066f8e470a1f2743f..HEAD -- packages/convex/confect/internal packages/convex/test docs/superpowers/execution/maestro-brain/task-manifest.json docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md showed only S05-T01-owned migration internal files and focused Convex tests in the inspected contract scope.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1787-1790 states integration alone generates and commits the canonical migrations.generated.ts target; the product lane leaves that repository target absent or unchanged."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/test/migration-registry.test.ts:125-183 covers unknown fields, duplicate IDs, duplicate JSON keys, unsafe modules, task-hash drift, dangling dependencies, phase inversion, cycles, and fake no-op migration rejection.",
+        "packages/convex/test/source-ledger-schema.test.ts:323-409 covers tenant mismatch, duplicate receipts, conflicting observations, key violations, size limits, and canonicalization violations.",
+        "packages/convex/confect/internal/migrationFragment.ts:71-119 implements the rejection paths exercised by the focused migration registry tests.",
+        "packages/convex/confect/sources/sourceSchemas.ts:322-429 implements validation outcomes and rejection/duplicate handling exercised by the focused source-ledger schema tests."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
