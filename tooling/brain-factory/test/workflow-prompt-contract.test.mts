@@ -524,6 +524,12 @@ describe("Fabro workflow prompt contracts", () => {
       expect(prompt).toContain("use rtk proxy git");
       expect(prompt).toContain("must never feed structured evidence");
     }
+    for (const review of reviews) {
+      expect(review).toContain("Do not use native apply_patch");
+      expect(review).toContain(
+        "one guarded targeted shell or write_file operation",
+      );
+    }
   });
 
   it("reviews integration-owned generated output at the lane boundary", () => {
