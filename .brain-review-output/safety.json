@@ -1,0 +1,137 @@
+{
+  "lens": "safety",
+  "taskId": "S08-T04",
+  "planSha256": "2bca6b40d7acab334b2036e9ed35652c06ebe8729c1a6c3319c04f827b7a77ce",
+  "taskBlockHash": "2bccfe705e20eef30b384725a71d69db2671a70d5c96f541fb95ec6b73629525",
+  "baseSha": "e28ceeb126083211cc7b2070c673b78e513d125b",
+  "headSha": "c996cd22f0816ebfa3c72b5005d548e501708664",
+  "treeSha": "babb642bf8442f746119edd74fe7b5fb04783e1e",
+  "reviewerRunId": "maestro/review/S08-T04/c996cd22f0816ebfa3c72b5005d548e501708664/49d94afc-ae91-4075-9f71-887f05a03bf3-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/maintenance/commit.ts:22-34 only fences revision and generation fields; it does not verify proposal.workspaceId, proposal.brainKey, or proposal.pageKey against the current context.",
+        "packages/convex/confect/maintenance/commit.ts:61-67 builds the revisionEffect from proposal.pageKey/proposal.markdown after checking only context model Autopilot eligibility, so a mismatched proposal object can cross tenant/page boundaries in this policy seam.",
+        "packages/convex/confect/maintenance/request.ts:62-77 records workspaceId/brainKey/pageKey on proposals, which provides the expected identity fields that commit currently ignores."
+      ],
+      "findingIds": [
+        "S08-T04-SAFETY-TENANCY-001"
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.impl.ts:120-126 requireInternalWorkflowCaller accepts only system callers from workflow/internal surfaces.",
+        "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.impl.ts:168-197 startImpl gates workflow starts through requireInternalWorkflowCaller before recording ownership.",
+        "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.impl.ts:202-252 statusImpl and approveImpl both require the internal workflow caller before reading status or sending approval events.",
+        "apps/web/src/features/brain/maintenance-review.tsx:48-55 hides Autopilot controls from non-admin/non-owner viewers in the review model."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/maintenance/gather.ts:8-17 calls requireActiveLifecycle during context gathering.",
+        "packages/convex/confect/maintenance/request.ts:51-57 calls requireActiveLifecycle when creating a proposal.",
+        "packages/convex/confect/maintenance/commit.ts:37-68 never calls requireActiveLifecycle, so a revoked lifecycle state with matching generation can still accept a no-op or publish an Autopilot revision.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2531-2534 requires LifecycleRevoked typed fences before revision effects."
+      ],
+      "findingIds": [
+        "S08-T04-SAFETY-LIFECYCLE-001"
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/maintenance/policy.ts:28-35 keeps citation evidence to citation/source/revision keys plus quote text from the bounded context pack; no secrets or provider payload fields are introduced.",
+        "packages/convex/confect/maintenance/request.ts:84-91 returns revision proposal fields and citation keys only; there is no logging or raw provider payload exposure in the changed maintenance seam.",
+        "apps/web/src/features/brain/maintenance-review.tsx:72-91 renders page title, action label, and citation count only, not citation quotes or raw source payloads."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/maintenance/commit.ts:22-34 assertFresh fences revision, route, lifecycle, and policy generation but omits proposal.modelPromptPair versus context.modelPromptPair.",
+        "packages/convex/confect/maintenance/commit.ts:59-67 checks Autopilot eligibility against the current context.modelPromptPair only, so a proposal generated under a stale model/prompt pair can be published if other generations still match.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2521-2522 requires changed model/prompt pairs to return to Review-first."
+      ],
+      "findingIds": [
+        "S08-T04-SAFETY-CONCURRENCY-001"
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/workflows/_kit/ownership.ts:51-69 validates and normalizes idempotency keys, reads an existing workspace/idempotency reservation, and returns the existing component workflow id when present.",
+        "packages/convex/confect/workflows/_kit/ownership.ts:82-110 scopes replay detection by workspaceId and idempotencyKey and rejects an already reserved start without a component workflow id.",
+        "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.impl.ts:175-190 passes workspaceId and idempotencyKey through startWorkflowAndRecordOwnership for sourceToBrainMaintenance starts."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/maintenance/commit.ts:22-34 has positive stale fences for currentRevisionKey, routeGeneration, lifecycleGeneration, and policyGeneration.",
+        "packages/convex/confect/maintenance/commit.ts:22-34 does not fence proposal.modelPromptPair, workspaceId, brainKey, or pageKey, leaving stale model/prompt and identity mismatches outside the structural commit validation.",
+        "packages/convex/test/brain-maintenance.test.ts:79-99 tests stale currentRevisionKey only; there is no focused proof for stale model/prompt, tenant/page identity, or lifecycle revocation at commit time despite the task packet requiring those fences."
+      ],
+      "findingIds": [
+        "S08-T04-SAFETY-TENANCY-001",
+        "S08-T04-SAFETY-LIFECYCLE-001",
+        "S08-T04-SAFETY-CONCURRENCY-001"
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/maintenance/request.ts:8-22 accepts already-structured MaintenanceModelOutput and does not import or call a provider SDK.",
+        "packages/convex/confect/maintenance/commit.ts:1-8 imports only local policy/request types and performs structural commit validation without provider calls.",
+        "tooling/evals/src/index.ts:7 exports the brain prompt-injection eval surface without introducing live provider secrets or SDK imports in the reviewed maintenance files."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "S08-T04-SAFETY-TENANCY-001",
+      "severity": "high",
+      "summary": "Maintenance commit does not bind proposals to the current workspace/brain/page context.",
+      "details": "The proposal carries workspaceId, brainKey, and pageKey, but commitMaintenanceProposal only checks revision and generation fields before returning a revision effect based on the proposal. A mismatched proposal object can therefore pass the pure commit seam and produce an effect for the wrong page/tenant if surrounding persistence code fails to compensate.",
+      "evidence": [
+        "packages/convex/confect/maintenance/commit.ts:22-34",
+        "packages/convex/confect/maintenance/commit.ts:61-67",
+        "packages/convex/confect/maintenance/request.ts:62-77"
+      ]
+    },
+    {
+      "id": "S08-T04-SAFETY-LIFECYCLE-001",
+      "severity": "high",
+      "summary": "Commit-time lifecycle revocation is not enforced before accepting or publishing proposals.",
+      "details": "Gather and request reject revoked lifecycle state, but commitMaintenanceProposal does not re-check requireActiveLifecycle. Because lifecycle can change after proposal creation, a revoked context with matching generation can still accept a no-op or publish an Autopilot revision, contrary to the task requirement that lifecycle revocation fence revision effects.",
+      "evidence": [
+        "packages/convex/confect/maintenance/gather.ts:8-17",
+        "packages/convex/confect/maintenance/request.ts:51-57",
+        "packages/convex/confect/maintenance/commit.ts:37-68",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2531-2534"
+      ]
+    },
+    {
+      "id": "S08-T04-SAFETY-CONCURRENCY-001",
+      "severity": "medium",
+      "summary": "Stale model/prompt proposal races can publish under a newer approved Autopilot pair.",
+      "details": "The task requires changed model/prompt pairs to downgrade to Review-first, but commit freshness ignores proposal.modelPromptPair and Autopilot eligibility is checked only against the current context. A proposal generated under an old pair can be published when context.modelPromptPair is now an approved pair and the numeric generations have not changed.",
+      "evidence": [
+        "packages/convex/confect/maintenance/commit.ts:22-34",
+        "packages/convex/confect/maintenance/commit.ts:59-67",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2521-2522"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
