@@ -1,0 +1,68 @@
+{
+  "lens": "contract",
+  "taskId": "S06-T01",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "f2f6cb348272c704636b7e21bf8e8cbd66b812835d781b52e01bdcfa5b0fa97c",
+  "baseSha": "64b5d90e9dce6146ac6cd49696658cd9a40a254c",
+  "headSha": "4fb0f78f8262598eb7c0c1e0bf6dd2578c93dbd7",
+  "treeSha": "a0164d98da809268e53b24fd7210455bf197788f",
+  "reviewerRunId": "maestro/review/S06-T01/4fb0f78f8262598eb7c0c1e0bf6dd2578c93dbd7/8a317a77-1f03-410e-99d0-e4ffee16a880-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1840-1881 defines S06-T01 acceptance: fenced source claims, one logical effect, crash/replay matrix, internal controls, typed errors, and focused gates.",
+        "packages/convex/test/source-workpool.test.ts:392-763 adds focused assertions for claim-before-enqueue, external-response recovery, stale completion, lease reclaim, retry/permanent failure, heartbeat fencing, duplicate enqueue, and duplicate completion delivery.",
+        "ci-proof-packet.json lists taskId S06-T01, matching plan/task block hashes, focused commands, and passed summaries for source-workpool, Confect codegen, source-workpool contract, and workflow graph boundary."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.ts:159-168 exposes enqueueSourceJob as an internal mutation with source job validators and vWorkId return.",
+        "packages/convex/confect/jobs/workpool.ts:311-387 exposes statusSourceJob, heartbeatSourceJob, reclaimSourceJob, and failSourceJobControl as internal query/mutations with validated args and source status returns.",
+        "packages/convex/test/source-workpool.test.ts:369-389 asserts the added source job control refs are internal, while lines 765-774 assert legacy public enqueue/status refs remain unchanged."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:762-769 includes sourceProcessingJobs plus workpool/job state/lease files in S06-T01 ownership.",
+        "packages/convex/test/source-workpool.test.ts:776-786 decodes SourceProcessingJobRow and verifies schemaVersion 1, queued status, leaseGeneration 0, and empty attemptReceipts.",
+        "packages/convex/confect/jobs/workpool.ts:176-231 creates sourceProcessingJobs rows via createSourceJobState, scoped idempotency key, lease claim, and persisted workId without introducing schema drift in this review delta."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1842-1845 classifies S06-T01 as fixture-to-real for jobs/workpool with @convex-dev/workpool plus sourceProcessingJobs leases/CAS as the real boundary.",
+        "packages/convex/confect/jobs/workpool.ts:33-41 uses @convex-dev/workpool and lines 170-231 implement source job claim/enqueue against sourceProcessingJobs.",
+        "ci-proof-packet.json focusedCommands match the plan's focused verification commands at docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1873-1878."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "rtk proxy git diff --name-only ee22a31e1166df1b7ec618081596b67593a773db..HEAD in the managed contract worktree shows only packages/convex/confect/jobs/workpool.ts and packages/convex/test/source-workpool.test.ts changed in this review delta.",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:762-769 locks both changed files, along with the related workpool/job state/schema files, for S06-T01.",
+        "No generated Confect or Convex output is edited by this review delta; the proof packet separately records codegen proof as a passed supplemental command."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.ts:19-31 imports typed DuplicateEffect, LeaseLost, and StaleGeneration plus job-state failure helpers; lines 176-180, 226-229, 267-284, and 413-420 throw declared typed failures rather than string errors.",
+        "packages/convex/test/source-workpool.test.ts:348-367 encodes LeaseLost, RetryableJobFailure, PermanentJobFailure, MaxAttemptsReached, StaleGeneration, and DuplicateEffect as public-safe tags and checks no lease token leakage.",
+        "packages/convex/test/source-workpool.test.ts:554-604 and 606-635 exercise retryable/permanent failure persistence and heartbeat LeaseLost behavior through exported durable handlers."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
