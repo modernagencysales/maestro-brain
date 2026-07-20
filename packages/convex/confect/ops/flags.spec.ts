@@ -14,6 +14,11 @@ import {
   FeatureFlagKey,
 } from "../tables/featureFlagPolicies";
 
+export const BrainOperationLaunchFlagKey = Schema.Literal(
+  "template.brain.semanticOperations",
+  "template.brain.externalDelivery",
+);
+
 const NonEmptyString = Schema.String.pipe(Schema.minLength(1));
 const FlagError = Schema.Union(
   Unauthorized,
