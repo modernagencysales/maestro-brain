@@ -1,38 +1,35 @@
 import type { WorkspaceSummary } from "../../providers/workspace";
-
-export type ApiKeySettingsMetadata = {
-  readonly id: string;
-  readonly principalId: string;
-  readonly organizationId: string;
-  readonly workspaceId: string;
-  readonly brainKey: string;
-  readonly name: string;
-  readonly displayPrefix: string;
-  readonly scopes: readonly ("brain:read" | "brain:ask")[];
-  readonly principalGeneration: number;
-  readonly roleCeiling: "viewer";
-  readonly status: "active" | "revoked" | "expired";
-  readonly createdByUserId: string;
-  readonly createdAt: number;
-  readonly expiresAt: number | null;
-  readonly revokedAt: number | null;
-  readonly lastUsedAt: number | null;
-};
 import type {
   SettingsDocumentSection,
   SettingsViewer,
 } from "./settings-surface";
 
+export type PublicApiKeySettingsMetadata = {
+  readonly name: string;
+  readonly displayPrefix: string;
+  readonly scopes: readonly ("brain:read" | "brain:ask")[];
+  readonly roleCeiling: "viewer";
+  readonly status: "active" | "revoked" | "expired";
+  readonly createdAt: number;
+  readonly expiresAt: number | null;
+};
+
+export type ApiKeySettingsMetadata = PublicApiKeySettingsMetadata & {
+  readonly id: string;
+};
+
 export const buildApiKeySettingsSections = ({
   workspace,
   viewer,
   keys,
+  brainKey,
 }: {
   readonly workspace: WorkspaceSummary | null;
   readonly viewer: SettingsViewer;
   readonly keys: readonly ApiKeySettingsMetadata[];
+  readonly brainKey: string | null;
 }): readonly SettingsDocumentSection[] => {
-  if (!workspace) {
+  if (!workspace || brainKey === null) {
     return [
       {
         heading: "API keys unavailable",
@@ -54,15 +51,16 @@ export const buildApiKeySettingsSections = ({
     ],
   };
 
-  return [overview, ...keys.map(renderKeySection)];
+  return [overview, ...keys.map((key) => renderKeySection(key, brainKey))];
 };
 
 const renderKeySection = (
   key: ApiKeySettingsMetadata,
+  brainKey: string,
 ): SettingsDocumentSection => ({
   heading: key.name,
   body: [
-    `Brain: ${key.brainKey}`,
+    `Brain: ${brainKey}`,
     `Scopes: ${key.scopes.join(", ")}`,
     `Role ceiling: ${key.roleCeiling}`,
     `Status: ${key.status}`,
