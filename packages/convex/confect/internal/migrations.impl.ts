@@ -26,13 +26,14 @@ import {
   makeSettlementInput,
   parentReceipt,
   parentReceiptHash,
-  probeExpand,
-  probeFail,
   releaseParentKey,
-  stableTenantOrganizationKeysExpand,
-  stableTenantWorkspaceKeysExpand,
   runKeyForMigration,
 } from "./migrations";
+import { probeExpand, probeFail } from "./migration-implementations/S00-T04";
+import {
+  stableTenantOrganizationKeysExpand,
+  stableTenantWorkspaceKeysExpand,
+} from "./migration-implementations/S01-T02";
 import migrations, {
   MigrationAlreadyRunning,
   MigrationBatchFailed,
