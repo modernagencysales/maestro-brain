@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "taskId": "S02-T03",
+  "taskBlockHash": "05e6e953af2e5fb125d0148d86d3b93a8488961fde0c7c29cb454d7d9170f5a1",
+  "phase": "backfill",
+  "migrations": [],
+  "implementationModule": "../migration-implementations/S02-T03",
+  "dependsOn": ["S02-T01"],
+  "attestation": "no_executable_registration"
+}
