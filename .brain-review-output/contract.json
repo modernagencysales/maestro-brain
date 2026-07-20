@@ -1,0 +1,99 @@
+{
+  "lens": "contract",
+  "taskId": "S04-T02",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "cdeca2a0ba4a7101fd27959788455ac53609485617a9cf8146c29c86891a7958",
+  "baseSha": "ce892af6c4ea5c8ff679c5bfce09a205967cdf11",
+  "headSha": "ca03e0da0407e3bd58907b437967985ff73481d0",
+  "treeSha": "9637f9e43f56bc47a92264b591a3705b2f7973aa",
+  "reviewerRunId": "maestro/review/S04-T02/ca03e0da0407e3bd58907b437967985ff73481d0/d4a4f17b-25bf-4796-b844-7d6d77c4ae0b-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1423-1481",
+        "packages/convex/confect/integrations/slackDirectory.spec.ts:88-99",
+        "packages/convex/test/slack-directory.test.ts:650-694",
+        "packages/convex/test/slack-directory.test.ts:1184-1341"
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1461-1464",
+        "packages/convex/confect/integrations/slackDirectory.spec.ts:4-31",
+        "packages/convex/confect/integrations/slackDirectory.spec.ts:79-99",
+        "packages/convex/confect/integrations/slackDirectory.spec.ts:151-156"
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1436-1444",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1471-1473",
+        "packages/convex/confect/tables/sourceChannels.ts:1-43",
+        "packages/convex/confect/tables/channelSyncStates.ts:1-59",
+        "packages/convex/confect/_generated/schema.ts:3-52",
+        "packages/convex/confect/_generated/schema.ts:53-153",
+        "packages/convex/test/slack-directory.test.ts:47-61"
+      ],
+      "findingIds": ["S04-T02-CONTRACT-001"]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1428-1429",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1474-1481",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:557-583",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S04-T02/ci-proof-packet.json:17-60"
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:564-572",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S04-T02/ci-proof-packet.json:8-15",
+        "rtk proxy git diff --name-only ce892af6c4ea5c8ff679c5bfce09a205967cdf11..HEAD --"
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1445-1464",
+        "packages/convex/confect/integrations/slackDirectory.spec.ts:79-99",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:907-989",
+        "packages/convex/test/slack-directory.test.ts:650-694",
+        "packages/convex/test/slack-directory.test.ts:716-747",
+        "packages/convex/test/slack-directory.test.ts:1426-1507",
+        "packages/convex/test/slack-directory.test.ts:1595-1641",
+        "packages/convex/test/slack-directory.test.ts:2271-2320"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "S04-T02-CONTRACT-001",
+      "severity": "high",
+      "summary": "Committed product schema does not register the new Slack directory tables.",
+      "details": "S04-T02 requires additive durable sourceChannels and channelSyncStates tables for exact connection/channel directory state. The table definitions were added, and slackDirectory.impl reads and writes sourceChannels and channelSyncStates through the committed databaseSchema-backed implementation. However packages/convex/confect/_generated/schema.ts at this HEAD imports/registers neither sourceChannels nor channelSyncStates. The focused tests avoid the committed product schema by building a transient schema that manually includes both tables, so the proof does not demonstrate that runtime reconciliation is bound to the approved durable schema.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1436-1444",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1471-1473",
+        "packages/convex/confect/tables/sourceChannels.ts:1-43",
+        "packages/convex/confect/tables/channelSyncStates.ts:1-59",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:907-913",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:779-885",
+        "packages/convex/confect/_generated/schema.ts:3-52",
+        "packages/convex/confect/_generated/schema.ts:53-153",
+        "packages/convex/test/slack-directory.test.ts:47-61"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
