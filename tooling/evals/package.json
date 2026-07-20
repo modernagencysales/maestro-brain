@@ -9,6 +9,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests",
     "brain:eval": "tsx src/brain-eval-cli.ts eval",
-    "brain:fixture-check": "tsx src/brain-eval-cli.ts fixture-check"
+    "brain:fixture-check": "tsx src/brain-eval-cli.ts fixture-check",
+    "brain:capacity": "tsx src/brain-capacity-report.ts"
   }
 }
