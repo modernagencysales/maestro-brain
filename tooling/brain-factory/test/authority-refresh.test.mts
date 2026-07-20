@@ -1,9 +1,11 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  renameSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -19,6 +21,8 @@ import {
   authorityRefreshCoordinates,
   preserveAuthorityRefreshEvidence,
 } from "../src/authority-refresh.js";
+import { runAuthorityRefreshTransition } from "../src/authority-refresh-launch.js";
+import { replaceTerminalTaskRecord } from "../src/dispatch-ownership.js";
 
 const roots: string[] = [];
 const sha256 = (value: string): string =>
@@ -309,4 +313,114 @@ describe("authority refresh admission", () => {
       }),
     ).toThrow("authority refresh worktree already exists");
   });
+
+  it("removes staged evidence when an artifact write fails", () => {
+    const value = fixture();
+    const admission = admit(value);
+    let writes = 0;
+    expect(() =>
+      preserveAuthorityRefreshEvidence(admission, {
+        rename: renameSync,
+        remove: (path) => rmSync(path, { force: true, recursive: true }),
+        write: (path, content, options) => {
+          writes += 1;
+          if (writes === 2) throw new Error("injected evidence write failure");
+          writeFileSync(path, content, options);
+        },
+      }),
+    ).toThrow("injected evidence write failure");
+    expect(existsSync(admission.archiveDirectory)).toBe(false);
+    expect(existsSync(`${admission.archiveDirectory}.next`)).toBe(false);
+  });
+
+  it.each([
+    ["reservation replacement", "replace"],
+    ["worktree creation", "worktree"],
+    ["Fabro launch", "launch"],
+    ["reservation promotion", "promote"],
+  ] as const)(
+    "leaves deterministic recovery state after %s failure",
+    (_label, failure) => {
+      const value = fixture();
+      const admission = admit(value);
+      const recordPath = join(value.repo, "task-record.json");
+      const auditPath = join(value.repo, "recovery-audit.jsonl");
+      const terminalRecord = `${JSON.stringify(
+        {
+          branch: "source",
+          runId: "terminal-run",
+          status: "launched",
+          taskId: value.taskId,
+          workdir: value.sourceWorkdir,
+        },
+        null,
+        2,
+      )}\n`;
+      const preparingRecord = {
+        branch: admission.coordinates.branch,
+        status: "preparing",
+        taskId: value.taskId,
+        workdir: admission.coordinates.workdir,
+      };
+      writeFileSync(recordPath, terminalRecord);
+      const expectedError =
+        failure === "replace"
+          ? "compare-and-swap failed"
+          : `injected ${failure === "promote" ? "promotion" : failure} failure`;
+
+      expect(() =>
+        runAuthorityRefreshTransition({
+          createWorktree: () => {
+            if (failure === "worktree")
+              throw new Error("injected worktree failure");
+          },
+          launch: () => {
+            if (failure === "launch")
+              throw new Error("injected launch failure");
+            return "new-run";
+          },
+          preserveEvidence: () => preserveAuthorityRefreshEvidence(admission),
+          promote: () => {
+            if (failure === "promote")
+              throw new Error("injected promotion failure");
+          },
+          replaceReservation: () => {
+            replaceTerminalTaskRecord({
+              auditPath,
+              expectedContent:
+                failure === "replace"
+                  ? `${terminalRecord}injected-drift`
+                  : terminalRecord,
+              now: "2026-07-20T00:00:00.000Z",
+              recordPath,
+              replacement: preparingRecord,
+              runId: "terminal-run",
+              status: "succeeded",
+              taskId: value.taskId,
+            });
+          },
+          rollbackEvidence: () =>
+            rmSync(admission.archiveDirectory, {
+              force: true,
+              recursive: true,
+            }),
+        }),
+      ).toThrow(expectedError);
+
+      if (failure === "replace") {
+        expect(readFileSync(recordPath, "utf8")).toBe(terminalRecord);
+        expect(existsSync(admission.archiveDirectory)).toBe(false);
+        expect(existsSync(auditPath)).toBe(false);
+      } else {
+        expect(JSON.parse(readFileSync(recordPath, "utf8"))).toEqual(
+          preparingRecord,
+        );
+        expect(existsSync(admission.archiveDirectory)).toBe(true);
+        expect(readFileSync(auditPath, "utf8")).toContain(
+          '"action":"archive-terminal-task-run"',
+        );
+      }
+    },
+    30_000,
+  );
 });

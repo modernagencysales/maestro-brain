@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
 
 import {
@@ -11,9 +11,8 @@ import { materializeBuildTaskRunConfig } from "./build-task-run-config.js";
 import { hydrateWorktreeDependencies } from "./dependencies.js";
 import {
   acquireDispatcherLock,
-  archiveTerminalTaskRecord,
   promoteTaskReservation,
-  reserveTaskPreparing,
+  replaceTerminalTaskRecord,
 } from "./dispatch-ownership.js";
 import { buildManifest } from "./manifest.js";
 import { gitBranchExists, gitCommonDir, runRtk } from "./process.js";
@@ -38,6 +37,27 @@ const inspectedStatus = (runId: string): string => {
   if (!status)
     throw new Error(`Fabro run ${runId} has no status; ownership is unknown`);
   return status;
+};
+
+export const runAuthorityRefreshTransition = (input: {
+  readonly createWorktree: () => void;
+  readonly launch: () => string;
+  readonly preserveEvidence: () => void;
+  readonly promote: (runId: string) => void;
+  readonly replaceReservation: () => void;
+  readonly rollbackEvidence: () => void;
+}): string => {
+  input.preserveEvidence();
+  try {
+    input.replaceReservation();
+  } catch (error) {
+    input.rollbackEvidence();
+    throw error;
+  }
+  input.createWorktree();
+  const runId = input.launch();
+  input.promote(runId);
+  return runId;
 };
 
 export const launchAuthorityRefresh = (input: {
@@ -67,7 +87,8 @@ export const launchAuthorityRefresh = (input: {
       `${input.taskId}: authority refresh source record is incomplete`,
     );
   }
-  const status = inspectedStatus(record.runId);
+  const terminalRunId = record.runId;
+  const status = inspectedStatus(terminalRunId);
   assertAuthorityRefreshTerminalStatus(status, input.taskId);
   const manifest = buildManifest(input.root);
   const task = manifest.tasks.find(
@@ -106,7 +127,7 @@ export const launchAuthorityRefresh = (input: {
       controlRoot: input.root,
       mode: "authority-refresh",
       pid: process.pid,
-      runId: record.runId,
+      runId: terminalRunId,
       startedAt: now,
       taskId: input.taskId,
     },
@@ -121,18 +142,10 @@ export const launchAuthorityRefresh = (input: {
     );
   }
   admission = admitAuthorityRefresh(admissionInput);
-  archiveTerminalTaskRecord({
-    auditPath,
-    now,
-    recordPath: input.recordPath,
-    runId: record.runId,
-    status,
-    taskId: input.taskId,
-  });
-  preserveAuthorityRefreshEvidence(admission);
   const { branch, workdir } = admission.coordinates;
-  reserveTaskPreparing(input.recordPath, {
+  const preparingRecord = {
     authorityArchivePath: admission.archiveDirectory,
+    baseSha: controlHeadSha,
     branch,
     factoryBaseSha: controlHeadSha,
     mode: "authority-refresh",
@@ -142,9 +155,7 @@ export const launchAuthorityRefresh = (input: {
     taskBaseSha: admission.taskBaseSha,
     taskId: input.taskId,
     workdir,
-  });
-  runRtk(["git", "worktree", "add", "-b", branch, workdir, controlHeadSha]);
-  hydrateWorktreeDependencies(input.root, workdir);
+  };
   const controlCommonDir = gitCommonDir(input.root);
   const serializedCommits = serializeResumeCommits(
     input.taskId,
@@ -177,69 +188,86 @@ export const launchAuthorityRefresh = (input: {
       `resume-${input.taskId}-authority-${admission.coordinates.authorityId}.toml`,
     ),
   });
-  const output = runRtk(
-    [
-      "fabro",
-      "run",
-      runConfig,
-      "--detach",
-      "--json",
-      "--no-upgrade-check",
-      "--environment",
-      "local",
-      "--label",
-      `task=${input.taskId}`,
-      "--label",
-      "mode=authority-refresh",
-      "-I",
-      `workdir=${workdir}`,
-      "-I",
-      `evidence_dir=${input.evidence}`,
-      "-I",
-      `task_id=${input.taskId}`,
-      "-I",
-      `base_sha=${controlHeadSha}`,
-      "-I",
-      `control_root=${input.root}`,
-      "-I",
-      `control_common_dir=${controlCommonDir}`,
-      "-I",
-      `start_sha=${controlHeadSha}`,
-      "-I",
-      `resume_branch=${branch}`,
-      "-I",
-      "resume_expected_commit=none",
-      "-I",
-      "resume_proof_head=none",
-      "-I",
-      "resume_mode=conflict-aware",
-      "-I",
-      `resume_source_head=${admission.sourceHeadSha}`,
-      "-I",
-      `resume_task_base=${admission.taskBaseSha}`,
-      "-I",
-      `resume_commits=${serializedCommits}`,
-    ],
-    { env: launchEnv, quiet: true },
-  );
-  const parsed = JSON.parse(output) as { run_id?: string; runId?: string };
-  const runId = parsed.run_id ?? parsed.runId;
-  if (!runId)
-    throw new Error(
-      `${input.taskId}: Fabro did not return a run ID: ${output}`,
-    );
-  promoteTaskReservation(input.recordPath, {
-    authorityArchivePath: admission.archiveDirectory,
-    branch,
-    factoryBaseSha: controlHeadSha,
-    mode: "authority-refresh",
-    resumeStrategy: "in-lane-cherry-pick",
-    runId,
-    sourceHeadSha: admission.sourceHeadSha,
-    status: "launched",
-    taskBaseSha: admission.taskBaseSha,
-    taskId: input.taskId,
-    workdir,
+  const runId = runAuthorityRefreshTransition({
+    createWorktree: () => {
+      runRtk(["git", "worktree", "add", "-b", branch, workdir, controlHeadSha]);
+      hydrateWorktreeDependencies(input.root, workdir);
+    },
+    launch: () => {
+      const output = runRtk(
+        [
+          "fabro",
+          "run",
+          runConfig,
+          "--detach",
+          "--json",
+          "--no-upgrade-check",
+          "--environment",
+          "local",
+          "--label",
+          `task=${input.taskId}`,
+          "--label",
+          "mode=authority-refresh",
+          "-I",
+          `workdir=${workdir}`,
+          "-I",
+          `evidence_dir=${input.evidence}`,
+          "-I",
+          `task_id=${input.taskId}`,
+          "-I",
+          `base_sha=${controlHeadSha}`,
+          "-I",
+          `control_root=${input.root}`,
+          "-I",
+          `control_common_dir=${controlCommonDir}`,
+          "-I",
+          `start_sha=${controlHeadSha}`,
+          "-I",
+          `resume_branch=${branch}`,
+          "-I",
+          "resume_expected_commit=none",
+          "-I",
+          "resume_proof_head=none",
+          "-I",
+          "resume_mode=conflict-aware",
+          "-I",
+          `resume_source_head=${admission.sourceHeadSha}`,
+          "-I",
+          `resume_task_base=${admission.taskBaseSha}`,
+          "-I",
+          `resume_commits=${serializedCommits}`,
+        ],
+        { env: launchEnv, quiet: true },
+      );
+      const parsed = JSON.parse(output) as { run_id?: string; runId?: string };
+      const launchedRunId = parsed.run_id ?? parsed.runId;
+      if (!launchedRunId) {
+        throw new Error(
+          `${input.taskId}: Fabro did not return a run ID: ${output}`,
+        );
+      }
+      return launchedRunId;
+    },
+    preserveEvidence: () => preserveAuthorityRefreshEvidence(admission),
+    promote: (launchedRunId) =>
+      promoteTaskReservation(input.recordPath, {
+        ...preparingRecord,
+        runId: launchedRunId,
+        status: "launched",
+      }),
+    replaceReservation: () =>
+      replaceTerminalTaskRecord({
+        auditPath,
+        expectedContent: recordContent,
+        now,
+        recordPath: input.recordPath,
+        replacement: preparingRecord,
+        runId: terminalRunId,
+        status,
+        taskId: input.taskId,
+      }),
+    rollbackEvidence: () =>
+      rmSync(admission.archiveDirectory, { force: true, recursive: true }),
   });
   console.log(`${input.taskId}: authority refresh launched as ${runId}`);
 };

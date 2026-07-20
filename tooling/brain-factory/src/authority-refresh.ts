@@ -4,6 +4,8 @@ import {
   mkdirSync,
   readFileSync,
   realpathSync,
+  renameSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { resolve } from "node:path";
@@ -391,22 +393,28 @@ export const admitAuthorityRefresh = (input: {
 
 export const preserveAuthorityRefreshEvidence = (
   admission: AuthorityRefreshAdmission,
+  fileSystem: {
+    readonly remove: (path: string) => void;
+    readonly rename: (from: string, to: string) => void;
+    readonly write: (
+      path: string,
+      content: string,
+      options: { readonly flag: "wx" },
+    ) => void;
+  } = {
+    remove: (path) => rmSync(path, { force: true, recursive: true }),
+    rename: renameSync,
+    write: writeFileSync,
+  },
 ): void => {
   if (existsSync(admission.archiveDirectory)) {
     throw new Error(
       `${admission.task.taskId}: authority refresh evidence coordinates already exist`,
     );
   }
-  mkdirSync(admission.archiveDirectory, { recursive: true });
-  for (const artifact of admission.artifacts) {
-    writeFileSync(
-      resolve(admission.archiveDirectory, artifact.file),
-      artifact.content,
-      {
-        flag: "wx",
-      },
-    );
-  }
+  const stagingDirectory = `${admission.archiveDirectory}.next`;
+  if (existsSync(stagingDirectory)) fileSystem.remove(stagingDirectory);
+  mkdirSync(stagingDirectory, { recursive: true });
   const manifest = {
     schemaVersion: "maestro-brain-authority-refresh-archive/v1",
     taskId: admission.task.taskId,
@@ -427,9 +435,33 @@ export const preserveAuthorityRefreshEvidence = (
       sha256: digest,
     })),
   };
-  writeFileSync(
-    resolve(admission.archiveDirectory, "manifest.json"),
-    `${JSON.stringify(manifest, null, 2)}\n`,
-    { flag: "wx" },
-  );
+  try {
+    for (const artifact of admission.artifacts) {
+      fileSystem.write(
+        resolve(stagingDirectory, artifact.file),
+        artifact.content,
+        { flag: "wx" },
+      );
+    }
+    fileSystem.write(
+      resolve(stagingDirectory, "manifest.json"),
+      `${JSON.stringify(manifest, null, 2)}\n`,
+      { flag: "wx" },
+    );
+    for (const artifact of admission.artifacts) {
+      if (
+        sha256(
+          readFileSync(resolve(stagingDirectory, artifact.file), "utf8"),
+        ) !== artifact.sha256
+      ) {
+        throw new Error(
+          `${admission.task.taskId}: staged authority evidence hash mismatch`,
+        );
+      }
+    }
+    fileSystem.rename(stagingDirectory, admission.archiveDirectory);
+  } catch (error) {
+    fileSystem.remove(stagingDirectory);
+    throw error;
+  }
 };

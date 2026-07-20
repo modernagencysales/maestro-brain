@@ -424,6 +424,106 @@ export const archiveTerminalTaskRecord = (input: {
   return archivedPath;
 };
 
+export const replaceTerminalTaskRecord = (input: {
+  readonly auditPath: string;
+  readonly expectedContent: string;
+  readonly now: string;
+  readonly recordPath: string;
+  readonly replacement: JsonRecord;
+  readonly runId: string;
+  readonly status: string;
+  readonly taskId: string;
+}): string => {
+  if (
+    !new Set(["canceled", "cancelled", "failed", "succeeded"]).has(input.status)
+  ) {
+    throw new Error(
+      `${input.taskId}: refusing to replace non-terminal run ${input.runId}`,
+    );
+  }
+  if (
+    !existsSync(input.recordPath) ||
+    readFileSync(input.recordPath, "utf8") !== input.expectedContent
+  ) {
+    throw new Error(
+      `${input.taskId}: terminal reservation compare-and-swap failed`,
+    );
+  }
+  const actionId = createHash("sha256")
+    .update(
+      canonicalJson({
+        recordPath: input.recordPath,
+        runId: input.runId,
+        status: input.status,
+        taskId: input.taskId,
+      }),
+    )
+    .digest("hex");
+  const archivedPath = `${input.recordPath}.terminal-${actionId}`;
+  if (existsSync(archivedPath)) {
+    if (readFileSync(archivedPath, "utf8") !== input.expectedContent) {
+      throw new Error(`${input.taskId}: deterministic archive path conflicts`);
+    }
+  } else {
+    const archiveDescriptor = openSync(archivedPath, "wx");
+    try {
+      writeFileSync(archiveDescriptor, input.expectedContent, "utf8");
+      fsyncSync(archiveDescriptor);
+    } finally {
+      closeSync(archiveDescriptor);
+    }
+  }
+  const auditEvent = {
+    action: "archive-terminal-task-run",
+    actionId,
+    archivedPath,
+    at: input.now,
+    runId: input.runId,
+    status: input.status,
+    taskId: input.taskId,
+  };
+  const existingEvents = existsSync(input.auditPath)
+    ? readFileSync(input.auditPath, "utf8")
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => jsonRecord(JSON.parse(line), "task audit event"))
+        .filter((event) => event.actionId === actionId)
+    : [];
+  if (existingEvents.length > 1) {
+    throw new Error(`${input.taskId}: duplicate replacement audit events`);
+  }
+  if (existingEvents.length === 1) {
+    const [prior] = existingEvents;
+    for (const [key, expected] of Object.entries(auditEvent)) {
+      if (key !== "at" && prior?.[key] !== expected) {
+        throw new Error(`${input.taskId}: replacement audit identity mismatch`);
+      }
+    }
+  } else {
+    appendAudit(input.auditPath, auditEvent);
+  }
+  const replacementContent = `${JSON.stringify(input.replacement, null, 2)}\n`;
+  const temporary = `${input.recordPath}.next`;
+  if (existsSync(temporary)) {
+    throw new Error(`${input.taskId}: stale reservation replacement exists`);
+  }
+  const descriptor = openSync(temporary, "wx");
+  try {
+    writeFileSync(descriptor, replacementContent, "utf8");
+    fsyncSync(descriptor);
+  } finally {
+    closeSync(descriptor);
+  }
+  if (readFileSync(input.recordPath, "utf8") !== input.expectedContent) {
+    rmSync(temporary);
+    throw new Error(
+      `${input.taskId}: terminal reservation changed before replace`,
+    );
+  }
+  renameSync(temporary, input.recordPath);
+  return archivedPath;
+};
+
 interface ResumeIdentity {
   readonly branch: string;
   readonly mode: "resume-review";
