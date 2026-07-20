@@ -281,7 +281,10 @@ describe("Brain operation policy", () => {
             retiredCount: policies.filter((row) => row.status === "retired")
               .length,
             active: operationPolicyFromRecord(
-              policies.find((row) => row.status === "active")!,
+              policies.find((row) => row.status === "active") ??
+                (() => {
+                  throw new Error("expected an active operation policy row");
+                })(),
             ),
           };
         }),
