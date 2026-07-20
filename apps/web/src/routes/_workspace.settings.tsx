@@ -1,14 +1,95 @@
-import { templateConfectRefs } from "@maestro-template/convex/refs";
+import {
+  templateConfectRefs,
+  type TemplateConfectRefs,
+} from "@maestro-template/convex/refs";
+import type { Ref } from "@confect/core";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { useTemplateAction, useTemplateQuery } from "../adapters/confect-state";
+import {
+  useTemplateAction,
+  useTemplateMutation,
+  useTemplateQuery,
+} from "../adapters/confect-state";
 import {
   createMemberManagementAdapter,
   type WorkspaceId,
 } from "../features/settings/member-management-adapter";
 import { MemberManagement } from "../features/settings/member-management";
+import { createApiKeySettingsAdapter } from "../features/settings/api-keys-adapter";
+import { ApiKeysPanel } from "../features/settings/api-keys-panel";
 import { useWorkspace } from "../providers/workspace";
 import { BusinessSettingsRoute } from "../saas-ui/business-shell";
+import type {
+  ApiKeySettingsMetadata,
+  PublicApiKeySettingsMetadata,
+} from "../features/settings/api-keys";
+import { selectStableApiKeyBrainKey } from "../features/settings/settings-surface";
+
+type ApiKeyCreateRef = Ref.Ref<
+  { readonly runtime: "Convex"; readonly functionType: "mutation" },
+  "public",
+  {
+    readonly brainKey: string;
+    readonly name: string;
+    readonly scopes: readonly string[];
+    readonly expiresAt: number;
+  },
+  {
+    readonly displayKey: string;
+    readonly key: PublicApiKeySettingsMetadata;
+  },
+  unknown
+>;
+
+type ApiKeyListRef = Ref.Ref<
+  { readonly runtime: "Convex"; readonly functionType: "query" },
+  "public",
+  { readonly brainKey: string },
+  readonly ApiKeySettingsMetadata[],
+  unknown
+>;
+
+type ApiKeyRevokeRef = Ref.Ref<
+  { readonly runtime: "Convex"; readonly functionType: "mutation" },
+  "public",
+  { readonly brainKey: string; readonly keyId: string },
+  null,
+  unknown
+>;
+
+type ApiKeyRotateRef = Ref.Ref<
+  { readonly runtime: "Convex"; readonly functionType: "mutation" },
+  "public",
+  {
+    readonly brainKey: string;
+    readonly keyId: string;
+    readonly expiresAt: number;
+  },
+  {
+    readonly displayKey: string;
+    readonly key: PublicApiKeySettingsMetadata;
+  },
+  unknown
+>;
+
+type HeadlessApiKeyRefs = TemplateConfectRefs & {
+  readonly public: TemplateConfectRefs["public"] & {
+    readonly headless: {
+      readonly apiKeys: {
+        readonly create: ApiKeyCreateRef;
+        readonly list: ApiKeyListRef;
+        readonly rotate: ApiKeyRotateRef;
+        readonly revoke: ApiKeyRevokeRef;
+      };
+    };
+  };
+};
+
+// Checked-in generated refs are integration-owned until centralized Confect
+// codegen refreshes this amended spec; intersect only the amended ref shape.
+const refsWithHeadlessApiKeys = templateConfectRefs as HeadlessApiKeyRefs;
+
+const apiKeyRefs = refsWithHeadlessApiKeys.public.headless.apiKeys;
 
 const accessRefs = {
   members: templateConfectRefs.public.access.members,
@@ -26,6 +107,9 @@ export const Route = createFileRoute("/_workspace/settings")({
 function WorkspaceSettingsRoute() {
   const workspace = useWorkspace();
   const createInvitation = useTemplateAction(accessRefs.invitations.create);
+  const createApiKey = useTemplateMutation(apiKeyRefs.create);
+  const rotateApiKey = useTemplateMutation(apiKeyRefs.rotate);
+  const revokeApiKey = useTemplateMutation(apiKeyRefs.revoke);
   const cancelInvitation = useTemplateAction(accessRefs.invitations.cancel);
   const changeRole = useTemplateAction(accessRefs.members.changeRole);
   const removeMember = useTemplateAction(accessRefs.members.remove);
@@ -44,11 +128,29 @@ function WorkspaceSettingsRoute() {
     accessRefs.invitations.list,
     workspaceId === null ? "skip" : { workspaceId },
   );
+  const stableBrainKey =
+    workspace.status === "ready"
+      ? selectStableApiKeyBrainKey(workspace.activeWorkspace)
+      : null;
+  const apiKeys = useTemplateQuery(
+    apiKeyRefs.list,
+    stableBrainKey === null ? "skip" : { brainKey: stableBrainKey },
+  );
 
   if (workspace.status !== "ready") {
     return <BusinessSettingsRoute />;
   }
 
+  const activeBrainKey = selectStableApiKeyBrainKey(workspace.activeWorkspace);
+  const apiKeyAdapter = createApiKeySettingsAdapter({
+    role: workspace.activeWorkspace.role,
+    brainKey: activeBrainKey,
+    mutations: {
+      create: createApiKey,
+      rotate: rotateApiKey,
+      revoke: revokeApiKey,
+    },
+  });
   const adapter = createMemberManagementAdapter({
     role: workspace.activeWorkspace.role,
     workspaceId: workspace.activeWorkspace.workspaceId as WorkspaceId,
@@ -68,6 +170,10 @@ function WorkspaceSettingsRoute() {
         adapter={adapter}
         members={toRowsState(members, "Member list access denied.")}
         invitations={toRowsState(invitations, "Invitation list access denied.")}
+      />
+      <ApiKeysPanel
+        adapter={apiKeyAdapter}
+        keys={toRowsState(apiKeys, "API key list access denied.")}
       />
     </>
   );
