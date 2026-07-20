@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "taskId": "S01-T02",
+  "taskBlockHash": "f8dfea31b91e435c11203c1641f2b5fd1cefe5e966e26f4ba105b1e7088d7204",
+  "phase": "expand",
+  "migrations": [
+    "stableTenant.organizationKeys.expand",
+    "stableTenant.workspaceKeys.expand"
+  ],
+  "implementationModule": "../migration-implementations/S01-T02",
+  "dependsOn": ["S00-T04"]
+}
