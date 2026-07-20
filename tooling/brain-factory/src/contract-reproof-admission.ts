@@ -8,6 +8,10 @@ import {
   validateContractReproofRequest,
   type ContractReproofRequest,
 } from "./contract-reproof.js";
+import {
+  isFailedIntegrationReworkArchive,
+  validateFailedIntegrationReworkArchive,
+} from "./failed-integration-rework-archive.js";
 import { validateLaneAcceptance } from "./lane-acceptance.js";
 
 export interface ContractReproofAdmissionInput {
@@ -291,10 +295,13 @@ export const admitContractReproof = (
     integrationResultContent,
     `${input.taskId}: prior integration result`,
   );
+  if (integrationResult.integrationId !== request.priorIntegrationId) {
+    throw new Error(`${input.taskId}: prior integration result identity drift`);
+  }
   if (
-    integrationResult.integrationId !== request.priorIntegrationId ||
-    integrationResult.headSha !== request.priorIntegrationHeadSha ||
-    integrationResult.status !== "passed"
+    integrationResult.status !== "rework" &&
+    (integrationResult.headSha !== request.priorIntegrationHeadSha ||
+      integrationResult.status !== "passed")
   ) {
     throw new Error(`${input.taskId}: prior integration result identity drift`);
   }
@@ -326,11 +333,21 @@ export const admitContractReproof = (
     throw new Error(`${input.taskId}: prior archive hash drift`);
   }
   const archive = parseRecord(archiveContent, `${input.taskId}: prior archive`);
+  if (isFailedIntegrationReworkArchive(archive)) {
+    validateFailedIntegrationReworkArchive({
+      archiveContent,
+      integrationResultContent,
+      request,
+    });
+    return { reproofRequestSha256: request.requestSha256, request };
+  }
   const archivedIntegrationResult = record(
     archive.integrationResult,
     `${input.taskId}: archived integration result`,
   );
   if (
+    integrationResult.headSha !== request.priorIntegrationHeadSha ||
+    integrationResult.status !== "passed" ||
     archive.schemaVersion !== "maestro-brain-evidence-archive/v1" ||
     archive.integrationId !== request.priorIntegrationId ||
     archivedIntegrationResult.integrationId !== request.priorIntegrationId ||
