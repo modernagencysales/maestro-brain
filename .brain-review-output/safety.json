@@ -1,0 +1,140 @@
+{
+  "lens": "safety",
+  "taskId": "S04-T04",
+  "planSha256": "b6c8c42e744502700c8607be941e8f3dbe1e790d70abc7f3666efbf69554f9ca",
+  "taskBlockHash": "43fe7362c17307d938a689c31cfaa350124a5029c8ef938d09c8f08066ec12c5",
+  "baseSha": "e8f008574eff0d1a21700ff02926ac4c9870d425",
+  "headSha": "abe0f31eaeae61b656240d8f171d091cfd6fed3d",
+  "treeSha": "b29855b45c2a7978ef65d938ff5c49d53e5523a1",
+  "reviewerRunId": "maestro/review/S04-T04/abe0f31eaeae61b656240d8f171d091cfd6fed3d/ff894c45-3aee-487a-9217-dc32a1e60be5-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.impl.ts:34 loads the actor for the requested organization before mutation writes.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:35-77 scopes channel, client-Brain, routing-policy, and delivery-policy reads to input.organizationKey.",
+        "packages/convex/confect/slack/channelPolicy.ts:188-205 filters allowed Brain targets to the same organizationKey before accepting targetBrainKeys."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "finding",
+      "findingIds": [
+        "S04-T04-SAF-003"
+      ],
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.impl.ts:167-193 resolves the current user and requires an active accepted organizationMembers admin/owner role.",
+        "packages/convex/confect/slack/channelPolicies.spec.ts:39-49 has no caller-supplied actorRole argument.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:115-132 records privileged audit only after successful policy application, leaving denied non-admin attempts unaudited."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "finding",
+      "findingIds": [
+        "S04-T04-SAF-002"
+      ],
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicy.ts:255-289 appends new active routing and delivery rows with incremented policyEpoch/deliveryGeneration.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:91-114 patches prior active rows inactive before inserting new active rows.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:64-77 supplies only take(500) existing rows to the lifecycle logic, so older or current active immutable history can be omitted."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/channelRoutingPolicies.ts:23-36 stores channel keys, modes, target brain keys, roles, and timestamps, not Slack message text or provider tokens.",
+        "packages/convex/confect/tables/channelDeliveryPolicies.ts stores delivery mode metadata only.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:115-132 audit metadata includes outcome/action/targetCount without raw Slack payloads or customer text."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "finding",
+      "findingIds": [
+        "S04-T04-SAF-001",
+        "S04-T04-SAF-002"
+      ],
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.spec.ts:39-49 requires expectedConnectionGeneration and expectedChannelAccessGeneration from the caller.",
+        "packages/convex/confect/slack/channelPolicy.ts:223-230 rejects channel rows whose connectionGeneration or accessGeneration differs from the expected values.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:35-41 and 64-77 truncate channel and policy reads before generation and active-pointer planning."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "finding",
+      "findingIds": [
+        "S04-T04-SAF-002"
+      ],
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicy.ts:110-124 defines identical active routing/delivery matching for idempotent retries.",
+        "packages/convex/confect/slack/channelPolicy.ts:249-254 skips inserts when both active policies already match the requested change.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:64-77 limits existing active-policy detection to 500 rows, so replay idempotency is not durable for policy histories beyond that prefix."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "finding",
+      "findingIds": [
+        "S04-T04-SAF-001",
+        "S04-T04-SAF-002"
+      ],
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicy.ts:223-230 fences policy changes on connectionGeneration and accessGeneration.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:35-41 can omit active joined channel rows before checking their generations and capacity.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:64-114 can omit the current active policy row before computing and moving the epoch/generation fence."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.impl.ts imports Confect database/access helpers and the pure planner; it does not import Nango or Slack provider SDKs.",
+        "apps/web/src/routes/_workspace.connections.tsx:52-60 renders local channel policy view-model data and does not receive provider secrets.",
+        "apps/web/src/features/connections/connections-adapter.ts:3-22 contains generic local fixture metadata only."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "S04-T04-SAF-001",
+      "severity": "high",
+      "summary": "Active-channel capacity validation can be bypassed by mixed membership rows",
+      "details": "The persisted mutation reads at most 101 sourceChannels for the organization before invoking the planner, but the table index ranges across every membershipStatus when only organizationKey is constrained. Organizations with non-active channel rows in that prefix can hide the 101st joined/active channel from buildBulkPolicyPlan, so a policy change can be accepted even though the launch envelope requires rejecting more than 100 active joined channels.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1586-1598 requires stale connection/channel generation and a 101st active channel to fail before accepting policy.",
+        "packages/convex/confect/tables/sourceChannels.ts:39-42 defines by_organization_membership_state as [organizationKey, membershipStatus].",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:35-41 queries sourceChannels by organizationKey only and take(101) before planning.",
+        "packages/convex/confect/slack/channelPolicy.ts:174-187 counts active joined channels only from the already-truncated request.channels array."
+      ]
+    },
+    {
+      "id": "S04-T04-SAF-002",
+      "severity": "high",
+      "summary": "Policy lifecycle and replay safety truncate immutable history at 500 rows",
+      "details": "The real mutation derives the next routing epoch, delivery generation, active-policy match, and active-pointer deactivation from only the first 500 policy rows for an organization. Immutable rollback/change history is unbounded by the task contract, so after enough policy epochs the current active row can fall outside that prefix; a retry or rollback can then insert a duplicate epoch/generation and leave a stale active policy unpatched instead of deterministically moving one active pointer.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1591-1598 requires immutable policy epochs, rollback by creating a new epoch, all-or-nothing bulk change, and audit.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:64-77 reads channelRoutingPolicies and channelDeliveryPolicies with by_organization_created take(500).",
+        "packages/convex/confect/slack/channelPolicy.ts:91-136 computes nextEpoch and idempotent active-policy matching solely from existing policy arrays supplied by the mutation.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:91-114 deactivates only active policy rows present in those truncated existing policy arrays before inserting new active rows."
+      ]
+    },
+    {
+      "id": "S04-T04-SAF-003",
+      "severity": "medium",
+      "summary": "Denied privileged policy changes are not audited",
+      "details": "S04-T04 includes IAM-04, whose baseline requires privileged success and denial auditing. The mutation records slack.channelPolicyChanged only after a plan succeeds; signed-in users without an active admin/owner membership fail in loadPolicyActor before any denied audit event is written.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:184 defines IAM-04 as enforcing roles server-side and auditing privileged success/denial; S04-T04 requirements include IAM-04 at lines 1563-1564.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:34 loads the policy actor before planning or auditing.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:171-193 fails with PolicyInvalid({ reason: \"admin_required\" }) for missing/inactive/non-admin membership.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:115-132 records slack.channelPolicyChanged only for planned.right.auditRows after success."
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
