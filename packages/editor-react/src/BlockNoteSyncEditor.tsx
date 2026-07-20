@@ -46,6 +46,26 @@ export const readBlockNoteDocumentSnapshot = (
 export const nextBlockNoteSnapshotVersion = (currentVersion: number): number =>
   currentVersion + 1;
 
+export const readBlockNoteRevisionFence = (
+  current: {
+    readonly documentId: string | null;
+    readonly revisionKey: string | null;
+  },
+  selected: {
+    readonly documentId: string;
+    readonly revisionKey: string | null | undefined;
+  },
+): string | null => {
+  if (!selected.revisionKey) return null;
+  if (
+    current.documentId === selected.documentId &&
+    current.revisionKey !== null
+  ) {
+    return current.revisionKey;
+  }
+  return selected.revisionKey;
+};
+
 const useBootstrapEmptyDoc = (sync: SyncState): void => {
   const createdRef = useRef(false);
   useEffect(() => {
@@ -69,6 +89,15 @@ export function BlockNoteSyncEditor({
   onSyncError,
 }: BlockNoteSyncEditorProps) {
   const debounceRef = useRef(snapshotDebounceMs);
+  const revisionFenceRef = useRef<{
+    documentId: string | null;
+    revisionKey: string | null;
+  }>({ documentId: null, revisionKey: null });
+  const revisionFence = readBlockNoteRevisionFence(revisionFenceRef.current, {
+    documentId,
+    revisionKey: expectedCurrentRevisionKey,
+  });
+  revisionFenceRef.current = { documentId, revisionKey: revisionFence };
   const liveSnapshotVersionRef = useRef(initialSnapshotVersion);
   useEffect(() => {
     liveSnapshotVersionRef.current = initialSnapshotVersion;
@@ -78,7 +107,7 @@ export function BlockNoteSyncEditor({
   });
   useBootstrapEmptyDoc(sync);
   useEffect(() => {
-    if (sync.editor === null || !expectedCurrentRevisionKey) return;
+    if (sync.editor === null || !revisionFence) return;
     const notify = () => {
       const snapshot = readBlockNoteDocumentSnapshot(sync.editor);
       if (snapshot === null) return;
@@ -86,7 +115,7 @@ export function BlockNoteSyncEditor({
         liveSnapshotVersionRef.current,
       );
       liveSnapshotVersionRef.current = version;
-      onDocumentChange?.(snapshot, version, expectedCurrentRevisionKey);
+      onDocumentChange?.(snapshot, version, revisionFence);
     };
     try {
       return sync.editor.onChange(notify);
@@ -94,7 +123,7 @@ export function BlockNoteSyncEditor({
       onSyncError?.(error);
       return;
     }
-  }, [expectedCurrentRevisionKey, onDocumentChange, onSyncError, sync.editor]);
+  }, [onDocumentChange, onSyncError, revisionFence, sync.editor]);
   if (sync.isLoading || sync.editor === null) {
     return <div data-editor-state="loading" />;
   }
