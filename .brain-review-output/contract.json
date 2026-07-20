@@ -1,0 +1,121 @@
+{
+  "lens": "contract",
+  "taskId": "S08-T04",
+  "planSha256": "2bca6b40d7acab334b2036e9ed35652c06ebe8729c1a6c3319c04f827b7a77ce",
+  "taskBlockHash": "2bccfe705e20eef30b384725a71d69db2671a70d5c96f541fb95ec6b73629525",
+  "baseSha": "e28ceeb126083211cc7b2070c673b78e513d125b",
+  "headSha": "c996cd22f0816ebfa3c72b5005d548e501708664",
+  "treeSha": "babb642bf8442f746119edd74fe7b5fb04783e1e",
+  "reviewerRunId": "maestro/review/S08-T04/c996cd22f0816ebfa3c72b5005d548e501708664/49d94afc-ae91-4075-9f71-887f05a03bf3-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2527-2532 requires failure-first tests for new/existing page proposal, model self-confidence, review accept/edit/reject, duplicate attempts, changed model/prompt, non-admin Autopilot, and indirect prompt injection.",
+        "packages/convex/test/brain-maintenance.test.ts:29-153 covers no-op, citation membership, stale revision, Autopilot eligibility, bounded gather, and lifecycle revoked only.",
+        "rtk proxy rg targeted inspection found selfConfidence only stored on MaintenanceModelOutput and test literals, with no validation or commit policy use in packages/convex/confect/maintenance/*."
+      ],
+      "findingIds": ["CONTRACT-S08-T04-001"]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2542-2550 declares maintenance typed errors CitationRequired, CitationNotInManifest, RevisionBudgetExceeded, AutopilotNotEligible, StaleRevision, and LifecycleRevoked.",
+        "packages/convex/confect/capabilities/maintainBrainPage.spec.ts:5-20 exposes only workspaceSlug/input args, accepted/summary returns, and Unauthorized/ValidationFailed/Forbidden errors.",
+        "packages/convex/confect/capabilities/maintainBrainPage.impl.ts:7-17 returns a canned accepted summary and does not surface the maintenance proposal contract or declared maintenance failure variants."
+      ],
+      "findingIds": ["CONTRACT-S08-T04-002"]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2542-2548 requires Appendix G status machine including gathering -> proposed_revision and awaiting_review -> edited_and_published|rejected|superseded|revoked, with Autopilot direct publish under commit fences.",
+        "packages/convex/confect/tables/brainMaintenanceProposals.ts:18-34 stores status and generation/citation fields but no transition/audit metadata for review accept/edit/reject, no accepted revision effect identity, and no idempotency/duplicate-attempt key.",
+        "packages/convex/confect/maintenance/request.ts:24-42 types proposals as proposed_noop|awaiting_review, skipping the declared proposed_revision state before review."
+      ],
+      "findingIds": ["CONTRACT-S08-T04-003"]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2486-2493 classifies S08-T04 as a pattern-instance using template:add-capability and template:add-workflow with playbook gates.",
+        "ci-proof-packet.json:32-42 records the expected template, codegen, Convex, web, workflow-boundary, headless, layer, and eval focused commands.",
+        "ci-proof-packet.json:93-98 records test files added for capability, maintenance policy, workflow, and web review surface."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1119-1145 lists the S08-T04 file locks.",
+        "rtk proxy git diff --name-status e28ceeb126083211cc7b2070c673b78e513d125b..HEAD showed changes limited to manifest-owned S08-T04 files except lane omission of integration-owned generated workflow runner noted in proof risk.",
+        "ci-proof-packet.json:8-30 changedFiles are a subset of the task packet/manifest-owned files and intentionally omit integration-owned generated Convex output."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2527-2532 requires declared failure-first coverage for citation, stale generations, revision budget, model self-confidence, changed model/prompt, non-admin Autopilot, review accept/edit/reject, duplicate attempts, and indirect prompt injection.",
+        "packages/convex/confect/maintenance/policy.ts:93-111 implements RevisionBudgetExceeded and AutopilotNotEligible, but targeted tests only assert AutopilotNotEligible and do not assert RevisionBudgetExceeded, changed model/prompt downgrade, non-admin caller gating, duplicate attempts, or model self-confidence authority.",
+        "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.spec.ts:20-27 declares only generic workflow errors Unauthorized, MemberNotInWorkspace, WorkspaceNotFound, NotFound, and ValidationFailed rather than the maintenance failure names declared by the task packet."
+      ],
+      "findingIds": ["CONTRACT-S08-T04-004"]
+    }
+  ],
+  "findings": [
+    {
+      "id": "CONTRACT-S08-T04-001",
+      "severity": "high",
+      "summary": "Task-packet acceptance coverage is incomplete for required maintenance review/autonomy cases.",
+      "details": "The implemented focused tests cover a useful subset, but the task packet explicitly required failure-first proof for new/existing page proposals, model self-confidence, changed model/prompt downgrade, non-admin Autopilot, review accept/edit/reject, duplicate attempts, and indirect prompt injection. Those are contract acceptance items for S08-T04 and are not proven by the current tests or domain code.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2527-2532",
+        "packages/convex/test/brain-maintenance.test.ts:29-153",
+        "packages/convex/confect/maintenance/request.ts:9-22"
+      ]
+    },
+    {
+      "id": "CONTRACT-S08-T04-002",
+      "severity": "high",
+      "summary": "Generated maintainBrainPage public contract does not expose the S08-T04 maintenance proposal API or typed errors.",
+      "details": "The task requires a capability returning cited Brain revision/no-op proposals from an immutable context pack and declaring the maintenance failure variants. The spec remains a scaffold with workspaceSlug/input and accepted/summary, while the implementation always succeeds with canned text, so consumers cannot rely on the declared proposal contract or typed failure contract.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2483-2485",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2542-2550",
+        "packages/convex/confect/capabilities/maintainBrainPage.spec.ts:5-20",
+        "packages/convex/confect/capabilities/maintainBrainPage.impl.ts:7-17"
+      ]
+    },
+    {
+      "id": "CONTRACT-S08-T04-003",
+      "severity": "medium",
+      "summary": "Durable proposal schema and domain model do not encode the declared review state machine and commit audit contract.",
+      "details": "The table stores status but lacks transition/audit fields for review accept/edit/reject and duplicate/idempotency fencing. The request domain returns revision proposals directly as awaiting_review instead of proposed_revision, drifting from the task packet's canonical machine.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2542-2548",
+        "packages/convex/confect/tables/brainMaintenanceProposals.ts:18-34",
+        "packages/convex/confect/maintenance/request.ts:24-42",
+        "packages/convex/confect/maintenance/request.ts:88-94"
+      ]
+    },
+    {
+      "id": "CONTRACT-S08-T04-004",
+      "severity": "high",
+      "summary": "Declared failure paths are not all reachable through the typed workflow/capability contract or focused tests.",
+      "details": "Although pure helpers define the six maintenance error names, the Confect specs expose only generic errors and tests omit multiple declared failure paths, including RevisionBudgetExceeded, changed model/prompt downgrade, non-admin Autopilot, duplicate attempts, and model self-confidence authority. This leaves the failure contract unbound for callers.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2527-2532",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2548-2550",
+        "packages/convex/confect/maintenance/policy.ts:93-111",
+        "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.spec.ts:20-27",
+        "packages/convex/test/brain-maintenance.test.ts:29-153"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
