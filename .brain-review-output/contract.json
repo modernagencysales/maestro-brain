@@ -1,0 +1,95 @@
+{
+  "lens": "contract",
+  "taskId": "S13-T03",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "taskBlockHash": "13c071bc2c78035c5563f494b38160a96c981ab2962984f056be4e18853e137e",
+  "baseSha": "f66236e12f93bc254cc2350800a5b2a69d0caff5",
+  "headSha": "327950e7c64d1981ff57210fa28002ed07fc61f3",
+  "treeSha": "1722319e5443e87399e0e50ab3ab7c6bd3c8cd9a",
+  "reviewerRunId": "maestro/review/S13-T03/327950e7c64d1981ff57210fa28002ed07fc61f3/ce9e945e-efd6-4175-ab1e-a44bf71c472f-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "Task packet S13-T03 title is Add Redacted Telemetry, Budgets, And Kill Switches with classification template-gap and requirements AI-04, REL-03, SLK-07 in docs/superpowers/execution/maestro-brain/task-manifest.json.",
+        "Plan block docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3549-3603 requires redacted metrics, budgets, independent kill switches, typed errors, and the focused gates recorded in ci-proof-packet.json.",
+        "ci-proof-packet.json for S13-T03 records headSha 327950e7c64d1981ff57210fa28002ed07fc61f3 and added focused tests packages/convex/test/brain-operation-policy.test.ts and packages/observability/src/brainMetrics.test.ts."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts:7-23 declares subsystem and policy-state Effect schemas including capture, backfill, classification, maintenance, ask, slackDelivery, mcp, export, lifecycle and enabled, paused, disabled.",
+        "packages/convex/confect/ops/brainOperations.spec.ts:54-80 declares typed list/set args and policy return schemas with workspaceId, subsystem, state, ownerUserId, reason, generation, updatedAt, and optional expiresAt.",
+        "packages/convex/confect/ops/brainOperations.spec.ts:83-99 exposes Confect listPolicies and setPolicyInternal functions."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "finding",
+      "findingIds": ["CONTRACT-S13-T03-001"],
+      "evidence": [
+        "Plan block implementation requires kill switches are policy data with owner, reason, expiry, audit, and migration/compatibility says additive policy/metric fields.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:23-39 listPolicies synthesizes default enabled policies from operationSubsystems instead of reading durable policy rows.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:41-81 setPolicyInternal computes and returns a policy response but does not write durable policy state or audit/receipt data."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "Implementation is within the S13-T03 template-gap slice TB-OPERATIONS-01 and adds the planned safe-operations seam files packages/convex/confect/ops/brainOperations.*, packages/convex/confect/ops/brainOperationPolicy.ts, packages/observability/src/brainMetrics.ts, tests, and docs.",
+        "packages/observability/src/brainMetrics.ts:56-135 implements redaction helpers and budget enforcement for modelTokens, modelSpendCents, slackRate, storageBytes, queueDepth, and channelCount.",
+        "packages/convex/test/brain-operation-policy.test.ts:16-131 covers the independent subsystem list, enabled/paused/enabled and disabled transitions, stale operators/generations, capture/classification independence, and Confect contract declarations."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "ci-proof-packet.json changedFiles are docs/product/maestro-brain-operations.md, packages/convex/confect/ops/brainOperationPolicy.ts, packages/convex/confect/ops/brainOperations.impl.ts, packages/convex/confect/ops/brainOperations.spec.ts, packages/convex/test/brain-operation-policy.test.ts, packages/observability/src/brainMetrics.test.ts, packages/observability/src/brainMetrics.ts, and packages/observability/src/index.ts.",
+        "All changedFiles are inside the S13-T03 task-manifest fileLocks for the operations lane; no generated Confect/Convex files are modified.",
+        "Root AGENTS.md instructions apply; no deeper AGENTS.md was found under docs, packages/convex, or packages/observability."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "findingIds": ["CONTRACT-S13-T03-002"],
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts:25-52 declares OperatorForbidden, BudgetExceeded, SubsystemDisabled, and RecoveryGenerationMismatch in the operation error union.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:55-68 always calls nextOperationPolicy with actorRole admin, so OperatorForbidden is not reachable through setPolicyInternal inputs.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:51-76 throws plain JavaScript Error values for OperatorForbidden and RecoveryGenerationMismatch rather than yielding the declared tagged errors, and the Confect impl never maps them to the spec error classes.",
+        "No implementation path in packages/convex/confect/ops/brainOperations.impl.ts reaches BudgetExceeded or SubsystemDisabled, despite both being declared expected errors."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "CONTRACT-S13-T03-001",
+      "severity": "high",
+      "summary": "Brain operation policy is not durable or audited despite the task requiring policy data with audit-ready state.",
+      "details": "The Confect impl returns synthesized defaults and calculated responses only. It does not persist subsystem policy state, generations, owner/reason/expiry, or audit/receipt facts, so operator kill switches cannot survive reads or provide the declared operational contract.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3538-3592 requires kill switches are policy data with owner, reason, expiry, audit and additive policy/metric fields.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:23-39 returns default enabled policies without storage reads.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:41-81 returns the next policy without storage writes or audit emission."
+      ]
+    },
+    {
+      "id": "CONTRACT-S13-T03-002",
+      "severity": "high",
+      "summary": "Declared operation failure paths are not implemented as reachable typed Confect errors.",
+      "details": "The spec advertises four expected operation errors, but the implementation hardcodes an admin actor, throws plain Error values from the domain helper, and has no BudgetExceeded or SubsystemDisabled path. Consumers cannot rely on the declared typed failure contract.",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts:25-52 declares OperatorForbidden, BudgetExceeded, SubsystemDisabled, and RecoveryGenerationMismatch.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:55-68 hardcodes actorRole admin for setPolicyInternal.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:51-76 throws plain Error values for OperatorForbidden and RecoveryGenerationMismatch.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:23-81 contains no BudgetExceeded or SubsystemDisabled branch."
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
