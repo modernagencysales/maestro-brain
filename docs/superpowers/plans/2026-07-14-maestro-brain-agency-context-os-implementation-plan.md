@@ -1705,7 +1705,10 @@ manifest.
   capture and retains exact rows; never delete captured evidence to revert code.
   Re-enable only after the new binary understands every stored schema version.
 - **Focused verification:**
-  `rtk host-test-slot --class focused pnpm --dir packages/convex exec vitest run test/migration-registry.test.ts test/migrations.test.ts test/brain-page-schema.test.ts test/brain-revisions.test.ts test/source-ledger-schema.test.ts`,
+  `rtk host-test-slot --class focused pnpm --dir packages/convex exec vitest run test/migration-registry.test.ts test/migrations.test.ts test/brain-page-schema.test.ts test/source-ledger-schema.test.ts`;
+  the selected `test/brain-page-schema.test.ts` cases prove `PageRevision`
+  schema/index behavior, and the selected `test/source-ledger-schema.test.ts`
+  cases prove `SourceRevision` durability and replay behavior.
   `rtk pnpm --dir packages/convex exec tsx scripts/generate-migration-registry.mts --root "$PWD" --check`,
   `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:schema-migration-notes`, `rtk pnpm check:confect-contracts`,
