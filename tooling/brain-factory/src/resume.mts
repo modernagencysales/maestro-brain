@@ -6,7 +6,9 @@ import { materializeBuildTaskRunConfig } from "./build-task-run-config.js";
 import {
   acquireDispatcherLock,
   archiveTerminalTaskRecord,
+  assertArchiveActionSelectorUsed,
   auditedTerminalResumeRecord,
+  parseArchiveActionSelector,
   preservedResumeDisposition,
   promoteTaskReservation,
   reserveTaskPreparing,
@@ -58,7 +60,7 @@ const valueAfter = (flag: string): string | undefined => {
 const taskId = valueAfter("--task");
 const sourceRef = valueAfter("--ref");
 const taskBase = valueAfter("--base");
-const archiveActionId = valueAfter("--archive-action");
+const archiveActionId = parseArchiveActionSelector(process.argv.slice(2));
 const conflictAware = process.argv.includes("--conflict-aware");
 const resumeStrategy: "in-lane-cherry-pick" | "prelaunch-cherry-pick" =
   conflictAware ? "in-lane-cherry-pick" : "prelaunch-cherry-pick";
@@ -131,7 +133,13 @@ let preservedProofHeadSha: string | undefined;
 let preservedExpectedCommit = "none";
 let preservedRecord: ResumeRecord | undefined;
 let activeTerminalStatus: string | undefined;
+let auditedArchiveSelected = false;
 if (existsSync(recordPath)) {
+  assertArchiveActionSelectorUsed({
+    archiveActionId,
+    auditedArchiveSelected: false,
+    taskId,
+  });
   const record = JSON.parse(readFileSync(recordPath, "utf8")) as ResumeRecord;
   if (!record.runId) {
     throw new Error(
@@ -170,13 +178,20 @@ if (
   preservedRecord === undefined &&
   (existsSync(workdir) || gitBranchExists(branch, root))
 ) {
-  preservedRecord = auditedTerminalResumeRecord({
+  const auditedArchive = auditedTerminalResumeRecord({
     ...(archiveActionId === undefined ? {} : { archiveActionId }),
     auditPath,
     expected: expectedResume,
     recordPath,
-  }).record as unknown as ResumeRecord;
+  });
+  preservedRecord = auditedArchive.record as unknown as ResumeRecord;
+  auditedArchiveSelected = true;
 }
+assertArchiveActionSelectorUsed({
+  archiveActionId,
+  auditedArchiveSelected,
+  taskId,
+});
 if (preservedRecord !== undefined) {
   const record = preservedRecord;
   const normalizedRecord = {

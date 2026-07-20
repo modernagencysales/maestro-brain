@@ -447,6 +447,41 @@ interface PreservedResumeObservation {
   readonly worktreeExists: boolean;
 }
 
+const safeArchiveActionId = (value: string): boolean =>
+  /^[0-9a-zA-Z._-]+$/.test(value);
+
+export const parseArchiveActionSelector = (
+  args: readonly string[],
+): string | undefined => {
+  const indexes = args.flatMap((value, index) =>
+    value === "--archive-action" ? [index] : [],
+  );
+  if (indexes.length === 0) return undefined;
+  if (indexes.length > 1) {
+    throw new Error("duplicate --archive-action flags");
+  }
+  const value = args[(indexes[0] ?? -1) + 1];
+  if (!value || value.startsWith("--")) {
+    throw new Error("--archive-action requires an ID");
+  }
+  if (!safeArchiveActionId(value)) {
+    throw new Error("archive action selector is unsafe");
+  }
+  return value;
+};
+
+export const assertArchiveActionSelectorUsed = (input: {
+  readonly archiveActionId: string | undefined;
+  readonly auditedArchiveSelected: boolean;
+  readonly taskId: string;
+}): void => {
+  if (input.archiveActionId !== undefined && !input.auditedArchiveSelected) {
+    throw new Error(
+      `${input.taskId}: --archive-action did not resolve through audited archive selection`,
+    );
+  }
+};
+
 export const auditedTerminalResumeRecord = (input: {
   readonly archiveActionId?: string;
   readonly auditPath: string;
@@ -461,7 +496,7 @@ export const auditedTerminalResumeRecord = (input: {
 } => {
   if (
     input.archiveActionId !== undefined &&
-    !/^[0-9a-zA-Z._-]+$/.test(input.archiveActionId)
+    !safeArchiveActionId(input.archiveActionId)
   ) {
     throw new Error(
       `${input.expected.taskId}: archive action selector is unsafe`,

@@ -13,7 +13,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   acquireDispatcherLock,
   archiveTerminalTaskRecord,
+  assertArchiveActionSelectorUsed,
   auditedTerminalResumeRecord,
+  parseArchiveActionSelector,
   promoteTaskReservation,
   preservedResumeDisposition,
   resolvePreservedFactoryBase,
@@ -149,8 +151,22 @@ describe("brain dispatch ownership", () => {
     expect(hydration).toBeGreaterThan(worktreeAdd);
     expect(hydration).toBeLessThan(cherryPick);
     expect(resume).toContain('process.argv.includes("--conflict-aware")');
-    expect(resume).toContain('valueAfter("--archive-action")');
+    expect(resume).toContain(
+      "parseArchiveActionSelector(process.argv.slice(2))",
+    );
     expect(resume).toContain("{ archiveActionId }");
+    expect(resume).toContain("assertArchiveActionSelectorUsed({");
+    const activeRecord = resume.indexOf("if (existsSync(recordPath))");
+    const activeRecordSelectorGuard = resume.indexOf(
+      "assertArchiveActionSelectorUsed({",
+      activeRecord,
+    );
+    expect(activeRecordSelectorGuard).toBeLessThan(
+      resume.indexOf(
+        "const status = inspectedStatus(record.runId)",
+        activeRecord,
+      ),
+    );
     expect(resume).toContain("`resume_mode=${resumeMode}`");
     expect(resume).toContain("serializeResumeCommits(taskId, taskCommits)");
     expect(resume).toContain("if (!conflictAware)");
@@ -182,6 +198,59 @@ describe("brain dispatch ownership", () => {
     expect(() => serializeResumeCommits("S11-T02", ["archive-ref"])).toThrow(
       "invalid resume commit",
     );
+  });
+
+  it.each([
+    ["missing value", ["--archive-action"], /requires an ID/],
+    [
+      "missing value before another flag",
+      ["--archive-action", "--conflict-aware"],
+      /requires an ID/,
+    ],
+    [
+      "duplicate flags",
+      ["--archive-action", "a", "--archive-action", "b"],
+      /duplicate/,
+    ],
+    ["unsafe value", ["--archive-action", "../latest"], /selector is unsafe/],
+  ])("rejects an archive selector with %s", (_label, args, error) => {
+    expect(() => parseArchiveActionSelector(args)).toThrow(error);
+  });
+
+  it("parses one exact archive action selector", () => {
+    const actionId = "a".repeat(64);
+    expect(
+      parseArchiveActionSelector([
+        "--task",
+        "S11-T02",
+        "--archive-action",
+        actionId,
+      ]),
+    ).toBe(actionId);
+    expect(parseArchiveActionSelector(["--task", "S11-T02"])).toBeUndefined();
+  });
+
+  it.each([
+    ["an active terminal record", "unknown-action"],
+    ["no preserved archive context", "known-but-unused-action"],
+  ])("rejects an archive selector with %s", (_label, archiveActionId) => {
+    expect(() =>
+      assertArchiveActionSelectorUsed({
+        archiveActionId,
+        auditedArchiveSelected: false,
+        taskId: "S11-T02",
+      }),
+    ).toThrow("did not resolve through audited archive selection");
+  });
+
+  it("accepts a selector only after audited archive resolution", () => {
+    expect(() =>
+      assertArchiveActionSelectorUsed({
+        archiveActionId: "a".repeat(64),
+        auditedArchiveSelected: true,
+        taskId: "S11-T02",
+      }),
+    ).not.toThrow();
   });
 
   it("validates a nonempty descendant source range before resume side effects", () => {
