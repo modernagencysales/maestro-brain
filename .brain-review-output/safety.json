@@ -1,0 +1,86 @@
+{
+  "lens": "safety",
+  "taskId": "S04-T02",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "cdeca2a0ba4a7101fd27959788455ac53609485617a9cf8146c29c86891a7958",
+  "baseSha": "ce892af6c4ea5c8ff679c5bfce09a205967cdf11",
+  "headSha": "baf117d7ea4cf3be54653e1b6669e1db1bb124f0",
+  "treeSha": "0d511c49f30ae9d8daff2b5b1af3e5de04d6d2ad",
+  "reviewerRunId": "maestro/review/S04-T02/baf117d7ea4cf3be54653e1b6669e1db1bb124f0/f8e224f7-c76c-4b06-96ec-02ad61136350-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "Task S04-T02 requires one verified Slack team/app/bot binding to one agency; docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1423-1455 and manifest fileLocks scope the connection/directory tables and slack-directory tests.",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts validates the connectionKey/expectedGeneration, loads providerConnections by connectionKey, persists organizationKey on sourceChannels/channelSyncStates, and rejects duplicate active team/app/bot bindings via hasDuplicateActiveBinding before activation.",
+        "packages/convex/test/slack-directory.test.ts covers duplicate active Slack team/app/bot binding across agencies and tenant/generation-scoped persistence."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "S04-T02 implements internal Slack directory reconciliation only; the public/admin authorization boundary remains in S04-T01 slackConnections, and this task consumes existing providerConnections rows rather than exposing a new public surface.",
+        "packages/convex/confect/integrations/slackDirectory.spec.ts declares internalAction/internalQuery/internalMutation functions only for reconcile/read/commit helpers.",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts requires an existing active/verifying/reauthorizing connection with matching expectedGeneration before provider calls or tenant writes."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "docs/product/maestro-brain-lifecycle-adoption/S04-T02.md documents additive durable resources, rollback behavior, connection error/revocation, and inactive diagnostics without raw credentials.",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts implements verifying/active/reauthorizing/revoked transitions, initial reconciliation failure to error, replacement revocation, access_lost channel state, and lane pause/audit behavior.",
+        "packages/convex/test/slack-directory.test.ts covers reauthorization, replacement revocation, access_lost, partial-page cursor preservation, and all-lane pause/audit cases."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/sourceChannels.ts stores channel IDs, names, Slack Connect flags, membership state, and timestamps, not message text, tokens, or provider payloads.",
+        "packages/convex/confect/tables/channelSyncStates.ts stores cursors, leases, status, and replacement audit metadata only.",
+        "docs/product/maestro-brain-lifecycle-adoption/S04-T02.md explicitly states no provider tokens or raw Slack credentials are stored in these rows."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/integrations/slackDirectory.impl.ts re-reads and validates the connection inside commitReconcileIdentity/commitReconcileChannels mutations after provider auth/list calls, so stale concurrent provider observations cannot commit without passing current generation and identity checks.",
+        "activeSlackConnectionsForDuplicateCheck runs inside the mutation before activation; duplicate active team/app/bot races return bot_identity_mismatch or fail without creating a second active binding.",
+        "packages/convex/test/slack-directory.test.ts includes duplicate race audit, revalidates generation inside replacement commit, and stale generation tests."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "reconcileSlackChannelDirectoryPlan derives stable channelKey from connectionKey plus external channel ID, updates renames in place, and uses cursor/limit pagination without auto-join side effects.",
+        "commitReconcileChannels upserts existing sourceChannels/channelSyncStates by stable keys and preserves firstDiscoveredAt/cursors across replay and same-connection reauthorization.",
+        "packages/convex/test/slack-directory.test.ts covers rename key preservation, reauthorization cursor preservation, no auto-join provider calls, and stale generation rejection."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/integrations/slackDirectory.spec.ts includes expectedGeneration on reconcile/read/commit calls and typed ConnectionGenerationMismatch errors.",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts validates expectedGeneration before provider calls and again before commit; replacement mismatch revokes the current generation, marks sourceChannels access_lost, and pauses channelSyncStates with replacementAudit.",
+        "Pre-review proof packet records failed-first repairs for stale generation, partial-page reauthorization promotion, all-lane stale cursor promotion, and reauthorizing mismatch revocation; final focused gates passed for slack-directory and provider boundary."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/integrations/slackDirectory.impl.ts accepts a SlackDirectoryProviderService abstraction and default unavailable provider; no live SDK or secret import appears in the Convex directory logic.",
+        "The provider calls are limited to authTest and listChannels, and reconcileSlackChannelDirectoryPlan records providerCalls without conversations.join; tests assert no auto-join invocation.",
+        "Pre-review lane proof reports check:provider-boundary passed after S04-T02-RW-005 repair."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
