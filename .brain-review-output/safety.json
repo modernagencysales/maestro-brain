@@ -1,0 +1,86 @@
+{
+  "lens": "safety",
+  "taskId": "S05-T01",
+  "planSha256": "ce2b760a9efd332ff6f3201b8faf312601e4fd3d4fcb7dcb4253afe7cae25317",
+  "taskBlockHash": "d5212dbc84a10771993658fc840e29bc81671c08e7962dbf96fd34de2dda9ce5",
+  "baseSha": "5f682348711572faa32ac79066f8e470a1f2743f",
+  "headSha": "1e205d6d64d259cfb7492dd51064900a5b2ac2a9",
+  "treeSha": "f72ff91ad439694b8614e638e0c00d620a9baf49",
+  "reviewerRunId": "maestro/review/S05-T01/1e205d6d64d259cfb7492dd51064900a5b2ac2a9/66b6dbc5-0919-41cc-9380-c8895d722d47-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:217-235 binds verified Slack channel evidence to organizationKey, connectionKey, connectionGeneration, team/app/bot, channelKey, and externalChannelId before row construction.",
+        "packages/convex/confect/sources/sourceSchemas.ts:267-300 derives source, observation, and revision keys from organization/connection generation/channel/object identity, preventing cross-tenant convergence.",
+        "packages/convex/test/source-ledger-schema.test.ts:231 proves tenant-scoped source identity and receipt dedupe across connection generations; lines 566-584 prove mismatched tenant/channel verification is rejected."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:157-178 requires structured verified Slack binding evidence with signature and replay verification receipts.",
+        "packages/convex/confect/sources/sourceSchemas.ts:338-345 rejects missing or mismatched verified binding evidence before accepting capture rows.",
+        "packages/convex/test/source-ledger-schema.test.ts:396 proves upstream Slack verification evidence is required and provider event receipts preserve verification hashes."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:34-39 defines explicit lifecycle states active, deleted_tombstone, redacted, and purged with generation, updatedAt, and purgeAfter fields.",
+        "packages/convex/confect/sources/sourceSchemas.ts:405-409 and 475-482 convert tombstone observations to tombstone outcomes and deleted_tombstone lifecycle rows instead of deleting evidence.",
+        "packages/convex/test/source-ledger-schema.test.ts:419 proves readable current selection never falls back past tombstones."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:121 caps normalizedText at 32,000 characters and line 201 caps capture text at 32,000 characters.",
+        "packages/convex/confect/sources/sourceSchemas.ts:261-265 and 607-667 sanitize no-source invalid payload receipts to stable invalid_payload sentinels rather than persisting malformed raw fields.",
+        "packages/convex/test/source-ledger-schema.test.ts:585 proves sanitized invalid-payload no-source receipts do not contain raw customer text or unsafe raw path fragments."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:355-369 rejects stale or equal provider primary ordering unless it is the known duplicate observation path.",
+        "packages/convex/confect/sources/sourceSchemas.ts:130-155 defines sourceProcessingJobs with effectKey, leaseOwner, leaseExpiresAt, nextRetryAt, and attemptCount fields for safe future worker concurrency.",
+        "packages/convex/test/source-ledger-schema.test.ts:501 proves equal primary-order tie handling preserves artifact creation time and prevents stale overwrite."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:371-404 derives a tenant/connection-generation/transport/delivery replay key and rejects same-delivery divergent payload fingerprints.",
+        "packages/convex/confect/tables/providerEventReceipts.ts:5-15 indexes provider event receipts by organization, connection generation, transport, delivery, observation, received time, and outcome.",
+        "packages/convex/test/source-ledger-schema.test.ts:182 proves live and backfill receipts converge on one logical observation; lines 201-229 prove same-transport replays dedupe while divergent same-delivery payloads fail."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:49, 94, 111, and 184 include connectionGeneration on receipt, artifact, revision, and capture schemas.",
+        "packages/convex/confect/sources/sourceSchemas.ts:475-500 increments lifecycle generation from existingArtifact and preserves original artifact createdAt.",
+        "packages/convex/test/source-ledger-schema.test.ts:231 and 501 cover connection-generation fencing plus lifecycle-generation/current-row stale write behavior."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md S05-T01 implementation text states this is schema/registry-only and must not perform secret lookup, query webhook bindings, admit replay, mutate capture rows, or expose BoundVerifiedSlackEnvelope construction.",
+        "packages/convex/confect/sources/sourceSchemas.ts imports only Effect Schema and a shared sha256 helper, with no provider SDK, secret, webhook, or network adapter imports.",
+        "ci-proof-packet.json changedFiles are confined to schema/table/migration/test/docs paths, and focused gate output reports S05-T01 lane gates passed pre-review."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
