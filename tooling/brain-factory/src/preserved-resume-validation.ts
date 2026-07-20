@@ -27,6 +27,7 @@ interface WorktreeRegistration {
 }
 
 interface AuthorityResumeRecord {
+  readonly authorityArchivePath?: unknown;
   readonly baseSha?: unknown;
   readonly branch?: unknown;
   readonly factoryBaseSha?: unknown;
@@ -260,8 +261,6 @@ export const validateTerminalAuthorityResumeOwner = (input: {
     ["task ID", input.record.taskId, input.taskId],
     ["mode", input.record.mode, "authority-refresh"],
     ["resume strategy", input.record.resumeStrategy, "in-lane-cherry-pick"],
-    ["source HEAD", input.record.sourceHeadSha, input.sourceHeadSha],
-    ["task base", input.record.taskBaseSha, input.taskBaseSha],
     ["launch base", input.record.baseSha, input.taskBaseSha],
     ["factory base", input.record.factoryBaseSha, input.taskBaseSha],
     ["reservation status", input.record.status, "launched"],
@@ -279,6 +278,61 @@ export const validateTerminalAuthorityResumeOwner = (input: {
   }
   if (typeof input.record.workdir !== "string" || !input.record.workdir) {
     throw new Error(`${input.taskId}: authority owner workdir is missing`);
+  }
+  if (
+    typeof input.record.sourceHeadSha !== "string" ||
+    typeof input.record.taskBaseSha !== "string"
+  ) {
+    throw new Error(`${input.taskId}: authority owner source is missing`);
+  }
+  validateSha(input.record.sourceHeadSha, "authority owner source HEAD");
+  validateSha(input.record.taskBaseSha, "authority owner task base");
+  if (
+    typeof input.record.authorityArchivePath !== "string" ||
+    !existsSync(input.record.authorityArchivePath)
+  ) {
+    throw new Error(`${input.taskId}: authority owner archive is missing`);
+  }
+  const archiveRoot = realpathSync(
+    resolve(input.evidence, "authority-refreshes", input.taskId),
+  );
+  const archiveDirectory = realpathSync(input.record.authorityArchivePath);
+  if (!archiveDirectory.startsWith(`${archiveRoot}/`)) {
+    throw new Error(`${input.taskId}: authority owner archive path mismatch`);
+  }
+  const archiveManifestPath = resolve(archiveDirectory, "manifest.json");
+  if (!existsSync(archiveManifestPath)) {
+    throw new Error(
+      `${input.taskId}: authority owner archive manifest is missing`,
+    );
+  }
+  const archiveManifest = JSON.parse(
+    readFileSync(archiveManifestPath, "utf8"),
+  ) as {
+    readonly currentAuthority?: { readonly controlHeadSha?: unknown };
+    readonly schemaVersion?: unknown;
+    readonly source?: {
+      readonly baseSha?: unknown;
+      readonly commits?: unknown;
+      readonly headSha?: unknown;
+    };
+    readonly taskId?: unknown;
+  };
+  if (
+    archiveManifest.schemaVersion !==
+      "maestro-brain-authority-refresh-archive/v1" ||
+    archiveManifest.taskId !== input.taskId ||
+    archiveManifest.currentAuthority?.controlHeadSha !== input.taskBaseSha ||
+    archiveManifest.source?.baseSha !== input.record.taskBaseSha ||
+    archiveManifest.source.headSha !== input.record.sourceHeadSha ||
+    !Array.isArray(archiveManifest.source.commits) ||
+    !archiveManifest.source.commits.every(
+      (commit) => typeof commit === "string",
+    )
+  ) {
+    throw new Error(
+      `${input.taskId}: authority owner archive provenance mismatch`,
+    );
   }
   const validated = validatePreservedResumeLaunch({
     baseSha: input.taskBaseSha,
@@ -319,6 +373,37 @@ export const validateTerminalAuthorityResumeOwner = (input: {
       cwd: validated.workdir,
       quiet: true,
     });
+  if (
+    !gitIsAncestor(
+      input.record.taskBaseSha,
+      input.record.sourceHeadSha,
+      validated.workdir,
+    ) ||
+    !gitIsAncestor(
+      input.record.taskBaseSha,
+      input.sourceHeadSha,
+      validated.workdir,
+    )
+  ) {
+    throw new Error(
+      `${input.taskId}: authority owner archived provenance is not ancestral`,
+    );
+  }
+  const archivedCommits = git([
+    "rev-list",
+    "--reverse",
+    `${input.record.taskBaseSha}..${input.record.sourceHeadSha}`,
+  ])
+    .split("\n")
+    .filter(Boolean);
+  if (
+    JSON.stringify(archiveManifest.source.commits) !==
+    JSON.stringify(archivedCommits)
+  ) {
+    throw new Error(
+      `${input.taskId}: authority owner archived commit sequence mismatch`,
+    );
+  }
   if (
     lane.taskId !== input.taskId ||
     lane.headSha !== input.sourceHeadSha ||

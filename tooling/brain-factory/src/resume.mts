@@ -31,6 +31,7 @@ import {
 import { validateTerminalAuthorityResumeOwner } from "./preserved-resume-validation.js";
 
 interface ResumeRecord {
+  readonly authorityArchivePath?: string;
   readonly baseSha?: string;
   readonly branch: string;
   readonly factoryBaseSha?: string;

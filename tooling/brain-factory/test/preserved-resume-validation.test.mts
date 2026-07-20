@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import {
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   realpathSync,
   rmSync,
   writeFileSync,
@@ -87,53 +88,85 @@ describe("preserved resume launch validation", () => {
   it("adopts an exact clean terminal authority-refresh owner", () => {
     const value = fixture();
     const taskId = "S08-T03";
+    const currentBase = value.control;
+    writeFileSync(join(value.workdir, "current.txt"), "current lane\n");
+    git(value.workdir, "add", "current.txt");
+    git(value.workdir, "commit", "-m", "current lane");
+    const currentHead = git(value.workdir, "rev-parse", "HEAD");
     const proofDirectory = join(value.evidence, "lane-results", taskId);
     mkdirSync(proofDirectory, { recursive: true });
     writeFileSync(
       join(proofDirectory, "ci-proof-packet.json"),
       JSON.stringify({
-        baseSha: value.base,
-        headSha: value.control,
+        baseSha: currentBase,
+        headSha: currentHead,
         taskId,
       }),
     );
     writeFileSync(
       join(proofDirectory, "lane-result.json"),
       JSON.stringify({
-        headSha: value.control,
+        headSha: currentHead,
         taskId,
         treeSha: git(value.workdir, "rev-parse", "HEAD^{tree}"),
+      }),
+    );
+    const archiveDirectory = join(
+      value.evidence,
+      "authority-refreshes",
+      taskId,
+      "authority-owner",
+    );
+    mkdirSync(archiveDirectory, { recursive: true });
+    const archivedCommits = git(
+      value.workdir,
+      "rev-list",
+      "--reverse",
+      `${value.base}..${value.sourceHeadSha}`,
+    ).split("\n");
+    writeFileSync(
+      join(archiveDirectory, "manifest.json"),
+      JSON.stringify({
+        schemaVersion: "maestro-brain-authority-refresh-archive/v1",
+        taskId,
+        currentAuthority: { controlHeadSha: currentBase },
+        source: {
+          baseSha: value.base,
+          commits: archivedCommits,
+          headSha: value.sourceHeadSha,
+        },
       }),
     );
     const input = {
       controlCommonDir: value.commonDir,
       evidence: value.evidence,
       record: {
-        baseSha: value.base,
+        authorityArchivePath: archiveDirectory,
+        baseSha: currentBase,
         branch: value.branch,
-        factoryBaseSha: value.base,
+        factoryBaseSha: currentBase,
         mode: "authority-refresh",
         resumeStrategy: "in-lane-cherry-pick",
         runId: "authority-run",
-        sourceHeadSha: value.control,
+        sourceHeadSha: value.sourceHeadSha,
         status: "launched",
         taskBaseSha: value.base,
         taskId,
         workdir: realpathSync(value.workdir),
       },
-      resumeCommits: [value.control],
-      sourceHeadSha: value.control,
+      resumeCommits: [currentHead],
+      sourceHeadSha: currentHead,
       status: "succeeded",
-      taskBaseSha: value.base,
+      taskBaseSha: currentBase,
       taskId,
     } as const;
 
     expect(validateTerminalAuthorityResumeOwner(input)).toEqual({
       branch: value.branch,
-      factoryBaseSha: value.base,
-      proofHeadSha: value.control,
+      factoryBaseSha: currentBase,
+      proofHeadSha: currentHead,
       resumeStrategy: "in-lane-cherry-pick",
-      startSha: value.control,
+      startSha: currentHead,
       workdir: realpathSync(value.workdir),
     });
     expect(() =>
@@ -145,15 +178,39 @@ describe("preserved resume launch validation", () => {
     expect(() =>
       validateTerminalAuthorityResumeOwner({
         ...input,
-        sourceHeadSha: value.sourceHeadSha,
+        sourceHeadSha: value.control,
       }),
-    ).toThrow("authority owner source HEAD mismatch");
+    ).toThrow("preserved worktree HEAD mismatch");
     expect(() =>
       validateTerminalAuthorityResumeOwner({
         ...input,
-        taskBaseSha: value.control,
+        record: { ...input.record, sourceHeadSha: value.sourceCommit },
       }),
-    ).toThrow("authority owner task base mismatch");
+    ).toThrow("authority owner archive provenance mismatch");
+    const archiveManifestPath = join(archiveDirectory, "manifest.json");
+    const archiveManifestContent = readFileSync(archiveManifestPath, "utf8");
+    const nonancestralManifest = JSON.parse(archiveManifestContent);
+    nonancestralManifest.source.baseSha = value.sourceCommit;
+    nonancestralManifest.source.commits = git(
+      value.workdir,
+      "rev-list",
+      "--reverse",
+      `${value.sourceCommit}..${value.sourceHeadSha}`,
+    ).split("\n");
+    writeFileSync(archiveManifestPath, JSON.stringify(nonancestralManifest));
+    expect(() =>
+      validateTerminalAuthorityResumeOwner({
+        ...input,
+        record: { ...input.record, taskBaseSha: value.sourceCommit },
+      }),
+    ).toThrow("authority owner archived provenance is not ancestral");
+    writeFileSync(archiveManifestPath, archiveManifestContent);
+    expect(() =>
+      validateTerminalAuthorityResumeOwner({
+        ...input,
+        taskBaseSha: value.base,
+      }),
+    ).toThrow("authority owner launch base mismatch");
     expect(() =>
       validateTerminalAuthorityResumeOwner({
         ...input,
@@ -163,7 +220,7 @@ describe("preserved resume launch validation", () => {
     writeFileSync(
       join(proofDirectory, "lane-result.json"),
       JSON.stringify({
-        headSha: value.control,
+        headSha: currentHead,
         taskId,
         treeSha: value.base,
       }),
@@ -174,7 +231,7 @@ describe("preserved resume launch validation", () => {
     writeFileSync(
       join(proofDirectory, "lane-result.json"),
       JSON.stringify({
-        headSha: value.control,
+        headSha: currentHead,
         taskId,
         treeSha: git(value.workdir, "rev-parse", "HEAD^{tree}"),
       }),
