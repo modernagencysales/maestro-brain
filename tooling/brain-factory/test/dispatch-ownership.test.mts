@@ -325,7 +325,7 @@ describe("brain dispatch ownership", () => {
     ).toBe(true);
   });
 
-  it("releases terminal records only after authoritative inspection", () => {
+  it("keeps every existing record owning until explicit archive", () => {
     expect(
       runRecordOwnsTask({ inspect: () => "preparing", recordExists: true }),
     ).toBe(true);
@@ -335,7 +335,7 @@ describe("brain dispatch ownership", () => {
     for (const status of ["canceled", "cancelled", "failed", "succeeded"]) {
       expect(
         runRecordOwnsTask({ inspect: () => status, recordExists: true }),
-      ).toBe(false);
+      ).toBe(true);
     }
     expect(
       runRecordOwnsTask({ inspect: () => "failed", recordExists: false }),
@@ -623,6 +623,43 @@ describe("brain dispatch ownership", () => {
       }),
     ).toBe(archivedPath);
     expect(readFileSync(value.auditPath, "utf8")).toContain(actionId);
+  });
+
+  it("durably audits before terminal ownership can be released", () => {
+    const value = fixture();
+    const actionId = "f".repeat(64);
+    reserveTaskPreparing(value.recordPath, {
+      runId: "run-atomic",
+      status: "launched",
+      taskId: "S08-T02",
+    });
+    expect(() =>
+      archiveTerminalTaskRecord({
+        actionId,
+        afterAudit: () => {
+          throw new Error("simulated crash after audit");
+        },
+        auditPath: value.auditPath,
+        now: "2026-07-14T00:00:00.000Z",
+        recordPath: value.recordPath,
+        runId: "run-atomic",
+        status: "failed",
+        taskId: "S08-T02",
+      }),
+    ).toThrow("simulated crash after audit");
+    expect(readFileSync(value.recordPath, "utf8")).toContain("run-atomic");
+    expect(readFileSync(value.auditPath, "utf8")).toContain(actionId);
+    expect(
+      archiveTerminalTaskRecord({
+        actionId,
+        auditPath: value.auditPath,
+        now: "2026-07-14T00:01:00.000Z",
+        recordPath: value.recordPath,
+        runId: "run-atomic",
+        status: "failed",
+        taskId: "S08-T02",
+      }),
+    ).toBe(`${value.recordPath}.terminal-${actionId}`);
   });
 
   it("rejects conflicting deterministic archive or audit replay", () => {

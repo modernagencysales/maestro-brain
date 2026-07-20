@@ -208,10 +208,10 @@ export const planControllerTick = (
     .filter(({ stage }) => stage === "terminal")
     .sort((left, right) => left.taskId.localeCompare(right.taskId))
     .map((item) => taskAction("archive_terminal", item, snapshot, policy));
+  if (archives.length > 0) return archives;
   const withFrontier = (
     action?: ControllerAction,
-  ): readonly ControllerAction[] =>
-    action ? [...archives, action] : archives.length > 0 ? archives : [];
+  ): readonly ControllerAction[] => (action ? [action] : []);
 
   const recoverable = snapshot.tasks.find(
     ({ stage }) => stage === "recoverable",
@@ -386,9 +386,26 @@ export const commandForControllerAction = (
 ): readonly string[] | undefined => {
   const target = action.targetIds[0];
   switch (action.kind) {
-    case "archive_terminal":
     case "wait":
       return undefined;
+    case "archive_terminal": {
+      const runId = action.sourceRunIds[0];
+      if (!target || !runId)
+        throw new Error("archive_terminal coordinates missing");
+      return [
+        "pnpm",
+        "brain:factory:archive-terminal",
+        "--",
+        "--task",
+        target,
+        "--run",
+        runId,
+        "--action-id",
+        action.actionId,
+        "--state",
+        stateRoot,
+      ];
+    }
     case "recover_lane": {
       const base = action.sourceHeadShas[0];
       const head = action.sourceHeadShas.at(-1);

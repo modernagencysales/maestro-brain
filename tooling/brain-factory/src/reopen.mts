@@ -14,7 +14,12 @@ import {
 } from "./dispatch-ownership.js";
 import { completedTaskIdsForControlHead } from "./factory-state.js";
 import { buildManifest } from "./manifest.js";
-import { gitBranchExists, gitIsAncestor, runRtk } from "./process.js";
+import {
+  gitBranchExists,
+  gitCommonDir,
+  gitIsAncestor,
+  runRtk,
+} from "./process.js";
 
 const valueAfter = (flag: string): string | undefined => {
   const index = process.argv.indexOf(flag);
@@ -48,6 +53,7 @@ const inspectStatus = (runId: string): string => {
 };
 
 const root = process.cwd();
+const controlCommonDir = gitCommonDir(root);
 const state = resolve(valueAfter("--state") ?? ".fabro/state/maestro-brain");
 const evidence = resolve(state, "evidence");
 const laneDirectory = resolve(evidence, "lane-results", taskId);
@@ -273,10 +279,15 @@ hydrateWorktreeDependencies(root, workdir);
 const workflow = resolve(".fabro/workflows/brain-build-task/workflow.fabro");
 const launchEnv = buildTaskLaunchEnv({
   baseSha: controlHeadSha,
+  controlRoot: root,
+  controlCommonDir,
   evidence,
   hostTestMaxLoad1m: "20",
   reproofRequest: requestPath,
   resumeCommits: "none",
+  resumeBranch: "none",
+  resumeExpectedCommit: "none",
+  resumeProofHead: "none",
   resumeMode: "none",
   resumeSourceHead: "none",
   resumeTaskBase: "none",
@@ -313,7 +324,17 @@ const output = JSON.parse(
       "-I",
       `base_sha=${controlHeadSha}`,
       "-I",
+      `control_root=${root}`,
+      "-I",
+      `control_common_dir=${controlCommonDir}`,
+      "-I",
       `start_sha=${controlHeadSha}`,
+      "-I",
+      "resume_branch=none",
+      "-I",
+      "resume_expected_commit=none",
+      "-I",
+      "resume_proof_head=none",
       "-I",
       `reproof_request=${requestPath}`,
     ],

@@ -12,7 +12,12 @@ import {
   resolvePreservedFactoryBase,
 } from "./dispatch-ownership.js";
 import { buildManifest } from "./manifest.js";
-import { gitBranchExists, gitIsAncestor, runRtk } from "./process.js";
+import {
+  gitBranchExists,
+  gitCommonDir,
+  gitIsAncestor,
+  runRtk,
+} from "./process.js";
 import {
   serializeResumeCommits,
   validateResumeSource,
@@ -96,6 +101,7 @@ const releaseDispatcherLock = acquireDispatcherLock({
 });
 process.once("exit", releaseDispatcherLock);
 const factoryBase = runRtk(["git", "rev-parse", "HEAD"], { quiet: true });
+const controlCommonDir = gitCommonDir(root);
 const { sourceHeadSha, taskBaseSha, taskCommits } = validateResumeSource({
   runGit: (args) => runRtk(args, { quiet: true }),
   sourceRef,
@@ -120,6 +126,7 @@ let disposition:
 };
 let launchBaseSha = factoryBase;
 let preservedProofHeadSha: string | undefined;
+let preservedExpectedCommit = "none";
 if (existsSync(recordPath)) {
   const record = JSON.parse(readFileSync(recordPath, "utf8")) as ResumeRecord;
   if (!record.runId) {
@@ -165,6 +172,10 @@ if (existsSync(recordPath)) {
           "CHERRY_PICK_HEAD",
         ])
       : "";
+  const cherryPickHead =
+    cherryPickPath && existsSync(cherryPickPath)
+      ? readFileSync(cherryPickPath, "utf8").trim()
+      : undefined;
   if (worktreeExists && branchExists) {
     const proofPath = resolve(
       evidence,
@@ -207,22 +218,8 @@ if (existsSync(recordPath)) {
     expected: expectedResume,
     observation: {
       branchExists,
-      ...(cherryPickPath && existsSync(cherryPickPath)
-        ? { cherryPickHead: readFileSync(cherryPickPath, "utf8").trim() }
-        : {}),
-      controlCommonDir:
-        worktreeExists && branchExists
-          ? runRtk(
-              [
-                "proxy",
-                "git",
-                "rev-parse",
-                "--path-format=absolute",
-                "--git-common-dir",
-              ],
-              { cwd: root, quiet: true },
-            )
-          : "",
+      ...(cherryPickHead ? { cherryPickHead } : {}),
+      controlCommonDir: worktreeExists && branchExists ? controlCommonDir : "",
       headSha: worktreeExists && branchExists ? git(["rev-parse", "HEAD"]) : "",
       proofHeadIsAncestor:
         worktreeExists && branchExists && preservedProofHeadSha !== undefined
@@ -244,6 +241,14 @@ if (existsSync(recordPath)) {
     },
     record: normalizedRecord,
   });
+  if (disposition.kind === "reuse-conflict") {
+    if (!cherryPickHead || !taskCommits.includes(cherryPickHead)) {
+      throw new Error(
+        `${taskId}: preserved cherry-pick marker is outside pinned resume commits`,
+      );
+    }
+    preservedExpectedCommit = cherryPickHead;
+  }
   archiveTerminalTaskRecord({
     auditPath,
     now,
@@ -312,6 +317,8 @@ const resumeInputs =
     : [];
 const launchEnv = buildTaskLaunchEnv({
   baseSha: launchBaseSha,
+  controlRoot: root,
+  controlCommonDir,
   evidence,
   hostTestMaxLoad1m: "20",
   reproofRequest: "none",
@@ -319,6 +326,9 @@ const launchEnv = buildTaskLaunchEnv({
     resumeMode !== "none"
       ? serializeResumeCommits(taskId, taskCommits)
       : "none",
+  resumeBranch: resumeMode !== "none" ? branch : "none",
+  resumeExpectedCommit: preservedExpectedCommit,
+  resumeProofHead: preservedProofHeadSha ?? "none",
   resumeMode,
   resumeSourceHead: resumeMode !== "none" ? sourceHeadSha : "none",
   resumeTaskBase: resumeMode !== "none" ? taskBaseSha : "none",
@@ -354,7 +364,17 @@ const output = runRtk(
     "-I",
     `base_sha=${launchBaseSha}`,
     "-I",
+    `control_root=${root}`,
+    "-I",
+    `control_common_dir=${controlCommonDir}`,
+    "-I",
     `start_sha=${startSha}`,
+    "-I",
+    `resume_branch=${resumeMode !== "none" ? branch : "none"}`,
+    "-I",
+    `resume_expected_commit=${preservedExpectedCommit}`,
+    "-I",
+    `resume_proof_head=${preservedProofHeadSha ?? "none"}`,
     ...resumeInputs,
   ],
   {

@@ -398,7 +398,10 @@ describe("Fabro workflow prompt contracts", () => {
     );
     expect(buildTask).toContain("preserved-worktree");
     expect(buildTask).toContain("preserved-conflict-aware");
-    expect(buildTask).toContain("CHERRY_PICK_HEAD");
+    expect(buildTask).toContain("validate-preserved-resume.mts");
+    expect(buildTask).toContain(
+      '\\"$BRAIN_CONTROL_ROOT/tooling/brain-factory/src/validate-preserved-resume.mts\\"',
+    );
     expect(buildTask).toContain(
       'if [ \\"$BRAIN_RESUME_MODE\\" = preserved-worktree ]',
     );

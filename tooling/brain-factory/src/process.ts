@@ -94,6 +94,12 @@ export const gitBranchExists = (branch: string, cwd = process.cwd()): boolean =>
     quiet: true,
   }).length > 0;
 
+export const gitCommonDir = (cwd = process.cwd()): string =>
+  runRtk(
+    ["proxy", "git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+    { cwd, quiet: true },
+  );
+
 export const gitIsAncestor = (
   ancestor: string,
   descendant: string,

@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import {
-  appendFileSync,
   closeSync,
   existsSync,
+  fsyncSync,
   mkdirSync,
   openSync,
   readFileSync,
@@ -180,8 +180,21 @@ const errorCode = (error: unknown): string | undefined =>
     : undefined;
 
 const appendAudit = (path: string, value: JsonRecord): void => {
-  mkdirSync(dirname(path), { recursive: true });
-  appendFileSync(path, `${JSON.stringify(value)}\n`, "utf8");
+  const directory = dirname(path);
+  mkdirSync(directory, { recursive: true });
+  const descriptor = openSync(path, "a");
+  try {
+    writeFileSync(descriptor, `${JSON.stringify(value)}\n`, "utf8");
+    fsyncSync(descriptor);
+  } finally {
+    closeSync(descriptor);
+  }
+  const directoryDescriptor = openSync(directory, "r");
+  try {
+    fsyncSync(directoryDescriptor);
+  } finally {
+    closeSync(directoryDescriptor);
+  }
 };
 
 export const acquireDispatcherLock = (input: {
@@ -322,6 +335,7 @@ export const recoverTaskReservation = (input: {
 
 export const archiveTerminalTaskRecord = (input: {
   readonly actionId?: string;
+  readonly afterAudit?: () => void;
   readonly auditPath: string;
   readonly now: string;
   readonly recordPath: string;
@@ -354,13 +368,17 @@ export const archiveTerminalTaskRecord = (input: {
   if (existsSync(input.recordPath) && existsSync(archivedPath)) {
     throw new Error(`${input.taskId}: deterministic archive path conflicts`);
   }
-  if (existsSync(input.recordPath)) renameSync(input.recordPath, archivedPath);
-  if (!existsSync(archivedPath)) {
+  const materializedPath = existsSync(input.recordPath)
+    ? input.recordPath
+    : existsSync(archivedPath)
+      ? archivedPath
+      : undefined;
+  if (materializedPath === undefined) {
     throw new Error(`${input.taskId}: terminal task record is missing`);
   }
   const archived = jsonRecord(
-    JSON.parse(readFileSync(archivedPath, "utf8")),
-    `${input.taskId}: archived task record`,
+    JSON.parse(readFileSync(materializedPath, "utf8")),
+    `${input.taskId}: terminal task record`,
   );
   if (archived.taskId !== input.taskId || archived.runId !== input.runId) {
     throw new Error(`${input.taskId}: archive identity mismatch`);
@@ -393,10 +411,16 @@ export const archiveTerminalTaskRecord = (input: {
           throw new Error(`${input.taskId}: archive audit identity mismatch`);
         }
       }
+      if (!existsSync(archivedPath)) {
+        input.afterAudit?.();
+        renameSync(input.recordPath, archivedPath);
+      }
       return archivedPath;
     }
   }
   appendAudit(input.auditPath, auditEvent);
+  input.afterAudit?.();
+  if (!existsSync(archivedPath)) renameSync(input.recordPath, archivedPath);
   return archivedPath;
 };
 
@@ -554,13 +578,10 @@ export const runRecordOwnsTask = (input: {
   readonly recordExists: boolean;
 }): boolean => {
   if (!input.recordExists) return false;
-  let status: string | undefined;
   try {
-    status = input.inspect();
+    input.inspect();
   } catch {
     return true;
   }
-  return !new Set(["canceled", "cancelled", "failed", "succeeded"]).has(
-    status ?? "unknown",
-  );
+  return true;
 };

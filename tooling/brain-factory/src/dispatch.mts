@@ -16,7 +16,12 @@ import {
   type LaneCompletionResult,
 } from "./factory-state.js";
 import { loadManifestProjection } from "./manifest.js";
-import { gitBranchExists, gitIsAncestor, runRtk } from "./process.js";
+import {
+  gitBranchExists,
+  gitCommonDir,
+  gitIsAncestor,
+  runRtk,
+} from "./process.js";
 import { availableDispatchSlots, selectReadyTasks } from "./scheduler.js";
 
 interface RunRecord {
@@ -49,6 +54,7 @@ if ((recoverDispatchLock || recoverTaskId) && !recoveryReason?.trim()) {
 }
 
 const root = process.cwd();
+const controlCommonDir = gitCommonDir(root);
 const state = resolve(valueAfter("--state") ?? ".fabro/state/maestro-brain");
 const worktreeRoot = resolve(root, "..", ".maestro-brain-fabro-workdirs");
 const workflow = resolve(".fabro/workflows/brain-build-task/workflow.fabro");
@@ -65,6 +71,7 @@ const releaseDispatcherLock = acquireDispatcherLock({
   now,
   owner: {
     controlRoot: root,
+    controlCommonDir,
     pid: process.pid,
     startedAt: now,
   },
@@ -207,10 +214,15 @@ for (const task of selected) {
   hydrateWorktreeDependencies(root, workdir);
   const launchEnv = buildTaskLaunchEnv({
     baseSha,
+    controlRoot: root,
+    controlCommonDir,
     evidence,
     hostTestMaxLoad1m: "20",
     reproofRequest: "none",
     resumeCommits: "none",
+    resumeBranch: "none",
+    resumeExpectedCommit: "none",
+    resumeProofHead: "none",
     resumeMode: "none",
     resumeSourceHead: "none",
     resumeTaskBase: "none",
@@ -244,7 +256,17 @@ for (const task of selected) {
       "-I",
       `base_sha=${baseSha}`,
       "-I",
+      `control_root=${root}`,
+      "-I",
+      `control_common_dir=${controlCommonDir}`,
+      "-I",
       `start_sha=${baseSha}`,
+      "-I",
+      "resume_branch=none",
+      "-I",
+      "resume_expected_commit=none",
+      "-I",
+      "resume_proof_head=none",
     ],
     {
       quiet: true,

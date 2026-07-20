@@ -115,7 +115,7 @@ describe("controller pure planner", () => {
     );
   });
 
-  it("orders all terminal archives before one recoverable lane", () => {
+  it("archives terminal ownership in a dedicated tick before recovery", () => {
     const actions = planControllerTick(
       snapshot({
         tasks: [
@@ -134,12 +134,10 @@ describe("controller pure planner", () => {
     expect(actions.map(({ kind }) => kind)).toEqual([
       "archive_terminal",
       "archive_terminal",
-      "recover_lane",
     ]);
     expect(actions.map(({ targetIds }) => targetIds[0])).toEqual([
       "S01-T02",
       "S02-T02",
-      "S03-T02",
     ]);
     const changed = planControllerTick(
       snapshot({
@@ -154,7 +152,9 @@ describe("controller pure planner", () => {
       }),
       policy,
     );
-    expect(changed[0]?.actionId).not.toBe(actions[2]?.actionId);
+    expect(changed).toMatchObject([
+      { kind: "recover_lane", targetIds: ["S03-T02"] },
+    ]);
   });
 
   it("fails closed on false green, provider errors, and gate saturation", () => {
@@ -304,6 +304,12 @@ describe("controller audited executor", () => {
   it("maps every mutating action to argument-safe checked commands", () => {
     const stateRoot = "/tmp/state";
     const cases = [
+      planControllerTick(
+        snapshot({
+          tasks: [task("S02-T02", "terminal", { runId: "terminal-run" })],
+        }),
+        policy,
+      )[0],
       planControllerTick(snapshot({ tasks: frontier() }), policy)[0],
       planControllerTick(
         snapshot({ waves: [wave("wave-pass", "succeeded")] }),
@@ -344,6 +350,13 @@ describe("controller audited executor", () => {
       if (action.kind === "recover_lane") {
         expect(command?.[command.indexOf("--ref") + 1]).toBe("1".repeat(40));
         expect(command?.[command.indexOf("--base") + 1]).toBe("f".repeat(40));
+      }
+      if (action.kind === "archive_terminal") {
+        expect(command).toContain("brain:factory:archive-terminal");
+        expect(command?.[command.indexOf("--run") + 1]).toBe("terminal-run");
+        expect(command?.[command.indexOf("--action-id") + 1]).toBe(
+          action.actionId,
+        );
       }
       if (action.kind === "dispatch_tasks") {
         expect(command?.[command.indexOf("--max") + 1]).toBe("10");

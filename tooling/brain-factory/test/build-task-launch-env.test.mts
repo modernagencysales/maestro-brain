@@ -8,10 +8,15 @@ import { materializeBuildTaskRunConfig } from "../src/build-task-run-config.js";
 
 const valid = {
   baseSha: "a".repeat(40),
+  controlRoot: "/tmp/control root",
+  controlCommonDir: "/tmp/control common",
   evidence: "/tmp/evidence with spaces;$(false)",
   hostTestMaxLoad1m: "20",
   reproofRequest: "none",
   resumeCommits: "none",
+  resumeBranch: "none",
+  resumeExpectedCommit: "none",
+  resumeProofHead: "none",
   resumeMode: "none",
   resumeSourceHead: "none",
   resumeTaskBase: "none",
@@ -27,6 +32,8 @@ describe("build task launch environment", () => {
       BRAIN_WORKDIR: valid.workdir,
       BRAIN_EVIDENCE_DIR: valid.evidence,
       BRAIN_TASK_ID: valid.taskId,
+      BRAIN_CONTROL_ROOT: valid.controlRoot,
+      BRAIN_CONTROL_COMMON_DIR: valid.controlCommonDir,
     });
     expect(env.BRAIN_REVIEW_ATTEMPT).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
