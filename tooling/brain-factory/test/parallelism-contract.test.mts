@@ -53,10 +53,10 @@ describe("parallelism contract schema", () => {
       "maestro-brain-parallelism-contract/v1",
     );
     expect(contract.manifestPlanSha256).toBe(manifest.planSha256);
-    expect(contract.edges).toHaveLength(99);
+    expect(contract.edges).toHaveLength(98);
     expect(
       contract.edges.filter((edge) => edge.classification === "true"),
-    ).toHaveLength(51);
+    ).toHaveLength(50);
     expect(
       contract.edges.filter((edge) => edge.classification === "contract"),
     ).toHaveLength(48);
@@ -186,7 +186,6 @@ describe("parallelism contract schema", () => {
       "S08-T04",
       "S09-T02",
       "S10-T01",
-      "S11-T01",
     ]) {
       expect(edgeFor(contract, taskId, "S05-T01"), taskId).toEqual({
         consumerTaskId: taskId,
@@ -194,6 +193,7 @@ describe("parallelism contract schema", () => {
         classification: "true",
       });
     }
+    expect(edgeFor(contract, "S11-T01", "S05-T01")).toBeUndefined();
   });
 
   test("requires same-wave collisions to declare mandatory co-integration", () => {

@@ -56,12 +56,12 @@ describe("Maestro Brain execution manifest", () => {
     ).toEqual(generated.tasks);
     expect(
       projection.tasks.flatMap((task) => task.classifiedCodeStartAfter),
-    ).toHaveLength(99);
+    ).toHaveLength(98);
     expect(
       projection.tasks
         .flatMap((task) => task.classifiedCodeStartAfter)
         .filter((dependency) => dependency.classification === "true"),
-    ).toHaveLength(51);
+    ).toHaveLength(50);
     expect(
       projection.tasks
         .flatMap((task) => task.classifiedCodeStartAfter)
@@ -454,7 +454,6 @@ describe("Maestro Brain execution manifest", () => {
       "S08-T04",
       "S09-T02",
       "S10-T01",
-      "S11-T01",
     ]) {
       const consumer = projection.tasks.find((task) => task.taskId === taskId);
       expect(consumer?.codeStartAfter, taskId).toContain("S05-T01");
@@ -465,6 +464,36 @@ describe("Maestro Brain execution manifest", () => {
         taskId,
       ).toBe("true");
     }
+
+    const completedApiKeys = projection.tasks.find(
+      (task) => task.taskId === "S11-T01",
+    );
+    expect(completedApiKeys?.codeStartAfter).not.toContain("S05-T01");
+
+    const plan = readFileSync(resolve(REPO_ROOT, PLAN_RELATIVE), "utf8");
+    const packet = plan.slice(
+      plan.indexOf("### S05-T01"),
+      plan.indexOf("### S05-T02"),
+    );
+    for (const historicalProof of [
+      "44e9a84be7b079696ccad10841b22ff3f3b10071",
+      "d0b158fdc0587860b27c4d65be149b5f5133e2ad",
+      "67aafe40f75f63bc33639c9046c5aaaa2a62427b",
+      "3e8643669a449717921c611e8708932517e72442",
+      "a1591e4b94e3dafa190d5905e5774e9b8bab0e8a",
+      "500bbc1100084287e5a088f4ff8c774f63464ed1",
+      "e80347e265609ebf314983a20b5b58e25fe20ed4",
+      "632d90f4b70073ea6daeadd24a8579e8166be9f6a56668c40d04d9ae70d2d1ac",
+    ]) {
+      expect(packet).toContain(historicalProof);
+    }
+    const normalizedPacket = packet.replace(/\s+/g, " ");
+    expect(normalizedPacket).toContain(
+      "S04-T02 requires no fragment or implementation module",
+    );
+    expect(normalizedPacket).toContain(
+      "S11-T01 requires no fragment or implementation module",
+    );
 
     const maintenance = projection.tasks.find(
       (task) => task.taskId === "S08-T04",

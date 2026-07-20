@@ -1718,6 +1718,28 @@ manifest.
   or below 300 hand-authored source lines. The sequence is fragment/schema RED,
   generator and S00/S01 extraction, S02/S05 registration plus source ledger,
   then runtime compatibility and no-migration proof.
+- **Historical registry preservation audit:** at the controller base, canonical
+  `packages/convex/confect/internal/migrations.ts` has SHA-256
+  `632d90f4b70073ea6daeadd24a8579e8166be9f6a56668c40d04d9ae70d2d1ac` and exactly
+  four executable definitions: S00's `probeExpand` and `probeFail`, plus S01's
+  `stableTenantOrganizationKeysExpand` and `stableTenantWorkspaceKeysExpand`.
+  S04-T02 commits `44e9a84be7b079696ccad10841b22ff3f3b10071` and
+  `d0b158fdc0587860b27c4d65be149b5f5133e2ad` have a zero-path diff for the
+  canonical registry: they add the Slack directory tables and contracts only,
+  with no executable migration registration. Those tables are additive and had
+  no predecessor rows to backfill, so S04-T02 requires no fragment or
+  implementation module. Already-integrated S11-T01 commits
+  `67aafe40f75f63bc33639c9046c5aaaa2a62427b`,
+  `3e8643669a449717921c611e8708932517e72442`,
+  `a1591e4b94e3dafa190d5905e5774e9b8bab0e8a`,
+  `500bbc1100084287e5a088f4ff8c774f63464ed1`, and
+  `e80347e265609ebf314983a20b5b58e25fe20ed4` likewise have a zero-path
+  canonical-registry diff. They add `servicePrincipals` and API-key contracts/
+  indexes, but the repository contains no seeded/demo API-key rows and owns no
+  S11 executable registry entry. Exact preservation therefore means S11-T01
+  requires no fragment or implementation module; S05 must not invent the
+  packet's unrealized legacy-demo-key migration or impose a retroactive S11
+  dependency.
 - **Lane branch / commit boundary:** branch
   `codex/brain-s05-source-ledger-schema`; four coherent checkpoints ending at
   `feat: prove the migration registry`.
@@ -4661,10 +4683,12 @@ is never authority.
 
 S05-T01 is the single product producer for migration-fragment schema, task-owned
 fragment/implementation inputs, deterministic registry generation, and runtime
-extraction. S02-T03, S06-T01, S07-T01, S08-T03, S08-T04, S09-T02, S10-T01, and
-S11-T01 have true code-start edges from S05-T01. Historical S00, S01, S02-T01,
-and S04-T02 migration work is harvested by S05 rather than reversed, which would
-create a cycle. Integration alone owns the canonical
+extraction. S02-T03, S06-T01, S07-T01, S08-T03, S08-T04, S09-T02, and S10-T01
+have true code-start edges from S05-T01. Historical S00/S01 executable
+definitions and the planned S02 registrations are extracted by S05. S04-T02 and
+already-integrated S11-T01 are proven zero-registry-delta inputs under the S05
+packet audit, so neither receives an invented fragment and S11 receives no
+retroactive edge. Integration alone owns the canonical
 `packages/convex/confect/internal/migrations.ts` output.
 
 Shared locks include `@route-tree`, `@dependencies`, `@environment`, and every

@@ -1,6 +1,6 @@
 {
   "schemaVersion": "maestro-brain-parallelism-contract/v1",
-  "manifestPlanSha256": "1f242fed16a826c027154fdc60b5a3e0952a6a81eaf378d8c6e402ef02545f6a",
+  "manifestPlanSha256": "5e3506ec26c1776547b03641707371efaebb1c490ce3da6b6a1e2ed0df2a8417",
   "edges": [
     {
       "consumerTaskId": "S00-T03",
@@ -525,11 +525,6 @@
     {
       "consumerTaskId": "S10-T04",
       "producerTaskId": "S10-T03",
-      "classification": "true"
-    },
-    {
-      "consumerTaskId": "S11-T01",
-      "producerTaskId": "S05-T01",
       "classification": "true"
     },
     {

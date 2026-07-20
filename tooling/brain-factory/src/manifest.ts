@@ -131,7 +131,7 @@ const START_OVERRIDES: Readonly<Record<string, readonly string[]>> = {
   "S10-T02": ["S10-T01", "S09-T04"],
   "S10-T03": ["S10-T02"],
   "S10-T04": ["S10-T03", "S03-T01"],
-  "S11-T01": ["S05-T01"],
+  "S11-T01": [],
   "S11-T02": ["S11-T01", "S01-T02", "S01-T03", "S01-T04", "S02-T02"],
   "S11-T03": ["S11-T02", "S09-T04"],
   "S11-T04": ["S11-T03"],
