@@ -1,0 +1,75 @@
+{
+  "lens": "contract",
+  "taskId": "S11-T02",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "2b484dad01173ead7ca99d710455998926b3666713d025943ef5824aed334ff6",
+  "baseSha": "defde4d68fbcdd7d39566d82986ec562010c9638",
+  "headSha": "263f0e57e77b46d8834191d960c3865fa03ebc0e",
+  "treeSha": "91958f678267068f56b5ad041c76b8914ab173e3",
+  "reviewerRunId": "maestro/review/S11-T02/263f0e57e77b46d8834191d960c3865fa03ebc0e/865a7553-03ac-4fe3-bf3d-8efae5007bbd-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3054-3139",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1394-1437",
+        "packages/convex/test/http-request-security.test.ts:115-403",
+        "packages/convex/test/headless-executor.test.ts:50-185",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S11-T02/ci-proof-packet.json:30-100"
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.spec.ts:21-127",
+        "packages/convex/confect/httpRequest.ts:23-78",
+        "packages/convex/confect/manifest/executor.ts:35-83",
+        "packages/convex/test/headless-executor.test.ts:176-185"
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/auth.ts:41-80",
+        "packages/convex/confect/tables/apiKeys.ts:5-12",
+        "packages/convex/confect/tables/servicePrincipals.ts:5-11",
+        "packages/convex/confect/headless/apiKeys.impl.ts:970-1033"
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3056-3061",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3100-3129",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S11-T02/ci-proof-packet.json:30-100",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S11-T02/ci-proof-packet.json:111-116"
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1400-1427",
+        "git diff --name-status defde4d68fbcdd7d39566d82986ec562010c9638..HEAD -- docs packages/convex apps/web",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S11-T02/ci-proof-packet.json:8-29"
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3116-3119",
+        "packages/convex/confect/http.ts:439-457",
+        "packages/convex/confect/http.ts:490-495",
+        "packages/convex/test/http-request-security.test.ts:346-403",
+        "packages/convex/confect/manifest/executor.ts:100-115"
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
