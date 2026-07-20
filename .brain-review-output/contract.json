@@ -1,0 +1,68 @@
+{
+  "lens": "contract",
+  "taskId": "S04-T02",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "cdeca2a0ba4a7101fd27959788455ac53609485617a9cf8146c29c86891a7958",
+  "baseSha": "ce892af6c4ea5c8ff679c5bfce09a205967cdf11",
+  "headSha": "b31d1c8f7a7fcee7d36778cf33534240a17b6f52",
+  "treeSha": "38cf52846dac7e721a0ba40a4e7104367089bfbc",
+  "reviewerRunId": "maestro/review/S04-T02/b31d1c8f7a7fcee7d36778cf33534240a17b6f52/f8e224f7-c76c-4b06-96ec-02ad61136350-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1423-1486 defines S04-T02 outcome, classification, files, failure-first tests, implementation requirements, typed contract/errors, lifecycle state, focused verification, and source-slice contract.",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:564-580 binds S04-T02 to template-gap classification, convex/integrations gates, requirements SLK-01/SLK-02, sourceSliceLimit 5, and taskBlockHash cdeca2a0ba4a7101fd27959788455ac53609485617a9cf8146c29c86891a7958.",
+        "docs/product/maestro-brain-lifecycle-adoption/S04-T02.md:6-38 records the durable providerConnections/sourceChannels/channelSyncStates behavior, no-auto-join guarantee, bot-membership semantics, Slack Connect flag persistence, generation fence, and replacement audit lifecycle."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/integrations/slackDirectory.spec.ts:4-29 declares typed ConnectionNotFound, ConnectionGenerationMismatch, BotIdentityMismatch, ProviderRateLimited, and ProviderUnavailable expected errors.",
+        "packages/convex/confect/integrations/slackDirectory.spec.ts:88-98 declares internal reconcileChannels({ connectionKey, expectedGeneration, cursor, limit }) returning { upserted, accessGained, accessLost, nextCursor } with the declared error union.",
+        "packages/convex/confect/integrations/slackDirectory.spec.ts:124-156 registers the internal commitInitialReconcileFailure and commitReconcileChannels mutation boundaries behind the same typed directory error union."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/sourceChannels.ts:12-27 defines the durable channel row with organizationKey, connectionKey, connectionGeneration, stable channelKey, externalChannelId, names, membership flags, Slack Connect flags, membershipStatus, accessGeneration, and timestamps.",
+        "packages/convex/confect/tables/sourceChannels.ts:33-43 defines the approved sourceChannels indexes by connection/external channel, channel key, organization/membership state, and connection generation.",
+        "packages/convex/confect/tables/channelSyncStates.ts:32-44 defines per-channel lane cursor state with generation and replacementAudit; packages/convex/confect/tables/channelSyncStates.ts:50-59 defines the channel, live/recent/deep retry, and access-state indexes."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "Shared lane-gate report for S04-T02 records status passed, headSha b31d1c8f7a7fcee7d36778cf33534240a17b6f52, currentTreeSha 38cf52846dac7e721a0ba40a4e7104367089bfbc, taskBlockHash cdeca2a0ba4a7101fd27959788455ac53609485617a9cf8146c29c86891a7958, changedSourceLines 1360 under estimatedSourceLines 1500, and five source slices within the configured slice limit.",
+        "packages/convex/test/slack-directory.test.ts:193 proves the approved downstream Slack directory index inventory.",
+        "packages/convex/test/slack-directory.test.ts:2086 proves replacement revocation drains more than one query page after the prior fixed-cap review concern, while packages/convex/confect/integrations/slackDirectory.impl.ts:551-617 now uses collect() for revocation source channel and lane rows."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "rtk proxy git diff --name-only ce892af6c4ea5c8ff679c5bfce09a205967cdf11...HEAD lists only docs/product/maestro-brain-lifecycle-adoption/S04-T02.md, packages/convex/confect/integrations/slackDirectory.impl.ts, slackDirectory.spec.ts, slackDirectory.ts, packages/convex/confect/tables/channelSyncStates.ts, sourceChannels.ts, and packages/convex/test/slack-directory.test.ts.",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:564-572 includes each changed product, Confect, table, and test path in S04-T02 fileLocks; the only declared lock not changed is packages/convex/confect/internal/migrations.ts.",
+        "No generated Confect or Convex output appears in the changed-file set; packages/convex/confect/integrations/slackDirectory.ts is the hand-authored implementation export boundary for this task."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/test/slack-directory.test.ts:724-755 proves ProviderRateLimited remains a typed reconcileChannels failure.",
+        "packages/convex/test/slack-directory.test.ts:764-843 proves BotIdentityMismatch prevents channel listing and channel writes, and packages/convex/test/slack-directory.test.ts:1434-1507 proves duplicate active Slack team/app/bot binding beyond the first connection page fails as BotIdentityMismatch.",
+        "packages/convex/test/slack-directory.test.ts:2086-2237 proves replacement revocation marks all large sourceChannels access_lost and pauses all lane rows with typed replacementAudit, covering the prior lifecycle shutdown proof gap."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
