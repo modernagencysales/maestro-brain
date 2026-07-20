@@ -10,6 +10,7 @@ import {
   MANIFEST_RELATIVE,
   PLAN_RELATIVE,
   parseAuthorityRepairTransition,
+  parseOwnershipRehomeTransition,
   parseTaskPacketAuditRows,
   REPO_ROOT,
   readyWidth,
@@ -68,6 +69,40 @@ describe("Maestro Brain execution manifest", () => {
       2,
     )}\n  \`\`\``;
 
+  const ownershipRehomeBody = (
+    overrides: Record<string, unknown> = {},
+  ): string =>
+    `- **Ownership-rehome transition:**\n  \`\`\`json\n${JSON.stringify(
+      {
+        schemaVersion: "maestro-brain-ownership-rehome-transition/v1",
+        classification: "ownership-rehome",
+        fromPlanSha256: "a".repeat(64),
+        fromTaskBlockHash: "b".repeat(64),
+        sourceRunId: "01KY02VYKQ71T4SDE6ZPPBS205",
+        sourceBaseSha: "c".repeat(40),
+        sourceHeadSha: "d".repeat(40),
+        sourceTreeSha: "e".repeat(40),
+        requiredIntegratedTaskIds: ["S02-T02", "S02-T04"],
+        immutableFinding: {
+          kind: "git-blob",
+          ref: "refs/maestro-brain/evidence/s03-t03-ownership-rehome-20260720",
+          objectSha: "f".repeat(40),
+          contentSha256: "1".repeat(64),
+        },
+        supersededPaths: [
+          {
+            path: "docs/old-plan.md",
+            replacementPath:
+              "docs/product/maestro-brain-lifecycle-adoption/S03-T03.md",
+            disposition: "replaced-by-current-owned-artifact",
+          },
+        ],
+        ...overrides,
+      },
+      null,
+      2,
+    )}\n  \`\`\``;
+
   it("distinguishes path-rehome and contract-only authority repairs", () => {
     expect(
       parseAuthorityRepairTransition(transitionBody(), "S10-T01")?.mode,
@@ -92,6 +127,29 @@ describe("Maestro Brain execution manifest", () => {
         "S03-T03",
       ),
     ).toThrow("contract-only repair cannot supersede paths");
+  });
+
+  it("parses a distinct immutable ownership-rehome transition", () => {
+    expect(
+      parseOwnershipRehomeTransition(ownershipRehomeBody(), "S03-T03"),
+    ).toEqual(
+      expect.objectContaining({
+        classification: "ownership-rehome",
+        requiredIntegratedTaskIds: ["S02-T02", "S02-T04"],
+      }),
+    );
+    expect(() =>
+      parseOwnershipRehomeTransition(
+        ownershipRehomeBody({ classification: "authority-repair" }),
+        "S03-T03",
+      ),
+    ).toThrow("invalid ownership-rehome transition classification");
+    expect(() =>
+      parseOwnershipRehomeTransition(
+        ownershipRehomeBody({ immutableFinding: undefined }),
+        "S03-T03",
+      ),
+    ).toThrow("ownership-rehome transition");
   });
 
   it("projects every dependency classification and collision without changing task contracts", () => {
@@ -899,6 +957,7 @@ describe("Maestro Brain execution manifest", () => {
     expect(task?.sourceSliceLimit).toBe(7);
     expect(task?.fileLocks).toEqual(
       expect.arrayContaining([
+        "docs/product/maestro-brain-lifecycle-adoption/S03-T03.md",
         "packages/editor-react/src/BlockNoteSyncEditor.test.tsx",
         "packages/editor-react/src/BlockNoteSyncEditor.tsx",
         "packages/convex/confect/brain/pages.impl.ts",
@@ -908,6 +967,25 @@ describe("Maestro Brain execution manifest", () => {
         "packages/convex/test/brain-editor-revision-fence.test.ts",
       ]),
     );
+    expect(task?.ownershipRehomeTransition).toEqual(
+      expect.objectContaining({
+        classification: "ownership-rehome",
+        fromPlanSha256:
+          "06d2877a2679fbd6017e4b220d7ef624772e526b2d8465423d2a767304d7366f",
+        fromTaskBlockHash:
+          "aa1a34eba8e9f1b7be8ce4818650cc062d0b74238531d81c76f031efc240f1ab",
+        sourceRunId: "01KY02VYKQ71T4SDE6ZPPBS205",
+        sourceBaseSha: "bc7631796e42ee5d33a006df85730dc1293f505e",
+        sourceHeadSha: "c5af15a17df735df047407ab91f2948a5c2f8975",
+        sourceTreeSha: "d525ae25217a4f08dd980e03aaa5f010014c33af",
+        requiredIntegratedTaskIds: ["S02-T02", "S02-T04"],
+      }),
+    );
+    for (const { path, replacementPath } of task?.ownershipRehomeTransition
+      ?.supersededPaths ?? []) {
+      expect(task?.fileLocks).not.toContain(path);
+      expect(task?.fileLocks).toContain(replacementPath);
+    }
     const plan = readFileSync(resolve(REPO_ROOT, PLAN_RELATIVE), "utf8");
     const packet = plan.slice(
       plan.indexOf("### S03-T03"),

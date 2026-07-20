@@ -1218,6 +1218,43 @@ manifest.
 - **Dependencies:** S03-T02, S02-T04. The integrated editor-sync contract is the
   base for this recovery; this recovery slice owns the missing revision-fenced
   browser seam discovered during independent S03-T03 review.
+- **Ownership-rehome transition:**
+  ```json
+  {
+    "schemaVersion": "maestro-brain-ownership-rehome-transition/v1",
+    "classification": "ownership-rehome",
+    "fromPlanSha256": "06d2877a2679fbd6017e4b220d7ef624772e526b2d8465423d2a767304d7366f",
+    "fromTaskBlockHash": "aa1a34eba8e9f1b7be8ce4818650cc062d0b74238531d81c76f031efc240f1ab",
+    "sourceRunId": "01KY02VYKQ71T4SDE6ZPPBS205",
+    "sourceBaseSha": "bc7631796e42ee5d33a006df85730dc1293f505e",
+    "sourceHeadSha": "c5af15a17df735df047407ab91f2948a5c2f8975",
+    "sourceTreeSha": "d525ae25217a4f08dd980e03aaa5f010014c33af",
+    "requiredIntegratedTaskIds": ["S02-T02", "S02-T04"],
+    "immutableFinding": {
+      "kind": "git-blob",
+      "ref": "refs/maestro-brain/evidence/s03-t03-ownership-rehome-20260720",
+      "objectSha": "0f495e68b4a192aa98c903b5da52d451eba16cd4",
+      "contentSha256": "c85e131d8787fcf8a0fb1ad40a46fc1b175df491c0d1c63251cd5010c1e87ab2"
+    },
+    "supersededPaths": [
+      {
+        "path": "docs/superpowers/execution/maestro-brain/task-manifest.json",
+        "replacementPath": "docs/product/maestro-brain-lifecycle-adoption/S03-T03.md",
+        "disposition": "replaced-by-current-owned-artifact"
+      },
+      {
+        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+        "replacementPath": "docs/product/maestro-brain-lifecycle-adoption/S03-T03.md",
+        "disposition": "replaced-by-current-owned-artifact"
+      },
+      {
+        "path": "packages/convex/test/editor-sync.test.ts",
+        "replacementPath": "packages/convex/test/brain-editor-revision-fence.test.ts",
+        "disposition": "replaced-by-current-owned-artifact"
+      }
+    ]
+  }
+  ```
 - **Existing anchors:** production behavioral prior art is the
   [`workspace composition`](https://github.com/modernagencysales/maestro/blob/c8b644c154af91f7e6b67b31861fd6b7eaa211b1/apps/web/src/features/brain/brain-workspace-content.tsx#L108-L155)
   and
@@ -1247,7 +1284,8 @@ manifest.
   `packages/convex/confect/editor/documentTargets.ts`; and extend
   `packages/convex/test/brain-editor-revision-fence.test.ts`,
   `packages/convex/test/brain-pages.contract.test.ts`, and
-  `packages/convex/test/brain-pages-crud.test.ts`.
+  `packages/convex/test/brain-pages-crud.test.ts`; add the task-local lifecycle
+  record `docs/product/maestro-brain-lifecycle-adoption/S03-T03.md`.
 - **Failure-first tests:** loading/empty/not-found/typed/transport states;
   viewer read-only; editor save; tree create/rename/move/archive/favorite;
   mobile drawers; keyboard tree navigation; unsaved/conflict state; cross-Brain

@@ -58,6 +58,7 @@ export interface BrainTaskContract {
   readonly controlCommitChain?: readonly string[];
   readonly controlHeadSha?: string;
   readonly authorityRepairTransition?: AuthorityRepairTransition;
+  readonly ownershipRehomeTransition?: OwnershipRehomeTransition;
 }
 
 export interface AuthorityRepairTransition {
@@ -80,6 +81,25 @@ export interface AuthorityRepairTransition {
     readonly replacementPath: string;
     readonly disposition: "replaced-by-current-owned-artifact";
   }[];
+}
+
+export interface OwnershipRehomeTransition {
+  readonly schemaVersion: "maestro-brain-ownership-rehome-transition/v1";
+  readonly classification: "ownership-rehome";
+  readonly fromPlanSha256: string;
+  readonly fromTaskBlockHash: string;
+  readonly sourceRunId: string;
+  readonly sourceBaseSha: string;
+  readonly sourceHeadSha: string;
+  readonly sourceTreeSha: string;
+  readonly requiredIntegratedTaskIds: readonly string[];
+  readonly immutableFinding: {
+    readonly kind: "git-blob";
+    readonly ref: string;
+    readonly objectSha: string;
+    readonly contentSha256: string;
+  };
+  readonly supersededPaths: AuthorityRepairTransition["supersededPaths"];
 }
 
 export interface BrainTaskManifest {
@@ -552,6 +572,167 @@ export const parseAuthorityRepairTransition = (
   };
 };
 
+export const parseOwnershipRehomeTransition = (
+  body: string,
+  taskId: string,
+): OwnershipRehomeTransition | undefined => {
+  const marker =
+    /- \*\*Ownership-rehome transition:\*\*\s*```json\r?\n([\s\S]*?)\r?\n\s*```/g;
+  const matches = [...body.matchAll(marker)];
+  if (matches.length === 0) return undefined;
+  if (matches.length !== 1)
+    throw new Error(`${taskId}: duplicate ownership-rehome transition`);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(
+      required(matches[0]?.[1], `${taskId}: empty ownership-rehome transition`),
+    );
+  } catch (error) {
+    throw new Error(`${taskId}: invalid ownership-rehome transition JSON`, {
+      cause: error,
+    });
+  }
+  const value = recordValue(parsed, `${taskId}: ownership-rehome transition`);
+  exactKeys(
+    value,
+    [
+      "schemaVersion",
+      "classification",
+      "fromPlanSha256",
+      "fromTaskBlockHash",
+      "sourceRunId",
+      "sourceBaseSha",
+      "sourceHeadSha",
+      "sourceTreeSha",
+      "requiredIntegratedTaskIds",
+      "immutableFinding",
+      "supersededPaths",
+    ],
+    `${taskId}: ownership-rehome transition`,
+  );
+  if (value.schemaVersion !== "maestro-brain-ownership-rehome-transition/v1")
+    throw new Error(`${taskId}: invalid ownership-rehome transition schema`);
+  if (value.classification !== "ownership-rehome")
+    throw new Error(
+      `${taskId}: invalid ownership-rehome transition classification`,
+    );
+  const sha40 = /^[0-9a-f]{40}$/;
+  const sha64 = /^[0-9a-f]{64}$/;
+  const taskIds = value.requiredIntegratedTaskIds;
+  if (
+    !Array.isArray(taskIds) ||
+    taskIds.length === 0 ||
+    taskIds.some(
+      (id) => typeof id !== "string" || !/^S\d{2}-T\d{2}$/.test(id),
+    ) ||
+    new Set(taskIds).size !== taskIds.length
+  )
+    throw new Error(`${taskId}: invalid ownership-rehome prerequisites`);
+  const finding = recordValue(
+    value.immutableFinding,
+    `${taskId}: ownership-rehome immutable finding`,
+  );
+  exactKeys(
+    finding,
+    ["kind", "ref", "objectSha", "contentSha256"],
+    `${taskId}: ownership-rehome immutable finding`,
+  );
+  if (finding.kind !== "git-blob")
+    throw new Error(`${taskId}: ownership-rehome finding kind is invalid`);
+  if (
+    !Array.isArray(value.supersededPaths) ||
+    value.supersededPaths.length === 0
+  )
+    throw new Error(
+      `${taskId}: ownership-rehome superseded paths are required`,
+    );
+  const supersededPaths = value.supersededPaths.map((item, index) => {
+    const mapping = recordValue(item, `${taskId}: superseded path ${index}`);
+    exactKeys(
+      mapping,
+      ["path", "replacementPath", "disposition"],
+      `${taskId}: superseded path ${index}`,
+    );
+    const path = exactString(mapping.path, /\S/, `${taskId}: superseded path`);
+    const replacementPath = exactString(
+      mapping.replacementPath,
+      /\S/,
+      `${taskId}: replacement path`,
+    );
+    if (
+      mapping.disposition !== "replaced-by-current-owned-artifact" ||
+      fileLockIssue(path) ||
+      fileLockIssue(replacementPath) ||
+      path === replacementPath
+    )
+      throw new Error(`${taskId}: ownership-rehome path mapping is invalid`);
+    return {
+      path,
+      replacementPath,
+      disposition: "replaced-by-current-owned-artifact" as const,
+    };
+  });
+  if (
+    new Set(supersededPaths.map(({ path }) => path)).size !==
+    supersededPaths.length
+  )
+    throw new Error(`${taskId}: duplicate ownership-rehome superseded path`);
+  return {
+    schemaVersion: "maestro-brain-ownership-rehome-transition/v1",
+    classification: "ownership-rehome",
+    fromPlanSha256: exactString(
+      value.fromPlanSha256,
+      sha64,
+      `${taskId}: prior plan SHA`,
+    ),
+    fromTaskBlockHash: exactString(
+      value.fromTaskBlockHash,
+      sha64,
+      `${taskId}: prior task hash`,
+    ),
+    sourceRunId: exactString(
+      value.sourceRunId,
+      /^[0-9A-HJKMNP-TV-Z]{26}$/,
+      `${taskId}: source run ID`,
+    ),
+    sourceBaseSha: exactString(
+      value.sourceBaseSha,
+      sha40,
+      `${taskId}: source base SHA`,
+    ),
+    sourceHeadSha: exactString(
+      value.sourceHeadSha,
+      sha40,
+      `${taskId}: source head SHA`,
+    ),
+    sourceTreeSha: exactString(
+      value.sourceTreeSha,
+      sha40,
+      `${taskId}: source tree SHA`,
+    ),
+    requiredIntegratedTaskIds: taskIds as string[],
+    immutableFinding: {
+      kind: "git-blob",
+      ref: exactString(
+        finding.ref,
+        /^refs\/maestro-brain\/evidence\/[A-Za-z0-9._/-]+$/,
+        `${taskId}: immutable finding ref`,
+      ),
+      objectSha: exactString(
+        finding.objectSha,
+        sha40,
+        `${taskId}: immutable finding object`,
+      ),
+      contentSha256: exactString(
+        finding.contentSha256,
+        sha64,
+        `${taskId}: immutable finding content hash`,
+      ),
+    },
+    supersededPaths,
+  };
+};
+
 const acceptanceRows = (
   plan: string,
 ): Map<string, { dependency: string; estimatedSourceLines: number }> => {
@@ -748,6 +929,15 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
       body,
       taskId,
     );
+    const ownershipRehomeTransition = parseOwnershipRehomeTransition(
+      body,
+      taskId,
+    );
+    if (authorityRepairTransition && ownershipRehomeTransition) {
+      throw new Error(
+        `${taskId}: multiple authority transitions are forbidden`,
+      );
+    }
     return {
       acceptanceAfter: acceptanceContract.dependency,
       classification,
@@ -776,6 +966,9 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
       ...(authorityRepairTransition === undefined
         ? {}
         : { authorityRepairTransition }),
+      ...(ownershipRehomeTransition === undefined
+        ? {}
+        : { ownershipRehomeTransition }),
     } satisfies BrainTaskContract;
   });
   return {
@@ -990,6 +1183,29 @@ export const validateManifest = (manifest: BrainTaskManifest): string[] => {
             `${task.taskId}: replacement path is not currently owned`,
           );
         }
+      }
+    }
+    const rehome = task.ownershipRehomeTransition;
+    if (rehome) {
+      for (const prerequisite of rehome.requiredIntegratedTaskIds) {
+        if (
+          !ids.has(prerequisite) ||
+          !task.codeStartAfter.includes(prerequisite)
+        ) {
+          errors.push(
+            `${task.taskId}: ownership-rehome prerequisite ${prerequisite} is not a code-start dependency`,
+          );
+        }
+      }
+      for (const mapping of rehome.supersededPaths) {
+        if (task.fileLocks.includes(mapping.path))
+          errors.push(
+            `${task.taskId}: superseded path remains currently owned`,
+          );
+        if (!task.fileLocks.includes(mapping.replacementPath))
+          errors.push(
+            `${task.taskId}: replacement path is not currently owned`,
+          );
       }
     }
     for (const lock of task.fileLocks) {
