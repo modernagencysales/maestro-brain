@@ -1,0 +1,105 @@
+{
+  "lens": "contract",
+  "taskId": "S10-T01",
+  "planSha256": "5e3506ec26c1776547b03641707371efaebb1c490ce3da6b6a1e2ed0df2a8417",
+  "taskBlockHash": "31d477606c8d812c0f800d81d3401104da038d29fbb39dce06e1292cbd8d6e04",
+  "baseSha": "bc7631796e42ee5d33a006df85730dc1293f505e",
+  "headSha": "a70dabb41c71222c0e97ce7791c8dba1aae2ed88",
+  "treeSha": "645d0a1988250b3049d21678240db8fac94f74a3",
+  "reviewerRunId": "maestro/review/S10-T01/a70dabb41c71222c0e97ce7791c8dba1aae2ed88/3423fdf2-f4b2-4717-a6dc-503e09286656-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2873-2909 requires exact Slack/Maestro binding, failure-first proof for forged/replayed/expired/wrong-team/already-bound/revoked membership/stale-generation cases, and revocation on user request, organization-membership/user suspension, or connection replacement.",
+        "packages/convex/confect/slack/identityLinks.impl.ts:505-555 exposes revokeSlackIdentityLinksForLifecycle only as a standalone internal mutation; no task-owned lifecycle producer path invokes it when organization membership/user suspension or connection replacement occurs.",
+        "packages/convex/test/slack-identity-links.test.ts:187-230 covers several failures only through the pure helper, and packages/convex/test/slack-identity-links.test.ts:253-608 registered Confect coverage lacks registered forged-token, expired nonce, wrong-team confirmation, already-bound identity, and revoked WorkOS/organization-membership negative paths."
+      ],
+      "findingIds": [
+        "C-S10-T01-001",
+        "C-S10-T01-002"
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/slack/identityLinks.spec.ts:32-41 declares Unauthorized, Forbidden, LinkExpired, LinkReplay, SlackIdentityAlreadyBound, TeamMismatch, and BindingRevoked as the link error contract.",
+        "packages/convex/confect/slack/identityLinks.spec.ts:43-118 registers public create/revoke and internal consume/lifecycle revoke APIs with the declared error union.",
+        "packages/convex/test/slack-identity-links.test.ts:187-230 proves LinkExpired, LinkReplay, TeamMismatch, and SlackIdentityAlreadyBound only at pure-helper level, while packages/convex/test/slack-identity-links.test.ts:253-608 does not exercise the registered API for all declared expected failure paths."
+      ],
+      "findingIds": [
+        "C-S10-T01-002"
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/slackIdentityBindings.ts:13-33 defines durable binding rows with organizationKey, connectionKey, connectionGeneration, teamId, slackUserId, userId, workosSubject, lifecycle status, nonceHash, verification, and revocation fields.",
+        "packages/convex/confect/tables/slackIdentityBindings.ts:37-57 defines exact binding, organization-user-status, organization-brain-user-status, exact Slack identity, connection-generation-status, and nonce indexes without email or display-name authority.",
+        "packages/convex/test/slack-identity-links.test.ts:116-155 asserts the index inventory and that the table definition does not contain email or displayName."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1291-1320 classifies S10-T01 as template-gap with sourceSliceBudget 300, sourceSliceLimit is reported by the lane gate as 4, and the task owns the changed Slack identity files.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2871-2922 identifies the template-gap backlog target TB-NANGO-SLACK-01, existing WorkOS/Nango anchors, file list, typed failures, focused gates, and completion receipt.",
+        "lane-gate-report.json:30-52 records changedSourceLines 904 and estimateDrift true, but also records sourceSliceBudget 300 with four source slices of 175, 279, 228, and 222 lines, each within the per-commit budget; estimatedSourceLines 260 and estimateDrift are planning signals rather than a hard total cap."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "ci-proof-packet.json:8-22 lists exactly the S10-T01 changed files, matching the manifest fileLocks at docs/superpowers/execution/maestro-brain/task-manifest.json:1297-1310.",
+        "git diff --name-status bc7631796e42ee5d33a006df85730dc1293f505e..a70dabb41c71222c0e97ce7791c8dba1aae2ed88 shows only apps/web settings Slack link files, docs/product/maestro-brain-lifecycle-adoption/S10-T01.md, packages/convex/confect/internal/migrations.ts, packages/convex/confect/slack/*, the slackIdentityBindings table, and packages/convex/test/slack-identity-links.test.ts.",
+        "ci-proof-packet.json:45-47 and lane-gate-report.json:9 prove transient Confect codegen passed; the diff does not edit generated Confect or Convex paths, so generated output absence from checked-in tree is the expected lane state under Appendices O/P."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2894-2909 declares forged/replayed/expired token, wrong team/user, display-name/email match, already-bound identity, revoked WorkOS user/membership, stale connection generation, token logging, and auth errors as required failure paths.",
+        "packages/convex/test/slack-identity-links.test.ts:187-230 covers expired, replayed, wrong-team, and already-bound failures only through consumeSlackIdentityLinkPlan rather than the registered consumeSlackIdentityLink mutation.",
+        "packages/convex/test/slack-identity-links.test.ts:253-608 registered mutation coverage includes happy path, replay, workspace membership removal denial, stale connection denial, user revoke, and direct lifecycle revoke, but omits registered forged-token, registered expired nonce, registered wrong-team, registered already-bound, and revoked WorkOS/organization-membership paths."
+      ],
+      "findingIds": [
+        "C-S10-T01-002"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "C-S10-T01-001",
+      "severity": "high",
+      "summary": "Lifecycle revocation is not wired to the lifecycle producers required by the task contract.",
+      "details": "S10-T01 requires organization-scoped Slack identity bindings to revoke on user request, organization-membership/user suspension, or connection replacement. The task adds a direct internal revokeSlackIdentityLinksForLifecycle mutation and tests calling that mutation manually, and consume revokes stale generation rows when it observes a replaced connection. However, no task-owned lifecycle producer path invokes the revoke mutation when organization membership or user suspension occurs, and connection replacement is only handled opportunistically during consume rather than from the connection lifecycle event. Active bindings can therefore remain active after required lifecycle producers fire unless a later Slack consume path happens to encounter them.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2901-2905",
+        "packages/convex/confect/slack/identityLinks.impl.ts:284-314",
+        "packages/convex/confect/slack/identityLinks.impl.ts:428-443",
+        "packages/convex/confect/slack/identityLinks.impl.ts:505-555",
+        "packages/convex/test/slack-identity-links.test.ts:564-570"
+      ]
+    },
+    {
+      "id": "C-S10-T01-002",
+      "severity": "high",
+      "summary": "Registered Slack identity APIs do not prove every declared typed failure path.",
+      "details": "The spec declares the typed failures and the task packet requires failure-first proof through the Slack identity contract boundary. Current tests prove several negative cases only through the pure consumeSlackIdentityLinkPlan helper, while the registered Confect mutations are the public/internal API that Slack intake and settings surfaces will call. Registered coverage still needs forged-token, expired nonce, wrong-team confirmation, already-bound identity, and revoked WorkOS user/organization-membership paths so the typed API cannot diverge from the helper and falsely pass the contract.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2894-2909",
+        "packages/convex/confect/slack/identityLinks.spec.ts:32-41",
+        "packages/convex/confect/slack/identityLinks.spec.ts:43-118",
+        "packages/convex/test/slack-identity-links.test.ts:187-230",
+        "packages/convex/test/slack-identity-links.test.ts:253-608"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
