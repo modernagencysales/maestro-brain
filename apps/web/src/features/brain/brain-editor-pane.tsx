@@ -38,6 +38,7 @@ export type BrainEditorSnapshot = {
 export function BrainEditorPane({
   canEdit,
   conflict,
+  editorRevisionFence,
   page,
   onSaveMarkdown,
   onSaveSnapshot,
@@ -46,6 +47,7 @@ export function BrainEditorPane({
 }: {
   readonly canEdit: boolean;
   readonly conflict?: "stale_revision" | undefined;
+  readonly editorRevisionFence?: string | null | undefined;
   readonly page: BrainSelectedPage | null;
   readonly onSaveMarkdown: (markdown: string) => void;
   readonly onSaveSnapshot?: (snapshot: BrainEditorSnapshot) => void;
@@ -98,7 +100,9 @@ export function BrainEditorPane({
               api={syncApi}
               documentId={readEditorDocumentId(page) ?? ""}
               editable={canEdit}
-              expectedCurrentRevisionKey={page.editorTarget.revisionKey}
+              expectedCurrentRevisionKey={
+                editorRevisionFence ?? page.editorTarget.revisionKey
+              }
               initialSnapshotVersion={page.editorTarget.snapshotVersion}
               onDocumentChange={(
                 snapshot,
