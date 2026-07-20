@@ -1,0 +1,68 @@
+{
+  "lens": "contract",
+  "taskId": "S05-T01",
+  "planSha256": "b25dfe4b3139d61e98976f450d6dfbdb30629201ab2015f7846a04ca02435a57",
+  "taskBlockHash": "8c814c81e34129532e8467e567d99d48dfb60017ceda5ab0934454da2d348044",
+  "baseSha": "73609583b9ca2704ad28f3844239f00764ac7230",
+  "headSha": "1dca70d0cf6e3fbaa1e364168a900bf605431c9c",
+  "treeSha": "b646f6bcc74869e04babd88633c04ee238e5f0fa",
+  "reviewerRunId": "maestro/review/S05-T01/1dca70d0cf6e3fbaa1e364168a900bf605431c9c/0666e5ab-fb04-469b-b700-33432df66de6-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json lines 660-695: S05-T01 is ready, template-gap, gateProfiles convex/integrations, requirements IAM-03/KNW-02/SLK-04/SLK-05, taskBlockHash 8c814c..., and owns the changed source-ledger/migration-fragment files.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md lines 1628-1716: acceptance requires source ledger tables, strict migration fragments/generator, typed capture contract errors, no canonical registry edit, focused verification, and completion receipt.",
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md lines 57-63 and ci-proof-packet.json lines 31-37 record the same exact focused proof commands for head 1dca70d0cf6e3fbaa1e364168a900bf605431c9c."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts lines 125-157 defines SourceLedgerCaptureInput with envelope, observation, and routing shape for the internal capture contract.",
+        "packages/convex/confect/sources/sourceSchemas.ts lines 159-173 declares TenantMismatch, ChannelAccessLost, ObservationInvalid, PayloadTooLarge, and DuplicateKeyConflict typed failure classes.",
+        "packages/convex/confect/sources/sourceSchemas.ts lines 215-298 validates the capture input and returns outcome inserted|duplicate plus sourceKey, sourceRevisionKey, assemblyJobKey, sourceUnitKey, observationKey, and contentHash; packages/convex/test/source-ledger-schema.test.ts lines 146-153 proves the no-Convex-ID stable-key result shape."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/providerEventReceipts.ts lines 5-18, sourceArtifacts.ts lines 5-20, sourceRevisions.ts lines 5-13, and sourceProcessingJobs.ts lines 5-10 declare the S05 durable table/index inventory.",
+        "packages/convex/confect/sources/sourceSchemas.ts lines 26-109 define schemaVersion 1 receipt, artifact, immutable revision, and processing job rows with tenant keys, lifecycle envelope, provider ordering, canonical content hash, tombstone, and assembly_pending job state.",
+        "packages/convex/test/source-ledger-schema.test.ts lines 93-144 checks the transient Confect/Convex table/index inventory, and lines 259-336 validate exact receipt/artifact/revision/job row schemas."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md lines 1633-1634 classifies S05-T01 as template-gap for TB-SOURCE-01; the diff implements the product source-ledger/migration pattern without promoting it as a generic template.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md lines 1669-1693 require failure-first fragment strictness, source ledger rejection paths, deterministic generator, and MigrationNotFound preservation; migration-registry.test.ts lines 86-165 and source-ledger-schema.test.ts lines 339-506 cover those contract failures.",
+        "lane-gate-report.json lines 24-53 proves the exact head/taskBlockHash passed the pre-review convex/integrations gate set with four source slices within the 300-line slice budget."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "git diff --name-status 73609583...HEAD shows changes limited to S05-T01 task-manifest fileLocks except migrations.spec.ts and migrations.test.ts, which the task packet allowed to modify but this final diff leaves unchanged.",
+        "packages/convex/scripts/generate-migration-registry.mts lines 41-45 targets migrations.generated.ts, and git diff shows no change to packages/convex/confect/internal/migrations.ts or migrations.generated.ts; this matches plan lines 1666-1668 and 1702-1704 that the product lane must not commit the integration-owned canonical registry.",
+        "ci-proof-packet.json lines 8-30 lists changed files matching the task-owned source-ledger/migration-fragment inventory, and lines 64-67 prove transient Confect codegen passed while generated output remains integration-owned."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/internal/migrationFragment.ts lines 71-144 rejects duplicate JSON keys, unknown fields, duplicate task/migration IDs, task-hash drift, unsafe modules, fake no-op migrations, dangling and phase-inverted dependencies, cycles, and emits deterministic bytes.",
+        "packages/convex/confect/sources/sourceSchemas.ts lines 223-297 maps invalid capture shape, tenant mismatch, missing/cross-channel binding, oversized content, key conflicts, conflicting observations, and duplicate transport delivery replay into declared failures or duplicate outcome.",
+        "packages/convex/test/source-ledger-schema.test.ts lines 339-506 exercises tenant, duplicate receipt, conflicting observation, invalid key, size, canonical timestamp, missing binding, cross-tenant binding, and cross-channel binding failures; lines 508-563 prove transaction rollback/staging leaves no partial source-ledger writes."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
