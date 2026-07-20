@@ -1,0 +1,82 @@
+{
+  "lens": "contract",
+  "taskId": "S11-T02",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "2b484dad01173ead7ca99d710455998926b3666713d025943ef5824aed334ff6",
+  "baseSha": "defde4d68fbcdd7d39566d82986ec562010c9638",
+  "headSha": "cd6e8f88183f51b41a2752ad9dde7715bd66cb25",
+  "treeSha": "d3477635d8b750700cb7b8ebf9c0aa58fa915d0e",
+  "reviewerRunId": "maestro/review/S11-T02/cd6e8f88183f51b41a2752ad9dde7715bd66cb25/a080c7f1-4da8-4474-92cc-6324dad59036-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3094-3129 requires Settings API-key wiring through generated refs plus focused Confect codegen/surface-contract proof.",
+        "apps/web/src/routes/_workspace.settings.tsx:75-92 declares a local HeadlessApiKeyRefs intersection and casts templateConfectRefs before reading public.headless.apiKeys.",
+        "packages/convex/confect/_generated/spec.ts:1-40 and packages/convex/confect/_generated/refs.ts:1-6 do not include headless/apiKeys at this exact head."
+      ],
+      "findingIds": ["CT-S11-T02-001"]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.spec.ts:21-127 defines new public/internal API-key specs for create/list/revoke/rotate/authenticate/markLastUsed.",
+        "apps/web/src/routes/_workspace.settings.tsx:75-92 locally reconstructs API-key Ref types instead of consuming checked generated Confect refs.",
+        "packages/convex/confect/http.ts:69-82 constructs internal apiKeys function refs with Ref.make(\"headless/apiKeys\", spec), so exact-head generated refs do not enforce the new typed API boundary."
+      ],
+      "findingIds": ["CT-S11-T02-001"]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/auth.ts:31-69 models service-principal/API-key rows with organizationId, workspaceId, brainKey, status, generations, roleCeiling, expiry, revocation, and last-used fields.",
+        "packages/convex/test/api-keys.test.ts:404 asserts the apiKeys indexed lookup shape, and packages/convex/test/api-keys.test.ts:539-719 exercises persistent API-key revocation/last-used behavior."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json S11-T02 classifies the slice as template-gap with sourceSliceLimit 10 and fileInventoryStatus ready.",
+        "lane-gate-report.json records stage pre-review status passed, changedSourceLines 2453 versus estimatedSourceLines 3000, and ten source slices each at or below the 300-line sourceSliceBudget."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json S11-T02 fileLocks include every product/test file changed in ci-proof-packet.json.",
+        "ci-proof-packet.json changedFiles list is limited to the S11-T02 settings, headless API-key/auth/http/executor, and focused test paths; generated Confect output is not modified in the lane."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/httpRequest.ts:23-29 exposes Unauthorized, Forbidden, ValidationFailed, and RateLimited in TemplateHttpFailure.",
+        "packages/convex/confect/httpRequest.ts:62-74 provides unauthorized/forbidden/rateLimited construction paths, while packages/convex/confect/manifest/executor.ts:35-40 includes RateLimited in the headless executor failure union.",
+        "packages/convex/test/http-request-security.test.ts:231-243 and packages/convex/test/headless-executor.test.ts:177-185 pin RateLimited as a typed external failure; packages/convex/test/http-request-security.test.ts:245-285 proves malformed bearer syntax rejects before JSON parsing/auth lookup/dispatch."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "CT-S11-T02-001",
+      "severity": "major",
+      "summary": "Headless API-key surfaces still bypass checked generated Confect refs.",
+      "details": "S11-T02 adds headless/apiKeys specs and consumes them from the Settings route and HTTP auth path, but exact-head generated Confect spec/ref artifacts do not include headless/apiKeys. Product code compensates with a web-side HeadlessApiKeyRefs type assertion and runtime Ref.make construction for internal HTTP auth refs, so the client-hooks -> generated refs -> Confect specs boundary required by the task packet and AGENTS.md is asserted rather than enforced by generated contract artifacts at this head.",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.spec.ts:21-127",
+        "apps/web/src/routes/_workspace.settings.tsx:75-92",
+        "packages/convex/confect/http.ts:69-82",
+        "packages/convex/confect/_generated/spec.ts:1-40",
+        "packages/convex/confect/_generated/refs.ts:1-6",
+        "Scoped rtk proxy rg for headless/apiKeys over packages/convex/confect/_generated found only the durable apiKeys table docs, not generated headless/apiKeys function refs."
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
