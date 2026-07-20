@@ -1,0 +1,78 @@
+{
+  "lens": "safety",
+  "taskId": "S05-T01",
+  "planSha256": "401ba861efdc16760c9abac168cfd928efce150d9051c6bd58bf62ec330547a7",
+  "taskBlockHash": "1665eb4087239d8d137a8b4274f5f63c4bb965d699076b2678d1e618b1e34c54",
+  "baseSha": "648ddb32aa68230fdb41e0ef6dc6fe26c4837487",
+  "headSha": "8a389f3d4a31207075e872a2ff1895bfb8a3c561",
+  "treeSha": "6ae1af225845fda5da6001d7b5c2ecb06314709d",
+  "reviewerRunId": "maestro/review/S05-T01/8a389f3d4a31207075e872a2ff1895bfb8a3c561/755db2ad-edc6-488e-bc40-8a4c6cdea446-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:184-199 derives source and observation keys from organizationKey, connectionKey, connectionGeneration, channelKey, and providerObjectId, keeping stable source identity tenant-scoped.",
+        "packages/convex/test/source-ledger-schema.test.ts:201-258 proves other organizations and connection generations produce distinct source/observation keys and receipt dedupe lanes."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:249-270 requires a decoded VerifiedSlackChannelBinding and rejects tenant, team/app/bot, channel, and external channel mismatches before accepting capture rows.",
+        "packages/convex/test/source-ledger-schema.test.ts:490-507 proves missing, cross-tenant, and wrong-channel verified bindings are rejected."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:318-321 returns tombstone outcome for tombstone observations, and lines 359-366 build deleted_tombstone lifecycle rows with generation advanced from the existing artifact.",
+        "packages/convex/confect/sources/sourceSchemas.ts:439-452 exposes the artifact-gated readable-current selector, and packages/convex/test/source-ledger-schema.test.ts:509-565 proves tombstoned artifacts/revisions are unreadable while active rows remain readable."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:68-88 stores source revision content behind tenant-scoped sourceKey/sourceRevisionKey and canonical contentHash rather than public Convex IDs.",
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:28-44 documents deleted_tombstone/read revocation behavior and transaction-fenced partial capture failures, with later redaction/purge work assigned to S05-T03/S07."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:279-287 requires the caller-supplied existing artifact sourceKey to match and rejects captures whose providerOrder is not strictly newer than latestProviderOrder.",
+        "packages/convex/test/source-ledger-schema.test.ts:567-589 proves stale same-source captures behind an existing provider-order fence are rejected instead of resurrecting current state."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:288-317 fingerprints duplicate transport deliveries, returns duplicate only for exact duplicate delivery observations, and rejects conflicting replay payloads.",
+        "packages/convex/test/source-ledger-schema.test.ts:340-488 covers duplicate receipt idempotency plus conflicting observation, routing, author, permalink, policy, tenant, timestamp, size, and key replays."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:324-366 accepts existingArtifact source/order/generation as the transaction boundary input and advances lifecycle generation monotonically in emitted rows.",
+        "packages/convex/test/source-ledger-schema.test.ts:621-676 proves partial durable writes roll back atomically and buildSourceLedgerRows stages rows without mutating caller replay state on validation failure."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:1-3 imports only Effect Schema and the local sha256 helper; this T01 schema/helper work introduces no live provider SDK, fetch, process.env, token, or secret handling.",
+        "packages/convex/confect/tables/providerEventReceipts.ts:1-18 defines durable receipt indexes only; scoped inspection found no raw provider payload logging or secret exposure in the S05-T01 source ledger files."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
