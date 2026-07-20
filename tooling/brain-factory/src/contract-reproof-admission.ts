@@ -9,6 +9,7 @@ import {
 import { validateLaneAcceptance } from "./lane-acceptance.js";
 
 export interface ContractReproofAdmissionInput {
+  readonly allowAuthorityRefreshAdvance?: boolean;
   readonly changedFilesBetween: (
     ancestor: string,
     descendant: string,
@@ -132,11 +133,11 @@ export const admitContractReproof = (
     request.controlHeadSha,
     input.currentControlHead,
   );
-  if (!controlOnlyDelta(controlDelta)) {
+  if (!input.allowAuthorityRefreshAdvance && !controlOnlyDelta(controlDelta)) {
     throw new Error(`${input.taskId}: reproof delta is not control-plane only`);
   }
   const collisions = exactTaskLockIntersections(controlDelta, input.fileLocks);
-  if (collisions.length > 0) {
+  if (!input.allowAuthorityRefreshAdvance && collisions.length > 0) {
     throw new Error(
       `${input.taskId}: reproof delta intersects exact task-lock files: ${collisions.join(", ")}`,
     );

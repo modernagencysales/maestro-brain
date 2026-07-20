@@ -2,7 +2,11 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { buildContractReproofRequest } from "./contract-reproof.js";
+import {
+  buildContractReproofRequest,
+  buildRefreshedContractReproofRequest,
+} from "./contract-reproof.js";
+import { admitContractReproof } from "./contract-reproof-admission.js";
 import { buildTaskLaunchEnv } from "./build-task-launch-env.js";
 import { materializeBuildTaskRunConfig } from "./build-task-run-config.js";
 import { hydrateWorktreeDependencies } from "./dependencies.js";
@@ -20,6 +24,10 @@ import {
   gitIsAncestor,
   runRtk,
 } from "./process.js";
+import {
+  serializeResumeCommits,
+  validateResumeSource,
+} from "./resume-support.js";
 
 const valueAfter = (flag: string): string | undefined => {
   const index = process.argv.indexOf(flag);
@@ -61,9 +69,11 @@ const lanePath = resolve(laneDirectory, "lane-result.json");
 if (!existsSync(lanePath)) throw new Error(`${taskId}: lane result is missing`);
 const laneContent = readFileSync(lanePath, "utf8");
 const lane = JSON.parse(laneContent) as Record<string, unknown>;
-if (!new Set(["integrated", "accepted"]).has(String(lane.status))) {
+if (
+  !new Set(["integrated", "accepted", "lane_green"]).has(String(lane.status))
+) {
   throw new Error(
-    `${taskId}: only integrated or accepted tasks may be re-proved`,
+    `${taskId}: only integrated, accepted, or already re-proved lane_green tasks may be re-proved`,
   );
 }
 const manifest = buildManifest(root);
@@ -98,8 +108,21 @@ if (unmetCodeStart.length > 0) {
     `${taskId}: contract reproof waits for code-start dependencies ${unmetCodeStart.join(", ")}`,
   );
 }
-const priorIntegrationId = String(lane.integrationId ?? "");
-const priorIntegrationHeadSha = String(lane.integrationHeadSha ?? "");
+const refreshedLane = lane.status === "lane_green";
+const laneReproof =
+  typeof lane.reproof === "object" &&
+  lane.reproof !== null &&
+  !Array.isArray(lane.reproof)
+    ? (lane.reproof as Record<string, unknown>)
+    : undefined;
+const priorIntegrationId = String(
+  refreshedLane ? (laneReproof?.priorIntegrationId ?? "") : lane.integrationId,
+);
+const priorIntegrationHeadSha = String(
+  refreshedLane
+    ? (laneReproof?.priorIntegrationHeadSha ?? "")
+    : lane.integrationHeadSha,
+);
 if (
   !priorIntegrationId ||
   !/^[0-9a-f]{40}$/.test(priorIntegrationHeadSha) ||
@@ -122,12 +145,15 @@ const archiveManifestPath = resolve(
 if (!existsSync(integrationResultPath)) {
   throw new Error(`${taskId}: prior integration result is missing`);
 }
-const requestDirectory = resolve(
+const baseRequestDirectory = resolve(
   evidence,
   "reproofs",
   taskId,
   task.taskBlockHash,
 );
+const requestDirectory = refreshedLane
+  ? resolve(baseRequestDirectory, controlHeadSha)
+  : baseRequestDirectory;
 const legacySnapshotContent = `${JSON.stringify(
   {
     schemaVersion: "maestro-brain-prior-evidence-snapshot/v1",
@@ -183,21 +209,97 @@ if (existsSync(archiveManifestPath)) {
     `${priorArchiveSha256}.prior-evidence.json`,
   );
 }
-const request = buildContractReproofRequest({
-  controlHeadSha,
-  planSha256: manifest.planSha256,
-  priorArchiveSha256,
-  priorIntegrationHeadSha,
-  priorIntegrationId,
-  priorIntegrationResultSha256: sha256(
-    readFileSync(integrationResultPath, "utf8"),
-  ),
-  priorLaneResultSha256: sha256(laneContent),
-  priorEvidencePath,
-  reason,
-  taskBlockHash: task.taskBlockHash,
-  taskId,
-});
+let refreshResume:
+  | {
+      readonly sourceHeadSha: string;
+      readonly taskBaseSha: string;
+      readonly taskCommits: readonly string[];
+    }
+  | undefined;
+const request = (() => {
+  if (!refreshedLane) {
+    return buildContractReproofRequest({
+      controlHeadSha,
+      planSha256: manifest.planSha256,
+      priorArchiveSha256,
+      priorIntegrationHeadSha,
+      priorIntegrationId,
+      priorIntegrationResultSha256: sha256(
+        readFileSync(integrationResultPath, "utf8"),
+      ),
+      priorLaneResultSha256: sha256(laneContent),
+      priorEvidencePath,
+      reason,
+      taskBlockHash: task.taskBlockHash,
+      taskId,
+    });
+  }
+  const previousRequestPath = String(laneReproof?.requestPath ?? "");
+  if (!previousRequestPath || !existsSync(previousRequestPath)) {
+    throw new Error(`${taskId}: prior reproof request is missing`);
+  }
+  const previousRequest = JSON.parse(
+    readFileSync(previousRequestPath, "utf8"),
+  ) as Record<string, unknown>;
+  const proofPath = resolve(laneDirectory, "ci-proof-packet.json");
+  const finalGatePath = resolve(laneDirectory, "lane-gate-report.json");
+  if (!existsSync(proofPath) || !existsSync(finalGatePath)) {
+    throw new Error(`${taskId}: prior reproof proof or final gate is missing`);
+  }
+  const proof = JSON.parse(readFileSync(proofPath, "utf8")) as Record<
+    string,
+    unknown
+  >;
+  const laneHeadSha = String(lane.headSha ?? "");
+  const laneTreeSha = runRtk(
+    ["git", "rev-parse", "--verify", `${laneHeadSha}^{tree}`],
+    { quiet: true },
+  );
+  const refreshed = buildRefreshedContractReproofRequest({
+    currentControlHeadSha: controlHeadSha,
+    currentPlanSha256: manifest.planSha256,
+    currentTaskBlockHash: task.taskBlockHash,
+    finalGateReport: JSON.parse(readFileSync(finalGatePath, "utf8")),
+    lane,
+    laneTreeSha,
+    previousRequest,
+    proof,
+    reason,
+    taskId,
+  });
+  const admitted = admitContractReproof({
+    allowAuthorityRefreshAdvance: true,
+    changedFilesBetween: (ancestor, descendant) =>
+      runRtk(["git", "diff", "--name-only", `${ancestor}..${descendant}`], {
+        quiet: true,
+      })
+        .split("\n")
+        .filter(Boolean),
+    currentControlHead: controlHeadSha,
+    evidenceDirectory: evidence,
+    fileLocks: task.fileLocks,
+    isAncestor: (ancestor, descendant) =>
+      gitIsAncestor(ancestor, descendant, root),
+    lanePriorIntegrationHeadSha: laneReproof?.priorIntegrationHeadSha,
+    lanePriorIntegrationId: laneReproof?.priorIntegrationId,
+    laneRequestSha256: laneReproof?.requestSha256,
+    planSha256: String(previousRequest.planSha256 ?? ""),
+    proofBaseSha: String(previousRequest.controlHeadSha ?? ""),
+    requestPath: previousRequestPath,
+    taskBlockHash: task.taskBlockHash,
+    taskId,
+  });
+  if (admitted.request.requestSha256 !== String(laneReproof?.requestSha256)) {
+    throw new Error(`${taskId}: ambiguous prior reproof request lineage`);
+  }
+  refreshResume = validateResumeSource({
+    runGit: (args) => runRtk(args, { quiet: true }),
+    sourceRef: laneHeadSha,
+    taskBase: String(proof.baseSha ?? ""),
+    taskId,
+  });
+  return refreshed;
+})();
 const requestPath = resolve(requestDirectory, "request.json");
 const requestContent = `${JSON.stringify(request, null, 2)}\n`;
 console.log(JSON.stringify({ launch, requestPath, request }, null, 2));
@@ -260,9 +362,9 @@ const workdir = resolve(
   root,
   "..",
   ".maestro-brain-fabro-workdirs",
-  `reproof-${taskId.toLowerCase()}`,
+  `reproof-${taskId.toLowerCase()}${refreshedLane ? `-${controlHeadSha.slice(0, 8)}` : ""}`,
 );
-const branch = `fabro/reproof-${taskId.toLowerCase()}`;
+const branch = `fabro/reproof-${taskId.toLowerCase()}${refreshedLane ? `-${controlHeadSha.slice(0, 8)}` : ""}`;
 if (existsSync(workdir) || gitBranchExists(branch, root)) {
   throw new Error(`${taskId}: unresolved reproof worktree or branch exists`);
 }
@@ -270,6 +372,13 @@ reserveTaskPreparing(recordPath, {
   branch,
   mode: "contract-reproof",
   requestSha256: request.requestSha256,
+  ...(refreshResume
+    ? {
+        resumeStrategy: "in-lane-cherry-pick",
+        sourceHeadSha: refreshResume.sourceHeadSha,
+        taskBaseSha: refreshResume.taskBaseSha,
+      }
+    : {}),
   status: "preparing",
   taskId,
   workdir,
@@ -284,13 +393,15 @@ const launchEnv = buildTaskLaunchEnv({
   evidence,
   hostTestMaxLoad1m: "20",
   reproofRequest: requestPath,
-  resumeCommits: "none",
-  resumeBranch: "none",
+  resumeCommits: refreshResume
+    ? serializeResumeCommits(taskId, refreshResume.taskCommits)
+    : "none",
+  resumeBranch: refreshResume ? branch : "none",
   resumeExpectedCommit: "none",
   resumeProofHead: "none",
-  resumeMode: "none",
-  resumeSourceHead: "none",
-  resumeTaskBase: "none",
+  resumeMode: refreshResume ? "conflict-aware" : "none",
+  resumeSourceHead: refreshResume?.sourceHeadSha ?? "none",
+  resumeTaskBase: refreshResume?.taskBaseSha ?? "none",
   startSha: controlHeadSha,
   taskId,
   workdir,
@@ -330,11 +441,23 @@ const output = JSON.parse(
       "-I",
       `start_sha=${controlHeadSha}`,
       "-I",
-      "resume_branch=none",
+      `resume_branch=${refreshResume ? branch : "none"}`,
       "-I",
       "resume_expected_commit=none",
       "-I",
       "resume_proof_head=none",
+      ...(refreshResume
+        ? [
+            "-I",
+            "resume_mode=conflict-aware",
+            "-I",
+            `resume_source_head=${refreshResume.sourceHeadSha}`,
+            "-I",
+            `resume_task_base=${refreshResume.taskBaseSha}`,
+            "-I",
+            `resume_commits=${serializeResumeCommits(taskId, refreshResume.taskCommits)}`,
+          ]
+        : []),
       "-I",
       `reproof_request=${requestPath}`,
     ],
@@ -350,6 +473,13 @@ promoteTaskReservation(recordPath, {
   branch,
   mode: "contract-reproof",
   requestSha256: request.requestSha256,
+  ...(refreshResume
+    ? {
+        resumeStrategy: "in-lane-cherry-pick",
+        sourceHeadSha: refreshResume.sourceHeadSha,
+        taskBaseSha: refreshResume.taskBaseSha,
+      }
+    : {}),
   runId,
   status: "launched",
   taskId,

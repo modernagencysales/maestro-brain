@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
 
+import { validateFinalLaneResult } from "./lane-result.js";
+import { validateProofContract } from "./proof.js";
+
 export const CONTRACT_REPROOF_SCHEMA =
   "maestro-brain-contract-reproof/v1" as const;
 
@@ -152,4 +155,100 @@ export const validateContractReproofRequest = (
     throw new Error("contract reproof request does not bind current authority");
   }
   return rebuilt;
+};
+
+const record = (value: unknown, label: string): Record<string, unknown> => {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`${label} must be an object`);
+  }
+  return value as Record<string, unknown>;
+};
+
+const exactObjectKeys = (
+  value: Record<string, unknown>,
+  expected: readonly string[],
+  label: string,
+): void => {
+  const keys = Reflect.ownKeys(value);
+  if (
+    keys.length !== expected.length ||
+    keys.some((key) => typeof key !== "string" || !expected.includes(key))
+  ) {
+    throw new Error(`${label} has unknown fields`);
+  }
+};
+
+export const buildRefreshedContractReproofRequest = (input: {
+  readonly currentControlHeadSha: string;
+  readonly currentPlanSha256: string;
+  readonly currentTaskBlockHash: string;
+  readonly finalGateReport: unknown;
+  readonly lane: unknown;
+  readonly laneTreeSha: string;
+  readonly previousRequest: unknown;
+  readonly proof: unknown;
+  readonly reason: string;
+  readonly taskId: string;
+}): ContractReproofRequest => {
+  const previousRecord = record(input.previousRequest, "prior reproof request");
+  const previous = validateContractReproofRequest(previousRecord, {
+    controlHeadSha: String(previousRecord.controlHeadSha ?? ""),
+    planSha256: String(previousRecord.planSha256 ?? ""),
+    taskBlockHash: input.currentTaskBlockHash,
+    taskId: input.taskId,
+  });
+  const lane = record(input.lane, `${input.taskId}: prior reproof lane`);
+  const laneReproof = record(
+    lane.reproof,
+    `${input.taskId}: prior lane reproof lineage`,
+  );
+  exactObjectKeys(
+    laneReproof,
+    [
+      "priorIntegrationHeadSha",
+      "priorIntegrationId",
+      "requestPath",
+      "requestSha256",
+    ],
+    `${input.taskId}: prior lane reproof lineage`,
+  );
+  if (
+    laneReproof.requestSha256 !== previous.requestSha256 ||
+    laneReproof.priorIntegrationId !== previous.priorIntegrationId ||
+    laneReproof.priorIntegrationHeadSha !== previous.priorIntegrationHeadSha
+  ) {
+    throw new Error(`${input.taskId}: lane reproof lineage drift`);
+  }
+  const proof = record(input.proof, `${input.taskId}: prior reproof proof`);
+  const proofPlanSha256 = validateProofContract(proof, {
+    taskBlockHash: input.currentTaskBlockHash,
+    taskId: input.taskId,
+  });
+  validateFinalLaneResult(lane, {
+    allowHistoricalMissingTreeSha: true,
+    currentHeadSha: String(lane.headSha ?? ""),
+    currentTreeSha: input.laneTreeSha,
+    finalGateReport: input.finalGateReport,
+    proof,
+    taskId: input.taskId,
+  });
+  if (
+    proof.baseSha !== previous.controlHeadSha ||
+    proofPlanSha256 !== previous.planSha256
+  ) {
+    throw new Error(`${input.taskId}: proof does not bind prior request`);
+  }
+  return buildContractReproofRequest({
+    controlHeadSha: input.currentControlHeadSha,
+    planSha256: input.currentPlanSha256,
+    priorArchiveSha256: previous.priorArchiveSha256,
+    priorEvidencePath: previous.priorEvidencePath,
+    priorIntegrationHeadSha: previous.priorIntegrationHeadSha,
+    priorIntegrationId: previous.priorIntegrationId,
+    priorIntegrationResultSha256: previous.priorIntegrationResultSha256,
+    priorLaneResultSha256: previous.priorLaneResultSha256,
+    reason: input.reason,
+    taskBlockHash: input.currentTaskBlockHash,
+    taskId: input.taskId,
+  });
 };

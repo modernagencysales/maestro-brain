@@ -213,6 +213,36 @@ describe("contract reproof admission", () => {
     expect(admitted.request.taskId).toBe(value.request.taskId);
   });
 
+  it("allows a task-disjoint product advance only for authority refresh", () => {
+    const value = fixture();
+    const changedFilesBetween = () => [
+      "packages/convex/confect/brain/pages.impl.ts",
+    ];
+    expect(() =>
+      admitContractReproof({ ...value.input, changedFilesBetween }),
+    ).toThrow(/control-plane/);
+    expect(
+      admitContractReproof({
+        ...value.input,
+        allowAuthorityRefreshAdvance: true,
+        changedFilesBetween,
+      }).request.taskId,
+    ).toBe(value.request.taskId);
+  });
+
+  it("allows lock advances only when a fresh lane proof will be required", () => {
+    const value = fixture();
+    expect(
+      admitContractReproof({
+        ...value.input,
+        allowAuthorityRefreshAdvance: true,
+        changedFilesBetween: () => [
+          "packages/convex/confect/slack/directory.impl.ts",
+        ],
+      }).request.taskId,
+    ).toBe(value.request.taskId);
+  });
+
   it.each([
     ["non-ancestor request control", { isAncestor: () => false }, /ancestor/],
     [
