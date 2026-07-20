@@ -48,6 +48,12 @@ export const ChannelSyncStateRow = Schema.Struct({
 export type ChannelSyncStateRowValue = typeof ChannelSyncStateRow.Type;
 
 export default Table.make(() => ChannelSyncStateRow)
-  .index("by_channel_lane", ["channelKey", "lane"])
-  .index("by_connection_lane", ["connectionKey", "lane"])
-  .index("by_status", ["status"]);
+  .index("by_channel", ["channelKey", "lane"])
+  .index("by_live_lag", ["organizationKey", "status", "lastProgressAt"])
+  .index("by_recent_next_retry", [
+    "organizationKey",
+    "status",
+    "leaseExpiresAt",
+  ])
+  .index("by_deep_next_retry", ["organizationKey", "status", "leaseExpiresAt"])
+  .index("by_access_state", ["connectionKey", "lane", "status"]);
