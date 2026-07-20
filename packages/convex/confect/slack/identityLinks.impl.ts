@@ -277,3 +277,117 @@ export const consumeSlackIdentityLinkPlan = (input: {
   };
   return Either.right({ binding: { ...pending, ...patch }, patch });
 };
+
+const createSlackIdentityLinkIntent = FunctionImpl.make(
+  databaseSchema,
+  slackIdentityLinks,
+  "createSlackIdentityLinkIntent",
+  (input) =>
+    Effect.gen(function* () {
+      const { connection, user, workosSubject } =
+        yield* resolveAuthorizedConnection(input);
+      const result = createSlackIdentityLinkIntentPlan({
+        organizationKey: connection.organizationKey,
+        connectionKey: connection.connectionKey,
+        connectionGeneration: connection.connectionGeneration,
+        teamId: input.teamId,
+        userId: user._id,
+        workosSubject,
+        nonceHash: input.nonceHash,
+        now: input.now,
+      });
+      if (Either.isLeft(result)) return yield* Effect.fail(result.left);
+      const planned = result.right;
+      const writer = yield* DatabaseWriter;
+      yield* slackIdentityBindingTable(writer)
+        .insert(planned.row)
+        .pipe(Effect.orDie);
+      return {
+        bindingKey: planned.row.bindingKey,
+        status: "pending_verification" as const,
+        teamId: planned.row.teamId,
+        expiresAt: planned.row.intentExpiresAt,
+        linkToken: planned.linkToken,
+      };
+    }),
+);
+
+const consumeSlackIdentityLink = FunctionImpl.make(
+  databaseSchema,
+  slackIdentityLinks,
+  "consumeSlackIdentityLink",
+  (input) =>
+    Effect.gen(function* () {
+      const pending = yield* findByNonceHash(input.nonceHash);
+      const existingActiveForSlackIdentity =
+        pending === null
+          ? null
+          : yield* findActiveSlackIdentity({
+              organizationKey: pending.organizationKey,
+              teamId: input.teamId,
+              slackUserId: input.slackUserId,
+            });
+      const result = consumeSlackIdentityLinkPlan({
+        pending,
+        existingActiveForSlackIdentity,
+        confirmation: { teamId: input.teamId, slackUserId: input.slackUserId },
+        now: input.now,
+      });
+      if (Either.isLeft(result)) return yield* Effect.fail(result.left);
+      if (pending === null) return yield* Effect.fail(new LinkExpired());
+      const writer = yield* DatabaseWriter;
+      yield* slackIdentityBindingTable(writer)
+        .patch(pending._id, result.right.patch)
+        .pipe(Effect.orDie);
+      return {
+        bindingKey: result.right.binding.bindingKey,
+        status: "active" as const,
+        teamId: result.right.binding.teamId,
+        slackUserId: result.right.binding.slackUserId,
+        bindingGeneration: result.right.binding.bindingGeneration,
+      };
+    }),
+);
+
+const revokeSlackIdentityLink = FunctionImpl.make(
+  databaseSchema,
+  slackIdentityLinks,
+  "revokeSlackIdentityLink",
+  (input) =>
+    Effect.gen(function* () {
+      const binding = yield* findByBindingKey(input.bindingKey);
+      if (binding === null || binding.status !== "active") {
+        return yield* Effect.fail(new BindingRevoked());
+      }
+      const { user } = yield* resolveAuthorizedConnection({
+        connectionKey: binding.connectionKey,
+        connectionGeneration: binding.connectionGeneration,
+        teamId: binding.teamId,
+      });
+      if (binding.userId !== user._id)
+        return yield* new Forbidden({
+          reason: "Slack binding belongs to another user.",
+        });
+      const writer = yield* DatabaseWriter;
+      yield* slackIdentityBindingTable(writer)
+        .patch(binding._id, {
+          status: "revoked" as const,
+          revokedAt: input.now,
+          revokeReason: input.reason,
+          updatedAt: input.now,
+        })
+        .pipe(Effect.orDie);
+      return {
+        bindingKey: input.bindingKey,
+        status: "revoked" as const,
+        revokedAt: input.now,
+      };
+    }),
+);
+
+export default GroupImpl.make(databaseSchema, slackIdentityLinks).pipe(
+  Layer.provide(createSlackIdentityLinkIntent),
+  Layer.provide(consumeSlackIdentityLink),
+  Layer.provide(revokeSlackIdentityLink),
+  GroupImpl.finalize,
+);
