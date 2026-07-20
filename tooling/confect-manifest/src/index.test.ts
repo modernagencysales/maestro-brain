@@ -44,7 +44,7 @@ describe("confect manifest tooling", () => {
           "false",
           "--listFiles",
         ],
-        { cwd: root, encoding: "utf8" },
+        { cwd: root, encoding: "utf8", timeout: 25_000 },
       );
       const output = `${result.stdout}${result.stderr}`;
       const listedProbeFiles = output
