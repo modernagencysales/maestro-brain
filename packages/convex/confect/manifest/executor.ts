@@ -35,7 +35,8 @@ export type AuthorizedHeadlessExecutorRequest = HeadlessExecutorRequest & {
 export type HeadlessFailureResult = {
   readonly ok: false;
   readonly error: {
-    readonly _tag: "NotFound" | "ValidationFailed" | "Forbidden";
+    readonly _tag:
+      "Unauthorized" | "ValidationFailed" | "Forbidden" | "RateLimited";
     readonly message: string;
   };
 };
@@ -70,7 +71,7 @@ export type HeadlessExecutionAdapter = {
   ) => unknown | Promise<unknown>;
 };
 
-const failure = (
+export const headlessFailure = (
   tag: HeadlessFailureResult["error"]["_tag"],
   message: string,
 ): HeadlessFailureResult => ({
@@ -104,9 +105,9 @@ export const resolveHeadlessOperation = (
   const operation = findHeadlessOperation(request.operationId, request.surface);
 
   if (!operation) {
-    return failure(
-      "NotFound",
-      `No headless operation ${request.operationId} exposed on ${request.surface}.`,
+    return headlessFailure(
+      "ValidationFailed",
+      "Headless operation is not available.",
     );
   }
 
@@ -210,13 +211,13 @@ const idempotencyFailureFor = (
       return undefined;
     }
 
-    return failure(
+    return headlessFailure(
       "ValidationFailed",
       `Operation ${operation.operationId} requires a nonblank idempotencyKey.`,
     );
   }
 
-  return failure(
+  return headlessFailure(
     "ValidationFailed",
     `Operation ${operation.operationId} received invalid idempotencyKey: ${idempotencyKey.message}`,
   );
@@ -228,7 +229,7 @@ const inputFailureFor = (
 ): HeadlessFailureResult | undefined =>
   isJsonRecord(input)
     ? undefined
-    : failure(
+    : headlessFailure(
         "ValidationFailed",
         `Operation ${operation.operationId} received non-JSON-safe input.`,
       );
@@ -239,9 +240,9 @@ const refFailureFor = (
 ): HeadlessFailureResult | undefined =>
   ref
     ? undefined
-    : failure(
-        "NotFound",
-        `No generated function ref registered for operation ${operation.operationId}.`,
+    : headlessFailure(
+        "ValidationFailed",
+        "Headless operation is not available.",
       );
 
 const inputWithIdempotencyKey = (
@@ -303,7 +304,7 @@ const dispatchHeadlessOperation = async (
     : undefined;
   const result =
     runner === undefined
-      ? failure(
+      ? headlessFailure(
           "ValidationFailed",
           `Operation ${execution.operation.operationId} has unsupported kind ${operationKind}.`,
         )
@@ -325,7 +326,7 @@ const jsonResultFor = (
 ): HeadlessExecutorResult =>
   isJsonValue(result)
     ? successResultFor(operation, result)
-    : failure(
+    : headlessFailure(
         "ValidationFailed",
         `Operation ${operation.operationId} returned a non-JSON-safe result.`,
       );
@@ -375,7 +376,7 @@ export const executeAuthorizedHeadlessOperation = async (
     reviewedHeadlessPolicyFor(request.operationId, [request.policy]) ===
     undefined
   ) {
-    return failure("Forbidden", "Headless operation is not available.");
+    return headlessFailure("Forbidden", "Headless operation is not available.");
   }
   const authorization = authorizeHeadlessOperation({
     operationId: resolved.operation.operationId,

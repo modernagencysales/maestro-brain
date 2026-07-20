@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { buildApiKeySettingsSections } from "./api-keys";
@@ -21,6 +22,21 @@ const apiKey = {
   createdAt: 1_000,
   expiresAt: 2_000,
 } as const;
+
+describe("settings API key generated refs contract", () => {
+  it("wires the route through generated API-key refs without a local intersection", () => {
+    const routeSource = readFileSync(
+      new URL("../../routes/_workspace.settings.tsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(routeSource).toContain("type ApiKeyRefs");
+    expect(routeSource).toContain(".public.headless.apiKeys");
+    expect(routeSource).toContain("centralized Confect");
+    expect(routeSource).not.toContain("type HeadlessApiKeyRefs");
+    expect(routeSource).not.toContain("as HeadlessApiKeyRefs");
+  });
+});
 
 describe("settings API key surface", () => {
   it("stays read-only without a server-derived workspace", () => {
