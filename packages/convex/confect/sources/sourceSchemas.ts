@@ -129,3 +129,180 @@ export const SourceRevisionRow = Schema.Struct({
   lifecycle: Lifecycle,
   createdAt: NonNegativeInteger,
 });
+
+export const SourceProcessingJobRow = Schema.Struct({
+  schemaVersion: Schema.Literal(1),
+  organizationKey: StableKey,
+  sourceUnitKey: StableKey,
+  sourceRevisionKey: RevisionKey,
+  stage: Schema.Literal(
+    "assembly_pending",
+    "classification_pending",
+    "maintenance_pending",
+  ),
+  status: Schema.Literal(
+    "pending",
+    "leased",
+    "complete",
+    "failed",
+    "dead_letter",
+  ),
+  effectKey: StableKey,
+  policyEpoch: PositiveInteger,
+  leaseOwner: Schema.NullOr(Schema.String),
+  leaseExpiresAt: Schema.NullOr(NonNegativeInteger),
+  nextRetryAt: NonNegativeInteger,
+  attemptCount: NonNegativeInteger,
+  createdAt: NonNegativeInteger,
+  updatedAt: NonNegativeInteger,
+});
+
+export const VerifiedSlackChannelBinding = Schema.Struct({
+  providerEventId: StableKey,
+  signatureVerification: Schema.Struct({
+    status: Schema.Literal("verified"),
+    receiptHash: Hash,
+  }),
+  replayVerification: Schema.Struct({
+    status: Schema.Literal("accepted"),
+    receiptHash: Hash,
+  }),
+  organizationKey: StableKey,
+  connectionKey: StableKey,
+  connectionGeneration: PositiveInteger,
+  teamId: StableKey,
+  appId: StableKey,
+  botUserId: StableKey,
+  channelKey: StableKey,
+  externalChannelId: StableKey,
+});
+export type VerifiedSlackEnvelope = typeof VerifiedSlackChannelBinding.Type & {
+  readonly [slackEnvelopeBrand]: true;
+};
+const brandVerifiedSlackEnvelope = (
+  value: typeof VerifiedSlackChannelBinding.Type,
+): VerifiedSlackEnvelope => {
+  const decoded = Schema.decodeUnknownSync(VerifiedSlackChannelBinding)(value);
+  return Object.defineProperty(decoded, slackEnvelopeBrand, {
+    value: true,
+    enumerable: false,
+  }) as VerifiedSlackEnvelope;
+};
+
+export type NativeSlackReplayAdmission = {
+  readonly providerEventId: string;
+  readonly status: "accepted";
+  readonly receiptHash: typeof Hash.Type;
+};
+
+export type NativeSlackVerificationInput = {
+  readonly rawBody: string;
+  readonly signingSecret: string;
+  readonly signature: string;
+  readonly timestampSeconds: number;
+  readonly nowSeconds: number;
+  readonly replayAdmission: NativeSlackReplayAdmission;
+  readonly binding: Omit<
+    typeof VerifiedSlackChannelBinding.Type,
+    "signatureVerification" | "replayVerification"
+  >;
+};
+
+const slackSignatureFor = (
+  signingSecret: string,
+  timestampSeconds: number,
+  rawBody: string,
+) =>
+  `v0=${createHmac("sha256", signingSecret)
+    .update(`v0:${timestampSeconds}:${rawBody}`)
+    .digest("hex")}`;
+
+const safeEqual = (left: string, right: string) => {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  return (
+    leftBuffer.length === rightBuffer.length &&
+    timingSafeEqual(leftBuffer, rightBuffer)
+  );
+};
+
+export const verifyNativeSlackEnvelope = ({
+  rawBody,
+  signingSecret,
+  signature,
+  timestampSeconds,
+  nowSeconds,
+  replayAdmission,
+  binding,
+}: NativeSlackVerificationInput): VerifiedSlackEnvelope => {
+  if (Math.abs(nowSeconds - timestampSeconds) > 60 * 5)
+    throw new ChannelAccessLost("ChannelAccessLost");
+  const expected = slackSignatureFor(signingSecret, timestampSeconds, rawBody);
+  if (!safeEqual(expected, signature))
+    throw new ChannelAccessLost("ChannelAccessLost");
+  if (replayAdmission.providerEventId !== binding.providerEventId)
+    throw new DuplicateKeyConflict("DuplicateKeyConflict");
+  const evidenceBase = {
+    providerEventId: binding.providerEventId,
+    timestampSeconds,
+    bodyHash: `sha256:${digest(rawBody)}`,
+  };
+  return brandVerifiedSlackEnvelope({
+    ...binding,
+    signatureVerification: {
+      status: "verified",
+      receiptHash: `sha256:${digest({ ...evidenceBase, signature })}`,
+    },
+    replayVerification: {
+      status: replayAdmission.status,
+      receiptHash: replayAdmission.receiptHash,
+    },
+  });
+};
+const assertVerifiedSlackEnvelope = (value: unknown): VerifiedSlackEnvelope => {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    (value as Record<PropertyKey, unknown>)[slackEnvelopeBrand] !== true
+  )
+    throw new ChannelAccessLost("ChannelAccessLost");
+  return Schema.decodeUnknownSync(VerifiedSlackChannelBinding)(
+    value,
+  ) as VerifiedSlackEnvelope;
+};
+
+export const SourceLedgerCaptureInput = Schema.Struct({
+  envelope: Schema.Struct({
+    organizationKey: StableKey,
+    connectionKey: StableKey,
+    connectionGeneration: PositiveInteger,
+    teamId: StableKey,
+    appId: StableKey,
+    botUserId: StableKey,
+    channelKey: StableKey,
+    externalChannelId: StableKey,
+    transport: Transport,
+    transportDeliveryId: StableKey,
+    receivedAt: NonNegativeInteger,
+  }),
+  observation: Schema.Struct({
+    providerObjectId: ProviderObjectId,
+    threadKey: StableKey,
+    sourceTimestamp: IsoTimestamp,
+    providerOrder: StableKey,
+    providerRevisionId: StableKey,
+    author: AuthorSnapshot,
+    text: Schema.String.pipe(Schema.maxLength(32_000)),
+    blocksJson: Schema.String,
+    permalink: Schema.String,
+    tombstone: Schema.Boolean,
+    revisionNonce: StableKey,
+  }),
+  routing: Schema.Struct({
+    policyEpoch: PositiveInteger,
+    assemblyStage: Schema.Literal("assembly_pending"),
+    effectKey: StableKey,
+  }),
+});
+
+const SourceLedgerEnvelope = SourceLedgerCaptureInput.fields.envelope;
