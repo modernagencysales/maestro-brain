@@ -1,4 +1,10 @@
-import { mkdtempSync, readFileSync, renameSync, rmSync } from "node:fs";
+import {
+  mkdtempSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
@@ -143,6 +149,8 @@ describe("brain dispatch ownership", () => {
     expect(hydration).toBeGreaterThan(worktreeAdd);
     expect(hydration).toBeLessThan(cherryPick);
     expect(resume).toContain('process.argv.includes("--conflict-aware")');
+    expect(resume).toContain('valueAfter("--archive-action")');
+    expect(resume).toContain("{ archiveActionId }");
     expect(resume).toContain("`resume_mode=${resumeMode}`");
     expect(resume).toContain("serializeResumeCommits(taskId, taskCommits)");
     expect(resume).toContain("if (!conflictAware)");
@@ -714,6 +722,134 @@ describe("brain dispatch ownership", () => {
         recordPath: ambiguous.recordPath,
       }),
     ).toThrow("ambiguous audited terminal archives");
+  });
+
+  it("selects exactly one audited terminal archive by action ID", () => {
+    const expected = {
+      branch: "fabro/review-s11-t02",
+      mode: "resume-review" as const,
+      resumeStrategy: "in-lane-cherry-pick" as const,
+      sourceHeadSha: "a".repeat(40),
+      taskBaseSha: "b".repeat(40),
+      taskId: "S11-T02",
+      workdir: "/tmp/resume-s11-t02",
+    };
+    const value = fixture();
+    const selectedActionId = "1".repeat(64);
+    for (const [actionId, runId, status] of [
+      [selectedActionId, "run-latest", "failed"],
+      ["2".repeat(64), "run-older", "succeeded"],
+    ] as const) {
+      reserveTaskPreparing(value.recordPath, {
+        ...expected,
+        runId,
+        status: "launched",
+      });
+      archiveTerminalTaskRecord({
+        actionId,
+        auditPath: value.auditPath,
+        now: "2026-07-20T00:00:00.000Z",
+        recordPath: value.recordPath,
+        runId,
+        status,
+        taskId: expected.taskId,
+      });
+    }
+
+    expect(
+      auditedTerminalResumeRecord({
+        archiveActionId: selectedActionId,
+        auditPath: value.auditPath,
+        expected,
+        recordPath: value.recordPath,
+      }),
+    ).toMatchObject({
+      actionId: selectedActionId,
+      runId: "run-latest",
+      status: "failed",
+    });
+  });
+
+  it.each([
+    ["unknown", "3".repeat(64), /no audited terminal archive matches action/],
+    ["unsafe", "../latest", /archive action selector is unsafe/],
+  ])(
+    "rejects an %s archive action selector",
+    (_label, archiveActionId, error) => {
+      const expected = {
+        branch: "fabro/review-s11-t02",
+        mode: "resume-review" as const,
+        resumeStrategy: "in-lane-cherry-pick" as const,
+        sourceHeadSha: "a".repeat(40),
+        taskBaseSha: "b".repeat(40),
+        taskId: "S11-T02",
+        workdir: "/tmp/resume-s11-t02",
+      };
+      const value = fixture();
+      reserveTaskPreparing(value.recordPath, {
+        ...expected,
+        runId: "run-known",
+        status: "launched",
+      });
+      archiveTerminalTaskRecord({
+        actionId: "1".repeat(64),
+        auditPath: value.auditPath,
+        now: "2026-07-20T00:00:00.000Z",
+        recordPath: value.recordPath,
+        runId: "run-known",
+        status: "failed",
+        taskId: expected.taskId,
+      });
+
+      expect(() =>
+        auditedTerminalResumeRecord({
+          archiveActionId,
+          auditPath: value.auditPath,
+          expected,
+          recordPath: value.recordPath,
+        }),
+      ).toThrow(error);
+    },
+  );
+
+  it("does not let an archive action selector bypass record identity", () => {
+    const expected = {
+      branch: "fabro/review-s11-t02",
+      mode: "resume-review" as const,
+      resumeStrategy: "in-lane-cherry-pick" as const,
+      sourceHeadSha: "a".repeat(40),
+      taskBaseSha: "b".repeat(40),
+      taskId: "S11-T02",
+      workdir: "/tmp/resume-s11-t02",
+    };
+    const value = fixture();
+    const archiveActionId = "1".repeat(64);
+    reserveTaskPreparing(value.recordPath, {
+      ...expected,
+      runId: "run-selected",
+      status: "launched",
+    });
+    const archivedPath = archiveTerminalTaskRecord({
+      actionId: archiveActionId,
+      auditPath: value.auditPath,
+      now: "2026-07-20T00:00:00.000Z",
+      recordPath: value.recordPath,
+      runId: "run-selected",
+      status: "failed",
+      taskId: expected.taskId,
+    });
+    const archived = JSON.parse(readFileSync(archivedPath, "utf8"));
+    archived.runId = "run-drifted";
+    writeFileSync(archivedPath, JSON.stringify(archived));
+
+    expect(() =>
+      auditedTerminalResumeRecord({
+        archiveActionId,
+        auditPath: value.auditPath,
+        expected,
+        recordPath: value.recordPath,
+      }),
+    ).toThrow("audited terminal archive content drift");
   });
 
   it("rejects conflicting deterministic archive or audit replay", () => {

@@ -448,6 +448,7 @@ interface PreservedResumeObservation {
 }
 
 export const auditedTerminalResumeRecord = (input: {
+  readonly archiveActionId?: string;
   readonly auditPath: string;
   readonly expected: ResumeIdentity;
   readonly recordPath: string;
@@ -458,6 +459,14 @@ export const auditedTerminalResumeRecord = (input: {
   readonly runId: string;
   readonly status: string;
 } => {
+  if (
+    input.archiveActionId !== undefined &&
+    !/^[0-9a-zA-Z._-]+$/.test(input.archiveActionId)
+  ) {
+    throw new Error(
+      `${input.expected.taskId}: archive action selector is unsafe`,
+    );
+  }
   if (!existsSync(input.auditPath)) {
     throw new Error(
       `${input.expected.taskId}: preserved terminal archive audit is missing`,
@@ -470,7 +479,9 @@ export const auditedTerminalResumeRecord = (input: {
     .filter(
       (event) =>
         event.action === "archive-terminal-task-run" &&
-        event.taskId === input.expected.taskId,
+        event.taskId === input.expected.taskId &&
+        (input.archiveActionId === undefined ||
+          event.actionId === input.archiveActionId),
     );
   const candidates: {
     actionId: string;
@@ -544,6 +555,11 @@ export const auditedTerminalResumeRecord = (input: {
     candidates.push({ actionId, archivedPath, record, runId, status });
   }
   if (candidates.length === 0) {
+    if (input.archiveActionId !== undefined) {
+      throw new Error(
+        `${input.expected.taskId}: no audited terminal archive matches action ${input.archiveActionId}`,
+      );
+    }
     throw new Error(
       `${input.expected.taskId}: no exact audited terminal archive matches preserved resume`,
     );

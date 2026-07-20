@@ -58,12 +58,13 @@ const valueAfter = (flag: string): string | undefined => {
 const taskId = valueAfter("--task");
 const sourceRef = valueAfter("--ref");
 const taskBase = valueAfter("--base");
+const archiveActionId = valueAfter("--archive-action");
 const conflictAware = process.argv.includes("--conflict-aware");
 const resumeStrategy: "in-lane-cherry-pick" | "prelaunch-cherry-pick" =
   conflictAware ? "in-lane-cherry-pick" : "prelaunch-cherry-pick";
 if (!taskId || !sourceRef || !taskBase) {
   console.error(
-    "usage: brain:factory:resume -- --task <id> --ref <git-ref> --base <sha> [--conflict-aware]",
+    "usage: brain:factory:resume -- --task <id> --ref <git-ref> --base <sha> [--conflict-aware] [--archive-action <id>]",
   );
   process.exit(2);
 }
@@ -170,6 +171,7 @@ if (
   (existsSync(workdir) || gitBranchExists(branch, root))
 ) {
   preservedRecord = auditedTerminalResumeRecord({
+    ...(archiveActionId === undefined ? {} : { archiveActionId }),
     auditPath,
     expected: expectedResume,
     recordPath,
