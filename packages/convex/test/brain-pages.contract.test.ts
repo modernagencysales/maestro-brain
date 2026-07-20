@@ -31,6 +31,7 @@ describe("brain pages Confect contract", () => {
       "brain.pages.move",
       "brain.pages.favorite",
       "brain.pages.archive",
+      "brain.pages.recordSnapshot",
     ]);
     expect(
       manifest.every(
@@ -55,15 +56,15 @@ describe("brain pages Confect contract", () => {
     expect(() =>
       Schema.decodeUnknownSync(RecordSnapshotArgs)(
         {
-          brainKey: "br_0123456789ABCDEFGHJKMNPQRS",
-          pageKey: "pag_client-brief",
+          documentId:
+            "brainPage:br_0123456789ABCDEFGHJKMNPQRS:pag_client-brief",
           expectedCurrentRevisionKey: "rev_current",
-          pageId: "forged",
+          brainKey: "forged",
           snapshot: '{"type":"doc"}',
           version: 1,
         },
         { onExcessProperty: "error" },
       ),
-    ).toThrow(/pageId/);
+    ).toThrow(/brainKey/);
   });
 });

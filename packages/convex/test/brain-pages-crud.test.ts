@@ -446,8 +446,11 @@ describe("authorized Brain page CRUD", () => {
     );
   });
 
-  it("keeps every pages manifest entry web-only", () => {
-    expect(manifest).toHaveLength(7);
+  it("keeps every pages manifest entry web-only including fenced snapshots", () => {
+    expect(manifest).toHaveLength(8);
+    expect(manifest.map((entry) => entry.operationId)).toContain(
+      "brain.pages.recordSnapshot",
+    );
     for (const entry of manifest) {
       expect(entry.operationId).toMatch(/^brain\.pages\./);
       expect(entry.surfaces).toEqual(["web"]);
@@ -630,8 +633,7 @@ describe("authorized Brain page CRUD", () => {
       const saved = yield* editor.mutation(
         refs.internal.brain.pages.recordSnapshotInternal,
         {
-          brainKey: editorBrainKey,
-          pageKey: page.pageKey,
+          documentId: `brainPage:${editorBrainKey}:${page.pageKey}`,
           expectedCurrentRevisionKey: requireRevisionKey(
             page.currentRevisionKey,
           ),
@@ -649,8 +651,7 @@ describe("authorized Brain page CRUD", () => {
       );
       const stale = yield* editor
         .mutation(refs.internal.brain.pages.recordSnapshotInternal, {
-          brainKey: editorBrainKey,
-          pageKey: page.pageKey,
+          documentId: `brainPage:${editorBrainKey}:${page.pageKey}`,
           expectedCurrentRevisionKey: "rev_stale",
           snapshot: '{"type":"doc","stale":true}',
           version: 8,
@@ -658,8 +659,7 @@ describe("authorized Brain page CRUD", () => {
         .pipe(Effect.either);
       const staleVersion = yield* editor
         .mutation(refs.internal.brain.pages.recordSnapshotInternal, {
-          brainKey: editorBrainKey,
-          pageKey: page.pageKey,
+          documentId: `brainPage:${editorBrainKey}:${page.pageKey}`,
           expectedCurrentRevisionKey: requireRevisionKey(
             page.currentRevisionKey,
           ),
@@ -669,8 +669,7 @@ describe("authorized Brain page CRUD", () => {
         .pipe(Effect.either);
       const crossBrain = yield* other
         .mutation(refs.internal.brain.pages.recordSnapshotInternal, {
-          brainKey: viewerBrainKey,
-          pageKey: page.pageKey,
+          documentId: `brainPage:${viewerBrainKey}:${page.pageKey}`,
           expectedCurrentRevisionKey: requireRevisionKey(
             page.currentRevisionKey,
           ),
@@ -755,8 +754,7 @@ describe("authorized Brain page CRUD", () => {
     expect(() =>
       Schema.decodeUnknownSync(RecordSnapshotArgs)(
         {
-          brainKey: editorBrainKey,
-          pageKey: result.page.pageKey,
+          documentId: `brainPage:${editorBrainKey}:${result.page.pageKey}`,
           expectedCurrentRevisionKey: requireRevisionKey(
             result.page.currentRevisionKey,
           ),
