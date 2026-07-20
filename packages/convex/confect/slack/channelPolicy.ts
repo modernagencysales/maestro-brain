@@ -30,6 +30,25 @@ export class CapacityExceeded extends Schema.TaggedError<CapacityExceeded>()(
   { limit: Schema.Number, actual: Schema.Number, kind: Schema.String },
 ) {}
 
+type ChannelPolicyError =
+  | ChannelNotJoined
+  | PolicyInvalid
+  | TargetBrainForbidden
+  | PolicyGenerationMismatch
+  | CapacityExceeded;
+
+type BulkPolicyPlan = {
+  readonly routingPolicies: readonly ChannelRoutingPolicyRowValue[];
+  readonly deliveryPolicies: readonly ChannelDeliveryPolicyRowValue[];
+  readonly auditRows: readonly {
+    readonly organizationKey: string;
+    readonly actorRole: "admin" | "owner";
+    readonly action: "channel_policy_bulk_update";
+    readonly targetCount: number;
+    readonly recordedAt: number;
+  }[];
+};
+
 export type BrainTarget = {
   readonly brainKey: string;
   readonly name: string;
@@ -119,7 +138,7 @@ const activeDeliveryPolicyFor = (
 const validateRouting = (
   routing: RoutingChange,
   allowedTargets: ReadonlySet<string>,
-) => {
+): Either.Either<true, ChannelPolicyError> => {
   if (routing.mode === "direct" && routing.targetBrainKeys.length !== 1) {
     return Either.left(
       new PolicyInvalid({ reason: "direct_requires_one_target" }),
@@ -146,7 +165,9 @@ const validateRouting = (
   return Either.right(true);
 };
 
-export const buildBulkPolicyPlan = (request: BulkPolicyRequest) => {
+export const buildBulkPolicyPlan = (
+  request: BulkPolicyRequest,
+): Either.Either<BulkPolicyPlan, ChannelPolicyError> => {
   if (request.actorRole !== "admin" && request.actorRole !== "owner") {
     return Either.left(new PolicyInvalid({ reason: "admin_required" }));
   }
