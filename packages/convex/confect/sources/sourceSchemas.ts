@@ -418,3 +418,233 @@ const providerPrimarySortKeyFor = (
   [
     input.observation.sourceTimestamp,
     input.observation.providerRevisionId,
+  ].join("|");
+const providerSortKeyFor = (input: typeof SourceLedgerCaptureInput.Type) =>
+  [
+    providerPrimarySortKeyFor(input),
+    input.envelope.organizationKey,
+    input.envelope.connectionKey,
+    String(input.envelope.connectionGeneration),
+    input.envelope.transport,
+    input.envelope.transportDeliveryId,
+  ].join("|");
+
+export const buildSourceLedgerRows = (
+  input: typeof SourceLedgerCaptureInput.Type,
+  options: CaptureValidationOptions,
+) => {
+  const validationOptions: MutablePartial<CaptureValidationOptions> = {};
+  if (options.existingObservationKey)
+    validationOptions.existingObservationKey = options.existingObservationKey;
+  if (options.existingArtifact)
+    validationOptions.existingArtifact = options.existingArtifact;
+  if (options.seenTransportDeliveries)
+    validationOptions.seenTransportDeliveries = new Set(
+      options.seenTransportDeliveries,
+    );
+  if (options.verifiedBinding)
+    validationOptions.verifiedBinding = options.verifiedBinding;
+  const verifiedBinding = assertVerifiedSlackEnvelope(options.verifiedBinding);
+  const result = assertValidSourceLedgerCapture(input, validationOptions);
+  const keys = result;
+  const signatureVerification = verifiedBinding.signatureVerification;
+  const replayVerification = verifiedBinding.replayVerification;
+  const receipt = {
+    schemaVersion: 1 as const,
+    organizationKey: input.envelope.organizationKey,
+    connectionKey: input.envelope.connectionKey,
+    connectionGeneration: input.envelope.connectionGeneration,
+    channelKey: input.envelope.channelKey,
+    externalChannelId: input.envelope.externalChannelId,
+    transport: input.envelope.transport,
+    transportDeliveryId: input.envelope.transportDeliveryId,
+    providerEventId: verifiedBinding.providerEventId,
+    providerObjectId: input.observation.providerObjectId,
+    providerRevisionId: input.observation.providerRevisionId,
+    providerOrder: input.observation.providerOrder,
+    canonicalContentHash: keys.contentHash,
+    tombstone: input.observation.tombstone,
+    signatureVerification,
+    replayVerification,
+    observationKey: keys.observationKey,
+    sourceKey: keys.sourceKey,
+    sourceRevisionKey: keys.sourceRevisionKey,
+    outcome: result.outcome,
+    receivedAt: input.envelope.receivedAt,
+    createdAt: input.envelope.receivedAt,
+  };
+  if (result.outcome === "duplicate")
+    return { receipt, artifact: null, revision: null, processingJob: null };
+  const lifecycleValue = {
+    state: input.observation.tombstone
+      ? ("deleted_tombstone" as const)
+      : ("active" as const),
+    generation: (options.existingArtifact?.lifecycleGeneration ?? 0) + 1,
+    updatedAt: input.envelope.receivedAt,
+    purgeAfter: null,
+  };
+  return {
+    receipt,
+    artifact: {
+      schemaVersion: 1 as const,
+      organizationKey: input.envelope.organizationKey,
+      connectionKey: input.envelope.connectionKey,
+      connectionGeneration: input.envelope.connectionGeneration,
+      channelKey: input.envelope.channelKey,
+      externalChannelId: input.envelope.externalChannelId,
+      providerObjectId: input.observation.providerObjectId,
+      sourceKey: keys.sourceKey,
+      threadKey: input.observation.threadKey,
+      latestSourceRevisionKey: keys.sourceRevisionKey,
+      latestProviderOrder: providerSortKeyFor(input),
+      lifecycle: lifecycleValue,
+      createdAt:
+        options.existingArtifact?.createdAt ?? input.envelope.receivedAt,
+      updatedAt: input.envelope.receivedAt,
+    },
+    revision: {
+      schemaVersion: 1 as const,
+      organizationKey: input.envelope.organizationKey,
+      connectionKey: input.envelope.connectionKey,
+      connectionGeneration: input.envelope.connectionGeneration,
+      channelKey: input.envelope.channelKey,
+      sourceKey: keys.sourceKey,
+      sourceRevisionKey: keys.sourceRevisionKey,
+      observationKey: keys.observationKey,
+      providerOrder: input.observation.providerOrder,
+      providerRevisionId: input.observation.providerRevisionId,
+      sourceCreatedAt: input.envelope.receivedAt,
+      sourceTimestamp: input.observation.sourceTimestamp,
+      authorSnapshot: input.observation.author,
+      normalizedText: input.observation.text,
+      blocksJson: input.observation.blocksJson,
+      permalink: input.observation.permalink,
+      contentHash: keys.contentHash,
+      tombstone: input.observation.tombstone,
+      lifecycle: lifecycleValue,
+      createdAt: input.envelope.receivedAt,
+    },
+    processingJob: {
+      schemaVersion: 1 as const,
+      organizationKey: input.envelope.organizationKey,
+      sourceUnitKey: keys.sourceUnitKey,
+      sourceRevisionKey: keys.sourceRevisionKey,
+      stage: input.routing.assemblyStage,
+      status: "pending" as const,
+      effectKey: input.routing.effectKey,
+      policyEpoch: input.routing.policyEpoch,
+      leaseOwner: null,
+      leaseExpiresAt: null,
+      nextRetryAt: input.envelope.receivedAt,
+      attemptCount: 0,
+      createdAt: input.envelope.receivedAt,
+      updatedAt: input.envelope.receivedAt,
+    },
+  };
+};
+
+type ReadableCurrentInput = {
+  readonly organizationKey: string;
+  readonly channelKey: string;
+  readonly sourceKey: string;
+  readonly artifact: typeof SourceArtifactRow.Type | null;
+  readonly revisions: readonly (typeof SourceRevisionRow.Type)[];
+};
+
+export const getReadableCurrentSourceRevision = ({
+  organizationKey,
+  channelKey,
+  sourceKey,
+  artifact,
+  revisions,
+}: ReadableCurrentInput): typeof SourceRevisionRow.Type | null => {
+  if (
+    !artifact ||
+    artifact.organizationKey !== organizationKey ||
+    artifact.channelKey !== channelKey ||
+    artifact.sourceKey !== sourceKey ||
+    artifact.lifecycle.state !== "active"
+  )
+    return null;
+  const matches = revisions.filter(
+    (revision) =>
+      revision.organizationKey === organizationKey &&
+      revision.channelKey === channelKey &&
+      revision.sourceKey === sourceKey &&
+      revision.sourceRevisionKey === artifact.latestSourceRevisionKey,
+  );
+  if (matches.length > 1)
+    throw new DuplicateKeyConflict("DuplicateKeyConflict");
+  const revision = matches[0];
+  if (!revision || revision.lifecycle.state !== "active" || revision.tombstone)
+    return null;
+  return revision;
+};
+
+type NoSourceOptions = {
+  readonly verifiedBinding: VerifiedSlackEnvelope;
+} & (
+  | {
+      readonly outcome: "ignored_bot_output";
+      readonly reasonCode: typeof IgnoredReason.Type;
+    }
+  | {
+      readonly outcome: "rejected";
+      readonly reasonCode: typeof RejectedReason.Type;
+    }
+);
+
+export const buildNoSourceProviderEventReceipt = (
+  input: typeof SourceLedgerCaptureInput.Type,
+  options: NoSourceOptions,
+): typeof ProviderEventReceiptRow.Type => {
+  const decoded = Schema.decodeUnknownSync(SourceLedgerCaptureInput)(input);
+  const binding = assertVerifiedSlackEnvelope(options.verifiedBinding);
+  const reasonSchema =
+    options.outcome === "ignored_bot_output" ? IgnoredReason : RejectedReason;
+  if (
+    options.outcome === "ignored_bot_output" &&
+    !["self_authored_bot", "unsupported_subtype"].includes(options.reasonCode)
+  )
+    throw new ObservationInvalid("ObservationInvalid");
+  if (
+    options.outcome === "rejected" &&
+    !["invalid_payload", "channel_access_lost", "payload_too_large"].includes(
+      options.reasonCode,
+    )
+  )
+    throw new ObservationInvalid("ObservationInvalid");
+  let reason: typeof IgnoredReason.Type | typeof RejectedReason.Type;
+  try {
+    reason = Schema.decodeUnknownSync(reasonSchema as typeof IgnoredReason)(
+      options.reasonCode,
+    );
+  } catch {
+    throw new ObservationInvalid("ObservationInvalid");
+  }
+  return {
+    schemaVersion: 1 as const,
+    organizationKey: decoded.envelope.organizationKey,
+    connectionKey: decoded.envelope.connectionKey,
+    connectionGeneration: decoded.envelope.connectionGeneration,
+    channelKey: decoded.envelope.channelKey,
+    externalChannelId: decoded.envelope.externalChannelId,
+    transport: decoded.envelope.transport,
+    transportDeliveryId: decoded.envelope.transportDeliveryId,
+    providerEventId: binding.providerEventId,
+    providerObjectId: decoded.observation.providerObjectId,
+    providerRevisionId: decoded.observation.providerRevisionId,
+    providerOrder: decoded.observation.providerOrder,
+    canonicalContentHash: `sha256:${digest({ outcome: options.outcome, reason })}`,
+    tombstone: false,
+    signatureVerification: binding.signatureVerification,
+    replayVerification: binding.replayVerification,
+    observationKey: null,
+    sourceKey: null,
+    sourceRevisionKey: null,
+    outcome: options.outcome,
+    reason,
+    receivedAt: decoded.envelope.receivedAt,
+    createdAt: decoded.envelope.receivedAt,
+  };
+};
