@@ -1,0 +1,169 @@
+{
+  "lens": "safety",
+  "taskId": "S05-T01",
+  "planSha256": "401ba861efdc16760c9abac168cfd928efce150d9051c6bd58bf62ec330547a7",
+  "taskBlockHash": "1665eb4087239d8d137a8b4274f5f63c4bb965d699076b2678d1e618b1e34c54",
+  "baseSha": "648ddb32aa68230fdb41e0ef6dc6fe26c4837487",
+  "headSha": "105fa93962f845497dc75383b7632b4f23701175",
+  "treeSha": "c71796fca3ffe5fa4c1c6602c6eba62e3b2be881",
+  "reviewerRunId": "maestro/review/S05-T01/105fa93962f845497dc75383b7632b4f23701175/ed7965b1-575b-4f83-b3d2-07e1b9d721fb-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "finding",
+      "findingIds": [
+        "SAFETY-S05-T01-001",
+        "SAFETY-S05-T01-003",
+        "SAFETY-S05-T01-004"
+      ],
+      "evidence": [
+        "Durable tenant isolation is unproven for rollback, no-source receipt binding lacks tenant/channel equality, and readable-current selection omits connectionKey/connectionGeneration fencing."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "finding",
+      "findingIds": [
+        "SAFETY-S05-T01-002",
+        "SAFETY-S05-T01-003"
+      ],
+      "evidence": [
+        "The exported Slack envelope brand constructor bypasses native verifier authority, and no-source receipts accept branded evidence without checking it authorizes the input tenant/channel."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "finding",
+      "findingIds": [
+        "SAFETY-S05-T01-004",
+        "SAFETY-S05-T01-005"
+      ],
+      "evidence": [
+        "Readable-current lifecycle selection can cross connection generations, and invalid-payload no-source lifecycle/receipt recording is blocked by full observation decode before sanitized rejected receipt construction."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "finding",
+      "findingIds": [
+        "SAFETY-S05-T01-002",
+        "SAFETY-S05-T01-005"
+      ],
+      "evidence": [
+        "Verification evidence is caller-authored instead of produced at a raw Slack verifier boundary, and invalid-payload no-source receipts lack a reason-specific sanitized input path that avoids requiring/storing a valid raw observation."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "finding",
+      "findingIds": [
+        "SAFETY-S05-T01-001",
+        "SAFETY-S05-T01-004"
+      ],
+      "evidence": [
+        "No durable write rollback test proves atomicity under injected failure after a real write, and readable-current selection lacks connection-generation fencing against stale-generation races."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "finding",
+      "findingIds": [
+        "SAFETY-S05-T01-002"
+      ],
+      "evidence": [
+        "ReplayVerification is a caller-supplied literal and tests do not cover native valid, invalid-signature, stale, or replay verifier behavior before branding."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "finding",
+      "findingIds": [
+        "SAFETY-S05-T01-004",
+        "SAFETY-S05-T01-006"
+      ],
+      "evidence": [
+        "Readable-current omits connectionKey/connectionGeneration fencing, and generator check mode treats absent expected executable output as success rather than validating an explicit integration/temp-owned target or amending the plan contract."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "finding",
+      "findingIds": [
+        "SAFETY-S05-T01-002",
+        "SAFETY-S05-T01-006"
+      ],
+      "evidence": [
+        "Slack verification branding is not confined to a provider verifier boundary, and migration generator integration ownership is not represented by an explicit target/check contract."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "SAFETY-S05-T01-001",
+      "severity": "P1",
+      "summary": "Rollback proof does not exercise durable Convex transaction rollback after a real write",
+      "details": "S05-T01 acceptance requires partial transaction failure proof for providerEventReceipts, sourceArtifacts, sourceRevisions, and sourceProcessingJobs. The implemented test stages plain in-memory arrays and throws before mutating any store array, so it never proves Convex/Confect atomic rollback after a durable db write nor tenant isolation of persisted rows.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md S05-T01 Failure-first tests require partial transaction failure, and Completion receipt requires tenant/key/partial-write tests.",
+        "packages/convex/test/source-ledger-schema.test.ts:570-610 uses local arrays and throws before store.receipts/artifacts/revisions/jobs.push, with no Confect/Convex mutation and no durable table query.",
+        "packages/convex/confect/sources/sourceSchemas.ts:432-543 only builds row objects; the task has no mutation that writes receipt/artifact/revision/job rows and injects failure after a real db write."
+      ]
+    },
+    {
+      "id": "SAFETY-S05-T01-002",
+      "severity": "P1",
+      "summary": "Verified Slack envelope branding is forgeable by trusted caller-shaped literals instead of native Slack verification",
+      "details": "makeVerifiedSlackEnvelope exports a constructor that brands any caller-supplied object with literal verified/accepted status and receipt hashes. There is no native Slack verifier boundary that validates raw body, signing secret, signature timestamp/freshness, replay state, and durable binding before producing the brand, nor tests for valid, invalid-signature, stale, and replay cases.",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:158-188 defines VerifiedSlackChannelBinding with caller-provided providerEventId/signatureVerification/replayVerification and exports makeVerifiedSlackEnvelope, which decodes and brands that literal.",
+        "packages/convex/test/source-ledger-schema.test.ts:61-81 and 383-401 construct verifiedBinding directly in the test; no raw Slack body, signing secret, Slack signature, timestamp freshness, replay store, or durable binding verifier is involved.",
+        "S05-T01 typed contract requires internal capture input to be a VerifiedSlackEnvelope; this brand must be produced by the provider verification boundary, not by arbitrary product callers."
+      ]
+    },
+    {
+      "id": "SAFETY-S05-T01-003",
+      "severity": "P1",
+      "summary": "No-source receipt construction permits cross-tenant/channel laundering",
+      "details": "buildNoSourceProviderEventReceipt asserts that options.verifiedBinding has the brand but does not compare organizationKey, connectionKey, connectionGeneration, teamId, appId, botUserId, channelKey, or externalChannelId against the capture input. A branded binding from another tenant/channel can therefore stamp verified signature and replay evidence onto an unrelated no-source receipt.",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:597-649 decodes input and asserts the brand, then copies tenant/channel fields from decoded.envelope and verification evidence/providerEventId from binding without equality checks.",
+        "packages/convex/confect/sources/sourceSchemas.ts:333-346 performs the required equality checks for normal capture validation, showing the expected guard exists but is not reused for no-source receipts.",
+        "packages/convex/test/source-ledger-schema.test.ts:542-568 covers sanitized reasons but has no cross-org, generation, team/app/bot, channel, or external-channel negative test for no-source receipt construction."
+      ]
+    },
+    {
+      "id": "SAFETY-S05-T01-004",
+      "severity": "P1",
+      "summary": "Readable-current lookup is not fenced by connection identity",
+      "details": "getReadableCurrentSourceRevision accepts only organizationKey, channelKey, and sourceKey, then filters artifact/revisions by those fields. It does not require caller input for connectionKey and connectionGeneration or exact-match them on artifact and revision, allowing stale or wrong Slack connection-generation rows to be selected within the same organization/channel/source.",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:546-560 defines ReadableCurrentInput without connectionKey or connectionGeneration.",
+        "packages/convex/confect/sources/sourceSchemas.ts:561-575 checks artifact/revision organizationKey, channelKey, sourceKey, and latestSourceRevisionKey, but not connectionKey or connectionGeneration.",
+        "S05-T01 implementation requires stable tenant keys, connection generation fencing, and readable current source revision selection without stale-generation races."
+      ]
+    },
+    {
+      "id": "SAFETY-S05-T01-005",
+      "severity": "P1",
+      "summary": "Rejected invalid-payload no-source receipts cannot be represented for malformed observations",
+      "details": "buildNoSourceProviderEventReceipt first decodes the full SourceLedgerCaptureInput, including a valid observation, before considering the no-source outcome/reason. A malformed Slack payload that should produce a sanitized rejected/invalid_payload receipt cannot construct that receipt because full observation decode fails first.",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:597-602 calls Schema.decodeUnknownSync(SourceLedgerCaptureInput)(input) before reason-specific no-source handling.",
+        "SourceLedgerCaptureInput at sourceSchemas.ts:201-233 requires full observation fields and validation, so invalid_payload no-source cases are rejected before a sanitized receipt can be built.",
+        "packages/convex/test/source-ledger-schema.test.ts:542-568 only constructs no-source receipts from the fully valid capture fixture; it does not prove malformed observation input can be durably recorded as rejected/invalid_payload without storing raw customer text."
+      ]
+    },
+    {
+      "id": "SAFETY-S05-T01-006",
+      "severity": "P1",
+      "summary": "Migration generator check succeeds on absent canonical output instead of proving an explicit integration/temp-owned executable target",
+      "details": "The proof packet reports that the exact focused generator check exits 0 with the integration-owned migrations.generated.ts target absent. S05-T01 requires deterministic executable canonical output while reconciling integration ownership; check mode should fail on missing/stale expected output for an explicit integration/temp-owned target, or the focused-command/plan contract must be amended instead of treating absence as green.",
+      "evidence": [
+        "ci-proof-packet.json supplementalCommandResults states the generator check exits 0 with the integration-owned migrations.generated.ts target absent.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md S05-T01 requires generating the canonical registry deterministically and proving stale check output fails while the product lane does not commit the canonical registry.",
+        "packages/convex/test/migration-registry.test.ts is listed as proof, but the lane proof explicitly accepts absent expected output, leaving no executable generated registry artifact under an explicit integration/temp-owned target for check mode to validate."
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
