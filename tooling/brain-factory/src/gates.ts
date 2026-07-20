@@ -71,7 +71,7 @@ export const focusedGateCommand = (value: string): GateCommand => {
   const normalized = [program, ...args].join(" ");
   if (
     program === "pnpm" &&
-    args[0]?.startsWith("template:") &&
+    args.some((argument) => argument.startsWith("template:")) &&
     args.includes("--write")
   )
     throw new Error(

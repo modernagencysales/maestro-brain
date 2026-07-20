@@ -244,23 +244,24 @@ describe("brain lane gate profiles", () => {
   });
 
   it("rejects mutating template generators as replayable focused gates", () => {
-    expect(() =>
-      focusedGateCommand(
-        "rtk pnpm template:add-capability -- --name classifySourceUnit --exposure workflow --write",
-      ),
-    ).toThrow(/template generator.*--write/);
-    expect(() =>
-      focusedGateCommand(
-        "rtk pnpm template:add-workflow -- --name sourceClassification --exposure internal --write",
-      ),
-    ).toThrow(/template generator.*--write/);
+    for (const command of [
+      "rtk pnpm template:add-capability -- --name classifySourceUnit --exposure workflow --write",
+      "rtk pnpm template:add-workflow -- --name sourceClassification --exposure internal --write",
+      "rtk pnpm --silent template:add-capability -- --name classifySourceUnit --write",
+      "rtk pnpm --dir . --silent template:add-workflow -- --name sourceClassification --write",
+    ]) {
+      expect(() => focusedGateCommand(command), command).toThrow(
+        /template generator.*--write/,
+      );
+    }
     expect(
       focusedGateCommand(
-        "rtk pnpm template:add-workflow -- --name sourceClassification --exposure internal",
+        "rtk pnpm --silent template:add-workflow -- --name sourceClassification --exposure internal",
       ),
     ).toEqual({
       program: "pnpm",
       args: [
+        "--silent",
         "template:add-workflow",
         "--",
         "--name",

@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -19,6 +20,18 @@ const copyFixture = (relative: string, root: string): void => {
   const target = join(root, relative);
   mkdirSync(dirname(target), { recursive: true });
   writeFileSync(target, readFileSync(join(REPO_ROOT, relative)));
+};
+
+const generatorDryRunPaths = (args: readonly string[]): readonly string[] => {
+  const output = execFileSync(
+    resolve(REPO_ROOT, "node_modules/.bin/tsx"),
+    [resolve(REPO_ROOT, "tooling/generators/src/index.ts"), ...args],
+    { cwd: REPO_ROOT, encoding: "utf8" },
+  );
+  const plan = JSON.parse(output) as {
+    readonly files: readonly { readonly path: string }[];
+  };
+  return plan.files.map((file) => file.path);
 };
 
 describe("Maestro Brain execution manifest", () => {
@@ -186,46 +199,65 @@ describe("Maestro Brain execution manifest", () => {
 
   it("locks every S08 cognition generator output to its owning task", () => {
     const manifest = buildManifest();
-    const taskById = new Map(manifest.tasks.map((task) => [task.taskId, task]));
-    const generated = {
+    const commands = {
       "S08-T03": [
-        "packages/convex/confect/capabilities/classifySourceUnit.spec.ts",
-        "packages/convex/confect/capabilities/classifySourceUnit.impl.ts",
-        "packages/convex/confect/capabilities/classifySourceUnit.domain.ts",
-        "packages/convex/confect/capabilities/classifySourceUnit.test.ts",
-        "packages/convex/confect/capabilities/classifySourceUnit.headless.json",
-        "docs/template/generated/capabilities/classifySourceUnit.md",
-        "docs/template/generated/provenance/add-capability/classifySourceUnit.json",
-        "packages/convex/confect/workflowContracts/sourceClassification.spec.ts",
-        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts",
-        "packages/convex/confect/workflows/sourceClassification.graph.ts",
-        "packages/convex/convex/workflowRunners/sourceClassification.ts",
-        "packages/convex/test/sourceClassification.workflow.test.ts",
-        "docs/template/generated/workflows/sourceClassification.md",
-        "docs/template/generated/provenance/add-workflow/sourceClassification.json",
+        [
+          "add-capability",
+          "--",
+          "--name",
+          "classifySourceUnit",
+          "--description",
+          "Returns a typed zero-or-one route proposal from an immutable source unit.",
+          "--exposure",
+          "workflow",
+        ],
+        [
+          "add-workflow",
+          "--",
+          "--name",
+          "sourceClassification",
+          "--description",
+          "Gathers, classifies, reviews, and commits one source route.",
+          "--exposure",
+          "internal",
+        ],
       ],
       "S08-T04": [
-        "packages/convex/confect/capabilities/maintainBrainPage.spec.ts",
-        "packages/convex/confect/capabilities/maintainBrainPage.impl.ts",
-        "packages/convex/confect/capabilities/maintainBrainPage.domain.ts",
-        "packages/convex/confect/capabilities/maintainBrainPage.test.ts",
-        "packages/convex/confect/capabilities/maintainBrainPage.headless.json",
-        "docs/template/generated/capabilities/maintainBrainPage.md",
-        "docs/template/generated/provenance/add-capability/maintainBrainPage.json",
-        "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.spec.ts",
-        "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.impl.ts",
-        "packages/convex/confect/workflows/sourceToBrainMaintenance.graph.ts",
-        "packages/convex/convex/workflowRunners/sourceToBrainMaintenance.ts",
-        "packages/convex/test/sourceToBrainMaintenance.workflow.test.ts",
-        "docs/template/generated/workflows/sourceToBrainMaintenance.md",
-        "docs/template/generated/provenance/add-workflow/sourceToBrainMaintenance.json",
+        [
+          "add-capability",
+          "--",
+          "--name",
+          "maintainBrainPage",
+          "--description",
+          "Returns cited Brain revision proposals from an immutable context pack.",
+          "--exposure",
+          "workflow",
+        ],
+        [
+          "add-workflow",
+          "--",
+          "--name",
+          "sourceToBrainMaintenance",
+          "--description",
+          "Gathers routed evidence and proposes cited Brain revisions.",
+          "--exposure",
+          "internal",
+        ],
       ],
     } as const;
 
-    for (const [taskId, paths] of Object.entries(generated)) {
-      expect(taskById.get(taskId)?.fileLocks).toEqual(
-        expect.arrayContaining([...paths]),
-      );
+    for (const [taskId, taskCommands] of Object.entries(commands)) {
+      const paths = taskCommands.flatMap(generatorDryRunPaths);
+      expect(paths).toHaveLength(14);
+      expect(new Set(paths).size).toBe(paths.length);
+      for (const path of paths) {
+        expect(
+          manifest.tasks
+            .filter((task) => task.fileLocks.includes(path))
+            .map((task) => task.taskId),
+          path,
+        ).toEqual([taskId]);
+      }
     }
   });
 
