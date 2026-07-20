@@ -1,0 +1,68 @@
+{
+  "lens": "contract",
+  "taskId": "S04-T04",
+  "planSha256": "5e3506ec26c1776547b03641707371efaebb1c490ce3da6b6a1e2ed0df2a8417",
+  "taskBlockHash": "43fe7362c17307d938a689c31cfaa350124a5029c8ef938d09c8f08066ec12c5",
+  "baseSha": "bc7631796e42ee5d33a006df85730dc1293f505e",
+  "headSha": "328fc2a4759311a4180722232c57443256bdd69c",
+  "treeSha": "255fc5d652574a5f6bea43e052edf4cd7c2660e1",
+  "reviewerRunId": "maestro/review/S04-T04/328fc2a4759311a4180722232c57443256bdd69c/2972c9b2-33b8-4591-9223-f51f2f69624b-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1564-1604 defines the S04-T04 acceptance scope: bulk-selected joined channels, routing/delivery policy semantics, capacity envelope, audit, stale generation errors, and typed state/errors.",
+        "packages/convex/confect/slack/channelPolicy.ts:153-299 implements the pure bulk planner with admin/owner authorization input, joined-channel gating, 100-channel and 25-client-brain caps, routing/delivery validation, Slack Connect capture-only delivery, revision fencing, immutable epoch/generation append rows, pending-source interval, and audit row planning.",
+        "apps/web/src/features/connections/channel-policy-dialog.tsx:167-185 builds and submits the bulk channel policy request from selected joined channels through bulkSetChannelPolicies instead of stopping at local display state."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.spec.ts:21-54 declares the public bulkSetChannelPolicies mutation with organizationKey, expected connection/channel generations, per-channel expected active policy revisions, changes, typed return, and the declared error union.",
+        "packages/convex/confect/slack/channelPolicy.ts:8-31 defines the task-declared typed errors ChannelNotJoined, PolicyInvalid, TargetBrainForbidden, PolicyGenerationMismatch, and CapacityExceeded.",
+        "apps/web/src/features/connections/channel-policy-view-model.ts:122-158 preserves the typed request shape, including per-channel expectedRoutingPolicyEpoch and expectedDeliveryGeneration fields for the generated mutation submit path."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/channelRoutingPolicies.ts:23-45 defines additive immutable routing policy rows with organization, connection, channel, policyEpoch, active pointer, routing mode, target set, statusAfterApply, pending source interval, creator role, and required indexes.",
+        "packages/convex/confect/tables/channelDeliveryPolicies.ts:9-26 defines additive delivery policy generations with active pointer, delivery mode, creator role, timestamp, and channel/organization indexes.",
+        "packages/convex/test/channel-policies.test.ts:120-138 pins the durable routing and delivery policy index inventory."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1566-1568 classifies S04-T04 as a template-gap targeting TB-SOURCE-01 with TB-BRAIN-UI-01 frontend follow-up.",
+        "docs/product/maestro-brain-lifecycle-adoption/S04-T04.md:20-37 documents the lifecycle behavior, Slack Connect capture-only delivery constraint, prospective additive migration, and rollback-by-new-epoch semantics.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S04-T04/lane-gate-report.json:1-58 records the exact-head pre-review gate pass for S04-T04 at head 328fc2a4759311a4180722232c57443256bdd69c and tree 255fc5d652574a5f6bea43e052edf4cd7c2660e1."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:630-642 lists the exact S04-T04 owned file inventory.",
+        "rtk proxy git diff --name-status bc7631796e42ee5d33a006df85730dc1293f505e..HEAD -- apps/web/src/features/connections packages/convex/confect/slack packages/convex/confect/tables packages/convex/test docs/product/maestro-brain-lifecycle-adoption/S04-T04.md apps/web/src/routes/_workspace.connections.tsx showed only the 13 task-owned product/test/doc files changed.",
+        "Generated Confect/Convex output was not edited in this task diff; per review instructions, exact-head pre-review codegen proof covers transient registration and Appendices O/P own checked-in generated integration cleanup."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/test/channel-policies.test.ts:140-217 covers non-admin changes, invalid Direct/Classify/Capture-only targets, stale connection/access generation, Slack Connect requester-private delivery denial, 101 joined channels, 26 client targets, and all-or-nothing bulk rejection.",
+        "packages/convex/test/channel-policies.test.ts:301-349 covers stale active routing policy epoch and delivery generation rejection with PolicyGenerationMismatch.",
+        "packages/convex/test/channel-policies.test.ts:400-416 proves Slack Connect Direct/Classify ingestion remains allowed when delivery is capture-only, and apps/web/src/features/connections/channel-policy-view-model.test.ts:106-145 proves the UI submit model includes active revision fences and locks Slack Connect delivery to capture_only."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
