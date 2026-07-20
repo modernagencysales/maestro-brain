@@ -52,6 +52,11 @@ const ReconcileResult = Schema.Struct({
   nextCursor: Schema.NullOr(Schema.String),
 });
 
+const CommitReconcileChannelsResult = Schema.Union(
+  Schema.Struct({ kind: Schema.Literal("ok"), result: ReconcileResult }),
+  Schema.Struct({ kind: Schema.Literal("bot_identity_mismatch") }),
+);
+
 const ConnectionSnapshot = Schema.Struct({
   organizationKey: Schema.String,
   connectionKey: Schema.String,
@@ -139,7 +144,7 @@ export const commitReconcileChannels = FunctionSpec.internalMutation({
       providerChannels: Schema.Array(ProviderSlackChannel),
       providerNextCursor: Schema.NullOr(Schema.String),
     }),
-  returns: () => ReconcileResult,
+  returns: () => CommitReconcileChannelsResult,
   error: () => slackDirectoryError(),
 });
 
