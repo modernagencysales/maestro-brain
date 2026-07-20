@@ -1,0 +1,101 @@
+{
+  "lens": "safety",
+  "taskId": "S05-T01",
+  "planSha256": "b25dfe4b3139d61e98976f450d6dfbdb30629201ab2015f7846a04ca02435a57",
+  "taskBlockHash": "8c814c81e34129532e8467e567d99d48dfb60017ceda5ab0934454da2d348044",
+  "baseSha": "73609583b9ca2704ad28f3844239f00764ac7230",
+  "headSha": "69c422c52fbe46f01ee70d3530239a34a4b37a52",
+  "treeSha": "58f72263857cf5b91fa940097375a458ad593416",
+  "reviewerRunId": "maestro/review/S05-T01/69c422c52fbe46f01ee70d3530239a34a4b37a52/02c49107-a9a9-4114-9081-dad613fe4ffc-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1674-1677",
+        "packages/convex/confect/sources/sourceSchemas.ts:112-123",
+        "packages/convex/confect/sources/sourceSchemas.ts:240-253",
+        "packages/convex/test/source-ledger-schema.test.ts:147-204",
+        "packages/convex/test/source-ledger-schema.test.ts:359-376"
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1694-1698",
+        "packages/convex/confect/sources/sourceSchemas.ts:210-267",
+        "packages/convex/test/source-ledger-schema.test.ts:286-357",
+        "packages/convex/test/source-ledger-schema.test.ts:359-376"
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:26-42",
+        "packages/convex/confect/sources/sourceSchemas.ts:15-20",
+        "packages/convex/confect/sources/sourceSchemas.ts:292-367",
+        "packages/convex/test/source-ledger-schema.test.ts:206-284",
+        "packages/convex/test/source-ledger-schema.test.ts:378-405"
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1678-1684",
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:13-24",
+        "packages/convex/confect/sources/sourceSchemas.ts:178-207",
+        "packages/convex/test/source-ledger-schema.test.ts:118-127"
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1674-1677",
+        "packages/convex/confect/sources/sourceSchemas.ts:257-266",
+        "packages/convex/test/source-ledger-schema.test.ts:129-145",
+        "packages/convex/test/source-ledger-schema.test.ts:286-299",
+        "packages/convex/test/source-ledger-schema.test.ts:378-405"
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:8-12",
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:32-35",
+        "packages/convex/confect/tables/providerEventReceipts.ts:5-14",
+        "packages/convex/confect/sources/sourceSchemas.ts:262-266",
+        "packages/convex/test/source-ledger-schema.test.ts:129-145",
+        "packages/convex/test/source-ledger-schema.test.ts:286-299"
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:36-42",
+        "packages/convex/confect/sources/sourceSchemas.ts:125-155",
+        "packages/convex/confect/sources/sourceSchemas.ts:178-207",
+        "packages/convex/confect/sources/sourceSchemas.ts:269-367",
+        "packages/convex/test/source-ledger-schema.test.ts:147-204"
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "AGENTS.md:127-134",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:686-689",
+        "packages/convex/confect/sources/sourceSchemas.ts:112-155",
+        "packages/convex/test/source-ledger-schema.test.ts:25-66",
+        "packages/convex/test/source-ledger-schema.test.ts:359-376"
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
