@@ -1,0 +1,83 @@
+{
+  "lens": "quality",
+  "taskId": "S08-T03",
+  "planSha256": "ca7c2d9fbe1de7598adb586c3c0eb8e85c2826fc3339def797b61e3dc45b56cf",
+  "taskBlockHash": "2d947263cf0fa3ed72b36f7fddc028629d9db80e333e2511207b2213bf4d40c0",
+  "baseSha": "2bdef668a17ac4e86a9113846b773f6243f281c0",
+  "headSha": "a495a996aeb8ad4faffb2f0aaa86cc5c68adfaa2",
+  "treeSha": "f283d25911e1f98635a1ad8956dd91fb2977938f",
+  "reviewerRunId": "maestro/review/S08-T03/a495a996aeb8ad4faffb2f0aaa86cc5c68adfaa2/48950001-759c-404e-8197-1154005e37b9-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "finding",
+      "findingIds": ["S08-T03-QUALITY-001"],
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2440-2449 requires the workflow to gather/classify an immutable source-unit request and then commit the reviewed route.",
+        "packages/convex/confect/workflowContracts/sourceClassification.spec.ts:36-45 defines start args with only workspaceId/idempotencyKey/caller and no source unit, hash, messages, policy version, or allowed targets.",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:98-107 starts the durable workflow with an empty request: sourceUnitRevisionKey/sourceUnitHash empty strings, messages [], policyVersion 0, allowedTargets [].",
+        "packages/convex/test/sourceClassification.workflow.test.ts:37-41 bypasses start and supplies only a partial request, so no focused test proves start can enqueue a real classification request."
+      ]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "apps/web/src/features/connections/classification-review-queue.tsx:1-10 imports only Saas UI primitives for the feature component.",
+        "packages/convex/confect/capabilities/classifySourceUnit.impl.ts:1-7 keeps capability implementation inside Confect/Convex and delegates to the local domain seam.",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:23-31 composes through workflow graph/ownership/status helpers rather than web or provider layers."
+      ]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/classification/request.ts:66-150 centralizes structural, allowlist, and evidence validation in a reusable domain helper.",
+        "packages/convex/confect/classification/review.ts:39-98 keeps reviewer transition rules isolated from workflow wiring.",
+        "packages/convex/confect/classification/commit.ts:49-94 isolates generation fencing and duplicate-effect behavior."
+      ]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "docs/product/maestro-brain-lifecycle-adoption/S08-T03.md:10-23 documents durable decision/job state surfaces for inspection.",
+        "packages/convex/confect/tables/classificationDecisions.ts:46-50 adds indexes by workspace/state, source unit, decision key, policy, and target without storing raw provider payloads.",
+        "Scoped search of changed implementation/test files found no console logging, Slack/Nango imports, provider SDK imports, or raw secret exposure."
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S08-T03/lane-gate-report.json:31-35 records changedSourceLines 1106, sourceSliceBudget 300, sourceSliceLimit 4, and estimateDrift true.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S08-T03/lane-gate-report.json:36-52 records four source slices at 285, 297, 231, and 293 changed lines, each within the 300-line slice budget.",
+        "rtk proxy git diff --stat 2bdef668a17ac4e86a9113846b773f6243f281c0..HEAD shows the task changes are limited to the manifest-owned S08-T03 files."
+      ]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2432-2434 assigns reproducible Confect/Convex generated output and regenerated manifests to integration, not this lane.",
+        "rtk proxy git diff --name-status 2bdef668a17ac4e86a9113846b773f6243f281c0..HEAD shows no edits under packages/convex/convex/_generated or packages/convex/confect/_generated.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S08-T03/lane-gate-report.json:9 and :55 show the exact-head pre-review lane gate included brain:factory:check-confect-codegen and passed."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "S08-T03-QUALITY-001",
+      "severity": "high",
+      "summary": "Workflow start cannot enqueue a real source classification request.",
+      "details": "The S08-T03 start contract omits the immutable source-unit request fields required by the task, and the implementation compensates by starting the workflow with empty strings, no messages, policyVersion 0, and an empty target allowlist. The workflow graph test bypasses the start contract, so the focused proof is false-green for the actual entrypoint that must gather/classify/review/commit one source route.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2440-2449",
+        "packages/convex/confect/workflowContracts/sourceClassification.spec.ts:36-45",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:98-107",
+        "packages/convex/test/sourceClassification.workflow.test.ts:37-41"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
