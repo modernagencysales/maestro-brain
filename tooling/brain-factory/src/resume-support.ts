@@ -8,6 +8,24 @@ export const resolveResumeStrategy = (input: {
     ? "in-lane-cherry-pick"
     : "prelaunch-cherry-pick";
 
+export const adoptTerminalAuthorityResumeRecord = <T extends object>(input: {
+  readonly record: T;
+  readonly resumeStrategy: "in-lane-cherry-pick";
+  readonly sourceHeadSha: string;
+  readonly taskBaseSha: string;
+}): Omit<T, "mode" | "resumeStrategy" | "sourceHeadSha" | "taskBaseSha"> & {
+  readonly mode: "resume-review";
+  readonly resumeStrategy: "in-lane-cherry-pick";
+  readonly sourceHeadSha: string;
+  readonly taskBaseSha: string;
+} => ({
+  ...input.record,
+  mode: "resume-review" as const,
+  resumeStrategy: input.resumeStrategy,
+  sourceHeadSha: input.sourceHeadSha,
+  taskBaseSha: input.taskBaseSha,
+});
+
 export const nonEmptyResumeCommits = (input: {
   readonly changedPathsFor: (commit: string) => string;
   readonly revisionList: string;

@@ -24,6 +24,7 @@ import {
   runRtk,
 } from "./process.js";
 import {
+  adoptTerminalAuthorityResumeRecord,
   resolveResumeStrategy,
   serializeResumeCommits,
   validateResumeSource,
@@ -254,11 +255,12 @@ if (existsSync(recordPath)) {
       resumeStrategy,
       workdir,
     };
-    preservedRecord = {
-      ...record,
-      mode: "resume-review",
+    preservedRecord = adoptTerminalAuthorityResumeRecord({
+      record,
       resumeStrategy,
-    };
+      sourceHeadSha,
+      taskBaseSha,
+    });
   } else {
     preservedRecord = asPreservedResumeRecord(record);
   }

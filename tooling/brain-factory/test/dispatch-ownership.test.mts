@@ -137,6 +137,7 @@ describe("brain dispatch ownership", () => {
     expect(resume).toContain("acquireDispatcherLock");
     expect(resume).toContain("resume already owned by");
     expect(resume).toContain("replaceTerminalTaskRecord");
+    expect(resume).toContain("expectedContent: recordContent");
     expect(resume).not.toContain("archiveTerminalTaskRecord");
     expect(resume).not.toContain('"worktree", "remove"');
     expect(resume).not.toContain('"-B"');

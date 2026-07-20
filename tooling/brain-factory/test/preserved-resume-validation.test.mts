@@ -17,7 +17,12 @@ import {
   validatePreservedResumeLaunch,
   validateTerminalAuthorityResumeOwner,
 } from "../src/preserved-resume-validation.js";
-import { auditedTerminalResumeRecord } from "../src/dispatch-ownership.js";
+import {
+  auditedTerminalResumeRecord,
+  preservedResumeDisposition,
+  replaceTerminalTaskRecord,
+} from "../src/dispatch-ownership.js";
+import { adoptTerminalAuthorityResumeRecord } from "../src/resume-support.js";
 import { archiveTerminalRun } from "../src/terminal-archive.js";
 
 const roots: string[] = [];
@@ -186,13 +191,68 @@ describe("preserved resume launch validation", () => {
       taskId,
     } as const;
 
-    expect(validateTerminalAuthorityResumeOwner(input)).toEqual({
+    const owner = validateTerminalAuthorityResumeOwner(input);
+    expect(owner).toEqual({
       branch,
       factoryBaseSha: currentBase,
       proofHeadSha: currentHead,
       resumeStrategy: "in-lane-cherry-pick",
       startSha: currentHead,
       workdir: realpathSync(authorityWorkdir),
+    });
+    const adoptedRecord = adoptTerminalAuthorityResumeRecord({
+      record: input.record,
+      resumeStrategy: owner.resumeStrategy,
+      sourceHeadSha: input.sourceHeadSha,
+      taskBaseSha: input.taskBaseSha,
+    });
+    const expectedResume = {
+      branch: owner.branch,
+      mode: "resume-review" as const,
+      resumeStrategy: owner.resumeStrategy,
+      sourceHeadSha: input.sourceHeadSha,
+      taskBaseSha: input.taskBaseSha,
+      taskId,
+      workdir: owner.workdir,
+    };
+    expect(
+      preservedResumeDisposition({
+        expected: expectedResume,
+        observation: {
+          branchExists: true,
+          controlCommonDir: value.commonDir,
+          headSha: currentHead,
+          proofHeadIsAncestor: true,
+          statusPorcelain: "",
+          taskBaseIsAncestor: true,
+          worktreeBranch: branch,
+          worktreeCommonDir: value.commonDir,
+          worktreeExists: true,
+        },
+        record: adoptedRecord,
+      }),
+    ).toEqual({ kind: "reuse-clean", startSha: currentHead });
+
+    const recordPath = join(value.state, "runs", `${taskId}.json`);
+    const terminalRecordContent = JSON.stringify(input.record);
+    writeFileSync(recordPath, terminalRecordContent);
+    replaceTerminalTaskRecord({
+      auditPath: join(value.state, "recovery-audit.jsonl"),
+      expectedContent: terminalRecordContent,
+      now: "2026-07-20T00:00:00.000Z",
+      recordPath,
+      replacement: { ...adoptedRecord, status: "preparing" },
+      runId: input.record.runId,
+      status: input.status,
+      taskId,
+    });
+    expect(JSON.parse(readFileSync(recordPath, "utf8"))).toMatchObject({
+      sourceHeadSha: currentHead,
+      taskBaseSha: currentBase,
+    });
+    expect(input.record).toMatchObject({
+      sourceHeadSha: value.sourceHeadSha,
+      taskBaseSha: value.base,
     });
     expect(() =>
       validateTerminalAuthorityResumeOwner({
