@@ -1,0 +1,31 @@
+{
+  "capability": "classifySourceUnit",
+  "description": "Returns a typed zero-or-one route proposal from an immutable source unit.",
+  "exposure": "workflow",
+  "authScope": "reviewed internal workflow caller",
+  "typedErrors": [
+    "Unauthorized",
+    "MalformedModelOutput",
+    "TargetNotAllowed",
+    "EvidenceMismatch",
+    "ReviewForbidden",
+    "StaleGeneration",
+    "DuplicateEffect"
+  ],
+  "schemas": {
+    "args": "classifySourceUnitArgs",
+    "returns": "classifySourceUnitReturns"
+  },
+  "surfaces": ["workflow"],
+  "requiredFiles": [
+    "Confect spec/impl",
+    "tests",
+    "headless registry entry",
+    "docs"
+  ],
+  "migrationNotes": [
+    "Run Confect codegen before wiring generated refs.",
+    "Add migration notes when the capability writes durable tables."
+  ],
+  "frontendAdapter": "required when exposure is web"
+}
