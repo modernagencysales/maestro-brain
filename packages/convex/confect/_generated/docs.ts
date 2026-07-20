@@ -10,6 +10,7 @@ export type ApiKeysDoc = Document.Document<typeof schemaDefinition, "apiKeys">;
 export type BillingPlansDoc = Document.Document<typeof schemaDefinition, "billingPlans">;
 export type BrainPageAuditEventsDoc = Document.Document<typeof schemaDefinition, "brainPageAuditEvents">;
 export type BrainPagesDoc = Document.Document<typeof schemaDefinition, "brainPages">;
+export type ChannelSyncStatesDoc = Document.Document<typeof schemaDefinition, "channelSyncStates">;
 export type CitationsDoc = Document.Document<typeof schemaDefinition, "citations">;
 export type ClaimsDoc = Document.Document<typeof schemaDefinition, "claims">;
 export type ConceptsDoc = Document.Document<typeof schemaDefinition, "concepts">;
@@ -34,6 +35,7 @@ export type PoliciesDoc = Document.Document<typeof schemaDefinition, "policies">
 export type PromptRegistryDoc = Document.Document<typeof schemaDefinition, "promptRegistry">;
 export type ProviderConnectionsDoc = Document.Document<typeof schemaDefinition, "providerConnections">;
 export type ServicePrincipalsDoc = Document.Document<typeof schemaDefinition, "servicePrincipals">;
+export type SourceChannelsDoc = Document.Document<typeof schemaDefinition, "sourceChannels">;
 export type TransformBlocksDoc = Document.Document<typeof schemaDefinition, "transformBlocks">;
 export type TransformDefinitionsDoc = Document.Document<typeof schemaDefinition, "transformDefinitions">;
 export type TransformRunsDoc = Document.Document<typeof schemaDefinition, "transformRuns">;
@@ -61,6 +63,7 @@ export interface Docs {
   billingPlans: BillingPlansDoc;
   brainPageAuditEvents: BrainPageAuditEventsDoc;
   brainPages: BrainPagesDoc;
+  channelSyncStates: ChannelSyncStatesDoc;
   citations: CitationsDoc;
   claims: ClaimsDoc;
   concepts: ConceptsDoc;
@@ -85,6 +88,7 @@ export interface Docs {
   promptRegistry: PromptRegistryDoc;
   providerConnections: ProviderConnectionsDoc;
   servicePrincipals: ServicePrincipalsDoc;
+  sourceChannels: SourceChannelsDoc;
   transformBlocks: TransformBlocksDoc;
   transformDefinitions: TransformDefinitionsDoc;
   transformRuns: TransformRunsDoc;

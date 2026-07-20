@@ -9,6 +9,7 @@ import apiKeys from "./tables/apiKeys";
 import billingPlans from "./tables/billingPlans";
 import brainPageAuditEvents from "./tables/brainPageAuditEvents";
 import brainPages from "./tables/brainPages";
+import channelSyncStates from "./tables/channelSyncStates";
 import citations from "./tables/citations";
 import claims from "./tables/claims";
 import concepts from "./tables/concepts";
@@ -33,6 +34,7 @@ import policies from "./tables/policies";
 import promptRegistry from "./tables/promptRegistry";
 import providerConnections from "./tables/providerConnections";
 import servicePrincipals from "./tables/servicePrincipals";
+import sourceChannels from "./tables/sourceChannels";
 import transformBlocks from "./tables/transformBlocks";
 import transformDefinitions from "./tables/transformDefinitions";
 import transformRuns from "./tables/transformRuns";
@@ -60,6 +62,7 @@ export default $defineSchema({
   billingPlans: billingPlans.tableDefinition,
   brainPageAuditEvents: brainPageAuditEvents.tableDefinition,
   brainPages: brainPages.tableDefinition,
+  channelSyncStates: channelSyncStates.tableDefinition,
   citations: citations.tableDefinition,
   claims: claims.tableDefinition,
   concepts: concepts.tableDefinition,
@@ -84,6 +87,7 @@ export default $defineSchema({
   promptRegistry: promptRegistry.tableDefinition,
   providerConnections: providerConnections.tableDefinition,
   servicePrincipals: servicePrincipals.tableDefinition,
+  sourceChannels: sourceChannels.tableDefinition,
   transformBlocks: transformBlocks.tableDefinition,
   transformDefinitions: transformDefinitions.tableDefinition,
   transformRuns: transformRuns.tableDefinition,
