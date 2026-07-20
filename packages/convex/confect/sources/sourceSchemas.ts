@@ -109,6 +109,19 @@ export const SourceProcessingJobRow = Schema.Struct({
 });
 export type SourceProcessingJobRowValue = typeof SourceProcessingJobRow.Type;
 
+export const VerifiedSlackChannelBinding = Schema.Struct({
+  organizationKey: StableKey,
+  connectionKey: StableKey,
+  connectionGeneration: Schema.Number,
+  teamId: StableKey,
+  appId: StableKey,
+  botUserId: StableKey,
+  channelKey: StableKey,
+  externalChannelId: StableKey,
+});
+export type VerifiedSlackChannelBindingValue =
+  typeof VerifiedSlackChannelBinding.Type;
+
 export const SourceLedgerCaptureInput = Schema.Struct({
   envelope: Schema.Struct({
     organizationKey: StableKey,
@@ -199,6 +212,7 @@ export const assertValidSourceLedgerCapture = (
   options: {
     readonly seenTransportDeliveries?: Set<string>;
     readonly existingObservationKey?: string;
+    readonly verifiedBinding?: VerifiedSlackChannelBindingValue;
   } = {},
 ) => {
   let decoded: SourceLedgerCaptureInputValue;
@@ -215,10 +229,26 @@ export const assertValidSourceLedgerCapture = (
   }
   if (!decoded.envelope.organizationKey)
     throw new TenantMismatch("TenantMismatch");
+  let binding: VerifiedSlackChannelBindingValue;
+  try {
+    binding = Schema.decodeUnknownSync(VerifiedSlackChannelBinding)(
+      options.verifiedBinding,
+    );
+  } catch {
+    throw new ChannelAccessLost("ChannelAccessLost");
+  }
   if (
-    !decoded.envelope.channelKey.endsWith(
-      decoded.envelope.externalChannelId.replace(/^C_/, ""),
-    )
+    binding.organizationKey !== decoded.envelope.organizationKey ||
+    binding.connectionKey !== decoded.envelope.connectionKey ||
+    binding.connectionGeneration !== decoded.envelope.connectionGeneration
+  )
+    throw new TenantMismatch("TenantMismatch");
+  if (
+    binding.teamId !== decoded.envelope.teamId ||
+    binding.appId !== decoded.envelope.appId ||
+    binding.botUserId !== decoded.envelope.botUserId ||
+    binding.channelKey !== decoded.envelope.channelKey ||
+    binding.externalChannelId !== decoded.envelope.externalChannelId
   )
     throw new ChannelAccessLost("ChannelAccessLost");
   if (decoded.observation.providerObjectId.includes("/"))
@@ -234,4 +264,105 @@ export const assertValidSourceLedgerCapture = (
     return { outcome: "duplicate" as const, ...keys };
   options.seenTransportDeliveries?.add(deliveryKey);
   return { outcome: "inserted" as const, ...keys };
+};
+
+export const buildSourceLedgerRows = (
+  input: SourceLedgerCaptureInputValue,
+  options: {
+    readonly seenTransportDeliveries?: Set<string>;
+    readonly existingObservationKey?: string;
+    readonly verifiedBinding?: VerifiedSlackChannelBindingValue;
+  },
+) => {
+  const validationOptions: {
+    seenTransportDeliveries?: Set<string>;
+    existingObservationKey?: string;
+    verifiedBinding?: VerifiedSlackChannelBindingValue;
+  } = {};
+  if (options.existingObservationKey)
+    validationOptions.existingObservationKey = options.existingObservationKey;
+  if (options.seenTransportDeliveries)
+    validationOptions.seenTransportDeliveries = new Set(
+      options.seenTransportDeliveries,
+    );
+  if (options.verifiedBinding)
+    validationOptions.verifiedBinding = options.verifiedBinding;
+  const result = assertValidSourceLedgerCapture(input, validationOptions);
+  const keys = result;
+  const lifecycleValue = {
+    state: "active" as const,
+    generation: 1,
+    updatedAt: input.envelope.receivedAt,
+    purgeAfter: null,
+  };
+  return {
+    receipt: {
+      schemaVersion: 1 as const,
+      organizationKey: input.envelope.organizationKey,
+      connectionKey: input.envelope.connectionKey,
+      connectionGeneration: input.envelope.connectionGeneration,
+      channelKey: input.envelope.channelKey,
+      externalChannelId: input.envelope.externalChannelId,
+      transportDeliveryId: input.envelope.transportDeliveryId,
+      observationKey: keys.observationKey,
+      sourceKey: keys.sourceKey,
+      sourceRevisionKey: keys.sourceRevisionKey,
+      outcome: result.outcome,
+      receivedAt: input.envelope.receivedAt,
+      createdAt: input.envelope.receivedAt,
+    },
+    artifact: {
+      schemaVersion: 1 as const,
+      organizationKey: input.envelope.organizationKey,
+      connectionKey: input.envelope.connectionKey,
+      connectionGeneration: input.envelope.connectionGeneration,
+      channelKey: input.envelope.channelKey,
+      externalChannelId: input.envelope.externalChannelId,
+      providerObjectId: input.observation.providerObjectId,
+      sourceKey: keys.sourceKey,
+      threadKey: input.observation.threadKey,
+      latestSourceRevisionKey: keys.sourceRevisionKey,
+      latestProviderOrder: input.observation.providerOrder,
+      lifecycle: lifecycleValue,
+      createdAt: input.envelope.receivedAt,
+      updatedAt: input.envelope.receivedAt,
+    },
+    revision: {
+      schemaVersion: 1 as const,
+      organizationKey: input.envelope.organizationKey,
+      connectionKey: input.envelope.connectionKey,
+      connectionGeneration: input.envelope.connectionGeneration,
+      channelKey: input.envelope.channelKey,
+      sourceKey: keys.sourceKey,
+      sourceRevisionKey: keys.sourceRevisionKey,
+      observationKey: keys.observationKey,
+      providerOrder: input.observation.providerOrder,
+      sourceCreatedAt: input.envelope.receivedAt,
+      sourceTimestamp: input.observation.sourceTimestamp,
+      authorSnapshot: input.observation.author,
+      normalizedText: input.observation.text,
+      blocksJson: input.observation.blocksJson,
+      permalink: input.observation.permalink,
+      contentHash: keys.contentHash,
+      tombstone: input.observation.tombstone,
+      lifecycle: lifecycleValue,
+      createdAt: input.envelope.receivedAt,
+    },
+    processingJob: {
+      schemaVersion: 1 as const,
+      organizationKey: input.envelope.organizationKey,
+      sourceUnitKey: keys.sourceUnitKey,
+      sourceRevisionKey: keys.sourceRevisionKey,
+      stage: input.routing.assemblyStage,
+      status: "pending" as const,
+      effectKey: input.routing.effectKey,
+      policyEpoch: input.routing.policyEpoch,
+      leaseOwner: null,
+      leaseExpiresAt: null,
+      nextRetryAt: input.envelope.receivedAt,
+      attemptCount: 0,
+      createdAt: input.envelope.receivedAt,
+      updatedAt: input.envelope.receivedAt,
+    },
+  };
 };

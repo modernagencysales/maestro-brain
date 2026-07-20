@@ -7,6 +7,7 @@ import {
   SourceProcessingJobRow,
   SourceRevisionRow,
   assertValidSourceLedgerCapture,
+  buildSourceLedgerRows,
   sourceLedgerKeysFor,
 } from "../confect/sources/sourceSchemas";
 import providerEventReceiptsSource from "../confect/tables/providerEventReceipts";
@@ -19,6 +20,17 @@ const lifecycle = {
   generation: 1,
   updatedAt: 1_000,
   purgeAfter: null,
+};
+
+const verifiedBinding = {
+  organizationKey: "agency_acme",
+  connectionKey: "slack_agency_acme",
+  connectionGeneration: 2,
+  teamId: "T_acme",
+  appId: "A_acme",
+  botUserId: "B_acme",
+  channelKey: "chn_general",
+  externalChannelId: "C_general",
 };
 
 const capture = {
@@ -104,7 +116,7 @@ describe("source ledger schema", () => {
   });
 
   it("derives stable source, observation, revision, and job keys without Convex IDs", () => {
-    const result = assertValidSourceLedgerCapture(capture);
+    const result = assertValidSourceLedgerCapture(capture, { verifiedBinding });
     expect(result).toMatchObject({ outcome: "inserted" });
     expect(JSON.stringify(result)).not.toContain("_id");
     expect(result.sourceKey).toBe(
@@ -115,39 +127,55 @@ describe("source ledger schema", () => {
   });
 
   it("converges live and backfill receipts on one logical observation", () => {
-    const live = assertValidSourceLedgerCapture(capture);
-    const backfill = assertValidSourceLedgerCapture({
-      ...capture,
-      envelope: {
-        ...capture.envelope,
-        transportDeliveryId: "backfill_1",
-        receivedAt: 2_000,
+    const live = assertValidSourceLedgerCapture(capture, { verifiedBinding });
+    const backfill = assertValidSourceLedgerCapture(
+      {
+        ...capture,
+        envelope: {
+          ...capture.envelope,
+          transportDeliveryId: "backfill_1",
+          receivedAt: 2_000,
+        },
       },
-    });
+      { verifiedBinding },
+    );
 
     expect(backfill.observationKey).toBe(live.observationKey);
     expect(backfill.sourceRevisionKey).toBe(live.sourceRevisionKey);
   });
 
   it("tenant-scopes source identity, artifact lookup, and receipt dedupe across connection generations", () => {
-    const current = assertValidSourceLedgerCapture(capture);
-    const otherOrg = assertValidSourceLedgerCapture({
-      ...capture,
-      envelope: {
-        ...capture.envelope,
-        organizationKey: "agency_other",
-        connectionKey: "slack_agency_other",
-        transportDeliveryId: "evt_1",
-      },
+    const current = assertValidSourceLedgerCapture(capture, {
+      verifiedBinding,
     });
-    const nextGeneration = assertValidSourceLedgerCapture({
-      ...capture,
-      envelope: {
-        ...capture.envelope,
-        connectionGeneration: 3,
-        transportDeliveryId: "evt_1",
+    const otherOrgBinding = {
+      ...verifiedBinding,
+      organizationKey: "agency_other",
+      connectionKey: "slack_agency_other",
+    };
+    const otherOrg = assertValidSourceLedgerCapture(
+      {
+        ...capture,
+        envelope: {
+          ...capture.envelope,
+          organizationKey: "agency_other",
+          connectionKey: "slack_agency_other",
+          transportDeliveryId: "evt_1",
+        },
       },
-    });
+      { verifiedBinding: otherOrgBinding },
+    );
+    const nextGeneration = assertValidSourceLedgerCapture(
+      {
+        ...capture,
+        envelope: {
+          ...capture.envelope,
+          connectionGeneration: 3,
+          transportDeliveryId: "evt_1",
+        },
+      },
+      { verifiedBinding: { ...verifiedBinding, connectionGeneration: 3 } },
+    );
 
     expect(otherOrg.sourceKey).not.toBe(current.sourceKey);
     expect(otherOrg.observationKey).not.toBe(current.observationKey);
@@ -156,8 +184,10 @@ describe("source ledger schema", () => {
 
     const seen = new Set<string>();
     expect(
-      assertValidSourceLedgerCapture(capture, { seenTransportDeliveries: seen })
-        .outcome,
+      assertValidSourceLedgerCapture(capture, {
+        seenTransportDeliveries: seen,
+        verifiedBinding,
+      }).outcome,
     ).toBe("inserted");
     expect(
       assertValidSourceLedgerCapture(
@@ -165,7 +195,10 @@ describe("source ledger schema", () => {
           ...capture,
           envelope: { ...capture.envelope, connectionGeneration: 3 },
         },
-        { seenTransportDeliveries: seen },
+        {
+          seenTransportDeliveries: seen,
+          verifiedBinding: { ...verifiedBinding, connectionGeneration: 3 },
+        },
       ).outcome,
     ).toBe("inserted");
   });
@@ -253,50 +286,121 @@ describe("source ledger schema", () => {
   it("rejects tenant, duplicate receipt, conflicting observation, key, size, and canonicalization violations", () => {
     const seen = new Set<string>();
     expect(
-      assertValidSourceLedgerCapture(capture, { seenTransportDeliveries: seen })
-        .outcome,
+      assertValidSourceLedgerCapture(capture, {
+        seenTransportDeliveries: seen,
+        verifiedBinding,
+      }).outcome,
     ).toBe("inserted");
     expect(
-      assertValidSourceLedgerCapture(capture, { seenTransportDeliveries: seen })
-        .outcome,
+      assertValidSourceLedgerCapture(capture, {
+        seenTransportDeliveries: seen,
+        verifiedBinding,
+      }).outcome,
     ).toBe("duplicate");
     expect(() =>
-      assertValidSourceLedgerCapture({
-        ...capture,
-        envelope: { ...capture.envelope, organizationKey: "" },
-      }),
+      assertValidSourceLedgerCapture(
+        {
+          ...capture,
+          envelope: { ...capture.envelope, organizationKey: "" },
+        },
+        { verifiedBinding },
+      ),
     ).toThrow("TenantMismatch");
     expect(() =>
-      assertValidSourceLedgerCapture({
-        ...capture,
-        envelope: { ...capture.envelope, channelKey: "other" },
-      }),
+      assertValidSourceLedgerCapture(
+        {
+          ...capture,
+          envelope: { ...capture.envelope, channelKey: "other" },
+        },
+        { verifiedBinding },
+      ),
     ).toThrow("ChannelAccessLost");
     expect(() =>
-      assertValidSourceLedgerCapture({
-        ...capture,
-        observation: {
-          ...capture.observation,
-          sourceTimestamp: "2026-07-20 10:00",
+      assertValidSourceLedgerCapture(
+        {
+          ...capture,
+          observation: {
+            ...capture.observation,
+            sourceTimestamp: "2026-07-20 10:00",
+          },
         },
-      }),
+        { verifiedBinding },
+      ),
     ).toThrow("ObservationInvalid");
     expect(() =>
-      assertValidSourceLedgerCapture({
-        ...capture,
-        observation: { ...capture.observation, text: "x".repeat(32_001) },
-      }),
+      assertValidSourceLedgerCapture(
+        {
+          ...capture,
+          observation: { ...capture.observation, text: "x".repeat(32_001) },
+        },
+        { verifiedBinding },
+      ),
     ).toThrow("PayloadTooLarge");
     expect(() =>
-      assertValidSourceLedgerCapture({
-        ...capture,
-        observation: { ...capture.observation, providerObjectId: "bad/slash" },
-      }),
+      assertValidSourceLedgerCapture(
+        {
+          ...capture,
+          observation: {
+            ...capture.observation,
+            providerObjectId: "bad/slash",
+          },
+        },
+        { verifiedBinding },
+      ),
     ).toThrow("DuplicateKeyConflict");
     expect(() =>
       assertValidSourceLedgerCapture(capture, {
         existingObservationKey: "obs_other",
+        verifiedBinding,
       }),
     ).toThrow("DuplicateKeyConflict");
+  });
+
+  it("rejects missing and cross-tenant verified channel bindings before key derivation", () => {
+    expect(() => assertValidSourceLedgerCapture(capture)).toThrow(
+      "ChannelAccessLost",
+    );
+    expect(() =>
+      assertValidSourceLedgerCapture(capture, {
+        verifiedBinding: {
+          ...verifiedBinding,
+          organizationKey: "agency_other",
+        },
+      }),
+    ).toThrow("TenantMismatch");
+    expect(() =>
+      assertValidSourceLedgerCapture(capture, {
+        verifiedBinding: { ...verifiedBinding, channelKey: "chn_other" },
+      }),
+    ).toThrow("ChannelAccessLost");
+  });
+
+  it("stages all source ledger rows before mutating caller state", () => {
+    const seen = new Set<string>();
+    const rows = buildSourceLedgerRows(capture, {
+      seenTransportDeliveries: seen,
+      verifiedBinding,
+    });
+
+    expect(seen.size).toBe(0);
+    expect(rows.receipt.transportDeliveryId).toBe("evt_1");
+    expect(rows.artifact.sourceKey).toBe(rows.receipt.sourceKey);
+    expect(rows.revision.sourceRevisionKey).toBe(
+      rows.receipt.sourceRevisionKey,
+    );
+    expect(rows.processingJob.sourceRevisionKey).toBe(
+      rows.receipt.sourceRevisionKey,
+    );
+
+    expect(() =>
+      buildSourceLedgerRows(
+        {
+          ...capture,
+          observation: { ...capture.observation, text: "x".repeat(32_001) },
+        },
+        { seenTransportDeliveries: seen, verifiedBinding },
+      ),
+    ).toThrow("PayloadTooLarge");
+    expect(seen.size).toBe(0);
   });
 });
