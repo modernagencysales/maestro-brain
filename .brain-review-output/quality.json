@@ -1,0 +1,101 @@
+{
+  "lens": "quality",
+  "taskId": "S13-T02",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "taskBlockHash": "2b76ab1991d07a9978da3c321cbcc4f73ffc5ae9b4e3eb3512e2ff3dd4251072",
+  "baseSha": "f66236e12f93bc254cc2350800a5b2a69d0caff5",
+  "headSha": "58cb17061c3ef03f74b2aec4bedcdb17f2347239",
+  "treeSha": "35cc08f2e56dda709693569b3cd47ceed8ea85d1",
+  "reviewerRunId": "maestro/review/S13-T02/58cb17061c3ef03f74b2aec4bedcdb17f2347239/b80b48dc-c033-46f3-9446-525805433680-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "finding",
+      "evidence": [
+        "Task packet lines 3517-3520 require failure-first tests for shared cursor, unfair FIFO, dropped event, queue overflow, cross-Brain leak, and canary cross-tenant key/read/commit/delivery attempts.",
+        "tooling/evals/src/brain-capacity.test.ts lines 59-110 covers several evaluator mutations, but line 77 models 'cross-Brain leak' only as attempts != acceptedEffects, and lines 79-87 flip only crossTenantReadDenied while never independently testing crossTenantKeyDenied, crossTenantCommitDenied, or crossTenantDeliveryDenied.",
+        "packages/convex/test/brain-capacity.test.ts lines 21-37 defines evaluateConvexCapacityContract as a local constant returning a canned passing receipt, so the Convex focused test cannot fail against the actual capacity harness implementation or any server-side contract drift.",
+        "tooling/evals/src/brain-capacity-report.ts lines 21-69 emits a hard-coded syntheticPassingRun rather than measuring or replaying a deterministic loaded fixture."
+      ],
+      "findingIds": ["S13-T02-QA-001"]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "Changed files are limited to docs/product, tooling/evals, and packages/convex/test paths listed in ci-proof-packet.json lines 8-16 and manifest fileLocks lines 1660-1666.",
+        "No web, feature, provider SDK, generated Confect, or runtime Convex implementation imports were introduced; tooling/evals capacity code is isolated from application layers."
+      ]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "finding",
+      "evidence": [
+        "brain-capacity.test.ts lines 9-57 and brain-capacity-report.ts lines 21-69 duplicate the same large passing run fixture instead of sharing a builder, increasing drift risk between the CLI receipt and tests.",
+        "brain-capacity-report.ts lines 26-27 uses placeholder hash strings 'sha256:capacity-policy-v1' and 'sha256:harness-v1' even though the task packet lines 3532-3533 require receipt hashes to pin code/config/fixture provenance."
+      ],
+      "findingIds": ["S13-T02-QA-002"]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "BrainCapacityReceipt includes fixtureHash, configHash, codeHash, runnerClass, seed, hardware, latency, fairness/loss, storage/model usage, tenant-denial canaries, and above-envelope admission fields in tooling/evals/src/brain-capacity.ts lines 59-83.",
+        "docs/product/maestro-brain-capacity.md lines 9-10 explicitly states the fixture is synthetic-only with no provider payloads or customer text, satisfying redacted observability expectations for this synthetic harness."
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "finding",
+      "evidence": [
+        "lane-gate-report.json lines 25-29 reports changedSourceLines 286 against estimatedSourceLines 260 with estimateDrift true; while still within the 300-line sourceSliceBudget and four-slice limit, the task exceeded its estimate.",
+        "git diff --stat for the manifest-owned files shows 528 total insertions, including 168 lines in tooling/evals/src/brain-capacity.ts and 143 lines in tooling/evals/src/brain-capacity.test.ts; source gate counted 286 source lines, which is under the per-slice sourceSliceBudget but drifted from the manifest estimate."
+      ],
+      "findingIds": ["S13-T02-QA-003"]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "pass",
+      "evidence": [
+        "The task manifest fileLocks for S13-T02 lines 1660-1666 are docs/product/maestro-brain-capacity.md, packages/convex/test/brain-capacity.test.ts, tooling/evals/package.json, and tooling/evals/src/brain-capacity*.ts files; the proof packet changedFiles lines 8-16 match that owned set.",
+        "No generated Confect/Convex artifacts or integration-owned generated files appear in the changed file list; lane-gate-report.json lines 16-17 ties the passed gates to head 58cb17061c3ef03f74b2aec4bedcdb17f2347239 and tree 35cc08f2e56dda709693569b3cd47ceed8ea85d1."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "S13-T02-QA-001",
+      "severity": "high",
+      "summary": "Capacity harness tests and Convex proof are false-green against key task failures.",
+      "details": "The evaluator tests mutate selected receipt fields but do not independently prove all required tenant-denial canaries or a true cross-Brain leak, and the Convex test asserts a local canned object rather than exercising the harness or Convex contract. The CLI report is also a fixed passing run, so a large part of the claimed capacity/fairness proof can pass without measuring the declared deterministic loaded fixture.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md lines 3517-3531",
+        "tooling/evals/src/brain-capacity.test.ts lines 59-110",
+        "packages/convex/test/brain-capacity.test.ts lines 21-56",
+        "tooling/evals/src/brain-capacity-report.ts lines 21-69"
+      ]
+    },
+    {
+      "id": "S13-T02-QA-002",
+      "severity": "medium",
+      "summary": "Capacity run data and provenance hashes are duplicated placeholders.",
+      "details": "The passing run is duplicated between tests and report generation, and the report hard-codes config/code hash labels rather than computing hashes for the code/config it claims to pin. This weakens maintainability and receipt provenance required by the task contract.",
+      "evidence": [
+        "tooling/evals/src/brain-capacity.test.ts lines 9-57",
+        "tooling/evals/src/brain-capacity-report.ts lines 21-69",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md lines 3532-3534"
+      ]
+    },
+    {
+      "id": "S13-T02-QA-003",
+      "severity": "low",
+      "summary": "Task source estimate drifted upward.",
+      "details": "The lane remains under the 300-line source slice budget and four-slice limit, but the trusted lane report flags estimateDrift because changed source lines exceeded the manifest estimate of 260.",
+      "evidence": [
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S13-T02/lane-gate-report.json lines 25-29",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json lines 1656-1672"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
