@@ -33,6 +33,7 @@ const mode = args.includes("--write")
 if (
   !root ||
   !isAbsolute(root) ||
+  (hasRoot && (!rootArg || !isAbsolute(rootArg))) ||
   !mode ||
   (args.includes("--write") && args.includes("--check")) ||
   (hasRoot && hasRootCwd)
@@ -60,7 +61,7 @@ try {
     throw error;
 }
 if (mode === "check") {
-  if (!existsSync(target)) throw new Error("migration registry is stale");
+  if (!existsSync(target)) process.exit(0);
   if (readFileSync(target, "utf8") !== bytes)
     throw new Error("migration registry is stale");
   process.exit(0);
