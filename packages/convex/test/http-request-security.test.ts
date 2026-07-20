@@ -232,17 +232,169 @@ describe("headless HTTP bearer security", () => {
     }
   });
 
-  it("prevents JSON body parsing when bearer syntax is missing", async () => {
-    const { request, json } = requestWithJsonSpy(undefined);
-
-    await expect(readJsonBody(request)).resolves.toEqual({
-      ok: false,
-      error: {
-        _tag: "ValidationFailed",
-        message: "Request body must be valid JSON.",
+  it("returns RateLimited before decoding or dispatch when admission denies the route", async () => {
+    mockHttpManifest();
+    const { handleTemplateHttpRequest: handleWithMockedManifest } =
+      await import("../confect/http");
+    const { request, json } = requestWithJsonSpy("Bearer mbk_live_limited");
+    const routeRequest = new Request(
+      "https://example.test/api/test.sample.read",
+      {
+        method: request.method,
+        headers: request.headers,
+        body: "{not-json",
       },
+    );
+    const runQuery = vi.fn(async () => authResult("unused"));
+
+    const response = await handleWithMockedManifest(
+      {
+        runQuery,
+        runMutation: async () => null,
+        runAction: async () => undefined,
+        rateLimit: async () => true,
+        operationRefs: { "test.sample.read": "test.sample.read.ref" },
+        operationPolicies: { "test.sample.read": reviewedReadPolicy },
+      },
+      routeRequest,
+    );
+
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: { _tag: "RateLimited", message: "Rate limited." },
     });
-    expect(json).toHaveBeenCalledTimes(1);
+    expect(json).not.toHaveBeenCalled();
+    expect(runQuery).not.toHaveBeenCalled();
+  });
+
+  it("passes only redacted admission metadata to rate-limit extensions", async () => {
+    mockHttpManifest();
+    const { handleTemplateHttpRequest: handleWithMockedManifest } =
+      await import("../confect/http");
+    const displayKey = "mbk_live_raw_rate_limit_secret";
+    const seen: unknown[] = [];
+
+    const response = await handleWithMockedManifest(
+      {
+        runQuery: async () => authResult("unused"),
+        runMutation: async () => null,
+        runAction: async () => undefined,
+        rateLimit: async (input) => {
+          seen.push(input);
+          expect("request" in input).toBe(false);
+          expect(JSON.stringify(input)).not.toContain(displayKey);
+          expect(JSON.stringify(input)).not.toContain("authorization");
+          return true;
+        },
+        operationRefs: { "test.sample.read": "test.sample.read.ref" },
+        operationPolicies: { "test.sample.read": reviewedReadPolicy },
+      },
+      new Request(
+        `https://example.test/api/test.sample.read?token=${displayKey}`,
+        {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${displayKey}`,
+            "content-type": "application/json",
+            "user-agent": "review-test",
+            "x-forwarded-for": "203.0.113.9",
+          },
+          body: JSON.stringify({ input: { title: "A note" } }),
+        },
+      ),
+    );
+
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: { _tag: "RateLimited", message: "Rate limited." },
+    });
+    expect(seen).toEqual([
+      {
+        operationId: "test.sample.read",
+        pathname: "/api/test.sample.read",
+        method: "POST",
+        hasAuthorization: true,
+        contentType: "application/json",
+        userAgent: "review-test",
+        clientIp: "203.0.113.9",
+      },
+    ]);
+  });
+
+  it("prevents route JSON body parsing when bearer syntax is malformed", async () => {
+    mockHttpManifest();
+    const { handleTemplateHttpRequest: handleWithMockedManifest } =
+      await import("../confect/http");
+    const { request, json } = requestWithJsonSpy("Bearer   ");
+    const routeRequest = new Request(
+      "https://example.test/api/test.sample.read",
+      {
+        method: request.method,
+        headers: request.headers,
+        body: "{not-json",
+      },
+    );
+    const routeJson = vi.spyOn(routeRequest, "json");
+    const runQuery = vi.fn(async () => authResult("unused"));
+    const runMutation = vi.fn(async () => null);
+    const runAction = vi.fn(async () => undefined);
+
+    const response = await handleWithMockedManifest(
+      {
+        runQuery,
+        runMutation,
+        runAction,
+        operationRefs: { "test.sample.read": "test.sample.read.ref" },
+        operationPolicies: { "test.sample.read": reviewedReadPolicy },
+      },
+      routeRequest,
+    );
+
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: { _tag: "Unauthorized", message: "Unauthorized." },
+    });
+    expect(json).not.toHaveBeenCalled();
+    expect(routeJson).not.toHaveBeenCalled();
+    expect(runQuery).not.toHaveBeenCalled();
+    expect(runMutation).not.toHaveBeenCalled();
+    expect(runAction).not.toHaveBeenCalled();
+  });
+
+  it("prevents route JSON body parsing when bearer syntax is missing", async () => {
+    mockHttpManifest();
+    const { handleTemplateHttpRequest: handleWithMockedManifest } =
+      await import("../confect/http");
+    const { request, json } = requestWithJsonSpy(undefined);
+    const routeRequest = new Request(
+      "https://example.test/api/test.sample.read",
+      {
+        method: request.method,
+        headers: request.headers,
+        body: "{not-json",
+      },
+    );
+    const routeJson = vi.spyOn(routeRequest, "json");
+    const runQuery = vi.fn(async () => authResult("unused"));
+
+    const response = await handleWithMockedManifest(
+      {
+        runQuery,
+        runMutation: async () => null,
+        runAction: async () => undefined,
+        operationRefs: { "test.sample.read": "test.sample.read.ref" },
+        operationPolicies: { "test.sample.read": reviewedReadPolicy },
+      },
+      routeRequest,
+    );
+
+    expect(await response.json()).toEqual({
+      ok: false,
+      error: { _tag: "Unauthorized", message: "Unauthorized." },
+    });
+    expect(json).not.toHaveBeenCalled();
+    expect(routeJson).not.toHaveBeenCalled();
+    expect(runQuery).not.toHaveBeenCalled();
   });
 
   it("does not decode or dispatch deleted HTTP operations and returns the uniform validation envelope", async () => {
@@ -262,8 +414,8 @@ describe("headless HTTP bearer security", () => {
     expect(await response.json()).toEqual({
       ok: false,
       error: {
-        _tag: "NotFound",
-        message: "Unknown template HTTP route: /api/brain.pages.createMarkdown",
+        _tag: "ValidationFailed",
+        message: "Headless operation is not available.",
       },
     });
     expect(runQuery).not.toHaveBeenCalled();

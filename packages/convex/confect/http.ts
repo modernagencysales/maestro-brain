@@ -1,6 +1,7 @@
 import { Ref } from "@confect/core";
 import { confectManifest } from "@maestro-template/template-core/generated/confectManifest";
 import { httpActionGeneric, httpRouter } from "convex/server";
+import { ConvexError } from "convex/values";
 import {
   executeHeadlessOperation,
   type HeadlessExecutorRequest,
@@ -15,6 +16,10 @@ import {
   type TemplateApiRequestBody,
 } from "./httpRequest";
 import apiKeysSpec from "./headless/apiKeys.spec";
+import {
+  reviewedHeadlessPolicyFor,
+  type HeadlessOperationPolicy,
+} from "./headless/authorizeOperation";
 import type { HeadlessPrincipal } from "./headless/principal";
 
 type ManifestFunction = (typeof confectManifest.functions)[number];
@@ -26,6 +31,16 @@ export type TemplateHttpRoute = {
   readonly path: string;
   readonly method: "GET" | "POST";
   readonly description: string;
+};
+
+export type RateLimitAdmissionMetadata = {
+  readonly operationId: string;
+  readonly pathname: string;
+  readonly method: string;
+  readonly hasAuthorization: boolean;
+  readonly contentType: string | null;
+  readonly userAgent: string | null;
+  readonly clientIp: string | null;
 };
 
 export type HeadlessHttpCtx = {
@@ -43,13 +58,11 @@ export type HeadlessHttpCtx = {
   ) => Promise<unknown>;
   readonly authenticateRef?: unknown;
   readonly markLastUsedRef?: unknown;
-  readonly scheduler?: {
-    readonly runAfter: (
-      delayMs: number,
-      ref: unknown,
-      input: Record<string, unknown>,
-    ) => Promise<unknown>;
-  };
+  readonly operationRefs?: Record<string, unknown>;
+  readonly operationPolicies?: Record<string, HeadlessOperationPolicy>;
+  readonly rateLimit?: (
+    input: RateLimitAdmissionMetadata,
+  ) => boolean | Promise<boolean>;
 };
 
 type TemplateRouteMatch =
@@ -63,11 +76,16 @@ const staticTemplateRoutes: Record<string, TemplateRouteMatch | undefined> = {
   "/api/docs": { kind: "docs" },
 };
 
-const operationRefs = {} satisfies Record<string, unknown>;
+const staticOperationRefs = {} satisfies Record<string, unknown>;
 
 const apiKeyFunction = (name: "authenticate" | "markLastUsed") => {
   const spec = apiKeysSpec.functions[name];
-  if (spec === undefined) throw new Error(`Missing apiKeys.${name} spec`);
+  if (spec === undefined) {
+    throw new ConvexError({
+      code: "HEADLESS_API_KEY_SPEC_MISSING",
+      message: `Missing apiKeys.${name} spec`,
+    });
+  }
   return Ref.getFunctionReference(Ref.make("headless/apiKeys", spec));
 };
 
@@ -160,8 +178,10 @@ const htmlResponse = (html: string): Response =>
 const runTemplateApiOperation = async (
   ctx: HeadlessHttpCtx,
   request: HeadlessExecutorRequest,
-): Promise<unknown> =>
-  await executeHeadlessOperation(
+): Promise<unknown> => {
+  const operationRefs = ctx.operationRefs ?? staticOperationRefs;
+
+  return await executeHeadlessOperation(
     {
       refs: operationRefs,
       runQuery: (ref, input) => ctx.runQuery(ref, input),
@@ -170,6 +190,7 @@ const runTemplateApiOperation = async (
     },
     request,
   );
+};
 
 const templateRouteForPath = (pathname: string): TemplateRouteMatch => {
   const apiEntry = confectManifest.functions.find(
@@ -205,7 +226,7 @@ const templateRouteResponse = async (
       response = await operationRouteResponse(ctx, request, route.operationId);
       break;
     case "notFound":
-      response = notFoundRouteResponse(route.pathname);
+      response = notFoundRouteResponse(request, route.pathname);
       break;
   }
 
@@ -263,11 +284,47 @@ const operationRouteResponse = async (
   return response;
 };
 
+const rateLimitAdmissionMetadataFor = (
+  request: Request,
+  operationId: string,
+): RateLimitAdmissionMetadata => {
+  const headers = request.headers;
+  return {
+    operationId,
+    pathname: new URL(request.url).pathname,
+    method: request.method,
+    hasAuthorization: headers.has("authorization"),
+    contentType: headers.get("content-type"),
+    userAgent: headers.get("user-agent"),
+    clientIp: headers.get("x-forwarded-for"),
+  };
+};
+
 const executeTemplateApiRoute = async (
   ctx: HeadlessHttpCtx,
   request: Request,
   operationId: string,
 ): Promise<Response> => {
+  const policy =
+    ctx.operationPolicies?.[operationId] ??
+    reviewedHeadlessPolicyFor(operationId);
+  if (policy === undefined) {
+    return jsonResponse({
+      ok: false,
+      error: { _tag: "Forbidden", message: "Forbidden." },
+    });
+  }
+
+  const limited = await ctx.rateLimit?.(
+    rateLimitAdmissionMetadataFor(request, operationId),
+  );
+  if (limited === true) {
+    return jsonResponse({
+      ok: false,
+      error: { _tag: "RateLimited", message: "Rate limited." },
+    });
+  }
+
   const keyHash = await bearerKeyHashForRequest(
     request.headers.get("authorization") ?? undefined,
   );
@@ -276,7 +333,7 @@ const executeTemplateApiRoute = async (
   const authenticate = (hash: string) =>
     ctx.runQuery(ctx.authenticateRef ?? apiKeyRefs.authenticate, {
       keyHash: hash,
-      requiredScope: "brain:read",
+      requiredScope: policy.requiredScope,
     });
   const authenticated = await authenticateBearerRequest({
     keyHash: keyHash.keyHash,
@@ -287,6 +344,7 @@ const executeTemplateApiRoute = async (
   const preauthorized = authorizeOperationBeforeDecode({
     operationId,
     principal: authenticated.principal,
+    policy,
   });
   if (!preauthorized.ok) return jsonResponse(preauthorized);
 
@@ -298,6 +356,7 @@ const executeTemplateApiRoute = async (
     operationId,
     authenticated.principal,
     parsedBody.body,
+    policy,
   ).catch(() => ({
     ok: false as const,
     error: { _tag: "Forbidden" as const, message: "Forbidden." },
@@ -326,11 +385,13 @@ const responseForParsedTemplateApiBody = async (
   operationId: string,
   principal: HeadlessPrincipal,
   body: TemplateApiRequestBody,
+  policy: HeadlessOperationPolicy,
 ): Promise<unknown> => {
   const executorRequest = await authenticatedExecutorRequestFor({
     operationId,
     principal,
     body,
+    policy,
   });
   return executorRequest.ok
     ? await runTemplateApiOperation(ctx, executorRequest.request)
@@ -391,31 +452,31 @@ const scheduleLastUsedBestEffort = async (
     brainKey: principal.brainKey,
   };
   try {
-    if (ctx.scheduler) {
-      await ctx.scheduler.runAfter(
-        0,
-        ctx.markLastUsedRef ?? apiKeyRefs.markLastUsed,
-        args,
-      );
-    } else {
-      await ctx.runMutation(
-        ctx.markLastUsedRef ?? apiKeyRefs.markLastUsed,
-        args,
-      );
-    }
+    await ctx.runMutation(ctx.markLastUsedRef ?? apiKeyRefs.markLastUsed, args);
   } catch {
     // Best-effort last-used updates must not change the authorization result.
   }
 };
 
-const notFoundRouteResponse = (pathname: string): Response =>
+const unavailableHeadlessOperationResponse = (): Response =>
   jsonResponse({
     ok: false,
     error: {
-      _tag: "NotFound",
-      message: `Unknown template HTTP route: ${pathname}`,
+      _tag: "ValidationFailed",
+      message: "Headless operation is not available.",
     },
   });
+
+const notFoundRouteResponse = (request: Request, pathname: string): Response =>
+  request.headers.has("authorization") || pathname.startsWith("/api/")
+    ? unavailableHeadlessOperationResponse()
+    : jsonResponse({
+        ok: false,
+        error: {
+          _tag: "NotFound",
+          message: `Unknown template HTTP route: ${pathname}`,
+        },
+      });
 
 export const handleTemplateHttpRequest = async (
   ctx: HeadlessHttpCtx,
@@ -444,10 +505,6 @@ const buildTemplateHttpRouter = () => {
       runMutation: (ref, input) =>
         ctx.runMutation(ref as never, input as never),
       runAction: (ref, input) => ctx.runAction(ref as never, input as never),
-      scheduler: {
-        runAfter: (delayMs, ref, input) =>
-          ctx.scheduler.runAfter(delayMs, ref as never, input as never),
-      },
     };
 
     return handleTemplateHttpRequest(headlessCtx, request);
