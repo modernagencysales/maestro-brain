@@ -383,10 +383,41 @@ describe("failed integration rework admission", () => {
     ).toThrow(/type coverage.*regress|candidate.*failed/i);
   });
 
-  it("does not require type-coverage evidence for a different owned failure", () => {
+  it("does not route type-coverage rework around its failed broad gate", () => {
+    const value = fixture();
+    const { broadGateContent: _broadGate, ...withoutBroadGate } = value.input;
+    expect(_broadGate).toBeDefined();
+    expect(() =>
+      planFailedIntegrationRework({
+        ...withoutBroadGate,
+        integrationResultContent: json({
+          ...value.values.integrationResult,
+          broadGate: null,
+          status: "ready_for_review",
+        }),
+      }),
+    ).toThrow("type coverage rework requires a failed broad gate");
+  });
+
+  it("requires integration-result v3 for review rework", () => {
+    const value = fixture();
+    expect(() =>
+      planFailedIntegrationRework({
+        ...value.input,
+        integrationResultContent: json({
+          ...value.values.integrationResult,
+          schemaVersion: "maestro-brain-integration-result/v2",
+        }),
+      }),
+    ).toThrow("failed integration result status is invalid");
+  });
+
+  it("admits review rework before a broad gate exists", () => {
     const value = fixture();
     const integrationResultContent = json({
       ...value.values.integrationResult,
+      broadGate: null,
+      status: "ready_for_review",
       remainingFindings: [
         {
           id: "deterministic-build-failure",
@@ -399,7 +430,6 @@ describe("failed integration rework admission", () => {
       controlHeadSha: value.values.selection.baseSha,
       createdAt: "2026-07-20T21:14:57.387Z",
       evidence: [
-        `broad-gate-sha256:${sha256(value.input.broadGateContent)}`,
         `integration-result-sha256:${sha256(integrationResultContent)}`,
         `run:${value.values.runId}:failed`,
       ],
@@ -441,14 +471,25 @@ describe("failed integration rework admission", () => {
       selectionContent: value.input.selectionContent,
       selectionPath: value.values.selectionPath,
     });
-    const { typeCoverageRegressionContent: _ignored, ...withoutCoverage } =
-      value.input;
+    const {
+      broadGateContent: _broadGate,
+      typeCoverageRegressionContent: _ignored,
+      ...withoutCoverage
+    } = value.input;
+    expect(_broadGate).toBeDefined();
     expect(_ignored).toBeDefined();
+    const planned = planFailedIntegrationRework({
+      ...withoutCoverage,
+      integrationResultContent,
+      supersessionContent: json(supersession),
+    });
     expect(() =>
-      planFailedIntegrationRework({
-        ...withoutCoverage,
+      validateFailedIntegrationReworkArchive({
+        archiveContent: planned.archiveContent,
+        currentControlHead: value.input.controlHeadSha,
         integrationResultContent,
-        supersessionContent: json(supersession),
+        isAncestor: value.input.isAncestor,
+        request: planned.request,
       }),
     ).not.toThrow();
   });
@@ -485,7 +526,7 @@ describe("failed integration rework admission", () => {
           status: "passed",
         }),
       },
-      /status is not rework/,
+      /status is invalid/,
     ],
     ["promoted wave", { promotionExists: true }, /already promoted/],
     ["wrong owner", { taskId: "S11-T03" }, /task owner mismatch/],

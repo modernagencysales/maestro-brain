@@ -225,6 +225,7 @@ if (failedIntegrationId) {
     integrationDirectory,
     `broad-gate-${String((JSON.parse(readFileSync(integrationResultPath, "utf8")) as Record<string, unknown>).headSha ?? "")}.json`,
   );
+  const broadGateExists = existsSync(broadGatePath);
   const supersessionPath = resolve(integrationDirectory, "supersession.json");
   const promotionPath = resolve(integrationDirectory, "promotion.json");
   const failedIntegrationResult = JSON.parse(
@@ -257,7 +258,9 @@ if (failedIntegrationId) {
     `integration-${failedIntegrationId}.json`,
   );
   for (const [path, label] of [
-    [broadGatePath, "failed broad gate receipt"],
+    ...(broadGateExists
+      ? ([[broadGatePath, "failed broad gate receipt"]] as const)
+      : []),
     [supersessionPath, "failed wave supersession"],
     [proofPath, "lane proof"],
     [finalGatePath, "lane final gate"],
@@ -277,7 +280,9 @@ if (failedIntegrationId) {
   const sourceWorkdir = String(sourceRecord.workdir ?? "");
   const sourceBranch = String(sourceRecord.branch ?? "");
   const planInput = {
-    broadGateContent: readFileSync(broadGatePath, "utf8"),
+    ...(broadGateExists
+      ? { broadGateContent: readFileSync(broadGatePath, "utf8") }
+      : {}),
     controlClean:
       runRtk(["git", "status", "--porcelain"], { quiet: true }) === "",
     controlHeadSha,

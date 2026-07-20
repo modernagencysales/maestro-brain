@@ -16,7 +16,7 @@ export const FAILED_INTEGRATION_REWORK_ARCHIVE_SCHEMA =
   "maestro-brain-failed-integration-rework-archive/v1" as const;
 
 export interface FailedIntegrationReworkArchive {
-  readonly broadGateContent: string;
+  readonly broadGateContent?: string;
   readonly candidateHeadSha: string;
   readonly finalGateContent: string;
   readonly integrationId: string;
@@ -104,7 +104,11 @@ export const validateFailedIntegrationReworkArchive = (input: {
     "archived integration result",
   );
   if (
-    result.status !== "rework" ||
+    result.schemaVersion !== "maestro-brain-integration-result/v3" ||
+    result.status !==
+      (archive.broadGateContent === undefined
+        ? "ready_for_review"
+        : "rework") ||
     result.reviewVerdict !== "rework" ||
     result.integrationId !== request.priorIntegrationId ||
     result.headSha !== archive.candidateHeadSha ||
@@ -131,20 +135,29 @@ export const validateFailedIntegrationReworkArchive = (input: {
   ) {
     throw new Error(`${request.taskId}: archived finding owner mismatch`);
   }
-  const broadGate = parseRecord(
-    archive.broadGateContent,
-    "archived broad gate",
-  );
-  validateFailedBroadGate({
-    broadGate,
-    candidateHeadSha: exactSha(
-      archive.candidateHeadSha,
-      "candidateHeadSha",
-      40,
-    ),
-  });
-  sameRecord(result.broadGate, broadGate, "archived integration broad gate");
+  if (archive.broadGateContent === undefined) {
+    if (result.broadGate !== null && result.broadGate !== undefined)
+      throw new Error(
+        "archived review rework unexpectedly contains a broad gate",
+      );
+  } else {
+    const broadGate = parseRecord(
+      archive.broadGateContent,
+      "archived broad gate",
+    );
+    validateFailedBroadGate({
+      broadGate,
+      candidateHeadSha: exactSha(
+        archive.candidateHeadSha,
+        "candidateHeadSha",
+        40,
+      ),
+    });
+    sameRecord(result.broadGate, broadGate, "archived integration broad gate");
+  }
   if (archivedFindingIds.some(isTypeCoverageFindingId)) {
+    if (archive.broadGateContent === undefined)
+      throw new Error("type coverage rework requires a failed broad gate");
     if (!archive.typeCoverageRegressionContent)
       throw new Error("type coverage regression evidence is missing");
     validateTypeCoverageRegression({
@@ -159,7 +172,9 @@ export const validateFailedIntegrationReworkArchive = (input: {
     "archived supersession",
   );
   validateSupersession({
-    broadGateContent: archive.broadGateContent,
+    ...(archive.broadGateContent === undefined
+      ? {}
+      : { broadGateContent: archive.broadGateContent }),
     currentControlHead: input.currentControlHead,
     isAncestor: input.isAncestor,
     integrationId: selection.integrationId,

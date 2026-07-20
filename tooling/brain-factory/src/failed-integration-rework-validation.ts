@@ -197,7 +197,7 @@ export const isTypeCoverageFindingId = (value: string): boolean =>
   value.includes("type-coverage");
 
 export const validateSupersession = (input: {
-  readonly broadGateContent: string;
+  readonly broadGateContent?: string;
   readonly currentControlHead: string;
   readonly integrationResultContent: string;
   readonly isAncestor: (ancestor: string, descendant: string) => boolean;
@@ -226,7 +226,12 @@ export const validateSupersession = (input: {
   }
   const evidence = validated.evidence;
   if (
-    !evidence.includes(`broad-gate-sha256:${sha256(input.broadGateContent)}`) ||
+    (input.broadGateContent !== undefined &&
+      !evidence.includes(
+        `broad-gate-sha256:${sha256(input.broadGateContent)}`,
+      )) ||
+    (input.broadGateContent === undefined &&
+      evidence.some((item) => item.startsWith("broad-gate-sha256:"))) ||
     !evidence.includes(
       `integration-result-sha256:${sha256(input.integrationResultContent)}`,
     ) ||

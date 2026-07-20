@@ -21,7 +21,7 @@ import {
 import { readIntegrationWaveSelection } from "./integration-wave.js";
 
 interface FailedIntegrationReworkInput {
-  readonly broadGateContent: string;
+  readonly broadGateContent?: string;
   readonly controlClean: boolean;
   readonly controlHeadSha: string;
   readonly dependenciesIntegrated: boolean;
@@ -112,8 +112,12 @@ export const planFailedIntegrationRework = (
     input.integrationResultContent,
     "integration result",
   );
-  if (integrationResult.status !== "rework") {
-    throw new Error("failed integration result status is not rework");
+  const reviewOnly = input.broadGateContent === undefined;
+  if (
+    integrationResult.schemaVersion !== "maestro-brain-integration-result/v3" ||
+    integrationResult.status !== (reviewOnly ? "ready_for_review" : "rework")
+  ) {
+    throw new Error("failed integration result status is invalid");
   }
   if (integrationResult.reviewVerdict !== "rework") {
     throw new Error("failed integration review verdict is not rework");
@@ -151,10 +155,24 @@ export const planFailedIntegrationRework = (
     findingIds.push(finding.id);
   }
 
-  const broadGate = parseRecord(input.broadGateContent, "broad gate receipt");
-  validateFailedBroadGate({ broadGate, candidateHeadSha });
-  sameRecord(integrationResult.broadGate, broadGate, "integration broad gate");
+  if (reviewOnly) {
+    if (
+      integrationResult.broadGate !== null &&
+      integrationResult.broadGate !== undefined
+    )
+      throw new Error("review rework unexpectedly contains a broad gate");
+  } else {
+    const broadGate = parseRecord(input.broadGateContent, "broad gate receipt");
+    validateFailedBroadGate({ broadGate, candidateHeadSha });
+    sameRecord(
+      integrationResult.broadGate,
+      broadGate,
+      "integration broad gate",
+    );
+  }
   if (findingIds.some(isTypeCoverageFindingId)) {
+    if (reviewOnly)
+      throw new Error("type coverage rework requires a failed broad gate");
     if (!input.typeCoverageRegressionContent)
       throw new Error("type coverage regression evidence is missing");
     validateTypeCoverageRegression({
@@ -170,7 +188,9 @@ export const planFailedIntegrationRework = (
     "supersession receipt",
   );
   validateSupersession({
-    broadGateContent: input.broadGateContent,
+    ...(input.broadGateContent === undefined
+      ? {}
+      : { broadGateContent: input.broadGateContent }),
     currentControlHead: input.controlHeadSha,
     isAncestor: input.isAncestor,
     integrationId: selection.integrationId,
@@ -190,7 +210,9 @@ export const planFailedIntegrationRework = (
     sourceBranch: input.sourceBranch,
     selectionContent: input.selectionContent,
     integrationResultContent: input.integrationResultContent,
-    broadGateContent: input.broadGateContent,
+    ...(input.broadGateContent === undefined
+      ? {}
+      : { broadGateContent: input.broadGateContent }),
     supersessionContent: input.supersessionContent,
     laneContent: input.laneContent,
     proofContent: input.proofContent,
