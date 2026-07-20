@@ -188,6 +188,15 @@ export const buildBulkPolicyPlan = (
   const allowedTargetKeys = new Set(
     allowedTargets.map((target) => target.brainKey),
   );
+  const changeChannelKeys = new Set<string>();
+  for (const change of request.changes) {
+    if (changeChannelKeys.has(change.channelKey)) {
+      return Either.left(
+        new PolicyInvalid({ reason: "duplicate_channel_key" }),
+      );
+    }
+    changeChannelKeys.add(change.channelKey);
+  }
   const channelsByKey = new Map(
     request.channels.map((channel) => [channel.channelKey, channel]),
   );
