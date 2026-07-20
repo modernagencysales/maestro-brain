@@ -1,0 +1,69 @@
+{
+  "lens": "contract",
+  "taskId": "S10-T01",
+  "planSha256": "5e3506ec26c1776547b03641707371efaebb1c490ce3da6b6a1e2ed0df2a8417",
+  "taskBlockHash": "31d477606c8d812c0f800d81d3401104da038d29fbb39dce06e1292cbd8d6e04",
+  "baseSha": "bc7631796e42ee5d33a006df85730dc1293f505e",
+  "headSha": "ae416ba6efe4b822a339d127eb5d428589068c24",
+  "treeSha": "0fd4c83f8afa2b35d9aadc38a2d2a7a92da426c9",
+  "reviewerRunId": "maestro/review/S10-T01/ae416ba6efe4b822a339d127eb5d428589068c24/3423fdf2-f4b2-4717-a6dc-503e09286656-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2871-2920 defines S10-T01 exact Slack user binding requirements, failure-first matrix, lifecycle revocation, typed state, and focused verification.",
+        "packages/convex/confect/slack/identityLinks.impl.ts:454-541 implements nonce-bound intent creation and exact team/slackUser activation through the registered Confect mutations.",
+        "packages/convex/test/slack-identity-links.test.ts:436-560 exercises the registered create/consume path for forged, expired, wrong-team, display-name/email spoof-as-exact-id, already-bound, and replay cases."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/identityLinks.spec.ts:7-41 declares typed expected errors LinkExpired, LinkReplay, SlackIdentityAlreadyBound, TeamMismatch, BindingRevoked, Unauthorized, and Forbidden.",
+        "packages/convex/confect/slack/identityLinks.spec.ts:43-118 registers public/internal Confect mutations with typed args, returns, and the shared expected-error union.",
+        "packages/convex/confect/slack/identityLinks.spec.ts:120-167 registers task-owned lifecycle revocation adapters for user suspension, membership suspension, and connection replacement."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/slackIdentityBindings.ts:13-33 defines durable organization-scoped binding rows with exact teamId/slackUserId, user identity, nonce, generation, verification, and revocation fields.",
+        "packages/convex/confect/tables/slackIdentityBindings.ts:37-57 indexes exact Slack identity, organization/user status, connection generation status, binding key, and nonce without email or display-name indexes.",
+        "packages/convex/test/slack-identity-links.test.ts:130-170 verifies the transient table index inventory and absence of email/displayName lookup fields."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2875-2876 classifies S10-T01 as template-gap TB-NANGO-SLACK-01 over existing WorkOS users.",
+        "docs/product/maestro-brain-lifecycle-adoption/S10-T01.md:1-45 records the implemented lifecycle, durable resource, rollback, and focused proof status for the subsystem status change.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S10-T01/lane-gate-report.json:21-57 proves the exact head, plan hash, task block hash, and pre-review lane gates passed."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1297-1310 lists the S10-T01 file locks.",
+        "rtk proxy git diff --name-only bc7631796e42ee5d33a006df85730dc1293f505e..HEAD -- packages/convex docs apps/web reports only the 13 manifest-owned files for S10-T01.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S10-T01/ci-proof-packet.json:41-43 records transient Confect codegen success; scoped search showed no checked-in generated paths edited by this task."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/test/slack-identity-links.test.ts:202-246 covers pure failure planning for expired, replayed, wrong-team, and already-bound confirmations.",
+        "packages/convex/test/slack-identity-links.test.ts:450-540 covers registered mutation failures for forged nonce, expired nonce, team mismatch, replay, and SlackIdentityAlreadyBound.",
+        "packages/convex/test/slack-identity-links.test.ts:563-655 covers revoked Brain membership and suspended WorkOS user denials before consume through registered paths.",
+        "packages/convex/test/slack-identity-links.test.ts:656-834 covers registered lifecycle/user-request revocation and stale connection-generation fencing."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
