@@ -1,0 +1,68 @@
+{
+  "lens": "contract",
+  "taskId": "S11-T02",
+  "planSha256": "e0256a16a8e0791a68c0f2eef39946ddb845c01a79e186c9aa05585ce85d5199",
+  "taskBlockHash": "f49e5fe055896a804408cf0013f1f4b02735f7b6e18f1813ab85e85672fb569d",
+  "baseSha": "8fa1f5b6183a42207628d51cd396852dc8a95af5",
+  "headSha": "7468de37a0f3039b6d328e9d0728a488e1c3228b",
+  "treeSha": "fa10f7933824434a278d0e09bb739134f411c732",
+  "reviewerRunId": "maestro/review/S11-T02/7468de37a0f3039b6d328e9d0728a488e1c3228b/31b1ec3a-3931-4afe-979a-7b251b67d7f2-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3083-3164 defines S11-T02 acceptance: bearer-derived tenant/Brain, auth-before-decode/dispatch, closed reviewed operation scopes, field rejection, uniform external errors, audit/UI repair, and focused gates.",
+        "ci-proof-packet.json:31-96 records focused package, headless-surface, Confect, logging, secret, audit, codegen, and web gates as passed for headSha 7468de37a0f3039b6d328e9d0728a488e1c3228b, with failure-first proofs for display-once UI and redacted rate-limit admission.",
+        "packages/convex/test/http-request-security.test.ts:459-524 proves authenticate -> decode -> dispatch -> reauthenticate -> mark ordering; lines 324-398 prove malformed/missing bearer fails before JSON decode or provider calls."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.spec.ts:21-88 declares public create/list/revoke/rotate args, returns, and expected typed failures for API-key CRUD, including displayKey returns only on create/rotate.",
+        "packages/convex/confect/headless/apiKeys.spec.ts:90-127 declares internal authenticate and markLastUsed refs with typed keyHash/scope/principal contracts and HeadlessAuthError/NoRecoverableError failure contracts.",
+        "apps/web/src/routes/_workspace.settings.tsx:95-119 wires Settings mutations through the generated-ref shape for public.headless.apiKeys while documenting checked-in generated ref ownership until centralized Confect regeneration."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/auth.ts:41-79 defines Effect schemas for service principal and API-key rows with hash-only key storage, one-Brain workspace/brain binding, role ceiling, status, generation, expiry, revocation, and last-used fields.",
+        "packages/convex/confect/tables/apiKeys.ts:5-12 and packages/convex/confect/tables/servicePrincipals.ts:5-11 declare durable table indexes required by S11-T02, including by_key_hash, by_brain_status, by_principal_status, by_expiry, and by_principal_key.",
+        "packages/convex/test/api-keys.test.ts:403-419 pins the API-key and service-principal table index contracts."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1422-1466 marks S11-T02 as template-gap, D2-domain-bodies, with HLS-01/HLS-02/IAM-03 requirements, the exact ownership set, and taskBlockHash f49e5fe055896a804408cf0013f1f4b02735f7b6e18f1813ab85e85672fb569d.",
+        "lane-gate-report.json:24-30 and :73-77 match headSha 7468de37a0f3039b6d328e9d0728a488e1c3228b, planSha256 e0256a16a8e0791a68c0f2eef39946ddb845c01a79e186c9aa05585ce85d5199, taskBlockHash f49e5fe055896a804408cf0013f1f4b02735f7b6e18f1813ab85e85672fb569d, passed pre-review status, and source budget compliance.",
+        "lane-gate-report.json:31-71 shows ten source slices all at or below the 300-line sourceSliceBudget, satisfying the source-slice contract from the plan."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "rtk proxy git diff --name-only 8fa1f5b6183a42207628d51cd396852dc8a95af5..HEAD produced only the 21 files listed in ci-proof-packet.json:8-30, all within the S11-T02 manifest locks at docs/superpowers/execution/maestro-brain/task-manifest.json:1428-1455.",
+        "The task diff does not edit generated Confect or Convex output paths; ci-proof-packet.json:83-85 records brain:factory:check-confect-codegen passed with transient generated artifacts, matching Appendix O/P ownership guidance for generated output.",
+        "apps/web/src/routes/_workspace.settings.tsx:95-99 explicitly constrains the temporary generated-ref bridge to the amended apiKeys shape until centralized integration refreshes generated refs."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/http.ts:303-381 implements uniform fail-closed external Unauthorized, Forbidden, ValidationFailed, and RateLimited responses around rate-limit admission, bearer hashing/authentication, preauthorization, body decode, dispatch, reauthorization, and best-effort last-used marking.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:461-551 and :553-659 keep declared internal HeadlessAuthError codes reachable for not-found, revoked, expired, wrong scope, missing/revoked/mismatched principal, and tenant/generation failures.",
+        "packages/convex/test/http-request-security.test.ts:270-322 proves rate-limit extensions receive only redacted admission metadata; :607-664 proves dispatch and public error paths do not log or return raw bearer secrets."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
