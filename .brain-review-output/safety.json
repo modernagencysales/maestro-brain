@@ -1,0 +1,129 @@
+{
+  "lens": "safety",
+  "taskId": "S08-T03",
+  "planSha256": "ca7c2d9fbe1de7598adb586c3c0eb8e85c2826fc3339def797b61e3dc45b56cf",
+  "taskBlockHash": "2d947263cf0fa3ed72b36f7fddc028629d9db80e333e2511207b2213bf4d40c0",
+  "baseSha": "2bdef668a17ac4e86a9113846b773f6243f281c0",
+  "headSha": "a66a7599a9b08cbfadbd23e96e147ac1749a662a",
+  "treeSha": "99cabce4744375e38e1ef64728c2adcf3c34419a",
+  "reviewerRunId": "maestro/review/S08-T03/a66a7599a9b08cbfadbd23e96e147ac1749a662a/48950001-759c-404e-8197-1154005e37b9-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/workflowContracts/sourceClassification.spec.ts:38-43",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:90-111",
+        "packages/convex/confect/capabilities/classifySourceUnit.impl.ts:12-16"
+      ],
+      "findingIds": ["SAFETY-S08-T03-001"]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/workflowContracts/sourceClassification.spec.ts:54-70",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:141-150",
+        "packages/convex/confect/classification/review.ts:39-45"
+      ],
+      "findingIds": ["SAFETY-S08-T03-002"]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2448-2449",
+        "packages/convex/confect/workflowContracts/sourceClassification.spec.ts:38-43",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:45-51",
+        "packages/convex/confect/classification/commit.ts:49-69"
+      ],
+      "findingIds": ["SAFETY-S08-T03-003"]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/classification/request.ts:35-38",
+        "packages/convex/confect/tables/classificationDecisions.ts:37-40",
+        "docs/product/maestro-brain-lifecycle-adoption/S08-T03.md:33-38"
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/workflowContracts/sourceClassification.spec.ts:38-43",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:45-51",
+        "packages/convex/confect/classification/commit.ts:49-69"
+      ],
+      "findingIds": ["SAFETY-S08-T03-003"]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/workflowContracts/sourceClassification.spec.ts:38-48",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:94-111",
+        "packages/convex/test/source-classification.test.ts:168-212"
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/workflowContracts/sourceClassification.spec.ts:38-43",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:45-51",
+        "packages/convex/confect/classification/commit.ts:49-69"
+      ],
+      "findingIds": ["SAFETY-S08-T03-003"]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/capabilities/classifySourceUnit.domain.ts:1-6",
+        "packages/convex/confect/capabilities/classifySourceUnit.impl.ts:1-7",
+        "docs/product/maestro-brain-lifecycle-adoption/S08-T03.md:48-60"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "SAFETY-S08-T03-001",
+      "severity": "blocking",
+      "summary": "Classification requests are not tenant-bound or server-gathered before routing.",
+      "details": "The workflow start API accepts a caller-supplied ClassificationRequest containing arbitrary allowedTargets and source text, records only workspace ownership, and passes that request directly to the classifier. classifySourceUnit then authorizes only the generic system caller and validates the provided target allowlist, but never verifies that the source unit, target Brain keys, and workspace belong to the same organization. This permits a malformed internal caller or replay to classify/route against cross-tenant target descriptors instead of the task-required server-gathered immutable unit and pinned tenant allowlist.",
+      "evidence": [
+        "packages/convex/confect/workflowContracts/sourceClassification.spec.ts:38-43",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:90-111",
+        "packages/convex/confect/capabilities/classifySourceUnit.impl.ts:12-16",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2440-2449"
+      ]
+    },
+    {
+      "id": "SAFETY-S08-T03-002",
+      "severity": "blocking",
+      "summary": "Admin review authorization trusts the approval payload instead of proving reviewer authority.",
+      "details": "The approval contract takes reviewerPrincipalKey and reviewerRole from the event payload, but approveImpl only checks that the caller is a system/internal principal before sending the event. The review helper also trusts reviewerRole as already true. There is no workspace membership lookup, organization admin/owner proof, or audit authority check for the named reviewer, so the required org-admin review gate can be forged by any internal workflow caller that can invoke approve.",
+      "evidence": [
+        "packages/convex/confect/workflowContracts/sourceClassification.spec.ts:54-70",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:141-150",
+        "packages/convex/confect/classification/review.ts:39-45",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2392-2394"
+      ]
+    },
+    {
+      "id": "SAFETY-S08-T03-003",
+      "severity": "blocking",
+      "summary": "Lifecycle, concurrency, and revision fences are defined but not carried through the workflow commit path.",
+      "details": "The pure commit helper can reject stale policy/source/lifecycle/route/lease generations, but the workflow start request and run args include only sourceUnitRevisionKey, sourceUnitHash, messages, policyVersion, and allowedTargets. The graph then passes classifier output plus review directly to routes.commit, with no lifecycleGeneration, routeGeneration, leaseGeneration, or current authority snapshot. As wired, concurrent stale generations, tombstoned/revoked source units, and expired leases cannot be fenced at the actual commit path required by S08-T03.",
+      "evidence": [
+        "packages/convex/confect/workflowContracts/sourceClassification.spec.ts:38-43",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:45-51",
+        "packages/convex/confect/classification/commit.ts:49-69",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2448-2459"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
