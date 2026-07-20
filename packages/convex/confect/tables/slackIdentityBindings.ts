@@ -16,6 +16,8 @@ export const SlackIdentityBindingRow = Schema.Struct({
   connectionKey: Schema.String,
   connectionGeneration: Schema.Number,
   teamId: Schema.String,
+  workspaceId: Schema.optional(Schema.String),
+  brainKey: Schema.optional(Schema.String),
   slackUserId: Schema.String,
   userId: Schema.String,
   workosSubject: Schema.String,
@@ -35,6 +37,12 @@ export type SlackIdentityBindingRowValue = typeof SlackIdentityBindingRow.Type;
 export default Table.make(() => SlackIdentityBindingRow)
   .index("by_binding_key", ["bindingKey"])
   .index("by_organization_user_status", ["organizationKey", "userId", "status"])
+  .index("by_organization_brain_user_status", [
+    "organizationKey",
+    "brainKey",
+    "userId",
+    "status",
+  ])
   .index("by_exact_slack_identity_status", [
     "organizationKey",
     "teamId",

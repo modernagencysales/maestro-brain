@@ -23,6 +23,7 @@ import slackIdentityLinks, {
   LinkExpired,
   LinkReplay,
   revokeSlackIdentityLink,
+  revokeSlackIdentityLinksForLifecycle,
   SlackIdentityAlreadyBound,
   TeamMismatch,
 } from "../confect/slack/identityLinks.spec";
@@ -33,6 +34,10 @@ const identityRefs = {
   create: Ref.make("slack/identityLinks", createSlackIdentityLinkIntent),
   consume: Ref.make("slack/identityLinks", consumeSlackIdentityLink),
   revoke: Ref.make("slack/identityLinks", revokeSlackIdentityLink),
+  lifecycleRevoke: Ref.make(
+    "slack/identityLinks",
+    revokeSlackIdentityLinksForLifecycle,
+  ),
 };
 const slackIdentityBindings = slackIdentityBindingsSource(
   "slackIdentityBindings",
@@ -70,6 +75,12 @@ const identity = {
   email: "member@example.com",
   emailVerified: true,
   workosOrganizationId: "workos_acme",
+};
+
+const expectFirst = <T>(rows: readonly T[]): T => {
+  const [row] = rows;
+  expect(row).toBeDefined();
+  return row as T;
 };
 
 const activeBinding = {
@@ -120,6 +131,12 @@ describe("Slack identity link contract", () => {
     expect(indexes).toEqual({
       by_binding_key: ["bindingKey"],
       by_organization_user_status: ["organizationKey", "userId", "status"],
+      by_organization_brain_user_status: [
+        "organizationKey",
+        "brainKey",
+        "userId",
+        "status",
+      ],
       by_exact_slack_identity_status: [
         "organizationKey",
         "teamId",
@@ -145,6 +162,7 @@ describe("Slack identity link contract", () => {
       teamId: "T_acme",
       userId: "user_123",
       workosSubject: "workos_subject_123",
+      brainKey: "brain_acme",
       nonceHash: "sha256:nonce",
       now: 1_000,
     });
@@ -155,6 +173,7 @@ describe("Slack identity link contract", () => {
         bindingKey: "slackbind_agency_acme_T_acme_pending_user_123_2",
         status: "pending_verification",
         teamId: "T_acme",
+        brainKey: "brain_acme",
         slackUserId: "pending:user_123:2",
         intentExpiresAt: 1_300,
       });
@@ -264,6 +283,35 @@ describe("Slack identity link contract", () => {
               updatedAt: 1_000,
             })
             .pipe(Effect.orDie);
+          const workspaceId = yield* writer
+            .table("workspaces")
+            .insert({
+              organizationId,
+              ownerUserId: userId,
+              brainKey: "brain_acme",
+              slug: "acme",
+              name: "Acme Brain",
+              kind: "agency",
+              status: "active",
+              dataClassification: "internal",
+              createdAt: 1_000,
+              updatedAt: 1_000,
+            })
+            .pipe(Effect.orDie);
+          yield* writer
+            .table("workspaceMembers")
+            .insert({
+              workspaceId,
+              userId,
+              role: "editor",
+              status: "active",
+              acceptedAt: 1_000,
+              revokedAt: null,
+              deletedAt: null,
+              createdAt: 1_000,
+              updatedAt: 1_000,
+            })
+            .pipe(Effect.orDie);
           yield* writer
             .table("organizationMembers")
             .insert({
@@ -306,7 +354,28 @@ describe("Slack identity link contract", () => {
         Schema.Any,
       );
 
+      const { workspaceId, userId } = yield* confect.run(
+        Effect.gen(function* () {
+          const reader = yield* DatabaseReader;
+          const workspaces = yield* reader
+            .table("workspaces")
+            .index("by_slug", (q) => q.eq("slug", "acme"))
+            .collect()
+            .pipe(Effect.orDie);
+          const users = yield* reader
+            .table("users")
+            .index("by_subject", (q) => q.eq("subject", identity.subject))
+            .collect()
+            .pipe(Effect.orDie);
+          return {
+            workspaceId: expectFirst(workspaces)._id,
+            userId: expectFirst(users)._id,
+          };
+        }),
+        Schema.Any,
+      );
       const intent = yield* authed.mutation(identityRefs.create, {
+        workspaceId,
         connectionKey: "slack_agency_acme",
         connectionGeneration: 2,
         teamId: "T_acme",
@@ -345,7 +414,128 @@ describe("Slack identity link contract", () => {
         true,
       );
 
+      const deniedAfterBrainRemoval = yield* confect.run(
+        Effect.gen(function* () {
+          const reader = yield* DatabaseReader;
+          const writer = yield* DatabaseWriter;
+          const members = yield* reader
+            .table("workspaceMembers")
+            .index("by_workspace_user", (q) =>
+              q.eq("workspaceId", workspaceId).eq("userId", userId),
+            )
+            .collect()
+            .pipe(Effect.orDie);
+          yield* writer
+            .table("workspaceMembers")
+            .patch(expectFirst(members)._id, {
+              status: "revoked",
+              revokedAt: 1_105,
+            })
+            .pipe(Effect.orDie);
+        }),
+        Schema.Any,
+      );
+      expect(deniedAfterBrainRemoval).toBeNull();
+      const deniedCreate = yield* Effect.either(
+        authed.mutation(identityRefs.create, {
+          workspaceId,
+          connectionKey: "slack_agency_acme",
+          connectionGeneration: 2,
+          teamId: "T_acme",
+          nonceHash: "sha256:denied",
+          now: 1_106,
+        }),
+      );
+      expect(Either.isLeft(deniedCreate)).toBe(true);
+
+      yield* confect.run(
+        Effect.gen(function* () {
+          const reader = yield* DatabaseReader;
+          const writer = yield* DatabaseWriter;
+          const members = yield* reader
+            .table("workspaceMembers")
+            .index("by_workspace_user", (q) =>
+              q.eq("workspaceId", workspaceId).eq("userId", userId),
+            )
+            .collect()
+            .pipe(Effect.orDie);
+          yield* writer
+            .table("workspaceMembers")
+            .patch(expectFirst(members)._id, {
+              status: "active",
+              revokedAt: null,
+            })
+            .pipe(Effect.orDie);
+        }),
+        Schema.Any,
+      );
+
+      const staleIntent = yield* authed.mutation(identityRefs.create, {
+        workspaceId,
+        connectionKey: "slack_agency_acme",
+        connectionGeneration: 2,
+        teamId: "T_acme",
+        nonceHash: "sha256:stale",
+        now: 1_110,
+      });
+      expect(staleIntent.status).toBe("pending_verification");
+      yield* confect.run(
+        Effect.gen(function* () {
+          const reader = yield* DatabaseReader;
+          const writer = yield* DatabaseWriter;
+          const connections = yield* reader
+            .table("providerConnections")
+            .index("by_connection_key", (q) =>
+              q.eq("connectionKey", "slack_agency_acme"),
+            )
+            .collect()
+            .pipe(Effect.orDie);
+          yield* writer
+            .table("providerConnections")
+            .patch(expectFirst(connections)._id, {
+              status: "revoked",
+              connectionGeneration: 3,
+            })
+            .pipe(Effect.orDie);
+        }),
+        Schema.Any,
+      );
+      const staleConsume = yield* Effect.either(
+        authed.mutation(identityRefs.consume, {
+          nonceHash: "sha256:stale",
+          teamId: "T_acme",
+          slackUserId: "U_stale",
+          now: 1_115,
+        }),
+      );
+      expect(
+        Either.isLeft(staleConsume) && staleConsume.left instanceof LinkExpired,
+      ).toBe(true);
+
+      yield* confect.run(
+        Effect.gen(function* () {
+          const reader = yield* DatabaseReader;
+          const writer = yield* DatabaseWriter;
+          const connections = yield* reader
+            .table("providerConnections")
+            .index("by_connection_key", (q) =>
+              q.eq("connectionKey", "slack_agency_acme"),
+            )
+            .collect()
+            .pipe(Effect.orDie);
+          yield* writer
+            .table("providerConnections")
+            .patch(expectFirst(connections)._id, {
+              status: "active",
+              connectionGeneration: 2,
+            })
+            .pipe(Effect.orDie);
+        }),
+        Schema.Any,
+      );
+
       const revoked = yield* authed.mutation(identityRefs.revoke, {
+        workspaceId,
         bindingKey: active.bindingKey,
         reason: "user_request",
         now: 1_200,
@@ -355,6 +545,29 @@ describe("Slack identity link contract", () => {
         status: "revoked",
         revokedAt: 1_200,
       });
+
+      const secondIntent = yield* authed.mutation(identityRefs.create, {
+        workspaceId,
+        connectionKey: "slack_agency_acme",
+        connectionGeneration: 2,
+        teamId: "T_acme",
+        nonceHash: "sha256:lifecycle",
+        now: 1_201,
+      });
+      expect(secondIntent.status).toBe("pending_verification");
+      yield* authed.mutation(identityRefs.consume, {
+        nonceHash: "sha256:lifecycle",
+        teamId: "T_acme",
+        slackUserId: "U_lifecycle",
+        now: 1_202,
+      });
+      const lifecycle = yield* authed.mutation(identityRefs.lifecycleRevoke, {
+        organizationKey: "agency_acme",
+        userId,
+        reason: "membership_suspended",
+        now: 1_203,
+      });
+      expect(lifecycle.revokedCount).toBe(1);
 
       const stored = yield* confect.run(
         Effect.gen(function* () {
