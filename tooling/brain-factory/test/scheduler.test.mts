@@ -565,7 +565,7 @@ describe("brain task scheduler", () => {
     },
   );
 
-  it("serializes selected security owners and gates migration regeneration on Task 6", () => {
+  it("serializes selected security and migration owners", () => {
     const projection = loadManifestProjection();
     const availableArtifacts = artifactAvailability(projection);
     const byId = new Map(projection.tasks.map((task) => [task.taskId, task]));
@@ -605,13 +605,8 @@ describe("brain task scheduler", () => {
       task6RegistryReady: true,
       tasks: migrationOwners,
     });
-    expect(afterTask6.selected.map((task) => task.taskId)).toEqual([
-      "S02-T03",
-      "S04-T02",
-    ]);
-    expect(afterTask6.mandatoryIntegrationGroups).toEqual([
-      ["S02-T03", "S04-T02"],
-    ]);
+    expect(afterTask6.selected.map((task) => task.taskId)).toEqual(["S04-T02"]);
+    expect(afterTask6.mandatoryIntegrationGroups).toEqual([]);
 
     const activeBeforeTask6 = selectReadyTasks({
       activeTaskIds: new Set(["S02-T03"]),
@@ -739,7 +734,12 @@ describe("brain task scheduler", () => {
     expect(
       result.ready.map((task) => task.taskId),
       diagnostic,
-    ).toEqual(["S03-T04", "S05-T01", "S13-T02", "S13-T03"]);
+    ).toEqual(["S03-T04", "S13-T02", "S13-T03"]);
+    expect(
+      result.blockers
+        .find((item) => item.taskId === "S05-T01")
+        ?.reasons.join("\n"),
+    ).toContain("true dependency S05-T01<-S04-T02 is not integrated");
     const producerBlockedConsumers = [
       "S02-T03",
       "S06-T01",
@@ -773,17 +773,33 @@ describe("brain task scheduler", () => {
       result.ready.map((task) => task.taskId),
       diagnostic,
     ).toEqual([
-      "S02-T03",
       "S03-T04",
-      "S05-T02",
       "S06-T01",
-      "S07-T01",
       "S08-T03",
       "S08-T04",
-      "S09-T02",
       "S13-T02",
       "S13-T03",
     ]);
+    expect(
+      result.blockers
+        .find((item) => item.taskId === "S02-T03")
+        ?.reasons.join("\n"),
+    ).toMatch(/S02-T03\|S04-T02 is serialized/);
+    expect(
+      result.blockers
+        .find((item) => item.taskId === "S05-T02")
+        ?.reasons.join("\n"),
+    ).toContain("true dependency S05-T02<-S04-T03 is not integrated");
+    expect(
+      result.blockers
+        .find((item) => item.taskId === "S07-T01")
+        ?.reasons.join("\n"),
+    ).toMatch(/S04-T02\|S07-T01 is serialized/);
+    expect(
+      result.blockers
+        .find((item) => item.taskId === "S09-T02")
+        ?.reasons.join("\n"),
+    ).toMatch(/S04-T02\|S09-T02 is serialized/);
     expect(result.limitingTrueEdges).toEqual(
       [...result.limitingTrueEdges].sort(),
     );
