@@ -1,0 +1,114 @@
+{
+  "lens": "contract",
+  "taskId": "S06-T01",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "f2f6cb348272c704636b7e21bf8e8cbd66b812835d781b52e01bdcfa5b0fa97c",
+  "baseSha": "64b5d90e9dce6146ac6cd49696658cd9a40a254c",
+  "headSha": "26be039746841ffeffef118f7e0ae577f9245e0d",
+  "treeSha": "6b74558c316739e3d6c9d6ed4d993e8897bfe7ef",
+  "reviewerRunId": "maestro/review/S06-T01/26be039746841ffeffef118f7e0ae577f9245e0d/410f142c-7f0b-42cf-9c8d-e4fc449d2474-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "finding",
+      "evidence": [
+        "Task packet S06-T01 requires fixture-to-real replacement of jobs/workpool with @convex-dev/workpool plus sourceProcessingJobs leases/CAS, failure-first crash matrix, lease expiry/reclaim, stale worker commit, duplicate effect, retry/permanent/max-attempt, cancellation, and emergency generation fence.",
+        "packages/convex/confect/jobs/workpool.ts:168-215 implements onComplete as the only durable source-job transition path and does not perform a persisted claim before background/external work."
+      ],
+      "findingIds": [
+        "CONTRACT-S06-T01-001",
+        "CONTRACT-S06-T01-002"
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.spec.ts:11-31 only registers Convex function refs and declares no expected typed errors for enqueueSourceJob, statusSourceJob, backgroundWork, or onComplete.",
+        "packages/convex/confect/jobs/workpool.ts:114-170 exposes enqueueSourceJob/statusSourceJob/onComplete as vWorkId, workpool status, or null-returning Convex functions, while LeaseLost/StaleGeneration/DuplicateEffect are only local reducer classes in packages/convex/confect/jobs/jobState.ts:4-21."
+      ],
+      "findingIds": [
+        "CONTRACT-S06-T01-003"
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:50-86 adds durable fields for schemaVersion, generation pins, lease data, attempt receipts, and acceptedEffectKey.",
+        "packages/convex/confect/jobs/workpool.ts:194-214 records an external response and succeeds the job in one onComplete mutation without transitioning the persisted row through running or preserving a post-response/pre-commit recovery point exercised by the actual handler."
+      ],
+      "findingIds": [
+        "CONTRACT-S06-T01-002"
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "finding",
+      "evidence": [
+        "Plan block S06-T01 classifies the work as fixture-to-real and specifically requires compare-and-set leaseGeneration/leaseToken claims, heartbeat, external response receipts before commit, and failure-first tests for crash-before/after claim, after external response, before/after commit, and before ACK.",
+        "packages/convex/test/source-workpool.test.ts:289-320 proves persistence and idempotency by string containment in workpool.ts rather than executing the Convex handlers through the required crash matrix."
+      ],
+      "findingIds": [
+        "CONTRACT-S06-T01-001",
+        "CONTRACT-S06-T01-002"
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "Task manifest S06-T01 fileLocks are packages/convex/confect/jobs/jobState.ts, leases.ts, workpool.impl.ts, workpool.spec.ts, workpool.ts, packages/convex/confect/tables/sourceProcessingJobs.ts, and packages/convex/test/source-workpool.test.ts.",
+        "Proof packet changedFiles exactly lists those S06-T01-owned files and no public API, CLI, MCP, or generated Confect output files."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "evidence": [
+        "Task packet declares state queued -> leased -> running -> succeeded | retry_wait | dead_letter | superseded | revoked | cancelled and errors LeaseLost, RetryableJobFailure, PermanentJobFailure, MaxAttemptsReached, StaleGeneration, DuplicateEffect.",
+        "packages/convex/confect/jobs/jobState.ts:287-312 maps every retryable failSourceJob call to dead_letter/MaxAttemptsReached instead of a retryable failure path, while scheduleRetry is not integrated into workpool.ts onComplete/backgroundWork.",
+        "packages/convex/confect/jobs/workpool.ts:191-214 silently returns null on LeaseLost/StaleGeneration/DuplicateEffect and never persists retry_wait, dead_letter, revoked, superseded, or cancelled from the source job control surface."
+      ],
+      "findingIds": [
+        "CONTRACT-S06-T01-003"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "CONTRACT-S06-T01-001",
+      "severity": "high",
+      "summary": "Durable source-job claim path is not compare-and-set fenced before work.",
+      "details": "The task requires sourceProcessingJobs leases/CAS with claim-by-compare-and-set, opaque lease token, owner, expiry, attempt, heartbeat, reclaim, and stale-worker completion fencing. The actual workpool handler enqueues an action first and only calls startSourceJob inside onComplete after the action has finished, then blindly patches the row from the row snapshot. That leaves the external/background work outside the durable lease and CAS contract.",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.ts:126-142 inserts/patches workId but does not claim a lease before enqueueing backgroundWork.",
+        "packages/convex/confect/jobs/workpool.ts:162-165 backgroundWork returns null with no durable claim, running transition, heartbeat, retry, or stale-token handling.",
+        "packages/convex/confect/jobs/workpool.ts:183-214 claims, records response, and succeeds only in onComplete after work completion."
+      ]
+    },
+    {
+      "id": "CONTRACT-S06-T01-002",
+      "severity": "high",
+      "summary": "Required crash/failure matrix is not proved against durable handlers.",
+      "details": "The focused tests exercise pure reducer helpers and source-code string containment, but do not execute the Convex workpool/sourceProcessingJobs handlers for crash before/after claim, after external response, before/after commit, before ACK, or duplicate external-call versus one accepted effect. The implemented handler also combines response receipt and commit in one mutation path, so the required persisted recovery points are not demonstrably present.",
+      "evidence": [
+        "packages/convex/test/source-workpool.test.ts:65-276 covers pure jobState/leases helper calls only.",
+        "packages/convex/test/source-workpool.test.ts:289-320 asserts handler persistence/idempotency with readFileSync(...).toContain(...) string checks.",
+        "packages/convex/confect/jobs/workpool.ts:194-214 records externalResponseHash and acceptedEffectKey in the same onComplete flow without an executable crash-before-commit proof."
+      ]
+    },
+    {
+      "id": "CONTRACT-S06-T01-003",
+      "severity": "high",
+      "summary": "Declared failure contract is not surfaced or reachable through the Confect/Convex API.",
+      "details": "The task requires typed errors LeaseLost, RetryableJobFailure, PermanentJobFailure, MaxAttemptsReached, StaleGeneration, and DuplicateEffect. The Confect spec does not declare expected errors, the public/internal functions return work IDs, component status, or null, and the handler swallows reducer Left values by returning null. Retryable, permanent, cancellation, revoked, and superseded states are reducer-only and not reachable from the registered workpool functions.",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.spec.ts:11-31 has no expected-error declarations for the registered functions.",
+        "packages/convex/confect/jobs/workpool.ts:146-159 statusSourceJob returns only @convex-dev/workpool pending/running/finished status, not sourceProcessingJobs execution statuses.",
+        "packages/convex/confect/jobs/workpool.ts:191-214 returns null on Left results from startSourceJob, recordExternalResponse, or succeedSourceJob."
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
