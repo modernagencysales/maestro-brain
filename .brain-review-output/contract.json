@@ -1,0 +1,83 @@
+{
+  "lens": "contract",
+  "taskId": "S04-T04",
+  "planSha256": "5e3506ec26c1776547b03641707371efaebb1c490ce3da6b6a1e2ed0df2a8417",
+  "taskBlockHash": "43fe7362c17307d938a689c31cfaa350124a5029c8ef938d09c8f08066ec12c5",
+  "baseSha": "bc7631796e42ee5d33a006df85730dc1293f505e",
+  "headSha": "de87473be681012227b32854dcf6682ffc443b72",
+  "treeSha": "4ea1aa2f881d1e0e68dd7b495592962021f87487",
+  "reviewerRunId": "maestro/review/S04-T04/de87473be681012227b32854dcf6682ffc443b72/2972c9b2-33b8-4591-9223-f51f2f69624b-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1564-1565 requires admins to bulk-select joined channels and set explicit policies.",
+        "apps/web/src/features/connections/channel-policy-dialog.tsx:131-149 builds a submit request but only records local lastSubmission text instead of applying the policy.",
+        "Scoped rg over apps/web/src/features/connections apps/web/src/routes/_workspace.connections.tsx packages/convex/confect/slack/channelPolicies.spec.ts found bulkSetChannelPolicies only in the spec and a UI status string; it found no useMutation/generated Confect ref dispatch path from the Connections surface."
+      ],
+      "findingIds": ["CONTRACT-S04-T04-001"]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.spec.ts:41-52 declares the typed bulkSetChannelPolicies mutation contract and expected errors.",
+        "apps/web/src/features/connections/channel-policy-dialog.tsx:131-149 constructs the typed-shaped request but never calls the Confect/Convex mutation, leaving the visible apply action disconnected from the typed API.",
+        "ci-proof-packet.json:59-61 records that generated refs must replace the fixture submit seam later, but the S04-T04 task packet itself requires policy setting in this task."
+      ],
+      "findingIds": ["CONTRACT-S04-T04-001"]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/channelRoutingPolicies.ts:23-45 defines additive immutable routing policy rows with channel/epoch, active, organization, mode, and connection-generation indexes.",
+        "packages/convex/confect/tables/channelDeliveryPolicies.ts:9-26 defines additive immutable delivery policy rows with channel/generation, active, organization, and mode indexes.",
+        "packages/convex/test/channel-policies.test.ts:120-138 pins the routing and delivery policy index inventory."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:647-650 records S04-T04 requirements and taskBlockHash 43fe7362c17307d938a689c31cfaa350124a5029c8ef938d09c8f08066ec12c5.",
+        "lane-gate-report.json:29-57 is the exact-head pre-review report for headSha de87473be681012227b32854dcf6682ffc443b72 with planSha256 5e3506ec26c1776547b03641707371efaebb1c490ce3da6b6a1e2ed0df2a8417, taskBlockHash 43fe7362c17307d938a689c31cfaa350124a5029c8ef938d09c8f08066ec12c5, treeSha 4ea1aa2f881d1e0e68dd7b495592962021f87487, and status passed.",
+        "docs/product/maestro-brain-lifecycle-adoption/S04-T04.md:6-37 records the additive resource and rollback state for this template-gap slice."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:630-642 lists the S04-T04 file locks for the changed Connections UI, channel policy Confect/tables, test, and adoption record paths.",
+        "ci-proof-packet.json:8-21 lists changed files within those S04-T04 locked paths.",
+        "No generated Confect or Convex output paths appear in ci-proof-packet.json:8-21; lane-gate-report.json:9 records brain:factory:check-confect-codegen in the exact-head pre-review command set."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.spec.ts:32-52 declares ChannelNotJoined, PolicyInvalid, TargetBrainForbidden, PolicyGenerationMismatch, and CapacityExceeded as expected errors for bulkSetChannelPolicies.",
+        "packages/convex/test/channel-policies.test.ts:140-217 covers non-admin, invalid target shape, stale generation, capacity, Slack Connect delivery, and partial bulk failure cases.",
+        "packages/convex/test/channel-policies.test.ts:332-348 proves Slack Connect capture-only delivery while Direct/Classify ingestion remains allowed, and packages/convex/test/channel-policies.test.ts:429-448 pins typed PolicyInvalid reason behavior."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "CONTRACT-S04-T04-001",
+      "severity": "high",
+      "summary": "Connections policy Apply action does not call the typed bulk policy mutation.",
+      "details": "The task packet requires admins to bulk-select joined channels and set explicit routing/delivery policies. The current web surface builds a request-shaped object, then only displays local readiness text, so no policy epoch/delivery generation can be created from the UI and the task's control-plane acceptance path remains incomplete.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1564-1565 requires admins to bulk-select any joined channels and set explicit policies.",
+        "packages/convex/confect/slack/channelPolicies.spec.ts:41-52 declares bulkSetChannelPolicies as the typed mutation contract.",
+        "apps/web/src/features/connections/channel-policy-dialog.tsx:131-149 builds a request and sets lastSubmission text only; it does not dispatch bulkSetChannelPolicies or any generated Confect/Convex mutation ref.",
+        "Scoped rg over apps/web/src/features/connections apps/web/src/routes/_workspace.connections.tsx packages/convex/confect/slack/channelPolicies.spec.ts found no useMutation or generated Confect ref bridge for the apply path."
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
