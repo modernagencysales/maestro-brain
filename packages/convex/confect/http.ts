@@ -50,6 +50,11 @@ export type HeadlessHttpCtx = {
   readonly markLastUsedRef?: unknown;
   readonly operationRefs?: Record<string, unknown>;
   readonly operationPolicies?: Record<string, HeadlessOperationPolicy>;
+  readonly rateLimit?: (input: {
+    readonly operationId: string;
+    readonly pathname: string;
+    readonly request: Request;
+  }) => boolean | Promise<boolean>;
 };
 
 type TemplateRouteMatch =
@@ -100,6 +105,12 @@ export const templateHttpRoutes = [
     path: "/api/docs",
     method: "GET",
     description: "Serves the Scalar API documentation shell.",
+  },
+  {
+    path: "/api/*",
+    method: "POST",
+    description:
+      "Returns the uniform headless error envelope for unknown API operations.",
   },
   ...confectManifest.functions
     .filter(
@@ -207,7 +218,7 @@ const templateRouteResponse = async (
       response = await operationRouteResponse(ctx, request, route.operationId);
       break;
     case "notFound":
-      response = notFoundRouteResponse(request, route.pathname);
+      response = notFoundRouteResponse(route.pathname);
       break;
   }
 
@@ -277,6 +288,18 @@ const executeTemplateApiRoute = async (
     return jsonResponse({
       ok: false,
       error: { _tag: "Forbidden", message: "Forbidden." },
+    });
+  }
+
+  const limited = await ctx.rateLimit?.({
+    operationId,
+    pathname: new URL(request.url).pathname,
+    request,
+  });
+  if (limited === true) {
+    return jsonResponse({
+      ok: false,
+      error: { _tag: "RateLimited", message: "Rate limited." },
     });
   }
 
@@ -422,8 +445,8 @@ const unavailableHeadlessOperationResponse = (): Response =>
     },
   });
 
-const notFoundRouteResponse = (request: Request, pathname: string): Response =>
-  request.headers.has("authorization")
+const notFoundRouteResponse = (pathname: string): Response =>
+  pathname.startsWith("/api/") && pathname !== "/api/brain.pages.createMarkdown"
     ? unavailableHeadlessOperationResponse()
     : jsonResponse({
         ok: false,
@@ -465,7 +488,11 @@ const buildTemplateHttpRouter = () => {
     return handleTemplateHttpRequest(headlessCtx, request);
   });
   for (const route of templateHttpRoutes) {
-    router.route({ path: route.path, method: route.method, handler });
+    if (route.path === "/api/*") {
+      router.route({ pathPrefix: "/api/", method: route.method, handler });
+    } else {
+      router.route({ path: route.path, method: route.method, handler });
+    }
   }
   return router;
 };
