@@ -242,4 +242,32 @@ describe("brain lane gate profiles", () => {
       );
     }
   });
+
+  it("rejects mutating template generators as replayable focused gates", () => {
+    expect(() =>
+      focusedGateCommand(
+        "rtk pnpm template:add-capability -- --name classifySourceUnit --exposure workflow --write",
+      ),
+    ).toThrow(/template generator.*--write/);
+    expect(() =>
+      focusedGateCommand(
+        "rtk pnpm template:add-workflow -- --name sourceClassification --exposure internal --write",
+      ),
+    ).toThrow(/template generator.*--write/);
+    expect(
+      focusedGateCommand(
+        "rtk pnpm template:add-workflow -- --name sourceClassification --exposure internal",
+      ),
+    ).toEqual({
+      program: "pnpm",
+      args: [
+        "template:add-workflow",
+        "--",
+        "--name",
+        "sourceClassification",
+        "--exposure",
+        "internal",
+      ],
+    });
+  });
 });

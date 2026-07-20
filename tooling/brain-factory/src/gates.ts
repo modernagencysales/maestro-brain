@@ -70,6 +70,14 @@ export const focusedGateCommand = (value: string): GateCommand => {
   if (!program) throw new Error("focused gate has no program");
   const normalized = [program, ...args].join(" ");
   if (
+    program === "pnpm" &&
+    args[0]?.startsWith("template:") &&
+    args.includes("--write")
+  )
+    throw new Error(
+      "template generator --write is a one-time implementation action, not a replayable focused gate",
+    );
+  if (
     /^pnpm (?:(?:--dir packages\/convex )?(?:confect:codegen|check:convex)|confect:manifest)(?:\s|$)/.test(
       normalized,
     )

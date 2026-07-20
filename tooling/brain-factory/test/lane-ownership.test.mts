@@ -86,6 +86,23 @@ describe("lane file ownership", () => {
     ]);
   });
 
+  it("treats only the planned workflow runner scaffolds as task-owned", () => {
+    const planned = [
+      "packages/convex/convex/workflowRunners/sourceClassification.ts",
+      "packages/convex/convex/workflowRunners/sourceToBrainMaintenance.ts",
+    ];
+
+    expect(laneFileOwnershipIssues(planned, planned)).toEqual([]);
+    expect(
+      laneFileOwnershipIssues(
+        ["packages/convex/convex/workflowRunners/unplanned.ts"],
+        ["packages/convex/convex/workflowRunners/unplanned.ts"],
+      ),
+    ).toEqual([
+      "packages/convex/convex/workflowRunners/unplanned.ts: generated output is integration-owned",
+    ]);
+  });
+
   it("rejects paths laundered through excluded history", () => {
     expect(
       laneHistoryOwnershipIssues(

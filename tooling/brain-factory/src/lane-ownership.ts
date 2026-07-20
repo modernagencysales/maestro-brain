@@ -3,6 +3,8 @@ const HAND_AUTHORED_CONVEX_FILES = new Set([
   "packages/convex/convex/convex.config.ts",
   "packages/convex/convex/http.ts",
   "packages/convex/convex/tsconfig.json",
+  "packages/convex/convex/workflowRunners/sourceClassification.ts",
+  "packages/convex/convex/workflowRunners/sourceToBrainMaintenance.ts",
 ]);
 
 const isGeneratedNamespaceFile = (file: string): boolean =>

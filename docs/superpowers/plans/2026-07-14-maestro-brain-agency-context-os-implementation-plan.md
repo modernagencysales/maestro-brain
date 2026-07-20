@@ -2396,16 +2396,31 @@ manifest.
   `rtk pnpm template:add-capability -- --name classifySourceUnit --description "Returns a typed zero-or-one route proposal from an immutable source unit." --exposure workflow --write`
   and
   `rtk pnpm template:add-workflow -- --name sourceClassification --description "Gathers, classifies, reviews, and commits one source route." --exposure internal --write`;
-  then replace starter contracts deliberately and run the focused gates from
+  these are one-time implementation scaffold actions after their matching
+  non-mutating dry-runs, not replayable focused gates. Then replace starter
+  contracts deliberately and run the non-mutating focused gates from
   `docs/template/how-to-add-capability.md` and
   `docs/template/how-to-add-workflow.md`.
 - **Dependencies:** S08-T02, S05-T04, S07-T02.
 - **Existing anchors:** generated capability drafts are public mutations by
   default, so the named workflow exposure and manifest review are mandatory
   ([source](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/tooling/generators/src/index.ts#L1143-L1178)).
-- **Files:** generator dry-runs enumerate/hash the generated classifySourceUnit
-  capability and sourceClassification workflow targets; create
-  `packages/convex/confect/tables/classificationDecisions.ts`,
+- **Files:** the generator dry-runs enumerate/hash and this task owns
+  `packages/convex/confect/capabilities/classifySourceUnit.spec.ts`,
+  `packages/convex/confect/capabilities/classifySourceUnit.impl.ts`,
+  `packages/convex/confect/capabilities/classifySourceUnit.domain.ts`,
+  `packages/convex/confect/capabilities/classifySourceUnit.test.ts`,
+  `packages/convex/confect/capabilities/classifySourceUnit.headless.json`,
+  `docs/template/generated/capabilities/classifySourceUnit.md`,
+  `docs/template/generated/provenance/add-capability/classifySourceUnit.json`,
+  `packages/convex/confect/workflowContracts/sourceClassification.spec.ts`,
+  `packages/convex/confect/workflowContracts/sourceClassification.impl.ts`,
+  `packages/convex/confect/workflows/sourceClassification.graph.ts`,
+  `packages/convex/convex/workflowRunners/sourceClassification.ts`,
+  `packages/convex/test/sourceClassification.workflow.test.ts`,
+  `docs/template/generated/workflows/sourceClassification.md`, and
+  `docs/template/generated/provenance/add-workflow/sourceClassification.json`;
+  create `packages/convex/confect/tables/classificationDecisions.ts`,
   `packages/convex/confect/classification/gather.ts`,
   `packages/convex/confect/classification/request.ts`,
   `packages/convex/confect/classification/review.ts`,
@@ -2414,8 +2429,9 @@ manifest.
   `apps/web/src/features/connections/classification-review-queue.tsx`, and
   `apps/web/src/features/connections/classification-review-queue.test.tsx`;
   modify `packages/convex/confect/tables/sourceProcessingJobs.ts`,
-  `docs/product/maestro-brain-lifecycle-adoption/S08-T03.md`, and generated
-  manifests.
+  `docs/product/maestro-brain-lifecycle-adoption/S08-T03.md`. Integration owns
+  reproducible Confect/Convex generated output and regenerated manifests; the
+  lane does not edit those generated trees.
 - **Failure-first tests:** Direct/Capture-only makes zero calls; empty/multiple/
   out-of-allowlist target, wrong snapshot/hash/policy, unresolved evidence
   quote, stale route/lifecycle/lease, model timeout, non-admin review,
@@ -2447,9 +2463,7 @@ manifest.
   guess/fallback to a Brain.
 - **Focused verification:**
   `rtk pnpm template:add-capability -- --name classifySourceUnit --description "Returns a typed zero-or-one route proposal from an immutable source unit." --exposure workflow`,
-  `rtk pnpm template:add-capability -- --name classifySourceUnit --description "Returns a typed zero-or-one route proposal from an immutable source unit." --exposure workflow --write`,
   `rtk pnpm template:add-workflow -- --name sourceClassification --description "Gathers, classifies, reviews, and commits one source route." --exposure internal`,
-  `rtk pnpm template:add-workflow -- --name sourceClassification --description "Gathers, classifies, reviews, and commits one source route." --exposure internal --write`,
   `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test classification`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test review-queue`,
@@ -2473,16 +2487,31 @@ manifest.
   `rtk pnpm template:add-capability -- --name maintainBrainPage --description "Returns cited Brain revision proposals from an immutable context pack." --exposure workflow --write`
   and internal
   `rtk pnpm template:add-workflow -- --name sourceToBrainMaintenance --description "Gathers routed evidence and proposes cited Brain revisions." --exposure internal --write`
-  after dry-runs; follow `docs/template/how-to-add-capability.md` and
-  `docs/template/how-to-add-workflow.md`, including their focused gates.
+  as one-time implementation scaffold actions after dry-runs; they are not
+  replayable focused gates. Follow `docs/template/how-to-add-capability.md` and
+  `docs/template/how-to-add-workflow.md`, including their non-mutating focused
+  gates.
 - **Dependencies:** S08-T03 and S02-T03.
 - **Existing anchors:** version/citation persistence is S02; the current generic
   LLM seam is now structured from T01. The repo layer law requires workflows to
   compose capabilities and provider calls to stay behind adapters
   ([source](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/AGENTS.md#L50-L58)).
-- **Files:** generator dry-runs enumerate/hash the generated maintainBrainPage
-  capability and sourceToBrainMaintenance workflow targets; create
-  `packages/convex/confect/tables/brainMaintenanceProposals.ts`,
+- **Files:** the generator dry-runs enumerate/hash and this task owns
+  `packages/convex/confect/capabilities/maintainBrainPage.spec.ts`,
+  `packages/convex/confect/capabilities/maintainBrainPage.impl.ts`,
+  `packages/convex/confect/capabilities/maintainBrainPage.domain.ts`,
+  `packages/convex/confect/capabilities/maintainBrainPage.test.ts`,
+  `packages/convex/confect/capabilities/maintainBrainPage.headless.json`,
+  `docs/template/generated/capabilities/maintainBrainPage.md`,
+  `docs/template/generated/provenance/add-capability/maintainBrainPage.json`,
+  `packages/convex/confect/workflowContracts/sourceToBrainMaintenance.spec.ts`,
+  `packages/convex/confect/workflowContracts/sourceToBrainMaintenance.impl.ts`,
+  `packages/convex/confect/workflows/sourceToBrainMaintenance.graph.ts`,
+  `packages/convex/convex/workflowRunners/sourceToBrainMaintenance.ts`,
+  `packages/convex/test/sourceToBrainMaintenance.workflow.test.ts`,
+  `docs/template/generated/workflows/sourceToBrainMaintenance.md`, and
+  `docs/template/generated/provenance/add-workflow/sourceToBrainMaintenance.json`;
+  create `packages/convex/confect/tables/brainMaintenanceProposals.ts`,
   `packages/convex/confect/maintenance/gather.ts`,
   `packages/convex/confect/maintenance/request.ts`,
   `packages/convex/confect/maintenance/policy.ts`,
@@ -2491,8 +2520,10 @@ manifest.
   `apps/web/src/features/brain/maintenance-review.tsx`, and
   `apps/web/src/features/brain/maintenance-review.test.tsx`; modify
   `packages/convex/confect/tables/sourceProcessingJobs.ts`,
-  `docs/product/maestro-brain-lifecycle-adoption/S08-T04.md`, generated
-  manifests, and `tooling/evals/src/index.ts`.
+  `docs/product/maestro-brain-lifecycle-adoption/S08-T04.md` and
+  `tooling/evals/src/index.ts`. Integration owns reproducible Confect/Convex
+  generated output and regenerated manifests; the lane does not edit those
+  generated trees.
 - **Failure-first tests:** typed no-op, new/existing page proposal, uncited
   factual claim, citation outside context pack, stale
   page/source/route/lifecycle generation, revision budget, model
@@ -2522,9 +2553,7 @@ manifest.
   all proposals/revisions. It never rolls back exact source capture.
 - **Focused verification:**
   `rtk pnpm template:add-capability -- --name maintainBrainPage --description "Returns cited Brain revision proposals from an immutable context pack." --exposure workflow`,
-  `rtk pnpm template:add-capability -- --name maintainBrainPage --description "Returns cited Brain revision proposals from an immutable context pack." --exposure workflow --write`,
   `rtk pnpm template:add-workflow -- --name sourceToBrainMaintenance --description "Gathers routed evidence and proposes cited Brain revisions." --exposure internal`,
-  `rtk pnpm template:add-workflow -- --name sourceToBrainMaintenance --description "Gathers routed evidence and proposes cited Brain revisions." --exposure internal --write`,
   `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test brain-maintenance`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test maintenance-review`,

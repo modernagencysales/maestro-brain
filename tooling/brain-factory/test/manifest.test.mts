@@ -175,6 +175,57 @@ describe("Maestro Brain execution manifest", () => {
       ).not.toMatch(
         /`rtk pnpm (?:(?:--dir packages\/convex )?(?:confect:codegen|check:convex)|confect:manifest)(?:[ `])/,
       );
+      if (taskId === "S08-T03" || taskId === "S08-T04") {
+        expect(
+          focused,
+          `${taskId}: mutating template generator is an implementation action, not a focused gate`,
+        ).not.toMatch(/`rtk pnpm template:[^`]* --write`/);
+      }
+    }
+  });
+
+  it("locks every S08 cognition generator output to its owning task", () => {
+    const manifest = buildManifest();
+    const taskById = new Map(manifest.tasks.map((task) => [task.taskId, task]));
+    const generated = {
+      "S08-T03": [
+        "packages/convex/confect/capabilities/classifySourceUnit.spec.ts",
+        "packages/convex/confect/capabilities/classifySourceUnit.impl.ts",
+        "packages/convex/confect/capabilities/classifySourceUnit.domain.ts",
+        "packages/convex/confect/capabilities/classifySourceUnit.test.ts",
+        "packages/convex/confect/capabilities/classifySourceUnit.headless.json",
+        "docs/template/generated/capabilities/classifySourceUnit.md",
+        "docs/template/generated/provenance/add-capability/classifySourceUnit.json",
+        "packages/convex/confect/workflowContracts/sourceClassification.spec.ts",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts",
+        "packages/convex/confect/workflows/sourceClassification.graph.ts",
+        "packages/convex/convex/workflowRunners/sourceClassification.ts",
+        "packages/convex/test/sourceClassification.workflow.test.ts",
+        "docs/template/generated/workflows/sourceClassification.md",
+        "docs/template/generated/provenance/add-workflow/sourceClassification.json",
+      ],
+      "S08-T04": [
+        "packages/convex/confect/capabilities/maintainBrainPage.spec.ts",
+        "packages/convex/confect/capabilities/maintainBrainPage.impl.ts",
+        "packages/convex/confect/capabilities/maintainBrainPage.domain.ts",
+        "packages/convex/confect/capabilities/maintainBrainPage.test.ts",
+        "packages/convex/confect/capabilities/maintainBrainPage.headless.json",
+        "docs/template/generated/capabilities/maintainBrainPage.md",
+        "docs/template/generated/provenance/add-capability/maintainBrainPage.json",
+        "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.spec.ts",
+        "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.impl.ts",
+        "packages/convex/confect/workflows/sourceToBrainMaintenance.graph.ts",
+        "packages/convex/convex/workflowRunners/sourceToBrainMaintenance.ts",
+        "packages/convex/test/sourceToBrainMaintenance.workflow.test.ts",
+        "docs/template/generated/workflows/sourceToBrainMaintenance.md",
+        "docs/template/generated/provenance/add-workflow/sourceToBrainMaintenance.json",
+      ],
+    } as const;
+
+    for (const [taskId, paths] of Object.entries(generated)) {
+      expect(taskById.get(taskId)?.fileLocks).toEqual(
+        expect.arrayContaining([...paths]),
+      );
     }
   });
 
@@ -205,7 +256,11 @@ describe("Maestro Brain execution manifest", () => {
           task.fileLocks.every(
             (file) =>
               !file.includes("/_generated/") &&
-              !isIntegrationOwnedGeneratedFile(file),
+              (!isIntegrationOwnedGeneratedFile(file) ||
+                file ===
+                  "packages/convex/convex/workflowRunners/sourceClassification.ts" ||
+                file ===
+                  "packages/convex/convex/workflowRunners/sourceToBrainMaintenance.ts"),
           ),
       ),
     ).toBe(true);

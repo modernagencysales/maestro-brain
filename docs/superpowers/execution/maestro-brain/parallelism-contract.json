@@ -1,6 +1,6 @@
 {
   "schemaVersion": "maestro-brain-parallelism-contract/v1",
-  "manifestPlanSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "manifestPlanSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
   "edges": [
     {
       "consumerTaskId": "S00-T03",
@@ -635,7 +635,7 @@
         "kind": "task-packet",
         "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
         "anchor": "S08-T04",
-        "sha256": "56a596c2cbeb9f32aebbee6c2fa169c9d06b4e2455e8aefe4715e0ab3d3144e8"
+        "sha256": "2bccfe705e20eef30b384725a71d69db2671a70d5c96f541fb95ec6b73629525"
       }
     },
     {
