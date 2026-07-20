@@ -1,0 +1,105 @@
+{
+  "lens": "contract",
+  "taskId": "S10-T01",
+  "planSha256": "5e3506ec26c1776547b03641707371efaebb1c490ce3da6b6a1e2ed0df2a8417",
+  "taskBlockHash": "31d477606c8d812c0f800d81d3401104da038d29fbb39dce06e1292cbd8d6e04",
+  "baseSha": "bc7631796e42ee5d33a006df85730dc1293f505e",
+  "headSha": "fff2bffa7998258c68e9cacc6a3aff17829b4318",
+  "treeSha": "11c772df127bcba46110366f4eb993520e835956",
+  "reviewerRunId": "maestro/review/S10-T01/fff2bffa7998258c68e9cacc6a3aff17829b4318/3423fdf2-f4b2-4717-a6dc-503e09286656-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2894-2909",
+        "packages/convex/confect/slack/identityLinks.impl.ts:504-518",
+        "packages/convex/confect/slack/identityLinks.impl.ts:583-651"
+      ],
+      "findingIds": [
+        "C-S10-T01-001"
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/slack/identityLinks.spec.ts:32-118",
+        "packages/convex/test/slack-identity-links.test.ts:187-230",
+        "packages/convex/test/slack-identity-links.test.ts:391-437"
+      ],
+      "findingIds": [
+        "C-S10-T01-002"
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/slackIdentityBindings.ts:1-57",
+        "packages/convex/confect/internal/migrations.ts:86-87",
+        "packages/convex/test/slack-identity-links.test.ts:116-154"
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2872-2916",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1290-1320",
+        "docs/product/maestro-brain-lifecycle-adoption/S10-T01.md:1-40"
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1300-1314",
+        "rtk proxy git diff --name-only bc7631796e42ee5d33a006df85730dc1293f505e..HEAD lists only the S10-T01 locked paths."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2894-2909",
+        "packages/convex/confect/slack/identityLinks.spec.ts:32-118",
+        "packages/convex/test/slack-identity-links.test.ts:187-230",
+        "packages/convex/test/slack-identity-links.test.ts:391-437"
+      ],
+      "findingIds": [
+        "C-S10-T01-002"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "C-S10-T01-001",
+      "severity": "high",
+      "summary": "Lifecycle revocation is not wired to the lifecycle producers required by the task contract.",
+      "details": "S10-T01 requires organization-scoped Slack identity bindings to revoke on user request, organization-membership/user suspension, or connection replacement. The task adds a direct internal revokeSlackIdentityLinksForLifecycle mutation and tests calling that mutation manually, and consume revokes stale generation rows when it observes a replaced connection. However, no task-owned lifecycle producer path invokes the revoke mutation when organization membership or user suspension occurs, and connection replacement is only handled opportunistically during consume rather than from the connection lifecycle event. Active bindings can therefore remain active after required lifecycle producers fire unless a later Slack consume path happens to encounter them.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2898-2905",
+        "packages/convex/confect/slack/identityLinks.impl.ts:504-518",
+        "packages/convex/confect/slack/identityLinks.impl.ts:583-651",
+        "packages/convex/test/slack-identity-links.test.ts:607-613",
+        "rtk proxy rg -n \"revokeSlackIdentityLinksForLifecycle|connection_replaced|user_suspended|membership_suspended\" packages/convex/confect apps/web/src/features/settings docs/product/maestro-brain-lifecycle-adoption/S10-T01.md shows only the identityLinks mutation/consume path and tests/docs, not membership/user/connection lifecycle producers."
+      ]
+    },
+    {
+      "id": "C-S10-T01-002",
+      "severity": "high",
+      "summary": "Registered Slack identity APIs do not prove every declared typed failure path.",
+      "details": "The spec declares typed failures on the registered Confect mutations and the task packet requires failure-first proof through the Slack identity contract boundary. Current registered-path tests cover forged nonce, wrong team, replay, workspace membership removal, user suspension, user-request revocation, lifecycle revocation, and stale connection generation, but expired nonce and SlackIdentityAlreadyBound are still exercised only through the pure consumeSlackIdentityLinkPlan helper. The registered Confect mutation can therefore diverge from the helper for those declared errors without failing the task proof.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2894-2909",
+        "packages/convex/confect/slack/identityLinks.spec.ts:32-41",
+        "packages/convex/confect/slack/identityLinks.spec.ts:43-118",
+        "packages/convex/test/slack-identity-links.test.ts:187-230",
+        "packages/convex/test/slack-identity-links.test.ts:391-437",
+        "rtk proxy rg -n \"SlackIdentityAlreadyBound|already-bound|expires\" packages/convex/test/slack-identity-links.test.ts shows SlackIdentityAlreadyBound and expired nonce assertions only in the pure helper test, not in registered mutation calls."
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
