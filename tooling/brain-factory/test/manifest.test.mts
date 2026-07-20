@@ -521,20 +521,27 @@ describe("Maestro Brain execution manifest", () => {
         }),
       }),
     ).toContain("S10-T01: source slice limit must be 6");
-    expect(slackIdentity?.fileLocks).not.toContain(
-      "packages/convex/confect/internal/migrations.ts",
-    );
-    expect(slackIdentity?.fileLocks).toEqual(
-      expect.arrayContaining([
-        "packages/convex/confect/access/identityLifecycle.ts",
-        "packages/convex/confect/access/identityLifecycle.spec.ts",
-        "packages/convex/confect/access/identityLifecycle.impl.ts",
-        "packages/convex/test/access-identity-lifecycle.test.ts",
-        "packages/convex/confect/integrations/slackDirectory.impl.ts",
-        "packages/convex/test/slack-directory.test.ts",
-        "packages/convex/confect/internal/migration-fragments/S10-T01.json",
-      ]),
-    );
+    expect(slackIdentity?.fileLocks).toEqual([
+      "apps/web/src/features/settings/slack-link-adapter.test.ts",
+      "apps/web/src/features/settings/slack-link-adapter.ts",
+      "apps/web/src/features/settings/slack-link-button.test.tsx",
+      "apps/web/src/features/settings/slack-link-button.tsx",
+      "apps/web/src/features/settings/slack-link-status.test.tsx",
+      "apps/web/src/features/settings/slack-link-status.tsx",
+      "docs/product/maestro-brain-lifecycle-adoption/S10-T01.md",
+      "packages/convex/confect/access/identityLifecycle.impl.ts",
+      "packages/convex/confect/access/identityLifecycle.spec.ts",
+      "packages/convex/confect/access/identityLifecycle.ts",
+      "packages/convex/confect/integrations/slackDirectory.impl.ts",
+      "packages/convex/confect/internal/migration-fragments/S10-T01.json",
+      "packages/convex/confect/slack/identityLink.ts",
+      "packages/convex/confect/slack/identityLinks.impl.ts",
+      "packages/convex/confect/slack/identityLinks.spec.ts",
+      "packages/convex/confect/tables/slackIdentityBindings.ts",
+      "packages/convex/test/access-identity-lifecycle.test.ts",
+      "packages/convex/test/slack-directory.test.ts",
+      "packages/convex/test/slack-identity-links.test.ts",
+    ]);
 
     const plan = readFileSync(resolve(REPO_ROOT, PLAN_RELATIVE), "utf8");
     const packet = plan.slice(
