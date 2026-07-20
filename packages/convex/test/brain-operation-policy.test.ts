@@ -5,7 +5,6 @@ import brainOperationsImpl from "../confect/ops/brainOperations.impl";
 import brainOperations, {
   BrainOperationPolicyReturn,
   OperatorForbidden,
-  RecoveryGenerationMismatch,
   SetBrainOperationPolicyArgs,
 } from "../confect/ops/brainOperations.spec";
 import {
