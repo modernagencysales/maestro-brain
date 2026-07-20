@@ -225,6 +225,9 @@ describe("parallelism contract queries", () => {
     expect(collisionFor(contract, "S02-T02", "S11-T02")?.policy).toBe(
       "serialize",
     );
+    expect(collisionFor(contract, "S02-T04", "S03-T03")?.paths).toContain(
+      "packages/convex/confect/editor/documentTargets.ts",
+    );
   });
 
   test("returns deterministic connected mandatory same-wave groups", () => {

@@ -594,6 +594,7 @@ describe("Maestro Brain execution manifest", () => {
         "packages/editor-react/src/BlockNoteSyncEditor.tsx",
         "packages/convex/confect/brain/pages.impl.ts",
         "packages/convex/confect/brain/pages.spec.ts",
+        "packages/convex/confect/editor/documentTargets.ts",
         "packages/convex/confect/editor/syncApi.ts",
         "packages/convex/test/brain-editor-revision-fence.test.ts",
       ]),

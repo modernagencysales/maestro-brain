@@ -1242,7 +1242,8 @@ manifest.
   revision-fenced snapshot contract in
   `packages/convex/confect/brain/pages.spec.ts` and
   `packages/convex/confect/brain/pages.impl.ts`; repair stable snapshot
-  publication in `packages/convex/confect/editor/syncApi.ts`; and extend
+  publication in `packages/convex/confect/editor/syncApi.ts` and
+  `packages/convex/confect/editor/documentTargets.ts`; and extend
   `packages/convex/test/brain-editor-revision-fence.test.ts`,
   `packages/convex/test/brain-pages.contract.test.ts`, and
   `packages/convex/test/brain-pages-crud.test.ts`.
