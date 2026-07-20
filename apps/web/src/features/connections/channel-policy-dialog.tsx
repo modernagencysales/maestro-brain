@@ -1,10 +1,16 @@
-import { Badge, Button, Card, Stack, Text } from "@saas-ui/react";
+import { useState } from "react";
+
+import { Badge, Button, Card, Heading, Stack, Text } from "@saas-ui/react";
 
 import {
   buildChannelPolicyDialogState,
+  buildChannelPolicyRows,
+  buildChannelPolicySubmitRequest,
   type ChannelPolicyDeliveryInput,
   type ChannelPolicyRoutingInput,
 } from "./channel-policy-view-model";
+import { ChannelTable } from "./channel-table";
+import { localChannelPolicyFixture } from "./connections-adapter";
 
 export function ChannelPolicyDialogSummary({
   clientBrainCount,
@@ -103,6 +109,85 @@ export function ChannelPolicyDialogSummary({
           <Button disabled={!state.canSubmit} onClick={onApply}>
             Apply channel policies
           </Button>
+        </Stack>
+      </Card.Body>
+    </Card.Root>
+  );
+}
+
+export function ChannelPolicyCard() {
+  const [selectedChannelKeys, setSelectedChannelKeys] = useState<
+    readonly string[]
+  >(localChannelPolicyFixture.channels.map((channel) => channel.channelKey));
+  const [routingMode, setRoutingMode] =
+    useState<ChannelPolicyRoutingInput>("direct");
+  const [deliveryMode, setDeliveryMode] =
+    useState<ChannelPolicyDeliveryInput>("requester_private");
+  const [targetBrainKeys, setTargetBrainKeys] = useState<readonly string[]>(
+    localChannelPolicyFixture.defaultTargetBrainKeys,
+  );
+  const [lastSubmission, setLastSubmission] = useState<string | null>(null);
+
+  const submit = () => {
+    const request = buildChannelPolicySubmitRequest({
+      organizationKey: localChannelPolicyFixture.organizationKey,
+      expectedConnectionGeneration:
+        localChannelPolicyFixture.expectedConnectionGeneration,
+      expectedChannelAccessGeneration:
+        localChannelPolicyFixture.expectedChannelAccessGeneration,
+      channels: localChannelPolicyFixture.channels,
+      selectedChannelKeys,
+      routingMode,
+      targetBrainKeys,
+      deliveryMode,
+    });
+    setLastSubmission(
+      `${request.changes.length} channel policy change${
+        request.changes.length === 1 ? "" : "s"
+      } ready for bulkSetChannelPolicies`,
+    );
+  };
+
+  return (
+    <Card.Root borderRadius="md">
+      <Card.Header>
+        <Heading size="md">Slack channel policies</Heading>
+        <Text color="gray.600" fontSize="sm">
+          Bulk-select joined channels and apply immutable routing and delivery
+          policies.
+        </Text>
+      </Card.Header>
+      <Card.Body>
+        <Stack gap="4">
+          <ChannelTable
+            onSelectionChange={(channelKey, selected) =>
+              setSelectedChannelKeys((current) =>
+                selected
+                  ? [...new Set([...current, channelKey])]
+                  : current.filter((key) => key !== channelKey),
+              )
+            }
+            rows={buildChannelPolicyRows(
+              localChannelPolicyFixture.channels,
+              selectedChannelKeys,
+            )}
+          />
+          <ChannelPolicyDialogSummary
+            clientBrainCount={localChannelPolicyFixture.clientBrainCount}
+            deliveryMode={deliveryMode}
+            onApply={submit}
+            onDeliveryModeChange={setDeliveryMode}
+            onRoutingModeChange={setRoutingMode}
+            onTargetBrainKeysChange={setTargetBrainKeys}
+            routingMode={routingMode}
+            selectedChannelCount={selectedChannelKeys.length}
+            targetBrainKeys={targetBrainKeys}
+          />
+          {lastSubmission ? (
+            <Text color="green.700" fontSize="sm">
+              {lastSubmission}
+            </Text>
+          ) : null}
         </Stack>
       </Card.Body>
     </Card.Root>
