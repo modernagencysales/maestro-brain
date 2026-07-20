@@ -10,6 +10,10 @@ export type SettingsViewer = {
   readonly role: "viewer" | "editor" | "admin" | "owner";
 };
 
+export const selectStableApiKeyBrainKey = (
+  workspace: Pick<WorkspaceSummary, "workspaceId" | "slug">,
+): string => workspace.workspaceId;
+
 export const buildSettingsDocumentSections = ({
   workspace,
   viewer,
@@ -53,6 +57,15 @@ export const buildSettingsDocumentSections = ({
         canTransferOwnership
           ? "Owners may transfer Brain ownership without leaving zero owners."
           : "Ownership transfer remains owner-only.",
+      ],
+    },
+    {
+      heading: "Brain API keys",
+      body: [
+        canAdminister
+          ? "Admins can create, rotate, and revoke display-once one-Brain keys through generated API-key refs."
+          : "API key creation, rotation, and revocation are hidden for non-admin roles.",
+        "Server-side authorization remains the enforcement boundary for every API-key action.",
       ],
     },
     {
