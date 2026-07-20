@@ -1,0 +1,88 @@
+{
+  "schemaVersion": "maestro-brain-review-lens/v1",
+  "lens": "safety",
+  "taskId": "S05-T01",
+  "planSha256": "ce2b760a9efd332ff6f3201b8faf312601e4fd3d4fcb7dcb4253afe7cae25317",
+  "taskBlockHash": "d5212dbc84a10771993658fc840e29bc81671c08e7962dbf96fd34de2dda9ce5",
+  "baseSha": "5f682348711572faa32ac79066f8e470a1f2743f",
+  "headSha": "1578f7f20b8bd7b5580627030e9d40c040935ccd",
+  "treeSha": "f85d74a921a26da690537dd7d37874d531355474",
+  "reviewerRunId": "maestro/review/S05-T01/1578f7f20b8bd7b5580627030e9d40c040935ccd/66b6dbc5-0919-41cc-9380-c8895d722d47-v1/safety",
+  "verdict": "pass",
+  "findings": [],
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:267-321 derives source, observation, revision, delivery, and job keys from organizationKey, connectionKey, connectionGeneration, channelKey, and provider identity instead of Convex IDs.",
+        "packages/convex/confect/sources/sourceSchemas.ts:217-238 rejects Slack binding/envelope organization, connection generation, team/app/bot/channel mismatches with TenantMismatch or ChannelAccessLost.",
+        "packages/convex/test/source-ledger-schema.test.ts:231-276 proves tenant-scoped source identity and receipt dedupe across connection generations."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:157-176 models the upstream verified Slack binding required for capture construction.",
+        "packages/convex/confect/sources/sourceSchemas.ts:322-356 requires verifiedBinding before capture validation and fails closed with ChannelAccessLost when verification is absent or mismatched.",
+        "packages/convex/test/source-ledger-schema.test.ts:396-417 proves upstream Slack verification evidence is required and preserved on receipts."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:31-36 defines active/deleted_tombstone/redacted/purged lifecycle states with generation, updatedAt, and purgeAfter fences.",
+        "packages/convex/confect/sources/sourceSchemas.ts:429-551 builds active rows for inserts and deleted_tombstone rows for tombstones while preserving artifact creation time and lifecycle generation.",
+        "packages/convex/confect/sources/sourceSchemas.ts:552-581 returns readable current revisions only when artifact and revision lifecycle are active and the revision is not a tombstone.",
+        "packages/convex/test/source-ledger-schema.test.ts:419-499 proves readable-current selection does not fall back past tombstones."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:607-660 constructs no-source rejected/ignored receipts with sanitized invalid_payload placeholders instead of decoding or storing malformed observation text.",
+        "packages/convex/test/source-ledger-schema.test.ts:585-641 proves sanitized invalid-payload no-source receipts and outcome-compatible reasons.",
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md documents rollback retaining receipt audit history while later lifecycle tasks may redact/purge content-bearing rows."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:357-380 fences concurrent stale-generation/provider-order races by rejecting older primary order and non-advancing equal-primary updates unless they are known duplicates.",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts indexes effectKey, unit/stage, lease expiry, and organization/status for idempotent retry and worker lease fencing.",
+        "packages/convex/test/source-ledger-schema.test.ts:501-564 proves equal primary order uses a deterministic minimum receipt tuple and preserves artifact creation time."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:381-428 detects same transport delivery replays, returns duplicate for identical fingerprints, and rejects conflicting delivery reuse.",
+        "packages/convex/confect/tables/providerEventReceipts.ts indexes organizationKey/connectionKey/connectionGeneration/transport/transportDeliveryId for replay-scoped receipt dedupe.",
+        "packages/convex/test/source-ledger-schema.test.ts:182-229 proves live/backfill convergence and same-transport replay dedupe."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:107-128 records sourceRevisionKey, observationKey, providerOrder, providerRevisionId, contentHash, tombstone, revisionNonce, and lifecycle generation on immutable revisions.",
+        "packages/convex/confect/sources/sourceSchemas.ts:429-551 derives deterministic receipt/artifact/revision/job rows and preserves lifecycleGeneration from existing artifacts when advancing lineage.",
+        "packages/convex/test/source-ledger-schema.test.ts:278-322 proves exact receipt, artifact, revision, and assembly job rows; lines 643-660 prove transaction rollback after injected source-ledger failure."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts contains pure Effect schemas and deterministic helpers; no provider SDK or secret lookup is introduced.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1785-1788 states S05-T01 does not perform secret lookup, query webhook bindings, admit replay, mutate capture rows, or expose BoundVerifiedSlackEnvelope construction.",
+        "packages/convex/confect/internal/migrationRuntime.ts only binds Convex migration component/schema and records integration ownership; no external provider boundary is crossed."
+      ]
+    }
+  ]
+}
