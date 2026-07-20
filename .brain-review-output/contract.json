@@ -1,0 +1,109 @@
+{
+  "lens": "contract",
+  "taskId": "S06-T01",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "f2f6cb348272c704636b7e21bf8e8cbd66b812835d781b52e01bdcfa5b0fa97c",
+  "baseSha": "64b5d90e9dce6146ac6cd49696658cd9a40a254c",
+  "headSha": "26be039746841ffeffef118f7e0ae577f9245e0d",
+  "treeSha": "6b74558c316739e3d6c9d6ed4d993e8897bfe7ef",
+  "reviewerRunId": "maestro/review/S06-T01/26be039746841ffeffef118f7e0ae577f9245e0d/034c9cb1-5991-4c1b-bb8a-55d004bfb9c1-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "finding",
+      "evidence": [
+        "Plan S06-T01 requires at-least-once workers can duplicate attempts but accept only one logical effect, with failure-first tests for crash before/after claim, after external response, before/after commit, and before ACK.",
+        "packages/convex/test/source-workpool.test.ts:289-299 only performs source-text containment checks for row persistence and completion fencing, not crash/replay execution of the Convex workpool callbacks.",
+        "packages/convex/confect/jobs/workpool.ts:181-214 reads a row once, then issues three independent patches for claim, external response, and success without re-reading or compare-and-set checking the current persisted lease/effect before the final patch."
+      ],
+      "findingIds": [
+        "CONTRACT-S06T01-001"
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.spec.ts registers enqueueSourceJob and statusSourceJob as internal functions, while legacy enqueue/status remain public demo refs.",
+        "packages/convex/confect/jobs/workpool.ts:114-160 exposes source job enqueue/status through internal Convex functions with typed validators and vWorkId returns."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:50-86 defines an Effect schema for schemaVersion 1 sourceProcessingJobs rows with lease generation/token/owner/expiry, attempts, pinned generation fields, response hash, accepted effect key, and terminal/error fields.",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:90-100 defines indexes for stage/status retry, effect key, scoped idempotency, unit stage, lease expiry, and organization status."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "finding",
+      "evidence": [
+        "Plan S06-T01 implementation requires claim by compare-and-set with leaseGeneration, opaque leaseToken, owner, expiry, attempt; heartbeat only current token; completion compares all pinned generations and effect key; persist immutable attempt receipts and external response hashes before commit where available.",
+        "packages/convex/confect/jobs/workpool.ts:162-166 implements backgroundWork as a no-op internal action, and packages/convex/confect/jobs/workpool.ts:168-217 performs the source job lifecycle inside onComplete rather than having a worker claim/run/heartbeat path before external work.",
+        "packages/convex/confect/jobs/workpool.ts:181-214 patches claimed, response, and completed states derived from the original row without a persisted CAS predicate after each asynchronous boundary."
+      ],
+      "findingIds": [
+        "CONTRACT-S06T01-002"
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "Task manifest for S06-T01 locks packages/convex/confect/jobs/jobState.ts, leases.ts, workpool.impl.ts, workpool.spec.ts, workpool.ts, packages/convex/confect/tables/sourceProcessingJobs.ts, and packages/convex/test/source-workpool.test.ts.",
+        "Proof packet changedFiles lists only those locked S06-T01 files; git diff from proof base to HEAD shows adds/modifications confined to that inventory."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "evidence": [
+        "Plan S06-T01 declares errors LeaseLost, RetryableJobFailure, PermanentJobFailure, MaxAttemptsReached, StaleGeneration, and DuplicateEffect, plus retryable/permanent/max-attempt/cancellation/emergency-generation failure paths.",
+        "packages/convex/confect/jobs/workpool.ts imports only SourceJobState, createSourceJobState, recordExternalResponse, startSourceJob, and succeedSourceJob from jobState; runtime workpool callbacks do not surface or handle RetryableJobFailure, PermanentJobFailure, MaxAttemptsReached, scheduleRetry, failSourceJob, or heartbeat/reclaim paths.",
+        "packages/convex/test/source-workpool.test.ts:258-266 verifies RetryableJobFailure, PermanentJobFailure, and MaxAttemptsReached by manually throwing constructors rather than driving declared runtime failure paths through enqueue/backgroundWork/onComplete."
+      ],
+      "findingIds": [
+        "CONTRACT-S06T01-003"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "CONTRACT-S06T01-001",
+      "severity": "high",
+      "summary": "Crash/replay acceptance is not proven by executable workpool tests",
+      "details": "The task acceptance centers on at-least-once duplicate attempts accepting only one logical effect across crash points. The added focused test asserts source-text substrings instead of executing crash-before/after-claim, after-response, before/after-commit, or before-ACK scenarios. The implementation patches claim, response, and success from one stale row snapshot, so the contract proof does not establish durable replay safety.",
+      "evidence": [
+        "packages/convex/test/source-workpool.test.ts:289-299",
+        "packages/convex/confect/jobs/workpool.ts:181-214",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md S06-T01 failure-first tests and outcome requirements"
+      ]
+    },
+    {
+      "id": "CONTRACT-S06T01-002",
+      "severity": "high",
+      "summary": "Worker claim lifecycle is implemented in onComplete rather than as fenced source job work",
+      "details": "The approved implementation requires a source worker to claim by lease/CAS, heartbeat, persist external response hashes before commit, then complete under pinned generation/effect fencing. Here backgroundWork is a no-op and onComplete performs claim/response/success after the workpool action has already completed, which leaves no fenced lease protecting external work or before-ACK replay semantics.",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.ts:162-166",
+        "packages/convex/confect/jobs/workpool.ts:168-217",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md S06-T01 implementation requirements"
+      ]
+    },
+    {
+      "id": "CONTRACT-S06T01-003",
+      "severity": "medium",
+      "summary": "Declared runtime failure paths are not reachable through the workpool contract",
+      "details": "Although jobState defines typed error classes and pure helpers, the Confect workpool functions do not expose retryable/permanent/max-attempt failure handling, heartbeat/reclaim behavior, or cancellation/revocation control paths. The tests instantiate some errors directly, but that does not prove the declared failure contract is reachable from the source workpool API.",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.ts:18-24",
+        "packages/convex/confect/jobs/workpool.ts:162-217",
+        "packages/convex/test/source-workpool.test.ts:258-266",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md S06-T01 typed errors/state"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
