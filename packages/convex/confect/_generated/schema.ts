@@ -33,8 +33,12 @@ import pageRevisions from "./tables/pageRevisions";
 import policies from "./tables/policies";
 import promptRegistry from "./tables/promptRegistry";
 import providerConnections from "./tables/providerConnections";
+import providerEventReceipts from "./tables/providerEventReceipts";
 import servicePrincipals from "./tables/servicePrincipals";
+import sourceArtifacts from "./tables/sourceArtifacts";
 import sourceChannels from "./tables/sourceChannels";
+import sourceProcessingJobs from "./tables/sourceProcessingJobs";
+import sourceRevisions from "./tables/sourceRevisions";
 import transformBlocks from "./tables/transformBlocks";
 import transformDefinitions from "./tables/transformDefinitions";
 import transformRuns from "./tables/transformRuns";
@@ -86,8 +90,12 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof policies |
   typeof promptRegistry |
   typeof providerConnections |
+  typeof providerEventReceipts |
   typeof servicePrincipals |
+  typeof sourceArtifacts |
   typeof sourceChannels |
+  typeof sourceProcessingJobs |
+  typeof sourceRevisions |
   typeof transformBlocks |
   typeof transformDefinitions |
   typeof transformRuns |
@@ -138,8 +146,12 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   policies,
   promptRegistry,
   providerConnections,
+  providerEventReceipts,
   servicePrincipals,
+  sourceArtifacts,
   sourceChannels,
+  sourceProcessingJobs,
+  sourceRevisions,
   transformBlocks,
   transformDefinitions,
   transformRuns,

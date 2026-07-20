@@ -34,8 +34,12 @@ export type PageRevisionsDoc = Document.Document<typeof schemaDefinition, "pageR
 export type PoliciesDoc = Document.Document<typeof schemaDefinition, "policies">;
 export type PromptRegistryDoc = Document.Document<typeof schemaDefinition, "promptRegistry">;
 export type ProviderConnectionsDoc = Document.Document<typeof schemaDefinition, "providerConnections">;
+export type ProviderEventReceiptsDoc = Document.Document<typeof schemaDefinition, "providerEventReceipts">;
 export type ServicePrincipalsDoc = Document.Document<typeof schemaDefinition, "servicePrincipals">;
+export type SourceArtifactsDoc = Document.Document<typeof schemaDefinition, "sourceArtifacts">;
 export type SourceChannelsDoc = Document.Document<typeof schemaDefinition, "sourceChannels">;
+export type SourceProcessingJobsDoc = Document.Document<typeof schemaDefinition, "sourceProcessingJobs">;
+export type SourceRevisionsDoc = Document.Document<typeof schemaDefinition, "sourceRevisions">;
 export type TransformBlocksDoc = Document.Document<typeof schemaDefinition, "transformBlocks">;
 export type TransformDefinitionsDoc = Document.Document<typeof schemaDefinition, "transformDefinitions">;
 export type TransformRunsDoc = Document.Document<typeof schemaDefinition, "transformRuns">;
@@ -87,8 +91,12 @@ export interface Docs {
   policies: PoliciesDoc;
   promptRegistry: PromptRegistryDoc;
   providerConnections: ProviderConnectionsDoc;
+  providerEventReceipts: ProviderEventReceiptsDoc;
   servicePrincipals: ServicePrincipalsDoc;
+  sourceArtifacts: SourceArtifactsDoc;
   sourceChannels: SourceChannelsDoc;
+  sourceProcessingJobs: SourceProcessingJobsDoc;
+  sourceRevisions: SourceRevisionsDoc;
   transformBlocks: TransformBlocksDoc;
   transformDefinitions: TransformDefinitionsDoc;
   transformRuns: TransformRunsDoc;

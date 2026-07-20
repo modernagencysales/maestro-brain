@@ -33,8 +33,12 @@ import pageRevisions from "./tables/pageRevisions";
 import policies from "./tables/policies";
 import promptRegistry from "./tables/promptRegistry";
 import providerConnections from "./tables/providerConnections";
+import providerEventReceipts from "./tables/providerEventReceipts";
 import servicePrincipals from "./tables/servicePrincipals";
+import sourceArtifacts from "./tables/sourceArtifacts";
 import sourceChannels from "./tables/sourceChannels";
+import sourceProcessingJobs from "./tables/sourceProcessingJobs";
+import sourceRevisions from "./tables/sourceRevisions";
 import transformBlocks from "./tables/transformBlocks";
 import transformDefinitions from "./tables/transformDefinitions";
 import transformRuns from "./tables/transformRuns";
@@ -86,8 +90,12 @@ export default $defineSchema({
   policies: policies.tableDefinition,
   promptRegistry: promptRegistry.tableDefinition,
   providerConnections: providerConnections.tableDefinition,
+  providerEventReceipts: providerEventReceipts.tableDefinition,
   servicePrincipals: servicePrincipals.tableDefinition,
+  sourceArtifacts: sourceArtifacts.tableDefinition,
   sourceChannels: sourceChannels.tableDefinition,
+  sourceProcessingJobs: sourceProcessingJobs.tableDefinition,
+  sourceRevisions: sourceRevisions.tableDefinition,
   transformBlocks: transformBlocks.tableDefinition,
   transformDefinitions: transformDefinitions.tableDefinition,
   transformRuns: transformRuns.tableDefinition,
