@@ -1,5 +1,9 @@
+import { Registry } from "@confect/core";
 import { TestConfect } from "@confect/test";
+import type { RegisteredConvexFunction } from "@confect/server";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
@@ -7,7 +11,9 @@ import brainOperationsImpl from "../confect/ops/brainOperations.impl";
 import databaseSchema from "../confect/_generated/schema";
 import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
 import brainOperations, {
+  BrainOperationPolicyListReturn,
   BrainOperationPolicyReturn,
+  ListBrainOperationPoliciesArgs,
   OperatorForbidden,
   SetBrainOperationPolicyArgs,
 } from "../confect/ops/brainOperations.spec";
@@ -17,6 +23,7 @@ import {
   operationPolicyAuditEvent,
   operationPolicyFromRecord,
   operationPolicyRecord,
+  replayOperationPolicyByIdempotencyKey,
   operationSubsystems,
 } from "../confect/ops/brainOperationPolicy";
 import { testConfectLayer } from "./support/confect";
@@ -120,6 +127,16 @@ describe("Brain operation policy", () => {
   });
 
   it("declares Confect operation contracts with typed state schemas", () => {
+    expect(() =>
+      Schema.decodeUnknownSync(SetBrainOperationPolicyArgs)({
+        workspaceId: "workspaces_123",
+        subsystem: "mcp",
+        state: "paused",
+        ownerUserId: "users_123",
+        reason: "operator drill",
+        idempotencyKey: "missing-generation",
+      }),
+    ).toThrow();
     expect(
       Schema.decodeUnknownSync(SetBrainOperationPolicyArgs)({
         workspaceId: "workspaces_123",
@@ -142,15 +159,6 @@ describe("Brain operation policy", () => {
         updatedAt: 1,
       }),
     ).toMatchObject({ generation: 2 });
-    expect(() =>
-      Schema.decodeUnknownSync(SetBrainOperationPolicyArgs)({
-        workspaceId: "workspaces_123",
-        subsystem: "mcp",
-        state: "paused",
-        ownerUserId: "users_123",
-        reason: "operator drill",
-      }),
-    ).toThrow();
     expect(
       Schema.decodeUnknownSync(SetBrainOperationPolicyArgs)({
         workspaceId: "workspaces_123",
@@ -159,6 +167,7 @@ describe("Brain operation policy", () => {
         ownerUserId: "users_123",
         reason: "operator drill",
         idempotencyKey: "budget-drill-1",
+        expectedGeneration: 1,
         budgetCheck: {
           budget: "modelTokens",
           limit: 1_000,
@@ -214,7 +223,61 @@ describe("Brain operation policy", () => {
     });
     expect(JSON.stringify(audit)).not.toContain("customer prompt canary");
   });
-  it("persists Brain operation policies through the Confect policy boundary", async () => {
+  it("expires transient pauses consistently before policy evaluation", () => {
+    expect(
+      evaluateOperationPolicy({
+        subsystem: "ask",
+        state: "paused",
+        generation: 4,
+        expiresAt: 1_782_924_800_000,
+        expectedGeneration: 4,
+        now: 1_782_924_800_000,
+      }),
+    ).toEqual({ ok: true });
+  });
+
+  it("keeps replay idempotent even after later policy updates", () => {
+    const paused = nextOperationPolicy({
+      current: { subsystem: "ask", state: "enabled", generation: 1 },
+      requestedState: "paused",
+      actorRole: "admin",
+      reason: "ask outage",
+      ownerUserId: "users_1",
+      idempotencyKey: "ask-pause-1",
+      expectedGeneration: 1,
+      now: 1_782_924_800_000,
+    });
+    if (paused instanceof Error) throw paused;
+    const resumed = nextOperationPolicy({
+      current: paused,
+      requestedState: "enabled",
+      actorRole: "admin",
+      reason: "ask recovered",
+      ownerUserId: "users_1",
+      idempotencyKey: "ask-enable-1",
+      expectedGeneration: 2,
+      now: 1_782_924_900_000,
+    });
+    if (resumed instanceof Error) throw resumed;
+
+    expect(
+      replayOperationPolicyByIdempotencyKey([paused, resumed], "ask-pause-1"),
+    ).toBe(paused);
+    expect(
+      nextOperationPolicy({
+        current: resumed,
+        requestedState: "paused",
+        actorRole: "admin",
+        reason: "late duplicate",
+        ownerUserId: "users_1",
+        idempotencyKey: "ask-pause-1",
+        expectedGeneration: 1,
+        now: 1_782_925_000_000,
+      }),
+    ).toMatchObject({ _tag: "RecoveryGenerationMismatch" });
+  });
+
+  it("persists Brain operation policies through registered Confect functions", async () => {
     const program = Effect.gen(function* () {
       const confect = yield* Effect.serviceOptional(
         TestConfect.TestConfect<typeof databaseSchema>(),
@@ -223,47 +286,97 @@ describe("Brain operation policy", () => {
         seedTenancy(1_782_924_800_000),
         SeededTenancy,
       );
-      const rows = yield* confect.run(
+      const handlers = yield* collectOperationHandlers();
+      const member = confect.withIdentity({
+        subject: "member-subject",
+        email: "member@example.com",
+      });
+      const viewerDenied = yield* member.run(
+        handlers
+          .setPolicyInternal({
+            workspaceId: seeded.workspaceId,
+            subsystem: "classification",
+            state: "paused",
+            ownerUserId: seeded.memberUserId,
+            reason: "viewer should be denied",
+            idempotencyKey: "classification-denied-1",
+            expectedGeneration: 1,
+          })
+          .pipe(
+            Effect.either,
+            Effect.map((result) =>
+              result._tag === "Left"
+                ? {
+                    _tag: "Left" as const,
+                    left: {
+                      _tag: (result.left as { readonly _tag?: string })._tag,
+                    },
+                  }
+                : result,
+            ),
+          ),
+        Schema.Any,
+      );
+
+      yield* confect.run(
         Effect.gen(function* () {
-          const writer = yield* DatabaseWriter;
           const reader = yield* DatabaseReader;
-          const paused = operationPolicyRecord({
-            workspaceId: seeded.workspaceId,
-            policy: {
-              subsystem: "classification",
-              state: "paused",
-              generation: 2,
-              ownerUserId: seeded.memberUserId,
-              reason: "provider outage",
-              idempotencyKey: "classification-pause-1",
-              expiresAt: 1_782_925_000_000,
-            },
-            updatedAt: 1_782_924_800_000,
-          });
-          const resumed = operationPolicyRecord({
-            workspaceId: seeded.workspaceId,
-            policy: {
-              subsystem: "classification",
-              state: "enabled",
-              generation: 3,
-              ownerUserId: seeded.memberUserId,
-              reason: "provider recovered",
-              idempotencyKey: "classification-enable-1",
-            },
-            updatedAt: 1_782_924_900_000,
-          });
-          const pausedId = yield* writer
-            .table("policies")
-            .insert(paused)
+          const writer = yield* DatabaseWriter;
+          const membership = yield* reader
+            .table("workspaceMembers")
+            .index("by_workspace_user", (q) =>
+              q
+                .eq("workspaceId", seeded.workspaceId)
+                .eq("userId", seeded.memberUserId),
+            )
+            .first()
             .pipe(Effect.orDie);
+          if (membership._tag === "None") {
+            throw new Error("expected seeded workspace membership");
+          }
           yield* writer
-            .table("policies")
-            .patch(pausedId, {
-              status: "retired",
-              retiredAt: 1_782_924_900_000,
+            .table("workspaceMembers")
+            .patch(membership.value._id, {
+              role: "admin",
+              updatedAt: 1_782_924_801_000,
             })
             .pipe(Effect.orDie);
-          yield* writer.table("policies").insert(resumed).pipe(Effect.orDie);
+          return {};
+        }),
+        Schema.Struct({}),
+      );
+
+      const paused = yield* member.run(
+        handlers.setPolicyInternal({
+          workspaceId: seeded.workspaceId,
+          subsystem: "classification",
+          state: "paused",
+          ownerUserId: seeded.memberUserId,
+          reason: "provider outage with customer prompt canary",
+          idempotencyKey: "classification-pause-1",
+          expectedGeneration: 1,
+        }),
+        BrainOperationPolicyReturn,
+      );
+      const resumed = yield* member.run(
+        handlers.setPolicyInternal({
+          workspaceId: seeded.workspaceId,
+          subsystem: "classification",
+          state: "enabled",
+          ownerUserId: seeded.memberUserId,
+          reason: "provider recovered",
+          idempotencyKey: "classification-enable-1",
+          expectedGeneration: 2,
+        }),
+        BrainOperationPolicyReturn,
+      );
+      const listed = (yield* member.run(
+        handlers.listPolicies({ workspaceId: seeded.workspaceId }),
+        Schema.Any,
+      )) as OperationPolicyList;
+      const rows = yield* confect.run(
+        Effect.gen(function* () {
+          const reader = yield* DatabaseReader;
           const policies = yield* reader
             .table("policies")
             .index("by_policy_version", (q) =>
@@ -281,7 +394,10 @@ describe("Brain operation policy", () => {
             retiredCount: policies.filter((row) => row.status === "retired")
               .length,
             active: operationPolicyFromRecord(
-              policies.find((row) => row.status === "active")!,
+              policies.find((row) => row.status === "active") ??
+                (() => {
+                  throw new Error("expected an active operation policy row");
+                })(),
             ),
           };
         }),
@@ -292,17 +408,85 @@ describe("Brain operation policy", () => {
         }),
       );
 
-      return rows;
+      return { listed, paused, resumed, rows, viewerDenied };
     });
 
     const result = await Effect.runPromise(
       program.pipe(Effect.provide(testConfectLayer())),
     );
 
-    expect(result).toMatchObject({
+    expect(result.viewerDenied).toMatchObject({
+      _tag: "Left",
+      left: { _tag: "OperatorForbidden" },
+    });
+    expect(result.paused).toMatchObject({
+      state: "paused",
+      generation: 2,
+    });
+    expect(result.resumed).toMatchObject({
+      state: "enabled",
+      generation: 3,
+    });
+    expect(
+      result.listed.policies.find(
+        (policy) => policy.subsystem === "classification",
+      ),
+    ).toMatchObject({ state: "enabled", generation: 3 });
+    expect(result.rows).toMatchObject({
       activeCount: 1,
       retiredCount: 1,
       active: { subsystem: "classification", state: "enabled", generation: 3 },
     });
   });
 });
+
+type OperationPolicyList = Schema.Schema.Type<
+  typeof BrainOperationPolicyListReturn
+>;
+type OperationPolicyReturn = Schema.Schema.Type<
+  typeof BrainOperationPolicyReturn
+>;
+type OperationHandlerServices = RegisteredConvexFunction.MutationServices<
+  typeof databaseSchema
+>;
+
+type OperationHandlers = {
+  readonly listPolicies: (
+    input: Schema.Schema.Type<typeof ListBrainOperationPoliciesArgs>,
+  ) => Effect.Effect<OperationPolicyList, unknown, OperationHandlerServices>;
+  readonly setPolicyInternal: (
+    input: Schema.Schema.Type<typeof SetBrainOperationPolicyArgs>,
+  ) => Effect.Effect<OperationPolicyReturn, unknown, OperationHandlerServices>;
+};
+
+const collectOperationHandlers = (): Effect.Effect<OperationHandlers> =>
+  Effect.gen(function* () {
+    const registry = yield* Ref.make<Registry.RegistryItems>({});
+    yield* Layer.build(brainOperationsImpl).pipe(
+      Effect.scoped,
+      Effect.provideService(Registry.Registry, registry),
+    );
+    const items = yield* Ref.get(registry);
+
+    return {
+      listPolicies: registryHandler(items, "listPolicies"),
+      setPolicyInternal: registryHandler(items, "setPolicyInternal"),
+    };
+  });
+
+const registryHandler = <Name extends keyof OperationHandlers>(
+  items: Registry.RegistryItems,
+  name: Name,
+): OperationHandlers[Name] => {
+  const item = items[name];
+  if (
+    typeof item !== "object" ||
+    item === null ||
+    !("handler" in item) ||
+    typeof item.handler !== "function"
+  ) {
+    throw new Error(`missing ${name} operation handler`);
+  }
+
+  return item.handler as OperationHandlers[Name];
+};
