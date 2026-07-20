@@ -1,4 +1,5 @@
-import { writeSync } from "node:fs";
+import { readdirSync, writeSync } from "node:fs";
+import { tmpdir } from "node:os";
 
 import { describe, expect, it, vi } from "vitest";
 
@@ -24,8 +25,14 @@ const cleanRunner = (
   };
 };
 
+const broadGateCaptureDirectories = (): readonly string[] =>
+  readdirSync(tmpdir())
+    .filter((entry) => entry.startsWith("maestro-brain-broad-gate-"))
+    .sort();
+
 describe("integration broad gate", () => {
   it("captures noisy successful output through files without a maxBuffer", () => {
+    const captureDirectoriesBefore = broadGateCaptureDirectories();
     const stdout = "x".repeat(4 * 1024 * 1024);
     const stderr = "noisy success stderr\n";
     const stdoutWrite = vi
@@ -57,6 +64,18 @@ describe("integration broad gate", () => {
     expect(result.output).toBe(`${stdout}${stderr}`);
     expect(stdoutWrite).toHaveBeenCalledWith(stdout);
     expect(stderrWrite).toHaveBeenCalledWith(stderr);
+    expect(broadGateCaptureDirectories()).toEqual(captureDirectoriesBefore);
+  });
+
+  it("removes temporary capture files when the injected spawn throws", () => {
+    const captureDirectoriesBefore = broadGateCaptureDirectories();
+
+    expect(() =>
+      runBroadGateCommand("/tmp/worktree", () => {
+        throw new Error("injected spawn throw");
+      }),
+    ).toThrow(/injected spawn throw/);
+    expect(broadGateCaptureDirectories()).toEqual(captureDirectoriesBefore);
   });
 
   it("preserves ordinary nonzero gate output as a verification failure", () => {
@@ -105,6 +124,53 @@ describe("integration broad gate", () => {
         status: () => "",
       }),
     ).toThrow(/terminated by signal SIGTERM/);
+  });
+
+  it("rejects a null status without a spawn error or signal", () => {
+    expect(() =>
+      runBroadGateAttempts("a".repeat(40), {
+        head: () => "a".repeat(40),
+        runVerify: () => ({
+          output: "partial output",
+          signal: null,
+          status: null,
+        }),
+        status: () => "",
+      }),
+    ).toThrow(/terminated without an exit status/);
+  });
+
+  it("reports immutable HEAD drift before a spawn error", () => {
+    let headCalls = 0;
+
+    expect(() =>
+      runBroadGateAttempts("a".repeat(40), {
+        head: () => (++headCalls === 1 ? "a" : "b").repeat(40),
+        runVerify: () => ({
+          error: new Error("spawn ENOMEM"),
+          output: "",
+          signal: null,
+          status: null,
+        }),
+        status: () => "",
+      }),
+    ).toThrow(/mutated its immutable head/);
+  });
+
+  it("reports dirty worktree mutation before signal termination", () => {
+    let statusCalls = 0;
+
+    expect(() =>
+      runBroadGateAttempts("a".repeat(40), {
+        head: () => "a".repeat(40),
+        runVerify: () => ({
+          output: "partial output",
+          signal: "SIGTERM",
+          status: null,
+        }),
+        status: () => (++statusCalls === 1 ? "" : " M generated.txt"),
+      }),
+    ).toThrow(/mutated its immutable head/);
   });
 
   it("retries the exact Vitest worker RPC timeout once", () => {

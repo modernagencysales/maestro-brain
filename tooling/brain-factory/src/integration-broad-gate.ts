@@ -129,6 +129,9 @@ export const runBroadGateAttempts = (
       throw new Error("integration broad gate worktree is not clean");
     }
     const result = runner.runVerify();
+    if (runner.head() !== expectedHead || runner.status() !== "") {
+      throw new Error("integration broad gate mutated its immutable head");
+    }
     if (result.error !== undefined) {
       throw new Error(
         `integration broad gate command failed to spawn: ${result.error.message}`,
@@ -144,9 +147,6 @@ export const runBroadGateAttempts = (
       throw new Error(
         "integration broad gate command terminated without an exit status",
       );
-    }
-    if (runner.head() !== expectedHead || runner.status() !== "") {
-      throw new Error("integration broad gate mutated its immutable head");
     }
     const transient =
       result.status !== 0 && isTransientVitestWorkerRpcTimeout(result.output);
