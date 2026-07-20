@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { validateContractReproofRequest } from "./contract-reproof.js";
+import { validateContractReproofRefreshArtifacts } from "./contract-reproof-admission.js";
 import {
   commandsForTaskFiles,
   commandsForProfiles,
@@ -327,6 +328,13 @@ export const validateIntegratedLanes = (
             },
           )
         : undefined;
+      if (reproofRequest) {
+        validateContractReproofRefreshArtifacts({
+          evidenceDirectory: input.evidenceDirectory,
+          request: reproofRequest,
+          taskId,
+        });
+      }
       if (
         waveTask.tranche !== expectedTranche ||
         waveTask.headSha !== laneHeadSha ||

@@ -24,6 +24,7 @@ import {
   validateProofContract,
 } from "./proof.js";
 import { validateContractReproofRequest } from "./contract-reproof.js";
+import { validateContractReproofRefreshArtifacts } from "./contract-reproof-admission.js";
 import {
   changedHandAuthoredSourceLines,
   validSourceSlices,
@@ -118,6 +119,11 @@ if (reproofPath && reproofPath !== "none") {
       taskId,
     },
   );
+  validateContractReproofRefreshArtifacts({
+    evidenceDirectory: evidence,
+    request,
+    taskId,
+  });
   if (request.controlHeadSha !== proof.baseSha) {
     throw new Error(`${taskId}: reproof delta does not start at control HEAD`);
   }

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import {
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -12,7 +13,11 @@ import { resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { admitContractReproof } from "../src/contract-reproof-admission.js";
-import { buildContractReproofRequest } from "../src/contract-reproof.js";
+import {
+  buildContractReproofRefreshRequest,
+  buildContractReproofRequest,
+  buildRefreshedContractReproofRequest,
+} from "../src/contract-reproof.js";
 
 const sha256 = (value: string): string =>
   createHash("sha256").update(value).digest("hex");
@@ -181,6 +186,102 @@ const rewritePriorIntegrationResult = (
   });
   writeFileSync(value.requestPath, json(request));
   return { ...value.input, laneRequestSha256: request.requestSha256 };
+};
+
+const refreshFixture = () => {
+  const value = fixture();
+  const sourceHeadSha = "6".repeat(40);
+  const lane = {
+    headSha: sourceHeadSha,
+    reproof: {
+      priorIntegrationHeadSha: value.request.priorIntegrationHeadSha,
+      priorIntegrationId: value.request.priorIntegrationId,
+      requestPath: value.requestPath,
+      requestSha256: value.request.requestSha256,
+    },
+    schemaVersion: "maestro-brain-lane-result/v1",
+    status: "lane_green",
+    taskId: value.request.taskId,
+    tranche: "C1-contract-spine",
+  };
+  const proof = {
+    baseSha: value.request.controlHeadSha,
+    headSha: sourceHeadSha,
+    planSha256: value.request.planSha256,
+    reviewFindings: [],
+    reviewHeadSha: sourceHeadSha,
+    reviewVerdict: "pass",
+    schemaVersion: "maestro-brain-ci-proof/v1",
+    taskBlockHash: value.request.taskBlockHash,
+    taskId: value.request.taskId,
+  };
+  const laneTreeSha = "7".repeat(40);
+  const finalGate = {
+    currentHeadSha: sourceHeadSha,
+    currentTreeSha: laneTreeSha,
+    headSha: sourceHeadSha,
+    planSha256: value.request.planSha256,
+    schemaVersion: "maestro-brain-lane-gate/v1",
+    stage: "final",
+    status: "passed",
+    taskBlockHash: value.request.taskBlockHash,
+    taskId: value.request.taskId,
+  };
+  const refreshDirectory = resolve(
+    value.evidenceDirectory,
+    "reproof-requests",
+    value.request.taskId,
+    "refresh",
+  );
+  mkdirSync(refreshDirectory, { recursive: true });
+  const lanePath = resolve(refreshDirectory, "prior-lane-result.json");
+  const proofPath = resolve(refreshDirectory, "prior-proof.json");
+  const finalGatePath = resolve(refreshDirectory, "prior-final-gate.json");
+  const refreshedRequestPath = resolve(refreshDirectory, "request.json");
+  const laneContent = json(lane);
+  const proofContent = json(proof);
+  const finalGateContent = json(finalGate);
+  const refreshedRequest = buildRefreshedContractReproofRequest({
+    currentControlHeadSha: value.input.currentControlHead,
+    currentPlanSha256: value.request.planSha256,
+    currentTaskBlockHash: value.request.taskBlockHash,
+    finalGateContent,
+    finalGatePath,
+    finalGateReport: finalGate,
+    lane,
+    laneContent,
+    lanePath,
+    laneTreeSha,
+    previousRequest: value.request,
+    previousRequestContent: value.requestContent,
+    previousRequestPath: value.requestPath,
+    priorReproofSourceHeadSha: sourceHeadSha,
+    proof,
+    proofContent,
+    proofPath,
+    reason: "refresh against current authority",
+    taskId: value.request.taskId,
+  });
+  writeFileSync(lanePath, laneContent);
+  writeFileSync(proofPath, proofContent);
+  writeFileSync(finalGatePath, finalGateContent);
+  writeFileSync(refreshedRequestPath, json(refreshedRequest));
+  return {
+    ...value,
+    finalGatePath,
+    lanePath,
+    proofPath,
+    refreshedRequest,
+    refreshedRequestPath,
+    refreshInput: {
+      ...value.input,
+      isAncestor: (ancestor: string, descendant: string) =>
+        ancestor === descendant || value.input.isAncestor(ancestor, descendant),
+      laneRequestSha256: refreshedRequest.requestSha256,
+      proofBaseSha: value.input.currentControlHead,
+      requestPath: refreshedRequestPath,
+    },
+  };
 };
 
 afterEach(() => {
@@ -482,6 +583,167 @@ describe("contract reproof admission", () => {
         laneRequestSha256: request.requestSha256,
       }),
     ).toThrow(expected);
+  });
+
+  it("rejects duplicate archived task identities", () => {
+    const value = fixture();
+    const duplicateArchive = {
+      ...value.archive,
+      laneEvidence: [
+        ...value.archive.laneEvidence,
+        value.archive.laneEvidence[0],
+      ],
+    };
+    expect(() =>
+      admitContractReproof(rewriteArchive(value, duplicateArchive)),
+    ).toThrow(/exactly one archived lane identity/);
+  });
+
+  it.each([
+    ["request", "requestPath"],
+    ["lane", "lanePath"],
+    ["proof", "proofPath"],
+    ["final gate", "finalGatePath"],
+  ])("rejects refreshed prior %s digest drift", (_label, pathKey) => {
+    const value = refreshFixture();
+    const path = value[pathKey as keyof typeof value];
+    if (typeof path !== "string") throw new Error("fixture path is invalid");
+    writeFileSync(path, `${readFileSync(path, "utf8")} `);
+    expect(() => admitContractReproof(value.refreshInput)).toThrow(
+      /digest drift/,
+    );
+  });
+
+  it("admits an exact refreshed lineage", () => {
+    const value = refreshFixture();
+    expect(admitContractReproof(value.refreshInput).request).toEqual(
+      value.refreshedRequest,
+    );
+  });
+
+  it("recursively admits an exact v2-to-v2 refresh lineage", () => {
+    const value = refreshFixture();
+    const sourceHeadSha = "8".repeat(40);
+    const lane = {
+      headSha: sourceHeadSha,
+      reproof: {
+        priorIntegrationHeadSha: value.refreshedRequest.priorIntegrationHeadSha,
+        priorIntegrationId: value.refreshedRequest.priorIntegrationId,
+        requestPath: value.refreshedRequestPath,
+        requestSha256: value.refreshedRequest.requestSha256,
+      },
+      schemaVersion: "maestro-brain-lane-result/v1",
+      status: "lane_green",
+      taskId: value.refreshedRequest.taskId,
+      tranche: "C1-contract-spine",
+    };
+    const proof = {
+      baseSha: value.refreshedRequest.controlHeadSha,
+      headSha: sourceHeadSha,
+      planSha256: value.refreshedRequest.planSha256,
+      reviewFindings: [],
+      reviewHeadSha: sourceHeadSha,
+      reviewVerdict: "pass",
+      schemaVersion: "maestro-brain-ci-proof/v1",
+      taskBlockHash: value.refreshedRequest.taskBlockHash,
+      taskId: value.refreshedRequest.taskId,
+    };
+    const laneTreeSha = "a".repeat(40);
+    const finalGate = {
+      currentHeadSha: sourceHeadSha,
+      currentTreeSha: laneTreeSha,
+      headSha: sourceHeadSha,
+      planSha256: value.refreshedRequest.planSha256,
+      schemaVersion: "maestro-brain-lane-gate/v1",
+      stage: "final",
+      status: "passed",
+      taskBlockHash: value.refreshedRequest.taskBlockHash,
+      taskId: value.refreshedRequest.taskId,
+    };
+    const directory = resolve(value.evidenceDirectory, "reproof-v2-second");
+    mkdirSync(directory, { recursive: true });
+    const lanePath = resolve(directory, "prior-lane-result.json");
+    const proofPath = resolve(directory, "prior-proof.json");
+    const finalGatePath = resolve(directory, "prior-final-gate.json");
+    const requestPath = resolve(directory, "request.json");
+    const second = buildRefreshedContractReproofRequest({
+      currentControlHeadSha: "b".repeat(40),
+      currentPlanSha256: value.refreshedRequest.planSha256,
+      currentTaskBlockHash: value.refreshedRequest.taskBlockHash,
+      finalGateContent: json(finalGate),
+      finalGatePath,
+      finalGateReport: finalGate,
+      lane,
+      laneContent: json(lane),
+      lanePath,
+      laneTreeSha,
+      previousRequest: value.refreshedRequest,
+      previousRequestContent: json(value.refreshedRequest),
+      previousRequestPath: value.refreshedRequestPath,
+      priorReproofSourceHeadSha: sourceHeadSha,
+      proof,
+      proofContent: json(proof),
+      proofPath,
+      reason: "refresh v2 again",
+      taskId: value.refreshedRequest.taskId,
+    });
+    writeFileSync(lanePath, json(lane));
+    writeFileSync(proofPath, json(proof));
+    writeFileSync(finalGatePath, json(finalGate));
+    writeFileSync(requestPath, json(second));
+    expect(
+      admitContractReproof({
+        ...value.input,
+        currentControlHead: second.controlHeadSha,
+        isAncestor: (ancestor, descendant) =>
+          ancestor === descendant ||
+          (ancestor === second.priorIntegrationHeadSha &&
+            descendant === second.controlHeadSha),
+        laneRequestSha256: second.requestSha256,
+        planSha256: second.planSha256,
+        proofBaseSha: second.controlHeadSha,
+        requestPath,
+      }).request,
+    ).toEqual(second);
+  });
+
+  it("rejects refreshed source-commit drift", () => {
+    const value = refreshFixture();
+    const drifted = buildContractReproofRefreshRequest({
+      ...value.refreshedRequest,
+      priorReproofFinalGatePath: String(
+        value.refreshedRequest.priorReproofFinalGatePath,
+      ),
+      priorReproofFinalGateSha256: String(
+        value.refreshedRequest.priorReproofFinalGateSha256,
+      ),
+      priorReproofLaneResultPath: String(
+        value.refreshedRequest.priorReproofLaneResultPath,
+      ),
+      priorReproofLaneResultSha256: String(
+        value.refreshedRequest.priorReproofLaneResultSha256,
+      ),
+      priorReproofProofPath: String(
+        value.refreshedRequest.priorReproofProofPath,
+      ),
+      priorReproofProofSha256: String(
+        value.refreshedRequest.priorReproofProofSha256,
+      ),
+      priorReproofRequestPath: String(
+        value.refreshedRequest.priorReproofRequestPath,
+      ),
+      priorReproofRequestSha256: String(
+        value.refreshedRequest.priorReproofRequestSha256,
+      ),
+      priorReproofSourceHeadSha: "9".repeat(40),
+    });
+    writeFileSync(value.refreshedRequestPath, json(drifted));
+    expect(() =>
+      admitContractReproof({
+        ...value.refreshInput,
+        laneRequestSha256: drifted.requestSha256,
+      }),
+    ).toThrow(/source head drift/);
   });
 
   it("rejects a request symlink that escapes evidence before reading it", () => {

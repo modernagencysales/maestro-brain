@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { validateContractReproofRequest } from "./contract-reproof.js";
+import { validateContractReproofRefreshArtifacts } from "./contract-reproof-admission.js";
 import { atomicWrite, jsonContent } from "./evidence-write.js";
 import { validateFinalLaneResult } from "./lane-result.js";
 import { buildManifest } from "./manifest.js";
@@ -59,6 +60,13 @@ const reproof = rawReproof
       taskId,
     })
   : undefined;
+if (reproof) {
+  validateContractReproofRefreshArtifacts({
+    evidenceDirectory: evidence,
+    request: reproof,
+    taskId,
+  });
+}
 const result = {
   schemaVersion: "maestro-brain-lane-result/v1",
   taskId,

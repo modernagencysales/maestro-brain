@@ -10,6 +10,7 @@ import { dirname, isAbsolute, relative, resolve } from "node:path";
 
 import { hydrateWorktreeDependencies } from "./dependencies.js";
 import { validateContractReproofRequest } from "./contract-reproof.js";
+import { validateContractReproofRefreshArtifacts } from "./contract-reproof-admission.js";
 import { atomicWrite, jsonContent } from "./evidence-write.js";
 import { focusedGateCommand } from "./gates.js";
 import {
@@ -312,6 +313,11 @@ const validateLane = (input: {
         taskId,
       },
     );
+    validateContractReproofRefreshArtifacts({
+      evidenceDirectory: input.evidenceDirectory,
+      request,
+      taskId,
+    });
     if (
       request.requestSha256 !== snapshot.reproofRequestSha256 ||
       reproof.requestSha256 !== request.requestSha256

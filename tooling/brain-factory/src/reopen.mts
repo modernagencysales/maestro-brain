@@ -216,6 +216,8 @@ let refreshResume:
       readonly taskCommits: readonly string[];
     }
   | undefined;
+let refreshSnapshots:
+  readonly { readonly content: string; readonly path: string }[] | undefined;
 const request = (() => {
   if (!refreshedLane) {
     return buildContractReproofRequest({
@@ -238,18 +240,23 @@ const request = (() => {
   if (!previousRequestPath || !existsSync(previousRequestPath)) {
     throw new Error(`${taskId}: prior reproof request is missing`);
   }
-  const previousRequest = JSON.parse(
-    readFileSync(previousRequestPath, "utf8"),
-  ) as Record<string, unknown>;
+  const previousRequestContent = readFileSync(previousRequestPath, "utf8");
+  const previousRequest = JSON.parse(previousRequestContent) as Record<
+    string,
+    unknown
+  >;
   const proofPath = resolve(laneDirectory, "ci-proof-packet.json");
   const finalGatePath = resolve(laneDirectory, "lane-gate-report.json");
   if (!existsSync(proofPath) || !existsSync(finalGatePath)) {
     throw new Error(`${taskId}: prior reproof proof or final gate is missing`);
   }
-  const proof = JSON.parse(readFileSync(proofPath, "utf8")) as Record<
-    string,
-    unknown
-  >;
+  const proofContent = readFileSync(proofPath, "utf8");
+  const proof = JSON.parse(proofContent) as Record<string, unknown>;
+  const finalGateContent = readFileSync(finalGatePath, "utf8");
+  const finalGate = JSON.parse(finalGateContent) as Record<string, unknown>;
+  const priorLanePath = resolve(requestDirectory, "prior-lane-result.json");
+  const priorProofPath = resolve(requestDirectory, "prior-proof.json");
+  const priorFinalGatePath = resolve(requestDirectory, "prior-final-gate.json");
   const laneHeadSha = String(lane.headSha ?? "");
   const laneTreeSha = runRtk(
     ["git", "rev-parse", "--verify", `${laneHeadSha}^{tree}`],
@@ -259,11 +266,20 @@ const request = (() => {
     currentControlHeadSha: controlHeadSha,
     currentPlanSha256: manifest.planSha256,
     currentTaskBlockHash: task.taskBlockHash,
-    finalGateReport: JSON.parse(readFileSync(finalGatePath, "utf8")),
+    finalGateContent,
+    finalGatePath: priorFinalGatePath,
+    finalGateReport: finalGate,
     lane,
+    laneContent,
+    lanePath: priorLanePath,
     laneTreeSha,
     previousRequest,
+    previousRequestContent,
+    previousRequestPath,
     proof,
+    proofContent,
+    proofPath: priorProofPath,
+    priorReproofSourceHeadSha: laneHeadSha,
     reason,
     taskId,
   });
@@ -298,6 +314,11 @@ const request = (() => {
     taskBase: String(proof.baseSha ?? ""),
     taskId,
   });
+  refreshSnapshots = [
+    { content: laneContent, path: priorLanePath },
+    { content: proofContent, path: priorProofPath },
+    { content: finalGateContent, path: priorFinalGatePath },
+  ];
   return refreshed;
 })();
 const requestPath = resolve(requestDirectory, "request.json");
@@ -306,6 +327,15 @@ console.log(JSON.stringify({ launch, requestPath, request }, null, 2));
 if (!launch) process.exit(0);
 
 mkdirSync(requestDirectory, { recursive: true });
+for (const snapshot of refreshSnapshots ?? []) {
+  if (existsSync(snapshot.path)) {
+    if (readFileSync(snapshot.path, "utf8") !== snapshot.content) {
+      throw new Error(`${taskId}: reproof lineage snapshot replay differs`);
+    }
+  } else {
+    writeFileSync(snapshot.path, snapshot.content, { flag: "wx" });
+  }
+}
 if (!existsSync(priorEvidencePath)) {
   writeFileSync(priorEvidencePath, legacySnapshotContent, { flag: "wx" });
 }

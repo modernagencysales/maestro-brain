@@ -3,6 +3,8 @@ import { readFileSync, realpathSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 
 import {
+  buildRefreshedContractReproofRequest,
+  CONTRACT_REPROOF_REFRESH_SCHEMA,
   validateContractReproofRequest,
   type ContractReproofRequest,
 } from "./contract-reproof.js";
@@ -86,6 +88,126 @@ const controlOnlyDelta = (changedFiles: readonly string[]): boolean =>
 const canonicalJsonSha256 = (value: unknown): string =>
   sha256(`${JSON.stringify(value, null, 2)}\n`);
 
+const validateRefreshArtifacts = (
+  input: {
+    readonly evidenceDirectory: string;
+    readonly request: ContractReproofRequest;
+    readonly taskId: string;
+  },
+  seenRequestPaths: Set<string>,
+): void => {
+  if (input.request.schemaVersion !== CONTRACT_REPROOF_REFRESH_SCHEMA) return;
+  const evidenceRoot = realpathSync(input.evidenceDirectory);
+  const refreshArtifact = (
+    path: string | undefined,
+    digest: string | undefined,
+    label: string,
+  ): {
+    readonly content: string;
+    readonly path: string;
+    readonly realPath: string;
+    readonly value: unknown;
+  } => {
+    const signedPath = String(path ?? "");
+    const artifactPath = containedRealFile(
+      evidenceRoot,
+      signedPath,
+      `${input.taskId}: prior reproof ${label}`,
+    );
+    const content = readFileSync(artifactPath, "utf8");
+    if (sha256(content) !== digest) {
+      throw new Error(`${input.taskId}: prior reproof ${label} digest drift`);
+    }
+    return {
+      content,
+      path: signedPath,
+      realPath: artifactPath,
+      value: JSON.parse(content) as unknown,
+    };
+  };
+  const previousRequest = refreshArtifact(
+    input.request.priorReproofRequestPath,
+    input.request.priorReproofRequestSha256,
+    "request",
+  );
+  if (seenRequestPaths.has(previousRequest.realPath)) {
+    throw new Error(`${input.taskId}: cyclic prior reproof request lineage`);
+  }
+  seenRequestPaths.add(previousRequest.realPath);
+  const previousRequestRecord = record(
+    previousRequest.value,
+    `${input.taskId}: prior reproof request`,
+  );
+  const validatedPreviousRequest = validateContractReproofRequest(
+    previousRequestRecord,
+    {
+      controlHeadSha: String(previousRequestRecord.controlHeadSha ?? ""),
+      planSha256: String(previousRequestRecord.planSha256 ?? ""),
+      taskBlockHash: input.request.taskBlockHash,
+      taskId: input.taskId,
+    },
+  );
+  validateRefreshArtifacts(
+    {
+      evidenceDirectory: evidenceRoot,
+      request: validatedPreviousRequest,
+      taskId: input.taskId,
+    },
+    seenRequestPaths,
+  );
+  const priorLane = refreshArtifact(
+    input.request.priorReproofLaneResultPath,
+    input.request.priorReproofLaneResultSha256,
+    "lane",
+  );
+  const priorProof = refreshArtifact(
+    input.request.priorReproofProofPath,
+    input.request.priorReproofProofSha256,
+    "proof",
+  );
+  const priorFinalGate = refreshArtifact(
+    input.request.priorReproofFinalGatePath,
+    input.request.priorReproofFinalGateSha256,
+    "final gate",
+  );
+  const finalGateRecord = record(
+    priorFinalGate.value,
+    `${input.taskId}: prior reproof final gate`,
+  );
+  const rebuiltRefresh = buildRefreshedContractReproofRequest({
+    currentControlHeadSha: input.request.controlHeadSha,
+    currentPlanSha256: input.request.planSha256,
+    currentTaskBlockHash: input.request.taskBlockHash,
+    finalGateContent: priorFinalGate.content,
+    finalGatePath: priorFinalGate.path,
+    finalGateReport: priorFinalGate.value,
+    lane: priorLane.value,
+    laneContent: priorLane.content,
+    lanePath: priorLane.path,
+    laneTreeSha: String(finalGateRecord.currentTreeSha ?? ""),
+    previousRequest: previousRequest.value,
+    previousRequestContent: previousRequest.content,
+    previousRequestPath: previousRequest.path,
+    priorReproofSourceHeadSha: String(
+      input.request.priorReproofSourceHeadSha ?? "",
+    ),
+    proof: priorProof.value,
+    proofContent: priorProof.content,
+    proofPath: priorProof.path,
+    reason: input.request.reason,
+    taskId: input.request.taskId,
+  });
+  if (rebuiltRefresh.requestSha256 !== input.request.requestSha256) {
+    throw new Error(`${input.taskId}: refreshed request lineage drift`);
+  }
+};
+
+export const validateContractReproofRefreshArtifacts = (input: {
+  readonly evidenceDirectory: string;
+  readonly request: ContractReproofRequest;
+  readonly taskId: string;
+}): void => validateRefreshArtifacts(input, new Set<string>());
+
 export const admitContractReproof = (
   input: ContractReproofAdmissionInput,
 ): ContractReproofAdmission => {
@@ -105,6 +227,12 @@ export const admitContractReproof = (
       taskId: input.taskId,
     },
   );
+
+  validateContractReproofRefreshArtifacts({
+    evidenceDirectory: evidenceRoot,
+    request,
+    taskId: input.taskId,
+  });
 
   if (input.laneRequestSha256 !== request.requestSha256) {
     throw new Error(`${input.taskId}: reproof payload binding drift`);
@@ -216,11 +344,24 @@ export const admitContractReproof = (
   if (!Array.isArray(archive.laneEvidence)) {
     throw new Error(`${input.taskId}: prior archive lane evidence is missing`);
   }
-  const archivedLane = archive.laneEvidence
-    .map((entry, index) =>
-      record(entry, `${input.taskId}: archived laneEvidence[${index}]`),
-    )
-    .find((entry) => entry.taskId === input.taskId);
+  const archivedLaneEntries = archive.laneEvidence.map((entry, index) =>
+    record(entry, `${input.taskId}: archived laneEvidence[${index}]`),
+  );
+  const archivedTaskIds = archivedLaneEntries.map((entry) => entry.taskId);
+  if (new Set(archivedTaskIds).size !== archivedTaskIds.length) {
+    throw new Error(
+      `${input.taskId}: expected exactly one archived lane identity; duplicate taskId found`,
+    );
+  }
+  const archivedLanes = archivedLaneEntries.filter(
+    (entry) => entry.taskId === input.taskId,
+  );
+  if (archivedLanes.length !== 1) {
+    throw new Error(
+      `${input.taskId}: expected exactly one archived lane identity`,
+    );
+  }
+  const archivedLane = archivedLanes[0];
   const archivedLaneResult = archivedLane
     ? record(archivedLane.result, `${input.taskId}: archived lane result`)
     : undefined;

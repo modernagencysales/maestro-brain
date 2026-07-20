@@ -5,6 +5,8 @@ import { validateProofContract } from "./proof.js";
 
 export const CONTRACT_REPROOF_SCHEMA =
   "maestro-brain-contract-reproof/v1" as const;
+export const CONTRACT_REPROOF_REFRESH_SCHEMA =
+  "maestro-brain-contract-reproof-refresh/v2" as const;
 
 export interface ContractReproofRequest {
   readonly controlHeadSha: string;
@@ -17,9 +19,19 @@ export interface ContractReproofRequest {
   readonly priorEvidencePath: string;
   readonly reason: string;
   readonly requestSha256: string;
-  readonly schemaVersion: typeof CONTRACT_REPROOF_SCHEMA;
+  readonly schemaVersion:
+    typeof CONTRACT_REPROOF_SCHEMA | typeof CONTRACT_REPROOF_REFRESH_SCHEMA;
   readonly taskBlockHash: string;
   readonly taskId: string;
+  readonly priorReproofFinalGatePath?: string;
+  readonly priorReproofFinalGateSha256?: string;
+  readonly priorReproofLaneResultPath?: string;
+  readonly priorReproofLaneResultSha256?: string;
+  readonly priorReproofProofPath?: string;
+  readonly priorReproofProofSha256?: string;
+  readonly priorReproofRequestPath?: string;
+  readonly priorReproofRequestSha256?: string;
+  readonly priorReproofSourceHeadSha?: string;
 }
 
 type ReproofPayload = Omit<ContractReproofRequest, "requestSha256">;
@@ -38,6 +50,19 @@ const CONTRACT_REPROOF_KEYS = [
   "schemaVersion",
   "taskBlockHash",
   "taskId",
+] as const;
+
+const CONTRACT_REPROOF_REFRESH_KEYS = [
+  ...CONTRACT_REPROOF_KEYS,
+  "priorReproofFinalGatePath",
+  "priorReproofFinalGateSha256",
+  "priorReproofLaneResultPath",
+  "priorReproofLaneResultSha256",
+  "priorReproofProofPath",
+  "priorReproofProofSha256",
+  "priorReproofRequestPath",
+  "priorReproofRequestSha256",
+  "priorReproofSourceHeadSha",
 ] as const;
 
 const sha256 = (value: string): string =>
@@ -59,6 +84,11 @@ const safeSegment = (value: string, label: string): string => {
 
 const payloadHash = (payload: ReproofPayload): string =>
   sha256(JSON.stringify(payload));
+
+const nonEmptyPath = (value: string, label: string): string => {
+  if (!value) throw new Error(`${label} must not be empty`);
+  return value;
+};
 
 export const buildContractReproofRequest = (input: {
   readonly controlHeadSha: string;
@@ -125,24 +155,57 @@ export const validateContractReproofRequest = (
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error("contract reproof request must be an object");
   }
+  const schemaVersion = (value as Record<string, unknown>).schemaVersion;
+  const expectedKeys =
+    schemaVersion === CONTRACT_REPROOF_SCHEMA
+      ? CONTRACT_REPROOF_KEYS
+      : schemaVersion === CONTRACT_REPROOF_REFRESH_SCHEMA
+        ? CONTRACT_REPROOF_REFRESH_KEYS
+        : undefined;
+  if (!expectedKeys) throw new Error("unexpected contract reproof schema");
   const ownKeys = Reflect.ownKeys(value);
   if (
-    ownKeys.length !== CONTRACT_REPROOF_KEYS.length ||
+    ownKeys.length !== expectedKeys.length ||
     ownKeys.some(
       (key) =>
         typeof key !== "string" ||
-        !CONTRACT_REPROOF_KEYS.includes(
-          key as (typeof CONTRACT_REPROOF_KEYS)[number],
-        ),
+        !(expectedKeys as readonly string[]).includes(key),
     )
   ) {
     throw new Error("contract reproof request has unknown fields");
   }
   const request = value as unknown as ContractReproofRequest;
-  const rebuilt = buildContractReproofRequest(request);
-  if (request.schemaVersion !== CONTRACT_REPROOF_SCHEMA) {
-    throw new Error("unexpected contract reproof schema");
-  }
+  const rebuilt =
+    request.schemaVersion === CONTRACT_REPROOF_REFRESH_SCHEMA
+      ? buildContractReproofRefreshRequest({
+          ...request,
+          priorReproofFinalGatePath: String(
+            request.priorReproofFinalGatePath ?? "",
+          ),
+          priorReproofFinalGateSha256: String(
+            request.priorReproofFinalGateSha256 ?? "",
+          ),
+          priorReproofLaneResultPath: String(
+            request.priorReproofLaneResultPath ?? "",
+          ),
+          priorReproofLaneResultSha256: String(
+            request.priorReproofLaneResultSha256 ?? "",
+          ),
+          priorReproofProofPath: String(request.priorReproofProofPath ?? ""),
+          priorReproofProofSha256: String(
+            request.priorReproofProofSha256 ?? "",
+          ),
+          priorReproofRequestPath: String(
+            request.priorReproofRequestPath ?? "",
+          ),
+          priorReproofRequestSha256: String(
+            request.priorReproofRequestSha256 ?? "",
+          ),
+          priorReproofSourceHeadSha: String(
+            request.priorReproofSourceHeadSha ?? "",
+          ),
+        })
+      : buildContractReproofRequest(request);
   if (request.requestSha256 !== rebuilt.requestSha256) {
     throw new Error("contract reproof request hash mismatch");
   }
@@ -178,15 +241,114 @@ const exactObjectKeys = (
   }
 };
 
+const rejectUnknownObjectKeys = (
+  value: Record<string, unknown>,
+  allowed: readonly string[],
+  label: string,
+): void => {
+  if (
+    Reflect.ownKeys(value).some(
+      (key) => typeof key !== "string" || !allowed.includes(key),
+    )
+  ) {
+    throw new Error(`${label} has unknown fields`);
+  }
+};
+
+export const buildContractReproofRefreshRequest = (
+  input: Omit<ContractReproofRequest, "requestSha256" | "schemaVersion"> & {
+    readonly priorReproofFinalGatePath: string;
+    readonly priorReproofFinalGateSha256: string;
+    readonly priorReproofLaneResultPath: string;
+    readonly priorReproofLaneResultSha256: string;
+    readonly priorReproofProofPath: string;
+    readonly priorReproofProofSha256: string;
+    readonly priorReproofRequestPath: string;
+    readonly priorReproofRequestSha256: string;
+    readonly priorReproofSourceHeadSha: string;
+  },
+): ContractReproofRequest => {
+  const common = buildContractReproofRequest(input);
+  const commonPayload = {
+    schemaVersion: common.schemaVersion,
+    taskId: common.taskId,
+    reason: common.reason,
+    controlHeadSha: common.controlHeadSha,
+    planSha256: common.planSha256,
+    taskBlockHash: common.taskBlockHash,
+    priorIntegrationId: common.priorIntegrationId,
+    priorIntegrationHeadSha: common.priorIntegrationHeadSha,
+    priorIntegrationResultSha256: common.priorIntegrationResultSha256,
+    priorLaneResultSha256: common.priorLaneResultSha256,
+    priorArchiveSha256: common.priorArchiveSha256,
+    priorEvidencePath: common.priorEvidencePath,
+  };
+  const payload = {
+    ...commonPayload,
+    schemaVersion: CONTRACT_REPROOF_REFRESH_SCHEMA,
+    priorReproofRequestPath: nonEmptyPath(
+      input.priorReproofRequestPath,
+      "priorReproofRequestPath",
+    ),
+    priorReproofRequestSha256: exactSha(
+      input.priorReproofRequestSha256,
+      "priorReproofRequestSha256",
+      64,
+    ),
+    priorReproofLaneResultPath: nonEmptyPath(
+      input.priorReproofLaneResultPath,
+      "priorReproofLaneResultPath",
+    ),
+    priorReproofLaneResultSha256: exactSha(
+      input.priorReproofLaneResultSha256,
+      "priorReproofLaneResultSha256",
+      64,
+    ),
+    priorReproofProofPath: nonEmptyPath(
+      input.priorReproofProofPath,
+      "priorReproofProofPath",
+    ),
+    priorReproofProofSha256: exactSha(
+      input.priorReproofProofSha256,
+      "priorReproofProofSha256",
+      64,
+    ),
+    priorReproofFinalGatePath: nonEmptyPath(
+      input.priorReproofFinalGatePath,
+      "priorReproofFinalGatePath",
+    ),
+    priorReproofFinalGateSha256: exactSha(
+      input.priorReproofFinalGateSha256,
+      "priorReproofFinalGateSha256",
+      64,
+    ),
+    priorReproofSourceHeadSha: exactSha(
+      input.priorReproofSourceHeadSha,
+      "priorReproofSourceHeadSha",
+      40,
+    ),
+  } satisfies ReproofPayload;
+  return { ...payload, requestSha256: payloadHash(payload) };
+};
+
 export const buildRefreshedContractReproofRequest = (input: {
   readonly currentControlHeadSha: string;
   readonly currentPlanSha256: string;
   readonly currentTaskBlockHash: string;
   readonly finalGateReport: unknown;
+  readonly finalGateContent: string;
+  readonly finalGatePath: string;
   readonly lane: unknown;
+  readonly laneContent: string;
+  readonly lanePath: string;
   readonly laneTreeSha: string;
   readonly previousRequest: unknown;
+  readonly previousRequestContent: string;
+  readonly previousRequestPath: string;
   readonly proof: unknown;
+  readonly proofContent: string;
+  readonly proofPath: string;
+  readonly priorReproofSourceHeadSha: string;
   readonly reason: string;
   readonly taskId: string;
 }): ContractReproofRequest => {
@@ -198,6 +360,19 @@ export const buildRefreshedContractReproofRequest = (input: {
     taskId: input.taskId,
   });
   const lane = record(input.lane, `${input.taskId}: prior reproof lane`);
+  rejectUnknownObjectKeys(
+    lane,
+    [
+      "headSha",
+      "reproof",
+      "schemaVersion",
+      "status",
+      "taskId",
+      "tranche",
+      "treeSha",
+    ],
+    `${input.taskId}: prior reproof lane`,
+  );
   const laneReproof = record(
     lane.reproof,
     `${input.taskId}: prior lane reproof lineage`,
@@ -214,12 +389,62 @@ export const buildRefreshedContractReproofRequest = (input: {
   );
   if (
     laneReproof.requestSha256 !== previous.requestSha256 ||
+    laneReproof.requestPath !== input.previousRequestPath ||
     laneReproof.priorIntegrationId !== previous.priorIntegrationId ||
     laneReproof.priorIntegrationHeadSha !== previous.priorIntegrationHeadSha
   ) {
     throw new Error(`${input.taskId}: lane reproof lineage drift`);
   }
   const proof = record(input.proof, `${input.taskId}: prior reproof proof`);
+  rejectUnknownObjectKeys(
+    proof,
+    [
+      "baseSha",
+      "changedFiles",
+      "commandResults",
+      "focusedCommands",
+      "headSha",
+      "knownRisks",
+      "planSha256",
+      "reviewFindings",
+      "reviewHeadSha",
+      "reviewVerdict",
+      "schemaVersion",
+      "taskBlockHash",
+      "taskId",
+      "testsAdded",
+    ],
+    `${input.taskId}: prior reproof proof`,
+  );
+  const finalGate = record(
+    input.finalGateReport,
+    `${input.taskId}: prior reproof final gate`,
+  );
+  rejectUnknownObjectKeys(
+    finalGate,
+    [
+      "changedSourceLines",
+      "commandSetHash",
+      "commands",
+      "currentHeadSha",
+      "currentTreeSha",
+      "estimatedSourceLines",
+      "estimateDrift",
+      "gateProfiles",
+      "headSha",
+      "planSha256",
+      "reusedPreReview",
+      "schemaVersion",
+      "sourceSliceBudget",
+      "sourceSliceLimit",
+      "sourceSlices",
+      "stage",
+      "status",
+      "taskBlockHash",
+      "taskId",
+    ],
+    `${input.taskId}: prior reproof final gate`,
+  );
   const proofPlanSha256 = validateProofContract(proof, {
     taskBlockHash: input.currentTaskBlockHash,
     taskId: input.taskId,
@@ -228,7 +453,7 @@ export const buildRefreshedContractReproofRequest = (input: {
     allowHistoricalMissingTreeSha: true,
     currentHeadSha: String(lane.headSha ?? ""),
     currentTreeSha: input.laneTreeSha,
-    finalGateReport: input.finalGateReport,
+    finalGateReport: finalGate,
     proof,
     taskId: input.taskId,
   });
@@ -238,7 +463,24 @@ export const buildRefreshedContractReproofRequest = (input: {
   ) {
     throw new Error(`${input.taskId}: proof does not bind prior request`);
   }
-  return buildContractReproofRequest({
+  if (
+    input.priorReproofSourceHeadSha !== lane.headSha ||
+    proof.headSha !== input.priorReproofSourceHeadSha ||
+    finalGate.headSha !== input.priorReproofSourceHeadSha
+  ) {
+    throw new Error(`${input.taskId}: prior reproof source head drift`);
+  }
+  for (const [content, parsed, label] of [
+    [input.previousRequestContent, previousRecord, "request"],
+    [input.laneContent, lane, "lane"],
+    [input.proofContent, proof, "proof"],
+    [input.finalGateContent, finalGate, "final gate"],
+  ] as const) {
+    if (JSON.stringify(JSON.parse(content)) !== JSON.stringify(parsed)) {
+      throw new Error(`${input.taskId}: prior reproof ${label} content drift`);
+    }
+  }
+  return buildContractReproofRefreshRequest({
     controlHeadSha: input.currentControlHeadSha,
     planSha256: input.currentPlanSha256,
     priorArchiveSha256: previous.priorArchiveSha256,
@@ -250,5 +492,14 @@ export const buildRefreshedContractReproofRequest = (input: {
     reason: input.reason,
     taskBlockHash: input.currentTaskBlockHash,
     taskId: input.taskId,
+    priorReproofFinalGatePath: input.finalGatePath,
+    priorReproofFinalGateSha256: sha256(input.finalGateContent),
+    priorReproofLaneResultPath: input.lanePath,
+    priorReproofLaneResultSha256: sha256(input.laneContent),
+    priorReproofProofPath: input.proofPath,
+    priorReproofProofSha256: sha256(input.proofContent),
+    priorReproofRequestPath: input.previousRequestPath,
+    priorReproofRequestSha256: sha256(input.previousRequestContent),
+    priorReproofSourceHeadSha: input.priorReproofSourceHeadSha,
   });
 };
