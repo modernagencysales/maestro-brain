@@ -1,0 +1,68 @@
+{
+  "lens": "contract",
+  "taskId": "S04-T02",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "cdeca2a0ba4a7101fd27959788455ac53609485617a9cf8146c29c86891a7958",
+  "baseSha": "ce892af6c4ea5c8ff679c5bfce09a205967cdf11",
+  "headSha": "ff0df173e8e4928d35d778b23d17be046888207c",
+  "treeSha": "18000a947b7846305dbea0ef882556f9d48092f4",
+  "reviewerRunId": "maestro/review/S04-T02/ff0df173e8e4928d35d778b23d17be046888207c/f8e224f7-c76c-4b06-96ec-02ad61136350-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1423-1486 defines S04-T02 outcome, files, failure-first tests, typed contract, lifecycle states, and focused verification.",
+        "docs/product/maestro-brain-lifecycle-adoption/S04-T02.md:6-38 records durable resources and lifecycle behavior for providerConnections, sourceChannels, channelSyncStates, no auto-join, bot membership, Slack Connect flags, generation fences, and replacement audit.",
+        "packages/convex/test/slack-directory.test.ts:192-207 proves the approved index inventory; packages/convex/test/slack-directory.test.ts:658-843 proves stale-generation, provider-rate-limit, and bot-identity denial paths before channel writes."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/integrations/slackDirectory.spec.ts:4-33 declares typed ConnectionNotFound, ConnectionGenerationMismatch, BotIdentityMismatch, ProviderRateLimited, and ProviderUnavailable errors.",
+        "packages/convex/confect/integrations/slackDirectory.spec.ts:88-98 declares the internal reconcileChannels({ connectionKey, expectedGeneration, cursor, limit }) action returning { upserted, accessGained, accessLost, nextCursor } with the declared error union.",
+        "packages/convex/confect/integrations/slackDirectory.spec.ts:100-148 declares internal query/mutation helpers behind the same typed error union rather than exposing untyped Convex functions."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/sourceChannels.ts:12-27 defines durable channel rows with organizationKey, connectionKey, connectionGeneration, stable channelKey, externalChannelId, Slack Connect flags, membershipStatus, accessGeneration, and timestamps.",
+        "packages/convex/confect/tables/sourceChannels.ts:30-43 defines Appendix-N indexes by connection/external channel, channel key, organization/membership state, and connection generation.",
+        "packages/convex/confect/tables/channelSyncStates.ts:25-44 defines per-channel lane cursor state with generation and replacementAudit; packages/convex/confect/tables/channelSyncStates.ts:48-59 defines the requested channel, lag, retry, and access-state indexes."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:557-583 retains S04-T02 classification template-gap, dependencies, file locks, gate profiles, requirements SLK-01/SLK-02, source-slice limit, and taskBlockHash cdeca2a0ba4a7101fd27959788455ac53609485617a9cf8146c29c86891a7958.",
+        "Shared proof packet reports planSha256 728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8 and taskBlockHash cdeca2a0ba4a7101fd27959788455ac53609485617a9cf8146c29c86891a7958 for this reviewed head.",
+        "packages/convex/test/slack-directory.test.ts:1434-1514 adds focused proof that duplicate active Slack bindings past an initial large connection page are rejected, addressing the prior exact duplicate-path review concern."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "rtk proxy git diff --name-only ce892af6c4ea5c8ff679c5bfce09a205967cdf11..HEAD lists only docs/product/maestro-brain-lifecycle-adoption/S04-T02.md, packages/convex/confect/integrations/slackDirectory.impl.ts, slackDirectory.spec.ts, slackDirectory.ts, packages/convex/confect/tables/channelSyncStates.ts, sourceChannels.ts, and packages/convex/test/slack-directory.test.ts.",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:564-572 includes every changed product/test/doc path in the S04-T02 fileLocks set.",
+        "No generated Confect or Convex files are changed in this delta; packages/convex/confect/integrations/slackDirectory.ts:1 only exports the implementation boundary."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/test/slack-directory.test.ts:658-710 proves stale expectedGeneration fails as ConnectionGenerationMismatch before provider calls.",
+        "packages/convex/test/slack-directory.test.ts:712-762 proves ProviderRateLimited remains a typed directory error, and packages/convex/test/slack-directory.test.ts:764-843 proves BotIdentityMismatch prevents channel listing and channel writes.",
+        "packages/convex/test/slack-directory.test.ts:1434-1514 proves duplicate active team/app/bot binding returns BotIdentityMismatch even when the duplicate is beyond a large set of existing providerConnections."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
