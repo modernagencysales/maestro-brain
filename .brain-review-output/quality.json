@@ -1,0 +1,112 @@
+{
+  "lens": "quality",
+  "taskId": "S11-T02",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "2b484dad01173ead7ca99d710455998926b3666713d025943ef5824aed334ff6",
+  "baseSha": "defde4d68fbcdd7d39566d82986ec562010c9638",
+  "headSha": "cd6e8f88183f51b41a2752ad9dde7715bd66cb25",
+  "treeSha": "d3477635d8b750700cb7b8ebf9c0aa58fa915d0e",
+  "reviewerRunId": "maestro/review/S11-T02/cd6e8f88183f51b41a2752ad9dde7715bd66cb25/a080c7f1-4da8-4474-92cc-6324dad59036-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/test/http-request-security.test.ts:246-284 proves malformed Bearer syntax returns Unauthorized before request.json, routeRequest.json, auth lookup, last-used mutation, or operation dispatch.",
+        "packages/convex/test/http-request-security.test.ts:285-320 proves missing Authorization rejects before JSON parsing or auth lookup.",
+        "packages/convex/test/api-keys.test.ts:805-850 covers API-key administration audit success and denied viewer creation paths; apps/web/src/features/settings/api-keys-adapter.test.ts:14-70 covers non-admin mutation hiding and stable Brain key injection.",
+        "lane-gate-report.json:4-16 records exact-head focused typecheck/test commands, including packages/convex test api-keys headless http-request and apps/web test, with status passed at head cd6e8f88183f51b41a2752ad9dde7715bd66cb25."
+      ]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "finding",
+      "findingIds": ["QL-S11-T02-201"],
+      "evidence": [
+        "AGENTS.md requires client hooks -> @confect/react refs -> Confect specs -> Convex functions and says to use generated Confect refs/services.",
+        "apps/web/src/routes/_workspace.settings.tsx:28-90 locally declares API-key Ref types and casts templateConfectRefs to HeadlessApiKeyRefs before useTemplateMutation/useTemplateQuery consumes apiKeyRefs at lines 90-92.",
+        "Scoped search over packages/convex/confect/_generated, apps/web/src/routes/_workspace.settings.tsx, and packages/convex/confect/http.ts found apiKeys table docs but no checked-in generated headless/apiKeys function refs; packages/convex/confect/http.ts:68-80 constructs internal refs with Ref.make instead of generated refs."
+      ]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "finding",
+      "findingIds": ["QL-S11-T02-202"],
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.impl.ts spans lines 1-1088 and contains API-key creation/rotation/revocation, authentication, repository/index access, lifecycle checks, audit construction, current-user context, last-used mutation, and Confect handler wiring.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:684-750 implements fenced last-used repository verification and mutation in the same module that wires FunctionImpl handlers at lines 1049-1088.",
+        "The lane-gate report remains within source budgets, so this is inspectability and future maintenance debt rather than a budget failure."
+      ]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/test/http-request-security.test.ts:496-530 verifies dispatch exceptions are redacted and response bodies do not contain the presented bearer value.",
+        "packages/convex/test/http-request-security.test.ts:535-555 verifies malformed Basic Authorization values are not echoed through public errors.",
+        "packages/convex/test/api-keys.test.ts:805-850 verifies success and denial audit events for API-key administration without exposing display-once key material in public metadata."
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "lane-gate-report.json:24-30 records headSha cd6e8f88183f51b41a2752ad9dde7715bd66cb25, changedSourceLines 2453, estimatedSourceLines 3000, sourceSliceBudget 300, and sourceSliceLimit 10.",
+        "lane-gate-report.json:31-70 records ten source slices, each at or below 300 changed source lines, matching the manifest sourceSliceLimit for S11-T02.",
+        "git diff --stat defde4d68fbcdd7d39566d82986ec562010c9638..HEAD showed changes scoped to the S11-T02 settings/headless/test files listed in the task manifest."
+      ]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "finding",
+      "findingIds": ["QL-S11-T02-203"],
+      "evidence": [
+        "Appendix O reserves checked-in generated Confect/Convex output for integration, but the S11-T02 focused verification requires rtk pnpm brain:factory:check-confect-codegen and Confect contract checks as transient exact-head proof.",
+        "lane-gate-report.json:4-16 records the structured exact-head gate commands and omits brain:factory:check-confect-codegen, check:confect-contracts, check:logging-boundary, check:secret-canaries, and check:access-audit-events; ci-proof-packet.json:30-34 lists only packages/convex typecheck, packages/convex test api-keys headless http-request, and check:headless-surface-contract as focusedCommands.",
+        "ci-proof-packet.json:44-52 contains narrative knownRisks claiming repair/codegen/gate facts, but scoped search under the S11-T02 evidence directory found no separate exact-head transient codegen artifact for head cd6e8f88183f51b41a2752ad9dde7715bd66cb25.",
+        "apps/web/src/routes/_workspace.settings.tsx:88-92 and packages/convex/confect/http.ts:68-80 keep temporary ref construction/assertions in product code, increasing the need for structured generated-contract proof."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "QL-S11-T02-201",
+      "severity": "major",
+      "summary": "Settings and HTTP surfaces still bypass generated Confect refs for API-key functions.",
+      "details": "S11-T02 adds headless/apiKeys public/internal Confect functions, but the web Settings route locally re-declares Ref types and casts templateConfectRefs to an amended shape, while the HTTP route constructs internal refs with Ref.make. That leaves the client-hooks -> generated refs -> Confect specs boundary asserted rather than proven at this head.",
+      "evidence": [
+        "apps/web/src/routes/_workspace.settings.tsx:28-90",
+        "apps/web/src/routes/_workspace.settings.tsx:90-92",
+        "packages/convex/confect/http.ts:68-80",
+        "Scoped rtk proxy rg for headless/apiKeys/apiKeys over packages/convex/confect/_generated, apps/web/src/routes/_workspace.settings.tsx, and packages/convex/confect/http.ts found table docs but no generated headless/apiKeys function refs."
+      ]
+    },
+    {
+      "id": "QL-S11-T02-202",
+      "severity": "minor",
+      "summary": "API-key implementation remains an oversized mixed-responsibility module.",
+      "details": "The 1088-line apiKeys.impl.ts module concentrates domain key creation/verification, repository and lifecycle reads, audit event construction, current-user resolution, bearer authentication, last-used fencing/mutation, and Confect handler wiring. Although within source-slice budgets, this shape is brittle for future focused reviews and template-agent maintenance.",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.impl.ts:1-1088",
+        "packages/convex/confect/headless/apiKeys.impl.ts:684-750",
+        "packages/convex/confect/headless/apiKeys.impl.ts:1049-1088"
+      ]
+    },
+    {
+      "id": "QL-S11-T02-203",
+      "severity": "major",
+      "summary": "Exact-head generated Confect proof is missing while temporary refs remain in product code.",
+      "details": "Generated files may be integration-owned, but this lane introduces new Confect contracts and still relies on temporary ref assertions/construction. The structured pre-review gate evidence for the exact head omits the task-required transient Confect codegen and contract/security checks, and no separate scoped artifact records those command statuses.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3123-3129",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:4582-4586",
+        "lane-gate-report.json:4-16",
+        "ci-proof-packet.json:30-34",
+        "ci-proof-packet.json:44-52",
+        "apps/web/src/routes/_workspace.settings.tsx:88-92",
+        "packages/convex/confect/http.ts:68-80"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
