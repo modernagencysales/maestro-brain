@@ -1,6 +1,9 @@
 import {
+  closeSync,
   existsSync,
+  fsyncSync,
   mkdtempSync,
+  openSync,
   readFileSync,
   renameSync,
   rmSync,
@@ -22,6 +25,7 @@ import {
   auditedTerminalResumeRecord,
   parseArchiveActionSelector,
   promoteTaskReservation,
+  replaceTerminalTaskRecord,
   preservedResumeDisposition,
   resolvePreservedFactoryBase,
   reconcilePreparingTaskReservation,
@@ -32,6 +36,7 @@ import {
   taskReservationOwnsIntegrationCandidate,
 } from "../src/dispatch-ownership.js";
 import {
+  resolveResumeStrategy,
   serializeResumeCommits,
   validateResumeSource,
 } from "../src/resume-support.js";
@@ -131,7 +136,8 @@ describe("brain dispatch ownership", () => {
     );
     expect(resume).toContain("acquireDispatcherLock");
     expect(resume).toContain("resume already owned by");
-    expect(resume).toContain("archiveTerminalTaskRecord");
+    expect(resume).toContain("replaceTerminalTaskRecord");
+    expect(resume).not.toContain("archiveTerminalTaskRecord");
     expect(resume).not.toContain('"worktree", "remove"');
     expect(resume).not.toContain('"-B"');
     const validation = resume.indexOf("validateResumeSource({");
@@ -140,11 +146,9 @@ describe("brain dispatch ownership", () => {
       resume.indexOf("if (existsSync(recordPath))"),
     );
     expect(validation).toBeLessThan(
-      resume.indexOf("  archiveTerminalTaskRecord({"),
+      resume.indexOf("  replaceTerminalTaskRecord({"),
     );
-    expect(validation).toBeLessThan(
-      resume.indexOf("reserveTaskPreparing(recordPath"),
-    );
+    expect(validation).toBeLessThan(resume.indexOf("const preparingRecord ="));
     expect(validation).toBeLessThan(
       resume.indexOf('runRtk(["git", "worktree", "add"'),
     );
@@ -197,13 +201,28 @@ describe("brain dispatch ownership", () => {
     expect(resume).toContain('"preserved-worktree"');
     expect(resume).toContain('"preserved-conflict-aware"');
     expect(resume.indexOf("preservedResumeDisposition({")).toBeLessThan(
-      resume.indexOf("  archiveTerminalTaskRecord({"),
+      resume.indexOf("  replaceTerminalTaskRecord({"),
     );
-    expect(resume.indexOf("  archiveTerminalTaskRecord({")).toBeLessThan(
+    expect(resume.indexOf("  replaceTerminalTaskRecord({")).toBeLessThan(
       resume.indexOf("reserveTaskPreparing(recordPath"),
     );
     expect(resume).not.toContain('"worktree", "remove"');
     expect(resume).not.toContain('"reset", "--hard"');
+  });
+
+  it("selects the authority-compatible strategy without --conflict-aware", () => {
+    expect(
+      resolveResumeStrategy({
+        authorityOwner: true,
+        conflictAware: false,
+      }),
+    ).toBe("in-lane-cherry-pick");
+    expect(
+      resolveResumeStrategy({
+        authorityOwner: false,
+        conflictAware: false,
+      }),
+    ).toBe("prelaunch-cherry-pick");
   });
 
   it("pins conflict-aware resume commits as immutable workflow input", () => {
@@ -475,6 +494,68 @@ describe("brain dispatch ownership", () => {
       runId: "run-1",
       status: "launched",
     });
+  });
+
+  it("replays a failed terminal resume replacement without an ownership gap", () => {
+    const value = fixture();
+    reserveTaskPreparing(value.recordPath, {
+      branch: "fabro/review-s03-t03-authority-owner",
+      mode: "authority-refresh",
+      resumeStrategy: "in-lane-cherry-pick",
+      runId: "terminal-authority-run",
+      status: "launched",
+      taskId: "S08-T02",
+      workdir: "/tmp/resume-s03-t03-authority-owner",
+    });
+    const terminalContent = readFileSync(value.recordPath, "utf8");
+    const replacement = {
+      branch: "fabro/review-s03-t03-authority-owner",
+      mode: "resume-review",
+      resumeStrategy: "in-lane-cherry-pick",
+      status: "preparing",
+      taskId: "S08-T02",
+      workdir: "/tmp/resume-s03-t03-authority-owner",
+    } as const;
+    const transition = {
+      auditPath: value.auditPath,
+      expectedContent: terminalContent,
+      now: "2026-07-20T00:00:00.000Z",
+      recordPath: value.recordPath,
+      replacement,
+      runId: "terminal-authority-run",
+      status: "succeeded",
+      taskId: "S08-T02",
+    } as const;
+
+    expect(() =>
+      replaceTerminalTaskRecord(transition, {
+        close: closeSync,
+        open: openSync,
+        remove: (path) => rmSync(path, { force: true }),
+        rename: () => {
+          throw new Error("simulated reservation rename failure");
+        },
+        sync: fsyncSync,
+        write: (descriptor, content) =>
+          writeFileSync(descriptor, content, "utf8"),
+      }),
+    ).toThrow("simulated reservation rename failure");
+    expect(readFileSync(value.recordPath, "utf8")).toBe(terminalContent);
+    expect(existsSync(`${value.recordPath}.next`)).toBe(false);
+    expect(
+      readFileSync(value.auditPath, "utf8").trim().split("\n"),
+    ).toHaveLength(1);
+
+    replaceTerminalTaskRecord({
+      ...transition,
+      now: "2026-07-20T00:01:00.000Z",
+    });
+    expect(JSON.parse(readFileSync(value.recordPath, "utf8"))).toEqual(
+      replacement,
+    );
+    expect(
+      readFileSync(value.auditPath, "utf8").trim().split("\n"),
+    ).toHaveLength(1);
   });
 
   it("treats inspection errors and unknown status as owned", () => {

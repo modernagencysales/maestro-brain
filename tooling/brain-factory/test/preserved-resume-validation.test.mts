@@ -11,7 +11,10 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { validatePreservedResumeLaunch } from "../src/preserved-resume-validation.js";
+import {
+  validatePreservedResumeLaunch,
+  validateTerminalAuthorityResumeOwner,
+} from "../src/preserved-resume-validation.js";
 import { auditedTerminalResumeRecord } from "../src/dispatch-ownership.js";
 import { archiveTerminalRun } from "../src/terminal-archive.js";
 
@@ -81,6 +84,107 @@ afterEach(() => {
 });
 
 describe("preserved resume launch validation", () => {
+  it("adopts an exact clean terminal authority-refresh owner", () => {
+    const value = fixture();
+    const taskId = "S08-T03";
+    const proofDirectory = join(value.evidence, "lane-results", taskId);
+    mkdirSync(proofDirectory, { recursive: true });
+    writeFileSync(
+      join(proofDirectory, "ci-proof-packet.json"),
+      JSON.stringify({
+        baseSha: value.base,
+        headSha: value.control,
+        taskId,
+      }),
+    );
+    writeFileSync(
+      join(proofDirectory, "lane-result.json"),
+      JSON.stringify({
+        headSha: value.control,
+        taskId,
+        treeSha: git(value.workdir, "rev-parse", "HEAD^{tree}"),
+      }),
+    );
+    const input = {
+      controlCommonDir: value.commonDir,
+      evidence: value.evidence,
+      record: {
+        baseSha: value.base,
+        branch: value.branch,
+        factoryBaseSha: value.base,
+        mode: "authority-refresh",
+        resumeStrategy: "in-lane-cherry-pick",
+        runId: "authority-run",
+        sourceHeadSha: value.control,
+        status: "launched",
+        taskBaseSha: value.base,
+        taskId,
+        workdir: realpathSync(value.workdir),
+      },
+      resumeCommits: [value.control],
+      sourceHeadSha: value.control,
+      status: "succeeded",
+      taskBaseSha: value.base,
+      taskId,
+    } as const;
+
+    expect(validateTerminalAuthorityResumeOwner(input)).toEqual({
+      branch: value.branch,
+      factoryBaseSha: value.base,
+      proofHeadSha: value.control,
+      resumeStrategy: "in-lane-cherry-pick",
+      startSha: value.control,
+      workdir: realpathSync(value.workdir),
+    });
+    expect(() =>
+      validateTerminalAuthorityResumeOwner({
+        ...input,
+        status: "running",
+      }),
+    ).toThrow("authority owner run is not terminal");
+    expect(() =>
+      validateTerminalAuthorityResumeOwner({
+        ...input,
+        sourceHeadSha: value.sourceHeadSha,
+      }),
+    ).toThrow("authority owner source HEAD mismatch");
+    expect(() =>
+      validateTerminalAuthorityResumeOwner({
+        ...input,
+        taskBaseSha: value.control,
+      }),
+    ).toThrow("authority owner task base mismatch");
+    expect(() =>
+      validateTerminalAuthorityResumeOwner({
+        ...input,
+        resumeCommits: [value.sourceCommit],
+      }),
+    ).toThrow("source commit range mismatch");
+    writeFileSync(
+      join(proofDirectory, "lane-result.json"),
+      JSON.stringify({
+        headSha: value.control,
+        taskId,
+        treeSha: value.base,
+      }),
+    );
+    expect(() => validateTerminalAuthorityResumeOwner(input)).toThrow(
+      "authority owner lane identity mismatch",
+    );
+    writeFileSync(
+      join(proofDirectory, "lane-result.json"),
+      JSON.stringify({
+        headSha: value.control,
+        taskId,
+        treeSha: git(value.workdir, "rev-parse", "HEAD^{tree}"),
+      }),
+    );
+    writeFileSync(join(value.workdir, "dirty.txt"), "dirty\n");
+    expect(() => validateTerminalAuthorityResumeOwner(input)).toThrow(
+      "clean preserved worktree is dirty",
+    );
+  }, 30_000);
+
   it("revalidates an exact clean registered worktree and proof", () => {
     const value = fixture();
     const proofDirectory = join(value.evidence, "lane-results", "S08-T03");

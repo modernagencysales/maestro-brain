@@ -1,5 +1,13 @@
 export type ResumeGitRunner = (args: readonly string[]) => string;
 
+export const resolveResumeStrategy = (input: {
+  readonly authorityOwner: boolean;
+  readonly conflictAware: boolean;
+}): "in-lane-cherry-pick" | "prelaunch-cherry-pick" =>
+  input.authorityOwner || input.conflictAware
+    ? "in-lane-cherry-pick"
+    : "prelaunch-cherry-pick";
+
 export const nonEmptyResumeCommits = (input: {
   readonly changedPathsFor: (commit: string) => string;
   readonly revisionList: string;

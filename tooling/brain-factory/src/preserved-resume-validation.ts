@@ -26,6 +26,20 @@ interface WorktreeRegistration {
   readonly worktree?: string;
 }
 
+interface AuthorityResumeRecord {
+  readonly baseSha?: unknown;
+  readonly branch?: unknown;
+  readonly factoryBaseSha?: unknown;
+  readonly mode?: unknown;
+  readonly resumeStrategy?: unknown;
+  readonly runId?: unknown;
+  readonly sourceHeadSha?: unknown;
+  readonly status?: unknown;
+  readonly taskBaseSha?: unknown;
+  readonly taskId?: unknown;
+  readonly workdir?: unknown;
+}
+
 const parseWorktrees = (value: string): readonly WorktreeRegistration[] =>
   value
     .split("\n\n")
@@ -217,5 +231,107 @@ export const validatePreservedResumeLaunch = (
     headSha,
     mode: expected.mode,
     workdir,
+  };
+};
+
+export const validateTerminalAuthorityResumeOwner = (input: {
+  readonly controlCommonDir: string;
+  readonly evidence: string;
+  readonly record: AuthorityResumeRecord;
+  readonly resumeCommits: readonly string[];
+  readonly sourceHeadSha: string;
+  readonly status: string;
+  readonly taskBaseSha: string;
+  readonly taskId: string;
+}): {
+  readonly branch: string;
+  readonly factoryBaseSha: string;
+  readonly proofHeadSha: string;
+  readonly resumeStrategy: "in-lane-cherry-pick";
+  readonly startSha: string;
+  readonly workdir: string;
+} => {
+  if (
+    !new Set(["canceled", "cancelled", "failed", "succeeded"]).has(input.status)
+  ) {
+    throw new Error(`${input.taskId}: authority owner run is not terminal`);
+  }
+  const identities = [
+    ["task ID", input.record.taskId, input.taskId],
+    ["mode", input.record.mode, "authority-refresh"],
+    ["resume strategy", input.record.resumeStrategy, "in-lane-cherry-pick"],
+    ["source HEAD", input.record.sourceHeadSha, input.sourceHeadSha],
+    ["task base", input.record.taskBaseSha, input.taskBaseSha],
+    ["launch base", input.record.baseSha, input.taskBaseSha],
+    ["factory base", input.record.factoryBaseSha, input.taskBaseSha],
+    ["reservation status", input.record.status, "launched"],
+  ] as const;
+  for (const [label, actual, expected] of identities) {
+    if (actual !== expected) {
+      throw new Error(`${input.taskId}: authority owner ${label} mismatch`);
+    }
+  }
+  if (typeof input.record.runId !== "string" || !input.record.runId) {
+    throw new Error(`${input.taskId}: authority owner run ID is missing`);
+  }
+  if (typeof input.record.branch !== "string" || !input.record.branch) {
+    throw new Error(`${input.taskId}: authority owner branch is missing`);
+  }
+  if (typeof input.record.workdir !== "string" || !input.record.workdir) {
+    throw new Error(`${input.taskId}: authority owner workdir is missing`);
+  }
+  const validated = validatePreservedResumeLaunch({
+    baseSha: input.taskBaseSha,
+    branch: input.record.branch,
+    controlCommonDir: input.controlCommonDir,
+    evidence: input.evidence,
+    expectedCommit: "none",
+    mode: "preserved-worktree",
+    proofHead: input.sourceHeadSha,
+    resumeCommits: input.resumeCommits,
+    sourceHeadSha: input.sourceHeadSha,
+    startSha: input.sourceHeadSha,
+    taskBaseSha: input.taskBaseSha,
+    taskId: input.taskId,
+    workdir: input.record.workdir,
+  });
+  if (input.record.workdir !== validated.workdir) {
+    throw new Error(
+      `${input.taskId}: authority owner registered workdir mismatch`,
+    );
+  }
+  const lanePath = resolve(
+    input.evidence,
+    "lane-results",
+    input.taskId,
+    "lane-result.json",
+  );
+  if (!existsSync(lanePath)) {
+    throw new Error(`${input.taskId}: authority owner lane result is missing`);
+  }
+  const lane = JSON.parse(readFileSync(lanePath, "utf8")) as {
+    readonly headSha?: unknown;
+    readonly taskId?: unknown;
+    readonly treeSha?: unknown;
+  };
+  const git = (args: readonly string[]): string =>
+    runRtk(["proxy", "git", ...args], {
+      cwd: validated.workdir,
+      quiet: true,
+    });
+  if (
+    lane.taskId !== input.taskId ||
+    lane.headSha !== input.sourceHeadSha ||
+    lane.treeSha !== git(["rev-parse", "HEAD^{tree}"])
+  ) {
+    throw new Error(`${input.taskId}: authority owner lane identity mismatch`);
+  }
+  return {
+    branch: validated.branch,
+    factoryBaseSha: input.taskBaseSha,
+    proofHeadSha: input.sourceHeadSha,
+    resumeStrategy: "in-lane-cherry-pick",
+    startSha: validated.headSha,
+    workdir: validated.workdir,
   };
 };

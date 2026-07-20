@@ -6,13 +6,13 @@ import { materializeBuildTaskRunConfig } from "./build-task-run-config.js";
 import { launchAuthorityRefresh } from "./authority-refresh-launch.js";
 import {
   acquireDispatcherLock,
-  archiveTerminalTaskRecord,
   assertArchiveActionSelectorApplicable,
   assertArchiveActionSelectorUsed,
   auditedTerminalResumeRecord,
   parseArchiveActionSelector,
   preservedResumeDisposition,
   promoteTaskReservation,
+  replaceTerminalTaskRecord,
   reserveTaskPreparing,
   resolvePreservedFactoryBase,
 } from "./dispatch-ownership.js";
@@ -24,14 +24,17 @@ import {
   runRtk,
 } from "./process.js";
 import {
+  resolveResumeStrategy,
   serializeResumeCommits,
   validateResumeSource,
 } from "./resume-support.js";
+import { validateTerminalAuthorityResumeOwner } from "./preserved-resume-validation.js";
 
 interface ResumeRecord {
+  readonly baseSha?: string;
   readonly branch: string;
   readonly factoryBaseSha?: string;
-  readonly mode?: "resume-review";
+  readonly mode?: "authority-refresh" | "resume-review";
   readonly runId?: string;
   readonly resumeStrategy?: "in-lane-cherry-pick" | "prelaunch-cherry-pick";
   readonly sourceHeadSha?: string;
@@ -40,6 +43,21 @@ interface ResumeRecord {
   readonly taskId: string;
   readonly workdir: string;
 }
+
+type PreservedResumeRecord = Omit<ResumeRecord, "mode"> & {
+  readonly mode?: "resume-review";
+};
+
+const asPreservedResumeRecord = (
+  record: ResumeRecord,
+): PreservedResumeRecord => {
+  const { mode, ...rest } = record;
+  if (mode === undefined) return rest;
+  if (mode !== "resume-review") {
+    throw new Error(`${record.taskId}: preserved resume mode mismatch`);
+  }
+  return { ...rest, mode };
+};
 
 const inspectedStatus = (runId: string): string => {
   const parsed = JSON.parse(
@@ -65,8 +83,10 @@ const taskBase = valueAfter("--base");
 const archiveActionId = parseArchiveActionSelector(process.argv.slice(2));
 const authorityRefresh = process.argv.includes("--authority-refresh");
 const conflictAware = process.argv.includes("--conflict-aware");
-const resumeStrategy: "in-lane-cherry-pick" | "prelaunch-cherry-pick" =
-  conflictAware ? "in-lane-cherry-pick" : "prelaunch-cherry-pick";
+let resumeStrategy = resolveResumeStrategy({
+  authorityOwner: false,
+  conflictAware,
+});
 if (!taskId || (!authorityRefresh && (!sourceRef || !taskBase))) {
   console.error(
     "usage: brain:factory:resume -- --task <id> (--authority-refresh | --ref <git-ref> --base <sha> [--conflict-aware]) [--archive-action <id>]",
@@ -85,13 +105,13 @@ const root = process.cwd();
 const state = resolve(valueAfter("--state") ?? ".fabro/state/maestro-brain");
 const evidence = resolve(state, "evidence");
 const runDirectory = resolve(state, "runs");
-const workdir = resolve(
+let workdir = resolve(
   root,
   "..",
   ".maestro-brain-fabro-workdirs",
   `resume-${taskId.toLowerCase()}`,
 );
-const branch = `fabro/review-${taskId.toLowerCase()}`;
+let branch = `fabro/review-${taskId.toLowerCase()}`;
 const recordPath = resolve(runDirectory, `${taskId}.json`);
 const recordExists = existsSync(recordPath);
 const preservedWorktreeExists = existsSync(workdir);
@@ -142,7 +162,7 @@ const { sourceHeadSha, taskBaseSha, taskCommits } = validateResumeSource({
   taskBase,
   taskId,
 });
-const expectedResume = {
+let expectedResume = {
   branch,
   mode: "resume-review" as const,
   resumeStrategy,
@@ -160,8 +180,14 @@ let disposition:
 let launchBaseSha = factoryBase;
 let preservedProofHeadSha: string | undefined;
 let preservedExpectedCommit = "none";
-let preservedRecord: ResumeRecord | undefined;
-let activeTerminalStatus: string | undefined;
+let preservedRecord: PreservedResumeRecord | undefined;
+let terminalTransition:
+  | {
+      readonly expectedContent: string;
+      readonly runId: string;
+      readonly status: string;
+    }
+  | undefined;
 let auditedArchiveSelected = false;
 if (existsSync(recordPath)) {
   assertArchiveActionSelectorUsed({
@@ -169,7 +195,8 @@ if (existsSync(recordPath)) {
     auditedArchiveSelected: false,
     taskId,
   });
-  const record = JSON.parse(readFileSync(recordPath, "utf8")) as ResumeRecord;
+  const recordContent = readFileSync(recordPath, "utf8");
+  const record = JSON.parse(recordContent) as ResumeRecord;
   if (!record.runId) {
     throw new Error(
       `${taskId}: incomplete task reservation owns resume; audited recovery is required`,
@@ -200,8 +227,45 @@ if (existsSync(recordPath)) {
       `${taskId}: live or unknown Fabro run ${record.runId} (${status}) owns this task`,
     );
   }
-  preservedRecord = record;
-  activeTerminalStatus = status;
+  if (record.mode === "authority-refresh") {
+    const owner = validateTerminalAuthorityResumeOwner({
+      controlCommonDir,
+      evidence,
+      record,
+      resumeCommits: taskCommits,
+      sourceHeadSha,
+      status,
+      taskBaseSha,
+      taskId,
+    });
+    branch = owner.branch;
+    workdir = owner.workdir;
+    resumeStrategy = resolveResumeStrategy({
+      authorityOwner: true,
+      conflictAware,
+    });
+    if (resumeStrategy !== owner.resumeStrategy) {
+      throw new Error(`${taskId}: authority owner resume strategy mismatch`);
+    }
+    expectedResume = {
+      ...expectedResume,
+      branch,
+      resumeStrategy,
+      workdir,
+    };
+    preservedRecord = {
+      ...record,
+      mode: "resume-review",
+      resumeStrategy,
+    };
+  } else {
+    preservedRecord = asPreservedResumeRecord(record);
+  }
+  terminalTransition = {
+    expectedContent: recordContent,
+    runId: record.runId,
+    status,
+  };
 }
 if (
   preservedRecord === undefined &&
@@ -213,7 +277,9 @@ if (
     expected: expectedResume,
     recordPath,
   });
-  preservedRecord = auditedArchive.record as unknown as ResumeRecord;
+  preservedRecord = asPreservedResumeRecord(
+    auditedArchive.record as unknown as ResumeRecord,
+  );
   auditedArchiveSelected = true;
 }
 assertArchiveActionSelectorUsed({
@@ -317,19 +383,6 @@ if (preservedRecord !== undefined) {
     }
     preservedExpectedCommit = cherryPickHead;
   }
-  if (activeTerminalStatus !== undefined) {
-    if (!record.runId) {
-      throw new Error(`${taskId}: terminal resume record has no run ID`);
-    }
-    archiveTerminalTaskRecord({
-      auditPath,
-      now,
-      recordPath,
-      runId: record.runId,
-      status: activeTerminalStatus,
-      taskId,
-    });
-  }
 }
 if (disposition.kind === "create" && existsSync(workdir)) {
   throw new Error(
@@ -341,7 +394,7 @@ if (disposition.kind === "create" && gitBranchExists(branch, root)) {
     `${taskId}: resume branch ${branch} already exists; no reset is allowed`,
   );
 }
-reserveTaskPreparing(recordPath, {
+const preparingRecord = {
   branch,
   factoryBaseSha: launchBaseSha,
   mode: "resume-review",
@@ -351,7 +404,21 @@ reserveTaskPreparing(recordPath, {
   taskBaseSha,
   taskId,
   workdir,
-});
+} as const;
+if (terminalTransition !== undefined) {
+  replaceTerminalTaskRecord({
+    auditPath,
+    expectedContent: terminalTransition.expectedContent,
+    now,
+    recordPath,
+    replacement: preparingRecord,
+    runId: terminalTransition.runId,
+    status: terminalTransition.status,
+    taskId,
+  });
+} else {
+  reserveTaskPreparing(recordPath, preparingRecord);
+}
 if (disposition.kind === "create") {
   runRtk(["git", "worktree", "add", "-b", branch, workdir, factoryBase]);
   hydrateWorktreeDependencies(root, workdir);
