@@ -1,0 +1,69 @@
+{
+  "lens": "contract",
+  "taskId": "S13-T03",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "taskBlockHash": "13c071bc2c78035c5563f494b38160a96c981ab2962984f056be4e18853e137e",
+  "baseSha": "f66236e12f93bc254cc2350800a5b2a69d0caff5",
+  "headSha": "3a8e6172e1c542928fdb80175dabadd36c1a599e",
+  "treeSha": "2bfc58008c6dd9598a01484621d34887005d9d05",
+  "reviewerRunId": "maestro/review/S13-T03/3a8e6172e1c542928fdb80175dabadd36c1a599e/ade6e852-8186-47dd-94bc-e07f53f46bd6-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3549-3595 defines S13-T03 outcome, classification, files, failure-first tests, implementation requirements, typed errors/state, rollback, and focused verification.",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json task S13-T03 records title Add Redacted Telemetry, Budgets, And Kill Switches, requirements AI-04/REL-03/SLK-07, classification template-gap, lane operations, and taskBlockHash 13c071bc2c78035c5563f494b38160a96c981ab2962984f056be4e18853e137e.",
+        "packages/convex/test/brain-operation-policy.test.ts:32-467 covers subsystem enumeration, state transitions, typed Confect schemas, durable redacted records/audit, expiry, idempotency replay, authorization, list, and persistence behavior."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts:9-24 declares the BrainOperationSubsystem and BrainOperationPolicyState Effect schemas for the operation policy API.",
+        "packages/convex/confect/ops/brainOperations.spec.ts:26-47 declares typed OperatorForbidden, BudgetExceeded, SubsystemDisabled, and RecoveryGenerationMismatch errors and includes them in OperationError with existing workspace/access errors.",
+        "packages/convex/confect/ops/brainOperations.spec.ts:72-107 defines typed listPolicies and setPolicyInternal args/returns, including expectedGeneration, budgetCheck, expiresAt, generation, and redacted reason fields."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/policies.ts:4-23 provides the durable policies table with policyKey, workspace scope, version, status, dataJson, activation fields, and by_policy_version index used by operation policies.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:188-216 serializes operation policy data into the durable policy row using subsystem-scoped keys and redacted policy reason text.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:136-152 retires the prior active row before inserting a new active durable policy record for the same workspace/subsystem."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3553-3556 classifies S13-T03 as template-gap targeting TB-OPERATIONS-01 and calls for a generic safe-operations pattern.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3575-3586 requires redacted telemetry/budgets and independent kill switches; packages/observability/src/brainMetrics.ts:1-114 implements the generic Brain metric/budget helper types and redaction/admission helpers.",
+        "docs/product/maestro-brain-operations.md:1-63 documents the S13-T03 safe-operations seam, metric dictionary, budget contract, kill-switch state machine, independent controls, and completion receipt."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json task S13-T03 fileLocks include docs/product/maestro-brain-operations.md, the brainOperations spec/impl/policy files, flags spec/impl, brain operation policy tests, observability brainMetrics files, observability index, and the logging boundary check.",
+        "git diff --name-only f66236e12f93bc254cc2350800a5b2a69d0caff5..HEAD lists only the S13-T03 locked files: docs/product/maestro-brain-operations.md; packages/convex/confect/ops/brainOperationPolicy.ts; packages/convex/confect/ops/brainOperations.impl.ts; packages/convex/confect/ops/brainOperations.spec.ts; packages/convex/confect/ops/flags.impl.ts; packages/convex/confect/ops/flags.spec.ts; packages/convex/test/brain-operation-policy.test.ts; packages/observability/src/brainMetrics.test.ts; packages/observability/src/brainMetrics.ts; packages/observability/src/index.ts; tooling/quality/check-logging-boundary.mts.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3840-3841 and 4497 classify S13-T03 as template-gap operations policy and ready, matching the manifest ownership metadata."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperationPolicy.ts:83-115 returns OperatorForbidden for under-privileged operators and owner-required disabled recovery, and RecoveryGenerationMismatch for stale expected generations.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:128-165 evaluates disabled policies as SubsystemDisabled with the supplied subsystem and stale expected generations as RecoveryGenerationMismatch.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:68-117 enforces workspace access/operator role, durable idempotency replay, BudgetExceeded for exceeded admission/expiry limits, and SubsystemDisabled when trying to pause an already disabled subsystem.",
+        "packages/convex/test/brain-operation-policy.test.ts:86-130, 133-184, 231-242, and 244-466 assert stale operator/generation failures, typed schema contracts, expiry behavior, replay, access denial, persisted redaction, and subsystem-specific SubsystemDisabled payloads."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
