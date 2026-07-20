@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   mkdirSync,
   mkdtempSync,
@@ -20,6 +21,8 @@ import { auditedTerminalResumeRecord } from "../src/dispatch-ownership.js";
 import { archiveTerminalRun } from "../src/terminal-archive.js";
 
 const roots: string[] = [];
+const sha256 = (value: string): string =>
+  createHash("sha256").update(value).digest("hex");
 const git = (cwd: string, ...args: string[]): string =>
   execFileSync("git", args, {
     cwd,
@@ -88,11 +91,20 @@ describe("preserved resume launch validation", () => {
   it("adopts an exact clean terminal authority-refresh owner", () => {
     const value = fixture();
     const taskId = "S08-T03";
+    const authorityId = "a1b2c3d4e5f6";
+    const branch = `fabro/review-s08-t03-authority-${authorityId}`;
+    const authorityWorkdir = join(
+      value.workdir,
+      "..",
+      `resume-s08-t03-authority-${authorityId}`,
+    );
+    git(value.workdir, "branch", "-m", branch);
+    git(value.repo, "worktree", "move", value.workdir, authorityWorkdir);
     const currentBase = value.control;
-    writeFileSync(join(value.workdir, "current.txt"), "current lane\n");
-    git(value.workdir, "add", "current.txt");
-    git(value.workdir, "commit", "-m", "current lane");
-    const currentHead = git(value.workdir, "rev-parse", "HEAD");
+    writeFileSync(join(authorityWorkdir, "current.txt"), "current lane\n");
+    git(authorityWorkdir, "add", "current.txt");
+    git(authorityWorkdir, "commit", "-m", "current lane");
+    const currentHead = git(authorityWorkdir, "rev-parse", "HEAD");
     const proofDirectory = join(value.evidence, "lane-results", taskId);
     mkdirSync(proofDirectory, { recursive: true });
     writeFileSync(
@@ -108,42 +120,55 @@ describe("preserved resume launch validation", () => {
       JSON.stringify({
         headSha: currentHead,
         taskId,
-        treeSha: git(value.workdir, "rev-parse", "HEAD^{tree}"),
+        treeSha: git(authorityWorkdir, "rev-parse", "HEAD^{tree}"),
       }),
     );
     const archiveDirectory = join(
       value.evidence,
       "authority-refreshes",
       taskId,
-      "authority-owner",
+      authorityId,
     );
     mkdirSync(archiveDirectory, { recursive: true });
     const archivedCommits = git(
-      value.workdir,
+      authorityWorkdir,
       "rev-list",
       "--reverse",
       `${value.base}..${value.sourceHeadSha}`,
     ).split("\n");
+    const artifactContents = {
+      "prior-final-gate.json": '{"gate":"prior"}\n',
+      "prior-lane-result.json": '{"lane":"prior"}\n',
+      "prior-proof.json": '{"proof":"prior"}\n',
+    } as const;
+    for (const [file, content] of Object.entries(artifactContents))
+      writeFileSync(join(archiveDirectory, file), content);
+    const manifest = {
+      schemaVersion: "maestro-brain-authority-refresh-archive/v1",
+      taskId,
+      authorityId,
+      currentAuthority: { controlHeadSha: currentBase },
+      source: {
+        baseSha: value.base,
+        commits: archivedCommits,
+        headSha: value.sourceHeadSha,
+      },
+      artifacts: Object.entries(artifactContents).map(([file, content]) => ({
+        file,
+        sha256: sha256(content),
+      })),
+    };
     writeFileSync(
       join(archiveDirectory, "manifest.json"),
-      JSON.stringify({
-        schemaVersion: "maestro-brain-authority-refresh-archive/v1",
-        taskId,
-        currentAuthority: { controlHeadSha: currentBase },
-        source: {
-          baseSha: value.base,
-          commits: archivedCommits,
-          headSha: value.sourceHeadSha,
-        },
-      }),
+      JSON.stringify(manifest),
     );
     const input = {
       controlCommonDir: value.commonDir,
       evidence: value.evidence,
       record: {
-        authorityArchivePath: archiveDirectory,
+        authorityArchivePath: realpathSync(archiveDirectory),
         baseSha: currentBase,
-        branch: value.branch,
+        branch,
         factoryBaseSha: currentBase,
         mode: "authority-refresh",
         resumeStrategy: "in-lane-cherry-pick",
@@ -152,7 +177,7 @@ describe("preserved resume launch validation", () => {
         status: "launched",
         taskBaseSha: value.base,
         taskId,
-        workdir: realpathSync(value.workdir),
+        workdir: realpathSync(authorityWorkdir),
       },
       resumeCommits: [currentHead],
       sourceHeadSha: currentHead,
@@ -162,12 +187,12 @@ describe("preserved resume launch validation", () => {
     } as const;
 
     expect(validateTerminalAuthorityResumeOwner(input)).toEqual({
-      branch: value.branch,
+      branch,
       factoryBaseSha: currentBase,
       proofHeadSha: currentHead,
       resumeStrategy: "in-lane-cherry-pick",
       startSha: currentHead,
-      workdir: realpathSync(value.workdir),
+      workdir: realpathSync(authorityWorkdir),
     });
     expect(() =>
       validateTerminalAuthorityResumeOwner({
@@ -189,10 +214,72 @@ describe("preserved resume launch validation", () => {
     ).toThrow("authority owner archive provenance mismatch");
     const archiveManifestPath = join(archiveDirectory, "manifest.json");
     const archiveManifestContent = readFileSync(archiveManifestPath, "utf8");
+    const missingAuthorityId = { ...manifest, authorityId: undefined };
+    writeFileSync(archiveManifestPath, JSON.stringify(missingAuthorityId));
+    expect(() => validateTerminalAuthorityResumeOwner(input)).toThrow(
+      "authority owner archive identity mismatch",
+    );
+    writeFileSync(
+      archiveManifestPath,
+      JSON.stringify({ ...manifest, authorityId: "f1e2d3c4b5a6" }),
+    );
+    expect(() => validateTerminalAuthorityResumeOwner(input)).toThrow(
+      "authority owner archive identity mismatch",
+    );
+    writeFileSync(archiveManifestPath, archiveManifestContent);
+    expect(() =>
+      validateTerminalAuthorityResumeOwner({
+        ...input,
+        record: {
+          ...input.record,
+          branch: "fabro/review-s08-t03-authority-f1e2d3c4b5a6",
+        },
+      }),
+    ).toThrow("authority owner recorded coordinates mismatch");
+    expect(() =>
+      validateTerminalAuthorityResumeOwner({
+        ...input,
+        record: {
+          ...input.record,
+          workdir: join(
+            authorityWorkdir,
+            "..",
+            "resume-s08-t03-authority-f1e2d3c4b5a6",
+          ),
+        },
+      }),
+    ).toThrow("authority owner recorded coordinates mismatch");
+    const copiedArchive = join(
+      value.evidence,
+      "authority-refreshes",
+      taskId,
+      "f1e2d3c4b5a6",
+    );
+    mkdirSync(copiedArchive, { recursive: true });
+    for (const [file, content] of Object.entries(artifactContents))
+      writeFileSync(join(copiedArchive, file), content);
+    writeFileSync(join(copiedArchive, "manifest.json"), archiveManifestContent);
+    expect(() =>
+      validateTerminalAuthorityResumeOwner({
+        ...input,
+        record: { ...input.record, authorityArchivePath: copiedArchive },
+      }),
+    ).toThrow("authority owner archive identity mismatch");
+    writeFileSync(
+      join(archiveDirectory, "prior-proof.json"),
+      '{"proof":"forged"}\n',
+    );
+    expect(() => validateTerminalAuthorityResumeOwner(input)).toThrow(
+      "authority owner archive artifact hash mismatch",
+    );
+    writeFileSync(
+      join(archiveDirectory, "prior-proof.json"),
+      artifactContents["prior-proof.json"],
+    );
     const nonancestralManifest = JSON.parse(archiveManifestContent);
     nonancestralManifest.source.baseSha = value.sourceCommit;
     nonancestralManifest.source.commits = git(
-      value.workdir,
+      authorityWorkdir,
       "rev-list",
       "--reverse",
       `${value.sourceCommit}..${value.sourceHeadSha}`,
@@ -233,10 +320,10 @@ describe("preserved resume launch validation", () => {
       JSON.stringify({
         headSha: currentHead,
         taskId,
-        treeSha: git(value.workdir, "rev-parse", "HEAD^{tree}"),
+        treeSha: git(authorityWorkdir, "rev-parse", "HEAD^{tree}"),
       }),
     );
-    writeFileSync(join(value.workdir, "dirty.txt"), "dirty\n");
+    writeFileSync(join(authorityWorkdir, "dirty.txt"), "dirty\n");
     expect(() => validateTerminalAuthorityResumeOwner(input)).toThrow(
       "clean preserved worktree is dirty",
     );

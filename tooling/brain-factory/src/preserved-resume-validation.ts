@@ -1,5 +1,6 @@
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
-import { resolve } from "node:path";
+import { basename, resolve } from "node:path";
 
 import { gitIsAncestor, runRtk } from "./process.js";
 import { nonEmptyResumeCommits } from "./resume-support.js";
@@ -309,6 +310,8 @@ export const validateTerminalAuthorityResumeOwner = (input: {
   const archiveManifest = JSON.parse(
     readFileSync(archiveManifestPath, "utf8"),
   ) as {
+    readonly artifacts?: unknown;
+    readonly authorityId?: unknown;
     readonly currentAuthority?: { readonly controlHeadSha?: unknown };
     readonly schemaVersion?: unknown;
     readonly source?: {
@@ -318,6 +321,29 @@ export const validateTerminalAuthorityResumeOwner = (input: {
     };
     readonly taskId?: unknown;
   };
+  const authorityId = archiveManifest.authorityId;
+  if (
+    typeof authorityId !== "string" ||
+    !/^[0-9a-f]{12}$/.test(authorityId) ||
+    input.record.authorityArchivePath !== archiveDirectory ||
+    basename(archiveDirectory) !== authorityId ||
+    realpathSync(
+      resolve(input.evidence, "authority-refreshes", input.taskId, authorityId),
+    ) !== archiveDirectory
+  ) {
+    throw new Error(
+      `${input.taskId}: authority owner archive identity mismatch`,
+    );
+  }
+  const slug = input.taskId.toLowerCase();
+  if (
+    input.record.branch !== `fabro/review-${slug}-authority-${authorityId}` ||
+    basename(input.record.workdir) !== `resume-${slug}-authority-${authorityId}`
+  ) {
+    throw new Error(
+      `${input.taskId}: authority owner recorded coordinates mismatch`,
+    );
+  }
   if (
     archiveManifest.schemaVersion !==
       "maestro-brain-authority-refresh-archive/v1" ||
@@ -333,6 +359,50 @@ export const validateTerminalAuthorityResumeOwner = (input: {
     throw new Error(
       `${input.taskId}: authority owner archive provenance mismatch`,
     );
+  }
+  if (
+    !Array.isArray(archiveManifest.artifacts) ||
+    archiveManifest.artifacts.length === 0
+  ) {
+    throw new Error(
+      `${input.taskId}: authority owner archive artifacts are missing`,
+    );
+  }
+  const artifactFiles = new Set<string>();
+  for (const value of archiveManifest.artifacts) {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      throw new Error(
+        `${input.taskId}: authority owner archive artifact identity mismatch`,
+      );
+    }
+    const artifact = value as { file?: unknown; sha256?: unknown };
+    if (
+      typeof artifact.file !== "string" ||
+      artifact.file !== basename(artifact.file) ||
+      artifact.file === "manifest.json" ||
+      artifactFiles.has(artifact.file) ||
+      typeof artifact.sha256 !== "string" ||
+      !/^[0-9a-f]{64}$/.test(artifact.sha256)
+    ) {
+      throw new Error(
+        `${input.taskId}: authority owner archive artifact identity mismatch`,
+      );
+    }
+    artifactFiles.add(artifact.file);
+    const artifactPath = resolve(archiveDirectory, artifact.file);
+    if (!existsSync(artifactPath)) {
+      throw new Error(
+        `${input.taskId}: authority owner archive artifact is missing`,
+      );
+    }
+    const actualHash = createHash("sha256")
+      .update(readFileSync(artifactPath))
+      .digest("hex");
+    if (actualHash !== artifact.sha256) {
+      throw new Error(
+        `${input.taskId}: authority owner archive artifact hash mismatch`,
+      );
+    }
   }
   const validated = validatePreservedResumeLaunch({
     baseSha: input.taskBaseSha,
