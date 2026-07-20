@@ -1,0 +1,69 @@
+{
+  "lens": "contract",
+  "taskId": "S03-T03",
+  "planSha256": "e5ad32c375d4fd307b3d5bccd47ea6cf4e9b7580f23bb506c893fd94019ca7c5",
+  "taskBlockHash": "731df4dab1d4fe34d6a51b801388996973ae3d13fa88bc0cef8e2b8b1be9bbe5",
+  "baseSha": "aa979378a853ca705f423846a79abe8030f0619b",
+  "headSha": "4ac23d065a3495c2075ecf4b32c1b6cd43c10756",
+  "treeSha": "476da87aee7eb46f02e3b15a7500e2911944a294",
+  "reviewerRunId": "maestro/review/S03-T03/4ac23d065a3495c2075ecf4b32c1b6cd43c10756/30011ebf-584e-4ab3-9416-8679e30d8152-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1211-1283",
+        "apps/web/src/routes/_workspace.brain.tsx:1-35",
+        "apps/web/src/features/brain/brain-workspace.tsx:87-121"
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.spec.ts:109-121",
+        "packages/convex/confect/brain/pages.spec.ts:204-224",
+        "packages/convex/test/brain-pages.contract.test.ts:56-68"
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pageSchemas.ts:25-36",
+        "packages/convex/confect/brain/pageSchemas.ts:57-77",
+        "apps/web/src/features/brain/brain-surface.ts:334-342"
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1213-1219",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1249-1279",
+        "ci-proof-packet.json:31-87"
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:447-487",
+        "ci-proof-packet.json:8-29",
+        "rtk proxy git diff --name-only aa979378a853ca705f423846a79abe8030f0619b..4ac23d065a3495c2075ecf4b32c1b6cd43c10756"
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.spec.ts:23-36",
+        "packages/convex/confect/brain/pages.spec.ts:123-135",
+        "packages/convex/confect/brain/pages.impl.ts:614-631",
+        "apps/web/src/features/brain/brain-workspace.tsx:58-66"
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
