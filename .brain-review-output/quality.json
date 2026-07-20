@@ -1,0 +1,83 @@
+{
+  "lens": "quality",
+  "taskId": "S04-T04",
+  "planSha256": "b6c8c42e744502700c8607be941e8f3dbe1e790d70abc7f3666efbf69554f9ca",
+  "taskBlockHash": "43fe7362c17307d938a689c31cfaa350124a5029c8ef938d09c8f08066ec12c5",
+  "baseSha": "e8f008574eff0d1a21700ff02926ac4c9870d425",
+  "headSha": "aa97689aa9e5fd3bc49e138cc42e4762ec3cdaef",
+  "treeSha": "bc89a6428573230fa09cbc036f2b7f0028800806",
+  "reviewerRunId": "maestro/review/S04-T04/aa97689aa9e5fd3bc49e138cc42e4762ec3cdaef/ff894c45-3aee-487a-9217-dc32a1e60be5-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1563-1564 requires admins to bulk-select joined channels and set explicit policies, and lines 1591-1598 require accepted bulk changes with routing/delivery policy semantics.",
+        "apps/web/src/features/connections/channel-policy-view-model.test.ts:25-90 tests pure label/control metadata and capacity strings only; it does not render or exercise selecting channels, changing policy controls, or submitting a policy change.",
+        "rtk proxy rg over apps/web/src/features/connections apps/web/src/routes/_workspace.connections.tsx finds no useMutation, generated Confect ref, submit handler, checked/onChange state, or reference to bulkSetChannelPolicies; the only route policy data source is localChannelPolicyFixture."
+      ],
+      "findingIds": ["S04-T04-QUALITY-004"]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "apps/web/src/routes/_workspace.connections.tsx:4-8 imports feature-level connection/channel policy UI and a feature adapter fixture at the route boundary; feature components do not import route modules, provider SDKs, or workspace auth internals.",
+        "packages/convex/confect/slack/channelPolicies.spec.ts:41-52 defines the Confect internal mutation contract, and packages/convex/confect/slack/channelPolicies.impl.ts:26-168 implements it through FunctionImpl/GroupImpl with DatabaseReader/DatabaseWriter services.",
+        "lane-gate-report.json for headSha aa97689aa9e5fd3bc49e138cc42e4762ec3cdaef includes rtk pnpm check:layer-boundaries and records status=passed."
+      ]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "finding",
+      "evidence": [
+        "apps/web/src/routes/_workspace.connections.tsx:53-61 renders policy rows and selectedChannelCount directly from localChannelPolicyFixture, so the visible control plane is disconnected from actual selected checkboxes or backend policy state.",
+        "apps/web/src/features/connections/channel-table.tsx:25-29 renders uncontrolled checkboxes with no checked value or onChange callback, and apps/web/src/features/connections/channel-policy-dialog.tsx:30-61 renders uncontrolled radio/text inputs plus an Apply button with no submit callback.",
+        "Because the UI controls are static and not connected to the Confect mutation, future work would need to replace this feature contract rather than complete a wired bulk-policy flow."
+      ],
+      "findingIds": ["S04-T04-QUALITY-004"]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.impl.ts:37-50 records denied privileged slack.channelPolicyChanged attempts with a redacted reason, and lines 145-168 records successful policy changes with outcome/action/targetCount metadata only.",
+        "packages/convex/confect/access/audit.ts:7-22 includes slack.channelPolicyChanged in the privileged audit action enum; lines 67-85 build redacted denial events and lines 95-103 persist access audit rows.",
+        "lane-gate-report.json for headSha aa97689aa9e5fd3bc49e138cc42e4762ec3cdaef includes rtk pnpm check:access-audit-events and records status=passed."
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "lane-gate-report.json records changedSourceLines=932, estimatedSourceLines=290, sourceSliceBudget=300, sourceSliceLimit=4, and four sourceSlices of 291, 142, 252, and 247 changed source lines.",
+        "Although estimateDrift is true, the exact-head pre-review lane gate passed with status=passed for headSha aa97689aa9e5fd3bc49e138cc42e4762ec3cdaef and currentTreeSha bc89a6428573230fa09cbc036f2b7f0028800806, proving the enforced slice budget contract was satisfied."
+      ]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "pass",
+      "evidence": [
+        "rtk proxy git diff --name-only e8f008574eff0d1a21700ff02926ac4c9870d425..HEAD lists only source/test/doc files and no generated Confect or Convex output paths.",
+        "lane-gate-report.json for the exact head includes rtk pnpm brain:factory:check-confect-codegen and rtk pnpm check:confect-v9 with status=passed.",
+        "Per the review instruction, generated Confect and Convex output is integration-owned by Appendices O/P; absence from the checked-in generated tree is expected because the exact-head transient codegen gate passed and this task diff did not edit generated paths."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "S04-T04-QUALITY-004",
+      "severity": "high",
+      "summary": "Connections policy controls are static and cannot submit bulk policy changes.",
+      "details": "S04-T04 requires admins to bulk-select joined channels and set explicit routing and delivery policies. The route now renders checkboxes, radio buttons, an allowlist input, and an Apply button, but all of them are uncontrolled static elements backed by localChannelPolicyFixture. There is no selected-channel state, no policy input state, no submit handler, and no Confect mutation/ref wiring to bulkSetChannelPolicies, so an admin cannot actually apply the accepted bulk change from the UI. The focused web tests only assert pure view-model metadata and do not render/prove the interactive Connections control-plane behavior, making the web gate a false green for the UI requirement.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1563-1564: admins can bulk-select any joined channels and set explicit policies.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1591-1598 requires routing/delivery policy semantics, launch caps, and accepted all-or-nothing bulk changes.",
+        "apps/web/src/routes/_workspace.connections.tsx:53-61 passes rows and selectedChannelCount from localChannelPolicyFixture rather than live selected state or backend policy data.",
+        "apps/web/src/features/connections/channel-table.tsx:25-29 renders uncontrolled checkboxes without checked/onChange state, and apps/web/src/features/connections/channel-policy-dialog.tsx:30-61 renders uncontrolled policy inputs plus an Apply button without a submit callback.",
+        "apps/web/src/features/connections/channel-policy-view-model.test.ts:25-90 tests only pure rows/control labels/capacity warnings; rtk proxy rg over the changed web connection scope finds no useMutation, generated Confect ref, submit handler, checked/onChange selection state, or reference to bulkSetChannelPolicies."
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
