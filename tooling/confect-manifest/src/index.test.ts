@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import * as Schema from "effect/Schema";
 import {
@@ -10,6 +11,16 @@ import {
 } from "./index";
 
 describe("confect manifest tooling", () => {
+  it("includes generated Confect JSON imports in its composite project", () => {
+    const tsconfig = JSON.parse(
+      readFileSync(new URL("../tsconfig.json", import.meta.url), "utf8"),
+    ) as { readonly include?: readonly string[] };
+
+    expect(tsconfig.include).toContain(
+      "../../packages/convex/confect/**/*.json",
+    );
+  });
+
   it("sorts operation ids for deterministic output", () => {
     const manifest = buildContractManifest([
       {
