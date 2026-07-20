@@ -421,26 +421,103 @@ describe("preserved resume launch validation", () => {
       proofHeadSha: failedHead,
       startSha: failedHead,
     });
+    writeFileSync(
+      join(proofDirectory, "lane-result.json"),
+      `${archivedLaneResult}\n`,
+    );
+    expect(() => validateTerminalAuthorityResumeOwner(failedInput)).toThrow(
+      "authority owner archived lane identity mismatch",
+    );
+    writeFileSync(join(proofDirectory, "lane-result.json"), archivedLaneResult);
+    const nonAdvancedManifest = {
+      ...manifest,
+      source: {
+        baseSha: value.base,
+        commits: git(
+          authorityWorkdir,
+          "rev-list",
+          "--reverse",
+          `${value.base}..${failedHead}`,
+        ).split("\n"),
+        headSha: failedHead,
+      },
+    };
+    writeFileSync(archiveManifestPath, JSON.stringify(nonAdvancedManifest));
+    expect(() =>
+      validateTerminalAuthorityResumeOwner({
+        ...failedInput,
+        record: { ...input.record, sourceHeadSha: failedHead },
+      }),
+    ).toThrow("authority owner lane identity mismatch");
+    writeFileSync(archiveManifestPath, archiveManifestContent);
     expect(() =>
       validateTerminalAuthorityResumeOwner({
         ...failedInput,
         status: "succeeded",
       }),
     ).toThrow("authority owner lane identity mismatch");
-    writeFileSync(
-      join(proofDirectory, "ci-proof-packet.json"),
-      JSON.stringify({ ...failedProof, reviewHeadSha: currentHead }),
-    );
-    expect(() => validateTerminalAuthorityResumeOwner(failedInput)).toThrow(
-      "authority owner failed review identity mismatch",
-    );
-    writeFileSync(
-      join(proofDirectory, "ci-proof-packet.json"),
-      JSON.stringify({ ...failedProof, reviewVerdict: "pass" }),
-    );
-    expect(() => validateTerminalAuthorityResumeOwner(failedInput)).toThrow(
-      "authority owner failed review identity mismatch",
-    );
+    const proofRejections = [
+      {
+        error: "authority owner failed review identity mismatch",
+        name: "wrong schema",
+        proof: { ...failedProof, schemaVersion: "wrong" },
+      },
+      {
+        error: "preserved proof identity mismatch",
+        name: "wrong task",
+        proof: { ...failedProof, taskId: "S08-T04" },
+      },
+      {
+        error: "preserved proof head mismatch",
+        name: "wrong head",
+        proof: { ...failedProof, headSha: currentHead },
+      },
+      {
+        error: "authority owner failed review identity mismatch",
+        name: "wrong review head",
+        proof: { ...failedProof, reviewHeadSha: currentHead },
+      },
+      {
+        error: "authority owner failed review identity mismatch",
+        name: "invalid plan hash",
+        proof: { ...failedProof, planSha256: "invalid" },
+      },
+      {
+        error: "authority owner failed review identity mismatch",
+        name: "invalid task block hash",
+        proof: { ...failedProof, taskBlockHash: "invalid" },
+      },
+      {
+        error: "authority owner failed review identity mismatch",
+        name: "pass verdict",
+        proof: { ...failedProof, reviewVerdict: "pass" },
+      },
+      {
+        error: "authority owner failed review identity mismatch",
+        name: "empty findings",
+        proof: { ...failedProof, reviewFindings: [] },
+      },
+      {
+        error: "authority owner failed review identity mismatch",
+        name: "malformed findings",
+        proof: { ...failedProof, reviewFindings: [{}] },
+      },
+      {
+        error: "authority owner failed review identity mismatch",
+        name: "whitespace finding ID",
+        proof: { ...failedProof, reviewFindings: [{ id: "   " }] },
+      },
+    ] as const;
+    for (const rejection of proofRejections) {
+      writeFileSync(
+        join(proofDirectory, "ci-proof-packet.json"),
+        JSON.stringify(rejection.proof),
+      );
+      expect(
+        () => validateTerminalAuthorityResumeOwner(failedInput),
+        rejection.name,
+      ).toThrow(rejection.error);
+    }
     writeFileSync(
       join(proofDirectory, "ci-proof-packet.json"),
       JSON.stringify(failedProof),

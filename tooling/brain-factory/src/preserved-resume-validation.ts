@@ -543,7 +543,7 @@ export const validateTerminalAuthorityResumeOwner = (input: {
         finding !== null &&
         !Array.isArray(finding) &&
         typeof (finding as { readonly id?: unknown }).id === "string" &&
-        (finding as { readonly id: string }).id.length > 0,
+        (finding as { readonly id: string }).id.trim().length > 0,
     )
   ) {
     throw new Error(
