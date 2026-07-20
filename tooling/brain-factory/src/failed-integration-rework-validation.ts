@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import type { IntegrationWaveTaskSnapshot } from "./integration-wave.js";
+import { validateIntegrationWaveSupersessionReceipt } from "./integration-wave-supersession.js";
 
 export const sha256 = (value: string): string =>
   createHash("sha256").update(value).digest("hex");
@@ -133,55 +134,104 @@ export const validateFailedBroadGate = (input: {
   }
 };
 
+const typeCoverageObservation = (
+  value: unknown,
+  expectedHeadSha: string,
+  label: "base" | "candidate",
+): { readonly covered: number; readonly total: number } => {
+  const observation = record(value, `${label} type coverage`);
+  if (
+    observation.headSha !== expectedHeadSha ||
+    !Number.isInteger(observation.exitCode) ||
+    typeof observation.output !== "string"
+  )
+    throw new Error(`${label} type coverage identity drift`);
+  const match = /\((\d+)\s*\/\s*(\d+)\)\s*([0-9]+(?:\.[0-9]+)?)%/.exec(
+    observation.output,
+  );
+  if (!match?.[1] || !match[2] || !match[3])
+    throw new Error(`${label} type coverage output is invalid`);
+  const covered = Number(match[1]);
+  const total = Number(match[2]);
+  const displayed = Number(match[3]);
+  if (
+    !Number.isSafeInteger(covered) ||
+    !Number.isSafeInteger(total) ||
+    covered < 0 ||
+    total <= 0 ||
+    covered > total ||
+    Math.abs((covered / total) * 100 - displayed) > 0.011
+  )
+    throw new Error(`${label} type coverage output is inconsistent`);
+  return { covered, total };
+};
+
+export const validateTypeCoverageRegression = (input: {
+  readonly baseSha: string;
+  readonly candidateHeadSha: string;
+  readonly content: string;
+  readonly taskId: string;
+}): void => {
+  const evidence = parseRecord(input.content, "type coverage regression");
+  if (
+    evidence.schemaVersion !== "maestro-brain-type-coverage-regression/v1" ||
+    evidence.taskId !== input.taskId ||
+    evidence.command !== "rtk pnpm check:types-coverage"
+  )
+    throw new Error("type coverage regression identity drift");
+  const base = typeCoverageObservation(evidence.base, input.baseSha, "base");
+  const candidateRecord = record(evidence.candidate, "candidate type coverage");
+  const candidate = typeCoverageObservation(
+    candidateRecord,
+    input.candidateHeadSha,
+    "candidate",
+  );
+  if (
+    candidateRecord.exitCode === 0 ||
+    candidate.covered * base.total >= base.covered * candidate.total
+  )
+    throw new Error("candidate type coverage did not regress and fail");
+};
+
+export const isTypeCoverageFindingId = (value: string): boolean =>
+  value.includes("type-coverage");
+
 export const validateSupersession = (input: {
   readonly broadGateContent: string;
+  readonly currentControlHead: string;
   readonly integrationResultContent: string;
-  readonly selectionFileSha256: string;
-  readonly selectionPayloadSha256: string;
-  readonly selectionPlanSha256: string;
-  readonly selectionBaseSha: string;
+  readonly isAncestor: (ancestor: string, descendant: string) => boolean;
   readonly integrationId: string;
+  readonly runRecordContent: string;
+  readonly selectionContent: string;
+  readonly selectionPath: string;
   readonly supersession: Record<string, unknown>;
   readonly taskId: string;
 }): void => {
-  const receiptSha256 = input.supersession.receiptSha256;
-  const payload = { ...input.supersession };
-  delete payload.receiptSha256;
-  if (receiptSha256 !== sha256(JSON.stringify(payload))) {
-    throw new Error("failed integration supersession receipt digest drift");
-  }
+  const validated = validateIntegrationWaveSupersessionReceipt({
+    currentControlHead: input.currentControlHead,
+    expectedIntegrationId: input.integrationId,
+    isAncestor: input.isAncestor,
+    receipt: input.supersession,
+    runRecordContent: input.runRecordContent,
+    selectionContent: input.selectionContent,
+    selectionPath: input.selectionPath,
+  });
   if (
-    input.supersession.schemaVersion !==
-      "maestro-brain-integration-wave-supersession/v2" ||
-    input.supersession.status !== "superseded" ||
-    input.supersession.integrationId !== input.integrationId ||
-    input.supersession.baseSha !== input.selectionBaseSha ||
-    input.supersession.controlHeadSha !== input.selectionBaseSha ||
-    input.supersession.planSha256 !== input.selectionPlanSha256 ||
-    input.supersession.selectionFileSha256 !== input.selectionFileSha256 ||
-    input.supersession.selectionPayloadSha256 !==
-      input.selectionPayloadSha256 ||
-    JSON.stringify(input.supersession.selectedTaskIds) !==
-      JSON.stringify([input.taskId])
-  ) {
-    throw new Error("failed integration supersession identity drift");
-  }
-  if (
-    !Array.isArray(input.supersession.runAttempts) ||
-    input.supersession.runAttempts.length === 0 ||
-    input.supersession.runAttempts.some(
-      (value, index) =>
-        record(value, `supersession run ${index + 1}`).status !== "failed",
-    )
+    validated.runAttempts.length === 0 ||
+    validated.runAttempts.some(({ status }) => status !== "failed") ||
+    JSON.stringify(validated.selectedTaskIds) !== JSON.stringify([input.taskId])
   ) {
     throw new Error("failed integration wave is not terminal failed");
   }
-  const evidence = input.supersession.evidence;
+  const evidence = validated.evidence;
   if (
-    !Array.isArray(evidence) ||
     !evidence.includes(`broad-gate-sha256:${sha256(input.broadGateContent)}`) ||
     !evidence.includes(
       `integration-result-sha256:${sha256(input.integrationResultContent)}`,
+    ) ||
+    validated.runAttempts.some(
+      ({ runId }) => !evidence.includes(`run:${runId}:failed`),
     )
   ) {
     throw new Error("failed integration supersession evidence drift");

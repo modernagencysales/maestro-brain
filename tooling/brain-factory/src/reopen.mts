@@ -227,15 +227,47 @@ if (failedIntegrationId) {
   );
   const supersessionPath = resolve(integrationDirectory, "supersession.json");
   const promotionPath = resolve(integrationDirectory, "promotion.json");
+  const failedIntegrationResult = JSON.parse(
+    readFileSync(integrationResultPath, "utf8"),
+  ) as Record<string, unknown>;
+  const typeCoverageFinding = Array.isArray(
+    failedIntegrationResult.remainingFindings,
+  )
+    ? failedIntegrationResult.remainingFindings.some(
+        (finding) =>
+          typeof finding === "object" &&
+          finding !== null &&
+          !Array.isArray(finding) &&
+          typeof (finding as { readonly id?: unknown }).id === "string" &&
+          (finding as { readonly id: string }).id.includes("type-coverage"),
+      )
+    : false;
+  const typeCoverageRegressionPath = typeCoverageFinding
+    ? resolve(
+        integrationDirectory,
+        `type-coverage-regression-${String(failedIntegrationResult.headSha ?? "")}.json`,
+      )
+    : undefined;
   const proofPath = resolve(laneDirectory, "ci-proof-packet.json");
   const finalGatePath = resolve(laneDirectory, "lane-gate-report.json");
   const sourceRecordPath = resolve(state, "runs", `${taskId}.json`);
+  const failedRunRecordPath = resolve(
+    state,
+    "runs",
+    `integration-${failedIntegrationId}.json`,
+  );
   for (const [path, label] of [
     [broadGatePath, "failed broad gate receipt"],
     [supersessionPath, "failed wave supersession"],
     [proofPath, "lane proof"],
     [finalGatePath, "lane final gate"],
     [sourceRecordPath, "source run record"],
+    [failedRunRecordPath, "failed wave run record"],
+    ...(typeCoverageRegressionPath
+      ? ([
+          [typeCoverageRegressionPath, "type coverage regression evidence"],
+        ] as const)
+      : []),
   ] as const) {
     if (!existsSync(path)) throw new Error(`${taskId}: ${label} is missing`);
   }
@@ -263,7 +295,9 @@ if (failedIntegrationId) {
     promotionExists: existsSync(promotionPath),
     proofContent: readFileSync(proofPath, "utf8"),
     reason,
+    runRecordContent: readFileSync(failedRunRecordPath, "utf8"),
     selectionContent: readFileSync(failedSelectionPath, "utf8"),
+    selectionPath: failedSelectionPath,
     sourceBranch: runRtk(
       ["git", "-C", sourceWorkdir, "branch", "--show-current"],
       {
@@ -284,6 +318,14 @@ if (failedIntegrationId) {
     ),
     supersessionContent: readFileSync(supersessionPath, "utf8"),
     taskId,
+    ...(typeCoverageRegressionPath
+      ? {
+          typeCoverageRegressionContent: readFileSync(
+            typeCoverageRegressionPath,
+            "utf8",
+          ),
+        }
+      : {}),
   };
   const provisional = planFailedIntegrationRework({
     ...planInput,

@@ -5,8 +5,10 @@ import {
   sameRecord,
   sha256,
   validateFailedBroadGate,
+  isTypeCoverageFindingId,
   validateLaneBindings,
   validateSupersession,
+  validateTypeCoverageRegression,
 } from "./failed-integration-rework-validation.js";
 import { readIntegrationWaveSelection } from "./integration-wave.js";
 
@@ -21,11 +23,14 @@ export interface FailedIntegrationReworkArchive {
   readonly integrationResultContent: string;
   readonly laneContent: string;
   readonly proofContent: string;
+  readonly runRecordContent: string;
   readonly schemaVersion: typeof FAILED_INTEGRATION_REWORK_ARCHIVE_SCHEMA;
   readonly selectionContent: string;
+  readonly selectionPath: string;
   readonly sourceBranch: string;
   readonly supersessionContent: string;
   readonly taskId: string;
+  readonly typeCoverageRegressionContent?: string;
 }
 
 export const isFailedIntegrationReworkArchive = (
@@ -39,7 +44,9 @@ export const isFailedIntegrationReworkArchive = (
 
 export const validateFailedIntegrationReworkArchive = (input: {
   readonly archiveContent: string;
+  readonly currentControlHead: string;
   readonly integrationResultContent: string;
+  readonly isAncestor: (ancestor: string, descendant: string) => boolean;
   readonly request: ContractReproofRequest;
 }): FailedIntegrationReworkArchive => {
   const { request } = input;
@@ -72,7 +79,6 @@ export const validateFailedIntegrationReworkArchive = (input: {
     selected?.taskId !== request.taskId ||
     selection.integrationId !== request.priorIntegrationId ||
     selection.baseSha !== request.priorIntegrationHeadSha ||
-    selection.planSha256 !== request.planSha256 ||
     selected.taskBlockHash !== request.taskBlockHash
   ) {
     throw new Error(`${request.taskId}: failed archive selection drift`);
@@ -108,14 +114,20 @@ export const validateFailedIntegrationReworkArchive = (input: {
     throw new Error(`${request.taskId}: archived integration result drift`);
   }
   const findings = result.remainingFindings;
+  const archivedFindingIds = Array.isArray(findings)
+    ? findings.map((finding) => {
+        const parsed = parseRecord(JSON.stringify(finding), "archived finding");
+        return typeof parsed.id === "string" ? parsed.id : "";
+      })
+    : [];
   if (
     !Array.isArray(findings) ||
     findings.length === 0 ||
-    findings.some(
-      (finding) =>
-        parseRecord(JSON.stringify(finding), "archived finding").taskId !==
-        request.taskId,
-    )
+    findings.some((finding) => {
+      const parsed = parseRecord(JSON.stringify(finding), "archived finding");
+      return parsed.taskId !== request.taskId;
+    }) ||
+    archivedFindingIds.some((id) => !id.trim())
   ) {
     throw new Error(`${request.taskId}: archived finding owner mismatch`);
   }
@@ -132,18 +144,29 @@ export const validateFailedIntegrationReworkArchive = (input: {
     ),
   });
   sameRecord(result.broadGate, broadGate, "archived integration broad gate");
+  if (archivedFindingIds.some(isTypeCoverageFindingId)) {
+    if (!archive.typeCoverageRegressionContent)
+      throw new Error("type coverage regression evidence is missing");
+    validateTypeCoverageRegression({
+      baseSha: selection.baseSha,
+      candidateHeadSha: archive.candidateHeadSha,
+      content: archive.typeCoverageRegressionContent,
+      taskId: request.taskId,
+    });
+  }
   const supersession = parseRecord(
     archive.supersessionContent,
     "archived supersession",
   );
   validateSupersession({
     broadGateContent: archive.broadGateContent,
+    currentControlHead: input.currentControlHead,
+    isAncestor: input.isAncestor,
     integrationId: selection.integrationId,
     integrationResultContent: archive.integrationResultContent,
-    selectionBaseSha: selection.baseSha,
-    selectionFileSha256: selectionRead.selectionFileSha256,
-    selectionPayloadSha256: selectionRead.selectionPayloadSha256,
-    selectionPlanSha256: selection.planSha256,
+    runRecordContent: archive.runRecordContent,
+    selectionContent: archive.selectionContent,
+    selectionPath: archive.selectionPath,
     supersession,
     taskId: request.taskId,
   });

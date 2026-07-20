@@ -14,6 +14,7 @@ import {
   selectionPayload,
   selectionPayloadSha256,
 } from "../src/integration-wave.js";
+import { buildIntegrationWaveSupersessionReceipt } from "../src/integration-wave-supersession.js";
 
 const json = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`;
 const sha256 = (value: string): string =>
@@ -94,6 +95,23 @@ const fixture = () => {
     selectionPayloadSha256: selectionPayloadSha256(payload),
   };
   const selectionContent = json(selection);
+  const selectionPath = "/tmp/maestro-wave-000052-selection.json";
+  const runId = "01KY0MHH810PNR2MDZ8MBF3AEB";
+  const runRecordContent = json({
+    attempt: 1,
+    baseSha,
+    integrationId: selection.integrationId,
+    reservationToken: "wave-reservation",
+    runId,
+    runIds: [runId],
+    schemaVersion: "maestro-brain-integration-wave-run/v3",
+    selection,
+    selectionFileSha256: selectionFileSha256(selectionContent),
+    selectionPath,
+    selectionPayloadSha256: selection.selectionPayloadSha256,
+    status: "launched",
+    workdir: "/tmp/maestro-wave-000052",
+  });
   const broadGate = {
     schemaVersion: "maestro-brain-broad-gate-receipt/v1",
     command: "rtk host-test-slot --class full pnpm verify",
@@ -131,36 +149,65 @@ const fixture = () => {
     broadGate,
   };
   const integrationResultContent = json(integrationResult);
-  const supersessionPayload = {
-    schemaVersion: "maestro-brain-integration-wave-supersession/v2",
-    baseSha,
+  const supersession = buildIntegrationWaveSupersessionReceipt({
     controlHeadSha: baseSha,
     createdAt: "2026-07-20T21:14:57.387Z",
     evidence: [
       `broad-gate-sha256:${sha256(broadGateContent)}`,
       `integration-result-sha256:${sha256(integrationResultContent)}`,
-      "run:01KY0MHH810PNR2MDZ8MBF3AEB:failed",
-    ].sort(),
-    integrationId: selection.integrationId,
-    planSha256,
+      `run:${runId}:failed`,
+    ],
+    expectedIntegrationId: selection.integrationId,
     reason: "s11-type-coverage-below-99.7",
-    runAttempts: [
+    runInspections: [
       {
-        attempt: 1,
-        runId: "01KY0MHH810PNR2MDZ8MBF3AEB",
-        status: "failed",
+        run_id: runId,
+        status: { kind: "failed" },
+        run_spec: {
+          settings: {
+            run: {
+              inputs: {
+                attempt: 1,
+                base_sha: baseSha,
+                integration_id: selection.integrationId,
+                mode: "integrate",
+                reservation_token: "wave-reservation",
+                selection_file_sha256: selectionFileSha256(selectionContent),
+                selection_path: selectionPath,
+                selection_payload_sha256: selection.selectionPayloadSha256,
+                workdir: "/tmp/maestro-wave-000052",
+              },
+              metadata: {
+                attempt: 1,
+                integration: selection.integrationId,
+                "integration-mode": "wave-v3",
+                reservation: "wave-reservation",
+              },
+            },
+          },
+        },
       },
     ],
-    runRecordSha256: "b".repeat(64),
-    selectedTaskIds: [taskId],
-    selectionFileSha256: selectionFileSha256(selectionContent),
-    selectionPayloadSha256: selection.selectionPayloadSha256,
-    status: "superseded",
-  };
-  const supersession = {
-    ...supersessionPayload,
-    receiptSha256: sha256(JSON.stringify(supersessionPayload)),
-  };
+    runRecordContent,
+    selectionContent,
+    selectionPath,
+  });
+  const typeCoverageRegressionContent = json({
+    schemaVersion: "maestro-brain-type-coverage-regression/v1",
+    taskId,
+    command: "rtk pnpm check:types-coverage",
+    base: {
+      headSha: baseSha,
+      exitCode: 0,
+      output: "(205510 / 206120) 99.70%\ntype-coverage success.\n",
+    },
+    candidate: {
+      headSha: candidateHeadSha,
+      exitCode: 1,
+      output:
+        "(205495 / 206150) 99.68%\ntype-coverage failed: expected 99.7%.\n",
+    },
+  });
   const input = {
     broadGateContent,
     controlClean: true,
@@ -178,17 +225,29 @@ const fixture = () => {
     gateContent,
     promotionExists: false,
     reason: "repair deterministic broad verification failure",
+    runRecordContent,
     selectionContent,
+    selectionPath,
     sourceBranch: "fabro/review-s11-t02",
     sourceBranchHeadSha: laneHeadSha,
     sourceClean: true,
     sourceWorktreeHeadSha: laneHeadSha,
     supersessionContent: json(supersession),
     taskId,
+    typeCoverageRegressionContent,
   };
   return {
     input,
-    values: { broadGate, integrationResult, selection, supersession },
+    values: {
+      broadGate,
+      integrationResult,
+      runId,
+      runRecordContent,
+      selection,
+      selectionPath,
+      supersession,
+      typeCoverageRegressionContent,
+    },
   };
 };
 
@@ -223,10 +282,15 @@ describe("failed integration rework admission", () => {
 
   it("admits the archived failed-wave request through normal reproof tooling", () => {
     const value = fixture();
+    const currentPlanSha256 = "c".repeat(64);
+    const currentInput = {
+      ...value.input,
+      planSha256: currentPlanSha256,
+    };
     const root = mkdtempSync(resolve(tmpdir(), "brain-failed-rework-"));
     roots.push(root);
     const evidence = resolve(root, "evidence");
-    const provisional = planFailedIntegrationRework(value.input);
+    const provisional = planFailedIntegrationRework(currentInput);
     const archivePath = resolve(
       evidence,
       "archive",
@@ -234,7 +298,7 @@ describe("failed integration rework admission", () => {
       `${sha256(provisional.archiveContent)}.json`,
     );
     const planned = planFailedIntegrationRework({
-      ...value.input,
+      ...currentInput,
       priorEvidencePath: archivePath,
     });
     const resultPath = resolve(
@@ -269,13 +333,124 @@ describe("failed integration rework admission", () => {
         lanePriorIntegrationHeadSha: planned.request.priorIntegrationHeadSha,
         lanePriorIntegrationId: planned.request.priorIntegrationId,
         laneRequestSha256: planned.request.requestSha256,
-        planSha256: value.input.planSha256,
+        planSha256: currentPlanSha256,
         proofBaseSha: value.input.controlHeadSha,
         requestPath,
         taskBlockHash: value.input.manifestTaskBlockHash,
         taskId: value.input.taskId,
       }).request,
     ).toEqual(planned.request);
+  });
+
+  it("uses current plan authority while retaining historical wave evidence", () => {
+    const value = fixture();
+    const currentPlanSha256 = "c".repeat(64);
+    const planned = planFailedIntegrationRework({
+      ...value.input,
+      planSha256: currentPlanSha256,
+    });
+    expect(planned.request.planSha256).toBe(currentPlanSha256);
+    expect(value.values.selection.planSha256).not.toBe(currentPlanSha256);
+  });
+
+  it("rejects supersession evidence detached from its durable run record", () => {
+    const value = fixture();
+    expect(() =>
+      planFailedIntegrationRework({
+        ...value.input,
+        runRecordContent: json({
+          ...JSON.parse(value.values.runRecordContent),
+          runIds: ["01ARZ3NDEKTSV4RRFFQ69G5FAV"],
+        }),
+      }),
+    ).toThrow(/run record|supersession|durable wave attempts/);
+  });
+
+  it("requires an exact base-to-candidate type-coverage regression", () => {
+    const value = fixture();
+    expect(() =>
+      planFailedIntegrationRework({
+        ...value.input,
+        typeCoverageRegressionContent: json({
+          ...JSON.parse(value.values.typeCoverageRegressionContent),
+          candidate: {
+            headSha: value.values.integrationResult.headSha,
+            exitCode: 0,
+            output: "(205510 / 206120) 99.70%\ntype-coverage success.\n",
+          },
+        }),
+      }),
+    ).toThrow(/type coverage.*regress|candidate.*failed/i);
+  });
+
+  it("does not require type-coverage evidence for a different owned failure", () => {
+    const value = fixture();
+    const integrationResultContent = json({
+      ...value.values.integrationResult,
+      remainingFindings: [
+        {
+          id: "deterministic-build-failure",
+          severity: "high",
+          taskId: value.input.taskId,
+        },
+      ],
+    });
+    const supersession = buildIntegrationWaveSupersessionReceipt({
+      controlHeadSha: value.values.selection.baseSha,
+      createdAt: "2026-07-20T21:14:57.387Z",
+      evidence: [
+        `broad-gate-sha256:${sha256(value.input.broadGateContent)}`,
+        `integration-result-sha256:${sha256(integrationResultContent)}`,
+        `run:${value.values.runId}:failed`,
+      ],
+      expectedIntegrationId: value.values.selection.integrationId,
+      reason: "s11-deterministic-build-failure",
+      runInspections: [
+        {
+          run_id: value.values.runId,
+          status: { kind: "failed" },
+          run_spec: {
+            settings: {
+              run: {
+                inputs: {
+                  attempt: 1,
+                  base_sha: value.values.selection.baseSha,
+                  integration_id: value.values.selection.integrationId,
+                  mode: "integrate",
+                  reservation_token: "wave-reservation",
+                  selection_file_sha256: selectionFileSha256(
+                    value.input.selectionContent,
+                  ),
+                  selection_path: value.values.selectionPath,
+                  selection_payload_sha256:
+                    value.values.selection.selectionPayloadSha256,
+                  workdir: "/tmp/maestro-wave-000052",
+                },
+                metadata: {
+                  attempt: 1,
+                  integration: value.values.selection.integrationId,
+                  "integration-mode": "wave-v3",
+                  reservation: "wave-reservation",
+                },
+              },
+            },
+          },
+        },
+      ],
+      runRecordContent: value.values.runRecordContent,
+      selectionContent: value.input.selectionContent,
+      selectionPath: value.values.selectionPath,
+    });
+    const { typeCoverageRegressionContent: _ignored, ...withoutCoverage } =
+      value.input;
+    expect(_ignored).toBeDefined();
+    expect(() =>
+      planFailedIntegrationRework({
+        ...withoutCoverage,
+        integrationResultContent,
+        supersessionContent: json(supersession),
+      }),
+    ).not.toThrow();
   });
 
   it("rejects a self-rehashed archive with mutated proof evidence", () => {
@@ -293,7 +468,9 @@ describe("failed integration rework admission", () => {
     expect(() =>
       validateFailedIntegrationReworkArchive({
         archiveContent,
+        currentControlHead: value.input.controlHeadSha,
         integrationResultContent: value.input.integrationResultContent,
+        isAncestor: value.input.isAncestor,
         request,
       }),
     ).toThrow(/proof digest drift/);
@@ -438,7 +615,7 @@ describe("failed integration rework admission", () => {
         ...value.input,
         supersessionContent: json(passAttempt),
       }),
-    ).toThrow(/supersession receipt digest drift|terminal failed/);
+    ).toThrow(/supersession identity or digest mismatch|terminal failed/);
     const drifted = {
       ...value.values.supersession,
       receiptSha256: "f".repeat(64),
@@ -448,6 +625,6 @@ describe("failed integration rework admission", () => {
         ...value.input,
         supersessionContent: json(drifted),
       }),
-    ).toThrow(/supersession receipt digest drift/);
+    ).toThrow(/supersession identity or digest mismatch/);
   });
 });

@@ -13,8 +13,10 @@ import {
   sameRecord,
   sha256,
   validateFailedBroadGate,
+  isTypeCoverageFindingId,
   validateLaneBindings,
   validateSupersession,
+  validateTypeCoverageRegression,
 } from "./failed-integration-rework-validation.js";
 import { readIntegrationWaveSelection } from "./integration-wave.js";
 
@@ -34,13 +36,16 @@ interface FailedIntegrationReworkInput {
   readonly promotionExists: boolean;
   readonly proofContent: string;
   readonly reason: string;
+  readonly runRecordContent: string;
   readonly selectionContent: string;
+  readonly selectionPath: string;
   readonly sourceBranch: string;
   readonly sourceBranchHeadSha: string;
   readonly sourceClean: boolean;
   readonly sourceWorktreeHeadSha: string;
   readonly supersessionContent: string;
   readonly taskId: string;
+  readonly typeCoverageRegressionContent?: string;
 }
 
 export interface FailedIntegrationReworkPlan {
@@ -76,9 +81,6 @@ export const planFailedIntegrationRework = (
   }
   if (selected.taskBlockHash !== input.manifestTaskBlockHash) {
     throw new Error(`${input.taskId}: task-block drift`);
-  }
-  if (selection.planSha256 !== input.planSha256) {
-    throw new Error(`${input.taskId}: failed wave plan drift`);
   }
   if (!input.isAncestor(selection.baseSha, input.controlHeadSha)) {
     throw new Error(
@@ -137,6 +139,7 @@ export const planFailedIntegrationRework = (
   ) {
     throw new Error("failed integration rework has no remaining findings");
   }
+  const findingIds: string[] = [];
   for (const findingValue of integrationResult.remainingFindings) {
     const finding = record(findingValue, "failed integration finding");
     if (finding.taskId !== input.taskId) {
@@ -145,11 +148,22 @@ export const planFailedIntegrationRework = (
     if (typeof finding.id !== "string" || !finding.id.trim()) {
       throw new Error("failed integration finding identity is missing");
     }
+    findingIds.push(finding.id);
   }
 
   const broadGate = parseRecord(input.broadGateContent, "broad gate receipt");
   validateFailedBroadGate({ broadGate, candidateHeadSha });
   sameRecord(integrationResult.broadGate, broadGate, "integration broad gate");
+  if (findingIds.some(isTypeCoverageFindingId)) {
+    if (!input.typeCoverageRegressionContent)
+      throw new Error("type coverage regression evidence is missing");
+    validateTypeCoverageRegression({
+      baseSha: selection.baseSha,
+      candidateHeadSha,
+      content: input.typeCoverageRegressionContent,
+      taskId: input.taskId,
+    });
+  }
 
   const supersession = parseRecord(
     input.supersessionContent,
@@ -157,12 +171,13 @@ export const planFailedIntegrationRework = (
   );
   validateSupersession({
     broadGateContent: input.broadGateContent,
+    currentControlHead: input.controlHeadSha,
+    isAncestor: input.isAncestor,
     integrationId: selection.integrationId,
     integrationResultContent: input.integrationResultContent,
-    selectionBaseSha: selection.baseSha,
-    selectionFileSha256: selectionRead.selectionFileSha256,
-    selectionPayloadSha256: selectionRead.selectionPayloadSha256,
-    selectionPlanSha256: selection.planSha256,
+    runRecordContent: input.runRecordContent,
+    selectionContent: input.selectionContent,
+    selectionPath: input.selectionPath,
     supersession,
     taskId: input.taskId,
   });
@@ -179,7 +194,14 @@ export const planFailedIntegrationRework = (
     supersessionContent: input.supersessionContent,
     laneContent: input.laneContent,
     proofContent: input.proofContent,
+    runRecordContent: input.runRecordContent,
     finalGateContent: input.gateContent,
+    selectionPath: input.selectionPath,
+    ...(input.typeCoverageRegressionContent
+      ? {
+          typeCoverageRegressionContent: input.typeCoverageRegressionContent,
+        }
+      : {}),
   };
   const archiveContent = `${JSON.stringify(archive, null, 2)}\n`;
   const request = buildContractReproofRequest({

@@ -336,7 +336,9 @@ export const admitContractReproof = (
   if (isFailedIntegrationReworkArchive(archive)) {
     validateFailedIntegrationReworkArchive({
       archiveContent,
+      currentControlHead: input.currentControlHead,
       integrationResultContent,
+      isAncestor: input.isAncestor,
       request,
     });
     return { reproofRequestSha256: request.requestSha256, request };
