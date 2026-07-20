@@ -5,6 +5,7 @@ import {
   mkdtempSync,
   mkdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -19,6 +20,7 @@ import {
   type ApplyIntegrationWaveInput,
 } from "../src/apply-integration-wave.js";
 import { buildContractReproofRequest } from "../src/contract-reproof.js";
+import { validateIntegrationResult } from "../src/integration-result-check.mjs";
 import {
   INTEGRATION_WAVE_SCHEMA,
   selectionFileSha256,
@@ -75,6 +77,7 @@ const makeFixture = (options?: {
   readonly generated?: boolean;
   readonly generatedBase?: boolean;
   readonly generatedFromExistingConfectImpl?: boolean;
+  readonly globalConfectAggregates?: boolean;
   readonly historicalLaneWithoutTree?: boolean;
   readonly laneSpecs?: readonly {
     readonly files: readonly string[];
@@ -335,6 +338,14 @@ const makeFixture = (options?: {
           ),
           "export const registered = true;\n",
         );
+      }
+      if (key === "pnpm confect:codegen" && options?.globalConfectAggregates) {
+        for (const file of ["convexSchema", "docs", "id", "schema"]) {
+          write(
+            resolve(cwd, `packages/convex/confect/_generated/${file}.ts`),
+            `export const ${file} = true;\n`,
+          );
+        }
       }
       if (key === "pnpm confect:codegen" && options?.transientFirstGeneration) {
         const path = resolve(
@@ -832,6 +843,77 @@ describe("deterministic integration wave application", () => {
       "packages/template-core/src/generated/confectManifest.ts",
     ]);
     expect(git(value.workdir, "status", "--porcelain")).toBe("");
+  });
+
+  it("applies and validates deterministic global Confect aggregates", () => {
+    const value = makeFixture({
+      globalConfectAggregates: true,
+      laneSpecs: [{ files: ["a.ts"], taskId: "S01-T01" }],
+    });
+    const generatedFiles = [
+      "packages/convex/confect/_generated/convexSchema.ts",
+      "packages/convex/confect/_generated/docs.ts",
+      "packages/convex/confect/_generated/id.ts",
+      "packages/convex/confect/_generated/schema.ts",
+    ];
+
+    const applied = applyIntegrationWave(value.input);
+    expect(applied.generatedFiles).toEqual(generatedFiles);
+    expect(
+      value.events.filter((event) => event === "pnpm confect:codegen"),
+    ).toHaveLength(2);
+    expect(
+      git(value.workdir, "show", "--name-only", "--format=", "HEAD")
+        .split("\n")
+        .filter(Boolean)
+        .sort(),
+    ).toEqual(generatedFiles);
+
+    const resultPath = resolve(
+      value.evidenceDirectory,
+      "integration/wave-000001/integration-result.json",
+    );
+    const result = readJson(resultPath);
+    Object.assign(result, {
+      broadGate: {
+        command: "rtk host-test-slot --class full pnpm verify",
+        headSha: applied.headSha,
+        status: "passed",
+      },
+      integrationWorkdir: realpathSync(value.workdir),
+      manifestTranches: ["F0-foundation"],
+      remainingFindings: [],
+      reviewVerdict: "pass",
+      status: "passed",
+    });
+    writeJson(resultPath, result);
+
+    const lane = value.lanes[0] as LaneFixture;
+    writeJson(
+      resolve(value.evidenceDirectory, "lane-results/S01-T01/lane-result.json"),
+      {
+        acceptanceBlocker: "external acceptance evidence is not yet present",
+        accepted: false,
+        headSha: lane.headSha,
+        integrationHeadSha: applied.headSha,
+        integrationId: "wave-000001",
+        preIntegrationLaneResultSha256: lane.snapshot.laneResultSha256,
+        schemaVersion: "maestro-brain-lane-result/v1",
+        status: "integrated",
+        taskId: "S01-T01",
+        tranche: "F0-foundation",
+      },
+    );
+
+    expect(() =>
+      validateIntegrationResult({
+        controlRoot: value.controlRoot,
+        evidenceDirectory: value.evidenceDirectory,
+        expectedWorkdir: value.workdir,
+        integrationId: "wave-000001",
+        selectionPath: value.selectionPath,
+      }),
+    ).not.toThrow();
   });
 
   it("allows deterministic output derived from pre-existing Confect implementations", () => {
