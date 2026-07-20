@@ -1,0 +1,123 @@
+{
+  "lens": "quality",
+  "taskId": "S08-T04",
+  "planSha256": "2bca6b40d7acab334b2036e9ed35652c06ebe8729c1a6c3319c04f827b7a77ce",
+  "taskBlockHash": "2bccfe705e20eef30b384725a71d69db2671a70d5c96f541fb95ec6b73629525",
+  "baseSha": "e28ceeb126083211cc7b2070c673b78e513d125b",
+  "headSha": "0e85ab8c4c43d59b726e743c4eb44c4caf3d8df2",
+  "treeSha": "b61fbc29073bf17a4c9ea80c8e7ef93fe5a5237b",
+  "reviewerRunId": "maestro/review/S08-T04/0e85ab8c4c43d59b726e743c4eb44c4caf3d8df2/49d94afc-ae91-4075-9f71-887f05a03bf3-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/capabilities/maintainBrainPage.impl.ts:7-17",
+        "packages/convex/confect/capabilities/maintainBrainPage.test.ts:19-73",
+        "packages/convex/test/sourceToBrainMaintenance.workflow.test.ts:19-64"
+      ],
+      "findingIds": ["S08-T04-QUALITY-001"]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "finding",
+      "evidence": [
+        "AGENTS.md:50-56",
+        "packages/convex/confect/workflows/sourceToBrainMaintenance.graph.ts:7-28",
+        "packages/convex/test/sourceToBrainMaintenance.workflow.test.ts:20-40"
+      ],
+      "findingIds": ["S08-T04-QUALITY-002"]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/maintenance/policy.ts:1-132",
+        "packages/convex/confect/maintenance/request.ts:61-103",
+        "packages/convex/confect/maintenance/commit.ts:78-156"
+      ]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/brainMaintenanceProposals.ts:31-37",
+        "packages/convex/confect/maintenance/commit.ts:66-76",
+        "apps/web/src/features/brain/maintenance-review.tsx:14-32"
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1116-1151",
+        "ci-proof-packet.json:8-31",
+        "git shortstat e28ceeb126083211cc7b2070c673b78e513d125b..0e85ab8c4c43d59b726e743c4eb44c4caf3d8df2: 22 files changed, 1897 insertions(+), 3 deletions(-)",
+        "git per-commit shortstat: 414, 426, 666, and 391 insertions across the four S08-T04 commits"
+      ],
+      "findingIds": ["S08-T04-QUALITY-003"]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2524-2526",
+        "docs/template/generated/provenance/add-workflow/sourceToBrainMaintenance.json:5-11",
+        "docs/template/generated/workflows/sourceToBrainMaintenance.md:18-39",
+        "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.impl.ts:53-64",
+        "packages/convex/convex/workflowRunners/sourceToBrainMaintenance.ts: missing from exact HEAD worktree"
+      ],
+      "findingIds": ["S08-T04-QUALITY-004"]
+    }
+  ],
+  "findings": [
+    {
+      "id": "S08-T04-QUALITY-001",
+      "severity": "high",
+      "summary": "Focused tests leave the public maintenance capability as a false-green fixture.",
+      "details": "The task proof now includes broad pure-domain policy tests, but the generated public maintainBrainPage implementation still unconditionally returns a canned proposed_noop. Its focused capability test checks normalization and metadata only, not that the implementation uses the immutable context pack, returns real cited revision/no-op proposals, or makes declared failures reachable. The workflow test also asserts the graph makes no calls, so the focused proof can pass while the capability surface used by callers does none of the S08-T04 behavior.",
+      "evidence": [
+        "packages/convex/confect/capabilities/maintainBrainPage.impl.ts:7-17",
+        "packages/convex/confect/capabilities/maintainBrainPage.test.ts:19-73",
+        "packages/convex/test/sourceToBrainMaintenance.workflow.test.ts:19-64"
+      ]
+    },
+    {
+      "id": "S08-T04-QUALITY-002",
+      "severity": "medium",
+      "summary": "Workflow graph does not compose the maintenance capability required by the layer law.",
+      "details": "AGENTS.md requires agents/workflows to compose capabilities. The sourceToBrainMaintenance graph contains only a source node and output node, and its focused test fails if any query, mutation, action, event, or capability-like step runs. That proves the workflow scaffold does not currently gather routed evidence and delegate to maintainBrainPage as required for this task.",
+      "evidence": [
+        "AGENTS.md:50-56",
+        "packages/convex/confect/workflows/sourceToBrainMaintenance.graph.ts:7-28",
+        "packages/convex/test/sourceToBrainMaintenance.workflow.test.ts:20-40"
+      ]
+    },
+    {
+      "id": "S08-T04-QUALITY-003",
+      "severity": "medium",
+      "summary": "The S08-T04 slice exceeds the manifest source budget by a wide margin.",
+      "details": "The task manifest estimates 295 lines and sets a 300-line source slice budget. The exact diff changes 22 files with 1897 insertions, and each of the four task commits has a raw shortstat above 300 insertions. Even allowing for tests and generated scaffold, this should have been split or accompanied by deterministic budget evidence that reviewers can independently inspect from the exact worktree.",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1116-1151",
+        "ci-proof-packet.json:8-31",
+        "git shortstat e28ceeb126083211cc7b2070c673b78e513d125b..0e85ab8c4c43d59b726e743c4eb44c4caf3d8df2: 22 files changed, 1897 insertions(+), 3 deletions(-)",
+        "git per-commit shortstat: 414, 426, 666, and 391 insertions across the four S08-T04 commits"
+      ]
+    },
+    {
+      "id": "S08-T04-QUALITY-004",
+      "severity": "medium",
+      "summary": "Generated workflow runner provenance points at a missing file used by the implementation.",
+      "details": "The task packet says integration owns reproducible Confect/Convex generated output and the lane should not edit those generated trees, but the generated workflow provenance and docs list packages/convex/convex/workflowRunners/sourceToBrainMaintenance.ts while that path is absent in the exact HEAD worktree. The Confect implementation still constructs a function reference to workflowRunners/sourceToBrainMaintenance:run, leaving generated-file replay instructions and runtime wiring inconsistent.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2524-2526",
+        "docs/template/generated/provenance/add-workflow/sourceToBrainMaintenance.json:5-11",
+        "docs/template/generated/workflows/sourceToBrainMaintenance.md:18-39",
+        "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.impl.ts:53-64",
+        "packages/convex/convex/workflowRunners/sourceToBrainMaintenance.ts: missing from exact HEAD worktree"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
