@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { hydrateWorktreeDependencies } from "./dependencies.js";
 import { buildTaskLaunchEnv } from "./build-task-launch-env.js";
 import { materializeBuildTaskRunConfig } from "./build-task-run-config.js";
+import { launchAuthorityRefresh } from "./authority-refresh-launch.js";
 import {
   acquireDispatcherLock,
   archiveTerminalTaskRecord,
@@ -62,14 +63,23 @@ const taskId = valueAfter("--task");
 const sourceRef = valueAfter("--ref");
 const taskBase = valueAfter("--base");
 const archiveActionId = parseArchiveActionSelector(process.argv.slice(2));
+const authorityRefresh = process.argv.includes("--authority-refresh");
 const conflictAware = process.argv.includes("--conflict-aware");
 const resumeStrategy: "in-lane-cherry-pick" | "prelaunch-cherry-pick" =
   conflictAware ? "in-lane-cherry-pick" : "prelaunch-cherry-pick";
-if (!taskId || !sourceRef || !taskBase) {
+if (!taskId || (!authorityRefresh && (!sourceRef || !taskBase))) {
   console.error(
-    "usage: brain:factory:resume -- --task <id> --ref <git-ref> --base <sha> [--conflict-aware] [--archive-action <id>]",
+    "usage: brain:factory:resume -- --task <id> (--authority-refresh | --ref <git-ref> --base <sha> [--conflict-aware]) [--archive-action <id>]",
   );
   process.exit(2);
+}
+if (
+  authorityRefresh &&
+  (sourceRef || taskBase || conflictAware || archiveActionId)
+) {
+  throw new Error(
+    `${taskId}: --authority-refresh derives exact source coordinates and cannot be combined with --ref, --base, --conflict-aware, or --archive-action`,
+  );
 }
 const root = process.cwd();
 const state = resolve(valueAfter("--state") ?? ".fabro/state/maestro-brain");
@@ -96,9 +106,14 @@ assertArchiveActionSelectorApplicable({
   recordExists,
   taskId,
 });
-const task = buildManifest(root).tasks.find(
-  (candidate) => candidate.taskId === taskId,
-);
+if (authorityRefresh) {
+  launchAuthorityRefresh({ evidence, recordPath, root, state, taskId });
+  process.exit(0);
+}
+if (!sourceRef || !taskBase)
+  throw new Error(`${taskId}: resume source is missing`);
+const manifest = buildManifest(root);
+const task = manifest.tasks.find((candidate) => candidate.taskId === taskId);
 if (!task) throw new Error(`unknown task ${taskId}`);
 const workflow = resolve(".fabro/workflows/brain-build-task/workflow.fabro");
 mkdirSync(runDirectory, { recursive: true });

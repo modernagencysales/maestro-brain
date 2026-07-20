@@ -1,0 +1,312 @@
+import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { afterEach, describe, expect, it } from "vitest";
+
+import {
+  admitAuthorityRefresh,
+  assertAuthorityRefreshTerminalStatus,
+  authorityRefreshCoordinates,
+  preserveAuthorityRefreshEvidence,
+} from "../src/authority-refresh.js";
+
+const roots: string[] = [];
+const sha256 = (value: string): string =>
+  createHash("sha256").update(value).digest("hex");
+const git = (cwd: string, ...args: string[]): string =>
+  execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
+
+const fixture = () => {
+  const root = mkdtempSync(join(tmpdir(), "brain-authority-refresh-"));
+  roots.push(root);
+  const repo = join(root, "repo");
+  const sourceWorkdir = join(root, "source-worktree");
+  const evidence = join(root, "evidence");
+  mkdirSync(repo);
+  git(repo, "init", "-b", "main");
+  git(repo, "config", "user.email", "factory@example.invalid");
+  git(repo, "config", "user.name", "Factory Test");
+  writeFileSync(join(repo, ".gitignore"), ".tokensave\n");
+  writeFileSync(join(repo, "owned.txt"), "base\n");
+  writeFileSync(join(repo, "plan.md"), "old authority\n");
+  git(repo, "add", ".");
+  git(repo, "commit", "-m", "base");
+  const baseSha = git(repo, "rev-parse", "HEAD");
+  git(repo, "branch", "source");
+  git(repo, "worktree", "add", sourceWorkdir, "source");
+  writeFileSync(join(sourceWorkdir, "owned.txt"), "source one\n");
+  git(sourceWorkdir, "commit", "-am", "source one");
+  const firstCommit = git(sourceWorkdir, "rev-parse", "HEAD");
+  writeFileSync(join(sourceWorkdir, "owned.txt"), "source two\n");
+  git(sourceWorkdir, "commit", "-am", "source two");
+  const headSha = git(sourceWorkdir, "rev-parse", "HEAD");
+  const treeSha = git(sourceWorkdir, "rev-parse", "HEAD^{tree}");
+  writeFileSync(join(repo, "plan.md"), "current authority\n");
+  git(repo, "commit", "-am", "advance authority");
+  const controlHeadSha = git(repo, "rev-parse", "HEAD");
+  const taskId = "S03-T03";
+  const laneDirectory = join(evidence, "lane-results", taskId);
+  mkdirSync(laneDirectory, { recursive: true });
+  const oldPlanSha256 = "a".repeat(64);
+  const oldTaskBlockHash = "b".repeat(64);
+  const proof = {
+    schemaVersion: "maestro-brain-ci-proof/v1",
+    taskId,
+    planSha256: oldPlanSha256,
+    taskBlockHash: oldTaskBlockHash,
+    baseSha,
+    headSha,
+    changedFiles: ["owned.txt"],
+    focusedCommands: ["rtk test focused"],
+    testsAdded: ["owned.test.ts"],
+    reviewVerdict: "pass",
+    reviewHeadSha: headSha,
+    reviewFindings: [],
+    knownRisks: [],
+  };
+  const gate = {
+    schemaVersion: "maestro-brain-lane-gate/v1",
+    taskId,
+    stage: "final",
+    status: "passed",
+    headSha,
+    currentHeadSha: headSha,
+    currentTreeSha: treeSha,
+    planSha256: oldPlanSha256,
+    taskBlockHash: oldTaskBlockHash,
+  };
+  const lane = {
+    schemaVersion: "maestro-brain-lane-result/v1",
+    taskId,
+    status: "lane_green",
+    headSha,
+    treeSha,
+  };
+  for (const [name, value] of [
+    ["ci-proof-packet.json", proof],
+    ["lane-gate-report.json", gate],
+    ["lane-result.json", lane],
+  ] as const) {
+    writeFileSync(
+      join(laneDirectory, name),
+      `${JSON.stringify(value, null, 2)}\n`,
+    );
+  }
+  return {
+    baseSha,
+    controlHeadSha,
+    evidence,
+    firstCommit,
+    headSha,
+    oldPlanSha256,
+    oldTaskBlockHash,
+    repo,
+    sourceWorkdir,
+    taskId,
+    treeSha,
+  };
+};
+
+const admit = (value: ReturnType<typeof fixture>, overrides = {}) =>
+  admitAuthorityRefresh({
+    controlHeadSha: value.controlHeadSha,
+    evidence: value.evidence,
+    root: value.repo,
+    runGit: (cwd, args) => git(cwd, ...args),
+    sourceBranch: "source",
+    sourceWorkdir: value.sourceWorkdir,
+    task: {
+      fileLocks: ["owned.txt"],
+      planSha256: "c".repeat(64),
+      sourceSliceBudget: 300,
+      sourceSliceLimit: 4,
+      taskBlockHash: "d".repeat(64),
+      taskId: value.taskId,
+    },
+    ...overrides,
+  });
+
+afterEach(() => {
+  for (const root of roots.splice(0))
+    rmSync(root, { force: true, recursive: true });
+});
+
+describe("authority refresh admission", () => {
+  it("wires the explicit CLI mode to the normal conflict-aware workflow", () => {
+    const resumeSource = readFileSync(
+      fileURLToPath(new URL("../src/resume.mts", import.meta.url)),
+      "utf8",
+    );
+    const launchSource = readFileSync(
+      fileURLToPath(
+        new URL("../src/authority-refresh-launch.ts", import.meta.url),
+      ),
+      "utf8",
+    );
+    expect(resumeSource).toContain(
+      'process.argv.includes("--authority-refresh")',
+    );
+    expect(resumeSource).toContain("launchAuthorityRefresh({");
+    expect(launchSource).toContain("mode=authority-refresh");
+    expect(launchSource).toContain("resume_mode=conflict-aware");
+  });
+
+  it("requires an exact terminal source run", () => {
+    expect(() =>
+      assertAuthorityRefreshTerminalStatus("running", "S03-T03"),
+    ).toThrow("source run is not terminal");
+    expect(() =>
+      assertAuthorityRefreshTerminalStatus("unknown", "S03-T03"),
+    ).toThrow("source run status is unknown");
+    expect(() =>
+      assertAuthorityRefreshTerminalStatus("succeeded", "S03-T03"),
+    ).not.toThrow();
+  });
+
+  it("binds exact terminal lane evidence and the complete source commit range", () => {
+    const value = fixture();
+    const admission = admit(value);
+
+    expect(admission.sourceCommits).toEqual([value.firstCommit, value.headSha]);
+    expect(admission.sourceHeadSha).toBe(value.headSha);
+    expect(admission.taskBaseSha).toBe(value.baseSha);
+    expect(admission.oldAuthority).toEqual({
+      planSha256: value.oldPlanSha256,
+      taskBlockHash: value.oldTaskBlockHash,
+    });
+    expect(admission.coordinates.branch).toMatch(
+      /^fabro\/review-s03-t03-authority-[0-9a-f]{12}$/,
+    );
+    expect(admission.coordinates.workdir).toContain(
+      `resume-s03-t03-authority-${admission.coordinates.authorityId}`,
+    );
+  });
+
+  it("fails closed on dirty or drifted source and stale current ownership", () => {
+    const value = fixture();
+    writeFileSync(join(value.sourceWorkdir, "untracked.txt"), "dirty\n");
+    expect(() => admit(value)).toThrow("source worktree is dirty");
+    rmSync(join(value.sourceWorkdir, "untracked.txt"));
+
+    writeFileSync(join(value.sourceWorkdir, "owned.txt"), "drift\n");
+    git(value.sourceWorkdir, "commit", "-am", "source drift");
+    expect(() => admit(value)).toThrow("source worktree HEAD mismatch");
+
+    git(value.sourceWorkdir, "reset", "--hard", value.headSha);
+    expect(() =>
+      admit(value, {
+        task: {
+          fileLocks: ["somewhere-else.txt"],
+          planSha256: "c".repeat(64),
+          sourceSliceBudget: 300,
+          sourceSliceLimit: 4,
+          taskBlockHash: "d".repeat(64),
+          taskId: value.taskId,
+        },
+      }),
+    ).toThrow("not declared in current manifest fileLocks");
+  }, 30_000);
+
+  it("requires the current controller authority to be an exact clean HEAD", () => {
+    const value = fixture();
+    writeFileSync(join(value.repo, "controller-drift.txt"), "dirty\n");
+    expect(() => admit(value)).toThrow("controller worktree is dirty");
+    rmSync(join(value.repo, "controller-drift.txt"));
+    expect(() => admit(value, { controlHeadSha: value.baseSha })).toThrow(
+      "controller HEAD mismatch",
+    );
+  });
+
+  it("fails closed on evidence mismatch, unchanged authority, and slice overflow", () => {
+    const value = fixture();
+    const gatePath = join(
+      value.evidence,
+      "lane-results",
+      value.taskId,
+      "lane-gate-report.json",
+    );
+    const gate = JSON.parse(readFileSync(gatePath, "utf8"));
+    gate.taskBlockHash = "e".repeat(64);
+    writeFileSync(gatePath, `${JSON.stringify(gate, null, 2)}\n`);
+    expect(() => admit(value)).toThrow("final lane gate receipt is invalid");
+
+    gate.taskBlockHash = value.oldTaskBlockHash;
+    writeFileSync(gatePath, `${JSON.stringify(gate, null, 2)}\n`);
+    const proofPath = join(
+      value.evidence,
+      "lane-results",
+      value.taskId,
+      "ci-proof-packet.json",
+    );
+    const proof = JSON.parse(readFileSync(proofPath, "utf8"));
+    proof.baseSha = value.controlHeadSha;
+    writeFileSync(proofPath, `${JSON.stringify(proof, null, 2)}\n`);
+    expect(() => admit(value)).toThrow("proof base is not an ancestor");
+    proof.baseSha = value.baseSha;
+    writeFileSync(proofPath, `${JSON.stringify(proof, null, 2)}\n`);
+    expect(() =>
+      admit(value, {
+        task: {
+          fileLocks: ["owned.txt"],
+          planSha256: value.oldPlanSha256,
+          sourceSliceBudget: 300,
+          sourceSliceLimit: 4,
+          taskBlockHash: value.oldTaskBlockHash,
+          taskId: value.taskId,
+        },
+      }),
+    ).toThrow("already matches current authority");
+    expect(() =>
+      admit(value, {
+        task: {
+          fileLocks: ["owned.txt"],
+          planSha256: "c".repeat(64),
+          sourceSliceBudget: 300,
+          sourceSliceLimit: 1,
+          taskBlockHash: "d".repeat(64),
+          taskId: value.taskId,
+        },
+      }),
+    ).toThrow("source slice limit");
+  });
+
+  it("preserves content-hashed evidence exactly once and rejects coordinate reuse", () => {
+    const value = fixture();
+    const admission = admit(value);
+    preserveAuthorityRefreshEvidence(admission);
+
+    const manifestPath = join(admission.archiveDirectory, "manifest.json");
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    for (const artifact of manifest.artifacts) {
+      const content = readFileSync(
+        join(admission.archiveDirectory, artifact.file),
+        "utf8",
+      );
+      expect(sha256(content)).toBe(artifact.sha256);
+    }
+    expect(() => preserveAuthorityRefreshEvidence(admission)).toThrow(
+      "authority refresh evidence coordinates already exist",
+    );
+
+    mkdirSync(admission.coordinates.workdir, { recursive: true });
+    expect(() =>
+      authorityRefreshCoordinates({
+        controlHeadSha: value.controlHeadSha,
+        planSha256: "c".repeat(64),
+        root: value.repo,
+        taskBlockHash: "d".repeat(64),
+        taskId: value.taskId,
+      }),
+    ).toThrow("authority refresh worktree already exists");
+  });
+});
