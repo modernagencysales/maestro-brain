@@ -1,0 +1,120 @@
+{
+  "lens": "contract",
+  "taskId": "S08-T04",
+  "planSha256": "2bca6b40d7acab334b2036e9ed35652c06ebe8729c1a6c3319c04f827b7a77ce",
+  "taskBlockHash": "2bccfe705e20eef30b384725a71d69db2671a70d5c96f541fb95ec6b73629525",
+  "baseSha": "e28ceeb126083211cc7b2070c673b78e513d125b",
+  "headSha": "0e85ab8c4c43d59b726e743c4eb44c4caf3d8df2",
+  "treeSha": "b61fbc29073bf17a4c9ea80c8e7ef93fe5a5237b",
+  "reviewerRunId": "maestro/review/S08-T04/0e85ab8c4c43d59b726e743c4eb44c4caf3d8df2/49d94afc-ae91-4075-9f71-887f05a03bf3-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2480-2522",
+        "packages/convex/confect/workflows/sourceToBrainMaintenance.graph.ts:3-28",
+        "packages/convex/test/sourceToBrainMaintenance.workflow.test.ts:19-64"
+      ],
+      "findingIds": ["CONTRACT-S08-T04-001"]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2483-2485",
+        "packages/convex/confect/capabilities/maintainBrainPage.spec.ts:47-80",
+        "packages/convex/confect/capabilities/maintainBrainPage.impl.ts:7-17"
+      ],
+      "findingIds": ["CONTRACT-S08-T04-002"]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2542-2548",
+        "packages/convex/confect/tables/brainMaintenanceProposals.ts:5-43",
+        "packages/convex/confect/maintenance/commit.ts:48-64"
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2486-2490",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2502-2505",
+        "docs/template/generated/provenance/add-workflow/sourceToBrainMaintenance.json:5-12",
+        "docs/template/generated/workflows/sourceToBrainMaintenance.md:16-38"
+      ],
+      "findingIds": ["CONTRACT-S08-T04-003"]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:tasks.35.fileLocks",
+        "git diff --name-status e28ceeb126083211cc7b2070c673b78e513d125b...HEAD"
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2527-2532",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2548-2550",
+        "packages/convex/confect/capabilities/maintainBrainPage.impl.ts:7-17",
+        "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.spec.ts:19-25"
+      ],
+      "findingIds": ["CONTRACT-S08-T04-004"]
+    }
+  ],
+  "findings": [
+    {
+      "id": "CONTRACT-S08-T04-001",
+      "severity": "high",
+      "summary": "Workflow acceptance path does not gather routed evidence or call the maintenance capability.",
+      "details": "S08-T04 requires routed units to gather an immutable context pack and produce cited no-op/revision proposals. The workflow graph remains a source-to-Trust-Receipt scaffold, and its focused test proves no queries, mutations, actions, events, or capability registry entries are used, so the approved task packet's end-to-end maintenance route is not implemented.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2480-2522",
+        "packages/convex/confect/workflows/sourceToBrainMaintenance.graph.ts:3-28",
+        "packages/convex/test/sourceToBrainMaintenance.workflow.test.ts:19-64"
+      ]
+    },
+    {
+      "id": "CONTRACT-S08-T04-002",
+      "severity": "high",
+      "summary": "maintainBrainPage public contract is still a fixture rather than the S08-T04 proposal API.",
+      "details": "The generated spec declares only workspaceSlug/contextPackId inputs and the implementation ignores them, always returning proposal_fixture/proposed_noop with fixture_citation. Callers therefore cannot rely on the capability to return cited Brain revision/no-op proposals from an immutable context pack or to enforce the declared proposal contract.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2483-2485",
+        "packages/convex/confect/capabilities/maintainBrainPage.spec.ts:47-80",
+        "packages/convex/confect/capabilities/maintainBrainPage.impl.ts:7-17"
+      ]
+    },
+    {
+      "id": "CONTRACT-S08-T04-003",
+      "severity": "medium",
+      "summary": "Pattern-instance generated workflow contract is inconsistent with the task-owned generated runner path.",
+      "details": "The task packet and generator provenance include packages/convex/convex/workflowRunners/sourceToBrainMaintenance.ts as generated output, and generated docs still instruct codegen to make workflowRunners/sourceToBrainMaintenance:run exist. The final task delta does not add that owned runner path, leaving replay/codegen instructions and generated contract ownership out of sync.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2486-2505",
+        "docs/template/generated/provenance/add-workflow/sourceToBrainMaintenance.json:5-12",
+        "docs/template/generated/workflows/sourceToBrainMaintenance.md:16-38",
+        "git diff --name-status e28ceeb126083211cc7b2070c673b78e513d125b...HEAD"
+      ]
+    },
+    {
+      "id": "CONTRACT-S08-T04-004",
+      "severity": "high",
+      "summary": "Declared maintenance failure paths are not reachable through the typed workflow/capability contract.",
+      "details": "Pure helper tests exercise several MaintenancePolicyError names, but the Confect capability implementation always succeeds and the workflow contract exposes only generic workflow errors. The declared maintenance errors are therefore not bound to the executable typed API path that callers use.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2527-2532",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2548-2550",
+        "packages/convex/confect/capabilities/maintainBrainPage.impl.ts:7-17",
+        "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.spec.ts:19-25"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
