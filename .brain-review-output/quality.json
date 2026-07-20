@@ -1,0 +1,91 @@
+{
+  "lens": "quality",
+  "taskId": "S06-T01",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "f2f6cb348272c704636b7e21bf8e8cbd66b812835d781b52e01bdcfa5b0fa97c",
+  "baseSha": "64b5d90e9dce6146ac6cd49696658cd9a40a254c",
+  "headSha": "ee22a31e1166df1b7ec618081596b67593a773db",
+  "treeSha": "c3de66dd9778670ee2d784b75a3bce13453e38b0",
+  "reviewerRunId": "maestro/review/S06-T01/ee22a31e1166df1b7ec618081596b67593a773db/410f142c-7f0b-42cf-9c8d-e4fc449d2474-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1857-1880 requires crash before/after claim, after external response, before/after commit, before ACK, duplicate enqueue/effect, and completion receipt proof for duplicate external-call versus one accepted effect.",
+        "packages/convex/test/source-workpool.test.ts:392-765 exercises exported reducers/handlers with makeDb(), but not registered Convex functions or the @convex-dev/workpool component lifecycle.",
+        "packages/convex/confect/jobs/workpool.ts:211-228 still has the critical enqueueAction-before-workId-patch crash window, and packages/convex/test/source-workpool.test.ts:686-725 only proves replay does not enqueue again while the row is actively leased, not the durable component recovery/ACK behavior.",
+        "ci-proof-packet.json:39-41 records the known risk that focused proof uses handler-level fake DB and leaves full Convex component lifecycle for a later gate."
+      ],
+      "findingIds": ["QUALITY-S06-T01-001"]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.spec.ts:14-49 registers source job controls through Confect specs as internal functions, and packages/convex/confect/jobs/workpool.impl.ts:29-81 wires matching implementations.",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:1-90 defines the durable Convex table under packages/convex/confect/tables using Effect schemas, consistent with the Confect/Convex layer boundary."
+      ]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/jobState.ts:113-426 keeps job state transitions in focused pure reducer helpers separate from Convex handler orchestration in packages/convex/confect/jobs/workpool.ts:167-531.",
+        "Scoped search over task-owned files found no eslint-disable, ts-expect-error, TODO, console logging, or process.env usage."
+      ]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/jobState.ts:72-83 models immutable attempt receipts with owner, started/completed times, externalResponseHash, acceptedEffectKey, and error tags/reasons for operational diagnosis.",
+        "packages/convex/test/source-workpool.test.ts:348-367 asserts typed error encoding remains public-safe and does not include raw lease token material."
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:755-779 budgets S06-T01 at estimatedSourceLines=280 and sourceSliceBudget=300.",
+        "lane-gate-report.json:25-29 for exact head ee22a31e1166df1b7ec618081596b67593a773db records changedSourceLines=1185, estimateDrift=true, estimatedSourceLines=280, sourceSliceBudget=300, sourceSliceLimit=4.",
+        "rtk proxy git diff --numstat 64b5d90e9dce6146ac6cd49696658cd9a40a254c..HEAD over task-owned files shows 1930 insertions and 28 deletions across seven files, including 789 added test lines and 471/426 line implementation files."
+      ],
+      "findingIds": ["QUALITY-S06-T01-002"]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "pass",
+      "evidence": [
+        "Task-owned changedFiles in ci-proof-packet.json:8-15 are limited to source Confect job/table/test files and do not include generated Convex or Confect outputs.",
+        "lane-gate-report.json:8 records rtk pnpm brain:factory:check-confect-codegen passed for exact head ee22a31e1166df1b7ec618081596b67593a773db."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "QUALITY-S06-T01-001",
+      "severity": "high",
+      "summary": "Focused proof still misses executable crash/replay matrix for durable workpool edges",
+      "details": "S06-T01 requires full crash/replay proof around claim, external response, commit, ACK, duplicate enqueue, and duplicate external-call versus one accepted effect. The added tests are useful but primarily run reducers and exported handler helpers against an in-memory fake DB, while the proof packet explicitly notes the full Convex component lifecycle remains unproved. This can false-green if registered Convex functions or @convex-dev/workpool onComplete/ACK behavior diverge from the handler harness.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1857-1880",
+        "packages/convex/test/source-workpool.test.ts:392-765",
+        "packages/convex/confect/jobs/workpool.ts:211-228",
+        "ci-proof-packet.json:39-41"
+      ]
+    },
+    {
+      "id": "QUALITY-S06-T01-002",
+      "severity": "medium",
+      "summary": "S06-T01 substantially exceeds its approved source slice budget",
+      "details": "The manifest budgets this task at 280 estimated source lines with a 300-line source slice budget. The exact passed pre-review lane-gate report records 1185 changed source lines and estimateDrift=true, and the exact task-owned diff is much larger than the approved slice. Even though the lane gate passed, this should be treated as a re-slice/budget finding for quality review.",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:755-779",
+        "lane-gate-report.json:25-29",
+        "rtk proxy git diff --numstat 64b5d90e9dce6146ac6cd49696658cd9a40a254c..HEAD -- packages/convex/confect/jobs/jobState.ts packages/convex/confect/jobs/leases.ts packages/convex/confect/jobs/workpool.impl.ts packages/convex/confect/jobs/workpool.spec.ts packages/convex/confect/jobs/workpool.ts packages/convex/confect/tables/sourceProcessingJobs.ts packages/convex/test/source-workpool.test.ts"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
