@@ -352,13 +352,8 @@ export const planIntegrationWave = (input: {
     if (candidate.tranche !== task.tranche) {
       throw new Error(`${candidate.taskId}: candidate tranche mismatch`);
     }
-    if (
-      candidate.planSha256 !== input.planSha256 ||
-      candidate.taskBlockHash !== task.taskBlockHash
-    ) {
-      throw new Error(
-        `${candidate.taskId}: candidate plan or task-block drift`,
-      );
+    if (candidate.taskBlockHash !== task.taskBlockHash) {
+      throw new Error(`${candidate.taskId}: candidate task-block drift`);
     }
     if (
       candidate.headSha !== candidate.proofHeadSha ||

@@ -362,7 +362,7 @@ try {
       gateSha256: sha256(gateContent),
       headSha: laneHead,
       laneResultSha256: sha256(laneContent),
-      planSha256: manifest.planSha256,
+      planSha256: proofPlanSha256,
       proofHeadSha: string(proof.headSha, `${task.taskId}: proof head`),
       proofSha256: sha256(proofContent),
       ...(reproofAdmission

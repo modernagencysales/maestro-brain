@@ -222,6 +222,32 @@ const supersessionFixture = (
 };
 
 describe("integration wave planner", () => {
+  it.each([
+    ["historical", "7".repeat(64)],
+    ["current", "c".repeat(64)],
+  ])(
+    "binds a %s proof plan to the task while retaining current wave authority",
+    (_label, proofPlanSha256) => {
+      const currentPlanSha256 = "c".repeat(64);
+      const value = task("S04-T02", "D2-domain-bodies");
+
+      const selection = planIntegrationWave({
+        baseSha: "base",
+        candidates: [{ ...candidate(value), planSha256: proofPlanSha256 }],
+        completedTaskIds: new Set(),
+        integrationId: integrationWaveId(34),
+        planSha256: currentPlanSha256,
+        tasks: [value],
+      });
+
+      expect(selection.planSha256).toBe(currentPlanSha256);
+      expect(selection.selectedTasks[0]?.planSha256).toBe(proofPlanSha256);
+      expect(selection.selectedTasks[0]?.taskBlockHash).toBe(
+        value.taskBlockHash,
+      );
+    },
+  );
+
   it("canonicalizes JSON object keys while preserving array order", () => {
     expect(
       canonicalSelectionPayload({
@@ -898,7 +924,7 @@ describe("integration wave planner", () => {
         planSha256: "plan",
         tasks: [value],
       }),
-    ).toThrow("candidate plan or task-block drift");
+    ).toThrow("candidate task-block drift");
   });
 
   it("SHA-binds optional contract reproof lineage", () => {

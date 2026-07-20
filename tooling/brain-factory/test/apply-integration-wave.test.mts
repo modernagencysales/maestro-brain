@@ -84,6 +84,7 @@ const makeFixture = (options?: {
   readonly reproof?: boolean;
   readonly secondPassConvergence?: boolean;
   readonly oscillatingGeneration?: boolean;
+  readonly proofPlanSha256?: string;
   readonly transientFirstGeneration?: boolean;
 }): Fixture => {
   const controlRoot = mkdtempSync(resolve(tmpdir(), "brain-wave-control-"));
@@ -97,6 +98,7 @@ const makeFixture = (options?: {
   const events: string[] = [];
   let confectGenerationRuns = 0;
   const planSha256 = "1".repeat(64);
+  const proofPlanSha256 = options?.proofPlanSha256 ?? planSha256;
   git(workdir, "init", "-q");
   git(workdir, "config", "core.hooksPath", "/dev/null");
   git(workdir, "config", "user.email", "wave@example.test");
@@ -163,7 +165,7 @@ const makeFixture = (options?: {
       {
         schemaVersion: "maestro-brain-ci-proof/v1",
         taskId: spec.taskId,
-        planSha256,
+        planSha256: proofPlanSha256,
         taskBlockHash,
         baseSha,
         changedFiles,
@@ -184,7 +186,7 @@ const makeFixture = (options?: {
         headSha,
         currentHeadSha: headSha,
         currentTreeSha: treeSha,
-        planSha256,
+        planSha256: proofPlanSha256,
         taskBlockHash,
       },
     );
@@ -202,7 +204,7 @@ const makeFixture = (options?: {
     const reproofRequest = priorArchiveContent
       ? buildContractReproofRequest({
           controlHeadSha: baseSha,
-          planSha256,
+          planSha256: proofPlanSha256,
           priorArchiveSha256: sha256(priorArchiveContent),
           priorEvidencePath,
           priorIntegrationHeadSha: baseSha,
@@ -250,7 +252,7 @@ const makeFixture = (options?: {
         gateSha256: sha256(gateContent),
         headSha,
         laneResultSha256: sha256(laneContent),
-        planSha256,
+        planSha256: proofPlanSha256,
         proofHeadSha: headSha,
         proofSha256: sha256(proofContent),
         ...(reproofRequest
@@ -450,6 +452,44 @@ describe("deterministic integration wave application", () => {
     const value = makeFixture({ historicalLaneWithoutTree: true });
 
     expect(applyIntegrationWave(value.input).includedTasks).toHaveLength(2);
+  });
+
+  it("applies a task snapshot bound to its historical validated proof plan", () => {
+    const proofPlanSha256 = "7".repeat(64);
+    const value = makeFixture({
+      laneSpecs: [{ files: ["a.ts"], taskId: "S04-T02" }],
+      proofPlanSha256,
+    });
+    const selection = readJson(value.selectionPath);
+    const snapshots = selection.selectedTasks as Array<Record<string, unknown>>;
+
+    expect(selection.planSha256).toBe("1".repeat(64));
+    expect(snapshots[0]?.planSha256).toBe(proofPlanSha256);
+    expect(applyIntegrationWave(value.input).includedTasks[0]?.taskId).toBe(
+      "S04-T02",
+    );
+  });
+
+  it("rejects a final gate plan that differs from the validated proof plan", () => {
+    const value = makeFixture({
+      laneSpecs: [{ files: ["a.ts"], taskId: "S04-T02" }],
+      proofPlanSha256: "7".repeat(64),
+    });
+    const gatePath = resolve(
+      value.evidenceDirectory,
+      "lane-results/S04-T02/lane-gate-report.json",
+    );
+    const gate = readJson(gatePath);
+    gate.planSha256 = "8".repeat(64);
+    const gateContent = writeJson(gatePath, gate);
+    const snapshot = value.lanes[0]?.snapshot as IntegrationWaveTaskSnapshot;
+    const input = rewriteSelection(value, {
+      selectedTasks: [{ ...snapshot, gateSha256: sha256(gateContent) }],
+    });
+
+    expect(() => applyIntegrationWave(input)).toThrow(
+      "final lane gate receipt is invalid",
+    );
   });
 
   it("applies independent lanes in immutable selection order", () => {

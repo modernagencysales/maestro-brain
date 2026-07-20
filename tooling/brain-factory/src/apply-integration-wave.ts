@@ -730,9 +730,6 @@ export const applyIntegrationWave = (
   const includedTasks: ApplyIntegrationWaveIncludedTask[] = [];
   const lanes: ValidatedLane[] = [];
   for (const snapshot of selection.selectedTasks) {
-    if (snapshot.planSha256 !== selection.planSha256) {
-      throw new Error(`${snapshot.taskId}: selection plan drift`);
-    }
     lanes.push(
       validateLane({
         baseSha,
