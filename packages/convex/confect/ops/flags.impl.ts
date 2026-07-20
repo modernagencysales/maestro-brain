@@ -51,6 +51,24 @@ const defaultFeatureFlagPolicies = [
     audience: "internal",
     killSwitchEnv: "LLM_DISABLED",
   },
+  {
+    key: "template.brain.semanticOperations",
+    description:
+      "Semantic Brain operations including classification, maintenance, and Ask.",
+    enabled: false,
+    rolloutPercent: 0,
+    audience: "internal",
+    killSwitchEnv: "BRAIN_SEMANTIC_OPERATIONS_DISABLED",
+  },
+  {
+    key: "template.brain.externalDelivery",
+    description:
+      "External Brain delivery surfaces including Slack delivery, API, MCP, and exports.",
+    enabled: false,
+    rolloutPercent: 0,
+    audience: "internal",
+    killSwitchEnv: "BRAIN_EXTERNAL_OPERATIONS_DISABLED",
+  },
 ] as const satisfies readonly FeatureFlagPolicySeed[];
 
 const unsafeAssumeClockProvided = <A, E, R>(
@@ -181,7 +199,9 @@ type FeatureFlagPolicySeed = {
     | "template.workflow.liveRuns"
     | "template.billing.liveCheckout"
     | "template.notifications.center"
-    | "template.ai.liveGeneration";
+    | "template.ai.liveGeneration"
+    | "template.brain.semanticOperations"
+    | "template.brain.externalDelivery";
   readonly description: string;
   readonly enabled: boolean;
   readonly rolloutPercent: number;

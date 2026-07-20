@@ -46,6 +46,17 @@ describe("feature flag Confect contracts", () => {
         audience: "workspace",
       }),
     ).toMatchObject({ rolloutPercent: 50 });
+    expect(
+      Schema.decodeUnknownSync(UpsertFeatureFlagPolicyArgs)({
+        workspaceId: "workspaces_123",
+        key: "template.brain.semanticOperations",
+        description: "Enable semantic Brain operations",
+        enabled: false,
+        rolloutPercent: 0,
+        audience: "internal",
+        killSwitchEnv: "BRAIN_SEMANTIC_OPERATIONS_DISABLED",
+      }),
+    ).toMatchObject({ key: "template.brain.semanticOperations" });
     expect(() =>
       Schema.decodeUnknownSync(UpsertFeatureFlagPolicyArgs)({
         workspaceId: "workspaces_123",
@@ -60,12 +71,12 @@ describe("feature flag Confect contracts", () => {
     expect(
       Schema.decodeUnknownSync(FeatureFlagPolicyRow)({
         workspaceId: "workspaces_123",
-        key: "template.ai.liveGeneration",
-        description: "Live AI",
+        key: "template.brain.externalDelivery",
+        description: "External Brain delivery",
         enabled: false,
         rolloutPercent: 0,
         audience: "internal",
-        killSwitchEnv: "LLM_DISABLED",
+        killSwitchEnv: "BRAIN_EXTERNAL_OPERATIONS_DISABLED",
         source: "workspace",
         updatedAt: 1,
       }),
@@ -74,16 +85,16 @@ describe("feature flag Confect contracts", () => {
     expect(
       Schema.decodeUnknownSync(FeatureFlagPolicyReturn)({
         workspaceId: "workspaces_123",
-        key: "template.ai.liveGeneration",
-        description: "Live AI",
+        key: "template.brain.externalDelivery",
+        description: "External Brain delivery",
         enabled: false,
         rolloutPercent: 0,
         audience: "internal",
-        killSwitchEnv: "LLM_DISABLED",
+        killSwitchEnv: "BRAIN_EXTERNAL_OPERATIONS_DISABLED",
         source: "workspace",
         updatedAt: 1,
       }),
-    ).toMatchObject({ key: "template.ai.liveGeneration" });
+    ).toMatchObject({ key: "template.brain.externalDelivery" });
 
     expect(
       Schema.decodeUnknownSync(FeatureFlagListReturn)({
@@ -146,6 +157,8 @@ describe("feature flag Confect contracts", () => {
       "template.billing.liveCheckout",
       "template.notifications.center",
       "template.ai.liveGeneration",
+      "template.brain.semanticOperations",
+      "template.brain.externalDelivery",
     ]);
     expect(
       result.evaluated.decisions.filter((decision) => decision.enabled),
@@ -157,6 +170,8 @@ describe("feature flag Confect contracts", () => {
             "template.billing.liveCheckout",
             "template.notifications.center",
             "template.ai.liveGeneration",
+            "template.brain.semanticOperations",
+            "template.brain.externalDelivery",
           ].includes(decision.key),
         )
         .every((decision) => decision.reason === "definition-disabled"),
