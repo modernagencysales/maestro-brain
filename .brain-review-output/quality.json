@@ -1,0 +1,86 @@
+{
+  "lens": "quality",
+  "taskId": "S08-T04",
+  "planSha256": "2bca6b40d7acab334b2036e9ed35652c06ebe8729c1a6c3319c04f827b7a77ce",
+  "taskBlockHash": "2bccfe705e20eef30b384725a71d69db2671a70d5c96f541fb95ec6b73629525",
+  "baseSha": "e28ceeb126083211cc7b2070c673b78e513d125b",
+  "headSha": "9b0812d56d0850ff5afc6b58d75b286e6021cd96",
+  "treeSha": "d8de58302eb4921029b8e20b359dda36380f97c2",
+  "reviewerRunId": "maestro/review/S08-T04/9b0812d56d0850ff5afc6b58d75b286e6021cd96/49d94afc-ae91-4075-9f71-887f05a03bf3-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "finding",
+      "evidence": [
+        "Task packet requires failure-first proof for typed no-op, new/existing page proposal, uncited factual claim, citation outside context pack, stale page/source/route/lifecycle generation, revision budget, model self-confidence, changed model/prompt, non-admin Autopilot, review accept/edit/reject, duplicate attempts, and indirect prompt injection (docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2527-2532).",
+        "maintainBrainPage.test.ts only checks generator-domain normalization and generic Unauthorized/ValidationFailed/Forbidden metadata; it does not exercise cited proposal creation or the required maintenance typed errors (packages/convex/confect/capabilities/maintainBrainPage.test.ts:19-59).",
+        "sourceToBrainMaintenance.workflow.test.ts asserts a source-to-output scaffold with an empty capabilityRegistry and explicitly fails if queries, mutations, actions, or events are used, so it cannot prove gathering routed evidence or proposing/committing cited Brain revisions (packages/convex/test/sourceToBrainMaintenance.workflow.test.ts:8-54).",
+        "brain-maintenance.test.ts covers some pure policy helpers, but has no tests for new/existing page behavior, self-confidence thresholding, changed model/prompt downgrade, source/route/lifecycle generation variants beyond currentRevisionKey, review edit/reject/duplicate attempts, or persistence-backed proposal rows (packages/convex/test/brain-maintenance.test.ts:29-153)."
+      ],
+      "findingIds": ["QUALITY-S08-T04-001"]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "No route or block-layer imports were added; the web change is isolated to apps/web/src/features/brain/maintenance-review.tsx and exports pure feature model helpers plus a small React component (apps/web/src/features/brain/maintenance-review.tsx:1-123).",
+        "The internal workflow contract uses Confect specs/impls and workflow ownership/status helpers rather than bypassing through web/API surfaces (packages/convex/confect/workflowContracts/sourceToBrainMaintenance.spec.ts:56-148; packages/convex/confect/workflowContracts/sourceToBrainMaintenance.impl.ts:145-228).",
+        "Pre-review lane-gate report records check:layer-boundaries in the exact-head focused commands and passed at currentHeadSha 9b0812d56d0850ff5afc6b58d75b286e6021cd96 (/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S08-T04/lane-gate-report.json:9-31)."
+      ]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "finding",
+      "evidence": [
+        "The maintained capability remains a generic generated scaffold: args are workspaceSlug/input and returns are only status accepted plus summary (packages/convex/confect/capabilities/maintainBrainPage.spec.ts:5-20), and the impl ignores arguments and returns a canned summary (packages/convex/confect/capabilities/maintainBrainPage.impl.ts:7-17).",
+        "The workflow graph remains a two-node source/output scaffold with no capability node for maintainBrainPage or maintenance commit/review semantics (packages/convex/confect/workflows/sourceToBrainMaintenance.graph.ts:3-29).",
+        "This makes future maintenance risky because the task-specific pure policy helpers are not integrated into the Confect capability/workflow contract promised by the task packet."
+      ],
+      "findingIds": ["QUALITY-S08-T04-001"]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "not_applicable",
+      "rationale": "The reviewed diff adds pure domain/policy helpers, Confect specs, a table schema, and a small web review model; it does not add logging, telemetry, provider calls, or runtime observability code. The absence of useful persisted proposal/revision observability is a consequence of QUALITY-S08-T04-001 rather than a separate logging/redaction defect.",
+      "evidence": [
+        "Changed file inventory in ci-proof-packet.json lists no observability/provider adapter files and no logging surfaces (/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S08-T04/ci-proof-packet.json:8-31).",
+        "maintenance policy/request/commit modules expose pure synchronous functions and contain no logging of provider payloads or secrets (packages/convex/confect/maintenance/policy.ts:1-113; packages/convex/confect/maintenance/request.ts:57-95; packages/convex/confect/maintenance/commit.ts:39-77)."
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "The manifest sourceSliceBudget is 300 with estimatedSourceLines 300 for S08-T04, while the exact diff stat is 1433 inserted lines across 22 task-owned files including tests and generated docs; this exceeds the manifest estimate but reflects scaffold/generated/test-heavy pattern-instance output rather than broad unrelated changes (docs/superpowers/execution/maestro-brain/task-manifest.json:1146-1153; git diff --stat e28ceeb126083211cc7b2070c673b78e513d125b..HEAD over the proof packet changed files reported 22 files changed, 1433 insertions, 3 deletions).",
+        "No unowned files appear in ci-proof-packet changedFiles outside the S08-T04 manifest ownership slice, and pre-review lane gates passed on the exact head (/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S08-T04/ci-proof-packet.json:8-31; /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S08-T04/lane-gate-report.json:24-31)."
+      ]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "pass",
+      "evidence": [
+        "Task packet explicitly says integration owns reproducible Confect/Convex generated output and regenerated manifests; the lane does not edit those generated trees (docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2523-2526).",
+        "ci-proof-packet knownRisks documents that generated Confect/Convex registration output and regenerated manifests remain integration-owned, and that the lane removed the plain Convex workflow runner from hand-authored history after Confect freshness observed it (/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S08-T04/ci-proof-packet.json:96-99).",
+        "The proof packet records brain:factory:check-confect-codegen as passed with transient Confect codegen producing 12 generated files at headSha 9b0812d56d0850ff5afc6b58d75b286e6021cd96 (/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S08-T04/ci-proof-packet.json:57-59)."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "QUALITY-S08-T04-001",
+      "severity": "high",
+      "summary": "Focused tests are false-green because the approved cited Brain maintenance capability/workflow remains scaffold-level and unintegrated.",
+      "details": "S08-T04 requires a generated capability and workflow that gather immutable routed context, return cited no-op/revision proposals, enforce all declared maintenance typed failures, support review-first/autopilot downgrade semantics, and prove review accept/edit/reject and duplicate attempt behavior. The implemented maintainBrainPage Confect contract still exposes generic workspaceSlug/input args, returns only accepted/summary, declares only generic auth/validation errors, and the impl returns canned data. The sourceToBrainMaintenance graph/test remain source-to-output scaffold and never invoke maintenance capability/commit behavior. Pure helper tests cover a subset of policy checks but do not prove the task contract end-to-end, so the pre-review gates can pass while the core approved behavior is missing.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2527-2550",
+        "packages/convex/confect/capabilities/maintainBrainPage.spec.ts:5-20",
+        "packages/convex/confect/capabilities/maintainBrainPage.impl.ts:7-17",
+        "packages/convex/confect/workflows/sourceToBrainMaintenance.graph.ts:3-29",
+        "packages/convex/test/sourceToBrainMaintenance.workflow.test.ts:8-54",
+        "packages/convex/confect/capabilities/maintainBrainPage.test.ts:19-59",
+        "packages/convex/test/brain-maintenance.test.ts:29-153"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
