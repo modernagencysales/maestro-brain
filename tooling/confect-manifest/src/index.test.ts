@@ -1,4 +1,7 @@
-import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import * as Schema from "effect/Schema";
 import {
@@ -11,14 +14,49 @@ import {
 } from "./index";
 
 describe("confect manifest tooling", () => {
-  it("includes generated Confect JSON imports in its composite project", () => {
-    const tsconfig = JSON.parse(
-      readFileSync(new URL("../tsconfig.json", import.meta.url), "utf8"),
-    ) as { readonly include?: readonly string[] };
-
-    expect(tsconfig.include).toContain(
-      "../../packages/convex/confect/**/*.json",
+  it("compiles generated descriptors without admitting unrelated JSON", () => {
+    const root = fileURLToPath(new URL("../../../", import.meta.url));
+    const probeDirectory = join(
+      root,
+      "packages/convex/confect/capabilities",
+      `manifest-json-probe-${process.pid}-${Date.now()}`,
     );
+    const descriptor = join(probeDirectory, "probe.headless.json");
+    const unrelated = join(probeDirectory, "unrelated.json");
+
+    mkdirSync(probeDirectory, { recursive: true });
+    try {
+      writeFileSync(descriptor, '{"capability":"probe"}\n');
+      writeFileSync(unrelated, '{"unrelated":true}\n');
+      writeFileSync(
+        join(probeDirectory, "probe.test.ts"),
+        'import metadata from "./probe.headless.json";\nexport const capability = metadata.capability;\n',
+      );
+
+      const result = spawnSync(
+        process.execPath,
+        [
+          resolve(root, "node_modules/typescript/bin/tsc"),
+          "-p",
+          resolve(root, "tooling/confect-manifest/tsconfig.json"),
+          "--noEmit",
+          "--pretty",
+          "false",
+          "--listFiles",
+        ],
+        { cwd: root, encoding: "utf8" },
+      );
+      const output = `${result.stdout}${result.stderr}`;
+      const listedProbeFiles = output
+        .split(/\r?\n/u)
+        .filter((line) => line.startsWith(probeDirectory));
+
+      expect(result.status, output).toBe(0);
+      expect(listedProbeFiles).toContain(descriptor);
+      expect(listedProbeFiles).not.toContain(unrelated);
+    } finally {
+      rmSync(probeDirectory, { recursive: true, force: true });
+    }
   });
 
   it("sorts operation ids for deterministic output", () => {
