@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   nextBlockNoteSnapshotVersion,
   readBlockNoteDocumentSnapshot,
+  readBlockNoteRevisionFence,
   shouldBootstrapCreate,
 } from "./BlockNoteSyncEditor";
 
@@ -37,5 +38,31 @@ describe("BlockNoteSyncEditor callbacks", () => {
     expect(nextBlockNoteSnapshotVersion(nextBlockNoteSnapshotVersion(41))).toBe(
       43,
     );
+  });
+});
+
+describe("BlockNoteSyncEditor revision fences", () => {
+  it("keeps same-document saves fenced to the revision selected at edit start", () => {
+    expect(
+      readBlockNoteRevisionFence(
+        { documentId: "brainPage:br_01:pg_overview", revisionKey: "rev_start" },
+        {
+          documentId: "brainPage:br_01:pg_overview",
+          revisionKey: "rev_after_remote_save",
+        },
+      ),
+    ).toBe("rev_start");
+    expect(
+      readBlockNoteRevisionFence(
+        { documentId: "brainPage:br_01:pg_overview", revisionKey: "rev_start" },
+        { documentId: "brainPage:br_01:pg_next", revisionKey: "rev_next" },
+      ),
+    ).toBe("rev_next");
+    expect(
+      readBlockNoteRevisionFence(
+        { documentId: null, revisionKey: null },
+        { documentId: "brainPage:br_01:pg_overview", revisionKey: null },
+      ),
+    ).toBeNull();
   });
 });
