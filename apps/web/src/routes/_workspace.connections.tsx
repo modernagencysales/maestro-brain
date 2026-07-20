@@ -1,5 +1,7 @@
+import { Stack } from "@saas-ui/react";
 import { createFileRoute } from "@tanstack/react-router";
 
+import { ChannelPolicyCard } from "../features/connections/channel-policy-dialog";
 import { ConnectionsScreen } from "../features/connections/connections-screen";
 import { BusinessAppShell, BusinessPageRoot } from "../saas-ui/business-shell";
 
@@ -24,7 +26,10 @@ function ConnectionsRoute() {
   return (
     <BusinessAppShell activePath="/connections">
       <BusinessPageRoot>
-        <ConnectionsScreen state={initialConnectionsState} />
+        <Stack gap="4">
+          <ConnectionsScreen state={initialConnectionsState} />
+          <ChannelPolicyCard />
+        </Stack>
       </BusinessPageRoot>
     </BusinessAppShell>
   );
