@@ -38,14 +38,14 @@ export const ClassificationDecisionRow = Schema.Struct({
   rationaleHash: Schema.String,
   evidenceHash: Schema.String,
   reviewerPrincipalKey: Schema.optional(Schema.NullOr(Schema.String)),
+  effectKey: Schema.optional(Schema.NullOr(Schema.String)),
   routeEffectKey: Schema.optional(Schema.NullOr(Schema.String)),
   createdAt: Schema.Number,
   updatedAt: Schema.Number,
 });
 
 export default Table.make(() => ClassificationDecisionRow)
-  .index("by_workspace_state", ["workspaceId", "state"])
-  .index("by_source_unit", ["sourceUnitRevisionKey"])
-  .index("by_decision_key", ["decisionKey"])
-  .index("by_workspace_policy", ["workspaceId", "policyVersion"])
-  .index("by_workspace_target", ["workspaceId", "targetBrainKey"]);
+  .index("by_unit_policy_epoch", ["sourceUnitRevisionKey", "policyVersion"])
+  .index("by_status_created", ["state", "createdAt"])
+  .index("by_effect_key", ["effectKey"])
+  .index("by_target_brain", ["targetBrainKey"]);

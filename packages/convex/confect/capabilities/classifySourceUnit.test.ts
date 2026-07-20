@@ -56,13 +56,12 @@ describe("classifySourceUnit local capability seam", () => {
   });
 
   it("declares the required typed errors", () => {
-    expect(manifest[0]?.typedErrors).toEqual(
-      expect.arrayContaining([
-        "MalformedModelOutput",
-        "TargetNotAllowed",
-        "EvidenceMismatch",
-      ]),
-    );
+    expect(manifest[0]?.typedErrors).toEqual([
+      "Unauthorized",
+      "MalformedModelOutput",
+      "TargetNotAllowed",
+      "EvidenceMismatch",
+    ]);
     expect(manifest[0]).toMatchObject({
       argsSchemaName: "classifySourceUnitArgs",
       returnsSchemaName: "classifySourceUnitReturns",

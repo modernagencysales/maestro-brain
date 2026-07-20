@@ -41,6 +41,9 @@ const SourceProcessingJobRow = Schema.Struct({
   routeGeneration: Schema.Number,
   leaseGeneration: Schema.Number,
   leaseKey: Schema.optional(Schema.NullOr(Schema.String)),
+  leaseExpiresAt: Schema.optional(Schema.NullOr(Schema.Number)),
+  nextRetryAt: Schema.optional(Schema.NullOr(Schema.Number)),
+  effectKey: Schema.optional(Schema.NullOr(Schema.String)),
   routeEffectKey: Schema.optional(Schema.NullOr(Schema.String)),
   classificationDecisionKey: Schema.optional(Schema.NullOr(Schema.String)),
   createdAt: Schema.Number,
@@ -48,8 +51,12 @@ const SourceProcessingJobRow = Schema.Struct({
 });
 
 export default Table.make(() => SourceProcessingJobRow)
-  .index("by_workspace_stage", ["workspaceId", "stage"])
-  .index("by_source_unit", ["sourceUnitRevisionKey"])
-  .index("by_job_key", ["jobKey"])
-  .index("by_workspace_execution", ["workspaceId", "executionStatus"])
-  .index("by_classification_decision", ["classificationDecisionKey"]);
+  .index("by_stage_status_next_retry", [
+    "stage",
+    "executionStatus",
+    "nextRetryAt",
+  ])
+  .index("by_effect_key", ["effectKey"])
+  .index("by_unit_stage", ["sourceUnitRevisionKey", "stage"])
+  .index("by_lease_expiry", ["leaseExpiresAt"])
+  .index("by_organization_status", ["organizationId", "executionStatus"]);
