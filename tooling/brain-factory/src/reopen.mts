@@ -284,7 +284,7 @@ if (failedIntegrationId) {
       ? { broadGateContent: readFileSync(broadGatePath, "utf8") }
       : {}),
     controlClean:
-      runRtk(["git", "status", "--porcelain"], { quiet: true }) === "",
+      runRtk(["proxy", "git", "status", "--porcelain"], { quiet: true }) === "",
     controlHeadSha,
     dependenciesIntegrated: task.codeStartAfter.every((dependency) =>
       completedTaskIds.has(dependency),
