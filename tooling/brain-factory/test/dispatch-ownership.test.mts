@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   acquireDispatcherLock,
   archiveTerminalTaskRecord,
+  auditedTerminalResumeRecord,
   promoteTaskReservation,
   preservedResumeDisposition,
   resolvePreservedFactoryBase,
@@ -660,6 +661,59 @@ describe("brain dispatch ownership", () => {
         taskId: "S08-T02",
       }),
     ).toBe(`${value.recordPath}.terminal-${actionId}`);
+  });
+
+  it("fails closed on missing or ambiguous preserved terminal archives", () => {
+    const expected = {
+      branch: "fabro/review-s08-t02",
+      mode: "resume-review" as const,
+      resumeStrategy: "in-lane-cherry-pick" as const,
+      sourceHeadSha: "a".repeat(40),
+      taskBaseSha: "b".repeat(40),
+      taskId: "S08-T02",
+      workdir: "/tmp/resume-s08-t02",
+    };
+    const missing = fixture();
+    reserveTaskPreparing(missing.recordPath, {
+      ...expected,
+      runId: "run-unaudited",
+    });
+    renameSync(missing.recordPath, `${missing.recordPath}.terminal-unaudited`);
+    expect(() =>
+      auditedTerminalResumeRecord({
+        auditPath: missing.auditPath,
+        expected,
+        recordPath: missing.recordPath,
+      }),
+    ).toThrow("audit is missing");
+
+    const ambiguous = fixture();
+    for (const [actionId, runId] of [
+      ["1".repeat(64), "run-one"],
+      ["2".repeat(64), "run-two"],
+    ] as const) {
+      reserveTaskPreparing(ambiguous.recordPath, {
+        ...expected,
+        runId,
+        status: "launched",
+      });
+      archiveTerminalTaskRecord({
+        actionId,
+        auditPath: ambiguous.auditPath,
+        now: "2026-07-20T00:00:00.000Z",
+        recordPath: ambiguous.recordPath,
+        runId,
+        status: "failed",
+        taskId: expected.taskId,
+      });
+    }
+    expect(() =>
+      auditedTerminalResumeRecord({
+        auditPath: ambiguous.auditPath,
+        expected,
+        recordPath: ambiguous.recordPath,
+      }),
+    ).toThrow("ambiguous audited terminal archives");
   });
 
   it("rejects conflicting deterministic archive or audit replay", () => {

@@ -6,6 +6,7 @@ import { materializeBuildTaskRunConfig } from "./build-task-run-config.js";
 import {
   acquireDispatcherLock,
   archiveTerminalTaskRecord,
+  auditedTerminalResumeRecord,
   preservedResumeDisposition,
   promoteTaskReservation,
   reserveTaskPreparing,
@@ -127,6 +128,8 @@ let disposition:
 let launchBaseSha = factoryBase;
 let preservedProofHeadSha: string | undefined;
 let preservedExpectedCommit = "none";
+let preservedRecord: ResumeRecord | undefined;
+let activeTerminalStatus: string | undefined;
 if (existsSync(recordPath)) {
   const record = JSON.parse(readFileSync(recordPath, "utf8")) as ResumeRecord;
   if (!record.runId) {
@@ -159,6 +162,25 @@ if (existsSync(recordPath)) {
       `${taskId}: live or unknown Fabro run ${record.runId} (${status}) owns this task`,
     );
   }
+  preservedRecord = record;
+  activeTerminalStatus = status;
+}
+if (
+  preservedRecord === undefined &&
+  (existsSync(workdir) || gitBranchExists(branch, root))
+) {
+  preservedRecord = auditedTerminalResumeRecord({
+    auditPath,
+    expected: expectedResume,
+    recordPath,
+  }).record as unknown as ResumeRecord;
+}
+if (preservedRecord !== undefined) {
+  const record = preservedRecord;
+  const normalizedRecord = {
+    ...record,
+    resumeStrategy: record.resumeStrategy ?? "prelaunch-cherry-pick",
+  };
   const worktreeExists = existsSync(workdir);
   const branchExists = gitBranchExists(branch, root);
   const git = (args: readonly string[]): string =>
@@ -249,14 +271,19 @@ if (existsSync(recordPath)) {
     }
     preservedExpectedCommit = cherryPickHead;
   }
-  archiveTerminalTaskRecord({
-    auditPath,
-    now,
-    recordPath,
-    runId: record.runId,
-    status,
-    taskId,
-  });
+  if (activeTerminalStatus !== undefined) {
+    if (!record.runId) {
+      throw new Error(`${taskId}: terminal resume record has no run ID`);
+    }
+    archiveTerminalTaskRecord({
+      auditPath,
+      now,
+      recordPath,
+      runId: record.runId,
+      status: activeTerminalStatus,
+      taskId,
+    });
+  }
 }
 if (disposition.kind === "create" && existsSync(workdir)) {
   throw new Error(

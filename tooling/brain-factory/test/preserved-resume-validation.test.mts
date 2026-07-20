@@ -12,6 +12,8 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { validatePreservedResumeLaunch } from "../src/preserved-resume-validation.js";
+import { auditedTerminalResumeRecord } from "../src/dispatch-ownership.js";
+import { archiveTerminalRun } from "../src/terminal-archive.js";
 
 const roots: string[] = [];
 const git = (cwd: string, ...args: string[]): string =>
@@ -28,8 +30,10 @@ const fixture = () => {
   const repo = join(root, "repo");
   const workdir = join(root, "worktree");
   const evidence = join(root, "evidence");
+  const state = join(root, "state");
   mkdirSync(repo);
   mkdirSync(evidence, { recursive: true });
+  mkdirSync(join(state, "runs"), { recursive: true });
   git(repo, "init", "-b", "main");
   git(repo, "config", "user.email", "factory@example.invalid");
   git(repo, "config", "user.name", "Factory Test");
@@ -65,6 +69,7 @@ const fixture = () => {
     repo,
     sourceCommit,
     sourceHeadSha,
+    state,
     workdir,
   };
 };
@@ -103,6 +108,45 @@ describe("preserved resume launch validation", () => {
       taskId: "S08-T03",
       workdir: value.workdir,
     };
+    const recordPath = join(value.state, "runs", "S08-T03.json");
+    writeFileSync(
+      recordPath,
+      JSON.stringify({
+        ...expected,
+        factoryBaseSha: value.control,
+        mode: "resume-review",
+        resumeStrategy: "in-lane-cherry-pick",
+        runId: "run-archived",
+        status: "launched",
+      }),
+    );
+    archiveTerminalRun({
+      actionId: "a".repeat(64),
+      inspect: () => "failed",
+      now: "2026-07-20T00:00:00.000Z",
+      runId: "run-archived",
+      state: value.state,
+      taskId: "S08-T03",
+    });
+    expect(
+      auditedTerminalResumeRecord({
+        auditPath: join(value.state, "recovery-audit.jsonl"),
+        expected: {
+          branch: expected.branch,
+          mode: "resume-review",
+          resumeStrategy: "in-lane-cherry-pick",
+          sourceHeadSha: expected.sourceHeadSha,
+          taskBaseSha: expected.taskBaseSha,
+          taskId: expected.taskId,
+          workdir: expected.workdir,
+        },
+        recordPath,
+      }),
+    ).toMatchObject({
+      archivedPath: `${recordPath}.terminal-${"a".repeat(64)}`,
+      record: { runId: "run-archived" },
+      status: "failed",
+    });
     expect(validatePreservedResumeLaunch(expected)).toMatchObject({
       branch: value.branch,
       headSha: value.control,
