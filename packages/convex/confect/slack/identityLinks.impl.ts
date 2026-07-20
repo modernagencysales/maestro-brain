@@ -178,3 +178,223 @@ const resolveAuthorizedConnection = (input: {
       .index("by_workos_organization", (q) =>
         q.eq("workosOrganizationId", workosOrganizationId),
       )
+      .collect()
+      .pipe(Effect.orDie);
+    const organization = organizations.find(
+      (row) =>
+        row.status === "active" && row.agencyKey === connection.organizationKey,
+    );
+    if (organization === undefined)
+      return yield* new Forbidden({
+        reason: "Slack connection is outside the current organization.",
+      });
+    const workspaces = yield* reader
+      .table("workspaces")
+      .index("by_organization", (q) => q.eq("organizationId", organization._id))
+      .collect()
+      .pipe(Effect.orDie);
+    const workspace = workspaces.find((row) => row._id === input.workspaceId);
+    if (
+      workspace === undefined ||
+      workspace.organizationId !== organization._id ||
+      (input.brainKey !== undefined && workspace.brainKey !== input.brainKey)
+    )
+      return yield* new Forbidden({ reason: "Slack link workspace mismatch." });
+    const membership = yield* activeMembershipFor({
+      organizationId: organization._id,
+      userId: user._id,
+    });
+    const workspaceMembers = yield* reader
+      .table("workspaceMembers")
+      .index("by_workspace_user", (q) =>
+        q.eq("workspaceId", input.workspaceId).eq("userId", user._id),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const workspaceRole = workspaceMembers.find(
+      (row) =>
+        row.status === "active" &&
+        row.acceptedAt !== null &&
+        row.revokedAt === null &&
+        row.deletedAt === null,
+    )?.role;
+    if (
+      membership === undefined ||
+      !workspaceRole ||
+      !roleAtLeast(workspaceRole, "editor")
+    )
+      return yield* new Forbidden({
+        reason: "Current user is not an active Brain editor.",
+      });
+    return { connection, workspace, user, workosSubject: identity.subject };
+  });
+
+const findByNonceHash = (nonceHash: string) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const row = yield* slackIdentityBindingTable(reader)
+      .index("by_nonce_hash", (q) => q.eq("nonceHash", nonceHash))
+      .first()
+      .pipe(Effect.orDie);
+    return Option.getOrNull(row) as SlackIdentityBindingDoc | null;
+  });
+
+const findActiveSlackIdentity = (input: {
+  readonly organizationKey: string;
+  readonly teamId: string;
+  readonly slackUserId: string;
+}) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const rows = yield* slackIdentityBindingTable(reader)
+      .index("by_exact_slack_identity_status", (q) =>
+        q
+          .eq("organizationKey", input.organizationKey)
+          .eq("teamId", input.teamId)
+          .eq("slackUserId", input.slackUserId)
+          .eq("status", "active"),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    return (rows[0] as SlackIdentityBindingDoc | undefined) ?? null;
+  });
+
+const currentConnectionFor = (input: {
+  readonly connectionKey: string;
+  readonly connectionGeneration: number;
+  readonly teamId: string;
+}) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const rows = yield* reader
+      .table("providerConnections")
+      .index("by_connection_key", (q) =>
+        q.eq("connectionKey", input.connectionKey),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    return rows.find(
+      (row) =>
+        row.status === "active" &&
+        row.connectionGeneration === input.connectionGeneration &&
+        row.teamId === input.teamId,
+    );
+  });
+
+const revokeStaleConnectionBindings = (input: {
+  readonly connectionKey: string;
+  readonly connectionGeneration: number;
+  readonly now: number;
+  readonly reason: string;
+}) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const writer = yield* DatabaseWriter;
+    const rows = (yield* slackIdentityBindingTable(reader)
+      .index("by_connection_generation_status", (q) =>
+        q
+          .eq("connectionKey", input.connectionKey)
+          .eq("connectionGeneration", input.connectionGeneration)
+          .eq("status", "active"),
+      )
+      .collect()
+      .pipe(Effect.orDie)).filter(
+      (row) => row.connectionGeneration === input.connectionGeneration,
+    );
+    for (const row of rows) {
+      yield* slackIdentityBindingTable(writer)
+        .patch(row._id, {
+          status: "revoked" as const,
+          revokedAt: input.now,
+          revokeReason: input.reason,
+          updatedAt: input.now,
+        })
+        .pipe(Effect.orDie);
+    }
+  });
+
+const reauthorizePendingBindingOwner = (pending: SlackIdentityBindingDoc) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const users = yield* reader
+      .table("users")
+      .index("by_subject", (q) => q.eq("subject", pending.workosSubject))
+      .collect()
+      .pipe(Effect.orDie);
+    const user = users.find(
+      (row) => row._id === pending.userId && row.status === "active",
+    );
+    if (user === undefined)
+      return yield* Effect.fail(
+        new Forbidden({ reason: "Slack link owner is no longer active." }),
+      );
+    if (pending.workspaceId === undefined)
+      return yield* Effect.fail(
+        new Forbidden({ reason: "Slack link workspace is not bound." }),
+      );
+    const workspace = yield* reader
+      .table("workspaces")
+      .get(pending.workspaceId)
+      .pipe(Effect.orDie);
+    if (
+      workspace.status !== "active" ||
+      workspace.brainKey !== pending.brainKey
+    )
+      return yield* Effect.fail(
+        new Forbidden({ reason: "Slack link workspace is no longer active." }),
+      );
+    const organization = yield* reader
+      .table("organizations")
+      .get(workspace.organizationId)
+      .pipe(Effect.orDie);
+    if (
+      organization.status !== "active" ||
+      organization.agencyKey !== pending.organizationKey
+    )
+      return yield* Effect.fail(
+        new Forbidden({
+          reason: "Slack link organization is no longer active.",
+        }),
+      );
+    const membership = yield* activeMembershipFor({
+      organizationId: organization._id,
+      userId: pending.userId,
+    });
+    const workspaceMembers = yield* reader
+      .table("workspaceMembers")
+      .index("by_workspace_user", (q) =>
+        q
+          .eq("workspaceId", pending.workspaceId ?? "")
+          .eq("userId", pending.userId),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const workspaceRole = workspaceMembers.find(
+      (row) =>
+        row.status === "active" &&
+        row.acceptedAt !== null &&
+        row.revokedAt === null &&
+        row.deletedAt === null,
+    )?.role;
+    if (
+      membership === undefined ||
+      !workspaceRole ||
+      !roleAtLeast(workspaceRole, "editor")
+    )
+      return yield* Effect.fail(
+        new Forbidden({ reason: "Slack link owner is no longer authorized." }),
+      );
+  });
+
+const findByBindingKey = (bindingKey: string) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const rows = yield* slackIdentityBindingTable(reader)
+      .index("by_binding_key", (q) => q.eq("bindingKey", bindingKey))
+      .collect()
+      .pipe(Effect.orDie);
+    return (
+      rows.find((row) => row.status === "active") ??
+      (rows[0] as SlackIdentityBindingDoc | undefined) ??
+      null
+    );
