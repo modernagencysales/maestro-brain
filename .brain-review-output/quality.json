@@ -1,0 +1,97 @@
+{
+  "lens": "quality",
+  "taskId": "S08-T04",
+  "planSha256": "2bca6b40d7acab334b2036e9ed35652c06ebe8729c1a6c3319c04f827b7a77ce",
+  "taskBlockHash": "2bccfe705e20eef30b384725a71d69db2671a70d5c96f541fb95ec6b73629525",
+  "baseSha": "e28ceeb126083211cc7b2070c673b78e513d125b",
+  "headSha": "c996cd22f0816ebfa3c72b5005d548e501708664",
+  "treeSha": "babb642bf8442f746119edd74fe7b5fb04783e1e",
+  "reviewerRunId": "maestro/review/S08-T04/c996cd22f0816ebfa3c72b5005d548e501708664/49d94afc-ae91-4075-9f71-887f05a03bf3-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2527-2532 requires failure-first tests for self-confidence and changed model/prompt in addition to citation, stale, budget, autopilot, review, duplicate, and prompt-injection cases.",
+        "packages/convex/confect/maintenance/request.ts:9-22 carries selfConfidence on model outputs, but requestMaintenanceProposal at lines 57-95 never reads or validates it.",
+        "packages/convex/test/brain-maintenance.test.ts:29-153 covers cited no-op, missing/outside citations, review-first stale revision, one non-admin autopilot case, eligible autopilot, bounded gather, and lifecycle revoked, but has no assertion that low/invalid selfConfidence is fenced and no assertion that an approved model/prompt pair downgrades when the context modelPromptPair changes."
+      ],
+      "findingIds": ["S08-T04-QUALITY-001"]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/maintenance/request.ts:57-95 and packages/convex/confect/maintenance/commit.ts:39-77 keep workflow maintenance validation in domain/check seams without importing React Flow or web code.",
+        "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.impl.ts:171-197 delegates workflow start through startWorkflowAndRecordOwnership and uses the durable graph runner rather than web/API shortcuts.",
+        "Pre-review lane-gate report in ci-proof-packet.json lines 73-82 records passing check:workflow-graph-boundary, check:headless-surface-contract, and check:layer-boundaries."
+      ]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/maintenance/policy.ts:1-113 isolates the maintenance state/error vocabulary and small pure guards for citation membership, budgets, lifecycle, and autopilot eligibility.",
+        "packages/convex/confect/maintenance/gather.ts:7-17, request.ts:57-95, and commit.ts:39-77 split gather, propose, and commit responsibilities into focused pure helpers.",
+        "apps/web/src/features/brain/maintenance-review.tsx:58-100 builds a pure review model with role-gated autopilot presentation and explicit blocked reasons."
+      ]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/brainMaintenanceProposals.ts:18-38 persists proposal status, page, revision, generations, modelPromptPair, and citationKeys for review/audit without logging raw provider payloads or secrets.",
+        "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.impl.ts:179-190 records workflow ownership with workflow id, version, graph JSON, idempotency key, startedBy system principal, and workflow kind.",
+        "docs/product/maestro-brain-lifecycle-adoption/S08-T04.md:30-34 documents focused proof coverage for no-op, cited revision, stale, budget, lifecycle, admin-only Autopilot, review surface, and prompt-injection export."
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json S08-T04 entry sets sourceSliceBudget 300 and estimatedSourceLines 295 for the pattern-instance slice.",
+        "ci-proof-packet.json lines 88-91 records the rewritten history as four coherent S08-T04 commits with gate-counted hand-authored source slices 291, 282, 285, and 123 lines.",
+        "packages/convex/confect/maintenance/policy.ts:93-97 enforces RevisionBudgetExceeded when revisionBudget is below one, and packages/convex/test/brain-maintenance.test.ts exercises maintenance policy in focused tests."
+      ]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2524-2526 says integration owns reproducible Confect/Convex generated output and regenerated manifests; the lane does not edit generated trees.",
+        "docs/template/generated/provenance/add-workflow/sourceToBrainMaintenance.json:5-11 still declares packages/convex/convex/workflowRunners/sourceToBrainMaintenance.ts as generated output.",
+        "docs/template/generated/workflows/sourceToBrainMaintenance.md:18-38 still instructs that packages/convex/convex/workflowRunners/sourceToBrainMaintenance.ts is the plain Convex defineWorkflow handler and that workflowRunners/sourceToBrainMaintenance:run must exist before typecheck.",
+        "git diff e28ceeb126083211cc7b2070c673b78e513d125b..HEAD deletes packages/convex/convex/workflowRunners/sourceToBrainMaintenance.ts and moves the runner to packages/convex/confect/workflowContracts/sourceToBrainMaintenance.impl.ts:56-69 without updating the generated provenance/doc contract."
+      ],
+      "findingIds": ["S08-T04-QUALITY-002"]
+    }
+  ],
+  "findings": [
+    {
+      "id": "S08-T04-QUALITY-001",
+      "severity": "medium",
+      "summary": "Failure-first coverage omits required self-confidence and changed-model/prompt downgrade fences.",
+      "details": "The task packet explicitly requires self-confidence and changed model/prompt failure-first tests. The implementation carries selfConfidence as input data but does not validate it, and the focused brain-maintenance tests do not assert either a low/invalid confidence fence or an Autopilot downgrade when the modelPromptPair changes. This leaves false-green room for unsafe proposals or stale Autopilot eligibility to pass the focused proof.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2527-2532",
+        "packages/convex/confect/maintenance/request.ts:9-22",
+        "packages/convex/confect/maintenance/request.ts:57-95",
+        "packages/convex/test/brain-maintenance.test.ts:29-153"
+      ]
+    },
+    {
+      "id": "S08-T04-QUALITY-002",
+      "severity": "medium",
+      "summary": "Generated workflow runner contract is internally inconsistent after deleting the generated runner file.",
+      "details": "The final diff deletes the generated plain Convex workflow runner and registers run inside the Confect workflow contract impl, but the generator provenance and generated workflow documentation still declare the deleted workflowRunners/sourceToBrainMaintenance.ts path and workflowRunners/sourceToBrainMaintenance:run reference as the generated output. That violates generated-file discipline and leaves future codegen/replay instructions pointing at a file that no longer exists.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2524-2526",
+        "docs/template/generated/provenance/add-workflow/sourceToBrainMaintenance.json:5-11",
+        "docs/template/generated/workflows/sourceToBrainMaintenance.md:18-38",
+        "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.impl.ts:56-69",
+        "packages/convex/convex/workflowRunners/sourceToBrainMaintenance.ts deleted in e28ceeb126083211cc7b2070c673b78e513d125b..c996cd22f0816ebfa3c72b5005d548e501708664"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
