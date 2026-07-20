@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "ca7c2d9fbe1de7598adb586c3c0eb8e85c2826fc3339def797b61e3dc45b56cf",
+  "planSha256": "2bca6b40d7acab334b2036e9ed35652c06ebe8729c1a6c3319c04f827b7a77ce",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -1451,6 +1451,7 @@
         "packages/convex/test/api-keys.test.ts",
         "packages/convex/test/headless-auth.test.ts",
         "packages/convex/test/headless-executor.test.ts",
+        "packages/convex/test/http-docs.test.ts",
         "packages/convex/test/http-request-security.test.ts"
       ],
       "gateProfiles": ["cli", "convex", "web"],
@@ -1459,7 +1460,7 @@
       "requirements": ["HLS-01", "HLS-02", "IAM-03"],
       "sourceSliceBudget": 300,
       "sourceSliceLimit": 10,
-      "taskBlockHash": "2b484dad01173ead7ca99d710455998926b3666713d025943ef5824aed334ff6",
+      "taskBlockHash": "f49e5fe055896a804408cf0013f1f4b02735f7b6e18f1813ab85e85672fb569d",
       "taskId": "S11-T02",
       "title": "Resolve Bearer Principals Before Decoding Or Dispatching Requests",
       "tranche": "D2-domain-bodies"

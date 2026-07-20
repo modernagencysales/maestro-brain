@@ -3114,6 +3114,7 @@ manifest.
   `apps/web/src/routes/_workspace.settings.tsx`; create
   `packages/convex/confect/headless/principal.ts`,
   `packages/convex/confect/headless/authorizeOperation.ts`,
+  `packages/convex/test/http-docs.test.ts`,
   `packages/convex/test/http-request-security.test.ts`,
   `packages/convex/test/access-audit-events.test.ts`,
   `apps/web/src/features/settings/api-keys-adapter.ts`,

@@ -1,6 +1,6 @@
 {
   "schemaVersion": "maestro-brain-parallelism-contract/v1",
-  "manifestPlanSha256": "ca7c2d9fbe1de7598adb586c3c0eb8e85c2826fc3339def797b61e3dc45b56cf",
+  "manifestPlanSha256": "2bca6b40d7acab334b2036e9ed35652c06ebe8729c1a6c3319c04f827b7a77ce",
   "edges": [
     {
       "consumerTaskId": "S00-T03",
@@ -603,7 +603,7 @@
         "kind": "task-packet",
         "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
         "anchor": "S11-T02",
-        "sha256": "2b484dad01173ead7ca99d710455998926b3666713d025943ef5824aed334ff6"
+        "sha256": "f49e5fe055896a804408cf0013f1f4b02735f7b6e18f1813ab85e85672fb569d"
       }
     },
     {
@@ -1221,7 +1221,8 @@
         "packages/convex/confect/http.ts",
         "packages/convex/confect/httpRequest.ts",
         "packages/convex/confect/manifest/executor.ts",
-        "packages/convex/test/headless-executor.test.ts"
+        "packages/convex/test/headless-executor.test.ts",
+        "packages/convex/test/http-docs.test.ts"
       ],
       "policy": "serialize"
     },
