@@ -164,3 +164,145 @@ const validateRouting = (
   }
   return Either.right(true);
 };
+
+export const buildBulkPolicyPlan = (
+  request: BulkPolicyRequest,
+): Either.Either<BulkPolicyPlan, ChannelPolicyError> => {
+  if (request.actorRole !== "admin" && request.actorRole !== "owner") {
+    return Either.left(new PolicyInvalid({ reason: "admin_required" }));
+  }
+  const activeChannels = request.channels.filter(
+    (channel) =>
+      channel.membershipStatus === "joined_needs_policy" ||
+      channel.membershipStatus === "joined_active",
+  );
+  if (activeChannels.length > CHANNEL_LIMIT) {
+    return Either.left(
+      new CapacityExceeded({
+        kind: "channels",
+        limit: CHANNEL_LIMIT,
+        actual: activeChannels.length,
+      }),
+    );
+  }
+  const allowedTargets = request.allowedBrainTargets.filter(
+    (target) =>
+      target.organizationKey === request.organizationKey &&
+      target.kind === "client" &&
+      target.status === "active",
+  );
+  if (allowedTargets.length > CLIENT_BRAIN_LIMIT) {
+    return Either.left(
+      new CapacityExceeded({
+        kind: "client_brains",
+        limit: CLIENT_BRAIN_LIMIT,
+        actual: allowedTargets.length,
+      }),
+    );
+  }
+  const allowedTargetKeys = new Set(
+    allowedTargets.map((target) => target.brainKey),
+  );
+  const channelsByKey = new Map(
+    request.channels.map((channel) => [channel.channelKey, channel]),
+  );
+  const routingPolicies: ChannelRoutingPolicyRowValue[] = [];
+  const deliveryPolicies: ChannelDeliveryPolicyRowValue[] = [];
+
+  for (const change of request.changes) {
+    const channel = channelsByKey.get(change.channelKey);
+    if (
+      !channel ||
+      (channel.membershipStatus !== "joined_needs_policy" &&
+        channel.membershipStatus !== "joined_active")
+    ) {
+      return Either.left(
+        new ChannelNotJoined({ channelKey: change.channelKey }),
+      );
+    }
+    if (
+      channel.connectionGeneration !== request.expectedConnectionGeneration ||
+      channel.accessGeneration !== request.expectedChannelAccessGeneration
+    ) {
+      return Either.left(
+        new PolicyGenerationMismatch({ channelKey: change.channelKey }),
+      );
+    }
+    const routingValid = validateRouting(change.routing, allowedTargetKeys);
+    if (Either.isLeft(routingValid)) return Either.left(routingValid.left);
+    if (
+      (channel.isShared || channel.isExtShared) &&
+      change.delivery.mode !== "capture_only"
+    ) {
+      return Either.left(
+        new PolicyInvalid({ reason: "slack_connect_delivery_capture_only" }),
+      );
+    }
+    const activeRoutingPolicy = activeRoutingPolicyFor(
+      request.existingRoutingPolicies,
+      channel.channelKey,
+    );
+    const activeDeliveryPolicy = activeDeliveryPolicyFor(
+      request.existingDeliveryPolicies,
+      channel.channelKey,
+    );
+    if (
+      activeRoutingMatches(activeRoutingPolicy, change.routing) &&
+      activeDeliveryMatches(activeDeliveryPolicy, change.delivery)
+    ) {
+      continue;
+    }
+    routingPolicies.push({
+      organizationKey: request.organizationKey,
+      connectionKey: channel.connectionKey,
+      connectionGeneration: channel.connectionGeneration,
+      channelKey: channel.channelKey,
+      policyEpoch: nextEpoch(
+        request.existingRoutingPolicies,
+        channel.channelKey,
+        "policyEpoch",
+      ),
+      active: true,
+      mode: change.routing.mode,
+      targetBrainKeys: [...change.routing.targetBrainKeys],
+      statusAfterApply:
+        change.routing.mode === "capture_only" ? "capture_only" : "streaming",
+      pendingSourceInterval: {
+        firstObservedAt: request.now,
+        status: "pending",
+      },
+      createdByRole: request.actorRole,
+      createdAt: request.now,
+    });
+    deliveryPolicies.push({
+      organizationKey: request.organizationKey,
+      channelKey: channel.channelKey,
+      deliveryGeneration: nextEpoch(
+        request.existingDeliveryPolicies,
+        channel.channelKey,
+        "deliveryGeneration",
+      ),
+      active: true,
+      mode: change.delivery.mode,
+      createdByRole: request.actorRole,
+      createdAt: request.now,
+    });
+  }
+
+  return Either.right({
+    routingPolicies,
+    deliveryPolicies,
+    auditRows:
+      routingPolicies.length === 0 && deliveryPolicies.length === 0
+        ? []
+        : [
+            {
+              organizationKey: request.organizationKey,
+              actorRole: request.actorRole,
+              action: "channel_policy_bulk_update",
+              targetCount: request.changes.length,
+              recordedAt: request.now,
+            },
+          ],
+  });
+};
