@@ -6,6 +6,7 @@ import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  assembleIntegrationWaveCandidate,
   canonicalSelectionPayload,
   integrationWaveId,
   laneTrancheMatchesManifest,
@@ -222,31 +223,51 @@ const supersessionFixture = (
 };
 
 describe("integration wave planner", () => {
-  it.each([
-    ["historical", "7".repeat(64)],
-    ["current", "c".repeat(64)],
-  ])(
-    "binds a %s proof plan to the task while retaining current wave authority",
-    (_label, proofPlanSha256) => {
-      const currentPlanSha256 = "c".repeat(64);
-      const value = task("S04-T02", "D2-domain-bodies");
+  it("preserves historical proof plan provenance during candidate assembly", () => {
+    const currentPlanSha256 = "c".repeat(64);
+    const proofPlanSha256 = "7".repeat(64);
+    const value = task("S04-T02", "D2-domain-bodies");
+    const { planSha256: _ignoredPlanSha256, ...candidateEvidence } =
+      candidate(value);
+    void _ignoredPlanSha256;
 
-      const selection = planIntegrationWave({
-        baseSha: "base",
-        candidates: [{ ...candidate(value), planSha256: proofPlanSha256 }],
-        completedTaskIds: new Set(),
-        integrationId: integrationWaveId(34),
-        planSha256: currentPlanSha256,
-        tasks: [value],
-      });
+    const assembledCandidate = assembleIntegrationWaveCandidate({
+      ...candidateEvidence,
+      proof: {
+        planSha256: proofPlanSha256,
+        schemaVersion: "maestro-brain-ci-proof/v1",
+        taskBlockHash: value.taskBlockHash,
+        taskId: value.taskId,
+      },
+    });
+    const selection = planIntegrationWave({
+      baseSha: "base",
+      candidates: [assembledCandidate],
+      completedTaskIds: new Set(),
+      integrationId: integrationWaveId(34),
+      planSha256: currentPlanSha256,
+      tasks: [value],
+    });
 
-      expect(selection.planSha256).toBe(currentPlanSha256);
-      expect(selection.selectedTasks[0]?.planSha256).toBe(proofPlanSha256);
-      expect(selection.selectedTasks[0]?.taskBlockHash).toBe(
-        value.taskBlockHash,
-      );
-    },
-  );
+    expect(assembledCandidate.planSha256).toBe(proofPlanSha256);
+    expect(selection.planSha256).toBe(currentPlanSha256);
+    expect(selection.selectedTasks[0]?.planSha256).toBe(proofPlanSha256);
+  });
+
+  it("assembles integrate-wave candidates from the proof packet", () => {
+    const source = readFileSync(
+      new URL("../src/integrate-wave.mts", import.meta.url),
+      "utf8",
+    );
+    const assembly = source.slice(
+      source.indexOf("candidates.push("),
+      source.indexOf("requireRequestedCandidates("),
+    );
+
+    expect(assembly).toContain("assembleIntegrationWaveCandidate({");
+    expect(assembly).toContain("proof,");
+    expect(assembly).not.toContain("manifest.planSha256");
+  });
 
   it("canonicalizes JSON object keys while preserving array order", () => {
     expect(

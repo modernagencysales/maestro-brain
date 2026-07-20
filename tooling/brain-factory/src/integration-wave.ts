@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import type { BrainTaskContract } from "./manifest.js";
+import { validateProofContract } from "./proof.js";
 
 export const LEGACY_INTEGRATION_WAVE_SCHEMA =
   "maestro-brain-integration-wave-selection/v2" as const;
@@ -26,6 +27,18 @@ export interface IntegrationWaveCandidate {
   readonly taskId: string;
   readonly tranche: string;
 }
+
+export const assembleIntegrationWaveCandidate = (
+  input: Omit<IntegrationWaveCandidate, "planSha256"> & {
+    readonly proof: Record<string, unknown>;
+  },
+): IntegrationWaveCandidate => {
+  const { proof, ...candidate } = input;
+  return {
+    ...candidate,
+    planSha256: validateProofContract(proof, candidate),
+  };
+};
 
 export interface IntegrationWaveTaskSnapshot extends IntegrationWaveCandidate {
   readonly codeStartAfter: readonly string[];

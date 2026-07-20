@@ -28,6 +28,7 @@ import {
   safeAbsolutePath,
 } from "./integration-recovery.js";
 import {
+  assembleIntegrationWaveCandidate,
   laneTrancheMatchesManifest,
   planIntegrationWave,
   selectionFileSha256 as hashSelectionFile,
@@ -356,24 +357,26 @@ try {
       continue;
     }
     candidateWorkdirs.set(task.taskId, taskWorkdir);
-    candidates.push({
-      changedFiles,
-      gateHeadSha: string(gate.headSha, `${task.taskId}: gate head`),
-      gateSha256: sha256(gateContent),
-      headSha: laneHead,
-      laneResultSha256: sha256(laneContent),
-      planSha256: proofPlanSha256,
-      proofHeadSha: string(proof.headSha, `${task.taskId}: proof head`),
-      proofSha256: sha256(proofContent),
-      ...(reproofAdmission
-        ? {
-            reproofRequestSha256: reproofAdmission.reproofRequestSha256,
-          }
-        : {}),
-      taskBlockHash: task.taskBlockHash,
-      taskId: task.taskId,
-      tranche: task.tranche,
-    });
+    candidates.push(
+      assembleIntegrationWaveCandidate({
+        changedFiles,
+        gateHeadSha: string(gate.headSha, `${task.taskId}: gate head`),
+        gateSha256: sha256(gateContent),
+        headSha: laneHead,
+        laneResultSha256: sha256(laneContent),
+        proof,
+        proofHeadSha: string(proof.headSha, `${task.taskId}: proof head`),
+        proofSha256: sha256(proofContent),
+        ...(reproofAdmission
+          ? {
+              reproofRequestSha256: reproofAdmission.reproofRequestSha256,
+            }
+          : {}),
+        taskBlockHash: task.taskBlockHash,
+        taskId: task.taskId,
+        tranche: task.tranche,
+      }),
+    );
   }
   requireRequestedCandidates(
     request.requestedTaskIds,
