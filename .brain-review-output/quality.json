@@ -1,0 +1,119 @@
+{
+  "lens": "quality",
+  "taskId": "S11-T02",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "2b484dad01173ead7ca99d710455998926b3666713d025943ef5824aed334ff6",
+  "baseSha": "defde4d68fbcdd7d39566d82986ec562010c9638",
+  "headSha": "954b2f2d9ff2c266ba01b100d83b803e4b8c08fd",
+  "treeSha": "42e759fcd2e3a36faf101e1b8eb9187b7ab8fa8a",
+  "reviewerRunId": "maestro/review/S11-T02/954b2f2d9ff2c266ba01b100d83b803e4b8c08fd/a080c7f1-4da8-4474-92cc-6324dad59036-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "finding",
+      "evidence": [
+        "Task plan lines 3094-3099 require failure-first tests for missing/malformed bearer, payload decoded/provider called before auth, raw header logging, and the received -> authenticated -> authorized -> decoded state order.",
+        "packages/convex/test/http-request-security.test.ts:232-243 names 'prevents JSON body parsing when bearer syntax is missing' but calls readJsonBody(request) directly and asserts request.json was called once, so it does not prove the HTTP route avoids decode before bearer authentication.",
+        "packages/convex/test/http-request-security.test.ts:271-335 covers a successful ordered path, while scoped search of the focused tests found no route-level missing/malformed-bearer case asserting request.json was not called before authentication."
+      ],
+      "findingIds": ["QL-S11-T02-001"]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "finding",
+      "evidence": [
+        "AGENTS.md lines 34-35 require generated Confect refs and no duplicated business logic in web/API/CLI/MCP surfaces; Layer Law routes client hooks through @confect/react refs -> Confect specs -> Convex functions.",
+        "apps/web/src/routes/_workspace.settings.tsx:75-92 manually intersects templateConfectRefs with a HeadlessApiKeyRefs shape because generated refs were not refreshed, then the route consumes those refs directly at lines 110-138.",
+        "Scoped search of packages/convex/confect/_generated/spec.ts, _generated/refs.ts, _generated/docs.ts, and _generated/registeredFunctions found no headless/apiKeys or apiKeys generated entry for the new spec."
+      ],
+      "findingIds": ["QL-S11-T02-002"]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.impl.ts is 1088 lines and mixes domain key creation/verification, durable reads/writes, audit event construction, HTTP-facing authentication helpers, current-user context resolution, and public Confect handlers.",
+        "The task source-slice budget was met by commit slicing, but the resulting single implementation module now exceeds 1000 lines, making future focused inspection and safe changes harder."
+      ],
+      "findingIds": ["QL-S11-T02-003"]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.impl.ts:95-117 records API-key administration audit metadata using action apiKey.administered with operation/outcome/brainKey/scopes/reason, without storing display secrets.",
+        "packages/convex/test/api-keys.test.ts:805-919 asserts success and denial audit events for API-key administration and checks redacted metadata shape.",
+        "packages/convex/test/http-request-security.test.ts:419-456 verifies dispatch exceptions return a redacted Forbidden envelope and do not call console.error with bearer material."
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "lane-gate-report.json for S11-T02 at head 954b2f2d9ff2c266ba01b100d83b803e4b8c08fd reports changedSourceLines 2422 against estimatedSourceLines 3000 and sourceSliceLimit 10.",
+        "lane-gate-report.json sourceSlices lists 10 commits with per-commit changedSourceLines at or below 300 (max 300 on commit 28df32bddf5d35f546342d03d20212142f1bb545).",
+        "rtk proxy git rev-list --count defde4d68fbcdd7d39566d82986ec562010c9638..954b2f2d9ff2c266ba01b100d83b803e4b8c08fd returned 10."
+      ]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "finding",
+      "evidence": [
+        "AGENTS.md lines 34-38 require generated Confect refs/services and prohibit editing generated Confect or Convex files by hand; the task's focused verification included brain:factory:check-confect-codegen and Confect contract/codegen proof.",
+        "Scoped search of packages/convex/confect/_generated/spec.ts, _generated/refs.ts, _generated/docs.ts, and _generated/registeredFunctions found no headless/apiKeys or apiKeys generated entry despite packages/convex/confect/headless/apiKeys.spec.ts and .impl.ts being added.",
+        "apps/web/src/routes/_workspace.settings.tsx:88-90 documents a manual generated-ref workaround instead of exact-head generated Confect evidence, and the lane-gate report commands do not include rtk pnpm brain:factory:check-confect-codegen, check:confect-contracts, check:logging-boundary, check:secret-canaries, or check:access-audit-events from the task plan lines 3124-3129."
+      ],
+      "findingIds": ["QL-S11-T02-004"]
+    }
+  ],
+  "findings": [
+    {
+      "id": "QL-S11-T02-001",
+      "severity": "major",
+      "summary": "Auth-before-decode proof has a false-green missing-bearer test gap.",
+      "details": "The focused security test named as preventing JSON body parsing on missing bearer directly invokes readJsonBody and expects request.json to run, so it proves the opposite helper behavior and cannot catch a route regression that decodes malformed JSON before bearer authentication. The successful ordering test is useful but does not cover missing/malformed bearer fail-closed decode ordering required by the task.",
+      "evidence": [
+        "packages/convex/test/http-request-security.test.ts:232-243",
+        "packages/convex/test/http-request-security.test.ts:271-335",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3094-3099"
+      ]
+    },
+    {
+      "id": "QL-S11-T02-002",
+      "severity": "major",
+      "summary": "Web settings route bypasses generated Confect ref discipline for new API-key functions.",
+      "details": "The route manually casts templateConfectRefs to a locally declared HeadlessApiKeyRefs shape because checked-in generated refs do not contain the new headless/apiKeys functions. This undermines the required client-hooks -> generated refs -> Confect specs boundary and makes web compilation depend on an asserted shape rather than generated contract evidence.",
+      "evidence": [
+        "apps/web/src/routes/_workspace.settings.tsx:75-92",
+        "apps/web/src/routes/_workspace.settings.tsx:110-138",
+        "Scoped rtk rg found no headless/apiKeys entry under packages/convex/confect/_generated/spec.ts, _generated/refs.ts, _generated/docs.ts, or _generated/registeredFunctions."
+      ]
+    },
+    {
+      "id": "QL-S11-T02-003",
+      "severity": "minor",
+      "summary": "API-key implementation is concentrated in an oversized mixed-responsibility module.",
+      "details": "The new apiKeys.impl.ts file combines pure key-domain operations, durable repository access, audit mapping, current-user context loading, bearer authentication, last-used mutation, and Confect handler wiring in a 1088-line module. This is inspectable but brittle for future template agents and increases change risk.",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.impl.ts:1-1088",
+        "packages/convex/confect/headless/apiKeys.impl.ts:95-117",
+        "packages/convex/confect/headless/apiKeys.impl.ts:461-750",
+        "packages/convex/confect/headless/apiKeys.impl.ts:908-1088"
+      ]
+    },
+    {
+      "id": "QL-S11-T02-004",
+      "severity": "major",
+      "summary": "Generated Confect artifacts and codegen proof are missing for the new headless API-key spec.",
+      "details": "The task adds a public/internal Confect spec and implementation that web and HTTP surfaces consume, but generated spec/ref/registeredFunction artifacts do not include headless/apiKeys and the pre-review gate report lacks the exact codegen and contract checks listed in the task's focused verification. The implementation instead relies on runtime Ref.make and a web-side type assertion.",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.spec.ts:1-129",
+        "packages/convex/confect/headless/apiKeys.impl.ts:1080-1088",
+        "apps/web/src/routes/_workspace.settings.tsx:88-90",
+        "lane-gate-report.json commands lines 4-16",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3124-3129"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
