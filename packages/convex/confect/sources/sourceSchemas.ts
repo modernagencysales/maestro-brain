@@ -178,3 +178,243 @@ export type VerifiedSlackEnvelope = typeof VerifiedSlackChannelBinding.Type & {
   readonly [slackEnvelopeBrand]: true;
 };
 export const makeVerifiedSlackEnvelope = (
+  value: typeof VerifiedSlackChannelBinding.Type,
+): VerifiedSlackEnvelope => {
+  const decoded = Schema.decodeUnknownSync(VerifiedSlackChannelBinding)(value);
+  return Object.defineProperty(decoded, slackEnvelopeBrand, {
+    value: true,
+    enumerable: false,
+  }) as VerifiedSlackEnvelope;
+};
+const assertVerifiedSlackEnvelope = (value: unknown): VerifiedSlackEnvelope => {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    (value as Record<PropertyKey, unknown>)[slackEnvelopeBrand] !== true
+  )
+    throw new ChannelAccessLost("ChannelAccessLost");
+  return Schema.decodeUnknownSync(VerifiedSlackChannelBinding)(
+    value,
+  ) as VerifiedSlackEnvelope;
+};
+
+export const SourceLedgerCaptureInput = Schema.Struct({
+  envelope: Schema.Struct({
+    organizationKey: StableKey,
+    connectionKey: StableKey,
+    connectionGeneration: PositiveInteger,
+    teamId: StableKey,
+    appId: StableKey,
+    botUserId: StableKey,
+    channelKey: StableKey,
+    externalChannelId: StableKey,
+    transport: Transport,
+    transportDeliveryId: StableKey,
+    receivedAt: NonNegativeInteger,
+  }),
+  observation: Schema.Struct({
+    providerObjectId: ProviderObjectId,
+    threadKey: StableKey,
+    sourceTimestamp: IsoTimestamp,
+    providerOrder: StableKey,
+    providerRevisionId: StableKey,
+    author: AuthorSnapshot,
+    text: Schema.String.pipe(Schema.maxLength(32_000)),
+    blocksJson: Schema.String,
+    permalink: Schema.String,
+    tombstone: Schema.Boolean,
+    revisionNonce: StableKey,
+  }),
+  routing: Schema.Struct({
+    policyEpoch: PositiveInteger,
+    assemblyStage: Schema.Literal("assembly_pending"),
+    effectKey: StableKey,
+  }),
+});
+
+type MutablePartial<T> = { -readonly [K in keyof T]?: T[K] };
+
+type CaptureValidationOptions = {
+  readonly seenTransportDeliveries?: Set<string>;
+  readonly existingObservationKey?: string;
+  readonly existingArtifact?: {
+    readonly sourceKey: string;
+    readonly latestProviderOrder: string;
+    readonly lifecycleGeneration: number;
+    readonly createdAt: number;
+  };
+  readonly verifiedBinding?: VerifiedSlackEnvelope;
+};
+
+export class TenantMismatch extends Error {
+  readonly _tag = "TenantMismatch";
+}
+export class ChannelAccessLost extends Error {
+  readonly _tag = "ChannelAccessLost";
+}
+export class ObservationInvalid extends Error {
+  readonly _tag = "ObservationInvalid";
+}
+export class PayloadTooLarge extends Error {
+  readonly _tag = "PayloadTooLarge";
+}
+export class DuplicateKeyConflict extends Error {
+  readonly _tag = "DuplicateKeyConflict";
+}
+
+const digest = (value: unknown) => sha256Hex(JSON.stringify(value));
+
+export const sourceLedgerKeysFor = (
+  input: typeof SourceLedgerCaptureInput.Type,
+) => {
+  const sourceKey = `src_${digest({
+    organizationKey: input.envelope.organizationKey,
+    connectionKey: input.envelope.connectionKey,
+    connectionGeneration: input.envelope.connectionGeneration,
+    channelKey: input.envelope.channelKey,
+    providerObjectId: input.observation.providerObjectId,
+  })}`;
+  const contentHash = `sha256:${digest({
+    text: input.observation.text,
+    blocksJson: input.observation.blocksJson,
+    tombstone: input.observation.tombstone,
+  })}`;
+  const observationKey = `obs_${digest({
+    organizationKey: input.envelope.organizationKey,
+    connectionKey: input.envelope.connectionKey,
+    connectionGeneration: input.envelope.connectionGeneration,
+    externalChannelId: input.envelope.externalChannelId,
+    providerObjectId: input.observation.providerObjectId,
+    providerRevisionId: input.observation.providerRevisionId,
+    canonicalContentHash: input.observation.tombstone
+      ? "tombstone"
+      : contentHash,
+  })}`;
+  const sourceRevisionKey = `srev_${digest({
+    sourceKey,
+    providerOrder: input.observation.providerOrder,
+    providerRevisionId: input.observation.providerRevisionId,
+    sourceTimestamp: input.observation.sourceTimestamp,
+    contentHash,
+    tombstone: input.observation.tombstone,
+  })}`;
+  return {
+    sourceKey,
+    sourceUnitKey: `sunit_${digest([sourceKey, input.observation.threadKey])}`,
+    observationKey,
+    sourceRevisionKey,
+    assemblyJobKey: `sjob_${digest([sourceRevisionKey, input.routing.effectKey])}`,
+    contentHash,
+  } as const;
+};
+
+export const assertValidSourceLedgerCapture = (
+  input: typeof SourceLedgerCaptureInput.Type,
+  options: CaptureValidationOptions = {},
+) => {
+  let decoded: typeof SourceLedgerCaptureInput.Type;
+  try {
+    decoded = Schema.decodeUnknownSync(SourceLedgerCaptureInput)(input);
+  } catch {
+    if (!input.envelope?.organizationKey)
+      throw new TenantMismatch("TenantMismatch");
+    if (input.observation?.providerObjectId?.includes("/"))
+      throw new DuplicateKeyConflict("DuplicateKeyConflict");
+    if (input.observation?.text && input.observation.text.length > 32_000)
+      throw new PayloadTooLarge("PayloadTooLarge");
+    throw new ObservationInvalid("ObservationInvalid");
+  }
+  let binding: typeof VerifiedSlackChannelBinding.Type;
+  try {
+    binding = assertVerifiedSlackEnvelope(options.verifiedBinding);
+  } catch {
+    throw new ChannelAccessLost("ChannelAccessLost");
+  }
+  if (
+    binding.organizationKey !== decoded.envelope.organizationKey ||
+    binding.connectionKey !== decoded.envelope.connectionKey ||
+    binding.connectionGeneration !== decoded.envelope.connectionGeneration
+  )
+    throw new TenantMismatch("TenantMismatch");
+  if (
+    binding.teamId !== decoded.envelope.teamId ||
+    binding.appId !== decoded.envelope.appId ||
+    binding.botUserId !== decoded.envelope.botUserId ||
+    binding.channelKey !== decoded.envelope.channelKey ||
+    binding.externalChannelId !== decoded.envelope.externalChannelId
+  )
+    throw new ChannelAccessLost("ChannelAccessLost");
+  if (decoded.observation.providerObjectId.includes("/"))
+    throw new DuplicateKeyConflict("DuplicateKeyConflict");
+  const keys = sourceLedgerKeysFor(decoded);
+  const knownObservationDuplicate =
+    options.existingObservationKey === keys.observationKey;
+  if (
+    options.existingObservationKey &&
+    options.existingObservationKey !== keys.observationKey
+  )
+    throw new DuplicateKeyConflict("DuplicateKeyConflict");
+  if (options.existingArtifact && !knownObservationDuplicate) {
+    if (options.existingArtifact.sourceKey !== keys.sourceKey)
+      throw new DuplicateKeyConflict("DuplicateKeyConflict");
+    const nextPrimary = providerPrimarySortKeyFor(decoded);
+    const currentPrimary = options.existingArtifact.latestProviderOrder
+      .split("|")
+      .slice(0, 2)
+      .join("|");
+    if (
+      nextPrimary < currentPrimary ||
+      (nextPrimary === currentPrimary &&
+        providerSortKeyFor(decoded) >=
+          options.existingArtifact.latestProviderOrder)
+    )
+      throw new DuplicateKeyConflict("DuplicateKeyConflict");
+  }
+  const deliveryKey = `delivery_${digest([decoded.envelope.organizationKey, decoded.envelope.connectionKey, decoded.envelope.connectionGeneration, decoded.envelope.transport, decoded.envelope.transportDeliveryId])}`;
+  const deliveryFingerprint = digest({
+    envelope: {
+      channelKey: decoded.envelope.channelKey,
+      externalChannelId: decoded.envelope.externalChannelId,
+      transport: decoded.envelope.transport,
+      transportDeliveryId: decoded.envelope.transportDeliveryId,
+    },
+    observation: {
+      providerObjectId: decoded.observation.providerObjectId,
+      threadKey: decoded.observation.threadKey,
+      sourceTimestamp: decoded.observation.sourceTimestamp,
+      providerOrder: decoded.observation.providerOrder,
+      providerRevisionId: decoded.observation.providerRevisionId,
+      author: decoded.observation.author,
+      text: decoded.observation.text,
+      blocksJson: decoded.observation.blocksJson,
+      permalink: decoded.observation.permalink,
+      tombstone: decoded.observation.tombstone,
+      revisionNonce: decoded.observation.revisionNonce,
+    },
+    sourceKey: keys.sourceKey,
+    observationKey: keys.observationKey,
+    sourceRevisionKey: keys.sourceRevisionKey,
+    contentHash: keys.contentHash,
+  });
+  const deliveryObservationKey = `${deliveryKey}:${deliveryFingerprint}`;
+  if (options.seenTransportDeliveries?.has(deliveryKey)) {
+    if (!options.seenTransportDeliveries.has(deliveryObservationKey))
+      throw new DuplicateKeyConflict("DuplicateKeyConflict");
+    return { outcome: "duplicate" as const, ...keys };
+  }
+  options.seenTransportDeliveries?.add(deliveryKey);
+  options.seenTransportDeliveries?.add(deliveryObservationKey);
+  const outcome = knownObservationDuplicate
+    ? ("duplicate" as const)
+    : decoded.observation.tombstone
+      ? ("tombstone" as const)
+      : ("inserted" as const);
+  return { outcome, ...keys };
+};
+
+const providerPrimarySortKeyFor = (
+  input: typeof SourceLedgerCaptureInput.Type,
+) =>
+  [
+    input.observation.sourceTimestamp,
+    input.observation.providerRevisionId,
