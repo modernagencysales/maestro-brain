@@ -1,0 +1,72 @@
+{
+  "lens": "contract",
+  "taskId": "S11-T02",
+  "planSha256": "e0256a16a8e0791a68c0f2eef39946ddb845c01a79e186c9aa05585ce85d5199",
+  "taskBlockHash": "f49e5fe055896a804408cf0013f1f4b02735f7b6e18f1813ab85e85672fb569d",
+  "baseSha": "8fa1f5b6183a42207628d51cd396852dc8a95af5",
+  "headSha": "0ce85e2ec3631f40eb8cd66d694c249bbded90fc",
+  "treeSha": "cbf7128e1ecbf10afa94f77d62060eaf6509feac",
+  "reviewerRunId": "maestro/review/S11-T02/0ce85e2ec3631f40eb8cd66d694c249bbded90fc/b3dac6d2-f596-4ec3-9fa5-1f55e52184ef-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3083-3169",
+        "packages/convex/test/http-request-security.test.ts:191-264",
+        "packages/convex/test/http-request-security.test.ts:405-465"
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.spec.ts:17-104",
+        "packages/convex/confect/httpRequest.ts:22-31",
+        "packages/convex/confect/manifest/executor.ts:29-39"
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/auth.ts:41-80",
+        "packages/convex/confect/tables/apiKeys.ts:5-12",
+        "packages/convex/confect/tables/servicePrincipals.ts:5-10",
+        "packages/convex/confect/_generated/convexSchema.ts:6-59"
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3087-3094",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3154-3164",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S11-T02/lane-gate-report.json:4-15",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S11-T02/lane-gate-report.json:29-74"
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1430-1469",
+        "git diff --name-only 8fa1f5b6183a42207628d51cd396852dc8a95af5..0ce85e2ec3631f40eb8cd66d694c249bbded90fc"
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3146-3149",
+        "packages/convex/confect/http.ts:286-352",
+        "packages/convex/confect/http.ts:440-457",
+        "packages/convex/test/headless-executor.test.ts:58-76",
+        "packages/convex/test/headless-executor.test.ts:176-184",
+        "packages/convex/test/http-request-security.test.ts:346-397"
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
