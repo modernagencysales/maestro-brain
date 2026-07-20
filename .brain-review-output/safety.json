@@ -1,0 +1,86 @@
+{
+  "lens": "safety",
+  "taskId": "S04-T04",
+  "planSha256": "5e3506ec26c1776547b03641707371efaebb1c490ce3da6b6a1e2ed0df2a8417",
+  "taskBlockHash": "43fe7362c17307d938a689c31cfaa350124a5029c8ef938d09c8f08066ec12c5",
+  "baseSha": "bc7631796e42ee5d33a006df85730dc1293f505e",
+  "headSha": "44c1f6c7e982c7e1814455d2d29f56139d1b803c",
+  "treeSha": "6e1da7ee246d7784d8af528d36bb7c20c6a8de07",
+  "reviewerRunId": "maestro/review/S04-T04/44c1f6c7e982c7e1814455d2d29f56139d1b803c/bae423cc-0bd1-4201-a01a-ad20619bcf25-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.impl.ts:37-51 loads the current user against input.organizationKey and records denied privileged attempts on that organization.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:52-107 reads sourceChannels, workspaces, channelRoutingPolicies, and channelDeliveryPolicies through organization-scoped indexes using input.organizationKey.",
+        "packages/convex/confect/slack/channelPolicy.ts:173-190 filters allowed targets to the same organization, client kind, and active status before routing validation."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.spec.ts:43-54 exposes organizationKey, generation fences, and changes but not actorRole, so callers cannot self-assert privilege.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:198-225 requires an active accepted organization member with roleAtLeast admin before policy writes.",
+        "packages/convex/test/channel-policies.test.ts:111-118 pins that public mutation args do not include actorRole, and packages/convex/test/channel-policies.test.ts:140-143 covers non-admin rejection."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicy.ts:159-172 and 206-224 only accept joined_needs_policy or joined_active channels and reject stale connection/access generations.",
+        "packages/convex/confect/slack/channelPolicy.ts:256-290 creates immutable prospective routing and delivery rows with a pending source interval rather than rewriting history.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:121-144 deactivates prior active policy rows and inserts new immutable rows for changed policy applications."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicy.ts:228-234 enforces Slack Connect delivery as capture_only, preventing requester_private delivery to shared/external shared channels.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:145-161 records audit metadata with outcome/action/targetCount only, avoiding channel names, customer text, tokens, or provider payloads.",
+        "packages/convex/test/channel-policies.test.ts:423-439 proves Slack Connect Direct/Classify ingestion is allowed only with capture_only delivery."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicy.ts:191-199 rejects duplicate channelKey entries before planning, preventing one bulk request from producing duplicate active rows for the same channel.",
+        "packages/convex/confect/slack/channelPolicy.ts:235-249 compares expected active routing epoch and delivery generation to current active rows before planning changes.",
+        "packages/convex/test/channel-policies.test.ts:219-240 covers duplicate channelKey rejection and packages/convex/test/channel-policies.test.ts:324-371 covers stale active epoch/generation rejection."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicy.ts:250-255 skips an unchanged active routing/delivery pair rather than creating a new epoch on retry.",
+        "packages/convex/test/channel-policies.test.ts:374-421 proves an identical active policy retry is idempotent with no routing rows, delivery rows, or audit rows.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:145-166 only records audit rows returned by the plan, so idempotent retries do not emit duplicate success audits."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.spec.ts:47-50 requires expectedConnectionGeneration and expectedChannelAccessGeneration on every bulk policy mutation.",
+        "packages/convex/confect/slack/channelPolicy.ts:217-224 rejects channels whose connectionGeneration or accessGeneration differs from the request fence.",
+        "packages/convex/test/channel-policies.test.ts:158-167 covers stale connection generation and stale channel access generation rejection."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicy.ts:1-7 imports Effect and local table types only; policy semantics are local and do not import Slack or Nango SDKs.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:8-24 imports generated schema/services, access helpers, local table types, and local policy planning only, with no provider SDK or secret access.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1564-1568 states S04-T04 policy semantics belong to Maestro, not Nango; the implementation follows that boundary."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
