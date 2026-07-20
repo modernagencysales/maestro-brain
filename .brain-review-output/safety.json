@@ -1,0 +1,87 @@
+{
+  "lens": "safety",
+  "taskId": "S05-T01",
+  "planSha256": "401ba861efdc16760c9abac168cfd928efce150d9051c6bd58bf62ec330547a7",
+  "taskBlockHash": "1665eb4087239d8d137a8b4274f5f63c4bb965d699076b2678d1e618b1e34c54",
+  "baseSha": "648ddb32aa68230fdb41e0ef6dc6fe26c4837487",
+  "headSha": "2df1c6e7d0996b064eee27daf440d64d8c0aa971",
+  "treeSha": "8bba206b49100f821eb7ea79211b1ddf19b2631d",
+  "reviewerRunId": "maestro/review/S05-T01/2df1c6e7d0996b064eee27daf440d64d8c0aa971/ed7965b1-575b-4f83-b3d2-07e1b9d721fb-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:311-328 assertBindingMatchesEnvelope rejects organization/connection/generation mismatches and channel/team/app/bot mismatches before source-ledger row construction.",
+        "packages/convex/test/source-ledger-schema.test.ts:666-681 covers no-source cross-tenant and cross-channel binding rejection."
+      ],
+      "rationale": "Tenant and channel identity are fenced by stable keys and verified Slack binding equality before accepted or no-source receipt rows are built."
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:229-255 verifyNativeSlackEnvelope validates native Slack HMAC, timestamp freshness, replay admission identity, and only then brands the binding.",
+        "packages/convex/test/source-ledger-schema.test.ts:590-660 proves valid native signature, durable replay rejection, invalid signature rejection, and stale timestamp rejection."
+      ],
+      "rationale": "The task-owned brand is produced at the provider verification boundary, not by caller-shaped literals."
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:13-33 documents active, deleted_tombstone, redacted, and purged lifecycle expectations plus receipt audit retention.",
+        "packages/convex/confect/sources/sourceSchemas.ts:643-676 getReadableCurrentSourceRevision returns only active non-tombstone revisions that match the active artifact fence.",
+        "packages/convex/test/source-ledger-schema.test.ts:430-530 proves readable-current selection rejects tombstones, inactive artifacts/revisions, wrong generation, and duplicate readable revisions."
+      ],
+      "rationale": "Readable current source access is lifecycle-gated and tombstone-aware for the S05-T01 schema seam."
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:699-759 buildNoSourceProviderEventReceipt records sanitized invalid_payload receipts with null observation/source keys and fixed invalid_payload placeholders.",
+        "packages/convex/test/source-ledger-schema.test.ts:684-710 proves malformed observation values are not decoded into the no-source receipt and raw customer text is absent from serialized receipt output."
+      ],
+      "rationale": "Rejected malformed observations can be audited without persisting raw customer text in no-source receipt fields."
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:433-458 rejects duplicate transport deliveries, conflicting observation identities, source-key mismatches, stale lifecycle generations, and provider-order conflicts.",
+        "packages/convex/test/source-ledger-schema.test.ts:360-424 and 540-589 cover duplicate receipt, observation/source conflicts, stale generation, and equal-primary provider-order conflict behavior."
+      ],
+      "rationale": "The row builder fences stale and conflicting capture attempts at deterministic key/order boundaries before durable writes."
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:229-255 requires replayAdmission.providerEventId to equal the binding providerEventId and records replay receipt hash in the verified envelope.",
+        "packages/convex/test/source-ledger-schema.test.ts:610-639 uses a Convex providerEventReceipts query as replay state and proves a committed providerEventId cannot be admitted again."
+      ],
+      "rationale": "Replay admission is durably bound to provider event identity before source-ledger rows consume the verified envelope."
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:633-676 includes connectionKey and connectionGeneration in ReadableCurrentInput and matches them on artifact and revision selection.",
+        "packages/convex/test/source-ledger-schema.test.ts:453-524 proves readable-current selection is fenced by connection generation and rejects duplicate current revisions."
+      ],
+      "rationale": "Revision lookup is fenced by connection identity and generation, preventing stale-generation readable-current races within an organization/channel/source."
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:229-255 keeps Slack signing-secret verification inside the provider-boundary helper and persists only derived receipt hashes/body hash evidence, not the secret.",
+        "packages/convex/test/source-ledger-schema.test.ts:590-660 exercises raw Slack signature verification inputs while committed source-ledger rows use the branded verified envelope."
+      ],
+      "rationale": "Provider signature verification and replay branding are explicit seams, and secret material is not stored in ledger rows."
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
