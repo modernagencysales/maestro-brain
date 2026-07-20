@@ -1,0 +1,118 @@
+{
+  "lens": "quality",
+  "taskId": "S05-T01",
+  "planSha256": "a3d4af4aa5e526438aa5e06c8716a6a40500bc235d9933f8f8649e133263821b",
+  "taskBlockHash": "d5212dbc84a10771993658fc840e29bc81671c08e7962dbf96fd34de2dda9ce5",
+  "baseSha": "022a932c1e809c2093a10f5dea5d248b6c706f5f",
+  "headSha": "ecb869f5d8f47074d6f01db0eb3450b765b25f6e",
+  "treeSha": "060e414066cad7f80cfda834405c5560131f4e31",
+  "reviewerRunId": "maestro/review/S05-T01/ecb869f5d8f47074d6f01db0eb3450b765b25f6e/24781651-be36-49f1-9a1e-d1531c01caa2-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/test/migration-registry.test.ts:166-225 covers write/check/stale/symlink paths but line 223 removes migrations.generated.ts and lines 224-225 assert --check succeeds, the inverse of the required missing-target failure.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1679-1686 requires failure-first proof that a missing generated target fails, and lines 1693-1697 require check mode to require the integration-owned target to exist.",
+        "packages/convex/test/migrations.test.ts:603-610 proves unknown/reserved migration names reject with MigrationNotFound, but packages/convex/confect/internal/migrations.impl.ts:530-537 still maps any migration name not matched by the explicit cases to probeExpand, leaving the direct ref-selection helper false-green for future callers."
+      ],
+      "findingIds": [
+        "QUALITY-S05-T01-003",
+        "QUALITY-S05-T01-005"
+      ]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1700-1703 states S05-T01 must not perform secret lookup, admit replay, or expose a constructor for BoundVerifiedSlackEnvelope because those runtime responsibilities belong to S04-T03 and S05-T02.",
+        "packages/convex/confect/sources/sourceSchemas.ts:198-260 adds NativeSlackVerificationInput and verifyNativeSlackEnvelope, which accept signingSecret/raw Slack signatures and produce a branded VerifiedSlackEnvelope inside this schema/registry-only task.",
+        "packages/convex/confect/sources/sourceSchemas.ts:211-244 computes and verifies a Slack HMAC/replay admission directly in sourceSchemas instead of leaving provider verification/admission at the Slack/provider boundary assigned to S04-T03/S05-T02."
+      ],
+      "findingIds": [
+        "QUALITY-S05-T01-004"
+      ]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/internal/migrations.spec.ts:174-182 centralizes the typed MigrationNotFound decision in findExecutableMigration, but packages/convex/confect/internal/migrations.impl.ts:530-537 separately re-encodes migration-name dispatch and defaults unknown names to probeExpand.",
+        "packages/convex/confect/internal/migrations.impl.ts:530-537 will silently execute the probe ref for any future registered migration name that reaches this helper without an added if branch, making the extracted registry harder to extend safely.",
+        "packages/convex/scripts/generate-migration-registry.mts:63-67 treats an absent checked target as success, so test, task requirement, and implementation semantics are inconsistent around the integration-owned registry contract."
+      ],
+      "findingIds": [
+        "QUALITY-S05-T01-003",
+        "QUALITY-S05-T01-005"
+      ]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:42-83 defines receipt rows with outcome, transportDeliveryId, providerEventId, observation/source keys, verification receipt hashes, receivedAt, and createdAt, without storing raw webhook payloads or secret values.",
+        "packages/convex/confect/sources/sourceSchemas.ts:138-158 defines processing job stage/status/effectKey/policyEpoch/lease/retry counters for operational visibility without logging raw provider payloads.",
+        "packages/convex/confect/sources/sourceSchemas.ts:245-259 hashes raw body/signature evidence into receiptHash fields rather than returning raw payload content in the branded verification evidence."
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S05-T01/lane-gate-report.json records headSha ecb869f5d8f47074d6f01db0eb3450b765b25f6e and status passed for the pre-review gate.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S05-T01/lane-gate-report.json records changedSourceLines 1188 with estimateDrift true, and sourceSlices of 295, 300, 300, and 293 lines against sourceSliceBudget 300 and sourceSliceLimit 4.",
+        "rtk proxy git diff --name-status 022a932c1e809c2093a10f5dea5d248b6c706f5f..HEAD shows the task stayed within the manifest-owned docs/product and packages/convex source/test paths for this slice."
+      ]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1676-1678 says the product lane does not own or commit the integration-generated canonical migration registry, while lines 1693-1697 still require check mode to require the exact integration-owned target to exist.",
+        "packages/convex/scripts/generate-migration-registry.mts:63-67 exits successfully when packages/convex/confect/internal/migrations.generated.ts is missing in check mode, so exact-head transient codegen can pass without proving the required generated target exists.",
+        "packages/convex/test/migration-registry.test.ts:223-225 encodes the absent-target success behavior rather than the required absent-target failure, creating a false-green generated-file discipline proof."
+      ],
+      "findingIds": [
+        "QUALITY-S05-T01-003"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "QUALITY-S05-T01-003",
+      "severity": "high",
+      "summary": "Registry --check succeeds when the generated target is missing",
+      "details": "The S05-T01 contract requires the migration registry generator to require packages/convex/confect/internal/migrations.generated.ts to exist in check mode and requires a failure-first test proving a missing generated target fails. The implementation instead exits 0 when the target is absent, and the focused test removes the target then asserts --check succeeds. This creates a false-green integration-owned generated-file proof: a lane can pass exact-head registry checks without any generated registry artifact present in the transient snapshot.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1679-1686",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1693-1697",
+        "packages/convex/scripts/generate-migration-registry.mts:63-67",
+        "packages/convex/test/migration-registry.test.ts:223-225"
+      ]
+    },
+    {
+      "id": "QUALITY-S05-T01-004",
+      "severity": "high",
+      "summary": "S05 source schema implements Slack verification outside its layer and task scope",
+      "details": "S05-T01 is explicitly schema/registry-only and must not perform secret lookup, admit replay, or expose a constructor for the verified Slack envelope; those runtime responsibilities belong to S04-T03 and S05-T02. The new sourceSchemas module adds NativeSlackVerificationInput and verifyNativeSlackEnvelope, accepts signingSecret/rawBody/signature/replayAdmission, computes Slack HMACs, checks timestamp/replay, and brands a VerifiedSlackEnvelope. Even without secret lookup, this embeds provider verification and replay-admission behavior in the source-ledger schema layer and expands the task beyond the approved slice.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1687-1703",
+        "packages/convex/confect/sources/sourceSchemas.ts:198-260",
+        "packages/convex/confect/sources/sourceSchemas.ts:211-244"
+      ]
+    },
+    {
+      "id": "QUALITY-S05-T01-005",
+      "severity": "medium",
+      "summary": "Migration ref dispatch still falls back to probeExpand for unknown names",
+      "details": "The task requires unknown migration IDs to retain the typed MigrationNotFound path and never fall back to the probe. validateExecuteRequest/findExecutableMigration does provide the typed rejection path, and tests exercise the public mutation path, but migrationRef remains a separate name-to-ref dispatcher that returns probeExpand for every unrecognized name. That default is a maintainability and false-green hazard for the extracted registry: any future caller or future registered migration name that reaches this helper without an explicit branch will execute probeExpand instead of failing or forcing registration coverage.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1697-1699",
+        "packages/convex/confect/internal/migrations.spec.ts:174-182",
+        "packages/convex/confect/internal/migrations.impl.ts:530-537",
+        "packages/convex/test/migrations.test.ts:603-610"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
