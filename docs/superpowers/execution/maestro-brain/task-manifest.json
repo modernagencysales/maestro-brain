@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "planSha256": "ca7c2d9fbe1de7598adb586c3c0eb8e85c2826fc3339def797b61e3dc45b56cf",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -1689,7 +1689,9 @@
         "packages/convex/confect/ops/brainOperations.spec.ts",
         "packages/convex/confect/ops/flags.impl.ts",
         "packages/convex/confect/ops/flags.spec.ts",
+        "packages/convex/confect/tables/featureFlagPolicies.ts",
         "packages/convex/test/brain-operation-policy.test.ts",
+        "packages/convex/test/flags.test.ts",
         "packages/observability/src/brainMetrics.test.ts",
         "packages/observability/src/brainMetrics.ts",
         "packages/observability/src/index.ts",
@@ -1700,7 +1702,7 @@
       "lane": "operations",
       "requirements": ["AI-04", "REL-03", "SLK-07"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "13c071bc2c78035c5563f494b38160a96c981ab2962984f056be4e18853e137e",
+      "taskBlockHash": "44554749f4365ef357fd095d8ca8bd6dfdaec948b73797a8255e102eac74d080",
       "taskId": "S13-T03",
       "title": "Add Redacted Telemetry, Budgets, And Kill Switches",
       "tranche": "X3-convergence"

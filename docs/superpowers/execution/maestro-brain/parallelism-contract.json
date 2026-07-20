@@ -1,6 +1,6 @@
 {
   "schemaVersion": "maestro-brain-parallelism-contract/v1",
-  "manifestPlanSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "manifestPlanSha256": "ca7c2d9fbe1de7598adb586c3c0eb8e85c2826fc3339def797b61e3dc45b56cf",
   "edges": [
     {
       "consumerTaskId": "S00-T03",
@@ -1119,6 +1119,13 @@
       "leftTaskId": "S01-T04",
       "rightTaskId": "S12-T03",
       "paths": ["apps/web/src/features/settings/settings-surface.ts"],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
+    },
+    {
+      "leftTaskId": "S01-T04",
+      "rightTaskId": "S13-T03",
+      "paths": ["packages/convex/test/flags.test.ts"],
       "policy": "same_wave_fail_closed",
       "mandatorySameWave": true
     },

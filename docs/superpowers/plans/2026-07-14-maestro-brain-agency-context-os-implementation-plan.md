@@ -3567,7 +3567,8 @@ manifest.
   `packages/convex/test/brain-operation-policy.test.ts`, and
   `packages/observability/src/brainMetrics.ts`, and
   `packages/observability/src/brainMetrics.test.ts`; modify
-  `packages/observability/src/index.ts`,
+  `packages/convex/confect/tables/featureFlagPolicies.ts`,
+  `packages/convex/test/flags.test.ts`, `packages/observability/src/index.ts`,
   `packages/convex/confect/ops/flags.spec.ts`,
   `packages/convex/confect/ops/flags.impl.ts`,
   `tooling/quality/check-logging-boundary.mts`, and
