@@ -530,11 +530,15 @@ describe("Fabro workflow prompt contracts", () => {
       expect(prompt).toContain("must never feed structured evidence");
     }
     for (const review of reviews) {
+      expect(review).toBeDefined();
+      if (review === undefined) {
+        throw new Error("missing review prompt");
+      }
       expect(review).toContain(
         "Native apply_patch is unavailable in this review node",
       );
-      expect(review!.indexOf("Native apply_patch is unavailable")).toBeLessThan(
-        review!.indexOf("Before any read or write"),
+      expect(review.indexOf("Native apply_patch is unavailable")).toBeLessThan(
+        review.indexOf("Before any read or write"),
       );
       expect(review).toContain("Do not use native apply_patch");
       expect(review).toContain(
