@@ -1,0 +1,73 @@
+{
+  "lens": "contract",
+  "taskId": "S08-T03",
+  "planSha256": "ca7c2d9fbe1de7598adb586c3c0eb8e85c2826fc3339def797b61e3dc45b56cf",
+  "taskBlockHash": "2d947263cf0fa3ed72b36f7fddc028629d9db80e333e2511207b2213bf4d40c0",
+  "baseSha": "2bdef668a17ac4e86a9113846b773f6243f281c0",
+  "headSha": "a66a7599a9b08cbfadbd23e96e147ac1749a662a",
+  "treeSha": "99cabce4744375e38e1ef64728c2adcf3c34419a",
+  "reviewerRunId": "maestro/review/S08-T03/a66a7599a9b08cbfadbd23e96e147ac1749a662a/48950001-759c-404e-8197-1154005e37b9-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2390-2479",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:S08-T03",
+        "packages/convex/test/source-classification.test.ts:58-244",
+        "packages/convex/test/sourceClassification.workflow.test.ts:9-95"
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/capabilities/classifySourceUnit.spec.ts:27-81",
+        "packages/convex/confect/workflowContracts/sourceClassification.spec.ts:38-120",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:86-117"
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/classificationDecisions.ts:23-50",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:31-62",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3918-3927",
+        "packages/convex/test/source-classification.test.ts:213-243"
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2395-2403",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2464-2477",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S08-T03/ci-proof-packet.json:33-56"
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:S08-T03 fileLocks",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S08-T03/ci-proof-packet.json:8-31",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2408-2434"
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/capabilities/classifySourceUnit.spec.ts:50-75",
+        "packages/convex/confect/capabilities/classifySourceUnit.impl.ts:12-16",
+        "packages/convex/confect/classification/request.ts:66-150",
+        "packages/convex/confect/classification/review.ts:39-98",
+        "packages/convex/confect/classification/commit.ts:65-94",
+        "packages/convex/test/source-classification.test.ts:75-212"
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
