@@ -1,0 +1,98 @@
+{
+  "lens": "quality",
+  "taskId": "S03-T03",
+  "planSha256": "e5ad32c375d4fd307b3d5bccd47ea6cf4e9b7580f23bb506c893fd94019ca7c5",
+  "taskBlockHash": "731df4dab1d4fe34d6a51b801388996973ae3d13fa88bc0cef8e2b8b1be9bbe5",
+  "baseSha": "aa979378a853ca705f423846a79abe8030f0619b",
+  "headSha": "7660592c363cb2d9b9b69ed31d316c99d6feb40f",
+  "treeSha": "76f722191582c06cf6aa8aba00b6ce040161666b",
+  "reviewerRunId": "maestro/review/S03-T03/7660592c363cb2d9b9b69ed31d316c99d6feb40f/30011ebf-584e-4ab3-9416-8679e30d8152-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1249-1251 requires failure-first proof for tree create/rename/move/archive/favorite.",
+        "apps/web/src/features/brain/brain-adapter.ts:247-257 builds create args with sortKey: nextPageSortKey(state.pages).",
+        "apps/web/src/features/brain/brain-surface.ts:334-341 returns String(max + 1).padStart(3, \"0\"), e.g. 003.",
+        "apps/web/src/features/brain/brain-adapter.ts:268-276 hard-codes move sortKey: \"001\".",
+        "packages/convex/confect/brain/pageSchemas.ts:34-35 requires SortKey to match /^\\d{10}(?:\\.[a-z0-9]{1,16})?$/.",
+        "apps/web/src/features/brain/brain-adapter.test.ts:1-156 and brain-page-tree.test.tsx:1-69 do not assert create/move mutation args satisfy the backend SortKey contract."
+      ],
+      "findingIds": ["quality-S03-T03-001"]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "finding",
+      "evidence": [
+        "AGENTS.md:8-20 requires web routes -> screens -> features and client hooks -> generated refs -> Confect specs -> Convex functions without skipping layers.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1256-1264 says generated refs are used only in the adapter and generated refs/wrappers remain integration-owned.",
+        "apps/web/src/features/brain/brain-workspace.tsx:13 imports makeFunctionReference from convex/server directly in a feature component.",
+        "apps/web/src/features/brain/brain-workspace.tsx:32-38 constructs editorSync Convex function references inside the workspace feature instead of receiving them from the adapter/client-hook boundary."
+      ],
+      "findingIds": ["quality-S03-T03-002"]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "pass",
+      "evidence": [
+        "Changed source is split into focused adapter, state/view-model, tree, editor pane, workspace, evidence drawer, backend contract, and editor-react seams.",
+        "Scoped debt search found no eslint-disable, ts-expect-error, TODO, FIXME, or unsafe any in changed source paths outside test expect.any matchers."
+      ]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.impl.ts:671-679 wraps public recordSnapshot with withMutationErrorCapture using operation name brain/pages.recordSnapshot.",
+        "Scoped logging/secret search found no console logging or token/API-key payload handling added in the changed Brain/editor paths."
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S03-T03/lane-gate-report.json:22-27 records changedSourceLines 1504, estimateDrift false, estimatedSourceLines 1800, sourceSliceBudget 300, sourceSliceLimit 7.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S03-T03/lane-gate-report.json:27-55 records seven source slices, each at or below 300 changed source lines.",
+        "rtk proxy git log --oneline aa979378..HEAD shows seven task commits, matching the manifest sourceSliceLimit."
+      ]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "pass",
+      "evidence": [
+        "rtk proxy git diff --name-only aa979378..HEAD lists no checked-in generated Confect or Convex output paths.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S03-T03/ci-proof-packet.json:44-45 records exact-head transient Confect codegen proof passed.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S03-T03/lane-gate-report.json:7 and :14-15 record the exact-head codegen command in the pre-review gate set for head 7660592c363cb2d9b9b69ed31d316c99d6feb40f/tree 76f722191582c06cf6aa8aba00b6ce040161666b."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "quality-S03-T03-001",
+      "severity": "high",
+      "summary": "Tree create and move build invalid sort keys that focused tests miss.",
+      "details": "The backend SortKey schema requires ten digits, but the web adapter sends three-digit sort keys for new pages and moves. This means the required tree create/move UI paths will hit ValidationFailed instead of the intended mutations, while the focused tests still pass because they do not validate the adapter mutation args against the Confect/page schema.",
+      "evidence": [
+        "apps/web/src/features/brain/brain-adapter.ts:247-257",
+        "apps/web/src/features/brain/brain-adapter.ts:268-276",
+        "apps/web/src/features/brain/brain-surface.ts:334-341",
+        "packages/convex/confect/brain/pageSchemas.ts:34-35",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1249-1251"
+      ]
+    },
+    {
+      "id": "quality-S03-T03-002",
+      "severity": "medium",
+      "summary": "Brain workspace feature constructs Convex function refs directly instead of using the adapter boundary.",
+      "details": "The task explicitly says generated refs are used only in the adapter, and the layer law keeps client/ref wiring at the hook/adapter boundary. The workspace feature imports convex/server and calls makeFunctionReference for editorSync operations itself, so the feature component owns transport refs that should be supplied through the adapter/client-hook seam.",
+      "evidence": [
+        "apps/web/src/features/brain/brain-workspace.tsx:13",
+        "apps/web/src/features/brain/brain-workspace.tsx:32-38",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1256-1264",
+        "AGENTS.md:8-20"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
