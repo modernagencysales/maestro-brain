@@ -1,0 +1,109 @@
+{
+  "lens": "safety",
+  "taskId": "S04-T02",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "cdeca2a0ba4a7101fd27959788455ac53609485617a9cf8146c29c86891a7958",
+  "baseSha": "ce892af6c4ea5c8ff679c5bfce09a205967cdf11",
+  "headSha": "ca03e0da0407e3bd58907b437967985ff73481d0",
+  "treeSha": "9637f9e43f56bc47a92264b591a3705b2f7973aa",
+  "reviewerRunId": "maestro/review/S04-T02/ca03e0da0407e3bd58907b437967985ff73481d0/d4a4f17b-25bf-4796-b844-7d6d77c4ae0b-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/integrations/slackConnections.impl.ts:190-223",
+        "packages/convex/confect/integrations/slackConnections.impl.ts:285-320",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:519-543",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:780-884",
+        "packages/convex/test/slack-directory.test.ts:1351-1512"
+      ],
+      "rationale": "User-visible connection selection remains scoped to an active admin organization and connect completion checks tenant/provider organization equality. Directory writes load one providerConnection by connectionKey, propagate that row's organizationKey into sourceChannels/channelSyncStates, filter existing channel rows by connectionKey, and reject duplicate Slack team/app/bot bindings even when the duplicate belongs to another agency."
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/integrations/slackConnections.impl.ts:141-156",
+        "packages/convex/confect/integrations/slackConnections.impl.ts:260-277",
+        "packages/convex/confect/integrations/slackConnections.impl.ts:285-320",
+        "packages/convex/confect/integrations/slackDirectory.spec.ts:72-149"
+      ],
+      "rationale": "S04-T02 adds only internal Slack directory query/mutation/action functions; public authorization for creating/completing the Slack connection is still enforced by the existing Slack connection layer with requireAdmin and tenant checks before any connectionKey can enter the directory workflow."
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "docs/product/maestro-brain-lifecycle-adoption/S04-T02.md:24-44",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:312-360",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:564-652",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:674-715",
+        "packages/convex/test/slack-directory.test.ts:1880-2055"
+      ],
+      "rationale": "Identity replacement paths revoke the provider connection, mark source channels access_lost, clear leases, pause all live/recent/deep/reconciliation lanes, and attach replacement audit state. Documentation records additive rollback behavior and states no provider tokens/raw Slack credentials are stored in the new rows."
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:64-75",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:193-196",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:925-956",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:992-993",
+        "docs/product/maestro-brain-lifecycle-adoption/S04-T02.md:42-44"
+      ],
+      "rationale": "The new provider interface accepts only opaque connection identifiers, provider exceptions are normalized to typed errors, the default implementation fails closed, and the changed directory code contains no secret/env access or logging of raw provider payloads. Durable rows store Slack team/app/bot/channel metadata and explicitly avoid provider tokens or raw credentials."
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:164-191",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:674-715",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:740-895",
+        "packages/convex/test/slack-directory.test.ts:2208-2327",
+        "packages/convex/test/slack-directory.test.ts:2329-2425"
+      ],
+      "rationale": "Every commit mutation reloads the connection and revalidates expectedGeneration before applying identity/channel changes, duplicate or replacement races return a controlled bot-identity mismatch path with revocation/audit, and stale-generation race tests prove mismatched generations cannot commit."
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:402-456",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:844-884",
+        "packages/convex/test/slack-directory.test.ts:1191-1328"
+      ],
+      "rationale": "Channel reconciliation is upsert-based using connectionKey plus externalChannelId/channelKey, preserves firstDiscoveredAt and existing live lane cursor/lease fields on replay, and the replay test verifies repeated page reconciliation does not create duplicate channel rows."
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "docs/product/maestro-brain-lifecycle-adoption/S04-T02.md:14-17",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:147-155",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:290-309",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:780-835",
+        "packages/convex/test/slack-directory.test.ts:650-702",
+        "packages/convex/test/slack-directory.test.ts:936-1119"
+      ],
+      "rationale": "expectedGeneration fences reads and commits before provider calls; same-connection reauthorization increments the generation while promoting all old channel and sync rows to preserve keys/cursors; tests cover stale-generation provider-call suppression and partial-page reauthorization cursor preservation."
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1447-1450",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:64-75",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:468-469",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:925-980",
+        "packages/convex/test/slack-directory.test.ts:476-501",
+        "packages/convex/test/slack-directory.test.ts:704-754"
+      ],
+      "rationale": "Slack provider access is isolated behind SlackDirectoryProviderService and limited to auth.test plus conversations.list. The planning/test evidence asserts conversations.join is not called, and provider rate limiting remains a typed ProviderRateLimited error rather than being swallowed or leaking raw provider details."
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
