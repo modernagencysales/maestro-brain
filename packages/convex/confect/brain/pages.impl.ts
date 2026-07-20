@@ -581,89 +581,119 @@ const archive = FunctionImpl.make(databaseSchema, pages, "archive", (args) =>
   ),
 );
 
-const recordSnapshotInternal = FunctionImpl.make(
-  databaseSchema,
-  pages,
-  "recordSnapshotInternal",
-  ({
-    brainKey,
-    pageKey,
-    expectedCurrentRevisionKey,
-    snapshot,
-    version,
-  }): Effect.Effect<
-    {
-      readonly pageKey: string;
-      readonly pageRevisionKey: string;
-      readonly contentHash: string;
-      readonly savedAt: number;
-    },
-    PageError,
-    PageDeps
-  > =>
-    Effect.gen(function* () {
-      const brain = yield* requireBrainAccess(brainKey, "editor");
-      const page = yield* loadPage(brain, pageKey);
-      yield* requireCurrentRevision(page, expectedCurrentRevisionKey);
-      if (
-        !Number.isSafeInteger(version) ||
-        version <= 0 ||
-        version <= (page.editorSnapshotVersion ?? 0)
-      )
-        return yield* new ValidationFailed({
-          field: "version",
-          message: "Snapshot version must be a newer positive safe integer.",
-        });
-      const at = yield* unsafeAssumeClockProvided(Clock.currentTimeMillis);
-      const nextRevisionKey = revisionKeyFor(
-        "snapshot",
-        page.pageKey,
-        at,
-        page.lifecycle.generation + 1,
-      );
-      const patchedPage = {
-        ...page,
+type RecordSnapshotArgs = {
+  readonly documentId: string;
+  readonly expectedCurrentRevisionKey: string;
+  readonly snapshot: string;
+  readonly version: number;
+};
+
+const stablePageDocument = (documentId: string) => {
+  const [kind, brainKey, pageKey] = documentId.split(":");
+  return kind === "brainPage" && brainKey !== undefined && pageKey !== undefined
+    ? { brainKey, pageKey }
+    : null;
+};
+
+const recordSnapshotMutation = ({
+  documentId,
+  expectedCurrentRevisionKey,
+  snapshot,
+  version,
+}: RecordSnapshotArgs): Effect.Effect<
+  {
+    readonly pageKey: string;
+    readonly pageRevisionKey: string;
+    readonly contentHash: string;
+    readonly savedAt: number;
+  },
+  PageError,
+  PageDeps
+> =>
+  Effect.gen(function* () {
+    const target = stablePageDocument(documentId);
+    if (target === null)
+      return yield* new ValidationFailed({
+        field: "documentId",
+        message: "Snapshot document must be a stable Brain page target.",
+      });
+    const brain = yield* requireBrainAccess(target.brainKey, "editor");
+    const page = yield* loadPage(brain, target.pageKey);
+    yield* requireCurrentRevision(page, expectedCurrentRevisionKey);
+    if (
+      !Number.isSafeInteger(version) ||
+      version <= 0 ||
+      version <= (page.editorSnapshotVersion ?? 0)
+    )
+      return yield* new ValidationFailed({
+        field: "version",
+        message: "Snapshot version must be a newer positive safe integer.",
+      });
+    const at = yield* unsafeAssumeClockProvided(Clock.currentTimeMillis);
+    const nextRevisionKey = revisionKeyFor(
+      "snapshot",
+      page.pageKey,
+      at,
+      page.lifecycle.generation + 1,
+    );
+    const patchedPage = {
+      ...page,
+      editorSnapshotJson: snapshot,
+      editorSnapshotVersion: version,
+      currentRevisionKey: nextRevisionKey,
+      updatedAt: at,
+      lifecycle: {
+        ...page.lifecycle,
+        generation: page.lifecycle.generation + 1,
+        updatedAt: at,
+      },
+    };
+    const writer = yield* DatabaseWriter;
+    yield* writer
+      .table("brainPages")
+      .patch(page._id, {
         editorSnapshotJson: snapshot,
         editorSnapshotVersion: version,
         currentRevisionKey: nextRevisionKey,
         updatedAt: at,
-        lifecycle: {
-          ...page.lifecycle,
-          generation: page.lifecycle.generation + 1,
-          updatedAt: at,
-        },
-      };
-      const writer = yield* DatabaseWriter;
-      yield* writer
-        .table("brainPages")
-        .patch(page._id, {
-          editorSnapshotJson: snapshot,
-          editorSnapshotVersion: version,
-          currentRevisionKey: nextRevisionKey,
-          updatedAt: at,
-          lifecycle: patchedPage.lifecycle,
-        })
-        .pipe(Effect.orDie);
-      yield* writePageRevision({
-        brain,
-        page: patchedPage,
-        priorRevisionKey: page.currentRevisionKey,
-        revisionKey: nextRevisionKey,
-        kind: "snapshot",
-        at,
-        audit: false,
-      });
-      return {
-        pageKey: page.pageKey,
-        pageRevisionKey: nextRevisionKey,
-        contentHash: hashJson({
-          title: patchedPage.title,
-          markdown: patchedPage.markdown,
-          editorSnapshotJson: snapshot,
-        }),
-        savedAt: at,
-      };
-    }),
+        lifecycle: patchedPage.lifecycle,
+      })
+      .pipe(Effect.orDie);
+    yield* writePageRevision({
+      brain,
+      page: patchedPage,
+      priorRevisionKey: page.currentRevisionKey,
+      revisionKey: nextRevisionKey,
+      kind: "snapshot",
+      at,
+      audit: false,
+    });
+    return {
+      pageKey: page.pageKey,
+      pageRevisionKey: nextRevisionKey,
+      contentHash: hashJson({
+        title: patchedPage.title,
+        markdown: patchedPage.markdown,
+        editorSnapshotJson: snapshot,
+      }),
+      savedAt: at,
+    };
+  });
+const recordSnapshot = FunctionImpl.make(
+  databaseSchema,
+  pages,
+  "recordSnapshot",
+  (args) =>
+    withMutationErrorCapture(
+      "brain/pages.recordSnapshot",
+      recordSnapshotMutation(args),
+    ),
+);
+const recordSnapshotInternal = FunctionImpl.make(
+  databaseSchema,
+  pages,
+  "recordSnapshotInternal",
+  recordSnapshotMutation,
 );
 export default GroupImpl.make(databaseSchema, pages).pipe(
   Layer.provide(list),
@@ -673,6 +703,7 @@ export default GroupImpl.make(databaseSchema, pages).pipe(
   Layer.provide(move),
   Layer.provide(favorite),
   Layer.provide(archive),
+  Layer.provide(recordSnapshot),
   Layer.provide(recordSnapshotInternal),
   GroupImpl.finalize,
 );
