@@ -1246,8 +1246,11 @@ manifest.
   publication in `packages/convex/confect/editor/syncApi.ts` and
   `packages/convex/confect/editor/documentTargets.ts`; and extend
   `packages/convex/test/brain-editor-revision-fence.test.ts`,
-  `packages/convex/test/brain-pages.contract.test.ts`, and
-  `packages/convex/test/brain-pages-crud.test.ts`.
+  `packages/convex/test/editor-sync.test.ts`,
+  `packages/convex/test/brain-pages.contract.test.ts`,
+  `docs/superpowers/execution/maestro-brain/task-manifest.json`, and
+  `docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md`;
+  and `packages/convex/test/brain-pages-crud.test.ts`.
 - **Failure-first tests:** loading/empty/not-found/typed/transport states;
   viewer read-only; editor save; tree create/rename/move/archive/favorite;
   mobile drawers; keyboard tree navigation; unsaved/conflict state; cross-Brain

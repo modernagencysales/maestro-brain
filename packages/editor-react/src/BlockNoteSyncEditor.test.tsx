@@ -65,4 +65,17 @@ describe("BlockNoteSyncEditor revision fences", () => {
       ),
     ).toBeNull();
   });
+
+  it("advances the same-document local fence after a successful save", () => {
+    expect(
+      readBlockNoteRevisionFence(
+        { documentId: "brainPage:br_01:pg_overview", revisionKey: "rev_start" },
+        {
+          documentId: "brainPage:br_01:pg_overview",
+          revisionKey: "rev_after_remote_save",
+        },
+        "rev_after_local_save",
+      ),
+    ).toBe("rev_after_local_save");
+  });
 });

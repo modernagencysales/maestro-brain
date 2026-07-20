@@ -13,7 +13,7 @@ const pages = [
     pageKey: "pg_overview",
     parentPageKey: null,
     siblingSlug: "overview",
-    sortKey: "001",
+    sortKey: "0000000001",
     title: "Overview",
     favorite: true,
     status: "active",
@@ -24,7 +24,7 @@ const pages = [
     pageKey: "pg_archived",
     parentPageKey: null,
     siblingSlug: "archived",
-    sortKey: "002",
+    sortKey: "0000000002",
     title: "Archived",
     favorite: false,
     status: "archived",
@@ -67,6 +67,7 @@ describe("Brain workspace state", () => {
         expect.objectContaining({
           pageKey: "pg_overview",
           title: "Overview",
+          siblingSlug: "overview",
           isSelected: true,
           isFavorite: true,
         }),
@@ -154,9 +155,9 @@ describe("Brain workspace state", () => {
     expect(describeBrainWorkspaceState({ status: "forbidden" })).toContain(
       "authorized",
     );
-    expect(nextPageSortKey([{ sortKey: "001" }, { sortKey: "002" }])).toBe(
-      "003",
-    );
+    expect(
+      nextPageSortKey([{ sortKey: "0000000001" }, { sortKey: "0000000002" }]),
+    ).toBe("0000000003");
     expect(toEditorTarget(data.brainKey, selectedPage)).toMatchObject({
       pageKey: "pg_overview",
       revisionKey: "rev_overview",
