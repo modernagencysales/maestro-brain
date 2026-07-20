@@ -542,6 +542,37 @@ describe("normal integration result check", () => {
     ).toThrow("immutable wave selection drift");
   });
 
+  it.each([
+    ["priorIntegrationId", "wave-forged"],
+    ["priorIntegrationHeadSha", "f".repeat(40)],
+  ] as const)(
+    "rejects current lane reproof %s drift despite the pre-integration binding",
+    (field, forged) => {
+      const value = waveFixture({ reproof: true });
+      const lane = readRecord(value.lanePath);
+      const selection = readRecord(value.selectionPath);
+      const selectedTask = (
+        selection.selectedTasks as Record<string, unknown>[]
+      )[0];
+      expect(lane.preIntegrationLaneResultSha256).toBe(
+        selectedTask?.laneResultSha256,
+      );
+      const reproof = lane.reproof as Record<string, unknown>;
+      reproof[field] = forged;
+      writeJson(value.lanePath, lane);
+
+      expect(() =>
+        validateIntegrationResult({
+          controlRoot: value.controlRoot,
+          evidenceDirectory: value.evidence,
+          expectedWorkdir: value.workdir,
+          integrationId: value.integrationId,
+          selectionPath: value.selectionPath,
+        }),
+      ).toThrow("immutable wave selection drift");
+    },
+  );
+
   it("hashes selection file identity from raw bytes before UTF-8 decoding", () => {
     const value = waveFixture();
     const selection = readRecord(value.selectionPath);

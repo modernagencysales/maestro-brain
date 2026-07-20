@@ -340,6 +340,15 @@ export const validateIntegratedLanes = (
             laneReproof.requestSha256,
             `${taskId}: reproof requestSha256`,
           ) !== reproofRequest?.requestSha256) ||
+        (laneReproof !== undefined &&
+          (string(
+            laneReproof.priorIntegrationId,
+            `${taskId}: reproof priorIntegrationId`,
+          ) !== reproofRequest?.priorIntegrationId ||
+            string(
+              laneReproof.priorIntegrationHeadSha,
+              `${taskId}: reproof priorIntegrationHeadSha`,
+            ) !== reproofRequest?.priorIntegrationHeadSha)) ||
         lane.preIntegrationLaneResultSha256 !== waveTask.laneResultSha256 ||
         JSON.stringify(waveTask.changedFiles) !==
           JSON.stringify([...(proof.changedFiles as string[])].sort()) ||

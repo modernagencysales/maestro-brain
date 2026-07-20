@@ -678,6 +678,33 @@ describe("deterministic integration wave application", () => {
     expect(git(value.workdir, "rev-parse", "HEAD")).toBe(value.baseSha);
   });
 
+  it.each([
+    ["priorIntegrationId", "wave-forged"],
+    ["priorIntegrationHeadSha", "f".repeat(40)],
+  ] as const)("rejects a lane reproof %s mismatch", (field, forged) => {
+    const value = makeFixture({
+      laneSpecs: [{ files: ["a.ts"], taskId: "S01-T01" }],
+      reproof: true,
+    });
+    const lanePath = resolve(
+      value.evidenceDirectory,
+      "lane-results/S01-T01/lane-result.json",
+    );
+    const lane = readJson(lanePath);
+    const reproof = lane.reproof as Record<string, unknown>;
+    reproof[field] = forged;
+    const laneContent = writeJson(lanePath, lane);
+    const snapshot = value.lanes[0]?.snapshot as IntegrationWaveTaskSnapshot;
+    const input = rewriteSelection(value, {
+      selectedTasks: [{ ...snapshot, laneResultSha256: sha256(laneContent) }],
+    });
+
+    expect(() => applyIntegrationWave(input)).toThrow(
+      "lane reproof lineage drift",
+    );
+    expect(git(value.workdir, "rev-parse", "HEAD")).toBe(value.baseSha);
+  });
+
   it("rejects prior archive bytes outside the bound digest", () => {
     const value = makeFixture({
       laneSpecs: [{ files: ["a.ts"], taskId: "S01-T01" }],

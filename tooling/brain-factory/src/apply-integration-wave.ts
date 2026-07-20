@@ -318,6 +318,18 @@ const validateLane = (input: {
     ) {
       throw new Error(`${taskId}: reproof request digest drift`);
     }
+    if (
+      string(
+        reproof.priorIntegrationId,
+        `${taskId}: reproof priorIntegrationId`,
+      ) !== request.priorIntegrationId ||
+      string(
+        reproof.priorIntegrationHeadSha,
+        `${taskId}: reproof priorIntegrationHeadSha`,
+      ) !== request.priorIntegrationHeadSha
+    ) {
+      throw new Error(`${taskId}: lane reproof lineage drift`);
+    }
     const priorEvidencePath = absoluteRealPath(
       request.priorEvidencePath,
       `${taskId}: prior evidence path`,
