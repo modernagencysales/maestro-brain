@@ -1,0 +1,98 @@
+{
+  "lens": "safety",
+  "taskId": "S11-T02",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "2b484dad01173ead7ca99d710455998926b3666713d025943ef5824aed334ff6",
+  "baseSha": "defde4d68fbcdd7d39566d82986ec562010c9638",
+  "headSha": "cd6e8f88183f51b41a2752ad9dde7715bd66cb25",
+  "treeSha": "d3477635d8b750700cb7b8ebf9c0aa58fa915d0e",
+  "reviewerRunId": "maestro/review/S11-T02/cd6e8f88183f51b41a2752ad9dde7715bd66cb25/865a7553-03ac-4fe3-bf3d-8efae5007bbd-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3054-3134 requires bearer-derived tenant/Brain state, rejection of caller tenant fields, active organization/workspace/Brain verification, and removal of legacy caller workspace support.",
+        "packages/convex/confect/http.ts:273-314 rejects operations without a reviewed policy, hashes the Authorization bearer, authenticates through the internal API-key lookup with the operation scope, preauthorizes, and only then reads/decodes JSON.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:461-550 authenticates by indexed keyHash, requires exact key/principal binding, asserts active Brain scope, and checks organization/workspace lifecycle and revocation generations before returning a principal.",
+        "packages/convex/confect/headless/authorizeOperation.ts:30-45 and 80-100 recursively reject caller-supplied tenant/user/Convex-id fields and inject server-owned organizationId, workspaceId, and brainKey from the bearer principal.",
+        "packages/convex/test/http-request-security.test.ts:187-229 and packages/convex/test/api-keys.test.ts:573-657 cover tenant alias rejection, server-derived principal injection, indexed auth, and lifecycle generation invalidation."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.spec.ts declares public CRUD functions and internal authenticate/markLastUsed functions with typed Unauthorized/Forbidden/domain errors rather than exposing raw repository access.",
+        "packages/convex/confect/headless/auth.ts:334-340 and packages/convex/confect/headless/apiKeys.impl.ts:752-828 require a current human workspace context and Brain admin role for API-key administration; UI hiding is not the only control.",
+        "packages/convex/confect/http.ts:273-305 rejects routes without an operation policy, authenticates with policy.requiredScope, and preauthorizes before decode.",
+        "packages/convex/confect/headless/authorizeOperation.ts:80-100 requires the reviewed operation scope and returns Forbidden for unreviewed or under-scoped requests.",
+        "packages/convex/test/api-keys.test.ts:144-183 and 805-940 cover non-admin denial and audited API-key administration denials; packages/convex/test/http-request-security.test.ts:153-185 and 415-455 cover explicit policy/scope enforcement."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/auth.ts:27-34 models API-key and service-principal active/revoked/expired states; lines 466-521 fail closed on key revocation/expiry and principal revocation/generation drift.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:170-206 asserts active organization and workspace/Brain; lines 503-538 reject lifecycle/revocation generation changes; lines 553-659 reject revoked/expired keys and inactive principals.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:374-459 revokes both key and service principal generation for revoke, and rotate logic revokes old key and increments principal generation before new-key use.",
+        "packages/convex/test/api-keys.test.ts:240-352 covers scope, Brain, expiry, key revocation, and principal revocation; lines 491-571 cover duplicate active names and principal generation revocation; lines 744-803 cover changed service-principal generation."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "AGENTS.md:127-134 forbids logging raw provider payloads, tokens, API keys, or support artifacts.",
+        "packages/convex/confect/headless/auth.ts:365-405 returns displayKey only from createBrainApiKey while durable key/principal rows contain hash and displayPrefix metadata, not plaintext.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:208-220 and 342-353 return public metadata without keyHash/internal ids, and audit events use displayPrefix or requested name rather than plaintext secret.",
+        "packages/convex/confect/http.ts:315-318 redacts dispatch exceptions to generic Forbidden and introduces no console logging in the route path.",
+        "packages/convex/test/api-keys.test.ts:60-142 and 573-657 assert display-once/metadata behavior and non-plaintext hash; packages/convex/test/http-request-security.test.ts:496-553 asserts dispatch exceptions and Authorization values are not logged or reflected."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/auth.ts:509-521 and packages/convex/confect/headless/apiKeys.impl.ts:592-603 fail authorization if key principalGeneration differs from the current service-principal generation.",
+        "packages/convex/confect/http.ts:321-335 reauthenticates after dispatch, verifies the same authenticated key/principal, and only then performs the best-effort last-used mutation.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:676-750 makes last-used updates best-effort and fenced by key id/hash, principal id, tenant/Brain, active state, expiry, principal generation, and tenant lifecycle generation so stale concurrent marks do not resurrect authorization.",
+        "packages/convex/test/http-request-security.test.ts:457-494 covers revocation between dispatch and return failing closed; packages/convex/test/api-keys.test.ts:659-742 covers same-generation cross-tenant principal mutation and last-used not updating."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/manifest/executor.ts:201-224 validates idempotency keys and requires a nonblank idempotencyKey for non-idempotent operations before dispatch.",
+        "packages/convex/confect/manifest/executor.ts:254-285 applies idempotency validation before selecting dispatch input, and lines 293-367 dispatch only after preparation succeeds.",
+        "packages/convex/confect/http.ts:321-335 reauthenticates after operation execution before returning success, limiting replay/race windows from bearer revocation during a request.",
+        "packages/convex/test/headless-executor.test.ts covers missing/padded/non-URL-safe idempotency keys before dispatch; packages/convex/test/http-request-security.test.ts:348-413 proves request order authenticate/decode/dispatch/reauthenticate/mark."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.impl.ts:301-310 checks generated key hash collision before insert, lines 509-538 fence authorization on stored organization/workspace lifecycle and revocation generations, and lines 592-603 fence service-principal generation.",
+        "packages/convex/confect/http.ts:356-378 compares keyHash/keyId, tenant/Brain, role ceiling, principalId, and scopes between initial authentication and post-dispatch reauthentication.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:676-750 fences markLastUsed on exact keyHash/keyId/principalId/tenant/Brain/status/expiry/generations before patching lastUsedAt.",
+        "packages/convex/test/api-keys.test.ts:573-657, 659-742, and 744-803 prove lifecycle generation, cross-tenant principal drift, stale mark, and service-principal generation fencing."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "AGENTS.md:127-134 requires fake/local provider defaults, live provider SDK imports only inside adapters, no server secrets in web, and no raw token/API-key logging.",
+        "packages/convex/confect/http.ts:1-23 imports Confect/Convex/headless manifest modules only; no live provider SDK or process.env secret access is introduced in the HTTP path.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:1-42 imports Confect, Effect, database/auth/access helpers, and headless auth/principal modules only; no provider SDK or server secret import is used for API-key CRUD/authentication.",
+        "apps/web/src/features/settings/api-keys-adapter.ts and apps/web/src/routes/_workspace.settings.tsx consume Confect refs/results and display create/rotate plaintext returned by the server without importing provider SDKs or server secrets.",
+        "Scoped inspection of packages/convex/confect, apps/web/src/features/settings, apps/web/src/routes/_workspace.settings.tsx, and packages/convex/test found no new live provider SDK import or process.env secret dependency in the S11-T02 implementation paths."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
