@@ -2,9 +2,16 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { basename, resolve } from "node:path";
 
-import { validateAuthorityRepairRewrite } from "./authority-repair-check.js";
+import {
+  validateAuthorityRepairRewrite,
+  validateOwnershipRehomeRewrite,
+} from "./authority-repair-check.js";
 import { laneHistoryOwnershipIssues } from "./lane-ownership.js";
-import { buildManifest, type AuthorityRepairTransition } from "./manifest.js";
+import {
+  buildManifest,
+  type AuthorityRepairTransition,
+  type OwnershipRehomeTransition,
+} from "./manifest.js";
 import { runRtk } from "./process.js";
 
 const archiveInput = process.env.BRAIN_AUTHORITY_REPAIR_ARCHIVE ?? "none";
@@ -34,9 +41,12 @@ const archiveManifest = JSON.parse(
 const archiveManifestSha256 = createHash("sha256")
   .update(readFileSync(resolve(archive, "manifest.json")))
   .digest("hex");
+const ownershipRehome =
+  archiveManifest.schemaVersion === "maestro-brain-ownership-rehome-archive/v1";
 if (
-  archiveManifest.schemaVersion !==
-    "maestro-brain-authority-repair-archive/v1" ||
+  (!ownershipRehome &&
+    archiveManifest.schemaVersion !==
+      "maestro-brain-authority-repair-archive/v1") ||
   archiveManifest.taskId !== taskId ||
   !Array.isArray(archiveManifest.artifacts)
 ) {
@@ -64,9 +74,12 @@ for (const artifact of archiveManifest.artifacts) {
 }
 const manifest = buildManifest(workdir);
 const task = manifest.tasks.find((candidate) => candidate.taskId === taskId);
-if (!task?.authorityRepairTransition) {
+const currentTransition = ownershipRehome
+  ? task?.ownershipRehomeTransition
+  : task?.authorityRepairTransition;
+if (!task || !currentTransition) {
   throw new Error(
-    `${taskId}: current manifest has no authority-repair transition`,
+    `${taskId}: current manifest has no ${ownershipRehome ? "ownership-rehome" : "authority-repair"} transition`,
   );
 }
 if (
@@ -75,11 +88,17 @@ if (
 )
   throw new Error(`${taskId}: authority-repair current authority drifted`);
 const transition = JSON.parse(
-  readFileSync(resolve(archive, "authority-repair-transition.json"), "utf8"),
-) as AuthorityRepairTransition;
-if (
-  JSON.stringify(transition) !== JSON.stringify(task.authorityRepairTransition)
-) {
+  readFileSync(
+    resolve(
+      archive,
+      ownershipRehome
+        ? "ownership-rehome-transition.json"
+        : "authority-repair-transition.json",
+    ),
+    "utf8",
+  ),
+) as AuthorityRepairTransition | OwnershipRehomeTransition;
+if (JSON.stringify(transition) !== JSON.stringify(currentTransition)) {
   throw new Error(`${taskId}: authority-repair transition drifted`);
 }
 const git = (...args: string[]): string =>
@@ -95,11 +114,18 @@ const changedFiles = git(
 )
   .split("\n")
   .filter(Boolean);
-validateAuthorityRepairRewrite({
-  changedFiles,
-  fileLocks: task.fileLocks,
-  transition,
-});
+if (ownershipRehome)
+  validateOwnershipRehomeRewrite({
+    changedFiles,
+    fileLocks: task.fileLocks,
+    transition: transition as OwnershipRehomeTransition,
+  });
+else
+  validateAuthorityRepairRewrite({
+    changedFiles,
+    fileLocks: task.fileLocks,
+    transition: transition as AuthorityRepairTransition,
+  });
 const histories = git("rev-list", "--reverse", `${baseSha}..HEAD`)
   .split("\n")
   .filter(Boolean)

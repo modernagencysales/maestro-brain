@@ -66,7 +66,7 @@ export const validateAuthorityRepairArchivePin = (input: {
   readonly evidence: string;
   readonly record: Pick<
     AuthorityResumeRecord,
-    "authorityArchiveManifestSha256" | "authorityArchivePath"
+    "authorityArchiveManifestSha256" | "authorityArchivePath" | "mode"
   >;
   readonly taskId: string;
 }): {
@@ -107,8 +107,12 @@ export const validateAuthorityRepairArchivePin = (input: {
     );
   }
   const authorityId = manifest.authorityId;
+  const expectedSchema =
+    input.record.mode === "ownership-rehome"
+      ? "maestro-brain-ownership-rehome-archive/v1"
+      : "maestro-brain-authority-repair-archive/v1";
   if (
-    manifest.schemaVersion !== "maestro-brain-authority-repair-archive/v1" ||
+    manifest.schemaVersion !== expectedSchema ||
     manifest.taskId !== input.taskId ||
     typeof authorityId !== "string" ||
     !/^[0-9a-f]{12}$/.test(authorityId) ||
@@ -328,7 +332,9 @@ export const validateTerminalAuthorityResumeOwner = (input: {
   readonly workdir: string;
 } => {
   const authorityRepair = input.record.mode === "authority-repair";
-  const repairPin = authorityRepair
+  const ownershipRehome = input.record.mode === "ownership-rehome";
+  const contentAddressed = authorityRepair || ownershipRehome;
+  const repairPin = contentAddressed
     ? validateAuthorityRepairArchivePin({
         evidence: input.evidence,
         record: input.record,
@@ -345,7 +351,11 @@ export const validateTerminalAuthorityResumeOwner = (input: {
     [
       "mode",
       input.record.mode,
-      authorityRepair ? "authority-repair" : "authority-refresh",
+      authorityRepair
+        ? "authority-repair"
+        : ownershipRehome
+          ? "ownership-rehome"
+          : "authority-refresh",
     ],
     ["resume strategy", input.record.resumeStrategy, "in-lane-cherry-pick"],
     ["launch base", input.record.baseSha, input.taskBaseSha],
@@ -428,7 +438,7 @@ export const validateTerminalAuthorityResumeOwner = (input: {
     typeof authorityId !== "string" ||
     !/^[0-9a-f]{12}$/.test(authorityId) ||
     input.record.authorityArchivePath !== archiveDirectory ||
-    (authorityRepair
+    (contentAddressed
       ? typeof input.record.authorityArchiveManifestSha256 !== "string" ||
         !/^[0-9a-f]{64}$/.test(input.record.authorityArchiveManifestSha256) ||
         input.record.authorityArchiveManifestSha256 !== archiveManifestSha256 ||
@@ -454,7 +464,9 @@ export const validateTerminalAuthorityResumeOwner = (input: {
     archiveManifest.schemaVersion !==
       (authorityRepair
         ? "maestro-brain-authority-repair-archive/v1"
-        : "maestro-brain-authority-refresh-archive/v1") ||
+        : ownershipRehome
+          ? "maestro-brain-ownership-rehome-archive/v1"
+          : "maestro-brain-authority-refresh-archive/v1") ||
     archiveManifest.taskId !== input.taskId ||
     archiveManifest.currentAuthority?.controlHeadSha !== input.taskBaseSha ||
     archiveManifest.source?.baseSha !== input.record.taskBaseSha ||
