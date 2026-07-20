@@ -1,8 +1,11 @@
+import { writeSync } from "node:fs";
+
 import { describe, expect, it, vi } from "vitest";
 
 import {
   BROAD_GATE_COMMAND,
   runBroadGateAttempts,
+  runBroadGateCommand,
   validateBroadGateReceipt,
 } from "../src/integration-broad-gate.js";
 
@@ -21,7 +24,89 @@ const cleanRunner = (
   };
 };
 
-describe("integration broad gate transient retry", () => {
+describe("integration broad gate", () => {
+  it("captures noisy successful output through files without a maxBuffer", () => {
+    const stdout = "x".repeat(4 * 1024 * 1024);
+    const stderr = "noisy success stderr\n";
+    const stdoutWrite = vi
+      .spyOn(process.stdout, "write")
+      .mockImplementation(() => true);
+    const stderrWrite = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation(() => true);
+
+    const result = runBroadGateCommand(
+      "/tmp/worktree",
+      (command, args, options) => {
+        expect(command).toBe("rtk");
+        expect(args).toEqual([
+          "host-test-slot",
+          "--class",
+          "full",
+          "pnpm",
+          "verify",
+        ]);
+        expect(options).not.toHaveProperty("maxBuffer");
+        writeSync(options.stdio[1], stdout);
+        writeSync(options.stdio[2], stderr);
+        return { signal: null, status: 0 };
+      },
+    );
+
+    expect(result).toMatchObject({ signal: null, status: 0 });
+    expect(result.output).toBe(`${stdout}${stderr}`);
+    expect(stdoutWrite).toHaveBeenCalledWith(stdout);
+    expect(stderrWrite).toHaveBeenCalledWith(stderr);
+  });
+
+  it("preserves ordinary nonzero gate output as a verification failure", () => {
+    vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+
+    const result = runBroadGateCommand(
+      "/tmp/worktree",
+      (_command, _args, options) => {
+        writeSync(options.stdio[2], "AssertionError: expected true\n");
+        return { signal: null, status: 7 };
+      },
+    );
+
+    expect(result).toMatchObject({
+      output: "AssertionError: expected true\n",
+      signal: null,
+      status: 7,
+    });
+  });
+
+  it("rejects a spawn error instead of recording a verification failure", () => {
+    expect(() =>
+      runBroadGateAttempts("a".repeat(40), {
+        head: () => "a".repeat(40),
+        runVerify: () => ({
+          error: new Error("spawn ENOMEM"),
+          output: "",
+          signal: null,
+          status: null,
+        }),
+        status: () => "",
+      }),
+    ).toThrow(/failed to spawn.*ENOMEM/);
+  });
+
+  it("rejects signal termination instead of recording a verification failure", () => {
+    expect(() =>
+      runBroadGateAttempts("a".repeat(40), {
+        head: () => "a".repeat(40),
+        runVerify: () => ({
+          output: "partial output",
+          signal: "SIGTERM",
+          status: null,
+        }),
+        status: () => "",
+      }),
+    ).toThrow(/terminated by signal SIGTERM/);
+  });
+
   it("retries the exact Vitest worker RPC timeout once", () => {
     const { runner, runVerify } = cleanRunner([
       { output: 'Error: Timeout calling "onTaskUpdate"', status: 1 },

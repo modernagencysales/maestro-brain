@@ -1,13 +1,18 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
+  closeSync,
   existsSync,
   mkdirSync,
+  mkdtempSync,
+  openSync,
   readFileSync,
   realpathSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, isAbsolute, resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 
 import { runRtk } from "./process.js";
 
@@ -32,9 +37,26 @@ export interface BroadGateReceipt {
 }
 
 interface CommandResult {
+  readonly error?: Error;
   readonly output: string;
+  readonly signal?: NodeJS.Signals | null;
   readonly status: number | null;
 }
+
+interface BroadGateSpawnResult {
+  readonly error?: Error;
+  readonly signal: NodeJS.Signals | null;
+  readonly status: number | null;
+}
+
+type BroadGateSpawn = (
+  command: string,
+  args: readonly string[],
+  options: {
+    readonly cwd: string;
+    readonly stdio: readonly ["ignore", number, number];
+  },
+) => BroadGateSpawnResult;
 
 export interface BroadGateRunner {
   readonly head: () => string;
@@ -47,6 +69,46 @@ const sha256 = (value: string): string =>
 
 export const isTransientVitestWorkerRpcTimeout = (output: string): boolean =>
   output.includes(TRANSIENT_VITEST_RPC_TIMEOUT);
+
+export const runBroadGateCommand = (
+  workdir: string,
+  spawn: BroadGateSpawn = spawnSync,
+): CommandResult => {
+  const captureDirectory = mkdtempSync(
+    join(tmpdir(), "maestro-brain-broad-gate-"),
+  );
+  const stdoutPath = join(captureDirectory, "stdout.log");
+  const stderrPath = join(captureDirectory, "stderr.log");
+  let stdoutFd: number | undefined;
+  let stderrFd: number | undefined;
+  try {
+    stdoutFd = openSync(stdoutPath, "w");
+    stderrFd = openSync(stderrPath, "w");
+    const result = spawn(
+      "rtk",
+      ["host-test-slot", "--class", "full", "pnpm", "verify"],
+      { cwd: workdir, stdio: ["ignore", stdoutFd, stderrFd] },
+    );
+    closeSync(stdoutFd);
+    stdoutFd = undefined;
+    closeSync(stderrFd);
+    stderrFd = undefined;
+    const stdout = readFileSync(stdoutPath, "utf8");
+    const stderr = readFileSync(stderrPath, "utf8");
+    process.stdout.write(stdout);
+    process.stderr.write(stderr);
+    return {
+      ...(result.error === undefined ? {} : { error: result.error }),
+      output: `${stdout}${stderr}`,
+      signal: result.signal,
+      status: result.status,
+    };
+  } finally {
+    if (stdoutFd !== undefined) closeSync(stdoutFd);
+    if (stderrFd !== undefined) closeSync(stderrFd);
+    rmSync(captureDirectory, { force: true, recursive: true });
+  }
+};
 
 export const runBroadGateAttempts = (
   expectedHead: string,
@@ -67,6 +129,22 @@ export const runBroadGateAttempts = (
       throw new Error("integration broad gate worktree is not clean");
     }
     const result = runner.runVerify();
+    if (result.error !== undefined) {
+      throw new Error(
+        `integration broad gate command failed to spawn: ${result.error.message}`,
+        { cause: result.error },
+      );
+    }
+    if (result.signal !== undefined && result.signal !== null) {
+      throw new Error(
+        `integration broad gate command terminated by signal ${result.signal}`,
+      );
+    }
+    if (result.status === null) {
+      throw new Error(
+        "integration broad gate command terminated without an exit status",
+      );
+    }
     if (runner.head() !== expectedHead || runner.status() !== "") {
       throw new Error("integration broad gate mutated its immutable head");
     }
@@ -191,17 +269,7 @@ export const runIntegrationBroadGate = (input: {
           cwd: workdir,
           quiet: true,
         }),
-      runVerify: () => {
-        const result = spawnSync(
-          "rtk",
-          ["host-test-slot", "--class", "full", "pnpm", "verify"],
-          { cwd: workdir, encoding: "utf8", maxBuffer: 128 * 1024 * 1024 },
-        );
-        const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
-        process.stdout.write(result.stdout ?? "");
-        process.stderr.write(result.stderr ?? "");
-        return { output, status: result.status };
-      },
+      runVerify: () => runBroadGateCommand(workdir),
       status: () =>
         runRtk(["proxy", "git", "status", "--porcelain"], {
           cwd: workdir,
