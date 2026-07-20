@@ -1,0 +1,82 @@
+{
+  "lens": "quality",
+  "taskId": "S04-T02",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "cdeca2a0ba4a7101fd27959788455ac53609485617a9cf8146c29c86891a7958",
+  "baseSha": "ce892af6c4ea5c8ff679c5bfce09a205967cdf11",
+  "headSha": "b31d1c8f7a7fcee7d36778cf33534240a17b6f52",
+  "treeSha": "38cf52846dac7e721a0ba40a4e7104367089bfbc",
+  "reviewerRunId": "maestro/review/S04-T02/b31d1c8f7a7fcee7d36778cf33534240a17b6f52/f8e224f7-c76c-4b06-96ec-02ad61136350-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/test/slack-directory.test.ts:944-1110 covers same-connection reauthorization cursor preservation with only two old-generation channels, so it cannot fail the fixed 1,000-row cap in the persistence path.",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:766-772 loads old-generation sourceChannels through by_connection_generation with take(1_000) before promoteReauthorizedChannelRows, leaving any additional old-generation channel rows unpromoted and their channelSyncStates untouched.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1445-1459 requires failure-first proof for same-connection reauthorization losing cursors and requires reauthorization to preserve channel keys/cursors while incrementing credentials generation."
+      ],
+      "findingIds": [
+        "S04-T02-QUALITY-001"
+      ]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/integrations/slackDirectory.spec.ts:88-149 defines Confect internal action/query/mutation contracts and typed expected errors before implementation.",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:894-976 keeps provider access behind an injected SlackDirectoryProviderService and composes action work through generated Confect refs via QueryRunner/MutationRunner."
+      ]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:766-826 couples reauthorization promotion and sync-state generation patching to a single take(1_000) sourceChannels read, making correctness depend on current workspace size rather than the indexed full old generation.",
+        "The resulting split state is hard for later S07/S09/S10 lifecycle adopters to reason about because some old-generation channel rows keep stale generation/cursor state while the providerConnection has already advanced."
+      ],
+      "findingIds": [
+        "S04-T02-QUALITY-001"
+      ]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/channelSyncStates.ts:25-45 models replacementAudit with connectionKey, connectionGeneration, reason, and recordedAt, without raw Slack/Nango payloads, tokens, or secrets.",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:299-348 and 551-638 write redacted replacement audit state while pausing sync lanes; no console logging or raw provider payload logging appears in the scoped changed files."
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "lane-gate-report.json records changedSourceLines 1360 against estimatedSourceLines 1500 with estimateDrift false.",
+        "lane-gate-report.json records 5 source slices (295, 283, 267, 300, 215) under sourceSliceLimit 5 and sourceSliceBudget 300."
+      ]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "pass",
+      "evidence": [
+        "lane-gate-report.json includes rtk pnpm brain:factory:check-confect-codegen in the pre-review command set and reports status passed for the exact head/tree under review.",
+        "The scoped diff from ce892af6c4ea5c8ff679c5bfce09a205967cdf11..HEAD changes only the manifest-owned hand-authored doc, Confect spec/impl/entrypoint, table definitions, and slack-directory test; no packages/convex/confect/_generated files are edited."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "S04-T02-QUALITY-001",
+      "severity": "high",
+      "summary": "Same-connection reauthorization does not prove or preserve cursors beyond the fixed 1,000-channel read.",
+      "details": "S04-T02 requires same-connection reauthorization to preserve every channel key/cursor while incrementing the credentials generation. commitReconcileChannels only reads sourceChannels with take(1_000) before promoteReauthorizedChannelRows and before patching channelSyncStates for promoted rows. A Slack workspace with more than 1,000 previously discovered channels can therefore advance providerConnections to the new generation while leaving later old-generation sourceChannels and their lane cursors stale. The focused test for partial-page reauthorization uses only two channels, so the passed gate is false-green for the all-rows cursor preservation invariant.",
+      "evidence": [
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:766-826",
+        "packages/convex/test/slack-directory.test.ts:944-1110",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1445-1459"
+      ],
+      "lens": "quality"
+    }
+  ],
+  "verdict": "rework"
+}
