@@ -3738,13 +3738,16 @@ manifest.
   `packages/convex/confect/tables/featureFlagPolicies.ts`,
   `packages/convex/test/flags.test.ts`, `packages/observability/src/index.ts`,
   `packages/convex/confect/ops/flags.spec.ts`,
-  `packages/convex/confect/ops/flags.impl.ts`,
-  `tooling/quality/check-logging-boundary.mts`, and
-  `docs/product/maestro-brain-operations.md`.
+  `packages/convex/confect/ops/flags.impl.ts`, and
+  `docs/product/maestro-brain-operations.md`. Consume the existing logging
+  boundary checker without modifying it; S04-T03 remains its sole owner.
 - **Failure-first tests:** prompt/source/token/header logging canaries; model
   spend/token/input cap; Slack rate/storage/queue/channel cap; kill switches for
   capture, backfill, classification, maintenance, Ask, Slack delivery, MCP,
   export, lifecycle execution; and stale operator role.
+- **Redaction-canary ownership:** Redaction canaries live in
+  `packages/observability/src/brainMetrics.test.ts`; they exercise the existing
+  logging-boundary and secret-canary commands without changing either checker.
 - **Implementation:** emit IDs/hashes/counts/durations/status/error tags only.
   Metrics cover connection/channel lag, queues/leases/dead letters, model spend
   and eval version, search projection lag, Ask abstention/errors, outbox
@@ -3769,6 +3772,33 @@ manifest.
   result, budget enforcement, and redacted audit samples.
 - **Lane branch / commit boundary:** branch `codex/brain-s13-operations`; commit
   `feat: operate Brain safely`.
+- **Ownership-rehome transition:**
+  ```json
+  {
+    "schemaVersion": "maestro-brain-ownership-rehome-transition/v1",
+    "classification": "ownership-rehome",
+    "fromPlanSha256": "a3d4af4aa5e526438aa5e06c8716a6a40500bc235d9933f8f8649e133263821b",
+    "fromTaskBlockHash": "44554749f4365ef357fd095d8ca8bd6dfdaec948b73797a8255e102eac74d080",
+    "sourceRunId": "01KY0KKPKS1JMRX8M50XX5Y7YP",
+    "sourceBaseSha": "022a932c1e809c2093a10f5dea5d248b6c706f5f",
+    "sourceHeadSha": "9a372756c24735077c875064a3080c49b812d85b",
+    "sourceTreeSha": "05238587cbebc3b0150bad33fd3575c5a3d50a70",
+    "requiredIntegratedTaskIds": ["S06-T02", "S08-T01", "S11-T04", "S12-T02"],
+    "immutableFinding": {
+      "kind": "git-blob",
+      "ref": "refs/maestro-brain/evidence/s13-t03-checker-rehome-20260720",
+      "objectSha": "90be0b093bd2706ca58f762a227355d3071bfbb6",
+      "contentSha256": "e67b89719952add30bc7a67923aa24465b386ed10d55d07b20c1abc7ea9bda37"
+    },
+    "supersededPaths": [
+      {
+        "path": "tooling/quality/check-logging-boundary.mts",
+        "replacementPath": "packages/observability/src/brainMetrics.test.ts",
+        "disposition": "replaced-by-current-owned-artifact"
+      }
+    ]
+  }
+  ```
 
 ### S13-T04 — Add Operations Dashboard, Alerts, And Recovery Drills
 

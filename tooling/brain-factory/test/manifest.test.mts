@@ -1029,6 +1029,61 @@ describe("Maestro Brain execution manifest", () => {
     ).toBe(true);
   });
 
+  it("rehomes S13 logging canaries without retaining checker ownership", () => {
+    const manifest = buildManifest();
+    const slack = manifest.tasks.find((task) => task.taskId === "S04-T03");
+    const operations = manifest.tasks.find((task) => task.taskId === "S13-T03");
+    expect(slack?.fileLocks).toContain(
+      "tooling/quality/check-logging-boundary.mts",
+    );
+    expect(operations?.fileLocks).toContain(
+      "packages/observability/src/brainMetrics.test.ts",
+    );
+    expect(operations?.fileLocks).not.toContain(
+      "tooling/quality/check-logging-boundary.mts",
+    );
+    expect(operations?.ownershipRehomeTransition).toEqual({
+      schemaVersion: "maestro-brain-ownership-rehome-transition/v1",
+      classification: "ownership-rehome",
+      fromPlanSha256:
+        "a3d4af4aa5e526438aa5e06c8716a6a40500bc235d9933f8f8649e133263821b",
+      fromTaskBlockHash:
+        "44554749f4365ef357fd095d8ca8bd6dfdaec948b73797a8255e102eac74d080",
+      sourceRunId: "01KY0KKPKS1JMRX8M50XX5Y7YP",
+      sourceBaseSha: "022a932c1e809c2093a10f5dea5d248b6c706f5f",
+      sourceHeadSha: "9a372756c24735077c875064a3080c49b812d85b",
+      sourceTreeSha: "05238587cbebc3b0150bad33fd3575c5a3d50a70",
+      requiredIntegratedTaskIds: ["S06-T02", "S08-T01", "S11-T04", "S12-T02"],
+      immutableFinding: {
+        kind: "git-blob",
+        ref: "refs/maestro-brain/evidence/s13-t03-checker-rehome-20260720",
+        objectSha: "90be0b093bd2706ca58f762a227355d3071bfbb6",
+        contentSha256:
+          "e67b89719952add30bc7a67923aa24465b386ed10d55d07b20c1abc7ea9bda37",
+      },
+      supersededPaths: [
+        {
+          path: "tooling/quality/check-logging-boundary.mts",
+          replacementPath: "packages/observability/src/brainMetrics.test.ts",
+          disposition: "replaced-by-current-owned-artifact",
+        },
+      ],
+    });
+
+    const plan = readFileSync(resolve(REPO_ROOT, PLAN_RELATIVE), "utf8");
+    const packet = plan.slice(
+      plan.indexOf("### S13-T03"),
+      plan.indexOf("### S13-T04"),
+    );
+    expect(packet).toContain("**Redaction-canary ownership:**");
+    expect(packet).toContain(
+      "`packages/observability/src/brainMetrics.test.ts`; they exercise",
+    );
+    expect(packet).not.toContain(
+      "modify\n  `tooling/quality/check-logging-boundary.mts`",
+    );
+  });
+
   it("gives lifecycle adoption work exact task-local locks", () => {
     const manifest = buildManifest();
     const lifecycleTasks = [

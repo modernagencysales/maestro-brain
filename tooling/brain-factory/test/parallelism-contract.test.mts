@@ -60,7 +60,7 @@ describe("parallelism contract schema", () => {
     expect(
       contract.edges.filter((edge) => edge.classification === "contract"),
     ).toHaveLength(44);
-    expect(contract.collisions).toHaveLength(180);
+    expect(contract.collisions).toHaveLength(179);
     expect(validateParallelismContract(contract, manifest)).toEqual([]);
   });
 
@@ -225,6 +225,15 @@ describe("parallelism contract schema", () => {
         mandatorySameWave: undefined,
       };
     }, /same_wave_fail_closed requires mandatorySameWave=true/);
+  });
+
+  test("keeps S04 sole owner of the logging checker", () => {
+    expect(collisionFor(contract, "S04-T03", "S13-T03")).toBeUndefined();
+    expect(
+      contract.collisions.filter((collision) =>
+        collision.paths.includes("tooling/quality/check-logging-boundary.mts"),
+      ),
+    ).toEqual([]);
   });
 
   test("rejects cycles in the true-edge graph with a concrete path", () => {

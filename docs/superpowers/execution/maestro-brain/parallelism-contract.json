@@ -1,6 +1,6 @@
 {
   "schemaVersion": "maestro-brain-parallelism-contract/v1",
-  "manifestPlanSha256": "45e52be0e55a293947eb0d370c3ba6d1ddaba5ce387d4c98f68a6b7bb9b75306",
+  "manifestPlanSha256": "d185e2c6c1731237fbf8a1f93795b1033e2f05c49a890094d2e6371e3f6e0406",
   "edges": [
     {
       "consumerTaskId": "S00-T03",
@@ -1506,13 +1506,6 @@
       "rightTaskId": "S12-T02",
       "paths": ["packages/convex/confect/http.ts"],
       "policy": "serialize"
-    },
-    {
-      "leftTaskId": "S04-T03",
-      "rightTaskId": "S13-T03",
-      "paths": ["tooling/quality/check-logging-boundary.mts"],
-      "policy": "same_wave_fail_closed",
-      "mandatorySameWave": true
     },
     {
       "leftTaskId": "S05-T01",

@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "45e52be0e55a293947eb0d370c3ba6d1ddaba5ce387d4c98f68a6b7bb9b75306",
+  "planSha256": "d185e2c6c1731237fbf8a1f93795b1033e2f05c49a890094d2e6371e3f6e0406",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -1782,18 +1782,46 @@
         "packages/convex/test/flags.test.ts",
         "packages/observability/src/brainMetrics.test.ts",
         "packages/observability/src/brainMetrics.ts",
-        "packages/observability/src/index.ts",
-        "tooling/quality/check-logging-boundary.mts"
+        "packages/observability/src/index.ts"
       ],
       "gateProfiles": ["convex", "tooling"],
       "kind": "product",
       "lane": "operations",
       "requirements": ["AI-04", "REL-03", "SLK-07"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "44554749f4365ef357fd095d8ca8bd6dfdaec948b73797a8255e102eac74d080",
+      "taskBlockHash": "5cad2a07bca7182f544a841649bc00c8a0e58eb0412e68428f648d16e9efaf0c",
       "taskId": "S13-T03",
       "title": "Add Redacted Telemetry, Budgets, And Kill Switches",
-      "tranche": "X3-convergence"
+      "tranche": "X3-convergence",
+      "ownershipRehomeTransition": {
+        "schemaVersion": "maestro-brain-ownership-rehome-transition/v1",
+        "classification": "ownership-rehome",
+        "fromPlanSha256": "a3d4af4aa5e526438aa5e06c8716a6a40500bc235d9933f8f8649e133263821b",
+        "fromTaskBlockHash": "44554749f4365ef357fd095d8ca8bd6dfdaec948b73797a8255e102eac74d080",
+        "sourceRunId": "01KY0KKPKS1JMRX8M50XX5Y7YP",
+        "sourceBaseSha": "022a932c1e809c2093a10f5dea5d248b6c706f5f",
+        "sourceHeadSha": "9a372756c24735077c875064a3080c49b812d85b",
+        "sourceTreeSha": "05238587cbebc3b0150bad33fd3575c5a3d50a70",
+        "requiredIntegratedTaskIds": [
+          "S06-T02",
+          "S08-T01",
+          "S11-T04",
+          "S12-T02"
+        ],
+        "immutableFinding": {
+          "kind": "git-blob",
+          "ref": "refs/maestro-brain/evidence/s13-t03-checker-rehome-20260720",
+          "objectSha": "90be0b093bd2706ca58f762a227355d3071bfbb6",
+          "contentSha256": "e67b89719952add30bc7a67923aa24465b386ed10d55d07b20c1abc7ea9bda37"
+        },
+        "supersededPaths": [
+          {
+            "path": "tooling/quality/check-logging-boundary.mts",
+            "replacementPath": "packages/observability/src/brainMetrics.test.ts",
+            "disposition": "replaced-by-current-owned-artifact"
+          }
+        ]
+      }
     },
     {
       "acceptanceAfter": "S13-T03",
