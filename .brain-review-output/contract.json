@@ -1,0 +1,119 @@
+{
+  "lens": "contract",
+  "taskId": "S06-T01",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "f2f6cb348272c704636b7e21bf8e8cbd66b812835d781b52e01bdcfa5b0fa97c",
+  "baseSha": "64b5d90e9dce6146ac6cd49696658cd9a40a254c",
+  "headSha": "3524b99f194eac7a3e221c236d6952aa1715291a",
+  "treeSha": "830b558dc144b4741c1671697f6d0048c69e72aa",
+  "reviewerRunId": "maestro/review/S06-T01/3524b99f194eac7a3e221c236d6952aa1715291a/410f142c-7f0b-42cf-9c8d-e4fc449d2474-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "finding",
+      "evidence": [
+        "S06-T01 requires fixture-to-real jobs/workpool with @convex-dev/workpool plus sourceProcessingJobs leases/CAS, failure-first crash matrix, lease expiry/reclaim, stale-worker commit, duplicate effect, retry/permanent/max-attempt, cancellation, emergency generation fence, and completion receipt for duplicate external-call versus one accepted effect (docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1840-1881).",
+        "The implementation adds source job rows and handler helpers, but duplicate enqueue of an existing leased row without workId can call startSourceJob again without checking lease expiry, no heartbeat control is registered, and failure/reclaim controls are exported helpers rather than Confect-registered functions."
+      ],
+      "findingIds": [
+        "CONTRACT-S06-T01-001",
+        "CONTRACT-S06-T01-002",
+        "CONTRACT-S06-T01-003"
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "finding",
+      "evidence": [
+        "Task packet declares typed errors LeaseLost, RetryableJobFailure, PermanentJobFailure, MaxAttemptsReached, StaleGeneration, and DuplicateEffect (docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1866-1869).",
+        "packages/convex/confect/jobs/workpool.spec.ts:11-31 registers enqueueSourceJob, statusSourceJob, backgroundWork, and onComplete but declares no expected typed-error contract for any of those functions.",
+        "packages/convex/confect/jobs/workpool.ts:371-428 exports reclaimSourceJobHandler and failSourceJobHandler as plain helpers only; they are not registered in workpool.spec.ts/workpool.impl.ts and therefore are not reachable through the Confect/Convex API surface."
+      ],
+      "findingIds": [
+        "CONTRACT-S06-T01-002"
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:50-86 adds durable schemaVersion, generation pins, lease fields, attempts, attemptReceipts, externalResponseHash, acceptedEffectKey, and terminal/retry error state fields.",
+        "packages/convex/confect/jobs/jobState.ts:184-217 permits startSourceJob for any non-accepted row, including an already leased/running row; packages/convex/confect/jobs/workpool.ts:182-211 reuses that helper for existing rows with no workId and does not verify lease expiry before replacing the lease generation/token.",
+        "packages/convex/confect/jobs/jobState.ts:376-385 rewrites the current attempt receipt in place with later response/effect/error fields rather than appending immutable attempt receipt events, weakening the durable receipt invariant requested by the task."
+      ],
+      "findingIds": [
+        "CONTRACT-S06-T01-001"
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "finding",
+      "evidence": [
+        "Plan block S06-T01 classifies the work as fixture-to-real and requires failure-first tests for crash before/after claim, after external response, before/after commit, before ACK, lease expiry/reclaim, stale worker commit, duplicate enqueue/effect, retryable/permanent error, max attempts, cancellation, and emergency generation fence (docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1857-1860).",
+        "packages/convex/test/source-workpool.test.ts:357-615 exercises exported helper handlers with an in-memory fake DB, but it does not execute the registered Convex functions or @convex-dev/workpool completion path for crash-after-claim-before-enqueue/no-workId recovery, crash-before-ACK duplicate completion, or duplicate external-call versus one accepted effect.",
+        "lane-gate-report.json for the exact head passed pre-review, but reports changedSourceLines=1060 against estimatedSourceLines=280/sourceSliceBudget=300 and estimateDrift=true."
+      ],
+      "findingIds": [
+        "CONTRACT-S06-T01-003"
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "Task manifest S06-T01 fileLocks are packages/convex/confect/jobs/jobState.ts, leases.ts, workpool.impl.ts, workpool.spec.ts, workpool.ts, packages/convex/confect/tables/sourceProcessingJobs.ts, and packages/convex/test/source-workpool.test.ts (docs/superpowers/execution/maestro-brain/task-manifest.json:762-770).",
+        "The diff from proof base 64b5d90e9dce6146ac6cd49696658cd9a40a254c to HEAD 3524b99f194eac7a3e221c236d6952aa1715291a changes exactly those task-owned files and no generated Confect output, public API, CLI, MCP, or web files."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "evidence": [
+        "Task packet declares execution states queued -> leased -> running -> succeeded | retry_wait | dead_letter | superseded | revoked | cancelled and errors LeaseLost, RetryableJobFailure, PermanentJobFailure, MaxAttemptsReached, StaleGeneration, and DuplicateEffect (docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1866-1869).",
+        "packages/convex/confect/jobs/workpool.ts:316-320 backgroundWork deterministically returns null and packages/convex/confect/jobs/workpool.ts:322-368 onComplete only drives mark-running, external-response, and success; @convex-dev/workpool action failures are not mapped to retry_wait/dead_letter or the declared typed failures in the registered completion flow.",
+        "packages/convex/confect/jobs/workpool.ts:401-428 can persist retryable/permanent/cancelled/revoked/superseded states through failSourceJobHandler, but that function is not registered in packages/convex/confect/jobs/workpool.spec.ts:11-31 or packages/convex/confect/jobs/workpool.impl.ts:27-59."
+      ],
+      "findingIds": [
+        "CONTRACT-S06-T01-002"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "CONTRACT-S06-T01-001",
+      "severity": "high",
+      "summary": "Lease claim path can replace an active unexpired claim without CAS/expiry fencing.",
+      "details": "S06-T01 requires claim-by-compare-and-set with leaseGeneration, opaque token, owner, expiry, attempt, heartbeat, reclaim, and stale-worker fencing. The core startSourceJob reducer increments leaseGeneration for any non-accepted row and enqueueSourceJobHandler calls it for an existing row that has no workId, without checking that an existing lease has expired. A duplicate enqueue after claim but before workId patch can therefore steal the active lease instead of preserving the prior claim or waiting for expiry/reclaim, and no heartbeat Confect function is exposed to maintain the current token.",
+      "evidence": [
+        "packages/convex/confect/jobs/jobState.ts:184-217 startSourceJob only checks acceptedEffectKey and does not require queued/retry_wait or expired status before issuing a new leaseGeneration/token.",
+        "packages/convex/confect/jobs/workpool.ts:182-211 finds an existing row with no workId and immediately calls startSourceJob; it only returns existing.workId when workId is already present or claim returns Left.",
+        "packages/convex/confect/jobs/leases.ts:14-30 defines heartbeatLease, but packages/convex/confect/jobs/workpool.spec.ts:11-31 registers no heartbeat function."
+      ]
+    },
+    {
+      "id": "CONTRACT-S06-T01-002",
+      "severity": "high",
+      "summary": "Declared failure contract is not surfaced through registered Confect/Convex functions.",
+      "details": "The task requires typed errors and reachable retry/permanent/max-attempt/cancel/revoke/supersede paths. The spec registers enqueue/status/background/onComplete only, with no expected-error declarations, while failure and reclaim handlers are exported as plain helper functions but not wired into the Confect group. The registered background action always succeeds with null and onComplete only performs the success path, so workpool action failures cannot persist the declared retry_wait/dead_letter states or surface the declared typed errors through the API contract.",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.spec.ts:11-31 has no expected-error declarations and does not register failSourceJobHandler, reclaimSourceJobHandler, or heartbeat control functions.",
+        "packages/convex/confect/jobs/workpool.impl.ts:27-59 provides implementations only for enqueueSourceJob, statusSourceJob, backgroundWork, and onComplete beside the legacy demo functions.",
+        "packages/convex/confect/jobs/workpool.ts:316-320 backgroundWork returns null; packages/convex/confect/jobs/workpool.ts:322-368 ignores failure result variants and only records external response then success.",
+        "packages/convex/confect/jobs/workpool.ts:401-428 contains failSourceJobHandler for retryable/permanent/cancelled/revoked/superseded states, but it is not registered in the spec/impl tree."
+      ]
+    },
+    {
+      "id": "CONTRACT-S06-T01-003",
+      "severity": "high",
+      "summary": "Required crash and duplicate-effect matrix is not fully proved against durable registered handlers.",
+      "details": "The focused tests now execute exported handler helpers with an in-memory fake DB, which is stronger than pure reducer-only proof, but they still do not execute the registered Convex functions or @convex-dev/workpool lifecycle for several required recovery points: crash after claim before enqueue/workId patch, crash before ACK with duplicate onComplete, and duplicate external-call versus exactly one accepted effect. That leaves the task completion receipt incomplete for the durable workpool boundary named by S06-T01.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1857-1880 requires crash before/after claim, after external response, before/after commit, before ACK, and duplicate external-call versus one accepted effect proof.",
+        "packages/convex/test/source-workpool.test.ts:357-615 invokes enqueueSourceJobHandler, completeSourceJobHandler, reclaimSourceJobHandler, failSourceJobHandler, and statusSourceJobHandler directly against makeDb(), not the registered Convex functions or the @convex-dev/workpool component.",
+        "packages/convex/test/source-workpool.test.ts:591-615 proves duplicate enqueue returns one workId after workId is present, but there is no test for duplicate enqueue when the row is leased and workId is still missing after a crash between claim and enqueue/workId patch.",
+        "packages/convex/test/source-workpool.test.ts:386-457 proves externalResponseHash is patched before success, but there is no duplicate onComplete/before-ACK proof showing one accepted effect after repeated completion delivery."
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
