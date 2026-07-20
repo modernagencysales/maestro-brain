@@ -17,6 +17,7 @@ import {
   operationPolicyAuditEvent,
   operationPolicyFromRecord,
   operationPolicyRecord,
+  replayOperationPolicyByIdempotencyKey,
   operationSubsystems,
 } from "../confect/ops/brainOperationPolicy";
 import { testConfectLayer } from "./support/confect";
@@ -120,6 +121,16 @@ describe("Brain operation policy", () => {
   });
 
   it("declares Confect operation contracts with typed state schemas", () => {
+    expect(() =>
+      Schema.decodeUnknownSync(SetBrainOperationPolicyArgs)({
+        workspaceId: "workspaces_123",
+        subsystem: "mcp",
+        state: "paused",
+        ownerUserId: "users_123",
+        reason: "operator drill",
+        idempotencyKey: "missing-generation",
+      }),
+    ).toThrow();
     expect(
       Schema.decodeUnknownSync(SetBrainOperationPolicyArgs)({
         workspaceId: "workspaces_123",
@@ -142,15 +153,6 @@ describe("Brain operation policy", () => {
         updatedAt: 1,
       }),
     ).toMatchObject({ generation: 2 });
-    expect(() =>
-      Schema.decodeUnknownSync(SetBrainOperationPolicyArgs)({
-        workspaceId: "workspaces_123",
-        subsystem: "mcp",
-        state: "paused",
-        ownerUserId: "users_123",
-        reason: "operator drill",
-      }),
-    ).toThrow();
     expect(
       Schema.decodeUnknownSync(SetBrainOperationPolicyArgs)({
         workspaceId: "workspaces_123",
@@ -159,6 +161,7 @@ describe("Brain operation policy", () => {
         ownerUserId: "users_123",
         reason: "operator drill",
         idempotencyKey: "budget-drill-1",
+        expectedGeneration: 1,
         budgetCheck: {
           budget: "modelTokens",
           limit: 1_000,
@@ -214,6 +217,60 @@ describe("Brain operation policy", () => {
     });
     expect(JSON.stringify(audit)).not.toContain("customer prompt canary");
   });
+  it("expires transient pauses consistently before policy evaluation", () => {
+    expect(
+      evaluateOperationPolicy({
+        subsystem: "ask",
+        state: "paused",
+        generation: 4,
+        expiresAt: 1_782_924_800_000,
+        expectedGeneration: 4,
+        now: 1_782_924_800_000,
+      }),
+    ).toEqual({ ok: true });
+  });
+
+  it("keeps replay idempotent even after later policy updates", () => {
+    const paused = nextOperationPolicy({
+      current: { subsystem: "ask", state: "enabled", generation: 1 },
+      requestedState: "paused",
+      actorRole: "admin",
+      reason: "ask outage",
+      ownerUserId: "users_1",
+      idempotencyKey: "ask-pause-1",
+      expectedGeneration: 1,
+      now: 1_782_924_800_000,
+    });
+    if (paused instanceof Error) throw paused;
+    const resumed = nextOperationPolicy({
+      current: paused,
+      requestedState: "enabled",
+      actorRole: "admin",
+      reason: "ask recovered",
+      ownerUserId: "users_1",
+      idempotencyKey: "ask-enable-1",
+      expectedGeneration: 2,
+      now: 1_782_924_900_000,
+    });
+    if (resumed instanceof Error) throw resumed;
+
+    expect(
+      replayOperationPolicyByIdempotencyKey([paused, resumed], "ask-pause-1"),
+    ).toBe(paused);
+    expect(
+      nextOperationPolicy({
+        current: resumed,
+        requestedState: "paused",
+        actorRole: "admin",
+        reason: "late duplicate",
+        ownerUserId: "users_1",
+        idempotencyKey: "ask-pause-1",
+        expectedGeneration: 1,
+        now: 1_782_925_000_000,
+      }),
+    ).toMatchObject({ _tag: "RecoveryGenerationMismatch" });
+  });
+
   it("persists Brain operation policies through the Confect policy boundary", async () => {
     const program = Effect.gen(function* () {
       const confect = yield* Effect.serviceOptional(
@@ -281,7 +338,10 @@ describe("Brain operation policy", () => {
             retiredCount: policies.filter((row) => row.status === "retired")
               .length,
             active: operationPolicyFromRecord(
-              policies.find((row) => row.status === "active")!,
+              policies.find((row) => row.status === "active") ??
+                (() => {
+                  throw new Error("expected an active operation policy row");
+                })(),
             ),
           };
         }),
