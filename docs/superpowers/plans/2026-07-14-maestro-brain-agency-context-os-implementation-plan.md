@@ -1243,7 +1243,8 @@ manifest.
   `packages/convex/confect/brain/pages.spec.ts` and
   `packages/convex/confect/brain/pages.impl.ts`; repair stable snapshot
   publication in `packages/convex/confect/editor/syncApi.ts`; and extend
-  `packages/convex/test/brain-editor-revision-fence.test.ts` and
+  `packages/convex/test/brain-editor-revision-fence.test.ts`,
+  `packages/convex/test/brain-pages.contract.test.ts`, and
   `packages/convex/test/brain-pages-crud.test.ts`.
 - **Failure-first tests:** loading/empty/not-found/typed/transport states;
   viewer read-only; editor save; tree create/rename/move/archive/favorite;

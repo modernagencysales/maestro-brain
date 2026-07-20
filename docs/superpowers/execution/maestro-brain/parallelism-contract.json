@@ -1,6 +1,6 @@
 {
   "schemaVersion": "maestro-brain-parallelism-contract/v1",
-  "manifestPlanSha256": "e0256a16a8e0791a68c0f2eef39946ddb845c01a79e186c9aa05585ce85d5199",
+  "manifestPlanSha256": "e5ad32c375d4fd307b3d5bccd47ea6cf4e9b7580f23bb506c893fd94019ca7c5",
   "edges": [
     {
       "consumerTaskId": "S00-T03",
@@ -1193,7 +1193,8 @@
         "packages/convex/confect/brain/pages.impl.ts",
         "packages/convex/confect/brain/pages.spec.ts",
         "packages/convex/confect/editor/syncApi.ts",
-        "packages/convex/test/brain-pages-crud.test.ts"
+        "packages/convex/test/brain-pages-crud.test.ts",
+        "packages/convex/test/brain-pages.contract.test.ts"
       ],
       "policy": "same_wave_fail_closed",
       "mandatorySameWave": true
