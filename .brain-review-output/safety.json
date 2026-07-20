@@ -1,0 +1,103 @@
+{
+  "lens": "safety",
+  "taskId": "S11-T02",
+  "planSha256": "e0256a16a8e0791a68c0f2eef39946ddb845c01a79e186c9aa05585ce85d5199",
+  "taskBlockHash": "f49e5fe055896a804408cf0013f1f4b02735f7b6e18f1813ab85e85672fb569d",
+  "baseSha": "8fa1f5b6183a42207628d51cd396852dc8a95af5",
+  "headSha": "0ce85e2ec3631f40eb8cd66d694c249bbded90fc",
+  "treeSha": "cbf7128e1ecbf10afa94f77d62060eaf6509feac",
+  "reviewerRunId": "maestro/review/S11-T02/0ce85e2ec3631f40eb8cd66d694c249bbded90fc/b3dac6d2-f596-4ec3-9fa5-1f55e52184ef-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3085-3094",
+        "packages/convex/confect/httpRequest.ts:149-176",
+        "packages/convex/confect/headless/apiKeys.impl.ts:461-550",
+        "packages/convex/test/api-keys.test.ts:573-656",
+        "packages/convex/test/api-keys.test.ts:659-727"
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3126-3149",
+        "packages/convex/confect/http.ts:280-360",
+        "packages/convex/confect/headless/authorizeOperation.ts:56-85",
+        "packages/convex/confect/headless/apiKeys.impl.ts:222-354",
+        "packages/convex/test/http-request-security.test.ts:405-472",
+        "packages/convex/test/http-request-security.test.ts:472-514"
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/auth.ts:455-538",
+        "packages/convex/confect/headless/apiKeys.impl.ts:503-538",
+        "packages/convex/confect/headless/apiKeys.impl.ts:676-749",
+        "packages/convex/test/api-keys.test.ts:289-356",
+        "packages/convex/test/api-keys.test.ts:744-792"
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/auth.ts:287-291",
+        "packages/convex/confect/headless/apiKeys.impl.ts:328-353",
+        "packages/convex/confect/http.ts:330-339",
+        "packages/convex/test/http-request-security.test.ts:553-612",
+        "apps/web/src/features/settings/api-keys.ts:43-54",
+        "apps/web/src/features/settings/api-keys-panel.tsx:90-120"
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/http.ts:342-356",
+        "packages/convex/confect/http.ts:378-399",
+        "packages/convex/confect/headless/apiKeys.impl.ts:508-538",
+        "packages/convex/test/http-request-security.test.ts:514-552",
+        "packages/convex/test/api-keys.test.ts:573-656"
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/manifest/executor.ts:160-185",
+        "packages/convex/confect/manifest/executor.ts:202-241",
+        "packages/convex/test/headless-executor.test.ts:102-143",
+        "packages/convex/test/http-request-security.test.ts:405-472"
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/auth.ts:506-521",
+        "packages/convex/confect/headless/apiKeys.impl.ts:508-538",
+        "packages/convex/confect/headless/apiKeys.impl.ts:712-744",
+        "packages/convex/test/api-keys.test.ts:573-656",
+        "packages/convex/test/api-keys.test.ts:744-792"
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "AGENTS.md:113-119",
+        "packages/convex/confect/http.ts:280-360",
+        "packages/convex/confect/http.ts:416-436",
+        "packages/convex/test/http-request-security.test.ts:553-612",
+        "apps/web/src/routes/_workspace.settings.tsx:103-180"
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
