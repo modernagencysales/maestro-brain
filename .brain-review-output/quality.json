@@ -1,0 +1,73 @@
+{
+  "lens": "quality",
+  "taskId": "S08-T03",
+  "planSha256": "ca7c2d9fbe1de7598adb586c3c0eb8e85c2826fc3339def797b61e3dc45b56cf",
+  "taskBlockHash": "2d947263cf0fa3ed72b36f7fddc028629d9db80e333e2511207b2213bf4d40c0",
+  "baseSha": "2bdef668a17ac4e86a9113846b773f6243f281c0",
+  "headSha": "a66a7599a9b08cbfadbd23e96e147ac1749a662a",
+  "treeSha": "99cabce4744375e38e1ef64728c2adcf3c34419a",
+  "reviewerRunId": "maestro/review/S08-T03/a66a7599a9b08cbfadbd23e96e147ac1749a662a/48950001-759c-404e-8197-1154005e37b9-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/test/sourceClassification.workflow.test.ts:10-17 checks the start manifest after the repair so the workflow start entrypoint is in the focused proof instead of only the graph runner.",
+        "packages/convex/test/sourceClassification.workflow.test.ts:47-65 supplies sourceUnitRevisionKey, sourceUnitHash, messages, policyVersion, and allowedTargets through the graph proof for the immutable source-unit classification request.",
+        "packages/convex/test/source-classification.test.ts:59-244 covers zero-call Direct/capture-only policies, malformed multi-target output, out-of-allowlist targets, evidence mismatch, admin-only review, mixed-client no-route, duplicate effects, stale generations, and required durable indexes.",
+        "packages/convex/confect/capabilities/classifySourceUnit.test.ts:27-70 covers the fake/local capability seam for one target, no target, mixed-client, prompt-injection-shaped text, and declared typed errors."
+      ]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "apps/web/src/features/connections/classification-review-queue.tsx:1-10 imports Saas UI primitives only for the feature queue and does not import Convex, Confect refs, provider SDKs, or route modules.",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:23-31 composes the internal workflow through graph runner, ownership, and status helpers rather than provider adapters or web layers.",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:44-51 invokes classification.model and routes.commit through the workflow capability registry, preserving workflow -> capability composition.",
+        "packages/convex/confect/capabilities/classifySourceUnit.impl.ts:12-16 authenticates the system caller and delegates to packages/convex/confect/capabilities/classifySourceUnit.domain.ts instead of embedding provider or repo access."
+      ]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/classification/gather.ts:1-37 isolates request gathering and Direct/capture-only skip behavior from workflow wiring.",
+        "packages/convex/confect/classification/request.ts:66-150 centralizes structural, allowlist, snapshot/hash, and evidence quote validation in a reusable domain helper.",
+        "packages/convex/confect/classification/review.ts:39-98 keeps admin/owner review transition rules isolated from commit and workflow code.",
+        "packages/convex/confect/classification/commit.ts:49-94 isolates generation fencing, duplicate-effect checks, and route/no-route result projection."
+      ]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "docs/product/maestro-brain-lifecycle-adoption/S08-T03.md:10-23 documents durable classificationDecisions and sourceProcessingJobs state surfaces for inspection.",
+        "docs/product/maestro-brain-lifecycle-adoption/S08-T03.md:54-60 documents rollback/replay keys and provider isolation without naming secret values.",
+        "packages/convex/confect/tables/classificationDecisions.ts:47-51 adds review/source/effect/target indexes, while row fields store hashes/keys and no raw provider payloads or secrets.",
+        "Scoped inspection of the task-owned classification files found no console logging, Slack/Nango imports, provider SDK imports, process.env reads, or secret/token handling."
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S08-T03/lane-gate-report.json:31-35 records changedSourceLines 1156, sourceSliceBudget 300, sourceSliceLimit 4, and estimateDrift true.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S08-T03/lane-gate-report.json:36-52 records four source slices at 285, 297, 284, and 290 changed lines, each within the 300-line slice budget.",
+        "rtk proxy git diff --name-only 2bdef668a17ac4e86a9113846b773f6243f281c0...HEAD shows changes limited to the S08-T03 task-owned capability, workflow, classification, table, web queue, docs, provenance, and tests listed in docs/superpowers/execution/maestro-brain/task-manifest.json:1076-1100."
+      ]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2432-2434 assigns reproducible Confect/Convex generated output and regenerated manifests to integration, not this lane.",
+        "rtk proxy git diff --name-status 2bdef668a17ac4e86a9113846b773f6243f281c0...HEAD -- packages/convex/convex/_generated packages/convex/confect/_generated produced no generated-tree edits in this task diff.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S08-T03/lane-gate-report.json:9 and :55 show the exact-head pre-review lane gate included brain:factory:check-confect-codegen and passed.",
+        "packages/convex/convex/workflowRunners/sourceClassification.ts is absent from the checked-in tree despite task-manifest ownership, which is expected for this lane because integration owns generated workflow runner material under Appendices O/P and the exact-head transient codegen gate passed."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
