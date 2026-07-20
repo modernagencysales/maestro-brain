@@ -227,6 +227,7 @@ export type BrainPageTreeItem = {
   readonly pageKey: string;
   readonly parentPageKey: string | null;
   readonly title: string;
+  readonly siblingSlug: string;
   readonly sortKey: string;
   readonly currentRevisionKey: string | null;
   readonly isFavorite: boolean;
@@ -285,6 +286,7 @@ export function buildBrainWorkspaceState(
           pageKey: page.pageKey,
           parentPageKey: page.parentPageKey,
           title: page.title,
+          siblingSlug: page.siblingSlug,
           sortKey: page.sortKey,
           currentRevisionKey: page.currentRevisionKey,
           isFavorite: page.favorite,
@@ -338,7 +340,7 @@ export function nextPageSortKey(
     0,
     ...pages.map((page) => Number.parseInt(page.sortKey, 10) || 0),
   );
-  return String(max + 1).padStart(3, "0");
+  return String(max + 1).padStart(10, "0");
 }
 
 export function describeBrainWorkspaceState(

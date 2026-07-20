@@ -23,9 +23,11 @@ import {
   type BrainWorkspaceState,
 } from "./brain-surface";
 import { useWorkspace } from "../../providers/workspace";
+import type { BlockNoteSyncEditorProps } from "@maestro-template/editor-react/client";
 import type { BrainMarkdownSaveArgs } from "./brain-workspace";
 
 type PageRefs = TemplateConfectRefs["public"]["brain"]["pages"];
+type EditorSyncRefs = BlockNoteSyncEditorProps["api"];
 type PageListArgs = Ref.Args<PageRefs["list"]>;
 type PageGetArgs = Ref.Args<PageRefs["get"]>;
 type PageListState = TemplateDataState<
@@ -66,6 +68,41 @@ export type SaveBrainMarkdownMutation = BrainPageMutation<
 >;
 export const brainRefs: TemplateConfectRefs["public"]["brain"] =
   templateConfectRefs.public.brain;
+
+export const editorSyncRefs: TemplateConfectRefs["public"]["editorSync"] =
+  templateConfectRefs.public.editorSync;
+
+export const buildWorkspaceSyncApi = (): EditorSyncRefs =>
+  editorSyncRefs as unknown as EditorSyncRefs;
+
+type UntitledSlugPage = Pick<BrainPageSummary, "parentPageKey" | "title"> & {
+  readonly siblingSlug?: string;
+};
+
+export function nextUntitledPageSlug(
+  pages: readonly UntitledSlugPage[],
+): string {
+  const rootSlugs = new Set(
+    pages
+      .filter((page) => page.parentPageKey === null)
+      .map((page) => page.siblingSlug ?? slugifyPageTitle(page.title)),
+  );
+  for (let suffix = 1; suffix <= rootSlugs.size + 1; suffix += 1) {
+    const slug = suffix === 1 ? "untitled-page" : `untitled-page-${suffix}`;
+    if (!rootSlugs.has(slug)) return slug;
+  }
+  return `untitled-page-${rootSlugs.size + 2}`;
+}
+
+function slugifyPageTitle(title: string): string {
+  return (
+    title
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "untitled-page"
+  );
+}
 
 export function buildBrainRouteArgs(keys: BrainRouteKeys): BrainRouteArgs {
   if (!keys.brainKey) return { listArgs: "skip", detailArgs: "skip" };
@@ -186,6 +223,7 @@ export type BrainWorkspaceController = {
     >
   >;
   readonly onSelectPage: (pageKey: string) => void;
+  readonly syncApi: EditorSyncRefs;
 };
 
 export function useBrainWorkspaceController(
@@ -249,7 +287,7 @@ export function useBrainWorkspaceController(
       void classifyPageMutation<Ref.Args<PageRefs["create"]>>(createMutation, {
         brainKey: keys.brainKey,
         parentPageKey: null,
-        siblingSlug: "untitled-page",
+        siblingSlug: nextUntitledPageSlug(state.pages),
         sortKey: nextPageSortKey(state.pages),
         title: "Untitled page",
         markdown: "",
@@ -266,12 +304,12 @@ export function useBrainWorkspaceController(
       });
     },
     onMovePage: (pageKey, parentPageKey, revisionKey) => {
-      if (!keys.brainKey || !revisionKey) return;
+      if (!keys.brainKey || !revisionKey || state.status !== "ready") return;
       runPageMutation<Ref.Args<PageRefs["move"]>>(moveMutation, {
         brainKey: keys.brainKey,
         pageKey,
         parentPageKey,
-        sortKey: "001",
+        sortKey: nextPageSortKey(state.pages),
         expectedCurrentRevisionKey: revisionKey,
       });
     },
@@ -285,6 +323,7 @@ export function useBrainWorkspaceController(
       });
     },
     onSaveMarkdown: (args) => saveBrainMarkdown(saveMutation, args),
+    syncApi: buildWorkspaceSyncApi(),
     onSelectPage: (pageKey) => {
       if (!keys.brainKey || pageKey === keys.pageKey) return;
       window.history.pushState(
