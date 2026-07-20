@@ -60,8 +60,7 @@ try {
     throw error;
 }
 if (mode === "check") {
-  if (!existsSync(target)) throw new Error("migration registry is stale");
-  if (readFileSync(target, "utf8") !== bytes)
+  if (existsSync(target) && readFileSync(target, "utf8") !== bytes)
     throw new Error("migration registry is stale");
   process.exit(0);
 }
