@@ -118,3 +118,63 @@ export const SourceRevisionRow = Schema.Struct({
   providerRevisionId: StableKey,
   sourceCreatedAt: NonNegativeInteger,
   sourceTimestamp: IsoTimestamp,
+  authorSnapshot: AuthorSnapshot,
+  normalizedText: Schema.String.pipe(Schema.maxLength(32_000)),
+  blocksJson: Schema.String,
+  permalink: Schema.String,
+  contentHash: Hash,
+  tombstone: Schema.Boolean,
+  lifecycle: Lifecycle,
+  createdAt: NonNegativeInteger,
+});
+
+export const SourceProcessingJobRow = Schema.Struct({
+  schemaVersion: Schema.Literal(1),
+  organizationKey: StableKey,
+  sourceUnitKey: StableKey,
+  sourceRevisionKey: RevisionKey,
+  stage: Schema.Literal(
+    "assembly_pending",
+    "classification_pending",
+    "maintenance_pending",
+  ),
+  status: Schema.Literal(
+    "pending",
+    "leased",
+    "complete",
+    "failed",
+    "dead_letter",
+  ),
+  effectKey: StableKey,
+  policyEpoch: PositiveInteger,
+  leaseOwner: Schema.NullOr(Schema.String),
+  leaseExpiresAt: Schema.NullOr(NonNegativeInteger),
+  nextRetryAt: NonNegativeInteger,
+  attemptCount: NonNegativeInteger,
+  createdAt: NonNegativeInteger,
+  updatedAt: NonNegativeInteger,
+});
+
+export const VerifiedSlackChannelBinding = Schema.Struct({
+  providerEventId: StableKey,
+  signatureVerification: Schema.Struct({
+    status: Schema.Literal("verified"),
+    receiptHash: Hash,
+  }),
+  replayVerification: Schema.Struct({
+    status: Schema.Literal("accepted"),
+    receiptHash: Hash,
+  }),
+  organizationKey: StableKey,
+  connectionKey: StableKey,
+  connectionGeneration: PositiveInteger,
+  teamId: StableKey,
+  appId: StableKey,
+  botUserId: StableKey,
+  channelKey: StableKey,
+  externalChannelId: StableKey,
+});
+export type VerifiedSlackEnvelope = typeof VerifiedSlackChannelBinding.Type & {
+  readonly [slackEnvelopeBrand]: true;
+};
+export const makeVerifiedSlackEnvelope = (
