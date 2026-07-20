@@ -1,24 +1,48 @@
-import * as Data from "effect/Data";
 import * as Either from "effect/Either";
+import * as Schema from "effect/Schema";
 
-export class LeaseLost extends Data.TaggedError("LeaseLost")<{
-  readonly reason: string;
-}> {}
-export class RetryableJobFailure extends Data.TaggedError(
+export class LeaseLost extends Schema.TaggedError<LeaseLost>()("LeaseLost", {
+  reason: Schema.String,
+}) {}
+export class RetryableJobFailure extends Schema.TaggedError<RetryableJobFailure>()(
   "RetryableJobFailure",
-)<{ readonly reason: string }> {}
-export class PermanentJobFailure extends Data.TaggedError(
+  {
+    reason: Schema.String,
+  },
+) {}
+export class PermanentJobFailure extends Schema.TaggedError<PermanentJobFailure>()(
   "PermanentJobFailure",
-)<{ readonly reason: string }> {}
-export class MaxAttemptsReached extends Data.TaggedError("MaxAttemptsReached")<{
-  readonly reason: string;
-}> {}
-export class StaleGeneration extends Data.TaggedError("StaleGeneration")<{
-  readonly generation: string;
-}> {}
-export class DuplicateEffect extends Data.TaggedError("DuplicateEffect")<{
-  readonly effectKey: string;
-}> {}
+  {
+    reason: Schema.String,
+  },
+) {}
+export class MaxAttemptsReached extends Schema.TaggedError<MaxAttemptsReached>()(
+  "MaxAttemptsReached",
+  {
+    reason: Schema.String,
+  },
+) {}
+export class StaleGeneration extends Schema.TaggedError<StaleGeneration>()(
+  "StaleGeneration",
+  {
+    generation: Schema.String,
+  },
+) {}
+export class DuplicateEffect extends Schema.TaggedError<DuplicateEffect>()(
+  "DuplicateEffect",
+  {
+    effectKey: Schema.String,
+  },
+) {}
+
+export const SourceWorkpoolError = Schema.Union(
+  LeaseLost,
+  RetryableJobFailure,
+  PermanentJobFailure,
+  MaxAttemptsReached,
+  StaleGeneration,
+  DuplicateEffect,
+);
 
 export type SourceJobStage =
   | "assembled"

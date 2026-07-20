@@ -8,6 +8,7 @@ import {
   MaxAttemptsReached,
   PermanentJobFailure,
   RetryableJobFailure,
+  SourceWorkpoolError,
   StaleGeneration,
   createSourceJobState,
   failSourceJob,
@@ -22,6 +23,13 @@ import {
   isLeaseExpired,
   reclaimExpiredLease,
 } from "../confect/jobs/leases";
+import {
+  completeSourceJobHandler,
+  enqueueSourceJobHandler,
+  failSourceJobHandler,
+  reclaimSourceJobHandler,
+  statusSourceJobHandler,
+} from "../confect/jobs/workpool";
 import workpoolSpec from "../confect/jobs/workpool.spec";
 import { SourceProcessingJobRow } from "../confect/tables/sourceProcessingJobs";
 
@@ -60,6 +68,46 @@ const completion = (job = claim()) => ({
   emergencyGeneration: job.emergencyGeneration,
   now: now + 300,
 });
+
+type TestRow = ReturnType<typeof queuedJob> & { readonly _id: string };
+const jobArgs = {
+  organizationKey: "org_1",
+  unitKey: "slack:channel:C1:message:1700000000.000100",
+  stage: "assembled" as const,
+  effectKey: "effect:source-unit-1",
+  policyGeneration: 1,
+  routeGeneration: 2,
+  lifecycleGeneration: 3,
+  emergencyGeneration: 4,
+  idempotencyKey: "idem-1",
+};
+const makeDb = () => {
+  let row: TestRow | null = null;
+  const patches: Partial<TestRow>[] = [];
+  return {
+    get row() {
+      return row;
+    },
+    patches,
+    db: {
+      query: () => ({
+        withIndex: () => ({
+          unique: async () => row,
+        }),
+      }),
+      insert: async (_table: string, value: ReturnType<typeof queuedJob>) => {
+        row = { ...value, _id: "sourceJob:1" };
+        return "sourceJob:1";
+      },
+      get: async () => row,
+      patch: async (_id: string, patch: Partial<TestRow>) => {
+        if (row === null) throw new Error("missing row");
+        patches.push(patch);
+        row = { ...row, ...patch };
+      },
+    },
+  };
+};
 
 describe("source workpool job state", () => {
   it("claims queued work with opaque lease fencing", () => {
@@ -274,6 +322,27 @@ describe("source workpool job state", () => {
     ).toMatchObject({ executionStatus: "superseded" });
   });
 
+  it("declares typed source workpool failures as encodable public-safe tags", () => {
+    const encoded = [
+      new LeaseLost({ reason: "lost" }),
+      new RetryableJobFailure({ reason: "temporary" }),
+      new PermanentJobFailure({ reason: "permanent" }),
+      new MaxAttemptsReached({ reason: "max" }),
+      new StaleGeneration({ generation: "emergencyGeneration" }),
+      new DuplicateEffect({ effectKey: "effect:source-unit-1" }),
+    ].map((error) => Schema.encodeSync(SourceWorkpoolError)(error));
+
+    expect(encoded.map((error) => error._tag)).toEqual([
+      "LeaseLost",
+      "RetryableJobFailure",
+      "PermanentJobFailure",
+      "MaxAttemptsReached",
+      "StaleGeneration",
+      "DuplicateEffect",
+    ]);
+    expect(JSON.stringify(encoded)).not.toContain("lease-a");
+  });
+
   it("adds internal source job controls beside legacy demo refs", () => {
     expect(workpoolSpec.functions.enqueueSourceJob).toMatchObject({
       name: "enqueueSourceJob",
@@ -283,6 +352,266 @@ describe("source workpool job state", () => {
       name: "statusSourceJob",
       functionVisibility: "internal",
     });
+  });
+
+  it("claims before enqueueing durable background work", async () => {
+    const store = makeDb();
+    const enqueued: unknown[] = [];
+    const workId = await enqueueSourceJobHandler(
+      { db: store.db as never },
+      jobArgs,
+      {
+        enqueueAction: async (_ctx, _ref, args) => {
+          enqueued.push(args);
+          return "work-1" as never;
+        },
+        status: async () => ({ state: "pending", previousAttempts: 0 }),
+      },
+      now,
+    );
+    expect(workId).toBe("work-1");
+    expect(store.row).toMatchObject({
+      executionStatus: "leased",
+      leaseGeneration: 1,
+      leaseToken: "lease:idem-1:effect:source-unit-1",
+      workId: "work-1",
+    });
+    expect(enqueued[0]).toMatchObject({
+      leaseGeneration: 1,
+      leaseToken: "lease:idem-1:effect:source-unit-1",
+    });
+    expect(store.patches[0]).toMatchObject({ executionStatus: "leased" });
+  });
+
+  it("recovers after external response is persisted before commit", async () => {
+    const store = makeDb();
+    let enqueuedContext: Record<string, unknown> | undefined;
+    await enqueueSourceJobHandler(
+      { db: store.db as never },
+      jobArgs,
+      {
+        enqueueAction: async (_ctx, _ref, args) => {
+          enqueuedContext = args;
+          return "work-1" as never;
+        },
+        status: async () => ({ state: "pending", previousAttempts: 0 }),
+      },
+      now,
+    );
+    await completeSourceJobHandler(
+      { db: store.db as never },
+      { workId: "work-1", context: enqueuedContext } as never,
+      now + 500,
+      { stopAfterExternalResponse: true },
+    );
+    expect(store.row).toMatchObject({
+      executionStatus: "running",
+      externalResponseHash: "sha256:workpool:work-1",
+    });
+    expect(store.row?.acceptedEffectKey).toBeUndefined();
+    await completeSourceJobHandler(
+      { db: store.db as never },
+      { workId: "work-1", context: enqueuedContext } as never,
+      now + 600,
+    );
+    expect(store.row).toMatchObject({
+      executionStatus: "succeeded",
+      acceptedEffectKey: "effect:source-unit-1",
+      externalResponseHash: "sha256:workpool:work-1",
+    });
+  });
+
+  it("commits completion only for the claimed lease context", async () => {
+    const store = makeDb();
+    let enqueuedContext: Record<string, unknown> | undefined;
+    await enqueueSourceJobHandler(
+      { db: store.db as never },
+      jobArgs,
+      {
+        enqueueAction: async (_ctx, _ref, args) => {
+          enqueuedContext = args;
+          return "work-1" as never;
+        },
+        status: async () => ({ state: "pending", previousAttempts: 0 }),
+      },
+      now,
+    );
+    await completeSourceJobHandler(
+      { db: store.db as never },
+      { workId: "work-1", context: enqueuedContext } as never,
+      now + 500,
+    );
+    expect(store.row).toMatchObject({
+      executionStatus: "succeeded",
+      acceptedEffectKey: "effect:source-unit-1",
+      externalResponseHash: "sha256:workpool:work-1",
+    });
+    const responsePatchIndex = store.patches.findIndex(
+      (patch) => patch.externalResponseHash === "sha256:workpool:work-1",
+    );
+    const successPatchIndex = store.patches.findIndex(
+      (patch) => patch.executionStatus === "succeeded",
+    );
+    expect(responsePatchIndex).toBeGreaterThan(-1);
+    expect(successPatchIndex).toBeGreaterThan(responsePatchIndex);
+  });
+
+  it("rejects stale worker completion through the durable handler", async () => {
+    const store = makeDb();
+    await enqueueSourceJobHandler(
+      { db: store.db as never },
+      jobArgs,
+      {
+        enqueueAction: async () => "work-1" as never,
+        status: async () => ({ state: "pending", previousAttempts: 0 }),
+      },
+      now,
+    );
+    await expect(
+      completeSourceJobHandler(
+        { db: store.db as never },
+        {
+          workId: "work-stale",
+          context: { ...jobArgs, leaseGeneration: 999, leaseToken: "stale" },
+        } as never,
+        now + 500,
+      ),
+    ).rejects.toBeInstanceOf(LeaseLost);
+    expect(store.row?.acceptedEffectKey).toBeUndefined();
+  });
+
+  it("reclaims expired durable leases and fences the stale worker", async () => {
+    const store = makeDb();
+    let staleContext: Record<string, unknown> | undefined;
+    await enqueueSourceJobHandler(
+      { db: store.db as never },
+      jobArgs,
+      {
+        enqueueAction: async (_ctx, _ref, args) => {
+          staleContext = args;
+          return "work-1" as never;
+        },
+        status: async () => ({ state: "pending", previousAttempts: 0 }),
+      },
+      now,
+    );
+    const reclaimed = await reclaimSourceJobHandler(
+      { db: store.db as never },
+      jobArgs,
+      { owner: "worker-b", leaseToken: "lease-b", leaseDurationMs: 30_000 },
+      now + 31_000,
+    );
+    expect(reclaimed).toMatchObject({
+      executionStatus: "leased",
+      leaseGeneration: 2,
+      leaseToken: "lease-b",
+    });
+    await expect(
+      completeSourceJobHandler(
+        { db: store.db as never },
+        { workId: "work-1", context: staleContext } as never,
+        now + 31_500,
+      ),
+    ).rejects.toBeInstanceOf(LeaseLost);
+    expect(store.row?.acceptedEffectKey).toBeUndefined();
+  });
+
+  it("persists retryable, permanent, and max-attempt failures through handlers", async () => {
+    const store = makeDb();
+    let context: Record<string, unknown> | undefined;
+    await enqueueSourceJobHandler(
+      { db: store.db as never },
+      jobArgs,
+      {
+        enqueueAction: async (_ctx, _ref, args) => {
+          context = args;
+          return "work-1" as never;
+        },
+        status: async () => ({ state: "pending", previousAttempts: 0 }),
+      },
+      now,
+    );
+    await failSourceJobHandler(
+      { db: store.db as never },
+      {
+        ...context,
+        kind: "retryable",
+        reason: "429",
+        retryAfterMs: 60_000,
+      } as never,
+      now + 100,
+    );
+    expect(store.row).toMatchObject({
+      executionStatus: "retry_wait",
+      lastError: { tag: "RetryableJobFailure" },
+    });
+    await reclaimSourceJobHandler(
+      { db: store.db as never },
+      jobArgs,
+      { owner: "worker-b", leaseToken: "lease-b", leaseDurationMs: 30_000 },
+      now + 60_101,
+    );
+    await failSourceJobHandler(
+      { db: store.db as never },
+      {
+        ...jobArgs,
+        leaseGeneration: 2,
+        leaseToken: "lease-b",
+        kind: "permanent",
+        reason: "invalid unit",
+      } as never,
+      now + 60_200,
+    );
+    expect(store.row).toMatchObject({
+      executionStatus: "dead_letter",
+      lastError: { tag: "PermanentJobFailure" },
+    });
+  });
+
+  it("surfaces source job execution status instead of only component status", async () => {
+    const store = makeDb();
+    await enqueueSourceJobHandler(
+      { db: store.db as never },
+      jobArgs,
+      {
+        enqueueAction: async () => "work-1" as never,
+        status: async () => ({ state: "pending", previousAttempts: 0 }),
+      },
+      now,
+    );
+    expect(
+      await statusSourceJobHandler({ db: store.db as never }, jobArgs),
+    ).toMatchObject({
+      executionStatus: "leased",
+      leaseGeneration: 1,
+      workId: "work-1",
+    });
+  });
+
+  it("replays duplicate enqueue without creating a second external call", async () => {
+    const store = makeDb();
+    let enqueueCount = 0;
+    const workpool = {
+      enqueueAction: async () => {
+        enqueueCount += 1;
+        return `work-${enqueueCount}` as never;
+      },
+      status: async () => ({ state: "pending", previousAttempts: 0 }),
+    };
+    await enqueueSourceJobHandler(
+      { db: store.db as never },
+      jobArgs,
+      workpool,
+      now,
+    );
+    const replay = await enqueueSourceJobHandler(
+      { db: store.db as never },
+      jobArgs,
+      workpool,
+      now + 1,
+    );
+    expect(replay).toBe("work-1");
+    expect(enqueueCount).toBe(1);
   });
 
   it("keeps sourceProcessingJobs row schema fenced for Confect", () => {

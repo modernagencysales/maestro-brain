@@ -8,7 +8,8 @@ import {
 } from "./jobState";
 
 export const isLeaseExpired = (job: SourceJobState, now: number): boolean =>
-  job.leaseExpiresAt !== undefined && job.leaseExpiresAt < now;
+  (job.leaseExpiresAt !== undefined && job.leaseExpiresAt < now) ||
+  (job.executionStatus === "retry_wait" && job.nextRetryAt <= now);
 
 export const heartbeatLease = (
   job: SourceJobState,
@@ -41,7 +42,13 @@ export const reclaimExpiredLease = (
     return Either.right(job);
   }
   return startSourceJob(
-    { ...job, executionStatus: "queued", leaseToken: undefined },
+    {
+      ...job,
+      executionStatus: "queued",
+      leaseToken: undefined,
+      leaseOwner: undefined,
+      leaseExpiresAt: undefined,
+    },
     input,
   );
 };

@@ -18,11 +18,14 @@ import { workpoolComponent } from "./componentRefs";
 import {
   type SourceJobState,
   createSourceJobState,
+  failSourceJob,
   markSourceJobRunning,
   recordExternalResponse,
+  scheduleRetry,
   startSourceJob,
   succeedSourceJob,
 } from "./jobState";
+import { reclaimExpiredLease } from "./leases";
 
 const pool = new Workpool(workpoolComponent, {
   maxParallelism: 3,
@@ -164,7 +167,7 @@ export const enqueueSourceJob = internalMutationGeneric({
   returns: vWorkId,
   handler: async (ctx, args): Promise<WorkId> =>
     await enqueueSourceJobHandler(
-      { db: ctx.db as SourceJobDb },
+      { db: ctx.db as unknown as SourceJobDb },
       args,
       pool as SourceJobWorkpool,
     ),
@@ -254,21 +257,61 @@ const findSourceJob = (db: SourceJobDb, args: SourceJobArgs) =>
     )
     .unique();
 
-export const statusSourceJob = internalQueryGeneric({
-  args: { workId: vWorkId },
-  returns: v.union(
-    v.object({
-      state: v.literal("pending"),
-      previousAttempts: v.number(),
-    }),
-    v.object({
-      state: v.literal("running"),
-      previousAttempts: v.number(),
-    }),
-    v.object({ state: v.literal("finished") }),
+const sourceJobStatusReturn = v.object({
+  executionStatus: v.union(
+    v.literal("queued"),
+    v.literal("leased"),
+    v.literal("running"),
+    v.literal("succeeded"),
+    v.literal("retry_wait"),
+    v.literal("dead_letter"),
+    v.literal("superseded"),
+    v.literal("revoked"),
+    v.literal("cancelled"),
   ),
-  handler: async (ctx, { workId }) => await pool.status(ctx, workId),
+  leaseGeneration: v.number(),
+  attempt: v.number(),
+  workId: v.optional(v.string()),
+  acceptedEffectKey: v.optional(v.string()),
+  externalResponseHash: v.optional(v.string()),
 });
+
+export const statusSourceJob = internalQueryGeneric({
+  args: sourceJobArgs,
+  returns: v.union(sourceJobStatusReturn, v.null()),
+  handler: async (ctx, args) =>
+    await statusSourceJobHandler(
+      { db: ctx.db as unknown as SourceJobDb },
+      args,
+    ),
+});
+
+export const statusSourceJobHandler = async (
+  ctx: { readonly db: SourceJobDb },
+  args: SourceJobArgs,
+): Promise<Readonly<{
+  executionStatus: SourceJobState["executionStatus"];
+  leaseGeneration: number;
+  attempt: number;
+  workId?: string;
+  acceptedEffectKey?: string;
+  externalResponseHash?: string;
+}> | null> => {
+  const row = await findSourceJob(ctx.db, args);
+  if (row === null) return null;
+  return {
+    executionStatus: row.executionStatus,
+    leaseGeneration: row.leaseGeneration,
+    attempt: row.attempt,
+    ...(row.workId !== undefined ? { workId: row.workId } : {}),
+    ...(row.acceptedEffectKey !== undefined
+      ? { acceptedEffectKey: row.acceptedEffectKey }
+      : {}),
+    ...(row.externalResponseHash !== undefined
+      ? { externalResponseHash: row.externalResponseHash }
+      : {}),
+  };
+};
 
 export const backgroundWork = internalActionGeneric({
   args: sourceJobCompletionArgs,
@@ -280,13 +323,17 @@ export const onComplete = internalMutationGeneric({
   args: onCompleteArgs,
   returns: v.null(),
   handler: async (ctx, args): Promise<null> =>
-    await completeSourceJobHandler({ db: ctx.db as SourceJobDb }, args),
+    await completeSourceJobHandler(
+      { db: ctx.db as unknown as SourceJobDb },
+      args,
+    ),
 });
 
 export const completeSourceJobHandler = async (
   ctx: { readonly db: SourceJobDb },
   args: OnCompleteArgs,
   now = Date.now(),
+  recoveryPoint?: { readonly stopAfterExternalResponse?: boolean },
 ): Promise<null> => {
   const row = await findSourceJob(ctx.db, args.context);
   if (row === null || row.acceptedEffectKey === row.effectKey) return null;
@@ -305,6 +352,7 @@ export const completeSourceJobHandler = async (
   });
   if (withResponse._tag === "Left") throw withResponse.left;
   await ctx.db.patch(row._id, withResponse.right);
+  if (recoveryPoint?.stopAfterExternalResponse === true) return null;
   const completed = succeedSourceJob(withResponse.right, {
     leaseGeneration: args.context.leaseGeneration,
     leaseToken: args.context.leaseToken,
@@ -318,4 +366,64 @@ export const completeSourceJobHandler = async (
   if (completed._tag === "Left") throw completed.left;
   await ctx.db.patch(row._id, completed.right);
   return null;
+};
+
+export const reclaimSourceJobHandler = async (
+  ctx: { readonly db: SourceJobDb },
+  args: SourceJobArgs,
+  lease: Readonly<{
+    owner: string;
+    leaseToken: string;
+    leaseDurationMs: number;
+  }>,
+  now = Date.now(),
+): Promise<SourceJobState | null> => {
+  const row = await findSourceJob(ctx.db, args);
+  if (row === null) return null;
+  const reclaimed = reclaimExpiredLease(row, { ...lease, now });
+  if (reclaimed._tag === "Left") throw reclaimed.left;
+  if (reclaimed.right === row) return row;
+  await ctx.db.patch(row._id, reclaimed.right);
+  return reclaimed.right;
+};
+
+type FailureArgs = SourceJobCompletionContext &
+  (
+    | Readonly<{
+        kind: "retryable";
+        reason: string;
+        retryAfterMs: number;
+      }>
+    | Readonly<{ kind: "permanent"; reason: string }>
+    | Readonly<{ kind: "cancelled" | "revoked" | "superseded" }>
+  );
+
+export const failSourceJobHandler = async (
+  ctx: { readonly db: SourceJobDb },
+  args: FailureArgs,
+  now = Date.now(),
+): Promise<SourceJobState | null> => {
+  const row = await findSourceJob(ctx.db, args);
+  if (row === null) return null;
+  const failed =
+    args.kind === "retryable"
+      ? scheduleRetry(row, {
+          leaseGeneration: args.leaseGeneration,
+          leaseToken: args.leaseToken,
+          reason: args.reason,
+          retryAfterMs: args.retryAfterMs,
+          now,
+        })
+      : args.kind === "permanent"
+        ? failSourceJob(row, {
+            leaseGeneration: args.leaseGeneration,
+            leaseToken: args.leaseToken,
+            kind: "permanent",
+            reason: args.reason,
+            now,
+          })
+        : failSourceJob(row, { kind: args.kind, now });
+  if (failed._tag === "Left") throw failed.left;
+  await ctx.db.patch(row._id, failed.right);
+  return failed.right;
 };
