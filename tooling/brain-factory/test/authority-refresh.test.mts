@@ -1,9 +1,12 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
+  closeSync,
   existsSync,
+  fsyncSync,
   mkdirSync,
   mkdtempSync,
+  openSync,
   readFileSync,
   renameSync,
   rmSync,
@@ -22,7 +25,10 @@ import {
   preserveAuthorityRefreshEvidence,
 } from "../src/authority-refresh.js";
 import { runAuthorityRefreshTransition } from "../src/authority-refresh-launch.js";
-import { replaceTerminalTaskRecord } from "../src/dispatch-ownership.js";
+import {
+  recordPreparingTaskLaunch,
+  replaceTerminalTaskRecord,
+} from "../src/dispatch-ownership.js";
 
 const roots: string[] = [];
 const sha256 = (value: string): string =>
@@ -399,6 +405,15 @@ describe("authority refresh admission", () => {
               taskId: value.taskId,
             });
           },
+          recordLaunch: (runId) =>
+            recordPreparingTaskLaunch({
+              auditPath,
+              expected: preparingRecord,
+              now: "2026-07-20T00:00:01.000Z",
+              recordPath,
+              runId,
+              taskId: value.taskId,
+            }),
           rollbackEvidence: () =>
             rmSync(admission.archiveDirectory, {
               force: true,
@@ -413,13 +428,68 @@ describe("authority refresh admission", () => {
         expect(existsSync(auditPath)).toBe(false);
       } else {
         expect(JSON.parse(readFileSync(recordPath, "utf8"))).toEqual(
-          preparingRecord,
+          failure === "promote"
+            ? { ...preparingRecord, runId: "new-run" }
+            : preparingRecord,
         );
         expect(existsSync(admission.archiveDirectory)).toBe(true);
         expect(readFileSync(auditPath, "utf8")).toContain(
           '"action":"archive-terminal-task-run"',
         );
+        if (failure === "promote") {
+          expect(readFileSync(auditPath, "utf8")).toContain(
+            '"action":"record-preparing-task-launch"',
+          );
+        }
       }
+    },
+    30_000,
+  );
+
+  it.each(["write", "fsync"] as const)(
+    "cleans reservation .next after injected %s materialization failure",
+    (failure) => {
+      const value = fixture();
+      const recordPath = join(value.repo, "task-record.json");
+      const auditPath = join(value.repo, "recovery-audit.jsonl");
+      const terminalRecord = `${JSON.stringify({
+        runId: "terminal-run",
+        taskId: value.taskId,
+      })}\n`;
+      writeFileSync(recordPath, terminalRecord);
+
+      expect(() =>
+        replaceTerminalTaskRecord(
+          {
+            auditPath,
+            expectedContent: terminalRecord,
+            now: "2026-07-20T00:00:00.000Z",
+            recordPath,
+            replacement: { status: "preparing", taskId: value.taskId },
+            runId: "terminal-run",
+            status: "succeeded",
+            taskId: value.taskId,
+          },
+          {
+            close: closeSync,
+            open: openSync,
+            remove: rmSync,
+            rename: renameSync,
+            sync: (descriptor) => {
+              if (failure === "fsync")
+                throw new Error("injected fsync failure");
+              fsyncSync(descriptor);
+            },
+            write: (descriptor, content) => {
+              if (failure === "write")
+                throw new Error("injected write failure");
+              writeFileSync(descriptor, content, "utf8");
+            },
+          },
+        ),
+      ).toThrow(`injected ${failure} failure`);
+      expect(readFileSync(recordPath, "utf8")).toBe(terminalRecord);
+      expect(existsSync(`${recordPath}.next`)).toBe(false);
     },
     30_000,
   );

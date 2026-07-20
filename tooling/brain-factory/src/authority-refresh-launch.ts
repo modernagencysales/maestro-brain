@@ -12,6 +12,7 @@ import { hydrateWorktreeDependencies } from "./dependencies.js";
 import {
   acquireDispatcherLock,
   promoteTaskReservation,
+  recordPreparingTaskLaunch,
   replaceTerminalTaskRecord,
 } from "./dispatch-ownership.js";
 import { buildManifest } from "./manifest.js";
@@ -44,6 +45,7 @@ export const runAuthorityRefreshTransition = (input: {
   readonly launch: () => string;
   readonly preserveEvidence: () => void;
   readonly promote: (runId: string) => void;
+  readonly recordLaunch: (runId: string) => void;
   readonly replaceReservation: () => void;
   readonly rollbackEvidence: () => void;
 }): string => {
@@ -56,6 +58,7 @@ export const runAuthorityRefreshTransition = (input: {
   }
   input.createWorktree();
   const runId = input.launch();
+  input.recordLaunch(runId);
   input.promote(runId);
   return runId;
 };
@@ -254,6 +257,15 @@ export const launchAuthorityRefresh = (input: {
         ...preparingRecord,
         runId: launchedRunId,
         status: "launched",
+      }),
+    recordLaunch: (launchedRunId) =>
+      recordPreparingTaskLaunch({
+        auditPath,
+        expected: preparingRecord,
+        now,
+        recordPath: input.recordPath,
+        runId: launchedRunId,
+        taskId: input.taskId,
       }),
     replaceReservation: () =>
       replaceTerminalTaskRecord({

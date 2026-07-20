@@ -424,16 +424,33 @@ export const archiveTerminalTaskRecord = (input: {
   return archivedPath;
 };
 
-export const replaceTerminalTaskRecord = (input: {
-  readonly auditPath: string;
-  readonly expectedContent: string;
-  readonly now: string;
-  readonly recordPath: string;
-  readonly replacement: JsonRecord;
-  readonly runId: string;
-  readonly status: string;
-  readonly taskId: string;
-}): string => {
+export const replaceTerminalTaskRecord = (
+  input: {
+    readonly auditPath: string;
+    readonly expectedContent: string;
+    readonly now: string;
+    readonly recordPath: string;
+    readonly replacement: JsonRecord;
+    readonly runId: string;
+    readonly status: string;
+    readonly taskId: string;
+  },
+  filesystem: {
+    readonly close: (descriptor: number) => void;
+    readonly open: (path: string, flags: string) => number;
+    readonly remove: (path: string) => void;
+    readonly rename: (oldPath: string, newPath: string) => void;
+    readonly sync: (descriptor: number) => void;
+    readonly write: (descriptor: number, content: string) => void;
+  } = {
+    close: closeSync,
+    open: openSync,
+    remove: rmSync,
+    rename: renameSync,
+    sync: fsyncSync,
+    write: (descriptor, content) => writeFileSync(descriptor, content, "utf8"),
+  },
+): string => {
   if (
     !new Set(["canceled", "cancelled", "failed", "succeeded"]).has(input.status)
   ) {
@@ -507,21 +524,88 @@ export const replaceTerminalTaskRecord = (input: {
   if (existsSync(temporary)) {
     throw new Error(`${input.taskId}: stale reservation replacement exists`);
   }
-  const descriptor = openSync(temporary, "wx");
+  let descriptor: number | undefined;
   try {
-    writeFileSync(descriptor, replacementContent, "utf8");
-    fsyncSync(descriptor);
-  } finally {
-    closeSync(descriptor);
+    descriptor = filesystem.open(temporary, "wx");
+    try {
+      filesystem.write(descriptor, replacementContent);
+      filesystem.sync(descriptor);
+    } finally {
+      filesystem.close(descriptor);
+    }
+    if (readFileSync(input.recordPath, "utf8") !== input.expectedContent) {
+      throw new Error(
+        `${input.taskId}: terminal reservation changed before replace`,
+      );
+    }
+    filesystem.rename(temporary, input.recordPath);
+  } catch (error) {
+    if (descriptor !== undefined && existsSync(temporary)) {
+      try {
+        filesystem.remove(temporary);
+      } catch {
+        // Preserve the materialization failure as the actionable error.
+      }
+    }
+    throw error;
   }
-  if (readFileSync(input.recordPath, "utf8") !== input.expectedContent) {
-    rmSync(temporary);
+  return archivedPath;
+};
+
+export const recordPreparingTaskLaunch = (input: {
+  readonly auditPath: string;
+  readonly expected: JsonRecord;
+  readonly now: string;
+  readonly recordPath: string;
+  readonly runId: string;
+  readonly taskId: string;
+}): void => {
+  const expectedContent = `${JSON.stringify(input.expected, null, 2)}\n`;
+  if (
+    !existsSync(input.recordPath) ||
+    readFileSync(input.recordPath, "utf8") !== expectedContent
+  ) {
     throw new Error(
-      `${input.taskId}: terminal reservation changed before replace`,
+      `${input.taskId}: preparing reservation compare-and-swap failed`,
     );
   }
-  renameSync(temporary, input.recordPath);
-  return archivedPath;
+  const replacementContent = `${JSON.stringify(
+    { ...input.expected, runId: input.runId },
+    null,
+    2,
+  )}\n`;
+  const temporary = `${input.recordPath}.next`;
+  if (existsSync(temporary)) {
+    throw new Error(`${input.taskId}: stale reservation replacement exists`);
+  }
+  let descriptor: number | undefined;
+  try {
+    descriptor = openSync(temporary, "wx");
+    try {
+      writeFileSync(descriptor, replacementContent, "utf8");
+      fsyncSync(descriptor);
+    } finally {
+      closeSync(descriptor);
+    }
+    if (readFileSync(input.recordPath, "utf8") !== expectedContent) {
+      throw new Error(
+        `${input.taskId}: preparing reservation changed before launch receipt`,
+      );
+    }
+    appendAudit(input.auditPath, {
+      action: "record-preparing-task-launch",
+      at: input.now,
+      branch: input.expected.branch,
+      recordPath: input.recordPath,
+      runId: input.runId,
+      taskId: input.taskId,
+      workdir: input.expected.workdir,
+    });
+    renameSync(temporary, input.recordPath);
+  } catch (error) {
+    if (descriptor !== undefined) rmSync(temporary, { force: true });
+    throw error;
+  }
 };
 
 interface ResumeIdentity {
