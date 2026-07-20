@@ -153,3 +153,259 @@ export const SourceProcessingJobRow = Schema.Struct({
   createdAt: NonNegativeInteger,
   updatedAt: NonNegativeInteger,
 });
+
+export const VerifiedSlackChannelBinding = Schema.Struct({
+  providerEventId: StableKey,
+  signatureVerification: Schema.Struct({
+    status: Schema.Literal("verified"),
+    receiptHash: Hash,
+  }),
+  replayVerification: Schema.Struct({
+    status: Schema.Literal("accepted"),
+    receiptHash: Hash,
+  }),
+  organizationKey: StableKey,
+  connectionKey: StableKey,
+  connectionGeneration: PositiveInteger,
+  teamId: StableKey,
+  appId: StableKey,
+  botUserId: StableKey,
+  channelKey: StableKey,
+  externalChannelId: StableKey,
+});
+export type VerifiedSlackEnvelope = typeof VerifiedSlackChannelBinding.Type;
+const assertVerifiedSlackEnvelope = (value: unknown): VerifiedSlackEnvelope =>
+  Schema.decodeUnknownSync(VerifiedSlackChannelBinding)(value);
+
+export const SourceLedgerCaptureInput = Schema.Struct({
+  envelope: Schema.Struct({
+    organizationKey: StableKey,
+    connectionKey: StableKey,
+    connectionGeneration: PositiveInteger,
+    teamId: StableKey,
+    appId: StableKey,
+    botUserId: StableKey,
+    channelKey: StableKey,
+    externalChannelId: StableKey,
+    transport: Transport,
+    transportDeliveryId: StableKey,
+    receivedAt: NonNegativeInteger,
+  }),
+  observation: Schema.Struct({
+    providerObjectId: ProviderObjectId,
+    threadKey: StableKey,
+    sourceTimestamp: IsoTimestamp,
+    providerOrder: StableKey,
+    providerRevisionId: StableKey,
+    author: AuthorSnapshot,
+    text: Schema.String.pipe(Schema.maxLength(32_000)),
+    blocksJson: Schema.String,
+    permalink: Schema.String,
+    tombstone: Schema.Boolean,
+    revisionNonce: StableKey,
+  }),
+  routing: Schema.Struct({
+    policyEpoch: PositiveInteger,
+    assemblyStage: Schema.Literal("assembly_pending"),
+    effectKey: StableKey,
+  }),
+});
+
+const SourceLedgerEnvelope = SourceLedgerCaptureInput.fields.envelope;
+type SourceLedgerEnvelopeType = typeof SourceLedgerEnvelope.Type;
+
+const assertBindingMatchesEnvelope = (
+  binding: typeof VerifiedSlackChannelBinding.Type,
+  envelope: SourceLedgerEnvelopeType,
+) => {
+  if (
+    binding.organizationKey !== envelope.organizationKey ||
+    binding.connectionKey !== envelope.connectionKey ||
+    binding.connectionGeneration !== envelope.connectionGeneration
+  )
+    throw new TenantMismatch("TenantMismatch");
+  if (
+    binding.teamId !== envelope.teamId ||
+    binding.appId !== envelope.appId ||
+    binding.botUserId !== envelope.botUserId ||
+    binding.channelKey !== envelope.channelKey ||
+    binding.externalChannelId !== envelope.externalChannelId
+  )
+    throw new ChannelAccessLost("ChannelAccessLost");
+};
+
+type MutablePartial<T> = { -readonly [K in keyof T]?: T[K] };
+
+type CaptureValidationOptions = {
+  readonly seenTransportDeliveries?: Set<string>;
+  readonly existingObservationKey?: string;
+  readonly existingArtifact?: {
+    readonly sourceKey: string;
+    readonly latestProviderOrder: string;
+    readonly lifecycleGeneration: number;
+    readonly createdAt: number;
+  };
+  readonly verifiedBinding?: VerifiedSlackEnvelope;
+};
+
+const taggedError = <const Tag extends string>(_tag: Tag) =>
+  class extends Error {
+    readonly _tag = _tag;
+  };
+export const TenantMismatch = taggedError("TenantMismatch");
+export const ChannelAccessLost = taggedError("ChannelAccessLost");
+export const ObservationInvalid = taggedError("ObservationInvalid");
+export const PayloadTooLarge = taggedError("PayloadTooLarge");
+export const DuplicateKeyConflict = taggedError("DuplicateKeyConflict");
+
+const digest = (value: unknown) => sha256Hex(JSON.stringify(value));
+const stableOrInvalidPayload = (value: unknown) =>
+  typeof value === "string" && /^[A-Za-z0-9_.:-]+$/.test(value)
+    ? value
+    : "invalid_payload";
+
+export const sourceLedgerKeysFor = (
+  input: typeof SourceLedgerCaptureInput.Type,
+) => {
+  const sourceKey = `src_${digest({
+    organizationKey: input.envelope.organizationKey,
+    connectionKey: input.envelope.connectionKey,
+    connectionGeneration: input.envelope.connectionGeneration,
+    channelKey: input.envelope.channelKey,
+    providerObjectId: input.observation.providerObjectId,
+  })}`;
+  const contentHash = `sha256:${digest({
+    text: input.observation.text,
+    blocksJson: input.observation.blocksJson,
+    tombstone: input.observation.tombstone,
+  })}`;
+  const observationKey = `obs_${digest({
+    organizationKey: input.envelope.organizationKey,
+    connectionKey: input.envelope.connectionKey,
+    connectionGeneration: input.envelope.connectionGeneration,
+    externalChannelId: input.envelope.externalChannelId,
+    providerObjectId: input.observation.providerObjectId,
+    providerRevisionId: input.observation.providerRevisionId,
+    canonicalContentHash: input.observation.tombstone
+      ? "tombstone"
+      : contentHash,
+  })}`;
+  const sourceRevisionKey = `srev_${digest({
+    sourceKey,
+    providerOrder: input.observation.providerOrder,
+    providerRevisionId: input.observation.providerRevisionId,
+    sourceTimestamp: input.observation.sourceTimestamp,
+    contentHash,
+    tombstone: input.observation.tombstone,
+  })}`;
+  return {
+    sourceKey,
+    sourceUnitKey: `sunit_${digest([sourceKey, input.observation.threadKey])}`,
+    observationKey,
+    sourceRevisionKey,
+    assemblyJobKey: `sjob_${digest({
+      organizationKey: input.envelope.organizationKey,
+      sourceUnitKey: `sunit_${digest([sourceKey, input.observation.threadKey])}`,
+      sourceRevisionKey,
+      stage: input.routing.assemblyStage,
+      status: "pending",
+      policyEpoch: input.routing.policyEpoch,
+      leaseOwner: null,
+      leaseExpiresAt: null,
+      nextRetryAt: input.envelope.receivedAt,
+      attemptCount: 0,
+    })}`,
+    contentHash,
+  } as const;
+};
+
+export const assertValidSourceLedgerCapture = (
+  input: typeof SourceLedgerCaptureInput.Type,
+  options: CaptureValidationOptions = {},
+) => {
+  let decoded: typeof SourceLedgerCaptureInput.Type;
+  try {
+    decoded = Schema.decodeUnknownSync(SourceLedgerCaptureInput)(input);
+  } catch {
+    if (!input.envelope?.organizationKey)
+      throw new TenantMismatch("TenantMismatch");
+    if (input.observation?.providerObjectId?.includes("/"))
+      throw new DuplicateKeyConflict("DuplicateKeyConflict");
+    if (input.observation?.text && input.observation.text.length > 32_000)
+      throw new PayloadTooLarge("PayloadTooLarge");
+    throw new ObservationInvalid("ObservationInvalid");
+  }
+  let binding: typeof VerifiedSlackChannelBinding.Type;
+  try {
+    binding = assertVerifiedSlackEnvelope(options.verifiedBinding);
+  } catch {
+    throw new ChannelAccessLost("ChannelAccessLost");
+  }
+  assertBindingMatchesEnvelope(binding, decoded.envelope);
+  if (decoded.observation.providerObjectId.includes("/"))
+    throw new DuplicateKeyConflict("DuplicateKeyConflict");
+  const keys = sourceLedgerKeysFor(decoded);
+  const knownObservationDuplicate =
+    options.existingObservationKey === keys.observationKey;
+  if (
+    options.existingObservationKey &&
+    options.existingObservationKey !== keys.observationKey
+  )
+    throw new DuplicateKeyConflict("DuplicateKeyConflict");
+  if (options.existingArtifact && !knownObservationDuplicate) {
+    if (options.existingArtifact.sourceKey !== keys.sourceKey)
+      throw new DuplicateKeyConflict("DuplicateKeyConflict");
+    const nextPrimary = providerPrimarySortKeyFor(decoded);
+    const currentPrimary = options.existingArtifact.latestProviderOrder
+      .split("|")
+      .slice(0, 2)
+      .join("|");
+    if (
+      nextPrimary < currentPrimary ||
+      (nextPrimary === currentPrimary &&
+        providerSortKeyFor(decoded) >=
+          options.existingArtifact.latestProviderOrder)
+    )
+      throw new DuplicateKeyConflict("DuplicateKeyConflict");
+  }
+  const deliveryKey = `delivery_${digest([decoded.envelope.organizationKey, decoded.envelope.connectionKey, decoded.envelope.connectionGeneration, decoded.envelope.transport, decoded.envelope.transportDeliveryId])}`;
+  const deliveryFingerprint = digest({
+    envelope: {
+      channelKey: decoded.envelope.channelKey,
+      externalChannelId: decoded.envelope.externalChannelId,
+      transport: decoded.envelope.transport,
+      transportDeliveryId: decoded.envelope.transportDeliveryId,
+    },
+    observation: {
+      providerObjectId: decoded.observation.providerObjectId,
+      threadKey: decoded.observation.threadKey,
+      sourceTimestamp: decoded.observation.sourceTimestamp,
+      providerOrder: decoded.observation.providerOrder,
+      providerRevisionId: decoded.observation.providerRevisionId,
+      author: decoded.observation.author,
+      text: decoded.observation.text,
+      blocksJson: decoded.observation.blocksJson,
+      permalink: decoded.observation.permalink,
+      tombstone: decoded.observation.tombstone,
+      revisionNonce: decoded.observation.revisionNonce,
+    },
+    sourceKey: keys.sourceKey,
+    observationKey: keys.observationKey,
+    sourceRevisionKey: keys.sourceRevisionKey,
+    contentHash: keys.contentHash,
+  });
+  const deliveryObservationKey = `${deliveryKey}:${deliveryFingerprint}`;
+  if (options.seenTransportDeliveries?.has(deliveryKey)) {
+    if (!options.seenTransportDeliveries.has(deliveryObservationKey))
+      throw new DuplicateKeyConflict("DuplicateKeyConflict");
+    return { outcome: "duplicate" as const, ...keys };
+  }
+  options.seenTransportDeliveries?.add(deliveryKey);
+  options.seenTransportDeliveries?.add(deliveryObservationKey);
+  const outcome = knownObservationDuplicate
+    ? ("duplicate" as const)
+    : decoded.observation.tombstone
+      ? ("tombstone" as const)
+      : ("inserted" as const);
+  return { outcome, ...keys };
+};
