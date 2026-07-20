@@ -1,0 +1,88 @@
+{
+  "lens": "safety",
+  "taskId": "S08-T04",
+  "planSha256": "2bca6b40d7acab334b2036e9ed35652c06ebe8729c1a6c3319c04f827b7a77ce",
+  "taskBlockHash": "2bccfe705e20eef30b384725a71d69db2671a70d5c96f541fb95ec6b73629525",
+  "baseSha": "e28ceeb126083211cc7b2070c673b78e513d125b",
+  "headSha": "2c92680281529d38e496857960182320298a3c1b",
+  "treeSha": "3a85a1eab1248ba21134b68b5295f1710aa96f6b",
+  "reviewerRunId": "maestro/review/S08-T04/2c92680281529d38e496857960182320298a3c1b/4218728e-2196-4a2c-9e3a-09d101b0bdf3-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/maintenance/commit.ts:31-45 assertFresh compares context.workspaceId, brainKey, pageKey, currentRevisionKey, routeGeneration, lifecycleGeneration, and policyGeneration against the proposal before any accepted/published effect is returned.",
+        "packages/convex/test/brain-maintenance.test.ts:333-343 exercises a mismatched workspaceId at commit time and expects StaleRevision, covering tenant identity fencing.",
+        "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.impl.ts:120-143 finds workflow runs through by_workspace_component_workflow with workspaceId and componentWorkflowId before exposing status/approval behavior."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.impl.ts:94-104 defines and enforces a system workflow/internal caller for workflow controls.",
+        "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.impl.ts:145-171 requires the internal workflow caller before starting and recording ownership.",
+        "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.impl.ts:174-220 requires the internal workflow caller before status reads or approval events.",
+        "apps/web/src/features/brain/maintenance-review.tsx:80-88 hides Autopilot controls from non-admin/non-owner viewers."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/maintenance/gather.ts:7-16 calls requireActiveLifecycle before returning the bounded context pack.",
+        "packages/convex/confect/maintenance/request.ts:61-70 calls requireActiveLifecycle before constructing a proposal.",
+        "packages/convex/confect/maintenance/commit.ts:78-92 calls requireActiveLifecycle before freshness checks or review/autopilot/no-op outcomes.",
+        "packages/convex/test/brain-maintenance.test.ts:321-331 exercises commit-time lifecycleState revoked and expects LifecycleRevoked."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/maintenance/policy.ts:30-53 models bounded citation/context fields and introduces no secrets, tokens, or raw provider payload fields.",
+        "packages/convex/confect/maintenance/request.ts:72-102 returns proposal metadata, markdown, and citation keys without logging raw provider payloads.",
+        "apps/web/src/features/brain/maintenance-review.tsx:107-122 renders page title, action label, and citation count only, not citation quote text or raw source payloads."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/maintenance/commit.ts:31-45 rejects stale proposal context for workspace, brain, page, revision, route, lifecycle, and policy generation mismatches before effects.",
+        "packages/convex/confect/maintenance/commit.ts:138-148 keeps changed model/prompt pairs in awaiting_review because Autopilot can only proceed when context.modelPromptPair equals proposal.modelPromptPair.",
+        "packages/convex/test/brain-maintenance.test.ts:79-101 covers stale revision fencing and packages/convex/test/brain-maintenance.test.ts:203-230 covers changed model/prompt downgrade to review-first."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.impl.ts:145-164 passes workspaceId and idempotencyKey to startWorkflowAndRecordOwnership for workflow starts.",
+        "packages/convex/confect/workflows/sourceToBrainMaintenance.graph.ts:7-40 defines a deterministic single capability path with maxAttempts 1 on start/capability/output nodes.",
+        "packages/convex/test/brain-maintenance.test.ts:308-319 covers duplicate review attempt keys and expects StaleRevision."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/maintenance/commit.ts:31-45 performs structural freshness fencing for tenant/page identity plus revision, route, lifecycle, and policy generations.",
+        "packages/convex/confect/maintenance/commit.ts:91-96 enforces lifecycle and freshness before rejecting duplicate review attempt keys or returning any commit result.",
+        "packages/convex/test/brain-maintenance.test.ts:256-343 covers accept/edit/reject, duplicate attempts, lifecycle revocation, and tenant mismatch fences."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/maintenance/request.ts:1-9 imports only local policy helpers and accepts structured MaintenanceModelOutput; it does not import or call provider SDKs.",
+        "packages/convex/confect/maintenance/commit.ts:1-10 imports only local policy/request types and performs structural commit validation without provider adapters.",
+        "packages/convex/confect/capabilities/maintainBrainPage.domain.ts:1-7 composes local maintenance domain seams only, keeping provider calls outside the capability domain."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
