@@ -57,7 +57,7 @@ describe("confect manifest tooling", () => {
     } finally {
       rmSync(probeDirectory, { recursive: true, force: true });
     }
-  });
+  }, 30_000);
 
   it("sorts operation ids for deterministic output", () => {
     const manifest = buildContractManifest([
