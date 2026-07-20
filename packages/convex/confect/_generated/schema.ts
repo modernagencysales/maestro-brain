@@ -9,6 +9,8 @@ import apiKeys from "./tables/apiKeys";
 import billingPlans from "./tables/billingPlans";
 import brainPageAuditEvents from "./tables/brainPageAuditEvents";
 import brainPages from "./tables/brainPages";
+import channelDeliveryPolicies from "./tables/channelDeliveryPolicies";
+import channelRoutingPolicies from "./tables/channelRoutingPolicies";
 import channelSyncStates from "./tables/channelSyncStates";
 import citations from "./tables/citations";
 import claims from "./tables/claims";
@@ -62,6 +64,8 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof billingPlans |
   typeof brainPageAuditEvents |
   typeof brainPages |
+  typeof channelDeliveryPolicies |
+  typeof channelRoutingPolicies |
   typeof channelSyncStates |
   typeof citations |
   typeof claims |
@@ -114,6 +118,8 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   billingPlans,
   brainPageAuditEvents,
   brainPages,
+  channelDeliveryPolicies,
+  channelRoutingPolicies,
   channelSyncStates,
   citations,
   claims,
