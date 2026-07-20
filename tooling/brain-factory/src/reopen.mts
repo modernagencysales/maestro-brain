@@ -61,6 +61,11 @@ const inspectStatus = (runId: string): string => {
   if (!status) throw new Error(`${taskId}: Fabro run ${runId} has no status`);
   return status;
 };
+const controlTreeIsClean = (): boolean =>
+  runRtk(["proxy", "git", "status", "--porcelain"], { quiet: true })
+    .split("\n")
+    .filter((line) => line.trim() !== "")
+    .every((line) => line.slice(3).trim() === ".mcp.json");
 
 const root = process.cwd();
 const controlCommonDir = gitCommonDir(root);
@@ -283,8 +288,7 @@ if (failedIntegrationId) {
     ...(broadGateExists
       ? { broadGateContent: readFileSync(broadGatePath, "utf8") }
       : {}),
-    controlClean:
-      runRtk(["proxy", "git", "status", "--porcelain"], { quiet: true }) === "",
+    controlClean: controlTreeIsClean(),
     controlHeadSha,
     dependenciesIntegrated: task.codeStartAfter.every((dependency) =>
       completedTaskIds.has(dependency),
