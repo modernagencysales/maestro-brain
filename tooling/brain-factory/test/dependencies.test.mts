@@ -19,7 +19,12 @@ import {
 import { runRtk } from "../src/process.js";
 
 const temporaryDirectories: string[] = [];
-const sourceRefState = (root: string, head: string) => {
+const repositoryRefState = (root: string) =>
+  runRtk(["proxy", "git", "show-ref", "--head"], {
+    cwd: root,
+    quiet: true,
+  });
+const checkoutRefState = (root: string, head: string) => {
   const headRef = runRtk(
     ["proxy", "git", "rev-parse", "--symbolic-full-name", "HEAD"],
     { cwd: root, quiet: true },
@@ -31,15 +36,39 @@ const sourceRefState = (root: string, head: string) => {
         quiet: true,
       });
 };
-const sourceWorktreeState = (root: string) => {
+const repositoryWorktreeState = (root: string) =>
+  runRtk(["proxy", "git", "worktree", "list", "--porcelain"], {
+    cwd: root,
+    quiet: true,
+  });
+const checkoutWorktreeState = (root: string) => {
   const rootPath = realpathSync(root);
-  const worktrees = runRtk(
-    ["proxy", "git", "worktree", "list", "--porcelain"],
-    { cwd: root, quiet: true },
-  );
-  return worktrees
+  return repositoryWorktreeState(root)
     .split("\n\n")
     .find((entry) => entry.startsWith(`worktree ${rootPath}\n`));
+};
+const cloneStandaloneExactHead = (
+  source: string,
+  workdir: string,
+  head: string,
+) => {
+  runRtk(
+    [
+      "proxy",
+      "git",
+      "clone",
+      "--depth",
+      "1",
+      "--no-checkout",
+      pathToFileURL(source).href,
+      workdir,
+    ],
+    { quiet: true },
+  );
+  runRtk(["proxy", "git", "checkout", "--detach", head], {
+    cwd: workdir,
+    quiet: true,
+  });
 };
 const fixture = () => {
   const directory = mkdtempSync(join(tmpdir(), "brain-dependencies-"));
@@ -83,6 +112,60 @@ describe("root test scheduling", () => {
 });
 
 describe("worktree dependency hydration", () => {
+  it("leaves every ref and worktree in a standalone clone source unchanged", () => {
+    const directory = mkdtempSync(join(tmpdir(), "brain-dependencies-source-"));
+    temporaryDirectories.push(directory);
+    const source = resolve(directory, "source");
+    const workdir = resolve(directory, "worktree");
+    mkdirSync(source);
+    runRtk(["proxy", "git", "init", "--initial-branch", "main"], {
+      cwd: source,
+      quiet: true,
+    });
+    runRtk(["proxy", "git", "config", "user.name", "Brain Factory Test"], {
+      cwd: source,
+      quiet: true,
+    });
+    runRtk(
+      ["proxy", "git", "config", "user.email", "brain-factory@example.test"],
+      { cwd: source, quiet: true },
+    );
+    writeFileSync(resolve(source, "fixture.txt"), "fixture\n");
+    runRtk(["proxy", "git", "add", "fixture.txt"], {
+      cwd: source,
+      quiet: true,
+    });
+    runRtk(["proxy", "git", "commit", "-m", "fixture"], {
+      cwd: source,
+      quiet: true,
+    });
+    runRtk(["proxy", "git", "branch", "secondary"], {
+      cwd: source,
+      quiet: true,
+    });
+    const sourceHead = runRtk(["proxy", "git", "rev-parse", "HEAD"], {
+      cwd: source,
+      quiet: true,
+    });
+    const sourceRefs = repositoryRefState(source);
+    const sourceStatus = runRtk(
+      ["proxy", "git", "status", "--short", "--untracked-files=all"],
+      { cwd: source, quiet: true },
+    );
+    const sourceWorktrees = repositoryWorktreeState(source);
+
+    cloneStandaloneExactHead(source, workdir, sourceHead);
+
+    expect(repositoryRefState(source)).toBe(sourceRefs);
+    expect(
+      runRtk(["proxy", "git", "status", "--short", "--untracked-files=all"], {
+        cwd: source,
+        quiet: true,
+      }),
+    ).toBe(sourceStatus);
+    expect(repositoryWorktreeState(source)).toBe(sourceWorktrees);
+  });
+
   it("resolves lane-consumed private package exports after fresh hydration", () => {
     const directory = mkdtempSync(join(tmpdir(), "brain-dependencies-real-"));
     temporaryDirectories.push(directory);
@@ -92,30 +175,17 @@ describe("worktree dependency hydration", () => {
       cwd: root,
       quiet: true,
     });
-    const sourceRefs = sourceRefState(root, sourceHead);
+    // The shared common directory has refs and worktrees owned by concurrent
+    // factory lanes. This real hydration case binds only this checkout's state;
+    // the isolated case above proves the repository-wide invariants.
+    const sourceRefs = checkoutRefState(root, sourceHead);
     const sourceStatus = runRtk(
       ["proxy", "git", "status", "--short", "--untracked-files=all"],
       { cwd: root, quiet: true },
     );
-    const sourceWorktrees = sourceWorktreeState(root);
+    const sourceWorktrees = checkoutWorktreeState(root);
 
-    runRtk(
-      [
-        "proxy",
-        "git",
-        "clone",
-        "--depth",
-        "1",
-        "--no-checkout",
-        pathToFileURL(root).href,
-        workdir,
-      ],
-      { quiet: true },
-    );
-    runRtk(["proxy", "git", "checkout", "--detach", sourceHead], {
-      cwd: workdir,
-      quiet: true,
-    });
+    cloneStandaloneExactHead(root, workdir, sourceHead);
     try {
       const candidateSha = runRtk(["proxy", "git", "rev-parse", "HEAD"], {
         cwd: workdir,
@@ -157,14 +227,14 @@ describe("worktree dependency hydration", () => {
           { cwd: workdir, quiet: true },
         ),
       ).not.toThrow();
-      expect(sourceRefState(root, sourceHead)).toBe(sourceRefs);
+      expect(checkoutRefState(root, sourceHead)).toBe(sourceRefs);
       expect(
         runRtk(["proxy", "git", "status", "--short", "--untracked-files=all"], {
           cwd: root,
           quiet: true,
         }),
       ).toBe(sourceStatus);
-      expect(sourceWorktreeState(root)).toBe(sourceWorktrees);
+      expect(checkoutWorktreeState(root)).toBe(sourceWorktrees);
     } finally {
       rmSync(workdir, { force: true, recursive: true });
     }
