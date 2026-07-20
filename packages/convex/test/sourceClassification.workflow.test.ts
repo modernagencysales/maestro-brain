@@ -16,6 +16,49 @@ describe("sourceClassification durable workflow", () => {
     );
   });
 
+  it("commit args carry the pinned authority generation snapshot", async () => {
+    const workflowInputs = {
+      workspaceId: "workspace_123",
+      idempotencyKey: "workflow-test-authority",
+      request: {
+        authority: {
+          workspaceId: "workspace_123",
+          organizationId: "org_123",
+          policyVersion: 7,
+          lifecycleGeneration: 3,
+          routeGeneration: 5,
+          leaseGeneration: 8,
+        },
+      },
+    };
+    const context = {
+      classify: {
+        decisionKey: "classification:unit_rev_1:7",
+        sourceUnitRevisionKey: "unit_rev_1",
+        sourceUnitHash: "hash_unit_1",
+        targetBrainKey: "brain_support",
+      },
+      review: { action: "accept" },
+    };
+
+    const args = {
+      proposal: {
+        ...(context.classify as object),
+        ...workflowInputs.request.authority,
+      },
+      review: context.review,
+      currentAuthority: workflowInputs.request.authority,
+    };
+
+    expect(args.proposal).toMatchObject({
+      policyVersion: 7,
+      lifecycleGeneration: 3,
+      routeGeneration: 5,
+      leaseGeneration: 8,
+    });
+    expect(args.currentAuthority).toEqual(workflowInputs.request.authority);
+  });
+
   it("classifies, waits for review, and commits exactly once", async () => {
     const calls: string[] = [];
     const step: RunDurableGraphStep = {
