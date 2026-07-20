@@ -182,12 +182,10 @@ describe("brain task scheduler", () => {
     });
 
     expect(result.ready.map((task) => task.taskId)).toEqual([
-      "S02-T03",
       "S02-T04",
       "S04-T03",
       "S04-T04",
       "S05-T01",
-      "S10-T01",
     ]);
     expect(result.selected.map((task) => task.taskId)).toEqual(["S05-T01"]);
   });
@@ -357,6 +355,31 @@ describe("brain task scheduler", () => {
     ).toEqual([]);
   });
 
+  it("allows a missing producer to launch while stale consumers remain active", () => {
+    const projection = loadManifestProjection();
+    const availableArtifacts = artifactAvailability(projection);
+    const taskIds = new Set([
+      "S05-T01",
+      "S06-T01",
+      "S08-T03",
+      "S08-T04",
+      "S10-T01",
+    ]);
+    const tasks = projection.tasks.filter((task) => taskIds.has(task.taskId));
+
+    const result = selectReadyTasks({
+      activeTaskIds: new Set(["S06-T01", "S08-T03", "S08-T04", "S10-T01"]),
+      completedTaskIds: new Set(["S04-T02"]),
+      contractArtifactSha256ByProducer: availableArtifacts,
+      maximum: 1,
+      requestedTaskIds: new Set(["S05-T01"]),
+      tasks,
+    });
+
+    expect(result.ready.map((task) => task.taskId)).toEqual(["S05-T01"]);
+    expect(result.selected.map((task) => task.taskId)).toEqual(["S05-T01"]);
+  });
+
   it("distinguishes true dependencies from exact contract artifacts", () => {
     const projection = loadManifestProjection();
     const availableArtifacts = artifactAvailability(projection);
@@ -447,7 +470,7 @@ describe("brain task scheduler", () => {
     expect(peers).toHaveLength(2);
     const oneSlot = selectReadyTasks({
       activeTaskIds: new Set(),
-      completedTaskIds: new Set(["S08-T02"]),
+      completedTaskIds: new Set(["S05-T01", "S07-T01", "S08-T02"]),
       contractArtifactSha256ByProducer: availableArtifacts,
       maximum: 1,
       tasks: peers,
@@ -460,7 +483,7 @@ describe("brain task scheduler", () => {
 
     const together = selectReadyTasks({
       activeTaskIds: new Set(),
-      completedTaskIds: new Set(["S08-T02"]),
+      completedTaskIds: new Set(["S05-T01", "S07-T01", "S08-T02"]),
       contractArtifactSha256ByProducer: availableArtifacts,
       maximum: 2,
       tasks: peers,
@@ -475,7 +498,7 @@ describe("brain task scheduler", () => {
     expect(() =>
       selectReadyTasks({
         activeTaskIds: new Set(),
-        completedTaskIds: new Set(["S08-T02"]),
+        completedTaskIds: new Set(["S05-T01", "S07-T01", "S08-T02"]),
         contractArtifactSha256ByProducer: availableArtifacts,
         maximum: 2,
         requestedTaskIds: new Set(["S08-T03"]),
@@ -508,7 +531,7 @@ describe("brain task scheduler", () => {
     expect(migrationOwners).toHaveLength(2);
     const beforeTask6 = selectReadyTasks({
       activeTaskIds: new Set(),
-      completedTaskIds: new Set(["S02-T02", "S04-T01"]),
+      completedTaskIds: new Set(["S02-T02", "S04-T01", "S05-T01"]),
       contractArtifactSha256ByProducer: availableArtifacts,
       maximum: 2,
       tasks: migrationOwners,
@@ -518,7 +541,7 @@ describe("brain task scheduler", () => {
 
     const afterTask6 = selectReadyTasks({
       activeTaskIds: new Set(),
-      completedTaskIds: new Set(["S02-T02", "S04-T01"]),
+      completedTaskIds: new Set(["S02-T02", "S04-T01", "S05-T01"]),
       contractArtifactSha256ByProducer: availableArtifacts,
       maximum: 2,
       task6RegistryReady: true,
@@ -646,7 +669,7 @@ describe("brain task scheduler", () => {
     ]);
   });
 
-  it("pins the current pre-Task-6 frontier at six with all registry exclusions", () => {
+  it("pins the current S05 producer frontier and its true-dependency exclusions", () => {
     const projection = loadManifestProjection();
     const availableArtifacts = artifactAvailability(projection);
     const result = selectReadyTasks({
@@ -660,35 +683,30 @@ describe("brain task scheduler", () => {
     expect(
       result.ready.map((task) => task.taskId),
       diagnostic,
-    ).toEqual([
-      "S03-T04",
+    ).toEqual(["S03-T04", "S05-T01", "S13-T02", "S13-T03"]);
+    const producerBlockedConsumers = [
+      "S02-T03",
       "S06-T01",
+      "S07-T01",
       "S08-T03",
       "S08-T04",
-      "S13-T02",
-      "S13-T03",
-    ]);
-    const registrySerializedExclusions = [
-      "S02-T03",
-      "S05-T01",
-      "S07-T01",
       "S09-T02",
       "S10-T01",
     ];
-    for (const taskId of registrySerializedExclusions) {
+    for (const taskId of producerBlockedConsumers) {
       const blocker = result.blockers.find((item) => item.taskId === taskId);
       expect(blocker?.reasons.join("\n")).toMatch(
-        /S04-T02.*packages\/convex\/confect\/internal\/migrations\.ts/,
+        new RegExp(`true dependency ${taskId}<-S05-T01 is not integrated`),
       );
     }
   });
 
-  it("pins the audited post-Task-6 frontier at eleven with limiter diagnostics", () => {
+  it("pins the immediate post-S05 frontier with limiter diagnostics", () => {
     const projection = loadManifestProjection();
     const availableArtifacts = artifactAvailability(projection);
     const result = selectReadyTasks({
       activeTaskIds: AUDITED_ACTIVE_TASK_IDS,
-      completedTaskIds: AUDITED_19_COMPLETED_TASK_IDS,
+      completedTaskIds: new Set([...AUDITED_19_COMPLETED_TASK_IDS, "S05-T01"]),
       contractArtifactSha256ByProducer: availableArtifacts,
       maximum: 40,
       task6RegistryReady: true,
@@ -701,7 +719,7 @@ describe("brain task scheduler", () => {
     ).toEqual([
       "S02-T03",
       "S03-T04",
-      "S05-T01",
+      "S05-T02",
       "S06-T01",
       "S07-T01",
       "S08-T03",

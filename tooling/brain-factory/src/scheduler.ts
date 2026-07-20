@@ -317,6 +317,15 @@ const contractReason = (
       : `${identity} expected ${edge.artifact.sha256}, got ${actual}`;
 };
 
+const isTrueDependencyProducer = (
+  producerTaskId: string,
+  consumer: BrainTaskContract,
+): boolean =>
+  dependenciesFor(consumer).some(
+    (edge) =>
+      edge.classification === "true" && edge.producerTaskId === producerTaskId,
+  );
+
 export const frontierDiagnostics = (result: SelectionResult): string =>
   [
     `ready width: ${result.ready.length}`,
@@ -364,7 +373,13 @@ export const selectReadyTasks = ({
       }
       for (const active of activeTasks) {
         const collision = collisionBetween(task, active);
-        if (serializedCollision(collision, task6RegistryReady)) {
+        const activeConsumerAwaitsTask =
+          collision?.policy === "dependency_order" &&
+          isTrueDependencyProducer(task.taskId, active);
+        if (
+          serializedCollision(collision, task6RegistryReady) &&
+          !activeConsumerAwaitsTask
+        ) {
           const pair = [task.taskId, active.taskId].sort().join("|");
           for (const path of collision?.paths ?? []) {
             activeSerializedPaths.add(`${pair}:${path}`);
