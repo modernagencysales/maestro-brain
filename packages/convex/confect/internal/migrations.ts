@@ -83,6 +83,12 @@ export const stableTenantOrganizationKeysExpand = componentMigrations.define({
   },
 });
 
+export const slackIdentityBindingsExpand = {
+  table: "slackIdentityBindings",
+  mode: "expand",
+  batches: "new-table-no-backfill",
+} as const;
+
 export const stableTenantWorkspaceKeysExpand = componentMigrations.define({
   table: "workspaces",
   batchSize: 1,
