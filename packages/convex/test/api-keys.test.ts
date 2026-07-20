@@ -656,6 +656,152 @@ describe("durable one-Brain API-key Confect handlers", () => {
     expect(result.generationError).toBe("TENANT_INACTIVE");
   });
 
+  it("rejects bearer auth when an API key points at a different same-generation principal", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+
+      return yield* confect.run(
+        Effect.gen(function* () {
+          const seeded = yield* seedApiKeyTenant();
+          const scope = {
+            organizationId: seeded.organizationId,
+            workspaceId: seeded.workspaceId,
+            brainKey: "brain_acme",
+          };
+          const created = yield* createApiKeyForBrain({
+            publicInput: {
+              name: "Client Alpha read key",
+              scopes: ["brain:read"],
+              expiresAt: Date.now() + 20_000,
+              randomBytes: () => new Uint8Array(32).fill(24),
+            },
+            serverScope: scope,
+            actor: { userId: seeded.adminUserId, role: "admin" },
+            nowMs: Date.now(),
+          });
+          const authenticated = yield* authenticateBrainBearer({
+            authorization: `Bearer ${created.displayKey}`,
+            requiredScope: "brain:read",
+          });
+          const principal = yield* (yield* DatabaseReader)
+            .table("servicePrincipals")
+            .index("by_principal_key", (q) =>
+              q.eq("id", authenticated.principal.principalId),
+            )
+            .first()
+            .pipe(Effect.orDie);
+          if (principal._tag !== "Some")
+            throw new Error("missing principal row");
+          yield* (yield* DatabaseWriter)
+            .table("servicePrincipals")
+            .patch(principal.value._id, {
+              organizationId: "organizations_cross_tenant",
+              workspaceId: "workspaces_cross_tenant",
+              brainKey: "brain_cross_tenant",
+            })
+            .pipe(Effect.orDie);
+
+          const error = yield* authenticateBrainBearer({
+            authorization: `Bearer ${created.displayKey}`,
+            requiredScope: "brain:read",
+          }).pipe(Effect.flip);
+          yield* markApiKeyLastUsed({
+            keyId: authenticated.keyId,
+            keyHash: authenticated.keyHash,
+            principalId: authenticated.principal.principalId,
+            organizationId: authenticated.principal.organizationId,
+            workspaceId: authenticated.principal.workspaceId,
+            brainKey: authenticated.principal.brainKey,
+          });
+          const afterMark = yield* (yield* DatabaseReader)
+            .table("apiKeys")
+            .index("by_key_hash", (q) => q.eq("keyHash", authenticated.keyHash))
+            .first()
+            .pipe(Effect.orDie);
+
+          return {
+            errorCode: error.code,
+            lastUsedAt:
+              afterMark._tag === "Some" ? afterMark.value.lastUsedAt : null,
+          };
+        }),
+        Schema.Any,
+      );
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result).toEqual({
+      errorCode: "API_KEY_FORBIDDEN",
+      lastUsedAt: null,
+    });
+  });
+
+  it("rejects bearer auth when the service-principal generation changed", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+
+      return yield* confect.run(
+        Effect.gen(function* () {
+          const seeded = yield* seedApiKeyTenant();
+          const scope = {
+            organizationId: seeded.organizationId,
+            workspaceId: seeded.workspaceId,
+            brainKey: "brain_acme",
+          };
+          const created = yield* createApiKeyForBrain({
+            publicInput: {
+              name: "Client Alpha read key",
+              scopes: ["brain:read"],
+              expiresAt: Date.now() + 20_000,
+              randomBytes: () => new Uint8Array(32).fill(23),
+            },
+            serverScope: scope,
+            actor: { userId: seeded.adminUserId, role: "admin" },
+            nowMs: Date.now(),
+          });
+          const authenticated = yield* authenticateBrainBearer({
+            authorization: `Bearer ${created.displayKey}`,
+            requiredScope: "brain:read",
+          });
+          const principals = yield* (yield* DatabaseReader)
+            .table("servicePrincipals")
+            .index("by_principal_key", (q) =>
+              q.eq("id", authenticated.principal.principalId),
+            )
+            .collect()
+            .pipe(Effect.orDie);
+          const principal = principals[0];
+          if (principal === undefined) throw new Error("missing principal row");
+          yield* (yield* DatabaseWriter)
+            .table("servicePrincipals")
+            .patch(principal._id, { generation: 2 })
+            .pipe(Effect.orDie);
+
+          const generationError = yield* authenticateBrainBearer({
+            authorization: `Bearer ${created.displayKey}`,
+            requiredScope: "brain:read",
+          }).pipe(Effect.flip);
+
+          return generationError.code;
+        }),
+        Schema.Any,
+      );
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result).toBe("SERVICE_PRINCIPAL_REVOKED");
+  });
+
   it("records success and denial audit events for API-key administration", async () => {
     const program = Effect.gen(function* () {
       const confect = yield* Effect.serviceOptional(
