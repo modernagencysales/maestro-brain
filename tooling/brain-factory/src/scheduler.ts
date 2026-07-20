@@ -398,15 +398,13 @@ export const selectReadyTasks = ({
     }
     return false;
   });
-  const globalMandatoryGroups = mandatoryGroups(tasks, task6RegistryReady);
   const groupsWithin = (
     taskIds: ReadonlySet<string>,
   ): readonly ReadonlySet<string>[] =>
-    globalMandatoryGroups
-      .map(
-        (group) => new Set([...group].filter((taskId) => taskIds.has(taskId))),
-      )
-      .filter((group) => group.size > 1);
+    mandatoryGroups(
+      tasks.filter((task) => taskIds.has(task.taskId)),
+      task6RegistryReady,
+    ).filter((group) => group.size > 1);
   const eligibleOrActiveIds = new Set([
     ...activeTaskIds,
     ...otherwiseEligible.map((task) => task.taskId),

@@ -518,6 +518,53 @@ describe("brain task scheduler", () => {
     ).toThrow("partial mandatory same-wave request: S08-T03,S08-T04");
   });
 
+  it.each([
+    { completedBridge: true, bridgeStatus: "ready" as const },
+    { completedBridge: false, bridgeStatus: "open:F" as const },
+  ])(
+    "does not connect ready mandatory groups through an unavailable bridge ($bridgeStatus)",
+    ({ completedBridge, bridgeStatus }) => {
+      const template = buildManifest().tasks.find(
+        (task) => task.taskId === "S01-T01",
+      );
+      if (!template) throw new Error("scheduler template task missing");
+      const left = projectedSyntheticTask(template, {
+        collisions: [sameWave("S20-T02"), sameWave("S20-T04")],
+        taskId: "S20-T01",
+      });
+      const bridge = projectedSyntheticTask(template, {
+        collisions: [sameWave("S20-T01"), sameWave("S20-T03")],
+        fileInventoryStatus: bridgeStatus,
+        taskId: "S20-T02",
+      });
+      const right = projectedSyntheticTask(template, {
+        collisions: [sameWave("S20-T02")],
+        taskId: "S20-T03",
+      });
+      const directPeer = projectedSyntheticTask(template, {
+        collisions: [sameWave("S20-T01")],
+        taskId: "S20-T04",
+      });
+
+      const result = selectReadyTasks({
+        activeTaskIds: new Set(),
+        completedTaskIds: new Set(completedBridge ? [bridge.taskId] : []),
+        contractArtifactSha256ByProducer: new Map(),
+        maximum: 2,
+        requestedTaskIds: new Set([left.taskId, directPeer.taskId]),
+        tasks: [left, bridge, right, directPeer],
+      });
+
+      expect(result.selected.map((task) => task.taskId)).toEqual([
+        "S20-T01",
+        "S20-T04",
+      ]);
+      expect(result.mandatoryIntegrationGroups).toEqual([
+        ["S20-T01", "S20-T04"],
+      ]);
+    },
+  );
+
   it("serializes selected security owners and gates migration regeneration on Task 6", () => {
     const projection = loadManifestProjection();
     const availableArtifacts = artifactAvailability(projection);
@@ -581,7 +628,7 @@ describe("brain task scheduler", () => {
     );
   });
 
-  it("derives mandatory components through blocked bridge tasks", () => {
+  it("does not derive mandatory components through blocked bridge tasks", () => {
     const template = buildManifest().tasks.find(
       (task) => task.taskId === "S01-T01",
     );
@@ -611,8 +658,8 @@ describe("brain task scheduler", () => {
       "S20-T01",
       "S20-T03",
     ]);
-    expect(oneSlot.selected).toEqual([]);
-    expect(() =>
+    expect(oneSlot.selected.map((task) => task.taskId)).toEqual(["S20-T01"]);
+    expect(
       selectReadyTasks({
         activeTaskIds: new Set(),
         completedTaskIds: new Set(),
@@ -620,11 +667,11 @@ describe("brain task scheduler", () => {
         maximum: 2,
         requestedTaskIds: new Set(["S20-T01"]),
         tasks: [left, bridge, right],
-      }),
-    ).toThrow("partial mandatory same-wave request: S20-T01,S20-T03");
+      }).selected.map((task) => task.taskId),
+    ).toEqual(["S20-T01"]);
   });
 
-  it("completes a global mandatory component around active owners", () => {
+  it("does not complete a mandatory component through a blocked active-owner bridge", () => {
     const template = buildManifest().tasks.find(
       (task) => task.taskId === "S01-T01",
     );
@@ -662,7 +709,7 @@ describe("brain task scheduler", () => {
       "S20-T03",
       "S20-T04",
     ]);
-    expect(result.selected).toEqual([]);
+    expect(result.selected.map((task) => task.taskId)).toEqual(["S20-T03"]);
 
     const twoSlots = selectReadyTasks({
       activeTaskIds: new Set([active.taskId]),
@@ -675,9 +722,7 @@ describe("brain task scheduler", () => {
       "S20-T03",
       "S20-T04",
     ]);
-    expect(twoSlots.mandatoryIntegrationGroups).toEqual([
-      ["S20-T01", "S20-T03", "S20-T04"],
-    ]);
+    expect(twoSlots.mandatoryIntegrationGroups).toEqual([]);
   });
 
   it("pins the current S05 producer frontier and its true-dependency exclusions", () => {
