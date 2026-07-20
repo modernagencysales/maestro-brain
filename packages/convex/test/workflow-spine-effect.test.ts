@@ -250,6 +250,58 @@ describe("workflow condition grammar", () => {
 });
 
 describe("durable graph runner", () => {
+  it("returns default output without inserting it into its own context", async () => {
+    const sourceOutputGraph = {
+      id: "workflow_source_output",
+      version: 1,
+      startNodeId: "start",
+      nodes: [
+        {
+          id: "start",
+          kind: "source",
+          label: "Start",
+          retry: { maxAttempts: 1, backoffMs: 0 },
+        },
+        {
+          id: "output",
+          kind: "output",
+          label: "Output",
+          retry: { maxAttempts: 1, backoffMs: 0 },
+        },
+      ],
+      edges: [
+        {
+          id: "start_output",
+          sourceNodeId: "start",
+          targetNodeId: "output",
+        },
+      ],
+      joins: [],
+    } satisfies DurableWorkflowGraph;
+    const step: RunDurableGraphStep = {
+      runQuery: async () => null,
+      runAction: async () => null,
+      runMutation: async () => null,
+      sleep: async () => {},
+      awaitEvent: async <Result>() => ({}) as Result,
+    };
+    const inputs = { workspaceId: "workspace_123" };
+    const policySnapshot = { mode: "test" };
+
+    await expect(
+      runDurableGraphWorkflow(step, {
+        graph: sourceOutputGraph,
+        inputs,
+        policySnapshot,
+        capabilityRegistry: {},
+      }),
+    ).resolves.toEqual({
+      inputs,
+      context: { start: inputs },
+      policySnapshot,
+    });
+  });
+
   it("dispatches through the registry, sleeps, awaits approval, and observes stages", async () => {
     const queryCalls: unknown[] = [];
     const actionCalls: unknown[] = [];
