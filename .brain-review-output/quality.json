@@ -1,0 +1,152 @@
+{
+  "lens": "quality",
+  "taskId": "S05-T01",
+  "planSha256": "b25dfe4b3139d61e98976f450d6dfbdb30629201ab2015f7846a04ca02435a57",
+  "taskBlockHash": "8c814c81e34129532e8467e567d99d48dfb60017ceda5ab0934454da2d348044",
+  "baseSha": "73609583b9ca2704ad28f3844239f00764ac7230",
+  "headSha": "fcdf4277051257facc986e00958a7ebed1d6798b",
+  "treeSha": "539a2508c6ff0fee1885f7e6c982f7cecde67f8c",
+  "reviewerRunId": "maestro/review/S05-T01/fcdf4277051257facc986e00958a7ebed1d6798b/a9541d3e-fb42-41ca-ab35-54b3cc65cc7a-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "finding",
+      "evidence": [
+        "Independent review blob 7f02ae5440f838d69254c8d80cf5056a3fda0eb7 verified as SHA-256 8c996ef4d3f46a0f0a89efe3b9ee14b06b9bc58b7bff731a6ff9056a3707592a for head fcdf4277051257facc986e00958a7ebed1d6798b.",
+        "packages/convex/confect/sources/sourceSchemas.ts:175-205 derives sourceKey by underscore-concatenating StableKey fields that themselves allow underscores; reproduction in review worktree produced src_a_b_c_g1_d_m for both org=a_b,conn=c and org=a,conn=b_c.",
+        "packages/convex/confect/sources/sourceSchemas.ts:256-265 computes observation/revision keys before duplicate-delivery handling and returns duplicate with those newly-derived keys; reproduction with the same org:conn:g1:evt delivery and changed text/revisionNonce produced changed observationKey and sourceRevisionKey.",
+        "packages/convex/test/source-ledger-schema.test.ts:141-149 and 309-322 cover only a single happy-path key and identical replay duplicate, so the collision and replay-drift cases can false-green.",
+        "packages/convex/scripts/generate-migration-registry.mts:62-68 explicitly exits 0 when migrations.generated.ts is absent and legacy migrations.ts exists; packages/convex/test/migration-registry.test.ts:148-210 does not cover the real-repo missing-generated-target plus legacy-file path.",
+        "packages/convex/confect/internal/migrationFragment.ts:99-121 checks phase order only on dependency edges and then visits roots by sorted task ID, leaving independent contract-before-expand order untested.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1678-1685 and 3974-4000 require every Appendix C table/index; packages/convex/test/source-ledger-schema.test.ts:94-121 self-pins enhanced names instead of the required Appendix C names."
+      ],
+      "findingIds": [
+        "QUALITY-S05-T01-004",
+        "QUALITY-S05-T01-005",
+        "QUALITY-S05-T01-007",
+        "QUALITY-S05-T01-008",
+        "QUALITY-S05-T01-009"
+      ]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "Changed durable table definitions remain under packages/convex/confect/tables and import Effect schemas from packages/convex/confect/sources/sourceSchemas.ts.",
+        "No changed file imports web, UI, provider SDKs, route modules, or generated Convex/Confect output across the declared Layer Law boundaries."
+      ]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1654-1660 and 1686-1687 require extracted task-owned migration implementation modules.",
+        "packages/convex/confect/internal/migration-implementations/S00-T04.ts:1-2 and sibling modules contain only task/name constants, while executable bodies remain in packages/convex/confect/internal/migrations.ts:29-124. This preserves behavior but does not create the maintainable extraction boundary promised by the task packet."
+      ],
+      "findingIds": ["QUALITY-S05-T01-006"]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "finding",
+      "evidence": [
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:8-24 documents auditable receipt/artifact/revision/job identities, but sourceSchemas.ts:175-205 can collide stable tenant source identities and sourceSchemas.ts:256-265 can label altered duplicate transport content as duplicate while returning altered observation/revision keys.",
+        "These confirmed key-integrity defects make source-ledger audit state ambiguous even though no unsafe logging or secret exposure was introduced."
+      ],
+      "findingIds": ["QUALITY-S05-T01-004", "QUALITY-S05-T01-005"]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "lane-results/S05-T01/lane-gate-report.json:24-31 records the exact head, sourceSliceBudget 300, sourceSliceLimit 4, and passed pre-review gate status for head fcdf4277051257facc986e00958a7ebed1d6798b.",
+        "lane-results/S05-T01/lane-gate-report.json:31-48 reports four source slices with per-slice changedSourceLines 0, 248, 293, and 137, each within the 300-line source slice budget."
+      ]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1701-1705 says integration alone generates the canonical registry and the lane tests expected output in a temporary target.",
+        "packages/convex/scripts/generate-migration-registry.mts:62-68 makes --check pass when migrations.generated.ts is absent if the legacy canonical migrations.ts exists, so the exact-head transient codegen proof can miss a missing generated target rather than proving the integration-owned output contract.",
+        "The task diff does not edit checked-in generated Convex/Confect paths, which is expected lane state; the finding is limited to the task-owned generator check false-green."
+      ],
+      "findingIds": ["QUALITY-S05-T01-007"]
+    }
+  ],
+  "findings": [
+    {
+      "id": "QUALITY-S05-T01-004",
+      "severity": "high",
+      "summary": "Stable source keys collide across underscored tenant fields",
+      "details": "StableKey permits underscores, but sourceLedgerKeysFor concatenates organizationKey, connectionKey, generation, channelKey, and provider object with underscores and no length-prefixing or escaping. In the review worktree, the exact formula produced src_a_b_c_g1_d_m for both organizationKey=a_b/connectionKey=c and organizationKey=a/connectionKey=b_c. S05-T01 requires stable tenant keys and source identities without public Convex IDs; this collision can merge distinct tenant/connection source artifacts.",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:5-10",
+        "packages/convex/confect/sources/sourceSchemas.ts:175-205",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1678-1684",
+        "review reproduction: collision a=src_a_b_c_g1_d_m, b=src_a_b_c_g1_d_m, collides=true"
+      ]
+    },
+    {
+      "id": "QUALITY-S05-T01-005",
+      "severity": "high",
+      "summary": "Duplicate transport replay can return altered observation and revision keys",
+      "details": "assertValidSourceLedgerCapture derives keys before checking seenTransportDeliveries, and the duplicate branch returns those keys for the new payload. A duplicate delivery ID replay with changed text/revisionNonce is classified duplicate but returns a changed observationKey/sourceRevisionKey, which buildSourceLedgerRows can stage as altered duplicate rows. The tests prove identical replay only, not replay drift or conflict rejection.",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:256-265",
+        "packages/convex/confect/sources/sourceSchemas.ts:269-368",
+        "packages/convex/test/source-ledger-schema.test.ts:309-322",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1674-1677",
+        "review reproduction: same duplicate delivery key org:conn:g1:evt yielded observationChanged=true and revisionChanged=true"
+      ]
+    },
+    {
+      "id": "QUALITY-S05-T01-006",
+      "severity": "high",
+      "summary": "Migration implementation modules do not extract executable bodies",
+      "details": "The packet requires S00/S01/S02 migration implementations to be extracted into task-owned modules while preserving historical behavior. The added implementation modules are constants listing task IDs and migration names; the executable component migration bodies still live in migrations.ts. This leaves the promised task-owned implementation boundary unrealized and makes future deterministic registry assembly depend on legacy monolithic code.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1654-1660",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1686-1687",
+        "packages/convex/confect/internal/migration-implementations/S00-T04.ts:1-2",
+        "packages/convex/confect/internal/migrations.ts:29-124"
+      ]
+    },
+    {
+      "id": "QUALITY-S05-T01-007",
+      "severity": "high",
+      "summary": "Registry --check passes when the generated target is missing beside legacy migrations.ts",
+      "details": "generate-migration-registry.mts exits successfully in --check mode if migrations.generated.ts is absent and packages/convex/confect/internal/migrations.ts exists. The task packet requires stale check output and expected temporary generated output proof; a missing generated target in the real repository can therefore false-green instead of failing as stale/missing output.",
+      "evidence": [
+        "packages/convex/scripts/generate-migration-registry.mts:41-68",
+        "packages/convex/test/migration-registry.test.ts:148-210",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1688-1691",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1701-1705"
+      ]
+    },
+    {
+      "id": "QUALITY-S05-T01-008",
+      "severity": "medium",
+      "summary": "Independent migration roots can place contract phases before expand phases",
+      "details": "assembleMigrationRegistry rejects phase inversion only for explicit dependency edges, then visits independent roots by sorted task ID. A contract-phase task with an earlier task ID and no dependency can be emitted before a later expand-phase task. The packet calls for phase-aware topological order and strict rejection of phase-inverted dependencies/cycles; without a global phase ordering check or phase-prioritized root ordering, independent roots can violate expand/backfill/verify/contract ordering.",
+      "evidence": [
+        "packages/convex/confect/internal/migrationFragment.ts:99-121",
+        "packages/convex/test/migration-registry.test.ts:86-146",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1686-1691"
+      ]
+    },
+    {
+      "id": "QUALITY-S05-T01-009",
+      "severity": "medium",
+      "summary": "Appendix C index names are replaced rather than preserved",
+      "details": "Appendix C lists exact S05 index names by_connection_transport_delivery and by_channel_provider_object. The implementation instead defines enhanced names by_connection_generation_transport_delivery and by_org_connection_generation_channel_provider_object, and the test asserts only those replacements. Because S05-T01 says to use every table/index in Appendix C, the lane needs to preserve the required index-name contract, adding enhanced indexes separately if the additional generation/org fields are needed.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1678-1679",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3974-4000",
+        "packages/convex/confect/tables/providerEventReceipts.ts:5-14",
+        "packages/convex/confect/tables/sourceArtifacts.ts:5-19",
+        "packages/convex/test/source-ledger-schema.test.ts:94-121"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
