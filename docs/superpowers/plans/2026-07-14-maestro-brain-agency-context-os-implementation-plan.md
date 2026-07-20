@@ -1617,6 +1617,8 @@ manifest.
   fixture, Slack Connect Direct/Classify ingestion allowed plus
   requester-private delivery denial, bulk atomicity, UI screenshots, and audit
   rows.
+- **Source-slice contract:** up to 1,500 estimated hand-authored source lines in
+  at most five linear commits; each commit remains at or below 300 lines.
 - **Lane branch / commit boundary:** branch
   `codex/brain-s04-channel-control-plane`; commit
   `feat: add multi-channel policy control`; final S04 checkpoint.
@@ -3892,7 +3894,7 @@ remains the exact direct acceptance edge and is the source materialized into
 | S04-T01 | S01, S03                           | template-gap Nango provider                      |              2700 |
 | S04-T02 | S04-T01                            | template-gap connection/channel directory        |              1500 |
 | S04-T03 | S04-T02                            | template-gap verified webhook                    |               290 |
-| S04-T04 | S04-T03                            | template-gap source policy + UI                  |               290 |
+| S04-T04 | S04-T03                            | template-gap source policy + UI                  |              1500 |
 | S05-T01 | S04 complete                       | template-gap source ledger                       |               260 |
 | S05-T02 | S05-T01                            | template-gap Slack normalizer/capture            |               290 |
 | S05-T03 | S05-T02                            | template-gap source-unit assembly                |               280 |
