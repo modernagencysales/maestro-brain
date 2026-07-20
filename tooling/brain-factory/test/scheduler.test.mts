@@ -359,16 +359,27 @@ describe("brain task scheduler", () => {
     const projection = loadManifestProjection();
     const availableArtifacts = artifactAvailability(projection);
     const taskIds = new Set([
+      "S02-T03",
       "S05-T01",
       "S06-T01",
+      "S07-T01",
       "S08-T03",
       "S08-T04",
+      "S09-T02",
       "S10-T01",
     ]);
     const tasks = projection.tasks.filter((task) => taskIds.has(task.taskId));
 
     const result = selectReadyTasks({
-      activeTaskIds: new Set(["S06-T01", "S08-T03", "S08-T04", "S10-T01"]),
+      activeTaskIds: new Set([
+        "S02-T03",
+        "S06-T01",
+        "S07-T01",
+        "S08-T03",
+        "S08-T04",
+        "S09-T02",
+        "S10-T01",
+      ]),
       completedTaskIds: new Set(["S04-T02"]),
       contractArtifactSha256ByProducer: availableArtifacts,
       maximum: 1,
