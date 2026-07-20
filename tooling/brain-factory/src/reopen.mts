@@ -155,19 +155,29 @@ const priorIntegrationHeadSha = String(
       ? (laneReproof?.priorIntegrationHeadSha ?? "")
       : lane.integrationHeadSha,
 );
-if (
-  !priorIntegrationId ||
-  !/^[0-9a-f]{40}$/.test(priorIntegrationHeadSha) ||
-  !gitIsAncestor(priorIntegrationHeadSha, controlHeadSha, root)
-) {
-  throw new Error(`${taskId}: prior integration is not authoritative on HEAD`);
-}
 const integrationResultPath = resolve(
   evidence,
   "integration",
   priorIntegrationId,
   "integration-result.json",
 );
+const priorIntegrationResult = existsSync(integrationResultPath)
+  ? (JSON.parse(readFileSync(integrationResultPath, "utf8")) as Record<
+      string,
+      unknown
+    >)
+  : undefined;
+const effectivePriorIntegrationHeadSha =
+  failedIntegrationId && typeof priorIntegrationResult?.headSha === "string"
+    ? priorIntegrationResult.headSha
+    : priorIntegrationHeadSha;
+if (
+  !priorIntegrationId ||
+  !/^[0-9a-f]{40}$/.test(effectivePriorIntegrationHeadSha) ||
+  !gitIsAncestor(effectivePriorIntegrationHeadSha, controlHeadSha, root)
+) {
+  throw new Error(`${taskId}: prior integration is not authoritative on HEAD`);
+}
 const archiveManifestPath = resolve(
   evidence,
   "archive",
@@ -404,7 +414,7 @@ const request = (() => {
       controlHeadSha,
       planSha256: manifest.planSha256,
       priorArchiveSha256,
-      priorIntegrationHeadSha,
+      priorIntegrationHeadSha: effectivePriorIntegrationHeadSha,
       priorIntegrationId,
       priorIntegrationResultSha256: sha256(
         readFileSync(integrationResultPath, "utf8"),

@@ -298,7 +298,11 @@ export const admitContractReproof = (
   if (integrationResult.integrationId !== request.priorIntegrationId) {
     throw new Error(`${input.taskId}: prior integration result identity drift`);
   }
+  const reviewOnlyRework =
+    integrationResult.status === "ready_for_review" &&
+    integrationResult.reviewVerdict === "rework";
   if (
+    !reviewOnlyRework &&
     integrationResult.status !== "rework" &&
     (integrationResult.headSha !== request.priorIntegrationHeadSha ||
       integrationResult.status !== "passed")
