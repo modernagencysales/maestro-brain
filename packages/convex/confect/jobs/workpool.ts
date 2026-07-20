@@ -71,7 +71,10 @@ export const status = queryGeneric({
     }),
     v.object({ state: v.literal("finished") }),
   ),
-  handler: async (ctx, { workId }) => await pool.status(ctx, workId),
+  handler: async (): Promise<never> =>
+    await Promise.reject(
+      new Error("source job status requires internal statusSourceJob"),
+    ),
 });
 
 export const backgroundWork = internalActionGeneric({
