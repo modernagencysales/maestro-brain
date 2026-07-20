@@ -4,6 +4,7 @@ import { hydrateWorktreeDependencies } from "./dependencies.js";
 import { buildTaskLaunchEnv } from "./build-task-launch-env.js";
 import { materializeBuildTaskRunConfig } from "./build-task-run-config.js";
 import { launchAuthorityRefresh } from "./authority-refresh-launch.js";
+import { launchCheckpointReproof } from "./checkpoint-reproof-launch.js";
 import {
   acquireDispatcherLock,
   assertArchiveActionSelectorApplicable,
@@ -43,6 +44,7 @@ interface ResumeRecord {
   readonly mode?:
     | "authority-refresh"
     | "authority-repair"
+    | "checkpoint-reproof"
     | "ownership-rehome"
     | "resume-review";
   readonly runId?: string;
@@ -93,6 +95,7 @@ const taskBase = valueAfter("--base");
 const archiveActionId = parseArchiveActionSelector(process.argv.slice(2));
 const authorityRefresh = process.argv.includes("--authority-refresh");
 const authorityRepair = process.argv.includes("--authority-repair");
+const checkpointReproof = process.argv.includes("--checkpoint-reproof");
 const ownershipRehome = process.argv.includes("--ownership-rehome");
 const conflictAware = process.argv.includes("--conflict-aware");
 let resumeStrategy = resolveResumeStrategy({
@@ -104,15 +107,19 @@ if (
   (!authorityRefresh &&
     !authorityRepair &&
     !ownershipRehome &&
+    !checkpointReproof &&
     (!sourceRef || !taskBase))
 ) {
   console.error(
-    "usage: brain:factory:resume -- --task <id> (--authority-refresh | --authority-repair | --ownership-rehome | --ref <git-ref> --base <sha> [--conflict-aware]) [--archive-action <id>]",
+    "usage: brain:factory:resume -- --task <id> (--authority-refresh | --authority-repair | --ownership-rehome | --checkpoint-reproof | --ref <git-ref> --base <sha> [--conflict-aware]) [--archive-action <id>]",
   );
   process.exit(2);
 }
 if (
-  (authorityRefresh || authorityRepair || ownershipRehome) &&
+  (authorityRefresh ||
+    authorityRepair ||
+    ownershipRehome ||
+    checkpointReproof) &&
   (sourceRef || taskBase || conflictAware || archiveActionId)
 ) {
   throw new Error(
@@ -120,8 +127,12 @@ if (
   );
 }
 if (
-  [authorityRefresh, authorityRepair, ownershipRehome].filter(Boolean).length >
-  1
+  [
+    authorityRefresh,
+    authorityRepair,
+    ownershipRehome,
+    checkpointReproof,
+  ].filter(Boolean).length > 1
 ) {
   throw new Error(`${taskId}: choose exactly one authority transition`);
 }
@@ -150,6 +161,10 @@ assertArchiveActionSelectorApplicable({
   recordExists,
   taskId,
 });
+if (checkpointReproof) {
+  launchCheckpointReproof({ evidence, recordPath, root, state, taskId });
+  process.exit(0);
+}
 if (authorityRefresh || authorityRepair || ownershipRehome) {
   launchAuthorityRefresh({
     authorityRepair,
