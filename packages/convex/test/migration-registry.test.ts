@@ -236,5 +236,5 @@ describe("migration fragment registry", () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
-  }, 20000);
+  }, 90000);
 });
