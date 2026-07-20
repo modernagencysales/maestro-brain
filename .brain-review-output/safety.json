@@ -1,0 +1,86 @@
+{
+  "lens": "safety",
+  "taskId": "S03-T03",
+  "planSha256": "5e3506ec26c1776547b03641707371efaebb1c490ce3da6b6a1e2ed0df2a8417",
+  "taskBlockHash": "fd42dea3ef03901e718fc26f7d210211c4a4103c941c088e3e0c5e4b603531ab",
+  "baseSha": "bc7631796e42ee5d33a006df85730dc1293f505e",
+  "headSha": "b4b94446dbd1052c24d2902b9fae67424712a495",
+  "treeSha": "04f31628bec8926593d43c62cfc5c22a390be727",
+  "reviewerRunId": "maestro/review/S03-T03/b4b94446dbd1052c24d2902b9fae67424712a495/460d096f-87d6-454a-860d-1575f0155eb3-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.impl.ts: requireBrainAccess resolves brainKey through the authenticated WorkOS organization agencyKey and rejects mismatched resolved.organizationId before returning workspaceId.",
+        "packages/convex/confect/brain/pages.impl.ts: loadPage queries brainPages by workspaceId plus pageKey, and recordSnapshotMutation derives both from the opaque brainPage documentId before loading the page.",
+        "packages/convex/test/brain-pages-crud.test.ts: cross-Brain snapshot save using another brainKey and the original pageKey is asserted to fail PageNotFound with no mutation rows added."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.impl.ts: list/get call requireBrainAccess(..., viewer) while create/rename/move/favorite/archive and recordSnapshot call requireBrainAccess(..., editor).",
+        "packages/convex/confect/editor/sync.ts: checkRead/checkWrite resolve the target workspace, active user, organization/workspace memberships, and roleAtLeast(viewer/editor) before ProseMirror sync access.",
+        "apps/web/src/features/brain/brain-workspace.tsx: buildWorkspaceSaveArgs returns null unless state is ready, canEdit is true, and a selected editor target/revision exists; viewer read-only behavior is covered in tests."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.impl.ts: requireBrainAccess rejects non-live organization/workspace generations with LifecycleRevoked and treats archived brain workspaces as LifecycleRevoked during fallback resolution.",
+        "packages/convex/confect/brain/pages.impl.ts: loadPage refuses pages whose status is not active or lifecycle.state is not active before any read or snapshot write.",
+        "apps/web/src/features/brain/brain-surface.ts: typedFailureState maps LifecycleRevoked/PageNotFound/BrainNotFound to non-editable not_found or conflict surfaces instead of continuing edits."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.spec.ts: recordSnapshot accepts only documentId, expectedCurrentRevisionKey, snapshot, and version; contract tests reject extra workspace/brain/page identifiers.",
+        "packages/convex/confect/brain/pages.impl.ts: audit metadata for page mutations is empty and snapshot writes set audit false, avoiding raw editor snapshot disclosure in audit rows.",
+        "apps/web/src/features/brain/brain-evidence-drawer.tsx: the drawer displays page titles and current revision labels from already-authorized Brain state, with no provider payloads, tokens, or secrets introduced."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.impl.ts: recordSnapshotMutation requires the current revision key before patching the page and writes the next revision in the same Convex mutation path.",
+        "packages/convex/test/brain-pages-crud.test.ts: stale snapshot saves after an accepted save fail with StaleRevision and afterDeniedMutationRows equals afterSaveMutationRows.",
+        "apps/web/src/features/brain/brain-workspace.tsx and packages/editor-react/src/BlockNoteSyncEditor.tsx preserve the selected revision fence for same-document editing when workspace/editor state advances."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.impl.ts: duplicate replay of an accepted snapshot with the old expectedCurrentRevisionKey is rejected by requireCurrentRevision before another revision can be published.",
+        "packages/convex/test/brain-pages-crud.test.ts: denied stale, stale-version, and cross-Brain snapshot attempts leave page/audit/revision mutation snapshots unchanged after the accepted save.",
+        "packages/convex/confect/brain/pages.impl.ts: revision effect keys are derived from mutation kind, pageKey, and revisionKey, and stale replays cannot create a second revision for the same selected fence."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/editor/syncApi.ts: stable brainPage targets require an explicit expectedCurrentRevisionKey for recordEditorSnapshot and stable autosnapshot publication returns null without it.",
+        "packages/editor-react/src/BlockNoteSyncEditor.tsx: readBlockNoteRevisionFence holds same-document saves to the revision selected at edit start and resets only when documentId changes.",
+        "packages/convex/test/brain-editor-revision-fence.test.ts: stable targets are forwarded with expected revision fences, stable autosnapshots without explicit fences do not call runMutation, and unfenced stable saves return null."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "The changed files are limited to Brain web features/routes, Confect brain/editor code, tests, and editor-react; no provider adapter or live SDK files are modified in the proof packet changedFiles.",
+        "apps/web/src/features/brain/brain-adapter.ts uses generated Confect refs and Convex function references for editor sync, not provider SDK imports or server secrets.",
+        "packages/convex/confect/editor/syncApi.ts and pages.impl.ts operate on Convex/Confect tables and typed refs only; no network providers or secret-bearing payloads are introduced."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
