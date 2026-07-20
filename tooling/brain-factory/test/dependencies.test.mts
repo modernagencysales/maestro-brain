@@ -2,11 +2,14 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   hydrateChangedIntegrationDependencies,
@@ -16,6 +19,28 @@ import {
 import { runRtk } from "../src/process.js";
 
 const temporaryDirectories: string[] = [];
+const sourceRefState = (root: string, head: string) => {
+  const headRef = runRtk(
+    ["proxy", "git", "rev-parse", "--symbolic-full-name", "HEAD"],
+    { cwd: root, quiet: true },
+  );
+  return headRef === "HEAD"
+    ? `HEAD ${head}`
+    : runRtk(["proxy", "git", "show-ref", "--verify", headRef], {
+        cwd: root,
+        quiet: true,
+      });
+};
+const sourceWorktreeState = (root: string) => {
+  const rootPath = realpathSync(root);
+  const worktrees = runRtk(
+    ["proxy", "git", "worktree", "list", "--porcelain"],
+    { cwd: root, quiet: true },
+  );
+  return worktrees
+    .split("\n\n")
+    .find((entry) => entry.startsWith(`worktree ${rootPath}\n`));
+};
 const fixture = () => {
   const directory = mkdtempSync(join(tmpdir(), "brain-dependencies-"));
   temporaryDirectories.push(directory);
@@ -39,37 +64,79 @@ afterEach(() => {
     rmSync(directory, { force: true, recursive: true });
 });
 
+describe("root test scheduling", () => {
+  it("runs Brain Factory tests only in the serial tooling lane", () => {
+    const root = resolve(import.meta.dirname, "../../..");
+    const rootPackage = JSON.parse(
+      readFileSync(resolve(root, "package.json"), "utf8"),
+    ) as { scripts: Record<string, string> };
+
+    expect(rootPackage.scripts.test).toContain(
+      "--filter=!@maestro-template/brain-factory-tooling",
+    );
+    expect(
+      rootPackage.scripts["test:tooling"]?.match(
+        /pnpm --dir tooling\/brain-factory test/g,
+      ) ?? [],
+    ).toHaveLength(1);
+  });
+});
+
 describe("worktree dependency hydration", () => {
   it("resolves lane-consumed private package exports after fresh hydration", () => {
     const directory = mkdtempSync(join(tmpdir(), "brain-dependencies-real-"));
     temporaryDirectories.push(directory);
     const root = resolve(import.meta.dirname, "../../..");
-    const repository = resolve(directory, "repository.git");
     const workdir = resolve(directory, "worktree");
-    const candidateSha =
-      runRtk(["proxy", "git", "stash", "create"], {
-        cwd: root,
-        quiet: true,
-      }) || "HEAD";
-
-    runRtk(["proxy", "git", "clone", "--shared", "--bare", root, repository], {
+    const sourceHead = runRtk(["proxy", "git", "rev-parse", "HEAD"], {
+      cwd: root,
       quiet: true,
     });
+    const sourceRefs = sourceRefState(root, sourceHead);
+    const sourceStatus = runRtk(
+      ["proxy", "git", "status", "--short", "--untracked-files=all"],
+      { cwd: root, quiet: true },
+    );
+    const sourceWorktrees = sourceWorktreeState(root);
+
     runRtk(
       [
         "proxy",
         "git",
-        "--git-dir",
-        repository,
-        "worktree",
-        "add",
-        "--detach",
+        "clone",
+        "--depth",
+        "1",
+        "--no-checkout",
+        pathToFileURL(root).href,
         workdir,
-        candidateSha,
       ],
       { quiet: true },
     );
+    runRtk(["proxy", "git", "checkout", "--detach", sourceHead], {
+      cwd: workdir,
+      quiet: true,
+    });
     try {
+      const candidateSha = runRtk(["proxy", "git", "rev-parse", "HEAD"], {
+        cwd: workdir,
+        quiet: true,
+      });
+      const sourceCommonDir = runRtk(
+        ["proxy", "git", "rev-parse", "--git-common-dir"],
+        { cwd: root, quiet: true },
+      );
+      const cloneCommonDir = runRtk(
+        ["proxy", "git", "rev-parse", "--git-common-dir"],
+        { cwd: workdir, quiet: true },
+      );
+
+      expect(candidateSha).toBe(sourceHead);
+      expect(
+        realpathSync(resolve(workdir, cloneCommonDir, "objects")),
+      ).not.toBe(realpathSync(resolve(root, sourceCommonDir, "objects")));
+      expect(
+        existsSync(resolve(workdir, cloneCommonDir, "objects/info/alternates")),
+      ).toBe(false);
       hydrateWorktreeDependencies(root, workdir);
       for (const packageDirectory of ["ui", "convex", "workflow-ui"])
         expect(
@@ -90,20 +157,16 @@ describe("worktree dependency hydration", () => {
           { cwd: workdir, quiet: true },
         ),
       ).not.toThrow();
+      expect(sourceRefState(root, sourceHead)).toBe(sourceRefs);
+      expect(
+        runRtk(["proxy", "git", "status", "--short", "--untracked-files=all"], {
+          cwd: root,
+          quiet: true,
+        }),
+      ).toBe(sourceStatus);
+      expect(sourceWorktreeState(root)).toBe(sourceWorktrees);
     } finally {
-      runRtk(
-        [
-          "proxy",
-          "git",
-          "--git-dir",
-          repository,
-          "worktree",
-          "remove",
-          "--force",
-          workdir,
-        ],
-        { quiet: true },
-      );
+      rmSync(workdir, { force: true, recursive: true });
     }
   }, 30_000);
 
