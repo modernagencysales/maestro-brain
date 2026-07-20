@@ -73,6 +73,16 @@ const removeIntegrationOverlay = (lane: JsonRecord): JsonRecord => {
   return restored;
 };
 
+const removeRecordedProofOverlay = (lane: JsonRecord): JsonRecord => {
+  const restored = removeIntegrationOverlay(lane);
+  delete restored.proofHeadSha;
+  delete restored.gateHeadSha;
+  delete restored.proofSha256;
+  delete restored.gateSha256;
+  delete restored.taskBlockHash;
+  return restored;
+};
+
 const priorIntegrationOverlay = (input: {
   readonly lane: JsonRecord;
   readonly prior: ValidatedSupersededWave;
@@ -89,7 +99,8 @@ const priorIntegrationOverlay = (input: {
     selected.headSha !== input.lane.headSha ||
     selected.proofSha256 !== input.lane.proofSha256 ||
     selected.gateSha256 !== input.lane.gateSha256 ||
-    selected.taskBlockHash !== input.lane.taskBlockHash
+    (Object.hasOwn(input.lane, "taskBlockHash") &&
+      selected.taskBlockHash !== input.lane.taskBlockHash)
   ) {
     throw new Error(
       `${input.taskId}: prior integration lane identity mismatch`,
@@ -163,7 +174,8 @@ export const planSupersededLaneRestoration = (input: {
       lane.gateHeadSha !== selected.gateHeadSha ||
       lane.proofSha256 !== selected.proofSha256 ||
       lane.gateSha256 !== selected.gateSha256 ||
-      lane.taskBlockHash !== selected.taskBlockHash ||
+      (Object.hasOwn(lane, "taskBlockHash") &&
+        lane.taskBlockHash !== selected.taskBlockHash) ||
       lane.accepted !== false ||
       typeof lane.acceptanceBlocker !== "string" ||
       lane.acceptanceBlocker.trim() === "" ||
@@ -173,15 +185,18 @@ export const planSupersededLaneRestoration = (input: {
         `${selected.taskId}: current integrated lane fields mismatch`,
       );
     }
-    const candidates = [removeIntegrationOverlay(lane)];
+    const candidates = [
+      removeIntegrationOverlay(lane),
+      removeRecordedProofOverlay(lane),
+    ];
     if (prior) {
       candidates.push(
         priorIntegrationOverlay({ lane, prior, taskId: selected.taskId }),
       );
     }
-    const matches = candidates
-      .map(exactJson)
-      .filter((content) => sha256(content) === expectedPreIntegration);
+    const matches = [...new Set(candidates.map(exactJson))].filter(
+      (content) => sha256(content) === expectedPreIntegration,
+    );
     if (matches.length !== 1 || !matches[0]) {
       throw new Error(
         `${selected.taskId}: reconstructed lane does not uniquely match pre-integration lane hash`,

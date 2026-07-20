@@ -57,11 +57,6 @@ const laneGreen = (taskId = "S02-T04") => ({
   headSha: "1".repeat(40),
   tranche: "D2-domain-bodies",
   status: "lane_green",
-  proofHeadSha: "1".repeat(40),
-  gateHeadSha: "1".repeat(40),
-  proofSha256: "2".repeat(64),
-  gateSha256: "3".repeat(64),
-  taskBlockHash: `${taskId}-block`,
 });
 
 const waveEvidence = (input: {
@@ -234,6 +229,10 @@ const fixture = () => {
   const currentLane = {
     ...prior,
     status: "integrated",
+    proofHeadSha: prior.headSha,
+    gateHeadSha: prior.headSha,
+    proofSha256: "2".repeat(64),
+    gateSha256: "3".repeat(64),
     laneResultSha256: sha256(priorContent),
     preIntegrationLaneResultSha256: sha256(priorContent),
     integrationId: currentWave.integrationId,
@@ -375,6 +374,10 @@ describe("superseded lane restoration", () => {
     const priorOverlay = {
       ...clean,
       status: "lane_green",
+      proofHeadSha: clean.headSha,
+      gateHeadSha: clean.headSha,
+      proofSha256: "2".repeat(64),
+      gateSha256: "3".repeat(64),
       laneResultSha256: sha256(cleanContent),
       preIntegrationLaneResultSha256: sha256(cleanContent),
       integrationId: priorWave.integrationId,
