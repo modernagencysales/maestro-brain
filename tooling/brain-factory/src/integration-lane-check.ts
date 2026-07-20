@@ -338,7 +338,7 @@ export const validateIntegratedLanes = (
       if (
         waveTask.tranche !== expectedTranche ||
         waveTask.headSha !== laneHeadSha ||
-        waveTask.planSha256 !== manifest.planSha256 ||
+        waveTask.planSha256 !== proofPlanSha256 ||
         waveTask.taskBlockHash !== manifestTask.taskBlockHash ||
         waveTask.proofSha256 !== fileHash("ci-proof-packet.json") ||
         waveTask.gateSha256 !== fileHash("lane-gate-report.json") ||

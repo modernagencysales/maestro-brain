@@ -191,6 +191,7 @@ const sha256File = (path: string): string =>
   createHash("sha256").update(readFileSync(path, "utf8")).digest("hex");
 
 const waveFixture = (options?: {
+  readonly historicalPlan?: boolean;
   readonly legacy?: boolean;
   readonly reproof?: boolean;
 }) => {
@@ -199,6 +200,11 @@ const waveFixture = (options?: {
   command(value.workdir, "commit", "-qm", "test: remove integration marker");
   const headSha = command(value.workdir, "rev-parse", "HEAD");
   const manifest = readRecord(value.manifestPath);
+  const currentPlanSha256 = options?.historicalPlan
+    ? "9".repeat(64)
+    : value.planSha256;
+  manifest.planSha256 = currentPlanSha256;
+  writeJson(value.manifestPath, manifest);
   const manifestTask = (manifest.tasks as BrainTaskContract[])[0];
   if (!manifestTask) throw new Error("fixture manifest task missing");
   const plannerTask = {
@@ -270,7 +276,7 @@ const waveFixture = (options?: {
     ],
     completedTaskIds: new Set(),
     integrationId: "wave-000001",
-    planSha256: value.planSha256,
+    planSha256: currentPlanSha256,
     tasks: [plannerTask],
   });
   const selectionPath = resolve(value.evidence, "wave-000001-selection.json");
@@ -513,6 +519,20 @@ describe("normal integration result check", () => {
 
   it("validates reproof waves with canonical payload hashes", () => {
     const value = waveFixture({ reproof: true });
+    expect(() =>
+      validateIntegrationResult({
+        controlRoot: value.controlRoot,
+        evidenceDirectory: value.evidence,
+        expectedWorkdir: value.workdir,
+        integrationId: value.integrationId,
+        selectionPath: value.selectionPath,
+      }),
+    ).not.toThrow();
+  });
+
+  it("validates wave-selected prior plan provenance when the task block is unchanged", () => {
+    const value = waveFixture({ historicalPlan: true });
+
     expect(() =>
       validateIntegrationResult({
         controlRoot: value.controlRoot,

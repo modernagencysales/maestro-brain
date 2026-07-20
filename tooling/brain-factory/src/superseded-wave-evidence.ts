@@ -76,7 +76,8 @@ export const validateSupersededWaveEvidence = (input: {
     result.integrationId !== input.wave.integrationId ||
     result.status !== "passed" ||
     result.reviewVerdict !== "pass" ||
-    result.integrationHeadSha !== headSha ||
+    (Object.hasOwn(result, "integrationHeadSha") &&
+      result.integrationHeadSha !== headSha) ||
     !Array.isArray(result.remainingFindings) ||
     result.remainingFindings.length !== 0 ||
     !Array.isArray(result.includedTasks)

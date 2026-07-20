@@ -200,7 +200,6 @@ const waveEvidence = (input: {
       reviewVerdict: "pass",
       baseSha,
       headSha: input.integrationHeadSha,
-      integrationHeadSha: input.integrationHeadSha,
       ...(legacySelection
         ? { selectionSha256: selectionPayloadSha256 }
         : { selectionFileSha256, selectionPayloadSha256 }),
