@@ -8,12 +8,27 @@ import {
   type FunctionReference,
   internalActionGeneric,
   internalMutationGeneric,
+  internalQueryGeneric,
   makeFunctionReference,
   mutationGeneric,
   queryGeneric,
 } from "convex/server";
-import { type Infer, v } from "convex/values";
+import { type GenericId, type Infer, v } from "convex/values";
 import { workpoolComponent } from "./componentRefs";
+import {
+  DuplicateEffect,
+  LeaseLost,
+  StaleGeneration,
+  type SourceJobState,
+  createSourceJobState,
+  failSourceJob,
+  markSourceJobRunning,
+  recordExternalResponse,
+  scheduleRetry,
+  startSourceJob,
+  succeedSourceJob,
+} from "./jobState";
+import { heartbeatLease, reclaimExpiredLease } from "./leases";
 
 const pool = new Workpool(workpoolComponent, {
   maxParallelism: 3,
@@ -25,18 +40,108 @@ const pool = new Workpool(workpoolComponent, {
   },
 });
 
+const sourceJobArgs = {
+  organizationKey: v.string(),
+  unitKey: v.string(),
+  stage: v.union(
+    v.literal("assembled"),
+    v.literal("awaiting_policy"),
+    v.literal("capture_only"),
+    v.literal("route_pending"),
+    v.literal("awaiting_classification"),
+    v.literal("classifying"),
+    v.literal("awaiting_classification_review"),
+  ),
+  effectKey: v.string(),
+  policyGeneration: v.number(),
+  routeGeneration: v.number(),
+  lifecycleGeneration: v.number(),
+  emergencyGeneration: v.number(),
+  idempotencyKey: v.string(),
+};
+const sourceJobCompletionArgs = {
+  ...sourceJobArgs,
+  leaseGeneration: v.number(),
+  leaseToken: v.string(),
+};
+const sourceJobCompletionValidator = v.object(sourceJobCompletionArgs);
+const sourceJobReclaimArgs = {
+  ...sourceJobArgs,
+  owner: v.string(),
+  leaseToken: v.string(),
+  leaseDurationMs: v.number(),
+};
+const sourceJobFailureArgs = {
+  ...sourceJobCompletionArgs,
+  kind: v.union(
+    v.literal("retryable"),
+    v.literal("permanent"),
+    v.literal("cancelled"),
+    v.literal("revoked"),
+    v.literal("superseded"),
+  ),
+  reason: v.optional(v.string()),
+  retryAfterMs: v.optional(v.number()),
+};
+type SourceJobArgs = Readonly<{
+  organizationKey: string;
+  unitKey: string;
+  stage:
+    | "assembled"
+    | "awaiting_policy"
+    | "capture_only"
+    | "route_pending"
+    | "awaiting_classification"
+    | "classifying"
+    | "awaiting_classification_review";
+  effectKey: string;
+  policyGeneration: number;
+  routeGeneration: number;
+  lifecycleGeneration: number;
+  emergencyGeneration: number;
+  idempotencyKey: string;
+}>;
+type SourceJobRow = SourceJobState & {
+  readonly _id: GenericId<"sourceProcessingJobs">;
+};
+type SourceJobCompletionContext = SourceJobArgs & {
+  readonly leaseGeneration: number;
+  readonly leaseToken: string;
+};
+type SourceJobWorkpool = Readonly<{
+  enqueueAction: (
+    ctx: unknown,
+    ref: typeof backgroundWorkRef,
+    args: SourceJobCompletionContext,
+    options: {
+      readonly onComplete: typeof onCompleteRef;
+      readonly context: SourceJobCompletionContext;
+    },
+  ) => Promise<WorkId>;
+  status: (ctx: unknown, workId: WorkId) => Promise<unknown>;
+}>;
+
+const maxAttempts = 3;
+const leaseDurationMs = 30_000;
+const workerOwner = "workpool";
+const scopedIdempotencyKey = (args: SourceJobArgs) =>
+  `${args.organizationKey}:${args.unitKey}:${args.policyGeneration}:${args.routeGeneration}:${args.lifecycleGeneration}:${args.emergencyGeneration}:${args.idempotencyKey}`;
+const leaseTokenFor = (nextLeaseGeneration: number) =>
+  `lease:${nextLeaseGeneration}:${crypto.randomUUID()}`;
+const externalResponseHashFor = (workId: WorkId) => `sha256:workpool:${workId}`;
+
 const backgroundWorkRef = makeFunctionReference<
   "action",
-  Record<string, never>,
+  SourceJobCompletionContext,
   null
 >("jobs/workpool:backgroundWork") as unknown as FunctionReference<
   "action",
   "internal",
-  Record<string, never>,
+  SourceJobCompletionContext,
   null
 >;
 
-const onCompleteArgs = vOnCompleteArgs(v.null());
+const onCompleteArgs = vOnCompleteArgs(sourceJobCompletionValidator);
 type OnCompleteArgs = Infer<typeof onCompleteArgs>;
 
 const onCompleteRef = makeFunctionReference<"mutation", OnCompleteArgs, null>(
@@ -46,45 +151,172 @@ const onCompleteRef = makeFunctionReference<"mutation", OnCompleteArgs, null>(
 export const enqueue = mutationGeneric({
   args: {},
   returns: vWorkId,
-  handler: async (ctx): Promise<WorkId> =>
-    await pool.enqueueAction(
-      ctx,
-      backgroundWorkRef,
-      {},
-      {
-        onComplete: onCompleteRef,
-        context: null,
-      },
+  handler: async (): Promise<WorkId> => {
+    throw new Error("source jobs require internal enqueueSourceJob");
+  },
+});
+
+export const enqueueSourceJob = internalMutationGeneric({
+  args: sourceJobArgs,
+  returns: vWorkId,
+  handler: async (ctx, args): Promise<WorkId> =>
+    await enqueueSourceJobHandler(
+      { db: ctx.db as unknown as SourceJobDb },
+      args,
+      pool as SourceJobWorkpool,
     ),
+});
+
+export const enqueueSourceJobHandler = async (
+  ctx: { readonly db: SourceJobDb },
+  args: SourceJobArgs,
+  workpool: SourceJobWorkpool,
+  now = Date.now(),
+): Promise<WorkId> => {
+  const existing = await findSourceJob(ctx.db, args);
+  if (existing !== null) {
+    if (existing.effectKey !== args.effectKey)
+      throw new DuplicateEffect({ effectKey: args.effectKey });
+    if (existing.workId !== undefined) return existing.workId as WorkId;
+  }
+  const rowId =
+    existing?._id ??
+    (await ctx.db.insert(
+      "sourceProcessingJobs",
+      createSourceJobState({
+        ...args,
+        organizationUnitIdempotencyKey: scopedIdempotencyKey(args),
+        maxAttempts,
+        now,
+      }),
+    ));
+  const row =
+    (existing as SourceJobRow | null) ??
+    ((await ctx.db.get(rowId)) as SourceJobRow | null);
+  if (row === null) throw new Error("source job vanished before claim");
+  const leaseToken = leaseTokenFor(row.leaseGeneration + 1);
+  const claimed = startSourceJob(row, {
+    owner: workerOwner,
+    leaseToken,
+    leaseDurationMs,
+    now,
+  });
+  if (claimed._tag === "Left") {
+    if (row.workId !== undefined) return row.workId as WorkId;
+    throw claimed.left;
+  }
+  await patchIfCurrent(ctx.db, rowId, row, claimed.right);
+  const context = {
+    ...args,
+    leaseGeneration: claimed.right.leaseGeneration,
+    leaseToken,
+  };
+  const workId = await workpool.enqueueAction(ctx, backgroundWorkRef, context, {
+    onComplete: onCompleteRef,
+    context,
+  });
+  const current = (await ctx.db.get(rowId)) as SourceJobRow | null;
+  if (
+    current !== null &&
+    current.leaseGeneration === claimed.right.leaseGeneration &&
+    current.leaseToken === leaseToken &&
+    current.workId === undefined
+  ) {
+    await ctx.db.patch(rowId, { workId });
+  } else if (current?.workId !== undefined) {
+    return current.workId as WorkId;
+  } else {
+    throw new LeaseLost({ reason: "lease changed before work id persisted" });
+  }
+  return workId;
+};
+
+type SourceJobIndexBuilder = {
+  eq: (
+    field: "organizationKey" | "organizationUnitIdempotencyKey",
+    value: string,
+  ) => SourceJobIndexBuilder;
+};
+type SourceJobDb = Readonly<{
+  query: (table: "sourceProcessingJobs") => {
+    withIndex: (
+      index: "by_org_unit_idempotency_key",
+      filter: (q: SourceJobIndexBuilder) => unknown,
+    ) => { unique: () => Promise<SourceJobRow | null> };
+  };
+  insert: (
+    table: "sourceProcessingJobs",
+    row: SourceJobState,
+  ) => Promise<GenericId<"sourceProcessingJobs">>;
+  get: (id: GenericId<"sourceProcessingJobs">) => Promise<SourceJobRow | null>;
+  patch: (
+    id: GenericId<"sourceProcessingJobs">,
+    patch: Partial<SourceJobState>,
+  ) => Promise<void>;
+}>;
+const findSourceJob = (db: SourceJobDb, args: SourceJobArgs) =>
+  db
+    .query("sourceProcessingJobs")
+    .withIndex("by_org_unit_idempotency_key", (q) =>
+      q
+        .eq("organizationKey", args.organizationKey)
+        .eq("organizationUnitIdempotencyKey", scopedIdempotencyKey(args)),
+    )
+    .unique();
+
+const patchIfCurrent = async (
+  db: SourceJobDb,
+  rowId: GenericId<"sourceProcessingJobs">,
+  expected: SourceJobRow,
+  patch: SourceJobState,
+) => {
+  const current = await db.get(rowId);
+  if (
+    current === null ||
+    current.leaseGeneration !== expected.leaseGeneration ||
+    current.leaseToken !== expected.leaseToken ||
+    current.acceptedEffectKey !== expected.acceptedEffectKey ||
+    current.executionStatus !== expected.executionStatus
+  ) {
+    throw new LeaseLost({ reason: "row changed before compare-and-set patch" });
+  }
+  await db.patch(rowId, patch);
+};
+
+const sourceJobStatusReturn = v.object({
+  executionStatus: v.union(
+    v.literal("queued"),
+    v.literal("leased"),
+    v.literal("running"),
+    v.literal("succeeded"),
+    v.literal("retry_wait"),
+    v.literal("dead_letter"),
+    v.literal("superseded"),
+    v.literal("revoked"),
+    v.literal("cancelled"),
+  ),
+  leaseGeneration: v.number(),
+  attempt: v.number(),
+  workId: v.optional(v.string()),
+  acceptedEffectKey: v.optional(v.string()),
+  externalResponseHash: v.optional(v.string()),
 });
 
 export const status = queryGeneric({
   args: { workId: vWorkId },
-  returns: v.union(
-    v.object({
-      state: v.literal("pending"),
-      previousAttempts: v.number(),
-    }),
-    v.object({
-      state: v.literal("running"),
-      previousAttempts: v.number(),
-    }),
-    v.object({ state: v.literal("finished") }),
-  ),
+  returns: v.any(),
   handler: async (): Promise<never> =>
     await Promise.reject(
       new Error("source job status requires internal statusSourceJob"),
     ),
 });
 
-export const backgroundWork = internalActionGeneric({
-  args: {},
-  returns: v.null(),
-  handler: async (): Promise<null> => null,
-});
-
-export const onComplete = internalMutationGeneric({
-  args: onCompleteArgs,
-  returns: v.null(),
-  handler: async (): Promise<null> => null,
+export const statusSourceJob = internalQueryGeneric({
+  args: sourceJobArgs,
+  returns: v.union(sourceJobStatusReturn, v.null()),
+  handler: async (ctx, args) =>
+    await statusSourceJobHandler(
+      { db: ctx.db as unknown as SourceJobDb },
+      args,
+    ),
 });
