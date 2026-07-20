@@ -115,7 +115,7 @@ describe("template HTTP docs routes", () => {
     expect(html).toContain('data-url="/api/openapi.json"');
   });
 
-  it("returns NotFound for POST to the deleted legacy page route without runner calls", async () => {
+  it("returns the typed external error contract for POST to the deleted legacy page route without runner calls", async () => {
     const calls: string[] = [];
     const ctx: HeadlessHttpCtx = {
       runQuery: async () => {
@@ -145,8 +145,8 @@ describe("template HTTP docs routes", () => {
     expect(body).toEqual({
       ok: false,
       error: {
-        _tag: "NotFound",
-        message: "Unknown template HTTP route: /api/brain.pages.createMarkdown",
+        _tag: "ValidationFailed",
+        message: "Headless operation is not available.",
       },
     });
     expect(calls).toEqual([]);
