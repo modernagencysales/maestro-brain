@@ -482,6 +482,24 @@ export const assertArchiveActionSelectorUsed = (input: {
   }
 };
 
+export const assertArchiveActionSelectorApplicable = (input: {
+  readonly archiveActionId: string | undefined;
+  readonly preservedBranchExists: boolean;
+  readonly preservedWorktreeExists: boolean;
+  readonly recordExists: boolean;
+  readonly taskId: string;
+}): void => {
+  if (
+    input.archiveActionId !== undefined &&
+    (input.recordExists ||
+      (!input.preservedBranchExists && !input.preservedWorktreeExists))
+  ) {
+    throw new Error(
+      `${input.taskId}: --archive-action did not resolve through audited archive selection`,
+    );
+  }
+};
+
 export const auditedTerminalResumeRecord = (input: {
   readonly archiveActionId?: string;
   readonly auditPath: string;

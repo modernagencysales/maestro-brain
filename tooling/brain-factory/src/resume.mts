@@ -6,6 +6,7 @@ import { materializeBuildTaskRunConfig } from "./build-task-run-config.js";
 import {
   acquireDispatcherLock,
   archiveTerminalTaskRecord,
+  assertArchiveActionSelectorApplicable,
   assertArchiveActionSelectorUsed,
   auditedTerminalResumeRecord,
   parseArchiveActionSelector,
@@ -71,10 +72,6 @@ if (!taskId || !sourceRef || !taskBase) {
   process.exit(2);
 }
 const root = process.cwd();
-const task = buildManifest(root).tasks.find(
-  (candidate) => candidate.taskId === taskId,
-);
-if (!task) throw new Error(`unknown task ${taskId}`);
 const state = resolve(valueAfter("--state") ?? ".fabro/state/maestro-brain");
 const evidence = resolve(state, "evidence");
 const runDirectory = resolve(state, "runs");
@@ -85,6 +82,24 @@ const workdir = resolve(
   `resume-${taskId.toLowerCase()}`,
 );
 const branch = `fabro/review-${taskId.toLowerCase()}`;
+const recordPath = resolve(runDirectory, `${taskId}.json`);
+const recordExists = existsSync(recordPath);
+const preservedWorktreeExists = existsSync(workdir);
+const preservedBranchExists =
+  archiveActionId !== undefined && !recordExists
+    ? gitBranchExists(branch, root)
+    : false;
+assertArchiveActionSelectorApplicable({
+  archiveActionId,
+  preservedBranchExists,
+  preservedWorktreeExists,
+  recordExists,
+  taskId,
+});
+const task = buildManifest(root).tasks.find(
+  (candidate) => candidate.taskId === taskId,
+);
+if (!task) throw new Error(`unknown task ${taskId}`);
 const workflow = resolve(".fabro/workflows/brain-build-task/workflow.fabro");
 mkdirSync(runDirectory, { recursive: true });
 mkdirSync(resolve(evidence, "lane-results", taskId), { recursive: true });
@@ -112,7 +127,6 @@ const { sourceHeadSha, taskBaseSha, taskCommits } = validateResumeSource({
   taskBase,
   taskId,
 });
-const recordPath = resolve(runDirectory, `${taskId}.json`);
 const expectedResume = {
   branch,
   mode: "resume-review" as const,

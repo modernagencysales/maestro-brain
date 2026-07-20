@@ -1,18 +1,22 @@
 import {
+  existsSync,
   mkdtempSync,
   readFileSync,
   renameSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
   acquireDispatcherLock,
   archiveTerminalTaskRecord,
+  assertArchiveActionSelectorApplicable,
   assertArchiveActionSelectorUsed,
   auditedTerminalResumeRecord,
   parseArchiveActionSelector,
@@ -167,6 +171,21 @@ describe("brain dispatch ownership", () => {
         activeRecord,
       ),
     );
+    const applicabilityGuard = resume.indexOf(
+      "assertArchiveActionSelectorApplicable({",
+    );
+    for (const sideEffect of [
+      "buildManifest(root)",
+      "mkdirSync(runDirectory",
+      'runRtk(["git", "fetch", "origin"])',
+      "acquireDispatcherLock({",
+      'runRtk(["git", "rev-parse", "HEAD"]',
+      "gitCommonDir(root)",
+      "validateResumeSource({",
+    ]) {
+      expect(applicabilityGuard).toBeGreaterThan(-1);
+      expect(applicabilityGuard).toBeLessThan(resume.indexOf(sideEffect));
+    }
     expect(resume).toContain("`resume_mode=${resumeMode}`");
     expect(resume).toContain("serializeResumeCommits(taskId, taskCommits)");
     expect(resume).toContain("if (!conflictAware)");
@@ -243,6 +262,36 @@ describe("brain dispatch ownership", () => {
     ).toThrow("did not resolve through audited archive selection");
   });
 
+  it.each([
+    ["an active record", true, true, true],
+    ["no preserved archive context", false, false, false],
+  ])(
+    "rejects a selector before operations with %s",
+    (_label, recordExists, preservedBranchExists, preservedWorktreeExists) => {
+      expect(() =>
+        assertArchiveActionSelectorApplicable({
+          archiveActionId: "a".repeat(64),
+          preservedBranchExists,
+          preservedWorktreeExists,
+          recordExists,
+          taskId: "S11-T02",
+        }),
+      ).toThrow("did not resolve through audited archive selection");
+    },
+  );
+
+  it("accepts an applicable selector before operations", () => {
+    expect(() =>
+      assertArchiveActionSelectorApplicable({
+        archiveActionId: "a".repeat(64),
+        preservedBranchExists: false,
+        preservedWorktreeExists: true,
+        recordExists: false,
+        taskId: "S11-T02",
+      }),
+    ).not.toThrow();
+  });
+
   it("accepts a selector only after audited archive resolution", () => {
     expect(() =>
       assertArchiveActionSelectorUsed({
@@ -251,6 +300,44 @@ describe("brain dispatch ownership", () => {
         taskId: "S11-T02",
       }),
     ).not.toThrow();
+  });
+
+  it("rejects an inapplicable CLI selector without operational side effects", () => {
+    const value = fixture();
+    const state = resolve(value.root, "state");
+    const before = spawnSync("git", ["status", "--porcelain=v1"], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+    }).stdout;
+    const result = spawnSync(
+      process.execPath,
+      [
+        resolve("node_modules/tsx/dist/cli.mjs"),
+        fileURLToPath(new URL("../src/resume.mts", import.meta.url)),
+        "--task",
+        "S99-T99",
+        "--ref",
+        "a".repeat(40),
+        "--base",
+        "b".repeat(40),
+        "--archive-action",
+        "c".repeat(64),
+        "--state",
+        state,
+      ],
+      { cwd: process.cwd(), encoding: "utf8" },
+    );
+
+    expect(`${result.stdout}${result.stderr}`).toContain(
+      "did not resolve through audited archive selection",
+    );
+    expect(existsSync(state)).toBe(false);
+    expect(
+      spawnSync("git", ["status", "--porcelain=v1"], {
+        cwd: process.cwd(),
+        encoding: "utf8",
+      }).stdout,
+    ).toBe(before);
   });
 
   it("validates a nonempty descendant source range before resume side effects", () => {
