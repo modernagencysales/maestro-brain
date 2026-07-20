@@ -1,0 +1,85 @@
+{
+  "lens": "safety",
+  "taskId": "S13-T02",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "taskBlockHash": "2b76ab1991d07a9978da3c321cbcc4f73ffc5ae9b4e3eb3512e2ff3dd4251072",
+  "baseSha": "f66236e12f93bc254cc2350800a5b2a69d0caff5",
+  "headSha": "58cb17061c3ef03f74b2aec4bedcdb17f2347239",
+  "treeSha": "35cc08f2e56dda709693569b3cd47ceed8ea85d1",
+  "reviewerRunId": "maestro/review/S13-T02/58cb17061c3ef03f74b2aec4bedcdb17f2347239/b80b48dc-c033-46f3-9446-525805433680-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "Task manifest S13-T02 fileLocks scope only docs/product/maestro-brain-capacity.md, packages/convex/test/brain-capacity.test.ts, and tooling/evals capacity harness files; no tenant data access layer or runtime authorization code changed.",
+        "tooling/evals/src/brain-capacity.ts:46-50 defines cross-tenant key/read/commit/delivery denial canaries and lines 121-123 fail the receipt if any canary is not denied.",
+        "tooling/evals/src/brain-capacity.test.ts failure cases include canary isolation bypass, and packages/convex/test/brain-capacity.test.ts:45-50 asserts all tenant denial canaries remain true."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "The scoped diff adds a synthetic eval harness, tests, and product documentation only; it introduces no public/internal/http Convex functions, web routes, auth checks, operator endpoints, or permission grants.",
+        "packages/convex/test/brain-capacity.test.ts contains a local evaluateConvexCapacityContract test helper only and does not import or mutate Convex runtime authorization surfaces."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "docs/product/maestro-brain-capacity.md states the fixture is synthetic-only and contains no provider payloads or customer text, so no customer lifecycle/tombstone handling is introduced by this task.",
+        "The task plan block for S13-T02 declares 'Migration / compatibility / rollback: no customer data' and rollback selects the last passing capacity policy without stopping exact capture already admitted.",
+        "tooling/evals/src/brain-capacity.ts:102-105 fails receipts when admitted events miss drain deadline, dropped events, or queue overflow are present."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "docs/product/maestro-brain-capacity.md Launch Envelope explicitly states the frozen fixture is synthetic-only and contains no provider payloads or customer text.",
+        "tooling/evals/src/brain-capacity-report.ts writes only synthetic receipt metrics, hashes, runner metadata, and canary booleans; no raw provider payloads, tokens, API keys, or customer/support artifacts are emitted.",
+        "Lane proof packet knownRisks records the harness is synthetic-only and live provider Slack receipts remain separate acceptance evidence."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "tooling/evals/src/brain-capacity-fixture.ts pins 100 channels, 20 events/second for 60 seconds, 10 concurrent Ask/MCP requests, 60-second fairness windows, and a 300-second drain deadline.",
+        "tooling/evals/src/brain-capacity.ts:108-119 fails shared/stalled recent or deep cursors and any fairness window where runnable channels are neither advanced nor provider-rate-blocked.",
+        "tooling/evals/src/brain-capacity.test.ts failure cases cover shared cursor, unfair FIFO, dropped event, and queue overflow."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "tooling/evals/src/brain-capacity.ts:106-107 fails attempt/effect mismatches, which is the harness proof for replay/idempotency within this synthetic capacity receipt.",
+        "tooling/evals/src/brain-capacity.test.ts includes a cross-Brain leak failure case by changing acceptedEffects away from attempts, proving duplicate or unauthorized effects make the receipt fail.",
+        "The scoped diff adds no event replay runner, scheduler, provider callback, or persistence mutation path that could introduce runtime replay side effects."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "tooling/evals/src/brain-capacity.ts receipt pins fixtureHash, configHash, codeHash, runnerClass, seed, and hardware, providing revision/config fencing for capacity proof artifacts.",
+        "tooling/evals/src/brain-capacity.ts:88-97 rejects changed fixture envelope and admitted events below the declared burst; docs/product/maestro-brain-capacity.md states raising launch limits requires a new passing receipt.",
+        "Above-envelope admission is fenced in tooling/evals/src/brain-capacity.ts:124-140 by failing silent acceptance, silent drop, or invisible queued pressure when attempted EPS exceeds the declared live burst."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "The scoped diff contains no provider SDK imports, environment variable reads, secret handling, web code, or adapter changes; provider boundaries are not broadened.",
+        "docs/product/maestro-brain-capacity.md and the lane proof packet both describe the harness as synthetic-only; live provider Slack receipts are explicitly separate acceptance evidence.",
+        "tooling/evals/src/brain-capacity-report.ts emits synthetic-only reports and writes JSON metrics only, preserving the provider/secret boundary."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
