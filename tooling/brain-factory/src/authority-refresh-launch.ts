@@ -74,8 +74,19 @@ export const assertAuthorityRepairSourceStatus = (
   }
 };
 
+export const assertOwnershipRehomeSourceStatus = (
+  status: string,
+  taskId: string,
+): void => {
+  if (status !== "succeeded")
+    throw new Error(
+      `${taskId}: ownership-rehome source run must have succeeded`,
+    );
+};
+
 export const launchAuthorityRefresh = (input: {
   readonly authorityRepair?: boolean;
+  readonly ownershipRehome?: boolean;
   readonly evidence: string;
   readonly recordPath: string;
   readonly root: string;
@@ -110,16 +121,29 @@ export const launchAuthorityRefresh = (input: {
     (candidate) => candidate.taskId === input.taskId,
   );
   if (!task) throw new Error(`unknown task ${input.taskId}`);
-  const transition = input.authorityRepair
+  if (input.authorityRepair && input.ownershipRehome)
+    throw new Error(`${input.taskId}: choose exactly one authority transition`);
+  const repairTransition = input.authorityRepair
     ? task.authorityRepairTransition
     : undefined;
-  if (input.authorityRepair && !transition) {
+  const rehomeTransition = input.ownershipRehome
+    ? task.ownershipRehomeTransition
+    : undefined;
+  const transition = repairTransition ?? rehomeTransition;
+  if (input.authorityRepair && !repairTransition) {
     throw new Error(
       `${input.taskId}: no authority-repair transition is authorized`,
     );
   }
   if (input.authorityRepair) {
     assertAuthorityRepairSourceStatus(status, input.taskId);
+  }
+  if (input.ownershipRehome) {
+    if (!rehomeTransition)
+      throw new Error(
+        `${input.taskId}: no ownership-rehome transition is authorized`,
+      );
+    assertOwnershipRehomeSourceStatus(status, input.taskId);
   }
   const controlHeadSha = runRtk(["git", "rev-parse", "HEAD"], {
     quiet: true,
@@ -160,7 +184,12 @@ export const launchAuthorityRefresh = (input: {
       })
     : [];
   const admissionInput = {
-    ...(transition ? { authorityRepairTransition: transition } : {}),
+    ...(repairTransition
+      ? { authorityRepairTransition: repairTransition }
+      : {}),
+    ...(rehomeTransition
+      ? { ownershipRehomeTransition: rehomeTransition }
+      : {}),
     branchExists: (candidate: string) => gitBranchExists(candidate, input.root),
     controlHeadSha,
     evidence: input.evidence,
@@ -194,7 +223,11 @@ export const launchAuthorityRefresh = (input: {
     now,
     owner: {
       controlRoot: input.root,
-      mode: input.authorityRepair ? "authority-repair" : "authority-refresh",
+      mode: input.authorityRepair
+        ? "authority-repair"
+        : input.ownershipRehome
+          ? "ownership-rehome"
+          : "authority-refresh",
       pid: process.pid,
       runId: terminalRunId,
       startedAt: now,
@@ -214,7 +247,7 @@ export const launchAuthorityRefresh = (input: {
   const { branch, workdir } = admission.coordinates;
   const preparingRecord = {
     authorityArchivePath: admission.archiveDirectory,
-    ...(input.authorityRepair
+    ...(transition
       ? {
           authorityArchiveManifestSha256: admission.archiveManifestSha256,
         }
@@ -222,7 +255,11 @@ export const launchAuthorityRefresh = (input: {
     baseSha: controlHeadSha,
     branch,
     factoryBaseSha: controlHeadSha,
-    mode: input.authorityRepair ? "authority-repair" : "authority-refresh",
+    mode: input.authorityRepair
+      ? "authority-repair"
+      : input.ownershipRehome
+        ? "ownership-rehome"
+        : "authority-refresh",
     resumeStrategy: "in-lane-cherry-pick",
     sourceHeadSha: admission.sourceHeadSha,
     status: "preparing",
@@ -242,9 +279,7 @@ export const launchAuthorityRefresh = (input: {
     evidence: input.evidence,
     hostTestMaxLoad1m: "20",
     reproofRequest: "none",
-    authorityRepairArchive: input.authorityRepair
-      ? admission.archiveDirectory
-      : "none",
+    authorityRepairArchive: transition ? admission.archiveDirectory : "none",
     resumeBranch: branch,
     resumeCommits: serializedCommits,
     resumeExpectedCommit: "none",
@@ -284,11 +319,9 @@ export const launchAuthorityRefresh = (input: {
           "--label",
           `task=${input.taskId}`,
           "--label",
-          `mode=${input.authorityRepair ? "authority-repair" : "authority-refresh"}`,
+          `mode=${input.authorityRepair ? "authority-repair" : input.ownershipRehome ? "ownership-rehome" : "authority-refresh"}`,
           "-I",
-          `authority_repair_archive=${
-            input.authorityRepair ? admission.archiveDirectory : "none"
-          }`,
+          `authority_repair_archive=${transition ? admission.archiveDirectory : "none"}`,
           "-I",
           `workdir=${workdir}`,
           "-I",

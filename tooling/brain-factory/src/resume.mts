@@ -40,7 +40,11 @@ interface ResumeRecord {
   readonly baseSha?: string;
   readonly branch: string;
   readonly factoryBaseSha?: string;
-  readonly mode?: "authority-refresh" | "authority-repair" | "resume-review";
+  readonly mode?:
+    | "authority-refresh"
+    | "authority-repair"
+    | "ownership-rehome"
+    | "resume-review";
   readonly runId?: string;
   readonly resumeStrategy?: "in-lane-cherry-pick" | "prelaunch-cherry-pick";
   readonly sourceHeadSha?: string;
@@ -89,6 +93,7 @@ const taskBase = valueAfter("--base");
 const archiveActionId = parseArchiveActionSelector(process.argv.slice(2));
 const authorityRefresh = process.argv.includes("--authority-refresh");
 const authorityRepair = process.argv.includes("--authority-repair");
+const ownershipRehome = process.argv.includes("--ownership-rehome");
 const conflictAware = process.argv.includes("--conflict-aware");
 let resumeStrategy = resolveResumeStrategy({
   authorityOwner: false,
@@ -96,22 +101,28 @@ let resumeStrategy = resolveResumeStrategy({
 });
 if (
   !taskId ||
-  (!authorityRefresh && !authorityRepair && (!sourceRef || !taskBase))
+  (!authorityRefresh &&
+    !authorityRepair &&
+    !ownershipRehome &&
+    (!sourceRef || !taskBase))
 ) {
   console.error(
-    "usage: brain:factory:resume -- --task <id> (--authority-refresh | --authority-repair | --ref <git-ref> --base <sha> [--conflict-aware]) [--archive-action <id>]",
+    "usage: brain:factory:resume -- --task <id> (--authority-refresh | --authority-repair | --ownership-rehome | --ref <git-ref> --base <sha> [--conflict-aware]) [--archive-action <id>]",
   );
   process.exit(2);
 }
 if (
-  (authorityRefresh || authorityRepair) &&
+  (authorityRefresh || authorityRepair || ownershipRehome) &&
   (sourceRef || taskBase || conflictAware || archiveActionId)
 ) {
   throw new Error(
     `${taskId}: authority transition derives exact source coordinates and cannot be combined with --ref, --base, --conflict-aware, or --archive-action`,
   );
 }
-if (authorityRefresh && authorityRepair) {
+if (
+  [authorityRefresh, authorityRepair, ownershipRehome].filter(Boolean).length >
+  1
+) {
   throw new Error(`${taskId}: choose exactly one authority transition`);
 }
 const root = process.cwd();
@@ -139,9 +150,10 @@ assertArchiveActionSelectorApplicable({
   recordExists,
   taskId,
 });
-if (authorityRefresh || authorityRepair) {
+if (authorityRefresh || authorityRepair || ownershipRehome) {
   launchAuthorityRefresh({
     authorityRepair,
+    ownershipRehome,
     evidence,
     recordPath,
     root,
@@ -256,9 +268,13 @@ if (existsSync(recordPath)) {
   }
   if (
     record.mode === "authority-refresh" ||
-    record.mode === "authority-repair"
+    record.mode === "authority-repair" ||
+    record.mode === "ownership-rehome"
   ) {
-    if (record.mode === "authority-repair") {
+    if (
+      record.mode === "authority-repair" ||
+      record.mode === "ownership-rehome"
+    ) {
       authorityRepairArchive = record.authorityArchivePath ?? "none";
     }
     const owner = validateTerminalAuthorityResumeOwner({
