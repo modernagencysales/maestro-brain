@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+import { localChannelPolicyFixture } from "../features/connections/connections-adapter";
 import { ConnectionsScreen } from "../features/connections/connections-screen";
 import { BusinessAppShell, BusinessPageRoot } from "../saas-ui/business-shell";
 
@@ -18,6 +19,7 @@ const initialConnectionsState = {
       lastSync: "Local fixture",
     },
   ],
+  channelPolicy: localChannelPolicyFixture,
 } as const;
 
 function ConnectionsRoute() {

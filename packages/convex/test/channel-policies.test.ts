@@ -204,14 +204,15 @@ describe("Slack channel policy contract", () => {
     if (planned._tag === "Right") {
       expect(planned.right.routingPolicies).toHaveLength(1);
       expect(planned.right.deliveryPolicies).toHaveLength(1);
-      expect(planned.right.routingPolicies[0]!).toMatchObject({
+      const [routingPolicy] = planned.right.routingPolicies;
+      expect(routingPolicy).toMatchObject({
         policyEpoch: 1,
         active: true,
         mode: "direct",
         targetBrainKeys: ["brain_alpha"],
         statusAfterApply: "streaming",
       });
-      expect(planned.right.routingPolicies[0]!.pendingSourceInterval).toEqual({
+      expect(routingPolicy?.pendingSourceInterval).toEqual({
         firstObservedAt: 2_000,
         status: "pending",
       });
