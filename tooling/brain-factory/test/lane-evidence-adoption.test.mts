@@ -17,8 +17,10 @@ import { adoptLegacyIntegratedLaneEvidence } from "../src/lane-evidence-adoption
 import { validateLaneAcceptance } from "../src/lane-acceptance.js";
 
 const roots: string[] = [];
-// This integration test boots three separate tsx processes. Under broad-suite
-// worker contention, process startup can exceed Vitest's 5-second default.
+// Broad-suite contention can push separate tsx boots past Vitest's 5s default.
+// Bound each child below the outer test budget so spawnSync cannot strand
+// Vitest on a hung CLI.
+const CLI_PROCESS_TIMEOUT = 25_000;
 const CLI_TEST_TIMEOUT = 30_000;
 const sha256 = (value: string): string =>
   createHash("sha256").update(value).digest("hex");
@@ -478,11 +480,19 @@ describe("legacy integrated lane evidence adoption", () => {
         resolve(process.cwd(), "../../node_modules/.bin/tsx"),
       );
       const script = resolve(process.cwd(), "src/adopt-lane-evidence.mts");
-      const run = (...args: string[]) =>
+      const run = (
+        args: readonly string[] = [],
+        timeoutMs = CLI_PROCESS_TIMEOUT,
+      ) =>
         spawnSync(tsx, [script, "--state", value.root, ...args], {
           cwd: value.root,
           encoding: "utf8",
+          timeout: timeoutMs,
         });
+
+      const timedOut = run([], 1);
+      expect(timedOut.status).toBeNull();
+      expect(timedOut.error).toMatchObject({ code: "ETIMEDOUT" });
 
       const preview = run();
       expect(preview.status, preview.stderr).toBe(0);
@@ -490,7 +500,7 @@ describe("legacy integrated lane evidence adoption", () => {
         mode: "preview",
         pendingCount: 1,
       });
-      const apply = run("--apply");
+      const apply = run(["--apply"]);
       expect(apply.status, apply.stderr).toBe(0);
       expect(JSON.parse(apply.stdout)).toMatchObject({
         mode: "apply",
