@@ -7,6 +7,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -312,7 +313,7 @@ describe("brain dispatch ownership", () => {
     const result = spawnSync(
       process.execPath,
       [
-        resolve("node_modules/tsx/dist/cli.mjs"),
+        createRequire(import.meta.url).resolve("tsx/cli"),
         fileURLToPath(new URL("../src/resume.mts", import.meta.url)),
         "--task",
         "S99-T99",
