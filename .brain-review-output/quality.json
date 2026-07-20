@@ -1,0 +1,87 @@
+{
+  "lens": "quality",
+  "taskId": "S04-T04",
+  "planSha256": "b6c8c42e744502700c8607be941e8f3dbe1e790d70abc7f3666efbf69554f9ca",
+  "taskBlockHash": "43fe7362c17307d938a689c31cfaa350124a5029c8ef938d09c8f08066ec12c5",
+  "baseSha": "e8f008574eff0d1a21700ff02926ac4c9870d425",
+  "headSha": "abe0f31eaeae61b656240d8f171d091cfd6fed3d",
+  "treeSha": "b29855b45c2a7978ef65d938ff5c49d53e5523a1",
+  "reviewerRunId": "maestro/review/S04-T04/abe0f31eaeae61b656240d8f171d091cfd6fed3d/ff894c45-3aee-487a-9217-dc32a1e60be5-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1563-1564 requires admins to bulk-select any joined channels and set explicit policies.",
+        "apps/web/src/features/connections/channel-policy-view-model.test.ts:25-62 covers pure labels/capacity only; apps/web/src/features/connections/connections-screen.test.tsx:30-47 renders only provider rows and does not prove any bulk selection affordance exists on the Connections surface.",
+        "apps/web/src/features/connections/channel-table.tsx:11-33 renders Channel, Routing, and Delivery columns only; the row.selectable field produced by apps/web/src/features/connections/channel-policy-view-model.ts:32-40 is never rendered as a checkbox or other selection control. apps/web/src/features/connections/channel-policy-dialog.tsx:33 renders a disabled/enabled Apply button but no policy mode/target controls."
+      ],
+      "findingIds": [
+        "S04-T04-QUALITY-003"
+      ]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "apps/web/src/routes/_workspace.connections.tsx:4-8 imports feature-level connection/channel policy UI and fixture data at the route boundary; feature components do not import Convex, Confect refs, provider SDKs, or route modules.",
+        "packages/convex/confect/slack/channelPolicies.spec.ts:41-52 defines an internal Confect mutation contract and packages/convex/confect/slack/channelPolicies.impl.ts:23-221 implements it through FunctionImpl/GroupImpl with DatabaseReader/DatabaseWriter services.",
+        "The exact-head lane-gate-report.json includes rtk pnpm check:layer-boundaries and records status=passed for headSha abe0f31eaeae61b656240d8f171d091cfd6fed3d."
+      ]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "finding",
+      "evidence": [
+        "apps/web/src/features/connections/channel-policy-view-model.ts:15 defines ChannelPolicyRow.selectable, but apps/web/src/features/connections/channel-table.tsx:21-30 ignores it, making the model/UI contract misleading for the task's bulk-select requirement.",
+        "apps/web/src/features/connections/channel-policy-dialog.tsx:5-38 is named as a dialog summary and only displays capacity text plus an Apply button; it has no representation of Direct/Classify/Capture-only routing choices, target Brain selection, or requester_private/capture_only delivery choices required by the policy control plane.",
+        "The route does render ChannelTable and ChannelPolicyDialogSummary in apps/web/src/routes/_workspace.connections.tsx:41-65, but the implementation remains a read-only status table with a fixture count, so future wiring would need to replace rather than complete the current UI contract."
+      ],
+      "findingIds": [
+        "S04-T04-QUALITY-003"
+      ]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.impl.ts:115-132 persists redacted slack.channelPolicyChanged audit events via recordAccessAuditEvent for planned audit rows, recording outcome, action, and targetCount without raw Slack payloads or secrets.",
+        "packages/convex/confect/access/audit.ts:7-22 includes slack.channelPolicyChanged in the privileged audit action enum, and lines 95-103 write accessAuditEvents rows.",
+        "The exact-head lane-gate-report.json includes rtk pnpm check:access-audit-events and records status=passed for headSha abe0f31eaeae61b656240d8f171d091cfd6fed3d."
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "lane-gate-report.json records changedSourceLines=852, estimatedSourceLines=290, sourceSliceBudget=300, sourceSliceLimit=4, and exactly four sourceSlices of 71, 287, 275, and 219 changed source lines.",
+        "Although estimateDrift is true, the source slice limit is respected and the exact-head lane-gate report status is passed for headSha abe0f31eaeae61b656240d8f171d091cfd6fed3d and currentTreeSha b29855b45c2a7978ef65d938ff5c49d53e5523a1."
+      ]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "pass",
+      "evidence": [
+        "rtk proxy git diff --name-only e8f008574eff0d1a21700ff02926ac4c9870d425..HEAD -- docs/superpowers packages/convex apps/web lists only source/docs/test paths and no packages/convex/confect/_generated or Convex generated outputs.",
+        "lane-gate-report.json includes rtk pnpm brain:factory:check-confect-codegen and records status=passed at the exact review head.",
+        "Per review instructions, generated Confect/Convex output is integration-owned by Appendices O/P; because transient exact-head codegen passed and the task diff does not edit generated paths, absence from the checked-in generated tree is expected lane state rather than a task finding."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "S04-T04-QUALITY-003",
+      "severity": "high",
+      "summary": "Connections policy UI is read-only and cannot bulk-select channels or set policies.",
+      "details": "The task requires admins to bulk-select joined channels and set explicit routing and delivery policies. The route now shows the policy card, but ChannelTable renders only static channel/routing/delivery text and ignores the selectable flag, while ChannelPolicyDialogSummary only displays capacity labels and an Apply button. There are no checkboxes or equivalent bulk-selection controls, and no UI controls for Direct/Classify/Capture-only routing, target Brain allowlists, or delivery mode. The focused web tests cover view-model labels/capacity, not the required interactive control-plane behavior, so this is a false green for the UI requirement.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1563-1564: admins can bulk-select any joined channels and set explicit policies.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1591-1598 requires direct/classify/capture_only routing, target Brain constraints, capture_only/requester_private delivery, launch caps, and accepted bulk changes.",
+        "apps/web/src/features/connections/channel-table.tsx:11-33 renders only Channel, Routing, and Delivery columns; it does not render row.selectable as a checkbox or selection affordance.",
+        "apps/web/src/features/connections/channel-policy-dialog.tsx:17-34 renders capacity labels/warnings and Apply channel policies, but no policy mode, target Brain, or delivery controls.",
+        "apps/web/src/features/connections/channel-policy-view-model.test.ts:25-62 and apps/web/src/features/connections/connections-screen.test.tsx:30-47 do not assert bulk selection or policy-setting controls on the Connections surface."
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
