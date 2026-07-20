@@ -1,0 +1,86 @@
+{
+  "lens": "contract",
+  "taskId": "S10-T01",
+  "planSha256": "b6c8c42e744502700c8607be941e8f3dbe1e790d70abc7f3666efbf69554f9ca",
+  "taskBlockHash": "31d477606c8d812c0f800d81d3401104da038d29fbb39dce06e1292cbd8d6e04",
+  "baseSha": "e8f008574eff0d1a21700ff02926ac4c9870d425",
+  "headSha": "0a79e08703870fab3204d3ee74194ae726fa054d",
+  "treeSha": "d4d8e9476cd7477d419587e71ad460b02ae0bc4a",
+  "reviewerRunId": "maestro/review/S10-T01/0a79e08703870fab3204d3ee74194ae726fa054d/8ca5c69d-bc47-43f6-bc80-cc405acebce1-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1278-1303",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2825-2851",
+        "docs/product/maestro-brain-lifecycle-adoption/S10-T01.md:3-17"
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "finding",
+      "findingIds": ["C-S10-T01-001"],
+      "evidence": [
+        "packages/convex/confect/slack/identityLinks.spec.ts:31-40",
+        "packages/convex/confect/slack/identityLinks.spec.ts:63-80",
+        "packages/convex/confect/slack/identityLinks.impl.ts:315-349"
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/slackIdentityBindings.ts:13-31",
+        "packages/convex/confect/tables/slackIdentityBindings.ts:35-49",
+        "packages/convex/confect/internal/migrations.ts:86-90"
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "finding",
+      "findingIds": ["C-S10-T01-001"],
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2825-2836",
+        "docs/product/maestro-brain-lifecycle-adoption/S10-T01.md:19-29",
+        "packages/convex/confect/slack/identityLink.ts:11-17"
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1280-1293",
+        "ci-proof-packet.json:8-21",
+        "git diff --name-only e8f008574eff0d1a21700ff02926ac4c9870d425..HEAD"
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "findingIds": ["C-S10-T01-001"],
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2825-2839",
+        "packages/convex/test/slack-identity-links.test.ts:168-212",
+        "packages/convex/test/slack-identity-links.test.ts:322-347",
+        "packages/convex/confect/slack/identityLinks.impl.ts:321-340"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "C-S10-T01-001",
+      "severity": "blocking",
+      "summary": "Slack confirmation can activate a stale connection-generation binding.",
+      "details": "The task requires stale connection generation coverage and revocation/denial on connection replacement, with every request rechecking the binding against current authorization. The registered consumeSlackIdentityLink mutation only loads the pending nonce row, checks team/user/replay through the pure plan, and patches it active; it never reloads the provider connection or compares the pending row's connectionGeneration to the current active Slack connection before activation. If a Slack connection is replaced after intent creation and before confirmation, the old nonce can still create an active binding. The focused tests cover pure expired/replay/wrong-team/already-bound cases and a durable happy-path replay, but they do not exercise stale connection-generation failure on the registered mutation.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2825-2839",
+        "docs/product/maestro-brain-lifecycle-adoption/S10-T01.md:27-29",
+        "packages/convex/confect/slack/identityLink.ts:11-17",
+        "packages/convex/confect/slack/identityLinks.impl.ts:321-340",
+        "packages/convex/test/slack-identity-links.test.ts:322-347"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
