@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "taskId": "S00-T04",
+  "taskBlockHash": "14cb8f5699f656208b9a51eddb200035dfecef8159e0499a6099c3f545b2a613",
+  "phase": "expand",
+  "migrations": ["probe.expand", "probe.fail"],
+  "implementationModule": "../migration-implementations/S00-T04",
+  "dependsOn": []
+}
