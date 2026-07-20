@@ -152,12 +152,22 @@ describe("migration fragment registry", () => {
       execFileSync("pnpm", ["exec", "tsx", script, "--root", root, "--write"], {
         cwd: process.cwd(),
       });
+      expect(() =>
+        execFileSync(
+          "pnpm",
+          ["exec", "tsx", script, "--root", root, "--root-cwd", "--check"],
+          { cwd: process.cwd(), stdio: "pipe" },
+        ),
+      ).toThrow();
       const target = join(
         root,
         "packages/convex/confect/internal/migrations.generated.ts",
       );
       const first = readFileSync(target, "utf8");
       execFileSync("pnpm", ["exec", "tsx", script, "--root", root, "--check"], {
+        cwd: process.cwd(),
+      });
+      execFileSync("pnpm", ["exec", "tsx", script, "--root-cwd", "--check"], {
         cwd: process.cwd(),
       });
       execFileSync("pnpm", ["exec", "tsx", script, "--root", root, "--write"], {
@@ -184,5 +194,5 @@ describe("migration fragment registry", () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
-  });
+  }, 20000);
 });

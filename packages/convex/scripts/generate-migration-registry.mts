@@ -11,7 +11,17 @@ import { assembleMigrationRegistry } from "../confect/internal/migrationFragment
 
 const args = process.argv.slice(2);
 const rootIndex = args.indexOf("--root");
-const root = rootIndex >= 0 ? args[rootIndex + 1] : undefined;
+const hasRoot = rootIndex >= 0;
+const hasRootCwd = args.includes("--root-cwd");
+const rootFromCwd = () => {
+  const cwd = process.cwd();
+  return cwd.endsWith("/packages/convex") ? dirname(dirname(cwd)) : cwd;
+};
+const root = hasRoot
+  ? args[rootIndex + 1]
+  : hasRootCwd
+    ? rootFromCwd()
+    : undefined;
 const mode = args.includes("--write")
   ? "write"
   : args.includes("--check")
@@ -21,9 +31,10 @@ if (
   !root ||
   !isAbsolute(root) ||
   !mode ||
-  (args.includes("--write") && args.includes("--check"))
+  (args.includes("--write") && args.includes("--check")) ||
+  (hasRoot && hasRootCwd)
 )
-  throw new Error("usage: --root <absolute> (--check|--write)");
+  throw new Error("usage: (--root <absolute>|--root-cwd) (--check|--write)");
 const dir = join(root, "packages/convex/confect/internal/migration-fragments");
 const target = join(
   root,

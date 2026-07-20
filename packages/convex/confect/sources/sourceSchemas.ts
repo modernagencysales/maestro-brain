@@ -8,7 +8,6 @@ const ProviderObjectId = Schema.String.pipe(
 );
 const SourceKey = Schema.String.pipe(Schema.pattern(/^src_[A-Za-z0-9_.:-]+$/));
 const RevisionKey = Schema.String.pipe(Schema.pattern(/^srev_[a-f0-9]{64}$/));
-const JobKey = Schema.String.pipe(Schema.pattern(/^sjob_[a-f0-9]{64}$/));
 const IsoTimestamp = Schema.String.pipe(
   Schema.pattern(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/),
 );
