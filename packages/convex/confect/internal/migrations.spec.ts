@@ -4,9 +4,11 @@ import * as Schema from "effect/Schema";
 import type {
   probeExpand,
   probeFail,
+} from "./migration-implementations/S00-T04";
+import type {
   stableTenantOrganizationKeysExpand,
   stableTenantWorkspaceKeysExpand,
-} from "./migrations";
+} from "./migration-implementations/S01-T02";
 const NonEmpty = Schema.String.pipe(Schema.minLength(1));
 const MigrationNameField = { migrationName: Schema.String };
 export class MigrationNotFound extends Schema.TaggedError<MigrationNotFound>()(

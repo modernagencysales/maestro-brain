@@ -15,6 +15,11 @@ import {
   DatabaseWriter,
   MutationRunner,
 } from "../_generated/services";
+import { probeExpand, probeFail } from "./migration-implementations/S00-T04";
+import {
+  stableTenantOrganizationKeysExpand,
+  stableTenantWorkspaceKeysExpand,
+} from "./migration-implementations/S01-T02";
 import {
   batchReceiptJson,
   childReceiptHash,
@@ -26,11 +31,7 @@ import {
   makeSettlementInput,
   parentReceipt,
   parentReceiptHash,
-  probeExpand,
-  probeFail,
   releaseParentKey,
-  stableTenantOrganizationKeysExpand,
-  stableTenantWorkspaceKeysExpand,
   runKeyForMigration,
 } from "./migrations";
 import migrations, {

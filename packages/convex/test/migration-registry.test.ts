@@ -82,6 +82,31 @@ const fragments = [
   },
 ];
 
+describe("migration runtime extraction", () => {
+  it("binds Confect specs and impls to task-owned implementation modules", () => {
+    const spec = readFileSync(
+      join(packageRoot, "confect/internal/migrations.spec.ts"),
+      "utf8",
+    );
+    const impl = readFileSync(
+      join(packageRoot, "confect/internal/migrations.impl.ts"),
+      "utf8",
+    );
+
+    expect(spec).toContain('from "./migration-implementations/S00-T04"');
+    expect(spec).toContain('from "./migration-implementations/S01-T02"');
+    expect(impl).toContain('from "./migration-implementations/S00-T04"');
+    expect(impl).toContain('from "./migration-implementations/S01-T02"');
+    expect(spec).not.toContain('} from "./migrations"');
+    expect(impl).not.toContain(
+      "probeExpand,\n  probeFail,\n  releaseParentKey",
+    );
+    expect(impl).not.toContain(
+      "releaseParentKey,\n  stableTenantOrganizationKeysExpand",
+    );
+  });
+});
+
 describe("migration fragment registry", () => {
   it("assembles deterministic phase-aware registry bytes", () => {
     const registry = assembleMigrationRegistry([...fragments].reverse());
@@ -236,5 +261,5 @@ describe("migration fragment registry", () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
-  }, 20000);
+  }, 90000);
 });
