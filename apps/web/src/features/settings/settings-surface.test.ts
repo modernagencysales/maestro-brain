@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { providerAdapters } from "../../sample/templateData";
-import { buildSettingsDocumentSections } from "./settings-surface";
+import {
+  buildSettingsDocumentSections,
+  selectStableApiKeyBrainKey,
+} from "./settings-surface";
 
 const workspace = {
   workspaceId: "workspace_template",
@@ -12,6 +15,15 @@ const workspace = {
 } as const;
 
 describe("settings surface", () => {
+  it("selects the stable Brain key for API-key refs instead of client slug", () => {
+    expect(
+      selectStableApiKeyBrainKey({
+        workspaceId: "br_01JSTABLEBRAINKEY000000000",
+        slug: "acme-client-slug",
+      }),
+    ).toBe("br_01JSTABLEBRAINKEY000000000");
+  });
+
   it("renders a missing-workspace state before settings controls are enabled", () => {
     const sections = buildSettingsDocumentSections({
       workspace: null,
@@ -40,6 +52,7 @@ describe("settings surface", () => {
     expect(sections.map((section) => section.heading)).toEqual([
       "Workspace",
       "Members",
+      "Brain API keys",
       "Provider health",
       "Billing and credits",
       "Safe environment rendering",
@@ -50,8 +63,11 @@ describe("settings surface", () => {
     expect(sections[1]?.body).toContain(
       "Owners may transfer Brain ownership without leaving zero owners.",
     );
-    expect(sections[3]?.body.join("\n")).toContain("Fake billing");
-    expect(sections[4]?.body.join("\n")).toContain(
+    expect(sections[2]?.body.join("\n")).toContain(
+      "display-once one-Brain keys",
+    );
+    expect(sections[4]?.body.join("\n")).toContain("Fake billing");
+    expect(sections[5]?.body.join("\n")).toContain(
       "must never render secret values",
     );
   });
