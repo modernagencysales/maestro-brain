@@ -1,0 +1,117 @@
+{
+  "lens": "safety",
+  "taskId": "S08-T04",
+  "planSha256": "2bca6b40d7acab334b2036e9ed35652c06ebe8729c1a6c3319c04f827b7a77ce",
+  "taskBlockHash": "2bccfe705e20eef30b384725a71d69db2671a70d5c96f541fb95ec6b73629525",
+  "baseSha": "e28ceeb126083211cc7b2070c673b78e513d125b",
+  "headSha": "9b0812d56d0850ff5afc6b58d75b286e6021cd96",
+  "treeSha": "d8de58302eb4921029b8e20b359dda36380f97c2",
+  "reviewerRunId": "maestro/review/S08-T04/9b0812d56d0850ff5afc6b58d75b286e6021cd96/49d94afc-ae91-4075-9f71-887f05a03bf3-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "finding",
+      "evidence": [
+        "Task packet requires routed units/current pages/citation candidates to be gathered into an immutable context pack and commit validation to enforce policy, budgets, and generations (docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2533-2539).",
+        "maintainBrainPage is declared as FunctionSpec.publicMutation with only workspaceSlug/input args and no caller/principal/brain/page tenant identifiers (packages/convex/confect/capabilities/maintainBrainPage.spec.ts:5-20).",
+        "maintainBrainPage impl ignores args and returns Effect.succeed canned data without loading or validating tenant-owned workspace/brain/page context (packages/convex/confect/capabilities/maintainBrainPage.impl.ts:7-17)."
+      ],
+      "findingIds": ["S08-T04-SAFETY-001"]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "finding",
+      "evidence": [
+        "Task packet requires administrator-controlled progressive autonomy and administrator-only Autopilot graduation (docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2483-2485,2537-2539).",
+        "maintainBrainPage is a public mutation and its implementation has no auth/role check before accepting the request (packages/convex/confect/capabilities/maintainBrainPage.spec.ts:15-20; packages/convex/confect/capabilities/maintainBrainPage.impl.ts:7-17).",
+        "The UI model hides Autopilot controls for viewer/editor roles, but this is client-side only and not backed by a server-side admin/owner authorization boundary in the capability (apps/web/src/features/brain/maintenance-review.tsx:80-99)."
+      ],
+      "findingIds": ["S08-T04-SAFETY-001"]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "Maintenance context includes lifecycleGeneration and lifecycleState, with requireActiveLifecycle throwing LifecycleRevoked when revoked (packages/convex/confect/maintenance/policy.ts:37-53,69-75).",
+        "gatherMaintenanceContextPack calls requireActiveLifecycle before returning a bounded context pack (packages/convex/confect/maintenance/gather.ts:7-16).",
+        "Focused tests cover lifecycle-revoked gather inputs (packages/convex/test/brain-maintenance.test.ts:135-153)."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "finding",
+      "evidence": [
+        "Task packet requires exact routed evidence/citation candidates and prompt-injection controls, with customer/provider/model values treated as untrusted data (docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2533-2539; requirement AI-04 at lines 201-202).",
+        "maintainBrainPage exposes a public mutation accepting arbitrary input as Schema.String and its generic domain normalizes raw input without enforcing immutable context-pack-only citations or redaction boundaries (packages/convex/confect/capabilities/maintainBrainPage.spec.ts:5-20; packages/convex/confect/capabilities/maintainBrainPage.domain.ts:4-30).",
+        "The implementation returns a canned success rather than proving that no raw user/provider text can be submitted to or persisted by the public capability path (packages/convex/confect/capabilities/maintainBrainPage.impl.ts:7-17)."
+      ],
+      "findingIds": ["S08-T04-SAFETY-001"]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "finding",
+      "evidence": [
+        "Task packet requires one accepted revision effect, duplicate attempts coverage, and stale page/source/route/lifecycle generation failures (docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2527-2532,2564-2566).",
+        "commitMaintenanceProposal is a pure function that returns a revisionEffect but does not perform an atomic durable compare-and-set/write against brainMaintenanceProposals or page revisions, so concurrent reviewers/autopilot workers could each accept the same logical proposal in real wiring (packages/convex/confect/maintenance/commit.ts:39-77).",
+        "brainMaintenanceProposals defines indexes but no unique constraint/effect-key field for one accepted revision effect (packages/convex/confect/tables/brainMaintenanceProposals.ts:18-38)."
+      ],
+      "findingIds": ["S08-T04-SAFETY-002"]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "finding",
+      "evidence": [
+        "Task packet requires duplicate attempts and one accepted revision effect proof (docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2531-2532,2564-2566).",
+        "proposalKeyFor is derived only from pageKey, currentRevisionKey, output kind, and modelPromptPair, excluding route/lifecycle/policy generations, citations, content hash, and explicit effect/idempotency keys (packages/convex/confect/maintenance/request.ts:44-55).",
+        "The commit path has no durable accepted-effect check or replay record; it returns published/accepted_noop every time the same proposal is passed with fresh context (packages/convex/confect/maintenance/commit.ts:39-77)."
+      ],
+      "findingIds": ["S08-T04-SAFETY-002"]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "Maintenance proposals carry expectedRevisionKey, routeGeneration, lifecycleGeneration, and policyGeneration (packages/convex/confect/maintenance/request.ts:24-42,67-78).",
+        "commitMaintenanceProposal checks current revision, route generation, lifecycle generation, and policy generation against the proposal and throws StaleRevision on mismatch before returning a revision effect (packages/convex/confect/maintenance/commit.ts:25-37,47-49).",
+        "Focused tests assert stale currentRevisionKey is rejected (packages/convex/test/brain-maintenance.test.ts:79-98)."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "No changed maintenance/capability/workflow files import live provider SDKs; semantic model output is represented as typed MaintenanceModelOutput input to the deterministic request/commit functions (packages/convex/confect/maintenance/request.ts:9-22,57-95).",
+        "The workflow impl composes Convex workflow component functions and local workflow ownership/status helpers rather than calling provider adapters directly (packages/convex/confect/workflowContracts/sourceToBrainMaintenance.impl.ts:1-35,145-228).",
+        "Lane proof records check:provider-boundary-equivalent gates for workflow/layer/headless surfaces and the passed pre-review lane gate for S08-T04 (ci-proof-packet.json:32-42; lane gate output reports S08-T04 passed pre-review)."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "S08-T04-SAFETY-001",
+      "severity": "high",
+      "summary": "Public maintainBrainPage capability lacks server-side tenant, auth, and privacy boundary.",
+      "details": "The task contract is for a workflow-scoped cited Brain maintenance capability over immutable routed context. The added Confect spec is a public mutation with workspaceSlug/input only, and the implementation accepts by returning canned success without resolving an authorized caller, workspace membership, brain/page tenancy, admin Autopilot authority, or context-pack-only/redacted inputs. This creates a public server path that does not enforce tenant isolation or authorization before accepting maintenance requests.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2483-2493,2533-2539",
+        "packages/convex/confect/capabilities/maintainBrainPage.spec.ts:5-20",
+        "packages/convex/confect/capabilities/maintainBrainPage.impl.ts:7-17",
+        "packages/convex/confect/capabilities/maintainBrainPage.domain.ts:4-30",
+        "apps/web/src/features/brain/maintenance-review.tsx:80-99"
+      ]
+    },
+    {
+      "id": "S08-T04-SAFETY-002",
+      "severity": "high",
+      "summary": "Maintenance commit/replay path lacks durable atomic one-effect fencing.",
+      "details": "The task requires duplicate-attempt handling and exactly one accepted revision effect. The commit helper only performs in-memory freshness checks and returns a revisionEffect; it does not atomically persist acceptance, compare-and-set the proposal/page revision, or record an effect key. The proposal key also omits generations, citations, content hash, and idempotency/effect key fields, so stale or distinct attempts can collide while replayed fresh attempts can repeatedly publish in real wiring.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2527-2532,2564-2566",
+        "packages/convex/confect/maintenance/request.ts:44-55",
+        "packages/convex/confect/maintenance/commit.ts:25-77",
+        "packages/convex/confect/tables/brainMaintenanceProposals.ts:18-38"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
