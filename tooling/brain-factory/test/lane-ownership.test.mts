@@ -58,6 +58,27 @@ describe("lane file ownership", () => {
     );
   });
 
+  it("authorizes the exact integration-owned migration registry output", () => {
+    const allowed = integrationGeneratedFileAllowlist({ laneFiles: [] });
+
+    expect(
+      allowed.has("packages/convex/confect/internal/migrations.generated.ts"),
+    ).toBe(true);
+    expect(
+      allowed.has(
+        "packages/convex/confect/internal/migrations.generated.extra.ts",
+      ),
+    ).toBe(false);
+    expect(
+      laneFileOwnershipIssues(
+        ["packages/convex/confect/internal/migrations.generated.ts"],
+        ["packages/convex/confect/internal/migrations.generated.ts"],
+      ),
+    ).toEqual([
+      "packages/convex/confect/internal/migrations.generated.ts: generated output is integration-owned",
+    ]);
+  });
+
   it("accepts only exact manifest file locks", () => {
     expect(
       laneFileOwnershipIssues(

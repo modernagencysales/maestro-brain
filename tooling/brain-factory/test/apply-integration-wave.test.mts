@@ -845,6 +845,94 @@ describe("deterministic integration wave application", () => {
     expect(git(value.workdir, "status", "--porcelain")).toBe("");
   });
 
+  it("writes the integration-owned migration registry before Confect generation", () => {
+    const script = "packages/convex/scripts/generate-migration-registry.mts";
+    const registry = "packages/convex/confect/internal/migrations.generated.ts";
+    const value = makeFixture({
+      laneSpecs: [{ files: [script], taskId: "S05-T01" }],
+    });
+    const original = value.input.hooks as ApplyIntegrationWaveHooks;
+    const hooks: ApplyIntegrationWaveHooks = {
+      ...original,
+      run: (args, cwd) => {
+        const key = args.join(" ");
+        if (
+          key ===
+          `pnpm --dir packages/convex exec tsx scripts/generate-migration-registry.mts --root ${cwd} --write`
+        ) {
+          write(resolve(cwd, registry), "export default [];\n");
+        }
+        return original.run(args, cwd);
+      },
+    };
+
+    const applied = applyIntegrationWave({ ...value.input, hooks });
+    expect(value.events.indexOf("pnpm confect:codegen")).toBeGreaterThan(
+      value.events.findIndex((event) => event.includes("--write")),
+    );
+    expect(applied.generatedFiles).toContain(registry);
+    expect(
+      git(value.workdir, "show", "--name-only", "--format=", "HEAD")
+        .split("\n")
+        .filter(Boolean),
+    ).toEqual([registry]);
+  });
+
+  it("rejects extra migration-generator output and restores the candidate", () => {
+    const script = "packages/convex/scripts/generate-migration-registry.mts";
+    const value = makeFixture({
+      laneSpecs: [{ files: [script], taskId: "S05-T01" }],
+    });
+    const original = value.input.hooks as ApplyIntegrationWaveHooks;
+    const hooks: ApplyIntegrationWaveHooks = {
+      ...original,
+      run: (args, cwd) => {
+        if (args.includes("--write")) {
+          write(
+            resolve(
+              cwd,
+              "packages/convex/confect/internal/migrations.generated.ts",
+            ),
+            "export default [];\n",
+          );
+          write(resolve(cwd, "migration-generator-extra.ts"), "attack\n");
+        }
+        return original.run(args, cwd);
+      },
+    };
+
+    expect(() => applyIntegrationWave({ ...value.input, hooks })).toThrow(
+      /generation changed unauthorized files/,
+    );
+    expect(git(value.workdir, "status", "--porcelain")).toBe("");
+    expect(git(value.workdir, "rev-parse", "HEAD")).toBe(value.baseSha);
+  });
+
+  it("rejects a migration generator that changes HEAD", () => {
+    const script = "packages/convex/scripts/generate-migration-registry.mts";
+    const value = makeFixture({
+      laneSpecs: [{ files: [script], taskId: "S05-T01" }],
+    });
+    const original = value.input.hooks as ApplyIntegrationWaveHooks;
+    const hooks: ApplyIntegrationWaveHooks = {
+      ...original,
+      run: (args, cwd) => {
+        if (args.includes("--write")) {
+          write(resolve(cwd, "generator-commit.ts"), "attack\n");
+          git(cwd, "add", "generator-commit.ts");
+          git(cwd, "commit", "-qm", "test: generator attack");
+        }
+        return original.run(args, cwd);
+      },
+    };
+
+    expect(() => applyIntegrationWave({ ...value.input, hooks })).toThrow(
+      /generator changed HEAD/,
+    );
+    expect(git(value.workdir, "status", "--porcelain")).toBe("");
+    expect(git(value.workdir, "rev-parse", "HEAD")).toBe(value.baseSha);
+  });
+
   it("applies and validates deterministic global Confect aggregates", () => {
     const value = makeFixture({
       globalConfectAggregates: true,

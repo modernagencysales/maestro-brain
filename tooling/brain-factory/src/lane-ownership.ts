@@ -9,6 +9,7 @@ const HAND_AUTHORED_CONVEX_FILES = new Set([
 
 const isGeneratedNamespaceFile = (file: string): boolean =>
   file === "apps/web/src/routeTree.gen.ts" ||
+  file === "packages/convex/confect/internal/migrations.generated.ts" ||
   file === "packages/template-core/src/generated/confectManifest.ts" ||
   file.startsWith("packages/convex/confect/_generated/") ||
   (file.startsWith("packages/convex/convex/") &&
@@ -24,6 +25,7 @@ const fixedGeneratedFiles = new Set([
   "packages/convex/confect/_generated/id.ts",
   "packages/convex/confect/_generated/schema.ts",
   "packages/convex/confect/_generated/spec.ts",
+  "packages/convex/confect/internal/migrations.generated.ts",
   "packages/template-core/src/generated/confectManifest.ts",
 ]);
 

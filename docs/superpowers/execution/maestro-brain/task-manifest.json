@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "52578991ce52871ff8675b09e3f4dc48a3ef05b677cb7762d571f4970146f0c7",
+  "planSha256": "a3d4af4aa5e526438aa5e06c8716a6a40500bc235d9933f8f8649e133263821b",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -614,7 +614,7 @@
       "lane": "slack-source",
       "requirements": ["AI-04", "SLK-04"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "1f7e22267c39b3c0e49135dabb5108c55c14e35ac075914186a014ab800c24ab",
+      "taskBlockHash": "81e316e2f1586ba735127ed398f20d9a9d95d0dee4410801d94f3c8e9e76b401",
       "taskId": "S04-T03",
       "title": "Pin Slack Manifest And Verify Every Webhook Before Tenant Resolution",
       "tranche": "D2-domain-bodies"
@@ -653,7 +653,7 @@
       "tranche": "D2-domain-bodies"
     },
     {
-      "acceptanceAfter": "S04 complete",
+      "acceptanceAfter": "S04-T02",
       "classification": "template-gap",
       "codeStartAfter": ["S04-T02"],
       "estimatedSourceLines": 260,
@@ -690,13 +690,13 @@
       "requirements": ["IAM-03", "KNW-02", "SLK-04", "SLK-05"],
       "sourceSliceBudget": 300,
       "sourceSliceLimit": 4,
-      "taskBlockHash": "1665eb4087239d8d137a8b4274f5f63c4bb965d699076b2678d1e618b1e34c54",
+      "taskBlockHash": "d5212dbc84a10771993658fc840e29bc81671c08e7962dbf96fd34de2dda9ce5",
       "taskId": "S05-T01",
       "title": "Add The Source Ledger And Prove The Integration-Owned Migration Registry",
       "tranche": "C1-contract-spine"
     },
     {
-      "acceptanceAfter": "S05-T01",
+      "acceptanceAfter": "S05-T01, S04-T03",
       "classification": "template-gap",
       "codeStartAfter": ["S05-T01", "S04-T03"],
       "estimatedSourceLines": 290,
@@ -715,7 +715,7 @@
       "lane": "slack-source",
       "requirements": ["SLK-04", "SLK-05", "ZFC-01"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "316653727f9c5ffaf8af0aaf43ee793656006cd30094636d83734d794ba42d97",
+      "taskBlockHash": "2b6f3acaa46473a40e1268b1862bd478541bbf0e8485e76b1f1a37a8696ca8c5",
       "taskId": "S05-T02",
       "title": "Implement Deterministic Slack Normalization, Ordering, And Atomic Capture",
       "tranche": "D2-domain-bodies"

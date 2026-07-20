@@ -475,9 +475,28 @@ const abortCherryPick = (workdir: string): void => {
   }
 };
 
+const MIGRATION_GENERATOR_RELATIVE =
+  "packages/convex/scripts/generate-migration-registry.mts";
+
 const generationCommands = (
+  workdir: string,
   routeInputsChanged: boolean,
 ): readonly (readonly string[])[] => [
+  ...(existsSync(resolve(workdir, MIGRATION_GENERATOR_RELATIVE))
+    ? [
+        [
+          "pnpm",
+          "--dir",
+          "packages/convex",
+          "exec",
+          "tsx",
+          "scripts/generate-migration-registry.mts",
+          "--root",
+          workdir,
+          "--write",
+        ],
+      ]
+    : []),
   ["pnpm", "confect:codegen"],
   ["pnpm", "confect:manifest"],
   ...(routeInputsChanged ? [["pnpm", "--dir", "apps/web", "build"]] : []),
@@ -554,7 +573,7 @@ const generateStableOutput = (input: {
       file.startsWith("apps/web/src/routes/") &&
       file !== "apps/web/src/routeTree.gen.ts",
   );
-  const commands = generationCommands(routeInputsChanged);
+  const commands = generationCommands(input.workdir, routeInputsChanged);
   const runGenerationPlan = (): void => {
     for (const command of commands) {
       input.hooks.run(command, input.workdir);

@@ -56,10 +56,10 @@ describe("parallelism contract schema", () => {
     expect(contract.edges).toHaveLength(98);
     expect(
       contract.edges.filter((edge) => edge.classification === "true"),
-    ).toHaveLength(52);
+    ).toHaveLength(54);
     expect(
       contract.edges.filter((edge) => edge.classification === "contract"),
-    ).toHaveLength(46);
+    ).toHaveLength(44);
     expect(contract.collisions).toHaveLength(180);
     expect(validateParallelismContract(contract, manifest)).toEqual([]);
   });

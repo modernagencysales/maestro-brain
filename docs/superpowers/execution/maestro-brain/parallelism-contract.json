@@ -1,6 +1,6 @@
 {
   "schemaVersion": "maestro-brain-parallelism-contract/v1",
-  "manifestPlanSha256": "52578991ce52871ff8675b09e3f4dc48a3ef05b677cb7762d571f4970146f0c7",
+  "manifestPlanSha256": "a3d4af4aa5e526438aa5e06c8716a6a40500bc235d9933f8f8649e133263821b",
   "edges": [
     {
       "consumerTaskId": "S00-T03",
@@ -179,24 +179,12 @@
     {
       "consumerTaskId": "S05-T01",
       "producerTaskId": "S04-T02",
-      "classification": "contract",
-      "artifact": {
-        "kind": "task-packet",
-        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-        "anchor": "S04-T02",
-        "sha256": "cdeca2a0ba4a7101fd27959788455ac53609485617a9cf8146c29c86891a7958"
-      }
+      "classification": "true"
     },
     {
       "consumerTaskId": "S05-T02",
       "producerTaskId": "S04-T03",
-      "classification": "contract",
-      "artifact": {
-        "kind": "task-packet",
-        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-        "anchor": "S04-T03",
-        "sha256": "1f7e22267c39b3c0e49135dabb5108c55c14e35ac075914186a014ab800c24ab"
-      }
+      "classification": "true"
     },
     {
       "consumerTaskId": "S05-T02",
@@ -242,7 +230,7 @@
         "kind": "task-packet",
         "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
         "anchor": "S05-T02",
-        "sha256": "316653727f9c5ffaf8af0aaf43ee793656006cd30094636d83734d794ba42d97"
+        "sha256": "2b6f3acaa46473a40e1268b1862bd478541bbf0e8485e76b1f1a37a8696ca8c5"
       }
     },
     {
@@ -290,7 +278,7 @@
         "kind": "task-packet",
         "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
         "anchor": "S05-T02",
-        "sha256": "316653727f9c5ffaf8af0aaf43ee793656006cd30094636d83734d794ba42d97"
+        "sha256": "2b6f3acaa46473a40e1268b1862bd478541bbf0e8485e76b1f1a37a8696ca8c5"
       }
     },
     {
@@ -1242,7 +1230,7 @@
       "leftTaskId": "S02-T03",
       "rightTaskId": "S04-T02",
       "paths": ["packages/convex/confect/internal/migrations.ts"],
-      "policy": "registry_after_task6"
+      "policy": "dependency_order"
     },
     {
       "leftTaskId": "S02-T03",
@@ -1429,22 +1417,19 @@
       "leftTaskId": "S04-T02",
       "rightTaskId": "S06-T02",
       "paths": ["packages/convex/confect/tables/channelSyncStates.ts"],
-      "policy": "same_wave_fail_closed",
-      "mandatorySameWave": true
+      "policy": "dependency_order"
     },
     {
       "leftTaskId": "S04-T02",
       "rightTaskId": "S06-T03",
       "paths": ["packages/convex/confect/tables/channelSyncStates.ts"],
-      "policy": "same_wave_fail_closed",
-      "mandatorySameWave": true
+      "policy": "dependency_order"
     },
     {
       "leftTaskId": "S04-T02",
       "rightTaskId": "S06-T04",
       "paths": ["packages/convex/confect/tables/channelSyncStates.ts"],
-      "policy": "same_wave_fail_closed",
-      "mandatorySameWave": true
+      "policy": "dependency_order"
     },
     {
       "leftTaskId": "S04-T02",
@@ -1453,13 +1438,13 @@
         "packages/convex/confect/internal/migrations.ts",
         "packages/convex/confect/tables/channelSyncStates.ts"
       ],
-      "policy": "registry_after_task6"
+      "policy": "dependency_order"
     },
     {
       "leftTaskId": "S04-T02",
       "rightTaskId": "S09-T02",
       "paths": ["packages/convex/confect/internal/migrations.ts"],
-      "policy": "registry_after_task6"
+      "policy": "dependency_order"
     },
     {
       "leftTaskId": "S04-T02",
@@ -1480,7 +1465,7 @@
       "leftTaskId": "S04-T03",
       "rightTaskId": "S05-T02",
       "paths": ["packages/convex/confect/slack/webhook.impl.ts"],
-      "policy": "serialize"
+      "policy": "dependency_order"
     },
     {
       "leftTaskId": "S04-T03",

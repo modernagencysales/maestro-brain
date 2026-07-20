@@ -1490,9 +1490,10 @@ manifest.
 
 ### S04-T03 — Pin Slack Manifest And Verify Every Webhook Before Tenant Resolution
 
-- **Outcome / requirements:** satisfy SLK-04 and AI-04; no unsigned, replayed,
-  oversized, unmatched, stale-generation, or wrong-app event reaches tenant
-  data.
+- **Outcome / requirements:** satisfy SLK-04 and AI-04; S04-T03 alone owns the
+  server-side Slack trust boundary. No unsigned, oversized, unmatched,
+  stale-generation, or wrong-app event reaches capture, and no caller may
+  manufacture the trusted envelope consumed by later tasks.
 - **Classification:** `template-gap`; target `TB-NANGO-SLACK-01`; resolution
   establishes a reusable native signed-provider-event envelope while Nango
   remains the OAuth/token/API/action boundary.
@@ -1518,30 +1519,36 @@ manifest.
   isolated lane never commits that output:
   `docs/superpowers/receipts/maestro-brain/file-inventories/S04-T03-confect-generated-files.json`.
 - **Failure-first tests:** invalid Slack signature secret, current/previous
-  signature rotation boundaries, stale/future timestamp, duplicate request
-  ID/event ID, oversized body, malformed JSON, raw unmatched Slack payload,
+  signature rotation boundaries, stale/future timestamp, oversized body,
+  malformed JSON, raw unmatched Slack payload, zero/multiple active bindings,
   inactive connection, generation/team/app/bot mismatch, and revoked connection.
   Invalid signature, timestamp, size, malformed-body, and unmatched-connection
   denials emit only redacted pre-tenant security telemetry; they create no
   Convex tenant row and do not invoke the capture transaction.
-- **Implementation:** use one narrow Maestro-owned Slack Events receiver. Verify
-  Slack's native signature over the exact raw bytes and timestamp before JSON
-  decode, handle URL verification without tenant writes, and normalize only
-  after verification. After native signature verification, decode the minimum
-  binding fields, resolve exactly one active organization/connection generation,
-  and only then create the tenant-scoped provider-event receipt. Unknown or
-  unmatched connections emit non-tenant security telemetry and make zero tenant
-  writes. Nango continues to own OAuth/tokens/API proxy/history/send actions.
-  Bind `providerConfigKey + connectionId + generation + teamId + apiAppId` to
-  exactly one active org before capture.
+- **Implementation:** use one narrow Maestro-owned Slack Events receiver. Look
+  up only the server-side current and previous webhook secrets, verify Slack's
+  native signature over the exact raw bytes and timestamp before JSON decode,
+  handle URL verification without tenant writes, and decode only the minimum
+  fields needed for binding. After native signature verification, resolve
+  exactly one active organization/connection generation and bind
+  `providerConfigKey + connectionId + generation + teamId + apiAppId + channelId`
+  to exactly one active organization before capture. Return a nominally sealed
+  `BoundVerifiedSlackEnvelope` containing the verified raw payload and exact
+  binding coordinates; later callers cannot construct that type from decoded
+  input. Invalid signature, timestamp, size, malformed payload, and unmatched or
+  ambiguous binding failures emit only redacted non-tenant telemetry and make
+  zero tenant writes. S04-T03 creates no provider receipt and performs no replay
+  admission or capture mutation. Nango continues to own OAuth/tokens/API
+  proxy/history/send actions.
 - **Manifest:** request only scopes/events in Appendix E; auto-join scopes and
   `users:read.email` are absent. The checked-in manifest is the deployment
   source of truth and its hash is recorded after Slack/Nango configuration.
 - **Typed errors / state:** `WebhookUnverified`, `WebhookExpired`,
-  `WebhookReplay`, `PayloadTooLarge`, `ConnectionUnmatched`,
-  `ConnectionGenerationMismatch`, `TeamAppMismatch`; tenant receipt outcome is
-  `rejected_after_binding | accepted_duplicate | accepted`. Pre-verification and
-  unmatched-connection failures are telemetry, not receipt states.
+  `PayloadTooLarge`, `ConnectionUnmatched`, `ConnectionGenerationMismatch`,
+  `TeamAppMismatch`, `ChannelBindingMismatch`; success returns only
+  `BoundVerifiedSlackEnvelope`. Pre-verification and unmatched-connection
+  failures are telemetry, not receipt states; replay and receipt state belong to
+  S05-T02.
 - **Migration / compatibility / rollback:** add current/previous webhook secret
   names, never values. Rotate by deploy-current-as-previous, add-new-current,
   verify, then remove old. Rollback disables the native receiver and capture;
@@ -1553,9 +1560,10 @@ manifest.
   `rtk pnpm check:provider-boundary`, `rtk pnpm check:logging-boundary`,
   `rtk pnpm check:secret-canaries`, and broad verification is deferred to
   tranche acceptance under Appendix L.
-- **Completion receipt:** native signature/replay/size matrix, raw-byte verifier
-  evidence, manifest hash, secret-name inventory, redacted pre-tenant telemetry
-  samples, and proof rejected payloads made zero tenant writes.
+- **Completion receipt:** native signature/rotation/size matrix, raw-byte
+  verifier evidence, unique-active-binding matrix, manifest hash, secret-name
+  inventory, redacted pre-tenant telemetry samples, and proof every pre-binding
+  rejection made zero tenant writes and never invoked capture.
 - **Lane branch / commit boundary:** branch `codex/brain-s04-webhook-security`;
   commit `feat: verify Slack webhook bindings`.
 
@@ -1634,7 +1642,7 @@ manifest.
   observation/source revision and assembly intent.
 - **Classification:** `template-gap`; target `TB-SOURCE-01`; promote as the
   generic source intake pattern only after Slack proves it.
-- **Dependencies:** S04 complete.
+- **Dependencies:** S04-T02.
 - **Existing anchors:** the template backlog has only `brainPages` for source
   ingestion and calls out missing source/source-unit tables in
   [`porting-backlog.md`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/docs/template/porting-backlog.md#L516-L523);
@@ -1672,53 +1680,51 @@ manifest.
   strict schema rejection: creation/key/locale order cannot change bytes;
   duplicate IDs/task IDs/JSON keys, unknown fields, unsafe paths, symlinks,
   task-hash drift, dangling or phase-inverted dependencies, cycles, fake no-op
-  migrations, stale check output, and non-idempotent writes fail. Also prove
-  missing organization/channel binding, duplicate transport receipt, multiple
-  receipts for one logical observation, conflicting observation identity,
-  invalid source key/revision key, cross-org channel, content over limit,
-  noncanonical timestamp/text, and partial transaction failure.
-- **Implementation:** use stable tenant keys and every table/index in Appendix
-  C. `providerEventReceipts` deduplicates transport delivery IDs and points to a
-  logical observation key; multiple live/backfill/reconciliation receipts may
-  reference the same source revision. Content-bearing rows carry lifecycle
-  envelope and exact normalized text/blocks, author snapshot, timestamps,
-  permalink, provider revision/order metadata, canonical hash, and tombstone
-  flag. Job row begins at `assembly_pending` with pinned policy epoch and unique
-  effect key. Define strict JSON `migrationFragment` data bound to the current
-  task-block hash; extract the S00, S01, and S02 migration implementations into
-  task-owned modules; and generate the canonical registry deterministically by
-  phase-aware topological order. The generator accepts an absolute worktree and
-  mutually exclusive check/write modes, rejects unsafe filesystem and schema
-  input, formats exact LF-only bytes, writes atomically, and proves a second
+  migrations, stale check output, a missing generated target, and non-idempotent
+  writes fail. The focused Vitest suite creates a temporary repository root,
+  proves deterministic `--write`, proves a second write byte-identical, and
+  proves `--check` rejects stale bytes and a missing generated target fails.
+- **Implementation:** this is a schema/registry-only task. Define every table,
+  index, stable key, lifecycle field, and source-ledger validation schema in
+  Appendix C, but do not implement live receipt admission or capture behavior.
+  Define strict JSON `migrationFragment` data bound to the current task-block
+  hash; extract the S00, S01, and S02 migration implementations into task-owned
+  modules; and generate the canonical registry deterministically by phase-aware
+  topological order. The generator accepts an absolute worktree and mutually
+  exclusive check/write modes, rejects unsafe filesystem and schema input,
+  requires the exact integration-owned target
+  `packages/convex/confect/internal/migrations.generated.ts` to exist in check
+  mode, formats exact LF-only bytes, writes atomically, and proves a second
   generation byte-identical. Unknown migration IDs retain the typed
-  `MigrationNotFound` path and never fall back to the probe. Stable receipt and
-  runtime helpers remain hand-authored in `migrationRuntime.ts`.
-- **Typed contract / errors:** internal capture input is a
-  `VerifiedSlackEnvelope` plus normalized observation; result
-  `{ outcome: inserted | duplicate, sourceKey, sourceRevisionKey, assemblyJobKey }`;
-  errors `TenantMismatch`, `ChannelAccessLost`, `ObservationInvalid`,
-  `PayloadTooLarge`, `DuplicateKeyConflict`.
+  `MigrationNotFound` path and never fall back to the probe. Stable runtime
+  helpers remain hand-authored in `migrationRuntime.ts`. S05-T01 does not
+  perform secret lookup, query webhook bindings, admit replay, mutate capture
+  rows, or expose a constructor for `BoundVerifiedSlackEnvelope`; those runtime
+  responsibilities belong to S04-T03 and S05-T02.
+- **Typed contract / errors:** table schemas and migration assembly expose only
+  their validation and typed migration errors. The live capture input/result
+  contract and transaction errors belong to S05-T02.
 - **Migration / compatibility / rollback:** source-ledger tables are new and the
   S05 fragment records the exact `new_tables_only` attestation. Existing
   S00/S01/S02 migrations retain their behavior through extracted fragments and
-  implementation modules. Integration alone generates the canonical registry;
-  the lane tests expected output in a temporary target and leaves
-  `packages/convex/confect/internal/migrations.ts` unchanged. Rollback stops new
-  capture and retains exact rows; never delete captured evidence to revert code.
-  Re-enable only after the new binary understands every stored schema version.
+  implementation modules. Integration alone generates and commits the exact
+  canonical `packages/convex/confect/internal/migrations.generated.ts` registry;
+  the product lane tests expected output only in a temporary root and leaves
+  that repository target absent or unchanged. Rollback stops new capture and
+  retains exact rows; never delete captured evidence to revert code. Re-enable
+  only after the new binary understands every stored schema version.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex exec vitest run test/migration-registry.test.ts test/migrations.test.ts test/brain-page-schema.test.ts test/source-ledger-schema.test.ts`;
   the selected `test/brain-page-schema.test.ts` cases prove `PageRevision`
   schema/index behavior, and the selected `test/source-ledger-schema.test.ts`
-  cases prove `SourceRevision` durability and replay behavior.
-  `rtk pnpm --dir packages/convex exec tsx scripts/generate-migration-registry.mts --root "$PWD" --check`,
-  `rtk pnpm brain:factory:check-confect-codegen`,
+  cases prove `SourceRevision` durability plus replay-key and uniqueness
+  constraints. `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:schema-migration-notes`, `rtk pnpm check:confect-contracts`,
   broad verification is deferred to tranche acceptance under Appendix L.
-- **Completion receipt:** table/index inventory, schema version, tenant/key/
-  partial-write tests, lifecycle declarations, exact fragment/task hashes,
-  deterministic generated-byte hash, compatibility results, and proof that the
-  lane did not edit the canonical registry.
+- **Completion receipt:** table/index inventory, schema version, lifecycle
+  declarations, exact fragment/task hashes, deterministic temporary-root byte
+  hash, compatibility results, missing-target check rejection, and proof that
+  the lane did not edit the integration-owned canonical registry.
 - **Source-slice contract:** at most four linear commits; each commit remains at
   or below 300 hand-authored source lines. The sequence is fragment/schema RED,
   generator and S00/S01 extraction, S02/S05 registration plus source ledger,
@@ -1755,7 +1761,7 @@ manifest.
   succeeds with every model disabled.
 - **Classification:** `template-gap`; target `TB-SOURCE-01`; deterministic
   source adapter instance behind the verified webhook.
-- **Dependencies:** S05-T01.
+- **Dependencies:** S05-T01 and S04-T03.
 - **Existing anchors:** the pinned template's provider boundary exposes typed
   integrations and rate-limit services but no source normalizer in
   [`rateLimit.ts`](https://github.com/modernagencysales/maestro-template-saas-ui/blob/123adb18c0abfe81fe98dd531c910b6cf493c8dd/packages/integrations/src/rateLimit.ts#L1-L135).
@@ -1768,22 +1774,28 @@ manifest.
   `packages/convex/test/source-capture.test.ts`; modify
   `packages/convex/confect/slack/webhook.impl.ts` to call only the capture
   transaction before ACK.
-- **Failure-first tests:** repeated delivery, live/backfill race, out-of-order
+- **Failure-first tests:** forged/unbound envelope, revoked or generation-stale
+  binding, channel mismatch, repeated delivery, live/backfill race, out-of-order
   edit, `A -> B -> A`, delete-before-create, thread reply, bot-authored answer,
   malformed permalink, Unicode/newline normalization, crash before commit, crash
   after commit/before ACK, and LLM outage.
-- **Implementation:** parse the verified event/history item into canonical
-  schemas. Transport receipt key is
-  `(connectionGeneration, transport, deliveryId)`; logical observation key is
+- **Implementation:** accept only S04-T03's `BoundVerifiedSlackEnvelope`, then
+  revalidate the exact active organization, connection generation, and channel
+  binding inside one Convex mutation. Within that same mutation atomically claim
+  replay and write the provider receipt, source artifact, immutable source
+  revision, and assembly job; a rejection or injected failure commits none of
+  them. Parse the verified event/history item into canonical schemas. Transport
+  receipt key is `(connectionGeneration, transport, deliveryId)`; logical
+  observation key is
   `(connectionGeneration, channelId, providerObjectId, providerRevisionDiscriminator, canonicalHashOrTombstone)`.
   Append only when the logical observation is new, attach every receipt as
   provenance, and update latest pointer only under the total order
   `(provider effective timestamp, provider revision discriminator, deterministic minimum receipt key)`.
-  Append tombstones without retaining deleted text in current pointers.
-  Atomically write event receipt/source artifact/revision/assembly intent, then
-  ACK. Self-authored bot answers retain a receipt but are mechanically excluded
-  from maintenance/classification.
+  Append tombstones without retaining deleted text in current pointers. ACK only
+  after the one Convex mutation commits. Self-authored bot answers retain a
+  receipt but are mechanically excluded from maintenance/classification.
 - **Typed errors / state:** `NormalizationFailed`, `ObservationConflict`,
+  `ReplayConflict`, `TenantMismatch`, `ConnectionGenerationMismatch`,
   `ChannelAccessLost`, `LifecycleRevoked`; receipt outcome is
   `inserted | duplicate | ignored_bot_output | tombstone | rejected`.
 - **Migration / compatibility / rollback:** no existing events. Version the
@@ -3923,8 +3935,8 @@ remains the exact direct acceptance edge and is the source materialized into
 | S04-T02 | S04-T01                            | template-gap connection/channel directory        |              1500 |
 | S04-T03 | S04-T02                            | template-gap verified webhook                    |               290 |
 | S04-T04 | S04-T03                            | template-gap source policy + UI                  |              1500 |
-| S05-T01 | S04 complete                       | template-gap source ledger                       |               260 |
-| S05-T02 | S05-T01                            | template-gap Slack normalizer/capture            |               290 |
+| S05-T01 | S04-T02                            | template-gap source ledger/schema + registry     |               260 |
+| S05-T02 | S05-T01, S04-T03                   | template-gap Slack normalizer/capture            |               290 |
 | S05-T03 | S05-T02                            | template-gap source-unit assembly                |               280 |
 | S05-T04 | S05-T03                            | generated capability pattern-instance            |               290 |
 | S06-T01 | S05 complete                       | fixture-to-real `jobs/workpool`                  |               280 |
@@ -4279,7 +4291,7 @@ creates a new generation, attempt, revision, or job.
 | Routing policy              | immutable epochs with mode `direct \| classify \| capture_only`; active pointer moves only after validation and audit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | S04-T04; policy epoch                                                      |
 | Delivery policy             | immutable generation `requester_private \| capture_only`; Slack Connect is structurally fixed to `capture_only`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | S04-T04/S10; delivery generation                                           |
 | Live/recent/deep sync lane  | `not_started \| idle -> queued -> running`; `running -> complete \| waiting_rate_limit \| retry_wait \| access_lost \| dead_letter`; retry/access restoration returns through `queued` without resetting the cursor; live lanes cycle `running -> idle`                                                                                                                                                                                                                                                                                                                                                                     | S04-T02/S06; cursor + lease fence                                          |
-| Provider event receipt      | `verified -> committed -> acknowledged` or `verified -> rejected_after_binding`; pre-verification and unmatched-connection failures are non-durable redacted security telemetry                                                                                                                                                                                                                                                                                                                                                                                                                                             | S04-T03/S05-T02; event/observation key                                     |
+| Provider event receipt      | S04-T03's `BoundVerifiedSlackEnvelope` is transient and non-durable; S05-T02 creates a durable `committed -> acknowledged` receipt only inside the successful atomic capture mutation; duplicate admission reuses the existing receipt, and all binding/replay/capture rejections remain non-durable telemetry or typed results                                                                                                                                                                                                                                                                                             | S05-T02; event/observation key                                             |
 | Source artifact             | `active -> deleted_tombstone -> redacted -> purged`; latest pointer advances by total provider order only                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | S05-T01/T02/S07; provider order + lifecycle generation                     |
 | Source revision             | immutable `observed \| edit \| tombstone`, then `redacted -> purged`; `A -> B -> A` remains three revisions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | S05-T02/S07; revision key/order/hash                                       |
 | Source unit                 | `open -> cut`; every revision contains one first-observed policy epoch, and cross-epoch replies create separate immutable segments                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | S05-T03; fixed-cut/segment key/hash                                        |

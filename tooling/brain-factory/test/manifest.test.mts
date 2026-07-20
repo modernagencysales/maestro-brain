@@ -120,12 +120,12 @@ describe("Maestro Brain execution manifest", () => {
       projection.tasks
         .flatMap((task) => task.classifiedCodeStartAfter)
         .filter((dependency) => dependency.classification === "true"),
-    ).toHaveLength(52);
+    ).toHaveLength(54);
     expect(
       projection.tasks
         .flatMap((task) => task.classifiedCodeStartAfter)
         .filter((dependency) => dependency.classification === "contract"),
-    ).toHaveLength(46);
+    ).toHaveLength(44);
 
     const providerSetup = projection.tasks.find(
       (task) => task.taskId === "S04-T01",
@@ -559,6 +559,77 @@ describe("Maestro Brain execution manifest", () => {
     );
     expect(maintenance?.sourceSliceLimit).toBe(5);
     expect(maintenance?.estimatedSourceLines).toBe(1_200);
+  });
+
+  it("separates Slack trust establishment from atomic capture", () => {
+    const projection = loadManifestProjection();
+    const plan = readFileSync(resolve(REPO_ROOT, PLAN_RELATIVE), "utf8");
+    const packet = (taskId: string, nextTaskId: string): string =>
+      plan.slice(
+        plan.indexOf(`### ${taskId}`),
+        plan.indexOf(`### ${nextTaskId}`),
+      );
+    const verifier = packet("S04-T03", "S04-T04").replace(/\s+/g, " ");
+    const ledger = packet("S05-T01", "S05-T02").replace(/\s+/g, " ");
+    const capture = packet("S05-T02", "S05-T03").replace(/\s+/g, " ");
+
+    expect(verifier).toContain("BoundVerifiedSlackEnvelope");
+    expect(verifier).toContain("current and previous webhook secrets");
+    expect(verifier).toContain(
+      "exactly one active organization/connection generation",
+    );
+    expect(verifier).toContain("zero tenant writes");
+    expect(verifier).not.toContain("WebhookReplay");
+    expect(verifier).not.toContain("tenant receipt outcome");
+    expect(ledger).toContain("schema/registry-only");
+    expect(ledger).toContain("does not perform secret lookup");
+    expect(ledger).not.toContain("replay behavior");
+    expect(ledger).toContain("replay-key and uniqueness constraints");
+    expect(ledger).not.toContain(
+      'scripts/generate-migration-registry.mts --root "$PWD" --check',
+    );
+    expect(ledger).toContain("missing generated target fails");
+    expect(capture).toContain("BoundVerifiedSlackEnvelope");
+    expect(capture).toContain("one Convex mutation");
+    expect(capture).toContain("atomically claim replay");
+    expect(capture).toContain("ReplayConflict");
+
+    const appendixG = plan.slice(
+      plan.indexOf("## Appendix G"),
+      plan.indexOf("## Appendix H"),
+    );
+    const receiptRow = appendixG
+      .split("\n")
+      .find((line) => line.startsWith("| Provider event receipt"));
+    const receiptOwner = receiptRow?.split("|")[3];
+    expect(receiptRow).toContain(
+      "S04-T03's `BoundVerifiedSlackEnvelope` is transient and non-durable",
+    );
+    expect(receiptRow).toContain("S05-T02");
+    expect(receiptOwner).not.toContain("S04-T03");
+    expect(receiptRow).not.toContain("verified ->");
+    expect(receiptRow).toContain("rejections remain non-durable");
+
+    for (const [consumerTaskId, producerTaskId] of [
+      ["S04-T03", "S04-T02"],
+      ["S05-T01", "S04-T02"],
+      ["S05-T02", "S04-T03"],
+    ] as const) {
+      expect(
+        projection.contract.edges.find(
+          (edge) =>
+            edge.consumerTaskId === consumerTaskId &&
+            edge.producerTaskId === producerTaskId,
+        ),
+      ).toEqual({ consumerTaskId, producerTaskId, classification: "true" });
+    }
+    expect(
+      projection.contract.collisions.find(
+        (collision) =>
+          collision.leftTaskId === "S04-T03" &&
+          collision.rightTaskId === "S05-T02",
+      )?.policy,
+    ).toBe("dependency_order");
   });
 
   it("authorizes atomic Slack identity lifecycle revocation", () => {
