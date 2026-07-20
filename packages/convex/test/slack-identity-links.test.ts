@@ -623,7 +623,12 @@ describe("Slack identity link contract", () => {
                   range: (q: {
                     eq: (field: "bindingKey", value: string) => unknown;
                   }) => unknown,
-                ) => { collect: () => Effect.Effect<{ status: string; revokeReason: string | null }[], unknown> };
+                ) => {
+                  collect: () => Effect.Effect<
+                    { status: string; revokeReason: string | null }[],
+                    unknown
+                  >;
+                };
               };
             }
           ).table("slackIdentityBindings");
