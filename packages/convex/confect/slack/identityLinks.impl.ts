@@ -458,3 +458,241 @@ const createSlackIdentityLinkIntent = FunctionImpl.make(
   (input) =>
     Effect.gen(function* () {
       const { connection, workspace, user, workosSubject } =
+        yield* resolveAuthorizedConnection(input);
+      const result = createSlackIdentityLinkIntentPlan({
+        organizationKey: connection.organizationKey,
+        connectionKey: connection.connectionKey,
+        connectionGeneration: connection.connectionGeneration,
+        teamId: input.teamId,
+        workspaceId: workspace._id,
+        brainKey: workspace.brainKey,
+        userId: user._id,
+        workosSubject,
+        nonceHash: input.nonceHash,
+        now: input.now,
+      });
+      if (Either.isLeft(result)) return yield* Effect.fail(result.left);
+      const planned = result.right;
+      const writer = yield* DatabaseWriter;
+      yield* slackIdentityBindingTable(writer)
+        .insert(planned.row)
+        .pipe(Effect.orDie);
+      return {
+        bindingKey: planned.row.bindingKey,
+        status: "pending_verification" as const,
+        teamId: planned.row.teamId,
+        expiresAt: planned.row.intentExpiresAt,
+        linkToken: planned.linkToken,
+      };
+    }),
+);
+
+const consumeSlackIdentityLink = FunctionImpl.make(
+  databaseSchema,
+  slackIdentityLinks,
+  "consumeSlackIdentityLink",
+  (input) =>
+    Effect.gen(function* () {
+      const pending = yield* findByNonceHash(input.nonceHash);
+      const existingActiveForSlackIdentity =
+        pending === null
+          ? null
+          : yield* findActiveSlackIdentity({
+              organizationKey: pending.organizationKey,
+              teamId: input.teamId,
+              slackUserId: input.slackUserId,
+            });
+      if (pending !== null) {
+        const currentConnection = yield* currentConnectionFor({
+          connectionKey: pending.connectionKey,
+          connectionGeneration: pending.connectionGeneration,
+          teamId: pending.teamId,
+        });
+        if (currentConnection === undefined) {
+          yield* revokeStaleConnectionBindings({
+            connectionKey: pending.connectionKey,
+            connectionGeneration: pending.connectionGeneration,
+            now: input.now,
+            reason: "connection_replaced",
+          });
+          return yield* Effect.fail(new LinkExpired());
+        }
+        yield* reauthorizePendingBindingOwner(pending);
+      }
+      const result = consumeSlackIdentityLinkPlan({
+        pending,
+        existingActiveForSlackIdentity,
+        confirmation: { teamId: input.teamId, slackUserId: input.slackUserId },
+        now: input.now,
+      });
+      if (Either.isLeft(result)) return yield* Effect.fail(result.left);
+      if (pending === null) return yield* Effect.fail(new LinkExpired());
+      const writer = yield* DatabaseWriter;
+      yield* slackIdentityBindingTable(writer)
+        .patch(pending._id, result.right.patch)
+        .pipe(Effect.orDie);
+      return {
+        bindingKey: result.right.binding.bindingKey,
+        status: "active" as const,
+        teamId: result.right.binding.teamId,
+        slackUserId: result.right.binding.slackUserId,
+        bindingGeneration: result.right.binding.bindingGeneration,
+      };
+    }),
+);
+
+const revokeSlackIdentityLink = FunctionImpl.make(
+  databaseSchema,
+  slackIdentityLinks,
+  "revokeSlackIdentityLink",
+  (input) =>
+    Effect.gen(function* () {
+      const binding = yield* findByBindingKey(input.bindingKey);
+      if (binding === null || binding.status !== "active") {
+        return yield* Effect.fail(new BindingRevoked());
+      }
+      const { user } = yield* resolveAuthorizedConnection({
+        workspaceId: input.workspaceId,
+        connectionKey: binding.connectionKey,
+        connectionGeneration: binding.connectionGeneration,
+        teamId: binding.teamId,
+        brainKey: binding.brainKey,
+        allowStaleConnection: true,
+      });
+      if (binding.userId !== user._id)
+        return yield* new Forbidden({
+          reason: "Slack binding belongs to another user.",
+        });
+      const writer = yield* DatabaseWriter;
+      yield* slackIdentityBindingTable(writer)
+        .patch(binding._id, {
+          status: "revoked" as const,
+          revokedAt: input.now,
+          revokeReason: input.reason,
+          updatedAt: input.now,
+        })
+        .pipe(Effect.orDie);
+      return {
+        bindingKey: input.bindingKey,
+        status: "revoked" as const,
+        revokedAt: input.now,
+      };
+    }),
+);
+
+const revokeSlackIdentityRowsForLifecycle = (input: {
+  readonly organizationKey: string;
+  readonly userId?: string | undefined;
+  readonly connectionKey?: string | undefined;
+  readonly connectionGeneration?: number | undefined;
+  readonly reason: string;
+  readonly now: number;
+}) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const writer = yield* DatabaseWriter;
+    const collectByUserStatus = (status: "active" | "pending_verification") =>
+      slackIdentityBindingTable(reader)
+        .index("by_organization_user_status", (q) =>
+          q
+            .eq("organizationKey", input.organizationKey)
+            .eq("userId", input.userId ?? "")
+            .eq("status", status),
+        )
+        .collect()
+        .pipe(Effect.orDie);
+    const collectByConnectionStatus = (
+      status: "active" | "pending_verification",
+    ) =>
+      slackIdentityBindingTable(reader)
+        .index("by_connection_generation_status", (q) =>
+          q
+            .eq("connectionKey", input.connectionKey ?? "")
+            .eq("connectionGeneration", input.connectionGeneration ?? -1)
+            .eq("status", status),
+        )
+        .collect()
+        .pipe(Effect.orDie);
+    const candidates =
+      input.userId === undefined
+        ? [
+            ...(yield* collectByConnectionStatus("active")),
+            ...(yield* collectByConnectionStatus("pending_verification")),
+          ]
+        : [
+            ...(yield* collectByUserStatus("active")),
+            ...(yield* collectByUserStatus("pending_verification")),
+          ];
+    let revokedCount = 0;
+    for (const row of candidates.filter(
+      (row) =>
+        row.organizationKey === input.organizationKey &&
+        (input.userId === undefined || row.userId === input.userId) &&
+        (input.connectionKey === undefined ||
+          row.connectionKey === input.connectionKey) &&
+        (input.connectionGeneration === undefined ||
+          row.connectionGeneration === input.connectionGeneration),
+    )) {
+      yield* slackIdentityBindingTable(writer)
+        .patch(row._id, {
+          status: "revoked" as const,
+          revokedAt: input.now,
+          revokeReason: input.reason,
+          updatedAt: input.now,
+        })
+        .pipe(Effect.orDie);
+      revokedCount += 1;
+    }
+    return { revokedCount };
+  });
+
+const revokeSlackIdentityLinksForLifecycle = FunctionImpl.make(
+  databaseSchema,
+  slackIdentityLinks,
+  "revokeSlackIdentityLinksForLifecycle",
+  revokeSlackIdentityRowsForLifecycle,
+);
+
+const revokeSlackIdentityLinksForUserSuspended = FunctionImpl.make(
+  databaseSchema,
+  slackIdentityLinks,
+  "revokeSlackIdentityLinksForUserSuspended",
+  (input) =>
+    revokeSlackIdentityRowsForLifecycle({
+      ...input,
+      reason: "user_suspended",
+    }),
+);
+
+const revokeSlackIdentityLinksForMembershipSuspended = FunctionImpl.make(
+  databaseSchema,
+  slackIdentityLinks,
+  "revokeSlackIdentityLinksForMembershipSuspended",
+  (input) =>
+    revokeSlackIdentityRowsForLifecycle({
+      ...input,
+      reason: "membership_suspended",
+    }),
+);
+
+const revokeSlackIdentityLinksForConnectionReplaced = FunctionImpl.make(
+  databaseSchema,
+  slackIdentityLinks,
+  "revokeSlackIdentityLinksForConnectionReplaced",
+  (input) =>
+    revokeSlackIdentityRowsForLifecycle({
+      ...input,
+      reason: "connection_replaced",
+    }),
+);
+
+export default GroupImpl.make(databaseSchema, slackIdentityLinks).pipe(
+  Layer.provide(createSlackIdentityLinkIntent),
+  Layer.provide(consumeSlackIdentityLink),
+  Layer.provide(revokeSlackIdentityLink),
+  Layer.provide(revokeSlackIdentityLinksForLifecycle),
+  Layer.provide(revokeSlackIdentityLinksForUserSuspended),
+  Layer.provide(revokeSlackIdentityLinksForMembershipSuspended),
+  Layer.provide(revokeSlackIdentityLinksForConnectionReplaced),
+  GroupImpl.finalize,
+);
