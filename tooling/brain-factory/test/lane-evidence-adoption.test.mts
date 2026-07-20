@@ -17,6 +17,9 @@ import { adoptLegacyIntegratedLaneEvidence } from "../src/lane-evidence-adoption
 import { validateLaneAcceptance } from "../src/lane-acceptance.js";
 
 const roots: string[] = [];
+// This integration test boots three separate tsx processes. Under broad-suite
+// worker contention, process startup can exceed Vitest's 5-second default.
+const CLI_TEST_TIMEOUT = 30_000;
 const sha256 = (value: string): string =>
   createHash("sha256").update(value).digest("hex");
 const writeJson = (path: string, value: unknown): void =>
@@ -450,52 +453,56 @@ describe("legacy integrated lane evidence adoption", () => {
     });
   });
 
-  it("previews, applies, and re-previews through the standalone CLI", () => {
-    const value = fixture();
-    git(value.root, "init", "-q");
-    git(value.root, "config", "user.email", "brain@example.test");
-    git(value.root, "config", "user.name", "Brain Test");
-    git(value.root, "add", ".");
-    git(value.root, "commit", "-qm", "test: seed adoption state");
-    const currentHeadSha = git(value.root, "rev-parse", "HEAD");
-    const lane = readRecord(value.lanePath);
-    lane.integrationHeadSha = currentHeadSha;
-    writeJson(value.lanePath, lane);
-    const result = readRecord(value.resultPath);
-    result.headSha = currentHeadSha;
-    result.broadGate = {
-      command: "rtk host-test-slot --class full pnpm verify",
-      headSha: currentHeadSha,
-      status: "passed",
-    };
-    writeJson(value.resultPath, result);
-    const tsx = realpathSync(
-      resolve(process.cwd(), "../../node_modules/.bin/tsx"),
-    );
-    const script = resolve(process.cwd(), "src/adopt-lane-evidence.mts");
-    const run = (...args: string[]) =>
-      spawnSync(tsx, [script, "--state", value.root, ...args], {
-        cwd: value.root,
-        encoding: "utf8",
-      });
+  it(
+    "previews, applies, and re-previews through the standalone CLI",
+    () => {
+      const value = fixture();
+      git(value.root, "init", "-q");
+      git(value.root, "config", "user.email", "brain@example.test");
+      git(value.root, "config", "user.name", "Brain Test");
+      git(value.root, "add", ".");
+      git(value.root, "commit", "-qm", "test: seed adoption state");
+      const currentHeadSha = git(value.root, "rev-parse", "HEAD");
+      const lane = readRecord(value.lanePath);
+      lane.integrationHeadSha = currentHeadSha;
+      writeJson(value.lanePath, lane);
+      const result = readRecord(value.resultPath);
+      result.headSha = currentHeadSha;
+      result.broadGate = {
+        command: "rtk host-test-slot --class full pnpm verify",
+        headSha: currentHeadSha,
+        status: "passed",
+      };
+      writeJson(value.resultPath, result);
+      const tsx = realpathSync(
+        resolve(process.cwd(), "../../node_modules/.bin/tsx"),
+      );
+      const script = resolve(process.cwd(), "src/adopt-lane-evidence.mts");
+      const run = (...args: string[]) =>
+        spawnSync(tsx, [script, "--state", value.root, ...args], {
+          cwd: value.root,
+          encoding: "utf8",
+        });
 
-    const preview = run();
-    expect(preview.status, preview.stderr).toBe(0);
-    expect(JSON.parse(preview.stdout)).toMatchObject({
-      mode: "preview",
-      pendingCount: 1,
-    });
-    const apply = run("--apply");
-    expect(apply.status, apply.stderr).toBe(0);
-    expect(JSON.parse(apply.stdout)).toMatchObject({
-      mode: "apply",
-      pendingCount: 1,
-    });
-    const secondPreview = run();
-    expect(secondPreview.status, secondPreview.stderr).toBe(0);
-    expect(JSON.parse(secondPreview.stdout)).toMatchObject({
-      mode: "preview",
-      pendingCount: 0,
-    });
-  });
+      const preview = run();
+      expect(preview.status, preview.stderr).toBe(0);
+      expect(JSON.parse(preview.stdout)).toMatchObject({
+        mode: "preview",
+        pendingCount: 1,
+      });
+      const apply = run("--apply");
+      expect(apply.status, apply.stderr).toBe(0);
+      expect(JSON.parse(apply.stdout)).toMatchObject({
+        mode: "apply",
+        pendingCount: 1,
+      });
+      const secondPreview = run();
+      expect(secondPreview.status, secondPreview.stderr).toBe(0);
+      expect(JSON.parse(secondPreview.stdout)).toMatchObject({
+        mode: "preview",
+        pendingCount: 0,
+      });
+    },
+    CLI_TEST_TIMEOUT,
+  );
 });
