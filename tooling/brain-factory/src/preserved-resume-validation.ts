@@ -541,8 +541,11 @@ export const validateTerminalAuthorityResumeOwner = (input: {
   if (!authorityRepair && !existsSync(lanePath)) {
     throw new Error(`${input.taskId}: authority owner lane result is missing`);
   }
-  const lane = existsSync(lanePath)
-    ? (JSON.parse(readFileSync(lanePath, "utf8")) as {
+  const laneContent = existsSync(lanePath)
+    ? readFileSync(lanePath, "utf8")
+    : undefined;
+  const lane = laneContent
+    ? (JSON.parse(laneContent) as {
         readonly headSha?: unknown;
         readonly taskId?: unknown;
         readonly treeSha?: unknown;
@@ -599,10 +602,19 @@ export const validateTerminalAuthorityResumeOwner = (input: {
       workdir: validated.workdir,
     };
   }
+  if (authorityRepair) {
+    return {
+      branch: validated.branch,
+      factoryBaseSha: input.taskBaseSha,
+      proofHeadSha: input.sourceHeadSha,
+      resumeStrategy: "in-lane-cherry-pick",
+      startSha: validated.headSha,
+      workdir: validated.workdir,
+    };
+  }
   if (
-    !authorityRepair &&
-    (input.status !== "failed" ||
-      input.sourceHeadSha === input.record.sourceHeadSha)
+    input.status !== "failed" ||
+    input.sourceHeadSha === input.record.sourceHeadSha
   ) {
     throw new Error(`${input.taskId}: authority owner lane identity mismatch`);
   }
@@ -611,7 +623,7 @@ export const validateTerminalAuthorityResumeOwner = (input: {
     !artifactFiles.has("prior-lane-result.json") ||
     !existsSync(archivedLanePath) ||
     readFileSync(archivedLanePath, "utf8") !== laneContent ||
-    lane.taskId !== input.taskId ||
+    lane?.taskId !== input.taskId ||
     lane.headSha !== input.record.sourceHeadSha ||
     lane.treeSha !== git(["rev-parse", `${input.record.sourceHeadSha}^{tree}`])
   ) {
