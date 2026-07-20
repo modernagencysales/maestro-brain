@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "b6c8c42e744502700c8607be941e8f3dbe1e790d70abc7f3666efbf69554f9ca",
+  "planSha256": "1f242fed16a826c027154fdc60b5a3e0952a6a81eaf378d8c6e402ef02545f6a",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -325,7 +325,7 @@
     {
       "acceptanceAfter": "S02-T02",
       "classification": "fixture-to-real",
-      "codeStartAfter": ["S02-T02"],
+      "codeStartAfter": ["S02-T02", "S05-T01"],
       "estimatedSourceLines": 290,
       "fileInventoryIssues": [],
       "fileInventoryStatus": "ready",
@@ -660,12 +660,27 @@
       "fileInventoryStatus": "ready",
       "fileLocks": [
         "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md",
-        "packages/convex/confect/internal/migrations.ts",
+        "packages/convex/confect/internal/migration-fragments/S00-T04.json",
+        "packages/convex/confect/internal/migration-fragments/S01-T02.json",
+        "packages/convex/confect/internal/migration-fragments/S02-T01.json",
+        "packages/convex/confect/internal/migration-fragments/S02-T03.json",
+        "packages/convex/confect/internal/migration-fragments/S05-T01.json",
+        "packages/convex/confect/internal/migration-implementations/S00-T04.ts",
+        "packages/convex/confect/internal/migration-implementations/S01-T02.ts",
+        "packages/convex/confect/internal/migration-implementations/S02-T01.ts",
+        "packages/convex/confect/internal/migration-implementations/S02-T03.ts",
+        "packages/convex/confect/internal/migrationFragment.ts",
+        "packages/convex/confect/internal/migrationRuntime.ts",
+        "packages/convex/confect/internal/migrations.impl.ts",
+        "packages/convex/confect/internal/migrations.spec.ts",
         "packages/convex/confect/sources/sourceSchemas.ts",
         "packages/convex/confect/tables/providerEventReceipts.ts",
         "packages/convex/confect/tables/sourceArtifacts.ts",
         "packages/convex/confect/tables/sourceProcessingJobs.ts",
         "packages/convex/confect/tables/sourceRevisions.ts",
+        "packages/convex/scripts/generate-migration-registry.mts",
+        "packages/convex/test/migration-registry.test.ts",
+        "packages/convex/test/migrations.test.ts",
         "packages/convex/test/source-ledger-schema.test.ts"
       ],
       "gateProfiles": ["convex", "integrations"],
@@ -673,9 +688,10 @@
       "lane": "slack-source",
       "requirements": ["IAM-03", "KNW-02", "SLK-04", "SLK-05"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "7542539e334b2f682529977d6e29f15df1721ae541193cbcad5e9b9c92fd2891",
+      "sourceSliceLimit": 4,
+      "taskBlockHash": "62d7db9f04564a150c3aa5e93bc574c81163e9d0fb471450f483cf9dd6d09854",
       "taskId": "S05-T01",
-      "title": "Add The Organization Source Ledger And Atomic Capture Tables",
+      "title": "Add The Source Ledger And Prove The Integration-Owned Migration Registry",
       "tranche": "C1-contract-spine"
     },
     {
@@ -1071,7 +1087,7 @@
     {
       "acceptanceAfter": "S08-T02",
       "classification": "pattern-instance",
-      "codeStartAfter": ["S08-T02", "S05-T03", "S07-T01"],
+      "codeStartAfter": ["S08-T02", "S05-T01", "S05-T03", "S07-T01"],
       "estimatedSourceLines": 295,
       "fileInventoryIssues": [],
       "fileInventoryStatus": "ready",
@@ -1114,8 +1130,8 @@
     {
       "acceptanceAfter": "S08-T03",
       "classification": "pattern-instance",
-      "codeStartAfter": ["S08-T02", "S02-T03", "S07-T01"],
-      "estimatedSourceLines": 295,
+      "codeStartAfter": ["S08-T02", "S02-T03", "S05-T01", "S07-T01"],
+      "estimatedSourceLines": 1200,
       "fileInventoryIssues": [],
       "fileInventoryStatus": "ready",
       "fileLocks": [
@@ -1150,7 +1166,8 @@
       "lane": "cognition",
       "requirements": ["AI-03", "AI-04", "KNW-01", "UI-04"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "2bccfe705e20eef30b384725a71d69db2671a70d5c96f541fb95ec6b73629525",
+      "sourceSliceLimit": 5,
+      "taskBlockHash": "fc199f813d4e831ca9a7fb4335a38e3b2a46895bb832ad60f0963d22708c145e",
       "taskId": "S08-T04",
       "title": "Implement Cited Review-First Brain Maintenance And Autopilot Gate",
       "tranche": "X3-convergence"
@@ -1186,7 +1203,7 @@
     {
       "acceptanceAfter": "S09-T01",
       "classification": "template-gap",
-      "codeStartAfter": ["S09-T01", "S02-T02", "S07-T01"],
+      "codeStartAfter": ["S09-T01", "S02-T02", "S05-T01", "S07-T01"],
       "estimatedSourceLines": 280,
       "fileInventoryIssues": [],
       "fileInventoryStatus": "ready",
@@ -1273,7 +1290,7 @@
     {
       "acceptanceAfter": "S04, S09",
       "classification": "template-gap",
-      "codeStartAfter": ["S04-T02", "S01-T02"],
+      "codeStartAfter": ["S04-T02", "S01-T02", "S05-T01"],
       "estimatedSourceLines": 260,
       "fileInventoryIssues": [],
       "fileInventoryStatus": "ready",
@@ -1394,7 +1411,7 @@
     {
       "acceptanceAfter": "S09 complete",
       "classification": "template-gap",
-      "codeStartAfter": [],
+      "codeStartAfter": ["S05-T01"],
       "estimatedSourceLines": 280,
       "fileInventoryIssues": [],
       "fileInventoryStatus": "ready",

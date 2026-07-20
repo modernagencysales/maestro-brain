@@ -1,6 +1,6 @@
 {
   "schemaVersion": "maestro-brain-parallelism-contract/v1",
-  "manifestPlanSha256": "b6c8c42e744502700c8607be941e8f3dbe1e790d70abc7f3666efbf69554f9ca",
+  "manifestPlanSha256": "1f242fed16a826c027154fdc60b5a3e0952a6a81eaf378d8c6e402ef02545f6a",
   "edges": [
     {
       "consumerTaskId": "S00-T03",
@@ -57,6 +57,11 @@
     {
       "consumerTaskId": "S02-T03",
       "producerTaskId": "S02-T02",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S02-T03",
+      "producerTaskId": "S05-T01",
       "classification": "true"
     },
     {
@@ -222,13 +227,7 @@
     {
       "consumerTaskId": "S06-T01",
       "producerTaskId": "S05-T01",
-      "classification": "contract",
-      "artifact": {
-        "kind": "task-packet",
-        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-        "anchor": "S05-T01",
-        "sha256": "7542539e334b2f682529977d6e29f15df1721ae541193cbcad5e9b9c92fd2891"
-      }
+      "classification": "true"
     },
     {
       "consumerTaskId": "S06-T02",
@@ -281,13 +280,7 @@
     {
       "consumerTaskId": "S07-T01",
       "producerTaskId": "S05-T01",
-      "classification": "contract",
-      "artifact": {
-        "kind": "task-packet",
-        "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-        "anchor": "S05-T01",
-        "sha256": "7542539e334b2f682529977d6e29f15df1721ae541193cbcad5e9b9c92fd2891"
-      }
+      "classification": "true"
     },
     {
       "consumerTaskId": "S07-T02",
@@ -344,6 +337,11 @@
     },
     {
       "consumerTaskId": "S08-T03",
+      "producerTaskId": "S05-T01",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S08-T03",
       "producerTaskId": "S05-T03",
       "classification": "contract",
       "artifact": {
@@ -382,6 +380,11 @@
     },
     {
       "consumerTaskId": "S08-T04",
+      "producerTaskId": "S05-T01",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S08-T04",
       "producerTaskId": "S07-T01",
       "classification": "contract",
       "artifact": {
@@ -406,6 +409,11 @@
         "anchor": "S02-T02",
         "sha256": "01dafeb6e139c6a8e096ef1598d667bae42a04227bedab7521db9d71869f35a7"
       }
+    },
+    {
+      "consumerTaskId": "S09-T02",
+      "producerTaskId": "S05-T01",
+      "classification": "true"
     },
     {
       "consumerTaskId": "S09-T02",
@@ -478,6 +486,11 @@
       }
     },
     {
+      "consumerTaskId": "S10-T01",
+      "producerTaskId": "S05-T01",
+      "classification": "true"
+    },
+    {
       "consumerTaskId": "S10-T02",
       "producerTaskId": "S09-T04",
       "classification": "contract",
@@ -512,6 +525,11 @@
     {
       "consumerTaskId": "S10-T04",
       "producerTaskId": "S10-T03",
+      "classification": "true"
+    },
+    {
+      "consumerTaskId": "S11-T01",
+      "producerTaskId": "S05-T01",
       "classification": "true"
     },
     {
@@ -635,7 +653,7 @@
         "kind": "task-packet",
         "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
         "anchor": "S08-T04",
-        "sha256": "2bccfe705e20eef30b384725a71d69db2671a70d5c96f541fb95ec6b73629525"
+        "sha256": "fc199f813d4e831ca9a7fb4335a38e3b2a46895bb832ad60f0963d22708c145e"
       }
     },
     {
@@ -892,8 +910,13 @@
     {
       "leftTaskId": "S00-T04",
       "rightTaskId": "S05-T01",
-      "paths": ["packages/convex/confect/internal/migrations.ts"],
-      "policy": "registry_after_task6"
+      "paths": [
+        "packages/convex/confect/internal/migrations.impl.ts",
+        "packages/convex/confect/internal/migrations.spec.ts",
+        "packages/convex/test/migrations.test.ts"
+      ],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
     },
     {
       "leftTaskId": "S00-T04",
@@ -1033,8 +1056,13 @@
     {
       "leftTaskId": "S01-T02",
       "rightTaskId": "S05-T01",
-      "paths": ["packages/convex/confect/internal/migrations.ts"],
-      "policy": "registry_after_task6"
+      "paths": [
+        "packages/convex/confect/internal/migrations.impl.ts",
+        "packages/convex/confect/internal/migrations.spec.ts",
+        "packages/convex/test/migrations.test.ts"
+      ],
+      "policy": "same_wave_fail_closed",
+      "mandatorySameWave": true
     },
     {
       "leftTaskId": "S01-T02",
@@ -1138,12 +1166,6 @@
     {
       "leftTaskId": "S02-T01",
       "rightTaskId": "S04-T02",
-      "paths": ["packages/convex/confect/internal/migrations.ts"],
-      "policy": "registry_after_task6"
-    },
-    {
-      "leftTaskId": "S02-T01",
-      "rightTaskId": "S05-T01",
       "paths": ["packages/convex/confect/internal/migrations.ts"],
       "policy": "registry_after_task6"
     },
@@ -1254,12 +1276,6 @@
     {
       "leftTaskId": "S02-T03",
       "rightTaskId": "S04-T02",
-      "paths": ["packages/convex/confect/internal/migrations.ts"],
-      "policy": "registry_after_task6"
-    },
-    {
-      "leftTaskId": "S02-T03",
-      "rightTaskId": "S05-T01",
       "paths": ["packages/convex/confect/internal/migrations.ts"],
       "policy": "registry_after_task6"
     },
@@ -1452,12 +1468,6 @@
     },
     {
       "leftTaskId": "S04-T02",
-      "rightTaskId": "S05-T01",
-      "paths": ["packages/convex/confect/internal/migrations.ts"],
-      "policy": "registry_after_task6"
-    },
-    {
-      "leftTaskId": "S04-T02",
       "rightTaskId": "S06-T02",
       "paths": ["packages/convex/confect/tables/channelSyncStates.ts"],
       "policy": "same_wave_fail_closed",
@@ -1573,73 +1583,48 @@
       "leftTaskId": "S05-T01",
       "rightTaskId": "S06-T01",
       "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
-      "policy": "same_wave_fail_closed",
-      "mandatorySameWave": true
+      "policy": "dependency_order"
     },
     {
       "leftTaskId": "S05-T01",
       "rightTaskId": "S06-T02",
       "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
-      "policy": "same_wave_fail_closed",
-      "mandatorySameWave": true
+      "policy": "dependency_order"
     },
     {
       "leftTaskId": "S05-T01",
       "rightTaskId": "S06-T03",
       "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
-      "policy": "same_wave_fail_closed",
-      "mandatorySameWave": true
+      "policy": "dependency_order"
     },
     {
       "leftTaskId": "S05-T01",
       "rightTaskId": "S07-T01",
       "paths": [
-        "packages/convex/confect/internal/migrations.ts",
         "packages/convex/confect/tables/providerEventReceipts.ts",
         "packages/convex/confect/tables/sourceArtifacts.ts",
         "packages/convex/confect/tables/sourceProcessingJobs.ts",
         "packages/convex/confect/tables/sourceRevisions.ts"
       ],
-      "policy": "registry_after_task6"
+      "policy": "dependency_order"
     },
     {
       "leftTaskId": "S05-T01",
       "rightTaskId": "S08-T03",
       "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
-      "policy": "same_wave_fail_closed",
-      "mandatorySameWave": true
+      "policy": "dependency_order"
     },
     {
       "leftTaskId": "S05-T01",
       "rightTaskId": "S08-T04",
       "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
-      "policy": "same_wave_fail_closed",
-      "mandatorySameWave": true
-    },
-    {
-      "leftTaskId": "S05-T01",
-      "rightTaskId": "S09-T02",
-      "paths": ["packages/convex/confect/internal/migrations.ts"],
-      "policy": "registry_after_task6"
-    },
-    {
-      "leftTaskId": "S05-T01",
-      "rightTaskId": "S10-T01",
-      "paths": ["packages/convex/confect/internal/migrations.ts"],
-      "policy": "registry_after_task6"
+      "policy": "dependency_order"
     },
     {
       "leftTaskId": "S05-T01",
       "rightTaskId": "S10-T02",
       "paths": ["packages/convex/confect/tables/sourceProcessingJobs.ts"],
-      "policy": "same_wave_fail_closed",
-      "mandatorySameWave": true
-    },
-    {
-      "leftTaskId": "S05-T01",
-      "rightTaskId": "S11-T01",
-      "paths": ["packages/convex/confect/internal/migrations.ts"],
-      "policy": "registry_after_task6"
+      "policy": "dependency_order"
     },
     {
       "leftTaskId": "S05-T02",

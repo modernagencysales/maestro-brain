@@ -27,9 +27,10 @@ template classification, existing anchors, exact files, test-first sequence,
 typed contract, state changes, migration and rollback, commands, receipt, and
 lane branch/commit boundary.
 
-The binding task manifest contains exactly 56 task contracts. That count is
-authoritative and supersedes any stale instruction, receipt, or handoff that
-refers to 55 tasks.
+The binding task manifest contains exactly 57 task contracts: 56 product tasks
+and the distinct S15-T01 factory control checkpoint. That count is authoritative
+and supersedes any stale instruction, receipt, or handoff that refers to 55 or
+56 total tasks.
 
 ## Product And Architecture Outcome
 
@@ -1624,7 +1625,7 @@ manifest.
 
 ## S05 — Verified Exact Capture, Immutable Source Units, And Mechanical Routing
 
-### S05-T01 — Add The Organization Source Ledger And Atomic Capture Tables
+### S05-T01 — Add The Source Ledger And Prove The Integration-Owned Migration Registry
 
 - **Outcome / requirements:** satisfy SLK-04, SLK-05, IAM-03, KNW-02; accepted
   deliveries have distinct transport receipts that converge on one logical
@@ -1642,14 +1643,38 @@ manifest.
   `packages/convex/confect/tables/sourceRevisions.ts`,
   `packages/convex/confect/tables/sourceProcessingJobs.ts`,
   `packages/convex/confect/sources/sourceSchemas.ts`, and
-  `packages/convex/test/source-ledger-schema.test.ts`; modify
-  `packages/convex/confect/internal/migrations.ts` and
-  `docs/product/maestro-brain-lifecycle-adoption/S05-T01.md`.
-- **Failure-first tests:** missing organization/channel binding, duplicate
-  transport receipt, multiple receipts for one logical observation, conflicting
-  observation identity, invalid source key/revision key, cross-org channel,
-  content over limit, noncanonical timestamp/text, and partial transaction
-  failure.
+  `packages/convex/test/source-ledger-schema.test.ts`. This task also creates
+  the strict fragment schema
+  `packages/convex/confect/internal/migrationFragment.ts`, the exact fragments
+  `packages/convex/confect/internal/migration-fragments/S00-T04.json`,
+  `packages/convex/confect/internal/migration-fragments/S01-T02.json`,
+  `packages/convex/confect/internal/migration-fragments/S02-T01.json`,
+  `packages/convex/confect/internal/migration-fragments/S02-T03.json`, and
+  `packages/convex/confect/internal/migration-fragments/S05-T01.json`; the
+  task-owned implementation modules
+  `packages/convex/confect/internal/migration-implementations/S00-T04.ts`,
+  `packages/convex/confect/internal/migration-implementations/S01-T02.ts`,
+  `packages/convex/confect/internal/migration-implementations/S02-T01.ts`, and
+  `packages/convex/confect/internal/migration-implementations/S02-T03.ts`; the
+  hand-authored runtime extraction
+  `packages/convex/confect/internal/migrationRuntime.ts`; and
+  `packages/convex/scripts/generate-migration-registry.mts` plus
+  `packages/convex/test/migration-registry.test.ts`. Modify
+  `packages/convex/confect/internal/migrations.spec.ts`,
+  `packages/convex/confect/internal/migrations.impl.ts`,
+  `packages/convex/test/migrations.test.ts`, and
+  `docs/product/maestro-brain-lifecycle-adoption/S05-T01.md`. The product lane
+  explicitly does not own or commit the integration-generated canonical
+  migration registry.
+- **Failure-first tests:** first specify deterministic fragment assembly and
+  strict schema rejection: creation/key/locale order cannot change bytes;
+  duplicate IDs/task IDs/JSON keys, unknown fields, unsafe paths, symlinks,
+  task-hash drift, dangling or phase-inverted dependencies, cycles, fake no-op
+  migrations, stale check output, and non-idempotent writes fail. Also prove
+  missing organization/channel binding, duplicate transport receipt, multiple
+  receipts for one logical observation, conflicting observation identity,
+  invalid source key/revision key, cross-org channel, content over limit,
+  noncanonical timestamp/text, and partial transaction failure.
 - **Implementation:** use stable tenant keys and every table/index in Appendix
   C. `providerEventReceipts` deduplicates transport delivery IDs and points to a
   logical observation key; multiple live/backfill/reconciliation receipts may
@@ -1657,25 +1682,45 @@ manifest.
   envelope and exact normalized text/blocks, author snapshot, timestamps,
   permalink, provider revision/order metadata, canonical hash, and tombstone
   flag. Job row begins at `assembly_pending` with pinned policy epoch and unique
-  effect key.
+  effect key. Define strict JSON `migrationFragment` data bound to the current
+  task-block hash; extract the S00, S01, and S02 migration implementations into
+  task-owned modules; and generate the canonical registry deterministically by
+  phase-aware topological order. The generator accepts an absolute worktree and
+  mutually exclusive check/write modes, rejects unsafe filesystem and schema
+  input, formats exact LF-only bytes, writes atomically, and proves a second
+  generation byte-identical. Unknown migration IDs retain the typed
+  `MigrationNotFound` path and never fall back to the probe. Stable receipt and
+  runtime helpers remain hand-authored in `migrationRuntime.ts`.
 - **Typed contract / errors:** internal capture input is a
   `VerifiedSlackEnvelope` plus normalized observation; result
   `{ outcome: inserted | duplicate, sourceKey, sourceRevisionKey, assemblyJobKey }`;
   errors `TenantMismatch`, `ChannelAccessLost`, `ObservationInvalid`,
   `PayloadTooLarge`, `DuplicateKeyConflict`.
-- **Migration / compatibility / rollback:** new tables only. Rollback stops new
+- **Migration / compatibility / rollback:** source-ledger tables are new and the
+  S05 fragment records the exact `new_tables_only` attestation. Existing
+  S00/S01/S02 migrations retain their behavior through extracted fragments and
+  implementation modules. Integration alone generates the canonical registry;
+  the lane tests expected output in a temporary target and leaves
+  `packages/convex/confect/internal/migrations.ts` unchanged. Rollback stops new
   capture and retains exact rows; never delete captured evidence to revert code.
   Re-enable only after the new binary understands every stored schema version.
 - **Focused verification:**
-  `rtk host-test-slot --class focused pnpm --dir packages/convex test source-ledger-schema`,
+  `rtk host-test-slot --class focused pnpm --dir packages/convex exec vitest run test/migration-registry.test.ts test/migrations.test.ts test/brain-page-schema.test.ts test/brain-revisions.test.ts test/source-ledger-schema.test.ts`,
+  `rtk pnpm --dir packages/convex exec tsx scripts/generate-migration-registry.mts --root "$PWD" --check`,
   `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk pnpm check:schema-migration-notes`, `rtk pnpm check:confect-contracts`,
   broad verification is deferred to tranche acceptance under Appendix L.
 - **Completion receipt:** table/index inventory, schema version, tenant/key/
-  partial-write tests, and lifecycle declarations.
+  partial-write tests, lifecycle declarations, exact fragment/task hashes,
+  deterministic generated-byte hash, compatibility results, and proof that the
+  lane did not edit the canonical registry.
+- **Source-slice contract:** at most four linear commits; each commit remains at
+  or below 300 hand-authored source lines. The sequence is fragment/schema RED,
+  generator and S00/S01 extraction, S02/S05 registration plus source ledger,
+  then runtime compatibility and no-migration proof.
 - **Lane branch / commit boundary:** branch
-  `codex/brain-s05-source-ledger-schema`; commit
-  `feat: add exact source ledger schema`.
+  `codex/brain-s05-source-ledger-schema`; four coherent checkpoints ending at
+  `feat: prove the migration registry`.
 
 ### S05-T02 — Implement Deterministic Slack Normalization, Ordering, And Atomic Capture
 
@@ -2566,6 +2611,8 @@ manifest.
 - **Completion receipt:** no-op/review/autopilot states, citation and stale-race
   proof, model-change downgrade, revision budget, prompt-injection matrix,
   generator provenance, and no public workflow controls.
+- **Source-slice contract:** up to 1,200 estimated hand-authored source lines in
+  at most five linear commits; each commit remains at or below 300 lines.
 - **Lane branch / commit boundary:** branch `codex/brain-s08-maintenance`;
   commit `feat: maintain cited Client Briefs`; final S08 checkpoint.
 
@@ -3823,7 +3870,7 @@ remains the exact direct acceptance edge and is the source materialized into
 | S08-T01 | S02, S05, S07                      | template-gap structured LLM                      |               290 |
 | S08-T02 | S08-T01                            | template-gap internal workflow generator         |               260 |
 | S08-T03 | S08-T02                            | generated capability/workflow pattern-instance   |               295 |
-| S08-T04 | S08-T03                            | generated capability/workflow pattern-instance   |               295 |
+| S08-T04 | S08-T03                            | generated capability/workflow pattern-instance   |              1200 |
 | S09-T01 | S07, S08                           | template-gap async search                        |               240 |
 | S09-T02 | S09-T01                            | template-gap search projection                   |               280 |
 | S09-T03 | S09-T02, S02                       | generated headless capability pattern-instance   |               290 |
@@ -4612,6 +4659,14 @@ edges, not for unrelated UI or provider bodies. The dispatcher proves the actual
 ready width and refuses intersecting file locks; a hand-maintained wave number
 is never authority.
 
+S05-T01 is the single product producer for migration-fragment schema, task-owned
+fragment/implementation inputs, deterministic registry generation, and runtime
+extraction. S02-T03, S06-T01, S07-T01, S08-T03, S08-T04, S09-T02, S10-T01, and
+S11-T01 have true code-start edges from S05-T01. Historical S00, S01, S02-T01,
+and S04-T02 migration work is harvested by S05 rather than reversed, which would
+create a cycle. Integration alone owns the canonical
+`packages/convex/confect/internal/migrations.ts` output.
+
 Shared locks include `@route-tree`, `@dependencies`, `@environment`, and every
 exact path extracted from the task's **Files** field. The factory reserves all
 generated Confect, Convex, manifest, and route-tree output for tranche
@@ -4656,8 +4711,9 @@ task-plan factory, AI CI-risk scoring, or always-on PR rescue. The
 implementation plan already supplies those decisions. Deterministic factory
 checks validate:
 
-- exactly 56 task contracts; Appendix M remains the independently reviewed
-  requirement-owner audit until a dedicated matrix checker is promoted;
+- exactly 57 task contracts (56 product plus one control); Appendix M remains
+  the independently reviewed requirement-owner audit until a dedicated matrix
+  checker is promoted;
 - one primary work-package classification per task;
 - acyclic `codeStartAfter` and preserved `acceptanceAfter` metadata;
 - known gate profiles, tranche/lane ownership, and shared-file locks;
@@ -4667,7 +4723,8 @@ checks validate:
 - clean worktree/base SHA and proof/head consistency;
 - no broad lane command or gate weakening;
 - at most four 300-line source slices per task by default, with manifest-
-  validated expanded limits of ten for S04-T01 and five for S04-T02;
+  validated expanded limits including ten for S04-T01, five for S04-T02, and
+  five for S08-T04;
 - full verification before an immutable wave is promoted and marks tasks
   accepted.
 

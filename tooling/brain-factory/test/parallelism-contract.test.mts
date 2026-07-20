@@ -53,14 +53,14 @@ describe("parallelism contract schema", () => {
       "maestro-brain-parallelism-contract/v1",
     );
     expect(contract.manifestPlanSha256).toBe(manifest.planSha256);
-    expect(contract.edges).toHaveLength(93);
+    expect(contract.edges).toHaveLength(99);
     expect(
       contract.edges.filter((edge) => edge.classification === "true"),
-    ).toHaveLength(43);
+    ).toHaveLength(51);
     expect(
       contract.edges.filter((edge) => edge.classification === "contract"),
-    ).toHaveLength(50);
-    expect(contract.collisions).toHaveLength(193);
+    ).toHaveLength(48);
+    expect(contract.collisions).toHaveLength(187);
     expect(validateParallelismContract(contract, manifest)).toEqual([]);
   });
 
@@ -175,6 +175,25 @@ describe("parallelism contract schema", () => {
     expect(effectiveCollisionPolicy(migrationCollision, true)).toBe(
       "regenerate",
     );
+  });
+
+  test("orders every remaining migration consumer after the S05 producer", () => {
+    for (const taskId of [
+      "S02-T03",
+      "S06-T01",
+      "S07-T01",
+      "S08-T03",
+      "S08-T04",
+      "S09-T02",
+      "S10-T01",
+      "S11-T01",
+    ]) {
+      expect(edgeFor(contract, taskId, "S05-T01"), taskId).toEqual({
+        consumerTaskId: taskId,
+        producerTaskId: "S05-T01",
+        classification: "true",
+      });
+    }
   });
 
   test("requires same-wave collisions to declare mandatory co-integration", () => {

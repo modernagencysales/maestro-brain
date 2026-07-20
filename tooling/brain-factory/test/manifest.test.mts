@@ -56,17 +56,17 @@ describe("Maestro Brain execution manifest", () => {
     ).toEqual(generated.tasks);
     expect(
       projection.tasks.flatMap((task) => task.classifiedCodeStartAfter),
-    ).toHaveLength(93);
+    ).toHaveLength(99);
     expect(
       projection.tasks
         .flatMap((task) => task.classifiedCodeStartAfter)
         .filter((dependency) => dependency.classification === "true"),
-    ).toHaveLength(43);
+    ).toHaveLength(51);
     expect(
       projection.tasks
         .flatMap((task) => task.classifiedCodeStartAfter)
         .filter((dependency) => dependency.classification === "contract"),
-    ).toHaveLength(50);
+    ).toHaveLength(48);
 
     const providerSetup = projection.tasks.find(
       (task) => task.taskId === "S04-T01",
@@ -411,6 +411,66 @@ describe("Maestro Brain execution manifest", () => {
         ),
       }),
     ).toContain("S00-T04: invalid source-line estimate 1201");
+  });
+
+  it("makes S05 the migration registry producer for the remaining frontier", () => {
+    const projection = loadManifestProjection();
+    const sourceLedger = projection.tasks.find(
+      (task) => task.taskId === "S05-T01",
+    );
+    expect(sourceLedger?.title).toBe(
+      "Add The Source Ledger And Prove The Integration-Owned Migration Registry",
+    );
+    expect(sourceLedger?.sourceSliceLimit).toBe(4);
+    expect(sourceLedger?.fileLocks).not.toContain(
+      "packages/convex/confect/internal/migrations.ts",
+    );
+    expect(sourceLedger?.fileLocks).toEqual(
+      expect.arrayContaining([
+        "packages/convex/confect/internal/migrationFragment.ts",
+        "packages/convex/confect/internal/migration-fragments/S00-T04.json",
+        "packages/convex/confect/internal/migration-fragments/S01-T02.json",
+        "packages/convex/confect/internal/migration-fragments/S02-T01.json",
+        "packages/convex/confect/internal/migration-fragments/S02-T03.json",
+        "packages/convex/confect/internal/migration-fragments/S05-T01.json",
+        "packages/convex/confect/internal/migration-implementations/S00-T04.ts",
+        "packages/convex/confect/internal/migration-implementations/S01-T02.ts",
+        "packages/convex/confect/internal/migration-implementations/S02-T01.ts",
+        "packages/convex/confect/internal/migration-implementations/S02-T03.ts",
+        "packages/convex/confect/internal/migrationRuntime.ts",
+        "packages/convex/confect/internal/migrations.impl.ts",
+        "packages/convex/confect/internal/migrations.spec.ts",
+        "packages/convex/scripts/generate-migration-registry.mts",
+        "packages/convex/test/migration-registry.test.ts",
+        "packages/convex/test/migrations.test.ts",
+      ]),
+    );
+
+    for (const taskId of [
+      "S02-T03",
+      "S06-T01",
+      "S07-T01",
+      "S08-T03",
+      "S08-T04",
+      "S09-T02",
+      "S10-T01",
+      "S11-T01",
+    ]) {
+      const consumer = projection.tasks.find((task) => task.taskId === taskId);
+      expect(consumer?.codeStartAfter, taskId).toContain("S05-T01");
+      expect(
+        consumer?.classifiedCodeStartAfter.find(
+          (edge) => edge.producerTaskId === "S05-T01",
+        )?.classification,
+        taskId,
+      ).toBe("true");
+    }
+
+    const maintenance = projection.tasks.find(
+      (task) => task.taskId === "S08-T04",
+    );
+    expect(maintenance?.sourceSliceLimit).toBe(5);
+    expect(maintenance?.estimatedSourceLines).toBe(1_200);
   });
 
   it("keeps durable identity and provider work behind foundation gates", () => {
