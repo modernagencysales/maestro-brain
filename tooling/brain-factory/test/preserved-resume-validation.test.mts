@@ -37,6 +37,8 @@ const fixture = () => {
   writeFileSync(join(repo, "owned.txt"), "source\n");
   git(repo, "commit", "-am", "source one");
   const sourceCommit = git(repo, "rev-parse", "HEAD");
+  git(repo, "commit", "--allow-empty", "-m", "source checkpoint");
+  const sourceHeadSha = git(repo, "rev-parse", "HEAD");
   git(repo, "checkout", "main");
   writeFileSync(join(repo, "owned.txt"), "control\n");
   git(repo, "commit", "-am", "control");
@@ -57,6 +59,7 @@ const fixture = () => {
     evidence,
     repo,
     sourceCommit,
+    sourceHeadSha,
     workdir,
   };
 };
@@ -89,7 +92,7 @@ describe("preserved resume launch validation", () => {
       mode: "preserved-worktree" as const,
       proofHead: value.control,
       resumeCommits: [value.sourceCommit],
-      sourceHeadSha: value.sourceCommit,
+      sourceHeadSha: value.sourceHeadSha,
       startSha: value.control,
       taskBaseSha: value.base,
       taskId: "S08-T03",
@@ -169,7 +172,7 @@ describe("preserved resume launch validation", () => {
       mode: "preserved-conflict-aware" as const,
       proofHead: "none",
       resumeCommits: [value.sourceCommit],
-      sourceHeadSha: value.sourceCommit,
+      sourceHeadSha: value.sourceHeadSha,
       startSha: value.control,
       taskBaseSha: value.base,
       taskId: "S08-T03",

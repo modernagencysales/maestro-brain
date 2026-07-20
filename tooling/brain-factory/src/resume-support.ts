@@ -1,5 +1,15 @@
 export type ResumeGitRunner = (args: readonly string[]) => string;
 
+export const nonEmptyResumeCommits = (input: {
+  readonly changedPathsFor: (commit: string) => string;
+  readonly revisionList: string;
+}): readonly string[] =>
+  input.revisionList
+    .split("\n")
+    .map((commit) => commit.trim())
+    .filter(Boolean)
+    .filter((commit) => input.changedPathsFor(commit).trim() !== "");
+
 export const serializeResumeCommits = (
   taskId: string,
   commits: readonly string[],
@@ -60,29 +70,23 @@ export const validateResumeSource = (input: {
       `${input.taskId}: ${input.sourceRef} is not descended from ${input.taskBase}`,
     );
   }
-  const taskCommits = input
-    .runGit([
+  const taskCommits = nonEmptyResumeCommits({
+    revisionList: input.runGit([
       "git",
       "rev-list",
       "--reverse",
       `${taskBaseSha}..${sourceHeadSha}`,
-    ])
-    .split("\n")
-    .map((commit) => commit.trim())
-    .filter(Boolean)
-    .filter(
-      (commit) =>
-        input
-          .runGit([
-            "git",
-            "diff-tree",
-            "--no-commit-id",
-            "--name-only",
-            "-r",
-            commit,
-          ])
-          .trim() !== "",
-    );
+    ]),
+    changedPathsFor: (commit) =>
+      input.runGit([
+        "git",
+        "diff-tree",
+        "--no-commit-id",
+        "--name-only",
+        "-r",
+        commit,
+      ]),
+  });
   if (taskCommits.length === 0) {
     throw new Error(
       `${input.taskId}: ${input.sourceRef} has no commits after ${input.taskBase}`,

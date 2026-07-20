@@ -2,6 +2,7 @@ import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { gitIsAncestor, runRtk } from "./process.js";
+import { nonEmptyResumeCommits } from "./resume-support.js";
 
 export interface PreservedResumeLaunchExpectation {
   readonly baseSha: string;
@@ -106,13 +107,15 @@ export const validatePreservedResumeLaunch = (
   if (!gitIsAncestor(expected.taskBaseSha, expected.sourceHeadSha, workdir)) {
     throw new Error("preserved task base is not an ancestor of source HEAD");
   }
-  const sourceCommitRange = git([
-    "rev-list",
-    "--reverse",
-    `${expected.taskBaseSha}..${expected.sourceHeadSha}`,
-  ])
-    .split("\n")
-    .filter(Boolean);
+  const sourceCommitRange = nonEmptyResumeCommits({
+    revisionList: git([
+      "rev-list",
+      "--reverse",
+      `${expected.taskBaseSha}..${expected.sourceHeadSha}`,
+    ]),
+    changedPathsFor: (commit) =>
+      git(["diff-tree", "--no-commit-id", "--name-only", "-r", commit]),
+  });
   if (
     JSON.stringify(sourceCommitRange) !== JSON.stringify(expected.resumeCommits)
   ) {
