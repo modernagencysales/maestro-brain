@@ -1,0 +1,103 @@
+{
+  "lens": "safety",
+  "taskId": "S13-T03",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "taskBlockHash": "13c071bc2c78035c5563f494b38160a96c981ab2962984f056be4e18853e137e",
+  "baseSha": "f66236e12f93bc254cc2350800a5b2a69d0caff5",
+  "headSha": "4b89b7a17a0840c9aac866958bf51f54476b19a5",
+  "treeSha": "8cd93a47c09b350070987481aea5691416b77547",
+  "reviewerRunId": "maestro/review/S13-T03/4b89b7a17a0840c9aac866958bf51f54476b19a5/705416ba-2fce-4fc0-b56f-dec46114ee13-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.impl.ts:40-47 requires workspace access before listing policies for the requested workspace and loads only that workspace's policies.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:67-84 requires workspace access before mutation and loads the current policy by input.workspaceId plus subsystem.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:180-197 queries active policies by workspace/kind/status and ignores rows whose policyKey does not match the requested workspace prefix."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.impl.ts:67-72 rejects policy mutation when the caller's workspace role is below admin.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:79-82 enforces admin-or-higher operator authority for policy transitions.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:108-112 requires owner authority to recover a disabled subsystem to any non-disabled state."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.impl.ts:94-103 bounds transient policy expiry to maxPolicyExpiryMs before accepting the policy row.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:125-141 retires active rows for the same workspace/subsystem before inserting the accepted replacement, and packages/convex/confect/ops/brainOperations.impl.ts:258-264 tombstones prior active rows as retired with retiredAt.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:125-160 and packages/convex/confect/ops/brainOperations.impl.ts:268-271 both treat expired operation policies as default-allowed before disabled-state evaluation."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/observability/src/brainMetrics.ts:56-69 lists prompt/source/token/header-like fields for metric redaction.",
+        "packages/observability/src/brainMetrics.ts:99-123 recursively redacts those fields before whitelisting metric keys into a BrainMetric.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:216-240 builds the access-audit event from workspace, actor, subsystem, state, generation, previousGeneration, and expiresAt only; packages/convex/test/brain-operation-policy.test.ts:175-219 verifies a prompt canary in reason is not present in the audit JSON."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts:76-91 now requires expectedGeneration on every setPolicyInternal request.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:98-106 returns RecoveryGenerationMismatch when the observed current generation differs from expectedGeneration.",
+        "packages/convex/test/brain-operation-policy.test.ts:123-144 asserts requests missing expectedGeneration fail schema decoding and requests with expectedGeneration decode successfully."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts:76-91 requires both idempotencyKey and expectedGeneration for policy mutations.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:85-87 returns the current policy receipt idempotently when the active policy has the same idempotencyKey.",
+        "packages/convex/test/brain-operation-policy.test.ts:233-272 proves an older idempotency key can be looked up for replay context and a late duplicate with stale expectedGeneration yields RecoveryGenerationMismatch after a newer generation exists."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts:90 makes expectedGeneration required for the internal mutation contract.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:107-121 forwards expectedGeneration into nextOperationPolicy for every schema-valid request.",
+        "packages/convex/test/brain-operation-policy.test.ts:80-102 and packages/convex/test/brain-operation-policy.test.ts:260-271 cover stale generation denial through RecoveryGenerationMismatch."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "finding",
+      "findingIds": [
+        "S13-T03-SAFETY-REVIEW-003"
+      ],
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3590-3594 requires default risky external surfaces off until launch enablement and rollback through kill switches first.",
+        "packages/convex/confect/ops/flags.impl.ts:15-26 declares brainOperationLaunchFlagDefaults for template.brain.semanticOperations and template.brain.externalDelivery as disabled with killSwitchEnv names.",
+        "packages/convex/confect/ops/flags.impl.ts:28-67 defaultFeatureFlagPolicies omits brainOperationLaunchFlagDefaults, packages/convex/confect/ops/flags.impl.ts:232-255 mergePolicies returns only defaultFeatureFlagPolicies, and packages/convex/confect/tables/featureFlagPolicies.ts:4-10 still excludes both Brain flag keys from the durable FeatureFlagKey literal."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "S13-T03-SAFETY-REVIEW-003",
+      "severity": "medium",
+      "summary": "Brain launch kill-switch flags are declared but not enforced by the feature-flag boundary.",
+      "details": "S13-T03 requires risky external surfaces to remain default-off until launch enablement. The implementation declares disabled Brain launch defaults for semantic operations and external delivery, but those defaults are not included in the evaluated default feature flag list, and the durable FeatureFlagKey table schema still rejects those keys. As a result, the public flag list/evaluate surface will not return these Brain external-risk kill switches and workspace overrides for them cannot be persisted through the existing feature-flag boundary.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3590-3594",
+        "packages/convex/confect/ops/flags.impl.ts:15-26",
+        "packages/convex/confect/ops/flags.impl.ts:28-67",
+        "packages/convex/confect/ops/flags.impl.ts:232-255",
+        "packages/convex/confect/tables/featureFlagPolicies.ts:4-10"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
