@@ -1,12 +1,16 @@
+import { convexTest } from "convex-test";
+import { defineSchema } from "convex/server";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
+import databaseSchema from "../confect/_generated/schema";
 import {
   ProviderEventReceiptRow,
   SourceArtifactRow,
   SourceProcessingJobRow,
   SourceRevisionRow,
   assertValidSourceLedgerCapture,
+  buildSourceLedgerRows,
   sourceLedgerKeysFor,
 } from "../confect/sources/sourceSchemas";
 import providerEventReceiptsSource from "../confect/tables/providerEventReceipts";
@@ -14,11 +18,44 @@ import sourceArtifactsSource from "../confect/tables/sourceArtifacts";
 import sourceProcessingJobsSource from "../confect/tables/sourceProcessingJobs";
 import sourceRevisionsSource from "../confect/tables/sourceRevisions";
 
+const providerEventReceipts = providerEventReceiptsSource(
+  "providerEventReceipts",
+);
+const sourceArtifacts = sourceArtifactsSource("sourceArtifacts");
+const sourceRevisions = sourceRevisionsSource("sourceRevisions");
+const sourceProcessingJobs = sourceProcessingJobsSource("sourceProcessingJobs");
+
+const modules = import.meta.glob("../convex/**/!(*.*.*)*.*s");
+
+const transientConvexSchema = defineSchema({
+  ...Object.fromEntries(
+    Object.entries(databaseSchema.tables).map(([name, table]) => [
+      name,
+      table.tableDefinition,
+    ]),
+  ),
+  providerEventReceipts: providerEventReceipts.tableDefinition,
+  sourceArtifacts: sourceArtifacts.tableDefinition,
+  sourceRevisions: sourceRevisions.tableDefinition,
+  sourceProcessingJobs: sourceProcessingJobs.tableDefinition,
+});
+
 const lifecycle = {
   state: "active" as const,
   generation: 1,
   updatedAt: 1_000,
   purgeAfter: null,
+};
+
+const verifiedBinding = {
+  organizationKey: "agency_acme",
+  connectionKey: "slack_agency_acme",
+  connectionGeneration: 2,
+  teamId: "T_acme",
+  appId: "A_acme",
+  botUserId: "B_acme",
+  channelKey: "chn_general",
+  externalChannelId: "C_general",
 };
 
 const capture = {
@@ -55,9 +92,7 @@ const capture = {
 
 describe("source ledger schema", () => {
   it("declares the S05 table/index inventory", () => {
-    expect(
-      providerEventReceiptsSource("providerEventReceipts").indexes,
-    ).toEqual({
+    expect(providerEventReceipts.indexes).toEqual({
       by_connection_generation_transport_delivery: [
         "organizationKey",
         "connectionKey",
@@ -68,7 +103,7 @@ describe("source ledger schema", () => {
       by_received_at: ["organizationKey", "receivedAt"],
       by_outcome: ["organizationKey", "outcome"],
     });
-    expect(sourceArtifactsSource("sourceArtifacts").indexes).toEqual({
+    expect(sourceArtifacts.indexes).toEqual({
       by_org_connection_generation_channel_provider_object: [
         "organizationKey",
         "connectionKey",
@@ -84,7 +119,7 @@ describe("source ledger schema", () => {
         "lifecycle.purgeAfter",
       ],
     });
-    expect(sourceRevisionsSource("sourceRevisions").indexes).toEqual({
+    expect(sourceRevisions.indexes).toEqual({
       by_source_revision_key: ["sourceRevisionKey"],
       by_source_provider_order: ["sourceKey", "providerOrder"],
       by_source_created: ["organizationKey", "sourceCreatedAt"],
@@ -94,7 +129,7 @@ describe("source ledger schema", () => {
         "lifecycle.purgeAfter",
       ],
     });
-    expect(sourceProcessingJobsSource("sourceProcessingJobs").indexes).toEqual({
+    expect(sourceProcessingJobs.indexes).toEqual({
       by_stage_status_next_retry: ["stage", "status", "nextRetryAt"],
       by_effect_key: ["effectKey"],
       by_unit_stage: ["sourceUnitKey", "stage"],
@@ -104,7 +139,7 @@ describe("source ledger schema", () => {
   });
 
   it("derives stable source, observation, revision, and job keys without Convex IDs", () => {
-    const result = assertValidSourceLedgerCapture(capture);
+    const result = assertValidSourceLedgerCapture(capture, { verifiedBinding });
     expect(result).toMatchObject({ outcome: "inserted" });
     expect(JSON.stringify(result)).not.toContain("_id");
     expect(result.sourceKey).toBe(
@@ -115,39 +150,55 @@ describe("source ledger schema", () => {
   });
 
   it("converges live and backfill receipts on one logical observation", () => {
-    const live = assertValidSourceLedgerCapture(capture);
-    const backfill = assertValidSourceLedgerCapture({
-      ...capture,
-      envelope: {
-        ...capture.envelope,
-        transportDeliveryId: "backfill_1",
-        receivedAt: 2_000,
+    const live = assertValidSourceLedgerCapture(capture, { verifiedBinding });
+    const backfill = assertValidSourceLedgerCapture(
+      {
+        ...capture,
+        envelope: {
+          ...capture.envelope,
+          transportDeliveryId: "backfill_1",
+          receivedAt: 2_000,
+        },
       },
-    });
+      { verifiedBinding },
+    );
 
     expect(backfill.observationKey).toBe(live.observationKey);
     expect(backfill.sourceRevisionKey).toBe(live.sourceRevisionKey);
   });
 
   it("tenant-scopes source identity, artifact lookup, and receipt dedupe across connection generations", () => {
-    const current = assertValidSourceLedgerCapture(capture);
-    const otherOrg = assertValidSourceLedgerCapture({
-      ...capture,
-      envelope: {
-        ...capture.envelope,
-        organizationKey: "agency_other",
-        connectionKey: "slack_agency_other",
-        transportDeliveryId: "evt_1",
-      },
+    const current = assertValidSourceLedgerCapture(capture, {
+      verifiedBinding,
     });
-    const nextGeneration = assertValidSourceLedgerCapture({
-      ...capture,
-      envelope: {
-        ...capture.envelope,
-        connectionGeneration: 3,
-        transportDeliveryId: "evt_1",
+    const otherOrgBinding = {
+      ...verifiedBinding,
+      organizationKey: "agency_other",
+      connectionKey: "slack_agency_other",
+    };
+    const otherOrg = assertValidSourceLedgerCapture(
+      {
+        ...capture,
+        envelope: {
+          ...capture.envelope,
+          organizationKey: "agency_other",
+          connectionKey: "slack_agency_other",
+          transportDeliveryId: "evt_1",
+        },
       },
-    });
+      { verifiedBinding: otherOrgBinding },
+    );
+    const nextGeneration = assertValidSourceLedgerCapture(
+      {
+        ...capture,
+        envelope: {
+          ...capture.envelope,
+          connectionGeneration: 3,
+          transportDeliveryId: "evt_1",
+        },
+      },
+      { verifiedBinding: { ...verifiedBinding, connectionGeneration: 3 } },
+    );
 
     expect(otherOrg.sourceKey).not.toBe(current.sourceKey);
     expect(otherOrg.observationKey).not.toBe(current.observationKey);
@@ -156,8 +207,10 @@ describe("source ledger schema", () => {
 
     const seen = new Set<string>();
     expect(
-      assertValidSourceLedgerCapture(capture, { seenTransportDeliveries: seen })
-        .outcome,
+      assertValidSourceLedgerCapture(capture, {
+        seenTransportDeliveries: seen,
+        verifiedBinding,
+      }).outcome,
     ).toBe("inserted");
     expect(
       assertValidSourceLedgerCapture(
@@ -165,7 +218,10 @@ describe("source ledger schema", () => {
           ...capture,
           envelope: { ...capture.envelope, connectionGeneration: 3 },
         },
-        { seenTransportDeliveries: seen },
+        {
+          seenTransportDeliveries: seen,
+          verifiedBinding: { ...verifiedBinding, connectionGeneration: 3 },
+        },
       ).outcome,
     ).toBe("inserted");
   });
@@ -253,50 +309,149 @@ describe("source ledger schema", () => {
   it("rejects tenant, duplicate receipt, conflicting observation, key, size, and canonicalization violations", () => {
     const seen = new Set<string>();
     expect(
-      assertValidSourceLedgerCapture(capture, { seenTransportDeliveries: seen })
-        .outcome,
+      assertValidSourceLedgerCapture(capture, {
+        seenTransportDeliveries: seen,
+        verifiedBinding,
+      }).outcome,
     ).toBe("inserted");
     expect(
-      assertValidSourceLedgerCapture(capture, { seenTransportDeliveries: seen })
-        .outcome,
+      assertValidSourceLedgerCapture(capture, {
+        seenTransportDeliveries: seen,
+        verifiedBinding,
+      }).outcome,
     ).toBe("duplicate");
     expect(() =>
-      assertValidSourceLedgerCapture({
-        ...capture,
-        envelope: { ...capture.envelope, organizationKey: "" },
-      }),
+      assertValidSourceLedgerCapture(
+        {
+          ...capture,
+          envelope: { ...capture.envelope, organizationKey: "" },
+        },
+        { verifiedBinding },
+      ),
     ).toThrow("TenantMismatch");
     expect(() =>
-      assertValidSourceLedgerCapture({
-        ...capture,
-        envelope: { ...capture.envelope, channelKey: "other" },
-      }),
+      assertValidSourceLedgerCapture(
+        {
+          ...capture,
+          envelope: { ...capture.envelope, channelKey: "other" },
+        },
+        { verifiedBinding },
+      ),
     ).toThrow("ChannelAccessLost");
     expect(() =>
-      assertValidSourceLedgerCapture({
-        ...capture,
-        observation: {
-          ...capture.observation,
-          sourceTimestamp: "2026-07-20 10:00",
+      assertValidSourceLedgerCapture(
+        {
+          ...capture,
+          observation: {
+            ...capture.observation,
+            sourceTimestamp: "2026-07-20 10:00",
+          },
         },
-      }),
+        { verifiedBinding },
+      ),
     ).toThrow("ObservationInvalid");
     expect(() =>
-      assertValidSourceLedgerCapture({
-        ...capture,
-        observation: { ...capture.observation, text: "x".repeat(32_001) },
-      }),
+      assertValidSourceLedgerCapture(
+        {
+          ...capture,
+          observation: { ...capture.observation, text: "x".repeat(32_001) },
+        },
+        { verifiedBinding },
+      ),
     ).toThrow("PayloadTooLarge");
     expect(() =>
-      assertValidSourceLedgerCapture({
-        ...capture,
-        observation: { ...capture.observation, providerObjectId: "bad/slash" },
-      }),
+      assertValidSourceLedgerCapture(
+        {
+          ...capture,
+          observation: {
+            ...capture.observation,
+            providerObjectId: "bad/slash",
+          },
+        },
+        { verifiedBinding },
+      ),
     ).toThrow("DuplicateKeyConflict");
     expect(() =>
       assertValidSourceLedgerCapture(capture, {
         existingObservationKey: "obs_other",
+        verifiedBinding,
       }),
     ).toThrow("DuplicateKeyConflict");
+  });
+
+  it("rejects missing and cross-tenant verified channel bindings before key derivation", () => {
+    expect(() => assertValidSourceLedgerCapture(capture)).toThrow(
+      "ChannelAccessLost",
+    );
+    expect(() =>
+      assertValidSourceLedgerCapture(capture, {
+        verifiedBinding: {
+          ...verifiedBinding,
+          organizationKey: "agency_other",
+        },
+      }),
+    ).toThrow("TenantMismatch");
+    expect(() =>
+      assertValidSourceLedgerCapture(capture, {
+        verifiedBinding: { ...verifiedBinding, channelKey: "chn_other" },
+      }),
+    ).toThrow("ChannelAccessLost");
+  });
+
+  it("rolls back durable source ledger writes when a later write fails", async () => {
+    const t = convexTest({ schema: transientConvexSchema, modules });
+    const rows = buildSourceLedgerRows(capture, { verifiedBinding });
+
+    await expect(
+      t.run(async (ctx) => {
+        await ctx.db.insert("providerEventReceipts", rows.receipt);
+        await ctx.db.insert("sourceArtifacts", rows.artifact);
+        await ctx.db.insert("sourceRevisions", rows.revision);
+        throw new Error("simulate sourceProcessingJobs write failure");
+      }),
+    ).rejects.toThrow("simulate sourceProcessingJobs write failure");
+
+    await expect(
+      t.run(async (ctx) => ({
+        receipts: await ctx.db.query("providerEventReceipts").collect(),
+        artifacts: await ctx.db.query("sourceArtifacts").collect(),
+        revisions: await ctx.db.query("sourceRevisions").collect(),
+        jobs: await ctx.db.query("sourceProcessingJobs").collect(),
+      })),
+    ).resolves.toEqual({
+      receipts: [],
+      artifacts: [],
+      revisions: [],
+      jobs: [],
+    });
+  });
+
+  it("stages all source ledger rows before mutating caller state", () => {
+    const seen = new Set<string>();
+    const rows = buildSourceLedgerRows(capture, {
+      seenTransportDeliveries: seen,
+      verifiedBinding,
+    });
+
+    expect(seen.size).toBe(0);
+    expect(rows.receipt.transportDeliveryId).toBe("evt_1");
+    expect(rows.artifact.sourceKey).toBe(rows.receipt.sourceKey);
+    expect(rows.revision.sourceRevisionKey).toBe(
+      rows.receipt.sourceRevisionKey,
+    );
+    expect(rows.processingJob.sourceRevisionKey).toBe(
+      rows.receipt.sourceRevisionKey,
+    );
+
+    expect(() =>
+      buildSourceLedgerRows(
+        {
+          ...capture,
+          observation: { ...capture.observation, text: "x".repeat(32_001) },
+        },
+        { seenTransportDeliveries: seen, verifiedBinding },
+      ),
+    ).toThrow("PayloadTooLarge");
+    expect(seen.size).toBe(0);
   });
 });
