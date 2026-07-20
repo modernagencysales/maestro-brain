@@ -9,6 +9,7 @@ import apiKeys from "./tables/apiKeys";
 import billingPlans from "./tables/billingPlans";
 import brainPageAuditEvents from "./tables/brainPageAuditEvents";
 import brainPages from "./tables/brainPages";
+import channelSyncStates from "./tables/channelSyncStates";
 import citations from "./tables/citations";
 import claims from "./tables/claims";
 import concepts from "./tables/concepts";
@@ -33,6 +34,7 @@ import policies from "./tables/policies";
 import promptRegistry from "./tables/promptRegistry";
 import providerConnections from "./tables/providerConnections";
 import servicePrincipals from "./tables/servicePrincipals";
+import sourceChannels from "./tables/sourceChannels";
 import transformBlocks from "./tables/transformBlocks";
 import transformDefinitions from "./tables/transformDefinitions";
 import transformRuns from "./tables/transformRuns";
@@ -60,6 +62,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof billingPlans |
   typeof brainPageAuditEvents |
   typeof brainPages |
+  typeof channelSyncStates |
   typeof citations |
   typeof claims |
   typeof concepts |
@@ -84,6 +87,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof promptRegistry |
   typeof providerConnections |
   typeof servicePrincipals |
+  typeof sourceChannels |
   typeof transformBlocks |
   typeof transformDefinitions |
   typeof transformRuns |
@@ -110,6 +114,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   billingPlans,
   brainPageAuditEvents,
   brainPages,
+  channelSyncStates,
   citations,
   claims,
   concepts,
@@ -134,6 +139,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   promptRegistry,
   providerConnections,
   servicePrincipals,
+  sourceChannels,
   transformBlocks,
   transformDefinitions,
   transformRuns,
