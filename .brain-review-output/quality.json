@@ -1,0 +1,68 @@
+{
+  "lens": "quality",
+  "taskId": "S11-T02",
+  "planSha256": "e0256a16a8e0791a68c0f2eef39946ddb845c01a79e186c9aa05585ce85d5199",
+  "taskBlockHash": "f49e5fe055896a804408cf0013f1f4b02735f7b6e18f1813ab85e85672fb569d",
+  "baseSha": "8fa1f5b6183a42207628d51cd396852dc8a95af5",
+  "headSha": "f72c658e864408acff89a0baface516c2c56cf76",
+  "treeSha": "49995f0583e8cdb2344d3a6d217f37ed79a8b516",
+  "reviewerRunId": "maestro/review/S11-T02/f72c658e864408acff89a0baface516c2c56cf76/b3dac6d2-f596-4ec3-9fa5-1f55e52184ef-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "pass",
+      "evidence": [
+        "Task plan lines 3124-3129 require failure-first proof for missing/malformed bearer syntax, caller tenant fields, scope denial, provider/decode ordering, revocation/reauthorization, raw-header redaction, and API-key CRUD/UI denial behavior.",
+        "packages/convex/test/http-request-security.test.ts:270-344 covers missing and malformed bearer syntax at the HTTP route and asserts request.json plus dispatch runners are not called; lines 405-470 assert authenticate -> decode -> dispatch -> reauthenticate -> mark ordering on success.",
+        "packages/convex/test/http-request-security.test.ts:157-233 covers explicit reviewed policies and tenant-field rejection; lines 472-550 cover ask-scope authentication and post-dispatch reauthorization failure; lines 553-610 cover redacted public errors/no raw Authorization leakage. packages/convex/test/api-keys.test.ts exercises key creation, scope validation, authentication, revocation/generation/lifecycle failure modes, last-used fencing, audit events, and public Confect handlers. apps/web/src/features/settings/api-keys-adapter.test.ts, api-keys-panel.test.tsx, and settings-surface.test.ts cover role-aware UI hiding and adapter-side denial. The exact-head pre-review gate passed the focused package and web test commands for these files."
+      ]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "Backend changes keep HTTP/API handling in packages/convex/confect/http.ts and httpRequest.ts, delegate bearer authentication to headless/apiKeys Confect functions, and centralize operation authorization in packages/convex/confect/headless/authorizeOperation.ts before manifest executor dispatch.",
+        "apps/web/src/routes/_workspace.settings.tsx remains a route-level composition point using client Confect hooks and feature adapters/components; apps/web/src/features/settings/api-keys-adapter.ts and api-keys-panel.tsx do not import Convex provider SDKs or bypass server-side authorization.",
+        "The only generated-ref workaround is explicitly documented in apps/web/src/routes/_workspace.settings.tsx:88-90 as temporary until integration-owned codegen refresh; per the review instructions, exact-head transient codegen evidence plus no generated-path edits makes checked-in generated-ref absence an expected lane state rather than a task rework finding."
+      ]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "pass",
+      "evidence": [
+        "The large headless API-key implementation is organized into named domain helpers, persistence helpers, authentication/last-used routines, and Confect handler wiring in packages/convex/confect/headless/apiKeys.impl.ts; the proof packet records its size as known inspectability debt, not a contract failure requiring this lane's rework.",
+        "Core fail-closed request flow is small and readable in packages/convex/confect/http.ts:279-358, while reusable pure authorization and tenant-field checks live in packages/convex/confect/headless/authorizeOperation.ts:64-102.",
+        "No suppressions, generated-file edits, or unrelated fixture/provider swaps were added in the reviewed diff."
+      ]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.impl.ts:95-127 defines redacted apiKey.administered audit events with operation/outcome/brainKey/scopes/reason metadata, and create/revoke/rotate paths record success and denial outcomes without storing display secrets.",
+        "packages/convex/test/api-keys.test.ts covers audited API-key administration events and redacted metadata shape for success and denial paths.",
+        "packages/convex/test/http-request-security.test.ts:553-610 proves dispatch exceptions and malformed Authorization errors return public envelopes without console.error calls or raw bearer values."
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "lane-gate-report.json for S11-T02 at head f72c658e864408acff89a0baface516c2c56cf76 reports changedSourceLines 2477 against estimatedSourceLines 3000, with estimateDrift false.",
+        "lane-gate-report.json sourceSlices lists 10 commits, matching the manifest sourceSliceLimit 10; every listed commit is at or below the 300-line sourceSliceBudget.",
+        "ci-proof-packet.json records the same baseSha/headSha and known risk that the task history reaches, but does not exceed, the sourceSliceLimit."
+      ]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "pass",
+      "evidence": [
+        "rtk proxy git diff --name-only 8fa1f5b6183a42207628d51cd396852dc8a95af5..HEAD -- packages/convex/confect/_generated packages/convex/convex/_generated produced no generated-path edits, so the lane did not hand-edit generated Confect or Convex output.",
+        "ci-proof-packet.json supplementalCommands reports rtk pnpm brain:factory:check-confect-codegen as timed-out-then-passed and summarizes that the rerun passed transient Confect codegen with 5 generated files; it also reports check:confect-contracts, check:headless-surface-contract, check:logging-boundary, check:secret-canaries, and check:access-audit-events passed.",
+        "Per the review instructions and Appendix O/P ownership, generated Confect/Convex output is integration-owned; because exact-head pre-review evidence proves transient codegen and the task diff does not edit generated paths, absence of checked-in generated headless/apiKeys refs is expected lane state, not a task finding."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
