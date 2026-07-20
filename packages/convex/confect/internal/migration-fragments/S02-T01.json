@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "taskId": "S02-T01",
+  "taskBlockHash": "dc205e57f25f69ecba7f6237744e0ce28cd01e3fab0c6cf506b7d0d7906cf6c9",
+  "phase": "expand",
+  "migrations": [],
+  "implementationModule": "../migration-implementations/S02-T01",
+  "dependsOn": ["S01-T02"],
+  "attestation": "no_executable_registration"
+}
