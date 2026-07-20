@@ -23,7 +23,8 @@ export type TemplateApiRequestBody = {
 type TemplateHttpFailure = {
   readonly ok: false;
   readonly error: {
-    readonly _tag: "Unauthorized" | "Forbidden" | "ValidationFailed";
+    readonly _tag:
+      "Unauthorized" | "Forbidden" | "ValidationFailed" | "RateLimited";
     readonly message: string;
   };
 };
@@ -64,6 +65,13 @@ const unauthorized = (): TemplateHttpFailure => ({
 const forbidden = (): TemplateHttpFailure => ({
   ok: false,
   error: { _tag: "Forbidden", message: "Forbidden." },
+});
+
+export const rateLimited = (
+  message = "Rate limited.",
+): TemplateHttpFailure => ({
+  ok: false,
+  error: { _tag: "RateLimited", message },
 });
 
 const authFailureFor = (error: HeadlessAuthError): TemplateHttpFailure =>
