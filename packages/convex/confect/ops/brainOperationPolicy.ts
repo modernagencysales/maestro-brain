@@ -126,13 +126,18 @@ export const evaluateOperationPolicy = ({
   state,
   generation,
   expectedGeneration,
+  expiresAt,
+  now,
 }: {
   readonly subsystem: OperationSubsystem;
   readonly state: OperationPolicyState;
   readonly generation: number;
   readonly expectedGeneration?: number;
+  readonly expiresAt?: number;
   readonly now: number;
 }): OperationPolicyDecision => {
+  if (expiresAt !== undefined && expiresAt <= now) return { ok: true };
+
   if (expectedGeneration !== undefined && generation !== expectedGeneration) {
     return {
       ok: false,
@@ -154,6 +159,12 @@ export const evaluateOperationPolicy = ({
 
   return { ok: true };
 };
+
+export const replayOperationPolicyByIdempotencyKey = (
+  policies: readonly OperationPolicy[],
+  idempotencyKey: string,
+): OperationPolicy | undefined =>
+  policies.find((policy) => policy.idempotencyKey === idempotencyKey);
 
 export const operationPolicyKey = (
   workspaceId: string,
