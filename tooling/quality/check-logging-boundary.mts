@@ -65,7 +65,7 @@ export function evaluateLoggingBoundarySource(
       line: lineNumberFor(source, match.index ?? 0),
       method: match[1] ?? "unknown",
       message:
-        "Product runtime code must not use console logging; route events through typed redacted observability or CLI output seams.",
+        "Product runtime code must not use console logging; route prompt, source, token, header, and provider events through typed redacted observability or CLI output seams.",
     });
   }
 
