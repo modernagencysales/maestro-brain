@@ -1,0 +1,86 @@
+{
+  "lens": "safety",
+  "taskId": "S04-T04",
+  "planSha256": "5e3506ec26c1776547b03641707371efaebb1c490ce3da6b6a1e2ed0df2a8417",
+  "taskBlockHash": "43fe7362c17307d938a689c31cfaa350124a5029c8ef938d09c8f08066ec12c5",
+  "baseSha": "bc7631796e42ee5d33a006df85730dc1293f505e",
+  "headSha": "328fc2a4759311a4180722232c57443256bdd69c",
+  "treeSha": "255fc5d652574a5f6bea43e052edf4cd7c2660e1",
+  "reviewerRunId": "maestro/review/S04-T04/328fc2a4759311a4180722232c57443256bdd69c/2972c9b2-33b8-4591-9223-f51f2f69624b-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.impl.ts:52-71 loads sourceChannels only through by_organization_membership_state with organizationKey equal to input.organizationKey before planning changes.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:94-107 loads existing routing and delivery policies through by_organization_created scoped to input.organizationKey.",
+        "packages/convex/confect/slack/channelPolicy.ts:173-190 filters allowed brain targets to request.organizationKey and active client targets before authorizing targetBrainKeys."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.impl.ts:37-51 resolves the actor server-side and records a denied privileged access audit event on authorization failure.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:198-225 requires an active accepted non-revoked organization member whose role is at least admin.",
+        "packages/convex/confect/slack/channelPolicy.ts:156-158 rejects non-admin/non-owner planner roles with PolicyInvalid(admin_required)."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1592-1599 requires immutable policy epochs, bounded launch capacity, prospective policy application, and audited all-or-nothing bulk change.",
+        "packages/convex/confect/slack/channelPolicy.ts:247-281 appends new active routing and delivery policy rows with next epochs/generations and pendingSourceInterval firstObservedAt instead of mutating historical policy payloads.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:121-145 only deactivates active pointers and inserts replacement policy rows after the full plan succeeds."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "Scoped search over packages/convex/confect/slack/channelPolicies.impl.ts, packages/convex/confect/slack/channelPolicy.ts, policy tables, and channel policy UI found no console logging or raw provider payload/token/secret references.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:145-161 records audit metadata containing only outcome, action, and targetCount; it does not include channel names, target names, tokens, or provider payloads.",
+        "apps/web/src/features/connections/channel-policy-view-model.ts:27-40 builds policy submit payloads from organization/generation/channel keys, routing target keys, and delivery mode only."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1587-1591 requires failure-first stale generation and bulk partial commit coverage.",
+        "packages/convex/confect/slack/channelPolicy.ts:208-215 rejects stale connectionGeneration or accessGeneration before planning writes.",
+        "packages/convex/test/channel-policies.test.ts:140-217 covers stale connection/channel generation and partial bulk failure as Left results."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicy.ts:232-240 requires submitted expected active routing epoch and delivery generation to match current active policies before accepting a change.",
+        "packages/convex/confect/slack/channelPolicy.ts:241-246 treats an identical active routing and delivery policy retry as a no-op instead of appending duplicate epochs.",
+        "packages/convex/test/channel-policies.test.ts:351-398 proves identical active policy retry returns no new routing policies, delivery policies, or audit rows."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.spec.ts:21-27 exposes per-change expectedRoutingPolicyEpoch and expectedDeliveryGeneration in the typed public mutation contract.",
+        "apps/web/src/features/connections/channel-policy-view-model.ts:139-154 includes each selected channel's observed routingPolicyEpoch and deliveryGeneration in the submit request.",
+        "packages/convex/test/channel-policies.test.ts:301-349 proves stale active policy epochs and delivery generations fail with PolicyGenerationMismatch."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1566-1568 states policy semantics belong to Maestro, not Nango.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:1-24 imports Confect, Effect, database services, access audit/context/roles, tables, and local policy planner only; it does not import Nango, Slack SDKs, or provider adapters.",
+        "Scoped provider-boundary search over changed channel policy backend and UI files found no nango, Slack SDK, token, secret, webhook, payload, or console logging references."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
