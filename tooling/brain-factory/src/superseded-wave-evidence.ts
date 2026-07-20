@@ -109,7 +109,8 @@ export const validateSupersededWaveEvidence = (input: {
     if (
       !included ||
       included.laneHeadSha !== selected.headSha ||
-      included.laneResultSha256 !== selected.laneResultSha256 ||
+      (Object.hasOwn(included, "laneResultSha256") &&
+        included.laneResultSha256 !== selected.laneResultSha256) ||
       included.tranche !== selected.tranche
     ) {
       throw new Error(

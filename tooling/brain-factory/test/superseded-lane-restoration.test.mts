@@ -209,7 +209,6 @@ const waveEvidence = (input: {
           taskId: value.taskId,
           tranche: value.tranche,
           laneHeadSha: candidate.headSha,
-          laneResultSha256: input.laneResultSha256,
         },
       ],
     },
