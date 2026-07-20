@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 
 import {
   buildContractReproofRequest,
@@ -17,6 +17,7 @@ import {
   reserveTaskPreparing,
 } from "./dispatch-ownership.js";
 import { completedTaskIdsForControlHead } from "./factory-state.js";
+import { planFailedIntegrationRework } from "./failed-integration-rework.js";
 import { buildManifest } from "./manifest.js";
 import {
   gitBranchExists,
@@ -35,10 +36,11 @@ const valueAfter = (flag: string): string | undefined => {
 };
 const taskId = valueAfter("--task");
 const reason = valueAfter("--reason")?.trim();
+const failedIntegrationId = valueAfter("--failed-integration");
 const launch = process.argv.includes("--launch");
 if (!taskId || !reason) {
   throw new Error(
-    "usage: brain:factory:reopen -- --task <id> --reason <text> [--launch]",
+    "usage: brain:factory:reopen -- --task <id> --reason <text> [--failed-integration wave-NNNNNN] [--launch]",
   );
 }
 
@@ -115,13 +117,38 @@ const laneReproof =
   !Array.isArray(lane.reproof)
     ? (lane.reproof as Record<string, unknown>)
     : undefined;
+if (failedIntegrationId && !/^wave-\d{6}$/.test(failedIntegrationId)) {
+  throw new Error(`${taskId}: failed integration ID is invalid`);
+}
+if (failedIntegrationId && lane.status !== "lane_green") {
+  throw new Error(`${taskId}: failed integration rework requires lane_green`);
+}
+if (failedIntegrationId && laneReproof) {
+  throw new Error(`${taskId}: failed integration rework lineage is ambiguous`);
+}
+const failedSelectionPath = failedIntegrationId
+  ? resolve(state, "runs", `integration-${failedIntegrationId}-selection.json`)
+  : undefined;
+if (failedSelectionPath && !existsSync(failedSelectionPath)) {
+  throw new Error(`${taskId}: failed wave selection is missing`);
+}
+const failedSelection = failedSelectionPath
+  ? (JSON.parse(readFileSync(failedSelectionPath, "utf8")) as Record<
+      string,
+      unknown
+    >)
+  : undefined;
 const priorIntegrationId = String(
-  refreshedLane ? (laneReproof?.priorIntegrationId ?? "") : lane.integrationId,
+  failedIntegrationId ??
+    (refreshedLane ? laneReproof?.priorIntegrationId : lane.integrationId) ??
+    "",
 );
 const priorIntegrationHeadSha = String(
-  refreshedLane
-    ? (laneReproof?.priorIntegrationHeadSha ?? "")
-    : lane.integrationHeadSha,
+  failedIntegrationId
+    ? (failedSelection?.baseSha ?? "")
+    : refreshedLane
+      ? (laneReproof?.priorIntegrationHeadSha ?? "")
+      : lane.integrationHeadSha,
 );
 if (
   !priorIntegrationId ||
@@ -154,7 +181,7 @@ const baseRequestDirectory = resolve(
 const requestDirectory = refreshedLane
   ? resolve(baseRequestDirectory, controlHeadSha)
   : baseRequestDirectory;
-const legacySnapshotContent = `${JSON.stringify(
+let legacySnapshotContent = `${JSON.stringify(
   {
     schemaVersion: "maestro-brain-prior-evidence-snapshot/v1",
     taskId,
@@ -184,7 +211,97 @@ const legacySnapshotContent = `${JSON.stringify(
 )}\n`;
 let priorEvidencePath: string;
 let priorArchiveSha256: string;
-if (existsSync(archiveManifestPath)) {
+let failedReworkPlan:
+  ReturnType<typeof planFailedIntegrationRework> | undefined;
+if (failedIntegrationId) {
+  if (!failedSelectionPath)
+    throw new Error(`${taskId}: failed wave selection is missing`);
+  const integrationDirectory = resolve(
+    evidence,
+    "integration",
+    failedIntegrationId,
+  );
+  const broadGatePath = resolve(
+    integrationDirectory,
+    `broad-gate-${String((JSON.parse(readFileSync(integrationResultPath, "utf8")) as Record<string, unknown>).headSha ?? "")}.json`,
+  );
+  const supersessionPath = resolve(integrationDirectory, "supersession.json");
+  const promotionPath = resolve(integrationDirectory, "promotion.json");
+  const proofPath = resolve(laneDirectory, "ci-proof-packet.json");
+  const finalGatePath = resolve(laneDirectory, "lane-gate-report.json");
+  const sourceRecordPath = resolve(state, "runs", `${taskId}.json`);
+  for (const [path, label] of [
+    [broadGatePath, "failed broad gate receipt"],
+    [supersessionPath, "failed wave supersession"],
+    [proofPath, "lane proof"],
+    [finalGatePath, "lane final gate"],
+    [sourceRecordPath, "source run record"],
+  ] as const) {
+    if (!existsSync(path)) throw new Error(`${taskId}: ${label} is missing`);
+  }
+  const sourceRecord = JSON.parse(
+    readFileSync(sourceRecordPath, "utf8"),
+  ) as Record<string, unknown>;
+  const sourceWorkdir = String(sourceRecord.workdir ?? "");
+  const sourceBranch = String(sourceRecord.branch ?? "");
+  const planInput = {
+    broadGateContent: readFileSync(broadGatePath, "utf8"),
+    controlClean:
+      runRtk(["git", "status", "--porcelain"], { quiet: true }) === "",
+    controlHeadSha,
+    dependenciesIntegrated: task.codeStartAfter.every((dependency) =>
+      completedTaskIds.has(dependency),
+    ),
+    expectedSourceBranch: sourceBranch,
+    gateContent: readFileSync(finalGatePath, "utf8"),
+    integrationResultContent: readFileSync(integrationResultPath, "utf8"),
+    isAncestor: (ancestor: string, descendant: string) =>
+      gitIsAncestor(ancestor, descendant, root),
+    laneContent,
+    manifestTaskBlockHash: task.taskBlockHash,
+    planSha256: manifest.planSha256,
+    promotionExists: existsSync(promotionPath),
+    proofContent: readFileSync(proofPath, "utf8"),
+    reason,
+    selectionContent: readFileSync(failedSelectionPath, "utf8"),
+    sourceBranch: runRtk(
+      ["git", "-C", sourceWorkdir, "branch", "--show-current"],
+      {
+        quiet: true,
+      },
+    ),
+    sourceBranchHeadSha: runRtk(
+      ["git", "rev-parse", `refs/heads/${sourceBranch}`],
+      { quiet: true },
+    ),
+    sourceClean:
+      runRtk(["git", "-C", sourceWorkdir, "status", "--porcelain"], {
+        quiet: true,
+      }) === "",
+    sourceWorktreeHeadSha: runRtk(
+      ["git", "-C", sourceWorkdir, "rev-parse", "HEAD"],
+      { quiet: true },
+    ),
+    supersessionContent: readFileSync(supersessionPath, "utf8"),
+    taskId,
+  };
+  const provisional = planFailedIntegrationRework({
+    ...planInput,
+    priorEvidencePath: resolve(integrationDirectory, "pending.json"),
+  });
+  priorArchiveSha256 = sha256(provisional.archiveContent);
+  priorEvidencePath = resolve(
+    evidence,
+    "archive",
+    failedIntegrationId,
+    `${priorArchiveSha256}.json`,
+  );
+  failedReworkPlan = planFailedIntegrationRework({
+    ...planInput,
+    priorEvidencePath,
+  });
+  legacySnapshotContent = failedReworkPlan.archiveContent;
+} else if (existsSync(archiveManifestPath)) {
   const archiveManifest = JSON.parse(
     readFileSync(archiveManifestPath, "utf8"),
   ) as Record<string, unknown>;
@@ -218,7 +335,19 @@ let refreshResume:
   | undefined;
 let refreshSnapshots:
   readonly { readonly content: string; readonly path: string }[] | undefined;
+if (failedReworkPlan) {
+  const proof = JSON.parse(
+    readFileSync(resolve(laneDirectory, "ci-proof-packet.json"), "utf8"),
+  ) as Record<string, unknown>;
+  refreshResume = validateResumeSource({
+    runGit: (args) => runRtk(args, { quiet: true }),
+    sourceRef: String(lane.headSha ?? ""),
+    taskBase: String(proof.baseSha ?? ""),
+    taskId,
+  });
+}
 const request = (() => {
+  if (failedReworkPlan) return failedReworkPlan.request;
   if (!refreshedLane) {
     return buildContractReproofRequest({
       controlHeadSha,
@@ -337,6 +466,7 @@ for (const snapshot of refreshSnapshots ?? []) {
   }
 }
 if (!existsSync(priorEvidencePath)) {
+  mkdirSync(dirname(priorEvidencePath), { recursive: true });
   writeFileSync(priorEvidencePath, legacySnapshotContent, { flag: "wx" });
 }
 if (sha256(readFileSync(priorEvidencePath, "utf8")) !== priorArchiveSha256) {
@@ -348,6 +478,30 @@ if (existsSync(requestPath)) {
   }
 } else {
   writeFileSync(requestPath, requestContent, { flag: "wx" });
+}
+if (failedReworkPlan) {
+  admitContractReproof({
+    allowAuthorityRefreshAdvance: true,
+    changedFilesBetween: (ancestor, descendant) =>
+      runRtk(["git", "diff", "--name-only", `${ancestor}..${descendant}`], {
+        quiet: true,
+      })
+        .split("\n")
+        .filter(Boolean),
+    currentControlHead: controlHeadSha,
+    evidenceDirectory: evidence,
+    fileLocks: task.fileLocks,
+    isAncestor: (ancestor, descendant) =>
+      gitIsAncestor(ancestor, descendant, root),
+    lanePriorIntegrationHeadSha: request.priorIntegrationHeadSha,
+    lanePriorIntegrationId: request.priorIntegrationId,
+    laneRequestSha256: request.requestSha256,
+    planSha256: manifest.planSha256,
+    proofBaseSha: controlHeadSha,
+    requestPath,
+    taskBlockHash: task.taskBlockHash,
+    taskId,
+  });
 }
 const runs = resolve(state, "runs");
 mkdirSync(runs, { recursive: true });
