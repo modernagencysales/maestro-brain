@@ -63,7 +63,7 @@ export const decodeMigrationFragment = (value: unknown) => {
   for (const key of Object.keys(value))
     if (!allowedKeys.has(key))
       throw new Error("unknown migration fragment field");
-  return MigrationFragment.make(value);
+  return MigrationFragment.make(value as MigrationFragment);
 };
 export const assembleMigrationRegistry = (input: readonly unknown[]) => {
   const fragments = input.map(decodeMigrationFragment);
