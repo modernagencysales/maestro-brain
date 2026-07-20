@@ -318,7 +318,7 @@ if (failedIntegrationId) {
       { quiet: true },
     ),
     sourceClean:
-      runRtk(["git", "-C", sourceWorkdir, "status", "--porcelain"], {
+      runRtk(["proxy", "git", "-C", sourceWorkdir, "status", "--porcelain"], {
         quiet: true,
       }) === "",
     sourceWorktreeHeadSha: runRtk(
