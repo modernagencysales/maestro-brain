@@ -1,0 +1,79 @@
+{
+  "lens": "contract",
+  "taskId": "S05-T01",
+  "planSha256": "b25dfe4b3139d61e98976f450d6dfbdb30629201ab2015f7846a04ca02435a57",
+  "taskBlockHash": "8c814c81e34129532e8467e567d99d48dfb60017ceda5ab0934454da2d348044",
+  "baseSha": "73609583b9ca2704ad28f3844239f00764ac7230",
+  "headSha": "3bd1dc0fefd124b7605210cf0d0c4e7813dd0062",
+  "treeSha": "7612ec2f1488bcd07c666e16cb7cc8e82b2d685d",
+  "reviewerRunId": "maestro/review/S05-T01/3bd1dc0fefd124b7605210cf0d0c4e7813dd0062/02c49107-a9a9-4114-9081-dad613fe4ffc-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1628-1716 defines S05-T01 acceptance, files, failure-first proof, implementation, typed contract/errors, migration compatibility, focused verification, and completion receipt.",
+        "packages/convex/test/source-ledger-schema.test.ts:56-250 proves table inventory, stable key derivation, receipt convergence, row schemas, and declared source-ledger failure cases.",
+        "packages/convex/test/migration-registry.test.ts:77-205 proves deterministic registry assembly and strict registry/generator failure behavior.",
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:6-63 records durable resources, lifecycle behavior, compatibility/rollback, and focused proof."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1694-1698 declares capture input/result and expected errors TenantMismatch, ChannelAccessLost, ObservationInvalid, PayloadTooLarge, DuplicateKeyConflict.",
+        "packages/convex/confect/sources/sourceSchemas.ts:110-142 defines SourceLedgerCaptureInput envelope/observation/routing and its exported value type.",
+        "packages/convex/confect/sources/sourceSchemas.ts:144-158 defines the five declared source-ledger error classes.",
+        "packages/convex/confect/sources/sourceSchemas.ts:194-234 returns inserted/duplicate outcomes with sourceKey, sourceRevisionKey, assemblyJobKey and reaches declared typed failure paths."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:26-108 defines Effect schemas for providerEventReceipts, sourceArtifacts, sourceRevisions, and sourceProcessingJobs with schemaVersion and lifecycle envelopes.",
+        "packages/convex/confect/tables/providerEventReceipts.ts:5-12 declares transport receipt indexes including connection+delivery dedupe and observation lookup.",
+        "packages/convex/confect/tables/sourceArtifacts.ts:5-13 declares source artifact indexes for provider object, stable source key, thread, and lifecycle purge.",
+        "packages/convex/confect/tables/sourceRevisions.ts:5-13 declares revision indexes for stable revision key, source provider order, source created time, and lifecycle purge.",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:5-10 declares assembly/job indexes for stage/status retry, effect key, unit stage, lease expiry, and organization status.",
+        "packages/convex/test/source-ledger-schema.test.ts:56-96 pins the S05 table/index inventory."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1630-1634 classifies the work as template-gap TB-SOURCE-01 and names the required outcomes.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1641-1668 lists the task-owned source-ledger, migration-fragment, generator, test, and doc files and excludes the integration-generated canonical registry.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:4697-4705 states S05-T01 owns migration-fragment schema/task-owned inputs/generation runtime while integration alone owns migrations.ts output.",
+        "packages/convex/confect/internal/migration-fragments/S05-T01.json:1-10 records the S05 contract fragment with new_tables_only attestation.",
+        "ci-proof-packet.json:8-29 and git diff --name-only 73609583b9ca2704ad28f3844239f00764ac7230..HEAD show the lane changed only the planned task-owned product files and not the canonical registry."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:654-695 grants S05-T01 locks for the changed source-ledger, migration fragment/runtime/generator/test files.",
+        "rtk proxy git diff --name-only 73609583b9ca2704ad28f3844239f00764ac7230..HEAD lists 20 changed files, all within S05-T01 manifest/plan ownership and no generated Confect/Convex outputs.",
+        "lane-gate-report.json:18-24 proves the pre-review report is for head 3bd1dc0fefd124b7605210cf0d0c4e7813dd0062 and task S05-T01.",
+        "lane-gate-report.json:49-53 records pre-review status passed for taskBlockHash 8c814c81e34129532e8467e567d99d48dfb60017ceda5ab0934454da2d348044."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1669-1677 declares strict registry and source-ledger failure-first cases.",
+        "packages/convex/confect/internal/migrationFragment.ts:60-132 rejects duplicate JSON keys/unknown fields/task hash drift/unsafe paths/duplicate migration IDs/fake no-op/dangling or phase-inverted dependencies/cycles while producing deterministic bytes.",
+        "packages/convex/scripts/generate-migration-registry.mts:33-40 rejects invalid mutually exclusive root/mode input, and lines 52-89 reject symlink/stale/non-idempotent registry output.",
+        "packages/convex/test/migration-registry.test.ts:92-205 proves the declared migration-registry failure paths, stale output, symlink rejection, and byte-identical writes.",
+        "packages/convex/test/source-ledger-schema.test.ts:109-122 proves multiple receipts converge on one logical observation/revision.",
+        "packages/convex/test/source-ledger-schema.test.ts:202-249 proves duplicate receipt handling and tenant/channel/observation/key/size/canonicalization failures."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
