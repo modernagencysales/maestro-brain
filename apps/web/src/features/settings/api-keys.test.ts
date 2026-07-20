@@ -13,21 +13,13 @@ const workspace = {
 
 const apiKey = {
   id: "api_key_123",
-  principalId: "sp_123",
-  organizationId: "org_acme",
-  workspaceId: "workspace_acme",
-  brainKey: "brain_client_alpha",
   name: "Client Alpha read key",
   displayPrefix: "mbk_live_abcd",
   scopes: ["brain:read", "brain:ask"],
-  principalGeneration: 1,
   roleCeiling: "viewer",
   status: "active",
-  createdByUserId: "user_admin",
   createdAt: 1_000,
   expiresAt: 2_000,
-  revokedAt: null,
-  lastUsedAt: null,
 } as const;
 
 describe("settings API key surface", () => {
@@ -37,6 +29,7 @@ describe("settings API key surface", () => {
         workspace: null,
         viewer: { role: "owner" },
         keys: [],
+        brainKey: null,
       }),
     ).toEqual([
       {
@@ -48,11 +41,12 @@ describe("settings API key surface", () => {
     ]);
   });
 
-  it("shows one-Brain read-only key metadata without displaying secrets", () => {
+  it("renders contract-shaped public list metadata with adapter-selected Brain context", () => {
     const sections = buildApiKeySettingsSections({
       workspace,
       viewer: { role: "admin" },
       keys: [apiKey],
+      brainKey: "brain_client_alpha",
     });
 
     expect(sections.map((section) => section.heading)).toEqual([
@@ -64,8 +58,16 @@ describe("settings API key surface", () => {
     );
     expect(sections[1]?.body).toContain("Brain: brain_client_alpha");
     expect(sections[1]?.body).toContain("Scopes: brain:read, brain:ask");
-    expect(JSON.stringify(sections)).not.toContain("secret");
-    expect(JSON.stringify(sections)).not.toContain("keyHash");
+    const rendered = JSON.stringify(sections);
+    expect(rendered).not.toContain("secret");
+    expect(rendered).not.toContain("keyHash");
+    expect(rendered).not.toContain("principalId");
+    expect(rendered).not.toContain("organizationId");
+    expect(rendered).not.toContain("workspaceId");
+    expect(rendered).not.toContain("principalGeneration");
+    expect(rendered).not.toContain("createdByUserId");
+    expect(rendered).not.toContain("revokedAt");
+    expect(rendered).not.toContain("lastUsedAt");
   });
 
   it("hides create and rotation language from non-admin viewers", () => {
@@ -73,6 +75,7 @@ describe("settings API key surface", () => {
       workspace,
       viewer: { role: "viewer" },
       keys: [apiKey],
+      brainKey: "brain_client_alpha",
     });
 
     expect(sections[0]?.body).toContain(
