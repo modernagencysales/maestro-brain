@@ -58,7 +58,36 @@ export interface BrainTaskContract {
   readonly controlCommitChain?: readonly string[];
   readonly controlHeadSha?: string;
   readonly authorityRepairTransition?: AuthorityRepairTransition;
+  readonly checkpointReproofTransition?: CheckpointReproofTransition;
   readonly ownershipRehomeTransition?: OwnershipRehomeTransition;
+}
+
+export interface CheckpointReproofTransition {
+  readonly schemaVersion: "maestro-brain-checkpoint-reproof-transition/v1";
+  readonly fromPlanSha256: string;
+  readonly fromTaskBlockHash: string;
+  readonly sourceBaseSha: string;
+  readonly sourceHeadSha: string;
+  readonly sourceTreeSha: string;
+  readonly sourceCommits: readonly string[];
+  readonly sourceSliceLines: readonly number[];
+  readonly laneResultSha256: string;
+  readonly finalGateSha256: string;
+  readonly reviewReceiptRef: string;
+  readonly reviewReceiptObjectSha: string;
+  readonly reviewPreparedObjectSha: string;
+  readonly promotedProofSha256: string;
+  readonly reviewLensSha256: Readonly<
+    Record<"contract" | "safety" | "quality", string>
+  >;
+  readonly integrationId: string;
+  readonly selectionPath: string;
+  readonly selectionFileSha256: string;
+  readonly selectionPayloadSha256: string;
+  readonly sliceExpansionRef: string;
+  readonly sliceExpansionObjectSha: string;
+  readonly sliceExpansionSha256: string;
+  readonly requiredIntegratedTaskIds: readonly string[];
 }
 
 export interface AuthorityRepairTransition {
@@ -572,6 +601,196 @@ export const parseAuthorityRepairTransition = (
   };
 };
 
+export const parseCheckpointReproofTransition = (
+  body: string,
+  taskId: string,
+): CheckpointReproofTransition | undefined => {
+  const marker =
+    /- \*\*Checkpoint-reproof transition:\*\*\s*```json\r?\n([\s\S]*?)\r?\n\s*```/g;
+  const matches = [...body.matchAll(marker)];
+  if (matches.length === 0) return undefined;
+  if (matches.length !== 1)
+    throw new Error(`${taskId}: duplicate checkpoint-reproof transition`);
+  const value = recordValue(
+    JSON.parse(
+      required(matches[0]?.[1], `${taskId}: empty checkpoint reproof`),
+    ),
+    `${taskId}: checkpoint-reproof transition`,
+  );
+  const keys = [
+    "schemaVersion",
+    "fromPlanSha256",
+    "fromTaskBlockHash",
+    "sourceBaseSha",
+    "sourceHeadSha",
+    "sourceTreeSha",
+    "sourceCommits",
+    "sourceSliceLines",
+    "laneResultSha256",
+    "finalGateSha256",
+    "reviewReceiptRef",
+    "reviewReceiptObjectSha",
+    "reviewPreparedObjectSha",
+    "promotedProofSha256",
+    "reviewLensSha256",
+    "integrationId",
+    "selectionPath",
+    "selectionFileSha256",
+    "selectionPayloadSha256",
+    "sliceExpansionRef",
+    "sliceExpansionObjectSha",
+    "sliceExpansionSha256",
+    "requiredIntegratedTaskIds",
+  ] as const;
+  exactKeys(value, keys, `${taskId}: checkpoint-reproof transition`);
+  if (value.schemaVersion !== "maestro-brain-checkpoint-reproof-transition/v1")
+    throw new Error(`${taskId}: invalid checkpoint-reproof schema`);
+  const sha40 = /^[0-9a-f]{40}$/;
+  const sha64 = /^[0-9a-f]{64}$/;
+  const strings = (
+    input: unknown,
+    pattern: RegExp,
+    label: string,
+  ): string[] => {
+    if (!Array.isArray(input) || input.length === 0)
+      throw new Error(`${taskId}: invalid ${label}`);
+    return input.map((item) =>
+      exactString(item, pattern, `${taskId}: ${label}`),
+    );
+  };
+  const commits = strings(value.sourceCommits, sha40, "source commits");
+  if (
+    new Set(commits).size !== commits.length ||
+    commits.at(-1) !== value.sourceHeadSha
+  )
+    throw new Error(`${taskId}: invalid source commit chain`);
+  if (
+    !Array.isArray(value.sourceSliceLines) ||
+    value.sourceSliceLines.length !== commits.length ||
+    value.sourceSliceLines.some(
+      (line) =>
+        !Number.isInteger(line) || Number(line) < 0 || Number(line) > 300,
+    )
+  )
+    throw new Error(`${taskId}: invalid source slice lines`);
+  const lenses = recordValue(
+    value.reviewLensSha256,
+    `${taskId}: review lens hashes`,
+  );
+  exactKeys(
+    lenses,
+    ["contract", "safety", "quality"],
+    `${taskId}: review lens hashes`,
+  );
+  const prerequisites = strings(
+    value.requiredIntegratedTaskIds,
+    /^S\d{2}-T\d{2}$/,
+    "integrated prerequisites",
+  );
+  return {
+    schemaVersion: "maestro-brain-checkpoint-reproof-transition/v1",
+    fromPlanSha256: exactString(
+      value.fromPlanSha256,
+      sha64,
+      `${taskId}: prior plan SHA`,
+    ),
+    fromTaskBlockHash: exactString(
+      value.fromTaskBlockHash,
+      sha64,
+      `${taskId}: prior task hash`,
+    ),
+    sourceBaseSha: exactString(
+      value.sourceBaseSha,
+      sha40,
+      `${taskId}: source base SHA`,
+    ),
+    sourceHeadSha: exactString(
+      value.sourceHeadSha,
+      sha40,
+      `${taskId}: source head SHA`,
+    ),
+    sourceTreeSha: exactString(
+      value.sourceTreeSha,
+      sha40,
+      `${taskId}: source tree SHA`,
+    ),
+    sourceCommits: commits,
+    sourceSliceLines: value.sourceSliceLines as number[],
+    laneResultSha256: exactString(
+      value.laneResultSha256,
+      sha64,
+      `${taskId}: lane hash`,
+    ),
+    finalGateSha256: exactString(
+      value.finalGateSha256,
+      sha64,
+      `${taskId}: gate hash`,
+    ),
+    reviewReceiptRef: exactString(
+      value.reviewReceiptRef,
+      /^refs\/maestro-brain\//,
+      `${taskId}: review ref`,
+    ),
+    reviewReceiptObjectSha: exactString(
+      value.reviewReceiptObjectSha,
+      sha40,
+      `${taskId}: review object`,
+    ),
+    reviewPreparedObjectSha: exactString(
+      value.reviewPreparedObjectSha,
+      sha40,
+      `${taskId}: prepared object`,
+    ),
+    promotedProofSha256: exactString(
+      value.promotedProofSha256,
+      sha64,
+      `${taskId}: promoted proof hash`,
+    ),
+    reviewLensSha256: Object.fromEntries(
+      Object.entries(lenses).map(([key, hash]) => [
+        key,
+        exactString(hash, sha64, `${taskId}: ${key} lens hash`),
+      ]),
+    ) as CheckpointReproofTransition["reviewLensSha256"],
+    integrationId: exactString(
+      value.integrationId,
+      /^wave-\d{6}$/,
+      `${taskId}: integration ID`,
+    ),
+    selectionPath: exactString(
+      value.selectionPath,
+      /integration-wave-\d{6}-selection\.json$/,
+      `${taskId}: selection path`,
+    ),
+    selectionFileSha256: exactString(
+      value.selectionFileSha256,
+      sha64,
+      `${taskId}: selection file hash`,
+    ),
+    selectionPayloadSha256: exactString(
+      value.selectionPayloadSha256,
+      sha64,
+      `${taskId}: selection payload hash`,
+    ),
+    sliceExpansionRef: exactString(
+      value.sliceExpansionRef,
+      /^refs\/evidence\//,
+      `${taskId}: expansion ref`,
+    ),
+    sliceExpansionObjectSha: exactString(
+      value.sliceExpansionObjectSha,
+      sha40,
+      `${taskId}: expansion object`,
+    ),
+    sliceExpansionSha256: exactString(
+      value.sliceExpansionSha256,
+      sha64,
+      `${taskId}: expansion hash`,
+    ),
+    requiredIntegratedTaskIds: prerequisites,
+  };
+};
+
 export const parseOwnershipRehomeTransition = (
   body: string,
   taskId: string,
@@ -929,11 +1148,21 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
       body,
       taskId,
     );
+    const checkpointReproofTransition = parseCheckpointReproofTransition(
+      body,
+      taskId,
+    );
     const ownershipRehomeTransition = parseOwnershipRehomeTransition(
       body,
       taskId,
     );
-    if (authorityRepairTransition && ownershipRehomeTransition) {
+    if (
+      [
+        authorityRepairTransition,
+        checkpointReproofTransition,
+        ownershipRehomeTransition,
+      ].filter(Boolean).length > 1
+    ) {
       throw new Error(
         `${taskId}: multiple authority transitions are forbidden`,
       );
@@ -966,6 +1195,9 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
       ...(authorityRepairTransition === undefined
         ? {}
         : { authorityRepairTransition }),
+      ...(checkpointReproofTransition === undefined
+        ? {}
+        : { checkpointReproofTransition }),
       ...(ownershipRehomeTransition === undefined
         ? {}
         : { ownershipRehomeTransition }),
@@ -1207,6 +1439,27 @@ export const validateManifest = (manifest: BrainTaskManifest): string[] => {
             `${task.taskId}: replacement path is not currently owned`,
           );
       }
+    }
+    const checkpoint = task.checkpointReproofTransition;
+    if (checkpoint) {
+      for (const prerequisite of checkpoint.requiredIntegratedTaskIds) {
+        if (
+          !ids.has(prerequisite) ||
+          !task.codeStartAfter.includes(prerequisite)
+        )
+          errors.push(
+            `${task.taskId}: checkpoint-reproof prerequisite ${prerequisite} is not a code-start dependency`,
+          );
+      }
+      if (
+        checkpoint.sourceCommits.length > (task.sourceSliceLimit ?? 4) ||
+        checkpoint.sourceSliceLines.some(
+          (line) => line > task.sourceSliceBudget,
+        )
+      )
+        errors.push(
+          `${task.taskId}: checkpoint-reproof exceeds source slice contract`,
+        );
     }
     for (const lock of task.fileLocks) {
       const match = lock.match(

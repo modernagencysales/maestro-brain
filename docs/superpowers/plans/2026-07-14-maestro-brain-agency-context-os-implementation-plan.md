@@ -1663,6 +1663,45 @@ manifest.
   fixture, Slack Connect Direct/Classify ingestion allowed plus
   requester-private delivery denial, bulk atomicity, UI screenshots, and audit
   rows.
+- **Checkpoint-reproof transition:**
+  ```json
+  {
+    "schemaVersion": "maestro-brain-checkpoint-reproof-transition/v1",
+    "fromPlanSha256": "5e3506ec26c1776547b03641707371efaebb1c490ce3da6b6a1e2ed0df2a8417",
+    "fromTaskBlockHash": "43fe7362c17307d938a689c31cfaa350124a5029c8ef938d09c8f08066ec12c5",
+    "sourceBaseSha": "e8f008574eff0d1a21700ff02926ac4c9870d425",
+    "sourceHeadSha": "44c1f6c7e982c7e1814455d2d29f56139d1b803c",
+    "sourceTreeSha": "6e1da7ee246d7784d8af528d36bb7c20c6a8de07",
+    "sourceCommits": [
+      "7df17e8daee6be82447a8ade0271d6e756ef25ae",
+      "cdebca71b3472563bd399399cfc9551015a35f79",
+      "4056c4de06975ff0817712e8ade62b059ba148b9",
+      "44c1f6c7e982c7e1814455d2d29f56139d1b803c"
+    ],
+    "sourceSliceLines": [300, 287, 294, 285],
+    "laneResultSha256": "c52c8fd037de0075540efb8084d1a2ca4cbb28cd094d0ad25a663f94d2b7f784",
+    "finalGateSha256": "8276fdee9580dd7d4b2458262413a7ea9379eb5cbe048f44cb4055dc16e83a0c",
+    "reviewReceiptRef": "refs/maestro-brain/review-worktrees/0b169ebc43eff0a10ba726d527484743f5f0886a9aaf8a79b1f366fee73b1a6d/S04-T04/44c1f6c7e982c7e1814455d2d29f56139d1b803c/attempts/bae423cc-0bd1-4201-a01a-ad20619bcf25-v1",
+    "reviewReceiptObjectSha": "8ee61a76d08408a0a568520ebe8e4940d053d530",
+    "reviewPreparedObjectSha": "9212cc510badd7c77bf28974f589de74445c83e0",
+    "promotedProofSha256": "a4907aebff4c2d852cfaeb9fb6eb4671cbc305b427c554335a58a4a806c79470",
+    "reviewLensSha256": {
+      "contract": "dc5d9ff478b09b4cceb21eeacf3fbdf4424f4d5de4555efc75b8bdb7018b99ac",
+      "safety": "a01876293ac01af2668c46e5a19d6e5365bdfce2b9392adc5d653d3335d10618",
+      "quality": "494d7bc85899bcf269519154dd38cf9ec2c555bb162e22a65592da2dbdca72bd"
+    },
+    "integrationId": "wave-000050",
+    "selectionPath": ".fabro/state/maestro-brain/runs/integration-wave-000050-selection.json",
+    "selectionFileSha256": "a45fde1abe4095daabe6d10cdc4743a0d0fbd9f729f11d72513d01cb708f99e7",
+    "selectionPayloadSha256": "6ca4f52b75cf77d42cd6ea594f693dd65c385841db55af7ceb9b27194f467d6c",
+    "sliceExpansionRef": "refs/evidence/maestro-brain/s04-t04-slice-expansion-authority",
+    "sliceExpansionObjectSha": "5f977bed6066e44b51d1ac7ccc3d6d6915b213ef",
+    "sliceExpansionSha256": "4c5e0d181239a5ac85d5c8d0b83a6617f1799d8851a999fb09dbb7fe5fcbd422",
+    "requiredIntegratedTaskIds": ["S04-T02"]
+  }
+  ```
+  This transition authorizes only a fresh proof under current authority. It
+  cannot reconstruct or adopt the lost prior proof bytes.
 - **Source-slice contract:** up to 1,500 estimated hand-authored source lines in
   at most five linear commits; each commit remains at or below 300 lines.
 - **Lane branch / commit boundary:** branch

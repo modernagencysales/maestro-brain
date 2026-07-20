@@ -1136,6 +1136,26 @@ describe("Maestro Brain execution manifest", () => {
     ).toEqual([]);
   });
 
+  it("binds S04-T04 checkpoint reproof to the lost-proof checkpoint", () => {
+    const task = buildManifest().tasks.find(
+      (candidate) => candidate.taskId === "S04-T04",
+    );
+    expect(task?.checkpointReproofTransition).toMatchObject({
+      schemaVersion: "maestro-brain-checkpoint-reproof-transition/v1",
+      sourceBaseSha: "e8f008574eff0d1a21700ff02926ac4c9870d425",
+      sourceHeadSha: "44c1f6c7e982c7e1814455d2d29f56139d1b803c",
+      sourceTreeSha: "6e1da7ee246d7784d8af528d36bb7c20c6a8de07",
+      sourceCommits: [
+        "7df17e8daee6be82447a8ade0271d6e756ef25ae",
+        "cdebca71b3472563bd399399cfc9551015a35f79",
+        "4056c4de06975ff0817712e8ade62b059ba148b9",
+        "44c1f6c7e982c7e1814455d2d29f56139d1b803c",
+      ],
+      sourceSliceLines: [300, 287, 294, 285],
+      requiredIntegratedTaskIds: ["S04-T02"],
+    });
+  });
+
   it("rejects cross-owned lifecycle adoption locks", () => {
     const manifest = buildManifest();
     const unsafe = {
