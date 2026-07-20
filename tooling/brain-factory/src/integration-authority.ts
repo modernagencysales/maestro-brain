@@ -34,6 +34,7 @@ export const authoritativeIntegrationResultBindsLane = (input: {
     !new Set([
       "maestro-brain-integration-result/v1",
       "maestro-brain-integration-result/v2",
+      "maestro-brain-integration-result/v3",
     ]).has(String(input.result.schemaVersion)) ||
     input.result.status !== "passed" ||
     input.result.reviewVerdict !== "pass" ||

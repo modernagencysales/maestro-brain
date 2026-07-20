@@ -1282,7 +1282,7 @@ describe("normal integration result check", () => {
     ).toThrow("S09-T01: dependency S08-T01 has no lane result");
   });
 
-  it("trusts prior v2 integration provenance after legitimate later edits", () => {
+  it("trusts prior v2 and v3 integration provenance after later edits", () => {
     const value = fixture();
     const manifest = readRecord(value.manifestPath);
     const tasks = manifest.tasks as Record<string, unknown>[];
@@ -1347,6 +1347,18 @@ describe("normal integration result check", () => {
     ).not.toThrow();
 
     const prior = readRecord(priorResultPath);
+    prior.schemaVersion = "maestro-brain-integration-result/v3";
+    writeJson(priorResultPath, prior);
+    expect(() =>
+      validateIntegrationResult({
+        controlRoot: value.controlRoot,
+        evidenceDirectory: value.evidence,
+        expectedWorkdir: value.workdir,
+        integrationId: value.integrationId,
+        manifestTranche: value.manifestTranche,
+      }),
+    ).not.toThrow();
+
     prior.includedTasks = [{ laneHeadSha: "c".repeat(40), taskId: "S08-T01" }];
     writeJson(priorResultPath, prior);
     expect(() =>
