@@ -49,6 +49,11 @@ const passingRun = (): BrainCapacityRun => ({
     crossTenantCommitDenied: true,
     crossTenantDeliveryDenied: true,
   },
+  aboveEnvelopeAdmission: {
+    attemptedEventsPerSecond: 40,
+    outcome: "CapacityExceeded",
+    queuedVisible: false,
+  },
 });
 
 const failureCases: ReadonlyArray<
@@ -77,6 +82,28 @@ const failureCases: ReadonlyArray<
       tenantDenialCanaries: {
         ...run.tenantDenialCanaries,
         crossTenantReadDenied: false,
+      },
+    }),
+  ],
+  [
+    "silently accepted above-envelope pressure",
+    (run) => ({
+      ...run,
+      aboveEnvelopeAdmission: {
+        attemptedEventsPerSecond: 40,
+        outcome: "Accepted",
+        queuedVisible: false,
+      },
+    }),
+  ],
+  [
+    "invisible above-envelope queue",
+    (run) => ({
+      ...run,
+      aboveEnvelopeAdmission: {
+        attemptedEventsPerSecond: 40,
+        outcome: "Queued",
+        queuedVisible: false,
       },
     }),
   ],

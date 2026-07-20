@@ -49,6 +49,11 @@ export type BrainCapacityRun = {
     readonly crossTenantCommitDenied: boolean;
     readonly crossTenantDeliveryDenied: boolean;
   };
+  readonly aboveEnvelopeAdmission: {
+    readonly attemptedEventsPerSecond: number;
+    readonly outcome: "CapacityExceeded" | "Queued" | "Accepted" | "Dropped";
+    readonly queuedVisible: boolean;
+  };
 };
 
 export type BrainCapacityReceipt = {
@@ -71,6 +76,7 @@ export type BrainCapacityReceipt = {
     readonly storageBytes: number;
     readonly modelTokens: number;
     readonly tenantDenialCanaries: BrainCapacityRun["tenantDenialCanaries"];
+    readonly aboveEnvelopeAdmission: BrainCapacityRun["aboveEnvelopeAdmission"];
   };
   readonly failures: readonly string[];
   readonly passed: boolean;
@@ -115,6 +121,23 @@ export const evaluateBrainCapacity = (
   for (const [name, denied] of Object.entries(run.tenantDenialCanaries)) {
     if (!denied) failures.push(`tenant canary failed: ${name}`);
   }
+  if (
+    run.aboveEnvelopeAdmission.attemptedEventsPerSecond >
+    run.fixture.liveBurst.eventsPerSecond
+  ) {
+    if (run.aboveEnvelopeAdmission.outcome === "Accepted") {
+      failures.push("above-envelope load silently accepted");
+    }
+    if (run.aboveEnvelopeAdmission.outcome === "Dropped") {
+      failures.push("above-envelope load silently dropped");
+    }
+    if (
+      run.aboveEnvelopeAdmission.outcome === "Queued" &&
+      !run.aboveEnvelopeAdmission.queuedVisible
+    ) {
+      failures.push("above-envelope queued pressure was not visible");
+    }
+  }
 
   return {
     schemaVersion: "maestro-brain-capacity-receipt/v1",
@@ -137,6 +160,7 @@ export const evaluateBrainCapacity = (
       storageBytes: run.storageBytes,
       modelTokens: run.modelTokens,
       tenantDenialCanaries: run.tenantDenialCanaries,
+      aboveEnvelopeAdmission: run.aboveEnvelopeAdmission,
     },
     failures,
     passed: failures.length === 0,

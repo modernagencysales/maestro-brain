@@ -61,6 +61,11 @@ const syntheticPassingRun = (): BrainCapacityRun => ({
     crossTenantCommitDenied: true,
     crossTenantDeliveryDenied: true,
   },
+  aboveEnvelopeAdmission: {
+    attemptedEventsPerSecond: 40,
+    outcome: "CapacityExceeded",
+    queuedVisible: false,
+  },
 });
 
 export const writeBrainCapacityReport = (path: string): BrainCapacityReport => {

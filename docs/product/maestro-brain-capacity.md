@@ -31,7 +31,9 @@ Passing requires:
 - at least 95% of live events are visible within 60 seconds;
 - all admitted events drain within five minutes;
 - dropped events, queue overflow, attempt/effect mismatch, and tenant canary
-  bypasses are zero.
+  bypasses are zero;
+- above-envelope pressure returns `CapacityExceeded` or a visible queued state,
+  never silent acceptance or loss.
 
 Raising launch limits requires a new passing receipt. Rollback selects the last
 passing capacity policy already enforced by the Slack/source workpool; exact
