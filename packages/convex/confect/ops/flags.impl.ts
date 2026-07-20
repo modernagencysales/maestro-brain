@@ -12,6 +12,19 @@ import { requireWorkspaceAccess } from "../capabilities/_kit/workspaceAccess";
 import { ValidationFailed } from "../errors";
 import flags from "./flags.spec";
 
+export const brainOperationLaunchFlagDefaults = [
+  {
+    key: "template.brain.semanticOperations",
+    enabled: false,
+    killSwitchEnv: "BRAIN_SEMANTIC_OPERATIONS_DISABLED",
+  },
+  {
+    key: "template.brain.externalDelivery",
+    enabled: false,
+    killSwitchEnv: "BRAIN_EXTERNAL_OPERATIONS_DISABLED",
+  },
+] as const;
+
 const defaultFeatureFlagPolicies = [
   {
     key: "template.onboarding.workspaceBrief",
