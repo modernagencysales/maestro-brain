@@ -10,6 +10,7 @@ import {
   MANIFEST_RELATIVE,
   PLAN_RELATIVE,
   parseAuthorityRepairTransition,
+  parseOwnershipRehomeTransition,
   parseTaskPacketAuditRows,
   REPO_ROOT,
   readyWidth,
@@ -68,6 +69,40 @@ describe("Maestro Brain execution manifest", () => {
       2,
     )}\n  \`\`\``;
 
+  const ownershipRehomeBody = (
+    overrides: Record<string, unknown> = {},
+  ): string =>
+    `- **Ownership-rehome transition:**\n  \`\`\`json\n${JSON.stringify(
+      {
+        schemaVersion: "maestro-brain-ownership-rehome-transition/v1",
+        classification: "ownership-rehome",
+        fromPlanSha256: "a".repeat(64),
+        fromTaskBlockHash: "b".repeat(64),
+        sourceRunId: "01KY02VYKQ71T4SDE6ZPPBS205",
+        sourceBaseSha: "c".repeat(40),
+        sourceHeadSha: "d".repeat(40),
+        sourceTreeSha: "e".repeat(40),
+        requiredIntegratedTaskIds: ["S02-T02", "S02-T04"],
+        immutableFinding: {
+          kind: "git-blob",
+          ref: "refs/maestro-brain/evidence/s03-t03-ownership-rehome-20260720",
+          objectSha: "f".repeat(40),
+          contentSha256: "1".repeat(64),
+        },
+        supersededPaths: [
+          {
+            path: "docs/old-plan.md",
+            replacementPath:
+              "docs/product/maestro-brain-lifecycle-adoption/S03-T03.md",
+            disposition: "replaced-by-current-owned-artifact",
+          },
+        ],
+        ...overrides,
+      },
+      null,
+      2,
+    )}\n  \`\`\``;
+
   it("distinguishes path-rehome and contract-only authority repairs", () => {
     expect(
       parseAuthorityRepairTransition(transitionBody(), "S10-T01")?.mode,
@@ -92,6 +127,29 @@ describe("Maestro Brain execution manifest", () => {
         "S03-T03",
       ),
     ).toThrow("contract-only repair cannot supersede paths");
+  });
+
+  it("parses a distinct immutable ownership-rehome transition", () => {
+    expect(
+      parseOwnershipRehomeTransition(ownershipRehomeBody(), "S03-T03"),
+    ).toEqual(
+      expect.objectContaining({
+        classification: "ownership-rehome",
+        requiredIntegratedTaskIds: ["S02-T02", "S02-T04"],
+      }),
+    );
+    expect(() =>
+      parseOwnershipRehomeTransition(
+        ownershipRehomeBody({ classification: "authority-repair" }),
+        "S03-T03",
+      ),
+    ).toThrow("invalid ownership-rehome transition classification");
+    expect(() =>
+      parseOwnershipRehomeTransition(
+        ownershipRehomeBody({ immutableFinding: undefined }),
+        "S03-T03",
+      ),
+    ).toThrow("ownership-rehome transition");
   });
 
   it("projects every dependency classification and collision without changing task contracts", () => {

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { validateAuthorityRepairRewrite } from "../src/authority-repair-check.js";
+import {
+  validateAuthorityRepairRewrite,
+  validateOwnershipRehomeRewrite,
+} from "../src/authority-repair-check.js";
 
 describe("authority repair rewrite", () => {
   const transition = {
@@ -58,5 +61,42 @@ describe("authority repair rewrite", () => {
         transition,
       }),
     ).toThrow("not declared in current manifest fileLocks");
+  });
+
+  it("keeps ownership-rehome validation distinct and exact", () => {
+    const rehome = {
+      ...transition,
+      schemaVersion: "maestro-brain-ownership-rehome-transition/v1" as const,
+      classification: "ownership-rehome" as const,
+      immutableFinding: {
+        kind: "git-blob" as const,
+        ref: "refs/maestro-brain/evidence/s03-t03-ownership-rehome",
+        objectSha: "4".repeat(40),
+        contentSha256: "5".repeat(64),
+      },
+      immutableFindings: undefined,
+      mode: undefined,
+    };
+    expect(() =>
+      validateOwnershipRehomeRewrite({
+        changedFiles: ["owned.ts", "replacement.json"],
+        fileLocks: ["owned.ts", "replacement.json"],
+        transition: rehome,
+      }),
+    ).not.toThrow();
+    expect(() =>
+      validateOwnershipRehomeRewrite({
+        changedFiles: ["obsolete.ts", "replacement.json"],
+        fileLocks: ["owned.ts", "replacement.json"],
+        transition: rehome,
+      }),
+    ).toThrow("ownership-rehome superseded path remains");
+    expect(() =>
+      validateOwnershipRehomeRewrite({
+        changedFiles: ["owned.ts"],
+        fileLocks: ["owned.ts", "replacement.json"],
+        transition: rehome,
+      }),
+    ).toThrow("ownership-rehome replacement path is absent");
   });
 });

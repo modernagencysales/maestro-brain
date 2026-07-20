@@ -24,7 +24,10 @@ import {
   authorityRefreshCoordinates,
   preserveAuthorityRefreshEvidence,
 } from "../src/authority-refresh.js";
-import { runAuthorityRefreshTransition } from "../src/authority-refresh-launch.js";
+import {
+  assertOwnershipRehomeSourceStatus,
+  runAuthorityRefreshTransition,
+} from "../src/authority-refresh-launch.js";
 import {
   recordPreparingTaskLaunch,
   replaceTerminalTaskRecord,
@@ -272,12 +275,198 @@ const repairAdmission = (
   });
 };
 
+const ownershipRehomeAdmission = (
+  value: ReturnType<typeof fixture>,
+  options: {
+    readonly integratedTaskIds?: readonly string[];
+    readonly mutateEvidence?: (
+      proof: Record<string, unknown>,
+      gate: Record<string, unknown>,
+      lane: Record<string, unknown>,
+    ) => void;
+    readonly mutateLens?: (
+      lens: ReviewLensName,
+      artifact: Record<string, unknown>,
+    ) => void;
+    readonly transitionOverrides?: Record<string, unknown>;
+  } = {},
+) => {
+  writeFileSync(join(value.sourceWorkdir, "obsolete.txt"), "obsolete\n");
+  writeFileSync(join(value.sourceWorkdir, "replacement.txt"), "replacement\n");
+  git(value.sourceWorkdir, "add", "obsolete.txt", "replacement.txt");
+  git(value.sourceWorkdir, "commit", "-m", "historical ownership");
+  const headSha = git(value.sourceWorkdir, "rev-parse", "HEAD");
+  const treeSha = git(value.sourceWorkdir, "rev-parse", "HEAD^{tree}");
+  const laneDirectory = join(value.evidence, "lane-results", value.taskId);
+  const proofPath = join(laneDirectory, "ci-proof-packet.json");
+  const gatePath = join(laneDirectory, "lane-gate-report.json");
+  const lanePath = join(laneDirectory, "lane-result.json");
+  const proof = JSON.parse(readFileSync(proofPath, "utf8"));
+  const gate = JSON.parse(readFileSync(gatePath, "utf8"));
+  const lane = JSON.parse(readFileSync(lanePath, "utf8"));
+  Object.assign(proof, {
+    changedFiles: ["obsolete.txt", "owned.txt", "replacement.txt"],
+    headSha,
+    reviewHeadSha: headSha,
+  });
+  Object.assign(gate, { headSha, currentHeadSha: headSha, currentTreeSha: treeSha });
+  Object.assign(lane, { headSha, treeSha });
+  options.mutateEvidence?.(proof, gate, lane);
+  writeFileSync(proofPath, `${JSON.stringify(proof, null, 2)}\n`);
+  writeFileSync(gatePath, `${JSON.stringify(gate, null, 2)}\n`);
+  writeFileSync(lanePath, `${JSON.stringify(lane, null, 2)}\n`);
+  const lenses = join(laneDirectory, "review-lenses", headSha);
+  mkdirSync(lenses, { recursive: true });
+  for (const lens of ["contract", "safety", "quality"] as const) {
+    const artifact: Record<string, unknown> = {
+      lens,
+      taskId: value.taskId,
+      planSha256: value.oldPlanSha256,
+      taskBlockHash: value.oldTaskBlockHash,
+      baseSha: value.baseSha,
+      headSha,
+      treeSha,
+      reviewerRunId: `review-${lens}`,
+      rubricDispositions: DEFAULT_REVIEW_RUBRIC_IDS[lens].map((rubricId) => ({
+        rubricId,
+        disposition: "pass",
+        evidence: ["exact ownership review evidence"],
+      })),
+      findings: [],
+      verdict: "pass",
+    };
+    options.mutateLens?.(lens, artifact);
+    writeFileSync(join(lenses, `${lens}.json`), `${JSON.stringify(artifact)}\n`);
+  }
+  const findingContent = "immutable ownership finding\n";
+  const objectSha = execFileSync("git", ["hash-object", "-w", "--stdin"], {
+    cwd: value.repo,
+    encoding: "utf8",
+    input: findingContent,
+  }).trim();
+  const findingRef = "refs/maestro-brain/evidence/s03-t03-ownership-rehome";
+  git(value.repo, "update-ref", findingRef, objectSha);
+  return admitAuthorityRefresh({
+    ownershipRehomeTransition: {
+      schemaVersion: "maestro-brain-ownership-rehome-transition/v1",
+      classification: "ownership-rehome",
+      fromPlanSha256: value.oldPlanSha256,
+      fromTaskBlockHash: value.oldTaskBlockHash,
+      sourceRunId: "01KY02VYKQ71T4SDE6ZPPBS205",
+      sourceBaseSha: value.baseSha,
+      sourceHeadSha: headSha,
+      sourceTreeSha: treeSha,
+      requiredIntegratedTaskIds: ["S02-T02", "S02-T04"],
+      immutableFinding: {
+        kind: "git-blob",
+        ref: findingRef,
+        objectSha,
+        contentSha256: sha256(findingContent),
+      },
+      supersededPaths: [
+        {
+          path: "obsolete.txt",
+          replacementPath: "replacement.txt",
+          disposition: "replaced-by-current-owned-artifact",
+        },
+      ],
+      ...options.transitionOverrides,
+    },
+    controlHeadSha: value.controlHeadSha,
+    evidence: value.evidence,
+    integratedTaskIds: options.integratedTaskIds ?? ["S02-T02", "S02-T04"],
+    readGitBlob: (cwd, sha) =>
+      execFileSync("git", ["cat-file", "blob", sha], { cwd, encoding: "utf8" }),
+    root: value.repo,
+    runGit: (cwd, args) => git(cwd, ...args),
+    sourceBranch: "source",
+    sourceRunId: "01KY02VYKQ71T4SDE6ZPPBS205",
+    sourceWorkdir: value.sourceWorkdir,
+    task: {
+      fileLocks: ["owned.txt", "replacement.txt"],
+      planSha256: "c".repeat(64),
+      sourceSliceBudget: 300,
+      sourceSliceLimit: 4,
+      taskBlockHash: "d".repeat(64),
+      taskId: value.taskId,
+    },
+  });
+};
+
 afterEach(() => {
   for (const root of roots.splice(0))
     rmSync(root, { force: true, recursive: true });
 });
 
 describe("authority refresh admission", () => {
+  it("admits only exact succeeded green ownership-rehome evidence", () => {
+    const admission = ownershipRehomeAdmission(fixture());
+    expect(admission.transitionKind).toBe("ownership-rehome");
+    expect(admission.supersededPaths).toEqual([
+      expect.objectContaining({ path: "obsolete.txt" }),
+    ]);
+    expect(admission.artifacts.map(({ file }) => file)).toEqual(
+      expect.arrayContaining([
+        "prior-lane-result.json",
+        "ownership-rehome-transition.json",
+        "prior-review-contract.json",
+        "prior-review-safety.json",
+        "prior-review-quality.json",
+      ]),
+    );
+    expect(() => assertOwnershipRehomeSourceStatus("succeeded", "S03-T03")).not.toThrow();
+    expect(() => assertOwnershipRehomeSourceStatus("failed", "S03-T03")).toThrow(
+      "ownership-rehome source run must have succeeded",
+    );
+  }, 15_000);
+
+  it("rejects failed or stale ownership-rehome lane proof", () => {
+    expect(() =>
+      ownershipRehomeAdmission(fixture(), {
+        mutateEvidence: (proof, gate) => {
+          proof.reviewVerdict = "rework";
+          proof.reviewFindings = [{ id: "finding" }];
+          gate.stage = "pre-review";
+        },
+      }),
+    ).toThrow(/ownership-rehome|final/);
+    expect(() =>
+      ownershipRehomeAdmission(fixture(), {
+        transitionOverrides: { sourceHeadSha: "9".repeat(40) },
+      }),
+    ).toThrow(/HEAD mismatch|provenance mismatch/);
+  }, 30_000);
+
+  it("rejects missing lenses, wrong pins, refs, and prerequisites", () => {
+    expect(() =>
+      ownershipRehomeAdmission(fixture(), {
+        mutateLens: (lens, artifact) => {
+          if (lens === "contract") artifact.verdict = "rework";
+        },
+      }),
+    ).toThrow(/ownership-rehome contract review|review lenses/);
+    expect(() =>
+      ownershipRehomeAdmission(fixture(), {
+        transitionOverrides: { fromPlanSha256: "9".repeat(64) },
+      }),
+    ).toThrow("ownership-rehome proof provenance mismatch");
+    expect(() =>
+      ownershipRehomeAdmission(fixture(), {
+        transitionOverrides: {
+          immutableFinding: {
+            kind: "git-blob",
+            ref: "refs/maestro-brain/evidence/wrong",
+            objectSha: "9".repeat(40),
+            contentSha256: "8".repeat(64),
+          },
+        },
+      }),
+    ).toThrow("immutable finding ref is missing");
+    expect(() =>
+      ownershipRehomeAdmission(fixture(), { integratedTaskIds: ["S02-T02"] }),
+    ).toThrow("ownership-rehome prerequisite is not integrated: S02-T04");
+  }, 45_000);
+
   it("admits contract-only repair only while historical paths remain current-owned", () => {
     const value = fixture();
     expect(
