@@ -1,0 +1,116 @@
+{
+  "lens": "contract",
+  "taskId": "S13-T03",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "taskBlockHash": "13c071bc2c78035c5563f494b38160a96c981ab2962984f056be4e18853e137e",
+  "baseSha": "f66236e12f93bc254cc2350800a5b2a69d0caff5",
+  "headSha": "55df7da1edac0e4d1b407c6eb88ecb67ceaf58df",
+  "treeSha": "87973da0ada848335180d76603a345cdda9863ae",
+  "reviewerRunId": "maestro/review/S13-T03/55df7da1edac0e4d1b407c6eb88ecb67ceaf58df/ce9e945e-efd6-4175-ab1e-a44bf71c472f-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3549-3600 requires redacted telemetry, budgets, kill switches, named file changes, focused verification, and a completion receipt.",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:S13-T03 lists the same locked files, operations lane, template-gap classification, and requirements AI-04/REL-03/SLK-07.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S13-T03/ci-proof-packet.json:8-19 includes the full required changed-file list, including flags and logging-boundary files.",
+        "docs/product/maestro-brain-operations.md:69-81 records the metric dictionary, kill-switch drills, canary results, budget enforcement, and redacted audit samples completion receipt."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "finding",
+      "findingIds": [
+        "CONTRACT-S13-T03-001"
+      ],
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts:109-121 declares listPolicies and setPolicyInternal as Confect functions.",
+        "Scoped generated search returned no packages/convex/confect/_generated/registeredFunctions/ops/brainOperations.ts and no brainOperations entries in packages/convex/confect/_generated/refs.ts.",
+        "AGENTS.md:28-35 requires public/internal functions to use Confect specs/impls and generated Confect refs/services."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/policies.ts:4-23 defines the durable policies table with workspace/kind/status and policy/version indexes used by the new operation policy rows.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:173-195 maps operation policy data into durable agent.config policy rows with policyKey, version, status, timestamps, and activation metadata.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:178-187 and 222-228 query the declared policy indexes for list and point lookup paths."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3554-3556 classifies S13-T03 as template-gap TB-OPERATIONS-01 composing observability/flag/notification seams.",
+        "packages/observability/src/brainMetrics.ts:1-135 adds generic Brain metric redaction and budget helpers rather than a semantic local alert classifier.",
+        "packages/convex/confect/ops/flags.spec.ts:17-20 and packages/convex/confect/ops/flags.impl.ts:15-26 add conservative launch flag keys/defaults for semantic and external operations."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:S13-T03 fileLocks enumerate exactly docs/product/maestro-brain-operations.md, operation policy/spec/impl/test files, observability files, and tooling/quality/check-logging-boundary.mts.",
+        "rtk proxy git diff --name-only f66236e12f93bc254cc2350800a5b2a69d0caff5..HEAD over the locked product/confect/observability/tooling paths matches the proof packet changed files and does not show unrelated generated output.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S13-T03/ci-proof-packet.json:21-73 records only the focused commands for the affected convex, observability, logging, secret-canary, access-audit, eslint, and prettier surfaces."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "findingIds": [
+        "CONTRACT-S13-T03-002",
+        "CONTRACT-S13-T03-003"
+      ],
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts:60-70 declares OperationError including OperatorForbidden, BudgetExceeded, SubsystemDisabled, and RecoveryGenerationMismatch.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:85-92 returns BudgetExceeded for input.budgetCheck over limit and packages/convex/confect/ops/brainOperations.impl.ts:95-102 additionally returns BudgetExceeded for policyExpiryMs, which is not one of the declared BrainOperationBudget literals at packages/convex/confect/ops/brainOperations.spec.ts:36-43.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:125-156 ignores the now parameter and never checks expiresAt, so expired disabled policies can still evaluate as SubsystemDisabled through the helper contract.",
+        "packages/convex/test/brain-operation-policy.test.ts:217-310 manually inserts/patches policy records inside TestConfect instead of invoking listPolicies or setPolicyInternal, leaving the Confect failure paths unproven through the typed operation boundary."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "CONTRACT-S13-T03-001",
+      "severity": "high",
+      "summary": "Brain operations Confect functions are not registered in generated refs.",
+      "details": "The task adds brainOperations.spec.ts and brainOperations.impl.ts with listPolicies and setPolicyInternal, but the generated Confect registered function/ref surface for this head does not include brainOperations. Downstream callers therefore cannot consume the declared typed API via generated refs as required by the Confect contract rules.",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts:109-121",
+        "packages/convex/confect/ops/brainOperations.impl.ts:288-292",
+        "Scoped search: rtk rg --files packages/convex/confect/_generated/registeredFunctions/ops | grep brainOperations produced no file.",
+        "Scoped search: rtk rg -n \"brainOperations\" packages/convex/confect/_generated packages/convex/confect/ops packages/convex/test/brain-operation-policy.test.ts found only source/test imports, not generated refs.",
+        "AGENTS.md:28-35"
+      ]
+    },
+    {
+      "id": "CONTRACT-S13-T03-002",
+      "severity": "medium",
+      "summary": "Focused tests still do not prove the durable Confect operation boundary.",
+      "details": "The new persistence test uses TestConfect services only to seed tenancy and manually insert/retire/read policies. It never calls the new listPolicies or setPolicyInternal functions, so the declared typed operation contract is not exercised for workspace access, admin authorization, idempotent replay, budget failure, generation mismatch, disabled-state failure, expiry handling, retirement, insert, or audit persistence.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3575-3600",
+        "packages/convex/test/brain-operation-policy.test.ts:217-310",
+        "packages/convex/confect/ops/brainOperations.impl.ts:36-58",
+        "packages/convex/confect/ops/brainOperations.impl.ts:61-155"
+      ]
+    },
+    {
+      "id": "CONTRACT-S13-T03-003",
+      "severity": "medium",
+      "summary": "Expiry semantics are inconsistent across the operation policy contract.",
+      "details": "Durable loading treats expired rows as absent/default enabled, but evaluateOperationPolicy accepts now while ignoring it and has no expiresAt input. Callers using the exported policy evaluation helper can still reject a subsystem as disabled after the policy expiry that the task requires to be part of kill-switch policy data and lifecycle behavior.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3582-3592",
+        "packages/convex/confect/ops/brainOperations.impl.ts:195-207",
+        "packages/convex/confect/ops/brainOperations.impl.ts:229-239",
+        "packages/convex/confect/ops/brainOperations.impl.ts:268-271",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:125-156"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
