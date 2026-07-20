@@ -9,6 +9,7 @@ const pages: readonly BrainPageTreeItem[] = [
     pageKey: "pg_overview",
     parentPageKey: null,
     title: "Overview",
+    siblingSlug: "overview",
     sortKey: "001",
     currentRevisionKey: "rev_overview",
     isFavorite: true,
@@ -18,6 +19,7 @@ const pages: readonly BrainPageTreeItem[] = [
     pageKey: "pg_positioning",
     parentPageKey: "pg_overview",
     title: "Positioning",
+    siblingSlug: "positioning",
     sortKey: "002",
     currentRevisionKey: "rev_positioning",
     isFavorite: false,
@@ -56,6 +58,15 @@ describe("BrainPageTree", () => {
     expect(html).toContain("Positioning");
     expect(html).toContain("Favorite page");
     expect(html).toContain("Move page to root");
+  });
+
+  it("renders editable rename inputs initialized with the current title", () => {
+    const html = render();
+
+    expect(html).toContain('aria-label="Rename Overview"');
+    expect(html).toContain('value="Overview"');
+    expect(html).toContain('aria-label="Rename Positioning"');
+    expect(html).toContain('value="Positioning"');
   });
 
   it("hides mutating actions from viewers", () => {

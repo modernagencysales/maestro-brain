@@ -8,8 +8,8 @@ import {
   Stack,
   Text,
 } from "@saas-ui/react";
-import { useState } from "react";
-import { makeFunctionReference } from "convex/server";
+import { TemplateDialog } from "@maestro-template/ui";
+import { useRef, useState } from "react";
 import { BrainEditorPane, type BrainEditorSnapshot } from "./brain-editor-pane";
 import { BrainEvidenceDrawer } from "./brain-evidence-drawer";
 import { BrainPageTree } from "./brain-page-tree";
@@ -28,18 +28,11 @@ export type BrainMarkdownSaveArgs = Ref.Args<
   TemplateConfectRefs["public"]["brain"]["pages"]["recordSnapshot"]
 >;
 
-export const buildWorkspaceSyncApi = (): EditorSyncRefs => ({
-  getSnapshot: makeFunctionReference("editorSync:getSnapshot"),
-  submitSnapshot: makeFunctionReference("editorSync:submitSnapshot"),
-  latestVersion: makeFunctionReference("editorSync:latestVersion"),
-  getSteps: makeFunctionReference("editorSync:getSteps"),
-  submitSteps: makeFunctionReference("editorSync:submitSteps"),
-});
-
 export function buildWorkspaceSaveArgs(
   state: BrainWorkspaceState,
   snapshot: string,
   version?: number,
+  expectedCurrentRevisionKey?: string,
 ): BrainMarkdownSaveArgs | null {
   if (
     state.status !== "ready" ||
@@ -54,12 +47,34 @@ export function buildWorkspaceSaveArgs(
   if (selectedPage.editorTarget === null) return null;
 
   return {
-    brainKey: state.brainKey,
-    pageKey: selectedPage.pageKey,
-    expectedCurrentRevisionKey: selectedPage.currentRevisionKey,
+    documentId: selectedPage.editorTarget.documentId,
+    expectedCurrentRevisionKey:
+      expectedCurrentRevisionKey ?? selectedPage.currentRevisionKey,
     snapshot,
     version: version ?? selectedPage.editorTarget.snapshotVersion + 1,
   };
+}
+
+export function readWorkspaceEditorRevisionFence(
+  current: {
+    readonly documentId: string | null;
+    readonly revisionKey: string | null;
+  },
+  selected: {
+    readonly documentId: string | null;
+    readonly revisionKey: string | null;
+  },
+): string | null {
+  if (selected.documentId === null || selected.revisionKey === null) {
+    return null;
+  }
+  if (
+    current.documentId === selected.documentId &&
+    current.revisionKey !== null
+  ) {
+    return current.revisionKey;
+  }
+  return selected.revisionKey;
 }
 
 export function reduceSaveConflict(
@@ -72,6 +87,25 @@ export function reduceSaveConflict(
     : undefined;
 }
 
+export type MobileBrainDrawer = "tree" | "evidence";
+export type MobileBrainDrawerAction = "open_tree" | "open_evidence" | "close";
+
+export function reduceMobileDrawerState(
+  current: MobileBrainDrawer | null,
+  action: MobileBrainDrawerAction,
+): MobileBrainDrawer | null {
+  switch (action) {
+    case "open_tree":
+      return "tree";
+    case "open_evidence":
+      return "evidence";
+    case "close":
+      return null;
+    default:
+      return current;
+  }
+}
+
 export function BrainWorkspace({
   state,
   onArchivePage,
@@ -81,6 +115,7 @@ export function BrainWorkspace({
   onRenamePage,
   onSaveMarkdown,
   onSelectPage,
+  syncApi,
 }: {
   readonly state: BrainWorkspaceState;
   readonly onArchivePage: (pageKey: string, revisionKey: string | null) => void;
@@ -104,11 +139,55 @@ export function BrainWorkspace({
     args: BrainMarkdownSaveArgs | null,
   ) => Promise<TemplateMutationState<unknown, { readonly _tag?: string }>>;
   readonly onSelectPage: (pageKey: string) => void;
+  readonly syncApi: EditorSyncRefs;
 }) {
   const [saveConflict, setSaveConflict] = useState<
     "stale_revision" | undefined
   >();
-  const syncApi = buildWorkspaceSyncApi();
+  const [mobileDrawer, setMobileDrawer] = useState<MobileBrainDrawer | null>(
+    null,
+  );
+  const editorFenceRef = useRef<{
+    documentId: string | null;
+    revisionKey: string | null;
+  }>({ documentId: null, revisionKey: null });
+  const selectedEditorTarget =
+    state.status === "ready" ? state.selectedPage?.editorTarget : null;
+  const editorRevisionFence = readWorkspaceEditorRevisionFence(
+    editorFenceRef.current,
+    {
+      documentId: selectedEditorTarget?.documentId ?? null,
+      revisionKey: selectedEditorTarget?.revisionKey ?? null,
+    },
+  );
+  editorFenceRef.current = {
+    documentId: selectedEditorTarget?.documentId ?? null,
+    revisionKey: editorRevisionFence,
+  };
+  const pageTree =
+    state.status === "ready" ? (
+      <BrainPageTree
+        canEdit={state.canEdit}
+        pages={state.pages}
+        onArchivePage={onArchivePage}
+        onCreatePage={onCreatePage}
+        onFavoritePage={onFavoritePage}
+        onMovePage={onMovePage}
+        onRenamePage={onRenamePage}
+        onSelectPage={onSelectPage}
+      />
+    ) : null;
+  const evidenceDrawer =
+    state.status === "ready" ? (
+      <BrainEvidenceDrawer
+        citations={state.pages.map((page) => page.title)}
+        freshness={state.freshness}
+        revisionLabel={state.selectedPage?.currentRevisionKey ?? "No revision"}
+      />
+    ) : null;
+  const updateMobileDrawer = (action: MobileBrainDrawerAction) =>
+    setMobileDrawer((current) => reduceMobileDrawerState(current, action));
+
   return (
     <>
       <Page.Header
@@ -124,31 +203,46 @@ export function BrainWorkspace({
               gap="2"
               display={{ base: "grid", lg: "none" }}
             >
-              <Button variant="outline">Open page tree</Button>
-              <Button variant="outline">Open evidence drawer</Button>
+              <Button
+                aria-controls="brain-mobile-page-tree-drawer"
+                aria-expanded={mobileDrawer === "tree"}
+                variant="outline"
+                onClick={() => updateMobileDrawer("open_tree")}
+              >
+                Open page tree
+              </Button>
+              <Button
+                aria-controls="brain-mobile-evidence-drawer"
+                aria-expanded={mobileDrawer === "evidence"}
+                variant="outline"
+                onClick={() => updateMobileDrawer("open_evidence")}
+              >
+                Open evidence drawer
+              </Button>
             </SimpleGrid>
             <SimpleGrid columns={{ base: 1, lg: 12 }} gap="4">
-              <Stack gridColumn={{ lg: "span 3" }}>
-                <BrainPageTree
-                  canEdit={state.canEdit}
-                  pages={state.pages}
-                  onArchivePage={onArchivePage}
-                  onCreatePage={onCreatePage}
-                  onFavoritePage={onFavoritePage}
-                  onMovePage={onMovePage}
-                  onRenamePage={onRenamePage}
-                  onSelectPage={onSelectPage}
-                />
+              <Stack
+                data-testid="brain-desktop-page-tree-region"
+                display={{ base: "none", lg: "block" }}
+                gridColumn={{ lg: "span 3" }}
+              >
+                {pageTree}
               </Stack>
               <Stack gridColumn={{ lg: "span 6" }}>
                 <BrainEditorPane
                   canEdit={state.canEdit}
                   page={state.selectedPage}
+                  editorRevisionFence={editorRevisionFence}
                   conflict={saveConflict}
                   syncApi={syncApi}
                   onSaveMarkdown={(markdown) => {
                     setSaveConflict(undefined);
-                    const saveArgs = buildWorkspaceSaveArgs(state, markdown);
+                    const saveArgs = buildWorkspaceSaveArgs(
+                      state,
+                      markdown,
+                      undefined,
+                      editorRevisionFence ?? undefined,
+                    );
                     void onSaveMarkdown(saveArgs).then((result) => {
                       setSaveConflict(reduceSaveConflict(result));
                     });
@@ -159,6 +253,7 @@ export function BrainWorkspace({
                       state,
                       snapshot.snapshot,
                       snapshot.version,
+                      snapshot.expectedCurrentRevisionKey,
                     );
                     void onSaveMarkdown(saveArgs).then((result) => {
                       setSaveConflict(reduceSaveConflict(result));
@@ -167,20 +262,36 @@ export function BrainWorkspace({
                   onSyncError={() => setSaveConflict("stale_revision")}
                 />
               </Stack>
-              <Stack gridColumn={{ lg: "span 3" }}>
-                <BrainEvidenceDrawer
-                  citations={state.pages.map((page) => page.title)}
-                  freshness={state.freshness}
-                  revisionLabel={
-                    state.selectedPage?.currentRevisionKey ?? "No revision"
-                  }
-                />
+              <Stack
+                data-testid="brain-desktop-evidence-region"
+                display={{ base: "none", lg: "block" }}
+                gridColumn={{ lg: "span 3" }}
+              >
+                {evidenceDrawer}
               </Stack>
             </SimpleGrid>
           </Stack>
         ) : (
           <BrainWorkspaceStateCard state={state} />
         )}
+        {state.status === "ready" ? (
+          <>
+            <TemplateDialog
+              isOpen={mobileDrawer === "tree"}
+              onClose={() => updateMobileDrawer("close")}
+              title="Page tree"
+            >
+              <div id="brain-mobile-page-tree-drawer">{pageTree}</div>
+            </TemplateDialog>
+            <TemplateDialog
+              isOpen={mobileDrawer === "evidence"}
+              onClose={() => updateMobileDrawer("close")}
+              title="Evidence and history"
+            >
+              <div id="brain-mobile-evidence-drawer">{evidenceDrawer}</div>
+            </TemplateDialog>
+          </>
+        ) : null}
       </Page.Body>
     </>
   );
