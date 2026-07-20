@@ -173,8 +173,8 @@ const effectivePriorIntegrationHeadSha =
     : priorIntegrationHeadSha;
 if (
   !priorIntegrationId ||
-  !/^[0-9a-f]{40}$/.test(effectivePriorIntegrationHeadSha) ||
-  !gitIsAncestor(effectivePriorIntegrationHeadSha, controlHeadSha, root)
+  !/^[0-9a-f]{40}$/.test(priorIntegrationHeadSha) ||
+  !gitIsAncestor(priorIntegrationHeadSha, controlHeadSha, root)
 ) {
   throw new Error(`${taskId}: prior integration is not authoritative on HEAD`);
 }
