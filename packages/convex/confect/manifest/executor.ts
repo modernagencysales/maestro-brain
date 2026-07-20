@@ -1,5 +1,11 @@
 import { confectManifest } from "@maestro-template/template-core/generated/confectManifest";
 import {
+  authorizeHeadlessOperation,
+  reviewedHeadlessPolicyFor,
+  type HeadlessOperationPolicy,
+} from "../headless/authorizeOperation";
+import type { HeadlessPrincipal } from "../headless/principal";
+import {
   type IdempotencyKeyValidationError,
   validateCallerIdempotencyKey,
 } from "../shared/idempotencyKey";
@@ -21,10 +27,16 @@ export type HeadlessExecutorRequest = {
   readonly idempotencyKey?: string;
 };
 
+export type AuthorizedHeadlessExecutorRequest = HeadlessExecutorRequest & {
+  readonly principal: HeadlessPrincipal;
+  readonly policy: HeadlessOperationPolicy;
+};
+
 export type HeadlessFailureResult = {
   readonly ok: false;
   readonly error: {
-    readonly _tag: "NotFound" | "ValidationFailed";
+    readonly _tag:
+      "Unauthorized" | "ValidationFailed" | "Forbidden" | "RateLimited";
     readonly message: string;
   };
 };
@@ -59,7 +71,7 @@ export type HeadlessExecutionAdapter = {
   ) => unknown | Promise<unknown>;
 };
 
-const failure = (
+export const headlessFailure = (
   tag: HeadlessFailureResult["error"]["_tag"],
   message: string,
 ): HeadlessFailureResult => ({
@@ -93,9 +105,9 @@ export const resolveHeadlessOperation = (
   const operation = findHeadlessOperation(request.operationId, request.surface);
 
   if (!operation) {
-    return failure(
-      "NotFound",
-      `No headless operation ${request.operationId} exposed on ${request.surface}.`,
+    return headlessFailure(
+      "ValidationFailed",
+      "Headless operation is not available.",
     );
   }
 
@@ -199,13 +211,13 @@ const idempotencyFailureFor = (
       return undefined;
     }
 
-    return failure(
+    return headlessFailure(
       "ValidationFailed",
       `Operation ${operation.operationId} requires a nonblank idempotencyKey.`,
     );
   }
 
-  return failure(
+  return headlessFailure(
     "ValidationFailed",
     `Operation ${operation.operationId} received invalid idempotencyKey: ${idempotencyKey.message}`,
   );
@@ -217,7 +229,7 @@ const inputFailureFor = (
 ): HeadlessFailureResult | undefined =>
   isJsonRecord(input)
     ? undefined
-    : failure(
+    : headlessFailure(
         "ValidationFailed",
         `Operation ${operation.operationId} received non-JSON-safe input.`,
       );
@@ -228,9 +240,9 @@ const refFailureFor = (
 ): HeadlessFailureResult | undefined =>
   ref
     ? undefined
-    : failure(
-        "NotFound",
-        `No generated function ref registered for operation ${operation.operationId}.`,
+    : headlessFailure(
+        "ValidationFailed",
+        "Headless operation is not available.",
       );
 
 const inputWithIdempotencyKey = (
@@ -292,7 +304,7 @@ const dispatchHeadlessOperation = async (
     : undefined;
   const result =
     runner === undefined
-      ? failure(
+      ? headlessFailure(
           "ValidationFailed",
           `Operation ${execution.operation.operationId} has unsupported kind ${operationKind}.`,
         )
@@ -314,7 +326,7 @@ const jsonResultFor = (
 ): HeadlessExecutorResult =>
   isJsonValue(result)
     ? successResultFor(operation, result)
-    : failure(
+    : headlessFailure(
         "ValidationFailed",
         `Operation ${operation.operationId} returned a non-JSON-safe result.`,
       );
@@ -352,4 +364,33 @@ export const executeHeadlessOperation = async (
     : execution;
 
   return result;
+};
+
+export const executeAuthorizedHeadlessOperation = async (
+  adapter: HeadlessExecutionAdapter,
+  request: AuthorizedHeadlessExecutorRequest,
+): Promise<HeadlessExecutorResult> => {
+  const resolved = resolveHeadlessOperation(request);
+  if (!resolved.ok) return resolved;
+  if (
+    reviewedHeadlessPolicyFor(request.operationId, [request.policy]) ===
+    undefined
+  ) {
+    return headlessFailure("Forbidden", "Headless operation is not available.");
+  }
+  const authorization = authorizeHeadlessOperation({
+    operationId: resolved.operation.operationId,
+    principal: request.principal,
+    operationInput: request.input,
+    policy: request.policy,
+  });
+  if (!authorization.ok) return authorization;
+  return executeHeadlessOperation(adapter, {
+    operationId: request.operationId,
+    surface: request.surface,
+    input: authorization.input,
+    ...(request.idempotencyKey === undefined
+      ? {}
+      : { idempotencyKey: request.idempotencyKey }),
+  });
 };
