@@ -31,11 +31,13 @@ export const SourceChannelRow = Schema.Struct({
 export type SourceChannelRowValue = typeof SourceChannelRow.Type;
 
 export default Table.make(() => SourceChannelRow)
-  .index("by_connection_generation", ["connectionKey", "connectionGeneration"])
-  .index("by_channel_key", ["channelKey"])
-  .index("by_external_generation", [
+  .index("by_connection_external_channel", [
     "connectionKey",
-    "connectionGeneration",
     "externalChannelId",
   ])
-  .index("by_organization", ["organizationKey"]);
+  .index("by_channel_key", ["channelKey"])
+  .index("by_organization_membership_state", [
+    "organizationKey",
+    "membershipStatus",
+  ])
+  .index("by_connection_generation", ["connectionKey", "connectionGeneration"]);
