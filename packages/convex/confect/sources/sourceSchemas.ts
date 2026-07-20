@@ -536,3 +536,215 @@ export const buildSourceLedgerRows = (
     connectionGeneration: input.envelope.connectionGeneration,
     channelKey: input.envelope.channelKey,
     externalChannelId: input.envelope.externalChannelId,
+    transport: input.envelope.transport,
+    transportDeliveryId: input.envelope.transportDeliveryId,
+    providerEventId: verifiedBinding.providerEventId,
+    providerObjectId: input.observation.providerObjectId,
+    providerRevisionId: input.observation.providerRevisionId,
+    providerOrder: input.observation.providerOrder,
+    canonicalContentHash: keys.contentHash,
+    tombstone: input.observation.tombstone,
+    signatureVerification,
+    replayVerification,
+    observationKey: keys.observationKey,
+    sourceKey: keys.sourceKey,
+    sourceRevisionKey: keys.sourceRevisionKey,
+    outcome: result.outcome,
+    receivedAt: input.envelope.receivedAt,
+    createdAt: input.envelope.receivedAt,
+  };
+  if (result.outcome === "duplicate")
+    return { receipt, artifact: null, revision: null, processingJob: null };
+  const lifecycleValue = {
+    state: input.observation.tombstone
+      ? ("deleted_tombstone" as const)
+      : ("active" as const),
+    generation: (options.existingArtifact?.lifecycleGeneration ?? 0) + 1,
+    updatedAt: input.envelope.receivedAt,
+    purgeAfter: null,
+  };
+  return {
+    receipt,
+    artifact: {
+      schemaVersion: 1 as const,
+      organizationKey: input.envelope.organizationKey,
+      connectionKey: input.envelope.connectionKey,
+      connectionGeneration: input.envelope.connectionGeneration,
+      channelKey: input.envelope.channelKey,
+      externalChannelId: input.envelope.externalChannelId,
+      providerObjectId: input.observation.providerObjectId,
+      sourceKey: keys.sourceKey,
+      threadKey: input.observation.threadKey,
+      latestSourceRevisionKey: keys.sourceRevisionKey,
+      latestProviderOrder: providerSortKeyFor(input),
+      lifecycle: lifecycleValue,
+      createdAt:
+        options.existingArtifact?.createdAt ?? input.envelope.receivedAt,
+      updatedAt: input.envelope.receivedAt,
+    },
+    revision: {
+      schemaVersion: 1 as const,
+      organizationKey: input.envelope.organizationKey,
+      connectionKey: input.envelope.connectionKey,
+      connectionGeneration: input.envelope.connectionGeneration,
+      channelKey: input.envelope.channelKey,
+      sourceKey: keys.sourceKey,
+      sourceRevisionKey: keys.sourceRevisionKey,
+      observationKey: keys.observationKey,
+      providerOrder: input.observation.providerOrder,
+      providerRevisionId: input.observation.providerRevisionId,
+      sourceCreatedAt: input.envelope.receivedAt,
+      sourceTimestamp: input.observation.sourceTimestamp,
+      authorSnapshot: input.observation.author,
+      normalizedText: input.observation.text,
+      blocksJson: input.observation.blocksJson,
+      permalink: input.observation.permalink,
+      contentHash: keys.contentHash,
+      tombstone: input.observation.tombstone,
+      lifecycle: lifecycleValue,
+      createdAt: input.envelope.receivedAt,
+    },
+    processingJob: {
+      schemaVersion: 1 as const,
+      organizationKey: input.envelope.organizationKey,
+      sourceUnitKey: keys.sourceUnitKey,
+      sourceRevisionKey: keys.sourceRevisionKey,
+      stage: input.routing.assemblyStage,
+      status: "pending" as const,
+      effectKey: input.routing.effectKey,
+      policyEpoch: input.routing.policyEpoch,
+      leaseOwner: null,
+      leaseExpiresAt: null,
+      nextRetryAt: input.envelope.receivedAt,
+      attemptCount: 0,
+      createdAt: input.envelope.receivedAt,
+      updatedAt: input.envelope.receivedAt,
+    },
+  };
+};
+type ReadableCurrentInput = {
+  readonly organizationKey: string;
+  readonly connectionKey: string;
+  readonly connectionGeneration: number;
+  readonly channelKey: string;
+  readonly sourceKey: string;
+  readonly artifact: typeof SourceArtifactRow.Type | null;
+  readonly revisions: readonly (typeof SourceRevisionRow.Type)[];
+};
+
+export const getReadableCurrentSourceRevision = ({
+  organizationKey,
+  connectionKey,
+  connectionGeneration,
+  channelKey,
+  sourceKey,
+  artifact,
+  revisions,
+}: ReadableCurrentInput): typeof SourceRevisionRow.Type | null => {
+  if (
+    !artifact ||
+    artifact.organizationKey !== organizationKey ||
+    artifact.connectionKey !== connectionKey ||
+    artifact.connectionGeneration !== connectionGeneration ||
+    artifact.channelKey !== channelKey ||
+    artifact.sourceKey !== sourceKey ||
+    artifact.lifecycle.state !== "active"
+  )
+    return null;
+  const matches = revisions.filter(
+    (revision) =>
+      revision.organizationKey === organizationKey &&
+      revision.connectionKey === connectionKey &&
+      revision.connectionGeneration === connectionGeneration &&
+      revision.channelKey === channelKey &&
+      revision.sourceKey === sourceKey &&
+      revision.sourceRevisionKey === artifact.latestSourceRevisionKey,
+  );
+  if (matches.length > 1)
+    throw new DuplicateKeyConflict("DuplicateKeyConflict");
+  const revision = matches[0];
+  if (!revision || revision.lifecycle.state !== "active" || revision.tombstone)
+    return null;
+  return revision;
+};
+type NoSourceReceiptInput = {
+  readonly envelope: SourceLedgerEnvelopeType;
+  readonly observation?: Partial<
+    (typeof SourceLedgerCaptureInput.Type)["observation"]
+  >;
+};
+
+type NoSourceOptions = {
+  readonly verifiedBinding: VerifiedSlackEnvelope;
+} & (
+  | {
+      readonly outcome: "ignored_bot_output";
+      readonly reasonCode: typeof IgnoredReason.Type;
+    }
+  | {
+      readonly outcome: "rejected";
+      readonly reasonCode: typeof RejectedReason.Type;
+    }
+);
+
+export const buildNoSourceProviderEventReceipt = (
+  input: NoSourceReceiptInput,
+  options: NoSourceOptions,
+): typeof ProviderEventReceiptRow.Type => {
+  const envelope = Schema.decodeUnknownSync(SourceLedgerEnvelope)(
+    input.envelope,
+  );
+  const binding = assertVerifiedSlackEnvelope(options.verifiedBinding);
+  assertBindingMatchesEnvelope(binding, envelope);
+  const reasonSchema =
+    options.outcome === "ignored_bot_output" ? IgnoredReason : RejectedReason;
+  if (
+    options.outcome === "ignored_bot_output" &&
+    !["self_authored_bot", "unsupported_subtype"].includes(options.reasonCode)
+  )
+    throw new ObservationInvalid("ObservationInvalid");
+  if (
+    options.outcome === "rejected" &&
+    !["invalid_payload", "channel_access_lost", "payload_too_large"].includes(
+      options.reasonCode,
+    )
+  )
+    throw new ObservationInvalid("ObservationInvalid");
+  let reason: typeof IgnoredReason.Type | typeof RejectedReason.Type;
+  try {
+    reason = Schema.decodeUnknownSync(reasonSchema as typeof IgnoredReason)(
+      options.reasonCode,
+    );
+  } catch {
+    throw new ObservationInvalid("ObservationInvalid");
+  }
+  return {
+    schemaVersion: 1 as const,
+    organizationKey: envelope.organizationKey,
+    connectionKey: envelope.connectionKey,
+    connectionGeneration: envelope.connectionGeneration,
+    channelKey: envelope.channelKey,
+    externalChannelId: envelope.externalChannelId,
+    transport: envelope.transport,
+    transportDeliveryId: envelope.transportDeliveryId,
+    providerEventId: binding.providerEventId,
+    providerObjectId: stableOrInvalidPayload(
+      input.observation?.providerObjectId,
+    ),
+    providerRevisionId: stableOrInvalidPayload(
+      input.observation?.providerRevisionId,
+    ),
+    providerOrder: stableOrInvalidPayload(input.observation?.providerOrder),
+    canonicalContentHash: `sha256:${digest({ outcome: options.outcome, reason })}`,
+    tombstone: false,
+    signatureVerification: binding.signatureVerification,
+    replayVerification: binding.replayVerification,
+    observationKey: null,
+    sourceKey: null,
+    sourceRevisionKey: null,
+    outcome: options.outcome,
+    reason,
+    receivedAt: envelope.receivedAt,
+    createdAt: envelope.receivedAt,
+  };
+};
