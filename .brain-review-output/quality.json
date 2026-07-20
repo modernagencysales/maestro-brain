@@ -1,0 +1,77 @@
+{
+  "lens": "quality",
+  "taskId": "S05-T01",
+  "planSha256": "b25dfe4b3139d61e98976f450d6dfbdb30629201ab2015f7846a04ca02435a57",
+  "taskBlockHash": "8c814c81e34129532e8467e567d99d48dfb60017ceda5ab0934454da2d348044",
+  "baseSha": "73609583b9ca2704ad28f3844239f00764ac7230",
+  "headSha": "3bd1dc0fefd124b7605210cf0d0c4e7813dd0062",
+  "treeSha": "7612ec2f1488bcd07c666e16cb7cc8e82b2d685d",
+  "reviewerRunId": "maestro/review/S05-T01/3bd1dc0fefd124b7605210cf0d0c4e7813dd0062/02c49107-a9a9-4114-9081-dad613fe4ffc-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "finding",
+      "evidence": [
+        "Authoritative exact-head RED: from repository root, `rtk host-test-slot --class focused pnpm exec vitest run packages/convex/test/migration-registry.test.ts` fails 1/3 with ERR_MODULE_NOT_FOUND for `<worktree>/scripts/generate-migration-registry.mts` at packages/convex/test/migration-registry.test.ts line 157.",
+        "packages/convex/test/migration-registry.test.ts lines 153-157 derive `script` as `join(process.cwd(), \"scripts/generate-migration-registry.mts\")`; when the focused proof is invoked from repo root, process.cwd() is the repository root, not packages/convex, so the test resolves a non-existent `scripts/generate-migration-registry.mts` path.",
+        "ci-proof-packet.json lines 30-35 and lane-gate-report.json lines 7-16 record package-directory lane commands, but they do not prove the required repo-root invocation; this leaves the migration-registry focused proof false-green for the exact command now known to fail."
+      ],
+      "findingIds": ["QUALITY-S05-T01-001"]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "The task diff is confined to docs/product and packages/convex Confect/table/internal migration surfaces listed for S05-T01 in task-manifest.json.",
+        "Source-ledger durable tables are under packages/convex/confect/tables and Effect schemas/helper validation are under packages/convex/confect/sources/sourceSchemas.ts; no web/API/CLI/frontend layer shortcut is introduced."
+      ]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "pass",
+      "evidence": [
+        "sourceSchemas.ts centralizes source-ledger row schemas and stable-key derivation instead of duplicating table-local shape logic.",
+        "migrationFragment.ts isolates deterministic fragment validation/assembly from scripts/generate-migration-registry.mts, keeping registry validation and CLI mechanics separate."
+      ]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md lines 57-63 records focused proof commands for operators and future reviewers.",
+        "ci-proof-packet.json and lane-gate-report.json record command names, hashes, status, and slice metrics only; no raw provider payloads, webhook bodies, tokens, API keys, or support artifacts are logged."
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "lane-gate-report.json lines 31-47 reports four source slices, matching the S05-T01 source-slice limit of four.",
+        "Each reported source slice is under the 300-line slice budget: 0, 282, 248, and 0 changed source lines."
+      ]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "pass",
+      "evidence": [
+        "The task diff does not edit generated Confect/Convex paths or the integration-owned canonical migration registry; changed files are hand-authored docs, schemas, tables, migration fragments/runtime, generator, and tests.",
+        "lane-gate-report.json lines 8-13 records exact-head transient generation/codegen/contract checks for head 3bd1dc0fefd124b7605210cf0d0c4e7813dd0062 and tree 7612ec2f1488bcd07c666e16cb7cc8e82b2d685d; by Appendix O/P ownership, absence from the checked-in generated tree is expected when generated paths are not edited."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "QUALITY-S05-T01-001",
+      "severity": "high",
+      "summary": "Migration registry focused test fails from the required repository-root invocation.",
+      "details": "The S05-T01 proof relies on migration-registry.test.ts to exercise the generator, but the test computes the generator path from process.cwd(). Under the exact repo-root command, that resolves to `<repo>/scripts/generate-migration-registry.mts` instead of `packages/convex/scripts/generate-migration-registry.mts`, producing ERR_MODULE_NOT_FOUND at line 157 before the generator behavior is proven. Rework should derive the script path cwd-independently from the test module location, then update proof with the exact repo-root command green.",
+      "evidence": [
+        "packages/convex/test/migration-registry.test.ts lines 153-157",
+        "Authoritative RED on exact head 3bd1dc0f: `rtk host-test-slot --class focused pnpm exec vitest run packages/convex/test/migration-registry.test.ts` fails 1/3 with ERR_MODULE_NOT_FOUND for `<worktree>/scripts/generate-migration-registry.mts` at test line 157",
+        "ci-proof-packet.json lines 30-35",
+        "lane-gate-report.json lines 7-16"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
