@@ -1,0 +1,98 @@
+{
+  "lens": "safety",
+  "taskId": "S10-T01",
+  "planSha256": "b6c8c42e744502700c8607be941e8f3dbe1e790d70abc7f3666efbf69554f9ca",
+  "taskBlockHash": "31d477606c8d812c0f800d81d3401104da038d29fbb39dce06e1292cbd8d6e04",
+  "baseSha": "e8f008574eff0d1a21700ff02926ac4c9870d425",
+  "headSha": "fe06034bea56b0a112e69c6decbd36a06a30be51",
+  "treeSha": "c8a543f6f0bab326585f0833e7c816c64cb4ec51",
+  "reviewerRunId": "maestro/review/S10-T01/fe06034bea56b0a112e69c6decbd36a06a30be51/8ca5c69d-bc47-43f6-bc80-cc405acebce1-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/identityLinks.impl.ts:135-229 resolves the active provider connection, maps the caller WorkOS organization to the durable organization, validates workspace/Brain ownership, and rejects mismatches before link creation or user revocation.",
+        "packages/convex/confect/tables/slackIdentityBindings.ts:13-24 stores organizationKey plus exact teamId/slackUserId and no email/display-name authorization fields."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2832-2836 requires every request to recheck binding and current Brain role.",
+        "packages/convex/confect/slack/identityLinks.spec.ts:43-94 carries workspaceId on user-facing create and revoke mutations, with optional brainKey on intent creation.",
+        "packages/convex/confect/slack/identityLinks.impl.ts:203-228 requires active organization membership plus an active workspaceMembers row with editor-or-higher role before authorizing the user-facing request."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "finding",
+      "findingIds": ["S10-T01-SAFETY-004"],
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2832-2836 requires revocation on user request, organization-membership/user suspension, or connection replacement.",
+        "packages/convex/confect/slack/identityLinks.impl.ts:505-555 adds an internal revokeSlackIdentityLinksForLifecycle helper, but the task-owned integration code searched under packages/convex/confect and packages/convex/test contains no caller that invokes it from membership/user suspension or Slack connection replacement flows.",
+        "packages/convex/confect/integrations/slackConnections.impl.ts:1050-1120 finalizes Slack connection replacement by patching providerConnections without revoking active slackIdentityBindings for the replaced generation."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/slackIdentityBindings.ts:13-57 indexes exact Slack identifiers, binding keys, status, connection generation, and nonce hash, with no email/display-name lookup index.",
+        "packages/convex/test/slack-identity-links.test.ts:116-155 asserts the binding table inventory and absence of email/displayName indexes; the passed lane-gate report also includes check:logging-boundary and check:secret-canaries."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/identityLinks.impl.ts:413-463 reloads the pending nonce row, checks for an active current provider connection with the pending row's connectionGeneration, and fails before activation if the generation is no longer current.",
+        "packages/convex/test/slack-identity-links.test.ts:473-513 covers a registered stale-generation consume after connection replacement and expects LinkExpired instead of activation."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/identityLinks.impl.ts:326-374 rejects missing, revoked, non-pending, expired, wrong-team, and already-bound confirmations before returning an activation patch.",
+        "packages/convex/test/slack-identity-links.test.ts:391-415 exercises registered durable consume followed by replay rejection."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "finding",
+      "findingIds": ["S10-T01-SAFETY-004"],
+      "evidence": [
+        "docs/product/maestro-brain-lifecycle-adoption/S10-T01.md:27-29 says connection generation is stored so request-time authorization can reject stale Slack workspace generations.",
+        "packages/convex/confect/slack/identityLinks.impl.ts:505-555 can revoke rows when directly invoked, but task-owned code does not wire it to provider connection replacement or membership/user suspension producers, leaving stale active rows until a separate caller explicitly invokes the helper.",
+        "packages/convex/confect/integrations/slackConnections.impl.ts:1050-1120 patches completed provider connection state without fencing old-generation slackIdentityBindings."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/identityLinks.impl.ts:1-19 imports Confect, Effect, generated services, access helpers, errors, table/spec types, and local specs only; it does not import Slack/Nango SDKs or secrets.",
+        "apps/web/src/features/settings/slack-link-adapter.ts:1-76 is a pure settings adapter that displays redacted link intent details and does not import provider SDKs or server secrets."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "S10-T01-SAFETY-004",
+      "severity": "high",
+      "summary": "Lifecycle revoke helper is not wired to suspension or connection replacement producers.",
+      "details": "S10-T01 requires active organization-scoped Slack bindings to be revoked on user request, organization-membership/user suspension, or Slack connection replacement while retaining audit rows. The current revision adds a revokeSlackIdentityLinksForLifecycle internal mutation and consume-time stale-generation denial, but semantic inspection found no task-owned caller that invokes the lifecycle revoke mutation when membership or user suspension occurs, and the Slack connection finalization path still patches providerConnections without revoking active slackIdentityBindings for the replaced generation. Active bindings can therefore remain durable and eligible for later Slack answering until some external caller explicitly invokes the helper, which does not satisfy the task's lifecycle and fencing requirement.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2832-2836",
+        "docs/product/maestro-brain-lifecycle-adoption/S10-T01.md:27-35",
+        "packages/convex/confect/slack/identityLinks.spec.ts:104-118",
+        "packages/convex/confect/slack/identityLinks.impl.ts:505-555",
+        "packages/convex/confect/integrations/slackConnections.impl.ts:1050-1120",
+        "packages/convex/test/slack-identity-links.test.ts:564-570"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
