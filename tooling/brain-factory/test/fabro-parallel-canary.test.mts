@@ -6,6 +6,7 @@ import {
   mkdtempSync,
   existsSync,
   readFileSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -41,6 +42,7 @@ describe("Fabro production parallel review path", () => {
     const evidence = resolve(container, "evidence with spaces;safe");
     const taskId = "S03-T03";
     const lane = resolve(evidence, "lane-results", taskId);
+    const canonicalTmpdir = realpathSync(tmpdir());
     mkdirSync(root, { recursive: true });
     mkdirSync(lane, { recursive: true });
 
@@ -133,6 +135,7 @@ writeFileSync(resolve(output, \`\${lens}.json\`), \`\${JSON.stringify(artifact, 
 [workflow]
 graph = "workflow.fabro"
 [environments.local.env]
+TMPDIR = ${JSON.stringify(canonicalTmpdir)}
 BRAIN_WORKDIR = ${JSON.stringify(workdir)}
 BRAIN_EVIDENCE_DIR = ${JSON.stringify(evidence)}
 BRAIN_TASK_ID = ${JSON.stringify(taskId)}
@@ -145,6 +148,9 @@ CANARY_REVIEW_WORKTREES = ${JSON.stringify(resolve(import.meta.dirname, "../src/
 CANARY_AGGREGATE = ${JSON.stringify(resolve(import.meta.dirname, "../src/review-aggregate.mts"))}
 TSX_IMPORT = ${JSON.stringify(tsxImport)}
 `,
+    );
+    expect(readFileSync(resolve(root, "workflow.toml"), "utf8")).toContain(
+      `TMPDIR = ${JSON.stringify(canonicalTmpdir)}`,
     );
     git(root, "add", "workflow.toml");
     git(root, "commit", "-qm", "configure canary");
