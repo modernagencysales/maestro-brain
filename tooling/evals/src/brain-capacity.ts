@@ -164,7 +164,7 @@ export const evaluateBrainCapacity = (
           `channel ${channelId} missed ${window.windowStartSecond}s window without provider-rate block`,
         );
       }
-      if (previousMissed.has(channelId) && !blocked.has(channelId)) {
+      if (previousMissed.has(channelId)) {
         failures.push(
           `channel ${channelId} missed two consecutive fairness windows`,
         );

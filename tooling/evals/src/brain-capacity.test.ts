@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  BRAIN_CAPACITY_FIXTURE,
-  buildBrainCapacityFixture,
-} from "./brain-capacity-fixture";
+import { buildBrainCapacityFixture } from "./brain-capacity-fixture";
 import {
   buildBrainCapacityReport,
   syntheticPassingRun,
@@ -173,6 +170,26 @@ describe("Brain capacity harness", () => {
     expect(receipt.passed).toBe(false);
     expect(receipt.failures).toContain(
       "channel direct-002 missed two consecutive fairness windows",
+    );
+  });
+
+  it("rejects consecutive misses even when provider-rate blocked", () => {
+    const missedTwice = withoutChannel(
+      withoutChannel(syntheticPassingRun(), 0, "direct-003"),
+      1,
+      "direct-003",
+    );
+    const receipt = evaluateBrainCapacity({
+      ...missedTwice,
+      windows: missedTwice.windows.map((window) => ({
+        ...window,
+        providerRateBlockedChannels: ["direct-003"],
+      })),
+    });
+
+    expect(receipt.passed).toBe(false);
+    expect(receipt.failures).toContain(
+      "channel direct-003 missed two consecutive fairness windows",
     );
   });
 
