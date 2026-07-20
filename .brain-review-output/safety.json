@@ -1,0 +1,113 @@
+{
+  "lens": "safety",
+  "taskId": "S06-T01",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "f2f6cb348272c704636b7e21bf8e8cbd66b812835d781b52e01bdcfa5b0fa97c",
+  "baseSha": "64b5d90e9dce6146ac6cd49696658cd9a40a254c",
+  "headSha": "4fb0f78f8262598eb7c0c1e0bf6dd2578c93dbd7",
+  "treeSha": "a0164d98da809268e53b24fd7210455bf197788f",
+  "reviewerRunId": "maestro/review/S06-T01/4fb0f78f8262598eb7c0c1e0bf6dd2578c93dbd7/8a317a77-1f03-410e-99d0-e4ffee16a880-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.ts:127-128 constructs organizationUnitIdempotencyKey with organizationKey, unitKey, effectKey, and all pinned generations before idempotency lookup.",
+        "packages/convex/confect/jobs/workpool.ts:257-265 queries sourceProcessingJobs through by_org_unit_idempotency_key with organizationKey and the scoped key, avoiding cross-tenant row reuse.",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:90-104 defines sourceProcessingJobs indexes with organizationKey prefixes for source-job status/effect/idempotency/lease lookups."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.spec.ts:14-16 still registers legacy enqueue and status as convexPublicMutation/convexPublicQuery while source job controls are internal.",
+        "packages/convex/confect/jobs/workpool.ts:151-157 leaves public enqueue executable as a public mutation, although it currently throws instead of authorizing a caller.",
+        "packages/convex/confect/jobs/workpool.ts:305-309 leaves public status as a raw workId query to the workpool component with no tenant or caller authorization check."
+      ],
+      "findingIds": ["SAFETY-S06-T01-008"]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.ts:74-85 accepts pinned generation fields on failSourceJobControl arguments, including emergencyGeneration.",
+        "packages/convex/confect/jobs/workpool.ts:489-521 dispatches retry/permanent/cancelled/revoked/superseded failures without comparing those pinned generations against the current row.",
+        "packages/convex/confect/jobs/jobState.ts:351-365 transitions cancelled, revoked, and superseded rows after only assertCurrentLease; it does not call assertPinnedGenerations before writing tombstone lifecycle states."
+      ],
+      "findingIds": ["SAFETY-S06-T01-009"]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.ts:129-131 creates lease tokens from the next lease generation plus crypto.randomUUID and external response receipts from a synthetic workpool hash string, not provider payloads or secrets.",
+        "packages/convex/confect/jobs/jobState.ts:179-186 stores attempt receipt leaseTokenHash values rather than raw tokens, and tests assert encoded typed errors do not contain a raw sample token at packages/convex/test/source-workpool.test.ts:348-367.",
+        "packages/convex/confect/jobs/workpool.ts:326-337 source job status output omits leaseToken and leaseOwner, reducing exposure of lease credentials through status surfaces."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.ts:267-284 re-reads the current row and checks leaseGeneration, leaseToken, acceptedEffectKey, and executionStatus before each state patch.",
+        "packages/convex/confect/jobs/workpool.ts:198-230 claims, persists workId, and rejects lease changes through patchIfCurrent/current-row checks before returning workId.",
+        "packages/convex/confect/jobs/workpool.ts:422-459 applies running, external-response, and success transitions with patchIfCurrent before accepting an effect."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.ts:176-181 returns an existing workId on duplicate enqueue after durable workId persistence.",
+        "packages/convex/confect/jobs/workpool.ts:420-421 treats already accepted or succeeded completion delivery as idempotent after generation checks, and packages/convex/test/source-workpool.test.ts:725-763 covers duplicate completion before ACK as one accepted effect.",
+        "packages/convex/test/source-workpool.test.ts:684-723 covers crash before workId patch and verifies immediate replay does not steal the active claim or enqueue again before lease expiry."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/jobs/jobState.ts:399-416 defines pinned generation fencing for policy, route, lifecycle, and emergency generations.",
+        "packages/convex/confect/jobs/jobState.ts:273-300 applies that generation fence only in succeedSourceJob, not in lifecycle/tombstone failure transitions.",
+        "packages/convex/confect/jobs/workpool.ts:489-521 receives failure-control arguments with generations but patches failure or tombstone state without checking them, so stale revision control can still win if the lease token is current."
+      ],
+      "findingIds": ["SAFETY-S06-T01-009"]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.ts:1-31 imports Convex/workpool and local job-state/lease modules only; no live provider SDK or secret import is added by this slice.",
+        "packages/convex/confect/jobs/workpool.ts:389-393 keeps backgroundWork as an internal no-op action, so this task does not add direct Slack/provider egress or raw provider payload logging.",
+        "packages/convex/test/source-workpool.test.ts:348-367 validates public-safe typed error tags and absence of the sample raw lease token in encoded errors."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "SAFETY-S06-T01-008",
+      "severity": "high",
+      "summary": "Legacy public workpool status remains unauthorised by tenant",
+      "details": "The source job additions are internal, but the workpool group still exposes public enqueue/status refs. Public enqueue now throws, but public status still accepts an arbitrary workId and delegates directly to the component without authenticating the caller or checking tenant ownership, leaving a raw workId status oracle outside the internal/admin-observed source job surface required by the task.",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.spec.ts:14-16",
+        "packages/convex/confect/jobs/workpool.ts:151-157",
+        "packages/convex/confect/jobs/workpool.ts:305-309"
+      ]
+    },
+    {
+      "id": "SAFETY-S06-T01-009",
+      "severity": "high",
+      "summary": "Failure and tombstone controls do not enforce revision generation fences",
+      "details": "failSourceJobControl requires callers to provide policy, route, lifecycle, and emergency generations, but the handler ignores them for retry/permanent/cancelled/revoked/superseded transitions. A stale worker/control path that still has the current lease token can write retry or terminal tombstone state across a policy/lifecycle/emergency generation change, violating the task's cancellation and emergency generation fencing requirement.",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.ts:74-85",
+        "packages/convex/confect/jobs/workpool.ts:489-521",
+        "packages/convex/confect/jobs/jobState.ts:351-365",
+        "packages/convex/confect/jobs/jobState.ts:399-416"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
