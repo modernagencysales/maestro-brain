@@ -50,6 +50,11 @@ export type HeadlessHttpCtx = {
   readonly markLastUsedRef?: unknown;
   readonly operationRefs?: Record<string, unknown>;
   readonly operationPolicies?: Record<string, HeadlessOperationPolicy>;
+  readonly rateLimit?: (input: {
+    readonly operationId: string;
+    readonly pathname: string;
+    readonly request: Request;
+  }) => boolean | Promise<boolean>;
 };
 
 type TemplateRouteMatch =
@@ -277,6 +282,18 @@ const executeTemplateApiRoute = async (
     return jsonResponse({
       ok: false,
       error: { _tag: "Forbidden", message: "Forbidden." },
+    });
+  }
+
+  const limited = await ctx.rateLimit?.({
+    operationId,
+    pathname: new URL(request.url).pathname,
+    request,
+  });
+  if (limited === true) {
+    return jsonResponse({
+      ok: false,
+      error: { _tag: "RateLimited", message: "Rate limited." },
     });
   }
 
