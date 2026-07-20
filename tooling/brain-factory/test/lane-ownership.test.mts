@@ -40,6 +40,24 @@ describe("lane file ownership", () => {
     ).toBe(true);
   });
 
+  it("authorizes only the deterministic global Confect aggregate outputs", () => {
+    const allowed = integrationGeneratedFileAllowlist({
+      laneFiles: ["packages/convex/confect/capabilities/example.impl.ts"],
+    });
+
+    expect(
+      [
+        "packages/convex/confect/_generated/convexSchema.ts",
+        "packages/convex/confect/_generated/docs.ts",
+        "packages/convex/confect/_generated/id.ts",
+        "packages/convex/confect/_generated/schema.ts",
+      ].every((file) => allowed.has(file)),
+    ).toBe(true);
+    expect(allowed.has("packages/convex/confect/_generated/unplanned.ts")).toBe(
+      false,
+    );
+  });
+
   it("accepts only exact manifest file locks", () => {
     expect(
       laneFileOwnershipIssues(

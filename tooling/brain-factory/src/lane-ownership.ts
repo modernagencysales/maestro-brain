@@ -19,6 +19,10 @@ const isGeneratedNamespaceFile = (file: string): boolean =>
 export const isIntegrationOwnedGeneratedFile = isGeneratedNamespaceFile;
 
 const fixedGeneratedFiles = new Set([
+  "packages/convex/confect/_generated/convexSchema.ts",
+  "packages/convex/confect/_generated/docs.ts",
+  "packages/convex/confect/_generated/id.ts",
+  "packages/convex/confect/_generated/schema.ts",
   "packages/convex/confect/_generated/spec.ts",
   "packages/template-core/src/generated/confectManifest.ts",
 ]);
