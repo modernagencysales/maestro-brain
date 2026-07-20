@@ -65,6 +65,26 @@ export const resolveIntegratedPrerequisiteTaskIds = (input: {
         !input.isAncestor(result.headSha, input.controlHeadSha)
       )
         return false;
+      if (!Array.isArray(result.includedTasks)) return false;
+      let matchingTasks: JsonRecord[];
+      try {
+        matchingTasks = result.includedTasks
+          .map((value, index) =>
+            record(
+              value,
+              `${basename(resultDirectory)}: includedTasks[${index}]`,
+            ),
+          )
+          .filter((included) => included.taskId === required.taskId);
+      } catch {
+        return false;
+      }
+      if (
+        matchingTasks.length !== 1 ||
+        matchingTasks[0]?.laneHeadSha !== lane.headSha ||
+        matchingTasks[0]?.tranche !== required.tranche
+      )
+        return false;
       return authoritativeIntegrationResultBindsLane({
         integrationHeadSha: result.headSha,
         integrationId: basename(resultDirectory),

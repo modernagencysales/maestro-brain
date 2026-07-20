@@ -105,6 +105,10 @@ describe("authority-repair prerequisite integration", () => {
           },
         ];
       },
+      (result: Record<string, unknown>) => {
+        const included = (result.includedTasks as Record<string, unknown>[])[0];
+        delete included?.tranche;
+      },
     ]) {
       const changed = structuredClone(value.result) as Record<string, unknown>;
       mutate(changed);
