@@ -1,0 +1,83 @@
+{
+  "lens": "contract",
+  "taskId": "S04-T04",
+  "planSha256": "b6c8c42e744502700c8607be941e8f3dbe1e790d70abc7f3666efbf69554f9ca",
+  "taskBlockHash": "43fe7362c17307d938a689c31cfaa350124a5029c8ef938d09c8f08066ec12c5",
+  "baseSha": "e8f008574eff0d1a21700ff02926ac4c9870d425",
+  "headSha": "aa97689aa9e5fd3bc49e138cc42e4762ec3cdaef",
+  "treeSha": "bc89a6428573230fa09cbc036f2b7f0028800806",
+  "reviewerRunId": "maestro/review/S04-T04/aa97689aa9e5fd3bc49e138cc42e4762ec3cdaef/ff894c45-3aee-487a-9217-dc32a1e60be5-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1563-1564 requires admins to bulk-select joined channels and set explicit policies.",
+        "apps/web/src/routes/_workspace.connections.tsx:52-61 renders ChannelTable and ChannelPolicyDialogSummary from localChannelPolicyFixture counts only.",
+        "apps/web/src/features/connections/channel-table.tsx:24-29 renders unchecked checkbox inputs without checked/onChange state or a selection callback.",
+        "apps/web/src/features/connections/channel-policy-dialog.tsx:30-61 renders uncontrolled routing/delivery/target inputs and an Apply button with no onSubmit/onClick mutation path.",
+        "apps/web/src/features/connections/connections-adapter.ts:3-22 provides only local fixture channel/count data, and scoped rg found no bulkSetChannelPolicies/useMutation/onSubmit bridge in the changed Connections files."
+      ],
+      "findingIds": ["CONTRACT-S04-T04-001"]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.spec.ts:1-42 defines bulkSetChannelPolicies as an internalMutation with organizationKey, expected generations, changes, typed result, and the declared typed error union.",
+        "packages/convex/test/channel-policies.test.ts:88-94 pins that actorRole is not accepted from the caller and authoritative actor resolution supplies admin/owner role."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/channelRoutingPolicies.ts:1-45 defines additive immutable routing rows with policyEpoch, active pointer indexes, mode, targetBrainKeys, statusAfterApply, pendingSourceInterval, and createdByRole admin/owner.",
+        "packages/convex/confect/tables/channelDeliveryPolicies.ts:1-26 defines additive delivery generation rows with active pointer indexes and requester_private/capture_only modes.",
+        "packages/convex/confect/tables/sourceChannels.ts:39-42 retains the canonical organization plus membershipStatus index used by the bounded joined-channel reads."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1565-1567 classifies S04-T04 as a template-gap and keeps Maestro-owned policy semantics out of Nango.",
+        "docs/product/maestro-brain-lifecycle-adoption/S04-T04.md:1-38 records the additive resources, lifecycle behavior, rollback-as-new-epoch semantics, and focused proof commands for this template-gap slice."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json entry for S04-T04 lists taskBlockHash 43fe7362c17307d938a689c31cfaa350124a5029c8ef938d09c8f08066ec12c5 and the exact fileLocks touched by the diff.",
+        "rtk proxy git diff --name-only e8f008574eff0d1a21700ff02926ac4c9870d425..HEAD listed only the S04-T04 locked files: the Connections feature/route files, S04-T04 adoption doc, channel policy Confect files/tables, and channel-policies test."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicy.ts:171-187 rejects non-admin roles and over-100 joined active channels with typed errors.",
+        "packages/convex/confect/slack/channelPolicy.ts:131-162 validates direct/classify/capture_only target cardinality, duplicates, and forbidden targets with typed errors.",
+        "packages/convex/confect/slack/channelPolicy.ts:222-239 rejects stale connection/access generations and Slack Connect requester_private delivery with typed errors.",
+        "packages/convex/test/channel-policies.test.ts:124-197 covers the declared failure-first cases including non-admin, target invalidity, stale generations, Slack Connect delivery, 101st channel, 26th Client Brain, and missing-channel bulk failure."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "CONTRACT-S04-T04-001",
+      "severity": "high",
+      "summary": "Connections route cannot accept the required bulk policy change",
+      "details": "S04-T04 requires admins to bulk-select joined channels and set explicit routing and delivery policies. The rendered Connections control plane is only a static fixture surface: table checkboxes are uncontrolled with no selection state or callback, the routing/delivery/allowlist controls are uncontrolled, the Apply button has no submit handler, and no changed web file bridges to the bulkSetChannelPolicies mutation. As a result an admin cannot actually accept a policy change from the UI before the backend capability, so the task-packet acceptance is incomplete.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1563-1564 requires admins to bulk-select joined channels and set explicit policies.",
+        "apps/web/src/routes/_workspace.connections.tsx:52-61 renders ChannelTable and ChannelPolicyDialogSummary from localChannelPolicyFixture counts only.",
+        "apps/web/src/features/connections/channel-table.tsx:24-29 renders checkbox inputs without checked/onChange state or a selection callback.",
+        "apps/web/src/features/connections/channel-policy-dialog.tsx:30-61 renders uncontrolled policy inputs and an Apply button with no onSubmit/onClick mutation path.",
+        "apps/web/src/features/connections/connections-adapter.ts:3-22 provides only local fixture data, and scoped rg found no bulkSetChannelPolicies/useMutation/onSubmit bridge in the changed Connections files."
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
