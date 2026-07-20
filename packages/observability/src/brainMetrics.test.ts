@@ -1,0 +1,116 @@
+import { describe, expect, it } from "vitest";
+import {
+  createBrainMetric,
+  enforceBrainBudget,
+  redactBrainMetricPayload,
+} from "./brainMetrics";
+
+describe("Brain operations metrics", () => {
+  it("emits only ids, hashes, counts, durations, status, and error tags", () => {
+    const metric = createBrainMetric({
+      subsystem: "classification",
+      workspaceId: "workspaces_123",
+      brainKey: "brn_456",
+      sourceHash: "sha256:abc",
+      prompt: "customer prompt must not leak",
+      token: "token-canary-value",
+      authorization: "header-canary-value",
+      inputText: "raw customer source",
+      count: 4,
+      durationMs: 12,
+      status: "degraded",
+      errorTag: "ProviderUnavailable",
+      measuredAt: "2026-07-18T00:00:00.000Z",
+    });
+
+    expect(JSON.stringify(metric)).not.toContain("customer prompt");
+    expect(JSON.stringify(metric)).not.toContain("token-canary-value");
+    expect(JSON.stringify(metric)).not.toContain("header-canary-value");
+    expect(JSON.stringify(metric)).not.toContain("raw customer source");
+    expect(metric).toMatchObject({
+      subsystem: "classification",
+      workspaceId: "workspaces_123",
+      sourceHash: "sha256:abc",
+      count: 4,
+      durationMs: 12,
+      status: "degraded",
+      errorTag: "ProviderUnavailable",
+    });
+  });
+
+  it("drops unsafe values from whitelisted metric fields", () => {
+    const metric = createBrainMetric({
+      subsystem: "ask",
+      measuredAt: "2026-07-18T00:00:00.000Z",
+      status: "contains customer answer text",
+      workspaceId: "workspace customer prompt canary",
+      brainKey: "brain raw source canary",
+      connectionId: "conn header canary",
+      channelId: "chan token canary",
+      sourceHash: "raw source text canary",
+      evalVersion: "prompt fragment canary",
+      errorTag: "provider payload canary",
+      count: 1,
+    });
+
+    expect(JSON.stringify(metric)).not.toContain("customer");
+    expect(JSON.stringify(metric)).not.toContain("prompt");
+    expect(JSON.stringify(metric)).not.toContain("source");
+    expect(JSON.stringify(metric)).not.toContain("header");
+    expect(JSON.stringify(metric)).not.toContain("token");
+    expect(JSON.stringify(metric)).not.toContain("provider payload");
+    expect(metric).toEqual({
+      subsystem: "ask",
+      measuredAt: "2026-07-18T00:00:00.000Z",
+      count: 1,
+    });
+  });
+
+  it("enforces model, Slack, storage, queue, and channel budgets", () => {
+    expect(
+      enforceBrainBudget("modelTokens", 999, { modelTokens: 1_000 }),
+    ).toEqual({ ok: true });
+    expect(
+      enforceBrainBudget("modelTokens", 1_001, { modelTokens: 1_000 }),
+    ).toEqual({
+      ok: false,
+      errorTag: "BudgetExceeded",
+      budget: "modelTokens",
+      limit: 1_000,
+      observed: 1_001,
+    });
+    expect(
+      enforceBrainBudget("modelSpendCents", 12_501, {
+        modelSpendCents: 12_500,
+      }),
+    ).toMatchObject({ ok: false, budget: "modelSpendCents" });
+    expect(
+      enforceBrainBudget("slackRate", 51, { slackRate: 50 }),
+    ).toMatchObject({ ok: false, budget: "slackRate" });
+    expect(
+      enforceBrainBudget("storageBytes", 10_001, { storageBytes: 10_000 }),
+    ).toMatchObject({ ok: false, budget: "storageBytes" });
+    expect(
+      enforceBrainBudget("queueDepth", 101, { queueDepth: 100 }),
+    ).toMatchObject({ ok: false, budget: "queueDepth" });
+    expect(
+      enforceBrainBudget("channelCount", 26, { channelCount: 25 }),
+    ).toMatchObject({ ok: false, budget: "channelCount" });
+  });
+
+  it("redacts prompt, source, token, and header canaries recursively", () => {
+    expect(
+      redactBrainMetricPayload({
+        prompt: "prompt-canary",
+        sourceText: "source-canary",
+        headers: { authorization: "header-canary" },
+        nested: [{ refreshToken: "token-canary" }],
+      }),
+    ).toEqual({
+      prompt: "[redacted]",
+      sourceText: "[redacted]",
+      headers: "[redacted]",
+      nested: [{ refreshToken: "[redacted]" }],
+    });
+  });
+});
