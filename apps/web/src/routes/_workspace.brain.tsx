@@ -27,6 +27,7 @@ function BrainRoute() {
           onRenamePage={controller.onRenamePage}
           onSaveMarkdown={controller.onSaveMarkdown}
           onSelectPage={controller.onSelectPage}
+          syncApi={controller.syncApi}
         />
       </BusinessPageRoot>
     </BusinessAppShell>
