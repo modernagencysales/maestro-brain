@@ -528,13 +528,15 @@ const settleBatch = FunctionImpl.make(
     }),
 );
 const migrationRef = (migrationName: string) => {
+  if (migrationName === "probe.expand")
+    return refs.internal.internal.migrations.probeExpand;
   if (migrationName === "probe.fail")
     return refs.internal.internal.migrations.probeFail;
   if (migrationName === "stableTenant.organizationKeys.expand")
     return refs.internal.internal.migrations.stableTenantOrganizationKeysExpand;
   if (migrationName === "stableTenant.workspaceKeys.expand")
     return refs.internal.internal.migrations.stableTenantWorkspaceKeysExpand;
-  return refs.internal.internal.migrations.probeExpand;
+  return undefined;
 };
 const runRegisteredMigration = FunctionImpl.make(
   databaseSchema,
@@ -547,6 +549,10 @@ const runRegisteredMigration = FunctionImpl.make(
       if (isDryRun) yield* assertDryRunSafeDefinition(args);
       const runner = yield* MutationRunner;
       const ref = migrationRef(args.migrationName);
+      if (ref === undefined)
+        return yield* new MigrationNotFound({
+          migrationName: args.migrationName,
+        });
       const lease = yield* safeMutation(
         runner,
         refs.internal.internal.migrations.acquireLease,

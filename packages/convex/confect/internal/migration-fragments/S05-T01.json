@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "taskId": "S05-T01",
+  "taskBlockHash": "af261b6e29dd92ad219255c8f0c731b09c5fd346780621976cb1693aa8d991cf",
+  "phase": "contract",
+  "migrations": [],
+  "implementationModule": null,
+  "dependsOn": ["S02-T03"],
+  "attestation": "new_tables_only"
+}
