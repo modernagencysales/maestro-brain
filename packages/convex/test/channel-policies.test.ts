@@ -216,6 +216,29 @@ describe("Slack channel policy contract", () => {
     ).toBe("Left");
   });
 
+  it("rejects duplicate channel keys before planning active policies", () => {
+    const planned = buildBulkPolicyPlan({
+      ...baseRequest,
+      changes: [
+        ...baseRequest.changes,
+        {
+          channelKey: joinedChannel.channelKey,
+          routing: { mode: "capture_only", targetBrainKeys: [] },
+          delivery: { mode: "capture_only" },
+        },
+      ],
+    });
+
+    expect(planned._tag).toBe("Left");
+    if (planned._tag === "Left") {
+      expect(planned.left).toBeInstanceOf(PolicyInvalid);
+      expect(planned.left._tag).toBe("PolicyInvalid");
+      if (planned.left._tag === "PolicyInvalid") {
+        expect(planned.left.reason).toBe("duplicate_channel_key");
+      }
+    }
+  });
+
   it("creates all-or-nothing immutable epochs with first pending-source intervals", () => {
     const planned = buildBulkPolicyPlan(baseRequest);
     expect(planned._tag).toBe("Right");
