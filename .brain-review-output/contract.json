@@ -1,0 +1,79 @@
+{
+  "lens": "contract",
+  "taskId": "S05-T01",
+  "planSha256": "401ba861efdc16760c9abac168cfd928efce150d9051c6bd58bf62ec330547a7",
+  "taskBlockHash": "1665eb4087239d8d137a8b4274f5f63c4bb965d699076b2678d1e618b1e34c54",
+  "baseSha": "648ddb32aa68230fdb41e0ef6dc6fe26c4837487",
+  "headSha": "2df1c6e7d0996b064eee27daf440d64d8c0aa971",
+  "treeSha": "8bba206b49100f821eb7ea79211b1ddf19b2631d",
+  "reviewerRunId": "maestro/review/S05-T01/2df1c6e7d0996b064eee27daf440d64d8c0aa971/ed7965b1-575b-4f83-b3d2-07e1b9d721fb-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1621-1678",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:658-699",
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:1-64",
+        "ci-proof-packet.json:S05-T01 planSha256/taskBlockHash/headSha and focused command results"
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:160-273",
+        "packages/convex/confect/sources/sourceSchemas.ts:274-344",
+        "packages/convex/confect/sources/sourceSchemas.ts:345-358",
+        "packages/convex/confect/sources/sourceSchemas.ts:411-518",
+        "packages/convex/test/source-ledger-schema.test.ts:93-177"
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:75-152",
+        "packages/convex/confect/tables/providerEventReceipts.ts:1-14",
+        "packages/convex/confect/tables/sourceArtifacts.ts:1-20",
+        "packages/convex/confect/tables/sourceRevisions.ts:1-13",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:1-10",
+        "packages/convex/test/source-ledger-schema.test.ts:111-171"
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1621-1678",
+        "packages/convex/confect/internal/migrationFragment.ts:1-145",
+        "packages/convex/scripts/generate-migration-registry.mts:1-220",
+        "packages/convex/test/migration-registry.test.ts:1-239",
+        "ci-proof-packet.json:focused S05-T01 selector and generator/codegen/schema/contract checks passed for this head"
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:658-699",
+        "rtk proxy git diff --name-status 648ddb32aa68230fdb41e0ef6dc6fe26c4837487..HEAD",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1641-1643",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1663-1667"
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/test/source-ledger-schema.test.ts:347-433",
+        "packages/convex/test/source-ledger-schema.test.ts:620-760",
+        "packages/convex/test/migration-registry.test.ts:100-239",
+        "packages/convex/test/migrations.test.ts:604-614",
+        "ci-proof-packet.json:source-ledger repair selector passed with malformed no-source sanitation, generation-fenced selector, native verification, and Convex rollback coverage"
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
