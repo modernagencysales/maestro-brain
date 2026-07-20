@@ -259,8 +259,8 @@ describe("headless HTTP bearer security", () => {
     expect(await response.json()).toEqual({
       ok: false,
       error: {
-        _tag: "NotFound",
-        message: "Unknown template HTTP route: /api/brain.pages.createMarkdown",
+        _tag: "ValidationFailed",
+        message: "Headless operation is not available.",
       },
     });
     expect(runQuery).not.toHaveBeenCalled();
