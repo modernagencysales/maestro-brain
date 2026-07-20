@@ -56,11 +56,11 @@ describe("parallelism contract schema", () => {
     expect(contract.edges).toHaveLength(98);
     expect(
       contract.edges.filter((edge) => edge.classification === "true"),
-    ).toHaveLength(50);
+    ).toHaveLength(52);
     expect(
       contract.edges.filter((edge) => edge.classification === "contract"),
-    ).toHaveLength(48);
-    expect(contract.collisions).toHaveLength(187);
+    ).toHaveLength(46);
+    expect(contract.collisions).toHaveLength(180);
     expect(validateParallelismContract(contract, manifest)).toEqual([]);
   });
 
@@ -194,6 +194,25 @@ describe("parallelism contract schema", () => {
       });
     }
     expect(edgeFor(contract, "S11-T01", "S05-T01")).toBeUndefined();
+  });
+
+  test("orders S10 identity lifecycle integration after its true producers", () => {
+    for (const producerTaskId of ["S01-T02", "S04-T02", "S05-T01"]) {
+      expect(edgeFor(contract, "S10-T01", producerTaskId)).toEqual({
+        consumerTaskId: "S10-T01",
+        producerTaskId,
+        classification: "true",
+      });
+    }
+    expect(collisionFor(contract, "S04-T02", "S10-T01")).toEqual({
+      leftTaskId: "S04-T02",
+      rightTaskId: "S10-T01",
+      paths: [
+        "packages/convex/confect/integrations/slackDirectory.impl.ts",
+        "packages/convex/test/slack-directory.test.ts",
+      ],
+      policy: "dependency_order",
+    });
   });
 
   test("requires same-wave collisions to declare mandatory co-integration", () => {

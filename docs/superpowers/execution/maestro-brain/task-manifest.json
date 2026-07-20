@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "5e3506ec26c1776547b03641707371efaebb1c490ce3da6b6a1e2ed0df2a8417",
+  "planSha256": "b25dfe4b3139d61e98976f450d6dfbdb30629201ab2015f7846a04ca02435a57",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -1291,7 +1291,7 @@
       "acceptanceAfter": "S04, S09",
       "classification": "template-gap",
       "codeStartAfter": ["S04-T02", "S01-T02", "S05-T01"],
-      "estimatedSourceLines": 260,
+      "estimatedSourceLines": 1200,
       "fileInventoryIssues": [],
       "fileInventoryStatus": "ready",
       "fileLocks": [
@@ -1302,11 +1302,17 @@
         "apps/web/src/features/settings/slack-link-status.test.tsx",
         "apps/web/src/features/settings/slack-link-status.tsx",
         "docs/product/maestro-brain-lifecycle-adoption/S10-T01.md",
-        "packages/convex/confect/internal/migrations.ts",
+        "packages/convex/confect/access/identityLifecycle.impl.ts",
+        "packages/convex/confect/access/identityLifecycle.spec.ts",
+        "packages/convex/confect/access/identityLifecycle.ts",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts",
+        "packages/convex/confect/internal/migration-fragments/S10-T01.json",
         "packages/convex/confect/slack/identityLink.ts",
         "packages/convex/confect/slack/identityLinks.impl.ts",
         "packages/convex/confect/slack/identityLinks.spec.ts",
         "packages/convex/confect/tables/slackIdentityBindings.ts",
+        "packages/convex/test/access-identity-lifecycle.test.ts",
+        "packages/convex/test/slack-directory.test.ts",
         "packages/convex/test/slack-identity-links.test.ts"
       ],
       "gateProfiles": ["convex", "integrations", "web"],
@@ -1314,7 +1320,8 @@
       "lane": "slack-answer",
       "requirements": ["IAM-04", "SLK-09"],
       "sourceSliceBudget": 300,
-      "taskBlockHash": "31d477606c8d812c0f800d81d3401104da038d29fbb39dce06e1292cbd8d6e04",
+      "sourceSliceLimit": 6,
+      "taskBlockHash": "067b8e9df5c266e7d5f39aee20948186ff1feb0f81e02082e062bd9c0d5a8c3b",
       "taskId": "S10-T01",
       "title": "Link Exact Slack Users To Current Maestro Users",
       "tranche": "X3-convergence"

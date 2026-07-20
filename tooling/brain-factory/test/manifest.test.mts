@@ -61,12 +61,12 @@ describe("Maestro Brain execution manifest", () => {
       projection.tasks
         .flatMap((task) => task.classifiedCodeStartAfter)
         .filter((dependency) => dependency.classification === "true"),
-    ).toHaveLength(50);
+    ).toHaveLength(52);
     expect(
       projection.tasks
         .flatMap((task) => task.classifiedCodeStartAfter)
         .filter((dependency) => dependency.classification === "contract"),
-    ).toHaveLength(48);
+    ).toHaveLength(46);
 
     const providerSetup = projection.tasks.find(
       (task) => task.taskId === "S04-T01",
@@ -500,6 +500,60 @@ describe("Maestro Brain execution manifest", () => {
     );
     expect(maintenance?.sourceSliceLimit).toBe(5);
     expect(maintenance?.estimatedSourceLines).toBe(1_200);
+  });
+
+  it("authorizes atomic Slack identity lifecycle revocation", () => {
+    const manifest = buildManifest();
+    const slackIdentity = manifest.tasks.find(
+      (task) => task.taskId === "S10-T01",
+    );
+    expect(slackIdentity?.estimatedSourceLines).toBe(1_200);
+    expect(slackIdentity?.sourceSliceBudget).toBe(300);
+    expect(slackIdentity?.sourceSliceLimit).toBe(6);
+    expect(
+      validateManifest({
+        ...manifest,
+        tasks: manifest.tasks.map((task) => {
+          if (task.taskId !== "S10-T01") return task;
+          const { sourceSliceLimit, ...withoutLimit } = task;
+          expect(sourceSliceLimit).toBe(6);
+          return withoutLimit;
+        }),
+      }),
+    ).toContain("S10-T01: source slice limit must be 6");
+    expect(slackIdentity?.fileLocks).not.toContain(
+      "packages/convex/confect/internal/migrations.ts",
+    );
+    expect(slackIdentity?.fileLocks).toEqual(
+      expect.arrayContaining([
+        "packages/convex/confect/access/identityLifecycle.ts",
+        "packages/convex/confect/access/identityLifecycle.spec.ts",
+        "packages/convex/confect/access/identityLifecycle.impl.ts",
+        "packages/convex/test/access-identity-lifecycle.test.ts",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts",
+        "packages/convex/test/slack-directory.test.ts",
+        "packages/convex/confect/internal/migration-fragments/S10-T01.json",
+      ]),
+    );
+
+    const plan = readFileSync(resolve(REPO_ROOT, PLAN_RELATIVE), "utf8");
+    const packet = plan.slice(
+      plan.indexOf("### S10-T01"),
+      plan.indexOf("### S10-T02"),
+    );
+    const normalizedPacket = packet.replace(/\s+/g, " ");
+    for (const required of [
+      "atomic user-suspension/org-membership-revocation writer",
+      "active and pending organization-scoped Slack bindings",
+      "connection-replacement transaction",
+      "replaced connection generation",
+      "Workspace removal does not unlink",
+      "post-S05 task-owned migration fragment",
+    ]) {
+      expect(normalizedPacket, `S10-T01 missing ${required}`).toContain(
+        required,
+      );
+    }
   });
 
   it("keeps durable identity and provider work behind foundation gates", () => {

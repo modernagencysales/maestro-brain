@@ -2882,14 +2882,20 @@ manifest.
   `packages/convex/confect/slack/identityLinks.spec.ts`,
   `packages/convex/confect/slack/identityLinks.impl.ts`,
   `packages/convex/confect/slack/identityLink.ts`,
+  `packages/convex/confect/access/identityLifecycle.ts`,
+  `packages/convex/confect/access/identityLifecycle.spec.ts`,
+  `packages/convex/confect/access/identityLifecycle.impl.ts`,
+  `packages/convex/confect/integrations/slackDirectory.impl.ts`,
+  `packages/convex/confect/internal/migration-fragments/S10-T01.json`,
   `packages/convex/test/slack-identity-links.test.ts`,
+  `packages/convex/test/access-identity-lifecycle.test.ts`,
+  `packages/convex/test/slack-directory.test.ts`,
   `apps/web/src/features/settings/slack-link-adapter.ts`,
   `apps/web/src/features/settings/slack-link-adapter.test.ts`,
   `apps/web/src/features/settings/slack-link-button.tsx`,
   `apps/web/src/features/settings/slack-link-button.test.tsx`,
   `apps/web/src/features/settings/slack-link-status.tsx`, and
   `apps/web/src/features/settings/slack-link-status.test.tsx`; modify
-  `packages/convex/confect/internal/migrations.ts` and
   `docs/product/maestro-brain-lifecycle-adoption/S10-T01.md`.
 - **Failure-first tests:** forged/replayed/expired link token, wrong team/user,
   display-name/email match, binding identity already linked to another active
@@ -2898,17 +2904,22 @@ manifest.
 - **Implementation:** authenticated user creates short-lived single-use link
   intent bound to organization/team and nonce hash; Slack interaction confirms
   exact `teamId + slackUserId`; backend consumes once and records binding
-  generation/verified time. Revoke the organization-scoped binding on user
-  request, organization-membership/user suspension, or connection replacement.
-  Removing one workspace membership only revokes that Brain's access through the
-  current role generation; it does not unlink the Slack identity from other
+  generation/verified time. An atomic user-suspension/org-membership-revocation
+  writer revokes active and pending organization-scoped Slack bindings in the
+  same transaction as the identity lifecycle change. The connection-replacement
+  transaction revokes every binding for the replaced connection generation in
+  the same commit as replacement. Workspace removal does not unlink: removing
+  one workspace membership only revokes that Brain's access through the current
+  role generation, and it does not unlink the Slack identity from other
   authorized Brains. Every request rechecks binding and current Brain role.
 - **Typed errors / state:**
   `unlinked -> pending_verification -> active -> revoked`; `LinkExpired`,
   `LinkReplay`, `SlackIdentityAlreadyBound`, `TeamMismatch`, `BindingRevoked`,
   auth errors.
-- **Migration / compatibility / rollback:** new table. Rollback revokes active
-  Slack answering while keeping audit rows; capture is unaffected.
+- **Migration / compatibility / rollback:** the post-S05 task-owned migration
+  fragment registers the new table without lane ownership of the canonical
+  registry. Rollback revokes active Slack answering while keeping audit rows;
+  capture is unaffected.
 - **Focused verification:**
   `rtk host-test-slot --class focused pnpm --dir packages/convex test slack-identity-links`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test slack-identity`,
@@ -2918,6 +2929,8 @@ manifest.
   acceptance under Appendix L.
 - **Completion receipt:** link/replay/spoof/revocation matrix, exact binding
   metadata sample, role recheck, and no-secret log result.
+- **Source-slice contract:** up to 1,200 estimated hand-authored source lines in
+  at most six linear commits; each commit remains at or below 300 lines.
 - **Lane branch / commit boundary:** branch `codex/brain-s10-slack-identity`;
   commit `feat: link Slack users to Maestro`.
 
@@ -3897,7 +3910,7 @@ remains the exact direct acceptance edge and is the source materialized into
 | S09-T02 | S09-T01                            | template-gap search projection                   |               280 |
 | S09-T03 | S09-T02, S02                       | generated headless capability pattern-instance   |               290 |
 | S09-T04 | S09-T03, S08                       | generated Ask capability pattern-instance        |               290 |
-| S10-T01 | S04, S09                           | template-gap Slack identity                      |               260 |
+| S10-T01 | S04, S09                           | template-gap Slack identity                      |              1200 |
 | S10-T02 | S10-T01                            | capability pattern-instance + transport gap      |               290 |
 | S10-T03 | S10-T02                            | template-gap outbox/provider action              |               280 |
 | S10-T04 | S10-T03                            | template-gap Slack recovery UI                   |               240 |
@@ -4748,7 +4761,7 @@ checks validate:
 - no broad lane command or gate weakening;
 - at most four 300-line source slices per task by default, with manifest-
   validated expanded limits including ten for S04-T01, five for S04-T02, and
-  five for S08-T04;
+  five for S08-T04, and six for S10-T01;
 - full verification before an immutable wave is promoted and marks tasks
   accepted.
 

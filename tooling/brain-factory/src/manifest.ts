@@ -154,6 +154,7 @@ const SOURCE_SLICE_LIMITS: Readonly<Record<string, number>> = {
   "S04-T02": 5,
   "S05-T01": 4,
   "S08-T04": 5,
+  "S10-T01": 6,
   "S11-T02": 10,
 };
 
