@@ -2462,8 +2462,8 @@ manifest.
   Rollback disables new classification and leaves proposals pending; never
   guess/fallback to a Brain.
 - **Focused verification:**
-  `rtk pnpm template:add-capability -- --name classifySourceUnit --description "Returns a typed zero-or-one route proposal from an immutable source unit." --exposure workflow`,
-  `rtk pnpm template:add-workflow -- --name sourceClassification --description "Gathers, classifies, reviews, and commits one source route." --exposure internal`,
+  `rtk pnpm template:add-capability -- --name classifySourceUnit --description Returns-a-typed-zero-or-one-route-proposal-from-an-immutable-source-unit. --exposure workflow`,
+  `rtk pnpm template:add-workflow -- --name sourceClassification --description Gathers-classifies-reviews-and-commits-one-source-route. --exposure internal`,
   `rtk pnpm brain:factory:check-confect-codegen`,
   `rtk host-test-slot --class focused pnpm --dir packages/convex test classification`,
   `rtk host-test-slot --class focused pnpm --dir apps/web test review-queue`,
