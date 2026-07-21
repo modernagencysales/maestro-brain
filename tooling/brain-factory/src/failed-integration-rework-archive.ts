@@ -74,9 +74,10 @@ export const validateFailedIntegrationReworkArchive = (input: {
   }
   const selectionRead = readIntegrationWaveSelection(archive.selectionContent);
   const { selection } = selectionRead;
-  const selected = selection.selectedTasks[0];
+  const selected = selection.selectedTasks.find(
+    (candidate) => candidate.taskId === request.taskId,
+  );
   if (
-    selection.selectedTasks.length !== 1 ||
     selected?.taskId !== request.taskId ||
     selection.integrationId !== request.priorIntegrationId ||
     selection.baseSha !== request.priorIntegrationHeadSha ||
