@@ -167,11 +167,35 @@ export const planFailedIntegrationRework = (
   } else {
     const broadGate = parseRecord(input.broadGateContent, "broad gate receipt");
     validateFailedBroadGate({ broadGate, candidateHeadSha });
-    sameRecord(
-      integrationResult.broadGate,
-      broadGate,
-      "integration broad gate",
-    );
+    if (broadGateOnlyFailure) {
+      const embeddedBroadGate = record(
+        integrationResult.broadGate,
+        "integration broad gate",
+      );
+      const embeddedAttempts = Array.isArray(embeddedBroadGate.attempts)
+        ? embeddedBroadGate.attempts
+        : [];
+      const currentAttempts = Array.isArray(broadGate.attempts)
+        ? broadGate.attempts
+        : [];
+      if (embeddedAttempts.length > currentAttempts.length) {
+        throw new Error("integration broad gate drift");
+      }
+      sameRecord(
+        embeddedBroadGate,
+        {
+          ...broadGate,
+          attempts: currentAttempts.slice(0, embeddedAttempts.length),
+        },
+        "integration broad gate",
+      );
+    } else {
+      sameRecord(
+        integrationResult.broadGate,
+        broadGate,
+        "integration broad gate",
+      );
+    }
   }
   if (findingIds.some(isTypeCoverageFindingId)) {
     if (reviewOnly)

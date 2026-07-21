@@ -261,7 +261,18 @@ describe("failed integration rework admission", () => {
       remainingFindings: [],
     };
     const integrationResultContent = json(integrationResult);
-    const broadGateContent = json(value.values.broadGate);
+    const broadGate = {
+      ...value.values.broadGate,
+      attempts: [
+        ...value.values.broadGate.attempts,
+        {
+          ...value.values.broadGate.attempts[0],
+          attempt: 2,
+          outputSha256: "b".repeat(64),
+        },
+      ],
+    };
+    const broadGateContent = json(broadGate);
     const supersession = buildIntegrationWaveSupersessionReceipt({
       controlHeadSha: value.values.selection.baseSha,
       createdAt: "2026-07-20T21:14:57.387Z",
@@ -314,6 +325,7 @@ describe("failed integration rework admission", () => {
     expect(() =>
       planFailedIntegrationRework({
         ...input,
+        broadGateContent,
         integrationResultContent,
         supersessionContent: json(supersession),
       }),
