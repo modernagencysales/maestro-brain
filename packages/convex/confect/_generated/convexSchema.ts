@@ -9,6 +9,8 @@ import apiKeys from "./tables/apiKeys";
 import billingPlans from "./tables/billingPlans";
 import brainPageAuditEvents from "./tables/brainPageAuditEvents";
 import brainPages from "./tables/brainPages";
+import channelDeliveryPolicies from "./tables/channelDeliveryPolicies";
+import channelRoutingPolicies from "./tables/channelRoutingPolicies";
 import channelSyncStates from "./tables/channelSyncStates";
 import citations from "./tables/citations";
 import claims from "./tables/claims";
@@ -62,6 +64,8 @@ export default $defineSchema({
   billingPlans: billingPlans.tableDefinition,
   brainPageAuditEvents: brainPageAuditEvents.tableDefinition,
   brainPages: brainPages.tableDefinition,
+  channelDeliveryPolicies: channelDeliveryPolicies.tableDefinition,
+  channelRoutingPolicies: channelRoutingPolicies.tableDefinition,
   channelSyncStates: channelSyncStates.tableDefinition,
   citations: citations.tableDefinition,
   claims: claims.tableDefinition,
