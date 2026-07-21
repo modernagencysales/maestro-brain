@@ -113,14 +113,23 @@ export const planFailedIntegrationRework = (
     "integration result",
   );
   const reviewOnly = input.broadGateContent === undefined;
+  const remainingFindings = Array.isArray(integrationResult.remainingFindings)
+    ? integrationResult.remainingFindings
+    : [];
+  const semanticRework =
+    integrationResult.status === (reviewOnly ? "ready_for_review" : "rework") &&
+    integrationResult.reviewVerdict === "rework" &&
+    remainingFindings.length > 0;
+  const broadGateOnlyFailure =
+    !reviewOnly &&
+    integrationResult.status === "ready_for_review" &&
+    integrationResult.reviewVerdict === "pass" &&
+    remainingFindings.length === 0;
   if (
     integrationResult.schemaVersion !== "maestro-brain-integration-result/v3" ||
-    integrationResult.status !== (reviewOnly ? "ready_for_review" : "rework")
+    (!semanticRework && !broadGateOnlyFailure)
   ) {
     throw new Error("failed integration result status is invalid");
-  }
-  if (integrationResult.reviewVerdict !== "rework") {
-    throw new Error("failed integration review verdict is not rework");
   }
   const candidateHeadSha = exactSha(
     integrationResult.headSha,
@@ -137,14 +146,8 @@ export const planFailedIntegrationRework = (
   ) {
     throw new Error("failed integration result selection identity drift");
   }
-  if (
-    !Array.isArray(integrationResult.remainingFindings) ||
-    integrationResult.remainingFindings.length === 0
-  ) {
-    throw new Error("failed integration rework has no remaining findings");
-  }
   const findingIds: string[] = [];
-  for (const findingValue of integrationResult.remainingFindings) {
+  for (const findingValue of remainingFindings) {
     const finding = record(findingValue, "failed integration finding");
     if (finding.taskId !== input.taskId) {
       throw new Error("failed integration finding owner mismatch");

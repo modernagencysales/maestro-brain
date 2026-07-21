@@ -252,6 +252,74 @@ const fixture = () => {
 };
 
 describe("failed integration rework admission", () => {
+  it("admits a failed broad gate after semantic review passed", () => {
+    const value = fixture();
+    const integrationResult = {
+      ...value.values.integrationResult,
+      status: "ready_for_review",
+      reviewVerdict: "pass",
+      remainingFindings: [],
+    };
+    const integrationResultContent = json(integrationResult);
+    const broadGateContent = json(value.values.broadGate);
+    const supersession = buildIntegrationWaveSupersessionReceipt({
+      controlHeadSha: value.values.selection.baseSha,
+      createdAt: "2026-07-20T21:14:57.387Z",
+      evidence: [
+        `broad-gate-sha256:${sha256(broadGateContent)}`,
+        `integration-result-sha256:${sha256(integrationResultContent)}`,
+        `run:${value.values.runId}:failed`,
+      ],
+      expectedIntegrationId: value.values.selection.integrationId,
+      reason: "broad-gate-only-failure",
+      runInspections: [
+        {
+          run_id: value.values.runId,
+          status: { kind: "failed" },
+          run_spec: {
+            settings: {
+              run: {
+                inputs: {
+                  attempt: 1,
+                  base_sha: value.values.selection.baseSha,
+                  integration_id: value.values.selection.integrationId,
+                  mode: "integrate",
+                  reservation_token: "wave-reservation",
+                  selection_file_sha256: selectionFileSha256(
+                    value.input.selectionContent,
+                  ),
+                  selection_path: value.values.selectionPath,
+                  selection_payload_sha256:
+                    value.values.selection.selectionPayloadSha256,
+                  workdir: "/tmp/maestro-wave-000052",
+                },
+                metadata: {
+                  attempt: 1,
+                  integration: value.values.selection.integrationId,
+                  "integration-mode": "wave-v3",
+                  reservation: "wave-reservation",
+                },
+              },
+            },
+          },
+        },
+      ],
+      runRecordContent: value.values.runRecordContent,
+      selectionContent: value.input.selectionContent,
+      selectionPath: value.values.selectionPath,
+    });
+    const { typeCoverageRegressionContent: _typeCoverage, ...input } =
+      value.input;
+    void _typeCoverage;
+    expect(() =>
+      planFailedIntegrationRework({
+        ...input,
+        integrationResultContent,
+        supersessionContent: json(supersession),
+      }),
+    ).not.toThrow();
+  });
+
   it("builds an immutable archive and normal reproof request for one failed owner", () => {
     const value = fixture();
     const planned = planFailedIntegrationRework(value.input);
