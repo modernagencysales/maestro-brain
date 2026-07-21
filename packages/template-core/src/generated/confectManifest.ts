@@ -122,6 +122,26 @@ export const confectManifest = {
     },
     {
       namespace: "brain.pages",
+      name: "recordSnapshot",
+      operationId: "brain.pages.recordSnapshot",
+      kind: "mutation",
+      surfaces: ["web"],
+      typedErrors: [
+        "Unauthorized",
+        "Forbidden",
+        "BrainNotFound",
+        "PageNotFound",
+        "LifecycleRevoked",
+        "ValidationFailed",
+        "PageTreeConflict",
+        "StaleRevision",
+      ],
+      idempotent: false,
+      argsSchemaName: "brain.pages.recordSnapshot.args",
+      returnsSchemaName: "brain.pages.recordSnapshot.returns",
+    },
+    {
+      namespace: "brain.pages",
       name: "rename",
       operationId: "brain.pages.rename",
       kind: "mutation",
@@ -763,6 +783,62 @@ const sharedConfectJsonSchemas = {
     additionalProperties: false,
   },
   "brain.pages.move.returns": sharedConfectJsonSchemasValue1,
+  "brain.pages.recordSnapshot.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    required: [
+      "documentId",
+      "expectedCurrentRevisionKey",
+      "snapshot",
+      "version",
+    ],
+    properties: {
+      documentId: {
+        type: "string",
+        description: "a string matching the pattern ^brainPage:[^:]+:[^:]+$",
+        pattern: "^brainPage:[^:]+:[^:]+$",
+      },
+      expectedCurrentRevisionKey: {
+        type: "string",
+        description:
+          "a string matching the pattern ^rev_[a-z0-9][a-z0-9_-]{2,}$",
+        pattern: "^rev_[a-z0-9][a-z0-9_-]{2,}$",
+      },
+      snapshot: {
+        type: "string",
+      },
+      version: {
+        type: "number",
+      },
+    },
+    additionalProperties: false,
+  },
+  "brain.pages.recordSnapshot.returns": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    required: ["pageKey", "pageRevisionKey", "contentHash", "savedAt"],
+    properties: {
+      pageKey: {
+        type: "string",
+        description:
+          "a string matching the pattern ^pag_[a-z0-9][a-z0-9_-]{2,}$",
+        pattern: "^pag_[a-z0-9][a-z0-9_-]{2,}$",
+      },
+      pageRevisionKey: {
+        type: "string",
+        description:
+          "a string matching the pattern ^rev_[a-z0-9][a-z0-9_-]{2,}$",
+        pattern: "^rev_[a-z0-9][a-z0-9_-]{2,}$",
+      },
+      contentHash: {
+        type: "string",
+      },
+      savedAt: {
+        type: "number",
+      },
+    },
+    additionalProperties: false,
+  },
   "brain.pages.rename.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
