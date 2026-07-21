@@ -9,7 +9,10 @@ import { admitContractReproof } from "../src/contract-reproof-admission.js";
 import { buildContractReproofRequest } from "../src/contract-reproof.js";
 import { validateFailedIntegrationReworkArchive } from "../src/failed-integration-rework-archive.js";
 import { planFailedIntegrationRework } from "../src/failed-integration-rework.js";
-import { integrationResultBindsBroadGate } from "../src/failed-integration-rework-validation.js";
+import {
+  failedWaveSelectsTask,
+  integrationResultBindsBroadGate,
+} from "../src/failed-integration-rework-validation.js";
 import {
   selectionFileSha256,
   selectionPayload,
@@ -258,6 +261,10 @@ describe("failed integration rework admission", () => {
     expect(
       integrationResultBindsBroadGate({ broadGate: { status: "failed" } }),
     ).toBe(true);
+  });
+
+  it("scopes a multi-task failed wave to its finding owner", () => {
+    expect(failedWaveSelectsTask(["S03-T03", "S04-T04"], "S04-T04")).toBe(true);
   });
 
   it("admits a failed broad gate after semantic review passed", () => {

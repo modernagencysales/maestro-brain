@@ -203,6 +203,11 @@ export const integrationResultBindsBroadGate = (
   integrationResult.broadGate !== null &&
   !Array.isArray(integrationResult.broadGate);
 
+export const failedWaveSelectsTask = (
+  selectedTaskIds: readonly string[],
+  taskId: string,
+): boolean => selectedTaskIds.includes(taskId);
+
 export const validateSupersession = (input: {
   readonly broadGateContent?: string;
   readonly currentControlHead: string;
@@ -227,7 +232,7 @@ export const validateSupersession = (input: {
   if (
     validated.runAttempts.length === 0 ||
     validated.runAttempts.some(({ status }) => status !== "failed") ||
-    JSON.stringify(validated.selectedTaskIds) !== JSON.stringify([input.taskId])
+    !failedWaveSelectsTask(validated.selectedTaskIds, input.taskId)
   ) {
     throw new Error("failed integration wave is not terminal failed");
   }
