@@ -565,7 +565,7 @@ describe("failed integration rework admission", () => {
     ).toThrow(/broad gate is not failed/);
   });
 
-  it("rejects ambiguous multiple-task ownership", () => {
+  it("rejects a multi-task fixture with stale selection identity", () => {
     const value = fixture();
     const selectedTask = value.values.selection.selectedTasks[0];
     if (!selectedTask) throw new Error("fixture selected task is missing");
@@ -592,7 +592,7 @@ describe("failed integration rework admission", () => {
         ...value.input,
         selectionContent: json(selection),
       }),
-    ).toThrow(/exactly one selected task/);
+    ).toThrow(/selection identity drift/);
   });
 
   it("rejects a finding not owned by the selected task", () => {

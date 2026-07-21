@@ -70,12 +70,12 @@ export const planFailedIntegrationRework = (
 
   const selectionRead = readIntegrationWaveSelection(input.selectionContent);
   const { selection } = selectionRead;
-  if (selection.selectedTasks.length !== 1) {
-    throw new Error(
-      "failed integration rework requires exactly one selected task",
-    );
-  }
-  const selected = selection.selectedTasks[0];
+  // A failed wave may contain multiple lanes. Rework is still scoped to the
+  // lane owning the finding; retain the immutable wave identity while
+  // selecting that one task's proof for the reproof request.
+  const selected = selection.selectedTasks.find(
+    (candidate) => candidate.taskId === input.taskId,
+  );
   if (!selected || selected.taskId !== input.taskId) {
     throw new Error(`${input.taskId}: task owner mismatch`);
   }
