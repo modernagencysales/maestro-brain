@@ -12,7 +12,10 @@ import { resolve } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { admitContractReproof } from "../src/contract-reproof-admission.js";
+import {
+  admitContractReproof,
+  isReproofablePriorIntegrationResult,
+} from "../src/contract-reproof-admission.js";
 import {
   buildContractReproofRefreshRequest,
   buildContractReproofRequest,
@@ -289,6 +292,19 @@ afterEach(() => {
 });
 
 describe("contract reproof admission", () => {
+  it("admits semantic pass with a failed broad gate", () => {
+    expect(
+      isReproofablePriorIntegrationResult({
+        status: "ready_for_review",
+        reviewVerdict: "pass",
+        broadGate: {
+          schemaVersion: "maestro-brain-broad-gate-receipt/v1",
+          status: "failed",
+        },
+      }),
+    ).toBe(true);
+  });
+
   it("binds the canonical payload instead of the raw request file", () => {
     const value = fixture();
     const admitted = admitContractReproof(value.input);

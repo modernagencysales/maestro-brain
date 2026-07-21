@@ -39,6 +39,30 @@ export interface ContractReproofAdmission {
   readonly request: ContractReproofRequest;
 }
 
+export const isReproofablePriorIntegrationResult = (
+  integrationResult: Record<string, unknown>,
+): boolean => {
+  const reviewOnlyRework =
+    integrationResult.status === "ready_for_review" &&
+    integrationResult.reviewVerdict === "rework";
+  const broadGate =
+    typeof integrationResult.broadGate === "object" &&
+    integrationResult.broadGate !== null &&
+    !Array.isArray(integrationResult.broadGate)
+      ? (integrationResult.broadGate as Record<string, unknown>)
+      : undefined;
+  const broadGateOnlyRework =
+    integrationResult.status === "ready_for_review" &&
+    integrationResult.reviewVerdict === "pass" &&
+    broadGate?.status === "failed";
+  return (
+    reviewOnlyRework ||
+    broadGateOnlyRework ||
+    integrationResult.status === "rework" ||
+    integrationResult.status === "passed"
+  );
+};
+
 const sha256 = (value: string): string =>
   createHash("sha256").update(value).digest("hex");
 
@@ -298,14 +322,10 @@ export const admitContractReproof = (
   if (integrationResult.integrationId !== request.priorIntegrationId) {
     throw new Error(`${input.taskId}: prior integration result identity drift`);
   }
-  const reviewOnlyRework =
-    integrationResult.status === "ready_for_review" &&
-    integrationResult.reviewVerdict === "rework";
   if (
-    !reviewOnlyRework &&
-    integrationResult.status !== "rework" &&
-    (integrationResult.headSha !== request.priorIntegrationHeadSha ||
-      integrationResult.status !== "passed")
+    !isReproofablePriorIntegrationResult(integrationResult) ||
+    (integrationResult.status === "passed" &&
+      integrationResult.headSha !== request.priorIntegrationHeadSha)
   ) {
     throw new Error(`${input.taskId}: prior integration result identity drift`);
   }
