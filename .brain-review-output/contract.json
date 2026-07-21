@@ -1,0 +1,68 @@
+{
+  "lens": "contract",
+  "taskId": "S04-T04",
+  "planSha256": "ce2b760a9efd332ff6f3201b8faf312601e4fd3d4fcb7dcb4253afe7cae25317",
+  "taskBlockHash": "43aa1624cd7754ad5635e47f0e43bc7333c8b04b639a33b7670a7e032707dea1",
+  "baseSha": "f6a9988a0a5efc40201b005fa2cdc1021b0d17f2",
+  "headSha": "7c6499da177e4c6bc98ea8e095ab5b5271df6659",
+  "treeSha": "e9c4eacfffe4b9a774068a63bff55e3a523aa483",
+  "reviewerRunId": "maestro/review/S04-T04/7c6499da177e4c6bc98ea8e095ab5b5271df6659/33ad78ab-6d68-4bff-be1e-ba8bdd47737c-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1608-1665 requires org-admin bulk selection of joined Slack channels, direct/classify/capture_only routing, requester_private/capture_only delivery with Slack Connect no-send, launch-envelope enforcement, all-or-nothing audit, and typed policy failures.",
+        "packages/convex/confect/slack/channelPolicy.ts:153-309 implements the pure bulk policy plan with admin/owner role checks, 100-channel and 25-client caps, duplicate-channel rejection, joined-channel and generation validation, Slack Connect delivery locking, immutable epoch/generation row planning, pending-source intervals, and audit row planning.",
+        "apps/web/src/features/connections/channel-policy-dialog.tsx:141-180 exposes the bulk channel policy card, builds the typed submit request from selected channels, and invokes the bulkSetChannelPolicies mutation path."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.spec.ts:43-54 declares public mutation bulkSetChannelPolicies with organizationKey, expected connection/access generations, typed per-channel routing/delivery changes, typed result, and expected channel policy errors.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:26-167 implements the spec through FunctionImpl, resolves the actor server-side, loads source channels, client brain targets, and active policy history, delegates validation to buildBulkPolicyPlan, persists planned rows, records audit, and returns the declared result shape.",
+        "apps/web/src/features/connections/channel-policy-view-model.ts:27-40 and 122-158 define and derive the submit request without exposing actorRole; channel-policy-dialog.tsx:157-165 obtains the generated Confect mutation ref with a pending-integration fallback consistent with the checked transient codegen lane state."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/channelRoutingPolicies.ts:23-45 defines additive routing policy epoch rows with organization/connection/channel keys, connection generation, policyEpoch, active pointer, routing mode, targetBrainKeys, post-apply status, optional pending-source interval, creator role, timestamp, and lookup indexes.",
+        "packages/convex/confect/tables/channelDeliveryPolicies.ts:9-26 defines additive delivery policy generation rows with organization/channel keys, deliveryGeneration, active pointer, delivery mode, creator role, timestamp, and lookup indexes.",
+        "packages/convex/test/channel-policies.test.ts:120-138 pins the durable routing and delivery policy index inventory."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json records S04-T04 as template-gap, lane slack-source, requirements IAM-04/SLK-02/SLK-03/SLK-08/UI-01, taskBlockHash 43aa1624cd7754ad5635e47f0e43bc7333c8b04b639a33b7670a7e032707dea1, and file locks matching the task packet.",
+        "lane-gate-report.json is the exact pre-review report for headSha 7c6499da177e4c6bc98ea8e095ab5b5271df6659 and treeSha e9c4eacfffe4b9a774068a63bff55e3a523aa483 with planSha256 ce2b760a9efd332ff6f3201b8faf312601e4fd3d4fcb7dcb4253afe7cae25317, taskBlockHash 43aa1624cd7754ad5635e47f0e43bc7333c8b04b639a33b7670a7e032707dea1, status passed, and all focused plus profile gates enumerated.",
+        "docs/product/maestro-brain-lifecycle-adoption/S04-T04.md:6-37 records the added policy resources, launch envelope, Slack Connect delivery rule, additive prospective migration, and rollback by new epoch/generation."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json lists the S04-T04 file locks for the Connections feature/route, lifecycle record, channel policy Confect spec/impl/domain files, policy tables, and focused tests.",
+        "ci-proof-packet.json changedFiles contains only those S04-T04-owned paths: five Connections feature files, the workspace connections route, lifecycle record, three slack/channelPolicy files, two policy tables, and packages/convex/test/channel-policies.test.ts.",
+        "lane-gate-report.json records brain:factory:check-confect-codegen passed at this exact head; the task diff does not edit generated Confect/Convex paths, so generated refs/schema are integration-owned by the transient codegen lane state per Appendices O/P."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.spec.ts:34-54 exposes ChannelNotJoined, PolicyInvalid, TargetBrainForbidden, PolicyGenerationMismatch, and CapacityExceeded as expected errors for bulkSetChannelPolicies.",
+        "packages/convex/confect/slack/channelPolicy.ts:121-199 and 206-249 keep each declared failure path reachable: invalid direct/classify/capture_only shapes, duplicate targets, forbidden brain target, admin requirement, channel/client-brain capacity overflow, duplicate channel key, non-joined channel, stale connection/access/current policy generation, and Slack Connect requester-private delivery denial.",
+        "packages/convex/test/channel-policies.test.ts:140-240 and 324-371 cover non-admin, invalid target cardinality/duplicates, stale generation, channel and client-brain capacity, Slack Connect delivery denial, partial bulk failure, duplicate channel-key rejection, and typed PolicyGenerationMismatch/PolicyInvalid reasons."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
