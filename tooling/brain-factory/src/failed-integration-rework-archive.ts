@@ -2,6 +2,7 @@ import type { ContractReproofRequest } from "./contract-reproof.js";
 import {
   exactSha,
   parseRecord,
+  record,
   sameRecord,
   sha256,
   validateFailedBroadGate,
@@ -103,13 +104,24 @@ export const validateFailedIntegrationReworkArchive = (input: {
     archive.integrationResultContent,
     "archived integration result",
   );
-  if (
-    result.schemaVersion !== "maestro-brain-integration-result/v3" ||
-    result.status !==
+  const findings = Array.isArray(result.remainingFindings)
+    ? result.remainingFindings
+    : [];
+  const semanticRework =
+    result.status ===
       (archive.broadGateContent === undefined
         ? "ready_for_review"
-        : "rework") ||
-    result.reviewVerdict !== "rework" ||
+        : "rework") &&
+    result.reviewVerdict === "rework" &&
+    findings.length > 0;
+  const broadGateOnlyFailure =
+    archive.broadGateContent !== undefined &&
+    result.status === "ready_for_review" &&
+    result.reviewVerdict === "pass" &&
+    findings.length === 0;
+  if (
+    result.schemaVersion !== "maestro-brain-integration-result/v3" ||
+    (!semanticRework && !broadGateOnlyFailure) ||
     result.integrationId !== request.priorIntegrationId ||
     result.headSha !== archive.candidateHeadSha ||
     result.selectionFileSha256 !== selectionRead.selectionFileSha256 ||
@@ -117,7 +129,6 @@ export const validateFailedIntegrationReworkArchive = (input: {
   ) {
     throw new Error(`${request.taskId}: archived integration result drift`);
   }
-  const findings = result.remainingFindings;
   const archivedFindingIds = Array.isArray(findings)
     ? findings.map((finding) => {
         const parsed = parseRecord(JSON.stringify(finding), "archived finding");
@@ -126,7 +137,7 @@ export const validateFailedIntegrationReworkArchive = (input: {
     : [];
   if (
     !Array.isArray(findings) ||
-    findings.length === 0 ||
+    (semanticRework && findings.length === 0) ||
     findings.some((finding) => {
       const parsed = parseRecord(JSON.stringify(finding), "archived finding");
       return parsed.taskId !== request.taskId;
@@ -153,7 +164,35 @@ export const validateFailedIntegrationReworkArchive = (input: {
         40,
       ),
     });
-    sameRecord(result.broadGate, broadGate, "archived integration broad gate");
+    if (broadGateOnlyFailure) {
+      const embeddedBroadGate = record(
+        result.broadGate,
+        "archived integration broad gate",
+      );
+      const embeddedAttempts = Array.isArray(embeddedBroadGate.attempts)
+        ? embeddedBroadGate.attempts
+        : [];
+      const currentAttempts = Array.isArray(broadGate.attempts)
+        ? broadGate.attempts
+        : [];
+      if (embeddedAttempts.length > currentAttempts.length) {
+        throw new Error("archived integration broad gate drift");
+      }
+      sameRecord(
+        embeddedBroadGate,
+        {
+          ...broadGate,
+          attempts: currentAttempts.slice(0, embeddedAttempts.length),
+        },
+        "archived integration broad gate",
+      );
+    } else {
+      sameRecord(
+        result.broadGate,
+        broadGate,
+        "archived integration broad gate",
+      );
+    }
   }
   if (archivedFindingIds.some(isTypeCoverageFindingId)) {
     if (archive.broadGateContent === undefined)

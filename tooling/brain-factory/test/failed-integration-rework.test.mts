@@ -318,12 +318,19 @@ describe("failed integration rework admission", () => {
     const { typeCoverageRegressionContent: _typeCoverage, ...input } =
       value.input;
     void _typeCoverage;
+    const planned = planFailedIntegrationRework({
+      ...input,
+      broadGateContent,
+      integrationResultContent,
+      supersessionContent: json(supersession),
+    });
     expect(() =>
-      planFailedIntegrationRework({
-        ...input,
-        broadGateContent,
+      validateFailedIntegrationReworkArchive({
+        archiveContent: planned.archiveContent,
+        currentControlHead: input.controlHeadSha,
         integrationResultContent,
-        supersessionContent: json(supersession),
+        isAncestor: input.isAncestor,
+        request: planned.request,
       }),
     ).not.toThrow();
   });
