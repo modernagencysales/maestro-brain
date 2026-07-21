@@ -1,0 +1,86 @@
+{
+  "lens": "safety",
+  "taskId": "S04-T04",
+  "planSha256": "ce2b760a9efd332ff6f3201b8faf312601e4fd3d4fcb7dcb4253afe7cae25317",
+  "taskBlockHash": "43aa1624cd7754ad5635e47f0e43bc7333c8b04b639a33b7670a7e032707dea1",
+  "baseSha": "f6a9988a0a5efc40201b005fa2cdc1021b0d17f2",
+  "headSha": "7c6499da177e4c6bc98ea8e095ab5b5271df6659",
+  "treeSha": "e9c4eacfffe4b9a774068a63bff55e3a523aa483",
+  "reviewerRunId": "maestro/review/S04-T04/7c6499da177e4c6bc98ea8e095ab5b5271df6659/33ad78ab-6d68-4bff-be1e-ba8bdd47737c-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.impl.ts:37-51 resolves the current actor for input.organizationKey and records denied privileged attempts against that organization.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:52-107 reads sourceChannels, workspaces, channelRoutingPolicies, and channelDeliveryPolicies through organization-scoped indexes using input.organizationKey.",
+        "packages/convex/confect/slack/channelPolicy.ts:173-190 filters allowed routing targets to the same request.organizationKey, client kind, and active status before validating targetBrainKeys."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.spec.ts:43-54 exposes organizationKey, generation fences, and changes but no actorRole, so callers cannot self-assert admin privilege.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:198-225 requires an active accepted non-revoked organization membership with roleAtLeast admin before any policy writes.",
+        "packages/convex/test/channel-policies.test.ts:111-118 pins the public mutation contract excludes actorRole, and packages/convex/test/channel-policies.test.ts:140-143 covers non-admin planner rejection."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicy.ts:159-172 counts only joined_needs_policy and joined_active channels for the 100-channel launch envelope, excluding non-joined/tombstoned channel rows from eligible policy application.",
+        "packages/convex/confect/slack/channelPolicy.ts:206-224 rejects missing or non-joined channels and rejects stale connectionGeneration or accessGeneration before planning writes.",
+        "packages/convex/confect/slack/channelPolicy.ts:256-290 appends immutable routing and delivery policy rows with pendingSourceInterval metadata instead of rewriting historical policy records; docs/product/maestro-brain-lifecycle-adoption/S04-T04.md:19-31 records prospective rollback by new epoch/generation."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicy.ts:227-234 enforces capture_only delivery for Slack Connect/shared channels, denying requester_private delivery on shared channels.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:145-161 records success audit metadata limited to outcome, action, and targetCount, without channel names, message bodies, provider payloads, tokens, or secrets.",
+        "packages/convex/test/channel-policies.test.ts:423-439 proves Slack Connect Direct/Classify ingestion remains allowed only with capture_only delivery."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicy.ts:191-199 rejects duplicate channelKey entries in one bulk request before planning any active policy rows.",
+        "packages/convex/confect/slack/channelPolicy.ts:235-249 requires each change expectedRoutingPolicyEpoch and expectedDeliveryGeneration to match the current active routing/delivery rows before accepting an update.",
+        "packages/convex/test/channel-policies.test.ts:324-371 covers stale active policy epoch and delivery generation rejection, closing the prior stale-admin race."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicy.ts:250-255 treats an unchanged active routing and delivery pair with matching expected generations as an idempotent retry and emits no replacement rows.",
+        "packages/convex/confect/slack/channelPolicy.ts:296-307 emits no audit row when no routing or delivery rows are produced.",
+        "packages/convex/test/channel-policies.test.ts:374-421 proves an identical active policy retry produces zero routing rows, zero delivery rows, and zero audit rows."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.spec.ts:21-27 and 43-54 include per-change expectedRoutingPolicyEpoch and expectedDeliveryGeneration plus request-level expectedConnectionGeneration and expectedChannelAccessGeneration.",
+        "packages/convex/confect/slack/channelPolicy.ts:217-224 rejects channel connection/access generation drift before policy planning.",
+        "packages/convex/confect/slack/channelPolicy.ts:241-249 rejects drift in the active routing policy epoch or active delivery generation before deactivating old active rows or inserting new ones."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicy.ts:1-7 imports only Effect/Either/Schema and local table types; policy semantics do not import Slack, Nango, provider SDKs, or secrets.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:8-24 imports generated schema/services, access helpers, local table types, and the local policy planner, with no provider SDK or secret access.",
+        "apps/web/src/features/connections/connections-adapter.ts:1-28 supplies local fixture data only and does not import provider SDKs, tokens, secrets, or server-only provider payloads."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
