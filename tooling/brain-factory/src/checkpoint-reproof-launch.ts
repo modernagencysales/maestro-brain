@@ -235,7 +235,12 @@ export const launchCheckpointReproof = (input: {
   const admission = admitCheckpointReproof({
     controlHeadSha,
     evidence: input.evidence,
-    existingRecoveryOwner: prior.mode === "checkpoint-reproof",
+    // A historical checkpoint record is not an active owner once its branch
+    // and worktree have been removed. Admission already checks both above.
+    existingRecoveryOwner:
+      prior.mode === "checkpoint-reproof" &&
+      (gitBranchExists(coordinates.branch, input.root) ||
+        existsSync(coordinates.workdir)),
     integratedTaskIds,
     root: input.root,
     state: input.state,
