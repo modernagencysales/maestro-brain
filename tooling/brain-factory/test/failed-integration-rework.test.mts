@@ -12,6 +12,7 @@ import { planFailedIntegrationRework } from "../src/failed-integration-rework.js
 import {
   failedWaveSelectsTask,
   integrationResultBindsBroadGate,
+  supersessionBindsFailedAttempt,
 } from "../src/failed-integration-rework-validation.js";
 import {
   selectionFileSha256,
@@ -265,6 +266,18 @@ describe("failed integration rework admission", () => {
 
   it("scopes a multi-task failed wave to its finding owner", () => {
     expect(failedWaveSelectsTask(["S03-T03", "S04-T04"], "S04-T04")).toBe(true);
+  });
+
+  it("accepts a terminal supersession bound to its latest failed attempt", () => {
+    expect(
+      supersessionBindsFailedAttempt(
+        [
+          { runId: "run-1", status: "failed" },
+          { runId: "run-2", status: "failed" },
+        ],
+        ["run:run-2:failed"],
+      ),
+    ).toBe(true);
   });
 
   it("admits a failed broad gate after semantic review passed", () => {

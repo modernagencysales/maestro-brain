@@ -208,6 +208,15 @@ export const failedWaveSelectsTask = (
   taskId: string,
 ): boolean => selectedTaskIds.includes(taskId);
 
+export const supersessionBindsFailedAttempt = (
+  runAttempts: readonly { readonly runId: string; readonly status: string }[],
+  evidence: readonly string[],
+): boolean =>
+  runAttempts.some(
+    ({ runId, status }) =>
+      status === "failed" && evidence.includes(`run:${runId}:failed`),
+  );
+
 export const validateSupersession = (input: {
   readonly broadGateContent?: string;
   readonly currentControlHead: string;
@@ -254,9 +263,7 @@ export const validateSupersession = (input: {
       !integrationResultEvidence.includes(
         `integration-result-sha256:${sha256(input.integrationResultContent)}`,
       )) ||
-    validated.runAttempts.some(
-      ({ runId }) => !evidence.includes(`run:${runId}:failed`),
-    )
+    !supersessionBindsFailedAttempt(validated.runAttempts, evidence)
   ) {
     throw new Error("failed integration supersession evidence drift");
   }
