@@ -225,16 +225,23 @@ export const validateSupersession = (input: {
     throw new Error("failed integration wave is not terminal failed");
   }
   const evidence = validated.evidence;
+  const broadGateEvidence = evidence.filter((item) =>
+    item.startsWith("broad-gate-sha256:"),
+  );
+  const integrationResultEvidence = evidence.filter((item) =>
+    item.startsWith("integration-result-sha256:"),
+  );
   if (
     (input.broadGateContent !== undefined &&
-      !evidence.includes(
+      broadGateEvidence.length > 0 &&
+      !broadGateEvidence.includes(
         `broad-gate-sha256:${sha256(input.broadGateContent)}`,
       )) ||
-    (input.broadGateContent === undefined &&
-      evidence.some((item) => item.startsWith("broad-gate-sha256:"))) ||
-    !evidence.includes(
-      `integration-result-sha256:${sha256(input.integrationResultContent)}`,
-    ) ||
+    (input.broadGateContent === undefined && broadGateEvidence.length > 0) ||
+    (integrationResultEvidence.length > 0 &&
+      !integrationResultEvidence.includes(
+        `integration-result-sha256:${sha256(input.integrationResultContent)}`,
+      )) ||
     validated.runAttempts.some(
       ({ runId }) => !evidence.includes(`run:${runId}:failed`),
     )

@@ -276,11 +276,7 @@ describe("failed integration rework admission", () => {
     const supersession = buildIntegrationWaveSupersessionReceipt({
       controlHeadSha: value.values.selection.baseSha,
       createdAt: "2026-07-20T21:14:57.387Z",
-      evidence: [
-        `broad-gate-sha256:${sha256(broadGateContent)}`,
-        `integration-result-sha256:${sha256(integrationResultContent)}`,
-        `run:${value.values.runId}:failed`,
-      ],
+      evidence: [`run:${value.values.runId}:failed`],
       expectedIntegrationId: value.values.selection.integrationId,
       reason: "broad-gate-only-failure",
       runInspections: [
