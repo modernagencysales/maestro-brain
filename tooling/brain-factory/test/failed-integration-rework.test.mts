@@ -9,6 +9,7 @@ import { admitContractReproof } from "../src/contract-reproof-admission.js";
 import { buildContractReproofRequest } from "../src/contract-reproof.js";
 import { validateFailedIntegrationReworkArchive } from "../src/failed-integration-rework-archive.js";
 import { planFailedIntegrationRework } from "../src/failed-integration-rework.js";
+import { integrationResultBindsBroadGate } from "../src/failed-integration-rework-validation.js";
 import {
   selectionFileSha256,
   selectionPayload,
@@ -252,6 +253,13 @@ const fixture = () => {
 };
 
 describe("failed integration rework admission", () => {
+  it("ignores an unbound stale broad-gate sidecar", () => {
+    expect(integrationResultBindsBroadGate({ broadGate: null })).toBe(false);
+    expect(
+      integrationResultBindsBroadGate({ broadGate: { status: "failed" } }),
+    ).toBe(true);
+  });
+
   it("admits a failed broad gate after semantic review passed", () => {
     const value = fixture();
     const integrationResult = {

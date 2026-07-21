@@ -18,6 +18,7 @@ import {
 } from "./dispatch-ownership.js";
 import { completedTaskIdsForControlHead } from "./factory-state.js";
 import { planFailedIntegrationRework } from "./failed-integration-rework.js";
+import { integrationResultBindsBroadGate } from "./failed-integration-rework-validation.js";
 import { buildManifest } from "./manifest.js";
 import {
   gitBranchExists,
@@ -236,16 +237,18 @@ if (failedIntegrationId) {
     "integration",
     failedIntegrationId,
   );
-  const broadGatePath = resolve(
-    integrationDirectory,
-    `broad-gate-${String((JSON.parse(readFileSync(integrationResultPath, "utf8")) as Record<string, unknown>).headSha ?? "")}.json`,
-  );
-  const broadGateExists = existsSync(broadGatePath);
-  const supersessionPath = resolve(integrationDirectory, "supersession.json");
-  const promotionPath = resolve(integrationDirectory, "promotion.json");
   const failedIntegrationResult = JSON.parse(
     readFileSync(integrationResultPath, "utf8"),
   ) as Record<string, unknown>;
+  const broadGatePath = resolve(
+    integrationDirectory,
+    `broad-gate-${String(failedIntegrationResult.headSha ?? "")}.json`,
+  );
+  const broadGateExists =
+    existsSync(broadGatePath) &&
+    integrationResultBindsBroadGate(failedIntegrationResult);
+  const supersessionPath = resolve(integrationDirectory, "supersession.json");
+  const promotionPath = resolve(integrationDirectory, "promotion.json");
   const typeCoverageFinding = Array.isArray(
     failedIntegrationResult.remainingFindings,
   )

@@ -196,6 +196,13 @@ export const validateTypeCoverageRegression = (input: {
 export const isTypeCoverageFindingId = (value: string): boolean =>
   value.includes("type-coverage");
 
+export const integrationResultBindsBroadGate = (
+  integrationResult: Record<string, unknown>,
+): boolean =>
+  typeof integrationResult.broadGate === "object" &&
+  integrationResult.broadGate !== null &&
+  !Array.isArray(integrationResult.broadGate);
+
 export const validateSupersession = (input: {
   readonly broadGateContent?: string;
   readonly currentControlHead: string;
