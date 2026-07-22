@@ -3,7 +3,10 @@
   "deferredTaskIds": [],
   "integrationId": "wave-000056",
   "planSha256": "ce2b760a9efd332ff6f3201b8faf312601e4fd3d4fcb7dcb4253afe7cae25317",
-  "requestedTaskIds": ["S03-T03", "S04-T04"],
+  "requestedTaskIds": [
+    "S03-T03",
+    "S04-T04"
+  ],
   "schemaVersion": "maestro-brain-integration-wave-selection/v3",
   "selectedTasks": [
     {
@@ -31,7 +34,11 @@
         "packages/editor-react/src/BlockNoteSyncEditor.test.tsx",
         "packages/editor-react/src/BlockNoteSyncEditor.tsx"
       ],
-      "codeStartAfter": ["S02-T02", "S02-T04", "S03-T01"],
+      "codeStartAfter": [
+        "S02-T02",
+        "S02-T04",
+        "S03-T01"
+      ],
       "fileLocks": [
         "apps/web/src/features/brain/brain-adapter.test.ts",
         "apps/web/src/features/brain/brain-adapter.ts",
@@ -86,7 +93,10 @@
         "packages/convex/confect/tables/channelRoutingPolicies.ts",
         "packages/convex/test/channel-policies.test.ts"
       ],
-      "codeStartAfter": ["S03-T01", "S04-T02"],
+      "codeStartAfter": [
+        "S03-T01",
+        "S04-T02"
+      ],
       "fileLocks": [
         "apps/web/src/features/connections/channel-policy-dialog.tsx",
         "apps/web/src/features/connections/channel-policy-view-model.test.ts",

@@ -13,9 +13,10 @@ const valueAfter = (flag: string): string | undefined => {
   return index >= 0 ? process.argv[index + 1] : undefined;
 };
 const valuesAfter = (flag: string): readonly string[] =>
-  process.argv.flatMap((value, index) =>
-    value === flag && process.argv[index + 1] ? [process.argv[index + 1]!] : [],
-  );
+  process.argv.flatMap((value, index) => {
+    const next = process.argv[index + 1];
+    return value === flag && next ? [next] : [];
+  });
 const required = (flag: string): string => {
   const value = valueAfter(flag);
   if (!value) throw new Error(`${flag} is required`);

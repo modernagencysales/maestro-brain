@@ -99,11 +99,11 @@ describe("legacy integration finding adoption", () => {
   it("adopts the exact immutable Wave 56 finding identity", () => {
     const fixtureRoot = resolve(process.cwd(), "test/fixtures/wave-000056");
     const resultContent = readFileSync(
-      resolve(fixtureRoot, "integration-result.json"),
+      resolve(fixtureRoot, "integration-result.json.raw"),
       "utf8",
     );
     const selectionContent = readFileSync(
-      resolve(fixtureRoot, "selection.json"),
+      resolve(fixtureRoot, "selection.json.raw"),
       "utf8",
     );
     expect(sha256(resultContent)).toBe(
