@@ -218,17 +218,50 @@ const compatibleGreenTasks = (
   maximum: number,
 ): readonly ControllerTaskState[] => {
   const byId = new Map(manifest.tasks.map((task) => [task.taskId, task]));
-  const selected: ControllerTaskState[] = [];
-  const locked = new Set<string>();
-  for (const lane of green) {
+  const candidates = green
+    .filter(({ taskId }) => byId.get(taskId)?.kind === "product")
+    .sort((left, right) => left.taskId.localeCompare(right.taskId));
+  let best: readonly ControllerTaskState[] = [];
+  const lexicographicallyEarlier = (
+    left: readonly ControllerTaskState[],
+    right: readonly ControllerTaskState[],
+  ): boolean =>
+    left.map(({ taskId }) => taskId).join("\0") <
+    right.map(({ taskId }) => taskId).join("\0");
+  const visit = (
+    index: number,
+    selected: ControllerTaskState[],
+    locked: ReadonlySet<string>,
+  ): void => {
+    if (best.length === maximum) return;
+    if (
+      selected.length + (candidates.length - index) < best.length ||
+      selected.length === maximum ||
+      index === candidates.length
+    ) {
+      if (
+        selected.length > best.length ||
+        (selected.length === best.length &&
+          lexicographicallyEarlier(selected, best))
+      ) {
+        best = [...selected];
+      }
+      return;
+    }
+    const lane = candidates[index];
+    if (!lane) return;
     const task = byId.get(lane.taskId);
-    if (!task || task.kind !== "product") continue;
-    if (task.fileLocks.some((path) => locked.has(path))) continue;
-    selected.push(lane);
-    for (const path of task.fileLocks) locked.add(path);
-    if (selected.length === maximum) break;
-  }
-  return selected;
+    if (task && !task.fileLocks.some((path) => locked.has(path))) {
+      const nextLocks = new Set(locked);
+      for (const path of task.fileLocks) nextLocks.add(path);
+      selected.push(lane);
+      visit(index + 1, selected, nextLocks);
+      selected.pop();
+    }
+    visit(index + 1, selected, locked);
+  };
+  visit(0, [], new Set());
+  return best;
 };
 
 export const planControllerTick = (

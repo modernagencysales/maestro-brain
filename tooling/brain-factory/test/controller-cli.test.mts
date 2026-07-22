@@ -15,12 +15,20 @@ import {
   acquireControllerLock,
   installControllerSignalHandlers,
   parseControllerCliArgs,
+  reconcileControllerAction,
   runControllerCli,
   type ControllerCliRuntime,
 } from "../src/controller.mjs";
-import type { ControllerActionReceipt } from "../src/controller.js";
+import {
+  planControllerTick,
+  type ControllerActionReceipt,
+} from "../src/controller.js";
 import { observeControllerSnapshot } from "../src/controller-observation.js";
 import { normalizeControllerSnapshot } from "../src/factory-state.js";
+import {
+  selectionFileSha256,
+  selectionPayloadSha256,
+} from "../src/integration-wave.js";
 import { buildManifest } from "../src/manifest.js";
 
 const manifest = buildManifest();
@@ -34,6 +42,86 @@ const snapshot = normalizeControllerSnapshot({
   tasks: [],
   waves: [],
 });
+
+const writeJson = (path: string, value: unknown): void => {
+  mkdirSync(join(path, ".."), { recursive: true });
+  writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
+};
+
+const exactWaveFixture = (root: string) => {
+  const task = manifest.tasks.find(({ kind }) => kind === "product");
+  if (!task) throw new Error("wave task fixture missing");
+  const baseSha = "a".repeat(40);
+  const taskHeadSha = "c".repeat(40);
+  const waveHeadSha = "d".repeat(40);
+  const integrationId = "wave-000001";
+  const selectionPayload = {
+    baseSha,
+    deferredTaskIds: [],
+    integrationId,
+    planSha256: manifest.planSha256,
+    requestedTaskIds: [task.taskId],
+    schemaVersion: "maestro-brain-integration-wave-selection/v3" as const,
+    selectedTasks: [
+      {
+        changedFiles: task.fileLocks.slice(0, 1),
+        codeStartAfter: task.codeStartAfter,
+        fileLocks: task.fileLocks,
+        gateHeadSha: taskHeadSha,
+        gateSha256: "1".repeat(64),
+        headSha: taskHeadSha,
+        laneResultSha256: "2".repeat(64),
+        planSha256: manifest.planSha256,
+        proofHeadSha: taskHeadSha,
+        proofSha256: "3".repeat(64),
+        taskBlockHash: task.taskBlockHash,
+        taskId: task.taskId,
+        tranche: task.tranche,
+      },
+    ],
+  };
+  const selection = {
+    ...selectionPayload,
+    selectionPayloadSha256: selectionPayloadSha256(selectionPayload),
+  };
+  const selectionPath = resolve(
+    root,
+    "runs",
+    `integration-${integrationId}-selection.json`,
+  );
+  const selectionContent = `${JSON.stringify(selection, null, 2)}\n`;
+  mkdirSync(join(root, "runs"), { recursive: true });
+  writeFileSync(selectionPath, selectionContent);
+  const record = {
+    activeMode: "integrate",
+    attempt: 1,
+    baseSha,
+    branch: `fabro/brain-${integrationId}`,
+    integrationId,
+    reservationToken: "wave-owner",
+    runId: "wave-run",
+    schemaVersion: "maestro-brain-integration-wave-run/v3",
+    selection,
+    selectionFileSha256: selectionFileSha256(selectionContent),
+    selectionPath,
+    selectionPayloadSha256: selection.selectionPayloadSha256,
+    status: "launched",
+    workdir: resolve(root, "workdir"),
+  };
+  const recordPath = resolve(root, "runs", `integration-${integrationId}.json`);
+  writeJson(recordPath, record);
+  return {
+    baseSha,
+    integrationId,
+    record,
+    recordPath,
+    selection,
+    selectionPath,
+    task,
+    taskHeadSha,
+    waveHeadSha,
+  };
+};
 
 describe("controller CLI contract", () => {
   it("maps terminal Fabro state authoritatively and fails inspection closed", () => {
@@ -156,6 +244,335 @@ describe("controller CLI contract", () => {
       "archive_terminal",
       "dispatch_tasks",
     ]);
+  });
+
+  it("rejects promotion and integration reconciliation without exact durable authority", () => {
+    const promotionRoot = mkdtempSync(
+      join(tmpdir(), "brain-controller-forged-promotion-"),
+    );
+    const promotable = normalizeControllerSnapshot({
+      ...snapshot,
+      waves: [
+        {
+          headSha: "d".repeat(40),
+          identity: "exact",
+          inspection: "succeeded",
+          integrationId: "wave-000001",
+          ownershipId: "wave-owner",
+          runId: "wave-run",
+        },
+      ],
+    });
+    const promotionAction = planControllerTick(
+      promotable,
+      {
+        maximumBatchSize: 10,
+        minimumBatchSize: 5,
+        totalActiveCapacity: 12,
+      },
+      manifest,
+    )[0];
+    if (!promotionAction) throw new Error("promotion action fixture missing");
+    const promotionDirectory = join(
+      promotionRoot,
+      "evidence",
+      "integration",
+      "wave-000001",
+    );
+    mkdirSync(promotionDirectory, { recursive: true });
+    writeFileSync(
+      join(promotionDirectory, "promotion.json"),
+      `${JSON.stringify({
+        integrationId: "wave-000001",
+        status: "promoted",
+      })}\n`,
+    );
+    expect(
+      reconcileControllerAction({
+        action: promotionAction,
+        observe: () =>
+          normalizeControllerSnapshot({
+            ...snapshot,
+            controlHeadSha: "d".repeat(40),
+          }),
+        stateRoot: promotionRoot,
+      }),
+    ).toEqual({ kind: "unresolved" });
+
+    const integrationRoot = mkdtempSync(
+      join(tmpdir(), "brain-controller-forged-integration-"),
+    );
+    const greenTask = manifest.tasks.find(({ kind }) => kind === "product");
+    if (!greenTask) throw new Error("green task fixture missing");
+    const greenSnapshot = normalizeControllerSnapshot({
+      ...snapshot,
+      tasks: [
+        {
+          admission: "admissible",
+          headSha: "c".repeat(40),
+          status: "lane_green",
+          taskId: greenTask.taskId,
+        },
+      ],
+    });
+    const integrateAction = planControllerTick(
+      greenSnapshot,
+      {
+        maximumBatchSize: 10,
+        minimumBatchSize: 1,
+        totalActiveCapacity: 12,
+      },
+      manifest,
+    )[0];
+    if (!integrateAction) throw new Error("integration action fixture missing");
+    mkdirSync(join(integrationRoot, "runs"), { recursive: true });
+    writeFileSync(
+      join(integrationRoot, "runs", "integration-wave-000001-selection.json"),
+      `${JSON.stringify({
+        selectedTasks: [{ taskId: greenTask.taskId }],
+      })}\n`,
+    );
+    expect(
+      reconcileControllerAction({
+        action: integrateAction,
+        observe: () =>
+          normalizeControllerSnapshot({
+            ...snapshot,
+            waves: [
+              {
+                headSha: "a".repeat(40),
+                identity: "exact",
+                inspection: "running",
+                integrationId: "wave-000001",
+                ownershipId: "wave-owner",
+                runId: "wave-run",
+              },
+            ],
+          }),
+        stateRoot: integrationRoot,
+      }),
+    ).toEqual({ kind: "unresolved" });
+    rmSync(promotionRoot, { force: true, recursive: true });
+    rmSync(integrationRoot, { force: true, recursive: true });
+  });
+
+  it("reconciles exact wave authority and rejects head, hash, and ownership drift", () => {
+    const root = mkdtempSync(join(tmpdir(), "brain-controller-exact-wave-"));
+    const fixture = exactWaveFixture(root);
+    const policy = {
+      maximumBatchSize: 10,
+      minimumBatchSize: 1,
+      totalActiveCapacity: 12,
+    } as const;
+    const running = normalizeControllerSnapshot({
+      ...snapshot,
+      waves: [
+        {
+          headSha: fixture.baseSha,
+          identity: "exact",
+          inspection: "running",
+          integrationId: fixture.integrationId,
+          ownershipId: fixture.record.reservationToken,
+          runId: fixture.record.runId,
+        },
+      ],
+    });
+    const green = normalizeControllerSnapshot({
+      ...snapshot,
+      tasks: [
+        {
+          admission: "admissible",
+          headSha: fixture.taskHeadSha,
+          status: "lane_green",
+          taskId: fixture.task.taskId,
+        },
+      ],
+    });
+    const integrateAction = planControllerTick(green, policy, manifest)[0];
+    if (!integrateAction) throw new Error("exact integrate action missing");
+    expect(
+      reconcileControllerAction({
+        action: integrateAction,
+        observe: () => running,
+        stateRoot: root,
+      }),
+    ).toEqual({ kind: "succeeded" });
+    expect(
+      reconcileControllerAction({
+        action: { ...integrateAction, actionId: "0".repeat(64) },
+        observe: () => running,
+        stateRoot: root,
+      }),
+    ).toEqual({ kind: "unresolved" });
+    expect(
+      reconcileControllerAction({
+        action: {
+          ...integrateAction,
+          sourceHeadShas: ["e".repeat(40)],
+        },
+        observe: () => running,
+        stateRoot: root,
+      }),
+    ).toEqual({ kind: "unresolved" });
+    expect(
+      reconcileControllerAction({
+        action: integrateAction,
+        observe: () =>
+          normalizeControllerSnapshot({
+            ...snapshot,
+            waves: [
+              {
+                ...running.waves[0],
+                identity: "exact",
+                inspection: "running",
+                integrationId: fixture.integrationId,
+                ownershipId: "wrong-owner",
+              },
+            ],
+          }),
+        stateRoot: root,
+      }),
+    ).toEqual({ kind: "unresolved" });
+
+    const evidence = join(
+      root,
+      "evidence",
+      "integration",
+      fixture.integrationId,
+    );
+    writeJson(join(evidence, "integration-result.json"), {
+      baseSha: fixture.baseSha,
+      headSha: fixture.waveHeadSha,
+      integrationId: fixture.integrationId,
+      integrationWorkdir: fixture.record.workdir,
+      schemaVersion: "maestro-brain-integration-result/v3",
+      selectionFileSha256: fixture.record.selectionFileSha256,
+      selectionPayloadSha256: fixture.record.selectionPayloadSha256,
+      status: "passed",
+    });
+    const exactPromotion = {
+      at: "2026-07-22T00:00:00.000Z",
+      baseSha: fixture.baseSha,
+      headSha: fixture.waveHeadSha,
+      integrationId: fixture.integrationId,
+      schemaVersion: "maestro-brain-integration-wave-promotion/v3",
+      selectionFileSha256: fixture.record.selectionFileSha256,
+      selectionPayloadSha256: fixture.record.selectionPayloadSha256,
+      status: "promoted",
+    };
+    writeJson(join(evidence, "promotion.json"), exactPromotion);
+    const promotable = normalizeControllerSnapshot({
+      ...snapshot,
+      waves: [
+        {
+          headSha: fixture.waveHeadSha,
+          identity: "exact",
+          inspection: "succeeded",
+          integrationId: fixture.integrationId,
+          ownershipId: fixture.record.reservationToken,
+          runId: fixture.record.runId,
+        },
+      ],
+    });
+    const promoteAction = planControllerTick(promotable, policy, manifest)[0];
+    if (!promoteAction) throw new Error("exact promote action missing");
+    const promoted = normalizeControllerSnapshot({
+      ...snapshot,
+      controlHeadSha: fixture.waveHeadSha,
+    });
+    const reconcilePromotion = () =>
+      reconcileControllerAction({
+        action: promoteAction,
+        isAncestor: () => true,
+        observe: () => promoted,
+        stateRoot: root,
+      });
+    expect(reconcilePromotion()).toEqual({ kind: "succeeded" });
+    expect(
+      reconcileControllerAction({
+        action: promoteAction,
+        isAncestor: () => false,
+        observe: () => promoted,
+        stateRoot: root,
+      }),
+    ).toEqual({ kind: "unresolved" });
+    writeJson(join(evidence, "promotion.json"), {
+      ...exactPromotion,
+      headSha: "e".repeat(40),
+    });
+    expect(reconcilePromotion()).toEqual({ kind: "unresolved" });
+    writeJson(join(evidence, "promotion.json"), exactPromotion);
+    writeJson(fixture.recordPath, {
+      ...fixture.record,
+      selectionFileSha256: "f".repeat(64),
+    });
+    expect(reconcilePromotion()).toEqual({ kind: "unresolved" });
+    rmSync(root, { force: true, recursive: true });
+  });
+
+  it("stops the real watch loop before a second mutation after SIGINT", async () => {
+    let state = 0;
+    let stopRequested = false;
+    let executions = 0;
+    const dispose = installControllerSignalHandlers(() => {
+      stopRequested = true;
+    });
+    const runtime: ControllerCliRuntime & {
+      readonly stopRequested: () => boolean;
+    } = {
+      acquireLock: () => () => undefined,
+      appendTelemetry: () => undefined,
+      execute: ({ action, tickId }) => {
+        executions += 1;
+        state += 1;
+        process.emit("SIGINT");
+        return {
+          actionId: action.actionId,
+          kind: action.kind,
+          schemaVersion: "maestro-brain-controller-action-receipt/v1",
+          status: "succeeded",
+          tickId,
+        };
+      },
+      manifest: () => manifest,
+      now: () => "2026-07-18T00:00:00.000Z",
+      observe: () =>
+        state === 0
+          ? normalizeControllerSnapshot({
+              ...snapshot,
+              tasks: [
+                {
+                  runId: "terminal-run",
+                  status: "terminal",
+                  taskId: "S01-T02",
+                },
+              ],
+            })
+          : normalizeControllerSnapshot({
+              ...snapshot,
+              tasks: [
+                { status: "accepted", taskId: "S00-T01" },
+                { status: "pending", taskId: "S00-T02" },
+              ],
+            }),
+      sleep: async () => false,
+      stopRequested: () => stopRequested,
+    };
+    try {
+      await runControllerCli(
+        parseControllerCliArgs([
+          "--watch",
+          "--interval-ms",
+          "1000",
+          "--state",
+          stateRoot,
+        ]),
+        runtime,
+      );
+      expect(executions).toBe(1);
+    } finally {
+      dispose();
+    }
   });
 
   it("strictly parses once/watch, policy, interval, and recovery flags", () => {

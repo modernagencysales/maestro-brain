@@ -22,7 +22,9 @@ import {
   type ControllerPolicy,
 } from "./controller.js";
 import type { ControllerSnapshot } from "./factory-state.js";
+import { readIntegrationWaveSelection } from "./integration-wave.js";
 import { buildManifest, type BrainTaskManifest } from "./manifest.js";
+import { gitIsAncestor } from "./process.js";
 import {
   inspectFabroRun,
   observeControllerSnapshot,
@@ -230,6 +232,7 @@ export interface ControllerCliRuntime {
   readonly now: () => string;
   readonly observe: () => ControllerSnapshot;
   readonly sleep: (intervalMs: number) => Promise<boolean>;
+  readonly stopRequested?: () => boolean;
 }
 
 const sha256 = (value: string): string =>
@@ -266,11 +269,12 @@ export const runControllerCli = async (
   });
   try {
     let keepWatching = true;
-    while (keepWatching) {
+    const stopped = (): boolean => runtime.stopRequested?.() === true;
+    while (keepWatching && !stopped()) {
       const started = Date.now();
       let reachedWait = false;
       const attemptedActionIds = new Set<string>();
-      while (!reachedWait) {
+      while (!reachedWait && !stopped()) {
         const observed = runtime.observe();
         const manifest = runtime.manifest();
         const action = planControllerTick(
@@ -287,6 +291,7 @@ export const runControllerCli = async (
           break;
         }
         attemptedActionIds.add(action.actionId);
+        if (stopped()) break;
         const tickId = tickIdForController(observed, options.policy);
         const receipt = await runtime.execute({
           action,
@@ -308,11 +313,17 @@ export const runControllerCli = async (
           }),
         );
         output.push(canonicalControllerJson(receipt));
+        if (stopped()) {
+          reachedWait = true;
+          keepWatching = false;
+          break;
+        }
         if (receipt.status !== "succeeded" && receipt.status !== "superseded") {
           reachedWait = true;
         }
       }
       if (options.mode === "once") break;
+      if (stopped()) break;
       keepWatching = await runtime.sleep(options.intervalMs as number);
     }
   } finally {
@@ -328,12 +339,206 @@ const jsonFile = (path: string): JsonRecord | undefined =>
     ? (JSON.parse(readFileSync(path, "utf8")) as JsonRecord)
     : undefined;
 
+interface ControllerWaveAuthority {
+  readonly baseSha: string;
+  readonly integrationId: string;
+  readonly legacy: boolean;
+  readonly record: JsonRecord;
+  readonly reservationToken: string;
+  readonly runId: string;
+  readonly selection: ReturnType<typeof readIntegrationWaveSelection>;
+}
+
+const exactSha = (value: unknown, length: 40 | 64): value is string =>
+  typeof value === "string" && new RegExp(`^[0-9a-f]{${length}}$`).test(value);
+
+const waveAuthority = (
+  stateRoot: string,
+  integrationId: string,
+): ControllerWaveAuthority | undefined => {
+  try {
+    const recordPath = join(
+      stateRoot,
+      "runs",
+      `integration-${integrationId}.json`,
+    );
+    const record = jsonFile(recordPath);
+    if (!record) return undefined;
+    const selectionPath = resolve(String(record.selectionPath));
+    const expectedSelectionPath = resolve(
+      stateRoot,
+      "runs",
+      `integration-${integrationId}-selection.json`,
+    );
+    if (selectionPath !== expectedSelectionPath || !existsSync(selectionPath)) {
+      return undefined;
+    }
+    const selection = readIntegrationWaveSelection(
+      readFileSync(selectionPath, "utf8"),
+    );
+    const legacy =
+      record.schemaVersion === "maestro-brain-integration-wave-run/v2";
+    const baseSha = record.baseSha;
+    const runId = record.runId;
+    const reservationToken = record.reservationToken;
+    if (
+      (!legacy &&
+        record.schemaVersion !== "maestro-brain-integration-wave-run/v3") ||
+      selection.legacy !== legacy ||
+      record.integrationId !== integrationId ||
+      record.status !== "launched" ||
+      !new Set(["integrate", "recover"]).has(String(record.activeMode)) ||
+      !Number.isInteger(Number(record.attempt)) ||
+      Number(record.attempt) < 1 ||
+      record.branch !== `fabro/brain-${integrationId}` ||
+      !exactSha(baseSha, 40) ||
+      selection.selection.baseSha !== baseSha ||
+      selection.selection.integrationId !== integrationId ||
+      typeof runId !== "string" ||
+      runId.length === 0 ||
+      typeof reservationToken !== "string" ||
+      reservationToken.length === 0 ||
+      canonicalControllerJson(record.selection) !==
+        canonicalControllerJson(selection.selection)
+    ) {
+      return undefined;
+    }
+    if (
+      legacy
+        ? record.selectionSha256 !== selection.selectionPayloadSha256
+        : Object.hasOwn(record, "selectionSha256") ||
+          Object.hasOwn(record, "selection_sha256") ||
+          record.selectionPayloadSha256 !== selection.selectionPayloadSha256 ||
+          record.selectionFileSha256 !== selection.selectionFileSha256
+    ) {
+      return undefined;
+    }
+    return {
+      baseSha,
+      integrationId,
+      legacy,
+      record,
+      reservationToken,
+      runId,
+      selection,
+    };
+  } catch {
+    return undefined;
+  }
+};
+
+const exactStringArray = (
+  left: readonly string[],
+  right: readonly string[],
+): boolean => canonicalControllerJson(left) === canonicalControllerJson(right);
+
+const actionIdentityMatches = (action: ControllerAction): boolean => {
+  const identity = {
+    schemaVersion: action.schemaVersion,
+    kind: action.kind,
+    controlHeadSha: action.controlHeadSha,
+    manifestSha256: action.manifestSha256,
+    targetIds: action.targetIds,
+    sourceRunIds: action.sourceRunIds,
+    sourceHeadShas: action.sourceHeadShas,
+    findingSha256: action.findingSha256,
+    policySha256: action.policySha256,
+  };
+  return action.actionId === sha256(canonicalControllerJson(identity));
+};
+
+const promotionReconciles = (input: {
+  readonly action: ControllerAction;
+  readonly authority: ControllerWaveAuthority;
+  readonly isAncestor: (ancestor: string, descendant: string) => boolean;
+  readonly observed: ControllerSnapshot;
+  readonly stateRoot: string;
+}): boolean => {
+  const { action, authority } = input;
+  const directory = join(
+    input.stateRoot,
+    "evidence",
+    "integration",
+    authority.integrationId,
+  );
+  const result = jsonFile(join(directory, "integration-result.json"));
+  const promotion = jsonFile(join(directory, "promotion.json"));
+  const headSha = result?.headSha;
+  if (!result || !promotion || !exactSha(headSha, 40)) return false;
+  const expectedResultSchema = authority.legacy
+    ? "maestro-brain-integration-result/v2"
+    : "maestro-brain-integration-result/v3";
+  const expectedPromotionSchema = authority.legacy
+    ? "maestro-brain-integration-wave-promotion/v2"
+    : "maestro-brain-integration-wave-promotion/v3";
+  const selectionHashesMatch = authority.legacy
+    ? result.selectionSha256 === authority.selection.selectionPayloadSha256 &&
+      promotion.selectionSha256 === authority.selection.selectionPayloadSha256
+    : result.selectionPayloadSha256 ===
+        authority.selection.selectionPayloadSha256 &&
+      result.selectionFileSha256 === authority.selection.selectionFileSha256 &&
+      promotion.selectionPayloadSha256 ===
+        authority.selection.selectionPayloadSha256 &&
+      promotion.selectionFileSha256 ===
+        authority.selection.selectionFileSha256 &&
+      !Object.hasOwn(promotion, "selectionSha256") &&
+      !Object.hasOwn(promotion, "selection_sha256");
+  return (
+    authority.baseSha === action.controlHeadSha &&
+    result.schemaVersion === expectedResultSchema &&
+    result.status === "passed" &&
+    result.integrationId === authority.integrationId &&
+    result.baseSha === authority.baseSha &&
+    promotion.schemaVersion === expectedPromotionSchema &&
+    promotion.status === "promoted" &&
+    promotion.integrationId === authority.integrationId &&
+    promotion.baseSha === authority.baseSha &&
+    promotion.headSha === headSha &&
+    selectionHashesMatch &&
+    exactStringArray(action.sourceRunIds, [authority.runId]) &&
+    exactStringArray(action.sourceHeadShas, [headSha]) &&
+    input.isAncestor(authority.baseSha, headSha) &&
+    input.isAncestor(headSha, input.observed.controlHeadSha) &&
+    !input.observed.waves.some(
+      ({ integrationId }) => integrationId === authority.integrationId,
+    )
+  );
+};
+
+const integrationReconciles = (input: {
+  readonly action: ControllerAction;
+  readonly authority: ControllerWaveAuthority;
+  readonly observed: ControllerSnapshot;
+}): boolean => {
+  const { action, authority } = input;
+  const wave = input.observed.waves.find(
+    ({ integrationId }) => integrationId === authority.integrationId,
+  );
+  const selected = [...authority.selection.selection.selectedTasks].sort(
+    (left, right) => left.taskId.localeCompare(right.taskId),
+  );
+  const selectedIds = selected.map(({ taskId }) => taskId);
+  const selectedHeads = selected.map(({ headSha }) => headSha);
+  return (
+    authority.record.activeMode === "integrate" &&
+    authority.baseSha === action.controlHeadSha &&
+    wave?.identity === "exact" &&
+    wave.stage !== "unknown" &&
+    wave.runId === authority.runId &&
+    wave.ownershipId === authority.reservationToken &&
+    exactStringArray(selectedIds, [...action.targetIds].sort()) &&
+    exactStringArray(selectedHeads, action.sourceHeadShas)
+  );
+};
+
 export const reconcileControllerAction = (input: {
   readonly action: ControllerAction;
+  readonly isAncestor?: (ancestor: string, descendant: string) => boolean;
   readonly observe: () => ControllerSnapshot;
   readonly stateRoot: string;
 }): { readonly kind: "not-started" | "succeeded" | "unresolved" } => {
   const { action } = input;
+  if (!actionIdentityMatches(action)) return { kind: "unresolved" };
   if (action.kind === "wait") return { kind: "succeeded" };
   if (action.kind === "archive_terminal") {
     const taskId = action.targetIds[0];
@@ -386,29 +591,12 @@ export const reconcileControllerAction = (input: {
       return { kind: "unresolved" };
     }
     const integrationId = observed.waves[0]?.integrationId;
-    const selection = integrationId
-      ? jsonFile(
-          join(
-            input.stateRoot,
-            "runs",
-            `integration-${integrationId}-selection.json`,
-          ),
-        )
+    const authority = integrationId
+      ? waveAuthority(input.stateRoot, integrationId)
       : undefined;
-    const selected = Array.isArray(selection?.selectedTasks)
-      ? selection.selectedTasks
-          .map((value) =>
-            typeof value === "object" && value !== null
-              ? (value as JsonRecord).taskId
-              : undefined,
-          )
-          .filter((value): value is string => typeof value === "string")
-          .sort()
-      : [];
     return {
       kind:
-        canonicalControllerJson(selected) ===
-        canonicalControllerJson([...action.targetIds].sort())
+        authority && integrationReconciles({ action, authority, observed })
           ? "succeeded"
           : "unresolved",
     };
@@ -429,18 +617,19 @@ export const reconcileControllerAction = (input: {
             : "unresolved",
     };
   }
-  const promotion = jsonFile(
-    join(
-      input.stateRoot,
-      "evidence",
-      "integration",
-      integrationId,
-      "promotion.json",
-    ),
-  );
+  const authority = waveAuthority(input.stateRoot, integrationId);
   if (
-    promotion?.integrationId === integrationId &&
-    promotion.status === "promoted"
+    authority &&
+    promotionReconciles({
+      action,
+      authority,
+      isAncestor:
+        input.isAncestor ??
+        ((ancestor, descendant) =>
+          gitIsAncestor(ancestor, descendant, process.cwd())),
+      observed,
+      stateRoot: input.stateRoot,
+    })
   ) {
     return { kind: "succeeded" };
   }
@@ -519,6 +708,7 @@ const main = async (): Promise<void> => {
       interruptSleep = undefined;
       return !stopped;
     },
+    stopRequested: () => stopped,
   };
   try {
     for (const line of await runControllerCli(options, runtime))

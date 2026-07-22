@@ -86,6 +86,7 @@ const readResult = (taskId: string): LaneCompletionResult | undefined => {
 };
 const resultStatus = (taskId: string): string | undefined =>
   readResult(taskId)?.status;
+const owningResultStatuses = new Set(["lane_green", "false_green"]);
 const recordPath = (taskId: string): string =>
   resolve(runDirectory, `${taskId}.json`);
 const readRecord = (taskId: string): RunRecord | undefined => {
@@ -166,7 +167,7 @@ const ownedTasks = manifest.tasks.filter(
   (task) =>
     !completedTaskIds.has(task.taskId) &&
     (codingActiveTaskIds.has(task.taskId) ||
-      resultStatus(task.taskId) === "lane_green"),
+      owningResultStatuses.has(resultStatus(task.taskId) ?? "")),
 );
 const availableSlots = availableDispatchSlots(
   maximum,

@@ -259,6 +259,46 @@ describe("controller pure planner", () => {
     ]);
   });
 
+  it("selects the maximum compatible green batch instead of a greedy prefix", () => {
+    const product = manifest.tasks
+      .filter(({ kind }) => kind === "product")
+      .slice(0, 6);
+    expect(product).toHaveLength(6);
+    const locks = [
+      ["shared-left.ts", "shared-right.ts"],
+      ["shared-left.ts"],
+      ["shared-right.ts"],
+      ["independent-d.ts"],
+      ["independent-e.ts"],
+      ["independent-f.ts"],
+    ];
+    const selectedManifest = {
+      ...manifest,
+      tasks: product.map((item, index) => ({
+        ...item,
+        fileLocks: locks[index] ?? [],
+      })),
+    };
+    const actions = planControllerTick(
+      snapshot({
+        tasks: product.map(({ taskId }, index) =>
+          task(taskId, "lane_green", {
+            admission: "admissible",
+            headSha: String(index + 1).repeat(40),
+          }),
+        ),
+      }),
+      { ...policy, maximumBatchSize: 10, minimumBatchSize: 5 },
+      selectedManifest,
+    );
+    expect(actions).toMatchObject([
+      {
+        kind: "integrate_batch",
+        targetIds: product.slice(1).map(({ taskId }) => taskId),
+      },
+    ]);
+  });
+
   it("delegates remaining capacity to the manifest scheduler", () => {
     const actions = planControllerTick(snapshot({ tasks: frontier() }), {
       ...policy,
