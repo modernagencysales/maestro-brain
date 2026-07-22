@@ -47,11 +47,18 @@ if (evidenceItems.length === 0) {
   throw new Error("at least one --evidence item is required");
 }
 const ownerReworkResultSha256 = valueAfter("--owner-rework-result-sha256");
+const findingAdoptionSha256 = valueAfter("--finding-adoption-sha256");
 if (
   ownerReworkResultSha256 !== undefined &&
   !/^[0-9a-f]{64}$/.test(ownerReworkResultSha256)
 ) {
   throw new Error("--owner-rework-result-sha256 must be an exact SHA-256");
+}
+if (
+  findingAdoptionSha256 !== undefined &&
+  !/^[0-9a-f]{64}$/.test(findingAdoptionSha256)
+) {
+  throw new Error("--finding-adoption-sha256 must be an exact SHA-256");
 }
 
 const controlHead = gitSha(
@@ -87,6 +94,7 @@ try {
   const promotionPath = resolve(evidence, "promotion.json");
   const supersessionPath = resolve(evidence, "supersession.json");
   const integrationResultPath = resolve(evidence, "integration-result.json");
+  const findingAdoptionPath = resolve(evidence, "finding-adoption.json");
   if (!existsSync(runRecordPath) || !existsSync(selectionPath)) {
     throw new Error(
       `${integrationId}: durable wave record or selection is missing`,
@@ -104,6 +112,16 @@ try {
   const ownerReworkResultContent = ownerReworkResultSha256
     ? readFileSync(integrationResultPath, "utf8")
     : undefined;
+  const findingAdoptionContent = findingAdoptionSha256
+    ? readFileSync(findingAdoptionPath, "utf8")
+    : undefined;
+  if (
+    findingAdoptionContent &&
+    (JSON.parse(findingAdoptionContent) as { adoptionSha256?: unknown })
+      .adoptionSha256 !== findingAdoptionSha256
+  ) {
+    throw new Error(`${integrationId}: finding adoption hash mismatch`);
+  }
   if (
     ownerReworkResultContent &&
     createHash("sha256").update(ownerReworkResultContent).digest("hex") !==
@@ -139,6 +157,7 @@ try {
             evidence: evidenceItems,
             expectedIntegrationId: integrationId,
             expectedOwnerReworkHeadSha,
+            ...(findingAdoptionContent ? { findingAdoptionContent } : {}),
             isAncestor: (ancestor, descendant) =>
               gitIsAncestor(ancestor, descendant, root),
             reason,
@@ -188,6 +207,7 @@ try {
       evidence: evidenceItems,
       expectedIntegrationId: integrationId,
       ...(expectedOwnerReworkHeadSha ? { expectedOwnerReworkHeadSha } : {}),
+      ...(findingAdoptionContent ? { findingAdoptionContent } : {}),
       ...(ownerReworkResultContent ? { ownerReworkResultContent } : {}),
       reason,
       runInspections,

@@ -21,6 +21,7 @@ import {
 } from "./failed-integration-rework-validation.js";
 import { readIntegrationWaveSelection } from "./integration-wave.js";
 import { classifyIntegrationFindings } from "./integration-finding.js";
+import { validateIntegrationFindingAdoption } from "./integration-finding-adoption.js";
 
 interface FailedIntegrationReworkInput {
   readonly broadGateContent?: string;
@@ -28,6 +29,8 @@ interface FailedIntegrationReworkInput {
   readonly controlHeadSha: string;
   readonly dependenciesIntegrated: boolean;
   readonly expectedSourceBranch: string;
+  readonly findingAdoptionContent?: string;
+  readonly findingAdoptionWorktreeHeadSha?: string;
   readonly gateContent: string;
   readonly integrationResultContent: string;
   readonly isAncestor: (ancestor: string, descendant: string) => boolean;
@@ -115,11 +118,28 @@ export const planFailedIntegrationRework = (
     "integration result",
   );
   const reviewOnly = input.broadGateContent === undefined;
-  const allRemainingFindings = Array.isArray(
-    integrationResult.remainingFindings,
-  )
+  let allRemainingFindings = Array.isArray(integrationResult.remainingFindings)
     ? integrationResult.remainingFindings
     : [];
+  if (input.findingAdoptionContent !== undefined) {
+    if (!input.findingAdoptionWorktreeHeadSha) {
+      throw new Error("finding adoption worktree head is missing");
+    }
+    const adoption = validateIntegrationFindingAdoption({
+      adoptionContent: input.findingAdoptionContent,
+      resultContent: input.integrationResultContent,
+      selectionContent: input.selectionContent,
+      worktreeHeadSha: input.findingAdoptionWorktreeHeadSha,
+    });
+    allRemainingFindings = allRemainingFindings.map((finding) =>
+      typeof finding === "object" &&
+      finding !== null &&
+      !Array.isArray(finding) &&
+      (finding as Record<string, unknown>).id === adoption.legacyFinding.id
+        ? adoption.finding
+        : finding,
+    );
+  }
   const structuredOwnership =
     allRemainingFindings.length > 0 &&
     allRemainingFindings.every(
@@ -205,6 +225,9 @@ export const planFailedIntegrationRework = (
     ...(input.typeCoverageRegressionContent === undefined
       ? []
       : [input.typeCoverageRegressionContent]),
+    ...(input.findingAdoptionContent === undefined
+      ? []
+      : [input.findingAdoptionContent]),
   ];
   const findings = validateIntegrationReproofFindings({
     candidateHeadSha,
@@ -308,6 +331,9 @@ export const planFailedIntegrationRework = (
       ? {
           typeCoverageRegressionContent: input.typeCoverageRegressionContent,
         }
+      : {}),
+    ...(input.findingAdoptionContent
+      ? { findingAdoptionContent: input.findingAdoptionContent }
       : {}),
   };
   const archiveContent = `${JSON.stringify(archive, null, 2)}\n`;

@@ -319,6 +319,14 @@ export const failedWaveSelectsTask = (
   taskId: string,
 ): boolean => selectedTaskIds.includes(taskId);
 
+export const failedIntegrationReproofLineageMatches = (
+  laneReproof: Record<string, unknown>,
+  selected: Record<string, unknown>,
+): boolean =>
+  typeof laneReproof.requestSha256 === "string" &&
+  /^[0-9a-f]{64}$/.test(laneReproof.requestSha256) &&
+  selected.reproofRequestSha256 === laneReproof.requestSha256;
+
 export const supersessionBindsFailedAttempt = (
   runAttempts: readonly { readonly runId: string; readonly status: string }[],
   evidence: readonly string[],

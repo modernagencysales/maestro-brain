@@ -18,7 +18,11 @@ import {
 } from "./dispatch-ownership.js";
 import { completedTaskIdsForControlHead } from "./factory-state.js";
 import { planFailedIntegrationRework } from "./failed-integration-rework.js";
-import { integrationResultBindsBroadGate } from "./failed-integration-rework-validation.js";
+import {
+  failedIntegrationReproofLineageMatches,
+  integrationResultBindsBroadGate,
+} from "./failed-integration-rework-validation.js";
+import { validateIntegrationFindingAdoption } from "./integration-finding-adoption.js";
 import { buildManifest } from "./manifest.js";
 import {
   gitBranchExists,
@@ -39,6 +43,7 @@ const taskId = valueAfter("--task");
 const reason = valueAfter("--reason")?.trim();
 const failedIntegrationId = valueAfter("--failed-integration");
 const ownerFindingsSha256 = valueAfter("--owner-findings-sha256");
+const findingAdoptionSha256 = valueAfter("--finding-adoption-sha256");
 const launch = process.argv.includes("--launch");
 if (!taskId || !reason) {
   throw new Error(
@@ -50,6 +55,12 @@ if (
   !/^[0-9a-f]{64}$/.test(ownerFindingsSha256)
 ) {
   throw new Error(`${taskId}: owner findings hash is invalid`);
+}
+if (
+  findingAdoptionSha256 !== undefined &&
+  !/^[0-9a-f]{64}$/.test(findingAdoptionSha256)
+) {
+  throw new Error(`${taskId}: finding adoption hash is invalid`);
 }
 
 const sha256 = (value: string): string =>
@@ -136,9 +147,6 @@ if (failedIntegrationId && !/^wave-\d{6}$/.test(failedIntegrationId)) {
 if (failedIntegrationId && lane.status !== "lane_green") {
   throw new Error(`${taskId}: failed integration rework requires lane_green`);
 }
-if (failedIntegrationId && laneReproof) {
-  throw new Error(`${taskId}: failed integration rework lineage is ambiguous`);
-}
 const failedSelectionPath = failedIntegrationId
   ? resolve(state, "runs", `integration-${failedIntegrationId}-selection.json`)
   : undefined;
@@ -151,6 +159,30 @@ const failedSelection = failedSelectionPath
       unknown
     >)
   : undefined;
+if (failedIntegrationId && laneReproof) {
+  const selected = Array.isArray(failedSelection?.selectedTasks)
+    ? failedSelection.selectedTasks.find(
+        (candidate) =>
+          typeof candidate === "object" &&
+          candidate !== null &&
+          !Array.isArray(candidate) &&
+          (candidate as Record<string, unknown>).taskId === taskId,
+      )
+    : undefined;
+  if (
+    typeof selected !== "object" ||
+    selected === null ||
+    Array.isArray(selected) ||
+    !failedIntegrationReproofLineageMatches(
+      laneReproof,
+      selected as Record<string, unknown>,
+    )
+  ) {
+    throw new Error(
+      `${taskId}: failed integration rework lineage is ambiguous`,
+    );
+  }
+}
 const priorIntegrationId = String(
   failedIntegrationId ??
     (refreshedLane ? laneReproof?.priorIntegrationId : lane.integrationId) ??
@@ -247,24 +279,76 @@ if (failedIntegrationId) {
   const failedIntegrationResult = JSON.parse(
     readFileSync(integrationResultPath, "utf8"),
   ) as Record<string, unknown>;
+  const findingAdoptionPath = resolve(
+    integrationDirectory,
+    "finding-adoption.json",
+  );
+  const findingAdoptionContent = findingAdoptionSha256
+    ? readFileSync(findingAdoptionPath, "utf8")
+    : undefined;
+  if (
+    findingAdoptionContent &&
+    (JSON.parse(findingAdoptionContent) as { adoptionSha256?: unknown })
+      .adoptionSha256 !== findingAdoptionSha256
+  ) {
+    throw new Error(`${taskId}: finding adoption hash mismatch`);
+  }
+  const failedRunRecordPath = resolve(
+    state,
+    "runs",
+    `integration-${failedIntegrationId}.json`,
+  );
+  const failedRunRecord = JSON.parse(
+    readFileSync(failedRunRecordPath, "utf8"),
+  ) as Record<string, unknown>;
+  const findingAdoptionWorktreeHeadSha = findingAdoptionContent
+    ? runRtk(
+        [
+          "proxy",
+          "git",
+          "-C",
+          String(failedRunRecord.workdir ?? ""),
+          "rev-parse",
+          "HEAD",
+        ],
+        { quiet: true },
+      )
+    : undefined;
   if (ownerFindingsSha256) {
-    const ownerFindings = Array.isArray(
+    let effectiveFindings = Array.isArray(
       failedIntegrationResult.remainingFindings,
     )
       ? failedIntegrationResult.remainingFindings
-          .filter(
-            (finding) =>
-              typeof finding === "object" &&
-              finding !== null &&
-              !Array.isArray(finding) &&
-              (finding as Record<string, unknown>).taskId === taskId,
-          )
-          .sort((left, right) =>
-            String((left as Record<string, unknown>).id).localeCompare(
-              String((right as Record<string, unknown>).id),
-            ),
-          )
       : [];
+    if (findingAdoptionContent && findingAdoptionWorktreeHeadSha) {
+      const adoption = validateIntegrationFindingAdoption({
+        adoptionContent: findingAdoptionContent,
+        resultContent: readFileSync(integrationResultPath, "utf8"),
+        selectionContent: readFileSync(failedSelectionPath, "utf8"),
+        worktreeHeadSha: findingAdoptionWorktreeHeadSha,
+      });
+      effectiveFindings = effectiveFindings.map((finding) =>
+        typeof finding === "object" &&
+        finding !== null &&
+        !Array.isArray(finding) &&
+        (finding as Record<string, unknown>).id === adoption.legacyFinding.id
+          ? adoption.finding
+          : finding,
+      );
+    }
+    const ownerFindings = effectiveFindings
+      .filter(
+        (finding) =>
+          typeof finding === "object" &&
+          finding !== null &&
+          !Array.isArray(finding) &&
+          (finding as Record<string, unknown>).taskId === taskId,
+      )
+      .sort((left, right) =>
+        String((left as Record<string, unknown>).id).localeCompare(
+          String((right as Record<string, unknown>).id),
+        ),
+      );
     if (
       ownerFindings.length === 0 ||
       sha256(JSON.stringify(ownerFindings)) !== ownerFindingsSha256
@@ -302,11 +386,6 @@ if (failedIntegrationId) {
   const proofPath = resolve(laneDirectory, "ci-proof-packet.json");
   const finalGatePath = resolve(laneDirectory, "lane-gate-report.json");
   const sourceRecordPath = resolve(state, "runs", `${taskId}.json`);
-  const failedRunRecordPath = resolve(
-    state,
-    "runs",
-    `integration-${failedIntegrationId}.json`,
-  );
   for (const [path, label] of [
     ...(broadGateExists
       ? ([[broadGatePath, "failed broad gate receipt"]] as const)
@@ -341,6 +420,12 @@ if (failedIntegrationId) {
     expectedSourceBranch: sourceBranch,
     gateContent: readFileSync(finalGatePath, "utf8"),
     integrationResultContent: readFileSync(integrationResultPath, "utf8"),
+    ...(findingAdoptionContent && findingAdoptionWorktreeHeadSha
+      ? {
+          findingAdoptionContent,
+          findingAdoptionWorktreeHeadSha,
+        }
+      : {}),
     isAncestor: (ancestor: string, descendant: string) =>
       gitIsAncestor(ancestor, descendant, root),
     laneContent,

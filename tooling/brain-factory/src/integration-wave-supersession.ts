@@ -324,6 +324,7 @@ export const buildIntegrationWaveSupersessionReceipt = (input: {
   readonly evidence: readonly string[];
   readonly expectedIntegrationId: string;
   readonly expectedOwnerReworkHeadSha?: string;
+  readonly findingAdoptionContent?: string;
   readonly reason: string;
   readonly ownerReworkResultContent?: string;
   readonly runInspections: readonly unknown[];
@@ -340,6 +341,9 @@ export const buildIntegrationWaveSupersessionReceipt = (input: {
   }
   const ownerRework = input.ownerReworkResultContent
     ? planIntegrationOwnerReworkRoute({
+        ...(input.findingAdoptionContent
+          ? { adoptionContent: input.findingAdoptionContent }
+          : {}),
         ...(input.expectedOwnerReworkHeadSha
           ? { expectedHeadSha: input.expectedOwnerReworkHeadSha }
           : {}),
@@ -510,6 +514,7 @@ export const validateExistingOwnerReworkSupersessionReplay = (input: {
   readonly evidence: readonly string[];
   readonly expectedIntegrationId: string;
   readonly expectedOwnerReworkHeadSha: string;
+  readonly findingAdoptionContent?: string;
   readonly isAncestor: (ancestor: string, descendant: string) => boolean;
   readonly reason: string;
   readonly receipt: unknown;
@@ -527,6 +532,9 @@ export const validateExistingOwnerReworkSupersessionReplay = (input: {
     readonly generatedFiles?: unknown;
   };
   const route = planIntegrationOwnerReworkRoute({
+    ...(input.findingAdoptionContent
+      ? { adoptionContent: input.findingAdoptionContent }
+      : {}),
     expectedHeadSha: input.expectedOwnerReworkHeadSha,
     expectedIntegrationId: input.expectedIntegrationId,
     expectedResultSha256: sha256(input.resultContent),

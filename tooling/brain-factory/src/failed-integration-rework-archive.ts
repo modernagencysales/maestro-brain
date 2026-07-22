@@ -1,4 +1,5 @@
 import type { ContractReproofRequest } from "./contract-reproof.js";
+import { validateIntegrationFindingAdoption } from "./integration-finding-adoption.js";
 import {
   exactSha,
   parseRecord,
@@ -20,6 +21,7 @@ export interface FailedIntegrationReworkArchive {
   readonly broadGateContent?: string;
   readonly candidateHeadSha: string;
   readonly finalGateContent: string;
+  readonly findingAdoptionContent?: string;
   readonly integrationId: string;
   readonly integrationResultContent: string;
   readonly laneContent: string;
@@ -100,6 +102,48 @@ export const validateFailedIntegrationReworkArchive = (input: {
   });
   if (sha256(archive.laneContent) !== request.priorLaneResultSha256) {
     throw new Error(`${request.taskId}: archived lane drift`);
+  }
+  if (archive.findingAdoptionContent) {
+    const adoptionSha256 = sha256(archive.findingAdoptionContent);
+    let adoption;
+    try {
+      adoption = validateIntegrationFindingAdoption({
+        adoptionContent: archive.findingAdoptionContent,
+        resultContent: archive.integrationResultContent,
+        selectionContent: archive.selectionContent,
+        worktreeHeadSha: archive.candidateHeadSha,
+      });
+    } catch (error) {
+      throw new Error(
+        `${request.taskId}: finding adoption archive is invalid: ${String(error)}`,
+      );
+    }
+    const requestFinding = request.findings?.[0];
+    const semanticKeys = [
+      "affectedPaths",
+      "candidateHeadSha",
+      "changeExpectation",
+      "details",
+      "evidenceOnlyRationale",
+      "expectedBehavior",
+      "id",
+      "requiredRegressionProof",
+      "severity",
+      "summary",
+      "taskId",
+    ] as const;
+    if (
+      request.findings?.length !== 1 ||
+      !requestFinding ||
+      semanticKeys.some(
+        (key) =>
+          JSON.stringify(requestFinding[key]) !==
+          JSON.stringify(adoption.finding[key]),
+      ) ||
+      !requestFinding.priorEvidenceSha256.includes(adoptionSha256)
+    ) {
+      throw new Error(`${request.taskId}: finding adoption archive is unbound`);
+    }
   }
   const result = parseRecord(
     archive.integrationResultContent,

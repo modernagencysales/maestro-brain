@@ -10,6 +10,7 @@ import {
   type ControllerTaskObservation,
   type ControllerWaveObservation,
 } from "./factory-state.js";
+import { validateResolvedIntegrationFindingAdoption } from "./integration-finding-adoption.js";
 import { readIntegrationWaveSelection } from "./integration-wave.js";
 import { validateIntegrationWaveSupersessionReceipt } from "./integration-wave-supersession.js";
 import { validateLaneAcceptance } from "./lane-acceptance.js";
@@ -306,6 +307,7 @@ export const observeControllerSnapshot = (
       const promotion = jsonFile(join(evidence, "promotion.json"));
       const supersession = jsonFile(join(evidence, "supersession.json"));
       const routing = jsonFile(join(evidence, "owner-rework-routing.json"));
+      const adoptionPath = join(evidence, "finding-adoption.json");
       try {
         if (
           record?.integrationId !== integrationId ||
@@ -346,14 +348,30 @@ export const observeControllerSnapshot = (
             }
             continue;
           }
-          validateIntegrationWaveSupersessionReceipt({
-            currentControlHead: controlHeadSha,
-            expectedIntegrationId: integrationId,
-            isAncestor,
-            receipt: supersession,
-            runRecordContent: recordContent,
+          const validatedSupersession =
+            validateIntegrationWaveSupersessionReceipt({
+              currentControlHead: controlHeadSha,
+              expectedIntegrationId: integrationId,
+              isAncestor,
+              receipt: supersession,
+              runRecordContent: recordContent,
+              selectionContent,
+              selectionPath,
+            });
+          const resolvedResultPath = join(evidence, "integration-result.json");
+          validateResolvedIntegrationFindingAdoption({
+            ...(existsSync(adoptionPath)
+              ? { adoptionContent: readFileSync(adoptionPath, "utf8") }
+              : {}),
+            evidence: validatedSupersession.evidence,
+            ...(existsSync(resolvedResultPath)
+              ? { resultContent: readFileSync(resolvedResultPath, "utf8") }
+              : {}),
             selectionContent,
-            selectionPath,
+            worktreeHeadSha: runRtk(
+              ["proxy", "git", "-C", integrationWorkdir, "rev-parse", "HEAD"],
+              { quiet: true },
+            ),
           });
           if (!routing || routing.status === "complete") continue;
         }
@@ -385,6 +403,9 @@ export const observeControllerSnapshot = (
               )
             : [];
           const route = planIntegrationOwnerReworkRoute({
+            ...(existsSync(adoptionPath)
+              ? { adoptionContent: readFileSync(adoptionPath, "utf8") }
+              : {}),
             expectedHeadSha: runRtk(
               ["proxy", "git", "-C", integrationWorkdir, "rev-parse", "HEAD"],
               { quiet: true },

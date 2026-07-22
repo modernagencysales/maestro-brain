@@ -1,3 +1,5 @@
+import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   existsSync,
   mkdirSync,
@@ -25,11 +27,14 @@ import {
 } from "../src/controller.js";
 import { observeControllerSnapshot } from "../src/controller-observation.js";
 import { normalizeControllerSnapshot } from "../src/factory-state.js";
+import { buildIntegrationFindingAdoption } from "../src/integration-finding-adoption.js";
 import {
   selectionFileSha256,
   selectionPayloadSha256,
 } from "../src/integration-wave.js";
+import { buildIntegrationWaveSupersessionReceipt } from "../src/integration-wave-supersession.js";
 import { buildManifest } from "../src/manifest.js";
+import { planIntegrationOwnerReworkRoute } from "../src/route-integration-rework.js";
 
 const manifest = buildManifest();
 const stateRoot = "/tmp/maestro-controller-state";
@@ -265,6 +270,189 @@ describe("controller CLI contract", () => {
     expect(JSON.stringify(unavailable)).not.toContain(
       "provider payload secret",
     );
+    rmSync(root, { force: true, recursive: true });
+  });
+
+  it("observes resolved owner rework as unknown after adoption deletion or drift", () => {
+    const root = mkdtempSync(join(tmpdir(), "brain-controller-adoption-"));
+    const value = exactWaveFixture(root);
+    const runId = "01KY0MHH810PNR2MDZ8MBF3AEB";
+    const record = { ...value.record, runId, runIds: [runId] };
+    writeJson(value.recordPath, record);
+    const workdir = record.workdir;
+    mkdirSync(workdir, { recursive: true });
+    execFileSync("rtk", ["proxy", "git", "init", "-q"], { cwd: workdir });
+    execFileSync(
+      "rtk",
+      ["proxy", "git", "config", "user.email", "test@example.test"],
+      { cwd: workdir },
+    );
+    execFileSync("rtk", ["proxy", "git", "config", "user.name", "Test"], {
+      cwd: workdir,
+    });
+    execFileSync(
+      "rtk",
+      ["proxy", "git", "config", "core.hooksPath", "/dev/null"],
+      { cwd: workdir },
+    );
+    writeFileSync(resolve(workdir, "seed"), "seed\n");
+    execFileSync("rtk", ["proxy", "git", "add", "seed"], { cwd: workdir });
+    execFileSync("rtk", ["proxy", "git", "commit", "-qm", "seed"], {
+      cwd: workdir,
+    });
+    const candidateHeadSha = execFileSync(
+      "rtk",
+      ["proxy", "git", "rev-parse", "HEAD"],
+      { cwd: workdir, encoding: "utf8" },
+    ).trim();
+    const affectedPath = value.task.fileLocks[0];
+    if (!affectedPath) throw new Error("owner lock fixture missing");
+    const legacyFinding = {
+      details: "Legacy result requires exact task ownership.",
+      id: `${value.integrationId}-${value.task.taskId}-legacy`,
+      severity: "blocker",
+      summary: "Legacy finding",
+      taskId: value.task.taskId,
+    };
+    const selectionContent = readFileSync(value.selectionPath, "utf8");
+    const resultContent = `${JSON.stringify(
+      {
+        baseSha: value.baseSha,
+        generatedFiles: [],
+        headSha: candidateHeadSha,
+        integrationId: value.integrationId,
+        remainingFindings: [legacyFinding],
+        reviewVerdict: "rework",
+        schemaVersion: "maestro-brain-integration-result/v3",
+        selectionFileSha256: selectionFileSha256(selectionContent),
+        selectionPayloadSha256: value.selection.selectionPayloadSha256,
+        status: "ready_for_review",
+      },
+      null,
+      2,
+    )}\n`;
+    const adoption = buildIntegrationFindingAdoption({
+      affectedPaths: [affectedPath],
+      candidateHeadSha,
+      changeExpectation: "source_or_test_delta",
+      expectedBehavior: "Use the selected owner lock.",
+      findingId: legacyFinding.id,
+      integrationId: value.integrationId,
+      ownerKind: "task",
+      requiredRegressionProof: "Prove the selected owner repair.",
+      resultContent,
+      selectionContent,
+      taskId: value.task.taskId,
+      worktreeHeadSha: candidateHeadSha,
+    });
+    const adoptionContent = `${JSON.stringify(adoption, null, 2)}\n`;
+    const route = planIntegrationOwnerReworkRoute({
+      adoptionContent,
+      expectedHeadSha: candidateHeadSha,
+      expectedIntegrationId: value.integrationId,
+      expectedResultSha256: createHash("sha256")
+        .update(resultContent)
+        .digest("hex"),
+      expectedSelectionFileSha256: selectionFileSha256(selectionContent),
+      expectedSelectionPayloadSha256: value.selection.selectionPayloadSha256,
+      integrationOwnedPaths: [],
+      integrationResultContent: resultContent,
+      selectionContent,
+      stateRoot: root,
+    });
+    const supersession = buildIntegrationWaveSupersessionReceipt({
+      controlHeadSha: value.baseSha,
+      createdAt: "2026-07-22T00:00:00.000Z",
+      evidence: [`finding-adoption-sha256:${adoption.adoptionSha256}`],
+      expectedIntegrationId: value.integrationId,
+      expectedOwnerReworkHeadSha: candidateHeadSha,
+      findingAdoptionContent: adoptionContent,
+      ownerReworkResultContent: resultContent,
+      reason: "route exact legacy owner finding",
+      runInspections: [
+        {
+          run_id: runId,
+          status: { kind: "succeeded" },
+          run_spec: {
+            settings: {
+              run: {
+                inputs: {
+                  attempt: 1,
+                  base_sha: value.baseSha,
+                  integration_id: value.integrationId,
+                  mode: "integrate",
+                  reservation_token: record.reservationToken,
+                  selection_file_sha256: selectionFileSha256(selectionContent),
+                  selection_path: value.selectionPath,
+                  selection_payload_sha256:
+                    value.selection.selectionPayloadSha256,
+                  workdir,
+                },
+                metadata: {
+                  attempt: 1,
+                  integration: value.integrationId,
+                  "integration-mode": "wave-v3",
+                  reservation: record.reservationToken,
+                },
+              },
+            },
+          },
+        },
+      ],
+      runRecordContent: readFileSync(value.recordPath, "utf8"),
+      selectionContent,
+      selectionPath: value.selectionPath,
+    });
+    const integrationEvidence = resolve(
+      root,
+      "evidence",
+      "integration",
+      value.integrationId,
+    );
+    writeJson(
+      resolve(integrationEvidence, "integration-result.json"),
+      JSON.parse(resultContent),
+    );
+    writeFileSync(
+      resolve(integrationEvidence, "finding-adoption.json"),
+      adoptionContent,
+    );
+    writeJson(resolve(integrationEvidence, "supersession.json"), supersession);
+    const owner = route.ownerRoutes[0];
+    if (!owner) throw new Error("owner route fixture missing");
+    writeJson(resolve(integrationEvidence, "owner-rework-routing.json"), {
+      schemaVersion: "maestro-brain-owner-rework-routing/v1",
+      findingSha256: route.findingSha256,
+      owners: {
+        [owner.taskId]: {
+          findingsSha256: owner.findingSha256,
+          requestSha256: "a".repeat(64),
+          runId: "owner-run",
+          status: "launched",
+        },
+      },
+      resultSha256: route.resultSha256,
+      selectionFileSha256: route.selectionFileSha256,
+      selectionPayloadSha256: route.selectionPayloadSha256,
+      status: "complete",
+    });
+    const observe = () =>
+      observeControllerSnapshot({
+        controlHeadSha: value.baseSha,
+        controlRoot: process.cwd(),
+        inspect: () => "succeeded",
+        isAncestor: () => true,
+        manifest,
+        stateRoot: root,
+      });
+    expect(observe().waves).toEqual([]);
+    rmSync(resolve(integrationEvidence, "finding-adoption.json"));
+    expect(observe().waves).toMatchObject([{ identity: "unknown" }]);
+    writeFileSync(
+      resolve(integrationEvidence, "finding-adoption.json"),
+      `${adoptionContent} `,
+    );
+    expect(observe().waves).toMatchObject([{ identity: "unknown" }]);
     rmSync(root, { force: true, recursive: true });
   });
 

@@ -16,6 +16,7 @@ import {
   failedWaveSelectsTask,
   integrationResultBindsBroadGate,
   supersessionBindsFailedAttempt,
+  failedIntegrationReproofLineageMatches,
 } from "../src/failed-integration-rework-validation.js";
 import {
   selectionFileSha256,
@@ -266,6 +267,20 @@ const fixture = () => {
 };
 
 describe("failed integration rework admission", () => {
+  it("accepts a refreshed lane only when the failed selection binds its exact reproof", () => {
+    expect(
+      failedIntegrationReproofLineageMatches(
+        { requestSha256: "a".repeat(64) },
+        { reproofRequestSha256: "a".repeat(64) },
+      ),
+    ).toBe(true);
+    expect(
+      failedIntegrationReproofLineageMatches(
+        { requestSha256: "a".repeat(64) },
+        { reproofRequestSha256: "b".repeat(64) },
+      ),
+    ).toBe(false);
+  });
   it("plans one supersession followed by sorted normal owner reopen commands", () => {
     const value = fixture();
     const taskFinding = {
@@ -792,6 +807,36 @@ describe("failed integration rework admission", () => {
         request,
       }),
     ).toThrow(/proof digest drift/);
+  });
+
+  it("rejects a forged adoption blob even when its generic hash is bound", () => {
+    const value = fixture();
+    const planned = planFailedIntegrationRework(value.input);
+    const findingAdoptionContent = json({ forged: true });
+    const archiveContent = json({
+      ...planned.archive,
+      findingAdoptionContent,
+    });
+    const request = buildContractReproofFindingsRequest({
+      ...planned.request,
+      findings: (planned.request.findings ?? []).map((finding) => ({
+        ...finding,
+        priorEvidenceSha256: [
+          ...finding.priorEvidenceSha256,
+          sha256(findingAdoptionContent),
+        ].sort(),
+      })),
+      priorArchiveSha256: sha256(archiveContent),
+    });
+    expect(() =>
+      validateFailedIntegrationReworkArchive({
+        archiveContent,
+        currentControlHead: value.input.controlHeadSha,
+        integrationResultContent: value.input.integrationResultContent,
+        isAncestor: value.input.isAncestor,
+        request,
+      }),
+    ).toThrow(/finding adoption/);
   });
 
   it.each([
