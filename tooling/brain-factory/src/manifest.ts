@@ -46,6 +46,7 @@ export interface BrainTaskContract {
   readonly gateProfiles: readonly GateProfile[];
   readonly kind: "control" | "docs" | "external" | "product" | "release";
   readonly lane: string;
+  readonly laneGreenAuthorityReproof?: true;
   readonly requirements: readonly string[];
   readonly estimatedSourceLines: number;
   readonly sourceSliceBudget: 300;
@@ -1215,6 +1216,15 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
       body,
       taskId,
     );
+    const laneGreenAuthorityReproof =
+      /- \*\*Lane-green authority reproof:\*\* `authorized-s05-current-plan`/.test(
+        body,
+      );
+    if (laneGreenAuthorityReproof && taskId !== "S05-T01") {
+      throw new Error(
+        `${taskId}: lane-green authority reproof is unauthorized`,
+      );
+    }
     if (
       [
         authorityRepairTransition,
@@ -1242,6 +1252,7 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
             ? "release"
             : "product",
       lane,
+      ...(laneGreenAuthorityReproof ? { laneGreenAuthorityReproof: true } : {}),
       requirements,
       sourceSliceBudget: 300,
       ...(SOURCE_SLICE_LIMITS[taskId] === undefined

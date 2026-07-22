@@ -615,6 +615,11 @@ describe("Maestro Brain execution manifest", () => {
       "Add The Source Ledger And Prove The Integration-Owned Migration Registry",
     );
     expect(sourceLedger?.sourceSliceLimit).toBe(4);
+    expect(sourceLedger?.laneGreenAuthorityReproof).toBe(true);
+    expect(
+      projection.tasks.find((task) => task.taskId === "S05-T02")
+        ?.laneGreenAuthorityReproof,
+    ).toBeUndefined();
     expect(sourceLedger?.fileLocks).not.toContain(
       "packages/convex/confect/internal/migrations.ts",
     );

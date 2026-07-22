@@ -6,6 +6,7 @@ import { materializeBuildTaskRunConfig } from "./build-task-run-config.js";
 import { launchAuthorityRefresh } from "./authority-refresh-launch.js";
 import { launchCheckpointReproof } from "./checkpoint-reproof-launch.js";
 import { launchLaneGreenAuthorityReproof } from "./lane-green-authority-reproof-launch.js";
+import { selectAuthorityTransition } from "./authority-transition-cli.js";
 import {
   acquireDispatcherLock,
   assertArchiveActionSelectorApplicable,
@@ -95,13 +96,13 @@ const taskId = valueAfter("--task");
 const sourceRef = valueAfter("--ref");
 const taskBase = valueAfter("--base");
 const archiveActionId = parseArchiveActionSelector(process.argv.slice(2));
-const authorityRefresh = process.argv.includes("--authority-refresh");
-const authorityRepair = process.argv.includes("--authority-repair");
-const checkpointReproof = process.argv.includes("--checkpoint-reproof");
-const laneGreenAuthorityReproof = process.argv.includes(
-  "--lane-green-authority-reproof",
-);
-const ownershipRehome = process.argv.includes("--ownership-rehome");
+const {
+  authorityRefresh,
+  authorityRepair,
+  checkpointReproof,
+  laneGreenAuthorityReproof,
+  ownershipRehome,
+} = selectAuthorityTransition(process.argv.slice(2), taskId ?? "unknown task");
 const conflictAware = process.argv.includes("--conflict-aware");
 let resumeStrategy = resolveResumeStrategy({
   authorityOwner: false,
@@ -132,17 +133,6 @@ if (
   throw new Error(
     `${taskId}: authority transition derives exact source coordinates and cannot be combined with --ref, --base, --conflict-aware, or --archive-action`,
   );
-}
-if (
-  [
-    authorityRefresh,
-    authorityRepair,
-    ownershipRehome,
-    checkpointReproof,
-    laneGreenAuthorityReproof,
-  ].filter(Boolean).length > 1
-) {
-  throw new Error(`${taskId}: choose exactly one authority transition`);
 }
 const root = process.cwd();
 const state = resolve(valueAfter("--state") ?? ".fabro/state/maestro-brain");

@@ -66,6 +66,12 @@ export const loadLaneGreenAuthorityReproofAdmission = (input: {
   }
   const sourceHeadSha = lane.headSha;
   const sourceBaseSha = proof.baseSha;
+  if (!/^[0-9a-f]{40}$/.test(sourceHeadSha)) {
+    throw new Error(`${taskId}: lane HEAD is invalid`);
+  }
+  if (!/^[0-9a-f]{40}$/.test(sourceBaseSha)) {
+    throw new Error(`${taskId}: proof base is invalid`);
+  }
   const sourceTreeSha = runRtk(
     ["proxy", "git", "rev-parse", `${sourceHeadSha}^{tree}`],
     { cwd: input.root, quiet: true },
@@ -147,8 +153,8 @@ export const loadLaneGreenAuthorityReproofAdmission = (input: {
     ),
   );
   const historicalPlan = execFileSync(
-    "git",
-    ["show", `${sourceBaseSha}:${PLAN_RELATIVE}`],
+    "rtk",
+    ["proxy", "git", "show", `${sourceBaseSha}:${PLAN_RELATIVE}`],
     { cwd: input.root, encoding: "utf8" },
   );
   const oldPlanSha256 = createHash("sha256")
@@ -192,6 +198,7 @@ export const loadLaneGreenAuthorityReproofAdmission = (input: {
   return admitLaneGreenAuthorityReproof({
     controlHeadSha: input.controlHeadSha,
     currentTask: {
+      authorityAuthorized: input.task.laneGreenAuthorityReproof === true,
       codeStartAfter: input.task.codeStartAfter,
       fileLocks: input.task.fileLocks,
       planSha256: manifest.planSha256,

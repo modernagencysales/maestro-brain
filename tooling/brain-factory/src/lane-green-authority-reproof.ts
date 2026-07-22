@@ -9,6 +9,7 @@ import { validSourceSlices } from "./source-budget.js";
 type JsonRecord = Record<string, unknown>;
 
 export interface LaneGreenAuthorityReproofTask {
+  readonly authorityAuthorized: boolean;
   readonly codeStartAfter: readonly string[];
   readonly fileLocks: readonly string[];
   readonly planSha256: string;
@@ -64,6 +65,11 @@ export const admitLaneGreenAuthorityReproof = (
   input: LaneGreenAuthorityReproofInput,
 ): LaneGreenAuthorityReproofAdmission => {
   const { currentTask: task } = input;
+  if (task.taskId !== "S05-T01" || !task.authorityAuthorized) {
+    throw new Error(
+      `${task.taskId}: authority reproof is authorized only for S05-T01`,
+    );
+  }
   exactSha(input.controlHeadSha, 40, `${task.taskId}: controller HEAD`);
   const ownerDisposition = input.ownerDisposition ?? "absent";
   if (ownerDisposition === "live" || ownerDisposition === "unknown") {
@@ -111,12 +117,10 @@ export const admitLaneGreenAuthorityReproof = (
     taskId: task.taskId,
   });
   if (
-    oldPlanSha256 === task.planSha256 ||
+    oldPlanSha256 === task.planSha256 &&
     oldTaskBlockHash === task.taskBlockHash
   ) {
-    throw new Error(
-      `${task.taskId}: authority reproof requires fully changed plan authority`,
-    );
+    throw new Error(`${task.taskId}: lane already matches current authority`);
   }
 
   const integrated = new Set(input.integratedTaskIds);

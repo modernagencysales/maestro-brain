@@ -22,6 +22,7 @@ const ownedFile = "packages/convex/confect/tables/sourceLedger.ts";
 const validInput = (): LaneGreenAuthorityReproofInput => ({
   controlHeadSha: sha("8"),
   currentTask: {
+    authorityAuthorized: true,
     codeStartAfter: ["S04-T02"],
     fileLocks: [ownedFile],
     planSha256: currentPlanSha256,
@@ -103,6 +104,29 @@ describe("lane-green authority reproof admission", () => {
       sourceHeadSha,
       sourceTreeSha,
     });
+  });
+
+  it("admits plan-only drift when the independently proven task block is unchanged", () => {
+    const input = validInput();
+    expect(
+      admitLaneGreenAuthorityReproof({
+        ...input,
+        currentTask: {
+          ...input.currentTask,
+          taskBlockHash: oldTaskBlockHash,
+        },
+      }).oldTaskBlockHash,
+    ).toBe(oldTaskBlockHash);
+  });
+
+  it("limits the exceptional authority path to S05-T01", () => {
+    const input = validInput();
+    expect(() =>
+      admitLaneGreenAuthorityReproof({
+        ...input,
+        currentTask: { ...input.currentTask, taskId: "S05-T02" },
+      }),
+    ).toThrow("authority reproof is authorized only for S05-T01");
   });
 
   it("rejects stale lane head or tree bindings", () => {

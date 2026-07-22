@@ -13,6 +13,13 @@ import {
   reserveTaskPreparing,
 } from "./dispatch-ownership.js";
 import { loadLaneGreenAuthorityReproofAdmission } from "./lane-green-authority-reproof-admission.js";
+import {
+  inspectLaneGreenAuthorityReproofRun,
+  laneGreenAuthorityLines as lines,
+  laneGreenAuthorityRecord as record,
+  laneGreenAuthorityReproofRunIsTerminal,
+  type JsonRecord,
+} from "./lane-green-authority-reproof-owner.js";
 import { resolveLaneGreenAuthorityReproofReservation } from "./lane-green-authority-reproof-recovery.js";
 import {
   buildLaneGreenAuthorityReproofLaunchSpec,
@@ -20,8 +27,6 @@ import {
 } from "./lane-green-authority-reproof-spec.js";
 import { buildManifest } from "./manifest.js";
 import { gitBranchExists, gitCommonDir, runRtk } from "./process.js";
-
-type JsonRecord = Record<string, unknown>;
 
 export const laneGreenAuthorityReproofCoordinates = (input: {
   readonly controlHeadSha: string;
@@ -64,66 +69,22 @@ export const runLaneGreenAuthorityReproofLaunch = (input: {
   readonly promoteOwner: (runId: string) => void;
   readonly recordOwner: (runId: string) => void;
   readonly replayExactCommits: () => void;
-  readonly rollback: () => void;
+  readonly reserveOwner: () => void;
 }): string => {
-  let mutated = false;
-  try {
-    input.createCurrentWorktree();
-    mutated = true;
-    input.replayExactCommits();
-    const runId = input.launchNormalBuildTask();
-    if (!runId) {
-      throw new Error("lane-green authority reproof returned no run ID");
-    }
-    input.recordOwner(runId);
-    input.promoteOwner(runId);
-    return runId;
-  } catch (error) {
-    if (mutated) input.rollback();
-    throw error;
+  input.reserveOwner();
+  input.createCurrentWorktree();
+  input.replayExactCommits();
+  const runId = input.launchNormalBuildTask();
+  if (!runId) {
+    throw new Error("lane-green authority reproof returned no run ID");
   }
+  input.recordOwner(runId);
+  input.promoteOwner(runId);
+  return runId;
 };
 
 export { resolveLaneGreenAuthorityReproofReservation } from "./lane-green-authority-reproof-recovery.js";
 export { buildLaneGreenAuthorityReproofLaunchSpec } from "./lane-green-authority-reproof-spec.js";
-
-const lines = (value: string): string[] =>
-  value
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-const record = (value: unknown, label: string): JsonRecord => {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error(`${label} is not a JSON object`);
-  }
-  return value as JsonRecord;
-};
-
-const inspectedStatus = (runId: string): string => {
-  const parsed = JSON.parse(
-    runRtk(["fabro", "inspect", runId, "--json", "--quiet"], {
-      quiet: true,
-    }),
-  ) as unknown;
-  const item = Array.isArray(parsed) ? parsed[0] : parsed;
-  const value = record(item, `Fabro run ${runId}`);
-  const status =
-    typeof value.status === "string"
-      ? value.status
-      : record(value.status, `Fabro run ${runId} status`).kind;
-  if (typeof status !== "string" || !status) {
-    throw new Error(`Fabro run ${runId} has no status; ownership is unknown`);
-  }
-  return status;
-};
-
-const terminalStatuses = new Set([
-  "canceled",
-  "cancelled",
-  "failed",
-  "succeeded",
-]);
 
 export const launchLaneGreenAuthorityReproof = (input: {
   readonly evidence: string;
@@ -173,7 +134,20 @@ export const launchLaneGreenAuthorityReproof = (input: {
       prior.status === "launched" &&
       typeof prior.runId === "string"
     ) {
-      const status = inspectedStatus(prior.runId);
+      if (
+        prior.planSha256 !== manifest.planSha256 ||
+        prior.taskBlockHash !== task.taskBlockHash ||
+        prior.branch !== coordinates.branch ||
+        prior.workdir !== coordinates.workdir
+      ) {
+        throw new Error(`${input.taskId}: launched authority owner drifted`);
+      }
+      const status = inspectLaneGreenAuthorityReproofRun(prior.runId);
+      if (laneGreenAuthorityReproofRunIsTerminal(status)) {
+        throw new Error(
+          `${input.taskId}: terminal authority reproof ${prior.runId} (${status}) requires audited resume or recovery`,
+        );
+      }
       console.log(
         `${input.taskId}: authority reproof already owned by ${prior.runId} (${status})`,
       );
@@ -188,8 +162,8 @@ export const launchLaneGreenAuthorityReproof = (input: {
       if (typeof prior.runId !== "string" || !prior.runId) {
         throw new Error(`${input.taskId}: existing owner status is unknown`);
       }
-      const status = inspectedStatus(prior.runId);
-      if (!terminalStatuses.has(status)) {
+      const status = inspectLaneGreenAuthorityReproofRun(prior.runId);
+      if (!laneGreenAuthorityReproofRunIsTerminal(status)) {
         throw new Error(
           `${input.taskId}: live Fabro run ${prior.runId} (${status}) owns this task`,
         );
@@ -198,7 +172,7 @@ export const launchLaneGreenAuthorityReproof = (input: {
     }
   }
 
-  const admission = loadLaneGreenAuthorityReproofAdmission({
+  let admission = loadLaneGreenAuthorityReproofAdmission({
     controlHeadSha,
     evidence: input.evidence,
     root: input.root,
@@ -226,133 +200,41 @@ export const launchLaneGreenAuthorityReproof = (input: {
       taskId: input.taskId,
     },
   });
-  process.once("exit", release);
+  const releaseOnExit = (): void => release();
+  process.once("exit", releaseOnExit);
+  const releaseNow = (): void => {
+    process.off("exit", releaseOnExit);
+    release();
+  };
   if (
     runRtk(["git", "rev-parse", "HEAD"], {
       cwd: input.root,
       quiet: true,
     }) !== controlHeadSha ||
+    (recordContent === undefined && existsSync(input.recordPath)) ||
     (recordContent !== undefined &&
       readFileSync(input.recordPath, "utf8") !== recordContent)
   ) {
     throw new Error(`${input.taskId}: authority changed during admission`);
   }
-  if (preparingOwner !== undefined) {
-    if (
-      !gitBranchExists(coordinates.branch, input.root) ||
-      !existsSync(coordinates.workdir)
-    ) {
-      throw new Error(
-        `${input.taskId}: preparing owner coordinates are missing`,
-      );
-    }
-    const startSha = runRtk(["git", "rev-parse", "HEAD"], {
-      cwd: coordinates.workdir,
-      quiet: true,
-    });
-    const spec = buildLaneGreenAuthorityReproofLaunchSpec({
-      controlCommonDir: gitCommonDir(input.root),
-      controlHeadSha,
-      controlRoot: input.root,
-      coordinates,
-      evidence: input.evidence,
-      planSha256: manifest.planSha256,
-      sourceBaseSha: admission.sourceBaseSha,
-      sourceCommits: admission.sourceCommits,
-      sourceHeadSha: admission.sourceHeadSha,
-      sourceTreeSha: admission.sourceTreeSha,
-      startSha,
-      taskBlockHash: task.taskBlockHash,
-      taskId: input.taskId,
-    });
-    const priorRunId =
-      typeof preparingOwner.runId === "string"
-        ? preparingOwner.runId
-        : undefined;
-    let inspection: unknown;
-    try {
-      inspection = JSON.parse(
-        runRtk(
-          [
-            "fabro",
-            "inspect",
-            priorRunId ?? "BrainBuildTask",
-            "--json",
-            "--quiet",
-          ],
-          { quiet: true },
-        ),
-      );
-    } catch {
-      throw new Error(
-        `${input.taskId}: preparing reservation launch state is unknown`,
-      );
-    }
-    const recovery = resolveLaneGreenAuthorityReproofReservation({
-      candidates: [{ branch: coordinates.branch, inspection }],
-      expectedConfigInputs: spec.configInputs,
-      expectedReservation: spec.preparingRecord,
-      reservation: priorRunId
-        ? Object.fromEntries(
-            Object.entries(preparingOwner).filter(([key]) => key !== "runId"),
-          )
-        : preparingOwner,
-    });
-    if (recovery.kind !== "recover-launched") {
-      throw new Error(
-        `${input.taskId}: preparing launch was not proven absent`,
-      );
-    }
-    if (!priorRunId) {
-      recordPreparingTaskLaunch({
-        auditPath,
-        expected: spec.preparingRecord,
-        now,
-        recordPath: input.recordPath,
-        runId: recovery.runId,
-        taskId: input.taskId,
-      });
-    }
-    const status = inspectedStatus(recovery.runId);
-    if (status === "created") {
-      runRtk(
-        ["fabro", "start", recovery.runId, "--json", "--no-upgrade-check"],
-        { quiet: true },
-      );
-    }
-    promoteTaskReservation(input.recordPath, {
-      ...spec.preparingRecord,
-      runId: recovery.runId,
-      status: "launched",
-    });
-    release();
-    console.log(
-      `${input.taskId}: recovered lane-green authority reproof ${recovery.runId}`,
+  if (
+    preparingOwner === undefined &&
+    (gitBranchExists(coordinates.branch, input.root) ||
+      existsSync(coordinates.workdir))
+  ) {
+    throw new Error(
+      `${input.taskId}: authority coordinates changed under lock`,
     );
-    return;
   }
-  runRtk(
-    [
-      "git",
-      "worktree",
-      "add",
-      "-b",
-      coordinates.branch,
-      coordinates.workdir,
-      controlHeadSha,
-    ],
-    { cwd: input.root },
-  );
-  hydrateWorktreeDependencies(input.root, coordinates.workdir);
-  runRtk(["proxy", "git", "cherry-pick", ...admission.sourceCommits], {
-    cwd: coordinates.workdir,
+  admission = loadLaneGreenAuthorityReproofAdmission({
+    controlHeadSha,
+    evidence: input.evidence,
+    root: input.root,
+    task,
   });
-  const startSha = runRtk(["git", "rev-parse", "HEAD"], {
-    cwd: coordinates.workdir,
-    quiet: true,
-  });
-  const spec = buildLaneGreenAuthorityReproofLaunchSpec({
-    controlCommonDir: gitCommonDir(input.root),
+  const controlCommonDir = gitCommonDir(input.root);
+  const reservationSpec = buildLaneGreenAuthorityReproofLaunchSpec({
+    controlCommonDir,
     controlHeadSha,
     controlRoot: input.root,
     coordinates,
@@ -362,97 +244,254 @@ export const launchLaneGreenAuthorityReproof = (input: {
     sourceCommits: admission.sourceCommits,
     sourceHeadSha: admission.sourceHeadSha,
     sourceTreeSha: admission.sourceTreeSha,
-    startSha,
+    startSha: controlHeadSha,
     taskBlockHash: task.taskBlockHash,
     taskId: input.taskId,
   });
-  if (terminalOwner && recordContent !== undefined) {
-    replaceTerminalTaskRecord({
-      auditPath,
-      expectedContent: recordContent,
-      now,
-      recordPath: input.recordPath,
-      replacement: spec.preparingRecord,
-      runId: terminalOwner.runId,
-      status: terminalOwner.status,
-      taskId: input.taskId,
-    });
-  } else {
-    reserveTaskPreparing(input.recordPath, spec.preparingRecord);
+  let reuseReservation = false;
+  if (preparingOwner !== undefined) {
+    const branchExists = gitBranchExists(coordinates.branch, input.root);
+    const worktreeExists = existsSync(coordinates.workdir);
+    if (
+      !branchExists &&
+      !worktreeExists &&
+      preparingOwner.runId === undefined
+    ) {
+      const recovery = resolveLaneGreenAuthorityReproofReservation({
+        candidates: [],
+        expectedConfigInputs: reservationSpec.configInputs,
+        expectedReservation: reservationSpec.preparingRecord,
+        reservation: preparingOwner,
+      });
+      if (recovery.kind !== "retry-launch") {
+        throw new Error(`${input.taskId}: preparing reservation is ambiguous`);
+      }
+      reuseReservation = true;
+    } else if (!branchExists || !worktreeExists) {
+      throw new Error(
+        `${input.taskId}: preparing owner coordinates are missing`,
+      );
+    } else {
+      const startSha = runRtk(["git", "rev-parse", "HEAD"], {
+        cwd: coordinates.workdir,
+        quiet: true,
+      });
+      const spec = buildLaneGreenAuthorityReproofLaunchSpec({
+        controlCommonDir,
+        controlHeadSha,
+        controlRoot: input.root,
+        coordinates,
+        evidence: input.evidence,
+        planSha256: manifest.planSha256,
+        sourceBaseSha: admission.sourceBaseSha,
+        sourceCommits: admission.sourceCommits,
+        sourceHeadSha: admission.sourceHeadSha,
+        sourceTreeSha: admission.sourceTreeSha,
+        startSha,
+        taskBlockHash: task.taskBlockHash,
+        taskId: input.taskId,
+      });
+      const priorRunId =
+        typeof preparingOwner.runId === "string"
+          ? preparingOwner.runId
+          : undefined;
+      let inspection: unknown;
+      try {
+        inspection = JSON.parse(
+          runRtk(
+            [
+              "fabro",
+              "inspect",
+              priorRunId ?? "BrainBuildTask",
+              "--json",
+              "--quiet",
+            ],
+            { quiet: true },
+          ),
+        );
+      } catch {
+        throw new Error(
+          `${input.taskId}: preparing reservation launch state is unknown`,
+        );
+      }
+      const recovery = resolveLaneGreenAuthorityReproofReservation({
+        candidates: [{ branch: coordinates.branch, inspection }],
+        expectedConfigInputs: spec.configInputs,
+        expectedReservation: spec.preparingRecord,
+        reservation: priorRunId
+          ? Object.fromEntries(
+              Object.entries(preparingOwner).filter(([key]) => key !== "runId"),
+            )
+          : preparingOwner,
+      });
+      if (recovery.kind !== "recover-launched") {
+        throw new Error(
+          `${input.taskId}: preparing launch was not proven absent`,
+        );
+      }
+      if (!priorRunId) {
+        recordPreparingTaskLaunch({
+          auditPath,
+          expected: spec.preparingRecord,
+          now,
+          recordPath: input.recordPath,
+          runId: recovery.runId,
+          taskId: input.taskId,
+        });
+      }
+      const status = inspectLaneGreenAuthorityReproofRun(recovery.runId);
+      if (status === "created") {
+        runRtk(
+          ["fabro", "start", recovery.runId, "--json", "--no-upgrade-check"],
+          { quiet: true },
+        );
+      }
+      promoteTaskReservation(input.recordPath, {
+        ...spec.preparingRecord,
+        runId: recovery.runId,
+        status: "launched",
+      });
+      releaseNow();
+      console.log(
+        `${input.taskId}: recovered lane-green authority reproof ${recovery.runId}`,
+      );
+      return;
+    }
   }
-  const controlCommonDir = gitCommonDir(input.root);
-  const resumeCommits = admission.sourceCommits.join(",");
-  const env = buildTaskLaunchEnv({
-    authorityRepairArchive: "none",
-    baseSha: controlHeadSha,
-    controlCommonDir,
-    controlRoot: input.root,
-    evidence: input.evidence,
-    hostTestMaxLoad1m: "20",
-    reproofRequest: "none",
-    resumeBranch: coordinates.branch,
-    resumeCommits,
-    resumeExpectedCommit: "none",
-    resumeMode: "none",
-    resumeProofHead: admission.sourceHeadSha,
-    resumeSourceHead: admission.sourceHeadSha,
-    resumeTaskBase: admission.sourceBaseSha,
-    startSha,
-    taskId: input.taskId,
-    workdir: coordinates.workdir,
+  let launchSpec = reservationSpec;
+  let launchEnv: NodeJS.ProcessEnv | undefined;
+  const runId = runLaneGreenAuthorityReproofLaunch({
+    reserveOwner: () => {
+      if (reuseReservation) return;
+      if (terminalOwner && recordContent !== undefined) {
+        replaceTerminalTaskRecord({
+          auditPath,
+          expectedContent: recordContent,
+          now,
+          recordPath: input.recordPath,
+          replacement: reservationSpec.preparingRecord,
+          runId: terminalOwner.runId,
+          status: terminalOwner.status,
+          taskId: input.taskId,
+        });
+      } else {
+        reserveTaskPreparing(input.recordPath, reservationSpec.preparingRecord);
+      }
+    },
+    createCurrentWorktree: () => {
+      runRtk(
+        [
+          "git",
+          "worktree",
+          "add",
+          "-b",
+          coordinates.branch,
+          coordinates.workdir,
+          controlHeadSha,
+        ],
+        { cwd: input.root },
+      );
+      hydrateWorktreeDependencies(input.root, coordinates.workdir);
+    },
+    replayExactCommits: () =>
+      runRtk(["proxy", "git", "cherry-pick", ...admission.sourceCommits], {
+        cwd: coordinates.workdir,
+      }),
+    launchNormalBuildTask: () => {
+      const startSha = runRtk(["git", "rev-parse", "HEAD"], {
+        cwd: coordinates.workdir,
+        quiet: true,
+      });
+      launchSpec = buildLaneGreenAuthorityReproofLaunchSpec({
+        controlCommonDir,
+        controlHeadSha,
+        controlRoot: input.root,
+        coordinates,
+        evidence: input.evidence,
+        planSha256: manifest.planSha256,
+        sourceBaseSha: admission.sourceBaseSha,
+        sourceCommits: admission.sourceCommits,
+        sourceHeadSha: admission.sourceHeadSha,
+        sourceTreeSha: admission.sourceTreeSha,
+        startSha,
+        taskBlockHash: task.taskBlockHash,
+        taskId: input.taskId,
+      });
+      launchEnv = buildTaskLaunchEnv({
+        authorityRepairArchive: "none",
+        baseSha: controlHeadSha,
+        controlCommonDir,
+        controlRoot: input.root,
+        evidence: input.evidence,
+        hostTestMaxLoad1m: "20",
+        reproofRequest: "none",
+        resumeBranch: coordinates.branch,
+        resumeCommits: admission.sourceCommits.join(","),
+        resumeExpectedCommit: "none",
+        resumeMode: "none",
+        resumeProofHead: admission.sourceHeadSha,
+        resumeSourceHead: admission.sourceHeadSha,
+        resumeTaskBase: admission.sourceBaseSha,
+        startSha,
+        taskId: input.taskId,
+        workdir: coordinates.workdir,
+      });
+      const config = materializeBuildTaskRunConfig({
+        env: launchEnv,
+        graph: resolve(".fabro/workflows/brain-build-task/workflow.fabro"),
+        path: resolve(
+          input.state,
+          "launch-configs",
+          `lane-green-${input.taskId}-${coordinates.authorityId}.toml`,
+        ),
+      });
+      const created = JSON.parse(
+        runRtk(
+          [
+            "fabro",
+            "create",
+            config,
+            "--json",
+            "--no-upgrade-check",
+            "--environment",
+            "local",
+            "--label",
+            `task=${input.taskId}`,
+            "--label",
+            "mode=lane-green-authority-reproof",
+            ...Object.entries(launchSpec.configInputs).flatMap(
+              ([key, value]) => ["-I", `${key}=${String(value)}`],
+            ),
+          ],
+          { env: launchEnv, quiet: true },
+        ),
+      ) as { run_id?: string; runId?: string };
+      return created.run_id ?? created.runId ?? "";
+    },
+    recordOwner: (createdRunId) => {
+      if (!launchEnv)
+        throw new Error("authority reproof launch env is missing");
+      recordPreparingTaskLaunch({
+        auditPath,
+        expected: launchSpec.preparingRecord,
+        now,
+        recordPath: input.recordPath,
+        runId: createdRunId,
+        taskId: input.taskId,
+      });
+      runRtk(["fabro", "start", createdRunId, "--json", "--no-upgrade-check"], {
+        env: launchEnv,
+        quiet: true,
+      });
+    },
+    promoteOwner: (createdRunId) =>
+      promoteTaskReservation(input.recordPath, {
+        ...launchSpec.preparingRecord,
+        runId: createdRunId,
+        status: "launched",
+      }),
   });
-  const config = materializeBuildTaskRunConfig({
-    env,
-    graph: resolve(".fabro/workflows/brain-build-task/workflow.fabro"),
-    path: resolve(
-      input.state,
-      "launch-configs",
-      `lane-green-${input.taskId}-${coordinates.authorityId}.toml`,
-    ),
-  });
-  const created = JSON.parse(
-    runRtk(
-      [
-        "fabro",
-        "create",
-        config,
-        "--json",
-        "--no-upgrade-check",
-        "--environment",
-        "local",
-        "--label",
-        `task=${input.taskId}`,
-        "--label",
-        "mode=lane-green-authority-reproof",
-        ...Object.entries(spec.configInputs).flatMap(([key, value]) => [
-          "-I",
-          `${key}=${String(value)}`,
-        ]),
-      ],
-      { env, quiet: true },
-    ),
-  ) as { run_id?: string; runId?: string };
-  const runId = created.run_id ?? created.runId;
-  if (!runId)
-    throw new Error(`${input.taskId}: Fabro create returned no run ID`);
-  recordPreparingTaskLaunch({
-    auditPath,
-    expected: spec.preparingRecord,
-    now,
-    recordPath: input.recordPath,
-    runId,
-    taskId: input.taskId,
-  });
-  runRtk(["fabro", "start", runId, "--json", "--no-upgrade-check"], {
-    env,
-    quiet: true,
-  });
-  promoteTaskReservation(input.recordPath, {
-    ...spec.preparingRecord,
-    runId,
-    status: "launched",
-  });
-  release();
+  releaseNow();
   console.log(
     `${input.taskId}: lane-green authority reproof launched as ${runId}`,
   );

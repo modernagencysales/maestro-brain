@@ -3,6 +3,8 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import { selectAuthorityTransition } from "../src/authority-transition-cli.js";
+
 import {
   buildLaneGreenAuthorityReproofLaunchSpec,
   laneGreenAuthorityReproofCoordinates,
@@ -13,6 +15,19 @@ import {
 const sha = (value: string, length = 40): string => value.repeat(length);
 
 describe("lane-green authority reproof launch", () => {
+  it("rejects mutually exclusive authority CLI modes in the production parser", () => {
+    expect(() =>
+      selectAuthorityTransition(
+        ["--lane-green-authority-reproof", "--checkpoint-reproof"],
+        "S05-T01",
+      ),
+    ).toThrow("choose exactly one authority transition");
+    expect(
+      selectAuthorityTransition(["--lane-green-authority-reproof"], "S05-T01")
+        .laneGreenAuthorityReproof,
+    ).toBe(true);
+  });
+
   it("wires an exclusive resume CLI mode without evidence synthesis", () => {
     const resumeSource = readFileSync(
       fileURLToPath(new URL("../src/resume.mts", import.meta.url)),
@@ -27,24 +42,26 @@ describe("lane-green authority reproof launch", () => {
       ),
       "utf8",
     );
-    expect(resumeSource).toContain('"--lane-green-authority-reproof"');
+    expect(resumeSource).toContain("selectAuthorityTransition(");
     expect(resumeSource).toContain("launchLaneGreenAuthorityReproof({");
     expect(launchSource).not.toContain("preserveAuthorityRefreshEvidence");
     expect(launchSource).not.toContain("writeFileSync");
+    expect(launchSource).toContain('process.off("exit", releaseOnExit)');
   });
 
   it("creates and replays before launching the normal build-task workflow", () => {
     const events: string[] = [];
     const runId = runLaneGreenAuthorityReproofLaunch({
       createCurrentWorktree: () => events.push("worktree"),
+      reserveOwner: () => events.push("reserve"),
       replayExactCommits: () => events.push("replay"),
       launchNormalBuildTask: () => (events.push("launch"), "run-1"),
       recordOwner: () => events.push("record"),
       promoteOwner: () => events.push("promote"),
-      rollback: () => events.push("rollback"),
     });
     expect(runId).toBe("run-1");
     expect(events).toEqual([
+      "reserve",
       "worktree",
       "replay",
       "launch",
@@ -52,6 +69,29 @@ describe("lane-green authority reproof launch", () => {
       "promote",
     ]);
   });
+
+  it.each(["worktree", "replay", "launch", "record", "promote"] as const)(
+    "preserves the preparing checkpoint when %s fails",
+    (failure) => {
+      const events: string[] = [];
+      const step = (name: typeof failure): void => {
+        events.push(name);
+        if (failure === name) throw new Error(`${name} failed`);
+      };
+      expect(() =>
+        runLaneGreenAuthorityReproofLaunch({
+          reserveOwner: () => events.push("reserve"),
+          createCurrentWorktree: () => step("worktree"),
+          replayExactCommits: () => step("replay"),
+          launchNormalBuildTask: () => (step("launch"), "run-1"),
+          recordOwner: () => step("record"),
+          promoteOwner: () => step("promote"),
+        }),
+      ).toThrow(`${failure} failed`);
+      expect(events[0]).toBe("reserve");
+      expect(events).not.toContain("rollback");
+    },
+  );
 
   it("uses deterministic current-authority coordinates", () => {
     expect(

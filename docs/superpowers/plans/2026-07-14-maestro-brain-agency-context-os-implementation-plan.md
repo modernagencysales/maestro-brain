@@ -1808,6 +1808,9 @@ manifest.
   or below 300 hand-authored source lines. The sequence is fragment/schema RED,
   generator and S00/S01 extraction, S02/S05 registration plus source ledger,
   then runtime compatibility and no-migration proof.
+- **Lane-green authority reproof:** `authorized-s05-current-plan`; normal
+  factory tooling may replay only this task's exact independently proven green
+  history onto the current control head to refresh stale plan authority.
 - **Historical registry preservation audit:** at the controller base, canonical
   `packages/convex/confect/internal/migrations.ts` has SHA-256
   `632d90f4b70073ea6daeadd24a8579e8166be9f6a56668c40d04d9ae70d2d1ac` and exactly
