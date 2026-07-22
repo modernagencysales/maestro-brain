@@ -8,6 +8,7 @@ import {
   commandForControllerAction,
   executeControllerTick as executeControllerTickRaw,
   planControllerTick as planControllerTickRaw,
+  taskCapacityDiagnostics,
   telemetryForControllerAction,
   tickIdForController,
   type ControllerAction,
@@ -157,7 +158,7 @@ describe("controller pure planner", () => {
     ]);
   });
 
-  it("fails closed on false green, provider errors, and gate saturation", () => {
+  it("fails closed on false green and provider errors without coupling coding to gates", () => {
     const falseGreen = planControllerTick(
       snapshot({
         tasks: [task("S04-T01", "lane_green", { admission: "rejected" })],
@@ -183,10 +184,15 @@ describe("controller pure planner", () => {
         }),
         policy,
       ),
-    ).toMatchObject([{ kind: "wait", targetIds: ["gate_queue_saturated"] }]);
+    ).toMatchObject([
+      {
+        kind: "dispatch_tasks",
+        targetIds: ["S00-T02", "S01-T01", "S02-T01"],
+      },
+    ]);
   });
 
-  it("prioritizes promotion, recovery, and unresolved wave waits", () => {
+  it("serializes promotion and recovery without suppressing unrelated dispatch", () => {
     expect(
       planControllerTick(
         snapshot({ waves: [wave("wave-1", "succeeded")] }),
@@ -207,12 +213,27 @@ describe("controller pure planner", () => {
     });
     expect(
       planControllerTick(
-        snapshot({ waves: [wave("wave-3", "running")] }),
+        snapshot({ tasks: frontier(), waves: [wave("wave-3", "running")] }),
         policy,
       )[0],
     ).toMatchObject({
-      kind: "wait",
-      targetIds: ["integration_active:wave-3"],
+      kind: "dispatch_tasks",
+      targetIds: ["S00-T02", "S01-T01", "S02-T01"],
+    });
+  });
+
+  it("separates coding capacity from retained ownership", () => {
+    const green = manifest.tasks.slice(0, 7).map(({ taskId }, index) =>
+      task(taskId, "lane_green", {
+        admission: "admissible",
+        headSha: String(index + 1).repeat(40),
+        ownershipId: `owner-${taskId}`,
+      }),
+    );
+    expect(taskCapacityDiagnostics(snapshot({ tasks: green }))).toEqual({
+      active: green.map(({ taskId }) => taskId).sort(),
+      codingActive: [],
+      owned: green.map(({ taskId }) => taskId).sort(),
     });
   });
 

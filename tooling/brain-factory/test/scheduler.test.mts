@@ -101,6 +101,8 @@ describe("brain task scheduler", () => {
     );
     expect(dispatch).toContain("totalActiveCapacity: maximum");
     expect(dispatch).toContain("maximum: availableSlots");
+    expect(dispatch).toContain("codingActive:");
+    expect(dispatch).toContain("owned:");
     expect(dispatch).toContain("loadManifestProjection");
     expect(dispatch).toContain("contractArtifactSha256ByProducer");
     expect(dispatch).toContain("tasks: projection.tasks");

@@ -178,15 +178,58 @@ const waitAction = (
 ): ControllerAction =>
   makeAction({ kind: "wait", policy, snapshot, targetIds: reasons });
 
-const activeTaskStages = new Set([
+export const codingTaskStages = new Set([
   "preparing",
   "running",
   "recoverable",
   "terminal",
-  "lane_green",
-  "false_green",
   "unknown",
 ]);
+
+export const ownershipTaskStages = new Set([
+  ...codingTaskStages,
+  "lane_green",
+  "false_green",
+]);
+
+export const taskCapacityDiagnostics = (
+  snapshot: ControllerSnapshot,
+): {
+  readonly active: readonly string[];
+  readonly codingActive: readonly string[];
+  readonly owned: readonly string[];
+} => {
+  const matching = (stages: ReadonlySet<string>): readonly string[] =>
+    snapshot.tasks
+      .filter(({ stage }) => stages.has(stage))
+      .map(({ taskId }) => taskId)
+      .sort();
+  const owned = matching(ownershipTaskStages);
+  return {
+    active: owned,
+    codingActive: matching(codingTaskStages),
+    owned,
+  };
+};
+
+const compatibleGreenTasks = (
+  green: readonly ControllerTaskState[],
+  manifest: BrainTaskManifest,
+  maximum: number,
+): readonly ControllerTaskState[] => {
+  const byId = new Map(manifest.tasks.map((task) => [task.taskId, task]));
+  const selected: ControllerTaskState[] = [];
+  const locked = new Set<string>();
+  for (const lane of green) {
+    const task = byId.get(lane.taskId);
+    if (!task || task.kind !== "product") continue;
+    if (task.fileLocks.some((path) => locked.has(path))) continue;
+    selected.push(lane);
+    for (const path of task.fileLocks) locked.add(path);
+    if (selected.length === maximum) break;
+  }
+  return selected;
+};
 
 export const planControllerTick = (
   snapshot: ControllerSnapshot,
@@ -265,17 +308,6 @@ export const planControllerTick = (
       waveAction("recover_wave", failedWave, snapshot, policy),
     );
   }
-  const unresolvedWave = snapshot.waves[0];
-  if (unresolvedWave) {
-    return withFrontier(
-      waitAction(
-        [`integration_active:${unresolvedWave.integrationId}`],
-        snapshot,
-        policy,
-      ),
-    );
-  }
-
   const falseGreen = snapshot.tasks.filter(
     ({ stage }) => stage === "false_green",
   );
@@ -301,35 +333,8 @@ export const planControllerTick = (
     );
   }
 
-  if (snapshot.gateQueue.inUse >= snapshot.gateQueue.capacity) {
-    return withFrontier(waitAction(["gate_queue_saturated"], snapshot, policy));
-  }
-
-  const green = snapshot.tasks.filter(({ stage }) => stage === "lane_green");
-  if (green.length >= policy.minimumBatchSize) {
-    const selected = green.slice(0, policy.maximumBatchSize);
-    return withFrontier(
-      makeAction({
-        kind: "integrate_batch",
-        policy,
-        snapshot,
-        sourceHeadShas: selected.map(({ headSha }) => headSha),
-        sourceRunIds: selected.map(({ runId }) => runId),
-        targetIds: selected.map(({ taskId }) => taskId),
-      }),
-    );
-  }
-  if (green.length > 0) {
-    return withFrontier(
-      waitAction(["integration_batch_below_minimum"], snapshot, policy),
-    );
-  }
-
-  const activeTaskIds = new Set(
-    snapshot.tasks
-      .filter(({ stage }) => activeTaskStages.has(stage))
-      .map(({ taskId }) => taskId),
-  );
+  const capacity = taskCapacityDiagnostics(snapshot);
+  const ownedTaskIds = new Set(capacity.owned);
   const completedTaskIds = new Set(
     snapshot.tasks
       .filter(({ stage }) => stage === "integrated" || stage === "accepted")
@@ -340,36 +345,74 @@ export const planControllerTick = (
       .filter(({ stage }) => stage === "pending")
       .map(({ taskId }) => taskId),
   );
-  if (pendingTaskIds.size === 0) {
-    return withFrontier(waitAction(["frontier_empty"], snapshot, policy));
-  }
   const available = availableDispatchSlots(
     policy.totalActiveCapacity,
-    activeTaskIds.size,
+    capacity.codingActive.length,
   );
+  const dispatchable =
+    pendingTaskIds.size === 0
+      ? []
+      : selectReadyTasks({
+          activeTaskIds: ownedTaskIds,
+          completedTaskIds,
+          maximum: available,
+          requestedTaskIds: pendingTaskIds,
+          tasks: manifest.tasks,
+        }).selected;
+
+  const green = compatibleGreenTasks(
+    snapshot.tasks.filter(({ stage }) => stage === "lane_green"),
+    manifest,
+    policy.maximumBatchSize,
+  );
+  const greenIds = new Set(green.map(({ taskId }) => taskId));
+  const unlocksPendingDependency = manifest.tasks.some(
+    (task) =>
+      pendingTaskIds.has(task.taskId) &&
+      task.codeStartAfter.some((taskId) => greenIds.has(taskId)),
+  );
+  const gateAvailable = snapshot.gateQueue.inUse < snapshot.gateQueue.capacity;
+  const mayStartWave = snapshot.waves.length === 0 && gateAvailable;
+  const shouldFlushGreen =
+    green.length >= policy.minimumBatchSize ||
+    (green.length > 0 &&
+      (unlocksPendingDependency || dispatchable.length === 0));
+  if (mayStartWave && shouldFlushGreen) {
+    return withFrontier(
+      makeAction({
+        kind: "integrate_batch",
+        policy,
+        snapshot,
+        sourceHeadShas: green.map(({ headSha }) => headSha),
+        sourceRunIds: green.map(({ runId }) => runId),
+        targetIds: green.map(({ taskId }) => taskId),
+      }),
+    );
+  }
   if (available === 0) {
     return withFrontier(
       waitAction(["dispatch_capacity_exhausted"], snapshot, policy),
     );
   }
-  const selected = selectReadyTasks({
-    activeTaskIds,
-    completedTaskIds,
-    maximum: available,
-    requestedTaskIds: pendingTaskIds,
-    tasks: manifest.tasks,
-  }).selected;
-  if (selected.length > 0) {
+  if (dispatchable.length > 0) {
     return withFrontier(
       makeAction({
         kind: "dispatch_tasks",
         policy,
         snapshot,
-        targetIds: selected.map(({ taskId }) => taskId),
+        targetIds: dispatchable.map(({ taskId }) => taskId),
       }),
     );
   }
-  return withFrontier(waitAction(["frontier_empty"], snapshot, policy));
+  const reasons = [
+    ...(!gateAvailable ? ["gate_queue_saturated"] : []),
+    ...(snapshot.waves[0]
+      ? [`integration_active:${snapshot.waves[0].integrationId}`]
+      : []),
+    ...(green.length > 0 ? ["integration_batch_below_minimum"] : []),
+    "frontier_empty",
+  ];
+  return withFrontier(waitAction(reasons, snapshot, policy));
 };
 
 export const tickIdForController = (
@@ -789,7 +832,7 @@ export const telemetryForControllerAction = (input: {
   }
   const activeCounts: Record<string, number> = {};
   for (const item of input.snapshot.tasks) {
-    if (!activeTaskStages.has(item.stage)) continue;
+    if (!ownershipTaskStages.has(item.stage)) continue;
     activeCounts[item.stage] = (activeCounts[item.stage] ?? 0) + 1;
   }
   return {

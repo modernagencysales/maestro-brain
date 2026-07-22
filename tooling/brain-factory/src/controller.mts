@@ -1,0 +1,536 @@
+import { spawnSync } from "node:child_process";
+import { createHash, randomUUID } from "node:crypto";
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+
+import {
+  canonicalControllerJson,
+  executeControllerTick,
+  planControllerTick,
+  telemetryForControllerAction,
+  tickIdForController,
+  type ControllerAction,
+  type ControllerActionReceipt,
+  type ControllerPolicy,
+} from "./controller.js";
+import type { ControllerSnapshot } from "./factory-state.js";
+import { buildManifest, type BrainTaskManifest } from "./manifest.js";
+import {
+  inspectFabroRun,
+  observeControllerSnapshot,
+} from "./controller-observation.js";
+
+export interface ControllerCliOptions {
+  readonly dryRun: boolean;
+  readonly intervalMs?: number;
+  readonly mode: "once" | "watch";
+  readonly policy: ControllerPolicy;
+  readonly recoverControllerLock: boolean;
+  readonly recoveryReason?: string;
+  readonly stateRoot: string;
+}
+
+const defaultPolicy: ControllerPolicy = {
+  maximumBatchSize: 10,
+  minimumBatchSize: 5,
+  totalActiveCapacity: 12,
+};
+
+const positiveInteger = (value: string, flag: string): number => {
+  if (!/^[1-9]\d*$/.test(value)) throw new Error(`${flag} must be an integer`);
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed)) throw new Error(`${flag} is too large`);
+  return parsed;
+};
+
+export const parseControllerCliArgs = (
+  args: readonly string[],
+): ControllerCliOptions => {
+  let dryRun = false;
+  let mode: "once" | "watch" | undefined;
+  let intervalMs: number | undefined;
+  let stateRoot: string | undefined;
+  let recoverControllerLock = false;
+  let recoveryReason: string | undefined;
+  const policy = { ...defaultPolicy };
+  const seen = new Set<string>();
+  const valueAt = (index: number, flag: string): string => {
+    const value = args[index + 1];
+    if (!value || value.startsWith("--")) {
+      throw new Error(`${flag} requires a value`);
+    }
+    return value;
+  };
+  for (let index = 0; index < args.length; index += 1) {
+    const flag = args[index];
+    if (flag === "--" && index === 0) continue;
+    if (!flag || !flag.startsWith("--") || seen.has(flag)) {
+      throw new Error(
+        `invalid or duplicate controller argument: ${flag ?? ""}`,
+      );
+    }
+    seen.add(flag);
+    if (flag === "--once" || flag === "--watch") {
+      if (mode) throw new Error("--once and --watch are mutually exclusive");
+      mode = flag === "--once" ? "once" : "watch";
+      continue;
+    }
+    if (flag === "--dry-run") {
+      dryRun = true;
+      continue;
+    }
+    if (flag === "--recover-controller-lock") {
+      recoverControllerLock = true;
+      continue;
+    }
+    if (
+      flag === "--state" ||
+      flag === "--interval-ms" ||
+      flag === "--recovery-reason" ||
+      flag === "--max-active" ||
+      flag === "--batch-max" ||
+      flag === "--batch-min"
+    ) {
+      const value = valueAt(index, flag);
+      index += 1;
+      if (flag === "--state") stateRoot = resolve(value);
+      else if (flag === "--interval-ms")
+        intervalMs = positiveInteger(value, flag);
+      else if (flag === "--recovery-reason") recoveryReason = value.trim();
+      else if (flag === "--max-active")
+        policy.totalActiveCapacity = positiveInteger(value, flag);
+      else if (flag === "--batch-max")
+        policy.maximumBatchSize = positiveInteger(value, flag);
+      else policy.minimumBatchSize = positiveInteger(value, flag);
+      continue;
+    }
+    throw new Error(`unknown controller argument: ${flag}`);
+  }
+  if (!mode) throw new Error("exactly one of --once or --watch is required");
+  if (!stateRoot) throw new Error("--state is required");
+  if (mode === "once" && intervalMs !== undefined) {
+    throw new Error("--interval-ms is valid only with --watch");
+  }
+  if (
+    mode === "watch" &&
+    (intervalMs === undefined || intervalMs > 3_600_000)
+  ) {
+    throw new Error("--watch requires --interval-ms in [1000, 3600000]");
+  }
+  if (mode === "watch" && (intervalMs as number) < 1_000) {
+    throw new Error("--interval-ms must be at least 1000");
+  }
+  if (dryRun && mode !== "once") {
+    throw new Error("--dry-run is valid only with --once");
+  }
+  if (policy.minimumBatchSize > policy.maximumBatchSize) {
+    throw new Error("minimum batch size cannot exceed maximum batch size");
+  }
+  if (recoverControllerLock && !recoveryReason) {
+    throw new Error("--recover-controller-lock requires --recovery-reason");
+  }
+  if (recoveryReason && !recoverControllerLock) {
+    throw new Error("--recovery-reason requires --recover-controller-lock");
+  }
+  if (dryRun && recoverControllerLock) {
+    throw new Error("dry-run cannot recover the controller lock");
+  }
+  return {
+    dryRun,
+    ...(intervalMs === undefined ? {} : { intervalMs }),
+    mode,
+    policy,
+    recoverControllerLock,
+    ...(recoveryReason ? { recoveryReason } : {}),
+    stateRoot,
+  };
+};
+
+export const acquireControllerLock = (input: {
+  readonly auditPath: string;
+  readonly lockPath: string;
+  readonly now: string;
+  readonly owner: Readonly<Record<string, unknown>>;
+  readonly recoveryReason?: string;
+}): (() => void) => {
+  mkdirSync(join(input.lockPath, ".."), { recursive: true });
+  if (existsSync(input.lockPath)) {
+    if (!input.recoveryReason?.trim()) {
+      throw new Error(
+        `controller lock already exists at ${input.lockPath}; explicit audited recovery is required`,
+      );
+    }
+    const ownerPath = join(input.lockPath, "owner.json");
+    mkdirSync(join(input.auditPath, ".."), { recursive: true });
+    appendFileSync(
+      input.auditPath,
+      `${JSON.stringify({
+        action: "recover-controller-lock",
+        at: input.now,
+        previousOwner: existsSync(ownerPath)
+          ? JSON.parse(readFileSync(ownerPath, "utf8"))
+          : null,
+        reason: input.recoveryReason.trim(),
+      })}\n`,
+      "utf8",
+    );
+    rmSync(input.lockPath, { recursive: true });
+  }
+  mkdirSync(input.lockPath, { recursive: false });
+  const owner = { ...input.owner, token: randomUUID() };
+  const ownerPath = join(input.lockPath, "owner.json");
+  writeFileSync(ownerPath, `${JSON.stringify(owner, null, 2)}\n`, {
+    flag: "wx",
+  });
+  return () => {
+    if (!existsSync(ownerPath)) return;
+    const current = JSON.parse(readFileSync(ownerPath, "utf8")) as {
+      readonly token?: unknown;
+    };
+    if (current.token === owner.token)
+      rmSync(input.lockPath, { recursive: true });
+  };
+};
+
+export const installControllerSignalHandlers = (
+  stop: () => void,
+): (() => void) => {
+  process.once("SIGINT", stop);
+  process.once("SIGTERM", stop);
+  return () => {
+    process.off("SIGINT", stop);
+    process.off("SIGTERM", stop);
+  };
+};
+
+export interface ControllerCliRuntime {
+  readonly acquireLock: (
+    input: Parameters<typeof acquireControllerLock>[0],
+  ) => () => void;
+  readonly appendTelemetry: (
+    value: ReturnType<typeof telemetryForControllerAction>,
+  ) => void;
+  readonly execute: (input: {
+    readonly action: ControllerAction;
+    readonly manifest: BrainTaskManifest;
+    readonly policy: ControllerPolicy;
+    readonly snapshot: ControllerSnapshot;
+    readonly stateRoot: string;
+    readonly tickId: string;
+  }) => ControllerActionReceipt | Promise<ControllerActionReceipt>;
+  readonly manifest: () => BrainTaskManifest;
+  readonly now: () => string;
+  readonly observe: () => ControllerSnapshot;
+  readonly sleep: (intervalMs: number) => Promise<boolean>;
+}
+
+const sha256 = (value: string): string =>
+  createHash("sha256").update(value).digest("hex");
+
+export const runControllerCli = async (
+  options: ControllerCliOptions,
+  runtime: ControllerCliRuntime,
+): Promise<readonly string[]> => {
+  const output: string[] = [];
+  if (options.dryRun) {
+    const observed = runtime.observe();
+    const manifest = runtime.manifest();
+    const actions = planControllerTick(observed, options.policy, manifest);
+    output.push(
+      canonicalControllerJson({
+        actions,
+        schemaVersion: "maestro-brain-controller-dry-run/v1",
+        snapshotSha256: sha256(canonicalControllerJson(observed)),
+        tickId: tickIdForController(observed, options.policy),
+      }),
+    );
+    return output;
+  }
+  const controllerRoot = join(options.stateRoot, "controller");
+  const release = runtime.acquireLock({
+    auditPath: join(controllerRoot, "lock-recovery.jsonl"),
+    lockPath: join(controllerRoot, "controller.lock"),
+    now: runtime.now(),
+    owner: { action: `controller-${options.mode}`, pid: process.pid },
+    ...(options.recoverControllerLock && options.recoveryReason
+      ? { recoveryReason: options.recoveryReason }
+      : {}),
+  });
+  try {
+    let keepWatching = true;
+    while (keepWatching) {
+      const started = Date.now();
+      let reachedWait = false;
+      const attemptedActionIds = new Set<string>();
+      while (!reachedWait) {
+        const observed = runtime.observe();
+        const manifest = runtime.manifest();
+        const action = planControllerTick(
+          observed,
+          options.policy,
+          manifest,
+        )[0];
+        if (!action || action.kind === "wait") {
+          reachedWait = true;
+          break;
+        }
+        if (attemptedActionIds.has(action.actionId)) {
+          reachedWait = true;
+          break;
+        }
+        attemptedActionIds.add(action.actionId);
+        const tickId = tickIdForController(observed, options.policy);
+        const receipt = await runtime.execute({
+          action,
+          manifest,
+          policy: options.policy,
+          snapshot: observed,
+          stateRoot: options.stateRoot,
+          tickId,
+        });
+        runtime.appendTelemetry(
+          telemetryForControllerAction({
+            action,
+            durationMs: Math.max(0, Date.now() - started),
+            now: runtime.now(),
+            outcome: receipt.status,
+            readyToLaunchLatencyMs: 0,
+            snapshot: observed,
+            tickId,
+          }),
+        );
+        output.push(canonicalControllerJson(receipt));
+        if (receipt.status !== "succeeded" && receipt.status !== "superseded") {
+          reachedWait = true;
+        }
+      }
+      if (options.mode === "once") break;
+      keepWatching = await runtime.sleep(options.intervalMs as number);
+    }
+  } finally {
+    release();
+  }
+  return output;
+};
+
+type JsonRecord = Record<string, unknown>;
+
+const jsonFile = (path: string): JsonRecord | undefined =>
+  existsSync(path)
+    ? (JSON.parse(readFileSync(path, "utf8")) as JsonRecord)
+    : undefined;
+
+export const reconcileControllerAction = (input: {
+  readonly action: ControllerAction;
+  readonly observe: () => ControllerSnapshot;
+  readonly stateRoot: string;
+}): { readonly kind: "not-started" | "succeeded" | "unresolved" } => {
+  const { action } = input;
+  if (action.kind === "wait") return { kind: "succeeded" };
+  if (action.kind === "archive_terminal") {
+    const taskId = action.targetIds[0];
+    if (!taskId) return { kind: "unresolved" };
+    const archived = join(
+      input.stateRoot,
+      "runs",
+      `${taskId}.json.terminal-${action.actionId}`,
+    );
+    return { kind: existsSync(archived) ? "succeeded" : "not-started" };
+  }
+  if (action.kind === "dispatch_tasks") {
+    const records = action.targetIds.map((taskId) =>
+      jsonFile(join(input.stateRoot, "runs", `${taskId}.json`)),
+    );
+    if (records.every((record) => record === undefined)) {
+      return { kind: "not-started" };
+    }
+    const exact = records.every((record, index) => {
+      if (!record) return false;
+      return (
+        record.taskId === action.targetIds[index] &&
+        record.baseSha === action.controlHeadSha &&
+        record.branch ===
+          `fabro/brain-${action.targetIds[index]?.toLowerCase()}` &&
+        typeof record.workdir === "string" &&
+        record.workdir.startsWith("/") &&
+        (record.status === "preparing" ||
+          (record.status === "launched" && typeof record.runId === "string"))
+      );
+    });
+    return { kind: exact ? "succeeded" : "unresolved" };
+  }
+  const observed = input.observe();
+  if (action.kind === "recover_lane") {
+    const task = observed.tasks.find(
+      ({ taskId }) => taskId === action.targetIds[0],
+    );
+    if (!task || task.stage === "unknown") return { kind: "unresolved" };
+    if (["preparing", "running", "lane_green"].includes(task.stage)) {
+      return { kind: "succeeded" };
+    }
+    return {
+      kind: task.stage === "recoverable" ? "not-started" : "unresolved",
+    };
+  }
+  if (action.kind === "integrate_batch") {
+    if (observed.waves.length === 0) return { kind: "not-started" };
+    if (observed.waves.length !== 1 || observed.waves[0]?.stage === "unknown") {
+      return { kind: "unresolved" };
+    }
+    const integrationId = observed.waves[0]?.integrationId;
+    const selection = integrationId
+      ? jsonFile(
+          join(
+            input.stateRoot,
+            "runs",
+            `integration-${integrationId}-selection.json`,
+          ),
+        )
+      : undefined;
+    const selected = Array.isArray(selection?.selectedTasks)
+      ? selection.selectedTasks
+          .map((value) =>
+            typeof value === "object" && value !== null
+              ? (value as JsonRecord).taskId
+              : undefined,
+          )
+          .filter((value): value is string => typeof value === "string")
+          .sort()
+      : [];
+    return {
+      kind:
+        canonicalControllerJson(selected) ===
+        canonicalControllerJson([...action.targetIds].sort())
+          ? "succeeded"
+          : "unresolved",
+    };
+  }
+  const integrationId = action.targetIds[0];
+  if (!integrationId) return { kind: "unresolved" };
+  if (action.kind === "recover_wave") {
+    const wave = observed.waves.find(
+      (candidate) => candidate.integrationId === integrationId,
+    );
+    if (!wave) return { kind: "unresolved" };
+    return {
+      kind:
+        wave.runId === action.sourceRunIds[0]
+          ? "not-started"
+          : wave.stage === "running"
+            ? "succeeded"
+            : "unresolved",
+    };
+  }
+  const promotion = jsonFile(
+    join(
+      input.stateRoot,
+      "evidence",
+      "integration",
+      integrationId,
+      "promotion.json",
+    ),
+  );
+  if (
+    promotion?.integrationId === integrationId &&
+    promotion.status === "promoted"
+  ) {
+    return { kind: "succeeded" };
+  }
+  const wave = observed.waves.find(
+    (candidate) => candidate.integrationId === integrationId,
+  );
+  return { kind: wave?.stage === "promotable" ? "not-started" : "unresolved" };
+};
+
+const main = async (): Promise<void> => {
+  const options = parseControllerCliArgs(process.argv.slice(2));
+  const manifest = buildManifest();
+  let stopped = false;
+  let interruptSleep: (() => void) | undefined;
+  const stop = (): void => {
+    stopped = true;
+    interruptSleep?.();
+  };
+  const disposeSignals = installControllerSignalHandlers(stop);
+  const observe = (): ControllerSnapshot =>
+    observeControllerSnapshot({
+      controlRoot: process.cwd(),
+      inspect: inspectFabroRun,
+      manifest,
+      stateRoot: options.stateRoot,
+    });
+  const runtime: ControllerCliRuntime = {
+    acquireLock: acquireControllerLock,
+    appendTelemetry: (value) => {
+      const path = join(options.stateRoot, "controller", "telemetry.jsonl");
+      mkdirSync(join(path, ".."), { recursive: true });
+      appendFileSync(path, `${canonicalControllerJson(value)}\n`, "utf8");
+    },
+    execute: ({
+      action,
+      manifest: exactManifest,
+      policy,
+      snapshot,
+      stateRoot,
+    }) =>
+      executeControllerTick({
+        action,
+        manifest: exactManifest,
+        now: new Date().toISOString(),
+        observe,
+        plannedSnapshot: snapshot,
+        policy,
+        reconcile: (candidate) =>
+          reconcileControllerAction({ action: candidate, observe, stateRoot }),
+        run: (command) => {
+          if (!command) return { exitCode: 0, stderr: "", stdout: "" };
+          const result = spawnSync("rtk", command, {
+            cwd: process.cwd(),
+            encoding: "utf8",
+          });
+          return {
+            exitCode: result.status ?? 1,
+            stderr: result.stderr,
+            stdout: result.stdout,
+          };
+        },
+        stateRoot,
+      }),
+    manifest: () => manifest,
+    now: () => new Date().toISOString(),
+    observe,
+    sleep: async (intervalMs) => {
+      if (stopped) return false;
+      await new Promise<void>((done) => {
+        const timer = setTimeout(done, intervalMs);
+        interruptSleep = () => {
+          clearTimeout(timer);
+          done();
+        };
+      });
+      interruptSleep = undefined;
+      return !stopped;
+    },
+  };
+  try {
+    for (const line of await runControllerCli(options, runtime))
+      console.log(line);
+  } finally {
+    disposeSignals();
+  }
+};
+
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
+  await main();
+}

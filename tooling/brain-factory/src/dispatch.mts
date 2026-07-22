@@ -154,15 +154,26 @@ const completedTaskIds = completedTaskIdsForControlHead({
   resultFor: readResult,
   taskIds: manifest.tasks.map((task) => task.taskId),
 });
-const activeTasks = manifest.tasks.filter(
+const codingActiveTasks = manifest.tasks.filter(
   (task) =>
     !completedTaskIds.has(task.taskId) &&
-    (recordOwnsTask(readRecord(task.taskId)) ||
+    recordOwnsTask(readRecord(task.taskId)),
+);
+const codingActiveTaskIds = new Set(
+  codingActiveTasks.map((task) => task.taskId),
+);
+const ownedTasks = manifest.tasks.filter(
+  (task) =>
+    !completedTaskIds.has(task.taskId) &&
+    (codingActiveTaskIds.has(task.taskId) ||
       resultStatus(task.taskId) === "lane_green"),
 );
-const availableSlots = availableDispatchSlots(maximum, activeTasks.length);
+const availableSlots = availableDispatchSlots(
+  maximum,
+  codingActiveTasks.length,
+);
 const { ready: candidates, selected } = selectReadyTasks({
-  activeTaskIds: new Set(activeTasks.map((task) => task.taskId)),
+  activeTaskIds: new Set(ownedTasks.map((task) => task.taskId)),
   completedTaskIds,
   contractArtifactSha256ByProducer,
   maximum: availableSlots,
@@ -173,7 +184,9 @@ const { ready: candidates, selected } = selectReadyTasks({
 console.log(
   JSON.stringify(
     {
-      active: activeTasks.map((task) => task.taskId),
+      active: ownedTasks.map((task) => task.taskId),
+      codingActive: codingActiveTasks.map((task) => task.taskId),
+      owned: ownedTasks.map((task) => task.taskId),
       availableSlots,
       launch,
       totalActiveCapacity: maximum,
