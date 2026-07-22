@@ -1515,6 +1515,34 @@ describe("integration wave supersession", () => {
     rmSync(fixture.root, { recursive: true });
   });
 
+  it("replays the exact durable Wave 56 failed-provider owner supersession", () => {
+    const root = resolve(process.cwd(), "test/fixtures/wave-000056");
+    const read = (name: string) => readFileSync(resolve(root, name), "utf8");
+    expect(() =>
+      validateExistingOwnerReworkSupersessionReplay({
+        currentControlHead: "7cf9a793b5bee333bfc2e72595563716161a2997",
+        evidence: [
+          "finding-adoption-sha256:d68d20038556101140b95bd6a3ee5939f48a653f6e2a122195b16aa0933b82e7",
+          "findings-sha256:25038431c86e7376c5d3410be27eecca20a4144910caa13068129ecf4004b707",
+          "integration-result-sha256:5477b2cb14f224af207ef5317abb0ea17d51472c7fd33fdfd36d1f7e52b4cd76",
+          "selection-file-sha256:53be5a90f8430e265b9be8cc1582c696dd8de79e6ca29112b41e3fb5aeecd800",
+          "selection-payload-sha256:e958f278dd13373969440b6264691408853e3563bc7960bde8bb911a680a89fa",
+        ],
+        expectedIntegrationId: "wave-000056",
+        expectedOwnerReworkHeadSha: "3fadece4758f0e122afebeabac01a3260c1743c8",
+        findingAdoptionContent: read("finding-adoption.json.raw"),
+        isAncestor: () => true,
+        reason: "route wave-000056 task-owned integration findings",
+        receipt: JSON.parse(read("supersession.json.raw")),
+        resultContent: read("integration-result.json.raw"),
+        runRecordContent: read("run-record.json.raw"),
+        selectionContent: read("selection.json.raw"),
+        selectionPath:
+          "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000056-selection.json",
+      }),
+    ).not.toThrow();
+  });
+
   it("rejects stale or tampered run records and selections", () => {
     const fixture = supersessionFixture();
     const receipt = buildIntegrationWaveSupersessionReceipt({

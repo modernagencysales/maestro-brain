@@ -331,18 +331,29 @@ export const supersessionBindsFailedAttempt = (
   runAttempts: readonly { readonly runId: string; readonly status: string }[],
   evidence: readonly string[],
   ownerReworkResultSha256?: string,
-): boolean =>
-  runAttempts.some(
-    ({ runId, status }) =>
-      new Set(["failed", "owner_rework"]).has(status) &&
-      (evidence.includes(`run:${runId}:${status}`) ||
-        (status === "failed" &&
-          ownerReworkResultSha256 !== undefined &&
-          evidence.includes(`run:${runId}:owner_rework`) &&
-          evidence.includes(
-            `owner-rework-result-sha256:${ownerReworkResultSha256}`,
-          ))),
+): boolean => {
+  if (
+    runAttempts.some(
+      ({ runId, status }) =>
+        new Set(["failed", "owner_rework"]).has(status) &&
+        evidence.includes(`run:${runId}:${status}`),
+    )
+  ) {
+    return true;
+  }
+  const finalAttempt = runAttempts.at(-1);
+  const ownerReworkResults = evidence.filter((item) =>
+    item.startsWith("owner-rework-result-sha256:"),
   );
+  return Boolean(
+    finalAttempt?.status === "failed" &&
+    ownerReworkResultSha256 !== undefined &&
+    evidence.includes(`run:${finalAttempt.runId}:owner_rework`) &&
+    ownerReworkResults.length === 1 &&
+    ownerReworkResults[0] ===
+      `owner-rework-result-sha256:${ownerReworkResultSha256}`,
+  );
+};
 
 export const validateSupersession = (input: {
   readonly broadGateContent?: string;

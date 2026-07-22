@@ -559,7 +559,10 @@ export const validateExistingOwnerReworkSupersessionReplay = (input: {
     selectionPath: input.selectionPath,
   });
   const finalAttempt = validated.runAttempts.at(-1);
-  if (!finalAttempt || finalAttempt.status !== "owner_rework") {
+  if (
+    !finalAttempt ||
+    (finalAttempt.status !== "owner_rework" && finalAttempt.status !== "failed")
+  ) {
     throw new Error("existing supersession is not owner rework");
   }
   const expectedEvidence = normalizedEvidence([

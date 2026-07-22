@@ -495,6 +495,30 @@ describe("failed integration rework admission", () => {
         "5477b2cb14f224af207ef5317abb0ea17d51472c7fd33fdfd36d1f7e52b4cd76",
       ),
     ).toBe(false);
+    expect(
+      supersessionBindsFailedAttempt(
+        [
+          { runId: "earlier-run", status: "failed" },
+          { runId: "final-run", status: "failed" },
+        ],
+        [
+          "run:earlier-run:owner_rework",
+          "owner-rework-result-sha256:5477b2cb14f224af207ef5317abb0ea17d51472c7fd33fdfd36d1f7e52b4cd76",
+        ],
+        "5477b2cb14f224af207ef5317abb0ea17d51472c7fd33fdfd36d1f7e52b4cd76",
+      ),
+    ).toBe(false);
+    expect(
+      supersessionBindsFailedAttempt(
+        [{ runId: "final-run", status: "failed" }],
+        [
+          "run:final-run:owner_rework",
+          "owner-rework-result-sha256:5477b2cb14f224af207ef5317abb0ea17d51472c7fd33fdfd36d1f7e52b4cd76",
+          `owner-rework-result-sha256:${"a".repeat(64)}`,
+        ],
+        "5477b2cb14f224af207ef5317abb0ea17d51472c7fd33fdfd36d1f7e52b4cd76",
+      ),
+    ).toBe(false);
   });
 
   it("accepts the exact durable Wave 56 failed-provider owner-rework receipt", () => {
