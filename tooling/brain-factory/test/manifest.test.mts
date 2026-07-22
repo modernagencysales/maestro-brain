@@ -157,7 +157,7 @@ describe("Maestro Brain execution manifest", () => {
     const generated = buildManifest();
 
     expect(projection.manifest).toEqual(generated);
-    expect(projection.tasks).toHaveLength(57);
+    expect(projection.tasks).toHaveLength(58);
     expect(
       projection.tasks.map(
         ({
@@ -253,7 +253,7 @@ describe("Maestro Brain execution manifest", () => {
   it("preserves every audited task and classification", () => {
     const manifest = buildManifest();
     expect(validateManifest(manifest)).toEqual([]);
-    expect(manifest.tasks).toHaveLength(57);
+    expect(manifest.tasks).toHaveLength(58);
     expect(
       Object.fromEntries(
         ["template-gap", "pattern-instance", "fixture-to-real"].map((kind) => [
@@ -264,8 +264,45 @@ describe("Maestro Brain execution manifest", () => {
     ).toEqual({
       "fixture-to-real": 2,
       "pattern-instance": 8,
-      "template-gap": 47,
+      "template-gap": 48,
     });
+  });
+
+  it("binds the S05 registry transition to its green head without an integration deadlock", () => {
+    const manifest = buildManifest();
+    const transition = manifest.tasks.find((task) => task.taskId === "S15-T02");
+
+    expect(transition).toEqual(
+      expect.objectContaining({
+        taskId: "S15-T02",
+        kind: "control",
+        classification: "template-gap",
+        sourceSliceBudget: 300,
+        sourceSliceLimit: 1,
+        gateProfiles: ["convex", "tooling"],
+        fileLocks: [
+          "packages/convex/confect/internal/migrations.ts",
+          "tooling/brain-factory/src/integration-generated-proof.ts",
+          "tooling/brain-factory/test/integration-generated-proof.test.mts",
+        ],
+        greenHeadAfter: "S05-T01",
+        mandatorySameWaveAfter: "S05-T01",
+      }),
+    );
+    expect(transition?.codeStartAfter).not.toContain("S05-T01");
+    expect(validateManifest(manifest)).toEqual([]);
+    expect(
+      validateManifest({
+        ...manifest,
+        tasks: manifest.tasks.map((task) =>
+          task.taskId === "S15-T02"
+            ? { ...task, codeStartAfter: ["S05-T01"] }
+            : task,
+        ),
+      }),
+    ).toContain(
+      "S15-T02: green-head prerequisite S05-T01 cannot also be an integrated code-start dependency",
+    );
   });
 
   it("keeps every focused verification packet executable", () => {

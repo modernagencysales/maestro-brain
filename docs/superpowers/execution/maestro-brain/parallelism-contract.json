@@ -1,6 +1,6 @@
 {
   "schemaVersion": "maestro-brain-parallelism-contract/v1",
-  "manifestPlanSha256": "ce2b760a9efd332ff6f3201b8faf312601e4fd3d4fcb7dcb4253afe7cae25317",
+  "manifestPlanSha256": "62f1cb0227feee1b1a42c8a66441f37d830c689db727df6d3d11d922044bf67f",
   "edges": [
     {
       "consumerTaskId": "S00-T03",
@@ -914,6 +914,12 @@
       "policy": "registry_after_task6"
     },
     {
+      "leftTaskId": "S00-T04",
+      "rightTaskId": "S15-T02",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
       "leftTaskId": "S01-T01",
       "rightTaskId": "S01-T03",
       "paths": ["apps/web/src/routes/__root.tsx"],
@@ -1066,6 +1072,12 @@
       "policy": "serialize"
     },
     {
+      "leftTaskId": "S01-T02",
+      "rightTaskId": "S15-T02",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
       "leftTaskId": "S01-T03",
       "rightTaskId": "S01-T04",
       "paths": ["packages/convex/confect/access/auth.ts"],
@@ -1147,6 +1159,12 @@
     {
       "leftTaskId": "S02-T01",
       "rightTaskId": "S11-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S02-T01",
+      "rightTaskId": "S15-T02",
       "paths": ["packages/convex/confect/internal/migrations.ts"],
       "policy": "registry_after_task6"
     },
@@ -1263,6 +1281,12 @@
     {
       "leftTaskId": "S02-T03",
       "rightTaskId": "S11-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S02-T03",
+      "rightTaskId": "S15-T02",
       "paths": ["packages/convex/confect/internal/migrations.ts"],
       "policy": "registry_after_task6"
     },
@@ -1458,6 +1482,12 @@
     {
       "leftTaskId": "S04-T02",
       "rightTaskId": "S11-T01",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
+      "leftTaskId": "S04-T02",
+      "rightTaskId": "S15-T02",
       "paths": ["packages/convex/confect/internal/migrations.ts"],
       "policy": "registry_after_task6"
     },
@@ -1935,6 +1965,12 @@
       "policy": "registry_after_task6"
     },
     {
+      "leftTaskId": "S07-T01",
+      "rightTaskId": "S15-T02",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
       "leftTaskId": "S07-T02",
       "rightTaskId": "S09-T02",
       "paths": [
@@ -2024,6 +2060,12 @@
       "policy": "registry_after_task6"
     },
     {
+      "leftTaskId": "S09-T02",
+      "rightTaskId": "S15-T02",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
+    },
+    {
       "leftTaskId": "S09-T03",
       "rightTaskId": "S09-T04",
       "paths": ["packages/convex/confect/tables/retrievalReceipts.ts"],
@@ -2084,6 +2126,12 @@
         "packages/convex/test/api-keys.test.ts"
       ],
       "policy": "dependency_order"
+    },
+    {
+      "leftTaskId": "S11-T01",
+      "rightTaskId": "S15-T02",
+      "paths": ["packages/convex/confect/internal/migrations.ts"],
+      "policy": "registry_after_task6"
     },
     {
       "leftTaskId": "S11-T02",

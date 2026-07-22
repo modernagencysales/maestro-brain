@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "ce2b760a9efd332ff6f3201b8faf312601e4fd3d4fcb7dcb4253afe7cae25317",
+  "planSha256": "62f1cb0227feee1b1a42c8a66441f37d830c689db727df6d3d11d922044bf67f",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -1944,6 +1944,31 @@
         "36b8c7e108044facc375d6f483abfdfcc5b4a813"
       ],
       "controlHeadSha": "36b8c7e108044facc375d6f483abfdfcc5b4a813"
+    },
+    {
+      "acceptanceAfter": "S05-T01",
+      "classification": "template-gap",
+      "codeStartAfter": [],
+      "estimatedSourceLines": 180,
+      "fileInventoryIssues": [],
+      "fileInventoryStatus": "ready",
+      "fileLocks": [
+        "packages/convex/confect/internal/migrations.ts",
+        "tooling/brain-factory/src/integration-generated-proof.ts",
+        "tooling/brain-factory/test/integration-generated-proof.test.mts"
+      ],
+      "gateProfiles": ["convex", "tooling"],
+      "kind": "control",
+      "lane": "control",
+      "requirements": [],
+      "sourceSliceBudget": 300,
+      "sourceSliceLimit": 1,
+      "taskBlockHash": "deaf4bd3122abdb5ba641ca2f875ed96fb72ef58599f8c034f5cf0ad46f0593f",
+      "taskId": "S15-T02",
+      "title": "Remove legacy migration definitions before registry assembly",
+      "tranche": "F1-control",
+      "greenHeadAfter": "S05-T01",
+      "mandatorySameWaveAfter": "S05-T01"
     }
   ]
 }

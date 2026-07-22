@@ -50,6 +50,10 @@ export interface BrainTaskContract {
   readonly estimatedSourceLines: number;
   readonly sourceSliceBudget: 300;
   readonly sourceSliceLimit?: number;
+  /** A lane-green predecessor whose exact head is the transition base. */
+  readonly greenHeadAfter?: string;
+  /** A lane-green predecessor that must be applied immediately before this task. */
+  readonly mandatorySameWaveAfter?: string;
   readonly taskBlockHash: string;
   readonly taskId: string;
   readonly title: string;
@@ -267,6 +271,33 @@ const CONTROL_TASK: BrainTaskContract = {
     "36b8c7e108044facc375d6f483abfdfcc5b4a813",
   ],
   controlHeadSha: "36b8c7e108044facc375d6f483abfdfcc5b4a813",
+};
+
+const MIGRATION_REGISTRY_TRANSITION_TASK: BrainTaskContract = {
+  acceptanceAfter: "S05-T01",
+  classification: "template-gap",
+  codeStartAfter: [],
+  estimatedSourceLines: 180,
+  fileInventoryIssues: [],
+  fileInventoryStatus: "ready",
+  fileLocks: [
+    "packages/convex/confect/internal/migrations.ts",
+    "tooling/brain-factory/src/integration-generated-proof.ts",
+    "tooling/brain-factory/test/integration-generated-proof.test.mts",
+  ],
+  gateProfiles: ["convex", "tooling"],
+  kind: "control",
+  lane: "control",
+  requirements: [],
+  sourceSliceBudget: 300,
+  sourceSliceLimit: 1,
+  taskBlockHash:
+    "deaf4bd3122abdb5ba641ca2f875ed96fb72ef58599f8c034f5cf0ad46f0593f",
+  taskId: "S15-T02",
+  title: "Remove legacy migration definitions before registry assembly",
+  tranche: "F1-control",
+  greenHeadAfter: "S05-T01",
+  mandatorySameWaveAfter: "S05-T01",
 };
 
 const laneFor = (taskId: string): string => {
@@ -1207,7 +1238,7 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
     planPath: PLAN_RELATIVE,
     planSha256: hash(plan),
     schemaVersion: "maestro-brain-task-manifest/v1",
-    tasks: [...tasks, CONTROL_TASK],
+    tasks: [...tasks, CONTROL_TASK, MIGRATION_REGISTRY_TRANSITION_TASK],
   };
 };
 
@@ -1330,31 +1361,54 @@ export const validateManifest = (manifest: BrainTaskManifest): string[] => {
   ).length;
   if (productCount !== 56)
     errors.push(`expected 56 product tasks, got ${productCount}`);
-  if (controlCount !== 1)
-    errors.push(`expected one control task, got ${controlCount}`);
+  if (controlCount !== 2)
+    errors.push(`expected two control tasks, got ${controlCount}`);
   if (ids.size !== manifest.tasks.length) errors.push("duplicate task IDs");
   for (const task of manifest.tasks) {
     if (task.lane === "unknown") errors.push(`${task.taskId}: unknown lane`);
     if (task.acceptanceAfter === "unknown")
       errors.push(`${task.taskId}: no acceptance prerequisite`);
     if (task.kind === "control") {
-      if (task.gateProfiles.length !== 1 || task.gateProfiles[0] !== "tooling")
+      if (task.taskId === "S15-T01") {
+        if (
+          task.gateProfiles.length !== 1 ||
+          task.gateProfiles[0] !== "tooling"
+        )
+          errors.push(
+            `${task.taskId}: control task must use tooling gate profile`,
+          );
+        if (task.sourceSliceLimit !== 4)
+          errors.push(
+            `${task.taskId}: control task source slice limit must be four`,
+          );
+        if (
+          task.controlCommitChain?.length !== 4 ||
+          task.controlCommitChain.some((sha) => !/^[0-9a-f]{40}$/.test(sha)) ||
+          new Set(task.controlCommitChain).size !== 4 ||
+          task.controlHeadSha !== task.controlCommitChain.at(-1)
+        )
+          errors.push(
+            `${task.taskId}: control task must bind the approved commit chain and head`,
+          );
+      }
+    }
+    if (task.greenHeadAfter !== undefined) {
+      if (!ids.has(task.greenHeadAfter))
         errors.push(
-          `${task.taskId}: control task must use tooling gate profile`,
+          `${task.taskId}: unknown green-head prerequisite ${task.greenHeadAfter}`,
         );
-      if (task.sourceSliceLimit !== 4)
+      if (task.codeStartAfter.includes(task.greenHeadAfter))
         errors.push(
-          `${task.taskId}: control task source slice limit must be four`,
+          `${task.taskId}: green-head prerequisite ${task.greenHeadAfter} cannot also be an integrated code-start dependency`,
         );
-      if (
-        task.controlCommitChain?.length !== 4 ||
-        task.controlCommitChain.some((sha) => !/^[0-9a-f]{40}$/.test(sha)) ||
-        new Set(task.controlCommitChain).size !== 4 ||
-        task.controlHeadSha !== task.controlCommitChain.at(-1)
-      )
+      if (task.mandatorySameWaveAfter !== task.greenHeadAfter)
         errors.push(
-          `${task.taskId}: control task must bind the approved commit chain and head`,
+          `${task.taskId}: green-head transition must preserve mandatory same-wave ordering`,
         );
+    } else if (task.mandatorySameWaveAfter !== undefined) {
+      errors.push(
+        `${task.taskId}: mandatory same-wave ordering requires a green-head prerequisite`,
+      );
     }
     if (
       !Number.isInteger(task.estimatedSourceLines) ||

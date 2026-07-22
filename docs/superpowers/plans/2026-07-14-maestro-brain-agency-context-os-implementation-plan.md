@@ -27,10 +27,12 @@ template classification, existing anchors, exact files, test-first sequence,
 typed contract, state changes, migration and rollback, commands, receipt, and
 lane branch/commit boundary.
 
-The binding task manifest contains exactly 57 task contracts: 56 product tasks
-and the distinct S15-T01 factory control checkpoint. That count is authoritative
-and supersedes any stale instruction, receipt, or handoff that refers to 55 or
-56 total tasks.
+The binding task manifest contains exactly 58 task contracts: the original 56
+product tasks, the S15-T01 factory control checkpoint, and the auxiliary S15-T02
+migration-registry transition. The original 57 deliverable task contracts remain
+the product completion measure; S15-T02 is counted separately as the bounded
+control transition required to integrate S05-T01 without weakening its
+product-lane ownership.
 
 ## Product And Architecture Outcome
 
@@ -4853,8 +4855,21 @@ have true code-start edges from S05-T01. Historical S00/S01 executable
 definitions and the planned S02 registrations are extracted by S05. S04-T02 and
 already-integrated S11-T01 are proven zero-registry-delta inputs under the S05
 packet audit, so neither receives an invented fragment and S11 receives no
-retroactive edge. Integration alone owns the canonical
-`packages/convex/confect/internal/migrations.ts` output.
+retroactive edge. S05-T01 does not own the legacy hand-authored
+`packages/convex/confect/internal/migrations.ts` registry. Auxiliary control
+transition S15-T02 starts from the exact green S05-T01 head, removes only the
+legacy executable definitions moved into task-owned modules, and must integrate
+in the same wave immediately after S05-T01. It deliberately has no ordinary
+`codeStartAfter` edge to S05-T01 because requiring S05-T01 to integrate first
+would deadlock the transition. Integration alone generates and commits the
+canonical `packages/convex/confect/internal/migrations.generated.ts` output.
+
+S15-T02 owns exactly `packages/convex/confect/internal/migrations.ts`,
+`tooling/brain-factory/src/integration-generated-proof.ts`, and
+`tooling/brain-factory/test/integration-generated-proof.test.mts`. It uses the
+`convex` and `tooling` gate profiles, one source slice of at most 300
+hand-authored lines, and performs no migration execution, deployment, ingestion,
+or production mutation.
 
 Shared locks include `@route-tree`, `@dependencies`, `@environment`, and every
 exact path extracted from the task's **Files** field. The factory reserves all
