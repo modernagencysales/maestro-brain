@@ -371,8 +371,16 @@ const validateLane = (input: {
     ? input.sameWaveHeadByTaskId.get(snapshot.mandatorySameWaveAfter)
     : undefined;
   if (
-    !gitIsAncestor(input.workdir, proofBase, input.baseSha) &&
+    snapshot.mandatorySameWaveAfter !== undefined &&
     proofBase !== sameWavePredecessorHead
+  ) {
+    throw new Error(
+      `${taskId}: proof base does not equal signed predecessor head`,
+    );
+  }
+  if (
+    snapshot.mandatorySameWaveAfter === undefined &&
+    !gitIsAncestor(input.workdir, proofBase, input.baseSha)
   ) {
     throw new Error(`${taskId}: proof base is not an ancestor of wave base`);
   }

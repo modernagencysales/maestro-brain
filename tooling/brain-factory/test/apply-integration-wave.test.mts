@@ -85,6 +85,7 @@ const makeFixture = (options?: {
     readonly files: readonly string[];
     readonly kind?: "control" | "product";
     readonly mandatorySameWaveAfter?: string;
+    readonly recordWaveBaseAsProofBase?: boolean;
     readonly taskId: string;
   }[];
   readonly reverseCreation?: boolean;
@@ -182,7 +183,7 @@ const makeFixture = (options?: {
         taskId: spec.taskId,
         planSha256: proofPlanSha256,
         taskBlockHash,
-        baseSha: proofBaseSha,
+        baseSha: spec.recordWaveBaseAsProofBase ? baseSha : proofBaseSha,
         changedFiles,
         headSha,
         reviewVerdict: "pass",
@@ -615,6 +616,27 @@ describe("deterministic integration wave application", () => {
     });
     expect(() => applyIntegrationWave(arbitrary.input)).toThrow(
       "S16-T01: immutable manifest contract drift",
+    );
+  });
+
+  it("rejects an S15 proof based on the wave base instead of the signed S05 head", () => {
+    const value = makeFixture({
+      laneSpecs: [
+        { files: ["s05.ts"], taskId: "S05-T01" },
+        {
+          baseTaskId: "S05-T01",
+          files: ["s15.ts"],
+          greenHeadAfter: "S05-T01",
+          kind: "control",
+          mandatorySameWaveAfter: "S05-T01",
+          recordWaveBaseAsProofBase: true,
+          taskId: "S15-T02",
+        },
+      ],
+    });
+
+    expect(() => applyIntegrationWave(value.input)).toThrow(
+      "S15-T02: proof base does not equal signed predecessor head",
     );
   });
 
