@@ -103,7 +103,8 @@ Confect/Convex generation, pnpm, and `host-test-slot`.
   ```bash
   rtk host-test-slot --class focused pnpm --dir tooling/brain-factory test workflow-prompt-contract review-worktrees review-worktree-guard review-lens-guard review-aggregate-refs review-aggregation-lease
   rtk pnpm --dir tooling/brain-factory typecheck
-  rtk pnpm exec prettier --check .fabro/workflows/brain-build-task/workflow.fabro tooling/brain-factory/test/workflow-prompt-contract.test.mts
+  rtk fabro validate .fabro/workflows/brain-build-task/workflow.fabro
+  rtk pnpm exec prettier --check tooling/brain-factory/test/workflow-prompt-contract.test.mts
   ```
 
   Expected: all focused suites pass and the three-lens fork remains wait-all.
