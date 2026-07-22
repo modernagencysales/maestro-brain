@@ -9,6 +9,7 @@ export interface SelectionInput {
   readonly activeTaskIds: ReadonlySet<string>;
   readonly completedTaskIds: ReadonlySet<string>;
   readonly contractArtifactSha256ByProducer?: ReadonlyMap<string, string>;
+  readonly greenTaskIds?: ReadonlySet<string>;
   readonly maximum: number;
   readonly requestedTaskIds?: ReadonlySet<string>;
   readonly tasks: readonly BrainTaskContract[];
@@ -258,6 +259,17 @@ const mandatoryGroups = (
   task6RegistryReady: boolean,
 ): readonly ReadonlySet<string>[] => {
   const adjacency = new Map<string, Set<string>>();
+  const taskIds = new Set(tasks.map((task) => task.taskId));
+  for (const task of tasks) {
+    const predecessor = task.mandatorySameWaveAfter;
+    if (!predecessor || !taskIds.has(predecessor)) continue;
+    const taskPeers = adjacency.get(task.taskId) ?? new Set<string>();
+    const predecessorPeers = adjacency.get(predecessor) ?? new Set<string>();
+    taskPeers.add(predecessor);
+    predecessorPeers.add(task.taskId);
+    adjacency.set(task.taskId, taskPeers);
+    adjacency.set(predecessor, predecessorPeers);
+  }
   for (let leftIndex = 0; leftIndex < tasks.length; leftIndex += 1) {
     const left = tasks[leftIndex];
     if (!left) continue;
@@ -337,6 +349,7 @@ export const selectReadyTasks = ({
   activeTaskIds,
   completedTaskIds,
   contractArtifactSha256ByProducer,
+  greenTaskIds = new Set(),
   maximum,
   requestedTaskIds = new Set(),
   tasks,
@@ -354,11 +367,20 @@ export const selectReadyTasks = ({
       task.fileInventoryStatus === "ready" &&
       task.kind !== "external" &&
       task.kind !== "release" &&
-      task.kind !== "control" &&
+      (task.kind !== "control" || task.greenHeadAfter !== undefined) &&
       !activeTaskIds.has(task.taskId) &&
       !completedTaskIds.has(task.taskId)
     ) {
       const reasons: string[] = [];
+      if (
+        task.greenHeadAfter !== undefined &&
+        (!greenTaskIds.has(task.greenHeadAfter) ||
+          !activeTaskIds.has(task.greenHeadAfter))
+      ) {
+        reasons.push(
+          `green-head prerequisite ${task.greenHeadAfter} is not active`,
+        );
+      }
       for (const edge of dependenciesFor(task)) {
         if (edge.classification === "true") {
           if (!completedTaskIds.has(edge.producerTaskId)) {

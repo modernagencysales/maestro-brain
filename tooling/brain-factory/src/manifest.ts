@@ -273,33 +273,6 @@ const CONTROL_TASK: BrainTaskContract = {
   controlHeadSha: "36b8c7e108044facc375d6f483abfdfcc5b4a813",
 };
 
-const MIGRATION_REGISTRY_TRANSITION_TASK: BrainTaskContract = {
-  acceptanceAfter: "S05-T01",
-  classification: "template-gap",
-  codeStartAfter: [],
-  estimatedSourceLines: 180,
-  fileInventoryIssues: [],
-  fileInventoryStatus: "ready",
-  fileLocks: [
-    "packages/convex/confect/internal/migrations.ts",
-    "tooling/brain-factory/src/integration-generated-proof.ts",
-    "tooling/brain-factory/test/integration-generated-proof.test.mts",
-  ],
-  gateProfiles: ["convex", "tooling"],
-  kind: "control",
-  lane: "control",
-  requirements: [],
-  sourceSliceBudget: 300,
-  sourceSliceLimit: 1,
-  taskBlockHash:
-    "deaf4bd3122abdb5ba641ca2f875ed96fb72ef58599f8c034f5cf0ad46f0593f",
-  taskId: "S15-T02",
-  title: "Remove legacy migration definitions before registry assembly",
-  tranche: "F1-control",
-  greenHeadAfter: "S05-T01",
-  mandatorySameWaveAfter: "S05-T01",
-};
-
 const laneFor = (taskId: string): string => {
   const stack = taskId.slice(0, 3);
   return (
@@ -451,6 +424,55 @@ const exactString = (
     throw new Error(`${label}: invalid value`);
   }
   return value;
+};
+
+const AUXILIARY_CONTROL_KEYS = [
+  "acceptanceAfter",
+  "classification",
+  "codeStartAfter",
+  "estimatedSourceLines",
+  "fileInventoryIssues",
+  "fileInventoryStatus",
+  "fileLocks",
+  "gateProfiles",
+  "kind",
+  "lane",
+  "requirements",
+  "sourceSliceBudget",
+  "sourceSliceLimit",
+  "taskId",
+  "title",
+  "tranche",
+  "greenHeadAfter",
+  "mandatorySameWaveAfter",
+] as const;
+
+export const parseAuxiliaryControlTask = (plan: string): BrainTaskContract => {
+  const matches = [
+    ...plan.matchAll(
+      /- \*\*Auxiliary control transition contract:\*\*\s*```json\r?\n([\s\S]*?)\r?\n\s*```/g,
+    ),
+  ];
+  if (matches.length !== 1) {
+    throw new Error("S15-T02: expected one auxiliary control contract");
+  }
+  const block = required(matches[0]?.[1], "S15-T02: empty control contract");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(block);
+  } catch (error) {
+    throw new Error("S15-T02: invalid control contract JSON", { cause: error });
+  }
+  const value = recordValue(parsed, "S15-T02: auxiliary control contract");
+  exactKeys(
+    value,
+    AUXILIARY_CONTROL_KEYS,
+    "S15-T02: auxiliary control contract",
+  );
+  return {
+    ...(value as unknown as Omit<BrainTaskContract, "taskBlockHash">),
+    taskBlockHash: hash(block),
+  };
 };
 
 export const parseAuthorityRepairTransition = (
@@ -1238,7 +1260,7 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
     planPath: PLAN_RELATIVE,
     planSha256: hash(plan),
     schemaVersion: "maestro-brain-task-manifest/v1",
-    tasks: [...tasks, CONTROL_TASK, MIGRATION_REGISTRY_TRANSITION_TASK],
+    tasks: [...tasks, CONTROL_TASK, parseAuxiliaryControlTask(plan)],
   };
 };
 
@@ -1368,6 +1390,28 @@ export const validateManifest = (manifest: BrainTaskManifest): string[] => {
     if (task.lane === "unknown") errors.push(`${task.taskId}: unknown lane`);
     if (task.acceptanceAfter === "unknown")
       errors.push(`${task.taskId}: no acceptance prerequisite`);
+    if (
+      task.taskId === "S15-T02" &&
+      (task.kind !== "control" ||
+        task.classification !== "template-gap" ||
+        JSON.stringify(task.gateProfiles) !==
+          JSON.stringify(["convex", "tooling"]) ||
+        JSON.stringify(task.fileLocks) !==
+          JSON.stringify([
+            "packages/convex/confect/internal/migrations.ts",
+            "tooling/brain-factory/src/integration-generated-proof.ts",
+            "tooling/brain-factory/test/integration-generated-proof.test.mts",
+          ]) ||
+        task.sourceSliceBudget !== 300 ||
+        task.sourceSliceLimit !== 1 ||
+        task.greenHeadAfter !== "S05-T01" ||
+        task.mandatorySameWaveAfter !== "S05-T01" ||
+        task.codeStartAfter.length !== 0)
+    ) {
+      errors.push(
+        `${task.taskId}: invalid migration-registry transition contract`,
+      );
+    }
     if (task.kind === "control") {
       if (task.taskId === "S15-T01") {
         if (

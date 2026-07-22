@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "62f1cb0227feee1b1a42c8a66441f37d830c689db727df6d3d11d922044bf67f",
+  "planSha256": "ef80573fb33d3aedeba7c28b370291269d4eb0bf3a88d08cf69536274c135e85",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -1963,12 +1963,12 @@
       "requirements": [],
       "sourceSliceBudget": 300,
       "sourceSliceLimit": 1,
-      "taskBlockHash": "deaf4bd3122abdb5ba641ca2f875ed96fb72ef58599f8c034f5cf0ad46f0593f",
       "taskId": "S15-T02",
       "title": "Remove legacy migration definitions before registry assembly",
       "tranche": "F1-control",
       "greenHeadAfter": "S05-T01",
-      "mandatorySameWaveAfter": "S05-T01"
+      "mandatorySameWaveAfter": "S05-T01",
+      "taskBlockHash": "c08bf674c1c06217a62c886dc4e47c7de961e778c8409363a274d3e934a230a5"
     }
   ]
 }

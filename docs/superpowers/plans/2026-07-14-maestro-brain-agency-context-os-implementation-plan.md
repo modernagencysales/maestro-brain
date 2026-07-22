@@ -4871,6 +4871,35 @@ S15-T02 owns exactly `packages/convex/confect/internal/migrations.ts`,
 hand-authored lines, and performs no migration execution, deployment, ingestion,
 or production mutation.
 
+- **Auxiliary control transition contract:**
+
+  ```json
+  {
+    "acceptanceAfter": "S05-T01",
+    "classification": "template-gap",
+    "codeStartAfter": [],
+    "estimatedSourceLines": 180,
+    "fileInventoryIssues": [],
+    "fileInventoryStatus": "ready",
+    "fileLocks": [
+      "packages/convex/confect/internal/migrations.ts",
+      "tooling/brain-factory/src/integration-generated-proof.ts",
+      "tooling/brain-factory/test/integration-generated-proof.test.mts"
+    ],
+    "gateProfiles": ["convex", "tooling"],
+    "kind": "control",
+    "lane": "control",
+    "requirements": [],
+    "sourceSliceBudget": 300,
+    "sourceSliceLimit": 1,
+    "taskId": "S15-T02",
+    "title": "Remove legacy migration definitions before registry assembly",
+    "tranche": "F1-control",
+    "greenHeadAfter": "S05-T01",
+    "mandatorySameWaveAfter": "S05-T01"
+  }
+  ```
+
 Shared locks include `@route-tree`, `@dependencies`, `@environment`, and every
 exact path extracted from the task's **Files** field. The factory reserves all
 generated Confect, Convex, manifest, and route-tree output for tranche

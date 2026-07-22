@@ -177,6 +177,11 @@ const { ready: candidates, selected } = selectReadyTasks({
   activeTaskIds: new Set(ownedTasks.map((task) => task.taskId)),
   completedTaskIds,
   contractArtifactSha256ByProducer,
+  greenTaskIds: new Set(
+    activeTasks
+      .filter((task) => resultStatus(task.taskId) === "lane_green")
+      .map((task) => task.taskId),
+  ),
   maximum: availableSlots,
   requestedTaskIds: requested,
   tasks: projection.tasks,

@@ -358,6 +358,41 @@ describe("brain task scheduler", () => {
     ).toEqual([]);
   });
 
+  it("dispatches the S05 green-head transition atomically with its active owner", () => {
+    const projection = loadManifestProjection();
+    const tasks = projection.tasks.filter((task) =>
+      new Set(["S05-T01", "S15-T02"]).has(task.taskId),
+    );
+
+    const absentOwner = selectReadyTasks({
+      activeTaskIds: new Set(),
+      completedTaskIds: new Set(["S04-T02"]),
+      maximum: 1,
+      requestedTaskIds: new Set(["S15-T02"]),
+      tasks,
+    });
+    expect(absentOwner.selected).toEqual([]);
+    expect(absentOwner.blockers[0]?.reasons).toContain(
+      "green-head prerequisite S05-T01 is not active",
+    );
+
+    const activeOwner = selectReadyTasks({
+      activeTaskIds: new Set(["S05-T01"]),
+      completedTaskIds: new Set(["S04-T02"]),
+      greenTaskIds: new Set(["S05-T01"]),
+      maximum: 1,
+      requestedTaskIds: new Set(["S15-T02"]),
+      tasks,
+    });
+    expect(activeOwner.selected.map((task) => task.taskId)).toEqual([
+      "S15-T02",
+    ]);
+    expect(activeOwner.mandatoryIntegrationGroups).toContainEqual([
+      "S05-T01",
+      "S15-T02",
+    ]);
+  });
+
   it("allows a missing producer to launch while stale consumers remain active", () => {
     const projection = loadManifestProjection();
     const availableArtifacts = artifactAvailability(projection);

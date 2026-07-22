@@ -199,6 +199,7 @@ const earlierTaskSet = (
 
 const maximumConflictFreeTasks = (
   tasks: readonly IntegrationWaveTaskSnapshot[],
+  atomicGroups: readonly ReadonlySet<string>[] = [],
 ): readonly IntegrationWaveTaskSnapshot[] => {
   const candidates = [...tasks].sort((left, right) =>
     left.taskId.localeCompare(right.taskId),
@@ -212,6 +213,17 @@ const maximumConflictFreeTasks = (
   ): void => {
     if (selected.length + candidates.length - index < best.length) return;
     if (index === candidates.length) {
+      const selectedIds = new Set(selected.map((task) => task.taskId));
+      if (
+        atomicGroups.some((group) => {
+          const count = [...group].filter((taskId) =>
+            selectedIds.has(taskId),
+          ).length;
+          return count > 0 && count !== group.size;
+        })
+      ) {
+        return;
+      }
       if (
         selected.length > best.length ||
         (selected.length === best.length && earlierTaskSet(selected, best))
@@ -357,9 +369,24 @@ export const planIntegrationWave = (input: {
   const snapshots = input.candidates.map((candidate) => {
     const task = manifestTasks.get(candidate.taskId);
     if (!task) throw new Error(`${candidate.taskId}: absent from manifest`);
-    if (task.fileInventoryStatus !== "ready" || task.kind !== "product") {
+    const greenHeadTransition =
+      task.kind === "control" &&
+      task.greenHeadAfter !== undefined &&
+      task.mandatorySameWaveAfter === task.greenHeadAfter;
+    if (
+      task.fileInventoryStatus !== "ready" ||
+      (task.kind !== "product" && !greenHeadTransition)
+    ) {
       throw new Error(
-        `${candidate.taskId}: task is not integration-ready product work`,
+        `${candidate.taskId}: task is not integration-ready lane work`,
+      );
+    }
+    if (
+      task.greenHeadAfter !== undefined &&
+      !candidateIds.has(task.greenHeadAfter)
+    ) {
+      throw new Error(
+        `${candidate.taskId}: requires same-wave predecessor ${task.greenHeadAfter}`,
       );
     }
     if (candidate.tranche !== task.tranche) {
@@ -403,7 +430,20 @@ export const planIntegrationWave = (input: {
       fileLocks: [...task.fileLocks].sort(),
     } satisfies IntegrationWaveTaskSnapshot;
   });
-  const selectedTasks = maximumConflictFreeTasks(snapshots);
+  const atomicGroups = input.tasks.flatMap((task) =>
+    task.mandatorySameWaveAfter !== undefined && candidateIds.has(task.taskId)
+      ? [new Set([task.mandatorySameWaveAfter, task.taskId])]
+      : [],
+  );
+  const selectedTasks = [
+    ...maximumConflictFreeTasks(snapshots, atomicGroups),
+  ].sort((left, right) => {
+    const leftTask = manifestTasks.get(left.taskId);
+    const rightTask = manifestTasks.get(right.taskId);
+    if (leftTask?.mandatorySameWaveAfter === right.taskId) return 1;
+    if (rightTask?.mandatorySameWaveAfter === left.taskId) return -1;
+    return left.taskId.localeCompare(right.taskId);
+  });
   if (selectedTasks.length === 0)
     throw new Error("integration wave has no selectable tasks");
   const selectedIds = new Set(selectedTasks.map((task) => task.taskId));

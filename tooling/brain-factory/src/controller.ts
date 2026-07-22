@@ -391,6 +391,11 @@ export const planControllerTick = (
       : selectReadyTasks({
           activeTaskIds: ownedTaskIds,
           completedTaskIds,
+          greenTaskIds: new Set(
+            snapshot.tasks
+              .filter(({ stage }) => stage === "lane_green")
+              .map(({ taskId }) => taskId),
+          ),
           maximum: available,
           requestedTaskIds: pendingTaskIds,
           tasks: manifest.tasks,

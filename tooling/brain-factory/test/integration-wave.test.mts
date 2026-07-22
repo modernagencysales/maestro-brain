@@ -809,6 +809,44 @@ describe("integration wave planner", () => {
     ).toThrow("payload hash mismatch");
   });
 
+  it("selects and orders the S05 green-head transition as one atomic wave", () => {
+    const source = task("S05-T01", "C1-contract-spine", ["S04-T02"]);
+    const transition: BrainTaskContract = {
+      ...task("S15-T02", "F1-control"),
+      classification: "template-gap",
+      gateProfiles: ["convex", "tooling"],
+      kind: "control",
+      greenHeadAfter: "S05-T01",
+      mandatorySameWaveAfter: "S05-T01",
+    };
+
+    const selection = planIntegrationWave({
+      baseSha: "base",
+      candidates: [candidate(transition), candidate(source)],
+      completedTaskIds: new Set(["S04-T02"]),
+      integrationId: integrationWaveId(57),
+      planSha256: "plan",
+      requestedTaskIds: ["S05-T01", "S15-T02"],
+      tasks: [transition, source],
+    });
+    expect(selection.selectedTasks.map((value) => value.taskId)).toEqual([
+      "S05-T01",
+      "S15-T02",
+    ]);
+
+    expect(() =>
+      planIntegrationWave({
+        baseSha: "base",
+        candidates: [candidate(transition)],
+        completedTaskIds: new Set(),
+        integrationId: integrationWaveId(58),
+        planSha256: "plan",
+        requestedTaskIds: ["S15-T02"],
+        tasks: [transition, source],
+      }),
+    ).toThrow("requires same-wave predecessor S05-T01");
+  });
+
   it("forbids dependencies that are absent from the exact base", () => {
     const parent = task("S01-T02", "C1-contract-spine");
     const child = task("S01-T03", "D2-domain-bodies", [parent.taskId]);

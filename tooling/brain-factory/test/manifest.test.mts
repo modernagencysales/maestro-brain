@@ -8,6 +8,7 @@ import {
   buildManifest,
   loadManifestProjection,
   MANIFEST_RELATIVE,
+  parseAuxiliaryControlTask,
   PLAN_RELATIVE,
   parseAuthorityRepairTransition,
   parseOwnershipRehomeTransition,
@@ -303,6 +304,44 @@ describe("Maestro Brain execution manifest", () => {
     ).toContain(
       "S15-T02: green-head prerequisite S05-T01 cannot also be an integrated code-start dependency",
     );
+
+    const invalidTransitions = [
+      { kind: "product" as const },
+      { classification: "pattern-instance" as const },
+      { gateProfiles: ["tooling"] as const },
+      { fileLocks: ["wrong.ts"] as const },
+      { sourceSliceBudget: 301 as never },
+      { sourceSliceLimit: 2 },
+    ];
+    for (const override of invalidTransitions) {
+      const invalid = {
+        ...manifest,
+        tasks: manifest.tasks.map((task) =>
+          task.taskId === "S15-T02" ? { ...task, ...override } : task,
+        ),
+      };
+      expect(
+        validateManifest(invalid).join("\n"),
+        JSON.stringify(override),
+      ).toContain("S15-T02: invalid migration-registry transition contract");
+    }
+  });
+
+  it("derives the S15-T02 task-block hash from its canonical plan block", () => {
+    const plan = readFileSync(resolve(REPO_ROOT, PLAN_RELATIVE), "utf8");
+    const transition = parseAuxiliaryControlTask(plan);
+    const generated = buildManifest().tasks.find(
+      (task) => task.taskId === "S15-T02",
+    );
+    expect(generated).toEqual(transition);
+    expect(
+      parseAuxiliaryControlTask(
+        plan.replace(
+          '"estimatedSourceLines": 180',
+          '"estimatedSourceLines": 179',
+        ),
+      ).taskBlockHash,
+    ).not.toBe(generated?.taskBlockHash);
   });
 
   it("keeps every focused verification packet executable", () => {
