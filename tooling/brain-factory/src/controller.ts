@@ -220,10 +220,28 @@ const compatibleGreenTasks = (
   maximum: number,
 ): readonly ControllerTaskState[] => {
   const byId = new Map(manifest.tasks.map((task) => [task.taskId, task]));
+  const greenById = new Map(green.map((task) => [task.taskId, task]));
+  const transitionByPredecessor = new Map(
+    manifest.tasks.flatMap((task) =>
+      task.mandatorySameWaveAfter === undefined
+        ? []
+        : [[task.mandatorySameWaveAfter, task.taskId] as const],
+    ),
+  );
   const candidates = green
-    .filter(({ taskId }) => byId.get(taskId)?.kind === "product")
+    .filter(({ taskId }) => {
+      const task = byId.get(taskId);
+      if (task?.kind !== "product") return false;
+      const transition = transitionByPredecessor.get(taskId);
+      return transition === undefined || greenById.has(transition);
+    })
     .sort((left, right) => left.taskId.localeCompare(right.taskId))
-    .slice(0, GREEN_BATCH_CANDIDATE_LIMIT);
+    .slice(0, GREEN_BATCH_CANDIDATE_LIMIT)
+    .map((task) => {
+      const transitionId = transitionByPredecessor.get(task.taskId);
+      const transition = transitionId ? greenById.get(transitionId) : undefined;
+      return transition ? [task, transition] : [task];
+    });
   let best: readonly ControllerTaskState[] = [];
   const lexicographicallyEarlier = (
     left: readonly ControllerTaskState[],
@@ -237,8 +255,11 @@ const compatibleGreenTasks = (
     locked: ReadonlySet<string>,
   ): void => {
     if (best.length === maximum) return;
+    const remaining = candidates
+      .slice(index)
+      .reduce((total, unit) => total + unit.length, 0);
     if (
-      selected.length + (candidates.length - index) < best.length ||
+      selected.length + remaining < best.length ||
       selected.length === maximum ||
       index === candidates.length
     ) {
@@ -251,15 +272,20 @@ const compatibleGreenTasks = (
       }
       return;
     }
-    const lane = candidates[index];
-    if (!lane) return;
-    const task = byId.get(lane.taskId);
-    if (task && !task.fileLocks.some((path) => locked.has(path))) {
+    const unit = candidates[index];
+    if (!unit) return;
+    const tasks = unit.map((lane) => byId.get(lane.taskId));
+    const unitLocks = tasks.flatMap((task) => task?.fileLocks ?? []);
+    if (
+      selected.length + unit.length <= maximum &&
+      tasks.every(Boolean) &&
+      !unitLocks.some((path) => locked.has(path))
+    ) {
       const nextLocks = new Set(locked);
-      for (const path of task.fileLocks) nextLocks.add(path);
-      selected.push(lane);
+      for (const path of unitLocks) nextLocks.add(path);
+      selected.push(...unit);
       visit(index + 1, selected, nextLocks);
-      selected.pop();
+      selected.splice(selected.length - unit.length, unit.length);
     }
     visit(index + 1, selected, locked);
   };
@@ -400,6 +426,19 @@ export const planControllerTick = (
           requestedTaskIds: pendingTaskIds,
           tasks: manifest.tasks,
         }).selected;
+  const transitionDispatchable = dispatchable.filter(
+    (task) => task.greenHeadAfter !== undefined,
+  );
+  if (transitionDispatchable.length > 0) {
+    return withFrontier(
+      makeAction({
+        kind: "dispatch_tasks",
+        policy,
+        snapshot,
+        targetIds: transitionDispatchable.map(({ taskId }) => taskId),
+      }),
+    );
+  }
 
   const green = compatibleGreenTasks(
     snapshot.tasks.filter(({ stage }) => stage === "lane_green"),

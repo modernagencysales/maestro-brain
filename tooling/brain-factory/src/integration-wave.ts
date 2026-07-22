@@ -677,12 +677,10 @@ const validateSelectionShape = (
   const expectedIds = value.selectedTasks
     .filter((task) => task.mandatorySameWaveAfter === undefined)
     .sort((left, right) => left.taskId.localeCompare(right.taskId))
-    .flatMap((task) => [
-      task.taskId,
-      ...(transitionsByPredecessor.get(task.taskId) === undefined
-        ? []
-        : [transitionsByPredecessor.get(task.taskId)!.taskId]),
-    ]);
+    .flatMap((task) => {
+      const transition = transitionsByPredecessor.get(task.taskId);
+      return transition ? [task.taskId, transition.taskId] : [task.taskId];
+    });
   if (
     new Set(ids).size !== ids.length ||
     JSON.stringify(ids) !== JSON.stringify(expectedIds)

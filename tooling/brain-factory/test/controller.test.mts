@@ -259,6 +259,61 @@ describe("controller pure planner", () => {
     ]);
   });
 
+  it("dispatches the S05 green-head transition before integrating its owner", () => {
+    expect(
+      planControllerTick(
+        snapshot({
+          tasks: [
+            task("S05-T01", "lane_green", {
+              admission: "admissible",
+              headSha: "5".repeat(40),
+              runId: "s05-green-run",
+            }),
+            task("S15-T02", "pending"),
+          ],
+        }),
+        policy,
+      ),
+    ).toMatchObject([{ kind: "dispatch_tasks", targetIds: ["S15-T02"] }]);
+  });
+
+  it("integrates S05 and S15 only as one adjacent green unit", () => {
+    expect(
+      planControllerTick(
+        snapshot({
+          tasks: [
+            task("S05-T01", "lane_green", {
+              admission: "admissible",
+              headSha: "5".repeat(40),
+            }),
+            task("S15-T02", "running"),
+          ],
+        }),
+        policy,
+      )[0],
+    ).not.toMatchObject({ kind: "integrate_batch", targetIds: ["S05-T01"] });
+
+    expect(
+      planControllerTick(
+        snapshot({
+          tasks: [
+            task("S05-T01", "lane_green", {
+              admission: "admissible",
+              headSha: "5".repeat(40),
+            }),
+            task("S15-T02", "lane_green", {
+              admission: "admissible",
+              headSha: "6".repeat(40),
+            }),
+          ],
+        }),
+        policy,
+      ),
+    ).toMatchObject([
+      { kind: "integrate_batch", targetIds: ["S05-T01", "S15-T02"] },
+    ]);
+  });
+
   it("selects the maximum compatible green batch instead of a greedy prefix", () => {
     const product = manifest.tasks
       .filter(({ kind }) => kind === "product")

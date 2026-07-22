@@ -840,13 +840,14 @@ describe("integration wave planner", () => {
       "S10-T99",
     ]);
     expect(() => validateIntegrationWaveSelection(selection)).not.toThrow();
+    const [sourceSnapshot, transitionSnapshot, unrelatedSnapshot] =
+      selection.selectedTasks;
+    if (!sourceSnapshot || !transitionSnapshot || !unrelatedSnapshot) {
+      throw new Error("atomic selection fixture is incomplete");
+    }
     const nonAdjacentPayload = selectionPayload({
       ...selection,
-      selectedTasks: [
-        selection.selectedTasks[0]!,
-        selection.selectedTasks[2]!,
-        selection.selectedTasks[1]!,
-      ],
+      selectedTasks: [sourceSnapshot, unrelatedSnapshot, transitionSnapshot],
     });
     expect(() =>
       validateIntegrationWaveSelection({
