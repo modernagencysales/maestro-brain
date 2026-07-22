@@ -8,6 +8,7 @@ import {
   admitLaneGreenAuthorityReproof,
   type LaneGreenAuthorityReproofAdmission,
 } from "./lane-green-authority-reproof.js";
+import { gitCommitPatchSha256 } from "./lane-green-authority-reproof-candidate.js";
 import {
   buildManifest,
   PLAN_RELATIVE,
@@ -162,6 +163,9 @@ export const loadLaneGreenAuthorityReproofAdmission = (input: {
       { cwd: input.root, quiet: true },
     ),
   );
+  const sourceCommitPatchSha256s = sourceCommits.map((commit) =>
+    gitCommitPatchSha256(input.root, commit),
+  );
   const proofChangedFiles = lines(
     runRtk(
       [
@@ -265,6 +269,7 @@ export const loadLaneGreenAuthorityReproofAdmission = (input: {
     proofTreeSha,
     transition,
     sourceChangedFiles,
+    sourceCommitPatchSha256s,
     sourcePatchSha256,
     sourceTreeSha,
   });

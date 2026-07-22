@@ -75,8 +75,10 @@ export interface LaneGreenAuthorityReproofTransition {
   readonly proofTaskBlockHash: string;
   readonly proofFindingIds: readonly string[];
   readonly proofGateStage: "pre-review";
+  readonly proofChangedFiles: readonly string[];
   readonly sourceBaseSha: string;
   readonly sourceCommits: readonly string[];
+  readonly sourceChangedFiles: readonly string[];
   readonly sourceHeadSha: string;
   readonly sourceTreeSha: string;
 }
@@ -421,7 +423,7 @@ export const taskBlockHashWithoutLaneGreenAuthority = (
   const block = taskBlocks(plan).get(taskId);
   if (!block) throw new Error(`${taskId}: historical task block is missing`);
   const stripped = block.body.replace(
-    /- \*\*Lane-green authority reproof transition:\*\*\n\n {2}```json\n[\s\S]*?\n {2}```\n/,
+    /- \*\*Lane-green authority reproof transition:\*\*\n\n {2}```json\n[\s\S]*?\n {2}```\n\n/,
     "",
   );
   if (stripped === block.body) {
@@ -728,8 +730,10 @@ export const parseLaneGreenAuthorityReproofTransition = (
       "proofTaskBlockHash",
       "proofFindingIds",
       "proofGateStage",
+      "proofChangedFiles",
       "sourceBaseSha",
       "sourceCommits",
+      "sourceChangedFiles",
       "sourceHeadSha",
       "sourceTreeSha",
     ],
@@ -761,6 +765,25 @@ export const parseLaneGreenAuthorityReproofTransition = (
     new Set(value.sourceCommits).size !== value.sourceCommits.length
   )
     throw new Error(`${taskId}: invalid lane-green source commits`);
+  const fileList = (input: unknown, label: string): string[] => {
+    if (
+      !Array.isArray(input) ||
+      input.length === 0 ||
+      input.some((file) => typeof file !== "string" || fileLockIssue(file)) ||
+      new Set(input).size !== input.length ||
+      JSON.stringify(input) !== JSON.stringify([...input].sort())
+    )
+      throw new Error(`${taskId}: invalid lane-green ${label}`);
+    return input as string[];
+  };
+  const proofChangedFiles = fileList(
+    value.proofChangedFiles,
+    "proof changed files",
+  );
+  const sourceChangedFiles = fileList(
+    value.sourceChangedFiles,
+    "source changed files",
+  );
   const sourceHeadSha = exactString(
     value.sourceHeadSha,
     sha40,
@@ -794,12 +817,14 @@ export const parseLaneGreenAuthorityReproofTransition = (
     ),
     proofFindingIds: value.proofFindingIds as string[],
     proofGateStage: "pre-review",
+    proofChangedFiles,
     sourceBaseSha: exactString(
       value.sourceBaseSha,
       sha40,
       `${taskId}: lane-green source base`,
     ),
     sourceCommits: value.sourceCommits as string[],
+    sourceChangedFiles,
     sourceHeadSha,
     sourceTreeSha: exactString(
       value.sourceTreeSha,

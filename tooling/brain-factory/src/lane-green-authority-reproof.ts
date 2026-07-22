@@ -5,6 +5,7 @@ import {
 import { proofChangedFilesMatch, validateProofContract } from "./proof.js";
 import { validSourceSlices } from "./source-budget.js";
 import type { LaneGreenAuthorityReproofTransition } from "./manifest.js";
+import { exactLaneGreenSha as exactSha } from "./lane-green-authority-validation.js";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -42,6 +43,7 @@ export interface LaneGreenAuthorityReproofInput {
   readonly proofTreeSha: string;
   readonly transition: LaneGreenAuthorityReproofTransition;
   readonly sourceChangedFiles: readonly string[];
+  readonly sourceCommitPatchSha256s: readonly string[];
   readonly sourcePatchSha256: string;
   readonly sourceTreeSha: string;
 }
@@ -56,21 +58,12 @@ export interface LaneGreenAuthorityReproofAdmission {
   readonly proofHeadSha: string;
   readonly sourceBaseSha: string;
   readonly sourceCommits: readonly string[];
+  readonly sourceCommitPatchSha256s: readonly string[];
   readonly sourceChangedFiles: readonly string[];
   readonly sourceHeadSha: string;
   readonly sourcePatchSha256: string;
   readonly sourceTreeSha: string;
 }
-
-const exactSha = (value: unknown, length: 40 | 64, label: string): string => {
-  if (
-    typeof value !== "string" ||
-    !new RegExp(`^[0-9a-f]{${length}}$`).test(value)
-  ) {
-    throw new Error(`${label} is invalid`);
-  }
-  return value;
-};
 
 export const admitLaneGreenAuthorityReproof = (
   input: LaneGreenAuthorityReproofInput,
@@ -201,7 +194,11 @@ export const admitLaneGreenAuthorityReproof = (
     !input.proof.changedFiles.every((file) => typeof file === "string") ||
     !proofChangedFilesMatch(
       input.proof.changedFiles as string[],
+      transition.proofChangedFiles,
+    ) ||
+    !proofChangedFilesMatch(
       input.proofChangedFiles,
+      transition.proofChangedFiles,
     )
   ) {
     throw new Error(`${task.taskId}: stale proof changed files mismatch`);
@@ -233,6 +230,13 @@ export const admitLaneGreenAuthorityReproof = (
     JSON.stringify(sourceCommits) !== JSON.stringify(transition.sourceCommits)
   )
     throw new Error(`${task.taskId}: pinned source commits drifted`);
+  if (
+    input.sourceCommitPatchSha256s.length !== sourceCommits.length ||
+    input.sourceCommitPatchSha256s.some(
+      (value) => !/^[0-9a-f]{64}$/.test(value),
+    )
+  )
+    throw new Error(`${task.taskId}: source commit patch lineage is invalid`);
   if (sourceCommits.at(-1) !== sourceHeadSha) {
     throw new Error(`${task.taskId}: source history does not end at lane HEAD`);
   }
@@ -262,16 +266,12 @@ export const admitLaneGreenAuthorityReproof = (
     );
   }
   if (
-    !Array.isArray(input.proof.changedFiles) ||
-    !input.proof.changedFiles.every((file) => typeof file === "string") ||
     !proofChangedFilesMatch(
-      input.proof.changedFiles as string[],
+      transition.sourceChangedFiles,
       input.sourceChangedFiles,
     )
   ) {
-    throw new Error(
-      `${task.taskId}: proof changed files mismatch source history`,
-    );
+    throw new Error(`${task.taskId}: pinned source changed files mismatch`);
   }
 
   return {
@@ -284,6 +284,7 @@ export const admitLaneGreenAuthorityReproof = (
     proofHeadSha: transition.proofHeadSha,
     sourceBaseSha,
     sourceCommits,
+    sourceCommitPatchSha256s: input.sourceCommitPatchSha256s,
     sourceChangedFiles: input.sourceChangedFiles,
     sourceHeadSha,
     sourcePatchSha256: input.sourcePatchSha256,

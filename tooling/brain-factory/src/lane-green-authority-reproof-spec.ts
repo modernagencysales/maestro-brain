@@ -21,6 +21,7 @@ export const buildLaneGreenAuthorityReproofLaunchSpec = (input: {
   readonly proofTaskBlockHash: string;
   readonly sourceBaseSha: string;
   readonly sourceCommits: readonly string[];
+  readonly sourceCommitPatchSha256s: readonly string[];
   readonly sourceHeadSha: string;
   readonly sourceTreeSha: string;
   readonly startSha: string;
@@ -63,6 +64,7 @@ export const buildLaneGreenAuthorityReproofLaunchSpec = (input: {
     proofPlanSha256: input.proofPlanSha256,
     proofTaskBlockHash: input.proofTaskBlockHash,
     sourceCommits: input.sourceCommits,
+    sourceCommitPatchSha256s: input.sourceCommitPatchSha256s,
     sourceHeadSha: input.sourceHeadSha,
     sourceTreeSha: input.sourceTreeSha,
     status: "preparing",

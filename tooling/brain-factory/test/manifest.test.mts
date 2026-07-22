@@ -16,6 +16,7 @@ import {
   parseTaskPacketAuditRows,
   REPO_ROOT,
   readyWidth,
+  taskBlockHashWithoutLaneGreenAuthority,
   validateManifest,
 } from "../src/manifest.js";
 import { PARALLELISM_CONTRACT_RELATIVE } from "../src/parallelism-contract.js";
@@ -117,8 +118,13 @@ describe("Maestro Brain execution manifest", () => {
         proofTaskBlockHash: "d".repeat(64),
         proofFindingIds: ["OWNERSHIP-S05-T01-001"],
         proofGateStage: "pre-review",
+        proofChangedFiles: [
+          "packages/example/owned.ts",
+          "packages/example/proof-only.ts",
+        ],
         sourceBaseSha: "e".repeat(40),
         sourceCommits: ["f".repeat(40), "1".repeat(40)],
+        sourceChangedFiles: ["packages/example/owned.ts"],
         sourceHeadSha: "1".repeat(40),
         sourceTreeSha: "2".repeat(40),
         ...overrides,
@@ -147,8 +153,10 @@ describe("Maestro Brain execution manifest", () => {
       { proofTaskBlockHash: "d" },
       { proofFindingIds: [] },
       { proofGateStage: "final" },
+      { proofChangedFiles: [] },
       { sourceBaseSha: "e" },
       { sourceCommits: [] },
+      { sourceChangedFiles: [] },
       { sourceHeadSha: "3".repeat(40) },
       { sourceTreeSha: "2" },
       { unexpected: true },
@@ -692,6 +700,38 @@ describe("Maestro Brain execution manifest", () => {
       sourceHeadSha: "d5efc88aff587f23541b363b41d296beb5eda5a5",
       proofHeadSha: "1578f7f20b8bd7b5580627030e9d40c040935ccd",
     });
+    const transition = sourceLedger?.laneGreenAuthorityReproofTransition;
+    expect(transition?.proofChangedFiles).toHaveLength(22);
+    expect(transition?.sourceChangedFiles).toHaveLength(21);
+    expect(transition?.proofChangedFiles).toContain(
+      "packages/convex/confect/internal/migrations.spec.ts",
+    );
+    expect(transition?.sourceChangedFiles).not.toContain(
+      "packages/convex/confect/internal/migrations.spec.ts",
+    );
+    const changedFiles = (range: string): string[] =>
+      execFileSync(
+        "rtk",
+        ["proxy", "git", "diff", "--name-only", "--no-renames", range],
+        { cwd: REPO_ROOT, encoding: "utf8" },
+      )
+        .trim()
+        .split("\n")
+        .filter(Boolean);
+    expect(transition?.proofChangedFiles).toEqual(
+      changedFiles(
+        "5f682348711572faa32ac79066f8e470a1f2743f..1578f7f20b8bd7b5580627030e9d40c040935ccd",
+      ),
+    );
+    expect(transition?.sourceChangedFiles).toEqual(
+      changedFiles(
+        "022a932c1e809c2093a10f5dea5d248b6c706f5f..d5efc88aff587f23541b363b41d296beb5eda5a5",
+      ),
+    );
+    const currentPlan = readFileSync(resolve(REPO_ROOT, PLAN_RELATIVE), "utf8");
+    expect(taskBlockHashWithoutLaneGreenAuthority(currentPlan, "S05-T01")).toBe(
+      "d5212dbc84a10771993658fc840e29bc81671c08e7962dbf96fd34de2dda9ce5",
+    );
     expect(
       projection.tasks.find((task) => task.taskId === "S05-T02")
         ?.laneGreenAuthorityReproofTransition,

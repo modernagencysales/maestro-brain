@@ -1,11 +1,16 @@
-import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
 import { selectAuthorityTransition } from "../src/authority-transition-cli.js";
-import { assertExactLaneGreenAuthorityCandidate } from "../src/lane-green-authority-reproof-candidate.js";
+import {
+  assertExactLaneGreenAuthorityCandidate,
+  repairLaneGreenAuthorityReplay,
+} from "../src/lane-green-authority-reproof-candidate.js";
 
 import {
   buildLaneGreenAuthorityReproofLaunchSpec,
@@ -15,6 +20,8 @@ import {
 } from "../src/lane-green-authority-reproof-launch.js";
 
 const sha = (value: string, length = 40): string => value.repeat(length);
+const git = (cwd: string, ...args: string[]): string =>
+  execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
 
 describe("lane-green authority reproof launch", () => {
   it("rejects any replayed candidate identity drift before launch", () => {
@@ -22,12 +29,14 @@ describe("lane-green authority reproof launch", () => {
       branch: "fabro/reproof-s05",
       changedFiles: ["owned.ts"],
       commitCount: 1,
+      orderedCommitPatchSha256s: ["d".repeat(64)],
       commonDir: "/git",
       patchSha256: "a".repeat(64),
     };
     const observed = {
       ...expected,
       commits: ["b".repeat(40)],
+      orderedCommitPatchSha256s: ["d".repeat(64)],
       status: "",
     };
     expect(() =>
@@ -47,10 +56,58 @@ describe("lane-green authority reproof launch", () => {
     expect(() =>
       assertExactLaneGreenAuthorityCandidate({
         expected,
+        observed: {
+          ...observed,
+          orderedCommitPatchSha256s: ["e".repeat(64)],
+        },
+        taskId: "S05-T01",
+      }),
+    ).toThrow("replayed candidate identity mismatch");
+    expect(() =>
+      assertExactLaneGreenAuthorityCandidate({
+        expected,
         observed,
         taskId: "S05-T01",
       }),
     ).not.toThrow();
+  });
+
+  it("repairs reserved candidates after add-only and partial replay crashes", () => {
+    const root = mkdtempSync(join(tmpdir(), "lane-green-replay-"));
+    git(root, "init", "-q");
+    git(root, "config", "user.email", "factory@example.test");
+    git(root, "config", "user.name", "Brain Factory");
+    writeFileSync(join(root, "owned.txt"), "base\n");
+    git(root, "add", "owned.txt");
+    git(root, "commit", "-qm", "base");
+    const base = git(root, "rev-parse", "HEAD");
+    git(root, "checkout", "-qb", "source");
+    writeFileSync(join(root, "owned.txt"), "base\none\n");
+    git(root, "commit", "-qam", "one");
+    const first = git(root, "rev-parse", "HEAD");
+    writeFileSync(join(root, "second.txt"), "two\n");
+    git(root, "add", "second.txt");
+    git(root, "commit", "-qm", "two");
+    const second = git(root, "rev-parse", "HEAD");
+    git(root, "checkout", "-qB", "candidate", base);
+
+    repairLaneGreenAuthorityReplay({
+      controlHeadSha: base,
+      sourceCommits: [first, second],
+      workdir: root,
+    });
+    expect(git(root, "rev-list", "--count", `${base}..HEAD`)).toBe("2");
+
+    git(root, "reset", "--hard", "-q", base);
+    git(root, "cherry-pick", first);
+    writeFileSync(join(root, "owned.txt"), "partial dirty crash\n");
+    repairLaneGreenAuthorityReplay({
+      controlHeadSha: base,
+      sourceCommits: [first, second],
+      workdir: root,
+    });
+    expect(git(root, "rev-list", "--count", `${base}..HEAD`)).toBe("2");
+    expect(git(root, "status", "--porcelain=v1")).toBe("");
   });
 
   it("rejects mutually exclusive authority CLI modes in the production parser", () => {
@@ -196,6 +253,7 @@ describe("lane-green authority reproof launch", () => {
       proofTaskBlockHash: sha("4", 64),
       sourceBaseSha: sha("c"),
       sourceCommits,
+      sourceCommitPatchSha256s: [sha("8", 64), sha("9", 64)],
       sourceHeadSha: sha("e"),
       sourceTreeSha: sha("f"),
       startSha: sha("9"),
@@ -210,6 +268,7 @@ describe("lane-green authority reproof launch", () => {
       proofPlanSha256: sha("3", 64),
       proofTaskBlockHash: sha("4", 64),
       sourceCommits,
+      sourceCommitPatchSha256s: [sha("8", 64), sha("9", 64)],
       sourceHeadSha: sha("e"),
       taskBlockHash: sha("7", 64),
     });

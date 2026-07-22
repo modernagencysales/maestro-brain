@@ -72,7 +72,7 @@ export const launchLaneGreenAuthorityReproof = (input: {
     quiet: true,
   });
   const controlStatus = lines(
-    runRtk(["git", "status", "--porcelain=v1"], {
+    runRtk(["proxy", "git", "status", "--porcelain=v1"], {
       cwd: input.root,
       quiet: true,
     }),
@@ -152,7 +152,9 @@ export const launchLaneGreenAuthorityReproof = (input: {
       launchedOwner.sourceHeadSha !== admission.sourceHeadSha ||
       launchedOwner.sourceTreeSha !== admission.sourceTreeSha ||
       JSON.stringify(launchedOwner.sourceCommits) !==
-        JSON.stringify(admission.sourceCommits)
+        JSON.stringify(admission.sourceCommits) ||
+      JSON.stringify(launchedOwner.sourceCommitPatchSha256s) !==
+        JSON.stringify(admission.sourceCommitPatchSha256s)
     )
       throw new Error(`${input.taskId}: launched authority source drifted`);
     console.log(

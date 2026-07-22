@@ -20,6 +20,7 @@ const oldTaskBlockHash = sha("5", 64);
 const currentPlanSha256 = sha("6", 64);
 const currentTaskBlockHash = sha("7", 64);
 const ownedFile = "packages/convex/confect/tables/sourceLedger.ts";
+const proofOnlyFile = "packages/convex/confect/internal/migrations.spec.ts";
 const transition = {
   schemaVersion: "maestro-brain-lane-green-authority-reproof/v1" as const,
   proofBaseSha,
@@ -28,8 +29,10 @@ const transition = {
   proofTaskBlockHash: oldTaskBlockHash,
   proofFindingIds: ["OWNERSHIP-S05-T01-001"],
   proofGateStage: "pre-review" as const,
+  proofChangedFiles: [ownedFile, proofOnlyFile],
   sourceBaseSha,
   sourceCommits: [sourceHeadSha],
+  sourceChangedFiles: [ownedFile],
   sourceHeadSha,
   sourceTreeSha,
 };
@@ -83,14 +86,15 @@ const validInput = (): LaneGreenAuthorityReproofInput => ({
     taskBlockHash: oldTaskBlockHash,
     baseSha: proofBaseSha,
     headSha: sourceHeadSha,
-    changedFiles: [ownedFile],
+    changedFiles: [ownedFile, proofOnlyFile],
     reviewVerdict: "rework",
     reviewHeadSha: sourceHeadSha,
     reviewFindings: [{ id: "OWNERSHIP-S05-T01-001" }],
   },
-  proofChangedFiles: [ownedFile],
+  proofChangedFiles: [ownedFile, proofOnlyFile],
   proofTreeSha,
   sourceChangedFiles: [ownedFile],
+  sourceCommitPatchSha256s: [sha("c", 64)],
   sourcePatchSha256: sha("a", 64),
   sourceTreeSha,
   transition,
@@ -125,6 +129,7 @@ describe("lane-green authority reproof admission", () => {
       proofHeadSha: sourceHeadSha,
       sourceBaseSha,
       sourceCommits: [sourceHeadSha],
+      sourceCommitPatchSha256s: [sha("c", 64)],
       sourceChangedFiles: [ownedFile],
       sourceHeadSha,
       sourcePatchSha256: sha("a", 64),
@@ -209,11 +214,6 @@ describe("lane-green authority reproof admission", () => {
             files: [ownedFile, unowned],
           },
         ],
-        proof: {
-          ...validInput().proof,
-          changedFiles: [ownedFile, unowned],
-        },
-        proofChangedFiles: [ownedFile, unowned],
         sourceChangedFiles: [ownedFile, unowned],
       }),
     ).toThrow("not declared in current manifest fileLocks");
