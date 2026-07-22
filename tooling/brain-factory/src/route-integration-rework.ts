@@ -5,6 +5,7 @@ import {
   type IntegrationFinding,
 } from "./integration-finding.js";
 import { readIntegrationWaveSelection } from "./integration-wave.js";
+import { validateIntegrationFindingAdoption } from "./integration-finding-adoption.js";
 
 const sha256 = (value: string): string =>
   createHash("sha256").update(value).digest("hex");
@@ -23,9 +24,11 @@ const record = (value: unknown, label: string): Record<string, unknown> => {
 };
 
 export interface IntegrationOwnerReworkRoute {
+  readonly adoptionSha256?: string;
   readonly commands: readonly (readonly string[])[];
   readonly findingSha256: string;
   readonly ownerRoutes: readonly IntegrationOwnerRoute[];
+  readonly preflightCommands: readonly (readonly string[])[];
   readonly ownerTaskIds: readonly string[];
   readonly resultSha256: string;
   readonly selectionFileSha256: string;
@@ -60,6 +63,7 @@ export interface OwnerReworkRoutingReceipt {
 }
 
 export const planIntegrationOwnerReworkRoute = (input: {
+  readonly adoptionContent?: string;
   readonly expectedHeadSha?: string;
   readonly expectedIntegrationId: string;
   readonly expectedResultSha256: string;
@@ -110,9 +114,42 @@ export const planIntegrationOwnerReworkRoute = (input: {
   ) {
     throw new Error("integration route result identity mismatch");
   }
+  let findingValues = result.remainingFindings;
+  let adoptionSha256: string | undefined;
+  if (input.adoptionContent !== undefined) {
+    if (
+      findingValues.some(
+        (finding) =>
+          typeof finding === "object" &&
+          finding !== null &&
+          !Array.isArray(finding) &&
+          Object.hasOwn(finding, "ownerKind"),
+      )
+    ) {
+      throw new Error("modern structured findings cannot use legacy adoption");
+    }
+    if (!input.expectedHeadSha) {
+      throw new Error("legacy finding adoption requires exact worktree head");
+    }
+    const adoption = validateIntegrationFindingAdoption({
+      adoptionContent: input.adoptionContent,
+      resultContent: input.integrationResultContent,
+      selectionContent: input.selectionContent,
+      worktreeHeadSha: input.expectedHeadSha,
+    });
+    findingValues = findingValues.map((finding) =>
+      typeof finding === "object" &&
+      finding !== null &&
+      !Array.isArray(finding) &&
+      (finding as Record<string, unknown>).id === adoption.legacyFinding.id
+        ? adoption.finding
+        : finding,
+    );
+    adoptionSha256 = adoption.adoptionSha256;
+  }
   const classified = classifyIntegrationFindings({
     candidateHeadSha: result.headSha,
-    findings: result.remainingFindings,
+    findings: findingValues,
     integrationOwnedPaths: input.integrationOwnedPaths,
     selectedTasks: selection.selectedTasks,
   });
@@ -137,6 +174,7 @@ export const planIntegrationOwnerReworkRoute = (input: {
     `selection-file-sha256:${selectionRead.selectionFileSha256}`,
     `selection-payload-sha256:${selectionRead.selectionPayloadSha256}`,
     `findings-sha256:${findingSha256}`,
+    ...(adoptionSha256 ? [`finding-adoption-sha256:${adoptionSha256}`] : []),
   ];
   const supersede = [
     "pnpm",
@@ -148,6 +186,7 @@ export const planIntegrationOwnerReworkRoute = (input: {
     reason,
     "--owner-rework-result-sha256",
     resultSha256,
+    ...(adoptionSha256 ? ["--finding-adoption-sha256", adoptionSha256] : []),
     ...evidence.flatMap((item) => ["--evidence", item]),
     "--state",
     input.stateRoot,
@@ -165,15 +204,21 @@ export const planIntegrationOwnerReworkRoute = (input: {
       selection.integrationId,
       "--owner-findings-sha256",
       ownerFindingSha256,
+      ...(adoptionSha256 ? ["--finding-adoption-sha256", adoptionSha256] : []),
       "--launch",
       "--state",
       input.stateRoot,
     ],
   );
+  const preflightCommands = reopen.map((command) =>
+    command.filter((argument) => argument !== "--launch"),
+  );
   return {
+    ...(adoptionSha256 ? { adoptionSha256 } : {}),
     commands: [supersede, ...reopen],
     findingSha256,
     ownerRoutes,
+    preflightCommands,
     ownerTaskIds: classified.taskOwners,
     resultSha256,
     selectionFileSha256: selectionRead.selectionFileSha256,
@@ -197,6 +242,17 @@ const initialRoutingReceipt = (
   selectionPayloadSha256: route.selectionPayloadSha256,
   status: "planned",
 });
+
+export const preflightIntegrationOwnerReworkRoute = (
+  route: IntegrationOwnerReworkRoute,
+  operations: {
+    readonly receiptExists: boolean;
+    readonly run: (command: readonly string[]) => void;
+  },
+): void => {
+  if (operations.receiptExists) return;
+  for (const command of route.preflightCommands) operations.run(command);
+};
 
 export const executeIntegrationOwnerReworkRoute = (
   route: IntegrationOwnerReworkRoute,

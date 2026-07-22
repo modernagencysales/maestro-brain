@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   executeIntegrationOwnerReworkRoute,
+  preflightIntegrationOwnerReworkRoute,
   type IntegrationOwnerReworkRoute,
   type OwnerReworkRoutingReceipt,
 } from "../src/route-integration-rework.js";
@@ -23,6 +24,7 @@ const route = (): IntegrationOwnerReworkRoute => ({
       taskId: "S02-T01",
     },
   ],
+  preflightCommands: [["preflight-a"], ["preflight-b"]],
   ownerTaskIds: ["S01-T01", "S02-T01"],
   resultSha256: "4".repeat(64),
   selectionFileSha256: "5".repeat(64),
@@ -30,6 +32,40 @@ const route = (): IntegrationOwnerReworkRoute => ({
 });
 
 describe("integration owner rework execution", () => {
+  it("skips preflight after the durable routing receipt exists", () => {
+    const commands: string[][] = [];
+    preflightIntegrationOwnerReworkRoute(route(), {
+      receiptExists: true,
+      run: (command) => commands.push([...command]),
+    });
+    expect(commands).toEqual([]);
+  });
+
+  it("safely reruns all read-only preflights after a pre-receipt crash", () => {
+    const commands: string[][] = [];
+    let crash = true;
+    const run = () =>
+      preflightIntegrationOwnerReworkRoute(route(), {
+        receiptExists: false,
+        run: (command) => {
+          commands.push([...command]);
+          if (crash) {
+            crash = false;
+            throw new Error("crash before receipt");
+          }
+        },
+      });
+
+    expect(run).toThrow("crash before receipt");
+    expect(commands).toEqual([["preflight-a"]]);
+    expect(run).not.toThrow();
+    expect(commands).toEqual([
+      ["preflight-a"],
+      ["preflight-a"],
+      ["preflight-b"],
+    ]);
+  });
+
   it("resumes only missing owners after a crash following a durable launch", () => {
     let receipt: OwnerReworkRoutingReceipt | undefined;
     const reservations = new Map<

@@ -34,6 +34,7 @@
     "brain:factory:resume": "tsx tooling/brain-factory/src/resume.mts",
     "brain:factory:reopen": "tsx tooling/brain-factory/src/reopen.mts",
     "brain:factory:route-rework": "tsx tooling/brain-factory/src/route-integration-rework.mts",
+    "brain:factory:adopt-integration-finding": "tsx tooling/brain-factory/src/adopt-integration-finding.mts",
     "stack:check": "tsx tooling/stack/check.mts",
     "stack:status": "tsx tooling/stack/status.mts",
     "stack:submit": "tsx tooling/stack/submit.mts",

@@ -11,6 +11,7 @@ import { runRtk } from "./process.js";
 import {
   executeIntegrationOwnerReworkRoute,
   planIntegrationOwnerReworkRoute,
+  preflightIntegrationOwnerReworkRoute,
   type OwnerReworkRoutingReceipt,
 } from "./route-integration-rework.js";
 
@@ -48,6 +49,13 @@ const resultPath = resolve(
   integrationId,
   "integration-result.json",
 );
+const adoptionPath = resolve(
+  stateRoot,
+  "evidence",
+  "integration",
+  integrationId,
+  "finding-adoption.json",
+);
 const runRecordPath = resolve(
   stateRoot,
   "runs",
@@ -77,6 +85,9 @@ const integrationOwnedPaths = Array.isArray(parsed.generatedFiles)
     )
   : [];
 const route = planIntegrationOwnerReworkRoute({
+  ...(existsSync(adoptionPath)
+    ? { adoptionContent: readFileSync(adoptionPath, "utf8") }
+    : {}),
   expectedHeadSha,
   expectedIntegrationId: integrationId,
   expectedResultSha256,
@@ -100,6 +111,10 @@ const commandForOwner = new Map(
     route.commands[index + 1],
   ]),
 );
+preflightIntegrationOwnerReworkRoute(route, {
+  receiptExists: existsSync(receiptPath),
+  run: runRtk,
+});
 const receipt = executeIntegrationOwnerReworkRoute(route, {
   loadReceipt: () =>
     existsSync(receiptPath)
