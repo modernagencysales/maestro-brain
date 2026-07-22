@@ -5,6 +5,7 @@ import { buildTaskLaunchEnv } from "./build-task-launch-env.js";
 import { materializeBuildTaskRunConfig } from "./build-task-run-config.js";
 import {
   acquireDispatcherLock,
+  laneResultRetainsTaskOwnership,
   promoteTaskReservation,
   recoveryCoordinatesForRecord,
   recoverTaskReservation,
@@ -86,7 +87,6 @@ const readResult = (taskId: string): LaneCompletionResult | undefined => {
 };
 const resultStatus = (taskId: string): string | undefined =>
   readResult(taskId)?.status;
-const owningResultStatuses = new Set(["lane_green", "false_green"]);
 const recordPath = (taskId: string): string =>
   resolve(runDirectory, `${taskId}.json`);
 const readRecord = (taskId: string): RunRecord | undefined => {
@@ -167,7 +167,7 @@ const ownedTasks = manifest.tasks.filter(
   (task) =>
     !completedTaskIds.has(task.taskId) &&
     (codingActiveTaskIds.has(task.taskId) ||
-      owningResultStatuses.has(resultStatus(task.taskId) ?? "")),
+      laneResultRetainsTaskOwnership(resultStatus(task.taskId))),
 );
 const availableSlots = availableDispatchSlots(
   maximum,

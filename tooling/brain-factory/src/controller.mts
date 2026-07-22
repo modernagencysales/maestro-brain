@@ -8,7 +8,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { join, resolve } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import {
@@ -347,6 +347,7 @@ interface ControllerWaveAuthority {
   readonly reservationToken: string;
   readonly runId: string;
   readonly selection: ReturnType<typeof readIntegrationWaveSelection>;
+  readonly workdir: string;
 }
 
 const exactSha = (value: unknown, length: 40 | 64): value is string =>
@@ -380,7 +381,9 @@ const waveAuthority = (
       record.schemaVersion === "maestro-brain-integration-wave-run/v2";
     const baseSha = record.baseSha;
     const runId = record.runId;
+    const runIds = record.runIds;
     const reservationToken = record.reservationToken;
+    const workdir = record.workdir;
     if (
       (!legacy &&
         record.schemaVersion !== "maestro-brain-integration-wave-run/v3") ||
@@ -396,8 +399,13 @@ const waveAuthority = (
       selection.selection.integrationId !== integrationId ||
       typeof runId !== "string" ||
       runId.length === 0 ||
+      !Array.isArray(runIds) ||
+      !runIds.every((value) => typeof value === "string" && value.length > 0) ||
+      !runIds.includes(runId) ||
       typeof reservationToken !== "string" ||
       reservationToken.length === 0 ||
+      typeof workdir !== "string" ||
+      !isAbsolute(workdir) ||
       canonicalControllerJson(record.selection) !==
         canonicalControllerJson(selection.selection)
     ) {
@@ -421,6 +429,7 @@ const waveAuthority = (
       reservationToken,
       runId,
       selection,
+      workdir,
     };
   } catch {
     return undefined;
@@ -489,6 +498,7 @@ const promotionReconciles = (input: {
     result.status === "passed" &&
     result.integrationId === authority.integrationId &&
     result.baseSha === authority.baseSha &&
+    result.integrationWorkdir === authority.workdir &&
     promotion.schemaVersion === expectedPromotionSchema &&
     promotion.status === "promoted" &&
     promotion.integrationId === authority.integrationId &&

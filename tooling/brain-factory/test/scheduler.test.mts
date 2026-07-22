@@ -8,6 +8,7 @@ import type {
   TaskCollisionMetadata,
 } from "../src/manifest.js";
 import { buildManifest, loadManifestProjection } from "../src/manifest.js";
+import { laneResultRetainsTaskOwnership } from "../src/dispatch-ownership.js";
 import {
   availableDispatchSlots,
   frontierDiagnostics,
@@ -103,7 +104,6 @@ describe("brain task scheduler", () => {
     expect(dispatch).toContain("maximum: availableSlots");
     expect(dispatch).toContain("codingActive:");
     expect(dispatch).toContain("owned:");
-    expect(dispatch).toContain('"false_green"');
     expect(dispatch).toContain("loadManifestProjection");
     expect(dispatch).toContain("contractArtifactSha256ByProducer");
     expect(dispatch).toContain("tasks: projection.tasks");
@@ -883,6 +883,25 @@ describe("brain task scheduler", () => {
         completedTaskIds: new Set(),
         maximum: 1,
         tasks: [laneGreen, overlappingCandidate],
+      }).selected,
+    ).toEqual([]);
+  });
+
+  it("feeds false-green ownership into scheduler conflict blocking", () => {
+    const manifest = buildManifest();
+    const owner = manifest.tasks.find(({ taskId }) => taskId === "S12-T01");
+    const candidate = manifest.tasks.find(({ taskId }) => taskId === "S09-T01");
+    if (!owner || !candidate) throw new Error("ownership fixtures missing");
+    const overlappingCandidate = { ...candidate, fileLocks: owner.fileLocks };
+    const activeTaskIds = laneResultRetainsTaskOwnership("false_green")
+      ? new Set([owner.taskId])
+      : new Set<string>();
+    expect(
+      selectReadyTasks({
+        activeTaskIds,
+        completedTaskIds: new Set(),
+        maximum: 1,
+        tasks: [owner, overlappingCandidate],
       }).selected,
     ).toEqual([]);
   });

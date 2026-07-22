@@ -14,6 +14,12 @@ import { dirname } from "node:path";
 
 type JsonRecord = Record<string, unknown>;
 
+const owningLaneResultStatuses = new Set(["lane_green", "false_green"]);
+
+export const laneResultRetainsTaskOwnership = (
+  status: string | undefined,
+): boolean => status !== undefined && owningLaneResultStatuses.has(status);
+
 const jsonRecord = (value: unknown, label: string): JsonRecord => {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`${label} is not a JSON object`);

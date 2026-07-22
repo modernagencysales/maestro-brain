@@ -100,6 +100,7 @@ const exactWaveFixture = (root: string) => {
     integrationId,
     reservationToken: "wave-owner",
     runId: "wave-run",
+    runIds: ["wave-run"],
     schemaVersion: "maestro-brain-integration-wave-run/v3",
     selection,
     selectionFileSha256: selectionFileSha256(selectionContent),
@@ -505,6 +506,33 @@ describe("controller CLI contract", () => {
     writeJson(fixture.recordPath, {
       ...fixture.record,
       selectionFileSha256: "f".repeat(64),
+    });
+    expect(reconcilePromotion()).toEqual({ kind: "unresolved" });
+    const missingRunIds = Object.fromEntries(
+      Object.entries(fixture.record).filter(([key]) => key !== "runIds"),
+    );
+    writeJson(fixture.recordPath, missingRunIds);
+    expect(reconcilePromotion()).toEqual({ kind: "unresolved" });
+    writeJson(fixture.recordPath, {
+      ...fixture.record,
+      runIds: ["different-run"],
+    });
+    expect(reconcilePromotion()).toEqual({ kind: "unresolved" });
+    writeJson(fixture.recordPath, {
+      ...fixture.record,
+      workdir: "relative/wave-workdir",
+    });
+    expect(reconcilePromotion()).toEqual({ kind: "unresolved" });
+    writeJson(fixture.recordPath, fixture.record);
+    writeJson(join(evidence, "integration-result.json"), {
+      baseSha: fixture.baseSha,
+      headSha: fixture.waveHeadSha,
+      integrationId: fixture.integrationId,
+      integrationWorkdir: resolve(root, "different-workdir"),
+      schemaVersion: "maestro-brain-integration-result/v3",
+      selectionFileSha256: fixture.record.selectionFileSha256,
+      selectionPayloadSha256: fixture.record.selectionPayloadSha256,
+      status: "passed",
     });
     expect(reconcilePromotion()).toEqual({ kind: "unresolved" });
     rmSync(root, { force: true, recursive: true });

@@ -299,6 +299,45 @@ describe("controller pure planner", () => {
     ]);
   });
 
+  it("bounds large conflicting frontiers to a deterministic candidate window", () => {
+    const template = manifest.tasks.find(({ kind }) => kind === "product");
+    if (!template) throw new Error("product task template missing");
+    const tasks = Array.from({ length: 30 }, (_, index) => ({
+      ...template,
+      fileLocks:
+        index < 8
+          ? [`independent-${index}.ts`]
+          : index < 20
+            ? ["window-conflict.ts"]
+            : [`outside-window-${index}.ts`],
+      taskId: `S20-T${String(index + 1).padStart(2, "0")}`,
+    }));
+    const selectedManifest = { ...manifest, tasks };
+    const started = performance.now();
+    const actions = planControllerTick(
+      snapshot({
+        tasks: tasks.map(({ taskId }, index) =>
+          task(taskId, "lane_green", {
+            admission: "admissible",
+            headSha: ((index % 15) + 1).toString(16).repeat(40),
+          }),
+        ),
+      }),
+      { ...policy, maximumBatchSize: 10, minimumBatchSize: 5 },
+      selectedManifest,
+    );
+    expect(performance.now() - started).toBeLessThan(250);
+    expect(actions).toMatchObject([
+      {
+        kind: "integrate_batch",
+        targetIds: [
+          ...tasks.slice(0, 8).map(({ taskId }) => taskId),
+          tasks[8]?.taskId,
+        ],
+      },
+    ]);
+  });
+
   it("delegates remaining capacity to the manifest scheduler", () => {
     const actions = planControllerTick(snapshot({ tasks: frontier() }), {
       ...policy,

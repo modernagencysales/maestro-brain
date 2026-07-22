@@ -124,3 +124,34 @@ Root lint: PASS
 Diff check: PASS
 Two required dry runs: exit 0, byte-identical, no mutation
 ```
+
+## Final Authority and Performance Closure
+
+The final review pass added these fail-closed constraints:
+
+- Durable wave authority requires an absolute recorded worktree, a normalized
+  non-empty `runIds` history containing the exact active `runId`, and matching
+  `integrationResult.integrationWorkdir` before promotion can reconcile.
+- Regression cases reject a missing run history, a history containing only a
+  different run, a relative worktree, and a result bound to a different
+  worktree.
+- Maximum-cardinality batch search is restricted to a deterministic, sorted
+  20-lane candidate window. This provides a hard upper bound on exact-search
+  cost while retaining the adversarial four-versus-five selection behavior.
+- A 30-lane conflicting-frontier regression completes below its bounded runtime
+  threshold and proves lanes outside the candidate window cannot alter the
+  deterministic result.
+- False-green ownership now uses the same exported predicate in direct dispatch
+  and its behavioral regression feeds that owner into `selectReadyTasks`, where
+  it blocks an overlapping candidate.
+
+Final verification after these changes:
+
+```text
+Focused Task 4 suites: 8 passed, 204 tests passed
+Tooling typecheck: PASS
+Task 4 Prettier check: PASS
+Root lint: PASS
+Diff check: PASS
+Two required dry runs: exit 0, byte-identical, no mutation
+```

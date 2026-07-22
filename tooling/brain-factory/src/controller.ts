@@ -192,6 +192,8 @@ export const ownershipTaskStages = new Set([
   "false_green",
 ]);
 
+export const GREEN_BATCH_CANDIDATE_LIMIT = 20;
+
 export const taskCapacityDiagnostics = (
   snapshot: ControllerSnapshot,
 ): {
@@ -220,7 +222,8 @@ const compatibleGreenTasks = (
   const byId = new Map(manifest.tasks.map((task) => [task.taskId, task]));
   const candidates = green
     .filter(({ taskId }) => byId.get(taskId)?.kind === "product")
-    .sort((left, right) => left.taskId.localeCompare(right.taskId));
+    .sort((left, right) => left.taskId.localeCompare(right.taskId))
+    .slice(0, GREEN_BATCH_CANDIDATE_LIMIT);
   let best: readonly ControllerTaskState[] = [];
   const lexicographicallyEarlier = (
     left: readonly ControllerTaskState[],
