@@ -4,6 +4,7 @@ import {
   promoteTaskReservation,
   recordPreparingTaskLaunch,
 } from "./dispatch-ownership.js";
+import { prepareExactLaneGreenAuthorityCandidate } from "./lane-green-authority-reproof-candidate.js";
 import type { LaneGreenAuthorityReproofAdmission } from "./lane-green-authority-reproof.js";
 import { inspectLaneGreenAuthorityReproofRun } from "./lane-green-authority-reproof-owner.js";
 import { resolveLaneGreenAuthorityReproofReservation } from "./lane-green-authority-reproof-recovery.js";
@@ -98,9 +99,14 @@ export const resolveLaneGreenAuthorityPreparingOwner = (input: {
       reuseWorktree: true,
     };
   }
-  const startSha = runRtk(["git", "rev-parse", "HEAD"], {
-    cwd: input.coordinates.workdir,
-    quiet: true,
+  const startSha = prepareExactLaneGreenAuthorityCandidate({
+    admission: input.admission,
+    controlCommonDir: input.controlCommonDir,
+    controlHeadSha: input.controlHeadSha,
+    coordinates: input.coordinates,
+    reuseWorktree: true,
+    root: input.root,
+    taskId: input.taskId,
   });
   const spec = buildLaneGreenAuthorityReproofLaunchSpec({
     controlCommonDir: input.controlCommonDir,

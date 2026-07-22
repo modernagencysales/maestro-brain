@@ -40,6 +40,13 @@ describe("lane-green authority reproof launch", () => {
     expect(() =>
       assertExactLaneGreenAuthorityCandidate({
         expected,
+        observed: { ...observed, status: " M owned.ts" },
+        taskId: "S05-T01",
+      }),
+    ).toThrow("replayed candidate identity mismatch");
+    expect(() =>
+      assertExactLaneGreenAuthorityCandidate({
+        expected,
         observed,
         taskId: "S05-T01",
       }),
@@ -92,11 +99,23 @@ describe("lane-green authority reproof launch", () => {
       ),
       "utf8",
     );
+    const recoverySource = readFileSync(
+      fileURLToPath(
+        new URL(
+          "../src/lane-green-authority-reproof-resume.ts",
+          import.meta.url,
+        ),
+      ),
+      "utf8",
+    );
     expect(resumeSource).toContain("selectAuthorityTransition(");
     expect(resumeSource).toContain("launchLaneGreenAuthorityReproof({");
     expect(launchSource).not.toContain("preserveAuthorityRefreshEvidence");
     expect(launchSource).not.toContain("writeFileSync");
     expect(launchSource).toContain('process.off("exit", releaseOnExit)');
+    expect(
+      recoverySource.indexOf("prepareExactLaneGreenAuthorityCandidate({"),
+    ).toBeLessThan(recoverySource.indexOf('"fabro",\n          "inspect"'));
   });
 
   it("creates and replays before launching the normal build-task workflow", () => {

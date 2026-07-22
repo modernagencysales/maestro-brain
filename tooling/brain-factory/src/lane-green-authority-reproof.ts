@@ -39,6 +39,7 @@ export interface LaneGreenAuthorityReproofInput {
   readonly ownerDisposition?: "absent" | "terminal" | "live" | "unknown";
   readonly proof: JsonRecord;
   readonly proofChangedFiles: readonly string[];
+  readonly proofTreeSha: string;
   readonly transition: LaneGreenAuthorityReproofTransition;
   readonly sourceChangedFiles: readonly string[];
   readonly sourcePatchSha256: string;
@@ -112,6 +113,11 @@ export const admitLaneGreenAuthorityReproof = (
     40,
     `${task.taskId}: proof HEAD`,
   );
+  const proofTreeSha = exactSha(
+    input.proofTreeSha,
+    40,
+    `${task.taskId}: proof tree`,
+  );
   const transition = input.transition;
   if (
     transition.proofBaseSha !== input.proof.baseSha ||
@@ -154,6 +160,7 @@ export const admitLaneGreenAuthorityReproof = (
     !new Set(["pre-review", "final"]).has(String(input.finalGate.stage)) ||
     input.finalGate.headSha !== proofHeadSha ||
     input.finalGate.currentHeadSha !== proofHeadSha ||
+    input.finalGate.currentTreeSha !== proofTreeSha ||
     input.finalGate.planSha256 !== input.proof.planSha256 ||
     input.finalGate.taskBlockHash !== input.proof.taskBlockHash
   ) {

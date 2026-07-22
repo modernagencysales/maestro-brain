@@ -14,6 +14,7 @@ const proofBaseSha = sha("0");
 const sourceBaseSha = sha("1");
 const sourceHeadSha = sha("2");
 const sourceTreeSha = sha("3");
+const proofTreeSha = sha("b");
 const oldPlanSha256 = sha("4", 64);
 const oldTaskBlockHash = sha("5", 64);
 const currentPlanSha256 = sha("6", 64);
@@ -53,7 +54,7 @@ const validInput = (): LaneGreenAuthorityReproofInput => ({
     status: "passed",
     headSha: sourceHeadSha,
     currentHeadSha: sourceHeadSha,
-    currentTreeSha: sourceTreeSha,
+    currentTreeSha: proofTreeSha,
     planSha256: oldPlanSha256,
     taskBlockHash: oldTaskBlockHash,
   },
@@ -88,6 +89,7 @@ const validInput = (): LaneGreenAuthorityReproofInput => ({
     reviewFindings: [{ id: "OWNERSHIP-S05-T01-001" }],
   },
   proofChangedFiles: [ownedFile],
+  proofTreeSha,
   sourceChangedFiles: [ownedFile],
   sourcePatchSha256: sha("a", 64),
   sourceTreeSha,
@@ -184,6 +186,16 @@ describe("lane-green authority reproof admission", () => {
         oldTaskBlockHash: sha("9", 64),
       }),
     ).toThrow("historical task block hash mismatch");
+  });
+
+  it("rejects a stale proof gate tree", () => {
+    const input = validInput();
+    expect(() =>
+      admitLaneGreenAuthorityReproof({
+        ...input,
+        finalGate: { ...input.finalGate, currentTreeSha: sha("9") },
+      }),
+    ).toThrow("stale proof gate mismatch");
   });
 
   it("rejects changed paths outside current locks", () => {

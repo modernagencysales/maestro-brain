@@ -1375,6 +1375,7 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
       [
         authorityRepairTransition,
         checkpointReproofTransition,
+        laneGreenAuthorityReproofTransition,
         ownershipRehomeTransition,
       ].filter(Boolean).length > 1
     ) {

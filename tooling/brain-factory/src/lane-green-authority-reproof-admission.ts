@@ -175,6 +175,10 @@ export const loadLaneGreenAuthorityReproofAdmission = (input: {
       { cwd: input.root, quiet: true },
     ),
   );
+  const proofTreeSha = runRtk(
+    ["proxy", "git", "rev-parse", `${transition.proofHeadSha}^{tree}`],
+    { cwd: input.root, quiet: true },
+  );
   const sourcePatchSha256 = createHash("sha256")
     .update(
       execFileSync(
@@ -258,6 +262,7 @@ export const loadLaneGreenAuthorityReproofAdmission = (input: {
     oldTaskBlockHash,
     proof,
     proofChangedFiles,
+    proofTreeSha,
     transition,
     sourceChangedFiles,
     sourcePatchSha256,

@@ -163,6 +163,20 @@ describe("Maestro Brain execution manifest", () => {
     }
   });
 
+  it("forbids combining lane-green and another authority transition", () => {
+    const root = mkdtempSync(join(tmpdir(), "manifest-lane-green-exclusive-"));
+    copyFixture(PLAN_RELATIVE, root);
+    const path = join(root, PLAN_RELATIVE);
+    const plan = readFileSync(path, "utf8").replace(
+      "### S05-T02",
+      `${transitionBody()}\n\n### S05-T02`,
+    );
+    writeFileSync(path, plan);
+    expect(() => buildManifest(root)).toThrow(
+      "S05-T01: multiple authority transitions are forbidden",
+    );
+  });
+
   it("distinguishes path-rehome and contract-only authority repairs", () => {
     expect(
       parseAuthorityRepairTransition(transitionBody(), "S10-T01")?.mode,
