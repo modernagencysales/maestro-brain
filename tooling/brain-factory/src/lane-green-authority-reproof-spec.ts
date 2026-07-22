@@ -13,6 +13,12 @@ export const buildLaneGreenAuthorityReproofLaunchSpec = (input: {
   readonly coordinates: LaneGreenAuthorityReproofCoordinates;
   readonly evidence: string;
   readonly planSha256: string;
+  readonly proofBaseSha: string;
+  readonly proofFindingIds: readonly string[];
+  readonly proofGateStage: "pre-review";
+  readonly proofHeadSha: string;
+  readonly proofPlanSha256: string;
+  readonly proofTaskBlockHash: string;
   readonly sourceBaseSha: string;
   readonly sourceCommits: readonly string[];
   readonly sourceHeadSha: string;
@@ -48,7 +54,14 @@ export const buildLaneGreenAuthorityReproofLaunchSpec = (input: {
     branch: input.coordinates.branch,
     factoryBaseSha: input.controlHeadSha,
     mode: "lane-green-authority-reproof",
+    phase: "reserved",
     planSha256: input.planSha256,
+    proofBaseSha: input.proofBaseSha,
+    proofFindingIds: input.proofFindingIds,
+    proofGateStage: input.proofGateStage,
+    proofHeadSha: input.proofHeadSha,
+    proofPlanSha256: input.proofPlanSha256,
+    proofTaskBlockHash: input.proofTaskBlockHash,
     sourceCommits: input.sourceCommits,
     sourceHeadSha: input.sourceHeadSha,
     sourceTreeSha: input.sourceTreeSha,

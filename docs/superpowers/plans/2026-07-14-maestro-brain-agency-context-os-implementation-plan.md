@@ -1808,9 +1808,29 @@ manifest.
   or below 300 hand-authored source lines. The sequence is fragment/schema RED,
   generator and S00/S01 extraction, S02/S05 registration plus source ledger,
   then runtime compatibility and no-migration proof.
-- **Lane-green authority reproof:** `authorized-s05-current-plan`; normal
-  factory tooling may replay only this task's exact independently proven green
-  history onto the current control head to refresh stale plan authority.
+- **Lane-green authority reproof transition:**
+
+  ```json
+  {
+    "schemaVersion": "maestro-brain-lane-green-authority-reproof/v1",
+    "proofBaseSha": "5f682348711572faa32ac79066f8e470a1f2743f",
+    "proofHeadSha": "1578f7f20b8bd7b5580627030e9d40c040935ccd",
+    "proofPlanSha256": "ce2b760a9efd332ff6f3201b8faf312601e4fd3d4fcb7dcb4253afe7cae25317",
+    "proofTaskBlockHash": "d5212dbc84a10771993658fc840e29bc81671c08e7962dbf96fd34de2dda9ce5",
+    "proofFindingIds": ["OWNERSHIP-S05-T01-001"],
+    "proofGateStage": "pre-review",
+    "sourceBaseSha": "022a932c1e809c2093a10f5dea5d248b6c706f5f",
+    "sourceCommits": [
+      "0f6b863804d8ba5e2c78fa70a6995f73502611c6",
+      "10df346e493326324a33101028818703681cb0d2",
+      "21ccb33ee43068e94ecdb1aebf5983fbef537c2e",
+      "d5efc88aff587f23541b363b41d296beb5eda5a5"
+    ],
+    "sourceHeadSha": "d5efc88aff587f23541b363b41d296beb5eda5a5",
+    "sourceTreeSha": "45ba39ebc6f0e21e5da7c7c777fa368901813447"
+  }
+  ```
+
 - **Historical registry preservation audit:** at the controller base, canonical
   `packages/convex/confect/internal/migrations.ts` has SHA-256
   `632d90f4b70073ea6daeadd24a8579e8166be9f6a56668c40d04d9ae70d2d1ac` and exactly

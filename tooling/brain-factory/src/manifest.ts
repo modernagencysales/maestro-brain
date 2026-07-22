@@ -46,7 +46,7 @@ export interface BrainTaskContract {
   readonly gateProfiles: readonly GateProfile[];
   readonly kind: "control" | "docs" | "external" | "product" | "release";
   readonly lane: string;
-  readonly laneGreenAuthorityReproof?: true;
+  readonly laneGreenAuthorityReproofTransition?: LaneGreenAuthorityReproofTransition;
   readonly requirements: readonly string[];
   readonly estimatedSourceLines: number;
   readonly sourceSliceBudget: 300;
@@ -65,6 +65,20 @@ export interface BrainTaskContract {
   readonly authorityRepairTransition?: AuthorityRepairTransition;
   readonly checkpointReproofTransition?: CheckpointReproofTransition;
   readonly ownershipRehomeTransition?: OwnershipRehomeTransition;
+}
+
+export interface LaneGreenAuthorityReproofTransition {
+  readonly schemaVersion: "maestro-brain-lane-green-authority-reproof/v1";
+  readonly proofBaseSha: string;
+  readonly proofHeadSha: string;
+  readonly proofPlanSha256: string;
+  readonly proofTaskBlockHash: string;
+  readonly proofFindingIds: readonly string[];
+  readonly proofGateStage: "pre-review";
+  readonly sourceBaseSha: string;
+  readonly sourceCommits: readonly string[];
+  readonly sourceHeadSha: string;
+  readonly sourceTreeSha: string;
 }
 
 export interface CheckpointReproofTransition {
@@ -400,6 +414,22 @@ export const taskBlockHashFromPlan = (plan: string, taskId: string): string => {
   return hash(block.body);
 };
 
+export const taskBlockHashWithoutLaneGreenAuthority = (
+  plan: string,
+  taskId: string,
+): string => {
+  const block = taskBlocks(plan).get(taskId);
+  if (!block) throw new Error(`${taskId}: historical task block is missing`);
+  const stripped = block.body.replace(
+    /- \*\*Lane-green authority reproof transition:\*\*\n\n {2}```json\n[\s\S]*?\n {2}```\n/,
+    "",
+  );
+  if (stripped === block.body) {
+    throw new Error(`${taskId}: lane-green authority annotation is missing`);
+  }
+  return hash(stripped);
+};
+
 const exactKeys = (
   value: Record<string, unknown>,
   expected: readonly string[],
@@ -658,6 +688,124 @@ export const parseAuthorityRepairTransition = (
     requiredIntegratedTaskIds: taskIds as string[],
     immutableFindings,
     supersededPaths,
+  };
+};
+
+export const parseLaneGreenAuthorityReproofTransition = (
+  body: string,
+  taskId: string,
+): LaneGreenAuthorityReproofTransition | undefined => {
+  const marker =
+    /- \*\*Lane-green authority reproof transition:\*\*\s*```json\r?\n([\s\S]*?)\r?\n\s*```/g;
+  const matches = [...body.matchAll(marker)];
+  if (matches.length === 0) return undefined;
+  if (matches.length !== 1)
+    throw new Error(`${taskId}: duplicate lane-green authority transition`);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(
+      required(
+        matches[0]?.[1],
+        `${taskId}: empty lane-green authority transition`,
+      ),
+    );
+  } catch (error) {
+    throw new Error(`${taskId}: invalid lane-green authority transition JSON`, {
+      cause: error,
+    });
+  }
+  const value = recordValue(
+    parsed,
+    `${taskId}: lane-green authority transition`,
+  );
+  exactKeys(
+    value,
+    [
+      "schemaVersion",
+      "proofBaseSha",
+      "proofHeadSha",
+      "proofPlanSha256",
+      "proofTaskBlockHash",
+      "proofFindingIds",
+      "proofGateStage",
+      "sourceBaseSha",
+      "sourceCommits",
+      "sourceHeadSha",
+      "sourceTreeSha",
+    ],
+    `${taskId}: lane-green authority transition`,
+  );
+  if (value.schemaVersion !== "maestro-brain-lane-green-authority-reproof/v1")
+    throw new Error(`${taskId}: invalid lane-green authority schema`);
+  if (value.proofGateStage !== "pre-review")
+    throw new Error(`${taskId}: invalid lane-green proof gate stage`);
+  const sha40 = /^[0-9a-f]{40}$/;
+  const sha64 = /^[0-9a-f]{64}$/;
+  if (
+    !Array.isArray(value.proofFindingIds) ||
+    value.proofFindingIds.length === 0 ||
+    value.proofFindingIds.some(
+      (finding) =>
+        typeof finding !== "string" ||
+        !/^OWNERSHIP-S05-T01-\d{3}$/.test(finding),
+    ) ||
+    new Set(value.proofFindingIds).size !== value.proofFindingIds.length
+  )
+    throw new Error(`${taskId}: invalid lane-green proof findings`);
+  if (
+    !Array.isArray(value.sourceCommits) ||
+    value.sourceCommits.length === 0 ||
+    value.sourceCommits.some(
+      (commit) => typeof commit !== "string" || !sha40.test(commit),
+    ) ||
+    new Set(value.sourceCommits).size !== value.sourceCommits.length
+  )
+    throw new Error(`${taskId}: invalid lane-green source commits`);
+  const sourceHeadSha = exactString(
+    value.sourceHeadSha,
+    sha40,
+    `${taskId}: lane-green source head`,
+  );
+  if (value.sourceCommits.at(-1) !== sourceHeadSha)
+    throw new Error(
+      `${taskId}: lane-green source history does not end at head`,
+    );
+  return {
+    schemaVersion: "maestro-brain-lane-green-authority-reproof/v1",
+    proofBaseSha: exactString(
+      value.proofBaseSha,
+      sha40,
+      `${taskId}: lane-green proof base`,
+    ),
+    proofHeadSha: exactString(
+      value.proofHeadSha,
+      sha40,
+      `${taskId}: lane-green proof head`,
+    ),
+    proofPlanSha256: exactString(
+      value.proofPlanSha256,
+      sha64,
+      `${taskId}: lane-green proof plan`,
+    ),
+    proofTaskBlockHash: exactString(
+      value.proofTaskBlockHash,
+      sha64,
+      `${taskId}: lane-green proof task block`,
+    ),
+    proofFindingIds: value.proofFindingIds as string[],
+    proofGateStage: "pre-review",
+    sourceBaseSha: exactString(
+      value.sourceBaseSha,
+      sha40,
+      `${taskId}: lane-green source base`,
+    ),
+    sourceCommits: value.sourceCommits as string[],
+    sourceHeadSha,
+    sourceTreeSha: exactString(
+      value.sourceTreeSha,
+      sha40,
+      `${taskId}: lane-green source tree`,
+    ),
   };
 };
 
@@ -1216,11 +1364,9 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
       body,
       taskId,
     );
-    const laneGreenAuthorityReproof =
-      /- \*\*Lane-green authority reproof:\*\* `authorized-s05-current-plan`/.test(
-        body,
-      );
-    if (laneGreenAuthorityReproof && taskId !== "S05-T01") {
+    const laneGreenAuthorityReproofTransition =
+      parseLaneGreenAuthorityReproofTransition(body, taskId);
+    if (laneGreenAuthorityReproofTransition && taskId !== "S05-T01") {
       throw new Error(
         `${taskId}: lane-green authority reproof is unauthorized`,
       );
@@ -1252,7 +1398,9 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
             ? "release"
             : "product",
       lane,
-      ...(laneGreenAuthorityReproof ? { laneGreenAuthorityReproof: true } : {}),
+      ...(laneGreenAuthorityReproofTransition
+        ? { laneGreenAuthorityReproofTransition }
+        : {}),
       requirements,
       sourceSliceBudget: 300,
       ...(SOURCE_SLICE_LIMITS[taskId] === undefined

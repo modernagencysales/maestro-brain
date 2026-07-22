@@ -12,6 +12,7 @@ import {
   buildManifest,
   PLAN_RELATIVE,
   taskBlockHashFromPlan,
+  taskBlockHashWithoutLaneGreenAuthority,
 } from "./manifest.js";
 import { runRtk } from "./process.js";
 import { changedHandAuthoredSourceLines } from "./source-budget.js";
@@ -39,6 +40,9 @@ export const loadLaneGreenAuthorityReproofAdmission = (input: {
   readonly task: ManifestTask;
 }): LaneGreenAuthorityReproofAdmission => {
   const taskId = input.task.taskId;
+  const transition = input.task.laneGreenAuthorityReproofTransition;
+  if (!transition)
+    throw new Error(`${taskId}: exact authority transition missing`);
   const laneDirectory = resolve(input.evidence, "lane-results", taskId);
   const lane = record(
     JSON.parse(
@@ -64,8 +68,14 @@ export const loadLaneGreenAuthorityReproofAdmission = (input: {
   if (typeof proof.baseSha !== "string") {
     throw new Error(`${taskId}: proof base is missing`);
   }
-  const sourceHeadSha = lane.headSha;
-  const sourceBaseSha = proof.baseSha;
+  if (
+    typeof proof.headSha !== "string" ||
+    !/^[0-9a-f]{40}$/.test(proof.headSha)
+  ) {
+    throw new Error(`${taskId}: proof HEAD is invalid`);
+  }
+  const sourceHeadSha = transition.sourceHeadSha;
+  const sourceBaseSha = transition.sourceBaseSha;
   if (!/^[0-9a-f]{40}$/.test(sourceHeadSha)) {
     throw new Error(`${taskId}: lane HEAD is invalid`);
   }
@@ -152,15 +162,44 @@ export const loadLaneGreenAuthorityReproofAdmission = (input: {
       { cwd: input.root, quiet: true },
     ),
   );
+  const proofChangedFiles = lines(
+    runRtk(
+      [
+        "proxy",
+        "git",
+        "diff",
+        "--name-only",
+        "--no-renames",
+        `${transition.proofBaseSha}..${transition.proofHeadSha}`,
+      ],
+      { cwd: input.root, quiet: true },
+    ),
+  );
+  const sourcePatchSha256 = createHash("sha256")
+    .update(
+      execFileSync(
+        "rtk",
+        [
+          "proxy",
+          "git",
+          "diff",
+          "--binary",
+          `${sourceBaseSha}..${sourceHeadSha}`,
+        ],
+        { cwd: input.root },
+      ),
+    )
+    .digest("hex");
   const historicalPlan = execFileSync(
     "rtk",
-    ["proxy", "git", "show", `${sourceBaseSha}:${PLAN_RELATIVE}`],
+    ["proxy", "git", "show", `${transition.proofBaseSha}:${PLAN_RELATIVE}`],
     { cwd: input.root, encoding: "utf8" },
   );
   const oldPlanSha256 = createHash("sha256")
     .update(historicalPlan)
     .digest("hex");
   const oldTaskBlockHash = taskBlockHashFromPlan(historicalPlan, taskId);
+  const currentPlan = readFileSync(resolve(input.root, PLAN_RELATIVE), "utf8");
   const manifest = buildManifest(input.root);
   const integratedTaskIds = resolveIntegratedPrerequisiteTaskIds({
     controlHeadSha: input.controlHeadSha,
@@ -197,8 +236,12 @@ export const loadLaneGreenAuthorityReproofAdmission = (input: {
   });
   return admitLaneGreenAuthorityReproof({
     controlHeadSha: input.controlHeadSha,
+    currentTaskWithoutAuthorityHash: taskBlockHashWithoutLaneGreenAuthority(
+      currentPlan,
+      taskId,
+    ),
     currentTask: {
-      authorityAuthorized: input.task.laneGreenAuthorityReproof === true,
+      authorityAuthorized: true,
       codeStartAfter: input.task.codeStartAfter,
       fileLocks: input.task.fileLocks,
       planSha256: manifest.planSha256,
@@ -214,7 +257,10 @@ export const loadLaneGreenAuthorityReproofAdmission = (input: {
     oldPlanSha256,
     oldTaskBlockHash,
     proof,
+    proofChangedFiles,
+    transition,
     sourceChangedFiles,
+    sourcePatchSha256,
     sourceTreeSha,
   });
 };

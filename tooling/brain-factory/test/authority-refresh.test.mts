@@ -603,15 +603,16 @@ describe("authority refresh admission", () => {
       ),
       "utf8",
     );
-    expect(resumeSource).toContain(
-      'process.argv.includes("--authority-refresh")',
+    const selectionSource = readFileSync(
+      fileURLToPath(
+        new URL("../src/authority-transition-cli.ts", import.meta.url),
+      ),
+      "utf8",
     );
-    expect(resumeSource).toContain(
-      'process.argv.includes("--authority-repair")',
-    );
-    expect(resumeSource).toContain(
-      'process.argv.includes("--ownership-rehome")',
-    );
+    expect(resumeSource).toContain("selectAuthorityTransition(");
+    expect(selectionSource).toContain('argv.includes("--authority-refresh")');
+    expect(selectionSource).toContain('argv.includes("--authority-repair")');
+    expect(selectionSource).toContain('argv.includes("--ownership-rehome")');
     expect(resumeSource).toContain("launchAuthorityRefresh({");
     expect(launchSource).toContain('"authority-refresh"');
     expect(launchSource).toContain('"authority-repair"');

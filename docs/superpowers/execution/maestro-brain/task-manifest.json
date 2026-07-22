@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "7e8ee170c5483a87a6ea3d34ea7aa47e875fcdb23f6e6e265c5a3a37685dac00",
+  "planSha256": "189e3c536fe4584758719debf6b589a6c10fe11c7d96cec4babd170e1a999575",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -756,11 +756,28 @@
       "gateProfiles": ["convex", "integrations"],
       "kind": "product",
       "lane": "slack-source",
-      "laneGreenAuthorityReproof": true,
+      "laneGreenAuthorityReproofTransition": {
+        "schemaVersion": "maestro-brain-lane-green-authority-reproof/v1",
+        "proofBaseSha": "5f682348711572faa32ac79066f8e470a1f2743f",
+        "proofHeadSha": "1578f7f20b8bd7b5580627030e9d40c040935ccd",
+        "proofPlanSha256": "ce2b760a9efd332ff6f3201b8faf312601e4fd3d4fcb7dcb4253afe7cae25317",
+        "proofTaskBlockHash": "d5212dbc84a10771993658fc840e29bc81671c08e7962dbf96fd34de2dda9ce5",
+        "proofFindingIds": ["OWNERSHIP-S05-T01-001"],
+        "proofGateStage": "pre-review",
+        "sourceBaseSha": "022a932c1e809c2093a10f5dea5d248b6c706f5f",
+        "sourceCommits": [
+          "0f6b863804d8ba5e2c78fa70a6995f73502611c6",
+          "10df346e493326324a33101028818703681cb0d2",
+          "21ccb33ee43068e94ecdb1aebf5983fbef537c2e",
+          "d5efc88aff587f23541b363b41d296beb5eda5a5"
+        ],
+        "sourceHeadSha": "d5efc88aff587f23541b363b41d296beb5eda5a5",
+        "sourceTreeSha": "45ba39ebc6f0e21e5da7c7c777fa368901813447"
+      },
       "requirements": ["IAM-03", "KNW-02", "SLK-04", "SLK-05"],
       "sourceSliceBudget": 300,
       "sourceSliceLimit": 4,
-      "taskBlockHash": "f5fdb7a7c0d03a3bbec73828cf5c9cb7083667dbed244e5e186b32b9935c3d3d",
+      "taskBlockHash": "aea0cc87a6e6780b8b8955524e1e5bd3b477fd3cb37e9e2b4d765dfce49b3975",
       "taskId": "S05-T01",
       "title": "Add The Source Ledger And Prove The Integration-Owned Migration Registry",
       "tranche": "C1-contract-spine"

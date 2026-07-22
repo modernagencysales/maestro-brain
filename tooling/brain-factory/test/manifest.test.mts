@@ -11,6 +11,7 @@ import {
   parseAuxiliaryControlTask,
   PLAN_RELATIVE,
   parseAuthorityRepairTransition,
+  parseLaneGreenAuthorityReproofTransition,
   parseOwnershipRehomeTransition,
   parseTaskPacketAuditRows,
   REPO_ROOT,
@@ -103,6 +104,64 @@ describe("Maestro Brain execution manifest", () => {
       null,
       2,
     )}\n  \`\`\``;
+
+  const laneGreenAuthorityReproofBody = (
+    overrides: Record<string, unknown> = {},
+  ): string =>
+    `- **Lane-green authority reproof transition:**\n\n  \`\`\`json\n${JSON.stringify(
+      {
+        schemaVersion: "maestro-brain-lane-green-authority-reproof/v1",
+        proofBaseSha: "a".repeat(40),
+        proofHeadSha: "b".repeat(40),
+        proofPlanSha256: "c".repeat(64),
+        proofTaskBlockHash: "d".repeat(64),
+        proofFindingIds: ["OWNERSHIP-S05-T01-001"],
+        proofGateStage: "pre-review",
+        sourceBaseSha: "e".repeat(40),
+        sourceCommits: ["f".repeat(40), "1".repeat(40)],
+        sourceHeadSha: "1".repeat(40),
+        sourceTreeSha: "2".repeat(40),
+        ...overrides,
+      },
+      null,
+      2,
+    )}\n  \`\`\``;
+
+  it("validates every lane-green authority transition field", () => {
+    expect(
+      parseLaneGreenAuthorityReproofTransition(
+        laneGreenAuthorityReproofBody(),
+        "S05-T01",
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        proofHeadSha: "b".repeat(40),
+        sourceHeadSha: "1".repeat(40),
+      }),
+    );
+    const invalid: readonly Record<string, unknown>[] = [
+      { schemaVersion: "wrong" },
+      { proofBaseSha: "a" },
+      { proofHeadSha: "b" },
+      { proofPlanSha256: "c" },
+      { proofTaskBlockHash: "d" },
+      { proofFindingIds: [] },
+      { proofGateStage: "final" },
+      { sourceBaseSha: "e" },
+      { sourceCommits: [] },
+      { sourceHeadSha: "3".repeat(40) },
+      { sourceTreeSha: "2" },
+      { unexpected: true },
+    ];
+    for (const override of invalid) {
+      expect(() =>
+        parseLaneGreenAuthorityReproofTransition(
+          laneGreenAuthorityReproofBody(override),
+          "S05-T01",
+        ),
+      ).toThrow();
+    }
+  });
 
   it("distinguishes path-rehome and contract-only authority repairs", () => {
     expect(
@@ -615,10 +674,13 @@ describe("Maestro Brain execution manifest", () => {
       "Add The Source Ledger And Prove The Integration-Owned Migration Registry",
     );
     expect(sourceLedger?.sourceSliceLimit).toBe(4);
-    expect(sourceLedger?.laneGreenAuthorityReproof).toBe(true);
+    expect(sourceLedger?.laneGreenAuthorityReproofTransition).toMatchObject({
+      sourceHeadSha: "d5efc88aff587f23541b363b41d296beb5eda5a5",
+      proofHeadSha: "1578f7f20b8bd7b5580627030e9d40c040935ccd",
+    });
     expect(
       projection.tasks.find((task) => task.taskId === "S05-T02")
-        ?.laneGreenAuthorityReproof,
+        ?.laneGreenAuthorityReproofTransition,
     ).toBeUndefined();
     expect(sourceLedger?.fileLocks).not.toContain(
       "packages/convex/confect/internal/migrations.ts",

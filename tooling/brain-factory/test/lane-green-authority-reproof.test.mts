@@ -10,6 +10,7 @@ import { taskBlockHashFromPlan } from "../src/manifest.js";
 
 const sha = (value: string, length = 40): string => value.repeat(length);
 const taskId = "S05-T01";
+const proofBaseSha = sha("0");
 const sourceBaseSha = sha("1");
 const sourceHeadSha = sha("2");
 const sourceTreeSha = sha("3");
@@ -18,9 +19,23 @@ const oldTaskBlockHash = sha("5", 64);
 const currentPlanSha256 = sha("6", 64);
 const currentTaskBlockHash = sha("7", 64);
 const ownedFile = "packages/convex/confect/tables/sourceLedger.ts";
+const transition = {
+  schemaVersion: "maestro-brain-lane-green-authority-reproof/v1" as const,
+  proofBaseSha,
+  proofHeadSha: sourceHeadSha,
+  proofPlanSha256: oldPlanSha256,
+  proofTaskBlockHash: oldTaskBlockHash,
+  proofFindingIds: ["OWNERSHIP-S05-T01-001"],
+  proofGateStage: "pre-review" as const,
+  sourceBaseSha,
+  sourceCommits: [sourceHeadSha],
+  sourceHeadSha,
+  sourceTreeSha,
+};
 
 const validInput = (): LaneGreenAuthorityReproofInput => ({
   controlHeadSha: sha("8"),
+  currentTaskWithoutAuthorityHash: oldTaskBlockHash,
   currentTask: {
     authorityAuthorized: true,
     codeStartAfter: ["S04-T02"],
@@ -34,7 +49,7 @@ const validInput = (): LaneGreenAuthorityReproofInput => ({
   finalGate: {
     schemaVersion: "maestro-brain-lane-gate/v1",
     taskId,
-    stage: "final",
+    stage: "pre-review",
     status: "passed",
     headSha: sourceHeadSha,
     currentHeadSha: sourceHeadSha,
@@ -65,15 +80,18 @@ const validInput = (): LaneGreenAuthorityReproofInput => ({
     taskId,
     planSha256: oldPlanSha256,
     taskBlockHash: oldTaskBlockHash,
-    baseSha: sourceBaseSha,
+    baseSha: proofBaseSha,
     headSha: sourceHeadSha,
     changedFiles: [ownedFile],
-    reviewVerdict: "pass",
+    reviewVerdict: "rework",
     reviewHeadSha: sourceHeadSha,
-    reviewFindings: [],
+    reviewFindings: [{ id: "OWNERSHIP-S05-T01-001" }],
   },
+  proofChangedFiles: [ownedFile],
   sourceChangedFiles: [ownedFile],
+  sourcePatchSha256: sha("a", 64),
   sourceTreeSha,
+  transition,
 });
 
 const validHistory = (): LaneGreenAuthorityReproofInput["history"][number] => {
@@ -99,9 +117,15 @@ describe("lane-green authority reproof admission", () => {
       mode: "lane-green-authority-reproof",
       oldPlanSha256,
       oldTaskBlockHash,
+      proofBaseSha,
+      proofFindingIds: ["OWNERSHIP-S05-T01-001"],
+      proofGateStage: "pre-review",
+      proofHeadSha: sourceHeadSha,
       sourceBaseSha,
       sourceCommits: [sourceHeadSha],
+      sourceChangedFiles: [ownedFile],
       sourceHeadSha,
+      sourcePatchSha256: sha("a", 64),
       sourceTreeSha,
     });
   });
@@ -117,6 +141,15 @@ describe("lane-green authority reproof admission", () => {
         },
       }).oldTaskBlockHash,
     ).toBe(oldTaskBlockHash);
+  });
+
+  it("rejects current S05 semantic drift beyond the authority annotation", () => {
+    expect(() =>
+      admitLaneGreenAuthorityReproof({
+        ...validInput(),
+        currentTaskWithoutAuthorityHash: sha("9", 64),
+      }),
+    ).toThrow("current task semantics drifted");
   });
 
   it("limits the exceptional authority path to S05-T01", () => {
@@ -135,13 +168,13 @@ describe("lane-green authority reproof admission", () => {
         ...validInput(),
         sourceTreeSha: sha("9"),
       }),
-    ).toThrow("lane result treeSha does not match current tree");
+    ).toThrow("lane result checkpoint mismatch");
     expect(() =>
       admitLaneGreenAuthorityReproof({
         ...validInput(),
         lane: { ...validInput().lane, headSha: sha("9") },
       }),
-    ).toThrow("final proof head does not match");
+    ).toThrow("exact dual-history transition drifted");
   });
 
   it("rejects an old proof not bound to the historical task block", () => {
@@ -168,6 +201,7 @@ describe("lane-green authority reproof admission", () => {
           ...validInput().proof,
           changedFiles: [ownedFile, unowned],
         },
+        proofChangedFiles: [ownedFile, unowned],
         sourceChangedFiles: [ownedFile, unowned],
       }),
     ).toThrow("not declared in current manifest fileLocks");
@@ -185,7 +219,7 @@ describe("lane-green authority reproof admission", () => {
         ...validInput(),
         history: [{ ...validHistory(), commit: sha("9") }],
       }),
-    ).toThrow("source history does not end at lane HEAD");
+    ).toThrow("pinned source commits drifted");
   });
 
   it("rejects an unsatisfied current dependency", () => {

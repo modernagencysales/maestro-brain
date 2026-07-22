@@ -1,9 +1,11 @@
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
 import { selectAuthorityTransition } from "../src/authority-transition-cli.js";
+import { assertExactLaneGreenAuthorityCandidate } from "../src/lane-green-authority-reproof-candidate.js";
 
 import {
   buildLaneGreenAuthorityReproofLaunchSpec,
@@ -15,6 +17,35 @@ import {
 const sha = (value: string, length = 40): string => value.repeat(length);
 
 describe("lane-green authority reproof launch", () => {
+  it("rejects any replayed candidate identity drift before launch", () => {
+    const expected = {
+      branch: "fabro/reproof-s05",
+      changedFiles: ["owned.ts"],
+      commitCount: 1,
+      commonDir: "/git",
+      patchSha256: "a".repeat(64),
+    };
+    const observed = {
+      ...expected,
+      commits: ["b".repeat(40)],
+      status: "",
+    };
+    expect(() =>
+      assertExactLaneGreenAuthorityCandidate({
+        expected,
+        observed: { ...observed, patchSha256: "c".repeat(64) },
+        taskId: "S05-T01",
+      }),
+    ).toThrow("replayed candidate identity mismatch");
+    expect(() =>
+      assertExactLaneGreenAuthorityCandidate({
+        expected,
+        observed,
+        taskId: "S05-T01",
+      }),
+    ).not.toThrow();
+  });
+
   it("rejects mutually exclusive authority CLI modes in the production parser", () => {
     expect(() =>
       selectAuthorityTransition(
@@ -26,6 +57,25 @@ describe("lane-green authority reproof launch", () => {
       selectAuthorityTransition(["--lane-green-authority-reproof"], "S05-T01")
         .laneGreenAuthorityReproof,
     ).toBe(true);
+
+    const resumePath = fileURLToPath(
+      new URL("../src/resume.mts", import.meta.url),
+    );
+    const result = spawnSync(
+      process.execPath,
+      [
+        "--import",
+        "tsx",
+        resumePath,
+        "--task",
+        "S05-T01",
+        "--lane-green-authority-reproof",
+        "--checkpoint-reproof",
+      ],
+      { cwd: process.cwd(), encoding: "utf8" },
+    );
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("choose exactly one authority transition");
   });
 
   it("wires an exclusive resume CLI mode without evidence synthesis", () => {
@@ -119,6 +169,12 @@ describe("lane-green authority reproof launch", () => {
       coordinates,
       evidence: "/evidence",
       planSha256: sha("b", 64),
+      proofBaseSha: sha("1"),
+      proofFindingIds: ["OWNERSHIP-S05-T01-001"],
+      proofGateStage: "pre-review",
+      proofHeadSha: sha("2"),
+      proofPlanSha256: sha("3", 64),
+      proofTaskBlockHash: sha("4", 64),
       sourceBaseSha: sha("c"),
       sourceCommits,
       sourceHeadSha: sha("e"),
@@ -130,6 +186,10 @@ describe("lane-green authority reproof launch", () => {
     expect(spec.preparingRecord).toMatchObject({
       baseSha: sha("a"),
       planSha256: sha("b", 64),
+      proofBaseSha: sha("1"),
+      proofHeadSha: sha("2"),
+      proofPlanSha256: sha("3", 64),
+      proofTaskBlockHash: sha("4", 64),
       sourceCommits,
       sourceHeadSha: sha("e"),
       taskBlockHash: sha("7", 64),
