@@ -84,6 +84,8 @@ Review findings were resolved in three additional bounded checkpoints:
 2. `7a7f1d4` `fix: resume Brain owner routing`
 3. `3989d5f` `fix: reserve Brain owner repair capacity`
 4. `3d0b6e4` `fix: reconcile fast owner repairs`
+5. `9c8f0dc` `fix: replay Brain owner supersession`
+6. `c499894` `fix: defer oversized owner rework`
 
 The repaired contract now:
 
@@ -109,3 +111,16 @@ Review-repair verification:
 - Brain Factory typecheck, repository lint, supported Prettier check, Fabro
   workflow validation, and `brain:factory:check` all passed.
 - No Fabro runs or external mutations occurred during review repair.
+
+Final replay/capacity review:
+
+- A retry after supersession materialization now accepts only the exact existing
+  owner-rework receipt after validating its augmented run/result evidence,
+  immutable selection, reason, result bytes, and worktree-derived candidate
+  HEAD. The focused test constructs and replays a real supersession receipt and
+  pins the CLI to this validator.
+- An owner wave wider than `totalActiveCapacity` is not routed. Unrelated ready
+  tasks still dispatch within available capacity, followed by a deterministic
+  `owner_rework_capacity_exceeded` wait action.
+- Final focused suite: 8 files, 165 tests passed. Typecheck, lint, supported
+  Prettier, Fabro validation, and the 57-task factory check also passed.
