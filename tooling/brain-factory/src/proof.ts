@@ -2,6 +2,8 @@ import {
   assertRuntimeValidatedReviewAggregate,
   type ReviewAggregate,
 } from "./review-lens.js";
+import type { PriorFindingDisposition } from "./review-lens.js";
+import type { ContractReproofFinding } from "./contract-reproof.js";
 
 export const isCompatibleProofHead = ({
   ancestorExit,
@@ -73,5 +75,54 @@ export const withAggregatedReview = (
     reviewVerdict: aggregate.reviewVerdict,
     reviewFindings: aggregate.reviewFindings,
     reviewHeadSha: aggregate.headSha,
+    priorFindingDispositions: aggregate.priorFindingDispositions,
+    resolvedPriorFindingIds: aggregate.resolvedPriorFindingIds,
   };
+};
+
+export const validateBehavioralReproofClosure = (input: {
+  readonly findings: readonly ContractReproofFinding[];
+  readonly dispositions: readonly PriorFindingDisposition[];
+  readonly changedPaths: readonly string[];
+  readonly ownedPaths: readonly string[];
+}): void => {
+  const changedPaths = new Set(input.changedPaths);
+  const ownedPaths = new Set(input.ownedPaths);
+  const findingIds = new Set(input.findings.map(({ id }) => id));
+  const dispositionIds = new Set<string>();
+  for (const disposition of input.dispositions) {
+    if (!findingIds.has(disposition.findingId)) {
+      throw new Error(`unknown prior finding ${disposition.findingId}`);
+    }
+    if (dispositionIds.has(disposition.findingId)) {
+      throw new Error(
+        `duplicate prior finding disposition ${disposition.findingId}`,
+      );
+    }
+    dispositionIds.add(disposition.findingId);
+  }
+  for (const finding of input.findings) {
+    const disposition = input.dispositions.find(
+      ({ findingId }) => findingId === finding.id,
+    );
+    if (!disposition) {
+      throw new Error(`missing prior finding disposition ${finding.id}`);
+    }
+    if (disposition.status !== "resolved") {
+      throw new Error(`${finding.id}: prior finding is unresolved`);
+    }
+    if (finding.changeExpectation === "source_or_test_delta") {
+      const changedAffectedPath = finding.affectedPaths.some((path) =>
+        changedPaths.has(path),
+      );
+      const changedOwnedRegressionTest = disposition.regressionTestPaths.some(
+        (path) => changedPaths.has(path) && ownedPaths.has(path),
+      );
+      if (!changedAffectedPath || !changedOwnedRegressionTest) {
+        throw new Error(
+          `${finding.id}: behavioral reproof lacks code and test delta`,
+        );
+      }
+    }
+  }
 };

@@ -64,6 +64,15 @@ export interface ReviewLensExpected {
   readonly treeSha: string;
   readonly rubricIds: ReviewRubricIds;
   readonly reviewerRunIds: Readonly<Record<ReviewLensName, string>>;
+  readonly priorFindings?: readonly ContractReproofFinding[];
+}
+
+export interface PriorFindingDisposition {
+  readonly findingId: string;
+  readonly status: "resolved" | "unresolved";
+  readonly evidence: readonly string[];
+  readonly regressionTestPaths: readonly string[];
+  readonly changedPaths: readonly string[];
 }
 
 export interface ReviewLensArtifact {
@@ -76,6 +85,7 @@ export interface ReviewLensArtifact {
   readonly treeSha: string;
   readonly reviewerRunId: string;
   readonly rubricDispositions: readonly ReviewRubricDisposition[];
+  readonly priorFindingDispositions: readonly PriorFindingDisposition[];
   readonly findings: readonly ReviewFinding[];
   readonly verdict: ReviewLensVerdict;
 }
@@ -94,6 +104,8 @@ export interface ReviewAggregate {
   readonly reviewerRunIds: Readonly<Record<ReviewLensName, string>>;
   readonly reviewFindings: readonly AggregatedReviewFinding[];
   readonly reviewVerdict: ReviewLensVerdict;
+  readonly priorFindingDispositions: readonly PriorFindingDisposition[];
+  readonly resolvedPriorFindingIds: readonly string[];
 }
 
 const validatedAggregates = new WeakMap<ReviewAggregate, string>();
@@ -214,6 +226,36 @@ const validateDisposition = (
   };
 };
 
+const validatePriorFindingDisposition = (
+  value: unknown,
+  context: string,
+): PriorFindingDisposition => {
+  if (!isRecord(value)) {
+    throw new Error(`${context}: prior finding disposition must be a record`);
+  }
+  const status = value.status;
+  if (status !== "resolved" && status !== "unresolved") {
+    throw new Error(`${context}: invalid prior finding status`);
+  }
+  return {
+    findingId: requiredString(value, "findingId", context),
+    status,
+    evidence: stringArray(value.evidence, "evidence", context, false),
+    regressionTestPaths: stringArray(
+      value.regressionTestPaths,
+      "regressionTestPaths",
+      context,
+      true,
+    ),
+    changedPaths: stringArray(
+      value.changedPaths,
+      "changedPaths",
+      context,
+      true,
+    ),
+  };
+};
+
 const assertUnique = (
   values: readonly string[],
   message: (value: string) => string,
@@ -300,6 +342,37 @@ export const validateReviewLens = (
   if (reviewerRunId !== expectedReviewerRunId)
     throw new Error(`${context}: reviewerRunId mismatch`);
 
+  const priorFindings = expected.priorFindings ?? [];
+  const priorFindingValues = value.priorFindingDispositions;
+  if (!Array.isArray(priorFindingValues)) {
+    if (priorFindings.length > 0) {
+      throw new Error(`${context}: missing prior finding disposition`);
+    }
+  }
+  const priorFindingDispositions = Array.isArray(priorFindingValues)
+    ? priorFindingValues.map((entry, index) =>
+        validatePriorFindingDisposition(
+          entry,
+          `${context}/prior-finding/${index}`,
+        ),
+      )
+    : [];
+  assertUnique(
+    priorFindingDispositions.map(({ findingId }) => findingId),
+    (id) => `${context}: duplicate prior finding disposition ${id}`,
+  );
+  const expectedPriorFindingIds = new Set(priorFindings.map(({ id }) => id));
+  for (const finding of priorFindingDispositions) {
+    if (!expectedPriorFindingIds.has(finding.findingId)) {
+      throw new Error(`${context}: unknown prior finding ${finding.findingId}`);
+    }
+  }
+  for (const id of expectedPriorFindingIds) {
+    if (!priorFindingDispositions.some(({ findingId }) => findingId === id)) {
+      throw new Error(`${context}: missing prior finding disposition ${id}`);
+    }
+  }
+
   if (!Array.isArray(value.rubricDispositions))
     throw new Error(`${context}: rubricDispositions must be an array`);
   const rubricDispositions = value.rubricDispositions.map((entry, index) =>
@@ -364,6 +437,7 @@ export const validateReviewLens = (
     treeSha: expected.treeSha,
     reviewerRunId,
     rubricDispositions,
+    priorFindingDispositions,
     findings,
     verdict,
   };
@@ -414,7 +488,49 @@ export const aggregateReviewLenses = ({
     (id) => `duplicate finding ID ${id}`,
   );
   findings.sort((left, right) => (left.id < right.id ? -1 : 1));
-  const reviewVerdict = findings.length === 0 ? "pass" : "rework";
+  const priorFindingDispositions = (expected.priorFindings ?? []).map(
+    ({ id }) => {
+      const dispositions = REVIEW_LENS_NAMES.map((name) => {
+        const disposition = artifactFor(name).priorFindingDispositions.find(
+          ({ findingId }) => findingId === id,
+        );
+        if (!disposition)
+          throw new Error(`missing prior finding disposition ${id}`);
+        return disposition;
+      });
+      const status = dispositions.every(
+        (disposition) =>
+          disposition.status === "resolved" && disposition.evidence.length > 0,
+      )
+        ? "resolved"
+        : "unresolved";
+      return {
+        findingId: id,
+        status,
+        evidence: [
+          ...new Set(dispositions.flatMap(({ evidence }) => evidence)),
+        ].sort(),
+        regressionTestPaths: [
+          ...new Set(
+            dispositions.flatMap(
+              ({ regressionTestPaths }) => regressionTestPaths,
+            ),
+          ),
+        ].sort(),
+        changedPaths: [
+          ...new Set(dispositions.flatMap(({ changedPaths }) => changedPaths)),
+        ].sort(),
+      } satisfies PriorFindingDisposition;
+    },
+  );
+  const resolvedPriorFindingIds = priorFindingDispositions
+    .filter(({ status }) => status === "resolved")
+    .map(({ findingId }) => findingId);
+  const reviewVerdict =
+    findings.length === 0 &&
+    resolvedPriorFindingIds.length === (expected.priorFindings ?? []).length
+      ? "pass"
+      : "rework";
   const aggregate: ReviewAggregate = {
     taskId: expected.taskId,
     planSha256: expected.planSha256,
@@ -425,7 +541,10 @@ export const aggregateReviewLenses = ({
     reviewerRunIds,
     reviewFindings: findings,
     reviewVerdict,
+    priorFindingDispositions,
+    resolvedPriorFindingIds,
   };
   validatedAggregates.set(aggregate, JSON.stringify(aggregate));
   return aggregate;
 };
+import type { ContractReproofFinding } from "./contract-reproof.js";

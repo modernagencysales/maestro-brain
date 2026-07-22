@@ -16,6 +16,8 @@ import {
   validateReviewLens,
 } from "./review-lens.js";
 import { withAggregatedReview } from "./proof.js";
+import { validateContractReproofRequest } from "./contract-reproof.js";
+import { buildManifest } from "./manifest.js";
 import {
   releaseReviewWorktreeGuard,
   verifyReviewWorktree,
@@ -44,7 +46,29 @@ interface UpdateProofInput {
   readonly evidence: string;
   readonly rubricIds?: ReviewRubricIds;
   readonly reviewerRunIds: Readonly<Record<ReviewLensName, string>>;
+  readonly reproofRequest?: string | undefined;
 }
+
+const priorFindingsFor = (input: {
+  readonly proof: Record<string, unknown>;
+  readonly reproofRequest?: string | undefined;
+  readonly taskId: string;
+}) => {
+  if (!input.reproofRequest || input.reproofRequest === "none") return [];
+  const task = buildManifest().tasks.find(
+    ({ taskId }) => taskId === input.taskId,
+  );
+  if (!task) throw new Error(`unknown task ${input.taskId}`);
+  return (
+    validateContractReproofRequest(readJson(input.reproofRequest), {
+      taskId: input.taskId,
+      planSha256: proofString(input.proof, "planSha256", input.taskId),
+      taskBlockHash: proofString(input.proof, "taskBlockHash", input.taskId),
+      controlHeadSha: proofString(input.proof, "baseSha", input.taskId),
+      fileLocks: task.fileLocks,
+    }).findings ?? []
+  );
+};
 
 const readJson = (path: string): unknown => {
   if (!existsSync(path)) throw new Error(`missing ${path}`);
@@ -134,6 +158,7 @@ export const collectParallelReviewLenses = (input: {
   readonly reviewRepo: string;
   readonly evidence: string;
   readonly rubricIds?: ReviewRubricIds;
+  readonly reproofRequest?: string | undefined;
 }): ParallelReviewLensCollection => {
   if (!/^S\d{2}-T\d{2}$/.test(input.taskId))
     throw new Error("review task coordinate is invalid");
@@ -211,6 +236,11 @@ export const collectParallelReviewLenses = (input: {
     treeSha,
     rubricIds: input.rubricIds ?? DEFAULT_REVIEW_RUBRIC_IDS,
     reviewerRunIds,
+    priorFindings: priorFindingsFor({
+      proof,
+      reproofRequest: input.reproofRequest,
+      taskId: input.taskId,
+    }),
   };
 
   const artifactContents = {} as Record<ReviewLensName, string>;
@@ -283,6 +313,7 @@ export const aggregateParallelReviewBranches = async (input: {
   readonly reviewRepo: string;
   readonly evidence: string;
   readonly rubricIds?: ReviewRubricIds;
+  readonly reproofRequest?: string | undefined;
 }): Promise<ReviewAggregate> => {
   const headSha = gitIdentity(input.workdir, "HEAD");
   const coordinates = {
@@ -473,6 +504,11 @@ export const updateProofFromReviewLenses = (
     treeSha,
     rubricIds: input.rubricIds ?? DEFAULT_REVIEW_RUBRIC_IDS,
     reviewerRunIds: input.reviewerRunIds,
+    priorFindings: priorFindingsFor({
+      proof,
+      reproofRequest: input.reproofRequest,
+      taskId: input.taskId,
+    }),
   };
   const reviewDirectory = resolve(laneDirectory, "review-lenses", headSha);
   const lenses = REVIEW_LENS_NAMES.map((name) =>
@@ -497,6 +533,7 @@ const runCli = async (): Promise<void> => {
   const workdir = valueAfter("--workdir");
   const reviewRepo = valueAfter("--review-repo");
   const evidence = valueAfter("--evidence");
+  const reproofRequest = valueAfter("--reproof-request");
   if (!taskId || !attempt || !workdir || !reviewRepo || !evidence) {
     console.error(
       "usage: review-aggregate --task <id> --attempt <id> --workdir <absolute-dir> --review-repo <absolute-dir> --evidence <absolute-dir>",
@@ -510,6 +547,7 @@ const runCli = async (): Promise<void> => {
     workdir,
     reviewRepo,
     evidence,
+    reproofRequest,
   });
   console.log(JSON.stringify(aggregate));
 };

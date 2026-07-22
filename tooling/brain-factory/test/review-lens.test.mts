@@ -48,10 +48,38 @@ const lens = (
     lens: name,
     reviewerRunId: `run-${name}`,
     rubricDispositions,
+    priorFindingDispositions: [],
     findings: [],
     verdict: "pass",
     ...overrides,
   };
+};
+
+const priorFinding = {
+  id: "wave-000056-S03-T03-editor-sync-contract",
+  taskId: expected.taskId,
+  candidateHeadSha: "a".repeat(40),
+  summary: "Editor sync identifiers drifted.",
+  details: "The public contract and implementation use different identifiers.",
+  severity: "high",
+  affectedPaths: ["apps/web/src/features/brain/editor-sync.ts"],
+  expectedBehavior: "The implementation uses the public contract identifiers.",
+  requiredRegressionProof: "The editor sync contract regression passes.",
+  priorEvidenceSha256: ["b".repeat(64)],
+  changeExpectation: "source_or_test_delta" as const,
+};
+
+const findingExpected: ReviewLensExpected = {
+  ...expected,
+  priorFindings: [priorFinding],
+};
+
+const resolvedPriorFinding = {
+  findingId: priorFinding.id,
+  status: "resolved" as const,
+  evidence: ["apps/web/src/features/brain/editor-sync.ts:42"],
+  regressionTestPaths: ["apps/web/src/features/brain/editor-sync.test.ts"],
+  changedPaths: ["apps/web/src/features/brain/editor-sync.ts"],
 };
 
 describe("exact-head review lens contract", () => {
@@ -200,6 +228,64 @@ describe("exact-head review lens contract", () => {
         expected,
       ),
     ).toThrow("missing rubric disposition contract.api");
+  });
+
+  it("requires exactly one disposition for every prior finding", () => {
+    expect(() => validateReviewLens(lens("contract"), findingExpected)).toThrow(
+      /missing prior finding disposition/,
+    );
+    expect(() =>
+      validateReviewLens(
+        {
+          ...lens("contract"),
+          priorFindingDispositions: [
+            resolvedPriorFinding,
+            resolvedPriorFinding,
+          ],
+        },
+        findingExpected,
+      ),
+    ).toThrow(/duplicate prior finding disposition/);
+    expect(() =>
+      validateReviewLens(
+        {
+          ...lens("contract"),
+          priorFindingDispositions: [
+            { ...resolvedPriorFinding, findingId: "unknown-finding" },
+          ],
+        },
+        findingExpected,
+      ),
+    ).toThrow(/unknown prior finding/);
+  });
+
+  it("resolves a prior finding only when all three lenses resolve it", () => {
+    const reviewed = (name: ReviewLensArtifact["lens"], status = "resolved") =>
+      lens(name, {
+        priorFindingDispositions: [
+          {
+            ...resolvedPriorFinding,
+            status: status as "resolved" | "unresolved",
+          },
+        ],
+      });
+    const resolved = aggregateReviewLenses({
+      expected: findingExpected,
+      lenses: [reviewed("contract"), reviewed("safety"), reviewed("quality")],
+    });
+    expect(resolved.resolvedPriorFindingIds).toEqual([priorFinding.id]);
+    expect(resolved.reviewVerdict).toBe("pass");
+
+    const unresolved = aggregateReviewLenses({
+      expected: findingExpected,
+      lenses: [
+        reviewed("contract"),
+        reviewed("safety", "unresolved"),
+        reviewed("quality"),
+      ],
+    });
+    expect(unresolved.resolvedPriorFindingIds).toEqual([]);
+    expect(unresolved.reviewVerdict).toBe("rework");
   });
 
   it("rejects duplicate finding IDs across lenses", () => {
@@ -464,6 +550,8 @@ describe("review aggregate proof update", () => {
       reviewVerdict: "pass",
       reviewFindings: [],
       reviewHeadSha: headSha,
+      priorFindingDispositions: [],
+      resolvedPriorFindingIds: [],
     });
   });
 });

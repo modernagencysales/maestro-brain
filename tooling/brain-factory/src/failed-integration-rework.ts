@@ -1,5 +1,5 @@
 import {
-  buildContractReproofRequest,
+  buildContractReproofFindingsRequest,
   type ContractReproofRequest,
 } from "./contract-reproof.js";
 import {
@@ -17,6 +17,7 @@ import {
   validateLaneBindings,
   validateSupersession,
   validateTypeCoverageRegression,
+  validateIntegrationReproofFindings,
 } from "./failed-integration-rework-validation.js";
 import { readIntegrationWaveSelection } from "./integration-wave.js";
 
@@ -158,6 +159,29 @@ export const planFailedIntegrationRework = (
     findingIds.push(finding.id);
   }
 
+  const evidenceContents = [
+    input.selectionContent,
+    input.integrationResultContent,
+    input.laneContent,
+    input.proofContent,
+    input.gateContent,
+    input.runRecordContent,
+    input.supersessionContent,
+    ...(input.broadGateContent === undefined ? [] : [input.broadGateContent]),
+    ...(input.typeCoverageRegressionContent === undefined
+      ? []
+      : [input.typeCoverageRegressionContent]),
+  ];
+  const findings = validateIntegrationReproofFindings({
+    candidateHeadSha,
+    evidenceContents,
+    findings: remainingFindings,
+    integrationId: selection.integrationId,
+    reason: input.reason,
+    selected,
+    taskId: input.taskId,
+  });
+
   if (reviewOnly) {
     if (
       integrationResult.broadGate !== null &&
@@ -253,7 +277,7 @@ export const planFailedIntegrationRework = (
       : {}),
   };
   const archiveContent = `${JSON.stringify(archive, null, 2)}\n`;
-  const request = buildContractReproofRequest({
+  const request = buildContractReproofFindingsRequest({
     controlHeadSha: input.controlHeadSha,
     planSha256: input.planSha256,
     priorArchiveSha256: sha256(archiveContent),
@@ -265,6 +289,7 @@ export const planFailedIntegrationRework = (
     reason: input.reason,
     taskBlockHash: input.manifestTaskBlockHash,
     taskId: input.taskId,
+    findings,
   });
   return { archive, archiveContent, request };
 };

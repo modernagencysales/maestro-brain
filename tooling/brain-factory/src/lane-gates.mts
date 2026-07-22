@@ -21,9 +21,14 @@ import { buildManifest } from "./manifest.js";
 import {
   isCompatibleProofHead,
   proofChangedFilesMatch,
+  validateBehavioralReproofClosure,
   validateProofContract,
 } from "./proof.js";
-import { validateContractReproofRequest } from "./contract-reproof.js";
+import {
+  validateContractReproofRequest,
+  type ContractReproofRequest,
+} from "./contract-reproof.js";
+import type { PriorFindingDisposition } from "./review-lens.js";
 import { validateContractReproofRefreshArtifacts } from "./contract-reproof-admission.js";
 import {
   changedHandAuthoredSourceLines,
@@ -43,6 +48,7 @@ interface ProofPacket {
   readonly headSha: string;
   readonly planSha256: string;
   readonly reviewVerdict: "pass" | "pending" | "rework";
+  readonly reviewHeadSha?: string;
   readonly schemaVersion: "maestro-brain-ci-proof/v1";
   readonly taskBlockHash: string;
   readonly taskId: string;
@@ -106,6 +112,7 @@ const proofPlanSha256 = validateProofContract(
     taskId,
   },
 );
+let contractReproofRequest: ContractReproofRequest | undefined;
 if (reproofPath && reproofPath !== "none") {
   if (!existsSync(reproofPath)) {
     throw new Error(`${taskId}: contract reproof request is missing`);
@@ -117,8 +124,10 @@ if (reproofPath && reproofPath !== "none") {
       planSha256: manifest.planSha256,
       taskBlockHash: task.taskBlockHash,
       taskId,
+      fileLocks: task.fileLocks,
     },
   );
+  contractReproofRequest = request;
   validateContractReproofRefreshArtifacts({
     evidenceDirectory: evidence,
     request,
@@ -189,6 +198,42 @@ const ownershipIssues = laneFileOwnershipIssues(
 );
 if (ownershipIssues.length > 0)
   throw new Error(`${taskId}: ${ownershipIssues.join("; ")}`);
+if (stage === "final" && contractReproofRequest?.findings) {
+  if (
+    !Array.isArray(
+      (proof as unknown as Record<string, unknown>).priorFindingDispositions,
+    )
+  ) {
+    throw new Error(`${taskId}: proof lacks prior finding dispositions`);
+  }
+  if (proof.reviewHeadSha !== proof.headSha) {
+    throw new Error(`${taskId}: prior findings are not resolved on final head`);
+  }
+  const resolvedPriorFindingIds = (
+    proof as unknown as { readonly resolvedPriorFindingIds?: unknown }
+  ).resolvedPriorFindingIds;
+  const expectedResolvedIds = contractReproofRequest.findings
+    .map(({ id }) => id)
+    .sort();
+  if (
+    !Array.isArray(resolvedPriorFindingIds) ||
+    resolvedPriorFindingIds.some((id) => typeof id !== "string") ||
+    JSON.stringify([...resolvedPriorFindingIds].sort()) !==
+      JSON.stringify(expectedResolvedIds)
+  ) {
+    throw new Error(`${taskId}: proof does not resolve every prior finding`);
+  }
+  validateBehavioralReproofClosure({
+    findings: contractReproofRequest.findings,
+    dispositions: (
+      proof as unknown as {
+        readonly priorFindingDispositions: readonly PriorFindingDisposition[];
+      }
+    ).priorFindingDispositions,
+    changedPaths: actualChangedFiles,
+    ownedPaths: task.fileLocks,
+  });
+}
 const focusedCommands = proof.focusedCommands.map((command) => {
   try {
     return focusedGateCommand(command);

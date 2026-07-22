@@ -7,6 +7,23 @@ export const CONTRACT_REPROOF_SCHEMA =
   "maestro-brain-contract-reproof/v1" as const;
 export const CONTRACT_REPROOF_REFRESH_SCHEMA =
   "maestro-brain-contract-reproof-refresh/v2" as const;
+export const CONTRACT_REPROOF_FINDINGS_SCHEMA =
+  "maestro-brain-contract-reproof/v2" as const;
+
+export interface ContractReproofFinding {
+  readonly id: string;
+  readonly taskId: string;
+  readonly candidateHeadSha: string;
+  readonly summary: string;
+  readonly details: string;
+  readonly severity: string;
+  readonly affectedPaths: readonly string[];
+  readonly expectedBehavior: string;
+  readonly requiredRegressionProof: string;
+  readonly priorEvidenceSha256: readonly string[];
+  readonly changeExpectation: "source_or_test_delta" | "evidence_only";
+  readonly evidenceOnlyRationale?: string;
+}
 
 export interface ContractReproofRequest {
   readonly controlHeadSha: string;
@@ -20,7 +37,9 @@ export interface ContractReproofRequest {
   readonly reason: string;
   readonly requestSha256: string;
   readonly schemaVersion:
-    typeof CONTRACT_REPROOF_SCHEMA | typeof CONTRACT_REPROOF_REFRESH_SCHEMA;
+    | typeof CONTRACT_REPROOF_SCHEMA
+    | typeof CONTRACT_REPROOF_REFRESH_SCHEMA
+    | typeof CONTRACT_REPROOF_FINDINGS_SCHEMA;
   readonly taskBlockHash: string;
   readonly taskId: string;
   readonly priorReproofFinalGatePath?: string;
@@ -32,6 +51,7 @@ export interface ContractReproofRequest {
   readonly priorReproofRequestPath?: string;
   readonly priorReproofRequestSha256?: string;
   readonly priorReproofSourceHeadSha?: string;
+  readonly findings?: readonly ContractReproofFinding[];
 }
 
 type ReproofPayload = Omit<ContractReproofRequest, "requestSha256">;
@@ -63,6 +83,11 @@ const CONTRACT_REPROOF_REFRESH_KEYS = [
   "priorReproofRequestPath",
   "priorReproofRequestSha256",
   "priorReproofSourceHeadSha",
+] as const;
+
+const CONTRACT_REPROOF_FINDINGS_KEYS = [
+  ...CONTRACT_REPROOF_KEYS,
+  "findings",
 ] as const;
 
 const sha256 = (value: string): string =>
@@ -143,6 +168,136 @@ export const buildContractReproofRequest = (input: {
   return { ...payload, requestSha256: payloadHash(payload) };
 };
 
+const nonEmptyString = (value: string, label: string): string => {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`${label} must be a non-empty string`);
+  }
+  return value.trim();
+};
+
+const canonicalFinding = (
+  value: ContractReproofFinding,
+  taskId: string,
+): ContractReproofFinding => {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error("contract reproof finding must be an object");
+  }
+  const allowedKeys = new Set([
+    "id",
+    "taskId",
+    "candidateHeadSha",
+    "summary",
+    "details",
+    "severity",
+    "affectedPaths",
+    "expectedBehavior",
+    "requiredRegressionProof",
+    "priorEvidenceSha256",
+    "changeExpectation",
+    "evidenceOnlyRationale",
+  ]);
+  if (
+    Reflect.ownKeys(value).some(
+      (key) => typeof key !== "string" || !allowedKeys.has(key),
+    )
+  ) {
+    throw new Error("contract reproof finding has unknown fields");
+  }
+  if (value.taskId !== taskId) throw new Error(`${value.id}: task mismatch`);
+  if (!Array.isArray(value.priorEvidenceSha256)) {
+    throw new Error(`${value.id}: priorEvidenceSha256 must be an array`);
+  }
+  const priorEvidenceSha256 = value.priorEvidenceSha256.map((digest) =>
+    exactSha(digest, `${value.id}: priorEvidenceSha256`, 64),
+  );
+  if (priorEvidenceSha256.length === 0) {
+    throw new Error(`${value.id}: priorEvidenceSha256 must not be empty`);
+  }
+  if (new Set(priorEvidenceSha256).size !== priorEvidenceSha256.length) {
+    throw new Error(`${value.id}: duplicate prior evidence hash`);
+  }
+  if (!Array.isArray(value.affectedPaths) || value.affectedPaths.length === 0) {
+    throw new Error(`${value.id}: affectedPaths must not be empty`);
+  }
+  const affectedPaths = value.affectedPaths.map((path) =>
+    nonEmptyString(path, `${value.id}: affectedPath`),
+  );
+  if (new Set(affectedPaths).size !== affectedPaths.length) {
+    throw new Error(`${value.id}: duplicate affected path`);
+  }
+  if (
+    value.changeExpectation !== "source_or_test_delta" &&
+    value.changeExpectation !== "evidence_only"
+  ) {
+    throw new Error(`${value.id}: invalid changeExpectation`);
+  }
+  const evidenceOnlyRationale = value.evidenceOnlyRationale?.trim();
+  if (value.changeExpectation === "evidence_only" && !evidenceOnlyRationale) {
+    throw new Error(`${value.id}: evidenceOnlyRationale is required`);
+  }
+  return {
+    id: nonEmptyString(value.id, "finding id"),
+    taskId: value.taskId,
+    candidateHeadSha: exactSha(
+      value.candidateHeadSha,
+      `${value.id}: candidateHeadSha`,
+      40,
+    ),
+    summary: nonEmptyString(value.summary, `${value.id}: summary`),
+    details: nonEmptyString(value.details, `${value.id}: details`),
+    severity: nonEmptyString(value.severity, `${value.id}: severity`),
+    affectedPaths: [...affectedPaths].sort(),
+    expectedBehavior: nonEmptyString(
+      value.expectedBehavior,
+      `${value.id}: expectedBehavior`,
+    ),
+    requiredRegressionProof: nonEmptyString(
+      value.requiredRegressionProof,
+      `${value.id}: requiredRegressionProof`,
+    ),
+    priorEvidenceSha256: [...priorEvidenceSha256].sort(),
+    changeExpectation: value.changeExpectation,
+    ...(evidenceOnlyRationale ? { evidenceOnlyRationale } : {}),
+  };
+};
+
+export const buildContractReproofFindingsRequest = (
+  input: Omit<
+    ContractReproofRequest,
+    "findings" | "requestSha256" | "schemaVersion"
+  > & {
+    readonly findings: readonly ContractReproofFinding[];
+  },
+): ContractReproofRequest => {
+  const common = buildContractReproofRequest(input);
+  if (!Array.isArray(input.findings) || input.findings.length === 0) {
+    throw new Error("finding-bound reproof requires findings");
+  }
+  const findings = input.findings.map((finding) =>
+    canonicalFinding(finding, common.taskId),
+  );
+  if (new Set(findings.map(({ id }) => id)).size !== findings.length) {
+    throw new Error("duplicate finding ID");
+  }
+  findings.sort((left, right) => (left.id < right.id ? -1 : 1));
+  const payload = {
+    schemaVersion: CONTRACT_REPROOF_FINDINGS_SCHEMA,
+    taskId: common.taskId,
+    reason: common.reason,
+    controlHeadSha: common.controlHeadSha,
+    planSha256: common.planSha256,
+    taskBlockHash: common.taskBlockHash,
+    priorIntegrationId: common.priorIntegrationId,
+    priorIntegrationHeadSha: common.priorIntegrationHeadSha,
+    priorIntegrationResultSha256: common.priorIntegrationResultSha256,
+    priorLaneResultSha256: common.priorLaneResultSha256,
+    priorArchiveSha256: common.priorArchiveSha256,
+    priorEvidencePath: common.priorEvidencePath,
+    findings,
+  } satisfies ReproofPayload;
+  return { ...payload, requestSha256: payloadHash(payload) };
+};
+
 export const validateContractReproofRequest = (
   value: unknown,
   expected: {
@@ -150,6 +305,7 @@ export const validateContractReproofRequest = (
     readonly planSha256: string;
     readonly taskBlockHash: string;
     readonly taskId: string;
+    readonly fileLocks?: readonly string[];
   },
 ): ContractReproofRequest => {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -161,7 +317,9 @@ export const validateContractReproofRequest = (
       ? CONTRACT_REPROOF_KEYS
       : schemaVersion === CONTRACT_REPROOF_REFRESH_SCHEMA
         ? CONTRACT_REPROOF_REFRESH_KEYS
-        : undefined;
+        : schemaVersion === CONTRACT_REPROOF_FINDINGS_SCHEMA
+          ? CONTRACT_REPROOF_FINDINGS_KEYS
+          : undefined;
   if (!expectedKeys) throw new Error("unexpected contract reproof schema");
   const ownKeys = Reflect.ownKeys(value);
   if (
@@ -205,7 +363,12 @@ export const validateContractReproofRequest = (
             request.priorReproofSourceHeadSha ?? "",
           ),
         })
-      : buildContractReproofRequest(request);
+      : request.schemaVersion === CONTRACT_REPROOF_FINDINGS_SCHEMA
+        ? buildContractReproofFindingsRequest({
+            ...request,
+            findings: request.findings ?? [],
+          })
+        : buildContractReproofRequest(request);
   if (request.requestSha256 !== rebuilt.requestSha256) {
     throw new Error("contract reproof request hash mismatch");
   }
@@ -216,6 +379,18 @@ export const validateContractReproofRequest = (
     request.taskBlockHash !== expected.taskBlockHash
   ) {
     throw new Error("contract reproof request does not bind current authority");
+  }
+  if (request.findings && expected.fileLocks) {
+    const ownedPaths = new Set(expected.fileLocks);
+    for (const finding of request.findings) {
+      for (const path of finding.affectedPaths) {
+        if (!ownedPaths.has(path)) {
+          throw new Error(
+            `${finding.id}: affected path is outside owner locks`,
+          );
+        }
+      }
+    }
   }
   return rebuilt;
 };

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import type { IntegrationWaveTaskSnapshot } from "./integration-wave.js";
+import type { ContractReproofFinding } from "./contract-reproof.js";
 import { validateIntegrationWaveSupersessionReceipt } from "./integration-wave-supersession.js";
 
 export const sha256 = (value: string): string =>
@@ -36,6 +37,116 @@ export const exactSha = (
     throw new Error(`${label} must be an exact ${length}-character SHA`);
   }
   return value;
+};
+
+const requiredString = (
+  value: Record<string, unknown>,
+  field: string,
+  context: string,
+): string => {
+  const candidate = value[field];
+  if (typeof candidate !== "string" || !candidate.trim()) {
+    throw new Error(`${context}: ${field} must be a non-empty string`);
+  }
+  return candidate.trim();
+};
+
+export const validateIntegrationReproofFindings = (input: {
+  readonly candidateHeadSha: string;
+  readonly evidenceContents: readonly string[];
+  readonly findings: readonly unknown[];
+  readonly integrationId: string;
+  readonly reason: string;
+  readonly selected: IntegrationWaveTaskSnapshot;
+  readonly taskId: string;
+}): readonly ContractReproofFinding[] => {
+  const ownerLocks = new Set(input.selected.fileLocks);
+  const evidenceSha256 = [
+    ...new Set(input.evidenceContents.map(sha256)),
+  ].sort();
+  const findingValues =
+    input.findings.length > 0
+      ? input.findings
+      : [
+          {
+            id: `${input.integrationId}-${input.taskId}-broad-gate-failure`,
+            taskId: input.taskId,
+            summary: "The authoritative broad integration gate failed.",
+            details: input.reason,
+            severity: "high",
+            affectedPaths: input.selected.changedFiles,
+            expectedBehavior:
+              "The authoritative broad integration gate passes.",
+            requiredRegressionProof:
+              "Run rtk host-test-slot --class full pnpm verify successfully.",
+            changeExpectation: "evidence_only",
+            evidenceOnlyRationale:
+              "A broad-gate-only failure may close with exact successful gate evidence.",
+          },
+        ];
+  const findings = findingValues.map((value, index) => {
+    const context = `failed integration finding ${index + 1}`;
+    const finding = record(value, context);
+    if (finding.taskId !== input.taskId) {
+      throw new Error("failed integration finding owner mismatch");
+    }
+    const id = requiredString(finding, "id", context);
+    if (
+      !Array.isArray(finding.affectedPaths) ||
+      finding.affectedPaths.length === 0
+    ) {
+      throw new Error(`${id}: affectedPaths must not be empty`);
+    }
+    const affectedPaths = finding.affectedPaths.map((path) => {
+      if (typeof path !== "string" || !path.trim()) {
+        throw new Error(`${id}: affectedPath must be a non-empty string`);
+      }
+      if (!ownerLocks.has(path)) {
+        throw new Error(`${id}: affected path is outside selected owner locks`);
+      }
+      return path;
+    });
+    const changeExpectation = finding.changeExpectation;
+    if (
+      changeExpectation !== "source_or_test_delta" &&
+      changeExpectation !== "evidence_only"
+    ) {
+      throw new Error(`${id}: invalid changeExpectation`);
+    }
+    const evidenceOnlyRationale =
+      typeof finding.evidenceOnlyRationale === "string"
+        ? finding.evidenceOnlyRationale.trim()
+        : undefined;
+    if (changeExpectation === "evidence_only" && !evidenceOnlyRationale) {
+      throw new Error(`${id}: evidenceOnlyRationale is required`);
+    }
+    return {
+      id,
+      taskId: input.taskId,
+      candidateHeadSha: exactSha(
+        input.candidateHeadSha,
+        `${id}: candidateHeadSha`,
+        40,
+      ),
+      summary: requiredString(finding, "summary", id),
+      details: requiredString(finding, "details", id),
+      severity: requiredString(finding, "severity", id),
+      affectedPaths,
+      expectedBehavior: requiredString(finding, "expectedBehavior", id),
+      requiredRegressionProof: requiredString(
+        finding,
+        "requiredRegressionProof",
+        id,
+      ),
+      priorEvidenceSha256: evidenceSha256,
+      changeExpectation,
+      ...(evidenceOnlyRationale ? { evidenceOnlyRationale } : {}),
+    } satisfies ContractReproofFinding;
+  });
+  if (new Set(findings.map(({ id }) => id)).size !== findings.length) {
+    throw new Error("duplicate failed integration finding ID");
+  }
+  return findings;
 };
 
 export const sameRecord = (

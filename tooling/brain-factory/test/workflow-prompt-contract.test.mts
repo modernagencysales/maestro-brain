@@ -646,6 +646,39 @@ describe("Fabro workflow prompt contracts", () => {
     expect(implement).not.toContain("more than four real commits");
   });
 
+  it("binds every repair and review to the complete immutable finding request", () => {
+    const buildTask = readFileSync(
+      resolve(
+        import.meta.dirname,
+        "../../../.fabro/workflows/brain-build-task/workflow.fabro",
+      ),
+      "utf8",
+    );
+    const implement = buildTask
+      .split("\n")
+      .find((line) => line.trimStart().startsWith("implement ["));
+    expect(implement).toContain("read $BRAIN_REPROOF_REQUEST before editing");
+    expect(implement).toContain("reproduce every requiredRegressionProof");
+    expect(implement).toContain("resolve every stable finding ID");
+    for (const node of ["review_contract", "review_safety", "review_quality"]) {
+      const prompt = buildTask
+        .split("\n")
+        .find((line) => line.trimStart().startsWith(`${node} [`));
+      expect(prompt).toContain("read $BRAIN_REPROOF_REQUEST");
+      expect(prompt).toContain("priorFindingDispositions");
+    }
+    const guardCalls = buildTask
+      .split("\n")
+      .filter((line) => line.includes("review-lens-guard.mts"));
+    expect(guardCalls.every((line) => line.includes("--reproof-request"))).toBe(
+      true,
+    );
+    const aggregate = buildTask
+      .split("\n")
+      .find((line) => line.trimStart().startsWith("review_aggregate ["));
+    expect(aggregate).toContain("--reproof-request");
+  });
+
   it("bounds task reconnaissance and leaves deterministic gates to the workflow", () => {
     const buildTask = readFileSync(
       resolve(

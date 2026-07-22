@@ -6,7 +6,10 @@ import { resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { admitContractReproof } from "../src/contract-reproof-admission.js";
-import { buildContractReproofRequest } from "../src/contract-reproof.js";
+import {
+  buildContractReproofFindingsRequest,
+  buildContractReproofRequest,
+} from "../src/contract-reproof.js";
 import { validateFailedIntegrationReworkArchive } from "../src/failed-integration-rework-archive.js";
 import { planFailedIntegrationRework } from "../src/failed-integration-rework.js";
 import {
@@ -148,6 +151,11 @@ const fixture = () => {
         id: "type-coverage-below-threshold",
         severity: "high",
         summary: "Type coverage was 99.63%, below 99.7%.",
+        details: "The selected lane lowers the repository type coverage gate.",
+        affectedPaths: ["packages/example.ts"],
+        expectedBehavior: "The candidate preserves required type coverage.",
+        requiredRegressionProof: "The full type coverage command passes.",
+        changeExpectation: "source_or_test_delta",
         taskId,
       },
     ],
@@ -373,7 +381,7 @@ describe("failed integration rework admission", () => {
       candidateHeadSha: value.values.integrationResult.headSha,
     });
     expect(planned.request).toEqual(
-      buildContractReproofRequest({
+      buildContractReproofFindingsRequest({
         controlHeadSha: value.input.controlHeadSha,
         planSha256: value.input.planSha256,
         priorArchiveSha256: sha256(planned.archiveContent),
@@ -387,7 +395,24 @@ describe("failed integration rework admission", () => {
         reason: value.input.reason,
         taskBlockHash: value.input.manifestTaskBlockHash,
         taskId: value.input.taskId,
+        findings: planned.request.findings ?? [],
       }),
+    );
+    expect(planned.request).toMatchObject({
+      schemaVersion: "maestro-brain-contract-reproof/v2",
+      findings: [
+        {
+          id: "type-coverage-below-threshold",
+          candidateHeadSha: value.values.integrationResult.headSha,
+          affectedPaths: ["packages/example.ts"],
+        },
+      ],
+    });
+    expect(planned.request.findings?.[0]?.priorEvidenceSha256).toEqual(
+      expect.arrayContaining([
+        sha256(value.input.integrationResultContent),
+        sha256(value.input.proofContent),
+      ]),
     );
   });
 
@@ -533,6 +558,12 @@ describe("failed integration rework admission", () => {
         {
           id: "deterministic-build-failure",
           severity: "high",
+          summary: "The deterministic build failed.",
+          details: "The candidate does not satisfy the deterministic build.",
+          affectedPaths: ["packages/example.ts"],
+          expectedBehavior: "The deterministic build passes.",
+          requiredRegressionProof: "The focused build regression passes.",
+          changeExpectation: "source_or_test_delta",
           taskId: value.input.taskId,
         },
       ],
@@ -720,6 +751,38 @@ describe("failed integration rework admission", () => {
         integrationResultContent: json(integrationResult),
       }),
     ).toThrow(/finding owner mismatch/);
+  });
+
+  it("rejects a finding path outside the selected owner lane locks", () => {
+    const value = fixture();
+    const finding = value.values.integrationResult.remainingFindings[0];
+    if (!finding) throw new Error("fixture finding missing");
+    expect(() =>
+      planFailedIntegrationRework({
+        ...value.input,
+        integrationResultContent: json({
+          ...value.values.integrationResult,
+          remainingFindings: [
+            { ...finding, affectedPaths: ["packages/other.ts"] },
+          ],
+        }),
+      }),
+    ).toThrow(/outside selected owner locks/);
+  });
+
+  it("rejects incomplete semantic finding evidence", () => {
+    const value = fixture();
+    const finding = value.values.integrationResult.remainingFindings[0];
+    if (!finding) throw new Error("fixture finding missing");
+    expect(() =>
+      planFailedIntegrationRework({
+        ...value.input,
+        integrationResultContent: json({
+          ...value.values.integrationResult,
+          remainingFindings: [{ ...finding, expectedBehavior: "" }],
+        }),
+      }),
+    ).toThrow(/expectedBehavior/);
   });
 
   it("rejects missing or drifted broad-gate evidence", () => {

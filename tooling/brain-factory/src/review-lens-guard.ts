@@ -7,6 +7,8 @@ import {
   type ReviewLensName,
   validateReviewLens,
 } from "./review-lens.js";
+import { validateContractReproofRequest } from "./contract-reproof.js";
+import { buildManifest } from "./manifest.js";
 
 const git = (cwd: string, ...args: string[]): string =>
   execFileSync("rtk", ["proxy", "git", ...args], {
@@ -36,6 +38,7 @@ export const stageReviewLens = (input: {
   readonly lens: ReviewLensName;
   readonly taskId: string;
   readonly workdir: string;
+  readonly reproofRequest?: string | undefined;
 }): void => {
   if (!isAbsolute(input.evidence) || !isAbsolute(input.workdir))
     throw new Error("review coordinates must be absolute");
@@ -78,6 +81,23 @@ export const stageReviewLens = (input: {
       "utf8",
     ),
   ) as unknown;
+  const task = buildManifest().tasks.find(
+    ({ taskId }) => taskId === input.taskId,
+  );
+  if (!task) throw new Error(`unknown task ${input.taskId}`);
+  const request =
+    input.reproofRequest && input.reproofRequest !== "none"
+      ? validateContractReproofRequest(
+          JSON.parse(readFileSync(input.reproofRequest, "utf8")) as unknown,
+          {
+            taskId: input.taskId,
+            planSha256: String(proof.planSha256),
+            taskBlockHash: String(proof.taskBlockHash),
+            controlHeadSha: String(proof.baseSha),
+            fileLocks: task.fileLocks,
+          },
+        )
+      : undefined;
   validateReviewLens(artifact, {
     taskId: input.taskId,
     planSha256: String(proof.planSha256),
@@ -92,6 +112,7 @@ export const stageReviewLens = (input: {
       safety: input.lens === "safety" ? branch : `unused-safety-${branch}`,
       quality: input.lens === "quality" ? branch : `unused-quality-${branch}`,
     },
+    priorFindings: request?.findings ?? [],
   });
   const artifactPath = `.brain-review-output/${input.lens}.json`;
   git(input.controlWorktree, "add", "--", artifactPath);

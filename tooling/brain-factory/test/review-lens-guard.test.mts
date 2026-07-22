@@ -150,6 +150,7 @@ describe("parallel review lens guard", () => {
               evidence: [`contract:${rubricId}`],
             }),
           ),
+          priorFindingDispositions: [],
           findings: [],
           verdict: "pass",
         })}\n`,
