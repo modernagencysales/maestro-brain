@@ -245,6 +245,7 @@ describe("legacy integration finding adoption", () => {
         "wave-000056",
         "--finding-adoption-sha256",
         adoption.adoptionSha256,
+        "--owner-rework-preflight",
       ]),
     );
     expect(route.commands[1]).toEqual(

@@ -24,6 +24,7 @@ import { classifyIntegrationFindings } from "./integration-finding.js";
 import { validateIntegrationFindingAdoption } from "./integration-finding-adoption.js";
 
 interface FailedIntegrationReworkInput {
+  readonly allowMissingSupersession?: boolean;
   readonly broadGateContent?: string;
   readonly controlClean: boolean;
   readonly controlHeadSha: string;
@@ -48,7 +49,7 @@ interface FailedIntegrationReworkInput {
   readonly sourceBranchHeadSha: string;
   readonly sourceClean: boolean;
   readonly sourceWorktreeHeadSha: string;
-  readonly supersessionContent: string;
+  readonly supersessionContent?: string;
   readonly taskId: string;
   readonly typeCoverageRegressionContent?: string;
 }
@@ -121,6 +122,7 @@ export const planFailedIntegrationRework = (
   let allRemainingFindings = Array.isArray(integrationResult.remainingFindings)
     ? integrationResult.remainingFindings
     : [];
+  let findingAdoptionSha256: string | undefined;
   if (input.findingAdoptionContent !== undefined) {
     if (!input.findingAdoptionWorktreeHeadSha) {
       throw new Error("finding adoption worktree head is missing");
@@ -131,6 +133,7 @@ export const planFailedIntegrationRework = (
       selectionContent: input.selectionContent,
       worktreeHeadSha: input.findingAdoptionWorktreeHeadSha,
     });
+    findingAdoptionSha256 = adoption.adoptionSha256;
     allRemainingFindings = allRemainingFindings.map((finding) =>
       typeof finding === "object" &&
       finding !== null &&
@@ -220,7 +223,9 @@ export const planFailedIntegrationRework = (
     input.proofContent,
     input.gateContent,
     input.runRecordContent,
-    input.supersessionContent,
+    ...(input.supersessionContent === undefined
+      ? []
+      : [input.supersessionContent]),
     ...(input.broadGateContent === undefined ? [] : [input.broadGateContent]),
     ...(input.typeCoverageRegressionContent === undefined
       ? []
@@ -291,24 +296,31 @@ export const planFailedIntegrationRework = (
     });
   }
 
-  const supersession = parseRecord(
-    input.supersessionContent,
-    "supersession receipt",
-  );
-  validateSupersession({
-    ...(input.broadGateContent === undefined
-      ? {}
-      : { broadGateContent: input.broadGateContent }),
-    currentControlHead: input.controlHeadSha,
-    isAncestor: input.isAncestor,
-    integrationId: selection.integrationId,
-    integrationResultContent: input.integrationResultContent,
-    runRecordContent: input.runRecordContent,
-    selectionContent: input.selectionContent,
-    selectionPath: input.selectionPath,
-    supersession,
-    taskId: input.taskId,
-  });
+  if (input.supersessionContent === undefined) {
+    if (!input.allowMissingSupersession) {
+      throw new Error("failed wave supersession is missing");
+    }
+  } else {
+    const supersession = parseRecord(
+      input.supersessionContent,
+      "supersession receipt",
+    );
+    validateSupersession({
+      ...(input.broadGateContent === undefined
+        ? {}
+        : { broadGateContent: input.broadGateContent }),
+      currentControlHead: input.controlHeadSha,
+      ...(findingAdoptionSha256 ? { findingAdoptionSha256 } : {}),
+      isAncestor: input.isAncestor,
+      integrationId: selection.integrationId,
+      integrationResultContent: input.integrationResultContent,
+      runRecordContent: input.runRecordContent,
+      selectionContent: input.selectionContent,
+      selectionPath: input.selectionPath,
+      supersession,
+      taskId: input.taskId,
+    });
+  }
 
   const archive: FailedIntegrationReworkArchive = {
     schemaVersion: FAILED_INTEGRATION_REWORK_ARCHIVE_SCHEMA,
@@ -321,7 +333,7 @@ export const planFailedIntegrationRework = (
     ...(input.broadGateContent === undefined
       ? {}
       : { broadGateContent: input.broadGateContent }),
-    supersessionContent: input.supersessionContent,
+    supersessionContent: input.supersessionContent ?? "",
     laneContent: input.laneContent,
     proofContent: input.proofContent,
     runRecordContent: input.runRecordContent,

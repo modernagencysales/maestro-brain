@@ -103,6 +103,7 @@ export const validateFailedIntegrationReworkArchive = (input: {
   if (sha256(archive.laneContent) !== request.priorLaneResultSha256) {
     throw new Error(`${request.taskId}: archived lane drift`);
   }
+  let findingAdoptionSupersessionSha256: string | undefined;
   if (archive.findingAdoptionContent) {
     const adoptionSha256 = sha256(archive.findingAdoptionContent);
     let adoption;
@@ -118,6 +119,7 @@ export const validateFailedIntegrationReworkArchive = (input: {
         `${request.taskId}: finding adoption archive is invalid: ${String(error)}`,
       );
     }
+    findingAdoptionSupersessionSha256 = adoption.adoptionSha256;
     const requestFinding = request.findings?.[0];
     const semanticKeys = [
       "affectedPaths",
@@ -260,6 +262,9 @@ export const validateFailedIntegrationReworkArchive = (input: {
       ? {}
       : { broadGateContent: archive.broadGateContent }),
     currentControlHead: input.currentControlHead,
+    ...(findingAdoptionSupersessionSha256
+      ? { findingAdoptionSha256: findingAdoptionSupersessionSha256 }
+      : {}),
     isAncestor: input.isAncestor,
     integrationId: selection.integrationId,
     integrationResultContent: archive.integrationResultContent,

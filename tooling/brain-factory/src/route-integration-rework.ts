@@ -210,9 +210,10 @@ export const planIntegrationOwnerReworkRoute = (input: {
       input.stateRoot,
     ],
   );
-  const preflightCommands = reopen.map((command) =>
-    command.filter((argument) => argument !== "--launch"),
-  );
+  const preflightCommands = reopen.map((command) => [
+    ...command.filter((argument) => argument !== "--launch"),
+    "--owner-rework-preflight",
+  ]);
   return {
     ...(adoptionSha256 ? { adoptionSha256 } : {}),
     commands: [supersede, ...reopen],

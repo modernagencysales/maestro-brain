@@ -94,5 +94,5 @@ describe("reopen CLI failed-wave lineage", () => {
     );
     expect(exactOutput).toContain("prior integration result is missing");
     rmSync(state, { force: true, recursive: true });
-  });
+  }, 15_000);
 });

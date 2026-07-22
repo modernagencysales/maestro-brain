@@ -44,6 +44,7 @@ const reason = valueAfter("--reason")?.trim();
 const failedIntegrationId = valueAfter("--failed-integration");
 const ownerFindingsSha256 = valueAfter("--owner-findings-sha256");
 const findingAdoptionSha256 = valueAfter("--finding-adoption-sha256");
+const ownerReworkPreflight = process.argv.includes("--owner-rework-preflight");
 const launch = process.argv.includes("--launch");
 if (!taskId || !reason) {
   throw new Error(
@@ -61,6 +62,9 @@ if (
   !/^[0-9a-f]{64}$/.test(findingAdoptionSha256)
 ) {
   throw new Error(`${taskId}: finding adoption hash is invalid`);
+}
+if (ownerReworkPreflight && launch) {
+  throw new Error(`${taskId}: owner rework preflight cannot launch`);
 }
 
 const sha256 = (value: string): string =>
@@ -390,7 +394,9 @@ if (failedIntegrationId) {
     ...(broadGateExists
       ? ([[broadGatePath, "failed broad gate receipt"]] as const)
       : []),
-    [supersessionPath, "failed wave supersession"],
+    ...(ownerReworkPreflight
+      ? []
+      : ([[supersessionPath, "failed wave supersession"]] as const)),
     [proofPath, "lane proof"],
     [finalGatePath, "lane final gate"],
     [sourceRecordPath, "source run record"],
@@ -409,6 +415,7 @@ if (failedIntegrationId) {
   const sourceWorkdir = String(sourceRecord.workdir ?? "");
   const sourceBranch = String(sourceRecord.branch ?? "");
   const planInput = {
+    ...(ownerReworkPreflight ? { allowMissingSupersession: true } : {}),
     ...(broadGateExists
       ? { broadGateContent: readFileSync(broadGatePath, "utf8") }
       : {}),
@@ -455,7 +462,9 @@ if (failedIntegrationId) {
       ["git", "-C", sourceWorkdir, "rev-parse", "HEAD"],
       { quiet: true },
     ),
-    supersessionContent: readFileSync(supersessionPath, "utf8"),
+    ...(existsSync(supersessionPath)
+      ? { supersessionContent: readFileSync(supersessionPath, "utf8") }
+      : {}),
     taskId,
     ...(typeCoverageRegressionPath
       ? {

@@ -340,6 +340,7 @@ export const supersessionBindsFailedAttempt = (
 export const validateSupersession = (input: {
   readonly broadGateContent?: string;
   readonly currentControlHead: string;
+  readonly findingAdoptionSha256?: string;
   readonly integrationResultContent: string;
   readonly isAncestor: (ancestor: string, descendant: string) => boolean;
   readonly integrationId: string;
@@ -379,6 +380,9 @@ export const validateSupersession = (input: {
   const integrationResultEvidence = evidence.filter((item) =>
     item.startsWith("integration-result-sha256:"),
   );
+  const findingAdoptionEvidence = evidence.filter((item) =>
+    item.startsWith("finding-adoption-sha256:"),
+  );
   if (
     (input.broadGateContent !== undefined &&
       broadGateEvidence.length > 0 &&
@@ -390,8 +394,19 @@ export const validateSupersession = (input: {
       !integrationResultEvidence.includes(
         `integration-result-sha256:${sha256(input.integrationResultContent)}`,
       )) ||
+    (input.findingAdoptionSha256 !== undefined &&
+      (findingAdoptionEvidence.length !== 1 ||
+        findingAdoptionEvidence[0] !==
+          `finding-adoption-sha256:${input.findingAdoptionSha256}`)) ||
     !supersessionBindsFailedAttempt(validated.runAttempts, evidence)
   ) {
-    throw new Error("failed integration supersession evidence drift");
+    throw new Error(
+      input.findingAdoptionSha256 !== undefined &&
+        (findingAdoptionEvidence.length !== 1 ||
+          findingAdoptionEvidence[0] !==
+            `finding-adoption-sha256:${input.findingAdoptionSha256}`)
+        ? "finding adoption supersession evidence drift"
+        : "failed integration supersession evidence drift",
+    );
   }
 };

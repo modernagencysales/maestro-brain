@@ -17,6 +17,7 @@ import {
   integrationResultBindsBroadGate,
   supersessionBindsFailedAttempt,
   failedIntegrationReproofLineageMatches,
+  validateSupersession,
 } from "../src/failed-integration-rework-validation.js";
 import {
   selectionFileSha256,
@@ -280,6 +281,36 @@ describe("failed integration rework admission", () => {
         { reproofRequestSha256: "b".repeat(64) },
       ),
     ).toBe(false);
+  });
+
+  it("preflights complete failed-wave authority before supersession exists", () => {
+    const value = fixture();
+    expect(() =>
+      planFailedIntegrationRework({
+        ...value.input,
+        allowMissingSupersession: true,
+        supersessionContent: undefined,
+      } as unknown as Parameters<typeof planFailedIntegrationRework>[0]),
+    ).not.toThrow();
+  });
+
+  it("requires supersession evidence to bind an adopted finding", () => {
+    const value = fixture();
+    expect(() =>
+      validateSupersession({
+        broadGateContent: value.input.broadGateContent,
+        currentControlHead: value.input.controlHeadSha,
+        findingAdoptionSha256: "c".repeat(64),
+        integrationId: value.values.selection.integrationId,
+        integrationResultContent: value.input.integrationResultContent,
+        isAncestor: value.input.isAncestor,
+        runRecordContent: value.input.runRecordContent,
+        selectionContent: value.input.selectionContent,
+        selectionPath: value.input.selectionPath,
+        supersession: JSON.parse(value.input.supersessionContent),
+        taskId: value.input.taskId,
+      } as unknown as Parameters<typeof validateSupersession>[0]),
+    ).toThrow("finding adoption supersession evidence drift");
   });
   it("plans one supersession followed by sorted normal owner reopen commands", () => {
     const value = fixture();

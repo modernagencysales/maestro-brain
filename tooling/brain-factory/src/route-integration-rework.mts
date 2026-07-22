@@ -14,6 +14,7 @@ import {
   preflightIntegrationOwnerReworkRoute,
   type OwnerReworkRoutingReceipt,
 } from "./route-integration-rework.js";
+import { assertCleanFindingAdoptionWorktree } from "./integration-finding-adoption.js";
 
 const valueAfter = (flag: string): string | undefined => {
   const index = process.argv.indexOf(flag);
@@ -75,6 +76,19 @@ const runRecord = JSON.parse(readFileSync(runRecordPath, "utf8")) as {
 const expectedHeadSha = runRtk(
   ["proxy", "git", "-C", String(runRecord.workdir ?? ""), "rev-parse", "HEAD"],
   { quiet: true },
+);
+assertCleanFindingAdoptionWorktree(
+  runRtk(
+    [
+      "proxy",
+      "git",
+      "-C",
+      String(runRecord.workdir ?? ""),
+      "status",
+      "--porcelain",
+    ],
+    { quiet: true },
+  ),
 );
 const parsed = JSON.parse(integrationResultContent) as {
   readonly generatedFiles?: unknown;
