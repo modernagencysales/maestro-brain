@@ -234,6 +234,7 @@ for (const task of selected) {
       isAncestor: (ancestor, descendant) =>
         gitIsAncestor(ancestor, descendant, root),
       lane: readEvidence("lane-result.json"),
+      planSha256: manifest.planSha256,
       predecessor,
       proof: readEvidence("ci-proof-packet.json"),
       transition: task,

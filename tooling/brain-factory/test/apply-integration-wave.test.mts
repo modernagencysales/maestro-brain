@@ -80,7 +80,11 @@ const makeFixture = (options?: {
   readonly globalConfectAggregates?: boolean;
   readonly historicalLaneWithoutTree?: boolean;
   readonly laneSpecs?: readonly {
+    readonly baseTaskId?: string;
+    readonly greenHeadAfter?: string;
     readonly files: readonly string[];
+    readonly kind?: "control" | "product";
+    readonly mandatorySameWaveAfter?: string;
     readonly taskId: string;
   }[];
   readonly reverseCreation?: boolean;
@@ -140,7 +144,15 @@ const makeFixture = (options?: {
     : laneSpecs;
   const laneById = new Map<string, LaneFixture>();
   for (const spec of created) {
-    git(workdir, "checkout", "-qB", `lane-${spec.taskId}`, baseSha);
+    const proofBaseSha = spec.baseTaskId
+      ? laneById.get(spec.baseTaskId)?.headSha
+      : baseSha;
+    if (!proofBaseSha) {
+      throw new Error(
+        `${spec.taskId}: fixture base ${spec.baseTaskId} missing`,
+      );
+    }
+    git(workdir, "checkout", "-qB", `lane-${spec.taskId}`, proofBaseSha);
     const commits: string[] = [];
     for (const [index, file] of spec.files.entries()) {
       write(resolve(workdir, file), `export const value${index} = ${index};\n`);
@@ -170,7 +182,7 @@ const makeFixture = (options?: {
         taskId: spec.taskId,
         planSha256: proofPlanSha256,
         taskBlockHash,
-        baseSha,
+        baseSha: proofBaseSha,
         changedFiles,
         headSha,
         reviewVerdict: "pass",
@@ -251,10 +263,16 @@ const makeFixture = (options?: {
         changedFiles,
         codeStartAfter: [],
         fileLocks: changedFiles,
+        ...(spec.greenHeadAfter === undefined
+          ? {}
+          : { greenHeadAfter: spec.greenHeadAfter }),
         gateHeadSha: headSha,
         gateSha256: sha256(gateContent),
         headSha,
         laneResultSha256: sha256(laneContent),
+        ...(spec.mandatorySameWaveAfter === undefined
+          ? {}
+          : { mandatorySameWaveAfter: spec.mandatorySameWaveAfter }),
         planSha256: proofPlanSha256,
         proofHeadSha: headSha,
         proofSha256: sha256(proofContent),
@@ -287,7 +305,15 @@ const makeFixture = (options?: {
         fileInventoryStatus: "ready",
         fileLocks: lane.snapshot.fileLocks,
         gateProfiles: ["tooling"],
-        kind: "product",
+        kind:
+          laneSpecs.find((spec) => spec.taskId === lane.taskId)?.kind ??
+          "product",
+        ...(lane.snapshot.greenHeadAfter === undefined
+          ? {}
+          : { greenHeadAfter: lane.snapshot.greenHeadAfter }),
+        ...(lane.snapshot.mandatorySameWaveAfter === undefined
+          ? {}
+          : { mandatorySameWaveAfter: lane.snapshot.mandatorySameWaveAfter }),
       })),
     },
   );
@@ -519,6 +545,76 @@ describe("deterministic integration wave application", () => {
     );
     expect(readFileSync(resolve(value.workdir, "b.ts"), "utf8")).toContain(
       "value0",
+    );
+  });
+
+  it("applies only the manifest-authorized S05 control transition in signed order", () => {
+    const value = makeFixture({
+      laneSpecs: [
+        { files: ["s05.ts"], taskId: "S05-T01" },
+        {
+          baseTaskId: "S05-T01",
+          files: ["s15.ts"],
+          greenHeadAfter: "S05-T01",
+          kind: "control",
+          mandatorySameWaveAfter: "S05-T01",
+          taskId: "S15-T02",
+        },
+      ],
+    });
+
+    expect(
+      applyIntegrationWave(value.input).includedTasks.map(
+        (task) => task.taskId,
+      ),
+    ).toEqual(["S05-T01", "S15-T02"]);
+  });
+
+  it("rejects arbitrary controls and relation fields stripped from a rehashed selection", () => {
+    const exact = makeFixture({
+      laneSpecs: [
+        { files: ["s05.ts"], taskId: "S05-T01" },
+        {
+          baseTaskId: "S05-T01",
+          files: ["s15.ts"],
+          greenHeadAfter: "S05-T01",
+          kind: "control",
+          mandatorySameWaveAfter: "S05-T01",
+          taskId: "S15-T02",
+        },
+      ],
+    });
+    const stripped = rewriteSelection(exact, {
+      selectedTasks: exact.lanes.map((lane) => {
+        const {
+          greenHeadAfter: _greenHeadAfter,
+          mandatorySameWaveAfter: _mandatorySameWaveAfter,
+          ...snapshot
+        } = lane.snapshot;
+        void _greenHeadAfter;
+        void _mandatorySameWaveAfter;
+        return snapshot;
+      }),
+    });
+    expect(() => applyIntegrationWave(stripped)).toThrow(
+      "S15-T02: immutable manifest contract drift",
+    );
+
+    const arbitrary = makeFixture({
+      laneSpecs: [
+        { files: ["s05-other.ts"], taskId: "S05-T01" },
+        {
+          baseTaskId: "S05-T01",
+          files: ["control.ts"],
+          greenHeadAfter: "S05-T01",
+          kind: "control",
+          mandatorySameWaveAfter: "S05-T01",
+          taskId: "S16-T01",
+        },
+      ],
+    });
+    expect(() => applyIntegrationWave(arbitrary.input)).toThrow(
+      "S16-T01: immutable manifest contract drift",
     );
   });
 

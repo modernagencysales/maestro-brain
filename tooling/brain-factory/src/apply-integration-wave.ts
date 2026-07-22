@@ -196,6 +196,7 @@ const validateLane = (input: {
   readonly baseSha: string;
   readonly evidenceDirectory: string;
   readonly manifest: ReadonlyMap<string, JsonRecord>;
+  readonly sameWaveHeadByTaskId: ReadonlyMap<string, string>;
   readonly snapshot: IntegrationWaveTaskSnapshot;
   readonly workdir: string;
 }): ValidatedLane => {
@@ -203,8 +204,13 @@ const validateLane = (input: {
   const taskId = snapshot.taskId;
   const manifestTask = input.manifest.get(taskId);
   if (!manifestTask) throw new Error(`${taskId}: absent from task manifest`);
+  const authorizedControlTransition =
+    taskId === "S15-T02" &&
+    manifestTask.kind === "control" &&
+    manifestTask.greenHeadAfter === "S05-T01" &&
+    manifestTask.mandatorySameWaveAfter === "S05-T01";
   if (
-    manifestTask.kind !== "product" ||
+    (manifestTask.kind !== "product" && !authorizedControlTransition) ||
     manifestTask.fileInventoryStatus !== "ready" ||
     manifestTask.taskBlockHash !== snapshot.taskBlockHash ||
     manifestTask.tranche !== snapshot.tranche ||
@@ -215,7 +221,9 @@ const validateLane = (input: {
       normalizedStringSet(
         stringArray(manifestTask.codeStartAfter, `${taskId}: codeStartAfter`),
       ),
-    ) !== JSON.stringify(normalizedStringSet(snapshot.codeStartAfter))
+    ) !== JSON.stringify(normalizedStringSet(snapshot.codeStartAfter)) ||
+    manifestTask.greenHeadAfter !== snapshot.greenHeadAfter ||
+    manifestTask.mandatorySameWaveAfter !== snapshot.mandatorySameWaveAfter
   ) {
     throw new Error(`${taskId}: immutable manifest contract drift`);
   }
@@ -359,7 +367,13 @@ const validateLane = (input: {
     40,
     `${taskId}: proof base`,
   );
-  if (!gitIsAncestor(input.workdir, proofBase, input.baseSha)) {
+  const sameWavePredecessorHead = snapshot.mandatorySameWaveAfter
+    ? input.sameWaveHeadByTaskId.get(snapshot.mandatorySameWaveAfter)
+    : undefined;
+  if (
+    !gitIsAncestor(input.workdir, proofBase, input.baseSha) &&
+    proofBase !== sameWavePredecessorHead
+  ) {
     throw new Error(`${taskId}: proof base is not an ancestor of wave base`);
   }
   if (!gitIsAncestor(input.workdir, proofBase, laneHead)) {
@@ -745,15 +759,39 @@ export const applyIntegrationWave = (
     throw new Error("recover mode requires baseSha to be an ancestor of HEAD");
   }
   const manifest = manifestTasks(controlRoot, selection.planSha256);
+  const selectedIndexes = new Map(
+    selection.selectedTasks.map((task, index) => [task.taskId, index]),
+  );
+  for (const [taskId, task] of manifest) {
+    if (typeof task.mandatorySameWaveAfter !== "string") continue;
+    const predecessorId = task.mandatorySameWaveAfter;
+    const transitionIndex = selectedIndexes.get(taskId);
+    const predecessorIndex = selectedIndexes.get(predecessorId);
+    if (transitionIndex === undefined && predecessorIndex === undefined)
+      continue;
+    if (
+      transitionIndex === undefined ||
+      predecessorIndex === undefined ||
+      transitionIndex !== predecessorIndex + 1
+    ) {
+      throw new Error(
+        `${taskId}: signed integration selection violates mandatory ordering`,
+      );
+    }
+  }
   const hooks = rawInput.hooks ?? productionHooks;
   const includedTasks: ApplyIntegrationWaveIncludedTask[] = [];
   const lanes: ValidatedLane[] = [];
+  const sameWaveHeadByTaskId = new Map(
+    selection.selectedTasks.map((task) => [task.taskId, task.headSha]),
+  );
   for (const snapshot of selection.selectedTasks) {
     lanes.push(
       validateLane({
         baseSha,
         evidenceDirectory,
         manifest,
+        sameWaveHeadByTaskId,
         snapshot,
         workdir,
       }),

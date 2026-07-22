@@ -42,6 +42,7 @@ export const resolveGreenHeadTransitionBase = (input: {
   readonly finalGate: unknown;
   readonly isAncestor: (ancestor: string, descendant: string) => boolean;
   readonly lane: unknown;
+  readonly planSha256: string;
   readonly predecessor: BrainTaskContract;
   readonly proof: unknown;
   readonly transition: BrainTaskContract;
@@ -70,6 +71,7 @@ export const resolveGreenHeadTransitionBase = (input: {
     lane.status !== "lane_green" ||
     lane.treeSha !== treeSha ||
     proof.headSha !== headSha ||
+    proof.planSha256 !== input.planSha256 ||
     proof.reviewVerdict !== "pass" ||
     proof.reviewHeadSha !== headSha ||
     !Array.isArray(proof.reviewFindings) ||
@@ -81,7 +83,7 @@ export const resolveGreenHeadTransitionBase = (input: {
     gate.headSha !== headSha ||
     gate.currentHeadSha !== headSha ||
     gate.currentTreeSha !== treeSha ||
-    gate.planSha256 !== proof.planSha256 ||
+    gate.planSha256 !== input.planSha256 ||
     gate.taskBlockHash !== input.predecessor.taskBlockHash ||
     !input.isAncestor(proofBaseSha, headSha) ||
     !input.isAncestor(input.controlHeadSha, headSha)
