@@ -4,9 +4,9 @@
 
 Complete on `codex/repair-first-owner-routing`.
 
-- Base: `bed8b7dcc75cb9db66160ac421491ddb646a9c61`
-- Head: `f62e908d3dabe20ae1258ae676571a46c74bd48a`
-- Commit range: `bed8b7dc..f62e908d`
+- Recovery base: `5d199a0b`
+- Rebased Task 3 head before this report update: `f1cab472`
+- Rebased range: `5d199a0b..f1cab472`
 - Worktree: `/private/tmp/maestro-repair-first-owner-routing`
 - Worktree state before this report: clean
 
@@ -124,3 +124,32 @@ Final replay/capacity review:
   `owner_rework_capacity_exceeded` wait action.
 - Final focused suite: 8 files, 165 tests passed. Typecheck, lint, supported
   Prettier, Fabro validation, and the 57-task factory check also passed.
+
+## Rebase integration
+
+The branch was rebased without conflicts onto recovery head `5d199a0b`. The
+rewritten Task 3 commits are:
+
+1. `07e48741` `feat: classify Brain finding owners`
+2. `48106692` `fix: preserve owner rework terminals`
+3. `977fa302` `fix: exit Brain product rework early`
+4. `06b8df76` `fix: route Brain rework without blocking`
+5. `c8a8304a` `docs: record owner routing checkpoint`
+6. `112d6484` `fix: partition Brain owner rework`
+7. `bcb5fa4c` `fix: resume Brain owner routing`
+8. `55c2bc1b` `fix: reserve Brain owner repair capacity`
+9. `b0ad1d66` `fix: reconcile fast owner repairs`
+10. `0af69782` `docs: record owner routing review`
+11. `dd0d4970` `fix: replay Brain owner supersession`
+12. `4c9f63c7` `fix: defer oversized owner rework`
+13. `f1cab472` `docs: record replay-safe owner routing`
+
+The earlier SHAs elsewhere in this report are pre-rebase provenance and are
+superseded by this rewritten sequence.
+
+Combined post-rebase verification passed for controller/controller CLI, route,
+supersession, dispatch ownership, scheduler, manifest, factory state,
+integration wave/recovery/result/broad-gate/generated proof, candidate worktree,
+and the focused S05/S15 signed-order apply cases. The matrix preserves Task 4
+authority/capacity/batching/replanning and Task 5 green-head atomic apply
+semantics while retaining all Task 3 routing behavior.
