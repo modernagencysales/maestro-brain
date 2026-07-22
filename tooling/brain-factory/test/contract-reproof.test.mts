@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   CONTRACT_REPROOF_FINDINGS_SCHEMA,
+  CONTRACT_REPROOF_FINDINGS_REFRESH_SCHEMA,
   CONTRACT_REPROOF_REFRESH_SCHEMA,
   buildContractReproofFindingsRequest,
   buildContractReproofRequest,
@@ -262,6 +263,117 @@ describe("contract reproof authority refresh", () => {
     });
     expect(refreshed.requestSha256).not.toBe(previous.requestSha256);
     expect(previous.controlHeadSha).toBe(identity.controlHeadSha);
+  });
+
+  it("pins the literal legacy refresh-v2 payload and hash", () => {
+    expect(refresh()).toEqual({
+      schemaVersion: "maestro-brain-contract-reproof-refresh/v2",
+      taskId: "S13-T01",
+      reason: "refresh proof against current control authority",
+      controlHeadSha: "5".repeat(40),
+      planSha256: "6".repeat(64),
+      taskBlockHash: "c".repeat(64),
+      priorIntegrationId: "C1-contract-spine",
+      priorIntegrationHeadSha: "e".repeat(40),
+      priorIntegrationResultSha256: "f".repeat(64),
+      priorLaneResultSha256: "1".repeat(64),
+      priorArchiveSha256: "d".repeat(64),
+      priorEvidencePath: "/tmp/evidence/prior.json",
+      priorReproofRequestPath:
+        "/tmp/evidence/reproofs/S13-T01/old/request.json",
+      priorReproofRequestSha256: sha256(json(previous)),
+      priorReproofLaneResultPath:
+        "/tmp/evidence/reproofs/S13-T01/new/prior-lane-result.json",
+      priorReproofLaneResultSha256: sha256(json(lane)),
+      priorReproofProofPath:
+        "/tmp/evidence/reproofs/S13-T01/new/prior-proof.json",
+      priorReproofProofSha256: sha256(json(proof)),
+      priorReproofFinalGatePath:
+        "/tmp/evidence/reproofs/S13-T01/new/prior-final-gate.json",
+      priorReproofFinalGateSha256: sha256(json(finalGateReport)),
+      priorReproofSourceHeadSha: laneHeadSha,
+      requestSha256:
+        "6c9a8ceb9711d816529e32cd030f028d5065287f69a717d9e5edbe46f671ffaa",
+    });
+  });
+
+  it("preserves complete signed findings through authority refresh", () => {
+    const findingPrevious = findingsRequest();
+    const priorFinding = findingPrevious.findings?.[0];
+    if (!priorFinding) throw new Error("fixture finding missing");
+    const findingRequestPath =
+      "/tmp/evidence/reproofs/S13-T01/finding/request.json";
+    const findingLane = {
+      ...lane,
+      reproof: {
+        priorIntegrationHeadSha: findingPrevious.priorIntegrationHeadSha,
+        priorIntegrationId: findingPrevious.priorIntegrationId,
+        requestPath: findingRequestPath,
+        requestSha256: findingPrevious.requestSha256,
+      },
+    };
+    const findingProof = {
+      ...proof,
+      priorFindingDispositions: [
+        {
+          findingId: priorFinding.id,
+          status: "resolved",
+          evidence: ["channelPolicies.impl.ts:42"],
+          regressionTestPaths: [
+            "packages/convex/test/channel-policies.test.ts",
+          ],
+          changedPaths: [...priorFinding.affectedPaths],
+        },
+      ],
+      resolvedPriorFindingIds: [priorFinding.id],
+    };
+    const refreshed = buildRefreshedContractReproofRequest({
+      currentControlHeadSha: "5".repeat(40),
+      currentPlanSha256: "6".repeat(64),
+      currentTaskBlockHash: findingPrevious.taskBlockHash,
+      finalGateReport,
+      finalGateContent: json(finalGateReport),
+      finalGatePath:
+        "/tmp/evidence/reproofs/S13-T01/finding/prior-final-gate.json",
+      lane: findingLane,
+      laneContent: json(findingLane),
+      lanePath: "/tmp/evidence/reproofs/S13-T01/finding/prior-lane-result.json",
+      laneTreeSha,
+      previousRequest: findingPrevious,
+      previousRequestContent: json(findingPrevious),
+      previousRequestPath: findingRequestPath,
+      proof: findingProof,
+      proofContent: json(findingProof),
+      proofPath: "/tmp/evidence/reproofs/S13-T01/finding/prior-proof.json",
+      priorReproofSourceHeadSha: laneHeadSha,
+      reason: "refresh finding proof against current control authority",
+      taskId: findingPrevious.taskId,
+    });
+    expect(refreshed.schemaVersion).toBe(
+      CONTRACT_REPROOF_FINDINGS_REFRESH_SCHEMA,
+    );
+    expect(refreshed.findings).toEqual(findingPrevious.findings);
+    expect(
+      validateContractReproofRequest(refreshed, {
+        controlHeadSha: refreshed.controlHeadSha,
+        planSha256: refreshed.planSha256,
+        taskBlockHash: refreshed.taskBlockHash,
+        taskId: refreshed.taskId,
+        fileLocks: priorFinding.affectedPaths,
+      }).findings,
+    ).toEqual(findingPrevious.findings);
+  });
+
+  it("accepts disposition fields on a refreshed proof", () => {
+    expect(() =>
+      refresh({
+        proof: {
+          ...proof,
+          priorFindingDispositions: [],
+          resolvedPriorFindingIds: [],
+        },
+      }),
+    ).not.toThrow();
   });
 
   it.each([

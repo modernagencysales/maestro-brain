@@ -5,6 +5,7 @@ import { isAbsolute, relative, resolve, sep } from "node:path";
 import {
   buildRefreshedContractReproofRequest,
   CONTRACT_REPROOF_REFRESH_SCHEMA,
+  CONTRACT_REPROOF_FINDINGS_REFRESH_SCHEMA,
   validateContractReproofRequest,
   type ContractReproofRequest,
 } from "./contract-reproof.js";
@@ -124,7 +125,11 @@ const validateRefreshArtifacts = (
   },
   seenRequestPaths: Set<string>,
 ): void => {
-  if (input.request.schemaVersion !== CONTRACT_REPROOF_REFRESH_SCHEMA) return;
+  if (
+    input.request.schemaVersion !== CONTRACT_REPROOF_REFRESH_SCHEMA &&
+    input.request.schemaVersion !== CONTRACT_REPROOF_FINDINGS_REFRESH_SCHEMA
+  )
+    return;
   const evidenceRoot = realpathSync(input.evidenceDirectory);
   const refreshArtifact = (
     path: string | undefined,

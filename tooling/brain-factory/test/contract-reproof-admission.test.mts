@@ -18,6 +18,7 @@ import {
 } from "../src/contract-reproof-admission.js";
 import {
   buildContractReproofRefreshRequest,
+  buildContractReproofFindingsRequest,
   buildContractReproofRequest,
   buildRefreshedContractReproofRequest,
 } from "../src/contract-reproof.js";
@@ -292,6 +293,85 @@ afterEach(() => {
 });
 
 describe("contract reproof admission", () => {
+  it("admits a findings-aware authority refresh without shedding findings", () => {
+    const value = refreshFixture();
+    const finding = {
+      id: "wave-000007-S04-T02-directory-authorization",
+      taskId: value.request.taskId,
+      candidateHeadSha: "3".repeat(40),
+      summary: "Directory authorization used the wrong organization identity.",
+      details: "Resolve the stable key before membership authorization.",
+      severity: "high",
+      affectedPaths: ["packages/convex/confect/slack/directory.impl.ts"],
+      expectedBehavior: "Authorization uses the durable organization ID.",
+      requiredRegressionProof: "The agency-key tenant regression passes.",
+      priorEvidenceSha256: ["8".repeat(64)],
+      changeExpectation: "source_or_test_delta" as const,
+    };
+    const findingRequest = buildContractReproofFindingsRequest({
+      ...value.request,
+      findings: [finding],
+    });
+    writeFileSync(value.requestPath, json(findingRequest));
+    const lane = JSON.parse(readFileSync(value.lanePath, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    lane.reproof = {
+      ...(lane.reproof as Record<string, unknown>),
+      requestSha256: findingRequest.requestSha256,
+    };
+    const proof = JSON.parse(readFileSync(value.proofPath, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    proof.priorFindingDispositions = [
+      {
+        findingId: finding.id,
+        status: "resolved",
+        evidence: ["directory.impl.ts:42"],
+        regressionTestPaths: ["packages/convex/test/slack-directory.test.ts"],
+        changedPaths: finding.affectedPaths,
+      },
+    ];
+    proof.resolvedPriorFindingIds = [finding.id];
+    const finalGate = JSON.parse(
+      readFileSync(value.finalGatePath, "utf8"),
+    ) as Record<string, unknown>;
+    const refreshed = buildRefreshedContractReproofRequest({
+      currentControlHeadSha: value.input.currentControlHead,
+      currentPlanSha256: value.request.planSha256,
+      currentTaskBlockHash: value.request.taskBlockHash,
+      finalGateContent: json(finalGate),
+      finalGatePath: value.finalGatePath,
+      finalGateReport: finalGate,
+      lane,
+      laneContent: json(lane),
+      lanePath: value.lanePath,
+      laneTreeSha: String(finalGate.currentTreeSha),
+      previousRequest: findingRequest,
+      previousRequestContent: json(findingRequest),
+      previousRequestPath: value.requestPath,
+      priorReproofSourceHeadSha: String(lane.headSha),
+      proof,
+      proofContent: json(proof),
+      proofPath: value.proofPath,
+      reason: "refresh finding-bound authority",
+      taskId: finding.taskId,
+    });
+    writeFileSync(value.lanePath, json(lane));
+    writeFileSync(value.proofPath, json(proof));
+    writeFileSync(value.finalGatePath, json(finalGate));
+    writeFileSync(value.refreshedRequestPath, json(refreshed));
+
+    expect(
+      admitContractReproof({
+        ...value.refreshInput,
+        laneRequestSha256: refreshed.requestSha256,
+      }).request.findings,
+    ).toEqual([finding]);
+  });
+
   it("admits semantic pass with a failed broad gate", () => {
     expect(
       isReproofablePriorIntegrationResult({

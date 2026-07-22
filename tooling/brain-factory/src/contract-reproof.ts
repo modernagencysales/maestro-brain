@@ -9,6 +9,8 @@ export const CONTRACT_REPROOF_REFRESH_SCHEMA =
   "maestro-brain-contract-reproof-refresh/v2" as const;
 export const CONTRACT_REPROOF_FINDINGS_SCHEMA =
   "maestro-brain-contract-reproof/v2" as const;
+export const CONTRACT_REPROOF_FINDINGS_REFRESH_SCHEMA =
+  "maestro-brain-contract-reproof-refresh/v3" as const;
 
 export interface ContractReproofFinding {
   readonly id: string;
@@ -39,7 +41,8 @@ export interface ContractReproofRequest {
   readonly schemaVersion:
     | typeof CONTRACT_REPROOF_SCHEMA
     | typeof CONTRACT_REPROOF_REFRESH_SCHEMA
-    | typeof CONTRACT_REPROOF_FINDINGS_SCHEMA;
+    | typeof CONTRACT_REPROOF_FINDINGS_SCHEMA
+    | typeof CONTRACT_REPROOF_FINDINGS_REFRESH_SCHEMA;
   readonly taskBlockHash: string;
   readonly taskId: string;
   readonly priorReproofFinalGatePath?: string;
@@ -87,6 +90,11 @@ const CONTRACT_REPROOF_REFRESH_KEYS = [
 
 const CONTRACT_REPROOF_FINDINGS_KEYS = [
   ...CONTRACT_REPROOF_KEYS,
+  "findings",
+] as const;
+
+const CONTRACT_REPROOF_FINDINGS_REFRESH_KEYS = [
+  ...CONTRACT_REPROOF_REFRESH_KEYS,
   "findings",
 ] as const;
 
@@ -319,7 +327,9 @@ export const validateContractReproofRequest = (
         ? CONTRACT_REPROOF_REFRESH_KEYS
         : schemaVersion === CONTRACT_REPROOF_FINDINGS_SCHEMA
           ? CONTRACT_REPROOF_FINDINGS_KEYS
-          : undefined;
+          : schemaVersion === CONTRACT_REPROOF_FINDINGS_REFRESH_SCHEMA
+            ? CONTRACT_REPROOF_FINDINGS_REFRESH_KEYS
+            : undefined;
   if (!expectedKeys) throw new Error("unexpected contract reproof schema");
   const ownKeys = Reflect.ownKeys(value);
   if (
@@ -363,12 +373,42 @@ export const validateContractReproofRequest = (
             request.priorReproofSourceHeadSha ?? "",
           ),
         })
-      : request.schemaVersion === CONTRACT_REPROOF_FINDINGS_SCHEMA
-        ? buildContractReproofFindingsRequest({
+      : request.schemaVersion === CONTRACT_REPROOF_FINDINGS_REFRESH_SCHEMA
+        ? buildContractReproofFindingsRefreshRequest({
             ...request,
             findings: request.findings ?? [],
+            priorReproofFinalGatePath: String(
+              request.priorReproofFinalGatePath ?? "",
+            ),
+            priorReproofFinalGateSha256: String(
+              request.priorReproofFinalGateSha256 ?? "",
+            ),
+            priorReproofLaneResultPath: String(
+              request.priorReproofLaneResultPath ?? "",
+            ),
+            priorReproofLaneResultSha256: String(
+              request.priorReproofLaneResultSha256 ?? "",
+            ),
+            priorReproofProofPath: String(request.priorReproofProofPath ?? ""),
+            priorReproofProofSha256: String(
+              request.priorReproofProofSha256 ?? "",
+            ),
+            priorReproofRequestPath: String(
+              request.priorReproofRequestPath ?? "",
+            ),
+            priorReproofRequestSha256: String(
+              request.priorReproofRequestSha256 ?? "",
+            ),
+            priorReproofSourceHeadSha: String(
+              request.priorReproofSourceHeadSha ?? "",
+            ),
           })
-        : buildContractReproofRequest(request);
+        : request.schemaVersion === CONTRACT_REPROOF_FINDINGS_SCHEMA
+          ? buildContractReproofFindingsRequest({
+              ...request,
+              findings: request.findings ?? [],
+            })
+          : buildContractReproofRequest(request);
   if (request.requestSha256 !== rebuilt.requestSha256) {
     throw new Error("contract reproof request hash mismatch");
   }
@@ -506,6 +546,49 @@ export const buildContractReproofRefreshRequest = (
   return { ...payload, requestSha256: payloadHash(payload) };
 };
 
+export const buildContractReproofFindingsRefreshRequest = (
+  input: Omit<ContractReproofRequest, "requestSha256" | "schemaVersion"> & {
+    readonly findings: readonly ContractReproofFinding[];
+    readonly priorReproofFinalGatePath: string;
+    readonly priorReproofFinalGateSha256: string;
+    readonly priorReproofLaneResultPath: string;
+    readonly priorReproofLaneResultSha256: string;
+    readonly priorReproofProofPath: string;
+    readonly priorReproofProofSha256: string;
+    readonly priorReproofRequestPath: string;
+    readonly priorReproofRequestSha256: string;
+    readonly priorReproofSourceHeadSha: string;
+  },
+): ContractReproofRequest => {
+  const findingsRequest = buildContractReproofFindingsRequest(input);
+  const legacyRefresh = buildContractReproofRefreshRequest(input);
+  const payload = {
+    schemaVersion: CONTRACT_REPROOF_FINDINGS_REFRESH_SCHEMA,
+    taskId: legacyRefresh.taskId,
+    reason: legacyRefresh.reason,
+    controlHeadSha: legacyRefresh.controlHeadSha,
+    planSha256: legacyRefresh.planSha256,
+    taskBlockHash: legacyRefresh.taskBlockHash,
+    priorIntegrationId: legacyRefresh.priorIntegrationId,
+    priorIntegrationHeadSha: legacyRefresh.priorIntegrationHeadSha,
+    priorIntegrationResultSha256: legacyRefresh.priorIntegrationResultSha256,
+    priorLaneResultSha256: legacyRefresh.priorLaneResultSha256,
+    priorArchiveSha256: legacyRefresh.priorArchiveSha256,
+    priorEvidencePath: legacyRefresh.priorEvidencePath,
+    priorReproofRequestPath: input.priorReproofRequestPath,
+    priorReproofRequestSha256: input.priorReproofRequestSha256,
+    priorReproofLaneResultPath: input.priorReproofLaneResultPath,
+    priorReproofLaneResultSha256: input.priorReproofLaneResultSha256,
+    priorReproofProofPath: input.priorReproofProofPath,
+    priorReproofProofSha256: input.priorReproofProofSha256,
+    priorReproofFinalGatePath: input.priorReproofFinalGatePath,
+    priorReproofFinalGateSha256: input.priorReproofFinalGateSha256,
+    priorReproofSourceHeadSha: input.priorReproofSourceHeadSha,
+    findings: findingsRequest.findings ?? [],
+  } satisfies ReproofPayload;
+  return { ...payload, requestSha256: payloadHash(payload) };
+};
+
 export const buildRefreshedContractReproofRequest = (input: {
   readonly currentControlHeadSha: string;
   readonly currentPlanSha256: string;
@@ -581,6 +664,8 @@ export const buildRefreshedContractReproofRequest = (input: {
       "headSha",
       "knownRisks",
       "planSha256",
+      "priorFindingDispositions",
+      "resolvedPriorFindingIds",
       "reviewFindings",
       "reviewHeadSha",
       "reviewVerdict",
@@ -624,6 +709,41 @@ export const buildRefreshedContractReproofRequest = (input: {
     taskBlockHash: input.currentTaskBlockHash,
     taskId: input.taskId,
   });
+  if (previous.findings) {
+    if (
+      !Array.isArray(proof.priorFindingDispositions) ||
+      !Array.isArray(proof.resolvedPriorFindingIds)
+    ) {
+      throw new Error(`${input.taskId}: prior finding closure is missing`);
+    }
+    const expectedFindingIds = previous.findings.map(({ id }) => id).sort();
+    const resolvedFindingIds = proof.resolvedPriorFindingIds.map(String).sort();
+    if (
+      JSON.stringify(resolvedFindingIds) !== JSON.stringify(expectedFindingIds)
+    ) {
+      throw new Error(`${input.taskId}: prior finding closure drift`);
+    }
+    const dispositions = proof.priorFindingDispositions.map((value, index) =>
+      record(value, `${input.taskId}: prior finding disposition ${index + 1}`),
+    );
+    const dispositionFindingIds = dispositions
+      .map((candidate) => String(candidate.findingId ?? ""))
+      .sort();
+    if (
+      JSON.stringify(dispositionFindingIds) !==
+      JSON.stringify(expectedFindingIds)
+    ) {
+      throw new Error(`${input.taskId}: prior finding closure drift`);
+    }
+    for (const findingId of expectedFindingIds) {
+      const disposition = dispositions.find(
+        (candidate) => candidate.findingId === findingId,
+      );
+      if (!disposition || disposition.status !== "resolved") {
+        throw new Error(`${input.taskId}: prior finding closure drift`);
+      }
+    }
+  }
   validateFinalLaneResult(lane, {
     allowHistoricalMissingTreeSha: true,
     currentHeadSha: String(lane.headSha ?? ""),
@@ -655,7 +775,7 @@ export const buildRefreshedContractReproofRequest = (input: {
       throw new Error(`${input.taskId}: prior reproof ${label} content drift`);
     }
   }
-  return buildContractReproofRefreshRequest({
+  const refreshInput = {
     controlHeadSha: input.currentControlHeadSha,
     planSha256: input.currentPlanSha256,
     priorArchiveSha256: previous.priorArchiveSha256,
@@ -676,5 +796,11 @@ export const buildRefreshedContractReproofRequest = (input: {
     priorReproofRequestPath: input.previousRequestPath,
     priorReproofRequestSha256: sha256(input.previousRequestContent),
     priorReproofSourceHeadSha: input.priorReproofSourceHeadSha,
-  });
+  };
+  return previous.findings
+    ? buildContractReproofFindingsRefreshRequest({
+        ...refreshInput,
+        findings: previous.findings,
+      })
+    : buildContractReproofRefreshRequest(refreshInput);
 };
