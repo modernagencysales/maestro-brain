@@ -153,3 +153,9 @@ integration wave/recovery/result/broad-gate/generated proof, candidate worktree,
 and the focused S05/S15 signed-order apply cases. The matrix preserves Task 4
 authority/capacity/batching/replanning and Task 5 green-head atomic apply
 semantics while retaining all Task 3 routing behavior.
+
+The complete deterministic apply suite also passed independently: 44/44 tests in
+36.74 seconds, including the S05/S15 signed-order, predecessor-head,
+migration-registry, generated-output, recovery, rollback, and cleanup cases.
+Post-rebase typecheck, lint, supported formatting, Fabro graph validation,
+58-task factory check, and `5d199a0b..HEAD` diff check all passed.
