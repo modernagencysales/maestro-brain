@@ -32,13 +32,24 @@ const route = (): IntegrationOwnerReworkRoute => ({
 });
 
 describe("integration owner rework execution", () => {
-  it("skips preflight after the durable routing receipt exists", () => {
+  it("skips preflight only after durable supersession", () => {
     const commands: string[][] = [];
     preflightIntegrationOwnerReworkRoute(route(), {
-      receiptExists: true,
+      receiptStatus: "superseded",
       run: (command) => commands.push([...command]),
     });
     expect(commands).toEqual([]);
+  });
+
+  it("revalidates drift after a crash left a planned receipt", () => {
+    expect(() =>
+      preflightIntegrationOwnerReworkRoute(route(), {
+        receiptStatus: "planned",
+        run: () => {
+          throw new Error("refreshed lane drift");
+        },
+      }),
+    ).toThrow("refreshed lane drift");
   });
 
   it("safely reruns all read-only preflights after a pre-receipt crash", () => {
@@ -46,7 +57,6 @@ describe("integration owner rework execution", () => {
     let crash = true;
     const run = () =>
       preflightIntegrationOwnerReworkRoute(route(), {
-        receiptExists: false,
         run: (command) => {
           commands.push([...command]);
           if (crash) {

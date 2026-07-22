@@ -247,11 +247,16 @@ const initialRoutingReceipt = (
 export const preflightIntegrationOwnerReworkRoute = (
   route: IntegrationOwnerReworkRoute,
   operations: {
-    readonly receiptExists: boolean;
+    readonly receiptStatus?: OwnerReworkRoutingReceipt["status"];
     readonly run: (command: readonly string[]) => void;
   },
 ): void => {
-  if (operations.receiptExists) return;
+  if (
+    operations.receiptStatus === "superseded" ||
+    operations.receiptStatus === "complete"
+  ) {
+    return;
+  }
   for (const command of route.preflightCommands) operations.run(command);
 };
 

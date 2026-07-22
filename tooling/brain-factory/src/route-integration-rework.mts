@@ -125,17 +125,15 @@ const commandForOwner = new Map(
     route.commands[index + 1],
   ]),
 );
+const existingReceipt = existsSync(receiptPath)
+  ? (JSON.parse(readFileSync(receiptPath, "utf8")) as OwnerReworkRoutingReceipt)
+  : undefined;
 preflightIntegrationOwnerReworkRoute(route, {
-  receiptExists: existsSync(receiptPath),
+  ...(existingReceipt ? { receiptStatus: existingReceipt.status } : {}),
   run: runRtk,
 });
 const receipt = executeIntegrationOwnerReworkRoute(route, {
-  loadReceipt: () =>
-    existsSync(receiptPath)
-      ? (JSON.parse(
-          readFileSync(receiptPath, "utf8"),
-        ) as OwnerReworkRoutingReceipt)
-      : undefined,
+  loadReceipt: () => existingReceipt,
   reopen: (owner) => {
     const command = commandForOwner.get(owner.taskId);
     if (!command) throw new Error(`${owner.taskId}: reopen command is missing`);
