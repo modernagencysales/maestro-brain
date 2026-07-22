@@ -330,11 +330,18 @@ export const failedIntegrationReproofLineageMatches = (
 export const supersessionBindsFailedAttempt = (
   runAttempts: readonly { readonly runId: string; readonly status: string }[],
   evidence: readonly string[],
+  ownerReworkResultSha256?: string,
 ): boolean =>
   runAttempts.some(
     ({ runId, status }) =>
       new Set(["failed", "owner_rework"]).has(status) &&
-      evidence.includes(`run:${runId}:${status}`),
+      (evidence.includes(`run:${runId}:${status}`) ||
+        (status === "failed" &&
+          ownerReworkResultSha256 !== undefined &&
+          evidence.includes(`run:${runId}:owner_rework`) &&
+          evidence.includes(
+            `owner-rework-result-sha256:${ownerReworkResultSha256}`,
+          ))),
   );
 
 export const validateSupersession = (input: {
@@ -398,7 +405,11 @@ export const validateSupersession = (input: {
       (findingAdoptionEvidence.length !== 1 ||
         findingAdoptionEvidence[0] !==
           `finding-adoption-sha256:${input.findingAdoptionSha256}`)) ||
-    !supersessionBindsFailedAttempt(validated.runAttempts, evidence)
+    !supersessionBindsFailedAttempt(
+      validated.runAttempts,
+      evidence,
+      sha256(input.integrationResultContent),
+    )
   ) {
     throw new Error(
       input.findingAdoptionSha256 !== undefined &&

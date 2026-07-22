@@ -1,5 +1,11 @@
 import { createHash } from "node:crypto";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
@@ -467,6 +473,62 @@ describe("failed integration rework admission", () => {
         ["run:run-owner:owner_rework"],
       ),
     ).toBe(true);
+    expect(
+      supersessionBindsFailedAttempt(
+        [
+          {
+            runId: "01KY1J01ZQ1B4F8MYQTPQPC8HB",
+            status: "failed",
+          },
+        ],
+        [
+          "run:01KY1J01ZQ1B4F8MYQTPQPC8HB:owner_rework",
+          "owner-rework-result-sha256:5477b2cb14f224af207ef5317abb0ea17d51472c7fd33fdfd36d1f7e52b4cd76",
+        ],
+        "5477b2cb14f224af207ef5317abb0ea17d51472c7fd33fdfd36d1f7e52b4cd76",
+      ),
+    ).toBe(true);
+    expect(
+      supersessionBindsFailedAttempt(
+        [{ runId: "01KY1J01ZQ1B4F8MYQTPQPC8HB", status: "failed" }],
+        ["run:01KY1J01ZQ1B4F8MYQTPQPC8HB:owner_rework"],
+        "5477b2cb14f224af207ef5317abb0ea17d51472c7fd33fdfd36d1f7e52b4cd76",
+      ),
+    ).toBe(false);
+  });
+
+  it("accepts the exact durable Wave 56 failed-provider owner-rework receipt", () => {
+    const root = resolve(process.cwd(), "test/fixtures/wave-000056");
+    const integrationResultContent = readFileSync(
+      resolve(root, "integration-result.json.raw"),
+      "utf8",
+    );
+    const runRecordContent = readFileSync(
+      resolve(root, "run-record.json.raw"),
+      "utf8",
+    );
+    const selectionContent = readFileSync(
+      resolve(root, "selection.json.raw"),
+      "utf8",
+    );
+    expect(() =>
+      validateSupersession({
+        currentControlHead: "7cf9a793b5bee333bfc2e72595563716161a2997",
+        findingAdoptionSha256:
+          "d68d20038556101140b95bd6a3ee5939f48a653f6e2a122195b16aa0933b82e7",
+        integrationId: "wave-000056",
+        integrationResultContent,
+        isAncestor: () => true,
+        runRecordContent,
+        selectionContent,
+        selectionPath:
+          "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000056-selection.json",
+        supersession: JSON.parse(
+          readFileSync(resolve(root, "supersession.json.raw"), "utf8"),
+        ),
+        taskId: "S04-T04",
+      }),
+    ).not.toThrow();
   });
 
   it("admits a failed broad gate after semantic review passed", () => {
