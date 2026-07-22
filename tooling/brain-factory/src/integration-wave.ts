@@ -43,6 +43,8 @@ export const assembleIntegrationWaveCandidate = (
 export interface IntegrationWaveTaskSnapshot extends IntegrationWaveCandidate {
   readonly codeStartAfter: readonly string[];
   readonly fileLocks: readonly string[];
+  readonly greenHeadAfter?: string;
+  readonly mandatorySameWaveAfter?: string;
 }
 
 interface IntegrationWaveSelectionBase {
@@ -284,6 +286,12 @@ export const selectionPayload = (input: {
       gateSha256: task.gateSha256,
       headSha: task.headSha,
       laneResultSha256: task.laneResultSha256,
+      ...(task.greenHeadAfter === undefined
+        ? {}
+        : { greenHeadAfter: task.greenHeadAfter }),
+      ...(task.mandatorySameWaveAfter === undefined
+        ? {}
+        : { mandatorySameWaveAfter: task.mandatorySameWaveAfter }),
       planSha256: task.planSha256,
       proofHeadSha: task.proofHeadSha,
       proofSha256: task.proofSha256,
@@ -359,6 +367,17 @@ export const planIntegrationWave = (input: {
     throw new Error("integration wave has duplicate candidates");
   }
   const candidateIds = new Set(input.candidates.map((task) => task.taskId));
+  for (const task of input.tasks) {
+    if (
+      task.mandatorySameWaveAfter !== undefined &&
+      candidateIds.has(task.mandatorySameWaveAfter) &&
+      !candidateIds.has(task.taskId)
+    ) {
+      throw new Error(
+        `${task.mandatorySameWaveAfter}: requires same-wave transition ${task.taskId}`,
+      );
+    }
+  }
   if (
     filteredRequest &&
     JSON.stringify([...candidateIds].sort()) !==
@@ -428,6 +447,12 @@ export const planIntegrationWave = (input: {
       changedFiles: sortedUnique(candidate.changedFiles),
       codeStartAfter: [...task.codeStartAfter].sort(),
       fileLocks: [...task.fileLocks].sort(),
+      ...(task.greenHeadAfter === undefined
+        ? {}
+        : { greenHeadAfter: task.greenHeadAfter }),
+      ...(task.mandatorySameWaveAfter === undefined
+        ? {}
+        : { mandatorySameWaveAfter: task.mandatorySameWaveAfter }),
     } satisfies IntegrationWaveTaskSnapshot;
   });
   const atomicGroups = input.tasks.flatMap((task) =>
@@ -435,15 +460,29 @@ export const planIntegrationWave = (input: {
       ? [new Set([task.mandatorySameWaveAfter, task.taskId])]
       : [],
   );
-  const selectedTasks = [
+  const selectedUnordered = [
     ...maximumConflictFreeTasks(snapshots, atomicGroups),
-  ].sort((left, right) => {
-    const leftTask = manifestTasks.get(left.taskId);
-    const rightTask = manifestTasks.get(right.taskId);
-    if (leftTask?.mandatorySameWaveAfter === right.taskId) return 1;
-    if (rightTask?.mandatorySameWaveAfter === left.taskId) return -1;
-    return left.taskId.localeCompare(right.taskId);
-  });
+  ];
+  const transitionsByPredecessor = new Map<
+    string,
+    IntegrationWaveTaskSnapshot[]
+  >();
+  for (const selected of selectedUnordered) {
+    const predecessor = selected.mandatorySameWaveAfter;
+    if (!predecessor) continue;
+    const transitions = transitionsByPredecessor.get(predecessor) ?? [];
+    transitions.push(selected);
+    transitionsByPredecessor.set(predecessor, transitions);
+  }
+  const selectedTasks = selectedUnordered
+    .filter((task) => task.mandatorySameWaveAfter === undefined)
+    .sort((left, right) => left.taskId.localeCompare(right.taskId))
+    .flatMap((task) => [
+      task,
+      ...(transitionsByPredecessor.get(task.taskId) ?? []).sort((left, right) =>
+        left.taskId.localeCompare(right.taskId),
+      ),
+    ]);
   if (selectedTasks.length === 0)
     throw new Error("integration wave has no selectable tasks");
   const selectedIds = new Set(selectedTasks.map((task) => task.taskId));
@@ -535,12 +574,23 @@ const assertTaskSnapshot = (
       `selectedTasks[${index}].reproofRequestSha256 must be a 64-hex SHA-256`,
     );
   }
+  for (const field of ["greenHeadAfter", "mandatorySameWaveAfter"] as const) {
+    if (
+      hasOwn(task, field) &&
+      (typeof task[field] !== "string" ||
+        !/^S\d{2}-T\d{2}$/.test(task[field] as string))
+    ) {
+      throw new Error(`selectedTasks[${index}].${field} must be a task ID`);
+    }
+  }
   if (strictKeys) {
     const allowed = new Set([
       ...stringFields,
       "changedFiles",
       "codeStartAfter",
       "fileLocks",
+      "greenHeadAfter",
+      "mandatorySameWaveAfter",
       "reproofRequestSha256",
     ]);
     const unknown = Object.keys(task).filter((key) => !allowed.has(key));
@@ -579,6 +629,20 @@ const validateSelectionShape = (
   value.selectedTasks.forEach((task, index) =>
     assertTaskSnapshot(task, index, strictKeys),
   );
+  if (strictKeys) {
+    value.selectedTasks.forEach((task, index) => {
+      if (task.mandatorySameWaveAfter === undefined) return;
+      if (
+        task.greenHeadAfter !== task.mandatorySameWaveAfter ||
+        index === 0 ||
+        value.selectedTasks[index - 1]?.taskId !== task.mandatorySameWaveAfter
+      ) {
+        throw new Error(
+          `${task.taskId}: mandatory same-wave predecessor is not adjacent`,
+        );
+      }
+    });
+  }
   if (value.requestedTaskIds !== undefined) {
     stringArrayValue(value.requestedTaskIds, "requestedTaskIds");
   }
@@ -603,11 +667,29 @@ const validateSelectionShape = (
   if (value.selectedTasks.length === 0)
     throw new Error("integration wave has no tasks");
   const ids = value.selectedTasks.map((task) => task.taskId);
+  const transitionsByPredecessor = new Map(
+    value.selectedTasks.flatMap((task) =>
+      task.mandatorySameWaveAfter === undefined
+        ? []
+        : [[task.mandatorySameWaveAfter, task] as const],
+    ),
+  );
+  const expectedIds = value.selectedTasks
+    .filter((task) => task.mandatorySameWaveAfter === undefined)
+    .sort((left, right) => left.taskId.localeCompare(right.taskId))
+    .flatMap((task) => [
+      task.taskId,
+      ...(transitionsByPredecessor.get(task.taskId) === undefined
+        ? []
+        : [transitionsByPredecessor.get(task.taskId)!.taskId]),
+    ]);
   if (
     new Set(ids).size !== ids.length ||
-    JSON.stringify(ids) !== JSON.stringify([...ids].sort())
+    JSON.stringify(ids) !== JSON.stringify(expectedIds)
   ) {
-    throw new Error("integration wave selected task order is invalid");
+    throw new Error(
+      `integration wave selected task order is invalid: ${ids.join(",")} != ${expectedIds.join(",")}`,
+    );
   }
   if (value.requestedTaskIds !== undefined) {
     const requested = [...value.requestedTaskIds];
@@ -616,7 +698,7 @@ const validateSelectionShape = (
       new Set(requested).size !== requested.length ||
       JSON.stringify(requested) !== JSON.stringify([...requested].sort()) ||
       (requested.length > 0 &&
-        JSON.stringify(requested) !== JSON.stringify(ids))
+        JSON.stringify(requested) !== JSON.stringify([...ids].sort()))
     ) {
       throw new Error("integration wave requested task filter is invalid");
     }

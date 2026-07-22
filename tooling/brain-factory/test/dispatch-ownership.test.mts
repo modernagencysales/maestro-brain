@@ -32,9 +32,11 @@ import {
   recoveryCoordinatesForRecord,
   recoverTaskReservation,
   reserveTaskPreparing,
+  resolveGreenHeadTransitionBase,
   runRecordOwnsTask,
   taskReservationOwnsIntegrationCandidate,
 } from "../src/dispatch-ownership.js";
+import { buildManifest } from "../src/manifest.js";
 import {
   resolveResumeStrategy,
   serializeResumeCommits,
@@ -60,6 +62,72 @@ afterEach(() => {
 });
 
 describe("brain dispatch ownership", () => {
+  it("roots an auxiliary transition at the exact authoritative green head", () => {
+    const manifest = buildManifest();
+    const predecessor = manifest.tasks.find(
+      (task) => task.taskId === "S05-T01",
+    );
+    const transition = manifest.tasks.find((task) => task.taskId === "S15-T02");
+    if (!predecessor || !transition)
+      throw new Error("transition fixture missing");
+    const headSha = "5".repeat(40);
+    const treeSha = "6".repeat(40);
+    const proof = {
+      schemaVersion: "maestro-brain-ci-proof/v1",
+      taskId: predecessor.taskId,
+      planSha256: manifest.planSha256,
+      taskBlockHash: predecessor.taskBlockHash,
+      baseSha: "4".repeat(40),
+      headSha,
+      reviewVerdict: "pass",
+      reviewHeadSha: headSha,
+      reviewFindings: [],
+    };
+    const gate = {
+      schemaVersion: "maestro-brain-lane-gate/v1",
+      taskId: predecessor.taskId,
+      stage: "final",
+      status: "passed",
+      headSha,
+      currentHeadSha: headSha,
+      currentTreeSha: treeSha,
+      planSha256: manifest.planSha256,
+      taskBlockHash: predecessor.taskBlockHash,
+    };
+    const lane = {
+      schemaVersion: "maestro-brain-lane-result/v1",
+      taskId: predecessor.taskId,
+      status: "lane_green",
+      headSha,
+      treeSha,
+    };
+
+    expect(
+      resolveGreenHeadTransitionBase({
+        controlHeadSha: "3".repeat(40),
+        finalGate: gate,
+        isAncestor: () => true,
+        lane,
+        predecessor,
+        proof,
+        transition,
+        treeAt: () => treeSha,
+      }),
+    ).toBe(headSha);
+    expect(() =>
+      resolveGreenHeadTransitionBase({
+        controlHeadSha: "3".repeat(40),
+        finalGate: gate,
+        isAncestor: () => true,
+        lane,
+        predecessor,
+        proof: { ...proof, headSha: "7".repeat(40) },
+        transition,
+        treeAt: () => treeSha,
+      }),
+    ).toThrow("green-head proof chain drift");
+  });
+
   it("keeps active resumed tasks out of integration selection", () => {
     expect(
       taskReservationOwnsIntegrationCandidate(

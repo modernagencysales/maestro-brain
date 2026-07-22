@@ -10,6 +10,7 @@ import {
   recoveryCoordinatesForRecord,
   recoverTaskReservation,
   reserveTaskPreparing,
+  resolveGreenHeadTransitionBase,
   runRecordOwnsTask,
 } from "./dispatch-ownership.js";
 import {
@@ -178,7 +179,7 @@ const { ready: candidates, selected } = selectReadyTasks({
   completedTaskIds,
   contractArtifactSha256ByProducer,
   greenTaskIds: new Set(
-    activeTasks
+    ownedTasks
       .filter((task) => resultStatus(task.taskId) === "lane_green")
       .map((task) => task.taskId),
   ),
@@ -206,8 +207,40 @@ console.log(
 if (!launch) process.exit(0);
 if (!existsSync(workflow)) throw new Error(`missing workflow ${workflow}`);
 
-const baseSha = controlHead;
 for (const task of selected) {
+  const baseSha = (() => {
+    if (task.greenHeadAfter === undefined) return controlHead;
+    const predecessor = manifest.tasks.find(
+      (candidate) => candidate.taskId === task.greenHeadAfter,
+    );
+    if (!predecessor) {
+      throw new Error(
+        `${task.taskId}: green-head predecessor ${task.greenHeadAfter} is absent`,
+      );
+    }
+    const directory = resolve(evidence, "lane-results", predecessor.taskId);
+    const readEvidence = (name: string): unknown => {
+      const path = resolve(directory, name);
+      if (!existsSync(path)) {
+        throw new Error(
+          `${task.taskId}: green-head evidence ${name} is missing`,
+        );
+      }
+      return JSON.parse(readFileSync(path, "utf8")) as unknown;
+    };
+    return resolveGreenHeadTransitionBase({
+      controlHeadSha: controlHead,
+      finalGate: readEvidence("lane-gate-report.json"),
+      isAncestor: (ancestor, descendant) =>
+        gitIsAncestor(ancestor, descendant, root),
+      lane: readEvidence("lane-result.json"),
+      predecessor,
+      proof: readEvidence("ci-proof-packet.json"),
+      transition: task,
+      treeAt: (headSha) =>
+        runRtk(["git", "rev-parse", `${headSha}^{tree}`], { quiet: true }),
+    });
+  })();
   const branch = `fabro/brain-${task.taskId.toLowerCase()}`;
   const workdir = resolve(worktreeRoot, task.taskId.toLowerCase());
   const reservationPath = recordPath(task.taskId);

@@ -811,6 +811,7 @@ describe("integration wave planner", () => {
 
   it("selects and orders the S05 green-head transition as one atomic wave", () => {
     const source = task("S05-T01", "C1-contract-spine", ["S04-T02"]);
+    const unrelated = task("S10-T99", "D2-domain-bodies");
     const transition: BrainTaskContract = {
       ...task("S15-T02", "F1-control"),
       classification: "template-gap",
@@ -822,17 +823,37 @@ describe("integration wave planner", () => {
 
     const selection = planIntegrationWave({
       baseSha: "base",
-      candidates: [candidate(transition), candidate(source)],
+      candidates: [
+        candidate(unrelated),
+        candidate(transition),
+        candidate(source),
+      ],
       completedTaskIds: new Set(["S04-T02"]),
       integrationId: integrationWaveId(57),
       planSha256: "plan",
-      requestedTaskIds: ["S05-T01", "S15-T02"],
-      tasks: [transition, source],
+      requestedTaskIds: ["S05-T01", "S10-T99", "S15-T02"],
+      tasks: [unrelated, transition, source],
     });
     expect(selection.selectedTasks.map((value) => value.taskId)).toEqual([
       "S05-T01",
       "S15-T02",
+      "S10-T99",
     ]);
+    expect(() => validateIntegrationWaveSelection(selection)).not.toThrow();
+    const nonAdjacentPayload = selectionPayload({
+      ...selection,
+      selectedTasks: [
+        selection.selectedTasks[0]!,
+        selection.selectedTasks[2]!,
+        selection.selectedTasks[1]!,
+      ],
+    });
+    expect(() =>
+      validateIntegrationWaveSelection({
+        ...nonAdjacentPayload,
+        selectionPayloadSha256: selectionPayloadSha256(nonAdjacentPayload),
+      }),
+    ).toThrow("mandatory same-wave predecessor is not adjacent");
 
     expect(() =>
       planIntegrationWave({
@@ -845,6 +866,18 @@ describe("integration wave planner", () => {
         tasks: [transition, source],
       }),
     ).toThrow("requires same-wave predecessor S05-T01");
+
+    expect(() =>
+      planIntegrationWave({
+        baseSha: "base",
+        candidates: [candidate(source)],
+        completedTaskIds: new Set(["S04-T02"]),
+        integrationId: integrationWaveId(59),
+        planSha256: "plan",
+        requestedTaskIds: ["S05-T01"],
+        tasks: [transition, source],
+      }),
+    ).toThrow("requires same-wave transition S15-T02");
   });
 
   it("forbids dependencies that are absent from the exact base", () => {

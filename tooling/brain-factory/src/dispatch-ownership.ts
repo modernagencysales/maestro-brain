@@ -12,6 +12,9 @@ import {
 } from "node:fs";
 import { dirname } from "node:path";
 
+import type { BrainTaskContract } from "./manifest.js";
+import { validateProofContract } from "./proof.js";
+
 type JsonRecord = Record<string, unknown>;
 
 const owningLaneResultStatuses = new Set(["lane_green", "false_green"]);
@@ -32,6 +35,60 @@ const nonemptyString = (value: unknown, label: string): string => {
     throw new Error(`${label} is missing`);
   }
   return value;
+};
+
+export const resolveGreenHeadTransitionBase = (input: {
+  readonly controlHeadSha: string;
+  readonly finalGate: unknown;
+  readonly isAncestor: (ancestor: string, descendant: string) => boolean;
+  readonly lane: unknown;
+  readonly predecessor: BrainTaskContract;
+  readonly proof: unknown;
+  readonly transition: BrainTaskContract;
+  readonly treeAt: (headSha: string) => string;
+}): string => {
+  const label = `${input.transition.taskId}: green-head proof chain drift`;
+  if (
+    input.transition.greenHeadAfter !== input.predecessor.taskId ||
+    input.transition.mandatorySameWaveAfter !== input.predecessor.taskId
+  ) {
+    throw new Error(label);
+  }
+  const lane = jsonRecord(input.lane, label);
+  const proof = jsonRecord(input.proof, label);
+  const gate = jsonRecord(input.finalGate, label);
+  validateProofContract(proof, input.predecessor);
+  const headSha = nonemptyString(lane.headSha, label);
+  const treeSha = input.treeAt(headSha);
+  const proofBaseSha = nonemptyString(proof.baseSha, label);
+  if (
+    !/^[0-9a-f]{40}$/.test(headSha) ||
+    !/^[0-9a-f]{40}$/.test(treeSha) ||
+    !/^[0-9a-f]{40}$/.test(proofBaseSha) ||
+    lane.schemaVersion !== "maestro-brain-lane-result/v1" ||
+    lane.taskId !== input.predecessor.taskId ||
+    lane.status !== "lane_green" ||
+    lane.treeSha !== treeSha ||
+    proof.headSha !== headSha ||
+    proof.reviewVerdict !== "pass" ||
+    proof.reviewHeadSha !== headSha ||
+    !Array.isArray(proof.reviewFindings) ||
+    proof.reviewFindings.length !== 0 ||
+    gate.schemaVersion !== "maestro-brain-lane-gate/v1" ||
+    gate.taskId !== input.predecessor.taskId ||
+    gate.stage !== "final" ||
+    gate.status !== "passed" ||
+    gate.headSha !== headSha ||
+    gate.currentHeadSha !== headSha ||
+    gate.currentTreeSha !== treeSha ||
+    gate.planSha256 !== proof.planSha256 ||
+    gate.taskBlockHash !== input.predecessor.taskBlockHash ||
+    !input.isAncestor(proofBaseSha, headSha) ||
+    !input.isAncestor(input.controlHeadSha, headSha)
+  ) {
+    throw new Error(label);
+  }
+  return headSha;
 };
 
 const canonicalize = (value: unknown): unknown => {
