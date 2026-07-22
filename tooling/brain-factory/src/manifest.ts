@@ -393,6 +393,12 @@ const taskBlocks = (
   );
 };
 
+export const taskBlockHashFromPlan = (plan: string, taskId: string): string => {
+  const block = taskBlocks(plan).get(taskId);
+  if (!block) throw new Error(`${taskId}: historical task block is missing`);
+  return hash(block.body);
+};
+
 const exactKeys = (
   value: Record<string, unknown>,
   expected: readonly string[],

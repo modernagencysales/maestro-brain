@@ -5,6 +5,7 @@ import { buildTaskLaunchEnv } from "./build-task-launch-env.js";
 import { materializeBuildTaskRunConfig } from "./build-task-run-config.js";
 import { launchAuthorityRefresh } from "./authority-refresh-launch.js";
 import { launchCheckpointReproof } from "./checkpoint-reproof-launch.js";
+import { launchLaneGreenAuthorityReproof } from "./lane-green-authority-reproof-launch.js";
 import {
   acquireDispatcherLock,
   assertArchiveActionSelectorApplicable,
@@ -45,6 +46,7 @@ interface ResumeRecord {
     | "authority-refresh"
     | "authority-repair"
     | "checkpoint-reproof"
+    | "lane-green-authority-reproof"
     | "ownership-rehome"
     | "resume-review";
   readonly runId?: string;
@@ -96,6 +98,9 @@ const archiveActionId = parseArchiveActionSelector(process.argv.slice(2));
 const authorityRefresh = process.argv.includes("--authority-refresh");
 const authorityRepair = process.argv.includes("--authority-repair");
 const checkpointReproof = process.argv.includes("--checkpoint-reproof");
+const laneGreenAuthorityReproof = process.argv.includes(
+  "--lane-green-authority-reproof",
+);
 const ownershipRehome = process.argv.includes("--ownership-rehome");
 const conflictAware = process.argv.includes("--conflict-aware");
 let resumeStrategy = resolveResumeStrategy({
@@ -108,10 +113,11 @@ if (
     !authorityRepair &&
     !ownershipRehome &&
     !checkpointReproof &&
+    !laneGreenAuthorityReproof &&
     (!sourceRef || !taskBase))
 ) {
   console.error(
-    "usage: brain:factory:resume -- --task <id> (--authority-refresh | --authority-repair | --ownership-rehome | --checkpoint-reproof | --ref <git-ref> --base <sha> [--conflict-aware]) [--archive-action <id>]",
+    "usage: brain:factory:resume -- --task <id> (--authority-refresh | --authority-repair | --ownership-rehome | --checkpoint-reproof | --lane-green-authority-reproof | --ref <git-ref> --base <sha> [--conflict-aware]) [--archive-action <id>]",
   );
   process.exit(2);
 }
@@ -119,7 +125,8 @@ if (
   (authorityRefresh ||
     authorityRepair ||
     ownershipRehome ||
-    checkpointReproof) &&
+    checkpointReproof ||
+    laneGreenAuthorityReproof) &&
   (sourceRef || taskBase || conflictAware || archiveActionId)
 ) {
   throw new Error(
@@ -132,6 +139,7 @@ if (
     authorityRepair,
     ownershipRehome,
     checkpointReproof,
+    laneGreenAuthorityReproof,
   ].filter(Boolean).length > 1
 ) {
   throw new Error(`${taskId}: choose exactly one authority transition`);
@@ -163,6 +171,16 @@ assertArchiveActionSelectorApplicable({
 });
 if (checkpointReproof) {
   launchCheckpointReproof({ evidence, recordPath, root, state, taskId });
+  process.exit(0);
+}
+if (laneGreenAuthorityReproof) {
+  launchLaneGreenAuthorityReproof({
+    evidence,
+    recordPath,
+    root,
+    state,
+    taskId,
+  });
   process.exit(0);
 }
 if (authorityRefresh || authorityRepair || ownershipRehome) {
