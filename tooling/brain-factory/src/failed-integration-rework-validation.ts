@@ -350,14 +350,6 @@ export const supersessionBindsFailedAttempt = (
       `run:${finalAttempt.runId}:${finalAttempt.status}`,
     );
   }
-  if (
-    finalAttempt.status === "owner_rework" &&
-    ownerReworkRuns.length === 1 &&
-    ownerReworkRuns[0] === `run:${finalAttempt.runId}:owner_rework` &&
-    ownerReworkResults.length === 0
-  ) {
-    return true;
-  }
   return Boolean(
     ownerReworkRuns.length === 1 &&
     ownerReworkRuns[0] === `run:${finalAttempt.runId}:owner_rework` &&

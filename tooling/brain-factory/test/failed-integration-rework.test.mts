@@ -470,7 +470,11 @@ describe("failed integration rework admission", () => {
     expect(
       supersessionBindsFailedAttempt(
         [{ runId: "run-owner", status: "owner_rework" }],
-        ["run:run-owner:owner_rework"],
+        [
+          "run:run-owner:owner_rework",
+          `owner-rework-result-sha256:${"c".repeat(64)}`,
+        ],
+        "c".repeat(64),
       ),
     ).toBe(true);
     expect(
