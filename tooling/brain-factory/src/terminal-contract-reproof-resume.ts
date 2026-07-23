@@ -154,13 +154,14 @@ export const buildTerminalContractReproofResume = (
   );
   const fileLocks = new Set(input.currentTaskFileLocks);
   const controlOnly = (path: string): boolean =>
-    path === "package.json" ||
-    path.startsWith(".fabro/workflows/") ||
-    path.startsWith(".superpowers/sdd/") ||
-    path.startsWith("docs/superpowers/execution/maestro-brain/") ||
+    path === ".fabro/workflows/brain-build-task/workflow.fabro" ||
+    path ===
+      "docs/superpowers/execution/maestro-brain/parallelism-contract.json" ||
+    path === "docs/superpowers/execution/maestro-brain/task-manifest.json" ||
     path.startsWith("docs/superpowers/plans/") ||
     path.startsWith("docs/superpowers/specs/") ||
-    path.startsWith("tooling/brain-factory/");
+    path.startsWith("tooling/brain-factory/src/") ||
+    path.startsWith("tooling/brain-factory/test/");
   if (
     input.authorityDeltaPaths.some(
       (path) => !controlOnly(path) || fileLocks.has(path),

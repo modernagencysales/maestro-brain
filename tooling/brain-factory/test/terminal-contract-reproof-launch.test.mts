@@ -7,11 +7,38 @@ import { describe, expect, it } from "vitest";
 
 import { materializeLaneGreenAuthorityWorkflow } from "../src/lane-green-authority-workflow.js";
 import {
+  readTerminalContractReproofAuthorityDelta,
   signedFindingsBindRoute,
   terminalContractReproofWorkflowName,
 } from "../src/terminal-contract-reproof-launch.js";
 
 describe("terminal contract-reproof launch", () => {
+  it("uses unfiltered Git bytes for machine-readable authority paths", () => {
+    const calls: string[][] = [];
+    expect(
+      readTerminalContractReproofAuthorityDelta({
+        controlHeadSha: "a".repeat(40),
+        currentHeadSha: "b".repeat(40),
+        root: "/control",
+        runCommand: (args) => {
+          calls.push([...args]);
+          return args[0] === "proxy"
+            ? "tooling/brain-factory/src/example.ts"
+            : "tooling/brain-factory/src/example.ts\n\nChanges:";
+        },
+      }),
+    ).toEqual(["tooling/brain-factory/src/example.ts"]);
+    expect(calls).toEqual([
+      [
+        "proxy",
+        "git",
+        "diff",
+        "--name-only",
+        `${"a".repeat(40)}..${"b".repeat(40)}`,
+      ],
+    ]);
+  });
+
   it("binds the canonical signed finding to its task-owned routed shape", () => {
     const signed = {
       id: "wave-example-S04-T04-tenant-key-auth-mismatch",

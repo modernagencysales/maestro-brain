@@ -67,6 +67,27 @@ export const terminalContractReproofWorkflowName = (input: {
   return `BrainBuildTask${input.taskId.replaceAll("-", "")}Green${identity}`;
 };
 
+export const readTerminalContractReproofAuthorityDelta = (input: {
+  readonly controlHeadSha: string;
+  readonly currentHeadSha: string;
+  readonly root: string;
+  readonly runCommand?: (args: readonly string[]) => string;
+}): readonly string[] => {
+  const runCommand =
+    input.runCommand ??
+    ((args: readonly string[]) =>
+      runRtk(args, { cwd: input.root, quiet: true }));
+  return runCommand([
+    "proxy",
+    "git",
+    "diff",
+    "--name-only",
+    `${input.controlHeadSha}..${input.currentHeadSha}`,
+  ])
+    .split("\n")
+    .filter(Boolean);
+};
+
 export const signedFindingsBindRoute = (
   signed: readonly unknown[],
   routed: readonly IntegrationFinding[],
@@ -234,17 +255,11 @@ export const launchTerminalContractReproofResume = (input: {
     JSON.parse(readFileSync(requestPath, "utf8")) as unknown,
     `${input.taskId}: reproof request`,
   );
-  const authorityDeltaPaths = runRtk(
-    [
-      "git",
-      "diff",
-      "--name-only",
-      `${String(request.controlHeadSha ?? "")}..${controlHeadSha}`,
-    ],
-    { quiet: true },
-  )
-    .split("\n")
-    .filter(Boolean);
+  const authorityDeltaPaths = readTerminalContractReproofAuthorityDelta({
+    controlHeadSha: String(request.controlHeadSha ?? ""),
+    currentHeadSha: controlHeadSha,
+    root: input.root,
+  });
   const admitted = admitContractReproof({
     allowAuthorityRefreshAdvance: true,
     changedFilesBetween: (ancestor, descendant) =>

@@ -237,10 +237,70 @@ describe("terminal contract-reproof resume", () => {
         ],
       },
     ],
+    ["package metadata drift", { authorityDeltaPaths: ["package.json"] }],
+    [
+      "unrelated workflow drift",
+      { authorityDeltaPaths: [".fabro/workflows/unrelated/workflow.fabro"] },
+    ],
   ])("rejects %s", (_label, override) => {
     expect(() =>
       buildTerminalContractReproofResume({ ...fixture(), ...override }),
     ).toThrow();
+  });
+
+  it("accepts the real factory-control evolution with an unchanged task contract", () => {
+    expect(() =>
+      buildTerminalContractReproofResume({
+        ...fixture(),
+        authorityDeltaPaths: [
+          ".fabro/workflows/brain-build-task/workflow.fabro",
+          "docs/superpowers/execution/maestro-brain/parallelism-contract.json",
+          "docs/superpowers/execution/maestro-brain/task-manifest.json",
+          "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+          "docs/superpowers/plans/2026-07-22-maestro-brain-repair-first-fabro-recovery-implementation-plan.md",
+          "docs/superpowers/specs/2026-07-22-maestro-brain-repair-first-fabro-recovery-design.md",
+          "tooling/brain-factory/src/authority-transition-cli.ts",
+          "tooling/brain-factory/src/contract-reproof.ts",
+          "tooling/brain-factory/src/lane-green-authority-reproof-admission.ts",
+          "tooling/brain-factory/src/lane-green-authority-reproof-candidate.ts",
+          "tooling/brain-factory/src/lane-green-authority-reproof-history.ts",
+          "tooling/brain-factory/src/lane-green-authority-reproof-inspect.ts",
+          "tooling/brain-factory/src/lane-green-authority-reproof-launch.ts",
+          "tooling/brain-factory/src/lane-green-authority-reproof-owner.ts",
+          "tooling/brain-factory/src/lane-green-authority-reproof-recovery.ts",
+          "tooling/brain-factory/src/lane-green-authority-reproof-resume.ts",
+          "tooling/brain-factory/src/lane-green-authority-reproof-run.ts",
+          "tooling/brain-factory/src/lane-green-authority-reproof-spec.ts",
+          "tooling/brain-factory/src/lane-green-authority-reproof.ts",
+          "tooling/brain-factory/src/lane-green-authority-validation.ts",
+          "tooling/brain-factory/src/lane-green-authority-workflow.ts",
+          "tooling/brain-factory/src/manifest.ts",
+          "tooling/brain-factory/src/process.ts",
+          "tooling/brain-factory/src/resume.mts",
+          "tooling/brain-factory/src/review-aggregate.mts",
+          "tooling/brain-factory/src/review-worktrees.ts",
+          "tooling/brain-factory/src/terminal-contract-reproof-launch.ts",
+          "tooling/brain-factory/src/terminal-contract-reproof-recovery.ts",
+          "tooling/brain-factory/src/terminal-contract-reproof-resume.ts",
+          "tooling/brain-factory/src/terminal-contract-reproof-safety.ts",
+          "tooling/brain-factory/src/transient-confect-codegen.ts",
+          "tooling/brain-factory/test/authority-refresh.test.mts",
+          "tooling/brain-factory/test/contract-reproof.test.mts",
+          "tooling/brain-factory/test/lane-green-authority-reproof-launch.test.mts",
+          "tooling/brain-factory/test/lane-green-authority-reproof.test.mts",
+          "tooling/brain-factory/test/manifest.test.mts",
+          "tooling/brain-factory/test/parallelism-contract.test.mts",
+          "tooling/brain-factory/test/review-aggregate-refs.test.mts",
+          "tooling/brain-factory/test/terminal-contract-reproof-cli.test.mts",
+          "tooling/brain-factory/test/terminal-contract-reproof-launch.test.mts",
+          "tooling/brain-factory/test/terminal-contract-reproof-recovery.test.mts",
+          "tooling/brain-factory/test/terminal-contract-reproof-resume.test.mts",
+          "tooling/brain-factory/test/terminal-contract-reproof-safety.test.mts",
+          "tooling/brain-factory/test/transient-confect-codegen.test.mts",
+          "tooling/brain-factory/test/workflow-prompt-contract.test.mts",
+        ],
+      }),
+    ).not.toThrow();
   });
 
   it.each([
