@@ -943,13 +943,35 @@ export const bindReviewAggregationResult = (
   );
 };
 
+interface ReviewCleanupAuthority {
+  readonly leaseToken: string;
+  readonly prepared: ReturnType<typeof layout>;
+  readonly namespace: NonNullable<ReturnType<typeof readNamespace>>;
+  readonly receipt: NonNullable<ReturnType<typeof readNamespace>>;
+  readonly status: "aggregating" | "resuming";
+}
+
 const cleanupReviewWorktreesWithReason = (
   input: ReviewWorktreeCoordinates,
   reason: "invalid-checkpoint" | "operator-cleanup",
+  authority?: ReviewCleanupAuthority,
 ): void => {
-  const prepared = resolveActivePrepared(input, true);
-  const namespace = readNamespace(prepared.workdir, prepared.namespaceRef);
-  const attemptReceipt = readNamespace(prepared.workdir, prepared.receiptRef);
+  const prepared = authority?.prepared ?? resolveActivePrepared(input, true);
+  const currentNamespace = readNamespace(
+    prepared.workdir,
+    prepared.namespaceRef,
+  );
+  const currentReceipt = readNamespace(prepared.workdir, prepared.receiptRef);
+  if (
+    authority &&
+    (authority.namespace.value.leaseToken !== authority.leaseToken ||
+      authority.namespace.value.status !== authority.status ||
+      currentNamespace?.object !== authority.namespace.object ||
+      currentReceipt?.object !== authority.receipt.object)
+  )
+    throw new Error("review aggregation authority changed before retirement");
+  const namespace = authority?.namespace ?? currentNamespace;
+  const attemptReceipt = authority?.receipt ?? currentReceipt;
   if (!namespace && attemptReceipt?.value.status === "cleaned") return;
   if (!namespace || !attemptReceipt)
     throw new Error("managed review worktrees are not prepared");
@@ -1045,6 +1067,7 @@ export const cleanupReviewWorktrees = (
 export const abortInvalidReviewAggregation = (
   input: ReviewWorktreeCoordinates,
   token: string,
+  afterValidation?: () => void,
 ): void => {
   const prepared = resolveActivePrepared(input);
   const active = readNamespace(prepared.workdir, prepared.namespaceRef);
@@ -1058,5 +1081,13 @@ export const abortInvalidReviewAggregation = (
     active.value.leaseToken !== token
   )
     throw new Error("review aggregation lease is not active");
-  cleanupReviewWorktreesWithReason(input, "invalid-checkpoint");
+  const status = active.value.status;
+  afterValidation?.();
+  cleanupReviewWorktreesWithReason(input, "invalid-checkpoint", {
+    leaseToken: token,
+    namespace: active,
+    prepared,
+    receipt,
+    status,
+  });
 };

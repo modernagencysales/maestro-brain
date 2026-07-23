@@ -10,10 +10,16 @@ import {
   collectParallelReviewLenses,
 } from "../src/review-aggregate.mjs";
 import {
+  abortInvalidReviewAggregation,
+  beginReviewAggregation,
   cleanupReviewWorktrees,
   prepareReviewWorktrees,
 } from "../src/review-worktrees.js";
-import { captureReviewWorktree } from "../src/review-worktree-guard.js";
+import {
+  captureReviewWorktree,
+  releaseReviewWorktreeGuard,
+} from "../src/review-worktree-guard.js";
+import { releaseReviewAggregationSocketLease } from "../src/review-aggregation-lease.js";
 import {
   DEFAULT_REVIEW_RUBRIC_IDS,
   type ReviewLensName,
@@ -23,6 +29,17 @@ const git = (repo: string, ...args: string[]): string =>
   execFileSync("rtk", ["proxy", "git", ...args], {
     cwd: repo,
     encoding: "utf8",
+  }).trim();
+
+const gitWithInput = (
+  repo: string,
+  args: readonly string[],
+  input: string,
+): string =>
+  execFileSync("rtk", ["proxy", "git", ...args], {
+    cwd: repo,
+    encoding: "utf8",
+    input,
   }).trim();
 
 const fixture = () => {
@@ -297,6 +314,102 @@ describe("Fabro parallel review branch admission", () => {
       expect(retry.attemptId).toBe(`${attempt}-v2`);
       cleanupReviewWorktrees(coordinates);
     } finally {
+      rmSync(input.repo, { recursive: true, force: true });
+    }
+  });
+
+  it("does not retire a concurrently transitioned aggregation authority", async () => {
+    const input = fixture();
+    const coordinates = {
+      attemptId: "stale-abort",
+      evidence: input.evidence,
+      headSha: input.base,
+      taskId: input.taskId,
+      workdir: input.workdir,
+    };
+    const proofPath = resolve(
+      input.evidence,
+      "lane-results",
+      input.taskId,
+      "ci-proof-packet.json",
+    );
+    captureReviewWorktree({
+      evidence: input.evidence,
+      proofPath,
+      taskId: input.taskId,
+      workdir: input.workdir,
+    });
+    const prepared = prepareReviewWorktrees(coordinates);
+    const lease = await beginReviewAggregation(coordinates);
+    const originalObject = git(
+      input.workdir,
+      "rev-parse",
+      prepared.namespaceRef,
+    );
+    let transitionedObject = "";
+    try {
+      expect(() =>
+        abortInvalidReviewAggregation(coordinates, lease.token, () => {
+          const metadata = JSON.parse(
+            git(input.workdir, "cat-file", "blob", originalObject),
+          ) as Record<string, unknown>;
+          transitionedObject = gitWithInput(
+            input.workdir,
+            ["hash-object", "-w", "--stdin"],
+            `${JSON.stringify({ ...metadata, status: "resuming" })}\n`,
+          );
+          gitWithInput(
+            input.workdir,
+            ["update-ref", "--stdin"],
+            [
+              "start",
+              `update ${prepared.namespaceRef} ${transitionedObject} ${originalObject}`,
+              `update ${prepared.receiptRef} ${transitionedObject} ${originalObject}`,
+              "prepare",
+              "commit",
+              "",
+            ].join("\n"),
+          );
+        }),
+      ).toThrow("review aggregation authority changed before retirement");
+      expect(git(input.workdir, "rev-parse", prepared.namespaceRef)).toBe(
+        transitionedObject,
+      );
+      expect(
+        git(input.workdir, "cat-file", "blob", prepared.receiptRef),
+      ).toContain('"status":"resuming"');
+      expect(
+        git(
+          input.workdir,
+          "for-each-ref",
+          "--format=%(refname)",
+          "refs/maestro-brain/review-guards/",
+        ),
+      ).not.toBe("");
+      expect(git(prepared.paths.contract, "rev-parse", "HEAD")).toBe(
+        input.base,
+      );
+    } finally {
+      if (transitionedObject) {
+        gitWithInput(
+          input.workdir,
+          ["update-ref", "--stdin"],
+          [
+            "start",
+            `update ${prepared.namespaceRef} ${originalObject} ${transitionedObject}`,
+            `update ${prepared.receiptRef} ${originalObject} ${transitionedObject}`,
+            "prepare",
+            "commit",
+            "",
+          ].join("\n"),
+        );
+      }
+      cleanupReviewWorktrees(coordinates);
+      releaseReviewWorktreeGuard({
+        taskId: input.taskId,
+        workdir: input.workdir,
+      });
+      await releaseReviewAggregationSocketLease(lease.token);
       rmSync(input.repo, { recursive: true, force: true });
     }
   });
