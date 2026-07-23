@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -24,6 +25,7 @@ import {
 import {
   containedTerminalReproofFile,
   observeTerminalReproofWorktree,
+  readContainedTerminalReproofJson,
 } from "./terminal-contract-reproof-safety.js";
 
 const record = (
@@ -47,6 +49,19 @@ const canonicalJson = (value: unknown): string =>
         )
       : candidate,
   );
+
+export const terminalContractReproofWorkflowName = (input: {
+  readonly priorRunId: string;
+  readonly proofHeadSha: string;
+  readonly requestSha256: string;
+  readonly taskId: string;
+}): string => {
+  const identity = createHash("sha256")
+    .update(canonicalJson(input))
+    .digest("hex")
+    .slice(0, 12);
+  return `BrainBuildTask${input.taskId.replaceAll("-", "")}Green${identity}`;
+};
 
 const signedFindingsBindRoute = (
   signed: readonly unknown[],
@@ -245,53 +260,40 @@ export const launchTerminalContractReproofResume = (input: {
       runRtk(["proxy", "git", ...args], { cwd, quiet: true }),
     workdir,
   });
+  const laneResultDirectory = resolve(
+    input.evidence,
+    "lane-results",
+    input.taskId,
+  );
   const proof = record(
-    JSON.parse(
-      readFileSync(
-        resolve(
-          input.evidence,
-          "lane-results",
-          input.taskId,
-          "ci-proof-packet.json",
-        ),
-        "utf8",
-      ),
-    ) as unknown,
+    readContainedTerminalReproofJson(
+      laneResultDirectory,
+      resolve(laneResultDirectory, "ci-proof-packet.json"),
+      `${input.taskId}: proof`,
+    ),
     `${input.taskId}: proof`,
   );
   const finalGate = record(
-    JSON.parse(
-      readFileSync(
-        resolve(
-          input.evidence,
-          "lane-results",
-          input.taskId,
-          "lane-gate-report.json",
-        ),
-        "utf8",
-      ),
-    ) as unknown,
+    readContainedTerminalReproofJson(
+      laneResultDirectory,
+      resolve(laneResultDirectory, "lane-gate-report.json"),
+      `${input.taskId}: gate`,
+    ),
     `${input.taskId}: gate`,
-  );
-  const routing = record(
-    JSON.parse(
-      readFileSync(
-        resolve(
-          input.evidence,
-          "integration",
-          String(admitted.request.priorIntegrationId),
-          "owner-rework-routing.json",
-        ),
-        "utf8",
-      ),
-    ) as unknown,
-    `${input.taskId}: owner routing`,
   );
   const integrationId = String(admitted.request.priorIntegrationId);
   const integrationDirectory = resolve(
     input.evidence,
     "integration",
     integrationId,
+  );
+  const routing = record(
+    readContainedTerminalReproofJson(
+      integrationDirectory,
+      resolve(integrationDirectory, "owner-rework-routing.json"),
+      `${input.taskId}: owner routing`,
+    ),
+    `${input.taskId}: owner routing`,
   );
   const integrationResultContent = readFileSync(
     containedTerminalReproofFile(
@@ -360,14 +362,18 @@ export const launchTerminalContractReproofResume = (input: {
   const plan = buildTerminalContractReproofResume({
     admittedRequest:
       admitted.request as unknown as TerminalContractReproofRecord,
+    authorityRepairArchive: "none",
     authorityDeltaPaths,
     canonicalOwnerFindingsSha256: ownerRoute.findingSha256,
     controlCommonDir,
+    controlRoot: input.root,
     controlHeadSha,
     currentPlanSha256: manifest.planSha256,
     currentTaskBlockHash: task.taskBlockHash,
     currentTaskFileLocks: task.fileLocks,
+    evidence: input.evidence,
     finalGate,
+    hostTestMaxLoad1m: "20",
     inspectedRun: inspection,
     proof,
     record: owner,
@@ -389,46 +395,35 @@ export const launchTerminalContractReproofResume = (input: {
     },
   });
   const launchEnv = buildTaskLaunchEnv({
-    authorityRepairArchive: "none",
+    authorityRepairArchive: plan.launchInputs.authority_repair_archive,
     baseSha: plan.launchInputs.base_sha,
-    controlCommonDir,
-    controlRoot: input.root,
-    evidence: input.evidence,
-    hostTestMaxLoad1m: "20",
-    reproofRequest: requestPath,
+    controlCommonDir: plan.launchInputs.control_common_dir,
+    controlRoot: plan.launchInputs.control_root,
+    evidence: plan.launchInputs.evidence_dir,
+    hostTestMaxLoad1m: plan.launchInputs.host_test_max_load_1m,
+    reproofRequest: plan.launchInputs.reproof_request,
     resumeBranch: plan.launchInputs.resume_branch,
     resumeCommits: plan.launchInputs.resume_commits,
-    resumeExpectedCommit: "none",
-    resumeMode: "preserved-worktree",
+    resumeExpectedCommit: plan.launchInputs.resume_expected_commit,
+    resumeMode: plan.launchInputs.resume_mode,
     resumeProofHead: plan.launchInputs.resume_proof_head,
     resumeSourceHead: plan.launchInputs.resume_source_head,
     resumeTaskBase: plan.launchInputs.resume_task_base,
     startSha: plan.launchInputs.start_sha,
-    taskId: input.taskId,
-    workdir,
+    taskId: plan.launchInputs.task_id,
+    workdir: plan.launchInputs.workdir,
   });
-  const workflowName = [
-    "BrainTerminalReproof",
-    input.taskId.replaceAll("-", ""),
-    plan.preparingRecord.requestSha256,
-    plan.launchInputs.resume_proof_head,
-  ]
-    .map(String)
-    .map((value) => value.slice(0, 12))
-    .join("_");
-  const expectedRunInputs = {
-    ...Object.fromEntries(
-      Object.entries(plan.launchInputs).filter(
-        ([key]) =>
-          !new Set(["control_head_sha", "current_plan_sha256"]).has(key),
-      ),
+  const workflowName = terminalContractReproofWorkflowName({
+    priorRunId: plan.priorRunId,
+    proofHeadSha: plan.launchInputs.resume_proof_head,
+    requestSha256: String(plan.preparingRecord.requestSha256),
+    taskId: input.taskId,
+  });
+  const expectedRunInputs = Object.fromEntries(
+    Object.entries(plan.launchInputs).filter(
+      ([key]) => !new Set(["control_head_sha", "current_plan_sha256"]).has(key),
     ),
-    control_common_dir: controlCommonDir,
-    control_root: input.root,
-    evidence_dir: input.evidence,
-    task_id: input.taskId,
-    workdir,
-  };
+  );
   const workflow = materializeLaneGreenAuthorityWorkflow({
     path: resolve(
       input.state,
@@ -521,7 +516,15 @@ export const launchTerminalContractReproofResume = (input: {
           env: launchEnv,
           quiet: true,
         });
-      else if (!new Set(["running", "succeeded", "failed"]).has(createdStatus))
+      else if (
+        !new Set([
+          "running",
+          "succeeded",
+          "failed",
+          "canceled",
+          "cancelled",
+        ]).has(createdStatus)
+      )
         throw new Error(`${input.taskId}: discovered run status is unsafe`);
     },
     promote: (newRunId) =>

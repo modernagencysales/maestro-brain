@@ -31,14 +31,18 @@ const record = (
 
 export interface TerminalContractReproofResumeInput {
   readonly admittedRequest: TerminalContractReproofRecord;
+  readonly authorityRepairArchive: string;
   readonly authorityDeltaPaths: readonly string[];
   readonly canonicalOwnerFindingsSha256: string;
   readonly controlCommonDir: string;
+  readonly controlRoot: string;
   readonly controlHeadSha: string;
   readonly currentPlanSha256: string;
   readonly currentTaskBlockHash: string;
   readonly currentTaskFileLocks: readonly string[];
+  readonly evidence: string;
   readonly finalGate: TerminalContractReproofRecord;
+  readonly hostTestMaxLoad1m: string;
   readonly inspectedRun: {
     readonly inputs: TerminalContractReproofRecord;
     readonly runId: string;
@@ -72,9 +76,14 @@ export interface TerminalContractReproofResumePlan {
 }
 
 export interface TerminalContractReproofLaunchInputs {
+  readonly authority_repair_archive: string;
   readonly base_sha: string;
+  readonly control_common_dir: string;
   readonly control_head_sha: string;
+  readonly control_root: string;
   readonly current_plan_sha256: string;
+  readonly evidence_dir: string;
+  readonly host_test_max_load_1m: string;
   readonly reproof_request: string;
   readonly resume_branch: string;
   readonly resume_commits: string;
@@ -84,6 +93,8 @@ export interface TerminalContractReproofLaunchInputs {
   readonly resume_source_head: string;
   readonly resume_task_base: string;
   readonly start_sha: string;
+  readonly task_id: string;
+  readonly workdir: string;
 }
 
 export const buildTerminalContractReproofResume = (
@@ -193,10 +204,16 @@ export const buildTerminalContractReproofResume = (
 
   const runInputs = input.inspectedRun.inputs;
   if (
+    runInputs.authority_repair_archive !== input.authorityRepairArchive ||
     runInputs.base_sha !== requestControlHeadSha ||
+    runInputs.control_common_dir !== input.controlCommonDir ||
+    runInputs.control_root !== input.controlRoot ||
+    runInputs.evidence_dir !== input.evidence ||
+    runInputs.host_test_max_load_1m !== input.hostTestMaxLoad1m ||
     runInputs.reproof_request !== input.requestPath ||
     runInputs.resume_branch !== branch ||
     runInputs.resume_commits !== input.sourceCommits.join(",") ||
+    runInputs.resume_expected_commit !== "none" ||
     runInputs.resume_mode !== "conflict-aware" ||
     runInputs.resume_proof_head !== "none" ||
     runInputs.resume_source_head !== sourceHeadSha ||
@@ -271,9 +288,14 @@ export const buildTerminalContractReproofResume = (
     throw new Error(`${taskId}: preserved source commits are invalid`);
 
   const launchInputs = {
+    authority_repair_archive: input.authorityRepairArchive,
     base_sha: requestControlHeadSha,
+    control_common_dir: input.controlCommonDir,
     control_head_sha: controlHeadSha,
+    control_root: input.controlRoot,
     current_plan_sha256: currentPlanSha256,
+    evidence_dir: input.evidence,
+    host_test_max_load_1m: input.hostTestMaxLoad1m,
     reproof_request: input.requestPath,
     resume_branch: branch,
     resume_commits: input.sourceCommits.join(","),
@@ -283,6 +305,8 @@ export const buildTerminalContractReproofResume = (
     resume_source_head: sourceHeadSha,
     resume_task_base: taskBaseSha,
     start_sha: candidateHeadSha,
+    task_id: taskId,
+    workdir,
   } as const;
   return {
     launchInputs,

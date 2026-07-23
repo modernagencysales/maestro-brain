@@ -12,28 +12,32 @@ const owner = {
 };
 
 describe("terminal contract-reproof crash reconciliation", () => {
-  it.each(["created", "running", "succeeded", "failed"])(
-    "reconciles a durably recorded %s run",
-    (status) => {
-      const order: string[] = [];
-      expect(
-        reconcileTerminalContractReproofCreating({
-          inspect: () => ({
-            inputs: { reproof_request: "/evidence/request.json" },
-            runId,
-            status,
-          }),
-          owner,
-          promote: () => order.push("promote"),
-          start: () => order.push("start"),
-          taskId: "S04-T04",
+  it.each([
+    "created",
+    "running",
+    "succeeded",
+    "failed",
+    "canceled",
+    "cancelled",
+  ])("reconciles a durably recorded %s run", (status) => {
+    const order: string[] = [];
+    expect(
+      reconcileTerminalContractReproofCreating({
+        inspect: () => ({
+          inputs: { reproof_request: "/evidence/request.json" },
+          runId,
+          status,
         }),
-      ).toBe(runId);
-      expect(order).toEqual(
-        status === "created" ? ["start", "promote"] : ["promote"],
-      );
-    },
-  );
+        owner,
+        promote: () => order.push("promote"),
+        start: () => order.push("start"),
+        taskId: "S04-T04",
+      }),
+    ).toBe(runId);
+    expect(order).toEqual(
+      status === "created" ? ["start", "promote"] : ["promote"],
+    );
+  });
 
   it("rejects a run whose compiled inputs drift", () => {
     expect(() =>

@@ -22,6 +22,9 @@ const requestControlHeadSha = "969bd3c821f5db26ea586bbec82a5014d6d68909";
 const candidateHeadSha = "f07e866188df807d10f1b01843aaebfddf80a033";
 const taskBlockHash =
   "43aa1624cd7754ad5635e47f0e43bc7333c8b04b639a33b7670a7e032707dea1";
+const controlRoot = "/repo";
+const controlCommonDir = "/repo/.git";
+const evidence = "/evidence";
 
 const fixture = () => ({
   admittedRequest: {
@@ -36,7 +39,9 @@ const fixture = () => ({
     "docs/superpowers/plans/current.md",
     "tooling/brain-factory/src/review-aggregate.mts",
   ],
-  controlCommonDir: "/repo/.git",
+  authorityRepairArchive: "none",
+  controlCommonDir,
+  controlRoot,
   controlHeadSha,
   canonicalOwnerFindingsSha256: findingsSha256,
   currentPlanSha256: digest("b"),
@@ -44,6 +49,8 @@ const fixture = () => ({
   currentTaskFileLocks: [
     "packages/convex/confect/slack/channelPolicies.impl.ts",
   ],
+  evidence,
+  hostTestMaxLoad1m: "20",
   finalGate: {
     currentHeadSha: candidateHeadSha,
     headSha: candidateHeadSha,
@@ -55,11 +62,17 @@ const fixture = () => ({
   },
   inspectedRun: {
     inputs: {
+      authority_repair_archive: "none",
       base_sha: requestControlHeadSha,
+      control_common_dir: controlCommonDir,
+      control_root: controlRoot,
+      evidence_dir: evidence,
+      host_test_max_load_1m: "20",
       reproof_request: requestPath,
       resume_branch: "fabro/reproof-s04-t04-969bd3c8",
       resume_commits: `${sha("1")},${sha("2")}`,
       resume_mode: "conflict-aware",
+      resume_expected_commit: "none",
       resume_proof_head: "none",
       resume_source_head: sourceHeadSha,
       resume_task_base: sourceBaseSha,
@@ -141,10 +154,16 @@ describe("terminal contract-reproof resume", () => {
       workdir: "/worktrees/reproof-s04-t04-969bd3c8",
     });
     expect(result.launchInputs).toMatchObject({
+      authority_repair_archive: "none",
       base_sha: requestControlHeadSha,
+      control_common_dir: controlCommonDir,
+      control_root: controlRoot,
+      evidence_dir: evidence,
+      host_test_max_load_1m: "20",
       reproof_request: requestPath,
       resume_branch: "fabro/reproof-s04-t04-969bd3c8",
       resume_mode: "preserved-worktree",
+      resume_expected_commit: "none",
       resume_proof_head: candidateHeadSha,
       resume_source_head: sourceHeadSha,
       resume_task_base: sourceBaseSha,
@@ -222,6 +241,26 @@ describe("terminal contract-reproof resume", () => {
     expect(() =>
       buildTerminalContractReproofResume({ ...fixture(), ...override }),
     ).toThrow();
+  });
+
+  it.each([
+    "authority_repair_archive",
+    "control_common_dir",
+    "control_root",
+    "evidence_dir",
+    "host_test_max_load_1m",
+    "resume_expected_commit",
+  ])("rejects compiled %s drift", (key) => {
+    const current = fixture();
+    expect(() =>
+      buildTerminalContractReproofResume({
+        ...current,
+        inspectedRun: {
+          ...current.inspectedRun,
+          inputs: { ...current.inspectedRun.inputs, [key]: "drift" },
+        },
+      }),
+    ).toThrow("compiled request launch identity drift");
   });
 
   it("records a deterministic created run before start and promotion", () => {

@@ -14,6 +14,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   containedTerminalReproofFile,
   observeTerminalReproofWorktree,
+  readContainedTerminalReproofJson,
 } from "../src/terminal-contract-reproof-safety.js";
 
 const roots: string[] = [];
@@ -38,6 +39,16 @@ describe("terminal contract-reproof filesystem safety", () => {
     );
     expect(() =>
       containedTerminalReproofFile(root, external, "request"),
+    ).toThrow("escapes its authority root");
+    expect(readContainedTerminalReproofJson(root, valid, "request")).toEqual(
+      {},
+    );
+    expect(() =>
+      readContainedTerminalReproofJson(
+        root,
+        resolve(root, "linked.json"),
+        "request",
+      ),
     ).toThrow("escapes its authority root");
     expect(() =>
       containedTerminalReproofFile(

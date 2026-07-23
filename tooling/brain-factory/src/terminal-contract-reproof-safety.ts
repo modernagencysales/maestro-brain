@@ -1,4 +1,4 @@
-import { existsSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 
 export const containedTerminalReproofFile = (
@@ -14,6 +14,15 @@ export const containedTerminalReproofFile = (
     throw new Error(`${label} escapes its authority root`);
   return realPath;
 };
+
+export const readContainedTerminalReproofJson = (
+  root: string,
+  path: string,
+  label: string,
+): unknown =>
+  JSON.parse(
+    readFileSync(containedTerminalReproofFile(root, path, label), "utf8"),
+  ) as unknown;
 
 export interface TerminalReproofWorktreeObservation {
   readonly branch: string;

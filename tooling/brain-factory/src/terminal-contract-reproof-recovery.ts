@@ -36,7 +36,11 @@ export const reconcileTerminalContractReproofCreating = (input: {
   )
     throw new Error(`${input.taskId}: creating run identity drift`);
   if (inspection.status === "created") input.start(runId);
-  else if (!new Set(["running", "succeeded", "failed"]).has(inspection.status))
+  else if (
+    !new Set(["running", "succeeded", "failed", "canceled", "cancelled"]).has(
+      inspection.status,
+    )
+  )
     throw new Error(`${input.taskId}: creating run status is unsafe`);
   input.promote(runId);
   return runId;
