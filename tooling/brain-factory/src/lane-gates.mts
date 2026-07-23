@@ -40,6 +40,7 @@ import {
   laneHistoryShapeIssues,
 } from "./lane-ownership.js";
 import { lifecycleAdoptionRecordIssues } from "./lifecycle-adoption.js";
+import { currentControlGateCommand } from "./control-gate-command.js";
 
 interface ProofPacket {
   readonly baseSha: string;
@@ -78,7 +79,11 @@ if (reusePreReview && stage !== "final")
 
 const run = (command: GateCommand): void => {
   console.log(`+ rtk ${command.program} ${command.args.join(" ")}`);
-  const result = spawnSync("rtk", [command.program, ...command.args], {
+  const executable = currentControlGateCommand(
+    command,
+    resolve(import.meta.dirname, "../../.."),
+  );
+  const result = spawnSync("rtk", [executable.program, ...executable.args], {
     cwd: process.cwd(),
     encoding: "utf8",
     stdio: "inherit",
