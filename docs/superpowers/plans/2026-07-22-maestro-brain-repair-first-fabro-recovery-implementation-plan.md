@@ -963,14 +963,14 @@ Confect/Convex generation, pnpm, and `host-test-slot`.
   already-replayed exact clean candidate. The exact shell clause rejects dirty,
   staged, conflicted, or wrong-HEAD worktrees and contains no conflict or commit
   operation. The exact conditional prompt clause forbids source/test edits and
-  empty commits. The edge assertions retain the normal gates, concurrent
+  empty commits. The edge assertions retain the normal gates, serialized
   reviews, final gate, and receipt path.
 
   A replay conflict occurs in the launch helper before Fabro starts and exits to
   an exact owner-repair finding; the workflow never resolves it or writes a
-  green receipt. A successful workflow runs the normal focused gate, three
-  concurrent reviews, aggregate, final gate, proof writer, and lane-result
-  writer.
+  green receipt. A successful workflow runs the normal focused gate, all three
+  isolated reviews sequentially, aggregate, final gate, proof writer, and
+  lane-result writer.
 
   ```bash
   rtk host-test-slot --class focused pnpm --dir tooling/brain-factory test plan-only-lane-authority-launch workflow-prompt-contract
@@ -1112,11 +1112,14 @@ Confect/Convex generation, pnpm, and `host-test-slot`.
   can use its agency key without cross-tenant leakage. The reproof must change
   the affected implementation and owned test and pass all three reviews.
 
-- [ ] **Step 2: Canary concurrent review isolation**
+- [ ] **Step 2: Canary serialized review convergence**
 
-  Inspect the Fabro event stream and review refs. Require simultaneous lens
-  activation, separate review worktrees, exact shared candidate head, and one
-  deterministic aggregate.
+  Inspect the Fabro event stream and review refs. Require contract, safety, and
+  quality sessions to activate and finish sequentially, with separate review
+  worktrees, one exact shared candidate head, and one deterministic aggregate.
+  Test future concurrency only in a distinct non-production agent-node canary.
+  Restore `max_parallel=3` only when that canary proves all three sibling agent
+  sessions activate before any ends and all three finish successfully.
 
 - [ ] **Step 3: Start persistent control at 12 coding lanes**
 
