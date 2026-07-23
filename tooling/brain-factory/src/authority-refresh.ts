@@ -45,7 +45,8 @@ export interface AuthorityRefreshTask {
   readonly taskId: string;
 }
 
-interface AuthorityRefreshCoordinatesInput {
+export interface AuthorityRefreshCoordinatesInput {
+  readonly allowExisting?: boolean;
   readonly controlHeadSha: string;
   readonly planSha256: string;
   readonly root: string;
@@ -85,6 +86,71 @@ export interface AuthorityRefreshAdmission {
     "authority-refresh" | "authority-repair" | "ownership-rehome";
   readonly supersededPaths: AuthorityRepairTransition["supersededPaths"];
 }
+
+export interface OwnershipRehomePrerequisiteRejection {
+  readonly transitionKind: "ownership-rehome";
+  readonly taskId: string;
+  readonly sourceRunId: string;
+  readonly workdir: string;
+  readonly sourceHeadSha: string;
+  readonly sourceTreeSha: string;
+  readonly missingPrerequisiteTaskIds: readonly string[];
+  readonly message: string;
+}
+
+export class OwnershipRehomePrerequisiteRejectionError extends Error {
+  readonly rejection: OwnershipRehomePrerequisiteRejection;
+
+  constructor(rejection: OwnershipRehomePrerequisiteRejection) {
+    super(rejection.message);
+    this.name = "OwnershipRehomePrerequisiteRejectionError";
+    this.rejection = rejection;
+  }
+}
+
+export const assertOwnershipRehomePrerequisites = (input: {
+  readonly integratedTaskIds: readonly string[];
+  readonly sourceRunId: string;
+  readonly taskId: string;
+  readonly transition: OwnershipRehomeTransition;
+  readonly workdir: string;
+}): void => {
+  const integrated = new Set(input.integratedTaskIds);
+  const missingPrerequisiteTaskIds =
+    input.transition.requiredIntegratedTaskIds.filter(
+      (prerequisite) => !integrated.has(prerequisite),
+    );
+  if (missingPrerequisiteTaskIds.length === 0) return;
+  const taskId = input.taskId;
+  throw new OwnershipRehomePrerequisiteRejectionError({
+    transitionKind: "ownership-rehome",
+    taskId,
+    sourceRunId: input.sourceRunId,
+    workdir: input.workdir,
+    sourceHeadSha: input.transition.sourceHeadSha,
+    sourceTreeSha: input.transition.sourceTreeSha,
+    missingPrerequisiteTaskIds,
+    message: `${taskId}: ownership-rehome prerequisite is not integrated: ${missingPrerequisiteTaskIds.join(", ")}`,
+  });
+};
+
+export const captureOwnershipRehomePrerequisiteRejection = (input: {
+  readonly integratedTaskIds: readonly string[];
+  readonly sourceRunId: string;
+  readonly taskId: string;
+  readonly transition: OwnershipRehomeTransition;
+  readonly workdir: string;
+}): OwnershipRehomePrerequisiteRejection | undefined => {
+  try {
+    assertOwnershipRehomePrerequisites(input);
+    return undefined;
+  } catch (error) {
+    if (error instanceof OwnershipRehomePrerequisiteRejectionError) {
+      return error.rejection;
+    }
+    throw error;
+  }
+};
 
 const sha256 = (value: string): string =>
   createHash("sha256").update(value).digest("hex");
@@ -149,12 +215,12 @@ export const authorityRefreshCoordinates = (
     ".maestro-brain-fabro-workdirs",
     `resume-${slug}-authority-${authorityId}`,
   );
-  if (existsSync(workdir)) {
+  if (!input.allowExisting && existsSync(workdir)) {
     throw new Error(
       `${input.taskId}: authority refresh worktree already exists at ${workdir}`,
     );
   }
-  if (input.branchExists?.(branch)) {
+  if (!input.allowExisting && input.branchExists?.(branch)) {
     throw new Error(
       `${input.taskId}: authority refresh branch ${branch} already exists`,
     );
@@ -330,14 +396,13 @@ export const admitAuthorityRefresh = (input: {
       proof,
       taskId,
     });
-    const integrated = new Set(input.integratedTaskIds ?? []);
-    const missing = rehomeTransition.requiredIntegratedTaskIds.filter(
-      (prerequisite) => !integrated.has(prerequisite),
-    );
-    if (missing.length > 0)
-      throw new Error(
-        `${taskId}: ownership-rehome prerequisite is not integrated: ${missing.join(", ")}`,
-      );
+    assertOwnershipRehomePrerequisites({
+      integratedTaskIds: input.integratedTaskIds ?? [],
+      sourceRunId: rehomeTransition.sourceRunId,
+      taskId,
+      transition: rehomeTransition,
+      workdir: sourceWorkdir,
+    });
   } else {
     validateFinalLaneResult(lane as JsonRecord, {
       currentHeadSha: sourceHeadSha,

@@ -487,9 +487,22 @@ describe("authority refresh admission", () => {
         },
       }),
     ).toThrow("immutable finding ref is missing");
-    expect(() =>
-      ownershipRehomeAdmission(fixture(), { integratedTaskIds: ["S02-T02"] }),
-    ).toThrow("ownership-rehome prerequisite is not integrated: S02-T04");
+    try {
+      ownershipRehomeAdmission(fixture(), { integratedTaskIds: ["S02-T02"] });
+      throw new Error("expected ownership-rehome prerequisite rejection");
+    } catch (error) {
+      expect(error).toMatchObject({
+        name: "OwnershipRehomePrerequisiteRejectionError",
+        rejection: {
+          message:
+            "S03-T03: ownership-rehome prerequisite is not integrated: S02-T04",
+          missingPrerequisiteTaskIds: ["S02-T04"],
+          sourceRunId: "01KY02VYKQ71T4SDE6ZPPBS205",
+          taskId: "S03-T03",
+          transitionKind: "ownership-rehome",
+        },
+      });
+    }
   }, 45_000);
 
   it("admits contract-only repair only while historical paths remain current-owned", () => {

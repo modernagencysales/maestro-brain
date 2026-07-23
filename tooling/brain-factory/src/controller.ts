@@ -441,6 +441,21 @@ export const planControllerTick = (
       waveAction("recover_wave", failedWave, snapshot, policy),
     );
   }
+  const readyOwnershipRehome = snapshot.tasks.find(
+    ({ authorityTransition, stage }) =>
+      authorityTransition === "ownership-rehome" &&
+      stage === "authority_transition_ready",
+  );
+  if (readyOwnershipRehome) {
+    return withFrontier(
+      taskAction(
+        "resume_ownership_rehome",
+        readyOwnershipRehome,
+        snapshot,
+        policy,
+      ),
+    );
+  }
   const falseGreen = snapshot.tasks.filter(
     ({ stage }) => stage === "false_green",
   );

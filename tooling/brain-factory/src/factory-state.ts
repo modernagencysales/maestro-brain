@@ -92,6 +92,7 @@ export type ControllerTaskStatus =
   | "failed"
   | "terminal"
   | "authority_transition_held"
+  | "authority_transition_ready"
   | "lane_green"
   | "integrated"
   | "accepted"
@@ -104,11 +105,10 @@ export type ControllerTaskStage =
   | "recoverable"
   | "terminal"
   | "authority_transition_held"
+  | "authority_transition_ready"
   | "lane_green"
   | "false_green"
-  | "authority_transition_ready"
   | "authority_transition_waiting_prerequisites"
-  | "authority_transition_held"
   | "integrated"
   | "accepted"
   | "unknown";
@@ -130,7 +130,6 @@ export interface ControllerTaskObservation {
   readonly globallyBlocking?: false;
   readonly missingPrerequisiteTaskIds?: readonly string[];
   readonly ownershipId?: string;
-  readonly missingPrerequisiteTaskIds?: readonly string[];
   readonly runId?: string;
   readonly status: ControllerTaskStatus;
   readonly taskId: string;
@@ -256,19 +255,25 @@ export const classifyControllerTask = (
   requireIdentity(input.taskId, "taskId");
   validateOptionalTaskCoordinates(input);
 
-  if (input.status === "authority_transition_held") {
+  if (
+    input.status === "authority_transition_held" ||
+    input.status === "authority_transition_ready"
+  ) {
+    const missing = input.missingPrerequisiteTaskIds;
     if (
+      input.authorityTransition !== "ownership-rehome" ||
       input.globallyBlocking !== false ||
       input.headSha === undefined ||
       input.runId === undefined ||
-      !Array.isArray(input.missingPrerequisiteTaskIds) ||
-      input.missingPrerequisiteTaskIds.length === 0 ||
-      new Set(input.missingPrerequisiteTaskIds).size !==
-        input.missingPrerequisiteTaskIds.length
+      !Array.isArray(missing) ||
+      (input.status === "authority_transition_held"
+        ? missing.length === 0
+        : missing.length !== 0) ||
+      new Set(missing).size !== missing.length
     ) {
-      throw new Error(`${input.taskId}: invalid authority transition hold`);
+      throw new Error(`${input.taskId}: invalid authority transition`);
     }
-    for (const taskId of input.missingPrerequisiteTaskIds)
+    for (const taskId of missing)
       requireIdentity(taskId, `${input.taskId}.missingPrerequisiteTaskId`);
   }
 
@@ -297,6 +302,7 @@ export const classifyControllerTask = (
     case "running":
     case "terminal":
     case "authority_transition_held":
+    case "authority_transition_ready":
     case "integrated":
     case "accepted":
     case "unknown":

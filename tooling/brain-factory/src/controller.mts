@@ -584,6 +584,28 @@ export const reconcileControllerAction = (input: {
     return { kind: exact ? "succeeded" : "unresolved" };
   }
   const observed = input.observe();
+  if (action.kind === "resume_ownership_rehome") {
+    const task = observed.tasks.find(
+      ({ taskId }) => taskId === action.targetIds[0],
+    );
+    if (!task || task.stage === "unknown") return { kind: "unresolved" };
+    if (task.stage === "authority_transition_ready") {
+      return { kind: "not-started" };
+    }
+    return {
+      kind: new Set([
+        "preparing",
+        "running",
+        "recoverable",
+        "terminal",
+        "lane_green",
+        "integrated",
+        "accepted",
+      ]).has(task.stage)
+        ? "succeeded"
+        : "unresolved",
+    };
+  }
   if (action.kind === "recover_lane") {
     const task = observed.tasks.find(
       ({ taskId }) => taskId === action.targetIds[0],

@@ -208,6 +208,75 @@ describe("controller pure planner", () => {
     expect(dispatch?.targetIds).not.toContain("S13-T01");
   });
 
+  it("plans the exact ownership-rehome resume command when authority is ready", () => {
+    const action = planControllerTick(
+      snapshot({
+        tasks: [
+          task("S13-T03", "authority_transition_ready", {
+            authorityTransition: "ownership-rehome",
+            globallyBlocking: false,
+            headSha: "1".repeat(40),
+            missingPrerequisiteTaskIds: [],
+            runId: "01KY0KKPKS1JMRX8M50XX5Y7YP",
+          }),
+        ],
+      }),
+      policy,
+    )[0];
+    expect(action).toMatchObject({
+      kind: "resume_ownership_rehome",
+      targetIds: ["S13-T03"],
+    });
+    if (!action) throw new Error("ownership-rehome action missing");
+    expect(commandForControllerAction(action, "/tmp/state")).toEqual([
+      "pnpm",
+      "brain:factory:resume",
+      "--",
+      "--task",
+      "S13-T03",
+      "--ownership-rehome",
+      "--state",
+      "/tmp/state",
+    ]);
+  });
+
+  it("retains a held S13 task as a scheduler file-lock owner", () => {
+    const actions = planControllerTick(
+      snapshot({
+        tasks: [
+          task("S13-T03", "authority_transition_held", {
+            authorityTransition: "ownership-rehome",
+            globallyBlocking: false,
+            headSha: "1".repeat(40),
+            missingPrerequisiteTaskIds: ["S06-T02"],
+            runId: "01KY0KKPKS1JMRX8M50XX5Y7YP",
+          }),
+          task("S01-T02", "accepted"),
+          task("S01-T04", "pending"),
+        ],
+      }),
+      policy,
+    );
+    expect(
+      taskCapacityDiagnostics(
+        snapshot({
+          tasks: [
+            task("S13-T03", "authority_transition_held", {
+              authorityTransition: "ownership-rehome",
+              globallyBlocking: false,
+              headSha: "1".repeat(40),
+              missingPrerequisiteTaskIds: ["S06-T02"],
+              runId: "01KY0KKPKS1JMRX8M50XX5Y7YP",
+            }),
+          ],
+        }),
+      ),
+    ).toMatchObject({ codingActive: [], owned: ["S13-T03"] });
+    expect(
+      actions.find(({ kind }) => kind === "dispatch_tasks")?.targetIds ?? [],
+    ).not.toContain("S01-T04");
+  });
+
   it("produces byte-identical plans and IDs for normalized input", () => {
     const left = snapshot({
       errors: [

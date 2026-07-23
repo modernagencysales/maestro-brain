@@ -108,6 +108,7 @@ describe("brain factory control state", () => {
   it("classifies a proven authority transition hold as task-scoped", () => {
     expect(
       classifyControllerTask({
+        authorityTransition: "ownership-rehome",
         globallyBlocking: false,
         headSha: SHA_40_B,
         missingPrerequisiteTaskIds: ["S06-T02", "S08-T01"],
@@ -116,12 +117,33 @@ describe("brain factory control state", () => {
         taskId: "S13-T03",
       }),
     ).toEqual({
+      authorityTransition: "ownership-rehome",
       globallyBlocking: false,
       headSha: SHA_40_B,
       missingPrerequisiteTaskIds: ["S06-T02", "S08-T01"],
       runId: "01KY0KKPKS1JMRX8M50XX5Y7YP",
       stage: "authority_transition_held",
       status: "authority_transition_held",
+      taskId: "S13-T03",
+    });
+  });
+
+  it("preserves a ready ownership-rehome transition for planning", () => {
+    expect(
+      classifyControllerTask({
+        authorityTransition: "ownership-rehome",
+        globallyBlocking: false,
+        headSha: SHA_40_B,
+        missingPrerequisiteTaskIds: [],
+        runId: "01KY0KKPKS1JMRX8M50XX5Y7YP",
+        status: "authority_transition_ready" as never,
+        taskId: "S13-T03",
+      }),
+    ).toMatchObject({
+      authorityTransition: "ownership-rehome",
+      globallyBlocking: false,
+      stage: "authority_transition_ready",
+      status: "authority_transition_ready",
       taskId: "S13-T03",
     });
   });

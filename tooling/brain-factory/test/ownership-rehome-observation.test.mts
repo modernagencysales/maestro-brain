@@ -6,6 +6,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { authorityRefreshCoordinates } from "../src/authority-refresh.js";
 import type { OwnershipRehomeObservationInput } from "../src/ownership-rehome-observation.js";
 import { loadOwnershipRehomeObservation } from "../src/ownership-rehome-observation.js";
 import { observeControllerSnapshot } from "../src/controller-observation.js";
@@ -155,6 +156,7 @@ const fixture = (
     gateContent: gate,
     laneResultContent: laneResult,
     lensContents: lenses,
+    expectedBranch: branch,
     expectedCommonDir: commonDir,
     expectedWorkdir: workdir,
     integratedTaskIds: ["S06-T02"],
@@ -222,7 +224,6 @@ describe("ownership-rehome observation", () => {
   it("reaches a task-scoped hold through the production controller observer", () => {
     const sandbox = mkdtempSync(join(tmpdir(), "ownership-controller-"));
     const controlRoot = join(sandbox, "control");
-    const workdir = join(sandbox, "resume-s13-t03-authority-test");
     const stateRoot = join(sandbox, "state");
     const git = (cwd: string, ...args: string[]): string =>
       execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
@@ -239,7 +240,15 @@ describe("ownership-rehome observation", () => {
     git(controlRoot, "commit", "-am", "candidate");
     const sourceHeadSha = git(controlRoot, "rev-parse", "HEAD");
     const sourceTreeSha = git(controlRoot, "rev-parse", "HEAD^{tree}");
-    const branch = "fabro/review-s13-t03-authority-test";
+    const seed = fixture({ sourceBaseSha, sourceHeadSha, sourceTreeSha });
+    const coordinates = authorityRefreshCoordinates({
+      controlHeadSha: sourceBaseSha,
+      planSha256: seed.transition.fromPlanSha256,
+      root: controlRoot,
+      taskBlockHash: seed.transition.fromTaskBlockHash,
+      taskId: "S13-T03",
+    });
+    const { branch, workdir } = coordinates;
     git(controlRoot, "worktree", "add", "-b", branch, workdir, "HEAD");
     const resolvedWorkdir = realpathSync(workdir);
     const commonDir = realpathSync(
@@ -342,6 +351,62 @@ describe("ownership-rehome observation", () => {
       status: "authority_transition_held",
       taskId: "S13-T03",
     });
+
+    const readyManifest = {
+      ...manifest,
+      tasks: manifest.tasks.map((task) =>
+        task.taskId === "S13-T03"
+          ? {
+              ...task,
+              ownershipRehomeTransition: {
+                ...transition,
+                requiredIntegratedTaskIds: [],
+              },
+            }
+          : task,
+      ),
+    };
+    expect(
+      observeControllerSnapshot({
+        controlRoot,
+        inspect: () => "succeeded",
+        manifest: readyManifest,
+        stateRoot,
+      }).tasks.find((candidate) => candidate.taskId === "S13-T03"),
+    ).toMatchObject({
+      authorityTransition: "ownership-rehome",
+      stage: "authority_transition_ready",
+      status: "authority_transition_ready",
+      taskId: "S13-T03",
+    });
+
+    const rogueWorkdir = join(sandbox, "rogue-source");
+    const rogueBranch = "fabro/review-s13-t03-authority-rogue";
+    git(
+      controlRoot,
+      "worktree",
+      "add",
+      "-b",
+      rogueBranch,
+      rogueWorkdir,
+      sourceHeadSha,
+    );
+    writeFileSync(
+      join(runDirectory, `S13-T03.json.terminal-${transition.sourceRunId}`),
+      JSON.stringify({
+        ...JSON.parse(value.input.runRecordContent),
+        branch: rogueBranch,
+        workdir: realpathSync(rogueWorkdir),
+      }),
+    );
+    expect(
+      observeControllerSnapshot({
+        controlRoot,
+        inspect: () => "succeeded",
+        manifest,
+        stateRoot,
+      }).tasks.find((candidate) => candidate.taskId === "S13-T03"),
+    ).toMatchObject({ status: "unknown", taskId: "S13-T03" });
   });
 
   it("holds only the task authority transition when prerequisites are unmet", () => {
@@ -475,6 +540,21 @@ describe("ownership-rehome observation", () => {
       loadOwnershipRehomeObservation({
         ...input,
         readWorktree: () => ({ ...exact, ...drift }),
+      }),
+    ).toThrow("source worktree identity mismatch");
+  });
+
+  it("rejects a mutually consistent archived branch substitution", () => {
+    const { input } = fixture();
+    const run = JSON.parse(input.runRecordContent) as Record<string, unknown>;
+    run.branch = "fabro/review-s13-t03-authority-substituted";
+    const exact = input.readWorktree(input.expectedWorkdir);
+
+    expect(() =>
+      loadOwnershipRehomeObservation({
+        ...input,
+        runRecordContent: JSON.stringify(run),
+        readWorktree: () => ({ ...exact, branch: String(run.branch) }),
       }),
     ).toThrow("source worktree identity mismatch");
   });

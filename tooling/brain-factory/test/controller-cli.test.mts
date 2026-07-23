@@ -130,6 +130,58 @@ const exactWaveFixture = (root: string) => {
 };
 
 describe("controller CLI contract", () => {
+  it("reconciles an ownership-rehome resume from ready to running", () => {
+    const ready = normalizeControllerSnapshot({
+      ...snapshot,
+      tasks: [
+        {
+          authorityTransition: "ownership-rehome",
+          globallyBlocking: false,
+          headSha: "1".repeat(40),
+          missingPrerequisiteTaskIds: [],
+          runId: "source-run",
+          status: "authority_transition_ready" as never,
+          taskId: "S13-T03",
+        },
+      ],
+    });
+    const action = planControllerTick(
+      ready,
+      {
+        maximumBatchSize: 4,
+        minimumBatchSize: 1,
+        totalActiveCapacity: 10,
+      },
+      manifest,
+    )[0];
+    if (!action) throw new Error("ownership-rehome action missing");
+
+    expect(
+      reconcileControllerAction({
+        action,
+        observe: () => ready,
+        stateRoot,
+      }),
+    ).toEqual({ kind: "not-started" });
+    expect(
+      reconcileControllerAction({
+        action,
+        observe: () =>
+          normalizeControllerSnapshot({
+            ...snapshot,
+            tasks: [
+              {
+                runId: "replacement-run",
+                status: "running",
+                taskId: "S13-T03",
+              },
+            ],
+          }),
+        stateRoot,
+      }),
+    ).toEqual({ kind: "succeeded" });
+  });
+
   it("reconciles owner routing without treating task rework as promotion", () => {
     rmSync(stateRoot, { force: true, recursive: true });
     const ownerWave = {

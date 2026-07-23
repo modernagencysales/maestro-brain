@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 
+import type { OwnershipRehomePrerequisiteRejection } from "./authority-refresh.js";
 import type { OwnershipRehomeTransition } from "./manifest.js";
 import {
   aggregateReviewLenses,
@@ -22,10 +23,11 @@ export interface OwnershipRehomeObservationInput {
   readonly lensContents: Readonly<
     Record<"contract" | "quality" | "safety", string>
   >;
+  readonly expectedBranch: string;
   readonly expectedCommonDir: string;
   readonly expectedWorkdir: string;
   readonly integratedTaskIds: readonly string[];
-  readonly currentRejection?: OwnershipRehomeCurrentRejection | undefined;
+  readonly currentRejection?: OwnershipRehomePrerequisiteRejection | undefined;
   readonly inspectRun: (runId: string) => {
     readonly status: string;
     readonly reason: string;
@@ -44,17 +46,6 @@ export interface OwnershipRehomeObservationInput {
     readonly registered: boolean;
     readonly treeSha: string;
   };
-}
-
-export interface OwnershipRehomeCurrentRejection {
-  readonly transitionKind: "ownership-rehome";
-  readonly taskId: string;
-  readonly sourceRunId: string;
-  readonly workdir: string;
-  readonly sourceHeadSha: string;
-  readonly sourceTreeSha: string;
-  readonly missingPrerequisiteTaskIds: readonly string[];
-  readonly message: string;
 }
 
 export interface OwnershipRehomeObservation {
@@ -118,7 +109,7 @@ const sameStrings = (
   actual.length === expected.length &&
   actual.every((value, index) => value === expected[index]);
 
-const rejectionKeys: readonly (keyof OwnershipRehomeCurrentRejection)[] = [
+const rejectionKeys: readonly (keyof OwnershipRehomePrerequisiteRejection)[] = [
   "transitionKind",
   "taskId",
   "sourceRunId",
@@ -245,9 +236,9 @@ export const loadOwnershipRehomeObservation = (
   requireEqual(inspection.reason, "completed", "source run terminal reason");
   const worktree = input.readWorktree(run.workdir);
   const worktreeIssues = [
-    ...(typeof run.branch === "string" ? [] : ["run branch"]),
+    ...(run.branch === input.expectedBranch ? [] : ["run branch"]),
     ...(worktree.path === input.expectedWorkdir ? [] : ["path"]),
-    ...(worktree.branch === run.branch ? [] : ["branch"]),
+    ...(worktree.branch === input.expectedBranch ? [] : ["branch"]),
     ...(worktree.commonDir === input.expectedCommonDir ? [] : ["common dir"]),
     ...(worktree.clean ? [] : ["dirty"]),
     ...(worktree.registered ? [] : ["unregistered"]),

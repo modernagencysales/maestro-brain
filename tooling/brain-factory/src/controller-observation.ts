@@ -11,6 +11,10 @@ import {
   type ControllerTaskObservation,
   type ControllerWaveObservation,
 } from "./factory-state.js";
+import {
+  authorityRefreshCoordinates,
+  captureOwnershipRehomePrerequisiteRejection,
+} from "./authority-refresh.js";
 import { resolveIntegratedPrerequisiteTaskIds } from "./authority-repair-prerequisites.js";
 import { validateResolvedIntegrationFindingAdoption } from "./integration-finding-adoption.js";
 import { readIntegrationWaveSelection } from "./integration-wave.js";
@@ -108,7 +112,20 @@ const observeOwnershipRehomeTask = (input: {
     runsRoot: input.runsRoot,
     taskId: input.task.taskId,
   });
-  const workdir = String(source.record.workdir ?? "");
+  const sourceBaseSha = stringValue(source.record.baseSha);
+  if (!exactSha(sourceBaseSha, 40)) {
+    throw new Error(`${input.task.taskId}: invalid source base SHA`);
+  }
+  const coordinates = authorityRefreshCoordinates({
+    allowExisting: true,
+    controlHeadSha: sourceBaseSha,
+    planSha256: transition.fromPlanSha256,
+    root: input.controlRoot,
+    taskBlockHash: transition.fromTaskBlockHash,
+    taskId: input.task.taskId,
+  });
+  const workdir = coordinates.workdir;
+  const expectedWorkdir = realpathSync(workdir);
   const directory = join(input.evidenceRoot, "lane-results", input.task.taskId);
   const lensDirectory = join(
     directory,
@@ -128,17 +145,20 @@ const observeOwnershipRehomeTask = (input: {
     isAncestor: input.isAncestor,
     requiredTasks,
   });
-  const integrated = new Set(integratedTaskIds);
-  const missingPrerequisiteTaskIds =
-    transition.requiredIntegratedTaskIds.filter(
-      (taskId) => !integrated.has(taskId),
-    );
+  const currentRejection = captureOwnershipRehomePrerequisiteRejection({
+    integratedTaskIds,
+    sourceRunId: transition.sourceRunId,
+    taskId: input.task.taskId,
+    transition,
+    workdir: expectedWorkdir,
+  });
   const inspection = input.inspect(transition.sourceRunId);
   const commonDir = realpathSync(gitCommonDir(input.controlRoot));
   const observation = loadOwnershipRehomeObservation({
     task: input.task,
+    expectedBranch: coordinates.branch,
     expectedCommonDir: commonDir,
-    expectedWorkdir: realpathSync(workdir),
+    expectedWorkdir,
     runRecordContent: source.content,
     proofContent: readFileSync(join(directory, "ci-proof-packet.json"), "utf8"),
     gateContent: readFileSync(join(directory, "lane-gate-report.json"), "utf8"),
@@ -152,20 +172,7 @@ const observeOwnershipRehomeTask = (input: {
       safety: readFileSync(join(lensDirectory, "safety.json"), "utf8"),
     },
     integratedTaskIds,
-    ...(missingPrerequisiteTaskIds.length === 0
-      ? {}
-      : {
-          currentRejection: {
-            transitionKind: "ownership-rehome" as const,
-            taskId: input.task.taskId,
-            sourceRunId: transition.sourceRunId,
-            workdir: realpathSync(workdir),
-            sourceHeadSha: transition.sourceHeadSha,
-            sourceTreeSha: transition.sourceTreeSha,
-            missingPrerequisiteTaskIds,
-            message: `${input.task.taskId}: ownership-rehome prerequisite is not integrated: ${missingPrerequisiteTaskIds.join(", ")}`,
-          },
-        }),
+    ...(currentRejection === undefined ? {} : { currentRejection }),
     inspectRun: () => ({
       status: inspection ?? "",
       reason: inspection === "succeeded" ? "completed" : "",
@@ -222,16 +229,15 @@ const observeOwnershipRehomeTask = (input: {
       };
     },
   });
-  return observation.status === "authority_transition_held"
-    ? {
-        globallyBlocking: false,
-        headSha: observation.sourceHeadSha,
-        missingPrerequisiteTaskIds: observation.missingPrerequisiteTaskIds,
-        runId: observation.sourceRunId,
-        status: "authority_transition_held",
-        taskId: observation.taskId,
-      }
-    : undefined;
+  return {
+    authorityTransition: "ownership-rehome",
+    globallyBlocking: false,
+    headSha: observation.sourceHeadSha,
+    missingPrerequisiteTaskIds: observation.missingPrerequisiteTaskIds,
+    runId: observation.sourceRunId,
+    status: observation.status,
+    taskId: observation.taskId,
+  };
 };
 
 const gateQueueObservation = (lockDirectory: string) => {
