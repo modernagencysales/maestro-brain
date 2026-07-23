@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { buildTaskLaunchEnv } from "./build-task-launch-env.js";
@@ -10,13 +10,20 @@ import {
   replaceTerminalTaskRecord,
 } from "./dispatch-ownership.js";
 import { buildManifest } from "./manifest.js";
+import { materializeLaneGreenAuthorityWorkflow } from "./lane-green-authority-workflow.js";
 import { gitCommonDir, gitIsAncestor, runRtk } from "./process.js";
 import { validateResumeSource } from "./resume-support.js";
+import { planIntegrationOwnerReworkRoute } from "./route-integration-rework.js";
+import { reconcileTerminalContractReproofCreating } from "./terminal-contract-reproof-recovery.js";
 import {
   buildTerminalContractReproofResume,
   runTerminalContractReproofResume,
   type TerminalContractReproofRecord,
 } from "./terminal-contract-reproof-resume.js";
+import {
+  containedTerminalReproofFile,
+  observeTerminalReproofWorktree,
+} from "./terminal-contract-reproof-safety.js";
 
 const record = (
   value: unknown,
@@ -26,6 +33,43 @@ const record = (
     throw new Error(`${label} is not an object`);
   return value as TerminalContractReproofRecord;
 };
+
+const canonicalJson = (value: unknown): string =>
+  JSON.stringify(value, (_key, candidate: unknown) =>
+    typeof candidate === "object" &&
+    candidate !== null &&
+    !Array.isArray(candidate)
+      ? Object.fromEntries(
+          Object.entries(candidate as Record<string, unknown>).sort(
+            ([a], [b]) => a.localeCompare(b),
+          ),
+        )
+      : candidate,
+  );
+
+const signedFindingsBindRoute = (
+  signed: readonly unknown[],
+  routed: readonly TerminalContractReproofRecord[],
+): boolean =>
+  routed.every((finding) => {
+    const match = signed.find(
+      (candidate) =>
+        typeof candidate === "object" &&
+        candidate !== null &&
+        !Array.isArray(candidate) &&
+        (candidate as TerminalContractReproofRecord).id === finding.id,
+    ) as TerminalContractReproofRecord | undefined;
+    if (!match) return false;
+    return Object.entries(finding).every(([key, value]) => {
+      if (key !== "priorEvidenceSha256")
+        return canonicalJson(match[key]) === canonicalJson(value);
+      return (
+        Array.isArray(value) &&
+        Array.isArray(match[key]) &&
+        value.every((digest) => match[key].includes(digest))
+      );
+    });
+  });
 
 const inspectRun = (
   runId: string,
@@ -88,6 +132,47 @@ export const launchTerminalContractReproofResume = (input: {
     JSON.parse(recordContent) as unknown,
     `${input.taskId}: terminal owner`,
   );
+  const controlCommonDir = realpathSync(gitCommonDir(input.root));
+  if (owner.status === "preparing") {
+    const expectedInputs = record(
+      owner.expectedRunInputs,
+      `${input.taskId}: creating run inputs`,
+    );
+    containedTerminalReproofFile(
+      input.evidence,
+      String(expectedInputs.reproof_request ?? ""),
+      `${input.taskId}: creating reproof request`,
+    );
+    observeTerminalReproofWorktree({
+      controlCommonDir,
+      expectedBranch: String(expectedInputs.resume_branch ?? ""),
+      expectedHead: String(expectedInputs.resume_proof_head ?? ""),
+      root: input.root,
+      runGit: (cwd, args) =>
+        runRtk(["proxy", "git", ...args], { cwd, quiet: true }),
+      workdir: String(expectedInputs.workdir ?? ""),
+    });
+    const recovered = reconcileTerminalContractReproofCreating({
+      inspect: inspectRun,
+      owner,
+      promote: (newRunId) =>
+        promoteTaskReservation(input.recordPath, {
+          ...owner,
+          phase: "launched",
+          runId: newRunId,
+          status: "launched",
+        }),
+      start: (newRunId) =>
+        runRtk(["fabro", "start", newRunId, "--json", "--no-upgrade-check"], {
+          quiet: true,
+        }),
+      taskId: input.taskId,
+    });
+    console.log(
+      `${input.taskId}: terminal contract-reproof reconciled as ${recovered}`,
+    );
+    return;
+  }
   const runId = String(owner.runId ?? "");
   const inspection = inspectRun(runId);
   const manifest = buildManifest(input.root);
@@ -96,8 +181,11 @@ export const launchTerminalContractReproofResume = (input: {
   );
   if (!task) throw new Error(`unknown task ${input.taskId}`);
   const controlHeadSha = runRtk(["git", "rev-parse", "HEAD"], { quiet: true });
-  const controlCommonDir = gitCommonDir(input.root);
-  const requestPath = String(inspection.inputs.reproof_request ?? "");
+  const requestPath = containedTerminalReproofFile(
+    input.evidence,
+    String(inspection.inputs.reproof_request ?? ""),
+    `${input.taskId}: reproof request`,
+  );
   const request = record(
     JSON.parse(readFileSync(requestPath, "utf8")) as unknown,
     `${input.taskId}: reproof request`,
@@ -142,8 +230,14 @@ export const launchTerminalContractReproofResume = (input: {
     taskBase: String(owner.taskBaseSha ?? ""),
     taskId: input.taskId,
   });
-  const git = (args: readonly string[]): string =>
-    runRtk(["proxy", "git", ...args], { cwd: workdir, quiet: true });
+  const observedWorktree = observeTerminalReproofWorktree({
+    controlCommonDir,
+    expectedBranch: String(owner.branch ?? ""),
+    root: input.root,
+    runGit: (cwd, args) =>
+      runRtk(["proxy", "git", ...args], { cwd, quiet: true }),
+    workdir,
+  });
   const proof = record(
     JSON.parse(
       readFileSync(
@@ -186,10 +280,81 @@ export const launchTerminalContractReproofResume = (input: {
     ) as unknown,
     `${input.taskId}: owner routing`,
   );
+  const integrationId = String(admitted.request.priorIntegrationId);
+  const integrationDirectory = resolve(
+    input.evidence,
+    "integration",
+    integrationId,
+  );
+  const integrationResultContent = readFileSync(
+    containedTerminalReproofFile(
+      integrationDirectory,
+      resolve(integrationDirectory, "integration-result.json"),
+      `${input.taskId}: integration result`,
+    ),
+    "utf8",
+  );
+  const selectionContent = readFileSync(
+    containedTerminalReproofFile(
+      input.state,
+      resolve(
+        input.state,
+        "runs",
+        `integration-${integrationId}-selection.json`,
+      ),
+      `${input.taskId}: integration selection`,
+    ),
+    "utf8",
+  );
+  const adoptionPath = resolve(integrationDirectory, "finding-adoption.json");
+  const adoptionContent = existsSync(adoptionPath)
+    ? readFileSync(
+        containedTerminalReproofFile(
+          integrationDirectory,
+          adoptionPath,
+          `${input.taskId}: finding adoption`,
+        ),
+        "utf8",
+      )
+    : undefined;
+  const adoption = adoptionContent
+    ? record(
+        JSON.parse(adoptionContent) as unknown,
+        `${input.taskId}: adoption`,
+      )
+    : undefined;
+  const route = planIntegrationOwnerReworkRoute({
+    ...(adoptionContent ? { adoptionContent } : {}),
+    ...(typeof adoption?.candidateHeadSha === "string"
+      ? { expectedHeadSha: adoption.candidateHeadSha }
+      : {}),
+    expectedIntegrationId: integrationId,
+    expectedResultSha256: String(routing.resultSha256 ?? ""),
+    expectedSelectionFileSha256: String(routing.selectionFileSha256 ?? ""),
+    expectedSelectionPayloadSha256: String(
+      routing.selectionPayloadSha256 ?? "",
+    ),
+    integrationOwnedPaths: [],
+    integrationResultContent,
+    selectionContent,
+    stateRoot: input.state,
+  });
+  const ownerRoute = route.ownerRoutes.find(
+    (candidate) => candidate.taskId === input.taskId,
+  );
+  if (
+    !ownerRoute ||
+    !signedFindingsBindRoute(
+      admitted.request.findings ?? [],
+      ownerRoute.findings as readonly TerminalContractReproofRecord[],
+    )
+  )
+    throw new Error(`${input.taskId}: signed owner findings content drift`);
   const plan = buildTerminalContractReproofResume({
     admittedRequest:
       admitted.request as unknown as TerminalContractReproofRecord,
     authorityDeltaPaths,
+    canonicalOwnerFindingsSha256: ownerRoute.findingSha256,
     controlCommonDir,
     controlHeadSha,
     currentPlanSha256: manifest.planSha256,
@@ -204,14 +369,7 @@ export const launchTerminalContractReproofResume = (input: {
     sourceCommits: source.taskCommits,
     terminalStatus: inspection.status,
     worktree: {
-      branch: git(["branch", "--show-current"]),
-      clean: git(["status", "--porcelain=v1"]) === "",
-      commonDir: git([
-        "rev-parse",
-        "--path-format=absolute",
-        "--git-common-dir",
-      ]),
-      headSha: git(["rev-parse", "HEAD"]),
+      ...observedWorktree,
       requestControlHeadIsAncestor: gitIsAncestor(
         admitted.request.controlHeadSha,
         "HEAD",
@@ -242,38 +400,75 @@ export const launchTerminalContractReproofResume = (input: {
     taskId: input.taskId,
     workdir,
   });
-  const config = materializeBuildTaskRunConfig({
-    env: launchEnv,
-    graph: resolve(
+  const workflowName = [
+    "BrainTerminalReproof",
+    input.taskId.replaceAll("-", ""),
+    plan.preparingRecord.requestSha256,
+    plan.launchInputs.resume_proof_head,
+  ]
+    .map(String)
+    .map((value) => value.slice(0, 12))
+    .join("_");
+  const expectedRunInputs = {
+    ...Object.fromEntries(
+      Object.entries(plan.launchInputs).filter(
+        ([key]) =>
+          !new Set(["control_head_sha", "current_plan_sha256"]).has(key),
+      ),
+    ),
+    control_common_dir: controlCommonDir,
+    control_root: input.root,
+    evidence_dir: input.evidence,
+    task_id: input.taskId,
+    workdir,
+  };
+  const workflow = materializeLaneGreenAuthorityWorkflow({
+    path: resolve(
+      input.state,
+      "launch-configs",
+      `terminal-reproof-${input.taskId}.workflow.fabro`,
+    ),
+    sourcePath: resolve(
       input.root,
       ".fabro/workflows/brain-build-task/workflow.fabro",
     ),
+    workflowName,
+  });
+  const config = materializeBuildTaskRunConfig({
+    env: launchEnv,
+    graph: workflow,
     path: resolve(
       input.state,
       "launch-configs",
       `terminal-reproof-${input.taskId}.toml`,
     ),
   });
+  let createdStatus = "created";
   const nextRunId = runTerminalContractReproofResume({
-    replaceTerminalOwner: () =>
-      replaceTerminalTaskRecord({
-        auditPath,
-        expectedContent: recordContent,
-        now,
-        recordPath: input.recordPath,
-        replacement: plan.preparingRecord,
-        runId: plan.priorRunId,
-        status: plan.terminalStatus,
-        taskId: input.taskId,
-      }),
-    launch: () => {
+    discoverOrCreate: () => {
+      try {
+        const discovered = inspectRun(workflowName);
+        if (
+          Object.entries(expectedRunInputs).some(
+            ([key, value]) => discovered.inputs[key] !== value,
+          )
+        )
+          throw new Error(`${input.taskId}: discovered run input drift`);
+        createdStatus = discovered.status;
+        return discovered.runId;
+      } catch (error) {
+        if (
+          !(error instanceof Error) ||
+          !error.message.includes(`No run found matching '${workflowName}'`)
+        )
+          throw error;
+      }
       const output = JSON.parse(
         runRtk(
           [
             "fabro",
-            "run",
+            "create",
             config,
-            "--detach",
             "--json",
             "--no-upgrade-check",
             "--environment",
@@ -296,9 +491,36 @@ export const launchTerminalContractReproofResume = (input: {
       ) as { run_id?: string; runId?: string };
       return output.run_id ?? output.runId ?? "";
     },
+    recordCreated: (newRunId) =>
+      replaceTerminalTaskRecord({
+        auditPath,
+        expectedContent: recordContent,
+        now,
+        recordPath: input.recordPath,
+        replacement: {
+          ...plan.preparingRecord,
+          expectedRunInputs,
+          phase: "creating",
+          runId: newRunId,
+          workflowName,
+        },
+        runId: plan.priorRunId,
+        status: plan.terminalStatus,
+        taskId: input.taskId,
+      }),
+    start: (newRunId) => {
+      if (createdStatus === "created")
+        runRtk(["fabro", "start", newRunId, "--json", "--no-upgrade-check"], {
+          env: launchEnv,
+          quiet: true,
+        });
+      else if (!new Set(["running", "succeeded", "failed"]).has(createdStatus))
+        throw new Error(`${input.taskId}: discovered run status is unsafe`);
+    },
     promote: (newRunId) =>
       promoteTaskReservation(input.recordPath, {
         ...plan.preparingRecord,
+        phase: "launched",
         runId: newRunId,
         status: "launched",
       }),
