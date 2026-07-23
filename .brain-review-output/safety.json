@@ -1,0 +1,86 @@
+{
+  "lens": "safety",
+  "taskId": "S08-T03",
+  "planSha256": "1c6b818063c534afdae20d688fee71e830915c5ac356bf7eba7724099d7ed9a5",
+  "taskBlockHash": "52836a187d4a821697f0ff1d057155b9aefc998858fac5df08c06f5b82cf6612",
+  "baseSha": "2bdef668a17ac4e86a9113846b773f6243f281c0",
+  "headSha": "04e8205f1f62ae02bd3d62414dade59c0d239a62",
+  "treeSha": "297a163fb034498ce5353510fc048dbccc29bce7",
+  "reviewerRunId": "maestro/review/S08-T03/04e8205f1f62ae02bd3d62414dade59c0d239a62/e8f981c1-4075-4c85-a794-983c6d27bbcf-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/classification/request.ts:106 validates request workspace/organization and every allowed target against the authority snapshot before accepting model output.",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:94 rejects gathered source jobs whose workspaceId does not match the workflow input.",
+        "packages/convex/test/source-classification.test.ts:185 covers cross-tenant gathered units and review authorities."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:43 restricts workflow entrypoints to system callers on workflow/internal surfaces.",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:123-130 checks live workspace or organization admin membership before sending approval events.",
+        "packages/convex/confect/classification/review.ts:39-46 rejects non-admin/non-owner or cross-tenant review authorities."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:5-7 models the orthogonal execution status and classification route lifecycle stages including superseded, revoked, and terminal no-route states.",
+        "packages/convex/confect/classification/gather.ts:42-57 skips direct/capture-only policies with zero model calls and requires classify mode plus classify-awaiting stage for model work.",
+        "packages/convex/confect/classification/commit.ts:47-57 refuses commits when policy, source hash, lifecycle, route, or lease generation has gone stale."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/classificationDecisions.ts:8 persists rationaleHash and evidenceHash fields rather than raw model rationale/evidence payloads in the durable decision table.",
+        "apps/web/src/features/connections/classification-review-queue.tsx:50-53 displays only proposal summary and provided evidence quotes, with confidence marked diagnostic rather than exposing provider payloads.",
+        "packages/convex/confect/capabilities/classifySourceUnit.domain.ts:32 uses a fake/local rationale string and no raw provider payload logging."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/classification/commit.ts:47-57 fences route commits on policy, source hash, lifecycle, route, and lease generations before returning a route effect.",
+        "packages/convex/confect/classification/commit.ts:73-75 checks existing route effect keys and raises DuplicateEffect before returning a second routed result.",
+        "packages/convex/test/source-classification.test.ts:250-289 covers successful commit, DuplicateEffect, and stale-generation rejection."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/classification/commit.ts:59-63 derives a deterministic route effect key from decision key, source revision, and target brain.",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:175-190 starts workflow ownership with the provided idempotencyKey.",
+        "packages/convex/test/source-classification.test.ts:274-279 verifies duplicate route effect keys throw DuplicateEffect instead of producing another routed result."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:160-164 reloads current authority after review rather than trusting the pre-model snapshot.",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:38 passes gathered request, model output, review, and currentAuthority into the commit capability.",
+        "packages/convex/confect/classification/request.ts:127-147 validates source revision key, source unit hash, target allowlist, and evidence quotes against the immutable request."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/capabilities/classifySourceUnit.domain.ts:1-43 implements the classifier as a fake/local deterministic descriptor matcher with no provider SDK, tool, Slack, Nango, or database imports.",
+        "packages/convex/confect/capabilities/classifySourceUnit.impl.ts:1-7 imports only Confect, Effect, local classification helpers, schema, and errors for the capability seam.",
+        "packages/convex/test/source-classification.test.ts:78-99 covers zero model calls for Direct and Capture-only policies."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
