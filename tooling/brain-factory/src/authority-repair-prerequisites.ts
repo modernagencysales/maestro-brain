@@ -52,9 +52,11 @@ export const resolveIntegratedPrerequisiteTaskIds = (input: {
       const resultPath = resolve(resultDirectory, "integration-result.json");
       if (!existsSync(resultPath)) return false;
       let result: JsonRecord;
+      let resultContent: Buffer;
       try {
+        resultContent = readFileSync(resultPath);
         result = record(
-          JSON.parse(readFileSync(resultPath, "utf8")),
+          JSON.parse(resultContent.toString("utf8")),
           `${basename(resultDirectory)}: integration result`,
         );
       } catch {
@@ -92,7 +94,6 @@ export const resolveIntegratedPrerequisiteTaskIds = (input: {
             lane.evidenceAdoption,
             `${required.taskId}: evidence adoption`,
           );
-          const resultContent = readFileSync(resultPath);
           if (
             lane.status !== "integrated" ||
             lane.accepted !== false ||
@@ -112,7 +113,7 @@ export const resolveIntegratedPrerequisiteTaskIds = (input: {
           return false;
         }
       }
-      return authoritativeIntegrationResultBindsLane({
+      const authoritative = authoritativeIntegrationResultBindsLane({
         integrationHeadSha: result.headSha,
         integrationId: basename(resultDirectory),
         laneHeadSha: lane.headSha as string,
@@ -121,6 +122,11 @@ export const resolveIntegratedPrerequisiteTaskIds = (input: {
         taskId: required.taskId,
         taskTranche: required.tranche,
       });
+      return (
+        authoritative &&
+        !existsSync(resolve(resultDirectory, "supersession.json")) &&
+        readFileSync(resultPath).equals(resultContent)
+      );
     });
     if (binds) admitted.push(required.taskId);
   }
