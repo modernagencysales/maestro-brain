@@ -183,7 +183,7 @@ const nonEmptyString = (value: string, label: string): string => {
   return value.trim();
 };
 
-const canonicalFinding = (
+export const canonicalContractReproofFinding = (
   value: ContractReproofFinding,
   taskId: string,
 ): ContractReproofFinding => {
@@ -282,7 +282,7 @@ export const buildContractReproofFindingsRequest = (
     throw new Error("finding-bound reproof requires findings");
   }
   const findings = input.findings.map((finding) =>
-    canonicalFinding(finding, common.taskId),
+    canonicalContractReproofFinding(finding, common.taskId),
   );
   if (new Set(findings.map(({ id }) => id)).size !== findings.length) {
     throw new Error("duplicate finding ID");

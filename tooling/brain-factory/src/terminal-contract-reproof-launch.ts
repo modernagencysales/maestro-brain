@@ -6,6 +6,10 @@ import { buildTaskLaunchEnv } from "./build-task-launch-env.js";
 import { materializeBuildTaskRunConfig } from "./build-task-run-config.js";
 import { admitContractReproof } from "./contract-reproof-admission.js";
 import {
+  canonicalContractReproofFinding,
+  type ContractReproofFinding,
+} from "./contract-reproof.js";
+import {
   acquireDispatcherLock,
   promoteTaskReservation,
   replaceTerminalTaskRecord,
@@ -63,11 +67,14 @@ export const terminalContractReproofWorkflowName = (input: {
   return `BrainBuildTask${input.taskId.replaceAll("-", "")}Green${identity}`;
 };
 
-const signedFindingsBindRoute = (
+export const signedFindingsBindRoute = (
   signed: readonly unknown[],
   routed: readonly IntegrationFinding[],
-): boolean =>
-  routed.every((finding) => {
+  taskId: string,
+): boolean => {
+  if (signed.length !== routed.length) return false;
+  return routed.every((finding) => {
+    if (finding.ownerKind !== "task" || finding.taskId !== taskId) return false;
     const match = signed.find(
       (candidate) =>
         typeof candidate === "object" &&
@@ -76,22 +83,37 @@ const signedFindingsBindRoute = (
         (candidate as TerminalContractReproofRecord).id === finding.id,
     ) as Record<string, unknown> | undefined;
     if (!match) return false;
-    return Object.entries(finding).every(([key, value]) => {
-      if (key !== "priorEvidenceSha256")
-        return canonicalJson(match[key]) === canonicalJson(value);
-      const admittedValue = match[key];
-      return (
-        Array.isArray(value) &&
-        Array.isArray(admittedValue) &&
-        value.every((digest: unknown) =>
-          admittedValue.some(
-            (candidate: unknown) =>
-              canonicalJson(candidate) === canonicalJson(digest),
-          ),
-        )
+    try {
+      const contractFinding = Object.fromEntries(
+        Object.entries(finding).filter(([key]) => key !== "ownerKind"),
+      ) as unknown as ContractReproofFinding;
+      const admittedFinding = canonicalContractReproofFinding(
+        match as unknown as ContractReproofFinding,
+        taskId,
       );
-    });
+      const routedFinding = canonicalContractReproofFinding(
+        contractFinding,
+        taskId,
+      );
+      const admittedContent = Object.fromEntries(
+        Object.entries(admittedFinding).filter(
+          ([key]) => key !== "priorEvidenceSha256",
+        ),
+      );
+      const routedContent = Object.fromEntries(
+        Object.entries(routedFinding).filter(
+          ([key]) => key !== "priorEvidenceSha256",
+        ),
+      );
+      // Routing binds selection/result provenance, while the signed reproof
+      // request binds the later archived evidence packet. Both evidence lists
+      // are canonical and hash-bound, but intentionally describe different sets.
+      return canonicalJson(admittedContent) === canonicalJson(routedContent);
+    } catch {
+      return false;
+    }
   });
+};
 
 const inspectRun = (
   runId: string,
@@ -356,6 +378,7 @@ export const launchTerminalContractReproofResume = (input: {
     !signedFindingsBindRoute(
       admitted.request.findings ?? [],
       ownerRoute.findings,
+      input.taskId,
     )
   )
     throw new Error(`${input.taskId}: signed owner findings content drift`);
