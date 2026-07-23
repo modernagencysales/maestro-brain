@@ -1,0 +1,70 @@
+{
+  "lens": "quality",
+  "taskId": "S08-T03",
+  "planSha256": "1c6b818063c534afdae20d688fee71e830915c5ac356bf7eba7724099d7ed9a5",
+  "taskBlockHash": "52836a187d4a821697f0ff1d057155b9aefc998858fac5df08c06f5b82cf6612",
+  "baseSha": "2bdef668a17ac4e86a9113846b773f6243f281c0",
+  "headSha": "04e8205f1f62ae02bd3d62414dade59c0d239a62",
+  "treeSha": "297a163fb034498ce5353510fc048dbccc29bce7",
+  "reviewerRunId": "maestro/review/S08-T03/04e8205f1f62ae02bd3d62414dade59c0d239a62/e8f981c1-4075-4c85-a794-983c6d27bbcf-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/test/source-classification.test.ts covers Direct and capture_only zero model calls, malformed multiple-target output, out-of-allowlist target, evidence quote mismatch, tenant mismatch, non-admin review denial, no-route review, mixed-client route denial, duplicate route effects, stale hash rejection, and durable indexes.",
+        "packages/convex/confect/capabilities/classifySourceUnit.test.ts covers the fake/local classifier seam for one pinned descriptor, zero matches, multiple matches, prompt-injection-shaped arbitrary target text, and declared typed errors.",
+        "packages/convex/test/sourceClassification.workflow.test.ts proves the graph shape has gather/classify/review/currentAuthority/commit and waits for approval before one commit; apps/web/src/features/connections/classification-review-queue.test.tsx covers queue summary, review-required UI, absence of auto-commit copy, and empty state.",
+        "The exact pre-review lane-gate report for head 04e8205f1f62ae02bd3d62414dade59c0d239a62 passed with 40 test files and 173 tests, including the focused classification and review-queue tests."
+      ]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "The workflow graph in packages/convex/confect/workflows/sourceClassification.graph.ts composes capability nodes rather than provider adapters or React Flow.",
+        "packages/convex/confect/capabilities/classifySourceUnit.impl.ts delegates to packages/convex/confect/capabilities/classifySourceUnit.domain.ts and classification helper modules, while enforcing system workflow/internal callers at the capability boundary.",
+        "The fake/local classifier domain imports only classification gather/request types and validation; it has no database, Slack, Nango, provider SDK, or tool imports.",
+        "apps/web/src/features/connections/classification-review-queue.tsx is a feature component using Saas UI primitives only, with no Convex, Confect refs, route modules, provider SDKs, or workspace auth internals; the pre-review gate also reports check:layer-boundaries passed across 995 modules."
+      ]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "pass",
+      "evidence": [
+        "The classification behavior is split into focused gather, request validation, review, commit, and local classifier modules with explicit typed error classes matching the task contract.",
+        "The workflow contract maps graph capability IDs to Confect/plain Convex function refs in one registry, keeping source gather, model, current-authority recheck, and reviewed commit wiring inspectable.",
+        "docs/product/maestro-brain-lifecycle-adoption/S08-T03.md documents the fake/local seam, review-first lifecycle, disabled rollout state, and rollback behavior; the task also records generator provenance under docs/template/generated/provenance.",
+        "No eslint-disable, ts-expect-error, @ts-ignore, TODO, secret, provider SDK, or logging additions were found in the changed task files during scoped inspection."
+      ]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "classificationDecisions and sourceProcessingJobs define operational fields and indexes for state, source revision, policy epoch, effect keys, target Brain, execution status, retry, lease expiry, and organization status inspection.",
+        "The review queue UI presents diagnostic confidence as review-only and evidence quotes for reviewer context; tests assert there is no Auto-commit wording.",
+        "The changed implementation introduces no console logging and no raw provider payload, webhook body, token, API key, secret, or support artifact logging; the product receipt records classify policies remain disabled until eval and UI evidence pass."
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "The lane-gate report records sourceSliceBudget 300 and source slices of 300, 295, 300, and 293 changed source lines, each within the configured per-slice limit.",
+        "The changed files are limited to the S08-T03 manifest-owned capability, workflow contract, classification domain/table modules, focused tests, template-generated docs/provenance, the Connections review queue feature, and the implementation receipt."
+      ]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "pass",
+      "evidence": [
+        "rtk proxy git diff --name-status 2bdef668a17ac4e86a9113846b773f6243f281c0..HEAD shows no edits under packages/convex/confect/_generated or packages/convex/convex/_generated.",
+        "The task instructions state integration owns reproducible Confect/Convex generated output; generated Confect and Convex output absence from the checked-in generated tree is therefore expected lane state when the task diff does not edit generated paths.",
+        "The lane added template-generated documentation and provenance under docs/template/generated for the approved pattern-instance scaffold without hand-editing generated Convex/Confect output; scoped inspection of the exact-head generated refs found no task edits in generated trees."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
