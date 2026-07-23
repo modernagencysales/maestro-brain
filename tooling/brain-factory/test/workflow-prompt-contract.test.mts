@@ -403,6 +403,40 @@ describe("Fabro workflow prompt contracts", () => {
     );
   });
 
+  it("runs every factory gate from current control tooling", () => {
+    const buildTask = readFileSync(
+      resolve(
+        import.meta.dirname,
+        "../../../.fabro/workflows/brain-build-task/workflow.fabro",
+      ),
+      "utf8",
+    );
+    const node = (name: string) =>
+      buildTask
+        .split("\n")
+        .find((line) => line.trimStart().startsWith(`${name} [`));
+    const controlLoader =
+      "$BRAIN_CONTROL_ROOT/node_modules/tsx/dist/loader.mjs";
+    const expectedScripts = {
+      preflight: ["validate-preserved-resume.mts"],
+      authority_repair_check: ["authority-repair-check.mts"],
+      gates: ["lane-gates.mts"],
+      final_gates: ["review-cycle-marker.mts", "lane-gates.mts"],
+      complete: ["write-lane-result.mts"],
+    } as const;
+
+    for (const [name, scripts] of Object.entries(expectedScripts)) {
+      const command = node(name);
+      expect(command).toContain(controlLoader);
+      expect(command).not.toContain("--import tsx");
+      for (const script of scripts) {
+        expect(command).toContain(
+          `$BRAIN_CONTROL_ROOT/tooling/brain-factory/src/${script}`,
+        );
+      }
+    }
+  });
+
   it("keeps all command coordinates in validated environment argv", () => {
     const buildTask = readFileSync(
       resolve(
