@@ -501,6 +501,15 @@ describe("failed integration rework admission", () => {
           { runId: "earlier-run", status: "failed" },
           { runId: "final-run", status: "failed" },
         ],
+        ["run:earlier-run:failed"],
+      ),
+    ).toBe(false);
+    expect(
+      supersessionBindsFailedAttempt(
+        [
+          { runId: "earlier-run", status: "failed" },
+          { runId: "final-run", status: "failed" },
+        ],
         [
           "run:earlier-run:owner_rework",
           "owner-rework-result-sha256:5477b2cb14f224af207ef5317abb0ea17d51472c7fd33fdfd36d1f7e52b4cd76",
@@ -535,24 +544,50 @@ describe("failed integration rework admission", () => {
       resolve(root, "selection.json.raw"),
       "utf8",
     );
+    const receipt = JSON.parse(
+      readFileSync(resolve(root, "supersession.json.raw"), "utf8"),
+    ) as Record<string, unknown>;
+    const input = {
+      currentControlHead: "7cf9a793b5bee333bfc2e72595563716161a2997",
+      findingAdoptionSha256:
+        "d68d20038556101140b95bd6a3ee5939f48a653f6e2a122195b16aa0933b82e7",
+      integrationId: "wave-000056",
+      integrationResultContent,
+      isAncestor: () => true,
+      runRecordContent,
+      selectionContent,
+      selectionPath:
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000056-selection.json",
+      taskId: "S04-T04",
+    };
+    expect(() =>
+      validateSupersession({ ...input, supersession: receipt }),
+    ).not.toThrow();
+    const withEvidence = (extra: string) => {
+      const { receiptSha256: _ignored, ...payload } = receipt;
+      void _ignored;
+      const next = {
+        ...payload,
+        evidence: [...(receipt.evidence as string[]), extra].sort(),
+      };
+      return { ...next, receiptSha256: sha256(JSON.stringify(next)) };
+    };
     expect(() =>
       validateSupersession({
-        currentControlHead: "7cf9a793b5bee333bfc2e72595563716161a2997",
-        findingAdoptionSha256:
-          "d68d20038556101140b95bd6a3ee5939f48a653f6e2a122195b16aa0933b82e7",
-        integrationId: "wave-000056",
-        integrationResultContent,
-        isAncestor: () => true,
-        runRecordContent,
-        selectionContent,
-        selectionPath:
-          "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000056-selection.json",
-        supersession: JSON.parse(
-          readFileSync(resolve(root, "supersession.json.raw"), "utf8"),
+        ...input,
+        supersession: withEvidence(
+          `integration-result-sha256:${"a".repeat(64)}`,
         ),
-        taskId: "S04-T04",
       }),
-    ).not.toThrow();
+    ).toThrow("failed integration supersession evidence drift");
+    expect(() =>
+      validateSupersession({
+        ...input,
+        supersession: withEvidence(
+          `owner-rework-result-sha256:${"a".repeat(64)}`,
+        ),
+      }),
+    ).toThrow("failed integration supersession evidence drift");
   });
 
   it("admits a failed broad gate after semantic review passed", () => {

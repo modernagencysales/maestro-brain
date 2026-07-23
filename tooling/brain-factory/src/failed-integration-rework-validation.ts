@@ -332,23 +332,36 @@ export const supersessionBindsFailedAttempt = (
   evidence: readonly string[],
   ownerReworkResultSha256?: string,
 ): boolean => {
-  if (
-    runAttempts.some(
-      ({ runId, status }) =>
-        new Set(["failed", "owner_rework"]).has(status) &&
-        evidence.includes(`run:${runId}:${status}`),
-    )
-  ) {
-    return true;
-  }
   const finalAttempt = runAttempts.at(-1);
+  if (
+    !finalAttempt ||
+    !new Set(["failed", "owner_rework"]).has(finalAttempt.status)
+  ) {
+    return false;
+  }
+  const ownerReworkRuns = evidence.filter(
+    (item) => item.startsWith("run:") && item.endsWith(":owner_rework"),
+  );
   const ownerReworkResults = evidence.filter((item) =>
     item.startsWith("owner-rework-result-sha256:"),
   );
+  if (ownerReworkRuns.length === 0 && ownerReworkResults.length === 0) {
+    return evidence.includes(
+      `run:${finalAttempt.runId}:${finalAttempt.status}`,
+    );
+  }
+  if (
+    finalAttempt.status === "owner_rework" &&
+    ownerReworkRuns.length === 1 &&
+    ownerReworkRuns[0] === `run:${finalAttempt.runId}:owner_rework` &&
+    ownerReworkResults.length === 0
+  ) {
+    return true;
+  }
   return Boolean(
-    finalAttempt?.status === "failed" &&
+    ownerReworkRuns.length === 1 &&
+    ownerReworkRuns[0] === `run:${finalAttempt.runId}:owner_rework` &&
     ownerReworkResultSha256 !== undefined &&
-    evidence.includes(`run:${finalAttempt.runId}:owner_rework`) &&
     ownerReworkResults.length === 1 &&
     ownerReworkResults[0] ===
       `owner-rework-result-sha256:${ownerReworkResultSha256}`,
@@ -401,6 +414,9 @@ export const validateSupersession = (input: {
   const findingAdoptionEvidence = evidence.filter((item) =>
     item.startsWith("finding-adoption-sha256:"),
   );
+  const semanticOwnerRework = evidence.some(
+    (item) => item.startsWith("run:") && item.endsWith(":owner_rework"),
+  );
   if (
     (input.broadGateContent !== undefined &&
       broadGateEvidence.length > 0 &&
@@ -408,6 +424,7 @@ export const validateSupersession = (input: {
         `broad-gate-sha256:${sha256(input.broadGateContent)}`,
       )) ||
     (input.broadGateContent === undefined && broadGateEvidence.length > 0) ||
+    (semanticOwnerRework && integrationResultEvidence.length !== 1) ||
     (integrationResultEvidence.length > 0 &&
       !integrationResultEvidence.includes(
         `integration-result-sha256:${sha256(input.integrationResultContent)}`,
