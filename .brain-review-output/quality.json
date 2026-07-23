@@ -1,0 +1,83 @@
+{
+  "lens": "quality",
+  "taskId": "S08-T03",
+  "planSha256": "ca7c2d9fbe1de7598adb586c3c0eb8e85c2826fc3339def797b61e3dc45b56cf",
+  "taskBlockHash": "2d947263cf0fa3ed72b36f7fddc028629d9db80e333e2511207b2213bf4d40c0",
+  "baseSha": "2bdef668a17ac4e86a9113846b773f6243f281c0",
+  "headSha": "27c0bdfd3fc0739c0788ab89186a676ef54230a8",
+  "treeSha": "d664bc55884f1a8628b202b163fe4b781c091a0f",
+  "reviewerRunId": "maestro/review/S08-T03/27c0bdfd3fc0739c0788ab89186a676ef54230a8/54a80030-10ce-401c-a849-6c6335d31cfd-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/test/sourceClassification.workflow.test.ts:37",
+        "packages/convex/test/sourceClassification.workflow.test.ts:80",
+        "packages/convex/test/source-classification.test.ts:1",
+        "packages/convex/confect/capabilities/classifySourceUnit.test.ts:1",
+        "apps/web/src/features/connections/classification-review-queue.test.tsx:29",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S08-T03/lane-gate-report.json:1"
+      ],
+      "rationale": "Focused tests cover the repaired durable workflow order, including server-side gather before model execution and a current-authority recheck before one route commit, plus the existing capability/domain, commit/review, and web queue suites. The exact-head pre-review lane report records focused classification, review-queue, codegen, contract, graph-boundary, layer-boundary, typecheck, and package test gates passing for head 27c0bdfd3fc0739c0788ab89186a676ef54230a8."
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "apps/web/src/features/connections/classification-review-queue.tsx:1",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:31",
+        "packages/convex/confect/workflows/sourceClassification.graph.ts:1",
+        "packages/convex/confect/capabilities/classifySourceUnit.impl.ts:1",
+        "packages/convex/confect/classification/gather.ts:1"
+      ],
+      "rationale": "The web queue remains a feature/UI component, workflow contracts compose capabilities through the graph runner, the classification capability delegates to domain/classification helpers, and durable workflow validation stays outside React Flow. No provider, Slack, Nango, or direct database shortcuts were introduced into frontend or agent layers."
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:55",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:117",
+        "packages/convex/confect/workflows/sourceClassification.graph.ts:1",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:7",
+        "docs/product/maestro-brain-lifecycle-adoption/S08-T03.md:45"
+      ],
+      "rationale": "The repair is narrowly scoped to workflow gathering/current-authority seams and related docs/tests. It keeps reusable request loading in helper functions, records the workflow contract state in docs, and avoids broad rewrites or unrelated product changes. Existing compact/prettier-ignore generated-style contract formatting is accepted by the focused Prettier gate."
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/classificationDecisions.ts:7",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:25",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:64",
+        "docs/product/maestro-brain-lifecycle-adoption/S08-T03.md:45"
+      ],
+      "rationale": "Durable schemas retain decision keys, generation fences, evidence/rationale hashes, effect keys, stage/status, lease, retry, messages, and allowed target metadata needed to inspect classification progress. The diff adds no logging of raw provider payloads, secrets, webhook bodies, or tokens."
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1073",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S08-T03/lane-gate-report.json:1",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S08-T03/ci-proof-packet.json:1"
+      ],
+      "rationale": "The manifest sets a 300-line source slice budget. The exact-head lane report records status passed, four source slices, and slice sizes of 299, 251, 292, and 297 changed source lines, all within the per-slice budget and source slice limit."
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2431",
+        "docs/template/generated/provenance/add-capability/classifySourceUnit.json:1",
+        "docs/template/generated/provenance/add-workflow/sourceClassification.json:1",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S08-T03/lane-gate-report.json:1"
+      ],
+      "rationale": "The task plan explicitly leaves integration-owned regenerated Confect/Convex output outside the lane diff. The task changes manifest-owned generated docs/provenance and contract/source files only; no _generated Confect or Convex paths are edited, and the exact-head lane gate proves transient codegen passed."
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
