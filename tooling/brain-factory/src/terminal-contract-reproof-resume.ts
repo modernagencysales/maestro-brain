@@ -44,6 +44,7 @@ export interface TerminalContractReproofResumeInput {
   readonly finalGate: TerminalContractReproofRecord;
   readonly hostTestMaxLoad1m: string;
   readonly inspectedRun: {
+    readonly environment: TerminalContractReproofRecord;
     readonly inputs: TerminalContractReproofRecord;
     readonly runId: string;
     readonly status: string;
@@ -204,13 +205,21 @@ export const buildTerminalContractReproofResume = (
     throw new Error(`${taskId}: admitted request identity drift`);
 
   const runInputs = input.inspectedRun.inputs;
+  const compiledValue = (key: string, environmentKey: string): unknown =>
+    Object.hasOwn(runInputs, key)
+      ? runInputs[key]
+      : input.inspectedRun.environment[environmentKey];
   if (
-    runInputs.authority_repair_archive !== input.authorityRepairArchive ||
+    compiledValue(
+      "authority_repair_archive",
+      "BRAIN_AUTHORITY_REPAIR_ARCHIVE",
+    ) !== input.authorityRepairArchive ||
     runInputs.base_sha !== requestControlHeadSha ||
     runInputs.control_common_dir !== input.controlCommonDir ||
     runInputs.control_root !== input.controlRoot ||
     runInputs.evidence_dir !== input.evidence ||
-    runInputs.host_test_max_load_1m !== input.hostTestMaxLoad1m ||
+    compiledValue("host_test_max_load_1m", "BRAIN_HOST_TEST_MAX_LOAD_1M") !==
+      input.hostTestMaxLoad1m ||
     runInputs.reproof_request !== input.requestPath ||
     runInputs.resume_branch !== branch ||
     runInputs.resume_commits !== input.sourceCommits.join(",") ||

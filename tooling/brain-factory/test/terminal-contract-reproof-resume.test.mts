@@ -61,6 +61,10 @@ const fixture = () => ({
     taskId,
   },
   inspectedRun: {
+    environment: {
+      BRAIN_AUTHORITY_REPAIR_ARCHIVE: "none",
+      BRAIN_HOST_TEST_MAX_LOAD_1M: "20",
+    },
     inputs: {
       authority_repair_archive: "none",
       base_sha: requestControlHeadSha,
@@ -302,6 +306,39 @@ describe("terminal contract-reproof resume", () => {
       }),
     ).not.toThrow();
   });
+
+  it("accepts legacy compiled inputs when exact values remain environment-bound", () => {
+    const current = fixture();
+    const { authority_repair_archive, host_test_max_load_1m, ...legacyInputs } =
+      current.inspectedRun.inputs;
+    expect(authority_repair_archive).toBe("none");
+    expect(host_test_max_load_1m).toBe("20");
+    expect(() =>
+      buildTerminalContractReproofResume({
+        ...current,
+        inspectedRun: {
+          ...current.inspectedRun,
+          inputs: legacyInputs,
+        },
+      }),
+    ).not.toThrow();
+  });
+
+  it.each(["authority_repair_archive", "host_test_max_load_1m"])(
+    "rejects explicit null compiled %s instead of using legacy fallback",
+    (key) => {
+      const current = fixture();
+      expect(() =>
+        buildTerminalContractReproofResume({
+          ...current,
+          inspectedRun: {
+            ...current.inspectedRun,
+            inputs: { ...current.inspectedRun.inputs, [key]: null },
+          },
+        }),
+      ).toThrow("compiled request launch identity drift");
+    },
+  );
 
   it.each([
     "authority_repair_archive",

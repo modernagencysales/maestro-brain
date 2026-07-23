@@ -139,6 +139,7 @@ export const signedFindingsBindRoute = (
 const inspectRun = (
   runId: string,
 ): {
+  readonly environment: TerminalContractReproofRecord;
   readonly inputs: TerminalContractReproofRecord;
   readonly runId: string;
   readonly status: string;
@@ -158,7 +159,12 @@ const inspectRun = (
   const runSpec = record(item.run_spec, `Fabro run ${runId} spec`);
   const settings = record(runSpec.settings, `Fabro run ${runId} settings`);
   const run = record(settings.run, `Fabro run ${runId} settings.run`);
+  const environment = record(run.environment, `Fabro run ${runId} environment`);
   return {
+    environment: record(
+      environment.env,
+      `Fabro run ${runId} environment variables`,
+    ),
     inputs: record(run.inputs, `Fabro run ${runId} inputs`),
     runId: String(item.run_id ?? ""),
     status,
