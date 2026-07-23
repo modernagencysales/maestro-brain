@@ -31,10 +31,12 @@ const record = (
 
 export interface TerminalContractReproofResumeInput {
   readonly admittedRequest: TerminalContractReproofRecord;
+  readonly authorityDeltaPaths: readonly string[];
   readonly controlCommonDir: string;
   readonly controlHeadSha: string;
   readonly currentPlanSha256: string;
   readonly currentTaskBlockHash: string;
+  readonly currentTaskFileLocks: readonly string[];
   readonly finalGate: TerminalContractReproofRecord;
   readonly inspectedRun: {
     readonly inputs: TerminalContractReproofRecord;
@@ -128,6 +130,21 @@ export const buildTerminalContractReproofResume = (
     64,
     `${taskId}: current task hash`,
   );
+  const fileLocks = new Set(input.currentTaskFileLocks);
+  const controlOnly = (path: string): boolean =>
+    path === "package.json" ||
+    path.startsWith(".fabro/workflows/") ||
+    path.startsWith(".superpowers/sdd/") ||
+    path.startsWith("docs/superpowers/execution/maestro-brain/") ||
+    path.startsWith("docs/superpowers/plans/") ||
+    path.startsWith("docs/superpowers/specs/") ||
+    path.startsWith("tooling/brain-factory/");
+  if (
+    input.authorityDeltaPaths.some(
+      (path) => !controlOnly(path) || fileLocks.has(path),
+    )
+  )
+    throw new Error(`${taskId}: terminal reproof authority delta is unsafe`);
 
   if (
     input.record.mode !== "contract-reproof" ||
@@ -165,8 +182,10 @@ export const buildTerminalContractReproofResume = (
 
   const runInputs = input.inspectedRun.inputs;
   if (
+    runInputs.base_sha !== requestControlHeadSha ||
     runInputs.reproof_request !== input.requestPath ||
     runInputs.resume_branch !== branch ||
+    runInputs.resume_commits !== input.sourceCommits.join(",") ||
     runInputs.resume_source_head !== sourceHeadSha ||
     runInputs.resume_task_base !== taskBaseSha ||
     runInputs.task_id !== taskId ||

@@ -32,10 +32,17 @@ const fixture = () => ({
     taskBlockHash,
     taskId,
   },
+  authorityDeltaPaths: [
+    "docs/superpowers/plans/current.md",
+    "tooling/brain-factory/src/review-aggregate.mts",
+  ],
   controlCommonDir: "/repo/.git",
   controlHeadSha,
   currentPlanSha256: digest("b"),
   currentTaskBlockHash: taskBlockHash,
+  currentTaskFileLocks: [
+    "packages/convex/confect/slack/channelPolicies.impl.ts",
+  ],
   finalGate: {
     currentHeadSha: candidateHeadSha,
     headSha: candidateHeadSha,
@@ -47,8 +54,10 @@ const fixture = () => ({
   },
   inspectedRun: {
     inputs: {
+      base_sha: requestControlHeadSha,
       reproof_request: requestPath,
       resume_branch: "fabro/reproof-s04-t04-969bd3c8",
+      resume_commits: `${sha("1")},${sha("2")}`,
       resume_source_head: sourceHeadSha,
       resume_task_base: sourceBaseSha,
       task_id: taskId,
@@ -139,6 +148,18 @@ describe("terminal contract-reproof resume", () => {
     ["head drift", { worktree: { ...fixture().worktree, headSha: sha("d") } }],
     ["request drift", { requestPath: `${requestPath}.other` }],
     [
+      "compiled source drift",
+      {
+        inspectedRun: {
+          ...fixture().inspectedRun,
+          inputs: {
+            ...fixture().inspectedRun.inputs,
+            resume_commits: sha("9"),
+          },
+        },
+      },
+    ],
+    [
       "routing drift",
       {
         routing: {
@@ -153,6 +174,18 @@ describe("terminal contract-reproof resume", () => {
       },
     ],
     ["task contract drift", { currentTaskBlockHash: digest("f") }],
+    [
+      "non-control authority delta",
+      { authorityDeltaPaths: ["packages/convex/confect/unrelated.ts"] },
+    ],
+    [
+      "task-lock authority collision",
+      {
+        authorityDeltaPaths: [
+          "packages/convex/confect/slack/channelPolicies.impl.ts",
+        ],
+      },
+    ],
   ])("rejects %s", (_label, override) => {
     expect(() =>
       buildTerminalContractReproofResume({ ...fixture(), ...override }),

@@ -102,6 +102,17 @@ export const launchTerminalContractReproofResume = (input: {
     JSON.parse(readFileSync(requestPath, "utf8")) as unknown,
     `${input.taskId}: reproof request`,
   );
+  const authorityDeltaPaths = runRtk(
+    [
+      "git",
+      "diff",
+      "--name-only",
+      `${String(request.controlHeadSha ?? "")}..${controlHeadSha}`,
+    ],
+    { quiet: true },
+  )
+    .split("\n")
+    .filter(Boolean);
   const admitted = admitContractReproof({
     allowAuthorityRefreshAdvance: true,
     changedFilesBetween: (ancestor, descendant) =>
@@ -178,10 +189,12 @@ export const launchTerminalContractReproofResume = (input: {
   const plan = buildTerminalContractReproofResume({
     admittedRequest:
       admitted.request as unknown as TerminalContractReproofRecord,
+    authorityDeltaPaths,
     controlCommonDir,
     controlHeadSha,
     currentPlanSha256: manifest.planSha256,
     currentTaskBlockHash: task.taskBlockHash,
+    currentTaskFileLocks: task.fileLocks,
     finalGate,
     inspectedRun: inspection,
     proof,
