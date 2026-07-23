@@ -7,6 +7,7 @@ import { launchAuthorityRefresh } from "./authority-refresh-launch.js";
 import { launchCheckpointReproof } from "./checkpoint-reproof-launch.js";
 import { launchLaneGreenAuthorityReproof } from "./lane-green-authority-reproof-launch.js";
 import { selectAuthorityTransition } from "./authority-transition-cli.js";
+import { launchTerminalContractReproofResume } from "./terminal-contract-reproof-launch.js";
 import {
   acquireDispatcherLock,
   assertArchiveActionSelectorApplicable,
@@ -96,6 +97,9 @@ const taskId = valueAfter("--task");
 const sourceRef = valueAfter("--ref");
 const taskBase = valueAfter("--base");
 const archiveActionId = parseArchiveActionSelector(process.argv.slice(2));
+const terminalContractReproof = process.argv.includes(
+  "--terminal-contract-reproof",
+);
 const {
   authorityRefresh,
   authorityRepair,
@@ -104,6 +108,16 @@ const {
   ownershipRehome,
 } = selectAuthorityTransition(process.argv.slice(2), taskId ?? "unknown task");
 const conflictAware = process.argv.includes("--conflict-aware");
+if (
+  terminalContractReproof &&
+  (authorityRefresh ||
+    authorityRepair ||
+    checkpointReproof ||
+    laneGreenAuthorityReproof ||
+    ownershipRehome)
+) {
+  throw new Error(`${taskId}: choose exactly one authority transition`);
+}
 let resumeStrategy = resolveResumeStrategy({
   authorityOwner: false,
   conflictAware,
@@ -115,10 +129,11 @@ if (
     !ownershipRehome &&
     !checkpointReproof &&
     !laneGreenAuthorityReproof &&
+    !terminalContractReproof &&
     (!sourceRef || !taskBase))
 ) {
   console.error(
-    "usage: brain:factory:resume -- --task <id> (--authority-refresh | --authority-repair | --ownership-rehome | --checkpoint-reproof | --lane-green-authority-reproof | --ref <git-ref> --base <sha> [--conflict-aware]) [--archive-action <id>]",
+    "usage: brain:factory:resume -- --task <id> (--authority-refresh | --authority-repair | --ownership-rehome | --checkpoint-reproof | --lane-green-authority-reproof | --terminal-contract-reproof | --ref <git-ref> --base <sha> [--conflict-aware]) [--archive-action <id>]",
   );
   process.exit(2);
 }
@@ -127,7 +142,8 @@ if (
     authorityRepair ||
     ownershipRehome ||
     checkpointReproof ||
-    laneGreenAuthorityReproof) &&
+    laneGreenAuthorityReproof ||
+    terminalContractReproof) &&
   (sourceRef || taskBase || conflictAware || archiveActionId)
 ) {
   throw new Error(
@@ -146,6 +162,16 @@ let workdir = resolve(
 );
 let branch = `fabro/review-${taskId.toLowerCase()}`;
 const recordPath = resolve(runDirectory, `${taskId}.json`);
+if (terminalContractReproof) {
+  launchTerminalContractReproofResume({
+    evidence,
+    recordPath,
+    root,
+    state,
+    taskId,
+  });
+  process.exit(0);
+}
 const recordExists = existsSync(recordPath);
 const preservedWorktreeExists = existsSync(workdir);
 const preservedBranchExists =
