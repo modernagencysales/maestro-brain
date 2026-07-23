@@ -1,0 +1,89 @@
+{
+  "lens": "contract",
+  "taskId": "S08-T03",
+  "planSha256": "ca7c2d9fbe1de7598adb586c3c0eb8e85c2826fc3339def797b61e3dc45b56cf",
+  "taskBlockHash": "2d947263cf0fa3ed72b36f7fddc028629d9db80e333e2511207b2213bf4d40c0",
+  "baseSha": "2bdef668a17ac4e86a9113846b773f6243f281c0",
+  "headSha": "b7a1347cd1104d83be9c26dff3ec8f8c8c8ffa64",
+  "treeSha": "80ac2b72bd4508aa3d953f495f4d5a7af39d6371",
+  "reviewerRunId": "maestro/review/S08-T03/b7a1347cd1104d83be9c26dff3ec8f8c8c8ffa64/54a80030-10ce-401c-a849-6c6335d31cfd-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1079-1108 owns S08-T03 files, pattern-instance classification, requirements AI-02/IAM-04/SLK-03/ZFC-01, and taskBlockHash 2d947263cf0fa3ed72b36f7fddc028629d9db80e333e2511207b2213bf4d40c0.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2390-2459 requires review-first zero-or-one classification, admin review, closed allowlist, generation fencing, and typed failures.",
+        "docs/product/maestro-brain-lifecycle-adoption/S08-T03.md:1-75 records the implemented lifecycle, rollback posture, and focused proof scope."
+      ],
+      "rationale": "The implementation and documentation align with the approved S08-T03 task packet and retain the expected plan/task hashes."
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "finding",
+      "evidence": [
+        "docs/template/generated/capabilities/classifySourceUnit.md:9-10 and packages/convex/confect/capabilities/classifySourceUnit.headless.json:6-13 publish classifySourceUnit with typed errors Unauthorized, MalformedModelOutput, TargetNotAllowed, EvidenceMismatch, ReviewForbidden, StaleGeneration, and DuplicateEffect.",
+        "packages/convex/confect/capabilities/classifySourceUnit.spec.ts:73-98 declares only Unauthorized, MalformedModelOutput, TargetNotAllowed, and EvidenceMismatch for the actual Confect capability contract.",
+        "packages/convex/confect/capabilities/classifySourceUnit.impl.ts:12-16 calls classifySourceUnitLocally, which only validates model output, and has no review or commit path capable of raising ReviewForbidden, StaleGeneration, or DuplicateEffect."
+      ],
+      "findingIds": ["CONTRACT-S08-T03-001"],
+      "rationale": "The generated/headless capability contract overstates failure paths that the actual typed Confect capability does not declare or implement."
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/classificationDecisions.ts:1-15 declares the classificationDecisions durable table and indexes by_unit_policy_epoch, by_status_created, by_effect_key, and by_target_brain.",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:1-41 declares the task-owned source-processing job stages and required indexes including by_stage_status_next_retry, by_effect_key, by_unit_stage, by_lease_expiry, and by_organization_status.",
+        "packages/convex/test/source-classification.test.ts:247-310 asserts the durable classification and job index contracts."
+      ],
+      "rationale": "The task-owned durable schema additions match the Appendix G/state-machine and manifest-owned index requirements."
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2395-2403 classifies S08-T03 as a generated capability/workflow pattern-instance and names the generator commands.",
+        "docs/template/generated/provenance/add-capability/classifySourceUnit.json and docs/template/generated/provenance/add-workflow/sourceClassification.json are present in the task diff.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S08-T03/ci-proof-packet.json records the focused generator dry-runs, Confect/codegen, Convex, web, workflow-boundary, contract, headless, layer, and eval gates for head b7a1347cd1104d83be9c26dff3ec8f8c8c8ffa64."
+      ],
+      "rationale": "The diff follows the pattern-instance plan and includes the generated docs/provenance plus focused proof for the exact review head."
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1079-1108 lists every product file changed by S08-T03.",
+        "rtk proxy git diff --name-status 187644e96d5a7b802edd25858eb65f299c09cc3d...HEAD shows only the S08-T03 manifest-owned files and no checked-in generated Confect/Convex trees.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2431-2434 assigns regenerated Confect/Convex output and manifests to integration rather than this lane."
+      ],
+      "rationale": "The task stays within its manifest ownership boundaries; integration-owned generated outputs are not edited in the lane diff."
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/workflowContracts/sourceClassification.spec.ts:26-29 declares workflow typed failures Unauthorized, MemberNotInWorkspace, WorkspaceNotFound, NotFound, ValidationFailed, MalformedModelOutput, TargetNotAllowed, EvidenceMismatch, ReviewForbidden, StaleGeneration, and DuplicateEffect.",
+        "packages/convex/confect/classification/request.ts:71-151 implements MalformedModelOutput, TargetNotAllowed, and EvidenceMismatch validation for malformed, multi-target, out-of-allowlist, hash/snapshot, and quote-mismatch model outputs.",
+        "packages/convex/confect/classification/review.ts:46-107 implements ReviewForbidden/admin-only and mixed-client/no-route review constraints; packages/convex/confect/classification/commit.ts:65-87 implements StaleGeneration and DuplicateEffect commit checks.",
+        "packages/convex/test/source-classification.test.ts:78-288 covers zero-call direct/capture-only, malformed/multiple/out-of-allowlist/evidence mismatch, cross-tenant review authority, admin-only review, mixed-client route rejection, stale generations, and duplicate effects."
+      ],
+      "rationale": "For the workflow/review/commit contract, every S08-T03 declared failure path is represented in code and focused tests."
+    }
+  ],
+  "findings": [
+    {
+      "id": "CONTRACT-S08-T03-001",
+      "severity": "major",
+      "summary": "Headless/generated capability metadata declares failures absent from the actual classifySourceUnit Confect contract.",
+      "details": "The public generated docs and headless registry say classifySourceUnit can raise ReviewForbidden, StaleGeneration, and DuplicateEffect, but the actual classifySourceUnit spec omits those typed errors and the implementation only performs model-output validation before returning. Those review/commit failures belong to the sourceClassification workflow boundary, so this mismatch makes the capability API contract inconsistent for headless/workflow consumers.",
+      "evidence": [
+        "docs/template/generated/capabilities/classifySourceUnit.md:9-10",
+        "packages/convex/confect/capabilities/classifySourceUnit.headless.json:6-13",
+        "packages/convex/confect/capabilities/classifySourceUnit.spec.ts:73-98",
+        "packages/convex/confect/capabilities/classifySourceUnit.impl.ts:12-16"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
