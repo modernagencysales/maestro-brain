@@ -1,0 +1,89 @@
+{
+  "lens": "safety",
+  "taskId": "S05-T01",
+  "planSha256": "adce0583eeea119d1a949099d3f5bbc98002041065d7ea2cb7a39e4f70975c2c",
+  "taskBlockHash": "af261b6e29dd92ad219255c8f0c731b09c5fd346780621976cb1693aa8d991cf",
+  "baseSha": "82b16f93d19d59a12d629a7d1765345faac7d8a3",
+  "headSha": "9e4ab3cfc9261af8203beee9413f404aaf619d34",
+  "treeSha": "21f9abf17169cfb337f66f8ebf27b5d37883b190",
+  "reviewerRunId": "maestro/review/S05-T01/9e4ab3cfc9261af8203beee9413f404aaf619d34/e4538b63-4b96-496c-9efe-5f7798c92e7e-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:217-235 asserts verified Slack binding organizationKey, connectionKey, connectionGeneration, team/app/bot, channelKey, and externalChannelId all match the capture envelope before row construction.",
+        "packages/convex/confect/sources/sourceSchemas.ts:267-300 derives source, observation, and revision keys from organizationKey/connectionKey/connectionGeneration/channel/provider identity rather than Convex IDs.",
+        "packages/convex/test/source-ledger-schema.test.ts:231-275 proves other organizations and connection generations produce distinct source and observation keys."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:338-345 requires a verified Slack envelope and maps missing/invalid verification to ChannelAccessLost before accepting capture input.",
+        "packages/convex/test/source-ledger-schema.test.ts:396-417 rejects unverified signature evidence and preserves verified signature/replay receipts on accepted rows.",
+        "packages/convex/test/source-ledger-schema.test.ts:566-583 rejects no-source receipts when verification belongs to another tenant or channel."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:34-39 models lifecycle states active, deleted_tombstone, redacted, and purged with generation and purgeAfter fences.",
+        "packages/convex/confect/sources/sourceSchemas.ts:473-523 creates active rows for non-deletes, deleted_tombstone rows for tombstones, increments lifecycle generation, and keeps duplicate receipts from writing artifact/revision/job rows.",
+        "packages/convex/confect/sources/sourceSchemas.ts:552-585 only returns a readable current revision when artifact and revision tenant fields match, artifact and revision lifecycle states are active, and the revision is not a tombstone.",
+        "packages/convex/test/source-ledger-schema.test.ts:419-499 proves readable-current filtering by exact tenant and no fallback past tombstones."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:607-667 builds no-source provider event receipts without decoding or storing malformed observation text.",
+        "packages/convex/test/source-ledger-schema.test.ts:585-613 proves invalid-payload receipts sanitize providerObjectId/providerRevisionId/providerOrder and do not contain raw customer text or raw bad slash payloads.",
+        "packages/convex/confect/sources/sourceSchemas.ts:270-300 uses sha256-derived stable keys, avoiding public Convex IDs in ledger identity."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:355-370 rejects stale/conflicting existing artifacts unless sourceKey matches and provider primary/receipt order advances safely.",
+        "packages/convex/confect/sources/sourceSchemas.ts:413-428 defines deterministic provider ordering including timestamp, provider revision, tenant, connection generation, transport, and delivery ID tie-breakers.",
+        "packages/convex/test/source-ledger-schema.test.ts:501-563 proves equal-primary-order tie behavior and rejects a stale greater receipt tuple while preserving original artifact creation time."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:371-404 computes transport-scoped delivery keys plus delivery observation fingerprints, returns duplicate for exact replay, and rejects conflicting same-delivery payloads.",
+        "packages/convex/confect/tables/providerEventReceipts.ts:5-15 indexes receipts by organization/connection/generation/transport/delivery and by observation/outcome for replay audit.",
+        "packages/convex/test/source-ledger-schema.test.ts:201-230 proves same delivery IDs dedupe by transport lane and same-transport replays converge."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:524-539 creates sourceProcessingJobs with stable effectKey, policyEpoch, leaseOwner, leaseExpiresAt, retry, and attemptCount fields.",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:5-10 adds indexes for effect key, source-unit/stage, lease expiry, and organization/status to support fenced worker claims.",
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:36-44 documents lifecycle generation/stable tenant key fencing and transaction-fenced partial capture failures.",
+        "packages/convex/test/source-ledger-schema.test.ts:643-693 proves an injected write failure rolls back receipts/artifacts/revisions/jobs and committed rows do not bleed into another tenant."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:1-3 imports only Effect Schema and the local sha256 helper; no live Slack/Nango/provider SDK or secret access is introduced in the ledger schema layer.",
+        "packages/convex/confect/tables/providerEventReceipts.ts:1-3 and sibling source table files define Confect tables from local schemas only, with no provider adapter or secret imports.",
+        "rtk rg -n \"secret|token|process\\.env|NANGO|SLACK\" packages/convex/confect/sources/sourceSchemas.ts packages/convex/confect/tables/providerEventReceipts.ts packages/convex/confect/tables/sourceArtifacts.ts packages/convex/confect/tables/sourceRevisions.ts packages/convex/confect/tables/sourceProcessingJobs.ts returned no provider secret usage during this review."
+      ]
+    }
+  ],
+  "priorFindingDispositions": [],
+  "findings": [],
+  "verdict": "pass"
+}
