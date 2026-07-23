@@ -1,5 +1,11 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,6 +14,7 @@ import { describe, expect, it } from "vitest";
 
 import { selectAuthorityTransition } from "../src/authority-transition-cli.js";
 import { assertLaneGreenAuthorityProofAncestry } from "../src/lane-green-authority-reproof-history.js";
+import { inspectLaneGreenAuthorityFabroRun } from "../src/lane-green-authority-reproof-inspect.js";
 import {
   assertExactLaneGreenAuthorityCandidate,
   repairLaneGreenAuthorityReplay,
@@ -202,6 +209,39 @@ describe("lane-green authority reproof launch", () => {
         inspect: () => {
           throw new Error("Fabro server unavailable");
         },
+        taskId: "S05-T01",
+        workflowName,
+      }),
+    ).toThrow("preparing reservation launch state is unknown");
+  });
+
+  it("recovers exact Fabro no-run output through the production adapter", () => {
+    const root = mkdtempSync(join(tmpdir(), "lane-green-fabro-inspect-"));
+    const fakeRtk = join(root, "rtk");
+    const workflowName = "BrainBuildTaskS05T01Green123456789abc";
+    const env = { ...process.env, PATH: `${root}:${process.env.PATH ?? ""}` };
+    const inspect = (target: string): unknown =>
+      inspectLaneGreenAuthorityFabroRun(target, env);
+    writeFileSync(
+      fakeRtk,
+      `#!/bin/sh\nprintf '%s\\n' "No run found matching '$3'" >&2\nexit 1\n`,
+    );
+    chmodSync(fakeRtk, 0o755);
+    expect(
+      inspectExactLaneGreenCreatingRun({
+        inspect,
+        taskId: "S05-T01",
+        workflowName,
+      }),
+    ).toEqual({ kind: "no-run" });
+
+    writeFileSync(
+      fakeRtk,
+      `#!/bin/sh\nprintf '%s\\n' "No run found matching '$3' (server unavailable)" >&2\nexit 1\n`,
+    );
+    expect(() =>
+      inspectExactLaneGreenCreatingRun({
+        inspect,
         taskId: "S05-T01",
         workflowName,
       }),

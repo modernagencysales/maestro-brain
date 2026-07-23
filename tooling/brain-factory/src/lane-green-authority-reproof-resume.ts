@@ -6,6 +6,7 @@ import {
 } from "./dispatch-ownership.js";
 import { prepareExactLaneGreenAuthorityCandidate } from "./lane-green-authority-reproof-candidate.js";
 import type { LaneGreenAuthorityReproofAdmission } from "./lane-green-authority-reproof.js";
+import { inspectLaneGreenAuthorityFabroRun } from "./lane-green-authority-reproof-inspect.js";
 import { inspectLaneGreenAuthorityReproofRun } from "./lane-green-authority-reproof-owner.js";
 import { resolveLaneGreenAuthorityReproofReservation } from "./lane-green-authority-reproof-recovery.js";
 import {
@@ -164,12 +165,7 @@ export const resolveLaneGreenAuthorityPreparingOwner = (input: {
       : undefined;
   const expectedPreparing = { ...spec.preparingRecord, phase: "creating" };
   const discovered = inspectExactLaneGreenCreatingRun({
-    inspect: (target) =>
-      JSON.parse(
-        runRtk(["fabro", "inspect", target, "--json", "--quiet"], {
-          quiet: true,
-        }),
-      ),
+    inspect: inspectLaneGreenAuthorityFabroRun,
     ...(priorRunId === undefined ? {} : { priorRunId }),
     taskId: input.taskId,
     workflowName: input.coordinates.workflowName,

@@ -3,6 +3,16 @@ import { createHash } from "node:crypto";
 import { closeSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+export class RtkCommandError extends Error {
+  readonly output: string;
+
+  constructor(message: string, output: string) {
+    super(message);
+    this.name = "RtkCommandError";
+    this.output = output;
+  }
+}
+
 export const runRtk = (
   args: readonly string[],
   options: {
@@ -23,10 +33,11 @@ export const runRtk = (
       .map((value) => value.trim())
       .filter(Boolean)
       .join("\n");
-    throw new Error(
+    throw new RtkCommandError(
       `rtk ${args.join(" ")} failed (${result.status ?? "unknown"})${
         output.length > 0 ? `\n\n## output\n${output}` : ""
       }`,
+      output,
     );
   }
   return result.stdout.trim();
