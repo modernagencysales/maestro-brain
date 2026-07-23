@@ -9,6 +9,7 @@ import {
 } from "./dispatch-ownership.js";
 import { buildManifest } from "./manifest.js";
 import { loadPlanOnlyLaneAuthorityAdmission } from "./plan-only-lane-authority-admission.js";
+import { inspectLaneGreenAuthorityFabroRun } from "./lane-green-authority-reproof-inspect.js";
 import { inspectLaneGreenAuthorityReproofRun } from "./lane-green-authority-reproof-owner.js";
 import {
   type CandidateIdentity,
@@ -18,10 +19,13 @@ import {
 import { createPlanOnlyFabroRun } from "./plan-only-lane-authority-fabro.js";
 import {
   assertPlanOnlyAuthorityControllerStatus,
+  assertPlanOnlyWorkflowIdentity,
+  buildPlanOnlyCandidateCheckpoint,
   buildPlanOnlyLaneAuthorityReservation,
   buildPlanOnlyLaneAuthorityLaunchSpec,
   runPlanOnlyLaneAuthorityLaunch,
 } from "./plan-only-lane-authority-launch.js";
+import { recoverPlanOnlyCreatingRun } from "./plan-only-lane-authority-recovery.js";
 import { runRtk } from "./process.js";
 
 type JsonRecord = Record<string, unknown>;
@@ -104,15 +108,32 @@ const executePlanOnlyLaunch = (input: ExecutionInput): string => {
     return spec;
   };
   let env: NodeJS.ProcessEnv | undefined;
-  const existingRunId =
-    typeof input.prior?.runId === "string" ? input.prior.runId : undefined;
+  let candidateCheckpoint: JsonRecord | undefined;
   const runId = runPlanOnlyLaneAuthorityLaunch({
-    ...(existingRunId
-      ? {
-          existingRunId,
-          inspectRunStatus: inspectLaneGreenAuthorityReproofRun,
-        }
-      : {}),
+    inspectRunStatus: inspectLaneGreenAuthorityReproofRun,
+    resolveExistingRunId: () => {
+      if (input.prior?.phase !== "creating") return undefined;
+      return recoverPlanOnlyCreatingRun({
+        auditPath: input.auditPath,
+        branch: input.coordinates.branch,
+        expectedConfigInputs: exactSpec().configInputs,
+        expectedReservation: {
+          ...exactSpec().preparingRecord,
+          phase: "creating",
+        },
+        inspect: inspectLaneGreenAuthorityFabroRun,
+        now: input.now,
+        recordPath: input.launch.recordPath,
+        reservation:
+          candidateCheckpoint ??
+          buildPlanOnlyCandidateCheckpoint({
+            preparingRecord: exactSpec().preparingRecord,
+            ...(input.prior ? { prior: input.prior } : {}),
+          }),
+        taskId: input.launch.taskId,
+        workflowName: input.coordinates.workflowName,
+      });
+    },
     reserveOwner: () => {
       if (!input.prior)
         reserveTaskPreparing(input.launch.recordPath, reservation);
@@ -144,7 +165,11 @@ const executePlanOnlyLaunch = (input: ExecutionInput): string => {
         taskBlockHash: input.task.taskBlockHash,
         taskId: input.launch.taskId,
       });
-      promoteTaskReservation(input.launch.recordPath, spec.preparingRecord);
+      candidateCheckpoint = buildPlanOnlyCandidateCheckpoint({
+        preparingRecord: spec.preparingRecord,
+        ...(input.prior ? { prior: input.prior } : {}),
+      });
+      promoteTaskReservation(input.launch.recordPath, candidateCheckpoint);
       return candidate.candidateHeadSha;
     },
     createRun: (candidateHeadSha) => {
@@ -238,6 +263,12 @@ export const launchPlanOnlyLaneAuthority = (input: {
     taskBlockHash: task.taskBlockHash,
     taskId: input.taskId,
   });
+  if (prior)
+    assertPlanOnlyWorkflowIdentity({
+      expected: coordinates.workflowName,
+      observed: prior.workflowName,
+      taskId: input.taskId,
+    });
   if (
     prior &&
     (prior.branch !== coordinates.branch ||

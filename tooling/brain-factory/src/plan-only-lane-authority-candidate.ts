@@ -103,6 +103,7 @@ export const planOnlyLaunchCoordinates = (input: {
       ".maestro-brain-fabro-workdirs",
       `plan-only-${slug}-${id}`,
     ),
+    workflowName: `BrainBuildTask${input.taskId.replace("-", "")}Plan${id}`,
   };
 };
 
@@ -135,6 +136,7 @@ export const preparePlanOnlyCandidate = (input: {
   readonly branch: string;
   readonly controlHeadSha: string;
   readonly expectedPatchDigests: readonly string[];
+  readonly hydrate?: (root: string, workdir: string) => void;
   readonly preservedIdentity?: CandidateIdentity;
   readonly root: string;
   readonly sourceCommits: readonly string[];
@@ -159,7 +161,7 @@ export const preparePlanOnlyCandidate = (input: {
       ],
       { cwd: input.root },
     );
-    hydrateWorktreeDependencies(input.root, input.workdir);
+    (input.hydrate ?? hydrateWorktreeDependencies)(input.root, input.workdir);
   } else {
     const branch = runRtk(["git", "branch", "--show-current"], {
       cwd: input.workdir,

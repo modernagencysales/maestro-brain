@@ -11,6 +11,7 @@ interface ReservationInput {
   readonly taskBlockHash: string;
   readonly taskId: string;
   readonly workdir: string;
+  readonly workflowName: string;
 }
 
 export const buildPlanOnlyLaneAuthorityReservation = (
@@ -30,6 +31,7 @@ export const buildPlanOnlyLaneAuthorityReservation = (
   taskBlockHash: input.taskBlockHash,
   taskId: input.taskId,
   workdir: input.workdir,
+  workflowName: input.workflowName,
 });
 export const assertPlanOnlyAuthorityControllerStatus = (
   status: readonly string[],
@@ -37,6 +39,17 @@ export const assertPlanOnlyAuthorityControllerStatus = (
   if (status.some((line) => line !== "?? .mcp.json")) {
     throw new Error("plan-only authority controller is dirty");
   }
+};
+
+export const assertPlanOnlyWorkflowIdentity = (input: {
+  readonly expected: string;
+  readonly observed: unknown;
+  readonly taskId: string;
+}): void => {
+  if (input.observed !== input.expected)
+    throw new Error(
+      `${input.taskId}: preparing owner workflow identity drifted`,
+    );
 };
 
 export const buildPlanOnlyLaneAuthorityLaunchSpec = (input: {
@@ -56,6 +69,7 @@ export const buildPlanOnlyLaneAuthorityLaunchSpec = (input: {
   readonly taskBlockHash: string;
   readonly taskId: string;
   readonly workdir: string;
+  readonly workflowName: string;
 }): {
   readonly configInputs: JsonRecord;
   readonly preparingRecord: JsonRecord;
@@ -84,9 +98,24 @@ export const buildPlanOnlyLaneAuthorityLaunchSpec = (input: {
   },
 });
 
+export const buildPlanOnlyCandidateCheckpoint = (input: {
+  readonly preparingRecord: JsonRecord;
+  readonly prior?: JsonRecord;
+}): JsonRecord =>
+  input.prior?.phase === "creating"
+    ? {
+        ...input.preparingRecord,
+        phase: "creating",
+        ...(typeof input.prior.runId === "string"
+          ? { runId: input.prior.runId }
+          : {}),
+      }
+    : input.preparingRecord;
+
 export const runPlanOnlyLaneAuthorityLaunch = (input: {
   readonly existingRunId?: string;
   readonly inspectRunStatus?: (runId: string) => string;
+  readonly resolveExistingRunId?: () => string | undefined;
   readonly reserveOwner: () => void;
   readonly prepareExactCandidate: () => string;
   readonly createRun: (headSha: string) => string;
@@ -96,17 +125,18 @@ export const runPlanOnlyLaneAuthorityLaunch = (input: {
 }): string => {
   input.reserveOwner();
   const candidateHead = input.prepareExactCandidate();
-  if (input.existingRunId) {
+  const existingRunId = input.existingRunId ?? input.resolveExistingRunId?.();
+  if (existingRunId) {
     if (!input.inspectRunStatus)
       throw new Error("plan-only run inspection is missing");
-    const status = input.inspectRunStatus(input.existingRunId);
+    const status = input.inspectRunStatus(existingRunId);
     if (new Set(["canceled", "cancelled", "failed", "succeeded"]).has(status))
       throw new Error(
-        `plan-only durable run ${input.existingRunId} is terminal (${status})`,
+        `plan-only durable run ${existingRunId} is terminal (${status})`,
       );
-    if (status === "created") input.startRun(input.existingRunId);
-    input.promoteOwner(input.existingRunId);
-    return input.existingRunId;
+    if (status === "created") input.startRun(existingRunId);
+    input.promoteOwner(existingRunId);
+    return existingRunId;
   }
   const runId = input.createRun(candidateHead);
   if (!runId) throw new Error("plan-only authority returned no run ID");

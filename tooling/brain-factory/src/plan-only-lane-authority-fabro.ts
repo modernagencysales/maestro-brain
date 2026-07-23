@@ -4,6 +4,7 @@ import { buildTaskLaunchEnv } from "./build-task-launch-env.js";
 import { materializeBuildTaskRunConfig } from "./build-task-run-config.js";
 import { promoteTaskReservation } from "./dispatch-ownership.js";
 import type { PlanOnlyLaneAuthorityAdmission } from "./plan-only-lane-authority.js";
+import { materializePlanOnlyAuthorityWorkflow } from "./plan-only-lane-authority-workflow.js";
 import { gitCommonDir, runRtk } from "./process.js";
 
 export const createPlanOnlyFabroRun = (input: {
@@ -19,6 +20,7 @@ export const createPlanOnlyFabroRun = (input: {
   readonly state: string;
   readonly taskId: string;
   readonly workdir: string;
+  readonly workflowName: string;
 }): { readonly env: NodeJS.ProcessEnv; readonly runId: string } => {
   const env = buildTaskLaunchEnv({
     authorityRepairArchive: "none",
@@ -45,10 +47,18 @@ export const createPlanOnlyFabroRun = (input: {
   });
   const config = materializeBuildTaskRunConfig({
     env,
-    graph: resolve(
-      input.root,
-      ".fabro/workflows/brain-build-task/workflow.fabro",
-    ),
+    graph: materializePlanOnlyAuthorityWorkflow({
+      path: resolve(
+        input.state,
+        "launch-configs",
+        `${input.workflowName}.workflow.fabro`,
+      ),
+      sourcePath: resolve(
+        input.root,
+        ".fabro/workflows/brain-build-task/workflow.fabro",
+      ),
+      workflowName: input.workflowName,
+    }),
     path: resolve(
       input.state,
       "launch-configs",
