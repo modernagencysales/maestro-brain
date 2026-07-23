@@ -1,0 +1,69 @@
+{
+  "lens": "contract",
+  "taskId": "S11-T02",
+  "planSha256": "1c6b818063c534afdae20d688fee71e830915c5ac356bf7eba7724099d7ed9a5",
+  "taskBlockHash": "f49e5fe055896a804408cf0013f1f4b02735f7b6e18f1813ab85e85672fb569d",
+  "baseSha": "8c05d19fb42b36d4612e4faf4011008672162ba2",
+  "headSha": "789cacd4af82066218c63e414d4206d6b2f2cfa9",
+  "treeSha": "9359fc1e79ae493c2e1234f3d52f48aee42de97a",
+  "reviewerRunId": "maestro/review/S11-T02/789cacd4af82066218c63e414d4206d6b2f2cfa9/b7a9d4d4-909a-4b7a-b395-616ab2b743db-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "Plan lines 3361-3444 define S11-T02 acceptance: bearer-derived tenant/Brain scope before decode/dispatch, fail-closed errors, audited API-key CRUD, and completion proof items.",
+        "ci-proof-packet.json lines 3-7 match planSha256 f49 task block provenance, base 8c05d19f, and head 789cacd4; lines 31-35 list focused Convex typecheck, focused headless/http/api-key tests, and headless surface contract.",
+        "packages/convex/test/http-request-security.test.ts lines 328-402 prove missing/malformed bearer rejects before JSON decode/provider dispatch; lines 463-528 prove authenticate -> decode -> dispatch -> reauthenticate -> mark ordering."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.spec.ts lines 21-88 define public create/list/revoke/rotate with typed args, returns, and expected Unauthorized/Forbidden/domain errors.",
+        "packages/convex/confect/headless/apiKeys.spec.ts lines 90-127 adds internal authenticate and markLastUsed Confect functions with typed HeadlessAuthError/NoRecoverableError contracts.",
+        "packages/convex/confect/httpRequest.ts lines 23-30 and 52-75 constrain external headless HTTP failures to Unauthorized, Forbidden, ValidationFailed, and RateLimited."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/auth.ts diff adds apiKeys generation/revocation fields, while packages/convex/confect/tables/apiKeys.ts lines 5-12 retain indexed by_key_hash/by_principal/by_brain_status durable lookup invariants.",
+        "packages/convex/confect/tables/servicePrincipals.ts lines 5-11 keeps service principal indexes including by_principal_key and by_brain_status for principal binding checks.",
+        "packages/convex/test/api-keys.test.ts lines 576-660 proves indexed bearer hash auth, last-used update, and workspace generation rejection; lines 662-806 prove principal mismatch and generation rejection."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "Task manifest lines 1633-1720 classify S11-T02 as template-gap, list required integrated prerequisites, requirements HLS-01/HLS-02/IAM-03, and the approved file locks.",
+        "Proof packet lines 8-30 changed files are within the S11-T02 headless/API-key/settings ownership envelope; line 68-70 proves exactly 10 commits matching sourceSliceLimit.",
+        "Plan lines 3431-3438 focused verification is represented by proof packet focused/supplemental commands for Convex tests, headless surface contract, logging, secret canaries, and access audit checks."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "Task manifest lines 1639-1666 lock the changed web settings, headless apiKeys/auth/authorizeOperation/principal/http/httpRequest/executor, and focused test paths for S11-T02.",
+        "git diff --name-only 8c05d19f..HEAD reported only the 21 files also listed in ci-proof-packet.json lines 8-30; no generated Confect/Convex paths are edited in the checked diff.",
+        "AGENTS.md lines 22-38 require Confect specs/impls with typed args/returns/errors and no manual generated edits; the diff changes source specs/impls/tests only."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/http.ts lines 313-385 enforces policy lookup, rate-limit before auth/decode, bearer hash auth, preauthorization, JSON decode, dispatch, reauth, and best-effort last-used with redacted failure envelopes.",
+        "packages/convex/confect/headless/apiKeys.impl.ts lines 509-601 authenticates by indexed key hash and rejects not found, revoked/expired key, inactive tenant, generation drift, and forbidden principal binding before principal creation.",
+        "packages/convex/test/http-request-security.test.ts lines 235-326 covers RateLimited before decode and redacted admission metadata; lines 572-648 covers fail-closed reauthorization and redacted dispatch exceptions."
+      ]
+    }
+  ],
+  "priorFindingDispositions": [],
+  "findings": [],
+  "verdict": "pass"
+}
