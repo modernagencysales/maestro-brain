@@ -69,6 +69,65 @@ export const terminalContractReproofWorkflowName = (input: {
   return `BrainBuildTask${input.taskId.replaceAll("-", "")}Green${identity}`;
 };
 
+export const terminalContractReproofRefreshRequired = (input: {
+  readonly authorityDeltaPaths: readonly string[];
+  readonly currentControlHeadSha: string;
+  readonly previousControlHeadSha: string;
+}): boolean => {
+  if (input.currentControlHeadSha === input.previousControlHeadSha) {
+    if (input.authorityDeltaPaths.length > 0) {
+      throw new Error(
+        "terminal authority delta exists without a control advance",
+      );
+    }
+    return false;
+  }
+  if (input.authorityDeltaPaths.length === 0) {
+    throw new Error("terminal control advance has no authority delta");
+  }
+  return true;
+};
+
+export const persistTerminalContractReproofRefreshArtifacts = (input: {
+  readonly artifacts: readonly {
+    readonly content: string;
+    readonly path: string;
+  }[];
+  readonly exists: (path: string) => boolean;
+  readonly read: (path: string) => string;
+  readonly write: (path: string, content: string) => void;
+}): void => {
+  const paths = input.artifacts.map(({ path }) => path);
+  if (new Set(paths).size !== paths.length) {
+    throw new Error("terminal refresh artifact paths are not unique");
+  }
+  for (const artifact of input.artifacts) {
+    if (
+      input.exists(artifact.path) &&
+      input.read(artifact.path) !== artifact.content
+    ) {
+      throw new Error(
+        `terminal refresh artifact collision at ${artifact.path}`,
+      );
+    }
+  }
+  for (const artifact of input.artifacts) {
+    if (!input.exists(artifact.path))
+      input.write(artifact.path, artifact.content);
+  }
+};
+
+export const commitTerminalContractReproofRefresh = <Request, Plan>(input: {
+  readonly buildRequest: () => Request;
+  readonly buildResumePlan: (request: Request) => Plan;
+  readonly persist: (request: Request) => void;
+}): { readonly plan: Plan; readonly request: Request } => {
+  const request = input.buildRequest();
+  const plan = input.buildResumePlan(request);
+  input.persist(request);
+  return { plan, request };
+};
+
 export const readTerminalContractReproofAuthorityDelta = (input: {
   readonly controlHeadSha: string;
   readonly currentHeadSha: string;
@@ -263,8 +322,13 @@ export const launchTerminalContractReproofResume = (input: {
     JSON.parse(readFileSync(requestPath, "utf8")) as unknown,
     `${input.taskId}: reproof request`,
   );
+  const previousControlHeadSha =
+    request.schemaVersion ===
+    "maestro-brain-contract-reproof-terminal-refresh/v1"
+      ? String(request.currentControlHeadSha ?? "")
+      : String(request.controlHeadSha ?? "");
   const authorityDeltaPaths = readTerminalContractReproofAuthorityDelta({
-    controlHeadSha: String(request.controlHeadSha ?? ""),
+    controlHeadSha: previousControlHeadSha,
     currentHeadSha: controlHeadSha,
     root: input.root,
   });
@@ -409,99 +473,115 @@ export const launchTerminalContractReproofResume = (input: {
     )
   )
     throw new Error(`${input.taskId}: signed owner findings content drift`);
-  let launchRequestPath = requestPath;
-  let launchRequestSha256 = admitted.request.requestSha256;
-  if (admitted.request.planSha256 !== manifest.planSha256) {
-    const previousRequestContent = readFileSync(requestPath, "utf8");
-    const refreshDirectory = resolve(
-      input.evidence,
-      "reproofs",
-      input.taskId,
-      "terminal-refresh",
-      controlHeadSha.slice(0, 12),
-    );
-    const terminalProofPath = resolve(refreshDirectory, "prior-proof.json");
-    const terminalGatePath = resolve(refreshDirectory, "prior-gate.json");
-    const snapshot = (path: string, content: string): void => {
-      if (existsSync(path)) {
-        if (readFileSync(path, "utf8") !== content) {
-          throw new Error(`${input.taskId}: terminal refresh snapshot drift`);
-        }
-      } else {
-        atomicWrite(path, content);
-      }
-    };
-    const refreshed = buildTerminalContractReproofRefreshRequest({
+  const resumePlan = (launchRequestPath: string, launchRequestSha256: string) =>
+    buildTerminalContractReproofResume({
+      admittedRequest:
+        admitted.request as unknown as TerminalContractReproofRecord,
+      authorityRepairArchive: "none",
       authorityDeltaPaths,
-      currentControlHeadSha: controlHeadSha,
+      canonicalOwnerFindingsSha256: ownerRoute.findingSha256,
+      controlCommonDir,
+      controlRoot: input.root,
+      controlHeadSha,
       currentPlanSha256: manifest.planSha256,
       currentTaskBlockHash: task.taskBlockHash,
       currentTaskFileLocks: task.fileLocks,
-      finalGateContent,
-      finalGatePath: terminalGatePath,
-      finalGateReport: finalGate,
-      previousRequest: admitted.request,
-      previousRequestContent,
-      previousRequestPath: requestPath,
+      evidence: input.evidence,
+      finalGate,
+      hostTestMaxLoad1m: "20",
+      launchRequestPath,
+      launchRequestSha256,
+      inspectedRun: inspection,
       proof,
-      proofContent,
-      proofPath: terminalProofPath,
-      reason: "refresh terminal reproof against current control authority",
-      taskId: input.taskId,
-      terminalRunId: inspection.runId,
-      terminalRunStatus: inspection.status,
-      terminalSourceHeadSha: String(proof.headSha ?? ""),
-    });
-    snapshot(terminalProofPath, proofContent);
-    snapshot(terminalGatePath, finalGateContent);
-    launchRequestPath = resolve(refreshDirectory, "request.json");
-    const refreshedContent = jsonContent(refreshed);
-    if (existsSync(launchRequestPath)) {
-      if (readFileSync(launchRequestPath, "utf8") !== refreshedContent) {
-        throw new Error(`${input.taskId}: terminal refresh request drift`);
-      }
-    } else {
-      atomicWrite(launchRequestPath, refreshedContent);
-    }
-    launchRequestSha256 = refreshed.requestSha256;
-  }
-  const plan = buildTerminalContractReproofResume({
-    admittedRequest:
-      admitted.request as unknown as TerminalContractReproofRecord,
-    authorityRepairArchive: "none",
-    authorityDeltaPaths,
-    canonicalOwnerFindingsSha256: ownerRoute.findingSha256,
-    controlCommonDir,
-    controlRoot: input.root,
-    controlHeadSha,
-    currentPlanSha256: manifest.planSha256,
-    currentTaskBlockHash: task.taskBlockHash,
-    currentTaskFileLocks: task.fileLocks,
-    evidence: input.evidence,
-    finalGate,
-    hostTestMaxLoad1m: "20",
-    launchRequestPath,
-    launchRequestSha256,
-    inspectedRun: inspection,
-    proof,
-    record: owner,
-    requestPath,
-    routing,
-    sourceCommits: source.taskCommits,
-    terminalStatus: inspection.status,
-    worktree: {
-      ...observedWorktree,
-      requestControlHeadIsAncestor: gitIsAncestor(
-        admitted.request.controlHeadSha,
-        "HEAD",
+      record: owner,
+      requestPath,
+      routing,
+      sourceCommits: source.taskCommits,
+      terminalStatus: inspection.status,
+      worktree: {
+        ...observedWorktree,
+        requestControlHeadIsAncestor: gitIsAncestor(
+          admitted.request.controlHeadSha,
+          "HEAD",
+          workdir,
+        ),
+        sourceRangeIsValid:
+          source.sourceHeadSha === owner.sourceHeadSha &&
+          source.taskBaseSha === owner.taskBaseSha,
         workdir,
-      ),
-      sourceRangeIsValid:
-        source.sourceHeadSha === owner.sourceHeadSha &&
-        source.taskBaseSha === owner.taskBaseSha,
-      workdir,
-    },
+      },
+    });
+  const refreshRequired = terminalContractReproofRefreshRequired({
+    authorityDeltaPaths,
+    currentControlHeadSha: controlHeadSha,
+    previousControlHeadSha,
   });
+  const plan = refreshRequired
+    ? commitTerminalContractReproofRefresh({
+        buildRequest: () => {
+          const previousRequestContent = readFileSync(requestPath, "utf8");
+          const refreshDirectory = resolve(
+            input.evidence,
+            "reproofs",
+            input.taskId,
+            "terminal-refresh",
+            controlHeadSha.slice(0, 12),
+          );
+          const previousRequestPath = resolve(
+            refreshDirectory,
+            "prior-request.json",
+          );
+          const terminalProofPath = resolve(
+            refreshDirectory,
+            "prior-proof.json",
+          );
+          const terminalGatePath = resolve(refreshDirectory, "prior-gate.json");
+          const launchRequestPath = resolve(refreshDirectory, "request.json");
+          const refreshed = buildTerminalContractReproofRefreshRequest({
+            authorityDeltaBaseSha: previousControlHeadSha,
+            authorityDeltaPaths,
+            currentControlHeadSha: controlHeadSha,
+            currentPlanSha256: manifest.planSha256,
+            currentTaskBlockHash: task.taskBlockHash,
+            currentTaskFileLocks: task.fileLocks,
+            finalGateContent,
+            finalGatePath: terminalGatePath,
+            finalGateReport: finalGate,
+            previousRequest: admitted.request,
+            previousRequestContent,
+            previousRequestPath,
+            proof,
+            proofContent,
+            proofPath: terminalProofPath,
+            reason:
+              "refresh terminal reproof against current control authority",
+            taskId: input.taskId,
+            terminalRunId: inspection.runId,
+            terminalRunStatus: inspection.status,
+            terminalSourceHeadSha: String(proof.headSha ?? ""),
+          });
+          return {
+            artifacts: [
+              { content: previousRequestContent, path: previousRequestPath },
+              { content: proofContent, path: terminalProofPath },
+              { content: finalGateContent, path: terminalGatePath },
+              { content: jsonContent(refreshed), path: launchRequestPath },
+            ],
+            launchRequestPath,
+            refreshed,
+          };
+        },
+        buildResumePlan: ({ launchRequestPath, refreshed }) =>
+          resumePlan(launchRequestPath, refreshed.requestSha256),
+        persist: ({ artifacts }) =>
+          persistTerminalContractReproofRefreshArtifacts({
+            artifacts,
+            exists: existsSync,
+            read: (path) => readFileSync(path, "utf8"),
+            write: atomicWrite,
+          }),
+      }).plan
+    : resumePlan(requestPath, admitted.request.requestSha256);
   const launchEnv = buildTaskLaunchEnv({
     authorityRepairArchive: plan.launchInputs.authority_repair_archive,
     baseSha: plan.launchInputs.base_sha,

@@ -220,14 +220,17 @@ const validateRefreshArtifacts = (
     );
     if (
       input.isAncestor &&
-      !input.isAncestor(input.request.controlHeadSha, currentControlHeadSha)
+      !input.isAncestor(
+        String(input.request.authorityDeltaBaseSha ?? ""),
+        currentControlHeadSha,
+      )
     ) {
       throw new Error(`${input.taskId}: terminal control ancestry drift`);
     }
     if (input.authorityDeltaPathsBetween) {
       const observed = [
         ...input.authorityDeltaPathsBetween(
-          input.request.controlHeadSha,
+          String(input.request.authorityDeltaBaseSha ?? ""),
           currentControlHeadSha,
         ),
       ].sort();
@@ -239,6 +242,7 @@ const validateRefreshArtifacts = (
       }
     }
     const rebuilt = buildTerminalContractReproofRefreshRequest({
+      authorityDeltaBaseSha: String(input.request.authorityDeltaBaseSha ?? ""),
       authorityDeltaPaths: input.request.authorityDeltaPaths ?? [],
       currentControlHeadSha,
       currentPlanSha256: input.request.planSha256,

@@ -1,18 +1,85 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
 import { materializeLaneGreenAuthorityWorkflow } from "../src/lane-green-authority-workflow.js";
 import {
+  commitTerminalContractReproofRefresh,
+  persistTerminalContractReproofRefreshArtifacts,
   readTerminalContractReproofAuthorityDelta,
   signedFindingsBindRoute,
   terminalContractReproofWorkflowName,
+  terminalContractReproofRefreshRequired,
 } from "../src/terminal-contract-reproof-launch.js";
 
 describe("terminal contract-reproof launch", () => {
+  it("refreshes a plan-stable non-empty control advance", () => {
+    expect(
+      terminalContractReproofRefreshRequired({
+        authorityDeltaPaths: ["tooling/brain-factory/src/manifest.ts"],
+        currentControlHeadSha: "b".repeat(40),
+        previousControlHeadSha: "a".repeat(40),
+      }),
+    ).toBe(true);
+    expect(() =>
+      terminalContractReproofRefreshRequired({
+        authorityDeltaPaths: [],
+        currentControlHeadSha: "b".repeat(40),
+        previousControlHeadSha: "a".repeat(40),
+      }),
+    ).toThrow("no authority delta");
+  });
+
+  it("performs full candidate validation before any artifact write", () => {
+    const writes: string[] = [];
+    expect(() =>
+      commitTerminalContractReproofRefresh({
+        buildRequest: () => ({ requestSha256: "a".repeat(64) }),
+        buildResumePlan: () => {
+          throw new Error("invalid terminal inputs");
+        },
+        persist: () => writes.push("write"),
+      }),
+    ).toThrow("invalid terminal inputs");
+    expect(writes).toEqual([]);
+  });
+
+  it("recovers partial exact writes and rejects collisions before writing", () => {
+    const contents = new Map([["prior-request.json", "request"]]);
+    const artifacts = [
+      { path: "prior-request.json", content: "request" },
+      { path: "prior-proof.json", content: "proof" },
+      { path: "prior-gate.json", content: "gate" },
+      { path: "request.json", content: "refresh" },
+    ];
+    persistTerminalContractReproofRefreshArtifacts({
+      artifacts,
+      exists: (path) => contents.has(path),
+      read: (path) => contents.get(path) ?? "",
+      write: (path, content) => contents.set(path, content),
+    });
+    expect(Object.fromEntries(contents)).toEqual({
+      "prior-request.json": "request",
+      "prior-proof.json": "proof",
+      "prior-gate.json": "gate",
+      "request.json": "refresh",
+    });
+
+    const collision = new Map([["prior-gate.json", "wrong"]]);
+    const writes: string[] = [];
+    expect(() =>
+      persistTerminalContractReproofRefreshArtifacts({
+        artifacts,
+        exists: (path) => collision.has(path),
+        read: (path) => collision.get(path) ?? "",
+        write: (path) => writes.push(path),
+      }),
+    ).toThrow("terminal refresh artifact collision");
+    expect(writes).toEqual([]);
+  });
+
   it("uses unfiltered Git bytes for machine-readable authority paths", () => {
     const calls: string[][] = [];
     expect(
@@ -117,38 +184,5 @@ describe("terminal contract-reproof launch", () => {
     } finally {
       rmSync(root, { force: true, recursive: true });
     }
-  });
-  it("uses current workflow admission without dropping preserved authority", () => {
-    const source = readFileSync(
-      fileURLToPath(
-        new URL("../src/terminal-contract-reproof-launch.ts", import.meta.url),
-      ),
-      "utf8",
-    );
-    expect(source).toContain("acquireDispatcherLock({");
-    expect(source).toContain("admitContractReproof({");
-    expect(source).toContain("buildTerminalContractReproofResume({");
-    expect(source).toContain("replaceTerminalTaskRecord({");
-    expect(source).toContain(
-      "reproofRequest: plan.launchInputs.reproof_request",
-    );
-    expect(source).toContain("resumeMode: plan.launchInputs.resume_mode");
-    expect(source).toContain("materializeBuildTaskRunConfig({");
-    expect(source).toContain("buildTerminalContractReproofRefreshRequest({");
-    expect(source).toContain(
-      'const proofContent = readFileSync(proofPath, "utf8")',
-    );
-    expect(source).toContain(
-      'const finalGateContent = readFileSync(finalGatePath, "utf8")',
-    );
-    expect(source).toContain(
-      "atomicWrite(launchRequestPath, refreshedContent)",
-    );
-    expect(
-      source.indexOf("buildTerminalContractReproofRefreshRequest({"),
-    ).toBeLessThan(source.indexOf("snapshot(terminalProofPath, proofContent)"));
-    expect(source).toContain(
-      '".fabro/workflows/brain-build-task/workflow.fabro"',
-    );
   });
 });

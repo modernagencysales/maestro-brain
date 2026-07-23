@@ -356,6 +356,7 @@ describe("contract reproof admission", () => {
       "tooling/brain-factory/src/lane-gates.mts",
     ];
     const refreshed = buildTerminalContractReproofRefreshRequest({
+      authorityDeltaBaseSha: previous.controlHeadSha,
       authorityDeltaPaths,
       currentControlHeadSha: value.input.currentControlHead,
       currentPlanSha256: "8".repeat(64),

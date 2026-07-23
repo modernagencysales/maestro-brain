@@ -58,6 +58,7 @@ export interface ContractReproofRequest {
   readonly priorReproofRequestSha256?: string;
   readonly priorReproofSourceHeadSha?: string;
   readonly findings?: readonly ContractReproofFinding[];
+  readonly authorityDeltaBaseSha?: string;
   readonly authorityDeltaPaths?: readonly string[];
   readonly currentControlHeadSha?: string;
   readonly terminalRunId?: string;
@@ -108,6 +109,7 @@ const CONTRACT_REPROOF_FINDINGS_REFRESH_KEYS = [
 
 const CONTRACT_REPROOF_TERMINAL_REFRESH_KEYS = [
   ...CONTRACT_REPROOF_FINDINGS_KEYS,
+  "authorityDeltaBaseSha",
   "authorityDeltaPaths",
   "currentControlHeadSha",
   "priorReproofFinalGatePath",
@@ -431,6 +433,9 @@ export const validateContractReproofRequest = (
         : request.schemaVersion === CONTRACT_REPROOF_TERMINAL_REFRESH_SCHEMA
           ? buildTerminalContractReproofRefreshRequest({
               ...request,
+              authorityDeltaBaseSha: String(
+                request.authorityDeltaBaseSha ?? "",
+              ),
               authorityDeltaPaths: request.authorityDeltaPaths ?? [],
               currentControlHeadSha: String(
                 request.currentControlHeadSha ?? "",
@@ -501,6 +506,7 @@ const terminalAuthorityPath = (path: string): boolean =>
   path.startsWith("tooling/brain-factory/test/");
 
 export const buildTerminalContractReproofRefreshRequest = (input: {
+  readonly authorityDeltaBaseSha: string;
   readonly authorityDeltaPaths: readonly string[];
   readonly currentControlHeadSha: string;
   readonly currentPlanSha256: string;
@@ -529,6 +535,11 @@ export const buildTerminalContractReproofRefreshRequest = (input: {
       findings: request.findings ?? [],
     });
     const authorityDeltaPaths = [...(request.authorityDeltaPaths ?? [])].sort();
+    const authorityDeltaBaseSha = exactSha(
+      String(request.authorityDeltaBaseSha ?? ""),
+      "authorityDeltaBaseSha",
+      40,
+    );
     if (
       authorityDeltaPaths.length === 0 ||
       new Set(authorityDeltaPaths).size !== authorityDeltaPaths.length ||
@@ -555,6 +566,7 @@ export const buildTerminalContractReproofRefreshRequest = (input: {
     const payload = {
       ...common,
       schemaVersion: CONTRACT_REPROOF_TERMINAL_REFRESH_SCHEMA,
+      authorityDeltaBaseSha,
       authorityDeltaPaths,
       currentControlHeadSha: exactSha(
         String(request.currentControlHeadSha ?? ""),
@@ -610,6 +622,20 @@ export const buildTerminalContractReproofRefreshRequest = (input: {
     taskId: input.taskId,
     fileLocks: input.currentTaskFileLocks,
   });
+  const immediatelyPriorControlHeadSha =
+    previous.schemaVersion === CONTRACT_REPROOF_TERMINAL_REFRESH_SCHEMA
+      ? String(previous.currentControlHeadSha ?? "")
+      : previous.controlHeadSha;
+  const authorityDeltaBaseSha = exactSha(
+    input.authorityDeltaBaseSha,
+    "authorityDeltaBaseSha",
+    40,
+  );
+  if (authorityDeltaBaseSha !== immediatelyPriorControlHeadSha) {
+    throw new Error(
+      `${input.taskId}: terminal delta does not bind immediately prior control authority`,
+    );
+  }
   const proof = record(input.proof, `${input.taskId}: terminal proof`);
   const gate = record(input.finalGateReport, `${input.taskId}: terminal gate`);
   const proofPlanSha256 = validateProofContract(proof, {
@@ -683,6 +709,7 @@ export const buildTerminalContractReproofRefreshRequest = (input: {
   const payload = {
     ...common,
     schemaVersion: CONTRACT_REPROOF_TERMINAL_REFRESH_SCHEMA,
+    authorityDeltaBaseSha,
     authorityDeltaPaths,
     currentControlHeadSha: exactSha(
       input.currentControlHeadSha,

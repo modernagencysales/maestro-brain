@@ -132,6 +132,7 @@ describe("terminal contract reproof authority refresh", () => {
         "docs/superpowers/plans/current.md",
         "tooling/brain-factory/src/lane-gates.mts",
       ],
+      authorityDeltaBaseSha: previous.controlHeadSha,
       currentControlHeadSha,
       currentPlanSha256,
       currentTaskBlockHash: previous.taskBlockHash,
@@ -170,6 +171,7 @@ describe("terminal contract reproof authority refresh", () => {
         "docs/superpowers/plans/current.md",
         "tooling/brain-factory/src/lane-gates.mts",
       ],
+      authorityDeltaBaseSha: previous.controlHeadSha,
       priorReproofRequestSha256: sha256(json(previous)),
       priorReproofProofSha256: sha256(json(proof)),
       priorReproofFinalGateSha256: sha256(json(gate)),
@@ -200,6 +202,58 @@ describe("terminal contract reproof authority refresh", () => {
     ],
   ])("rejects drifted %s lineage", (_label, overrides) => {
     expect(() => build(overrides)).toThrow();
+  });
+
+  it("binds chained refresh delta to the immediately prior control authority", () => {
+    const first = build();
+    const nextHeadSha = "d".repeat(40);
+    const nextProof = {
+      ...proof,
+      headSha: nextHeadSha,
+      planSha256: first.planSha256,
+      reviewHeadSha: nextHeadSha,
+    };
+    const nextGate = {
+      ...gate,
+      currentHeadSha: nextHeadSha,
+      headSha: nextHeadSha,
+      planSha256: first.planSha256,
+    };
+    const nextInput = {
+      authorityDeltaBaseSha: first.currentControlHeadSha as string,
+      authorityDeltaPaths: ["tooling/brain-factory/src/manifest.ts"],
+      currentControlHeadSha: "e".repeat(40),
+      currentPlanSha256: "f".repeat(64),
+      currentTaskBlockHash: first.taskBlockHash,
+      currentTaskFileLocks: [
+        "packages/convex/confect/slack/channelPolicies.impl.ts",
+      ],
+      finalGateContent: json(nextGate),
+      finalGatePath: "/tmp/evidence/terminal-2/gate.json",
+      finalGateReport: nextGate,
+      previousRequest: first,
+      previousRequestContent: json(first),
+      previousRequestPath: "/tmp/evidence/terminal-1/request.json",
+      proof: nextProof,
+      proofContent: json(nextProof),
+      proofPath: "/tmp/evidence/terminal-2/proof.json",
+      reason: "advance terminal authority again",
+      taskId: first.taskId,
+      terminalRunId: "01KY7H4EDRW1M3CA8Z6T4DR3BP",
+      terminalRunStatus: "failed",
+      terminalSourceHeadSha: nextHeadSha,
+    } as const;
+    expect(buildTerminalContractReproofRefreshRequest(nextInput)).toMatchObject(
+      {
+        authorityDeltaBaseSha: first.currentControlHeadSha,
+      },
+    );
+    expect(() =>
+      buildTerminalContractReproofRefreshRequest({
+        ...nextInput,
+        authorityDeltaBaseSha: first.controlHeadSha,
+      }),
+    ).toThrow("immediately prior control authority");
   });
 });
 
