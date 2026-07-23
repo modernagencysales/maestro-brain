@@ -11,6 +11,13 @@ import {
   type ParallelismContract,
   type ParallelismEdge,
 } from "./parallelism-contract.js";
+import {
+  parsePlanOnlyLaneAuthorityRegistry,
+  type PlanOnlyLaneAuthorityTransition,
+} from "./plan-only-lane-authority-manifest.js";
+
+export { parsePlanOnlyLaneAuthorityRegistry } from "./plan-only-lane-authority-manifest.js";
+export type { PlanOnlyLaneAuthorityTransition } from "./plan-only-lane-authority-manifest.js";
 
 export const PLAN_RELATIVE =
   "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md";
@@ -47,6 +54,7 @@ export interface BrainTaskContract {
   readonly kind: "control" | "docs" | "external" | "product" | "release";
   readonly lane: string;
   readonly laneGreenAuthorityReproofTransition?: LaneGreenAuthorityReproofTransition;
+  readonly planOnlyLaneAuthorityTransition?: PlanOnlyLaneAuthorityTransition;
   readonly requirements: readonly string[];
   readonly estimatedSourceLines: number;
   readonly sourceSliceBudget: 300;
@@ -1337,6 +1345,7 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
   const planPath = resolve(root, PLAN_RELATIVE);
   const plan = readFileSync(planPath, "utf8");
   const blocks = taskBlocks(plan);
+  const planOnlyRegistry = parsePlanOnlyLaneAuthorityRegistry(plan);
   const acceptance = acceptanceRows(plan);
   const classifications = new Map(
     [...blocks].map(([taskId, { body }]) => {
@@ -1391,6 +1400,19 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
     );
     const laneGreenAuthorityReproofTransition =
       parseLaneGreenAuthorityReproofTransition(body, taskId);
+    const planOnlyLaneAuthorityTransition = planOnlyRegistry.get(taskId);
+    const codeStartAfter = START_OVERRIDES[taskId] ?? [];
+    const taskBlockHash = hash(body);
+    if (
+      planOnlyLaneAuthorityTransition &&
+      (planOnlyLaneAuthorityTransition.taskBlockHash !== taskBlockHash ||
+        JSON.stringify(
+          planOnlyLaneAuthorityTransition.requiredIntegratedTaskIds,
+        ) !== JSON.stringify(codeStartAfter) ||
+        planOnlyLaneAuthorityTransition.fromPlanSha256 === hash(plan))
+    ) {
+      throw new Error(`${taskId}: plan-only lane authority contract drifted`);
+    }
     if (laneGreenAuthorityReproofTransition && taskId !== "S05-T01") {
       throw new Error(
         `${taskId}: lane-green authority reproof is unauthorized`,
@@ -1402,6 +1424,7 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
         checkpointReproofTransition,
         laneGreenAuthorityReproofTransition,
         ownershipRehomeTransition,
+        planOnlyLaneAuthorityTransition,
       ].filter(Boolean).length > 1
     ) {
       throw new Error(
@@ -1411,7 +1434,7 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
     return {
       acceptanceAfter: acceptanceContract.dependency,
       classification,
-      codeStartAfter: START_OVERRIDES[taskId] ?? [],
+      codeStartAfter,
       estimatedSourceLines: acceptanceContract.estimatedSourceLines,
       fileInventoryIssues: parsedFileLocks.issues,
       fileInventoryStatus,
@@ -1427,12 +1450,15 @@ export const buildManifest = (root = REPO_ROOT): BrainTaskManifest => {
       ...(laneGreenAuthorityReproofTransition
         ? { laneGreenAuthorityReproofTransition }
         : {}),
+      ...(planOnlyLaneAuthorityTransition
+        ? { planOnlyLaneAuthorityTransition }
+        : {}),
       requirements,
       sourceSliceBudget: 300,
       ...(SOURCE_SLICE_LIMITS[taskId] === undefined
         ? {}
         : { sourceSliceLimit: SOURCE_SLICE_LIMITS[taskId] }),
-      taskBlockHash: hash(body),
+      taskBlockHash,
       taskId,
       title,
       tranche: trancheFor(taskId),

@@ -34,6 +34,9 @@ export type ControllerActionKind =
   | "route_owner_rework"
   | "integrate_batch"
   | "dispatch_tasks"
+  | "resume_plan_only_authority"
+  | "resume_lane_green_authority_reproof"
+  | "resume_ownership_rehome"
   | "wait";
 
 export interface ControllerActionIdentity {
@@ -202,6 +205,9 @@ export const ownershipTaskStages = new Set([
   ...codingTaskStages,
   "lane_green",
   "false_green",
+  "authority_transition_ready",
+  "authority_transition_waiting_prerequisites",
+  "authority_transition_held",
 ]);
 
 export const GREEN_BATCH_CANDIDATE_LIMIT = 20;
@@ -438,10 +444,68 @@ export const planControllerTick = (
   const falseGreen = snapshot.tasks.filter(
     ({ stage }) => stage === "false_green",
   );
+  const transitionKind = (
+    task: ControllerTaskState,
+  ): ControllerActionKind | undefined => {
+    switch (task.authorityTransition) {
+      case "plan-only-lane-authority":
+        return "resume_plan_only_authority";
+      case "lane-green-authority-reproof":
+        return "resume_lane_green_authority_reproof";
+      case "ownership-rehome":
+        return "resume_ownership_rehome";
+      case undefined:
+        return undefined;
+    }
+  };
+  const modeledTransitions = snapshot.tasks.filter(
+    ({ stage }) =>
+      stage === "authority_transition_ready" ||
+      stage === "authority_transition_waiting_prerequisites",
+  );
   if (falseGreen.length > 0) {
     return withFrontier(
       waitAction(
         falseGreen.map(({ taskId }) => `false_green:${taskId}`),
+        snapshot,
+        policy,
+      ),
+    );
+  }
+  const readyTransition = modeledTransitions.find(
+    ({ missingPrerequisiteTaskIds }) =>
+      (missingPrerequisiteTaskIds?.length ?? 0) === 0,
+  );
+  const readyTransitionKind =
+    readyTransition === undefined ? undefined : transitionKind(readyTransition);
+  if (readyTransition && readyTransitionKind) {
+    return withFrontier(
+      taskAction(readyTransitionKind, readyTransition, snapshot, policy),
+    );
+  }
+  if (modeledTransitions.length > 0) {
+    const deferredIds = new Set(modeledTransitions.map(({ taskId }) => taskId));
+    const followOn = planControllerTick(
+      {
+        ...snapshot,
+        tasks: snapshot.tasks.map((task) =>
+          deferredIds.has(task.taskId)
+            ? { ...task, stage: "authority_transition_held" as const }
+            : task,
+        ),
+      },
+      policy,
+      manifest,
+    );
+    if (followOn.some(({ kind }) => kind !== "wait")) return followOn;
+    return withFrontier(
+      waitAction(
+        modeledTransitions.flatMap((task) =>
+          (task.missingPrerequisiteTaskIds ?? []).map(
+            (prerequisite) =>
+              `authority_prerequisite:${task.taskId}:${prerequisite}`,
+          ),
+        ),
         snapshot,
         policy,
       ),
@@ -576,6 +640,27 @@ export const commandForControllerAction = (
   switch (action.kind) {
     case "wait":
       return undefined;
+    case "resume_plan_only_authority":
+    case "resume_lane_green_authority_reproof":
+    case "resume_ownership_rehome": {
+      if (!target) throw new Error(`${action.kind} target missing`);
+      const flag =
+        action.kind === "resume_plan_only_authority"
+          ? "--plan-only-authority"
+          : action.kind === "resume_lane_green_authority_reproof"
+            ? "--lane-green-authority-reproof"
+            : "--ownership-rehome";
+      return [
+        "pnpm",
+        "brain:factory:resume",
+        "--",
+        "--task",
+        target,
+        flag,
+        "--state",
+        stateRoot,
+      ];
+    }
     case "archive_terminal": {
       const runId = action.sourceRunIds[0];
       if (!target || !runId)

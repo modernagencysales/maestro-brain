@@ -94,6 +94,120 @@ const frontier = (): readonly ControllerTaskObservation[] => [
 ];
 
 describe("controller pure planner", () => {
+  it("resumes ready plan-only authority and defers modeled prerequisites", () => {
+    const ready = planControllerTick(
+      snapshot({
+        tasks: [
+          task("S11-T02", "lane_green", {
+            admission: "rejected",
+            authorityTransition: "plan-only-lane-authority",
+            missingPrerequisiteTaskIds: [],
+          }),
+        ],
+      }),
+      policy,
+    )[0];
+    expect(ready).toMatchObject({
+      kind: "resume_plan_only_authority",
+      targetIds: ["S11-T02"],
+    });
+    if (!ready) throw new Error("expected plan-only authority action");
+    expect(commandForControllerAction(ready, "/tmp/state")).toEqual([
+      "pnpm",
+      "brain:factory:resume",
+      "--",
+      "--task",
+      "S11-T02",
+      "--plan-only-authority",
+      "--state",
+      "/tmp/state",
+    ]);
+
+    const waiting = planControllerTick(
+      snapshot({
+        tasks: [
+          task("S13-T02", "lane_green", {
+            admission: "rejected",
+            authorityTransition: "plan-only-lane-authority",
+            missingPrerequisiteTaskIds: ["S06-T02", "S11-T04"],
+          }),
+          task("S06-T01", "accepted"),
+          task("S06-T02", "pending"),
+          task("S11-T03", "accepted"),
+          task("S11-T04", "pending"),
+        ],
+      }),
+      policy,
+    );
+    expect(waiting.some(({ kind }) => kind === "dispatch_tasks")).toBe(true);
+    expect(waiting).not.toContainEqual(
+      expect.objectContaining({
+        kind: "wait",
+        targetIds: ["false_green:S13-T02"],
+      }),
+    );
+  });
+
+  it("keeps ownership-rehome distinct while prerequisites wait", () => {
+    const actions = planControllerTick(
+      snapshot({
+        tasks: [
+          task("S13-T03", "lane_green", {
+            admission: "rejected",
+            authorityTransition: "ownership-rehome",
+            missingPrerequisiteTaskIds: ["S12-T02"],
+          }),
+          task("S07-T01", "accepted"),
+          task("S11-T02", "accepted"),
+          task("S12-T01", "accepted"),
+          task("S12-T02", "pending"),
+        ],
+      }),
+      policy,
+    );
+    expect(actions.some(({ kind }) => kind === "dispatch_tasks")).toBe(true);
+    const ready = planControllerTick(
+      snapshot({
+        tasks: [
+          task("S13-T03", "lane_green", {
+            admission: "rejected",
+            authorityTransition: "ownership-rehome",
+            missingPrerequisiteTaskIds: [],
+          }),
+        ],
+      }),
+      policy,
+    )[0];
+    if (!ready) throw new Error("expected ownership-rehome action");
+    expect(commandForControllerAction(ready, "/tmp/state")).toContain(
+      "--ownership-rehome",
+    );
+  });
+
+  it("retains a waiting transition as a scheduler lock holder", () => {
+    const actions = planControllerTick(
+      snapshot({
+        tasks: [
+          task("S13-T02", "lane_green", {
+            admission: "rejected",
+            authorityTransition: "plan-only-lane-authority",
+            missingPrerequisiteTaskIds: ["S06-T02"],
+          }),
+          task("S06-T01", "accepted"),
+          task("S06-T02", "pending"),
+          task("S08-T04", "accepted"),
+          task("S09-T04", "accepted"),
+          task("S11-T03", "accepted"),
+          task("S13-T01", "pending"),
+        ],
+      }),
+      policy,
+    );
+    const dispatch = actions.find(({ kind }) => kind === "dispatch_tasks");
+    expect(dispatch?.targetIds).toContain("S06-T02");
+    expect(dispatch?.targetIds).not.toContain("S13-T01");
+  });
+
   it("produces byte-identical plans and IDs for normalized input", () => {
     const left = snapshot({
       errors: [

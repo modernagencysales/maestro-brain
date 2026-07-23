@@ -16,6 +16,10 @@ import { validateIntegrationWaveSupersessionReceipt } from "./integration-wave-s
 import { validateLaneAcceptance } from "./lane-acceptance.js";
 import { validateFinalLaneResult } from "./lane-result.js";
 import type { BrainTaskManifest } from "./manifest.js";
+import {
+  loadPlanOnlyLaneAuthorityAdmission,
+  resolvePlanOnlyIntegratedPrerequisites,
+} from "./plan-only-lane-authority-admission.js";
 import { gitIsAncestor, runRtk } from "./process.js";
 import { planIntegrationOwnerReworkRoute } from "./route-integration-rework.js";
 
@@ -252,6 +256,44 @@ export const observeControllerSnapshot = (
           manifest: input.manifest,
           task,
         });
+        if (
+          admission.admission === "rejected" &&
+          task.planOnlyLaneAuthorityTransition
+        ) {
+          try {
+            loadPlanOnlyLaneAuthorityAdmission({
+              controlHeadSha,
+              evidence: evidenceRoot,
+              integratedTaskIds:
+                task.planOnlyLaneAuthorityTransition.requiredIntegratedTaskIds,
+              manifest: input.manifest,
+              ownerDisposition: "absent",
+              root: input.controlRoot,
+              task,
+            });
+            const integrated = new Set(
+              resolvePlanOnlyIntegratedPrerequisites({
+                controlHeadSha,
+                evidence: evidenceRoot,
+                manifest: input.manifest,
+                root: input.controlRoot,
+                task,
+              }),
+            );
+            return {
+              admission: "rejected",
+              authorityTransition: "plan-only-lane-authority",
+              ...(admission.headSha ? { headSha: admission.headSha } : {}),
+              missingPrerequisiteTaskIds: task.codeStartAfter.filter(
+                (taskId) => !integrated.has(taskId),
+              ),
+              status: "lane_green",
+              taskId,
+            };
+          } catch {
+            // Invalid transition evidence remains a strict false green.
+          }
+        }
         return {
           admission: admission.admission,
           ...(admission.headSha ? { headSha: admission.headSha } : {}),

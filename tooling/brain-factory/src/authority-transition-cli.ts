@@ -4,6 +4,7 @@ export interface AuthorityTransitionSelection {
   readonly checkpointReproof: boolean;
   readonly laneGreenAuthorityReproof: boolean;
   readonly ownershipRehome: boolean;
+  readonly planOnlyAuthority: boolean;
 }
 
 export const selectAuthorityTransition = (
@@ -16,6 +17,7 @@ export const selectAuthorityTransition = (
     checkpointReproof: argv.includes("--checkpoint-reproof"),
     laneGreenAuthorityReproof: argv.includes("--lane-green-authority-reproof"),
     ownershipRehome: argv.includes("--ownership-rehome"),
+    planOnlyAuthority: argv.includes("--plan-only-authority"),
   };
   if (Object.values(selection).filter(Boolean).length > 1) {
     throw new Error(`${taskId}: choose exactly one authority transition`);
