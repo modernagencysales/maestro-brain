@@ -11,6 +11,8 @@ export const CONTRACT_REPROOF_FINDINGS_SCHEMA =
   "maestro-brain-contract-reproof/v2" as const;
 export const CONTRACT_REPROOF_FINDINGS_REFRESH_SCHEMA =
   "maestro-brain-contract-reproof-refresh/v3" as const;
+export const CONTRACT_REPROOF_TERMINAL_REFRESH_SCHEMA =
+  "maestro-brain-contract-reproof-terminal-refresh/v1" as const;
 
 export interface ContractReproofFinding {
   readonly id: string;
@@ -42,7 +44,8 @@ export interface ContractReproofRequest {
     | typeof CONTRACT_REPROOF_SCHEMA
     | typeof CONTRACT_REPROOF_REFRESH_SCHEMA
     | typeof CONTRACT_REPROOF_FINDINGS_SCHEMA
-    | typeof CONTRACT_REPROOF_FINDINGS_REFRESH_SCHEMA;
+    | typeof CONTRACT_REPROOF_FINDINGS_REFRESH_SCHEMA
+    | typeof CONTRACT_REPROOF_TERMINAL_REFRESH_SCHEMA;
   readonly taskBlockHash: string;
   readonly taskId: string;
   readonly priorReproofFinalGatePath?: string;
@@ -55,6 +58,11 @@ export interface ContractReproofRequest {
   readonly priorReproofRequestSha256?: string;
   readonly priorReproofSourceHeadSha?: string;
   readonly findings?: readonly ContractReproofFinding[];
+  readonly authorityDeltaPaths?: readonly string[];
+  readonly currentControlHeadSha?: string;
+  readonly terminalRunId?: string;
+  readonly terminalRunStatus?: string;
+  readonly terminalSourceHeadSha?: string;
 }
 
 type ReproofPayload = Omit<ContractReproofRequest, "requestSha256">;
@@ -96,6 +104,21 @@ const CONTRACT_REPROOF_FINDINGS_KEYS = [
 const CONTRACT_REPROOF_FINDINGS_REFRESH_KEYS = [
   ...CONTRACT_REPROOF_REFRESH_KEYS,
   "findings",
+] as const;
+
+const CONTRACT_REPROOF_TERMINAL_REFRESH_KEYS = [
+  ...CONTRACT_REPROOF_FINDINGS_KEYS,
+  "authorityDeltaPaths",
+  "currentControlHeadSha",
+  "priorReproofFinalGatePath",
+  "priorReproofFinalGateSha256",
+  "priorReproofProofPath",
+  "priorReproofProofSha256",
+  "priorReproofRequestPath",
+  "priorReproofRequestSha256",
+  "terminalRunId",
+  "terminalRunStatus",
+  "terminalSourceHeadSha",
 ] as const;
 
 const sha256 = (value: string): string =>
@@ -329,7 +352,9 @@ export const validateContractReproofRequest = (
           ? CONTRACT_REPROOF_FINDINGS_KEYS
           : schemaVersion === CONTRACT_REPROOF_FINDINGS_REFRESH_SCHEMA
             ? CONTRACT_REPROOF_FINDINGS_REFRESH_KEYS
-            : undefined;
+            : schemaVersion === CONTRACT_REPROOF_TERMINAL_REFRESH_SCHEMA
+              ? CONTRACT_REPROOF_TERMINAL_REFRESH_KEYS
+              : undefined;
   if (!expectedKeys) throw new Error("unexpected contract reproof schema");
   const ownKeys = Reflect.ownKeys(value);
   if (
@@ -403,12 +428,42 @@ export const validateContractReproofRequest = (
               request.priorReproofSourceHeadSha ?? "",
             ),
           })
-        : request.schemaVersion === CONTRACT_REPROOF_FINDINGS_SCHEMA
-          ? buildContractReproofFindingsRequest({
+        : request.schemaVersion === CONTRACT_REPROOF_TERMINAL_REFRESH_SCHEMA
+          ? buildTerminalContractReproofRefreshRequest({
               ...request,
-              findings: request.findings ?? [],
+              authorityDeltaPaths: request.authorityDeltaPaths ?? [],
+              currentControlHeadSha: String(
+                request.currentControlHeadSha ?? "",
+              ),
+              currentPlanSha256: request.planSha256,
+              currentTaskBlockHash: request.taskBlockHash,
+              currentTaskFileLocks: expected.fileLocks ?? [],
+              finalGateContent: "",
+              finalGatePath: String(request.priorReproofFinalGatePath ?? ""),
+              finalGateReport: undefined,
+              previousRequest: undefined,
+              previousRequestContent: "",
+              previousRequestPath: String(
+                request.priorReproofRequestPath ?? "",
+              ),
+              proof: undefined,
+              proofContent: "",
+              proofPath: String(request.priorReproofProofPath ?? ""),
+              reason: request.reason,
+              taskId: request.taskId,
+              terminalRunId: String(request.terminalRunId ?? ""),
+              terminalRunStatus: String(request.terminalRunStatus ?? ""),
+              terminalSourceHeadSha: String(
+                request.terminalSourceHeadSha ?? "",
+              ),
+              trustedRequest: request,
             })
-          : buildContractReproofRequest(request);
+          : request.schemaVersion === CONTRACT_REPROOF_FINDINGS_SCHEMA
+            ? buildContractReproofFindingsRequest({
+                ...request,
+                findings: request.findings ?? [],
+              })
+            : buildContractReproofRequest(request);
   if (request.requestSha256 !== rebuilt.requestSha256) {
     throw new Error("contract reproof request hash mismatch");
   }
@@ -433,6 +488,228 @@ export const validateContractReproofRequest = (
     }
   }
   return rebuilt;
+};
+
+const terminalAuthorityPath = (path: string): boolean =>
+  path === ".fabro/workflows/brain-build-task/workflow.fabro" ||
+  path ===
+    "docs/superpowers/execution/maestro-brain/parallelism-contract.json" ||
+  path === "docs/superpowers/execution/maestro-brain/task-manifest.json" ||
+  path.startsWith("docs/superpowers/plans/") ||
+  path.startsWith("docs/superpowers/specs/") ||
+  path.startsWith("tooling/brain-factory/src/") ||
+  path.startsWith("tooling/brain-factory/test/");
+
+export const buildTerminalContractReproofRefreshRequest = (input: {
+  readonly authorityDeltaPaths: readonly string[];
+  readonly currentControlHeadSha: string;
+  readonly currentPlanSha256: string;
+  readonly currentTaskBlockHash: string;
+  readonly currentTaskFileLocks: readonly string[];
+  readonly finalGateContent: string;
+  readonly finalGatePath: string;
+  readonly finalGateReport: unknown;
+  readonly previousRequest: unknown;
+  readonly previousRequestContent: string;
+  readonly previousRequestPath: string;
+  readonly proof: unknown;
+  readonly proofContent: string;
+  readonly proofPath: string;
+  readonly reason: string;
+  readonly taskId: string;
+  readonly terminalRunId: string;
+  readonly terminalRunStatus: string;
+  readonly terminalSourceHeadSha: string;
+  readonly trustedRequest?: ContractReproofRequest;
+}): ContractReproofRequest => {
+  if (input.trustedRequest) {
+    const request = input.trustedRequest;
+    const common = buildContractReproofFindingsRequest({
+      ...request,
+      findings: request.findings ?? [],
+    });
+    const authorityDeltaPaths = [...(request.authorityDeltaPaths ?? [])].sort();
+    if (
+      authorityDeltaPaths.length === 0 ||
+      new Set(authorityDeltaPaths).size !== authorityDeltaPaths.length ||
+      authorityDeltaPaths.some(
+        (path) =>
+          !terminalAuthorityPath(path) ||
+          input.currentTaskFileLocks.includes(path),
+      )
+    ) {
+      throw new Error(`${request.taskId}: terminal authority delta is unsafe`);
+    }
+    const terminalRunId = String(request.terminalRunId ?? "");
+    const terminalRunStatus = String(request.terminalRunStatus ?? "");
+    if (!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(terminalRunId)) {
+      throw new Error(`${request.taskId}: terminal run ID is invalid`);
+    }
+    if (
+      !new Set(["canceled", "cancelled", "failed", "succeeded"]).has(
+        terminalRunStatus,
+      )
+    ) {
+      throw new Error(`${request.taskId}: terminal run status is not terminal`);
+    }
+    const payload = {
+      ...common,
+      schemaVersion: CONTRACT_REPROOF_TERMINAL_REFRESH_SCHEMA,
+      authorityDeltaPaths,
+      currentControlHeadSha: exactSha(
+        String(request.currentControlHeadSha ?? ""),
+        "currentControlHeadSha",
+        40,
+      ),
+      priorReproofFinalGatePath: nonEmptyPath(
+        String(request.priorReproofFinalGatePath ?? ""),
+        "priorReproofFinalGatePath",
+      ),
+      priorReproofFinalGateSha256: exactSha(
+        String(request.priorReproofFinalGateSha256 ?? ""),
+        "priorReproofFinalGateSha256",
+        64,
+      ),
+      priorReproofProofPath: nonEmptyPath(
+        String(request.priorReproofProofPath ?? ""),
+        "priorReproofProofPath",
+      ),
+      priorReproofProofSha256: exactSha(
+        String(request.priorReproofProofSha256 ?? ""),
+        "priorReproofProofSha256",
+        64,
+      ),
+      priorReproofRequestPath: nonEmptyPath(
+        String(request.priorReproofRequestPath ?? ""),
+        "priorReproofRequestPath",
+      ),
+      priorReproofRequestSha256: exactSha(
+        String(request.priorReproofRequestSha256 ?? ""),
+        "priorReproofRequestSha256",
+        64,
+      ),
+      terminalRunId,
+      terminalRunStatus,
+      terminalSourceHeadSha: exactSha(
+        String(request.terminalSourceHeadSha ?? ""),
+        "terminalSourceHeadSha",
+        40,
+      ),
+    };
+    delete (payload as { requestSha256?: string }).requestSha256;
+    return { ...payload, requestSha256: payloadHash(payload) };
+  }
+  const previousRecord = record(
+    input.previousRequest,
+    "terminal prior request",
+  );
+  const previous = validateContractReproofRequest(previousRecord, {
+    controlHeadSha: String(previousRecord.controlHeadSha ?? ""),
+    planSha256: String(previousRecord.planSha256 ?? ""),
+    taskBlockHash: input.currentTaskBlockHash,
+    taskId: input.taskId,
+    fileLocks: input.currentTaskFileLocks,
+  });
+  const proof = record(input.proof, `${input.taskId}: terminal proof`);
+  const gate = record(input.finalGateReport, `${input.taskId}: terminal gate`);
+  const proofPlanSha256 = validateProofContract(proof, {
+    taskBlockHash: input.currentTaskBlockHash,
+    taskId: input.taskId,
+  });
+  const terminalSourceHeadSha = exactSha(
+    input.terminalSourceHeadSha,
+    "terminalSourceHeadSha",
+    40,
+  );
+  if (
+    proof.baseSha !== previous.controlHeadSha ||
+    proofPlanSha256 !== previous.planSha256 ||
+    proof.headSha !== terminalSourceHeadSha ||
+    proof.reviewHeadSha !== terminalSourceHeadSha ||
+    gate.schemaVersion !== "maestro-brain-lane-gate/v1" ||
+    gate.taskId !== input.taskId ||
+    gate.headSha !== terminalSourceHeadSha ||
+    gate.currentHeadSha !== terminalSourceHeadSha ||
+    gate.planSha256 !== previous.planSha256 ||
+    gate.taskBlockHash !== input.currentTaskBlockHash ||
+    gate.status !== "passed" ||
+    !(
+      (gate.stage === "pre-review" &&
+        new Set(["pending", "rework"]).has(String(proof.reviewVerdict))) ||
+      (gate.stage === "final" && proof.reviewVerdict === "pass")
+    )
+  ) {
+    throw new Error(`${input.taskId}: terminal proof or gate lineage drift`);
+  }
+  for (const [content, parsed, label] of [
+    [input.previousRequestContent, previousRecord, "request"],
+    [input.proofContent, proof, "proof"],
+    [input.finalGateContent, gate, "gate"],
+  ] as const) {
+    if (JSON.stringify(JSON.parse(content)) !== JSON.stringify(parsed)) {
+      throw new Error(`${input.taskId}: terminal ${label} content drift`);
+    }
+  }
+  if (!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(input.terminalRunId)) {
+    throw new Error(`${input.taskId}: terminal run ID is invalid`);
+  }
+  if (
+    !new Set(["canceled", "cancelled", "failed", "succeeded"]).has(
+      input.terminalRunStatus,
+    )
+  ) {
+    throw new Error(`${input.taskId}: terminal run status is not terminal`);
+  }
+  const authorityDeltaPaths = [...input.authorityDeltaPaths].sort();
+  if (
+    authorityDeltaPaths.length === 0 ||
+    new Set(authorityDeltaPaths).size !== authorityDeltaPaths.length ||
+    authorityDeltaPaths.some(
+      (path) =>
+        !terminalAuthorityPath(path) ||
+        input.currentTaskFileLocks.includes(path),
+    )
+  ) {
+    throw new Error(`${input.taskId}: terminal authority delta is unsafe`);
+  }
+  const common = buildContractReproofFindingsRequest({
+    ...previous,
+    controlHeadSha: previous.controlHeadSha,
+    planSha256: input.currentPlanSha256,
+    taskBlockHash: input.currentTaskBlockHash,
+    findings: previous.findings ?? [],
+    reason: input.reason,
+  });
+  const payload = {
+    ...common,
+    schemaVersion: CONTRACT_REPROOF_TERMINAL_REFRESH_SCHEMA,
+    authorityDeltaPaths,
+    currentControlHeadSha: exactSha(
+      input.currentControlHeadSha,
+      "currentControlHeadSha",
+      40,
+    ),
+    priorReproofFinalGatePath: nonEmptyPath(
+      input.finalGatePath,
+      "priorReproofFinalGatePath",
+    ),
+    priorReproofFinalGateSha256: sha256(input.finalGateContent),
+    priorReproofProofPath: nonEmptyPath(
+      input.proofPath,
+      "priorReproofProofPath",
+    ),
+    priorReproofProofSha256: sha256(input.proofContent),
+    priorReproofRequestPath: nonEmptyPath(
+      input.previousRequestPath,
+      "priorReproofRequestPath",
+    ),
+    priorReproofRequestSha256: sha256(input.previousRequestContent),
+    terminalRunId: input.terminalRunId,
+    terminalRunStatus: input.terminalRunStatus,
+    terminalSourceHeadSha,
+  };
+  delete (payload as { requestSha256?: string }).requestSha256;
+  return { ...payload, requestSha256: payloadHash(payload) };
 };
 
 const record = (value: unknown, label: string): Record<string, unknown> => {

@@ -15,12 +15,14 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   admitContractReproof,
   isReproofablePriorIntegrationResult,
+  validateContractReproofRefreshArtifacts,
 } from "../src/contract-reproof-admission.js";
 import {
   buildContractReproofRefreshRequest,
   buildContractReproofFindingsRequest,
   buildContractReproofRequest,
   buildRefreshedContractReproofRequest,
+  buildTerminalContractReproofRefreshRequest,
 } from "../src/contract-reproof.js";
 
 const sha256 = (value: string): string =>
@@ -293,6 +295,111 @@ afterEach(() => {
 });
 
 describe("contract reproof admission", () => {
+  it("validates an exact terminal refresh without requiring a lane result", () => {
+    const value = fixture();
+    const affectedPath = value.input.fileLocks[0] as string;
+    const previous = buildContractReproofFindingsRequest({
+      ...value.request,
+      findings: [
+        {
+          affectedPaths: [affectedPath],
+          candidateHeadSha: "6".repeat(40),
+          changeExpectation: "source_or_test_delta",
+          details: "restore the exact terminal contract",
+          expectedBehavior: "the contract remains exact",
+          id: "S04-T02-terminal",
+          priorEvidenceSha256: [value.request.priorArchiveSha256],
+          requiredRegressionProof: "focused terminal regression",
+          severity: "important",
+          summary: "terminal contract finding",
+          taskId: value.input.taskId,
+        },
+      ],
+    });
+    const directory = resolve(value.evidenceDirectory, "terminal-refresh");
+    mkdirSync(directory, { recursive: true });
+    const previousPath = resolve(directory, "prior-request.json");
+    const previousContent = json(previous);
+    writeFileSync(previousPath, previousContent);
+    const terminalHeadSha = "6".repeat(40);
+    const proof = {
+      baseSha: previous.controlHeadSha,
+      changedFiles: [affectedPath],
+      focusedCommands: ["rtk pnpm --dir packages/convex typecheck"],
+      headSha: terminalHeadSha,
+      planSha256: previous.planSha256,
+      reviewHeadSha: terminalHeadSha,
+      reviewVerdict: "pending",
+      schemaVersion: "maestro-brain-ci-proof/v1",
+      taskBlockHash: previous.taskBlockHash,
+      taskId: previous.taskId,
+    };
+    const gate = {
+      currentHeadSha: terminalHeadSha,
+      currentTreeSha: "7".repeat(40),
+      headSha: terminalHeadSha,
+      planSha256: previous.planSha256,
+      schemaVersion: "maestro-brain-lane-gate/v1",
+      stage: "pre-review",
+      status: "passed",
+      taskBlockHash: previous.taskBlockHash,
+      taskId: previous.taskId,
+    };
+    const proofPath = resolve(directory, "prior-proof.json");
+    const gatePath = resolve(directory, "prior-gate.json");
+    const proofContent = json(proof);
+    const gateContent = json(gate);
+    writeFileSync(proofPath, proofContent);
+    writeFileSync(gatePath, gateContent);
+    const authorityDeltaPaths = [
+      "docs/superpowers/plans/current.md",
+      "tooling/brain-factory/src/lane-gates.mts",
+    ];
+    const refreshed = buildTerminalContractReproofRefreshRequest({
+      authorityDeltaPaths,
+      currentControlHeadSha: value.input.currentControlHead,
+      currentPlanSha256: "8".repeat(64),
+      currentTaskBlockHash: previous.taskBlockHash,
+      currentTaskFileLocks: value.input.fileLocks,
+      finalGateContent: gateContent,
+      finalGatePath: gatePath,
+      finalGateReport: gate,
+      previousRequest: previous,
+      previousRequestContent: previousContent,
+      previousRequestPath: previousPath,
+      proof,
+      proofContent,
+      proofPath,
+      reason: "refresh terminal authority",
+      taskId: previous.taskId,
+      terminalRunId: "01KY6H4EDRW1M3CA8Z6T4DR3BP",
+      terminalRunStatus: "failed",
+      terminalSourceHeadSha: terminalHeadSha,
+    });
+    expect(() =>
+      validateContractReproofRefreshArtifacts({
+        authorityDeltaPathsBetween: () => authorityDeltaPaths,
+        evidenceDirectory: value.evidenceDirectory,
+        fileLocks: value.input.fileLocks,
+        isAncestor: () => true,
+        request: refreshed,
+        taskId: previous.taskId,
+      }),
+    ).not.toThrow();
+
+    writeFileSync(proofPath, `${proofContent} `);
+    expect(() =>
+      validateContractReproofRefreshArtifacts({
+        authorityDeltaPathsBetween: () => authorityDeltaPaths,
+        evidenceDirectory: value.evidenceDirectory,
+        fileLocks: value.input.fileLocks,
+        isAncestor: () => true,
+        request: refreshed,
+        taskId: previous.taskId,
+      }),
+    ).toThrow("prior reproof proof digest drift");
+  });
+
   it("admits a findings-aware authority refresh without shedding findings", () => {
     const value = refreshFixture();
     const finding = {

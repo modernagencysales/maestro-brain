@@ -6,9 +6,11 @@ import { buildTaskLaunchEnv } from "./build-task-launch-env.js";
 import { materializeBuildTaskRunConfig } from "./build-task-run-config.js";
 import { admitContractReproof } from "./contract-reproof-admission.js";
 import {
+  buildTerminalContractReproofRefreshRequest,
   canonicalContractReproofFinding,
   type ContractReproofFinding,
 } from "./contract-reproof.js";
+import { atomicWrite, jsonContent } from "./evidence-write.js";
 import {
   acquireDispatcherLock,
   promoteTaskReservation,
@@ -308,20 +310,24 @@ export const launchTerminalContractReproofResume = (input: {
     "lane-results",
     input.taskId,
   );
-  const proof = record(
-    readContainedTerminalReproofJson(
-      input.evidence,
-      resolve(laneResultDirectory, "ci-proof-packet.json"),
-      `${input.taskId}: proof`,
-    ),
+  const proofPath = containedTerminalReproofFile(
+    input.evidence,
+    resolve(laneResultDirectory, "ci-proof-packet.json"),
     `${input.taskId}: proof`,
   );
+  const proofContent = readFileSync(proofPath, "utf8");
+  const proof = record(
+    JSON.parse(proofContent) as unknown,
+    `${input.taskId}: proof`,
+  );
+  const finalGatePath = containedTerminalReproofFile(
+    input.evidence,
+    resolve(laneResultDirectory, "lane-gate-report.json"),
+    `${input.taskId}: gate`,
+  );
+  const finalGateContent = readFileSync(finalGatePath, "utf8");
   const finalGate = record(
-    readContainedTerminalReproofJson(
-      input.evidence,
-      resolve(laneResultDirectory, "lane-gate-report.json"),
-      `${input.taskId}: gate`,
-    ),
+    JSON.parse(finalGateContent) as unknown,
     `${input.taskId}: gate`,
   );
   const integrationId = String(admitted.request.priorIntegrationId);
@@ -403,6 +409,62 @@ export const launchTerminalContractReproofResume = (input: {
     )
   )
     throw new Error(`${input.taskId}: signed owner findings content drift`);
+  let launchRequestPath = requestPath;
+  let launchRequestSha256 = admitted.request.requestSha256;
+  if (admitted.request.planSha256 !== manifest.planSha256) {
+    const previousRequestContent = readFileSync(requestPath, "utf8");
+    const refreshDirectory = resolve(
+      input.evidence,
+      "reproofs",
+      input.taskId,
+      "terminal-refresh",
+      controlHeadSha.slice(0, 12),
+    );
+    const terminalProofPath = resolve(refreshDirectory, "prior-proof.json");
+    const terminalGatePath = resolve(refreshDirectory, "prior-gate.json");
+    const snapshot = (path: string, content: string): void => {
+      if (existsSync(path)) {
+        if (readFileSync(path, "utf8") !== content) {
+          throw new Error(`${input.taskId}: terminal refresh snapshot drift`);
+        }
+      } else {
+        atomicWrite(path, content);
+      }
+    };
+    const refreshed = buildTerminalContractReproofRefreshRequest({
+      authorityDeltaPaths,
+      currentControlHeadSha: controlHeadSha,
+      currentPlanSha256: manifest.planSha256,
+      currentTaskBlockHash: task.taskBlockHash,
+      currentTaskFileLocks: task.fileLocks,
+      finalGateContent,
+      finalGatePath: terminalGatePath,
+      finalGateReport: finalGate,
+      previousRequest: admitted.request,
+      previousRequestContent,
+      previousRequestPath: requestPath,
+      proof,
+      proofContent,
+      proofPath: terminalProofPath,
+      reason: "refresh terminal reproof against current control authority",
+      taskId: input.taskId,
+      terminalRunId: inspection.runId,
+      terminalRunStatus: inspection.status,
+      terminalSourceHeadSha: String(proof.headSha ?? ""),
+    });
+    snapshot(terminalProofPath, proofContent);
+    snapshot(terminalGatePath, finalGateContent);
+    launchRequestPath = resolve(refreshDirectory, "request.json");
+    const refreshedContent = jsonContent(refreshed);
+    if (existsSync(launchRequestPath)) {
+      if (readFileSync(launchRequestPath, "utf8") !== refreshedContent) {
+        throw new Error(`${input.taskId}: terminal refresh request drift`);
+      }
+    } else {
+      atomicWrite(launchRequestPath, refreshedContent);
+    }
+    launchRequestSha256 = refreshed.requestSha256;
+  }
   const plan = buildTerminalContractReproofResume({
     admittedRequest:
       admitted.request as unknown as TerminalContractReproofRecord,
@@ -418,6 +480,8 @@ export const launchTerminalContractReproofResume = (input: {
     evidence: input.evidence,
     finalGate,
     hostTestMaxLoad1m: "20",
+    launchRequestPath,
+    launchRequestSha256,
     inspectedRun: inspection,
     proof,
     record: owner,

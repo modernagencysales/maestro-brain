@@ -25,6 +25,7 @@ import {
   validateProofContract,
 } from "./proof.js";
 import {
+  CONTRACT_REPROOF_TERMINAL_REFRESH_SCHEMA,
   validateContractReproofRequest,
   type ContractReproofRequest,
 } from "./contract-reproof.js";
@@ -133,8 +134,35 @@ if (reproofPath && reproofPath !== "none") {
     },
   );
   contractReproofRequest = request;
+  if (
+    request.schemaVersion === CONTRACT_REPROOF_TERMINAL_REFRESH_SCHEMA &&
+    request.currentControlHeadSha !== process.env.BRAIN_CONTROL_HEAD_SHA
+  ) {
+    throw new Error(`${taskId}: terminal refresh control authority drift`);
+  }
   validateContractReproofRefreshArtifacts({
+    authorityDeltaPathsBetween: (ancestor, descendant) => {
+      const delta = spawnSync(
+        "rtk",
+        ["proxy", "git", "diff", "--name-only", `${ancestor}..${descendant}`],
+        { cwd: process.cwd(), encoding: "utf8" },
+      );
+      if (delta.status !== 0)
+        throw new Error(
+          `${taskId}: could not inspect terminal authority delta`,
+        );
+      return delta.stdout.trim().split("\n").filter(Boolean);
+    },
     evidenceDirectory: evidence,
+    fileLocks: task.fileLocks,
+    isAncestor: (ancestor, descendant) => {
+      const ancestry = spawnSync(
+        "rtk",
+        ["proxy", "git", "merge-base", "--is-ancestor", ancestor, descendant],
+        { cwd: process.cwd(), encoding: "utf8" },
+      );
+      return ancestry.status === 0;
+    },
     request,
     taskId,
   });

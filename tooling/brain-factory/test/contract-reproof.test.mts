@@ -6,9 +6,11 @@ import {
   CONTRACT_REPROOF_FINDINGS_SCHEMA,
   CONTRACT_REPROOF_FINDINGS_REFRESH_SCHEMA,
   CONTRACT_REPROOF_REFRESH_SCHEMA,
+  CONTRACT_REPROOF_TERMINAL_REFRESH_SCHEMA,
   buildContractReproofFindingsRequest,
   buildContractReproofRequest,
   buildRefreshedContractReproofRequest,
+  buildTerminalContractReproofRefreshRequest,
   validateContractReproofRequest,
 } from "../src/contract-reproof.js";
 
@@ -93,6 +95,111 @@ describe("contract reproof provenance", () => {
         identity,
       ),
     ).toThrow(/unknown fields/);
+  });
+});
+
+describe("terminal contract reproof authority refresh", () => {
+  const previous = findingsRequest();
+  const terminalHeadSha = "7".repeat(40);
+  const currentControlHeadSha = "8".repeat(40);
+  const currentPlanSha256 = "9".repeat(64);
+  const proof = {
+    baseSha: previous.controlHeadSha,
+    changedFiles: ["packages/convex/confect/slack/channelPolicies.impl.ts"],
+    focusedCommands: ["rtk pnpm --dir packages/convex typecheck"],
+    headSha: terminalHeadSha,
+    planSha256: previous.planSha256,
+    reviewHeadSha: terminalHeadSha,
+    reviewVerdict: "pending",
+    schemaVersion: "maestro-brain-ci-proof/v1",
+    taskBlockHash: previous.taskBlockHash,
+    taskId: previous.taskId,
+  };
+  const gate = {
+    currentHeadSha: terminalHeadSha,
+    currentTreeSha: "a".repeat(40),
+    headSha: terminalHeadSha,
+    planSha256: previous.planSha256,
+    schemaVersion: "maestro-brain-lane-gate/v1",
+    stage: "pre-review",
+    status: "passed",
+    taskBlockHash: previous.taskBlockHash,
+    taskId: previous.taskId,
+  };
+  const build = (overrides: Record<string, unknown> = {}) =>
+    buildTerminalContractReproofRefreshRequest({
+      authorityDeltaPaths: [
+        "docs/superpowers/plans/current.md",
+        "tooling/brain-factory/src/lane-gates.mts",
+      ],
+      currentControlHeadSha,
+      currentPlanSha256,
+      currentTaskBlockHash: previous.taskBlockHash,
+      currentTaskFileLocks: [
+        "packages/convex/confect/slack/channelPolicies.impl.ts",
+      ],
+      previousRequest: previous,
+      previousRequestContent: json(previous),
+      previousRequestPath: "/tmp/evidence/reproofs/S13-T01/old/request.json",
+      proof,
+      proofContent: json(proof),
+      proofPath: "/tmp/evidence/reproofs/S13-T01/terminal/proof.json",
+      finalGateReport: gate,
+      finalGateContent: json(gate),
+      finalGatePath: "/tmp/evidence/reproofs/S13-T01/terminal/gate.json",
+      terminalRunId: "01KY6H4EDRW1M3CA8Z6T4DR3BP",
+      terminalRunStatus: "failed",
+      terminalSourceHeadSha: terminalHeadSha,
+      taskId: previous.taskId,
+      reason: "refresh terminal proof against current authority",
+      ...overrides,
+    });
+
+  it("signs terminal lineage without requiring a lane result", () => {
+    const refreshed = build();
+    expect(refreshed).toMatchObject({
+      schemaVersion: CONTRACT_REPROOF_TERMINAL_REFRESH_SCHEMA,
+      controlHeadSha: previous.controlHeadSha,
+      currentControlHeadSha,
+      planSha256: currentPlanSha256,
+      taskBlockHash: previous.taskBlockHash,
+      terminalRunId: "01KY6H4EDRW1M3CA8Z6T4DR3BP",
+      terminalRunStatus: "failed",
+      terminalSourceHeadSha: terminalHeadSha,
+      authorityDeltaPaths: [
+        "docs/superpowers/plans/current.md",
+        "tooling/brain-factory/src/lane-gates.mts",
+      ],
+      priorReproofRequestSha256: sha256(json(previous)),
+      priorReproofProofSha256: sha256(json(proof)),
+      priorReproofFinalGateSha256: sha256(json(gate)),
+      findings: previous.findings,
+    });
+    expect(
+      validateContractReproofRequest(refreshed, {
+        controlHeadSha: previous.controlHeadSha,
+        planSha256: currentPlanSha256,
+        taskBlockHash: previous.taskBlockHash,
+        taskId: previous.taskId,
+        fileLocks: ["packages/convex/confect/slack/channelPolicies.impl.ts"],
+      }),
+    ).toEqual(refreshed);
+  });
+
+  it.each([
+    ["live run", { terminalRunStatus: "running" }],
+    ["proof head", { proof: { ...proof, headSha: "b".repeat(40) } }],
+    ["gate plan", { finalGateReport: { ...gate, planSha256: "c".repeat(64) } }],
+    [
+      "product authority delta",
+      {
+        authorityDeltaPaths: [
+          "packages/convex/confect/slack/channelPolicies.impl.ts",
+        ],
+      },
+    ],
+  ])("rejects drifted %s lineage", (_label, overrides) => {
+    expect(() => build(overrides)).toThrow();
   });
 });
 

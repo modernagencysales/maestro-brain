@@ -4,8 +4,10 @@ import { isAbsolute, relative, resolve, sep } from "node:path";
 
 import {
   buildRefreshedContractReproofRequest,
+  buildTerminalContractReproofRefreshRequest,
   CONTRACT_REPROOF_REFRESH_SCHEMA,
   CONTRACT_REPROOF_FINDINGS_REFRESH_SCHEMA,
+  CONTRACT_REPROOF_TERMINAL_REFRESH_SCHEMA,
   validateContractReproofRequest,
   type ContractReproofRequest,
 } from "./contract-reproof.js";
@@ -119,7 +121,13 @@ const canonicalJsonSha256 = (value: unknown): string =>
 
 const validateRefreshArtifacts = (
   input: {
+    readonly authorityDeltaPathsBetween?: (
+      ancestor: string,
+      descendant: string,
+    ) => readonly string[];
     readonly evidenceDirectory: string;
+    readonly fileLocks?: readonly string[];
+    readonly isAncestor?: (ancestor: string, descendant: string) => boolean;
     readonly request: ContractReproofRequest;
     readonly taskId: string;
   },
@@ -127,7 +135,8 @@ const validateRefreshArtifacts = (
 ): void => {
   if (
     input.request.schemaVersion !== CONTRACT_REPROOF_REFRESH_SCHEMA &&
-    input.request.schemaVersion !== CONTRACT_REPROOF_FINDINGS_REFRESH_SCHEMA
+    input.request.schemaVersion !== CONTRACT_REPROOF_FINDINGS_REFRESH_SCHEMA &&
+    input.request.schemaVersion !== CONTRACT_REPROOF_TERMINAL_REFRESH_SCHEMA
   )
     return;
   const evidenceRoot = realpathSync(input.evidenceDirectory);
@@ -182,12 +191,81 @@ const validateRefreshArtifacts = (
   );
   validateRefreshArtifacts(
     {
+      ...(input.authorityDeltaPathsBetween
+        ? { authorityDeltaPathsBetween: input.authorityDeltaPathsBetween }
+        : {}),
       evidenceDirectory: evidenceRoot,
+      ...(input.fileLocks ? { fileLocks: input.fileLocks } : {}),
+      ...(input.isAncestor ? { isAncestor: input.isAncestor } : {}),
       request: validatedPreviousRequest,
       taskId: input.taskId,
     },
     seenRequestPaths,
   );
+  if (
+    input.request.schemaVersion === CONTRACT_REPROOF_TERMINAL_REFRESH_SCHEMA
+  ) {
+    const priorProof = refreshArtifact(
+      input.request.priorReproofProofPath,
+      input.request.priorReproofProofSha256,
+      "proof",
+    );
+    const priorFinalGate = refreshArtifact(
+      input.request.priorReproofFinalGatePath,
+      input.request.priorReproofFinalGateSha256,
+      "final gate",
+    );
+    const currentControlHeadSha = String(
+      input.request.currentControlHeadSha ?? "",
+    );
+    if (
+      input.isAncestor &&
+      !input.isAncestor(input.request.controlHeadSha, currentControlHeadSha)
+    ) {
+      throw new Error(`${input.taskId}: terminal control ancestry drift`);
+    }
+    if (input.authorityDeltaPathsBetween) {
+      const observed = [
+        ...input.authorityDeltaPathsBetween(
+          input.request.controlHeadSha,
+          currentControlHeadSha,
+        ),
+      ].sort();
+      if (
+        JSON.stringify(observed) !==
+        JSON.stringify(input.request.authorityDeltaPaths)
+      ) {
+        throw new Error(`${input.taskId}: terminal authority delta drift`);
+      }
+    }
+    const rebuilt = buildTerminalContractReproofRefreshRequest({
+      authorityDeltaPaths: input.request.authorityDeltaPaths ?? [],
+      currentControlHeadSha,
+      currentPlanSha256: input.request.planSha256,
+      currentTaskBlockHash: input.request.taskBlockHash,
+      currentTaskFileLocks: input.fileLocks ?? [],
+      finalGateContent: priorFinalGate.content,
+      finalGatePath: priorFinalGate.path,
+      finalGateReport: priorFinalGate.value,
+      previousRequest: previousRequest.value,
+      previousRequestContent: previousRequest.content,
+      previousRequestPath: previousRequest.path,
+      proof: priorProof.value,
+      proofContent: priorProof.content,
+      proofPath: priorProof.path,
+      reason: input.request.reason,
+      taskId: input.request.taskId,
+      terminalRunId: String(input.request.terminalRunId ?? ""),
+      terminalRunStatus: String(input.request.terminalRunStatus ?? ""),
+      terminalSourceHeadSha: String(input.request.terminalSourceHeadSha ?? ""),
+    });
+    if (rebuilt.requestSha256 !== input.request.requestSha256) {
+      throw new Error(
+        `${input.taskId}: terminal refreshed request lineage drift`,
+      );
+    }
+    return;
+  }
   const priorLane = refreshArtifact(
     input.request.priorReproofLaneResultPath,
     input.request.priorReproofLaneResultSha256,
@@ -236,7 +314,13 @@ const validateRefreshArtifacts = (
 };
 
 export const validateContractReproofRefreshArtifacts = (input: {
+  readonly authorityDeltaPathsBetween?: (
+    ancestor: string,
+    descendant: string,
+  ) => readonly string[];
   readonly evidenceDirectory: string;
+  readonly fileLocks?: readonly string[];
+  readonly isAncestor?: (ancestor: string, descendant: string) => boolean;
   readonly request: ContractReproofRequest;
   readonly taskId: string;
 }): void => validateRefreshArtifacts(input, new Set<string>());
@@ -263,6 +347,7 @@ export const admitContractReproof = (
 
   validateContractReproofRefreshArtifacts({
     evidenceDirectory: evidenceRoot,
+    fileLocks: input.fileLocks,
     request,
     taskId: input.taskId,
   });

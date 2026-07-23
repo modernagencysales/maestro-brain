@@ -176,6 +176,23 @@ describe("terminal contract-reproof resume", () => {
     expect(result.launchInputs.resume_commits).toBe(`${sha("1")},${sha("2")}`);
   });
 
+  it("launches with a separately signed terminal-refresh request", () => {
+    const refreshPath =
+      "/evidence/reproofs/S04-T04/terminal-refresh/request.json";
+    const refreshSha256 = digest("f");
+    const result = buildTerminalContractReproofResume({
+      ...fixture(),
+      launchRequestPath: refreshPath,
+      launchRequestSha256: refreshSha256,
+    });
+
+    expect(result.launchInputs.reproof_request).toBe(refreshPath);
+    expect(result.preparingRecord).toMatchObject({
+      requestPath: refreshPath,
+      requestSha256: refreshSha256,
+    });
+  });
+
   it.each([
     ["live owner", { terminalStatus: "running" }],
     ["dirty worktree", { worktree: { ...fixture().worktree, clean: false } }],

@@ -40,6 +40,8 @@ export interface TerminalContractReproofResumeInput {
   readonly currentPlanSha256: string;
   readonly currentTaskBlockHash: string;
   readonly currentTaskFileLocks: readonly string[];
+  readonly launchRequestPath?: string;
+  readonly launchRequestSha256?: string;
   readonly evidence: string;
   readonly finalGate: TerminalContractReproofRecord;
   readonly hostTestMaxLoad1m: string;
@@ -115,6 +117,12 @@ export const buildTerminalContractReproofResume = (
     input.record.requestSha256,
     64,
     `${taskId}: terminal owner request hash`,
+  );
+  const launchRequestPath = input.launchRequestPath ?? input.requestPath;
+  const launchRequestSha256 = sha(
+    input.launchRequestSha256 ?? requestSha256,
+    64,
+    `${taskId}: launch request hash`,
   );
   const ownerFindingsSha256 = sha(
     input.record.ownerFindingsSha256,
@@ -306,7 +314,7 @@ export const buildTerminalContractReproofResume = (
     current_plan_sha256: currentPlanSha256,
     evidence_dir: input.evidence,
     host_test_max_load_1m: input.hostTestMaxLoad1m,
-    reproof_request: input.requestPath,
+    reproof_request: launchRequestPath,
     resume_branch: branch,
     resume_commits: input.sourceCommits.join(","),
     resume_expected_commit: "none",
@@ -326,8 +334,8 @@ export const buildTerminalContractReproofResume = (
       mode: "contract-reproof",
       ownerFindingsSha256,
       planSha256: currentPlanSha256,
-      requestPath: input.requestPath,
-      requestSha256,
+      requestPath: launchRequestPath,
+      requestSha256: launchRequestSha256,
       resumeStrategy: "in-lane-cherry-pick",
       sourceHeadSha,
       status: "preparing",

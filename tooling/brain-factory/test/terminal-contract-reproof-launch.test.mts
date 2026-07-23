@@ -134,9 +134,19 @@ describe("terminal contract-reproof launch", () => {
     );
     expect(source).toContain("resumeMode: plan.launchInputs.resume_mode");
     expect(source).toContain("materializeBuildTaskRunConfig({");
+    expect(source).toContain("buildTerminalContractReproofRefreshRequest({");
+    expect(source).toContain(
+      'const proofContent = readFileSync(proofPath, "utf8")',
+    );
+    expect(source).toContain(
+      'const finalGateContent = readFileSync(finalGatePath, "utf8")',
+    );
+    expect(source).toContain(
+      "atomicWrite(launchRequestPath, refreshedContent)",
+    );
     expect(
-      source.match(/readContainedTerminalReproofJson\(\n\s+input\.evidence/g),
-    ).toHaveLength(3);
+      source.indexOf("buildTerminalContractReproofRefreshRequest({"),
+    ).toBeLessThan(source.indexOf("snapshot(terminalProofPath, proofContent)"));
     expect(source).toContain(
       '".fabro/workflows/brain-build-task/workflow.fabro"',
     );
