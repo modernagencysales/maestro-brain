@@ -376,6 +376,46 @@ describe("contract reproof authority refresh", () => {
     ).not.toThrow();
   });
 
+  it("accepts signed supplemental command and source-slice proof fields", () => {
+    expect(() =>
+      refresh({
+        proof: {
+          ...proof,
+          supplementalCommandResults: [
+            { command: "rtk pnpm check:route-tree", result: "passed" },
+          ],
+          sourceSlices: [
+            {
+              commit: laneHeadSha,
+              changedHandAuthoredSourceLines: 287,
+            },
+          ],
+        },
+      }),
+    ).not.toThrow();
+  });
+
+  it.each([
+    [
+      "malformed supplemental command results",
+      { supplementalCommandResults: [{ command: "", result: "passed" }] },
+      /supplemental command results/,
+    ],
+    [
+      "malformed source slices",
+      {
+        sourceSlices: [
+          { commit: "not-a-sha", changedHandAuthoredSourceLines: -1 },
+        ],
+      },
+      /source slices/,
+    ],
+  ])("rejects %s", (_label, proofFields, expected) => {
+    expect(() => refresh({ proof: { ...proof, ...proofFields } })).toThrow(
+      expected,
+    );
+  });
+
   it.each([
     [
       "task-block drift",

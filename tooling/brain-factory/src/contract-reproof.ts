@@ -470,6 +470,59 @@ const rejectUnknownObjectKeys = (
   }
 };
 
+const validateSupplementalCommandResults = (
+  value: unknown,
+  taskId: string,
+): void => {
+  if (value === undefined) return;
+  if (
+    !Array.isArray(value) ||
+    value.some((entry) => {
+      const item = record(entry, `${taskId}: supplemental command result`);
+      exactObjectKeys(
+        item,
+        ["command", "result"],
+        `${taskId}: supplemental command result`,
+      );
+      return (
+        typeof item.command !== "string" ||
+        item.command.length === 0 ||
+        typeof item.result !== "string" ||
+        item.result.length === 0
+      );
+    })
+  ) {
+    throw new Error(`${taskId}: supplemental command results are invalid`);
+  }
+};
+
+const validateProofSourceSlices = (value: unknown, taskId: string): void => {
+  if (value === undefined) return;
+  const commits = new Set<string>();
+  if (
+    !Array.isArray(value) ||
+    value.length === 0 ||
+    value.some((entry) => {
+      const item = record(entry, `${taskId}: source slice`);
+      exactObjectKeys(
+        item,
+        ["commit", "changedHandAuthoredSourceLines"],
+        `${taskId}: source slice`,
+      );
+      if (typeof item.commit === "string") commits.add(item.commit);
+      return (
+        typeof item.commit !== "string" ||
+        !/^[0-9a-f]{40}$/.test(item.commit) ||
+        !Number.isInteger(item.changedHandAuthoredSourceLines) ||
+        Number(item.changedHandAuthoredSourceLines) < 0
+      );
+    }) ||
+    commits.size !== value.length
+  ) {
+    throw new Error(`${taskId}: source slices are invalid`);
+  }
+};
+
 export const buildContractReproofRefreshRequest = (
   input: Omit<ContractReproofRequest, "requestSha256" | "schemaVersion"> & {
     readonly priorReproofFinalGatePath: string;
@@ -670,12 +723,19 @@ export const buildRefreshedContractReproofRequest = (input: {
       "reviewHeadSha",
       "reviewVerdict",
       "schemaVersion",
+      "sourceSlices",
+      "supplementalCommandResults",
       "taskBlockHash",
       "taskId",
       "testsAdded",
     ],
     `${input.taskId}: prior reproof proof`,
   );
+  validateSupplementalCommandResults(
+    proof.supplementalCommandResults,
+    input.taskId,
+  );
+  validateProofSourceSlices(proof.sourceSlices, input.taskId);
   const finalGate = record(
     input.finalGateReport,
     `${input.taskId}: prior reproof final gate`,
