@@ -208,8 +208,9 @@ export const collectParallelReviewLenses = (input: {
       requiredMapValue(byLens, lens, `${lens} current review ref`).commit,
     ]),
   ) as Record<ReviewLensName, string>;
-  if (new Set(Object.values(commits)).size !== REVIEW_LENS_NAMES.length)
-    throw new Error("parallel review checkpoint commits must be distinct");
+  for (const lens of REVIEW_LENS_NAMES)
+    if (commits[lens] === headSha)
+      throw new Error(`${lens}: review checkpoint is missing`);
 
   const laneDirectory = resolve(input.evidence, "lane-results", input.taskId);
   const proof = record(
@@ -295,6 +296,8 @@ export const collectParallelReviewLenses = (input: {
     artifactSha256[lens] = createHash("sha256").update(contents).digest("hex");
     return validateReviewLens(JSON.parse(contents) as unknown, expected);
   });
+  if (new Set(Object.values(commits)).size !== REVIEW_LENS_NAMES.length)
+    throw new Error("parallel review checkpoint commits must be distinct");
   const aggregate = aggregateReviewLenses({ expected, lenses: artifacts });
   return {
     aggregate,
@@ -329,10 +332,30 @@ export const aggregateParallelReviewBranches = async (input: {
     : await beginReviewAggregation(coordinates);
   const prepared = completed?.prepared ?? lease?.prepared;
   if (!prepared) throw new Error("review aggregation preparation is missing");
-  const collected = collectParallelReviewLenses({
-    ...input,
-    attempt: prepared.attemptId,
-  });
+  let collected: ParallelReviewLensCollection;
+  try {
+    collected = collectParallelReviewLenses({
+      ...input,
+      attempt: prepared.attemptId,
+    });
+  } catch (error) {
+    if (lease) {
+      let cleanupError: unknown;
+      try {
+        cleanupReviewWorktrees(coordinates);
+      } catch (caught) {
+        cleanupError = caught;
+      } finally {
+        await releaseReviewAggregationSocketLease(lease.token);
+      }
+      if (cleanupError)
+        throw new AggregateError(
+          [error, cleanupError],
+          "invalid review checkpoint cleanup failed",
+        );
+    }
+    throw error;
+  }
   const laneDirectory = resolve(input.evidence, "lane-results", input.taskId);
   const proofPath = resolve(laneDirectory, "ci-proof-packet.json");
   const reviewDirectory = resolve(laneDirectory, "review-lenses", headSha);

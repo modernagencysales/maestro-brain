@@ -5,7 +5,14 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { collectParallelReviewLenses } from "../src/review-aggregate.mjs";
+import {
+  aggregateParallelReviewBranches,
+  collectParallelReviewLenses,
+} from "../src/review-aggregate.mjs";
+import {
+  cleanupReviewWorktrees,
+  prepareReviewWorktrees,
+} from "../src/review-worktrees.js";
 import {
   DEFAULT_REVIEW_RUBRIC_IDS,
   type ReviewLensName,
@@ -23,7 +30,8 @@ const fixture = () => {
   git(repo, "config", "user.email", "review@example.test");
   git(repo, "config", "user.name", "Review Test");
   writeFileSync(resolve(repo, "README.md"), "base\n");
-  git(repo, "add", "README.md");
+  writeFileSync(resolve(repo, ".gitignore"), ".tokensave/\n");
+  git(repo, "add", "README.md", ".gitignore");
   git(repo, "-c", "core.hooksPath=/dev/null", "commit", "-qm", "base");
   const base = git(repo, "rev-parse", "HEAD");
   const tree = git(repo, "rev-parse", "HEAD^{tree}");
@@ -204,6 +212,55 @@ describe("Fabro parallel review branch admission", () => {
       ).toThrow("reviewerRunId mismatch");
     } finally {
       rmSync(forged.repo, { recursive: true, force: true });
+    }
+  });
+
+  it("retires an incomplete fork so the same workflow attempt can retry", async () => {
+    const input = fixture();
+    const attempt = "retry-attempt";
+    const coordinates = {
+      attemptId: attempt,
+      evidence: input.evidence,
+      headSha: input.base,
+      taskId: input.taskId,
+      workdir: input.workdir,
+    };
+    try {
+      const prepared = prepareReviewWorktrees(coordinates);
+      const safetyBranch = prepared.branches.safety;
+      const safetyPath = prepared.paths.safety;
+      mkdirSync(resolve(safetyPath, ".brain-review-output"), {
+        recursive: true,
+      });
+      writeFileSync(
+        resolve(safetyPath, ".brain-review-output/safety.json"),
+        `${JSON.stringify(input.artifact("safety", safetyBranch), null, 2)}\n`,
+      );
+      git(safetyPath, "add", ".brain-review-output/safety.json");
+      git(
+        safetyPath,
+        "-c",
+        "core.hooksPath=/dev/null",
+        "commit",
+        "-qm",
+        "review: checkpoint safety",
+      );
+
+      await expect(
+        aggregateParallelReviewBranches({
+          attempt,
+          reviewRepo: input.workdir,
+          workdir: input.workdir,
+          evidence: input.evidence,
+          taskId: input.taskId,
+        }),
+      ).rejects.toThrow("contract: review checkpoint is missing");
+
+      const retry = prepareReviewWorktrees(coordinates);
+      expect(retry.attemptId).toBe(`${attempt}-v2`);
+      cleanupReviewWorktrees(coordinates);
+    } finally {
+      rmSync(input.repo, { recursive: true, force: true });
     }
   });
 });
