@@ -1,0 +1,278 @@
+export type TerminalContractReproofRecord = Record<string, unknown>;
+
+const terminalStatuses = new Set([
+  "canceled",
+  "cancelled",
+  "failed",
+  "succeeded",
+]);
+
+const string = (value: unknown, label: string): string => {
+  if (typeof value !== "string" || value.length === 0)
+    throw new Error(`${label} is missing`);
+  return value;
+};
+
+const sha = (value: unknown, length: 40 | 64, label: string): string => {
+  const result = string(value, label);
+  if (!new RegExp(`^[0-9a-f]{${length}}$`).test(result))
+    throw new Error(`${label} is invalid`);
+  return result;
+};
+
+const record = (
+  value: unknown,
+  label: string,
+): TerminalContractReproofRecord => {
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    throw new Error(`${label} is not an object`);
+  return value as TerminalContractReproofRecord;
+};
+
+export interface TerminalContractReproofResumeInput {
+  readonly admittedRequest: TerminalContractReproofRecord;
+  readonly controlCommonDir: string;
+  readonly controlHeadSha: string;
+  readonly currentPlanSha256: string;
+  readonly currentTaskBlockHash: string;
+  readonly finalGate: TerminalContractReproofRecord;
+  readonly inspectedRun: {
+    readonly inputs: TerminalContractReproofRecord;
+    readonly runId: string;
+    readonly status: string;
+  };
+  readonly proof: TerminalContractReproofRecord;
+  readonly record: TerminalContractReproofRecord;
+  readonly requestPath: string;
+  readonly routing: TerminalContractReproofRecord;
+  readonly sourceCommits: readonly string[];
+  readonly terminalStatus: string;
+  readonly worktree: {
+    readonly branch: string;
+    readonly clean: boolean;
+    readonly commonDir: string;
+    readonly headSha: string;
+    readonly requestControlHeadIsAncestor: boolean;
+    readonly sourceRangeIsValid: boolean;
+    readonly workdir: string;
+  };
+}
+
+export interface TerminalContractReproofResumePlan {
+  readonly launchInputs: TerminalContractReproofLaunchInputs;
+  readonly preparingRecord: TerminalContractReproofRecord;
+  readonly priorRunId: string;
+  readonly terminalStatus: string;
+}
+
+export interface TerminalContractReproofLaunchInputs {
+  readonly base_sha: string;
+  readonly control_head_sha: string;
+  readonly current_plan_sha256: string;
+  readonly reproof_request: string;
+  readonly resume_branch: string;
+  readonly resume_commits: string;
+  readonly resume_expected_commit: string;
+  readonly resume_mode: "preserved-worktree";
+  readonly resume_proof_head: string;
+  readonly resume_source_head: string;
+  readonly resume_task_base: string;
+  readonly start_sha: string;
+}
+
+export const buildTerminalContractReproofResume = (
+  input: TerminalContractReproofResumeInput,
+): TerminalContractReproofResumePlan => {
+  const taskId = string(input.record.taskId, "terminal owner task ID");
+  const runId = string(input.record.runId, `${taskId}: terminal owner run ID`);
+  const branch = string(
+    input.record.branch,
+    `${taskId}: terminal owner branch`,
+  );
+  const workdir = string(
+    input.record.workdir,
+    `${taskId}: terminal owner worktree`,
+  );
+  const requestSha256 = sha(
+    input.record.requestSha256,
+    64,
+    `${taskId}: terminal owner request hash`,
+  );
+  const ownerFindingsSha256 = sha(
+    input.record.ownerFindingsSha256,
+    64,
+    `${taskId}: terminal owner findings hash`,
+  );
+  const sourceHeadSha = sha(
+    input.record.sourceHeadSha,
+    40,
+    `${taskId}: terminal owner source HEAD`,
+  );
+  const taskBaseSha = sha(
+    input.record.taskBaseSha,
+    40,
+    `${taskId}: terminal owner task base`,
+  );
+  const controlHeadSha = sha(
+    input.controlHeadSha,
+    40,
+    `${taskId}: current control HEAD`,
+  );
+  const currentPlanSha256 = sha(
+    input.currentPlanSha256,
+    64,
+    `${taskId}: current plan hash`,
+  );
+  const currentTaskBlockHash = sha(
+    input.currentTaskBlockHash,
+    64,
+    `${taskId}: current task hash`,
+  );
+
+  if (
+    input.record.mode !== "contract-reproof" ||
+    input.record.status !== "launched" ||
+    input.record.resumeStrategy !== "in-lane-cherry-pick"
+  )
+    throw new Error(`${taskId}: terminal owner mode is not resumable`);
+  if (
+    !terminalStatuses.has(input.terminalStatus) ||
+    input.inspectedRun.status !== input.terminalStatus ||
+    input.inspectedRun.runId !== runId
+  )
+    throw new Error(`${taskId}: terminal Fabro ownership is not exact`);
+
+  const requestTaskId = string(
+    input.admittedRequest.taskId,
+    `${taskId}: request task ID`,
+  );
+  const requestControlHeadSha = sha(
+    input.admittedRequest.controlHeadSha,
+    40,
+    `${taskId}: request control HEAD`,
+  );
+  const requestPlanSha256 = sha(
+    input.admittedRequest.planSha256,
+    64,
+    `${taskId}: request plan hash`,
+  );
+  if (
+    requestTaskId !== taskId ||
+    input.admittedRequest.requestSha256 !== requestSha256 ||
+    input.admittedRequest.taskBlockHash !== currentTaskBlockHash
+  )
+    throw new Error(`${taskId}: admitted request identity drift`);
+
+  const runInputs = input.inspectedRun.inputs;
+  if (
+    runInputs.reproof_request !== input.requestPath ||
+    runInputs.resume_branch !== branch ||
+    runInputs.resume_source_head !== sourceHeadSha ||
+    runInputs.resume_task_base !== taskBaseSha ||
+    runInputs.task_id !== taskId ||
+    runInputs.workdir !== workdir
+  )
+    throw new Error(`${taskId}: compiled request launch identity drift`);
+
+  const routingOwners = record(
+    input.routing.owners,
+    `${taskId}: owner routing entries`,
+  );
+  const routed = record(routingOwners[taskId], `${taskId}: routed owner`);
+  if (
+    input.routing.schemaVersion !== "maestro-brain-owner-rework-routing/v1" ||
+    input.routing.status !== "complete" ||
+    routed.runId !== runId ||
+    routed.status !== "launched" ||
+    routed.requestSha256 !== requestSha256 ||
+    routed.findingsSha256 !== ownerFindingsSha256
+  )
+    throw new Error(`${taskId}: owner routing receipt drift`);
+
+  const candidateHeadSha = sha(
+    input.worktree.headSha,
+    40,
+    `${taskId}: candidate HEAD`,
+  );
+  if (
+    !input.worktree.clean ||
+    !input.worktree.requestControlHeadIsAncestor ||
+    !input.worktree.sourceRangeIsValid ||
+    input.worktree.branch !== branch ||
+    input.worktree.workdir !== workdir ||
+    input.worktree.commonDir !== input.controlCommonDir
+  )
+    throw new Error(`${taskId}: preserved worktree identity drift`);
+
+  if (
+    input.proof.taskId !== taskId ||
+    input.proof.baseSha !== requestControlHeadSha ||
+    input.proof.headSha !== candidateHeadSha ||
+    input.proof.reviewHeadSha !== candidateHeadSha ||
+    !new Set(["pending", "rework"]).has(String(input.proof.reviewVerdict)) ||
+    input.proof.planSha256 !== requestPlanSha256 ||
+    input.proof.taskBlockHash !== currentTaskBlockHash ||
+    input.finalGate.taskId !== taskId ||
+    input.finalGate.headSha !== candidateHeadSha ||
+    input.finalGate.currentHeadSha !== candidateHeadSha ||
+    input.finalGate.stage !== "pre-review" ||
+    input.finalGate.status !== "passed" ||
+    input.finalGate.planSha256 !== requestPlanSha256 ||
+    input.finalGate.taskBlockHash !== currentTaskBlockHash
+  )
+    throw new Error(`${taskId}: preserved proof or gate identity drift`);
+
+  if (
+    input.sourceCommits.length === 0 ||
+    input.sourceCommits.some((commit) => !/^[0-9a-f]{40}$/.test(commit))
+  )
+    throw new Error(`${taskId}: preserved source commits are invalid`);
+
+  const launchInputs = {
+    base_sha: requestControlHeadSha,
+    control_head_sha: controlHeadSha,
+    current_plan_sha256: currentPlanSha256,
+    reproof_request: input.requestPath,
+    resume_branch: branch,
+    resume_commits: input.sourceCommits.join(","),
+    resume_expected_commit: "none",
+    resume_mode: "preserved-worktree",
+    resume_proof_head: candidateHeadSha,
+    resume_source_head: sourceHeadSha,
+    resume_task_base: taskBaseSha,
+    start_sha: candidateHeadSha,
+  } as const;
+  return {
+    launchInputs,
+    preparingRecord: {
+      branch,
+      controlHeadSha,
+      mode: "contract-reproof",
+      ownerFindingsSha256,
+      planSha256: currentPlanSha256,
+      requestPath: input.requestPath,
+      requestSha256,
+      resumeStrategy: "in-lane-cherry-pick",
+      sourceHeadSha,
+      status: "preparing",
+      taskBaseSha,
+      taskBlockHash: currentTaskBlockHash,
+      taskId,
+      workdir,
+    },
+    priorRunId: runId,
+    terminalStatus: input.terminalStatus,
+  };
+};
+
+export const runTerminalContractReproofResume = (input: {
+  readonly launch: () => string;
+  readonly promote: (runId: string) => void;
+  readonly replaceTerminalOwner: () => void;
+}): string => {
+  input.replaceTerminalOwner();
+  const runId = input.launch();
+  if (!runId) throw new Error("terminal contract-reproof returned no run ID");
+  input.promote(runId);
+  return runId;
+};
