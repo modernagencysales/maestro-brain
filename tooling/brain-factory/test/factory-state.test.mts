@@ -105,6 +105,27 @@ describe("brain factory control state", () => {
     ).toMatchObject({ stage: "lane_green" });
   });
 
+  it("classifies a proven authority transition hold as task-scoped", () => {
+    expect(
+      classifyControllerTask({
+        globallyBlocking: false,
+        headSha: SHA_40_B,
+        missingPrerequisiteTaskIds: ["S06-T02", "S08-T01"],
+        runId: "01KY0KKPKS1JMRX8M50XX5Y7YP",
+        status: "authority_transition_held",
+        taskId: "S13-T03",
+      }),
+    ).toEqual({
+      globallyBlocking: false,
+      headSha: SHA_40_B,
+      missingPrerequisiteTaskIds: ["S06-T02", "S08-T01"],
+      runId: "01KY0KKPKS1JMRX8M50XX5Y7YP",
+      stage: "authority_transition_held",
+      status: "authority_transition_held",
+      taskId: "S13-T03",
+    });
+  });
+
   it.each([undefined, "rejected", "unknown"] as const)(
     "fails closed for lane green with %s admission",
     (admission) => {

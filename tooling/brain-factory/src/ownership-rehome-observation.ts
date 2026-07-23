@@ -22,6 +22,7 @@ export interface OwnershipRehomeObservationInput {
   readonly lensContents: Readonly<
     Record<"contract" | "quality" | "safety", string>
   >;
+  readonly expectedCommonDir: string;
   readonly expectedWorkdir: string;
   readonly integratedTaskIds: readonly string[];
   readonly currentRejection?: OwnershipRehomeCurrentRejection | undefined;
@@ -34,7 +35,13 @@ export interface OwnershipRehomeObservationInput {
     readonly content: string;
   };
   readonly readWorktree: (workdir: string) => {
+    readonly branch: string;
+    readonly clean: boolean;
+    readonly commonDir: string;
+    readonly detached: boolean;
     readonly headSha: string;
+    readonly path: string;
+    readonly registered: boolean;
     readonly treeSha: string;
   };
 }
@@ -237,6 +244,19 @@ export const loadOwnershipRehomeObservation = (
   requireEqual(inspection.status, "succeeded", "source run terminal status");
   requireEqual(inspection.reason, "completed", "source run terminal reason");
   const worktree = input.readWorktree(run.workdir);
+  const worktreeIssues = [
+    ...(typeof run.branch === "string" ? [] : ["run branch"]),
+    ...(worktree.path === input.expectedWorkdir ? [] : ["path"]),
+    ...(worktree.branch === run.branch ? [] : ["branch"]),
+    ...(worktree.commonDir === input.expectedCommonDir ? [] : ["common dir"]),
+    ...(worktree.clean ? [] : ["dirty"]),
+    ...(worktree.registered ? [] : ["unregistered"]),
+    ...(worktree.detached ? ["detached"] : []),
+  ];
+  if (worktreeIssues.length > 0)
+    throw new Error(
+      `source worktree identity mismatch: ${worktreeIssues.join(", ")}`,
+    );
   requireEqual(
     worktree.headSha,
     transition.sourceHeadSha,

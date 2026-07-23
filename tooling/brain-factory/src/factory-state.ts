@@ -91,6 +91,7 @@ export type ControllerTaskStatus =
   | "running"
   | "failed"
   | "terminal"
+  | "authority_transition_held"
   | "lane_green"
   | "integrated"
   | "accepted"
@@ -102,6 +103,7 @@ export type ControllerTaskStage =
   | "running"
   | "recoverable"
   | "terminal"
+  | "authority_transition_held"
   | "lane_green"
   | "false_green"
   | "authority_transition_ready"
@@ -125,6 +127,8 @@ export interface ControllerTaskObservation {
   readonly baseSha?: string;
   readonly findingSha256?: string;
   readonly headSha?: string;
+  readonly globallyBlocking?: false;
+  readonly missingPrerequisiteTaskIds?: readonly string[];
   readonly ownershipId?: string;
   readonly missingPrerequisiteTaskIds?: readonly string[];
   readonly runId?: string;
@@ -252,6 +256,22 @@ export const classifyControllerTask = (
   requireIdentity(input.taskId, "taskId");
   validateOptionalTaskCoordinates(input);
 
+  if (input.status === "authority_transition_held") {
+    if (
+      input.globallyBlocking !== false ||
+      input.headSha === undefined ||
+      input.runId === undefined ||
+      !Array.isArray(input.missingPrerequisiteTaskIds) ||
+      input.missingPrerequisiteTaskIds.length === 0 ||
+      new Set(input.missingPrerequisiteTaskIds).size !==
+        input.missingPrerequisiteTaskIds.length
+    ) {
+      throw new Error(`${input.taskId}: invalid authority transition hold`);
+    }
+    for (const taskId of input.missingPrerequisiteTaskIds)
+      requireIdentity(taskId, `${input.taskId}.missingPrerequisiteTaskId`);
+  }
+
   let stage: ControllerTaskStage;
   switch (input.status) {
     case "lane_green":
@@ -276,6 +296,7 @@ export const classifyControllerTask = (
     case "preparing":
     case "running":
     case "terminal":
+    case "authority_transition_held":
     case "integrated":
     case "accepted":
     case "unknown":

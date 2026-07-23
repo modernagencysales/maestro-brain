@@ -1,8 +1,15 @@
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import type { OwnershipRehomeObservationInput } from "../src/ownership-rehome-observation.js";
 import { loadOwnershipRehomeObservation } from "../src/ownership-rehome-observation.js";
+import { observeControllerSnapshot } from "../src/controller-observation.js";
+import { buildManifest } from "../src/manifest.js";
 import { DEFAULT_REVIEW_RUBRIC_IDS } from "../src/review-lens.js";
 
 const sha256 = (value: string): string =>
@@ -10,10 +17,22 @@ const sha256 = (value: string): string =>
 
 const sha = (digit: string): string => digit.repeat(40);
 
-const fixture = () => {
-  const sourceBaseSha = sha("1");
-  const sourceHeadSha = sha("2");
-  const sourceTreeSha = sha("3");
+const fixture = (
+  coordinates: {
+    readonly branch?: string;
+    readonly commonDir?: string;
+    readonly sourceBaseSha?: string;
+    readonly sourceHeadSha?: string;
+    readonly sourceTreeSha?: string;
+    readonly workdir?: string;
+  } = {},
+) => {
+  const sourceBaseSha = coordinates.sourceBaseSha ?? sha("1");
+  const sourceHeadSha = coordinates.sourceHeadSha ?? sha("2");
+  const sourceTreeSha = coordinates.sourceTreeSha ?? sha("3");
+  const branch = coordinates.branch ?? "fabro/review-s13-t03-authority-test";
+  const commonDir = coordinates.commonDir ?? "/repo/.git";
+  const workdir = coordinates.workdir ?? "/worktree/s13-t03";
   const planSha256 = "4".repeat(64);
   const taskBlockHash = "5".repeat(64);
   const reviewAttempt = "attempt-v1";
@@ -117,7 +136,7 @@ const fixture = () => {
       },
     ],
   } as const;
-  const input = {
+  const input: OwnershipRehomeObservationInput = {
     task: {
       taskId: "S13-T03",
       fileLocks: ["packages/observability/src/brainMetrics.test.ts"],
@@ -125,23 +144,25 @@ const fixture = () => {
     },
     runRecordContent: JSON.stringify({
       baseSha: sourceBaseSha,
+      branch,
       mode: "authority-refresh",
       status: "launched",
       taskId: "S13-T03",
-      workdir: "/worktree/s13-t03",
+      workdir,
       runId: transition.sourceRunId,
     }),
     proofContent: proof,
     gateContent: gate,
     laneResultContent: laneResult,
     lensContents: lenses,
-    expectedWorkdir: "/worktree/s13-t03",
+    expectedCommonDir: commonDir,
+    expectedWorkdir: workdir,
     integratedTaskIds: ["S06-T02"],
     currentRejection: {
       transitionKind: "ownership-rehome" as const,
       taskId: "S13-T03",
       sourceRunId: transition.sourceRunId,
-      workdir: "/worktree/s13-t03",
+      workdir,
       sourceHeadSha,
       sourceTreeSha,
       missingPrerequisiteTaskIds: ["S08-T01"],
@@ -153,7 +174,16 @@ const fixture = () => {
       objectSha: transition.immutableFinding.objectSha,
       content: finding,
     }),
-    readWorktree: () => ({ headSha: sourceHeadSha, treeSha: sourceTreeSha }),
+    readWorktree: (worktreePath: string) => ({
+      branch,
+      clean: true,
+      commonDir,
+      detached: false,
+      headSha: sourceHeadSha,
+      path: worktreePath,
+      registered: true,
+      treeSha: sourceTreeSha,
+    }),
   };
   const rebindLens = (
     name: keyof typeof lenses,
@@ -189,6 +219,131 @@ const fixture = () => {
 };
 
 describe("ownership-rehome observation", () => {
+  it("reaches a task-scoped hold through the production controller observer", () => {
+    const sandbox = mkdtempSync(join(tmpdir(), "ownership-controller-"));
+    const controlRoot = join(sandbox, "control");
+    const workdir = join(sandbox, "resume-s13-t03-authority-test");
+    const stateRoot = join(sandbox, "state");
+    const git = (cwd: string, ...args: string[]): string =>
+      execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
+    mkdirSync(controlRoot);
+    git(controlRoot, "init", "-b", "control");
+    git(controlRoot, "config", "user.email", "test@example.com");
+    git(controlRoot, "config", "user.name", "Test");
+    writeFileSync(join(controlRoot, ".gitignore"), ".tokensave\n");
+    writeFileSync(join(controlRoot, "source.txt"), "base\n");
+    git(controlRoot, "add", ".gitignore", "source.txt");
+    git(controlRoot, "commit", "-m", "base");
+    const sourceBaseSha = git(controlRoot, "rev-parse", "HEAD");
+    writeFileSync(join(controlRoot, "source.txt"), "candidate\n");
+    git(controlRoot, "commit", "-am", "candidate");
+    const sourceHeadSha = git(controlRoot, "rev-parse", "HEAD");
+    const sourceTreeSha = git(controlRoot, "rev-parse", "HEAD^{tree}");
+    const branch = "fabro/review-s13-t03-authority-test";
+    git(controlRoot, "worktree", "add", "-b", branch, workdir, "HEAD");
+    const resolvedWorkdir = realpathSync(workdir);
+    const commonDir = realpathSync(
+      git(
+        controlRoot,
+        "rev-parse",
+        "--path-format=absolute",
+        "--git-common-dir",
+      ),
+    );
+    const value = fixture({
+      branch,
+      commonDir,
+      sourceBaseSha,
+      sourceHeadSha,
+      sourceTreeSha,
+      workdir: resolvedWorkdir,
+    });
+    const immutable = value.input.readImmutableRef(
+      value.transition.immutableFinding.ref,
+    );
+    const objectSha = execFileSync("git", ["hash-object", "-w", "--stdin"], {
+      cwd: controlRoot,
+      encoding: "utf8",
+      input: immutable.content,
+    }).trim();
+    git(
+      controlRoot,
+      "update-ref",
+      value.transition.immutableFinding.ref,
+      objectSha,
+    );
+    const transition = {
+      ...value.transition,
+      requiredIntegratedTaskIds: ["S06-T02"],
+      immutableFinding: {
+        ...value.transition.immutableFinding,
+        objectSha,
+      },
+    };
+    const generated = buildManifest();
+    const manifest = {
+      ...generated,
+      tasks: generated.tasks.map((task) =>
+        task.taskId === "S13-T03"
+          ? {
+              ...task,
+              fileLocks: value.input.task.fileLocks,
+              ownershipRehomeTransition: transition,
+            }
+          : task,
+      ),
+    };
+    const laneDirectory = join(
+      stateRoot,
+      "evidence",
+      "lane-results",
+      "S13-T03",
+    );
+    const runDirectory = join(stateRoot, "runs");
+    const lensDirectory = join(laneDirectory, "review-lenses", sourceHeadSha);
+    mkdirSync(lensDirectory, { recursive: true });
+    mkdirSync(runDirectory, { recursive: true });
+    writeFileSync(
+      join(laneDirectory, "ci-proof-packet.json"),
+      value.input.proofContent,
+    );
+    writeFileSync(
+      join(laneDirectory, "lane-gate-report.json"),
+      value.input.gateContent,
+    );
+    writeFileSync(
+      join(laneDirectory, "lane-result.json"),
+      value.input.laneResultContent,
+    );
+    for (const lens of ["contract", "quality", "safety"] as const)
+      writeFileSync(
+        join(lensDirectory, `${lens}.json`),
+        value.input.lensContents[lens],
+      );
+    writeFileSync(
+      join(runDirectory, "S13-T03.json.terminal-exact"),
+      value.input.runRecordContent,
+    );
+
+    const task = observeControllerSnapshot({
+      controlHeadSha: sourceHeadSha,
+      controlRoot,
+      inspect: () => "succeeded",
+      manifest,
+      stateRoot,
+    }).tasks.find((candidate) => candidate.taskId === "S13-T03");
+
+    expect(task).toMatchObject({
+      globallyBlocking: false,
+      headSha: sourceHeadSha,
+      missingPrerequisiteTaskIds: ["S06-T02"],
+      runId: transition.sourceRunId,
+      stage: "authority_transition_held",
+      status: "authority_transition_held",
+      taskId: "S13-T03",
+    });
+  });
+
   it("holds only the task authority transition when prerequisites are unmet", () => {
     const { input } = fixture();
 
@@ -305,6 +460,25 @@ describe("ownership-rehome observation", () => {
     ).toThrow("current ownership-rehome rejection provenance mismatch");
   });
 
+  it.each([
+    ["dirty", { clean: false }],
+    ["unregistered", { registered: false }],
+    ["wrong branch", { branch: "fabro/review-other" }],
+    ["foreign common directory", { commonDir: "/foreign/.git" }],
+    ["detached", { detached: true }],
+    ["wrong path", { path: "/worktree/other" }],
+  ])("rejects a %s source worktree", (_label, drift) => {
+    const { input } = fixture();
+    const exact = input.readWorktree(input.expectedWorkdir);
+
+    expect(() =>
+      loadOwnershipRehomeObservation({
+        ...input,
+        readWorktree: () => ({ ...exact, ...drift }),
+      }),
+    ).toThrow("source worktree identity mismatch");
+  });
+
   it("does not trust manifest transition presence without proof provenance", () => {
     const { input } = fixture();
     const proof = JSON.parse(input.proofContent) as Record<string, unknown>;
@@ -330,7 +504,10 @@ describe("ownership-rehome observation", () => {
       "source worktree",
       (input: ReturnType<typeof fixture>["input"]) => ({
         ...input,
-        readWorktree: () => ({ headSha: sha("9"), treeSha: sha("3") }),
+        readWorktree: () => ({
+          ...input.readWorktree(input.expectedWorkdir),
+          headSha: sha("9"),
+        }),
       }),
     ],
     [

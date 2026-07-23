@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 import {
@@ -10,6 +11,7 @@ import {
   type ControllerTaskObservation,
   type ControllerWaveObservation,
 } from "./factory-state.js";
+import { resolveIntegratedPrerequisiteTaskIds } from "./authority-repair-prerequisites.js";
 import { validateResolvedIntegrationFindingAdoption } from "./integration-finding-adoption.js";
 import { readIntegrationWaveSelection } from "./integration-wave.js";
 import { validateIntegrationWaveSupersessionReceipt } from "./integration-wave-supersession.js";
@@ -20,7 +22,8 @@ import {
   loadPlanOnlyLaneAuthorityAdmission,
   resolvePlanOnlyIntegratedPrerequisites,
 } from "./plan-only-lane-authority-admission.js";
-import { gitIsAncestor, runRtk } from "./process.js";
+import { loadOwnershipRehomeObservation } from "./ownership-rehome-observation.js";
+import { gitCommonDir, gitIsAncestor, runRtk } from "./process.js";
 import { planIntegrationOwnerReworkRoute } from "./route-integration-rework.js";
 
 type JsonRecord = Record<string, unknown>;
@@ -61,6 +64,175 @@ const terminalStatuses = new Set([
   "failed",
   "succeeded",
 ]);
+
+const ownershipRehomeSourceRecord = (input: {
+  readonly runId: string;
+  readonly runsRoot: string;
+  readonly taskId: string;
+}): { readonly content: string; readonly record: JsonRecord } => {
+  const prefix = `${input.taskId}.json.terminal-`;
+  const candidates = existsSync(input.runsRoot)
+    ? readdirSync(input.runsRoot)
+        .filter((name) => name.startsWith(prefix))
+        .map((name) => {
+          const content = readFileSync(join(input.runsRoot, name), "utf8");
+          return {
+            content,
+            record: JSON.parse(content) as JsonRecord,
+          };
+        })
+        .filter(({ record }) => record.runId === input.runId)
+    : [];
+  if (candidates.length !== 1)
+    throw new Error(`${input.taskId}: exact source run archive is ambiguous`);
+  const [candidate] = candidates;
+  if (!candidate)
+    throw new Error(`${input.taskId}: exact source run archive vanished`);
+  return candidate;
+};
+
+const observeOwnershipRehomeTask = (input: {
+  readonly controlHeadSha: string;
+  readonly controlRoot: string;
+  readonly evidenceRoot: string;
+  readonly inspect: (runId: string) => string | undefined;
+  readonly isAncestor: (ancestor: string, descendant: string) => boolean;
+  readonly manifest: BrainTaskManifest;
+  readonly runsRoot: string;
+  readonly task: BrainTaskManifest["tasks"][number];
+}): ControllerTaskObservation | undefined => {
+  const transition = input.task.ownershipRehomeTransition;
+  if (!transition) return undefined;
+  const source = ownershipRehomeSourceRecord({
+    runId: transition.sourceRunId,
+    runsRoot: input.runsRoot,
+    taskId: input.task.taskId,
+  });
+  const workdir = String(source.record.workdir ?? "");
+  const directory = join(input.evidenceRoot, "lane-results", input.task.taskId);
+  const lensDirectory = join(
+    directory,
+    "review-lenses",
+    transition.sourceHeadSha,
+  );
+  const requiredTasks = transition.requiredIntegratedTaskIds.map((taskId) => {
+    const task = input.manifest.tasks.find(
+      (candidate) => candidate.taskId === taskId,
+    );
+    if (!task) throw new Error(`${input.task.taskId}: unknown prerequisite`);
+    return { taskId, tranche: task.tranche };
+  });
+  const integratedTaskIds = resolveIntegratedPrerequisiteTaskIds({
+    controlHeadSha: input.controlHeadSha,
+    evidence: input.evidenceRoot,
+    isAncestor: input.isAncestor,
+    requiredTasks,
+  });
+  const integrated = new Set(integratedTaskIds);
+  const missingPrerequisiteTaskIds =
+    transition.requiredIntegratedTaskIds.filter(
+      (taskId) => !integrated.has(taskId),
+    );
+  const inspection = input.inspect(transition.sourceRunId);
+  const commonDir = realpathSync(gitCommonDir(input.controlRoot));
+  const observation = loadOwnershipRehomeObservation({
+    task: input.task,
+    expectedCommonDir: commonDir,
+    expectedWorkdir: realpathSync(workdir),
+    runRecordContent: source.content,
+    proofContent: readFileSync(join(directory, "ci-proof-packet.json"), "utf8"),
+    gateContent: readFileSync(join(directory, "lane-gate-report.json"), "utf8"),
+    laneResultContent: readFileSync(
+      join(directory, "lane-result.json"),
+      "utf8",
+    ),
+    lensContents: {
+      contract: readFileSync(join(lensDirectory, "contract.json"), "utf8"),
+      quality: readFileSync(join(lensDirectory, "quality.json"), "utf8"),
+      safety: readFileSync(join(lensDirectory, "safety.json"), "utf8"),
+    },
+    integratedTaskIds,
+    ...(missingPrerequisiteTaskIds.length === 0
+      ? {}
+      : {
+          currentRejection: {
+            transitionKind: "ownership-rehome" as const,
+            taskId: input.task.taskId,
+            sourceRunId: transition.sourceRunId,
+            workdir: realpathSync(workdir),
+            sourceHeadSha: transition.sourceHeadSha,
+            sourceTreeSha: transition.sourceTreeSha,
+            missingPrerequisiteTaskIds,
+            message: `${input.task.taskId}: ownership-rehome prerequisite is not integrated: ${missingPrerequisiteTaskIds.join(", ")}`,
+          },
+        }),
+    inspectRun: () => ({
+      status: inspection ?? "",
+      reason: inspection === "succeeded" ? "completed" : "",
+    }),
+    readImmutableRef: (ref) => ({
+      objectSha: runRtk(["proxy", "git", "rev-parse", ref], {
+        cwd: input.controlRoot,
+        quiet: true,
+      }),
+      content: execFileSync("rtk", ["proxy", "git", "cat-file", "blob", ref], {
+        cwd: input.controlRoot,
+        encoding: "utf8",
+      }),
+    }),
+    readWorktree: (path) => {
+      const resolvedPath = realpathSync(path);
+      const branch = runRtk(["proxy", "git", "branch", "--show-current"], {
+        cwd: resolvedPath,
+        quiet: true,
+      });
+      const headSha = runRtk(["proxy", "git", "rev-parse", "HEAD"], {
+        cwd: resolvedPath,
+        quiet: true,
+      });
+      const registered = runRtk(
+        ["proxy", "git", "worktree", "list", "--porcelain"],
+        { cwd: input.controlRoot, quiet: true },
+      )
+        .split("\n\n")
+        .some((entry) => {
+          const lines = new Set(entry.split("\n"));
+          return (
+            lines.has(`worktree ${resolvedPath}`) &&
+            lines.has(`HEAD ${headSha}`) &&
+            lines.has(`branch refs/heads/${branch}`)
+          );
+        });
+      return {
+        branch,
+        clean:
+          runRtk(["proxy", "git", "status", "--porcelain=v1"], {
+            cwd: resolvedPath,
+            quiet: true,
+          }) === "",
+        commonDir: realpathSync(gitCommonDir(resolvedPath)),
+        detached: branch.length === 0,
+        headSha,
+        path: resolvedPath,
+        registered,
+        treeSha: runRtk(["proxy", "git", "rev-parse", "HEAD^{tree}"], {
+          cwd: resolvedPath,
+          quiet: true,
+        }),
+      };
+    },
+  });
+  return observation.status === "authority_transition_held"
+    ? {
+        globallyBlocking: false,
+        headSha: observation.sourceHeadSha,
+        missingPrerequisiteTaskIds: observation.missingPrerequisiteTaskIds,
+        runId: observation.sourceRunId,
+        status: "authority_transition_held",
+        taskId: observation.taskId,
+      }
+    : undefined;
+};
 
 const gateQueueObservation = (lockDirectory: string) => {
   const configured = Number(process.env.HOST_TEST_FOCUSED_SLOTS ?? "2");
@@ -246,6 +418,24 @@ export const observeControllerSnapshot = (
         return { runId, status: "running", taskId };
       }
       if (reservation) return { status: "unknown", taskId };
+
+      if (task.ownershipRehomeTransition) {
+        try {
+          const observation = observeOwnershipRehomeTask({
+            controlHeadSha,
+            controlRoot: input.controlRoot,
+            evidenceRoot,
+            inspect,
+            isAncestor,
+            manifest: input.manifest,
+            runsRoot,
+            task,
+          });
+          if (observation) return observation;
+        } catch {
+          return { status: "unknown", taskId };
+        }
+      }
 
       if (lane?.status === "lane_green") {
         const admission = laneAdmission({
