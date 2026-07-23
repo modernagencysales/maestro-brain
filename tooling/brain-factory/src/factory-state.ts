@@ -104,6 +104,8 @@ export type ControllerTaskStage =
   | "terminal"
   | "lane_green"
   | "false_green"
+  | "authority_transition_ready"
+  | "authority_transition_waiting_prerequisites"
   | "integrated"
   | "accepted"
   | "unknown";
@@ -111,12 +113,19 @@ export type ControllerTaskStage =
 export type ControllerCandidateAdmission =
   "admissible" | "rejected" | "unknown";
 
+export type ControllerAuthorityTransition =
+  | "plan-only-lane-authority"
+  | "lane-green-authority-reproof"
+  | "ownership-rehome";
+
 export interface ControllerTaskObservation {
   readonly admission?: ControllerCandidateAdmission;
+  readonly authorityTransition?: ControllerAuthorityTransition;
   readonly baseSha?: string;
   readonly findingSha256?: string;
   readonly headSha?: string;
   readonly ownershipId?: string;
+  readonly missingPrerequisiteTaskIds?: readonly string[];
   readonly runId?: string;
   readonly status: ControllerTaskStatus;
   readonly taskId: string;
@@ -221,6 +230,19 @@ const validateOptionalTaskCoordinates = (
     requireIdentity(input.runId, `${input.taskId}.runId`);
   if (input.ownershipId !== undefined)
     requireIdentity(input.ownershipId, `${input.taskId}.ownershipId`);
+  if (input.missingPrerequisiteTaskIds !== undefined) {
+    for (const taskId of input.missingPrerequisiteTaskIds) {
+      requireIdentity(taskId, `${input.taskId}.missingPrerequisiteTaskId`);
+    }
+    if (
+      new Set(input.missingPrerequisiteTaskIds).size !==
+      input.missingPrerequisiteTaskIds.length
+    ) {
+      throw new Error(
+        `${input.taskId}.missingPrerequisiteTaskIds contains duplicates`,
+      );
+    }
+  }
 };
 
 export const classifyControllerTask = (
@@ -232,7 +254,14 @@ export const classifyControllerTask = (
   let stage: ControllerTaskStage;
   switch (input.status) {
     case "lane_green":
-      stage = input.admission === "admissible" ? "lane_green" : "false_green";
+      stage =
+        input.admission === "admissible"
+          ? "lane_green"
+          : input.authorityTransition === undefined
+            ? "false_green"
+            : (input.missingPrerequisiteTaskIds?.length ?? 0) === 0
+              ? "authority_transition_ready"
+              : "authority_transition_waiting_prerequisites";
       break;
     case "failed":
       stage =
