@@ -1,0 +1,79 @@
+{
+  "lens": "contract",
+  "taskId": "S05-T01",
+  "planSha256": "adce0583eeea119d1a949099d3f5bbc98002041065d7ea2cb7a39e4f70975c2c",
+  "taskBlockHash": "af261b6e29dd92ad219255c8f0c731b09c5fd346780621976cb1693aa8d991cf",
+  "baseSha": "82b16f93d19d59a12d629a7d1765345faac7d8a3",
+  "headSha": "9e4ab3cfc9261af8203beee9413f404aaf619d34",
+  "treeSha": "21f9abf17169cfb337f66f8ebf27b5d37883b190",
+  "reviewerRunId": "maestro/review/S05-T01/9e4ab3cfc9261af8203beee9413f404aaf619d34/1ba781b5-1db1-42e6-a6c6-48d3f276e166-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "Task packet S05-T01 requires source ledger tables, strict migration fragments, deterministic registry generation, task-owned S00/S01/S02 implementation extraction, and explicitly defers live capture behavior to S05-T02.",
+        "Proof packet for head 9e4ab3cfc9261af8203beee9413f404aaf619d34 lists the task-owned source ledger, migration fragment/runtime/generator, and focused tests; pre-review lane gates passed for S05-T01."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "finding",
+      "findingIds": ["CONTRACT-S05-T01-001"],
+      "evidence": [
+        "S05-T01 plan states: 'The live capture input/result contract and transaction errors belong to S05-T02.'",
+        "packages/convex/confect/sources/sourceSchemas.ts defines SourceLedgerCaptureInput, VerifiedSlackChannelBinding/VerifiedSlackEnvelope, buildSourceLedgerRows, buildNoSourceProviderEventReceipt, and capture-path tagged errors including TenantMismatch, ChannelAccessLost, ObservationInvalid, PayloadTooLarge, and DuplicateKeyConflict."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "Source ledger table files define providerEventReceipts, sourceArtifacts, sourceRevisions, and sourceProcessingJobs with schemaVersion, stable tenant/source keys, lifecycle fields, and indexes named in Appendix C/task packet.",
+        "packages/convex/test/source-ledger-schema.test.ts includes focused schema/index inventory, stable key, replay-key convergence, tombstone/current-readable, and uniqueness cases."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "finding",
+      "findingIds": ["CONTRACT-S05-T01-001"],
+      "evidence": [
+        "The S05-T01 implementation requirement says this is a schema/registry-only task and S05-T01 does not admit replay or implement capture behavior.",
+        "The diff adds capture construction/validation helpers and tests for receipt/artifact/revision/job row construction plus injected source-ledger write rollback, which are live capture contract/transaction concerns assigned to S05-T02."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "finding",
+      "findingIds": ["CONTRACT-S05-T01-001"],
+      "evidence": [
+        "Task-manifest ownership for S05-T01 is the approved source ledger schema plus integration-owned migration registry proof; S05-T02 owns deterministic Slack normalization, ordering, and atomic capture.",
+        "packages/convex/confect/sources/sourceSchemas.ts introduces S05-T02-owned live capture envelope/binding/result helpers in the S05-T01 product diff."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "findingIds": ["CONTRACT-S05-T01-001"],
+      "evidence": [
+        "The S05-T01 typed contract/error scope is limited to table schema validation and typed migration errors; live capture transaction errors belong to S05-T02.",
+        "The diff exports live capture-style failures TenantMismatch, ChannelAccessLost, ObservationInvalid, PayloadTooLarge, and DuplicateKeyConflict from sourceSchemas.ts before the S05-T02 capture contract."
+      ]
+    }
+  ],
+  "priorFindingDispositions": [],
+  "findings": [
+    {
+      "id": "CONTRACT-S05-T01-001",
+      "severity": "high",
+      "summary": "S05-T01 exports live capture contracts and failures owned by S05-T02",
+      "details": "S05-T01 is explicitly schema/registry-only: it may define durable ledger table schemas and migration registry proof, while the live capture input/result contract, replay admission, row-construction transaction semantics, and capture errors belong to S05-T02. The current diff adds SourceLedgerCaptureInput, VerifiedSlackChannelBinding/VerifiedSlackEnvelope, buildSourceLedgerRows, buildNoSourceProviderEventReceipt, and capture-path errors in packages/convex/confect/sources/sourceSchemas.ts, with tests proving receipt/artifact/revision/job row construction and injected write rollback. That creates S05-T02's contract surface in the S05-T01 slice and requires task rework to keep S05-T01 limited to schema/registry validation or move the capture contract to S05-T02.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md S05-T01: 'this is a schema/registry-only task' and 'The live capture input/result contract and transaction errors belong to S05-T02.'",
+        "packages/convex/confect/sources/sourceSchemas.ts exports SourceLedgerCaptureInput, VerifiedSlackChannelBinding, VerifiedSlackEnvelope, buildSourceLedgerRows, buildNoSourceProviderEventReceipt, TenantMismatch, ChannelAccessLost, ObservationInvalid, PayloadTooLarge, and DuplicateKeyConflict.",
+        "packages/convex/test/source-ledger-schema.test.ts includes S05-T01 tests for exact receipt/artifact/revision/assembly-job row construction and rollback after an injected source-ledger failure."
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
