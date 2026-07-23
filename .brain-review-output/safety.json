@@ -1,0 +1,87 @@
+{
+  "lens": "safety",
+  "taskId": "S08-T03",
+  "planSha256": "1c6b818063c534afdae20d688fee71e830915c5ac356bf7eba7724099d7ed9a5",
+  "taskBlockHash": "52836a187d4a821697f0ff1d057155b9aefc998858fac5df08c06f5b82cf6612",
+  "baseSha": "2bdef668a17ac4e86a9113846b773f6243f281c0",
+  "headSha": "ce0efb5047dec18ab0b6bfde6ffc7bf681d2bbde",
+  "treeSha": "d664bc55884f1a8628b202b163fe4b781c091a0f",
+  "reviewerRunId": "maestro/review/S08-T03/ce0efb5047dec18ab0b6bfde6ffc7bf681d2bbde/e8f981c1-4075-4c85-a794-983c6d27bbcf-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/classification/gather.ts:52-70 binds classify-only gathered requests to matching workspaceId, organizationId, policyVersion, lifecycleGeneration, routeGeneration, leaseGeneration, and same-tenant allowedTargets before a model call.",
+        "packages/convex/confect/classification/request.ts:129-164 revalidates the model proposal against the tenant-bound request and carries workspaceId/organizationId into the durable decision.",
+        "packages/convex/test/source-classification.test.ts:185-204 covers cross-tenant gathered unit and reviewer-authority rejection."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/capabilities/classifySourceUnit.spec.ts:80-104 defines classifySourceUnit as an internal mutation exposed only to workflow/internal system callers, with Unauthorized typed.",
+        "packages/convex/confect/capabilities/classifySourceUnit.impl.ts:8-17 rejects non-system/non-workflow callers before local classification.",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:120-130 requires a live active admin/owner workspace or organization membership before approve sends the review event.",
+        "packages/convex/test/source-classification.test.ts:206-245 proves editor review is forbidden and mixed-client cannot be reviewer-overridden to a route."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:4-9 adds explicit awaiting_classification, classifying, awaiting_classification_review, routed, classified_no_route, mixed_client_no_route, superseded, and revoked stages while preserving execution status separation.",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:120-130 treats revoked/deleted reviewer memberships as non-live for review approval.",
+        "packages/convex/confect/classification/commit.ts:65-93 maps terminal reviewed no-route, mixed-client, rejected, and routed outcomes without bypassing stale-generation checks."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/classificationDecisions.ts:9 stores rationaleHash and evidenceHash rather than raw rationale/evidence payloads in the durable decision row.",
+        "packages/convex/confect/capabilities/classifySourceUnit.domain.ts:28-43 emits only minimal local evidence quote text for review, not provider payloads or secrets.",
+        "apps/web/src/features/connections/classification-review-queue.tsx:15-22 renders only supplied channel name, proposed brain name, confidence, and evidenceQuotes with no secret/provider SDK access."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/classification/commit.ts:49-69 requires policy, source hash, lifecycle, route, and lease generations to match the current commit context before any route effect is produced.",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:38-40 wires classification.currentAuthority immediately before routes.commit so stale-generation races are checked after review wait.",
+        "packages/convex/test/source-classification.test.ts:247-288 covers stale source hash rejection at commit time."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/classification/commit.ts:58-86 derives a deterministic route effect key from decision/source/target and rejects pre-existing keys with DuplicateEffect.",
+        "packages/convex/confect/capabilities/classifySourceUnit.spec.ts:80-104 marks the classifier contract idempotent and constrains it to the immutable request.",
+        "packages/convex/test/source-classification.test.ts:247-288 proves duplicate route effect attempts throw DuplicateEffect."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/classification/request.ts:129-164 rejects sourceUnitRevisionKey/sourceUnitHash drift and snapshots policy/lifecycle/route/lease generations into the decision.",
+        "packages/convex/confect/classification/commit.ts:49-69 fences commit on source hash plus policy, lifecycle, route, and lease generations.",
+        "packages/convex/test/source-classification.test.ts:78-153 covers wrong snapshot/hash structure, out-of-allowlist, evidence mismatch, and tenant-bound authority validation."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/capabilities/classifySourceUnit.domain.ts:1-48 implements the current classifier as fake/local descriptor matching and imports no provider SDKs, Slack, Nango, database, or tool surfaces.",
+        "packages/convex/confect/classification/gather.ts:1-71 treats messages and descriptors as data and makes zero model calls for direct/capture_only policies.",
+        "packages/convex/test/sourceClassification.workflow.test.ts:57-177 asserts the generated source/output graph does not run actions and sequences gather, classify, review, currentAuthority, and commit."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
