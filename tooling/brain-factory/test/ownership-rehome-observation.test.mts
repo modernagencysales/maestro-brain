@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 
 import { loadOwnershipRehomeObservation } from "../src/ownership-rehome-observation.js";
+import { DEFAULT_REVIEW_RUBRIC_IDS } from "../src/review-lens.js";
 
 const sha256 = (value: string): string =>
   createHash("sha256").update(value).digest("hex");
@@ -15,6 +16,7 @@ const fixture = () => {
   const sourceTreeSha = sha("3");
   const planSha256 = "4".repeat(64);
   const taskBlockHash = "5".repeat(64);
+  const reviewAttempt = "attempt-v1";
   const proof = JSON.stringify({
     schemaVersion: "maestro-brain-ci-proof/v1",
     planSha256,
@@ -49,11 +51,28 @@ const fixture = () => {
     tranche: "X3-convergence",
     status: "lane_green",
   });
+  const lens = (name: "contract" | "quality" | "safety") => ({
+    lens: name,
+    taskId: "S13-T03",
+    planSha256,
+    taskBlockHash,
+    baseSha: sourceBaseSha,
+    headSha: sourceHeadSha,
+    treeSha: sourceTreeSha,
+    reviewerRunId: `maestro/review/S13-T03/${sourceHeadSha}/${reviewAttempt}/${name}`,
+    rubricDispositions: DEFAULT_REVIEW_RUBRIC_IDS[name].map((rubricId) => ({
+      rubricId,
+      disposition: "pass",
+      evidence: [`${name}:${rubricId}`],
+    })),
+    findings: [],
+    verdict: "pass",
+  });
   const lenses = {
-    contract: JSON.stringify({ lens: "contract", verdict: "pass" }),
-    quality: JSON.stringify({ lens: "quality", verdict: "pass" }),
-    safety: JSON.stringify({ lens: "safety", verdict: "pass" }),
-  } as const;
+    contract: JSON.stringify(lens("contract")),
+    quality: JSON.stringify(lens("quality")),
+    safety: JSON.stringify(lens("safety")),
+  };
   const finding = [
     "Maestro Brain S13-T03 ownership-rehome finding",
     "",
@@ -70,7 +89,7 @@ const fixture = () => {
     `Contract lens SHA-256: ${sha256(lenses.contract)}`,
     `Safety lens SHA-256: ${sha256(lenses.safety)}`,
     `Quality lens SHA-256: ${sha256(lenses.quality)}`,
-    "Review attempt: attempt-v1",
+    `Review attempt: ${reviewAttempt}`,
     "",
     "Authorized disposition: remove tooling/quality/check-logging-boundary.mts from S13-T03 ownership and rewrite only that one checker delta away. packages/observability/src/brainMetrics.test.ts remains S13-T03-owned and is the replacement proof location for prompt/source/token/header redaction canaries. S04-T03 remains sole owner of the checker. All other S13-T03 product changes, proof requirements, and prerequisite edges remain unchanged.",
   ].join("\n");
@@ -118,6 +137,17 @@ const fixture = () => {
     lensContents: lenses,
     expectedWorkdir: "/worktree/s13-t03",
     integratedTaskIds: ["S06-T02"],
+    currentRejection: {
+      transitionKind: "ownership-rehome" as const,
+      taskId: "S13-T03",
+      sourceRunId: transition.sourceRunId,
+      workdir: "/worktree/s13-t03",
+      sourceHeadSha,
+      sourceTreeSha,
+      missingPrerequisiteTaskIds: ["S08-T01"],
+      message:
+        "S13-T03: ownership-rehome prerequisite is not integrated: S08-T01",
+    },
     inspectRun: () => ({ status: "succeeded" as const, reason: "completed" }),
     readImmutableRef: () => ({
       objectSha: transition.immutableFinding.objectSha,
@@ -125,7 +155,37 @@ const fixture = () => {
     }),
     readWorktree: () => ({ headSha: sourceHeadSha, treeSha: sourceTreeSha }),
   };
-  return { input, transition };
+  const rebindLens = (
+    name: keyof typeof lenses,
+    artifact: Record<string, unknown>,
+  ) => {
+    const content = JSON.stringify(artifact);
+    const label = `${name.charAt(0).toUpperCase()}${name.slice(1)} lens SHA-256`;
+    const findingContent = finding.replace(
+      new RegExp(`${label}: [0-9a-f]{64}`),
+      `${label}: ${sha256(content)}`,
+    );
+    const reboundTransition = {
+      ...transition,
+      immutableFinding: {
+        ...transition.immutableFinding,
+        contentSha256: sha256(findingContent),
+      },
+    };
+    return {
+      ...input,
+      task: {
+        ...input.task,
+        ownershipRehomeTransition: reboundTransition,
+      },
+      lensContents: { ...input.lensContents, [name]: content },
+      readImmutableRef: () => ({
+        objectSha: reboundTransition.immutableFinding.objectSha,
+        content: findingContent,
+      }),
+    };
+  };
+  return { input, lens, rebindLens, transition };
 };
 
 describe("ownership-rehome observation", () => {
@@ -149,8 +209,100 @@ describe("ownership-rehome observation", () => {
       loadOwnershipRehomeObservation({
         ...input,
         integratedTaskIds: ["S08-T01", "S06-T02"],
+        currentRejection: undefined,
       }).status,
     ).toBe("authority_transition_ready");
+  });
+
+  it.each([
+    [
+      "incomplete",
+      (artifact: Record<string, unknown>) => {
+        delete artifact.rubricDispositions;
+      },
+    ],
+    [
+      "wrong-head",
+      (artifact: Record<string, unknown>) => {
+        artifact.headSha = sha("9");
+      },
+    ],
+    [
+      "wrong-reviewer-run",
+      (artifact: Record<string, unknown>) => {
+        artifact.reviewerRunId = "untrusted-review-run";
+      },
+    ],
+    [
+      "rework",
+      (artifact: Record<string, unknown>) => {
+        artifact.rubricDispositions = [
+          {
+            rubricId: DEFAULT_REVIEW_RUBRIC_IDS.contract[0],
+            disposition: "finding",
+            evidence: ["review evidence"],
+            findingIds: ["finding-1"],
+          },
+          ...DEFAULT_REVIEW_RUBRIC_IDS.contract.slice(1).map((rubricId) => ({
+            rubricId,
+            disposition: "pass",
+            evidence: ["review evidence"],
+          })),
+        ];
+        artifact.findings = [
+          {
+            id: "finding-1",
+            severity: "important",
+            summary: "Review found drift",
+            evidence: ["review evidence"],
+          },
+        ];
+        artifact.verdict = "rework";
+      },
+    ],
+  ])(
+    "rejects a semantically %s review lens despite matching digests",
+    (_label, mutate) => {
+      const { lens, rebindLens } = fixture();
+      const artifact = lens("contract") as Record<string, unknown>;
+      mutate(artifact);
+
+      expect(() =>
+        loadOwnershipRehomeObservation(rebindLens("contract", artifact)),
+      ).toThrow();
+    },
+  );
+
+  it("requires a current exact unmet-prerequisite rejection before holding", () => {
+    const { input } = fixture();
+
+    expect(() =>
+      loadOwnershipRehomeObservation({
+        ...input,
+        currentRejection: undefined,
+      }),
+    ).toThrow("current ownership-rehome rejection is missing");
+  });
+
+  it.each([
+    ["transition kind", { transitionKind: "authority-repair" }],
+    ["source head", { sourceHeadSha: sha("9") }],
+    ["worktree", { workdir: "/worktree/other" }],
+    ["missing prerequisites", { missingPrerequisiteTaskIds: ["S06-T02"] }],
+    ["message", { message: "generic prerequisite rejection" }],
+    ["shape", { unexpected: "not exact" }],
+  ])("fails closed on drifted current rejection %s", (_label, drift) => {
+    const { input } = fixture();
+
+    expect(() =>
+      loadOwnershipRehomeObservation({
+        ...input,
+        currentRejection: {
+          ...input.currentRejection,
+          ...drift,
+        } as typeof input.currentRejection,
+      }),
+    ).toThrow("current ownership-rehome rejection provenance mismatch");
   });
 
   it("does not trust manifest transition presence without proof provenance", () => {

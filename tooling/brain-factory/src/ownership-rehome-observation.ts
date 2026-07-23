@@ -1,6 +1,11 @@
 import { createHash } from "node:crypto";
 
 import type { OwnershipRehomeTransition } from "./manifest.js";
+import {
+  aggregateReviewLenses,
+  DEFAULT_REVIEW_RUBRIC_IDS,
+  REVIEW_LENS_NAMES,
+} from "./review-lens.js";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -19,6 +24,7 @@ export interface OwnershipRehomeObservationInput {
   >;
   readonly expectedWorkdir: string;
   readonly integratedTaskIds: readonly string[];
+  readonly currentRejection?: OwnershipRehomeCurrentRejection | undefined;
   readonly inspectRun: (runId: string) => {
     readonly status: string;
     readonly reason: string;
@@ -31,6 +37,17 @@ export interface OwnershipRehomeObservationInput {
     readonly headSha: string;
     readonly treeSha: string;
   };
+}
+
+export interface OwnershipRehomeCurrentRejection {
+  readonly transitionKind: "ownership-rehome";
+  readonly taskId: string;
+  readonly sourceRunId: string;
+  readonly workdir: string;
+  readonly sourceHeadSha: string;
+  readonly sourceTreeSha: string;
+  readonly missingPrerequisiteTaskIds: readonly string[];
+  readonly message: string;
 }
 
 export interface OwnershipRehomeObservation {
@@ -86,6 +103,25 @@ const requireDigest = (
   expected: string,
   label: string,
 ): void => requireEqual(sha256(content), expected, `${label} digest`);
+
+const sameStrings = (
+  actual: readonly string[],
+  expected: readonly string[],
+): boolean =>
+  actual.length === expected.length &&
+  actual.every((value, index) => value === expected[index]);
+
+const rejectionKeys: readonly (keyof OwnershipRehomeCurrentRejection)[] = [
+  "transitionKind",
+  "taskId",
+  "sourceRunId",
+  "workdir",
+  "sourceHeadSha",
+  "sourceTreeSha",
+  "missingPrerequisiteTaskIds",
+  "message",
+];
+const rejectionKeySet = new Set<string>(rejectionKeys);
 
 const verifyArtifactBindings = (input: {
   readonly gate: JsonRecord;
@@ -287,11 +323,66 @@ export const loadOwnershipRehomeObservation = (
     transition,
   });
 
+  const reviewAttempt = findingValue(immutable.content, "Review attempt");
+  const reviewerRunIds = Object.fromEntries(
+    REVIEW_LENS_NAMES.map((lens) => [
+      lens,
+      `maestro/review/${input.task.taskId}/${transition.sourceHeadSha}/${reviewAttempt}/${lens}`,
+    ]),
+  ) as Record<(typeof REVIEW_LENS_NAMES)[number], string>;
+  const review = aggregateReviewLenses({
+    expected: {
+      taskId: input.task.taskId,
+      planSha256: transition.fromPlanSha256,
+      taskBlockHash: transition.fromTaskBlockHash,
+      baseSha: transition.sourceBaseSha,
+      headSha: transition.sourceHeadSha,
+      treeSha: transition.sourceTreeSha,
+      reviewerRunIds,
+      rubricIds: DEFAULT_REVIEW_RUBRIC_IDS,
+    },
+    lenses: REVIEW_LENS_NAMES.map((lens) =>
+      parseRecord(input.lensContents[lens], `${lens} review lens`),
+    ),
+  });
+  if (review.reviewVerdict !== "pass" || review.reviewFindings.length !== 0) {
+    throw new Error("ownership-rehome review lenses are not passing");
+  }
+
   const integrated = new Set(input.integratedTaskIds);
   const missingPrerequisiteTaskIds =
     transition.requiredIntegratedTaskIds.filter(
       (taskId) => !integrated.has(taskId),
     );
+  if (missingPrerequisiteTaskIds.length > 0) {
+    const rejection = input.currentRejection;
+    if (!rejection) {
+      throw new Error("current ownership-rehome rejection is missing");
+    }
+    const expectedMessage = `${input.task.taskId}: ownership-rehome prerequisite is not integrated: ${missingPrerequisiteTaskIds.join(", ")}`;
+    const ownKeys = Reflect.ownKeys(rejection);
+    const exactFields =
+      ownKeys.length === rejectionKeys.length &&
+      ownKeys.every(
+        (key) => typeof key === "string" && rejectionKeySet.has(key),
+      ) &&
+      rejection.transitionKind === "ownership-rehome" &&
+      rejection.taskId === input.task.taskId &&
+      rejection.sourceRunId === transition.sourceRunId &&
+      rejection.workdir === input.expectedWorkdir &&
+      rejection.sourceHeadSha === transition.sourceHeadSha &&
+      rejection.sourceTreeSha === transition.sourceTreeSha &&
+      sameStrings(
+        rejection.missingPrerequisiteTaskIds,
+        missingPrerequisiteTaskIds,
+      ) &&
+      rejection.message === expectedMessage;
+    if (!exactFields) {
+      throw new Error("current ownership-rehome rejection provenance mismatch");
+    }
+  } else if (input.currentRejection !== undefined) {
+    throw new Error("current ownership-rehome rejection is stale");
+  }
   return {
     globallyBlocking: false,
     missingPrerequisiteTaskIds,
