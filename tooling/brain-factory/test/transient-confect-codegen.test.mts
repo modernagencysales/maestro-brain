@@ -201,6 +201,12 @@ describe("transient Confect codegen", () => {
                 ),
               ),
             ).toBe(true);
+            rmSync(
+              join(
+                _workdir,
+                "packages/convex/convex/workflowRunners/fixture.ts",
+              ),
+            );
             expect(testPatterns).toEqual(["stable-tenant-keys", "migrations"]);
             expect(checks).toEqual([
               "confect-contracts",

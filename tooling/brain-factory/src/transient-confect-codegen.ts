@@ -316,6 +316,7 @@ export const runTransientConfectCodegen = (input: {
     );
     const generatedPatchHash = stagedPatchHash(workdir);
     hooks.validate(workdir, testPatterns, validatedChecks, validatedProfiles);
+    restoreTrackedWorkflowRunners(workdir);
     const untrackedFiles = unexpectedUntrackedFiles(
       runRtk(
         ["proxy", "git", "status", "--porcelain", "--untracked-files=all"],
