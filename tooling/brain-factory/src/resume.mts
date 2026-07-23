@@ -6,6 +6,7 @@ import { materializeBuildTaskRunConfig } from "./build-task-run-config.js";
 import { launchAuthorityRefresh } from "./authority-refresh-launch.js";
 import { launchCheckpointReproof } from "./checkpoint-reproof-launch.js";
 import { launchLaneGreenAuthorityReproof } from "./lane-green-authority-reproof-launch.js";
+import { launchPlanOnlyLaneAuthority } from "./plan-only-lane-authority-run.js";
 import { selectAuthorityTransition } from "./authority-transition-cli.js";
 import {
   acquireDispatcherLock,
@@ -49,6 +50,7 @@ interface ResumeRecord {
     | "checkpoint-reproof"
     | "lane-green-authority-reproof"
     | "ownership-rehome"
+    | "plan-only-lane-authority"
     | "resume-review";
   readonly runId?: string;
   readonly resumeStrategy?: "in-lane-cherry-pick" | "prelaunch-cherry-pick";
@@ -102,6 +104,7 @@ const {
   checkpointReproof,
   laneGreenAuthorityReproof,
   ownershipRehome,
+  planOnlyAuthority,
 } = selectAuthorityTransition(process.argv.slice(2), taskId ?? "unknown task");
 const conflictAware = process.argv.includes("--conflict-aware");
 let resumeStrategy = resolveResumeStrategy({
@@ -113,12 +116,13 @@ if (
   (!authorityRefresh &&
     !authorityRepair &&
     !ownershipRehome &&
+    !planOnlyAuthority &&
     !checkpointReproof &&
     !laneGreenAuthorityReproof &&
     (!sourceRef || !taskBase))
 ) {
   console.error(
-    "usage: brain:factory:resume -- --task <id> (--authority-refresh | --authority-repair | --ownership-rehome | --checkpoint-reproof | --lane-green-authority-reproof | --ref <git-ref> --base <sha> [--conflict-aware]) [--archive-action <id>]",
+    "usage: brain:factory:resume -- --task <id> (--authority-refresh | --authority-repair | --ownership-rehome | --checkpoint-reproof | --lane-green-authority-reproof | --plan-only-authority | --ref <git-ref> --base <sha> [--conflict-aware]) [--archive-action <id>]",
   );
   process.exit(2);
 }
@@ -126,6 +130,7 @@ if (
   (authorityRefresh ||
     authorityRepair ||
     ownershipRehome ||
+    planOnlyAuthority ||
     checkpointReproof ||
     laneGreenAuthorityReproof) &&
   (sourceRef || taskBase || conflictAware || archiveActionId)
@@ -165,6 +170,16 @@ if (checkpointReproof) {
 }
 if (laneGreenAuthorityReproof) {
   launchLaneGreenAuthorityReproof({
+    evidence,
+    recordPath,
+    root,
+    state,
+    taskId,
+  });
+  process.exit(0);
+}
+if (planOnlyAuthority) {
+  launchPlanOnlyLaneAuthority({
     evidence,
     recordPath,
     root,
