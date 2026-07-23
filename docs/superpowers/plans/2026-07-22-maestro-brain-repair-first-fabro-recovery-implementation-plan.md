@@ -11,7 +11,7 @@ to finish the complete Brain task frontier.
 
 **Architecture:** Keep the existing immutable evidence, task locks, isolated
 review worktrees, integration generation, and serialized promotion. Add
-finding-bound repair, concurrent reviews, direct owner routing, separate coding
+finding-bound repair, isolated reviews, direct owner routing, separate coding
 and ownership capacity, and an authoritative persistent controller. Represent
 the already-approved S05 migration-registry transition as one bounded auxiliary
 control lane. Add a distinct manifest-bound transition for aligned final-pass
@@ -25,8 +25,12 @@ Confect/Convex generation, pnpm, and `host-test-slot`.
 - Fabro owns coding, focused testing, review, repair, and green-lane proof.
 - Normal implementation, focused-gate, or review failure loops to the owning
   implementation node; it is not a terminal workflow result.
-- Contract, safety, and quality reviews use isolated worktrees and run with
-  `max_parallel=3` and `join_policy="wait_all"`.
+- Contract, safety, and quality reviews use isolated worktrees and
+  `join_policy="wait_all"`. On Fabro 0.254.0, agent-node siblings sharing one
+  fork parent thread must run with `max_parallel=1`: repeated production runs
+  started three sessions, activated exactly one, and ended the other two within
+  about 200 ms. Task lanes remain parallel. Restore `max_parallel=3` only after
+  an agent-node canary proves all three sibling sessions activate and finish.
 - Exact immutable findings bind every repair and every review; prior findings
   must be explicitly resolved before a lane can become green.
 - Green lanes retain file ownership but consume no coding slot.
@@ -49,15 +53,15 @@ Confect/Convex generation, pnpm, and `host-test-slot`.
 
 ---
 
-### Task 1: Restore Concurrent Isolated Reviews
+### Task 1: Keep Isolated Agent Reviews Convergent
 
 **Work package:** `template-gap`
 
-- Missing pattern: parallel read-only review fan-out over independently managed
+- Missing pattern: reliable agent-session fan-out over independently managed
   worktrees.
 - Backlog reference: repair-first design, “Review Concurrency.”
-- Promotion path: retain the generic concurrent review fork in the Brain build
-  workflow after canary proof.
+- Promotion path: keep the generic fork serialized until an agent-node canary,
+  rather than the existing command-node canary, proves sibling-session support.
 
 **Files:**
 
@@ -68,43 +72,44 @@ Confect/Convex generation, pnpm, and `host-test-slot`.
 
 - Consumes: existing `review-worktrees.mts` per-lens worktrees and
   `review_merge` wait-all aggregation.
-- Produces: one concurrent three-lens fork; no shared writable review state.
+- Produces: one wait-all three-lens fork that executes every isolated review; no
+  shared writable review state.
 
-- [ ] **Step 1: Change the prompt-contract test to require concurrency**
+- [x] **Step 1: Change the prompt-contract test to require convergence**
 
   Replace the serialization assertion with:
 
   ```ts
-  it("runs isolated exhaustive review lenses concurrently", () => {
+  it("serializes isolated agent reviews until Fabro supports sibling sessions", () => {
     const reviewFork = buildTask
       .split("\n")
       .find((line) => line.trimStart().startsWith("review_fork ["));
     expect(reviewFork).toBe(
-      '  review_fork [label="Concurrent Isolated Review", shape=component, join_policy="wait_all", max_parallel=3]',
+      '  review_fork [label="Serialized Isolated Review", shape=component, join_policy="wait_all", max_parallel=1]',
     );
-    expect(reviewFork).not.toContain("max_parallel=1");
+    expect(reviewFork).not.toContain("max_parallel=3");
   });
   ```
 
-- [ ] **Step 2: Run the test and verify RED**
+- [x] **Step 2: Run the test and verify RED**
 
   ```bash
   rtk host-test-slot --class focused pnpm --dir tooling/brain-factory test workflow-prompt-contract
   ```
 
-  Expected: failure showing the workflow still contains
-  `Serialized Isolated Review` and `max_parallel=1`.
+  Observed: failure showed the workflow still contained
+  `Concurrent Isolated Review` and `max_parallel=3`.
 
-- [ ] **Step 3: Change only the review fork**
+- [x] **Step 3: Change only the review fork**
 
   ```fabro
-  review_fork [label="Concurrent Isolated Review", shape=component, join_policy="wait_all", max_parallel=3]
+  review_fork [label="Serialized Isolated Review", shape=component, join_policy="wait_all", max_parallel=1]
   ```
 
   Keep all three managed review worktrees, review branches, guards,
   `review_merge`, and deterministic aggregation unchanged.
 
-- [ ] **Step 4: Run focused isolation proof**
+- [x] **Step 4: Run focused isolation proof**
 
   ```bash
   rtk host-test-slot --class focused pnpm --dir tooling/brain-factory test workflow-prompt-contract review-worktrees review-worktree-guard review-lens-guard review-aggregate-refs review-aggregation-lease
@@ -113,13 +118,14 @@ Confect/Convex generation, pnpm, and `host-test-slot`.
   rtk pnpm exec prettier --check tooling/brain-factory/test/workflow-prompt-contract.test.mts
   ```
 
-  Expected: all focused suites pass and the three-lens fork remains wait-all.
+  Observed: 57 focused tests, typecheck, targeted lint/formatting, and Fabro
+  validation passed. The three-lens fork remains wait-all.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
   ```bash
   rtk git add .fabro/workflows/brain-build-task/workflow.fabro tooling/brain-factory/test/workflow-prompt-contract.test.mts
-  rtk git commit -m "fix: run Brain reviews concurrently"
+  rtk git commit -m "fix: serialize Brain review agents"
   ```
 
 ### Task 2: Bind Reproofs to Complete Findings
