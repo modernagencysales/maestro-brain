@@ -405,9 +405,11 @@ const ownershipRehomeAdmission = (
   });
 };
 
-afterEach(() => {
+afterEach(async () => {
   for (const root of roots.splice(0))
     rmSync(root, { force: true, recursive: true });
+  // Let Vitest service worker RPC between sync-heavy git fixtures.
+  await new Promise<void>((resolve) => setImmediate(resolve));
 });
 
 describe("authority refresh admission", () => {
