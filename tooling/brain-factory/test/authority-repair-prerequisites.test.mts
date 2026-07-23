@@ -1,4 +1,11 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -118,6 +125,62 @@ describe("authority-repair prerequisite integration", () => {
 
     writeFileSync(value.resultPath, JSON.stringify(value.result));
     writeFileSync(join(value.resultDirectory, "supersession.json"), "{}");
+    expect(resolve()).toEqual([]);
+  });
+
+  it("accepts a legacy tranche omission only through exact adopted evidence", () => {
+    const value = fixture();
+    const legacy = structuredClone(value.result);
+    delete (legacy.includedTasks[0] as Record<string, unknown>).tranche;
+    const resultContent = JSON.stringify(legacy);
+    writeFileSync(value.resultPath, resultContent);
+    const lanePath = join(
+      value.evidence,
+      "lane-results",
+      value.taskId,
+      "lane-result.json",
+    );
+    writeFileSync(
+      lanePath,
+      JSON.stringify({
+        schemaVersion: "maestro-brain-lane-result/v1",
+        taskId: value.taskId,
+        status: "integrated",
+        headSha: "1".repeat(40),
+        tranche: "C1-contract-spine",
+        integrationId: "wave-000001",
+        integrationHeadSha: "2".repeat(40),
+        accepted: false,
+        evidenceAdoption: {
+          schemaVersion: "maestro-brain-lane-evidence-adoption/v1",
+          manifestTranche: "C1-contract-spine",
+          integrationId: "wave-000001",
+          integrationHeadSha: "2".repeat(40),
+          integrationResultPath:
+            "integration/wave-000001/integration-result.json",
+          integrationResultSha256: createHash("sha256")
+            .update(resultContent)
+            .digest("hex"),
+          laneHeadSha: "1".repeat(40),
+        },
+      }),
+    );
+    const resolve = () =>
+      resolveIntegratedPrerequisiteTaskIds({
+        controlHeadSha: "4".repeat(40),
+        evidence: value.evidence,
+        isAncestor: () => true,
+        requiredTasks: [{ taskId: value.taskId, tranche: "C1-contract-spine" }],
+      });
+    expect(resolve()).toEqual([value.taskId]);
+
+    const lane = JSON.parse(readFileSync(lanePath, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    const adoption = lane.evidenceAdoption as Record<string, unknown>;
+    adoption.integrationResultSha256 = "9".repeat(64);
+    writeFileSync(lanePath, JSON.stringify(lane));
     expect(resolve()).toEqual([]);
   });
 });

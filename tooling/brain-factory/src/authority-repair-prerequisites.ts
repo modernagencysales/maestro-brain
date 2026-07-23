@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { basename, resolve } from "node:path";
 
@@ -81,10 +82,36 @@ export const resolveIntegratedPrerequisiteTaskIds = (input: {
       }
       if (
         matchingTasks.length !== 1 ||
-        matchingTasks[0]?.laneHeadSha !== lane.headSha ||
-        matchingTasks[0]?.tranche !== required.tranche
+        matchingTasks[0]?.laneHeadSha !== lane.headSha
       )
         return false;
+      if (matchingTasks[0]?.tranche !== required.tranche) {
+        if (matchingTasks[0]?.tranche !== undefined) return false;
+        try {
+          const adoption = record(
+            lane.evidenceAdoption,
+            `${required.taskId}: evidence adoption`,
+          );
+          const resultContent = readFileSync(resultPath);
+          if (
+            lane.status !== "integrated" ||
+            lane.accepted !== false ||
+            adoption.schemaVersion !==
+              "maestro-brain-lane-evidence-adoption/v1" ||
+            adoption.manifestTranche !== required.tranche ||
+            adoption.integrationId !== basename(resultDirectory) ||
+            adoption.integrationHeadSha !== result.headSha ||
+            adoption.integrationResultPath !==
+              `integration/${basename(resultDirectory)}/integration-result.json` ||
+            adoption.integrationResultSha256 !==
+              createHash("sha256").update(resultContent).digest("hex") ||
+            adoption.laneHeadSha !== lane.headSha
+          )
+            return false;
+        } catch {
+          return false;
+        }
+      }
       return authoritativeIntegrationResultBindsLane({
         integrationHeadSha: result.headSha,
         integrationId: basename(resultDirectory),
