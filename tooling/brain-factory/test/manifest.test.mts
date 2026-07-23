@@ -13,6 +13,7 @@ import {
   parseAuthorityRepairTransition,
   parseLaneGreenAuthorityReproofTransition,
   parseOwnershipRehomeTransition,
+  parsePlanOnlyLaneAuthorityRegistry,
   parseTaskPacketAuditRows,
   REPO_ROOT,
   readyWidth,
@@ -40,6 +41,71 @@ const generatorDryRunPaths = (args: readonly string[]): readonly string[] => {
 };
 
 describe("Maestro Brain execution manifest", () => {
+  it("projects only exact final-pass plan-only authority records", () => {
+    const manifest = buildManifest(REPO_ROOT);
+    const authorized = manifest.tasks.filter(
+      (task) => task.planOnlyLaneAuthorityTransition !== undefined,
+    );
+    expect(authorized.map(({ taskId }) => taskId)).toEqual([
+      "S06-T01",
+      "S11-T02",
+      "S13-T02",
+    ]);
+    for (const task of authorized) {
+      const transition = task.planOnlyLaneAuthorityTransition;
+      expect(transition?.schemaVersion).toBe(
+        "maestro-brain-plan-only-lane-authority/v1",
+      );
+      expect(transition?.fromPlanSha256).not.toBe(manifest.planSha256);
+      expect(transition?.taskBlockHash).toBe(task.taskBlockHash);
+      expect(transition?.requiredIntegratedTaskIds).toEqual(
+        task.codeStartAfter,
+      );
+      expect(transition?.sourceCommits).toHaveLength(
+        transition?.sourceCommitPatchSha256s.length ?? -1,
+      );
+    }
+  });
+
+  it("rejects malformed or unauthorized plan-only registry records", () => {
+    const valid = {
+      schemaVersion: "maestro-brain-plan-only-lane-authority/v1",
+      taskId: "S06-T01",
+      fromPlanSha256: "a".repeat(64),
+      taskBlockHash: "b".repeat(64),
+      sourceRunId: "01KXYX8E74VJ6XPM629VVMPYH5",
+      sourceBaseSha: "c".repeat(40),
+      sourceHeadSha: "d".repeat(40),
+      sourceTreeSha: "e".repeat(40),
+      sourceCommits: ["d".repeat(40)],
+      sourceCommitPatchSha256s: ["f".repeat(64)],
+      laneResultSha256: "1".repeat(64),
+      ciProofPacketSha256: "2".repeat(64),
+      laneGateReportSha256: "3".repeat(64),
+      requiredIntegratedTaskIds: ["S05-T01"],
+    };
+    const registry = (records: readonly unknown[]): string =>
+      `## Appendix Q — Plan-only lane authority registry\n\n\`\`\`json\n${JSON.stringify(records)}\n\`\`\``;
+    expect(
+      parsePlanOnlyLaneAuthorityRegistry(registry([valid])).get("S06-T01"),
+    ).toEqual(expect.objectContaining({ sourceHeadSha: "d".repeat(40) }));
+    for (const invalid of [
+      { ...valid, taskId: "S05-T01" },
+      { ...valid, taskId: "S13-T03" },
+      { ...valid, fromPlanSha256: "a" },
+      { ...valid, sourceCommits: [] },
+      { ...valid, sourceCommitPatchSha256s: [] },
+      { ...valid, unexpected: true },
+    ]) {
+      expect(() =>
+        parsePlanOnlyLaneAuthorityRegistry(registry([invalid])),
+      ).toThrow();
+    }
+    expect(() =>
+      parsePlanOnlyLaneAuthorityRegistry(registry([valid, valid])),
+    ).toThrow("duplicate plan-only authority task S06-T01");
+  });
+
   const transitionBody = (overrides: Record<string, unknown> = {}): string =>
     `- **Authority-repair transition:**\n  \`\`\`json\n${JSON.stringify(
       {
