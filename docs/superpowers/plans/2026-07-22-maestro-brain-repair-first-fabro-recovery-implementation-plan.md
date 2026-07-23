@@ -14,7 +14,8 @@ review worktrees, integration generation, and serialized promotion. Add
 finding-bound repair, concurrent reviews, direct owner routing, separate coding
 and ownership capacity, and an authoritative persistent controller. Represent
 the already-approved S05 migration-registry transition as one bounded auxiliary
-control lane.
+control lane. Add a distinct manifest-bound transition for aligned final-pass
+lanes whose task contract is unchanged but whose proof names an older plan.
 
 **Tech Stack:** TypeScript, Vitest, Fabro workflow graphs, Git worktrees,
 Confect/Convex generation, pnpm, and `host-test-slot`.
@@ -36,6 +37,11 @@ Confect/Convex generation, pnpm, and `host-test-slot`.
   candidate, and one full-gate slot. Batch target is five to ten tasks.
 - Preserve `.mcp.json`, unrelated worktrees, immutable evidence, and MAE-394
   ownership boundaries.
+- Keep generic authority refresh strict. Plan-only authority is available only
+  to S06-T01, S11-T02, and S13-T02 through exact generated manifest records.
+- A modeled authority transition waiting on prerequisites retains ownership but
+  does not globally block unrelated dependency dispatch or consume coding
+  capacity.
 - Do not deploy, run production migrations, ingest, purge, or fabricate proof.
 - Every local broad or focused test command runs through `host-test-slot`.
 - Each checkpoint is one intention, passes focused tests/typecheck/lint, and is
@@ -609,7 +615,359 @@ Confect/Convex generation, pnpm, and `host-test-slot`.
   alone generates `migrations.generated.ts`, proves byte-identical regeneration,
   and runs authoritative gates. Do not execute migrations or deploy.
 
-### Task 6: Canary and Run the Repair-First Factory
+### Task 6: Add Final-Pass Plan-Only Lane Authority
+
+**Work package:** `template-gap`
+
+- Missing pattern: exact reauthorization of an unchanged, final-pass lane after
+  canonical plan-only drift.
+- Backlog reference: repair-first design, “Final-Pass Plan-Only Authority
+  Transition.”
+- Promotion path: retain the generic transition type for future generated
+  factories, but authorize only the three exact Brain task records in this plan.
+
+**Files:**
+
+- Modify:
+  `docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md`
+- Modify: `docs/superpowers/execution/maestro-brain/task-manifest.json`
+- Modify: `docs/superpowers/execution/maestro-brain/parallelism-contract.json`
+- Modify: `tooling/brain-factory/src/manifest.ts`
+- Create: `tooling/brain-factory/src/plan-only-lane-authority.ts`
+- Create: `tooling/brain-factory/src/plan-only-lane-authority-admission.ts`
+- Create: `tooling/brain-factory/src/plan-only-lane-authority-launch.ts`
+- Modify: `tooling/brain-factory/src/authority-transition-cli.ts`
+- Modify: `tooling/brain-factory/src/resume.mts`
+- Modify: `tooling/brain-factory/src/controller-observation.ts`
+- Modify: `tooling/brain-factory/src/factory-state.ts`
+- Modify: `tooling/brain-factory/src/controller.ts`
+- Test: `tooling/brain-factory/test/manifest.test.mts`
+- Test: `tooling/brain-factory/test/plan-only-lane-authority.test.mts`
+- Test: `tooling/brain-factory/test/plan-only-lane-authority-launch.test.mts`
+- Test: `tooling/brain-factory/test/controller.test.mts`
+- Test: `tooling/brain-factory/test/controller-cli.test.mts`
+
+**Interfaces:**
+
+- Consumes: the three historical final-pass lane/proof/gate tuples, current
+  manifest task contracts, current integrated-prerequisite evidence, existing
+  deterministic replay helpers, and the normal `BrainBuildTask` workflow.
+- Produces:
+
+  ```ts
+  export interface PlanOnlyLaneAuthorityTransition {
+    readonly schemaVersion: "maestro-brain-plan-only-lane-authority/v1";
+    readonly fromPlanSha256: string;
+    readonly taskBlockHash: string;
+    readonly sourceRunId: string;
+    readonly sourceBaseSha: string;
+    readonly sourceHeadSha: string;
+    readonly sourceTreeSha: string;
+    readonly sourceCommits: readonly string[];
+    readonly sourceCommitPatchSha256s: readonly string[];
+    readonly laneResultSha256: string;
+    readonly ciProofPacketSha256: string;
+    readonly laneGateReportSha256: string;
+    readonly requiredIntegratedTaskIds: readonly string[];
+  }
+
+  export interface PlanOnlyLaneAuthorityAdmission {
+    readonly mode: "plan-only-lane-authority";
+    readonly taskId: string;
+    readonly fromPlanSha256: string;
+    readonly currentPlanSha256: string;
+    readonly taskBlockHash: string;
+    readonly sourceBaseSha: string;
+    readonly sourceHeadSha: string;
+    readonly sourceTreeSha: string;
+    readonly sourceCommits: readonly string[];
+    readonly sourceCommitPatchSha256s: readonly string[];
+  }
+  ```
+
+- CLI:
+  `brain:factory:resume -- --task <id> --plan-only-authority --state .fabro/state/maestro-brain`.
+- Controller stages: `authority_transition_ready` and
+  `authority_transition_waiting_prerequisites`; action
+  `resume_plan_only_authority`.
+
+- [ ] **Step 1: Write RED manifest parser and projection tests**
+
+  Add a canonical “Plan-only lane authority registry” outside every
+  `### Sxx-Txx` task block. Give S06-T01, S11-T02, and S13-T02 one exact JSON
+  entry each. Tests require exact keys, schema, SHA formats, unique task IDs,
+  ordered unique commits, equal commit/digest cardinality, and
+  `requiredIntegratedTaskIds` byte-equal to the task’s `codeStartAfter`.
+
+  Assert for every authorized task:
+
+  ```ts
+  expect(transition.fromPlanSha256).not.toBe(manifest.planSha256);
+  expect(transition.taskBlockHash).toBe(task.taskBlockHash);
+  expect(historicalProof.taskBlockHash).toBe(task.taskBlockHash);
+  ```
+
+  The registry parser must reject S05-T01 and S13-T03 entries. S05 remains a
+  dual-history ownership reproof; S13-T03 remains ownership rehome.
+
+- [ ] **Step 2: Run the manifest tests and verify RED**
+
+  ```bash
+  rtk host-test-slot --class focused pnpm --dir tooling/brain-factory test manifest plan-only-lane-authority
+  ```
+
+  Expected: failure because the registry, manifest field, and transition parser
+  do not exist.
+
+- [ ] **Step 3: Add the exact generated transition records**
+
+  Extend `BrainTaskContract` with:
+
+  ```ts
+  readonly planOnlyLaneAuthorityTransition?: PlanOnlyLaneAuthorityTransition;
+  ```
+
+  Parse the registry after task-block hashing and project each entry onto its
+  task. Do not include registry text in any task block. Materialize the manifest
+  and parallelism contract deterministically; the manifest remains 58 contracts
+  (57 deliverables plus the existing auxiliary control task).
+
+  Pin these historical authorities and heads:
+
+  | Task    | Historical plan                                                    | Task hash                                                          | Base                                       | Head                                       | Tree                                       |
+  | ------- | ------------------------------------------------------------------ | ------------------------------------------------------------------ | ------------------------------------------ | ------------------------------------------ | ------------------------------------------ |
+  | S06-T01 | `728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8` | `f2f6cb348272c704636b7e21bf8e8cbd66b812835d781b52e01bdcfa5b0fa97c` | `64b5d90e9dce6146ac6cd49696658cd9a40a254c` | `02c3ee79adba3239a55cb0928853d2e4efa248d3` | `7764d28ece57572d207af09a2287dda695f461ef` |
+  | S11-T02 | `e0256a16a8e0791a68c0f2eef39946ddb845c01a79e186c9aa05585ce85d5199` | `f49e5fe055896a804408cf0013f1f4b02735f7b6e18f1813ab85e85672fb569d` | `8fa1f5b6183a42207628d51cd396852dc8a95af5` | `61d82eebf44c69f52680a649a4f42ab31e02ddd7` | `e38631cad13fdc4552d802d9069ff0995966af7c` |
+  | S13-T02 | `cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665` | `2b76ab1991d07a9978da3c321cbcc4f73ffc5ae9b4e3eb3512e2ff3dd4251072` | `f66236e12f93bc254cc2350800a5b2a69d0caff5` | `efc6da6647816263d85e7e94c02f2fe04273c566` | `c5d3266dcbdf1a7689061de23e0b6c78cc8f586b` |
+
+  Use these exact remaining registry fields. The patch digests are SHA-256 over
+  `git show --format= --binary --no-renames <commit>` bytes; the evidence hashes
+  are SHA-256 over the preserved file bytes:
+
+  ```json
+  [
+    {
+      "taskId": "S06-T01",
+      "sourceRunId": "01KXYX8E74VJ6XPM629VVMPYH5",
+      "sourceCommits": [
+        "36451f36986a74c542767e53f149478af04f226c",
+        "f4c2848a778794bc8f2d6fecc2d3f52815bd0129",
+        "296f9dc83bf5d20f1f0e66080447d33e46f1bfd0",
+        "02c3ee79adba3239a55cb0928853d2e4efa248d3"
+      ],
+      "sourceCommitPatchSha256s": [
+        "28eb0ba6393786bf9279cecd679a21ff7e26aa5dd3735becf7322209613f1fd8",
+        "fc7bac2cdd7d8efa79157533413bcab5a2424296fa0e75f3a4d71b0b7037dd59",
+        "e11d79dd8bac286c06cdb43a697130c9d0b79790b4296e94b5afada911b8142d",
+        "eed6663ab3fa516aa23b69baf01338782619c18347b9aed3b837caefcf0bbe49"
+      ],
+      "laneResultSha256": "f39392a56225f0c3fa31f7ed55cbfdbc792a4f7974a74380664fa70885178283",
+      "ciProofPacketSha256": "70b8f1cf430823b954260a0528404ca00e9b2b9b0a2ee480350f917411490d43",
+      "laneGateReportSha256": "6a64faa6f7f9342bae6936d1bbfaec2441c72e835f021c80928d7fe4d65b2077",
+      "requiredIntegratedTaskIds": ["S05-T01"]
+    },
+    {
+      "taskId": "S11-T02",
+      "sourceRunId": "01KY0129952Y9Q549YA9FQH56B",
+      "sourceCommits": [
+        "54ac37d0a9264035c0674a9eac5a27c67bd0eba9",
+        "22d3f58a4bc647cc6dffd6a02cf2bc05c3dd2758",
+        "4eb362e40d5905d13ae23c30867256505ae0a9d0",
+        "71d65641365770fedd98912d73ab2f16e5aac2b5",
+        "93efac62720ade749e4cc88c12ae392130b2d91f",
+        "3bc72e158f2ee0f5a22c4b6561fdd8f57ef06f8d",
+        "52cdcc28f5b91bb2399c07bc98e17c7c952570aa",
+        "a49c1c0a91d950d3f38f51211471bc78e5be8700",
+        "a0923ffae652250eea4ab1eeee9f990e62d8e2d1",
+        "61d82eebf44c69f52680a649a4f42ab31e02ddd7"
+      ],
+      "sourceCommitPatchSha256s": [
+        "04481a7745f0e389979e4a8cc5fa76557f8eb2b6f1cdcec0ddc42ef7ea4bf001",
+        "502ff96a26e50a45219d171b91d55c7f229bc3abb7f31084a6224095699fad19",
+        "98611dae9ba1d35d28fb39461bd5ef163677272d7094ec1e6354ade25a4429d1",
+        "49f2ac507e9b7a780a7022fbcd1513624c4b0f15bd2eaa7d8320e99e0f324eae",
+        "ec32e467813f54278a8c651a2718d7142d985a3faaea3c17abe85c2eb21c18cd",
+        "38e2f29f2cbee7dcceccd200c8c7997d205a346398bc867f711fde2aacb38692",
+        "1c3c4bf1547ab448a33e0adb859e9418e847bf5cf4e7a4180da6e43ce9a9d208",
+        "f0aac8ff6f14a0e9a4521366ad5ef3ae5b47cc1ac1567ba1e288c056650deca4",
+        "ba2bd8125a2966bc092af7ccffeb1e69740c98d0da0b7660a43331336da411ec",
+        "f6eac28de2bfa5401c266938e9b8601f60a72def8354d5ba835d0eec15b42d2a"
+      ],
+      "laneResultSha256": "993f42f5acebe9ac866439ab31aa418f8ec9ff5cefd1ca37f38bb1b166dbe5e3",
+      "ciProofPacketSha256": "eefa278f5c134cf54a0213574f01165a9c4e009b0484d7cc87687bbedf10a576",
+      "laneGateReportSha256": "c80e5813a2bd35bc88902ef26d205c165c84a2983b924bc4f274732ed3fa6d3f",
+      "requiredIntegratedTaskIds": [
+        "S11-T01",
+        "S01-T02",
+        "S01-T03",
+        "S01-T04",
+        "S02-T02"
+      ]
+    },
+    {
+      "taskId": "S13-T02",
+      "sourceRunId": "01KXYV563E6HNZWH5XTB24WSDR",
+      "sourceCommits": [
+        "49540c5f759b12b3d7b897d285f4773149505af7",
+        "8acec5d81edb9d5efce3e8ad315bd10d308c7c44",
+        "a2234bfa0c61c63a85bb538e2eabf35817d29f72",
+        "efc6da6647816263d85e7e94c02f2fe04273c566"
+      ],
+      "sourceCommitPatchSha256s": [
+        "cb5c152bb3619c30e6adee50ba5790bfdc85c09afe6ccadc1c35540fc90f87db",
+        "72beadb2bc8355cfceb77a86f31a14ac50abd420450ca3f4aae6d6d47a03cc95",
+        "8f2635c683402893a1e34c5a3b7f5125fb78142e799f70a923f300796bfb4bdc",
+        "a8194eca5029b306e6a93a5c507c764e2eacf59d28d1cae62c5b8b0ced1689ad"
+      ],
+      "laneResultSha256": "53402821bfcacf79661b89336966295b3a5ce2e3e6d3509be4ef684a1b6cac7d",
+      "ciProofPacketSha256": "fa76a3fcbc9ad75b5e63c306e9b2bcb02061444658a8c93b4c6d4a5a38122371",
+      "laneGateReportSha256": "b875710575edf3b276de8b303729a39f6a59514e68a94eb74c9f4a5a93706529",
+      "requiredIntegratedTaskIds": ["S13-T01", "S06-T02", "S11-T04"]
+    }
+  ]
+  ```
+
+- [ ] **Step 4: Write RED exact-admission tests**
+
+  Table-drive all three authorized tasks. A passing fixture must prove:
+
+  - lane, proof, and gate file bytes match their annotated SHA-256 values;
+  - lane is `lane_green` on the annotated head/tree;
+  - proof is final `pass`, has `reviewHeadSha === headSha`, and has zero
+    `reviewFindings`;
+  - gate is final/passed and binds the same head, tree, historical plan, and
+    unchanged task hash;
+  - historical plan differs from current plan while proof, transition, and
+    current task hashes are identical;
+  - `base..head` is linear, ends at the annotated head, contains exactly the
+    annotated commits and patch digests, stays inside current file locks, and
+    satisfies the source-slice contract; and
+  - every exact `requiredIntegratedTaskId` is integrated and ancestral to the
+    current control head.
+
+  Add one rejection test per invariant, including reordered commits, changed
+  evidence bytes, pass-with-findings, stale tree, changed task hash, missing or
+  extra prerequisite, out-of-lock path, merge commit, slice overflow, live or
+  unknown owner, and preserved `.mcp.json` being the only controller dirt.
+
+- [ ] **Step 5: Run exact-admission tests and verify RED**
+
+  ```bash
+  rtk host-test-slot --class focused pnpm --dir tooling/brain-factory test plan-only-lane-authority manifest
+  ```
+
+  Expected: failures for the missing admission and each fail-closed invariant.
+
+- [ ] **Step 6: Implement admission without relaxing generic refresh**
+
+  `admitPlanOnlyLaneAuthority` returns the exact admission interface above and
+  has no fallback to `admitAuthorityRefresh`. Leave the existing
+  `oldPlanSha256 === currentPlanSha256 || oldTaskBlockHash === currentTaskBlockHash`
+  rejection in generic authority refresh unchanged.
+
+  Allow an otherwise clean controller with only `?? .mcp.json`. Reject every
+  other staged, tracked, or untracked path.
+
+- [ ] **Step 7: Write RED launch and normal-workflow tests**
+
+  Tests require reserve-before-worktree, full source-lineage identity on crash
+  replay, exact candidate HEAD/tree verification before launch, exception-safe
+  dispatcher lock cleanup, and recovery of a reservation created before Fabro
+  run creation.
+
+  The generated config must select `BrainBuildTask` with
+  `resume_mode=plan-only-authority`. Its implementation prompt must prohibit
+  hand-authored changes and empty commits. A replay conflict exits to an exact
+  owner-repair finding; it does not resolve conflicts or write a green receipt.
+  Successful replay runs the normal focused gate, three concurrent reviews,
+  aggregate, final gate, proof writer, and lane-result writer.
+
+- [ ] **Step 8: Implement launch, CLI, and recovery**
+
+  Add `--plan-only-authority` as mutually exclusive with every existing resume
+  selector. Derive all coordinates from the manifest and preserved evidence;
+  reject `--ref`, `--base`, conflict-aware flags, or archive selectors.
+
+  Deterministically replay only the annotated source commits onto current
+  control HEAD. Verify every replayed commit’s patch digest against the
+  annotation. Do not permit the agent to add a regression test or change source
+  merely to produce a new SHA. Fresh proof and receipt bytes come only from the
+  normal workflow executing on the replayed candidate.
+
+- [ ] **Step 9: Write RED controller deferral tests**
+
+  Tests must prove:
+
+  - ready S11-T02 plans `resume_plan_only_authority`;
+  - S06-T01 waits on S05-T01 while unrelated ready tasks still dispatch;
+  - S13-T02 waits on exactly S06-T02 and S11-T04 while those chains dispatch;
+  - S13-T03 remains `ownership-rehome` and waits on exactly S06-T02, S08-T01,
+    S11-T04, and S12-T02;
+  - modeled waiting transitions retain ownership and consume zero coding slots;
+  - an invalid or unmodeled false green still produces a fail-closed wait; and
+  - re-observation immediately schedules the transition after the last
+    prerequisite integrates.
+
+- [ ] **Step 10: Implement transition-aware observation and planning**
+
+  Observation classifies a rejected lane only after validating whether its exact
+  manifest transition explains the rejection. The controller may defer only a
+  cryptographically valid modeled transition. It must not relabel an invalid
+  lane merely because a transition field exists.
+
+  Planning prioritizes ready authority transitions, then continues normal
+  dependency-safe dispatch for modeled waiting transitions. If nothing can
+  progress, the wait receipt names the exact missing prerequisites. Existing S05
+  lane-green reproof and S13 ownership-rehome actions keep their distinct
+  commands and admission paths.
+
+- [ ] **Step 11: Run focused verification**
+
+  ```bash
+  rtk host-test-slot --class focused pnpm --dir tooling/brain-factory test manifest plan-only-lane-authority plan-only-lane-authority-launch controller controller-cli factory-state
+  rtk pnpm --dir tooling/brain-factory typecheck
+  rtk pnpm exec prettier --check docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md docs/superpowers/execution/maestro-brain/task-manifest.json docs/superpowers/execution/maestro-brain/parallelism-contract.json tooling/brain-factory/src/manifest.ts tooling/brain-factory/src/plan-only-lane-authority.ts tooling/brain-factory/src/plan-only-lane-authority-admission.ts tooling/brain-factory/src/plan-only-lane-authority-launch.ts tooling/brain-factory/src/authority-transition-cli.ts tooling/brain-factory/src/resume.mts tooling/brain-factory/src/controller-observation.ts tooling/brain-factory/src/factory-state.ts tooling/brain-factory/src/controller.ts tooling/brain-factory/test/manifest.test.mts tooling/brain-factory/test/plan-only-lane-authority.test.mts tooling/brain-factory/test/plan-only-lane-authority-launch.test.mts tooling/brain-factory/test/controller.test.mts tooling/brain-factory/test/controller-cli.test.mts
+  rtk pnpm brain:factory:materialize
+  rtk pnpm brain:factory:check
+  rtk pnpm lint
+  rtk git diff --check
+  ```
+
+  Expected: exact transition, launch, manifest, and controller suites pass;
+  generated artifacts byte-match the canonical plan; generic authority-refresh
+  strictness tests remain green.
+
+- [ ] **Step 12: Save two coherent implementation commits**
+
+  First commit the canonical registry, generated manifest projection, parser,
+  admission, and focused contract tests:
+
+  ```bash
+  rtk git add docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md docs/superpowers/execution/maestro-brain/task-manifest.json docs/superpowers/execution/maestro-brain/parallelism-contract.json tooling/brain-factory/src/manifest.ts tooling/brain-factory/src/plan-only-lane-authority.ts tooling/brain-factory/src/plan-only-lane-authority-admission.ts tooling/brain-factory/test/manifest.test.mts tooling/brain-factory/test/plan-only-lane-authority.test.mts
+  rtk git commit -m "feat: model plan-only lane authority"
+  ```
+
+  Then commit launch/recovery and controller deferral:
+
+  ```bash
+  rtk git add tooling/brain-factory/src/plan-only-lane-authority-launch.ts tooling/brain-factory/src/authority-transition-cli.ts tooling/brain-factory/src/resume.mts tooling/brain-factory/src/controller-observation.ts tooling/brain-factory/src/factory-state.ts tooling/brain-factory/src/controller.ts tooling/brain-factory/test/plan-only-lane-authority-launch.test.mts tooling/brain-factory/test/controller.test.mts tooling/brain-factory/test/controller-cli.test.mts
+  rtk git commit -m "fix: defer modeled Brain authority drift"
+  ```
+
+- [ ] **Step 13: Execute in dependency-safe order**
+
+  After the implementation commits pass independent review, run:
+
+  ```bash
+  rtk pnpm brain:factory:resume -- --task S11-T02 --plan-only-authority --state .fabro/state/maestro-brain
+  ```
+
+  Run S06-T01 only after S05-T01 integrates. Run S13-T02 only after S06-T02 and
+  S11-T04 integrate. Do not use this selector for S13-T03; use its existing
+  `--ownership-rehome` command after S06-T02, S08-T01, S11-T04, and S12-T02 are
+  integrated.
+
+### Task 7: Canary and Run the Repair-First Factory
 
 **Work package:** `template-gap`
 

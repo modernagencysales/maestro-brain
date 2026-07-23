@@ -70,6 +70,80 @@ be green only when every prior finding is explicitly resolved. For a behavioral
 defect, resolution requires an appropriate regression test and a relevant source
 or test delta unless the finding itself proves that no change is needed.
 
+## Final-Pass Plan-Only Authority Transition
+
+Three preserved lanes, S06-T01, S11-T02, and S13-T02, have internally consistent
+final-pass evidence on exact source heads, but their proof packets name
+historical plan hashes. Their task blocks are byte-identical to the current task
+blocks. They are not failed implementations and must not be sent through the S05
+ownership-rework exception.
+
+Represent each lane with a distinct `maestro-brain-plan-only-lane-authority/v1`
+transition. The canonical plan stores these transitions in an authority registry
+outside the hashed task blocks. Manifest generation projects the exact
+transition onto its task. This placement preserves the required invariant:
+
+```text
+historical plan SHA != current manifest plan SHA
+historical taskBlockHash == current taskBlockHash
+```
+
+Each transition pins the historical plan and task hash, source run, base, head,
+tree, ordered commits, commit patch digests, lane-result hash, proof hash, final
+gate hash, and the complete current `codeStartAfter` set. Admission requires:
+
+- a final `lane_green` result on the pinned head and tree;
+- a final-pass proof on the same head with zero findings;
+- a passed final gate on that head and tree;
+- exact byte hashes for all three evidence files;
+- a linear, lock-clean, slice-valid source history matching the pinned commits
+  and patch digests;
+- a historical proof plan different from the current plan while the proof,
+  transition, and current task hashes are identical; and
+- every exact prerequisite integrated on the current control head.
+
+Once admitted, normal factory tooling deterministically replays the preserved
+source commits onto the current control head and runs the ordinary
+`BrainBuildTask` focused gates, concurrent reviews, final gate, proof writer,
+and lane-result writer. Plan-only reauthorization permits no hand-authored
+source or test edits, conflict resolution, empty commits, or evidence-only
+source padding. A replay conflict or changed patch is a real owner-repair
+finding, not authority to fabricate a delta.
+
+The existing generic authority refresh remains strict. S05-T01 retains its
+separate dual-history ownership-rework transition. S13-T03 retains its existing
+ownership-rehome transition because its task ownership genuinely changed.
+
+### Controller Deferral
+
+A modeled false-green lane retains ownership but consumes no coding slot. If its
+exact authority transition is ready, the controller plans the corresponding
+normal resume action. If its declared prerequisites are not yet integrated, the
+controller reports `authority_transition_waiting_prerequisites`, preserves the
+lane and its locks, and continues dispatching unrelated ready dependency work.
+Only an unmodeled or invalid false-green lane remains a fail-closed global wait.
+
+This prevents S13-T02 and S13-T03 from blocking the S06 and S11 dependency
+chains they require. Once those prerequisites integrate, the controller
+re-observes the same immutable evidence and schedules the authority transition
+without a chat turn or manual evidence edit.
+
+### Considered Alternatives
+
+1. **Relax generic `--authority-refresh`.** Rejected because accepting one-sided
+   plan drift without an exact per-task authority record would turn a deliberate
+   fail-closed guard into ambient permission and could admit a semantically
+   changed task.
+2. **Delete or archive the lane evidence and rerun the tasks from scratch.**
+   Rejected because it discards valid reviewed work, delays the critical path,
+   and makes the factory appear green by replacing rather than explaining the
+   authority lineage.
+3. **Reuse the S05 lane-green reproof schema for every false green.** Rejected
+   because S05 has divergent proof/source heads, a pre-review ownership finding,
+   and a rework verdict. Mixing that exception with aligned final-pass lanes
+   would weaken both contracts. Shared replay helpers are appropriate; shared
+   admission semantics are not.
+
 ## Review Concurrency
 
 Contract, safety, and quality reviews use separate read-only review worktrees
@@ -141,12 +215,16 @@ terminal state to the next.
    finding and require a tenant-isolation regression test.
 2. Add and execute the already-planned integration-owned migration-registry
    transition required by S05-T01.
-3. Integrate the repaired critical-path lanes with compatible existing green
+3. Add exact plan-only authority transitions for S11-T02, S06-T01, and S13-T02;
+   reauthorize S11 immediately and S06 after S05 integrates.
+4. Defer modeled S13 authority transitions while dispatching the S06-T02 and
+   S11-T03/S11-T04/S12-T02 prerequisite chains.
+5. Integrate the repaired critical-path lanes with compatible existing green
    lanes.
-4. Dispatch every newly unblocked task while preserving true dependencies and
+6. Dispatch every newly unblocked task while preserving true dependencies and
    manifest locks.
-5. Maintain 12–20 active coding/repair lanes until all task lanes are green.
-6. Batch integration, reconcile acceptance, run final repository verification,
+7. Maintain 12–20 active coding/repair lanes until all task lanes are green.
+8. Batch integration, reconcile acceptance, run final repository verification,
    promote, and produce the durable handoff.
 
 ## Bounded Factory Changes
@@ -161,6 +239,10 @@ Only the following factory changes are authorized by this recovery design:
 - end impossible integration repairs directly in owner-lane repair requests;
 - expose the existing persistent controller watch command;
 - represent the missing S05 migration-registry transition;
+- represent exact final-pass plan-only authority transitions for S06-T01,
+  S11-T02, and S13-T02 without relaxing generic authority refresh;
+- defer modeled authority transitions with unmet prerequisites while unrelated
+  dependency work continues;
 - retain owner branches, worktrees, and evidence through promotion or audited
   supersession.
 
