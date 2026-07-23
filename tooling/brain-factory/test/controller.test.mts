@@ -184,6 +184,30 @@ describe("controller pure planner", () => {
     );
   });
 
+  it("retains a waiting transition as a scheduler lock holder", () => {
+    const actions = planControllerTick(
+      snapshot({
+        tasks: [
+          task("S13-T02", "lane_green", {
+            admission: "rejected",
+            authorityTransition: "plan-only-lane-authority",
+            missingPrerequisiteTaskIds: ["S06-T02"],
+          }),
+          task("S06-T01", "accepted"),
+          task("S06-T02", "pending"),
+          task("S08-T04", "accepted"),
+          task("S09-T04", "accepted"),
+          task("S11-T03", "accepted"),
+          task("S13-T01", "pending"),
+        ],
+      }),
+      policy,
+    );
+    const dispatch = actions.find(({ kind }) => kind === "dispatch_tasks");
+    expect(dispatch?.targetIds).toContain("S06-T02");
+    expect(dispatch?.targetIds).not.toContain("S13-T01");
+  });
+
   it("produces byte-identical plans and IDs for normalized input", () => {
     const left = snapshot({
       errors: [

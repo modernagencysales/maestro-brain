@@ -83,6 +83,7 @@ const input = (): DeepMutable<PlanOnlyLaneAuthorityInput> => {
       reviewHeadSha: sourceHeadSha,
     },
     sourceCommitPatchSha256s: [sha64("5"), sha64("6")],
+    sourceRunId: "01KY0129952Y9Q549YA9FQH56B",
     sourceTreeSha,
     transition: {
       schemaVersion: "maestro-brain-plan-only-lane-authority/v1",
@@ -156,6 +157,12 @@ describe("plan-only lane authority admission", () => {
       "patch drift",
       (value: DeepMutable<PlanOnlyLaneAuthorityInput>) => {
         value.sourceCommitPatchSha256s[0] = sha64("9");
+      },
+    ],
+    [
+      "unrelated source run",
+      (value: DeepMutable<PlanOnlyLaneAuthorityInput>) => {
+        value.sourceRunId = "01KZZZZZZZZZZZZZZZZZZZZZZZ";
       },
     ],
     [

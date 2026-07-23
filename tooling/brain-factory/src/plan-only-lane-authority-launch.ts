@@ -1,4 +1,36 @@
 type JsonRecord = Record<string, unknown>;
+interface ReservationInput {
+  readonly branch: string;
+  readonly controlHeadSha: string;
+  readonly planSha256: string;
+  readonly sourceBaseSha: string;
+  readonly sourceCommits: readonly string[];
+  readonly sourceCommitPatchSha256s: readonly string[];
+  readonly sourceHeadSha: string;
+  readonly sourceTreeSha: string;
+  readonly taskBlockHash: string;
+  readonly taskId: string;
+  readonly workdir: string;
+}
+
+export const buildPlanOnlyLaneAuthorityReservation = (
+  input: ReservationInput,
+): JsonRecord => ({
+  baseSha: input.controlHeadSha,
+  branch: input.branch,
+  mode: "plan-only-lane-authority",
+  phase: "reserved",
+  planSha256: input.planSha256,
+  sourceCommits: input.sourceCommits,
+  sourceCommitPatchSha256s: input.sourceCommitPatchSha256s,
+  sourceHeadSha: input.sourceHeadSha,
+  sourceTreeSha: input.sourceTreeSha,
+  status: "preparing",
+  taskBaseSha: input.sourceBaseSha,
+  taskBlockHash: input.taskBlockHash,
+  taskId: input.taskId,
+  workdir: input.workdir,
+});
 export const assertPlanOnlyAuthorityControllerStatus = (
   status: readonly string[],
 ): void => {
@@ -9,7 +41,10 @@ export const assertPlanOnlyAuthorityControllerStatus = (
 
 export const buildPlanOnlyLaneAuthorityLaunchSpec = (input: {
   readonly branch: string;
+  readonly candidateCommits: readonly string[];
+  readonly candidateCommonDir: string;
   readonly candidateHeadSha: string;
+  readonly candidateTreeSha: string;
   readonly controlHeadSha: string;
   readonly evidence: string;
   readonly planSha256: string;
@@ -39,19 +74,13 @@ export const buildPlanOnlyLaneAuthorityLaunchSpec = (input: {
     workdir: input.workdir,
   },
   preparingRecord: {
-    baseSha: input.controlHeadSha,
-    branch: input.branch,
-    mode: "plan-only-lane-authority",
-    planSha256: input.planSha256,
-    sourceCommits: input.sourceCommits,
-    sourceCommitPatchSha256s: input.sourceCommitPatchSha256s,
-    sourceHeadSha: input.sourceHeadSha,
-    sourceTreeSha: input.sourceTreeSha,
-    status: "preparing",
-    taskBaseSha: input.sourceBaseSha,
-    taskBlockHash: input.taskBlockHash,
-    taskId: input.taskId,
-    workdir: input.workdir,
+    ...buildPlanOnlyLaneAuthorityReservation(input),
+    candidateCommits: input.candidateCommits,
+    candidateCommonDir: input.candidateCommonDir,
+    candidateHeadSha: input.candidateHeadSha,
+    candidateTreeSha: input.candidateTreeSha,
+    candidateCommitPatchSha256s: input.sourceCommitPatchSha256s,
+    phase: "replayed",
   },
 });
 

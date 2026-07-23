@@ -10,12 +10,14 @@ import {
 import { buildManifest } from "./manifest.js";
 import { loadPlanOnlyLaneAuthorityAdmission } from "./plan-only-lane-authority-admission.js";
 import {
+  type CandidateIdentity,
   planOnlyLaunchCoordinates,
   preparePlanOnlyCandidate,
 } from "./plan-only-lane-authority-candidate.js";
 import { createPlanOnlyFabroRun } from "./plan-only-lane-authority-fabro.js";
 import {
   assertPlanOnlyAuthorityControllerStatus,
+  buildPlanOnlyLaneAuthorityReservation,
   buildPlanOnlyLaneAuthorityLaunchSpec,
   runPlanOnlyLaneAuthorityLaunch,
 } from "./plan-only-lane-authority-launch.js";
@@ -34,8 +36,8 @@ type Manifest = ReturnType<typeof buildManifest>;
 type ManifestTask = Manifest["tasks"][number];
 type Admission = ReturnType<typeof loadPlanOnlyLaneAuthorityAdmission>;
 type Coordinates = ReturnType<typeof planOnlyLaunchCoordinates>;
-
-const executePlanOnlyLaunch = (input: {
+type LaunchSpec = ReturnType<typeof buildPlanOnlyLaneAuthorityLaunchSpec>;
+interface ExecutionInput {
   readonly admission: Admission;
   readonly auditPath: string;
   readonly controlHeadSha: string;
@@ -43,14 +45,46 @@ const executePlanOnlyLaunch = (input: {
   readonly launch: LaunchInput;
   readonly manifest: Manifest;
   readonly now: string;
-  readonly priorExists: boolean;
+  readonly prior?: JsonRecord;
   readonly task: ManifestTask;
-}): string => {
-  let spec = buildPlanOnlyLaneAuthorityLaunchSpec({
+}
+
+const candidateIdentityFromRecord = (
+  record: JsonRecord | undefined,
+): CandidateIdentity | undefined => {
+  if (!record || record.phase === "reserved") return undefined;
+  const candidateCommits = record.candidateCommits;
+  const patchDigests = record.candidateCommitPatchSha256s;
+  if (
+    !Array.isArray(candidateCommits) ||
+    !candidateCommits.every(
+      (value) => typeof value === "string" && /^[0-9a-f]{40}$/.test(value),
+    ) ||
+    !Array.isArray(patchDigests) ||
+    !patchDigests.every(
+      (value) => typeof value === "string" && /^[0-9a-f]{64}$/.test(value),
+    ) ||
+    typeof record.candidateHeadSha !== "string" ||
+    typeof record.candidateTreeSha !== "string" ||
+    typeof record.candidateCommonDir !== "string" ||
+    typeof record.branch !== "string"
+  )
+    throw new Error("plan-only authority replayed candidate record drifted");
+  return {
+    branch: record.branch,
+    candidateCommits,
+    candidateHeadSha: record.candidateHeadSha,
+    candidateTreeSha: record.candidateTreeSha,
+    commonDir: record.candidateCommonDir,
+    patchDigests,
+    status: "",
+  };
+};
+
+const reservationForLaunch = (input: ExecutionInput): JsonRecord =>
+  buildPlanOnlyLaneAuthorityReservation({
     ...input.coordinates,
-    candidateHeadSha: input.admission.sourceHeadSha,
     controlHeadSha: input.controlHeadSha,
-    evidence: input.launch.evidence,
     planSha256: input.manifest.planSha256,
     sourceBaseSha: input.admission.sourceBaseSha,
     sourceCommits: input.admission.sourceCommits,
@@ -60,23 +94,36 @@ const executePlanOnlyLaunch = (input: {
     taskBlockHash: input.task.taskBlockHash,
     taskId: input.launch.taskId,
   });
+
+const executePlanOnlyLaunch = (input: ExecutionInput): string => {
+  const reservation = reservationForLaunch(input);
+  let spec: LaunchSpec | undefined;
+  const exactSpec = (): LaunchSpec => {
+    if (!spec) throw new Error("plan-only candidate was not prepared");
+    return spec;
+  };
   let env: NodeJS.ProcessEnv | undefined;
   const runId = runPlanOnlyLaneAuthorityLaunch({
     reserveOwner: () => {
-      if (!input.priorExists)
-        reserveTaskPreparing(input.launch.recordPath, spec.preparingRecord);
+      if (!input.prior)
+        reserveTaskPreparing(input.launch.recordPath, reservation);
     },
     prepareExactCandidate: () => {
-      const candidateHeadSha = preparePlanOnlyCandidate({
+      const preservedIdentity = candidateIdentityFromRecord(input.prior);
+      const candidate = preparePlanOnlyCandidate({
         ...input.coordinates,
         controlHeadSha: input.controlHeadSha,
         expectedPatchDigests: input.admission.sourceCommitPatchSha256s,
+        ...(preservedIdentity ? { preservedIdentity } : {}),
         root: input.launch.root,
         sourceCommits: input.admission.sourceCommits,
       });
       spec = buildPlanOnlyLaneAuthorityLaunchSpec({
         ...input.coordinates,
-        candidateHeadSha,
+        candidateCommits: candidate.candidateCommits,
+        candidateCommonDir: candidate.commonDir,
+        candidateHeadSha: candidate.candidateHeadSha,
+        candidateTreeSha: candidate.candidateTreeSha,
         controlHeadSha: input.controlHeadSha,
         evidence: input.launch.evidence,
         planSha256: input.manifest.planSha256,
@@ -88,17 +135,18 @@ const executePlanOnlyLaunch = (input: {
         taskBlockHash: input.task.taskBlockHash,
         taskId: input.launch.taskId,
       });
-      return candidateHeadSha;
+      promoteTaskReservation(input.launch.recordPath, spec.preparingRecord);
+      return candidate.candidateHeadSha;
     },
     createRun: (candidateHeadSha) => {
       const created = createPlanOnlyFabroRun({
         admission: input.admission,
         ...input.coordinates,
         candidateHeadSha,
-        configInputs: spec.configInputs,
+        configInputs: exactSpec().configInputs,
         controlHeadSha: input.controlHeadSha,
         evidence: input.launch.evidence,
-        preparingRecord: spec.preparingRecord,
+        preparingRecord: exactSpec().preparingRecord,
         recordPath: input.launch.recordPath,
         root: input.launch.root,
         state: input.launch.state,
@@ -110,7 +158,7 @@ const executePlanOnlyLaunch = (input: {
     recordRun: (runId) =>
       recordPreparingTaskLaunch({
         auditPath: input.auditPath,
-        expected: { ...spec.preparingRecord, phase: "creating" },
+        expected: { ...exactSpec().preparingRecord, phase: "creating" },
         now: input.now,
         recordPath: input.launch.recordPath,
         runId,
@@ -125,7 +173,7 @@ const executePlanOnlyLaunch = (input: {
     },
     promoteOwner: (runId) =>
       promoteTaskReservation(input.launch.recordPath, {
-        ...spec.preparingRecord,
+        ...exactSpec().preparingRecord,
         phase: "launched",
         runId,
         status: "launched",
@@ -163,6 +211,7 @@ export const launchPlanOnlyLaneAuthority = (input: {
     prior &&
     (prior.mode !== "plan-only-lane-authority" ||
       prior.status !== "preparing" ||
+      !new Set(["reserved", "replayed", "creating"]).has(String(prior.phase)) ||
       prior.taskId !== input.taskId)
   )
     throw new Error(`${input.taskId}: another owner already exists`);
@@ -218,7 +267,7 @@ export const launchPlanOnlyLaneAuthority = (input: {
       launch: input,
       manifest,
       now,
-      priorExists: prior !== undefined,
+      ...(prior === undefined ? {} : { prior }),
       task,
     });
     console.log(`${input.taskId}: plan-only authority launched as ${runId}`);

@@ -40,6 +40,7 @@ export interface PlanOnlyLaneAuthorityInput {
   readonly ownerDisposition: "absent" | "terminal" | "live" | "unknown";
   readonly proof: JsonRecord;
   readonly sourceCommitPatchSha256s: readonly string[];
+  readonly sourceRunId: string;
   readonly sourceTreeSha: string;
   readonly transition: PlanOnlyLaneAuthorityTransition;
 }
@@ -124,6 +125,7 @@ export const admitPlanOnlyLaneAuthority = (
   if (
     transition.schemaVersion !== "maestro-brain-plan-only-lane-authority/v1" ||
     transition.fromPlanSha256 === task.planSha256 ||
+    transition.sourceRunId !== input.sourceRunId ||
     transition.taskBlockHash !== task.taskBlockHash ||
     transition.fromPlanSha256 !== input.proof.planSha256 ||
     transition.taskBlockHash !== input.proof.taskBlockHash

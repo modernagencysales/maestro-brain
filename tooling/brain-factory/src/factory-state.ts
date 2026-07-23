@@ -106,6 +106,7 @@ export type ControllerTaskStage =
   | "false_green"
   | "authority_transition_ready"
   | "authority_transition_waiting_prerequisites"
+  | "authority_transition_held"
   | "integrated"
   | "accepted"
   | "unknown";

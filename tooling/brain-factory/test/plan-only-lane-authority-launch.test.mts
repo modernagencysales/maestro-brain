@@ -43,7 +43,10 @@ describe("plan-only lane authority launch", () => {
   it("builds a replay-only normal BrainBuildTask reservation", () => {
     const spec = buildPlanOnlyLaneAuthorityLaunchSpec({
       branch: "fabro/plan-only-s11-t02-authority",
+      candidateCommits: [sha40("9")],
+      candidateCommonDir: "/repo/.git",
       candidateHeadSha: sha40("1"),
+      candidateTreeSha: sha40("a"),
       controlHeadSha: sha40("2"),
       evidence: "/tmp/evidence",
       planSha256: sha64("3"),
@@ -63,6 +66,10 @@ describe("plan-only lane authority launch", () => {
     });
     expect(spec.preparingRecord).toMatchObject({
       mode: "plan-only-lane-authority",
+      candidateCommits: [sha40("9")],
+      candidateCommonDir: "/repo/.git",
+      candidateHeadSha: sha40("1"),
+      candidateTreeSha: sha40("a"),
       sourceHeadSha: sha40("5"),
       sourceCommitPatchSha256s: [sha64("8")],
       status: "preparing",
@@ -94,7 +101,9 @@ describe("plan-only lane authority launch", () => {
   it("rejects replay drift before Fabro creation", () => {
     const exact = {
       branch: "fabro/plan-only-s11-t02",
-      commitCount: 2,
+      candidateCommits: [sha40("3"), sha40("4")],
+      candidateHeadSha: sha40("4"),
+      candidateTreeSha: sha40("5"),
       commonDir: "/repo/.git",
       patchDigests: [sha64("1"), sha64("2")],
       status: "",
@@ -105,7 +114,7 @@ describe("plan-only lane authority launch", () => {
     expect(() =>
       assertPlanOnlyCandidateIdentity({
         expected: exact,
-        observed: { ...exact, patchDigests: [sha64("2"), sha64("1")] },
+        observed: { ...exact, candidateHeadSha: sha40("9") },
       }),
     ).toThrow("candidate identity mismatch");
   });

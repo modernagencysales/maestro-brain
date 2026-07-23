@@ -207,6 +207,7 @@ export const ownershipTaskStages = new Set([
   "false_green",
   "authority_transition_ready",
   "authority_transition_waiting_prerequisites",
+  "authority_transition_held",
 ]);
 
 export const GREEN_BATCH_CANDIDATE_LIMIT = 20;
@@ -487,7 +488,11 @@ export const planControllerTick = (
     const followOn = planControllerTick(
       {
         ...snapshot,
-        tasks: snapshot.tasks.filter(({ taskId }) => !deferredIds.has(taskId)),
+        tasks: snapshot.tasks.map((task) =>
+          deferredIds.has(task.taskId)
+            ? { ...task, stage: "authority_transition_held" as const }
+            : task,
+        ),
       },
       policy,
       manifest,

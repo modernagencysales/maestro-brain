@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { resolveIntegratedPrerequisiteTaskIds } from "./authority-repair-prerequisites.js";
@@ -32,6 +32,34 @@ const parseRecord = (bytes: Buffer, label: string): JsonRecord => {
 
 const sha256 = (bytes: Buffer): string =>
   createHash("sha256").update(bytes).digest("hex");
+
+const sourceRunIdForTransition = (input: {
+  readonly evidence: string;
+  readonly expectedRunId: string;
+  readonly taskId: string;
+}): string => {
+  const runs = resolve(input.evidence, "..", "runs");
+  const records = readdirSync(runs)
+    .filter(
+      (name) =>
+        name === `${input.taskId}.json` ||
+        name.startsWith(`${input.taskId}.json.terminal-`),
+    )
+    .map((name) =>
+      parseRecord(
+        readFileSync(resolve(runs, name)),
+        `${input.taskId}: source run ${name}`,
+      ),
+    )
+    .filter((record) => record.runId === input.expectedRunId);
+  if (
+    records.length !== 1 ||
+    records[0]?.taskId !== input.taskId ||
+    records[0]?.status !== "launched"
+  )
+    throw new Error(`${input.taskId}: immutable source run identity drifted`);
+  return input.expectedRunId;
+};
 
 const historyForTransition = (input: {
   readonly root: string;
@@ -182,6 +210,11 @@ export const loadPlanOnlyLaneAuthorityAdmission = (input: {
     sourceCommitPatchSha256s: sourceCommits.map((commit) =>
       gitCommitPatchSha256(input.root, commit),
     ),
+    sourceRunId: sourceRunIdForTransition({
+      evidence: input.evidence,
+      expectedRunId: transition.sourceRunId,
+      taskId: input.task.taskId,
+    }),
     sourceTreeSha: runRtk(
       ["proxy", "git", "rev-parse", `${transition.sourceHeadSha}^{tree}`],
       { cwd: input.root, quiet: true },
