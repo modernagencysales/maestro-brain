@@ -1,0 +1,110 @@
+{
+  "lens": "safety",
+  "taskId": "S08-T04",
+  "planSha256": "2bca6b40d7acab334b2036e9ed35652c06ebe8729c1a6c3319c04f827b7a77ce",
+  "taskBlockHash": "2bccfe705e20eef30b384725a71d69db2671a70d5c96f541fb95ec6b73629525",
+  "baseSha": "e28ceeb126083211cc7b2070c673b78e513d125b",
+  "headSha": "e32afae7dd5c51a018b64a919b829dfd7763f0d8",
+  "treeSha": "961ef33338a58686feca37124a12b01e1838ffc8",
+  "reviewerRunId": "maestro/review/S08-T04/e32afae7dd5c51a018b64a919b829dfd7763f0d8/7f90ec0a-889b-4729-af93-e406f1b96daa-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/capabilities/maintainBrainPage.spec.ts declares maintainBrainPage as FunctionSpec.publicMutation with caller-supplied workspaceSlug, contextPackId, context, modelOutput, and autopilot args.",
+        "packages/convex/confect/capabilities/maintainBrainPage.impl.ts maintainBrainPageFromContextPack commits directly from the supplied context/modelOutput and never verifies workspaceSlug against context.workspaceId or an authenticated workspace membership.",
+        "packages/convex/confect/capabilities/maintainBrainPage.test.ts covers successful caller-supplied context packs and citation failures, but contains no Unauthorized, Forbidden, MemberNotInWorkspace, or cross-workspace rejection assertion for this public mutation."
+      ],
+      "findingIds": ["MB-S08-T04-SAFETY-001"]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "finding",
+      "evidence": [
+        "The S08-T04 plan requires the maintainBrainPage capability exposure to be workflow and the workflow controls to be internal-only, but packages/convex/confect/capabilities/maintainBrainPage.spec.ts exposes the capability as a publicMutation.",
+        "packages/convex/confect/capabilities/maintainBrainPage.impl.ts imports only ValidationFailed plus maintenance helpers; it does not require a principal, workspace membership, Brain editor/admin role, or internal workflow caller before returning await_review/published revision effects.",
+        "packages/convex/confect/capabilities/maintainBrainPage.headless.json says authScope is workspace member, but the implementation does not enforce that boundary."
+      ],
+      "findingIds": ["MB-S08-T04-SAFETY-001"]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/maintenance/policy.ts requireActiveLifecycle rejects lifecycleState revoked with LifecycleRevoked.",
+        "packages/convex/confect/maintenance/request.ts calls requireActiveLifecycle before creating a proposal, and packages/convex/confect/maintenance/commit.ts calls requireActiveLifecycle before committing.",
+        "packages/convex/test/brain-maintenance.test.ts includes revoked lifecycle assertions for gather and commit paths."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "The changed maintenance domain, capability, workflow, and UI files do not log raw provider payloads, source bodies, tokens, or secrets.",
+        "packages/convex/confect/workflows/sourceToBrainMaintenance.graph.ts uses a deterministic fake citation quote and does not introduce live secret or provider payload handling.",
+        "apps/web/src/features/brain/maintenance-review.tsx renders page title, action label, and citation counts rather than raw source payloads or provider secrets."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/maintenance/commit.ts assertFresh compares workspaceId, brainKey, pageKey, currentRevisionKey, routeGeneration, lifecycleGeneration, and policyGeneration before commit.",
+        "packages/convex/test/brain-maintenance.test.ts covers stale currentRevisionKey rejection and cross-workspace stale rejection through commitMaintenanceProposal."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/maintenance/commit.ts rejects duplicate review attempt keys via seenAttemptKeys before applying accept/edit/reject decisions.",
+        "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.impl.ts starts workflows through startWorkflowAndRecordOwnership with the supplied idempotencyKey.",
+        "packages/convex/test/brain-maintenance.test.ts includes duplicate review attempt rejection."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/maintenance/commit.ts fences proposal commits on currentRevisionKey plus route, lifecycle, and policy generations.",
+        "packages/convex/confect/maintenance/policy.ts assertAutopilotEligible requires adminEnabled, passingEvalReceipt, reviewedSampleCount, and an approved modelPromptPair before autopilot publish.",
+        "packages/convex/test/brain-maintenance.test.ts covers stale generation fencing, non-admin autopilot downgrade, changed model prompt pair downgrade, and eligible autopilot publishing."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "The changed packages/convex/confect/maintenance/* and workflow graph files contain deterministic policy/gather/commit logic and do not import live provider SDKs.",
+        "packages/convex/confect/workflows/sourceToBrainMaintenance.graph.ts composes the maintainBrainPage capability through the durable graph registry instead of calling provider adapters directly.",
+        "packages/convex/test/sourceToBrainMaintenance.workflow.test.ts asserts the maintenance graph does not run actions and calls only the registered capability mutation."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "MB-S08-T04-SAFETY-001",
+      "severity": "high",
+      "summary": "maintainBrainPage is publicly callable without workspace or role authorization",
+      "details": "The task contract says the maintenance capability is workflow-exposed and the headless metadata claims a workspace-member auth scope, but the implementation registers a public mutation that accepts arbitrary caller-supplied context/modelOutput/autopilot and returns review/publish revision effects without authenticating the caller, checking workspace membership, or ensuring workspaceSlug matches context.workspaceId. This breaks tenant isolation and authorization for the maintenance proposal boundary and needs task rework before aggregate admission.",
+      "evidence": [
+        "packages/convex/confect/capabilities/maintainBrainPage.spec.ts: maintainBrainPage = FunctionSpec.publicMutation with args including workspaceSlug, context, modelOutput, and autopilot.",
+        "packages/convex/confect/capabilities/maintainBrainPage.impl.ts: maintainBrainPageFromContextPack calls requestMaintenanceProposal and commitMaintenanceProposal directly and maps only policy/validation failures; no principal, membership, or role guard is present.",
+        "packages/convex/confect/capabilities/maintainBrainPage.headless.json: authScope is documented as workspace member, but no implementation or focused test enforces that scope.",
+        "packages/convex/confect/capabilities/maintainBrainPage.test.ts: tests exercise public pure context-pack execution and citation errors but do not assert Unauthorized/Forbidden or cross-workspace rejection."
+      ],
+      "changedPaths": [
+        "packages/convex/confect/capabilities/maintainBrainPage.spec.ts",
+        "packages/convex/confect/capabilities/maintainBrainPage.impl.ts",
+        "packages/convex/confect/capabilities/maintainBrainPage.headless.json",
+        "packages/convex/confect/capabilities/maintainBrainPage.test.ts"
+      ],
+      "regressionTestPaths": [
+        "packages/convex/confect/capabilities/maintainBrainPage.test.ts",
+        "packages/convex/test/brain-maintenance.test.ts"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
