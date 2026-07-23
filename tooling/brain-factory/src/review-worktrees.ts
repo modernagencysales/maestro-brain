@@ -1062,6 +1062,46 @@ export interface ReviewCleanupHooks {
   readonly beforeClaim?: () => void;
 }
 
+const assertPreparedLensIdentity = (
+  prepared: ReturnType<typeof layout>,
+  lens: ReviewWorktreeLens,
+  path: string,
+): void => {
+  const head = git(path, "rev-parse", "HEAD");
+  if (head === prepared.metadata.headSha) {
+    if (git(path, "rev-parse", "HEAD^{tree}") !== prepared.metadata.treeSha)
+      throw new Error(`${lens}: managed review tree identity mismatch`);
+    return;
+  }
+  const parents = git(path, "rev-list", "--parents", "-n", "1", head).split(
+    " ",
+  );
+  if (
+    JSON.stringify(parents) !==
+    JSON.stringify([head, prepared.metadata.headSha])
+  )
+    throw new Error(`${lens}: managed review checkpoint parent mismatch`);
+  if (
+    git(path, "log", "-1", "--format=%s") !==
+    `review: checkpoint ${prepared.metadata.taskId} ${lens}`
+  )
+    throw new Error(`${lens}: managed review checkpoint identity mismatch`);
+  const changed = git(
+    path,
+    "diff",
+    "--name-only",
+    prepared.metadata.headSha,
+    head,
+  )
+    .split("\n")
+    .filter(Boolean);
+  if (
+    JSON.stringify(changed) !==
+    JSON.stringify([`.brain-review-output/${lens}.json`])
+  )
+    throw new Error(`${lens}: managed review checkpoint path mismatch`);
+};
+
 const cleanupReviewWorktreesWithReason = (
   input: ReviewWorktreeCoordinates,
   reason: "invalid-checkpoint" | "operator-cleanup",
@@ -1133,16 +1173,8 @@ const cleanupReviewWorktreesWithReason = (
       throw new Error(`${lens}: managed review worktree is not registered`);
     if (git(path, "branch", "--show-current") !== prepared.branches[lens])
       throw new Error(`${lens}: managed review branch identity mismatch`);
-    if (
-      namespace.value.status === "prepared" &&
-      git(path, "rev-parse", "HEAD") !== prepared.metadata.headSha
-    )
-      throw new Error(`${lens}: managed review HEAD identity mismatch`);
-    if (
-      namespace.value.status === "prepared" &&
-      git(path, "rev-parse", "HEAD^{tree}") !== prepared.metadata.treeSha
-    )
-      throw new Error(`${lens}: managed review tree identity mismatch`);
+    if (namespace.value.status === "prepared")
+      assertPreparedLensIdentity(prepared, lens, path);
     assertClean(path, `${lens} review worktree`);
   }
 

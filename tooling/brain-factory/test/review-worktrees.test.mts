@@ -262,6 +262,18 @@ describe("managed review worktrees", () => {
   it("retires a clean prepared namespace after plan authority advances", () => {
     const { input, root } = fixture();
     const prepared = prepareReviewWorktrees(input);
+    mkdirSync(resolve(prepared.paths.contract, ".brain-review-output"));
+    writeFileSync(
+      resolve(prepared.paths.contract, ".brain-review-output", "contract.json"),
+      "{}\n",
+    );
+    git(prepared.paths.contract, "add", ".brain-review-output/contract.json");
+    git(
+      prepared.paths.contract,
+      "commit",
+      "-qm",
+      `review: checkpoint ${input.taskId} contract`,
+    );
     const proofPath = resolve(
       input.evidence,
       "lane-results",
@@ -419,7 +431,58 @@ describe("managed review worktrees", () => {
       })}\n`,
     );
     expect(() => cleanupReviewWorktrees(advanced.input)).toThrow(
-      "contract: managed review HEAD identity mismatch",
+      "contract: managed review checkpoint identity mismatch",
+    );
+  });
+
+  it("rejects an exact-looking checkpoint merge with a second parent", () => {
+    const merged = fixture();
+    const prepared = prepareReviewWorktrees(merged.input);
+    const sidePath = resolve(merged.root, "..", "side-worktree");
+    git(merged.root, "branch", "review-side", merged.input.headSha);
+    git(merged.root, "worktree", "add", sidePath, "review-side");
+    writeFileSync(resolve(sidePath, "side.txt"), "side history\n");
+    git(sidePath, "add", "side.txt");
+    git(sidePath, "commit", "-qm", "test: add unrelated side history");
+    git(
+      prepared.paths.contract,
+      "merge",
+      "--no-commit",
+      "--no-ff",
+      "-s",
+      "ours",
+      "review-side",
+    );
+    mkdirSync(resolve(prepared.paths.contract, ".brain-review-output"));
+    writeFileSync(
+      resolve(prepared.paths.contract, ".brain-review-output", "contract.json"),
+      "{}\n",
+    );
+    git(prepared.paths.contract, "add", ".brain-review-output/contract.json");
+    git(
+      prepared.paths.contract,
+      "commit",
+      "-qm",
+      `review: checkpoint ${merged.input.taskId} contract`,
+    );
+    writeFileSync(
+      resolve(
+        merged.input.evidence,
+        "lane-results",
+        merged.input.taskId,
+        "ci-proof-packet.json",
+      ),
+      `${JSON.stringify({
+        schemaVersion: "maestro-brain-ci-proof/v1",
+        taskId: merged.input.taskId,
+        headSha: merged.input.headSha,
+        planSha256: manifest.planSha256,
+        taskBlockHash: fixtureTask.taskBlockHash,
+      })}\n`,
+    );
+
+    expect(() => cleanupReviewWorktrees(merged.input)).toThrow(
+      "contract: managed review checkpoint parent mismatch",
     );
   });
 
