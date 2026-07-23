@@ -40,7 +40,7 @@ export const inspectExactLaneGreenCreatingRun = (input: {
     if (
       input.priorRunId === undefined &&
       error instanceof Error &&
-      error.message.includes(`No run found matching '${input.workflowName}'`)
+      error.message === `No run found matching '${input.workflowName}'`
     )
       return { kind: "no-run" };
     throw new Error(
@@ -98,11 +98,10 @@ export const resolveLaneGreenAuthorityPreparingOwner = (input: {
   });
   const branchExists = gitBranchExists(input.coordinates.branch, input.root);
   const worktreeExists = existsSync(input.coordinates.workdir);
-  if (
-    !branchExists &&
-    !worktreeExists &&
-    input.preparingOwner.runId === undefined
-  ) {
+  const isReservedOwner =
+    input.preparingOwner.phase === "reserved" &&
+    input.preparingOwner.runId === undefined;
+  if (isReservedOwner) {
     const recovery = resolveLaneGreenAuthorityReproofReservation({
       candidates: [],
       expectedConfigInputs: reservationSpec.configInputs,
@@ -111,6 +110,8 @@ export const resolveLaneGreenAuthorityPreparingOwner = (input: {
     });
     if (recovery.kind !== "retry-launch")
       throw new Error(`${input.taskId}: preparing reservation is ambiguous`);
+  }
+  if (!branchExists && !worktreeExists && isReservedOwner) {
     return {
       kind: "continue",
       reuseReservation: true,
@@ -119,10 +120,7 @@ export const resolveLaneGreenAuthorityPreparingOwner = (input: {
   }
   if (!branchExists || !worktreeExists)
     throw new Error(`${input.taskId}: preparing owner coordinates are missing`);
-  if (
-    input.preparingOwner.phase === "reserved" &&
-    input.preparingOwner.runId === undefined
-  ) {
+  if (isReservedOwner) {
     return {
       kind: "continue",
       reuseReservation: true,

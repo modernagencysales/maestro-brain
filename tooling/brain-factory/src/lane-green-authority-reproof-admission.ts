@@ -9,6 +9,7 @@ import {
   type LaneGreenAuthorityReproofAdmission,
 } from "./lane-green-authority-reproof.js";
 import { gitCommitPatchSha256 } from "./lane-green-authority-reproof-candidate.js";
+import { assertLaneGreenAuthorityProofAncestry } from "./lane-green-authority-reproof-history.js";
 import {
   buildManifest,
   PLAN_RELATIVE,
@@ -166,6 +167,12 @@ export const loadLaneGreenAuthorityReproofAdmission = (input: {
   const sourceCommitPatchSha256s = sourceCommits.map((commit) =>
     gitCommitPatchSha256(input.root, commit),
   );
+  assertLaneGreenAuthorityProofAncestry({
+    proofBaseSha: transition.proofBaseSha,
+    proofHeadSha: transition.proofHeadSha,
+    root: input.root,
+    taskId,
+  });
   const proofChangedFiles = lines(
     runRtk(
       [

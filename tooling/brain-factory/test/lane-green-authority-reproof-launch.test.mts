@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { selectAuthorityTransition } from "../src/authority-transition-cli.js";
+import { assertLaneGreenAuthorityProofAncestry } from "../src/lane-green-authority-reproof-history.js";
 import {
   assertExactLaneGreenAuthorityCandidate,
   repairLaneGreenAuthorityReplay,
@@ -18,7 +19,10 @@ import {
   resolveLaneGreenAuthorityReproofReservation,
   runLaneGreenAuthorityReproofLaunch,
 } from "../src/lane-green-authority-reproof-launch.js";
-import { inspectExactLaneGreenCreatingRun } from "../src/lane-green-authority-reproof-resume.js";
+import {
+  inspectExactLaneGreenCreatingRun,
+  resolveLaneGreenAuthorityPreparingOwner,
+} from "../src/lane-green-authority-reproof-resume.js";
 import { materializeLaneGreenAuthorityWorkflow } from "../src/lane-green-authority-workflow.js";
 
 const sha = (value: string, length = 40): string => value.repeat(length);
@@ -26,6 +30,43 @@ const git = (cwd: string, ...args: string[]): string =>
   execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
 
 describe("lane-green authority reproof launch", () => {
+  it("rejects a proof base outside the exact proof HEAD history", () => {
+    const root = mkdtempSync(join(tmpdir(), "lane-green-proof-history-"));
+    git(root, "init", "-q");
+    git(root, "config", "user.email", "factory@example.test");
+    git(root, "config", "user.name", "Brain Factory");
+    writeFileSync(join(root, "proof.txt"), "base\n");
+    git(root, "add", "proof.txt");
+    git(root, "commit", "-qm", "base");
+    const common = git(root, "rev-parse", "HEAD");
+    git(root, "checkout", "-qb", "proof-head");
+    writeFileSync(join(root, "proof.txt"), "head\n");
+    git(root, "commit", "-qam", "head");
+    const proofHeadSha = git(root, "rev-parse", "HEAD");
+    expect(() =>
+      assertLaneGreenAuthorityProofAncestry({
+        proofBaseSha: common,
+        proofHeadSha,
+        root,
+        taskId: "S05-T01",
+      }),
+    ).not.toThrow();
+    git(root, "checkout", "-q", common);
+    git(root, "checkout", "-qb", "divergent-base");
+    writeFileSync(join(root, "other.txt"), "other\n");
+    git(root, "add", "other.txt");
+    git(root, "commit", "-qm", "divergent");
+
+    expect(() =>
+      assertLaneGreenAuthorityProofAncestry({
+        proofBaseSha: git(root, "rev-parse", "HEAD"),
+        proofHeadSha,
+        root,
+        taskId: "S05-T01",
+      }),
+    ).toThrow("proof base is not an ancestor of proof HEAD");
+  });
+
   it("rejects any replayed candidate identity drift before launch", () => {
     const expected = {
       branch: "fabro/reproof-s05",
@@ -117,14 +158,23 @@ describe("lane-green authority reproof launch", () => {
     expect(
       inspectExactLaneGreenCreatingRun({
         inspect: (target) => {
-          throw new Error(
-            `No run found matching '${target}' (tried run ID prefix and workflow name)`,
-          );
+          throw new Error(`No run found matching '${target}'`);
         },
         taskId: "S05-T01",
         workflowName,
       }),
     ).toEqual({ kind: "no-run" });
+    expect(() =>
+      inspectExactLaneGreenCreatingRun({
+        inspect: (target) => {
+          throw new Error(
+            `No run found matching '${target}' (server unavailable)`,
+          );
+        },
+        taskId: "S05-T01",
+        workflowName,
+      }),
+    ).toThrow("preparing reservation launch state is unknown");
     const creating = {
       baseSha: sha("a"),
       branch: "fabro/reproof-s05-t01-green-123456789abc",
@@ -156,6 +206,81 @@ describe("lane-green authority reproof launch", () => {
         workflowName,
       }),
     ).toThrow("preparing reservation launch state is unknown");
+  });
+
+  it("rejects reserved owner drift before reusing existing coordinates", () => {
+    const root = mkdtempSync(join(tmpdir(), "lane-green-owner-drift-"));
+    git(root, "init", "-q");
+    git(root, "config", "user.email", "factory@example.test");
+    git(root, "config", "user.name", "Brain Factory");
+    writeFileSync(join(root, "base.txt"), "base\n");
+    git(root, "add", "base.txt");
+    git(root, "commit", "-qm", "base");
+    const controlHeadSha = git(root, "rev-parse", "HEAD");
+    const coordinates = {
+      authorityId: "123456789abc",
+      branch: "fabro/reproof-s05-t01-green-123456789abc",
+      workdir: join(root, "existing-worktree"),
+      workflowName: "BrainBuildTaskS05T01Green123456789abc",
+    };
+    git(root, "branch", coordinates.branch);
+    mkdirSync(coordinates.workdir);
+    const admission = {
+      mode: "lane-green-authority-reproof" as const,
+      oldPlanSha256: sha("3", 64),
+      oldTaskBlockHash: sha("4", 64),
+      proofBaseSha: sha("1"),
+      proofFindingIds: ["OWNERSHIP-S05-T01-001"],
+      proofGateStage: "pre-review" as const,
+      proofHeadSha: sha("2"),
+      sourceBaseSha: sha("5"),
+      sourceCommits: [sha("6")],
+      sourceCommitPatchSha256s: [sha("7", 64)],
+      sourceChangedFiles: ["owned.ts"],
+      sourceHeadSha: sha("6"),
+      sourcePatchSha256: sha("8", 64),
+      sourceTreeSha: sha("9"),
+    };
+    const spec = buildLaneGreenAuthorityReproofLaunchSpec({
+      controlCommonDir: git(root, "rev-parse", "--git-common-dir"),
+      controlHeadSha,
+      controlRoot: root,
+      coordinates,
+      evidence: join(root, "evidence"),
+      planSha256: sha("a", 64),
+      proofBaseSha: admission.proofBaseSha,
+      proofFindingIds: admission.proofFindingIds,
+      proofGateStage: admission.proofGateStage,
+      proofHeadSha: admission.proofHeadSha,
+      proofPlanSha256: admission.oldPlanSha256,
+      proofTaskBlockHash: admission.oldTaskBlockHash,
+      sourceBaseSha: admission.sourceBaseSha,
+      sourceCommits: admission.sourceCommits,
+      sourceCommitPatchSha256s: admission.sourceCommitPatchSha256s,
+      sourceHeadSha: admission.sourceHeadSha,
+      sourceTreeSha: admission.sourceTreeSha,
+      startSha: controlHeadSha,
+      taskBlockHash: sha("b", 64),
+      taskId: "S05-T01",
+    });
+
+    expect(() =>
+      resolveLaneGreenAuthorityPreparingOwner({
+        admission,
+        auditPath: join(root, "audit.jsonl"),
+        controlCommonDir: git(root, "rev-parse", "--git-common-dir"),
+        controlHeadSha,
+        coordinates,
+        evidence: join(root, "evidence"),
+        now: "2026-07-22T00:00:00.000Z",
+        planSha256: sha("a", 64),
+        preparingOwner: { ...spec.preparingRecord, branch: "drifted" },
+        recordPath: join(root, "owner.json"),
+        root,
+        taskBlockHash: sha("b", 64),
+        taskId: "S05-T01",
+      }),
+    ).toThrow("lane-green authority reproof reservation mismatch");
   });
 
   it("materializes a deterministic uniquely named recovery workflow", () => {
