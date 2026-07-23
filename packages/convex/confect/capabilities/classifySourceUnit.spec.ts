@@ -25,7 +25,6 @@ const EvidenceQuote = Schema.Struct({
   sourceRevisionKey: Schema.String,
   quote: Schema.String,
 });
-
 export const ClassificationAuthority = Schema.Struct({
   workspaceId: Schema.String,
   organizationId: Schema.String,
@@ -34,7 +33,6 @@ export const ClassificationAuthority = Schema.Struct({
   routeGeneration: Schema.Number,
   leaseGeneration: Schema.Number,
 });
-
 export const SourceUnitForClassification = Schema.Struct({
   workspaceId: Schema.String,
   organizationId: Schema.String,
@@ -46,7 +44,6 @@ export const SourceUnitForClassification = Schema.Struct({
   routeGeneration: Schema.Number,
   leaseGeneration: Schema.Number,
 });
-
 export const ClassificationRequest = Schema.extend(
   SourceUnitForClassification,
   Schema.Struct({
@@ -54,12 +51,10 @@ export const ClassificationRequest = Schema.extend(
     authority: ClassificationAuthority,
   }),
 );
-
 export const classifySourceUnitArgs = Schema.Struct({
   request: ClassificationRequest,
   caller: SystemPrincipal,
 });
-
 export const classifySourceUnitReturns = Schema.Struct({
   sourceUnitRevisionKey: Schema.String,
   sourceUnitHash: Schema.String,
@@ -69,14 +64,12 @@ export const classifySourceUnitReturns = Schema.Struct({
   rationale: Schema.String,
   evidenceQuotes: Schema.Array(EvidenceQuote),
 });
-
 const classificationErrors = Schema.Union(
   Unauthorized,
   Schema.TaggedStruct("MalformedModelOutput", { message: Schema.String }),
   Schema.TaggedStruct("TargetNotAllowed", { targetBrainKey: Schema.String }),
   Schema.TaggedStruct("EvidenceMismatch", {}),
 );
-
 const commitErrors = Schema.Union(
   classificationErrors,
   Schema.TaggedStruct("ReviewForbidden", {}),
@@ -93,7 +86,6 @@ export const commitSourceRouteArgs = Schema.Struct({
   caller: SystemPrincipal,
 });
 export const commitSourceRouteReturns = Schema.Any;
-
 export const classifySourceUnit = defineContractFunction(
   FunctionSpec.internalMutation({
     name: "classifySourceUnit",
@@ -120,7 +112,6 @@ export const classifySourceUnit = defineContractFunction(
     returnsSchema: classifySourceUnitReturns,
   },
 );
-
 export const commitSourceRoute = defineContractFunction(
   FunctionSpec.internalMutation({
     name: "commitSourceRoute",
@@ -150,7 +141,6 @@ export const commitSourceRoute = defineContractFunction(
     returnsSchema: commitSourceRouteReturns,
   },
 );
-
 export const manifest = collectContractManifest([
   classifySourceUnit,
   commitSourceRoute,
@@ -159,7 +149,6 @@ export const schemaRegistry = collectContractSchemas([
   classifySourceUnit,
   commitSourceRoute,
 ]);
-
 export default GroupSpec.make()
   .addFunction(classifySourceUnit.spec)
   .addFunction(commitSourceRoute.spec);
