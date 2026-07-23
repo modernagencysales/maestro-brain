@@ -1,0 +1,13 @@
+{
+  "generator": "add-workflow",
+  "commandFamily": "template:add-workflow",
+  "name": "sourceClassification",
+  "generatedPaths": [
+    "packages/convex/confect/workflowContracts/sourceClassification.spec.ts",
+    "packages/convex/confect/workflowContracts/sourceClassification.impl.ts",
+    "packages/convex/confect/workflows/sourceClassification.graph.ts",
+    "packages/convex/convex/workflowRunners/sourceClassification.ts",
+    "packages/convex/test/sourceClassification.workflow.test.ts",
+    "docs/template/generated/workflows/sourceClassification.md"
+  ]
+}
