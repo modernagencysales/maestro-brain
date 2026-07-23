@@ -1,0 +1,91 @@
+{
+  "lens": "contract",
+  "taskId": "S08-T03",
+  "planSha256": "1c6b818063c534afdae20d688fee71e830915c5ac356bf7eba7724099d7ed9a5",
+  "taskBlockHash": "52836a187d4a821697f0ff1d057155b9aefc998858fac5df08c06f5b82cf6612",
+  "baseSha": "2bdef668a17ac4e86a9113846b773f6243f281c0",
+  "headSha": "ce0efb5047dec18ab0b6bfde6ffc7bf681d2bbde",
+  "treeSha": "d664bc55884f1a8628b202b163fe4b781c091a0f",
+  "reviewerRunId": "maestro/review/S08-T03/ce0efb5047dec18ab0b6bfde6ffc7bf681d2bbde/e8f981c1-4075-4c85-a794-983c6d27bbcf-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1069-1110 declares S08-T03 as the pattern-instance task Implement Review-First Zero-Or-One Classification with requirements AI-02/IAM-04/SLK-03/ZFC-01 and owned file locks for the changed capability, workflow, table, UI, test, and generated-doc paths.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:4102-4136 defines the classification request/result contract and structural checks for key/hash, content-scope/target consistency, allowlist membership, evidence quotes, policy/generations, and review authority.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S08-T03/lane-gate-report.json records status passed at head ce0efb5047dec18ab0b6bfde6ffc7bf681d2bbde and tree d664bc55884f1a8628b202b163fe4b781c091a0f for task S08-T03."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "finding",
+      "findingIds": [
+        "CONTRACT-S08-T03-004"
+      ],
+      "evidence": [
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:38 wires the durable graph commit node to capabilities/commitSourceRoute:commitSourceRoute.",
+        "rtk proxy rg \"commitSourceRoute|routeEffectKeyForDecision|commitReviewedClassification|routes.commit\" packages/convex apps docs/template/generated -n finds no packages/convex/confect/capabilities/commitSourceRoute.spec.ts or .impl.ts, only the graph reference, docs mention, and pure helper tests.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2445 requires commit to recheck authority/generations and call the mechanical route capability once."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/classificationDecisions.ts:5-15 defines the durable decision state/content-scope row and canonical indexes by_unit_policy_epoch, by_status_created, by_effect_key, and by_target_brain.",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:5-61 defines execution status separately from classification stages including awaiting_classification, classifying, awaiting_classification_review, routed, classified_no_route, mixed_client_no_route, superseded, and revoked, with indexes by_stage_status_next_retry, by_effect_key, by_unit_stage, by_lease_expiry, and by_organization_status.",
+        "docs/product/maestro-brain-lifecycle-adoption/S08-T03.md documents rollback preservation and disabled-by-default classify policy state for the new durable rows."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "finding",
+      "findingIds": [
+        "CONTRACT-S08-T03-004"
+      ],
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2438-2445 requires a workflow that gathers, classifies, reviews, rechecks current authority/generations, and invokes routes.commit once.",
+        "packages/convex/confect/workflows/sourceClassification.graph.ts:7 declares the required gather -> classify -> review -> currentAuthority -> commit graph shape.",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:38 points the required commit node at capabilities/commitSourceRoute:commitSourceRoute, but that capability is absent from the changed files and absent from the scoped package search, so the planned end-to-end reviewed-route contract is not implemented."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "rtk proxy git diff --name-status 2bdef668a17ac4e86a9113846b773f6243f281c0..HEAD lists only files covered by the S08-T03 task manifest fileLocks, excluding integration-owned generated Confect/Convex output.",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1076-1100 owns the changed classification review queue, generated docs/provenance, classifySourceUnit files, classification helper/table files, sourceClassification workflow files/tests, and sourceProcessingJobs table path.",
+        "packages/convex/convex/workflowRunners/sourceClassification.ts is deleted at this head; generated Confect/Convex output is integration-owned by the task packet when transient codegen is proved by the lane gate and the task diff does not edit generated trees."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "findingIds": [
+        "CONTRACT-S08-T03-004"
+      ],
+      "evidence": [
+        "packages/convex/confect/workflowContracts/sourceClassification.spec.ts:27-29 declares workflow typed failures including ReviewForbidden, StaleGeneration, and DuplicateEffect.",
+        "packages/convex/confect/classification/review.ts:44-108 and packages/convex/confect/classification/commit.ts:65-93 implement pure helpers that can throw review/commit failures, but no Confect commitSourceRoute capability exists to expose those failure paths at the graph's routes.commit node.",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:38 references capabilities/commitSourceRoute:commitSourceRoute for routes.commit, making the declared StaleGeneration and DuplicateEffect paths unreachable through an implemented task-owned API."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "CONTRACT-S08-T03-004",
+      "severity": "blocking",
+      "summary": "Workflow routes.commit points at an unimplemented capability.",
+      "details": "The sourceClassification graph now gathers a source unit, runs the model seam, waits for review, and rechecks current authority, but the final routes.commit capability referenced by the graph is not present in the Confect capability tree. The task only adds pure review/commit helper functions and tests, so the declared reviewed-route commit API and its StaleGeneration/DuplicateEffect failure paths are not reachable from the workflow contract. This prevents S08-T03 from satisfying the required mechanical route capability call and the end-to-end typed failure contract.",
+      "evidence": [
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:38",
+        "packages/convex/confect/workflows/sourceClassification.graph.ts:7",
+        "packages/convex/confect/classification/commit.ts:65-93",
+        "rtk proxy rg \"commitSourceRoute|routeEffectKeyForDecision|commitReviewedClassification|routes.commit\" packages/convex apps docs/template/generated -n",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2445"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}
