@@ -125,9 +125,32 @@ export const loadPlanOnlyLaneAuthorityAdmission = (input: {
   const laneBytes = readFileSync(resolve(directory, "lane-result.json"));
   const proofBytes = readFileSync(resolve(directory, "ci-proof-packet.json"));
   const gateBytes = readFileSync(resolve(directory, "lane-gate-report.json"));
+  runRtk(
+    [
+      "proxy",
+      "git",
+      "merge-base",
+      "--is-ancestor",
+      transition.sourceBaseSha,
+      transition.sourceHeadSha,
+    ],
+    { cwd: input.root, quiet: true },
+  );
+  const sourceCommits = lines(
+    runRtk(
+      [
+        "proxy",
+        "git",
+        "rev-list",
+        "--reverse",
+        `${transition.sourceBaseSha}..${transition.sourceHeadSha}`,
+      ],
+      { cwd: input.root, quiet: true },
+    ),
+  );
   const history = historyForTransition({
     root: input.root,
-    sourceCommits: transition.sourceCommits,
+    sourceCommits,
   });
   return admitPlanOnlyLaneAuthority({
     controlHeadSha: input.controlHeadSha,
@@ -156,7 +179,7 @@ export const loadPlanOnlyLaneAuthorityAdmission = (input: {
     lane: parseRecord(laneBytes, `${input.task.taskId}: lane result`),
     ownerDisposition: input.ownerDisposition,
     proof: parseRecord(proofBytes, `${input.task.taskId}: CI proof`),
-    sourceCommitPatchSha256s: transition.sourceCommits.map((commit) =>
+    sourceCommitPatchSha256s: sourceCommits.map((commit) =>
       gitCommitPatchSha256(input.root, commit),
     ),
     sourceTreeSha: runRtk(

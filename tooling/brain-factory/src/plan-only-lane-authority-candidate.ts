@@ -93,6 +93,14 @@ export const preparePlanOnlyCandidate = (input: {
     );
     if (branch !== input.branch || commonDir !== controlCommonDir)
       throw new Error("plan-only authority candidate coordinates drifted");
+    try {
+      runRtk(["proxy", "git", "cherry-pick", "--abort"], {
+        cwd: input.workdir,
+        quiet: true,
+      });
+    } catch {
+      // No active replay is the normal clean-reservation recovery case.
+    }
     runRtk(["proxy", "git", "reset", "--hard", input.controlHeadSha], {
       cwd: input.workdir,
       quiet: true,
