@@ -32,6 +32,9 @@ const fixture = (): { readonly root: string; readonly source: string } => {
     recursive: true,
   });
   mkdirSync(join(root, "packages/convex/convex"), { recursive: true });
+  mkdirSync(join(root, "packages/convex/convex/workflowRunners"), {
+    recursive: true,
+  });
   mkdirSync(join(root, "packages/template-core/src/generated"), {
     recursive: true,
   });
@@ -44,6 +47,10 @@ const fixture = (): { readonly root: string; readonly source: string } => {
   writeFileSync(
     join(root, "packages/convex/convex/schema.ts"),
     "export { schema } from '../confect/_generated/schema';\n",
+  );
+  writeFileSync(
+    join(root, "packages/convex/convex/workflowRunners/fixture.ts"),
+    "export const workflowRunner = true;\n",
   );
   writeFileSync(
     join(root, "packages/template-core/src/generated/confectManifest.ts"),
@@ -167,6 +174,12 @@ describe("transient Confect codegen", () => {
             expect(existsSync(workdir)).toBe(true);
           },
           generate: (workdir) => {
+            rmSync(
+              join(
+                workdir,
+                "packages/convex/convex/workflowRunners/fixture.ts",
+              ),
+            );
             writeFileSync(
               join(workdir, "packages/convex/confect/_generated/schema.ts"),
               "export const schema = 2;\n",
@@ -180,6 +193,14 @@ describe("transient Confect codegen", () => {
             );
           },
           validate: (_workdir, testPatterns, checks, profiles) => {
+            expect(
+              existsSync(
+                join(
+                  _workdir,
+                  "packages/convex/convex/workflowRunners/fixture.ts",
+                ),
+              ),
+            ).toBe(true);
             expect(testPatterns).toEqual(["stable-tenant-keys", "migrations"]);
             expect(checks).toEqual([
               "confect-contracts",

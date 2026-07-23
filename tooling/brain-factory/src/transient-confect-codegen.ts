@@ -7,6 +7,7 @@ import { hydrateWorktreeDependencies } from "./dependencies.js";
 import { runRtk } from "./process.js";
 
 const CONVEX_GENERATED_ROOT = "packages/convex/convex/";
+const PLAIN_CONVEX_GENERATOR_ROOT = "packages/convex/convex/workflowRunners/";
 const CONFECT_MANIFEST =
   "packages/template-core/src/generated/confectManifest.ts";
 const TRANSIENT_CHECKS = [
@@ -114,6 +115,37 @@ const stagedPatchHash = (workdir: string): string =>
       quiet: true,
     }),
   );
+
+const restoreTrackedWorkflowRunners = (workdir: string): void => {
+  const tracked = runRtk(
+    [
+      "proxy",
+      "git",
+      "ls-tree",
+      "-r",
+      "--name-only",
+      "HEAD",
+      "--",
+      PLAIN_CONVEX_GENERATOR_ROOT,
+    ],
+    { cwd: workdir, quiet: true },
+  )
+    .split("\n")
+    .filter(Boolean);
+  if (tracked.length === 0) return;
+  runRtk(
+    [
+      "proxy",
+      "git",
+      "restore",
+      "--source=HEAD",
+      "--worktree",
+      "--",
+      ...tracked,
+    ],
+    { cwd: workdir, quiet: true },
+  );
+};
 
 interface TransientConfectCodegenHooks {
   readonly generate: (workdir: string) => void;
@@ -247,6 +279,10 @@ export const runTransientConfectCodegen = (input: {
     attached = true;
     hooks.hydrate(root, workdir);
     hooks.generate(workdir);
+    // Confect sync owns its generated tree but currently removes plain Convex
+    // workflow runners produced by template:add-workflow. Preserve the exact
+    // tracked generator output before validating the transient Confect delta.
+    restoreTrackedWorkflowRunners(workdir);
     runRtk(
       [
         "git",
