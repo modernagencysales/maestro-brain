@@ -9,6 +9,7 @@ import {
   reserveTaskPreparing,
 } from "./dispatch-ownership.js";
 import { prepareExactLaneGreenAuthorityCandidate } from "./lane-green-authority-reproof-candidate.js";
+import { materializeLaneGreenAuthorityWorkflow } from "./lane-green-authority-workflow.js";
 import type { LaneGreenAuthorityReproofAdmission } from "./lane-green-authority-reproof.js";
 import {
   buildLaneGreenAuthorityReproofLaunchSpec,
@@ -156,7 +157,18 @@ export const executeNewLaneGreenAuthorityReproof = (input: {
       });
       const config = materializeBuildTaskRunConfig({
         env: launchEnv,
-        graph: resolve(".fabro/workflows/brain-build-task/workflow.fabro"),
+        graph: materializeLaneGreenAuthorityWorkflow({
+          path: resolve(
+            input.state,
+            "launch-configs",
+            `lane-green-${input.taskId}-${input.coordinates.authorityId}.workflow.fabro`,
+          ),
+          sourcePath: resolve(
+            input.root,
+            ".fabro/workflows/brain-build-task/workflow.fabro",
+          ),
+          workflowName: input.coordinates.workflowName,
+        }),
         path: resolve(
           input.state,
           "launch-configs",

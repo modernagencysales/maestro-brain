@@ -1,6 +1,6 @@
 {
   "planPath": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
-  "planSha256": "544dde413a3ea75623bfa9cb422ef1bef356bd725467810dbcaf2797b6eaf144",
+  "planSha256": "adce0583eeea119d1a949099d3f5bbc98002041065d7ea2cb7a39e4f70975c2c",
   "schemaVersion": "maestro-brain-task-manifest/v1",
   "tasks": [
     {
@@ -790,9 +790,9 @@
         ],
         "sourceBaseSha": "022a932c1e809c2093a10f5dea5d248b6c706f5f",
         "sourceCommits": [
-          "0f6b863804d8ba5e2c78fa70a6995f73502611c6",
-          "10df346e493326324a33101028818703681cb0d2",
-          "21ccb33ee43068e94ecdb1aebf5983fbef537c2e",
+          "0f6b8638b0e8fd7a742afabbedb55ab00bda2a84",
+          "10df346e1dfdcf43a81bb07caee17a87bd2ad645",
+          "21ccb33ea1ba739007a04b0278d4f0d749615909",
           "d5efc88aff587f23541b363b41d296beb5eda5a5"
         ],
         "sourceChangedFiles": [
@@ -824,7 +824,7 @@
       "requirements": ["IAM-03", "KNW-02", "SLK-04", "SLK-05"],
       "sourceSliceBudget": 300,
       "sourceSliceLimit": 4,
-      "taskBlockHash": "82b100bb8b41465fdfb0bc0dfcb69470ea954cb1437c48b80f6f7f57ec9f08d1",
+      "taskBlockHash": "af261b6e29dd92ad219255c8f0c731b09c5fd346780621976cb1693aa8d991cf",
       "taskId": "S05-T01",
       "title": "Add The Source Ledger And Prove The Integration-Owned Migration Registry",
       "tranche": "C1-contract-spine"

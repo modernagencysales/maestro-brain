@@ -4,6 +4,7 @@ export interface LaneGreenAuthorityReproofCoordinates {
   readonly authorityId: string;
   readonly branch: string;
   readonly workdir: string;
+  readonly workflowName: string;
 }
 
 export const buildLaneGreenAuthorityReproofLaunchSpec = (input: {
@@ -72,5 +73,6 @@ export const buildLaneGreenAuthorityReproofLaunchSpec = (input: {
     taskBlockHash: input.taskBlockHash,
     taskId: input.taskId,
     workdir: input.coordinates.workdir,
+    workflowName: input.coordinates.workflowName,
   },
 });

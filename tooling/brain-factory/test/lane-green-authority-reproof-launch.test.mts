@@ -18,6 +18,8 @@ import {
   resolveLaneGreenAuthorityReproofReservation,
   runLaneGreenAuthorityReproofLaunch,
 } from "../src/lane-green-authority-reproof-launch.js";
+import { inspectExactLaneGreenCreatingRun } from "../src/lane-green-authority-reproof-resume.js";
+import { materializeLaneGreenAuthorityWorkflow } from "../src/lane-green-authority-workflow.js";
 
 const sha = (value: string, length = 40): string => value.repeat(length);
 const git = (cwd: string, ...args: string[]): string =>
@@ -110,6 +112,68 @@ describe("lane-green authority reproof launch", () => {
     expect(git(root, "status", "--porcelain=v1")).toBe("");
   });
 
+  it("retries creating-before-create only after exact no-run proof", () => {
+    const workflowName = "BrainBuildTaskS05T01Green123456789abc";
+    expect(
+      inspectExactLaneGreenCreatingRun({
+        inspect: (target) => {
+          throw new Error(
+            `No run found matching '${target}' (tried run ID prefix and workflow name)`,
+          );
+        },
+        taskId: "S05-T01",
+        workflowName,
+      }),
+    ).toEqual({ kind: "no-run" });
+    const creating = {
+      baseSha: sha("a"),
+      branch: "fabro/reproof-s05-t01-green-123456789abc",
+      mode: "lane-green-authority-reproof",
+      phase: "creating",
+      status: "preparing",
+      taskId: "S05-T01",
+      workdir: "/workdir",
+      workflowName,
+    };
+    expect(
+      resolveLaneGreenAuthorityReproofReservation({
+        candidates: [],
+        expectedConfigInputs: {
+          base_sha: creating.baseSha,
+          task_id: creating.taskId,
+          workdir: creating.workdir,
+        },
+        expectedReservation: creating,
+        reservation: creating,
+      }),
+    ).toEqual({ kind: "retry-launch" });
+    expect(() =>
+      inspectExactLaneGreenCreatingRun({
+        inspect: () => {
+          throw new Error("Fabro server unavailable");
+        },
+        taskId: "S05-T01",
+        workflowName,
+      }),
+    ).toThrow("preparing reservation launch state is unknown");
+  });
+
+  it("materializes a deterministic uniquely named recovery workflow", () => {
+    const root = mkdtempSync(join(tmpdir(), "lane-green-workflow-"));
+    const sourcePath = join(root, "source.fabro");
+    const path = join(root, "generated.fabro");
+    writeFileSync(sourcePath, "digraph BrainBuildTask {\n  start\n}\n");
+    const workflowName = "BrainBuildTaskS05T01Green123456789abc";
+    expect(
+      materializeLaneGreenAuthorityWorkflow({
+        path,
+        sourcePath,
+        workflowName,
+      }),
+    ).toBe(path);
+    expect(readFileSync(path, "utf8")).toContain(`digraph ${workflowName} {`);
+  });
+
   it("rejects mutually exclusive authority CLI modes in the production parser", () => {
     expect(() =>
       selectAuthorityTransition(
@@ -172,7 +236,10 @@ describe("lane-green authority reproof launch", () => {
     expect(launchSource).toContain('process.off("exit", releaseOnExit)');
     expect(
       recoverySource.indexOf("prepareExactLaneGreenAuthorityCandidate({"),
-    ).toBeLessThan(recoverySource.indexOf('"fabro",\n          "inspect"'));
+    ).toBeLessThan(
+      recoverySource.indexOf("inspectExactLaneGreenCreatingRun({"),
+    );
+    expect(recoverySource).not.toContain('priorRunId ?? "BrainBuildTask"');
   });
 
   it("creates and replays before launching the normal build-task workflow", () => {
@@ -220,15 +287,19 @@ describe("lane-green authority reproof launch", () => {
   );
 
   it("uses deterministic current-authority coordinates", () => {
-    expect(
-      laneGreenAuthorityReproofCoordinates({
-        controlHeadSha: sha("a"),
-        planSha256: sha("b", 64),
-        root: "/repo",
-        taskBlockHash: sha("c", 64),
-        taskId: "S05-T01",
-      }).branch,
-    ).toMatch(/^fabro\/reproof-s05-t01-green-[0-9a-f]{12}$/);
+    const coordinates = laneGreenAuthorityReproofCoordinates({
+      controlHeadSha: sha("a"),
+      planSha256: sha("b", 64),
+      root: "/repo",
+      taskBlockHash: sha("c", 64),
+      taskId: "S05-T01",
+    });
+    expect(coordinates.branch).toMatch(
+      /^fabro\/reproof-s05-t01-green-[0-9a-f]{12}$/,
+    );
+    expect(coordinates.workflowName).toMatch(
+      /^BrainBuildTaskS05T01Green[0-9a-f]{12}$/,
+    );
   });
 
   it("binds the reservation and launch inputs to current authority and exact replay", () => {
@@ -236,6 +307,7 @@ describe("lane-green authority reproof launch", () => {
       authorityId: "123456789abc",
       branch: "fabro/reproof-s05-t01-green-123456789abc",
       workdir: "/workdir",
+      workflowName: "BrainBuildTaskS05T01Green123456789abc",
     };
     const sourceCommits = [sha("d"), sha("e")];
     const spec = buildLaneGreenAuthorityReproofLaunchSpec({
@@ -271,6 +343,7 @@ describe("lane-green authority reproof launch", () => {
       sourceCommitPatchSha256s: [sha("8", 64), sha("9", 64)],
       sourceHeadSha: sha("e"),
       taskBlockHash: sha("7", 64),
+      workflowName: coordinates.workflowName,
     });
     expect(spec.configInputs).toMatchObject({
       base_sha: sha("a"),

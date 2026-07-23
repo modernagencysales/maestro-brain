@@ -1,6 +1,6 @@
 {
   "schemaVersion": "maestro-brain-parallelism-contract/v1",
-  "manifestPlanSha256": "544dde413a3ea75623bfa9cb422ef1bef356bd725467810dbcaf2797b6eaf144",
+  "manifestPlanSha256": "adce0583eeea119d1a949099d3f5bbc98002041065d7ea2cb7a39e4f70975c2c",
   "edges": [
     {
       "consumerTaskId": "S00-T03",

@@ -23,6 +23,35 @@ export type LaneGreenAuthorityPreparingResolution =
     }
   | { readonly kind: "recovered"; readonly runId: string };
 
+export const inspectExactLaneGreenCreatingRun = (input: {
+  readonly inspect: (target: string) => unknown;
+  readonly priorRunId?: string;
+  readonly taskId: string;
+  readonly workflowName: string;
+}):
+  | { readonly kind: "inspection"; readonly inspection: unknown }
+  | {
+      readonly kind: "no-run";
+    } => {
+  const target = input.priorRunId ?? input.workflowName;
+  try {
+    return { kind: "inspection", inspection: input.inspect(target) };
+  } catch (error) {
+    if (
+      input.priorRunId === undefined &&
+      error instanceof Error &&
+      error.message.includes(`No run found matching '${input.workflowName}'`)
+    )
+      return { kind: "no-run" };
+    throw new Error(
+      `${input.taskId}: preparing reservation launch state is unknown`,
+      {
+        cause: error,
+      },
+    );
+  }
+};
+
 export const resolveLaneGreenAuthorityPreparingOwner = (input: {
   readonly admission: LaneGreenAuthorityReproofAdmission;
   readonly auditPath: string;
@@ -135,28 +164,37 @@ export const resolveLaneGreenAuthorityPreparingOwner = (input: {
     typeof input.preparingOwner.runId === "string"
       ? input.preparingOwner.runId
       : undefined;
-  let inspection: unknown;
-  try {
-    inspection = JSON.parse(
-      runRtk(
-        [
-          "fabro",
-          "inspect",
-          priorRunId ?? "BrainBuildTask",
-          "--json",
-          "--quiet",
-        ],
-        { quiet: true },
-      ),
-    );
-  } catch {
-    throw new Error(
-      `${input.taskId}: preparing reservation launch state is unknown`,
-    );
-  }
   const expectedPreparing = { ...spec.preparingRecord, phase: "creating" };
+  const discovered = inspectExactLaneGreenCreatingRun({
+    inspect: (target) =>
+      JSON.parse(
+        runRtk(["fabro", "inspect", target, "--json", "--quiet"], {
+          quiet: true,
+        }),
+      ),
+    ...(priorRunId === undefined ? {} : { priorRunId }),
+    taskId: input.taskId,
+    workflowName: input.coordinates.workflowName,
+  });
+  if (discovered.kind === "no-run") {
+    const recovery = resolveLaneGreenAuthorityReproofReservation({
+      candidates: [],
+      expectedConfigInputs: spec.configInputs,
+      expectedReservation: expectedPreparing,
+      reservation: input.preparingOwner,
+    });
+    if (recovery.kind !== "retry-launch")
+      throw new Error(`${input.taskId}: creating reservation is ambiguous`);
+    return {
+      kind: "continue",
+      reuseReservation: true,
+      reuseWorktree: true,
+    };
+  }
   const recovery = resolveLaneGreenAuthorityReproofReservation({
-    candidates: [{ branch: input.coordinates.branch, inspection }],
+    candidates: [
+      { branch: input.coordinates.branch, inspection: discovered.inspection },
+    ],
     expectedConfigInputs: spec.configInputs,
     expectedReservation: expectedPreparing,
     reservation: priorRunId

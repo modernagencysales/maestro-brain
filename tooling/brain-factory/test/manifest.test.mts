@@ -728,6 +728,28 @@ describe("Maestro Brain execution manifest", () => {
         "022a932c1e809c2093a10f5dea5d248b6c706f5f..d5efc88aff587f23541b363b41d296beb5eda5a5",
       ),
     );
+    const sourceCommits = execFileSync(
+      "rtk",
+      [
+        "proxy",
+        "git",
+        "rev-list",
+        "--reverse",
+        "022a932c1e809c2093a10f5dea5d248b6c706f5f..d5efc88aff587f23541b363b41d296beb5eda5a5",
+      ],
+      { cwd: REPO_ROOT, encoding: "utf8" },
+    )
+      .trim()
+      .split("\n");
+    expect(transition?.sourceCommits).toEqual(sourceCommits);
+    for (const commit of sourceCommits) {
+      expect(
+        execFileSync("rtk", ["proxy", "git", "cat-file", "-t", commit], {
+          cwd: REPO_ROOT,
+          encoding: "utf8",
+        }).trim(),
+      ).toBe("commit");
+    }
     const currentPlan = readFileSync(resolve(REPO_ROOT, PLAN_RELATIVE), "utf8");
     expect(taskBlockHashWithoutLaneGreenAuthority(currentPlan, "S05-T01")).toBe(
       "d5212dbc84a10771993658fc840e29bc81671c08e7962dbf96fd34de2dda9ce5",

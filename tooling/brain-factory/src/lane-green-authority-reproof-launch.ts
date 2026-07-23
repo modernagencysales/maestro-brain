@@ -48,6 +48,7 @@ export const laneGreenAuthorityReproofCoordinates = (input: {
       ".maestro-brain-fabro-workdirs",
       `reproof-${slug}-green-${authorityId}`,
     ),
+    workflowName: `BrainBuildTask${input.taskId.replace("-", "")}Green${authorityId}`,
   };
 };
 
@@ -106,7 +107,8 @@ export const launchLaneGreenAuthorityReproof = (input: {
         prior.planSha256 !== manifest.planSha256 ||
         prior.taskBlockHash !== task.taskBlockHash ||
         prior.branch !== coordinates.branch ||
-        prior.workdir !== coordinates.workdir
+        prior.workdir !== coordinates.workdir ||
+        prior.workflowName !== coordinates.workflowName
       )
         throw new Error(`${input.taskId}: launched authority owner drifted`);
       const status = inspectLaneGreenAuthorityReproofRun(prior.runId);
