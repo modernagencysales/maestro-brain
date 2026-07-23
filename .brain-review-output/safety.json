@@ -1,0 +1,80 @@
+{
+  "lens": "safety",
+  "taskId": "S03-T03",
+  "planSha256": "1c6b818063c534afdae20d688fee71e830915c5ac356bf7eba7724099d7ed9a5",
+  "taskBlockHash": "ac77073ece3d8addfee7853260cb2bb2bc6bb83ba43405b07a934f310b6a8834",
+  "baseSha": "27aba38106942afcf94a95d5520e61e847110361",
+  "headSha": "bffa00c937cbd7e2d376c6996e3a5ad57e425bc3",
+  "treeSha": "64fc15fa12d7a7e74a6d7f402592f91ad6981b60",
+  "reviewerRunId": "maestro/review/S03-T03/bffa00c937cbd7e2d376c6996e3a5ad57e425bc3/db567ea6-7be6-4b97-aec4-e14b78464e42-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.impl.ts:85-199 requireBrainAccess resolves the caller identity, WorkOS organization, stable brainKey under that organization, rejects resolved organization mismatches as BrainNotFound, and returns a server-owned workspaceId/organizationId context.",
+        "packages/convex/confect/brain/pages.impl.ts:202-233 and 613-622 scope page reads and snapshot writes by that resolved workspaceId plus pageKey; packages/convex/test/brain-pages-crud.test.ts:514-578 and 578-751 cover forged/cross-Brain page and snapshot attempts without mutation leakage."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.impl.ts:90-193 maps missing/duplicate/inactive users to Unauthorized and requires resolveEffectiveWorkspaceRole at viewer/editor minimums before read/write operations.",
+        "packages/convex/confect/editor/syncApi.ts:124-130 checks viewer/editor access for ProseMirror read/write, apps/web/src/features/brain/brain-surface.ts derives canEdit from editor/admin/owner roles, and packages/convex/test/brain-pages-crud.test.ts:770-849 plus 1227-1637 cover viewer write denials and role matrix behavior."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.impl.ts:58-63 and 156-163 reject revoked organization/workspace generations, loadPage at 213-233 admits only active pages with active lifecycle, and archive at 573-582 moves status/lifecycle to archived through patchPage.",
+        "packages/convex/test/brain-pages-crud.test.ts:853-1223 verifies archived Brain rejection as LifecycleRevoked, archived-list compatibility, redacted/purged exclusion, and no mutation from stale lifecycle-sensitive operations; apps/web/src/features/brain/brain-workspace.test.tsx:408-423 maps LifecycleRevoked save results into stale/conflict UI state."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.impl.ts:153-163 returns BrainNotFound/LifecycleRevoked instead of exposing foreign organization/workspace details, and list at 340-351 only serializes page summaries rather than markdown/editor snapshots.",
+        "apps/web/src/features/brain/brain-surface.test.ts verifies typed errors collapse to not_found/forbidden states, and packages/convex/test/brain-pages-crud.test.ts:1128-1130 asserts serialized lists do not contain redacted or purged content."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.impl.ts:235-247 requireCurrentRevision fences every page mutation and snapshot commit, and snapshot version checks at 623-631 reject non-increasing autosnapshot versions.",
+        "packages/convex/test/brain-pages-crud.test.ts:578-751, 853-1223, and 1227-1637 cover stale snapshots, stale rename/move races, one-success/one-StaleRevision behavior, and unchanged mutation snapshots after stale failures; apps/web/src/features/brain/brain-workspace.test.tsx:294-365 covers local fence advancement only after successful saves and stale conflict preservation."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.impl.ts:623-631 rejects replayed or older snapshot versions and stale expectedCurrentRevisionKey values before writing page or revision rows.",
+        "packages/convex/confect/editor/syncApi.ts:52-67 and 124-133 keep automatic ProseMirror onSnapshot commits limited to legacy page IDs; stable Brain page targets require explicit expectedCurrentRevisionKey through recordEditorSnapshot at 20-40, with packages/convex/test/brain-editor-revision-fence.test.ts:67-96 proving unfenced stable autosnapshots do not publish."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.spec.ts:85-114 exposes expectedCurrentRevisionKey for page writes and stable documentId plus expectedCurrentRevisionKey for recordSnapshot; packages/convex/confect/brain/pages.impl.ts:620-622 enforces the fence server-side.",
+        "packages/editor-react/src/BlockNoteSyncEditor.tsx and apps/web/src/features/brain/brain-workspace.tsx keep same-document edit fences stable, advance them after successful saves, and include the selected revision in snapshot save args; covered by packages/editor-react/src/BlockNoteSyncEditor.test.tsx:44-79 and apps/web/src/features/brain/brain-workspace.test.tsx:189-365."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "not_applicable",
+      "rationale": "S03-T03 changes Brain page/editor web and Confect persistence surfaces only; it adds no provider adapter, live SDK, webhook, credential, or secret-bearing integration.",
+      "evidence": [
+        "ci-proof-packet.json changedFiles are limited to apps/web Brain feature/route files, packages/convex brain/editor files and tests, packages/editor-react files, and the S03-T03 product doc.",
+        "Scoped inspection of changed implementation files found no provider SDK imports, secret reads, webhook handling, or provider payload logging."
+      ]
+    }
+  ],
+  "priorFindingDispositions": [],
+  "findings": [],
+  "verdict": "pass"
+}
