@@ -12,6 +12,7 @@ import { resolveLaneGreenAuthorityReproofReservation } from "./lane-green-author
 import {
   buildLaneGreenAuthorityReproofLaunchSpec,
   type LaneGreenAuthorityReproofCoordinates,
+  type LaneGreenAuthorityTerminalRetry,
 } from "./lane-green-authority-reproof-spec.js";
 import type { JsonRecord } from "./lane-green-authority-reproof-owner.js";
 import { gitBranchExists, runRtk } from "./process.js";
@@ -67,6 +68,8 @@ export const resolveLaneGreenAuthorityPreparingOwner = (input: {
   readonly root: string;
   readonly taskBlockHash: string;
   readonly taskId: string;
+  readonly terminalRetry?: LaneGreenAuthorityTerminalRetry;
+  readonly terminalStartSha?: string;
 }): LaneGreenAuthorityPreparingResolution => {
   if (input.preparingOwner === undefined) {
     return {
@@ -93,9 +96,12 @@ export const resolveLaneGreenAuthorityPreparingOwner = (input: {
     sourceCommitPatchSha256s: input.admission.sourceCommitPatchSha256s,
     sourceHeadSha: input.admission.sourceHeadSha,
     sourceTreeSha: input.admission.sourceTreeSha,
-    startSha: input.controlHeadSha,
+    startSha: input.terminalStartSha ?? input.controlHeadSha,
     taskBlockHash: input.taskBlockHash,
     taskId: input.taskId,
+    ...(input.terminalRetry === undefined
+      ? {}
+      : { terminalRetry: input.terminalRetry }),
   });
   const branchExists = gitBranchExists(input.coordinates.branch, input.root);
   const worktreeExists = existsSync(input.coordinates.workdir);
@@ -128,15 +134,20 @@ export const resolveLaneGreenAuthorityPreparingOwner = (input: {
       reuseWorktree: true,
     };
   }
-  const startSha = prepareExactLaneGreenAuthorityCandidate({
-    admission: input.admission,
-    controlCommonDir: input.controlCommonDir,
-    controlHeadSha: input.controlHeadSha,
-    coordinates: input.coordinates,
-    reuseWorktree: true,
-    root: input.root,
-    taskId: input.taskId,
-  });
+  const startSha =
+    input.terminalRetry === undefined
+      ? prepareExactLaneGreenAuthorityCandidate({
+          admission: input.admission,
+          controlCommonDir: input.controlCommonDir,
+          controlHeadSha: input.controlHeadSha,
+          coordinates: input.coordinates,
+          reuseWorktree: true,
+          root: input.root,
+          taskId: input.taskId,
+        })
+      : (input.terminalStartSha ?? "");
+  if (!/^[0-9a-f]{40}$/.test(startSha))
+    throw new Error(`${input.taskId}: terminal candidate HEAD is invalid`);
   const spec = buildLaneGreenAuthorityReproofLaunchSpec({
     controlCommonDir: input.controlCommonDir,
     controlHeadSha: input.controlHeadSha,
@@ -158,6 +169,9 @@ export const resolveLaneGreenAuthorityPreparingOwner = (input: {
     startSha,
     taskBlockHash: input.taskBlockHash,
     taskId: input.taskId,
+    ...(input.terminalRetry === undefined
+      ? {}
+      : { terminalRetry: input.terminalRetry }),
   });
   const priorRunId =
     typeof input.preparingOwner.runId === "string"

@@ -14,6 +14,7 @@ import type { LaneGreenAuthorityReproofAdmission } from "./lane-green-authority-
 import {
   buildLaneGreenAuthorityReproofLaunchSpec,
   type LaneGreenAuthorityReproofCoordinates,
+  type LaneGreenAuthorityTerminalRetry,
 } from "./lane-green-authority-reproof-spec.js";
 import { runRtk } from "./process.js";
 
@@ -57,6 +58,8 @@ export const executeNewLaneGreenAuthorityReproof = (input: {
     readonly runId: string;
     readonly status: string;
   };
+  readonly terminalRetry?: LaneGreenAuthorityTerminalRetry;
+  readonly terminalStartSha?: string;
 }): string => {
   const reservationSpec = buildLaneGreenAuthorityReproofLaunchSpec({
     controlCommonDir: input.controlCommonDir,
@@ -76,9 +79,12 @@ export const executeNewLaneGreenAuthorityReproof = (input: {
     sourceCommitPatchSha256s: input.admission.sourceCommitPatchSha256s,
     sourceHeadSha: input.admission.sourceHeadSha,
     sourceTreeSha: input.admission.sourceTreeSha,
-    startSha: input.controlHeadSha,
+    startSha: input.terminalStartSha ?? input.controlHeadSha,
     taskBlockHash: input.taskBlockHash,
     taskId: input.taskId,
+    ...(input.terminalRetry === undefined
+      ? {}
+      : { terminalRetry: input.terminalRetry }),
   });
   let launchSpec = reservationSpec;
   let launchEnv: NodeJS.ProcessEnv | undefined;
@@ -102,15 +108,49 @@ export const executeNewLaneGreenAuthorityReproof = (input: {
     },
     createCurrentWorktree: () => undefined,
     replayExactCommits: () => {
-      const startSha = prepareExactLaneGreenAuthorityCandidate({
-        admission: input.admission,
-        controlCommonDir: input.controlCommonDir,
-        controlHeadSha: input.controlHeadSha,
-        coordinates: input.coordinates,
-        reuseWorktree: input.reuseWorktree,
-        root: input.root,
-        taskId: input.taskId,
-      });
+      let startSha: string;
+      if (input.terminalRetry === undefined) {
+        startSha = prepareExactLaneGreenAuthorityCandidate({
+          admission: input.admission,
+          controlCommonDir: input.controlCommonDir,
+          controlHeadSha: input.controlHeadSha,
+          coordinates: input.coordinates,
+          reuseWorktree: input.reuseWorktree,
+          root: input.root,
+          taskId: input.taskId,
+        });
+      } else {
+        startSha = input.terminalStartSha ?? "";
+        const observed = {
+          branch: runRtk(["git", "branch", "--show-current"], {
+            cwd: input.coordinates.workdir,
+            quiet: true,
+          }),
+          headSha: runRtk(["git", "rev-parse", "HEAD"], {
+            cwd: input.coordinates.workdir,
+            quiet: true,
+          }),
+          status: runRtk(["proxy", "git", "status", "--porcelain=v1"], {
+            cwd: input.coordinates.workdir,
+            quiet: true,
+          }),
+          treeSha: runRtk(["git", "rev-parse", "HEAD^{tree}"], {
+            cwd: input.coordinates.workdir,
+            quiet: true,
+          }),
+        };
+        if (
+          observed.branch !== input.coordinates.branch ||
+          observed.headSha !== startSha ||
+          observed.status !== "" ||
+          observed.treeSha !== input.terminalRetry.candidateTreeSha
+        )
+          throw new Error(
+            `${input.taskId}: terminal candidate changed before launch`,
+          );
+      }
+      if (!/^[0-9a-f]{40}$/.test(startSha))
+        throw new Error(`${input.taskId}: terminal candidate HEAD is invalid`);
       launchSpec = buildLaneGreenAuthorityReproofLaunchSpec({
         controlCommonDir: input.controlCommonDir,
         controlHeadSha: input.controlHeadSha,
@@ -132,6 +172,9 @@ export const executeNewLaneGreenAuthorityReproof = (input: {
         startSha,
         taskBlockHash: input.taskBlockHash,
         taskId: input.taskId,
+        ...(input.terminalRetry === undefined
+          ? {}
+          : { terminalRetry: input.terminalRetry }),
       });
     },
     launchNormalBuildTask: () => {

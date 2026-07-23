@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -12,57 +11,36 @@ import {
   type JsonRecord,
 } from "./lane-green-authority-reproof-owner.js";
 import { executeNewLaneGreenAuthorityReproof } from "./lane-green-authority-reproof-run.js";
+export { laneGreenAuthorityReproofCoordinates } from "./lane-green-authority-reproof-coordinates.js";
+import { laneGreenAuthorityReproofCoordinates } from "./lane-green-authority-reproof-coordinates.js";
 import { resolveLaneGreenAuthorityPreparingOwner } from "./lane-green-authority-reproof-resume.js";
-import type { LaneGreenAuthorityReproofCoordinates } from "./lane-green-authority-reproof-spec.js";
+import { launchTerminalLaneGreenAuthorityRetry } from "./lane-green-authority-terminal-retry-launch.js";
 import { buildManifest } from "./manifest.js";
 import { gitBranchExists, gitCommonDir, runRtk } from "./process.js";
-
-export const laneGreenAuthorityReproofCoordinates = (input: {
-  readonly controlHeadSha: string;
-  readonly planSha256: string;
-  readonly root: string;
-  readonly taskBlockHash: string;
-  readonly taskId: string;
-}): LaneGreenAuthorityReproofCoordinates => {
-  for (const [label, value, length] of [
-    ["control HEAD", input.controlHeadSha, 40],
-    ["plan SHA", input.planSha256, 64],
-    ["task hash", input.taskBlockHash, 64],
-  ] as const) {
-    if (!new RegExp(`^[0-9a-f]{${length}}$`).test(value))
-      throw new Error(`lane-green authority reproof ${label} is invalid`);
-  }
-  const authorityId = createHash("sha256")
-    .update(
-      `${input.controlHeadSha}:${input.planSha256}:${input.taskBlockHash}:lane-green-authority-reproof`,
-    )
-    .digest("hex")
-    .slice(0, 12);
-  const slug = input.taskId.toLowerCase();
-  return {
-    authorityId,
-    branch: `fabro/reproof-${slug}-green-${authorityId}`,
-    workdir: resolve(
-      input.root,
-      "..",
-      ".maestro-brain-fabro-workdirs",
-      `reproof-${slug}-green-${authorityId}`,
-    ),
-    workflowName: `BrainBuildTask${input.taskId.replace("-", "")}Green${authorityId}`,
-  };
-};
 
 export { resolveLaneGreenAuthorityReproofReservation } from "./lane-green-authority-reproof-recovery.js";
 export { runLaneGreenAuthorityReproofLaunch } from "./lane-green-authority-reproof-run.js";
 export { buildLaneGreenAuthorityReproofLaunchSpec } from "./lane-green-authority-reproof-spec.js";
 
 export const launchLaneGreenAuthorityReproof = (input: {
+  readonly archiveActionId?: string;
   readonly evidence: string;
   readonly recordPath: string;
   readonly root: string;
   readonly state: string;
   readonly taskId: string;
 }): void => {
+  if (input.archiveActionId !== undefined) {
+    launchTerminalLaneGreenAuthorityRetry({
+      actionId: input.archiveActionId,
+      evidence: input.evidence,
+      recordPath: input.recordPath,
+      root: input.root,
+      state: input.state,
+      taskId: input.taskId,
+    });
+    return;
+  }
   const manifest = buildManifest(input.root);
   const task = manifest.tasks.find(
     (candidate) => candidate.taskId === input.taskId,

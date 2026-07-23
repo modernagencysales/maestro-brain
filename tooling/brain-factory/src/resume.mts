@@ -144,12 +144,16 @@ if (
     checkpointReproof ||
     laneGreenAuthorityReproof ||
     terminalContractReproof) &&
-  (sourceRef || taskBase || conflictAware || archiveActionId)
+  (sourceRef || taskBase || conflictAware)
 ) {
   throw new Error(
-    `${taskId}: authority transition derives exact source coordinates and cannot be combined with --ref, --base, --conflict-aware, or --archive-action`,
+    `${taskId}: authority transition derives exact source coordinates and cannot be combined with --ref, --base, or --conflict-aware`,
   );
 }
+if (archiveActionId !== undefined && !laneGreenAuthorityReproof)
+  throw new Error(
+    `${taskId}: --archive-action is authorized only for terminal lane-green retry`,
+  );
 const root = process.cwd();
 const state = resolve(valueAfter("--state") ?? ".fabro/state/maestro-brain");
 const evidence = resolve(state, "evidence");
@@ -178,19 +182,21 @@ const preservedBranchExists =
   archiveActionId !== undefined && !recordExists
     ? gitBranchExists(branch, root)
     : false;
-assertArchiveActionSelectorApplicable({
-  archiveActionId,
-  preservedBranchExists,
-  preservedWorktreeExists,
-  recordExists,
-  taskId,
-});
+if (!laneGreenAuthorityReproof)
+  assertArchiveActionSelectorApplicable({
+    archiveActionId,
+    preservedBranchExists,
+    preservedWorktreeExists,
+    recordExists,
+    taskId,
+  });
 if (checkpointReproof) {
   launchCheckpointReproof({ evidence, recordPath, root, state, taskId });
   process.exit(0);
 }
 if (laneGreenAuthorityReproof) {
   launchLaneGreenAuthorityReproof({
+    ...(archiveActionId === undefined ? {} : { archiveActionId }),
     evidence,
     recordPath,
     root,

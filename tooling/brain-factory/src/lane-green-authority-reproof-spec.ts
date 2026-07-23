@@ -7,6 +7,14 @@ export interface LaneGreenAuthorityReproofCoordinates {
   readonly workflowName: string;
 }
 
+export interface LaneGreenAuthorityTerminalRetry {
+  readonly archiveActionId: string;
+  readonly archiveSha256: string;
+  readonly candidateTreeSha: string;
+  readonly priorRunId: string;
+  readonly terminalStatus: string;
+}
+
 export const buildLaneGreenAuthorityReproofLaunchSpec = (input: {
   readonly controlCommonDir: string;
   readonly controlHeadSha: string;
@@ -28,6 +36,7 @@ export const buildLaneGreenAuthorityReproofLaunchSpec = (input: {
   readonly startSha: string;
   readonly taskBlockHash: string;
   readonly taskId: string;
+  readonly terminalRetry?: LaneGreenAuthorityTerminalRetry;
 }): {
   readonly configInputs: JsonRecord;
   readonly preparingRecord: JsonRecord;
@@ -74,5 +83,15 @@ export const buildLaneGreenAuthorityReproofLaunchSpec = (input: {
     taskId: input.taskId,
     workdir: input.coordinates.workdir,
     workflowName: input.coordinates.workflowName,
+    ...(input.terminalRetry === undefined
+      ? {}
+      : {
+          terminalArchiveActionId: input.terminalRetry.archiveActionId,
+          terminalArchiveSha256: input.terminalRetry.archiveSha256,
+          terminalCandidateHeadSha: input.startSha,
+          terminalCandidateTreeSha: input.terminalRetry.candidateTreeSha,
+          terminalPriorRunId: input.terminalRetry.priorRunId,
+          terminalStatus: input.terminalRetry.terminalStatus,
+        }),
   },
 });

@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
 import { selectAuthorityTransition } from "../src/authority-transition-cli.js";
 import { assertLaneGreenAuthorityProofAncestry } from "../src/lane-green-authority-reproof-history.js";
 import { inspectLaneGreenAuthorityFabroRun } from "../src/lane-green-authority-reproof-inspect.js";
+import { terminalLaneGreenRetryCoordinates } from "../src/lane-green-authority-reproof-coordinates.js";
 import {
   assertExactLaneGreenAuthorityCandidate,
   repairLaneGreenAuthorityReplay,
@@ -400,6 +401,11 @@ describe("lane-green authority reproof launch", () => {
     expect(launchSource).not.toContain("writeFileSync");
     expect(launchSource).toContain('process.off("exit", releaseOnExit)');
     expect(
+      launchSource.indexOf("launchTerminalLaneGreenAuthorityRetry({"),
+    ).toBeLessThan(
+      launchSource.indexOf("loadLaneGreenAuthorityReproofAdmission({"),
+    );
+    expect(
       recoverySource.indexOf("prepareExactLaneGreenAuthorityCandidate({"),
     ).toBeLessThan(
       recoverySource.indexOf("inspectExactLaneGreenCreatingRun({"),
@@ -467,6 +473,26 @@ describe("lane-green authority reproof launch", () => {
     );
   });
 
+  it("uses a retry workflow distinct from the archived run", () => {
+    const archived = {
+      authorityId: "123456789abc",
+      branch: "fabro/reproof-s05-t01-green-123456789abc",
+      workdir: "/workdir",
+      workflowName: "BrainBuildTaskS05T01Green123456789abc",
+    };
+    const retry = terminalLaneGreenRetryCoordinates({
+      archiveActionId: sha("a", 64),
+      candidateHeadSha: sha("b"),
+      coordinates: archived,
+    });
+    expect(retry.branch).toBe(archived.branch);
+    expect(retry.workdir).toBe(archived.workdir);
+    expect(retry.workflowName).not.toBe(archived.workflowName);
+    expect(retry.workflowName).toMatch(
+      /^BrainBuildTaskS05T01Green[0-9a-f]{12}$/,
+    );
+  });
+
   it("binds the reservation and launch inputs to current authority and exact replay", () => {
     const coordinates = {
       authorityId: "123456789abc",
@@ -517,6 +543,55 @@ describe("lane-green authority reproof launch", () => {
       start_sha: sha("9"),
       task_id: "S05-T01",
       workdir: "/workdir",
+    });
+  });
+
+  it("pins a terminal retry to its archive and preserved candidate", () => {
+    const spec = buildLaneGreenAuthorityReproofLaunchSpec({
+      controlCommonDir: "/git-common",
+      controlHeadSha: sha("a"),
+      controlRoot: "/repo",
+      coordinates: {
+        authorityId: "123456789abc",
+        branch: "fabro/reproof-s05-t01-green-123456789abc",
+        workdir: "/workdir",
+        workflowName: "BrainBuildTaskS05T01Green123456789abc",
+      },
+      evidence: "/evidence",
+      planSha256: sha("b", 64),
+      proofBaseSha: sha("1"),
+      proofFindingIds: ["OWNERSHIP-S05-T01-001"],
+      proofGateStage: "pre-review",
+      proofHeadSha: sha("2"),
+      proofPlanSha256: sha("3", 64),
+      proofTaskBlockHash: sha("4", 64),
+      sourceBaseSha: sha("c"),
+      sourceCommits: [sha("d")],
+      sourceCommitPatchSha256s: [sha("8", 64)],
+      sourceHeadSha: sha("d"),
+      sourceTreeSha: sha("f"),
+      startSha: sha("9"),
+      taskBlockHash: sha("7", 64),
+      taskId: "S05-T01",
+      terminalRetry: {
+        archiveActionId: sha("5", 64),
+        archiveSha256: sha("6", 64),
+        candidateTreeSha: sha("0"),
+        priorRunId: "01KY6A17F7BF5FYK7ARGYT2G9V",
+        terminalStatus: "failed",
+      },
+    });
+    expect(spec.configInputs).toMatchObject({
+      resume_mode: "none",
+      start_sha: sha("9"),
+    });
+    expect(spec.preparingRecord).toMatchObject({
+      terminalArchiveActionId: sha("5", 64),
+      terminalArchiveSha256: sha("6", 64),
+      terminalCandidateHeadSha: sha("9"),
+      terminalCandidateTreeSha: sha("0"),
+      terminalPriorRunId: "01KY6A17F7BF5FYK7ARGYT2G9V",
+      terminalStatus: "failed",
     });
   });
 
