@@ -759,6 +759,9 @@ describe("Fabro workflow prompt contracts", () => {
       "record newly run lint, typecheck, coverage, or diagnostic commands only as supplemental command results",
     );
     expect(implement).toContain(
+      "read planSha256 and taskBlockHash from $BRAIN_CONTROL_ROOT/docs/superpowers/execution/maestro-brain/task-manifest.json",
+    );
+    expect(implement).toContain(
       "after any repair, if it exceeds the manifest sourceSliceLimit",
     );
     expect(implement).toContain("never create empty padding commits");
