@@ -480,6 +480,74 @@ describe("Fabro workflow prompt contracts", () => {
     );
   });
 
+  it("runs plan-only authority as exact replay and review only", () => {
+    const buildTask = readFileSync(
+      resolve(
+        import.meta.dirname,
+        "../../../.fabro/workflows/brain-build-task/workflow.fabro",
+      ),
+      "utf8",
+    );
+    const nodeLine = (nodeId: string): string => {
+      const line = buildTask
+        .split("\n")
+        .find((candidate) => candidate.trimStart().startsWith(`${nodeId} [`));
+      if (!line) throw new Error(`${nodeId}: workflow node is missing`);
+      return line;
+    };
+    const extract = (line: string, start: string, end: string): string => {
+      const from = line.indexOf(start);
+      const through = line.indexOf(end, from);
+      if (from < 0 || through < 0) throw new Error(`missing ${start}`);
+      return line.slice(from, through + end.length);
+    };
+    const exactCandidateClause =
+      'if [ \\"$BRAIN_RESUME_MODE\\" = plan-only-authority ]; then ' +
+      'rtk proxy test -z \\"$(rtk proxy git status --porcelain=v1)\\"; ' +
+      'rtk proxy test \\"$(rtk proxy git rev-parse HEAD)\\" = ' +
+      '\\"$BRAIN_RESUME_EXPECTED_COMMIT\\"; ' +
+      "rtk proxy git diff --quiet; rtk proxy git diff --cached --quiet; " +
+      "exit 0; fi";
+    for (const nodeId of ["preflight", "apply_archive"]) {
+      const clause = extract(
+        nodeLine(nodeId),
+        'if [ \\"$BRAIN_RESUME_MODE\\" = plan-only-authority ]',
+        "exit 0; fi",
+      );
+      expect(clause).toBe(exactCandidateClause);
+      expect(clause).not.toMatch(
+        /cherry-pick|--abort|--continue|--allow-empty|git commit/,
+      );
+    }
+    const exactPrompt =
+      "When $BRAIN_RESUME_MODE is plan-only-authority, Plan-only authority is " +
+      "replay/review-only: do not edit source or test files. The only permitted " +
+      "content write is the task CI proof packet. Do not format, generate, " +
+      "amend, commit, cherry-pick, abort, continue, or create empty commits. " +
+      "Inspect the exact clean candidate and continue directly to proof handoff.";
+    expect(
+      extract(
+        nodeLine("implement"),
+        "When $BRAIN_RESUME_MODE is plan-only-authority",
+        "continue directly to proof handoff.",
+      ),
+    ).toBe(exactPrompt);
+    for (const edge of [
+      "gates -> review_snapshot",
+      "review_snapshot -> review_fork",
+      "review_fork -> review_contract",
+      "review_fork -> review_safety",
+      "review_fork -> review_quality",
+      "review_contract -> review_merge",
+      "review_safety -> review_merge",
+      "review_quality -> review_merge",
+      "review_merge -> review_aggregate",
+      "aggregate_gate -> final_gates",
+      "final_gates -> complete",
+    ])
+      expect(buildTask).toContain(edge);
+  });
+
   it("salvages only the pinned dirty S04-T02 repair through Fabro", () => {
     const salvage = readFileSync(
       resolve(
