@@ -16,6 +16,8 @@ import {
   acquireReviewAggregationSocketLease,
   releaseReviewAggregationSocketLease,
 } from "./review-aggregation-lease.js";
+import { buildManifest } from "./manifest.js";
+import { validateProofContract } from "./proof.js";
 
 export const REVIEW_WORKTREE_LENSES = [
   "contract",
@@ -504,12 +506,15 @@ const assertReviewReceiptMetadata = (
   if (
     value.status !== "aggregating" &&
     value.status !== "resuming" &&
+    value.status !== "retiring" &&
     value.status !== "cleaned"
   )
     fail();
   const cleaned = value.status === "cleaned";
+  const retiring = value.status === "retiring";
+  const terminal = cleaned || retiring;
   if (
-    cleaned &&
+    terminal &&
     value.phase === undefined &&
     hasExactKeys(["preparedObject", "result"]) &&
     typeof value.preparedObject === "string" &&
@@ -517,13 +522,13 @@ const assertReviewReceiptMetadata = (
     abortedResultIsValid()
   )
     return;
-  if (cleaned && value.phase !== "promoted") fail();
+  if (terminal && value.phase !== "promoted") fail();
   const lifecycleKeys = [
     "leaseAuthority",
     "leaseToken",
     "phase",
     ...(value.phase === "admitting" ? [] : ["result"]),
-    ...(cleaned ? ["preparedObject"] : []),
+    ...(terminal ? ["preparedObject"] : []),
   ];
   if (
     !hasExactKeys(lifecycleKeys) ||
@@ -534,7 +539,7 @@ const assertReviewReceiptMetadata = (
     typeof value.leaseAuthority !== "string" ||
     !/^127\.0\.0\.1:(?:[1-9][0-9]{0,4})$/.test(value.leaseAuthority) ||
     Number(value.leaseAuthority.slice("127.0.0.1:".length)) > 65_535 ||
-    (cleaned &&
+    (terminal &&
       (typeof value.preparedObject !== "string" ||
         !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(value.preparedObject))) ||
     (value.phase !== "admitting" &&
@@ -577,6 +582,107 @@ const resolveActivePrepared = (
     prepared.root,
   );
   return prepared;
+};
+
+const resolveStalePlanCleanupPrepared = (
+  input: ReviewWorktreeCoordinates,
+): ReturnType<typeof layout> => {
+  const requested = layout(input);
+  const active = readNamespace(requested.workdir, requested.namespaceRef);
+  const latestReceipt = active
+    ? undefined
+    : [
+        ...attemptReceiptVisits(
+          requested.workdir,
+          requested.receiptRef,
+          input.attemptId,
+        ),
+      ].sort((left, right) => right.visit - left.visit)[0]?.receipt;
+  const authority = active ?? latestReceipt;
+  if (!authority) throw new Error("managed review namespace is not prepared");
+  const attemptId = authority.value.attemptId;
+  if (
+    typeof attemptId !== "string" ||
+    authority.value.requestedAttemptId !== input.attemptId
+  )
+    throw new Error("managed review attempt coordinate mismatch");
+  const prepared = layout({ ...input, attemptId }, input.attemptId);
+  if (authority.value.taskBlockHash !== prepared.metadata.taskBlockHash)
+    throw new Error("stale review cleanup task contract changed");
+  if (authority.value.planSha256 === prepared.metadata.planSha256)
+    throw new Error("invalid managed review attempt receipt");
+  const manifest = buildManifest();
+  const task = manifest.tasks.find(({ taskId }) => taskId === input.taskId);
+  if (!task) throw new Error(`unknown review task ${input.taskId}`);
+  const proof = jsonRecord(
+    resolve(
+      validateCoordinates(input).evidence,
+      "lane-results",
+      input.taskId,
+      "ci-proof-packet.json",
+    ),
+  );
+  const proofPlanSha256 = validateProofContract(proof, {
+    taskBlockHash: task.taskBlockHash,
+    taskId: input.taskId,
+  });
+  if (
+    proofPlanSha256 !== manifest.planSha256 ||
+    prepared.metadata.planSha256 !== manifest.planSha256
+  )
+    throw new Error("stale review cleanup plan authority mismatch");
+  const receipt = readNamespace(prepared.workdir, prepared.receiptRef);
+  if (!receipt) throw new Error("managed review worktrees are not prepared");
+  if (active && active.object !== receipt.object)
+    throw new Error("managed review attempt receipt mismatch");
+  if (!active && receipt.value.status !== "cleaned")
+    throw new Error("managed review namespace is not prepared");
+  const planSha256 = authority.value.planSha256;
+  const proofSha256 = authority.value.proofSha256;
+  const evidenceSha256 = authority.value.evidenceSha256;
+  if (
+    typeof planSha256 !== "string" ||
+    planSha256.length === 0 ||
+    typeof proofSha256 !== "string" ||
+    typeof evidenceSha256 !== "string"
+  )
+    throw new Error("invalid managed review attempt receipt");
+  const staleMetadata: ReviewWorktreeMetadata = {
+    ...prepared.metadata,
+    planSha256,
+    proofSha256,
+    evidenceSha256,
+  };
+  assertReviewReceiptMetadata(
+    authority.value,
+    staleMetadata,
+    attemptId,
+    prepared.root,
+  );
+  if (receipt.object !== authority.object)
+    throw new Error("managed review attempt receipt mismatch");
+  assertReviewReceiptMetadata(
+    receipt.value,
+    staleMetadata,
+    attemptId,
+    prepared.root,
+  );
+  return { ...prepared, metadata: staleMetadata };
+};
+
+const resolveCleanupPrepared = (
+  input: ReviewWorktreeCoordinates,
+): ReturnType<typeof layout> => {
+  try {
+    return resolveActivePrepared(input, true);
+  } catch (error) {
+    if (
+      !(error instanceof Error) ||
+      error.message !== "invalid managed review attempt receipt"
+    )
+      throw error;
+    return resolveStalePlanCleanupPrepared(input);
+  }
 };
 
 const assertClean = (workdir: string, context: string): void => {
@@ -951,12 +1057,18 @@ interface ReviewCleanupAuthority {
   readonly status: "aggregating" | "resuming";
 }
 
+export interface ReviewCleanupHooks {
+  readonly afterClaim?: () => void;
+  readonly beforeClaim?: () => void;
+}
+
 const cleanupReviewWorktreesWithReason = (
   input: ReviewWorktreeCoordinates,
   reason: "invalid-checkpoint" | "operator-cleanup",
   authority?: ReviewCleanupAuthority,
+  hooks: ReviewCleanupHooks = {},
 ): void => {
-  const prepared = authority?.prepared ?? resolveActivePrepared(input, true);
+  const prepared = authority?.prepared ?? resolveCleanupPrepared(input);
   const currentNamespace = readNamespace(
     prepared.workdir,
     prepared.namespaceRef,
@@ -970,15 +1082,16 @@ const cleanupReviewWorktreesWithReason = (
       currentReceipt?.object !== authority.receipt.object)
   )
     throw new Error("review aggregation authority changed before retirement");
-  const namespace = authority?.namespace ?? currentNamespace;
-  const attemptReceipt = authority?.receipt ?? currentReceipt;
+  let namespace = authority?.namespace ?? currentNamespace;
+  let attemptReceipt = authority?.receipt ?? currentReceipt;
   if (!namespace && attemptReceipt?.value.status === "cleaned") return;
   if (!namespace || !attemptReceipt)
     throw new Error("managed review worktrees are not prepared");
   if (
     namespace.value.status !== "prepared" &&
     namespace.value.status !== "aggregating" &&
-    namespace.value.status !== "resuming"
+    namespace.value.status !== "resuming" &&
+    namespace.value.status !== "retiring"
   )
     throw new Error("invalid managed review namespace receipt");
   if (
@@ -986,6 +1099,7 @@ const cleanupReviewWorktreesWithReason = (
     attemptReceipt.value.status !== namespace.value.status
   )
     throw new Error("managed review attempt receipt mismatch");
+  const retiring = namespace.value.status === "retiring";
   if (existsSync(prepared.root)) assertNoManagedSymlinks(prepared.root);
   const entries = existsSync(prepared.root)
     ? readdirSync(prepared.root).sort()
@@ -993,18 +1107,96 @@ const cleanupReviewWorktreesWithReason = (
   const expected = [...REVIEW_WORKTREE_LENSES].sort();
   if (entries.some((entry) => !expected.includes(entry as ReviewWorktreeLens)))
     throw new Error("managed review root contains an unexpected path");
+  if (!retiring && JSON.stringify(entries) !== JSON.stringify(expected))
+    throw new Error("managed review root does not contain every lens");
+
+  const registered = new Set(
+    git(prepared.workdir, "worktree", "list", "--porcelain")
+      .split("\n")
+      .filter((line) => line.startsWith("worktree "))
+      .map((line) => line.slice("worktree ".length)),
+  );
 
   for (const lens of REVIEW_WORKTREE_LENSES) {
     const path = prepared.paths[lens];
-    if (!existsSync(path)) continue;
+    if (!existsSync(path)) {
+      if (!retiring)
+        throw new Error("managed review root does not contain every lens");
+      continue;
+    }
     assertNoManagedSymlinks(path);
     if (!existsSync(path) || lstatSync(path).isSymbolicLink())
       throw new Error("managed review path must not contain symlinks");
     if (realpathSync(path) !== path)
       throw new Error("managed review path must not contain symlinks");
+    if (!registered.has(path))
+      throw new Error(`${lens}: managed review worktree is not registered`);
     if (git(path, "branch", "--show-current") !== prepared.branches[lens])
       throw new Error(`${lens}: managed review branch identity mismatch`);
+    if (
+      namespace.value.status === "prepared" &&
+      git(path, "rev-parse", "HEAD") !== prepared.metadata.headSha
+    )
+      throw new Error(`${lens}: managed review HEAD identity mismatch`);
+    if (
+      namespace.value.status === "prepared" &&
+      git(path, "rev-parse", "HEAD^{tree}") !== prepared.metadata.treeSha
+    )
+      throw new Error(`${lens}: managed review tree identity mismatch`);
     assertClean(path, `${lens} review worktree`);
+  }
+
+  if (!retiring) {
+    const retiringValue =
+      namespace.value.phase === "promoted"
+        ? {
+            ...namespace.value,
+            status: "retiring",
+            preparedObject: namespace.object,
+          }
+        : {
+            status: "retiring",
+            attemptId: namespace.value.attemptId,
+            requestedAttemptId: namespace.value.requestedAttemptId,
+            taskId: namespace.value.taskId,
+            headSha: namespace.value.headSha,
+            treeSha: namespace.value.treeSha,
+            planSha256: namespace.value.planSha256,
+            taskBlockHash: namespace.value.taskBlockHash,
+            proofSha256: namespace.value.proofSha256,
+            evidenceSha256: namespace.value.evidenceSha256,
+            workdir: namespace.value.workdir,
+            root: namespace.value.root,
+            result: { outcome: "aborted", reason },
+            preparedObject: namespace.object,
+          };
+    assertReviewReceiptMetadata(
+      retiringValue,
+      prepared.metadata,
+      prepared.attemptId,
+      prepared.root,
+    );
+    const retiringObject = writeMetadataBlob(prepared.workdir, retiringValue);
+    hooks.beforeClaim?.();
+    try {
+      gitWithInput(
+        prepared.workdir,
+        ["update-ref", "--stdin"],
+        [
+          "start",
+          `update ${prepared.namespaceRef} ${retiringObject} ${namespace.object}`,
+          `update ${prepared.receiptRef} ${retiringObject} ${attemptReceipt.object}`,
+          "prepare",
+          "commit",
+          "",
+        ].join("\n"),
+      );
+    } catch {
+      throw new Error("review namespace cleanup claim CAS failed");
+    }
+    namespace = { object: retiringObject, value: retiringValue };
+    attemptReceipt = namespace;
+    hooks.afterClaim?.();
   }
 
   for (const lens of REVIEW_WORKTREE_LENSES)
@@ -1012,29 +1204,7 @@ const cleanupReviewWorktreesWithReason = (
       git(prepared.workdir, "worktree", "remove", prepared.paths[lens]);
   if (existsSync(prepared.root))
     rmSync(prepared.root, { recursive: true, force: false });
-  const cleanedValue =
-    namespace.value.phase === "promoted"
-      ? {
-          ...namespace.value,
-          status: "cleaned",
-          preparedObject: namespace.object,
-        }
-      : {
-          status: "cleaned",
-          attemptId: namespace.value.attemptId,
-          requestedAttemptId: namespace.value.requestedAttemptId,
-          taskId: namespace.value.taskId,
-          headSha: namespace.value.headSha,
-          treeSha: namespace.value.treeSha,
-          planSha256: namespace.value.planSha256,
-          taskBlockHash: namespace.value.taskBlockHash,
-          proofSha256: namespace.value.proofSha256,
-          evidenceSha256: namespace.value.evidenceSha256,
-          workdir: namespace.value.workdir,
-          root: namespace.value.root,
-          result: { outcome: "aborted", reason },
-          preparedObject: namespace.object,
-        };
+  const cleanedValue = { ...namespace.value, status: "cleaned" };
   assertReviewReceiptMetadata(
     cleanedValue,
     prepared.metadata,
@@ -1056,13 +1226,15 @@ const cleanupReviewWorktreesWithReason = (
       ].join("\n"),
     );
   } catch {
-    throw new Error("review namespace cleanup CAS failed");
+    throw new Error("review namespace cleanup finalize CAS failed");
   }
 };
 
 export const cleanupReviewWorktrees = (
   input: ReviewWorktreeCoordinates,
-): void => cleanupReviewWorktreesWithReason(input, "operator-cleanup");
+  hooks: ReviewCleanupHooks = {},
+): void =>
+  cleanupReviewWorktreesWithReason(input, "operator-cleanup", undefined, hooks);
 
 export const abortInvalidReviewAggregation = (
   input: ReviewWorktreeCoordinates,

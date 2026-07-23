@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
@@ -13,6 +13,7 @@ import { resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { releaseReviewAggregationSocketLease } from "../src/review-aggregation-lease.js";
+import { buildManifest } from "../src/manifest.js";
 import {
   beginReviewAggregation,
   cleanupReviewWorktrees,
@@ -21,6 +22,9 @@ import {
 } from "../src/review-worktrees.js";
 
 const roots: string[] = [];
+const manifest = buildManifest();
+const fixtureTask = manifest.tasks.find(({ taskId }) => taskId === "S03-T03");
+if (!fixtureTask) throw new Error("missing S03-T03 fixture task");
 
 const git = (directory: string, ...args: string[]): string =>
   execFileSync("rtk", ["proxy", "git", ...args], {
@@ -38,6 +42,11 @@ const gitWithInput = (
     encoding: "utf8",
     input,
   }).trim();
+
+const refExists = (root: string, ref: string): boolean =>
+  spawnSync("rtk", ["proxy", "git", "show-ref", "--verify", "--quiet", ref], {
+    cwd: root,
+  }).status === 0;
 
 const copyReceiptForAttempt = (
   root: string,
@@ -97,7 +106,7 @@ const fixture = () => {
       taskId: "S03-T03",
       headSha,
       planSha256: "plan-sha-256",
-      taskBlockHash: "task-block-hash",
+      taskBlockHash: fixtureTask.taskBlockHash,
     })}\n`,
   );
   return {
@@ -226,7 +235,7 @@ describe("managed review worktrees", () => {
       headSha: input.headSha,
       treeSha: git(root, "rev-parse", "HEAD^{tree}"),
       planSha256: "plan-sha-256",
-      taskBlockHash: "task-block-hash",
+      taskBlockHash: fixtureTask.taskBlockHash,
     });
     expect(prepared.metadata.proofSha256).toMatch(/^[0-9a-f]{64}$/);
     expect(prepared.metadata.evidenceSha256).toMatch(/^[0-9a-f]{64}$/);
@@ -248,6 +257,234 @@ describe("managed review worktrees", () => {
     cleanupReviewWorktrees(input);
     expect(() => prepareReviewWorktrees(next)).not.toThrow();
     cleanupReviewWorktrees(next);
+  });
+
+  it("retires a clean prepared namespace after plan authority advances", () => {
+    const { input, root } = fixture();
+    const prepared = prepareReviewWorktrees(input);
+    const proofPath = resolve(
+      input.evidence,
+      "lane-results",
+      input.taskId,
+      "ci-proof-packet.json",
+    );
+    writeFileSync(
+      proofPath,
+      `${JSON.stringify({
+        schemaVersion: "maestro-brain-ci-proof/v1",
+        taskId: input.taskId,
+        headSha: input.headSha,
+        planSha256: manifest.planSha256,
+        taskBlockHash: fixtureTask.taskBlockHash,
+      })}\n`,
+    );
+
+    expect(() => cleanupReviewWorktrees(input)).not.toThrow();
+    expect(refExists(root, prepared.namespaceRef)).toBe(false);
+    const cleaned = JSON.parse(
+      git(root, "cat-file", "blob", prepared.receiptRef),
+    ) as Record<string, unknown>;
+    expect(cleaned).toMatchObject({
+      status: "cleaned",
+      planSha256: "plan-sha-256",
+      taskBlockHash: fixtureTask.taskBlockHash,
+      result: { outcome: "aborted", reason: "operator-cleanup" },
+    });
+    expect(() => cleanupReviewWorktrees(input)).not.toThrow();
+  });
+
+  it("rejects stale-plan cleanup after the task contract changes", () => {
+    const { input } = fixture();
+    const prepared = prepareReviewWorktrees(input);
+    writeFileSync(
+      resolve(
+        input.evidence,
+        "lane-results",
+        input.taskId,
+        "ci-proof-packet.json",
+      ),
+      `${JSON.stringify({
+        schemaVersion: "maestro-brain-ci-proof/v1",
+        taskId: input.taskId,
+        headSha: input.headSha,
+        planSha256: manifest.planSha256,
+        taskBlockHash: "changed-task-block-hash",
+      })}\n`,
+    );
+
+    expect(() => cleanupReviewWorktrees(input)).toThrow(
+      "stale review cleanup task contract changed",
+    );
+    expect(existsSync(prepared.root)).toBe(true);
+  });
+
+  it("rejects stale-plan cleanup when active and attempt refs diverge", () => {
+    const { input, root } = fixture();
+    const prepared = prepareReviewWorktrees(input);
+    writeFileSync(
+      resolve(
+        input.evidence,
+        "lane-results",
+        input.taskId,
+        "ci-proof-packet.json",
+      ),
+      `${JSON.stringify({
+        schemaVersion: "maestro-brain-ci-proof/v1",
+        taskId: input.taskId,
+        headSha: input.headSha,
+        planSha256: manifest.planSha256,
+        taskBlockHash: fixtureTask.taskBlockHash,
+      })}\n`,
+    );
+    rewriteReceipt(root, prepared.receiptRef, (metadata) => ({
+      ...metadata,
+      evidenceSha256: "a".repeat(64),
+    }));
+
+    expect(() => cleanupReviewWorktrees(input)).toThrow(
+      "managed review attempt receipt mismatch",
+    );
+    expect(refExists(root, prepared.namespaceRef)).toBe(true);
+  });
+
+  it("rejects a non-canonical replacement proof plan", () => {
+    const { input } = fixture();
+    const prepared = prepareReviewWorktrees(input);
+    writeFileSync(
+      resolve(
+        input.evidence,
+        "lane-results",
+        input.taskId,
+        "ci-proof-packet.json",
+      ),
+      `${JSON.stringify({
+        schemaVersion: "maestro-brain-ci-proof/v1",
+        taskId: input.taskId,
+        headSha: input.headSha,
+        planSha256: "fabricated-current-plan",
+        taskBlockHash: fixtureTask.taskBlockHash,
+      })}\n`,
+    );
+
+    expect(() => cleanupReviewWorktrees(input)).toThrow(
+      "stale review cleanup plan authority mismatch",
+    );
+    expect(existsSync(prepared.root)).toBe(true);
+  });
+
+  it("requires all managed worktrees at the prepared head and tree", () => {
+    const missing = fixture();
+    const missingPrepared = prepareReviewWorktrees(missing.input);
+    git(missing.root, "worktree", "remove", missingPrepared.paths.contract);
+    writeFileSync(
+      resolve(
+        missing.input.evidence,
+        "lane-results",
+        missing.input.taskId,
+        "ci-proof-packet.json",
+      ),
+      `${JSON.stringify({
+        schemaVersion: "maestro-brain-ci-proof/v1",
+        taskId: missing.input.taskId,
+        headSha: missing.input.headSha,
+        planSha256: manifest.planSha256,
+        taskBlockHash: fixtureTask.taskBlockHash,
+      })}\n`,
+    );
+    expect(() => cleanupReviewWorktrees(missing.input)).toThrow(
+      "managed review root does not contain every lens",
+    );
+
+    const advanced = fixture();
+    const advancedPrepared = prepareReviewWorktrees(advanced.input);
+    writeFileSync(
+      resolve(advancedPrepared.paths.contract, "tracked.txt"),
+      "advanced\n",
+    );
+    git(advancedPrepared.paths.contract, "add", "tracked.txt");
+    git(advancedPrepared.paths.contract, "commit", "-qm", "test: advance lens");
+    writeFileSync(
+      resolve(
+        advanced.input.evidence,
+        "lane-results",
+        advanced.input.taskId,
+        "ci-proof-packet.json",
+      ),
+      `${JSON.stringify({
+        schemaVersion: "maestro-brain-ci-proof/v1",
+        taskId: advanced.input.taskId,
+        headSha: advanced.input.headSha,
+        planSha256: manifest.planSha256,
+        taskBlockHash: fixtureTask.taskBlockHash,
+      })}\n`,
+    );
+    expect(() => cleanupReviewWorktrees(advanced.input)).toThrow(
+      "contract: managed review HEAD identity mismatch",
+    );
+  });
+
+  it("claims cleanup authority before removal and resumes after a crash", () => {
+    const drifted = fixture();
+    const driftedPrepared = prepareReviewWorktrees(drifted.input);
+    writeFileSync(
+      resolve(
+        drifted.input.evidence,
+        "lane-results",
+        drifted.input.taskId,
+        "ci-proof-packet.json",
+      ),
+      `${JSON.stringify({
+        schemaVersion: "maestro-brain-ci-proof/v1",
+        taskId: drifted.input.taskId,
+        headSha: drifted.input.headSha,
+        planSha256: manifest.planSha256,
+        taskBlockHash: fixtureTask.taskBlockHash,
+      })}\n`,
+    );
+    expect(() =>
+      cleanupReviewWorktrees(drifted.input, {
+        beforeClaim: () =>
+          rewriteReceipt(
+            drifted.root,
+            driftedPrepared.namespaceRef,
+            (metadata) => ({ ...metadata, evidenceSha256: "b".repeat(64) }),
+          ),
+      }),
+    ).toThrow("review namespace cleanup claim CAS failed");
+    expect(existsSync(driftedPrepared.root)).toBe(true);
+
+    const crashed = fixture();
+    const crashedPrepared = prepareReviewWorktrees(crashed.input);
+    writeFileSync(
+      resolve(
+        crashed.input.evidence,
+        "lane-results",
+        crashed.input.taskId,
+        "ci-proof-packet.json",
+      ),
+      `${JSON.stringify({
+        schemaVersion: "maestro-brain-ci-proof/v1",
+        taskId: crashed.input.taskId,
+        headSha: crashed.input.headSha,
+        planSha256: manifest.planSha256,
+        taskBlockHash: fixtureTask.taskBlockHash,
+      })}\n`,
+    );
+    expect(() =>
+      cleanupReviewWorktrees(crashed.input, {
+        afterClaim: () => {
+          throw new Error("simulated cleanup crash");
+        },
+      }),
+    ).toThrow("simulated cleanup crash");
+    const retiring = JSON.parse(
+      git(crashed.root, "cat-file", "blob", crashedPrepared.namespaceRef),
+    ) as Record<string, unknown>;
+    expect(retiring.status).toBe("retiring");
+    expect(existsSync(crashedPrepared.root)).toBe(true);
+    expect(() => cleanupReviewWorktrees(crashed.input)).not.toThrow();
+    expect(existsSync(crashedPrepared.root)).toBe(false);
+    expect(refExists(crashed.root, crashedPrepared.namespaceRef)).toBe(false);
   });
 
   it("allocates visits by numeric maximum across gaps and v10", () => {
