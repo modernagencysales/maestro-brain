@@ -9,6 +9,7 @@ import {
 } from "./dispatch-ownership.js";
 import { buildManifest } from "./manifest.js";
 import { loadPlanOnlyLaneAuthorityAdmission } from "./plan-only-lane-authority-admission.js";
+import { inspectLaneGreenAuthorityReproofRun } from "./lane-green-authority-reproof-owner.js";
 import {
   type CandidateIdentity,
   planOnlyLaunchCoordinates,
@@ -49,7 +50,7 @@ interface ExecutionInput {
   readonly task: ManifestTask;
 }
 
-const candidateIdentityFromRecord = (
+export const candidateIdentityFromRecord = (
   record: JsonRecord | undefined,
 ): CandidateIdentity | undefined => {
   if (!record || record.phase === "reserved") return undefined;
@@ -103,7 +104,15 @@ const executePlanOnlyLaunch = (input: ExecutionInput): string => {
     return spec;
   };
   let env: NodeJS.ProcessEnv | undefined;
+  const existingRunId =
+    typeof input.prior?.runId === "string" ? input.prior.runId : undefined;
   const runId = runPlanOnlyLaneAuthorityLaunch({
+    ...(existingRunId
+      ? {
+          existingRunId,
+          inspectRunStatus: inspectLaneGreenAuthorityReproofRun,
+        }
+      : {}),
     reserveOwner: () => {
       if (!input.prior)
         reserveTaskPreparing(input.launch.recordPath, reservation);
@@ -165,9 +174,8 @@ const executePlanOnlyLaunch = (input: ExecutionInput): string => {
         taskId: input.launch.taskId,
       }),
     startRun: (runId) => {
-      if (!env) throw new Error("plan-only launch environment is missing");
       runRtk(["fabro", "start", runId, "--json", "--no-upgrade-check"], {
-        env,
+        ...(env ? { env } : {}),
         quiet: true,
       });
     },

@@ -106,6 +106,31 @@ export const planOnlyLaunchCoordinates = (input: {
   };
 };
 
+const replayDeterministically = (input: {
+  readonly sourceCommits: readonly string[];
+  readonly workdir: string;
+}): void => {
+  for (const commit of input.sourceCommits) {
+    const value = (format: string): string =>
+      runRtk(["proxy", "git", "show", "-s", `--format=${format}`, commit], {
+        cwd: input.workdir,
+        quiet: true,
+      });
+    runRtk(
+      ["proxy", "git", "-c", "commit.gpgSign=false", "cherry-pick", commit],
+      {
+        cwd: input.workdir,
+        env: {
+          ...process.env,
+          GIT_COMMITTER_DATE: value("%cI"),
+          GIT_COMMITTER_EMAIL: value("%ce"),
+          GIT_COMMITTER_NAME: value("%cn"),
+        },
+      },
+    );
+  }
+};
+
 export const preparePlanOnlyCandidate = (input: {
   readonly branch: string;
   readonly controlHeadSha: string;
@@ -154,24 +179,6 @@ export const preparePlanOnlyCandidate = (input: {
       });
       return observed;
     }
-    const completed = observeCandidate(input);
-    try {
-      assertPlanOnlyCandidateIdentity({
-        expected: {
-          ...completed,
-          patchDigests: input.expectedPatchDigests,
-        },
-        observed: completed,
-      });
-      if (completed.candidateCommits.length === input.sourceCommits.length)
-        return completed;
-    } catch (error) {
-      if (
-        !(error instanceof Error) ||
-        !error.message.includes("candidate identity mismatch")
-      )
-        throw error;
-    }
     try {
       runRtk(["proxy", "git", "cherry-pick", "--abort"], {
         cwd: input.workdir,
@@ -185,9 +192,7 @@ export const preparePlanOnlyCandidate = (input: {
       quiet: true,
     });
   }
-  runRtk(["proxy", "git", "cherry-pick", ...input.sourceCommits], {
-    cwd: input.workdir,
-  });
+  replayDeterministically(input);
   const observed = observeCandidate(input);
   assertPlanOnlyCandidateIdentity({
     expected: {

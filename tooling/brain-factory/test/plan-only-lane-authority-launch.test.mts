@@ -7,6 +7,7 @@ import {
   runPlanOnlyLaneAuthorityLaunch,
 } from "../src/plan-only-lane-authority-launch.js";
 import { assertPlanOnlyCandidateIdentity } from "../src/plan-only-lane-authority-candidate.js";
+import { candidateIdentityFromRecord } from "../src/plan-only-lane-authority-run.js";
 
 const sha40 = (value: string): string => value.repeat(40).slice(0, 40);
 const sha64 = (value: string): string => value.repeat(64).slice(0, 64);
@@ -138,5 +139,44 @@ describe("plan-only lane authority launch", () => {
       }),
     ).toThrow("conflict");
     expect(calls).toEqual(["reserve", "replay"]);
+  });
+
+  it("reconciles a durable creating run without creating another", () => {
+    const calls: string[] = [];
+    expect(
+      runPlanOnlyLaneAuthorityLaunch({
+        existingRunId: "01KZZZZZZZZZZZZZZZZZZZZZZZ",
+        inspectRunStatus: () => "running",
+        reserveOwner: () => calls.push("reserve"),
+        prepareExactCandidate: () => {
+          calls.push("replay");
+          return sha40("a");
+        },
+        createRun: () => {
+          calls.push("create");
+          return "duplicate";
+        },
+        recordRun: () => calls.push("record"),
+        startRun: () => calls.push("start"),
+        promoteOwner: () => calls.push("promote"),
+      }),
+    ).toBe("01KZZZZZZZZZZZZZZZZZZZZZZZ");
+    expect(calls).toEqual(["reserve", "replay", "promote"]);
+  });
+
+  it("never adopts candidate identity from a reserved record", () => {
+    const replayed = {
+      branch: "fabro/plan-only-s11-t02",
+      candidateCommitPatchSha256s: [sha64("1")],
+      candidateCommits: [sha40("2")],
+      candidateCommonDir: "/repo/.git",
+      candidateHeadSha: sha40("2"),
+      candidateTreeSha: sha40("3"),
+      phase: "reserved",
+    };
+    expect(candidateIdentityFromRecord(replayed)).toBeUndefined();
+    expect(
+      candidateIdentityFromRecord({ ...replayed, phase: "replayed" }),
+    ).toMatchObject({ candidateHeadSha: sha40("2") });
   });
 });

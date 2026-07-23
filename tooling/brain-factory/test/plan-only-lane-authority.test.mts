@@ -84,6 +84,21 @@ const input = (): DeepMutable<PlanOnlyLaneAuthorityInput> => {
     },
     sourceCommitPatchSha256s: [sha64("5"), sha64("6")],
     sourceRunId: "01KY0129952Y9Q549YA9FQH56B",
+    sourceRunProvenance: {
+      baseSha: sourceBaseSha,
+      ciProofPacketSha256: sha64("3"),
+      evidenceDirectory: "/state/evidence/lane-results/S11-T02",
+      laneGateReportSha256: sha64("4"),
+      laneHeadSha: sourceHeadSha,
+      laneResultSha256: sha64("2"),
+      laneTreeSha: sourceTreeSha,
+      mode: "resume-review",
+      planSha256: sha64("a"),
+      runId: "01KY0129952Y9Q549YA9FQH56B",
+      status: "succeeded",
+      taskBlockHash,
+      taskId,
+    },
     sourceTreeSha,
     transition: {
       schemaVersion: "maestro-brain-plan-only-lane-authority/v1",
@@ -163,6 +178,24 @@ describe("plan-only lane authority admission", () => {
       "unrelated source run",
       (value: DeepMutable<PlanOnlyLaneAuthorityInput>) => {
         value.sourceRunId = "01KZZZZZZZZZZZZZZZZZZZZZZZ";
+      },
+    ],
+    [
+      "source run base",
+      (value: DeepMutable<PlanOnlyLaneAuthorityInput>) => {
+        value.sourceRunProvenance.baseSha = sha40("9");
+      },
+    ],
+    [
+      "source run lane identity",
+      (value: DeepMutable<PlanOnlyLaneAuthorityInput>) => {
+        value.sourceRunProvenance.laneHeadSha = sha40("9");
+      },
+    ],
+    [
+      "source run proof identity",
+      (value: DeepMutable<PlanOnlyLaneAuthorityInput>) => {
+        value.sourceRunProvenance.ciProofPacketSha256 = sha64("9");
       },
     ],
     [

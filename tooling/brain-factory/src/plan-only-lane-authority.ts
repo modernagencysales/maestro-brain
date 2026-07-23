@@ -25,6 +25,22 @@ export interface PlanOnlyLaneAuthorityHistory {
   readonly sourceLines: number;
 }
 
+export interface PlanOnlySourceRunProvenance {
+  readonly baseSha: string;
+  readonly ciProofPacketSha256: string;
+  readonly evidenceDirectory: string;
+  readonly laneGateReportSha256: string;
+  readonly laneHeadSha: string;
+  readonly laneResultSha256: string;
+  readonly laneTreeSha: string;
+  readonly mode: string;
+  readonly planSha256: string;
+  readonly runId: string;
+  readonly status: string;
+  readonly taskBlockHash: string;
+  readonly taskId: string;
+}
+
 export interface PlanOnlyLaneAuthorityInput {
   readonly controlHeadSha: string;
   readonly currentTask: PlanOnlyLaneAuthorityTask;
@@ -38,6 +54,7 @@ export interface PlanOnlyLaneAuthorityInput {
   readonly integratedTaskIds: readonly string[];
   readonly lane: JsonRecord;
   readonly ownerDisposition: "absent" | "terminal" | "live" | "unknown";
+  readonly sourceRunProvenance: PlanOnlySourceRunProvenance;
   readonly proof: JsonRecord;
   readonly sourceCommitPatchSha256s: readonly string[];
   readonly sourceRunId: string;
@@ -131,6 +148,23 @@ export const admitPlanOnlyLaneAuthority = (
     transition.taskBlockHash !== input.proof.taskBlockHash
   )
     throw new Error(`${task.taskId}: plan-only authority identity drifted`);
+  const provenance = input.sourceRunProvenance;
+  if (
+    provenance.runId !== transition.sourceRunId ||
+    provenance.taskId !== task.taskId ||
+    provenance.status !== "succeeded" ||
+    provenance.mode !== "resume-review" ||
+    provenance.baseSha !== transition.sourceBaseSha ||
+    provenance.laneHeadSha !== transition.sourceHeadSha ||
+    provenance.laneTreeSha !== transition.sourceTreeSha ||
+    provenance.planSha256 !== transition.fromPlanSha256 ||
+    provenance.taskBlockHash !== transition.taskBlockHash ||
+    provenance.laneResultSha256 !== transition.laneResultSha256 ||
+    provenance.ciProofPacketSha256 !== transition.ciProofPacketSha256 ||
+    provenance.laneGateReportSha256 !== transition.laneGateReportSha256 ||
+    !provenance.evidenceDirectory.endsWith(`/lane-results/${task.taskId}`)
+  )
+    throw new Error(`${task.taskId}: source run provenance drifted`);
   if (input.ownerDisposition === "live" || input.ownerDisposition === "unknown")
     throw new Error(
       `${task.taskId}: current owner is ${input.ownerDisposition}`,

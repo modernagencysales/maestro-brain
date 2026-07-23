@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { resolveIntegratedPrerequisiteTaskIds } from "./authority-repair-prerequisites.js";
@@ -9,6 +9,7 @@ import {
   type PlanOnlyLaneAuthorityAdmission,
   type PlanOnlyLaneAuthorityHistory,
 } from "./plan-only-lane-authority.js";
+import { loadPlanOnlySourceRunProvenance } from "./plan-only-lane-authority-source-run.js";
 import { runRtk } from "./process.js";
 import { changedHandAuthoredSourceLines } from "./source-budget.js";
 import type { BrainTaskManifest } from "./manifest.js";
@@ -32,34 +33,6 @@ const parseRecord = (bytes: Buffer, label: string): JsonRecord => {
 
 const sha256 = (bytes: Buffer): string =>
   createHash("sha256").update(bytes).digest("hex");
-
-const sourceRunIdForTransition = (input: {
-  readonly evidence: string;
-  readonly expectedRunId: string;
-  readonly taskId: string;
-}): string => {
-  const runs = resolve(input.evidence, "..", "runs");
-  const records = readdirSync(runs)
-    .filter(
-      (name) =>
-        name === `${input.taskId}.json` ||
-        name.startsWith(`${input.taskId}.json.terminal-`),
-    )
-    .map((name) =>
-      parseRecord(
-        readFileSync(resolve(runs, name)),
-        `${input.taskId}: source run ${name}`,
-      ),
-    )
-    .filter((record) => record.runId === input.expectedRunId);
-  if (
-    records.length !== 1 ||
-    records[0]?.taskId !== input.taskId ||
-    records[0]?.status !== "launched"
-  )
-    throw new Error(`${input.taskId}: immutable source run identity drifted`);
-  return input.expectedRunId;
-};
 
 const historyForTransition = (input: {
   readonly root: string;
@@ -153,6 +126,14 @@ export const loadPlanOnlyLaneAuthorityAdmission = (input: {
   const laneBytes = readFileSync(resolve(directory, "lane-result.json"));
   const proofBytes = readFileSync(resolve(directory, "ci-proof-packet.json"));
   const gateBytes = readFileSync(resolve(directory, "lane-gate-report.json"));
+  const lane = parseRecord(laneBytes, `${input.task.taskId}: lane result`);
+  const proof = parseRecord(proofBytes, `${input.task.taskId}: CI proof`);
+  const finalGate = parseRecord(gateBytes, `${input.task.taskId}: final gate`);
+  const evidenceSha256s = {
+    ciProofPacket: sha256(proofBytes),
+    laneGateReport: sha256(gateBytes),
+    laneResult: sha256(laneBytes),
+  };
   runRtk(
     [
       "proxy",
@@ -191,12 +172,8 @@ export const loadPlanOnlyLaneAuthorityAdmission = (input: {
       taskBlockHash: input.task.taskBlockHash,
       taskId: input.task.taskId,
     },
-    evidenceSha256s: {
-      ciProofPacket: sha256(proofBytes),
-      laneGateReport: sha256(gateBytes),
-      laneResult: sha256(laneBytes),
-    },
-    finalGate: parseRecord(gateBytes, `${input.task.taskId}: final gate`),
+    evidenceSha256s,
+    finalGate,
     history,
     integratedTaskIds:
       input.integratedTaskIds ??
@@ -204,15 +181,21 @@ export const loadPlanOnlyLaneAuthorityAdmission = (input: {
         ...input,
         task: input.task,
       }),
-    lane: parseRecord(laneBytes, `${input.task.taskId}: lane result`),
+    lane,
     ownerDisposition: input.ownerDisposition,
-    proof: parseRecord(proofBytes, `${input.task.taskId}: CI proof`),
+    proof,
     sourceCommitPatchSha256s: sourceCommits.map((commit) =>
       gitCommitPatchSha256(input.root, commit),
     ),
-    sourceRunId: sourceRunIdForTransition({
+    sourceRunId: transition.sourceRunId,
+    sourceRunProvenance: loadPlanOnlySourceRunProvenance({
+      baseSha: transition.sourceBaseSha,
       evidence: input.evidence,
+      evidenceDirectory: directory,
+      evidenceSha256s,
       expectedRunId: transition.sourceRunId,
+      lane,
+      proof,
       taskId: input.task.taskId,
     }),
     sourceTreeSha: runRtk(

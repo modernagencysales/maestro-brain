@@ -85,6 +85,8 @@ export const buildPlanOnlyLaneAuthorityLaunchSpec = (input: {
 });
 
 export const runPlanOnlyLaneAuthorityLaunch = (input: {
+  readonly existingRunId?: string;
+  readonly inspectRunStatus?: (runId: string) => string;
   readonly reserveOwner: () => void;
   readonly prepareExactCandidate: () => string;
   readonly createRun: (headSha: string) => string;
@@ -94,6 +96,18 @@ export const runPlanOnlyLaneAuthorityLaunch = (input: {
 }): string => {
   input.reserveOwner();
   const candidateHead = input.prepareExactCandidate();
+  if (input.existingRunId) {
+    if (!input.inspectRunStatus)
+      throw new Error("plan-only run inspection is missing");
+    const status = input.inspectRunStatus(input.existingRunId);
+    if (new Set(["canceled", "cancelled", "failed", "succeeded"]).has(status))
+      throw new Error(
+        `plan-only durable run ${input.existingRunId} is terminal (${status})`,
+      );
+    if (status === "created") input.startRun(input.existingRunId);
+    input.promoteOwner(input.existingRunId);
+    return input.existingRunId;
+  }
   const runId = input.createRun(candidateHead);
   if (!runId) throw new Error("plan-only authority returned no run ID");
   input.recordRun(runId);
