@@ -13,6 +13,7 @@ import {
   cleanupReviewWorktrees,
   prepareReviewWorktrees,
 } from "../src/review-worktrees.js";
+import { captureReviewWorktree } from "../src/review-worktree-guard.js";
 import {
   DEFAULT_REVIEW_RUBRIC_IDS,
   type ReviewLensName,
@@ -226,6 +227,17 @@ describe("Fabro parallel review branch admission", () => {
       workdir: input.workdir,
     };
     try {
+      captureReviewWorktree({
+        evidence: input.evidence,
+        proofPath: resolve(
+          input.evidence,
+          "lane-results",
+          input.taskId,
+          "ci-proof-packet.json",
+        ),
+        taskId: input.taskId,
+        workdir: input.workdir,
+      });
       const prepared = prepareReviewWorktrees(coordinates);
       const safetyBranch = prepared.branches.safety;
       const safetyPath = prepared.paths.safety;
@@ -255,6 +267,31 @@ describe("Fabro parallel review branch admission", () => {
           taskId: input.taskId,
         }),
       ).rejects.toThrow("contract: review checkpoint is missing");
+
+      const retiredRef = git(
+        input.workdir,
+        "for-each-ref",
+        "--format=%(refname)",
+        "refs/maestro-brain/review-worktrees/",
+      )
+        .split("\n")
+        .find((ref) => ref.endsWith(`/attempts/${attempt}-v1`));
+      expect(retiredRef).toBeDefined();
+      if (!retiredRef) throw new Error("retired review receipt is missing");
+      expect(
+        JSON.parse(git(input.workdir, "cat-file", "blob", retiredRef)),
+      ).toMatchObject({
+        result: { outcome: "aborted", reason: "invalid-checkpoint" },
+        status: "cleaned",
+      });
+      expect(
+        git(
+          input.workdir,
+          "for-each-ref",
+          "--format=%(refname)",
+          "refs/maestro-brain/review-guards/",
+        ),
+      ).toBe("");
 
       const retry = prepareReviewWorktrees(coordinates);
       expect(retry.attemptId).toBe(`${attempt}-v2`);

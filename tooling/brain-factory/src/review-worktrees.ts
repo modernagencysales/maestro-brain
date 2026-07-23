@@ -465,6 +465,22 @@ const assertReviewReceiptMetadata = (
             result.reviewVerdict === "rework")))
     );
   };
+  const abortedResultIsValid = (): boolean => {
+    const candidate = value.result;
+    if (
+      typeof candidate !== "object" ||
+      candidate === null ||
+      Array.isArray(candidate)
+    )
+      return false;
+    const result = candidate as Record<string, unknown>;
+    return (
+      Object.keys(result).length === 2 &&
+      result.outcome === "aborted" &&
+      (result.reason === "operator-cleanup" ||
+        result.reason === "invalid-checkpoint")
+    );
+  };
   if (
     value.attemptId !== expectedAttemptId ||
     value.requestedAttemptId !== expectedBase.requestedAttemptId ||
@@ -498,10 +514,7 @@ const assertReviewReceiptMetadata = (
     hasExactKeys(["preparedObject", "result"]) &&
     typeof value.preparedObject === "string" &&
     /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(value.preparedObject) &&
-    sameJson(value.result, {
-      outcome: "aborted",
-      reason: "operator-cleanup",
-    })
+    abortedResultIsValid()
   )
     return;
   if (cleaned && value.phase !== "promoted") fail();
@@ -930,8 +943,9 @@ export const bindReviewAggregationResult = (
   );
 };
 
-export const cleanupReviewWorktrees = (
+const cleanupReviewWorktreesWithReason = (
   input: ReviewWorktreeCoordinates,
+  reason: "invalid-checkpoint" | "operator-cleanup",
 ): void => {
   const prepared = resolveActivePrepared(input, true);
   const namespace = readNamespace(prepared.workdir, prepared.namespaceRef);
@@ -996,7 +1010,7 @@ export const cleanupReviewWorktrees = (
           evidenceSha256: namespace.value.evidenceSha256,
           workdir: namespace.value.workdir,
           root: namespace.value.root,
-          result: { outcome: "aborted", reason: "operator-cleanup" },
+          result: { outcome: "aborted", reason },
           preparedObject: namespace.object,
         };
   assertReviewReceiptMetadata(
@@ -1022,4 +1036,27 @@ export const cleanupReviewWorktrees = (
   } catch {
     throw new Error("review namespace cleanup CAS failed");
   }
+};
+
+export const cleanupReviewWorktrees = (
+  input: ReviewWorktreeCoordinates,
+): void => cleanupReviewWorktreesWithReason(input, "operator-cleanup");
+
+export const abortInvalidReviewAggregation = (
+  input: ReviewWorktreeCoordinates,
+  token: string,
+): void => {
+  const prepared = resolveActivePrepared(input);
+  const active = readNamespace(prepared.workdir, prepared.namespaceRef);
+  const receipt = readNamespace(prepared.workdir, prepared.receiptRef);
+  if (
+    !active ||
+    !receipt ||
+    active.object !== receipt.object ||
+    (active.value.status !== "aggregating" &&
+      active.value.status !== "resuming") ||
+    active.value.leaseToken !== token
+  )
+    throw new Error("review aggregation lease is not active");
+  cleanupReviewWorktreesWithReason(input, "invalid-checkpoint");
 };

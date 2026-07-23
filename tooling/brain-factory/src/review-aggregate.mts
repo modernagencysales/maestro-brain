@@ -23,6 +23,7 @@ import {
   verifyReviewWorktree,
 } from "./review-worktree-guard.js";
 import {
+  abortInvalidReviewAggregation,
   beginReviewAggregation,
   bindReviewAggregationResult,
   cleanupReviewWorktrees,
@@ -342,7 +343,11 @@ export const aggregateParallelReviewBranches = async (input: {
     if (lease) {
       let cleanupError: unknown;
       try {
-        cleanupReviewWorktrees(coordinates);
+        abortInvalidReviewAggregation(coordinates, lease.token);
+        releaseReviewWorktreeGuard({
+          taskId: input.taskId,
+          workdir: input.workdir,
+        });
       } catch (caught) {
         cleanupError = caught;
       } finally {
