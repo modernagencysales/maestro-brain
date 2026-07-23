@@ -34,12 +34,16 @@ const bulkSetChannelPoliciesImpl = FunctionImpl.make(
       const writer = yield* DatabaseWriter;
       const policyReader = reader as unknown as PolicyReader;
       const policyWriter = writer as unknown as PolicyWriter;
-      const actor = yield* loadPolicyActor(reader, input.organizationKey).pipe(
+      const organizationId = yield* resolveOrganizationId(
+        reader,
+        input.organizationKey,
+      );
+      const actor = yield* loadPolicyActor(reader, organizationId).pipe(
         Effect.tapError((error) =>
           recordAccessAuditEvent(
             writer,
             deniedPrivilegedAccessAuditEvent({
-              workspaceId: input.organizationKey,
+              workspaceId: organizationId,
               action: "slack.channelPolicyChanged",
               subjectKind: "privilegedAction",
               subjectId: input.organizationKey,
@@ -72,7 +76,7 @@ const bulkSetChannelPoliciesImpl = FunctionImpl.make(
       const workspaces = (yield* reader
         .table("workspaces")
         .index("by_organization_kind", (q) =>
-          q.eq("organizationId", input.organizationKey).eq("kind", "client"),
+          q.eq("organizationId", organizationId).eq("kind", "client"),
         )
         .take(26)
         .pipe(Effect.orDie)) as readonly {
@@ -87,7 +91,7 @@ const bulkSetChannelPoliciesImpl = FunctionImpl.make(
         .map((workspace) => ({
           brainKey: workspace.brainKey ?? "",
           name: workspace.name,
-          organizationKey: workspace.organizationId,
+          organizationKey: input.organizationKey,
           kind: workspace.kind ?? "client",
           status: workspace.status,
         }));
@@ -146,7 +150,7 @@ const bulkSetChannelPoliciesImpl = FunctionImpl.make(
         yield* recordAccessAuditEvent(
           writer,
           {
-            workspaceId: input.organizationKey,
+            workspaceId: organizationId,
             action: "slack.channelPolicyChanged",
             actorUserId: actor.userId,
             subjectKind: "privilegedAction",
@@ -195,9 +199,23 @@ type PolicyWriter = {
   };
 };
 
-const loadPolicyActor = (
+const resolveOrganizationId = (
   reader: Context.Tag.Service<typeof DatabaseReader>,
   organizationKey: string,
+) =>
+  Effect.gen(function* () {
+    const organization = yield* reader
+      .table("organizations")
+      .index("by_agency_key", (q) => q.eq("agencyKey", organizationKey))
+      .first()
+      .pipe(Effect.orDie);
+    if (organization._tag === "Some") return organization.value._id as string;
+    return yield* Effect.fail(new PolicyInvalid({ reason: "admin_required" }));
+  });
+
+const loadPolicyActor = (
+  reader: Context.Tag.Service<typeof DatabaseReader>,
+  organizationId: string,
 ) =>
   Effect.gen(function* () {
     const user = yield* loadCurrentUser(reader).pipe(
@@ -206,7 +224,7 @@ const loadPolicyActor = (
     const member = yield* reader
       .table("organizationMembers")
       .index("by_organization_user", (q) =>
-        q.eq("organizationId", organizationKey).eq("userId", user._id),
+        q.eq("organizationId", organizationId).eq("userId", user._id),
       )
       .first()
       .pipe(Effect.orDie);
