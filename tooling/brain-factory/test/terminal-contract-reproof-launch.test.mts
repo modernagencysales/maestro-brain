@@ -51,6 +51,9 @@ describe("terminal contract-reproof launch", () => {
     );
     expect(source).toContain("resumeMode: plan.launchInputs.resume_mode");
     expect(source).toContain("materializeBuildTaskRunConfig({");
+    expect(
+      source.match(/readContainedTerminalReproofJson\(\n\s+input\.evidence/g),
+    ).toHaveLength(3);
     expect(source).toContain(
       '".fabro/workflows/brain-build-task/workflow.fabro"',
     );

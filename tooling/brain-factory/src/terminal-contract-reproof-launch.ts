@@ -267,7 +267,7 @@ export const launchTerminalContractReproofResume = (input: {
   );
   const proof = record(
     readContainedTerminalReproofJson(
-      laneResultDirectory,
+      input.evidence,
       resolve(laneResultDirectory, "ci-proof-packet.json"),
       `${input.taskId}: proof`,
     ),
@@ -275,7 +275,7 @@ export const launchTerminalContractReproofResume = (input: {
   );
   const finalGate = record(
     readContainedTerminalReproofJson(
-      laneResultDirectory,
+      input.evidence,
       resolve(laneResultDirectory, "lane-gate-report.json"),
       `${input.taskId}: gate`,
     ),
@@ -289,7 +289,7 @@ export const launchTerminalContractReproofResume = (input: {
   );
   const routing = record(
     readContainedTerminalReproofJson(
-      integrationDirectory,
+      input.evidence,
       resolve(integrationDirectory, "owner-rework-routing.json"),
       `${input.taskId}: owner routing`,
     ),
