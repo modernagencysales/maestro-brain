@@ -38,6 +38,7 @@ const fixture = () => ({
   ],
   controlCommonDir: "/repo/.git",
   controlHeadSha,
+  canonicalOwnerFindingsSha256: findingsSha256,
   currentPlanSha256: digest("b"),
   currentTaskBlockHash: taskBlockHash,
   currentTaskFileLocks: [
@@ -58,9 +59,12 @@ const fixture = () => ({
       reproof_request: requestPath,
       resume_branch: "fabro/reproof-s04-t04-969bd3c8",
       resume_commits: `${sha("1")},${sha("2")}`,
+      resume_mode: "conflict-aware",
+      resume_proof_head: "none",
       resume_source_head: sourceHeadSha,
       resume_task_base: sourceBaseSha,
       task_id: taskId,
+      start_sha: requestControlHeadSha,
       workdir: "/worktrees/reproof-s04-t04-969bd3c8",
     },
     runId,
@@ -90,6 +94,7 @@ const fixture = () => ({
   },
   requestPath,
   routing: {
+    findingSha256: findingsSha256,
     owners: {
       [taskId]: {
         findingsSha256,
@@ -99,6 +104,9 @@ const fixture = () => ({
       },
     },
     schemaVersion: "maestro-brain-owner-rework-routing/v1",
+    resultSha256: digest("3"),
+    selectionFileSha256: digest("4"),
+    selectionPayloadSha256: digest("5"),
     status: "complete",
   },
   sourceCommits: [sha("1"), sha("2")],
@@ -107,8 +115,11 @@ const fixture = () => ({
     branch: "fabro/reproof-s04-t04-969bd3c8",
     clean: true,
     commonDir: "/repo/.git",
+    controlCheckout: false,
+    factoryRootContained: true,
     headSha: candidateHeadSha,
     requestControlHeadIsAncestor: true,
+    registered: true,
     sourceRangeIsValid: true,
     workdir: "/worktrees/reproof-s04-t04-969bd3c8",
   },
@@ -145,6 +156,26 @@ describe("terminal contract-reproof resume", () => {
   it.each([
     ["live owner", { terminalStatus: "running" }],
     ["dirty worktree", { worktree: { ...fixture().worktree, clean: false } }],
+    [
+      "unregistered worktree",
+      { worktree: { ...fixture().worktree, registered: false } },
+    ],
+    [
+      "shared checkout",
+      { worktree: { ...fixture().worktree, controlCheckout: true } },
+    ],
+    [
+      "compiled mode drift",
+      {
+        inspectedRun: {
+          ...fixture().inspectedRun,
+          inputs: {
+            ...fixture().inspectedRun.inputs,
+            resume_mode: "preserved-worktree",
+          },
+        },
+      },
+    ],
     ["head drift", { worktree: { ...fixture().worktree, headSha: sha("d") } }],
     ["request drift", { requestPath: `${requestPath}.other` }],
     [
@@ -174,6 +205,7 @@ describe("terminal contract-reproof resume", () => {
       },
     ],
     ["task contract drift", { currentTaskBlockHash: digest("f") }],
+    ["finding content drift", { canonicalOwnerFindingsSha256: digest("8") }],
     [
       "non-control authority delta",
       { authorityDeltaPaths: ["packages/convex/confect/unrelated.ts"] },
@@ -192,22 +224,39 @@ describe("terminal contract-reproof resume", () => {
     ).toThrow();
   });
 
-  it("archives the terminal owner before launch and promotes only the returned run", () => {
+  it("records a deterministic created run before start and promotion", () => {
     const order: string[] = [];
-    const replaceTerminalOwner = vi.fn(() => order.push("replace"));
-    const launch = vi.fn(() => {
-      order.push("launch");
+    const discoverOrCreate = vi.fn(() => {
+      order.push("create");
       return "01KY7000000000000000000000";
     });
+    const recordCreated = vi.fn(() => order.push("record"));
+    const start = vi.fn(() => order.push("start"));
     const promote = vi.fn(() => order.push("promote"));
 
     expect(
       runTerminalContractReproofResume({
-        launch,
+        discoverOrCreate,
         promote,
-        replaceTerminalOwner,
+        recordCreated,
+        start,
       }),
     ).toBe("01KY7000000000000000000000");
-    expect(order).toEqual(["replace", "launch", "promote"]);
+    expect(order).toEqual(["create", "record", "start", "promote"]);
+  });
+
+  it("does not replace terminal ownership when creation cannot be reconciled", () => {
+    const recordCreated = vi.fn();
+    expect(() =>
+      runTerminalContractReproofResume({
+        discoverOrCreate: () => {
+          throw new Error("unknown creation state");
+        },
+        promote: vi.fn(),
+        recordCreated,
+        start: vi.fn(),
+      }),
+    ).toThrow("unknown creation state");
+    expect(recordCreated).not.toHaveBeenCalled();
   });
 });

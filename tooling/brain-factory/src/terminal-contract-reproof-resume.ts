@@ -32,6 +32,7 @@ const record = (
 export interface TerminalContractReproofResumeInput {
   readonly admittedRequest: TerminalContractReproofRecord;
   readonly authorityDeltaPaths: readonly string[];
+  readonly canonicalOwnerFindingsSha256: string;
   readonly controlCommonDir: string;
   readonly controlHeadSha: string;
   readonly currentPlanSha256: string;
@@ -53,8 +54,11 @@ export interface TerminalContractReproofResumeInput {
     readonly branch: string;
     readonly clean: boolean;
     readonly commonDir: string;
+    readonly controlCheckout: boolean;
+    readonly factoryRootContained: boolean;
     readonly headSha: string;
     readonly requestControlHeadIsAncestor: boolean;
+    readonly registered: boolean;
     readonly sourceRangeIsValid: boolean;
     readonly workdir: string;
   };
@@ -105,6 +109,13 @@ export const buildTerminalContractReproofResume = (
     64,
     `${taskId}: terminal owner findings hash`,
   );
+  const canonicalOwnerFindingsSha256 = sha(
+    input.canonicalOwnerFindingsSha256,
+    64,
+    `${taskId}: canonical owner findings hash`,
+  );
+  if (canonicalOwnerFindingsSha256 !== ownerFindingsSha256)
+    throw new Error(`${taskId}: admitted owner findings drift`);
   const sourceHeadSha = sha(
     input.record.sourceHeadSha,
     40,
@@ -186,9 +197,12 @@ export const buildTerminalContractReproofResume = (
     runInputs.reproof_request !== input.requestPath ||
     runInputs.resume_branch !== branch ||
     runInputs.resume_commits !== input.sourceCommits.join(",") ||
+    runInputs.resume_mode !== "conflict-aware" ||
+    runInputs.resume_proof_head !== "none" ||
     runInputs.resume_source_head !== sourceHeadSha ||
     runInputs.resume_task_base !== taskBaseSha ||
     runInputs.task_id !== taskId ||
+    runInputs.start_sha !== requestControlHeadSha ||
     runInputs.workdir !== workdir
   )
     throw new Error(`${taskId}: compiled request launch identity drift`);
@@ -201,6 +215,12 @@ export const buildTerminalContractReproofResume = (
   if (
     input.routing.schemaVersion !== "maestro-brain-owner-rework-routing/v1" ||
     input.routing.status !== "complete" ||
+    input.routing.findingSha256 !== canonicalOwnerFindingsSha256 ||
+    !/^[0-9a-f]{64}$/.test(String(input.routing.resultSha256 ?? "")) ||
+    !/^[0-9a-f]{64}$/.test(String(input.routing.selectionFileSha256 ?? "")) ||
+    !/^[0-9a-f]{64}$/.test(
+      String(input.routing.selectionPayloadSha256 ?? ""),
+    ) ||
     routed.runId !== runId ||
     routed.status !== "launched" ||
     routed.requestSha256 !== requestSha256 ||
@@ -215,8 +235,11 @@ export const buildTerminalContractReproofResume = (
   );
   if (
     !input.worktree.clean ||
+    input.worktree.controlCheckout ||
+    !input.worktree.factoryRootContained ||
     !input.worktree.requestControlHeadIsAncestor ||
     !input.worktree.sourceRangeIsValid ||
+    !input.worktree.registered ||
     input.worktree.branch !== branch ||
     input.worktree.workdir !== workdir ||
     input.worktree.commonDir !== input.controlCommonDir
@@ -285,13 +308,15 @@ export const buildTerminalContractReproofResume = (
 };
 
 export const runTerminalContractReproofResume = (input: {
-  readonly launch: () => string;
+  readonly discoverOrCreate: () => string;
   readonly promote: (runId: string) => void;
-  readonly replaceTerminalOwner: () => void;
+  readonly recordCreated: (runId: string) => void;
+  readonly start: (runId: string) => void;
 }): string => {
-  input.replaceTerminalOwner();
-  const runId = input.launch();
+  const runId = input.discoverOrCreate();
   if (!runId) throw new Error("terminal contract-reproof returned no run ID");
+  input.recordCreated(runId);
+  input.start(runId);
   input.promote(runId);
   return runId;
 };
