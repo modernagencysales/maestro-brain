@@ -10,6 +10,7 @@ import {
   replaceTerminalTaskRecord,
 } from "./dispatch-ownership.js";
 import { buildManifest } from "./manifest.js";
+import type { IntegrationFinding } from "./integration-finding.js";
 import { materializeLaneGreenAuthorityWorkflow } from "./lane-green-authority-workflow.js";
 import { gitCommonDir, gitIsAncestor, runRtk } from "./process.js";
 import { validateResumeSource } from "./resume-support.js";
@@ -49,7 +50,7 @@ const canonicalJson = (value: unknown): string =>
 
 const signedFindingsBindRoute = (
   signed: readonly unknown[],
-  routed: readonly TerminalContractReproofRecord[],
+  routed: readonly IntegrationFinding[],
 ): boolean =>
   routed.every((finding) => {
     const match = signed.find(
@@ -58,15 +59,21 @@ const signedFindingsBindRoute = (
         candidate !== null &&
         !Array.isArray(candidate) &&
         (candidate as TerminalContractReproofRecord).id === finding.id,
-    ) as TerminalContractReproofRecord | undefined;
+    ) as Record<string, unknown> | undefined;
     if (!match) return false;
     return Object.entries(finding).every(([key, value]) => {
       if (key !== "priorEvidenceSha256")
         return canonicalJson(match[key]) === canonicalJson(value);
+      const admittedValue = match[key];
       return (
         Array.isArray(value) &&
-        Array.isArray(match[key]) &&
-        value.every((digest) => match[key].includes(digest))
+        Array.isArray(admittedValue) &&
+        value.every((digest: unknown) =>
+          admittedValue.some(
+            (candidate: unknown) =>
+              canonicalJson(candidate) === canonicalJson(digest),
+          ),
+        )
       );
     });
   });
@@ -346,7 +353,7 @@ export const launchTerminalContractReproofResume = (input: {
     !ownerRoute ||
     !signedFindingsBindRoute(
       admitted.request.findings ?? [],
-      ownerRoute.findings as readonly TerminalContractReproofRecord[],
+      ownerRoute.findings,
     )
   )
     throw new Error(`${input.taskId}: signed owner findings content drift`);
