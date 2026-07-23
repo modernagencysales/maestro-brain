@@ -641,11 +641,13 @@ Confect/Convex generation, pnpm, and `host-test-slot`.
 - Modify: `tooling/brain-factory/src/controller-observation.ts`
 - Modify: `tooling/brain-factory/src/factory-state.ts`
 - Modify: `tooling/brain-factory/src/controller.ts`
+- Modify: `.fabro/workflows/brain-build-task/workflow.fabro`
 - Test: `tooling/brain-factory/test/manifest.test.mts`
 - Test: `tooling/brain-factory/test/plan-only-lane-authority.test.mts`
 - Test: `tooling/brain-factory/test/plan-only-lane-authority-launch.test.mts`
 - Test: `tooling/brain-factory/test/controller.test.mts`
 - Test: `tooling/brain-factory/test/controller-cli.test.mts`
+- Test: `tooling/brain-factory/test/workflow-prompt-contract.test.mts`
 
 **Interfaces:**
 
@@ -690,6 +692,12 @@ Confect/Convex generation, pnpm, and `host-test-slot`.
 - Controller stages: `authority_transition_ready` and
   `authority_transition_waiting_prerequisites`; action
   `resume_plan_only_authority`.
+- Shape budgets: each new TypeScript source file is at most 300 lines; each
+  existing TypeScript file changes by at most 150 lines; the Fabro workflow
+  changes by at most 40 lines; the workflow prompt-contract test changes by at
+  most 120 lines; no function added or modified by this task exceeds 100 lines.
+  If one boundary cannot fit, split the responsibility into another named file
+  and add its focused test before implementation. Do not waive these limits.
 
 - [ ] **Step 1: Write RED manifest parser and projection tests**
 
@@ -876,11 +884,94 @@ Confect/Convex generation, pnpm, and `host-test-slot`.
   run creation.
 
   The generated config must select `BrainBuildTask` with
-  `resume_mode=plan-only-authority`. Its implementation prompt must prohibit
-  hand-authored changes and empty commits. A replay conflict exits to an exact
-  owner-repair finding; it does not resolve conflicts or write a green receipt.
-  Successful replay runs the normal focused gate, three concurrent reviews,
-  aggregate, final gate, proof writer, and lane-result writer.
+  `resume_mode=plan-only-authority`. Add exact prompt-contract assertions for
+  all of the following before changing the workflow:
+
+  ```ts
+  const nodeLine = (nodeId: string): string => {
+    const line = buildTask
+      .split("\n")
+      .find((candidate) => candidate.trimStart().startsWith(`${nodeId} [`));
+    if (!line) throw new Error(`${nodeId}: workflow node is missing`);
+    return line;
+  };
+  const extract = (line: string, start: string, end: string): string => {
+    const from = line.indexOf(start);
+    const through = line.indexOf(end, from);
+    if (from < 0 || through < 0) throw new Error(`missing ${start}`);
+    return line.slice(from, through + end.length);
+  };
+
+  const exactCandidateClause =
+    'if [ \\"$BRAIN_RESUME_MODE\\" = plan-only-authority ]; then ' +
+    'rtk proxy test -z \\"$(rtk proxy git status --porcelain=v1)\\"; ' +
+    'rtk proxy test \\"$(rtk proxy git rev-parse HEAD)\\" = ' +
+    '\\"$BRAIN_RESUME_EXPECTED_COMMIT\\"; ' +
+    "rtk proxy git diff --quiet; rtk proxy git diff --cached --quiet; " +
+    "exit 0; fi";
+  const preflightClause = extract(
+    nodeLine("preflight"),
+    'if [ \\"$BRAIN_RESUME_MODE\\" = plan-only-authority ]',
+    "exit 0; fi",
+  );
+  const applyClause = extract(
+    nodeLine("apply_archive"),
+    'if [ \\"$BRAIN_RESUME_MODE\\" = plan-only-authority ]',
+    "exit 0; fi",
+  );
+  expect(preflightClause).toBe(exactCandidateClause);
+  expect(applyClause).toBe(exactCandidateClause);
+  for (const clause of [preflightClause, applyClause]) {
+    expect(clause).not.toMatch(
+      /cherry-pick|--abort|--continue|--allow-empty|git commit/,
+    );
+  }
+
+  const exactPromptClause =
+    "When $BRAIN_RESUME_MODE is plan-only-authority, Plan-only authority is " +
+    "replay/review-only: do not edit source or test files. The only permitted " +
+    "content write is the task CI proof packet. Do not format, generate, " +
+    "amend, commit, cherry-pick, abort, continue, or create empty commits. " +
+    "Inspect the exact clean candidate and continue directly to proof handoff.";
+  const implementClause = extract(
+    nodeLine("implement"),
+    "When $BRAIN_RESUME_MODE is plan-only-authority",
+    "continue directly to proof handoff.",
+  );
+  expect(implementClause).toBe(exactPromptClause);
+
+  expect(buildTask).toContain("gates -> review_snapshot");
+  expect(buildTask).toContain("review_snapshot -> review_fork");
+  expect(buildTask).toContain("review_fork -> review_contract");
+  expect(buildTask).toContain("review_fork -> review_safety");
+  expect(buildTask).toContain("review_fork -> review_quality");
+  expect(buildTask).toContain("review_contract -> review_merge");
+  expect(buildTask).toContain("review_safety -> review_merge");
+  expect(buildTask).toContain("review_quality -> review_merge");
+  expect(buildTask).toContain("review_merge -> review_aggregate");
+  expect(buildTask).toContain("aggregate_gate -> final_gates");
+  expect(buildTask).toContain("final_gates -> complete");
+  ```
+
+  These node-scoped assertions prove that plan-only mode accepts only an
+  already-replayed exact clean candidate. The exact shell clause rejects dirty,
+  staged, conflicted, or wrong-HEAD worktrees and contains no conflict or commit
+  operation. The exact conditional prompt clause forbids source/test edits and
+  empty commits. The edge assertions retain the normal gates, concurrent
+  reviews, final gate, and receipt path.
+
+  A replay conflict occurs in the launch helper before Fabro starts and exits to
+  an exact owner-repair finding; the workflow never resolves it or writes a
+  green receipt. A successful workflow runs the normal focused gate, three
+  concurrent reviews, aggregate, final gate, proof writer, and lane-result
+  writer.
+
+  ```bash
+  rtk host-test-slot --class focused pnpm --dir tooling/brain-factory test plan-only-lane-authority-launch workflow-prompt-contract
+  ```
+
+  Expected: RED because `resume_mode=plan-only-authority` is not yet represented
+  in the workflow preflight, apply, or implementation prompt.
 
 - [ ] **Step 8: Implement launch, CLI, and recovery**
 
@@ -893,6 +984,22 @@ Confect/Convex generation, pnpm, and `host-test-slot`.
   annotation. Do not permit the agent to add a regression test or change source
   merely to produce a new SHA. Fresh proof and receipt bytes come only from the
   normal workflow executing on the replayed candidate.
+
+  Change `workflow.fabro` so the launch helper, not Fabro, owns replay. For
+  `BRAIN_RESUME_MODE=plan-only-authority`, `preflight` requires a clean worktree
+  and exact `BRAIN_RESUME_EXPECTED_COMMIT`; `apply_archive` repeats those checks
+  and exits successfully without cherry-pick, abort, continue, or conflict
+  resolution. Every mismatch fails closed back to the launcher/recovery path.
+
+  The `implement` prompt for this mode is replay/review-only. It may inspect the
+  candidate and write only
+  `$BRAIN_EVIDENCE_DIR/lane-results/$BRAIN_TASK_ID/ci-proof-packet.json` with
+  current plan authority and `reviewVerdict="pending"`. It must not edit,
+  format, generate, amend, or commit a source or test file. The deterministic
+  focused gate and all normal review/final-receipt nodes remain unchanged.
+
+  Run the Step 7 command again. Expected: GREEN with both launch and workflow
+  prompt-contract suites passing.
 
 - [ ] **Step 9: Write RED controller deferral tests**
 
@@ -924,9 +1031,9 @@ Confect/Convex generation, pnpm, and `host-test-slot`.
 - [ ] **Step 11: Run focused verification**
 
   ```bash
-  rtk host-test-slot --class focused pnpm --dir tooling/brain-factory test manifest plan-only-lane-authority plan-only-lane-authority-launch controller controller-cli factory-state
+  rtk host-test-slot --class focused pnpm --dir tooling/brain-factory test manifest plan-only-lane-authority plan-only-lane-authority-launch controller controller-cli factory-state workflow-prompt-contract
   rtk pnpm --dir tooling/brain-factory typecheck
-  rtk pnpm exec prettier --check docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md docs/superpowers/execution/maestro-brain/task-manifest.json docs/superpowers/execution/maestro-brain/parallelism-contract.json tooling/brain-factory/src/manifest.ts tooling/brain-factory/src/plan-only-lane-authority.ts tooling/brain-factory/src/plan-only-lane-authority-admission.ts tooling/brain-factory/src/plan-only-lane-authority-launch.ts tooling/brain-factory/src/authority-transition-cli.ts tooling/brain-factory/src/resume.mts tooling/brain-factory/src/controller-observation.ts tooling/brain-factory/src/factory-state.ts tooling/brain-factory/src/controller.ts tooling/brain-factory/test/manifest.test.mts tooling/brain-factory/test/plan-only-lane-authority.test.mts tooling/brain-factory/test/plan-only-lane-authority-launch.test.mts tooling/brain-factory/test/controller.test.mts tooling/brain-factory/test/controller-cli.test.mts
+  rtk pnpm exec prettier --check docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md docs/superpowers/execution/maestro-brain/task-manifest.json docs/superpowers/execution/maestro-brain/parallelism-contract.json tooling/brain-factory/src/manifest.ts tooling/brain-factory/src/plan-only-lane-authority.ts tooling/brain-factory/src/plan-only-lane-authority-admission.ts tooling/brain-factory/src/plan-only-lane-authority-launch.ts tooling/brain-factory/src/authority-transition-cli.ts tooling/brain-factory/src/resume.mts tooling/brain-factory/src/controller-observation.ts tooling/brain-factory/src/factory-state.ts tooling/brain-factory/src/controller.ts tooling/brain-factory/test/manifest.test.mts tooling/brain-factory/test/plan-only-lane-authority.test.mts tooling/brain-factory/test/plan-only-lane-authority-launch.test.mts tooling/brain-factory/test/controller.test.mts tooling/brain-factory/test/controller-cli.test.mts tooling/brain-factory/test/workflow-prompt-contract.test.mts .fabro/workflows/brain-build-task/workflow.fabro
   rtk pnpm brain:factory:materialize
   rtk pnpm brain:factory:check
   rtk pnpm lint
@@ -947,10 +1054,12 @@ Confect/Convex generation, pnpm, and `host-test-slot`.
   rtk git commit -m "feat: model plan-only lane authority"
   ```
 
-  Then commit launch/recovery and controller deferral:
+  Then commit launch/recovery, the bounded normal-workflow contract, and
+  controller deferral. Before committing, verify the second commit respects the
+  per-file and per-function shape budgets above:
 
   ```bash
-  rtk git add tooling/brain-factory/src/plan-only-lane-authority-launch.ts tooling/brain-factory/src/authority-transition-cli.ts tooling/brain-factory/src/resume.mts tooling/brain-factory/src/controller-observation.ts tooling/brain-factory/src/factory-state.ts tooling/brain-factory/src/controller.ts tooling/brain-factory/test/plan-only-lane-authority-launch.test.mts tooling/brain-factory/test/controller.test.mts tooling/brain-factory/test/controller-cli.test.mts
+  rtk git add tooling/brain-factory/src/plan-only-lane-authority-launch.ts tooling/brain-factory/src/authority-transition-cli.ts tooling/brain-factory/src/resume.mts tooling/brain-factory/src/controller-observation.ts tooling/brain-factory/src/factory-state.ts tooling/brain-factory/src/controller.ts tooling/brain-factory/test/plan-only-lane-authority-launch.test.mts tooling/brain-factory/test/controller.test.mts tooling/brain-factory/test/controller-cli.test.mts tooling/brain-factory/test/workflow-prompt-contract.test.mts .fabro/workflows/brain-build-task/workflow.fabro
   rtk git commit -m "fix: defer modeled Brain authority drift"
   ```
 
