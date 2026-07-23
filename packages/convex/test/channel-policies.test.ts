@@ -1,12 +1,74 @@
+import { Ref } from "@confect/core";
+import {
+  DatabaseSchema,
+  RegisteredConvexFunction,
+  RegisteredFunctions,
+} from "@confect/server";
+import { TestConfect } from "@confect/test";
+import { defineSchema } from "convex/server";
+import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
-import { bulkSetChannelPolicies } from "../confect/slack/channelPolicies.spec";
+import { Id } from "../confect/_generated/id";
+import databaseSchema from "../confect/_generated/schema";
+import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
+import channelPoliciesImpl from "../confect/slack/channelPolicies.impl";
+import channelPolicies, {
+  bulkSetChannelPolicies,
+} from "../confect/slack/channelPolicies.spec";
 import channelDeliveryPoliciesSource from "../confect/tables/channelDeliveryPolicies";
 import channelRoutingPoliciesSource from "../confect/tables/channelRoutingPolicies";
+import sourceChannelsSource from "../confect/tables/sourceChannels";
 import {
   PolicyInvalid,
   buildBulkPolicyPlan,
 } from "../confect/slack/channelPolicy";
+
+const bulkSetRef = Ref.make("slack/channelPolicies", bulkSetChannelPolicies);
+
+const channelDeliveryPolicies = channelDeliveryPoliciesSource(
+  "channelDeliveryPolicies",
+);
+const channelRoutingPolicies = channelRoutingPoliciesSource(
+  "channelRoutingPolicies",
+);
+const sourceChannels = sourceChannelsSource("sourceChannels");
+const transientDatabaseSchema = DatabaseSchema.make({
+  ...databaseSchema.tables,
+  channelDeliveryPolicies,
+  channelRoutingPolicies,
+  sourceChannels,
+});
+const transientConvexSchema = defineSchema({
+  ...Object.fromEntries(
+    Object.entries(databaseSchema.tables).map(([name, table]) => [
+      name,
+      table.tableDefinition,
+    ]),
+  ),
+  channelDeliveryPolicies: channelDeliveryPolicies.tableDefinition,
+  channelRoutingPolicies: channelRoutingPolicies.tableDefinition,
+  sourceChannels: sourceChannels.tableDefinition,
+});
+const channelPolicyRegisteredFunctions = RegisteredFunctions.buildForGroup<
+  typeof channelPolicies
+>(transientDatabaseSchema, channelPoliciesImpl, RegisteredConvexFunction.make);
+const channelPolicyTestConfectLayer = TestConfect.layer(
+  transientDatabaseSchema,
+  transientConvexSchema,
+  {
+    ...import.meta.glob("../convex/**/!(*.*.*)*.*s"),
+    "../convex/slack/channelPolicies.ts": async () =>
+      channelPolicyRegisteredFunctions,
+  },
+);
+
+const identity = {
+  subject: "admin-subject",
+  email: "admin@example.com",
+  emailVerified: true,
+};
 
 const joinedChannel = {
   organizationKey: "org_acme",
@@ -526,6 +588,148 @@ describe("Slack channel policy contract", () => {
       expect(planned.right.deliveryPolicies[0]?.deliveryGeneration).toBe(601);
     }
   });
+  it("authorizes stable agency policy keys through durable organization membership only", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof transientDatabaseSchema>(),
+      );
+      const authed = confect.withIdentity(identity);
+      const seeded = yield* confect.run(
+        Effect.gen(function* () {
+          const writer = yield* DatabaseWriter;
+          const userId = yield* writer
+            .table("users")
+            .insert({
+              subject: "admin-subject",
+              email: "admin@example.com",
+              displayName: "Admin",
+              status: "active",
+              createdAt: 1_000,
+              updatedAt: 1_000,
+            })
+            .pipe(Effect.orDie);
+          const organizationId = yield* writer
+            .table("organizations")
+            .insert({
+              ownerUserId: userId,
+              name: "Acme",
+              slug: "acme",
+              status: "active",
+              agencyKey: "agency_acme",
+              createdAt: 1_000,
+              updatedAt: 1_000,
+            })
+            .pipe(Effect.orDie);
+          const otherOrganizationId = yield* writer
+            .table("organizations")
+            .insert({
+              ownerUserId: userId,
+              name: "Other",
+              slug: "other",
+              status: "active",
+              agencyKey: "agency_other",
+              createdAt: 1_000,
+              updatedAt: 1_000,
+            })
+            .pipe(Effect.orDie);
+          yield* writer
+            .table("organizationMembers")
+            .insert({
+              organizationId,
+              userId,
+              role: "admin",
+              status: "active",
+              acceptedAt: 1_000,
+              revokedAt: null,
+              createdAt: 1_000,
+              updatedAt: 1_000,
+            })
+            .pipe(Effect.orDie);
+          yield* writer
+            .table("workspaces")
+            .insert({
+              organizationId,
+              ownerUserId: userId,
+              brainKey: "brain_alpha",
+              slug: "alpha",
+              name: "Alpha",
+              kind: "client",
+              status: "active",
+              dataClassification: "confidential",
+              createdAt: 1_000,
+              updatedAt: 1_000,
+            })
+            .pipe(Effect.orDie);
+          yield* writer
+            .table("sourceChannels")
+            .insert({ ...joinedChannel, organizationKey: "agency_acme" })
+            .pipe(Effect.orDie);
+          return { organizationId, otherOrganizationId };
+        }),
+        Schema.Struct({
+          organizationId: Id("organizations"),
+          otherOrganizationId: Id("organizations"),
+        }),
+      );
+
+      const applied = yield* authed.mutation(bulkSetRef, {
+        organizationKey: "agency_acme",
+        expectedConnectionGeneration: 4,
+        expectedChannelAccessGeneration: 2,
+        changes: baseRequest.changes,
+      });
+      const denied = yield* Effect.either(
+        authed.mutation(bulkSetRef, {
+          organizationKey: "agency_other",
+          expectedConnectionGeneration: 4,
+          expectedChannelAccessGeneration: 2,
+          changes: baseRequest.changes,
+        }),
+      );
+      const rows = yield* confect.run(
+        Effect.gen(function* () {
+          const reader = yield* DatabaseReader;
+          const policyReader = reader as unknown as {
+            table: (name: "channelRoutingPolicies") => {
+              index: (
+                name: "by_organization_created",
+                range: (q: {
+                  eq: (field: string, value: string) => unknown;
+                }) => unknown,
+              ) => { collect: () => Effect.Effect<unknown, unknown> };
+            };
+          };
+          const routing = yield* policyReader
+            .table("channelRoutingPolicies")
+            .index("by_organization_created", (q) =>
+              q.eq("organizationKey", "agency_acme"),
+            )
+            .collect()
+            .pipe(Effect.orDie);
+          return { routing };
+        }),
+        Schema.Any,
+      );
+
+      return { applied, denied, rows, seeded };
+    }).pipe(Effect.provide(channelPolicyTestConfectLayer()));
+
+    const result = await Effect.runPromise(program);
+
+    expect(result.applied).toEqual({
+      applied: 1,
+      auditAction: "channel_policy_bulk_update",
+    });
+    expect(result.rows.routing).toHaveLength(1);
+    expect(result.denied._tag).toBe("Left");
+    if (result.denied._tag === "Left") {
+      expect(result.denied.left).toMatchObject({
+        _tag: "PolicyInvalid",
+        reason: "admin_required",
+      });
+    }
+  });
+
   it("returns typed PolicyInvalid reasons for invalid routing", () => {
     const planned = buildBulkPolicyPlan({
       ...baseRequest,
