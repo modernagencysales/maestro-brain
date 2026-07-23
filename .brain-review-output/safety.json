@@ -1,0 +1,96 @@
+{
+  "lens": "safety",
+  "taskId": "S04-T04",
+  "planSha256": "ef80573fb33d3aedeba7c28b370291269d4eb0bf3a88d08cf69536274c135e85",
+  "taskBlockHash": "43aa1624cd7754ad5635e47f0e43bc7333c8b04b639a33b7670a7e032707dea1",
+  "baseSha": "969bd3c821f5db26ea586bbec82a5014d6d68909",
+  "headSha": "7eaafcc3a4210796b7204d145bd8c6e6bb4f8d75",
+  "treeSha": "4aac3131cf05a1d492db03503fe210896298e7e9",
+  "reviewerRunId": "maestro/review/S04-T04/7eaafcc3a4210796b7204d145bd8c6e6bb4f8d75/12d6e679-3da0-426c-bbe6-cf1ea0590d6e-v2/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.impl.ts:37-40 resolves stable organizationKey to durable organizationId; source/policy reads stay scoped to input.organizationKey at lines 56-74 and 98-111, while Client Brain targets are loaded by durable organizationId at lines 76-88.",
+        "packages/convex/test/channel-policies.test.ts:591-730 proves agency_acme succeeds for an admin member of its durable organization and agency_other is denied."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.impl.ts:216-242 loads the current user and requires active accepted organization membership with roleAtLeast(admin).",
+        "packages/convex/confect/slack/channelPolicy.ts:151-159 rejects non-admin/owner planner requests, and package tests cover non-admin rejection plus Confect mutation denial."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicy.ts:256-290 creates new active routing/delivery rows with incremented policyEpoch/deliveryGeneration instead of mutating prior row content.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:125-147 deactivates the previous active row then inserts the new epoch/generation; docs/product/maestro-brain-lifecycle-adoption/S04-T04.md documents additive prospective rollback."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.impl.ts:149-165 records audit metadata with action, outcome, and targetCount only; it does not log channel names, raw Slack payloads, tokens, or provider secrets.",
+        "apps/web/src/features/connections/channel-table.tsx:40 renders channel labels from the local policy view model without exposing provider payloads or secrets."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicy.ts:217-224 rejects stale connectionGeneration/accessGeneration via PolicyGenerationMismatch.",
+        "packages/convex/confect/slack/channelPolicy.ts:235-248 rejects stale active routing policy epoch or delivery generation, fencing concurrent updates before writes."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicy.ts:250-255 treats exact replay of the active routing and delivery settings as a no-op, so repeated submissions do not append duplicate policy rows.",
+        "packages/convex/test/channel-policies.test.ts covers matching active policy behavior and no-op planning in the channel policy planner."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicy.ts:191-199 rejects duplicate channel changes in a bulk request before row generation.",
+        "packages/convex/confect/slack/channelPolicy.ts:241-248 fences writes on expectedRoutingPolicyEpoch and expectedDeliveryGeneration; tests include stale generation and historical epoch cases."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "The changed files add Confect tables/spec/impl and app fixtures only; scoped diff contains no provider SDK import or secret access.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts reads canonical sourceChannels and durable tables rather than calling Slack/Nango providers directly."
+      ]
+    }
+  ],
+  "priorFindingDispositions": [
+    {
+      "findingId": "wave-000056-S04-T04-tenant-key-auth-mismatch",
+      "status": "resolved",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.impl.ts:37 resolves the caller-supplied stable organizationKey to a durable organizationId before authorization.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:207 queries organizations.by_agency_key and lines 224-242 authorize organizationMembers.by_organization_user against the durable organizationId.",
+        "packages/convex/test/channel-policies.test.ts:591 covers an admin authorized by durable organization membership using agency_acme while agency_other is denied."
+      ],
+      "regressionTestPaths": [
+        "packages/convex/test/channel-policies.test.ts"
+      ],
+      "changedPaths": [
+        "packages/convex/confect/slack/channelPolicies.impl.ts",
+        "packages/convex/test/channel-policies.test.ts"
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}
