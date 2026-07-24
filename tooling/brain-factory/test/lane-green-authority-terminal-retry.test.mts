@@ -14,6 +14,12 @@ import {
 const sha = (value: string, length = 40): string => value.repeat(length);
 const taskId = "S05-T01";
 const actionId = sha("a", 64);
+const rootActionId =
+  "2b24aa26859e0a401121fa5e7144f052b33fc9cb5e5e129812155d35c01d756c";
+const rootArchiveSha256 =
+  "692a776387ec91fdd47811f689495de88c32568ba95a820e537097b5172318ef";
+const rootCandidateHeadSha = "9e4ab3cfc9261af8203beee9413f404aaf619d34";
+const rootCandidateTreeSha = "21f9abf17169cfb337f66f8ebf27b5d37883b190";
 const transition = {
   schemaVersion: "maestro-brain-lane-green-authority-reproof/v1" as const,
   proofBaseSha: sha("1"),
@@ -59,19 +65,60 @@ describe("terminal lane-green authority retry", () => {
   it("pins the one authorized archive to the preserved candidate", () => {
     expect(
       authorizedTerminalLaneGreenCandidate({
-        actionId:
-          "2b24aa26859e0a401121fa5e7144f052b33fc9cb5e5e129812155d35c01d756c",
+        actionId: rootActionId,
         taskId,
       }),
     ).toEqual({
-      archiveSha256:
-        "692a776387ec91fdd47811f689495de88c32568ba95a820e537097b5172318ef",
-      headSha: "9e4ab3cfc9261af8203beee9413f404aaf619d34",
-      treeSha: "21f9abf17169cfb337f66f8ebf27b5d37883b190",
+      archiveSha256: rootArchiveSha256,
+      headSha: rootCandidateHeadSha,
+      treeSha: rootCandidateTreeSha,
     });
     expect(() =>
       authorizedTerminalLaneGreenCandidate({ actionId, taskId }),
     ).toThrow("terminal archive has no authorized candidate");
+  });
+
+  it("carries the pinned candidate through an audited retry archive", () => {
+    const state = mkdtempSync(join(tmpdir(), "lane-green-terminal-chain-"));
+    const localRecordPath = join(state, "runs", `${taskId}.json`);
+    const localArchivedPath = `${localRecordPath}.terminal-${actionId}`;
+    const auditPath = join(state, "recovery-audit.jsonl");
+    const chained = {
+      ...archiveRecord,
+      terminalArchiveActionId: rootActionId,
+      terminalArchiveSha256: rootArchiveSha256,
+      terminalCandidateHeadSha: rootCandidateHeadSha,
+      terminalCandidateTreeSha: rootCandidateTreeSha,
+    };
+    mkdirSync(join(state, "runs"));
+    writeFileSync(localArchivedPath, `${JSON.stringify(chained)}\n`);
+    writeFileSync(
+      auditPath,
+      `${JSON.stringify({
+        action: "archive-terminal-task-run",
+        actionId,
+        archivedPath: localArchivedPath,
+        at: "2026-07-24T00:00:00.000Z",
+        runId: chained.runId,
+        status: "failed",
+        taskId,
+      })}\n`,
+    );
+
+    expect(
+      authorizedTerminalLaneGreenCandidate({
+        actionId,
+        auditPath,
+        recordPath: localRecordPath,
+        taskId,
+      }),
+    ).toEqual({
+      archiveSha256: createHash("sha256")
+        .update(readFileSync(localArchivedPath))
+        .digest("hex"),
+      headSha: rootCandidateHeadSha,
+      treeSha: rootCandidateTreeSha,
+    });
   });
   it("selects only the exact audited terminal archive", () => {
     const state = mkdtempSync(join(tmpdir(), "lane-green-terminal-audit-"));
@@ -145,12 +192,33 @@ describe("terminal lane-green authority retry", () => {
     });
   });
 
+  it("retains archived plan provenance across a plan-only advance", () => {
+    expect(() =>
+      admitArchivedLaneGreenAuthorityRetry({
+        archive: archiveRecord,
+        coordinates: {
+          branch: archiveRecord.branch,
+          workdir: archiveRecord.workdir,
+          workflowName: archiveRecord.workflowName,
+        },
+        currentPlanSha256: sha("e", 64),
+        currentTaskBlockHash: archiveRecord.taskBlockHash,
+        sourceChangedFiles: transition.sourceChangedFiles,
+        sourceCommitPatchSha256s: archiveRecord.sourceCommitPatchSha256s,
+        sourcePatchSha256: sha("d", 64),
+        sourceTreeSha: transition.sourceTreeSha,
+        taskId,
+        transition,
+      }),
+    ).not.toThrow();
+  });
+
   it.each([
     ["task", { taskId: "S05-T02" }],
     ["run", { runId: "different-run" }],
     ["branch", { branch: "fabro/drifted" }],
     ["worktree", { workdir: "/factory/drifted" }],
-    ["plan", { planSha256: sha("e", 64) }],
+    ["plan", { planSha256: "invalid-plan" }],
     ["task hash", { taskBlockHash: sha("f", 64) }],
     ["proof lineage", { proofHeadSha: sha("0") }],
     ["source lineage", { sourceHeadSha: sha("0") }],

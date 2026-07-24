@@ -37,28 +37,72 @@ export interface AuditedLaneGreenAuthorityArchive {
   readonly status: string;
 }
 
+const ROOT_ARCHIVE_ACTION_ID =
+  "2b24aa26859e0a401121fa5e7144f052b33fc9cb5e5e129812155d35c01d756c";
+const ROOT_ARCHIVE_SHA256 =
+  "692a776387ec91fdd47811f689495de88c32568ba95a820e537097b5172318ef";
+const ROOT_CANDIDATE_HEAD_SHA = "9e4ab3cfc9261af8203beee9413f404aaf619d34";
+const ROOT_CANDIDATE_TREE_SHA = "21f9abf17169cfb337f66f8ebf27b5d37883b190";
+
 export const authorizedTerminalLaneGreenCandidate = (input: {
   readonly actionId: string;
+  readonly auditPath?: string;
+  readonly recordPath?: string;
   readonly taskId: string;
 }): {
   readonly archiveSha256: string;
   readonly headSha: string;
   readonly treeSha: string;
 } => {
-  if (
-    input.taskId !== "S05-T01" ||
-    input.actionId !==
-      "2b24aa26859e0a401121fa5e7144f052b33fc9cb5e5e129812155d35c01d756c"
-  )
+  if (input.taskId !== "S05-T01")
     throw new Error(
       `${input.taskId}: terminal archive has no authorized candidate`,
     );
-  return {
-    archiveSha256:
-      "692a776387ec91fdd47811f689495de88c32568ba95a820e537097b5172318ef",
-    headSha: "9e4ab3cfc9261af8203beee9413f404aaf619d34",
-    treeSha: "21f9abf17169cfb337f66f8ebf27b5d37883b190",
+  const visit = (
+    actionId: string,
+    seen: ReadonlySet<string>,
+  ): {
+    readonly archiveSha256: string;
+    readonly headSha: string;
+    readonly treeSha: string;
+  } => {
+    if (actionId === ROOT_ARCHIVE_ACTION_ID)
+      return {
+        archiveSha256: ROOT_ARCHIVE_SHA256,
+        headSha: ROOT_CANDIDATE_HEAD_SHA,
+        treeSha: ROOT_CANDIDATE_TREE_SHA,
+      };
+    if (!input.auditPath || !input.recordPath || seen.has(actionId))
+      throw new Error(
+        `${input.taskId}: terminal archive has no authorized candidate`,
+      );
+    const archive = loadAuditedLaneGreenAuthorityArchive({
+      actionId,
+      auditPath: input.auditPath,
+      recordPath: input.recordPath,
+      taskId: input.taskId,
+    });
+    const priorActionId = sha(
+      archive.record.terminalArchiveActionId,
+      64,
+      `${input.taskId}: prior terminal archive action`,
+    );
+    const prior = visit(priorActionId, new Set([...seen, actionId]));
+    if (
+      archive.record.terminalArchiveSha256 !== prior.archiveSha256 ||
+      archive.record.terminalCandidateHeadSha !== prior.headSha ||
+      archive.record.terminalCandidateTreeSha !== prior.treeSha
+    )
+      throw new Error(
+        `${input.taskId}: terminal archive candidate chain drift`,
+      );
+    return {
+      archiveSha256: archive.sha256,
+      headSha: prior.headSha,
+      treeSha: prior.treeSha,
+    };
   };
+  return visit(input.actionId, new Set());
 };
 
 export const loadAuditedLaneGreenAuthorityArchive = (input: {
@@ -139,6 +183,7 @@ export const admitArchivedLaneGreenAuthorityRetry = (input: {
     40,
     `${input.taskId}: archived factory base`,
   );
+  sha(archived.planSha256, 64, `${input.taskId}: archived plan`);
   if (
     archived.taskId !== input.taskId ||
     input.taskId !== "S05-T01" ||
@@ -146,7 +191,6 @@ export const admitArchivedLaneGreenAuthorityRetry = (input: {
     archived.phase !== "launched" ||
     archived.status !== "launched" ||
     archived.baseSha !== factoryBaseSha ||
-    archived.planSha256 !== input.currentPlanSha256 ||
     archived.taskBlockHash !== input.currentTaskBlockHash ||
     archived.branch !== input.coordinates.branch ||
     archived.workdir !== input.coordinates.workdir ||

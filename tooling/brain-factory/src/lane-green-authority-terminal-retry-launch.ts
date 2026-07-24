@@ -30,8 +30,11 @@ export const launchTerminalLaneGreenAuthorityRetry = (input: {
   readonly state: string;
   readonly taskId: string;
 }): void => {
+  const auditPath = resolve(input.state, "recovery-audit.jsonl");
   const authorizedCandidate = authorizedTerminalLaneGreenCandidate({
     actionId: input.actionId,
+    auditPath,
+    recordPath: input.recordPath,
     taskId: input.taskId,
   });
   const manifest = buildManifest(input.root);
@@ -99,7 +102,6 @@ export const launchTerminalLaneGreenAuthorityRetry = (input: {
   );
   if (archivedStatus !== archive.status)
     throw new Error(`${input.taskId}: archived Fabro status drift`);
-  const auditPath = resolve(input.state, "recovery-audit.jsonl");
   const controlCommonDir = gitCommonDir(input.root);
   const prepare = () =>
     prepareArchivedLaneGreenAuthorityRetry({
