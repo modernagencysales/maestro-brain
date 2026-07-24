@@ -69,6 +69,11 @@ const terminalStatuses = new Set([
   "succeeded",
 ]);
 
+export interface FabroRunInspection {
+  readonly reason?: string;
+  readonly status: string;
+}
+
 const ownershipRehomeSourceRecord = (input: {
   readonly runId: string;
   readonly runsRoot: string;
@@ -99,7 +104,7 @@ const observeOwnershipRehomeTask = (input: {
   readonly controlHeadSha: string;
   readonly controlRoot: string;
   readonly evidenceRoot: string;
-  readonly inspect: (runId: string) => string | undefined;
+  readonly inspect: (runId: string) => FabroRunInspection | undefined;
   readonly isAncestor: (ancestor: string, descendant: string) => boolean;
   readonly manifest: BrainTaskManifest;
   readonly runsRoot: string;
@@ -174,8 +179,8 @@ const observeOwnershipRehomeTask = (input: {
     integratedTaskIds,
     ...(currentRejection === undefined ? {} : { currentRejection }),
     inspectRun: () => ({
-      status: inspection ?? "",
-      reason: inspection === "succeeded" ? "completed" : "",
+      status: inspection?.status ?? "",
+      reason: inspection?.reason ?? "",
     }),
     readImmutableRef: (ref) => ({
       objectSha: runRtk(["proxy", "git", "rev-parse", ref], {
@@ -341,7 +346,7 @@ export interface ControllerObservationInput {
   readonly controlHeadSha?: string;
   readonly controlRoot: string;
   readonly gateLockDirectory?: string;
-  readonly inspect: (runId: string) => string | undefined;
+  readonly inspect: (runId: string) => FabroRunInspection | undefined;
   readonly isAncestor?: (ancestor: string, descendant: string) => boolean;
   readonly manifest: BrainTaskManifest;
   readonly stateRoot: string;
@@ -365,11 +370,11 @@ export const observeControllerSnapshot = (
   const providerErrors: Array<
     ControllerSnapshotInput["providerErrors"][number]
   > = [];
-  const inspect = (runId: string): string | undefined => {
+  const inspect = (runId: string): FabroRunInspection | undefined => {
     try {
-      const status = input.inspect(runId);
-      if (!status) throw new Error("missing status");
-      return status;
+      const inspection = input.inspect(runId);
+      if (!inspection?.status) throw new Error("missing status");
+      return inspection;
     } catch {
       if (!providerErrors.some(({ provider }) => provider === "fabro")) {
         providerErrors.push({ category: "unavailable", provider: "fabro" });
@@ -416,7 +421,7 @@ export const observeControllerSnapshot = (
       }
       if (reservation?.status === "launched") {
         if (!runId) return { status: "unknown", taskId };
-        const status = inspect(runId);
+        const status = inspect(runId)?.status;
         if (!status) return { runId, status: "unknown", taskId };
         if (terminalStatuses.has(status)) {
           return { runId, status: "terminal", taskId };
@@ -613,7 +618,7 @@ export const observeControllerSnapshot = (
           });
           if (!routing || routing.status === "complete") continue;
         }
-        const status = inspect(runId);
+        const status = inspect(runId)?.status;
         const inspection =
           status === "succeeded"
             ? "succeeded"
@@ -728,14 +733,38 @@ export const observeControllerSnapshot = (
   });
 };
 
-export const inspectFabroRun = (runId: string): string | undefined => {
-  const parsed = JSON.parse(
-    runRtk(["fabro", "inspect", runId, "--json", "--quiet"], {
-      quiet: true,
-    }),
-  ) as
-    | { status?: { kind?: string } | string }
-    | readonly { status?: { kind?: string } | string }[];
-  const item = Array.isArray(parsed) ? parsed[0] : parsed;
-  return typeof item?.status === "string" ? item.status : item?.status?.kind;
+export const parseFabroRunInspection = (
+  parsed: unknown,
+): FabroRunInspection | undefined => {
+  const values = Array.isArray(parsed) ? parsed : [parsed];
+  const item = values[0];
+  if (item === null || typeof item !== "object" || Array.isArray(item)) {
+    return undefined;
+  }
+  const statusValue = (item as JsonRecord).status;
+  const statusRecord =
+    statusValue !== null &&
+    typeof statusValue === "object" &&
+    !Array.isArray(statusValue)
+      ? (statusValue as JsonRecord)
+      : undefined;
+  const status = stringValue(
+    typeof statusValue === "string" ? statusValue : statusRecord?.kind,
+  );
+  if (!status) return undefined;
+  const reason = stringValue(
+    statusRecord?.reason ?? (item as JsonRecord).reason,
+  );
+  return { ...(reason === undefined ? {} : { reason }), status };
 };
+
+export const inspectFabroRun = (
+  runId: string,
+): FabroRunInspection | undefined =>
+  parseFabroRunInspection(
+    JSON.parse(
+      runRtk(["fabro", "inspect", runId, "--json", "--quiet"], {
+        quiet: true,
+      }),
+    ),
+  );

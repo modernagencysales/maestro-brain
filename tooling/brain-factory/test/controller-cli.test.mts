@@ -25,7 +25,10 @@ import {
   planControllerTick,
   type ControllerActionReceipt,
 } from "../src/controller.js";
-import { observeControllerSnapshot } from "../src/controller-observation.js";
+import {
+  observeControllerSnapshot,
+  parseFabroRunInspection,
+} from "../src/controller-observation.js";
 import { normalizeControllerSnapshot } from "../src/factory-state.js";
 import { buildIntegrationFindingAdoption } from "../src/integration-finding-adoption.js";
 import {
@@ -130,6 +133,19 @@ const exactWaveFixture = (root: string) => {
 };
 
 describe("controller CLI contract", () => {
+  it("preserves the exact Fabro terminal reason", () => {
+    expect(
+      parseFabroRunInspection({
+        status: { kind: "succeeded", reason: "completed" },
+      }),
+    ).toEqual({ reason: "completed", status: "succeeded" });
+    expect(
+      parseFabroRunInspection([
+        { status: { kind: "succeeded", reason: "superseded" } },
+      ]),
+    ).toEqual({ reason: "superseded", status: "succeeded" });
+  });
+
   it("reconciles an ownership-rehome resume from ready to running", () => {
     const ready = normalizeControllerSnapshot({
       ...snapshot,
@@ -293,7 +309,7 @@ describe("controller CLI contract", () => {
     const observed = observeControllerSnapshot({
       controlHeadSha: "a".repeat(40),
       controlRoot: process.cwd(),
-      inspect: () => "succeeded",
+      inspect: () => ({ reason: "completed", status: "succeeded" }),
       manifest,
       stateRoot: root,
     });
@@ -492,7 +508,7 @@ describe("controller CLI contract", () => {
       observeControllerSnapshot({
         controlHeadSha: value.baseSha,
         controlRoot: process.cwd(),
-        inspect: () => "succeeded",
+        inspect: () => ({ reason: "completed", status: "succeeded" }),
         isAncestor: () => true,
         manifest,
         stateRoot: root,

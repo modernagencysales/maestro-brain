@@ -337,7 +337,7 @@ describe("ownership-rehome observation", () => {
     const task = observeControllerSnapshot({
       controlHeadSha: sourceHeadSha,
       controlRoot,
-      inspect: () => "succeeded",
+      inspect: () => ({ reason: "completed", status: "succeeded" }),
       manifest,
       stateRoot,
     }).tasks.find((candidate) => candidate.taskId === "S13-T03");
@@ -369,7 +369,7 @@ describe("ownership-rehome observation", () => {
     expect(
       observeControllerSnapshot({
         controlRoot,
-        inspect: () => "succeeded",
+        inspect: () => ({ reason: "completed", status: "succeeded" }),
         manifest: readyManifest,
         stateRoot,
       }).tasks.find((candidate) => candidate.taskId === "S13-T03"),
@@ -379,6 +379,15 @@ describe("ownership-rehome observation", () => {
       status: "authority_transition_ready",
       taskId: "S13-T03",
     });
+
+    expect(
+      observeControllerSnapshot({
+        controlRoot,
+        inspect: () => ({ reason: "superseded", status: "succeeded" }),
+        manifest,
+        stateRoot,
+      }).tasks.find((candidate) => candidate.taskId === "S13-T03"),
+    ).toMatchObject({ status: "unknown", taskId: "S13-T03" });
 
     const rogueWorkdir = join(sandbox, "rogue-source");
     const rogueBranch = "fabro/review-s13-t03-authority-rogue";
@@ -402,7 +411,7 @@ describe("ownership-rehome observation", () => {
     expect(
       observeControllerSnapshot({
         controlRoot,
-        inspect: () => "succeeded",
+        inspect: () => ({ reason: "completed", status: "succeeded" }),
         manifest,
         stateRoot,
       }).tasks.find((candidate) => candidate.taskId === "S13-T03"),
