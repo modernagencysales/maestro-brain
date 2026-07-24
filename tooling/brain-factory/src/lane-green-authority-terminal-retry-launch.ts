@@ -31,12 +31,14 @@ export const launchTerminalLaneGreenAuthorityRetry = (input: {
   readonly taskId: string;
 }): void => {
   const auditPath = resolve(input.state, "recovery-audit.jsonl");
-  const authorizedCandidate = authorizedTerminalLaneGreenCandidate({
-    actionId: input.actionId,
-    auditPath,
-    recordPath: input.recordPath,
-    taskId: input.taskId,
-  });
+  const authorizeCandidate = () =>
+    authorizedTerminalLaneGreenCandidate({
+      actionId: input.actionId,
+      auditPath,
+      recordPath: input.recordPath,
+      taskId: input.taskId,
+    });
+  let authorizedCandidate = authorizeCandidate();
   const manifest = buildManifest(input.root);
   const task = manifest.tasks.find(
     (candidate) => candidate.taskId === input.taskId,
@@ -151,6 +153,7 @@ export const launchTerminalLaneGreenAuthorityRetry = (input: {
       throw new Error(
         `${input.taskId}: authority changed during terminal admission`,
       );
+    authorizedCandidate = authorizeCandidate();
     retry = prepare();
     const coordinates = terminalLaneGreenRetryCoordinates({
       archiveActionId: input.actionId,

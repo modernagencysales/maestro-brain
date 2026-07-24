@@ -120,6 +120,126 @@ describe("terminal lane-green authority retry", () => {
       treeSha: rootCandidateTreeSha,
     });
   });
+
+  it("validates every audited hop in a chained retry archive", () => {
+    const state = mkdtempSync(join(tmpdir(), "lane-green-terminal-multihop-"));
+    const localRecordPath = join(state, "runs", `${taskId}.json`);
+    const auditPath = join(state, "recovery-audit.jsonl");
+    const firstAction = sha("d", 64);
+    const secondAction = sha("e", 64);
+    mkdirSync(join(state, "runs"));
+    const firstPath = `${localRecordPath}.terminal-${firstAction}`;
+    const firstRecord = {
+      ...archiveRecord,
+      terminalArchiveActionId: rootActionId,
+      terminalArchiveSha256: rootArchiveSha256,
+      terminalCandidateHeadSha: rootCandidateHeadSha,
+      terminalCandidateTreeSha: rootCandidateTreeSha,
+    };
+    writeFileSync(firstPath, `${JSON.stringify(firstRecord)}\n`);
+    const firstDigest = createHash("sha256")
+      .update(readFileSync(firstPath))
+      .digest("hex");
+    const secondPath = `${localRecordPath}.terminal-${secondAction}`;
+    const secondRecord = {
+      ...archiveRecord,
+      runId: "01KY6HDQTWXPM0EPMN1BQ5SHVE",
+      terminalArchiveActionId: firstAction,
+      terminalArchiveSha256: firstDigest,
+      terminalCandidateHeadSha: rootCandidateHeadSha,
+      terminalCandidateTreeSha: rootCandidateTreeSha,
+    };
+    writeFileSync(secondPath, `${JSON.stringify(secondRecord)}\n`);
+    writeFileSync(
+      auditPath,
+      [
+        {
+          action: "archive-terminal-task-run",
+          actionId: firstAction,
+          archivedPath: firstPath,
+          at: "2026-07-24T00:00:00.000Z",
+          runId: firstRecord.runId,
+          status: "failed",
+          taskId,
+        },
+        {
+          action: "archive-terminal-task-run",
+          actionId: secondAction,
+          archivedPath: secondPath,
+          at: "2026-07-24T00:01:00.000Z",
+          runId: secondRecord.runId,
+          status: "failed",
+          taskId,
+        },
+      ]
+        .map((event) => JSON.stringify(event))
+        .join("\n") + "\n",
+    );
+
+    expect(
+      authorizedTerminalLaneGreenCandidate({
+        actionId: secondAction,
+        auditPath,
+        recordPath: localRecordPath,
+        taskId,
+      }),
+    ).toMatchObject({
+      headSha: rootCandidateHeadSha,
+      treeSha: rootCandidateTreeSha,
+    });
+
+    writeFileSync(
+      auditPath,
+      `${readFileSync(auditPath, "utf8").split("\n")[1]}\n`,
+    );
+    expect(() =>
+      authorizedTerminalLaneGreenCandidate({
+        actionId: secondAction,
+        auditPath,
+        recordPath: localRecordPath,
+        taskId,
+      }),
+    ).toThrow("exact terminal archive audit is missing or ambiguous");
+  });
+
+  it("rejects a recursive archive cycle", () => {
+    const state = mkdtempSync(join(tmpdir(), "lane-green-terminal-cycle-"));
+    const localRecordPath = join(state, "runs", `${taskId}.json`);
+    const auditPath = join(state, "recovery-audit.jsonl");
+    const cycleAction = sha("f", 64);
+    const cyclePath = `${localRecordPath}.terminal-${cycleAction}`;
+    mkdirSync(join(state, "runs"));
+    writeFileSync(
+      cyclePath,
+      `${JSON.stringify({
+        ...archiveRecord,
+        terminalArchiveActionId: cycleAction,
+        terminalArchiveSha256: sha("0", 64),
+        terminalCandidateHeadSha: rootCandidateHeadSha,
+        terminalCandidateTreeSha: rootCandidateTreeSha,
+      })}\n`,
+    );
+    writeFileSync(
+      auditPath,
+      `${JSON.stringify({
+        action: "archive-terminal-task-run",
+        actionId: cycleAction,
+        archivedPath: cyclePath,
+        at: "2026-07-24T00:00:00.000Z",
+        runId: archiveRecord.runId,
+        status: "failed",
+        taskId,
+      })}\n`,
+    );
+    expect(() =>
+      authorizedTerminalLaneGreenCandidate({
+        actionId: cycleAction,
+        auditPath,
+        recordPath: localRecordPath,
+        taskId,
+      }),
+    ).toThrow("terminal archive has no authorized candidate");
+  });
   it("selects only the exact audited terminal archive", () => {
     const state = mkdtempSync(join(tmpdir(), "lane-green-terminal-audit-"));
     const localRecordPath = join(state, "runs", `${taskId}.json`);
