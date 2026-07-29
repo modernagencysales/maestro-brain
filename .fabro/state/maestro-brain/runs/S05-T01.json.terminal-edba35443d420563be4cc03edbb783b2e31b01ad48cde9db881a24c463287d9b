@@ -1,0 +1,14 @@
+{
+  "authorityArchivePath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/authority-refreshes/S05-T01/fca7516cc9fe",
+  "baseSha": "022a932c1e809c2093a10f5dea5d248b6c706f5f",
+  "branch": "fabro/review-s05-t01-authority-fca7516cc9fe",
+  "factoryBaseSha": "022a932c1e809c2093a10f5dea5d248b6c706f5f",
+  "mode": "authority-refresh",
+  "resumeStrategy": "in-lane-cherry-pick",
+  "sourceHeadSha": "2df1c6e7d0996b064eee27daf440d64d8c0aa971",
+  "status": "launched",
+  "taskBaseSha": "648ddb32aa68230fdb41e0ef6dc6fe26c4837487",
+  "taskId": "S05-T01",
+  "workdir": "/Users/headless/.maestro-brain-fabro-workdirs/resume-s05-t01-authority-fca7516cc9fe",
+  "runId": "01KY0KJFB3527G8YWRQ8FZDPBV"
+}

@@ -1,0 +1,12 @@
+{
+  "branch": "fabro/review-s06-t01",
+  "factoryBaseSha": "64b5d90e9dce6146ac6cd49696658cd9a40a254c",
+  "mode": "resume-review",
+  "resumeStrategy": "prelaunch-cherry-pick",
+  "runId": "01KXYMHZDQQWX54Q5TP5G87VPX",
+  "sourceHeadSha": "90e58151e82012ffbdfc7b0c0d368a2f3e63cdd9",
+  "status": "launched",
+  "taskBaseSha": "64b5d90e9dce6146ac6cd49696658cd9a40a254c",
+  "taskId": "S06-T01",
+  "workdir": "/Users/headless/.maestro-brain-fabro-workdirs/resume-s06-t01"
+}

@@ -1,0 +1,80 @@
+{
+  "schemaVersion": "maestro-brain-ci-proof/v1",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "f2f6cb348272c704636b7e21bf8e8cbd66b812835d781b52e01bdcfa5b0fa97c",
+  "taskId": "S06-T01",
+  "baseSha": "64b5d90e9dce6146ac6cd49696658cd9a40a254c",
+  "headSha": "02c3ee79adba3239a55cb0928853d2e4efa248d3",
+  "changedFiles": [
+    "packages/convex/confect/jobs/jobState.ts",
+    "packages/convex/confect/jobs/leases.ts",
+    "packages/convex/confect/jobs/workpool.impl.ts",
+    "packages/convex/confect/jobs/workpool.spec.ts",
+    "packages/convex/confect/jobs/workpool.ts",
+    "packages/convex/confect/tables/sourceProcessingJobs.ts",
+    "packages/convex/test/source-workpool.test.ts"
+  ],
+  "focusedCommands": [
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test source-workpool",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test source-workpool contract",
+    "rtk pnpm check:workflow-graph-boundary"
+  ],
+  "testsAdded": [
+    "packages/convex/test/source-workpool.test.ts"
+  ],
+  "supplementalCommandResults": [
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test source-workpool",
+      "status": "failed-before-repair",
+      "summary": "added durable same-idempotency/different-effect duplicate test; failed because enqueue resolved work-2 instead of DuplicateEffect"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test source-workpool",
+      "status": "passed",
+      "summary": "test/source-workpool.test.ts: 25 tests passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test source-workpool contract",
+      "status": "passed",
+      "summary": "30 tests passed across source-workpool and contract suites"
+    },
+    {
+      "command": "rtk pnpm brain:factory:check-confect-codegen",
+      "status": "passed",
+      "summary": "transient Confect codegen passed (8 generated files)"
+    },
+    {
+      "command": "rtk pnpm check:workflow-graph-boundary",
+      "status": "passed",
+      "summary": "check:workflow-graph-boundary (shape-only): ok (pin-only)"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test source-workpool",
+      "status": "passed-after-history-rewrite",
+      "summary": "test/source-workpool.test.ts: 25 tests passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test source-workpool contract",
+      "status": "passed-after-history-rewrite",
+      "summary": "30 tests passed across source-workpool and contract suites"
+    },
+    {
+      "command": "rtk pnpm brain:factory:check-confect-codegen",
+      "status": "passed-after-history-rewrite",
+      "summary": "transient Confect codegen passed (8 generated files)"
+    },
+    {
+      "command": "rtk pnpm check:workflow-graph-boundary",
+      "status": "passed-after-history-rewrite",
+      "summary": "check:workflow-graph-boundary (shape-only): ok (pin-only)"
+    }
+  ],
+  "reviewVerdict": "pass",
+  "knownRisks": [
+    "Focused proof exercises reducers and exported handlers with a fake DB for crash/replay windows; the full Convex component lifecycle remains for deterministic lane/review gates.",
+    "Legacy generated public workpool enqueue/status refs remain to preserve existing generated contract tests, but both public handlers now reject use; source job status/control additions are internal-only."
+  ],
+  "reviewFindings": [],
+  "reviewHeadSha": "02c3ee79adba3239a55cb0928853d2e4efa248d3"
+}

@@ -1,0 +1,120 @@
+{
+  "baseSha": "73609583b9ca2704ad28f3844239f00764ac7230",
+  "conflicts": [],
+  "focusedChecks": [
+    "rtk pnpm brain:factory:check-confect-codegen -- --profile web --test brain-editor-revision-fence --test brain-pages-crud",
+    "rtk pnpm --dir packages/editor-react typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/editor-react test",
+    "rtk pnpm check:route-tree",
+    "rtk pnpm check:layer-boundaries",
+    "rtk pnpm --dir packages/convex typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test api-keys headless http-request",
+    "rtk pnpm check:headless-surface-contract"
+  ],
+  "generatedFiles": [
+    "packages/convex/confect/_generated/registeredFunctions/headless/apiKeys.ts",
+    "packages/convex/confect/_generated/spec.ts",
+    "packages/convex/convex/brain/pages.ts",
+    "packages/convex/convex/headless/apiKeys.ts",
+    "packages/template-core/src/generated/confectManifest.ts"
+  ],
+  "headSha": "d56025a23492fc2345ffce45e0d57cc6cf994ecd",
+  "includedTasks": [
+    {
+      "commitShas": [
+        "98238d752518961477fcfe3a033bc81850a1fcef",
+        "e9becf08da91826a88c85096d5f7d07a028d164b",
+        "ec4ee71ef811f3155b0ab7e397966e753bfdd1eb",
+        "aa557b5c4c04de2673f3a145944ef1c5ac57ac3e",
+        "12afc5724dc620bcc47f4281b307e82bdc3a303c",
+        "97e86d63e44f04627cbc450f35246ebd71e2a4fa",
+        "b4b94446dbd1052c24d2902b9fae67424712a495"
+      ],
+      "laneHeadSha": "b4b94446dbd1052c24d2902b9fae67424712a495",
+      "patchState": "applied",
+      "taskId": "S03-T03",
+      "tranche": "D2-domain-bodies"
+    },
+    {
+      "commitShas": [
+        "513d4f8662c58aa4f488700454baffbac03b0d06",
+        "70aab1a9529b49931c06368e4a1c4e39fef93c0f",
+        "538561fae9bea2abbe063f43a5654e2834a1bba3",
+        "52701c19808030d8ad47e74c9b7506c7078f5dff",
+        "c04e542a4f8b14c8e550d311d6d87027aabe69a6",
+        "5d4abd49aaedd2dfa5b6e229f6fa7611c15466af",
+        "9a11a7e76dc28857e73d6bf42589a55f69fac1b7",
+        "9bfe75b49d05b476ff5e35ae26b8ee41146d4c75",
+        "597e375782c8c4b1ae7cac0a2c6ee0dc8ceab4bf",
+        "70687cf3516049d07306a940f2f46bc07a9360e1"
+      ],
+      "laneHeadSha": "70687cf3516049d07306a940f2f46bc07a9360e1",
+      "patchState": "applied",
+      "taskId": "S11-T02",
+      "tranche": "D2-domain-bodies"
+    }
+  ],
+  "integrationId": "wave-000049",
+  "mode": "integrate",
+  "schemaVersion": "maestro-brain-integration-result/v3",
+  "selectionFileSha256": "f73712c7f8000e4588a522a7485300d1f70b023666880c9813a20e2866dab72f",
+  "selectionPayloadSha256": "c1db85c6ea9f8e2cca727a496c8f47ba3637c415d4f7598109c08288e756097a",
+  "reviewVerdict": "rework",
+  "status": "ready_for_review",
+  "remainingFindings": [
+    {
+      "id": "wave-000049-S03-T03-editor-snapshot-args-mismatch",
+      "severity": "blocking",
+      "taskId": "S03-T03",
+      "summary": "The integrated S03-T03 editor snapshot seam records legacy Brain page snapshots with stable documentId args, but the existing editor sync contract test expects the internal mirror mutation to receive brainKey and pageKey args.",
+      "evidence": [
+        "At exact integration head d56025a23492fc2345ffce45e0d57cc6cf994ecd, packages/convex/confect/editor/syncApi.ts:111-122 commitEditorSnapshot calls internal.brain.pages.recordSnapshotInternal with { documentId, expectedCurrentRevisionKey, snapshot, version } for resolved legacy targets.",
+        "At the same head, packages/convex/test/editor-sync.test.ts:339-379 records Brain page snapshots through the internal mirror mutation and expects args { brainKey, pageKey, expectedCurrentRevisionKey, snapshot, version }.",
+        "The selected S03-T03 lane result remains lane_green at exact lane head b4b94446dbd1052c24d2902b9fae67424712a495, and the lane-gate sourceSlices are all under the 300-line hand-authored source budget; this finding is a semantic contract mismatch in the selected lane content, not a budget or generated-file issue."
+      ],
+      "impact": "The S03-T03 editor snapshot mirror contract is internally inconsistent at the immutable integration head, so the wave cannot be certified pass by semantic review.",
+      "requiredFix": "Return to S03-T03 to align the editor snapshot seam and its tests on the intended stable documentId versus brainKey/pageKey internal mirror contract, then regenerate any affected Confect/Convex output in a subsequent deterministic integration wave."
+    },
+    {
+      "id": "wave-000049-S03-T03-editor-fence-not-advanced",
+      "severity": "blocking",
+      "taskId": "S03-T03",
+      "summary": "BrainWorkspace ignores the successful pageRevisionKey returned by snapshot persistence, so BlockNoteSyncEditor continues emitting the original revision fence and subsequent or concurrent edits hit StaleRevision after the first save.",
+      "evidence": [
+        "Independent immutable review refs/evidence/maestro-brain/wave-000049-independent-review verified at blob ad54fe0fba3f9837e431a5bed432e6e04aa70b33 with SHA-256 a7209b24712373fb43a2411ebd3c18b89090518da8bb7dfcbbf09a389fcaa5e5 reports this P1 finding for candidate d56025a23492fc2345ffce45e0d57cc6cf994ecd.",
+        "packages/editor-react/src/BlockNoteSyncEditor.tsx:109 starts the editor change effect from the currently selected revision fence and emits changes with that fence.",
+        "apps/web/src/features/brain/brain-workspace.tsx:150,246 handle the page mutation path but do not advance local state from the successful mutation result pageRevisionKey.",
+        "packages/convex/confect/brain/pages.impl.ts:622 checks expectedCurrentRevisionKey and packages/convex/confect/brain/pages.impl.ts:653 patches currentRevisionKey to the next revision, making reused fences stale."
+      ],
+      "impact": "Only the first successful editor snapshot save is expected to persist; later edits from the same open editor can be rejected as stale, breaking durable Brain page editing.",
+      "requiredFix": "Return to S03-T03 to feed successful pageRevisionKey results back into BrainWorkspace/BlockNoteSyncEditor revision fence state and cover repeated/concurrent save behavior."
+    },
+    {
+      "id": "wave-000049-S11-T02-display-once-api-key-discarded",
+      "severity": "blocking",
+      "taskId": "S11-T02",
+      "summary": "API-key create and rotate actions discard the display-once secret returned by the adapter, so users cannot view, copy, or retain the only recoverable API key value.",
+      "evidence": [
+        "Independent immutable review refs/evidence/maestro-brain/wave-000049-independent-review verified at blob ad54fe0fba3f9837e431a5bed432e6e04aa70b33 with SHA-256 a7209b24712373fb43a2411ebd3c18b89090518da8bb7dfcbbf09a389fcaa5e5 reports this P1 finding for candidate d56025a23492fc2345ffce45e0d57cc6cf994ecd.",
+        "apps/web/src/features/settings/api-keys-adapter.ts:72,79 returns result.displayKey for create/rotate operations.",
+        "apps/web/src/features/settings/api-keys-panel.tsx:26,99 wires panel actions without rendering, copying, or otherwise preserving that display-once secret."
+      ],
+      "impact": "Newly created or rotated headless API keys are operationally unusable because the generated secret is lost immediately after the mutation returns.",
+      "requiredFix": "Return to S11-T02 to surface the display-once key value in the settings flow with an explicit copy/acknowledgement lifecycle and tests for create and rotate."
+    },
+    {
+      "id": "wave-000049-S11-T02-rate-limit-raw-authorization-exposure",
+      "severity": "major",
+      "taskId": "S11-T02",
+      "summary": "The HTTP rate-limit extension receives the raw Request, including Authorization, before bearer parsing and authentication; extension boundaries should receive only redacted admission metadata.",
+      "evidence": [
+        "Independent immutable review refs/evidence/maestro-brain/wave-000049-independent-review verified at blob ad54fe0fba3f9837e431a5bed432e6e04aa70b33 with SHA-256 a7209b24712373fb43a2411ebd3c18b89090518da8bb7dfcbbf09a389fcaa5e5 reports this P2 finding for candidate d56025a23492fc2345ffce45e0d57cc6cf994ecd.",
+        "packages/convex/confect/http.ts:53 defines the extension boundary receiving request data.",
+        "packages/convex/confect/http.ts:294,306 invokes the rate-limit extension with the raw Request before bearer authentication, exposing Authorization to the admission hook."
+      ],
+      "impact": "A provider or extension implementation can observe raw bearer credentials outside the narrow authentication boundary, violating the secret redaction/provider boundary policy.",
+      "requiredFix": "Return to S11-T02 to pass only redacted admission metadata to rate limiting before authentication, and add coverage proving Authorization is not exposed to the extension."
+    }
+  ],
+  "resolvedFindings": []
+}

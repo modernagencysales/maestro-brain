@@ -1,0 +1,96 @@
+{
+  "attempt": 1,
+  "baseSha": "bc7631796e42ee5d33a006df85730dc1293f505e",
+  "branch": "fabro/brain-wave-000045",
+  "integrationId": "wave-000045",
+  "reservationToken": "8d2a3bac-2907-484c-9f7b-59c0d88b14f7",
+  "schemaVersion": "maestro-brain-integration-wave-run/v3",
+  "selection": {
+    "baseSha": "bc7631796e42ee5d33a006df85730dc1293f505e",
+    "deferredTaskIds": [],
+    "integrationId": "wave-000045",
+    "planSha256": "5e3506ec26c1776547b03641707371efaebb1c490ce3da6b6a1e2ed0df2a8417",
+    "requestedTaskIds": [
+      "S03-T03"
+    ],
+    "schemaVersion": "maestro-brain-integration-wave-selection/v3",
+    "selectedTasks": [
+      {
+        "changedFiles": [
+          "apps/web/src/features/brain/brain-adapter.test.ts",
+          "apps/web/src/features/brain/brain-adapter.ts",
+          "apps/web/src/features/brain/brain-editor-pane.test.tsx",
+          "apps/web/src/features/brain/brain-editor-pane.tsx",
+          "apps/web/src/features/brain/brain-evidence-drawer.test.tsx",
+          "apps/web/src/features/brain/brain-evidence-drawer.tsx",
+          "apps/web/src/features/brain/brain-page-tree.test.tsx",
+          "apps/web/src/features/brain/brain-page-tree.tsx",
+          "apps/web/src/features/brain/brain-surface.test.ts",
+          "apps/web/src/features/brain/brain-surface.ts",
+          "apps/web/src/features/brain/brain-workspace.test.tsx",
+          "apps/web/src/features/brain/brain-workspace.tsx",
+          "apps/web/src/routes/_workspace.brain.tsx",
+          "packages/convex/confect/brain/pages.impl.ts",
+          "packages/convex/confect/brain/pages.spec.ts",
+          "packages/convex/confect/editor/syncApi.ts",
+          "packages/convex/test/brain-editor-revision-fence.test.ts",
+          "packages/convex/test/brain-pages-crud.test.ts",
+          "packages/convex/test/brain-pages.contract.test.ts",
+          "packages/editor-react/src/BlockNoteSyncEditor.test.tsx",
+          "packages/editor-react/src/BlockNoteSyncEditor.tsx"
+        ],
+        "codeStartAfter": [
+          "S02-T02",
+          "S02-T04",
+          "S03-T01"
+        ],
+        "fileLocks": [
+          "apps/web/src/features/brain/brain-adapter.test.ts",
+          "apps/web/src/features/brain/brain-adapter.ts",
+          "apps/web/src/features/brain/brain-editor-pane.test.tsx",
+          "apps/web/src/features/brain/brain-editor-pane.tsx",
+          "apps/web/src/features/brain/brain-evidence-drawer.test.tsx",
+          "apps/web/src/features/brain/brain-evidence-drawer.tsx",
+          "apps/web/src/features/brain/brain-page-tree.test.tsx",
+          "apps/web/src/features/brain/brain-page-tree.tsx",
+          "apps/web/src/features/brain/brain-surface.test.ts",
+          "apps/web/src/features/brain/brain-surface.ts",
+          "apps/web/src/features/brain/brain-workspace.test.tsx",
+          "apps/web/src/features/brain/brain-workspace.tsx",
+          "apps/web/src/routes/_workspace.brain.tsx",
+          "apps/web/src/saas-ui/business-shell.tsx",
+          "packages/convex/confect/brain/pages.impl.ts",
+          "packages/convex/confect/brain/pages.spec.ts",
+          "packages/convex/confect/editor/documentTargets.ts",
+          "packages/convex/confect/editor/syncApi.ts",
+          "packages/convex/test/brain-editor-revision-fence.test.ts",
+          "packages/convex/test/brain-pages-crud.test.ts",
+          "packages/convex/test/brain-pages.contract.test.ts",
+          "packages/editor-react/src/BlockNoteSyncEditor.test.tsx",
+          "packages/editor-react/src/BlockNoteSyncEditor.tsx"
+        ],
+        "gateHeadSha": "b4b94446dbd1052c24d2902b9fae67424712a495",
+        "gateSha256": "9553dedf3a68d1d6327c205b145f597007be58908a3708b779e9a453bfa96cf8",
+        "headSha": "b4b94446dbd1052c24d2902b9fae67424712a495",
+        "laneResultSha256": "f76dccd5d21c6a999ec207e3812381e93f2e72780c78c830201e41ed7d84ba59",
+        "planSha256": "5e3506ec26c1776547b03641707371efaebb1c490ce3da6b6a1e2ed0df2a8417",
+        "proofHeadSha": "b4b94446dbd1052c24d2902b9fae67424712a495",
+        "proofSha256": "fca24eafeea806375f6858add6a24b49fd4526a2df3e0b2533df566835505535",
+        "taskBlockHash": "fd42dea3ef03901e718fc26f7d210211c4a4103c941c088e3e0c5e4b603531ab",
+        "taskId": "S03-T03",
+        "tranche": "D2-domain-bodies"
+      }
+    ],
+    "selectionPayloadSha256": "63b4768a76c834428c69db7968c6c94166aa831d0d96eae19da6c71a297b0d47"
+  },
+  "selectionFileSha256": "ff23111a5a20a280030e9f0e16b40e84b27b142a05bb01e504b94b824e0d5f3b",
+  "selectionPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000045-selection.json",
+  "selectionPayloadSha256": "63b4768a76c834428c69db7968c6c94166aa831d0d96eae19da6c71a297b0d47",
+  "status": "launched",
+  "workdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000045",
+  "activeMode": "integrate",
+  "runId": "01KXZQEXZ7KG8138ZRJKDVVE9D",
+  "runIds": [
+    "01KXZQEXZ7KG8138ZRJKDVVE9D"
+  ]
+}

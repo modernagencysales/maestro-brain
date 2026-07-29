@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "maestro-brain-lane-result/v1",
+  "taskId": "S04-T04",
+  "headSha": "7c6499da177e4c6bc98ea8e095ab5b5271df6659",
+  "treeSha": "e9c4eacfffe4b9a774068a63bff55e3a523aa483",
+  "tranche": "D2-domain-bodies",
+  "status": "lane_green",
+  "reproof": {
+    "requestPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/reproofs/S04-T04/43aa1624cd7754ad5635e47f0e43bc7333c8b04b639a33b7670a7e032707dea1/f6a9988a0a5efc40201b005fa2cdc1021b0d17f2/request.json",
+    "requestSha256": "ccafadbc70627965fa08186de3267241489289078e3051a32a68856bcf4690d1",
+    "priorIntegrationHeadSha": "5f682348711572faa32ac79066f8e470a1f2743f",
+    "priorIntegrationId": "wave-000054"
+  }
+}

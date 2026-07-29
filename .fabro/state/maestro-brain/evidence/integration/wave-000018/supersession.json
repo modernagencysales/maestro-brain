@@ -1,0 +1,35 @@
+{
+  "baseSha": "67f2ee285c082a45de91e21faa969e82c654cac6",
+  "controlHeadSha": "8d720d293425d0a62cae07fcc857ba259e7e504e",
+  "createdAt": "2026-07-17T19:55:34.025Z",
+  "evidence": [
+    "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/integration/wave-000018/broad-gate-533ad78e2533008dbed2f5079b84dcbb0c986204.json",
+    "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/integration/wave-000018/integration-result.json",
+    "fabro:01KXQVP32SHBTV64AJV80R6CFC",
+    "fabro:01KXRQ7WQHXJ5MQRAXJJQK605A"
+  ],
+  "integrationId": "wave-000018",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "reason": "owning S11-T02 lane requires strict Effect and public-contract repair before reselection",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXQVP32SHBTV64AJV80R6CFC",
+      "status": "failed"
+    },
+    {
+      "attempt": 2,
+      "runId": "01KXRQ7WQHXJ5MQRAXJJQK605A",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "4b27490ad927626477ce59afcedd51382680ee59e8cf0ada9eec6f558c59f372",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v1",
+  "selectedTaskIds": [
+    "S11-T02"
+  ],
+  "selectionFileSha256": "74f761344d662c08a45195cc536c406eaacb39c217d805d94ab6dfa45fd94c28",
+  "selectionSha256": "feb8c8fa1f846127f2bb3ecf77d2cafa3c608d223dbbfa50e1cc34e180320e48",
+  "status": "superseded",
+  "receiptSha256": "a3092af9065ad8ef7d246a6ea7f7b11154cb03fa555ae6b4b172d60b11b330e9"
+}

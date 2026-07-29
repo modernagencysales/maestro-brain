@@ -1,0 +1,97 @@
+{
+  "schemaVersion": "maestro-brain-integration-result/v3",
+  "integrationId": "wave-000040",
+  "integrationWorkdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000040",
+  "baseSha": "dbfb7a8203c744917dd9e6a39d488b28044e27c7",
+  "headSha": "e8f008574eff0d1a21700ff02926ac4c9870d425",
+  "status": "passed",
+  "reviewVerdict": "pass",
+  "remainingFindings": [],
+  "resolvedFindings": [],
+  "conflicts": [],
+  "mode": "integrate",
+  "manifestTranches": [
+    "D2-domain-bodies"
+  ],
+  "includedTasks": [
+    {
+      "taskId": "S04-T02",
+      "tranche": "D2-domain-bodies",
+      "laneHeadSha": "ceed76db1dee584403c8301f43c3b17131d400b7",
+      "headSha": "ceed76db1dee584403c8301f43c3b17131d400b7",
+      "proofHeadSha": "ceed76db1dee584403c8301f43c3b17131d400b7",
+      "gateHeadSha": "ceed76db1dee584403c8301f43c3b17131d400b7",
+      "laneResultSha256": "3660bea96f4ac06256721d500cb9b264b4e7b394f83aadd80f7d6f0240d10048",
+      "proofSha256": "ba141402423a193fd18053c3c91f3bbd37d7a86d43f3c8dc5edf0ba96bbe61f2",
+      "gateSha256": "208b6c80399a6543b29e2806db42496b087640abe9f5b6f9d6dec988296a8e98",
+      "planSha256": "e5ad32c375d4fd307b3d5bccd47ea6cf4e9b7580f23bb506c893fd94019ca7c5",
+      "taskBlockHash": "cdeca2a0ba4a7101fd27959788455ac53609485617a9cf8146c29c86891a7958",
+      "changedFiles": [
+        "docs/product/maestro-brain-lifecycle-adoption/S04-T02.md",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts",
+        "packages/convex/confect/integrations/slackDirectory.spec.ts",
+        "packages/convex/confect/integrations/slackDirectory.ts",
+        "packages/convex/confect/tables/channelSyncStates.ts",
+        "packages/convex/confect/tables/sourceChannels.ts",
+        "packages/convex/test/slack-directory.test.ts"
+      ],
+      "fileLocks": [
+        "docs/product/maestro-brain-lifecycle-adoption/S04-T02.md",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts",
+        "packages/convex/confect/integrations/slackDirectory.spec.ts",
+        "packages/convex/confect/integrations/slackDirectory.ts",
+        "packages/convex/confect/internal/migrations.ts",
+        "packages/convex/confect/tables/channelSyncStates.ts",
+        "packages/convex/confect/tables/sourceChannels.ts",
+        "packages/convex/test/slack-directory.test.ts"
+      ],
+      "codeStartAfter": [
+        "S04-T01"
+      ],
+      "commitShas": [
+        "9085e95b28d962939a111171ba9f8f861bf45cb6",
+        "9db5d3648e39ff191b08a72eb163cdf689c7d55c",
+        "5b3d821a6bf9eb299d6e08006edc899ebacf8132",
+        "884a5ab03eeaaf4dc2e6858b157a647307ad5095",
+        "ceed76db1dee584403c8301f43c3b17131d400b7"
+      ],
+      "patchState": "applied"
+    }
+  ],
+  "focusedChecks": [
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test slack-directory",
+    "rtk host-test-slot --class focused pnpm --dir packages/integrations test slack",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk pnpm check:schema-migration-notes",
+    "rtk pnpm check:provider-boundary"
+  ],
+  "generatedFiles": [
+    "packages/convex/confect/_generated/convexSchema.ts",
+    "packages/convex/confect/_generated/docs.ts",
+    "packages/convex/confect/_generated/id.ts",
+    "packages/convex/confect/_generated/registeredFunctions/integrations/slackDirectory.ts",
+    "packages/convex/confect/_generated/schema.ts",
+    "packages/convex/confect/_generated/spec.ts",
+    "packages/convex/confect/_generated/tables/channelSyncStates.ts",
+    "packages/convex/confect/_generated/tables/sourceChannels.ts",
+    "packages/convex/convex/integrations/slackDirectory.ts"
+  ],
+  "selectionPayloadSha256": "972177190ed4266385fa18fe3a3b2344fb0364cb9cfddb3e1ab3076fe57aa024",
+  "selectionFileSha256": "69dc0d651fc6812bdf23a6020198260020e6fafbe8816c865b6115821a5395f5",
+  "broadGate": {
+    "attempts": [
+      {
+        "attempt": 1,
+        "command": "rtk host-test-slot --class full pnpm verify",
+        "headSha": "e8f008574eff0d1a21700ff02926ac4c9870d425",
+        "outputSha256": "da6cc24e60b079379c768aee8f5f512f16990c1fe30130c7fddc59cd6a77e6d2",
+        "status": "passed",
+        "transientVitestWorkerRpcTimeout": false
+      }
+    ],
+    "command": "rtk host-test-slot --class full pnpm verify",
+    "headSha": "e8f008574eff0d1a21700ff02926ac4c9870d425",
+    "schemaVersion": "maestro-brain-broad-gate-receipt/v1",
+    "status": "passed"
+  }
+}

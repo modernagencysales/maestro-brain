@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "maestro-brain-ci-proof/v1",
+  "planSha256": "868331c0af5ab06b495ca802724f4a3578c854e07b8342c9de4b93107a264499",
+  "taskBlockHash": "1dc9fb9ecdfc29278b9cae4e0108861343d437d9d84a171f135e3630eb187fdc",
+  "taskId": "S02-T04",
+  "baseSha": "c26038d163e5d288d920b905d9f65d5334d21ff3",
+  "headSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+  "changedFiles": [
+    "packages/convex/confect/brain/pages.impl.ts",
+    "packages/convex/confect/brain/pages.spec.ts",
+    "packages/convex/confect/editor/documentTargets.ts",
+    "packages/convex/confect/editor/sync.ts",
+    "packages/convex/confect/editor/syncApi.ts",
+    "packages/convex/test/brain-editor-revision-fence.test.ts",
+    "packages/convex/test/editor-sync.test.ts"
+  ],
+  "focusedCommands": [
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test editor brain-editor-revision-fence",
+    "rtk host-test-slot --class focused pnpm --dir packages/editor-react test",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk pnpm check:layer-boundaries"
+  ],
+  "testsAdded": [
+    "packages/convex/test/brain-editor-revision-fence.test.ts"
+  ],
+  "reviewVerdict": "pass",
+  "knownRisks": [
+    "rtk pnpm brain:factory:check-confect-codegen timed out twice (120s and 300s) with SIGTERM before producing a verdict in the archived run; rerun in deterministic gate node.",
+    "An initial packages/editor-react focused run timed out during the archived run; rerun passed with a longer timeout.",
+    "Recovery cherry-pick initially touched control-owned packages/convex/test/brain-pages-crud.test.ts; it was restored byte-for-byte from base c26038d, amended out, and verified excluded from final task diff."
+  ],
+  "supplementalCommandResults": [
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test brain-editor-revision-fence",
+      "status": "failed",
+      "summary": "Failure-first repair test proved recordCurrentEditorSnapshot was missing before implementation."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test brain-editor-revision-fence",
+      "status": "passed",
+      "summary": "Focused repair test passed after binding live stable snapshot commits to the current revision fence."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test editor brain-editor-revision-fence",
+      "status": "passed",
+      "summary": "Declared Convex editor focused tests passed after repair."
+    },
+    {
+      "command": "rtk pnpm --dir packages/convex typecheck",
+      "status": "passed",
+      "summary": "Convex package typecheck passed after repair."
+    },
+    {
+      "command": "rtk proxy git diff --name-only c26038d163e5d288d920b905d9f65d5334d21ff3..HEAD",
+      "status": "passed",
+      "summary": "Final diff contains only S02-T04 manifest locks."
+    }
+  ],
+  "reviewFindings": [],
+  "reviewedHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+  "reviewSummary": "Independent review inspected the manifest-bound task packet, AGENTS instructions, proof identity, committed diff, focused tests, and authoritative pre-review lane-gate report for this exact head/task contract. No false-green, authorization, stale-generation, lifecycle, layer, fixture, generated-drift, or scope defect was found."
+}

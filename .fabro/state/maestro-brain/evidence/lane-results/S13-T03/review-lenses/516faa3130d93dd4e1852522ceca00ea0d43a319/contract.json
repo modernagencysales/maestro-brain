@@ -1,0 +1,107 @@
+{
+  "lens": "contract",
+  "taskId": "S13-T03",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "taskBlockHash": "13c071bc2c78035c5563f494b38160a96c981ab2962984f056be4e18853e137e",
+  "baseSha": "f66236e12f93bc254cc2350800a5b2a69d0caff5",
+  "headSha": "516faa3130d93dd4e1852522ceca00ea0d43a319",
+  "treeSha": "01b9a21b9601e0aaaf5005f8a891dbf5933b3332",
+  "reviewerRunId": "maestro/review/S13-T03/516faa3130d93dd4e1852522ceca00ea0d43a319/ce9e945e-efd6-4175-ab1e-a44bf71c472f-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3549-3602 defines S13-T03 outcome, subsystem kill switches, redacted metrics, budgets, typed errors, focused verification, and receipt requirements.",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1678-1706 pins S13-T03 as template-gap with requirements AI-04, REL-03, SLK-07 and taskBlockHash 13c071bc2c78035c5563f494b38160a96c981ab2962984f056be4e18853e137e.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S13-T03/ci-proof-packet.json:1-24 matches task S13-T03, plan/task hashes, base/head, changed files, and focused command list."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "finding",
+      "findingIds": ["CONTRACT-S13-T03-001"],
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts:92-104 declares public listPolicies and internal setPolicyInternal Confect functions.",
+        "Scoped search under packages/convex/confect and packages/convex/convex found brainOperations only in brainOperationPolicy.ts, brainOperations.impl.ts, and brainOperations.spec.ts, with no generated registeredFunctions/ops/brainOperations.ts or generated refs entry.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S13-T03/ci-proof-packet.json:62-64 records that Confect codegen was not run and generated files are deferred to tranche integration."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/policies.ts:4-23 provides the durable workspace-scoped policy table with dataJson, version, status, activatedByUserId, activationReason, createdAt, activatedAt, and indexes by workspace/kind/status and policy/version.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:169-195 serializes subsystem, state, generation, ownerUserId, reason, and expiresAt into the policy record and rehydrates it from dataJson.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:113-133 writes policy rows and records an access audit event for policy changes."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "finding",
+      "findingIds": ["CONTRACT-S13-T03-002"],
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3564-3574 lists required file changes including packages/convex/confect/ops/flags.spec.ts, packages/convex/confect/ops/flags.impl.ts, tooling/quality/check-logging-boundary.mts, and docs/product/maestro-brain-operations.md.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S13-T03/ci-proof-packet.json:8-17 shows the actual changed files omit flags.spec.ts, flags.impl.ts, and tooling/quality/check-logging-boundary.mts.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3599-3600 requires completion receipt coverage for every kill-switch drill, canary result, budget enforcement, and redacted audit samples, while the proof packet summarizes commands only and does not include those receipt samples."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1685-1697 owns the changed docs/product, brainOperationPolicy, brainOperations spec/impl/test, observability brainMetrics files, observability index, flags files, and logging boundary for S13-T03.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S13-T03/ci-proof-packet.json:8-17 lists only docs/product/maestro-brain-operations.md, packages/convex/confect/ops/brainOperationPolicy.ts, packages/convex/confect/ops/brainOperations.impl.ts, packages/convex/confect/ops/brainOperations.spec.ts, packages/convex/test/brain-operation-policy.test.ts, packages/observability/src/brainMetrics.test.ts, packages/observability/src/brainMetrics.ts, and packages/observability/src/index.ts, all within the manifest S13-T03 ownership set."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "findingIds": ["CONTRACT-S13-T03-003"],
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts:51-60 includes BudgetExceeded in the operation policy Confect error union.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:83-92 reaches BudgetExceeded only when a policy expiry exceeds maxPolicyExpiryMs, not when the task-required model spend/token/input, Slack rate, storage, queue, or channel caps are exceeded.",
+        "packages/observability/src/brainMetrics.ts:126-135 implements budget checks as plain BrainBudgetResult objects rather than the Confect BudgetExceeded typed error declared by brainOperations.spec.ts."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "CONTRACT-S13-T03-001",
+      "severity": "high",
+      "summary": "New Brain operations Confect functions are not registered in generated refs.",
+      "details": "The task adds a Confect spec/impl for listPolicies and setPolicyInternal, but the generated registered functions and refs do not include brainOperations. The lane proof explicitly defers codegen, so downstream callers cannot rely on the declared typed API surface for this head.",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts:92-104",
+        "No packages/convex/confect/_generated/registeredFunctions/ops/brainOperations.ts is present for the reviewed head.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S13-T03/ci-proof-packet.json:62-64"
+      ]
+    },
+    {
+      "id": "CONTRACT-S13-T03-002",
+      "severity": "medium",
+      "summary": "The implementation does not complete the approved task packet and receipt scope.",
+      "details": "S13-T03 explicitly names flags.spec.ts, flags.impl.ts, and tooling/quality/check-logging-boundary.mts as files to modify and requires a completion receipt with kill-switch drills, canary results, budget enforcement, and redacted audit samples. The proof packet's changed-file list omits those required files and records only command summaries, leaving part of the approved work-package contract unfulfilled.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3564-3574",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3599-3600",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S13-T03/ci-proof-packet.json:8-17",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S13-T03/ci-proof-packet.json:25-56"
+      ]
+    },
+    {
+      "id": "CONTRACT-S13-T03-003",
+      "severity": "high",
+      "summary": "BudgetExceeded is declared on the policy API but does not represent the required budget cap failures.",
+      "details": "The Confect operation contract advertises BudgetExceeded, while the actual mutation can only produce it for excessive policy expiry. The S13-T03 budget classes are model spend/token/input, Slack rate, storage, queue, and channel caps; those are implemented as a separate plain observability result, not as the declared Confect typed failure path.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3575-3578",
+        "packages/convex/confect/ops/brainOperations.spec.ts:51-60",
+        "packages/convex/confect/ops/brainOperations.impl.ts:83-92",
+        "packages/observability/src/brainMetrics.ts:36-42",
+        "packages/observability/src/brainMetrics.ts:126-135"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

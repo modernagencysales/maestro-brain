@@ -1,0 +1,171 @@
+{
+  "schemaVersion": "maestro-brain-integration-result/v2",
+  "integrationId": "wave-000006",
+  "mode": "recover",
+  "status": "ready_for_review",
+  "baseSha": "8b05048b549db6d7d8404301e3b1e597ce344d3f",
+  "headSha": "8667caf74d4320a3293b64a70135505e91201d7a",
+  "selectionSha256": "5d382220b6c877cc017742448d4ffa062c553753a6924879fd2205252d675d10",
+  "planSha256": "51b4735b05594f70a16fd670c664ccad98cf2a6ba8d6dd1aab8881fa74faefb5",
+  "selectionPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000006-selection.json",
+  "integrationWorkdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000006",
+  "manifestTranches": [
+    "D2-domain-bodies"
+  ],
+  "includedTasks": [
+    {
+      "taskId": "S01-T04",
+      "tranche": "D2-domain-bodies",
+      "taskBlockHash": "6a9ca40be899a1a64692e5b55e5f5ce0aa7a60d41e9132551e6a503b3e5bf412",
+      "laneHeadSha": "faff7306bff4c7b09366163118a559981a5b0222",
+      "proofHeadSha": "faff7306bff4c7b09366163118a559981a5b0222",
+      "gateHeadSha": "faff7306bff4c7b09366163118a559981a5b0222",
+      "laneResultSha256": "da8c5f533dda3816704d8e66f35f20b998a4f3de1f69248b85844387d1129970",
+      "proofSha256": "b253caf2f74d76bda934111d2ccded2301c2143eca55eaf9cd06233699b22fe7",
+      "gateSha256": "8995ce2623ddbd3b09306a378ffa30130e9c56f45c96ced0205e18db5e63390a",
+      "laneStatus": "lane_green",
+      "laneGateStatus": "passed",
+      "proofReviewVerdict": "pass",
+      "codeStartAfter": [
+        "S01-T02"
+      ],
+      "changedFilesMatchSelection": true
+    },
+    {
+      "taskId": "S03-T02",
+      "tranche": "D2-domain-bodies",
+      "taskBlockHash": "33aadcbccd2318744168364f4fb5be5d5704b125e9cf0cee21211fc8d8cde1c5",
+      "laneHeadSha": "8f57c453bf19314505b2f4fea12ed13668a86597",
+      "proofHeadSha": "8f57c453bf19314505b2f4fea12ed13668a86597",
+      "gateHeadSha": "8f57c453bf19314505b2f4fea12ed13668a86597",
+      "laneResultSha256": "f7093a566cd8e06bb6067a4e0438d47dfe406fec812e5d0d198d50a04af8ec5c",
+      "proofSha256": "e5009aaebdc90fe69c0ee70c60c4bffec8a0013abd9faa820f8348ed9a9e318e",
+      "gateSha256": "c06313cfe98ec65d843d5819b391a0ea96430d65c54f23e00d65d6973d878214",
+      "laneStatus": "lane_green",
+      "laneGateStatus": "passed",
+      "proofReviewVerdict": "pass",
+      "codeStartAfter": [
+        "S01-T03",
+        "S03-T01"
+      ],
+      "changedFilesMatchSelection": true
+    }
+  ],
+  "generatedCommitSha": "4a425403c97a0c79dc856b472e677d8406e35db2",
+  "generatedRepairCommitSha": "8667caf74d4320a3293b64a70135505e91201d7a",
+  "generatedFiles": [
+    "packages/convex/convex/access/invitations.ts",
+    "packages/convex/convex/access/members.ts",
+    "packages/convex/convex/internal/migrations.ts"
+  ],
+  "selectionCheck": {
+    "command": "rtk pnpm --dir /Users/headless/maestro-brain-plan/tooling/brain-factory exec tsx src/integration-wave-selection-check.mts --selection /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000006-selection.json --integration-id wave-000006 --base 8b05048b549db6d7d8404301e3b1e597ce344d3f --selection-sha256 5d382220b6c877cc017742448d4ffa062c553753a6924879fd2205252d675d10",
+    "status": "passed",
+    "summary": "wave-000006: immutable wave selection passed"
+  },
+  "dependencyCheck": {
+    "command": "rtk pnpm --dir /Users/headless/maestro-brain-plan/tooling/brain-factory exec tsx src/hydrate-integration-dependencies.mts --workdir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000006 --base 8b05048b549db6d7d8404301e3b1e597ce344d3f",
+    "status": "passed",
+    "result": {
+      "changedFiles": [],
+      "mode": "unchanged"
+    }
+  },
+  "reviewChecks": [
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000006 rev-parse HEAD",
+      "status": "passed",
+      "summary": "8667caf74d4320a3293b64a70135505e91201d7a"
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000006 status --short --branch",
+      "status": "passed",
+      "summary": "## fabro/brain-wave-000006; no worktree changes"
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000006 merge-base HEAD 8b05048b549db6d7d8404301e3b1e597ce344d3f",
+      "status": "passed",
+      "summary": "8b05048b549db6d7d8404301e3b1e597ce344d3f"
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000006 diff --name-only 8b05048b549db6d7d8404301e3b1e597ce344d3f..HEAD",
+      "status": "passed",
+      "summary": "Net patch contains selected S01-T04 and S03-T02 files plus generated Confect/Convex integration output only. No dependency hydrations were needed."
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000006 cherry -v HEAD <selected lane heads>",
+      "status": "passed",
+      "summary": "Selected lane commit patches for S01-T04 and S03-T02 are present in the integration history; no same-wave dependency edge was required."
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000006 diff-tree --no-commit-id --name-status -r HEAD",
+      "status": "passed",
+      "summary": "Head repair commit 8667caf74d4320a3293b64a70135505e91201d7a touches only packages/convex/convex/internal/migrations.ts, an integration-owned generated file. This review does not certify a repair authored in this review turn."
+    },
+    {
+      "command": "Read-only inspection of selected lane-result.json, ci-proof-packet.json, and lane-gate-report.json under /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/",
+      "status": "passed",
+      "summary": "Lane evidence hashes match the immutable selection; both lanes are lane_green with gate passed and proof reviewVerdict pass."
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000006 show --numstat --format=%H\\ %s <each commit in 8b05048..HEAD>",
+      "status": "passed",
+      "summary": "Per-commit inspection matches lane source-slice evidence. Hand-authored slices remain at or below the 300 changed-source-line budget; integration output commits are generated-only."
+    },
+    {
+      "command": "rtk pnpm --dir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000006 check:layer-boundaries && rtk pnpm --dir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000006 check:access-audit-events && rtk pnpm --dir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000006 check:confect-contracts && rtk pnpm --dir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000006 check:route-tree",
+      "status": "passed",
+      "summary": "Layer boundaries, access audit event coverage, Confect contracts, and route tree checks passed."
+    },
+    {
+      "command": "Focused read-only inspection of selected access/provisioning specs, impls, clients/settings adapters, and tests",
+      "status": "passed",
+      "summary": "Specs expose typed errors; implementations preserve tenant, workspace, role, generation, lifecycle, and denial-audit boundaries; tests cover denial/cross-tenant/lifecycle behavior rather than false-green emptiness."
+    },
+    {
+      "command": "Existing broad-gate receipt /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/integration/wave-000006/broad-gate-8667caf74d4320a3293b64a70135505e91201d7a.json",
+      "status": "failed",
+      "summary": "Receipt is bound to exact head 8667caf74d4320a3293b64a70135505e91201d7a and records failed broad gate. Attempt 1 was transient Vitest worker RPC timeout; attempt 2 was non-transient. Acceptance evidence is unavailable and is not claimed."
+    },
+    {
+      "command": "Independent ready_for_review pass binding after read-only immutable wave inspection; broad gate acceptance remains recorded separately and is not claimed by review verdict",
+      "status": "passed",
+      "summary": "Exact HEAD 8667caf74d4320a3293b64a70135505e91201d7a and selection 5d382220b6c877cc017742448d4ffa062c553753a6924879fd2205252d675d10 reviewed with selected lane evidence, base-only dependency, ownership, generated-output, focused gate, typed-error, tenant/lifecycle, and honest-test checks; no review-blocking findings remain."
+    }
+  ],
+  "broadGate": {
+    "receiptPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/integration/wave-000006/broad-gate-8667caf74d4320a3293b64a70135505e91201d7a.json",
+    "command": "rtk host-test-slot --class full pnpm verify",
+    "headSha": "8667caf74d4320a3293b64a70135505e91201d7a",
+    "status": "failed",
+    "attempts": [
+      {
+        "attempt": 1,
+        "status": "failed",
+        "transientVitestWorkerRpcTimeout": true,
+        "outputSha256": "8425627f6a250c621e64a8150d4785ddcd03fa53d4ec7058949ad66c3e04c3f5"
+      },
+      {
+        "attempt": 2,
+        "status": "failed",
+        "transientVitestWorkerRpcTimeout": false,
+        "outputSha256": "368519efb8ff310f3f5255f3cb6ae322d89ef7611ec85544d30d128500d0565e"
+      }
+    ],
+    "priorTransientReceipt": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/integration/wave-000006/broad-gate-8667caf74d4320a3293b64a70135505e91201d7a.previous-transient.json"
+  },
+  "worktreeStatusPorcelain": "",
+  "reviewVerdict": "pass",
+  "reviewHeadSha": "8667caf74d4320a3293b64a70135505e91201d7a",
+  "remainingFindings": [],
+  "resolvedFindings": [
+    {
+      "id": "wave-000006-generated-migrations-prettier",
+      "resolvedAtHeadSha": "8667caf74d4320a3293b64a70135505e91201d7a",
+      "repairCommitSha": "8667caf74d4320a3293b64a70135505e91201d7a",
+      "ownerTaskId": "integration-generated-output",
+      "source": "prior_review_check:prettier",
+      "summary": "Prior integration recovery formatted generated packages/convex/convex/internal/migrations.ts in a generated-only repair commit. This review did not author or certify that repair."
+    }
+  ]
+}

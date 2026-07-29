@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "maestro-brain-lane-gate/v1",
+  "gateProfiles": [
+    "template-core"
+  ],
+  "headSha": "b2c4996dd3fffe797838c42117a0bbe4636109ba",
+  "changedSourceLines": 440,
+  "estimateDrift": true,
+  "estimatedSourceLines": 260,
+  "sourceSliceBudget": 300,
+  "sourceSlices": [
+    {
+      "changedSourceLines": 0,
+      "commit": "82d40fb2d5db55c6337cae15ef975107abb0a916"
+    },
+    {
+      "changedSourceLines": 137,
+      "commit": "0053061127e87f82880eec2d624db168b7900f1a"
+    },
+    {
+      "changedSourceLines": 211,
+      "commit": "21ecc52b84a940689d416ecae6a9dc4c346a14f1"
+    },
+    {
+      "changedSourceLines": 92,
+      "commit": "b2c4996dd3fffe797838c42117a0bbe4636109ba"
+    }
+  ],
+  "stage": "final",
+  "status": "passed",
+  "taskId": "S12-T01"
+}

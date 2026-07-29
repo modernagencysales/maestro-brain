@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "maestro-brain-lane-result/v1",
+  "taskId": "S01-T02",
+  "headSha": "efc98a3eb4ef7a37a992be7aaa6be003cf2c74c8",
+  "tranche": "C1-contract-spine",
+  "status": "integrated",
+  "proofHeadSha": "efc98a3eb4ef7a37a992be7aaa6be003cf2c74c8",
+  "gateHeadSha": "efc98a3eb4ef7a37a992be7aaa6be003cf2c74c8",
+  "proofSha256": "4a98c83c59ec4ebba64006e9def151db65092a18677377d5eacd0227ad7749ae",
+  "gateSha256": "75f31b0fd6eeaa83726ac278ea989d3f762fa1a0d6d25e21e3639f8e5d7fd4f6",
+  "taskBlockHash": "f8dfea31b91e435c11203c1641f2b5fd1cefe5e966e26f4ba105b1e7088d7204",
+  "planSha256": "67282c1924e380b207e131a80e6db1771f53956aa857d44c6d583b53d116cd7e",
+  "preIntegrationLaneResultSha256": "b214a1a0b36e0a20a6793ed67b9f9bd7d300635dfce3415320f163a7042434df",
+  "integrationId": "wave-000001",
+  "integrationHeadSha": "547633630871eb08e0e0be502a53ff0aba97dccc",
+  "accepted": false,
+  "acceptanceBlocker": "No original acceptanceAfter evidence proves accepted:true for S01-T02; wave-000001 records integration only."
+}

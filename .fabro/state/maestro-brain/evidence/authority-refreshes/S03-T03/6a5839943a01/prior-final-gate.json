@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "maestro-brain-lane-gate/v1",
+  "commandSetHash": "6573fe740c23907f8517ad649cd50c3849b508b2fa32ef2de40f7c5108da07dd",
+  "commands": [
+    "rtk pnpm exec prettier --check --ignore-unknown apps/web/src/features/brain/brain-adapter.test.ts apps/web/src/features/brain/brain-adapter.ts apps/web/src/features/brain/brain-editor-pane.test.tsx apps/web/src/features/brain/brain-editor-pane.tsx apps/web/src/features/brain/brain-evidence-drawer.test.tsx apps/web/src/features/brain/brain-evidence-drawer.tsx apps/web/src/features/brain/brain-page-tree.test.tsx apps/web/src/features/brain/brain-page-tree.tsx apps/web/src/features/brain/brain-surface.test.ts apps/web/src/features/brain/brain-surface.ts apps/web/src/features/brain/brain-workspace.test.tsx apps/web/src/features/brain/brain-workspace.tsx apps/web/src/routes/_workspace.brain.tsx packages/convex/confect/brain/pages.impl.ts packages/convex/confect/brain/pages.spec.ts packages/convex/confect/editor/syncApi.ts packages/convex/test/brain-editor-revision-fence.test.ts packages/convex/test/brain-pages-crud.test.ts packages/convex/test/brain-pages.contract.test.ts packages/editor-react/src/BlockNoteSyncEditor.test.tsx packages/editor-react/src/BlockNoteSyncEditor.tsx",
+    "rtk pnpm exec eslint apps/web/src/features/brain/brain-adapter.test.ts apps/web/src/features/brain/brain-adapter.ts apps/web/src/features/brain/brain-editor-pane.test.tsx apps/web/src/features/brain/brain-editor-pane.tsx apps/web/src/features/brain/brain-evidence-drawer.test.tsx apps/web/src/features/brain/brain-evidence-drawer.tsx apps/web/src/features/brain/brain-page-tree.test.tsx apps/web/src/features/brain/brain-page-tree.tsx apps/web/src/features/brain/brain-surface.test.ts apps/web/src/features/brain/brain-surface.ts apps/web/src/features/brain/brain-workspace.test.tsx apps/web/src/features/brain/brain-workspace.tsx apps/web/src/routes/_workspace.brain.tsx packages/convex/confect/brain/pages.impl.ts packages/convex/confect/brain/pages.spec.ts packages/convex/confect/editor/syncApi.ts packages/convex/test/brain-editor-revision-fence.test.ts packages/convex/test/brain-pages-crud.test.ts packages/convex/test/brain-pages.contract.test.ts packages/editor-react/src/BlockNoteSyncEditor.test.tsx packages/editor-react/src/BlockNoteSyncEditor.tsx",
+    "rtk pnpm brain:factory:check-confect-codegen -- --profile web --test brain-editor-revision-fence --test brain-pages-crud",
+    "rtk pnpm --dir packages/editor-react typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/editor-react test",
+    "rtk pnpm check:route-tree",
+    "rtk pnpm check:layer-boundaries",
+    "rtk pnpm check:confect-v9"
+  ],
+  "currentHeadSha": "496a1f4fde7a15cac8faa71b323be183a373c323",
+  "currentTreeSha": "381a1129fef0bf46e9d4e6159da86525fe47de9f",
+  "gateProfiles": [
+    "convex",
+    "web"
+  ],
+  "headSha": "496a1f4fde7a15cac8faa71b323be183a373c323",
+  "planSha256": "e5ad32c375d4fd307b3d5bccd47ea6cf4e9b7580f23bb506c893fd94019ca7c5",
+  "changedSourceLines": 1723,
+  "estimateDrift": false,
+  "estimatedSourceLines": 1800,
+  "sourceSliceBudget": 300,
+  "sourceSliceLimit": 7,
+  "sourceSlices": [
+    {
+      "changedSourceLines": 257,
+      "commit": "674925b7421a75cfd9701518198fa56426df1644"
+    },
+    {
+      "changedSourceLines": 297,
+      "commit": "78cc51388b13a708835ebdad21277b24f1f2537d"
+    },
+    {
+      "changedSourceLines": 166,
+      "commit": "7baa2f39c92b656af6155eb6ac16b6396f729d11"
+    },
+    {
+      "changedSourceLines": 210,
+      "commit": "7768094648c4e39abe31c3de871afe6f67c2436f"
+    },
+    {
+      "changedSourceLines": 218,
+      "commit": "f326db7c85417b36b053351ff14bc1b59fe1207c"
+    },
+    {
+      "changedSourceLines": 298,
+      "commit": "570ca74a4f9ab33c5f3cf0f841503a80e6534afc"
+    },
+    {
+      "changedSourceLines": 277,
+      "commit": "496a1f4fde7a15cac8faa71b323be183a373c323"
+    }
+  ],
+  "stage": "final",
+  "status": "passed",
+  "taskId": "S03-T03",
+  "taskBlockHash": "731df4dab1d4fe34d6a51b801388996973ae3d13fa88bc0cef8e2b8b1be9bbe5",
+  "reusedPreReview": true
+}

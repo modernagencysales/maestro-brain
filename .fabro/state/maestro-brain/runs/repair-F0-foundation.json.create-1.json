@@ -1,0 +1,16 @@
+{
+  "attempt": 1,
+  "baseSha": "5b58144cd32bbf807609761638c30d704e819eb7",
+  "integrationBaseSha": "fbea9df4cbc12cfb4fdc6e78d285cff3ec095907",
+  "reservationToken": "5ddadc26-3b37-4fb7-9c37-3c9c56f02f49",
+  "runId": "01KXJ6DWV78HSTK53TVWEFXBQZ",
+  "schemaVersion": "maestro-brain-repair-create-receipt/v1",
+  "sourceReviewRun": "01KXHDXG8A8751TZ3HY4CQJKBD",
+  "taskIds": [
+    "S00-T02"
+  ],
+  "tranche": "F0-foundation",
+  "workdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-F0-foundation",
+  "workflow": "BrainRepairTranche",
+  "receiptSha256": "ec7135b1b1019b034c66d29b08917028853ee2fce06c673371c40113fda18828"
+}

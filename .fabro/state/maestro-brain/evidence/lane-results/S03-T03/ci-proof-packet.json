@@ -1,0 +1,124 @@
+{
+  "schemaVersion": "maestro-brain-ci-proof/v1",
+  "taskId": "S03-T03",
+  "planSha256": "1c6b818063c534afdae20d688fee71e830915c5ac356bf7eba7724099d7ed9a5",
+  "taskBlockHash": "ac77073ece3d8addfee7853260cb2bb2bc6bb83ba43405b07a934f310b6a8834",
+  "baseSha": "27aba38106942afcf94a95d5520e61e847110361",
+  "headSha": "bffa00c937cbd7e2d376c6996e3a5ad57e425bc3",
+  "changedFiles": [
+    "apps/web/src/features/brain/brain-adapter.test.ts",
+    "apps/web/src/features/brain/brain-adapter.ts",
+    "apps/web/src/features/brain/brain-editor-pane.test.tsx",
+    "apps/web/src/features/brain/brain-editor-pane.tsx",
+    "apps/web/src/features/brain/brain-evidence-drawer.test.tsx",
+    "apps/web/src/features/brain/brain-evidence-drawer.tsx",
+    "apps/web/src/features/brain/brain-page-tree.test.tsx",
+    "apps/web/src/features/brain/brain-page-tree.tsx",
+    "apps/web/src/features/brain/brain-surface.test.ts",
+    "apps/web/src/features/brain/brain-surface.ts",
+    "apps/web/src/features/brain/brain-workspace.test.tsx",
+    "apps/web/src/features/brain/brain-workspace.tsx",
+    "apps/web/src/routes/_workspace.brain.tsx",
+    "docs/product/maestro-brain-lifecycle-adoption/S03-T03.md",
+    "packages/convex/confect/brain/pages.impl.ts",
+    "packages/convex/confect/brain/pages.spec.ts",
+    "packages/convex/confect/editor/syncApi.ts",
+    "packages/convex/test/brain-editor-revision-fence.test.ts",
+    "packages/convex/test/brain-pages-crud.test.ts",
+    "packages/convex/test/brain-pages.contract.test.ts",
+    "packages/editor-react/src/BlockNoteSyncEditor.test.tsx",
+    "packages/editor-react/src/BlockNoteSyncEditor.tsx"
+  ],
+  "focusedCommands": [
+    "rtk pnpm brain:factory:check-confect-codegen -- --profile web --test brain-editor-revision-fence --test brain-pages-crud",
+    "rtk pnpm --dir packages/editor-react typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/editor-react test",
+    "rtk pnpm check:route-tree",
+    "rtk pnpm check:layer-boundaries"
+  ],
+  "supplementalCommandResults": [
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web exec vitest run src/features/brain/brain-workspace.test.tsx src/features/brain/brain-adapter.test.ts src/features/brain/brain-surface.test.ts src/features/brain/brain-page-tree.test.tsx src/features/brain/brain-editor-pane.test.tsx src/features/brain/brain-evidence-drawer.test.tsx",
+      "result": "passed: 6 files, 38 tests"
+    },
+    {
+      "command": "rtk pnpm --dir apps/web typecheck",
+      "result": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir packages/editor-react typecheck",
+      "result": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/editor-react test",
+      "result": "passed: 1 file, 5 tests"
+    },
+    {
+      "command": "rtk pnpm check:route-tree",
+      "result": "passed: check:route-tree: ok (pin-only)"
+    },
+    {
+      "command": "rtk pnpm check:layer-boundaries",
+      "result": "passed: no dependency violations found (1072 modules, 3757 dependencies cruised)"
+    },
+    {
+      "command": "rtk pnpm brain:factory:check-confect-codegen -- --profile web --test brain-editor-revision-fence --test brain-pages-crud",
+      "result": "passed: transient Confect codegen passed (5 generated files)"
+    },
+    {
+      "command": "rtk proxy git diff --check 27aba38106942afcf94a95d5520e61e847110361..HEAD",
+      "result": "passed"
+    }
+  ],
+  "testsAdded": [
+    "apps/web/src/features/brain/brain-surface.test.ts",
+    "apps/web/src/features/brain/brain-adapter.test.ts",
+    "apps/web/src/features/brain/brain-page-tree.test.tsx",
+    "apps/web/src/features/brain/brain-editor-pane.test.tsx",
+    "apps/web/src/features/brain/brain-evidence-drawer.test.tsx",
+    "apps/web/src/features/brain/brain-workspace.test.tsx",
+    "packages/editor-react/src/BlockNoteSyncEditor.test.tsx",
+    "packages/convex/test/brain-editor-revision-fence.test.ts",
+    "packages/convex/test/brain-pages-crud.test.ts",
+    "packages/convex/test/brain-pages.contract.test.ts"
+  ],
+  "sourceSlices": [
+    {
+      "commit": "bf66c0fcff7a0645d022ae97a4dc28d5d2f2bc34",
+      "changedHandAuthoredSourceLines": 257
+    },
+    {
+      "commit": "135627e3993b69c455f5c4c8970776485d37c93b",
+      "changedHandAuthoredSourceLines": 297
+    },
+    {
+      "commit": "833e6b1f5a7f1ef2d05bf23d012306845fd526fd",
+      "changedHandAuthoredSourceLines": 181
+    },
+    {
+      "commit": "547cb860f5432f60adc37520da854ddf2f59bb92",
+      "changedHandAuthoredSourceLines": 247
+    },
+    {
+      "commit": "14fe10fcba4668975c691a914a2f327c9ed6410c",
+      "changedHandAuthoredSourceLines": 218
+    },
+    {
+      "commit": "f6b40af2d39f82ca5888f6b77226a55993d4812c",
+      "changedHandAuthoredSourceLines": 263
+    },
+    {
+      "commit": "bffa00c937cbd7e2d376c6996e3a5ad57e425bc3",
+      "changedHandAuthoredSourceLines": 287
+    }
+  ],
+  "reviewVerdict": "pass",
+  "knownRisks": [
+    "Focused web workspace tests intentionally mock Saas UI primitives; React logs unknown DOM prop warnings from the mock, but all assertions pass.",
+    "Broad verification is deferred to tranche/wave integration per Appendix O/P."
+  ],
+  "reviewFindings": [],
+  "reviewHeadSha": "bffa00c937cbd7e2d376c6996e3a5ad57e425bc3",
+  "priorFindingDispositions": [],
+  "resolvedPriorFindingIds": []
+}

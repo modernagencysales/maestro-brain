@@ -1,0 +1,88 @@
+{
+  "lens": "safety",
+  "taskId": "S11-T02",
+  "planSha256": "1c6b818063c534afdae20d688fee71e830915c5ac356bf7eba7724099d7ed9a5",
+  "taskBlockHash": "f49e5fe055896a804408cf0013f1f4b02735f7b6e18f1813ab85e85672fb569d",
+  "baseSha": "8c05d19fb42b36d4612e4faf4011008672162ba2",
+  "headSha": "789cacd4af82066218c63e414d4206d6b2f2cfa9",
+  "treeSha": "9359fc1e79ae493c2e1234f3d52f48aee42de97a",
+  "reviewerRunId": "maestro/review/S11-T02/789cacd4af82066218c63e414d4206d6b2f2cfa9/b7a9d4d4-909a-4b7a-b395-616ab2b743db-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/authorizeOperation.ts rejects caller-supplied organization/workspace/brain/user/id fields recursively before adding server-owned organizationId, workspaceId, and brainKey from the verified principal.",
+        "packages/convex/confect/headless/apiKeys.impl.ts authenticateBrainKeyHash loads the API key by hash, verifies the service principal, then assertActiveBrainScope checks the exact organizationId/workspaceId/brainKey active scope before returning a HeadlessPrincipal.",
+        "packages/convex/test/http-request-security.test.ts covers recursive and top-level tenant alias rejection; packages/convex/test/api-keys.test.ts covers wrong Brain/scope and lifecycle matrix behavior."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/http.ts authenticates bearer hashes with the operation-specific requiredScope before request-body decode and dispatch.",
+        "packages/convex/confect/headless/authorizeOperation.ts fails closed when no reviewed headless policy exists or the principal lacks the required brain:read/brain:ask scope.",
+        "packages/convex/confect/headless/apiKeys.impl.ts public API-key create/revoke/rotate paths require an admin actor and record success/denial audit events; apps/web Settings changes only hide UI and still route through generated refs.",
+        "packages/convex/test/http-request-security.test.ts covers unknown/non-headless operation denial and ask-scope authentication; packages/convex/test/api-keys.test.ts covers non-admin server denial and audited CRUD."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.impl.ts verifyStoredKeyRow rejects revoked and expired API keys and revoked service principals, and authenticateBrainKeyHash rejects inactive organization/Brain scope.",
+        "packages/convex/confect/headless/apiKeys.impl.ts createApiKeyForBrain snapshots organization/workspace lifecycle and revocation generations; authenticateBrainKeyHash compares them on every request.",
+        "packages/convex/test/api-keys.test.ts covers revoked key, expired key, revoked principal, inactive Brain/org, and changed generation failures."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/httpRequest.ts parses Authorization header only, redacts public failures to uniform Unauthorized/Forbidden/ValidationFailed/RateLimited envelopes, and canonicalizes admission metadata for extensions.",
+        "packages/convex/confect/headless/apiKeys.impl.ts stores and looks up hashed presented keys, returns display-once secrets only from create/rotate, and uses bounded hashes for denied audit subjects instead of raw names or tokens.",
+        "packages/convex/test/http-request-security.test.ts includes header-in-URL rejection, raw Authorization non-disclosure, and raw user-agent/x-forwarded-for canaries for rate-limit metadata; packages/convex/test/api-keys.test.ts covers display-once secret behavior and audit redaction."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.impl.ts createApiKeyForBrain checks by_key_hash before insert and maps collisions to ApiKeyConflict; revoke/rotate patch durable rows and principal generations rather than trusting client state.",
+        "packages/convex/confect/http.ts reauthenticates after operation dispatch and compares the initial and final principal workspaceId/brainKey/generation/scopes before returning, closing stale-generation races.",
+        "packages/convex/test/api-keys.test.ts covers duplicate/idempotency-style conflicts and generation changes; packages/convex/test/http-request-security.test.ts covers final reauthorization failure behavior."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/manifest/executor.ts preserves idempotencyKey validation for idempotent operations and executeAuthorizedHeadlessOperation routes only authorized inputs into the existing executor path.",
+        "packages/convex/confect/httpRequest.ts carries idempotencyKey from JSON body only after bearer authorization and rejects tenant/id fields that could replay into a different tenant context.",
+        "packages/convex/test/headless-executor.test.ts and packages/convex/test/http-request-security.test.ts cover idempotency requirements and forbidden deleted/write operation dispatch."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.impl.ts binds API keys to principalGeneration plus organization/workspace lifecycle and revocation generations at create time and verifies each value during authenticateBrainKeyHash.",
+        "packages/convex/confect/http.ts performs a final authenticate/compare after dispatch so revoked, rotated, or generation-changed principals cannot return stale results.",
+        "packages/convex/test/api-keys.test.ts asserts changed generation denial; packages/convex/test/http-request-security.test.ts asserts final reauthorization revocation handling."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "The changed backend files stay within Confect/headless/http/executor layers and do not import live provider SDKs or expose server secrets to web code.",
+        "packages/convex/confect/httpRequest.ts passes only keyHash, operationId, requiredScope, and canonical metadata to rate-limit extensions, avoiding raw headers or bearer tokens at provider-like seams.",
+        "packages/convex/test/http-request-security.test.ts covers rate-limit metadata canaries; lane proof records passing check:logging-boundary and check:secret-canaries."
+      ]
+    }
+  ],
+  "priorFindingDispositions": [],
+  "findings": [],
+  "verdict": "pass"
+}

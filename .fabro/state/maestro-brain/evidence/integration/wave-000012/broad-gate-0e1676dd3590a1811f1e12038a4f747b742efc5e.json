@@ -1,0 +1,16 @@
+{
+  "attempts": [
+    {
+      "attempt": 1,
+      "command": "rtk host-test-slot --class full pnpm verify",
+      "headSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+      "outputSha256": "60c2bea475805b81cf9b89bc1ca94768b3812e8019d093384d5890a6435bd80e",
+      "status": "passed",
+      "transientVitestWorkerRpcTimeout": false
+    }
+  ],
+  "command": "rtk host-test-slot --class full pnpm verify",
+  "headSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+  "schemaVersion": "maestro-brain-broad-gate-receipt/v1",
+  "status": "passed"
+}

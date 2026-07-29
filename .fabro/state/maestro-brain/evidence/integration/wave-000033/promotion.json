@@ -1,0 +1,10 @@
+{
+  "at": "2026-07-20T03:56:26.507Z",
+  "baseSha": "1b6b2d5fc92ba7002e93703fb284ea7bfb72753f",
+  "headSha": "5d98c8521844b6205c8b01d011a9faffa7cec1af",
+  "integrationId": "wave-000033",
+  "schemaVersion": "maestro-brain-integration-wave-promotion/v3",
+  "selectionFileSha256": "8d5c4dbb93298ebecc3d076cacbe80e1c84ea524f46e16a9382ce64f18d4adc3",
+  "selectionPayloadSha256": "a885e699f251f5a5fc32716940ba4bcb758ebf3d04b691907a060e59f7211d09",
+  "status": "promoted"
+}

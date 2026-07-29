@@ -1,0 +1,30 @@
+{
+  "baseSha": "64b5d90e9dce6146ac6cd49696658cd9a40a254c",
+  "controlHeadSha": "64b5d90e9dce6146ac6cd49696658cd9a40a254c",
+  "createdAt": "2026-07-19T23:37:54.605Z",
+  "evidence": [
+    "apply-error:S04-T01-reproof-request-digest-drift",
+    "run-inspection:01KXYBTBGTCZ5WHZ3ZEXYCXCCZ"
+  ],
+  "integrationId": "wave-000029",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "reason": "deterministic S04-T01 reproof request digest drift before apply; no commits applied",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXYBTBGTCZ5WHZ3ZEXYCXCCZ",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "e1a243de51e4791e0d50a7645549ec940fb0a790fab055edd3ef418675f70506",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v2",
+  "selectedTaskIds": [
+    "S03-T03",
+    "S04-T01",
+    "S11-T02"
+  ],
+  "selectionFileSha256": "aa0a9043c3f5bd79af7e3fb7b0cb6c60515c9208205279c83da30c26d6d9b6db",
+  "selectionPayloadSha256": "34eebd185b8246713eb57742d481aa8ea47a9cb70b4f92352cfc2fa26d2f060c",
+  "status": "superseded",
+  "receiptSha256": "2ebba84492801ba67fa5596f095fc69b473c61b6c7b438df3a4477251bdcc283"
+}

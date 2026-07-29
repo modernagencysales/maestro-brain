@@ -1,0 +1,71 @@
+{
+  "taskId": "S02-T01",
+  "baseSha": "304348d92cd2388df5f7945f6ba8d76be79f8686",
+  "headSha": "737ea7e1972df224c35a099d494fd66f3fe82a67",
+  "changedFiles": [
+    "packages/convex/confect/_generated/convexSchema.ts",
+    "packages/convex/confect/_generated/docs.ts",
+    "packages/convex/confect/_generated/id.ts",
+    "packages/convex/confect/_generated/schema.ts",
+    "packages/convex/confect/_generated/tables/pageRevisions.ts",
+    "packages/convex/confect/brain/pageSchemas.ts",
+    "packages/convex/confect/tables/brainPages.ts",
+    "packages/convex/confect/tables/pageRevisions.ts",
+    "packages/convex/test/brain-page-schema.test.ts"
+  ],
+  "focusedCommands": [
+    {
+      "command": "rtk pnpm --dir packages/convex test brain-page-schema",
+      "status": "guard-refused",
+      "summary": "pnpm guard refused broad/local execution outside host-test-slot; reran with focused host-test-slot from the resume worktree."
+    },
+    {
+      "command": "rtk host-test-slot --class focused bash -lc 'cd /Users/headless/.maestro-brain-fabro-workdirs/resume-s02-t01 && pnpm --dir packages/convex test brain-page-schema'",
+      "status": "passed",
+      "summary": "test/brain-page-schema.test.ts: 9 passed."
+    },
+    {
+      "command": "rtk host-test-slot --class focused bash -lc 'cd /Users/headless/.maestro-brain-fabro-workdirs/resume-s02-t01 && pnpm check:schema-migration-notes'",
+      "status": "passed",
+      "summary": "check:schema-migration-notes: ok (pin-only)."
+    },
+    {
+      "command": "rtk host-test-slot --class focused bash -lc 'cd /Users/headless/.maestro-brain-fabro-workdirs/resume-s02-t01 && pnpm check:confect-contracts'",
+      "status": "passed",
+      "summary": "check:confect-contracts: ok (pin-only); ok (semantic)."
+    },
+    {
+      "command": "rtk host-test-slot --class focused bash -lc 'cd /Users/headless/.maestro-brain-fabro-workdirs/resume-s02-t01 && pnpm --dir packages/convex typecheck'",
+      "status": "passed",
+      "summary": "tsc -p tsconfig.json --noEmit passed."
+    },
+    {
+      "command": "rtk host-test-slot --class focused bash -lc 'cd /Users/headless/.maestro-brain-fabro-workdirs/resume-s02-t01 && pnpm --dir packages/convex build'",
+      "status": "passed",
+      "summary": "tsc -p tsconfig.json --outDir dist --declaration passed; dist output removed before final status."
+    },
+    {
+      "command": "git diff --check",
+      "status": "passed",
+      "summary": "No whitespace errors."
+    },
+    {
+      "command": "rtk host-test-slot --class focused bash -lc 'cd /Users/headless/.maestro-brain-fabro-workdirs/resume-s02-t01 && pnpm --dir packages/convex check:convex'",
+      "status": "passed-after-amend",
+      "summary": "Generated Confect schema drift for pageRevisions was detected, codegen output was added, and check:convex is clean after amend."
+    },
+    {
+      "command": "rtk pnpm brain:factory:lane-gates -- --task 'S02-T01' --evidence '/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence' --stage pre-review",
+      "status": "passed",
+      "summary": "S02-T01: lane gates passed (pre-review); packages/convex test: 50 files and 307 tests passed."
+    }
+  ],
+  "testsAdded": [
+    "packages/convex/test/brain-page-schema.test.ts"
+  ],
+  "reviewVerdict": "pass",
+  "knownRisks": [
+    "Broad just verify intentionally not run in this lane per task instruction; tranche integration owns broad verification.",
+    "Migration registry/lifecycle docs were not separately changed because the current schema-migration-notes gate reports pin-only for this repo state."
+  ]
+}

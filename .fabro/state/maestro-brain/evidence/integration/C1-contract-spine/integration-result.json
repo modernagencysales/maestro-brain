@@ -1,0 +1,1019 @@
+{
+  "schemaVersion": "maestro-brain-integration-result/v1",
+  "tranche": "C1-contract-spine",
+  "status": "passed",
+  "integrationWorkdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-C1-contract-spine",
+  "headSha": "c6433e434c457084afb908ec6013fb63dfc1ae7b",
+  "includedTasks": [
+    {
+      "taskId": "S01-T01",
+      "laneHeadSha": "175d69f00d42af794cdf96e178c1538723908d74",
+      "integratedCommits": [
+        {
+          "source": "3550e302155fc6e542c215c602fd137c48d9d891",
+          "integrated": "cad51c5dfb4072cdd8a13db764c524681dc75614",
+          "subject": "test: cover AuthKit server bridge"
+        },
+        {
+          "source": "b9a1b45e44aae451a8a8bbce35fff6ea726c9b7d",
+          "integrated": "0b4b4f4689bba8c982624ddad13c2fd414de124a",
+          "subject": "feat: bridge AuthKit server runtime"
+        },
+        {
+          "source": "61cfdac7ee97fa4b61299182c6d4df37f91fd6e5",
+          "integrated": "fa89e9ebcaf2df255c3dc1b8644697c0f4bdca5d",
+          "subject": "feat: provide AuthKit tokens to Convex"
+        },
+        {
+          "source": "175d69f00d42af794cdf96e178c1538723908d74",
+          "integrated": "f89859e944133821ea2e6bd6c9580a06a5764d8d",
+          "subject": "feat: validate WorkOS Convex auth config"
+        }
+      ]
+    },
+    {
+      "taskId": "S02-T01",
+      "laneHeadSha": "737ea7e1972df224c35a099d494fd66f3fe82a67",
+      "integratedCommits": [
+        {
+          "source": "737ea7e1972df224c35a099d494fd66f3fe82a67",
+          "integrated": "ca4421fbfc597ec9987dc3716b2616c2cb025e9a",
+          "subject": "feat: add stable Brain page tree"
+        }
+      ]
+    },
+    {
+      "taskId": "S03-T01",
+      "laneHeadSha": "fdcf31bb31867f9ccfc8990b3034da01bec538fe",
+      "integratedCommits": [
+        {
+          "source": "3dfbf8ab6590b92099e578603880317fd65e6eee",
+          "integrated": "47f48f6e542bd4cd60a03df5b7f758f5f2e2eeba",
+          "subject": "feat: simplify Brain product navigation"
+        },
+        {
+          "source": "43003813f746c8e1f64f3ef24bff8e027a4da031",
+          "integrated": "79e6194eec314803936712fc9c32eb86cc73b941",
+          "subject": "feat: add Clients shell screen"
+        },
+        {
+          "source": "fdcf31bb31867f9ccfc8990b3034da01bec538fe",
+          "integrated": "1f2c54ab11be1b150ac281ec400b4c8ce1fe8387",
+          "subject": "feat: add Connections shell screen"
+        }
+      ]
+    },
+    {
+      "taskId": "S08-T01",
+      "laneHeadSha": "77790868e1c67debf1ea2ddf07f5a77e8188f157",
+      "integratedCommits": [
+        {
+          "source": "53773fab4ca7e9e21929380ed178317dbea87f53",
+          "integrated": "e74263425f75ac0e9e67294ee4e8327e9fac8d0f",
+          "subject": "feat: add structured model primitives"
+        },
+        {
+          "source": "bcad831da228f4b89391feb06b53e98f6d14fd8d",
+          "integrated": "bf9504ffea4800bea7c265d08c893b7bdcba94f1",
+          "subject": "feat: wire structured LLM gateway"
+        },
+        {
+          "source": "ab919fd76d9b93245537acafa222ed5f199b1ea3",
+          "integrated": "00ca2f554ba69672f986566a5089dad61f7b6535",
+          "subject": "test: cover structured LLM gateway"
+        },
+        {
+          "source": "77790868e1c67debf1ea2ddf07f5a77e8188f157",
+          "integrated": "01cc829f70d4fba0b2c0ffd0b8cf4bf6147ba7b2",
+          "subject": "feat: add model call receipt table"
+        }
+      ]
+    },
+    {
+      "taskId": "S11-T01",
+      "laneHeadSha": "9420bf95ee86532e0aae0ff5a9c7f5b1d63972a1",
+      "integratedCommits": [
+        {
+          "source": "ac5cb7c22d4f2952df5f2cd51bfef5427199673b",
+          "integrated": "67aafe40f75f63bc33639c9046c5aaaa2a62427b",
+          "subject": "feat: define one-Brain key contracts"
+        },
+        {
+          "source": "494137e5014f8ffa4b9abef738d5bf490a23d0c7",
+          "integrated": "ce0a15bc35917e3c3265bf1d51f0b8405f4fd819",
+          "subject": "feat: enforce one-Brain key lifecycle"
+        },
+        {
+          "source": "72fdcf8d0982e3635f4bc376898838da8c253430",
+          "integrated": "3e8643669a449717921c611e8708932517e72442",
+          "subject": "test: prove one-Brain key controls"
+        },
+        {
+          "source": "9420bf95ee86532e0aae0ff5a9c7f5b1d63972a1",
+          "integrated": "a1591e4b94e3dafa190d5905e5774e9b8bab0e8a",
+          "subject": "fix: require read scope for Brain keys"
+        }
+      ]
+    },
+    {
+      "taskId": "S12-T01",
+      "laneHeadSha": "b2c4996dd3fffe797838c42117a0bbe4636109ba",
+      "integratedCommits": [
+        {
+          "source": "82d40fb2d5db55c6337cae15ef975107abb0a916",
+          "integrated": "76cd1e7e770fc2b12a2fb69835c14ace8c349359",
+          "subject": "test: pin Brain export codec behavior"
+        },
+        {
+          "source": "0053061127e87f82880eec2d624db168b7900f1a",
+          "integrated": "b4e225f943eea26ff48f6d8fef16a2a021e74702",
+          "subject": "feat: add Brain export contract"
+        },
+        {
+          "source": "21ecc52b84a940689d416ecae6a9dc4c346a14f1",
+          "integrated": "ec0217b5d832b03abd7231ad27cf865b5a69d04c",
+          "subject": "feat: stabilize Brain export encoding"
+        },
+        {
+          "source": "b2c4996dd3fffe797838c42117a0bbe4636109ba",
+          "integrated": "5b4f3125a4dc24ced24f79a0a1bc88571b8e5ece",
+          "subject": "fix: harden Brain export hashing"
+        }
+      ]
+    },
+    {
+      "taskId": "S13-T01",
+      "laneHeadSha": "8d5cc78b13efccf32bcb1c3824e1d452ec0e9508",
+      "integratedCommits": [
+        {
+          "source": "f1ae4f3ec5e8683b333952e75104a4a923668bcd",
+          "integrated": "55ba7e20b966e3a49f8f96eb4499ddaff02ce459",
+          "subject": "feat: add Brain eval receipt core"
+        },
+        {
+          "source": "c836f60485e201418622eb4b7ca12accace8a6ce",
+          "integrated": "e6da1cdd083c748b7ccb9b64a9cdb19ea0bffd66",
+          "subject": "test: add Brain fixture and multilingual evals"
+        },
+        {
+          "source": "180cc418abdcd477da74f7e25fa2b3c2660f4a0e",
+          "integrated": "95207ff441450184a75151ee8be6d79b5a28f8d6",
+          "subject": "test: add Brain route and answer evals"
+        },
+        {
+          "source": "8d5cc78b13efccf32bcb1c3824e1d452ec0e9508",
+          "integrated": "f55466f756d4eb54eb88978fbab1e408ee6a9835",
+          "subject": "test: add Brain safety maintenance evals"
+        }
+      ]
+    }
+  ],
+  "skippedC1Tasks": [
+    {
+      "taskId": "S01-T02",
+      "reason": "no lane-result.json present for this tranche integration"
+    },
+    {
+      "taskId": "S04-T01",
+      "reason": "no lane-result.json present and codeStartAfter S01-T02 not present"
+    },
+    {
+      "taskId": "S05-T01",
+      "reason": "no lane-result.json present and codeStartAfter S04-T02 not present"
+    },
+    {
+      "taskId": "S07-T01",
+      "reason": "no lane-result.json present and codeStartAfter dependencies not present"
+    },
+    {
+      "taskId": "S09-T01",
+      "reason": "no lane-result.json present for this tranche integration"
+    }
+  ],
+  "generatedDiffs": [
+    {
+      "commit": "30b5a0ac3e8e4600908581702cd7484db3089202",
+      "subject": "chore: refresh Brain generated contracts",
+      "files": [
+        "packages/convex/confect/_generated/convexSchema.ts",
+        "packages/convex/confect/_generated/docs.ts",
+        "packages/convex/confect/_generated/id.ts",
+        "packages/convex/confect/_generated/registeredFunctions/headless/apiKeys.ts",
+        "packages/convex/confect/_generated/schema.ts",
+        "packages/convex/confect/_generated/spec.ts",
+        "packages/convex/confect/_generated/tables/modelCallReceipts.ts",
+        "packages/convex/confect/_generated/tables/servicePrincipals.ts",
+        "packages/convex/convex/headless/apiKeys.ts",
+        "packages/template-core/src/generated/confectManifest.ts"
+      ]
+    }
+  ],
+  "conflicts": [],
+  "accidentalCrossWorktreeChanges": [],
+  "codegenCommands": [
+    {
+      "command": "rtk host-test-slot --class focused pnpm confect:codegen",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm confect:manifest",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm check:route-tree",
+      "status": "passed"
+    }
+  ],
+  "focusedCombinedChecks": [
+    {
+      "command": "rtk host-test-slot --class focused pnpm check:generated-files",
+      "status": "passed",
+      "summary": "check:generated-files: ok (pin-only)"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm check:confect-contracts",
+      "status": "passed",
+      "summary": "check:confect-contracts: ok (pin-only); ok (semantic)"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm check:confect-manifest",
+      "status": "passed",
+      "summary": "tooling/confect-manifest test: 1 file and 5 tests passed; typecheck passed; manifest diff clean"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm check:route-tree",
+      "status": "passed",
+      "summary": "check:route-tree: ok (pin-only)"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex check:convex",
+      "status": "passed",
+      "summary": "Generated files are up-to-date"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/template-core typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/integrations typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir tooling/evals typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/template-core test -- brainExport.test.ts",
+      "status": "passed",
+      "summary": "8 files and 39 tests passed; includes src/brainExport.test.ts 9 tests passed"
+    },
+    {
+      "command": "pnpm exec prettier --write packages/template-core/src/brainExport.ts packages/template-core/src/brainExport.test.ts",
+      "status": "passed",
+      "summary": "Both edited files formatted; pre-commit format hook reported unchanged on commit."
+    },
+    {
+      "command": "rtk git diff --check",
+      "status": "passed"
+    },
+    {
+      "command": "pnpm exec eslint apps/web/src/auth/authkit-server.ts packages/convex/convex/auth.config.ts apps/web/src/saas-ui/business-shell.tsx",
+      "status": "passed",
+      "summary": "Targeted ESLint passed for prior full-lint reported auth config and business-shell files."
+    }
+  ],
+  "broadVerify": {
+    "status": "not_run",
+    "reason": "User explicitly instructed not to run broad verify during repair; only focused lint/type/tests were run."
+  },
+  "reviewVerdict": "pass",
+  "sourceReviewRun": "01KXHPW9P6KEV5Z7M5FX3ZQH15",
+  "remainingFindings": [],
+  "reviewSummary": "Independent read-only repaired-tranche review checked AGENTS.md, task manifest packets, lane proof packets, integration-result.json, current git status, and the complete repaired diff from c5c66785dfbb7bda0a1cc49852d6bb1c55e6907b to c6433e434c457084afb908ec6013fb63dfc1ae7b. The repaired diff is limited to the web reference-route env boundary and focused branch tests in apps/web/src/env.ts, apps/web/src/saas-ui/business-shell.tsx, platform route tests, env tests, and AuthKit server tests. It does not change generated Confect/Convex files, Convex persistence, LLM gateway/receipt code, export codecs, eval tooling, or provider adapters. Focused read-only checks and searches found no remaining defects across tenant authority, lifecycle deletion/revocation, exact LLM artifact integrity and admitted provider payload, public/internal separation, provider bundling, generated refs, typed errors, slice budgets, and real run-artifact eval evidence.",
+  "reviewFocusedChecks": [
+    {
+      "command": "rtk host-test-slot --class focused pnpm check:effect-diagnostics",
+      "status": "passed",
+      "summary": "0 errors, 0 warnings and 3 messages; prior strict diagnostic warnings are cleared."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm check:provider-boundary",
+      "status": "passed",
+      "summary": "check:provider-boundary passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/integrations test llmStructured",
+      "status": "passed",
+      "summary": "1 file and 10 tests passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir tooling/evals test brain-eval-report",
+      "status": "passed",
+      "summary": "1 file and 10 tests passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test model-call-receipts api-keys",
+      "status": "passed",
+      "summary": "2 files and 16 tests passed"
+    },
+    {
+      "command": "git diff --check",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm exec eslint packages/convex/confect/modelReceipts/repository.ts packages/convex/test/model-call-receipts.test.ts",
+      "status": "passed",
+      "summary": "Focused ESLint passed for the model receipt repository and regression tests; prior no-throw-tagged-error violations are absent."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test model-call-receipts",
+      "status": "passed",
+      "summary": "1 file and 8 tests passed, including wrong-tenant/lifecycle and duplicate typed-failure regressions."
+    },
+    {
+      "command": "rtk git diff --check && STATUS=$(rtk proxy git status --porcelain); rtk proxy test -z \"$STATUS\"",
+      "status": "passed",
+      "summary": "No whitespace errors and the integration worktree was clean before evidence update."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir tooling/quality test check-provider-boundary",
+      "status": "passed",
+      "summary": "1 file and 7 tests passed; includes negative route/start WorkOS SDK fixture and approved auth runtime/adapter fixtures."
+    },
+    {
+      "command": "git diff --check af64a12419b5b1ca8faf52a7e972ab9b0f18ead9...HEAD && git status --short",
+      "status": "passed",
+      "summary": "No whitespace errors in the reviewed diff and the integration worktree was clean before evidence update."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web test -- start-runtime",
+      "status": "passed",
+      "summary": "32 files and 134 tests passed; route regression asserts __root imports the client-safe safe-client-runtime bridge and not safe-client-runtime.server/getServerEnv/getWorkosServerAuth."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web typecheck",
+      "status": "passed",
+      "summary": "tsc -p tsconfig.json --noEmit passed."
+    },
+    {
+      "command": "rtk host-test-slot --class full pnpm --dir apps/web build",
+      "status": "passed",
+      "summary": "TanStack Start client and SSR production builds passed; import protection no longer rejects __root.tsx because it imports the client-safe createServerFn bridge."
+    },
+    {
+      "command": "git diff --check af64a12419b5b1ca8faf52a7e972ab9b0f18ead9..HEAD && git status --short",
+      "status": "passed",
+      "summary": "Committed diff is whitespace-clean and the integration worktree was clean before evidence update."
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/integration-C1-contract-spine && rtk host-test-slot --class focused pnpm --dir apps/web test -- start-runtime",
+      "status": "passed",
+      "summary": "32 files and 134 tests passed; start-runtime regression confirms root route imports ../auth/safe-client-runtime, not .server/getServerEnv/getWorkosServerAuth."
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/integration-C1-contract-spine && rtk host-test-slot --class focused pnpm --dir tooling/quality test check-provider-boundary",
+      "status": "passed",
+      "summary": "1 file and 7 tests passed; fixtures reject WorkOS imports in route/start files and allow only explicit auth runtime/adapter boundaries."
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/integration-C1-contract-spine && rtk host-test-slot --class focused pnpm check:provider-boundary",
+      "status": "passed",
+      "summary": "Repository provider boundary scan passed in the integration workdir."
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/integration-C1-contract-spine && rtk host-test-slot --class full pnpm --dir apps/web build",
+      "status": "passed",
+      "summary": "Focused app build passed for the prior TanStack Start import-protection failure; client, SSR, and prerender completed."
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/integration-C1-contract-spine && git diff --check af64a12419b5b1ca8faf52a7e972ab9b0f18ead9..HEAD && git status --short",
+      "status": "passed",
+      "summary": "No whitespace errors in the reviewed diff and no product/worktree changes were present before evidence update."
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/integration-C1-contract-spine && rtk host-test-slot --class focused pnpm --dir apps/web test -- platform-routes",
+      "status": "passed",
+      "summary": "32 files and 134 tests passed; platform-routes regression confirms BusinessShell uses isReferenceRoutesEnabled(), contains no direct import.meta.env access, and keeps reference routes hidden by default."
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/integration-C1-contract-spine && rtk host-test-slot --class focused pnpm check:env-boundary",
+      "status": "passed",
+      "summary": "Repository env-boundary scan passed after moving the reference-route flag read into apps/web/src/env.ts."
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/integration-C1-contract-spine && git diff --check c5c66785dfbb7bda0a1cc49852d6bb1c55e6907b..HEAD && git status --short",
+      "status": "passed",
+      "summary": "No whitespace errors in the repaired diff and no product/worktree changes were present before evidence update."
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/integration-C1-contract-spine && git diff --name-only c5c66785dfbb7bda0a1cc49852d6bb1c55e6907b..HEAD -- packages/convex/confect/_generated packages/convex/convex/_generated packages/template-core/src/generated packages/integrations packages/convex tooling/evals apps/web/src/auth",
+      "status": "passed",
+      "summary": "No generated, provider, Convex, eval, or auth files changed in the repair diff; tenant/lifecycle/provider/eval conclusions rely on prior integrated evidence plus unchanged code."
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/integration-C1-contract-spine && rtk host-test-slot --class focused pnpm --dir apps/web test -- env authkit-server platform-routes",
+      "status": "passed",
+      "summary": "32 files and 139 tests passed; focused coverage includes env reference-route helper and SafeClientRuntime fake/live/test metadata branches."
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/integration-C1-contract-spine && rtk host-test-slot --class focused pnpm --dir apps/web typecheck",
+      "status": "passed",
+      "summary": "apps/web TypeScript typecheck passed."
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/integration-C1-contract-spine && git diff --name-only c5c66785dfbb7bda0a1cc49852d6bb1c55e6907b..HEAD | xargs rg -n \"@workos-inc|workos|openai|anthropic|import\\.meta\\.env|getServerEnv|getWorkosServerAuth|accessToken|apiKey|secret\" -- || true; git diff --name-only c5c66785dfbb7bda0a1cc49852d6bb1c55e6907b..HEAD | rg \"_generated|generated\" || true; git diff --numstat c5c66785dfbb7bda0a1cc49852d6bb1c55e6907b..HEAD",
+      "status": "passed",
+      "summary": "Targeted read-only diff grep showed import.meta.env reads only in apps/web/src/env.ts, WorkOS/accessToken strings only in tests, no generated files changed, and a 91-line net repaired diff within the focused repair budget."
+    }
+  ],
+  "integrationLintFix": {
+    "commit": "e4227c31454b2bfe87bfec5fe600a615e83e7bee",
+    "subject": "fix: remove Brain export non-null assertions",
+    "reason": "Deterministic gates found forbidden non-null assertions in the integrated Brain export codec/tests and targeted ESLint found remaining unused auth/nav symbols in integrated task files.",
+    "files": [
+      "apps/web/src/auth/authkit-server.ts",
+      "apps/web/src/saas-ui/business-shell.tsx",
+      "packages/convex/convex/auth.config.ts",
+      "packages/template-core/src/brainExport.ts",
+      "packages/template-core/src/brainExport.test.ts"
+    ]
+  },
+  "reviewDefectsFixed": [
+    {
+      "finding": "WorkOS provider SDK imports appeared in apps/web/src/auth/authkit-client.tsx and apps/web/src/auth/authkit-server.ts, outside approved provider/runtime boundary files.",
+      "fix": "Auth adapter now accepts provider hooks/components via a typed bridge; getAuth is injected by the approved apps/web/src/routes/__root.tsx runtime boundary.",
+      "files": [
+        "apps/web/src/auth/authkit-client.tsx",
+        "apps/web/src/auth/authkit-server.ts",
+        "apps/web/src/routes/__root.tsx"
+      ]
+    }
+  ],
+  "reviewFindings": [],
+  "reviewBlockers": [],
+  "repairCommits": [
+    {
+      "commit": "4e0a34df2e8e0ee1f3b9f674bc133e55a71e94f3",
+      "subject": "fix: fence WorkOS and fake tenancy"
+    },
+    {
+      "commit": "e80347e9a72c952f7aef3c10507bedb97950f8ef",
+      "subject": "fix: harden Brain key receipts"
+    },
+    {
+      "commit": "9f3124d3c038dc2d0359468aa7216de851826b92",
+      "subject": "fix: admit exact LLM payloads"
+    },
+    {
+      "commit": "206480dbb4c38e09cf4a4a42913a41d4a66ca566",
+      "subject": "fix: require Brain artifact fences"
+    },
+    {
+      "commit": "9f7a6e2d0d6c7dcd772bc21083c3a308b929a0bd",
+      "subject": "fix: close Brain runtime boundaries"
+    },
+    {
+      "commit": "67134c44517c0a8a2d0b0c6e3f84c4d1daa2a0ce",
+      "subject": "fix: admit exact Brain LLM content"
+    },
+    {
+      "commit": "5dbe9dfd7fb58c2a09a8f0b8e4c38f43a72f24b8",
+      "subject": "fix: fence Brain receipts and evals"
+    },
+    {
+      "commit": "ab0f62fbb76899fc7faf7b6c74acdbbd9d13f29c",
+      "subject": "fix: harden Brain runtime digests"
+    },
+    {
+      "commit": "dbdbd756b465b7d07e7017b7eb2d62e2d08621d5",
+      "subject": "fix: persist Brain model receipts"
+    },
+    {
+      "commit": "0311aa6645e7ec017e42e4b7bb6e46042d9872dd",
+      "subject": "fix: recompute Brain eval artifacts"
+    },
+    {
+      "commit": "865d60246becb3e950db98f3e5a11f37ea07f2ef",
+      "subject": "fix: bind Brain receipts and eval runs"
+    },
+    {
+      "commit": "133a0548a1c3dfc2b4ef2585414b87d9f8546408",
+      "subject": "test: require external Brain eval runs"
+    },
+    {
+      "commit": "8f1aecf988b454c7fcc8e2ef0c5f577beec76ec5",
+      "subject": "fix: score external Brain eval outputs"
+    },
+    {
+      "commit": "a60647df7e032ef3902e0db8d7c7f8d3ed2ad501",
+      "subject": "fix: route Brain brief through LLM gateway"
+    },
+    {
+      "commit": "d320d1a6bd9125b8e4c1f33ecd9d5ad0add6cce5",
+      "subject": "fix: keep Brain brief fixture isolate-safe"
+    },
+    {
+      "commit": "f52a90478d54934742373fe1518294f945df0a35",
+      "subject": "fix: require external Brain eval runs"
+    },
+    {
+      "commit": "af64a12419b5b1ca8faf52a7e972ab9b0f18ead9",
+      "subject": "fix: type Brain receipt planner failures"
+    },
+    {
+      "commit": "d901a4b8132d33c691638a51ab72a9fcae390c75",
+      "subject": "test: fence provider boundary fixtures"
+    },
+    {
+      "commit": "c5c66785dfbb7bda0a1cc49852d6bb1c55e6907b",
+      "subject": "fix: keep safe runtime bridge client-safe"
+    },
+    {
+      "commit": "5ccf2c3d759e896823e3ceaa3bca17906783e2f4",
+      "subject": "fix: route reference env through boundary"
+    },
+    {
+      "commit": "c6433e434c457084afb908ec6013fb63dfc1ae7b",
+      "subject": "test: cover Brain runtime env branches"
+    }
+  ],
+  "resolvedReviewFindings": [
+    {
+      "finding": "LLM request/admission must carry bounded immutable instruction/content artifacts plus canonical output schema/hash, and token/spend admission must compute from exact serialized provider request bytes before transport.",
+      "fix": "Structured LLM requests now include organization/policy/lifecycle metadata and contentArtifacts with exact serialized bytes; canonical provider payload is built before policy admission, hashed as the request, passed to transport, and covered by negative tests proving oversized exact bytes fail before transport and schema generation changes alter hashes.",
+      "files": [
+        "packages/integrations/src/llmEgressPolicy.ts",
+        "packages/integrations/src/llmReceipt.ts",
+        "packages/integrations/src/llmStructured.ts",
+        "packages/integrations/src/llmStructured.test.ts"
+      ]
+    },
+    {
+      "finding": "Public API-key specs must remove caller-owned organization/workspace/brain authority and internal IDs from returns, deriving scope server-side or remaining unregistered.",
+      "fix": "Public Confect apiKeys spec no longer accepts caller tenant fields and returns only display-once public metadata; helper derives server scope and strips key/principal/internal tenant ids in tests.",
+      "files": [
+        "packages/convex/confect/headless/apiKeys.spec.ts",
+        "packages/convex/confect/headless/auth.ts",
+        "packages/convex/test/api-keys.test.ts"
+      ]
+    },
+    {
+      "finding": "ModelCallReceiptRow needs organization, lifecycle/redaction, policy, schema generations and tenant indexes, and gateway/mappers must populate required fields.",
+      "fix": "Receipt row and integration receipt now require organizationId, schemaGeneration, policyGeneration, lifecycleGeneration, and redactionState; gateway populates them and tests validate required fields.",
+      "files": [
+        "packages/convex/confect/tables/modelCallReceipts.ts",
+        "packages/convex/test/model-call-receipts.test.ts",
+        "packages/integrations/src/llmReceipt.ts",
+        "packages/integrations/src/llmStructured.ts"
+      ]
+    },
+    {
+      "finding": "Signed-out live/production must never receive fake workspace owner tenancy; fake selection depends on explicit fake/build/local mode.",
+      "fix": "Runtime workspace operations now choose fake tenancy only from explicit AuthKit fake mode; live signed-out paths fail closed and focused tests cover both modes.",
+      "files": [
+        "apps/web/src/providers/workspace-operations.ts",
+        "apps/web/src/providers/workspace-operations.test.ts",
+        "apps/web/src/routes/__root.tsx"
+      ]
+    },
+    {
+      "finding": "Provider SDK imports must stay out of route modules; checker must enforce this while preserving server/client provider boundaries and real provider session ids.",
+      "fix": "WorkOS imports moved into dedicated auth runtime/adapter boundary files, root route only imports internal adapters, and provider-boundary checker allows only those boundary files.",
+      "files": [
+        "apps/web/src/auth/workos-client-runtime.tsx",
+        "apps/web/src/auth/workos-server-adapter.ts",
+        "apps/web/src/routes/__root.tsx",
+        "tooling/quality/check-provider-boundary.mts"
+      ]
+    },
+    {
+      "finding": "Eval approval must require external run artifacts and answer eval must score claims/citations/sources mechanically rather than trust booleans.",
+      "fix": "Fixture-only eval reports are rejected for promotion; approval requires external artifact schema and all suite receipts passing. Answer eval now uses claim text, cited quote, locator, and source artifact hash, with negative tests for fixture-only and unsupported artifacts.",
+      "files": [
+        "tooling/evals/src/brain-answers.ts",
+        "tooling/evals/src/brain-answers.test.ts",
+        "tooling/evals/src/brain-eval-report.ts",
+        "tooling/evals/src/brain-eval-report.test.ts"
+      ]
+    },
+    {
+      "finding": "Export pages/revisions/citations need lifecycle/generation fencing.",
+      "fix": "Brain export contract now requires active lifecycle state and exact lifecycleGeneration for pages, sources, and citations, and records page/source lifecycle generation in revision artifacts.",
+      "files": [
+        "packages/template-core/src/brainExport.ts",
+        "packages/template-core/src/brainExport.test.ts"
+      ]
+    },
+    {
+      "finding": "LLM admission must require exact artifact bytes, recompute canonical content root hashes, enforce media/size caps, and derive output schema hash from actual schema before transport.",
+      "fix": "Structured LLM policy now rejects missing bytes, hash mismatches, stale roots, unsupported media, oversize exact payloads, and caller-provided schema hash mismatches before transport; tests assert zero-call rejection.",
+      "files": [
+        "packages/integrations/src/llmEgressPolicy.ts",
+        "packages/integrations/src/llmStructured.ts",
+        "packages/integrations/src/llmStructured.test.ts"
+      ]
+    },
+    {
+      "finding": "Browser RootComponent must not call getServerEnv or infer fake mode from absent client env.",
+      "fix": "Server loader now serializes SafeClientRuntime with explicit workspaceRuntimeMode; RootComponent consumes that safe mode and no longer reads server env in browser component logic.",
+      "files": [
+        "apps/web/src/auth/authkit-server.ts",
+        "apps/web/src/routes/__root.tsx",
+        "apps/web/src/providers/workspace-operations.ts",
+        "apps/web/src/start-runtime.test.ts"
+      ]
+    },
+    {
+      "finding": "API-key registered Confect impls were unconditional Unauthorized; generated and manifest registries must agree or group must be unpublished.",
+      "fix": "Unpublished the public Confect apiKeys group and removed generated registered function stubs while retaining helper/domain tests and table contracts.",
+      "files": [
+        "packages/convex/confect/headless/apiKeys.spec.ts",
+        "packages/convex/confect/headless/apiKeys.impl.ts",
+        "packages/convex/convex/headless/apiKeys.ts",
+        "packages/convex/confect/_generated/spec.ts",
+        "packages/template-core/src/generated/confectManifest.ts"
+      ]
+    },
+    {
+      "finding": "Model receipts need tenant-derived writer/mapper/effect uniqueness with wrong-org/workspace/stale-generation/duplicate tests.",
+      "fix": "Added model receipt repository fence helper with wrong organization, wrong workspace, stale lifecycle generation, and duplicate attempt tests.",
+      "files": [
+        "packages/convex/confect/modelReceipts/repository.ts",
+        "packages/convex/test/model-call-receipts.test.ts"
+      ]
+    },
+    {
+      "finding": "Fixture-only eval approval must not approve without immutable external run artifacts.",
+      "fix": "Approval now requires per-suite immutable external artifact metadata in addition to passing suite receipts; missing artifacts are rejected.",
+      "files": [
+        "tooling/evals/src/brain-eval-report.ts",
+        "tooling/evals/src/brain-eval-report.test.ts"
+      ]
+    },
+    {
+      "finding": "Route loader still directly imported WorkOS server auth and getServerEnv in an isomorphic route; use a createServerFn/server-only boundary returning SafeClientRuntime.",
+      "fix": "Added apps/web/src/auth/safe-client-runtime.server.ts using createServerFn; root route imports only loadSafeClientRuntime and focused tests assert no getServerEnv/getWorkosServerAuth in the route.",
+      "files": [
+        "apps/web/src/auth/safe-client-runtime.server.ts",
+        "apps/web/src/routes/__root.tsx",
+        "apps/web/src/start-runtime.test.ts"
+      ]
+    },
+    {
+      "finding": "llmEgressPolicy labeled a zero-padded FNV-1a value as sha256 for output schema integrity.",
+      "fix": "canonicalOutputSchemaHash now computes SHA-256 over canonical schema bytes and tests reject schema substitution/collision-shaped hashes before transport.",
+      "files": [
+        "packages/integrations/src/llmEgressPolicy.ts",
+        "packages/integrations/src/llmStructured.test.ts"
+      ]
+    },
+    {
+      "finding": "Model receipt repository was pure validation and did not durably write tenant-scoped receipts.",
+      "fix": "Added DatabaseReader/DatabaseWriter-backed writeModelCallReceipt with tenant fence and duplicate attempt rejection, covered by TestConfect persistence tests.",
+      "files": [
+        "packages/convex/confect/modelReceipts/repository.ts",
+        "packages/convex/test/model-call-receipts.test.ts"
+      ]
+    },
+    {
+      "finding": "Eval approval trusted URI/hash strings and passed flags instead of loading raw artifacts and recomputing suite/case metrics; answer support self-attested source hashes.",
+      "fix": "Approval now requires raw artifacts, verifies SHA-256 over raw payload, recomputes exact suite receipts/version bindings, and answer scoring verifies source artifact bytes/hash and cited quote support.",
+      "files": [
+        "tooling/evals/src/brain-answers.ts",
+        "tooling/evals/src/brain-answers.test.ts",
+        "tooling/evals/src/brain-eval-report.ts",
+        "tooling/evals/src/brain-eval-report.test.ts"
+      ]
+    },
+    {
+      "finding": "writeModelCallReceipt had no production Confect/gateway caller, took caller tenant, and queried global by_attempt before duplicate detection.",
+      "fix": "sourceGroundedBrief production capability now calls writeAuthenticatedModelCallReceipt, which derives organization/workspace from requireWorkspaceAccess and the workspace row, maps repository errors to the capability typed surface, and writeModelCallReceipt queries by_workspace_attempt for tenant-scoped duplicate checks.",
+      "files": [
+        "packages/convex/confect/capabilities/sourceGroundedBrief.impl.ts",
+        "packages/convex/confect/modelReceipts/repository.ts",
+        "packages/convex/test/model-call-receipts.test.ts"
+      ]
+    },
+    {
+      "finding": "Eval recomputation accepted attacker-supplied fixtures, labels, and expected outputs instead of binding raw results to the frozen corpus/hash/version.",
+      "fix": "Approval recomputation now rejects supplied fixture hash mismatches, evaluates frozen suite fixtures only, passes external run outputs separately where supported, and includes adversarial fabricated-fixture negatives.",
+      "files": [
+        "tooling/evals/src/brain-eval-report.ts",
+        "tooling/evals/src/brain-eval-report.test.ts"
+      ]
+    },
+    {
+      "finding": "Maintenance, promptInjection, and multilingual evaluators received only frozenFixture and scored embedded outputs; all five suites needed separate external run inputs with a positive exact five-suite approval and failing bad-run negatives.",
+      "fix": "Added external run schemas/results for maintenance, promptInjection, and multilingual, recomputed all five suite receipts from raw external run artifacts against the frozen corpus, and added positive all-suite approval plus bad maintenance/promptInjection/multilingual run negatives.",
+      "files": [
+        "tooling/evals/src/brain-eval-report.test.ts",
+        "tooling/evals/src/brain-eval-report.ts",
+        "tooling/evals/src/brain-maintenance.ts",
+        "tooling/evals/src/brain-prompt-injection.ts",
+        "tooling/evals/src/brain-multilingual.ts"
+      ]
+    },
+    {
+      "finding": "sourceGroundedBrief fabricated an OpenRouter model receipt around runFakeSourceGroundedBrief with placeholder sha256 strings, fixed usage/cost/time, and a reserved attempt key for a call that did not occur.",
+      "fix": "sourceGroundedBrief now uses createStructuredLlmGateway in fake/local mode, computes canonical request/source/response hashes through the structured gateway and content manifest, persists the actual returned provider/model/hash/usage receipt, and no longer calls runFakeSourceGroundedBrief or writes placeholder sha256 strings.",
+      "files": [
+        "packages/convex/confect/capabilities/sourceGroundedBrief.impl.ts",
+        "packages/convex/test/model-call-receipts.test.ts",
+        "packages/convex/package.json",
+        "pnpm-lock.yaml"
+      ]
+    },
+    {
+      "finding": "apps/web/src/routes/__root.tsx imported unused ClientAuthSnapshot, failing deterministic full lint.",
+      "fix": "Removed the unused ClientAuthSnapshot type import while preserving SafeClientRuntime loader wiring.",
+      "files": [
+        "apps/web/src/routes/__root.tsx"
+      ]
+    },
+    {
+      "finding": "sourceGroundedBrief is a Confect mutation but imported @maestro-template/integrations, whose structured LLM hashing path statically imports node:crypto and is not deployable in the Convex isolate runtime.",
+      "fix": "Reverted sourceGroundedBrief to the existing deterministic contract fixture, removed direct gateway/provider execution and fixture receipt persistence from the mutation, removed the Convex package dependency/lock importer on integrations, and added a deployability regression asserting no integrations/node:crypto/gateway/receipt writer usage in the fixture mutation while preserving the authenticated receipt repository contract for a future Node action/service.",
+      "files": [
+        "packages/convex/confect/capabilities/sourceGroundedBrief.impl.ts",
+        "packages/convex/test/model-call-receipts.test.ts",
+        "packages/convex/package.json",
+        "pnpm-lock.yaml"
+      ]
+    },
+    {
+      "finding": "Eval approval permitted missing root.run values and evaluator fallbacks could score frozen fixture outputs for approval.",
+      "fix": "Approval recomputation now requires every suite raw artifact to include an external run object before evaluator dispatch; missing classification, answers, maintenance, promptInjection, or multilingual run payloads are rejected and covered by a regression test.",
+      "files": [
+        "tooling/evals/src/brain-eval-report.ts",
+        "tooling/evals/src/brain-eval-report.test.ts"
+      ]
+    },
+    {
+      "finding": "Deterministic full verify lint rejected thrown tagged errors in appendModelCallReceipt because thrown tagged errors escape the typed Effect/client error contract.",
+      "fix": "appendModelCallReceipt now returns Either.left for ModelReceiptTenantMismatch and ModelReceiptDuplicate planner failures, with negative tests asserting typed Left results for wrong tenant/lifecycle fences and duplicate attempts.",
+      "files": [
+        "packages/convex/confect/modelReceipts/repository.ts",
+        "packages/convex/test/model-call-receipts.test.ts"
+      ]
+    }
+  ],
+  "remainingBlockers": [],
+  "repairFocusedChecks": [
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/integrations test llmStructured",
+      "status": "passed",
+      "summary": "1 file and 8 tests passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test api-keys model-call-receipts",
+      "status": "passed",
+      "summary": "2 files and 10 tests passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/template-core test brainExport",
+      "status": "passed",
+      "summary": "1 file and 9 tests passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web test workspace-operations start-runtime",
+      "status": "passed",
+      "summary": "2 files and 8 tests passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir tooling/evals test brain-answers brain-eval-report",
+      "status": "passed",
+      "summary": "2 files and 9 tests passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm check:provider-boundary",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/integrations typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/template-core typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm check:generated-files",
+      "status": "passed",
+      "summary": "check:generated-files: ok (pin-only)"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm check:confect-contracts",
+      "status": "passed",
+      "summary": "check:confect-contracts: ok (pin-only); ok (semantic)"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm check:confect-manifest",
+      "status": "passed",
+      "summary": "tooling/confect-manifest tests/typecheck passed; manifest diff clean"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm exec eslint <touched repair files>",
+      "status": "passed"
+    },
+    {
+      "command": "git diff --check",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test model-call-receipts",
+      "status": "passed",
+      "summary": "1 file and 5 tests passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web test start-runtime workspace-operations",
+      "status": "passed",
+      "summary": "2 files and 8 tests passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir tooling/evals typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test model-call-receipts",
+      "status": "passed",
+      "summary": "1 file and 7 tests passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir tooling/evals test brain-eval-report",
+      "status": "passed",
+      "summary": "1 file and 8 tests passed"
+    },
+    {
+      "command": "pnpm install --prefer-offline --ignore-scripts",
+      "status": "passed",
+      "summary": "Workspace lock/link update completed lane-local; peer dependency warnings only."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir tooling/evals test brain-eval-report",
+      "status": "passed",
+      "summary": "1 file and 9 tests passed; includes positive exact five-suite external approval and bad-run negatives."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test model-call-receipts",
+      "status": "passed",
+      "summary": "1 file and 7 tests passed; static guard covers structured gateway receipt wiring and no placeholder hashes."
+    },
+    {
+      "command": "pnpm exec prettier --check <touched repair files>",
+      "status": "passed"
+    },
+    {
+      "command": "pnpm exec eslint <touched repair files>",
+      "status": "passed"
+    },
+    {
+      "command": "! rg -n \"@maestro-template/integrations|node:crypto|createStructuredLlmGateway|writeAuthenticatedModelCallReceipt\" packages/convex/confect/capabilities/sourceGroundedBrief.impl.ts && rg -n \"runFakeSourceGroundedBrief\" packages/convex/confect/capabilities/sourceGroundedBrief.impl.ts",
+      "status": "passed",
+      "summary": "sourceGroundedBrief mutation contains only the deterministic fixture path and no provider/gateway/node crypto dependency."
+    },
+    {
+      "command": "pnpm exec prettier --check packages/convex/confect/capabilities/sourceGroundedBrief.impl.ts packages/convex/test/model-call-receipts.test.ts packages/convex/package.json pnpm-lock.yaml",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir tooling/evals test brain-eval-report",
+      "status": "passed",
+      "summary": "1 file and 10 tests passed; includes missing external run regression for all five suites."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test model-call-receipts",
+      "status": "passed",
+      "summary": "1 file and 8 tests passed."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm check:effect-diagnostics",
+      "status": "passed",
+      "summary": "Checked 342 files; 0 errors, 0 warnings, 3 notices."
+    },
+    {
+      "command": "pnpm exec prettier --write tooling/evals/src/brain-eval-report.ts tooling/evals/src/brain-eval-report.test.ts packages/convex/confect/modelReceipts/repository.ts packages/convex/test/model-call-receipts.test.ts && git diff --check",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test model-call-receipts",
+      "status": "failed_then_passed",
+      "summary": "Failure-first negative tests failed on thrown ModelReceiptTenantMismatch/ModelReceiptDuplicate, then passed after planner returned typed Either failures; 1 file and 8 tests passed."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm exec eslint packages/convex/confect/modelReceipts/repository.ts packages/convex/test/model-call-receipts.test.ts",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex typecheck",
+      "status": "passed",
+      "summary": "tsc -p tsconfig.json --noEmit passed."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir tooling/quality test check-provider-boundary",
+      "status": "passed",
+      "summary": "1 file and 7 tests passed; includes route/start WorkOS SDK negative fixture."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm exec eslint tooling/quality/check-provider-boundary.test.mts",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web test -- platform-routes",
+      "status": "passed",
+      "summary": "32 files and 134 tests passed; platform-routes regression asserts business-shell uses isReferenceRoutesEnabled and has no import.meta.env reads."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm exec eslint apps/web/src/env.ts apps/web/src/platform-routes.test.ts apps/web/src/saas-ui/business-shell.tsx",
+      "status": "passed",
+      "summary": "Focused ESLint passed for all env-boundary repair files."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web build",
+      "status": "passed",
+      "summary": "Focused web production build passed for client, SSR, and prerender."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm check:env-boundary",
+      "status": "passed",
+      "summary": "check:env-boundary passed with business-shell no longer reading import.meta.env directly."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web test -- env authkit-server start-runtime platform-routes",
+      "status": "passed",
+      "summary": "32 files and 139 tests passed; direct env helper coverage and safe runtime fake/live/test metadata branches are covered."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm exec eslint apps/web/src/env.test.ts apps/web/src/auth/authkit-server.test.ts apps/web/src/env.ts apps/web/src/auth/authkit-server.ts",
+      "status": "passed",
+      "summary": "Focused ESLint passed for touched tests and covered runtime/env modules."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm check:coverage-ratchet",
+      "status": "passed",
+      "summary": "164 files and 934 tests passed; coverage ratchet held with functions 84.46% >= baseline 84.45%, no baseline update."
+    }
+  ],
+  "resolvedFindings": [
+    {
+      "id": "api-key-server-derived-scope",
+      "summary": "Public API-key authority is derived server-side and public returns omit internal tenant IDs."
+    },
+    {
+      "id": "eval-external-run-artifacts",
+      "summary": "Eval approval requires immutable external run artifacts with recomputed hashes and suite receipts."
+    },
+    {
+      "id": "eval-mechanical-answer-scoring",
+      "summary": "Answer evals mechanically verify claims, citations, locators, and source artifact hashes."
+    },
+    {
+      "id": "export-lifecycle-fencing",
+      "summary": "Brain export pages, sources, citations, and revisions are fenced by active lifecycle state and generation."
+    },
+    {
+      "id": "llm-exact-provider-request",
+      "summary": "LLM admission hashes exact serialized provider request bytes and exact content artifacts before transport."
+    },
+    {
+      "id": "model-receipt-tenant-lifecycle",
+      "summary": "Model receipt persistence enforces tenant, lifecycle generation, and duplicate-attempt fences with typed failures."
+    },
+    {
+      "id": "provider-server-client-boundary",
+      "summary": "WorkOS/provider imports and server env reads stay behind approved runtime boundaries."
+    },
+    {
+      "id": "workspace-explicit-fake-mode",
+      "summary": "Fake workspace tenancy is selected only by explicit fake/local mode; live signed-out paths fail closed."
+    },
+    {
+      "id": "web-reference-route-env-boundary",
+      "summary": "Reference-route flag reads now go through the approved web env boundary instead of business-shell."
+    },
+    {
+      "id": "coverage-ratchet-runtime-env-branches",
+      "summary": "Focused env/reference-route and safe runtime branch tests restored coverage ratchet without changing the baseline."
+    }
+  ],
+  "broadGate": {
+    "status": "passed",
+    "headSha": "c6433e434c457084afb908ec6013fb63dfc1ae7b",
+    "command": "rtk host-test-slot --class full pnpm verify"
+  }
+}

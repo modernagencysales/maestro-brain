@@ -1,0 +1,17 @@
+{
+  "acceptanceBlocker": "No original acceptanceAfter evidence proves accepted:true; integration preserves lane proof without fabricating acceptance evidence.",
+  "accepted": false,
+  "headSha": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf",
+  "integrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+  "integrationId": "wave-000012",
+  "preIntegrationLaneResultSha256": "4f6dcc3189934f016a97c341bf0fad5427b68f66d5fc1e9127d5b3d6657a6361",
+  "schemaVersion": "maestro-brain-lane-result/v1",
+  "status": "integrated",
+  "taskId": "S03-T02",
+  "tranche": "D2-domain-bodies",
+  "proofHeadSha": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf",
+  "gateHeadSha": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf",
+  "proofSha256": "93776406bcd96e52a840cd165ef3a55597bd9031f72e60c40abfaed147aebc95",
+  "gateSha256": "5fe2aac9c6babd0b0a5e64cda4db699e312c6ee85e587d2c668aafd21e33a83e",
+  "generatedFiles": []
+}

@@ -1,0 +1,43 @@
+{
+  "baseSha": "82b16f93d19d59a12d629a7d1765345faac7d8a3",
+  "branch": "fabro/reproof-s05-t01-green-d8da5462e01a",
+  "factoryBaseSha": "82b16f93d19d59a12d629a7d1765345faac7d8a3",
+  "mode": "lane-green-authority-reproof",
+  "phase": "launched",
+  "planSha256": "adce0583eeea119d1a949099d3f5bbc98002041065d7ea2cb7a39e4f70975c2c",
+  "proofBaseSha": "5f682348711572faa32ac79066f8e470a1f2743f",
+  "proofFindingIds": [
+    "OWNERSHIP-S05-T01-001"
+  ],
+  "proofGateStage": "pre-review",
+  "proofHeadSha": "1578f7f20b8bd7b5580627030e9d40c040935ccd",
+  "proofPlanSha256": "ce2b760a9efd332ff6f3201b8faf312601e4fd3d4fcb7dcb4253afe7cae25317",
+  "proofTaskBlockHash": "d5212dbc84a10771993658fc840e29bc81671c08e7962dbf96fd34de2dda9ce5",
+  "sourceCommits": [
+    "0f6b8638b0e8fd7a742afabbedb55ab00bda2a84",
+    "10df346e1dfdcf43a81bb07caee17a87bd2ad645",
+    "21ccb33ea1ba739007a04b0278d4f0d749615909",
+    "d5efc88aff587f23541b363b41d296beb5eda5a5"
+  ],
+  "sourceCommitPatchSha256s": [
+    "cd8d15ff3062f0c47b3d86d6bfc43a5e295adf052c8c36f95bc1fcf096096a05",
+    "7a78f4171b365466cecb1162d943faa16668bc7ba3e565330c91f95a4986da89",
+    "87fc1305c6f5081bf9f2b2d795c50e57304f64a902cb52647d551d3db0be48fd",
+    "000b92b98a680045e9d85fb166262e64d02cdc46d58ec2bd8a73744c6ad81ca7"
+  ],
+  "sourceHeadSha": "d5efc88aff587f23541b363b41d296beb5eda5a5",
+  "sourceTreeSha": "45ba39ebc6f0e21e5da7c7c777fa368901813447",
+  "status": "launched",
+  "taskBaseSha": "022a932c1e809c2093a10f5dea5d248b6c706f5f",
+  "taskBlockHash": "af261b6e29dd92ad219255c8f0c731b09c5fd346780621976cb1693aa8d991cf",
+  "taskId": "S05-T01",
+  "workdir": "/Users/headless/.maestro-brain-fabro-workdirs/reproof-s05-t01-green-d8da5462e01a",
+  "workflowName": "BrainBuildTaskS05T01Green0461c9c5154e",
+  "terminalArchiveActionId": "2b24aa26859e0a401121fa5e7144f052b33fc9cb5e5e129812155d35c01d756c",
+  "terminalArchiveSha256": "692a776387ec91fdd47811f689495de88c32568ba95a820e537097b5172318ef",
+  "terminalCandidateHeadSha": "9e4ab3cfc9261af8203beee9413f404aaf619d34",
+  "terminalCandidateTreeSha": "21f9abf17169cfb337f66f8ebf27b5d37883b190",
+  "terminalPriorRunId": "01KY6A17F7BF5FYK7ARGYT2G9V",
+  "terminalStatus": "failed",
+  "runId": "01KY6HDQTWXPM0EPMN1BQ5SHVE"
+}

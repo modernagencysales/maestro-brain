@@ -1,0 +1,68 @@
+{
+  "lens": "contract",
+  "taskId": "S03-T03",
+  "planSha256": "45e52be0e55a293947eb0d370c3ba6d1ddaba5ce387d4c98f68a6b7bb9b75306",
+  "taskBlockHash": "ac77073ece3d8addfee7853260cb2bb2bc6bb83ba43405b07a934f310b6a8834",
+  "baseSha": "32a2d49fc1bb1f116fb1645d444d4b38a8ca282a",
+  "headSha": "7d183a53c8235bdb4c11b908b924951479079319",
+  "treeSha": "d67e64db0ee28dbd5fda5e351ee194e1954eded1",
+  "reviewerRunId": "maestro/review/S03-T03/7d183a53c8235bdb4c11b908b924951479079319/381d26e8-220b-45ef-96b2-3717e1e55744-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1212-1315 defines S03-T03 recovery acceptance for the responsive Brain workspace, stable BlockNote target, revision-fenced public snapshot contract, typed state union, and focused verification.",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:486-523 identifies S03-T03 as the ownership-rehome task with immutable finding provenance and superseded paths replaced by docs/product/maestro-brain-lifecycle-adoption/S03-T03.md plus the brain-editor-revision-fence test.",
+        "ci-proof-packet.json records the exact reviewed proof provenance: planSha256 45e52be0e55a293947eb0d370c3ba6d1ddaba5ce387d4c98f68a6b7bb9b75306, taskBlockHash ac77073ece3d8addfee7853260cb2bb2bc6bb83ba43405b07a934f310b6a8834, baseSha 32a2d49fc1bb1f116fb1645d444d4b38a8ca282a, and headSha 7d183a53c8235bdb4c11b908b924951479079319."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.spec.ts:23-36 keeps the closed read/write typed error unions including Unauthorized, Forbidden, BrainNotFound, PageNotFound, LifecycleRevoked, ValidationFailed, PageTreeConflict, and StaleRevision.",
+        "packages/convex/confect/brain/pages.spec.ts:101-111 defines RecordSnapshotArgs with stable documentId, expectedCurrentRevisionKey, snapshot, and version, and RecordSnapshotReturns with pageKey, pageRevisionKey, contentHash, and savedAt.",
+        "packages/convex/confect/brain/pages.spec.ts:196-224 registers brain.pages.recordSnapshot as a public web mutation and recordSnapshotInternal as the matching internal mutation behind the same typed write error contract."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pageSchemas.ts supplies the PageKey, RevisionKey, SiblingSlug, and SortKey schema invariants reused by the pages spec and workspace types.",
+        "packages/convex/confect/brain/pages.impl.ts:620-686 accepts only stable Brain page document targets, validates monotonic snapshot versions, patches editorSnapshotJson/editorSnapshotVersion, and appends a new durable revision for the accepted snapshot.",
+        "docs/product/maestro-brain-lifecycle-adoption/S03-T03.md records that the recovery slice added the revision-fenced browser seam without a data migration."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1216-1221 classifies S03-T03 as a template-gap recovery slice for the missing revision-fenced browser seam.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1280-1315 requires generated refs in the adapter, a public Confect mutation carrying expectedCurrentRevisionKey, no mutable-server-state fence resolution after edit start, and focused codegen/editor/route/layer gates.",
+        "lane-gate-report.json for S03-T03 at head 7d183a53c8235bdb4c11b908b924951479079319 reports stage pre-review status passed; no generated Confect/Convex paths are edited in git diff for the reviewed task head."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "git diff --name-status 32a2d49fc1bb1f116fb1645d444d4b38a8ca282a...HEAD shows changes confined to the Brain feature/route files, editor-react seam, Confect brain pages/editor sync files, focused tests, and the S03-T03 lifecycle record owned by the task packet.",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:486-523 documents the ownership-rehome provenance and replacement artifacts for the manifest/plan/editor-sync conflicts.",
+        "The reviewed diff does not edit checked-in generated Confect, Convex, or route-tree output; the exact-head pre-review lane gate proves transient codegen/registration for integration-owned generated output."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.impl.ts keeps Unauthorized, Forbidden, BrainNotFound, PageNotFound, LifecycleRevoked, ValidationFailed, PageTreeConflict, and StaleRevision reachable through access checks, page lookup/lifecycle checks, validation, tree conflict checks, and requireCurrentRevision.",
+        "packages/convex/confect/editor/syncApi.ts:33-55 forwards stable editor snapshots only when an explicit expectedCurrentRevisionKey is supplied and recordCurrentEditorSnapshot returns null for stable Brain targets, so unfenced autosnapshots cannot silently publish.",
+        "apps/web/src/features/brain/brain-workspace.tsx:23-83 builds save args from the selected stable editor target and classifies StaleRevision or LifecycleRevoked typed failures as stale_revision conflicts; packages/convex/test/brain-editor-revision-fence.test.ts verifies explicit-fence forwarding and unfenced stable autosnapshot rejection."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

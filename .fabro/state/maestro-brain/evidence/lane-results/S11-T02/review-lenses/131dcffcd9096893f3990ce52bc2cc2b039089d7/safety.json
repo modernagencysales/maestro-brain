@@ -1,0 +1,86 @@
+{
+  "lens": "safety",
+  "taskId": "S11-T02",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "2b484dad01173ead7ca99d710455998926b3666713d025943ef5824aed334ff6",
+  "baseSha": "defde4d68fbcdd7d39566d82986ec562010c9638",
+  "headSha": "131dcffcd9096893f3990ce52bc2cc2b039089d7",
+  "treeSha": "d8a0fef6bb575aff16151d573b3c56e441719631",
+  "reviewerRunId": "maestro/review/S11-T02/131dcffcd9096893f3990ce52bc2cc2b039089d7/a080c7f1-4da8-4474-92cc-6324dad59036-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.impl.ts:503-538 verifies active organization/workspace plus lifecycle and revocation generation fences before returning a bearer principal.",
+        "packages/convex/confect/headless/authorizeOperation.ts:30-45 and 80-101 reject caller tenant fields and inject organizationId/workspaceId/brainKey from the authenticated principal.",
+        "packages/convex/test/api-keys.test.ts:659-741 proves cross-tenant service-principal binding changes fail auth and do not mark last-used."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/http.ts:273-307 resolves the reviewed policy, authenticates the bearer key, authorizes scope, and only then decodes JSON.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:242-260 and 382-397 enforce admin authority for create/revoke and audit denials server-side.",
+        "packages/convex/test/http-request-security.test.ts:293-357 proves authenticate -> decode -> dispatch -> reauthenticate -> mark ordering."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.impl.ts:170-205 requires active organization and workspace rows for Brain scope.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:559-590 rejects revoked/expired API keys and revoked/expired service principals.",
+        "packages/convex/test/api-keys.test.ts:240-352 covers scope, Brain mismatch, expiry, key revocation, and principal revocation."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/auth.ts:365-405 returns the display secret separately and stores hash/prefix metadata in durable rows.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:342-353 and 1046 return public metadata without internal tenant IDs or key hashes.",
+        "packages/convex/test/http-request-security.test.ts:441-498 proves dispatch errors and public errors do not log or echo bearer values."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/http.ts:321-333 reauthenticates after dispatch and compares the full authenticated principal before returning success or marking usage.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:676-750 makes last-used best-effort and rechecks key, principal, tenant, lifecycle, and generation state before patching.",
+        "packages/convex/test/http-request-security.test.ts:402-439 proves fail-closed behavior when reauthorization fails after dispatch."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/manifest/executor.ts:200-223 validates idempotency keys for non-idempotent headless operations before dispatch.",
+        "packages/convex/confect/httpRequest.ts:203-229 preserves caller idempotencyKey in the executor request only after authenticated authorization.",
+        "packages/convex/confect/http.ts:306-319 decodes and dispatches only after bearer authentication and preauthorization, limiting replayable unauthenticated payload handling."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.impl.ts:509-538 rejects bearer auth when organization/workspace lifecycle or revocation generations differ from the key snapshot.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:592-603 rejects service-principal generation drift before constructing the headless principal.",
+        "packages/convex/test/api-keys.test.ts:573-657 and 744-803 prove workspace generation and service-principal generation changes fence old keys."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/auth.ts:273-289 uses Web Crypto random bytes and SHA-256 helpers for local key generation/hashing without provider SDK imports.",
+        "packages/convex/confect/http.ts:425-437 keeps HTTP dispatch inside the shared headless handler and does not import provider adapters or expose server secrets to web code.",
+        "AGENTS.md:127-134 requires provider SDKs to stay in adapters and forbids logging raw provider payloads, tokens, API keys, or support artifacts; the reviewed diff follows that boundary."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

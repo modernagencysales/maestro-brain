@@ -1,0 +1,94 @@
+{
+  "attempt": 1,
+  "baseSha": "d541bd225316661f494172571449b893abab0a7f",
+  "branch": "fabro/brain-wave-000053",
+  "integrationId": "wave-000053",
+  "reservationToken": "a748f43e-23ae-4ca1-8f2c-5da906b98cce",
+  "schemaVersion": "maestro-brain-integration-wave-run/v3",
+  "selection": {
+    "baseSha": "d541bd225316661f494172571449b893abab0a7f",
+    "deferredTaskIds": [],
+    "integrationId": "wave-000053",
+    "planSha256": "ce2b760a9efd332ff6f3201b8faf312601e4fd3d4fcb7dcb4253afe7cae25317",
+    "requestedTaskIds": [
+      "S05-T01"
+    ],
+    "schemaVersion": "maestro-brain-integration-wave-selection/v3",
+    "selectedTasks": [
+      {
+        "changedFiles": [
+          "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md",
+          "packages/convex/confect/internal/migration-fragments/S00-T04.json",
+          "packages/convex/confect/internal/migration-fragments/S01-T02.json",
+          "packages/convex/confect/internal/migration-fragments/S02-T01.json",
+          "packages/convex/confect/internal/migration-fragments/S02-T03.json",
+          "packages/convex/confect/internal/migration-fragments/S05-T01.json",
+          "packages/convex/confect/internal/migration-implementations/S00-T04.ts",
+          "packages/convex/confect/internal/migration-implementations/S01-T02.ts",
+          "packages/convex/confect/internal/migration-implementations/S02-T01.ts",
+          "packages/convex/confect/internal/migration-implementations/S02-T03.ts",
+          "packages/convex/confect/internal/migrationFragment.ts",
+          "packages/convex/confect/internal/migrationRuntime.ts",
+          "packages/convex/confect/internal/migrations.impl.ts",
+          "packages/convex/confect/sources/sourceSchemas.ts",
+          "packages/convex/confect/tables/providerEventReceipts.ts",
+          "packages/convex/confect/tables/sourceArtifacts.ts",
+          "packages/convex/confect/tables/sourceProcessingJobs.ts",
+          "packages/convex/confect/tables/sourceRevisions.ts",
+          "packages/convex/scripts/generate-migration-registry.mts",
+          "packages/convex/test/migration-registry.test.ts",
+          "packages/convex/test/source-ledger-schema.test.ts"
+        ],
+        "codeStartAfter": [
+          "S04-T02"
+        ],
+        "fileLocks": [
+          "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md",
+          "packages/convex/confect/internal/migration-fragments/S00-T04.json",
+          "packages/convex/confect/internal/migration-fragments/S01-T02.json",
+          "packages/convex/confect/internal/migration-fragments/S02-T01.json",
+          "packages/convex/confect/internal/migration-fragments/S02-T03.json",
+          "packages/convex/confect/internal/migration-fragments/S05-T01.json",
+          "packages/convex/confect/internal/migration-implementations/S00-T04.ts",
+          "packages/convex/confect/internal/migration-implementations/S01-T02.ts",
+          "packages/convex/confect/internal/migration-implementations/S02-T01.ts",
+          "packages/convex/confect/internal/migration-implementations/S02-T03.ts",
+          "packages/convex/confect/internal/migrationFragment.ts",
+          "packages/convex/confect/internal/migrationRuntime.ts",
+          "packages/convex/confect/internal/migrations.impl.ts",
+          "packages/convex/confect/internal/migrations.spec.ts",
+          "packages/convex/confect/sources/sourceSchemas.ts",
+          "packages/convex/confect/tables/providerEventReceipts.ts",
+          "packages/convex/confect/tables/sourceArtifacts.ts",
+          "packages/convex/confect/tables/sourceProcessingJobs.ts",
+          "packages/convex/confect/tables/sourceRevisions.ts",
+          "packages/convex/scripts/generate-migration-registry.mts",
+          "packages/convex/test/migration-registry.test.ts",
+          "packages/convex/test/migrations.test.ts",
+          "packages/convex/test/source-ledger-schema.test.ts"
+        ],
+        "gateHeadSha": "d5efc88aff587f23541b363b41d296beb5eda5a5",
+        "gateSha256": "57bf217b0422edf0a922f5966b1c239324e556b921de08ba9f19c227a9be2372",
+        "headSha": "d5efc88aff587f23541b363b41d296beb5eda5a5",
+        "laneResultSha256": "b23e7c1b45d542bfc26c974ceaa351d81423da363223111b54d82e454b7b3b38",
+        "planSha256": "a3d4af4aa5e526438aa5e06c8716a6a40500bc235d9933f8f8649e133263821b",
+        "proofHeadSha": "d5efc88aff587f23541b363b41d296beb5eda5a5",
+        "proofSha256": "0bb4541c94529fd828db803ccd7b2c58a87dc355afc6be2fb7d3cc5aa6120a2f",
+        "taskBlockHash": "d5212dbc84a10771993658fc840e29bc81671c08e7962dbf96fd34de2dda9ce5",
+        "taskId": "S05-T01",
+        "tranche": "C1-contract-spine"
+      }
+    ],
+    "selectionPayloadSha256": "ec1741e86a9b0902286cbe03a7b7de756c2c137b5be94c74c4bf68e5c48c14a7"
+  },
+  "selectionFileSha256": "f011d1b817938f0ef8de599c5843c4da559fa2af04186b61ef53b6e4943e1b82",
+  "selectionPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000053-selection.json",
+  "selectionPayloadSha256": "ec1741e86a9b0902286cbe03a7b7de756c2c137b5be94c74c4bf68e5c48c14a7",
+  "status": "launched",
+  "workdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000053",
+  "activeMode": "integrate",
+  "runId": "01KY0TWNFFTVG22683Y4HRVVDZ",
+  "runIds": [
+    "01KY0TWNFFTVG22683Y4HRVVDZ"
+  ]
+}

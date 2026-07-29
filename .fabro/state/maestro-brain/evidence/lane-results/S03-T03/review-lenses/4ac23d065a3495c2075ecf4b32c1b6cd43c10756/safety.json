@@ -1,0 +1,87 @@
+{
+  "lens": "safety",
+  "taskId": "S03-T03",
+  "planSha256": "e5ad32c375d4fd307b3d5bccd47ea6cf4e9b7580f23bb506c893fd94019ca7c5",
+  "taskBlockHash": "731df4dab1d4fe34d6a51b801388996973ae3d13fa88bc0cef8e2b8b1be9bbe5",
+  "baseSha": "aa979378a853ca705f423846a79abe8030f0619b",
+  "headSha": "4ac23d065a3495c2075ecf4b32c1b6cd43c10756",
+  "treeSha": "476da87aee7eb46f02e3b15a7500e2911944a294",
+  "reviewerRunId": "maestro/review/S03-T03/4ac23d065a3495c2075ecf4b32c1b6cd43c10756/30011ebf-584e-4ab3-9416-8679e30d8152-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.impl.ts:80-179 requires the authenticated user's active organization, resolves the brain key inside that organization, and returns BrainNotFound on organization mismatch.",
+        "packages/convex/confect/brain/pages.impl.ts:201-219 loads pages by workspaceId plus pageKey, so page reads/writes cannot select rows from another workspace.",
+        "packages/convex/test/brain-pages-crud.test.ts:670-742 proves a foreign stable snapshot target is denied and leaves both workspaces' mutation rows unchanged beyond their own creates."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.impl.ts:80-194 authenticates active users, resolves effective workspace role, and enforces the required minimum role before reads and writes.",
+        "packages/convex/confect/brain/pages.impl.ts:403-690 invokes requireBrainAccess with editor role for create/rename/move/favorite/archive/snapshot mutations.",
+        "packages/convex/test/brain-pages-crud.test.ts:770-849 proves viewer reads are allowed while viewer writes return Forbidden."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.impl.ts:145-157 maps archived workspace resolution to LifecycleRevoked and rejects non-live organization/workspace generations.",
+        "packages/convex/confect/brain/pages.impl.ts:201-219 filters archived, redacted, purged, or inactive page lifecycle rows out of active page access.",
+        "packages/convex/test/brain-pages-crud.test.ts:853-1223 proves archived Brain denials leave rows unchanged and redacted/purged pages are not listed."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.impl.ts:297-317 writes audit events with empty metadata and stable identifiers rather than page content, markdown, snapshots, or raw request payloads.",
+        "packages/convex/confect/observability/errorCapture.ts:23-75 captures failure tag/message/hash only, not raw provider payloads or document snapshots.",
+        "packages/convex/test/brain-pages-crud.test.ts:1188-1221 asserts audit metadata does not contain titles, markdown, snapshots, or request text."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.impl.ts:221-236 centralizes expected-current-revision checks before writes.",
+        "packages/convex/confect/brain/pages.impl.ts:320-357 writes each mutation with a new revision key and priorRevisionKey, preserving a single ordered revision chain.",
+        "packages/convex/test/brain-pages-crud.test.ts:1517-1635 proves a stale move race has one success and one StaleRevision failure with only one new revision/audit row."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.impl.ts:613-628 checks the selected revision fence and requires snapshot versions to be newer positive safe integers before mutating.",
+        "packages/convex/confect/brain/pages.impl.ts:634-674 advances currentRevisionKey and editorSnapshotVersion together, making replay of the same fenced save stale/non-mutating.",
+        "packages/convex/test/brain-pages-crud.test.ts:652-742 proves stale and repeated-version snapshot attempts are denied and leave page/revision/audit snapshots unchanged."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.spec.ts:86-101 defines the public recordSnapshot contract with stable documentId, live snapshot/version, and expectedCurrentRevisionKey.",
+        "apps/web/src/features/brain/brain-workspace.tsx:22-57 builds save args from the mounted selected page's stable editor target and passes the editor-reported expected revision when present.",
+        "packages/convex/confect/editor/syncApi.ts:19-44 refuses unfenced stable Brain page snapshots by returning null when expectedCurrentRevisionKey is absent."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "not_applicable",
+      "rationale": "S03-T03 changes Brain workspace UI, Confect page contracts, editor sync snapshot plumbing, and focused tests; no live provider SDK, adapter, webhook, or server secret boundary is introduced or modified.",
+      "evidence": [
+        "apps/web/src/features/brain/brain-adapter.ts:1-36 imports Confect refs and editor sync function references, not provider SDKs or secrets.",
+        "packages/convex/confect/brain/pages.impl.ts:1-31 imports Confect, Convex service wrappers, access helpers, schemas, and shared hashing only.",
+        "packages/editor-react/src/BlockNoteSyncEditor.tsx:1-29 exposes editor sync callbacks and props without provider or secret handling."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

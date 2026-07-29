@@ -1,0 +1,160 @@
+{
+  "schemaVersion": "maestro-brain-integration-result/v2",
+  "status": "needs_rework",
+  "integrationId": "wave-000018",
+  "mode": "recover",
+  "integrationWorkdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000018",
+  "selectionPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000018-selection.json",
+  "selectionSha256": "feb8c8fa1f846127f2bb3ecf77d2cafa3c608d223dbbfa50e1cc34e180320e48",
+  "selectionIdentity": {
+    "schemaVersion": "maestro-brain-integration-wave-selection/v2",
+    "integrationId": "wave-000018",
+    "baseSha": "67f2ee285c082a45de91e21faa969e82c654cac6",
+    "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+    "requestedTaskIds": [
+      "S11-T02"
+    ],
+    "deferredTaskIds": [],
+    "selectedTaskIds": [
+      "S11-T02"
+    ]
+  },
+  "baseSha": "67f2ee285c082a45de91e21faa969e82c654cac6",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "requestedTaskIds": [
+    "S11-T02"
+  ],
+  "deferredTaskIds": [],
+  "includedTasks": [
+    {
+      "taskId": "S11-T02",
+      "tranche": "D2-domain-bodies",
+      "laneHeadSha": "8dddf9f94b310889decdbcca8b7636ad95bfd05f",
+      "headSha": "8dddf9f94b310889decdbcca8b7636ad95bfd05f",
+      "proofHeadSha": "8dddf9f94b310889decdbcca8b7636ad95bfd05f",
+      "gateHeadSha": "8dddf9f94b310889decdbcca8b7636ad95bfd05f",
+      "taskBlockHash": "2b484dad01173ead7ca99d710455998926b3666713d025943ef5824aed334ff6",
+      "laneResultSha256": "e4e02633910382864ee7b1cdd503955e5077634b50f51f3965cc6826333b9af2",
+      "proofSha256": "e99d3eebd4ece7a0e5cba229d74a945d7dc67bbbc4ea9203626c44ad0f1fea3a",
+      "gateSha256": "ab012f55c7e9f103513a486b8ac78d4ba3a18903ba34555e0ffae09e45f42db4",
+      "provenance": {
+        "sourceRangeBaseSha": "2f7da77954f2fbaced055a34cabbc39feff99c51",
+        "sourceRangeHeadSha": "8dddf9f94b310889decdbcca8b7636ad95bfd05f",
+        "recoverCherryVerdict": "all_selected_lane_commits_patch_equivalent_already_applied",
+        "integratedCommitShas": [
+          "9eb462326509e3a980793336d970de9151f90ff3",
+          "51e11f40f2438ba8add46a40b1aaa41c78f064f7",
+          "3fea4211cb8b961d3d79e70631bd2ed058c356d6",
+          "3ed57cfb2b7bd90ab0c6feb1d3b6ddac455d6955",
+          "1c93dc30652943a34dfbca7a037e4ba6ff8dd365",
+          "1c7ca3b9c991a7a5371d5f8969d8e47ff517011c",
+          "0178a399c591b1b260c1586a7d58107859360261",
+          "bb13f1015df4fb2d346a06d1d6665d3ef437f5c0",
+          "4ddb4a084bdf5ed49eec936e14a3adcc47a8f480",
+          "e14f610d47e83a34ce0997818fc3b137d968f8f0"
+        ]
+      }
+    }
+  ],
+  "manifestTranches": [
+    "D2-domain-bodies"
+  ],
+  "dependencyHydration": {
+    "command": "rtk pnpm --dir '/Users/headless/maestro-brain-plan/tooling/brain-factory' exec tsx src/hydrate-integration-dependencies.mts --workdir '/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000018' --base '67f2ee285c082a45de91e21faa969e82c654cac6'",
+    "status": "passed",
+    "mode": "unchanged",
+    "changedFiles": []
+  },
+  "codegen": {
+    "command": "rtk pnpm confect:codegen",
+    "status": "passed",
+    "netChangedFilesAfterFormatting": []
+  },
+  "generatedFiles": [
+    "packages/convex/confect/_generated/registeredFunctions/headless/apiKeys.ts",
+    "packages/convex/confect/_generated/spec.ts",
+    "packages/convex/convex/headless/apiKeys.ts"
+  ],
+  "generatedCommit": {
+    "headSha": "533ad78e2533008dbed2f5079b84dcbb0c986204",
+    "subject": "chore: refresh generated headless api keys",
+    "files": [
+      "packages/convex/confect/_generated/registeredFunctions/headless/apiKeys.ts",
+      "packages/convex/confect/_generated/spec.ts",
+      "packages/convex/convex/headless/apiKeys.ts"
+    ],
+    "numstat": [
+      {
+        "path": "packages/convex/confect/_generated/registeredFunctions/headless/apiKeys.ts",
+        "additions": 5,
+        "deletions": 0
+      },
+      {
+        "path": "packages/convex/confect/_generated/spec.ts",
+        "additions": 3,
+        "deletions": 1
+      },
+      {
+        "path": "packages/convex/convex/headless/apiKeys.ts",
+        "additions": 8,
+        "deletions": 0
+      }
+    ]
+  },
+  "focusedChecks": [
+    {
+      "command": "rtk pnpm --dir packages/convex typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test api-keys headless http-request",
+      "status": "passed",
+      "summary": "4 files passed; 38 tests passed"
+    },
+    {
+      "command": "rtk pnpm check:headless-surface-contract",
+      "status": "passed"
+    }
+  ],
+  "broadGate": {
+    "command": "rtk host-test-slot --class full pnpm verify",
+    "status": "failed",
+    "headSha": "533ad78e2533008dbed2f5079b84dcbb0c986204",
+    "failureClass": "deterministic",
+    "summary": "Full broad gate failed at strict Effect diagnostics; focused reproduction is recorded in remainingFindings."
+  },
+  "remainingFindings": [
+    {
+      "id": "wave-000018-broad-gate-effect-diagnostics-hand-authored-api-keys",
+      "status": "needs_task_rework",
+      "ownerTaskId": "S11-T02",
+      "gate": "pnpm check:effect-diagnostics",
+      "failureClass": "deterministic",
+      "summary": "Read-only review reproduced the broad-gate failure: strict Effect diagnostics reports warnings in selected hand-authored packages/convex/confect/headless/apiKeys.impl.ts, including unnecessaryEffectGen at lines 123-129 and unknownInEffectCatch at line 132. Integration-only repair is limited to generated output, so this remains owning-lane rework.",
+      "evidence": {
+        "workdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000018",
+        "headSha": "533ad78e2533008dbed2f5079b84dcbb0c986204",
+        "command": "rtk pnpm check:effect-diagnostics",
+        "diagnosticFile": "packages/convex/confect/headless/apiKeys.impl.ts",
+        "diagnostics": [
+          {
+            "title": "unnecessaryEffectGen",
+            "line": 123,
+            "endLine": 129,
+            "message": "This Effect.gen contains a single return statement."
+          },
+          {
+            "title": "unknownInEffectCatch",
+            "line": 132,
+            "message": "The catch callback in Effect.try returns unknown, so the Effect error type stays untyped."
+          }
+        ]
+      }
+    }
+  ],
+  "reviewVerdict": "rework",
+  "headSha": "533ad78e2533008dbed2f5079b84dcbb0c986204",
+  "exactHeadSha": "533ad78e2533008dbed2f5079b84dcbb0c986204",
+  "worktreeStatus": "clean",
+  "resolvedFindings": []
+}

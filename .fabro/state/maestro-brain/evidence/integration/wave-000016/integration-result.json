@@ -1,0 +1,211 @@
+{
+  "schemaVersion": "maestro-brain-integration-result/v2",
+  "integrationId": "wave-000016",
+  "status": "ready_for_review",
+  "mode": "integrate",
+  "baseSha": "331c163e317325e616effe073227d549465ec960",
+  "planSha256": "868331c0af5ab06b495ca802724f4a3578c854e07b8342c9de4b93107a264499",
+  "selectionPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000016-selection.json",
+  "selectionSha256": "75b566f562602caea04e872b667c2fc161bb4a551664fb03f81b73080b13dae7",
+  "selectionIdentity": {
+    "schemaVersion": "maestro-brain-integration-wave-selection/v2",
+    "integrationId": "wave-000016",
+    "baseSha": "331c163e317325e616effe073227d549465ec960",
+    "planSha256": "868331c0af5ab06b495ca802724f4a3578c854e07b8342c9de4b93107a264499",
+    "selectionSha256": "75b566f562602caea04e872b667c2fc161bb4a551664fb03f81b73080b13dae7",
+    "requestedTaskIds": [
+      "S02-T04"
+    ],
+    "deferredTaskIds": []
+  },
+  "integrationWorkdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000016",
+  "headSha": "da8528c41af4491e4a34f0fde96fc0a2f270f1f3",
+  "exactHeadSha": "da8528c41af4491e4a34f0fde96fc0a2f270f1f3",
+  "integrationHeadSha": "da8528c41af4491e4a34f0fde96fc0a2f270f1f3",
+  "includedTasks": [
+    {
+      "taskId": "S02-T04",
+      "tranche": "D2-domain-bodies",
+      "laneHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "headSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "gateHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "proofHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "laneResultSha256": "878d4c12da242079365fa75565dd78a37e5d3a4f1b588ff08ce096c7bed22cfc",
+      "proofSha256": "e9070c88fa11754d3f00a573078398550f0cc36fa7de6d4267bb1ca58647c3df",
+      "gateSha256": "9210ca7283ea16657f045c0f5c6fecefd40ac4f80e1a9f466037f3dca931a2b3",
+      "taskBlockHash": "1dc9fb9ecdfc29278b9cae4e0108861343d437d9d84a171f135e3630eb187fdc",
+      "changedFiles": [
+        "packages/convex/confect/brain/pages.impl.ts",
+        "packages/convex/confect/brain/pages.spec.ts",
+        "packages/convex/confect/editor/documentTargets.ts",
+        "packages/convex/confect/editor/sync.ts",
+        "packages/convex/confect/editor/syncApi.ts",
+        "packages/convex/test/brain-editor-revision-fence.test.ts",
+        "packages/convex/test/editor-sync.test.ts"
+      ],
+      "codeStartAfter": [
+        "S02-T02"
+      ],
+      "trancheProvenance": {
+        "tranche": "D2-domain-bodies",
+        "laneHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+        "proofHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+        "gateHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d"
+      },
+      "sourceBaseSha": "c26038d163e5d288d920b905d9f65d5334d21ff3",
+      "sourceRange": "331c163e317325e616effe073227d549465ec960..625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "completePatchRange": "c26038d163e5d288d920b905d9f65d5334d21ff3..625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "integratedCommits": [
+        {
+          "sourceSha": "f83febb0a58a06cff79838dc287017c91b4e8ac8",
+          "integratedSha": "5f2a824f8f85f47df6b562ee257ee9d3a168f5c6",
+          "subject": "feat: persist fenced Brain snapshots"
+        },
+        {
+          "sourceSha": "9e02df2bb5369dd2f3e94b06119c922a727411c2",
+          "integratedSha": "5330bb3c2b1debe6ac4736330b249af5a0b71801",
+          "subject": "feat: bind editor sync to stable pages"
+        },
+        {
+          "sourceSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+          "integratedSha": "da8528c41af4491e4a34f0fde96fc0a2f270f1f3",
+          "subject": "test: cover Brain editor revision fences"
+        }
+      ],
+      "cherryVerification": [
+        "- f83febb0a58a06cff79838dc287017c91b4e8ac8",
+        "- 9e02df2bb5369dd2f3e94b06119c922a727411c2",
+        "- 625f959fcf9304ae861dffb7c0d254c4f784a02d"
+      ]
+    }
+  ],
+  "selectedTasks": [
+    {
+      "taskId": "S02-T04",
+      "tranche": "D2-domain-bodies",
+      "laneHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "headSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "gateHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "proofHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "laneResultSha256": "878d4c12da242079365fa75565dd78a37e5d3a4f1b588ff08ce096c7bed22cfc",
+      "proofSha256": "e9070c88fa11754d3f00a573078398550f0cc36fa7de6d4267bb1ca58647c3df",
+      "gateSha256": "9210ca7283ea16657f045c0f5c6fecefd40ac4f80e1a9f466037f3dca931a2b3",
+      "taskBlockHash": "1dc9fb9ecdfc29278b9cae4e0108861343d437d9d84a171f135e3630eb187fdc",
+      "changedFiles": [
+        "packages/convex/confect/brain/pages.impl.ts",
+        "packages/convex/confect/brain/pages.spec.ts",
+        "packages/convex/confect/editor/documentTargets.ts",
+        "packages/convex/confect/editor/sync.ts",
+        "packages/convex/confect/editor/syncApi.ts",
+        "packages/convex/test/brain-editor-revision-fence.test.ts",
+        "packages/convex/test/editor-sync.test.ts"
+      ],
+      "codeStartAfter": [
+        "S02-T02"
+      ],
+      "trancheProvenance": {
+        "tranche": "D2-domain-bodies",
+        "laneHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+        "proofHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+        "gateHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d"
+      },
+      "sourceBaseSha": "c26038d163e5d288d920b905d9f65d5334d21ff3",
+      "sourceRange": "331c163e317325e616effe073227d549465ec960..625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "completePatchRange": "c26038d163e5d288d920b905d9f65d5334d21ff3..625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "integratedCommits": [
+        {
+          "sourceSha": "f83febb0a58a06cff79838dc287017c91b4e8ac8",
+          "integratedSha": "5f2a824f8f85f47df6b562ee257ee9d3a168f5c6",
+          "subject": "feat: persist fenced Brain snapshots"
+        },
+        {
+          "sourceSha": "9e02df2bb5369dd2f3e94b06119c922a727411c2",
+          "integratedSha": "5330bb3c2b1debe6ac4736330b249af5a0b71801",
+          "subject": "feat: bind editor sync to stable pages"
+        },
+        {
+          "sourceSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+          "integratedSha": "da8528c41af4491e4a34f0fde96fc0a2f270f1f3",
+          "subject": "test: cover Brain editor revision fences"
+        }
+      ],
+      "cherryVerification": [
+        "- f83febb0a58a06cff79838dc287017c91b4e8ac8",
+        "- 9e02df2bb5369dd2f3e94b06119c922a727411c2",
+        "- 625f959fcf9304ae861dffb7c0d254c4f784a02d"
+      ]
+    }
+  ],
+  "generatedCommitSha": null,
+  "generatedFiles": [],
+  "checks": [
+    {
+      "command": "rtk pnpm --dir '/Users/headless/maestro-brain-plan/tooling/brain-factory' exec tsx src/hydrate-integration-dependencies.mts --workdir '/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000016' --base '331c163e317325e616effe073227d549465ec960'",
+      "status": "passed",
+      "summary": "Hydration completed with {\"changedFiles\":[],\"mode\":\"unchanged\"}."
+    },
+    {
+      "command": "rtk pnpm confect:codegen && rtk pnpm confect:manifest && rtk pnpm check:route-tree",
+      "status": "passed",
+      "summary": "Centralized codegen/check ran once after source commits; no persistent generated-file diff remained, so generatedFiles is empty."
+    },
+    {
+      "command": "rtk pnpm exec prettier --check --ignore-unknown packages/convex/confect/brain/pages.impl.ts packages/convex/confect/brain/pages.spec.ts packages/convex/confect/editor/documentTargets.ts packages/convex/confect/editor/sync.ts packages/convex/confect/editor/syncApi.ts packages/convex/test/brain-editor-revision-fence.test.ts packages/convex/test/editor-sync.test.ts packages/convex/convex/internal/migrations.ts packages/convex/convex/integrations/slackConnections.ts",
+      "status": "passed",
+      "summary": "All matched files use Prettier code style."
+    },
+    {
+      "command": "rtk pnpm exec eslint packages/convex/confect/brain/pages.impl.ts packages/convex/confect/brain/pages.spec.ts packages/convex/confect/editor/documentTargets.ts packages/convex/confect/editor/sync.ts packages/convex/confect/editor/syncApi.ts packages/convex/test/brain-editor-revision-fence.test.ts packages/convex/test/editor-sync.test.ts packages/convex/convex/internal/migrations.ts packages/convex/convex/integrations/slackConnections.ts",
+      "status": "passed",
+      "summary": "ESLint completed successfully with no output."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test editor brain-editor-revision-fence",
+      "status": "passed",
+      "summary": "3 test files passed; 17 tests passed."
+    },
+    {
+      "command": "rtk pnpm brain:factory:check-confect-codegen",
+      "status": "passed",
+      "summary": "transient Confect codegen passed (2 generated files)."
+    },
+    {
+      "command": "rtk pnpm check:layer-boundaries",
+      "status": "passed",
+      "summary": "no dependency violations found (932 modules, 2940 dependencies cruised)."
+    },
+    {
+      "command": "rtk pnpm check:confect-v9",
+      "status": "passed",
+      "summary": "check:confect-v9 ok."
+    },
+    {
+      "command": "rtk pnpm --dir packages/convex typecheck",
+      "status": "passed",
+      "summary": "Convex package typecheck completed successfully."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/integrations test",
+      "status": "passed",
+      "summary": "Focused package test implicated by the truncated first broad-gate log passed: 12 files, 76 tests."
+    },
+    {
+      "command": "rtk pnpm check:secret-canaries",
+      "status": "failed",
+      "summary": "Deterministic broad-gate blocker reproduced: gitleaks reports one redacted generic-api-key finding in tooling/brain-factory/test/superseded-lane-restoration.test.mts:89."
+    }
+  ],
+  "worktreeStatus": "clean",
+  "reviewVerdict": "pass",
+  "remainingFindings": [],
+  "resolvedFindings": [
+    {
+      "id": "wave-000016-secret-canary-hand-authored-tooling-test",
+      "resolution": "not_wave_blocker",
+      "summary": "Read-only review confirmed broad gate secret-canaries failure is in tooling/brain-factory/test/superseded-lane-restoration.test.mts, outside selected task S02-T04 changed files and not changed by wave-000016; immutable lane result/proof/gate hashes, taskBlockHash, and lane head match selection. This remains a template/tooling backlog issue, not an immutable wave review finding."
+    }
+  ],
+  "manifestTranches": [
+    "D2-domain-bodies"
+  ]
+}

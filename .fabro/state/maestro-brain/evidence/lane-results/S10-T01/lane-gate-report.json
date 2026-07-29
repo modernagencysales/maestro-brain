@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "maestro-brain-lane-gate/v1",
+  "commandSetHash": "9c19231d53e27413a8ad25be2eb9ca00f9fbc29bacbccf27e60ae74632a08fdc",
+  "commands": [
+    "rtk pnpm exec prettier --check --ignore-unknown apps/web/src/features/settings/slack-link-adapter.test.ts apps/web/src/features/settings/slack-link-adapter.ts apps/web/src/features/settings/slack-link-button.test.tsx apps/web/src/features/settings/slack-link-button.tsx apps/web/src/features/settings/slack-link-status.test.tsx apps/web/src/features/settings/slack-link-status.tsx docs/product/maestro-brain-lifecycle-adoption/S10-T01.md packages/convex/confect/internal/migrations.ts packages/convex/confect/slack/identityLink.ts packages/convex/confect/slack/identityLinks.impl.ts packages/convex/confect/slack/identityLinks.spec.ts packages/convex/confect/tables/slackIdentityBindings.ts packages/convex/test/slack-identity-links.test.ts",
+    "rtk pnpm exec eslint apps/web/src/features/settings/slack-link-adapter.test.ts apps/web/src/features/settings/slack-link-adapter.ts apps/web/src/features/settings/slack-link-button.test.tsx apps/web/src/features/settings/slack-link-button.tsx apps/web/src/features/settings/slack-link-status.test.tsx apps/web/src/features/settings/slack-link-status.tsx packages/convex/confect/internal/migrations.ts packages/convex/confect/slack/identityLink.ts packages/convex/confect/slack/identityLinks.impl.ts packages/convex/confect/slack/identityLinks.spec.ts packages/convex/confect/tables/slackIdentityBindings.ts packages/convex/test/slack-identity-links.test.ts",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test slack-identity-links",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test slack-identity",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk pnpm check:access-audit-events",
+    "rtk pnpm check:logging-boundary",
+    "rtk pnpm check:secret-canaries",
+    "rtk pnpm check:confect-v9",
+    "rtk pnpm --dir packages/convex typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test",
+    "rtk pnpm --dir packages/integrations typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/integrations test",
+    "rtk pnpm --dir apps/web typecheck",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test"
+  ],
+  "currentHeadSha": "ae416ba6efe4b822a339d127eb5d428589068c24",
+  "currentTreeSha": "0fd4c83f8afa2b35d9aadc38a2d2a7a92da426c9",
+  "gateProfiles": [
+    "convex",
+    "integrations",
+    "web"
+  ],
+  "headSha": "ae416ba6efe4b822a339d127eb5d428589068c24",
+  "planSha256": "5e3506ec26c1776547b03641707371efaebb1c490ce3da6b6a1e2ed0df2a8417",
+  "changedSourceLines": 1059,
+  "estimateDrift": true,
+  "estimatedSourceLines": 260,
+  "sourceSliceBudget": 300,
+  "sourceSliceLimit": 4,
+  "sourceSlices": [
+    {
+      "changedSourceLines": 247,
+      "commit": "79768a82bf8f92e74729878c1080f4f200fbebe4"
+    },
+    {
+      "changedSourceLines": 294,
+      "commit": "fa65324457d12c2d80cd04750e4213bdbc3b0b91"
+    },
+    {
+      "changedSourceLines": 280,
+      "commit": "643ea06a9986ef222b365cbd2839e733cfc75f9c"
+    },
+    {
+      "changedSourceLines": 238,
+      "commit": "ae416ba6efe4b822a339d127eb5d428589068c24"
+    }
+  ],
+  "stage": "pre-review",
+  "status": "passed",
+  "taskId": "S10-T01",
+  "taskBlockHash": "31d477606c8d812c0f800d81d3401104da038d29fbb39dce06e1292cbd8d6e04",
+  "reusedPreReview": false
+}

@@ -1,0 +1,26 @@
+_version = 1
+
+[workflow]
+graph = "/Users/headless/maestro-brain-plan/.fabro/workflows/brain-build-task/workflow.fabro"
+
+[environments.local]
+provider = "local"
+
+[environments.local.env]
+BRAIN_BASE_SHA = "64b5d90e9dce6146ac6cd49696658cd9a40a254c"
+BRAIN_CONTROL_COMMON_DIR = "/Users/headless/maestro-template-saas-ui/.git"
+BRAIN_CONTROL_ROOT = "/Users/headless/maestro-brain-plan"
+BRAIN_EVIDENCE_DIR = "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence"
+BRAIN_HOST_TEST_MAX_LOAD_1M = "20"
+BRAIN_REPROOF_REQUEST = "none"
+BRAIN_RESUME_BRANCH = "fabro/review-s06-t01"
+BRAIN_RESUME_COMMITS = "456844151284b7c7cdb5604272280954fc999fcc,00a61b9237005b494db15e14849a480de9be08c4,6b9f5e2c004d589a3e315b6c6462cda16cd2b10a,90e58151e82012ffbdfc7b0c0d368a2f3e63cdd9"
+BRAIN_RESUME_EXPECTED_COMMIT = "none"
+BRAIN_RESUME_MODE = "preserved-worktree"
+BRAIN_RESUME_PROOF_HEAD = "ee22a31e1166df1b7ec618081596b67593a773db"
+BRAIN_RESUME_SOURCE_HEAD = "90e58151e82012ffbdfc7b0c0d368a2f3e63cdd9"
+BRAIN_RESUME_TASK_BASE = "64b5d90e9dce6146ac6cd49696658cd9a40a254c"
+BRAIN_REVIEW_ATTEMPT = "8a317a77-1f03-410e-99d0-e4ffee16a880"
+BRAIN_START_SHA = "ee22a31e1166df1b7ec618081596b67593a773db"
+BRAIN_TASK_ID = "S06-T01"
+BRAIN_WORKDIR = "/Users/headless/.maestro-brain-fabro-workdirs/resume-s06-t01"

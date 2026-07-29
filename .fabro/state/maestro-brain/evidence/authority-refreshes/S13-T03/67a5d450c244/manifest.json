@@ -1,0 +1,40 @@
+{
+  "schemaVersion": "maestro-brain-authority-refresh-archive/v1",
+  "taskId": "S13-T03",
+  "authorityId": "67a5d450c244",
+  "currentAuthority": {
+    "controlHeadSha": "022a932c1e809c2093a10f5dea5d248b6c706f5f",
+    "planSha256": "a3d4af4aa5e526438aa5e06c8716a6a40500bc235d9933f8f8649e133263821b",
+    "taskBlockHash": "44554749f4365ef357fd095d8ca8bd6dfdaec948b73797a8255e102eac74d080"
+  },
+  "oldAuthority": {
+    "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+    "taskBlockHash": "13c071bc2c78035c5563f494b38160a96c981ab2962984f056be4e18853e137e"
+  },
+  "source": {
+    "baseSha": "f66236e12f93bc254cc2350800a5b2a69d0caff5",
+    "commits": [
+      "fe3ef5c6e845e4fcf1aec34b0b48a9def9f50818",
+      "981d04e14edcb8317ada3da069aa443226425d7e",
+      "58b6257f53c792ab36675b01772147373337ab1d",
+      "a3e7e93d8c2e85c11c5658af518f620d187cb445"
+    ],
+    "headSha": "a3e7e93d8c2e85c11c5658af518f620d187cb445"
+  },
+  "transitionKind": "authority-refresh",
+  "supersededPaths": [],
+  "artifacts": [
+    {
+      "file": "prior-lane-result.json",
+      "sha256": "172286de4aa39bdff6dd53ebdfb1a6a5220e0a3bbe6283963e7edfc2e036dd97"
+    },
+    {
+      "file": "prior-proof.json",
+      "sha256": "21e9ee23c0fe7f45d8c8aeb4ec99bc50dbe25b3e5c6fc46db48320068805ef5f"
+    },
+    {
+      "file": "prior-final-gate.json",
+      "sha256": "a3c75af971d8776d74d17ae7f5c4b13353de6751f24380b53f84e65f7287ffcc"
+    }
+  ]
+}

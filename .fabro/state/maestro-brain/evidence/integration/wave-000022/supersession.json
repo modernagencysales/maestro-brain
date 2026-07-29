@@ -1,0 +1,29 @@
+{
+  "baseSha": "6968f27f022a0179da09baab20fc55613128f9ba",
+  "controlHeadSha": "6968f27f022a0179da09baab20fc55613128f9ba",
+  "createdAt": "2026-07-18T21:05:32.801Z",
+  "evidence": [
+    "Fabro run 01KXVGMTYN9HGDPDJ57G95AWNH failed deterministically: S03-T03 proof base does not equal the exact wave base",
+    "S03-T03 proof base 67f2ee285c082a45de91e21faa969e82c654cac6 is the common ancestor of lane head 195db6c28eb821d3052be2cbc085f8aeed8043f8 and wave base 6968f27f022a0179da09baab20fc55613128f9ba"
+  ],
+  "integrationId": "wave-000022",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "reason": "historical lane proof base predates the later integration wave base",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXVGMTYN9HGDPDJ57G95AWNH",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "1facb8612124b0de0780792afbd6e48cb152f51f5fe642bac729f1a62a74c092",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v2",
+  "selectedTaskIds": [
+    "S03-T03",
+    "S11-T02"
+  ],
+  "selectionFileSha256": "2c79edd6b6c8d9200b3693891e057a9e9228a77d5d830f32691be59de5f4f2d2",
+  "selectionPayloadSha256": "56ca6f1fcf5e69ce028c5308e0c3698b389f1c5b2dae0ede05b62518d187758f",
+  "status": "superseded",
+  "receiptSha256": "236d25b8d34e99bf227d2ec2c543333b2e911f6cf3b69fc8ddfee48d673f1cf0"
+}

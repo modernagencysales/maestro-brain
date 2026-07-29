@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "maestro-brain-contract-reproof/v1",
+  "taskId": "S05-T01",
+  "reason": "repair wave-000053 tenant-scoped sourceArtifacts index finding",
+  "controlHeadSha": "7a57d599be546e92e146f01c1da41c3cfaf39d88",
+  "planSha256": "ce2b760a9efd332ff6f3201b8faf312601e4fd3d4fcb7dcb4253afe7cae25317",
+  "taskBlockHash": "d5212dbc84a10771993658fc840e29bc81671c08e7962dbf96fd34de2dda9ce5",
+  "priorIntegrationId": "wave-000053",
+  "priorIntegrationHeadSha": "d541bd225316661f494172571449b893abab0a7f",
+  "priorIntegrationResultSha256": "4be0e1caba20dc18a1d29a2af436775df4108655440d63e0870551415ca8a3bd",
+  "priorLaneResultSha256": "b23e7c1b45d542bfc26c974ceaa351d81423da363223111b54d82e454b7b3b38",
+  "priorArchiveSha256": "e077670975474f8b42bc2aed0e5ffa0c081d8ca94923086bbc862c566420889f",
+  "priorEvidencePath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/archive/wave-000053/e077670975474f8b42bc2aed0e5ffa0c081d8ca94923086bbc862c566420889f.json",
+  "requestSha256": "5aaaf113e46122265791271a8001a9a2e2f841b5eb1e6b694eaf4443d4be2f11"
+}

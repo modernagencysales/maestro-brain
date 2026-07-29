@@ -1,0 +1,321 @@
+{
+  "schemaVersion": "maestro-brain-evidence-archive/v1",
+  "integrationId": "wave-000001",
+  "manifestTranches": [
+    "C1-contract-spine"
+  ],
+  "integrationResult": {
+    "schemaVersion": "maestro-brain-integration-result/v2",
+    "integrationId": "wave-000001",
+    "status": "passed",
+    "reviewVerdict": "pass",
+    "mode": "recover",
+    "baseSha": "1ba7949d7a030e08491556cb716f299404e77bde",
+    "headSha": "547633630871eb08e0e0be502a53ff0aba97dccc",
+    "treeSha": "d0a0b12386e77729c324fb60ddc1d869c4e092bb",
+    "selection": {
+      "schemaVersion": "maestro-brain-integration-wave-selection/v2",
+      "integrationId": "wave-000001",
+      "selectionSha256": "964576264395e9c471ba01fc64df034f1930634a078623b6f90e1b0e5594732c",
+      "planSha256": "67282c1924e380b207e131a80e6db1771f53956aa857d44c6d583b53d116cd7e",
+      "baseSha": "1ba7949d7a030e08491556cb716f299404e77bde",
+      "deferredTaskIds": []
+    },
+    "includedTasks": [
+      {
+        "taskId": "S01-T02",
+        "tranche": "C1-contract-spine",
+        "laneHeadSha": "efc98a3eb4ef7a37a992be7aaa6be003cf2c74c8",
+        "headSha": "efc98a3eb4ef7a37a992be7aaa6be003cf2c74c8",
+        "proofHeadSha": "efc98a3eb4ef7a37a992be7aaa6be003cf2c74c8",
+        "gateHeadSha": "efc98a3eb4ef7a37a992be7aaa6be003cf2c74c8",
+        "laneResultSha256": "b214a1a0b36e0a20a6793ed67b9f9bd7d300635dfce3415320f163a7042434df",
+        "proofSha256": "4a98c83c59ec4ebba64006e9def151db65092a18677377d5eacd0227ad7749ae",
+        "gateSha256": "75f31b0fd6eeaa83726ac278ea989d3f762fa1a0d6d25e21e3639f8e5d7fd4f6",
+        "taskBlockHash": "f8dfea31b91e435c11203c1641f2b5fd1cefe5e966e26f4ba105b1e7088d7204",
+        "planSha256": "67282c1924e380b207e131a80e6db1771f53956aa857d44c6d583b53d116cd7e",
+        "changedFiles": [
+          "docs/product/maestro-brain-migrations.md",
+          "packages/convex/confect/access/provisioning.impl.ts",
+          "packages/convex/confect/access/provisioning.ts",
+          "packages/convex/confect/access/tenancySchemas.ts",
+          "packages/convex/confect/identity/stableKeys.ts",
+          "packages/convex/confect/internal/migrations.impl.ts",
+          "packages/convex/confect/internal/migrations.spec.ts",
+          "packages/convex/confect/internal/migrations.ts",
+          "packages/convex/confect/tables/organizations.ts",
+          "packages/convex/confect/tables/workspaces.ts",
+          "packages/convex/package.json",
+          "packages/convex/test/access-provisioning.test.ts",
+          "packages/convex/test/migrations.test.ts",
+          "packages/convex/test/stable-tenant-keys.test.ts",
+          "pnpm-lock.yaml",
+          "pnpm-workspace.yaml",
+          "tooling/patches/@convex-dev__migrations@0.3.5.patch"
+        ]
+      }
+    ],
+    "generatedFiles": [
+      "packages/convex/convex/internal/migrations.ts"
+    ],
+    "integrationCommits": [
+      {
+        "sha": "d391272",
+        "source": "selected-lane",
+        "taskId": "S01-T02",
+        "subject": "feat: add stable tenant key derivation"
+      },
+      {
+        "sha": "cca16d0",
+        "source": "selected-lane",
+        "taskId": "S01-T02",
+        "subject": "test: cover stable tenant provisioning"
+      },
+      {
+        "sha": "38e603b",
+        "source": "selected-lane",
+        "taskId": "S01-T02",
+        "subject": "fix: enforce tenant binding uniqueness"
+      },
+      {
+        "sha": "6475170",
+        "source": "selected-lane",
+        "taskId": "S01-T02",
+        "subject": "fix: validate stable tenant migrations"
+      },
+      {
+        "sha": "d4879ee",
+        "source": "integration-generated",
+        "subject": "chore: refresh integration generated refs",
+        "generatedFiles": [
+          "packages/convex/convex/internal/migrations.ts"
+        ]
+      },
+      {
+        "sha": "c5f0f78d1a8cac2b05672c8097f01ab04f5c1d86",
+        "source": "integration-repair",
+        "subject": "fix: redact stable tenant dry-run logs",
+        "resolvedFindingIds": [
+          "MB-W000001-S01T02-DRYRUN-LOGS-RAW-TENANT-DATA",
+          "MB-W000001-GATES-PATCHED-DEPS-STALE-HYDRATION"
+        ]
+      },
+      {
+        "sha": "27dc7e1c52390a33b40561d2c8d988d48575bb76",
+        "source": "integration-repair",
+        "subject": "fix: restore migration dry-run logging path",
+        "resolvedFindingIds": [
+          "MB-W000001-GATES-LOGGING-BOUNDARY-CONSOLE-DEBUG"
+        ]
+      },
+      {
+        "sha": "547633630871eb08e0e0be502a53ff0aba97dccc",
+        "source": "integration-repair",
+        "subject": "fix: restore logging boundary test ownership",
+        "resolvedFindingIds": [
+          "MB-W000001-GATES-LOGGING-BOUNDARY-CONSOLE-DEBUG"
+        ]
+      }
+    ],
+    "focusedChecks": [
+      {
+        "command": "rtk proxy rg -n 'changed|skipped' packages/convex/node_modules/@convex-dev/migrations/dist/client/index.js",
+        "status": "passed"
+      },
+      {
+        "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test test/migrations.test.ts",
+        "status": "passed",
+        "summary": "12 tests passed"
+      },
+      {
+        "command": "rtk pnpm brain:factory:check-confect-codegen -- --test stable-tenant-keys",
+        "status": "passed"
+      },
+      {
+        "command": "rtk pnpm brain:factory:check-confect-codegen -- --test migrations",
+        "status": "passed"
+      },
+      {
+        "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test access-provisioning",
+        "status": "passed",
+        "summary": "15 tests passed"
+      },
+      {
+        "command": "rtk pnpm check:confect-contracts",
+        "status": "passed"
+      },
+      {
+        "command": "rtk pnpm check:schema-migration-notes",
+        "status": "passed"
+      },
+      {
+        "command": "rtk pnpm check:logging-boundary",
+        "status": "passed",
+        "summary": "check:logging-boundary passed"
+      }
+    ],
+    "review": {
+      "headSha": "c5f0f78d1a8cac2b05672c8097f01ab04f5c1d86",
+      "treeSha": "1cadfe455ebeb38fba44067ab9e1d98be0715373",
+      "selectionSha256": "964576264395e9c471ba01fc64df034f1930634a078623b6f90e1b0e5594732c",
+      "reviewVerdict": "pass",
+      "remainingFindings": [],
+      "summary": "Read-only review verified the immutable selection binding, exact worktree HEAD/tree, clean status, base ancestry, base-only codeStartAfter dependencies for S00-T04 and S01-T01, selected task/proof/gate SHA bindings, selected-file ownership plus generated-only integration file, tenant/lifecycle boundaries, typed migration/provisioning errors, dry-run log redaction coverage, and per-slice 300-line hand-authored gate evidence. No acceptance evidence beyond the focused wave review is claimed."
+    },
+    "remainingFindings": [],
+    "resolvedFindings": [
+      {
+        "id": "MB-W000001-S01T02-DRYRUN-LOGS-RAW-TENANT-DATA",
+        "severity": "blocker",
+        "taskId": "S01-T02",
+        "summary": "Stable tenant migration dry-run no longer emits raw tenant/workspace rows through component debug logging.",
+        "resolution": "Scoped dry-run debug suppression to migrations classified as patchedNoRawDocumentLogs and added negative assertions for both seeded stable organizations and workspaces/slugs.",
+        "proof": "rtk pnpm brain:factory:check-confect-codegen -- --test stable-tenant-keys"
+      },
+      {
+        "id": "MB-W000001-GATES-PATCHED-DEPS-STALE-HYDRATION",
+        "severity": "blocker",
+        "summary": "Focused migrations receipts pass after hydrating the integrated @convex-dev/migrations@0.3.5 patched dependency in the clean wave worktree.",
+        "resolution": "Restored diagnostic generated whitespace drift, rehydrated dependencies, removed the stale installed @convex-dev/migrations virtual-store instance that was bypassing pnpm patchedDependencies, reran the frozen prefer-offline ignore-scripts install, and verified installed dist/client/index.js now emits changed/skipped counters before running the focused migration gate.",
+        "proof": "rtk proxy rg -n 'changed|skipped' packages/convex/node_modules/@convex-dev/migrations/dist/client/index.js; rtk host-test-slot --class focused pnpm --dir packages/convex test test/migrations.test.ts"
+      },
+      {
+        "id": "MB-W000001-GATES-LOGGING-BOUNDARY-CONSOLE-DEBUG",
+        "severity": "blocker",
+        "summary": "Full verify logging boundary rejected the prior runtime console.debug dry-run suppression.",
+        "resolution": "Removed the integration-only console.debug monkey-patch and restored direct @convex-dev/migrations safeMutation invocation; retained raw tenant negative assertions covered by the focused migrations gate and restored the tooling logging-boundary test file to its pre-repair ownership state.",
+        "proof": "rtk host-test-slot --class focused pnpm --dir packages/convex test test/migrations.test.ts; rtk pnpm check:logging-boundary"
+      }
+    ],
+    "selectionSha256": "964576264395e9c471ba01fc64df034f1930634a078623b6f90e1b0e5594732c",
+    "workdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000001",
+    "integrationWorkdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000001",
+    "manifestTranches": [
+      "C1-contract-spine"
+    ],
+    "broadGate": {
+      "status": "passed",
+      "headSha": "547633630871eb08e0e0be502a53ff0aba97dccc",
+      "command": "rtk host-test-slot --class full pnpm verify"
+    }
+  },
+  "laneEvidence": [
+    {
+      "taskId": "S01-T02",
+      "proof": {
+        "schemaVersion": "maestro-brain-ci-proof/v1",
+        "taskId": "S01-T02",
+        "planSha256": "67282c1924e380b207e131a80e6db1771f53956aa857d44c6d583b53d116cd7e",
+        "taskBlockHash": "f8dfea31b91e435c11203c1641f2b5fd1cefe5e966e26f4ba105b1e7088d7204",
+        "baseSha": "dc75dd63ec1b52c1ff55a23072d463724d625d89",
+        "headSha": "efc98a3eb4ef7a37a992be7aaa6be003cf2c74c8",
+        "changedFiles": [
+          "docs/product/maestro-brain-migrations.md",
+          "packages/convex/confect/access/provisioning.impl.ts",
+          "packages/convex/confect/access/provisioning.ts",
+          "packages/convex/confect/access/tenancySchemas.ts",
+          "packages/convex/confect/identity/stableKeys.ts",
+          "packages/convex/confect/internal/migrations.impl.ts",
+          "packages/convex/confect/internal/migrations.spec.ts",
+          "packages/convex/confect/internal/migrations.ts",
+          "packages/convex/confect/tables/organizations.ts",
+          "packages/convex/confect/tables/workspaces.ts",
+          "packages/convex/package.json",
+          "packages/convex/test/access-provisioning.test.ts",
+          "packages/convex/test/migrations.test.ts",
+          "packages/convex/test/stable-tenant-keys.test.ts",
+          "pnpm-lock.yaml",
+          "pnpm-workspace.yaml",
+          "tooling/patches/@convex-dev__migrations@0.3.5.patch"
+        ],
+        "focusedCommands": [
+          "rtk pnpm install --frozen-lockfile",
+          "rtk pnpm brain:factory:check-confect-codegen -- --test stable-tenant-keys",
+          "rtk pnpm brain:factory:check-confect-codegen -- --test migrations",
+          "rtk host-test-slot --class focused pnpm --dir packages/convex test access-provisioning",
+          "rtk pnpm check:confect-contracts",
+          "rtk pnpm check:schema-migration-notes"
+        ],
+        "testsAdded": [
+          "packages/convex/test/stable-tenant-keys.test.ts",
+          "packages/convex/test/access-provisioning.test.ts",
+          "packages/convex/test/migrations.test.ts"
+        ],
+        "reviewVerdict": "pass",
+        "knownRisks": [
+          "Focused proof substitutes transient Confect codegen checks for raw codegen plus combined migration tests so generated refs are exercised in detached clean snapshots without dirtying the lane.",
+          "Broad root verification is deferred to tranche/wave integration per Appendix O."
+        ],
+        "reviewHeadSha": "efc98a3eb4ef7a37a992be7aaa6be003cf2c74c8",
+        "reviewFindings": []
+      },
+      "gate": {
+        "schemaVersion": "maestro-brain-lane-gate/v1",
+        "commandSetHash": "35b4f3be60c595a1bd5c008eb9aa9bddac101a115f65d3f60e60945c06fb2c61",
+        "commands": [
+          "rtk pnpm exec prettier --check --ignore-unknown docs/product/maestro-brain-migrations.md packages/convex/confect/access/provisioning.impl.ts packages/convex/confect/access/provisioning.ts packages/convex/confect/access/tenancySchemas.ts packages/convex/confect/identity/stableKeys.ts packages/convex/confect/internal/migrations.impl.ts packages/convex/confect/internal/migrations.spec.ts packages/convex/confect/internal/migrations.ts packages/convex/confect/tables/organizations.ts packages/convex/confect/tables/workspaces.ts packages/convex/package.json packages/convex/test/access-provisioning.test.ts packages/convex/test/migrations.test.ts packages/convex/test/stable-tenant-keys.test.ts pnpm-lock.yaml pnpm-workspace.yaml tooling/patches/@convex-dev__migrations@0.3.5.patch",
+          "rtk pnpm exec eslint packages/convex/confect/access/provisioning.impl.ts packages/convex/confect/access/provisioning.ts packages/convex/confect/access/tenancySchemas.ts packages/convex/confect/identity/stableKeys.ts packages/convex/confect/internal/migrations.impl.ts packages/convex/confect/internal/migrations.spec.ts packages/convex/confect/internal/migrations.ts packages/convex/confect/tables/organizations.ts packages/convex/confect/tables/workspaces.ts packages/convex/test/access-provisioning.test.ts packages/convex/test/migrations.test.ts packages/convex/test/stable-tenant-keys.test.ts",
+          "rtk pnpm install --frozen-lockfile",
+          "rtk pnpm brain:factory:check-confect-codegen -- --test stable-tenant-keys",
+          "rtk pnpm brain:factory:check-confect-codegen -- --test migrations",
+          "rtk host-test-slot --class focused pnpm --dir packages/convex test access-provisioning",
+          "rtk pnpm check:confect-contracts",
+          "rtk pnpm check:schema-migration-notes"
+        ],
+        "currentHeadSha": "efc98a3eb4ef7a37a992be7aaa6be003cf2c74c8",
+        "currentTreeSha": "87b3ecb1d3b1423ffab9e07db31375cc48a1100b",
+        "gateProfiles": [
+          "convex",
+          "tooling"
+        ],
+        "headSha": "efc98a3eb4ef7a37a992be7aaa6be003cf2c74c8",
+        "planSha256": "67282c1924e380b207e131a80e6db1771f53956aa857d44c6d583b53d116cd7e",
+        "changedSourceLines": 790,
+        "estimateDrift": false,
+        "estimatedSourceLines": 1050,
+        "sourceSliceBudget": 300,
+        "sourceSlices": [
+          {
+            "changedSourceLines": 184,
+            "commit": "5325668071d8609b8a08bd69a401453dc50fa552"
+          },
+          {
+            "changedSourceLines": 170,
+            "commit": "028c194e9f82f173635d63121a399573f4de2e2d"
+          },
+          {
+            "changedSourceLines": 240,
+            "commit": "1824ef2a8e799790bd4d5c31f6a93a2792b9bcc4"
+          },
+          {
+            "changedSourceLines": 196,
+            "commit": "efc98a3eb4ef7a37a992be7aaa6be003cf2c74c8"
+          }
+        ],
+        "stage": "final",
+        "status": "passed",
+        "taskId": "S01-T02",
+        "taskBlockHash": "f8dfea31b91e435c11203c1641f2b5fd1cefe5e966e26f4ba105b1e7088d7204",
+        "reusedPreReview": true
+      },
+      "result": {
+        "schemaVersion": "maestro-brain-lane-result/v1",
+        "taskId": "S01-T02",
+        "headSha": "efc98a3eb4ef7a37a992be7aaa6be003cf2c74c8",
+        "tranche": "C1-contract-spine",
+        "status": "integrated",
+        "proofHeadSha": "efc98a3eb4ef7a37a992be7aaa6be003cf2c74c8",
+        "gateHeadSha": "efc98a3eb4ef7a37a992be7aaa6be003cf2c74c8",
+        "proofSha256": "4a98c83c59ec4ebba64006e9def151db65092a18677377d5eacd0227ad7749ae",
+        "gateSha256": "75f31b0fd6eeaa83726ac278ea989d3f762fa1a0d6d25e21e3639f8e5d7fd4f6",
+        "taskBlockHash": "f8dfea31b91e435c11203c1641f2b5fd1cefe5e966e26f4ba105b1e7088d7204",
+        "planSha256": "67282c1924e380b207e131a80e6db1771f53956aa857d44c6d583b53d116cd7e",
+        "preIntegrationLaneResultSha256": "b214a1a0b36e0a20a6793ed67b9f9bd7d300635dfce3415320f163a7042434df",
+        "integrationId": "wave-000001",
+        "integrationHeadSha": "547633630871eb08e0e0be502a53ff0aba97dccc",
+        "accepted": false,
+        "acceptanceBlocker": "No original acceptanceAfter evidence proves accepted:true for S01-T02; wave-000001 records integration only."
+      }
+    }
+  ]
+}

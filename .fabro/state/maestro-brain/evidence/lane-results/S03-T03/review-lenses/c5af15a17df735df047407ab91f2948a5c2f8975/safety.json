@@ -1,0 +1,87 @@
+{
+  "lens": "safety",
+  "taskId": "S03-T03",
+  "planSha256": "06d2877a2679fbd6017e4b220d7ef624772e526b2d8465423d2a767304d7366f",
+  "taskBlockHash": "aa1a34eba8e9f1b7be8ce4818650cc062d0b74238531d81c76f031efc240f1ab",
+  "baseSha": "bc7631796e42ee5d33a006df85730dc1293f505e",
+  "headSha": "c5af15a17df735df047407ab91f2948a5c2f8975",
+  "treeSha": "d525ae25217a4f08dd980e03aaa5f010014c33af",
+  "reviewerRunId": "maestro/review/S03-T03/c5af15a17df735df047407ab91f2948a5c2f8975/308452cb-5156-4398-b6c6-cb360e4cec21-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.impl.ts:85-200 requireBrainAccess resolves the caller identity to active organization/workspace membership, invokes the stable brain-key resolver with the caller agency key, rejects organization mismatches, and scopes page collection/load to the resolved workspaceId.",
+        "packages/convex/confect/brain/pages.impl.ts:202-233 collectPages/loadPage query by resolved workspaceId and workspace+pageKey; tests in packages/convex/test/brain-pages-crud.test.ts:514-576 and 578-768 cover forged tenant args, stable summaries, and foreign snapshot denial without mutation.",
+        "packages/convex/test/brain-pages-crud.test.ts:1227-1639 covers role matrix, duplicate bindings, cross-Brain parent denial, and stale move race without cross-tenant mutation."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.impl.ts:85-200 requires authenticated active users and enforces viewer/editor minimum roles before reads or writes; mutation entry points call requireBrainAccess(..., \"editor\") through create/patchPage/recordSnapshot.",
+        "packages/convex/confect/editor/sync.ts:56-83 and 208-225 require active user membership and roleAtLeast for editor sync read/write access.",
+        "packages/convex/test/brain-pages-crud.test.ts:770-851 verifies viewers can read but cannot create, and that denied writes leave page revisions/audits unchanged; 1227-1639 covers viewer/editor/admin/owner matrix."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.impl.ts:58-63 and 156-164 reject revoked organization/workspace lifecycle generations; loadPage at 213-233 rejects non-active page status/lifecycle for detail and mutations.",
+        "packages/convex/confect/editor/sync.ts:40-52 resolves stable editor targets only when the target page is active, and syncApi checkRead/checkWrite route through requireEditorDocumentAccess.",
+        "packages/convex/test/brain-pages-crud.test.ts:853-1225 verifies archived Brain returns LifecycleRevoked, redacted/purged pages stay out of lists, archived pages are only included when requested, and denials do not mutate state."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.impl.ts:249-315 writes revision actor/effect metadata and audit events with empty metadata, not raw markdown/snapshot/provider payloads.",
+        "packages/convex/test/brain-pages-crud.test.ts:514-576 asserts stable summaries do not expose internal workspace IDs and schema rejects forged workspaceId args.",
+        "packages/convex/test/brain-pages-crud.test.ts:1164-1220 asserts audit metadata does not contain page titles, markdown, snapshot, or request content."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.impl.ts:235-247 requireCurrentRevision fails stale writes before patching; patchPage at 460-506 and recordSnapshotMutation at 613-681 invoke it before mutation.",
+        "apps/web/src/features/brain/brain-workspace.tsx:155-183 and 255-309 retain an editor revision fence per selected document and ignore superseded async save attempts via saveAttemptRef.",
+        "packages/convex/test/brain-pages-crud.test.ts:1473-1636 covers concurrent stale move race with exactly one success and unchanged state for stale follow-up."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.impl.ts:623-631 rejects snapshot versions that are not newer positive safe integers, preventing replay of an old version against the current page.",
+        "packages/convex/confect/brain/pages.impl.ts:235-247 rejects replayed writes with old expectedCurrentRevisionKey after a successful mutation.",
+        "packages/convex/test/brain-pages-crud.test.ts:578-768 verifies stale snapshot and stale/old version attempts are Left results and leave snapshot/revision rows unchanged after the successful save."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/editor-react/src/BlockNoteSyncEditor.tsx:58-107 and apps/web/src/features/brain/brain-workspace.tsx:31-56, 63-89, 170-183 preserve the revision selected when editing began and pass expectedCurrentRevisionKey into save args instead of resolving from mutable server state.",
+        "packages/convex/confect/editor/syncApi.ts:20-50 requires explicit expectedCurrentRevisionKey for stable page snapshot publication and recordCurrentEditorSnapshot returns null for stable targets, so stable autosnapshots cannot publish unfenced.",
+        "packages/convex/test/brain-editor-revision-fence.test.ts:25-115 covers forwarding explicit stable fences and refusing stable autosnapshot/unfenced publication."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "not_applicable",
+      "rationale": "S03-T03 implements Brain page UI, Confect page mutations, and local editor sync seams only; it does not add live provider SDK imports, secret handling, webhooks, external API/MCP exposure, or provider adapters.",
+      "evidence": [
+        "Task plan docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1212-1290 scopes this task to responsive page tree, BlockNote workspace, page snapshot contract, and editor sync repair.",
+        "Changed files from the proof packet are limited to apps/web Brain UI, packages/convex brain/editor contracts/tests, packages/editor-react editor component, route/docs; no provider adapter or secret-boundary files are in the diff.",
+        "packages/convex/test/brain-pages-crud.test.ts:449-461 verifies pages manifest entries, including fenced snapshots, are web-only and not exposed to api/cli/mcp surfaces."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

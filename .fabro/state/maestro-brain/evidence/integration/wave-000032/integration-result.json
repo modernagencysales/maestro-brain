@@ -1,0 +1,39 @@
+{
+  "baseSha": "c643d1699ba1417cdac704986252c5e633802a5a",
+  "conflicts": [],
+  "focusedChecks": [
+    "rtk host-test-slot --class focused pnpm check:effect-diagnostics",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test slack-connections",
+    "rtk host-test-slot --class focused pnpm --dir packages/integrations test nango",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test nango-connect",
+    "rtk pnpm --dir packages/integrations typecheck",
+    "rtk pnpm --dir packages/convex typecheck",
+    "rtk pnpm check:provider-boundary",
+    "rtk pnpm check:env-boundary",
+    "rtk pnpm check:secret-canaries",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk pnpm check:confect-v9"
+  ],
+  "generatedFiles": [],
+  "headSha": "76ff70ddd36fbb22f12608386a6d536a1d24820a",
+  "includedTasks": [
+    {
+      "commitShas": [
+        "633e3e337213c3ed4565195493ba0c05b68016bc"
+      ],
+      "laneHeadSha": "633e3e337213c3ed4565195493ba0c05b68016bc",
+      "patchState": "applied",
+      "taskId": "S04-T01",
+      "tranche": "C1-contract-spine"
+    }
+  ],
+  "integrationId": "wave-000032",
+  "mode": "integrate",
+  "schemaVersion": "maestro-brain-integration-result/v3",
+  "selectionFileSha256": "45ff9a6df144d2aff1f42f4548756c2695a00c676c42171cf6427ac87fd0abbc",
+  "selectionPayloadSha256": "d2a3683c838d6f3b3b1b25724f17a8424514bf10ee0393af0a867eccd10acaaf",
+  "reviewVerdict": "pass",
+  "status": "ready_for_review",
+  "remainingFindings": [],
+  "resolvedFindings": []
+}

@@ -1,0 +1,104 @@
+{
+  "schemaVersion": "maestro-brain-ci-proof/v1",
+  "planSha256": "a3d4af4aa5e526438aa5e06c8716a6a40500bc235d9933f8f8649e133263821b",
+  "taskBlockHash": "44554749f4365ef357fd095d8ca8bd6dfdaec948b73797a8255e102eac74d080",
+  "taskId": "S13-T03",
+  "baseSha": "022a932c1e809c2093a10f5dea5d248b6c706f5f",
+  "headSha": "9a372756c24735077c875064a3080c49b812d85b",
+  "changedFiles": [
+    "docs/product/maestro-brain-operations.md",
+    "packages/convex/confect/ops/brainOperationPolicy.ts",
+    "packages/convex/confect/ops/brainOperations.impl.ts",
+    "packages/convex/confect/ops/brainOperations.spec.ts",
+    "packages/convex/confect/ops/flags.impl.ts",
+    "packages/convex/confect/ops/flags.spec.ts",
+    "packages/convex/confect/tables/featureFlagPolicies.ts",
+    "packages/convex/test/brain-operation-policy.test.ts",
+    "packages/convex/test/flags.test.ts",
+    "packages/observability/src/brainMetrics.test.ts",
+    "packages/observability/src/brainMetrics.ts",
+    "packages/observability/src/index.ts",
+    "tooling/quality/check-logging-boundary.mts"
+  ],
+  "focusedCommands": [
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test brain-operation-policy",
+    "rtk host-test-slot --class focused pnpm --dir packages/observability test brainMetrics",
+    "rtk pnpm check:logging-boundary",
+    "rtk pnpm check:secret-canaries",
+    "rtk pnpm check:access-audit-events"
+  ],
+  "commandResults": [
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test brain-operation-policy",
+      "status": "passed",
+      "summary": "final head focused check: 1 test file passed; 9 tests passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/observability test brainMetrics",
+      "status": "passed",
+      "summary": "final head focused check: 1 test file passed; 4 tests passed"
+    },
+    {
+      "command": "rtk pnpm check:logging-boundary",
+      "status": "passed",
+      "summary": "final head focused check: check:logging-boundary passed"
+    },
+    {
+      "command": "rtk pnpm check:secret-canaries",
+      "status": "passed",
+      "summary": "final head focused check: gitleaks scanned approximately 8.24 MB; no leaks found"
+    },
+    {
+      "command": "rtk pnpm check:access-audit-events",
+      "status": "passed",
+      "summary": "final head focused check: check:access-audit-events passed"
+    },
+    {
+      "command": "rtk pnpm --dir packages/observability typecheck",
+      "status": "passed",
+      "summary": "supplemental package-local check: tsc -p tsconfig.json --noEmit passed for packages/observability"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test flags",
+      "status": "passed",
+      "summary": "supplemental repair check: 1 test file passed; 5 tests passed"
+    },
+    {
+      "command": "rtk pnpm --dir packages/convex typecheck",
+      "status": "passed",
+      "summary": "supplemental package-local check after durable feature flag repair: tsc -p tsconfig.json --noEmit passed for packages/convex"
+    }
+  ],
+  "testsAdded": [
+    "packages/convex/test/brain-operation-policy.test.ts",
+    "packages/observability/src/brainMetrics.test.ts"
+  ],
+  "reviewVerdict": "pass",
+  "knownRisks": [
+    "Generated Confect/Convex output is intentionally excluded from the lane diff per Appendix O/P; centralized integration must run codegen and include generated brainOperations refs/registered functions."
+  ],
+  "sourceSlices": [
+    {
+      "commit": "5a56ddd949116a7f66272ac14420ca2088cf67f1",
+      "subject": "feat: add redacted Brain metrics",
+      "changedSourceLines": 212
+    },
+    {
+      "commit": "42f1bb8f47d5e492b8c9682cf1ef5ed95428450a",
+      "subject": "feat: define Brain operation policies",
+      "changedSourceLines": 268
+    },
+    {
+      "commit": "2d503599b6ee338922eb528d14b50702be30e0a9",
+      "subject": "feat: implement Brain operations",
+      "changedSourceLines": 293
+    },
+    {
+      "commit": "9a372756c24735077c875064a3080c49b812d85b",
+      "subject": "test: prove Brain operation controls",
+      "changedSourceLines": 222
+    }
+  ],
+  "reviewFindings": [],
+  "reviewHeadSha": "9a372756c24735077c875064a3080c49b812d85b"
+}

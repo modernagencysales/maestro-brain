@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "maestro-brain-ci-proof/v1",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "taskBlockHash": "2b76ab1991d07a9978da3c321cbcc4f73ffc5ae9b4e3eb3512e2ff3dd4251072",
+  "taskId": "S13-T02",
+  "baseSha": "f66236e12f93bc254cc2350800a5b2a69d0caff5",
+  "headSha": "efc6da6647816263d85e7e94c02f2fe04273c566",
+  "changedFiles": [
+    "docs/product/maestro-brain-capacity.md",
+    "packages/convex/test/brain-capacity.test.ts",
+    "tooling/evals/package.json",
+    "tooling/evals/src/brain-capacity-fixture.ts",
+    "tooling/evals/src/brain-capacity-report.ts",
+    "tooling/evals/src/brain-capacity.test.ts",
+    "tooling/evals/src/brain-capacity.ts"
+  ],
+  "focusedCommands": [
+    "rtk pnpm --dir tooling/evals brain:capacity",
+    "rtk host-test-slot --class focused pnpm --dir tooling/evals test brain-capacity",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test brain-capacity",
+    "rtk host-test-slot --class focused pnpm check:coverage-ratchet"
+  ],
+  "supplementalCommands": [
+    "rtk proxy pnpm --dir tooling/evals typecheck",
+    "rtk proxy pnpm --dir packages/convex typecheck",
+    "rtk pnpm exec prettier --check --ignore-unknown docs/product/maestro-brain-capacity.md packages/convex/test/brain-capacity.test.ts tooling/evals/package.json tooling/evals/src/brain-capacity-fixture.ts tooling/evals/src/brain-capacity-report.ts tooling/evals/src/brain-capacity.test.ts tooling/evals/src/brain-capacity.ts",
+    "rtk pnpm exec eslint packages/convex/test/brain-capacity.test.ts tooling/evals/src/brain-capacity-fixture.ts tooling/evals/src/brain-capacity-report.ts tooling/evals/src/brain-capacity.test.ts tooling/evals/src/brain-capacity.ts"
+  ],
+  "testsAdded": [
+    "tooling/evals/src/brain-capacity.test.ts",
+    "packages/convex/test/brain-capacity.test.ts"
+  ],
+  "reviewVerdict": "pass",
+  "knownRisks": [
+    "Harness is synthetic-only product-instance proof; live provider Slack receipts remain separate acceptance evidence per Appendix J.",
+    "Focused coverage ratchet emits expected fake-gitleaks canary warning while tests and ratchet pass.",
+    "Source estimate drift remains above the manifest estimate but within the four 300-line source-slice limit."
+  ],
+  "reviewFindings": [],
+  "reviewHeadSha": "efc6da6647816263d85e7e94c02f2fe04273c566"
+}

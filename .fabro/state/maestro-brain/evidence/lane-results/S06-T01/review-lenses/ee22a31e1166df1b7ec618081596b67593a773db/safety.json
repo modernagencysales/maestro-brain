@@ -1,0 +1,117 @@
+{
+  "lens": "safety",
+  "taskId": "S06-T01",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "f2f6cb348272c704636b7e21bf8e8cbd66b812835d781b52e01bdcfa5b0fa97c",
+  "baseSha": "64b5d90e9dce6146ac6cd49696658cd9a40a254c",
+  "headSha": "ee22a31e1166df1b7ec618081596b67593a773db",
+  "treeSha": "c3de66dd9778670ee2d784b75a3bce13453e38b0",
+  "reviewerRunId": "maestro/review/S06-T01/ee22a31e1166df1b7ec618081596b67593a773db/410f142c-7f0b-42cf-9c8d-e4fc449d2474-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.ts:124-125 scopes idempotency by organizationKey, unitKey, effectKey, all pinned generations, and idempotencyKey.",
+        "packages/convex/confect/jobs/workpool.ts:254-261 looks up source jobs with by_org_unit_idempotency_key and organizationKey equality.",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:90-104 defines sourceProcessingJobs indexes with organizationKey prefixes for status, effect, idempotency, unit stage, lease expiry, and status lookups."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "finding",
+      "findingIds": ["SAFETY-S06-T01-001"],
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1861-1865 requires status/control functions to be internal/admin-observed, not API/MCP tools.",
+        "packages/convex/confect/jobs/workpool.spec.ts:14-16 still registers public enqueue and public status functions.",
+        "packages/convex/confect/jobs/workpool.ts:302-305 exposes status(workId) as a public query returning raw workpool component status for any supplied workId."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/jobState.ts:165-171 defines terminal statuses including succeeded, dead_letter, superseded, revoked, and cancelled.",
+        "packages/convex/confect/jobs/jobState.ts:208-217 prevents claims against terminal jobs and active unexpired leases.",
+        "packages/convex/confect/jobs/workpool.ts:420-425 checks policy, route, lifecycle, and emergency generations before accepting completion.",
+        "packages/convex/test/source-workpool.test.ts:242-257 and 727-765 cover stale generation rejection and duplicate completion as one accepted effect."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "finding",
+      "findingIds": ["SAFETY-S06-T01-002"],
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1861-1864 requires an opaque leaseToken and immutable receipts.",
+        "packages/convex/confect/jobs/workpool.ts:126-127 derives lease tokens deterministically from organizationKey, unitKey, effectKey, and leaseGeneration.",
+        "packages/convex/confect/jobs/jobState.ts:179-185 hashes the token for receipts, but the raw deterministic token is still persisted as leaseToken by startSourceJob at packages/convex/confect/jobs/jobState.ts:220-227 and declared in the durable table at packages/convex/confect/tables/sourceProcessingJobs.ts:65-68."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/jobState.ts:208-217 rejects active unexpired claims unless queued, retry_wait due, or expired.",
+        "packages/convex/confect/jobs/workpool.ts:264-281 performs a current-row check on leaseGeneration, leaseToken, acceptedEffectKey, and executionStatus before patching transition state.",
+        "packages/convex/test/source-workpool.test.ts:686-725 covers crash before workId patch and verifies replay does not steal the active claim or enqueue again before expiry."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.ts:173-178 returns the existing workId for duplicate enqueue replay once workId is persisted.",
+        "packages/convex/confect/jobs/workpool.ts:426-427 returns without re-accepting when the effect was already accepted or the row is succeeded.",
+        "packages/convex/test/source-workpool.test.ts:660-684 proves duplicate enqueue after workId persists does not create a second enqueueAction call.",
+        "packages/convex/test/source-workpool.test.ts:727-765 proves duplicate onComplete delivery before ACK results in one accepted effect and one succeeded patch."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "finding",
+      "findingIds": ["SAFETY-S06-T01-002"],
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1861-1864 requires claim fencing with an opaque leaseToken and pinned-generation completion compares.",
+        "packages/convex/confect/jobs/workpool.ts:126-127 makes the lease token predictable from job identifiers instead of opaque random material.",
+        "packages/convex/confect/jobs/workpool.ts:428-465 otherwise fences completion by current lease and generations before the final success patch."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.ts:1-16 imports Convex/workpool primitives only, with no live provider SDK or secret boundary import.",
+        "packages/convex/confect/jobs/workpool.ts:395-399 keeps backgroundWork as an internal action returning null for this source-workpool fixture-to-real boundary.",
+        "packages/convex/confect/jobs/workpool.spec.ts:42-48 registers backgroundWork and onComplete as internal functions."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "SAFETY-S06-T01-001",
+      "severity": "high",
+      "summary": "Legacy public workpool status surface remains exposed",
+      "details": "S06-T01 requires source job status/control to be internal/admin-observed rather than public API/MCP tools. The source job controls are internal, but the legacy public status ref remains registered and executable by raw workId, exposing component status outside the tenant-scoped source job lookup. Public enqueue is now a throwing stub, but status still bypasses the internal source job control surface.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1861-1865",
+        "packages/convex/confect/jobs/workpool.spec.ts:14-16",
+        "packages/convex/confect/jobs/workpool.ts:302-305",
+        "packages/convex/test/source-workpool.test.ts:767-776 explicitly preserves generated public workpool refs beside internal source controls."
+      ]
+    },
+    {
+      "id": "SAFETY-S06-T01-002",
+      "severity": "medium",
+      "summary": "Lease token is deterministic rather than opaque",
+      "details": "The task calls for an opaque leaseToken. The implementation derives lease tokens from organizationKey, unitKey, effectKey, and leaseGeneration, then persists the raw token on sourceProcessingJobs and passes it through workpool completion context. Even though attempt receipts store a hash, the current token is predictable from job metadata and does not provide an opaque non-forgeable fence if internal control arguments or job identifiers are exposed.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1861-1864",
+        "packages/convex/confect/jobs/workpool.ts:126-127",
+        "packages/convex/confect/jobs/workpool.ts:206-214",
+        "packages/convex/confect/jobs/jobState.ts:220-227",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:65-68"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

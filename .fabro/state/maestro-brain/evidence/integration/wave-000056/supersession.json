@@ -1,0 +1,34 @@
+{
+  "baseSha": "f6a9988a0a5efc40201b005fa2cdc1021b0d17f2",
+  "controlHeadSha": "7cf9a793b5bee333bfc2e72595563716161a2997",
+  "createdAt": "2026-07-22T23:43:07.875Z",
+  "evidence": [
+    "finding-adoption-sha256:d68d20038556101140b95bd6a3ee5939f48a653f6e2a122195b16aa0933b82e7",
+    "findings-sha256:25038431c86e7376c5d3410be27eecca20a4144910caa13068129ecf4004b707",
+    "integration-result-sha256:5477b2cb14f224af207ef5317abb0ea17d51472c7fd33fdfd36d1f7e52b4cd76",
+    "owner-rework-result-sha256:5477b2cb14f224af207ef5317abb0ea17d51472c7fd33fdfd36d1f7e52b4cd76",
+    "run:01KY1J01ZQ1B4F8MYQTPQPC8HB:owner_rework",
+    "selection-file-sha256:53be5a90f8430e265b9be8cc1582c696dd8de79e6ca29112b41e3fb5aeecd800",
+    "selection-payload-sha256:e958f278dd13373969440b6264691408853e3563bc7960bde8bb911a680a89fa"
+  ],
+  "integrationId": "wave-000056",
+  "planSha256": "ce2b760a9efd332ff6f3201b8faf312601e4fd3d4fcb7dcb4253afe7cae25317",
+  "reason": "route wave-000056 task-owned integration findings",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KY1J01ZQ1B4F8MYQTPQPC8HB",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "b55c6a05b8f16fdaa1d86e0cb131cf5815c19b7ab0e0ef964e5ff3108b19fca9",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v2",
+  "selectedTaskIds": [
+    "S03-T03",
+    "S04-T04"
+  ],
+  "selectionFileSha256": "53be5a90f8430e265b9be8cc1582c696dd8de79e6ca29112b41e3fb5aeecd800",
+  "selectionPayloadSha256": "e958f278dd13373969440b6264691408853e3563bc7960bde8bb911a680a89fa",
+  "status": "superseded",
+  "receiptSha256": "295f15f0ecb2d33c37afca3dbfb4c1aebcbb503f61d775bbcf3b28df9c063f00"
+}

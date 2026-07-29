@@ -1,0 +1,32 @@
+{
+  "attempts": [
+    {
+      "attempt": 1,
+      "command": "rtk host-test-slot --class full pnpm verify",
+      "headSha": "da8528c41af4491e4a34f0fde96fc0a2f270f1f3",
+      "outputSha256": "78fc03756b63b4db5229f4b96a8796ea2c79a776f1ed2ed63c18a80c997ad156",
+      "status": "failed",
+      "transientVitestWorkerRpcTimeout": false
+    },
+    {
+      "attempt": 2,
+      "command": "rtk host-test-slot --class full pnpm verify",
+      "headSha": "da8528c41af4491e4a34f0fde96fc0a2f270f1f3",
+      "outputSha256": "80d9f237babc50e464ae489fc5494a9e2d240719a22d9308ad708425fe223a6a",
+      "status": "failed",
+      "transientVitestWorkerRpcTimeout": false
+    },
+    {
+      "attempt": 3,
+      "command": "rtk host-test-slot --class full pnpm verify",
+      "headSha": "da8528c41af4491e4a34f0fde96fc0a2f270f1f3",
+      "outputSha256": "7861a3ed518814cd24718de60656d3b4f8f06d8c89abf576efc335eace219376",
+      "status": "failed",
+      "transientVitestWorkerRpcTimeout": false
+    }
+  ],
+  "command": "rtk host-test-slot --class full pnpm verify",
+  "headSha": "da8528c41af4491e4a34f0fde96fc0a2f270f1f3",
+  "schemaVersion": "maestro-brain-broad-gate-receipt/v1",
+  "status": "failed"
+}

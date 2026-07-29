@@ -1,0 +1,102 @@
+{
+  "attempt": 1,
+  "baseSha": "85762e4b8aad428ffc9c3a820fc9f6058fe2ef1a",
+  "branch": "fabro/brain-wave-000052",
+  "integrationId": "wave-000052",
+  "reservationToken": "7b691caf-1e35-488e-8113-c1eb470cd2a1",
+  "schemaVersion": "maestro-brain-integration-wave-run/v3",
+  "selection": {
+    "baseSha": "85762e4b8aad428ffc9c3a820fc9f6058fe2ef1a",
+    "deferredTaskIds": [],
+    "integrationId": "wave-000052",
+    "planSha256": "a3d4af4aa5e526438aa5e06c8716a6a40500bc235d9933f8f8649e133263821b",
+    "requestedTaskIds": [
+      "S11-T02"
+    ],
+    "schemaVersion": "maestro-brain-integration-wave-selection/v3",
+    "selectedTasks": [
+      {
+        "changedFiles": [
+          "apps/web/src/features/settings/api-keys-adapter.test.ts",
+          "apps/web/src/features/settings/api-keys-adapter.ts",
+          "apps/web/src/features/settings/api-keys-panel.test.tsx",
+          "apps/web/src/features/settings/api-keys-panel.tsx",
+          "apps/web/src/features/settings/api-keys.test.ts",
+          "apps/web/src/features/settings/api-keys.ts",
+          "apps/web/src/features/settings/settings-surface.test.ts",
+          "apps/web/src/features/settings/settings-surface.ts",
+          "apps/web/src/routes/_workspace.settings.tsx",
+          "packages/convex/confect/headless/apiKeys.impl.ts",
+          "packages/convex/confect/headless/apiKeys.spec.ts",
+          "packages/convex/confect/headless/auth.ts",
+          "packages/convex/confect/headless/authorizeOperation.ts",
+          "packages/convex/confect/headless/principal.ts",
+          "packages/convex/confect/http.ts",
+          "packages/convex/confect/httpRequest.ts",
+          "packages/convex/confect/manifest/executor.ts",
+          "packages/convex/test/api-keys.test.ts",
+          "packages/convex/test/headless-executor.test.ts",
+          "packages/convex/test/http-docs.test.ts",
+          "packages/convex/test/http-request-security.test.ts"
+        ],
+        "codeStartAfter": [
+          "S01-T02",
+          "S01-T03",
+          "S01-T04",
+          "S02-T02",
+          "S11-T01"
+        ],
+        "fileLocks": [
+          "apps/web/src/features/settings/api-keys-adapter.test.ts",
+          "apps/web/src/features/settings/api-keys-adapter.ts",
+          "apps/web/src/features/settings/api-keys-panel.test.tsx",
+          "apps/web/src/features/settings/api-keys-panel.tsx",
+          "apps/web/src/features/settings/api-keys.test.ts",
+          "apps/web/src/features/settings/api-keys.ts",
+          "apps/web/src/features/settings/settings-surface.test.ts",
+          "apps/web/src/features/settings/settings-surface.ts",
+          "apps/web/src/routes/_workspace.settings.tsx",
+          "packages/convex/confect/access/audit.ts",
+          "packages/convex/confect/access/lifecycle.ts",
+          "packages/convex/confect/access/tenancySchemas.ts",
+          "packages/convex/confect/headless/apiKeys.impl.ts",
+          "packages/convex/confect/headless/apiKeys.spec.ts",
+          "packages/convex/confect/headless/auth.ts",
+          "packages/convex/confect/headless/authorizeOperation.ts",
+          "packages/convex/confect/headless/errorEnvelope.ts",
+          "packages/convex/confect/headless/principal.ts",
+          "packages/convex/confect/http.ts",
+          "packages/convex/confect/httpRequest.ts",
+          "packages/convex/confect/manifest/executor.ts",
+          "packages/convex/test/access-audit-events.test.ts",
+          "packages/convex/test/api-keys.test.ts",
+          "packages/convex/test/headless-auth.test.ts",
+          "packages/convex/test/headless-executor.test.ts",
+          "packages/convex/test/http-docs.test.ts",
+          "packages/convex/test/http-request-security.test.ts"
+        ],
+        "gateHeadSha": "61d82eebf44c69f52680a649a4f42ab31e02ddd7",
+        "gateSha256": "c80e5813a2bd35bc88902ef26d205c165c84a2983b924bc4f274732ed3fa6d3f",
+        "headSha": "61d82eebf44c69f52680a649a4f42ab31e02ddd7",
+        "laneResultSha256": "993f42f5acebe9ac866439ab31aa418f8ec9ff5cefd1ca37f38bb1b166dbe5e3",
+        "planSha256": "e0256a16a8e0791a68c0f2eef39946ddb845c01a79e186c9aa05585ce85d5199",
+        "proofHeadSha": "61d82eebf44c69f52680a649a4f42ab31e02ddd7",
+        "proofSha256": "eefa278f5c134cf54a0213574f01165a9c4e009b0484d7cc87687bbedf10a576",
+        "taskBlockHash": "f49e5fe055896a804408cf0013f1f4b02735f7b6e18f1813ab85e85672fb569d",
+        "taskId": "S11-T02",
+        "tranche": "D2-domain-bodies"
+      }
+    ],
+    "selectionPayloadSha256": "2ee76800cfa000663a2a85107f02393cee378ba5b90cc23770a9d44e770f78c1"
+  },
+  "selectionFileSha256": "a61b35544ef65c33d2ef9e08d2eccada0ea5691f4abc0b892382da50f83875be",
+  "selectionPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000052-selection.json",
+  "selectionPayloadSha256": "2ee76800cfa000663a2a85107f02393cee378ba5b90cc23770a9d44e770f78c1",
+  "status": "launched",
+  "workdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000052",
+  "activeMode": "integrate",
+  "runId": "01KY0MHH810PNR2MDZ8MBF3AEB",
+  "runIds": [
+    "01KY0MHH810PNR2MDZ8MBF3AEB"
+  ]
+}

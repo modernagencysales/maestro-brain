@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "maestro-brain-contract-reproof/v1",
+  "taskId": "S03-T03",
+  "reason": "authoritative pnpm verify failure: editor-sync Brain snapshot argument mismatch",
+  "controlHeadSha": "633981c6e5b2cb50a7dddbb669411b68ce7dbf9e",
+  "planSha256": "ce2b760a9efd332ff6f3201b8faf312601e4fd3d4fcb7dcb4253afe7cae25317",
+  "taskBlockHash": "ac77073ece3d8addfee7853260cb2bb2bc6bb83ba43405b07a934f310b6a8834",
+  "priorIntegrationId": "wave-000055",
+  "priorIntegrationHeadSha": "3141ccc10fe3194d2f249fa9b0e8205f920248f6",
+  "priorIntegrationResultSha256": "3367357198dea615bdd1d80f9bbb8a093fa2c6242cdb7a963981dc4e9ae4ead3",
+  "priorLaneResultSha256": "58dac81ab4ab73bc5383185a6ed3f863950c41bf8570d8b82c76768df9ec09e6",
+  "priorArchiveSha256": "ff92ae2fbfdd941cfb97e9cc84d3dfd97cbf4bcd97814a5544e9833f19eed7ff",
+  "priorEvidencePath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/archive/wave-000055/ff92ae2fbfdd941cfb97e9cc84d3dfd97cbf4bcd97814a5544e9833f19eed7ff.json",
+  "requestSha256": "8af6fb8827973cd0b5b3c1a6f873d1570ba09dc3c0e03c198a74ee367b7539b0"
+}

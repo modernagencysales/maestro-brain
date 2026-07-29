@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "maestro-brain-ci-proof/v1",
+  "taskId": "S01-T02",
+  "planSha256": "67282c1924e380b207e131a80e6db1771f53956aa857d44c6d583b53d116cd7e",
+  "taskBlockHash": "f8dfea31b91e435c11203c1641f2b5fd1cefe5e966e26f4ba105b1e7088d7204",
+  "baseSha": "dc75dd63ec1b52c1ff55a23072d463724d625d89",
+  "headSha": "efc98a3eb4ef7a37a992be7aaa6be003cf2c74c8",
+  "changedFiles": [
+    "docs/product/maestro-brain-migrations.md",
+    "packages/convex/confect/access/provisioning.impl.ts",
+    "packages/convex/confect/access/provisioning.ts",
+    "packages/convex/confect/access/tenancySchemas.ts",
+    "packages/convex/confect/identity/stableKeys.ts",
+    "packages/convex/confect/internal/migrations.impl.ts",
+    "packages/convex/confect/internal/migrations.spec.ts",
+    "packages/convex/confect/internal/migrations.ts",
+    "packages/convex/confect/tables/organizations.ts",
+    "packages/convex/confect/tables/workspaces.ts",
+    "packages/convex/package.json",
+    "packages/convex/test/access-provisioning.test.ts",
+    "packages/convex/test/migrations.test.ts",
+    "packages/convex/test/stable-tenant-keys.test.ts",
+    "pnpm-lock.yaml",
+    "pnpm-workspace.yaml",
+    "tooling/patches/@convex-dev__migrations@0.3.5.patch"
+  ],
+  "focusedCommands": [
+    "rtk pnpm install --frozen-lockfile",
+    "rtk pnpm brain:factory:check-confect-codegen -- --test stable-tenant-keys",
+    "rtk pnpm brain:factory:check-confect-codegen -- --test migrations",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test access-provisioning",
+    "rtk pnpm check:confect-contracts",
+    "rtk pnpm check:schema-migration-notes"
+  ],
+  "testsAdded": [
+    "packages/convex/test/stable-tenant-keys.test.ts",
+    "packages/convex/test/access-provisioning.test.ts",
+    "packages/convex/test/migrations.test.ts"
+  ],
+  "reviewVerdict": "pass",
+  "knownRisks": [
+    "Focused proof substitutes transient Confect codegen checks for raw codegen plus combined migration tests so generated refs are exercised in detached clean snapshots without dirtying the lane.",
+    "Broad root verification is deferred to tranche/wave integration per Appendix O."
+  ],
+  "reviewHeadSha": "efc98a3eb4ef7a37a992be7aaa6be003cf2c74c8",
+  "reviewFindings": []
+}

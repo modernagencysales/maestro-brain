@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "maestro-brain-lane-gate/v1",
+  "commandSetHash": "71c119ee7d2a0e4ddccc9f18f280b47e7d7b43253dbd2dc747c6a181439a1184",
+  "commands": [
+    "rtk pnpm exec prettier --check --ignore-unknown docs/product/maestro-brain-lifecycle-adoption/S04-T02.md packages/convex/confect/integrations/slackDirectory.impl.ts packages/convex/confect/integrations/slackDirectory.spec.ts packages/convex/confect/integrations/slackDirectory.ts packages/convex/confect/tables/channelSyncStates.ts packages/convex/confect/tables/sourceChannels.ts packages/convex/test/slack-directory.test.ts",
+    "rtk pnpm exec eslint packages/convex/confect/integrations/slackDirectory.impl.ts packages/convex/confect/integrations/slackDirectory.spec.ts packages/convex/confect/integrations/slackDirectory.ts packages/convex/confect/tables/channelSyncStates.ts packages/convex/confect/tables/sourceChannels.ts packages/convex/test/slack-directory.test.ts",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test slack-directory",
+    "rtk host-test-slot --class focused pnpm --dir packages/integrations test slack",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk pnpm check:schema-migration-notes",
+    "rtk pnpm check:provider-boundary",
+    "rtk pnpm check:confect-v9",
+    "rtk pnpm --dir packages/convex typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test",
+    "rtk pnpm --dir packages/integrations typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/integrations test"
+  ],
+  "currentHeadSha": "ceed76db1dee584403c8301f43c3b17131d400b7",
+  "currentTreeSha": "44c7c3a973c447e41ebb748ac4b434dd6973d9d3",
+  "gateProfiles": [
+    "convex",
+    "integrations"
+  ],
+  "headSha": "ceed76db1dee584403c8301f43c3b17131d400b7",
+  "planSha256": "e5ad32c375d4fd307b3d5bccd47ea6cf4e9b7580f23bb506c893fd94019ca7c5",
+  "changedSourceLines": 1387,
+  "estimateDrift": false,
+  "estimatedSourceLines": 1500,
+  "sourceSliceBudget": 300,
+  "sourceSliceLimit": 5,
+  "sourceSlices": [
+    {
+      "changedSourceLines": 295,
+      "commit": "9085e95b28d962939a111171ba9f8f861bf45cb6"
+    },
+    {
+      "changedSourceLines": 283,
+      "commit": "9db5d3648e39ff191b08a72eb163cdf689c7d55c"
+    },
+    {
+      "changedSourceLines": 267,
+      "commit": "5b3d821a6bf9eb299d6e08006edc899ebacf8132"
+    },
+    {
+      "changedSourceLines": 300,
+      "commit": "884a5ab03eeaaf4dc2e6858b157a647307ad5095"
+    },
+    {
+      "changedSourceLines": 242,
+      "commit": "ceed76db1dee584403c8301f43c3b17131d400b7"
+    }
+  ],
+  "stage": "final",
+  "status": "passed",
+  "taskId": "S04-T02",
+  "taskBlockHash": "cdeca2a0ba4a7101fd27959788455ac53609485617a9cf8146c29c86891a7958",
+  "reusedPreReview": true
+}

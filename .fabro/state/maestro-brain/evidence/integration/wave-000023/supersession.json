@@ -1,0 +1,29 @@
+{
+  "baseSha": "7426b2a9f73e393351c1208216690713427b6748",
+  "controlHeadSha": "7426b2a9f73e393351c1208216690713427b6748",
+  "createdAt": "2026-07-18T21:10:58.627Z",
+  "evidence": [
+    "Fabro run 01KXVGVHTMSH6039PC97CVWMZC first apply failed: generation changed unauthorized files packages/convex/confect/_generated/spec.ts, packages/convex/convex/integrations/slackConnections.ts, packages/convex/convex/internal/migrations.ts",
+    "The failed apply left exact selected lane commits in integration-wave-000023, so automatic retry failed integrate-mode exact-base precondition"
+  ],
+  "integrationId": "wave-000023",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "reason": "deterministic generation found legitimate wrappers outside the lane-derived allowlist and failed to restore the pre-apply head",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXVGVHTMSH6039PC97CVWMZC",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "8a8f343d650c30d380fb4e1128cf6b7ab0d91906b056fa6c69fbfe10ab01f357",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v2",
+  "selectedTaskIds": [
+    "S03-T03",
+    "S11-T02"
+  ],
+  "selectionFileSha256": "7084600b3764f0985719b69c74dde6b00a24bfb4dc573b2482fa21334de2325c",
+  "selectionPayloadSha256": "5a807d3853216a467da42e9a12bf593b6e60d188b0b0bceb83e66f039a9bfd5b",
+  "status": "superseded",
+  "receiptSha256": "a02a0239c783d9c044e5984f0e29b193db0bc5df6f455906d0a40ff4bdb74344"
+}

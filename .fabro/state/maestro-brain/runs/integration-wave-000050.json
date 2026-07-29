@@ -1,0 +1,77 @@
+{
+  "attempt": 1,
+  "baseSha": "73609583b9ca2704ad28f3844239f00764ac7230",
+  "branch": "fabro/brain-wave-000050",
+  "integrationId": "wave-000050",
+  "reservationToken": "83d13082-fecb-421b-8a17-a8787988f11a",
+  "schemaVersion": "maestro-brain-integration-wave-run/v3",
+  "selection": {
+    "baseSha": "73609583b9ca2704ad28f3844239f00764ac7230",
+    "deferredTaskIds": [],
+    "integrationId": "wave-000050",
+    "planSha256": "b25dfe4b3139d61e98976f450d6dfbdb30629201ab2015f7846a04ca02435a57",
+    "requestedTaskIds": [
+      "S04-T04"
+    ],
+    "schemaVersion": "maestro-brain-integration-wave-selection/v3",
+    "selectedTasks": [
+      {
+        "changedFiles": [
+          "apps/web/src/features/connections/channel-policy-dialog.tsx",
+          "apps/web/src/features/connections/channel-policy-view-model.test.ts",
+          "apps/web/src/features/connections/channel-policy-view-model.ts",
+          "apps/web/src/features/connections/channel-table.tsx",
+          "apps/web/src/features/connections/connections-adapter.ts",
+          "apps/web/src/routes/_workspace.connections.tsx",
+          "docs/product/maestro-brain-lifecycle-adoption/S04-T04.md",
+          "packages/convex/confect/slack/channelPolicies.impl.ts",
+          "packages/convex/confect/slack/channelPolicies.spec.ts",
+          "packages/convex/confect/slack/channelPolicy.ts",
+          "packages/convex/confect/tables/channelDeliveryPolicies.ts",
+          "packages/convex/confect/tables/channelRoutingPolicies.ts",
+          "packages/convex/test/channel-policies.test.ts"
+        ],
+        "codeStartAfter": [
+          "S03-T01",
+          "S04-T02"
+        ],
+        "fileLocks": [
+          "apps/web/src/features/connections/channel-policy-dialog.tsx",
+          "apps/web/src/features/connections/channel-policy-view-model.test.ts",
+          "apps/web/src/features/connections/channel-policy-view-model.ts",
+          "apps/web/src/features/connections/channel-table.tsx",
+          "apps/web/src/features/connections/connections-adapter.ts",
+          "apps/web/src/routes/_workspace.connections.tsx",
+          "docs/product/maestro-brain-lifecycle-adoption/S04-T04.md",
+          "packages/convex/confect/slack/channelPolicies.impl.ts",
+          "packages/convex/confect/slack/channelPolicies.spec.ts",
+          "packages/convex/confect/slack/channelPolicy.ts",
+          "packages/convex/confect/tables/channelDeliveryPolicies.ts",
+          "packages/convex/confect/tables/channelRoutingPolicies.ts",
+          "packages/convex/test/channel-policies.test.ts"
+        ],
+        "gateHeadSha": "44c1f6c7e982c7e1814455d2d29f56139d1b803c",
+        "gateSha256": "8276fdee9580dd7d4b2458262413a7ea9379eb5cbe048f44cb4055dc16e83a0c",
+        "headSha": "44c1f6c7e982c7e1814455d2d29f56139d1b803c",
+        "laneResultSha256": "c52c8fd037de0075540efb8084d1a2ca4cbb28cd094d0ad25a663f94d2b7f784",
+        "planSha256": "5e3506ec26c1776547b03641707371efaebb1c490ce3da6b6a1e2ed0df2a8417",
+        "proofHeadSha": "44c1f6c7e982c7e1814455d2d29f56139d1b803c",
+        "proofSha256": "a4907aebff4c2d852cfaeb9fb6eb4671cbc305b427c554335a58a4a806c79470",
+        "taskBlockHash": "43fe7362c17307d938a689c31cfaa350124a5029c8ef938d09c8f08066ec12c5",
+        "taskId": "S04-T04",
+        "tranche": "D2-domain-bodies"
+      }
+    ],
+    "selectionPayloadSha256": "6ca4f52b75cf77d42cd6ea594f693dd65c385841db55af7ceb9b27194f467d6c"
+  },
+  "selectionFileSha256": "a45fde1abe4095daabe6d10cdc4743a0d0fbd9f729f11d72513d01cb708f99e7",
+  "selectionPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000050-selection.json",
+  "selectionPayloadSha256": "6ca4f52b75cf77d42cd6ea594f693dd65c385841db55af7ceb9b27194f467d6c",
+  "status": "launched",
+  "workdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000050",
+  "activeMode": "integrate",
+  "runId": "01KXZZQY6QR3G18ZK32AAMTR3Z",
+  "runIds": [
+    "01KXZZQY6QR3G18ZK32AAMTR3Z"
+  ]
+}

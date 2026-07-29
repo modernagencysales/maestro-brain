@@ -1,0 +1,151 @@
+{
+  "schemaVersion": "maestro-brain-integration-result/v2",
+  "integrationId": "wave-000004",
+  "mode": "integrate",
+  "status": "ready_for_review",
+  "baseSha": "4373eda7c01358ae987afe5fbcbd6aac16663f4f",
+  "headSha": "e94161e05d693cacd1ea901eca9111186865d37a",
+  "selectionSha256": "9b5601ff5434f4230fbf8e0f3b19414682e1383c89523121dd3db7c0b1ba6f92",
+  "planSha256": "5d21d781e20fcb6e463e8d9901395a42bba375457f79845e00cc9f7e07364c21",
+  "selectionPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000004-selection.json",
+  "includedTasks": [
+    {
+      "taskId": "S01-T04",
+      "tranche": "D2-domain-bodies",
+      "taskBlockHash": "a377159e6ba55f3508fbc27b475a62f7c40dd6dc13116f9dfdb0fb6fb73de3a3",
+      "laneHeadSha": "abd95c0308986037b9e7b4e0bcea4572bbfb3b68",
+      "proofHeadSha": "abd95c0308986037b9e7b4e0bcea4572bbfb3b68",
+      "gateHeadSha": "abd95c0308986037b9e7b4e0bcea4572bbfb3b68",
+      "laneResultSha256": "2298cd18f45495e2fe55af75a926a301e7a054dd1972f93ee571058e0526972a",
+      "proofSha256": "c91bf76e4f97d600ebef17b7d0d65ea297f3e59b2988d167e60b3e2aca0dae22",
+      "gateSha256": "f5fd6a43dd5639b7dedb56fe6b0b330afe0225bd3d0a81f6a23dd2a72c24fc73",
+      "laneStatus": "lane_green",
+      "laneGateStatus": "passed",
+      "proofReviewVerdict": "pass",
+      "codeStartAfter": [
+        "S01-T02"
+      ],
+      "changedFilesMatchSelection": false,
+      "changedFiles": [
+        "apps/web/src/adapters/confect-state.test.ts",
+        "apps/web/src/adapters/confect-state.ts",
+        "apps/web/src/features/settings/member-management-adapter.test.ts",
+        "apps/web/src/features/settings/member-management-adapter.ts",
+        "apps/web/src/features/settings/member-management.test.tsx",
+        "apps/web/src/features/settings/member-management.tsx",
+        "apps/web/src/features/settings/settings-surface.test.ts",
+        "apps/web/src/features/settings/settings-surface.ts",
+        "apps/web/src/routes/_workspace.settings.tsx",
+        "packages/convex/confect/access/audit.ts",
+        "packages/convex/confect/access/auth.ts",
+        "packages/convex/confect/access/handlerContext.ts",
+        "packages/convex/confect/access/invitations.impl.ts",
+        "packages/convex/confect/access/invitations.spec.ts",
+        "packages/convex/confect/access/members.impl.ts",
+        "packages/convex/confect/access/members.spec.ts",
+        "packages/convex/confect/access/tenancySchemas.ts",
+        "packages/convex/test/brain-role-matrix.test.ts"
+      ]
+    }
+  ],
+  "selectionCheck": {
+    "command": "rtk pnpm --dir /Users/headless/maestro-brain-plan/tooling/brain-factory exec tsx src/integration-wave-selection-check.mts --selection /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000004-selection.json --integration-id wave-000004 --base 4373eda7c01358ae987afe5fbcbd6aac16663f4f --selection-sha256 9b5601ff5434f4230fbf8e0f3b19414682e1383c89523121dd3db7c0b1ba6f92",
+    "status": "passed",
+    "summary": "wave-000004: immutable wave selection passed"
+  },
+  "dependencyCheck": {
+    "command": "rtk pnpm --dir /Users/headless/maestro-brain-plan/tooling/brain-factory exec tsx src/hydrate-integration-dependencies.mts --workdir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000004 --base 4373eda7c01358ae987afe5fbcbd6aac16663f4f",
+    "status": "passed",
+    "result": {
+      "changedFiles": [],
+      "mode": "unchanged"
+    }
+  },
+  "focusedReadOnlyChecks": [
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000004 rev-parse HEAD",
+      "status": "passed",
+      "summary": "e94161e05d693cacd1ea901eca9111186865d37a"
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000004 merge-base HEAD 4373eda7c01358ae987afe5fbcbd6aac16663f4f",
+      "status": "passed",
+      "summary": "4373eda7c01358ae987afe5fbcbd6aac16663f4f"
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000004 status --porcelain",
+      "status": "passed",
+      "summary": "No output; integration worktree clean at exact repaired head."
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000004 diff --name-status 4373eda7c01358ae987afe5fbcbd6aac16663f4f..HEAD",
+      "status": "passed",
+      "summary": "Patch contains selected S01-T04 files plus generated wrappers; packages/convex/test/flags.test.ts is no longer present in the net base-to-head patch."
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000004 show --name-status --format=%H\\ %s --no-renames HEAD",
+      "status": "passed",
+      "summary": "Head repair e94161e05d693cacd1ea901eca9111186865d37a reverts the prior unowned flags.test.ts net delta and restores role resolution in selected access auth coverage."
+    },
+    {
+      "command": "rtk rg --files /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results | rtk rg 'S01-T04|abd95c0308986037b9e7b4e0bcea4572bbfb3b68|wave-000004'",
+      "status": "passed",
+      "summary": "Selected task evidence files found for S01-T04: lane-result.json, ci-proof-packet.json, lane-gate-report.json."
+    },
+    {
+      "command": "Read-only inspection of S01-T04 lane-result.json, lane-gate-report.json, and ci-proof-packet.json",
+      "status": "passed",
+      "summary": "Lane evidence binds task S01-T04 to head abd95c0308986037b9e7b4e0bcea4572bbfb3b68 with lane_green, gate passed, proof reviewVerdict pass, and source slices at or below 300 changed source lines."
+    }
+  ],
+  "reviewVerdict": "rework",
+  "remainingFindings": [],
+  "broadGate": {
+    "status": "not_certified_by_this_repair",
+    "summary": "Focused convex package tests and diff check passed at the repaired head. This repair does not self-certify reviewVerdict pass or rerun the broad integration gate."
+  },
+  "worktreeStatusPorcelain": "",
+  "generatedFiles": [
+    "packages/convex/convex/access/invitations.ts",
+    "packages/convex/convex/access/members.ts"
+  ],
+  "resolvedFindings": [
+    {
+      "id": "wave-000004-unowned-flags-test-repair",
+      "severity": "blocker",
+      "summary": "Removed the unowned net packages/convex/test/flags.test.ts repair from the wave patch.",
+      "resolution": "Commit e94161e05d693cacd1ea901eca9111186865d37a restores packages/convex/test/flags.test.ts to the selected-lane/base content, removes the direct-first role shortcut in the selected access auth helper, and updates the selected brain role matrix expectation. The base-to-head patch no longer includes packages/convex/test/flags.test.ts; the head commit touches that file only as the revert of the prior unowned integration repair.",
+      "evidence": [
+        "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000004 rev-parse HEAD => e94161e05d693cacd1ea901eca9111186865d37a",
+        "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000004 status --porcelain => no output",
+        "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000004 diff --name-status 4373eda7c01358ae987afe5fbcbd6aac16663f4f..HEAD excludes packages/convex/test/flags.test.ts and packages/convex/confect/access/auth.ts",
+        "rtk pnpm --dir packages/convex exec vitest run test/brain-role-matrix.test.ts -t \"keeps org-admin baseline\" => 1 passed, 56 skipped",
+        "rtk pnpm --dir packages/convex exec vitest run test/flags.test.ts -t \"persists workspace overrides\" => 1 passed, 4 skipped",
+        "rtk pnpm --dir packages/convex run test => 56 passed, 431 passed",
+        "rtk git diff --check => passed"
+      ]
+    }
+  ],
+  "repairChecks": [
+    {
+      "command": "rtk pnpm --dir packages/convex exec vitest run test/brain-role-matrix.test.ts -t \"keeps org-admin baseline\"",
+      "status": "passed",
+      "summary": "Test Files 1 passed; Tests 1 passed, 56 skipped."
+    },
+    {
+      "command": "rtk pnpm --dir packages/convex exec vitest run test/flags.test.ts -t \"persists workspace overrides\"",
+      "status": "passed",
+      "summary": "Test Files 1 passed; Tests 1 passed, 4 skipped."
+    },
+    {
+      "command": "rtk pnpm --dir packages/convex run test",
+      "status": "passed",
+      "summary": "Test Files 56 passed; Tests 431 passed."
+    },
+    {
+      "command": "rtk git diff --check",
+      "status": "passed",
+      "summary": "No whitespace errors."
+    }
+  ]
+}

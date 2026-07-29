@@ -1,0 +1,54 @@
+{
+  "baseSha": "4001c961201dd9a1cbe7830aca4873457f7713b9",
+  "deferredTaskIds": [],
+  "integrationId": "wave-000031",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "requestedTaskIds": [
+    "S04-T01"
+  ],
+  "schemaVersion": "maestro-brain-integration-wave-selection/v3",
+  "selectedTasks": [
+    {
+      "changedFiles": [
+        "packages/convex/confect/integrations/slackConnections.impl.ts"
+      ],
+      "codeStartAfter": [
+        "S00-T03",
+        "S01-T02"
+      ],
+      "fileLocks": [
+        ".env.example",
+        "@dependencies",
+        "@environment",
+        "apps/web/src/features/connections/nango-connect-button.test.tsx",
+        "apps/web/src/features/connections/nango-connect-button.tsx",
+        "docs/template/env-manifest.json",
+        "docs/template/env-manifest.md",
+        "packages/convex/confect/integrations/slackConnections.impl.ts",
+        "packages/convex/confect/integrations/slackConnections.spec.ts",
+        "packages/convex/confect/tables/providerConnections.ts",
+        "packages/convex/package.json",
+        "packages/convex/test/slack-connections.test.ts",
+        "packages/integrations/package.json",
+        "packages/integrations/src/nango/client.test.ts",
+        "packages/integrations/src/nango/client.ts",
+        "packages/integrations/src/nango/connectBrowser.test.ts",
+        "packages/integrations/src/nango/connectBrowser.ts",
+        "packages/integrations/src/nango/slack.ts",
+        "pnpm-lock.yaml"
+      ],
+      "gateHeadSha": "633e3e337213c3ed4565195493ba0c05b68016bc",
+      "gateSha256": "51df632fdfc02dac69570e709e2afb6761d4339bb1539333984f2f780d1a41b5",
+      "headSha": "633e3e337213c3ed4565195493ba0c05b68016bc",
+      "laneResultSha256": "3a84a8b52f3491e4085134fb92a23b28176af96ebeabdd94b8c1e1726cd055e8",
+      "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+      "proofHeadSha": "633e3e337213c3ed4565195493ba0c05b68016bc",
+      "proofSha256": "f0a82c0739266788d9ad28643523bd2e042aa3fde3520a35ef12e9263029ad59",
+      "reproofRequestSha256": "e06784af24780036213ea8a4c82e92b693355c9197022246e17b323396af82fb",
+      "taskBlockHash": "fda4652a6ec6cbf81f4deb10c6c607ed72837451fb07a6b3f18305a9f96f2182",
+      "taskId": "S04-T01",
+      "tranche": "C1-contract-spine"
+    }
+  ],
+  "selectionPayloadSha256": "f5f750b4d660bb46536262bb64d7d4f2e78ec1d4398a01c7d89c2ab75d685ca7"
+}

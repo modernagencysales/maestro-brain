@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "maestro-brain-lane-gate/v1",
+  "commandSetHash": "a6d6aba7af1c5faed9fbeb9dedcb602ad48fb3714733b8f0c12e70415a2dfbc3",
+  "commands": [
+    "rtk pnpm exec prettier --check --ignore-unknown apps/web/src/features/brain/brain-adapter.test.ts apps/web/src/features/brain/brain-adapter.ts apps/web/src/features/brain/brain-editor-pane.test.tsx apps/web/src/features/brain/brain-editor-pane.tsx apps/web/src/features/brain/brain-evidence-drawer.test.tsx apps/web/src/features/brain/brain-evidence-drawer.tsx apps/web/src/features/brain/brain-page-tree.test.tsx apps/web/src/features/brain/brain-page-tree.tsx apps/web/src/features/brain/brain-surface.test.ts apps/web/src/features/brain/brain-surface.ts apps/web/src/features/brain/brain-workspace.test.tsx apps/web/src/features/brain/brain-workspace.tsx apps/web/src/routes/_workspace.brain.tsx docs/product/maestro-brain-lifecycle-adoption/S03-T03.md packages/convex/confect/brain/pages.impl.ts packages/convex/confect/brain/pages.spec.ts packages/convex/confect/editor/syncApi.ts packages/convex/test/brain-editor-revision-fence.test.ts packages/convex/test/brain-pages-crud.test.ts packages/convex/test/brain-pages.contract.test.ts packages/editor-react/src/BlockNoteSyncEditor.test.tsx packages/editor-react/src/BlockNoteSyncEditor.tsx",
+    "rtk pnpm exec eslint apps/web/src/features/brain/brain-adapter.test.ts apps/web/src/features/brain/brain-adapter.ts apps/web/src/features/brain/brain-editor-pane.test.tsx apps/web/src/features/brain/brain-editor-pane.tsx apps/web/src/features/brain/brain-evidence-drawer.test.tsx apps/web/src/features/brain/brain-evidence-drawer.tsx apps/web/src/features/brain/brain-page-tree.test.tsx apps/web/src/features/brain/brain-page-tree.tsx apps/web/src/features/brain/brain-surface.test.ts apps/web/src/features/brain/brain-surface.ts apps/web/src/features/brain/brain-workspace.test.tsx apps/web/src/features/brain/brain-workspace.tsx apps/web/src/routes/_workspace.brain.tsx packages/convex/confect/brain/pages.impl.ts packages/convex/confect/brain/pages.spec.ts packages/convex/confect/editor/syncApi.ts packages/convex/test/brain-editor-revision-fence.test.ts packages/convex/test/brain-pages-crud.test.ts packages/convex/test/brain-pages.contract.test.ts packages/editor-react/src/BlockNoteSyncEditor.test.tsx packages/editor-react/src/BlockNoteSyncEditor.tsx",
+    "rtk pnpm brain:factory:check-confect-codegen -- --profile web --test brain-editor-revision-fence --test brain-pages-crud",
+    "rtk pnpm --dir packages/editor-react typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/editor-react test",
+    "rtk pnpm check:route-tree",
+    "rtk pnpm check:layer-boundaries",
+    "rtk pnpm check:confect-v9"
+  ],
+  "currentHeadSha": "661d97da1cff8bbcd432d38f7da9b6074d7a4879",
+  "currentTreeSha": "8b389e3aab09663c6102b2a01dbb4de0c9d156cb",
+  "gateProfiles": [
+    "convex",
+    "web"
+  ],
+  "headSha": "661d97da1cff8bbcd432d38f7da9b6074d7a4879",
+  "planSha256": "adce0583eeea119d1a949099d3f5bbc98002041065d7ea2cb7a39e4f70975c2c",
+  "changedSourceLines": 1750,
+  "estimateDrift": false,
+  "estimatedSourceLines": 1800,
+  "sourceSliceBudget": 300,
+  "sourceSliceLimit": 7,
+  "sourceSlices": [
+    {
+      "changedSourceLines": 257,
+      "commit": "048dfb530a1104a2a2a8a6656b287a8168b57cb6"
+    },
+    {
+      "changedSourceLines": 297,
+      "commit": "dcc97d61d60ce4b5015ae5feb230062179746ac4"
+    },
+    {
+      "changedSourceLines": 181,
+      "commit": "41d71ad3c8283a8f1d2a8e189f419148a5c17f08"
+    },
+    {
+      "changedSourceLines": 247,
+      "commit": "65d88dd5c6157ad5d9b059653167c32a41301414"
+    },
+    {
+      "changedSourceLines": 218,
+      "commit": "35deda71603cd19e0c888dd821e6d4514d19ebb2"
+    },
+    {
+      "changedSourceLines": 263,
+      "commit": "a9859920eec7648d7ab3cabad6ab73e6e17fe215"
+    },
+    {
+      "changedSourceLines": 287,
+      "commit": "661d97da1cff8bbcd432d38f7da9b6074d7a4879"
+    }
+  ],
+  "stage": "final",
+  "status": "passed",
+  "taskId": "S03-T03",
+  "taskBlockHash": "ac77073ece3d8addfee7853260cb2bb2bc6bb83ba43405b07a934f310b6a8834",
+  "reusedPreReview": true
+}

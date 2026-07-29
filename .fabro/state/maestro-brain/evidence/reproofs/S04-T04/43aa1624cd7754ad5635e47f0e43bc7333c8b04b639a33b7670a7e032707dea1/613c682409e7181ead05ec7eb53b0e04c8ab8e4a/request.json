@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "maestro-brain-contract-reproof/v1",
+  "taskId": "S04-T04",
+  "reason": "wave-000054 authoritative tenant-key/auth mismatch in bulkSetChannelPolicies",
+  "controlHeadSha": "613c682409e7181ead05ec7eb53b0e04c8ab8e4a",
+  "planSha256": "ce2b760a9efd332ff6f3201b8faf312601e4fd3d4fcb7dcb4253afe7cae25317",
+  "taskBlockHash": "43aa1624cd7754ad5635e47f0e43bc7333c8b04b639a33b7670a7e032707dea1",
+  "priorIntegrationId": "wave-000054",
+  "priorIntegrationHeadSha": "5f682348711572faa32ac79066f8e470a1f2743f",
+  "priorIntegrationResultSha256": "8e7ad6318eb3d99b6a997afc042eb5ee3c358e3bbec607162c88956d092c0699",
+  "priorLaneResultSha256": "e270f52389b8fe4f9cfd584e80b7c8ec8fd32c5ba1c2ab048f7b0827b2521ee8",
+  "priorArchiveSha256": "ce015ae0ced8d83a58758c90e7a8282824ab809bfa89a4d828e08cfe294cf695",
+  "priorEvidencePath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/archive/wave-000054/ce015ae0ced8d83a58758c90e7a8282824ab809bfa89a4d828e08cfe294cf695.json",
+  "requestSha256": "b8764d95efb23386999c5be2670423fc039710922815868c0abff7fede0ed49d"
+}

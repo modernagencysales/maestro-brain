@@ -1,0 +1,88 @@
+{
+  "lens": "contract",
+  "taskId": "S11-T02",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "2b484dad01173ead7ca99d710455998926b3666713d025943ef5824aed334ff6",
+  "baseSha": "defde4d68fbcdd7d39566d82986ec562010c9638",
+  "headSha": "bc6719e85726a39cd1a089b23faa134a768c5178",
+  "treeSha": "8ac88dfb673b57ddabb0fea81aca5110ee08d771",
+  "reviewerRunId": "maestro/review/S11-T02/bc6719e85726a39cd1a089b23faa134a768c5178/865a7553-03ac-4fe3-bf3d-8efae5007bbd-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3054-3127",
+        "packages/convex/confect/httpRequest.ts:206-230",
+        "packages/convex/test/http-request-security.test.ts:408-457"
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.spec.ts:1-140",
+        "packages/convex/confect/manifest/executor.ts:31-44",
+        "packages/convex/confect/headless/authorizeOperation.ts:1-19"
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/apiKeys.ts:1-10",
+        "packages/convex/confect/tables/organizations.ts:1-11",
+        "packages/convex/confect/tables/workspaces.ts:1-29",
+        "packages/convex/confect/headless/apiKeys.impl.ts:477-548"
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3056-3062",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3099-3127",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3803-3804"
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1435-1444",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3071-3093",
+        "ci-proof-packet.json changedFiles list for S11-T02"
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "findingIds": [
+        "CONTRACT-S11-T02-001"
+      ],
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3116-3119",
+        "packages/convex/confect/http.ts:442-452",
+        "packages/convex/confect/http.ts:461-463",
+        "packages/convex/confect/manifest/executor.ts:31-44",
+        "packages/convex/test/http-request-security.test.ts:345-383"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "CONTRACT-S11-T02-001",
+      "severity": "major",
+      "summary": "Public headless HTTP still exposes NotFound outside the declared external failure union.",
+      "details": "S11-T02 declares uniform external errors as Unauthorized, Forbidden, ValidationFailed, or RateLimited. The headless executor and request helper now use that union, and RateLimited has an executable admission path, but the HTTP composition root still returns a NotFound envelope for unknown routes when the Authorization header is absent. That response is outside the declared external failure contract, so API/CLI/MCP consumers cannot rely on the S11-T02 uniform envelope for all public headless HTTP failures.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3116-3119",
+        "packages/convex/confect/http.ts:442-452",
+        "packages/convex/confect/http.ts:461-463",
+        "packages/convex/confect/manifest/executor.ts:31-44",
+        "packages/convex/test/http-request-security.test.ts:345-383"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

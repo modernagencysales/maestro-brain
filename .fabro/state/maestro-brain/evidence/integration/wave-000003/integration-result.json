@@ -1,0 +1,203 @@
+{
+  "baseSha": "b9e56deb629b5961b42be7e1a876001c061f4fe3",
+  "broadGate": {
+    "status": "passed",
+    "headSha": "cf6f1018784fdc3d7d3d9d93218e7b612a09d6a5",
+    "command": "rtk host-test-slot --class full pnpm verify"
+  },
+  "codegen": {
+    "commands": [
+      "rtk pnpm confect:codegen",
+      "rtk pnpm confect:manifest"
+    ],
+    "commitSha": "cf6f1018784fdc3d7d3d9d93218e7b612a09d6a5",
+    "generatedFiles": [
+      "packages/convex/confect/_generated/registeredFunctions/identity/stableKeys.ts",
+      "packages/convex/confect/_generated/spec.ts",
+      "packages/convex/convex/access/provisioning.ts",
+      "packages/convex/convex/identity/stableKeys.ts"
+    ],
+    "ran": true
+  },
+  "commits": [
+    "cee679c2da0afb9e71a98d2caebc715c0c83e477",
+    "f537f2dea305b134f44c38b3c589e8a509e149eb",
+    "0b7d56845864c63628406ed463464066472219d4",
+    "79ee0b28fcf2965904a596e45319131f82b6b65e",
+    "cf6f1018784fdc3d7d3d9d93218e7b612a09d6a5"
+  ],
+  "generatedFiles": [
+    "packages/convex/confect/_generated/registeredFunctions/identity/stableKeys.ts",
+    "packages/convex/confect/_generated/spec.ts",
+    "packages/convex/convex/access/provisioning.ts",
+    "packages/convex/convex/identity/stableKeys.ts"
+  ],
+  "headSha": "cf6f1018784fdc3d7d3d9d93218e7b612a09d6a5",
+  "includedTasks": [
+    {
+      "taskId": "S01-T03",
+      "tranche": "D2-domain-bodies",
+      "taskBlockHash": "b8855d34c2ab0f77517e385ab4ea3fc14c5d5ef820d2615b3e278c78f963faa0",
+      "laneHeadSha": "7885f8c1d63f0a72bab2df9853dd84967e656bc9",
+      "headSha": "7885f8c1d63f0a72bab2df9853dd84967e656bc9",
+      "proofHeadSha": "7885f8c1d63f0a72bab2df9853dd84967e656bc9",
+      "proofSha256": "9b7e8a19ab4a5fe88089b8906a3f9aedcbccd81c6b7be45bfda4be1b602c3845",
+      "proofFileSha256": "9b7e8a19ab4a5fe88089b8906a3f9aedcbccd81c6b7be45bfda4be1b602c3845",
+      "gateHeadSha": "7885f8c1d63f0a72bab2df9853dd84967e656bc9",
+      "gateSha256": "49bb0d2a52614ac997495c29e712316531088deef65aeb870df157dbd76fdbe1",
+      "gateFileSha256": "49bb0d2a52614ac997495c29e712316531088deef65aeb870df157dbd76fdbe1",
+      "laneResultSha256": "7b78020c6fd226cf005b8270a9baf4157dc0ba9dc2dde431d72a531d2baf9b9d",
+      "preIntegrationLaneResultSha256": "7b78020c6fd226cf005b8270a9baf4157dc0ba9dc2dde431d72a531d2baf9b9d",
+      "laneResultFileSha256": "c47f4a083e04e87732845b3eeab38b7851e969ce049025a838753fbfc0115811",
+      "integrationId": "wave-000003",
+      "integrationHeadSha": "cf6f1018784fdc3d7d3d9d93218e7b612a09d6a5",
+      "selectedChangedFiles": [
+        "apps/web/src/providers/workspace-operations.test.ts",
+        "apps/web/src/providers/workspace-operations.ts",
+        "apps/web/src/routes/__root.tsx",
+        "packages/convex/confect/access/auth.ts",
+        "packages/convex/confect/access/provisioning.impl.ts",
+        "packages/convex/confect/access/provisioning.spec.ts",
+        "packages/convex/confect/access/provisioning.ts",
+        "packages/convex/confect/auth/workspaces.impl.ts",
+        "packages/convex/confect/auth/workspaces.spec.ts",
+        "packages/convex/confect/errors.ts",
+        "packages/convex/confect/identity/stableKeys.impl.ts",
+        "packages/convex/confect/identity/stableKeys.spec.ts",
+        "packages/convex/confect/identity/stableKeys.ts",
+        "packages/convex/confect/tables/workspaces.ts",
+        "packages/convex/test/access-provisioning.test.ts",
+        "packages/convex/test/authorized-brain-provisioning.test.ts",
+        "tooling/quality/check-auth-demo-bypass.mts",
+        "tooling/quality/check-auth-demo-bypass.test.mts"
+      ],
+      "generatedFiles": [
+        "packages/convex/confect/_generated/registeredFunctions/identity/stableKeys.ts",
+        "packages/convex/confect/_generated/spec.ts",
+        "packages/convex/convex/access/provisioning.ts",
+        "packages/convex/convex/identity/stableKeys.ts"
+      ],
+      "integratedPatchCommits": [
+        "cee679c2da0afb9e71a98d2caebc715c0c83e477",
+        "f537f2dea305b134f44c38b3c589e8a509e149eb",
+        "0b7d56845864c63628406ed463464066472219d4",
+        "79ee0b28fcf2965904a596e45319131f82b6b65e"
+      ],
+      "accepted": false,
+      "acceptanceBlocker": "Acceptance remains deferred until independent acceptance-after evidence proves this integrated lane accepted; exact-head broad gate pass is recorded on the integration result only."
+    }
+  ],
+  "integrationId": "wave-000003",
+  "integrationWorkdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000003",
+  "manifestTranches": [
+    "D2-domain-bodies"
+  ],
+  "mode": "integrate",
+  "notes": [
+    "Read-only independent review only; no worktree/product files were edited or committed.",
+    "No broad verify was run in this review; no acceptance evidence is claimed.",
+    "Status remains ready_for_review; passed is reserved for the record node after the broad gate.",
+    "Dependency hydration reported unchanged, so no same-wave dependency edges were introduced.",
+    "Patch ownership check found integrated changed paths limited to the selected task changedFiles plus generated Confect/Convex files from the final codegen commit.",
+    "Focused checks otherwise covered immutable selection command, dependency hydration, generated-only integration files, auth demo bypass, Confect contracts, access audit events, transient codegen, Convex workspace access, and web workspace operations.",
+    "Independent read-only review bound reviewVerdict pass to exact HEAD cf6f1018784fdc3d7d3d9d93218e7b612a09d6a5 and immutable selection e7fa71129dbd1addf96191634fa26508407606eff22fbc4112016d57270debc4; status intentionally remains ready_for_review.",
+    "Broad gate attempt at exact HEAD cf6f1018784fdc3d7d3d9d93218e7b612a09d6a5 is recorded as transient_infra: brain-factory-tooling reported 24 files/255 tests passed before a Vitest timeout/unhandled error, with no product assertion failure. Route to exact-head retry: rtk host-test-slot --class full pnpm verify."
+  ],
+  "planSha256": "b8ada73857cd9fb2c5308baa03160da4210a9d4a1b51ede28889e08776812b57",
+  "remainingFindings": [],
+  "reviewChecks": [
+    {
+      "command": "rtk pnpm --dir /Users/headless/maestro-brain-plan/tooling/brain-factory exec tsx src/integration-wave-selection-check.mts --selection /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000003-selection.json --integration-id wave-000003 --base b9e56deb629b5961b42be7e1a876001c061f4fe3 --selection-sha256 e7fa71129dbd1addf96191634fa26508407606eff22fbc4112016d57270debc4",
+      "output": "wave-000003: immutable wave selection passed",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir /Users/headless/maestro-brain-plan/tooling/brain-factory exec tsx src/hydrate-integration-dependencies.mts --workdir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000003 --base b9e56deb629b5961b42be7e1a876001c061f4fe3",
+      "output": "{\"changedFiles\":[],\"mode\":\"unchanged\"}",
+      "status": "passed"
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000003 diff-tree --no-commit-id --name-only -r HEAD",
+      "output": "last integration commit changes generated files only",
+      "status": "passed"
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000003 diff --name-only b9e56deb629b5961b42be7e1a876001c061f4fe3..HEAD",
+      "output": "all changed paths are selected task paths plus generated allowlist",
+      "status": "passed"
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000003 show --no-renames --numstat --format= <lane commits>",
+      "output": "hand-authored source slice lines: 254, 254, 229, 173; each <= 300",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000003 check:auth-demo-bypass",
+      "output": "check:auth-demo-bypass: ok",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000003 check:confect-contracts",
+      "output": "check:confect-contracts: ok (pin-only); check:confect-contracts: ok (semantic)",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000003 check:access-audit-events",
+      "output": "check:access-audit-events passed",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000003 brain:factory:check-confect-codegen -- --test authorized-brain-provisioning --test access-provisioning",
+      "output": "transient Confect codegen passed (1 generated files)",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000003/packages/convex test workspace-access",
+      "output": "Test Files 1 passed (1); Tests 1 passed (1)",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000003/apps/web test workspace-operations workspace",
+      "output": "Test Files 3 passed (3); Tests 13 passed (13)",
+      "status": "passed"
+    },
+    {
+      "command": "rtk proxy jq -e .status == \"integrated\" and .preIntegrationLaneResultSha256 == selection S01-T03 laneResultSha256 and .integrationHeadSha == HEAD",
+      "output": "true",
+      "status": "passed"
+    }
+  ],
+  "reviewVerdict": "pass",
+  "reviewedAt": "2026-07-15T23:39:12Z",
+  "schemaVersion": "maestro-brain-integration-result/v2",
+  "selectedTaskCount": 1,
+  "selectionFileSha256": "5cc2ea85e4aedda08534f5a4a3b49c6be09fef20c8cc2f5242cc5db8bfa1030b",
+  "selectionPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000003-selection.json",
+  "selectionSha256": "e7fa71129dbd1addf96191634fa26508407606eff22fbc4112016d57270debc4",
+  "status": "passed",
+  "treeSha": "58f25e8d938c8f2e912fe8853d8ea42bc1319090",
+  "resolvedFindings": [
+    {
+      "details": [
+        "The immutable selection binds S01-T03 laneResultSha256 to 7b78020c6fd226cf005b8270a9baf4157dc0ba9dc2dde431d72a531d2baf9b9d.",
+        "The scoped evidence artifact /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S01-T03/lane-result.json hashes to dd5309fa428d41198f04712311f87c929ecafdf303065e7f840140789dbdf21f.",
+        "This review cannot bind pass to every selected task packet/proof artifact because exact task-set evidence binding is not immutable for lane-result.json. No repair was authored or certified in this review turn."
+      ],
+      "evidence": {
+        "command": "rtk proxy shasum -a 256 /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S01-T03/lane-result.json",
+        "output": "dd5309fa428d41198f04712311f87c929ecafdf303065e7f840140789dbdf21f  /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S01-T03/lane-result.json",
+        "selectionLaneResultSha256": "7b78020c6fd226cf005b8270a9baf4157dc0ba9dc2dde431d72a531d2baf9b9d"
+      },
+      "id": "wave-000003-lane-result-sha-mismatch",
+      "severity": "blocker",
+      "summary": "Selected task laneResultSha256 does not match the current lane-result.json artifact bytes.",
+      "resolvedAt": "2026-07-15T00:00:00.000Z",
+      "resolution": "Updated the scoped S01-T03 lane-result artifact from the stale pre-integration lane_green stub to an integrated lane evidence record. The record now preserves the immutable selection laneResultSha256 as preIntegrationLaneResultSha256 and binds integrationHeadSha to the exact wave HEAD.",
+      "verification": {
+        "headSha": "cf6f1018784fdc3d7d3d9d93218e7b612a09d6a5",
+        "laneResultSha256After": "8ab577b3f790776e7828e56125e128793c11dba2d994ff14465c11d4297c8502",
+        "preIntegrationLaneResultSha256": "7b78020c6fd226cf005b8270a9baf4157dc0ba9dc2dde431d72a531d2baf9b9d"
+      }
+    }
+  ]
+}

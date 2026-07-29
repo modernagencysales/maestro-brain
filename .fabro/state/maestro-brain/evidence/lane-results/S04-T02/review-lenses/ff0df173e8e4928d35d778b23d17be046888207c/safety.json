@@ -1,0 +1,92 @@
+{
+  "schemaVersion": "maestro-brain-review-lens/v1",
+  "lens": "safety",
+  "taskId": "S04-T02",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "cdeca2a0ba4a7101fd27959788455ac53609485617a9cf8146c29c86891a7958",
+  "baseSha": "ce892af6c4ea5c8ff679c5bfce09a205967cdf11",
+  "headSha": "ff0df173e8e4928d35d778b23d17be046888207c",
+  "treeSha": "18000a947b7846305dbea0ef882556f9d48092f4",
+  "reviewerRunId": "maestro/review/S04-T02/ff0df173e8e4928d35d778b23d17be046888207c/f8e224f7-c76c-4b06-96ec-02ad61136350-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "Directory rows are keyed by connectionKey/organizationKey from providerConnections, bot identity is verified before channel writes, stale generations are rejected before provider calls, and duplicate Slack team/app/bot bindings across agency rows are tested at packages/convex/test/slack-directory.test.ts:1351-1514."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "not_applicable",
+      "evidence": [
+        "S04-T02 adds internal Slack directory action/mutation/query contracts only; user-facing admin authorization for creating/completing Slack connections remains in the S04-T01 slackConnections boundary, including requireAdmin at packages/convex/confect/integrations/slackConnections.impl.ts:143-152."
+      ],
+      "rationale": "S04-T02 adds internal Slack directory action/mutation/query contracts only; user-facing admin authorization for creating/completing Slack connections remains in the S04-T01 slackConnections boundary, including requireAdmin at packages/convex/confect/integrations/slackConnections.impl.ts:143-152."
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "finding",
+      "evidence": [
+        "Replacement revocation is intended to pause old generation lanes and mark source channel access lost, but applyReplacementRevocation reads sourceChannels and channelSyncStates with fixed take(1_000) caps at packages/convex/confect/integrations/slackDirectory.impl.ts:574-617."
+      ],
+      "findingIds": [
+        "S04-T02-SAFETY-001"
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "The new sourceChannels and channelSyncStates schemas store channel IDs, names, flags, cursor/lease metadata, and replacement audit only; provider tokens or raw credentials are not stored in these rows, and the lifecycle doc states this explicitly at docs/product/maestro-brain-lifecycle-adoption/S04-T02.md:43-44. No logging or console output was added in slackDirectory.impl.ts."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "Generation is revalidated in the read and commit phases, same-connection reauthorization promotes old channel and sync rows to the incremented generation, and tests cover stale generation denial and commit-time generation fencing at packages/convex/test/slack-directory.test.ts:658-710, 846-1149, and 2086-2143."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "Channel upserts are keyed by stable connectionKey plus Slack external channel ID, reauthorization preserves channel keys/cursors, and repeated activation of an already active connection only verifies persisted identity and patches updatedAt rather than creating replacement rows; see packages/convex/confect/integrations/slackDirectory.impl.ts:244-251 and 389-443."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "finding",
+      "evidence": [
+        "Although stale-generation reconcile paths are fenced, replacement revocation only patches the first 1,000 sourceChannels and first 1,000 channelSyncStates per lane for the old generation, so larger Slack workspaces can retain live/running stale-generation work after a team/app/bot mismatch."
+      ],
+      "findingIds": [
+        "S04-T02-SAFETY-001"
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "Slack provider access is injected through SlackDirectoryProviderService with authTest/listChannels and the default implementation fails closed with ProviderUnavailable; no Slack SDK or secret import is introduced in product code, and the proof packet records check:provider-boundary passing."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "S04-T02-SAFETY-001",
+      "severity": "high",
+      "summary": "Replacement revocation leaves stale Slack channel work beyond fixed 1,000-row caps.",
+      "details": "S04-T02 requires replacement, team/app change, disconnect, or uninstall to revoke the old generation, pause lanes, and record replacement audit. applyReplacementRevocation only fetches sourceChannels with take(1_000) for the old connection generation and channelSyncStates with take(1_000) per lane before patching access_lost/replacementAudit. Large Slack workspaces or high-volume lane state can therefore leave old-generation channel rows with membership still active and sync lanes still queued/running after a bot identity mismatch or replacement, violating lifecycle shutdown and revision fencing. The focused tests exercise one/few rows only and do not prove the all-rows revocation invariant.",
+      "evidence": [
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:574-617",
+        "packages/convex/test/slack-directory.test.ts:1704-1878",
+        "packages/convex/test/slack-directory.test.ts:1883-2053",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1456-1459"
+      ],
+      "rubricId": "safety.lifecycle"
+    }
+  ],
+  "verdict": "rework"
+}

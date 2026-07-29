@@ -1,0 +1,7 @@
+{
+  "schemaVersion": "maestro-brain-evidence-archive-manifest/v1",
+  "integrationId": "F0-foundation-w3",
+  "manifestTranche": "F0-foundation",
+  "contentSha256": "fd9ea504465359a85446f492c7d589c9abec2e74270b1c61f45f9f589566809d",
+  "artifactFile": "fd9ea504465359a85446f492c7d589c9abec2e74270b1c61f45f9f589566809d.json"
+}

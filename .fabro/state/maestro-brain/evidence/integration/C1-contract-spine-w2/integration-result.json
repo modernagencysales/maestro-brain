@@ -1,0 +1,234 @@
+{
+  "schemaVersion": "maestro-brain-integration-result/v1",
+  "baseSha": "e8c660120f09a47a65d0dc3f271f2237aeeffe7a",
+  "manifestTranche": "C1-contract-spine",
+  "integrationId": "C1-contract-spine-w2",
+  "legacyTrancheAlias": "C1-contract-spine",
+  "integrationWorkdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-C1-contract-spine-w2",
+  "headSha": "c54d70302a20a68c80f1b608ecf1a615fe98d028",
+  "status": "passed",
+  "includedTasks": [
+    {
+      "taskId": "S09-T01",
+      "manifestTranche": "C1-contract-spine",
+      "laneHeadSha": "da6528227a5209a7dc5e82fc6624b68c6c3dccd0",
+      "proofBaseSha": "203451aeffdbb1c7bddeda5b8b9a562575e9396c",
+      "proofHeadSha": "da6528227a5209a7dc5e82fc6624b68c6c3dccd0",
+      "finalLaneGateStatus": "passed",
+      "codeStartAfter": [],
+      "integratedCommits": [
+        {
+          "source": "9ace417fa0f54cf0861ff89ae9f0021b91435e96",
+          "integrated": "e5fe790c7659bd1a9c05c10e600c89776e031b1a",
+          "subject": "refactor: add async search seam"
+        },
+        {
+          "source": "8d0d60f46e87bc2011827739dc94d4e6535c1db8",
+          "integrated": "61c602d83bb23c43034da93f1144c3030e32f14a",
+          "subject": "refactor: remove sync search surface"
+        },
+        {
+          "source": "15a2dd38da7d47204d8d1626a299dea5dc0785a1",
+          "integrated": "89433612ee5edaf03c0f6e35a01199517c7a1af9",
+          "subject": "fix: avoid search barrel cycle"
+        },
+        {
+          "source": "da6528227a5209a7dc5e82fc6624b68c6c3dccd0",
+          "integrated": "c54d70302a20a68c80f1b608ecf1a615fe98d028",
+          "subject": "fix: validate async search cursors"
+        }
+      ]
+    }
+  ],
+  "skippedC1Tasks": [
+    {
+      "taskId": "S01-T01",
+      "reason": "lane-result.json status is integrated, not lane_green"
+    },
+    {
+      "taskId": "S01-T02",
+      "reason": "no lane-result.json present for this tranche integration; codeStartAfter includes S00-T04 and S01-T01"
+    },
+    {
+      "taskId": "S02-T01",
+      "reason": "lane-result.json status is integrated, not lane_green"
+    },
+    {
+      "taskId": "S03-T01",
+      "reason": "lane-result.json status is integrated, not lane_green"
+    },
+    {
+      "taskId": "S04-T01",
+      "reason": "no lane-result.json present for this tranche integration; codeStartAfter includes S00-T03 and S01-T02"
+    },
+    {
+      "taskId": "S05-T01",
+      "reason": "no lane-result.json present for this tranche integration; codeStartAfter includes S04-T02"
+    },
+    {
+      "taskId": "S07-T01",
+      "reason": "no lane-result.json present for this tranche integration; codeStartAfter includes S01-T02, S02-T01, and S05-T01"
+    },
+    {
+      "taskId": "S08-T01",
+      "reason": "lane-result.json status is integrated, not lane_green"
+    },
+    {
+      "taskId": "S11-T01",
+      "reason": "lane-result.json status is integrated, not lane_green"
+    },
+    {
+      "taskId": "S12-T01",
+      "reason": "lane-result.json status is integrated, not lane_green"
+    },
+    {
+      "taskId": "S13-T01",
+      "reason": "lane-result.json status is integrated, not lane_green"
+    }
+  ],
+  "generatedDiffs": [],
+  "conflicts": [],
+  "accidentalCrossWorktreeChanges": [],
+  "codegenCommands": [
+    {
+      "command": "rtk host-test-slot --class focused pnpm check:generated-files",
+      "status": "passed",
+      "summary": "check:generated-files: ok (pin-only)"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm check:confect-contracts",
+      "status": "passed",
+      "summary": "check:confect-contracts: ok (pin-only); ok (semantic)"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm check:confect-manifest",
+      "status": "passed",
+      "summary": "tooling/confect-manifest tests and typecheck passed; pnpm confect:manifest produced no diff"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm check:route-tree",
+      "status": "passed",
+      "summary": "check:route-tree: ok (pin-only)"
+    }
+  ],
+  "focusedCombinedChecks": [
+    {
+      "command": "rtk pnpm exec prettier --check --ignore-unknown docs/product/maestro-brain-lifecycle-adoption.md docs/template/porting-backlog.md packages/search/package.json packages/search/src/asyncSearch.test.ts packages/search/src/asyncSearch.ts packages/search/src/index.test.ts packages/search/src/index.ts pnpm-lock.yaml",
+      "status": "passed",
+      "summary": "All matched files use Prettier code style"
+    },
+    {
+      "command": "rtk pnpm exec eslint packages/search/src/asyncSearch.test.ts packages/search/src/asyncSearch.ts packages/search/src/index.test.ts packages/search/src/index.ts",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/search test",
+      "status": "failed_then_passed",
+      "summary": "Initial run failed because the worktree install links had not yet materialized the newly integrated effect dependency; after pnpm install --prefer-offline --ignore-scripts, 2 files and 10 tests passed"
+    },
+    {
+      "command": "pnpm install --prefer-offline --ignore-scripts",
+      "status": "passed",
+      "summary": "Lockfile was up to date; workspace links refreshed inside the integration workdir"
+    },
+    {
+      "command": "rtk pnpm --dir packages/search typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm check:knip",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm check:layer-boundaries",
+      "status": "passed",
+      "summary": "no dependency violations found (826 modules, 2375 dependencies cruised)"
+    },
+    {
+      "command": "rtk pnpm --dir packages/search build",
+      "status": "passed"
+    },
+    {
+      "command": "rtk git diff --check e8c660120f09a47a65d0dc3f271f2237aeeffe7a...HEAD",
+      "status": "passed"
+    },
+    {
+      "command": "rtk rg -n createSearchService apps packages tooling",
+      "status": "passed",
+      "summary": "Only intentional compile assertion remains in packages/search/src/index.test.ts"
+    },
+    {
+      "command": "rtk rg -n createAsyncSearchService apps packages tooling",
+      "status": "passed",
+      "summary": "Occurrences are limited to packages/search implementation and tests"
+    }
+  ],
+  "broadVerify": {
+    "status": "not_run",
+    "reason": "User instructed this agent node to run only focused combined checks; deterministic gates node owns the single full verification"
+  },
+  "reviewVerdict": "pass",
+  "sourceReviewRun": "C1-contract-spine-w2-readonly-review-2026-07-14",
+  "remainingFindings": [],
+  "reviewSummary": "Read-only review bound to manifestTranche C1-contract-spine, integrationId C1-contract-spine-w2, baseSha e8c660120f09a47a65d0dc3f271f2237aeeffe7a, lane proof da6528227a5209a7dc5e82fc6624b68c6c3dccd0, and exact integration headSha c54d70302a20a68c80f1b608ecf1a615fe98d028. Included task S09-T01 matches the manifest packet and lane proof; the lane patch is identical to the integrated patch. The integrated changes are limited to the async search seam, search package dependency/lock update, and lifecycle/backlog documentation. Review found no cross-lane contract, generated ref, tenant isolation, lifecycle monotonicity, provider boundary, typed error, test honesty, or shared-file ownership defects.",
+  "reviewFocusedChecks": [
+    {
+      "command": "git rev-parse HEAD (in integration workdir)",
+      "status": "passed",
+      "summary": "c54d70302a20a68c80f1b608ecf1a615fe98d028"
+    },
+    {
+      "command": "git diff --name-status 203451aeffdbb1c7bddeda5b8b9a562575e9396c..da6528227a5209a7dc5e82fc6624b68c6c3dccd0 and git diff --name-status e8c660120f09a47a65d0dc3f271f2237aeeffe7a..HEAD",
+      "status": "passed",
+      "summary": "Both diffs touch the same S09-T01 inventory: lifecycle adoption doc, porting backlog, packages/search package/source/tests, and pnpm-lock.yaml."
+    },
+    {
+      "command": "git diff 203451aeffdbb1c7bddeda5b8b9a562575e9396c..da6528227a5209a7dc5e82fc6624b68c6c3dccd0 > /tmp/lane.patch && git diff e8c660120f09a47a65d0dc3f271f2237aeeffe7a..HEAD > /tmp/integration.patch && diff -u /tmp/lane.patch /tmp/integration.patch",
+      "status": "passed",
+      "summary": "Lane final patch is byte-identical to the integrated final patch."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/search test",
+      "status": "passed",
+      "summary": "2 files and 10 tests passed; covers async fake/live parity, tenant filters, typed errors, cursor validation, timeout, cancellation, and sync API compile rejection."
+    },
+    {
+      "command": "rtk pnpm --dir packages/search typecheck",
+      "status": "passed",
+      "summary": "tsc -p tsconfig.json --noEmit passed."
+    },
+    {
+      "command": "rtk pnpm --dir packages/search build",
+      "status": "passed",
+      "summary": "tsc -p tsconfig.json --outDir dist --declaration passed."
+    },
+    {
+      "command": "rtk pnpm exec eslint packages/search/src/asyncSearch.test.ts packages/search/src/asyncSearch.ts packages/search/src/index.test.ts packages/search/src/index.ts",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm exec prettier --check --ignore-unknown docs/product/maestro-brain-lifecycle-adoption.md docs/template/porting-backlog.md packages/search/package.json packages/search/src/asyncSearch.test.ts packages/search/src/asyncSearch.ts packages/search/src/index.test.ts packages/search/src/index.ts pnpm-lock.yaml",
+      "status": "passed",
+      "summary": "All matched files use Prettier code style."
+    },
+    {
+      "command": "rtk git diff --check e8c660120f09a47a65d0dc3f271f2237aeeffe7a...HEAD",
+      "status": "passed"
+    },
+    {
+      "command": "rtk rg -n \"createSearchService|createAsyncSearchService|SearchProvider|@maestro-template/search\" apps packages tooling --glob '!packages/search/src/**'",
+      "status": "passed",
+      "summary": "No first-party consumers outside packages/search; no stale synchronous search API use found."
+    },
+    {
+      "command": "rtk rg -n \"process\\.env|fetch\\(|axios|openai|anthropic|console\\.log|secret|token|api[_-]?key\" packages/search/src docs/product/maestro-brain-lifecycle-adoption.md docs/template/porting-backlog.md",
+      "status": "passed",
+      "summary": "No provider SDK, network, env, logging, or secret boundary issue in changed search code; hits are expected documentation/test wording only."
+    }
+  ],
+  "broadGate": {
+    "status": "passed",
+    "headSha": "c54d70302a20a68c80f1b608ecf1a615fe98d028",
+    "command": "rtk host-test-slot --class full pnpm verify"
+  }
+}

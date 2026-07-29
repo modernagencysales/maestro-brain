@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "maestro-brain-ci-proof/v1",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "taskBlockHash": "fda4652a6ec6cbf81f4deb10c6c607ed72837451fb07a6b3f18305a9f96f2182",
+  "taskId": "S04-T01",
+  "baseSha": "4001c961201dd9a1cbe7830aca4873457f7713b9",
+  "headSha": "633e3e337213c3ed4565195493ba0c05b68016bc",
+  "changedFiles": [
+    "packages/convex/confect/integrations/slackConnections.impl.ts"
+  ],
+  "focusedCommands": [
+    "rtk host-test-slot --class focused pnpm check:effect-diagnostics",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test slack-connections",
+    "rtk host-test-slot --class focused pnpm --dir packages/integrations test nango",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test nango-connect",
+    "rtk pnpm --dir packages/integrations typecheck",
+    "rtk pnpm --dir packages/convex typecheck",
+    "rtk pnpm check:provider-boundary",
+    "rtk pnpm check:env-boundary",
+    "rtk pnpm check:secret-canaries",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk pnpm check:confect-v9"
+  ],
+  "commandResults": [
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test slack-connections",
+      "status": "passed",
+      "summary": "packages/convex slack-connections Vitest passed 22 tests in 1 file."
+    },
+    {
+      "command": "rtk proxy pnpm --dir packages/convex typecheck",
+      "status": "passed",
+      "summary": "packages/convex TypeScript typecheck passed with tsc -p tsconfig.json --noEmit."
+    }
+  ],
+  "testsAdded": [
+    "No new tests added for this archived reproof repair because behavior did not change; existing packages/convex/test/slack-connections.test.ts coverage was rerun."
+  ],
+  "reviewVerdict": "pass",
+  "knownRisks": [
+    "Broad tranche verification is deferred to integration per Appendix O/P.",
+    "T02 owns bot/team verification and activation beyond the S04-T01 verifying state.",
+    "Only the archived Effect diagnostics repair commit is present in this reproof lane; the focusedCommands list preserves the existing proof/task contract for the deterministic gate node."
+  ],
+  "reviewFindings": [],
+  "reviewHeadSha": "633e3e337213c3ed4565195493ba0c05b68016bc"
+}

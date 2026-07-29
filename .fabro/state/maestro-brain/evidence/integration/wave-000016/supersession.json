@@ -1,0 +1,30 @@
+{
+  "baseSha": "331c163e317325e616effe073227d549465ec960",
+  "controlHeadSha": "466aaac6bd568a26778677a4d9af7cb8b6a44352",
+  "createdAt": "2026-07-17T06:37:40.242Z",
+  "evidence": [
+    "control-repair:466aaac",
+    "gate:generic-api-key-superseded-lane-restoration-test",
+    "integration-head:da8528c41af4491e4a34f0fde96fc0a2f270f1f3",
+    "run:01KXQ9SCXP452VJ98JPZ783Y35"
+  ],
+  "integrationId": "wave-000016",
+  "planSha256": "868331c0af5ab06b495ca802724f4a3578c854e07b8342c9de4b93107a264499",
+  "reason": "secret-canary fixture repair advanced control after deterministic broad-gate failure",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXQ9SCXP452VJ98JPZ783Y35",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "20b1dedb308839da64b7e0ea4bbd1139a0589532230c352c1aa598441c70e6c2",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v1",
+  "selectedTaskIds": [
+    "S02-T04"
+  ],
+  "selectionFileSha256": "d21967ccc97e9e5010e33dbf51d3c78068d1ee8c2a4d3a4dd283883ede07a844",
+  "selectionSha256": "75b566f562602caea04e872b667c2fc161bb4a551664fb03f81b73080b13dae7",
+  "status": "superseded",
+  "receiptSha256": "6bd0c9dd4a9a6c30824e4923b9327d5532855b2f04facc0c0cfa0726472b1a1d"
+}

@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "maestro-brain-lane-gate/v1",
+  "commandSetHash": "cb5ab4a2d7160ca970ee24dd17caa18356d0c33313b0e8f79de69e86070383f2",
+  "commands": [
+    "rtk pnpm exec prettier --check --ignore-unknown packages/convex/confect/brain/pages.impl.ts packages/convex/confect/brain/pages.spec.ts packages/convex/confect/editor/documentTargets.ts packages/convex/confect/editor/sync.ts packages/convex/confect/editor/syncApi.ts packages/convex/test/brain-editor-revision-fence.test.ts packages/convex/test/editor-sync.test.ts",
+    "rtk pnpm exec eslint packages/convex/confect/brain/pages.impl.ts packages/convex/confect/brain/pages.spec.ts packages/convex/confect/editor/documentTargets.ts packages/convex/confect/editor/sync.ts packages/convex/confect/editor/syncApi.ts packages/convex/test/brain-editor-revision-fence.test.ts packages/convex/test/editor-sync.test.ts",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test editor brain-editor-revision-fence",
+    "rtk host-test-slot --class focused pnpm --dir packages/editor-react test",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk pnpm check:layer-boundaries",
+    "rtk pnpm check:confect-v9",
+    "rtk pnpm --dir packages/convex typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test"
+  ],
+  "currentHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+  "currentTreeSha": "e3229e471e4a6675c5bf2576b74c267ffabe825e",
+  "gateProfiles": [
+    "convex"
+  ],
+  "headSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+  "planSha256": "868331c0af5ab06b495ca802724f4a3578c854e07b8342c9de4b93107a264499",
+  "changedSourceLines": 317,
+  "estimateDrift": true,
+  "estimatedSourceLines": 250,
+  "sourceSliceBudget": 300,
+  "sourceSliceLimit": 4,
+  "sourceSlices": [
+    {
+      "changedSourceLines": 100,
+      "commit": "f83febb0a58a06cff79838dc287017c91b4e8ac8"
+    },
+    {
+      "changedSourceLines": 217,
+      "commit": "9e02df2bb5369dd2f3e94b06119c922a727411c2"
+    },
+    {
+      "changedSourceLines": 0,
+      "commit": "625f959fcf9304ae861dffb7c0d254c4f784a02d"
+    }
+  ],
+  "stage": "final",
+  "status": "passed",
+  "taskId": "S02-T04",
+  "taskBlockHash": "1dc9fb9ecdfc29278b9cae4e0108861343d437d9d84a171f135e3630eb187fdc",
+  "reusedPreReview": true
+}

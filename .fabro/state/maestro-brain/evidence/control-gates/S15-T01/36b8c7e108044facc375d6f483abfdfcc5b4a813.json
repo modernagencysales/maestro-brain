@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "maestro-brain-control-gate/v1",
+  "taskId": "S15-T01",
+  "status": "passed",
+  "headSha": "36b8c7e108044facc375d6f483abfdfcc5b4a813",
+  "gates": [
+    {
+      "command": "pnpm exec tsc -p tooling/brain-factory/tsconfig.json --noEmit",
+      "status": "passed",
+      "headSha": "36b8c7e108044facc375d6f483abfdfcc5b4a813"
+    },
+    {
+      "command": "pnpm exec eslint tooling/brain-factory/src/integrate-wave.mts tooling/brain-factory/src/integration-lane-check.ts tooling/brain-factory/src/integration-wave.ts tooling/brain-factory/test/integration-result-check.test.mts tooling/brain-factory/test/integration-wave.test.mts",
+      "status": "passed",
+      "headSha": "36b8c7e108044facc375d6f483abfdfcc5b4a813"
+    },
+    {
+      "command": "pnpm exec prettier --check --ignore-unknown tooling/brain-factory/src/integrate-wave.mts tooling/brain-factory/src/integration-lane-check.ts tooling/brain-factory/src/integration-wave.ts tooling/brain-factory/test/integration-result-check.test.mts tooling/brain-factory/test/integration-wave.test.mts",
+      "status": "passed",
+      "headSha": "36b8c7e108044facc375d6f483abfdfcc5b4a813"
+    },
+    {
+      "command": "pnpm brain:factory:check",
+      "status": "passed",
+      "headSha": "36b8c7e108044facc375d6f483abfdfcc5b4a813"
+    },
+    {
+      "command": "host-test-slot --class focused pnpm --dir tooling/brain-factory exec vitest run test/integration-result-check.test.mts test/integration-wave.test.mts",
+      "status": "passed",
+      "headSha": "36b8c7e108044facc375d6f483abfdfcc5b4a813"
+    }
+  ]
+}

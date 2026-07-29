@@ -1,0 +1,226 @@
+{
+  "schemaVersion": "maestro-brain-integration-result/v2",
+  "integrationId": "wave-000015",
+  "status": "ready_for_review",
+  "mode": "integrate",
+  "baseSha": "4bff9cb10f5247260a06cb51e549cc0551916241",
+  "planSha256": "868331c0af5ab06b495ca802724f4a3578c854e07b8342c9de4b93107a264499",
+  "selectionPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000015-selection.json",
+  "selectionSha256": "1dbbc327dc0641999213521d5b4946e658d3f8ccba5cd7fd0a0dcaeafb8014a5",
+  "selectionIdentity": {
+    "schemaVersion": "maestro-brain-integration-wave-selection/v2",
+    "integrationId": "wave-000015",
+    "baseSha": "4bff9cb10f5247260a06cb51e549cc0551916241",
+    "planSha256": "868331c0af5ab06b495ca802724f4a3578c854e07b8342c9de4b93107a264499",
+    "selectionSha256": "1dbbc327dc0641999213521d5b4946e658d3f8ccba5cd7fd0a0dcaeafb8014a5",
+    "requestedTaskIds": [
+      "S02-T04"
+    ],
+    "deferredTaskIds": []
+  },
+  "integrationWorkdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000015",
+  "headSha": "8363f8f204854df4f44b82bd29660ac7b6cdd626",
+  "exactHeadSha": "8363f8f204854df4f44b82bd29660ac7b6cdd626",
+  "integrationHeadSha": "8363f8f204854df4f44b82bd29660ac7b6cdd626",
+  "includedTasks": [
+    {
+      "taskId": "S02-T04",
+      "tranche": "D2-domain-bodies",
+      "laneHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "headSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "gateHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "proofHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "laneResultSha256": "878d4c12da242079365fa75565dd78a37e5d3a4f1b588ff08ce096c7bed22cfc",
+      "proofSha256": "e9070c88fa11754d3f00a573078398550f0cc36fa7de6d4267bb1ca58647c3df",
+      "gateSha256": "9210ca7283ea16657f045c0f5c6fecefd40ac4f80e1a9f466037f3dca931a2b3",
+      "taskBlockHash": "1dc9fb9ecdfc29278b9cae4e0108861343d437d9d84a171f135e3630eb187fdc",
+      "changedFiles": [
+        "packages/convex/confect/brain/pages.impl.ts",
+        "packages/convex/confect/brain/pages.spec.ts",
+        "packages/convex/confect/editor/documentTargets.ts",
+        "packages/convex/confect/editor/sync.ts",
+        "packages/convex/confect/editor/syncApi.ts",
+        "packages/convex/test/brain-editor-revision-fence.test.ts",
+        "packages/convex/test/editor-sync.test.ts"
+      ],
+      "codeStartAfter": [
+        "S02-T02"
+      ],
+      "trancheProvenance": {
+        "tranche": "D2-domain-bodies",
+        "laneHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+        "proofHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+        "gateHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d"
+      },
+      "sourceBaseSha": "c26038d163e5d288d920b905d9f65d5334d21ff3",
+      "sourceRange": "c26038d163e5d288d920b905d9f65d5334d21ff3..625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "integratedCommits": [
+        {
+          "sourceSha": "f83febb0a58a06cff79838dc287017c91b4e8ac8",
+          "integratedSha": "e4dd86e1aa3dbabc6bcbb84b9c2fad383e77f67e",
+          "subject": "feat: persist fenced Brain snapshots"
+        },
+        {
+          "sourceSha": "9e02df2bb5369dd2f3e94b06119c922a727411c2",
+          "integratedSha": "b73a2595b3551a9e2810d0611082a200d1059b78",
+          "subject": "feat: bind editor sync to stable pages"
+        },
+        {
+          "sourceSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+          "integratedSha": "8f572968c0d2bfe8fdd86365a5847976096307c2",
+          "subject": "test: cover Brain editor revision fences"
+        }
+      ],
+      "cherryVerification": [
+        "- f83febb0a58a06cff79838dc287017c91b4e8ac8",
+        "- 9e02df2bb5369dd2f3e94b06119c922a727411c2",
+        "- 625f959fcf9304ae861dffb7c0d254c4f784a02d"
+      ]
+    }
+  ],
+  "selectedTasks": [
+    {
+      "taskId": "S02-T04",
+      "tranche": "D2-domain-bodies",
+      "laneHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "headSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "gateHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "proofHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "laneResultSha256": "878d4c12da242079365fa75565dd78a37e5d3a4f1b588ff08ce096c7bed22cfc",
+      "proofSha256": "e9070c88fa11754d3f00a573078398550f0cc36fa7de6d4267bb1ca58647c3df",
+      "gateSha256": "9210ca7283ea16657f045c0f5c6fecefd40ac4f80e1a9f466037f3dca931a2b3",
+      "taskBlockHash": "1dc9fb9ecdfc29278b9cae4e0108861343d437d9d84a171f135e3630eb187fdc",
+      "changedFiles": [
+        "packages/convex/confect/brain/pages.impl.ts",
+        "packages/convex/confect/brain/pages.spec.ts",
+        "packages/convex/confect/editor/documentTargets.ts",
+        "packages/convex/confect/editor/sync.ts",
+        "packages/convex/confect/editor/syncApi.ts",
+        "packages/convex/test/brain-editor-revision-fence.test.ts",
+        "packages/convex/test/editor-sync.test.ts"
+      ],
+      "codeStartAfter": [
+        "S02-T02"
+      ],
+      "trancheProvenance": {
+        "tranche": "D2-domain-bodies",
+        "laneHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+        "proofHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+        "gateHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d"
+      },
+      "sourceBaseSha": "c26038d163e5d288d920b905d9f65d5334d21ff3",
+      "sourceRange": "c26038d163e5d288d920b905d9f65d5334d21ff3..625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "integratedCommits": [
+        {
+          "sourceSha": "f83febb0a58a06cff79838dc287017c91b4e8ac8",
+          "integratedSha": "e4dd86e1aa3dbabc6bcbb84b9c2fad383e77f67e",
+          "subject": "feat: persist fenced Brain snapshots"
+        },
+        {
+          "sourceSha": "9e02df2bb5369dd2f3e94b06119c922a727411c2",
+          "integratedSha": "b73a2595b3551a9e2810d0611082a200d1059b78",
+          "subject": "feat: bind editor sync to stable pages"
+        },
+        {
+          "sourceSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+          "integratedSha": "8f572968c0d2bfe8fdd86365a5847976096307c2",
+          "subject": "test: cover Brain editor revision fences"
+        }
+      ],
+      "cherryVerification": [
+        "- f83febb0a58a06cff79838dc287017c91b4e8ac8",
+        "- 9e02df2bb5369dd2f3e94b06119c922a727411c2",
+        "- 625f959fcf9304ae861dffb7c0d254c4f784a02d"
+      ]
+    }
+  ],
+  "generatedCommitSha": "8363f8f204854df4f44b82bd29660ac7b6cdd626",
+  "generatedFiles": [],
+  "checks": [
+    {
+      "command": "rtk pnpm --dir '/Users/headless/maestro-brain-plan/tooling/brain-factory' exec tsx src/hydrate-integration-dependencies.mts --workdir '/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000015' --base '4bff9cb10f5247260a06cb51e549cc0551916241'",
+      "status": "passed",
+      "summary": "Hydration completed with {\"changedFiles\":[],\"mode\":\"unchanged\"}."
+    },
+    {
+      "command": "rtk pnpm confect:codegen",
+      "status": "passed",
+      "summary": "Confect codegen completed; generated files reported up-to-date, with transient wrapper formatting drift inspected before the generated-output commit."
+    },
+    {
+      "command": "rtk pnpm confect:manifest",
+      "status": "passed",
+      "summary": "Manifest generation completed with no manifest diff."
+    },
+    {
+      "command": "rtk pnpm exec prettier --check --ignore-unknown packages/convex/confect/brain/pages.impl.ts packages/convex/confect/brain/pages.spec.ts packages/convex/confect/editor/documentTargets.ts packages/convex/confect/editor/sync.ts packages/convex/confect/editor/syncApi.ts packages/convex/test/brain-editor-revision-fence.test.ts packages/convex/test/editor-sync.test.ts packages/convex/convex/integrations/slackConnections.ts packages/convex/convex/internal/migrations.ts",
+      "status": "passed",
+      "summary": "All matched files use Prettier code style."
+    },
+    {
+      "command": "rtk pnpm exec eslint packages/convex/confect/brain/pages.impl.ts packages/convex/confect/brain/pages.spec.ts packages/convex/confect/editor/documentTargets.ts packages/convex/confect/editor/sync.ts packages/convex/confect/editor/syncApi.ts packages/convex/test/brain-editor-revision-fence.test.ts packages/convex/test/editor-sync.test.ts packages/convex/convex/integrations/slackConnections.ts packages/convex/convex/internal/migrations.ts",
+      "status": "passed",
+      "summary": "ESLint completed successfully with no output."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test editor brain-editor-revision-fence",
+      "status": "passed",
+      "summary": "3 test files passed; 17 tests passed."
+    },
+    {
+      "command": "rtk pnpm brain:factory:check-confect-codegen",
+      "status": "passed",
+      "summary": "transient Confect codegen passed (2 generated files)."
+    },
+    {
+      "command": "rtk pnpm check:layer-boundaries",
+      "status": "passed",
+      "summary": "no dependency violations found (932 modules, 2940 dependencies cruised)."
+    }
+  ],
+  "worktreeStatus": "clean",
+  "reviewVerdict": "rework",
+  "remainingFindings": [
+    {
+      "id": "wave-000015-lane-result-not-integrated",
+      "severity": "blocker",
+      "ownerTaskId": "S02-T04",
+      "ownerLaneHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "source": "focused_check:validateIntegratedLanes",
+      "summary": "Selected S02-T04 lane result remains status lane_green/accepted:false and is not an integrated or accepted lane record for this integration.",
+      "details": [
+        {
+          "artifact": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S02-T04/lane-result.json",
+          "observed": "status=lane_green, accepted=false, integrationId=wave-000013, integrationHeadSha=192e31911d10e79d20aad67a44306f5bf8dba590",
+          "expected": "Immutable integration wave must be backed by a lane result accepted/integrated for wave-000015 and exact integration head 8363f8f204854df4f44b82bd29660ac7b6cdd626."
+        }
+      ],
+      "requiredAction": "Re-prove or restore the S02-T04 lane result through the factory record node for wave-000015; this review turn did not author or certify a repair.",
+      "headSha": "8363f8f204854df4f44b82bd29660ac7b6cdd626"
+    }
+  ],
+  "resolvedFindings": [
+    {
+      "id": "wave-000015-v2-selection-identity-check-fails",
+      "severity": "blocker",
+      "ownerTaskId": "S02-T04",
+      "ownerLaneHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "source": "focused_check:integration-result-check",
+      "summary": "The factory integration-result v2 checker fails before broad-gate validation with 'v2 integration selection identity mismatch'.",
+      "details": [
+        {
+          "command": "rtk pnpm --dir /Users/headless/maestro-brain-plan/tooling/brain-factory exec tsx src/integration-result-check.mts --control-root /Users/headless/maestro-brain-plan --workdir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000015 --evidence /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence --integration-id wave-000015 --wave-selection /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000015-selection.json",
+          "observed": "Error: v2 integration selection identity mismatch",
+          "expected": "Integration result must bind the exact immutable selection identity before it can be promoted to a passed record."
+        }
+      ],
+      "requiredAction": "Regenerate or repair integration evidence through the factory so v2 selection identity validates; do not hand-edit integration-produced fields in review.",
+      "headSha": "8363f8f204854df4f44b82bd29660ac7b6cdd626",
+      "resolvedBy": "repair: added v2 manifestTranches selection identity field to integration result evidence",
+      "resolvedHeadSha": "8363f8f204854df4f44b82bd29660ac7b6cdd626"
+    }
+  ],
+  "manifestTranches": [
+    "D2-domain-bodies"
+  ]
+}

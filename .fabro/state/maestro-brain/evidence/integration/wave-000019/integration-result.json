@@ -1,0 +1,455 @@
+{
+  "schemaVersion": "maestro-brain-integration-result/v2",
+  "integrationId": "wave-000019",
+  "status": "ready_for_review",
+  "mode": "integrate",
+  "integrationWorkdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000019",
+  "baseSha": "73f63d143b8df50a01e8854bc5cab4a09e7e1cf9",
+  "headSha": "344d1021c850e6d928575422f5bddf4103f8ab46",
+  "exactHeadSha": "344d1021c850e6d928575422f5bddf4103f8ab46",
+  "integrationHeadSha": "344d1021c850e6d928575422f5bddf4103f8ab46",
+  "selection": {
+    "schemaVersion": "maestro-brain-integration-wave-selection/v2",
+    "integrationId": "wave-000019",
+    "selectionSha256": "7c298adcb89019882292f5e738fa77ae6385e2deb71d8e88e99852899319c729",
+    "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+    "baseSha": "73f63d143b8df50a01e8854bc5cab4a09e7e1cf9",
+    "requestedTaskIds": [
+      "S03-T03",
+      "S04-T01",
+      "S11-T02"
+    ],
+    "deferredTaskIds": []
+  },
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "selectionSha256": "7c298adcb89019882292f5e738fa77ae6385e2deb71d8e88e99852899319c729",
+  "manifestTranches": [
+    "D2-domain-bodies",
+    "C1-contract-spine"
+  ],
+  "includedTasks": [
+    {
+      "taskId": "S03-T03",
+      "tranche": "D2-domain-bodies",
+      "headSha": "195db6c28eb821d3052be2cbc085f8aeed8043f8",
+      "laneHeadSha": "195db6c28eb821d3052be2cbc085f8aeed8043f8",
+      "proofHeadSha": "195db6c28eb821d3052be2cbc085f8aeed8043f8",
+      "gateHeadSha": "195db6c28eb821d3052be2cbc085f8aeed8043f8",
+      "laneHeadShaProvenance": {
+        "selectionHeadSha": "195db6c28eb821d3052be2cbc085f8aeed8043f8",
+        "selectionProofHeadSha": "195db6c28eb821d3052be2cbc085f8aeed8043f8",
+        "selectionGateHeadSha": "195db6c28eb821d3052be2cbc085f8aeed8043f8",
+        "laneResultPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S03-T03/lane-result.json",
+        "laneResultHeadSha": "195db6c28eb821d3052be2cbc085f8aeed8043f8",
+        "laneGateReportPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S03-T03/lane-gate-report.json",
+        "laneGateReportHeadSha": "195db6c28eb821d3052be2cbc085f8aeed8043f8",
+        "proofPacketPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S03-T03/ci-proof-packet.json",
+        "proofPacketHeadSha": "195db6c28eb821d3052be2cbc085f8aeed8043f8"
+      },
+      "laneResultSha256": "ab15da8b818d83e9c12cd6cc9a84d46bc11783b28d922cba113e70ef068ae81e",
+      "proofSha256": "95ecbebc78bd479bda741daf06ccee54cedef558b741e2c1d6171a0a2227714d",
+      "gateSha256": "a103ea73f3000cc25b6e782bcce5a89a411ff21d65b8d913fe787be1a4c9b787",
+      "taskBlockHash": "03570baf98993b82f4b12962cc682e2f15808a84b39e325d5f2dd54fb88692b7",
+      "codeStartAfter": [
+        "S02-T02",
+        "S02-T04",
+        "S03-T01"
+      ],
+      "changedFiles": [
+        "apps/web/src/features/brain/brain-adapter.test.ts",
+        "apps/web/src/features/brain/brain-adapter.ts",
+        "apps/web/src/features/brain/brain-editor-pane.test.tsx",
+        "apps/web/src/features/brain/brain-editor-pane.tsx",
+        "apps/web/src/features/brain/brain-evidence-drawer.test.tsx",
+        "apps/web/src/features/brain/brain-evidence-drawer.tsx",
+        "apps/web/src/features/brain/brain-page-tree.test.tsx",
+        "apps/web/src/features/brain/brain-page-tree.tsx",
+        "apps/web/src/features/brain/brain-surface.test.ts",
+        "apps/web/src/features/brain/brain-surface.ts",
+        "apps/web/src/features/brain/brain-workspace.test.tsx",
+        "apps/web/src/features/brain/brain-workspace.tsx",
+        "apps/web/src/routes/_workspace.brain.tsx",
+        "packages/convex/confect/brain/pages.impl.ts",
+        "packages/convex/confect/brain/pages.spec.ts",
+        "packages/convex/confect/editor/syncApi.ts",
+        "packages/convex/test/brain-editor-revision-fence.test.ts",
+        "packages/convex/test/brain-pages-crud.test.ts",
+        "packages/editor-react/src/BlockNoteSyncEditor.test.tsx",
+        "packages/editor-react/src/BlockNoteSyncEditor.tsx"
+      ],
+      "appliedCommits": [
+        {
+          "sourceSha": "448775181d05d6dc2d13dcf5997d7ccf8529c955",
+          "integrationSha": "f91475be657db10ea95b5b1584ec48ff39b008a9",
+          "subject": "feat: model Brain workspace surface"
+        },
+        {
+          "sourceSha": "eb7c67d03153fc103635f6c6f0146e8043ad3721",
+          "integrationSha": "5310870a9ccb2ee95e3733402734a9037d0fb9c7",
+          "subject": "feat: connect Brain adapter state"
+        },
+        {
+          "sourceSha": "98a26f545c89eb07c8f96471fe6c6e081d771e6b",
+          "integrationSha": "aaebd76f03ede5b052f56beef814aa909b469c98",
+          "subject": "feat: connect Brain page tree"
+        },
+        {
+          "sourceSha": "1df666695370b2e1d6008138f1c56bc806e6c1c2",
+          "integrationSha": "464947e6999dedb62d7299b3dcb7e204a0da7150",
+          "subject": "feat: fence Brain editor snapshots"
+        },
+        {
+          "sourceSha": "e7dffea663799d00e9880df620953d4f8cecb917",
+          "integrationSha": "deaf3ec673ae37d650976923345daca5b03ecf1f",
+          "subject": "feat: compose Brain workspace layout"
+        },
+        {
+          "sourceSha": "6a4a217154717b0b2db451d35c51d15017939188",
+          "integrationSha": "7451d22254e0b1eaf6d334ede8f85aa79851c03d",
+          "subject": "fix: fence live Brain editor saves"
+        },
+        {
+          "sourceSha": "195db6c28eb821d3052be2cbc085f8aeed8043f8",
+          "integrationSha": "50e561409630506e36dde09f718470be78aadd6f",
+          "subject": "fix: remove stale editor snapshot helper"
+        }
+      ],
+      "cherryProof": [
+        "- 448775181d05d6dc2d13dcf5997d7ccf8529c955 feat: model Brain workspace surface",
+        "- eb7c67d03153fc103635f6c6f0146e8043ad3721 feat: connect Brain adapter state",
+        "- 98a26f545c89eb07c8f96471fe6c6e081d771e6b feat: connect Brain page tree",
+        "- 1df666695370b2e1d6008138f1c56bc806e6c1c2 feat: fence Brain editor snapshots",
+        "- e7dffea663799d00e9880df620953d4f8cecb917 feat: compose Brain workspace layout",
+        "- 6a4a217154717b0b2db451d35c51d15017939188 fix: fence live Brain editor saves",
+        "- 195db6c28eb821d3052be2cbc085f8aeed8043f8 fix: remove stale editor snapshot helper"
+      ],
+      "laneStatus": "lane_green",
+      "laneGateStatus": "passed"
+    },
+    {
+      "taskId": "S04-T01",
+      "tranche": "C1-contract-spine",
+      "headSha": "d091eb5d26d9da38129aa5b44f5515eec4f5bb89",
+      "laneHeadSha": "d091eb5d26d9da38129aa5b44f5515eec4f5bb89",
+      "proofHeadSha": "d091eb5d26d9da38129aa5b44f5515eec4f5bb89",
+      "gateHeadSha": "d091eb5d26d9da38129aa5b44f5515eec4f5bb89",
+      "laneHeadShaProvenance": {
+        "selectionHeadSha": "d091eb5d26d9da38129aa5b44f5515eec4f5bb89",
+        "selectionProofHeadSha": "d091eb5d26d9da38129aa5b44f5515eec4f5bb89",
+        "selectionGateHeadSha": "d091eb5d26d9da38129aa5b44f5515eec4f5bb89",
+        "laneResultPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S04-T01/lane-result.json",
+        "laneResultHeadSha": "d091eb5d26d9da38129aa5b44f5515eec4f5bb89",
+        "laneGateReportPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S04-T01/lane-gate-report.json",
+        "laneGateReportHeadSha": "d091eb5d26d9da38129aa5b44f5515eec4f5bb89",
+        "proofPacketPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S04-T01/ci-proof-packet.json",
+        "proofPacketHeadSha": "d091eb5d26d9da38129aa5b44f5515eec4f5bb89"
+      },
+      "laneResultSha256": "2cecdf425fc1dafeb78ad80973be861a094fec69e7d552c4e5a599e859c1649b",
+      "proofSha256": "be88159c501a59fc72108156f3be268e0a52399c9453352805368a94a64daef9",
+      "gateSha256": "a493b20e4b2321c9160121e4b545b19f534bbfe4cd4d8f1f87906f6deb0b2cec",
+      "taskBlockHash": "fda4652a6ec6cbf81f4deb10c6c607ed72837451fb07a6b3f18305a9f96f2182",
+      "codeStartAfter": [
+        "S00-T03",
+        "S01-T02"
+      ],
+      "changedFiles": [
+        "packages/convex/confect/integrations/slackConnections.impl.ts"
+      ],
+      "appliedCommits": [
+        {
+          "sourceSha": "d091eb5d26d9da38129aa5b44f5515eec4f5bb89",
+          "integrationSha": "7581fea5c5f43c67e1bb924ae55f3ffaabc125fa",
+          "subject": "fix: satisfy Slack connect Effect diagnostics"
+        }
+      ],
+      "cherryProof": [
+        "- d091eb5d26d9da38129aa5b44f5515eec4f5bb89 fix: satisfy Slack connect Effect diagnostics"
+      ],
+      "laneStatus": "lane_green",
+      "laneGateStatus": "passed"
+    },
+    {
+      "taskId": "S11-T02",
+      "tranche": "D2-domain-bodies",
+      "headSha": "954b2f2d9ff2c266ba01b100d83b803e4b8c08fd",
+      "laneHeadSha": "954b2f2d9ff2c266ba01b100d83b803e4b8c08fd",
+      "proofHeadSha": "954b2f2d9ff2c266ba01b100d83b803e4b8c08fd",
+      "gateHeadSha": "954b2f2d9ff2c266ba01b100d83b803e4b8c08fd",
+      "laneHeadShaProvenance": {
+        "selectionHeadSha": "954b2f2d9ff2c266ba01b100d83b803e4b8c08fd",
+        "selectionProofHeadSha": "954b2f2d9ff2c266ba01b100d83b803e4b8c08fd",
+        "selectionGateHeadSha": "954b2f2d9ff2c266ba01b100d83b803e4b8c08fd",
+        "laneResultPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S11-T02/lane-result.json",
+        "laneResultHeadSha": "954b2f2d9ff2c266ba01b100d83b803e4b8c08fd",
+        "laneGateReportPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S11-T02/lane-gate-report.json",
+        "laneGateReportHeadSha": "954b2f2d9ff2c266ba01b100d83b803e4b8c08fd",
+        "proofPacketPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S11-T02/ci-proof-packet.json",
+        "proofPacketHeadSha": "954b2f2d9ff2c266ba01b100d83b803e4b8c08fd"
+      },
+      "laneResultSha256": "52438c148ec747f43e2aa1fb03fea839e5d86d4198aad7a3f604fb03edb5e7df",
+      "proofSha256": "56c469f44d3e0d970a107fc84537f02744e599ed592687935ee31a225f442147",
+      "gateSha256": "902b54857b48ca3d05b490f319152abba5adba2905b0843da5432f37b12f02a8",
+      "taskBlockHash": "2b484dad01173ead7ca99d710455998926b3666713d025943ef5824aed334ff6",
+      "codeStartAfter": [
+        "S01-T02",
+        "S01-T03",
+        "S01-T04",
+        "S02-T02",
+        "S11-T01"
+      ],
+      "changedFiles": [
+        "apps/web/src/features/settings/api-keys-adapter.test.ts",
+        "apps/web/src/features/settings/api-keys-adapter.ts",
+        "apps/web/src/features/settings/api-keys-panel.test.tsx",
+        "apps/web/src/features/settings/api-keys-panel.tsx",
+        "apps/web/src/features/settings/api-keys.test.ts",
+        "apps/web/src/features/settings/api-keys.ts",
+        "apps/web/src/features/settings/settings-surface.test.ts",
+        "apps/web/src/features/settings/settings-surface.ts",
+        "apps/web/src/routes/_workspace.settings.tsx",
+        "packages/convex/confect/headless/apiKeys.impl.ts",
+        "packages/convex/confect/headless/apiKeys.spec.ts",
+        "packages/convex/confect/headless/auth.ts",
+        "packages/convex/confect/headless/authorizeOperation.ts",
+        "packages/convex/confect/headless/principal.ts",
+        "packages/convex/confect/http.ts",
+        "packages/convex/confect/httpRequest.ts",
+        "packages/convex/confect/manifest/executor.ts",
+        "packages/convex/test/api-keys.test.ts",
+        "packages/convex/test/http-request-security.test.ts"
+      ],
+      "appliedCommits": [
+        {
+          "sourceSha": "5618eddec2a81b71110919dc61691402fe85f24e",
+          "integrationSha": "d35bdf42babce36073049af3164ebbaf0ad47971",
+          "subject": "feat: define headless principal policy"
+        },
+        {
+          "sourceSha": "3c8574c4eef5029d27f688c6217c74946db8711e",
+          "integrationSha": "378433f5e12cd1822ad26cd20d555b026354ba6c",
+          "subject": "feat: add headless api-key contract"
+        },
+        {
+          "sourceSha": "62d9b8976b2434aab593603f909009c197dc98ad",
+          "integrationSha": "33e955526f8a9df2de294d98dc9de78530176b06",
+          "subject": "feat: create durable headless keys"
+        },
+        {
+          "sourceSha": "f8fc996f713d3c50e923b69032cc52b222ebd230",
+          "integrationSha": "c8aedd926d72d3e234fe80dc7c9a1999648ab497",
+          "subject": "feat: revoke durable headless keys"
+        },
+        {
+          "sourceSha": "d672485e073e5c5f9e310db9f384ba5d20364fb5",
+          "integrationSha": "880b9da9b3c824f89acd455db52b960e8e2dd4f4",
+          "subject": "feat: authenticate fenced headless keys"
+        },
+        {
+          "sourceSha": "60984ba1ebdc38ac0619345e9125f77965dbea64",
+          "integrationSha": "1fe1eedc69fbc242e3b5b6a8b7f4cca2ccb0140f",
+          "subject": "feat: expose headless key handlers"
+        },
+        {
+          "sourceSha": "28df32bddf5d35f546342d03d20212142f1bb545",
+          "integrationSha": "e0340a86944af18feaaed66dad6d3a725ddf63ba",
+          "subject": "feat: parse headless bearer requests"
+        },
+        {
+          "sourceSha": "e9f327da525d5cc67610b6b680fb9956b7634c7f",
+          "integrationSha": "369c7b781cc3a7d20d32f427c22ea659b36fbc9e",
+          "subject": "fix: prove scoped headless HTTP auth"
+        },
+        {
+          "sourceSha": "abe5014abdf92598f13261931ecfce4582adfaf5",
+          "integrationSha": "98a8f32fc873eff4acfa2850d3ed964c3bd73d35",
+          "subject": "feat: add settings API key surface"
+        },
+        {
+          "sourceSha": "954b2f2d9ff2c266ba01b100d83b803e4b8c08fd",
+          "integrationSha": "61dc7d84b2c79720532a9ccd49c884228398aad8",
+          "subject": "fix: wire settings API key refs"
+        }
+      ],
+      "cherryProof": [
+        "- 5618eddec2a81b71110919dc61691402fe85f24e feat: define headless principal policy",
+        "- 3c8574c4eef5029d27f688c6217c74946db8711e feat: add headless api-key contract",
+        "- 62d9b8976b2434aab593603f909009c197dc98ad feat: create durable headless keys",
+        "- f8fc996f713d3c50e923b69032cc52b222ebd230 feat: revoke durable headless keys",
+        "- d672485e073e5c5f9e310db9f384ba5d20364fb5 feat: authenticate fenced headless keys",
+        "- 60984ba1ebdc38ac0619345e9125f77965dbea64 feat: expose headless key handlers",
+        "- 28df32bddf5d35f546342d03d20212142f1bb545 feat: parse headless bearer requests",
+        "- e9f327da525d5cc67610b6b680fb9956b7634c7f fix: prove scoped headless HTTP auth",
+        "- abe5014abdf92598f13261931ecfce4582adfaf5 feat: add settings API key surface",
+        "- 954b2f2d9ff2c266ba01b100d83b803e4b8c08fd fix: wire settings API key refs"
+      ],
+      "laneStatus": "lane_green",
+      "laneGateStatus": "passed"
+    }
+  ],
+  "generatedFiles": [
+    "packages/convex/confect/_generated/registeredFunctions/headless/apiKeys.ts",
+    "packages/convex/confect/_generated/spec.ts",
+    "packages/convex/convex/brain/pages.ts",
+    "packages/convex/convex/headless/apiKeys.ts",
+    "packages/template-core/src/generated/confectManifest.ts"
+  ],
+  "generatedOutput": {
+    "commitSha": "344d1021c850e6d928575422f5bddf4103f8ab46",
+    "files": [
+      "packages/convex/confect/_generated/registeredFunctions/headless/apiKeys.ts",
+      "packages/convex/confect/_generated/spec.ts",
+      "packages/convex/convex/brain/pages.ts",
+      "packages/convex/convex/headless/apiKeys.ts",
+      "packages/template-core/src/generated/confectManifest.ts"
+    ],
+    "summary": "Centralized Confect codegen and manifest generation ran once after dependency hydration; generated candidates were formatted and committed separately."
+  },
+  "generatedCommitSha": "344d1021c850e6d928575422f5bddf4103f8ab46",
+  "generatedFilesFromIntegrationCommit": [
+    "packages/convex/confect/_generated/registeredFunctions/headless/apiKeys.ts",
+    "packages/convex/confect/_generated/spec.ts",
+    "packages/convex/convex/brain/pages.ts",
+    "packages/convex/convex/headless/apiKeys.ts",
+    "packages/template-core/src/generated/confectManifest.ts"
+  ],
+  "checks": [
+    {
+      "command": "rtk pnpm --dir '/Users/headless/maestro-brain-plan/tooling/brain-factory' exec tsx src/hydrate-integration-dependencies.mts --workdir '/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000019' --base '73f63d143b8df50a01e8854bc5cab4a09e7e1cf9'",
+      "status": "passed",
+      "summary": "{ changedFiles: [], mode: unchanged }"
+    },
+    {
+      "command": "rtk pnpm confect:codegen",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm confect:manifest",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm exec prettier --check --ignore-unknown <selected changed files>",
+      "status": "passed",
+      "summary": "All matched files use Prettier code style."
+    },
+    {
+      "command": "rtk pnpm exec eslint <selected changed files>",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm brain:factory:check-confect-codegen -- --profile web --test brain-editor-revision-fence --test brain-pages-crud",
+      "status": "passed",
+      "summary": "transient Confect codegen passed (2 generated files)."
+    },
+    {
+      "command": "rtk pnpm check:route-tree",
+      "status": "passed",
+      "summary": "check:route-tree: ok (pin-only)."
+    },
+    {
+      "command": "rtk pnpm check:confect-v9",
+      "status": "passed",
+      "summary": "check:confect-v9 ok."
+    },
+    {
+      "command": "rtk pnpm check:provider-boundary",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm check:env-boundary",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm check:headless-surface-contract",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir packages/convex typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir packages/editor-react typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir packages/integrations typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir apps/web typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir apps/cli typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test brain-editor-revision-fence brain-pages-crud api-keys headless http-request slack-connections",
+      "status": "passed",
+      "summary": "7 test files passed; 73 tests passed."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/editor-react test",
+      "status": "passed",
+      "summary": "1 test file passed; 3 tests passed."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/integrations test nango",
+      "status": "passed",
+      "summary": "2 test files passed; 11 tests passed."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web test nango-connect api-keys brain",
+      "status": "passed",
+      "summary": "10 test files passed; 45 tests passed."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/cli test",
+      "status": "passed",
+      "summary": "1 test file passed; 14 tests passed."
+    },
+    {
+      "command": "rtk pnpm exec eslint tooling/brain-factory/src/review-lens-guard.mts tooling/brain-factory/test/review-worktrees.test.mts tooling/brain-factory/test/workflow-prompt-contract.test.mts",
+      "status": "failed",
+      "summary": "31 eslint errors in hand-authored tooling; broad gate remains rework for owning factory/tooling lane."
+    }
+  ],
+  "reviewChecks": [
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000019 rev-parse HEAD",
+      "status": "passed",
+      "summary": "344d1021c850e6d928575422f5bddf4103f8ab46"
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000019 status --short",
+      "status": "passed",
+      "summary": "clean"
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000019 cherry -v HEAD <selected lane head>",
+      "status": "passed",
+      "summary": "All selected source patches are present in integration history."
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000019 diff --numstat 73f63d143b8df50a01e8854bc5cab4a09e7e1cf9..HEAD",
+      "status": "passed",
+      "summary": "Net patch contains selected task files plus integration-owned generated output."
+    }
+  ],
+  "remainingFindings": [],
+  "resolvedFindings": [
+    {
+      "id": "broad-gate-eslint-hand-authored-tooling-383baf7",
+      "resolution": "not_selected_wave_defect",
+      "summary": "Read-only review found the broad-gate eslint failure is in unselected hand-authored factory/tooling files outside wave-000019 ownership; selected lane evidence remains lane_green and exact-head bound, so it is not a blocker for this immutable wave review."
+    }
+  ],
+  "worktreeStatus": "clean",
+  "reviewVerdict": "pass",
+  "broadGate": {
+    "status": "failed",
+    "owner": "gates node",
+    "headSha": "344d1021c850e6d928575422f5bddf4103f8ab46",
+    "command": "rtk host-test-slot --class full pnpm verify",
+    "summary": "Deterministic eslint failure in hand-authored tooling files; not repairable under generated-output-only integration policy."
+  }
+}

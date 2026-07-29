@@ -1,0 +1,209 @@
+{
+  "schemaVersion": "maestro-brain-integration-result/v2",
+  "integrationId": "wave-000010",
+  "integrationWorkdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000010",
+  "selectionPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000010-selection.json",
+  "selectionSha256": "c6bdf809dfd653bc73e5112cd5f6e610532f412b993c31d6ea25299cf953d6ee",
+  "selectionFileSha256": "c6bdf809dfd653bc73e5112cd5f6e610532f412b993c31d6ea25299cf953d6ee",
+  "planSha256": "868331c0af5ab06b495ca802724f4a3578c854e07b8342c9de4b93107a264499",
+  "baseSha": "969c65065eb82aebdd6bcc5e01d482365e9b9c8b",
+  "headSha": "9d732b22c23b709b65a7862195edc10b08155eba",
+  "treeSha": "2701b725d7de013466723f8febefa1ddf332843c",
+  "status": "ready_for_review",
+  "reviewVerdict": "rework",
+  "selectedTaskCount": 4,
+  "includedTasks": [
+    {
+      "taskId": "S01-T04",
+      "tranche": "D2-domain-bodies",
+      "laneHeadSha": "5285a3255771939c34644d3011549ad51e1ca311",
+      "proofHeadSha": "5285a3255771939c34644d3011549ad51e1ca311",
+      "gateHeadSha": "5285a3255771939c34644d3011549ad51e1ca311",
+      "laneResultSha256": "e0a3935cdf54be315ec6d0b07dbcf2de3e0cb795c8115f73ecbb43ac403a3795",
+      "proofSha256": "86ec3f4d916855e57dc3d3a7ae53657607b169771db005cbfafbec4f712d9c0c",
+      "gateSha256": "d3cbb65a40be83d652952202f1702b508fa19878b9c63fd58ef0276b0262d840"
+    },
+    {
+      "taskId": "S02-T02",
+      "tranche": "D2-domain-bodies",
+      "laneHeadSha": "682f59bda23514412e3c645d01be8ecc8c0bd974",
+      "proofHeadSha": "682f59bda23514412e3c645d01be8ecc8c0bd974",
+      "gateHeadSha": "682f59bda23514412e3c645d01be8ecc8c0bd974",
+      "laneResultSha256": "aeddba550f24555659ed5d538e4fce1deadebfd2a31c28cd579f0a7c564d7d55",
+      "proofSha256": "8db94c3f7231ae691066c3dea4dcf2855a872f75f1e79b6254e7f331eb0d7841",
+      "gateSha256": "caa8078f26b31c3a0bf352c6285b06d4956f6de993ab2d2fbd78d8fd95ba82fd"
+    },
+    {
+      "taskId": "S03-T02",
+      "tranche": "D2-domain-bodies",
+      "laneHeadSha": "8f57c453bf19314505b2f4fea12ed13668a86597",
+      "proofHeadSha": "8f57c453bf19314505b2f4fea12ed13668a86597",
+      "gateHeadSha": "8f57c453bf19314505b2f4fea12ed13668a86597",
+      "laneResultSha256": "f7093a566cd8e06bb6067a4e0438d47dfe406fec812e5d0d198d50a04af8ec5c",
+      "proofSha256": "e5009aaebdc90fe69c0ee70c60c4bffec8a0013abd9faa820f8348ed9a9e318e",
+      "gateSha256": "c06313cfe98ec65d843d5819b391a0ea96430d65c54f23e00d65d6973d878214"
+    },
+    {
+      "taskId": "S04-T01",
+      "tranche": "C1-contract-spine",
+      "laneHeadSha": "051d9b665d1fe440b3003e28b7e2464c0f45e515",
+      "proofHeadSha": "051d9b665d1fe440b3003e28b7e2464c0f45e515",
+      "gateHeadSha": "051d9b665d1fe440b3003e28b7e2464c0f45e515",
+      "laneResultSha256": "aa8e5b8209427faa0003845dfa28d39a269140f77625307421289443afa3edd3",
+      "proofSha256": "af7c211e5759883a3c9239ac9fe628181b5232747a3e558dc43acc8ea8e56d37",
+      "gateSha256": "a4f31be38d5b30432a156497de3a9c61267ac9388ff4c9503efe2959a0598acc"
+    }
+  ],
+  "generatedFiles": [
+    "packages/convex/confect/_generated/convexSchema.ts",
+    "packages/convex/confect/_generated/docs.ts",
+    "packages/convex/confect/_generated/id.ts",
+    "packages/convex/confect/_generated/registeredFunctions/integrations/slackConnections.ts",
+    "packages/convex/confect/_generated/schema.ts",
+    "packages/convex/confect/_generated/spec.ts",
+    "packages/convex/confect/_generated/tables/brainPageAuditEvents.ts",
+    "packages/convex/confect/_generated/tables/providerConnections.ts",
+    "packages/convex/convex/access/invitations.ts",
+    "packages/convex/convex/access/members.ts",
+    "packages/convex/convex/brain/pages.ts",
+    "packages/convex/convex/integrations/slackConnections.ts",
+    "packages/template-core/src/generated/confectManifest.ts"
+  ],
+  "generatedFilesFromIntegrationCommit": [
+    "packages/convex/confect/_generated/convexSchema.ts",
+    "packages/convex/confect/_generated/docs.ts",
+    "packages/convex/confect/_generated/id.ts",
+    "packages/convex/confect/_generated/registeredFunctions/integrations/slackConnections.ts",
+    "packages/convex/confect/_generated/schema.ts",
+    "packages/convex/confect/_generated/spec.ts",
+    "packages/convex/confect/_generated/tables/brainPageAuditEvents.ts",
+    "packages/convex/confect/_generated/tables/providerConnections.ts",
+    "packages/convex/convex/access/invitations.ts",
+    "packages/convex/convex/access/members.ts",
+    "packages/convex/convex/brain/pages.ts",
+    "packages/convex/convex/integrations/slackConnections.ts",
+    "packages/template-core/src/generated/confectManifest.ts"
+  ],
+  "manifestTranches": [
+    "C1-contract-spine",
+    "D2-domain-bodies"
+  ],
+  "dependencyCheck": {
+    "command": "rtk pnpm --dir '/Users/headless/maestro-brain-plan/tooling/brain-factory' exec tsx src/hydrate-integration-dependencies.mts --workdir '/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000010' --base '969c65065eb82aebdd6bcc5e01d482365e9b9c8b'",
+    "status": "passed",
+    "result": {
+      "changedFiles": [
+        "packages/convex/package.json",
+        "packages/integrations/package.json",
+        "pnpm-lock.yaml"
+      ],
+      "mode": "installed"
+    },
+    "summary": "Dependency hydration completed after all selected source ranges; worktree remained unchanged because selected lane commits already carried the dependency files."
+  },
+  "reviewChecks": [
+    {
+      "command": "rtk pnpm --dir /Users/headless/maestro-brain-plan/tooling/brain-factory exec tsx src/integration-wave-selection-check.mts --selection /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000010-selection.json --integration-id wave-000010 --base 969c65065eb82aebdd6bcc5e01d482365e9b9c8b --selection-sha256 c6bdf809dfd653bc73e5112cd5f6e610532f412b993c31d6ea25299cf953d6ee",
+      "status": "passed",
+      "summary": "wave-000010: immutable wave selection passed"
+    },
+    {
+      "command": "rtk pnpm --dir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000010 brain:factory:check-confect-codegen -- --test access --test brain-role-matrix --test flags --test brain-pages --test slack-connections",
+      "status": "passed",
+      "summary": "transient Confect codegen passed (2 generated files)"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000010/apps/web test settings clients nango-connect confect-state",
+      "status": "passed",
+      "summary": "11 web test files passed; 49 tests passed."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000010/packages/integrations test nango",
+      "status": "passed",
+      "summary": "2 integrations test files passed; 11 tests passed."
+    },
+    {
+      "command": "rtk pnpm --dir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000010/packages/integrations typecheck",
+      "status": "passed",
+      "summary": "packages/integrations tsc --noEmit passed."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000010/packages/convex test slack-connections brain-pages brain-role-matrix flags",
+      "status": "passed",
+      "summary": "5 Convex test files passed; 92 tests passed."
+    },
+    {
+      "command": "rtk pnpm --dir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000010/packages/convex typecheck",
+      "status": "passed",
+      "summary": "packages/convex tsc --noEmit passed."
+    },
+    {
+      "command": "rtk pnpm --dir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000010/apps/web typecheck",
+      "status": "passed",
+      "summary": "apps/web tsc --noEmit passed."
+    },
+    {
+      "command": "rtk pnpm --dir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000010 check:provider-boundary",
+      "status": "passed",
+      "summary": "check:provider-boundary passed."
+    },
+    {
+      "command": "rtk pnpm --dir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000010 check:env-boundary",
+      "status": "passed",
+      "summary": "check:env-boundary passed."
+    },
+    {
+      "command": "rtk pnpm --dir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000010 check:layer-boundaries",
+      "status": "passed",
+      "summary": "no dependency violations found."
+    },
+    {
+      "command": "rtk pnpm --dir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000010 check:route-tree",
+      "status": "passed",
+      "summary": "check:route-tree: ok (pin-only)"
+    },
+    {
+      "command": "rtk pnpm --dir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000010 check:confect-v9",
+      "status": "failed_rework_required",
+      "summary": "packages/convex/confect/brain/pages.spec.ts: args schema must be wrapped in a () => thunk."
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000010 rev-parse HEAD; rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000010 status --porcelain=v1",
+      "status": "passed",
+      "summary": "exact generated head 9d732b22c23b709b65a7862195edc10b08155eba; worktree clean."
+    }
+  ],
+  "remainingFindings": [
+    {
+      "id": "wave-000010-s02-t02-confect-v9-nested-functionspec-thunk",
+      "severity": "blocker",
+      "ownerTaskId": "S02-T02",
+      "ownerLaneHeadSha": "682f59bda23514412e3c645d01be8ecc8c0bd974",
+      "source": "focused_check:check:confect-v9",
+      "summary": "Unchanged Confect v9 checker reports an args thunk diagnostic in S02-T02-owned Brain pages spec after generated integration output.",
+      "details": [
+        {
+          "file": "packages/convex/confect/brain/pages.spec.ts",
+          "diagnostics": [
+            "args schema must be wrapped in a () => thunk"
+          ],
+          "note": "The selected source already uses args: () => args in nested FunctionSpec helper calls; preserve as S02-T02 lane rework for nested FunctionSpec thunk false-positive/shape mismatch rather than patching hand-authored product code in integration."
+        }
+      ],
+      "requiredAction": "Return to selected lane S02-T02 for Confect v9 checker/source shape rework; this integration node must not edit product source or tests.",
+      "headSha": "9d732b22c23b709b65a7862195edc10b08155eba"
+    }
+  ],
+  "broadGate": {
+    "status": "skipped_rework_required",
+    "summary": "Skipped by instruction after focused check:confect-v9 produced S02-T02-owned rework finding."
+  },
+  "reviewHeadSha": "9d732b22c23b709b65a7862195edc10b08155eba",
+  "selectedTaskIds": [
+    "S01-T04",
+    "S02-T02",
+    "S03-T02",
+    "S04-T01"
+  ],
+  "resolvedFindings": []
+}

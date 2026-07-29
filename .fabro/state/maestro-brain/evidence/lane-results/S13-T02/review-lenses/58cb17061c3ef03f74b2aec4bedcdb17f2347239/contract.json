@@ -1,0 +1,83 @@
+{
+  "lens": "contract",
+  "taskId": "S13-T02",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "taskBlockHash": "2b76ab1991d07a9978da3c321cbcc4f73ffc5ae9b4e3eb3512e2ff3dd4251072",
+  "baseSha": "f66236e12f93bc254cc2350800a5b2a69d0caff5",
+  "headSha": "58cb17061c3ef03f74b2aec4bedcdb17f2347239",
+  "treeSha": "35cc08f2e56dda709693569b3cd47ceed8ea85d1",
+  "reviewerRunId": "maestro/review/S13-T02/58cb17061c3ef03f74b2aec4bedcdb17f2347239/b80b48dc-c033-46f3-9446-525805433680-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3527-3529 requires every runnable channel to advance in every 60-second window or record a provider-rate block, and none may miss two consecutive windows.",
+        "tooling/evals/src/brain-capacity.ts:7-12 defines BrainCapacityWindow with only aggregate runnableChannels/advancedChannels/providerRateBlockedChannels counts, not channel identities.",
+        "tooling/evals/src/brain-capacity.ts:114-119 validates only aggregate accounted channels per window."
+      ],
+      "findingIds": ["S13-T02-CONTRACT-001"]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "finding",
+      "evidence": [
+        "tooling/evals/src/brain-capacity.ts:7-12 exposes the capacity window contract as aggregate counts only.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3527-3529 requires per-channel fairness and consecutive-miss enforcement, which this typed receipt cannot represent."
+      ],
+      "findingIds": ["S13-T02-CONTRACT-001"]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "not_applicable",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3535 states no customer data for this task.",
+        "rtk proxy git diff --name-status f66236e12f93bc254cc2350800a5b2a69d0caff5..58cb17061c3ef03f74b2aec4bedcdb17f2347239 shows only docs, eval tooling, package script, and tests; no durable Convex table/schema files changed."
+      ],
+      "rationale": "S13-T02 is a synthetic capacity/eval harness and does not introduce or migrate durable schema."
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3501-3504 classifies S13-T02 as template-gap TB-SOURCE-01 and requires satisfying REL-02/SLK-07 at the declared launch envelope.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3527-3529 includes the per-channel fairness/consecutive-miss requirement not enforceable by the submitted aggregate-only harness."
+      ],
+      "findingIds": ["S13-T02-CONTRACT-001"]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1659-1666 locks docs/product/maestro-brain-capacity.md, packages/convex/test/brain-capacity.test.ts, tooling/evals/package.json, and tooling/evals/src/brain-capacity*.ts for S13-T02.",
+        "ci-proof-packet.json changedFiles lists only the S13-T02 locked files.",
+        "rtk proxy git diff --name-status f66236e12f93bc254cc2350800a5b2a69d0caff5..58cb17061c3ef03f74b2aec4bedcdb17f2347239 matches those locked files."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3517-3520 requires failure-first proof for unfair FIFO/fairness and tenant/capacity failures.",
+        "tooling/evals/src/brain-capacity.test.ts:59-110 covers aggregate unfair FIFO and other failures, but no case can express or detect the same channel missing two consecutive windows because the run contract has no per-channel progress identity.",
+        "tooling/evals/src/brain-capacity.ts:114-119 would pass two windows where advancedChannels equals runnableChannels even if the same channel starved and another channel advanced twice."
+      ],
+      "findingIds": ["S13-T02-CONTRACT-001"]
+    }
+  ],
+  "findings": [
+    {
+      "id": "S13-T02-CONTRACT-001",
+      "severity": "high",
+      "summary": "Capacity fairness contract cannot enforce per-channel or consecutive-window progress.",
+      "details": "The approved task requires every runnable channel to advance in each 60-second fairness window or record an exact provider-rate block, with no channel missing two consecutive windows. The submitted BrainCapacityWindow type and evaluator only compare aggregate advancedChannels plus blocked count to runnableChannels. Without channel identities or per-channel missed-window state, a run can satisfy the aggregate count while the same channel starves across consecutive windows, so REL-02/SLK-07 fairness is not contractually proven.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3527-3529",
+        "tooling/evals/src/brain-capacity.ts:7-12",
+        "tooling/evals/src/brain-capacity.ts:114-119",
+        "tooling/evals/src/brain-capacity.test.ts:59-110"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

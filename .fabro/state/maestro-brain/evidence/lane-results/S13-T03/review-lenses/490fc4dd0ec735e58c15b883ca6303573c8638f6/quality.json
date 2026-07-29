@@ -1,0 +1,81 @@
+{
+  "lens": "quality",
+  "taskId": "S13-T03",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "taskBlockHash": "13c071bc2c78035c5563f494b38160a96c981ab2962984f056be4e18853e137e",
+  "baseSha": "f66236e12f93bc254cc2350800a5b2a69d0caff5",
+  "headSha": "490fc4dd0ec735e58c15b883ca6303573c8638f6",
+  "treeSha": "a30cac17838a62ef6776a976648d6cf5b88e05ae",
+  "reviewerRunId": "maestro/review/S13-T03/490fc4dd0ec735e58c15b883ca6303573c8638f6/ade6e852-8186-47dd-94bc-e07f53f46bd6-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/test/brain-operation-policy.test.ts:239-278 claims replay idempotency after later policy updates, but only asserts the pure replay helper and then expects nextOperationPolicy to return RecoveryGenerationMismatch for the duplicate key.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:79-87 checks only the current active policy idempotencyKey before applying stale generation checks; it never looks up retired rows by idempotencyKey.",
+        "packages/convex/test/brain-operation-policy.test.ts:280-440 exercises Confect persistence for denied, pause, resume, list, and row retirement, but does not send a duplicate idempotencyKey after a later policy update through setPolicyInternal."
+      ],
+      "findingIds": ["Q-S13-T03-001"]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "Changed backend operation controls stay within Confect specs/impls and pure policy helpers: packages/convex/confect/ops/brainOperations.spec.ts, brainOperations.impl.ts, and brainOperationPolicy.ts.",
+        "Observability helpers are isolated in packages/observability/src/brainMetrics.ts and exported from packages/observability/src/index.ts without importing Convex, Confect, web, or provider SDKs."
+      ]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperationPolicy.ts:163-167 defines replayOperationPolicyByIdempotencyKey, but the live Confect implementation does not call it.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:85-87 duplicates only the simplest current-row idempotency case, leaving later duplicate handling inconsistent with the helper and test name."
+      ],
+      "findingIds": ["Q-S13-T03-001"]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/observability/src/brainMetrics.ts:56-111 recursively redacts prompt, source, token, authorization/header, and raw/input fields before metrics are created.",
+        "packages/observability/src/brainMetrics.test.ts:9-39 and 73-87 assert prompt, source, token, authorization/header, and nested refresh-token canaries are absent/redacted.",
+        "packages/convex/test/brain-operation-policy.test.ts:181-225 asserts policy audit receipts contain metadata but not the operator reason canary text."
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "packages/observability/src/brainMetrics.ts:36-54 and 126-135 define typed budget names and BudgetExceeded results with budget, limit, and observed values only.",
+        "packages/observability/src/brainMetrics.test.ts:41-71 covers modelTokens, modelSpendCents, slackRate, storageBytes, queueDepth, and channelCount budget failures.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:88-103 converts over-limit budgetCheck and excessive policy expiry into typed BudgetExceeded errors."
+      ]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "pass",
+      "evidence": [
+        "Task diff touches Confect specs/impls and tests/docs but no packages/convex/confect/_generated or generated Convex files; no generated file was hand-edited.",
+        "lane-gate-report.json:12-14 records check:confect-v9, packages/convex typecheck, and the focused Convex test suite passing at head 490fc4dd0ec735e58c15b883ca6303573c8638f6/tree a30cac17838a62ef6776a976648d6cf5b88e05ae.",
+        "ci-proof-packet.json:85-87 explicitly marks generated Confect/Convex output as centralized integration-owned rather than branch-local product diff."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "Q-S13-T03-001",
+      "severity": "high",
+      "summary": "Durable idempotency replay after later policy updates is false-green and not implemented in the Confect path.",
+      "details": "The policy helper and test title imply idempotency keys should replay the original policy even after subsequent updates, but setPolicyInternal only compares input.idempotencyKey with the currently active policy. Once a later update retires the original row, a duplicate of the original idempotency key reaches generation validation and fails instead of replaying. The focused persistence test never exercises that duplicate-through-Confect path, so the lane can pass while durable replay behavior is absent.",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.impl.ts:79-87",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:163-167",
+        "packages/convex/test/brain-operation-policy.test.ts:239-278",
+        "packages/convex/test/brain-operation-policy.test.ts:280-440"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

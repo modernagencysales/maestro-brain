@@ -1,0 +1,109 @@
+{
+  "lens": "contract",
+  "taskId": "S06-T01",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "f2f6cb348272c704636b7e21bf8e8cbd66b812835d781b52e01bdcfa5b0fa97c",
+  "baseSha": "64b5d90e9dce6146ac6cd49696658cd9a40a254c",
+  "headSha": "ee22a31e1166df1b7ec618081596b67593a773db",
+  "treeSha": "c3de66dd9778670ee2d784b75a3bce13453e38b0",
+  "reviewerRunId": "maestro/review/S06-T01/ee22a31e1166df1b7ec618081596b67593a773db/410f142c-7f0b-42cf-9c8d-e4fc449d2474-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1857-1880 requires crash before/after claim, after external response, before/after commit, before ACK, lease expiry/reclaim, stale worker commit, duplicate enqueue/effect, and a completion receipt with full crash matrix plus duplicate external-call versus one accepted effect proof.",
+        "packages/convex/test/source-workpool.test.ts:392-760 exercises exported handler helpers with makeDb(), including duplicate enqueue before workId patch and duplicate onComplete delivery, but does not execute the registered Confect/Convex functions or @convex-dev/workpool component lifecycle for those crash/replay windows.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S06-T01/ci-proof-packet.json knownRisks states: Focused proof uses handler-level fake DB for durable crash windows; full Convex component lifecycle remains for the next deterministic lane/review gate."
+      ],
+      "findingIds": ["CONTRACT-S06-T01-001"]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1865-1870 declares typed errors LeaseLost, RetryableJobFailure, PermanentJobFailure, MaxAttemptsReached, StaleGeneration, and DuplicateEffect.",
+        "packages/convex/confect/jobs/workpool.spec.ts:1-40 registers functions with FunctionSpec.convexPublic*/convexInternal* but contains no expected-error declarations for the declared typed failures.",
+        "packages/convex/confect/jobs/workpool.ts:148-154 keeps public enqueue registered, and packages/convex/confect/jobs/workpool.ts:302-306 keeps public raw workId status registered, despite task text saying status/control functions are internal/admin-observed, not API/MCP tools."
+      ],
+      "findingIds": ["CONTRACT-S06-T01-002", "CONTRACT-S06-T01-003"]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:1-62 defines an Effect Schema-backed durable sourceProcessingJobs row with schemaVersion 1, execution states queued/leased/running/succeeded/retry_wait/dead_letter/superseded/revoked/cancelled, pinned generations, lease fields, attempt receipts, and externalResponseHash.",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:80-103 defines organization-scoped indexes including by_org_unit_idempotency_key, by_org_effect_key, by_org_lease_expiry, and by_organization_status."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1844-1846 classifies S06-T01 as fixture-to-real for jobs/workpool with @convex-dev/workpool plus sourceProcessingJobs leases/CAS as the real boundary.",
+        "packages/convex/confect/jobs/workpool.ts:167-228 implements enqueue through handler-level durable claim then Workpool.enqueueAction, and packages/convex/confect/jobs/workpool.ts:411-467 implements completion through handler-level state patches.",
+        "packages/convex/test/source-workpool.test.ts:392-760 validates handler helpers against makeDb(), while the packet's completion receipt requires the durable workpool boundary and full crash matrix proof."
+      ],
+      "findingIds": ["CONTRACT-S06-T01-001"]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json S06-T01 fileLocks list packages/convex/confect/jobs/jobState.ts, leases.ts, workpool.impl.ts, workpool.spec.ts, workpool.ts, packages/convex/confect/tables/sourceProcessingJobs.ts, and packages/convex/test/source-workpool.test.ts.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S06-T01/ci-proof-packet.json changedFiles contains exactly the same seven task-owned files.",
+        "rtk proxy git diff --numstat 64b5d90e9dce6146ac6cd49696658cd9a40a254c..HEAD -- task-owned files showed changes only in those seven locked files."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/jobs/jobState.ts:4-45 defines Schema.TaggedError classes and SourceWorkpoolError for the declared failures.",
+        "packages/convex/confect/jobs/workpool.spec.ts:11-40 registers enqueueSourceJob, statusSourceJob, heartbeatSourceJob, reclaimSourceJob, failSourceJobControl, backgroundWork, and onComplete but does not attach expected-error metadata to those function contracts.",
+        "packages/convex/confect/jobs/workpool.ts:395-399 backgroundWork always returns null, and packages/convex/confect/jobs/workpool.ts:401-467 onComplete only drives the success path; retryable/permanent/max-attempt/cancel/revoke/supersede are only reachable through a separate internal control mutation rather than from workpool action failure completion."
+      ],
+      "findingIds": ["CONTRACT-S06-T01-002"]
+    }
+  ],
+  "findings": [
+    {
+      "id": "CONTRACT-S06-T01-001",
+      "severity": "high",
+      "summary": "Required crash/replay proof is still handler-level rather than durable registered workpool proof.",
+      "details": "S06-T01's completion receipt requires a full crash matrix and duplicate external-call versus one accepted effect proof at the @convex-dev/workpool plus sourceProcessingJobs boundary. The new tests cover important reducer/handler windows, including active claim replay before workId patch and duplicate completion delivery, but they execute exported helpers with an in-memory fake DB instead of the registered Confect/Convex functions or real workpool lifecycle. The proof packet explicitly records this as a known remaining risk, so the task-packet acceptance is incomplete.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1857-1880",
+        "packages/convex/test/source-workpool.test.ts:392-760",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S06-T01/ci-proof-packet.json knownRisks"
+      ]
+    },
+    {
+      "id": "CONTRACT-S06-T01-002",
+      "severity": "high",
+      "summary": "Declared typed failure contract is not encoded as registered Confect expected errors.",
+      "details": "The reducer declares the required tagged errors and tests that they encode, but the Confect spec registers plain functions without expected-error declarations. Registered callers therefore do not receive the task's typed failure contract at the API boundary, and workpool action failures are not surfaced through onComplete because backgroundWork always returns null and onComplete only persists success. Retry/permanent/max-attempt/cancel/revoke/supersede are reachable through failSourceJobControl, but not as the declared registered workpool failure contract.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1865-1870",
+        "packages/convex/confect/jobs/jobState.ts:4-45",
+        "packages/convex/confect/jobs/workpool.spec.ts:11-40",
+        "packages/convex/confect/jobs/workpool.ts:395-467",
+        "packages/convex/confect/jobs/workpool.ts:499-531"
+      ]
+    },
+    {
+      "id": "CONTRACT-S06-T01-003",
+      "severity": "high",
+      "summary": "Public demo workpool API remains registered despite the internal/admin-only source job contract.",
+      "details": "The task packet says status/control functions are internal/admin-observed and not API/MCP tools. This head adds internal source-job controls, but it also keeps the legacy public enqueue and raw workId status functions in the registered Confect group. enqueue throws at runtime, yet it remains a public mutation, and status can still query component status by raw workId outside the internal source job surface.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1863-1864",
+        "packages/convex/confect/jobs/workpool.spec.ts:11-13",
+        "packages/convex/confect/jobs/workpool.ts:148-154",
+        "packages/convex/confect/jobs/workpool.ts:302-306",
+        "packages/convex/test/source-workpool.test.ts:767-776"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

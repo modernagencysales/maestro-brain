@@ -1,0 +1,29 @@
+{
+  "baseSha": "1e0b3f07e687bdba7fb767ee01b6b1976a930f88",
+  "controlHeadSha": "1e0b3f07e687bdba7fb767ee01b6b1976a930f88",
+  "createdAt": "2026-07-18T20:48:19.503Z",
+  "evidence": [
+    "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000020-selection.json",
+    "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000020.json"
+  ],
+  "integrationId": "wave-000020",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "reason": "superseded after deterministic manifest dependency-order normalization failure",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXVFPR53VRG6QSGTV8ZEDHPW",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "7f99f93667588f98b929a6bf733d76543586a6cb4443c14799c671ac698e1116",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v2",
+  "selectedTaskIds": [
+    "S03-T03",
+    "S11-T02"
+  ],
+  "selectionFileSha256": "1012bca411e11659341803a61ecb635a4e717cc76cc683747ebdd501d81f1daf",
+  "selectionPayloadSha256": "77edb49e18a19a9762b80eefc939b223940946001c1904262a92d25aa34fe10f",
+  "status": "superseded",
+  "receiptSha256": "2fe4db0ee98f8240aaea73c82dc230e96401702e96d6d1337b213e917808d989"
+}

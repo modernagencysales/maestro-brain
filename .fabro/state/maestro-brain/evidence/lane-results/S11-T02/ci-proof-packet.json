@@ -1,0 +1,94 @@
+{
+  "schemaVersion": "maestro-brain-ci-proof/v1",
+  "planSha256": "1c6b818063c534afdae20d688fee71e830915c5ac356bf7eba7724099d7ed9a5",
+  "taskBlockHash": "f49e5fe055896a804408cf0013f1f4b02735f7b6e18f1813ab85e85672fb569d",
+  "taskId": "S11-T02",
+  "baseSha": "8c05d19fb42b36d4612e4faf4011008672162ba2",
+  "headSha": "789cacd4af82066218c63e414d4206d6b2f2cfa9",
+  "changedFiles": [
+    "apps/web/src/features/settings/api-keys-adapter.test.ts",
+    "apps/web/src/features/settings/api-keys-adapter.ts",
+    "apps/web/src/features/settings/api-keys-panel.test.tsx",
+    "apps/web/src/features/settings/api-keys-panel.tsx",
+    "apps/web/src/features/settings/api-keys.test.ts",
+    "apps/web/src/features/settings/api-keys.ts",
+    "apps/web/src/features/settings/settings-surface.test.ts",
+    "apps/web/src/features/settings/settings-surface.ts",
+    "apps/web/src/routes/_workspace.settings.tsx",
+    "packages/convex/confect/headless/apiKeys.impl.ts",
+    "packages/convex/confect/headless/apiKeys.spec.ts",
+    "packages/convex/confect/headless/auth.ts",
+    "packages/convex/confect/headless/authorizeOperation.ts",
+    "packages/convex/confect/headless/principal.ts",
+    "packages/convex/confect/http.ts",
+    "packages/convex/confect/httpRequest.ts",
+    "packages/convex/confect/manifest/executor.ts",
+    "packages/convex/test/api-keys.test.ts",
+    "packages/convex/test/headless-executor.test.ts",
+    "packages/convex/test/http-docs.test.ts",
+    "packages/convex/test/http-request-security.test.ts"
+  ],
+  "focusedCommands": [
+    "rtk pnpm --dir packages/convex typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test api-keys headless http-request",
+    "rtk pnpm check:headless-surface-contract"
+  ],
+  "supplementalCommands": [
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test http-request-security api-keys",
+      "status": "failed-expected",
+      "summary": "Archived failure-first repair proof: rate-limit metadata canary reached raw user-agent/x-forwarded-for before implementation; denial audit and equalized-work tests were red before fixes. Not rerun in plan-only-authority mode."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test http-request-security api-keys",
+      "status": "passed",
+      "summary": "Archived focused proof: 2 files / 32 tests passed, including canonical admission metadata, denied audit canaries, and not-found/revoked auth work-count coverage. Not rerun in plan-only-authority mode."
+    },
+    {
+      "command": "rtk proxy pnpm --dir packages/convex exec tsc --noEmit",
+      "status": "passed",
+      "summary": "Archived package-local Convex TypeScript check completed without output after pnpm warnings. Not rerun in plan-only-authority mode."
+    },
+    {
+      "command": "rtk pnpm check:logging-boundary",
+      "status": "passed",
+      "summary": "Archived logging boundary check passed. Not rerun in plan-only-authority mode."
+    },
+    {
+      "command": "rtk pnpm check:secret-canaries",
+      "status": "passed",
+      "summary": "Archived gitleaks secret canary scan found no leaks. Not rerun in plan-only-authority mode."
+    },
+    {
+      "command": "rtk pnpm check:access-audit-events",
+      "status": "passed",
+      "summary": "Archived access audit event check passed. Not rerun in plan-only-authority mode."
+    },
+    {
+      "command": "rtk proxy git rev-list --count 8c05d19fb42b36d4612e4faf4011008672162ba2..HEAD",
+      "status": "passed",
+      "summary": "Plan-only candidate task history is 10 commits, matching S11-T02 sourceSliceLimit."
+    }
+  ],
+  "testsAdded": [
+    "packages/convex/test/api-keys.test.ts",
+    "packages/convex/test/headless-executor.test.ts",
+    "packages/convex/test/http-docs.test.ts",
+    "packages/convex/test/http-request-security.test.ts",
+    "apps/web/src/features/settings/api-keys-adapter.test.ts",
+    "apps/web/src/features/settings/api-keys-panel.test.tsx",
+    "apps/web/src/features/settings/settings-surface.test.ts"
+  ],
+  "reviewVerdict": "pass",
+  "knownRisks": [
+    "Plan-only-authority mode is replay/review-only; source and test files were not edited and archived focused gates were not rerun in this handoff.",
+    "Task history from base 8c05d19fb42b36d4612e4faf4011008672162ba2 is exactly 10 commits, matching S11-T02 sourceSliceLimit.",
+    "Task-required generated Confect artifacts remain integration-owned by Appendix O; this lane does not check in packages/convex/confect/_generated updates.",
+    "Broad tranche verification is deferred to integration per the task packet and Appendix O/P.",
+    "S11 acceptance remains gated by original acceptance prerequisites: S11-T01, S01-T03, S01-T04, and S02-T02."
+  ],
+  "reviewFindings": [],
+  "reviewHeadSha": "789cacd4af82066218c63e414d4206d6b2f2cfa9",
+  "priorFindingDispositions": [],
+  "resolvedPriorFindingIds": []
+}

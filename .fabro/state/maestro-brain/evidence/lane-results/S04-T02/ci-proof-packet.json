@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "maestro-brain-ci-proof/v1",
+  "planSha256": "e5ad32c375d4fd307b3d5bccd47ea6cf4e9b7580f23bb506c893fd94019ca7c5",
+  "taskBlockHash": "cdeca2a0ba4a7101fd27959788455ac53609485617a9cf8146c29c86891a7958",
+  "taskId": "S04-T02",
+  "baseSha": "aa979378a853ca705f423846a79abe8030f0619b",
+  "headSha": "ceed76db1dee584403c8301f43c3b17131d400b7",
+  "changedFiles": [
+    "docs/product/maestro-brain-lifecycle-adoption/S04-T02.md",
+    "packages/convex/confect/integrations/slackDirectory.impl.ts",
+    "packages/convex/confect/integrations/slackDirectory.spec.ts",
+    "packages/convex/confect/integrations/slackDirectory.ts",
+    "packages/convex/confect/tables/channelSyncStates.ts",
+    "packages/convex/confect/tables/sourceChannels.ts",
+    "packages/convex/test/slack-directory.test.ts"
+  ],
+  "focusedCommands": [
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test slack-directory",
+    "rtk host-test-slot --class focused pnpm --dir packages/integrations test slack",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk pnpm check:schema-migration-notes",
+    "rtk pnpm check:provider-boundary"
+  ],
+  "supplementalCommandResults": [
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test slack-directory",
+      "result": "passed on rebased head ceed76db1dee584403c8301f43c3b17131d400b7: test/slack-directory.test.ts (27 tests) passed."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/integrations test slack",
+      "result": "passed on rebased head ceed76db1dee584403c8301f43c3b17131d400b7: no slack-specific test files found; package exits 0 via --passWithNoTests."
+    },
+    {
+      "command": "rtk pnpm brain:factory:check-confect-codegen",
+      "result": "passed on rebased head ceed76db1dee584403c8301f43c3b17131d400b7: transient Confect codegen passed (11 generated files), proving source table/spec/impl registrations without committing generated output."
+    },
+    {
+      "command": "rtk pnpm check:schema-migration-notes",
+      "result": "passed on rebased head ceed76db1dee584403c8301f43c3b17131d400b7: check:schema-migration-notes ok (pin-only)."
+    },
+    {
+      "command": "rtk pnpm check:provider-boundary",
+      "result": "passed on rebased head ceed76db1dee584403c8301f43c3b17131d400b7: check:provider-boundary passed."
+    },
+    {
+      "command": "rtk proxy git rev-list --count aa979378a853ca705f423846a79abe8030f0619b..HEAD",
+      "result": "passed on rebased head: task history has five commits, matching sourceSliceLimit."
+    },
+    {
+      "command": "rtk proxy git show --no-renames --numstat --format= <each-task-commit>",
+      "result": "passed on rebased head using tooling/brain-factory/src/source-budget.ts calculation: per-commit hand-authored source lines are 295, 283, 267, 300, 242; every commit is within the 300-line budget."
+    }
+  ],
+  "testsAdded": [
+    "packages/convex/test/slack-directory.test.ts"
+  ],
+  "reviewVerdict": "pass",
+  "knownRisks": [
+    "packages/integrations slack focused command currently finds no slack-specific test files and exits 0 via --passWithNoTests.",
+    "Generated Confect/Convex files are intentionally not committed in this lane; Appendix O reserves generated output for integration, and exact-head transient codegen passed with sourceChannels/channelSyncStates present.",
+    "Live Slack directory adapter remains behind the S04-T01 provider boundary; default lane implementation fails closed with ProviderUnavailable unless a provider service is injected."
+  ],
+  "reviewFindings": [],
+  "reviewHeadSha": "ceed76db1dee584403c8301f43c3b17131d400b7"
+}

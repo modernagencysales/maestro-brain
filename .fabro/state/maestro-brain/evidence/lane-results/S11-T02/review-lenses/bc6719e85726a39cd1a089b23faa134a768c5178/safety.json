@@ -1,0 +1,111 @@
+{
+  "lens": "safety",
+  "taskId": "S11-T02",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "2b484dad01173ead7ca99d710455998926b3666713d025943ef5824aed334ff6",
+  "baseSha": "defde4d68fbcdd7d39566d82986ec562010c9638",
+  "headSha": "bc6719e85726a39cd1a089b23faa134a768c5178",
+  "treeSha": "8ac88dfb673b57ddabb0fea81aca5110ee08d771",
+  "reviewerRunId": "maestro/review/S11-T02/bc6719e85726a39cd1a089b23faa134a768c5178/865a7553-03ac-4fe3-bf3d-8efae5007bbd-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3100-3110",
+        "packages/convex/confect/headless/apiKeys.impl.ts:503-538",
+        "packages/convex/confect/headless/authorizeOperation.ts:30-45",
+        "packages/convex/confect/headless/authorizeOperation.ts:80-101",
+        "packages/convex/test/http-request-security.test.ts:186-228",
+        "packages/convex/test/api-keys.test.ts:659-741"
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/http.ts:273-352",
+        "packages/convex/confect/httpRequest.ts:77-145",
+        "packages/convex/confect/headless/apiKeys.impl.ts:461-551",
+        "packages/convex/confect/headless/apiKeys.impl.ts:553-659",
+        "packages/convex/test/http-request-security.test.ts:265-339",
+        "packages/convex/test/http-request-security.test.ts:401-507"
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3094-3099",
+        "packages/convex/confect/headless/apiKeys.impl.ts:170-206",
+        "packages/convex/confect/headless/apiKeys.impl.ts:559-603",
+        "packages/convex/confect/headless/apiKeys.impl.ts:676-750",
+        "packages/convex/test/api-keys.test.ts:581-657",
+        "packages/convex/test/api-keys.test.ts:744-803"
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3094-3099",
+        "packages/convex/confect/headless/apiKeys.impl.ts:328-353",
+        "packages/convex/confect/http.ts:326-335",
+        "packages/convex/test/api-keys.test.ts:60-87",
+        "packages/convex/test/http-request-security.test.ts:549-606",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S11-T02/ci-proof-packet.json:67-75"
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3111-3119",
+        "packages/convex/confect/http.ts:338-350",
+        "packages/convex/confect/http.ts:373-395",
+        "packages/convex/confect/headless/apiKeys.impl.ts:676-750",
+        "packages/convex/test/http-request-security.test.ts:510-547",
+        "packages/convex/test/api-keys.test.ts:581-657"
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3108-3111",
+        "packages/convex/confect/manifest/executor.ts:201-224",
+        "packages/convex/confect/manifest/executor.ts:248-285",
+        "packages/convex/confect/httpRequest.ts:211-238",
+        "packages/convex/test/http-request-security.test.ts:401-466",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S11-T02/ci-proof-packet.json:30-34"
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3100-3111",
+        "packages/convex/confect/headless/apiKeys.impl.ts:508-538",
+        "packages/convex/confect/headless/apiKeys.impl.ts:592-603",
+        "packages/convex/confect/headless/apiKeys.impl.ts:970-1033",
+        "packages/convex/test/api-keys.test.ts:581-657",
+        "packages/convex/test/api-keys.test.ts:744-803"
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3108-3113",
+        "packages/convex/confect/http.ts:273-352",
+        "packages/convex/confect/manifest/executor.ts:293-318",
+        "packages/convex/test/http-request-security.test.ts:230-263",
+        "packages/convex/test/http-request-security.test.ts:265-365",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S11-T02/ci-proof-packet.json:67-79"
+      ],
+      "rationale": "S11-T02 does not introduce live provider SDK calls; inspected dispatch flow proves route admission, bearer authentication, and authorization occur before generated operation dispatch, and lane evidence includes logging, secret canary, and access-audit gates."
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

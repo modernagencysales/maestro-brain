@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "maestro-brain-lane-result/v1",
+  "taskId": "S00-T04",
+  "headSha": "6f9903c733b281f345c575e2e44f2a2389a79ed9",
+  "status": "accepted",
+  "tranche": "F0-foundation",
+  "integrationId": "F0-foundation-w3",
+  "integrationHeadSha": "87bcedcf5ac7a91931afed0e49ca609f542424d4",
+  "accepted": true,
+  "acceptanceAfter": {
+    "stage": "gates",
+    "accepted": true,
+    "gate": "broad",
+    "command": "set -euo pipefail; cd /Users/headless/.maestro-brain-fabro-workdirs/integration-F0-foundation-w3; rtk host-test-slot --class full pnpm verify; rtk git diff --check; STATUS=$(rtk proxy git status --porcelain); rtk proxy test -z \"$STATUS\"",
+    "headSha": "87bcedcf5ac7a91931afed0e49ca609f542424d4"
+  }
+}

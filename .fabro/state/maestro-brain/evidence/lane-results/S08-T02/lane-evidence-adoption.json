@@ -1,0 +1,16 @@
+{
+  "acceptanceAfter": "S08-T01",
+  "acceptanceBlocker": "Acceptance remains deferred until S08-T01; adopted integration evidence proves integration only.",
+  "accepted": false,
+  "integrationHeadSha": "270c42547bcb41b8e7058871d2f6afd907af087d",
+  "integrationId": "D2-domain-bodies",
+  "integrationResultPath": "integration/D2-domain-bodies/integration-result.json",
+  "integrationResultSha256": "8c199dc438fbdc864c8804620b7736d358c26eb5f8740d2d5e998b225b8517c9",
+  "laneHeadSha": "8356028b12ccf371f1a75a663ce72f7194e6b8ab",
+  "laneResultSha256Before": "7b9bfa9d6e25028b55f62ab29b85f8621ccc1b91614c7b18de7ed981bf9995b3",
+  "manifestTranche": "D2-domain-bodies",
+  "previousTranche": "D2-domain-bodies",
+  "schemaVersion": "maestro-brain-lane-evidence-adoption/v1",
+  "laneResultSha256After": "6e1fa5766f91a0225cfe44d245c0727712a846bfaa9a62cf6ec0d513ed237b2e",
+  "taskId": "S08-T02"
+}

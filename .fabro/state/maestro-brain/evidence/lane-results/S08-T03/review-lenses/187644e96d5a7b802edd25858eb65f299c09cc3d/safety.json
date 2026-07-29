@@ -1,0 +1,124 @@
+{
+  "lens": "safety",
+  "taskId": "S08-T03",
+  "planSha256": "ca7c2d9fbe1de7598adb586c3c0eb8e85c2826fc3339def797b61e3dc45b56cf",
+  "taskBlockHash": "2d947263cf0fa3ed72b36f7fddc028629d9db80e333e2511207b2213bf4d40c0",
+  "baseSha": "2bdef668a17ac4e86a9113846b773f6243f281c0",
+  "headSha": "187644e96d5a7b802edd25858eb65f299c09cc3d",
+  "treeSha": "8c4301a35cb7a48f778d834d969dfe91cbfa5d50",
+  "reviewerRunId": "maestro/review/S08-T03/187644e96d5a7b802edd25858eb65f299c09cc3d/48950001-759c-404e-8197-1154005e37b9-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2440-2449",
+        "packages/convex/confect/workflowContracts/sourceClassification.spec.ts:38-43",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:66",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:100-110"
+      ],
+      "findingIds": ["SAFETY-S08-T03-001"]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:70-78",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:144-148",
+        "packages/convex/confect/classification/review.ts:48-55",
+        "packages/convex/test/source-classification.test.ts:185-217"
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2448-2459",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:35",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:45",
+        "packages/convex/confect/classification/commit.ts:49-69"
+      ],
+      "findingIds": ["SAFETY-S08-T03-002"]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/classificationDecisions.ts:37-42",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:10-30",
+        "packages/convex/confect/capabilities/classifySourceUnit.domain.ts:28-44"
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:35",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:45",
+        "packages/convex/confect/classification/commit.ts:29-36",
+        "packages/convex/test/sourceClassification.workflow.test.ts:19-60"
+      ],
+      "findingIds": ["SAFETY-S08-T03-002"]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/workflowContracts/sourceClassification.spec.ts:38-43",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:100-120",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:35",
+        "packages/convex/confect/classification/commit.ts:84-86"
+      ],
+      "findingIds": ["SAFETY-S08-T03-001", "SAFETY-S08-T03-002"]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2453-2459",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:35",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:45",
+        "packages/convex/confect/classification/commit.ts:49-69"
+      ],
+      "findingIds": ["SAFETY-S08-T03-002"]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2440-2447",
+        "packages/convex/confect/capabilities/classifySourceUnit.impl.ts:1-17",
+        "packages/convex/confect/capabilities/classifySourceUnit.domain.ts:1-48",
+        "packages/convex/confect/classification/gather.ts:1-71"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "SAFETY-S08-T03-001",
+      "severity": "blocking",
+      "summary": "Workflow classification start accepts caller-supplied source text and allowlist instead of server-gathering the immutable request.",
+      "details": "S08-T03 requires gather to load the immutable source-unit revision and pinned finite target descriptors before model routing. The internal start contract instead takes a full ClassificationRequest, including canonicalText messages and allowedTargets, and validateStartRequest only checks that this supplied payload is self-consistent for the workspace/authority tuple. A replayed or malformed internal caller can therefore choose the source text and target descriptors used by classification rather than forcing them through a server-gathered immutable unit and tenant-owned allowlist.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2440-2449",
+        "packages/convex/confect/workflowContracts/sourceClassification.spec.ts:38-43",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:66",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:100-110"
+      ]
+    },
+    {
+      "id": "SAFETY-S08-T03-002",
+      "severity": "blocking",
+      "summary": "Commit uses the start-time authority snapshot as current authority, so stale lifecycle, route, and lease generations are not live-fenced.",
+      "details": "The pure commit helper can reject stale policy/source/lifecycle/route/lease generations when given current context, but the durable workflow builds routes.commit args with currentAuthority equal to request.authority captured at start. The graph has no gather/current-authority step before commit and the workflow test pins that same stale snapshot through to commit. Concurrent lifecycle revocation, tombstone/supersede, route generation changes, or lease expiry after classification review therefore cannot be detected by this workflow boundary before routing.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2448-2459",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:35",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:45",
+        "packages/convex/confect/classification/commit.ts:49-69",
+        "packages/convex/test/sourceClassification.workflow.test.ts:19-60"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

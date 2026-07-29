@@ -1,0 +1,282 @@
+{
+  "schemaVersion": "maestro-brain-evidence-archive/v1",
+  "integrationId": "F0-foundation-w3",
+  "manifestTranche": "F0-foundation",
+  "integrationResult": {
+    "schemaVersion": "maestro-brain-integration-result/v1",
+    "baseSha": "d193d0997ffd87a3c8b0aaa8e52161b881d00bbc",
+    "manifestTranche": "F0-foundation",
+    "integrationId": "F0-foundation-w3",
+    "integrationWorkdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-F0-foundation-w3",
+    "headSha": "87bcedcf5ac7a91931afed0e49ca609f542424d4",
+    "integrationHeadSha": "87bcedcf5ac7a91931afed0e49ca609f542424d4",
+    "status": "passed",
+    "reviewVerdict": "pass",
+    "includedTasks": [
+      {
+        "taskId": "S00-T04",
+        "title": "Add A Resumable Expand/Backfill/Contract Migration Harness",
+        "classification": "template-gap",
+        "lane": "foundation",
+        "tranche": "F0-foundation",
+        "codeStartAfter": [
+          "S00-T03"
+        ],
+        "taskHeadSha": "6f9903c733b281f345c575e2e44f2a2389a79ed9",
+        "sourceCommitSha": "6f9903c733b281f345c575e2e44f2a2389a79ed9",
+        "laneHeadSha": "6f9903c733b281f345c575e2e44f2a2389a79ed9",
+        "integrationCommitSha": "2c68cd7e135b30d9cf19b1d9f03b42e56455fca2",
+        "integrationHeadSha": "87bcedcf5ac7a91931afed0e49ca609f542424d4",
+        "subject": "feat: settle migration receipts",
+        "laneResultPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S00-T04/lane-result.json",
+        "laneGateReportPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S00-T04/lane-gate-report.json",
+        "ciProofPacketPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S00-T04/ci-proof-packet.json",
+        "validation": {
+          "laneStatus": "lane_green",
+          "finalGateStatus": "passed",
+          "headHashesMatch": true,
+          "proofHeadHashesMatch": true,
+          "codeStartAfterSatisfied": true,
+          "codeStartAfterSatisfiedBy": [
+            {
+              "taskId": "S00-T03",
+              "integrationId": "F0-foundation-w2",
+              "headSha": "e5b4d7c23a81017b883dfa3aff0f528f6a4bc1e3",
+              "status": "passed",
+              "reviewVerdict": "pass",
+              "remainingFindings": [],
+              "ancestorOfBase": true
+            }
+          ],
+          "baseDependencySatisfied": true,
+          "nonconflictingOwnership": true,
+          "singleIntentionCommit": true
+        },
+        "changedFiles": [
+          "docs/product/maestro-brain-migrations.md",
+          "docs/template/porting-backlog.md",
+          "packages/convex/confect/internal/migrations.impl.ts",
+          "packages/convex/confect/internal/migrations.spec.ts",
+          "packages/convex/confect/internal/migrations.ts",
+          "packages/convex/confect/tables/migrationReceipts.ts",
+          "packages/convex/confect/tables/migrationRuns.ts",
+          "packages/convex/test/migrations.test.ts"
+        ],
+        "integrationId": "F0-foundation-w3",
+        "status": "accepted",
+        "accepted": true,
+        "acceptanceAfter": {
+          "stage": "gates",
+          "accepted": true,
+          "gate": "broad",
+          "command": "set -euo pipefail; cd /Users/headless/.maestro-brain-fabro-workdirs/integration-F0-foundation-w3; rtk host-test-slot --class full pnpm verify; rtk git diff --check; STATUS=$(rtk proxy git status --porcelain); rtk proxy test -z \"$STATUS\"",
+          "headSha": "87bcedcf5ac7a91931afed0e49ca609f542424d4"
+        }
+      }
+    ],
+    "dependencyProvenance": [
+      {
+        "taskId": "S00-T02",
+        "integrationId": "F0-foundation",
+        "headSha": "5b58144cd32bbf807609761638c30d704e819eb7",
+        "status": "passed",
+        "reviewVerdict": "pass",
+        "remainingFindings": [],
+        "ancestorOfBase": true,
+        "satisfies": []
+      },
+      {
+        "taskId": "S00-T03",
+        "integrationId": "F0-foundation-w2",
+        "headSha": "e5b4d7c23a81017b883dfa3aff0f528f6a4bc1e3",
+        "status": "passed",
+        "reviewVerdict": "pass",
+        "remainingFindings": [],
+        "ancestorOfBase": true,
+        "satisfies": [
+          "S00-T04.codeStartAfter"
+        ]
+      }
+    ],
+    "commits": [
+      "4b30b9cceb8beaa7008dd40be3c1169832e74a5d",
+      "dc6e7024787916303390f9ae60384c6a69524ed9",
+      "95cf3fcb072e6eec07ea587e1741a75950304665",
+      "2c68cd7e135b30d9cf19b1d9f03b42e56455fca2",
+      "adc468c104cbf305c63683a0f39f14dac1286aa0",
+      "87bcedcf5ac7a91931afed0e49ca609f542424d4"
+    ],
+    "generatedDiffs": [
+      {
+        "commit": "adc468c104cbf305c63683a0f39f14dac1286aa0",
+        "command": "rtk pnpm confect:codegen",
+        "files": [
+          "packages/convex/confect/_generated/convexSchema.ts",
+          "packages/convex/confect/_generated/docs.ts",
+          "packages/convex/confect/_generated/id.ts",
+          "packages/convex/confect/_generated/registeredFunctions/internal/migrations.ts",
+          "packages/convex/confect/_generated/schema.ts",
+          "packages/convex/confect/_generated/spec.ts",
+          "packages/convex/confect/_generated/tables/migrationReceipts.ts",
+          "packages/convex/confect/_generated/tables/migrationRuns.ts",
+          "packages/convex/convex/internal/migrations.ts"
+        ],
+        "reason": "Combined-head Convex typecheck requires generated Confect refs and Convex plain-function registration for the new migration tables/specs."
+      }
+    ],
+    "integrationRepairs": [
+      {
+        "commit": "87bcedcf5ac7a91931afed0e49ca609f542424d4",
+        "summary": "Replaced the two single-return Effect.gen helpers flagged as warnings by check:effect-diagnostics; notices were intentionally left unchanged."
+      }
+    ],
+    "conflicts": [],
+    "rejectedLaneResults": [],
+    "checks": [
+      {
+        "command": "rtk proxy git merge-base --is-ancestor 5b58144cd32bbf807609761638c30d704e819eb7 HEAD && rtk proxy git merge-base --is-ancestor e5b4d7c23a81017b883dfa3aff0f528f6a4bc1e3 HEAD",
+        "status": "passed",
+        "summary": "Prior passed F0-foundation and F0-foundation-w2 integration heads are ancestors of the current base/head, satisfying historical S00-T02 and S00-T03 dependencies."
+      },
+      {
+        "command": "rtk pnpm check:effect-diagnostics",
+        "status": "passed",
+        "summary": "Effect diagnostics reported 0 errors and 0 warnings; remaining output is notice-level only."
+      },
+      {
+        "command": "rtk pnpm exec prettier --check --ignore-unknown <S00-T04 and generated files>; rtk pnpm exec eslint <S00-T04 ts/test files>; rtk pnpm brain:factory:check-confect-codegen -- --test migrations; rtk pnpm check:schema-migration-notes; rtk pnpm check:generated-files; rtk pnpm check:headless-surface-contract; rtk pnpm --dir packages/convex typecheck; rtk proxy git diff --check; clean status",
+        "status": "passed",
+        "summary": "Focused migration/codegen gates passed from a clean worktree."
+      },
+      {
+        "command": "rtk host-test-slot --class full pnpm verify; rtk proxy git diff --check; STATUS=$(rtk proxy git status --porcelain); rtk proxy test -z \"$STATUS\"",
+        "status": "passed",
+        "summary": "Full verify passed at HEAD 87bcedcf5ac7a91931afed0e49ca609f542424d4; diff check passed and worktree was clean."
+      }
+    ],
+    "broadGate": {
+      "status": "passed",
+      "headSha": "87bcedcf5ac7a91931afed0e49ca609f542424d4",
+      "command": "rtk host-test-slot --class full pnpm verify",
+      "receipt": {
+        "script": "set -euo pipefail; cd /Users/headless/.maestro-brain-fabro-workdirs/integration-F0-foundation-w3; rtk host-test-slot --class full pnpm verify; rtk git diff --check; STATUS=$(rtk proxy git status --porcelain); rtk proxy test -z \"$STATUS\"",
+        "output": "(2570 lines omitted)\n\n\n> maestro-template@ confect:manifest /Users/headless/.maestro-brain-fabro-workdirs/integration-F0-foundation-w3\n> tsx tooling/confect-manifest/src/generate.ts\n\n\n> maestro-template@ check:headless-surface-contract /Users/headless/.maestro-brain-fabro-workdirs/integration-F0-foundation-w3\n> tsx tooling/quality/check-headless-surface-contract.mts\n\ncheck:headless-surface-contract: ok\n\n> maestro-template@ check:posthog-readiness /Users/headless/.maestro-brain-fabro-workdirs/integration-F0-foundation-w3\n> tsx tooling/quality/check-posthog-readiness.mts\n\ncheck:posthog-readiness: ok (pin-only)\n\n> maestro-template@ check:auth-demo-bypass /Users/headless/.maestro-brain-fabro-workdirs/integration-F0-foundation-w3\n> tsx tooling/quality/check-auth-demo-bypass.mts\n\ncheck:auth-demo-bypass: ok\n\n> maestro-template@ check:qlty /Users/headless/.maestro-brain-fabro-workdirs/integration-F0-foundation-w3\n> tsx tooling/quality/check-qlty.mts\n\ncheck:qlty: qlty not installed; skipping local optional check"
+      }
+    },
+    "review": {
+      "headSha": "87bcedcf5ac7a91931afed0e49ca609f542424d4",
+      "reviewVerdict": "pass",
+      "remainingFindings": [],
+      "summary": "Cross-lane dependency provenance, generated refs, migration lifecycle monotonicity tests, typed Confect errors, provider boundary absence, tenant isolation non-applicability for internal migrations, test honesty, and shared-file ownership were reviewed through lane proof, focused gates, generated diff, and full verify."
+    },
+    "remainingFindings": []
+  },
+  "laneEvidence": [
+    {
+      "taskId": "S00-T04",
+      "proof": {
+        "schemaVersion": "maestro-brain-ci-proof/v1",
+        "planSha256": "909a86537a9cba73de63744600a12aca43f0c6505029a232c36f4ca10e57e2ab",
+        "taskBlockHash": "14cb8f5699f656208b9a51eddb200035dfecef8159e0499a6099c3f545b2a613",
+        "taskId": "S00-T04",
+        "baseSha": "d193d0997ffd87a3c8b0aaa8e52161b881d00bbc",
+        "headSha": "6f9903c733b281f345c575e2e44f2a2389a79ed9",
+        "changedFiles": [
+          "docs/product/maestro-brain-migrations.md",
+          "docs/template/porting-backlog.md",
+          "packages/convex/confect/internal/migrations.impl.ts",
+          "packages/convex/confect/internal/migrations.spec.ts",
+          "packages/convex/confect/internal/migrations.ts",
+          "packages/convex/confect/tables/migrationReceipts.ts",
+          "packages/convex/confect/tables/migrationRuns.ts",
+          "packages/convex/test/migrations.test.ts"
+        ],
+        "focusedCommands": [
+          "rtk pnpm brain:factory:check-confect-codegen -- --test migrations",
+          "rtk pnpm check:schema-migration-notes",
+          "rtk pnpm check:generated-files",
+          "rtk pnpm check:headless-surface-contract"
+        ],
+        "testsAdded": [
+          "packages/convex/test/migrations.test.ts"
+        ],
+        "reviewVerdict": "pass",
+        "knownRisks": [
+          "Generated Confect and Convex files are intentionally not committed in this lane; transient disposable codegen validates post-generation outputs before tranche integration owns generated files.",
+          "Dry-run evidence is currently restricted to probeSafeNonSensitive definitions until a promoted no-log component boundary exists for customer-content migrations."
+        ],
+        "reviewedHeadSha": "6f9903c733b281f345c575e2e44f2a2389a79ed9",
+        "reviewFindings": [],
+        "tranche": "F0-foundation",
+        "integrationId": "F0-foundation-w3",
+        "integrationHeadSha": "87bcedcf5ac7a91931afed0e49ca609f542424d4"
+      },
+      "gate": {
+        "schemaVersion": "maestro-brain-lane-gate/v1",
+        "commandSetHash": "215595714e68d0a050a64d0b5ba6ce5cdaf591f2447df06d1922160e24d3d4d1",
+        "commands": [
+          "rtk pnpm exec prettier --check --ignore-unknown docs/product/maestro-brain-migrations.md docs/template/porting-backlog.md packages/convex/confect/internal/migrations.impl.ts packages/convex/confect/internal/migrations.spec.ts packages/convex/confect/internal/migrations.ts packages/convex/confect/tables/migrationReceipts.ts packages/convex/confect/tables/migrationRuns.ts packages/convex/test/migrations.test.ts",
+          "rtk pnpm exec eslint packages/convex/confect/internal/migrations.impl.ts packages/convex/confect/internal/migrations.spec.ts packages/convex/confect/internal/migrations.ts packages/convex/confect/tables/migrationReceipts.ts packages/convex/confect/tables/migrationRuns.ts packages/convex/test/migrations.test.ts",
+          "rtk pnpm brain:factory:check-confect-codegen -- --test migrations",
+          "rtk pnpm check:schema-migration-notes",
+          "rtk pnpm check:generated-files",
+          "rtk pnpm check:headless-surface-contract"
+        ],
+        "currentHeadSha": "6f9903c733b281f345c575e2e44f2a2389a79ed9",
+        "currentTreeSha": "174ee0ab50f33091ece6226fcac64a8df595e500",
+        "gateProfiles": [
+          "convex"
+        ],
+        "headSha": "6f9903c733b281f345c575e2e44f2a2389a79ed9",
+        "planSha256": "909a86537a9cba73de63744600a12aca43f0c6505029a232c36f4ca10e57e2ab",
+        "changedSourceLines": 1176,
+        "estimateDrift": true,
+        "estimatedSourceLines": 780,
+        "sourceSliceBudget": 300,
+        "sourceSlices": [
+          {
+            "changedSourceLines": 300,
+            "commit": "e3338f8e3d2447e308ff6eb3429fdf73bd0fb8ac"
+          },
+          {
+            "changedSourceLines": 280,
+            "commit": "b8d92fd4159f7f33a21e6afce0bf099c48937a94"
+          },
+          {
+            "changedSourceLines": 299,
+            "commit": "db245a174036fb969f07c656e029bc4d8a22f5cf"
+          },
+          {
+            "changedSourceLines": 297,
+            "commit": "6f9903c733b281f345c575e2e44f2a2389a79ed9"
+          }
+        ],
+        "stage": "final",
+        "status": "passed",
+        "taskId": "S00-T04",
+        "taskBlockHash": "14cb8f5699f656208b9a51eddb200035dfecef8159e0499a6099c3f545b2a613",
+        "reusedPreReview": false,
+        "tranche": "F0-foundation",
+        "integrationId": "F0-foundation-w3",
+        "integrationHeadSha": "87bcedcf5ac7a91931afed0e49ca609f542424d4"
+      },
+      "result": {
+        "schemaVersion": "maestro-brain-lane-result/v1",
+        "taskId": "S00-T04",
+        "headSha": "6f9903c733b281f345c575e2e44f2a2389a79ed9",
+        "status": "accepted",
+        "tranche": "F0-foundation",
+        "integrationId": "F0-foundation-w3",
+        "integrationHeadSha": "87bcedcf5ac7a91931afed0e49ca609f542424d4",
+        "accepted": true,
+        "acceptanceAfter": {
+          "stage": "gates",
+          "accepted": true,
+          "gate": "broad",
+          "command": "set -euo pipefail; cd /Users/headless/.maestro-brain-fabro-workdirs/integration-F0-foundation-w3; rtk host-test-slot --class full pnpm verify; rtk git diff --check; STATUS=$(rtk proxy git status --porcelain); rtk proxy test -z \"$STATUS\"",
+          "headSha": "87bcedcf5ac7a91931afed0e49ca609f542424d4"
+        }
+      }
+    }
+  ]
+}

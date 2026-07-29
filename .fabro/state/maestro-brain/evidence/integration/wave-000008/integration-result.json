@@ -1,0 +1,437 @@
+{
+  "schemaVersion": "maestro-brain-integration-result/v2",
+  "integrationId": "wave-000008",
+  "mode": "integrate",
+  "status": "ready_for_review",
+  "baseSha": "561d95448cc01bcc5165af7921fc26b0aa652c9c",
+  "selectionSha256": "5ee09f8f776d73f2ad08db6d31ae5bd196e407b3cd9aaeeeb5b9983815bf4973",
+  "selectionPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000008-selection.json",
+  "includedTasks": [
+    {
+      "taskId": "S01-T04",
+      "tranche": "D2-domain-bodies",
+      "laneHeadSha": "5285a3255771939c34644d3011549ad51e1ca311",
+      "proofHeadSha": "5285a3255771939c34644d3011549ad51e1ca311",
+      "gateHeadSha": "5285a3255771939c34644d3011549ad51e1ca311",
+      "laneResultSha256": "e0a3935cdf54be315ec6d0b07dbcf2de3e0cb795c8115f73ecbb43ac403a3795",
+      "proofSha256": "86ec3f4d916855e57dc3d3a7ae53657607b169771db005cbfafbec4f712d9c0c",
+      "gateSha256": "d3cbb65a40be83d652952202f1702b508fa19878b9c63fd58ef0276b0262d840",
+      "cherryPickCommits": [
+        {
+          "sourceSha": "b70a6f6a8c64fefd9d77477dce9efaa1ce082494",
+          "integratedSha": "a4693fdaeb4f61baa71c8948abfedc5290ddf51a"
+        },
+        {
+          "sourceSha": "409ab5aacf474f96b86a556bd0c23f043c97ea39",
+          "integratedSha": "90889be8229cdf714fdbad4083db3a0b62f3132d"
+        },
+        {
+          "sourceSha": "a0575234b9495c1e94ffb76fcc651b51ec35b920",
+          "integratedSha": "42a8c95a551fa35df07399cf2df2cdbf79344e4c"
+        },
+        {
+          "sourceSha": "e74e777cdcae99a91ccb200f4ea57cadc67bd40e",
+          "integratedSha": "3f63dc30129b45e3e788b66c2e865696592bd514"
+        },
+        {
+          "sourceSha": "545fbfb605eb050fa5852089c55e619860c441b1",
+          "integratedSha": "95763c7834d943d1a9c8f2404c62eba5f972a1cf"
+        },
+        {
+          "sourceSha": "f39a898f6c9d5f3e6223c720ac0f590efc285f41",
+          "integratedSha": "536456caa65a7f04e63a06ed1e0ce26acf5261ec"
+        },
+        {
+          "sourceSha": "d0d70ead7b0ffe230a06fca1629f769677859fab",
+          "integratedSha": "7ba660ed1f0df904be3753e3dae9b92cd7c613fc"
+        },
+        {
+          "sourceSha": "41de295bbe3d1859b68ed7a1d9036a815053b8c1",
+          "integratedSha": "9e8d1bad43ee85cb56cc188cfdfb8c5b1031b6cc"
+        },
+        {
+          "sourceSha": "1f4338bd65547f5520571e962c46121585d01300",
+          "integratedSha": "3b9862a0bc8998d570615adbb0daa98efad44076"
+        },
+        {
+          "sourceSha": "335cb78fd13986820d9fcc53c762e53384512540",
+          "integratedSha": "c4eb2348825b84d48b6f85679999f73a286e69c8"
+        },
+        {
+          "sourceSha": "5285a3255771939c34644d3011549ad51e1ca311",
+          "integratedSha": "1c5b2126926ccd69988dcb83dc1d1a1be9a775a1"
+        }
+      ],
+      "cherryVerification": [
+        "+ b70a6f6a8c64fefd9d77477dce9efaa1ce082494",
+        "+ 409ab5aacf474f96b86a556bd0c23f043c97ea39",
+        "+ a0575234b9495c1e94ffb76fcc651b51ec35b920",
+        "+ e74e777cdcae99a91ccb200f4ea57cadc67bd40e",
+        "+ 545fbfb605eb050fa5852089c55e619860c441b1",
+        "+ f39a898f6c9d5f3e6223c720ac0f590efc285f41",
+        "+ d0d70ead7b0ffe230a06fca1629f769677859fab",
+        "+ 41de295bbe3d1859b68ed7a1d9036a815053b8c1",
+        "+ 1f4338bd65547f5520571e962c46121585d01300",
+        "+ 335cb78fd13986820d9fcc53c762e53384512540",
+        "+ 5285a3255771939c34644d3011549ad51e1ca311"
+      ],
+      "taskBlockHash": "6a9ca40be899a1a64692e5b55e5f5ce0aa7a60d41e9132551e6a503b3e5bf412",
+      "codeStartAfter": [
+        "S01-T02"
+      ],
+      "changedFilesMatchSelection": true
+    },
+    {
+      "taskId": "S03-T02",
+      "tranche": "D2-domain-bodies",
+      "laneHeadSha": "8f57c453bf19314505b2f4fea12ed13668a86597",
+      "proofHeadSha": "8f57c453bf19314505b2f4fea12ed13668a86597",
+      "gateHeadSha": "8f57c453bf19314505b2f4fea12ed13668a86597",
+      "laneResultSha256": "f7093a566cd8e06bb6067a4e0438d47dfe406fec812e5d0d198d50a04af8ec5c",
+      "proofSha256": "e5009aaebdc90fe69c0ee70c60c4bffec8a0013abd9faa820f8348ed9a9e318e",
+      "gateSha256": "c06313cfe98ec65d843d5819b391a0ea96430d65c54f23e00d65d6973d878214",
+      "cherryPickCommits": [
+        {
+          "sourceSha": "4497564cc3114fce05571ea5d195ac30a113e4c4",
+          "integratedSha": "bdfdba1382e47046919f2d268a8d38adced9f372"
+        },
+        {
+          "sourceSha": "8fbf35b52a707a660d3325df1b0c218732b7d245",
+          "integratedSha": "dbd3250ba62f320239c0901cdecaf800a5cf52da"
+        },
+        {
+          "sourceSha": "31668ed0ce3482794f6286991f5c04ec27e8f288",
+          "integratedSha": "07413c5155ecfdb8e93d97d4ef54ba72e4dbc318"
+        },
+        {
+          "sourceSha": "66a4f36307458b5c6bf8ef4e70a9b7dfb60e5ad7",
+          "integratedSha": "f1aca35eec67805bcda3289dc4c5098acbbfcf41"
+        },
+        {
+          "sourceSha": "4f08c5bf52ea36e7eaffb6b94556278367d314e6",
+          "integratedSha": "c3250d5def93a80ca5aae284778c0c02c2d25b83"
+        },
+        {
+          "sourceSha": "8f57c453bf19314505b2f4fea12ed13668a86597",
+          "integratedSha": "d288808a2deb50ecdc6f67b0d56dfaaebc527a37"
+        }
+      ],
+      "cherryVerification": [
+        "+ 4497564cc3114fce05571ea5d195ac30a113e4c4",
+        "+ 8fbf35b52a707a660d3325df1b0c218732b7d245",
+        "+ 31668ed0ce3482794f6286991f5c04ec27e8f288",
+        "+ 66a4f36307458b5c6bf8ef4e70a9b7dfb60e5ad7",
+        "+ 4f08c5bf52ea36e7eaffb6b94556278367d314e6",
+        "+ 8f57c453bf19314505b2f4fea12ed13668a86597"
+      ],
+      "taskBlockHash": "33aadcbccd2318744168364f4fb5be5d5704b125e9cf0cee21211fc8d8cde1c5",
+      "codeStartAfter": [
+        "S01-T03",
+        "S03-T01"
+      ],
+      "changedFilesMatchSelection": true
+    },
+    {
+      "taskId": "S04-T01",
+      "tranche": "C1-contract-spine",
+      "laneHeadSha": "d55f9aa45feb8594b48bfeae592da43d7e316d5e",
+      "proofHeadSha": "d55f9aa45feb8594b48bfeae592da43d7e316d5e",
+      "gateHeadSha": "d55f9aa45feb8594b48bfeae592da43d7e316d5e",
+      "laneResultSha256": "b773a73a5a8311af219279764d7cc059e4b7ca76499bd5b84551fbb58333d147",
+      "proofSha256": "4ceaef0b8a62ffc823223f5c4e8700735699f89afeff430783dcc101e23d497c",
+      "gateSha256": "6c55100e539827529e1a9a212519822c3635b9fc3c608a1dae34c809f1f26d6c",
+      "cherryPickCommits": [
+        {
+          "sourceSha": "6bbf8b22e54d13ac8f9ecd75a3ba7784ab6ef1e0",
+          "integratedSha": "f719e5a03bfae9cf6c4377bc14bb446523290ea2"
+        },
+        {
+          "sourceSha": "cdba682da6da2101d3d67a04be474b21d08b36a7",
+          "integratedSha": "18821b698ac869374f571c6f1442de94633a66fc"
+        },
+        {
+          "sourceSha": "34f4a93e48398bc37a280b41c09d0ea3cd636e50",
+          "integratedSha": "581060283bf86e21605c7df1fe86ebe164568da0"
+        },
+        {
+          "sourceSha": "062dc422edf9f4c5853a8d9f662d64c5599c04f9",
+          "integratedSha": "5f6743725e06742449a9533da3ca8dc3caf2c0f7"
+        },
+        {
+          "sourceSha": "52a5a11bd7eba8a231c8a1767edbe0ae6dbc4b6e",
+          "integratedSha": "7f19adbaf8a206d5df42c487bb735edcf0ab3acf"
+        },
+        {
+          "sourceSha": "e3e01da183a42165168086d6212882609473288d",
+          "integratedSha": "eb15236063016558e4134fd71606ebf1e1daf575"
+        },
+        {
+          "sourceSha": "df3af02ed9d92cab196c5c68f83555233b15c8df",
+          "integratedSha": "28696adda63f5c23bfba1a2c5502d1e4639fcf65"
+        },
+        {
+          "sourceSha": "01ec1ba76692447fcae6687f1ce86a15f9366be5",
+          "integratedSha": "ea7081d46579645672ad48c5cd8e85a166e6314b"
+        },
+        {
+          "sourceSha": "81711b97017d47cd710752174054ba92d1695bf5",
+          "integratedSha": "14b9a4344f054b2f4ca8c2f37cce697bcda09b16"
+        },
+        {
+          "sourceSha": "d55f9aa45feb8594b48bfeae592da43d7e316d5e",
+          "integratedSha": "7ba884e9caf5ae2ea4f9f6405868f311f5bfecce"
+        }
+      ],
+      "cherryVerification": [
+        "+ 6bbf8b22e54d13ac8f9ecd75a3ba7784ab6ef1e0",
+        "+ cdba682da6da2101d3d67a04be474b21d08b36a7",
+        "+ 34f4a93e48398bc37a280b41c09d0ea3cd636e50",
+        "+ 062dc422edf9f4c5853a8d9f662d64c5599c04f9",
+        "+ 52a5a11bd7eba8a231c8a1767edbe0ae6dbc4b6e",
+        "+ e3e01da183a42165168086d6212882609473288d",
+        "+ df3af02ed9d92cab196c5c68f83555233b15c8df",
+        "+ 01ec1ba76692447fcae6687f1ce86a15f9366be5",
+        "+ 81711b97017d47cd710752174054ba92d1695bf5",
+        "+ d55f9aa45feb8594b48bfeae592da43d7e316d5e"
+      ],
+      "taskBlockHash": "fda4652a6ec6cbf81f4deb10c6c607ed72837451fb07a6b3f18305a9f96f2182",
+      "codeStartAfter": [
+        "S00-T03",
+        "S01-T02"
+      ],
+      "changedFilesMatchSelection": true
+    }
+  ],
+  "generatedCommitSha": "fcbcae8a672f0b84c7609f51095727005cc82d1e",
+  "generatedFiles": [
+    "packages/convex/confect/_generated/convexSchema.ts",
+    "packages/convex/confect/_generated/docs.ts",
+    "packages/convex/confect/_generated/id.ts",
+    "packages/convex/confect/_generated/registeredFunctions/integrations/slackConnections.ts",
+    "packages/convex/confect/_generated/schema.ts",
+    "packages/convex/confect/_generated/spec.ts",
+    "packages/convex/confect/_generated/tables/providerConnections.ts",
+    "packages/convex/convex/access/invitations.ts",
+    "packages/convex/convex/access/members.ts",
+    "packages/convex/convex/integrations/slackConnections.ts"
+  ],
+  "checks": [
+    {
+      "command": "rtk pnpm --dir '/Users/headless/maestro-brain-plan/tooling/brain-factory' exec tsx src/hydrate-integration-dependencies.mts --workdir '/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000008' --base '561d95448cc01bcc5165af7921fc26b0aa652c9c'",
+      "status": "passed",
+      "summary": "Dependency hydration completed with mode installed for selected package manifests and lockfile."
+    },
+    {
+      "command": "rtk pnpm --dir \"$WORKDIR\" confect:codegen",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir \"$WORKDIR\" confect:manifest",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir \"$WORKDIR\" exec tsx tooling/quality/check-route-tree.mts --write",
+      "status": "passed",
+      "summary": "Route tree was already pin-only/up to date."
+    },
+    {
+      "command": "rtk pnpm --dir \"$WORKDIR\" brain:factory:check-confect-codegen",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir \"$WORKDIR\" check:route-tree",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir \"$WORKDIR\" check:confect-contracts",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir \"$WORKDIR\" check:provider-boundary",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir \"$WORKDIR\" check:env-boundary",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir \"$WORKDIR\" check:access-audit-events",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir \"$WORKDIR/packages/convex\" typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir \"$WORKDIR/packages/integrations\" typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir \"$WORKDIR/apps/web\" typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir \"$WORKDIR/packages/convex\" test authorized-brain-provisioning brain-role-matrix flags slack-connections",
+      "status": "passed",
+      "summary": "4 files passed, 113 tests passed."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir \"$WORKDIR/packages/integrations\" test nango",
+      "status": "passed",
+      "summary": "2 files passed, 11 tests passed."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir \"$WORKDIR/apps/web\" test settings clients nango-connect confect-state",
+      "status": "passed",
+      "summary": "11 files passed, 49 tests passed."
+    },
+    {
+      "command": "rtk pnpm --dir \"$WORKDIR\" exec prettier --check --ignore-unknown <selected changed files>",
+      "status": "passed",
+      "summary": "All matched files use Prettier code style."
+    },
+    {
+      "command": "rtk pnpm --dir \"$WORKDIR\" exec eslint <selected changed files>",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir \"$WORKDIR\" check:secret-canaries",
+      "status": "passed",
+      "summary": "no leaks found"
+    },
+    {
+      "command": "rtk pnpm --dir \"$WORKDIR\" check:effect-diagnostics",
+      "status": "passed",
+      "summary": "0 errors, 0 warnings and 37 messages."
+    }
+  ],
+  "headSha": "fcbcae8a672f0b84c7609f51095727005cc82d1e",
+  "worktreeStatus": "clean",
+  "reviewVerdict": "rework",
+  "remainingFindings": [
+    {
+      "id": "wave-000008-s04-t01-confect-schema-thunks",
+      "severity": "blocker",
+      "ownerTaskId": "S04-T01",
+      "ownerLaneHeadSha": "d55f9aa45feb8594b48bfeae592da43d7e316d5e",
+      "source": "broad_gate:confect_codegen_schema_thunk_check",
+      "summary": "Broad gate reports Confect schema thunk contract failures in hand-authored Slack connection spec selected from S04-T01.",
+      "details": [
+        {
+          "file": "packages/convex/confect/integrations/slackConnections.spec.ts",
+          "diagnostics": [
+            "error schema must be wrapped in a () => thunk",
+            "returns schema must be wrapped in a () => thunk"
+          ]
+        }
+      ],
+      "requiredAction": "Return to selected lane S04-T01 for hand-authored Confect spec rework; this integration repair node must not edit product source or tests.",
+      "headSha": "fcbcae8a672f0b84c7609f51095727005cc82d1e"
+    }
+  ],
+  "reviewHeadSha": "fcbcae8a672f0b84c7609f51095727005cc82d1e",
+  "planSha256": "868331c0af5ab06b495ca802724f4a3578c854e07b8342c9de4b93107a264499",
+  "dependencyCheck": {
+    "command": "rtk pnpm --dir '/Users/headless/maestro-brain-plan/tooling/brain-factory' exec tsx src/hydrate-integration-dependencies.mts --workdir '/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000008' --base '561d95448cc01bcc5165af7921fc26b0aa652c9c'",
+    "status": "passed",
+    "result": {
+      "changedFiles": [
+        "packages/convex/package.json",
+        "packages/integrations/package.json",
+        "pnpm-lock.yaml"
+      ],
+      "mode": "installed"
+    }
+  },
+  "selectionCheck": {
+    "command": "rtk pnpm --dir /Users/headless/maestro-brain-plan/tooling/brain-factory exec tsx src/integration-wave-selection-check.mts --selection /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000008-selection.json --integration-id wave-000008 --base 561d95448cc01bcc5165af7921fc26b0aa652c9c --selection-sha256 5ee09f8f776d73f2ad08db6d31ae5bd196e407b3cd9aaeeeb5b9983815bf4973",
+    "status": "passed",
+    "summary": "wave-000008: immutable wave selection passed"
+  },
+  "reviewChecks": [
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000008 rev-parse HEAD",
+      "status": "passed",
+      "summary": "fcbcae8a672f0b84c7609f51095727005cc82d1e"
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000008 status --porcelain",
+      "status": "passed",
+      "summary": "No output; integration worktree clean."
+    },
+    {
+      "command": "rtk pnpm --dir /Users/headless/maestro-brain-plan/tooling/brain-factory exec tsx src/integration-wave-selection-check.mts --selection /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000008-selection.json --integration-id wave-000008 --base 561d95448cc01bcc5165af7921fc26b0aa652c9c --selection-sha256 5ee09f8f776d73f2ad08db6d31ae5bd196e407b3cd9aaeeeb5b9983815bf4973",
+      "status": "passed",
+      "summary": "wave-000008: immutable wave selection passed"
+    },
+    {
+      "command": "read-only comparison of rtk proxy git diff --name-only 561d95448cc01bcc5165af7921fc26b0aa652c9c..HEAD against immutable selected changedFiles plus dependency hydration files and generated allowlist",
+      "status": "passed",
+      "summary": "63 changed paths: 53 selected task paths (including the 3 dependency hydration paths) plus 10 generated Confect/Convex paths; no missing selected paths and no unexpected paths."
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000008 diff-tree --no-commit-id --name-only -r HEAD",
+      "status": "passed",
+      "summary": "Head commit fcbcae8a672f0b84c7609f51095727005cc82d1e touches only generated Confect/Convex integration files."
+    },
+    {
+      "command": "read-only inspection of selected lane-result, ci-proof-packet, and lane-gate-report JSON under /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results for S01-T04, S03-T02, and S04-T01",
+      "status": "passed",
+      "summary": "Selected lanes are lane_green with proof reviewVerdict pass and passed lane gates; codeStartAfter dependencies are base-only for this wave with no same-wave edges."
+    },
+    {
+      "command": "rtk proxy git per-commit numstat from 561d95448cc01bcc5165af7921fc26b0aa652c9c..HEAD using tooling/brain-factory source-budget hand-authored source filters",
+      "status": "passed",
+      "summary": "No non-generated integration commit exceeds the 300-line hand-authored source budget; generated-only head commit is integration-owned."
+    },
+    {
+      "command": "scoped rtk rg read-only scans of selected access, provisioning, Slack connection, Nango, settings, clients, and test paths",
+      "status": "passed",
+      "summary": "Tenant/lifecycle fences, typed error contracts, provider/secret redaction boundaries, and focused assertion coverage were observed in selected implementation and tests."
+    }
+  ],
+  "integrationWorkdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000008",
+  "manifestTranches": [
+    "C1-contract-spine",
+    "D2-domain-bodies"
+  ],
+  "generatedRepairCommitSha": null,
+  "repairCommitSha": null,
+  "dependencyFiles": [
+    "packages/convex/package.json",
+    "packages/integrations/package.json",
+    "pnpm-lock.yaml"
+  ],
+  "selectedTaskIds": [
+    "S01-T04",
+    "S03-T02",
+    "S04-T01"
+  ],
+  "resolvedFindings": [],
+  "broadGate": {
+    "status": "failed_rework_required",
+    "summary": "Broad gate failed on non-transient S04-T01-owned Confect schema thunk diagnostics in packages/convex/confect/integrations/slackConnections.spec.ts. No product repair was attempted in this integration node."
+  },
+  "repairChecks": [
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000008 rev-parse HEAD",
+      "status": "passed",
+      "summary": "fcbcae8a672f0b84c7609f51095727005cc82d1e"
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000008 status --porcelain",
+      "status": "passed",
+      "summary": "No output; integration product worktree clean."
+    },
+    {
+      "command": "rtk pnpm check:confect-contracts",
+      "status": "passed",
+      "summary": "Focused Confect contract check passed; broad-gate-specific schema thunk failure is preserved as S04-T01 rework per exact-head receipt."
+    },
+    {
+      "command": "rtk pnpm check:effect-diagnostics",
+      "status": "passed",
+      "summary": "0 errors, 0 warnings and 37 messages."
+    }
+  ]
+}

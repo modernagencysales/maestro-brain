@@ -1,0 +1,65 @@
+{
+  "attempt": 1,
+  "baseSha": "dbfb7a8203c744917dd9e6a39d488b28044e27c7",
+  "branch": "fabro/brain-wave-000040",
+  "integrationId": "wave-000040",
+  "reservationToken": "3928ecb1-f34e-4af4-88dd-1ead91ad0edc",
+  "schemaVersion": "maestro-brain-integration-wave-run/v3",
+  "selection": {
+    "baseSha": "dbfb7a8203c744917dd9e6a39d488b28044e27c7",
+    "deferredTaskIds": [],
+    "integrationId": "wave-000040",
+    "planSha256": "b6c8c42e744502700c8607be941e8f3dbe1e790d70abc7f3666efbf69554f9ca",
+    "requestedTaskIds": [
+      "S04-T02"
+    ],
+    "schemaVersion": "maestro-brain-integration-wave-selection/v3",
+    "selectedTasks": [
+      {
+        "changedFiles": [
+          "docs/product/maestro-brain-lifecycle-adoption/S04-T02.md",
+          "packages/convex/confect/integrations/slackDirectory.impl.ts",
+          "packages/convex/confect/integrations/slackDirectory.spec.ts",
+          "packages/convex/confect/integrations/slackDirectory.ts",
+          "packages/convex/confect/tables/channelSyncStates.ts",
+          "packages/convex/confect/tables/sourceChannels.ts",
+          "packages/convex/test/slack-directory.test.ts"
+        ],
+        "codeStartAfter": [
+          "S04-T01"
+        ],
+        "fileLocks": [
+          "docs/product/maestro-brain-lifecycle-adoption/S04-T02.md",
+          "packages/convex/confect/integrations/slackDirectory.impl.ts",
+          "packages/convex/confect/integrations/slackDirectory.spec.ts",
+          "packages/convex/confect/integrations/slackDirectory.ts",
+          "packages/convex/confect/internal/migrations.ts",
+          "packages/convex/confect/tables/channelSyncStates.ts",
+          "packages/convex/confect/tables/sourceChannels.ts",
+          "packages/convex/test/slack-directory.test.ts"
+        ],
+        "gateHeadSha": "ceed76db1dee584403c8301f43c3b17131d400b7",
+        "gateSha256": "208b6c80399a6543b29e2806db42496b087640abe9f5b6f9d6dec988296a8e98",
+        "headSha": "ceed76db1dee584403c8301f43c3b17131d400b7",
+        "laneResultSha256": "3660bea96f4ac06256721d500cb9b264b4e7b394f83aadd80f7d6f0240d10048",
+        "planSha256": "e5ad32c375d4fd307b3d5bccd47ea6cf4e9b7580f23bb506c893fd94019ca7c5",
+        "proofHeadSha": "ceed76db1dee584403c8301f43c3b17131d400b7",
+        "proofSha256": "ba141402423a193fd18053c3c91f3bbd37d7a86d43f3c8dc5edf0ba96bbe61f2",
+        "taskBlockHash": "cdeca2a0ba4a7101fd27959788455ac53609485617a9cf8146c29c86891a7958",
+        "taskId": "S04-T02",
+        "tranche": "D2-domain-bodies"
+      }
+    ],
+    "selectionPayloadSha256": "972177190ed4266385fa18fe3a3b2344fb0364cb9cfddb3e1ab3076fe57aa024"
+  },
+  "selectionFileSha256": "69dc0d651fc6812bdf23a6020198260020e6fafbe8816c865b6115821a5395f5",
+  "selectionPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000040-selection.json",
+  "selectionPayloadSha256": "972177190ed4266385fa18fe3a3b2344fb0364cb9cfddb3e1ab3076fe57aa024",
+  "status": "launched",
+  "workdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000040",
+  "activeMode": "integrate",
+  "runId": "01KXZBJNEZ8QJF0SJHSZH32V6B",
+  "runIds": [
+    "01KXZBJNEZ8QJF0SJHSZH32V6B"
+  ]
+}

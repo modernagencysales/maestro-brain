@@ -1,0 +1,91 @@
+{
+  "lens": "quality",
+  "taskId": "S13-T03",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "taskBlockHash": "13c071bc2c78035c5563f494b38160a96c981ab2962984f056be4e18853e137e",
+  "baseSha": "f66236e12f93bc254cc2350800a5b2a69d0caff5",
+  "headSha": "327950e7c64d1981ff57210fa28002ed07fc61f3",
+  "treeSha": "1722319e5443e87399e0e50ab3ab7c6bd3c8cd9a",
+  "reviewerRunId": "maestro/review/S13-T03/327950e7c64d1981ff57210fa28002ed07fc61f3/ce9e945e-efd6-4175-ab1e-a44bf71c472f-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "finding",
+      "evidence": [
+        "packages/observability/src/brainMetrics.test.ts:41-60 names model, Slack, storage, queue, and channel budgets but only asserts modelTokens and slackRate cases.",
+        "packages/observability/src/brainMetrics.ts:36-42 declares six budget kinds, including modelSpendCents, storageBytes, queueDepth, and channelCount that have no focused negative assertions.",
+        "packages/convex/test/brain-operation-policy.test.ts:65-86 covers stale generation only through evaluateOperationPolicy; packages/convex/confect/ops/brainOperations.impl.ts:50-54 synthesizes current.generation from expectedGeneration, so the Confect mutation path cannot exercise RecoveryGenerationMismatch."
+      ],
+      "findingIds": ["S13-T03-QA-001"]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "Changed Convex operation contracts and implementations stay under packages/convex/confect/ops, while shared observability helpers stay under packages/observability/src.",
+        "No web route, block, workflow UI, provider SDK, or vendored repo imports were introduced in the changed files listed by the proof packet."
+      ]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.impl.ts:50-54 reconstructs current policy as enabled with generation equal to expectedGeneration (or 1) rather than reading durable policy state, which makes generation checks self-confirming and obscures the intended recovery semantics.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:89-99 accepts subsystem, now, and policy metadata context but ignores subsystem, now, and expiresAt entirely; expiry is documented in docs/product/maestro-brain-operations.md:35-42 as part of policy data."
+      ],
+      "findingIds": ["S13-T03-QA-002"]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/observability/src/brainMetrics.ts:56-69 lists prompt, raw/source text, tokens, secrets, and headers for recursive redaction.",
+        "packages/observability/src/brainMetrics.test.ts:9-39 verifies the emitted metric omits prompt, token, authorization header, and raw customer source canaries while preserving IDs, hashes, counts, durations, status, and error tags.",
+        "packages/observability/src/brainMetrics.test.ts:62-76 verifies recursive prompt/source/token/header redaction."
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "finding",
+      "evidence": [
+        "packages/observability/src/brainMetrics.ts:36-42 declares the required budget names, and packages/observability/src/brainMetrics.ts:126-135 returns typed BudgetExceeded data containing budget, limit, and observed values.",
+        "packages/observability/src/brainMetrics.test.ts:41-60 only proves modelTokens and slackRate failures; it omits negative coverage for modelSpendCents, storageBytes, queueDepth, and channelCount despite S13-T03 requiring budget enforcement for model spend, storage caps, queue-depth caps, and channel-count caps.",
+        "lane-gate-report.json records changedSourceLines 433, estimatedSourceLines 260, sourceSliceBudget 300, estimateDrift true, and three source slices of 137, 296, and 0 lines; the per-commit slice budget is respected but the task estimate drift is material review evidence."
+      ],
+      "findingIds": ["S13-T03-QA-001"]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "pass",
+      "evidence": [
+        "ci-proof-packet.json changedFiles contains no generated Confect or Convex output paths; generated-file ownership risk is explicitly recorded in knownRisks as centrally owned by tranche integration.",
+        "lane-gate-report.json for head 327950e7c64d1981ff57210fa28002ed07fc61f3 includes rtk pnpm check:confect-v9 and packages/convex typecheck in the pre-review command set, both under the exact currentHeadSha."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "S13-T03-QA-001",
+      "severity": "medium",
+      "summary": "Budget proof is false-green and misses required budget classes",
+      "details": "The focused observability test title claims model, Slack, storage, queue, and channel budget enforcement, but the assertions only cover modelTokens and slackRate. Required S13-T03 budget classes for model spend, storage caps, queue-depth caps, and channel-count caps can regress without a red focused test.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3575-3581 requires budget-exceeded drills for Slack rate, model spend, storage, queue depth, classifier ambiguity, lifecycle/export jobs, and capacity use.",
+        "packages/observability/src/brainMetrics.ts:36-42 declares modelTokens, modelSpendCents, slackRate, storageBytes, queueDepth, and channelCount.",
+        "packages/observability/src/brainMetrics.test.ts:41-60 asserts only modelTokens and slackRate outcomes."
+      ]
+    },
+    {
+      "id": "S13-T03-QA-002",
+      "severity": "medium",
+      "summary": "Operation policy implementation makes recovery generation checks self-confirming",
+      "details": "setPolicyInternal constructs the current policy from the request instead of durable current state. When expectedGeneration is supplied, current.generation is set to the same value before nextOperationPolicy checks it, so RecoveryGenerationMismatch is unreachable through the mutation path. Expiry fields are also stored/passed but not evaluated, leaving policy behavior hard to reason about as operations controls grow.",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.impl.ts:50-54 sets current.state to enabled and current.generation to input.expectedGeneration ?? 1.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:68-73 only detects RecoveryGenerationMismatch by comparing current.generation to expectedGeneration.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:89-107 ignores now and has no expiresAt handling in evaluateOperationPolicy."
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

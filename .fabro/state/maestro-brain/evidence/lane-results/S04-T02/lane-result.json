@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "maestro-brain-lane-result/v1",
+  "taskId": "S04-T02",
+  "headSha": "ceed76db1dee584403c8301f43c3b17131d400b7",
+  "treeSha": "44c7c3a973c447e41ebb748ac4b434dd6973d9d3",
+  "tranche": "D2-domain-bodies",
+  "status": "integrated",
+  "accepted": false,
+  "acceptanceBlocker": "Integrated in immutable wave wave-000040, but no acceptanceAfter evidence proves accepted:true for this lane result.",
+  "integrationId": "wave-000040",
+  "integrationHeadSha": "e8f008574eff0d1a21700ff02926ac4c9870d425",
+  "preIntegrationLaneResultSha256": "3660bea96f4ac06256721d500cb9b264b4e7b394f83aadd80f7d6f0240d10048"
+}

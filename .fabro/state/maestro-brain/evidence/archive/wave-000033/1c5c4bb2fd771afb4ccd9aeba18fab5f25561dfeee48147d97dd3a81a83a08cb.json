@@ -1,0 +1,1370 @@
+{
+  "schemaVersion": "maestro-brain-evidence-archive/v1",
+  "integrationId": "wave-000033",
+  "manifestTranches": [
+    "C1-contract-spine"
+  ],
+  "integrationResult": {
+    "baseSha": "1b6b2d5fc92ba7002e93703fb284ea7bfb72753f",
+    "conflicts": [],
+    "focusedChecks": [
+      "rtk host-test-slot --class focused pnpm check:effect-diagnostics",
+      "rtk host-test-slot --class focused pnpm --dir packages/convex test slack-connections",
+      "rtk host-test-slot --class focused pnpm --dir packages/integrations test nango",
+      "rtk host-test-slot --class focused pnpm --dir apps/web test nango-connect",
+      "rtk pnpm --dir packages/integrations typecheck",
+      "rtk pnpm --dir packages/convex typecheck",
+      "rtk pnpm check:provider-boundary",
+      "rtk pnpm check:env-boundary",
+      "rtk pnpm check:secret-canaries",
+      "rtk pnpm brain:factory:check-confect-codegen",
+      "rtk pnpm check:confect-v9"
+    ],
+    "generatedFiles": [],
+    "headSha": "5d98c8521844b6205c8b01d011a9faffa7cec1af",
+    "includedTasks": [
+      {
+        "taskId": "S04-T01",
+        "tranche": "C1-contract-spine",
+        "laneHeadSha": "633e3e337213c3ed4565195493ba0c05b68016bc",
+        "commitShas": [
+          "633e3e337213c3ed4565195493ba0c05b68016bc"
+        ],
+        "patchState": "applied"
+      }
+    ],
+    "integrationId": "wave-000033",
+    "mode": "integrate",
+    "schemaVersion": "maestro-brain-integration-result/v3",
+    "selectionFileSha256": "8d5c4dbb93298ebecc3d076cacbe80e1c84ea524f46e16a9382ce64f18d4adc3",
+    "selectionPayloadSha256": "a885e699f251f5a5fc32716940ba4bcb758ebf3d04b691907a060e59f7211d09",
+    "reviewVerdict": "pass",
+    "status": "passed",
+    "remainingFindings": [],
+    "resolvedFindings": [],
+    "integrationWorkdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000033",
+    "manifestTranches": [
+      "C1-contract-spine"
+    ],
+    "broadGate": {
+      "schemaVersion": "maestro-brain-broad-gate-receipt/v1",
+      "status": "passed",
+      "headSha": "5d98c8521844b6205c8b01d011a9faffa7cec1af",
+      "command": "rtk host-test-slot --class full pnpm verify",
+      "attempts": [
+        {
+          "attempt": 1,
+          "command": "rtk host-test-slot --class full pnpm verify",
+          "headSha": "5d98c8521844b6205c8b01d011a9faffa7cec1af",
+          "outputSha256": "371cd632d3f8dbc667e18905a64f3a4c3a7513836cc8d4c2479b36eac518c24e",
+          "status": "passed",
+          "transientVitestWorkerRpcTimeout": false
+        }
+      ]
+    }
+  },
+  "laneEvidence": [
+    {
+      "taskId": "S04-T01",
+      "proof": {
+        "schemaVersion": "maestro-brain-ci-proof/v1",
+        "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+        "taskBlockHash": "fda4652a6ec6cbf81f4deb10c6c607ed72837451fb07a6b3f18305a9f96f2182",
+        "taskId": "S04-T01",
+        "baseSha": "4001c961201dd9a1cbe7830aca4873457f7713b9",
+        "headSha": "633e3e337213c3ed4565195493ba0c05b68016bc",
+        "changedFiles": [
+          "packages/convex/confect/integrations/slackConnections.impl.ts"
+        ],
+        "focusedCommands": [
+          "rtk host-test-slot --class focused pnpm check:effect-diagnostics",
+          "rtk host-test-slot --class focused pnpm --dir packages/convex test slack-connections",
+          "rtk host-test-slot --class focused pnpm --dir packages/integrations test nango",
+          "rtk host-test-slot --class focused pnpm --dir apps/web test nango-connect",
+          "rtk pnpm --dir packages/integrations typecheck",
+          "rtk pnpm --dir packages/convex typecheck",
+          "rtk pnpm check:provider-boundary",
+          "rtk pnpm check:env-boundary",
+          "rtk pnpm check:secret-canaries",
+          "rtk pnpm brain:factory:check-confect-codegen",
+          "rtk pnpm check:confect-v9"
+        ],
+        "commandResults": [
+          {
+            "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test slack-connections",
+            "status": "passed",
+            "summary": "packages/convex slack-connections Vitest passed 22 tests in 1 file."
+          },
+          {
+            "command": "rtk proxy pnpm --dir packages/convex typecheck",
+            "status": "passed",
+            "summary": "packages/convex TypeScript typecheck passed with tsc -p tsconfig.json --noEmit."
+          }
+        ],
+        "testsAdded": [
+          "No new tests added for this archived reproof repair because behavior did not change; existing packages/convex/test/slack-connections.test.ts coverage was rerun."
+        ],
+        "reviewVerdict": "pass",
+        "knownRisks": [
+          "Broad tranche verification is deferred to integration per Appendix O/P.",
+          "T02 owns bot/team verification and activation beyond the S04-T01 verifying state.",
+          "Only the archived Effect diagnostics repair commit is present in this reproof lane; the focusedCommands list preserves the existing proof/task contract for the deterministic gate node."
+        ],
+        "reviewFindings": [],
+        "reviewHeadSha": "633e3e337213c3ed4565195493ba0c05b68016bc"
+      },
+      "gate": {
+        "schemaVersion": "maestro-brain-lane-gate/v1",
+        "commandSetHash": "98637adf7e344e8532ba1edb9407dfdb08a5a0efdf852c6939ca0b85bb4e08e6",
+        "commands": [
+          "rtk pnpm exec prettier --check --ignore-unknown packages/convex/confect/integrations/slackConnections.impl.ts",
+          "rtk pnpm exec eslint packages/convex/confect/integrations/slackConnections.impl.ts",
+          "rtk host-test-slot --class focused pnpm check:effect-diagnostics",
+          "rtk host-test-slot --class focused pnpm --dir packages/convex test slack-connections",
+          "rtk host-test-slot --class focused pnpm --dir packages/integrations test nango",
+          "rtk host-test-slot --class focused pnpm --dir apps/web test nango-connect",
+          "rtk pnpm --dir packages/integrations typecheck",
+          "rtk pnpm --dir packages/convex typecheck",
+          "rtk pnpm check:provider-boundary",
+          "rtk pnpm check:env-boundary",
+          "rtk pnpm check:secret-canaries",
+          "rtk pnpm brain:factory:check-confect-codegen",
+          "rtk pnpm check:confect-v9",
+          "rtk host-test-slot --class focused pnpm --dir packages/convex test",
+          "rtk host-test-slot --class focused pnpm --dir packages/integrations test",
+          "rtk pnpm --dir apps/web typecheck",
+          "rtk host-test-slot --class focused pnpm --dir apps/web test"
+        ],
+        "currentHeadSha": "633e3e337213c3ed4565195493ba0c05b68016bc",
+        "currentTreeSha": "63409905502b8bbec9369dd7f4701df4ec4a87ea",
+        "gateProfiles": [
+          "convex",
+          "integrations",
+          "web"
+        ],
+        "headSha": "633e3e337213c3ed4565195493ba0c05b68016bc",
+        "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+        "changedSourceLines": 7,
+        "estimateDrift": false,
+        "estimatedSourceLines": 2700,
+        "sourceSliceBudget": 300,
+        "sourceSliceLimit": 10,
+        "sourceSlices": [
+          {
+            "changedSourceLines": 7,
+            "commit": "633e3e337213c3ed4565195493ba0c05b68016bc"
+          }
+        ],
+        "stage": "final",
+        "status": "passed",
+        "taskId": "S04-T01",
+        "taskBlockHash": "fda4652a6ec6cbf81f4deb10c6c607ed72837451fb07a6b3f18305a9f96f2182",
+        "reusedPreReview": true
+      },
+      "result": {
+        "schemaVersion": "maestro-brain-lane-result/v1",
+        "taskId": "S04-T01",
+        "headSha": "633e3e337213c3ed4565195493ba0c05b68016bc",
+        "treeSha": "63409905502b8bbec9369dd7f4701df4ec4a87ea",
+        "tranche": "C1-contract-spine",
+        "status": "integrated",
+        "reproof": {
+          "requestPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/reproofs/S04-T01/fda4652a6ec6cbf81f4deb10c6c607ed72837451fb07a6b3f18305a9f96f2182/4001c961201dd9a1cbe7830aca4873457f7713b9/request.json",
+          "requestSha256": "e06784af24780036213ea8a4c82e92b693355c9197022246e17b323396af82fb",
+          "priorIntegrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+          "priorIntegrationId": "wave-000012"
+        },
+        "accepted": false,
+        "acceptanceBlocker": "No original acceptanceAfter evidence proving accepted:true was present in the selected lane evidence.",
+        "preIntegrationLaneResultSha256": "3a84a8b52f3491e4085134fb92a23b28176af96ebeabdd94b8c1e1726cd055e8",
+        "integrationId": "wave-000033",
+        "integrationHeadSha": "5d98c8521844b6205c8b01d011a9faffa7cec1af"
+      },
+      "reproofRequest": {
+        "schemaVersion": "maestro-brain-contract-reproof-refresh/v2",
+        "taskId": "S04-T01",
+        "reason": "refresh proof against current control authority",
+        "controlHeadSha": "4001c961201dd9a1cbe7830aca4873457f7713b9",
+        "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+        "taskBlockHash": "fda4652a6ec6cbf81f4deb10c6c607ed72837451fb07a6b3f18305a9f96f2182",
+        "priorIntegrationId": "wave-000012",
+        "priorIntegrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+        "priorIntegrationResultSha256": "bc97a43ae82781cd73267c0c0aeffd0806c3bfa911518093e2b86ccceb9a6b36",
+        "priorLaneResultSha256": "16b8686a58641618ecc38bc9672b84c457d7bf2a68d6484f64bddc39f90ac68a",
+        "priorArchiveSha256": "38a37ab00167a4deccbe93721e76b0d03b3ad31f9d08ddd3c4cad6155917472a",
+        "priorEvidencePath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/archive/wave-000012/38a37ab00167a4deccbe93721e76b0d03b3ad31f9d08ddd3c4cad6155917472a.json",
+        "priorReproofRequestPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/reproofs/S04-T01/fda4652a6ec6cbf81f4deb10c6c607ed72837451fb07a6b3f18305a9f96f2182/request.json",
+        "priorReproofRequestSha256": "3ee816a466ccb864355d29b9ee6718ce8e93be639da86712e4e5fccdc31cd48c",
+        "priorReproofLaneResultPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/reproofs/S04-T01/fda4652a6ec6cbf81f4deb10c6c607ed72837451fb07a6b3f18305a9f96f2182/4001c961201dd9a1cbe7830aca4873457f7713b9/prior-lane-result.json",
+        "priorReproofLaneResultSha256": "2cecdf425fc1dafeb78ad80973be861a094fec69e7d552c4e5a599e859c1649b",
+        "priorReproofProofPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/reproofs/S04-T01/fda4652a6ec6cbf81f4deb10c6c607ed72837451fb07a6b3f18305a9f96f2182/4001c961201dd9a1cbe7830aca4873457f7713b9/prior-proof.json",
+        "priorReproofProofSha256": "be88159c501a59fc72108156f3be268e0a52399c9453352805368a94a64daef9",
+        "priorReproofFinalGatePath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/reproofs/S04-T01/fda4652a6ec6cbf81f4deb10c6c607ed72837451fb07a6b3f18305a9f96f2182/4001c961201dd9a1cbe7830aca4873457f7713b9/prior-final-gate.json",
+        "priorReproofFinalGateSha256": "a493b20e4b2321c9160121e4b545b19f534bbfe4cd4d8f1f87906f6deb0b2cec",
+        "priorReproofSourceHeadSha": "d091eb5d26d9da38129aa5b44f5515eec4f5bb89",
+        "requestSha256": "e06784af24780036213ea8a4c82e92b693355c9197022246e17b323396af82fb"
+      },
+      "priorEvidence": {
+        "schemaVersion": "maestro-brain-evidence-archive/v1",
+        "integrationId": "wave-000012",
+        "manifestTranches": [
+          "C1-contract-spine",
+          "D2-domain-bodies"
+        ],
+        "integrationResult": {
+          "schemaVersion": "maestro-brain-integration-result/v2",
+          "integrationId": "wave-000012",
+          "status": "passed",
+          "mode": "recover",
+          "baseSha": "4690ff5b089648a9e63dc4cedb9df0320f356f21",
+          "planSha256": "868331c0af5ab06b495ca802724f4a3578c854e07b8342c9de4b93107a264499",
+          "selectionPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000012-selection.json",
+          "selectionSha256": "32b525b56eda296e580b0dcd997b109d60ab8e24246f546109ac1b877f77cf59",
+          "integrationWorkdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000012",
+          "headSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+          "exactHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+          "integrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+          "selectedTasks": [
+            {
+              "taskId": "S01-T04",
+              "tranche": "D2-domain-bodies",
+              "laneHeadSha": "5285a3255771939c34644d3011549ad51e1ca311",
+              "headSha": "5285a3255771939c34644d3011549ad51e1ca311",
+              "gateHeadSha": "5285a3255771939c34644d3011549ad51e1ca311",
+              "proofHeadSha": "5285a3255771939c34644d3011549ad51e1ca311",
+              "laneResultSha256": "e0a3935cdf54be315ec6d0b07dbcf2de3e0cb795c8115f73ecbb43ac403a3795",
+              "proofSha256": "86ec3f4d916855e57dc3d3a7ae53657607b169771db005cbfafbec4f712d9c0c",
+              "gateSha256": "d3cbb65a40be83d652952202f1702b508fa19878b9c63fd58ef0276b0262d840",
+              "taskBlockHash": "6a9ca40be899a1a64692e5b55e5f5ce0aa7a60d41e9132551e6a503b3e5bf412",
+              "laneResultIntegrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+              "changedFiles": [
+                "apps/web/src/adapters/confect-state.test.ts",
+                "apps/web/src/adapters/confect-state.ts",
+                "apps/web/src/features/settings/member-management-adapter.test.ts",
+                "apps/web/src/features/settings/member-management-adapter.ts",
+                "apps/web/src/features/settings/member-management.test.tsx",
+                "apps/web/src/features/settings/member-management.tsx",
+                "apps/web/src/features/settings/settings-surface.test.ts",
+                "apps/web/src/features/settings/settings-surface.ts",
+                "apps/web/src/routes/_workspace.settings.tsx",
+                "packages/convex/confect/access/audit.ts",
+                "packages/convex/confect/access/auth.ts",
+                "packages/convex/confect/access/handlerContext.ts",
+                "packages/convex/confect/access/invitations.impl.ts",
+                "packages/convex/confect/access/invitations.spec.ts",
+                "packages/convex/confect/access/members.impl.ts",
+                "packages/convex/confect/access/members.spec.ts",
+                "packages/convex/confect/access/tenancySchemas.ts",
+                "packages/convex/test/brain-role-matrix.test.ts",
+                "packages/convex/test/flags.test.ts"
+              ],
+              "trancheProvenance": {
+                "tranche": "D2-domain-bodies",
+                "laneHeadSha": "5285a3255771939c34644d3011549ad51e1ca311",
+                "laneResultIntegrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e"
+              }
+            },
+            {
+              "taskId": "S02-T02",
+              "tranche": "D2-domain-bodies",
+              "laneHeadSha": "d2a0b1172efc1655b5cafb5009a0768e8196749b",
+              "headSha": "d2a0b1172efc1655b5cafb5009a0768e8196749b",
+              "gateHeadSha": "d2a0b1172efc1655b5cafb5009a0768e8196749b",
+              "proofHeadSha": "d2a0b1172efc1655b5cafb5009a0768e8196749b",
+              "laneResultSha256": "a1a4332b859d165b2794bbcd929ac38a77c2b8f549bab1e63395eba14599b53a",
+              "proofSha256": "1a6ebdf8bcb7a07cc4230af0dfedaecf51dce846811bc3b4f569f11047dee16c",
+              "gateSha256": "43bfc1b1aa3e89842629bd3120ade7a009652e16b4edfcbdf603b370ed858266",
+              "taskBlockHash": "01dafeb6e139c6a8e096ef1598d667bae42a04227bedab7521db9d71869f35a7",
+              "laneResultIntegrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+              "changedFiles": [
+                "apps/cli/src/index.test.ts",
+                "apps/cli/src/index.ts",
+                "apps/web/src/adapters/confect-generated-refs.test.ts",
+                "apps/web/src/sample/templateData.test.ts",
+                "apps/web/src/sample/templateData.ts",
+                "docs/superpowers/receipts/maestro-brain/file-inventories/S02-T02-confect-generated-files.json",
+                "packages/convex/confect/brain/pageTree.ts",
+                "packages/convex/confect/brain/pages.impl.ts",
+                "packages/convex/confect/brain/pages.spec.ts",
+                "packages/convex/confect/capabilities/catalog.impl.ts",
+                "packages/convex/confect/editor/syncApi.ts",
+                "packages/convex/confect/http.ts",
+                "packages/convex/confect/httpRequest.ts",
+                "packages/convex/confect/manifest/executor.ts",
+                "packages/convex/confect/tables/brainPageAuditEvents.ts",
+                "packages/convex/test/brain-pages-crud.test.ts",
+                "packages/convex/test/brain-pages.contract.test.ts",
+                "packages/convex/test/confect-contracts.test.ts",
+                "packages/convex/test/editor-sync.test.ts",
+                "packages/convex/test/headless-executor.test.ts",
+                "packages/convex/test/http-docs.test.ts",
+                "packages/convex/test/observability-error-capture.test.ts",
+                "packages/convex/test/workspace-access.contract.test.ts",
+                "tooling/workflow/src/index.test.ts",
+                "tooling/workflow/src/index.ts"
+              ],
+              "trancheProvenance": {
+                "tranche": "D2-domain-bodies",
+                "laneHeadSha": "d2a0b1172efc1655b5cafb5009a0768e8196749b",
+                "laneResultIntegrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e"
+              }
+            },
+            {
+              "taskId": "S03-T02",
+              "tranche": "D2-domain-bodies",
+              "laneHeadSha": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf",
+              "headSha": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf",
+              "gateHeadSha": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf",
+              "proofHeadSha": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf",
+              "laneResultSha256": "4f6dcc3189934f016a97c341bf0fad5427b68f66d5fc1e9127d5b3d6657a6361",
+              "proofSha256": "93776406bcd96e52a840cd165ef3a55597bd9031f72e60c40abfaed147aebc95",
+              "gateSha256": "5fe2aac9c6babd0b0a5e64cda4db699e312c6ee85e587d2c668aafd21e33a83e",
+              "taskBlockHash": "33aadcbccd2318744168364f4fb5be5d5704b125e9cf0cee21211fc8d8cde1c5",
+              "laneResultIntegrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+              "changedFiles": [
+                "apps/web/src/features/clients/clients-adapter.test.ts",
+                "apps/web/src/features/clients/clients-adapter.ts",
+                "apps/web/src/features/clients/clients-screen.test.tsx",
+                "apps/web/src/features/clients/clients-screen.tsx",
+                "apps/web/src/features/clients/clients-state.test.ts",
+                "apps/web/src/features/clients/clients-state.ts",
+                "apps/web/src/features/clients/clients-table.test.tsx",
+                "apps/web/src/features/clients/clients-table.tsx",
+                "apps/web/src/features/clients/create-client-dialog.test.tsx",
+                "apps/web/src/features/clients/create-client-dialog.tsx",
+                "apps/web/src/routes/_workspace.clients.tsx",
+                "packages/convex/confect/access/provisioning.impl.ts",
+                "packages/convex/confect/access/provisioning.spec.ts",
+                "packages/convex/confect/brain/clientBrief.ts",
+                "packages/convex/confect/errors.ts",
+                "packages/convex/confect/tables/workspaces.ts",
+                "packages/convex/test/authorized-brain-provisioning.test.ts"
+              ],
+              "trancheProvenance": {
+                "tranche": "D2-domain-bodies",
+                "laneHeadSha": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf",
+                "laneResultIntegrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e"
+              }
+            },
+            {
+              "taskId": "S04-T01",
+              "tranche": "C1-contract-spine",
+              "laneHeadSha": "efb0d3c17c354a5922f125790b203571b73294ad",
+              "headSha": "efb0d3c17c354a5922f125790b203571b73294ad",
+              "gateHeadSha": "efb0d3c17c354a5922f125790b203571b73294ad",
+              "proofHeadSha": "efb0d3c17c354a5922f125790b203571b73294ad",
+              "laneResultSha256": "bd50bc38496c044b26370c0c1ab8c5d7e449b207787055886bc8c2e596cd9d27",
+              "proofSha256": "5f0839d248bae929ee2bb6dd3a28976aa3e4122b07b9f9f474b256bf9e9de5d9",
+              "gateSha256": "024b9351a37617894f3b8e7b25d5322a4cafd1b0acbbe53483a878eaaee7a6e7",
+              "taskBlockHash": "fda4652a6ec6cbf81f4deb10c6c607ed72837451fb07a6b3f18305a9f96f2182",
+              "laneResultIntegrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+              "changedFiles": [
+                ".env.example",
+                "apps/web/src/features/connections/nango-connect-button.test.tsx",
+                "apps/web/src/features/connections/nango-connect-button.tsx",
+                "docs/template/env-manifest.json",
+                "docs/template/env-manifest.md",
+                "packages/convex/confect/integrations/slackConnections.impl.ts",
+                "packages/convex/confect/integrations/slackConnections.spec.ts",
+                "packages/convex/confect/tables/providerConnections.ts",
+                "packages/convex/package.json",
+                "packages/convex/test/slack-connections.test.ts",
+                "packages/integrations/package.json",
+                "packages/integrations/src/nango/client.test.ts",
+                "packages/integrations/src/nango/client.ts",
+                "packages/integrations/src/nango/connectBrowser.test.ts",
+                "packages/integrations/src/nango/connectBrowser.ts",
+                "packages/integrations/src/nango/slack.ts",
+                "pnpm-lock.yaml"
+              ],
+              "trancheProvenance": {
+                "tranche": "C1-contract-spine",
+                "laneHeadSha": "efb0d3c17c354a5922f125790b203571b73294ad",
+                "laneResultIntegrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e"
+              }
+            }
+          ],
+          "includedTasks": [
+            {
+              "taskId": "S01-T04",
+              "tranche": "D2-domain-bodies",
+              "laneHeadSha": "5285a3255771939c34644d3011549ad51e1ca311",
+              "headSha": "5285a3255771939c34644d3011549ad51e1ca311",
+              "laneResultIntegrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e"
+            },
+            {
+              "taskId": "S02-T02",
+              "tranche": "D2-domain-bodies",
+              "laneHeadSha": "d2a0b1172efc1655b5cafb5009a0768e8196749b",
+              "headSha": "d2a0b1172efc1655b5cafb5009a0768e8196749b",
+              "laneResultIntegrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e"
+            },
+            {
+              "taskId": "S03-T02",
+              "tranche": "D2-domain-bodies",
+              "laneHeadSha": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf",
+              "headSha": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf",
+              "laneResultIntegrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e"
+            },
+            {
+              "taskId": "S04-T01",
+              "tranche": "C1-contract-spine",
+              "laneHeadSha": "efb0d3c17c354a5922f125790b203571b73294ad",
+              "headSha": "efb0d3c17c354a5922f125790b203571b73294ad",
+              "laneResultIntegrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e"
+            }
+          ],
+          "manifestTranches": [
+            "C1-contract-spine",
+            "D2-domain-bodies"
+          ],
+          "generatedFiles": [
+            "packages/convex/confect/_generated/convexSchema.ts",
+            "packages/convex/confect/_generated/docs.ts",
+            "packages/convex/confect/_generated/id.ts",
+            "packages/convex/confect/_generated/registeredFunctions/integrations/slackConnections.ts",
+            "packages/convex/confect/_generated/schema.ts",
+            "packages/convex/confect/_generated/spec.ts",
+            "packages/convex/confect/_generated/tables/brainPageAuditEvents.ts",
+            "packages/convex/confect/_generated/tables/providerConnections.ts",
+            "packages/convex/convex/access/invitations.ts",
+            "packages/convex/convex/access/members.ts",
+            "packages/convex/convex/brain/pages.ts",
+            "packages/convex/convex/integrations/slackConnections.ts",
+            "packages/template-core/src/generated/confectManifest.ts"
+          ],
+          "checks": [
+            {
+              "command": "rtk pnpm --dir '/Users/headless/maestro-brain-plan/tooling/brain-factory' exec tsx src/hydrate-integration-dependencies.mts --workdir '/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000012' --base '4690ff5b089648a9e63dc4cedb9df0320f356f21'",
+              "status": "passed"
+            },
+            {
+              "command": "rtk pnpm --dir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000012 check:convex",
+              "status": "passed"
+            },
+            {
+              "command": "rtk pnpm --dir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000012 check:confect-manifest",
+              "status": "passed"
+            },
+            {
+              "command": "rtk pnpm --dir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000012 check:route-tree",
+              "status": "passed"
+            },
+            {
+              "command": "rtk pnpm --dir '/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000012' exec prettier --write tooling/brain-factory/test/integration-result-check.test.mts",
+              "status": "passed",
+              "headSha": "784d25f59aeb0f40f8c5a597e33a95cd587be527",
+              "findingId": "gates-lint-unused-old-selection-sha256",
+              "summary": "Targeted Prettier completed unchanged for the repaired test file."
+            },
+            {
+              "command": "rtk host-test-slot --class focused pnpm --dir '/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000012/tooling/brain-factory' exec vitest run test/gates.test.mts test/integration-result-check.test.mts",
+              "status": "passed",
+              "headSha": "784d25f59aeb0f40f8c5a597e33a95cd587be527",
+              "findingId": "gates-lint-unused-old-selection-sha256",
+              "summary": "Focused regression passed: 2 files, 48 tests."
+            },
+            {
+              "command": "rtk host-test-slot --class focused pnpm --dir '/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000012/tooling/brain-factory' run typecheck",
+              "status": "passed",
+              "headSha": "784d25f59aeb0f40f8c5a597e33a95cd587be527",
+              "findingId": "gates-lint-unused-old-selection-sha256",
+              "summary": "Focused tooling/brain-factory typecheck passed."
+            }
+          ],
+          "repairCommits": [
+            {
+              "sha": "3d655ac1926e5608d9899315efbdfed5f05eaec6",
+              "summary": "Restored generatedMcpOperationRefs projection in tooling/workflow/src/index.ts while preserving reserved Brain page filtering.",
+              "taskId": "S02-T02"
+            },
+            {
+              "sha": "619cbcdf9ff42fe9b80276de406fd2d5f18c6521",
+              "summary": "Ensured generated MCP tool entries only advertise defined operation ref names so workflow-tooling typecheck passes under noUncheckedIndexedAccess.",
+              "taskId": "S02-T02"
+            },
+            {
+              "sha": "fecf16cc434fddd8c9778062e517ef3d73a41e3e",
+              "summary": "Aligned PostHog readiness quality contract, regression test, and template docs from removed brain/pages.createMarkdown to authorized brain/pages.create.",
+              "taskId": "S02-T02"
+            },
+            {
+              "sha": "8c49e7b818e44162a8575cce3494ed9c5911881f",
+              "summary": "Stabilized broad test scheduling by capping Turbo test concurrency at 4, passing Vitest --maxWorkers=2 through the root test script, and disabling inherited git hooks in the integration-result-check fixture.",
+              "taskId": "integration-recovery"
+            },
+            {
+              "sha": "9754564ddfd990a4ea863830f52faecea05f817f",
+              "summary": "Merged reviewed integration head with control integration-lane-check validator fix; semantic delta adds commandsForTaskFiles parity with lane gates and regression coverage.",
+              "taskId": "integration-recovery"
+            },
+            {
+              "sha": "4561da440f0d7f51adfce4ee5ea870a635db30c9",
+              "summary": "Preserved immutable lane receipt provenance and exact-head integration evidence shape for attempt 7 review handoff.",
+              "taskId": "integration-recovery"
+            },
+            {
+              "sha": "7f436cacab960c78c8a3094bc8ee6e130c6b899f",
+              "summary": "Recovery merge preserving 9754564ddfd990a4ea863830f52faecea05f817f and repair commit 4561da440f0d7f51adfce4ee5ea870a635db30c9 for exact attempt 7 head evidence.",
+              "taskId": "integration-recovery"
+            },
+            {
+              "sha": "784d25f59aeb0f40f8c5a597e33a95cd587be527",
+              "summary": "Avoided unused stale selection hash destructuring in integration-result-check regression coverage.",
+              "taskId": "integration-recovery"
+            },
+            {
+              "sha": "9a0551289af897df315ede359bb5eea3a2d858a1",
+              "summary": "Isolated lane history hooks in the integration-result-check fixture so recovery tests do not inherit repository hooks.",
+              "taskId": "integration-recovery"
+            }
+          ],
+          "resolvedFindings": [
+            {
+              "headSha": "930098d9a45f5c053d850bc8ae4c4956855a73c4",
+              "id": "gates-format-generated-convex-exports",
+              "resolution": "Ran targeted Prettier formatting on packages/convex/convex/integrations/slackConnections.ts and packages/convex/convex/internal/migrations.ts.",
+              "severity": "deterministic",
+              "source": "gates",
+              "summary": "Prettier reported style issues in generated Convex export shims."
+            },
+            {
+              "headSha": "3d655ac1926e5608d9899315efbdfed5f05eaec6",
+              "id": "workflow-graph-boundary-generated-mcp-refs-missing",
+              "resolution": "Added focused workflow coverage, restored generatedMcpOperationRefs for non-reserved MCP operations, and used it in generated MCP tool advertisement and dispatch without reintroducing Brain page exposure.",
+              "severity": "blocking",
+              "source": "review",
+              "summary": "check:workflow-graph-boundary failed because tooling/workflow/src/index.ts was missing generatedMcpOperationRefs."
+            },
+            {
+              "headSha": "619cbcdf9ff42fe9b80276de406fd2d5f18c6521",
+              "id": "gates-workflow-tooling-typecheck-generated-mcp-name",
+              "resolution": "Updated the generated MCP tool projection to skip absent generated operation refs after narrowing, preserving non-reserved MCP advertisement while satisfying McpToolEntry.name as string.",
+              "severity": "deterministic",
+              "source": "gates",
+              "summary": "@maestro-template/workflow-tooling typecheck failed because generated MCP operation ref indexing produced string | undefined tool names."
+            },
+            {
+              "headSha": "fecf16cc434fddd8c9778062e517ef3d73a41e3e",
+              "id": "stale-posthog-readiness-create-markdown-contract",
+              "repairSha": "fecf16cc434fddd8c9778062e517ef3d73a41e3e",
+              "resolution": "Updated the quality contract, regression test, and template docs to require brain/pages.create as the first wrapped Confect mutation; did not restore createMarkdown or weaken the gate.",
+              "severity": "deterministic",
+              "source": "review",
+              "summary": "check:posthog-readiness still requires the removed legacy brain/pages.createMarkdown path even though the exact Brain pages implementation wraps brain/pages.create and the observability error capture test expects brain/pages.create."
+            },
+            {
+              "headSha": "8c49e7b818e44162a8575cce3494ed9c5911881f",
+              "id": "broad-test-scheduler-stability",
+              "repairSha": "8c49e7b818e44162a8575cce3494ed9c5911881f",
+              "resolution": "Limited the root pnpm test scheduler fan-out to avoid local broad-test worker oversubscription; the repair changes only package.json and the integration-result-check fixture hook isolation.",
+              "severity": "deterministic",
+              "source": "review",
+              "summary": "Broad pnpm test scheduling needed deterministic concurrency caps and fixture hook isolation in recovery head 8c49e7b."
+            },
+            {
+              "headSha": "9754564ddfd990a4ea863830f52faecea05f817f",
+              "id": "integration-lane-gate-validation-parity",
+              "repairSha": "9754564ddfd990a4ea863830f52faecea05f817f",
+              "resolution": "Control commit 1f0a646 adds commandsForTaskFiles(actualChangedFiles, manifestTask.fileLocks, focusedCommands) to integration-lane-check and a regression assertion in gates.test.mts.",
+              "severity": "deterministic",
+              "source": "review",
+              "summary": "Integration lane receipt validation needed commandsForTaskFiles parity with lane-gates."
+            },
+            {
+              "id": "attempt-7-immutable-wave-evidence-shape",
+              "source": "review",
+              "severity": "deterministic",
+              "headSha": "4561da440f0d7f51adfce4ee5ea870a635db30c9",
+              "repairSha": "4561da440f0d7f51adfce4ee5ea870a635db30c9",
+              "summary": "Pre-review integration-result evidence had stale passed/review fields, broadGate sidecar data, and lane integrationHeadSha values from a previous recovery head.",
+              "resolution": "Updated the integration-result schema shape for review handoff while preserving all selected lane receipts and exact selected task provenance."
+            },
+            {
+              "id": "gates-lint-unused-old-selection-sha256",
+              "source": "gates",
+              "severity": "deterministic",
+              "headSha": "784d25f59aeb0f40f8c5a597e33a95cd587be527",
+              "repairSha": "784d25f59aeb0f40f8c5a597e33a95cd587be527",
+              "summary": "Broad verify failed eslint because tooling/brain-factory/test/integration-result-check.test.mts assigned _oldSelectionSha256 without using it.",
+              "resolution": "Replaced the unused rest destructuring with a copied selectionPayload and deleted selectionPayload.selectionSha256 before hashing; no lint config change or suppression was added."
+            },
+            {
+              "id": "attempt-8-exact-head-evidence-reset",
+              "source": "integration-recovery",
+              "severity": "deterministic",
+              "headSha": "784d25f59aeb0f40f8c5a597e33a95cd587be527",
+              "repairSha": "784d25f59aeb0f40f8c5a597e33a95cd587be527",
+              "summary": "Pre-review integration evidence needed to be reset to the exact attempt 8 head without stale review verdict, remaining findings, or broad-gate receipt.",
+              "resolution": "Rewrote integration-result.json as ready_for_review at exact head 784d25f59aeb0f40f8c5a597e33a95cd587be527 and preserved all selected lane-result integrationHeadSha values already refreshed to that head."
+            },
+            {
+              "id": "attempt-8-broad-gate-non-reproducible-environmental",
+              "source": "gates",
+              "severity": "environmental",
+              "headSha": "784d25f59aeb0f40f8c5a597e33a95cd587be527",
+              "repairSha": "784d25f59aeb0f40f8c5a597e33a95cd587be527",
+              "summary": "Initial broad gate failed at unchanged clean head with no actionable deterministic diagnostic; rerunning the canonical full verify at the same head passed with HOST_TEST_MAX_LOAD_1M=14 after the observed wait was host load, not a test failure.",
+              "resolution": "Preserved the failed broad-gate receipt as broad-gate-784d25f59aeb0f40f8c5a597e33a95cd587be527.failed-environmental-attempt8.json, removed the transient broadGate pass claim, and reset integration evidence to ready_for_review so review/gates can rerun and produce the authoritative pass receipt."
+            },
+            {
+              "id": "attempt-9-fixture-hook-isolation",
+              "source": "integration-recovery",
+              "severity": "deterministic",
+              "headSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+              "repairSha": "9a0551289af897df315ede359bb5eea3a2d858a1",
+              "summary": "Attempt 9 recovery delta is limited to the test fixture hook isolation commit merged into the exact integration head.",
+              "resolution": "Preserved the repair commit provenance and reset integration evidence to ready_for_review at exact clean head 0e1676dd3590a1811f1e12038a4f747b742efc5e; authoritative review and gates remain external to this evidence reset."
+            }
+          ],
+          "recoveryReview": {
+            "alreadyReviewedDeltaPreserved": {
+              "headSha": "8c49e7b818e44162a8575cce3494ed9c5911881f",
+              "summary": "package.json test scheduler bytes and integration-result-check fixture hook isolation were already reviewed in the prior recovery head."
+            },
+            "baseReviewedHeadSha": "8c49e7b818e44162a8575cce3494ed9c5911881f",
+            "checks": [
+              "focused lane-ownership test passed in 0.37s before this evidence reset",
+              "broad verify not rerun by integration recovery; authoritative gates own broad verification"
+            ],
+            "controlAncestorSha": "1f0a646432712f47be97fd0df0de85d7a963d0ae",
+            "headSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+            "notes": "Attempt 9 evidence handoff preserves all four immutable selected lane receipts at integrationHeadSha 0e1676dd3590a1811f1e12038a4f747b742efc5e. review_gate must set reviewVerdict after review; gates own the authoritative broad receipt.",
+            "scope": "control-plane integration lane gate validation parity only",
+            "semanticDelta": {
+              "files": [
+                "tooling/brain-factory/src/integration-lane-check.ts",
+                "tooling/brain-factory/test/gates.test.mts"
+              ],
+              "summary": "Adds commandsForTaskFiles to integration receipt recomputation so integration validation matches lane-gates, plus regression test coverage."
+            },
+            "treeSha": "69cbc2f95f28d4553e6f7b4b78f79b055b84cf48",
+            "previousRecoveryHeadSha": "9754564ddfd990a4ea863830f52faecea05f817f",
+            "evidenceRepairSha": "4561da440f0d7f51adfce4ee5ea870a635db30c9",
+            "verdict": "ready_for_review",
+            "attempt9RepairSha": "9a0551289af897df315ede359bb5eea3a2d858a1"
+          },
+          "remainingFindings": [],
+          "reviewVerdict": "pass",
+          "broadGate": {
+            "attempts": [
+              {
+                "attempt": 1,
+                "command": "rtk host-test-slot --class full pnpm verify",
+                "headSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+                "outputSha256": "60c2bea475805b81cf9b89bc1ca94768b3812e8019d093384d5890a6435bd80e",
+                "status": "passed",
+                "transientVitestWorkerRpcTimeout": false
+              }
+            ],
+            "command": "rtk host-test-slot --class full pnpm verify",
+            "headSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+            "schemaVersion": "maestro-brain-broad-gate-receipt/v1",
+            "status": "passed"
+          }
+        },
+        "laneEvidence": [
+          {
+            "taskId": "S01-T04",
+            "proof": {
+              "schemaVersion": "maestro-brain-ci-proof/v1",
+              "planSha256": "6da034dd33e0cba26216e8ea759685e5257b60522c6f584d474946b2e1224cde",
+              "taskBlockHash": "6a9ca40be899a1a64692e5b55e5f5ce0aa7a60d41e9132551e6a503b3e5bf412",
+              "taskId": "S01-T04",
+              "baseSha": "14cf8207c50a753d08042f9a31de93d9e9381a4c",
+              "headSha": "5285a3255771939c34644d3011549ad51e1ca311",
+              "changedFiles": [
+                "apps/web/src/adapters/confect-state.test.ts",
+                "apps/web/src/adapters/confect-state.ts",
+                "apps/web/src/features/settings/member-management-adapter.test.ts",
+                "apps/web/src/features/settings/member-management-adapter.ts",
+                "apps/web/src/features/settings/member-management.test.tsx",
+                "apps/web/src/features/settings/member-management.tsx",
+                "apps/web/src/features/settings/settings-surface.test.ts",
+                "apps/web/src/features/settings/settings-surface.ts",
+                "apps/web/src/routes/_workspace.settings.tsx",
+                "packages/convex/confect/access/audit.ts",
+                "packages/convex/confect/access/auth.ts",
+                "packages/convex/confect/access/handlerContext.ts",
+                "packages/convex/confect/access/invitations.impl.ts",
+                "packages/convex/confect/access/invitations.spec.ts",
+                "packages/convex/confect/access/members.impl.ts",
+                "packages/convex/confect/access/members.spec.ts",
+                "packages/convex/confect/access/tenancySchemas.ts",
+                "packages/convex/test/brain-role-matrix.test.ts",
+                "packages/convex/test/flags.test.ts"
+              ],
+              "focusedCommands": [
+                "rtk pnpm brain:factory:check-confect-codegen -- --test access --test brain-role-matrix --test flags",
+                "rtk host-test-slot --class focused pnpm --dir apps/web test settings",
+                "rtk pnpm check:access-audit-events",
+                "rtk pnpm check:layer-boundaries",
+                "rtk host-test-slot --class focused pnpm check:types-coverage",
+                "rtk host-test-slot --class focused pnpm --dir apps/web test confect-state",
+                "rtk pnpm --dir packages/convex typecheck",
+                "rtk pnpm brain:factory:check-confect-codegen",
+                "rtk pnpm exec eslint packages/convex/test/brain-role-matrix.test.ts"
+              ],
+              "testsAdded": [
+                "packages/convex/test/brain-role-matrix.test.ts: TestConfect handler-level privileged operation matrix across viewer/editor/admin/owner, direct workspace membership, organization-admin baseline, revoked membership, last-owner removal, cross-Brain denials, and type-covered local snapshot/case/audit-row bindings",
+                "packages/convex/test/flags.test.ts: feature flag internal-audience fixture now separates organization-only admin success from member-subject direct editor membership denial",
+                "apps/web/src/adapters/confect-state.test.ts: typed matcher bindings preserve error normalization behavior without type-coverage regressions",
+                "apps/web/src/features/settings/member-management-adapter.test.ts: target-aware canManageRole coverage",
+                "apps/web/src/features/settings/member-management.test.tsx: admin-vs-owner row/invitation hiding and owner self-transfer hiding coverage"
+              ],
+              "reviewVerdict": "pass",
+              "knownRisks": [
+                "Broad verification is deferred to tranche integration per Appendix O/P.",
+                "Generated Convex/Confect output remains integration-owned and is not included in this lane diff; focused backend proof uses the factory transient codegen helper.",
+                "Direct package-local brain-role-matrix vitest without the factory transient codegen helper remains red because Convex core exports such as changeRoleCore/removeCore/cancelCore are not materialized; this rework did not alter that baseline and the task-owned type-coverage repair passes the required 99.7% gate."
+              ],
+              "reviewHeadSha": "5285a3255771939c34644d3011549ad51e1ca311",
+              "reviewFindings": []
+            },
+            "gate": {
+              "schemaVersion": "maestro-brain-lane-gate/v1",
+              "commandSetHash": "bb785cd81ae8ab0953716d994a13b3085b015249d83583879f3496b782b6d5aa",
+              "commands": [
+                "rtk pnpm exec prettier --check --ignore-unknown apps/web/src/adapters/confect-state.test.ts apps/web/src/adapters/confect-state.ts apps/web/src/features/settings/member-management-adapter.test.ts apps/web/src/features/settings/member-management-adapter.ts apps/web/src/features/settings/member-management.test.tsx apps/web/src/features/settings/member-management.tsx apps/web/src/features/settings/settings-surface.test.ts apps/web/src/features/settings/settings-surface.ts apps/web/src/routes/_workspace.settings.tsx packages/convex/confect/access/audit.ts packages/convex/confect/access/auth.ts packages/convex/confect/access/handlerContext.ts packages/convex/confect/access/invitations.impl.ts packages/convex/confect/access/invitations.spec.ts packages/convex/confect/access/members.impl.ts packages/convex/confect/access/members.spec.ts packages/convex/confect/access/tenancySchemas.ts packages/convex/test/brain-role-matrix.test.ts packages/convex/test/flags.test.ts",
+                "rtk pnpm exec eslint apps/web/src/adapters/confect-state.test.ts apps/web/src/adapters/confect-state.ts apps/web/src/features/settings/member-management-adapter.test.ts apps/web/src/features/settings/member-management-adapter.ts apps/web/src/features/settings/member-management.test.tsx apps/web/src/features/settings/member-management.tsx apps/web/src/features/settings/settings-surface.test.ts apps/web/src/features/settings/settings-surface.ts apps/web/src/routes/_workspace.settings.tsx packages/convex/confect/access/audit.ts packages/convex/confect/access/auth.ts packages/convex/confect/access/handlerContext.ts packages/convex/confect/access/invitations.impl.ts packages/convex/confect/access/invitations.spec.ts packages/convex/confect/access/members.impl.ts packages/convex/confect/access/members.spec.ts packages/convex/confect/access/tenancySchemas.ts packages/convex/test/brain-role-matrix.test.ts packages/convex/test/flags.test.ts",
+                "rtk pnpm brain:factory:check-confect-codegen -- --test access --test brain-role-matrix --test flags",
+                "rtk host-test-slot --class focused pnpm --dir apps/web test settings",
+                "rtk pnpm check:access-audit-events",
+                "rtk pnpm check:layer-boundaries",
+                "rtk host-test-slot --class focused pnpm check:types-coverage",
+                "rtk host-test-slot --class focused pnpm --dir apps/web test confect-state",
+                "rtk pnpm --dir packages/convex typecheck",
+                "rtk pnpm brain:factory:check-confect-codegen",
+                "rtk pnpm exec eslint packages/convex/test/brain-role-matrix.test.ts",
+                "rtk pnpm --dir apps/web typecheck",
+                "rtk host-test-slot --class focused pnpm --dir apps/web test"
+              ],
+              "currentHeadSha": "5285a3255771939c34644d3011549ad51e1ca311",
+              "currentTreeSha": "6c79c8cc3811571984a350cd09ef6bf631cc1203",
+              "gateProfiles": [
+                "convex",
+                "web"
+              ],
+              "headSha": "5285a3255771939c34644d3011549ad51e1ca311",
+              "planSha256": "6da034dd33e0cba26216e8ea759685e5257b60522c6f584d474946b2e1224cde",
+              "changedSourceLines": 2261,
+              "estimateDrift": false,
+              "estimatedSourceLines": 3300,
+              "sourceSliceBudget": 300,
+              "sourceSliceLimit": 11,
+              "sourceSlices": [
+                {
+                  "changedSourceLines": 280,
+                  "commit": "b70a6f6a8c64fefd9d77477dce9efaa1ce082494"
+                },
+                {
+                  "changedSourceLines": 272,
+                  "commit": "409ab5aacf474f96b86a556bd0c23f043c97ea39"
+                },
+                {
+                  "changedSourceLines": 229,
+                  "commit": "a0575234b9495c1e94ffb76fcc651b51ec35b920"
+                },
+                {
+                  "changedSourceLines": 114,
+                  "commit": "e74e777cdcae99a91ccb200f4ea57cadc67bd40e"
+                },
+                {
+                  "changedSourceLines": 0,
+                  "commit": "545fbfb605eb050fa5852089c55e619860c441b1"
+                },
+                {
+                  "changedSourceLines": 263,
+                  "commit": "f39a898f6c9d5f3e6223c720ac0f590efc285f41"
+                },
+                {
+                  "changedSourceLines": 268,
+                  "commit": "d0d70ead7b0ffe230a06fca1629f769677859fab"
+                },
+                {
+                  "changedSourceLines": 293,
+                  "commit": "41de295bbe3d1859b68ed7a1d9036a815053b8c1"
+                },
+                {
+                  "changedSourceLines": 114,
+                  "commit": "1f4338bd65547f5520571e962c46121585d01300"
+                },
+                {
+                  "changedSourceLines": 214,
+                  "commit": "335cb78fd13986820d9fcc53c762e53384512540"
+                },
+                {
+                  "changedSourceLines": 214,
+                  "commit": "5285a3255771939c34644d3011549ad51e1ca311"
+                }
+              ],
+              "stage": "final",
+              "status": "passed",
+              "taskId": "S01-T04",
+              "taskBlockHash": "6a9ca40be899a1a64692e5b55e5f5ce0aa7a60d41e9132551e6a503b3e5bf412",
+              "reusedPreReview": true
+            },
+            "result": {
+              "acceptanceBlocker": "No original acceptanceAfter evidence proves accepted:true; integration preserves lane proof without fabricating acceptance evidence.",
+              "accepted": false,
+              "headSha": "5285a3255771939c34644d3011549ad51e1ca311",
+              "integrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+              "integrationId": "wave-000012",
+              "preIntegrationLaneResultSha256": "e0a3935cdf54be315ec6d0b07dbcf2de3e0cb795c8115f73ecbb43ac403a3795",
+              "schemaVersion": "maestro-brain-lane-result/v1",
+              "status": "integrated",
+              "taskId": "S01-T04",
+              "tranche": "D2-domain-bodies",
+              "proofHeadSha": "5285a3255771939c34644d3011549ad51e1ca311",
+              "gateHeadSha": "5285a3255771939c34644d3011549ad51e1ca311",
+              "proofSha256": "86ec3f4d916855e57dc3d3a7ae53657607b169771db005cbfafbec4f712d9c0c",
+              "gateSha256": "d3cbb65a40be83d652952202f1702b508fa19878b9c63fd58ef0276b0262d840",
+              "generatedFiles": []
+            }
+          },
+          {
+            "taskId": "S02-T02",
+            "proof": {
+              "schemaVersion": "maestro-brain-ci-proof/v1",
+              "planSha256": "868331c0af5ab06b495ca802724f4a3578c854e07b8342c9de4b93107a264499",
+              "taskBlockHash": "01dafeb6e139c6a8e096ef1598d667bae42a04227bedab7521db9d71869f35a7",
+              "taskId": "S02-T02",
+              "baseSha": "4690ff5b089648a9e63dc4cedb9df0320f356f21",
+              "headSha": "d2a0b1172efc1655b5cafb5009a0768e8196749b",
+              "changedFiles": [
+                "apps/cli/src/index.test.ts",
+                "apps/cli/src/index.ts",
+                "apps/web/src/adapters/confect-generated-refs.test.ts",
+                "apps/web/src/sample/templateData.test.ts",
+                "apps/web/src/sample/templateData.ts",
+                "docs/superpowers/receipts/maestro-brain/file-inventories/S02-T02-confect-generated-files.json",
+                "packages/convex/confect/brain/pageTree.ts",
+                "packages/convex/confect/brain/pages.impl.ts",
+                "packages/convex/confect/brain/pages.spec.ts",
+                "packages/convex/confect/capabilities/catalog.impl.ts",
+                "packages/convex/confect/editor/syncApi.ts",
+                "packages/convex/confect/http.ts",
+                "packages/convex/confect/httpRequest.ts",
+                "packages/convex/confect/manifest/executor.ts",
+                "packages/convex/confect/tables/brainPageAuditEvents.ts",
+                "packages/convex/test/brain-pages-crud.test.ts",
+                "packages/convex/test/brain-pages.contract.test.ts",
+                "packages/convex/test/confect-contracts.test.ts",
+                "packages/convex/test/editor-sync.test.ts",
+                "packages/convex/test/headless-executor.test.ts",
+                "packages/convex/test/http-docs.test.ts",
+                "packages/convex/test/observability-error-capture.test.ts",
+                "packages/convex/test/workspace-access.contract.test.ts",
+                "tooling/workflow/src/index.test.ts",
+                "tooling/workflow/src/index.ts"
+              ],
+              "focusedCommands": [
+                "rtk pnpm brain:factory:check-confect-codegen -- --check confect-contracts --check headless-surface-contract --profile web --test brain-pages --test editor-sync --test http-docs --test confect-contracts --test workspace-access --test headless-executor --test observability-error-capture",
+                "rtk host-test-slot --class focused pnpm --dir apps/cli test",
+                "rtk host-test-slot --class focused pnpm --dir tooling/workflow test"
+              ],
+              "testsAdded": [
+                "packages/convex/test/brain-pages-crud.test.ts",
+                "packages/convex/test/brain-pages.contract.test.ts",
+                "packages/convex/test/editor-sync.test.ts",
+                "packages/convex/test/headless-executor.test.ts",
+                "packages/convex/test/http-docs.test.ts",
+                "packages/convex/test/workspace-access.contract.test.ts",
+                "apps/cli/src/index.test.ts",
+                "tooling/workflow/src/index.test.ts",
+                "apps/web/src/adapters/confect-generated-refs.test.ts",
+                "apps/web/src/sample/templateData.test.ts"
+              ],
+              "reviewVerdict": "pass",
+              "knownRisks": [
+                "Generated Confect/Convex output is intentionally omitted from the lane and remains integration-owned per S02-T02 contract.",
+                "Broad verification is deferred to tranche/wave integration per Appendix O/P."
+              ],
+              "reviewedHeadSha": "d2a0b1172efc1655b5cafb5009a0768e8196749b",
+              "reviewTaskBlockHash": "01dafeb6e139c6a8e096ef1598d667bae42a04227bedab7521db9d71869f35a7",
+              "reviewFindings": [],
+              "reviewNotes": [
+                "Reviewed task packet, manifest ownership, AGENTS.md, committed diff, focused tests, and authoritative pre-review lane-gate report for the same head/task contract.",
+                "No defects found for authorized stable-key Brain page CRUD, audit redaction, stale/cross-tenant/lifecycle denials, deleted headless write exposure, or generated-output ownership."
+              ]
+            },
+            "gate": {
+              "schemaVersion": "maestro-brain-lane-gate/v1",
+              "commandSetHash": "9cc18f45bbfc8a9b04b8d2969619fec016cda54c1796fd67cdc99f00c0d57112",
+              "commands": [
+                "rtk pnpm exec prettier --check --ignore-unknown apps/cli/src/index.test.ts apps/cli/src/index.ts apps/web/src/adapters/confect-generated-refs.test.ts apps/web/src/sample/templateData.test.ts apps/web/src/sample/templateData.ts docs/superpowers/receipts/maestro-brain/file-inventories/S02-T02-confect-generated-files.json packages/convex/confect/brain/pageTree.ts packages/convex/confect/brain/pages.impl.ts packages/convex/confect/brain/pages.spec.ts packages/convex/confect/capabilities/catalog.impl.ts packages/convex/confect/editor/syncApi.ts packages/convex/confect/http.ts packages/convex/confect/httpRequest.ts packages/convex/confect/manifest/executor.ts packages/convex/confect/tables/brainPageAuditEvents.ts packages/convex/test/brain-pages-crud.test.ts packages/convex/test/brain-pages.contract.test.ts packages/convex/test/confect-contracts.test.ts packages/convex/test/editor-sync.test.ts packages/convex/test/headless-executor.test.ts packages/convex/test/http-docs.test.ts packages/convex/test/observability-error-capture.test.ts packages/convex/test/workspace-access.contract.test.ts tooling/workflow/src/index.test.ts tooling/workflow/src/index.ts",
+                "rtk pnpm exec eslint apps/cli/src/index.test.ts apps/cli/src/index.ts apps/web/src/adapters/confect-generated-refs.test.ts apps/web/src/sample/templateData.test.ts apps/web/src/sample/templateData.ts packages/convex/confect/brain/pageTree.ts packages/convex/confect/brain/pages.impl.ts packages/convex/confect/brain/pages.spec.ts packages/convex/confect/capabilities/catalog.impl.ts packages/convex/confect/editor/syncApi.ts packages/convex/confect/http.ts packages/convex/confect/httpRequest.ts packages/convex/confect/manifest/executor.ts packages/convex/confect/tables/brainPageAuditEvents.ts packages/convex/test/brain-pages-crud.test.ts packages/convex/test/brain-pages.contract.test.ts packages/convex/test/confect-contracts.test.ts packages/convex/test/editor-sync.test.ts packages/convex/test/headless-executor.test.ts packages/convex/test/http-docs.test.ts packages/convex/test/observability-error-capture.test.ts packages/convex/test/workspace-access.contract.test.ts tooling/workflow/src/index.test.ts tooling/workflow/src/index.ts",
+                "rtk pnpm brain:factory:check-confect-codegen -- --check confect-contracts --check headless-surface-contract --profile web --test brain-pages --test editor-sync --test http-docs --test confect-contracts --test workspace-access --test headless-executor --test observability-error-capture",
+                "rtk host-test-slot --class focused pnpm --dir apps/cli test",
+                "rtk host-test-slot --class focused pnpm --dir tooling/workflow test",
+                "rtk pnpm check:confect-v9",
+                "rtk pnpm --dir apps/cli typecheck"
+              ],
+              "currentHeadSha": "d2a0b1172efc1655b5cafb5009a0768e8196749b",
+              "currentTreeSha": "761f8af3be0a8848a54f83ea3648e6ddd02ff487",
+              "gateProfiles": [
+                "cli",
+                "convex",
+                "tooling",
+                "web"
+              ],
+              "headSha": "d2a0b1172efc1655b5cafb5009a0768e8196749b",
+              "planSha256": "868331c0af5ab06b495ca802724f4a3578c854e07b8342c9de4b93107a264499",
+              "changedSourceLines": 1296,
+              "estimateDrift": true,
+              "estimatedSourceLines": 1100,
+              "sourceSliceBudget": 300,
+              "sourceSliceLimit": 5,
+              "sourceSlices": [
+                {
+                  "changedSourceLines": 299,
+                  "commit": "dde8319759154999fab5d03572a8cb4637512f00"
+                },
+                {
+                  "changedSourceLines": 300,
+                  "commit": "6d649cf80edd91b09b798adefd61c4991252e996"
+                },
+                {
+                  "changedSourceLines": 300,
+                  "commit": "a703492a12d3fa068d4ae1087e6c18a5f9ae5018"
+                },
+                {
+                  "changedSourceLines": 130,
+                  "commit": "f0eee72f43f01ffd6f1532a08ac63a737da76527"
+                },
+                {
+                  "changedSourceLines": 267,
+                  "commit": "d2a0b1172efc1655b5cafb5009a0768e8196749b"
+                }
+              ],
+              "stage": "final",
+              "status": "passed",
+              "taskId": "S02-T02",
+              "taskBlockHash": "01dafeb6e139c6a8e096ef1598d667bae42a04227bedab7521db9d71869f35a7",
+              "reusedPreReview": true
+            },
+            "result": {
+              "acceptanceBlocker": "No original acceptanceAfter evidence proves accepted:true; integration preserves lane proof without fabricating acceptance evidence.",
+              "accepted": false,
+              "headSha": "d2a0b1172efc1655b5cafb5009a0768e8196749b",
+              "integrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+              "integrationId": "wave-000012",
+              "preIntegrationLaneResultSha256": "a1a4332b859d165b2794bbcd929ac38a77c2b8f549bab1e63395eba14599b53a",
+              "schemaVersion": "maestro-brain-lane-result/v1",
+              "status": "integrated",
+              "taskId": "S02-T02",
+              "tranche": "D2-domain-bodies",
+              "proofHeadSha": "d2a0b1172efc1655b5cafb5009a0768e8196749b",
+              "gateHeadSha": "d2a0b1172efc1655b5cafb5009a0768e8196749b",
+              "proofSha256": "1a6ebdf8bcb7a07cc4230af0dfedaecf51dce846811bc3b4f569f11047dee16c",
+              "gateSha256": "43bfc1b1aa3e89842629bd3120ade7a009652e16b4edfcbdf603b370ed858266",
+              "generatedFiles": []
+            }
+          },
+          {
+            "taskId": "S03-T02",
+            "proof": {
+              "schemaVersion": "maestro-brain-ci-proof/v1",
+              "planSha256": "51b4735b05594f70a16fd670c664ccad98cf2a6ba8d6dd1aab8881fa74faefb5",
+              "taskBlockHash": "33aadcbccd2318744168364f4fb5be5d5704b125e9cf0cee21211fc8d8cde1c5",
+              "taskId": "S03-T02",
+              "baseSha": "3b4ce76f8d6840e15995f95af136524ceb62a6a4",
+              "headSha": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf",
+              "changedFiles": [
+                "apps/web/src/features/clients/clients-adapter.test.ts",
+                "apps/web/src/features/clients/clients-adapter.ts",
+                "apps/web/src/features/clients/clients-screen.test.tsx",
+                "apps/web/src/features/clients/clients-screen.tsx",
+                "apps/web/src/features/clients/clients-state.test.ts",
+                "apps/web/src/features/clients/clients-state.ts",
+                "apps/web/src/features/clients/clients-table.test.tsx",
+                "apps/web/src/features/clients/clients-table.tsx",
+                "apps/web/src/features/clients/create-client-dialog.test.tsx",
+                "apps/web/src/features/clients/create-client-dialog.tsx",
+                "apps/web/src/routes/_workspace.clients.tsx",
+                "packages/convex/confect/access/provisioning.impl.ts",
+                "packages/convex/confect/access/provisioning.spec.ts",
+                "packages/convex/confect/brain/clientBrief.ts",
+                "packages/convex/confect/errors.ts",
+                "packages/convex/confect/tables/workspaces.ts",
+                "packages/convex/test/authorized-brain-provisioning.test.ts"
+              ],
+              "focusedCommands": [
+                "rtk host-test-slot --class focused pnpm --dir packages/convex test authorized-brain-provisioning",
+                "rtk host-test-slot --class focused pnpm --dir apps/web test clients",
+                "rtk pnpm brain:factory:check-confect-codegen",
+                "rtk pnpm check:confect-contracts",
+                "rtk pnpm check:route-tree",
+                "rtk host-test-slot --class focused pnpm --dir packages/convex typecheck",
+                "rtk host-test-slot --class focused pnpm --dir apps/web typecheck",
+                "rtk host-test-slot --class focused pnpm check:types-coverage"
+              ],
+              "testsAdded": [
+                "packages/convex/test/authorized-brain-provisioning.test.ts",
+                "apps/web/src/features/clients/clients-adapter.test.ts",
+                "apps/web/src/features/clients/clients-state.test.ts",
+                "apps/web/src/features/clients/clients-table.test.tsx",
+                "apps/web/src/features/clients/create-client-dialog.test.tsx",
+                "apps/web/src/features/clients/clients-screen.test.tsx"
+              ],
+              "reviewVerdict": "pass",
+              "knownRisks": [
+                "Generated Confect refs are intentionally not committed; route adapter uses a narrow exact bridge until centralized tranche codegen refreshes refs.",
+                "S03-T02 intentionally hands stable brainKey/pageKey to the registered /brain navigation target only; S03-T03 owns destination route consumption and editable workspace rendering.",
+                "Broad verification is deferred to tranche integration per Appendix O/P."
+              ],
+              "reviewFindings": [],
+              "sourceSlices": [
+                {
+                  "commit": "4497564cc3114fce05571ea5d195ac30a113e4c4",
+                  "changedSourceLines": 0
+                },
+                {
+                  "commit": "8fbf35b52a707a660d3325df1b0c218732b7d245",
+                  "changedSourceLines": 122
+                },
+                {
+                  "commit": "31668ed0ce3482794f6286991f5c04ec27e8f288",
+                  "changedSourceLines": 207
+                },
+                {
+                  "commit": "66a4f36307458b5c6bf8ef4e70a9b7dfb60e5ad7",
+                  "changedSourceLines": 171
+                },
+                {
+                  "commit": "4f08c5bf52ea36e7eaffb6b94556278367d314e6",
+                  "changedSourceLines": 145
+                },
+                {
+                  "commit": "1fa0568855f78e0bf1defacaedc107debc92fe39",
+                  "changedSourceLines": 260
+                },
+                {
+                  "commit": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf",
+                  "changedSourceLines": 0
+                }
+              ],
+              "reviewedHeadSha": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf",
+              "reviewNotes": [
+                "Independent read-only review: repair commit is limited to owned S03-T02 regression test helpers in packages/convex/test/authorized-brain-provisioning.test.ts.",
+                "Regression coverage confirmed by exact focusedCommands; authorized-brain-provisioning passed with 29 tests.",
+                "No gate, Confect/Convex contract, or task ownership weakening observed; deterministic pre-review receipt is passing for this HEAD."
+              ]
+            },
+            "gate": {
+              "schemaVersion": "maestro-brain-lane-gate/v1",
+              "commandSetHash": "946cce607e016d31d53f3d79bcd49a2a07c40645c30288db4ae42e44bd00920c",
+              "commands": [
+                "rtk pnpm exec prettier --check --ignore-unknown apps/web/src/features/clients/clients-adapter.test.ts apps/web/src/features/clients/clients-adapter.ts apps/web/src/features/clients/clients-screen.test.tsx apps/web/src/features/clients/clients-screen.tsx apps/web/src/features/clients/clients-state.test.ts apps/web/src/features/clients/clients-state.ts apps/web/src/features/clients/clients-table.test.tsx apps/web/src/features/clients/clients-table.tsx apps/web/src/features/clients/create-client-dialog.test.tsx apps/web/src/features/clients/create-client-dialog.tsx apps/web/src/routes/_workspace.clients.tsx packages/convex/confect/access/provisioning.impl.ts packages/convex/confect/access/provisioning.spec.ts packages/convex/confect/brain/clientBrief.ts packages/convex/confect/errors.ts packages/convex/confect/tables/workspaces.ts packages/convex/test/authorized-brain-provisioning.test.ts",
+                "rtk pnpm exec eslint apps/web/src/features/clients/clients-adapter.test.ts apps/web/src/features/clients/clients-adapter.ts apps/web/src/features/clients/clients-screen.test.tsx apps/web/src/features/clients/clients-screen.tsx apps/web/src/features/clients/clients-state.test.ts apps/web/src/features/clients/clients-state.ts apps/web/src/features/clients/clients-table.test.tsx apps/web/src/features/clients/clients-table.tsx apps/web/src/features/clients/create-client-dialog.test.tsx apps/web/src/features/clients/create-client-dialog.tsx apps/web/src/routes/_workspace.clients.tsx packages/convex/confect/access/provisioning.impl.ts packages/convex/confect/access/provisioning.spec.ts packages/convex/confect/brain/clientBrief.ts packages/convex/confect/errors.ts packages/convex/confect/tables/workspaces.ts packages/convex/test/authorized-brain-provisioning.test.ts",
+                "rtk host-test-slot --class focused pnpm --dir packages/convex test authorized-brain-provisioning",
+                "rtk host-test-slot --class focused pnpm --dir apps/web test clients",
+                "rtk pnpm brain:factory:check-confect-codegen",
+                "rtk pnpm check:confect-contracts",
+                "rtk pnpm check:route-tree",
+                "rtk host-test-slot --class focused pnpm --dir packages/convex typecheck",
+                "rtk host-test-slot --class focused pnpm --dir apps/web typecheck",
+                "rtk host-test-slot --class focused pnpm check:types-coverage",
+                "rtk pnpm --dir packages/convex typecheck",
+                "rtk host-test-slot --class focused pnpm --dir packages/convex test",
+                "rtk pnpm --dir apps/web typecheck",
+                "rtk host-test-slot --class focused pnpm --dir apps/web test"
+              ],
+              "currentHeadSha": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf",
+              "currentTreeSha": "612c9684d96c6e8149947a12dc6f91a4031c96d1",
+              "gateProfiles": [
+                "convex",
+                "web"
+              ],
+              "headSha": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf",
+              "planSha256": "51b4735b05594f70a16fd670c664ccad98cf2a6ba8d6dd1aab8881fa74faefb5",
+              "changedSourceLines": 905,
+              "estimateDrift": false,
+              "estimatedSourceLines": 2100,
+              "sourceSliceBudget": 300,
+              "sourceSliceLimit": 7,
+              "sourceSlices": [
+                {
+                  "changedSourceLines": 0,
+                  "commit": "4497564cc3114fce05571ea5d195ac30a113e4c4"
+                },
+                {
+                  "changedSourceLines": 122,
+                  "commit": "8fbf35b52a707a660d3325df1b0c218732b7d245"
+                },
+                {
+                  "changedSourceLines": 207,
+                  "commit": "31668ed0ce3482794f6286991f5c04ec27e8f288"
+                },
+                {
+                  "changedSourceLines": 171,
+                  "commit": "66a4f36307458b5c6bf8ef4e70a9b7dfb60e5ad7"
+                },
+                {
+                  "changedSourceLines": 145,
+                  "commit": "4f08c5bf52ea36e7eaffb6b94556278367d314e6"
+                },
+                {
+                  "changedSourceLines": 260,
+                  "commit": "1fa0568855f78e0bf1defacaedc107debc92fe39"
+                },
+                {
+                  "changedSourceLines": 0,
+                  "commit": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf"
+                }
+              ],
+              "stage": "final",
+              "status": "passed",
+              "taskId": "S03-T02",
+              "taskBlockHash": "33aadcbccd2318744168364f4fb5be5d5704b125e9cf0cee21211fc8d8cde1c5",
+              "reusedPreReview": true
+            },
+            "result": {
+              "acceptanceBlocker": "No original acceptanceAfter evidence proves accepted:true; integration preserves lane proof without fabricating acceptance evidence.",
+              "accepted": false,
+              "headSha": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf",
+              "integrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+              "integrationId": "wave-000012",
+              "preIntegrationLaneResultSha256": "4f6dcc3189934f016a97c341bf0fad5427b68f66d5fc1e9127d5b3d6657a6361",
+              "schemaVersion": "maestro-brain-lane-result/v1",
+              "status": "integrated",
+              "taskId": "S03-T02",
+              "tranche": "D2-domain-bodies",
+              "proofHeadSha": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf",
+              "gateHeadSha": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf",
+              "proofSha256": "93776406bcd96e52a840cd165ef3a55597bd9031f72e60c40abfaed147aebc95",
+              "gateSha256": "5fe2aac9c6babd0b0a5e64cda4db699e312c6ee85e587d2c668aafd21e33a83e",
+              "generatedFiles": []
+            }
+          },
+          {
+            "taskId": "S04-T01",
+            "proof": {
+              "schemaVersion": "maestro-brain-ci-proof/v1",
+              "planSha256": "51b4735b05594f70a16fd670c664ccad98cf2a6ba8d6dd1aab8881fa74faefb5",
+              "taskBlockHash": "fda4652a6ec6cbf81f4deb10c6c607ed72837451fb07a6b3f18305a9f96f2182",
+              "taskId": "S04-T01",
+              "baseSha": "3b4ce76f8d6840e15995f95af136524ceb62a6a4",
+              "headSha": "efb0d3c17c354a5922f125790b203571b73294ad",
+              "changedFiles": [
+                ".env.example",
+                "apps/web/src/features/connections/nango-connect-button.test.tsx",
+                "apps/web/src/features/connections/nango-connect-button.tsx",
+                "docs/template/env-manifest.json",
+                "docs/template/env-manifest.md",
+                "packages/convex/confect/integrations/slackConnections.impl.ts",
+                "packages/convex/confect/integrations/slackConnections.spec.ts",
+                "packages/convex/confect/tables/providerConnections.ts",
+                "packages/convex/package.json",
+                "packages/convex/test/slack-connections.test.ts",
+                "packages/integrations/package.json",
+                "packages/integrations/src/nango/client.test.ts",
+                "packages/integrations/src/nango/client.ts",
+                "packages/integrations/src/nango/connectBrowser.test.ts",
+                "packages/integrations/src/nango/connectBrowser.ts",
+                "packages/integrations/src/nango/slack.ts",
+                "pnpm-lock.yaml"
+              ],
+              "focusedCommands": [
+                "rtk host-test-slot --class focused pnpm check:effect-diagnostics",
+                "rtk host-test-slot --class focused pnpm --dir packages/convex test slack-connections",
+                "rtk host-test-slot --class focused pnpm --dir packages/integrations test nango",
+                "rtk host-test-slot --class focused pnpm --dir apps/web test nango-connect",
+                "rtk pnpm --dir packages/integrations typecheck",
+                "rtk pnpm --dir packages/convex typecheck",
+                "rtk pnpm check:provider-boundary",
+                "rtk pnpm check:env-boundary",
+                "rtk pnpm check:secret-canaries",
+                "rtk pnpm brain:factory:check-confect-codegen",
+                "rtk pnpm check:confect-v9"
+              ],
+              "commandResults": [
+                {
+                  "command": "rtk pnpm check:confect-v9",
+                  "status": "passed",
+                  "summary": "check:confect-v9 ok after wrapping slackConnections spec error and returns schemas in thunks."
+                },
+                {
+                  "command": "rtk host-test-slot --class focused pnpm check:effect-diagnostics",
+                  "status": "passed",
+                  "summary": "Effect language service checked 363 files with 0 errors and 0 warnings; existing unnecessaryFailYieldableError notices remain notices only."
+                },
+                {
+                  "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test slack-connections",
+                  "status": "passed",
+                  "summary": "packages/convex slack-connections Vitest passed 22 tests in 1 file."
+                },
+                {
+                  "command": "rtk host-test-slot --class focused pnpm --dir packages/integrations test nango",
+                  "status": "passed",
+                  "summary": "packages/integrations Nango Vitest passed 11 tests in 2 files."
+                },
+                {
+                  "command": "rtk host-test-slot --class focused pnpm --dir apps/web test nango-connect",
+                  "status": "passed",
+                  "summary": "apps/web Nango connect button Vitest passed 4 tests in 1 file."
+                },
+                {
+                  "command": "rtk pnpm --dir packages/integrations typecheck",
+                  "status": "passed",
+                  "summary": "packages/integrations tsc --noEmit passed."
+                },
+                {
+                  "command": "rtk pnpm --dir packages/convex typecheck",
+                  "status": "passed",
+                  "summary": "packages/convex tsc --noEmit passed."
+                },
+                {
+                  "command": "rtk pnpm check:provider-boundary",
+                  "status": "passed",
+                  "summary": "check:provider-boundary passed."
+                },
+                {
+                  "command": "rtk pnpm check:env-boundary",
+                  "status": "passed",
+                  "summary": "check:env-boundary passed."
+                },
+                {
+                  "command": "rtk pnpm check:secret-canaries",
+                  "status": "passed",
+                  "summary": "gitleaks scanned approximately 6.77 MB and found no leaks."
+                },
+                {
+                  "command": "rtk pnpm brain:factory:check-confect-codegen",
+                  "status": "passed",
+                  "summary": "transient Confect codegen passed with 9 generated files from a clean amended lane worktree."
+                },
+                {
+                  "command": "rtk host-test-slot --class focused pnpm check:types-coverage",
+                  "status": "passed",
+                  "summary": "type-coverage passed at 99.70% (142192 / 142616) after typing S04-owned Nango connect test symbols; amended head efb0d3c17c354a5922f125790b203571b73294ad from 051d9b665d1fe440b3003e28b7e2464c0f45e515."
+                }
+              ],
+              "testsAdded": [
+                "packages/convex/test/slack-connections.test.ts covers beginSlackConnect and completeSlackConnect reservation, provider failure cleanup, completed retry, replay rejection, and fresh auth/lifecycle fencing under transient generated Confect output.",
+                "packages/integrations/src/nango/client.test.ts covers fake/live Nango client session creation, metadata verification, config validation, redaction, and unsafe value rejection.",
+                "packages/integrations/src/nango/connectBrowser.test.ts covers browser adapter event handling and SDK isolation.",
+                "apps/web/src/features/connections/nango-connect-button.test.tsx covers web connect button begin/connect/complete behavior and error handling."
+              ],
+              "reviewVerdict": "pass",
+              "knownRisks": [
+                "Broad tranche verification is deferred to integration per Appendix O/P.",
+                "T02 owns bot/team verification and activation beyond the S04-T01 verifying state.",
+                "Generated Confect schema, registered functions, refs, and Convex wrappers are intentionally absent from the lane diff; integration wave owns committing generated output after reproducible transient codegen."
+              ],
+              "reviewHeadSha": "efb0d3c17c354a5922f125790b203571b73294ad",
+              "reviewFindings": [],
+              "reviewNotes": [
+                "Independent clean review bound to HEAD efb0d3c17c354a5922f125790b203571b73294ad.",
+                "Exact repaired check rtk host-test-slot --class focused pnpm check:types-coverage passed locally at 99.70% (142192 / 142616), matching the proof packet result.",
+                "Regression coverage remains in apps/web/src/features/connections/nango-connect-button.test.tsx with typed ReactElement props for the click wiring test; no gate or contract weakening found.",
+                "Changed files remain within S04-T01 ownership locks; deterministic pre-review lane-gate receipt is passed for the same HEAD."
+              ]
+            },
+            "gate": {
+              "schemaVersion": "maestro-brain-lane-gate/v1",
+              "commandSetHash": "b4e1c25e483f481176be7498e628db20e378f563299a34a5cea51417a8d257c3",
+              "commands": [
+                "rtk pnpm exec prettier --check --ignore-unknown .env.example apps/web/src/features/connections/nango-connect-button.test.tsx apps/web/src/features/connections/nango-connect-button.tsx docs/template/env-manifest.json docs/template/env-manifest.md packages/convex/confect/integrations/slackConnections.impl.ts packages/convex/confect/integrations/slackConnections.spec.ts packages/convex/confect/tables/providerConnections.ts packages/convex/package.json packages/convex/test/slack-connections.test.ts packages/integrations/package.json packages/integrations/src/nango/client.test.ts packages/integrations/src/nango/client.ts packages/integrations/src/nango/connectBrowser.test.ts packages/integrations/src/nango/connectBrowser.ts packages/integrations/src/nango/slack.ts pnpm-lock.yaml",
+                "rtk pnpm exec eslint apps/web/src/features/connections/nango-connect-button.test.tsx apps/web/src/features/connections/nango-connect-button.tsx packages/convex/confect/integrations/slackConnections.impl.ts packages/convex/confect/integrations/slackConnections.spec.ts packages/convex/confect/tables/providerConnections.ts packages/convex/test/slack-connections.test.ts packages/integrations/src/nango/client.test.ts packages/integrations/src/nango/client.ts packages/integrations/src/nango/connectBrowser.test.ts packages/integrations/src/nango/connectBrowser.ts packages/integrations/src/nango/slack.ts",
+                "rtk host-test-slot --class focused pnpm check:effect-diagnostics",
+                "rtk host-test-slot --class focused pnpm --dir packages/convex test slack-connections",
+                "rtk host-test-slot --class focused pnpm --dir packages/integrations test nango",
+                "rtk host-test-slot --class focused pnpm --dir apps/web test nango-connect",
+                "rtk pnpm --dir packages/integrations typecheck",
+                "rtk pnpm --dir packages/convex typecheck",
+                "rtk pnpm check:provider-boundary",
+                "rtk pnpm check:env-boundary",
+                "rtk pnpm check:secret-canaries",
+                "rtk pnpm brain:factory:check-confect-codegen",
+                "rtk pnpm check:confect-v9",
+                "rtk host-test-slot --class focused pnpm --dir packages/convex test",
+                "rtk host-test-slot --class focused pnpm --dir packages/integrations test",
+                "rtk pnpm --dir apps/web typecheck",
+                "rtk host-test-slot --class focused pnpm --dir apps/web test"
+              ],
+              "currentHeadSha": "efb0d3c17c354a5922f125790b203571b73294ad",
+              "currentTreeSha": "b9aa0a40a87eb066a238cd967b697a90b463df01",
+              "gateProfiles": [
+                "convex",
+                "integrations",
+                "web"
+              ],
+              "headSha": "efb0d3c17c354a5922f125790b203571b73294ad",
+              "planSha256": "51b4735b05594f70a16fd670c664ccad98cf2a6ba8d6dd1aab8881fa74faefb5",
+              "changedSourceLines": 2085,
+              "estimateDrift": false,
+              "estimatedSourceLines": 2700,
+              "sourceSliceBudget": 300,
+              "sourceSliceLimit": 10,
+              "sourceSlices": [
+                {
+                  "changedSourceLines": 171,
+                  "commit": "6bbf8b22e54d13ac8f9ecd75a3ba7784ab6ef1e0"
+                },
+                {
+                  "changedSourceLines": 240,
+                  "commit": "cdba682da6da2101d3d67a04be474b21d08b36a7"
+                },
+                {
+                  "changedSourceLines": 248,
+                  "commit": "34f4a93e48398bc37a280b41c09d0ea3cd636e50"
+                },
+                {
+                  "changedSourceLines": 215,
+                  "commit": "062dc422edf9f4c5853a8d9f662d64c5599c04f9"
+                },
+                {
+                  "changedSourceLines": 230,
+                  "commit": "52a5a11bd7eba8a231c8a1767edbe0ae6dbc4b6e"
+                },
+                {
+                  "changedSourceLines": 274,
+                  "commit": "e3e01da183a42165168086d6212882609473288d"
+                },
+                {
+                  "changedSourceLines": 213,
+                  "commit": "df3af02ed9d92cab196c5c68f83555233b15c8df"
+                },
+                {
+                  "changedSourceLines": 184,
+                  "commit": "01ec1ba76692447fcae6687f1ce86a15f9366be5"
+                },
+                {
+                  "changedSourceLines": 172,
+                  "commit": "81711b97017d47cd710752174054ba92d1695bf5"
+                },
+                {
+                  "changedSourceLines": 138,
+                  "commit": "efb0d3c17c354a5922f125790b203571b73294ad"
+                }
+              ],
+              "stage": "final",
+              "status": "passed",
+              "taskId": "S04-T01",
+              "taskBlockHash": "fda4652a6ec6cbf81f4deb10c6c607ed72837451fb07a6b3f18305a9f96f2182",
+              "reusedPreReview": false
+            },
+            "result": {
+              "acceptanceBlocker": "No original acceptanceAfter evidence proves accepted:true; integration preserves lane proof without fabricating acceptance evidence.",
+              "accepted": false,
+              "headSha": "efb0d3c17c354a5922f125790b203571b73294ad",
+              "integrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+              "integrationId": "wave-000012",
+              "preIntegrationLaneResultSha256": "bd50bc38496c044b26370c0c1ab8c5d7e449b207787055886bc8c2e596cd9d27",
+              "schemaVersion": "maestro-brain-lane-result/v1",
+              "status": "integrated",
+              "taskId": "S04-T01",
+              "tranche": "C1-contract-spine",
+              "proofHeadSha": "efb0d3c17c354a5922f125790b203571b73294ad",
+              "gateHeadSha": "efb0d3c17c354a5922f125790b203571b73294ad",
+              "proofSha256": "5f0839d248bae929ee2bb6dd3a28976aa3e4122b07b9f9f474b256bf9e9de5d9",
+              "gateSha256": "024b9351a37617894f3b8e7b25d5322a4cafd1b0acbbe53483a878eaaee7a6e7",
+              "generatedFiles": []
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

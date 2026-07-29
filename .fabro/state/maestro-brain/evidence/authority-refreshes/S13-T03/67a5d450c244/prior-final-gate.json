@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "maestro-brain-lane-gate/v1",
+  "commandSetHash": "df865607495bd268de564fddadab0ffeec6452c3d75d1e6da55d252fb970019e",
+  "commands": [
+    "rtk pnpm exec prettier --check --ignore-unknown docs/product/maestro-brain-operations.md packages/convex/confect/ops/brainOperationPolicy.ts packages/convex/confect/ops/brainOperations.impl.ts packages/convex/confect/ops/brainOperations.spec.ts packages/convex/confect/ops/flags.impl.ts packages/convex/confect/ops/flags.spec.ts packages/convex/test/brain-operation-policy.test.ts packages/observability/src/brainMetrics.test.ts packages/observability/src/brainMetrics.ts packages/observability/src/index.ts tooling/quality/check-logging-boundary.mts",
+    "rtk pnpm exec eslint packages/convex/confect/ops/brainOperationPolicy.ts packages/convex/confect/ops/brainOperations.impl.ts packages/convex/confect/ops/brainOperations.spec.ts packages/convex/confect/ops/flags.impl.ts packages/convex/confect/ops/flags.spec.ts packages/convex/test/brain-operation-policy.test.ts packages/observability/src/brainMetrics.test.ts packages/observability/src/brainMetrics.ts packages/observability/src/index.ts tooling/quality/check-logging-boundary.mts",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test brain-operation-policy",
+    "rtk host-test-slot --class focused pnpm --dir packages/observability test brainMetrics",
+    "rtk pnpm check:logging-boundary",
+    "rtk pnpm check:secret-canaries",
+    "rtk pnpm check:access-audit-events",
+    "rtk pnpm check:confect-v9",
+    "rtk pnpm --dir packages/convex typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test"
+  ],
+  "currentHeadSha": "a3e7e93d8c2e85c11c5658af518f620d187cb445",
+  "currentTreeSha": "d9b14625d4ec25719cc5ff7dc9e4c7a1b86ec1b5",
+  "gateProfiles": [
+    "convex",
+    "tooling"
+  ],
+  "headSha": "a3e7e93d8c2e85c11c5658af518f620d187cb445",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "changedSourceLines": 958,
+  "estimateDrift": true,
+  "estimatedSourceLines": 260,
+  "sourceSliceBudget": 300,
+  "sourceSliceLimit": 4,
+  "sourceSlices": [
+    {
+      "changedSourceLines": 212,
+      "commit": "fe3ef5c6e845e4fcf1aec34b0b48a9def9f50818"
+    },
+    {
+      "changedSourceLines": 268,
+      "commit": "981d04e14edcb8317ada3da069aa443226425d7e"
+    },
+    {
+      "changedSourceLines": 293,
+      "commit": "58b6257f53c792ab36675b01772147373337ab1d"
+    },
+    {
+      "changedSourceLines": 185,
+      "commit": "a3e7e93d8c2e85c11c5658af518f620d187cb445"
+    }
+  ],
+  "stage": "final",
+  "status": "passed",
+  "taskId": "S13-T03",
+  "taskBlockHash": "13c071bc2c78035c5563f494b38160a96c981ab2962984f056be4e18853e137e",
+  "reusedPreReview": true
+}

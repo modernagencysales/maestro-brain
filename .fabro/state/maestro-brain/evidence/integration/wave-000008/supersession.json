@@ -1,0 +1,30 @@
+{
+  "baseSha": "561d95448cc01bcc5165af7921fc26b0aa652c9c",
+  "controlHeadSha": "561d95448cc01bcc5165af7921fc26b0aa652c9c",
+  "createdAt": "2026-07-16T14:44:10.862Z",
+  "evidence": [
+    "broad-gate:fcbcae8a672f0b84c7609f51095727005cc82d1e",
+    "fabro-run:01KXNMQ5RAA17T6Y61V91J75VJ"
+  ],
+  "integrationId": "wave-000008",
+  "planSha256": "868331c0af5ab06b495ca802724f4a3578c854e07b8342c9de4b93107a264499",
+  "reason": "broad gate found S04-T01 Confect error and returns schemas must use thunks; owning-lane repair required",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXNMQ5RAA17T6Y61V91J75VJ",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "8a01533c189fa2d8a711803e149b9e444f994114a68fc5535b5b7c6fd1d742cc",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v1",
+  "selectedTaskIds": [
+    "S01-T04",
+    "S03-T02",
+    "S04-T01"
+  ],
+  "selectionFileSha256": "a30705835827696201b78b29c3736d8a4c7ed9d4622324f75a3d1b2ccc0700a6",
+  "selectionSha256": "5ee09f8f776d73f2ad08db6d31ae5bd196e407b3cd9aaeeeb5b9983815bf4973",
+  "status": "superseded",
+  "receiptSha256": "15e779b4d587fde57c6ff24458f65a764bff7f3de4c5640901f82a75164c1e25"
+}

@@ -1,0 +1,89 @@
+{
+  "lens": "quality",
+  "taskId": "S05-T01",
+  "planSha256": "b25dfe4b3139d61e98976f450d6dfbdb30629201ab2015f7846a04ca02435a57",
+  "taskBlockHash": "8c814c81e34129532e8467e567d99d48dfb60017ceda5ab0934454da2d348044",
+  "baseSha": "73609583b9ca2704ad28f3844239f00764ac7230",
+  "headSha": "69c422c52fbe46f01ee70d3530239a34a4b37a52",
+  "treeSha": "58f72263857cf5b91fa940097375a458ad593416",
+  "reviewerRunId": "maestro/review/S05-T01/69c422c52fbe46f01ee70d3530239a34a4b37a52/02c49107-a9a9-4114-9081-dad613fe4ffc-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1669-1677",
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:40-42",
+        "packages/convex/test/source-ledger-schema.test.ts:378-405",
+        "packages/convex/confect/sources/sourceSchemas.ts:269-368"
+      ],
+      "findingIds": ["QUALITY-S05-T01-003"]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/providerEventReceipts.ts:1-14",
+        "packages/convex/confect/tables/sourceArtifacts.ts:1-19",
+        "packages/convex/confect/tables/sourceRevisions.ts:1-13",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:1-10",
+        "packages/convex/confect/sources/sourceSchemas.ts:1-368"
+      ]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:112-155",
+        "packages/convex/confect/sources/sourceSchemas.ts:178-208",
+        "packages/convex/confect/sources/sourceSchemas.ts:210-267",
+        "packages/convex/confect/sources/sourceSchemas.ts:269-368"
+      ]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:6-24",
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:26-42",
+        "packages/convex/confect/sources/sourceSchemas.ts:26-40",
+        "packages/convex/confect/sources/sourceSchemas.ts:43-81",
+        "packages/convex/confect/sources/sourceSchemas.ts:84-109"
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:686-692",
+        "rtk proxy git log --oneline 73609583b9ca2704ad28f3844239f00764ac7230..HEAD: four task commits",
+        "rtk proxy git show --numstat per task commit: production source slices remain within the 300-line task source budget; the post-review repair commit adds 134 source lines and 158 test lines"
+      ]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1666-1668",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1701-1705",
+        "ci-proof-packet.json:63-65",
+        "rtk proxy git diff --name-only 73609583b9ca2704ad28f3844239f00764ac7230..HEAD -- packages/convex/confect/internal/migrations.ts packages/convex/_generated packages/convex/confect/_generated: no edited generated paths"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "QUALITY-S05-T01-003",
+      "severity": "high",
+      "summary": "Partial-write rollback proof is still only a pure staging check",
+      "details": "S05-T01 explicitly requires failure-first proof for partial transaction failure, and the lifecycle record states that a failed insert leaves no orphan receipt, revision, artifact, or processing job. The rework adds buildSourceLedgerRows and verifies it stages receipt/artifact/revision/job data before mutating the caller's seen-delivery Set, but no test exercises a ledger write boundary or simulates a failure after one row write to prove durable rollback/no orphan rows. This can still false-green an implementation that inserts a receipt or artifact before a later job/revision insert fails.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1669-1677",
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:40-42",
+        "packages/convex/test/source-ledger-schema.test.ts:378-405",
+        "packages/convex/confect/sources/sourceSchemas.ts:269-368"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "maestro-brain-ci-proof/v1",
+  "planSha256": "909a86537a9cba73de63744600a12aca43f0c6505029a232c36f4ca10e57e2ab",
+  "taskBlockHash": "14cb8f5699f656208b9a51eddb200035dfecef8159e0499a6099c3f545b2a613",
+  "taskId": "S00-T04",
+  "baseSha": "d193d0997ffd87a3c8b0aaa8e52161b881d00bbc",
+  "headSha": "6f9903c733b281f345c575e2e44f2a2389a79ed9",
+  "changedFiles": [
+    "docs/product/maestro-brain-migrations.md",
+    "docs/template/porting-backlog.md",
+    "packages/convex/confect/internal/migrations.impl.ts",
+    "packages/convex/confect/internal/migrations.spec.ts",
+    "packages/convex/confect/internal/migrations.ts",
+    "packages/convex/confect/tables/migrationReceipts.ts",
+    "packages/convex/confect/tables/migrationRuns.ts",
+    "packages/convex/test/migrations.test.ts"
+  ],
+  "focusedCommands": [
+    "rtk pnpm brain:factory:check-confect-codegen -- --test migrations",
+    "rtk pnpm check:schema-migration-notes",
+    "rtk pnpm check:generated-files",
+    "rtk pnpm check:headless-surface-contract"
+  ],
+  "testsAdded": [
+    "packages/convex/test/migrations.test.ts"
+  ],
+  "reviewVerdict": "pass",
+  "knownRisks": [
+    "Generated Confect and Convex files are intentionally not committed in this lane; transient disposable codegen validates post-generation outputs before tranche integration owns generated files.",
+    "Dry-run evidence is currently restricted to probeSafeNonSensitive definitions until a promoted no-log component boundary exists for customer-content migrations."
+  ],
+  "reviewedHeadSha": "6f9903c733b281f345c575e2e44f2a2389a79ed9",
+  "reviewFindings": [],
+  "tranche": "F0-foundation",
+  "integrationId": "F0-foundation-w3",
+  "integrationHeadSha": "87bcedcf5ac7a91931afed0e49ca609f542424d4"
+}

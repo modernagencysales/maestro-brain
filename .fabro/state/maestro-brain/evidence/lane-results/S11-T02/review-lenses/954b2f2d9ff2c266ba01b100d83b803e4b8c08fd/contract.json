@@ -1,0 +1,73 @@
+{
+  "lens": "contract",
+  "taskId": "S11-T02",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "2b484dad01173ead7ca99d710455998926b3666713d025943ef5824aed334ff6",
+  "baseSha": "defde4d68fbcdd7d39566d82986ec562010c9638",
+  "headSha": "954b2f2d9ff2c266ba01b100d83b803e4b8c08fd",
+  "treeSha": "42e759fcd2e3a36faf101e1b8eb9187b7ab8fa8a",
+  "reviewerRunId": "maestro/review/S11-T02/954b2f2d9ff2c266ba01b100d83b803e4b8c08fd/a080c7f1-4da8-4474-92cc-6324dad59036-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3054-3139 defines S11-T02 outcome, template-gap classification, failure-first tests, typed external errors, state ordering, rollback, focused verification, and completion receipt.",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1435-1437 pins taskId S11-T02, title Resolve Bearer Principals Before Decoding Or Dispatching Requests, and taskBlockHash 2b484dad01173ead7ca99d710455998926b3666713d025943ef5824aed334ff6.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S11-T02/ci-proof-packet.json:1-49 records matching planSha256, taskBlockHash, baseSha defde4d68fbcdd7d39566d82986ec562010c9638, headSha 954b2f2d9ff2c266ba01b100d83b803e4b8c08fd, changedFiles, focusedCommands, and known proof notes."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.spec.ts:21-88 declares public create/list/revoke/rotate args, returns, and typed errors for Unauthorized, Forbidden, API-key invalid/expiry/not-found/revoked/conflict cases.",
+        "packages/convex/confect/headless/apiKeys.spec.ts:90-127 declares internal authenticate and markLastUsed Confect contracts with HeadlessAuthError and NoRecoverableError respectively.",
+        "packages/convex/confect/httpRequest.ts:23-49 constrains HTTP failures to Unauthorized, Forbidden, and ValidationFailed envelopes before executor dispatch.",
+        "packages/convex/confect/manifest/executor.ts:35-52 constrains headless executor failures to NotFound, ValidationFailed, and Forbidden and successes to operationId plus JSON result."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/auth.ts:41-79 defines durable ServicePrincipalRow and ApiKeyRow schemas with organizationId/workspaceId/brainKey, viewer role ceiling, principal and tenant generation fields, status, expiry, revocation, hash, and last-used metadata.",
+        "packages/convex/confect/headless/auth.ts:153-170 defines public metadata that omits keyHash, tenant IDs, principal ID, generations, createdByUserId, revokedAt, and lastUsedAt.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:301-327 inserts only hash-backed keys and stores organization/workspace lifecycle and revocation generations with the durable key row.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:461-550 resolves bearer key hashes through the by_key_hash index, verifies exact principal binding, active tenant/Brain scope, generation fences, and returns a server-owned HeadlessPrincipal."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3056-3061 classifies S11-T02 as template-gap TB-HEADLESS-01 and requires fail-closed bearer-derived tenant/Brain state plus internal indexed principal lookup and audited Settings CRUD repair.",
+        "git diff --name-only defde4d68fbcdd7d39566d82986ec562010c9638..954b2f2d9ff2c266ba01b100d83b803e4b8c08fd shows the task-scoped product changes are the 19 files listed in ci-proof-packet.json:8-28, including the headless auth/spec/impl/http/executor code and Settings UI/tests.",
+        "packages/convex/test/http-request-security.test.ts:271-335 proves the contract ordering authenticate, decode, dispatch, authenticate, mark after an earlier explicit operation policy check in packages/convex/confect/http.ts:273-307.",
+        "Pre-review lane gate output for S11-T02 reports lane gates passed (pre-review) and 41 web test files / 176 tests passed, while ci-proof-packet.json:29-33 records focused Convex typecheck, focused headless/API-key/http-request tests, and headless surface contract commands."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1409-1426 and 1435-1437 list S11-T02 ownership for the headless/access/http/test files relevant to bearer principal resolution.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3068-3093 authorizes the expanded S11-T02 task packet file set for headless request repair and Settings API-key CRUD surface.",
+        "ci-proof-packet.json:8-28 and git diff --name-only defde4d68fbcdd7d39566d82986ec562010c9638..HEAD match on the 19 task-scoped changed files, with no additional task-scoped product files observed.",
+        "git log --oneline --reverse defde4d68fbcdd7d39566d82986ec562010c9638..HEAD shows 10 task commits, matching the proof packet note that the sourceSliceLimit of 10 is met."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/http.ts:273-335 rejects unreviewed operations, hashes and authenticates bearer state, authorizes before JSON body read, decodes after auth, dispatches, reauthenticates, and performs best-effort last-used update.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:553-659 covers revoked/expired keys, missing/revoked/generation-changed principals, exact tenant/Brain/principal binding mismatch, missing scope, and non-Brain principal failure paths.",
+        "packages/convex/test/api-keys.test.ts:144-183 proves non-admin, invalid scope, missing expiry, and overlong expiry failures; packages/convex/test/api-keys.test.ts:185-238 proves missing/mismatched principal failures; packages/convex/test/api-keys.test.ts:240-260 starts the scope/Brain/expiry/revocation matrix.",
+        "packages/convex/test/http-request-security.test.ts:188-230 proves recursive and top-level tenant-field rejection; packages/convex/test/http-request-security.test.ts:245-269 proves deleted/unreviewed HTTP operations do not decode or dispatch; packages/convex/test/http-request-security.test.ts:419-476 proves dispatch exceptions and Authorization values are redacted from public errors/logs."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

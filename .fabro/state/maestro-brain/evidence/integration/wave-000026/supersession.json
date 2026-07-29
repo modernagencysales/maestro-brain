@@ -1,0 +1,31 @@
+{
+  "baseSha": "0e4348103b6b27f0aa08c1d132eeb5af532c4bd5",
+  "controlHeadSha": "0e4348103b6b27f0aa08c1d132eeb5af532c4bd5",
+  "createdAt": "2026-07-18T22:02:28.312Z",
+  "evidence": [
+    "Fabro run 01KXVK3K8FYJ284T58E8QD6717 terminal workflow_error at 2026-07-18T22:01:56.566036Z",
+    "broad gate rtk host-test-slot --class full pnpm verify failed twice with 30 tooling/brain-factory ESLint errors",
+    "integration head cc6fe46681a00b29a94ef06ae34ee365bf5a994e preserved selected product changes and reviewVerdict pass",
+    "repair cycle limit reached because failures were hand-authored control tooling outside generated-output repair authority"
+  ],
+  "integrationId": "wave-000026",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "reason": "control-base Brain factory ESLint debt made the authoritative full gate deterministically red; immutable wave repair may edit generated output only",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXVK3K8FYJ284T58E8QD6717",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "0cfdf9437aa42f9a9cca1d3e0dc36d34ba229a5b375ebf1da7e2d7fafabfc7e6",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v2",
+  "selectedTaskIds": [
+    "S03-T03",
+    "S11-T02"
+  ],
+  "selectionFileSha256": "702790e416ea7d95187a770ddc326ebce9296e5e21a36460929e1d258dfa6a27",
+  "selectionPayloadSha256": "b5338fdcab7b55dd092ab6c2187734146f570223ee67eab766223d3a8495c371",
+  "status": "superseded",
+  "receiptSha256": "ee821857d10da5dc8ca2a124ceaed33611fd8d2c9d93f4825e5b060fec64b246"
+}

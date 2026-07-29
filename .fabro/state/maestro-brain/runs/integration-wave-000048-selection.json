@@ -1,0 +1,59 @@
+{
+  "baseSha": "73609583b9ca2704ad28f3844239f00764ac7230",
+  "deferredTaskIds": [],
+  "integrationId": "wave-000048",
+  "planSha256": "b25dfe4b3139d61e98976f450d6dfbdb30629201ab2015f7846a04ca02435a57",
+  "requestedTaskIds": [
+    "S04-T04"
+  ],
+  "schemaVersion": "maestro-brain-integration-wave-selection/v3",
+  "selectedTasks": [
+    {
+      "changedFiles": [
+        "apps/web/src/features/connections/channel-policy-dialog.tsx",
+        "apps/web/src/features/connections/channel-policy-view-model.test.ts",
+        "apps/web/src/features/connections/channel-policy-view-model.ts",
+        "apps/web/src/features/connections/channel-table.tsx",
+        "apps/web/src/features/connections/connections-adapter.ts",
+        "apps/web/src/routes/_workspace.connections.tsx",
+        "docs/product/maestro-brain-lifecycle-adoption/S04-T04.md",
+        "packages/convex/confect/slack/channelPolicies.impl.ts",
+        "packages/convex/confect/slack/channelPolicies.spec.ts",
+        "packages/convex/confect/slack/channelPolicy.ts",
+        "packages/convex/confect/tables/channelDeliveryPolicies.ts",
+        "packages/convex/confect/tables/channelRoutingPolicies.ts",
+        "packages/convex/test/channel-policies.test.ts"
+      ],
+      "codeStartAfter": [
+        "S03-T01",
+        "S04-T02"
+      ],
+      "fileLocks": [
+        "apps/web/src/features/connections/channel-policy-dialog.tsx",
+        "apps/web/src/features/connections/channel-policy-view-model.test.ts",
+        "apps/web/src/features/connections/channel-policy-view-model.ts",
+        "apps/web/src/features/connections/channel-table.tsx",
+        "apps/web/src/features/connections/connections-adapter.ts",
+        "apps/web/src/routes/_workspace.connections.tsx",
+        "docs/product/maestro-brain-lifecycle-adoption/S04-T04.md",
+        "packages/convex/confect/slack/channelPolicies.impl.ts",
+        "packages/convex/confect/slack/channelPolicies.spec.ts",
+        "packages/convex/confect/slack/channelPolicy.ts",
+        "packages/convex/confect/tables/channelDeliveryPolicies.ts",
+        "packages/convex/confect/tables/channelRoutingPolicies.ts",
+        "packages/convex/test/channel-policies.test.ts"
+      ],
+      "gateHeadSha": "328fc2a4759311a4180722232c57443256bdd69c",
+      "gateSha256": "cfd4b72a67443a1ea44ec9bef1c9490b24b19f1187094aff442a597a7a317e42",
+      "headSha": "328fc2a4759311a4180722232c57443256bdd69c",
+      "laneResultSha256": "798583bac176366a2102ea6f9b4f8c8c9ed5c5ec4565b5a74ca54b462601a6f9",
+      "planSha256": "5e3506ec26c1776547b03641707371efaebb1c490ce3da6b6a1e2ed0df2a8417",
+      "proofHeadSha": "328fc2a4759311a4180722232c57443256bdd69c",
+      "proofSha256": "66768ae72a4c2f81348273c5589011f7beada93988b3f9d387a8eac8ab9fe233",
+      "taskBlockHash": "43fe7362c17307d938a689c31cfaa350124a5029c8ef938d09c8f08066ec12c5",
+      "taskId": "S04-T04",
+      "tranche": "D2-domain-bodies"
+    }
+  ],
+  "selectionPayloadSha256": "843365ad1bb82e2267ef828a6d03a5b61e823abe717fbba0735d7db3e45f4318"
+}

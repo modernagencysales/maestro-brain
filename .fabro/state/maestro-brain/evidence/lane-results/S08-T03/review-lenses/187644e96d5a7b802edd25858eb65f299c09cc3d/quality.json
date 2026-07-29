@@ -1,0 +1,83 @@
+{
+  "lens": "quality",
+  "taskId": "S08-T03",
+  "planSha256": "ca7c2d9fbe1de7598adb586c3c0eb8e85c2826fc3339def797b61e3dc45b56cf",
+  "taskBlockHash": "2d947263cf0fa3ed72b36f7fddc028629d9db80e333e2511207b2213bf4d40c0",
+  "baseSha": "2bdef668a17ac4e86a9113846b773f6243f281c0",
+  "headSha": "187644e96d5a7b802edd25858eb65f299c09cc3d",
+  "treeSha": "8c4301a35cb7a48f778d834d969dfe91cbfa5d50",
+  "reviewerRunId": "maestro/review/S08-T03/187644e96d5a7b802edd25858eb65f299c09cc3d/48950001-759c-404e-8197-1154005e37b9-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/test/source-classification.test.ts:78",
+        "packages/convex/test/sourceClassification.workflow.test.ts:62",
+        "packages/convex/confect/capabilities/classifySourceUnit.test.ts:49",
+        "apps/web/src/features/connections/classification-review-queue.test.tsx:37",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S08-T03/ci-proof-packet.json:33"
+      ],
+      "rationale": "Focused tests cover local capability classification, malformed/out-of-allowlist/evidence failures, review behavior, commit idempotency/staleness, workflow sequencing, and the web queue; the proof packet records the focused lane-gate commands and passing supplemental checks for the exact task head. Safety reviewers separately own any remaining security/contract depth defects."
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "apps/web/src/features/connections/classification-review-queue.tsx:1",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:12",
+        "packages/convex/confect/workflows/sourceClassification.graph.ts:6",
+        "packages/convex/confect/capabilities/classifySourceUnit.impl.ts:6",
+        "packages/convex/confect/classification/request.ts:129"
+      ],
+      "rationale": "The web addition remains a feature component using UI primitives only, the workflow composes registered capabilities, the capability delegates to a domain helper, and durable validation is in Convex classification modules rather than frontend code."
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/classification/gather.ts:52",
+        "packages/convex/confect/classification/request.ts:129",
+        "packages/convex/confect/classification/review.ts:44",
+        "packages/convex/confect/classification/commit.ts:65",
+        "docs/product/maestro-brain-lifecycle-adoption/S08-T03.md:5"
+      ],
+      "rationale": "The implementation is split into small gather/request/review/commit helpers with typed seams and a status document updated for the new fake/local classification seam; no broad rewrites or unrelated changes are present."
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/classificationDecisions.ts:23",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:10",
+        "docs/product/maestro-brain-lifecycle-adoption/S08-T03.md:10",
+        "packages/convex/confect/classification/request.ts:152"
+      ],
+      "rationale": "Durable row schemas carry decision keys, generation fences, state, hashed rationale/evidence fields, effect keys, and job retry/lease fields. The reviewed code does not add raw provider payload logging or secret exposure."
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1073",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S08-T03/ci-proof-packet.json:73",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S08-T03/ci-proof-packet.json:87"
+      ],
+      "rationale": "The manifest source slice budget is 300 lines and the exact-head proof packet records the final source slice at 295 changed source lines."
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2431",
+        "docs/template/generated/provenance/add-capability/classifySourceUnit.json:1",
+        "docs/template/generated/provenance/add-workflow/sourceClassification.json:1",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S08-T03/ci-proof-packet.json:36",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:98"
+      ],
+      "rationale": "The task edits the manifest-owned generator docs/provenance and source contracts only; integration-owned regenerated Confect/Convex output is left out of the checked-in diff, while the exact-head proof records the transient codegen gate."
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

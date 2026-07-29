@@ -1,0 +1,69 @@
+{
+  "taskId": "S01-T01",
+  "baseSha": "304348d92cd2388df5f7945f6ba8d76be79f8686",
+  "headSha": "175d69f00d42af794cdf96e178c1538723908d74",
+  "changedFiles": [
+    "apps/web/src/auth/authkit-client.test.tsx",
+    "apps/web/src/auth/authkit-client.tsx",
+    "apps/web/src/auth/authkit-server.test.ts",
+    "apps/web/src/auth/authkit-server.ts",
+    "apps/web/src/routes/__root.tsx",
+    "apps/web/src/server-env.ts",
+    "apps/web/src/start.ts",
+    "docs/template/env-manifest.json",
+    "docs/template/env-manifest.md",
+    "packages/convex/convex/auth.config.ts",
+    "packages/convex/test/workos-auth-config.test.ts"
+  ],
+  "nonPrettierChangedFiles": [
+    ".env.example"
+  ],
+  "focusedCommands": [
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web test auth start-runtime",
+      "status": "passed",
+      "summary": "auth/start-runtime focused coverage passed; app suite reports 28 files and 113 tests after review token-redaction tests"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test workos-auth-config",
+      "status": "passed",
+      "summary": "1 test file passed; 5 tests passed"
+    },
+    {
+      "command": "rtk pnpm check:env-boundary",
+      "status": "passed",
+      "summary": "check:env-boundary passed"
+    },
+    {
+      "command": "rtk pnpm check:auth-demo-bypass",
+      "status": "passed",
+      "summary": "check:auth-demo-bypass: ok"
+    },
+    {
+      "command": "rtk pnpm check:secret-canaries",
+      "status": "passed",
+      "summary": "no leaks found"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web typecheck",
+      "status": "passed",
+      "summary": "tsc -p tsconfig.json --noEmit"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex typecheck",
+      "status": "passed",
+      "summary": "tsc -p tsconfig.json --noEmit"
+    }
+  ],
+  "testsAdded": [
+    "apps/web/src/auth/authkit-server.test.ts",
+    "apps/web/src/auth/authkit-client.test.tsx",
+    "packages/convex/test/workos-auth-config.test.ts"
+  ],
+  "reviewVerdict": "pass",
+  "knownRisks": [
+    "Broad just verify intentionally not run in isolated lane; tranche integration owns broad verification.",
+    "WorkOS issuer/JWKS/client values require deployment environment configuration before live auth can start.",
+    ".env.example is a changed task-owned environment template, but the lane Prettier harness cannot infer a parser for dotenv files; tracked separately from parser-supported changedFiles."
+  ]
+}

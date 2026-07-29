@@ -1,0 +1,30 @@
+{
+  "baseSha": "81e74eaf13c4e1a576b145e18608fe73d8989e2f",
+  "controlHeadSha": "81e74eaf13c4e1a576b145e18608fe73d8989e2f",
+  "createdAt": "2026-07-20T10:56:33.177Z",
+  "evidence": [
+    "broad-gate-sha256:0b90eee76836df13e9edf6fc0832b4f95256a467983b17ca786d5f873a13970e",
+    "finding:wave-000043-broad-gate-dependencies-timeout-and-recovery-coordinate-collision",
+    "integration-result-sha256:135aa36be51dd5d396d17112ee4aa082d67341fd39051fa0ba30a29d3e36850c",
+    "run:01KXZHKB9P6Y8D49RK7HDVGBT0:failed"
+  ],
+  "integrationId": "wave-000043",
+  "planSha256": "b6c8c42e744502700c8607be941e8f3dbe1e790d70abc7f3666efbf69554f9ca",
+  "reason": "Authoritative broad verification is not isolated from live factory recovery coordinates; dependencies.test timed out and resume fixture collided on fabro/review-s08-t03",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXZHKB9P6Y8D49RK7HDVGBT0",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "af47f14e0200bb61173d25f4668263250f136590ee1e33f5442f60f89e390b7b",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v2",
+  "selectedTaskIds": [
+    "S11-T02"
+  ],
+  "selectionFileSha256": "677c2e2878ae6662019c8500a16b5809f9d7c045747e05b826f8432fa486ec73",
+  "selectionPayloadSha256": "5826e61168cae30fbce6e5ca801b155c07f1056e04a03cbf21532ea1911f618e",
+  "status": "superseded",
+  "receiptSha256": "484d48ed10c009cdaaefec4902023f465a757e0276954c4f294406ace612ebf7"
+}

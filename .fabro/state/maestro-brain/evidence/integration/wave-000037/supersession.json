@@ -1,0 +1,28 @@
+{
+  "baseSha": "8fa1f5b6183a42207628d51cd396852dc8a95af5",
+  "controlHeadSha": "aa979378a853ca705f423846a79abe8030f0619b",
+  "createdAt": "2026-07-20T07:31:23.791Z",
+  "evidence": [
+    ".fabro/state/maestro-brain/evidence/integration/wave-000037/broad-gate-d6bae94bd876f97c3e82f4919955fe185a899370.json",
+    ".fabro/state/maestro-brain/evidence/integration/wave-000037/integration-result.json"
+  ],
+  "integrationId": "wave-000037",
+  "planSha256": "e0256a16a8e0791a68c0f2eef39946ddb845c01a79e186c9aa05585ce85d5199",
+  "reason": "S03-T03 contract-test ownership gap requires lane rework",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXZ5X95PQ1SVX4HD226D867A",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "4f7218309682c3a85b492c99821b233a0306036fe32619e9331e2744998b1cec",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v2",
+  "selectedTaskIds": [
+    "S03-T03"
+  ],
+  "selectionFileSha256": "daf7199eb5ee48c2c9c207a0322e2a5e6c7a50e8f23fffc04711a1d2041137ad",
+  "selectionPayloadSha256": "ff0d046650f98247e296b5ad1852e57ba5dde89019c5c9bdc9c9a0bd5c50304e",
+  "status": "superseded",
+  "receiptSha256": "586afafe01ceb902bdc7bd0f45cecda308d8a4179024d2edb91bb09a388d66b5"
+}

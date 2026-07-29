@@ -1,0 +1,100 @@
+{
+  "baseSha": "b70b28d23363c5fa581d8ac18ac6cc6c295f4acf",
+  "deferredTaskIds": [],
+  "integrationId": "wave-000002",
+  "planSha256": "cdef7d7b41c39a321e93a84df0c247826e834b2c9c0df65ecd85f1fcec4af950",
+  "schemaVersion": "maestro-brain-integration-wave-selection/v2",
+  "selectedTasks": [
+    {
+      "changedFiles": [
+        "apps/web/src/providers/workspace-operations.test.ts",
+        "apps/web/src/providers/workspace-operations.ts",
+        "apps/web/src/routes/__root.tsx",
+        "packages/convex/confect/access/provisioning.impl.ts",
+        "packages/convex/confect/access/provisioning.spec.ts",
+        "packages/convex/confect/auth/workspaces.impl.ts",
+        "packages/convex/confect/auth/workspaces.spec.ts",
+        "packages/convex/confect/identity/stableKeys.impl.ts",
+        "packages/convex/confect/identity/stableKeys.spec.ts",
+        "packages/convex/confect/identity/stableKeys.ts",
+        "packages/convex/test/access-provisioning.test.ts",
+        "packages/convex/test/authorized-brain-provisioning.test.ts"
+      ],
+      "codeStartAfter": [
+        "S01-T02"
+      ],
+      "fileLocks": [
+        "apps/web/src/providers/workspace-operations.test.ts",
+        "apps/web/src/providers/workspace-operations.ts",
+        "apps/web/src/routes/__root.tsx",
+        "packages/convex/confect/access/provisioning.impl.ts",
+        "packages/convex/confect/access/provisioning.spec.ts",
+        "packages/convex/confect/access/provisioning.ts",
+        "packages/convex/confect/auth/workspaces.impl.ts",
+        "packages/convex/confect/auth/workspaces.spec.ts",
+        "packages/convex/confect/identity/stableKeys.impl.ts",
+        "packages/convex/confect/identity/stableKeys.spec.ts",
+        "packages/convex/confect/identity/stableKeys.ts",
+        "packages/convex/test/access-provisioning.test.ts",
+        "packages/convex/test/authorized-brain-provisioning.test.ts"
+      ],
+      "gateHeadSha": "065b3bc6551a5f2f5486a9c6d6f793d1016c8917",
+      "gateSha256": "519a9a0a38875e0fab9219af3edd207600c84a244ddb768396947046b8408a20",
+      "headSha": "065b3bc6551a5f2f5486a9c6d6f793d1016c8917",
+      "laneResultSha256": "27de29a1da708ba047b24174f71895fb789cf3caa2f431468e1d6361d672c919",
+      "planSha256": "cdef7d7b41c39a321e93a84df0c247826e834b2c9c0df65ecd85f1fcec4af950",
+      "proofHeadSha": "065b3bc6551a5f2f5486a9c6d6f793d1016c8917",
+      "proofSha256": "b09a3be455bd6dda6c5f77c2038e39a6c93f3a29cac48ea00e1fa75b2f0d4c6a",
+      "taskBlockHash": "2acbd29281e9daefb7c8c6ab97be1aa460521b0c42c5e2fe4d41dbc6ca11776e",
+      "taskId": "S01-T03",
+      "tranche": "D2-domain-bodies"
+    },
+    {
+      "changedFiles": [
+        "apps/web/src/features/settings/member-management-adapter.test.ts",
+        "apps/web/src/features/settings/member-management-adapter.ts",
+        "apps/web/src/features/settings/member-management.test.tsx",
+        "apps/web/src/features/settings/member-management.tsx",
+        "apps/web/src/features/settings/settings-surface.test.ts",
+        "apps/web/src/features/settings/settings-surface.ts",
+        "apps/web/src/routes/_workspace.settings.tsx",
+        "packages/convex/confect/access/audit.ts",
+        "packages/convex/confect/access/invitations.impl.ts",
+        "packages/convex/confect/access/members.impl.ts",
+        "packages/convex/confect/access/members.spec.ts",
+        "packages/convex/confect/access/tenancySchemas.ts",
+        "packages/convex/test/brain-role-matrix.test.ts"
+      ],
+      "codeStartAfter": [
+        "S01-T02"
+      ],
+      "fileLocks": [
+        "apps/web/src/features/settings/member-management-adapter.test.ts",
+        "apps/web/src/features/settings/member-management-adapter.ts",
+        "apps/web/src/features/settings/member-management.test.tsx",
+        "apps/web/src/features/settings/member-management.tsx",
+        "apps/web/src/features/settings/settings-surface.test.ts",
+        "apps/web/src/features/settings/settings-surface.ts",
+        "apps/web/src/routes/_workspace.settings.tsx",
+        "packages/convex/confect/access/audit.ts",
+        "packages/convex/confect/access/invitations.impl.ts",
+        "packages/convex/confect/access/invitations.spec.ts",
+        "packages/convex/confect/access/members.impl.ts",
+        "packages/convex/confect/access/members.spec.ts",
+        "packages/convex/confect/access/tenancySchemas.ts",
+        "packages/convex/test/brain-role-matrix.test.ts"
+      ],
+      "gateHeadSha": "e9029c186cf5828d06e48cf7ab453cc12355c0ca",
+      "gateSha256": "e359a059b046a825a6a4a74bbd34246c67bb594a70a25dc3d78705b34f9bcdda",
+      "headSha": "e9029c186cf5828d06e48cf7ab453cc12355c0ca",
+      "laneResultSha256": "2ea1a26d475079cea1d8d74412eae1f21243a749a1d30f72e10075c13c5f3057",
+      "planSha256": "cdef7d7b41c39a321e93a84df0c247826e834b2c9c0df65ecd85f1fcec4af950",
+      "proofHeadSha": "e9029c186cf5828d06e48cf7ab453cc12355c0ca",
+      "proofSha256": "44fc7dcfc359281391b8646af8cf8bfb7f025413b82117516418e157fcb05a45",
+      "taskBlockHash": "4fb8d9ca955d3fd49198ca2d3228742e9ea06a2bc418d12288954422c1e1f6b3",
+      "taskId": "S01-T04",
+      "tranche": "D2-domain-bodies"
+    }
+  ],
+  "selectionSha256": "552397ad775be59c8638516a893cd844e276b9aa4a0634b7bfeb014764d209a3"
+}

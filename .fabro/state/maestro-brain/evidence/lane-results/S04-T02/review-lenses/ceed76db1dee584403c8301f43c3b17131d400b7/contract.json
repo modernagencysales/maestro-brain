@@ -1,0 +1,68 @@
+{
+  "lens": "contract",
+  "taskId": "S04-T02",
+  "planSha256": "e5ad32c375d4fd307b3d5bccd47ea6cf4e9b7580f23bb506c893fd94019ca7c5",
+  "taskBlockHash": "cdeca2a0ba4a7101fd27959788455ac53609485617a9cf8146c29c86891a7958",
+  "baseSha": "aa979378a853ca705f423846a79abe8030f0619b",
+  "headSha": "ceed76db1dee584403c8301f43c3b17131d400b7",
+  "treeSha": "44c7c3a973c447e41ebb748ac4b434dd6973d9d3",
+  "reviewerRunId": "maestro/review/S04-T02/ceed76db1dee584403c8301f43c3b17131d400b7/d7ca56fa-a585-4bec-8817-6fbe4c113c84-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "Task packet lines 1424-1487 require S04-T02 to bind verified Slack team/app/bot identity, reconcile all accessible channels without auto-join, preserve keys/cursors across same-connection reauthorization, revoke mismatched/replaced generations, and expose the typed reconcileChannels contract.",
+        "packages/convex/test/slack-directory.test.ts contains focused assertions for duplicate binding, installer is_member semantics, no conversations.join provider call, stale generation rejection, team/app/bot mismatch revocation, rename key preservation, cursor preservation, Slack Connect flags, and multi-page directory pagination.",
+        "Exact pre-review lane-gate report for head ceed76db1dee584403c8301f43c3b17131d400b7 passed with the task's focused commands and 27 slack-directory tests."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/integrations/slackDirectory.spec.ts defines internal reconcileChannels({ connectionKey, expectedGeneration, cursor, limit }) returning { upserted, accessGained, accessLost, nextCursor } and declares ConnectionNotFound, ConnectionGenerationMismatch, BotIdentityMismatch, ProviderRateLimited, and ProviderUnavailable.",
+        "The spec also defines narrow internal query/mutation commit functions so the action uses Confect refs instead of bypassing typed boundaries.",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts maps provider auth/list failures to typed errors and converts commit mismatch results back into BotIdentityMismatch for the public internal action contract."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/sourceChannels.ts defines Effect-schema durable rows with connectionGeneration, stable channelKey, externalChannelId, membershipStatus, accessGeneration, timestamps, and indexes by connection/external channel, channel key, organization membership state, and connection generation.",
+        "packages/convex/confect/tables/channelSyncStates.ts defines per-channel per-lane cursor/lease/status rows and replacementAudit with indexes by channel, lag/retry, and access state.",
+        "docs/product/maestro-brain-lifecycle-adoption/S04-T02.md documents additive durable resources, lifecycle behavior, index inventory, rollback, and no provider-token/raw-credential storage."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "Task manifest lines 559-584 classify S04-T02 as template-gap, tranche D2-domain-bodies, lane slack-source, requirements SLK-01/SLK-02, and own the changed files.",
+        "ci-proof-packet.json records the required focused commands and supplemental results for the same rebased head, including slack-directory tests, integrations slack command, transient Confect codegen, schema migration notes, and provider boundary.",
+        "lane-gate-report.json records changedSourceLines 1387 against estimatedSourceLines 1500 and five source slices at or below the 300-line budget."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "ci-proof-packet.json changedFiles are exactly docs/product/maestro-brain-lifecycle-adoption/S04-T02.md, packages/convex/confect/integrations/slackDirectory.{impl,spec,ts}, packages/convex/confect/tables/{channelSyncStates,sourceChannels}.ts, and packages/convex/test/slack-directory.test.ts.",
+        "Task manifest fileLocks for S04-T02 include those exact changed files plus packages/convex/confect/internal/migrations.ts, which was not changed in the final diff.",
+        "The task diff does not edit generated Confect/Convex paths; exact-head transient codegen passed per ci-proof-packet and lane-gate-report, so absent checked-in generated slackDirectory/table refs are integration-owned lane state."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/test/slack-directory.test.ts asserts ConnectionGenerationMismatch for stale generation before provider calls and inside replacement commit, ConnectionNotFound for inactive lifecycle states, BotIdentityMismatch for identity/team/app/bot mismatch and duplicate binding, ProviderRateLimited propagation, and ProviderUnavailable when no provider fixture is injected.",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts makes each declared expected error reachable through validation, provider error mapping, identity verification, and default fail-closed provider behavior.",
+        "The same tests assert initial listing failure leaves the connection in error without channel rows, replacement audit is committed before the outer typed mismatch failure, lanes are paused, and same-connection reauthorization preserves channel keys and cursor rows while incrementing generation."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

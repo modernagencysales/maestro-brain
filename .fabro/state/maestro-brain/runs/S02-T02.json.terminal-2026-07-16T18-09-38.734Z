@@ -1,0 +1,11 @@
+{
+  "branch": "fabro/review-s02-t02",
+  "mode": "resume-review",
+  "resumeStrategy": "in-lane-cherry-pick",
+  "runId": "01KXNYBYBJ9WGEFD41AH1V8840",
+  "sourceHeadSha": "3aff1c7df33970175b09d7bc6fff05ff384f66d2",
+  "status": "launched",
+  "taskBaseSha": "561d95448cc01bcc5165af7921fc26b0aa652c9c",
+  "taskId": "S02-T02",
+  "workdir": "/Users/headless/.maestro-brain-fabro-workdirs/resume-s02-t02"
+}

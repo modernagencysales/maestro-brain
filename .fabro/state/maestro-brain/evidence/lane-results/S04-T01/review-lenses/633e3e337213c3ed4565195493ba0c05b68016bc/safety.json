@@ -1,0 +1,86 @@
+{
+  "lens": "safety",
+  "taskId": "S04-T01",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "taskBlockHash": "fda4652a6ec6cbf81f4deb10c6c607ed72837451fb07a6b3f18305a9f96f2182",
+  "baseSha": "4001c961201dd9a1cbe7830aca4873457f7713b9",
+  "headSha": "633e3e337213c3ed4565195493ba0c05b68016bc",
+  "treeSha": "63409905502b8bbec9369dd7f4701df4ec4a87ea",
+  "reviewerRunId": "maestro/review/S04-T01/633e3e337213c3ed4565195493ba0c05b68016bc/4660a6ed-8f07-43da-ae8b-aa5a89049a38-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "S04-T01 plan requires server-derived organization binding and forbids trusting a browser-supplied provider organization key for completeSlackConnect.",
+        "packages/convex/confect/integrations/slackConnections.impl.ts authorizeSlackConnectCompletionPlan compares the current WorkOS organization key to the pending row organizationKey and claimSlackConnectAttempt compares Nango organization/end-user/provider/correlation metadata before durable updates.",
+        "packages/convex/test/slack-connections.test.ts includes tenant mismatch, current organization selection, and connection ID from another organization coverage; pre-review lane-gate report passed for head 633e3e337213c3ed4565195493ba0c05b68016bc."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "S04-T01 typed contract requires Unauthorized and Forbidden failures for signed-out and non-org-admin connect attempts.",
+        "packages/convex/confect/integrations/slackConnections.impl.ts prepareSlackConnectAttempt, authorizeSlackConnectCompletion, and finalizeSlackConnectAttempt load Auth identity, require a provisioned user, select active organization membership, and require admin-or-owner role before issuing or completing sessions.",
+        "packages/convex/test/slack-connections.test.ts covers signed-out, non-admin, and demoted retry denial paths; ci-proof-packet.json records packages/convex slack-connections Vitest passed 22 tests."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "S04-T01 owns not_connected -> authorizing -> verifying while S04-T02 owns active/error bot-team verification and later revocation, so tombstone/source lifecycle is outside this task's write surface.",
+        "packages/convex/confect/integrations/slackConnections.impl.ts reserveSlackConnectAttemptPlan permits takeover only for error or expired attempts, preserves active connection keys for reauthorization, and markSlackConnectAttemptFailed moves failed provider sessions to error without activating them.",
+        "packages/convex/test/slack-connections.test.ts covers expired or failed attempt takeover, active reauthorization, and generation preservation across failed or abandoned reauthorization attempts."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "S04-T01 explicitly requires no Slack credentials or Nango client token persistence and tests assert no token/session value enters logs or durable rows.",
+        "packages/convex/confect/tables/providerConnections.ts stores connection/session identifiers, Nango end-user/organization binding, correlation tag, generation, status, and timestamps, with no token, secret, api key, password, or authorization fields.",
+        "packages/integrations/src/nango/client.ts provides redactNangoDiagnostic and unsafe secret-shaped value detection; package tests named in ci-proof-packet.json include check:secret-canaries and provider-boundary/env-boundary gates."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "S04-T01 requires reserve, claim, and finalize through internal atomic mutations so duplicate callbacks and replay with a different connection fail closed.",
+        "packages/convex/confect/integrations/slackConnections.impl.ts uses internal prepareSlackConnectAttempt, claimSlackConnectAttempt, reconcileSlackConnectSessionExpiry, and finalizeSlackConnectAttempt mutations with connectSessionId, attemptId, and expectedConnectionGeneration checks before patching providerConnections.",
+        "packages/convex/test/slack-connections.test.ts covers finalizing only the current attempt generation and stale/demoted callback behavior."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "S04-T01 requires exact completed attempt/connection pair idempotency and rejection of different replay.",
+        "packages/convex/confect/integrations/slackConnections.impl.ts authorizeSlackConnectCompletionPlan returns alreadyCompleted only when row.status is verifying and nangoConnectionId exactly matches the submitted connectionId, while mismatched verifying rows fail ConnectSessionInvalid.",
+        "packages/convex/test/slack-connections.test.ts includes 'allows exact completed retry after expiry but rejects different replay' and raw token shaped callback rejection."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "S04-T01 states reauthorization preserves connectionKey and increments connectionGeneration only after later successful bot/team verification, while old-generation effects are fenced by exact generation binding.",
+        "packages/convex/confect/integrations/slackConnections.impl.ts carries expectedConnectionGeneration through reconcileSlackConnectSessionExpiry, markSlackConnectAttemptFailed, and finalizeSlackConnectAttemptPlan before durable patches.",
+        "packages/convex/test/slack-connections.test.ts covers generation preservation across failed or abandoned reauthorization attempts and current-attempt-generation finalization."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "S04-T01 requires Nango SDK imports to remain behind the Effect adapter boundary and web to import only the narrow browser adapter.",
+        "packages/integrations/src/nango/client.ts contains the live @nangohq/node dynamic import inside createLiveNangoClient, packages/integrations/src/nango/connectBrowser.ts contains the @nangohq/frontend browser adapter, and the reviewed commit only changes packages/convex/confect/integrations/slackConnections.impl.ts to load the NangoProvider service through createNangoProviderLayer.",
+        "ci-proof-packet.json records focused provider-boundary, env-boundary, secret-canaries, integrations nango, web nango-connect, convex slack-connections, and Effect diagnostics commands; lane-gate-report.json reports status passed for the same head and task contract."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

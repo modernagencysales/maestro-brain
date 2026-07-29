@@ -1,0 +1,10 @@
+{
+  "errorCode": null,
+  "errorSyscall": null,
+  "kind": "exited",
+  "outputPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/repair-F0-foundation.json.create-1.raw",
+  "outputSha256": "bf73f00526b9777bf9c644e276f24af74c17f5cec5d759a42a9dc8bbab7fd40f",
+  "schemaVersion": "maestro-rtk-file-outcome/v2",
+  "signal": null,
+  "status": 0
+}

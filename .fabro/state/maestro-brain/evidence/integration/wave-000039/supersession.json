@@ -1,0 +1,33 @@
+{
+  "baseSha": "5ea63f4200c3ad6e8c373cc259ff7824b177bfad",
+  "controlHeadSha": "4365cea64f19e56db4f27fe38801c788b28ddf8e",
+  "createdAt": "2026-07-20T08:46:49.377Z",
+  "evidence": [
+    "01KXZAAQP02YFPXZYHE9ZN9B9B: S04-T02 dependency S04-T01 is not bound by its authoritative integration result",
+    "01KXZB7VAH27ZV9YDNR6QJC493: S04-T02 lane result digest drift after record overlay"
+  ],
+  "integrationId": "wave-000039",
+  "planSha256": "b6c8c42e744502700c8607be941e8f3dbe1e790d70abc7f3666efbf69554f9ca",
+  "reason": "post-record validation rejected a valid v3 dependency receipt before controller fix 4365cea6",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXZAAQP02YFPXZYHE9ZN9B9B",
+      "status": "failed"
+    },
+    {
+      "attempt": 2,
+      "runId": "01KXZB7VAH27ZV9YDNR6QJC493",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "7d0e381ed188394d2e6877b15f3c14a569b9cf9150260e8b9b1c65958cbecaee",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v2",
+  "selectedTaskIds": [
+    "S04-T02"
+  ],
+  "selectionFileSha256": "577dcefb1fc07d56b1943a4164328ebd9c09c66146c3a8c6d0f2b2fac4ab8c0f",
+  "selectionPayloadSha256": "b5c41c8589096ce0ddb99bb207c826d83fe2f03c7928f1a1c1e3803465e01577",
+  "status": "superseded",
+  "receiptSha256": "e293a76d301ce1ea0b056f690f3e5d3d19827b9124ec75db08af3dae5131ed84"
+}

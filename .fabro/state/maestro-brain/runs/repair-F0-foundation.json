@@ -1,0 +1,55 @@
+{
+  "baseSha": "5b58144cd32bbf807609761638c30d704e819eb7",
+  "sourceReviewRun": "01KXHDXG8A8751TZ3HY4CQJKBD",
+  "tranche": "F0-foundation",
+  "workdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-F0-foundation",
+  "createReceipt": {
+    "attempt": 1,
+    "baseSha": "5b58144cd32bbf807609761638c30d704e819eb7",
+    "integrationBaseSha": "fbea9df4cbc12cfb4fdc6e78d285cff3ec095907",
+    "reservationToken": "5ddadc26-3b37-4fb7-9c37-3c9c56f02f49",
+    "runId": "01KXJ6DWV78HSTK53TVWEFXBQZ",
+    "schemaVersion": "maestro-brain-repair-create-receipt/v1",
+    "sourceReviewRun": "01KXHDXG8A8751TZ3HY4CQJKBD",
+    "taskIds": [
+      "S00-T02"
+    ],
+    "tranche": "F0-foundation",
+    "workdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-F0-foundation",
+    "workflow": "BrainRepairTranche",
+    "receiptSha256": "ec7135b1b1019b034c66d29b08917028853ee2fce06c673371c40113fda18828"
+  },
+  "createdRunId": "01KXJ6DWV78HSTK53TVWEFXBQZ",
+  "integrationBaseSha": "fbea9df4cbc12cfb4fdc6e78d285cff3ec095907",
+  "recoveryAt": "2026-07-15T06:11:36.285Z",
+  "recoveryReason": "Fabro run 01KXHDXG8A8751TZ3HY4CQJKBD terminated with workflow_error while mutable F0 evidence falsely claimed pass; normalize the contradictory legacy state and repair the exact reviewed integration head",
+  "startAttempt": 1,
+  "taskIds": [
+    "S00-T02"
+  ],
+  "transitionHash": "53effeef108aef5c71466070c9d09d9b5e6ab1db2b0e12a861bde999af55f289",
+  "launchAttempt": 1,
+  "launchReceipt": {
+    "attempt": 1,
+    "baseSha": "5b58144cd32bbf807609761638c30d704e819eb7",
+    "integrationBaseSha": "fbea9df4cbc12cfb4fdc6e78d285cff3ec095907",
+    "reservationToken": "5ddadc26-3b37-4fb7-9c37-3c9c56f02f49",
+    "runId": "01KXJ6DWV78HSTK53TVWEFXBQZ",
+    "schemaVersion": "maestro-brain-repair-launch-receipt/v1",
+    "sourceReviewRun": "01KXHDXG8A8751TZ3HY4CQJKBD",
+    "taskIds": [
+      "S00-T02"
+    ],
+    "tranche": "F0-foundation",
+    "workdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-F0-foundation",
+    "workflow": "BrainRepairTranche",
+    "receiptSha256": "61674c3bcd512e0b6a579e32969f2b6267e7f03d6c173051d39f17bb5770f13f"
+  },
+  "runId": "01KXJ6DWV78HSTK53TVWEFXBQZ",
+  "schemaVersion": "maestro-brain-repair-reservation/v1",
+  "status": "launched",
+  "priorLaunchAttempt": 1,
+  "priorStartAttempt": 1,
+  "priorStatus": "starting",
+  "reservationToken": "5ddadc26-3b37-4fb7-9c37-3c9c56f02f49"
+}

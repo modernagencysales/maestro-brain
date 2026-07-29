@@ -1,0 +1,68 @@
+{
+  "baseSha": "8b3fb65de62b6b34148c995282abfe1fcc325ad9",
+  "conflicts": [],
+  "focusedCheckResults": [
+    {
+      "command": "rtk pnpm --dir packages/convex typecheck",
+      "status": "pass"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test api-keys headless http-request",
+      "status": "pass"
+    },
+    {
+      "command": "rtk pnpm check:headless-surface-contract",
+      "status": "pass"
+    }
+  ],
+  "focusedChecks": [
+    "rtk pnpm --dir packages/convex typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test api-keys headless http-request",
+    "rtk pnpm check:headless-surface-contract"
+  ],
+  "generatedFiles": [
+    "packages/convex/confect/_generated/registeredFunctions/headless/apiKeys.ts",
+    "packages/convex/confect/_generated/spec.ts",
+    "packages/convex/convex/headless/apiKeys.ts"
+  ],
+  "headSha": "9b4a89c27b33c8fac581399fa1efb42e601aeff8",
+  "includedTasks": [
+    {
+      "commitShas": [
+        "5618eddec2a81b71110919dc61691402fe85f24e",
+        "3c8574c4eef5029d27f688c6217c74946db8711e",
+        "62d9b8976b2434aab593603f909009c197dc98ad",
+        "f8fc996f713d3c50e923b69032cc52b222ebd230",
+        "d672485e073e5c5f9e310db9f384ba5d20364fb5",
+        "60984ba1ebdc38ac0619345e9125f77965dbea64",
+        "28df32bddf5d35f546342d03d20212142f1bb545",
+        "e9f327da525d5cc67610b6b680fb9956b7634c7f",
+        "abe5014abdf92598f13261931ecfce4582adfaf5",
+        "954b2f2d9ff2c266ba01b100d83b803e4b8c08fd"
+      ],
+      "laneHeadSha": "954b2f2d9ff2c266ba01b100d83b803e4b8c08fd",
+      "patchState": "applied",
+      "taskId": "S11-T02",
+      "tranche": "D2-domain-bodies"
+    }
+  ],
+  "integrationId": "wave-000027",
+  "mode": "integrate",
+  "remainingFindings": [
+    {
+      "blockedCheck": "rtk pnpm --dir /Users/headless/maestro-brain-plan/tooling/brain-factory exec tsx src/integration-broad-gate.mts --workdir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000027 --evidence /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence --integration-id wave-000027",
+      "details": "The deterministic broad gate reported @typescript-eslint/no-non-null-assertion errors in tooling/brain-factory/test/review-aggregation-lease.test.mts and @typescript-eslint/no-unused-vars in tooling/brain-factory/test/review-lens.test.mts. This node is integration-only and may repair generated output only, so no hand-authored tests were edited.",
+      "id": "broad-gate-hand-authored-brain-factory-lint",
+      "kind": "rework",
+      "ownerTaskLane": "S11-T02",
+      "severity": "medium",
+      "summary": "Broad verify fails on hand-authored tooling/brain-factory test lint outside generated-output repair scope."
+    }
+  ],
+  "resolvedFindings": [],
+  "reviewVerdict": "rework",
+  "schemaVersion": "maestro-brain-integration-result/v3",
+  "selectionFileSha256": "541a170a8bdbc96c0135002463b58aaa2dd48c307991f60890af3b52f6dde714",
+  "selectionPayloadSha256": "5d8abd833708e0743f48b4658c684e44fec22b798b7e39e131c7314a09f29cf1",
+  "status": "ready_for_review"
+}

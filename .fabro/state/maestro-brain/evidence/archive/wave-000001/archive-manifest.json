@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "maestro-brain-evidence-archive-manifest/v1",
+  "integrationId": "wave-000001",
+  "manifestTranches": [
+    "C1-contract-spine"
+  ],
+  "contentSha256": "ff4024a092aac800e28855aa2a6a6359a6cb0c06e00d95547681b5b02851e51e",
+  "artifactFile": "ff4024a092aac800e28855aa2a6a6359a6cb0c06e00d95547681b5b02851e51e.json"
+}

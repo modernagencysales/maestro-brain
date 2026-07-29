@@ -1,0 +1,83 @@
+{
+  "lens": "contract",
+  "taskId": "S05-T01",
+  "planSha256": "b25dfe4b3139d61e98976f450d6dfbdb30629201ab2015f7846a04ca02435a57",
+  "taskBlockHash": "8c814c81e34129532e8467e567d99d48dfb60017ceda5ab0934454da2d348044",
+  "baseSha": "73609583b9ca2704ad28f3844239f00764ac7230",
+  "headSha": "69c422c52fbe46f01ee70d3530239a34a4b37a52",
+  "treeSha": "58f72263857cf5b91fa940097375a458ad593416",
+  "reviewerRunId": "maestro/review/S05-T01/69c422c52fbe46f01ee70d3530239a34a4b37a52/02c49107-a9a9-4114-9081-dad613fe4ffc-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1669-1708 declares S05-T01 failure-first tests, source-ledger implementation, typed errors, migration compatibility, and focused verification.",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:654-695 records S05-T01 as ready template-gap product work with taskBlockHash 8c814c81e34129532e8467e567d99d48dfb60017ceda5ab0934454da2d348044 and the expected file locks.",
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:1-63 records the source-ledger lifecycle, compatibility, rollback, and focused proof commands."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:112-123 defines the VerifiedSlackChannelBinding contract used to prove organization/connection/channel binding before writes.",
+        "packages/convex/confect/sources/sourceSchemas.ts:125-157 defines SourceLedgerCaptureInput with verified envelope, normalized observation, and routing policy/effect fields.",
+        "packages/convex/confect/sources/sourceSchemas.ts:159-172 declares the required typed failure classes TenantMismatch, ChannelAccessLost, ObservationInvalid, PayloadTooLarge, and DuplicateKeyConflict."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:26-110 defines versioned Effect schemas for providerEventReceipts, sourceArtifacts, sourceRevisions, and sourceProcessingJobs with tenant, generation, lifecycle, hash, and job policy fields.",
+        "packages/convex/confect/tables/providerEventReceipts.ts:5-14, packages/convex/confect/tables/sourceArtifacts.ts:5-19, packages/convex/confect/tables/sourceRevisions.ts:5-13, and packages/convex/confect/tables/sourceProcessingJobs.ts:5-10 declare the S05 durable table indexes.",
+        "packages/convex/test/source-ledger-schema.test.ts:56-251 proves the table/index inventory and exact row decode contracts for receipt, artifact, revision, and assembly job rows."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1633-1634 classifies S05-T01 as template-gap TB-SOURCE-01, matching the work-package rule.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1699-1705 requires new-tables-only migration compatibility and integration-owned canonical registry generation; packages/convex/confect/internal/migration-fragments/S05-T01.json:1-10 attests new_tables_only with the exact task hash.",
+        "packages/convex/test/migration-registry.test.ts:85-210 covers deterministic assembly, strict fragment rejection, atomic writes, stale output, symlink rejection, and byte-identical regeneration."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "rtk proxy git diff --name-only 73609583b9ca2704ad28f3844239f00764ac7230..HEAD -- docs packages/convex lists only task-locked S05-T01 product/doc/test/source-ledger and migration-fragment/runtime/generator paths from task-manifest lines 661-684, with no generated registry edit.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1666-1668 and 1701-1704 state the product lane does not own or commit the integration-generated canonical migration registry.",
+        "lane-gate-report.json for S05-T01 at head 69c422c52fbe46f01ee70d3530239a34a4b37a52 records passed pre-review gates including brain:factory:check-confect-codegen, schema migration notes, Confect contracts, Confect v9, Convex typecheck/test, and integrations typecheck/test."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1669-1677 explicitly includes partial transaction failure in S05-T01 failure-first proof.",
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:40-42 claims partial capture failures are transaction-fenced and leave no orphan receipt, revision, artifact, or processing job.",
+        "packages/convex/confect/sources/sourceSchemas.ts:269-330 only stages row construction in memory; it is not a ledger write transaction boundary and cannot prove database rollback after a partial insert failure.",
+        "packages/convex/test/source-ledger-schema.test.ts:378-395 checks that buildSourceLedgerRows does not mutate the caller's Set while staging rows, but does not execute a failing write boundary that could leave orphan receipt/revision/artifact/job rows."
+      ],
+      "findingIds": ["CONTRACT-S05-T01-001"]
+    }
+  ],
+  "findings": [
+    {
+      "id": "CONTRACT-S05-T01-001",
+      "severity": "high",
+      "summary": "Declared partial transaction rollback contract is not proven at the ledger write boundary",
+      "details": "S05-T01's task packet requires failure-first proof for partial transaction failure, and the lifecycle record states that a failed capture leaves no orphan receipt, revision, artifact, or processing job. The implementation only exposes schema validation and an in-memory row staging helper that avoids mutating the caller's Set. That can pass while a future durable capture path writes one ledger row before failing another. The task needs a focused write-boundary rollback proof or the lifecycle/task contract narrowed so S05-T01 does not claim transaction-fenced capture rollback.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1669-1677",
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:40-42",
+        "packages/convex/confect/sources/sourceSchemas.ts:269-330",
+        "packages/convex/test/source-ledger-schema.test.ts:378-395"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

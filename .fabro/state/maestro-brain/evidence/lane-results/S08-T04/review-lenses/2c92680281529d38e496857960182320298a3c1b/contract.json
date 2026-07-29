@@ -1,0 +1,123 @@
+{
+  "lens": "contract",
+  "taskId": "S08-T04",
+  "planSha256": "2bca6b40d7acab334b2036e9ed35652c06ebe8729c1a6c3319c04f827b7a77ce",
+  "taskBlockHash": "2bccfe705e20eef30b384725a71d69db2671a70d5c96f541fb95ec6b73629525",
+  "baseSha": "e28ceeb126083211cc7b2070c673b78e513d125b",
+  "headSha": "2c92680281529d38e496857960182320298a3c1b",
+  "treeSha": "3a85a1eab1248ba21134b68b5295f1710aa96f6b",
+  "reviewerRunId": "maestro/review/S08-T04/2c92680281529d38e496857960182320298a3c1b/4218728e-2196-4a2c-9e3a-09d101b0bdf3-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2496-2498 requires workflows to compose capabilities and provider calls to stay behind adapters.",
+        "packages/convex/confect/workflows/sourceToBrainMaintenance.graph.ts:14-20 declares a maintainBrainPage capability node, and packages/convex/test/sourceToBrainMaintenance.workflow.test.ts:53-59 proves the graph registry can call capabilities.maintainBrainPage.",
+        "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.impl.ts:120-228 starts/statuses Convex workflow runs and never executes sourceToBrainMaintenanceGraph or calls the maintainBrainPage capability, leaving the approved source-to-maintenance workflow contract unwired in the durable implementation."
+      ],
+      "findingIds": ["CONTRACT-S08-T04-001"]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2483-2485 requires routed units to produce cited no-op/revision proposals.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2548-2550 declares maintenance typed errors CitationRequired, CitationNotInManifest, RevisionBudgetExceeded, AutopilotNotEligible, StaleRevision, and LifecycleRevoked.",
+        "packages/convex/confect/capabilities/maintainBrainPage.spec.ts:39-46 accepts only workspaceSlug and contextPackId, so callers cannot supply or receive the immutable context/model/review/autopilot contract that maintainBrainPage.domain.ts:8-14 requires for real proposal evaluation.",
+        "packages/convex/confect/capabilities/maintainBrainPage.impl.ts:10-18 returns a canned proposed_noop fixture and never maps domain MaintenancePolicyError failures to the declared typed error classes."
+      ],
+      "findingIds": ["CONTRACT-S08-T04-002"]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2514-2522 owns a new brainMaintenanceProposals table and a sourceProcessingJobs modification for the S08-T04 durability contract.",
+        "packages/convex/confect/tables/brainMaintenanceProposals.ts:1-43 adds the proposal table source, but packages/convex/confect/_generated/schema.ts:1-139 at the exact review HEAD does not import or register brainMaintenanceProposals in the transient generated schema snapshot.",
+        "rtk proxy rg --files packages/convex/confect found no packages/convex/confect/tables/sourceProcessingJobs.ts source file at this HEAD, so the declared sourceProcessingJobs stage/status ownership for maintenance is absent from the task-owned schema surface."
+      ],
+      "findingIds": ["CONTRACT-S08-T04-003"]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2486-2493 classifies S08-T04 as a pattern-instance using template:add-capability and template:add-workflow plus the playbook gates.",
+        "docs/template/generated/provenance/add-capability/maintainBrainPage.json:1-12 and docs/template/generated/provenance/add-workflow/sourceToBrainMaintenance.json:1-13 record the approved generator families and generated path provenance.",
+        "lane-gate-report.json for head 2c92680281529d38e496857960182320298a3c1b records status passed and includes the template dry-runs, codegen check, Convex, web, workflow-boundary, headless-surface, layer-boundary, and eval gates."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json S08-T04 lists the changed capability, workflow, maintenance, web, eval, generated-doc, and lifecycle-adoption files as file locks.",
+        "rtk proxy git diff --name-status e28ceeb126083211cc7b2070c673b78e513d125b..HEAD showed changes limited to manifest-owned S08-T04 files.",
+        "The task diff does not edit checked-in generated Confect/Convex registration paths; per review instructions, exact-head transient codegen proof makes absence from checked-in generated trees an integration-owned lane state rather than an ownership finding."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2548-2550 declares CitationRequired, CitationNotInManifest, RevisionBudgetExceeded, AutopilotNotEligible, StaleRevision, and LifecycleRevoked as task errors.",
+        "packages/convex/confect/capabilities/maintainBrainPage.domain.ts:36-59 can throw MaintenancePolicyError from requestMaintenanceProposal/commitMaintenanceProposal, but packages/convex/confect/capabilities/maintainBrainPage.impl.ts:10-18 does not call that domain seam or translate those failures into Confect typed errors.",
+        "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.spec.ts:19-25 declares only Unauthorized, MemberNotInWorkspace, WorkspaceNotFound, NotFound, and ValidationFailed, so the internal workflow contract cannot surface the declared maintenance failure variants when maintenance is composed."
+      ],
+      "findingIds": ["CONTRACT-S08-T04-004"]
+    }
+  ],
+  "findings": [
+    {
+      "id": "CONTRACT-S08-T04-001",
+      "severity": "high",
+      "summary": "Durable source-to-maintenance workflow does not compose the maintainBrainPage capability.",
+      "details": "The graph and unit test demonstrate a shape that calls capabilities.maintainBrainPage, but the checked workflow contract implementation only manages Convex workflow run start/status/approval plumbing. It never runs sourceToBrainMaintenanceGraph or invokes the maintainBrainPage capability, so routed units cannot produce maintenance proposals through the approved internal workflow contract.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2496-2498",
+        "packages/convex/confect/workflows/sourceToBrainMaintenance.graph.ts:14-20",
+        "packages/convex/test/sourceToBrainMaintenance.workflow.test.ts:53-59",
+        "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.impl.ts:120-228"
+      ]
+    },
+    {
+      "id": "CONTRACT-S08-T04-002",
+      "severity": "high",
+      "summary": "maintainBrainPage typed API remains a scaffold fixture instead of the cited maintenance proposal contract.",
+      "details": "The public Confect spec accepts only workspaceSlug/contextPackId while the domain helper requires an immutable context pack, model output, and optional autopilot policy to evaluate citations and commit fences. The implementation returns a canned proposed_noop, so callers cannot obtain real cited revision/no-op proposals or observe the declared typed failure contract through the capability.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2483-2485",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2548-2550",
+        "packages/convex/confect/capabilities/maintainBrainPage.spec.ts:39-46",
+        "packages/convex/confect/capabilities/maintainBrainPage.impl.ts:10-18",
+        "packages/convex/confect/capabilities/maintainBrainPage.domain.ts:8-14"
+      ]
+    },
+    {
+      "id": "CONTRACT-S08-T04-003",
+      "severity": "high",
+      "summary": "Durable schema contract is not registered for maintenance proposals and omits the owned sourceProcessingJobs update.",
+      "details": "S08-T04 owns additive durable proposal storage and source-processing job maintenance state. The proposal table source exists, but the exact-head generated schema snapshot lacks a brainMaintenanceProposals registration, and there is no task-owned sourceProcessingJobs table file in the worktree. This leaves the durable schema invariants unavailable to Confect/Convex integration for the reviewed head.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2514-2522",
+        "packages/convex/confect/tables/brainMaintenanceProposals.ts:1-43",
+        "packages/convex/confect/_generated/schema.ts:1-139",
+        "rtk proxy rg --files packages/convex/confect | rtk proxy rg 'sourceProcessingJobs' returned no sourceProcessingJobs table path"
+      ]
+    },
+    {
+      "id": "CONTRACT-S08-T04-004",
+      "severity": "high",
+      "summary": "Declared maintenance failure paths are not reachable through the typed capability or workflow contracts.",
+      "details": "Pure helpers throw MaintenancePolicyError names, but neither the Confect capability implementation nor the workflow contract maps those names to the declared typed errors. The workflow spec exposes only generic workflow failures. Consumers therefore cannot rely on CitationRequired, CitationNotInManifest, RevisionBudgetExceeded, AutopilotNotEligible, StaleRevision, or LifecycleRevoked at the typed contract boundary.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2548-2550",
+        "packages/convex/confect/capabilities/maintainBrainPage.domain.ts:36-59",
+        "packages/convex/confect/capabilities/maintainBrainPage.impl.ts:10-18",
+        "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.spec.ts:19-25"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

@@ -1,0 +1,92 @@
+{
+  "lens": "contract",
+  "taskId": "S04-T02",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "cdeca2a0ba4a7101fd27959788455ac53609485617a9cf8146c29c86891a7958",
+  "baseSha": "ce892af6c4ea5c8ff679c5bfce09a205967cdf11",
+  "headSha": "f421c1f10c1622ef98bae3e6556380d616918ec0",
+  "treeSha": "05853846eee6d143b54742287c99afd7f2e9abd5",
+  "reviewerRunId": "maestro/review/S04-T02/f421c1f10c1622ef98bae3e6556380d616918ec0/d4a4f17b-25bf-4796-b844-7d6d77c4ae0b-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1437-1444",
+        "packages/convex/confect/_generated/schema.ts:3-52",
+        "packages/convex/confect/_generated/schema.ts:53-153"
+      ],
+      "findingIds": ["S04-T02-CONTRACT-001"]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/integrations/slackDirectory.spec.ts:4-31",
+        "packages/convex/confect/integrations/slackDirectory.spec.ts:88-99",
+        "packages/convex/confect/integrations/slackDirectory.spec.ts:135-149"
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/tables/sourceChannels.ts:12-43",
+        "packages/convex/confect/tables/channelSyncStates.ts:32-59",
+        "packages/convex/confect/_generated/schema.ts:3-52",
+        "packages/convex/confect/_generated/schema.ts:53-153",
+        "packages/convex/test/slack-directory.test.ts:50-69"
+      ],
+      "findingIds": ["S04-T02-CONTRACT-001"]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1423-1481",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:557-583",
+        "packages/convex/confect/_generated/schema.ts:53-153"
+      ],
+      "findingIds": ["S04-T02-CONTRACT-001"]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:557-583",
+        "rtk proxy git diff --name-only ce892af6c4ea5c8ff679c5bfce09a205967cdf11..HEAD: docs/product/maestro-brain-lifecycle-adoption/S04-T02.md packages/convex/confect/integrations/slackDirectory.impl.ts packages/convex/confect/integrations/slackDirectory.spec.ts packages/convex/confect/integrations/slackDirectory.ts packages/convex/confect/tables/channelSyncStates.ts packages/convex/confect/tables/sourceChannels.ts packages/convex/test/slack-directory.test.ts"
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1445-1464",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:120-149",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:180-183",
+        "packages/convex/test/slack-directory.test.ts:658-755",
+        "packages/convex/test/slack-directory.test.ts:1359-1515"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "S04-T02-CONTRACT-001",
+      "severity": "high",
+      "summary": "Committed product schema does not register the new Slack directory tables.",
+      "details": "S04-T02's task packet requires durable sourceChannels and channelSyncStates tables for exact connection/channel directory state. The new table definitions exist, and slackDirectory.impl imports the committed generated databaseSchema before reading/writing those tables, but packages/convex/confect/_generated/schema.ts at this HEAD imports and registers neither sourceChannels nor channelSyncStates. The focused tests mask this by constructing a transient schema that manually adds those two tables. As committed, the product Confect/Convex schema does not expose the durable tables required by the task contract, so runtime reconciliation is not bound to the approved durable schema.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1437-1444",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1471-1473",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:10",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:766-772",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:807-825",
+        "packages/convex/confect/_generated/schema.ts:3-52",
+        "packages/convex/confect/_generated/schema.ts:53-153",
+        "packages/convex/test/slack-directory.test.ts:50-69",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S04-T02/ci-proof-packet.json:66-70"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

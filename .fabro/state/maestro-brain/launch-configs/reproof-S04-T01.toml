@@ -1,0 +1,26 @@
+_version = 1
+
+[workflow]
+graph = "/Users/headless/maestro-brain-plan/.fabro/workflows/brain-build-task/workflow.fabro"
+
+[environments.local]
+provider = "local"
+
+[environments.local.env]
+BRAIN_BASE_SHA = "4001c961201dd9a1cbe7830aca4873457f7713b9"
+BRAIN_CONTROL_COMMON_DIR = "/Users/headless/maestro-template-saas-ui/.git"
+BRAIN_CONTROL_ROOT = "/Users/headless/maestro-brain-plan"
+BRAIN_EVIDENCE_DIR = "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence"
+BRAIN_HOST_TEST_MAX_LOAD_1M = "20"
+BRAIN_REPROOF_REQUEST = "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/reproofs/S04-T01/fda4652a6ec6cbf81f4deb10c6c607ed72837451fb07a6b3f18305a9f96f2182/4001c961201dd9a1cbe7830aca4873457f7713b9/request.json"
+BRAIN_RESUME_BRANCH = "fabro/reproof-s04-t01-4001c961"
+BRAIN_RESUME_COMMITS = "d091eb5d26d9da38129aa5b44f5515eec4f5bb89"
+BRAIN_RESUME_EXPECTED_COMMIT = "none"
+BRAIN_RESUME_MODE = "conflict-aware"
+BRAIN_RESUME_PROOF_HEAD = "none"
+BRAIN_RESUME_SOURCE_HEAD = "d091eb5d26d9da38129aa5b44f5515eec4f5bb89"
+BRAIN_RESUME_TASK_BASE = "defde4d68fbcdd7d39566d82986ec562010c9638"
+BRAIN_REVIEW_ATTEMPT = "4660a6ed-8f07-43da-ae8b-aa5a89049a38"
+BRAIN_START_SHA = "4001c961201dd9a1cbe7830aca4873457f7713b9"
+BRAIN_TASK_ID = "S04-T01"
+BRAIN_WORKDIR = "/Users/headless/.maestro-brain-fabro-workdirs/reproof-s04-t01-4001c961"

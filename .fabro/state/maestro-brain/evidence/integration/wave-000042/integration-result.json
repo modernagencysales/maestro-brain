@@ -1,0 +1,54 @@
+{
+  "baseSha": "e8f008574eff0d1a21700ff02926ac4c9870d425",
+  "conflicts": [],
+  "focusedChecks": [
+    "rtk pnpm --dir packages/convex typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test api-keys headless http-request",
+    "rtk pnpm check:headless-surface-contract"
+  ],
+  "generatedFiles": [
+    "packages/convex/confect/_generated/registeredFunctions/headless/apiKeys.ts",
+    "packages/convex/confect/_generated/spec.ts",
+    "packages/convex/convex/headless/apiKeys.ts"
+  ],
+  "headSha": "7057cb22f8c6f001388bc2423b51860d10b6575f",
+  "includedTasks": [
+    {
+      "commitShas": [
+        "513d4f8662c58aa4f488700454baffbac03b0d06",
+        "70aab1a9529b49931c06368e4a1c4e39fef93c0f",
+        "538561fae9bea2abbe063f43a5654e2834a1bba3",
+        "6b0fbeae175a9b1822f94af5f675658cc2fe250a",
+        "bd510c6061a919e5ae5824ca6928c34e337e757f",
+        "0aa4a40c5c9283a353cfa039dca9ce3b6df030b3",
+        "48a141f0b169e7ff4b79e8b07818a4a2d321a64a",
+        "1057834555d690aa01b0a08178f3876a0f351909",
+        "e80f9ee828389b1a097a28c83ffb8639a6cadee4",
+        "0ce85e2ec3631f40eb8cd66d694c249bbded90fc"
+      ],
+      "laneHeadSha": "0ce85e2ec3631f40eb8cd66d694c249bbded90fc",
+      "patchState": "applied",
+      "taskId": "S11-T02",
+      "tranche": "D2-domain-bodies"
+    }
+  ],
+  "integrationId": "wave-000042",
+  "mode": "integrate",
+  "schemaVersion": "maestro-brain-integration-result/v3",
+  "selectionFileSha256": "2ba8c0e65512a7fc4d3f22cb8dd58580967f604db506baf50e40cf09b03a5959",
+  "selectionPayloadSha256": "0d9da98d8a8d76fc45ce4ced696a1ab6e79e4593003a103f82c9e51f62689c46",
+  "reviewVerdict": "rework",
+  "status": "ready_for_review",
+  "remainingFindings": [
+    {
+      "id": "wave-000042-generated-ref-boundary-rework",
+      "severity": "high",
+      "ownerTaskId": "S11-T02",
+      "ownerLaneHeadSha": "0ce85e2ec3631f40eb8cd66d694c249bbded90fc",
+      "summary": "The hand-authored web Settings route still declares local Ref.Ref aliases and casts templateConfectRefs to HeadlessApiKeyRefs for headless apiKeys even though integration HEAD has generated Confect refs exposing public.headless.apiKeys. This bypasses the generated ref boundary and leaves product code coupled to a manual amended ref shape.",
+      "evidence": "At integration HEAD 7057cb22f8c6f001388bc2423b51860d10b6575f, packages/convex/confect/_generated/spec.ts registers headless_apiKeys under public.headless.apiKeys and packages/convex/src/refs.ts exports TemplateConfectRefs from ../confect/_generated/refs. However apps/web/src/routes/_workspace.settings.tsx imports Ref and TemplateConfectRefs, defines ApiKeyCreateRef/ApiKeyListRef/ApiKeyRevokeRef/ApiKeyRotateRef plus HeadlessApiKeyRefs, casts templateConfectRefs as HeadlessApiKeyRefs, and uses refsWithHeadlessApiKeys.public.headless.apiKeys. The route should rely on the generated TemplateConfectRefs shape directly rather than a local ref cast.",
+      "gate": "read-only semantic review; no repair authored in this review turn"
+    }
+  ],
+  "resolvedFindings": []
+}

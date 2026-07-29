@@ -1,0 +1,76 @@
+{
+  "baseSha": "5f682348711572faa32ac79066f8e470a1f2743f",
+  "conflicts": [],
+  "focusedChecks": [
+    "rtk pnpm brain:factory:check-confect-codegen -- --profile web --test brain-editor-revision-fence --test brain-pages-crud",
+    "rtk pnpm --dir packages/editor-react typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/editor-react test",
+    "rtk pnpm check:route-tree",
+    "rtk pnpm check:layer-boundaries",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test channel-policies",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test connections",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk pnpm check:access-audit-events",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test accessibility"
+  ],
+  "generatedFiles": [
+    "packages/convex/confect/_generated/convexSchema.ts",
+    "packages/convex/confect/_generated/docs.ts",
+    "packages/convex/confect/_generated/id.ts",
+    "packages/convex/confect/_generated/registeredFunctions/slack/channelPolicies.ts",
+    "packages/convex/confect/_generated/schema.ts",
+    "packages/convex/confect/_generated/spec.ts",
+    "packages/convex/confect/_generated/tables/channelDeliveryPolicies.ts",
+    "packages/convex/confect/_generated/tables/channelRoutingPolicies.ts",
+    "packages/convex/convex/brain/pages.ts",
+    "packages/convex/convex/slack/channelPolicies.ts",
+    "packages/template-core/src/generated/confectManifest.ts"
+  ],
+  "headSha": "ffbaaa0c16495ef60f23aae336b8725d1eb6f3af",
+  "includedTasks": [
+    {
+      "commitShas": [
+        "88cfb29097c37f07007e4d65b9ee0a6b781f497c",
+        "4f9455e29876322fe5c7502ab5a25518b07807c6",
+        "4705a700ebe88bdabc6e21e1bb1913bf5136bff4",
+        "5cd16643726e0a0285d2638fa1092f26c945e32b",
+        "7ed60b20318c8c5d97ae1323e3d80d62cd1df08c",
+        "06f9a199df9a8fd9764f11d7ae36d61c32e03801",
+        "7d183a53c8235bdb4c11b908b924951479079319"
+      ],
+      "laneHeadSha": "7d183a53c8235bdb4c11b908b924951479079319",
+      "patchState": "already-present",
+      "taskId": "S03-T03",
+      "tranche": "D2-domain-bodies"
+    },
+    {
+      "commitShas": [
+        "778e079dd9a8a05cc5647b2cb1db662b7bc95a3d",
+        "b197e5aa41024656daf1fe3f63b5dc7018a795b9",
+        "50f9b5cbe072c18d5db9db0d7459fcf1df672906",
+        "05632bc2ecafb14b6d78bd65276f160843fc1bcf"
+      ],
+      "laneHeadSha": "05632bc2ecafb14b6d78bd65276f160843fc1bcf",
+      "patchState": "already-present",
+      "taskId": "S04-T04",
+      "tranche": "D2-domain-bodies"
+    }
+  ],
+  "integrationId": "wave-000054",
+  "mode": "recover",
+  "schemaVersion": "maestro-brain-integration-result/v3",
+  "selectionFileSha256": "03906a3eae5c5d7d7744261db70a1c7e386b15e33e867dbe8733e3fa16081e22",
+  "selectionPayloadSha256": "89efd1b9bdda692b77d7a2bf7dba94275ef10c7d32ab66d00ce6a6a797d84459",
+  "reviewVerdict": "rework",
+  "status": "ready_for_review",
+  "remainingFindings": [
+    {
+      "id": "wave-000054-S04-T04-tenant-key-auth-mismatch",
+      "severity": "blocker",
+      "taskId": "S04-T04",
+      "summary": "bulkSetChannelPolicies uses the caller supplied organizationKey as both the stable Slack organization key and the durable organizations/workspaces organizationId.",
+      "details": "packages/convex/confect/slack/channelPolicies.impl.ts loads sourceChannels and policy rows by input.organizationKey, but authorizes via organizationMembers.by_organization_user and discovers Client Brain targets through workspaces.by_organization_kind using that same value as organizationId. Existing Slack connection code persists provider/source organizationKey from organizations.agencyKey, while memberships and workspaces are keyed by the durable organization _id. An admin for a real organization cannot be authorized for its agencyKey, and switching the input to _id would miss provider/source rows. This breaks the tenant boundary and makes the public policy mutation unusable or incorrectly scoped despite the pure planner tests passing."
+    }
+  ],
+  "resolvedFindings": []
+}

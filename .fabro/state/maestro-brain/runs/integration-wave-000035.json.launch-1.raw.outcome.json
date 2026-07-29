@@ -1,0 +1,10 @@
+{
+  "errorCode": null,
+  "errorSyscall": null,
+  "kind": "exited",
+  "outputPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000035.json.launch-1.raw",
+  "outputSha256": "ec2ac0c885f88c2f44051c83d0497127a9bcfba2489e665298c6dfcb50d3c5b1",
+  "schemaVersion": "maestro-rtk-file-outcome/v2",
+  "signal": null,
+  "status": 0
+}

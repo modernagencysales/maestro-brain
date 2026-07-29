@@ -1,0 +1,75 @@
+{
+  "lens": "quality",
+  "taskId": "S11-T02",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "2b484dad01173ead7ca99d710455998926b3666713d025943ef5824aed334ff6",
+  "baseSha": "defde4d68fbcdd7d39566d82986ec562010c9638",
+  "headSha": "cd6e8f88183f51b41a2752ad9dde7715bd66cb25",
+  "treeSha": "d3477635d8b750700cb7b8ebf9c0aa58fa915d0e",
+  "reviewerRunId": "maestro/review/S11-T02/cd6e8f88183f51b41a2752ad9dde7715bd66cb25/865a7553-03ac-4fe3-bf3d-8efae5007bbd-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "pass",
+      "evidence": [
+        "Task plan lines 3094-3099 require failure-first tests for missing/malformed bearer headers, tenant field rejection, wrong scope/Brain, revoked/expired principals, auth-before-decode/provider, logging, audited CRUD, display-once secrets, and non-admin UI behavior.",
+        "Proof packet testsAdded lists packages/convex/test/api-keys.test.ts, packages/convex/test/headless-executor.test.ts, packages/convex/test/http-request-security.test.ts, apps/web/src/features/settings/api-keys-adapter.test.ts, apps/web/src/features/settings/api-keys-panel.test.tsx, and apps/web/src/features/settings/settings-surface.test.ts.",
+        "packages/convex/test/http-request-security.test.ts covers malformed/missing bearer auth-before-decode and no dispatch at lines 246-320, deleted route no-decode/no-dispatch at lines 322-346, ordered authenticate/decode/dispatch/reauthenticate/mark at lines 348-413, operation-specific ask scope at lines 415-455, reauthorization failure at lines 457-494, and redacted/no-log dispatch errors at lines 496-553.",
+        "packages/convex/test/api-keys.test.ts covers display-once hash/prefix storage at lines 60-108, public key authority stripping internal IDs at lines 110-142, admin/scope/expiry denials at lines 144-183, service-principal fail-closed cases at lines 185-238, revocation/expiry/principal matrix at lines 240-352, durable indexed authentication and last-used fencing at lines 573-657, principal binding/generation failures at lines 659-803, and audited success/denial events at lines 805-919.",
+        "Pre-review lane gate evidence reports 41 test files and 176 tests passed for S11-T02, and ci-proof-packet supplemental commands include focused convex, Confect codegen, headless-surface-contract, contract, logging-boundary, secret-canaries, access-audit-events, and web settings/API-key tests as passed."
+      ]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "Backend changes keep bearer parsing/authorization in packages/convex/confect/headless and request/executor boundaries: httpRequest.ts derives key hash and principal before readJsonBody at lines 79-145 and builds authenticated executor requests at lines 211-238; manifest/executor.ts executes only through the headless operation registry/refs at lines 354-396.",
+        "Durable API-key behavior is implemented behind Confect specs/impls in packages/convex/confect/headless/apiKeys.spec.ts lines 21-127 and apiKeys.impl.ts lines 908-1088, using DatabaseReader/DatabaseWriter and generated services rather than web/API duplicated business logic.",
+        "Web route _workspace.settings.tsx lines 103-179 stays at route/adaptor/component composition: it uses Confect hooks and feature adapters, then renders MemberManagement and ApiKeysPanel rather than importing Convex providers or backend internals into blocks.",
+        "apps/web/src/features/settings/api-keys-adapter.ts lines 52-100 contains only UI-facing mutation wrapping and role gating; server-side authority remains in currentBrainContext/apiKey handlers in apiKeys.impl.ts lines 752-929."
+      ]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "pass",
+      "evidence": [
+        "The implementation isolates reusable pure security helpers: headless/auth.ts handles key creation/parsing/verification, authorizeOperation.ts handles reviewed policy and tenant-field rejection, principal.ts creates normalized principals, and httpRequest.ts keeps request normalization separate from http.ts routing.",
+        "apiKeys.impl.ts is large (proof packet knownRisks notes this inspectability debt), but it is cohesive around the headless/apiKeys Confect group and separates create/list/revoke/authenticate/mark helpers before final FunctionImpl registration at lines 908-1088.",
+        "HTTP request state is explicit and readable in http.ts lines 273-335: policy lookup, key hash, authenticate, preauthorize, decode, dispatch, reauthenticate, mark last-used, then response.",
+        "No broad fixture leakage was found in reviewed files; durable paths use DatabaseReader/DatabaseWriter indexes in apiKeys.impl.ts and test fixtures are confined to test files/synthetic manifest mocks."
+      ]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "Audited API-key administration is wired through apiKeyAuditEvent and recordApiKeyAuditEvent in apiKeys.impl.ts lines 95-127, with create success audit at lines 328-340, revoke success audit at lines 446-457, and rotate success audit at lines 1034-1045.",
+        "Denied create/revoke/rotate audit paths record redacted denial reasons without raw keys at apiKeys.impl.ts lines 242-259, 382-397, and 954-969.",
+        "No raw Authorization or display key logging was found in the headless implementation grep; http-request-security.test.ts lines 496-553 asserts dispatch exceptions do not call console.error and public errors do not contain displayKey values.",
+        "Stored/listed public metadata excludes keyHash and displayKey: auth.ts listApiKeyMetadata strips keyHash at lines 579-586 and createPublicBrainApiKey returns only displayPrefix/scopes/status fields at lines 408-429."
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "Task manifest S11-T02 lines 1393-1437 sets sourceSliceBudget 3000 and sourceSliceLimit 10; the proof packet reports changedFiles limited to the manifest-owned slice and knownRisks says factory source-line calculation verified every commit remains at or below 300 hand-authored source lines.",
+        "rtk proxy git rev-list --count defde4d68fbcdd7d39566d82986ec562010c9638..HEAD returned 10, matching the sourceSliceLimit.",
+        "Source-only per-commit spot checks excluding tests showed the largest reviewed source commits within 300 lines: 5618edde 210, e9f327da 285, abe5014a 268, cd6e8f88 286 changed lines.",
+        "Whole-diff numstat from proof base shows 20 files changed, all within the S11-T02 manifest file lock family; no generated files were checked in."
+      ]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "pass",
+      "evidence": [
+        "Changed files in ci-proof-packet lines 8-29 do not include packages/convex/confect/_generated or other generated Convex/Confect artifacts.",
+        "_workspace.settings.tsx lines 28-90 explicitly documents the temporary typed intersection for amended headless API-key refs because checked-in generated refs are integration-owned until centralized Confect codegen refreshes the spec.",
+        "Proof packet supplementalCommands lines 42-49 record rtk pnpm brain:factory:check-confect-codegen passed with 5 generated files and check:headless-surface-contract passed, providing exact-head transient codegen evidence without checking in integration-owned generated output.",
+        "Pre-review lane gates for S11-T02 passed at head cd6e8f88183f51b41a2752ad9dde7715bd66cb25 for the same task contract, and proof plan/task hashes match manifest planSha256/taskBlockHash."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

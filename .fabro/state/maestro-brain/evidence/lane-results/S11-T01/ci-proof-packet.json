@@ -1,0 +1,107 @@
+{
+  "taskId": "S11-T01",
+  "baseSha": "c8cf0d054d039c38a75ac54fcfc643a5537f8a37",
+  "headSha": "9420bf95ee86532e0aae0ff5a9c7f5b1d63972a1",
+  "changedFiles": [
+    "apps/web/src/features/settings/api-keys.test.ts",
+    "apps/web/src/features/settings/api-keys.ts",
+    "packages/convex/confect/headless/apiKeys.impl.ts",
+    "packages/convex/confect/headless/apiKeys.spec.ts",
+    "packages/convex/confect/headless/auth.ts",
+    "packages/convex/confect/tables/apiKeys.ts",
+    "packages/convex/confect/tables/servicePrincipals.ts",
+    "packages/convex/test/api-keys.test.ts"
+  ],
+  "focusedCommands": [
+    {
+      "command": "CI=true pnpm install --frozen-lockfile",
+      "status": "passed",
+      "summary": "Installed workspace dependencies after package tests initially failed to resolve local node_modules."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test api-keys",
+      "status": "failed_then_passed",
+      "summary": "Failure-first scope proof failed before implementation on brain:ask without brain:read, then passed after validator repair: 1 file passed, 5 tests passed."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test headless-auth api-keys",
+      "status": "passed",
+      "summary": "Final exact packet command passed: 2 files passed, 11 tests passed."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web test api-keys",
+      "status": "passed",
+      "summary": "Final exact packet command passed: 1 file passed, 3 tests passed."
+    },
+    {
+      "command": "pnpm --dir packages/convex typecheck",
+      "status": "passed",
+      "summary": "tsc -p tsconfig.json --noEmit passed."
+    },
+    {
+      "command": "pnpm --dir apps/web typecheck",
+      "status": "passed",
+      "summary": "tsc -p tsconfig.json --noEmit passed."
+    },
+    {
+      "command": "pnpm check:headless-surface-contract",
+      "status": "passed",
+      "summary": "check:headless-surface-contract: ok."
+    },
+    {
+      "command": "pnpm check:secret-canaries",
+      "status": "passed",
+      "summary": "gitleaks scanned repository and reported no leaks found."
+    },
+    {
+      "command": "pnpm check:access-audit-events",
+      "status": "passed",
+      "summary": "check:access-audit-events passed."
+    },
+    {
+      "command": "pnpm check:confect-contracts",
+      "status": "passed",
+      "summary": "check:confect-contracts ok (pin-only and semantic)."
+    },
+    {
+      "command": "pnpm check:generated-files",
+      "status": "passed",
+      "summary": "check:generated-files ok (pin-only)."
+    },
+    {
+      "command": "pnpm confect:manifest",
+      "status": "passed",
+      "summary": "Manifest generation completed with no retained diff."
+    },
+    {
+      "command": "pnpm --dir packages/convex confect:codegen",
+      "status": "passed_generated_diff_reverted",
+      "summary": "Confect codegen completed and produced expected generated servicePrincipal/apiKeys artifacts; generated output was reverted because S11-T01 file locks do not own @generated-confect."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test",
+      "status": "passed",
+      "summary": "Package-local Convex suite passed: 50 files passed, 303 tests passed."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web test",
+      "status": "passed",
+      "summary": "Package-local web suite passed: 27 files passed, 103 tests passed."
+    }
+  ],
+  "testsAdded": [
+    "packages/convex/test/api-keys.test.ts",
+    "apps/web/src/features/settings/api-keys.test.ts"
+  ],
+  "reviewVerdict": "pass",
+  "knownRisks": [
+    "Confect codegen produced generated files for the new headless/apiKeys group and servicePrincipals table, but S11-T01 does not own @generated-confect; generated output was intentionally reverted for tranche integration ownership.",
+    "headless/apiKeys.impl.ts remains a fail-closed Unauthorized Confect stub pending generated-ref integration and full database-backed CRUD wiring in integration/follow-up; pure domain functions and specs are tested here.",
+    "Settings API key surface is metadata-only and not yet mounted into settings navigation; full interactive CRUD UI remains outside this focused S11-T01 proof slice."
+  ],
+  "reviewNotes": [
+    "Review amended stale-generation fence: API keys now persist principalGeneration, rotations bind the new key to the existing principal id/generation, and verification denies generation mismatches.",
+    "Review amended lifecycle denial: explicit expired API key/service-principal states now fail closed instead of relying only on timestamp/revoked fields.",
+    "Review amended manifest-owned indexes: servicePrincipals and apiKeys now declare principal/status, organization/status, workspace/status, and expiry indexes required by S11 ownership."
+  ]
+}

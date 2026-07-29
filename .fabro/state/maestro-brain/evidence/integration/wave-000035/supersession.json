@@ -1,0 +1,30 @@
+{
+  "baseSha": "26cbbb8925621f84c99b420f2992e38a1e6265e3",
+  "controlHeadSha": "26cbbb8925621f84c99b420f2992e38a1e6265e3",
+  "createdAt": "2026-07-20T04:34:59.347Z",
+  "evidence": [
+    "apply-output-sha256:d5cae071419f38deb29e9ad943932d59d9aa7bf456b2507f3f16e719801cddd0",
+    "fabro-run:01KXYWQ56744NHV796M3Q6SS8P",
+    "rollback-head:26cbbb8925621f84c99b420f2992e38a1e6265e3"
+  ],
+  "integrationId": "wave-000035",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "reason": "deterministic Confect generation changed four integration-owned global outputs outside the exact allowlist; all attempts rolled back cleanly before broad gates",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXYWQ56744NHV796M3Q6SS8P",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "421c759d44e27cbf48307af40e6c4b8e40e50d247cf31d6b7de2742d308e6503",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v2",
+  "selectedTaskIds": [
+    "S03-T03",
+    "S04-T02"
+  ],
+  "selectionFileSha256": "506a442978e065b6f347ae691c420bda7de8463e501c68cb50d56dd7683e8254",
+  "selectionPayloadSha256": "0073e9e33aea4bc4af29b4b9e4bb1b1989aaf401c311f7751fa4a779e88c24f0",
+  "status": "superseded",
+  "receiptSha256": "2e0d6705bda4497fe1da8b50af31f8100aad002a5bd069a46f38d691911c4e17"
+}

@@ -1,0 +1,28 @@
+{
+  "baseSha": "c643d1699ba1417cdac704986252c5e633802a5a",
+  "controlHeadSha": "c643d1699ba1417cdac704986252c5e633802a5a",
+  "createdAt": "2026-07-20T03:42:30.799Z",
+  "evidence": [
+    ".fabro/state/maestro-brain/evidence/integration/wave-000032/broad-gate-76ff70ddd36fbb22f12608386a6d536a1d24820a.json sha256=49d8136059b1d94f3ec925d866d3ea622fa2c15bbbe516afb59d23fdae005da9",
+    "independent tooling review: spawnSync pipe maxBuffer/error-signal masking; product semantic reviews passed twice at head 76ff70ddd36fbb22f12608386a6d536a1d24820a"
+  ],
+  "integrationId": "wave-000032",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "reason": "Legacy broad-gate spawnSync capture terminated both exact-head verifies before completion; superseded to integrate file-backed capture fix",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXYR8DN1CK0V7MHS94GVX5XT",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "5707d0044ac40cf5b9b62a404a4f56cc0d3f1b1cc7ca172fb292748d01420d6c",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v2",
+  "selectedTaskIds": [
+    "S04-T01"
+  ],
+  "selectionFileSha256": "45ff9a6df144d2aff1f42f4548756c2695a00c676c42171cf6427ac87fd0abbc",
+  "selectionPayloadSha256": "d2a3683c838d6f3b3b1b25724f17a8424514bf10ee0393af0a867eccd10acaaf",
+  "status": "superseded",
+  "receiptSha256": "5038b055d4dce69cca776de90ab372bb6177be4a0af8c58a04a106fe44d5f682"
+}

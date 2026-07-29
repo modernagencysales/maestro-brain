@@ -1,0 +1,93 @@
+{
+  "lens": "safety",
+  "taskId": "S05-T01",
+  "planSha256": "401ba861efdc16760c9abac168cfd928efce150d9051c6bd58bf62ec330547a7",
+  "taskBlockHash": "1665eb4087239d8d137a8b4274f5f63c4bb965d699076b2678d1e618b1e34c54",
+  "baseSha": "648ddb32aa68230fdb41e0ef6dc6fe26c4837487",
+  "headSha": "4479e781d9d129b99c2ecea8a9dd7bdc1c1f3c83",
+  "treeSha": "125890ada967688db27600893968e5d170511d44",
+  "reviewerRunId": "maestro/review/S05-T01/4479e781d9d129b99c2ecea8a9dd7bdc1c1f3c83/755db2ad-edc6-488e-bc40-8a4c6cdea446-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:655-689 assigns S05-T01 ownership for the source ledger files and IAM-03/SLK-04/SLK-05/KNW-02 requirements.",
+        "packages/convex/confect/sources/sourceSchemas.ts:81-146 defines organization/connection/channel tenant fields on content and job rows; packages/convex/confect/tables/providerEventReceipts.ts:5-15 and sourceArtifacts.ts:5-20 expose tenant-scoped receipt/artifact indexes.",
+        "packages/convex/confect/sources/sourceSchemas.ts:225-365 derives stable keys from organizationKey, connectionKey, connectionGeneration, channel/provider identity and rejects tenant/channel mismatches before producing accepted capture results.",
+        "packages/convex/test/source-ledger-schema.test.ts:206-243 proves source identity differs across organizations and connection generations."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1694-1698 requires capture from a verified Slack envelope with typed TenantMismatch/ChannelAccessLost errors.",
+        "packages/convex/confect/sources/sourceSchemas.ts:148-158 defines VerifiedSlackChannelBinding; sourceSchemas.ts:285-306 requires that decoded binding match tenant, connection generation, team/app/bot, channel, and external channel before capture acceptance.",
+        "packages/convex/test/source-ledger-schema.test.ts:291-325 exercises tenant and channel mismatch denials."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1678-1685 requires lifecycle envelopes, tombstone flags, provider order metadata, and assembly_pending job rows for this task.",
+        "packages/convex/confect/sources/sourceSchemas.ts:25-30 defines active/deleted_tombstone/redacted/purged lifecycle state, generation, updatedAt, and purgeAfter; sourceSchemas.ts:432-479 writes active or deleted_tombstone artifact/revision lifecycle rows.",
+        "packages/convex/confect/tables/sourceArtifacts.ts:16-20 and sourceRevisions.ts:9-13 add organization-scoped lifecycle purge indexes.",
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:26-45 documents active-to-tombstone/redacted/purged behavior, artifact-gated currentness, and transaction-fenced partial capture failures."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:98-119 confines source text/blocks/permalink/author data to source revision rows with tenant keys, content hash, tombstone, lifecycle, and schemaVersion fields.",
+        "packages/convex/confect/sources/sourceSchemas.ts:51-58 stores receipt verification proof as hashes/status rather than raw signatures or provider secrets.",
+        "packages/convex/confect/sources/sourceSchemas.ts:160-192 accepts normalized observation fields only and enforces a 32,000-character text limit; sourceSchemas.ts:269-284 maps oversized or invalid observations to typed errors.",
+        "packages/convex/test/source-ledger-schema.test.ts:335-343 proves oversized content is rejected."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1674-1677 requires duplicate receipt, logical observation convergence, conflict, over-limit, and partial failure proof for this task.",
+        "packages/convex/confect/sources/sourceSchemas.ts:317-324 fences existing artifacts by stable sourceKey and monotonic providerSortKey before accepting a new revision over an existing artifact.",
+        "packages/convex/confect/sources/sourceSchemas.ts:432-456 increments lifecycle generation from the existing artifact generation when producing updated artifact rows.",
+        "packages/convex/test/source-ledger-schema.test.ts:157-174 and 176-204 prove live/backfill convergence and same-delivery replay handling."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1678-1681 requires transport receipt dedupe while allowing live/backfill/reconciliation receipts to converge on one logical revision.",
+        "packages/convex/confect/sources/sourceSchemas.ts:326-359 computes a tenant/connection-generation/transport/delivery replay key and rejects conflicting delivery fingerprints while returning duplicate for exact replays.",
+        "packages/convex/confect/sources/sourceSchemas.ts:402-405 records replayVerification with status accepted and a receipt hash.",
+        "packages/convex/test/source-ledger-schema.test.ts:176-204 and 291-313 prove duplicate deliveries converge and conflicting replays are rejected."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1681-1685 requires provider revision/order metadata, canonical hashes, tombstone flags, policy epoch, and unique effect key fences.",
+        "packages/convex/confect/sources/sourceSchemas.ts:251-258 derives sourceRevisionKey from sourceKey, provider order, provider revision, source timestamp, content hash, and tombstone flag.",
+        "packages/convex/confect/sources/sourceSchemas.ts:368-379 builds a deterministic provider sort key including timestamp, provider revision, and tenant/connection-generation/delivery digest.",
+        "packages/convex/confect/sources/sourceSchemas.ts:480-495 builds assembly_pending processing jobs with sourceUnitKey, sourceRevisionKey, effectKey, policyEpoch, lease, retry, and attempt fields."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1694-1698 scopes this task to a verified Slack envelope plus normalized observation schema rather than importing provider SDKs.",
+        "packages/convex/confect/sources/sourceSchemas.ts:1-3 imports only Effect Schema and an internal sha256 helper; no Slack/Nango/provider SDK or secret boundary is introduced.",
+        "packages/convex/confect/sources/sourceSchemas.ts:148-192 models verified binding and normalized observation data as plain typed inputs, keeping provider verification/secret handling outside the ledger schema.",
+        "packages/convex/test/source-ledger-schema.test.ts:58-68 uses a verifiedBinding fixture and asserts ledger behavior without live provider calls or secrets."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

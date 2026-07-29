@@ -1,0 +1,79 @@
+{
+  "baseSha": "2d530c801bd0c71dcd6f09e96b27cc8d9b2c1d5f",
+  "conflicts": [],
+  "focusedChecks": [
+    "rtk pnpm brain:factory:check-confect-codegen -- --profile web --test brain-editor-revision-fence --test brain-pages-crud",
+    "rtk pnpm --dir packages/editor-react typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/editor-react test",
+    "rtk pnpm check:route-tree",
+    "rtk pnpm check:layer-boundaries",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test slack-directory",
+    "rtk host-test-slot --class focused pnpm --dir packages/integrations test slack",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk pnpm check:schema-migration-notes",
+    "rtk pnpm check:provider-boundary"
+  ],
+  "generatedFiles": [
+    "packages/convex/confect/_generated/convexSchema.ts",
+    "packages/convex/confect/_generated/docs.ts",
+    "packages/convex/confect/_generated/id.ts",
+    "packages/convex/confect/_generated/registeredFunctions/integrations/slackDirectory.ts",
+    "packages/convex/confect/_generated/schema.ts",
+    "packages/convex/confect/_generated/spec.ts",
+    "packages/convex/confect/_generated/tables/channelSyncStates.ts",
+    "packages/convex/confect/_generated/tables/sourceChannels.ts",
+    "packages/convex/convex/brain/pages.ts",
+    "packages/convex/convex/integrations/slackDirectory.ts",
+    "packages/template-core/src/generated/confectManifest.ts"
+  ],
+  "headSha": "e7497245df657b37ef5950a0a5c4cd7972ef61d2",
+  "includedTasks": [
+    {
+      "commitShas": [
+        "448775181d05d6dc2d13dcf5997d7ccf8529c955",
+        "eb7c67d03153fc103635f6c6f0146e8043ad3721",
+        "98a26f545c89eb07c8f96471fe6c6e081d771e6b",
+        "1df666695370b2e1d6008138f1c56bc806e6c1c2",
+        "e7dffea663799d00e9880df620953d4f8cecb917",
+        "6a4a217154717b0b2db451d35c51d15017939188",
+        "195db6c28eb821d3052be2cbc085f8aeed8043f8"
+      ],
+      "laneHeadSha": "195db6c28eb821d3052be2cbc085f8aeed8043f8",
+      "patchState": "applied",
+      "taskId": "S03-T03",
+      "tranche": "D2-domain-bodies"
+    },
+    {
+      "commitShas": [
+        "ad9ac3905395997845b1772dc6fcdfa3f42eb987",
+        "0a51543b857953b5c1c66d4264eb4e70d1980eba",
+        "8b0af7a088be63d322b65bb4c4102f97d1fb0082",
+        "a13e80ef5050f583ef22dd6bae27e681090ad569",
+        "36bafff60e726e8bc9eaf41c5e6e31b8946a0244"
+      ],
+      "laneHeadSha": "36bafff60e726e8bc9eaf41c5e6e31b8946a0244",
+      "patchState": "applied",
+      "taskId": "S04-T02",
+      "tranche": "D2-domain-bodies"
+    }
+  ],
+  "integrationId": "wave-000036",
+  "mode": "integrate",
+  "schemaVersion": "maestro-brain-integration-result/v3",
+  "selectionFileSha256": "45777684445ac3934fc9d22697e5c223570c7a705cf2a048f1c9fca1b8428b6a",
+  "selectionPayloadSha256": "2d3186b99e44da26b4105c4d2e5675639a1d321087b170ae20fb91817cb42328",
+  "reviewVerdict": "rework",
+  "status": "ready_for_review",
+  "remainingFindings": [
+    {
+      "id": "wave-000036-effect-diagnostics-slack-directory-rework",
+      "severity": "high",
+      "summary": "Focused read-only review confirms the broad-gate failure remains: rtk pnpm check:effect-diagnostics exits 1 because selected task S04-T02 introduced Effect diagnostics in hand-authored Slack directory files, including multipleEffectProvide in packages/convex/test/slack-directory.test.ts and unnecessaryFailYieldableError findings in packages/convex/confect/integrations/slackDirectory.impl.ts.",
+      "ownerTaskId": "S04-T02",
+      "ownerLaneHeadSha": "36bafff60e726e8bc9eaf41c5e6e31b8946a0244",
+      "gate": "rtk pnpm check:effect-diagnostics",
+      "evidence": "At integration HEAD e7497245df657b37ef5950a0a5c4cd7972ef61d2, read-only rtk pnpm check:effect-diagnostics reported 0 errors, 1 warnings and 45 messages and exited 1. Base-to-head diff confirms the affected files packages/convex/confect/integrations/slackDirectory.impl.ts and packages/convex/test/slack-directory.test.ts are selected S04-T02 changed files. The specific warning is multipleEffectProvide at slack-directory.test.ts:2162; selected impl contexts include yield* Effect.fail at slackDirectory.impl.ts lines 526, 563, 685, 754, 804, 928, 954, and 969."
+    }
+  ],
+  "resolvedFindings": []
+}

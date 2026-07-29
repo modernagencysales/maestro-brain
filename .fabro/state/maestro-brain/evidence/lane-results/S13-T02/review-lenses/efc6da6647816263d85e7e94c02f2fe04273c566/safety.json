@@ -1,0 +1,87 @@
+{
+  "lens": "safety",
+  "taskId": "S13-T02",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "taskBlockHash": "2b76ab1991d07a9978da3c321cbcc4f73ffc5ae9b4e3eb3512e2ff3dd4251072",
+  "baseSha": "f66236e12f93bc254cc2350800a5b2a69d0caff5",
+  "headSha": "efc6da6647816263d85e7e94c02f2fe04273c566",
+  "treeSha": "c5d3266dcbdf1a7689061de23e0b6c78cc8f586b",
+  "reviewerRunId": "maestro/review/S13-T02/efc6da6647816263d85e7e94c02f2fe04273c566/b80b48dc-c033-46f3-9446-525805433680-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3517-3531 requires cross-Brain/cross-tenant canaries and zero cross-tenant effects.",
+        "tooling/evals/src/brain-capacity.ts:47-52 models key/read/commit/delivery tenant-denial canaries, and lines 176-178 fail any false canary.",
+        "tooling/evals/src/brain-capacity.test.ts:70-83 mutates each tenant-denial canary false and expects harness failure; packages/convex/test/brain-capacity.test.ts:47-52 asserts the shared harness reports all tenant-denial canaries true."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3517-3520 scopes authorization proof to canary agency cross-tenant key/read/commit/delivery attempts.",
+        "tooling/evals/src/brain-capacity.ts:176-178 treats every authorization/tenant-denial canary as required for pass.",
+        "packages/convex/test/brain-capacity.test.ts:60-76 exercises the shared harness failure path when crossTenantCommitDenied is false."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "not_applicable",
+      "rationale": "S13-T02 is a synthetic capacity/fairness harness with no customer data and no durable lifecycle/tombstone state changes; lifecycle enforcement remains owned by earlier/later tasks, while this task only records rollback policy for capacity limits.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3535-3537 states no customer data and rollback selection for the last passing capacity policy.",
+        "docs/product/maestro-brain-capacity.md:39-41 documents raising limits and rollback without stopping already admitted exact capture.",
+        "rtk proxy git diff --name-status f66236e12f93bc254cc2350800a5b2a69d0caff5..HEAD shows only eval/test/docs/package files changed, not lifecycle or persistence code."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "docs/product/maestro-brain-capacity.md:9-10 states the frozen fixture is synthetic-only and contains no provider payloads or customer text.",
+        "tooling/evals/src/brain-capacity-report.ts:11-16 includes rawSyntheticOnly: true in the report contract, and lines 21-24 emit that flag.",
+        "tooling/evals/src/brain-capacity-fixture.ts:21-31 contains only numeric fixture envelope values, with no raw customer/provider payload fields."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3521-3526 requires 20 events/sec during backfill plus 10 concurrent Ask/MCP requests, attempts/effects, queue depth, and progress measurements.",
+        "tooling/evals/src/brain-capacity.ts:127-128 fails attempt/effect mismatches; lines 131-136 fail stalled recent/deep progress; lines 137-175 enforce per-channel fairness windows and consecutive miss detection.",
+        "tooling/evals/src/brain-capacity.test.ts:41-69 covers shared cursor, unfair FIFO, dropped event, queue overflow, and cross-Brain leak failure cases."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3530-3531 requires zero loss/cross-tenant effects for the capacity proof, while replay/idempotency enforcement itself is owned outside this harness.",
+        "tooling/evals/src/brain-capacity.ts:125-128 rejects dropped events, queue overflow, and attempt/effect mismatch, which are the synthetic duplicate/loss safety signals available in this task.",
+        "tooling/evals/src/brain-capacity-report.ts:63-70 sets attempts equal to acceptedEffects in the passing run, and tooling/evals/src/brain-capacity.test.ts:67-68 covers dropped event and queue overflow failures."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3527-3529 requires every runnable channel to advance or record an exact provider-rate block and forbids two consecutive missed windows.",
+        "tooling/evals/src/brain-capacity.ts:152-157 rejects provider-rate blocks for non-runnable channels; lines 158-175 fail missed runnable channels without exact block and two consecutive missed windows.",
+        "tooling/evals/src/brain-capacity.test.ts:134-194 covers exact provider-rate block, allowed single blocked miss, and consecutive miss rejection including provider-rate-blocked consecutive misses."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "docs/product/maestro-brain-capacity.md:9-10 states the harness contains no provider payloads or customer text.",
+        "tooling/evals/src/brain-capacity-report.ts:1-9 imports only local eval modules and Node fs/url utilities; no provider SDK or secret-bearing adapter is imported.",
+        "tooling/evals/src/brain-capacity.ts:1-5 imports only local eval modules, and tooling/evals/src/brain-capacity-fixture.ts:21-31 is a static synthetic fixture."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

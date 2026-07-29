@@ -1,0 +1,102 @@
+{
+  "lens": "safety",
+  "taskId": "S11-T02",
+  "planSha256": "e0256a16a8e0791a68c0f2eef39946ddb845c01a79e186c9aa05585ce85d5199",
+  "taskBlockHash": "f49e5fe055896a804408cf0013f1f4b02735f7b6e18f1813ab85e85672fb569d",
+  "baseSha": "8fa1f5b6183a42207628d51cd396852dc8a95af5",
+  "headSha": "7468de37a0f3039b6d328e9d0728a488e1c3228b",
+  "treeSha": "fa10f7933824434a278d0e09bb739134f411c732",
+  "reviewerRunId": "maestro/review/S11-T02/7468de37a0f3039b6d328e9d0728a488e1c3228b/31b1ec3a-3931-4afe-979a-7b251b67d7f2-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3083-3145 requires all headless requests derive tenant/Brain from verified bearer state and reject caller tenant fields.",
+        "packages/convex/confect/httpRequest.ts:177-205 moves top-level tenant aliases into operation input for the authorization boundary rather than trusting them.",
+        "packages/convex/confect/headless/authorizeOperation.ts:30-101 rejects tenant/Brain/user/key identifiers recursively and injects principal-owned organizationId, workspaceId, and brainKey.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:473-550 authenticates by indexed key hash, verifies principal binding, and resolves active organization/workspace/Brain before returning a principal.",
+        "packages/convex/test/api-keys.test.ts:573-742 covers indexed bearer auth, tenant generation drift, cross-tenant principal mismatch, and stale last-used non-update."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3130-3144 requires Authorization-only bearer parsing, closed reviewed operation scopes, auth before decode/dispatch, and server-side Settings authorization.",
+        "packages/convex/confect/http.ts:303-380 enforces policy lookup, redacted rate-limit admission, bearer hash/authenticate, preauthorization, decode, dispatch, reauthentication, and last-used ordering.",
+        "packages/convex/confect/headless/authorizeOperation.ts:64-101 authorizes only explicit reviewed policy matches with required scope and server-injected tenant fields.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:752-929 derives Settings API-key CRUD context from server identity and effective workspace role; UI hiding is not the authority boundary.",
+        "packages/convex/test/http-request-security.test.ts:459-566 proves authenticate-before-decode dispatch order and operation-specific ask/read scopes."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3146-3152 requires uniform external errors, active lifecycle checks, and no legacy tenant-arg compatibility fallback.",
+        "packages/convex/confect/headless/auth.ts:466-521 rejects revoked/expired API keys and inactive or generation-changed service principals.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:553-658 rejects revoked/expired keys, revoked principals, mismatched principal generation, and non-Brain bindings.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:503-538 and 724-744 fence active organization/workspace lifecycle and revocation generations.",
+        "packages/convex/test/api-keys.test.ts:240-356 and 744-803 cover key/principal revocation, expiry, rotation, and service-principal generation drift."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "AGENTS.md:127-134 forbids exposing server secrets or logging raw provider payloads, tokens, API keys, or support artifacts.",
+        "packages/convex/confect/headless/auth.ts:365-405 generates display-once mbk secrets and stores hash/displayPrefix metadata.",
+        "packages/convex/confect/headless/auth.ts:579-585 strips keyHash from public metadata.",
+        "packages/convex/confect/http.ts:354-364 redacts dispatch exceptions into uniform Forbidden envelopes without logging.",
+        "packages/convex/test/http-request-security.test.ts:270-322 and 607-664 prove rate-limit metadata, public errors, and dispatch exceptions do not expose bearer values; apps/web/src/features/settings/api-keys-panel.tsx:141-221 keeps raw display keys only in ephemeral component state and acknowledgement clears them."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/http.ts:366-380 reauthenticates after dispatch and compares authenticated principal before returning success.",
+        "packages/convex/confect/http.ts:401-423 compares key hash/id, organization, workspace, brain, role ceiling, principal id, and scopes.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:508-538 and 592-600 detect tenant and principal generation races.",
+        "packages/convex/test/http-request-security.test.ts:568-605 proves a post-dispatch reauthorization failure fails closed.",
+        "packages/convex/test/api-keys.test.ts:573-656 proves changed workspace generation blocks subsequent bearer auth and stale last-used mutation."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3146-3149 defines request state through authenticated, authorized, decoded, dispatched, reauthorized, and returned.",
+        "packages/convex/confect/httpRequest.ts:211-238 carries idempotencyKey through only after authorization and tenant field rejection.",
+        "packages/convex/confect/manifest/executor.ts:201-285 validates idempotency support before execution and fail-closes unsupported operation/idempotency combinations.",
+        "packages/convex/confect/http.ts:328-380 requires fresh bearer auth and reauth on every request; no bearer state is accepted from the body or URL.",
+        "packages/convex/test/http-request-security.test.ts:324-424 and 459-524 cover no pre-auth decode, unknown/deleted operation fail-closed behavior, and ordered authorized idempotent dispatch."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3130-3144 requires fenced last-used update, active lifecycle/generation verification, and final reauthorization.",
+        "packages/convex/confect/headless/auth.ts:509-521 rejects service principal generation mismatch.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:508-538 rejects organization/workspace lifecycle and revocation generation drift during authenticate.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:712-744 applies the same principal and tenant generation checks before best-effort last-used mutation.",
+        "packages/convex/test/api-keys.test.ts:573-656 and 744-803 cover tenant generation drift, last-used fencing, and service-principal generation drift rejection."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "AGENTS.md:127-134 requires fake/local providers by default, adapter-only live SDK imports, and no secret logging/exposure.",
+        "packages/convex/confect/http.ts:303-380 confines HTTP execution to Confect refs, bearer auth refs, and generated operation dispatch with no provider SDK or secret imports.",
+        "packages/convex/confect/http.ts:437-459 performs best-effort last-used via internal mutation and swallows update errors without logging raw data.",
+        "apps/web/src/routes/_workspace.settings.tsx wires Settings UI through generated Confect refs and workspace provider state rather than provider SDKs or secrets.",
+        "ci-proof-packet.json:63-80 records passed check:confect-contracts, check:logging-boundary, check:secret-canaries, and check:access-audit-events supplemental gates for the exact review head."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

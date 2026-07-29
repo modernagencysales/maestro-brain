@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "maestro-brain-lane-gate/v1",
+  "commandSetHash": "1a5658142fc4404c1e4da30e6d1a8c036d5176ec3e96ee6f385bf9f7fd9208a0",
+  "commands": [
+    "rtk pnpm exec prettier --check --ignore-unknown docs/product/maestro-brain-lifecycle-adoption/S05-T01.md packages/convex/confect/internal/migration-fragments/S00-T04.json packages/convex/confect/internal/migration-fragments/S01-T02.json packages/convex/confect/internal/migration-fragments/S02-T01.json packages/convex/confect/internal/migration-fragments/S02-T03.json packages/convex/confect/internal/migration-fragments/S05-T01.json packages/convex/confect/internal/migration-implementations/S00-T04.ts packages/convex/confect/internal/migration-implementations/S01-T02.ts packages/convex/confect/internal/migration-implementations/S02-T01.ts packages/convex/confect/internal/migration-implementations/S02-T03.ts packages/convex/confect/internal/migrationFragment.ts packages/convex/confect/internal/migrationRuntime.ts packages/convex/confect/internal/migrations.impl.ts packages/convex/confect/sources/sourceSchemas.ts packages/convex/confect/tables/providerEventReceipts.ts packages/convex/confect/tables/sourceArtifacts.ts packages/convex/confect/tables/sourceProcessingJobs.ts packages/convex/confect/tables/sourceRevisions.ts packages/convex/scripts/generate-migration-registry.mts packages/convex/test/migration-registry.test.ts packages/convex/test/source-ledger-schema.test.ts",
+    "rtk pnpm exec eslint packages/convex/confect/internal/migration-implementations/S00-T04.ts packages/convex/confect/internal/migration-implementations/S01-T02.ts packages/convex/confect/internal/migration-implementations/S02-T01.ts packages/convex/confect/internal/migration-implementations/S02-T03.ts packages/convex/confect/internal/migrationFragment.ts packages/convex/confect/internal/migrationRuntime.ts packages/convex/confect/internal/migrations.impl.ts packages/convex/confect/sources/sourceSchemas.ts packages/convex/confect/tables/providerEventReceipts.ts packages/convex/confect/tables/sourceArtifacts.ts packages/convex/confect/tables/sourceProcessingJobs.ts packages/convex/confect/tables/sourceRevisions.ts packages/convex/scripts/generate-migration-registry.mts packages/convex/test/migration-registry.test.ts packages/convex/test/source-ledger-schema.test.ts",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex exec vitest run test/migration-registry.test.ts test/migrations.test.ts test/brain-page-schema.test.ts test/brain-editor-revision-fence.test.ts test/source-ledger-schema.test.ts",
+    "rtk pnpm --dir packages/convex exec tsx scripts/generate-migration-registry.mts --root . --check",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk pnpm check:schema-migration-notes",
+    "rtk pnpm check:confect-contracts",
+    "rtk pnpm check:confect-v9",
+    "rtk pnpm --dir packages/convex typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test",
+    "rtk pnpm --dir packages/integrations typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/integrations test"
+  ],
+  "currentHeadSha": "1dca70d0cf6e3fbaa1e364168a900bf605431c9c",
+  "currentTreeSha": "b646f6bcc74869e04babd88633c04ee238e5f0fa",
+  "gateProfiles": [
+    "convex",
+    "integrations"
+  ],
+  "headSha": "1dca70d0cf6e3fbaa1e364168a900bf605431c9c",
+  "planSha256": "b25dfe4b3139d61e98976f450d6dfbdb30629201ab2015f7846a04ca02435a57",
+  "changedSourceLines": 844,
+  "estimateDrift": true,
+  "estimatedSourceLines": 260,
+  "sourceSliceBudget": 300,
+  "sourceSliceLimit": 4,
+  "sourceSlices": [
+    {
+      "changedSourceLines": 145,
+      "commit": "6cbf7ad9c4b5cf7389ebca8f1e8586b602e7b3bc"
+    },
+    {
+      "changedSourceLines": 227,
+      "commit": "dc89732967a2074c9209224e321688e04f978950"
+    },
+    {
+      "changedSourceLines": 274,
+      "commit": "8bd67eb6db9a5aa1bff501d9d1def5948fcc37e2"
+    },
+    {
+      "changedSourceLines": 198,
+      "commit": "1dca70d0cf6e3fbaa1e364168a900bf605431c9c"
+    }
+  ],
+  "stage": "final",
+  "status": "passed",
+  "taskId": "S05-T01",
+  "taskBlockHash": "8c814c81e34129532e8467e567d99d48dfb60017ceda5ab0934454da2d348044",
+  "reusedPreReview": true
+}

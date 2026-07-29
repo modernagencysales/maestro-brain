@@ -1,0 +1,62 @@
+{
+  "baseSha": "73609583b9ca2704ad28f3844239f00764ac7230",
+  "conflicts": [],
+  "focusedChecks": [
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test channel-policies",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test connections",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk pnpm check:route-tree",
+    "rtk pnpm check:layer-boundaries",
+    "rtk pnpm check:access-audit-events",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test accessibility"
+  ],
+  "generatedFiles": [
+    "packages/convex/confect/_generated/convexSchema.ts",
+    "packages/convex/confect/_generated/docs.ts",
+    "packages/convex/confect/_generated/id.ts",
+    "packages/convex/confect/_generated/registeredFunctions/slack/channelPolicies.ts",
+    "packages/convex/confect/_generated/schema.ts",
+    "packages/convex/confect/_generated/spec.ts",
+    "packages/convex/confect/_generated/tables/channelDeliveryPolicies.ts",
+    "packages/convex/confect/_generated/tables/channelRoutingPolicies.ts",
+    "packages/convex/convex/slack/channelPolicies.ts"
+  ],
+  "headSha": "ee7bc85da623cd133819fa24baeafca704597f53",
+  "includedTasks": [
+    {
+      "commitShas": [
+        "57ccf38d61026c57ac7be380b5117849cbc0b123",
+        "9085daeab2339aac6c4b76ea312353c2df50a20d",
+        "abb3dba3097d586af255249f0cbc87419e3a7034",
+        "328fc2a4759311a4180722232c57443256bdd69c"
+      ],
+      "laneHeadSha": "328fc2a4759311a4180722232c57443256bdd69c",
+      "patchState": "applied",
+      "taskId": "S04-T04",
+      "tranche": "D2-domain-bodies"
+    }
+  ],
+  "integrationId": "wave-000048",
+  "mode": "integrate",
+  "schemaVersion": "maestro-brain-integration-result/v3",
+  "selectionFileSha256": "d3938b4c06395a2475ad0f4064f7c32f0be11b059ff8108907f85a2efd7c602f",
+  "selectionPayloadSha256": "843365ad1bb82e2267ef828a6d03a5b61e823abe717fbba0735d7db3e45f4318",
+  "reviewVerdict": "rework",
+  "status": "ready_for_review",
+  "remainingFindings": [
+    {
+      "id": "wave-000048-S04-T04-duplicate-channel-policy-change",
+      "severity": "blocking",
+      "taskId": "S04-T04",
+      "summary": "bulkSetChannelPolicies accepts duplicate changes for the same channel and can append duplicate active routing/delivery policy rows in one all-or-nothing request.",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicy.ts:197-281 iterates request.changes without rejecting duplicate channelKey values; each duplicate computes nextEpoch from request.existingRoutingPolicies/request.existingDeliveryPolicies only, not from policies already planned in the same request.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:121-144 deactivates active policies and inserts every planned routing/delivery row, so two changes for one channel in one request can both be inserted active with the same next epoch/generation.",
+        "packages/convex/test/channel-policies.test.ts has duplicate target coverage but no duplicate channelKey request coverage, so the all-or-nothing immutable epoch/generation contract is not pinned for this case."
+      ],
+      "impact": "A malformed or replayed client request can create multiple active policy rows for the same channel with the same epoch/generation, breaking active-pointer uniqueness, lifecycle history integrity, and stale revision fencing for channel policy changes.",
+      "requiredFix": "Reject duplicate channelKey entries in one bulk policy request with a typed PolicyInvalid (or equivalent declared typed error) before planning writes, and add focused backend coverage proving no duplicate active policy rows can be planned or inserted."
+    }
+  ],
+  "resolvedFindings": []
+}

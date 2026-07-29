@@ -1,0 +1,68 @@
+{
+  "lens": "contract",
+  "taskId": "S05-T01",
+  "planSha256": "401ba861efdc16760c9abac168cfd928efce150d9051c6bd58bf62ec330547a7",
+  "taskBlockHash": "1665eb4087239d8d137a8b4274f5f63c4bb965d699076b2678d1e618b1e34c54",
+  "baseSha": "648ddb32aa68230fdb41e0ef6dc6fe26c4837487",
+  "headSha": "105fa93962f845497dc75383b7632b4f23701175",
+  "treeSha": "c71796fca3ffe5fa4c1c6602c6eba62e3b2be881",
+  "reviewerRunId": "maestro/review/S05-T01/105fa93962f845497dc75383b7632b4f23701175/ed7965b1-575b-4f83-b3d2-07e1b9d721fb-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1628-1719 defines S05-T01 acceptance for source-ledger contracts, strict migration fragments, failure-first negative capture proof, focused gates, and no canonical registry product-lane edit.",
+        "ci-proof-packet.json binds this review to taskBlockHash 1665eb4087239d8d137a8b4274f5f63c4bb965d699076b2678d1e618b1e34c54, baseSha 648ddb32aa68230fdb41e0ef6dc6fe26c4837487, and headSha 105fa93962f845497dc75383b7632b4f23701175.",
+        "packages/convex/test/source-ledger-schema.test.ts covers tenant/key convergence, receipt dedupe, current-readable tombstone behavior, verified-envelope branding, no-source receipts, deterministic ordering, and staged rollback."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts exports typed Effect schemas for ProviderEventReceiptRow, SourceArtifactRow, SourceRevisionRow, SourceProcessingJobRow, VerifiedSlackChannelBinding, and SourceLedgerCaptureInput.",
+        "packages/convex/confect/sources/sourceSchemas.ts exposes makeVerifiedSlackEnvelope as the non-enumerable branded verification boundary and assertValidSourceLedgerCapture/buildSourceLedgerRows/getReadableCurrentSourceRevision/buildNoSourceProviderEventReceipt as task-owned constructors/selectors.",
+        "packages/convex/confect/sources/sourceSchemas.ts declares explicit typed error classes TenantMismatch, ChannelAccessLost, ObservationInvalid, PayloadTooLarge, and DuplicateKeyConflict; tests exercise each declared capture/no-source failure path."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/providerEventReceipts.ts, sourceArtifacts.ts, sourceRevisions.ts, and sourceProcessingJobs.ts define durable table wrappers over the Effect source-ledger schemas with tenant/source/dedupe/lifecycle indexes.",
+        "packages/convex/confect/sources/sourceSchemas.ts models immutable revision rows, lifecycle envelopes, tenant-scoped stable keys, transport receipts, no-source reason enums, and artifact createdAt/updatedAt invariants.",
+        "packages/convex/test/source-ledger-schema.test.ts asserts table index inventory, no public Convex ID exposure, tenant-scoped stable-key collision resistance, artifact createdAt preservation, and active non-tombstone current-read selection."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1633-1634 classifies S05-T01 as template-gap TB-SOURCE-01; implementation adds the generic source intake ledger and migration fragment spine without project-specific business logic.",
+        "packages/convex/confect/internal/migration-fragments/S05-T01.json and packages/convex/confect/internal/migrationFragment.ts pin the exact current S05-T01 taskBlockHash and new_tables_only attestation.",
+        "ci-proof-packet.json supplementalCommandResults reports the focused source-ledger tests, migration registry tests, package typecheck, Confect codegen check, schema migration notes check, and Confect contract check passed for head 105fa93962f845497dc75383b7632b4f23701175."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json assigns S05-T01 ownership for the touched source-ledger schemas/tables/tests, migration fragments/runtime/generator, migration tests, and lifecycle adoption document.",
+        "rtk proxy git diff --name-status 648ddb32aa68230fdb41e0ef6dc6fe26c4837487..HEAD is scoped to S05-T01-owned source ledger, migration fragment/runtime/generator, table wrapper, test, and lifecycle adoption paths.",
+        "The diff does not edit generated Confect/Convex output or the integration-owned canonical migration registry; exact-head pre-review gate proves transient Confect codegen passed, matching the Appendix O/P instruction for generated output."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/test/migration-registry.test.ts proves duplicate IDs, duplicate JSON keys, unknown fields, unsafe modules, hash drift, dangling dependencies, phase-inverted dependencies, cycles, fake no-op migrations, stale present output, symlink writes, and non-idempotent registry bytes fail.",
+        "packages/convex/test/source-ledger-schema.test.ts proves tenant mismatch, channel access loss/forge attempts, duplicate receipt conflicts, conflicting observation keys, unsafe provider object IDs, payload size rejection, outcome-incompatible no-source reasons, and tombstone no-fallback behavior.",
+        "packages/convex/test/source-ledger-schema.test.ts:570-611 stages receipt/artifact/revision/job rows and verifies an injected write failure leaves no partial durable rows before a subsequent successful commit."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

@@ -1,0 +1,87 @@
+{
+  "lens": "contract",
+  "taskId": "S13-T03",
+  "planSha256": "a3d4af4aa5e526438aa5e06c8716a6a40500bc235d9933f8f8649e133263821b",
+  "taskBlockHash": "44554749f4365ef357fd095d8ca8bd6dfdaec948b73797a8255e102eac74d080",
+  "baseSha": "022a932c1e809c2093a10f5dea5d248b6c706f5f",
+  "headSha": "fb4bd1b65f1af0dc120ce00c431073c9b6458c1c",
+  "treeSha": "5002159822c6215ae5114ab4d5b2c9de9c0e35d1",
+  "reviewerRunId": "maestro/review/S13-T03/fb4bd1b65f1af0dc120ce00c431073c9b6458c1c/59d955b1-9ee1-4c78-8c06-e43c994c43d2-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "Plan block S13-T03 requires redacted telemetry, budgets, kill switches, independent subsystem controls, and typed errors OperatorForbidden/BudgetExceeded/SubsystemDisabled/RecoveryGenerationMismatch.",
+        "packages/convex/test/brain-operation-policy.test.ts covers the policy state machine, independent capture/classification controls, stale generation, idempotent replay, Confect persistence, and redacted audit receipts.",
+        "packages/observability/src/brainMetrics.test.ts covers metric redaction and all declared budget names."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "finding",
+      "findingIds": [
+        "CONTRACT-S13-T03-001"
+      ],
+      "evidence": [
+        "packages/convex/confect/ops/flags.spec.ts:17-20 declares BrainOperationLaunchFlagKey for template.brain.semanticOperations and template.brain.externalDelivery.",
+        "packages/convex/confect/ops/flags.spec.ts:39-50 still types upsert key as FeatureFlagKey from packages/convex/confect/tables/featureFlagPolicies.ts.",
+        "packages/convex/confect/tables/featureFlagPolicies.ts:4-10 does not include the two Brain launch flag keys in FeatureFlagKey."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "finding",
+      "findingIds": [
+        "CONTRACT-S13-T03-001"
+      ],
+      "evidence": [
+        "packages/convex/confect/tables/featureFlagPolicies.ts:4-10 remains limited to the pre-existing feature flag key literals and cannot persist workspace overrides for template.brain.semanticOperations or template.brain.externalDelivery.",
+        "packages/convex/confect/ops/flags.impl.ts:15-26 defines brainOperationLaunchFlagDefaults, but packages/convex/confect/ops/flags.impl.ts:28-67 defaultFeatureFlagPolicies does not include those defaults, so list/evaluate never expose the launch gates."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "finding",
+      "findingIds": [
+        "CONTRACT-S13-T03-001"
+      ],
+      "evidence": [
+        "S13-T03 plan Files explicitly includes modifying packages/convex/confect/tables/featureFlagPolicies.ts and packages/convex/test/flags.test.ts for the operations flag seam.",
+        "ci-proof-packet.json changedFiles omits packages/convex/confect/tables/featureFlagPolicies.ts and packages/convex/test/flags.test.ts, while the final diff leaves the feature flag schema and tests without Brain launch flag coverage."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json S13-T03 fileLocks include every product file changed by the final diff.",
+        "Final diff adds/modifies only S13-T03 owned docs/product, packages/convex/confect/ops, packages/convex/test, packages/observability/src, and tooling/quality paths; no generated Confect/Convex paths are edited."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts:31-58 declares OperatorForbidden, BudgetExceeded, SubsystemDisabled, and RecoveryGenerationMismatch.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:71-116 returns the declared operator, budget, and disabled failures; packages/convex/confect/ops/brainOperationPolicy.ts:101-115 and 145-160 cover stale generation and disabled subsystem decisions.",
+        "packages/convex/test/brain-operation-policy.test.ts exercises OperatorForbidden, RecoveryGenerationMismatch, budget-check schema coverage, disabled/emergency transitions, and disabled subsystem evaluation."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "CONTRACT-S13-T03-001",
+      "severity": "major",
+      "summary": "Brain launch kill switches are not in the durable feature-flag contract.",
+      "details": "S13-T03 requires default risky external surfaces to remain off until launch enablement and lists the existing feature flag policy seam as an owned file. The implementation adds Brain launch flag literals/defaults in ops code, but the durable FeatureFlagKey schema still rejects those keys and defaultFeatureFlagPolicies never includes them, so list/evaluate/upsert cannot expose or persist the semantic/external delivery launch gates.",
+      "evidence": [
+        "packages/convex/confect/tables/featureFlagPolicies.ts:4-10 lacks template.brain.semanticOperations and template.brain.externalDelivery.",
+        "packages/convex/confect/ops/flags.spec.ts:39-50 upsertPolicyInternal accepts only FeatureFlagKey from the table schema, not BrainOperationLaunchFlagKey.",
+        "packages/convex/confect/ops/flags.impl.ts:15-26 defines brainOperationLaunchFlagDefaults but packages/convex/confect/ops/flags.impl.ts:28-67 does not include them in defaultFeatureFlagPolicies.",
+        "packages/convex/test/flags.test.ts contains no Brain launch flag expectation, and ci-proof-packet.json changedFiles omits that planned test file."
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

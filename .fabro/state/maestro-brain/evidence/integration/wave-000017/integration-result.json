@@ -1,0 +1,126 @@
+{
+  "schemaVersion": "maestro-brain-integration-result/v2",
+  "integrationId": "wave-000017",
+  "status": "passed",
+  "mode": "integrate",
+  "baseSha": "466aaac6bd568a26778677a4d9af7cb8b6a44352",
+  "selectionSha256": "d887ecf7b936c96ad28c3b842de7d3a2dfb5f8d1cc1cc24c3ab081b4d14499a2",
+  "selectionPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000017-selection.json",
+  "planSha256": "868331c0af5ab06b495ca802724f4a3578c854e07b8342c9de4b93107a264499",
+  "includedTasks": [
+    {
+      "taskId": "S02-T04",
+      "tranche": "D2-domain-bodies",
+      "laneHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "headSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "proofHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "gateHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "laneResultSha256": "878d4c12da242079365fa75565dd78a37e5d3a4f1b588ff08ce096c7bed22cfc",
+      "proofSha256": "e9070c88fa11754d3f00a573078398550f0cc36fa7de6d4267bb1ca58647c3df",
+      "gateSha256": "9210ca7283ea16657f045c0f5c6fecefd40ac4f80e1a9f466037f3dca931a2b3",
+      "taskBlockHash": "1dc9fb9ecdfc29278b9cae4e0108861343d437d9d84a171f135e3630eb187fdc",
+      "provenance": {
+        "laneResultPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S02-T04/lane-result.json",
+        "ciProofPacketPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S02-T04/ci-proof-packet.json",
+        "laneGateReportPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S02-T04/lane-gate-report.json"
+      },
+      "sourceBaseSha": "c26038d163e5d288d920b905d9f65d5334d21ff3",
+      "sourceCommits": [
+        {
+          "sourceSha": "f83febb0a58a06cff79838dc287017c91b4e8ac8",
+          "integratedSha": "6bc020553cb174fe0c061d75ba1c605a38ac3888",
+          "subject": "feat: persist fenced Brain snapshots"
+        },
+        {
+          "sourceSha": "9e02df2bb5369dd2f3e94b06119c922a727411c2",
+          "integratedSha": "d9c5b3ade30f0baab62f0b5fdb1f28a50499fbc7",
+          "subject": "feat: bind editor sync to stable pages"
+        },
+        {
+          "sourceSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+          "integratedSha": "d144804a222ff0b2cc768082dfd194eaea862f1a",
+          "subject": "test: cover Brain editor revision fences"
+        }
+      ],
+      "changedFiles": [
+        "packages/convex/confect/brain/pages.impl.ts",
+        "packages/convex/confect/brain/pages.spec.ts",
+        "packages/convex/confect/editor/documentTargets.ts",
+        "packages/convex/confect/editor/sync.ts",
+        "packages/convex/confect/editor/syncApi.ts",
+        "packages/convex/test/brain-editor-revision-fence.test.ts",
+        "packages/convex/test/editor-sync.test.ts"
+      ]
+    }
+  ],
+  "generatedFiles": [],
+  "codegen": {
+    "hydrationCommand": "rtk pnpm --dir '/Users/headless/maestro-brain-plan/tooling/brain-factory' exec tsx src/hydrate-integration-dependencies.mts --workdir '/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000017' --base '466aaac6bd568a26778677a4d9af7cb8b6a44352'",
+    "hydrationMode": "unchanged",
+    "confectCodegenCommand": "rtk pnpm brain:factory:check-confect-codegen",
+    "confectCodegenResult": "passed; transient Confect codegen passed (2 generated files); no worktree drift"
+  },
+  "focusedChecks": [
+    {
+      "command": "rtk pnpm exec prettier --check --ignore-unknown packages/convex/confect/brain/pages.impl.ts packages/convex/confect/brain/pages.spec.ts packages/convex/confect/editor/documentTargets.ts packages/convex/confect/editor/sync.ts packages/convex/confect/editor/syncApi.ts packages/convex/test/brain-editor-revision-fence.test.ts packages/convex/test/editor-sync.test.ts",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm exec eslint packages/convex/confect/brain/pages.impl.ts packages/convex/confect/brain/pages.spec.ts packages/convex/confect/editor/documentTargets.ts packages/convex/confect/editor/sync.ts packages/convex/confect/editor/syncApi.ts packages/convex/test/brain-editor-revision-fence.test.ts packages/convex/test/editor-sync.test.ts",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test editor brain-editor-revision-fence",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/editor-react test",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm check:layer-boundaries",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm check:confect-v9",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir packages/convex typecheck",
+      "status": "passed"
+    }
+  ],
+  "exactHeadSha": "d144804a222ff0b2cc768082dfd194eaea862f1a",
+  "reviewVerdict": "pass",
+  "remainingFindings": [],
+  "resolvedFindings": [],
+  "headSha": "d144804a222ff0b2cc768082dfd194eaea862f1a",
+  "integrationWorkdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000017",
+  "manifestTranches": [
+    "D2-domain-bodies"
+  ],
+  "broadGate": {
+    "schemaVersion": "maestro-brain-broad-gate-receipt/v1",
+    "status": "passed",
+    "headSha": "d144804a222ff0b2cc768082dfd194eaea862f1a",
+    "command": "rtk host-test-slot --class full pnpm verify",
+    "attempts": [
+      {
+        "attempt": 1,
+        "command": "rtk host-test-slot --class full pnpm verify",
+        "headSha": "d144804a222ff0b2cc768082dfd194eaea862f1a",
+        "outputSha256": "f7b2dbf0d2fc2b4be40b3b71fbfda0d61cd33064f3dae9472f11c28e807097ab",
+        "status": "failed",
+        "transientVitestWorkerRpcTimeout": true
+      },
+      {
+        "attempt": 2,
+        "command": "rtk host-test-slot --class full pnpm verify",
+        "headSha": "d144804a222ff0b2cc768082dfd194eaea862f1a",
+        "outputSha256": "2d125dd56d0af2d53718bb0c509a56cd9f9c3eaef1fb91e350b72d7718fdd5c3",
+        "status": "passed",
+        "transientVitestWorkerRpcTimeout": false
+      }
+    ]
+  }
+}

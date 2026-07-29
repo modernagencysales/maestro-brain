@@ -1,0 +1,83 @@
+{
+  "lens": "contract",
+  "taskId": "S05-T01",
+  "planSha256": "b25dfe4b3139d61e98976f450d6dfbdb30629201ab2015f7846a04ca02435a57",
+  "taskBlockHash": "8c814c81e34129532e8467e567d99d48dfb60017ceda5ab0934454da2d348044",
+  "baseSha": "73609583b9ca2704ad28f3844239f00764ac7230",
+  "headSha": "0b5a65b769cb07974c011dc74daf492f0d09bcf2",
+  "treeSha": "5e5dad2c4c78ca4db3c707edf1e2be6f70d1d9ab",
+  "reviewerRunId": "maestro/review/S05-T01/0b5a65b769cb07974c011dc74daf492f0d09bcf2/a9541d3e-fb42-41ca-ab35-54b3cc65cc7a-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1628-1716",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:654-695",
+        "ci-proof-packet.json:1-123"
+      ],
+      "rationale": "The diff implements the S05-T01 packet scope: source ledger rows/tables, strict migration fragments, runtime extraction, deterministic registry proof, lifecycle adoption record, and the declared focused proof artifacts. The proof packet retains the exact plan/task hashes and reports focused passing results plus repaired prior review findings."
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:125-157",
+        "packages/convex/confect/sources/sourceSchemas.ts:159-173",
+        "packages/convex/confect/sources/sourceSchemas.ts:215-277",
+        "packages/convex/test/source-ledger-schema.test.ts:339-444"
+      ],
+      "rationale": "The capture contract is typed as envelope plus normalized observation and routing, returns inserted/duplicate with source, revision, and assembly keys, and exposes the declared TenantMismatch, ChannelAccessLost, ObservationInvalid, PayloadTooLarge, and DuplicateKeyConflict failure classes with focused assertions for each path."
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/providerEventReceipts.ts:1-18",
+        "packages/convex/confect/tables/sourceArtifacts.ts:1-20",
+        "packages/convex/confect/tables/sourceRevisions.ts:1-13",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:1-10",
+        "packages/convex/test/source-ledger-schema.test.ts:93-144",
+        "packages/convex/test/source-ledger-schema.test.ts:465-520"
+      ],
+      "rationale": "The durable source ledger tables use Effect schemas through Confect table definitions and include the declared receipt, artifact, revision, and processing-job index inventory. Tests cover table/index shape and transactional staging/rollback invariants."
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1630-1634",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1669-1693",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1707-1720",
+        "ci-proof-packet.json:31-62",
+        "ci-proof-packet.json:106-123"
+      ],
+      "rationale": "The task remains classified as the template-gap source-ledger slice, adds failure-first tests for the required migration and source-ledger cases, and the proof packet records the focused verification and four source slices within the packet limit."
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:661-684",
+        "ci-proof-packet.json:8-29",
+        "packages/convex/test/migration-registry.test.ts:167-196",
+        "packages/convex/scripts/generate-migration-registry.mts:41-51"
+      ],
+      "rationale": "All changed files are inside the S05-T01 manifest locks, including migrations.impl.ts. The lane extracts executable S00/S01 bodies into task-owned modules, proves production runtime wiring, and leaves the integration-owned canonical generated registry uncommitted as the packet requires."
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/internal/migrationFragment.ts:71-145",
+        "packages/convex/test/migration-registry.test.ts:101-165",
+        "packages/convex/test/migration-registry.test.ts:198-257",
+        "packages/convex/confect/sources/sourceSchemas.ts:223-276",
+        "packages/convex/test/source-ledger-schema.test.ts:339-463"
+      ],
+      "rationale": "Declared migration fragment failures reject duplicate/unknown/unsafe/hash/dependency/cycle/fake/stale/symlink cases, source capture rejects all declared typed error paths, duplicate delivery replays bind the logical observation, source revision, source unit, and assembly job, and unknown executable migrations continue through migrations.spec's MigrationNotFound path."
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

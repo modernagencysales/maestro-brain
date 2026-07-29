@@ -1,0 +1,101 @@
+{
+  "lens": "safety",
+  "taskId": "S04-T04",
+  "planSha256": "5e3506ec26c1776547b03641707371efaebb1c490ce3da6b6a1e2ed0df2a8417",
+  "taskBlockHash": "43fe7362c17307d938a689c31cfaa350124a5029c8ef938d09c8f08066ec12c5",
+  "baseSha": "bc7631796e42ee5d33a006df85730dc1293f505e",
+  "headSha": "de87473be681012227b32854dcf6682ffc443b72",
+  "treeSha": "4ea1aa2f881d1e0e68dd7b495592962021f87487",
+  "reviewerRunId": "maestro/review/S04-T04/de87473be681012227b32854dcf6682ffc443b72/2972c9b2-33b8-4591-9223-f51f2f69624b-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicy.ts:176-193 filters allowed Brain targets to request.organizationKey, client kind, and active status before accepting targetBrainKeys.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:52-70 reads sourceChannels through by_organization_membership_state constrained by input.organizationKey.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:94-107 reads existing routing and delivery policy rows through by_organization_created constrained by input.organizationKey."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.spec.ts:41-49 exposes organizationKey, expected generations, and changes but no actorRole argument, so caller-supplied role is not trusted.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:198-225 loads current user membership for the organization, requires active accepted non-revoked membership, and requires roleAtLeast admin.",
+        "packages/convex/test/channel-policies.test.ts:111-118 pins that bulkSetChannelPolicies args do not include actorRole and packages/convex/test/channel-policies.test.ts:140-143 rejects an editor role in the plan builder."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicy.ts:162-166 limits active channel capacity to joined_needs_policy and joined_active rows only.",
+        "packages/convex/confect/slack/channelPolicy.ts:200-210 rejects changes for missing, discovered_not_joined, access_lost, or archived channels with ChannelNotJoined.",
+        "packages/convex/test/channel-policies.test.ts:350-380 proves non-joined rows cannot hide the 101st joined active channel capacity violation."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.impl.ts:145-161 writes success audit metadata with only outcome, action, and targetCount, not channel names, target brain names, Slack payloads, or tokens.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:37-50 records denial audit events using reason error._tag only.",
+        "packages/convex/confect/slack/channelPolicy.ts and packages/convex/confect/slack/channelPolicies.impl.ts contain no provider token, webhook body, raw Slack payload, or secret logging paths in the inspected diff."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "finding",
+      "findingIds": ["SAF-S04-T04-001"],
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1587-1591 requires stale connection/channel generation failure-first tests and bulk partial commit failure.",
+        "packages/convex/confect/slack/channelPolicy.ts:212-217 fences only source channel connectionGeneration/accessGeneration, not the active routing policy epoch or active delivery generation observed by the admin UI.",
+        "packages/convex/confect/slack/channelPolicies.spec.ts:43-49 accepts expectedConnectionGeneration and expectedChannelAccessGeneration but no expected policy epoch/generation per changed channel.",
+        "packages/convex/confect/slack/channelPolicy.ts:229-239 treats whichever active policy is current at mutation time as the comparison base, so two admins submitting different stale decisions for the same unchanged channel generation can both succeed and the later write silently supersedes the earlier policy."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicy.ts:235-240 skips writes when both active routing and delivery policies already match the requested change.",
+        "packages/convex/test/channel-policies.test.ts:292-329 proves an identical active policy retry is idempotent and produces no routing rows, delivery rows, or audit rows."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "finding",
+      "findingIds": ["SAF-S04-T04-001"],
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicy.ts:212-217 rejects stale source connection/access generations but does not reject stale active policy epoch or delivery generation.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:121-143 deactivates active policies from a precomputed read set and inserts new active policies without a caller-visible expected policy revision fence."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1566-1568 says policy semantics belong to Maestro, not Nango.",
+        "packages/convex/confect/slack/channelPolicy.ts and packages/convex/confect/slack/channelPolicies.impl.ts implement policy planning and persistence using local database rows and contain no Nango or Slack SDK imports.",
+        "apps/web/src/features/connections/channel-policy-dialog.tsx:131-148 builds a Confect-style bulk policy request summary from fixture state and does not import provider SDKs or secrets."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "SAF-S04-T04-001",
+      "severity": "high",
+      "summary": "Bulk channel policy changes lack active policy revision fencing, allowing stale admin decisions to overwrite newer policy epochs.",
+      "details": "The task requires stale-generation race protection for the multi-channel policy control plane. The implementation fences source channel connection/access generation, but the mutation contract has no per-channel expected routing policy epoch or delivery generation. buildBulkPolicyPlan compares against the active policy at mutation time and creates a new epoch whenever the requested policy differs, so a stale UI submit made before another admin changed the same channel can still succeed as long as the channel access generation is unchanged. That silently supersedes the newer policy and violates the required stale-generation/revision fencing for concurrent policy updates.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1587-1591 requires stale connection/channel generation failure-first tests and bulk partial commit failure.",
+        "packages/convex/confect/slack/channelPolicies.spec.ts:43-49 defines args with organizationKey, expectedConnectionGeneration, expectedChannelAccessGeneration, and changes only; it has no expected active policy epoch or delivery generation per channel.",
+        "packages/convex/confect/slack/channelPolicy.ts:212-217 checks only channel.connectionGeneration and channel.accessGeneration.",
+        "packages/convex/confect/slack/channelPolicy.ts:229-240 reads the current active policy and continues only when it already matches the requested change; otherwise it plans a new active epoch without detecting that the caller observed an older epoch.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:121-143 deactivates active policies and inserts replacement active rows from the pre-read policy set, with no caller-supplied policy revision fence."
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

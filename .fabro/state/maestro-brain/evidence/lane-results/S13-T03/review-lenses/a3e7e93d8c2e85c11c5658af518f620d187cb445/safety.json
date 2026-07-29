@@ -1,0 +1,86 @@
+{
+  "lens": "safety",
+  "taskId": "S13-T03",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "taskBlockHash": "13c071bc2c78035c5563f494b38160a96c981ab2962984f056be4e18853e137e",
+  "baseSha": "f66236e12f93bc254cc2350800a5b2a69d0caff5",
+  "headSha": "a3e7e93d8c2e85c11c5658af518f620d187cb445",
+  "treeSha": "d9b14625d4ec25719cc5ff7dc9e4c7a1b86ec1b5",
+  "reviewerRunId": "maestro/review/S13-T03/a3e7e93d8c2e85c11c5658af518f620d187cb445/ade6e852-8186-47dd-94bc-e07f53f46bd6-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.impl.ts:43-47 requires viewer workspace access before listing policies and then loads rows for the requested workspace only.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:68-85 requires workspace access before policy mutation and loads the current policy by workspaceId/subsystem.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:179-221 queries by workspace/kind/status and filters brainOperation:<workspaceId>: keys, preserving tenant isolation."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.impl.ts:68-73 combines workspace membership with canOperateBrainPolicy before any write.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:169-170 defines policy operation authority as roleAtLeast(admin).",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:83-115 rejects roles below admin and requires owner authority to recover from disabled."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.impl.ts:136-152 retires the prior active policy row before inserting the replacement active row.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:240-253 ignores retired and expired rows when loading the active policy, falling back to default enabled.",
+        "docs/product/maestro-brain-operations.md:48-54 documents expiry/default behavior and typed disabled/generation/forbidden outcomes."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/observability/src/brainMetrics.ts:56-69 enumerates prompt/source/token/header-like fields for recursive redaction.",
+        "packages/observability/src/brainMetrics.ts:134-197 sanitizes whitelisted metric values by enum, timestamp, identifier/tag, and non-negative finite number shape before emitting metrics.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:64-67 and 228-250 redact operator reason text from persisted policy/audit output."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts:64-82 requires expectedGeneration on setPolicyInternal inputs.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:101-109 returns RecoveryGenerationMismatch when the requested generation is stale.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:118-135 applies the generation-checked next policy before any retire/insert writes."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.impl.ts:86-98 checks idempotency replay for the same workspace/subsystem/idempotencyKey before budget and write effects.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:264-282 loads replay candidates by the same workspace/subsystem policyKey.",
+        "packages/convex/test/brain-operation-policy.test.ts:244-283 proves duplicate idempotency returns the original policy and stale non-replay attempts mismatch."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperationPolicy.ts:128-153 evaluateOperationPolicy blocks disabled subsystems and detects expectedGeneration mismatches.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:115-117 prevents reducing a disabled subsystem to paused; recovery from disabled is fenced in nextOperationPolicy owner checks.",
+        "docs/product/maestro-brain-operations.md:48-54 documents RecoveryGenerationMismatch and SubsystemDisabled as the operator recovery fences."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "packages/observability/src/brainMetrics.ts:1-208 implements generic metric and budget helpers with no provider SDK imports or secret access.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:1-30 imports Confect, Effect, database, access, and policy helpers only; no live provider adapter or secret boundary is crossed.",
+        "docs/product/maestro-brain-operations.md:3-6 and 13-23 explicitly forbid customer text, prompts, Slack headers, provider tokens, and raw provider/source payloads in operator metrics."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

@@ -1,0 +1,79 @@
+{
+  "baseSha": "67f2ee285c082a45de91e21faa969e82c654cac6",
+  "deferredTaskIds": [],
+  "integrationId": "wave-000018",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "requestedTaskIds": [
+    "S11-T02"
+  ],
+  "schemaVersion": "maestro-brain-integration-wave-selection/v2",
+  "selectedTasks": [
+    {
+      "changedFiles": [
+        "apps/web/src/features/settings/api-keys-adapter.test.ts",
+        "apps/web/src/features/settings/api-keys-adapter.ts",
+        "apps/web/src/features/settings/api-keys-panel.test.tsx",
+        "apps/web/src/features/settings/api-keys-panel.tsx",
+        "apps/web/src/features/settings/settings-surface.test.ts",
+        "apps/web/src/features/settings/settings-surface.ts",
+        "apps/web/src/routes/_workspace.settings.tsx",
+        "packages/convex/confect/headless/apiKeys.impl.ts",
+        "packages/convex/confect/headless/apiKeys.spec.ts",
+        "packages/convex/confect/headless/auth.ts",
+        "packages/convex/confect/headless/authorizeOperation.ts",
+        "packages/convex/confect/headless/principal.ts",
+        "packages/convex/confect/http.ts",
+        "packages/convex/confect/httpRequest.ts",
+        "packages/convex/confect/manifest/executor.ts",
+        "packages/convex/test/api-keys.test.ts",
+        "packages/convex/test/http-request-security.test.ts"
+      ],
+      "codeStartAfter": [
+        "S01-T02",
+        "S01-T03",
+        "S01-T04",
+        "S02-T02",
+        "S11-T01"
+      ],
+      "fileLocks": [
+        "apps/web/src/features/settings/api-keys-adapter.test.ts",
+        "apps/web/src/features/settings/api-keys-adapter.ts",
+        "apps/web/src/features/settings/api-keys-panel.test.tsx",
+        "apps/web/src/features/settings/api-keys-panel.tsx",
+        "apps/web/src/features/settings/api-keys.test.ts",
+        "apps/web/src/features/settings/api-keys.ts",
+        "apps/web/src/features/settings/settings-surface.test.ts",
+        "apps/web/src/features/settings/settings-surface.ts",
+        "apps/web/src/routes/_workspace.settings.tsx",
+        "packages/convex/confect/access/audit.ts",
+        "packages/convex/confect/access/lifecycle.ts",
+        "packages/convex/confect/access/tenancySchemas.ts",
+        "packages/convex/confect/headless/apiKeys.impl.ts",
+        "packages/convex/confect/headless/apiKeys.spec.ts",
+        "packages/convex/confect/headless/auth.ts",
+        "packages/convex/confect/headless/authorizeOperation.ts",
+        "packages/convex/confect/headless/errorEnvelope.ts",
+        "packages/convex/confect/headless/principal.ts",
+        "packages/convex/confect/http.ts",
+        "packages/convex/confect/httpRequest.ts",
+        "packages/convex/confect/manifest/executor.ts",
+        "packages/convex/test/access-audit-events.test.ts",
+        "packages/convex/test/api-keys.test.ts",
+        "packages/convex/test/headless-auth.test.ts",
+        "packages/convex/test/headless-executor.test.ts",
+        "packages/convex/test/http-request-security.test.ts"
+      ],
+      "gateHeadSha": "8dddf9f94b310889decdbcca8b7636ad95bfd05f",
+      "gateSha256": "ab012f55c7e9f103513a486b8ac78d4ba3a18903ba34555e0ffae09e45f42db4",
+      "headSha": "8dddf9f94b310889decdbcca8b7636ad95bfd05f",
+      "laneResultSha256": "e4e02633910382864ee7b1cdd503955e5077634b50f51f3965cc6826333b9af2",
+      "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+      "proofHeadSha": "8dddf9f94b310889decdbcca8b7636ad95bfd05f",
+      "proofSha256": "e99d3eebd4ece7a0e5cba229d74a945d7dc67bbbc4ea9203626c44ad0f1fea3a",
+      "taskBlockHash": "2b484dad01173ead7ca99d710455998926b3666713d025943ef5824aed334ff6",
+      "taskId": "S11-T02",
+      "tranche": "D2-domain-bodies"
+    }
+  ],
+  "selectionSha256": "feb8c8fa1f846127f2bb3ecf77d2cafa3c608d223dbbfa50e1cc34e180320e48"
+}

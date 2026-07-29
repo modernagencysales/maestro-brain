@@ -1,0 +1,28 @@
+{
+  "baseSha": "f66236e12f93bc254cc2350800a5b2a69d0caff5",
+  "controlHeadSha": "f66236e12f93bc254cc2350800a5b2a69d0caff5",
+  "createdAt": "2026-07-20T04:02:59.380Z",
+  "evidence": [
+    "/private/tmp/fabro-wave34-failure-dump-20260720 apply output sha256=d5c4dee15053e14c9d86c9ab744d839a3860bf9315df7e680e4981e2ea15214d",
+    "S04-T02 proof planSha256=728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8 selection task planSha256=cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665"
+  ],
+  "integrationId": "wave-000034",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "reason": "Wave selection replaced the lane proof plan SHA with current manifest SHA; deterministic apply rejected selected lane identity before mutation",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXYTVXGSS0PVHE7K1G4KG8BY",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "6ee414310b08250ae7593ac654e56fc6d635b4ac7b1e752b76b5f95c13d07222",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v2",
+  "selectedTaskIds": [
+    "S04-T02"
+  ],
+  "selectionFileSha256": "6be4714ca3eefd29baccebf6b51d4f6841a5117564f9d956c2846ca0e1d0405d",
+  "selectionPayloadSha256": "336a463433f1aff8d82338edb187661acbb6b499c1cea7103ef7b974ce1f34f1",
+  "status": "superseded",
+  "receiptSha256": "f99a021b91875cad4c96967a03e7536b46d7216ef8083b974ef08bf8f8c84e7b"
+}

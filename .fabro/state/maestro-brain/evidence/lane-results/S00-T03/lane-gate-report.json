@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "maestro-brain-lane-gate/v1",
+  "commandSetHash": "c96a4af13a0c80d20bf0d1c20b4dfcc521a8da58dadc5ed801e0307573d70324",
+  "commands": [
+    "rtk pnpm exec prettier --check --ignore-unknown .buildkite/pipeline.yml .buildkite/scripts/production-promote.sh .buildkite/scripts/staging-deploy.sh .env.example docs/superpowers/receipts/maestro-brain/deployment-isolation.md docs/template/env-manifest.json docs/template/env-manifest.md project.config.json tooling/quality/check-config-drift.test.mts tooling/quality/src/check-definitions.mts tooling/release/src/index.test.ts tooling/release/src/index.ts tooling/release/src/project-config.ts",
+    "rtk pnpm exec eslint tooling/quality/check-config-drift.test.mts tooling/quality/src/check-definitions.mts tooling/release/src/index.test.ts tooling/release/src/index.ts tooling/release/src/project-config.ts",
+    "rtk host-test-slot --class focused pnpm --dir tooling/release test",
+    "rtk pnpm --dir tooling/release typecheck",
+    "rtk host-test-slot --class focused pnpm --dir tooling/quality test check-config-drift",
+    "rtk pnpm check:config-drift",
+    "rtk pnpm check:env-boundary",
+    "rtk pnpm --dir tooling/quality typecheck"
+  ],
+  "currentHeadSha": "0a06ce077c6223a9050b92c6a13086fee9504c30",
+  "currentTreeSha": "691e3890af2e6f90a606cdee3b4394d4843a5942",
+  "gateProfiles": [
+    "release",
+    "tooling"
+  ],
+  "headSha": "0a06ce077c6223a9050b92c6a13086fee9504c30",
+  "changedSourceLines": 768,
+  "estimateDrift": true,
+  "estimatedSourceLines": 280,
+  "sourceSliceBudget": 300,
+  "sourceSlices": [
+    {
+      "changedSourceLines": 268,
+      "commit": "e7fcc97e42fa1b3a8c4334b6e7d5b41762a98b87"
+    },
+    {
+      "changedSourceLines": 49,
+      "commit": "0f602b0b0550219b6a59c17067ac7d6bc4cf9398"
+    },
+    {
+      "changedSourceLines": 297,
+      "commit": "29a208f645de4d9860b3fb791b76cb7b1952f836"
+    },
+    {
+      "changedSourceLines": 154,
+      "commit": "0a06ce077c6223a9050b92c6a13086fee9504c30"
+    }
+  ],
+  "stage": "final",
+  "status": "passed",
+  "taskId": "S00-T03",
+  "reusedPreReview": true
+}

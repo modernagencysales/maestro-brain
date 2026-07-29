@@ -1,0 +1,35 @@
+{
+  "taskId": "S08-T01",
+  "baseSha": "304348d92cd2388df5f7945f6ba8d76be79f8686",
+  "headSha": "77790868e1c67debf1ea2ddf07f5a77e8188f157",
+  "changedFiles": [
+    "packages/convex/confect/tables/modelCallReceipts.ts",
+    "packages/convex/test/model-call-receipts.test.ts",
+    "packages/integrations/src/index.ts",
+    "packages/integrations/src/llmEgressPolicy.ts",
+    "packages/integrations/src/llmReceipt.ts",
+    "packages/integrations/src/llmStructured.test.ts",
+    "packages/integrations/src/llmStructured.ts"
+  ],
+  "focusedCommands": [
+    "rtk host-test-slot --class focused pnpm --dir packages/integrations test llm",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test model-call-receipts",
+    "rtk host-test-slot --class focused pnpm --dir packages/integrations typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex typecheck",
+    "rtk host-test-slot --class focused pnpm check:provider-boundary",
+    "rtk host-test-slot --class focused pnpm check:env-boundary",
+    "rtk host-test-slot --class focused pnpm check:logging-boundary",
+    "rtk host-test-slot --class focused pnpm check:secret-canaries",
+    "rtk host-test-slot --class focused pnpm confect:codegen",
+    "rtk host-test-slot --class focused pnpm confect:manifest"
+  ],
+  "testsAdded": [
+    "packages/integrations/src/llmStructured.test.ts",
+    "packages/convex/test/model-call-receipts.test.ts"
+  ],
+  "reviewVerdict": "pass",
+  "knownRisks": [
+    "Confect codegen produces generated modelCallReceipts refs; per task instructions generated files were inspected then reverted because this lane does not own @generated-confect.",
+    "Live Vercel AI SDK was not installed; selected transport is provider-neutral fake/test Effect transport with future live OpenRouter boundary behind the same service."
+  ]
+}

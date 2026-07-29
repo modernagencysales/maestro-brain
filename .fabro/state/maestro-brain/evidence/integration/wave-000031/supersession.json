@@ -1,0 +1,33 @@
+{
+  "baseSha": "4001c961201dd9a1cbe7830aca4873457f7713b9",
+  "controlHeadSha": "4001c961201dd9a1cbe7830aca4873457f7713b9",
+  "createdAt": "2026-07-20T03:12:32.002Z",
+  "evidence": [
+    ".fabro/state/maestro-brain/evidence/integration/wave-000031/broad-gate-b7bd15c9b889b2e291a2c48bc0310eb7bf382ba5.json sha256=2be-compute-from-command",
+    "diagnostic command: rtk proxy host-test-slot --class full pnpm verify; exit=0; head=b7bd15c9b889b2e291a2c48bc0310eb7bf382ba5"
+  ],
+  "integrationId": "wave-000031",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "reason": "RTK-filtered broad-gate subprocesses terminated mid-stream; exact immutable head passed unfiltered host-test-slot verify, so rebuild with fresh evidence",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXYNMB9TMB99P3WZJKE16MFW",
+      "status": "failed"
+    },
+    {
+      "attempt": 2,
+      "runId": "01KXYPV983TEB3T2DBBGA4SJRH",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "ee4564693c556ddfb7ae30f6eca70fdd7606f6647240b39dcb4d134a76575927",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v2",
+  "selectedTaskIds": [
+    "S04-T01"
+  ],
+  "selectionFileSha256": "01ec1d2162340987681df9478bbc0eca68880e0f33dd486a402ed56743e34845",
+  "selectionPayloadSha256": "f5f750b4d660bb46536262bb64d7d4f2e78ec1d4398a01c7d89c2ab75d685ca7",
+  "status": "superseded",
+  "receiptSha256": "6c8878ab1b5132313bd1098aeebcdba4bad888ba43c23952f65aca627d2dbaf6"
+}

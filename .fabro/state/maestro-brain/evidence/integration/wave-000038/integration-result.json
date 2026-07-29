@@ -1,0 +1,65 @@
+{
+  "schemaVersion": "maestro-brain-integration-result/v3",
+  "status": "passed",
+  "integrationId": "wave-000038",
+  "mode": "integrate",
+  "baseSha": "aa979378a853ca705f423846a79abe8030f0619b",
+  "headSha": "95b18a6afdbb99821f3614a3ed436619f9f878ad",
+  "integrationWorkdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000038",
+  "selectionPayloadSha256": "c59ddf841e95f841b8e98b9415e13f0aca6e02257782ad30013856cc8e250123",
+  "selectionFileSha256": "e5311170a303e35ee6c3522ff692a5acf67f49528669f3805056e7cb73136166",
+  "planSha256": "e5ad32c375d4fd307b3d5bccd47ea6cf4e9b7580f23bb506c893fd94019ca7c5",
+  "manifestTranches": [
+    "D2-domain-bodies"
+  ],
+  "includedTasks": [
+    {
+      "taskId": "S11-T02",
+      "tranche": "D2-domain-bodies",
+      "laneHeadSha": "0ce85e2ec3631f40eb8cd66d694c249bbded90fc",
+      "commitShas": [
+        "513d4f8662c58aa4f488700454baffbac03b0d06",
+        "70aab1a9529b49931c06368e4a1c4e39fef93c0f",
+        "538561fae9bea2abbe063f43a5654e2834a1bba3",
+        "6b0fbeae175a9b1822f94af5f675658cc2fe250a",
+        "bd510c6061a919e5ae5824ca6928c34e337e757f",
+        "0aa4a40c5c9283a353cfa039dca9ce3b6df030b3",
+        "48a141f0b169e7ff4b79e8b07818a4a2d321a64a",
+        "1057834555d690aa01b0a08178f3876a0f351909",
+        "e80f9ee828389b1a097a28c83ffb8639a6cadee4",
+        "0ce85e2ec3631f40eb8cd66d694c249bbded90fc"
+      ],
+      "patchState": "applied"
+    }
+  ],
+  "focusedChecks": [
+    "rtk pnpm --dir packages/convex typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test api-keys headless http-request",
+    "rtk pnpm check:headless-surface-contract"
+  ],
+  "generatedFiles": [
+    "packages/convex/confect/_generated/registeredFunctions/headless/apiKeys.ts",
+    "packages/convex/confect/_generated/spec.ts",
+    "packages/convex/convex/headless/apiKeys.ts"
+  ],
+  "conflicts": [],
+  "reviewVerdict": "pass",
+  "remainingFindings": [],
+  "resolvedFindings": [],
+  "broadGate": {
+    "schemaVersion": "maestro-brain-broad-gate-receipt/v1",
+    "status": "passed",
+    "headSha": "95b18a6afdbb99821f3614a3ed436619f9f878ad",
+    "command": "rtk host-test-slot --class full pnpm verify",
+    "attempts": [
+      {
+        "attempt": 1,
+        "command": "rtk host-test-slot --class full pnpm verify",
+        "headSha": "95b18a6afdbb99821f3614a3ed436619f9f878ad",
+        "outputSha256": "661391640dc2c428e369cbf1eda30f9bce1b4e7bc3514fdfd4b16ac32edf9250",
+        "status": "passed",
+        "transientVitestWorkerRpcTimeout": false
+      }
+    ]
+  }
+}

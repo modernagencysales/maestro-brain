@@ -1,0 +1,84 @@
+{
+  "lens": "contract",
+  "taskId": "S10-T01",
+  "planSha256": "b6c8c42e744502700c8607be941e8f3dbe1e790d70abc7f3666efbf69554f9ca",
+  "taskBlockHash": "31d477606c8d812c0f800d81d3401104da038d29fbb39dce06e1292cbd8d6e04",
+  "baseSha": "e8f008574eff0d1a21700ff02926ac4c9870d425",
+  "headSha": "fe06034bea56b0a112e69c6decbd36a06a30be51",
+  "treeSha": "c8a543f6f0bab326585f0833e7c816c64cb4ec51",
+  "reviewerRunId": "maestro/review/S10-T01/fe06034bea56b0a112e69c6decbd36a06a30be51/8ca5c69d-bc47-43f6-bc80-cc405acebce1-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2802-2849",
+        "docs/product/maestro-brain-lifecycle-adoption/S10-T01.md:6-41",
+        "packages/convex/confect/slack/identityLinks.impl.ts:377-563"
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/identityLinks.spec.ts:7-41",
+        "packages/convex/confect/slack/identityLinks.spec.ts:43-124",
+        "packages/convex/confect/slack/identityLinks.impl.ts:377-563"
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/slackIdentityBindings.ts:13-33",
+        "packages/convex/confect/tables/slackIdentityBindings.ts:37-57",
+        "packages/convex/test/slack-identity-links.test.ts:116-155"
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "finding",
+      "findingIds": ["C-S10-T01-001"],
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1273-1303",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3831-3831",
+        "lane diff stat: 13 files changed, 1635 insertions(+), 3 deletions(-)"
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1280-1293",
+        "ci-proof-packet.json:8-21",
+        "lane diff stat: changed files are within the S10-T01 fileLocks"
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2825-2840",
+        "packages/convex/test/slack-identity-links.test.ts:187-231",
+        "packages/convex/test/slack-identity-links.test.ts:405-449",
+        "packages/convex/test/slack-identity-links.test.ts:473-514",
+        "packages/convex/test/slack-identity-links.test.ts:564-570"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "C-S10-T01-001",
+      "severity": "high",
+      "summary": "Task slice exceeds the approved source budget by a wide margin.",
+      "details": "The S10-T01 manifest sets sourceSliceBudget to 300 source lines and the plan estimates 260 lines, but this task delta adds 1635 lines across the locked slice, including 564 added lines in packages/convex/confect/slack/identityLinks.impl.ts and 609 added lines in packages/convex/test/slack-identity-links.test.ts. Because S10-T01 is a template-gap work package with an explicit source budget, the oversized slice requires rework or replanning before aggregate admission.",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1273-1303",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3831-3831",
+        "lane diff stat: 13 files changed, 1635 insertions(+), 3 deletions(-)",
+        "lane diff stat: packages/convex/confect/slack/identityLinks.impl.ts 564 added lines; packages/convex/test/slack-identity-links.test.ts 609 added lines"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "maestro-brain-lane-result/v1",
+  "taskId": "S04-T01",
+  "headSha": "d091eb5d26d9da38129aa5b44f5515eec4f5bb89",
+  "tranche": "C1-contract-spine",
+  "status": "lane_green",
+  "reproof": {
+    "requestPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/reproofs/S04-T01/fda4652a6ec6cbf81f4deb10c6c607ed72837451fb07a6b3f18305a9f96f2182/request.json",
+    "requestSha256": "44e13592f6d0e703efb1f0881c6edd05dc1c09474a482aae751c2fbca994a4b4",
+    "priorIntegrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+    "priorIntegrationId": "wave-000012"
+  }
+}

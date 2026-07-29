@@ -1,0 +1,68 @@
+{
+  "lens": "contract",
+  "taskId": "S13-T03",
+  "planSha256": "a3d4af4aa5e526438aa5e06c8716a6a40500bc235d9933f8f8649e133263821b",
+  "taskBlockHash": "44554749f4365ef357fd095d8ca8bd6dfdaec948b73797a8255e102eac74d080",
+  "baseSha": "022a932c1e809c2093a10f5dea5d248b6c706f5f",
+  "headSha": "9a372756c24735077c875064a3080c49b812d85b",
+  "treeSha": "05238587cbebc3b0150bad33fd3575c5a3d50a70",
+  "reviewerRunId": "maestro/review/S13-T03/9a372756c24735077c875064a3080c49b812d85b/59d955b1-9ee1-4c78-8c06-e43c994c43d2-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3679-3731 requires redacted telemetry, model/Slack/storage/queue/channel budgets, independent kill switches, default risky external surfaces off until launch enablement, and typed operation errors.",
+        "packages/convex/test/brain-operation-policy.test.ts covers operation policy transitions, stale operator/role and generation checks, idempotent replay, Confect persistence, independent capture/classification controls, redacted audit receipts, and disabled subsystem evaluation.",
+        "packages/observability/src/brainMetrics.test.ts covers prompt/source/token/header logging canaries, whitelisted redacted metric fields, recursive redaction, and all declared budget names."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts:13-29 defines the nine required subsystems and enabled/paused/disabled policy states.",
+        "packages/convex/confect/ops/brainOperations.spec.ts:31-70 declares OperatorForbidden, BudgetExceeded, SubsystemDisabled, RecoveryGenerationMismatch plus workspace/access/validation errors for the list and set contracts.",
+        "packages/convex/confect/ops/flags.spec.ts:39-50 and packages/convex/confect/tables/featureFlagPolicies.ts:4-12 share FeatureFlagKey, which now includes template.brain.semanticOperations and template.brain.externalDelivery for upsert/list/evaluate."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/featureFlagPolicies.ts:4-12 adds the two durable Brain launch feature-flag keys to the table schema and existing by_workspace/by_workspace_key/by_key indexes remain intact.",
+        "packages/convex/confect/ops/flags.impl.ts:15-72 includes semantic operations and external delivery defaults with enabled false, rolloutPercent 0, internal audience, and killSwitchEnv names, satisfying default risky external surfaces off until launch enablement.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:188-216 persists Brain operation policies as workspace-scoped policy records with generation, redacted reason, owner activation metadata, status, and timestamps; packages/convex/test/brain-operation-policy.test.ts validates durable redacted records and audit receipts."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "S13-T03 is classified template-gap targeting TB-OPERATIONS-01 in the plan; the implementation composes existing observability, feature-flag, policy, and audit seams rather than adding a separate operator platform.",
+        "The changed files match the plan Files list at docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3694-3705, including featureFlagPolicies.ts, flags tests, observability exports, logging-boundary tooling, and operations docs.",
+        "The exact pre-review lane-gate report for head 9a372756c24735077c875064a3080c49b812d85b is passed, and the proof packet retains planSha256 a3d4af4aa5e526438aa5e06c8716a6a40500bc235d9933f8f8649e133263821b plus taskBlockHash 44554749f4365ef357fd095d8ca8bd6dfdaec948b73797a8255e102eac74d080."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1738-1751 locks every changed product path: docs/product, packages/convex/confect/ops, featureFlagPolicies, convex tests, observability source/tests, and tooling/quality.",
+        "git diff --name-only 022a932c1e809c2093a10f5dea5d248b6c706f5f..HEAD lists only S13-T03 locked files; no generated Confect or Convex output paths are edited.",
+        "Scoped registration inspection found the new Brain operations contract/impl used by focused tests, while generated direct refs are integration-owned by Appendices O/P per the review instruction."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.impl.ts:68-116 makes OperatorForbidden, BudgetExceeded, and SubsystemDisabled reachable through access role, budget/expiry, and disabled-subsystem checks.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:118-135 propagates nextOperationPolicy errors; packages/convex/confect/ops/brainOperationPolicy.ts:101-115 and 145-160 return RecoveryGenerationMismatch and SubsystemDisabled for stale generation and disabled evaluations.",
+        "packages/convex/test/brain-operation-policy.test.ts exercises OperatorForbidden, RecoveryGenerationMismatch, budget-check schema coverage, emergency disabled behavior, disabled subsystem evaluation, and idempotent replay."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

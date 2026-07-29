@@ -1,0 +1,28 @@
+{
+  "baseSha": "3b4ce76f8d6840e15995f95af136524ceb62a6a4",
+  "controlHeadSha": "3b4ce76f8d6840e15995f95af136524ceb62a6a4",
+  "createdAt": "2026-07-16T01:33:10.790Z",
+  "evidence": [
+    "Fabro run 01KXM7RPFFFSWD701ZQSM9EK7N terminal workflow_error with S04-T01-effect-ls-unnecessary-effect-gen",
+    "broad gate found two unnecessaryEffectGen warnings in packages/convex/test/slack-connections.test.ts"
+  ],
+  "integrationId": "wave-000005",
+  "planSha256": "51b4735b05594f70a16fd670c664ccad98cf2a6ba8d6dd1aab8881fa74faefb5",
+  "reason": "S04-T01 strict Effect diagnostics require a lane-owned test-history amendment",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXM7RPFFFSWD701ZQSM9EK7N",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "ba01b1574151925a50ea052d9a6cc923bf865906ce94815e36de9e9eff17752b",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v1",
+  "selectedTaskIds": [
+    "S04-T01"
+  ],
+  "selectionFileSha256": "d42efed8f6e90af682f3653e6f6f8bea557b90bd752611c4fb2fe5e0483d389f",
+  "selectionSha256": "280c42e8c06795759c708fe65f67f04875bb4e4dc285d16c1588428adac78b4c",
+  "status": "superseded",
+  "receiptSha256": "5f240a601ca700ce2230ba51c0a9f2b04fd1fb701cab67a4248ed7ca465a4191"
+}

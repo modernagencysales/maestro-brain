@@ -1,0 +1,89 @@
+{
+  "schemaVersion": "maestro-brain-ci-proof/v1",
+  "planSha256": "5e3506ec26c1776547b03641707371efaebb1c490ce3da6b6a1e2ed0df2a8417",
+  "taskBlockHash": "31d477606c8d812c0f800d81d3401104da038d29fbb39dce06e1292cbd8d6e04",
+  "taskId": "S10-T01",
+  "baseSha": "bc7631796e42ee5d33a006df85730dc1293f505e",
+  "headSha": "ae416ba6efe4b822a339d127eb5d428589068c24",
+  "changedFiles": [
+    "apps/web/src/features/settings/slack-link-adapter.test.ts",
+    "apps/web/src/features/settings/slack-link-adapter.ts",
+    "apps/web/src/features/settings/slack-link-button.test.tsx",
+    "apps/web/src/features/settings/slack-link-button.tsx",
+    "apps/web/src/features/settings/slack-link-status.test.tsx",
+    "apps/web/src/features/settings/slack-link-status.tsx",
+    "docs/product/maestro-brain-lifecycle-adoption/S10-T01.md",
+    "packages/convex/confect/internal/migrations.ts",
+    "packages/convex/confect/slack/identityLink.ts",
+    "packages/convex/confect/slack/identityLinks.impl.ts",
+    "packages/convex/confect/slack/identityLinks.spec.ts",
+    "packages/convex/confect/tables/slackIdentityBindings.ts",
+    "packages/convex/test/slack-identity-links.test.ts"
+  ],
+  "focusedCommands": [
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test slack-identity-links",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test slack-identity",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk pnpm check:access-audit-events",
+    "rtk pnpm check:logging-boundary",
+    "rtk pnpm check:secret-canaries"
+  ],
+  "supplementalCommandResults": [
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test slack-identity-links",
+      "result": "pass: test/slack-identity-links.test.ts (5 tests)"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web test slack-identity",
+      "result": "pass: no test files matched slack-identity filter; command exited 0 with --passWithNoTests"
+    },
+    {
+      "command": "rtk pnpm brain:factory:check-confect-codegen",
+      "result": "pass: transient Confect codegen passed (11 generated files)"
+    },
+    {
+      "command": "rtk pnpm check:access-audit-events",
+      "result": "pass"
+    },
+    {
+      "command": "rtk pnpm check:logging-boundary",
+      "result": "pass"
+    },
+    {
+      "command": "rtk pnpm check:secret-canaries",
+      "result": "pass: no leaks found"
+    },
+    {
+      "command": "rtk proxy git show --numstat --format= <slice>",
+      "result": "source slices: 247, 294, 280, 238 hand-authored source lines"
+    }
+  ],
+  "testsAdded": [
+    "packages/convex/test/slack-identity-links.test.ts",
+    "apps/web/src/features/settings/slack-link-adapter.test.ts",
+    "apps/web/src/features/settings/slack-link-button.test.tsx",
+    "apps/web/src/features/settings/slack-link-status.test.tsx"
+  ],
+  "reviewVerdict": "rework",
+  "reviewFindings": [
+    {
+      "id": "S10-T01-SAFETY-LIFECYCLE-001",
+      "severity": "high",
+      "summary": "Slack identity revocation is not wired to required lifecycle producers.",
+      "details": "S10-T01 requires organization-scoped Slack identity bindings to revoke when a user requests unlinking, when organization membership or the user is suspended, and when the Slack connection is replaced. The implementation registers internal revoker functions for user_suspended, membership_suspended, and connection_replaced, and tests call those functions directly. However, the task-owned membership, user, and provider-connection lifecycle producer paths do not invoke these revokers; connection replacement is additionally handled opportunistically only when a later consume observes a stale generation. Active bindings can therefore remain durable after the required lifecycle producers fire.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2898-2905",
+        "packages/convex/confect/slack/identityLinks.impl.ts:583-687",
+        "packages/convex/test/slack-identity-links.test.ts:656-664",
+        "packages/convex/test/slack-identity-links.test.ts:728-736",
+        "packages/convex/test/slack-identity-links.test.ts:817-823",
+        "rtk rg -n \"revokeSlackIdentityLinksFor|user_suspended|membership_suspended|connection_replaced\" packages/convex/confect packages/convex/test docs/product/maestro-brain-lifecycle-adoption/S10-T01.md shows no caller in membership/user/connection lifecycle producers."
+      ],
+      "lens": "safety"
+    }
+  ],
+  "knownRisks": [
+    "Task-owned lifecycle producer adapters are registered in the Slack identity contract; upstream producer call sites outside the S10-T01 file locks remain integration wiring work if required by a later owner."
+  ],
+  "reviewHeadSha": "ae416ba6efe4b822a339d127eb5d428589068c24"
+}

@@ -1,0 +1,80 @@
+{
+  "lens": "contract",
+  "taskId": "S04-T02",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "cdeca2a0ba4a7101fd27959788455ac53609485617a9cf8146c29c86891a7958",
+  "baseSha": "ce892af6c4ea5c8ff679c5bfce09a205967cdf11",
+  "headSha": "b31d1c8f7a7fcee7d36778cf33534240a17b6f52",
+  "treeSha": "38cf52846dac7e721a0ba40a4e7104367089bfbc",
+  "reviewerRunId": "maestro/review/S04-T02/b31d1c8f7a7fcee7d36778cf33534240a17b6f52/d4a4f17b-25bf-4796-b844-7d6d77c4ae0b-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1448 requires same-connection reauthorization losing cursors to be covered and line 1455 requires reauthorization to preserve channel keys/cursors.",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:766-772 reads sourceChannels for the connection with .take(1_000).",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:773-826 only promotes source rows and channelSyncStates for the truncated existingChannels result.",
+        "packages/convex/test/slack-directory.test.ts:944-1111 covers only two old-generation rows, so it does not prove behavior past the 1,000-row boundary."
+      ],
+      "findingIds": ["S04-T02-CONTRACT-001"]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "ci-proof-packet.json:8-16 lists slackDirectory.spec.ts and slackDirectory.ts in the changed files, keeping the approved Confect API surface within the S04-T02 file locks.",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:727-883 implements commitReconcileChannels behind the existing slackDirectory Confect function, with no reviewer-observed unowned API file changes beyond the manifest packet."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "docs/product/maestro-brain-lifecycle-adoption/S04-T02.md:11-21 documents sourceChannels and channelSyncStates durable resources and approved indexes.",
+        "ci-proof-packet.json:20-22 reports schema migration notes and provider boundary checks as focused proof commands."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1455 requires same-connection reauthorization to preserve channel keys/cursors.",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:766-826 promotes only the first 1,000 sourceChannels and their sync states, leaving later same-connection rows on the stale generation."
+      ],
+      "findingIds": ["S04-T02-CONTRACT-001"]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "task-manifest.json S04-T02 fileLocks include docs/product/maestro-brain-lifecycle-adoption/S04-T02.md, packages/convex/confect/integrations/slackDirectory.*, packages/convex/confect/tables/channelSyncStates.ts, packages/convex/confect/tables/sourceChannels.ts, and packages/convex/test/slack-directory.test.ts.",
+        "ci-proof-packet.json:8-16 changedFiles are exactly within the S04-T02 manifest ownership set."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:766-826 advances only promotedChannels derived from .take(1_000), so the declared same-connection reauthorization cursor-preservation failure path is not fully handled for later rows.",
+        "packages/convex/test/slack-directory.test.ts:944-1111 lacks a focused regression with more than 1,000 same-connection rows proving every sourceChannel and live/recent/deep/reconciliation cursor advances."
+      ],
+      "findingIds": ["S04-T02-CONTRACT-001"]
+    }
+  ],
+  "findings": [
+    {
+      "id": "S04-T02-CONTRACT-001",
+      "severity": "high",
+      "summary": "Same-connection reauthorization only promotes the first 1,000 channel rows and cursors.",
+      "details": "commitReconcileChannels reads sourceChannels with .take(1_000) and derives promotedChannels from that truncated set. Same-connection reauthorization with more than 1,000 existing rows can leave later sourceChannels and their live/recent/deep/reconciliation channelSyncStates on the stale connectionGeneration, violating the S04-T02 contract that same-connection reauthorization preserves channel keys/cursors under the new generation. The focused tests cover two rows only and do not prove deterministic all-row draining.",
+      "evidence": [
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:766-772",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:773-826",
+        "packages/convex/test/slack-directory.test.ts:944-1111",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1448-1455"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

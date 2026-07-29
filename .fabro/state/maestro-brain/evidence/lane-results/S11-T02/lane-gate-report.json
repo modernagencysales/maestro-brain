@@ -1,0 +1,78 @@
+{
+  "schemaVersion": "maestro-brain-lane-gate/v1",
+  "commandSetHash": "bfad3dd0a05b25c5db4548c8ed280b897eeb4a325b13a3eefe8840e3ac84193c",
+  "commands": [
+    "rtk pnpm exec prettier --check --ignore-unknown apps/web/src/features/settings/api-keys-adapter.test.ts apps/web/src/features/settings/api-keys-adapter.ts apps/web/src/features/settings/api-keys-panel.test.tsx apps/web/src/features/settings/api-keys-panel.tsx apps/web/src/features/settings/api-keys.test.ts apps/web/src/features/settings/api-keys.ts apps/web/src/features/settings/settings-surface.test.ts apps/web/src/features/settings/settings-surface.ts apps/web/src/routes/_workspace.settings.tsx packages/convex/confect/headless/apiKeys.impl.ts packages/convex/confect/headless/apiKeys.spec.ts packages/convex/confect/headless/auth.ts packages/convex/confect/headless/authorizeOperation.ts packages/convex/confect/headless/principal.ts packages/convex/confect/http.ts packages/convex/confect/httpRequest.ts packages/convex/confect/manifest/executor.ts packages/convex/test/api-keys.test.ts packages/convex/test/headless-executor.test.ts packages/convex/test/http-docs.test.ts packages/convex/test/http-request-security.test.ts",
+    "rtk pnpm exec eslint apps/web/src/features/settings/api-keys-adapter.test.ts apps/web/src/features/settings/api-keys-adapter.ts apps/web/src/features/settings/api-keys-panel.test.tsx apps/web/src/features/settings/api-keys-panel.tsx apps/web/src/features/settings/api-keys.test.ts apps/web/src/features/settings/api-keys.ts apps/web/src/features/settings/settings-surface.test.ts apps/web/src/features/settings/settings-surface.ts apps/web/src/routes/_workspace.settings.tsx packages/convex/confect/headless/apiKeys.impl.ts packages/convex/confect/headless/apiKeys.spec.ts packages/convex/confect/headless/auth.ts packages/convex/confect/headless/authorizeOperation.ts packages/convex/confect/headless/principal.ts packages/convex/confect/http.ts packages/convex/confect/httpRequest.ts packages/convex/confect/manifest/executor.ts packages/convex/test/api-keys.test.ts packages/convex/test/headless-executor.test.ts packages/convex/test/http-docs.test.ts packages/convex/test/http-request-security.test.ts",
+    "rtk pnpm --dir packages/convex typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test api-keys headless http-request",
+    "rtk pnpm check:headless-surface-contract",
+    "rtk pnpm check:confect-v9",
+    "rtk pnpm --dir apps/cli typecheck",
+    "rtk host-test-slot --class focused pnpm --dir apps/cli test",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test",
+    "rtk pnpm --dir apps/web typecheck",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test"
+  ],
+  "currentHeadSha": "789cacd4af82066218c63e414d4206d6b2f2cfa9",
+  "currentTreeSha": "9359fc1e79ae493c2e1234f3d52f48aee42de97a",
+  "gateProfiles": [
+    "cli",
+    "convex",
+    "web"
+  ],
+  "headSha": "789cacd4af82066218c63e414d4206d6b2f2cfa9",
+  "planSha256": "1c6b818063c534afdae20d688fee71e830915c5ac356bf7eba7724099d7ed9a5",
+  "changedSourceLines": 2550,
+  "estimateDrift": false,
+  "estimatedSourceLines": 3000,
+  "sourceSliceBudget": 300,
+  "sourceSliceLimit": 10,
+  "sourceSlices": [
+    {
+      "changedSourceLines": 212,
+      "commit": "fd5d72f75b26eb5b720fe727b44c2a1ae354b5a8"
+    },
+    {
+      "changedSourceLines": 135,
+      "commit": "02c4f71ce4b2a3e5a39b3d0c1b1d56e9c572b715"
+    },
+    {
+      "changedSourceLines": 286,
+      "commit": "7354595f4f3dd4e1659437f44a6fc1c5310fd798"
+    },
+    {
+      "changedSourceLines": 286,
+      "commit": "668458d6053f5d1bf293268937ffda3d9454e15b"
+    },
+    {
+      "changedSourceLines": 286,
+      "commit": "773968207db873f29632d23ab7debfe82cb8d3d2"
+    },
+    {
+      "changedSourceLines": 288,
+      "commit": "cbde65e2867e518861710441a890051389c850af"
+    },
+    {
+      "changedSourceLines": 259,
+      "commit": "ec8c43fcd3a13c3d63d5c38bc1cbc00942a84848"
+    },
+    {
+      "changedSourceLines": 245,
+      "commit": "e39ac8ac30ffaa367e4d633316726db7565bbd2f"
+    },
+    {
+      "changedSourceLines": 291,
+      "commit": "0f1edf07a1f131d5dc8a22a7bca81660f1d7aa5c"
+    },
+    {
+      "changedSourceLines": 262,
+      "commit": "789cacd4af82066218c63e414d4206d6b2f2cfa9"
+    }
+  ],
+  "stage": "final",
+  "status": "passed",
+  "taskId": "S11-T02",
+  "taskBlockHash": "f49e5fe055896a804408cf0013f1f4b02735f7b6e18f1813ab85e85672fb569d",
+  "reusedPreReview": true
+}

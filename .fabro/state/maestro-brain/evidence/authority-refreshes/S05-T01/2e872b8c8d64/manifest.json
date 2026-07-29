@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "maestro-brain-authority-refresh-archive/v1",
+  "taskId": "S05-T01",
+  "authorityId": "2e872b8c8d64",
+  "currentAuthority": {
+    "controlHeadSha": "648ddb32aa68230fdb41e0ef6dc6fe26c4837487",
+    "planSha256": "401ba861efdc16760c9abac168cfd928efce150d9051c6bd58bf62ec330547a7",
+    "taskBlockHash": "1665eb4087239d8d137a8b4274f5f63c4bb965d699076b2678d1e618b1e34c54"
+  },
+  "oldAuthority": {
+    "planSha256": "b25dfe4b3139d61e98976f450d6dfbdb30629201ab2015f7846a04ca02435a57",
+    "taskBlockHash": "8c814c81e34129532e8467e567d99d48dfb60017ceda5ab0934454da2d348044"
+  },
+  "source": {
+    "baseSha": "73609583b9ca2704ad28f3844239f00764ac7230",
+    "commits": [
+      "6cbf7ad9c4b5cf7389ebca8f1e8586b602e7b3bc",
+      "dc89732967a2074c9209224e321688e04f978950",
+      "8bd67eb6db9a5aa1bff501d9d1def5948fcc37e2",
+      "1dca70d0cf6e3fbaa1e364168a900bf605431c9c"
+    ],
+    "headSha": "1dca70d0cf6e3fbaa1e364168a900bf605431c9c"
+  },
+  "artifacts": [
+    {
+      "file": "prior-lane-result.json",
+      "sha256": "175e2ecdb95a31b0e212424812a4251335324a3fd4edc13366c0a3759074c3d3"
+    },
+    {
+      "file": "prior-proof.json",
+      "sha256": "cce848452b306dd64eb2319fd803a0f4c5dbd16fdbdfe8f3670a82ddd220534e"
+    },
+    {
+      "file": "prior-final-gate.json",
+      "sha256": "dcdf9fcd9e754044c022aff6feffc48f97fb30899e49126340c4937b09fb53a4"
+    }
+  ]
+}

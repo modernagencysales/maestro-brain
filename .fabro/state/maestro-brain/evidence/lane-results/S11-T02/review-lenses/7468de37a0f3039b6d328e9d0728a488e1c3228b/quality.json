@@ -1,0 +1,68 @@
+{
+  "lens": "quality",
+  "taskId": "S11-T02",
+  "planSha256": "e0256a16a8e0791a68c0f2eef39946ddb845c01a79e186c9aa05585ce85d5199",
+  "taskBlockHash": "f49e5fe055896a804408cf0013f1f4b02735f7b6e18f1813ab85e85672fb569d",
+  "baseSha": "8fa1f5b6183a42207628d51cd396852dc8a95af5",
+  "headSha": "7468de37a0f3039b6d328e9d0728a488e1c3228b",
+  "treeSha": "fa10f7933824434a278d0e09bb739134f411c732",
+  "reviewerRunId": "maestro/review/S11-T02/7468de37a0f3039b6d328e9d0728a488e1c3228b/31b1ec3a-3931-4afe-979a-7b251b67d7f2-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "pass",
+      "evidence": [
+        "Task plan lines 3124-3129 require failure-first proof for missing/malformed/header-in-URL bearer keys, caller tenant fields, wrong scope/Brain, revoked/expired key/principal/Brain/org, changed generation, unknown/non-headless operations, auth-before-decode/provider calls, timing-safe behavior, raw-header logging, audited CRUD, display-once secrets, and non-admin UI/server denial.",
+        "packages/convex/test/http-request-security.test.ts covers deleted/unknown operations without authentication or dispatch, missing/malformed bearer syntax before request.json/runner calls, rate limiting before decode/auth, redacted rate-limit admission metadata, explicit reviewed policies, recursive/top-level tenant-field rejection, authenticate -> decode -> dispatch -> reauthenticate -> mark ordering, operation-specific ask scope, reauthorization failure after dispatch, and public error redaction/no console raw-header leakage.",
+        "packages/convex/test/api-keys.test.ts covers durable API-key creation/listing/revocation/rotation, scope and expiry validation, indexed hash authentication, revoked/expired/principal/generation/lifecycle failures, fenced last-used updates, public Confect handlers, and audit metadata. apps/web/src/features/settings/api-keys-adapter.test.ts, api-keys-panel.test.tsx, api-keys.test.ts, and settings-surface.test.ts cover display-once secret handling plus role-aware Settings UI hiding/adapter denial. Exact-head lane gates passed the focused package and web test commands."
+      ]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "Backend HTTP handling stays in packages/convex/confect/http.ts and httpRequest.ts, delegates bearer hash lookup/authentication through headless/apiKeys Confect specs/impls, centralizes pure operation policy and tenant-field rejection in packages/convex/confect/headless/authorizeOperation.ts, and dispatches only through packages/convex/confect/manifest/executor.ts.",
+        "apps/web/src/routes/_workspace.settings.tsx remains the route composition point using Confect refs and feature adapters; apps/web/src/features/settings/api-keys-adapter.ts and api-keys-panel.tsx do not import Convex internals, provider SDKs, route modules, or replace server-side authorization.",
+        "The amended headless apiKeys ref bridge in apps/web/src/routes/_workspace.settings.tsx is explicitly documented as integration-owned pending centralized Confect regeneration. Per review instruction, exact-head transient codegen proof plus no generated-path edits makes absent checked-in generated refs expected lane state, not a task rework finding."
+      ]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.impl.ts is large but split into named helpers for auth errors, audited API-key actions, admin checks, active Brain scope resolution, create/list/revoke/rotate, indexed bearer authentication, last-used fencing, public context resolution, and Confect handler wiring.",
+        "The HTTP route sequence in packages/convex/confect/http.ts is linear and fail-closed: policy lookup, redacted rate-limit admission, bearer hashing/authentication, pre-decode scope authorization, JSON decode, principal injection/dispatch, reauthentication, and best-effort last-used update. Tenant-field validation and principal injection are reusable in packages/convex/confect/headless/authorizeOperation.ts.",
+        "The diff is confined to the S11-T02-owned headless API-key, HTTP dispatcher, executor, Settings UI, and focused test files from the manifest/task packet; no eslint-disable or ts-expect-error suppressions and no unrelated fixture/provider swaps were observed."
+      ]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.impl.ts defines apiKey.administered audit events with operation/outcome/brainKey/scopes/reason metadata and records create/revoke/rotate success and denial events using display prefixes, requested names, or key IDs rather than display secrets.",
+        "packages/convex/test/api-keys.test.ts covers API-key administration audit event success and denial metadata. packages/convex/test/http-request-security.test.ts proves dispatch exceptions and malformed Authorization responses are redacted and do not call console.error with raw bearer values.",
+        "The exact-head proof packet records check:logging-boundary, check:secret-canaries, and check:access-audit-events as passed, supporting useful redacted observability without raw provider/request secret leakage."
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "The exact-head lane-gate-report.json reports currentHeadSha/headSha 7468de37a0f3039b6d328e9d0728a488e1c3228b, currentTreeSha fa10f7933824434a278d0e09bb739134f411c732, changedSourceLines 2688 against estimatedSourceLines 3000, and estimateDrift false.",
+        "lane-gate-report.json sourceSlices lists exactly 10 commits, matching the manifest sourceSliceLimit 10, and every slice is at or below the 300-line sourceSliceBudget (210, 298, 253, 299, 270, 238, 267, 293, 269, 291).",
+        "rtk proxy git diff --name-only 8fa1f5b6183a42207628d51cd396852dc8a95af5..HEAD shows only the 21 task-owned files in the proof packet, with no generated-path edits or broad unrelated churn."
+      ]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "pass",
+      "evidence": [
+        "rtk proxy git diff --name-only 8fa1f5b6183a42207628d51cd396852dc8a95af5..HEAD shows no packages/convex/confect/_generated, packages/convex/convex/_generated, or template-core generated-path edits in the task diff.",
+        "ci-proof-packet.json supplementalCommands records rtk pnpm brain:factory:check-confect-codegen passed with transient Confect codegen generating 5 files, along with check:headless-surface-contract, check:confect-contracts, check:logging-boundary, check:secret-canaries, and check:access-audit-events as passed.",
+        "Generated Confect/Convex output is integration-owned by Appendices O/P; because exact-head pre-review evidence proves transient codegen and the task diff does not edit generated paths, absence of checked-in generated headless/apiKeys refs is expected lane state rather than a task finding."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

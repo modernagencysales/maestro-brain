@@ -1,0 +1,273 @@
+{
+  "schemaVersion": "maestro-brain-integration-result/v1",
+  "tranche": "F0-foundation",
+  "status": "passed",
+  "reviewVerdict": "pass",
+  "selectionPolicy": {
+    "source": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results",
+    "requiredStatus": "lane_green",
+    "requiredGateStage": "final",
+    "requiredGateStatus": "passed",
+    "ordering": "deterministic topological/task-ID order"
+  },
+  "includedTasks": [
+    {
+      "taskId": "S00-T02",
+      "title": "Freeze Sources, Register Gaps, And Prove Stack Receipts",
+      "classification": "template-gap",
+      "lane": "foundation",
+      "tranche": "F0-foundation",
+      "codeStartAfter": [],
+      "taskHeadSha": "3f0fc9b7db0baf0536c104605e6b209c4d1093f8",
+      "integrationCommitSha": "5b58144cd32bbf807609761638c30d704e819eb7",
+      "subject": "docs: define Brain execution contract",
+      "laneResultPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S00-T02/lane-result.json",
+      "laneGateReportPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S00-T02/lane-gate-report.json",
+      "ciProofPacketPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S00-T02/ci-proof-packet.json",
+      "validation": {
+        "laneStatus": "lane_green",
+        "finalGateStatus": "passed",
+        "headHashesMatch": true,
+        "proofHeadHashesMatch": true,
+        "baseDependencySatisfied": true,
+        "codeStartAfterSatisfied": true,
+        "nonconflictingOwnership": true,
+        "singleIntentionCommit": true
+      },
+      "changedFiles": [
+        "docs/superpowers/receipts/maestro-brain/source-baseline.md",
+        "docs/superpowers/receipts/maestro-brain/stack-execution-contract.md",
+        "docs/template/porting-backlog.md"
+      ],
+      "laneHeadSha": "3f0fc9b7db0baf0536c104605e6b209c4d1093f8",
+      "integrationHeadSha": "5b58144cd32bbf807609761638c30d704e819eb7"
+    }
+  ],
+  "excludedTasks": [
+    {
+      "taskId": "S00-T01",
+      "reason": "No lane-result.json evidence found for this tranche task."
+    },
+    {
+      "taskId": "S00-T03",
+      "reason": "No lane-result.json evidence found for this tranche task."
+    },
+    {
+      "taskId": "S00-T04",
+      "reason": "No lane-result.json evidence found for this tranche task."
+    }
+  ],
+  "excludedLaneResults": [
+    {
+      "taskId": "S02-T01",
+      "reason": "lane result exists but manifest tranche is C1-contract-spine, not F0-foundation"
+    },
+    {
+      "taskId": "S08-T01",
+      "reason": "lane result exists but manifest tranche is C1-contract-spine, not F0-foundation"
+    },
+    {
+      "taskId": "S12-T01",
+      "reason": "lane result exists but manifest tranche is C1-contract-spine, not F0-foundation"
+    }
+  ],
+  "commits": [
+    {
+      "taskId": "S00-T02",
+      "sourceCommitSha": "3f0fc9b7db0baf0536c104605e6b209c4d1093f8",
+      "integrationCommitSha": "5b58144cd32bbf807609761638c30d704e819eb7",
+      "subject": "docs: define Brain execution contract"
+    }
+  ],
+  "generatedDiffs": [],
+  "codegen": {
+    "ran": false,
+    "reason": "Accepted tasks did not own centralized Confect/Convex/route generated artifacts."
+  },
+  "conflicts": [],
+  "driftRejections": [],
+  "ownershipRejections": [],
+  "diffStat": {
+    "filesChanged": 3,
+    "insertions": 149,
+    "deletions": 0
+  },
+  "gates": [
+    {
+      "command": "rtk pnpm exec prettier --check docs/template/porting-backlog.md docs/superpowers/receipts/maestro-brain/source-baseline.md docs/superpowers/receipts/maestro-brain/stack-execution-contract.md",
+      "status": "passed",
+      "summary": "All matched files use Prettier code style!"
+    },
+    {
+      "command": "rtk pnpm test:stack",
+      "status": "passed",
+      "summary": "Test Files 9 passed (9); Tests 47 passed (47)."
+    },
+    {
+      "command": "rtk pnpm check:docs-freshness",
+      "status": "passed",
+      "summary": "check:docs-freshness: ok (pin-only)."
+    },
+    {
+      "command": "git diff --check",
+      "status": "passed",
+      "summary": "No output."
+    },
+    {
+      "command": "rtk host-test-slot --class full pnpm verify; rtk git diff --check; STATUS=$(rtk proxy git status --porcelain); rtk proxy test -z \"$STATUS\"",
+      "status": "passed",
+      "summary": "pnpm verify passed from the integration workdir, including build, check:layer-boundaries (759 modules, 2142 dependencies), secret scan, confect manifest, and all remaining verify checks; git diff --check passed; worktree status was clean."
+    }
+  ],
+  "worktreeStatus": "clean",
+  "notes": [
+    "Independent repaired-tranche review on 2026-07-15 found no product/worktree changes after the reviewed integration head, reviewed the complete integrated docs diff, and treated S00-T02 accepted:false as an acceptance-only blocker rather than an integration review blocker.",
+    "No cross-worktree mutations were performed. The only write outside the integration workdir was this integration result file.",
+    "No subsystem status integration commit was added because the accepted task commit updates the owning template/backlog docs and no runtime/generated status changed.",
+    "Only S00-T02 had lane result evidence for F0-foundation at integration time.",
+    "Re-ran the required broad combined-head gate after verifying dependencies were available in the integration workdir; pnpm verify, diff check, and clean-status check passed.",
+    "Repair review preserved sourceRunStatus/sourceReviewRun recovery history, first proved stale rework evidence failed the deterministic checker, then reran focused tranche gates and the full pnpm verify command at the exact integration head. No product source files changed during repair.",
+    "S00-T02 codeStartAfter is empty and its proof base 304348d92cd2388df5f7945f6ba8d76be79f8686 is an ancestor of the integration base head."
+  ],
+  "reviewGates": [
+    {
+      "command": "rtk host-test-slot --class full pnpm verify",
+      "status": "passed",
+      "summary": "Full combined-head verify passed. check:layer-boundaries reported no dependency violations found (759 modules, 2142 dependencies cruised)."
+    },
+    {
+      "command": "rtk git diff --check && STATUS=$(rtk proxy git status --porcelain); rtk proxy test -z \"$STATUS\"",
+      "status": "passed",
+      "summary": "Whitespace check passed and integration worktree was clean."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir /Users/headless/maestro-brain-plan exec tsx tooling/brain-factory/src/repair-result-check.mts --workdir /Users/headless/.maestro-brain-fabro-workdirs/integration-F0-foundation --evidence /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence --audit /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/recovery-audit.jsonl --tranche F0-foundation --base 5b58144cd32bbf807609761638c30d704e819eb7 --source-run 01KXHDXG8A8751TZ3HY4CQJKBD --stage review",
+      "status": "expected_failed",
+      "summary": "Negative proof before this evidence repair: inherited rework state failed with \"review verdict is not pass\"."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir /Users/headless/maestro-brain-plan exec tsx tooling/brain-factory/src/repair-result-check.mts --workdir /Users/headless/.maestro-brain-fabro-workdirs/integration-F0-foundation --evidence /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence --audit /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/recovery-audit.jsonl --tranche F0-foundation --base 5b58144cd32bbf807609761638c30d704e819eb7 --source-run 01KXHDXG8A8751TZ3HY4CQJKBD --stage review",
+      "status": "passed",
+      "summary": "F0-foundation: repaired integration review check passed after resolving the acceptanceAfter review-contract mismatch while preserving S00-T02 integrated and accepted:false."
+    },
+    {
+      "command": "git rev-parse HEAD; git diff --name-only 5b58144cd32bbf807609761638c30d704e819eb7..HEAD; git diff --check; git status --short; pnpm --dir /Users/headless/maestro-brain-plan/tooling/brain-factory exec tsx src/repair-result-check.mts --workdir /Users/headless/.maestro-brain-fabro-workdirs/integration-F0-foundation --evidence /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence --audit /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/recovery-audit.jsonl --tranche F0-foundation --base 5b58144cd32bbf807609761638c30d704e819eb7 --source-run 01KXHDXG8A8751TZ3HY4CQJKBD --stage review",
+      "status": "passed",
+      "summary": "Read-only independent review check: HEAD was 5b58144cd32bbf807609761638c30d704e819eb7, diff from reviewed repair base was empty, whitespace/status checks produced no findings, and repair-result-check passed."
+    },
+    {
+      "command": "rtk pnpm exec prettier --check docs/template/porting-backlog.md docs/superpowers/receipts/maestro-brain/source-baseline.md docs/superpowers/receipts/maestro-brain/stack-execution-contract.md; rtk pnpm test:stack; rtk pnpm check:docs-freshness",
+      "status": "passed",
+      "summary": "Focused S00-T02 docs/stack checks passed without running broad verify: Prettier accepted all three docs files, test:stack reported 9 files and 47 tests passed, and docs freshness was ok (pin-only)."
+    }
+  ],
+  "baseSha": "fbea9df4cbc12cfb4fdc6e78d285cff3ec095907",
+  "headSha": "5b58144cd32bbf807609761638c30d704e819eb7",
+  "integrationId": "F0-foundation",
+  "integrationWorkdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-F0-foundation",
+  "manifestTranche": "F0-foundation",
+  "recovery": {
+    "at": "2026-07-15T06:11:36.285Z",
+    "legacyBaseHeadSha": "fbea9df4cbc12cfb4fdc6e78d285cff3ec095907",
+    "legacyIncludedTaskIds": [
+      "S00-T02"
+    ],
+    "legacyIntegrationHeadSha": "5b58144cd32bbf807609761638c30d704e819eb7",
+    "legacyWorktree": "/Users/headless/.maestro-brain-fabro-workdirs/integration-F0-foundation",
+    "previousReviewVerdict": "pass",
+    "previousStatus": "passed",
+    "reason": "Fabro run 01KXHDXG8A8751TZ3HY4CQJKBD terminated with workflow_error while mutable F0 evidence falsely claimed pass; normalize the contradictory legacy state and repair the exact reviewed integration head",
+    "schemaVersion": "maestro-brain-integration-recovery/v1",
+    "sourceRunStatus": "failed",
+    "sourceReviewRun": "01KXHDXG8A8751TZ3HY4CQJKBD"
+  },
+  "remainingFindings": [],
+  "resolvedFindings": [
+    {
+      "id": "legacy-integration-run-failed",
+      "severity": "high",
+      "summary": "Resolved by independent repair review: the stale rework evidence was first rejected by repair-result-check, then focused tranche gates and the full pnpm verify command passed at the exact integration head.",
+      "evidence": [
+        {
+          "command": "rtk host-test-slot --class focused pnpm --dir /Users/headless/maestro-brain-plan exec tsx tooling/brain-factory/src/repair-result-check.mts --workdir /Users/headless/.maestro-brain-fabro-workdirs/integration-F0-foundation --evidence /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence --audit /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/recovery-audit.jsonl --tranche F0-foundation --base 5b58144cd32bbf807609761638c30d704e819eb7 --source-run 01KXHDXG8A8751TZ3HY4CQJKBD --stage record",
+          "status": "expected_failed",
+          "summary": "Negative checker rejected the inherited rework evidence with: review verdict is not pass."
+        },
+        {
+          "command": "rtk host-test-slot --class focused pnpm exec prettier --check docs/template/porting-backlog.md docs/superpowers/receipts/maestro-brain/source-baseline.md docs/superpowers/receipts/maestro-brain/stack-execution-contract.md",
+          "status": "passed",
+          "summary": "All matched files use Prettier code style!"
+        },
+        {
+          "command": "rtk host-test-slot --class focused pnpm test:stack",
+          "status": "passed",
+          "summary": "Test Files 9 passed (9); Tests 47 passed (47)."
+        },
+        {
+          "command": "rtk host-test-slot --class focused pnpm check:docs-freshness",
+          "status": "passed",
+          "summary": "check:docs-freshness: ok (pin-only)."
+        },
+        {
+          "command": "rtk host-test-slot --class focused pnpm verify; rtk git diff --check; STATUS=$(rtk proxy git status --porcelain); rtk proxy test -z \"$STATUS\"",
+          "status": "passed",
+          "summary": "Full pnpm verify command passed from the exact integration workdir through the focused host-test slot; diff check passed and worktree was clean."
+        }
+      ]
+    },
+    {
+      "id": "f0-s00-t02-unsatisfied-acceptance-dependency",
+      "severity": "high",
+      "summary": "Resolved as a review-contract mismatch: acceptanceAfter gates acceptance to accepted:true only and is not a codeStartAfter or integration/review-pass dependency. S00-T02 remains integrated and accepted:false with the unavailable S00-T01 external blocker preserved.",
+      "evidence": [
+        {
+          "path": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S00-T02/lane-result.json",
+          "summary": "S00-T02 remains status:integrated, accepted:false, with acceptanceBlocker \"S00-T01 three-host Convex plugin attestation is not present\"; no unavailable external receipt was fabricated."
+        },
+        {
+          "path": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/integration/F0-foundation/integration-result.json",
+          "summary": "F0 keeps S00-T02 included at the exact integration head; the prior finding incorrectly treated acceptanceAfter as an integration/review blocker rather than an accepted:true gate."
+        }
+      ]
+    }
+  ],
+  "sourceRunStatus": "failed",
+  "sourceReviewRun": "01KXHDXG8A8751TZ3HY4CQJKBD",
+  "repairGates": [
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir /Users/headless/maestro-brain-plan exec tsx tooling/brain-factory/src/repair-result-check.mts --workdir /Users/headless/.maestro-brain-fabro-workdirs/integration-F0-foundation --evidence /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence --audit /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/recovery-audit.jsonl --tranche F0-foundation --base 5b58144cd32bbf807609761638c30d704e819eb7 --source-run 01KXHDXG8A8751TZ3HY4CQJKBD --stage record",
+      "status": "expected_failed",
+      "summary": "Before evidence mutation, deterministic repair checker rejected the inherited rework state: review verdict is not pass."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm exec prettier --check docs/template/porting-backlog.md docs/superpowers/receipts/maestro-brain/source-baseline.md docs/superpowers/receipts/maestro-brain/stack-execution-contract.md",
+      "status": "passed",
+      "summary": "All matched files use Prettier code style!"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm test:stack",
+      "status": "passed",
+      "summary": "Test Files 9 passed (9); Tests 47 passed (47)."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm check:docs-freshness",
+      "status": "passed",
+      "summary": "check:docs-freshness: ok (pin-only)."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm verify",
+      "status": "passed",
+      "summary": "Full verify command passed; check:layer-boundaries reported no dependency violations found (759 modules, 2142 dependencies cruised); gitleaks found no leaks; check:qlty skipped optional local qlty because it is not installed."
+    },
+    {
+      "command": "rtk git diff --check && STATUS=$(rtk proxy git status --porcelain); rtk proxy test -z \"$STATUS\"",
+      "status": "passed",
+      "summary": "Whitespace check passed and product worktree was clean."
+    }
+  ],
+  "broadGate": {
+    "status": "passed",
+    "headSha": "5b58144cd32bbf807609761638c30d704e819eb7",
+    "command": "rtk host-test-slot --class full pnpm verify"
+  }
+}

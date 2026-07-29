@@ -1,0 +1,112 @@
+{
+  "lens": "safety",
+  "taskId": "S13-T03",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "taskBlockHash": "13c071bc2c78035c5563f494b38160a96c981ab2962984f056be4e18853e137e",
+  "baseSha": "f66236e12f93bc254cc2350800a5b2a69d0caff5",
+  "headSha": "490fc4dd0ec735e58c15b883ca6303573c8638f6",
+  "treeSha": "a30cac17838a62ef6776a976648d6cf5b88e05ae",
+  "reviewerRunId": "maestro/review/S13-T03/490fc4dd0ec735e58c15b883ca6303573c8638f6/ade6e852-8186-47dd-94bc-e07f53f46bd6-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.impl.ts:42 requires workspace access before listing policies.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:67-72 requires workspace access and admin-or-better role before mutation.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:178-185 filters active policy rows by workspaceId/kind/status, and packages/convex/confect/ops/brainOperations.impl.ts:196 further scopes operation policy keys to the requested workspace.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:165-168 includes workspaceId in the policy key."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.impl.ts:42-44 enforces viewer workspace access for listPolicies.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:67-72 rejects mutation callers below admin.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:79-83 defines the admin threshold and packages/convex/confect/ops/brainOperationPolicy.ts:108-111 requires owner role to leave disabled state.",
+        "packages/convex/test/brain-operation-policy.test.ts:294-320 proves a viewer receives OperatorForbidden from the registered Confect mutation."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "docs/product/maestro-brain-operations.md:40-53 documents subsystem-scoped policy state, expiry, generation, and retired-row behavior.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:84-123 increments generation and preserves owner/reason/expiry/idempotency key for accepted transitions.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:125-141 retires prior active rows and inserts the next active row for the workspace/subsystem.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:268-271 treats expired policies as inactive, and packages/convex/test/brain-operation-policy.test.ts:226-237 covers expired transient pauses."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3551-3553 requires operators to diagnose and stop risky subsystems without viewing customer text.",
+        "docs/product/maestro-brain-operations.md:3-6 repeats that the operations seam must avoid customer text, prompts, Slack headers, provider tokens, and raw source payloads.",
+        "packages/convex/confect/ops/brainOperations.spec.ts:56-58 defines reason as an unrestricted non-empty string argument.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:118-120 stores reason directly in the policy object, packages/convex/confect/ops/brainOperationPolicy.ts:190-205 serializes that policy into durable dataJson, and packages/convex/confect/ops/brainOperations.impl.ts:273-285 returns policy.reason from list/mutation results.",
+        "packages/convex/test/brain-operation-policy.test.ts:181-225 intentionally uses a reason containing a customer prompt canary and only proves the audit event omits it, while the durable policy and returned policy still retain reason."
+      ],
+      "findingIds": ["S13-T03-SAFETY-PRIVACY-001"]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts:72 requires expectedGeneration for setPolicyInternal.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:98-105 returns RecoveryGenerationMismatch when the current generation differs from expectedGeneration.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:79-87 loads the current active policy immediately before idempotency and generation evaluation.",
+        "packages/convex/test/brain-operation-policy.test.ts:239-278 covers stale generation rejection after a later policy update."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts:68-69 requires a non-empty idempotencyKey.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:85-87 returns the current policy without inserting another row when the active idempotency key matches.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:160-164 provides idempotency-key lookup semantics for policy replay checks.",
+        "packages/convex/test/brain-operation-policy.test.ts:239-278 covers idempotency and stale duplicate behavior."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts:43-46 defines RecoveryGenerationMismatch with expected and actual generation fields.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:134-150 evaluates expectedGeneration before disabled-state checks.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:107-123 routes expectedGeneration through nextOperationPolicy before persistence.",
+        "packages/convex/test/brain-operation-policy.test.ts:86-108 and packages/convex/test/brain-operation-policy.test.ts:239-278 prove stale generations are rejected."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "packages/observability/src/brainMetrics.ts:55-68 enumerates redacted provider/customer-sensitive fields including authorization, headers, prompt, raw/source text, refreshToken, secret, and token.",
+        "packages/observability/src/brainMetrics.ts:70-82 recursively redacts those fields before metric creation.",
+        "packages/observability/src/brainMetrics.ts:84-95 only emits the allow-listed ID/hash/count/duration/status/error metric keys.",
+        "packages/observability/src/brainMetrics.test.ts:5-34 and packages/observability/src/brainMetrics.test.ts:63-82 cover prompt/source/token/header canaries, and the pre-review lane gate report records check:secret-canaries and check:logging-boundary passed for this head."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "S13-T03-SAFETY-PRIVACY-001",
+      "severity": "high",
+      "summary": "Free-form policy reasons can leak customer text through durable policy data and listPolicies responses.",
+      "details": "The S13-T03 task requires the operations seam to let operators diagnose and stop subsystems without viewing customer text/prompts. setPolicyInternal accepts an unrestricted reason, nextOperationPolicy stores it, operationPolicyRecord serializes it into durable policy dataJson, and toPolicyReturn returns it to callers. The focused test even uses a reason containing a customer prompt canary and only asserts the audit event omits it, leaving the durable policy row and list/mutation response as leak paths. Redact or constrain returned/persisted reason text, or split private operator rationale from a safe public reason before this can be considered safe.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3551-3553",
+        "docs/product/maestro-brain-operations.md:3-6",
+        "packages/convex/confect/ops/brainOperations.spec.ts:56-58",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:118-120",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:190-205",
+        "packages/convex/confect/ops/brainOperations.impl.ts:273-285",
+        "packages/convex/test/brain-operation-policy.test.ts:181-225"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

@@ -1,0 +1,35 @@
+{
+  "baseSha": "b70b28d23363c5fa581d8ac18ac6cc6c295f4acf",
+  "controlHeadSha": "5e8f7079d4b0489fd09eac26f9cd84dca9281759",
+  "createdAt": "2026-07-15T22:27:53.007Z",
+  "evidence": [
+    ".fabro/state/maestro-brain/evidence/integration/wave-000002/integration-result.json",
+    "preserved-head:c72bcbfae2b0cbdf3465bf5069e52530d2510e46",
+    "wave-000002-non-lane-hand-authored-files"
+  ],
+  "integrationId": "wave-000002",
+  "planSha256": "cdef7d7b41c39a321e93a84df0c247826e834b2c9c0df65ecd85f1fcec4af950",
+  "reason": "Immutable selection cannot be promoted because independent review found hand-authored files outside selected lane ownership; preserve security repairs and require fresh S01-T03/S01-T04 proofs.",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXKS9AAGCEVRNC3ZVX7JJT06",
+      "status": "failed"
+    },
+    {
+      "attempt": 2,
+      "runId": "01KXKVMHP1E20BEW4CH8FNY76K",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "6770d3c1617d7e04a9a7287a8f93ff0f3b9f65000c80549910a6fbfe7de8b291",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v1",
+  "selectedTaskIds": [
+    "S01-T03",
+    "S01-T04"
+  ],
+  "selectionFileSha256": "f500078e5ce51879f4f7f49e168f80ad142173acb6a0bcbcda9acc0e61871f44",
+  "selectionSha256": "552397ad775be59c8638516a893cd844e276b9aa4a0634b7bfeb014764d209a3",
+  "status": "superseded",
+  "receiptSha256": "601d36dc01caa25d90ae46c7c3ada845cc37fe2b7ca1aedaccd03ee2e9ff658b"
+}

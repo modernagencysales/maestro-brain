@@ -1,0 +1,133 @@
+{
+  "schemaVersion": "maestro-brain-integration-result/v1",
+  "baseSha": "e8c660120f09a47a65d0dc3f271f2237aeeffe7a",
+  "manifestTranche": "D2-domain-bodies",
+  "integrationId": "D2-domain-bodies",
+  "integrationWorkdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-D2-domain-bodies",
+  "headSha": "270c42547bcb41b8e7058871d2f6afd907af087d",
+  "reviewHeadSha": "270c42547bcb41b8e7058871d2f6afd907af087d",
+  "reviewedPlanHeadSha": "56f897d6fcfa4446f24125e4f7e0c30a7724e253",
+  "includedTasks": [
+    {
+      "taskId": "S08-T02",
+      "title": "Add An Internal-Only Workflow Generator Mode",
+      "laneResultPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S08-T02/lane-result.json",
+      "laneHeadSha": "8356028b12ccf371f1a75a663ce72f7194e6b8ab",
+      "status": "included",
+      "dependenciesSatisfiedBy": [
+        {
+          "taskId": "S08-T01",
+          "integrationHeadSha": "c6433e434c457084afb908ec6013fb63dfc1ae7b"
+        }
+      ]
+    }
+  ],
+  "commits": [
+    {
+      "sourceSha": "99a73ed496c3e6518a09429ef13f0ea2efbe80c8",
+      "integratedSha": "6282dbf408d0009bc4f05c501f93bf05aed519f7",
+      "taskId": "S08-T02",
+      "subject": "test: cover internal workflow generation"
+    },
+    {
+      "sourceSha": "40d01dc6a9a09cab6bdcfc191965ad1424407743",
+      "integratedSha": "c151b3edd6b8b75a031c386637ac5739424f395e",
+      "taskId": "S08-T02",
+      "subject": "feat: add internal workflow exposure"
+    },
+    {
+      "sourceSha": "8356028b12ccf371f1a75a663ce72f7194e6b8ab",
+      "integratedSha": "270c42547bcb41b8e7058871d2f6afd907af087d",
+      "taskId": "S08-T02",
+      "subject": "docs: document internal workflow mode"
+    }
+  ],
+  "generatedDiffs": [],
+  "conflicts": [],
+  "checks": [
+    {
+      "command": "host-test-slot --class focused pnpm --dir tooling/generators test",
+      "status": "passed"
+    },
+    {
+      "command": "pnpm check:generators",
+      "status": "passed"
+    },
+    {
+      "command": "pnpm check:headless-surface-contract",
+      "status": "passed"
+    },
+    {
+      "command": "pnpm --dir tooling/generators typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "pnpm template:workflow-output-smoke",
+      "status": "passed"
+    },
+    {
+      "command": "git diff --check e8c660120f09a47a65d0dc3f271f2237aeeffe7a..HEAD",
+      "status": "passed"
+    }
+  ],
+  "reviewCommands": [
+    {
+      "command": "git rev-parse HEAD",
+      "result": "plan worktree HEAD 56f897d6fcfa4446f24125e4f7e0c30a7724e253"
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/integration-D2-domain-bodies && git rev-parse HEAD",
+      "result": "integration workdir HEAD 270c42547bcb41b8e7058871d2f6afd907af087d"
+    },
+    {
+      "command": "jq -r '.tasks[] | select(.tranche==\"D2-domain-bodies\") | .taskId' docs/superpowers/execution/maestro-brain/task-manifest.json",
+      "result": "confirmed manifest tranche membership; only S08-T02 had lane-result evidence present for this integration attempt"
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/integration-D2-domain-bodies && git diff --name-only e8c660120f09a47a65d0dc3f271f2237aeeffe7a..HEAD | sort compared with manifest S08-T02 fileLocks",
+      "result": "all changed files are covered by S08-T02 fileLocks; package.json and tooling/generators/package.json were locked but unchanged"
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/integration-D2-domain-bodies && git merge-base --is-ancestor c6433e434c457084afb908ec6013fb63dfc1ae7b HEAD",
+      "result": "passed: claimed S08-T01 dependency head is an ancestor of integration HEAD"
+    },
+    {
+      "command": "host-test-slot --class focused pnpm --dir tooling/generators test",
+      "result": "passed: src/index.test.ts (44 tests)"
+    },
+    {
+      "command": "pnpm check:generators",
+      "result": "passed: check:generators (shape-only): ok (pin-only)"
+    },
+    {
+      "command": "pnpm check:headless-surface-contract",
+      "result": "passed: check:headless-surface-contract: ok"
+    },
+    {
+      "command": "pnpm --dir tooling/generators typecheck",
+      "result": "passed: tsc -p tsconfig.json --noEmit"
+    },
+    {
+      "command": "pnpm template:workflow-output-smoke",
+      "result": "passed: generated public and internal workflow output; skipped Convex codegen because CONVEX_DEPLOYMENT is not set; generated Convex package typecheck passed"
+    },
+    {
+      "command": "git diff --check e8c660120f09a47a65d0dc3f271f2237aeeffe7a..HEAD",
+      "result": "passed"
+    }
+  ],
+  "notes": [
+    "Only S08-T02 had an available D2-domain-bodies lane_green result in the lane-results evidence directory.",
+    "The S08-T02 lane-result was minimal and did not include explicit gate/proof fields; review used lane_green status, lane-gate-report, ci-proof-packet, manifest tranche membership, candidate commit inspection, focused gate reruns, and dependency ancestry via integrated S08-T01 head c6433e434c457084afb908ec6013fb63dfc1ae7b.",
+    "No Confect/Convex generated source was touched, so centralized codegen was not run.",
+    "Review was read-only for product and integration worktrees; only this integration-result.json was rewritten with the review verdict."
+  ],
+  "remainingFindings": [],
+  "reviewVerdict": "pass",
+  "status": "passed",
+  "broadGate": {
+    "status": "passed",
+    "headSha": "270c42547bcb41b8e7058871d2f6afd907af087d",
+    "command": "rtk host-test-slot --class full pnpm verify"
+  }
+}

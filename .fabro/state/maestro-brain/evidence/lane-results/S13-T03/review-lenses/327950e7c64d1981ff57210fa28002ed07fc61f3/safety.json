@@ -1,0 +1,147 @@
+{
+  "lens": "safety",
+  "taskId": "S13-T03",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "taskBlockHash": "13c071bc2c78035c5563f494b38160a96c981ab2962984f056be4e18853e137e",
+  "baseSha": "f66236e12f93bc254cc2350800a5b2a69d0caff5",
+  "headSha": "327950e7c64d1981ff57210fa28002ed07fc61f3",
+  "treeSha": "1722319e5443e87399e0e50ab3ab7c6bd3c8cd9a",
+  "reviewerRunId": "maestro/review/S13-T03/327950e7c64d1981ff57210fa28002ed07fc61f3/ce9e945e-efd6-4175-ab1e-a44bf71c472f-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "finding",
+      "findingIds": [
+        "S13-T03-SAFETY-001"
+      ],
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts:54-56 declares listPolicies as a public query keyed only by workspaceId.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:23-39 returns the requested workspaceId policy list without reading workspace membership or tenant access.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:41-81 sets a policy for input.workspaceId without tenant access lookup."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "finding",
+      "findingIds": [
+        "S13-T03-SAFETY-002"
+      ],
+      "evidence": [
+        "S13-T03 requires stale operator role coverage and OperatorForbidden for stale/under-privileged operators.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:55-68 hard-codes actorRole: \"admin\" when applying nextOperationPolicy.",
+        "packages/convex/confect/ops/brainOperations.spec.ts:58-66 has no actor identity/role argument for setPolicyInternal, and the impl does not fetch current operator role."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "finding",
+      "findingIds": [
+        "S13-T03-SAFETY-003"
+      ],
+      "evidence": [
+        "S13-T03 requires policy data with owner, reason, expiry, audit, and rollback via retained audit/receipts.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:23-39 listPolicies synthesizes enabled defaults instead of reading stored policy rows.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:41-81 setPolicyInternal returns an updated policy object but does not persist it or write an audit/receipt."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/observability/src/brainMetrics.ts:56-69 enumerates prompt/source/token/header-like fields for redaction.",
+        "packages/observability/src/brainMetrics.ts:71-91 whitelists metric output to IDs, hashes, counts, durations, status, and error tags.",
+        "packages/observability/src/brainMetrics.test.ts:9-39 and 62-76 assert prompt, source, token, and header canaries are absent/redacted."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "finding",
+      "findingIds": [
+        "S13-T03-SAFETY-004"
+      ],
+      "evidence": [
+        "S13-T03 requires concurrent stale-generation races and revision fencing proof.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:50-54 constructs current.generation from input.expectedGeneration rather than durable current state.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:55-68 therefore lets any supplied expectedGeneration match the synthetic current generation before incrementing."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "finding",
+      "findingIds": [
+        "S13-T03-SAFETY-003"
+      ],
+      "evidence": [
+        "S13-T03 rollback/completion requirements call for retained audit/receipts for kill-switch drills and operator changes.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:41-81 has no persisted audit receipt or idempotency key for repeated setPolicyInternal invocations."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "finding",
+      "findingIds": [
+        "S13-T03-SAFETY-004"
+      ],
+      "evidence": [
+        "packages/convex/confect/ops/brainOperationPolicy.ts:47-60 can reject mismatched expectedGeneration when given a real current generation.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:50-54 defeats that fence by synthesizing current.generation from the caller-supplied expectedGeneration."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "packages/observability/src/brainMetrics.ts:1-135 imports no live provider SDKs and emits only generic budget/metric helpers.",
+        "docs/product/maestro-brain-operations.md:7-21 forbids customer/provider payloads such as Slack headers, tokens, prompts, completions, and export contents in metrics.",
+        "ci-proof-packet.json reports rtk pnpm check:secret-canaries and rtk pnpm check:logging-boundary passed for this head."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "S13-T03-SAFETY-001",
+      "severity": "high",
+      "summary": "Brain operation policy functions do not enforce workspace tenant access.",
+      "details": "The new policy query/mutation accept a workspaceId but never consult workspace membership/access before returning or changing policy state, so callers reaching the Confect surface can inspect or modify another tenant workspace policy.",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts:54-56",
+        "packages/convex/confect/ops/brainOperations.impl.ts:23-39",
+        "packages/convex/confect/ops/brainOperations.impl.ts:41-81"
+      ]
+    },
+    {
+      "id": "S13-T03-SAFETY-002",
+      "severity": "high",
+      "summary": "Policy updates bypass real operator authorization by hard-coding admin role.",
+      "details": "setPolicyInternal does not receive or load the current operator role; it always calls nextOperationPolicy with actorRole \"admin\", so stale or under-privileged operator behavior is only tested on the pure helper and is not enforced at the function boundary.",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.impl.ts:55-68",
+        "packages/convex/confect/ops/brainOperations.spec.ts:58-66",
+        "packages/convex/test/brain-operation-policy.test.ts:65-86"
+      ]
+    },
+    {
+      "id": "S13-T03-SAFETY-003",
+      "severity": "high",
+      "summary": "Kill-switch policy changes are not durable and produce no audit receipt.",
+      "details": "The implementation synthesizes default policies and returns mutation results without database writes, audit rows, receipts, or idempotency handling, so kill switches cannot reliably stop subsystems across requests/replays or satisfy rollback/audit requirements.",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.impl.ts:23-39",
+        "packages/convex/confect/ops/brainOperations.impl.ts:41-81",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3577-3598"
+      ]
+    },
+    {
+      "id": "S13-T03-SAFETY-004",
+      "severity": "high",
+      "summary": "Generation fencing is ineffective because current generation is caller-derived.",
+      "details": "The Confect implementation constructs current.generation from input.expectedGeneration before checking it, so stale or arbitrary expectedGeneration values match by construction instead of being compared to durable state.",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.impl.ts:50-68",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:47-60",
+        "packages/convex/test/brain-operation-policy.test.ts:77-85"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

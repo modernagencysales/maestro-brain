@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "maestro-brain-ci-proof/v1",
+  "planSha256": "ac1af7f311392ff06a0cd6333b4e2a79c5ea12f33d359ff1cbd2a027a9665710",
+  "taskBlockHash": "b8855d34c2ab0f77517e385ab4ea3fc14c5d5ef820d2615b3e278c78f963faa0",
+  "taskId": "S01-T03",
+  "baseSha": "580346dd70f1a6a4e2115c36449c0fdd36f7a8c3",
+  "headSha": "7885f8c1d63f0a72bab2df9853dd84967e656bc9",
+  "changedFiles": [
+    "apps/web/src/providers/workspace-operations.test.ts",
+    "apps/web/src/providers/workspace-operations.ts",
+    "apps/web/src/routes/__root.tsx",
+    "packages/convex/confect/access/auth.ts",
+    "packages/convex/confect/access/provisioning.impl.ts",
+    "packages/convex/confect/access/provisioning.spec.ts",
+    "packages/convex/confect/access/provisioning.ts",
+    "packages/convex/confect/auth/workspaces.impl.ts",
+    "packages/convex/confect/auth/workspaces.spec.ts",
+    "packages/convex/confect/errors.ts",
+    "packages/convex/confect/identity/stableKeys.impl.ts",
+    "packages/convex/confect/identity/stableKeys.spec.ts",
+    "packages/convex/confect/identity/stableKeys.ts",
+    "packages/convex/confect/tables/workspaces.ts",
+    "packages/convex/test/access-provisioning.test.ts",
+    "packages/convex/test/authorized-brain-provisioning.test.ts",
+    "tooling/quality/check-auth-demo-bypass.mts",
+    "tooling/quality/check-auth-demo-bypass.test.mts"
+  ],
+  "focusedCommands": [
+    "rtk pnpm brain:factory:check-confect-codegen -- --test authorized-brain-provisioning --test access-provisioning",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test workspace-access",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test workspace-operations workspace",
+    "rtk host-test-slot --class focused pnpm --dir apps/web typecheck",
+    "rtk host-test-slot --class focused pnpm --dir tooling/quality test check-auth-demo-bypass",
+    "rtk pnpm check:auth-demo-bypass",
+    "rtk pnpm check:confect-contracts",
+    "rtk pnpm check:access-audit-events"
+  ],
+  "testsAdded": [
+    "packages/convex/test/authorized-brain-provisioning.test.ts",
+    "apps/web/src/providers/workspace-operations.test.ts",
+    "tooling/quality/check-auth-demo-bypass.test.mts",
+    "packages/convex/test/access-provisioning.test.ts"
+  ],
+  "reviewVerdict": "pass",
+  "knownRisks": [
+    "Generated Confect/Convex refs are intentionally ephemeral in this isolated lane; the authoritative generated-ref proof is brain:factory:check-confect-codegen, not the raw package-local authorized-brain-provisioning invocation.",
+    "Broad tranche verification is deferred to integration per the task packet and Appendix O/P.",
+    "Pre-existing documented Schema.Never variance bridge in packages/convex/confect/errors.ts is unchanged from base; prohibited erased-ref patterns are absent from task-added diff lines."
+  ],
+  "reviewHeadSha": "7885f8c1d63f0a72bab2df9853dd84967e656bc9",
+  "reviewFindings": []
+}

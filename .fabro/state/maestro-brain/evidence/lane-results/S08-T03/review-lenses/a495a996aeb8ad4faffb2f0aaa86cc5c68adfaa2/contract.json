@@ -1,0 +1,105 @@
+{
+  "lens": "contract",
+  "taskId": "S08-T03",
+  "planSha256": "ca7c2d9fbe1de7598adb586c3c0eb8e85c2826fc3339def797b61e3dc45b56cf",
+  "taskBlockHash": "2d947263cf0fa3ed72b36f7fddc028629d9db80e333e2511207b2213bf4d40c0",
+  "baseSha": "2bdef668a17ac4e86a9113846b773f6243f281c0",
+  "headSha": "a495a996aeb8ad4faffb2f0aaa86cc5c68adfaa2",
+  "treeSha": "f283d25911e1f98635a1ad8956dd91fb2977938f",
+  "reviewerRunId": "maestro/review/S08-T03/a495a996aeb8ad4faffb2f0aaa86cc5c68adfaa2/48950001-759c-404e-8197-1154005e37b9-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1108-1118 declares S08-T03, title Implement Review-First Zero-Or-One Classification, requirements AI-02/IAM-04/SLK-03/ZFC-01, and taskBlockHash 2d947263cf0fa3ed72b36f7fddc028629d9db80e333e2511207b2213bf4d40c0.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2390-2476 defines the accepted zero-or-one review-first classification behavior, typed errors, focused gates, and completion receipt.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S08-T03/lane-gate-report.json records status passed for task S08-T03 at head a495a996aeb8ad4faffb2f0aaa86cc5c68adfaa2 with the same planSha256 and taskBlockHash."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "finding",
+      "findingIds": ["CONTRACT-S08-T03-001"],
+      "evidence": [
+        "packages/convex/confect/workflowContracts/sourceClassification.spec.ts:36-45 defines start args as only workspaceId, idempotencyKey, and caller, and returns queued workflow metadata.",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:98-108 starts the durable runner with an empty synthetic request: sourceUnitRevisionKey '', sourceUnitHash '', messages [], policyVersion 0, allowedTargets [].",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2440-2445 requires gather to load the immutable source-unit revision and pinned finite target descriptors, producing the exact ClassificationRequest, and the workflow to gather, classify, review, and commit one source route."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "finding",
+      "findingIds": ["CONTRACT-S08-T03-002"],
+      "evidence": [
+        "packages/convex/confect/tables/classificationDecisions.ts:38-43 defines indexes by_workspace_state, by_source_unit, by_decision_key, by_workspace_policy, and by_workspace_target.",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:46-50 defines indexes by_workspace_stage, by_source_unit, by_job_key, by_workspace_execution, and by_classification_decision.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3918-3928 requires sourceProcessingJobs indexes by_stage_status_next_retry, by_effect_key, by_unit_stage, by_lease_expiry, by_organization_status and classificationDecisions indexes by_unit_policy_epoch, by_status_created, by_effect_key, by_target_brain."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "finding",
+      "findingIds": ["CONTRACT-S08-T03-001", "CONTRACT-S08-T03-003"],
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2400-2409 classifies S08-T03 as a generated capability/workflow pattern-instance using template:add-capability classifySourceUnit and template:add-workflow sourceClassification.",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:45 wires classification.model directly to classifySourceUnit and routes.commit to commitSourceRoute, with no gather step that loads source-unit evidence/allowlist before model classification.",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:86-123 starts the workflow with empty request fields rather than a concrete immutable source unit and pinned allowlist, so the implementation does not satisfy the planned gather/classify/review/commit contract."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "rtk proxy git diff --name-only 2bdef668a17ac4e86a9113846b773f6243f281c0..HEAD lists only files owned by the S08-T03 manifest fileLocks, with generated Confect/Convex output deferred to integration per task instructions.",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1079-1105 owns the changed classification review UI, generated docs/provenance, classifySourceUnit capability files, classification helper/schema files, sourceClassification workflow contracts/graph/tests, and sourceProcessingJobs table modification."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "findingIds": ["CONTRACT-S08-T03-003"],
+      "evidence": [
+        "packages/convex/confect/capabilities/classifySourceUnit.spec.ts:43-57 declares Unauthorized, MalformedModelOutput, TargetNotAllowed, EvidenceMismatch, ReviewForbidden, StaleGeneration, and DuplicateEffect as typed errors for classifySourceUnit.",
+        "packages/convex/confect/capabilities/classifySourceUnit.impl.ts:12-16 only checks caller authorization and then calls classifySourceUnitLocally(request); it has no review or commit path and cannot raise ReviewForbidden, StaleGeneration, or DuplicateEffect from this capability.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2456-2464 requires those errors as the typed classification failure contract."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "CONTRACT-S08-T03-001",
+      "severity": "blocking",
+      "summary": "sourceClassification start contract drops the source-unit classification request.",
+      "details": "The workflow start API accepts only workspaceId/idempotencyKey/caller and the implementation enqueues run with empty sourceUnitRevisionKey, empty sourceUnitHash, no messages, policyVersion 0, and no allowedTargets. That cannot gather/classify the immutable source unit named by the task packet, cannot prove wrong snapshot/hash/policy failures, and cannot commit a reviewed route for the intended source unit.",
+      "evidence": [
+        "packages/convex/confect/workflowContracts/sourceClassification.spec.ts:36-45",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:98-108",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2440-2445"
+      ]
+    },
+    {
+      "id": "CONTRACT-S08-T03-002",
+      "severity": "blocking",
+      "summary": "Durable table indexes do not match the S08 Appendix G contract.",
+      "details": "The task-owned table definitions omit the canonical indexes required by the plan for classificationDecisions and sourceProcessingJobs, replacing them with workspace-local indexes. This breaks the durable schema invariants for policy-epoch uniqueness/review lookup, effect-key dedupe, target lookup, job scheduling/status, lease expiry, and organization scoping declared for S08-T03.",
+      "evidence": [
+        "packages/convex/confect/tables/classificationDecisions.ts:38-43",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:46-50",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3918-3928"
+      ]
+    },
+    {
+      "id": "CONTRACT-S08-T03-003",
+      "severity": "blocking",
+      "summary": "classifySourceUnit declares typed errors that its implementation cannot produce.",
+      "details": "The classifySourceUnit contract advertises review and commit failures, but the implementation only authorizes the system caller and validates local model output. Because review and commit are separate code paths, ReviewForbidden, StaleGeneration, and DuplicateEffect are unreachable from the declared capability operation, violating the typed failure contract requirement that every declared failure path is reachable by the function that declares it.",
+      "evidence": [
+        "packages/convex/confect/capabilities/classifySourceUnit.spec.ts:43-57",
+        "packages/convex/confect/capabilities/classifySourceUnit.impl.ts:12-16",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2456-2464"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

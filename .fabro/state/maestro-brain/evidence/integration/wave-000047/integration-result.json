@@ -1,0 +1,59 @@
+{
+  "baseSha": "73609583b9ca2704ad28f3844239f00764ac7230",
+  "conflicts": [],
+  "focusedChecks": [
+    "rtk host-test-slot --class focused pnpm --dir packages/convex exec vitest run test/migration-registry.test.ts test/migrations.test.ts test/brain-page-schema.test.ts test/brain-revisions.test.ts test/source-ledger-schema.test.ts",
+    "rtk pnpm --dir packages/convex exec tsx scripts/generate-migration-registry.mts --root-cwd --check",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk pnpm check:schema-migration-notes",
+    "rtk pnpm check:confect-contracts"
+  ],
+  "generatedFiles": [
+    "packages/convex/confect/_generated/convexSchema.ts",
+    "packages/convex/confect/_generated/docs.ts",
+    "packages/convex/confect/_generated/id.ts",
+    "packages/convex/confect/_generated/schema.ts",
+    "packages/convex/confect/_generated/tables/providerEventReceipts.ts",
+    "packages/convex/confect/_generated/tables/sourceArtifacts.ts",
+    "packages/convex/confect/_generated/tables/sourceProcessingJobs.ts",
+    "packages/convex/confect/_generated/tables/sourceRevisions.ts"
+  ],
+  "headSha": "22b43f8a17eb9d0f1a1c75dfe4679505b65ab9b0",
+  "includedTasks": [
+    {
+      "commitShas": [
+        "6c2e4dc45cfca491cf8c82129fcbed50f1032f14",
+        "c28038b59b08daf1386d5142fb9c04ee102e79e8",
+        "3696785e6a9ca0c2f7e95bb8e66fa02bc863d5cc",
+        "3ae429465e17825dbf6b90df02e7c5c79540512c"
+      ],
+      "laneHeadSha": "3ae429465e17825dbf6b90df02e7c5c79540512c",
+      "patchState": "applied",
+      "taskId": "S05-T01",
+      "tranche": "C1-contract-spine"
+    }
+  ],
+  "integrationId": "wave-000047",
+  "mode": "integrate",
+  "schemaVersion": "maestro-brain-integration-result/v3",
+  "selectionFileSha256": "b4d44c119388896a67cdb4f577cb531cea61d3e475133a12b4d81c1db9d4b520",
+  "selectionPayloadSha256": "a57edbad5981676529c0fcc5ed0cc71827fd5e2f8259cd7c68e587b61462842a",
+  "reviewVerdict": "rework",
+  "status": "ready_for_review",
+  "remainingFindings": [
+    {
+      "id": "S05-T01-migration-registry-test-script-path",
+      "severity": "high",
+      "ownerTaskId": "S05-T01",
+      "summary": "packages/convex/test/migration-registry.test.ts resolves scripts/generate-migration-registry.mts from process.cwd(), so repo-root broad coverage looks for <repo>/scripts/generate-migration-registry.mts instead of packages/convex/scripts/generate-migration-registry.mts and fails with ERR_MODULE_NOT_FOUND.",
+      "requiredAction": "Resolve the test script path relative to import.meta.dirname or the packages/convex package root, then provide broad coverage proof at the exact repaired head.",
+      "evidence": {
+        "headSha": "22b43f8a17eb9d0f1a1c75dfe4679505b65ab9b0",
+        "file": "packages/convex/test/migration-registry.test.ts",
+        "line": 155,
+        "failingGate": "rtk host-test-slot --class full pnpm verify"
+      }
+    }
+  ],
+  "resolvedFindings": []
+}

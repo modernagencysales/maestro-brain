@@ -1,0 +1,31 @@
+{
+  "baseSha": "561d95448cc01bcc5165af7921fc26b0aa652c9c",
+  "controlHeadSha": "969c65065eb82aebdd6bcc5e01d482365e9b9c8b",
+  "createdAt": "2026-07-16T14:58:44.134Z",
+  "evidence": [
+    "fabro-run:01KXNP5DX3494QYWZ3D0N7WMFM",
+    "s04-repair-head:051d9b665d1fe440b3003e28b7e2464c0f45e515"
+  ],
+  "integrationId": "wave-000009",
+  "planSha256": "868331c0af5ab06b495ca802724f4a3578c854e07b8342c9de4b93107a264499",
+  "reason": "immutable selection captured stale S04-T01 head during active repair; replacement lane proof is now exact-head green",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXNP5DX3494QYWZ3D0N7WMFM",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "ba581c4b1598cbaf80821b0aad0dc003e2fa0821403ad1c357ddbb31e569a7df",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v1",
+  "selectedTaskIds": [
+    "S01-T04",
+    "S02-T02",
+    "S03-T02",
+    "S04-T01"
+  ],
+  "selectionFileSha256": "666bf11c02dbba5457f55bda6ea057fb9bcef3140e78e72a69275a94cdf5d033",
+  "selectionSha256": "5a4c3acec5a2ab0e63a9341b62436a9b8dcda09273068c4ff7a0df190b5e32f5",
+  "status": "superseded",
+  "receiptSha256": "f6d155fa002b98dcc5568cbbbf444343a29651142151e083019219e567b64877"
+}

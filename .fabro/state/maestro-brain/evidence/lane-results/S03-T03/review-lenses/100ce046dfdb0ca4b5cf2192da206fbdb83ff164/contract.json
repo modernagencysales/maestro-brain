@@ -1,0 +1,73 @@
+{
+  "lens": "contract",
+  "taskId": "S03-T03",
+  "planSha256": "e5ad32c375d4fd307b3d5bccd47ea6cf4e9b7580f23bb506c893fd94019ca7c5",
+  "taskBlockHash": "731df4dab1d4fe34d6a51b801388996973ae3d13fa88bc0cef8e2b8b1be9bbe5",
+  "baseSha": "aa979378a853ca705f423846a79abe8030f0619b",
+  "headSha": "100ce046dfdb0ca4b5cf2192da206fbdb83ff164",
+  "treeSha": "83cefa3b4fb365219e73027f2699be37510edbea",
+  "reviewerRunId": "maestro/review/S03-T03/100ce046dfdb0ca4b5cf2192da206fbdb83ff164/30011ebf-584e-4ab3-9416-8679e30d8152-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1211-1281",
+        "apps/web/src/features/brain/brain-workspace.tsx:87-253",
+        "apps/web/src/features/brain/brain-page-tree.tsx:41-181",
+        "apps/web/src/features/brain/brain-editor-pane.tsx:38-141"
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.spec.ts:23-37",
+        "packages/convex/confect/brain/pages.spec.ts:109-123",
+        "packages/convex/confect/brain/pages.spec.ts:204-231",
+        "apps/web/src/features/brain/brain-adapter.ts:30-69"
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.spec.ts:38-57",
+        "packages/convex/confect/brain/pages.spec.ts:74-114",
+        "packages/convex/confect/brain/pages.impl.ts:384-458",
+        "packages/convex/confect/brain/pages.impl.ts:598-681"
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:447-486",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1213-1279",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S03-T03/lane-gate-report.json:1-62"
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:453-475",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S03-T03/ci-proof-packet.json:8-30",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S03-T03/lane-gate-report.json:14-20"
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "apps/web/src/features/brain/brain-surface.ts:245-261",
+        "apps/web/src/features/brain/brain-surface.ts:363-375",
+        "packages/convex/confect/brain/pages.impl.ts:235-247",
+        "packages/convex/test/brain-pages-crud.test.ts:1616-1638",
+        "apps/web/src/features/brain/brain-workspace.test.tsx:203-210"
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

@@ -1,0 +1,38 @@
+{
+  "taskId": "S00-T03",
+  "baseSha": "472bad9dcf8009cf5411a84e88341da6585e06e5",
+  "headSha": "0a06ce077c6223a9050b92c6a13086fee9504c30",
+  "changedFiles": [
+    ".buildkite/pipeline.yml",
+    ".buildkite/scripts/production-promote.sh",
+    ".buildkite/scripts/staging-deploy.sh",
+    ".env.example",
+    "docs/superpowers/receipts/maestro-brain/deployment-isolation.md",
+    "docs/template/env-manifest.json",
+    "docs/template/env-manifest.md",
+    "project.config.json",
+    "tooling/quality/check-config-drift.test.mts",
+    "tooling/quality/src/check-definitions.mts",
+    "tooling/release/src/index.test.ts",
+    "tooling/release/src/index.ts",
+    "tooling/release/src/project-config.ts"
+  ],
+  "focusedCommands": [
+    "rtk host-test-slot --class focused pnpm --dir tooling/release test",
+    "rtk pnpm --dir tooling/release typecheck",
+    "rtk host-test-slot --class focused pnpm --dir tooling/quality test check-config-drift",
+    "rtk pnpm check:config-drift",
+    "rtk pnpm check:env-boundary",
+    "rtk pnpm --dir tooling/quality typecheck"
+  ],
+  "testsAdded": [
+    "tooling/release/src/index.test.ts covers isolated staging/production deploy plans, scoped credentials/callbacks, no demo seed, signed staged release packets, production promotion fencing, rollback compatibility, and redacted deployment receipts",
+    "tooling/quality/check-config-drift.test.mts covers adversarial rejection of shared-backend notes and tenant demo/showcase seeding in deploy scripts"
+  ],
+  "reviewVerdict": "pass",
+  "knownRisks": [
+    "Provider-backed deploy doctor commands for staging and production were not run because live deploy credentials are not available in the isolated lane; they remain acceptance gates when credentials are available."
+  ],
+  "reviewHeadSha": "0a06ce077c6223a9050b92c6a13086fee9504c30",
+  "reviewFindings": []
+}

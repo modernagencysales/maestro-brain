@@ -1,0 +1,101 @@
+{
+  "schemaVersion": "maestro-brain-review-lens/v1",
+  "lens": "safety",
+  "taskId": "S04-T02",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "cdeca2a0ba4a7101fd27959788455ac53609485617a9cf8146c29c86891a7958",
+  "baseSha": "ce892af6c4ea5c8ff679c5bfce09a205967cdf11",
+  "headSha": "b31d1c8f7a7fcee7d36778cf33534240a17b6f52",
+  "treeSha": "38cf52846dac7e721a0ba40a4e7104367089bfbc",
+  "reviewerRunId": "maestro/review/S04-T02/b31d1c8f7a7fcee7d36778cf33534240a17b6f52/d4a4f17b-25bf-4796-b844-7d6d77c4ae0b-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "S04-T02 is manifest-bound to Slack directory files and SLK-01/SLK-02 at docs/superpowers/execution/maestro-brain/task-manifest.json:557-583.",
+        "Directory writes derive organizationKey, connectionKey, and connectionGeneration from the persisted providerConnections row after generation validation; planned channel rows do not accept caller-supplied tenant IDs: packages/convex/confect/integrations/slackDirectory.impl.ts:120-178 and 389-456.",
+        "Duplicate active team/app/bot bindings are rejected before activation, including cross-agency duplicates and duplicates beyond an initial query page in packages/convex/confect/integrations/slackDirectory.impl.ts:202-297 and packages/convex/test/slack-directory.test.ts:1351-1514."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "The new Confect functions are internal action/query/mutation contracts only, with no public or HTTP user-facing surface added by this task: packages/convex/confect/integrations/slackDirectory.spec.ts:88-149.",
+        "Before any provider call or tenant write, readReconcileConnection/loadSlackDirectoryConnection requires an existing verifying, reauthorizing, or active connection with the requested generation: packages/convex/confect/integrations/slackDirectory.impl.ts:151-178 and 506-530.",
+        "Human/admin authorization for establishing the Slack provider connection remains in the S04-T01 slackConnections surface; this task consumes that established internal connection boundary."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "finding",
+      "evidence": [
+        "The task requires same-connection reauthorization to preserve channel keys/cursors while incrementing credential generation: docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1455-1458.",
+        "commitReconcileChannels promotes old-generation channel rows and their sync states after loading existing sourceChannels with a fixed take(1_000), so workspaces beyond that cap can retain old-generation channel and cursor rows after reauthorization: packages/convex/confect/integrations/slackDirectory.impl.ts:766-826.",
+        "Focused tests prove partial-page reauthorization with a small row set, but not the all-rows lifecycle invariant for channel directories larger than the fixed cap: packages/convex/test/slack-directory.test.ts:944-1149."
+      ],
+      "findingIds": ["S04-T02-SAFETY-002"]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "sourceChannels stores Slack channel identifiers, names, membership/connect flags, access generation, and timestamps only; it does not store provider tokens or message bodies: packages/convex/confect/tables/sourceChannels.ts:12-29.",
+        "channelSyncStates stores cursor/lease/status and replacement audit metadata only: packages/convex/confect/tables/channelSyncStates.ts:25-46.",
+        "No logging or raw provider payload persistence was added in slackDirectory.impl.ts; provider access is through the narrow authTest/listChannels service."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "Generation is validated before provider work through readReconcileConnection/loadSlackDirectoryConnection and revalidated inside commitReconcileIdentity/commitReconcileChannels mutations: packages/convex/confect/integrations/slackDirectory.impl.ts:506-530, 661-701, and 727-883.",
+        "Duplicate active Slack binding checks run inside the commit mutation immediately before activation, limiting concurrent duplicate activation races: packages/convex/confect/integrations/slackDirectory.impl.ts:532-549 and 661-701.",
+        "Focused tests cover stale generation denial, duplicate active binding races, and fixed transaction time for duplicate-race audit: packages/convex/test/slack-directory.test.ts:658-710, 1351-1514, and 2329-2435."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "Channel keys are deterministic from connectionKey plus external Slack channel ID, and renames update rows in place rather than minting new keys: packages/convex/confect/integrations/slackDirectory.impl.ts:87-89 and 418-423.",
+        "Repeated active identity commits verify the persisted bot identity and only patch updatedAt, while stale generation calls fail before provider listing: packages/convex/confect/integrations/slackDirectory.impl.ts:244-251 and packages/convex/test/slack-directory.test.ts:658-710.",
+        "The planner records only auth.test and conversations.list provider calls and tests assert conversations.join is not used: packages/convex/confect/integrations/slackDirectory.impl.ts:455 and packages/convex/test/slack-directory.test.ts:484-510."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "finding",
+      "evidence": [
+        "The contract carries expectedGeneration through reconcile/read/commit calls and replacement revocation drains rows with collect: packages/convex/confect/integrations/slackDirectory.spec.ts:88-149 and packages/convex/confect/integrations/slackDirectory.impl.ts:574-617.",
+        "However, same-connection reauthorization promotion remains capped at take(1_000) when loading existing sourceChannels, so old-generation channel rows and their sync cursor fences beyond that cap can survive the credential-generation transition: packages/convex/confect/integrations/slackDirectory.impl.ts:766-826."
+      ],
+      "findingIds": ["S04-T02-SAFETY-002"]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "Slack provider access is injected through SlackDirectoryProviderService with only authTest and listChannels methods; the default provider fails closed with ProviderUnavailable: packages/convex/confect/integrations/slackDirectory.impl.ts:64-75 and 978-984.",
+        "The implementation adds no live Slack SDK imports or secret handling in Convex directory code; Nango remains the OAuth/token/API proxy boundary established by S04-T01.",
+        "The exact pre-review lane-gate report for head b31d1c8f7a7fcee7d36778cf33534240a17b6f52 includes rtk pnpm check:provider-boundary and passed status: /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S04-T02/lane-gate-report.json:4-17 and 53-57."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "S04-T02-SAFETY-002",
+      "severity": "high",
+      "summary": "Same-connection reauthorization leaves stale channel work beyond a fixed 1,000-row cap.",
+      "details": "S04-T02 requires same-connection reauthorization to preserve channel keys and cursors while incrementing the credentials generation. commitReconcileChannels only loads take(1_000) sourceChannels for the connection before promoting old-generation rows and patching their channelSyncStates to the incremented generation. In Slack workspaces with more than 1,000 channel rows, unvisited old-generation channels and their live/recent/deep/reconciliation sync cursors can remain on the stale generation after reauthorization, so later work can observe stale generation state instead of the new credential fence. The focused tests prove a small partial-page case but do not prove the all-rows reauthorization invariant.",
+      "evidence": [
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:766-826",
+        "packages/convex/test/slack-directory.test.ts:944-1149",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1455-1458"
+      ],
+      "rubricId": "safety.fencing"
+    }
+  ],
+  "verdict": "rework"
+}

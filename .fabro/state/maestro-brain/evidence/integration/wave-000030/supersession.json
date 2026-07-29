@@ -1,0 +1,29 @@
+{
+  "baseSha": "64b5d90e9dce6146ac6cd49696658cd9a40a254c",
+  "controlHeadSha": "64b5d90e9dce6146ac6cd49696658cd9a40a254c",
+  "createdAt": "2026-07-20T00:05:03.045Z",
+  "evidence": [
+    ".fabro/state/maestro-brain/evidence/integration/wave-000030/broad-gate-d8aed574c699329dcbc5901e735c1a9c7a3b9b41.json",
+    ".fabro/state/maestro-brain/evidence/integration/wave-000030/integration-result.json"
+  ],
+  "integrationId": "wave-000030",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "reason": "terminal integration review retained high-severity S11-T02 tenant-bound API-key rotation finding",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXYBXGBGNYG6CJC44HDD0MCB",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "a02de6a0a24a7473293124380096d77ae3a5787914e723ba90175bde28b04398",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v2",
+  "selectedTaskIds": [
+    "S03-T03",
+    "S11-T02"
+  ],
+  "selectionFileSha256": "5d0234d51611ea36f0ad6ca2301f6b2f3db21e0059d20e619e5f061487282af6",
+  "selectionPayloadSha256": "4cff476958edee08f7e59fbe6ab725bdaac0a7c30f3cc8ebf56861d90b185b30",
+  "status": "superseded",
+  "receiptSha256": "c289873da3765fbf92a50879dbb86dca8c74db2ca18c8fa90f19936bdd163748"
+}

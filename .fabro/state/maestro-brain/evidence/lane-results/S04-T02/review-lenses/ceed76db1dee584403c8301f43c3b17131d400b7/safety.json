@@ -1,0 +1,79 @@
+{
+  "schemaVersion": "maestro-brain-review-lens/v1",
+  "lens": "safety",
+  "taskId": "S04-T02",
+  "planSha256": "e5ad32c375d4fd307b3d5bccd47ea6cf4e9b7580f23bb506c893fd94019ca7c5",
+  "taskBlockHash": "cdeca2a0ba4a7101fd27959788455ac53609485617a9cf8146c29c86891a7958",
+  "baseSha": "aa979378a853ca705f423846a79abe8030f0619b",
+  "headSha": "ceed76db1dee584403c8301f43c3b17131d400b7",
+  "treeSha": "44c7c3a973c447e41ebb748ac4b434dd6973d9d3",
+  "reviewerRunId": "maestro/review/S04-T02/ceed76db1dee584403c8301f43c3b17131d400b7/d7ca56fa-a585-4bec-8817-6fbe4c113c84-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "Directory writes derive organizationKey, connectionKey, connectionGeneration, and bot identity from the persisted providerConnections row before channel rows are inserted or patched; sourceChannels and channelSyncStates persist those tenant/generation keys at packages/convex/confect/tables/sourceChannels.ts:12-29 and packages/convex/confect/tables/channelSyncStates.ts:32-46.",
+        "Duplicate active Slack team/app/bot bindings across agency rows are rejected before channel listing and covered by packages/convex/test/slack-directory.test.ts:1351-1514."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "not_applicable",
+      "evidence": [
+        "S04-T02 introduces internal Slack directory action/query/mutation contracts only in packages/convex/confect/integrations/slackDirectory.spec.ts:88-149; no public user/admin route or authorization surface is added by this task."
+      ],
+      "rationale": "User-facing authorization for initiating or completing Slack connection ownership remains in the S04-T01 connection boundary; this task consumes an existing providerConnections row through internal Confect functions."
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "Inactive/error/revoked states fail closed before provider calls via validateActivationConnection/loadSlackDirectoryConnection at packages/convex/confect/integrations/slackDirectory.impl.ts:164-190 and 519-543, with no-provider/no-write coverage at packages/convex/test/slack-directory.test.ts:1516-1627.",
+        "Replacement or identity mismatch revokes the connection, marks old source channels access_lost, pauses all channel sync lanes, and records replacementAudit in applyReplacementRevocation at packages/convex/confect/integrations/slackDirectory.impl.ts:564-652; large-workspace all-row revocation is covered at packages/convex/test/slack-directory.test.ts:2086-2269."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "The added durable rows store channel IDs/names/flags, cursor/lease metadata, and replacement audit metadata only; no provider token or raw Slack credential fields are present in packages/convex/confect/tables/sourceChannels.ts:12-29 or packages/convex/confect/tables/channelSyncStates.ts:32-46.",
+        "The lifecycle record states no provider tokens or raw Slack credentials are stored in these rows at docs/product/maestro-brain-lifecycle-adoption/S04-T02.md:40-44, and semantic inspection found no console logging in slackDirectory.impl.ts."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "Reconcile performs generation checks during read and again in commit; commit paths use expectedGeneration and persisted connectionGeneration before writes at packages/convex/confect/integrations/slackDirectory.impl.ts:674-818.",
+        "Focused tests cover stale-generation denial, reauthorization cursor preservation/promotion, commit-time generation revalidation, and duplicate-race audit behavior at packages/convex/test/slack-directory.test.ts:650-703, 838-1110, 2271-2327, and 2329-2432."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "Channel reconciliation is idempotent on stable connectionKey plus external Slack channel ID; existing rows preserve channelKey and firstDiscoveredAt while names/flags update in place at packages/convex/confect/integrations/slackDirectory.impl.ts:402-455.",
+        "Tests cover replaying a first page without duplicating rows or losing cursors and preserving channel keys across rename/reauthorization at packages/convex/test/slack-directory.test.ts:476-568 and 1184-1349."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "expectedGeneration fences every reconcile API call and stale generations are rejected before provider listing at packages/convex/confect/integrations/slackDirectory.impl.ts:133-162 and 907-989.",
+        "Replacement revocation now drains collected old-generation source rows and every lane's sync rows, and the focused test proves 1,005 channels times all four lanes are moved to access_lost with leases cleared and replacementAudit recorded at packages/convex/test/slack-directory.test.ts:2086-2269."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "Slack access is behind the injected SlackDirectoryProviderService authTest/listChannels boundary, with the default implementation failing closed as ProviderUnavailable at packages/convex/confect/integrations/slackDirectory.impl.ts:77-88 and 991-998.",
+        "The proof packet records rtk pnpm check:provider-boundary passing for head ceed76db1dee584403c8301f43c3b17131d400b7 in lane-results/S04-T02/ci-proof-packet.json:42-43."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

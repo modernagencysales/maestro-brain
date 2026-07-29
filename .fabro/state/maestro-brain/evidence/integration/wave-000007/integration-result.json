@@ -1,0 +1,100 @@
+{
+  "schemaVersion": "maestro-brain-integration-result/v2",
+  "integrationId": "wave-000007",
+  "status": "ready_for_review",
+  "reviewVerdict": "pass",
+  "headSha": "6d372ef69e4451e3abd7822498f74025e2115988",
+  "reviewHeadSha": "6d372ef69e4451e3abd7822498f74025e2115988",
+  "baseSha": "0668f7dfd13be760fbd7b5d465a6a76b454d12ea",
+  "selectionSha256": "c9764ce1fd940c60fd820b83a49065cc81ae4f16b727ba5d03a55a8afc8ac402",
+  "generatedCommitSha": "1c105d265c315f7d0a22a1804f7eb4ae9c9b4ded",
+  "generatedRepairCommitSha": null,
+  "repairCommitSha": "6d372ef69e4451e3abd7822498f74025e2115988",
+  "generatedFiles": [
+    "packages/convex/confect/_generated/convexSchema.ts",
+    "packages/convex/confect/_generated/docs.ts",
+    "packages/convex/confect/_generated/id.ts",
+    "packages/convex/confect/_generated/registeredFunctions/integrations/slackConnections.ts",
+    "packages/convex/confect/_generated/schema.ts",
+    "packages/convex/confect/_generated/spec.ts",
+    "packages/convex/confect/_generated/tables/brainPageAuditEvents.ts",
+    "packages/convex/confect/_generated/tables/providerConnections.ts",
+    "packages/convex/convex/access/invitations.ts",
+    "packages/convex/convex/access/members.ts",
+    "packages/convex/convex/brain/pages.ts",
+    "packages/convex/convex/integrations/slackConnections.ts",
+    "packages/template-core/src/generated/confectManifest.ts"
+  ],
+  "dependencyFiles": [
+    "packages/convex/package.json",
+    "packages/integrations/package.json",
+    "pnpm-lock.yaml"
+  ],
+  "selectedTaskIds": [
+    "S01-T04",
+    "S02-T02",
+    "S03-T02",
+    "S04-T01"
+  ],
+  "worktreeStatus": "clean",
+  "selectionCheck": {
+    "command": "rtk pnpm --dir /Users/headless/maestro-brain-plan/tooling/brain-factory exec tsx src/integration-wave-selection-check.mts --selection /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000007-selection.json --integration-id wave-000007 --base 0668f7dfd13be760fbd7b5d465a6a76b454d12ea --selection-sha256 c9764ce1fd940c60fd820b83a49065cc81ae4f16b727ba5d03a55a8afc8ac402",
+    "status": "passed",
+    "summary": "wave-000007: immutable wave selection passed"
+  },
+  "reviewChecks": [
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000007 rev-parse HEAD",
+      "status": "passed",
+      "summary": "6d372ef69e4451e3abd7822498f74025e2115988"
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000007 status --porcelain",
+      "status": "passed",
+      "summary": "clean"
+    },
+    {
+      "command": "rtk pnpm --dir /Users/headless/maestro-brain-plan/tooling/brain-factory exec tsx src/integration-wave-selection-check.mts --selection /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000007-selection.json --integration-id wave-000007 --base 0668f7dfd13be760fbd7b5d465a6a76b454d12ea --selection-sha256 c9764ce1fd940c60fd820b83a49065cc81ae4f16b727ba5d03a55a8afc8ac402",
+      "status": "passed",
+      "summary": "immutable task-set/base/hash binding passed"
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000007 diff --name-only 0668f7dfd13be760fbd7b5d465a6a76b454d12ea..HEAD compared to selected task files, generated files, and dependency hydration files",
+      "status": "passed",
+      "summary": "91 changed paths; 0 non-selected/non-generated/non-dependency paths"
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000007 show --name-status --format=%H %s 1c105d265c315f7d0a22a1804f7eb4ae9c9b4ded",
+      "status": "passed",
+      "summary": "generated integration commit touches generated outputs only"
+    },
+    {
+      "command": "read-only evidence inspection of selected lane-result, ci-proof-packet, and lane-gate-report JSON files under /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results",
+      "status": "passed",
+      "summary": "all selected lanes are lane_green, proof reviewVerdict pass, lane gates passed; selected codeStartAfter dependencies are base-only/no same-wave edges"
+    },
+    {
+      "command": "rtk proxy jq sourceSlices from selected lane-gate-report JSON files",
+      "status": "passed",
+      "summary": "hand-authored source slices remain within 300-line budget: S01-T04 max 293, S02-T02 max 300, S03-T02 max 260, S04-T01 max 274"
+    },
+    {
+      "command": "scoped rtk rg read-only scans of selected Confect/access/brain/integration/provider files",
+      "status": "passed",
+      "summary": "typed errors, tenancy/lifecycle terms, provider boundary, and secret redaction coverage observed in selected implementation and tests"
+    }
+  ],
+  "resolvedFindings": [
+    {
+      "id": "wave-000007-patch-ownership-unselected-tooling-confect-manifest-tsconfig",
+      "severity": "blocking",
+      "category": "patch-ownership",
+      "summary": "Prior review found an unselected non-generated tooling/confect-manifest/tsconfig.json delta; current HEAD restores that path to base.",
+      "resolvedBy": {
+        "repairCommitSha": "6d372ef69e4451e3abd7822498f74025e2115988",
+        "summary": "Current diff contains no non-selected/non-generated/non-dependency paths and worktree is clean. This review certifies only the repaired HEAD, not the repair authorship."
+      }
+    }
+  ],
+  "remainingFindings": []
+}

@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "maestro-brain-lane-result/v1",
+  "taskId": "S03-T03",
+  "headSha": "c5af15a17df735df047407ab91f2948a5c2f8975",
+  "treeSha": "d525ae25217a4f08dd980e03aaa5f010014c33af",
+  "tranche": "D2-domain-bodies",
+  "status": "lane_green"
+}

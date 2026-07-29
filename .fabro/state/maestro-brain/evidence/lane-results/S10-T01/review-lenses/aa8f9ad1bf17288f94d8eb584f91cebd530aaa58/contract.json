@@ -1,0 +1,83 @@
+{
+  "lens": "contract",
+  "taskId": "S10-T01",
+  "planSha256": "b6c8c42e744502700c8607be941e8f3dbe1e790d70abc7f3666efbf69554f9ca",
+  "taskBlockHash": "31d477606c8d812c0f800d81d3401104da038d29fbb39dce06e1292cbd8d6e04",
+  "baseSha": "e8f008574eff0d1a21700ff02926ac4c9870d425",
+  "headSha": "aa8f9ad1bf17288f94d8eb584f91cebd530aaa58",
+  "treeSha": "d0f2e9cf9fb8e5fbbea879b9330927f5aafb0573",
+  "reviewerRunId": "maestro/review/S10-T01/aa8f9ad1bf17288f94d8eb584f91cebd530aaa58/8ca5c69d-bc47-43f6-bc80-cc405acebce1-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2829-2836 requires authenticated users to create short-lived single-use intents, Slack confirmation to record exact teamId + slackUserId, revocation on user/org/connection changes, and every request to recheck binding/current Brain role.",
+        "packages/convex/confect/slack/identityLinks.impl.ts:128-152 returns a planned intent without inserting the durable slackIdentityBindings row and hard-codes userId/workosSubject from the current session as current-user/current-subject.",
+        "packages/convex/confect/slack/identityLinks.impl.ts:155-171 returns a synthesized active binding for any nonce/team/user input instead of loading and consuming the pending intent exactly once."
+      ],
+      "findingIds": ["C-S10-T01-001"]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/slack/identityLinks.spec.ts:42-80 declares Confect mutations for createSlackIdentityLinkIntent and consumeSlackIdentityLink with typed expected errors.",
+        "packages/convex/confect/slack/identityLinks.impl.ts:128-171 implements those typed APIs as Effect.succeed-only deterministic returns, so callers do not get a real durable consume/revoke contract through the API surface."
+      ],
+      "findingIds": ["C-S10-T01-001"]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/slackIdentityBindings.ts:13-31 defines durable binding rows with organization, connection generation, exact teamId + slackUserId, Maestro user/workos subject, lifecycle status, nonce, verification, and revocation fields.",
+        "packages/convex/confect/tables/slackIdentityBindings.ts:35-49 defines lookup indexes for binding key, organization/user/status, exact Slack identity/status, connection generation/status, and nonce hash without email or display-name indexes.",
+        "The exact-head pre-review proof reports brain:factory:check-confect-codegen in focusedCommands, and the task diff does not edit generated paths beyond the transient generated-output lane state."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2802-2853 classifies S10-T01 as template-gap product work and requires a product-specific identity-binding capability over WorkOS users, durable table, Confect contract, migration, tests, and lifecycle adoption.",
+        "docs/product/maestro-brain-lifecycle-adoption/S10-T01.md:4-17 records the subsystem as a real local contract with durable slackIdentityBindings and single-use nonce-hash pending link intents.",
+        "packages/convex/confect/slack/identityLinks.impl.ts:128-183 does not perform the real persistence/provider-boundary swap described by the plan and lifecycle record; the registered Confect impls do not insert, patch, query, or revoke durable rows."
+      ],
+      "findingIds": ["C-S10-T01-001"]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1280-1293 lists the exact S10-T01 locked files, including the Slack identity binding table, Confect spec/impl/helper, migration file, tests, settings UI files, and adoption doc.",
+        "ci-proof-packet.json changedFiles lists only those task-owned paths for S10-T01, and git diff e8f008574eff0d1a21700ff02926ac4c9870d425..aa8f9ad1bf17288f94d8eb584f91cebd530aaa58 matches that ownership set."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2825-2840 requires failure-first coverage for forged/replayed/expired tokens, wrong team/user, display-name/email match, already-bound identities, revoked WorkOS user/membership, stale connection generation, token logging, and typed errors LinkExpired, LinkReplay, SlackIdentityAlreadyBound, TeamMismatch, BindingRevoked, and auth errors.",
+        "packages/convex/confect/slack/identityLinks.impl.ts:155-171 makes consumeSlackIdentityLink succeed for any nonceHash/teamId/slackUserId, so LinkExpired, LinkReplay, TeamMismatch, SlackIdentityAlreadyBound, BindingRevoked, Unauthorized, and Forbidden are not reachable through the declared internal mutation.",
+        "packages/convex/confect/slack/identityLinks.impl.ts:173-183 makes revokeSlackIdentityLink succeed for any bindingKey/reason without loading the binding, checking ownership/current user, or detecting already revoked state."
+      ],
+      "findingIds": ["C-S10-T01-001"]
+    }
+  ],
+  "findings": [
+    {
+      "id": "C-S10-T01-001",
+      "severity": "blocking",
+      "summary": "Slack identity link Confect impls do not enforce the approved durable binding contract",
+      "details": "S10-T01 is approved as a real local Slack identity-binding contract: authenticated WorkOS users create short-lived single-use link intents, Slack confirmation consumes the stored pending nonce exactly once, exact teamId + slackUserId is recorded durably, revocation and current role/connection generation are enforced, and declared typed failures are reachable. The task-owned Confect impls instead return deterministic Effect.succeed values, hard-code current user identity, never write/query/patch slackIdentityBindings, accept any consume input, and revoke without loading or authorizing a binding. The pure plan helpers cover part of the desired behavior in unit tests, but the registered typed API that downstream Slack intake will call does not implement the contract.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2829-2840",
+        "docs/product/maestro-brain-lifecycle-adoption/S10-T01.md:4-17",
+        "packages/convex/confect/slack/identityLinks.impl.ts:128-183",
+        "packages/convex/confect/slack/identityLinks.spec.ts:42-98"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

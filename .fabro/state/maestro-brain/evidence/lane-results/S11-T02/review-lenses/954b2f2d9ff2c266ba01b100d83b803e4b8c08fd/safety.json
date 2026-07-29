@@ -1,0 +1,87 @@
+{
+  "lens": "safety",
+  "taskId": "S11-T02",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "2b484dad01173ead7ca99d710455998926b3666713d025943ef5824aed334ff6",
+  "baseSha": "defde4d68fbcdd7d39566d82986ec562010c9638",
+  "headSha": "954b2f2d9ff2c266ba01b100d83b803e4b8c08fd",
+  "treeSha": "42e759fcd2e3a36faf101e1b8eb9187b7ab8fa8a",
+  "reviewerRunId": "maestro/review/S11-T02/954b2f2d9ff2c266ba01b100d83b803e4b8c08fd/a080c7f1-4da8-4474-92cc-6324dad59036-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/httpRequest.ts:169-198 moves top-level tenant aliases into input for rejection rather than honoring caller tenant fields.",
+        "packages/convex/confect/headless/authorizeOperation.ts:30-45 and 80-101 reject organization/workspace/brain/user/id aliases recursively, then inject organizationId/workspaceId/brainKey only from the authenticated principal.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:461-551 authenticates by indexed key hash and derives the principal from stored key/principal/tenant rows."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/http.ts:273-335 resolves a reviewed operation policy, authenticates the bearer with the operation-specific requiredScope, authorizes before body parsing, dispatches, then reauthenticates before returning.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:908-1078 exposes public API-key CRUD through currentBrainContext and requireAdmin while keeping authenticate/markLastUsed internal.",
+        "packages/convex/test/http-request-security.test.ts:271-377 proves auth/decode/dispatch ordering and operation-specific ask scope; packages/convex/test/api-keys.test.ts:921-940 proves non-admin server denial."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.impl.ts:170-206 checks active organization and workspace/Brain before creation/list/revoke/rotate/authenticate.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:553-659 rejects revoked/expired API keys, revoked service principals, and principal binding mismatches.",
+        "packages/convex/test/api-keys.test.ts:240-352 covers key expiry/revocation and service-principal revocation; packages/convex/test/api-keys.test.ts:573-657 covers inactive generation after workspace lifecycle change."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/auth.ts:408-429 and packages/convex/confect/headless/apiKeys.impl.ts:342-353 return displayKey once and public metadata without keyHash or durable tenant IDs.",
+        "packages/convex/confect/http.ts:315-318 and 321-330 convert dispatch and reauth failures to generic Forbidden/Unauthorized envelopes without logging raw errors.",
+        "packages/convex/test/http-request-security.test.ts:419-476 asserts no bearer value appears in public errors or console logging; apps/web/src/features/settings/api-keys-panel.test.tsx:56-57 asserts internal fields are not rendered."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/http.ts:321-335 reauthenticates after dispatch and compares principal/key identity before returning the dispatch result, so a revocation or principal change between dispatch and return fails closed.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:676-750 makes last-used updates conditional on the same key/principal/tenant/generation binding and ignores stale mismatches.",
+        "packages/convex/test/http-request-security.test.ts:380-417 proves post-dispatch reauthorization failure returns Unauthorized; packages/convex/test/api-keys.test.ts:659-742 proves stale same-generation cross-tenant principal mutation does not update lastUsedAt."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/manifest/executor.ts:200-223 and 253-284 preserve idempotency-key validation before dispatching non-idempotent headless operations.",
+        "packages/convex/confect/httpRequest.ts:203-230 carries idempotencyKey from the parsed request into the authenticated executor request after authorization.",
+        "packages/convex/confect/headless/auth.ts:313-331 requires expiring API keys and packages/convex/confect/headless/apiKeys.impl.ts:553-573 rejects expired keys on auth."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.impl.ts:301-327 records organization/workspace lifecycle and revocation generations on created keys.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:508-538 rejects bearer authentication when stored organization/workspace generation or revocation generation no longer matches active tenant rows.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:592-603 rejects service-principal generation drift, and packages/convex/test/api-keys.test.ts:744-803 covers that fence."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "not_applicable",
+      "rationale": "S11-T02 changes internal Convex/Confect headless bearer authentication, HTTP dispatch, and Settings UI only; it adds no live provider SDK, webhook, external model, or secret-provider adapter boundary.",
+      "evidence": [
+        "ci-proof-packet.json changedFiles list is limited to apps/web settings files and packages/convex Confect/headless/http/test files.",
+        "packages/convex/confect/http.ts:1-24 imports Confect/Convex manifest/headless helpers only, with no provider SDK imports.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:1-41 imports Confect, Effect, generated database services, access helpers, and local headless modules only."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

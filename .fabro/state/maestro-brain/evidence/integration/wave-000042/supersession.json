@@ -1,0 +1,29 @@
+{
+  "baseSha": "e8f008574eff0d1a21700ff02926ac4c9870d425",
+  "controlHeadSha": "e8f008574eff0d1a21700ff02926ac4c9870d425",
+  "createdAt": "2026-07-20T09:55:13.139Z",
+  "evidence": [
+    "finding:wave-000042-generated-ref-boundary-rework",
+    "integration-result-sha256:a50840f0e799455f40069db93f12c769196637629a841f04b266f06465321b17",
+    "run:01KXZEJR49DM10V8V25W2H2VVY:failed"
+  ],
+  "integrationId": "wave-000042",
+  "planSha256": "b6c8c42e744502700c8607be941e8f3dbe1e790d70abc7f3666efbf69554f9ca",
+  "reason": "S11-T02 must replace a local HeadlessApiKeyRefs cast with direct generated Confect refs before integration",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXZEJR49DM10V8V25W2H2VVY",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "fe35e6f7371cc2aeb81b05ff24cf354c167ae486904fa3da32e58b4a5818138c",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v2",
+  "selectedTaskIds": [
+    "S11-T02"
+  ],
+  "selectionFileSha256": "2ba8c0e65512a7fc4d3f22cb8dd58580967f604db506baf50e40cf09b03a5959",
+  "selectionPayloadSha256": "0d9da98d8a8d76fc45ce4ced696a1ab6e79e4593003a103f82c9e51f62689c46",
+  "status": "superseded",
+  "receiptSha256": "c48d80878595aa75c4fb076276f943daa289f5af83716d2111074d556980d510"
+}

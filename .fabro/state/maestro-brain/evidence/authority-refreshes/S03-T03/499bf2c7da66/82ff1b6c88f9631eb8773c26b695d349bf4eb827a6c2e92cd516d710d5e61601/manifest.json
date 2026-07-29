@@ -1,0 +1,79 @@
+{
+  "schemaVersion": "maestro-brain-ownership-rehome-archive/v1",
+  "taskId": "S03-T03",
+  "authorityId": "499bf2c7da66",
+  "currentAuthority": {
+    "controlHeadSha": "32a2d49fc1bb1f116fb1645d444d4b38a8ca282a",
+    "planSha256": "45e52be0e55a293947eb0d370c3ba6d1ddaba5ce387d4c98f68a6b7bb9b75306",
+    "taskBlockHash": "ac77073ece3d8addfee7853260cb2bb2bc6bb83ba43405b07a934f310b6a8834"
+  },
+  "oldAuthority": {
+    "planSha256": "06d2877a2679fbd6017e4b220d7ef624772e526b2d8465423d2a767304d7366f",
+    "taskBlockHash": "aa1a34eba8e9f1b7be8ce4818650cc062d0b74238531d81c76f031efc240f1ab"
+  },
+  "source": {
+    "baseSha": "bc7631796e42ee5d33a006df85730dc1293f505e",
+    "commits": [
+      "98238d752518961477fcfe3a033bc81850a1fcef",
+      "e9becf08da91826a88c85096d5f7d07a028d164b",
+      "347235e0ef8419140598db49802ef22b84cc2b67",
+      "bdc6f056cc3a1a8ebeeeb89c9fc5425565dffb41",
+      "3ae4f8bbfbbb9697bcbb72d0fda51589b22f1d47",
+      "dea4d951859211626dde35d94f12c5d6e4d3835f",
+      "c5af15a17df735df047407ab91f2948a5c2f8975"
+    ],
+    "headSha": "c5af15a17df735df047407ab91f2948a5c2f8975"
+  },
+  "transitionKind": "ownership-rehome",
+  "supersededPaths": [
+    {
+      "path": "docs/superpowers/execution/maestro-brain/task-manifest.json",
+      "replacementPath": "docs/product/maestro-brain-lifecycle-adoption/S03-T03.md",
+      "disposition": "replaced-by-current-owned-artifact"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
+      "replacementPath": "docs/product/maestro-brain-lifecycle-adoption/S03-T03.md",
+      "disposition": "replaced-by-current-owned-artifact"
+    },
+    {
+      "path": "packages/convex/test/editor-sync.test.ts",
+      "replacementPath": "packages/convex/test/brain-editor-revision-fence.test.ts",
+      "disposition": "replaced-by-current-owned-artifact"
+    }
+  ],
+  "artifacts": [
+    {
+      "file": "prior-lane-result.json",
+      "sha256": "be26f33dfb25fe76b41e15ca7c63b081b393dcc231acea9a7ab5ab8a2e51bb12"
+    },
+    {
+      "file": "prior-proof.json",
+      "sha256": "a1051f278e5a4df68dfdc2ff440c06c1cf79f9904b4891e050091655a96c94f6"
+    },
+    {
+      "file": "prior-final-gate.json",
+      "sha256": "66e67b97f479f18b4dfe36c9b4ad901f9c06ed4b016e48b1c912cdc31f3f8c60"
+    },
+    {
+      "file": "ownership-rehome-transition.json",
+      "sha256": "e6665f1c7c2e54604a90f1be8a4091c6a4a14c3f3ef2cfa9d6bf2d1186f16234"
+    },
+    {
+      "file": "prior-review-contract.json",
+      "sha256": "4fafefdfec4e08d38a6edcb5c4d4c87065387b667835f89d60be90be3b972466"
+    },
+    {
+      "file": "prior-review-safety.json",
+      "sha256": "0a1cd2152c06ac8f2c5b66e231c2d3d2fefbbad1b626935368042c7c68f7e235"
+    },
+    {
+      "file": "prior-review-quality.json",
+      "sha256": "a9f39f6af5b895caab984190bb3b9b917684e056d47e74599efd49c64488969f"
+    },
+    {
+      "file": "independent-finding-0f495e68b4a192aa98c903b5da52d451eba16cd4.txt",
+      "sha256": "c85e131d8787fcf8a0fb1ad40a46fc1b175df491c0d1c63251cd5010c1e87ab2"
+    }
+  ]
+}

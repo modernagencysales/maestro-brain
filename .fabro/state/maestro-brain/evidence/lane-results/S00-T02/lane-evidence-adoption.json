@@ -1,0 +1,16 @@
+{
+  "acceptanceAfter": "S00-T01",
+  "acceptanceBlocker": "S00-T01 three-host Convex plugin attestation is not present",
+  "accepted": false,
+  "integrationHeadSha": "5b58144cd32bbf807609761638c30d704e819eb7",
+  "integrationId": "F0-foundation",
+  "integrationResultPath": "integration/F0-foundation/integration-result.json",
+  "integrationResultSha256": "660b2814409de14bb57e4201b1161ec68c2fd292c3433adf2b76a4994a251970",
+  "laneHeadSha": "3f0fc9b7db0baf0536c104605e6b209c4d1093f8",
+  "laneResultSha256Before": "6e07fd80f11b9ae2324de1a6e60b21911d5784afb03494fb4619d039793ea5af",
+  "manifestTranche": "F0-foundation",
+  "previousTranche": "F0-foundation",
+  "schemaVersion": "maestro-brain-lane-evidence-adoption/v1",
+  "laneResultSha256After": "f23cd44b39ef972dbd66ad1c21a77ced7aec9143a0b33aba2567afb51864e631",
+  "taskId": "S00-T02"
+}

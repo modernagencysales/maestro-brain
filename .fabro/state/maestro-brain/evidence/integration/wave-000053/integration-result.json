@@ -1,0 +1,78 @@
+{
+  "baseSha": "d541bd225316661f494172571449b893abab0a7f",
+  "conflicts": [],
+  "focusedChecks": [
+    "rtk host-test-slot --class focused pnpm --dir packages/convex exec vitest run test/migration-registry.test.ts test/migrations.test.ts test/brain-page-schema.test.ts test/source-ledger-schema.test.ts",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk pnpm check:schema-migration-notes",
+    "rtk pnpm check:confect-contracts"
+  ],
+  "generatedFiles": [
+    "packages/convex/confect/_generated/convexSchema.ts",
+    "packages/convex/confect/_generated/docs.ts",
+    "packages/convex/confect/_generated/id.ts",
+    "packages/convex/confect/_generated/schema.ts",
+    "packages/convex/confect/_generated/tables/providerEventReceipts.ts",
+    "packages/convex/confect/_generated/tables/sourceArtifacts.ts",
+    "packages/convex/confect/_generated/tables/sourceProcessingJobs.ts",
+    "packages/convex/confect/_generated/tables/sourceRevisions.ts",
+    "packages/convex/confect/internal/migrations.generated.ts"
+  ],
+  "headSha": "59b4b9e5207f80f72db7eae3cf690f8330a46e44",
+  "includedTasks": [
+    {
+      "commitShas": [
+        "0f6b8638b0e8fd7a742afabbedb55ab00bda2a84",
+        "10df346e1dfdcf43a81bb07caee17a87bd2ad645",
+        "21ccb33ea1ba739007a04b0278d4f0d749615909",
+        "d5efc88aff587f23541b363b41d296beb5eda5a5"
+      ],
+      "laneHeadSha": "d5efc88aff587f23541b363b41d296beb5eda5a5",
+      "patchState": "applied",
+      "taskId": "S05-T01",
+      "tranche": "C1-contract-spine"
+    }
+  ],
+  "integrationId": "wave-000053",
+  "mode": "integrate",
+  "schemaVersion": "maestro-brain-integration-result/v3",
+  "selectionFileSha256": "f011d1b817938f0ef8de599c5843c4da559fa2af04186b61ef53b6e4943e1b82",
+  "selectionPayloadSha256": "ec1741e86a9b0902286cbe03a7b7de756c2c137b5be94c74c4bf68e5c48c14a7",
+  "reviewVerdict": "rework",
+  "status": "ready_for_review",
+  "remainingFindings": [
+    {
+      "id": "wave-000053-S05-T01-tenant-index-source-artifacts-by-channel-provider-object",
+      "severity": "high",
+      "taskId": "S05-T01",
+      "summary": "sourceArtifacts exposes a non-tenant-scoped channel/object lookup index.",
+      "evidence": [
+        {
+          "path": "packages/convex/confect/tables/sourceArtifacts.ts",
+          "lines": "5-6",
+          "detail": "The by_channel_provider_object index is keyed only by channelKey and providerObjectId, while channel/provider identifiers are tenant/connection data and the same table otherwise carries organizationKey, connectionKey, and connectionGeneration for isolation."
+        },
+        {
+          "path": "packages/convex/confect/sources/sourceSchemas.ts",
+          "lines": "90-105",
+          "detail": "SourceArtifactRow stores organizationKey, connectionKey, connectionGeneration, channelKey, and providerObjectId, so tenant-scoped lookup material is available but omitted from the new index."
+        }
+      ],
+      "impact": "A future reader using this index can resolve or collide source artifacts across tenants/connections that share provider channel/object identifiers, violating the required tenant boundary for source ledger data.",
+      "requiredFix": "Remove the non-tenant-scoped index or replace it with an organization/connection/generation-scoped index and update tests/generated schema accordingly."
+    }
+  ],
+  "resolvedFindings": [],
+  "repairAttempt": {
+    "attemptedAt": "2026-07-20T18:46:09Z",
+    "outcome": "stable_rework",
+    "reason": "Required fix edits hand-authored product table spec packages/convex/confect/tables/sourceArtifacts.ts; this integration node is limited to generated output.",
+    "owningTaskId": "S05-T01",
+    "focusedChecksPassed": [
+      "rtk host-test-slot --class focused pnpm --dir packages/convex exec vitest run test/migration-registry.test.ts test/migrations.test.ts test/brain-page-schema.test.ts test/source-ledger-schema.test.ts",
+      "rtk pnpm brain:factory:check-confect-codegen",
+      "rtk pnpm check:schema-migration-notes",
+      "rtk pnpm check:confect-contracts"
+    ]
+  }
+}

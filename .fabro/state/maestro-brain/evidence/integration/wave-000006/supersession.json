@@ -1,0 +1,35 @@
+{
+  "baseSha": "8b05048b549db6d7d8404301e3b1e597ce344d3f",
+  "controlHeadSha": "14cf8207c50a753d08042f9a31de93d9e9381a4c",
+  "createdAt": "2026-07-16T02:18:51.059Z",
+  "evidence": [
+    ".fabro/state/maestro-brain/evidence/integration/wave-000006/broad-gate-8667caf74d4320a3293b64a70135505e91201d7a.json",
+    "Fabro run 01KXM9WD0KAZZB8DHG3Z3883BD terminal failed",
+    "control HEAD 14cf820 supersedes wave base 8b05048"
+  ],
+  "integrationId": "wave-000006",
+  "planSha256": "51b4735b05594f70a16fd670c664ccad98cf2a6ba8d6dd1aab8881fa74faefb5",
+  "reason": "terminal failed on stale control base; S01-T04 type coverage must be repaired in its owning lane before reselection",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXM95GN5MQDQ9K7N9WS9GN48",
+      "status": "failed"
+    },
+    {
+      "attempt": 2,
+      "runId": "01KXM9WD0KAZZB8DHG3Z3883BD",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "2e10ecb7202174472f8ad8acb0575ee1f0502e79d6c58c48ef8f86d5e0df2eec",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v1",
+  "selectedTaskIds": [
+    "S01-T04",
+    "S03-T02"
+  ],
+  "selectionFileSha256": "bc8f1bbc78c1638cb3cd90cec9fa564a291f608980c029b1a17d89ace2207938",
+  "selectionSha256": "5d382220b6c877cc017742448d4ffa062c553753a6924879fd2205252d675d10",
+  "status": "superseded",
+  "receiptSha256": "2bf7d0b83466df50a341f2c25babcdbce5e6251f2264e4af55b663fb4faa180e"
+}

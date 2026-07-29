@@ -1,0 +1,86 @@
+{
+  "lens": "safety",
+  "taskId": "S06-T01",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "f2f6cb348272c704636b7e21bf8e8cbd66b812835d781b52e01bdcfa5b0fa97c",
+  "baseSha": "64b5d90e9dce6146ac6cd49696658cd9a40a254c",
+  "headSha": "26be039746841ffeffef118f7e0ae577f9245e0d",
+  "treeSha": "6b74558c316739e3d6c9d6ed4d993e8897bfe7ef",
+  "reviewerRunId": "maestro/review/S06-T01/26be039746841ffeffef118f7e0ae577f9245e0d/410f142c-7f0b-42cf-9c8d-e4fc449d2474-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json declares S06-T01 owns source workpool job-state/table files and requirements SLK-07/ZFC-01.",
+        "packages/convex/confect/jobs/jobState.ts:60-74 stores organizationKey, unitKey, effectKey, and pinned policy/route/lifecycle/emergency generations on every SourceJobState.",
+        "packages/convex/confect/jobs/workpool.ts:64-65 scopes idempotency as organizationKey:unitKey:idempotencyKey, and lines 118-123/172-180 query sourceProcessingJobs only by that materialized scoped key."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.spec.ts:14-31 registers enqueueSourceJob, statusSourceJob, backgroundWork, and onComplete as internal functions, keeping source job controls off public caller surfaces.",
+        "packages/convex/test/source-workpool.test.ts:278-287 asserts the new source job controls are internal while preserving the legacy demo refs.",
+        "packages/convex/confect/jobs/workpool.ts:81-112 leaves only the existing demo enqueue/status public functions; source job mutation/query/action/completion are internal at lines 114-170."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/jobState.ts:23-45 models lifecycle terminal states including superseded, revoked, and cancelled in addition to retry/dead-letter/succeeded states.",
+        "packages/convex/confect/jobs/jobState.ts:287-313 allows non-lease lifecycle cancellation/revocation/supersession transitions without accepting a provider effect.",
+        "packages/convex/test/source-workpool.test.ts:210-276 exercises retry, permanent failure, max-attempt dead-letter, cancelled, revoked, and superseded transitions."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/jobState.ts:48-59 records attempt receipts with leaseTokenHash and optional externalResponseHash, not raw provider payloads.",
+        "packages/convex/confect/jobs/jobState.ts:148-149 tokenHash redacts lease tokens to a derived length/prefix form for receipts instead of storing the full token there.",
+        "packages/convex/confect/jobs/workpool.ts:68 and lines 194-201 record a deterministic sha256:workpool:<workId> external response hash before completion rather than raw external response content."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/jobState.ts:150-158 rejects stale lease generations or tokens before running, response, retry, failure, or success mutations can advance a job.",
+        "packages/convex/confect/jobs/leases.ts:31-46 reclaims only expired leases and routes reclaimed claims through startSourceJob, incrementing leaseGeneration.",
+        "packages/convex/test/source-workpool.test.ts:100-138 proves expired lease reclaim creates a new generation and rejects stale worker completion after reclaim."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.ts:118-124 returns the existing workId for an existing organization+unit+idempotency replay before enqueuing new work.",
+        "packages/convex/confect/jobs/jobState.ts:168-170 and 238-243 reject already accepted or mismatched effect keys as DuplicateEffect.",
+        "packages/convex/test/source-workpool.test.ts:165-191 verifies duplicate effect rejection; lines 301-321 verify idempotency is scoped to organization and unit."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/jobState.ts:226-254 accepts success only after current lease validation, pinned generation validation, and matching effectKey validation.",
+        "packages/convex/confect/jobs/jobState.ts:334-350 fences policyGeneration, routeGeneration, lifecycleGeneration, and emergencyGeneration drift with StaleGeneration.",
+        "packages/convex/test/source-workpool.test.ts:193-208 covers stale generation rejection, and lines 140-163 prove response-hash persistence before accepting one effect."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.ts:162-166 keeps backgroundWork as a deterministic internal action placeholder with no provider SDK import or network side effect.",
+        "packages/convex/confect/jobs/workpool.ts imports only Convex/workpool/component and local job-state helpers; no provider SDK, secret, or client adapter import is introduced.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S06-T01/ci-proof-packet.json knownRisks records that this task adds fenced local source job claims without live provider side effects."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

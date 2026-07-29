@@ -1,0 +1,105 @@
+{
+  "schemaVersion": "maestro-brain-ci-proof/v1",
+  "planSha256": "1c6b818063c534afdae20d688fee71e830915c5ac356bf7eba7724099d7ed9a5",
+  "taskBlockHash": "fc199f813d4e831ca9a7fb4335a38e3b2a46895bb832ad60f0963d22708c145e",
+  "taskId": "S08-T04",
+  "baseSha": "e28ceeb126083211cc7b2070c673b78e513d125b",
+  "headSha": "73a0d4d1dde0b99d028802e4b392dd2a84f6d97e",
+  "treeSha": "2e6c1035ee46393b258b61a6774afc2c76dc8eba",
+  "changedFiles": [
+    "apps/web/src/features/brain/maintenance-review.test.tsx",
+    "apps/web/src/features/brain/maintenance-review.tsx",
+    "docs/product/maestro-brain-lifecycle-adoption/S08-T04.md",
+    "docs/template/generated/capabilities/maintainBrainPage.md",
+    "docs/template/generated/provenance/add-capability/maintainBrainPage.json",
+    "docs/template/generated/provenance/add-workflow/sourceToBrainMaintenance.json",
+    "docs/template/generated/workflows/sourceToBrainMaintenance.md",
+    "packages/convex/confect/capabilities/maintainBrainPage.domain.ts",
+    "packages/convex/confect/capabilities/maintainBrainPage.headless.json",
+    "packages/convex/confect/capabilities/maintainBrainPage.impl.ts",
+    "packages/convex/confect/capabilities/maintainBrainPage.spec.ts",
+    "packages/convex/confect/capabilities/maintainBrainPage.test.ts",
+    "packages/convex/confect/maintenance/commit.ts",
+    "packages/convex/confect/maintenance/gather.ts",
+    "packages/convex/confect/maintenance/policy.ts",
+    "packages/convex/confect/maintenance/request.ts",
+    "packages/convex/confect/tables/brainMaintenanceProposals.ts",
+    "packages/convex/confect/tables/sourceProcessingJobs.ts",
+    "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.impl.ts",
+    "packages/convex/confect/workflowContracts/sourceToBrainMaintenance.spec.ts",
+    "packages/convex/confect/workflows/sourceToBrainMaintenance.graph.ts",
+    "packages/convex/convex/workflowRunners/sourceToBrainMaintenance.ts",
+    "packages/convex/test/brain-maintenance.test.ts",
+    "packages/convex/test/sourceToBrainMaintenance.workflow.test.ts"
+  ],
+  "focusedCommands": [
+    "rtk pnpm template:add-capability -- --name maintainBrainPage --description Returns_cited_Brain_revision_proposals_from_an_immutable_context_pack --exposure workflow",
+    "rtk pnpm template:add-workflow -- --name sourceToBrainMaintenance --description Gathers_routed_evidence_and_proposes_cited_Brain_revisions --exposure internal",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test brain-maintenance",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test maintenance-review",
+    "rtk pnpm check:workflow-graph-boundary",
+    "rtk pnpm check:headless-surface-contract",
+    "rtk pnpm check:layer-boundaries",
+    "rtk host-test-slot --class focused pnpm --dir tooling/evals test maintenance injection"
+  ],
+  "supplementalCommands": [
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test brain-maintenance",
+      "result": "passed at head 73a0d4d1dde0b99d028802e4b392dd2a84f6d97e; 11 tests passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web test maintenance-review",
+      "result": "passed at head 73a0d4d1dde0b99d028802e4b392dd2a84f6d97e; 2 tests passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test sourceToBrainMaintenance.workflow",
+      "result": "passed at head 73a0d4d1dde0b99d028802e4b392dd2a84f6d97e; 4 tests passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir tooling/evals test maintenance injection",
+      "result": "passed at head 73a0d4d1dde0b99d028802e4b392dd2a84f6d97e; 4 tests passed across brain-prompt-injection and brain-maintenance eval suites"
+    },
+    {
+      "command": "rtk pnpm check:workflow-graph-boundary",
+      "result": "passed at head 73a0d4d1dde0b99d028802e4b392dd2a84f6d97e; check:workflow-graph-boundary (shape-only): ok (pin-only)"
+    },
+    {
+      "command": "rtk pnpm check:headless-surface-contract",
+      "result": "passed at head 73a0d4d1dde0b99d028802e4b392dd2a84f6d97e; check:headless-surface-contract: ok"
+    },
+    {
+      "command": "rtk pnpm check:layer-boundaries",
+      "result": "passed at head 73a0d4d1dde0b99d028802e4b392dd2a84f6d97e; no dependency violations found (996 modules, 3278 dependencies cruised)"
+    },
+    {
+      "command": "rtk pnpm brain:factory:check-confect-codegen",
+      "result": "not rerun after restoring lane-local transient generated diagnostics; next deterministic gates node owns the current control-root codegen proof"
+    },
+    {
+      "command": "rtk proxy git rev-list --count e28ceeb126083211cc7b2070c673b78e513d125b..HEAD",
+      "result": "history contains 4 coherent S08-T04 commits, within sourceSliceLimit 5"
+    },
+    {
+      "command": "rtk proxy git diff --name-only e28ceeb126083211cc7b2070c673b78e513d125b..HEAD --",
+      "result": "changed files are exactly the S08-T04 lane-owned task files listed in changedFiles"
+    },
+    {
+      "command": "rtk proxy git status --short",
+      "result": "clean at head 73a0d4d1dde0b99d028802e4b392dd2a84f6d97e after restoring transient generated/index diagnostics"
+    }
+  ],
+  "testsAdded": [
+    "packages/convex/confect/capabilities/maintainBrainPage.test.ts",
+    "packages/convex/test/brain-maintenance.test.ts",
+    "packages/convex/test/sourceToBrainMaintenance.workflow.test.ts",
+    "apps/web/src/features/brain/maintenance-review.test.tsx"
+  ],
+  "reviewVerdict": "pending",
+  "knownRisks": [
+    "Generated Confect/Convex registration output and regenerated manifests remain owned by integration per Appendix O; this lane keeps only manifest-declared S08-T04 hand-authored files.",
+    "The workflow runner path remains lane-owned, while generated registration/index output is intentionally not added in the lane.",
+    "Focused command descriptions are underscore-normalized in focusedCommands to preserve the existing proof single-process no-quoting command contract.",
+    "No lane-local source repair was applied for stale transient codegen tooling; the next deterministic gates node uses current control-root lane-gates and transient codegen authority."
+  ]
+}

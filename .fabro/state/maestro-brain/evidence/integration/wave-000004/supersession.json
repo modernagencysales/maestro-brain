@@ -1,0 +1,28 @@
+{
+  "baseSha": "4373eda7c01358ae987afe5fbcbd6aac16663f4f",
+  "controlHeadSha": "3b4ce76f8d6840e15995f95af136524ceb62a6a4",
+  "createdAt": "2026-07-16T01:11:34.425Z",
+  "evidence": [
+    "Fabro run 01KXM5R03CXT4JE7CSN8R742G2 failed with wave-000004-unowned-flags-test-repair",
+    "control commit 3b4ce76 expands S01-T04 ownership and hardens generated-only integration repair"
+  ],
+  "integrationId": "wave-000004",
+  "planSha256": "5d21d781e20fcb6e463e8d9901395a42bba375457f79845e00cc9f7e07364c21",
+  "reason": "S01-T04 contract amended to own the restrictive-role flag fixture; immutable selection and lane proof are stale",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXM5R03CXT4JE7CSN8R742G2",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "b26a0aa45c58199aebaa5c7f7b3c4b0451250b6c07ade48fd052aff6f572912e",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v1",
+  "selectedTaskIds": [
+    "S01-T04"
+  ],
+  "selectionFileSha256": "e142ca80e5492f251d99990ceba169b65c83570e4349d7793a0dab6b59788f59",
+  "selectionSha256": "9b5601ff5434f4230fbf8e0f3b19414682e1383c89523121dd3db7c0b1ba6f92",
+  "status": "superseded",
+  "receiptSha256": "f3f3e9e207c6d80d4f29ad63f5c5cc7abb5140c79f35819da0e933e489bdb6f0"
+}

@@ -1,0 +1,26 @@
+_version = 1
+
+[workflow]
+graph = "/Users/headless/maestro-brain-plan/.fabro/workflows/brain-build-task/workflow.fabro"
+
+[environments.local]
+provider = "local"
+
+[environments.local.env]
+BRAIN_BASE_SHA = "f66236e12f93bc254cc2350800a5b2a69d0caff5"
+BRAIN_CONTROL_COMMON_DIR = "/Users/headless/maestro-template-saas-ui/.git"
+BRAIN_CONTROL_ROOT = "/Users/headless/maestro-brain-plan"
+BRAIN_EVIDENCE_DIR = "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence"
+BRAIN_HOST_TEST_MAX_LOAD_1M = "20"
+BRAIN_REPROOF_REQUEST = "none"
+BRAIN_RESUME_BRANCH = "none"
+BRAIN_RESUME_COMMITS = "none"
+BRAIN_RESUME_EXPECTED_COMMIT = "none"
+BRAIN_RESUME_MODE = "none"
+BRAIN_RESUME_PROOF_HEAD = "none"
+BRAIN_RESUME_SOURCE_HEAD = "none"
+BRAIN_RESUME_TASK_BASE = "none"
+BRAIN_REVIEW_ATTEMPT = "b80b48dc-c033-46f3-9446-525805433680"
+BRAIN_START_SHA = "905b9de5d4a3550f9c3768ca582b55ceff2054ff"
+BRAIN_TASK_ID = "S13-T02"
+BRAIN_WORKDIR = "/Users/headless/.maestro-brain-fabro-workdirs/resume-s13-t02"

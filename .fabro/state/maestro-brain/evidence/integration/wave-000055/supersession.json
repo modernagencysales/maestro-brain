@@ -1,0 +1,27 @@
+{
+  "baseSha": "3141ccc10fe3194d2f249fa9b0e8205f920248f6",
+  "controlHeadSha": "3141ccc10fe3194d2f249fa9b0e8205f920248f6",
+  "createdAt": "2026-07-21T00:48:14.601Z",
+  "evidence": [
+    "run:01KY11H0DFMRT9W21H7MVNME50:failed"
+  ],
+  "integrationId": "wave-000055",
+  "planSha256": "ce2b760a9efd332ff6f3201b8faf312601e4fd3d4fcb7dcb4253afe7cae25317",
+  "reason": "authoritative pnpm verify failure after bounded repair cycle; S03 owner-lane reproof required",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KY11H0DFMRT9W21H7MVNME50",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "b544cdb54e81db25d560bac190f4ffb3f9104b87d69611f75dad85171e13fcf2",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v2",
+  "selectedTaskIds": [
+    "S03-T03"
+  ],
+  "selectionFileSha256": "d94c34e989a056c0a77405e7ec8983a0801c870cf221045069ccc80b12ebd93a",
+  "selectionPayloadSha256": "1da5ca3ba333d8cec2a7673af8cda3599fafe5ce8ebc1d96f2fac0dce0b0386c",
+  "status": "superseded",
+  "receiptSha256": "3b246c3b873e496ee31ce9fbb30f4d2ca82b882e676c0b0ef998d0ba44816649"
+}

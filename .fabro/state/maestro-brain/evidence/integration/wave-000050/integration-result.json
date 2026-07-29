@@ -1,0 +1,102 @@
+{
+  "baseSha": "73609583b9ca2704ad28f3844239f00764ac7230",
+  "conflicts": [],
+  "focusedChecks": [
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test channel-policies",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test connections",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk pnpm check:route-tree",
+    "rtk pnpm check:layer-boundaries",
+    "rtk pnpm check:access-audit-events",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test accessibility"
+  ],
+  "generatedFiles": [
+    "packages/convex/confect/_generated/convexSchema.ts",
+    "packages/convex/confect/_generated/docs.ts",
+    "packages/convex/confect/_generated/id.ts",
+    "packages/convex/confect/_generated/registeredFunctions/slack/channelPolicies.ts",
+    "packages/convex/confect/_generated/schema.ts",
+    "packages/convex/confect/_generated/spec.ts",
+    "packages/convex/confect/_generated/tables/channelDeliveryPolicies.ts",
+    "packages/convex/confect/_generated/tables/channelRoutingPolicies.ts",
+    "packages/convex/convex/slack/channelPolicies.ts"
+  ],
+  "headSha": "040659ddeb1c15e715ce91225913c383d2df6f30",
+  "includedTasks": [
+    {
+      "commitShas": [
+        "7df17e8daee6be82447a8ade0271d6e756ef25ae",
+        "cdebca71b3472563bd399399cfc9551015a35f79",
+        "4056c4de06975ff0817712e8ade62b059ba148b9",
+        "44c1f6c7e982c7e1814455d2d29f56139d1b803c"
+      ],
+      "laneHeadSha": "44c1f6c7e982c7e1814455d2d29f56139d1b803c",
+      "patchState": "applied",
+      "taskId": "S04-T04",
+      "tranche": "D2-domain-bodies"
+    }
+  ],
+  "integrationId": "wave-000050",
+  "mode": "integrate",
+  "schemaVersion": "maestro-brain-integration-result/v3",
+  "selectionFileSha256": "a45fde1abe4095daabe6d10cdc4743a0d0fbd9f729f11d72513d01cb708f99e7",
+  "selectionPayloadSha256": "6ca4f52b75cf77d42cd6ea594f693dd65c385841db55af7ceb9b27194f467d6c",
+  "reviewVerdict": "rework",
+  "status": "ready_for_review",
+  "remainingFindings": [
+    {
+      "id": "wave-000050-S04-T04-P1-fixture-tenant-ui",
+      "severity": "P1",
+      "owner": "S04-T04",
+      "evidenceRef": "refs/evidence/maestro-brain/wave-000050-independent-review",
+      "evidenceBlob": "216339e6d978f90c08a41f7af5820f5ce7825113",
+      "evidenceSha256": "54fe6c21eec24e06f44687bfa46642070be605f2a3ccc4985399d67c113f53fd",
+      "summary": "Production UI hard-codes org_acme fixture channels/targets and marks submitted without awaiting mutation.",
+      "locations": [
+        "apps/web/src/features/connections/connections-adapter.ts:3",
+        "apps/web/src/features/connections/channel-policy-dialog.tsx:146",
+        "apps/web/src/features/connections/channel-policy-dialog.tsx:169",
+        "apps/web/src/features/connections/channel-policy-dialog.tsx:180-185"
+      ]
+    },
+    {
+      "id": "wave-000050-S04-T04-P1-capacity-envelope-truncated",
+      "severity": "P1",
+      "owner": "S04-T04",
+      "evidenceRef": "refs/evidence/maestro-brain/wave-000050-independent-review",
+      "evidenceBlob": "216339e6d978f90c08a41f7af5820f5ce7825113",
+      "evidenceSha256": "54fe6c21eec24e06f44687bfa46642070be605f2a3ccc4985399d67c113f53fd",
+      "summary": "Capacity envelope takes 26 workspaces before active/matching filter, allowing >25 active clients or rejecting later valid targets.",
+      "locations": [
+        "packages/convex/confect/slack/channelPolicies.impl.ts:72",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:85-93",
+        "packages/convex/confect/slack/channelPolicy.ts:173"
+      ]
+    },
+    {
+      "id": "wave-000050-S04-T04-P1-one-sided-policy-fence-coupling",
+      "severity": "P1",
+      "owner": "S04-T04",
+      "evidenceRef": "refs/evidence/maestro-brain/wave-000050-independent-review",
+      "evidenceBlob": "216339e6d978f90c08a41f7af5820f5ce7825113",
+      "evidenceSha256": "54fe6c21eec24e06f44687bfa46642070be605f2a3ccc4985399d67c113f53fd",
+      "summary": "One-sided changes unconditionally append both routing epoch and delivery generation and reopen pendingSourceInterval.",
+      "locations": [
+        "packages/convex/confect/slack/channelPolicy.ts:250-290"
+      ]
+    },
+    {
+      "id": "wave-000050-S04-T04-P2-denied-audit-rollback",
+      "severity": "P2",
+      "owner": "S04-T04",
+      "evidenceRef": "refs/evidence/maestro-brain/wave-000050-independent-review",
+      "evidenceBlob": "216339e6d978f90c08a41f7af5820f5ce7825113",
+      "evidenceSha256": "54fe6c21eec24e06f44687bfa46642070be605f2a3ccc4985399d67c113f53fd",
+      "summary": "Denied audit is written in tapError inside the same failing Convex transaction and rolls back; use a separate internal mutation boundary.",
+      "locations": [
+        "packages/convex/confect/slack/channelPolicies.impl.ts:37-51"
+      ]
+    }
+  ],
+  "resolvedFindings": []
+}

@@ -1,0 +1,83 @@
+{
+  "lens": "contract",
+  "taskId": "S05-T01",
+  "planSha256": "5e3506ec26c1776547b03641707371efaebb1c490ce3da6b6a1e2ed0df2a8417",
+  "taskBlockHash": "8c814c81e34129532e8467e567d99d48dfb60017ceda5ab0934454da2d348044",
+  "baseSha": "bc7631796e42ee5d33a006df85730dc1293f505e",
+  "headSha": "a525e2ffe8d048df162e508c3efce478aa64f704",
+  "treeSha": "4473593304571bd0de11377c0b542b226577a365",
+  "reviewerRunId": "maestro/review/S05-T01/a525e2ffe8d048df162e508c3efce478aa64f704/30eb9f1e-5b30-4b61-9406-58426a5ff007-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1628-1720 defines S05-T01 acceptance, files, failure-first tests, migration compatibility, focused verification, and completion receipt.",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:655-695 lists S05-T01 ownership, requirements, file locks, source-slice limit, and taskBlockHash matching the proof packet.",
+        "lane-gate-report.json:18-24 proves the reviewed head a525e2ffe8d048df162e508c3efce478aa64f704 and tree 4473593304571bd0de11377c0b542b226577a365 passed pre-review lane gates for S05-T01."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:110-142 defines SourceLedgerCaptureInput with verified envelope, normalized observation, and routing effect shape.",
+        "packages/convex/confect/sources/sourceSchemas.ts:144-158 declares the task packet expected typed errors TenantMismatch, ChannelAccessLost, ObservationInvalid, PayloadTooLarge, and DuplicateKeyConflict.",
+        "packages/convex/test/source-ledger-schema.test.ts:187-235 exercises duplicate, tenant, channel, timestamp, size, key, and conflict typed failure behavior."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "finding",
+      "findingIds": ["CONTRACT-S05-T01-001"],
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1630-1632 requires accepted deliveries to have distinct transport receipts that converge on one logical observation/source revision.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1679-1681 requires providerEventReceipts to deduplicate transport delivery IDs while pointing to a logical observation key, with multiple live/backfill/reconciliation receipts allowed to reference the same source revision.",
+        "packages/convex/confect/sources/sourceSchemas.ts:163-170 derives observationKey from connectionKey, transportDeliveryId, providerObjectId, and revisionNonce, coupling logical observation identity to a transport receipt ID."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1633-1634 classifies S05-T01 as template-gap target TB-SOURCE-01, and docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:3-5 records the implemented product-instance state.",
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:44-55 documents compatibility and rollback, including new_tables_only and integration-owned migration registry output.",
+        "ci-proof-packet.json:30-40 lists focused commands and added tests matching the S05-T01 focused proof scope."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "ci-proof-packet.json:8-29 changed files match the S05-T01 manifest-owned file set for source ledger schema, migration fragments, migration generator, tests, and lifecycle adoption doc.",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:661-684 includes every changed product file in S05-T01 fileLocks.",
+        "git diff --name-only bc7631796e42ee5d33a006df85730dc1293f505e..HEAD showed no edit to packages/convex/confect/internal/migrations.ts, preserving integration-owned canonical generated registry state."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "findingIds": ["CONTRACT-S05-T01-001"],
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1669-1677 requires failure-first proof for multiple receipts for one logical observation and conflicting observation identity.",
+        "packages/convex/test/source-ledger-schema.test.ts:187-235 covers duplicate delivery with the same transportDeliveryId but does not cover a second transportDeliveryId for the same logical observation.",
+        "packages/convex/confect/sources/sourceSchemas.ts:165-170 includes transportDeliveryId in observationKey derivation, so the missing failure case would expose divergent observation keys for the same logical observation."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "CONTRACT-S05-T01-001",
+      "severity": "high",
+      "summary": "Logical observation keys include transport delivery IDs, preventing receipt convergence.",
+      "details": "S05-T01 requires transport receipts to remain distinct while converging on one logical observation/source revision. The implemented observationKey hash includes envelope.transportDeliveryId, so a live delivery and a backfill/reconciliation delivery for the same provider object and revision nonce derive different observation keys. That violates the durable source-ledger contract and leaves the declared multiple-receipts-for-one-observation failure path unproved.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1630-1632",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1679-1681",
+        "packages/convex/confect/sources/sourceSchemas.ts:163-170",
+        "packages/convex/test/source-ledger-schema.test.ts:187-235"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

@@ -1,0 +1,83 @@
+{
+  "lens": "contract",
+  "taskId": "S13-T03",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "taskBlockHash": "13c071bc2c78035c5563f494b38160a96c981ab2962984f056be4e18853e137e",
+  "baseSha": "f66236e12f93bc254cc2350800a5b2a69d0caff5",
+  "headSha": "490fc4dd0ec735e58c15b883ca6303573c8638f6",
+  "treeSha": "a30cac17838a62ef6776a976648d6cf5b88e05ae",
+  "reviewerRunId": "maestro/review/S13-T03/490fc4dd0ec735e58c15b883ca6303573c8638f6/ade6e852-8186-47dd-94bc-e07f53f46bd6-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "Task manifest docs/superpowers/execution/maestro-brain/task-manifest.json entry for S13-T03 identifies Add Redacted Telemetry, Budgets, And Kill Switches as a template-gap task with requirements AI-04, REL-03, SLK-07 and locks the operations docs, Convex ops policy/spec/impl/tests, observability metrics/tests/index, flags spec/impl, and logging-boundary tool files.",
+        "Task plan docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md S13-T03 block requires redacted telemetry, model/Slack/storage/queue/channel budgets, independent kill switches for capture/backfill/classification/maintenance/Ask/Slack delivery/MCP/export/lifecycle, typed errors, additive policy/metric fields, and completion receipt evidence.",
+        "ci-proof-packet.json records taskId S13-T03, planSha256 cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665, taskBlockHash 13c071bc2c78035c5563f494b38160a96c981ab2962984f056be4e18853e137e, baseSha f66236e12f93bc254cc2350800a5b2a69d0caff5, headSha 490fc4dd0ec735e58c15b883ca6303573c8638f6; lane-gate-report.json records pre-review status passed for the same head 490fc4dd0ec735e58c15b883ca6303573c8638f6."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts declares BrainOperationSubsystem for capture, backfill, classification, maintenance, ask, slackDelivery, mcp, export, and lifecycle, plus BrainOperationPolicyState values enabled, paused, and disabled.",
+        "packages/convex/confect/ops/brainOperations.spec.ts declares typed ListBrainOperationPoliciesArgs, SetBrainOperationPolicyArgs, BrainOperationPolicyReturn, and BrainOperationPolicyListReturn schemas, including idempotencyKey, expectedGeneration, optional budgetCheck, ownerUserId, reason, generation, updatedAt, and optional expiresAt.",
+        "packages/convex/confect/ops/brainOperations.spec.ts exposes listPolicies and setPolicyInternal via Confect FunctionSpec, and packages/convex/confect/ops/brainOperations.impl.ts binds matching FunctionImpl handlers."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperationPolicy.ts defines OperationPolicy and OperationPolicyRecord with subsystem, state, generation, ownerUserId, reason, idempotencyKey, expiresAt, workspace policy key, active status, version, dataJson, activation metadata, and timestamps.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts operationPolicyRecord persists Brain operation policies as workspace-scoped agent.config rows, and operationPolicyFromRecord parses durable dataJson back to typed policy data.",
+        "packages/convex/confect/ops/brainOperations.impl.ts loads active non-expired subsystem policies with default enabled fallbacks, retires existing active rows before inserting a new policy row, and focused tests assert one active plus one retired row after an update sequence."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "Scoped diff from proof base f66236e12f93bc254cc2350800a5b2a69d0caff5 to HEAD changes exactly the S13-T03 owned paths: operations docs, brainOperationPolicy, brainOperations spec/impl/test, flags spec/impl, brainMetrics source/test/index, and logging-boundary tooling.",
+        "packages/observability/src/brainMetrics.ts implements redaction for prompt/source/token/header-like fields and BudgetExceeded results for modelTokens, modelSpendCents, slackRate, storageBytes, queueDepth, and channelCount; packages/observability/src/brainMetrics.test.ts covers these canaries and budget cases.",
+        "docs/product/maestro-brain-operations.md documents the metric dictionary, budget categories, kill-switch state machine, independent subsystem controls, default external-risk posture, and completion receipt evidence."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "Task manifest fileLocks for S13-T03 include docs/product/maestro-brain-operations.md, packages/convex/confect/ops/brainOperationPolicy.ts, brainOperations.impl.ts, brainOperations.spec.ts, flags.impl.ts, flags.spec.ts, packages/convex/test/brain-operation-policy.test.ts, packages/observability/src/brainMetrics.test.ts, packages/observability/src/brainMetrics.ts, packages/observability/src/index.ts, and tooling/quality/check-logging-boundary.mts.",
+        "rtk proxy git diff --name-status f66236e12f93bc254cc2350800a5b2a69d0caff5..HEAD over the locked file list reports only those eleven task-owned paths.",
+        "Root AGENTS.md instructions apply to the touched docs, packages/convex, packages/observability, and tooling paths; scoped checks found no deeper AGENTS.md files under those exact touched paths."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts declares typed OperatorForbidden, BudgetExceeded, SubsystemDisabled, and RecoveryGenerationMismatch errors and includes them in the operation error union with existing workspace-access errors.",
+        "packages/convex/confect/ops/brainOperations.impl.ts makes OperatorForbidden reachable for non-admin roles, BudgetExceeded reachable for over-limit budget checks and excessive expiry windows, SubsystemDisabled reachable for disabled-to-paused requests, and delegates generation mismatch handling to nextOperationPolicy.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts evaluateOperationPolicy accepts a subsystem argument but does not use it when constructing SubsystemDisabled, instead returning new SubsystemDisabled({ subsystem: \"disabled\" }); packages/convex/test/brain-operation-policy.test.ts only asserts errorTag and therefore does not prove the typed failure payload identifies the disabled subsystem."
+      ],
+      "findingIds": [
+        "CONTRACT-S13-T03-001"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "CONTRACT-S13-T03-001",
+      "severity": "medium",
+      "summary": "SubsystemDisabled policy evaluation drops the subsystem identity",
+      "details": "The S13-T03 contract requires independent kill switches and typed failure paths per risky subsystem. evaluateOperationPolicy destructures state/generation/expectedGeneration/expiresAt/now but ignores the supplied subsystem, and when state is disabled it returns SubsystemDisabled with subsystem set to the literal string \"disabled\". That means the typed error payload does not identify capture/backfill/classification/etc., weakening the contract consumers need to diagnose and stop each subsystem independently. Suggested fix: Pass the requested subsystem through evaluateOperationPolicy and construct SubsystemDisabled with that subsystem; add a focused assertion that a disabled classification/export/etc. policy returns SubsystemDisabled carrying the same subsystem value.",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperationPolicy.ts:125-158 constructs new SubsystemDisabled({ subsystem: \"disabled\" }) for any disabled policy instead of the input subsystem.",
+        "packages/convex/test/brain-operation-policy.test.ts:110-126 covers classification disabled only by matching { ok: false, errorTag: \"SubsystemDisabled\" }, so the incorrect subsystem payload is not caught.",
+        "Task plan S13-T03 requires independent kill switches and typed errors/state including SubsystemDisabled for subsystem-scoped operation policy."
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

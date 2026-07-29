@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "maestro-brain-ci-proof/v1",
+  "taskId": "S04-T04",
+  "planSha256": "adce0583eeea119d1a949099d3f5bbc98002041065d7ea2cb7a39e4f70975c2c",
+  "taskBlockHash": "43aa1624cd7754ad5635e47f0e43bc7333c8b04b639a33b7670a7e032707dea1",
+  "baseSha": "969bd3c821f5db26ea586bbec82a5014d6d68909",
+  "headSha": "f07e866188df807d10f1b01843aaebfddf80a033",
+  "changedFiles": [
+    "apps/web/src/features/connections/channel-policy-dialog.tsx",
+    "apps/web/src/features/connections/channel-policy-view-model.test.ts",
+    "apps/web/src/features/connections/channel-policy-view-model.ts",
+    "apps/web/src/features/connections/channel-table.tsx",
+    "apps/web/src/features/connections/connections-adapter.ts",
+    "apps/web/src/routes/_workspace.connections.tsx",
+    "docs/product/maestro-brain-lifecycle-adoption/S04-T04.md",
+    "packages/convex/confect/slack/channelPolicies.impl.ts",
+    "packages/convex/confect/slack/channelPolicies.spec.ts",
+    "packages/convex/confect/slack/channelPolicy.ts",
+    "packages/convex/confect/tables/channelDeliveryPolicies.ts",
+    "packages/convex/confect/tables/channelRoutingPolicies.ts",
+    "packages/convex/test/channel-policies.test.ts"
+  ],
+  "focusedCommands": [
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test channel-policies",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test connections",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk pnpm check:route-tree",
+    "rtk pnpm check:layer-boundaries",
+    "rtk pnpm check:access-audit-events",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test accessibility"
+  ],
+  "testsAdded": [
+    "packages/convex/test/channel-policies.test.ts",
+    "apps/web/src/features/connections/channel-policy-view-model.test.ts"
+  ],
+  "reviewVerdict": "pending",
+  "knownRisks": [
+    "Resolved finding wave-000056-S04-T04-tenant-key-auth-mismatch by resolving the stable agency organizationKey to the durable organization _id for membership authorization and workspace discovery, while retaining the stable key for source channel and policy rows.",
+    "Refreshed the task head after a deterministic review aggregation failure caused by stale duplicate review checkpoint refs for the prior head; the next review_snapshot node owns preparing fresh distinct review checkpoints.",
+    "Focused commands are preserved exactly as declared by the existing proof and task contract; newly run package-local typecheck, focused regression reruns, and review namespace diagnostics are recorded as supplemental evidence. Centralized Confect codegen, route-tree, layer-boundary, access-audit, and accessibility gates remain owned by the deterministic gate node."
+  ],
+  "supplementalCommandResults": [
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test channel-policies",
+      "status": "failed-before-fix",
+      "summary": "Regression reproduced: an admin authorized by durable organization ID was denied when using the stable agency key with PolicyInvalid admin_required."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex typecheck",
+      "status": "passed",
+      "summary": "tsc -p packages/convex/tsconfig.json --noEmit completed successfully."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test channel-policies",
+      "status": "passed",
+      "summary": "Vitest passed test/channel-policies.test.ts: 13 tests."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test channel-policies",
+      "status": "passed",
+      "summary": "Re-ran after review namespace cleanup; Vitest passed test/channel-policies.test.ts: 13 tests."
+    },
+    {
+      "command": "rtk proxy node --import $BRAIN_CONTROL_ROOT/node_modules/tsx/dist/loader.mjs $BRAIN_CONTROL_ROOT/tooling/brain-factory/src/review-worktrees.mts cleanup --workdir $BRAIN_WORKDIR --evidence $BRAIN_EVIDENCE_DIR --task S04-T04 --head 7eaafcc3a4210796b7204d145bd8c6e6bb4f8d75 --attempt $BRAIN_REVIEW_ATTEMPT",
+      "status": "passed",
+      "summary": "Removed the stale active managed review namespace for S04-T04 head 7eaafcc3a4210796b7204d145bd8c6e6bb4f8d75; cleanup receipt records operator-cleanup and no active ref remains."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test channel-policies",
+      "status": "passed",
+      "summary": "After refreshing the task head, Vitest passed test/channel-policies.test.ts: 13 tests, including durable organization ID authorization for stable agency keys and cross-tenant denial."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test channel-policies",
+      "status": "passed",
+      "summary": "Current handoff rerun passed test/channel-policies.test.ts: 13 tests."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web test connections",
+      "status": "passed",
+      "summary": "Current handoff rerun passed apps/web connections tests: 3 files, 13 tests."
+    }
+  ],
+  "reviewFindings": [],
+  "reviewHeadSha": "f07e866188df807d10f1b01843aaebfddf80a033"
+}

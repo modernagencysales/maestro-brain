@@ -1,0 +1,95 @@
+{
+  "lens": "contract",
+  "taskId": "S11-T02",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "2b484dad01173ead7ca99d710455998926b3666713d025943ef5824aed334ff6",
+  "baseSha": "defde4d68fbcdd7d39566d82986ec562010c9638",
+  "headSha": "131dcffcd9096893f3990ce52bc2cc2b039089d7",
+  "treeSha": "d8a0fef6bb575aff16151d573b3c56e441719631",
+  "reviewerRunId": "maestro/review/S11-T02/131dcffcd9096893f3990ce52bc2cc2b039089d7/a080c7f1-4da8-4474-92cc-6324dad59036-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3054-3139 defines S11-T02 acceptance: bearer-derived tenant/Brain, fail-closed auth-before-decode, internal API-key lookup, audited Settings CRUD, typed external errors, and focused verification.",
+        "packages/convex/confect/http.ts:273-335 performs policy lookup, bearer hash, internal authentication, pre-decode authorization, JSON decode, dispatch, reauthentication, and best-effort last-used in that order.",
+        "packages/convex/test/http-request-security.test.ts:231-264 proves missing bearer returns Unauthorized before request.json, runQuery, or dispatch; packages/convex/test/http-request-security.test.ts:293-358 proves authenticated ordering."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "finding",
+      "findingIds": ["CT-S11-T02-001"],
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.spec.ts:21-127 declares public create/list/revoke/rotate plus internal authenticate/markLastUsed specs and typed errors.",
+        "apps/web/src/routes/_workspace.settings.tsx:75-92 locally declares HeadlessApiKeyRefs and casts templateConfectRefs to include public.headless.apiKeys because checked-in generated refs do not expose those functions.",
+        "packages/convex/confect/_generated/spec.ts:28-40 contains no headless group and packages/convex/confect/_generated/refs.ts has no headless/apiKeys entry, so the typed web/API boundary is not backed by checked-in generated Confect refs at this head."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/apiKeys.ts:5-12 defines durable apiKeys Effect schema with by_key_hash, by_workspace_status, by_principal_status, by_brain_status, and by_expiry indexes required by the task.",
+        "packages/convex/confect/headless/auth.ts:57-81 defines ApiKeyRow with organization/workspace/brain/principal/generation/status/expiry fields; packages/convex/confect/headless/apiKeys.impl.ts:477-538 uses by_key_hash and lifecycle/generation checks for authentication.",
+        "packages/convex/confect/httpRequest.ts:169-198 moves caller tenant/Brain/user/ID selector fields into operation input for schema-boundary rejection instead of trusting them as authority."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3058-3061 classifies S11-T02 as template-gap TB-HEADLESS-01 repairing HTTP helper/executor plus API-key lookup and Settings CRUD.",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1431-1437 records requirements HLS-01/HLS-02/IAM-03, taskBlockHash 2b484dad01173ead7ca99d710455998926b3666713d025943ef5824aed334ff6, and tranche D2-domain-bodies.",
+        "lane-gate-report.json:24-30 records exact head 131dcffcd9096893f3990ce52bc2cc2b039089d7, matching planSha256/taskBlockHash, changedSourceLines 2422 under estimated 3000, and 10 source slices matching the sourceSliceLimit."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "rtk proxy git diff --name-only defde4d68fbcdd7d39566d82986ec562010c9638..HEAD lists only files under the S11-T02 manifest fileLocks.",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1400-1427 owns every changed app/web settings, packages/convex headless/http, and focused test file.",
+        "The manifest-locked but unchanged files packages/convex/confect/access/audit.ts, lifecycle.ts, tenancySchemas.ts, headless/errorEnvelope.ts, and headless/access/headless test files remain outside the delta; no extra ownership was taken."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "findingIds": ["CT-S11-T02-002"],
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3116-3119 requires uniform external Unauthorized, Forbidden, ValidationFailed, and RateLimited errors for headless requests.",
+        "packages/convex/confect/httpRequest.ts:23-29 defines TemplateHttpFailure as only Unauthorized, Forbidden, or ValidationFailed.",
+        "packages/convex/confect/manifest/executor.ts:35-40 defines HeadlessFailureResult as only NotFound, ValidationFailed, or Forbidden; rtk proxy rg found no RateLimited support in packages/convex/confect/http.ts, httpRequest.ts, or manifest/executor.ts."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "CT-S11-T02-001",
+      "severity": "major",
+      "summary": "New headless API-key functions are not represented in checked-in generated Confect refs.",
+      "details": "S11-T02 adds a public/internal Confect contract consumed by the Settings route and HTTP auth path, but the checked-in generated Confect spec/ref artifacts do not include headless/apiKeys. The web route compensates with a local HeadlessApiKeyRefs type assertion over templateConfectRefs, so the client-hooks -> generated refs -> Confect specs contract is asserted rather than enforced by generated contract evidence at this head.",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.spec.ts:21-127",
+        "apps/web/src/routes/_workspace.settings.tsx:75-92",
+        "packages/convex/confect/_generated/spec.ts:28-40",
+        "Scoped rtk proxy rg for apiKeys/headless over packages/convex/confect/_generated and apps/web/src/routes/_workspace.settings.tsx found apiKeys table docs but no generated headless/apiKeys function refs."
+      ]
+    },
+    {
+      "id": "CT-S11-T02-002",
+      "severity": "major",
+      "summary": "Uniform external failure contract omits RateLimited from the headless HTTP result types.",
+      "details": "The task packet explicitly requires uniform external Unauthorized | Forbidden | ValidationFailed | RateLimited, but the implemented route/helper/executor failure unions expose only Unauthorized, Forbidden, ValidationFailed, and NotFound. There is no RateLimited envelope path in the headless HTTP contract files inspected, so one declared external failure remains unreachable and untyped.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3116-3119",
+        "packages/convex/confect/httpRequest.ts:23-29",
+        "packages/convex/confect/manifest/executor.ts:35-40",
+        "Scoped rtk proxy rg for RateLimited over packages/convex/confect/http.ts, packages/convex/confect/httpRequest.ts, packages/convex/confect/manifest/executor.ts, and headless/errorEnvelope.ts returned no implementation support."
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

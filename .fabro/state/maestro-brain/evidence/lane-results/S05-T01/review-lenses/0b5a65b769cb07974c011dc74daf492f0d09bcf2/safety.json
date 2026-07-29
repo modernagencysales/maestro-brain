@@ -1,0 +1,134 @@
+{
+  "lens": "safety",
+  "taskId": "S05-T01",
+  "planSha256": "b25dfe4b3139d61e98976f450d6dfbdb30629201ab2015f7846a04ca02435a57",
+  "taskBlockHash": "8c814c81e34129532e8467e567d99d48dfb60017ceda5ab0934454da2d348044",
+  "baseSha": "73609583b9ca2704ad28f3844239f00764ac7230",
+  "headSha": "0b5a65b769cb07974c011dc74daf492f0d09bcf2",
+  "treeSha": "5e5dad2c4c78ca4db3c707edf1e2be6f70d1d9ab",
+  "reviewerRunId": "maestro/review/S05-T01/0b5a65b769cb07974c011dc74daf492f0d09bcf2/a9541d3e-fb42-41ca-ab35-54b3cc65cc7a-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:177-213 derives source/observation keys with organizationKey, connectionKey, connectionGeneration, and channelKey",
+        "packages/convex/confect/sources/sourceSchemas.ts:245-258 validates verified binding organization/connection/generation/channel before accepting capture",
+        "packages/convex/test/source-ledger-schema.test.ts:200-257 proves source identity and receipt dedupe are scoped across orgs and connection generations"
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:237-258 requires a VerifiedSlackChannelBinding and rejects mismatched team/app/bot/channel as ChannelAccessLost",
+        "packages/convex/test/source-ledger-schema.test.ts:446-463 covers missing, cross-tenant, and wrong-channel bindings"
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:15-20 defines lifecycle states active/deleted_tombstone/redacted/purged with generation and purgeAfter",
+        "packages/convex/confect/sources/sourceSchemas.ts:302-359 writes lifecycle envelopes and tombstone flag on source artifacts/revisions",
+        "packages/convex/confect/tables/sourceArtifacts.ts:16-20 and packages/convex/confect/tables/sourceRevisions.ts:9-13 add lifecycle purge indexes"
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "finding",
+      "findingIds": [
+        "SAFETY-S05-T01-004"
+      ],
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:72-77 and 340-356 persist authorSnapshot, normalizedText, blocksJson, and permalink as immutable revision metadata",
+        "packages/convex/test/source-ledger-schema.test.ts:339-386 covers duplicate replay drift for revision nonce/text/thread/effect but not author snapshot or permalink"
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:287-300 stages validation against a copied seenTransportDeliveries set before row construction",
+        "packages/convex/test/source-ledger-schema.test.ts:493-520 proves buildSourceLedgerRows does not mutate caller state when staging succeeds or later validation fails",
+        "packages/convex/test/source-ledger-schema.test.ts:465-491 proves Convex transaction rollback leaves no partial source ledger rows after a later write failure"
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "finding",
+      "findingIds": [
+        "SAFETY-S05-T01-003",
+        "SAFETY-S05-T01-005"
+      ],
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:267-275 stores duplicate validation as deliveryKey plus observationKey/sourceRevisionKey/sourceUnitKey/assemblyJobKey only",
+        "packages/convex/confect/sources/sourceSchemas.ts:361-369 builds the returned processing job with the current input routing.policyEpoch even for a duplicate replay accepted by assertValidSourceLedgerCapture",
+        "packages/convex/test/source-ledger-schema.test.ts:339-386 lacks explicit DuplicateKeyConflict cases for policyEpoch, author snapshot, and permalink drift",
+        "Focused replay proof is incomplete because the declared command names nonexistent test/brain-revisions.test.ts, so proof must be repaired to name real tests with nonzero coverage."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "finding",
+      "findingIds": [
+        "SAFETY-S05-T01-003",
+        "SAFETY-S05-T01-004"
+      ],
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1681-1685 requires content rows to carry author snapshot, timestamps, permalink, provider revision/order metadata, canonical hash, tombstone flag, and job rows to pin policy epoch",
+        "packages/convex/confect/sources/sourceSchemas.ts:193-204 sourceRevisionKey fences text/blocks/tombstone/providerOrder/sourceTimestamp/revisionNonce but omits author snapshot and permalink",
+        "packages/convex/confect/sources/sourceSchemas.ts:267-275 duplicate replay tuple omits policyEpoch and immutable revision metadata outside sourceRevisionKey"
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:112-155 models verified Slack envelope and normalized observation data without importing provider SDKs or secrets",
+        "packages/convex/confect/tables/providerEventReceipts.ts:1-18 and related source ledger tables declare Confect table schemas only",
+        "packages/convex/test/source-ledger-schema.test.ts:50-91 uses synthetic Slack IDs/permalink fixtures and no provider credentials"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "SAFETY-S05-T01-003",
+      "severity": "high",
+      "summary": "Duplicate replay fingerprint omits pinned policy epoch",
+      "details": "Duplicate replay validation records deliveryKey plus observationKey/sourceRevisionKey/sourceUnitKey/assemblyJobKey. The accepted duplicate path then allows buildSourceLedgerRows to construct a processing job with the replay input policyEpoch. A same-delivery replay with the same revision and assembly job but a changed policyEpoch can therefore return outcome duplicate while changing the pinned policy epoch required by the task contract.",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:267-275",
+        "packages/convex/confect/sources/sourceSchemas.ts:361-369",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1681-1685",
+        "review input immutable delta reproduction: same delivery/revision/assembly accepted duplicate and returned policyEpoch 2"
+      ]
+    },
+    {
+      "id": "SAFETY-S05-T01-004",
+      "severity": "high",
+      "summary": "Duplicate replay fingerprint omits immutable revision metadata",
+      "details": "The task requires content-bearing rows to preserve exact immutable revision metadata including author snapshot and permalink. The duplicate replay fence only compares keys derived from provider object, revision nonce, text/blocks/tombstone/order/timestamp, thread, and effect. It does not bind author snapshot or permalink, so a same-delivery replay can be accepted as duplicate while buildSourceLedgerRows returns altered revision rows.",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:72-77",
+        "packages/convex/confect/sources/sourceSchemas.ts:193-204",
+        "packages/convex/confect/sources/sourceSchemas.ts:267-275",
+        "packages/convex/confect/sources/sourceSchemas.ts:340-356",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1681-1685",
+        "review input immutable delta reproduction: changed author/permalink accepted duplicate and returned altered author B and permalink p2"
+      ]
+    },
+    {
+      "id": "SAFETY-S05-T01-005",
+      "severity": "medium",
+      "summary": "Focused proof names a nonexistent test target",
+      "details": "The proof packet focused command includes test/brain-revisions.test.ts, but scoped file discovery under packages/convex/test shows no such file; the existing revision-related test is brain-editor-revision-fence.test.ts. Because the missing target was silently skipped, focused proof must be updated to name real tests and demonstrate nonzero coverage.",
+      "evidence": [
+        "ci-proof-packet.json focusedCommands includes rtk host-test-slot --class focused pnpm --dir packages/convex exec vitest run test/migration-registry.test.ts test/migrations.test.ts test/brain-page-schema.test.ts test/brain-revisions.test.ts test/source-ledger-schema.test.ts",
+        "scoped file discovery: packages/convex/test contains packages/convex/test/brain-editor-revision-fence.test.ts and no brain-revisions.test.ts",
+        "review input immutable delta review requires replacing/removing nonexistent brain-revisions.test.ts focused target"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

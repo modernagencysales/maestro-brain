@@ -1,0 +1,77 @@
+{
+  "lens": "contract",
+  "taskId": "S03-T03",
+  "planSha256": "e5ad32c375d4fd307b3d5bccd47ea6cf4e9b7580f23bb506c893fd94019ca7c5",
+  "taskBlockHash": "731df4dab1d4fe34d6a51b801388996973ae3d13fa88bc0cef8e2b8b1be9bbe5",
+  "baseSha": "aa979378a853ca705f423846a79abe8030f0619b",
+  "headSha": "7660592c363cb2d9b9b69ed31d316c99d6feb40f",
+  "treeSha": "76f722191582c06cf6aa8aba00b6ce040161666b",
+  "reviewerRunId": "maestro/review/S03-T03/7660592c363cb2d9b9b69ed31d316c99d6feb40f/30011ebf-584e-4ab3-9416-8679e30d8152-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1267 requires the public snapshot commit to accept the stable document ID, live content/version, and selected revision fence.",
+        "packages/convex/confect/brain/pages.spec.ts:109-115 defines RecordSnapshotArgs with brainKey/pageKey/expectedCurrentRevisionKey/snapshot/version, but no stable documentId field."
+      ],
+      "findingIds": ["CONTRACT-S03-T03-001"]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/brain/pages.spec.ts:109-115 exports RecordSnapshotArgs without the stable document ID required by the task contract.",
+        "apps/web/src/features/brain/brain-workspace.tsx:58-65 builds the public save args from brainKey/pageKey instead of passing the stable editor documentId."
+      ],
+      "findingIds": ["CONTRACT-S03-T03-001"]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.impl.ts:608-670 records snapshots against the current brainPages row, advances currentRevisionKey, and inserts a pageRevisions row without changing durable table schemas.",
+        "packages/convex/test/brain-pages-crud.test.ts:578-772 asserts snapshot persistence, no audit insertion for snapshots, stale/foreign denials, and excess tenant arg rejection."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1258-1263 says the workspace should mount the S02 stable editor target and publish through a public Confect page mutation carrying the selected revision fence without resolving the fence from mutable server state.",
+        "packages/convex/confect/brain/pages.spec.ts:109-115 exposes the public mutation as brainKey/pageKey plus fence rather than the stable editor document target named by the plan."
+      ],
+      "findingIds": ["CONTRACT-S03-T03-001"]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:453-475 lists the task-owned files for S03-T03, and the proof packet changedFiles list contains only those task-owned paths.",
+        "Pre-review lane gate output for S03-T03 at head 7660592c363cb2d9b9b69ed31d316c99d6feb40f passed check:route-tree, check:layer-boundaries, and check:confect-v9; generated Confect/Convex output remains integration-owned."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/brain/pages.spec.ts:23-36 declares Unauthorized, Forbidden, BrainNotFound, PageNotFound, LifecycleRevoked, ValidationFailed, PageTreeConflict, and StaleRevision for page write operations.",
+        "packages/convex/test/brain-pages-crud.test.ts:578-772 proves recordSnapshot success, StaleRevision for stale fences, PageNotFound for cross-Brain page keys, ValidationFailed/excess arg rejection, and no mutation on denials; packages/convex/test/brain-pages-crud.test.ts:775-856 proves viewer write Forbidden while preserving state."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "CONTRACT-S03-T03-001",
+      "severity": "major",
+      "summary": "Public snapshot mutation does not accept the required stable editor document ID",
+      "details": "The S03-T03 task contract explicitly requires the public snapshot commit API to accept the stable document ID together with live content/version and the selected revision fence. The implemented public Confect contract instead takes brainKey and pageKey. The stable documentId exists only at the web/editor-sync seam and is translated before the public mutation, so callers can still invoke recordSnapshot without the stable document target the task was intended to make part of the typed contract.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1267-1270",
+        "packages/convex/confect/brain/pages.spec.ts:109-115",
+        "apps/web/src/features/brain/brain-workspace.tsx:58-65"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

@@ -1,0 +1,82 @@
+{
+  "attempt": 1,
+  "baseSha": "4373eda7c01358ae987afe5fbcbd6aac16663f4f",
+  "branch": "fabro/brain-wave-000004",
+  "integrationId": "wave-000004",
+  "reservationToken": "8226fb37-a9c6-47e2-940e-5760efa60f40",
+  "schemaVersion": "maestro-brain-integration-wave-run/v2",
+  "selection": {
+    "baseSha": "4373eda7c01358ae987afe5fbcbd6aac16663f4f",
+    "deferredTaskIds": [],
+    "integrationId": "wave-000004",
+    "planSha256": "5d21d781e20fcb6e463e8d9901395a42bba375457f79845e00cc9f7e07364c21",
+    "schemaVersion": "maestro-brain-integration-wave-selection/v2",
+    "selectedTasks": [
+      {
+        "changedFiles": [
+          "apps/web/src/adapters/confect-state.test.ts",
+          "apps/web/src/adapters/confect-state.ts",
+          "apps/web/src/features/settings/member-management-adapter.test.ts",
+          "apps/web/src/features/settings/member-management-adapter.ts",
+          "apps/web/src/features/settings/member-management.test.tsx",
+          "apps/web/src/features/settings/member-management.tsx",
+          "apps/web/src/features/settings/settings-surface.test.ts",
+          "apps/web/src/features/settings/settings-surface.ts",
+          "apps/web/src/routes/_workspace.settings.tsx",
+          "packages/convex/confect/access/audit.ts",
+          "packages/convex/confect/access/auth.ts",
+          "packages/convex/confect/access/handlerContext.ts",
+          "packages/convex/confect/access/invitations.impl.ts",
+          "packages/convex/confect/access/invitations.spec.ts",
+          "packages/convex/confect/access/members.impl.ts",
+          "packages/convex/confect/access/members.spec.ts",
+          "packages/convex/confect/access/tenancySchemas.ts",
+          "packages/convex/test/brain-role-matrix.test.ts"
+        ],
+        "codeStartAfter": [
+          "S01-T02"
+        ],
+        "fileLocks": [
+          "apps/web/src/adapters/confect-state.test.ts",
+          "apps/web/src/adapters/confect-state.ts",
+          "apps/web/src/features/settings/member-management-adapter.test.ts",
+          "apps/web/src/features/settings/member-management-adapter.ts",
+          "apps/web/src/features/settings/member-management.test.tsx",
+          "apps/web/src/features/settings/member-management.tsx",
+          "apps/web/src/features/settings/settings-surface.test.ts",
+          "apps/web/src/features/settings/settings-surface.ts",
+          "apps/web/src/routes/_workspace.settings.tsx",
+          "packages/convex/confect/access/audit.ts",
+          "packages/convex/confect/access/auth.ts",
+          "packages/convex/confect/access/handlerContext.ts",
+          "packages/convex/confect/access/invitations.impl.ts",
+          "packages/convex/confect/access/invitations.spec.ts",
+          "packages/convex/confect/access/members.impl.ts",
+          "packages/convex/confect/access/members.spec.ts",
+          "packages/convex/confect/access/tenancySchemas.ts",
+          "packages/convex/test/brain-role-matrix.test.ts"
+        ],
+        "gateHeadSha": "abd95c0308986037b9e7b4e0bcea4572bbfb3b68",
+        "gateSha256": "f5fd6a43dd5639b7dedb56fe6b0b330afe0225bd3d0a81f6a23dd2a72c24fc73",
+        "headSha": "abd95c0308986037b9e7b4e0bcea4572bbfb3b68",
+        "laneResultSha256": "2298cd18f45495e2fe55af75a926a301e7a054dd1972f93ee571058e0526972a",
+        "planSha256": "5d21d781e20fcb6e463e8d9901395a42bba375457f79845e00cc9f7e07364c21",
+        "proofHeadSha": "abd95c0308986037b9e7b4e0bcea4572bbfb3b68",
+        "proofSha256": "c91bf76e4f97d600ebef17b7d0d65ea297f3e59b2988d167e60b3e2aca0dae22",
+        "taskBlockHash": "a377159e6ba55f3508fbc27b475a62f7c40dd6dc13116f9dfdb0fb6fb73de3a3",
+        "taskId": "S01-T04",
+        "tranche": "D2-domain-bodies"
+      }
+    ],
+    "selectionSha256": "9b5601ff5434f4230fbf8e0f3b19414682e1383c89523121dd3db7c0b1ba6f92"
+  },
+  "selectionPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000004-selection.json",
+  "selectionSha256": "9b5601ff5434f4230fbf8e0f3b19414682e1383c89523121dd3db7c0b1ba6f92",
+  "status": "launched",
+  "workdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000004",
+  "activeMode": "integrate",
+  "runId": "01KXM5R03CXT4JE7CSN8R742G2",
+  "runIds": [
+    "01KXM5R03CXT4JE7CSN8R742G2"
+  ]
+}

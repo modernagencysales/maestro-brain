@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "maestro-brain-lane-result/v1",
+  "taskId": "S04-T01",
+  "headSha": "633e3e337213c3ed4565195493ba0c05b68016bc",
+  "treeSha": "63409905502b8bbec9369dd7f4701df4ec4a87ea",
+  "tranche": "C1-contract-spine",
+  "status": "integrated",
+  "reproof": {
+    "requestPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/reproofs/S04-T01/fda4652a6ec6cbf81f4deb10c6c607ed72837451fb07a6b3f18305a9f96f2182/4001c961201dd9a1cbe7830aca4873457f7713b9/request.json",
+    "requestSha256": "e06784af24780036213ea8a4c82e92b693355c9197022246e17b323396af82fb",
+    "priorIntegrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+    "priorIntegrationId": "wave-000012"
+  },
+  "accepted": false,
+  "acceptanceBlocker": "No original acceptanceAfter evidence proving accepted:true was present in the selected lane evidence.",
+  "preIntegrationLaneResultSha256": "3a84a8b52f3491e4085134fb92a23b28176af96ebeabdd94b8c1e1726cd055e8",
+  "integrationId": "wave-000033",
+  "integrationHeadSha": "5d98c8521844b6205c8b01d011a9faffa7cec1af"
+}

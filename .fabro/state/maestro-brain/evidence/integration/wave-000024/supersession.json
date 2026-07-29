@@ -1,0 +1,29 @@
+{
+  "baseSha": "eed91bbb1c56b5b1436b3caf7824dcd7dcec55d7",
+  "controlHeadSha": "eed91bbb1c56b5b1436b3caf7824dcd7dcec55d7",
+  "createdAt": "2026-07-18T21:28:53.553Z",
+  "evidence": [
+    "Fabro run 01KXVHARFSJDDTNVP83YZH9CFR failed: generated output is not byte-stable after replay for slackConnections and migrations wrappers",
+    "Wave 24 proved the eed91bb rollback restored integration-wave-000024 exactly to base eed91bbb1c56b5b1436b3caf7824dcd7dcec55d7 with a clean worktree"
+  ],
+  "integrationId": "wave-000024",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "reason": "generated wrappers require bounded fixed-point convergence before byte-stability proof",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXVHARFSJDDTNVP83YZH9CFR",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "3fe0fb4a5424288a6bd5141d032f02ae7f0bd303e9f0f59d43cb82aa852b12ee",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v2",
+  "selectedTaskIds": [
+    "S03-T03",
+    "S11-T02"
+  ],
+  "selectionFileSha256": "aa34dea58318a309e23dc5294eb6e674e499fcf13900f9c4d456cf578119f391",
+  "selectionPayloadSha256": "f10607b4ad548e60752b2eb2f99e479c59159447aa40a49b1167c509ab7dff3a",
+  "status": "superseded",
+  "receiptSha256": "73d69c275669f0abcc4dfce1debd5876a4236bca468be12a90de4d5c6ccaf1bd"
+}

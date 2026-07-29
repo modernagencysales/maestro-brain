@@ -1,0 +1,91 @@
+{
+  "lens": "quality",
+  "taskId": "S06-T01",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "f2f6cb348272c704636b7e21bf8e8cbd66b812835d781b52e01bdcfa5b0fa97c",
+  "baseSha": "64b5d90e9dce6146ac6cd49696658cd9a40a254c",
+  "headSha": "02c3ee79adba3239a55cb0928853d2e4efa248d3",
+  "treeSha": "7764d28ece57572d207af09a2287dda695f461ef",
+  "reviewerRunId": "maestro/review/S06-T01/02c3ee79adba3239a55cb0928853d2e4efa248d3/8a317a77-1f03-410e-99d0-e4ffee16a880-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1857-1860",
+        "packages/convex/test/source-workpool.test.ts:140-393",
+        "packages/convex/test/source-workpool.test.ts:418-860",
+        "packages/convex/test/source-workpool.test.ts:580-620",
+        "packages/convex/test/source-workpool.test.ts:726-753",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S06-T01/ci-proof-packet.json:26-71",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S06-T01/lane-gate-report.json:4-16"
+      ],
+      "rationale": "Focused proof covers the required crash/replay windows, lease expiry/reclaim, stale worker completion, duplicate same-idempotency/different-effect enqueue, retry/permanent/max-attempt states, cancellation/revocation/supersession, typed errors, internal controls, and row schema. The proof packet records a failure-before-repair for the prior DuplicateEffect false-green and passed focused gates for the exact head."
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "AGENTS.md:22-39",
+        "packages/convex/confect/jobs/workpool.spec.ts:4-45",
+        "packages/convex/confect/jobs/workpool.impl.ts:1-73",
+        "packages/convex/confect/jobs/workpool.ts:159-168",
+        "packages/convex/confect/jobs/workpool.ts:314-389"
+      ],
+      "rationale": "The change stays inside the Confect/Convex jobs boundary for this fixture-to-real swap, registers public/internal functions through the spec/impl tree, and keeps source job status/control as internal functions rather than adding API/MCP tools or UI bypasses."
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/jobState.ts:113-161",
+        "packages/convex/confect/jobs/jobState.ts:187-301",
+        "packages/convex/confect/jobs/jobState.ts:303-416",
+        "packages/convex/confect/jobs/leases.ts:13-58",
+        "packages/convex/confect/jobs/workpool.ts:170-232",
+        "packages/convex/confect/jobs/workpool.ts:408-536"
+      ],
+      "rationale": "State transitions are factored into reducer-style helpers with typed Effect Schema errors, leasing is isolated in a small module, and Convex handlers primarily perform lookup/CAS/persistence orchestration without duplicating reducer logic."
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1863-1864",
+        "packages/convex/confect/jobs/jobState.ts:72-83",
+        "packages/convex/confect/jobs/jobState.ts:179-186",
+        "packages/convex/confect/jobs/jobState.ts:254-271",
+        "packages/convex/confect/jobs/workpool.ts:131-131",
+        "packages/convex/test/source-workpool.test.ts:374-393",
+        "packages/convex/test/source-workpool.test.ts:447-483"
+      ],
+      "rationale": "The implementation persists attempt receipts and external response hashes while hashing lease tokens in receipts. Tests assert encoded public-safe error tags do not expose raw lease tokens, providing useful redacted diagnostics without logging provider payloads or secrets."
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:755-779",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S06-T01/lane-gate-report.json:23-47",
+        "packages/convex/confect/jobs/jobState.ts:1-426",
+        "packages/convex/confect/jobs/leases.ts:1-58",
+        "packages/convex/confect/jobs/workpool.ts:1-536"
+      ],
+      "rationale": "The task exceeded the original estimate, but lane-gate source slicing kept each of the four source slices at or below the 300-line sourceSliceBudget and passed with estimateDrift explicitly recorded. The larger total change is test-heavy and confined to the manifest-owned files for the approved fixture-to-real task."
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "pass",
+      "evidence": [
+        "AGENTS.md:28-38",
+        "packages/convex/confect/jobs/workpool.spec.ts:1-45",
+        "packages/convex/confect/jobs/workpool.impl.ts:1-73",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S06-T01/ci-proof-packet.json:43-46",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S06-T01/ci-proof-packet.json:63-66"
+      ],
+      "rationale": "No generated Confect or Convex files are part of the S06-T01 changedFiles proof, spec imports runtime functions only as type in the spec and runtime values in impl as required, and the exact-head proof packet records passing transient Confect codegen evidence after the history rewrite."
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

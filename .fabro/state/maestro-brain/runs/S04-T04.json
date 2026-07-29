@@ -1,0 +1,18 @@
+{
+  "branch": "fabro/reproof-s04-t04-969bd3c8",
+  "controlHeadSha": "402fbc9b67f42cd787628079139cc32802f6c6ec",
+  "mode": "contract-reproof",
+  "ownerFindingsSha256": "25038431c86e7376c5d3410be27eecca20a4144910caa13068129ecf4004b707",
+  "planSha256": "adce0583eeea119d1a949099d3f5bbc98002041065d7ea2cb7a39e4f70975c2c",
+  "requestPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/reproofs/S04-T04/43aa1624cd7754ad5635e47f0e43bc7333c8b04b639a33b7670a7e032707dea1/969bd3c821f5db26ea586bbec82a5014d6d68909/request.json",
+  "requestSha256": "b108e00922cbff5785f6d9c7ed3295c5685fd3a063b8cc3b9aa963ad42aad421",
+  "resumeStrategy": "in-lane-cherry-pick",
+  "sourceHeadSha": "7c6499da177e4c6bc98ea8e095ab5b5271df6659",
+  "status": "launched",
+  "taskBaseSha": "f6a9988a0a5efc40201b005fa2cdc1021b0d17f2",
+  "taskBlockHash": "43aa1624cd7754ad5635e47f0e43bc7333c8b04b639a33b7670a7e032707dea1",
+  "taskId": "S04-T04",
+  "workdir": "/Users/headless/.maestro-brain-fabro-workdirs/reproof-s04-t04-969bd3c8",
+  "phase": "launched",
+  "runId": "01KY6H4EDRW1M3CA8Z6T4DR3BP"
+}

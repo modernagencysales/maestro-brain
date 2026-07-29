@@ -1,0 +1,31 @@
+{
+  "baseSha": "2d530c801bd0c71dcd6f09e96b27cc8d9b2c1d5f",
+  "controlHeadSha": "2d530c801bd0c71dcd6f09e96b27cc8d9b2c1d5f",
+  "createdAt": "2026-07-20T05:09:20.908Z",
+  "evidence": [
+    "broad-output-sha256:2dcae3256464fcf8e5e27fa38eb5848b3e94d1ef3e1c36f3e1e81589e7ea1cbc",
+    "candidate-head:e7497245df657b37ef5950a0a5c4cd7972ef61d2",
+    "fabro-run:01KXYXZ1S2G549VYTR735GXKE0",
+    "finding:wave-000036-effect-diagnostics-slack-directory-rework"
+  ],
+  "integrationId": "wave-000036",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "reason": "authoritative broad verify and repair review found one lane-owned Effect diagnostics violation in S04-T02; candidate retained clean for evidence and must return to its owner lane",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXYXZ1S2G549VYTR735GXKE0",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "a973bbf829ecdc3d14b63276917dda2954b7891c992d10753f622fc6b5b56bcc",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v2",
+  "selectedTaskIds": [
+    "S03-T03",
+    "S04-T02"
+  ],
+  "selectionFileSha256": "45777684445ac3934fc9d22697e5c223570c7a705cf2a048f1c9fca1b8428b6a",
+  "selectionPayloadSha256": "2d3186b99e44da26b4105c4d2e5675639a1d321087b170ae20fb91817cb42328",
+  "status": "superseded",
+  "receiptSha256": "1213fb6d73351d78ed5295b2f8c41dfae0a2d2a25ce09653e25616299cebf77a"
+}

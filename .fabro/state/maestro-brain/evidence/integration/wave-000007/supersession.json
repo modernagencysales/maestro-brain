@@ -1,0 +1,31 @@
+{
+  "baseSha": "0668f7dfd13be760fbd7b5d465a6a76b454d12ea",
+  "controlHeadSha": "561d95448cc01bcc5165af7921fc26b0aa652c9c",
+  "createdAt": "2026-07-16T06:15:18.456Z",
+  "evidence": [
+    "broad-gate:6d372ef69e4451e3abd7822498f74025e2115988",
+    "fabro-run:01KXMQESSRD9SFG7DZ3Q0KKDAB"
+  ],
+  "integrationId": "wave-000007",
+  "planSha256": "868331c0af5ab06b495ca802724f4a3578c854e07b8342c9de4b93107a264499",
+  "reason": "broad gate found cross-lane S02-T02 capability-count assertion drift; fresh lane proof required",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXMQESSRD9SFG7DZ3Q0KKDAB",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "712cb859cc984494538e52ccb22060858aecb755b711520fd7e9d40363216742",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v1",
+  "selectedTaskIds": [
+    "S01-T04",
+    "S02-T02",
+    "S03-T02",
+    "S04-T01"
+  ],
+  "selectionFileSha256": "ce967784d0ff02eb0e59a6d3c3fa618dab4e808654e647efffc67480d7f90a50",
+  "selectionSha256": "c9764ce1fd940c60fd820b83a49065cc81ae4f16b727ba5d03a55a8afc8ac402",
+  "status": "superseded",
+  "receiptSha256": "3a2770e6742890d8aaaf8646df2708632ce6dbe7dda5903b2dfea2cff7fcb1c4"
+}

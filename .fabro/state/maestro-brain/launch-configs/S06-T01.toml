@@ -1,0 +1,21 @@
+_version = 1
+
+[workflow]
+graph = "/Users/headless/maestro-brain-plan/.fabro/workflows/brain-build-task/workflow.fabro"
+
+[environments.local]
+provider = "local"
+
+[environments.local.env]
+BRAIN_BASE_SHA = "64b5d90e9dce6146ac6cd49696658cd9a40a254c"
+BRAIN_EVIDENCE_DIR = "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence"
+BRAIN_HOST_TEST_MAX_LOAD_1M = "20"
+BRAIN_REPROOF_REQUEST = "none"
+BRAIN_RESUME_COMMITS = "none"
+BRAIN_RESUME_MODE = "none"
+BRAIN_RESUME_SOURCE_HEAD = "none"
+BRAIN_RESUME_TASK_BASE = "none"
+BRAIN_REVIEW_ATTEMPT = "ccddb1eb-b971-4c15-88c6-0e4d3d9a8ac9"
+BRAIN_START_SHA = "64b5d90e9dce6146ac6cd49696658cd9a40a254c"
+BRAIN_TASK_ID = "S06-T01"
+BRAIN_WORKDIR = "/Users/headless/.maestro-brain-fabro-workdirs/s06-t01"

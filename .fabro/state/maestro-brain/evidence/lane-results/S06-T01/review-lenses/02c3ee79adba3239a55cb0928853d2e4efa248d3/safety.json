@@ -1,0 +1,107 @@
+{
+  "lens": "safety",
+  "taskId": "S06-T01",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "f2f6cb348272c704636b7e21bf8e8cbd66b812835d781b52e01bdcfa5b0fa97c",
+  "baseSha": "64b5d90e9dce6146ac6cd49696658cd9a40a254c",
+  "headSha": "02c3ee79adba3239a55cb0928853d2e4efa248d3",
+  "treeSha": "7764d28ece57572d207af09a2287dda695f461ef",
+  "reviewerRunId": "maestro/review/S06-T01/02c3ee79adba3239a55cb0928853d2e4efa248d3/8a317a77-1f03-410e-99d0-e4ffee16a880-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1861-1865",
+        "packages/convex/confect/jobs/workpool.ts:127-128",
+        "packages/convex/confect/jobs/workpool.ts:257-265",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:90-104"
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1864-1865",
+        "packages/convex/confect/jobs/workpool.spec.ts:4-45",
+        "packages/convex/confect/jobs/workpool.ts:151-157",
+        "packages/convex/confect/jobs/workpool.ts:305-312",
+        "packages/convex/test/source-workpool.test.ts:395-416"
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1866-1869",
+        "packages/convex/confect/jobs/jobState.ts:60-69",
+        "packages/convex/confect/jobs/jobState.ts:303-378",
+        "packages/convex/test/source-workpool.test.ts:285-372",
+        "packages/convex/test/source-workpool.test.ts:622-672"
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/jobState.ts:72-83",
+        "packages/convex/confect/jobs/jobState.ts:179-186",
+        "packages/convex/confect/jobs/workpool.ts:286-303",
+        "packages/convex/confect/jobs/workpool.ts:332-343",
+        "packages/convex/test/source-workpool.test.ts:374-393",
+        "packages/convex/test/source-workpool.test.ts:418-445"
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1857-1864",
+        "packages/convex/confect/jobs/workpool.ts:176-231",
+        "packages/convex/confect/jobs/workpool.ts:267-284",
+        "packages/convex/confect/jobs/workpool.ts:408-459",
+        "packages/convex/test/source-workpool.test.ts:520-578",
+        "packages/convex/test/source-workpool.test.ts:781-820"
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1842-1843",
+        "packages/convex/confect/jobs/workpool.ts:176-181",
+        "packages/convex/confect/jobs/workpool.ts:414-419",
+        "packages/convex/confect/jobs/jobState.ts:273-301",
+        "packages/convex/test/source-workpool.test.ts:726-779",
+        "packages/convex/test/source-workpool.test.ts:822-860"
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1861-1864",
+        "packages/convex/confect/jobs/workpool.ts:62-85",
+        "packages/convex/confect/jobs/workpool.ts:416-417",
+        "packages/convex/confect/jobs/workpool.ts:487-521",
+        "packages/convex/confect/jobs/workpool.ts:524-536",
+        "packages/convex/confect/jobs/jobState.ts:399-416",
+        "packages/convex/test/source-workpool.test.ts:268-283",
+        "packages/convex/test/source-workpool.test.ts:580-620"
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "AGENTS.md:127-134",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1844-1845",
+        "packages/convex/confect/jobs/workpool.ts:1-6",
+        "packages/convex/confect/jobs/workpool.ts:33-41",
+        "packages/convex/confect/jobs/workpool.ts:392-396"
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

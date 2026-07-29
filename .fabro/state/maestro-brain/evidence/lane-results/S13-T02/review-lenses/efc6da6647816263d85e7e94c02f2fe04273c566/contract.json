@@ -1,0 +1,76 @@
+{
+  "lens": "contract",
+  "taskId": "S13-T02",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "taskBlockHash": "2b76ab1991d07a9978da3c321cbcc4f73ffc5ae9b4e3eb3512e2ff3dd4251072",
+  "baseSha": "f66236e12f93bc254cc2350800a5b2a69d0caff5",
+  "headSha": "efc6da6647816263d85e7e94c02f2fe04273c566",
+  "treeSha": "c5d3266dcbdf1a7689061de23e0b6c78cc8f586b",
+  "reviewerRunId": "maestro/review/S13-T02/efc6da6647816263d85e7e94c02f2fe04273c566/b80b48dc-c033-46f3-9446-525805433680-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3499-3547",
+        "tooling/evals/src/brain-capacity-fixture.ts:21-31",
+        "tooling/evals/src/brain-capacity-report.ts:37-88"
+      ],
+      "rationale": "The submitted fixture and synthetic passing run cover the declared 2-agency canary setup, 25 primary clients, 100 channels, 100k revisions, 20 events/sec for 60 seconds, 10 concurrent Ask/MCP requests, drain deadline, tenant-denial canaries, and above-envelope admission outcome required by the task packet."
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "tooling/evals/src/brain-capacity.ts:7-85",
+        "tooling/evals/src/brain-capacity.ts:112-224",
+        "packages/convex/test/brain-capacity.test.ts:27-35"
+      ],
+      "rationale": "The capacity harness exposes typed run, window, and receipt contracts with explicit metric fields and a shared evaluator imported by the Convex proof test; this task adds an eval harness rather than a public Confect API with typed expected errors."
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "tooling/evals/src/brain-capacity-fixture.ts:1-19",
+        "tooling/evals/src/brain-capacity.ts:60-85",
+        "tooling/evals/src/brain-capacity-report.ts:11-16"
+      ],
+      "rationale": "No durable Convex schema is introduced; the receipt schema pins fixture/config/code hashes, runner, seed, hardware, metrics, failures, and pass/fail as required for this synthetic capacity proof."
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3501-3505",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3532-3545",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S13-T02/lane-gate-report.json:4-15"
+      ],
+      "rationale": "The work matches the template-gap plan slice and the pre-review lane gate report records the declared focused commands for evals, Convex, coverage, typecheck, lint, and formatting against this head."
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1652-1676",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S13-T02/ci-proof-packet.json:8-16",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S13-T02/lane-gate-report.json:23-29"
+      ],
+      "rationale": "Changed files are within the S13-T02 manifest file locks, the taskBlockHash matches the manifest, and the source-slice report remains within the configured source slice budget and limit despite estimate drift."
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3517-3531",
+        "tooling/evals/src/brain-capacity.ts:115-195",
+        "tooling/evals/src/brain-capacity.test.ts:38-106",
+        "tooling/evals/src/brain-capacity.test.ts:134-194",
+        "packages/convex/test/brain-capacity.test.ts:60-76"
+      ],
+      "rationale": "The evaluator now validates channel identities per fairness window, exact provider-rate blocks, duplicate/unknown channel anomalies, consecutive-window misses, loss/overflow/leak, tenant-denial canaries, and above-envelope acceptance/queue visibility; tests exercise the declared failure-first cases including aggregate-looking unfair progress and consecutive misses."
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

@@ -1,0 +1,68 @@
+{
+  "lens": "contract",
+  "taskId": "S13-T03",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "taskBlockHash": "13c071bc2c78035c5563f494b38160a96c981ab2962984f056be4e18853e137e",
+  "baseSha": "f66236e12f93bc254cc2350800a5b2a69d0caff5",
+  "headSha": "4b89b7a17a0840c9aac866958bf51f54476b19a5",
+  "treeSha": "8cd93a47c09b350070987481aea5691416b77547",
+  "reviewerRunId": "maestro/review/S13-T03/4b89b7a17a0840c9aac866958bf51f54476b19a5/705416ba-2fce-4fc0-b56f-dec46114ee13-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "Task manifest entry docs/superpowers/execution/maestro-brain/task-manifest.json:1678-1706 identifies S13-T03 as template-gap Add Redacted Telemetry, Budgets, And Kill Switches with requirements AI-04, REL-03, SLK-07 and file locks for the modified operations files.",
+        "Task plan docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3549-3600 requires redacted telemetry, budgets, independent kill switches, typed errors, additive policy/metric fields, and completion receipts for metric dictionary, drills, canaries, budget enforcement, and redacted audit samples.",
+        "ci-proof-packet.json records S13-T03 headSha 4b89b7a17a0840c9aac866958bf51f54476b19a5 with focused commands for brain-operation-policy, brainMetrics, logging boundary, secret canaries, and access audit events, and lane-gate-report.json records pre-review for the same head."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts:13-29 declares Effect schemas for all operation subsystems and policy states enabled, paused, and disabled.",
+        "packages/convex/confect/ops/brainOperations.spec.ts:72-103 declares typed list and set args plus policy return/list return schemas including workspaceId, subsystem, state, ownerUserId, reason, generation, updatedAt, optional expiresAt, idempotencyKey, expectedGeneration, and optional budgetCheck.",
+        "packages/convex/confect/ops/brainOperations.spec.ts:109-125 exposes Confect listPolicies and setPolicyInternal; packages/convex/confect/ops/brainOperations.impl.ts:36-64 binds matching FunctionImpl entries."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "Existing durable policy table packages/convex/confect/tables/policies.ts:4-23 supports policyKey, kind, workspace scope, version, active/retired status, dataJson, activatedByUserId, activationReason, timestamps, and indexes by workspace/kind/status and policy/version.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:184-210 maps Brain operation policy to durable agent.config policy rows and parses them back by dataJson without adding a non-generic table.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:168-240 loads active, non-expired subsystem policies from the durable policies table with default enabled fallbacks, and packages/convex/confect/ops/brainOperations.impl.ts:242-266 retires prior active rows during updates."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "Full task diff from proof base f66236e12f93bc254cc2350800a5b2a69d0caff5 changes only the S13-T03 planned files: operations docs, brainOperationPolicy, brainOperations spec/impl/test, flags spec/impl, brainMetrics source/test/index, and logging-boundary tooling.",
+        "packages/observability/src/brainMetrics.ts:56-135 implements redaction of prompt/source/token/header-like fields and BudgetExceeded results for modelTokens, modelSpendCents, slackRate, storageBytes, queueDepth, and channelCount.",
+        "docs/product/maestro-brain-operations.md:8-80 supplies the required metric dictionary, budget list, kill-switch state machine, independent-control notes, and completion receipt references."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "Task manifest file locks docs/superpowers/execution/maestro-brain/task-manifest.json:1685-1696 include docs/product/maestro-brain-operations.md, packages/convex/confect/ops/brainOperationPolicy.ts, brainOperations.impl.ts, brainOperations.spec.ts, flags.impl.ts, flags.spec.ts, packages/convex/test/brain-operation-policy.test.ts, packages/observability/src/brainMetrics.test.ts, packages/observability/src/brainMetrics.ts, packages/observability/src/index.ts, and tooling/quality/check-logging-boundary.mts.",
+        "rtk proxy git diff --name-status f66236e12f93bc254cc2350800a5b2a69d0caff5..HEAD reports exactly those eleven task-owned paths and no generated Confect/Convex files.",
+        "Root AGENTS.md applies to the touched docs, packages/convex, packages/observability, and tooling paths; no deeper AGENTS.md exists under those touched paths."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts:31-70 declares OperatorForbidden, BudgetExceeded, SubsystemDisabled, RecoveryGenerationMismatch and includes them in the operation error union with existing workspace access errors.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:67-72 makes OperatorForbidden reachable for non-admin workspace roles; lines 88-103 make BudgetExceeded reachable for over-limit budget checks and excessive expiry windows; lines 104-106 make SubsystemDisabled reachable when trying to pause an already disabled subsystem; lines 107-123 delegates generation checks to typed domain errors.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:79-123 returns tagged OperatorForbidden or RecoveryGenerationMismatch values instead of plain JavaScript errors, and packages/convex/test/brain-operation-policy.test.ts:80-102 and 233-272 cover stale operators, stale recovery generations, and idempotency replay behavior."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

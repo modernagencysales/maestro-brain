@@ -1,0 +1,122 @@
+{
+  "lens": "safety",
+  "taskId": "S13-T03",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "taskBlockHash": "13c071bc2c78035c5563f494b38160a96c981ab2962984f056be4e18853e137e",
+  "baseSha": "f66236e12f93bc254cc2350800a5b2a69d0caff5",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.impl.ts:40-47 requires workspace access before listing policies for the requested workspace.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:67-84 requires workspace access before mutating and loads the current policy by input.workspaceId/subsystem.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:180-185 and packages/convex/confect/ops/brainOperations.impl.ts:195-197 query active policies by workspace and ignore records whose policyKey does not match the requested workspace prefix."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.impl.ts:67-72 rejects non-admin policy mutations after requireWorkspaceAccess returns the caller role.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:79-82 requires admin-or-higher operator roles for policy transitions.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:108-112 requires owner role to recover from disabled to any non-disabled state."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "finding",
+      "findingIds": [
+        "S13-T03-SAFETY-REVIEW-001"
+      ],
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3582-3592 requires kill-switch policy data with expiry and rollback/audit-ready lifecycle behavior.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:125-131 retires active rows before inserting an accepted new policy, and packages/convex/confect/ops/brainOperations.impl.ts:268-271 ignores expired rows when loading policy state.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:125-156 exposes evaluateOperationPolicy with now but no expiresAt input, so subsystem runtime checks using the helper cannot enforce policy expiry and expired disabled controls can remain semantically disabled outside list/load."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/observability/src/brainMetrics.ts:56-69 defines prompt/source/token/header-like fields as redacted metric fields.",
+        "packages/observability/src/brainMetrics.ts:99-111 recursively redacts those fields before metrics are created.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:205-228 builds audit metadata from subsystem/state/generation/expiry and excludes operator reason text; packages/convex/test/brain-operation-policy.test.ts:172-215 verifies a customer prompt canary in reason is not emitted in the audit sample."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "finding",
+      "findingIds": [
+        "S13-T03-SAFETY-REVIEW-002"
+      ],
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts:90 declares expectedGeneration optional for setPolicyInternal.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:107-121 forwards expectedGeneration only when provided, allowing blind policy writes that advance whichever generation was current at mutation execution time.",
+        "packages/convex/test/brain-operation-policy.test.ts:217-310 manually inserts and retires policy rows through DatabaseWriter/DatabaseReader instead of exercising concurrent or stale-generation calls through setPolicyInternal."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "finding",
+      "findingIds": [
+        "S13-T03-SAFETY-REVIEW-002"
+      ],
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts:76-91 now requires an idempotencyKey but still makes expectedGeneration optional.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:85-87 returns idempotently only when the current active policy has the same idempotencyKey.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:107-141 creates a new generation for a replayed prior idempotencyKey after another accepted update has become current, when expectedGeneration is omitted."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "finding",
+      "findingIds": [
+        "S13-T03-SAFETY-REVIEW-002"
+      ],
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3587-3589 names RecoveryGenerationMismatch as part of the typed state contract.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:98-106 only returns RecoveryGenerationMismatch when expectedGeneration is supplied.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:114-116 omits expectedGeneration from nextOperationPolicy when the request omits it, so stale operator writes can bypass revision fencing."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "packages/observability/src/brainMetrics.ts:1-135 is provider-neutral type and helper code with no live provider SDK imports.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:1-17 imports Confect, Effect, Convex services, access audit, roles, and specs only; no provider SDK or secret boundary is introduced.",
+        "tooling/quality/check-logging-boundary.mts:56-73 rejects product console logging and directs prompt/source/token/header/provider events through typed redacted observability or CLI seams."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "S13-T03-SAFETY-REVIEW-001",
+      "severity": "medium",
+      "summary": "Runtime policy evaluation does not enforce expiry semantics.",
+      "details": "S13-T03 requires kill-switch policy data with expiry and rollback/audit-ready lifecycle behavior. The durable loaders ignore expired rows, but the exported evaluateOperationPolicy helper accepts now without expiresAt and evaluates only generation and disabled state. Any subsystem using the helper directly can keep treating an expired disabled kill switch as disabled rather than falling back to the default enabled policy, so expiry semantics are not consistently enforced at the runtime policy boundary.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3582-3592",
+        "packages/convex/confect/ops/brainOperations.impl.ts:268-271",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:125-156"
+      ]
+    },
+    {
+      "id": "S13-T03-SAFETY-REVIEW-002",
+      "severity": "medium",
+      "summary": "Policy mutation fencing and replay safety remain optional/current-row only.",
+      "details": "The internal mutation now requires an idempotencyKey, but expectedGeneration remains optional and idempotency is checked only against the current active policy. A blind update can advance the current generation without proving the operator observed it, and replaying an older accepted idempotency key after a later update is active creates another generation and audit event instead of returning the original receipt or a generation mismatch. That weakens stale-generation fencing, concurrent operator safety, and replay recovery for kill-switch changes.",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts:76-91",
+        "packages/convex/confect/ops/brainOperations.impl.ts:85-87",
+        "packages/convex/confect/ops/brainOperations.impl.ts:107-141",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:98-106"
+      ]
+    }
+  ],
+  "verdict": "rework",
+  "headSha": "55df7da1edac0e4d1b407c6eb88ecb67ceaf58df",
+  "treeSha": "87973da0ada848335180d76603a345cdda9863ae",
+  "reviewerRunId": "maestro/review/S13-T03/55df7da1edac0e4d1b407c6eb88ecb67ceaf58df/ce9e945e-efd6-4175-ab1e-a44bf71c472f-v1/safety"
+}

@@ -1,0 +1,91 @@
+{
+  "lens": "contract",
+  "taskId": "S05-T01",
+  "planSha256": "a3d4af4aa5e526438aa5e06c8716a6a40500bc235d9933f8f8649e133263821b",
+  "taskBlockHash": "d5212dbc84a10771993658fc840e29bc81671c08e7962dbf96fd34de2dda9ce5",
+  "baseSha": "022a932c1e809c2093a10f5dea5d248b6c706f5f",
+  "headSha": "ecb869f5d8f47074d6f01db0eb3450b765b25f6e",
+  "treeSha": "060e414066cad7f80cfda834405c5560131f4e31",
+  "reviewerRunId": "maestro/review/S05-T01/ecb869f5d8f47074d6f01db0eb3450b765b25f6e/24781651-be36-49f1-9a1e-d1531c01caa2-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1628-1717",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:656-696",
+        "packages/convex/test/source-ledger-schema.test.ts:124-139",
+        "packages/convex/test/migration-registry.test.ts:74-90"
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:20-35",
+        "packages/convex/confect/sources/sourceSchemas.ts:117-190",
+        "packages/convex/confect/internal/migrations.spec.ts: MigrationNotFound remains the unknown migration typed error",
+        "packages/convex/test/source-ledger-schema.test.ts:91-120"
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/providerEventReceipts.ts:5-15",
+        "packages/convex/confect/tables/sourceArtifacts.ts:5-20",
+        "packages/convex/confect/tables/sourceRevisions.ts:5-13",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:5-10",
+        "packages/convex/test/source-ledger-schema.test.ts:124-139"
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1679-1686",
+        "packages/convex/scripts/generate-migration-registry.mts:63-67",
+        "packages/convex/test/migration-registry.test.ts:223-226"
+      ],
+      "findingIds": [
+        "CONTRACT-S05-T01-001"
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:662-685",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1676-1678",
+        "git diff --name-status 022a932c1e809c2093a10f5dea5d248b6c706f5f..HEAD shows only task-owned product files and no migrations.generated.ts edit",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S05-T01/lane-gate-report.json: exact-head pre-review status passed for codegen/gates"
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1679-1686",
+        "packages/convex/scripts/generate-migration-registry.mts:63-67",
+        "packages/convex/test/migration-registry.test.ts:223-226"
+      ],
+      "findingIds": [
+        "CONTRACT-S05-T01-001"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "CONTRACT-S05-T01-001",
+      "severity": "high",
+      "summary": "Migration registry --check succeeds when the generated target is missing",
+      "details": "The S05-T01 packet requires the deterministic registry generator to fail in --check mode when packages/convex/confect/internal/migrations.generated.ts is missing, and the failure-first suite must prove that missing generated target fails. The implementation instead exits successfully when the target does not exist, and the test asserts that behavior by removing the target and running --check without expecting an error. This leaves the integration-owned generated-registry contract unable to detect an absent canonical registry.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1679-1686",
+        "packages/convex/scripts/generate-migration-registry.mts:63-67",
+        "packages/convex/test/migration-registry.test.ts:223-226"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

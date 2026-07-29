@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "maestro-brain-lane-gate/v1",
+  "commandSetHash": "6d0ac012d32c3e440c26a9186429bbee651914a7d6cb73bf0dd02e2ace4d4378",
+  "commands": [
+    "rtk pnpm exec prettier --check --ignore-unknown docs/product/maestro-brain-lifecycle-adoption.md docs/template/porting-backlog.md packages/search/package.json packages/search/src/asyncSearch.test.ts packages/search/src/asyncSearch.ts packages/search/src/index.test.ts packages/search/src/index.ts pnpm-lock.yaml",
+    "rtk pnpm exec eslint packages/search/src/asyncSearch.test.ts packages/search/src/asyncSearch.ts packages/search/src/index.test.ts packages/search/src/index.ts",
+    "rtk host-test-slot --class focused pnpm --dir packages/search test",
+    "rtk pnpm --dir packages/search typecheck",
+    "rtk pnpm check:knip",
+    "rtk pnpm check:layer-boundaries",
+    "rtk pnpm --dir packages/search build",
+    "rtk git diff --check 203451aeffdbb1c7bddeda5b8b9a562575e9396c...HEAD",
+    "rtk rg -n createSearchService apps packages tooling",
+    "rtk rg -n createAsyncSearchService apps packages tooling"
+  ],
+  "currentHeadSha": "da6528227a5209a7dc5e82fc6624b68c6c3dccd0",
+  "currentTreeSha": "d663f1442f6a0c21dda89f86eb0653ffdb03501e",
+  "gateProfiles": [
+    "search"
+  ],
+  "headSha": "da6528227a5209a7dc5e82fc6624b68c6c3dccd0",
+  "changedSourceLines": 378,
+  "estimateDrift": true,
+  "estimatedSourceLines": 240,
+  "sourceSliceBudget": 300,
+  "sourceSlices": [
+    {
+      "changedSourceLines": 212,
+      "commit": "9ace417fa0f54cf0861ff89ae9f0021b91435e96"
+    },
+    {
+      "changedSourceLines": 141,
+      "commit": "8d0d60f46e87bc2011827739dc94d4e6535c1db8"
+    },
+    {
+      "changedSourceLines": 13,
+      "commit": "15a2dd38da7d47204d8d1626a299dea5dc0785a1"
+    },
+    {
+      "changedSourceLines": 12,
+      "commit": "da6528227a5209a7dc5e82fc6624b68c6c3dccd0"
+    }
+  ],
+  "stage": "final",
+  "status": "passed",
+  "taskId": "S09-T01",
+  "reusedPreReview": true
+}

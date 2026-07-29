@@ -1,0 +1,452 @@
+{
+  "schemaVersion": "maestro-brain-integration-result/v2",
+  "integrationId": "wave-000012",
+  "status": "passed",
+  "mode": "recover",
+  "baseSha": "4690ff5b089648a9e63dc4cedb9df0320f356f21",
+  "planSha256": "868331c0af5ab06b495ca802724f4a3578c854e07b8342c9de4b93107a264499",
+  "selectionPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000012-selection.json",
+  "selectionSha256": "32b525b56eda296e580b0dcd997b109d60ab8e24246f546109ac1b877f77cf59",
+  "integrationWorkdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000012",
+  "headSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+  "exactHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+  "integrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+  "selectedTasks": [
+    {
+      "taskId": "S01-T04",
+      "tranche": "D2-domain-bodies",
+      "laneHeadSha": "5285a3255771939c34644d3011549ad51e1ca311",
+      "headSha": "5285a3255771939c34644d3011549ad51e1ca311",
+      "gateHeadSha": "5285a3255771939c34644d3011549ad51e1ca311",
+      "proofHeadSha": "5285a3255771939c34644d3011549ad51e1ca311",
+      "laneResultSha256": "e0a3935cdf54be315ec6d0b07dbcf2de3e0cb795c8115f73ecbb43ac403a3795",
+      "proofSha256": "86ec3f4d916855e57dc3d3a7ae53657607b169771db005cbfafbec4f712d9c0c",
+      "gateSha256": "d3cbb65a40be83d652952202f1702b508fa19878b9c63fd58ef0276b0262d840",
+      "taskBlockHash": "6a9ca40be899a1a64692e5b55e5f5ce0aa7a60d41e9132551e6a503b3e5bf412",
+      "laneResultIntegrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+      "changedFiles": [
+        "apps/web/src/adapters/confect-state.test.ts",
+        "apps/web/src/adapters/confect-state.ts",
+        "apps/web/src/features/settings/member-management-adapter.test.ts",
+        "apps/web/src/features/settings/member-management-adapter.ts",
+        "apps/web/src/features/settings/member-management.test.tsx",
+        "apps/web/src/features/settings/member-management.tsx",
+        "apps/web/src/features/settings/settings-surface.test.ts",
+        "apps/web/src/features/settings/settings-surface.ts",
+        "apps/web/src/routes/_workspace.settings.tsx",
+        "packages/convex/confect/access/audit.ts",
+        "packages/convex/confect/access/auth.ts",
+        "packages/convex/confect/access/handlerContext.ts",
+        "packages/convex/confect/access/invitations.impl.ts",
+        "packages/convex/confect/access/invitations.spec.ts",
+        "packages/convex/confect/access/members.impl.ts",
+        "packages/convex/confect/access/members.spec.ts",
+        "packages/convex/confect/access/tenancySchemas.ts",
+        "packages/convex/test/brain-role-matrix.test.ts",
+        "packages/convex/test/flags.test.ts"
+      ],
+      "trancheProvenance": {
+        "tranche": "D2-domain-bodies",
+        "laneHeadSha": "5285a3255771939c34644d3011549ad51e1ca311",
+        "laneResultIntegrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e"
+      }
+    },
+    {
+      "taskId": "S02-T02",
+      "tranche": "D2-domain-bodies",
+      "laneHeadSha": "d2a0b1172efc1655b5cafb5009a0768e8196749b",
+      "headSha": "d2a0b1172efc1655b5cafb5009a0768e8196749b",
+      "gateHeadSha": "d2a0b1172efc1655b5cafb5009a0768e8196749b",
+      "proofHeadSha": "d2a0b1172efc1655b5cafb5009a0768e8196749b",
+      "laneResultSha256": "a1a4332b859d165b2794bbcd929ac38a77c2b8f549bab1e63395eba14599b53a",
+      "proofSha256": "1a6ebdf8bcb7a07cc4230af0dfedaecf51dce846811bc3b4f569f11047dee16c",
+      "gateSha256": "43bfc1b1aa3e89842629bd3120ade7a009652e16b4edfcbdf603b370ed858266",
+      "taskBlockHash": "01dafeb6e139c6a8e096ef1598d667bae42a04227bedab7521db9d71869f35a7",
+      "laneResultIntegrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+      "changedFiles": [
+        "apps/cli/src/index.test.ts",
+        "apps/cli/src/index.ts",
+        "apps/web/src/adapters/confect-generated-refs.test.ts",
+        "apps/web/src/sample/templateData.test.ts",
+        "apps/web/src/sample/templateData.ts",
+        "docs/superpowers/receipts/maestro-brain/file-inventories/S02-T02-confect-generated-files.json",
+        "packages/convex/confect/brain/pageTree.ts",
+        "packages/convex/confect/brain/pages.impl.ts",
+        "packages/convex/confect/brain/pages.spec.ts",
+        "packages/convex/confect/capabilities/catalog.impl.ts",
+        "packages/convex/confect/editor/syncApi.ts",
+        "packages/convex/confect/http.ts",
+        "packages/convex/confect/httpRequest.ts",
+        "packages/convex/confect/manifest/executor.ts",
+        "packages/convex/confect/tables/brainPageAuditEvents.ts",
+        "packages/convex/test/brain-pages-crud.test.ts",
+        "packages/convex/test/brain-pages.contract.test.ts",
+        "packages/convex/test/confect-contracts.test.ts",
+        "packages/convex/test/editor-sync.test.ts",
+        "packages/convex/test/headless-executor.test.ts",
+        "packages/convex/test/http-docs.test.ts",
+        "packages/convex/test/observability-error-capture.test.ts",
+        "packages/convex/test/workspace-access.contract.test.ts",
+        "tooling/workflow/src/index.test.ts",
+        "tooling/workflow/src/index.ts"
+      ],
+      "trancheProvenance": {
+        "tranche": "D2-domain-bodies",
+        "laneHeadSha": "d2a0b1172efc1655b5cafb5009a0768e8196749b",
+        "laneResultIntegrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e"
+      }
+    },
+    {
+      "taskId": "S03-T02",
+      "tranche": "D2-domain-bodies",
+      "laneHeadSha": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf",
+      "headSha": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf",
+      "gateHeadSha": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf",
+      "proofHeadSha": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf",
+      "laneResultSha256": "4f6dcc3189934f016a97c341bf0fad5427b68f66d5fc1e9127d5b3d6657a6361",
+      "proofSha256": "93776406bcd96e52a840cd165ef3a55597bd9031f72e60c40abfaed147aebc95",
+      "gateSha256": "5fe2aac9c6babd0b0a5e64cda4db699e312c6ee85e587d2c668aafd21e33a83e",
+      "taskBlockHash": "33aadcbccd2318744168364f4fb5be5d5704b125e9cf0cee21211fc8d8cde1c5",
+      "laneResultIntegrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+      "changedFiles": [
+        "apps/web/src/features/clients/clients-adapter.test.ts",
+        "apps/web/src/features/clients/clients-adapter.ts",
+        "apps/web/src/features/clients/clients-screen.test.tsx",
+        "apps/web/src/features/clients/clients-screen.tsx",
+        "apps/web/src/features/clients/clients-state.test.ts",
+        "apps/web/src/features/clients/clients-state.ts",
+        "apps/web/src/features/clients/clients-table.test.tsx",
+        "apps/web/src/features/clients/clients-table.tsx",
+        "apps/web/src/features/clients/create-client-dialog.test.tsx",
+        "apps/web/src/features/clients/create-client-dialog.tsx",
+        "apps/web/src/routes/_workspace.clients.tsx",
+        "packages/convex/confect/access/provisioning.impl.ts",
+        "packages/convex/confect/access/provisioning.spec.ts",
+        "packages/convex/confect/brain/clientBrief.ts",
+        "packages/convex/confect/errors.ts",
+        "packages/convex/confect/tables/workspaces.ts",
+        "packages/convex/test/authorized-brain-provisioning.test.ts"
+      ],
+      "trancheProvenance": {
+        "tranche": "D2-domain-bodies",
+        "laneHeadSha": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf",
+        "laneResultIntegrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e"
+      }
+    },
+    {
+      "taskId": "S04-T01",
+      "tranche": "C1-contract-spine",
+      "laneHeadSha": "efb0d3c17c354a5922f125790b203571b73294ad",
+      "headSha": "efb0d3c17c354a5922f125790b203571b73294ad",
+      "gateHeadSha": "efb0d3c17c354a5922f125790b203571b73294ad",
+      "proofHeadSha": "efb0d3c17c354a5922f125790b203571b73294ad",
+      "laneResultSha256": "bd50bc38496c044b26370c0c1ab8c5d7e449b207787055886bc8c2e596cd9d27",
+      "proofSha256": "5f0839d248bae929ee2bb6dd3a28976aa3e4122b07b9f9f474b256bf9e9de5d9",
+      "gateSha256": "024b9351a37617894f3b8e7b25d5322a4cafd1b0acbbe53483a878eaaee7a6e7",
+      "taskBlockHash": "fda4652a6ec6cbf81f4deb10c6c607ed72837451fb07a6b3f18305a9f96f2182",
+      "laneResultIntegrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+      "changedFiles": [
+        ".env.example",
+        "apps/web/src/features/connections/nango-connect-button.test.tsx",
+        "apps/web/src/features/connections/nango-connect-button.tsx",
+        "docs/template/env-manifest.json",
+        "docs/template/env-manifest.md",
+        "packages/convex/confect/integrations/slackConnections.impl.ts",
+        "packages/convex/confect/integrations/slackConnections.spec.ts",
+        "packages/convex/confect/tables/providerConnections.ts",
+        "packages/convex/package.json",
+        "packages/convex/test/slack-connections.test.ts",
+        "packages/integrations/package.json",
+        "packages/integrations/src/nango/client.test.ts",
+        "packages/integrations/src/nango/client.ts",
+        "packages/integrations/src/nango/connectBrowser.test.ts",
+        "packages/integrations/src/nango/connectBrowser.ts",
+        "packages/integrations/src/nango/slack.ts",
+        "pnpm-lock.yaml"
+      ],
+      "trancheProvenance": {
+        "tranche": "C1-contract-spine",
+        "laneHeadSha": "efb0d3c17c354a5922f125790b203571b73294ad",
+        "laneResultIntegrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e"
+      }
+    }
+  ],
+  "includedTasks": [
+    {
+      "taskId": "S01-T04",
+      "tranche": "D2-domain-bodies",
+      "laneHeadSha": "5285a3255771939c34644d3011549ad51e1ca311",
+      "headSha": "5285a3255771939c34644d3011549ad51e1ca311",
+      "laneResultIntegrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e"
+    },
+    {
+      "taskId": "S02-T02",
+      "tranche": "D2-domain-bodies",
+      "laneHeadSha": "d2a0b1172efc1655b5cafb5009a0768e8196749b",
+      "headSha": "d2a0b1172efc1655b5cafb5009a0768e8196749b",
+      "laneResultIntegrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e"
+    },
+    {
+      "taskId": "S03-T02",
+      "tranche": "D2-domain-bodies",
+      "laneHeadSha": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf",
+      "headSha": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf",
+      "laneResultIntegrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e"
+    },
+    {
+      "taskId": "S04-T01",
+      "tranche": "C1-contract-spine",
+      "laneHeadSha": "efb0d3c17c354a5922f125790b203571b73294ad",
+      "headSha": "efb0d3c17c354a5922f125790b203571b73294ad",
+      "laneResultIntegrationHeadSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e"
+    }
+  ],
+  "manifestTranches": [
+    "C1-contract-spine",
+    "D2-domain-bodies"
+  ],
+  "generatedFiles": [
+    "packages/convex/confect/_generated/convexSchema.ts",
+    "packages/convex/confect/_generated/docs.ts",
+    "packages/convex/confect/_generated/id.ts",
+    "packages/convex/confect/_generated/registeredFunctions/integrations/slackConnections.ts",
+    "packages/convex/confect/_generated/schema.ts",
+    "packages/convex/confect/_generated/spec.ts",
+    "packages/convex/confect/_generated/tables/brainPageAuditEvents.ts",
+    "packages/convex/confect/_generated/tables/providerConnections.ts",
+    "packages/convex/convex/access/invitations.ts",
+    "packages/convex/convex/access/members.ts",
+    "packages/convex/convex/brain/pages.ts",
+    "packages/convex/convex/integrations/slackConnections.ts",
+    "packages/template-core/src/generated/confectManifest.ts"
+  ],
+  "checks": [
+    {
+      "command": "rtk pnpm --dir '/Users/headless/maestro-brain-plan/tooling/brain-factory' exec tsx src/hydrate-integration-dependencies.mts --workdir '/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000012' --base '4690ff5b089648a9e63dc4cedb9df0320f356f21'",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000012 check:convex",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000012 check:confect-manifest",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000012 check:route-tree",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir '/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000012' exec prettier --write tooling/brain-factory/test/integration-result-check.test.mts",
+      "status": "passed",
+      "headSha": "784d25f59aeb0f40f8c5a597e33a95cd587be527",
+      "findingId": "gates-lint-unused-old-selection-sha256",
+      "summary": "Targeted Prettier completed unchanged for the repaired test file."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir '/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000012/tooling/brain-factory' exec vitest run test/gates.test.mts test/integration-result-check.test.mts",
+      "status": "passed",
+      "headSha": "784d25f59aeb0f40f8c5a597e33a95cd587be527",
+      "findingId": "gates-lint-unused-old-selection-sha256",
+      "summary": "Focused regression passed: 2 files, 48 tests."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir '/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000012/tooling/brain-factory' run typecheck",
+      "status": "passed",
+      "headSha": "784d25f59aeb0f40f8c5a597e33a95cd587be527",
+      "findingId": "gates-lint-unused-old-selection-sha256",
+      "summary": "Focused tooling/brain-factory typecheck passed."
+    }
+  ],
+  "repairCommits": [
+    {
+      "sha": "3d655ac1926e5608d9899315efbdfed5f05eaec6",
+      "summary": "Restored generatedMcpOperationRefs projection in tooling/workflow/src/index.ts while preserving reserved Brain page filtering.",
+      "taskId": "S02-T02"
+    },
+    {
+      "sha": "619cbcdf9ff42fe9b80276de406fd2d5f18c6521",
+      "summary": "Ensured generated MCP tool entries only advertise defined operation ref names so workflow-tooling typecheck passes under noUncheckedIndexedAccess.",
+      "taskId": "S02-T02"
+    },
+    {
+      "sha": "fecf16cc434fddd8c9778062e517ef3d73a41e3e",
+      "summary": "Aligned PostHog readiness quality contract, regression test, and template docs from removed brain/pages.createMarkdown to authorized brain/pages.create.",
+      "taskId": "S02-T02"
+    },
+    {
+      "sha": "8c49e7b818e44162a8575cce3494ed9c5911881f",
+      "summary": "Stabilized broad test scheduling by capping Turbo test concurrency at 4, passing Vitest --maxWorkers=2 through the root test script, and disabling inherited git hooks in the integration-result-check fixture.",
+      "taskId": "integration-recovery"
+    },
+    {
+      "sha": "9754564ddfd990a4ea863830f52faecea05f817f",
+      "summary": "Merged reviewed integration head with control integration-lane-check validator fix; semantic delta adds commandsForTaskFiles parity with lane gates and regression coverage.",
+      "taskId": "integration-recovery"
+    },
+    {
+      "sha": "4561da440f0d7f51adfce4ee5ea870a635db30c9",
+      "summary": "Preserved immutable lane receipt provenance and exact-head integration evidence shape for attempt 7 review handoff.",
+      "taskId": "integration-recovery"
+    },
+    {
+      "sha": "7f436cacab960c78c8a3094bc8ee6e130c6b899f",
+      "summary": "Recovery merge preserving 9754564ddfd990a4ea863830f52faecea05f817f and repair commit 4561da440f0d7f51adfce4ee5ea870a635db30c9 for exact attempt 7 head evidence.",
+      "taskId": "integration-recovery"
+    },
+    {
+      "sha": "784d25f59aeb0f40f8c5a597e33a95cd587be527",
+      "summary": "Avoided unused stale selection hash destructuring in integration-result-check regression coverage.",
+      "taskId": "integration-recovery"
+    },
+    {
+      "sha": "9a0551289af897df315ede359bb5eea3a2d858a1",
+      "summary": "Isolated lane history hooks in the integration-result-check fixture so recovery tests do not inherit repository hooks.",
+      "taskId": "integration-recovery"
+    }
+  ],
+  "resolvedFindings": [
+    {
+      "headSha": "930098d9a45f5c053d850bc8ae4c4956855a73c4",
+      "id": "gates-format-generated-convex-exports",
+      "resolution": "Ran targeted Prettier formatting on packages/convex/convex/integrations/slackConnections.ts and packages/convex/convex/internal/migrations.ts.",
+      "severity": "deterministic",
+      "source": "gates",
+      "summary": "Prettier reported style issues in generated Convex export shims."
+    },
+    {
+      "headSha": "3d655ac1926e5608d9899315efbdfed5f05eaec6",
+      "id": "workflow-graph-boundary-generated-mcp-refs-missing",
+      "resolution": "Added focused workflow coverage, restored generatedMcpOperationRefs for non-reserved MCP operations, and used it in generated MCP tool advertisement and dispatch without reintroducing Brain page exposure.",
+      "severity": "blocking",
+      "source": "review",
+      "summary": "check:workflow-graph-boundary failed because tooling/workflow/src/index.ts was missing generatedMcpOperationRefs."
+    },
+    {
+      "headSha": "619cbcdf9ff42fe9b80276de406fd2d5f18c6521",
+      "id": "gates-workflow-tooling-typecheck-generated-mcp-name",
+      "resolution": "Updated the generated MCP tool projection to skip absent generated operation refs after narrowing, preserving non-reserved MCP advertisement while satisfying McpToolEntry.name as string.",
+      "severity": "deterministic",
+      "source": "gates",
+      "summary": "@maestro-template/workflow-tooling typecheck failed because generated MCP operation ref indexing produced string | undefined tool names."
+    },
+    {
+      "headSha": "fecf16cc434fddd8c9778062e517ef3d73a41e3e",
+      "id": "stale-posthog-readiness-create-markdown-contract",
+      "repairSha": "fecf16cc434fddd8c9778062e517ef3d73a41e3e",
+      "resolution": "Updated the quality contract, regression test, and template docs to require brain/pages.create as the first wrapped Confect mutation; did not restore createMarkdown or weaken the gate.",
+      "severity": "deterministic",
+      "source": "review",
+      "summary": "check:posthog-readiness still requires the removed legacy brain/pages.createMarkdown path even though the exact Brain pages implementation wraps brain/pages.create and the observability error capture test expects brain/pages.create."
+    },
+    {
+      "headSha": "8c49e7b818e44162a8575cce3494ed9c5911881f",
+      "id": "broad-test-scheduler-stability",
+      "repairSha": "8c49e7b818e44162a8575cce3494ed9c5911881f",
+      "resolution": "Limited the root pnpm test scheduler fan-out to avoid local broad-test worker oversubscription; the repair changes only package.json and the integration-result-check fixture hook isolation.",
+      "severity": "deterministic",
+      "source": "review",
+      "summary": "Broad pnpm test scheduling needed deterministic concurrency caps and fixture hook isolation in recovery head 8c49e7b."
+    },
+    {
+      "headSha": "9754564ddfd990a4ea863830f52faecea05f817f",
+      "id": "integration-lane-gate-validation-parity",
+      "repairSha": "9754564ddfd990a4ea863830f52faecea05f817f",
+      "resolution": "Control commit 1f0a646 adds commandsForTaskFiles(actualChangedFiles, manifestTask.fileLocks, focusedCommands) to integration-lane-check and a regression assertion in gates.test.mts.",
+      "severity": "deterministic",
+      "source": "review",
+      "summary": "Integration lane receipt validation needed commandsForTaskFiles parity with lane-gates."
+    },
+    {
+      "id": "attempt-7-immutable-wave-evidence-shape",
+      "source": "review",
+      "severity": "deterministic",
+      "headSha": "4561da440f0d7f51adfce4ee5ea870a635db30c9",
+      "repairSha": "4561da440f0d7f51adfce4ee5ea870a635db30c9",
+      "summary": "Pre-review integration-result evidence had stale passed/review fields, broadGate sidecar data, and lane integrationHeadSha values from a previous recovery head.",
+      "resolution": "Updated the integration-result schema shape for review handoff while preserving all selected lane receipts and exact selected task provenance."
+    },
+    {
+      "id": "gates-lint-unused-old-selection-sha256",
+      "source": "gates",
+      "severity": "deterministic",
+      "headSha": "784d25f59aeb0f40f8c5a597e33a95cd587be527",
+      "repairSha": "784d25f59aeb0f40f8c5a597e33a95cd587be527",
+      "summary": "Broad verify failed eslint because tooling/brain-factory/test/integration-result-check.test.mts assigned _oldSelectionSha256 without using it.",
+      "resolution": "Replaced the unused rest destructuring with a copied selectionPayload and deleted selectionPayload.selectionSha256 before hashing; no lint config change or suppression was added."
+    },
+    {
+      "id": "attempt-8-exact-head-evidence-reset",
+      "source": "integration-recovery",
+      "severity": "deterministic",
+      "headSha": "784d25f59aeb0f40f8c5a597e33a95cd587be527",
+      "repairSha": "784d25f59aeb0f40f8c5a597e33a95cd587be527",
+      "summary": "Pre-review integration evidence needed to be reset to the exact attempt 8 head without stale review verdict, remaining findings, or broad-gate receipt.",
+      "resolution": "Rewrote integration-result.json as ready_for_review at exact head 784d25f59aeb0f40f8c5a597e33a95cd587be527 and preserved all selected lane-result integrationHeadSha values already refreshed to that head."
+    },
+    {
+      "id": "attempt-8-broad-gate-non-reproducible-environmental",
+      "source": "gates",
+      "severity": "environmental",
+      "headSha": "784d25f59aeb0f40f8c5a597e33a95cd587be527",
+      "repairSha": "784d25f59aeb0f40f8c5a597e33a95cd587be527",
+      "summary": "Initial broad gate failed at unchanged clean head with no actionable deterministic diagnostic; rerunning the canonical full verify at the same head passed with HOST_TEST_MAX_LOAD_1M=14 after the observed wait was host load, not a test failure.",
+      "resolution": "Preserved the failed broad-gate receipt as broad-gate-784d25f59aeb0f40f8c5a597e33a95cd587be527.failed-environmental-attempt8.json, removed the transient broadGate pass claim, and reset integration evidence to ready_for_review so review/gates can rerun and produce the authoritative pass receipt."
+    },
+    {
+      "id": "attempt-9-fixture-hook-isolation",
+      "source": "integration-recovery",
+      "severity": "deterministic",
+      "headSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+      "repairSha": "9a0551289af897df315ede359bb5eea3a2d858a1",
+      "summary": "Attempt 9 recovery delta is limited to the test fixture hook isolation commit merged into the exact integration head.",
+      "resolution": "Preserved the repair commit provenance and reset integration evidence to ready_for_review at exact clean head 0e1676dd3590a1811f1e12038a4f747b742efc5e; authoritative review and gates remain external to this evidence reset."
+    }
+  ],
+  "recoveryReview": {
+    "alreadyReviewedDeltaPreserved": {
+      "headSha": "8c49e7b818e44162a8575cce3494ed9c5911881f",
+      "summary": "package.json test scheduler bytes and integration-result-check fixture hook isolation were already reviewed in the prior recovery head."
+    },
+    "baseReviewedHeadSha": "8c49e7b818e44162a8575cce3494ed9c5911881f",
+    "checks": [
+      "focused lane-ownership test passed in 0.37s before this evidence reset",
+      "broad verify not rerun by integration recovery; authoritative gates own broad verification"
+    ],
+    "controlAncestorSha": "1f0a646432712f47be97fd0df0de85d7a963d0ae",
+    "headSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+    "notes": "Attempt 9 evidence handoff preserves all four immutable selected lane receipts at integrationHeadSha 0e1676dd3590a1811f1e12038a4f747b742efc5e. review_gate must set reviewVerdict after review; gates own the authoritative broad receipt.",
+    "scope": "control-plane integration lane gate validation parity only",
+    "semanticDelta": {
+      "files": [
+        "tooling/brain-factory/src/integration-lane-check.ts",
+        "tooling/brain-factory/test/gates.test.mts"
+      ],
+      "summary": "Adds commandsForTaskFiles to integration receipt recomputation so integration validation matches lane-gates, plus regression test coverage."
+    },
+    "treeSha": "69cbc2f95f28d4553e6f7b4b78f79b055b84cf48",
+    "previousRecoveryHeadSha": "9754564ddfd990a4ea863830f52faecea05f817f",
+    "evidenceRepairSha": "4561da440f0d7f51adfce4ee5ea870a635db30c9",
+    "verdict": "ready_for_review",
+    "attempt9RepairSha": "9a0551289af897df315ede359bb5eea3a2d858a1"
+  },
+  "remainingFindings": [],
+  "reviewVerdict": "pass",
+  "broadGate": {
+    "attempts": [
+      {
+        "attempt": 1,
+        "command": "rtk host-test-slot --class full pnpm verify",
+        "headSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+        "outputSha256": "60c2bea475805b81cf9b89bc1ca94768b3812e8019d093384d5890a6435bd80e",
+        "status": "passed",
+        "transientVitestWorkerRpcTimeout": false
+      }
+    ],
+    "command": "rtk host-test-slot --class full pnpm verify",
+    "headSha": "0e1676dd3590a1811f1e12038a4f747b742efc5e",
+    "schemaVersion": "maestro-brain-broad-gate-receipt/v1",
+    "status": "passed"
+  }
+}

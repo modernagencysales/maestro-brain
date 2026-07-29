@@ -1,0 +1,176 @@
+{
+  "schemaVersion": "maestro-brain-ci-proof/v1",
+  "planSha256": "e5ad32c375d4fd307b3d5bccd47ea6cf4e9b7580f23bb506c893fd94019ca7c5",
+  "taskBlockHash": "731df4dab1d4fe34d6a51b801388996973ae3d13fa88bc0cef8e2b8b1be9bbe5",
+  "taskId": "S03-T03",
+  "baseSha": "aa979378a853ca705f423846a79abe8030f0619b",
+  "headSha": "496a1f4fde7a15cac8faa71b323be183a373c323",
+  "changedFiles": [
+    "apps/web/src/features/brain/brain-adapter.test.ts",
+    "apps/web/src/features/brain/brain-adapter.ts",
+    "apps/web/src/features/brain/brain-editor-pane.test.tsx",
+    "apps/web/src/features/brain/brain-editor-pane.tsx",
+    "apps/web/src/features/brain/brain-evidence-drawer.test.tsx",
+    "apps/web/src/features/brain/brain-evidence-drawer.tsx",
+    "apps/web/src/features/brain/brain-page-tree.test.tsx",
+    "apps/web/src/features/brain/brain-page-tree.tsx",
+    "apps/web/src/features/brain/brain-surface.test.ts",
+    "apps/web/src/features/brain/brain-surface.ts",
+    "apps/web/src/features/brain/brain-workspace.test.tsx",
+    "apps/web/src/features/brain/brain-workspace.tsx",
+    "apps/web/src/routes/_workspace.brain.tsx",
+    "packages/convex/confect/brain/pages.impl.ts",
+    "packages/convex/confect/brain/pages.spec.ts",
+    "packages/convex/confect/editor/syncApi.ts",
+    "packages/convex/test/brain-editor-revision-fence.test.ts",
+    "packages/convex/test/brain-pages-crud.test.ts",
+    "packages/convex/test/brain-pages.contract.test.ts",
+    "packages/editor-react/src/BlockNoteSyncEditor.test.tsx",
+    "packages/editor-react/src/BlockNoteSyncEditor.tsx"
+  ],
+  "focusedCommands": [
+    "rtk pnpm brain:factory:check-confect-codegen -- --profile web --test brain-editor-revision-fence --test brain-pages-crud",
+    "rtk pnpm --dir packages/editor-react typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/editor-react test",
+    "rtk pnpm check:route-tree",
+    "rtk pnpm check:layer-boundaries"
+  ],
+  "supplementalCommands": [
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web test brain-adapter brain-workspace",
+      "status": "failed_expected_before_repair"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test brain-pages.contract brain-editor-revision-fence",
+      "status": "failed_expected_before_repair"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web test brain-adapter brain-workspace brain-surface",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test brain-pages.contract brain-editor-revision-fence brain-pages-crud",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir apps/web typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir packages/convex typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm check:route-tree",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm check:layer-boundaries",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web test brain-adapter brain-workspace",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test brain-pages.contract brain-editor-revision-fence brain-pages-crud",
+      "status": "failed_expected_before_repair"
+    },
+    {
+      "command": "rtk pnpm --dir packages/editor-react typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test brain-pages.contract brain-editor-revision-fence brain-pages-crud",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web test src/features/brain/brain-adapter.test.ts src/features/brain/brain-page-tree.test.tsx",
+      "status": "failed_expected_before_repair"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web test src/features/brain/brain-adapter.test.ts src/features/brain/brain-page-tree.test.tsx",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir apps/web typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web test src/features/brain/brain-adapter.test.ts src/features/brain/brain-surface.test.ts",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir apps/web typecheck",
+      "status": "failed_expected_before_repair"
+    },
+    {
+      "command": "rtk pnpm --dir apps/web typecheck",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web test src/features/brain/brain-adapter.test.ts src/features/brain/brain-surface.test.ts src/features/brain/brain-page-tree.test.tsx src/features/brain/brain-workspace.test.tsx",
+      "status": "timed_out_waiting_for_host_slot"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web test src/features/brain/brain-adapter.test.ts src/features/brain/brain-surface.test.ts src/features/brain/brain-page-tree.test.tsx src/features/brain/brain-workspace.test.tsx",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web test -- brain-workspace.test.tsx",
+      "status": "failed_diagnostic_unavailable_dom_environment"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web test -- brain-workspace.test.tsx",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/editor-react test",
+      "status": "passed"
+    },
+    {
+      "command": "rtk pnpm --dir apps/web test -- brain-workspace.test.tsx",
+      "status": "refused_requires_host_slot"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web test -- brain-workspace.test.tsx",
+      "status": "timed_out_waiting_for_host_slot"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web test -- brain-workspace.test.tsx",
+      "status": "failed_expected_before_repair"
+    }
+  ],
+  "testsAdded": [
+    "apps/web/src/features/brain/brain-adapter.test.ts",
+    "apps/web/src/features/brain/brain-editor-pane.test.tsx",
+    "apps/web/src/features/brain/brain-evidence-drawer.test.tsx",
+    "apps/web/src/features/brain/brain-page-tree.test.tsx",
+    "apps/web/src/features/brain/brain-surface.test.ts",
+    "apps/web/src/features/brain/brain-workspace.test.tsx",
+    "packages/convex/test/brain-editor-revision-fence.test.ts",
+    "packages/convex/test/brain-pages-crud.test.ts",
+    "packages/convex/test/brain-pages.contract.test.ts",
+    "packages/editor-react/src/BlockNoteSyncEditor.test.tsx"
+  ],
+  "reviewVerdict": "pass",
+  "knownRisks": [
+    "Broad tranche verification is deferred to integration per Appendix O/P.",
+    "Generated Confect/Convex outputs remain integration-owned; the task packet's transient codegen proof is preserved for the next deterministic gate.",
+    "FocusedCommands are preserved exactly from the existing proof and task contract; repair diagnostics are recorded only as supplementalCommands.",
+    "Controller authority was amended at 5ea63f42 to include packages/convex/confect/editor/documentTargets.ts; this lane preserved the clean product head for lossless resume onto that controller base while the local historical manifest remains stale.",
+    "S03-T03 history has 7 commits, matching manifest sourceSliceLimit 7; each commit is at or below the 300 hand-authored source-line budget after rewriting the oversized repair slice."
+  ],
+  "reviewFindingsResolved": [
+    {
+      "id": "quality-S03-T03-003",
+      "summary": "Repeated default page creation now preserves and consumes siblingSlug in the Brain tree view-model so the third default create selects untitled-page-3."
+    },
+    {
+      "id": "quality-S03-T03-004",
+      "summary": "Rendered workspace/editor saves now preserve the edit-start revision fence across same-document state advances, with focused workspace and BlockNote helper tests proving same-document preservation and new-document reset."
+    }
+  ],
+  "reviewFindings": [],
+  "reviewHeadSha": "496a1f4fde7a15cac8faa71b323be183a373c323"
+}

@@ -1,0 +1,63 @@
+{
+  "schemaVersion": "maestro-brain-lane-gate/v1",
+  "commandSetHash": "134f9df146ae0ea6bd9b498992aa8c417357a02aa88748a893a50988fac8cb97",
+  "commands": [
+    "rtk pnpm exec prettier --check --ignore-unknown apps/web/src/features/connections/channel-policy-dialog.tsx apps/web/src/features/connections/channel-policy-view-model.test.ts apps/web/src/features/connections/channel-policy-view-model.ts apps/web/src/features/connections/channel-table.tsx apps/web/src/features/connections/connections-adapter.ts apps/web/src/routes/_workspace.connections.tsx docs/product/maestro-brain-lifecycle-adoption/S04-T04.md packages/convex/confect/slack/channelPolicies.impl.ts packages/convex/confect/slack/channelPolicies.spec.ts packages/convex/confect/slack/channelPolicy.ts packages/convex/confect/tables/channelDeliveryPolicies.ts packages/convex/confect/tables/channelRoutingPolicies.ts packages/convex/test/channel-policies.test.ts",
+    "rtk pnpm exec eslint apps/web/src/features/connections/channel-policy-dialog.tsx apps/web/src/features/connections/channel-policy-view-model.test.ts apps/web/src/features/connections/channel-policy-view-model.ts apps/web/src/features/connections/channel-table.tsx apps/web/src/features/connections/connections-adapter.ts apps/web/src/routes/_workspace.connections.tsx packages/convex/confect/slack/channelPolicies.impl.ts packages/convex/confect/slack/channelPolicies.spec.ts packages/convex/confect/slack/channelPolicy.ts packages/convex/confect/tables/channelDeliveryPolicies.ts packages/convex/confect/tables/channelRoutingPolicies.ts packages/convex/test/channel-policies.test.ts",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test channel-policies",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test connections",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk pnpm check:route-tree",
+    "rtk pnpm check:layer-boundaries",
+    "rtk pnpm check:access-audit-events",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test accessibility",
+    "rtk pnpm check:confect-v9",
+    "rtk pnpm --dir packages/convex typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test",
+    "rtk pnpm --dir packages/integrations typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/integrations test",
+    "rtk pnpm --dir apps/web typecheck",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test"
+  ],
+  "currentHeadSha": "f07e866188df807d10f1b01843aaebfddf80a033",
+  "currentTreeSha": "acd9b20d2a05fb529d4fbfed6464da038621b9d5",
+  "gateProfiles": [
+    "convex",
+    "integrations",
+    "web"
+  ],
+  "headSha": "f07e866188df807d10f1b01843aaebfddf80a033",
+  "planSha256": "ef80573fb33d3aedeba7c28b370291269d4eb0bf3a88d08cf69536274c135e85",
+  "changedSourceLines": 1198,
+  "estimateDrift": false,
+  "estimatedSourceLines": 1500,
+  "sourceSliceBudget": 300,
+  "sourceSliceLimit": 5,
+  "sourceSlices": [
+    {
+      "changedSourceLines": 300,
+      "commit": "9afebf7073602e066d8d2b21059e27a2da2a1a9d"
+    },
+    {
+      "changedSourceLines": 287,
+      "commit": "698a7275d01f045bea6c75af98efa6b5be04be47"
+    },
+    {
+      "changedSourceLines": 294,
+      "commit": "659a82a1f7f7c4e7f9d6af60adfc145b431bedb0"
+    },
+    {
+      "changedSourceLines": 285,
+      "commit": "168805752f6c0285904a35452a349689e7ce73f4"
+    },
+    {
+      "changedSourceLines": 32,
+      "commit": "f07e866188df807d10f1b01843aaebfddf80a033"
+    }
+  ],
+  "stage": "pre-review",
+  "status": "passed",
+  "taskId": "S04-T04",
+  "taskBlockHash": "43aa1624cd7754ad5635e47f0e43bc7333c8b04b639a33b7670a7e032707dea1",
+  "reusedPreReview": false
+}

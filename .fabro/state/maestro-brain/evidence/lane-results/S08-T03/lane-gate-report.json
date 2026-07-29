@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "maestro-brain-lane-gate/v1",
+  "commandSetHash": "98724677040b70ce9efed083e025500243711f58935faa2d71d9de7c4bfd21a7",
+  "commands": [
+    "rtk pnpm exec prettier --check --ignore-unknown apps/web/src/features/connections/classification-review-queue.test.tsx apps/web/src/features/connections/classification-review-queue.tsx docs/product/maestro-brain-lifecycle-adoption/S08-T03.md docs/template/generated/capabilities/classifySourceUnit.md docs/template/generated/provenance/add-capability/classifySourceUnit.json docs/template/generated/provenance/add-workflow/sourceClassification.json docs/template/generated/workflows/sourceClassification.md packages/convex/confect/capabilities/classifySourceUnit.domain.ts packages/convex/confect/capabilities/classifySourceUnit.headless.json packages/convex/confect/capabilities/classifySourceUnit.impl.ts packages/convex/confect/capabilities/classifySourceUnit.spec.ts packages/convex/confect/capabilities/classifySourceUnit.test.ts packages/convex/confect/classification/commit.ts packages/convex/confect/classification/gather.ts packages/convex/confect/classification/request.ts packages/convex/confect/classification/review.ts packages/convex/confect/tables/classificationDecisions.ts packages/convex/confect/tables/sourceProcessingJobs.ts packages/convex/confect/workflowContracts/sourceClassification.impl.ts packages/convex/confect/workflowContracts/sourceClassification.spec.ts packages/convex/confect/workflows/sourceClassification.graph.ts packages/convex/test/source-classification.test.ts packages/convex/test/sourceClassification.workflow.test.ts",
+    "rtk pnpm exec eslint apps/web/src/features/connections/classification-review-queue.test.tsx apps/web/src/features/connections/classification-review-queue.tsx packages/convex/confect/capabilities/classifySourceUnit.domain.ts packages/convex/confect/capabilities/classifySourceUnit.impl.ts packages/convex/confect/capabilities/classifySourceUnit.spec.ts packages/convex/confect/capabilities/classifySourceUnit.test.ts packages/convex/confect/classification/commit.ts packages/convex/confect/classification/gather.ts packages/convex/confect/classification/request.ts packages/convex/confect/classification/review.ts packages/convex/confect/tables/classificationDecisions.ts packages/convex/confect/tables/sourceProcessingJobs.ts packages/convex/confect/workflowContracts/sourceClassification.impl.ts packages/convex/confect/workflowContracts/sourceClassification.spec.ts packages/convex/confect/workflows/sourceClassification.graph.ts packages/convex/test/source-classification.test.ts packages/convex/test/sourceClassification.workflow.test.ts",
+    "rtk pnpm template:add-capability -- --name classifySourceUnit --description Returns-a-typed-zero-or-one-route-proposal-from-an-immutable-source-unit --exposure workflow",
+    "rtk pnpm template:add-workflow -- --name sourceClassification --description Gathers-classifies-reviews-and-commits-one-source-route --exposure internal",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test classification",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test review-queue",
+    "rtk pnpm check:workflow-graph-boundary",
+    "rtk pnpm check:confect-contracts",
+    "rtk pnpm check:headless-surface-contract",
+    "rtk pnpm check:layer-boundaries",
+    "rtk host-test-slot --class focused pnpm --dir tooling/evals test classification",
+    "rtk pnpm check:confect-v9",
+    "rtk pnpm --dir packages/convex typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test",
+    "rtk pnpm --dir apps/web typecheck",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test"
+  ],
+  "currentHeadSha": "04e8205f1f62ae02bd3d62414dade59c0d239a62",
+  "currentTreeSha": "297a163fb034498ce5353510fc048dbccc29bce7",
+  "gateProfiles": [
+    "convex",
+    "web"
+  ],
+  "headSha": "04e8205f1f62ae02bd3d62414dade59c0d239a62",
+  "planSha256": "1c6b818063c534afdae20d688fee71e830915c5ac356bf7eba7724099d7ed9a5",
+  "changedSourceLines": 1188,
+  "estimateDrift": true,
+  "estimatedSourceLines": 295,
+  "sourceSliceBudget": 300,
+  "sourceSliceLimit": 4,
+  "sourceSlices": [
+    {
+      "changedSourceLines": 300,
+      "commit": "f31f189cf36a693ab5641572e777e4220a9a3dbb"
+    },
+    {
+      "changedSourceLines": 295,
+      "commit": "dcd428fd616c3c643537fce0a05241f32b999bbd"
+    },
+    {
+      "changedSourceLines": 300,
+      "commit": "a07352f0ccba7dc8048e9b5c143d785b81b455e2"
+    },
+    {
+      "changedSourceLines": 293,
+      "commit": "04e8205f1f62ae02bd3d62414dade59c0d239a62"
+    }
+  ],
+  "stage": "final",
+  "status": "passed",
+  "taskId": "S08-T03",
+  "taskBlockHash": "52836a187d4a821697f0ff1d057155b9aefc998858fac5df08c06f5b82cf6612",
+  "reusedPreReview": true
+}

@@ -1,0 +1,129 @@
+{
+  "schemaVersion": "maestro-brain-integration-result/v1",
+  "baseSha": "472bad9dcf8009cf5411a84e88341da6585e06e5",
+  "manifestTranche": "F0-foundation",
+  "integrationId": "F0-foundation-w2",
+  "integrationWorkdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-F0-foundation-w2",
+  "headSha": "e5b4d7c23a81017b883dfa3aff0f528f6a4bc1e3",
+  "includedTasks": [
+    {
+      "taskId": "S00-T03",
+      "title": "Isolate Staging And Production Deployments",
+      "classification": "template-gap",
+      "lane": "foundation",
+      "tranche": "F0-foundation",
+      "codeStartAfter": [
+        "S00-T02"
+      ],
+      "taskHeadSha": "0a06ce077c6223a9050b92c6a13086fee9504c30",
+      "sourceCommitSha": "0a06ce077c6223a9050b92c6a13086fee9504c30",
+      "laneHeadSha": "0a06ce077c6223a9050b92c6a13086fee9504c30",
+      "integrationCommitSha": "fe5c8eae7b4937418a4068d0af8a19da9f4822e2",
+      "integrationHeadSha": "e5b4d7c23a81017b883dfa3aff0f528f6a4bc1e3",
+      "subject": "fix: repair deployment isolation review findings",
+      "laneResultPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S00-T03/lane-result.json",
+      "laneGateReportPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S00-T03/lane-gate-report.json",
+      "ciProofPacketPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S00-T03/ci-proof-packet.json",
+      "validation": {
+        "laneStatus": "accepted",
+        "finalGateStatus": "passed",
+        "headHashesMatch": true,
+        "proofHeadHashesMatch": true,
+        "baseDependencySatisfied": true,
+        "codeStartAfterSatisfied": true,
+        "nonconflictingOwnership": true,
+        "singleIntentionCommit": true,
+        "acceptanceAfterSatisfied": true
+      },
+      "changedFiles": [
+        ".buildkite/pipeline.yml",
+        ".buildkite/scripts/production-promote.sh",
+        ".buildkite/scripts/staging-deploy.sh",
+        ".env.example",
+        "docs/superpowers/receipts/maestro-brain/deployment-isolation.md",
+        "docs/template/env-manifest.json",
+        "docs/template/env-manifest.md",
+        "project.config.json",
+        "tooling/quality/check-config-drift.test.mts",
+        "tooling/quality/src/check-definitions.mts",
+        "tooling/release/src/index.test.ts",
+        "tooling/release/src/index.ts",
+        "tooling/release/src/project-config.ts"
+      ]
+    }
+  ],
+  "commits": [
+    "790fbd67ed6d2b93226025b968fcdd4b4aeeffa6",
+    "44209a8070b2661fe511d95bff6b6b6d1c39f725",
+    "f366b7c185cc8391b93acf512c2ebf5c16d3be0e",
+    "fe5c8eae7b4937418a4068d0af8a19da9f4822e2",
+    "e5b4d7c23a81017b883dfa3aff0f528f6a4bc1e3"
+  ],
+  "generatedDiffs": [],
+  "conflicts": [],
+  "checks": [
+    {
+      "command": "git rev-parse HEAD && git status --short && git log --format='%H %s' -4",
+      "status": "passed",
+      "summary": "Worktree is clean at fe5c8eae7b4937418a4068d0af8a19da9f4822e2 with four S00-T03 integration commits."
+    },
+    {
+      "command": "rtk git merge-base --is-ancestor 5b58144cd32bbf807609761638c30d704e819eb7 HEAD",
+      "status": "passed",
+      "summary": "Recorded S00-T02 integration head is an ancestor of actual integration HEAD, so dependency_missing was stale."
+    },
+    {
+      "command": "S00-T03 focused lane gates",
+      "status": "passed",
+      "summary": "Focused format, eslint, release tests/typecheck, quality config-drift test/typecheck, check:config-drift, and check:env-boundary passed on fe5c8ea."
+    },
+    {
+      "command": "set -euo pipefail; WORKDIR='/Users/headless/.maestro-brain-fabro-workdirs/integration-F0-foundation-w2'; EVIDENCE='/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence'; MANIFEST='F0-foundation'; INTEGRATION='F0-foundation-w2'; HEAD_SHA=$(cd \"$WORKDIR\" && rtk git rev-parse HEAD); RESULT=\"$EVIDENCE/integration/$INTEGRATION/integration-result.json\"; echo \"HEAD=$HEAD_SHA\"; rtk proxy jq -e --arg head \"$HEAD_SHA\" --arg id \"$INTEGRATION\" --arg tranche \"$MANIFEST\" '.headSha == $head and .integrationId == $id and .manifestTranche == $tranche and ((.remainingFindings // []) | length == 0) and ((.resolvedFindings // []) | map(.id) | index(\"F0-W2-STALE-INTEGRATION-EVIDENCE\") != null)' \"$RESULT\"; STATUS=$(cd \"$WORKDIR\" && rtk proxy git status --porcelain); rtk proxy test -z \"$STATUS\"",
+      "status": "passed",
+      "summary": "Evidence is bound to exact worktree HEAD, has no remaining findings, records the stale evidence finding as resolved, and the worktree is clean."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir tooling/release test -- --runInBand -t 'checks Buildkite release signing wiring independent of cwd'",
+      "status": "failed-before-fix",
+      "summary": "Regression reproduced the full-gate ENOENT by changing cwd before checking .buildkite/pipeline.yml."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir tooling/release test -- --runInBand -t 'Buildkite release signing'",
+      "status": "passed",
+      "summary": "Buildkite release signing wiring tests passed after anchoring fixture reads to the test module location."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir tooling/release test && rtk host-test-slot --class focused pnpm --dir tooling/release typecheck && git diff --check && git status --short",
+      "status": "passed",
+      "summary": "Focused release tooling test/typecheck and diff checks passed; worktree was clean after commit e5b4d7c23a81017b883dfa3aff0f528f6a4bc1e3."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir tooling/release test -- --runInBand -t 'Buildkite release signing|cwd|deploy|promote|rollback|isolation' && rtk pnpm --dir tooling/release typecheck && rtk host-test-slot --class focused pnpm --dir tooling/quality test check-config-drift && rtk pnpm check:config-drift && rtk pnpm check:env-boundary && git diff --check && git status --porcelain",
+      "status": "passed",
+      "summary": "Focused read-only review checks passed on exact integration HEAD e5b4d7c23a81017b883dfa3aff0f528f6a4bc1e3; release fixture path repair, deploy isolation, promotion fencing, rollback compatibility, config drift, env boundary, diff check, and clean worktree were verified without running broad verify."
+    }
+  ],
+  "resolvedFindings": [
+    {
+      "id": "F0-W2-STALE-INTEGRATION-EVIDENCE",
+      "severity": "blocking",
+      "summary": "integration-result.json was stale relative to the clean worktree head.",
+      "resolution": "Updated the attempt evidence to bind headSha, includedTasks, and commits to the clean integration worktree head fe5c8eae7b4937418a4068d0af8a19da9f4822e2."
+    },
+    {
+      "id": "F0-W2-RELEASE-PIPELINE-CWD-PATH",
+      "severity": "blocking",
+      "summary": "Full verify failed because release tooling tests resolved .buildkite fixtures from process.cwd(), which can point outside the repo.",
+      "resolution": "Added a cwd-independence regression and changed the Buildkite fixture reads to resolve from import.meta.url for tooling/release/src/index.test.ts. Focused release tooling tests and typecheck passed on e5b4d7c23a81017b883dfa3aff0f528f6a4bc1e3."
+    }
+  ],
+  "remainingFindings": [],
+  "reviewVerdict": "pass",
+  "status": "passed",
+  "broadGate": {
+    "status": "passed",
+    "headSha": "e5b4d7c23a81017b883dfa3aff0f528f6a4bc1e3",
+    "command": "rtk host-test-slot --class full pnpm verify"
+  },
+  "tranche": "F0-foundation"
+}

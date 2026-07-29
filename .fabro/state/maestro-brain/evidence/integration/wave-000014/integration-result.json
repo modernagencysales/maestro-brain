@@ -1,0 +1,184 @@
+{
+  "schemaVersion": "maestro-brain-integration-result/v2",
+  "integrationId": "wave-000014",
+  "status": "passed",
+  "mode": "recover",
+  "integrationWorkdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000014",
+  "baseSha": "82d5f90c2d076f3aa4d859ccc8b6b4503725fe5c",
+  "headSha": "5257ef21f881b8a0f957bafc8c6f7b36c4306ead",
+  "exactHeadSha": "5257ef21f881b8a0f957bafc8c6f7b36c4306ead",
+  "integrationHeadSha": "5257ef21f881b8a0f957bafc8c6f7b36c4306ead",
+  "selection": {
+    "schemaVersion": "maestro-brain-integration-wave-selection/v2",
+    "integrationId": "wave-000014",
+    "selectionSha256": "28f79fac565dfbbbd8d2d9de6e213beec871da1702e73d0c07682751c5a3b5f1",
+    "planSha256": "868331c0af5ab06b495ca802724f4a3578c854e07b8342c9de4b93107a264499",
+    "baseSha": "82d5f90c2d076f3aa4d859ccc8b6b4503725fe5c",
+    "requestedTaskIds": [
+      "S02-T04"
+    ],
+    "deferredTaskIds": []
+  },
+  "planSha256": "868331c0af5ab06b495ca802724f4a3578c854e07b8342c9de4b93107a264499",
+  "selectionSha256": "28f79fac565dfbbbd8d2d9de6e213beec871da1702e73d0c07682751c5a3b5f1",
+  "manifestTranches": [
+    "D2-domain-bodies"
+  ],
+  "includedTasks": [
+    {
+      "taskId": "S02-T04",
+      "tranche": "D2-domain-bodies",
+      "headSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "laneHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "proofHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "gateHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "laneHeadShaProvenance": {
+        "selectionHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+        "selectionProofHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+        "selectionGateHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+        "laneResultPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S02-T04/lane-result.json",
+        "laneResultHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+        "laneGateReportPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S02-T04/lane-gate-report.json",
+        "laneGateReportHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+        "proofPacketPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S02-T04/ci-proof-packet.json",
+        "proofPacketHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d"
+      },
+      "laneResultSha256": "878d4c12da242079365fa75565dd78a37e5d3a4f1b588ff08ce096c7bed22cfc",
+      "proofSha256": "e9070c88fa11754d3f00a573078398550f0cc36fa7de6d4267bb1ca58647c3df",
+      "gateSha256": "9210ca7283ea16657f045c0f5c6fecefd40ac4f80e1a9f466037f3dca931a2b3",
+      "taskBlockHash": "1dc9fb9ecdfc29278b9cae4e0108861343d437d9d84a171f135e3630eb187fdc",
+      "codeStartAfter": [
+        "S02-T02"
+      ],
+      "changedFiles": [
+        "packages/convex/confect/brain/pages.impl.ts",
+        "packages/convex/confect/brain/pages.spec.ts",
+        "packages/convex/confect/editor/documentTargets.ts",
+        "packages/convex/confect/editor/sync.ts",
+        "packages/convex/confect/editor/syncApi.ts",
+        "packages/convex/test/brain-editor-revision-fence.test.ts",
+        "packages/convex/test/editor-sync.test.ts"
+      ],
+      "appliedCommits": [
+        {
+          "sourceSha": "f83febb0a58a06cff79838dc287017c91b4e8ac8",
+          "integrationSha": "ed1966efb957bb701e8aff9d7dda81ff7f7bb8d8",
+          "subject": "feat: persist fenced Brain snapshots"
+        },
+        {
+          "sourceSha": "9e02df2bb5369dd2f3e94b06119c922a727411c2",
+          "integrationSha": "cd1774af076e476a0103d9a0b56c636a5d4c9713",
+          "subject": "feat: bind editor sync to stable pages"
+        },
+        {
+          "sourceSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+          "integrationSha": "b482982d8b35aa82bd08e8132efdf1742f409b35",
+          "subject": "test: cover Brain editor revision fences"
+        }
+      ],
+      "cherryProof": [
+        "- f83febb0a58a06cff79838dc287017c91b4e8ac8 feat: persist fenced Brain snapshots",
+        "- 9e02df2bb5369dd2f3e94b06119c922a727411c2 feat: bind editor sync to stable pages",
+        "- 625f959fcf9304ae861dffb7c0d254c4f784a02d test: cover Brain editor revision fences"
+      ],
+      "laneStatus": "lane_green",
+      "laneGateStatus": "passed",
+      "proofReviewVerdict": "pass"
+    }
+  ],
+  "generatedFiles": [],
+  "generatedOutput": {
+    "commitSha": "5257ef21f881b8a0f957bafc8c6f7b36c4306ead",
+    "files": [],
+    "summary": "Centralized generated-output commit is empty relative to its parent; dependency hydration reported unchanged."
+  },
+  "generatedCommitSha": "5257ef21f881b8a0f957bafc8c6f7b36c4306ead",
+  "generatedFilesFromIntegrationCommit": [],
+  "checks": [
+    {
+      "command": "rtk pnpm --dir '/Users/headless/maestro-brain-plan/tooling/brain-factory' exec tsx src/hydrate-integration-dependencies.mts --workdir '/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000014' --base '82d5f90c2d076f3aa4d859ccc8b6b4503725fe5c'",
+      "status": "passed",
+      "summary": "{ changedFiles: [], mode: unchanged }"
+    },
+    {
+      "command": "rtk pnpm exec prettier --check --ignore-unknown packages/convex/confect/brain/pages.impl.ts packages/convex/confect/brain/pages.spec.ts packages/convex/confect/editor/documentTargets.ts packages/convex/confect/editor/sync.ts packages/convex/confect/editor/syncApi.ts packages/convex/test/brain-editor-revision-fence.test.ts packages/convex/test/editor-sync.test.ts",
+      "status": "passed",
+      "summary": "All matched files use Prettier code style."
+    },
+    {
+      "command": "rtk pnpm exec eslint packages/convex/confect/brain/pages.impl.ts packages/convex/confect/brain/pages.spec.ts packages/convex/confect/editor/documentTargets.ts packages/convex/confect/editor/sync.ts packages/convex/confect/editor/syncApi.ts packages/convex/test/brain-editor-revision-fence.test.ts packages/convex/test/editor-sync.test.ts",
+      "status": "passed"
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test editor brain-editor-revision-fence",
+      "status": "passed",
+      "summary": "3 test files passed; 17 tests passed."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/editor-react test",
+      "status": "passed",
+      "summary": "1 test file passed; 1 test passed."
+    },
+    {
+      "command": "rtk pnpm brain:factory:check-confect-codegen",
+      "status": "passed",
+      "summary": "transient Confect codegen passed (2 generated files)."
+    },
+    {
+      "command": "rtk pnpm check:layer-boundaries",
+      "status": "passed",
+      "summary": "no dependency violations found (927 modules, 2911 dependencies cruised)."
+    },
+    {
+      "command": "rtk pnpm check:confect-v9",
+      "status": "passed",
+      "summary": "check:confect-v9 ok."
+    },
+    {
+      "command": "rtk pnpm --dir packages/convex typecheck",
+      "status": "passed"
+    }
+  ],
+  "reviewChecks": [
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000014 rev-parse HEAD",
+      "status": "passed",
+      "summary": "5257ef21f881b8a0f957bafc8c6f7b36c4306ead"
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000014 status --short",
+      "status": "passed",
+      "summary": "clean"
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000014 cherry -v HEAD 625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "status": "passed",
+      "summary": "All selected source patches are present in integration history."
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000014 diff --numstat 82d5f90c2d076f3aa4d859ccc8b6b4503725fe5c..HEAD",
+      "status": "passed",
+      "summary": "Net patch contains only selected S02-T04 files; generated output has no final net diff."
+    }
+  ],
+  "remainingFindings": [],
+  "resolvedFindings": [],
+  "worktreeStatus": "clean",
+  "reviewVerdict": "pass",
+  "broadGate": {
+    "schemaVersion": "maestro-brain-broad-gate-receipt/v1",
+    "status": "passed",
+    "headSha": "5257ef21f881b8a0f957bafc8c6f7b36c4306ead",
+    "command": "rtk host-test-slot --class full pnpm verify",
+    "attempts": [
+      {
+        "attempt": 1,
+        "command": "rtk host-test-slot --class full pnpm verify",
+        "headSha": "5257ef21f881b8a0f957bafc8c6f7b36c4306ead",
+        "outputSha256": "1243afc8b959ffffa43b3938463b957d9dbb6fdf4d53509fd92bdfc253384fd8",
+        "status": "passed",
+        "transientVitestWorkerRpcTimeout": false
+      }
+    ]
+  }
+}

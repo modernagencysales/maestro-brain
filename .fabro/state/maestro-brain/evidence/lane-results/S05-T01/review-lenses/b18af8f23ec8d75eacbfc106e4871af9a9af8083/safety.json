@@ -1,0 +1,128 @@
+{
+  "lens": "safety",
+  "taskId": "S05-T01",
+  "planSha256": "401ba861efdc16760c9abac168cfd928efce150d9051c6bd58bf62ec330547a7",
+  "taskBlockHash": "1665eb4087239d8d137a8b4274f5f63c4bb965d699076b2678d1e618b1e34c54",
+  "baseSha": "648ddb32aa68230fdb41e0ef6dc6fe26c4837487",
+  "headSha": "b18af8f23ec8d75eacbfc106e4871af9a9af8083",
+  "treeSha": "a2bc635b73578941a3f1ab4402abf568501ccf41",
+  "reviewerRunId": "maestro/review/S05-T01/b18af8f23ec8d75eacbfc106e4871af9a9af8083/755db2ad-edc6-488e-bc40-8a4c6cdea446-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:245-258 validates organization/connection/generation and channel binding before accepting capture rows.",
+        "packages/convex/confect/sources/sourceSchemas.ts:174-189 derives source/observation keys from organizationKey, connectionKey, connectionGeneration, and channelKey."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:237-258 requires a decoded VerifiedSlackChannelBinding and rejects tenant/channel mismatches before key derivation.",
+        "packages/convex/test/source-ledger-schema.test.ts:489-506 proves missing and cross-tenant verified bindings are rejected."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "finding",
+      "findingIds": [
+        "SAFETY-S05-T01-006",
+        "SAFETY-S05-T01-007",
+        "SAFETY-S05-T01-008"
+      ],
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:26-40 restricts providerEventReceipts.outcome to inserted|duplicate even though the locked downstream S05-T02 receipt contract requires tombstone|ignored_bot_output|rejected as well.",
+        "packages/convex/confect/sources/sourceSchemas.ts:323-379 always builds active generation=1 lifecycle rows and assigns receipt.outcome from inserted|duplicate even when observation.tombstone is true.",
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:28-39 documents deleted_tombstone advancement and artifact-gated currentness, but the T01-owned schema/helper does not enforce or expose that selector contract."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:61-80 stores source revision content under tenant-scoped sourceRevisionKey/contentHash rather than public Convex IDs.",
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:36-42 assigns purge/redaction readers to stable source keys and documents transaction rollback of partial captures."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "finding",
+      "findingIds": [
+        "SAFETY-S05-T01-007"
+      ],
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:300-399 buildSourceLedgerRows accepts no existing artifact/current generation or accepted provider-order fence and unconditionally reconstructs generation=1 rows.",
+        "Immutable audit refs/evidence/maestro-brain/s05-t01-tombstone-review (blob 58a5ba7e6317812c8b4e658f28d4e41311e2872e, sha256 f5ea5a5be6556460c365f961e61cd7e693caf60ac8c87839cc3b2d4424f13597) independently reproduces delayed active-after-delete ABA risk."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "finding",
+      "findingIds": [
+        "SAFETY-S05-T01-006"
+      ],
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:267-297 fingerprints duplicate transport deliveries, but the accepted receipt outcome enum cannot represent tombstone, ignored_bot_output, or rejected replay dispositions required by the downstream capture contract.",
+        "packages/convex/confect/sources/sourceSchemas.ts:330-343 emits receipt.outcome from inserted|duplicate only, so a tombstone capture is auditable as inserted rather than tombstone."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "finding",
+      "findingIds": [
+        "SAFETY-S05-T01-007",
+        "SAFETY-S05-T01-008"
+      ],
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:323-328 hard-codes lifecycle generation 1 and has no monotonic generation/order guard for stale captures after tombstone.",
+        "packages/convex/confect/tables/sourceArtifacts.ts:5-15 includes a broad by_channel_provider_object index; current-reader contracts must use tenant/generation/sourceKey fencing and artifact lifecycle gating to avoid stale revision fallback."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts imports only Effect Schema and the local sha256 helper; no live provider SDK or secret boundary is introduced in this T01 schema work.",
+        "packages/convex/confect/tables/providerEventReceipts.ts:1-18 defines durable receipt indexes without logging raw provider payloads or secrets."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "SAFETY-S05-T01-006",
+      "severity": "P1",
+      "summary": "Provider event receipt contract cannot represent required tombstone and rejection outcomes.",
+      "details": "ProviderEventReceiptRow only accepts inserted|duplicate, and buildSourceLedgerRows emits inserted for tombstone observations. The locked S05-T02 capture contract needs tombstone, ignored_bot_output, and rejected outcomes while S05-T02 does not own sourceSchemas/providerEventReceipts. This must be fixed in T01 with tests for every disposition, including tombstone capture recording outcome=tombstone.",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:26-40",
+        "packages/convex/confect/sources/sourceSchemas.ts:330-343",
+        "Immutable audit refs/evidence/maestro-brain/s05-t01-tombstone-review blob 58a5ba7e6317812c8b4e658f28d4e41311e2872e sha256 f5ea5a5be6556460c365f961e61cd7e693caf60ac8c87839cc3b2d4424f13597"
+      ]
+    },
+    {
+      "id": "SAFETY-S05-T01-007",
+      "severity": "P1",
+      "summary": "Source ledger lifecycle can resurrect same-key active rows after tombstone due to fixed generation and missing order fencing.",
+      "details": "buildSourceLedgerRows has no existing artifact/current generation input, no monotonic accepted provider-order check, and always emits lifecycle.state=active with generation=1. A delayed active capture in the same stable source key can therefore reset current state after delete unless later production code adds a transaction fence. T01 owns the typed schema/helper contract and must either enforce monotonic lifecycle generation/order now or fail closed and explicitly hand off the missing transaction boundary.",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:300-328",
+        "packages/convex/confect/sources/sourceSchemas.ts:345-379",
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:28-42"
+      ]
+    },
+    {
+      "id": "SAFETY-S05-T01-008",
+      "severity": "P1",
+      "summary": "Artifact-gated currentness selector contract is documented but not exposed or tested by T01.",
+      "details": "The lifecycle record says current readers must follow latestSourceRevisionKey only when the artifact lifecycle state is readable, but T01 exposes no typed readable-current selector/state contract or tests proving deleted_tombstone artifacts never fall back to older active revisions. Because S05-T03 owns production readers, T01 should provide the contract it owns and accurately assign remaining enforcement to T03.",
+      "evidence": [
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:36-39",
+        "packages/convex/confect/sources/sourceSchemas.ts:43-80",
+        "packages/convex/test/source-ledger-schema.test.ts:1-564"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

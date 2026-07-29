@@ -1,0 +1,45 @@
+{
+  "taskId": "S13-T01",
+  "baseSha": "304348d92cd2388df5f7945f6ba8d76be79f8686",
+  "headSha": "8d5cc78b13efccf32bcb1c3824e1d452ec0e9508",
+  "changedFiles": [
+    "docs/product/maestro-brain-evals.md",
+    "tooling/evals/fixtures/maestro-brain/frozen-suite.json",
+    "tooling/evals/package.json",
+    "tooling/evals/src/brain-answers.test.ts",
+    "tooling/evals/src/brain-answers.ts",
+    "tooling/evals/src/brain-classification.test.ts",
+    "tooling/evals/src/brain-classification.ts",
+    "tooling/evals/src/brain-eval-cli.ts",
+    "tooling/evals/src/brain-eval-report.test.ts",
+    "tooling/evals/src/brain-eval-report.ts",
+    "tooling/evals/src/brain-maintenance.test.ts",
+    "tooling/evals/src/brain-maintenance.ts",
+    "tooling/evals/src/brain-multilingual.test.ts",
+    "tooling/evals/src/brain-multilingual.ts",
+    "tooling/evals/src/brain-prompt-injection.test.ts",
+    "tooling/evals/src/brain-prompt-injection.ts",
+    "tooling/evals/src/index.ts"
+  ],
+  "focusedCommands": [
+    "rtk host-test-slot --class focused pnpm --dir tooling/evals test",
+    "rtk pnpm --dir tooling/evals brain:eval",
+    "rtk pnpm --dir tooling/evals brain:fixture-check",
+    "rtk pnpm check:provider-boundary",
+    "rtk pnpm --dir tooling/evals typecheck"
+  ],
+  "testsAdded": [
+    "tooling/evals/src/brain-answers.test.ts",
+    "tooling/evals/src/brain-classification.test.ts",
+    "tooling/evals/src/brain-eval-report.test.ts",
+    "tooling/evals/src/brain-maintenance.test.ts",
+    "tooling/evals/src/brain-multilingual.test.ts",
+    "tooling/evals/src/brain-prompt-injection.test.ts"
+  ],
+  "reviewVerdict": "pass",
+  "knownRisks": [
+    "The exact packet command `rtk pnpm --dir tooling/evals test` was refused by the local rtk semaphore guard; reran through `rtk host-test-slot --class focused pnpm --dir tooling/evals test` as instructed by the guard.",
+    "Broad `rtk just verify` was intentionally not run in the isolated lane per the repair instructions; tranche integration owns broad verification.",
+    "Independent review fixed brain:eval default output so the focused command no longer leaves an untracked report; explicit output paths remain supported."
+  ]
+}

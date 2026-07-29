@@ -1,0 +1,80 @@
+{
+  "lens": "contract",
+  "taskId": "S05-T01",
+  "planSha256": "ce2b760a9efd332ff6f3201b8faf312601e4fd3d4fcb7dcb4253afe7cae25317",
+  "taskBlockHash": "d5212dbc84a10771993658fc840e29bc81671c08e7962dbf96fd34de2dda9ce5",
+  "baseSha": "5f682348711572faa32ac79066f8e470a1f2743f",
+  "headSha": "1e205d6d64d259cfb7492dd51064900a5b2ac2a9",
+  "treeSha": "f72ff91ad439694b8614e638e0c00d620a9baf49",
+  "reviewerRunId": "maestro/review/S05-T01/1e205d6d64d259cfb7492dd51064900a5b2ac2a9/66b6dbc5-0919-41cc-9380-c8895d722d47-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:S05-T01 block requires source-ledger tables, strict migration fragments, deterministic registry generation, no live capture behavior, and focused gates",
+        "packages/convex/confect/tables/providerEventReceipts.ts:1-15",
+        "packages/convex/confect/tables/sourceArtifacts.ts:1-20",
+        "packages/convex/confect/tables/sourceRevisions.ts:1-13",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:1-10",
+        "packages/convex/test/source-ledger-schema.test.ts:96-143",
+        "packages/convex/test/migration-registry.test.ts:1-240"
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:72-155 defines Effect schemas for receipt/artifact/revision/job rows",
+        "packages/convex/confect/sources/sourceSchemas.ts:157-212 defines verified binding and capture input shape without exposing live transaction API",
+        "packages/convex/confect/sources/sourceSchemas.ts:322-410 validates capture semantics and returns stable key/outcome data",
+        "packages/convex/confect/internal/migrations.impl.ts:528-559 preserves typed MigrationNotFound for unknown migrations"
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/providerEventReceipts.ts:5-15 declares durable receipt indexes including transport delivery and observation lookup",
+        "packages/convex/confect/tables/sourceArtifacts.ts:5-20 declares artifact identity/thread/lifecycle indexes",
+        "packages/convex/confect/tables/sourceRevisions.ts:5-13 declares revision/current-read indexes",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:5-10 declares processing job lease/effect indexes",
+        "packages/convex/test/source-ledger-schema.test.ts:96-143 pins the table/index inventory",
+        "pre-review gate report for head 1e205d6d64d259cfb7492dd51064900a5b2ac2a9 passed transient Confect codegen; task diff does not edit generated paths"
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:S05-T01 classification is template-gap, lane slack-source, requirements IAM-03/KNW-02/SLK-04/SLK-05",
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md changed as the required lifecycle adoption receipt",
+        "packages/convex/confect/internal/migration-fragments/S05-T01.json:1-10 records task hash and new_tables_only attestation",
+        "packages/convex/scripts/generate-migration-registry.mts:33-76 implements absolute-root check/write, missing-target rejection, symlink rejection, and byte-stable write behavior",
+        "packages/convex/test/migration-registry.test.ts:166-240 proves write/check/stale/missing/symlink behavior in a temporary root"
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:S05-T01 fileLocks include the changed product doc, source-ledger tables/schemas, migration fragments/runtime/generator, and focused tests",
+        "git diff --name-status 5f682348711572faa32ac79066f8e470a1f2743f..HEAD shows only S05-T01-owned files changed and no packages/convex/confect/internal/migrations.generated.ts edit",
+        "ci-proof-packet.json changedFiles excludes generated Confect/Convex output and records integration-owned canonical migration registry as not committed by this lane"
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/internal/migrationFragment.ts:60-80 rejects duplicate JSON keys and unknown fragment fields",
+        "packages/convex/confect/internal/migrationFragment.ts:81-145 rejects duplicate ids, hash drift, unsafe module paths, fake no-op migrations, dangling dependencies, phase inversion, and cycles",
+        "packages/convex/test/migration-registry.test.ts:92-164 covers declared fragment/schema failure paths",
+        "packages/convex/test/source-ledger-schema.test.ts exercises tenant mismatch, channel access loss, payload too large, duplicate/replay conflict, tombstone/no-source outcomes, and readable-current invariants",
+        "packages/convex/confect/internal/migrations.impl.ts:528-559 removes unknown migration fallback and returns MigrationNotFound"
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

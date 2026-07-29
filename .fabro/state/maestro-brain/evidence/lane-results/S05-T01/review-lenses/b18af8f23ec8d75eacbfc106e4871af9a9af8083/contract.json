@@ -1,0 +1,106 @@
+{
+  "lens": "contract",
+  "taskId": "S05-T01",
+  "planSha256": "401ba861efdc16760c9abac168cfd928efce150d9051c6bd58bf62ec330547a7",
+  "taskBlockHash": "1665eb4087239d8d137a8b4274f5f63c4bb965d699076b2678d1e618b1e34c54",
+  "baseSha": "648ddb32aa68230fdb41e0ef6dc6fe26c4837487",
+  "headSha": "b18af8f23ec8d75eacbfc106e4871af9a9af8083",
+  "treeSha": "a2bc635b73578941a3f1ab4402abf568501ccf41",
+  "reviewerRunId": "maestro/review/S05-T01/b18af8f23ec8d75eacbfc106e4871af9a9af8083/755db2ad-edc6-488e-bc40-8a4c6cdea446-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1669-1677 requires failure-first source-ledger tests for tombstones and related capture failures.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1678-1685 requires content-bearing rows to carry lifecycle envelope plus exact normalized content, canonical hash, and tombstone flag, and starts jobs with pinned policy epoch/effect key.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:4253 defines source artifact lifecycle active -> deleted_tombstone -> redacted -> purged; line 4295 requires Slack delete to revoke current readable text immediately and append tombstone metadata.",
+        "packages/convex/test/source-ledger-schema.test.ts:339-487 covers duplicate/tenant/key/size/canonicalization failures but has no assertion that observation.tombstone=true produces deleted_tombstone lifecycle or closes current active readers."
+      ],
+      "findingIds": [
+        "CONTRACT-S05-T01-001"
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:125-155 declares SourceLedgerCaptureInput with Verified Slack envelope data, normalized observation fields including tombstone, and routing policy/effect metadata.",
+        "packages/convex/confect/sources/sourceSchemas.ts:159-173 declares expected capture failures TenantMismatch, ChannelAccessLost, ObservationInvalid, PayloadTooLarge, and DuplicateKeyConflict.",
+        "packages/convex/confect/sources/sourceSchemas.ts:215-298 validates the input contract and returns inserted/duplicate plus stable source, revision, observation, and job keys without public Convex IDs."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:15-20 defines lifecycle.state values including deleted_tombstone, generation, updatedAt, and purgeAfter.",
+        "packages/convex/confect/sources/sourceSchemas.ts:43-58 declares SourceArtifactRow with lifecycle and latest revision metadata; packages/convex/confect/sources/sourceSchemas.ts:61-81 declares SourceRevisionRow with tombstone plus lifecycle.",
+        "packages/convex/confect/sources/sourceSchemas.ts:323-328 builds lifecycleValue unconditionally as state active, generation 1, updatedAt receivedAt, purgeAfter null.",
+        "packages/convex/confect/sources/sourceSchemas.ts:357 and 379 assign that unconditional active lifecycle to both artifact and revision rows, so observation.tombstone=true rows remain current-reader eligible by lifecycle.state despite revision.tombstone=true."
+      ],
+      "findingIds": [
+        "CONTRACT-S05-T01-001"
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1630-1634 classifies S05-T01 as template-gap source-ledger work satisfying SLK-04, SLK-05, IAM-03, and KNW-02.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1666 explicitly owns docs/product/maestro-brain-lifecycle-adoption/S05-T01.md for this lane.",
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:13-17 says sourceArtifacts carry permalink, author snapshot, canonical hash, and tombstone flag, but the actual SourceArtifactRow in packages/convex/confect/sources/sourceSchemas.ts:43-58 has none of those fields; those fields live on SourceRevisionRow at lines 73-79.",
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:22-24 says sourceProcessingJobs pin lifecycle generation, but SourceProcessingJobRow at packages/convex/confect/sources/sourceSchemas.ts:84-109 contains tenant, sourceUnit/sourceRevision, stage/status, effectKey, policyEpoch, lease, retry, attempts, and timestamps only."
+      ],
+      "findingIds": [
+        "CONTRACT-S05-T01-002"
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "ci-proof-packet.json:8-29 lists the changed files, including the source ledger schema/test/table files, task-owned migration files, and S05-T01 lifecycle adoption doc.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1641-1668 authorizes the same S05-T01 file set and states the product lane does not own or commit the integration-generated canonical migration registry.",
+        "ci-proof-packet.json:31-37 keeps the focused selector to the four real task tests plus migration/codegen/schema/contract checks; generated Confect/Convex output is integration-owned per review instructions."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:323-328 creates active lifecycle regardless of input.observation.tombstone.",
+        "packages/convex/confect/sources/sourceSchemas.ts:378-379 stores revision.tombstone from the observation but stores lifecycle active, leaving a contradictory tombstone/current-readable row.",
+        "packages/convex/test/source-ledger-schema.test.ts:508-563 proves rollback/staging boundaries, but no test exercises tombstone lifecycle generation/timestamps/reason semantics or fail-closed current-reader behavior for sourceArtifacts/sourceRevisions."
+      ],
+      "findingIds": [
+        "CONTRACT-S05-T01-001"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "CONTRACT-S05-T01-001",
+      "severity": "P1",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:323-328 builds lifecycleValue unconditionally active with generation 1.",
+        "packages/convex/confect/sources/sourceSchemas.ts:357 and 379 assign lifecycleValue to the artifact and revision even when packages/convex/confect/sources/sourceSchemas.ts:378 stores tombstone: input.observation.tombstone.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:4253 and 4295 require source deletes/tombstones to move content out of current readable state via deleted_tombstone and immediate read revocation."
+      ],
+      "summary": "Tombstone captures remain active and current-readable",
+      "details": "Add a failure-first tombstone test, then make tombstoned source artifact/revision rows use deleted_tombstone lifecycle with the declared generation/timestamp/reason semantics and ensure active/current readers fail closed while non-tombstone rows remain active."
+    },
+    {
+      "id": "CONTRACT-S05-T01-002",
+      "severity": "P2",
+      "evidence": [
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:13-17 attributes permalink, author snapshot, canonical hash, and tombstone flag to SourceArtifactRow, but SourceArtifactRow at packages/convex/confect/sources/sourceSchemas.ts:43-58 does not contain those fields.",
+        "packages/convex/confect/sources/sourceSchemas.ts:61-81 shows permalink, authorSnapshot, contentHash, and tombstone are SourceRevisionRow fields.",
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:22-24 says SourceProcessingJobRow pins lifecycle generation, while packages/convex/confect/sources/sourceSchemas.ts:84-109 has no lifecycle generation field."
+      ],
+      "summary": "Lifecycle adoption doc overclaims artifact fields and job lifecycle generation",
+      "details": "Correct docs/product/maestro-brain-lifecycle-adoption/S05-T01.md to describe revision metadata fields on SourceRevisionRow and to describe only the actual tenant/assembly/attempt/lease/status/policy/effect fencing carried by SourceProcessingJobRow; do not change schema to satisfy prose."
+    }
+  ],
+  "verdict": "rework"
+}

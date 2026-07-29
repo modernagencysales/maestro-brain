@@ -1,0 +1,46 @@
+{
+  "baseSha": "35b41809434dae56d571d5aa42f61bdb9dc5f3a6",
+  "deferredTaskIds": [],
+  "integrationId": "wave-000013",
+  "planSha256": "868331c0af5ab06b495ca802724f4a3578c854e07b8342c9de4b93107a264499",
+  "requestedTaskIds": [
+    "S02-T04"
+  ],
+  "schemaVersion": "maestro-brain-integration-wave-selection/v2",
+  "selectedTasks": [
+    {
+      "changedFiles": [
+        "packages/convex/confect/brain/pages.impl.ts",
+        "packages/convex/confect/brain/pages.spec.ts",
+        "packages/convex/confect/editor/documentTargets.ts",
+        "packages/convex/confect/editor/sync.ts",
+        "packages/convex/confect/editor/syncApi.ts",
+        "packages/convex/test/brain-editor-revision-fence.test.ts",
+        "packages/convex/test/editor-sync.test.ts"
+      ],
+      "codeStartAfter": [
+        "S02-T02"
+      ],
+      "fileLocks": [
+        "packages/convex/confect/brain/pages.impl.ts",
+        "packages/convex/confect/brain/pages.spec.ts",
+        "packages/convex/confect/editor/documentTargets.ts",
+        "packages/convex/confect/editor/sync.ts",
+        "packages/convex/confect/editor/syncApi.ts",
+        "packages/convex/test/brain-editor-revision-fence.test.ts",
+        "packages/convex/test/editor-sync.test.ts"
+      ],
+      "gateHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "gateSha256": "9210ca7283ea16657f045c0f5c6fecefd40ac4f80e1a9f466037f3dca931a2b3",
+      "headSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "laneResultSha256": "23d0410982aca8010856933104697a5893bac3223694c6d8f3c4873e6822c7f5",
+      "planSha256": "868331c0af5ab06b495ca802724f4a3578c854e07b8342c9de4b93107a264499",
+      "proofHeadSha": "625f959fcf9304ae861dffb7c0d254c4f784a02d",
+      "proofSha256": "e9070c88fa11754d3f00a573078398550f0cc36fa7de6d4267bb1ca58647c3df",
+      "taskBlockHash": "1dc9fb9ecdfc29278b9cae4e0108861343d437d9d84a171f135e3630eb187fdc",
+      "taskId": "S02-T04",
+      "tranche": "D2-domain-bodies"
+    }
+  ],
+  "selectionSha256": "67374e76865b980995a76dfb2bc230507ee4bd294f87a5ff9a6cef9aef9b1d8a"
+}

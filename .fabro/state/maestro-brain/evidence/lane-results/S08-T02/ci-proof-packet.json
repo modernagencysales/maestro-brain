@@ -1,0 +1,57 @@
+{
+  "taskId": "S08-T02",
+  "baseSha": "e8c660120f09a47a65d0dc3f271f2237aeeffe7a",
+  "headSha": "8356028b12ccf371f1a75a663ce72f7194e6b8ab",
+  "changedFiles": [
+    "docs/template/generator-output-contract.md",
+    "docs/template/how-to-add-workflow.md",
+    "tooling/generators/__fixtures__/workflow/internal.expected.json",
+    "tooling/generators/__fixtures__/workflow/invalid-exposure.json",
+    "tooling/generators/__fixtures__/workflow/public.expected.json",
+    "tooling/generators/src/index.test.ts",
+    "tooling/generators/src/index.ts",
+    "tooling/generators/src/workflow-output-smoke.ts"
+  ],
+  "focusedCommands": [
+    "rtk host-test-slot --class focused pnpm --dir tooling/generators test",
+    "rtk pnpm template:workflow-output-smoke",
+    "rtk host-test-slot --class focused pnpm test:workflow",
+    "rtk pnpm check:generators",
+    "rtk pnpm check:headless-surface-contract",
+    "rtk pnpm --dir tooling/generators typecheck"
+  ],
+  "testsAdded": [
+    "tooling/generators/src/index.test.ts: internal workflow generation has internal Confect controls, empty manifest surfaces, no headless descriptor, internal capability registry typing, deterministic invalid exposure errors, and public fixture byte-identity coverage",
+    "tooling/generators/__fixtures__/workflow/internal.expected.json",
+    "tooling/generators/__fixtures__/workflow/public.expected.json",
+    "tooling/generators/__fixtures__/workflow/invalid-exposure.json"
+  ],
+  "reviewVerdict": "pass",
+  "knownRisks": [
+    "template:workflow-output-smoke skipped live Convex codegen because CONVEX_DEPLOYMENT is not set; the smoke script continued through generated Convex package typecheck per workflow playbook guidance."
+  ],
+  "reviewHeadSha": "8356028b12ccf371f1a75a663ce72f7194e6b8ab",
+  "reviewFindings": [],
+  "reviewCommands": [
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir tooling/generators test",
+      "result": "passed: src/index.test.ts (44 tests)"
+    },
+    {
+      "command": "rtk pnpm check:generators",
+      "result": "passed: check:generators (shape-only): ok (pin-only)"
+    },
+    {
+      "command": "rtk pnpm check:headless-surface-contract",
+      "result": "passed: check:headless-surface-contract: ok"
+    },
+    {
+      "command": "rtk pnpm --dir tooling/generators typecheck",
+      "result": "passed: tsc -p tsconfig.json --noEmit"
+    },
+    {
+      "command": "rtk pnpm template:workflow-output-smoke",
+      "result": "passed: generated public and internal workflow output; skipped Convex codegen because CONVEX_DEPLOYMENT is not set; generated Convex package typecheck passed"
+    }
+  ]
+}

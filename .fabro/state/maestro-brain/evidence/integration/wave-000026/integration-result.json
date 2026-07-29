@@ -1,0 +1,81 @@
+{
+  "baseSha": "0e4348103b6b27f0aa08c1d132eeb5af532c4bd5",
+  "conflicts": [],
+  "focusedChecks": [
+    "rtk pnpm brain:factory:check-confect-codegen -- --profile web --test brain-editor-revision-fence --test brain-pages-crud",
+    "rtk pnpm --dir packages/editor-react typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/editor-react test",
+    "rtk pnpm check:route-tree",
+    "rtk pnpm check:layer-boundaries",
+    "rtk pnpm --dir packages/convex typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test api-keys headless http-request",
+    "rtk pnpm check:headless-surface-contract"
+  ],
+  "generatedFiles": [
+    "packages/convex/confect/_generated/registeredFunctions/headless/apiKeys.ts",
+    "packages/convex/confect/_generated/spec.ts",
+    "packages/convex/convex/brain/pages.ts",
+    "packages/convex/convex/headless/apiKeys.ts",
+    "packages/template-core/src/generated/confectManifest.ts"
+  ],
+  "headSha": "cc6fe46681a00b29a94ef06ae34ee365bf5a994e",
+  "includedTasks": [
+    {
+      "commitShas": [
+        "448775181d05d6dc2d13dcf5997d7ccf8529c955",
+        "eb7c67d03153fc103635f6c6f0146e8043ad3721",
+        "98a26f545c89eb07c8f96471fe6c6e081d771e6b",
+        "1df666695370b2e1d6008138f1c56bc806e6c1c2",
+        "e7dffea663799d00e9880df620953d4f8cecb917",
+        "6a4a217154717b0b2db451d35c51d15017939188",
+        "195db6c28eb821d3052be2cbc085f8aeed8043f8"
+      ],
+      "laneHeadSha": "195db6c28eb821d3052be2cbc085f8aeed8043f8",
+      "patchState": "applied",
+      "taskId": "S03-T03",
+      "tranche": "D2-domain-bodies"
+    },
+    {
+      "commitShas": [
+        "5618eddec2a81b71110919dc61691402fe85f24e",
+        "3c8574c4eef5029d27f688c6217c74946db8711e",
+        "62d9b8976b2434aab593603f909009c197dc98ad",
+        "f8fc996f713d3c50e923b69032cc52b222ebd230",
+        "d672485e073e5c5f9e310db9f384ba5d20364fb5",
+        "60984ba1ebdc38ac0619345e9125f77965dbea64",
+        "28df32bddf5d35f546342d03d20212142f1bb545",
+        "e9f327da525d5cc67610b6b680fb9956b7634c7f",
+        "abe5014abdf92598f13261931ecfce4582adfaf5",
+        "954b2f2d9ff2c266ba01b100d83b803e4b8c08fd"
+      ],
+      "laneHeadSha": "954b2f2d9ff2c266ba01b100d83b803e4b8c08fd",
+      "patchState": "applied",
+      "taskId": "S11-T02",
+      "tranche": "D2-domain-bodies"
+    }
+  ],
+  "integrationId": "wave-000026",
+  "mode": "integrate",
+  "remainingFindings": [],
+  "resolvedFindings": [
+    {
+      "id": "wave-000026-broad-gate-hand-authored-tooling-eslint",
+      "severity": "rework",
+      "summary": "Broad verify fails on hand-authored tooling ESLint debt outside the integration generated-output repair allowance.",
+      "details": "Focused eslint for tooling/brain-factory reports 30 hand-authored source/test lint errors, including forbidden non-null assertions and one unused destructured variable. This integration node may only repair generated output, so the finding is preserved for the owning tooling/factory lane rather than editing product/tooling source or tests here.",
+      "evidence": [
+        "rtk pnpm exec eslint tooling/brain-factory/src tooling/brain-factory/test --max-warnings=0 failed with 30 errors",
+        "broad-gate-cc6fe46681a00b29a94ef06ae34ee365bf5a994e.json status failed for rtk host-test-slot --class full pnpm verify",
+        "git blame tooling/brain-factory/test/review-lens.test.mts:104 => cc6ab9cc5af93ee6ea5f89cc7b21e7d5ba0446c5 feat: aggregate exhaustive lane reviews"
+      ],
+      "owningTaskLane": "tooling/brain-factory review aggregation lane (cc6ab9cc5af93ee6ea5f89cc7b21e7d5ba0446c5)",
+      "blockedCommand": "rtk host-test-slot --class full pnpm verify",
+      "resolution": "Not a selected-wave semantic defect: evidence points to pre-existing tooling/brain-factory broad-verify lint debt outside the immutable wave authored/generated file set."
+    }
+  ],
+  "reviewVerdict": "pass",
+  "schemaVersion": "maestro-brain-integration-result/v3",
+  "selectionFileSha256": "702790e416ea7d95187a770ddc326ebce9296e5e21a36460929e1d258dfa6a27",
+  "selectionPayloadSha256": "b5338fdcab7b55dd092ab6c2187734146f570223ee67eab766223d3a8495c371",
+  "status": "ready_for_review"
+}

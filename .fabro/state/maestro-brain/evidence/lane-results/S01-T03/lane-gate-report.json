@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "maestro-brain-lane-gate/v1",
+  "commandSetHash": "7aba9e79488e19eaca22c57da62c852cea083ac2fb0621a8943b9d797b7955ca",
+  "commands": [
+    "rtk pnpm exec prettier --check --ignore-unknown apps/web/src/providers/workspace-operations.test.ts apps/web/src/providers/workspace-operations.ts apps/web/src/routes/__root.tsx packages/convex/confect/access/auth.ts packages/convex/confect/access/provisioning.impl.ts packages/convex/confect/access/provisioning.spec.ts packages/convex/confect/access/provisioning.ts packages/convex/confect/auth/workspaces.impl.ts packages/convex/confect/auth/workspaces.spec.ts packages/convex/confect/errors.ts packages/convex/confect/identity/stableKeys.impl.ts packages/convex/confect/identity/stableKeys.spec.ts packages/convex/confect/identity/stableKeys.ts packages/convex/confect/tables/workspaces.ts packages/convex/test/access-provisioning.test.ts packages/convex/test/authorized-brain-provisioning.test.ts tooling/quality/check-auth-demo-bypass.mts tooling/quality/check-auth-demo-bypass.test.mts",
+    "rtk pnpm exec eslint apps/web/src/providers/workspace-operations.test.ts apps/web/src/providers/workspace-operations.ts apps/web/src/routes/__root.tsx packages/convex/confect/access/auth.ts packages/convex/confect/access/provisioning.impl.ts packages/convex/confect/access/provisioning.spec.ts packages/convex/confect/access/provisioning.ts packages/convex/confect/auth/workspaces.impl.ts packages/convex/confect/auth/workspaces.spec.ts packages/convex/confect/errors.ts packages/convex/confect/identity/stableKeys.impl.ts packages/convex/confect/identity/stableKeys.spec.ts packages/convex/confect/identity/stableKeys.ts packages/convex/confect/tables/workspaces.ts packages/convex/test/access-provisioning.test.ts packages/convex/test/authorized-brain-provisioning.test.ts tooling/quality/check-auth-demo-bypass.mts tooling/quality/check-auth-demo-bypass.test.mts",
+    "rtk pnpm brain:factory:check-confect-codegen -- --test authorized-brain-provisioning --test access-provisioning",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test workspace-access",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test workspace-operations workspace",
+    "rtk host-test-slot --class focused pnpm --dir apps/web typecheck",
+    "rtk host-test-slot --class focused pnpm --dir tooling/quality test check-auth-demo-bypass",
+    "rtk pnpm check:auth-demo-bypass",
+    "rtk pnpm check:confect-contracts",
+    "rtk pnpm check:access-audit-events",
+    "rtk pnpm --dir apps/web typecheck",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test"
+  ],
+  "currentHeadSha": "7885f8c1d63f0a72bab2df9853dd84967e656bc9",
+  "currentTreeSha": "4f017b58f7c2e0df7e87ceeba5ccb6570f90d5c0",
+  "gateProfiles": [
+    "convex",
+    "tooling",
+    "web"
+  ],
+  "headSha": "7885f8c1d63f0a72bab2df9853dd84967e656bc9",
+  "planSha256": "ac1af7f311392ff06a0cd6333b4e2a79c5ea12f33d359ff1cbd2a027a9665710",
+  "changedSourceLines": 910,
+  "estimateDrift": true,
+  "estimatedSourceLines": 880,
+  "sourceSliceBudget": 300,
+  "sourceSliceLimit": 4,
+  "sourceSlices": [
+    {
+      "changedSourceLines": 254,
+      "commit": "8ee785c7144826265a8a2c2ba334f7826937df12"
+    },
+    {
+      "changedSourceLines": 254,
+      "commit": "46f5e3c99fa8e31b332e96db70093911e7495009"
+    },
+    {
+      "changedSourceLines": 229,
+      "commit": "92c2c74a8c3f6d0164a5235ff8c8b3d46f212528"
+    },
+    {
+      "changedSourceLines": 173,
+      "commit": "7885f8c1d63f0a72bab2df9853dd84967e656bc9"
+    }
+  ],
+  "stage": "final",
+  "status": "passed",
+  "taskId": "S01-T03",
+  "taskBlockHash": "b8855d34c2ab0f77517e385ab4ea3fc14c5d5ef820d2615b3e278c78f963faa0",
+  "reusedPreReview": true
+}

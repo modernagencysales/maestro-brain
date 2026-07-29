@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "maestro-brain-lane-gate/v1",
+  "commandSetHash": "ad0f50326863a77efea298a902940a349d13d48eaa1757993dd671cd8bedefec",
+  "commands": [
+    "rtk pnpm exec prettier --check --ignore-unknown apps/web/src/features/brain/maintenance-review.test.tsx apps/web/src/features/brain/maintenance-review.tsx docs/product/maestro-brain-lifecycle-adoption/S08-T04.md docs/template/generated/capabilities/maintainBrainPage.md docs/template/generated/provenance/add-capability/maintainBrainPage.json docs/template/generated/provenance/add-workflow/sourceToBrainMaintenance.json docs/template/generated/workflows/sourceToBrainMaintenance.md packages/convex/confect/capabilities/maintainBrainPage.domain.ts packages/convex/confect/capabilities/maintainBrainPage.headless.json packages/convex/confect/capabilities/maintainBrainPage.impl.ts packages/convex/confect/capabilities/maintainBrainPage.spec.ts packages/convex/confect/capabilities/maintainBrainPage.test.ts packages/convex/confect/maintenance/commit.ts packages/convex/confect/maintenance/gather.ts packages/convex/confect/maintenance/policy.ts packages/convex/confect/maintenance/request.ts packages/convex/confect/tables/brainMaintenanceProposals.ts packages/convex/confect/tables/sourceProcessingJobs.ts packages/convex/confect/workflowContracts/sourceToBrainMaintenance.impl.ts packages/convex/confect/workflowContracts/sourceToBrainMaintenance.spec.ts packages/convex/confect/workflows/sourceToBrainMaintenance.graph.ts packages/convex/test/brain-maintenance.test.ts packages/convex/test/sourceToBrainMaintenance.workflow.test.ts",
+    "rtk pnpm exec eslint apps/web/src/features/brain/maintenance-review.test.tsx apps/web/src/features/brain/maintenance-review.tsx packages/convex/confect/capabilities/maintainBrainPage.domain.ts packages/convex/confect/capabilities/maintainBrainPage.impl.ts packages/convex/confect/capabilities/maintainBrainPage.spec.ts packages/convex/confect/capabilities/maintainBrainPage.test.ts packages/convex/confect/maintenance/commit.ts packages/convex/confect/maintenance/gather.ts packages/convex/confect/maintenance/policy.ts packages/convex/confect/maintenance/request.ts packages/convex/confect/tables/brainMaintenanceProposals.ts packages/convex/confect/tables/sourceProcessingJobs.ts packages/convex/confect/workflowContracts/sourceToBrainMaintenance.impl.ts packages/convex/confect/workflowContracts/sourceToBrainMaintenance.spec.ts packages/convex/confect/workflows/sourceToBrainMaintenance.graph.ts packages/convex/test/brain-maintenance.test.ts packages/convex/test/sourceToBrainMaintenance.workflow.test.ts",
+    "rtk pnpm template:add-capability -- --name maintainBrainPage --description Returns_cited_Brain_revision_proposals_from_an_immutable_context_pack --exposure workflow",
+    "rtk pnpm template:add-workflow -- --name sourceToBrainMaintenance --description Gathers_routed_evidence_and_proposes_cited_Brain_revisions --exposure internal",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test brain-maintenance",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test maintenance-review",
+    "rtk pnpm check:workflow-graph-boundary",
+    "rtk pnpm check:headless-surface-contract",
+    "rtk pnpm check:layer-boundaries",
+    "rtk host-test-slot --class focused pnpm --dir tooling/evals test maintenance injection",
+    "rtk pnpm check:confect-v9",
+    "rtk pnpm --dir packages/convex typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test",
+    "rtk pnpm --dir tooling/evals typecheck",
+    "rtk host-test-slot --class focused pnpm --dir tooling/evals test",
+    "rtk pnpm --dir apps/web typecheck",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test"
+  ],
+  "currentHeadSha": "e32afae7dd5c51a018b64a919b829dfd7763f0d8",
+  "currentTreeSha": "961ef33338a58686feca37124a12b01e1838ffc8",
+  "gateProfiles": [
+    "convex",
+    "evals",
+    "web"
+  ],
+  "headSha": "e32afae7dd5c51a018b64a919b829dfd7763f0d8",
+  "planSha256": "2bca6b40d7acab334b2036e9ed35652c06ebe8729c1a6c3319c04f827b7a77ce",
+  "changedSourceLines": 1118,
+  "estimateDrift": true,
+  "estimatedSourceLines": 295,
+  "sourceSliceBudget": 300,
+  "sourceSliceLimit": 4,
+  "sourceSlices": [
+    {
+      "changedSourceLines": 281,
+      "commit": "6878a119febe3bc9022f5c307e4b984e1c6add52"
+    },
+    {
+      "changedSourceLines": 252,
+      "commit": "1b76adf85db56d350e302d3f5110aa8b340213eb"
+    },
+    {
+      "changedSourceLines": 287,
+      "commit": "1802e81fd47c034cde3383e26267263df861c53c"
+    },
+    {
+      "changedSourceLines": 298,
+      "commit": "e32afae7dd5c51a018b64a919b829dfd7763f0d8"
+    }
+  ],
+  "stage": "pre-review",
+  "status": "passed",
+  "taskId": "S08-T04",
+  "taskBlockHash": "2bccfe705e20eef30b384725a71d69db2671a70d5c96f541fb95ec6b73629525",
+  "reusedPreReview": false
+}

@@ -1,0 +1,68 @@
+{
+  "lens": "contract",
+  "taskId": "S08-T03",
+  "planSha256": "1c6b818063c534afdae20d688fee71e830915c5ac356bf7eba7724099d7ed9a5",
+  "taskBlockHash": "52836a187d4a821697f0ff1d057155b9aefc998858fac5df08c06f5b82cf6612",
+  "baseSha": "2bdef668a17ac4e86a9113846b773f6243f281c0",
+  "headSha": "04e8205f1f62ae02bd3d62414dade59c0d239a62",
+  "treeSha": "297a163fb034498ce5353510fc048dbccc29bce7",
+  "reviewerRunId": "maestro/review/S08-T03/04e8205f1f62ae02bd3d62414dade59c0d239a62/e8f981c1-4075-4c85-a794-983c6d27bbcf-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2445",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:S08-T03",
+        "ci-proof-packet.json changedFiles list matches task-owned S08-T03 source, tests, generated-doc provenance, and adoption doc paths."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/capabilities/classifySourceUnit.spec.ts:73-165 declares internal workflow/internal classifySourceUnit and commitSourceRoute functions with typed expected errors.",
+        "packages/convex/confect/workflowContracts/sourceClassification.spec.ts:27-29 carries the workflow boundary error union including MalformedModelOutput, TargetNotAllowed, EvidenceMismatch, ReviewForbidden, StaleGeneration, and DuplicateEffect.",
+        "packages/convex/confect/capabilities/classifySourceUnit.impl.ts:28-63 implements the commitSourceRoute Confect function referenced by the workflow registry."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/classificationDecisions.ts:1-84 defines the durable proposal/review/commit state with source hash, generations, allowlist, review status, and effect key fields.",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:25-60 extends source-processing jobs with classification stage, execution status, allowlist, source hash, lease, and route-effect fields.",
+        "Generated Confect/Convex trees were not edited in the task diff; the exact-head pre-review lane gate reported S08-T03 lane gates passed and integration owns regenerated output admission."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/template/generated/provenance/add-capability/classifySourceUnit.json and docs/template/generated/provenance/add-workflow/sourceClassification.json are present in the changed file set for the required pattern-instance generators.",
+        "ci-proof-packet.json focusedCommands records the required non-mutating generator dry-runs, Confect/headless/workflow/layer checks, Convex classification tests, web review-queue tests, and classification eval test.",
+        "docs/product/maestro-brain-lifecycle-adoption/S08-T03.md:65-75 records the focused proof and rollback/status contract for this implemented seam."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "ci-proof-packet.json changedFiles contains only S08-T03 task-owned files from the manifest, with no checked-in generated Confect or Convex _generated tree edits.",
+        "apps/web/src/features/connections/classification-review-queue.tsx and packages/convex/confect/workflowContracts/sourceClassification.impl.ts stay within the Connections feature and workflow-to-capability layer boundaries proven by the pre-review lane gate.",
+        "packages/convex/confect/workflows/sourceClassification.graph.ts:7 composes named workflow capabilities rather than importing provider adapters or React Flow."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/test/source-classification.test.ts covers TargetNotAllowed, EvidenceMismatch, ReviewForbidden, StaleGeneration, DuplicateEffect, zero-call Direct/Capture, mixed-client, duplicate, and prompt-injection-shaped cases.",
+        "packages/convex/test/sourceClassification.workflow.test.ts:49-67 asserts the workflow graph includes routes.commit and the commitSourceRoute manifest declares ReviewForbidden, StaleGeneration, and DuplicateEffect.",
+        "packages/convex/confect/classification/commit.ts:1-93 makes StaleGeneration and DuplicateEffect reachable from the reviewed commit helper used by commitSourceRoute."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

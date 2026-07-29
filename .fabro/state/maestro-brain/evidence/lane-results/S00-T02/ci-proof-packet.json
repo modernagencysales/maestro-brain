@@ -1,0 +1,35 @@
+{
+  "taskId": "S00-T02",
+  "baseSha": "304348d92cd2388df5f7945f6ba8d76be79f8686",
+  "headSha": "3f0fc9b7db0baf0536c104605e6b209c4d1093f8",
+  "changedFiles": [
+    "docs/superpowers/receipts/maestro-brain/source-baseline.md",
+    "docs/superpowers/receipts/maestro-brain/stack-execution-contract.md",
+    "docs/template/porting-backlog.md"
+  ],
+  "focusedCommands": [
+    "rtk git rev-parse HEAD # pass: 3f0fc9b7db0baf0536c104605e6b209c4d1093f8",
+    "rtk git merge-base --is-ancestor 123adb18c0abfe81fe98dd531c910b6cf493c8dd HEAD # pass: exit 0",
+    "git fetch --depth=1 origin <pin>; git cat-file -t <pin>; git rev-parse <pin>^{commit} # pass: all six source pins resolved exactly",
+    "rtk pnpm stack:check /tmp/s00-t02-stack.*/missing-follow-up-gates.json # expected fail: slice 2 workPackages[0].followUpGates must be a non-empty string array; sha256 7ed13523bcbb3900c557918b17aed4bca0157c071dc00f682916b30357b31ba7",
+    "rtk pnpm stack:check /tmp/s00-t02-stack.*/est-lines-301.json # expected fail: slice 2 estLines 301 exceeds 300; sha256 ae5f3599e925191fd26e80026465ef4fd95b859f8a88396a9b9bd56ce67057a4",
+    "rtk pnpm stack:check /tmp/s00-t02-stack.*/fifth-slice.json # expected fail: stack depth 5 exceeds MAX_DEPTH 4; sha256 5ff96674250e5f7f6432ba2b47fd2fb9c2f504a636790de27a4fa3ed69619498",
+    "rtk pnpm stack:check /tmp/s00-t02-stack.*/corrected.json # pass: ✓ stack plan valid; sha256 bfe3f1a960a02dad83c6818dc0e4dad4d6f7551c2d01177b76a50421b6f60df8",
+    "rtk pnpm exec prettier --check docs/template/porting-backlog.md docs/superpowers/receipts/maestro-brain/source-baseline.md docs/superpowers/receipts/maestro-brain/stack-execution-contract.md # pass: All matched files use Prettier code style!",
+    "rtk pnpm test:stack # pass: Test Files 9 passed (9); Tests 47 passed (47)",
+    "rtk pnpm check:docs-freshness # pass: check:docs-freshness: ok (pin-only)",
+    "rtk git diff --check # pass: no output",
+    "rtk pnpm --dir tooling/stack test # refused by pnpm guard; rerun through focused host-test-slot",
+    "rtk host-test-slot --class focused pnpm --dir tooling/stack test # pass: Test Files 9 passed (9); Tests 47 passed (47)",
+    "rtk pnpm brain:factory:lane-gates -- --task S00-T02 --evidence /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence --stage pre-review # pass: S00-T02 lane gates passed (pre-review)"
+  ],
+  "testsAdded": [
+    "Temporary adversarial StackPlan manifests outside the repo proving missing followUpGates, estLines 301, and fifth-slice trials fail closed before the corrected S00 projection passes."
+  ],
+  "reviewVerdict": "pass",
+  "knownRisks": [
+    "Broad rtk just verify / verify-full intentionally not run in the lane per tranche-integration instruction.",
+    "Task commit was amended during review to 3f0fc9b after repairing external proof metadata; the committed docs tree is unchanged from implementation.",
+    "Package-local stack test must be run through rtk host-test-slot in this multi-agent host; direct rtk pnpm --dir tooling/stack test is refused by the pnpm guard."
+  ]
+}

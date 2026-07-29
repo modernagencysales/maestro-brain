@@ -1,0 +1,86 @@
+{
+  "attempt": 3,
+  "baseSha": "1ba7949d7a030e08491556cb716f299404e77bde",
+  "branch": "fabro/brain-wave-000001",
+  "integrationId": "wave-000001",
+  "reservationToken": "646f7b1a-bd54-4ae0-9e87-797e29482777",
+  "schemaVersion": "maestro-brain-integration-wave-run/v2",
+  "selection": {
+    "baseSha": "1ba7949d7a030e08491556cb716f299404e77bde",
+    "deferredTaskIds": [],
+    "integrationId": "wave-000001",
+    "planSha256": "67282c1924e380b207e131a80e6db1771f53956aa857d44c6d583b53d116cd7e",
+    "schemaVersion": "maestro-brain-integration-wave-selection/v2",
+    "selectedTasks": [
+      {
+        "changedFiles": [
+          "docs/product/maestro-brain-migrations.md",
+          "packages/convex/confect/access/provisioning.impl.ts",
+          "packages/convex/confect/access/provisioning.ts",
+          "packages/convex/confect/access/tenancySchemas.ts",
+          "packages/convex/confect/identity/stableKeys.ts",
+          "packages/convex/confect/internal/migrations.impl.ts",
+          "packages/convex/confect/internal/migrations.spec.ts",
+          "packages/convex/confect/internal/migrations.ts",
+          "packages/convex/confect/tables/organizations.ts",
+          "packages/convex/confect/tables/workspaces.ts",
+          "packages/convex/package.json",
+          "packages/convex/test/access-provisioning.test.ts",
+          "packages/convex/test/migrations.test.ts",
+          "packages/convex/test/stable-tenant-keys.test.ts",
+          "pnpm-lock.yaml",
+          "pnpm-workspace.yaml",
+          "tooling/patches/@convex-dev__migrations@0.3.5.patch"
+        ],
+        "codeStartAfter": [
+          "S00-T04",
+          "S01-T01"
+        ],
+        "fileLocks": [
+          "@dependencies",
+          "docs/product/maestro-brain-migrations.md",
+          "packages/convex/confect/access/provisioning.impl.ts",
+          "packages/convex/confect/access/provisioning.ts",
+          "packages/convex/confect/access/tenancySchemas.ts",
+          "packages/convex/confect/identity/stableKeys.ts",
+          "packages/convex/confect/internal/migrations.impl.ts",
+          "packages/convex/confect/internal/migrations.spec.ts",
+          "packages/convex/confect/internal/migrations.ts",
+          "packages/convex/confect/tables/organizations.ts",
+          "packages/convex/confect/tables/workspaces.ts",
+          "packages/convex/package.json",
+          "packages/convex/test/access-provisioning.test.ts",
+          "packages/convex/test/migrations.test.ts",
+          "packages/convex/test/stable-tenant-keys.test.ts",
+          "pnpm-lock.yaml",
+          "pnpm-workspace.yaml",
+          "tooling/patches/@convex-dev__migrations@0.3.5.patch"
+        ],
+        "gateHeadSha": "efc98a3eb4ef7a37a992be7aaa6be003cf2c74c8",
+        "gateSha256": "75f31b0fd6eeaa83726ac278ea989d3f762fa1a0d6d25e21e3639f8e5d7fd4f6",
+        "headSha": "efc98a3eb4ef7a37a992be7aaa6be003cf2c74c8",
+        "laneResultSha256": "b214a1a0b36e0a20a6793ed67b9f9bd7d300635dfce3415320f163a7042434df",
+        "planSha256": "67282c1924e380b207e131a80e6db1771f53956aa857d44c6d583b53d116cd7e",
+        "proofHeadSha": "efc98a3eb4ef7a37a992be7aaa6be003cf2c74c8",
+        "proofSha256": "4a98c83c59ec4ebba64006e9def151db65092a18677377d5eacd0227ad7749ae",
+        "taskBlockHash": "f8dfea31b91e435c11203c1641f2b5fd1cefe5e966e26f4ba105b1e7088d7204",
+        "taskId": "S01-T02",
+        "tranche": "C1-contract-spine"
+      }
+    ],
+    "selectionSha256": "964576264395e9c471ba01fc64df034f1930634a078623b6f90e1b0e5594732c"
+  },
+  "selectionPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000001-selection.json",
+  "selectionSha256": "964576264395e9c471ba01fc64df034f1930634a078623b6f90e1b0e5594732c",
+  "status": "launched",
+  "workdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000001",
+  "activeMode": "recover",
+  "runId": "01KXKDN2N4XZWAE8P8MEVY4ZZ4",
+  "runIds": [
+    "01KXK8XY3FQV25XBPTJSAA7VWK",
+    "01KXKBQ3KA2M9FA7J680Y0DMWF",
+    "01KXKDN2N4XZWAE8P8MEVY4ZZ4"
+  ],
+  "recoveredAt": "2026-07-15T17:37:06.333Z",
+  "recoveryReason": "record required integrationWorkdir after full gate passed"
+}

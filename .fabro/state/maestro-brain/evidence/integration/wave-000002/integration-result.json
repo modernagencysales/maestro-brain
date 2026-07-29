@@ -1,0 +1,157 @@
+{
+  "schemaVersion": "maestro-brain-integration-result/v2",
+  "integrationId": "wave-000002",
+  "status": "ready_for_review",
+  "mode": "recover",
+  "baseSha": "b70b28d23363c5fa581d8ac18ac6cc6c295f4acf",
+  "headSha": "c72bcbfae2b0cbdf3465bf5069e52530d2510e46",
+  "treeSha": "49dca034a99f4e0b7fc299dfb7d0f7ce588029dd",
+  "integrationWorkdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000002",
+  "selectionSha256": "552397ad775be59c8638516a893cd844e276b9aa4a0634b7bfeb014764d209a3",
+  "manifestTranches": [
+    "D2-domain-bodies"
+  ],
+  "selection": {
+    "schemaVersion": "maestro-brain-integration-wave-selection/v2",
+    "integrationId": "wave-000002",
+    "selectionSha256": "552397ad775be59c8638516a893cd844e276b9aa4a0634b7bfeb014764d209a3",
+    "planSha256": "cdef7d7b41c39a321e93a84df0c247826e834b2c9c0df65ecd85f1fcec4af950",
+    "baseSha": "b70b28d23363c5fa581d8ac18ac6cc6c295f4acf",
+    "deferredTaskIds": []
+  },
+  "reviewVerdict": "rework",
+  "remainingFindings": [
+    {
+      "id": "wave-000002-non-lane-hand-authored-files",
+      "severity": "blocker",
+      "summary": "Integration HEAD changes hand-authored files outside the immutable selected task changedFiles set and outside the generated-file allowlist.",
+      "details": [
+        "The immutable selection includes S01-T03 and S01-T04. All selected lane changedFiles are present, and generated integration files are limited to packages/convex/confect/_generated/registeredFunctions/identity/stableKeys.ts, packages/convex/confect/_generated/spec.ts, packages/convex/convex/access/provisioning.ts, and packages/convex/convex/identity/stableKeys.ts.",
+        "The integrated diff from base b70b28d23363c5fa581d8ac18ac6cc6c295f4acf to HEAD c72bcbfae2b0cbdf3465bf5069e52530d2510e46 also changes non-generated hand-authored files that are not in any selected task changedFiles list: packages/convex/confect/access/auth.ts, packages/convex/confect/access/provisioning.ts, packages/convex/confect/errors.ts, packages/convex/confect/tables/workspaces.ts, tooling/quality/check-auth-demo-bypass.mts, and tooling/quality/check-auth-demo-bypass.test.mts.",
+        "This violates patch ownership / generated-only integration-file constraints for an immutable wave. This review did not author or certify a repair."
+      ],
+      "evidence": {
+        "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000002; rtk git diff --name-only b70b28d23363c5fa581d8ac18ac6cc6c295f4acf..HEAD | rtk rg -v '<selected lane changedFiles plus generated allowlist regex>'",
+        "output": [
+          "packages/convex/confect/access/auth.ts",
+          "packages/convex/confect/access/provisioning.ts",
+          "packages/convex/confect/errors.ts",
+          "packages/convex/confect/tables/workspaces.ts",
+          "tooling/quality/check-auth-demo-bypass.mts",
+          "tooling/quality/check-auth-demo-bypass.test.mts"
+        ]
+      }
+    }
+  ],
+  "includedTasks": [
+    {
+      "taskId": "S01-T03",
+      "tranche": "D2-domain-bodies",
+      "laneHeadSha": "065b3bc6551a5f2f5486a9c6d6f793d1016c8917",
+      "headSha": "065b3bc6551a5f2f5486a9c6d6f793d1016c8917",
+      "proofHeadSha": "065b3bc6551a5f2f5486a9c6d6f793d1016c8917",
+      "gateHeadSha": "065b3bc6551a5f2f5486a9c6d6f793d1016c8917",
+      "laneResultSha256": "27de29a1da708ba047b24174f71895fb789cf3caa2f431468e1d6361d672c919",
+      "proofSha256": "b09a3be455bd6dda6c5f77c2038e39a6c93f3a29cac48ea00e1fa75b2f0d4c6a",
+      "gateSha256": "519a9a0a38875e0fab9219af3edd207600c84a244ddb768396947046b8408a20",
+      "taskBlockHash": "2acbd29281e9daefb7c8c6ab97be1aa460521b0c42c5e2fe4d41dbc6ca11776e",
+      "planSha256": "cdef7d7b41c39a321e93a84df0c247826e834b2c9c0df65ecd85f1fcec4af950",
+      "changedFiles": [
+        "apps/web/src/providers/workspace-operations.test.ts",
+        "apps/web/src/providers/workspace-operations.ts",
+        "apps/web/src/routes/__root.tsx",
+        "packages/convex/confect/access/provisioning.impl.ts",
+        "packages/convex/confect/access/provisioning.spec.ts",
+        "packages/convex/confect/auth/workspaces.impl.ts",
+        "packages/convex/confect/auth/workspaces.spec.ts",
+        "packages/convex/confect/identity/stableKeys.impl.ts",
+        "packages/convex/confect/identity/stableKeys.spec.ts",
+        "packages/convex/confect/identity/stableKeys.ts",
+        "packages/convex/test/access-provisioning.test.ts",
+        "packages/convex/test/authorized-brain-provisioning.test.ts"
+      ]
+    },
+    {
+      "taskId": "S01-T04",
+      "tranche": "D2-domain-bodies",
+      "laneHeadSha": "e9029c186cf5828d06e48cf7ab453cc12355c0ca",
+      "headSha": "e9029c186cf5828d06e48cf7ab453cc12355c0ca",
+      "proofHeadSha": "e9029c186cf5828d06e48cf7ab453cc12355c0ca",
+      "gateHeadSha": "e9029c186cf5828d06e48cf7ab453cc12355c0ca",
+      "laneResultSha256": "2ea1a26d475079cea1d8d74412eae1f21243a749a1d30f72e10075c13c5f3057",
+      "proofSha256": "44fc7dcfc359281391b8646af8cf8bfb7f025413b82117516418e157fcb05a45",
+      "gateSha256": "e359a059b046a825a6a4a74bbd34246c67bb594a70a25dc3d78705b34f9bcdda",
+      "taskBlockHash": "4fb8d9ca955d3fd49198ca2d3228742e9ea06a2bc418d12288954422c1e1f6b3",
+      "planSha256": "cdef7d7b41c39a321e93a84df0c247826e834b2c9c0df65ecd85f1fcec4af950",
+      "changedFiles": [
+        "apps/web/src/features/settings/member-management-adapter.test.ts",
+        "apps/web/src/features/settings/member-management-adapter.ts",
+        "apps/web/src/features/settings/member-management.test.tsx",
+        "apps/web/src/features/settings/member-management.tsx",
+        "apps/web/src/features/settings/settings-surface.test.ts",
+        "apps/web/src/features/settings/settings-surface.ts",
+        "apps/web/src/routes/_workspace.settings.tsx",
+        "packages/convex/confect/access/audit.ts",
+        "packages/convex/confect/access/invitations.impl.ts",
+        "packages/convex/confect/access/members.impl.ts",
+        "packages/convex/confect/access/members.spec.ts",
+        "packages/convex/confect/access/tenancySchemas.ts",
+        "packages/convex/test/brain-role-matrix.test.ts"
+      ]
+    }
+  ],
+  "generatedFiles": [
+    "packages/convex/confect/_generated/registeredFunctions/identity/stableKeys.ts",
+    "packages/convex/confect/_generated/spec.ts",
+    "packages/convex/convex/access/provisioning.ts",
+    "packages/convex/convex/identity/stableKeys.ts"
+  ],
+  "dependencyEvidence": [
+    {
+      "taskId": "S01-T02",
+      "consumedByTaskIds": [
+        "S01-T03",
+        "S01-T04"
+      ],
+      "laneResultPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S01-T02/lane-result.json",
+      "laneResultStatus": "integrated",
+      "integrationHeadSha": "547633630871eb08e0e0be502a53ff0aba97dccc",
+      "baseSha": "b70b28d23363c5fa581d8ac18ac6cc6c295f4acf",
+      "integrationHeadIsAncestorOfBase": true
+    }
+  ],
+  "reviewChecks": [
+    {
+      "command": "rtk pnpm --dir /Users/headless/maestro-brain-plan/tooling/brain-factory exec tsx src/integration-wave-selection-check.mts --selection /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000002-selection.json --integration-id wave-000002 --base b70b28d23363c5fa581d8ac18ac6cc6c295f4acf --selection-sha256 552397ad775be59c8638516a893cd844e276b9aa4a0634b7bfeb014764d209a3",
+      "result": "passed: wave-000002: immutable wave selection passed"
+    },
+    {
+      "command": "rtk pnpm --dir /Users/headless/maestro-brain-plan/tooling/brain-factory exec tsx src/hydrate-integration-dependencies.mts --workdir /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000002 --base b70b28d23363c5fa581d8ac18ac6cc6c295f4acf",
+      "result": "passed: {\"changedFiles\":[],\"mode\":\"unchanged\"}"
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000002; rtk git diff --check b70b28d23363c5fa581d8ac18ac6cc6c295f4acf..HEAD",
+      "result": "passed"
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000002; rtk git status --porcelain=v1",
+      "result": "clean"
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000002; compute changed files outside selected lane changedFiles and generated allowlist",
+      "result": "failed: six non-lane hand-authored files changed; see remainingFindings wave-000002-non-lane-hand-authored-files"
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000002; compute per-commit hand-authored non-test source lines",
+      "result": "passed: all commits at or below 300 hand-authored non-test source lines"
+    }
+  ],
+  "notes": [
+    "Read-only independent review only; no worktree or product files were edited or committed.",
+    "No broad verify was run in this review; no acceptance evidence is claimed.",
+    "Status remains ready_for_review; passed is reserved for the record node after the broad gate.",
+    "Repair turn stopped the reverse-change approach; product worktree remains unchanged at c72bcbfae2b0cbdf3465bf5069e52530d2510e46.",
+    "Unresolved rework: selected lane proof/file ownership must be amended and re-proved for wave-000002-non-lane-hand-authored-files before review can pass.",
+    "No pass verdict or broad gate is claimed by this repair turn."
+  ]
+}

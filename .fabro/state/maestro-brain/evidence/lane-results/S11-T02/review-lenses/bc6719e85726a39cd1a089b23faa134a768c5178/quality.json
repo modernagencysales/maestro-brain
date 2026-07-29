@@ -1,0 +1,90 @@
+{
+  "lens": "quality",
+  "taskId": "S11-T02",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "2b484dad01173ead7ca99d710455998926b3666713d025943ef5824aed334ff6",
+  "baseSha": "defde4d68fbcdd7d39566d82986ec562010c9638",
+  "headSha": "bc6719e85726a39cd1a089b23faa134a768c5178",
+  "treeSha": "8ac88dfb673b57ddabb0fea81aca5110ee08d771",
+  "reviewerRunId": "maestro/review/S11-T02/bc6719e85726a39cd1a089b23faa134a768c5178/865a7553-03ac-4fe3-bf3d-8efae5007bbd-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3094-3099",
+        "packages/convex/test/http-request-security.test.ts:230-263",
+        "packages/convex/test/http-request-security.test.ts:265-339",
+        "packages/convex/test/http-request-security.test.ts:401-466",
+        "packages/convex/test/http-request-security.test.ts:510-586",
+        "packages/convex/test/api-keys.test.ts:46-183",
+        "packages/convex/test/api-keys.test.ts:404-416",
+        "packages/convex/test/api-keys.test.ts:856-856",
+        "apps/web/src/features/settings/api-keys-adapter.test.ts:1-83",
+        "apps/web/src/features/settings/api-keys-panel.test.tsx:1-78",
+        "ci-proof-packet.json supplementalCommands: focused convex/web/headless/codegen/logging/secret/audit gates passed"
+      ]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "AGENTS.md:8-20",
+        "AGENTS.md:22-38",
+        "packages/convex/confect/headless/apiKeys.spec.ts:21-127",
+        "packages/convex/confect/headless/apiKeys.impl.ts:461-551",
+        "packages/convex/confect/http.ts:300-352",
+        "packages/convex/confect/manifest/executor.ts:369-396",
+        "apps/web/src/routes/_workspace.settings.tsx:1-26",
+        "apps/web/src/features/settings/api-keys-adapter.ts:52-100"
+      ]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/auth.ts:183-208",
+        "packages/convex/confect/headless/authorizeOperation.ts:27-100",
+        "packages/convex/confect/httpRequest.ts:77-145",
+        "packages/convex/confect/http.ts:373-431",
+        "ci-proof-packet.json knownRisks: apiKeys.impl.ts large-module inspectability debt documented as known risk"
+      ]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3111-3118",
+        "packages/convex/confect/headless/apiKeys.impl.ts:95-117",
+        "packages/convex/confect/headless/apiKeys.impl.ts:328-340",
+        "packages/convex/confect/headless/apiKeys.impl.ts:446-457",
+        "packages/convex/test/http-request-security.test.ts:549-586",
+        "packages/convex/test/http-request-security.test.ts:588-606",
+        "ci-proof-packet.json supplementalCommands: check:logging-boundary and check:secret-canaries passed"
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1430-1437",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3135-3139",
+        "git log defde4d68fbcdd7d39566d82986ec562010c9638..bc6719e85726a39cd1a089b23faa134a768c5178: 10 commits",
+        "ci-proof-packet.json knownRisks: source-line calculation verified commit slices at or below 300 lines"
+      ]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "pass",
+      "evidence": [
+        "AGENTS.md:34-38",
+        "apps/web/src/routes/_workspace.settings.tsx:88-90",
+        "ci-proof-packet.json changedFiles: no packages/convex/confect/_generated or template-core/generated files changed",
+        "ci-proof-packet.json supplementalCommands: rtk pnpm brain:factory:check-confect-codegen passed with transient generated files",
+        "ci-proof-packet.json knownRisks: generated Confect artifacts remain integration-owned by Appendix O"
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

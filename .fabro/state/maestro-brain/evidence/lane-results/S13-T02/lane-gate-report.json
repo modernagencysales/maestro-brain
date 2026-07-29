@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "maestro-brain-lane-gate/v1",
+  "commandSetHash": "be511c18a0e8a85d7301882d9b732b932155413f2e7900af9f19eb912c0dfcd2",
+  "commands": [
+    "rtk pnpm exec prettier --check --ignore-unknown docs/product/maestro-brain-capacity.md packages/convex/test/brain-capacity.test.ts tooling/evals/package.json tooling/evals/src/brain-capacity-fixture.ts tooling/evals/src/brain-capacity-report.ts tooling/evals/src/brain-capacity.test.ts tooling/evals/src/brain-capacity.ts",
+    "rtk pnpm exec eslint packages/convex/test/brain-capacity.test.ts tooling/evals/src/brain-capacity-fixture.ts tooling/evals/src/brain-capacity-report.ts tooling/evals/src/brain-capacity.test.ts tooling/evals/src/brain-capacity.ts",
+    "rtk pnpm --dir tooling/evals brain:capacity",
+    "rtk host-test-slot --class focused pnpm --dir tooling/evals test brain-capacity",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test brain-capacity",
+    "rtk host-test-slot --class focused pnpm check:coverage-ratchet",
+    "rtk pnpm --dir packages/convex typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test",
+    "rtk pnpm --dir tooling/evals typecheck",
+    "rtk host-test-slot --class focused pnpm --dir tooling/evals test"
+  ],
+  "currentHeadSha": "efc6da6647816263d85e7e94c02f2fe04273c566",
+  "currentTreeSha": "c5d3266dcbdf1a7689061de23e0b6c78cc8f586b",
+  "gateProfiles": [
+    "convex",
+    "evals",
+    "tooling"
+  ],
+  "headSha": "efc6da6647816263d85e7e94c02f2fe04273c566",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "changedSourceLines": 364,
+  "estimateDrift": true,
+  "estimatedSourceLines": 260,
+  "sourceSliceBudget": 300,
+  "sourceSliceLimit": 4,
+  "sourceSlices": [
+    {
+      "changedSourceLines": 258,
+      "commit": "49540c5f759b12b3d7b897d285f4773149505af7"
+    },
+    {
+      "changedSourceLines": 104,
+      "commit": "8acec5d81edb9d5efce3e8ad315bd10d308c7c44"
+    },
+    {
+      "changedSourceLines": 0,
+      "commit": "a2234bfa0c61c63a85bb538e2eabf35817d29f72"
+    },
+    {
+      "changedSourceLines": 2,
+      "commit": "efc6da6647816263d85e7e94c02f2fe04273c566"
+    }
+  ],
+  "stage": "final",
+  "status": "passed",
+  "taskId": "S13-T02",
+  "taskBlockHash": "2b76ab1991d07a9978da3c321cbcc4f73ffc5ae9b4e3eb3512e2ff3dd4251072",
+  "reusedPreReview": true
+}

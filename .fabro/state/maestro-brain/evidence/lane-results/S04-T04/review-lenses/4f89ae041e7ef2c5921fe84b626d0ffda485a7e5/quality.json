@@ -1,0 +1,103 @@
+{
+  "lens": "quality",
+  "taskId": "S04-T04",
+  "planSha256": "b6c8c42e744502700c8607be941e8f3dbe1e790d70abc7f3666efbf69554f9ca",
+  "taskBlockHash": "43fe7362c17307d938a689c31cfaa350124a5029c8ef938d09c8f08066ec12c5",
+  "baseSha": "e8f008574eff0d1a21700ff02926ac4c9870d425",
+  "headSha": "4f89ae041e7ef2c5921fe84b626d0ffda485a7e5",
+  "treeSha": "80275b838f44cdff35cf9f67b1f0546e8cd12fcf",
+  "reviewerRunId": "maestro/review/S04-T04/4f89ae041e7ef2c5921fe84b626d0ffda485a7e5/ff894c45-3aee-487a-9217-dc32a1e60be5-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/test/channel-policies.test.ts:223-231 only asserts buildBulkPolicyPlan returns auditRows; no test executes bulkSetChannelPoliciesImpl or proves audit rows are persisted.",
+        "apps/web/src/features/connections/channel-policy-view-model.test.ts:25-62 covers only pure row/dialog labels; it does not render ConnectionsScreen or prove the channel policy table/dialog appears on /connections.",
+        "rtk proxy rg -n \"ChannelTable|ChannelPolicyDialogSummary|channelPolicy|buildChannelPolicyRows|buildChannelPolicyDialogState\" apps/web/src/features/connections apps/web/src/routes/_workspace.connections.tsx shows channel policy UI symbols only in newly added files/tests and route fixture, with no ConnectionsScreen usage."
+      ],
+      "findingIds": [
+        "S04-T04-QUALITY-001",
+        "S04-T04-QUALITY-002"
+      ]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "apps/web/src/routes/_workspace.connections.tsx:3-4 imports the feature adapter and ConnectionsScreen at the route boundary; changed UI files remain under apps/web/src/features/connections.",
+        "packages/convex/confect/slack/channelPolicies.spec.ts:41-52 defines the Confect internal mutation contract and channelPolicies.impl.ts:13-17 implements through FunctionImpl rather than exposing direct provider/web imports.",
+        "rtk pnpm check:layer-boundaries is included in lane-gate-report.json commands and the exact-head report status is passed for 4f89ae041e7ef2c5921fe84b626d0ffda485a7e5."
+      ]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "finding",
+      "evidence": [
+        "apps/web/src/routes/_workspace.connections.tsx:22 adds channelPolicy to initialConnectionsState, but ConnectionsScreenState in apps/web/src/features/connections/connections-screen.tsx:18-21 declares only connections for ready state.",
+        "apps/web/src/features/connections/connections-screen.tsx:92-133 renders only the Workspace connections card/table and never consumes channelPolicy, ChannelTable, or ChannelPolicyDialogSummary.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:70-85 consumes routingPolicies and deliveryPolicies but drops planned.right.auditRows while returning only auditAction."
+      ],
+      "findingIds": [
+        "S04-T04-QUALITY-001",
+        "S04-T04-QUALITY-002"
+      ]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1596-1598 requires bulk change to be all-or-nothing and audited.",
+        "packages/convex/confect/slack/channelPolicy.ts:78-84 and 249-260 build redacted auditRows for channel_policy_bulk_update.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:70-85 inserts only channelRoutingPolicies and channelDeliveryPolicies, then returns auditAction; no audit table insert or durable audit receipt is performed."
+      ],
+      "findingIds": [
+        "S04-T04-QUALITY-002"
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "lane-gate-report.json records changedSourceLines=714, sourceSliceBudget=300, sourceSliceLimit=4, and four sourceSlices of 282, 123, 113, and 196 changed source lines.",
+        "The exact-head pre-review lane-gate report has status=passed for headSha 4f89ae041e7ef2c5921fe84b626d0ffda485a7e5 and currentTreeSha 80275b838f44cdff35cf9f67b1f0546e8cd12fcf."
+      ]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "pass",
+      "evidence": [
+        "ci-proof-packet.json changedFiles lists only source/docs/test paths and no packages/convex/confect/_generated or convex generated files.",
+        "ci-proof-packet.json focusedCommands includes rtk pnpm brain:factory:check-confect-codegen, and lane-gate-report.json status is passed at the exact review head.",
+        "Per review instructions, absence of centralized generated Confect/Convex output from the checked-in tree is expected because the task diff does not edit generated paths and exact-head transient codegen passed."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "S04-T04-QUALITY-001",
+      "severity": "high",
+      "summary": "Connections route never renders the channel policy control plane UI.",
+      "details": "The task requires admins to bulk-select joined channels and set policies on the Connections surface. The route adds a channelPolicy fixture, but the ready-state screen type excludes it and the screen renders only the existing connections table; the new ChannelTable and ChannelPolicyDialogSummary components are unused. This makes the focused view-model tests a false green for the UI requirement.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1563-1564: admins can bulk-select any joined channels and set explicit policies.",
+        "apps/web/src/routes/_workspace.connections.tsx:22 passes channelPolicy: localChannelPolicyFixture into initialConnectionsState.",
+        "apps/web/src/features/connections/connections-screen.tsx:18-21 ready state includes only connections, and lines 92-133 render only the Workspace connections table.",
+        "rtk proxy rg -n \"ChannelTable|ChannelPolicyDialogSummary|channelPolicy|buildChannelPolicyRows|buildChannelPolicyDialogState\" apps/web/src/features/connections apps/web/src/routes/_workspace.connections.tsx found no usage of ChannelTable or ChannelPolicyDialogSummary from ConnectionsScreen."
+      ]
+    },
+    {
+      "id": "S04-T04-QUALITY-002",
+      "severity": "high",
+      "summary": "Bulk policy mutation discards audit rows instead of writing a durable audit record.",
+      "details": "The pure planner returns auditRows, but the Confect mutation inserts only routing and delivery policy rows. Returning auditAction is not durable observability and does not satisfy the all-or-nothing audited bulk-change requirement.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1596-1598 requires accepted bulk policy changes to be all-or-nothing and audited.",
+        "packages/convex/confect/slack/channelPolicy.ts:78-84 defines auditRows and lines 249-260 emits a channel_policy_bulk_update audit row for non-empty changes.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:70-85 inserts routingPolicies and deliveryPolicies, then returns auditAction without inserting planned.right.auditRows anywhere.",
+        "packages/convex/test/channel-policies.test.ts:223-231 asserts planner auditRows only; it does not prove bulkSetChannelPoliciesImpl persists audit rows."
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

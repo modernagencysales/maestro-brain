@@ -1,0 +1,68 @@
+{
+  "lens": "contract",
+  "taskId": "S05-T01",
+  "planSha256": "b25dfe4b3139d61e98976f450d6dfbdb30629201ab2015f7846a04ca02435a57",
+  "taskBlockHash": "8c814c81e34129532e8467e567d99d48dfb60017ceda5ab0934454da2d348044",
+  "baseSha": "73609583b9ca2704ad28f3844239f00764ac7230",
+  "headSha": "9707c80fcb8b5591e079dfda6585302f7d820272",
+  "treeSha": "d7105fe1b087d71072be49b27c319b8732f4b67d",
+  "reviewerRunId": "maestro/review/S05-T01/9707c80fcb8b5591e079dfda6585302f7d820272/02c49107-a9a9-4114-9081-dad613fe4ffc-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1628-1716 declares S05-T01 outcome, file set, failure-first tests, source-ledger implementation requirements, typed contract/errors, migration compatibility, and focused verification.",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:654-694 records S05-T01 as ready template-gap product work with taskBlockHash 8c814c81e34129532e8467e567d99d48dfb60017ceda5ab0934454da2d348044 and the expected file locks.",
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:1-63 records the source-ledger lifecycle, rollback, registry ownership, and focused proof commands."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:112-144 defines SourceLedgerCaptureInput with verified envelope, normalized observation, and routing policy/effect fields.",
+        "packages/convex/confect/sources/sourceSchemas.ts:146-160 declares the required typed failure classes TenantMismatch, ChannelAccessLost, ObservationInvalid, PayloadTooLarge, and DuplicateKeyConflict.",
+        "packages/convex/confect/sources/sourceSchemas.ts:197-237 validates capture input and returns inserted or duplicate with sourceKey, sourceRevisionKey, assemblyJobKey, observationKey, sourceUnitKey, and contentHash."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:26-110 defines versioned Effect schemas for providerEventReceipts, sourceArtifacts, sourceRevisions, and sourceProcessingJobs with tenant, connection, generation, lifecycle, hash, and job policy fields.",
+        "packages/convex/confect/tables/providerEventReceipts.ts:5-14, packages/convex/confect/tables/sourceArtifacts.ts:5-19, packages/convex/confect/tables/sourceRevisions.ts:5-13, and packages/convex/confect/tables/sourceProcessingJobs.ts:5-10 declare the S05 durable table indexes.",
+        "packages/convex/test/source-ledger-schema.test.ts:56-251 proves the table/index inventory and exact row decode contracts for receipt, artifact, revision, and assembly job rows."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1633-1634 classifies S05-T01 as template-gap TB-SOURCE-01, matching the work-package rule.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1699-1705 requires new-tables-only migration compatibility and integration-owned canonical registry generation; packages/convex/confect/internal/migration-fragments/S05-T01.json:1-10 attests new_tables_only with the exact task hash.",
+        "packages/convex/test/migration-registry.test.ts:85-210 covers deterministic assembly, strict fragment rejection, atomic writes, stale output, symlink rejection, and byte-identical regeneration."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "rtk proxy git diff --name-status 73609583b9ca2704ad28f3844239f00764ac7230...HEAD lists only the S05-T01 locked product/doc/test/source-ledger and migration-fragment/runtime/generator paths from task-manifest lines 661-684.",
+        "packages/convex/scripts/generate-migration-registry.mts:41-51 targets migrations.generated.ts from fragments while docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1666-1668 and 1701-1704 state the product lane does not own or commit the integration-generated canonical registry.",
+        "lane-gate-report.json for S05-T01 at head 9707c80fcb8b5591e079dfda6585302f7d820272 records pre-review gates including brain:factory:check-confect-codegen, schema migration notes, Confect contracts, Confect v9, Convex typecheck/test, and integrations typecheck/test."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/test/source-ledger-schema.test.ts:253-301 proves duplicate transport receipt outcome plus TenantMismatch, ChannelAccessLost, ObservationInvalid, PayloadTooLarge, and DuplicateKeyConflict failure paths.",
+        "packages/convex/test/source-ledger-schema.test.ts:117-171 proves live/backfill receipts converge on one observation while tenant identity and connection generation change source and observation keys and do not dedupe each other.",
+        "packages/convex/test/migration-registry.test.ts:100-146 proves duplicate IDs, unknown fields, unsafe modules, task-hash drift, phase inversion, duplicate JSON keys, dangling dependencies, cycles, and fake no-op migrations fail."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

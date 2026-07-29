@@ -1,0 +1,85 @@
+{
+  "lens": "quality",
+  "taskId": "S04-T04",
+  "planSha256": "5e3506ec26c1776547b03641707371efaebb1c490ce3da6b6a1e2ed0df2a8417",
+  "taskBlockHash": "43fe7362c17307d938a689c31cfaa350124a5029c8ef938d09c8f08066ec12c5",
+  "baseSha": "bc7631796e42ee5d33a006df85730dc1293f505e",
+  "headSha": "328fc2a4759311a4180722232c57443256bdd69c",
+  "treeSha": "255fc5d652574a5f6bea43e052edf4cd7c2660e1",
+  "reviewerRunId": "maestro/review/S04-T04/328fc2a4759311a4180722232c57443256bdd69c/bae423cc-0bd1-4201-a01a-ad20619bcf25-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "finding",
+      "findingIds": ["QUALITY-S04-T04-001"],
+      "evidence": [
+        "packages/convex/test/channel-policies.test.ts:140-217 covers many rejection paths but does not cover duplicate channelKey entries within a single bulk request.",
+        "packages/convex/test/channel-policies.test.ts:219-398 covers epoch/generation creation, stale fences, and idempotent retry, but no test proves duplicate-channel-key requests are rejected before planning/writes.",
+        "packages/convex/confect/slack/channelPolicy.ts:197-282 iterates request.changes directly, so duplicate change entries for the same channelKey each compute nextEpoch/next deliveryGeneration from pre-request existing policies and both are returned as active planned rows."
+      ]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "apps/web/src/routes/_workspace.connections.tsx:1-36 remains a web route/shell boundary that renders screen/feature components and does not import Convex functions, provider SDKs, or backend internals.",
+        "apps/web/src/features/connections/channel-policy-dialog.tsx:1-232 keeps UI and mutation invocation in the feature layer, using apps/web/src/adapters/confect-state and @maestro-template/convex/refs rather than reaching around Confect to Convex functions.",
+        "packages/convex/confect/slack/channelPolicies.spec.ts:43-56 defines the Confect public mutation contract with typed args/returns/errors; packages/convex/confect/slack/channelPolicies.impl.ts:26-167 handles authenticated persistence/audit orchestration through DatabaseReader/DatabaseWriter services.",
+        "packages/convex/confect/slack/channelPolicy.ts:121-300 contains deterministic policy validation/planning and imports only Effect schema/Either and table row types, keeping durable policy semantics out of the web layer.",
+        "lane-gate-report.json:10-11 records exact-head passed route-tree and layer-boundary checks."
+      ]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "finding",
+      "findingIds": ["QUALITY-S04-T04-001"],
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicy.ts:197-282 does not normalize or reject duplicate channelKey entries before building immutable policy rows, allowing multiple active rows with the same computed epoch/generation in one request.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:121-144 inserts every planned routing and delivery row active, so the planner defect propagates to persistence rather than being caught at the write boundary.",
+        "The required fix is focused and maintainable: add typed PolicyInvalid duplicate-channel-key rejection before planning/writes and add a focused backend regression test."
+      ]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.impl.ts:37-50 records denied privileged access audit events with workspaceId, action, subject, and typed reason metadata, without Slack payloads, customer text, tokens, or secrets.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:145-161 records successful slack.channelPolicyChanged audit events with outcome, action, and targetCount only, preserving useful operator evidence while redacting target Brain names and provider payloads.",
+        "packages/convex/test/channel-policies.test.ts:219-250 pins planned audit rows for successful policy changes, and lane-gate-report.json:12 records rtk pnpm check:access-audit-events passed at the exact head."
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:630-653 locks the S04-T04 changed files, sourceSliceBudget=300, requirements, lane, and taskBlockHash used by the proof packet.",
+        "rtk proxy git diff --name-only bc7631796e42ee5d33a006df85730dc1293f505e..HEAD -- docs/superpowers packages/convex apps/web listed only the S04-T04 locked source/test files under apps/web and packages/convex; the adoption doc is also present in ci-proof-packet.json:8-21.",
+        "lane-gate-report.json:31-53 records changedSourceLines=1157 across four source slices of 300, 278, 294, and 285 lines, each at or below the 300-line sourceSliceBudget despite estimate drift from the original 290-line plan.",
+        "rtk proxy git diff --numstat bc7631796e42ee5d33a006df85730dc1293f505e..HEAD -- docs/superpowers packages/convex apps/web shows additions concentrated in the required channel policy backend, tables, Connections feature, route, and focused tests."
+      ]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "pass",
+      "evidence": [
+        "ci-proof-packet.json:8-21 lists no packages/convex/confect/_generated or Convex generated output paths in the task diff.",
+        "lane-gate-report.json:9 records rtk pnpm brain:factory:check-confect-codegen in the exact-head passed gate set for headSha 328fc2a4759311a4180722232c57443256bdd69c, proving transient codegen for this head.",
+        "apps/web/src/features/connections/channel-policy-dialog.tsx:126-165 reads the generated Confect refs surface when present and uses only a temporary typed fallback for the integration-owned generated-ref gap described in ci-proof-packet.json:47-49; per the review instructions, absence of checked-in generated output is expected lane state because the task diff did not edit generated paths and exact-head transient codegen passed."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "QUALITY-S04-T04-001",
+      "severity": "high",
+      "summary": "Duplicate channel changes create duplicate active policy rows",
+      "details": "buildBulkPolicyPlan does not reject duplicate channelKey entries inside one bulk request. The loop processes each duplicate independently, and nextEpoch/next deliveryGeneration read only pre-request existing policies, so duplicate entries for the same channel compute the same new epoch/generation and are both returned active. channelPolicies.impl then inserts every planned routing and delivery row active, violating immutable active-pointer uniqueness and all-or-nothing policy semantics. Rework must add typed PolicyInvalid duplicate-channel-key rejection before planning/writes and a focused backend regression test proving duplicate channelKey requests fail.",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicy.ts:197-282 iterates request.changes without checking for duplicate change.channelKey values and computes nextEpoch/next deliveryGeneration from request.existingRoutingPolicies/request.existingDeliveryPolicies only.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:121-144 inserts each planned routingPolicy and deliveryPolicy active after deactivating only pre-existing active rows, so duplicate planned rows remain active.",
+        "packages/convex/test/channel-policies.test.ts:140-217 covers missing channel partial bulk rejection but has no duplicate-channel-key request coverage."
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

@@ -1,0 +1,97 @@
+{
+  "baseSha": "64b5d90e9dce6146ac6cd49696658cd9a40a254c",
+  "conflicts": [],
+  "focusedChecks": [
+    "rtk pnpm brain:factory:check-confect-codegen -- --profile web --test brain-editor-revision-fence --test brain-pages-crud",
+    "rtk pnpm --dir packages/editor-react typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/editor-react test",
+    "rtk pnpm check:route-tree",
+    "rtk pnpm check:layer-boundaries",
+    "rtk pnpm --dir packages/convex typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test api-keys headless http-request",
+    "rtk pnpm check:headless-surface-contract"
+  ],
+  "generatedFiles": [
+    "packages/convex/confect/_generated/registeredFunctions/headless/apiKeys.ts",
+    "packages/convex/confect/_generated/spec.ts",
+    "packages/convex/convex/brain/pages.ts",
+    "packages/convex/convex/headless/apiKeys.ts",
+    "packages/template-core/src/generated/confectManifest.ts"
+  ],
+  "headSha": "d8aed574c699329dcbc5901e735c1a9c7a3b9b41",
+  "includedTasks": [
+    {
+      "commitShas": [
+        "448775181d05d6dc2d13dcf5997d7ccf8529c955",
+        "eb7c67d03153fc103635f6c6f0146e8043ad3721",
+        "98a26f545c89eb07c8f96471fe6c6e081d771e6b",
+        "1df666695370b2e1d6008138f1c56bc806e6c1c2",
+        "e7dffea663799d00e9880df620953d4f8cecb917",
+        "6a4a217154717b0b2db451d35c51d15017939188",
+        "195db6c28eb821d3052be2cbc085f8aeed8043f8"
+      ],
+      "laneHeadSha": "195db6c28eb821d3052be2cbc085f8aeed8043f8",
+      "patchState": "applied",
+      "taskId": "S03-T03",
+      "tranche": "D2-domain-bodies"
+    },
+    {
+      "commitShas": [
+        "5618eddec2a81b71110919dc61691402fe85f24e",
+        "3c8574c4eef5029d27f688c6217c74946db8711e",
+        "62d9b8976b2434aab593603f909009c197dc98ad",
+        "f8fc996f713d3c50e923b69032cc52b222ebd230",
+        "d672485e073e5c5f9e310db9f384ba5d20364fb5",
+        "60984ba1ebdc38ac0619345e9125f77965dbea64",
+        "28df32bddf5d35f546342d03d20212142f1bb545",
+        "e9f327da525d5cc67610b6b680fb9956b7634c7f",
+        "abe5014abdf92598f13261931ecfce4582adfaf5",
+        "954b2f2d9ff2c266ba01b100d83b803e4b8c08fd"
+      ],
+      "laneHeadSha": "954b2f2d9ff2c266ba01b100d83b803e4b8c08fd",
+      "patchState": "applied",
+      "taskId": "S11-T02",
+      "tranche": "D2-domain-bodies"
+    }
+  ],
+  "integrationId": "wave-000030",
+  "mode": "integrate",
+  "schemaVersion": "maestro-brain-integration-result/v3",
+  "selectionFileSha256": "5d0234d51611ea36f0ad6ca2301f6b2f3db21e0059d20e619e5f061487282af6",
+  "selectionPayloadSha256": "4cff476958edee08f7e59fbe6ab725bdaac0a7c30f3cc8ebf56861d90b185b30",
+  "reviewVerdict": "rework",
+  "status": "ready_for_review",
+  "remainingFindings": [
+    {
+      "id": "wave-000030-S11-T02-tenant-bound-rotation-principal-mismatch",
+      "severity": "high",
+      "summary": "API-key rotation does not verify the stored key row is bound to the loaded service-principal row before deriving the replacement key tenant from that principal.",
+      "details": "packages/convex/confect/headless/apiKeys.impl.ts:980-1008 selects the key by the caller-selected Brain scope, then loads servicePrincipals by key.principalId and passes that principal to rotateBrainApiKey without checking principal.id, organizationId, workspaceId, brainKey, roleCeiling, status/revokedAt, and generation against the selected key. rotateBrainApiKey in headless/auth.ts derives the new key organizationId/workspaceId/brainKey from the principal, so a corrupted or mismatched principal binding can mint the rotated key outside the admin caller's selected Brain despite the tenant-scoped key lookup. Authentication has exact binding checks, but rotate/revoke management paths need the same tenant/principal invariant before mutating or creating API-key state.",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.impl.ts:980-1008",
+        "packages/convex/confect/headless/auth.ts:628-648",
+        "packages/convex/confect/headless/apiKeys.impl.ts:553-659"
+      ],
+      "taskId": "S11-T02"
+    }
+  ],
+  "resolvedFindings": [
+    {
+      "id": "wave-000030-focused-reproof-after-broad-gate-failure",
+      "severity": "medium",
+      "summary": "Focused integration checks and the implicated tooling/evals test package were rerun cleanly after the broad pnpm verify receipt failed without a semantic finding.",
+      "headSha": "d8aed574c699329dcbc5901e735c1a9c7a3b9b41",
+      "commands": [
+        "rtk pnpm brain:factory:check-confect-codegen -- --profile web --test brain-editor-revision-fence --test brain-pages-crud",
+        "rtk pnpm --dir packages/editor-react typecheck",
+        "rtk host-test-slot --class focused pnpm --dir packages/editor-react test",
+        "rtk pnpm check:route-tree",
+        "rtk pnpm check:layer-boundaries",
+        "rtk pnpm --dir packages/convex typecheck",
+        "rtk host-test-slot --class focused pnpm --dir packages/convex test api-keys headless http-request",
+        "rtk pnpm check:headless-surface-contract",
+        "rtk host-test-slot --class focused pnpm --dir tooling/evals test"
+      ]
+    }
+  ]
+}

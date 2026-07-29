@@ -1,0 +1,64 @@
+{
+  "schemaVersion": "maestro-brain-ci-proof/v1",
+  "planSha256": "868331c0af5ab06b495ca802724f4a3578c854e07b8342c9de4b93107a264499",
+  "taskBlockHash": "01dafeb6e139c6a8e096ef1598d667bae42a04227bedab7521db9d71869f35a7",
+  "taskId": "S02-T02",
+  "baseSha": "4690ff5b089648a9e63dc4cedb9df0320f356f21",
+  "headSha": "d2a0b1172efc1655b5cafb5009a0768e8196749b",
+  "changedFiles": [
+    "apps/cli/src/index.test.ts",
+    "apps/cli/src/index.ts",
+    "apps/web/src/adapters/confect-generated-refs.test.ts",
+    "apps/web/src/sample/templateData.test.ts",
+    "apps/web/src/sample/templateData.ts",
+    "docs/superpowers/receipts/maestro-brain/file-inventories/S02-T02-confect-generated-files.json",
+    "packages/convex/confect/brain/pageTree.ts",
+    "packages/convex/confect/brain/pages.impl.ts",
+    "packages/convex/confect/brain/pages.spec.ts",
+    "packages/convex/confect/capabilities/catalog.impl.ts",
+    "packages/convex/confect/editor/syncApi.ts",
+    "packages/convex/confect/http.ts",
+    "packages/convex/confect/httpRequest.ts",
+    "packages/convex/confect/manifest/executor.ts",
+    "packages/convex/confect/tables/brainPageAuditEvents.ts",
+    "packages/convex/test/brain-pages-crud.test.ts",
+    "packages/convex/test/brain-pages.contract.test.ts",
+    "packages/convex/test/confect-contracts.test.ts",
+    "packages/convex/test/editor-sync.test.ts",
+    "packages/convex/test/headless-executor.test.ts",
+    "packages/convex/test/http-docs.test.ts",
+    "packages/convex/test/observability-error-capture.test.ts",
+    "packages/convex/test/workspace-access.contract.test.ts",
+    "tooling/workflow/src/index.test.ts",
+    "tooling/workflow/src/index.ts"
+  ],
+  "focusedCommands": [
+    "rtk pnpm brain:factory:check-confect-codegen -- --check confect-contracts --check headless-surface-contract --profile web --test brain-pages --test editor-sync --test http-docs --test confect-contracts --test workspace-access --test headless-executor --test observability-error-capture",
+    "rtk host-test-slot --class focused pnpm --dir apps/cli test",
+    "rtk host-test-slot --class focused pnpm --dir tooling/workflow test"
+  ],
+  "testsAdded": [
+    "packages/convex/test/brain-pages-crud.test.ts",
+    "packages/convex/test/brain-pages.contract.test.ts",
+    "packages/convex/test/editor-sync.test.ts",
+    "packages/convex/test/headless-executor.test.ts",
+    "packages/convex/test/http-docs.test.ts",
+    "packages/convex/test/workspace-access.contract.test.ts",
+    "apps/cli/src/index.test.ts",
+    "tooling/workflow/src/index.test.ts",
+    "apps/web/src/adapters/confect-generated-refs.test.ts",
+    "apps/web/src/sample/templateData.test.ts"
+  ],
+  "reviewVerdict": "pass",
+  "knownRisks": [
+    "Generated Confect/Convex output is intentionally omitted from the lane and remains integration-owned per S02-T02 contract.",
+    "Broad verification is deferred to tranche/wave integration per Appendix O/P."
+  ],
+  "reviewedHeadSha": "d2a0b1172efc1655b5cafb5009a0768e8196749b",
+  "reviewTaskBlockHash": "01dafeb6e139c6a8e096ef1598d667bae42a04227bedab7521db9d71869f35a7",
+  "reviewFindings": [],
+  "reviewNotes": [
+    "Reviewed task packet, manifest ownership, AGENTS.md, committed diff, focused tests, and authoritative pre-review lane-gate report for the same head/task contract.",
+    "No defects found for authorized stable-key Brain page CRUD, audit redaction, stale/cross-tenant/lifecycle denials, deleted headless write exposure, or generated-output ownership."
+  ]
+}

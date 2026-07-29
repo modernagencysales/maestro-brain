@@ -1,0 +1,138 @@
+{
+  "schemaVersion": "maestro-brain-ci-proof/v1",
+  "planSha256": "1c6b818063c534afdae20d688fee71e830915c5ac356bf7eba7724099d7ed9a5",
+  "taskBlockHash": "52836a187d4a821697f0ff1d057155b9aefc998858fac5df08c06f5b82cf6612",
+  "taskId": "S08-T03",
+  "baseSha": "2bdef668a17ac4e86a9113846b773f6243f281c0",
+  "headSha": "04e8205f1f62ae02bd3d62414dade59c0d239a62",
+  "changedFiles": [
+    "apps/web/src/features/connections/classification-review-queue.test.tsx",
+    "apps/web/src/features/connections/classification-review-queue.tsx",
+    "docs/product/maestro-brain-lifecycle-adoption/S08-T03.md",
+    "docs/template/generated/capabilities/classifySourceUnit.md",
+    "docs/template/generated/provenance/add-capability/classifySourceUnit.json",
+    "docs/template/generated/provenance/add-workflow/sourceClassification.json",
+    "docs/template/generated/workflows/sourceClassification.md",
+    "packages/convex/confect/capabilities/classifySourceUnit.domain.ts",
+    "packages/convex/confect/capabilities/classifySourceUnit.headless.json",
+    "packages/convex/confect/capabilities/classifySourceUnit.impl.ts",
+    "packages/convex/confect/capabilities/classifySourceUnit.spec.ts",
+    "packages/convex/confect/capabilities/classifySourceUnit.test.ts",
+    "packages/convex/confect/classification/commit.ts",
+    "packages/convex/confect/classification/gather.ts",
+    "packages/convex/confect/classification/request.ts",
+    "packages/convex/confect/classification/review.ts",
+    "packages/convex/confect/tables/classificationDecisions.ts",
+    "packages/convex/confect/tables/sourceProcessingJobs.ts",
+    "packages/convex/confect/workflowContracts/sourceClassification.impl.ts",
+    "packages/convex/confect/workflowContracts/sourceClassification.spec.ts",
+    "packages/convex/confect/workflows/sourceClassification.graph.ts",
+    "packages/convex/test/source-classification.test.ts",
+    "packages/convex/test/sourceClassification.workflow.test.ts"
+  ],
+  "focusedCommands": [
+    "rtk pnpm template:add-capability -- --name classifySourceUnit --description Returns-a-typed-zero-or-one-route-proposal-from-an-immutable-source-unit --exposure workflow",
+    "rtk pnpm template:add-workflow -- --name sourceClassification --description Gathers-classifies-reviews-and-commits-one-source-route --exposure internal",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test classification",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test review-queue",
+    "rtk pnpm check:workflow-graph-boundary",
+    "rtk pnpm check:confect-contracts",
+    "rtk pnpm check:headless-surface-contract",
+    "rtk pnpm check:layer-boundaries",
+    "rtk host-test-slot --class focused pnpm --dir tooling/evals test classification"
+  ],
+  "supplementalCommandResults": [
+    {
+      "command": "rtk pnpm template:add-capability -- --name classifySourceUnit --description Returns-a-typed-zero-or-one-route-proposal-from-an-immutable-source-unit --exposure workflow",
+      "status": "passed",
+      "summary": "Non-mutating capability generator dry-run completed and printed the expected scaffold/provenance files."
+    },
+    {
+      "command": "rtk pnpm template:add-workflow -- --name sourceClassification --description Gathers-classifies-reviews-and-commits-one-source-route --exposure internal",
+      "status": "passed",
+      "summary": "Non-mutating internal workflow generator dry-run completed and printed the expected scaffold/provenance files."
+    },
+    {
+      "command": "rtk pnpm brain:factory:check-confect-codegen",
+      "status": "failed",
+      "summary": "First attempt timed out under host load; rerun reached transient validation and failed with: Confect freshness check changed the staged generated delta. Worktree remained clean; generated output is integration-owned by the task contract."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test classification",
+      "status": "passed",
+      "summary": "Focused Convex classification proof passed after repair and history rewrite: 2 test files, 10 tests."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web test review-queue",
+      "status": "passed",
+      "summary": "Focused web review queue proof passed after repair and history rewrite: 1 test file, 3 tests."
+    },
+    {
+      "command": "rtk pnpm check:workflow-graph-boundary",
+      "status": "passed",
+      "summary": "Workflow graph boundary check passed: shape-only pin-only OK."
+    },
+    {
+      "command": "rtk pnpm check:confect-contracts",
+      "status": "passed",
+      "summary": "Confect contract check passed: pin-only and semantic OK."
+    },
+    {
+      "command": "rtk pnpm check:headless-surface-contract",
+      "status": "passed",
+      "summary": "Headless surface contract check passed."
+    },
+    {
+      "command": "rtk pnpm check:layer-boundaries",
+      "status": "passed",
+      "summary": "Layer boundary check passed: no dependency violations across 995 modules."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir tooling/evals test classification",
+      "status": "passed",
+      "summary": "Classification eval-focused suite passed: 1 test file, 3 tests."
+    }
+  ],
+  "testsAdded": [
+    "apps/web/src/features/connections/classification-review-queue.test.tsx",
+    "packages/convex/confect/capabilities/classifySourceUnit.test.ts",
+    "packages/convex/test/source-classification.test.ts",
+    "packages/convex/test/sourceClassification.workflow.test.ts"
+  ],
+  "sourceSlices": [
+    {
+      "commit": "f31f189cf36a693ab5641572e777e4220a9a3dbb",
+      "changedSourceLines": 300
+    },
+    {
+      "commit": "dcd428fd616c3c643537fce0a05241f32b999bbd",
+      "changedSourceLines": 295
+    },
+    {
+      "commit": "a07352f0ccba7dc8048e9b5c143d785b81b455e2",
+      "changedSourceLines": 300
+    },
+    {
+      "commit": "04e8205f1f62ae02bd3d62414dade59c0d239a62",
+      "changedSourceLines": 293
+    }
+  ],
+  "reviewVerdict": "pass",
+  "knownRisks": [
+    "Generated Confect/Convex trees remain integration-owned; this lane owns only the manifest-declared scaffold/docs/provenance paths and leaves regenerated output to integration.",
+    "rtk pnpm brain:factory:check-confect-codegen previously failed in the transient generated-output freshness check after package-local validation, while leaving this lane worktree clean; next deterministic gate should own/generated-tree diagnosis.",
+    "Classification remains review-first and fake/local at this seam; Classify policies stay disabled until integration/eval/UI evidence accepts the stack.",
+    "Workflow gather/current-authority read pinned source-processing job classification request data; upstream source ledger/route authority persistence still owns producing those rows before integration acceptance."
+  ],
+  "resolvedReviewFindings": [
+    "CONTRACT-S08-T03-001",
+    "CONTRACT-S08-T03-004",
+    "SAFETY-S08-T03-001",
+    "SAFETY-S08-T03-002"
+  ],
+  "reviewFindings": [],
+  "reviewHeadSha": "04e8205f1f62ae02bd3d62414dade59c0d239a62",
+  "priorFindingDispositions": [],
+  "resolvedPriorFindingIds": []
+}

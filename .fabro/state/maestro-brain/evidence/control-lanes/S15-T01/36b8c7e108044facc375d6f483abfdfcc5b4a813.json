@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "maestro-brain-control-lane-receipt/v1",
+  "taskId": "S15-T01",
+  "headSha": "36b8c7e108044facc375d6f483abfdfcc5b4a813",
+  "commitChain": [
+    "b0cc84cb3f26315d643df3580c0c8da75d29681e",
+    "d62222b6d21751c84d559aad50a5be7ebaac8b56",
+    "d9b697c04ed04e7d4954319dc9678139767865c8",
+    "36b8c7e108044facc375d6f483abfdfcc5b4a813"
+  ],
+  "changedFiles": [
+    "tooling/brain-factory/src/integrate-wave.mts",
+    "tooling/brain-factory/src/integration-lane-check.ts",
+    "tooling/brain-factory/src/integration-wave.ts",
+    "tooling/brain-factory/test/integration-result-check.test.mts",
+    "tooling/brain-factory/test/integration-wave.test.mts"
+  ],
+  "sourceSliceLimit": 4,
+  "gateEvidence": [
+    {
+      "path": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/control-gates/S15-T01/36b8c7e108044facc375d6f483abfdfcc5b4a813.json",
+      "sha256": "b6cfbffe9690048ccb3aa5a24f157d6e3f981e588b5128ccf5704a33a3f4dcc3"
+    }
+  ],
+  "worktreeStatus": "clean"
+}

@@ -1,0 +1,17 @@
+{
+  "integrationHeadSha": "481e6db3c59143893888bd4829a7e4ebecb7493c",
+  "integrationId": "wave-000039",
+  "schemaVersion": "maestro-brain-superseded-lane-restoration/v2",
+  "selectionFileSha256": "577dcefb1fc07d56b1943a4164328ebd9c09c66146c3a8c6d0f2b2fac4ab8c0f",
+  "selectionPayloadSha256": "b5c41c8589096ce0ddb99bb207c826d83fe2f03c7928f1a1c1e3803465e01577",
+  "status": "restored",
+  "supersessionReceiptSha256": "e293a76d301ce1ea0b056f690f3e5d3d19827b9124ec75db08af3dae5131ed84",
+  "tasks": [
+    {
+      "integratedLaneResultSha256": "9268423d41c498e22625cf4f690e65067dde280a4412f6c3604670e053bfe091",
+      "restoredLaneResultSha256": "3660bea96f4ac06256721d500cb9b264b4e7b394f83aadd80f7d6f0240d10048",
+      "taskId": "S04-T02"
+    }
+  ],
+  "receiptSha256": "ffc84504cfe96994634d3760a6091dee370714448ca4d542fc80c27b4837aaeb"
+}

@@ -1,0 +1,29 @@
+{
+  "baseSha": "7887ba9ad55f93543e0a204e2f7d66f1d6905784",
+  "controlHeadSha": "1603277e18eee575cd68b5760e0bc6eeec8de67d",
+  "createdAt": "2026-07-18T20:58:53.408Z",
+  "evidence": [
+    "Fabro run 01KXVG184H8249PWBJZW3PVQSY failed deterministically at apply_integration_wave: S03-T03 lane result treeSha does not match current tree",
+    "S03-T03 and S11-T02 lane-result.json omit treeSha while exact-head final gate receipts bind currentTreeSha"
+  ],
+  "integrationId": "wave-000021",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "reason": "selected historical lane receipts predate mandatory exact treeSha binding",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXVG184H8249PWBJZW3PVQSY",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "526599d274ee25637a1a90fbf8f4695c7f6d607cf8ac8b192ede48bbf5689d19",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v2",
+  "selectedTaskIds": [
+    "S03-T03",
+    "S11-T02"
+  ],
+  "selectionFileSha256": "2c6662fbb08f3d21c6488c879e497e26df931c62a08ac83209ad66b4de1d2ac1",
+  "selectionPayloadSha256": "ba2977944a3bb81c6eff48f41308a20cda716500352e85d139ffce55745a7bfd",
+  "status": "superseded",
+  "receiptSha256": "5fca7383b266996e5c513d8f3985dd36715fccd70060d0f3d82df552c7d0171b"
+}

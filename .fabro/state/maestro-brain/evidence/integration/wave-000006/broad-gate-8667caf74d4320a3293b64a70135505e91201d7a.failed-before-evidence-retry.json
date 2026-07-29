@@ -1,0 +1,44 @@
+{
+  "attempts": [
+    {
+      "attempt": 1,
+      "command": "rtk host-test-slot --class full pnpm verify",
+      "headSha": "8667caf74d4320a3293b64a70135505e91201d7a",
+      "outputSha256": "8425627f6a250c621e64a8150d4785ddcd03fa53d4ec7058949ad66c3e04c3f5",
+      "status": "failed",
+      "transientVitestWorkerRpcTimeout": true
+    },
+    {
+      "attempt": 2,
+      "command": "rtk host-test-slot --class full pnpm verify",
+      "headSha": "8667caf74d4320a3293b64a70135505e91201d7a",
+      "outputSha256": "368519efb8ff310f3f5255f3cb6ae322d89ef7611ec85544d30d128500d0565e",
+      "status": "failed",
+      "transientVitestWorkerRpcTimeout": false
+    }
+  ],
+  "command": "rtk host-test-slot --class full pnpm verify",
+  "headSha": "8667caf74d4320a3293b64a70135505e91201d7a",
+  "schemaVersion": "maestro-brain-broad-gate-receipt/v1",
+  "status": "failed",
+  "priorTransientAttempts": [
+    {
+      "attempt": 1,
+      "command": "rtk host-test-slot --class full pnpm verify",
+      "headSha": "8667caf74d4320a3293b64a70135505e91201d7a",
+      "outputSha256": "923eb3b77fb84396bd223ee9fc333d47ddea608aced5048c582e79e6fab67b03",
+      "status": "failed",
+      "transientVitestWorkerRpcTimeout": true
+    },
+    {
+      "attempt": 2,
+      "command": "rtk host-test-slot --class full pnpm verify",
+      "headSha": "8667caf74d4320a3293b64a70135505e91201d7a",
+      "outputSha256": "84d5961835abdc89a205ed8ba066815765e561a7bd224b16c8417a68bdbc1ef2",
+      "status": "failed",
+      "transientVitestWorkerRpcTimeout": true
+    }
+  ],
+  "priorTransientReceipt": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/integration/wave-000006/broad-gate-8667caf74d4320a3293b64a70135505e91201d7a.previous-transient.json",
+  "rerunWrapperExitCode": 1
+}

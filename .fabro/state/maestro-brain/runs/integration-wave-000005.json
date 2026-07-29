@@ -1,0 +1,83 @@
+{
+  "attempt": 1,
+  "baseSha": "3b4ce76f8d6840e15995f95af136524ceb62a6a4",
+  "branch": "fabro/brain-wave-000005",
+  "integrationId": "wave-000005",
+  "reservationToken": "de62dbe0-e105-46cc-9b7b-e4cfd6ac6015",
+  "schemaVersion": "maestro-brain-integration-wave-run/v2",
+  "selection": {
+    "baseSha": "3b4ce76f8d6840e15995f95af136524ceb62a6a4",
+    "deferredTaskIds": [],
+    "integrationId": "wave-000005",
+    "planSha256": "51b4735b05594f70a16fd670c664ccad98cf2a6ba8d6dd1aab8881fa74faefb5",
+    "schemaVersion": "maestro-brain-integration-wave-selection/v2",
+    "selectedTasks": [
+      {
+        "changedFiles": [
+          ".env.example",
+          "apps/web/src/features/connections/nango-connect-button.test.tsx",
+          "apps/web/src/features/connections/nango-connect-button.tsx",
+          "docs/template/env-manifest.json",
+          "docs/template/env-manifest.md",
+          "packages/convex/confect/integrations/slackConnections.impl.ts",
+          "packages/convex/confect/integrations/slackConnections.spec.ts",
+          "packages/convex/confect/tables/providerConnections.ts",
+          "packages/convex/package.json",
+          "packages/convex/test/slack-connections.test.ts",
+          "packages/integrations/package.json",
+          "packages/integrations/src/nango/client.test.ts",
+          "packages/integrations/src/nango/client.ts",
+          "packages/integrations/src/nango/connectBrowser.test.ts",
+          "packages/integrations/src/nango/connectBrowser.ts",
+          "packages/integrations/src/nango/slack.ts",
+          "pnpm-lock.yaml"
+        ],
+        "codeStartAfter": [
+          "S00-T03",
+          "S01-T02"
+        ],
+        "fileLocks": [
+          ".env.example",
+          "@dependencies",
+          "@environment",
+          "apps/web/src/features/connections/nango-connect-button.test.tsx",
+          "apps/web/src/features/connections/nango-connect-button.tsx",
+          "docs/template/env-manifest.json",
+          "docs/template/env-manifest.md",
+          "packages/convex/confect/integrations/slackConnections.impl.ts",
+          "packages/convex/confect/integrations/slackConnections.spec.ts",
+          "packages/convex/confect/tables/providerConnections.ts",
+          "packages/convex/package.json",
+          "packages/convex/test/slack-connections.test.ts",
+          "packages/integrations/package.json",
+          "packages/integrations/src/nango/client.test.ts",
+          "packages/integrations/src/nango/client.ts",
+          "packages/integrations/src/nango/connectBrowser.test.ts",
+          "packages/integrations/src/nango/connectBrowser.ts",
+          "packages/integrations/src/nango/slack.ts",
+          "pnpm-lock.yaml"
+        ],
+        "gateHeadSha": "d8699a047a6860581cea8e3a21dc31e4501974c5",
+        "gateSha256": "f0dd11008b89d7bf776c7135faf36ed30e5211a8b084e532eedf1b1cc3abb79c",
+        "headSha": "d8699a047a6860581cea8e3a21dc31e4501974c5",
+        "laneResultSha256": "d1a2f03ee6ea690c58b9861dcca8b454f9369ef21baa56c21cc719a44a42c1b1",
+        "planSha256": "51b4735b05594f70a16fd670c664ccad98cf2a6ba8d6dd1aab8881fa74faefb5",
+        "proofHeadSha": "d8699a047a6860581cea8e3a21dc31e4501974c5",
+        "proofSha256": "0de9036852e2f06d4c5bffda86e4e42a46aa55fbc24ecf6626d51b66d59b8806",
+        "taskBlockHash": "fda4652a6ec6cbf81f4deb10c6c607ed72837451fb07a6b3f18305a9f96f2182",
+        "taskId": "S04-T01",
+        "tranche": "C1-contract-spine"
+      }
+    ],
+    "selectionSha256": "280c42e8c06795759c708fe65f67f04875bb4e4dc285d16c1588428adac78b4c"
+  },
+  "selectionPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000005-selection.json",
+  "selectionSha256": "280c42e8c06795759c708fe65f67f04875bb4e4dc285d16c1588428adac78b4c",
+  "status": "launched",
+  "workdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000005",
+  "activeMode": "integrate",
+  "runId": "01KXM7RPFFFSWD701ZQSM9EK7N",
+  "runIds": [
+    "01KXM7RPFFFSWD701ZQSM9EK7N"
+  ]
+}

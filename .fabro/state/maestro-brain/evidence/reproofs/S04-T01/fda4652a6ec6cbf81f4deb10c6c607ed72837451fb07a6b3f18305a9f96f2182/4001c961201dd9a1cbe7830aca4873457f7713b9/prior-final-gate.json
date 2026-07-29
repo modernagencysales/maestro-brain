@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "maestro-brain-lane-gate/v1",
+  "commandSetHash": "98637adf7e344e8532ba1edb9407dfdb08a5a0efdf852c6939ca0b85bb4e08e6",
+  "commands": [
+    "rtk pnpm exec prettier --check --ignore-unknown packages/convex/confect/integrations/slackConnections.impl.ts",
+    "rtk pnpm exec eslint packages/convex/confect/integrations/slackConnections.impl.ts",
+    "rtk host-test-slot --class focused pnpm check:effect-diagnostics",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test slack-connections",
+    "rtk host-test-slot --class focused pnpm --dir packages/integrations test nango",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test nango-connect",
+    "rtk pnpm --dir packages/integrations typecheck",
+    "rtk pnpm --dir packages/convex typecheck",
+    "rtk pnpm check:provider-boundary",
+    "rtk pnpm check:env-boundary",
+    "rtk pnpm check:secret-canaries",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk pnpm check:confect-v9",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test",
+    "rtk host-test-slot --class focused pnpm --dir packages/integrations test",
+    "rtk pnpm --dir apps/web typecheck",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test"
+  ],
+  "currentHeadSha": "d091eb5d26d9da38129aa5b44f5515eec4f5bb89",
+  "currentTreeSha": "274f96df0902f95c8b89c31cb79213cbae5bff31",
+  "gateProfiles": [
+    "convex",
+    "integrations",
+    "web"
+  ],
+  "headSha": "d091eb5d26d9da38129aa5b44f5515eec4f5bb89",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "changedSourceLines": 7,
+  "estimateDrift": false,
+  "estimatedSourceLines": 2700,
+  "sourceSliceBudget": 300,
+  "sourceSliceLimit": 10,
+  "sourceSlices": [
+    {
+      "changedSourceLines": 7,
+      "commit": "d091eb5d26d9da38129aa5b44f5515eec4f5bb89"
+    }
+  ],
+  "stage": "final",
+  "status": "passed",
+  "taskId": "S04-T01",
+  "taskBlockHash": "fda4652a6ec6cbf81f4deb10c6c607ed72837451fb07a6b3f18305a9f96f2182",
+  "reusedPreReview": true
+}

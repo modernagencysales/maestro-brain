@@ -1,0 +1,20 @@
+{
+  "lens": "contract",
+  "taskId": "S05-T01",
+  "planSha256": "a3d4af4aa5e526438aa5e06c8716a6a40500bc235d9933f8f8649e133263821b",
+  "taskBlockHash": "d5212dbc84a10771993658fc840e29bc81671c08e7962dbf96fd34de2dda9ce5",
+  "baseSha": "022a932c1e809c2093a10f5dea5d248b6c706f5f",
+  "headSha": "d5efc88aff587f23541b363b41d296beb5eda5a5",
+  "treeSha": "45ba39ebc6f0e21e5da7c7c777fa368901813447",
+  "reviewerRunId": "maestro/review/S05-T01/d5efc88aff587f23541b363b41d296beb5eda5a5/24781651-be36-49f1-9a1e-d1531c01caa2-v1/contract",
+  "rubricDispositions": [
+    {"rubricId":"contract.task-packet","disposition":"pass","evidence":["docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1638-1705","docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:1-55","packages/convex/test/source-ledger-schema.test.ts:130-165","packages/convex/test/migration-registry.test.ts:205-227"]},
+    {"rubricId":"contract.typed-api","disposition":"pass","evidence":["packages/convex/confect/sources/sourceSchemas.ts:130-215","packages/convex/confect/sources/sourceSchemas.ts:429-535","packages/convex/confect/internal/migrations.spec.ts:174-182","packages/convex/confect/internal/migrations.impl.ts:530-560","packages/convex/test/migrations.test.ts:604-610"]},
+    {"rubricId":"contract.schema","disposition":"pass","evidence":["packages/convex/confect/tables/providerEventReceipts.ts:5-15","packages/convex/confect/tables/sourceArtifacts.ts:5-20","packages/convex/confect/tables/sourceRevisions.ts:5-13","packages/convex/confect/tables/sourceProcessingJobs.ts:5-10","packages/convex/confect/sources/sourceSchemas.ts:130-155","packages/convex/confect/sources/sourceSchemas.ts:524-535"]},
+    {"rubricId":"contract.plan","disposition":"pass","evidence":["docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1679-1703","packages/convex/scripts/generate-migration-registry.mts:63-68","packages/convex/test/migration-registry.test.ts:212-227","packages/convex/confect/sources/sourceSchemas.ts:157-178"]},
+    {"rubricId":"contract.ownership","disposition":"pass","evidence":["docs/superpowers/execution/maestro-brain/task-manifest.json:656-685","docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1651-1678","git diff --name-status 022a932c1e809c2093a10f5dea5d248b6c706f5f..HEAD shows task-owned files and no packages/convex/confect/internal/migrations.generated.ts edit","/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S05-T01/lane-gate-report.json: exact-head pre-review lane gates passed for focused tests, codegen, schema migration notes, and Confect contracts"]},
+    {"rubricId":"contract.failure-contract","disposition":"pass","evidence":["docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1679-1686","packages/convex/scripts/generate-migration-registry.mts:63-68","packages/convex/test/migration-registry.test.ts:212-227","packages/convex/confect/internal/migrations.impl.ts:536-560","packages/convex/test/migrations.test.ts:604-610"]}
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

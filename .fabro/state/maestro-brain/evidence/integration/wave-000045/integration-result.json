@@ -1,0 +1,51 @@
+{
+  "baseSha": "bc7631796e42ee5d33a006df85730dc1293f505e",
+  "conflicts": [],
+  "focusedChecks": [
+    "rtk pnpm brain:factory:check-confect-codegen -- --profile web --test brain-editor-revision-fence --test brain-pages-crud",
+    "rtk pnpm --dir packages/editor-react typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/editor-react test",
+    "rtk pnpm check:route-tree",
+    "rtk pnpm check:layer-boundaries"
+  ],
+  "generatedFiles": [
+    "packages/convex/convex/brain/pages.ts",
+    "packages/template-core/src/generated/confectManifest.ts"
+  ],
+  "headSha": "4c1ad35fd5f9b883920c9e5eaf5ea86c100e5f7d",
+  "includedTasks": [
+    {
+      "commitShas": [
+        "98238d752518961477fcfe3a033bc81850a1fcef",
+        "e9becf08da91826a88c85096d5f7d07a028d164b",
+        "ec4ee71ef811f3155b0ab7e397966e753bfdd1eb",
+        "aa557b5c4c04de2673f3a145944ef1c5ac57ac3e",
+        "12afc5724dc620bcc47f4281b307e82bdc3a303c",
+        "97e86d63e44f04627cbc450f35246ebd71e2a4fa",
+        "b4b94446dbd1052c24d2902b9fae67424712a495"
+      ],
+      "laneHeadSha": "b4b94446dbd1052c24d2902b9fae67424712a495",
+      "patchState": "applied",
+      "taskId": "S03-T03",
+      "tranche": "D2-domain-bodies"
+    }
+  ],
+  "integrationId": "wave-000045",
+  "mode": "integrate",
+  "remainingFindings": [
+    {
+      "id": "wave-000045-broad-gate-failed-exact-head",
+      "severity": "high",
+      "summary": "The integration broad gate evidence for exact head 4c1ad35fd5f9b883920c9e5eaf5ea86c100e5f7d records rtk host-test-slot --class full pnpm verify as failed, so the wave cannot be accepted or recorded as proven at this head.",
+      "owningTaskLane": "S03-T03",
+      "tranche": "D2-domain-bodies",
+      "requiredAction": "Return through the deterministic repair/gate path and produce passing broad-gate evidence for this exact integration head before record."
+    }
+  ],
+  "resolvedFindings": [],
+  "reviewVerdict": "rework",
+  "schemaVersion": "maestro-brain-integration-result/v3",
+  "selectionFileSha256": "ff23111a5a20a280030e9f0e16b40e84b27b142a05bb01e504b94b824e0d5f3b",
+  "selectionPayloadSha256": "63b4768a76c834428c69db7968c6c94166aa831d0d96eae19da6c71a297b0d47",
+  "status": "ready_for_review"
+}

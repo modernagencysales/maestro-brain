@@ -1,0 +1,158 @@
+{
+  "schemaVersion": "maestro-brain-integration-result/v2",
+  "integrationId": "wave-000009",
+  "integrationWorkdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000009",
+  "selectionPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000009-selection.json",
+  "selectionSha256": "5a4c3acec5a2ab0e63a9341b62436a9b8dcda09273068c4ff7a0df190b5e32f5",
+  "selectionFileSha256": "666bf11c02dbba5457f55bda6ea057fb9bcef3140e78e72a69275a94cdf5d033",
+  "planSha256": "868331c0af5ab06b495ca802724f4a3578c854e07b8342c9de4b93107a264499",
+  "baseSha": "561d95448cc01bcc5165af7921fc26b0aa652c9c",
+  "headSha": "26e1700acbd542a90d2e80a8ff2f6b31532a9f4e",
+  "treeSha": "bf791f0fb59ab1fafb6f59c4aef3f6ce8aa0394b",
+  "status": "ready_for_review",
+  "reviewVerdict": "rework",
+  "selectedTaskCount": 4,
+  "includedTasks": [
+    {
+      "taskId": "S01-T04",
+      "tranche": "D2-domain-bodies",
+      "laneHeadSha": "5285a3255771939c34644d3011549ad51e1ca311",
+      "proofHeadSha": "5285a3255771939c34644d3011549ad51e1ca311",
+      "gateHeadSha": "5285a3255771939c34644d3011549ad51e1ca311",
+      "laneResultSha256": "e0a3935cdf54be315ec6d0b07dbcf2de3e0cb795c8115f73ecbb43ac403a3795",
+      "proofSha256": "86ec3f4d916855e57dc3d3a7ae53657607b169771db005cbfafbec4f712d9c0c",
+      "gateSha256": "d3cbb65a40be83d652952202f1702b508fa19878b9c63fd58ef0276b0262d840"
+    },
+    {
+      "taskId": "S02-T02",
+      "tranche": "D2-domain-bodies",
+      "laneHeadSha": "682f59bda23514412e3c645d01be8ecc8c0bd974",
+      "proofHeadSha": "682f59bda23514412e3c645d01be8ecc8c0bd974",
+      "gateHeadSha": "682f59bda23514412e3c645d01be8ecc8c0bd974",
+      "laneResultSha256": "aeddba550f24555659ed5d538e4fce1deadebfd2a31c28cd579f0a7c564d7d55",
+      "proofSha256": "8db94c3f7231ae691066c3dea4dcf2855a872f75f1e79b6254e7f331eb0d7841",
+      "gateSha256": "caa8078f26b31c3a0bf352c6285b06d4956f6de993ab2d2fbd78d8fd95ba82fd"
+    },
+    {
+      "taskId": "S03-T02",
+      "tranche": "D2-domain-bodies",
+      "laneHeadSha": "8f57c453bf19314505b2f4fea12ed13668a86597",
+      "proofHeadSha": "8f57c453bf19314505b2f4fea12ed13668a86597",
+      "gateHeadSha": "8f57c453bf19314505b2f4fea12ed13668a86597",
+      "laneResultSha256": "f7093a566cd8e06bb6067a4e0438d47dfe406fec812e5d0d198d50a04af8ec5c",
+      "proofSha256": "e5009aaebdc90fe69c0ee70c60c4bffec8a0013abd9faa820f8348ed9a9e318e",
+      "gateSha256": "c06313cfe98ec65d843d5819b391a0ea96430d65c54f23e00d65d6973d878214"
+    },
+    {
+      "taskId": "S04-T01",
+      "tranche": "C1-contract-spine",
+      "laneHeadSha": "d55f9aa45feb8594b48bfeae592da43d7e316d5e",
+      "proofHeadSha": "d55f9aa45feb8594b48bfeae592da43d7e316d5e",
+      "gateHeadSha": "d55f9aa45feb8594b48bfeae592da43d7e316d5e",
+      "laneResultSha256": "b773a73a5a8311af219279764d7cc059e4b7ca76499bd5b84551fbb58333d147",
+      "proofSha256": "4ceaef0b8a62ffc823223f5c4e8700735699f89afeff430783dcc101e23d497c",
+      "gateSha256": "6c55100e539827529e1a9a212519822c3635b9fc3c608a1dae34c809f1f26d6c",
+      "currentCiProofPacketSha256": "af7c211e5759883a3c9239ac9fe628181b5232747a3e558dc43acc8ea8e56d37",
+      "currentLaneGateReportSha256": "761b0fe6a3a6c1b9913b2b8e4938b857eb7834c3a7fb4baf6856391adaafa07a",
+      "currentEvidenceHeadSha": "051d9b665d1fe440b3003e28b7e2464c0f45e515"
+    }
+  ],
+  "generatedFilesFromIntegrationCommit": [
+    "packages/convex/confect/_generated/convexSchema.ts",
+    "packages/convex/confect/_generated/docs.ts",
+    "packages/convex/confect/_generated/id.ts",
+    "packages/convex/confect/_generated/registeredFunctions/integrations/slackConnections.ts",
+    "packages/convex/confect/_generated/schema.ts",
+    "packages/convex/confect/_generated/spec.ts",
+    "packages/convex/confect/_generated/tables/brainPageAuditEvents.ts",
+    "packages/convex/confect/_generated/tables/providerConnections.ts",
+    "packages/convex/convex/access/invitations.ts",
+    "packages/convex/convex/access/members.ts",
+    "packages/convex/convex/brain/pages.ts",
+    "packages/convex/convex/integrations/slackConnections.ts",
+    "packages/template-core/src/generated/confectManifest.ts"
+  ],
+  "reviewChecks": [
+    {
+      "command": "rtk pnpm --dir /Users/headless/maestro-brain-plan/tooling/brain-factory exec tsx src/integration-wave-selection-check.mts --selection /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/runs/integration-wave-000009-selection.json --integration-id wave-000009 --base 561d95448cc01bcc5165af7921fc26b0aa652c9c --selection-sha256 5a4c3acec5a2ab0e63a9341b62436a9b8dcda09273068c4ff7a0df190b5e32f5",
+      "status": "passed",
+      "output": "wave-000009: immutable wave selection passed"
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000009 rev-parse HEAD",
+      "status": "passed",
+      "output": "26e1700acbd542a90d2e80a8ff2f6b31532a9f4e"
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000009 status --porcelain=v1",
+      "status": "passed",
+      "output": "clean"
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000009 diff --check 561d95448cc01bcc5165af7921fc26b0aa652c9c..HEAD",
+      "status": "passed",
+      "output": "no whitespace errors"
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000009 diff-tree --no-commit-id --name-only -r HEAD",
+      "status": "passed",
+      "output": "last integration commit changes generated Confect/Convex/template manifest files only"
+    },
+    {
+      "command": "rtk proxy git -C /Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000009 show --numstat --format= --no-renames <commits>",
+      "status": "failed",
+      "output": "per-commit total line counts include hand-authored commits over the 300-line review budget, including eb5283481a262362d1e1197491b7797743059b93=643, cc3c3622f45a1b114fdfd4c39ff06888e65767fd=323, 121072cdfefb2c6693c3edfeef7d1a05d88242ec=362, 7cb94aaadb8f661de9132099e28f22e4a4e1e9c1=518, b1f404ca5907fc3708b26a93227835dba17d22ff=1581, 38e6136e3dd2da4c00bb37b916f4ac4848da3cf4=1759, e30f4beee9442c083c3544fda77654711e13b2a1=1444, 4f3bc868791bc767d2a7df5ee38611be5d43c2d9=1117, 5bd6a899741f13a4a062e42caf39d7ebfdd9d9de=460, a65a25f03abc3d33d3399cbcf8067da3bb410b44=633, 02750a435ed930cb259cc5814fdb2f0bf46f6b30=1665, and generated refresh commit 26e1700acbd542a90d2e80a8ff2f6b31532a9f4e=772. Lane gate sourceSlices show budget-compliant hand-authored slices for S01-T04/S02-T02/S03-T02/S04-T01, but this integration review did not independently reconstruct generated/test exclusions for all oversized commits."
+    },
+    {
+      "command": "repair node focused verification: rtk proxy git rev-parse HEAD; rtk proxy git status --porcelain=v1; immutable findings scope check",
+      "status": "passed",
+      "output": "exact head 26e1700acbd542a90d2e80a8ff2f6b31532a9f4e; exact tree bf791f0fb59ab1fafb6f59c4aef3f6ce8aa0394b; worktree clean; no generated-output repair available for stale S04-T01 selected evidence"
+    }
+  ],
+  "remainingFindings": [
+    {
+      "id": "wave-000009-stale-selected-s04-t01-head",
+      "severity": "blocker",
+      "summary": "Immutable selection binds S04-T01 to stale head d55f9aa45feb8594b48bfeae592da43d7e316d5e while current scoped S04-T01 proof artifacts bind to later repair head 051d9b665d1fe440b3003e28b7e2464c0f45e515.",
+      "evidence": {
+        "selectionTaskHeadSha": "d55f9aa45feb8594b48bfeae592da43d7e316d5e",
+        "selectionProofHeadSha": "d55f9aa45feb8594b48bfeae592da43d7e316d5e",
+        "selectionGateHeadSha": "d55f9aa45feb8594b48bfeae592da43d7e316d5e",
+        "currentCiProofPacketHeadSha": "051d9b665d1fe440b3003e28b7e2464c0f45e515",
+        "currentLaneGateReportHeadSha": "051d9b665d1fe440b3003e28b7e2464c0f45e515",
+        "selectionProofSha256": "4ceaef0b8a62ffc823223f5c4e8700735699f89afeff430783dcc101e23d497c",
+        "currentCiProofPacketSha256": "af7c211e5759883a3c9239ac9fe628181b5232747a3e558dc43acc8ea8e56d37",
+        "selectionGateSha256": "6c55100e539827529e1a9a212519822c3635b9fc3c608a1dae34c809f1f26d6c",
+        "currentLaneGateReportSha256": "761b0fe6a3a6c1b9913b2b8e4938b857eb7834c3a7fb4baf6856391adaafa07a"
+      }
+    },
+    {
+      "id": "wave-000009-unproven-exact-task-set-binding",
+      "severity": "blocker",
+      "summary": "Because S04-T01 current proof artifacts no longer match the immutable selected proof and gate hashes, this review cannot bind the exact selected task set to current lane evidence at HEAD 26e1700acbd542a90d2e80a8ff2f6b31532a9f4e.",
+      "evidence": {
+        "headSha": "26e1700acbd542a90d2e80a8ff2f6b31532a9f4e",
+        "selectionSha256": "5a4c3acec5a2ab0e63a9341b62436a9b8dcda09273068c4ff7a0df190b5e32f5",
+        "selectionFileSha256": "666bf11c02dbba5457f55bda6ea057fb9bcef3140e78e72a69275a94cdf5d033"
+      }
+    }
+  ],
+  "notes": [
+    "Read-only independent review only; no worktree/product files were edited or committed.",
+    "No broad gate was run in this review, and no acceptance evidence is claimed.",
+    "Status is preserved as ready_for_review; passed is reserved for the record node after the broad gate.",
+    "Dependency hydration from the completed dependency stage reported packages/convex/package.json, packages/integrations/package.json, and pnpm-lock.yaml installed from base-only dependencies.",
+    "Review verdict is rework because exact immutable task-set binding is not provable for S04-T01 against current scoped proof artifacts.",
+    "Repair attempt preserved stable rework: no integration-generated-output change can prove stale S04-T01 selected proof artifacts against current lane evidence without reselection or task-lane mutation."
+  ],
+  "reviewedAt": "2026-07-16T00:00:00Z",
+  "resolvedFindings": [],
+  "repairAttempt": {
+    "attemptedAt": "2026-07-16T00:00:00Z",
+    "outcome": "stable_rework_preserved",
+    "reason": "Findings require reselection or task-lane evidence changes for S04-T01; this repair node is limited to integration-only generated output and must not mutate immutable selection, control checkout, or task worktrees.",
+    "exactHeadSha": "26e1700acbd542a90d2e80a8ff2f6b31532a9f4e",
+    "exactTreeSha": "bf791f0fb59ab1fafb6f59c4aef3f6ce8aa0394b",
+    "worktreeStatus": "clean"
+  }
+}

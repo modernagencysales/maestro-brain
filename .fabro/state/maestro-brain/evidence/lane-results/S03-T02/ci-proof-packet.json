@@ -1,0 +1,88 @@
+{
+  "schemaVersion": "maestro-brain-ci-proof/v1",
+  "planSha256": "51b4735b05594f70a16fd670c664ccad98cf2a6ba8d6dd1aab8881fa74faefb5",
+  "taskBlockHash": "33aadcbccd2318744168364f4fb5be5d5704b125e9cf0cee21211fc8d8cde1c5",
+  "taskId": "S03-T02",
+  "baseSha": "3b4ce76f8d6840e15995f95af136524ceb62a6a4",
+  "headSha": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf",
+  "changedFiles": [
+    "apps/web/src/features/clients/clients-adapter.test.ts",
+    "apps/web/src/features/clients/clients-adapter.ts",
+    "apps/web/src/features/clients/clients-screen.test.tsx",
+    "apps/web/src/features/clients/clients-screen.tsx",
+    "apps/web/src/features/clients/clients-state.test.ts",
+    "apps/web/src/features/clients/clients-state.ts",
+    "apps/web/src/features/clients/clients-table.test.tsx",
+    "apps/web/src/features/clients/clients-table.tsx",
+    "apps/web/src/features/clients/create-client-dialog.test.tsx",
+    "apps/web/src/features/clients/create-client-dialog.tsx",
+    "apps/web/src/routes/_workspace.clients.tsx",
+    "packages/convex/confect/access/provisioning.impl.ts",
+    "packages/convex/confect/access/provisioning.spec.ts",
+    "packages/convex/confect/brain/clientBrief.ts",
+    "packages/convex/confect/errors.ts",
+    "packages/convex/confect/tables/workspaces.ts",
+    "packages/convex/test/authorized-brain-provisioning.test.ts"
+  ],
+  "focusedCommands": [
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test authorized-brain-provisioning",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test clients",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk pnpm check:confect-contracts",
+    "rtk pnpm check:route-tree",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex typecheck",
+    "rtk host-test-slot --class focused pnpm --dir apps/web typecheck",
+    "rtk host-test-slot --class focused pnpm check:types-coverage"
+  ],
+  "testsAdded": [
+    "packages/convex/test/authorized-brain-provisioning.test.ts",
+    "apps/web/src/features/clients/clients-adapter.test.ts",
+    "apps/web/src/features/clients/clients-state.test.ts",
+    "apps/web/src/features/clients/clients-table.test.tsx",
+    "apps/web/src/features/clients/create-client-dialog.test.tsx",
+    "apps/web/src/features/clients/clients-screen.test.tsx"
+  ],
+  "reviewVerdict": "pass",
+  "knownRisks": [
+    "Generated Confect refs are intentionally not committed; route adapter uses a narrow exact bridge until centralized tranche codegen refreshes refs.",
+    "S03-T02 intentionally hands stable brainKey/pageKey to the registered /brain navigation target only; S03-T03 owns destination route consumption and editable workspace rendering.",
+    "Broad verification is deferred to tranche integration per Appendix O/P."
+  ],
+  "reviewFindings": [],
+  "sourceSlices": [
+    {
+      "commit": "4497564cc3114fce05571ea5d195ac30a113e4c4",
+      "changedSourceLines": 0
+    },
+    {
+      "commit": "8fbf35b52a707a660d3325df1b0c218732b7d245",
+      "changedSourceLines": 122
+    },
+    {
+      "commit": "31668ed0ce3482794f6286991f5c04ec27e8f288",
+      "changedSourceLines": 207
+    },
+    {
+      "commit": "66a4f36307458b5c6bf8ef4e70a9b7dfb60e5ad7",
+      "changedSourceLines": 171
+    },
+    {
+      "commit": "4f08c5bf52ea36e7eaffb6b94556278367d314e6",
+      "changedSourceLines": 145
+    },
+    {
+      "commit": "1fa0568855f78e0bf1defacaedc107debc92fe39",
+      "changedSourceLines": 260
+    },
+    {
+      "commit": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf",
+      "changedSourceLines": 0
+    }
+  ],
+  "reviewedHeadSha": "c40cfc68a04a679fb8d5f6f4300580c78fc70fcf",
+  "reviewNotes": [
+    "Independent read-only review: repair commit is limited to owned S03-T02 regression test helpers in packages/convex/test/authorized-brain-provisioning.test.ts.",
+    "Regression coverage confirmed by exact focusedCommands; authorized-brain-provisioning passed with 29 tests.",
+    "No gate, Confect/Convex contract, or task ownership weakening observed; deterministic pre-review receipt is passing for this HEAD."
+  ]
+}

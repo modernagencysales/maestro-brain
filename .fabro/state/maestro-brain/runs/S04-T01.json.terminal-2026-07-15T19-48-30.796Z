@@ -1,0 +1,10 @@
+{
+  "branch": "fabro/review-s04-t01",
+  "mode": "resume-review",
+  "runId": "01KXKJ6DW9K0P5546Z85SKXZ66",
+  "sourceHeadSha": "547236537d18806e33f32fe0db047ec4c695e07a",
+  "status": "launched",
+  "taskBaseSha": "9ff4c6fc98545080b06ed555a6356ec9d277c9d8",
+  "taskId": "S04-T01",
+  "workdir": "/Users/headless/.maestro-brain-fabro-workdirs/resume-s04-t01"
+}

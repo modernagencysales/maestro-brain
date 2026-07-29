@@ -1,0 +1,86 @@
+{
+  "lens": "safety",
+  "taskId": "S08-T03",
+  "planSha256": "ca7c2d9fbe1de7598adb586c3c0eb8e85c2826fc3339def797b61e3dc45b56cf",
+  "taskBlockHash": "2d947263cf0fa3ed72b36f7fddc028629d9db80e333e2511207b2213bf4d40c0",
+  "baseSha": "2bdef668a17ac4e86a9113846b773f6243f281c0",
+  "headSha": "a495a996aeb8ad4faffb2f0aaa86cc5c68adfaa2",
+  "treeSha": "f283d25911e1f98635a1ad8956dd91fb2977938f",
+  "reviewerRunId": "maestro/review/S08-T03/a495a996aeb8ad4faffb2f0aaa86cc5c68adfaa2/48950001-759c-404e-8197-1154005e37b9-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/classificationDecisions.ts:24-50 stores organizationId/workspaceId and indexes review state by workspace, avoiding cross-workspace review queues.",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:31-55 stores organizationId/workspaceId for each source-processing job and workspace-scoped stage/execution indexes.",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:62-79 and 129-150 require workspaceId when locating workflow runs via by_workspace_component_workflow before status/approval."
+      ]
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/capabilities/classifySourceUnit.impl.ts:12-16 rejects non-system workflow/internal callers with Unauthorized.",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:57-61 and 90-160 require a system workflow/internal caller for start/status/approve operations.",
+        "packages/convex/confect/classification/review.ts:39-45 requires reviewerRole admin or owner before any classification review action proceeds."
+      ]
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:16-29 declares classification lifecycle stages through routed/classified_no_route/mixed_client_no_route plus superseded/revoked.",
+        "packages/convex/confect/tables/classificationDecisions.ts:4-15 declares the proposal/review terminal state machine, including no_route, mixed_client_no_route, rejected, and superseded.",
+        "docs/product/maestro-brain-lifecycle-adoption/S08-T03.md:54-60 documents rollback leaving proposals pending and forbidding guessed Brain fallback."
+      ]
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/classificationDecisions.ts:37-39 stores rationaleHash and evidenceHash rather than raw rationale or raw evidence text in durable decision rows.",
+        "docs/product/maestro-brain-lifecycle-adoption/S08-T03.md:48-52 states the fake/local classifier has no tools, database, Slack, Nango, or provider imports.",
+        "packages/convex/confect/classification/request.ts:17-23 emits a generic EvidenceMismatch message without embedding customer text or evidence quotes."
+      ]
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/classification/commit.ts:49-69 rejects commits unless policyVersion, sourceUnitHash, lifecycleGeneration, routeGeneration, and leaseGeneration all match the expected context.",
+        "packages/convex/confect/classification/commit.ts:84-87 rejects duplicate route effects before returning a routed result.",
+        "packages/convex/test/source-classification.test.ts:168-212 covers duplicate commit rejection and stale-generation rejection."
+      ]
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/classification/gather.ts:26-37 returns zero model calls for direct/capture-only policies and otherwise closes the request over the immutable source unit plus pinned allowlist.",
+        "packages/convex/confect/classification/request.ts:121-150 derives a deterministic decisionKey from sourceUnitRevisionKey and policyVersion after validating source hash, target structure, allowlist, and evidence.",
+        "docs/product/maestro-brain-lifecycle-adoption/S08-T03.md:56-60 documents replay from source-unit key/hash, policy version, lifecycle generation, and stored finite allowlist."
+      ]
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/classification/commit.ts:13-36 includes policy, lifecycle, route, and lease generations in the commit-ready decision and expected context.",
+        "packages/convex/confect/classification/commit.ts:49-69 throws StaleGeneration when any revision or generation fence is stale.",
+        "packages/convex/confect/tables/classificationDecisions.ts:29-33 persists policyVersion, lifecycleGeneration, routeGeneration, leaseGeneration, and allowedTargetKeys with each decision row."
+      ]
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/capabilities/classifySourceUnit.domain.ts:1-6 imports only classification domain/request helpers, with no Slack, Nango, database, provider SDK, or tool imports.",
+        "packages/convex/confect/workflows/sourceClassification.graph.ts:10-32 composes only classification.model, an approval node, and routes.commit; it does not import provider adapters.",
+        "docs/product/maestro-brain-lifecycle-adoption/S08-T03.md:48-52 and 59-60 explicitly preserve the no tools/database/Slack/Nango/provider boundary for the fake/local seam."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

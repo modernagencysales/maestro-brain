@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "maestro-brain-lane-gate/v1",
+  "commandSetHash": "35b4f3be60c595a1bd5c008eb9aa9bddac101a115f65d3f60e60945c06fb2c61",
+  "commands": [
+    "rtk pnpm exec prettier --check --ignore-unknown docs/product/maestro-brain-migrations.md packages/convex/confect/access/provisioning.impl.ts packages/convex/confect/access/provisioning.ts packages/convex/confect/access/tenancySchemas.ts packages/convex/confect/identity/stableKeys.ts packages/convex/confect/internal/migrations.impl.ts packages/convex/confect/internal/migrations.spec.ts packages/convex/confect/internal/migrations.ts packages/convex/confect/tables/organizations.ts packages/convex/confect/tables/workspaces.ts packages/convex/package.json packages/convex/test/access-provisioning.test.ts packages/convex/test/migrations.test.ts packages/convex/test/stable-tenant-keys.test.ts pnpm-lock.yaml pnpm-workspace.yaml tooling/patches/@convex-dev__migrations@0.3.5.patch",
+    "rtk pnpm exec eslint packages/convex/confect/access/provisioning.impl.ts packages/convex/confect/access/provisioning.ts packages/convex/confect/access/tenancySchemas.ts packages/convex/confect/identity/stableKeys.ts packages/convex/confect/internal/migrations.impl.ts packages/convex/confect/internal/migrations.spec.ts packages/convex/confect/internal/migrations.ts packages/convex/confect/tables/organizations.ts packages/convex/confect/tables/workspaces.ts packages/convex/test/access-provisioning.test.ts packages/convex/test/migrations.test.ts packages/convex/test/stable-tenant-keys.test.ts",
+    "rtk pnpm install --frozen-lockfile",
+    "rtk pnpm brain:factory:check-confect-codegen -- --test stable-tenant-keys",
+    "rtk pnpm brain:factory:check-confect-codegen -- --test migrations",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test access-provisioning",
+    "rtk pnpm check:confect-contracts",
+    "rtk pnpm check:schema-migration-notes"
+  ],
+  "currentHeadSha": "efc98a3eb4ef7a37a992be7aaa6be003cf2c74c8",
+  "currentTreeSha": "87b3ecb1d3b1423ffab9e07db31375cc48a1100b",
+  "gateProfiles": [
+    "convex",
+    "tooling"
+  ],
+  "headSha": "efc98a3eb4ef7a37a992be7aaa6be003cf2c74c8",
+  "planSha256": "67282c1924e380b207e131a80e6db1771f53956aa857d44c6d583b53d116cd7e",
+  "changedSourceLines": 790,
+  "estimateDrift": false,
+  "estimatedSourceLines": 1050,
+  "sourceSliceBudget": 300,
+  "sourceSlices": [
+    {
+      "changedSourceLines": 184,
+      "commit": "5325668071d8609b8a08bd69a401453dc50fa552"
+    },
+    {
+      "changedSourceLines": 170,
+      "commit": "028c194e9f82f173635d63121a399573f4de2e2d"
+    },
+    {
+      "changedSourceLines": 240,
+      "commit": "1824ef2a8e799790bd4d5c31f6a93a2792b9bcc4"
+    },
+    {
+      "changedSourceLines": 196,
+      "commit": "efc98a3eb4ef7a37a992be7aaa6be003cf2c74c8"
+    }
+  ],
+  "stage": "final",
+  "status": "passed",
+  "taskId": "S01-T02",
+  "taskBlockHash": "f8dfea31b91e435c11203c1641f2b5fd1cefe5e966e26f4ba105b1e7088d7204",
+  "reusedPreReview": true
+}

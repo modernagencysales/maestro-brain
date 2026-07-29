@@ -1,0 +1,29 @@
+{
+  "baseSha": "14518ea1ebe99604f4ed1e0da63631673f4663d0",
+  "controlHeadSha": "95858da92390a17ebd96e5be0ff42d37b4b22f33",
+  "createdAt": "2026-07-18T21:44:52.057Z",
+  "evidence": [
+    "Fabro run 01KXVJMM0SCPN016MXRA5WVXWT failed: generated output file set changed after replay for slackConnections and migrations wrappers",
+    "Transactional rollback restored integration-wave-000025 to base 14518ea1ebe99604f4ed1e0da63631673f4663d0; bounded fixed-point regression now admits transient drift only after a stable replay"
+  ],
+  "integrationId": "wave-000025",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "reason": "generated fixed-point proof rejected legitimate transient wrapper drift before convergence",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXVJMM0SCPN016MXRA5WVXWT",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "93a3cb27d5902a04bcbe7092869d9aae57a6d6859e67e8f21eab5f4d9633f96a",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v2",
+  "selectedTaskIds": [
+    "S03-T03",
+    "S11-T02"
+  ],
+  "selectionFileSha256": "b17f666bd21188e48e8962c1d2ff43df7eef0ebb580224097755948e4217a9d7",
+  "selectionPayloadSha256": "938f8a0d833487d1ad02fd9b7c6f4d37024cf5b19065f07304e53f7ca9106c80",
+  "status": "superseded",
+  "receiptSha256": "f2e3fc2a9015d25eda9d4bad4a64c298ec6052720c22914c4b6bf7cfef7b05b8"
+}

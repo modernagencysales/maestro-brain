@@ -1,0 +1,68 @@
+{
+  "lens": "contract",
+  "taskId": "S13-T03",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "taskBlockHash": "13c071bc2c78035c5563f494b38160a96c981ab2962984f056be4e18853e137e",
+  "baseSha": "f66236e12f93bc254cc2350800a5b2a69d0caff5",
+  "headSha": "a3e7e93d8c2e85c11c5658af518f620d187cb445",
+  "treeSha": "d9b14625d4ec25719cc5ff7dc9e4c7a1b86ec1b5",
+  "reviewerRunId": "maestro/review/S13-T03/a3e7e93d8c2e85c11c5658af518f620d187cb445/ade6e852-8186-47dd-94bc-e07f53f46bd6-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "Task manifest docs/superpowers/execution/maestro-brain/task-manifest.json:1678-1706 identifies S13-T03 as template-gap Add Redacted Telemetry, Budgets, And Kill Switches, owned by the operations lane with requirements AI-04, REL-03, and SLK-07 and the exact file locks reviewed here.",
+        "Task plan docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3549-3600 requires redacted telemetry, model/Slack/storage/queue/channel budgets, independent kill switches, typed errors OperatorForbidden/BudgetExceeded/SubsystemDisabled/RecoveryGenerationMismatch, additive policy/metric fields, and completion receipts.",
+        "Lane evidence lane-gate-report.json records currentHeadSha/headSha a3e7e93d8c2e85c11c5658af518f620d187cb445, taskBlockHash 13c071bc2c78035c5563f494b38160a96c981ab2962984f056be4e18853e137e, stage pre-review, status passed, and the declared focused commands for the same task."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts:13-29 declares Effect schemas for all required operation subsystems and policy states enabled, paused, and disabled.",
+        "packages/convex/confect/ops/brainOperations.spec.ts:31-70 declares tagged expected errors OperatorForbidden, BudgetExceeded, SubsystemDisabled, RecoveryGenerationMismatch and unions them with existing workspace access failures.",
+        "packages/convex/confect/ops/brainOperations.spec.ts:72-125 declares typed Confect listPolicies and setPolicyInternal args/returns, including workspaceId, subsystem, state, ownerUserId, reason, idempotencyKey, expectedGeneration, optional budgetCheck/expiresAt, and policy list/return shapes; packages/convex/confect/ops/brainOperations.impl.ts:37-66 binds matching FunctionImpl entries."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperationPolicy.ts:33-47 defines durable operation policy records over the existing generic policies table shape with policyKey, workspace scope, version, active/retired status, dataJson, activation fields, and timestamps.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:188-220 maps Brain operation policies into redacted durable agent.config policy rows and parses them back from dataJson without adding a bespoke table or editing generated schema files.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:179-222 loads active non-expired subsystem policies with default enabled fallbacks, and packages/convex/confect/ops/brainOperations.impl.ts:281-305 retires prior active rows during policy updates, preserving additive policy compatibility."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "The proof-base diff from f66236e12f93bc254cc2350800a5b2a69d0caff5 to HEAD changes the S13-T03 planned files: operations docs, brainOperationPolicy, brainOperations spec/impl/test, flags spec/impl, brainMetrics source/test/index, and logging-boundary tooling.",
+        "packages/observability/src/brainMetrics.ts:56-208 implements prompt/source/token/header field redaction, value-shape sanitization for retained metric fields, and BudgetExceeded results for modelTokens, modelSpendCents, slackRate, storageBytes, queueDepth, and channelCount; packages/observability/src/brainMetrics.test.ts:9-115 proves safe field emission, unsafe whitelisted value dropping, budget enforcement, and recursive canaries.",
+        "docs/product/maestro-brain-operations.md:8-80 supplies the required metric dictionary, budget list, kill-switch state machine, independent-control notes, and completion receipt references."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "Task manifest file locks docs/superpowers/execution/maestro-brain/task-manifest.json:1685-1696 include docs/product/maestro-brain-operations.md, packages/convex/confect/ops/brainOperationPolicy.ts, brainOperations.impl.ts, brainOperations.spec.ts, flags.impl.ts, flags.spec.ts, packages/convex/test/brain-operation-policy.test.ts, packages/observability/src/brainMetrics.test.ts, packages/observability/src/brainMetrics.ts, packages/observability/src/index.ts, and tooling/quality/check-logging-boundary.mts.",
+        "rtk proxy git diff --name-only f66236e12f93bc254cc2350800a5b2a69d0caff5...HEAD reports exactly those eleven task-owned paths and no generated Confect/Convex files.",
+        "Root AGENTS.md applies to the touched docs, packages/convex, packages/observability, and tooling paths; scoped file discovery found no deeper AGENTS.md under touched paths."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperations.spec.ts:31-70 declares every required typed failure path in the Confect contract: OperatorForbidden, BudgetExceeded, SubsystemDisabled, and RecoveryGenerationMismatch.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:67-73 makes OperatorForbidden reachable for under-privileged workspace roles; lines 99-114 make BudgetExceeded reachable for over-limit budget checks and excessive expiry windows; lines 115-117 make SubsystemDisabled reachable when trying to pause an already disabled subsystem; lines 118-134 delegate generation and owner checks to tagged domain errors.",
+        "packages/convex/test/brain-operation-policy.test.ts:86-108 covers stale operators and recovery generations, lines 231-242 cover expired transient pauses, lines 244-282 cover idempotency/recovery mismatch behavior, and lines 285-466 prove persisted Confect policy update, replay, listing, and redacted audit behavior."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

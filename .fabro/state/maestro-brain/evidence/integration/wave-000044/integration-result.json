@@ -1,0 +1,59 @@
+{
+  "baseSha": "bc7631796e42ee5d33a006df85730dc1293f505e",
+  "conflicts": [],
+  "focusedChecks": [
+    "rtk pnpm --dir packages/convex typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test api-keys headless http-request",
+    "rtk pnpm check:headless-surface-contract"
+  ],
+  "generatedFiles": [
+    "packages/convex/confect/_generated/registeredFunctions/headless/apiKeys.ts",
+    "packages/convex/confect/_generated/spec.ts",
+    "packages/convex/convex/headless/apiKeys.ts"
+  ],
+  "headSha": "fbb139f817cf3b39e309df034a7eb9e9b1a429c8",
+  "includedTasks": [
+    {
+      "commitShas": [
+        "513d4f8662c58aa4f488700454baffbac03b0d06",
+        "70aab1a9529b49931c06368e4a1c4e39fef93c0f",
+        "538561fae9bea2abbe063f43a5654e2834a1bba3",
+        "6b0fbeae175a9b1822f94af5f675658cc2fe250a",
+        "bd510c6061a919e5ae5824ca6928c34e337e757f",
+        "0aa4a40c5c9283a353cfa039dca9ce3b6df030b3",
+        "48a141f0b169e7ff4b79e8b07818a4a2d321a64a",
+        "1057834555d690aa01b0a08178f3876a0f351909",
+        "e80f9ee828389b1a097a28c83ffb8639a6cadee4",
+        "102e9ac76454ed79e36fc78e073ac340e75fd464"
+      ],
+      "laneHeadSha": "102e9ac76454ed79e36fc78e073ac340e75fd464",
+      "patchState": "applied",
+      "taskId": "S11-T02",
+      "tranche": "D2-domain-bodies"
+    }
+  ],
+  "integrationId": "wave-000044",
+  "mode": "integrate",
+  "schemaVersion": "maestro-brain-integration-result/v3",
+  "selectionFileSha256": "6262c6c332fa87336fa61391b21027260c4b5e155af4f6ed917a7e8f1abe056d",
+  "selectionPayloadSha256": "82340a6a9adb2d4ac86a27e7c0d87eaba3dc6f59e8514470b5d22d476a480e1f",
+  "reviewVerdict": "rework",
+  "status": "ready_for_review",
+  "remainingFindings": [
+    {
+      "id": "broad-type-coverage-below-threshold",
+      "severity": "high",
+      "summary": "Broad verify fails at check:types-coverage: reported 205495 / 206150 typed identifiers (99.68%), below the 99.7% target on immutable integration head fbb139f817cf3b39e309df034a7eb9e9b1a429c8. This is a real owner-lane broad defect for S11-T02 and should terminate this wave for normal supersession and owner-lane repair.",
+      "ownerTaskId": "S11-T02",
+      "ownerTranche": "D2-domain-bodies",
+      "failingCommand": "rtk host-test-slot --class full pnpm verify",
+      "focusedChecksPassed": [
+        "rtk pnpm --dir packages/convex typecheck",
+        "rtk host-test-slot --class focused pnpm --dir packages/convex test api-keys headless http-request",
+        "rtk pnpm check:headless-surface-contract"
+      ],
+      "repairPath": "normal supersession and owner-lane repair"
+    }
+  ],
+  "resolvedFindings": []
+}

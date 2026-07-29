@@ -1,0 +1,31 @@
+{
+  "baseSha": "969c65065eb82aebdd6bcc5e01d482365e9b9c8b",
+  "controlHeadSha": "122642a759d247aad9dcfc31d9a3728a43f367f3",
+  "createdAt": "2026-07-16T15:15:29.900Z",
+  "evidence": [
+    "fabro-run:01KXNQ0307R664CQAR2J74WAVM",
+    "integration-head:9d732b22c23b709b65a7862195edc10b08155eba"
+  ],
+  "integrationId": "wave-000010",
+  "planSha256": "868331c0af5ab06b495ca802724f4a3578c854e07b8342c9de4b93107a264499",
+  "reason": "focused integration found S02-T02 Brain pages Confect args thunk/checker-shape defect; owning-lane repair required",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXNQ0307R664CQAR2J74WAVM",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "31b683398bb9ad342f45ab3048a8532b5c55c88b42630b14c07fb4b96c7d4ad2",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v1",
+  "selectedTaskIds": [
+    "S01-T04",
+    "S02-T02",
+    "S03-T02",
+    "S04-T01"
+  ],
+  "selectionFileSha256": "4d3efd5d66ce5cbfc3865b18699a9fe6b99775605e108914eac88de4fc1423a5",
+  "selectionSha256": "c6bdf809dfd653bc73e5112cd5f6e610532f412b993c31d6ea25299cf953d6ee",
+  "status": "superseded",
+  "receiptSha256": "4587e49483c5722c587a9382cbf82d8d3a4ef9ec8353b7c53740a8d1937959cb"
+}

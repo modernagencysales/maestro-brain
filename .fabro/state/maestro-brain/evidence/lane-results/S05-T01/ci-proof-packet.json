@@ -1,0 +1,61 @@
+{
+  "schemaVersion": "maestro-brain-ci-proof/v1",
+  "planSha256": "1c6b818063c534afdae20d688fee71e830915c5ac356bf7eba7724099d7ed9a5",
+  "taskBlockHash": "af261b6e29dd92ad219255c8f0c731b09c5fd346780621976cb1693aa8d991cf",
+  "taskId": "S05-T01",
+  "baseSha": "82b16f93d19d59a12d629a7d1765345faac7d8a3",
+  "headSha": "9e4ab3cfc9261af8203beee9413f404aaf619d34",
+  "changedFiles": [
+    "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md",
+    "packages/convex/confect/internal/migration-fragments/S00-T04.json",
+    "packages/convex/confect/internal/migration-fragments/S01-T02.json",
+    "packages/convex/confect/internal/migration-fragments/S02-T01.json",
+    "packages/convex/confect/internal/migration-fragments/S02-T03.json",
+    "packages/convex/confect/internal/migration-fragments/S05-T01.json",
+    "packages/convex/confect/internal/migration-implementations/S00-T04.ts",
+    "packages/convex/confect/internal/migration-implementations/S01-T02.ts",
+    "packages/convex/confect/internal/migration-implementations/S02-T01.ts",
+    "packages/convex/confect/internal/migration-implementations/S02-T03.ts",
+    "packages/convex/confect/internal/migrationFragment.ts",
+    "packages/convex/confect/internal/migrationRuntime.ts",
+    "packages/convex/confect/internal/migrations.impl.ts",
+    "packages/convex/confect/sources/sourceSchemas.ts",
+    "packages/convex/confect/tables/providerEventReceipts.ts",
+    "packages/convex/confect/tables/sourceArtifacts.ts",
+    "packages/convex/confect/tables/sourceProcessingJobs.ts",
+    "packages/convex/confect/tables/sourceRevisions.ts",
+    "packages/convex/scripts/generate-migration-registry.mts",
+    "packages/convex/test/migration-registry.test.ts",
+    "packages/convex/test/source-ledger-schema.test.ts"
+  ],
+  "focusedCommands": [
+    "rtk host-test-slot --class focused pnpm --dir packages/convex exec vitest run test/migration-registry.test.ts test/migrations.test.ts test/brain-page-schema.test.ts test/source-ledger-schema.test.ts",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk pnpm check:schema-migration-notes",
+    "rtk pnpm check:confect-contracts"
+  ],
+  "testsAdded": [
+    "packages/convex/test/migration-registry.test.ts",
+    "packages/convex/test/source-ledger-schema.test.ts"
+  ],
+  "reviewVerdict": "pending",
+  "knownRisks": [
+    "Broad tranche verification is deferred to integration per Appendix O/P.",
+    "The product lane intentionally does not commit the integration-owned canonical migrations.generated.ts registry."
+  ],
+  "sourceCommits": [
+    "63e5ab0a04a32dda2943826d5c70d69ed00a3a3a",
+    "2f9e7006fbf219d2c9c843804844ba0c5c2f4459",
+    "72fbec3433fa5a17d7b606b91a60e93b970f6113",
+    "9e4ab3cfc9261af8203beee9413f404aaf619d34"
+  ],
+  "sourceSliceLines": [297, 289, 256, 256],
+  "supplementalCommandResults": [
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex exec vitest run test/migration-registry.test.ts",
+      "status": "passed",
+      "findingIds": ["QUALITY-S05-T01-010"]
+    }
+  ],
+  "reviewFindings": []
+}

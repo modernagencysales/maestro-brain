@@ -1,0 +1,121 @@
+{
+  "lens": "safety",
+  "taskId": "S05-T01",
+  "planSha256": "a3d4af4aa5e526438aa5e06c8716a6a40500bc235d9933f8f8649e133263821b",
+  "taskBlockHash": "d5212dbc84a10771993658fc840e29bc81671c08e7962dbf96fd34de2dda9ce5",
+  "baseSha": "022a932c1e809c2093a10f5dea5d248b6c706f5f",
+  "headSha": "ecb869f5d8f47074d6f01db0eb3450b765b25f6e",
+  "treeSha": "060e414066cad7f80cfda834405c5560131f4e31",
+  "reviewerRunId": "maestro/review/S05-T01/ecb869f5d8f47074d6f01db0eb3450b765b25f6e/24781651-be36-49f1-9a1e-d1531c01caa2-v1/safety",
+  "rubricDispositions": [
+    {
+      "rubricId": "safety.tenancy",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:361-404",
+        "packages/convex/confect/sources/sourceSchemas.ts:405-438",
+        "packages/convex/test/source-ledger-schema.test.ts:260-305"
+      ],
+      "rationale": "Source, observation, revision, and delivery keys include organization, connection generation, and channel identity; the validator rejects tenant or binding mismatches before row construction."
+    },
+    {
+      "rubricId": "safety.authorization",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1700-1703",
+        "packages/convex/confect/sources/sourceSchemas.ts:160-190",
+        "packages/convex/confect/sources/sourceSchemas.ts:229-265",
+        "packages/convex/test/source-ledger-schema.test.ts:664-681"
+      ],
+      "rationale": "The schema helper requires branded verified Slack binding evidence and exact tenant/channel binding matches; this slice does not add a caller-facing capture authorization surface."
+    },
+    {
+      "rubricId": "safety.lifecycle",
+      "disposition": "pass",
+      "evidence": [
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:26-42",
+        "packages/convex/confect/sources/sourceSchemas.ts:33-38",
+        "packages/convex/confect/sources/sourceSchemas.ts:558-565",
+        "packages/convex/test/source-ledger-schema.test.ts:445-526"
+      ],
+      "rationale": "Rows carry lifecycle state/generation/purge fields; tombstones make current reads return null rather than falling back to older active content, and rollback semantics retain captured evidence."
+    },
+    {
+      "rubricId": "safety.privacy",
+      "disposition": "pass",
+      "evidence": [
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:18-20",
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:28-31",
+        "packages/convex/confect/sources/sourceSchemas.ts:690-749",
+        "packages/convex/test/source-ledger-schema.test.ts:683-707"
+      ],
+      "rationale": "Content-bearing revisions are lifecycle-fenced, while rejected/no-source receipts sanitize malformed observation fields and avoid persisting raw invalid payload text."
+    },
+    {
+      "rubricId": "safety.concurrency",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:438-452",
+        "packages/convex/confect/sources/sourceSchemas.ts:496-511",
+        "packages/convex/test/source-ledger-schema.test.ts:528-591",
+        "packages/convex/test/source-ledger-schema.test.ts:754-789"
+      ],
+      "rationale": "Existing artifact checks reject stale or higher duplicate provider-order updates, choose a deterministic total order for equal primary order, and Convex transaction tests prove partial write rollback."
+    },
+    {
+      "rubricId": "safety.replay",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/sources/sourceSchemas.ts:454-493",
+        "packages/convex/confect/sources/sourceSchemas.ts:229-265",
+        "packages/convex/test/source-ledger-schema.test.ts:212-258",
+        "packages/convex/test/source-ledger-schema.test.ts:610-662"
+      ],
+      "rationale": "Transport receipt replay is scoped by tenant, connection generation, transport, and delivery ID; native Slack verification checks signature freshness and durable receipt replay before branding."
+    },
+    {
+      "rubricId": "safety.fencing",
+      "disposition": "finding",
+      "findingIds": [
+        "SAFETY-S05-T01-001"
+      ],
+      "evidence": [
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:21-24",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1687-1689",
+        "packages/convex/confect/sources/sourceSchemas.ts:133-158",
+        "packages/convex/confect/sources/sourceSchemas.ts:607-615",
+        "packages/convex/test/source-ledger-schema.test.ts:65-76",
+        "packages/convex/test/source-ledger-schema.test.ts:333-350"
+      ],
+      "rationale": "Processing-job rows have lease and policy fields, but the job effect key is not derived from the stable tenant/source-unit/revision fence required by the task."
+    },
+    {
+      "rubricId": "safety.provider-boundaries",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1700-1703",
+        "packages/convex/confect/sources/sourceSchemas.ts:1-3",
+        "packages/convex/confect/tables/providerEventReceipts.ts:1-12",
+        "packages/convex/scripts/generate-migration-registry.mts:1-4"
+      ],
+      "rationale": "The task adds schemas, Confect table definitions, migration fragments, and deterministic registry tooling only; no provider SDK import, server secret lookup, webhook body logging, or outbound provider adapter is introduced."
+    }
+  ],
+  "findings": [
+    {
+      "id": "SAFETY-S05-T01-001",
+      "severity": "high",
+      "summary": "Source processing job effect key is caller-controlled instead of fenced by tenant/source revision.",
+      "details": "The task requires sourceProcessingJobs to be keyed by a stable effect key with tenant, source-unit, revision, status, policy epoch, lease, retry, attempt, and effect fencing so assembly retries cannot duplicate downstream work. The implementation derives assemblyJobKey from sourceRevisionKey plus routing.effectKey, but buildSourceLedgerRows stores processingJob.effectKey directly from input.routing.effectKey, and the focused test expects the literal fixture value source-effect-1. Because the stored indexed effect key can omit tenant/source-unit/revision identity, two captures or retries can collide or fail to dedupe independently depending on caller-supplied strings rather than the schema-owned fence.",
+      "evidence": [
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:21-24",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1687-1689",
+        "packages/convex/confect/sources/sourceSchemas.ts:397-400",
+        "packages/convex/confect/sources/sourceSchemas.ts:607-615",
+        "packages/convex/test/source-ledger-schema.test.ts:65-76",
+        "packages/convex/test/source-ledger-schema.test.ts:333-350"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

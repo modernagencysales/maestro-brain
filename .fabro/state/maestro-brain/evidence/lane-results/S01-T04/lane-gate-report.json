@@ -1,0 +1,83 @@
+{
+  "schemaVersion": "maestro-brain-lane-gate/v1",
+  "commandSetHash": "bb785cd81ae8ab0953716d994a13b3085b015249d83583879f3496b782b6d5aa",
+  "commands": [
+    "rtk pnpm exec prettier --check --ignore-unknown apps/web/src/adapters/confect-state.test.ts apps/web/src/adapters/confect-state.ts apps/web/src/features/settings/member-management-adapter.test.ts apps/web/src/features/settings/member-management-adapter.ts apps/web/src/features/settings/member-management.test.tsx apps/web/src/features/settings/member-management.tsx apps/web/src/features/settings/settings-surface.test.ts apps/web/src/features/settings/settings-surface.ts apps/web/src/routes/_workspace.settings.tsx packages/convex/confect/access/audit.ts packages/convex/confect/access/auth.ts packages/convex/confect/access/handlerContext.ts packages/convex/confect/access/invitations.impl.ts packages/convex/confect/access/invitations.spec.ts packages/convex/confect/access/members.impl.ts packages/convex/confect/access/members.spec.ts packages/convex/confect/access/tenancySchemas.ts packages/convex/test/brain-role-matrix.test.ts packages/convex/test/flags.test.ts",
+    "rtk pnpm exec eslint apps/web/src/adapters/confect-state.test.ts apps/web/src/adapters/confect-state.ts apps/web/src/features/settings/member-management-adapter.test.ts apps/web/src/features/settings/member-management-adapter.ts apps/web/src/features/settings/member-management.test.tsx apps/web/src/features/settings/member-management.tsx apps/web/src/features/settings/settings-surface.test.ts apps/web/src/features/settings/settings-surface.ts apps/web/src/routes/_workspace.settings.tsx packages/convex/confect/access/audit.ts packages/convex/confect/access/auth.ts packages/convex/confect/access/handlerContext.ts packages/convex/confect/access/invitations.impl.ts packages/convex/confect/access/invitations.spec.ts packages/convex/confect/access/members.impl.ts packages/convex/confect/access/members.spec.ts packages/convex/confect/access/tenancySchemas.ts packages/convex/test/brain-role-matrix.test.ts packages/convex/test/flags.test.ts",
+    "rtk pnpm brain:factory:check-confect-codegen -- --test access --test brain-role-matrix --test flags",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test settings",
+    "rtk pnpm check:access-audit-events",
+    "rtk pnpm check:layer-boundaries",
+    "rtk host-test-slot --class focused pnpm check:types-coverage",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test confect-state",
+    "rtk pnpm --dir packages/convex typecheck",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk pnpm exec eslint packages/convex/test/brain-role-matrix.test.ts",
+    "rtk pnpm --dir apps/web typecheck",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test"
+  ],
+  "currentHeadSha": "5285a3255771939c34644d3011549ad51e1ca311",
+  "currentTreeSha": "6c79c8cc3811571984a350cd09ef6bf631cc1203",
+  "gateProfiles": [
+    "convex",
+    "web"
+  ],
+  "headSha": "5285a3255771939c34644d3011549ad51e1ca311",
+  "planSha256": "6da034dd33e0cba26216e8ea759685e5257b60522c6f584d474946b2e1224cde",
+  "changedSourceLines": 2261,
+  "estimateDrift": false,
+  "estimatedSourceLines": 3300,
+  "sourceSliceBudget": 300,
+  "sourceSliceLimit": 11,
+  "sourceSlices": [
+    {
+      "changedSourceLines": 280,
+      "commit": "b70a6f6a8c64fefd9d77477dce9efaa1ce082494"
+    },
+    {
+      "changedSourceLines": 272,
+      "commit": "409ab5aacf474f96b86a556bd0c23f043c97ea39"
+    },
+    {
+      "changedSourceLines": 229,
+      "commit": "a0575234b9495c1e94ffb76fcc651b51ec35b920"
+    },
+    {
+      "changedSourceLines": 114,
+      "commit": "e74e777cdcae99a91ccb200f4ea57cadc67bd40e"
+    },
+    {
+      "changedSourceLines": 0,
+      "commit": "545fbfb605eb050fa5852089c55e619860c441b1"
+    },
+    {
+      "changedSourceLines": 263,
+      "commit": "f39a898f6c9d5f3e6223c720ac0f590efc285f41"
+    },
+    {
+      "changedSourceLines": 268,
+      "commit": "d0d70ead7b0ffe230a06fca1629f769677859fab"
+    },
+    {
+      "changedSourceLines": 293,
+      "commit": "41de295bbe3d1859b68ed7a1d9036a815053b8c1"
+    },
+    {
+      "changedSourceLines": 114,
+      "commit": "1f4338bd65547f5520571e962c46121585d01300"
+    },
+    {
+      "changedSourceLines": 214,
+      "commit": "335cb78fd13986820d9fcc53c762e53384512540"
+    },
+    {
+      "changedSourceLines": 214,
+      "commit": "5285a3255771939c34644d3011549ad51e1ca311"
+    }
+  ],
+  "stage": "final",
+  "status": "passed",
+  "taskId": "S01-T04",
+  "taskBlockHash": "6a9ca40be899a1a64692e5b55e5f5ce0aa7a60d41e9132551e6a503b3e5bf412",
+  "reusedPreReview": true
+}

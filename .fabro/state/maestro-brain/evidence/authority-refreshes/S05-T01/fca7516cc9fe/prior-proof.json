@@ -1,0 +1,192 @@
+{
+  "schemaVersion": "maestro-brain-ci-proof/v1",
+  "planSha256": "401ba861efdc16760c9abac168cfd928efce150d9051c6bd58bf62ec330547a7",
+  "taskBlockHash": "1665eb4087239d8d137a8b4274f5f63c4bb965d699076b2678d1e618b1e34c54",
+  "taskId": "S05-T01",
+  "baseSha": "648ddb32aa68230fdb41e0ef6dc6fe26c4837487",
+  "headSha": "2df1c6e7d0996b064eee27daf440d64d8c0aa971",
+  "changedFiles": [
+    "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md",
+    "packages/convex/confect/internal/migration-fragments/S00-T04.json",
+    "packages/convex/confect/internal/migration-fragments/S01-T02.json",
+    "packages/convex/confect/internal/migration-fragments/S02-T01.json",
+    "packages/convex/confect/internal/migration-fragments/S02-T03.json",
+    "packages/convex/confect/internal/migration-fragments/S05-T01.json",
+    "packages/convex/confect/internal/migration-implementations/S00-T04.ts",
+    "packages/convex/confect/internal/migration-implementations/S01-T02.ts",
+    "packages/convex/confect/internal/migration-implementations/S02-T01.ts",
+    "packages/convex/confect/internal/migration-implementations/S02-T03.ts",
+    "packages/convex/confect/internal/migrationFragment.ts",
+    "packages/convex/confect/internal/migrationRuntime.ts",
+    "packages/convex/confect/sources/sourceSchemas.ts",
+    "packages/convex/confect/tables/providerEventReceipts.ts",
+    "packages/convex/confect/tables/sourceArtifacts.ts",
+    "packages/convex/confect/tables/sourceProcessingJobs.ts",
+    "packages/convex/confect/tables/sourceRevisions.ts",
+    "packages/convex/scripts/generate-migration-registry.mts",
+    "packages/convex/test/migration-registry.test.ts",
+    "packages/convex/test/source-ledger-schema.test.ts"
+  ],
+  "focusedCommands": [
+    "rtk host-test-slot --class focused pnpm --dir packages/convex exec vitest run test/migration-registry.test.ts test/migrations.test.ts test/brain-page-schema.test.ts test/source-ledger-schema.test.ts",
+    "rtk pnpm --dir packages/convex exec tsx scripts/generate-migration-registry.mts --root /Users/headless/.maestro-brain-fabro-workdirs/resume-s05-t01-authority-2e872b8c8d64 --check",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk pnpm check:schema-migration-notes",
+    "rtk pnpm check:confect-contracts"
+  ],
+  "testsAdded": [
+    "packages/convex/test/migration-registry.test.ts",
+    "packages/convex/test/source-ledger-schema.test.ts"
+  ],
+  "supplementalCommandResults": [
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex exec vitest run test/source-ledger-schema.test.ts",
+      "status": "failed-then-passed",
+      "summary": "Review-repair tests first failed on missing branded envelope/current selector/no-source constructors and then passed: Test Files 1 passed (1), Tests 13 passed (13)."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex exec vitest run test/migration-registry.test.ts",
+      "status": "failed-then-passed",
+      "summary": "Missing-output fail-closed experiment reproduced the conflict; final authority restores integration-owned absent output as allowed while preserving stale-present and symlink failures: Test Files 1 passed (1), Tests 3 passed (3)."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex exec vitest run test/migration-registry.test.ts test/source-ledger-schema.test.ts",
+      "status": "passed",
+      "summary": "Generator consistency and source-ledger repair selectors passed: Test Files 2 passed (2), Tests 16 passed (16)."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex exec vitest run test/migration-registry.test.ts test/migrations.test.ts test/brain-page-schema.test.ts test/source-ledger-schema.test.ts",
+      "status": "passed",
+      "summary": "Focused four-test S05-T01 selector passed after rewrite: Test Files 4 passed (4), Tests 37 passed (37)."
+    },
+    {
+      "command": "rtk pnpm --dir packages/convex exec tsx scripts/generate-migration-registry.mts --root /Users/headless/.maestro-brain-fabro-workdirs/resume-s05-t01-authority-2e872b8c8d64 --check",
+      "status": "passed",
+      "summary": "Exact focused generator check exits 0 with the integration-owned migrations.generated.ts target absent, while tests prove stale-present and symlink outputs still fail."
+    },
+    {
+      "command": "rtk pnpm --dir packages/convex typecheck",
+      "status": "failed-then-passed",
+      "summary": "Typecheck caught optional verified-binding and no-source reason typing issues, then passed with tsc -p tsconfig.json --noEmit."
+    },
+    {
+      "command": "rtk pnpm brain:factory:check-confect-codegen",
+      "status": "passed",
+      "summary": "Transient Confect codegen passed (11 generated files)."
+    },
+    {
+      "command": "rtk pnpm check:schema-migration-notes",
+      "status": "passed",
+      "summary": "check:schema-migration-notes: ok (pin-only)."
+    },
+    {
+      "command": "rtk pnpm check:confect-contracts",
+      "status": "passed",
+      "summary": "check:confect-contracts: ok (pin-only) and ok (semantic)."
+    },
+    {
+      "command": "rtk proxy git show --no-renames --numstat --format=",
+      "status": "passed",
+      "summary": "Factory-counted source slices after rewrite are 265 / 288 / 298 / 230, all <= 300 and within sourceSliceLimit 4."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex exec vitest run test/source-ledger-schema.test.ts",
+      "status": "passed",
+      "summary": "Focused source-ledger repair selector passed with native Slack verification, durable replay lookup, malformed no-source, generation-fenced selector, and Convex rollback coverage: Test Files 1 passed (1), Tests 16 passed (16)."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex exec vitest run test/migration-registry.test.ts test/migrations.test.ts test/brain-page-schema.test.ts test/source-ledger-schema.test.ts",
+      "status": "passed",
+      "summary": "Focused S05-T01 selector passed after repair: Test Files 4 passed (4), Tests 40 passed (40)."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex typecheck",
+      "status": "passed",
+      "summary": "Package-local typecheck passed: tsc -p tsconfig.json --noEmit."
+    },
+    {
+      "command": "rtk pnpm --dir packages/convex exec tsx scripts/generate-migration-registry.mts --root /Users/headless/.maestro-brain-fabro-workdirs/resume-s05-t01-authority-2e872b8c8d64 --check",
+      "status": "passed",
+      "summary": "Preserved exact focused generator command passed with integration-owned canonical registry absent; plan amendment is required for a temp-target missing-output check."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex exec vitest run test/source-ledger-schema.test.ts",
+      "status": "passed",
+      "summary": "Focused source-ledger repair selector passed with malformed no-source sanitation, generation-fenced selector, and Convex rollback coverage: Test Files 1 passed (1), Tests 16 passed (16)."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex exec vitest run test/migration-registry.test.ts test/migrations.test.ts test/brain-page-schema.test.ts test/source-ledger-schema.test.ts",
+      "status": "passed",
+      "summary": "Focused S05-T01 selector passed after repair: Test Files 4 passed (4), Tests 40 passed (40)."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex typecheck",
+      "status": "passed",
+      "summary": "Package-local typecheck passed: tsc -p tsconfig.json --noEmit."
+    },
+    {
+      "command": "rtk pnpm --dir packages/convex exec tsx scripts/generate-migration-registry.mts --root /Users/headless/.maestro-brain-fabro-workdirs/resume-s05-t01-authority-2e872b8c8d64 --check",
+      "status": "passed",
+      "summary": "Preserved exact focused generator command passed with integration-owned canonical registry absent; controller/plan amendment is required for a temp-target missing-output check."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex exec vitest run test/source-ledger-schema.test.ts",
+      "status": "passed",
+      "summary": "Focused source-ledger repair selector passed after final source-slice rewrite: Test Files 1 passed (1), Tests 16 passed (16)."
+    },
+    {
+      "command": "rtk proxy git show --no-renames --numstat --format=",
+      "status": "passed",
+      "summary": "Factory-counted source slices after final rewrite are 298 / 299 / 293 / 300, all <= 300 and final tree matches 4ddd5ba4."
+    }
+  ],
+  "reviewVerdict": "pass",
+  "knownRisks": [
+    "Broad verification is deferred to tranche integration; this repair reran focused S05-T01 tests and package-local typecheck only.",
+    "SAFETY-S05-T01-002 is not fully claimable in S05-T01: verifyNativeSlackEnvelope still receives signing secret, replay admission, and binding from its caller. Legitimate closure requires an S05-T02/webhook or new task-owned Convex mutation that performs server-only secret lookup, parses signed Slack rawBody identifiers, resolves durable current binding, and reserves replay plus ledger writes atomically in one transaction.",
+    "SAFETY-S05-T01-006 is a controller/contract amendment: the S05-T01 product lane cannot both omit integration-owned migrations.generated.ts and require repo-root --check to fail on missing output. Plan line 1712 needs an explicit temporary --target check contract, or the controller must own that proof.",
+    "S05-T01 proves schema helpers and Convex transaction semantics; S05-T02 still owns the production Slack capture transaction body."
+  ],
+  "resolvedReviewFindings": [
+    {
+      "id": "QUALITY-S05-T01-011",
+      "resolution": "Replaced the rejected in-memory rollback proof with convex-test t.run coverage that inserts providerEventReceipts and sourceArtifacts through ctx.db, throws after multiple real writes, then queries providerEventReceipts/sourceArtifacts/sourceRevisions/sourceProcessingJobs and proves all are empty before a successful durable commit."
+    },
+    {
+      "id": "SAFETY-S05-T01-001",
+      "resolution": "Same Convex transaction rollback test proves no orphan receipt/artifact/revision/job rows and includes a control-tenant query assertion after successful commit."
+    },
+    {
+      "id": "SAFETY-S05-T01-003",
+      "resolution": "No-source receipt construction now reuses exact binding/envelope equality checks for organization, connection key/generation, team/app/bot, channel key, and external channel, with cross-tenant/channel negative tests."
+    },
+    {
+      "id": "SAFETY-S05-T01-004",
+      "resolution": "Readable current source selection now requires and matches connectionKey and connectionGeneration on both artifact and revision rows."
+    },
+    {
+      "id": "SAFETY-S05-T01-005",
+      "resolution": "No-source rejected invalid_payload receipts decode only the envelope and sanitize malformed optional observation identifiers with schema-compatible invalid_payload fallbacks; tests cover spaces, slashes, and raw text non-retention."
+    }
+  ],
+  "sourceSlices": [
+    {
+      "commit": "9f8103d5d2bab735254b07b5401c64e300becc90",
+      "changedSourceLines": 298
+    },
+    {
+      "commit": "5da4dcb7cec1c390b90afc4347981c76ca17e29e",
+      "changedSourceLines": 299
+    },
+    {
+      "commit": "9eec0ba335ca2482160e95149b35fcc78d44b492",
+      "changedSourceLines": 293
+    },
+    {
+      "commit": "2df1c6e7d0996b064eee27daf440d64d8c0aa971",
+      "changedSourceLines": 300
+    }
+  ],
+  "reviewFindings": [],
+  "reviewHeadSha": "2df1c6e7d0996b064eee27daf440d64d8c0aa971"
+}

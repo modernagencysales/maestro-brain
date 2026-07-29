@@ -1,0 +1,99 @@
+{
+  "lens": "quality",
+  "taskId": "S06-T01",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "f2f6cb348272c704636b7e21bf8e8cbd66b812835d781b52e01bdcfa5b0fa97c",
+  "baseSha": "64b5d90e9dce6146ac6cd49696658cd9a40a254c",
+  "headSha": "3524b99f194eac7a3e221c236d6952aa1715291a",
+  "treeSha": "830b558dc144b4741c1671697f6d0048c69e72aa",
+  "reviewerRunId": "maestro/review/S06-T01/3524b99f194eac7a3e221c236d6952aa1715291a/410f142c-7f0b-42cf-9c8d-e4fc449d2474-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1857-1860 requires failure-first tests for crash before/after claim, after external response, before/after commit, before ACK, duplicate enqueue/effect, and failure states.",
+        "packages/convex/test/source-workpool.test.ts:357-615 exercises exported helpers with a mocked in-memory DB and mocked workpool, but does not execute the registered Convex internalMutation/internalAction functions or @convex-dev/workpool callbacks end-to-end.",
+        "packages/convex/confect/jobs/workpool.ts:211-229 has a crash window after durable lease patch and after enqueueAction before workId patch; no test simulates replay from a row with lease/workId missing after enqueue nor proves one accepted effect across that replay and stale callback.",
+        "packages/convex/confect/jobs/workpool.ts:332-368 records running, externalResponseHash, and success in separate patches, but tests only inject stopAfterExternalResponse and do not cover crash before ACK or replay of an already-succeeded onComplete callback."
+      ],
+      "findingIds": [
+        "QUALITY-S06-T01-001"
+      ]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "AGENTS.md:22-38 requires Confect specs/impls and durable Convex tables under packages/convex/confect/tables using Effect schemas.",
+        "rtk proxy git diff --name-only 64b5d90e9dce6146ac6cd49696658cd9a40a254c..HEAD -- packages/convex/confect/jobs packages/convex/confect/tables packages/convex/test shows changes confined to the jobs Confect fixture, its table schema, helpers, and package test.",
+        "packages/convex/confect/jobs/workpool.spec.ts:11-31 registers the public/internal workpool functions through the Confect spec tree rather than adding a bypassing API/CLI/web surface."
+      ]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/jobState.ts:184-217,219-278,280-337 separates source job state transitions into pure reducers used by focused tests.",
+        "packages/convex/confect/jobs/leases.ts:10-54 isolates lease expiry, heartbeat, and reclaim helpers from the workpool handler.",
+        "packages/convex/confect/jobs/workpool.ts:176-230,332-368 keeps Convex handler code as orchestration over db operations, workpool enqueue/status, and reducer results."
+      ]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/jobs/workpool.ts:260-277 exposes internal source-job status fields including executionStatus, leaseGeneration, attempt, workId, acceptedEffectKey, and externalResponseHash for operator observation.",
+        "packages/convex/test/source-workpool.test.ts:571-588 proves statusSourceJobHandler returns sourceProcessingJobs execution status instead of only @convex-dev/workpool component status.",
+        "packages/convex/confect/jobs/jobState.ts:172-173 stores a derived lease-token hash in attempt receipts instead of storing raw tokens in immutable receipt history."
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:755-779 sets estimatedSourceLines=280 and sourceSliceBudget=300 for S06-T01.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S06-T01/lane-gate-report.json records changedSourceLines=1060, estimatedSourceLines=280, sourceSliceBudget=300, and estimateDrift=true for head 3524b99f194eac7a3e221c236d6952aa1715291a.",
+        "rtk proxy git diff --numstat 64b5d90e9dce6146ac6cd49696658cd9a40a254c..HEAD -- task-owned files reports 385 added lines in jobState.ts, 357 added lines in workpool.ts, 100 in sourceProcessingJobs.ts, and 628 in source-workpool.test.ts."
+      ],
+      "findingIds": [
+        "QUALITY-S06-T01-002"
+      ]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "pass",
+      "evidence": [
+        "AGENTS.md:38 says not to edit generated Confect or Convex files by hand; the changed-file list is limited to source spec/impl/table/test/helper files, not _generated outputs.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S06-T01/ci-proof-packet.json commandResults include rtk pnpm brain:factory:check-confect-codegen for the same head.",
+        "No integration-owned generated files appear in rtk proxy git diff --name-only 64b5d90e9dce6146ac6cd49696658cd9a40a254c..HEAD -- packages/convex/confect/jobs packages/convex/confect/tables packages/convex/test."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "QUALITY-S06-T01-001",
+      "severity": "high",
+      "summary": "Focused proof still misses executable crash/replay matrix for durable workpool edges",
+      "details": "The task packet specifically requires failure-first coverage of crash before/after claim, after external response, before/after commit, before ACK, stale completion, and duplicate enqueue/effect. The new tests improved beyond string checks and exercise exported handlers with a mock DB, but they do not run the registered Convex functions or @convex-dev/workpool completion path end-to-end, and they omit the most failure-prone replay windows around enqueueAction before workId patch and post-success callback/ACK replay. This can false-green while durable state and workpool component callbacks diverge in real Convex execution.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1857-1860",
+        "packages/convex/test/source-workpool.test.ts:357-615",
+        "packages/convex/confect/jobs/workpool.ts:211-229",
+        "packages/convex/confect/jobs/workpool.ts:332-368"
+      ]
+    },
+    {
+      "id": "QUALITY-S06-T01-002",
+      "severity": "medium",
+      "summary": "S06-T01 substantially exceeds its approved source slice budget",
+      "details": "The manifest budgets this task at 280 estimated source lines with a 300-line source slice budget. The exact passed pre-review lane-gate report for this head records 1060 changed source lines and estimateDrift=true, and the task-owned numstat confirms the change spans large new reducer, handler, table, and test files. The gate allowed the lane to proceed, but quality review should treat this as a re-slice/budget finding rather than an in-budget implementation.",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:755-779",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S06-T01/lane-gate-report.json changedSourceLines=1060 estimatedSourceLines=280 sourceSliceBudget=300 estimateDrift=true",
+        "rtk proxy git diff --numstat 64b5d90e9dce6146ac6cd49696658cd9a40a254c..HEAD -- task-owned files"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

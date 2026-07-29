@@ -1,0 +1,166 @@
+{
+  "schemaVersion": "maestro-brain-ci-proof/v1",
+  "planSha256": "b25dfe4b3139d61e98976f450d6dfbdb30629201ab2015f7846a04ca02435a57",
+  "taskBlockHash": "8c814c81e34129532e8467e567d99d48dfb60017ceda5ab0934454da2d348044",
+  "taskId": "S05-T01",
+  "baseSha": "73609583b9ca2704ad28f3844239f00764ac7230",
+  "headSha": "1dca70d0cf6e3fbaa1e364168a900bf605431c9c",
+  "changedFiles": [
+    "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md",
+    "packages/convex/confect/internal/migration-fragments/S00-T04.json",
+    "packages/convex/confect/internal/migration-fragments/S01-T02.json",
+    "packages/convex/confect/internal/migration-fragments/S02-T01.json",
+    "packages/convex/confect/internal/migration-fragments/S02-T03.json",
+    "packages/convex/confect/internal/migration-fragments/S05-T01.json",
+    "packages/convex/confect/internal/migration-implementations/S00-T04.ts",
+    "packages/convex/confect/internal/migration-implementations/S01-T02.ts",
+    "packages/convex/confect/internal/migration-implementations/S02-T01.ts",
+    "packages/convex/confect/internal/migration-implementations/S02-T03.ts",
+    "packages/convex/confect/internal/migrationFragment.ts",
+    "packages/convex/confect/internal/migrationRuntime.ts",
+    "packages/convex/confect/internal/migrations.impl.ts",
+    "packages/convex/confect/sources/sourceSchemas.ts",
+    "packages/convex/confect/tables/providerEventReceipts.ts",
+    "packages/convex/confect/tables/sourceArtifacts.ts",
+    "packages/convex/confect/tables/sourceProcessingJobs.ts",
+    "packages/convex/confect/tables/sourceRevisions.ts",
+    "packages/convex/scripts/generate-migration-registry.mts",
+    "packages/convex/test/migration-registry.test.ts",
+    "packages/convex/test/source-ledger-schema.test.ts"
+  ],
+  "focusedCommands": [
+    "rtk host-test-slot --class focused pnpm --dir packages/convex exec vitest run test/migration-registry.test.ts test/migrations.test.ts test/brain-page-schema.test.ts test/brain-editor-revision-fence.test.ts test/source-ledger-schema.test.ts",
+    "rtk pnpm --dir packages/convex exec tsx scripts/generate-migration-registry.mts --root . --check",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk pnpm check:schema-migration-notes",
+    "rtk pnpm check:confect-contracts"
+  ],
+  "testsAdded": [
+    "packages/convex/test/migration-registry.test.ts",
+    "packages/convex/test/source-ledger-schema.test.ts"
+  ],
+  "supplementalCommandResults": [
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex exec vitest run test/source-ledger-schema.test.ts",
+      "status": "failed",
+      "summary": "Failure-first immutable replay proof failed before implementation: same-delivery replay drift in receivedAt/author/permalink/policyEpoch was not fully rejected."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex exec vitest run test/source-ledger-schema.test.ts",
+      "status": "passed",
+      "summary": "Focused source-ledger repair passed: Test Files 1 passed (1), Tests 10 passed (10)."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex exec vitest run test/migration-registry.test.ts test/migrations.test.ts test/brain-page-schema.test.ts test/brain-editor-revision-fence.test.ts test/source-ledger-schema.test.ts",
+      "status": "passed",
+      "summary": "Corrected focused vitest command uses only existing test files and passed: Test Files 5 passed (5), Tests 39 passed (39)."
+    },
+    {
+      "command": "rtk pnpm --dir packages/convex exec tsx scripts/generate-migration-registry.mts --root . --check",
+      "status": "passed",
+      "summary": "The deterministic registry check passes with no canonical generated registry committed."
+    },
+    {
+      "command": "rtk pnpm brain:factory:check-confect-codegen",
+      "status": "passed",
+      "summary": "Transient Confect codegen passed (11 generated files)."
+    },
+    {
+      "command": "rtk pnpm check:schema-migration-notes",
+      "status": "passed",
+      "summary": "check:schema-migration-notes: ok (pin-only)."
+    },
+    {
+      "command": "rtk pnpm check:confect-contracts",
+      "status": "passed",
+      "summary": "check:confect-contracts: ok (pin-only) and ok (semantic)."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test",
+      "status": "passed",
+      "summary": "Package-local Convex test gate passed: Test Files 62 passed (62), Tests 510 passed (510)."
+    },
+    {
+      "command": "rtk pnpm --dir packages/convex typecheck",
+      "status": "passed",
+      "summary": "Package-local Convex typecheck passed with tsc -p tsconfig.json --noEmit."
+    }
+  ],
+  "reviewVerdict": "pass",
+  "knownRisks": [
+    "Broad verification and deterministic lane-gates are owned by the next factory node.",
+    "The lane intentionally leaves the canonical migration registry unchanged for integration-owned generation.",
+    "Registry --check passes when the integration-owned migrations.generated.ts target is absent, and still fails stale bytes when that target exists; migration-registry.test.ts proves temporary-target write/check idempotency without committing the canonical generated registry.",
+    "S05-T01 proves the source-ledger durable transaction rollback boundary with convex-test; S05-T02 still owns the production capture transaction body."
+  ],
+  "resolvedReviewFindings": [
+    {
+      "id": "SAFETY-S05-T01-003",
+      "resolution": "Duplicate replay validation now fingerprints the pinned routing policyEpoch with the replayed assembly stage/effect key and throws DuplicateKeyConflict when the same transport delivery drifts."
+    },
+    {
+      "id": "SAFETY-S05-T01-004",
+      "resolution": "Duplicate replay validation now fingerprints the full immutable revision row contract including author snapshot, permalink, provider order/timestamp, text, blocks, tombstone, thread/source-unit/job keys, lifecycle timestamp input, and stable keys; drift throws DuplicateKeyConflict."
+    },
+    {
+      "id": "SAFETY-S05-T01-005",
+      "resolution": "Focused proof replaces nonexistent test/brain-revisions.test.ts with existing test/brain-editor-revision-fence.test.ts and passed with five real test files and 39 nonzero tests."
+    },
+    {
+      "id": "SAFETY-S05-T01-001",
+      "resolution": "migrations.impl.ts imports S00/S01 executable migration bodies from task-owned migration-implementations modules, and migration-registry.test.ts proves the production runtime no longer imports those bodies from the legacy monolithic migrations module."
+    },
+    {
+      "id": "SAFETY-S05-T01-002",
+      "resolution": "Duplicate delivery replay validation binds sourceUnitKey and assemblyJobKey alongside observationKey/sourceRevisionKey and now the full immutable replay fingerprint; source-ledger-schema.test.ts proves changed thread/effect assembly intent is rejected as DuplicateKeyConflict."
+    },
+    {
+      "id": "QUALITY-S05-T01-004",
+      "resolution": "Source keys hash structured tenant, connection generation, channel, and provider object identity instead of underscore-concatenating fields; the focused test proves the reviewed a_b/c versus a/b_c collision no longer aliases."
+    },
+    {
+      "id": "QUALITY-S05-T01-005",
+      "resolution": "Duplicate transport delivery tracking stores the expected immutable replay fingerprint and throws DuplicateKeyConflict when the same delivery ID replays with altered logical identity, assembly intent, policy epoch, author snapshot, permalink, or lifecycle timestamp inputs."
+    },
+    {
+      "id": "QUALITY-S05-T01-006",
+      "resolution": "S00/S01 executable component migration definitions are extracted into task-owned migration-implementations modules, while the canonical registry path is restored to the base version and omitted from the lane diff."
+    },
+    {
+      "id": "QUALITY-S05-T01-007",
+      "resolution": "Registry --check passes when the integration-owned migrations.generated.ts target is absent in the product lane, while focused temporary-root coverage still rejects stale existing bytes and proves write/check idempotency."
+    },
+    {
+      "id": "QUALITY-S05-T01-008",
+      "resolution": "assembleMigrationRegistry rejects global task-ID phase inversions before topological assembly, covering independent roots as well as explicit dependency edges."
+    },
+    {
+      "id": "QUALITY-S05-T01-009",
+      "resolution": "Appendix C index names by_connection_transport_delivery and by_channel_provider_object are preserved while enhanced generation/org indexes remain available for stricter transactional lookup."
+    },
+    {
+      "id": "QUALITY-S05-T01-010",
+      "resolution": "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md now records the proven focused command using test/brain-editor-revision-fence.test.ts and the proven registry check command using --root . --check."
+    }
+  ],
+  "sourceSlices": [
+    {
+      "commit": "6cbf7ad9c4b5cf7389ebca8f1e8586b602e7b3bc",
+      "changedSourceLines": 145
+    },
+    {
+      "commit": "dc89732967a2074c9209224e321688e04f978950",
+      "changedSourceLines": 227
+    },
+    {
+      "commit": "8bd67eb6db9a5aa1bff501d9d1def5948fcc37e2",
+      "changedSourceLines": 274
+    },
+    {
+      "commit": "1dca70d0cf6e3fbaa1e364168a900bf605431c9c",
+      "changedSourceLines": 198
+    }
+  ],
+  "reviewHeadSha": "1dca70d0cf6e3fbaa1e364168a900bf605431c9c",
+  "reviewFindings": []
+}

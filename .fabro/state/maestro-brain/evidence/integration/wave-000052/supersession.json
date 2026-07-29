@@ -1,0 +1,30 @@
+{
+  "baseSha": "85762e4b8aad428ffc9c3a820fc9f6058fe2ef1a",
+  "controlHeadSha": "85762e4b8aad428ffc9c3a820fc9f6058fe2ef1a",
+  "createdAt": "2026-07-20T21:14:57.387Z",
+  "evidence": [
+    "broad-gate-sha256:559c9b32857b82894f6e531abee8796591ef0de9108014169775b59b3c2fbb6f",
+    "integration-result-sha256:eeecdd09401cd8a4f94de999cd3bb378213be7199f2d6c60a6f2a4fb034b97e9",
+    "run:01KY0MHH810PNR2MDZ8MBF3AEB:failed",
+    "verify-log-sha256:355bb0648e6a58b07959e734d9006c4dc02260f1fc069de5c1e5c6c2f78ad24e"
+  ],
+  "integrationId": "wave-000052",
+  "planSha256": "a3d4af4aa5e526438aa5e06c8716a6a40500bc235d9933f8f8649e133263821b",
+  "reason": "s11-type-coverage-below-99.7",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KY0MHH810PNR2MDZ8MBF3AEB",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "11765845bf0899503d87ca7ec0a22fb300a0523457a8a2d2a68677babb462eef",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v2",
+  "selectedTaskIds": [
+    "S11-T02"
+  ],
+  "selectionFileSha256": "a61b35544ef65c33d2ef9e08d2eccada0ea5691f4abc0b892382da50f83875be",
+  "selectionPayloadSha256": "2ee76800cfa000663a2a85107f02393cee378ba5b90cc23770a9d44e770f78c1",
+  "status": "superseded",
+  "receiptSha256": "2aa8bbb20fc2c73a415fd07a2b704c452694d25452b8d8651526ddace6dc2a25"
+}

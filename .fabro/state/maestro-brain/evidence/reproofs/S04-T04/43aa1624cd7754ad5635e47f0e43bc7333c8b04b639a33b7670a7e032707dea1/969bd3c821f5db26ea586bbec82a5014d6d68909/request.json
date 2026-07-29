@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "maestro-brain-contract-reproof/v2",
+  "taskId": "S04-T04",
+  "reason": "route wave-000056 task-owned integration findings",
+  "controlHeadSha": "969bd3c821f5db26ea586bbec82a5014d6d68909",
+  "planSha256": "ef80573fb33d3aedeba7c28b370291269d4eb0bf3a88d08cf69536274c135e85",
+  "taskBlockHash": "43aa1624cd7754ad5635e47f0e43bc7333c8b04b639a33b7670a7e032707dea1",
+  "priorIntegrationId": "wave-000056",
+  "priorIntegrationHeadSha": "f6a9988a0a5efc40201b005fa2cdc1021b0d17f2",
+  "priorIntegrationResultSha256": "5477b2cb14f224af207ef5317abb0ea17d51472c7fd33fdfd36d1f7e52b4cd76",
+  "priorLaneResultSha256": "b6700ac4422309824e54eb1d6fed22bc6c50121e8ab5fa87807500f437773ccf",
+  "priorArchiveSha256": "d90eb21e0d526b771c9f25c1d7f3c3b80f4b78dd89b3043542fd932820f93b02",
+  "priorEvidencePath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/archive/wave-000056/d90eb21e0d526b771c9f25c1d7f3c3b80f4b78dd89b3043542fd932820f93b02.json",
+  "findings": [
+    {
+      "id": "wave-000056-S04-T04-tenant-key-auth-mismatch",
+      "taskId": "S04-T04",
+      "candidateHeadSha": "3fadece4758f0e122afebeabac01a3260c1743c8",
+      "summary": "bulkSetChannelPolicies uses the caller supplied organizationKey as both the stable Slack organization key and the durable organizations/workspaces organizationId.",
+      "details": "At exact integration HEAD 3fadece4758f0e122afebeabac01a3260c1743c8, packages/convex/confect/slack/channelPolicies.impl.ts reads sourceChannels and channel policy rows by input.organizationKey, but loadPolicyActor authorizes organizationMembers.by_organization_user and Client Brain target discovery queries workspaces.by_organization_kind using that same input value as organizationId. Existing Slack/source tables are keyed by stable organizationKey values such as an agency key, while organizationMembers and workspaces use the durable organization _id. This means a real admin cannot be authorized for the provider/source organizationKey, and changing the input to an _id would miss source/policy rows. The pure planner tests do not exercise this Confect authorization/persistence seam, so the public mutation is unusable or incorrectly scoped at the tenant boundary.",
+      "severity": "blocker",
+      "affectedPaths": [
+        "packages/convex/confect/slack/channelPolicies.impl.ts",
+        "packages/convex/test/channel-policies.test.ts"
+      ],
+      "expectedBehavior": "Resolve the stable agency/provider organization key to the durable organization record; authorize membership and workspace access with the durable _id; retain the stable key for source and policy access; prevent cross-tenant leakage.",
+      "requiredRegressionProof": "An organization admin authorized by the durable organization ID can use its agency key while cross-tenant access remains denied.",
+      "priorEvidenceSha256": [
+        "0b6b87116d3eae213e3428c4e04e38ae6b85b20ed6e7b1a06af84ad16323dbda",
+        "53be5a90f8430e265b9be8cc1582c696dd8de79e6ca29112b41e3fb5aeecd800",
+        "5477b2cb14f224af207ef5317abb0ea17d51472c7fd33fdfd36d1f7e52b4cd76",
+        "67a362c7f8af2f2a9670581effef6b9514727c6a46b2910465d788c3e9e28981",
+        "722a33518d7ba7666b631bca37ca98b575b75d2a94b42f7d66e152d9049f0606",
+        "b55c6a05b8f16fdaa1d86e0cb131cf5815c19b7ab0e0ef964e5ff3108b19fca9",
+        "b6700ac4422309824e54eb1d6fed22bc6c50121e8ab5fa87807500f437773ccf",
+        "c11598385c114602bf9640a5f7c55222a42c1b9f7450ee05fc8c9e6cb2c17402"
+      ],
+      "changeExpectation": "source_or_test_delta"
+    }
+  ],
+  "requestSha256": "b108e00922cbff5785f6d9c7ed3295c5685fd3a063b8cc3b9aa963ad42aad421"
+}

@@ -1,0 +1,17 @@
+{
+  "acceptanceBlocker": "Acceptance remains deferred until independent acceptance-after evidence proves this integrated lane accepted; exact-head broad gate pass is recorded on the integration result only.",
+  "accepted": false,
+  "headSha": "7885f8c1d63f0a72bab2df9853dd84967e656bc9",
+  "integrationHeadSha": "cf6f1018784fdc3d7d3d9d93218e7b612a09d6a5",
+  "integrationId": "wave-000003",
+  "preIntegrationLaneResultSha256": "7b78020c6fd226cf005b8270a9baf4157dc0ba9dc2dde431d72a531d2baf9b9d",
+  "schemaVersion": "maestro-brain-lane-result/v1",
+  "status": "integrated",
+  "taskId": "S01-T03",
+  "tranche": "D2-domain-bodies",
+  "laneHeadSha": "7885f8c1d63f0a72bab2df9853dd84967e656bc9",
+  "proofHeadSha": "7885f8c1d63f0a72bab2df9853dd84967e656bc9",
+  "proofSha256": "9b7e8a19ab4a5fe88089b8906a3f9aedcbccd81c6b7be45bfda4be1b602c3845",
+  "gateHeadSha": "7885f8c1d63f0a72bab2df9853dd84967e656bc9",
+  "gateSha256": "49bb0d2a52614ac997495c29e712316531088deef65aeb870df157dbd76fdbe1"
+}

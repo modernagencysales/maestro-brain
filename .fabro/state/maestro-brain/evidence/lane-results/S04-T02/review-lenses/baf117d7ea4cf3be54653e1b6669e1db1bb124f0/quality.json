@@ -1,0 +1,76 @@
+{
+  "lens": "quality",
+  "taskId": "S04-T02",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "taskBlockHash": "cdeca2a0ba4a7101fd27959788455ac53609485617a9cf8146c29c86891a7958",
+  "baseSha": "ce892af6c4ea5c8ff679c5bfce09a205967cdf11",
+  "headSha": "baf117d7ea4cf3be54653e1b6669e1db1bb124f0",
+  "treeSha": "0d511c49f30ae9d8daff2b5b1af3e5de04d6d2ad",
+  "reviewerRunId": "maestro/review/S04-T02/baf117d7ea4cf3be54653e1b6669e1db1bb124f0/f8e224f7-c76c-4b06-96ec-02ad61136350-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/test/slack-directory.test.ts:1351 covers duplicate active Slack team/app/bot binding only with a single pre-existing duplicate row.",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:531-548 implements duplicate detection by taking at most 10000 providerConnections rather than using an exact indexed lookup."
+      ],
+      "findingIds": ["S04-T02-QUALITY-001"]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/integrations/slackDirectory.spec.ts:88-149 defines Confect internal action/query/mutation contracts and typed errors; packages/convex/confect/integrations/slackDirectory.impl.ts implements through Confect FunctionImpl/GroupImpl.",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:64-75 keeps the Slack provider interaction behind an injected SlackDirectoryProviderService and the default implementation fails closed with ProviderUnavailable at lines 977-984."
+      ]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:531-548 scans a capped providerConnections result set and filters in application code for an invariant that should be exact and index-backed.",
+        "packages/convex/confect/tables/sourceChannels.ts:33-43 and packages/convex/confect/tables/channelSyncStates.ts:50-59 add explicit downstream indexes, but there is no corresponding identity index used for duplicate Slack binding enforcement."
+      ],
+      "findingIds": ["S04-T02-QUALITY-001"]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/channelSyncStates.ts:25-45 models a typed replacementAudit with connectionKey, generation, reason, and recordedAt without raw Slack/Nango payloads or secrets.",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:550-638 writes redacted replacement audit state and docs/product/maestro-brain-lifecycle-adoption/S04-T02.md:34-38 documents audit propagation responsibilities."
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "lane-gate-report.json records changedSourceLines 1355 against estimatedSourceLines 1500 with estimateDrift false.",
+        "lane-gate-report.json records five source slices of 295, 283, 267, 300, and 210 lines, matching sourceSliceLimit 5 and the 300-line per-slice budget."
+      ]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "pass",
+      "evidence": [
+        "ci-proof-packet.json:106-107 reports brain:factory:check-confect-codegen passed with transient Confect codegen for 11 generated files at the same head.",
+        "The task diff from ce892af6c4ea5c8ff679c5bfce09a205967cdf11..HEAD contains hand-authored spec/impl/table/test/doc files only; generated packages/convex/confect/_generated/schema.ts remains untouched."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "S04-T02-QUALITY-001",
+      "severity": "medium",
+      "summary": "Duplicate Slack binding enforcement can false-green beyond the capped providerConnections scan.",
+      "details": "The task requires one verified Slack team/app/bot binding per agency boundary, and tests cover a duplicate only in a tiny in-memory fixture. The implementation reads providerConnections through by_connection_key without equality constraints and takes 10000 rows before filtering active Slack bindings in application code. A deployment with more rows can miss an existing duplicate outside that page, so the proof lacks an exact indexed duplicate-path test and the invariant is not maintainably enforced.",
+      "evidence": [
+        "packages/convex/confect/integrations/slackDirectory.impl.ts:531-548",
+        "packages/convex/test/slack-directory.test.ts:1351-1432",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1425-1427"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

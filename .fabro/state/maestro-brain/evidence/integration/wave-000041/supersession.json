@@ -1,0 +1,28 @@
+{
+  "baseSha": "e8f008574eff0d1a21700ff02926ac4c9870d425",
+  "controlHeadSha": "e8f008574eff0d1a21700ff02926ac4c9870d425",
+  "createdAt": "2026-07-20T09:23:40.708Z",
+  "evidence": [
+    "01KXZCD4HAR2PMKMWS9ZGXDXBH: two broad pnpm verify attempts failed at check:types-coverage",
+    "exact-head diagnostic: 202829/203450 = 99.69 percent, required 99.7 percent"
+  ],
+  "integrationId": "wave-000041",
+  "planSha256": "b6c8c42e744502700c8607be941e8f3dbe1e790d70abc7f3666efbf69554f9ca",
+  "reason": "S11-T02 lowers authoritative repository type coverage below the 99.7 percent ratchet",
+  "runAttempts": [
+    {
+      "attempt": 1,
+      "runId": "01KXZCD4HAR2PMKMWS9ZGXDXBH",
+      "status": "failed"
+    }
+  ],
+  "runRecordSha256": "2dcd895147f28aa01002d08f7a1dc4d8707e4f24294622c4a82a820efb45ff26",
+  "schemaVersion": "maestro-brain-integration-wave-supersession/v2",
+  "selectedTaskIds": [
+    "S11-T02"
+  ],
+  "selectionFileSha256": "13052747eb2edef49196e9c964bb997660c0c43de7d385893f1a5051a77dab4a",
+  "selectionPayloadSha256": "dd40ec5618088932c7efacab4c9196230f6b70eb49a416c676d09268e413554e",
+  "status": "superseded",
+  "receiptSha256": "56ba265d2d4a987fbe33145e94e0b22f37457d767bbfeaea53b47229fa3a9f60"
+}

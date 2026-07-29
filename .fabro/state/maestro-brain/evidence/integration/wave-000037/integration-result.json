@@ -1,0 +1,64 @@
+{
+  "baseSha": "8fa1f5b6183a42207628d51cd396852dc8a95af5",
+  "conflicts": [],
+  "focusedChecks": [
+    "rtk pnpm brain:factory:check-confect-codegen -- --profile web --test brain-editor-revision-fence --test brain-pages-crud",
+    "rtk pnpm --dir packages/editor-react typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/editor-react test",
+    "rtk pnpm check:route-tree",
+    "rtk pnpm check:layer-boundaries"
+  ],
+  "generatedFiles": [
+    "packages/convex/convex/brain/pages.ts",
+    "packages/template-core/src/generated/confectManifest.ts"
+  ],
+  "headSha": "d6bae94bd876f97c3e82f4919955fe185a899370",
+  "includedTasks": [
+    {
+      "commitShas": [
+        "448775181d05d6dc2d13dcf5997d7ccf8529c955",
+        "eb7c67d03153fc103635f6c6f0146e8043ad3721",
+        "98a26f545c89eb07c8f96471fe6c6e081d771e6b",
+        "1df666695370b2e1d6008138f1c56bc806e6c1c2",
+        "e7dffea663799d00e9880df620953d4f8cecb917",
+        "6a4a217154717b0b2db451d35c51d15017939188",
+        "195db6c28eb821d3052be2cbc085f8aeed8043f8"
+      ],
+      "laneHeadSha": "195db6c28eb821d3052be2cbc085f8aeed8043f8",
+      "patchState": "applied",
+      "taskId": "S03-T03",
+      "tranche": "D2-domain-bodies"
+    }
+  ],
+  "integrationId": "wave-000037",
+  "mode": "integrate",
+  "schemaVersion": "maestro-brain-integration-result/v3",
+  "selectionFileSha256": "daf7199eb5ee48c2c9c207a0322e2a5e6c7a50e8f23fffc04711a1d2041137ad",
+  "selectionPayloadSha256": "ff0d046650f98247e296b5ad1852e57ba5dde89019c5c9bdc9c9a0bd5c50304e",
+  "reviewVerdict": "rework",
+  "status": "ready_for_review",
+  "remainingFindings": [
+    {
+      "id": "wave-000037-brain-pages-record-snapshot-contract-drift",
+      "severity": "blocker",
+      "taskId": "S03-T03",
+      "summary": "Convex focused reproduction fails only packages/convex/test/brain-pages.contract.test.ts:26 because the generated manifest now correctly includes brain.pages.recordSnapshot from S03-T03 pages.spec.ts while the hand-authored exact operationId expectation omits it.",
+      "details": [
+        "Focused reproduction command failed: rtk host-test-slot --class focused pnpm --dir packages/convex test --maxWorkers=2.",
+        "Failing test: packages/convex/test/brain-pages.contract.test.ts:26 > brain pages Confect contract > exposes authorized stable-key page functions and rejects caller tenant IDs.",
+        "Exact reproduction reports 58/59 test files and 468/469 tests passing; the only failure is the brain pages contract operationId expectation.",
+        "Assertion diff adds brain.pages.recordSnapshot to manifest.map((entry) => entry.operationId).",
+        "The generated manifest includes brain.pages.recordSnapshot from packages/convex/confect/brain/pages.spec.ts; integration repair may not edit the hand-authored contract test or selected-lane product spec.",
+        "Owning lane S03-T03 must reconcile packages/convex/test/brain-pages.contract.test.ts with the intended public manifest contract for recordSnapshot."
+      ],
+      "evidence": {
+        "headSha": "d6bae94bd876f97c3e82f4919955fe185a899370",
+        "failureCommand": "rtk host-test-slot --class focused pnpm --dir packages/convex test --maxWorkers=2",
+        "failureOutputSummary": "Only packages/convex/test/brain-pages.contract.test.ts:26 fails; 58/59 test files and 468/469 tests pass; expected operationIds omit brain.pages.recordSnapshot while the generated manifest includes it.",
+        "ownerLaneHeadSha": "195db6c28eb821d3052be2cbc085f8aeed8043f8",
+        "ownerLaneProof": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S03-T03/lane-gate-report.json"
+      }
+    }
+  ],
+  "resolvedFindings": []
+}

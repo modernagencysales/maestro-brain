@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "maestro-brain-lane-gate/v1",
+  "commandSetHash": "fe515eccf3d80b239142001b4d21be34a8e8458b6ceab15ef5196f2ee366f38b",
+  "commands": [
+    "rtk pnpm exec prettier --check --ignore-unknown packages/convex/confect/jobs/jobState.ts packages/convex/confect/jobs/leases.ts packages/convex/confect/jobs/workpool.impl.ts packages/convex/confect/jobs/workpool.spec.ts packages/convex/confect/jobs/workpool.ts packages/convex/confect/tables/sourceProcessingJobs.ts packages/convex/test/source-workpool.test.ts",
+    "rtk pnpm exec eslint packages/convex/confect/jobs/jobState.ts packages/convex/confect/jobs/leases.ts packages/convex/confect/jobs/workpool.impl.ts packages/convex/confect/jobs/workpool.spec.ts packages/convex/confect/jobs/workpool.ts packages/convex/confect/tables/sourceProcessingJobs.ts packages/convex/test/source-workpool.test.ts",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test source-workpool",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test source-workpool contract",
+    "rtk pnpm check:workflow-graph-boundary",
+    "rtk pnpm check:confect-v9",
+    "rtk pnpm --dir packages/convex typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test",
+    "rtk pnpm --dir packages/integrations typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/integrations test"
+  ],
+  "currentHeadSha": "02c3ee79adba3239a55cb0928853d2e4efa248d3",
+  "currentTreeSha": "7764d28ece57572d207af09a2287dda695f461ef",
+  "gateProfiles": [
+    "convex",
+    "integrations"
+  ],
+  "headSha": "02c3ee79adba3239a55cb0928853d2e4efa248d3",
+  "planSha256": "728d42dd7400f864894ed6abddee214c5d445931c91059fd389ba43350a17de8",
+  "changedSourceLines": 1193,
+  "estimateDrift": true,
+  "estimatedSourceLines": 280,
+  "sourceSliceBudget": 300,
+  "sourceSliceLimit": 4,
+  "sourceSlices": [
+    {
+      "changedSourceLines": 295,
+      "commit": "36451f36986a74c542767e53f149478af04f226c"
+    },
+    {
+      "changedSourceLines": 298,
+      "commit": "f4c2848a778794bc8f2d6fecc2d3f52815bd0129"
+    },
+    {
+      "changedSourceLines": 300,
+      "commit": "296f9dc83bf5d20f1f0e66080447d33e46f1bfd0"
+    },
+    {
+      "changedSourceLines": 300,
+      "commit": "02c3ee79adba3239a55cb0928853d2e4efa248d3"
+    }
+  ],
+  "stage": "final",
+  "status": "passed",
+  "taskId": "S06-T01",
+  "taskBlockHash": "f2f6cb348272c704636b7e21bf8e8cbd66b812835d781b52e01bdcfa5b0fa97c",
+  "reusedPreReview": true
+}

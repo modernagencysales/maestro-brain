@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "maestro-brain-lane-result/v1",
+  "taskId": "S00-T03",
+  "headSha": "0a06ce077c6223a9050b92c6a13086fee9504c30",
+  "status": "accepted",
+  "tranche": "F0-foundation",
+  "integrationId": "F0-foundation-w2",
+  "integrationHeadSha": "e5b4d7c23a81017b883dfa3aff0f528f6a4bc1e3",
+  "accepted": true,
+  "acceptedBecause": "acceptanceAfter S00-T02 is present on integration head e5b4d7c23a81017b883dfa3aff0f528f6a4bc1e3"
+}

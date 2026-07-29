@@ -1,0 +1,44 @@
+{
+  "baseSha": "85762e4b8aad428ffc9c3a820fc9f6058fe2ef1a",
+  "conflicts": [],
+  "focusedChecks": [
+    "rtk pnpm --dir packages/convex typecheck",
+    "rtk host-test-slot --class focused pnpm --dir packages/convex test api-keys headless http-request",
+    "rtk pnpm check:headless-surface-contract"
+  ],
+  "generatedFiles": [
+    "packages/convex/confect/_generated/registeredFunctions/headless/apiKeys.ts",
+    "packages/convex/confect/_generated/spec.ts",
+    "packages/convex/convex/headless/apiKeys.ts"
+  ],
+  "headSha": "0bf1499fb3d4f81c8f1b66e69cdbb07652528eed",
+  "includedTasks": [
+    {
+      "commitShas": [
+        "54ac37d0a9264035c0674a9eac5a27c67bd0eba9",
+        "22d3f58a4bc647cc6dffd6a02cf2bc05c3dd2758",
+        "4eb362e40d5905d13ae23c30867256505ae0a9d0",
+        "71d65641365770fedd98912d73ab2f16e5aac2b5",
+        "93efac62720ade749e4cc88c12ae392130b2d91f",
+        "3bc72e158f2ee0f5a22c4b6561fdd8f57ef06f8d",
+        "52cdcc28f5b91bb2399c07bc98e17c7c952570aa",
+        "a49c1c0a91d950d3f38f51211471bc78e5be8700",
+        "a0923ffae652250eea4ab1eeee9f990e62d8e2d1",
+        "61d82eebf44c69f52680a649a4f42ab31e02ddd7"
+      ],
+      "laneHeadSha": "61d82eebf44c69f52680a649a4f42ab31e02ddd7",
+      "patchState": "applied",
+      "taskId": "S11-T02",
+      "tranche": "D2-domain-bodies"
+    }
+  ],
+  "integrationId": "wave-000052",
+  "mode": "integrate",
+  "schemaVersion": "maestro-brain-integration-result/v3",
+  "selectionFileSha256": "a61b35544ef65c33d2ef9e08d2eccada0ea5691f4abc0b892382da50f83875be",
+  "selectionPayloadSha256": "2ee76800cfa000663a2a85107f02393cee378ba5b90cc23770a9d44e770f78c1",
+  "reviewVerdict": "pass",
+  "status": "ready_for_review",
+  "remainingFindings": [],
+  "resolvedFindings": []
+}

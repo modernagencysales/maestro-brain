@@ -1,0 +1,12 @@
+{
+  "branch": "fabro/reproof-s03-t03-5537e89b",
+  "mode": "contract-reproof",
+  "requestSha256": "f9e067edaea5633b2d80380324102341099e50c67f4285f7772d8ff26eb09731",
+  "resumeStrategy": "in-lane-cherry-pick",
+  "sourceHeadSha": "a13a2dde9c90f3d8b343654498eede337ede76cd",
+  "taskBaseSha": "9acdef212ea812a56c76e023ccb4ac0ec0a9d4f6",
+  "runId": "01KY6EF00WZMKPTW7KF2BR46FC",
+  "status": "launched",
+  "taskId": "S03-T03",
+  "workdir": "/Users/headless/.maestro-brain-fabro-workdirs/reproof-s03-t03-5537e89b"
+}

@@ -1,0 +1,8 @@
+schemaVersion: maestro-brain-ownership-finding/v1
+taskId: S03-T03
+finding: The succeeded S03-T03 source lane contains three historical paths that are outside the amended task's current ownership and must be rehomed without weakening failed/rework authority-repair admission.
+rehomes:
+- docs/superpowers/execution/maestro-brain/task-manifest.json -> docs/product/maestro-brain-lifecycle-adoption/S03-T03.md
+- docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md -> docs/product/maestro-brain-lifecycle-adoption/S03-T03.md
+- packages/convex/test/editor-sync.test.ts -> packages/convex/test/brain-editor-revision-fence.test.ts
+postRewrite: Every superseded path must be absent from the rewritten commit history and unowned by S03-T03; every replacement path must be present in the rewritten change set and within S03-T03's current manifest file locks.

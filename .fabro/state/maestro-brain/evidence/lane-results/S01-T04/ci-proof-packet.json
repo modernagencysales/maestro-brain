@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "maestro-brain-ci-proof/v1",
+  "planSha256": "6da034dd33e0cba26216e8ea759685e5257b60522c6f584d474946b2e1224cde",
+  "taskBlockHash": "6a9ca40be899a1a64692e5b55e5f5ce0aa7a60d41e9132551e6a503b3e5bf412",
+  "taskId": "S01-T04",
+  "baseSha": "14cf8207c50a753d08042f9a31de93d9e9381a4c",
+  "headSha": "5285a3255771939c34644d3011549ad51e1ca311",
+  "changedFiles": [
+    "apps/web/src/adapters/confect-state.test.ts",
+    "apps/web/src/adapters/confect-state.ts",
+    "apps/web/src/features/settings/member-management-adapter.test.ts",
+    "apps/web/src/features/settings/member-management-adapter.ts",
+    "apps/web/src/features/settings/member-management.test.tsx",
+    "apps/web/src/features/settings/member-management.tsx",
+    "apps/web/src/features/settings/settings-surface.test.ts",
+    "apps/web/src/features/settings/settings-surface.ts",
+    "apps/web/src/routes/_workspace.settings.tsx",
+    "packages/convex/confect/access/audit.ts",
+    "packages/convex/confect/access/auth.ts",
+    "packages/convex/confect/access/handlerContext.ts",
+    "packages/convex/confect/access/invitations.impl.ts",
+    "packages/convex/confect/access/invitations.spec.ts",
+    "packages/convex/confect/access/members.impl.ts",
+    "packages/convex/confect/access/members.spec.ts",
+    "packages/convex/confect/access/tenancySchemas.ts",
+    "packages/convex/test/brain-role-matrix.test.ts",
+    "packages/convex/test/flags.test.ts"
+  ],
+  "focusedCommands": [
+    "rtk pnpm brain:factory:check-confect-codegen -- --test access --test brain-role-matrix --test flags",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test settings",
+    "rtk pnpm check:access-audit-events",
+    "rtk pnpm check:layer-boundaries",
+    "rtk host-test-slot --class focused pnpm check:types-coverage",
+    "rtk host-test-slot --class focused pnpm --dir apps/web test confect-state",
+    "rtk pnpm --dir packages/convex typecheck",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk pnpm exec eslint packages/convex/test/brain-role-matrix.test.ts"
+  ],
+  "testsAdded": [
+    "packages/convex/test/brain-role-matrix.test.ts: TestConfect handler-level privileged operation matrix across viewer/editor/admin/owner, direct workspace membership, organization-admin baseline, revoked membership, last-owner removal, cross-Brain denials, and type-covered local snapshot/case/audit-row bindings",
+    "packages/convex/test/flags.test.ts: feature flag internal-audience fixture now separates organization-only admin success from member-subject direct editor membership denial",
+    "apps/web/src/adapters/confect-state.test.ts: typed matcher bindings preserve error normalization behavior without type-coverage regressions",
+    "apps/web/src/features/settings/member-management-adapter.test.ts: target-aware canManageRole coverage",
+    "apps/web/src/features/settings/member-management.test.tsx: admin-vs-owner row/invitation hiding and owner self-transfer hiding coverage"
+  ],
+  "reviewVerdict": "pass",
+  "knownRisks": [
+    "Broad verification is deferred to tranche integration per Appendix O/P.",
+    "Generated Convex/Confect output remains integration-owned and is not included in this lane diff; focused backend proof uses the factory transient codegen helper.",
+    "Direct package-local brain-role-matrix vitest without the factory transient codegen helper remains red because Convex core exports such as changeRoleCore/removeCore/cancelCore are not materialized; this rework did not alter that baseline and the task-owned type-coverage repair passes the required 99.7% gate."
+  ],
+  "reviewHeadSha": "5285a3255771939c34644d3011549ad51e1ca311",
+  "reviewFindings": []
+}

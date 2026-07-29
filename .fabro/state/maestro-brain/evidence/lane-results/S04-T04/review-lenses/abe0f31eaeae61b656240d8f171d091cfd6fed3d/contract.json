@@ -1,0 +1,101 @@
+{
+  "lens": "contract",
+  "taskId": "S04-T04",
+  "planSha256": "b6c8c42e744502700c8607be941e8f3dbe1e790d70abc7f3666efbf69554f9ca",
+  "taskBlockHash": "43fe7362c17307d938a689c31cfaa350124a5029c8ef938d09c8f08066ec12c5",
+  "baseSha": "e8f008574eff0d1a21700ff02926ac4c9870d425",
+  "headSha": "abe0f31eaeae61b656240d8f171d091cfd6fed3d",
+  "treeSha": "b29855b45c2a7978ef65d938ff5c49d53e5523a1",
+  "reviewerRunId": "maestro/review/S04-T04/abe0f31eaeae61b656240d8f171d091cfd6fed3d/ff894c45-3aee-487a-9217-dc32a1e60be5-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1563-1564 requires admins to bulk-select any joined channels and set explicit policies.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1591-1598 requires immutable policy epochs, rollback by creating a new epoch, the 100-channel launch envelope, and all-or-nothing audited bulk change.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:35-41 reads sourceChannels through by_organization_membership_state with only organizationKey constrained, then take(101), before buildBulkPolicyPlan filters joined/active membership.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:64-77 reads existing channelRoutingPolicies and channelDeliveryPolicies through by_organization_created with take(500), then buildBulkPolicyPlan derives the next epoch/generation and active-policy retry behavior from that truncated set."
+      ],
+      "findingIds": [
+        "CONTRACT-S04-T04-001",
+        "CONTRACT-S04-T04-002"
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/slack/channelPolicies.spec.ts:41-52 declares bulkSetChannelPolicies as an internal mutation with organizationKey, expectedConnectionGeneration, expectedChannelAccessGeneration, changes, typed result, and the declared typed error union.",
+        "packages/convex/test/channel-policies.test.ts:111-118 pins that actorRole is not caller supplied and expectedChannelAccessGeneration is part of the mutation args."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/channelRoutingPolicies.ts:23-45 defines immutable routing policy rows with policyEpoch, active pointer fields, routing modes, pending source interval, and the required by_channel_epoch, by_channel_active, and by_organization_created indexes.",
+        "packages/convex/confect/tables/channelDeliveryPolicies.ts:9-26 defines delivery policy rows with deliveryGeneration, active pointer fields, delivery modes, and the required by_channel_generation and by_channel_active indexes.",
+        "Generated Confect/Convex absence in checked-in generated schema is not a contract finding under the reviewer instruction because exact-head pre-review gates proved transient codegen and the task diff did not edit generated paths."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json records S04-T04 as classification template-gap, lane slack-source, tranche D2-domain-bodies, and taskBlockHash 43fe7362c17307d938a689c31cfaa350124a5029c8ef938d09c8f08066ec12c5.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1561-1621 is the matching S04-T04 work package and retains the same approved plan provenance."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "rtk proxy git diff --name-only e8f008574eff0d1a21700ff02926ac4c9870d425..HEAD listed only the S04-T04 manifest-owned files: the new channel policy Confect/table/test files, the Connections route/feature files, and docs/product/maestro-brain-lifecycle-adoption/S04-T04.md.",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json fileLocks for S04-T04 exactly cover the touched product files."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1586-1590 declares failure-first coverage for stale connection/channel generation, a 101st active channel, and bulk partial commit.",
+        "packages/convex/confect/slack/channelPolicy.ts:168-308 implements pure checks for non-admin, invalid policies, target authorization, connection/access generation, Slack Connect delivery, channel/client capacity, immutable epochs, and audit rows.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:35-41 and 64-77 feed the pure planner with capped, not contract-complete persisted row sets, so declared failure/success behavior depends on which rows happen to be in the first source/policy query page rather than on the full durable channel and policy state."
+      ],
+      "findingIds": [
+        "CONTRACT-S04-T04-001",
+        "CONTRACT-S04-T04-002"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "CONTRACT-S04-T04-001",
+      "severity": "high",
+      "summary": "Persisted channel selection is capped before joined-channel validation",
+      "details": "bulkSetChannelPolicies reads sourceChannels with only organizationKey constrained and take(101), while joined/active filtering and the 100-channel envelope are enforced later inside buildBulkPolicyPlan. If an organization has more than 101 non-joined or otherwise non-active channel rows ahead of joined rows in the by_organization_membership_state index range, the mutation can omit valid joined channels from the planner and return ChannelNotJoined for channels admins are supposed to bulk-select, or miss the 101st active joined row needed to enforce CapacityExceeded. The capability must query/validate the complete bounded joined-channel set, not a mixed membership prefix.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1563-1564: admins can bulk-select any joined channels and set explicit policies.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1596-1598: enforce the approved 25-client/100-channel launch envelope in capability and UI before accepting policy.",
+        "packages/convex/confect/tables/sourceChannels.ts:39-42 defines by_organization_membership_state as organizationKey plus membershipStatus.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:35-41 queries by_organization_membership_state with q.eq(organizationKey) only and take(101).",
+        "packages/convex/confect/slack/channelPolicy.ts:174-187 filters active joined channels and raises CapacityExceeded only after receiving the truncated channel array."
+      ]
+    },
+    {
+      "id": "CONTRACT-S04-T04-002",
+      "severity": "high",
+      "summary": "Immutable policy epoch planning is based on a truncated organization policy page",
+      "details": "The persisted mutation derives next policyEpoch/deliveryGeneration and deactivates active pointers from at most 500 organization-created policy rows. S04-T04 requires rollback/change to create a new immutable epoch without rewriting the prior one and to move the active pointer based on prior policy state. Once an organization accumulates more than 500 policy rows, the current active row or highest epoch for a changed channel can fall outside this page, causing duplicate/lower epochs, missed idempotent retry detection, or multiple active policies for the same channel.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1591-1598 requires immutable policy epochs, rollback by creating a new epoch, and all-or-nothing audited bulk change.",
+        "packages/convex/confect/slack/channelPolicy.ts:91-105 computes nextEpoch from the existing policy array supplied by the caller.",
+        "packages/convex/confect/slack/channelPolicy.ts:241-254 uses the supplied existing policies to detect identical active policy retries.",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:64-77 loads existingRoutingPolicies and existingDeliveryPolicies via by_organization_created with take(500).",
+        "packages/convex/confect/slack/channelPolicies.impl.ts:91-114 deactivates active rows only from those same truncated existing policy arrays before inserting new active rows."
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

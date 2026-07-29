@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "maestro-brain-lane-gate/v1",
+  "commandSetHash": "76afc2fb50ab81ffb952a6f778d36b2af488550268cf3ff1c8407426a64b57d7",
+  "commands": [
+    "rtk pnpm exec prettier --check --ignore-unknown docs/template/generator-output-contract.md docs/template/how-to-add-workflow.md tooling/generators/__fixtures__/workflow/internal.expected.json tooling/generators/__fixtures__/workflow/invalid-exposure.json tooling/generators/__fixtures__/workflow/public.expected.json tooling/generators/src/index.test.ts tooling/generators/src/index.ts tooling/generators/src/workflow-output-smoke.ts",
+    "rtk pnpm exec eslint tooling/generators/src/index.test.ts tooling/generators/src/index.ts tooling/generators/src/workflow-output-smoke.ts",
+    "rtk host-test-slot --class focused pnpm --dir tooling/generators test",
+    "rtk pnpm template:workflow-output-smoke",
+    "rtk host-test-slot --class focused pnpm test:workflow",
+    "rtk pnpm check:generators",
+    "rtk pnpm check:headless-surface-contract",
+    "rtk pnpm --dir tooling/generators typecheck"
+  ],
+  "currentHeadSha": "8356028b12ccf371f1a75a663ce72f7194e6b8ab",
+  "currentTreeSha": "ea52dac0c30f0ef8067ad16a6091501f5acaefff",
+  "gateProfiles": [
+    "generators"
+  ],
+  "headSha": "8356028b12ccf371f1a75a663ce72f7194e6b8ab",
+  "changedSourceLines": 206,
+  "estimateDrift": false,
+  "estimatedSourceLines": 260,
+  "sourceSliceBudget": 300,
+  "sourceSlices": [
+    {
+      "changedSourceLines": 0,
+      "commit": "99a73ed496c3e6518a09429ef13f0ea2efbe80c8"
+    },
+    {
+      "changedSourceLines": 177,
+      "commit": "40d01dc6a9a09cab6bdcfc191965ad1424407743"
+    },
+    {
+      "changedSourceLines": 29,
+      "commit": "8356028b12ccf371f1a75a663ce72f7194e6b8ab"
+    }
+  ],
+  "stage": "final",
+  "status": "passed",
+  "taskId": "S08-T02",
+  "reusedPreReview": false
+}

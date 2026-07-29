@@ -1,0 +1,68 @@
+{
+  "lens": "contract",
+  "taskId": "S11-T02",
+  "planSha256": "e0256a16a8e0791a68c0f2eef39946ddb845c01a79e186c9aa05585ce85d5199",
+  "taskBlockHash": "f49e5fe055896a804408cf0013f1f4b02735f7b6e18f1813ab85e85672fb569d",
+  "baseSha": "8fa1f5b6183a42207628d51cd396852dc8a95af5",
+  "headSha": "70687cf3516049d07306a940f2f46bc07a9360e1",
+  "treeSha": "02ac9973738263a1f0b88841f7df5d4c9d2e7ab9",
+  "reviewerRunId": "maestro/review/S11-T02/70687cf3516049d07306a940f2f46bc07a9360e1/a4f5ca4d-fda9-4d91-afa6-74c3fac6016b-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3083-3149 defines S11-T02 outcome, dependencies, failure-first tests, implementation order, and external typed error union.",
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1422-1466 records S11-T02 as ready template-gap product work for HLS-01/HLS-02/IAM-03 with matching taskBlockHash f49e5fe055896a804408cf0013f1f4b02735f7b6e18f1813ab85e85672fb569d.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S11-T02/ci-proof-packet.json: headSha 70687cf3516049d07306a940f2f46bc07a9360e1, baseSha 8fa1f5b6183a42207628d51cd396852dc8a95af5, focused commands and supplemental preserved proof recorded for this task."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/headless/apiKeys.spec.ts:21-127 declares public create/list/revoke/rotate plus internal authenticate/markLastUsed Confect functions with typed args, returns, and expected errors.",
+        "packages/convex/confect/httpRequest.ts:23-78 and packages/convex/confect/manifest/executor.ts:35-42 constrain external headless failures to Unauthorized/Forbidden/ValidationFailed/RateLimited.",
+        "packages/convex/confect/http.ts:279-358 authenticates bearer key hash, authorizes operation before decode, dispatches, reauthenticates, and schedules last-used through Confect refs."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/apiKeys.ts:5-12 defines by_key_hash, workspace/status, principal/status, brain/status, and expiry indexes over the Effect ApiKeyRow schema.",
+        "packages/convex/confect/tables/servicePrincipals.ts:5-11 defines workspace/status, organization/status, principal key, brain/status, and creator indexes over the Effect ServicePrincipalRow schema.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:461-551 verifies hash lookup, service principal binding, lifecycle/revocation generations, active tenant scope, and returns server-owned principal scope."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3085-3090 classifies S11-T02 as template-gap TB-HEADLESS-01 bearer dispatcher plus audited UI repair.",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3124-3145 lists failure-first coverage and implementation sequence; changed files implement those backend, HTTP, executor, and Settings UI seams.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S11-T02/ci-proof-packet.json: testsAdded includes api-key persistence/auth, headless executor, HTTP security, web adapter/panel/settings proof; focusedCommands match the task proof gates."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1428-1455 owns the modified S11-T02 files; git diff from base to head is confined to those product locks and UI companion files named in the task packet.",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S11-T02/ci-proof-packet.json: changedFiles list contains no generated Confect/Convex output paths; pre-review lane report for exact head 70687cf3516049d07306a940f2f46bc07a9360e1 passed, so Appendix O/P transient generated output absence is expected lane state.",
+        "apps/web/src/routes/_workspace.settings.tsx:95-99 documents the temporary generated-ref bridge until integration-owned Confect codegen refreshes checked-in refs."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/test/http-request-security.test.ts:270-344 proves malformed/missing bearer keys fail Unauthorized before body decode or dispatch; lines 405-470 prove authenticate -> decode -> dispatch -> reauthenticate -> mark ordering.",
+        "packages/convex/test/http-request-security.test.ts:191-233 proves tenant/Brain/user/internal ID aliases are rejected at authorization boundary; lines 514-590 prove post-dispatch reauth failure and dispatch exceptions return redacted external errors.",
+        "packages/convex/test/api-keys.test.ts:240-389 and 582-802 prove wrong scope/Brain, revoked/expired key/principal, generation drift, cross-tenant principal mismatch, and last-used fencing failure paths."
+      ]
+    }
+  ],
+  "findings": [],
+  "verdict": "pass"
+}

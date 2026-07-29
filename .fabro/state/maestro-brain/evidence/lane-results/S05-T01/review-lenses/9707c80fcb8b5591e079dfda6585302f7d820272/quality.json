@@ -1,0 +1,81 @@
+{
+  "lens": "quality",
+  "taskId": "S05-T01",
+  "planSha256": "b25dfe4b3139d61e98976f450d6dfbdb30629201ab2015f7846a04ca02435a57",
+  "taskBlockHash": "8c814c81e34129532e8467e567d99d48dfb60017ceda5ab0934454da2d348044",
+  "baseSha": "73609583b9ca2704ad28f3844239f00764ac7230",
+  "headSha": "9707c80fcb8b5591e079dfda6585302f7d820272",
+  "treeSha": "d7105fe1b087d71072be49b27c319b8732f4b67d",
+  "reviewerRunId": "maestro/review/S05-T01/9707c80fcb8b5591e079dfda6585302f7d820272/02c49107-a9a9-4114-9081-dad613fe4ffc-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1669-1677 requires failure-first proof for partial transaction failure alongside source-ledger error cases.",
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:40-42 claims failed inserts leave no orphan receipt, revision, artifact, or processing job.",
+        "packages/convex/confect/sources/sourceSchemas.ts:197-237 implements only a pure capture validator/key derivation path with no transaction/write boundary to exercise partial writes.",
+        "packages/convex/test/source-ledger-schema.test.ts:253-300 covers duplicate, tenant, channel, timestamp, size, key, and conflicting observation failures but has no partial-write/rollback assertion."
+      ],
+      "findingIds": [
+        "QUALITY-S05-T01-002"
+      ]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/providerEventReceipts.ts:1-14, sourceArtifacts.ts:1-19, sourceRevisions.ts:1-13, and sourceProcessingJobs.ts:1-10 keep durable Convex tables under packages/convex/confect/tables using Effect schemas from packages/convex/confect/sources/sourceSchemas.ts.",
+        "No web/API/agent surface imports or cross-layer shortcuts appear in the S05-T01 changed file set recorded by ci-proof-packet.json."
+      ]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/internal/migrationFragment.ts:71-133 centralizes fragment decoding, duplicate-key rejection, dependency validation, and deterministic assembly instead of duplicating registry logic in tests.",
+        "packages/convex/scripts/generate-migration-registry.mts:1-90 is a focused CLI wrapper around the migrationFragment assembly helper with explicit check/write modes."
+      ]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "pass",
+      "evidence": [
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:8-24 documents auditable receipt, artifact, revision, and job identifiers without secret values or raw provider payload logging.",
+        "The changed source-ledger and migration code introduces no logging statements or provider SDK payload exposure in packages/convex/confect/sources/sourceSchemas.ts or packages/convex/scripts/generate-migration-registry.mts."
+      ]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "lane-gate-report.json records sourceSliceLimit 4 with four sourceSlices: 0, 248, 293, and 0 changed source lines, each within the 300-line per-slice budget.",
+        "rtk proxy git log --oneline --reverse 73609583b9ca2704ad28f3844239f00764ac7230..HEAD shows four coherent commits: RED proof, generator, source ledger schema, and lifecycle docs."
+      ]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1666-1668 and 1702-1704 state the product lane does not own or commit the integration-generated canonical migration registry.",
+        "rtk proxy git diff --name-only 73609583b9ca2704ad28f3844239f00764ac7230...HEAD -- packages/convex/confect/internal/migrations.ts packages/convex/confect/internal/migrations.generated.ts packages/convex/_generated packages/convex/confect/_generated produced no generated-path edits.",
+        "lane-gate-report.json for exact head 9707c80fcb8b5591e079dfda6585302f7d820272 includes passing rtk pnpm brain:factory:check-confect-codegen and check:confect-contracts commands."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "QUALITY-S05-T01-002",
+      "severity": "high",
+      "summary": "Partial-write rollback behavior is claimed but untested and unimplemented",
+      "details": "S05-T01 explicitly requires failure-first proof that a partial capture transaction failure leaves no orphan receipt, revision, artifact, or processing job. The delivered source-ledger proof stops at pure schema/key validation and in-memory duplicate checks, while the lifecycle document asserts transaction-fenced failed inserts. Without a focused rollback test at the ledger write boundary, this can false-green even if a future capture path writes one ledger row before failing another.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:1669-1677",
+        "docs/product/maestro-brain-lifecycle-adoption/S05-T01.md:40-42",
+        "packages/convex/confect/sources/sourceSchemas.ts:197-237",
+        "packages/convex/test/source-ledger-schema.test.ts:253-300"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

@@ -1,0 +1,47 @@
+{
+  "baseSha": "f66236e12f93bc254cc2350800a5b2a69d0caff5",
+  "deferredTaskIds": [],
+  "integrationId": "wave-000034",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "requestedTaskIds": [
+    "S04-T02"
+  ],
+  "schemaVersion": "maestro-brain-integration-wave-selection/v3",
+  "selectedTasks": [
+    {
+      "changedFiles": [
+        "docs/product/maestro-brain-lifecycle-adoption/S04-T02.md",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts",
+        "packages/convex/confect/integrations/slackDirectory.spec.ts",
+        "packages/convex/confect/integrations/slackDirectory.ts",
+        "packages/convex/confect/tables/channelSyncStates.ts",
+        "packages/convex/confect/tables/sourceChannels.ts",
+        "packages/convex/test/slack-directory.test.ts"
+      ],
+      "codeStartAfter": [
+        "S04-T01"
+      ],
+      "fileLocks": [
+        "docs/product/maestro-brain-lifecycle-adoption/S04-T02.md",
+        "packages/convex/confect/integrations/slackDirectory.impl.ts",
+        "packages/convex/confect/integrations/slackDirectory.spec.ts",
+        "packages/convex/confect/integrations/slackDirectory.ts",
+        "packages/convex/confect/internal/migrations.ts",
+        "packages/convex/confect/tables/channelSyncStates.ts",
+        "packages/convex/confect/tables/sourceChannels.ts",
+        "packages/convex/test/slack-directory.test.ts"
+      ],
+      "gateHeadSha": "36bafff60e726e8bc9eaf41c5e6e31b8946a0244",
+      "gateSha256": "c121ee359d4a17fd73b953e14c6691fa5273154b39678084a1ff198b1e9842cf",
+      "headSha": "36bafff60e726e8bc9eaf41c5e6e31b8946a0244",
+      "laneResultSha256": "9c372f4ea7a2c27c80e44e334b8603d4363e17512987b5a0a27bb5fba4aac14f",
+      "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+      "proofHeadSha": "36bafff60e726e8bc9eaf41c5e6e31b8946a0244",
+      "proofSha256": "99f96bcda6c828a5fddd44daefa2d2f27be66dee9174d7376be824edd8566848",
+      "taskBlockHash": "cdeca2a0ba4a7101fd27959788455ac53609485617a9cf8146c29c86891a7958",
+      "taskId": "S04-T02",
+      "tranche": "D2-domain-bodies"
+    }
+  ],
+  "selectionPayloadSha256": "336a463433f1aff8d82338edb187661acbb6b499c1cea7103ef7b974ce1f34f1"
+}

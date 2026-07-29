@@ -1,0 +1,20 @@
+{
+  "baseSha": "d541bd225316661f494172571449b893abab0a7f",
+  "branch": "fabro/reproof-s04-t04-checkpoint-d538f5ccdac2",
+  "factoryBaseSha": "d541bd225316661f494172571449b893abab0a7f",
+  "mode": "checkpoint-reproof",
+  "resumeStrategy": "prelaunch-cherry-pick",
+  "sourceCommits": [
+    "7df17e8daee6be82447a8ade0271d6e756ef25ae",
+    "cdebca71b3472563bd399399cfc9551015a35f79",
+    "4056c4de06975ff0817712e8ade62b059ba148b9",
+    "44c1f6c7e982c7e1814455d2d29f56139d1b803c"
+  ],
+  "sourceHeadSha": "44c1f6c7e982c7e1814455d2d29f56139d1b803c",
+  "sourceTreeSha": "6e1da7ee246d7784d8af528d36bb7c20c6a8de07",
+  "status": "launched",
+  "taskBaseSha": "e8f008574eff0d1a21700ff02926ac4c9870d425",
+  "taskId": "S04-T04",
+  "workdir": "/Users/headless/.maestro-brain-fabro-workdirs/reproof-s04-t04-checkpoint-d538f5ccdac2",
+  "runId": "01KY0S0X7JE04DS17DQN7FWX48"
+}

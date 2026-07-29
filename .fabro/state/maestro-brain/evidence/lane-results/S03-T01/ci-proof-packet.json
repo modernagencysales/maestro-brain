@@ -1,0 +1,121 @@
+{
+  "taskId": "S03-T01",
+  "baseSha": "304348d92cd2388df5f7945f6ba8d76be79f8686",
+  "headSha": "fdcf31bb31867f9ccfc8990b3034da01bec538fe",
+  "changedFiles": [
+    "apps/web/src/features/clients/clients-screen.test.tsx",
+    "apps/web/src/features/clients/clients-screen.tsx",
+    "apps/web/src/features/connections/connections-screen.test.tsx",
+    "apps/web/src/features/connections/connections-screen.tsx",
+    "apps/web/src/navigation/route-announcements.test.ts",
+    "apps/web/src/navigation/route-announcements.ts",
+    "apps/web/src/navigation/workspace.test.ts",
+    "apps/web/src/navigation/workspace.ts",
+    "apps/web/src/platform-routes.test.ts",
+    "apps/web/src/routeTree.gen.ts",
+    "apps/web/src/routes/_workspace.clients.tsx",
+    "apps/web/src/routes/_workspace.connections.tsx",
+    "apps/web/src/saas-ui/business-shell.tsx"
+  ],
+  "focusedCommands": [
+    {
+      "command": "rtk pnpm --dir apps/web test navigation clients connections",
+      "status": "blocked_by_host_guard",
+      "summary": "Guard refused raw package test and required host-test-slot on shared host."
+    },
+    {
+      "command": "rtk host-test-slot --class focused pnpm --dir apps/web test navigation clients connections",
+      "status": "failed_initial_environment",
+      "summary": "Initial retry outside the worktree used the parent repo and failed because vitest was unavailable."
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/resume-s03-t01 && rtk host-test-slot --class focused pnpm --dir apps/web test navigation clients connections",
+      "status": "failed_initial_environment",
+      "summary": "Worktree run failed before install because @vitejs/plugin-react was missing from node_modules."
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/resume-s03-t01 && CI=true pnpm install --frozen-lockfile",
+      "status": "passed",
+      "summary": "Installed locked workspace dependencies non-interactively for focused gates."
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/resume-s03-t01 && rtk host-test-slot --class focused pnpm --dir apps/web test navigation clients connections platform-routes",
+      "status": "passed",
+      "summary": "6 test files passed, 24 tests passed."
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/resume-s03-t01 && rtk host-test-slot --class focused pnpm --dir apps/web typecheck",
+      "status": "passed",
+      "summary": "tsc -p apps/web/tsconfig.json --noEmit passed."
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/resume-s03-t01 && rtk pnpm check:route-tree",
+      "status": "passed",
+      "summary": "check:route-tree: ok (pin-only)."
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/resume-s03-t01 && rtk pnpm check:frontend-effect-boundary",
+      "status": "passed",
+      "summary": "check:frontend-effect-boundary passed."
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/resume-s03-t01 && rtk pnpm check:layer-boundaries",
+      "status": "passed",
+      "summary": "dependency-cruiser found no dependency violations across 765 modules and 2151 dependencies."
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/resume-s03-t01 && git diff --check",
+      "status": "passed",
+      "summary": "No whitespace errors."
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/resume-s03-t01 && rtk host-test-slot --class focused pnpm --dir apps/web test navigation clients connections platform-routes",
+      "status": "passed_review",
+      "summary": "6 test files passed, 24 tests passed after reference-route guard review fix."
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/resume-s03-t01 && rtk host-test-slot --class focused pnpm --dir apps/web typecheck",
+      "status": "passed_review",
+      "summary": "tsc -p apps/web/tsconfig.json --noEmit passed after review fix."
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/resume-s03-t01 && rtk pnpm check:route-tree",
+      "status": "passed_review",
+      "summary": "check:route-tree: ok (pin-only)."
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/resume-s03-t01 && rtk pnpm check:frontend-effect-boundary",
+      "status": "passed_review",
+      "summary": "check:frontend-effect-boundary passed."
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/resume-s03-t01 && rtk pnpm check:layer-boundaries",
+      "status": "passed_review",
+      "summary": "dependency-cruiser found no dependency violations across 763 modules and 2151 dependencies."
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/resume-s03-t01 && git diff --check",
+      "status": "passed_review",
+      "summary": "No whitespace errors."
+    },
+    {
+      "command": "set -euo pipefail; cd /Users/headless/.maestro-brain-fabro-workdirs/resume-s03-t01; rtk pnpm brain:factory:lane-gates -- --task 'S03-T01' --evidence '/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence' --stage pre-review",
+      "status": "passed_review",
+      "summary": "S03-T01: lane gates passed (pre-review); apps/web 28 test files passed, 112 tests passed."
+    }
+  ],
+  "testsAdded": [
+    "apps/web/src/features/clients/clients-screen.test.tsx",
+    "apps/web/src/features/connections/connections-screen.test.tsx",
+    "apps/web/src/navigation/workspace.test.ts",
+    "apps/web/src/platform-routes.test.ts hidden-reference product shell nav assertion",
+    "apps/web/src/navigation/route-announcements.test.ts"
+  ],
+  "reviewVerdict": "pass",
+  "knownRisks": [
+    "Broad just verify was intentionally not run in this isolated lane per user instruction; tranche integration owns broad verification.",
+    "routeTree.gen.ts is TanStack Router generated output updated as route-registry evidence for this route task; no generated Confect files were edited.",
+    "Native apply_patch calls were malformed by tool invocation; subsequent edits used targeted shell edits with immediate git diff inspection as required.",
+    "Independent review added an explicit non-production VITE_ENABLE_REFERENCE_ROUTES guard so hidden reference route files remain unavailable from the product shell by default."
+  ]
+}

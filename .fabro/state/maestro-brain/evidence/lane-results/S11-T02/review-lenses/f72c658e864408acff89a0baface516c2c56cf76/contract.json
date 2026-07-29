@@ -1,0 +1,84 @@
+{
+  "lens": "contract",
+  "taskId": "S11-T02",
+  "planSha256": "e0256a16a8e0791a68c0f2eef39946ddb845c01a79e186c9aa05585ce85d5199",
+  "taskBlockHash": "f49e5fe055896a804408cf0013f1f4b02735f7b6e18f1813ab85e85672fb569d",
+  "baseSha": "8fa1f5b6183a42207628d51cd396852dc8a95af5",
+  "headSha": "f72c658e864408acff89a0baface516c2c56cf76",
+  "treeSha": "49995f0583e8cdb2344d3a6d217f37ed79a8b516",
+  "reviewerRunId": "maestro/review/S11-T02/f72c658e864408acff89a0baface516c2c56cf76/b3dac6d2-f596-4ec3-9fa5-1f55e52184ef-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "Task packet docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3083-3169 requires S11-T02 to derive all headless tenant/Brain identity from verified bearer state before decoding or dispatch, reject caller tenant fields, reauthorize before return, remove demo caller workspace support, add audited API-key CRUD surface repair, and prove focused headless/API-key/settings gates.",
+        "Implementation diff from base 8fa1f5b6183a42207628d51cd396852dc8a95af5 to head f72c658e864408acff89a0baface516c2c56cf76 changes the packet's headless auth/API-key, HTTP request/router, executor, web Settings, and focused test paths listed in ci-proof-packet.json changedFiles lines 8-28.",
+        "Pre-review lane-gate report /Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S11-T02/lane-gate-report.json records status passed for exact head f72c658e864408acff89a0baface516c2c56cf76 and taskBlockHash f49e5fe055896a804408cf0013f1f4b02735f7b6e18f1813ab85e85672fb569d."
+      ]
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "finding",
+      "findingIds": ["CONTRACT-S11-T02-001"],
+      "evidence": [
+        "Task packet docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3146-3149 declares the uniform external headless error set as Unauthorized | Forbidden | ValidationFailed | RateLimited.",
+        "packages/convex/confect/httpRequest.ts:23-30 defines TemplateHttpFailure with only those four tags for S11-T02 request handling, and packages/convex/confect/manifest/executor.ts:35-42 matches that four-tag HeadlessFailureResult contract.",
+        "packages/convex/confect/http.ts:448-457 still returns a public NotFound envelope for /api/brain.pages.createMarkdown, and packages/convex/test/http-request-security.test.ts:346-370 pins that NotFound response for a headless API route instead of the packet's uniform external error union."
+      ]
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "Durable API-key and service-principal invariants are represented as Effect schemas in packages/convex/confect/headless/auth.ts:41-79, including organizationId/workspaceId/brainKey binding, viewer role ceiling, active/revoked/expired status, generation fields, expiry/revocation, hash, prefix, and last-used metadata.",
+        "packages/convex/confect/headless/apiKeys.impl.ts:461-551 performs indexed keyHash lookup, service-principal lookup, active tenant/Brain assertion, stored organization/workspace lifecycle generation checks, and principal normalization before returning bearer identity.",
+        "packages/convex/confect/headless/apiKeys.spec.ts:90-127 exposes internal authenticate/markLastUsed functions with typed keyHash/principal arguments and HeadlessAuthError/NoRecoverableError boundaries while public create/list/revoke/rotate return only display-once/public metadata shapes."
+      ]
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "Task manifest docs/superpowers/execution/maestro-brain/task-manifest.json:1421-1466 classifies S11-T02 as template-gap, records requirements HLS-01/HLS-02/IAM-03, sourceSliceLimit 10, and taskBlockHash f49e5fe055896a804408cf0013f1f4b02735f7b6e18f1813ab85e85672fb569d matching the proof packet and current review metadata.",
+        "Lane-gate report lines 31-71 show exactly ten source slices, each at or below the 300-line sourceSliceBudget, totaling 2477 changed source lines against the 3000-line estimate.",
+        "Proof packet supplementalCommands lines 36-85 record the packet's focused Convex, web Settings/API-key, Confect codegen/contract, headless-surface, logging-boundary, secret-canaries, access-audit-events, and typecheck gates as passed; lane-gate report lines 17-18 prove the same exact head/tree."
+      ]
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "Manifest fileLocks at docs/superpowers/execution/maestro-brain/task-manifest.json:1428-1455 cover the S11-T02-owned web Settings, headless apiKeys/auth/principal/authorization, HTTP request/router, executor, and focused test paths changed in ci-proof-packet.json lines 8-28.",
+        "Scoped rtk proxy git diff --name-status 8fa1f5b6183a42207628d51cd396852dc8a95af5..HEAD over apps/web/src/features/settings, apps/web/src/routes/_workspace.settings.tsx, packages/convex/confect/headless, packages/convex/confect/http.ts, packages/convex/confect/httpRequest.ts, packages/convex/confect/manifest/executor.ts, and packages/convex/test listed only the 20 proof-packet changed files, all within the S11-T02 manifest lock family.",
+        "Generated Confect/Convex output is integration-owned by Appendices O/P for this lane state: ci-proof-packet.json knownRisks lines 96-100 documents transient codegen passed and no checked-in generated output is expected; the diff does not edit packages/convex/confect/_generated paths."
+      ]
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "findingIds": ["CONTRACT-S11-T02-001"],
+      "evidence": [
+        "Task packet docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3146-3149 declares uniform external Unauthorized | Forbidden | ValidationFailed | RateLimited failures for S11-T02.",
+        "Reachable request paths cover Unauthorized before decode in packages/convex/confect/http.ts:306-320, Forbidden/ValidationFailed through authorization/body/executor handling at packages/convex/confect/http.ts:322-342 and packages/convex/confect/headless/authorizeOperation.ts:80-101, and RateLimited at packages/convex/confect/http.ts:294-304 with focused coverage in packages/convex/test/http-request-security.test.ts:235-268.",
+        "The same public failure surface is over-broad because packages/convex/confect/http.ts:448-457 returns NotFound for /api/brain.pages.createMarkdown, and packages/convex/test/http-request-security.test.ts:346-370 asserts that externally visible NotFound envelope."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "CONTRACT-S11-T02-001",
+      "severity": "major",
+      "summary": "Legacy headless route still emits NotFound outside the declared external error contract.",
+      "details": "S11-T02 declares a uniform external headless failure contract of Unauthorized, Forbidden, ValidationFailed, or RateLimited. The implementation mostly follows that contract, including a reachable rate-limit path, but the deleted legacy headless operation /api/brain.pages.createMarkdown still returns a public NotFound envelope and the focused test pins that response. Downstream API/CLI/MCP consumers cannot rely on the declared four-tag S11-T02 failure union while a headless API route exposes a fifth error tag.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3146-3149",
+        "packages/convex/confect/httpRequest.ts:23-30",
+        "packages/convex/confect/manifest/executor.ts:35-42",
+        "packages/convex/confect/http.ts:448-457",
+        "packages/convex/test/http-request-security.test.ts:346-370"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

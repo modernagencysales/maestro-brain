@@ -1,0 +1,45 @@
+{
+  "taskId": "S12-T01",
+  "baseSha": "304348d92cd2388df5f7945f6ba8d76be79f8686",
+  "headSha": "b2c4996dd3fffe797838c42117a0bbe4636109ba",
+  "changedFiles": [
+    "packages/template-core/src/brainExport.test.ts",
+    "packages/template-core/src/brainExport.ts",
+    "packages/template-core/src/index.ts"
+  ],
+  "focusedCommands": [
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/s12-t01 && rtk host-test-slot --class focused pnpm --dir packages/template-core test brainExport",
+      "status": "passed",
+      "summary": "src/brainExport.test.ts: 9 tests passed"
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/s12-t01 && rtk pnpm --dir packages/template-core typecheck",
+      "status": "passed",
+      "summary": "tsc -p tsconfig.json --noEmit passed"
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/s12-t01 && rtk pnpm check:secret-canaries",
+      "status": "passed",
+      "summary": "gitleaks found no leaks"
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/s12-t01 && ! rg -n \"\\b(?:jh[a-z0-9]{24,}|[a-z0-9]{32,}|xox[baprs]-|sk-[A-Za-z0-9]|api[_-]?key|access[_-]?token|refresh[_-]?token|providerPayload)\" packages/template-core/src/brainExport.ts packages/template-core/src/brainExport.test.ts",
+      "status": "passed",
+      "summary": "public-ID/raw-provider scan returned no matches"
+    },
+    {
+      "command": "cd /Users/headless/.maestro-brain-fabro-workdirs/s12-t01 && rtk host-test-slot --class focused pnpm --dir packages/template-core test",
+      "status": "passed",
+      "summary": "8 test files passed, 39 tests passed"
+    }
+  ],
+  "testsAdded": [
+    "packages/template-core/src/brainExport.test.ts"
+  ],
+  "reviewVerdict": "pass",
+  "knownRisks": [
+    "Pure template-core codec only; S12-T02 owns authorization, Convex storage, artifact expiry, and purge lifecycle.",
+    "No import path is implemented for maestro-brain-export/v1 by design."
+  ]
+}

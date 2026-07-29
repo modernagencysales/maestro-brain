@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "maestro-brain-lane-result/v1",
+  "taskId": "S09-T01",
+  "headSha": "da6528227a5209a7dc5e82fc6624b68c6c3dccd0",
+  "status": "integrated",
+  "tranche": "C1-contract-spine",
+  "integrationId": "C1-contract-spine-w2",
+  "integrationHeadSha": "c54d70302a20a68c80f1b608ecf1a615fe98d028",
+  "acceptanceBlocker": "Acceptance remains deferred until S07, S08; adopted integration evidence proves integration only.",
+  "accepted": false,
+  "evidenceAdoption": {
+    "acceptanceAfter": "S07, S08",
+    "acceptanceBlocker": "Acceptance remains deferred until S07, S08; adopted integration evidence proves integration only.",
+    "accepted": false,
+    "integrationHeadSha": "c54d70302a20a68c80f1b608ecf1a615fe98d028",
+    "integrationId": "C1-contract-spine-w2",
+    "integrationResultPath": "integration/C1-contract-spine-w2/integration-result.json",
+    "integrationResultSha256": "0c246d8e1f5b7d2f13024ef9193e6537ace001dbdaa9ec9a57d4f24405605c17",
+    "laneHeadSha": "da6528227a5209a7dc5e82fc6624b68c6c3dccd0",
+    "laneResultSha256Before": "2f9a2d22e35e40e9de83f30c7b7fa3d087141d650f916d24c6e79d3ad2ba13a5",
+    "manifestTranche": "C1-contract-spine",
+    "previousTranche": "C1-contract-spine",
+    "schemaVersion": "maestro-brain-lane-evidence-adoption/v1"
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "lens": "contract",
+  "taskId": "S08-T03",
+  "planSha256": "ca7c2d9fbe1de7598adb586c3c0eb8e85c2826fc3339def797b61e3dc45b56cf",
+  "taskBlockHash": "2d947263cf0fa3ed72b36f7fddc028629d9db80e333e2511207b2213bf4d40c0",
+  "baseSha": "2bdef668a17ac4e86a9113846b773f6243f281c0",
+  "headSha": "187644e96d5a7b802edd25858eb65f299c09cc3d",
+  "treeSha": "8c4301a35cb7a48f778d834d969dfe91cbfa5d50",
+  "reviewerRunId": "maestro/review/S08-T03/187644e96d5a7b802edd25858eb65f299c09cc3d/48950001-759c-404e-8197-1154005e37b9-v1/contract",
+  "rubricDispositions": [
+    {
+      "rubricId": "contract.task-packet",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1070-1110",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2390-2477",
+        "docs/product/maestro-brain-lifecycle-adoption/S08-T03.md:1-72"
+      ],
+      "rationale": "The task packet hash matches the proof packet and the implementation targets the approved S08-T03 review-first classification scope."
+    },
+    {
+      "rubricId": "contract.typed-api",
+      "disposition": "finding",
+      "evidence": [
+        "packages/convex/confect/workflowContracts/sourceClassification.spec.ts:23-36",
+        "packages/convex/confect/workflowContracts/sourceClassification.spec.ts:38-75",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:35",
+        "packages/convex/confect/classification/commit.ts:1-12"
+      ],
+      "findingIds": ["CONTRACT-S08-T03-001"],
+      "rationale": "The workflow commit path can produce required classification failures that are not declared in the workflow contract."
+    },
+    {
+      "rubricId": "contract.schema",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/tables/classificationDecisions.ts:4-51",
+        "packages/convex/confect/tables/sourceProcessingJobs.ts:4-41",
+        "packages/convex/test/source-classification.test.ts:289-319"
+      ],
+      "rationale": "Durable table schemas include the canonical classification states, generation fields, effect keys, and required indexes for this lane."
+    },
+    {
+      "rubricId": "contract.plan",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2395-2403",
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2464-2472",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S08-T03/ci-proof-packet.json:33-65"
+      ],
+      "rationale": "The proof packet records the required pattern-instance generator commands and focused gates, including package-local classification, web review queue, and Confect/headless/layer checks."
+    },
+    {
+      "rubricId": "contract.ownership",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/execution/maestro-brain/task-manifest.json:1076-1100",
+        "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/lane-results/S08-T03/ci-proof-packet.json:8-31"
+      ],
+      "rationale": "Changed files are within the manifest-owned S08-T03 inventory; generated Confect/Convex checked-tree omissions remain integration-owned per the review instructions and packet."
+    },
+    {
+      "rubricId": "contract.failure-contract",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2452-2459",
+        "packages/convex/confect/capabilities/classifySourceUnit.spec.ts:73-78",
+        "packages/convex/confect/workflowContracts/sourceClassification.spec.ts:23-36",
+        "packages/convex/confect/classification/review.ts:7-14",
+        "packages/convex/confect/classification/commit.ts:1-12"
+      ],
+      "findingIds": ["CONTRACT-S08-T03-001"],
+      "rationale": "Declared typed errors do not cover all task-required workflow failure paths."
+    }
+  ],
+  "findings": [
+    {
+      "id": "CONTRACT-S08-T03-001",
+      "severity": "blocking",
+      "summary": "Workflow contract omits task-required review and commit typed failures.",
+      "details": "S08-T03 requires typed errors MalformedModelOutput, TargetNotAllowed, EvidenceMismatch, ReviewForbidden, StaleGeneration, and DuplicateEffect for the review-first classification flow. The capability spec declares only the model-validation subset, while the workflow contract exposes only generic Unauthorized/member/workspace/not-found/validation errors. The workflow routes reviewed classifications into routes.commit, and the task-owned helpers define ReviewForbidden, StaleGeneration, and DuplicateEffect as reachable failures, but those failures are not represented in the workflow expected-error contract. Callers therefore cannot distinguish non-admin review, stale generation fences, or duplicate route effects as the task contract requires.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:2452-2459",
+        "packages/convex/confect/workflowContracts/sourceClassification.spec.ts:23-36",
+        "packages/convex/confect/workflowContracts/sourceClassification.impl.ts:35",
+        "packages/convex/confect/classification/review.ts:7-14",
+        "packages/convex/confect/classification/commit.ts:1-12"
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

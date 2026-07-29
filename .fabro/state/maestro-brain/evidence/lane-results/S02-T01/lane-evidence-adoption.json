@@ -1,0 +1,16 @@
+{
+  "acceptanceAfter": "S01 complete",
+  "acceptanceBlocker": "Acceptance remains deferred until S01 complete; adopted integration evidence proves integration only.",
+  "accepted": false,
+  "integrationHeadSha": "c6433e434c457084afb908ec6013fb63dfc1ae7b",
+  "integrationId": "C1-contract-spine",
+  "integrationResultPath": "integration/C1-contract-spine/integration-result.json",
+  "integrationResultSha256": "61ce5317b89d37155be6e014209ceae4a2fddc696f2ea94b8851877e468f5f18",
+  "laneHeadSha": "737ea7e1972df224c35a099d494fd66f3fe82a67",
+  "laneResultSha256Before": "2e0a084c46f47e833da2d8a692c5a87d834d82b4a31cbbb3d3415bc2b93d6cb4",
+  "manifestTranche": "C1-contract-spine",
+  "previousTranche": "C1-contract-spine",
+  "schemaVersion": "maestro-brain-lane-evidence-adoption/v1",
+  "laneResultSha256After": "414b0256a0329fd9280459fb8474b444341d416f5e2f837c6a3e5ebd80af082b",
+  "taskId": "S02-T01"
+}

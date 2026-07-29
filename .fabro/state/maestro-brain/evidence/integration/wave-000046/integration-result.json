@@ -1,0 +1,45 @@
+{
+  "baseSha": "165d8c56bf4a1c411514972590e0f1e4ce24bd86",
+  "conflicts": [],
+  "focusedChecks": [
+    "rtk host-test-slot --class focused pnpm --dir packages/convex exec vitest run test/migration-registry.test.ts test/migrations.test.ts test/brain-page-schema.test.ts test/brain-revisions.test.ts test/source-ledger-schema.test.ts",
+    "rtk pnpm --dir packages/convex exec tsx scripts/generate-migration-registry.mts --root-cwd --check",
+    "rtk pnpm brain:factory:check-confect-codegen",
+    "rtk pnpm check:schema-migration-notes",
+    "rtk pnpm check:confect-contracts"
+  ],
+  "generatedFiles": [
+    "packages/convex/confect/_generated/convexSchema.ts",
+    "packages/convex/confect/_generated/docs.ts",
+    "packages/convex/confect/_generated/id.ts",
+    "packages/convex/confect/_generated/schema.ts",
+    "packages/convex/confect/_generated/tables/providerEventReceipts.ts",
+    "packages/convex/confect/_generated/tables/sourceArtifacts.ts",
+    "packages/convex/confect/_generated/tables/sourceProcessingJobs.ts",
+    "packages/convex/confect/_generated/tables/sourceRevisions.ts"
+  ],
+  "headSha": "1c45d958427365c9da12a2abe7006fad3153b54f",
+  "includedTasks": [
+    {
+      "commitShas": [
+        "6c2e4dc45cfca491cf8c82129fcbed50f1032f14",
+        "c28038b59b08daf1386d5142fb9c04ee102e79e8",
+        "3696785e6a9ca0c2f7e95bb8e66fa02bc863d5cc",
+        "3ae429465e17825dbf6b90df02e7c5c79540512c"
+      ],
+      "laneHeadSha": "3ae429465e17825dbf6b90df02e7c5c79540512c",
+      "patchState": "applied",
+      "taskId": "S05-T01",
+      "tranche": "C1-contract-spine"
+    }
+  ],
+  "integrationId": "wave-000046",
+  "mode": "integrate",
+  "schemaVersion": "maestro-brain-integration-result/v3",
+  "selectionFileSha256": "7996158c0700e1c99cf30955c27a8766c9c75bae4f2caf4568316c9aecd93092",
+  "selectionPayloadSha256": "eba4cc297d5bcc494a12ec9e37d279cb98949921be8d8d9be6ed51ffc9cd4ca4",
+  "reviewVerdict": "pass",
+  "status": "ready_for_review",
+  "remainingFindings": [],
+  "resolvedFindings": []
+}

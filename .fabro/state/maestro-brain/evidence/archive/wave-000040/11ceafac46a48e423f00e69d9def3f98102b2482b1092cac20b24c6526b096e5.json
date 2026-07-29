@@ -1,0 +1,245 @@
+{
+  "schemaVersion": "maestro-brain-evidence-archive/v1",
+  "integrationId": "wave-000040",
+  "manifestTranches": [
+    "D2-domain-bodies"
+  ],
+  "integrationResult": {
+    "schemaVersion": "maestro-brain-integration-result/v3",
+    "integrationId": "wave-000040",
+    "integrationWorkdir": "/Users/headless/.maestro-brain-fabro-workdirs/integration-wave-000040",
+    "baseSha": "dbfb7a8203c744917dd9e6a39d488b28044e27c7",
+    "headSha": "e8f008574eff0d1a21700ff02926ac4c9870d425",
+    "status": "passed",
+    "reviewVerdict": "pass",
+    "remainingFindings": [],
+    "resolvedFindings": [],
+    "conflicts": [],
+    "mode": "integrate",
+    "manifestTranches": [
+      "D2-domain-bodies"
+    ],
+    "includedTasks": [
+      {
+        "taskId": "S04-T02",
+        "tranche": "D2-domain-bodies",
+        "laneHeadSha": "ceed76db1dee584403c8301f43c3b17131d400b7",
+        "headSha": "ceed76db1dee584403c8301f43c3b17131d400b7",
+        "proofHeadSha": "ceed76db1dee584403c8301f43c3b17131d400b7",
+        "gateHeadSha": "ceed76db1dee584403c8301f43c3b17131d400b7",
+        "laneResultSha256": "3660bea96f4ac06256721d500cb9b264b4e7b394f83aadd80f7d6f0240d10048",
+        "proofSha256": "ba141402423a193fd18053c3c91f3bbd37d7a86d43f3c8dc5edf0ba96bbe61f2",
+        "gateSha256": "208b6c80399a6543b29e2806db42496b087640abe9f5b6f9d6dec988296a8e98",
+        "planSha256": "e5ad32c375d4fd307b3d5bccd47ea6cf4e9b7580f23bb506c893fd94019ca7c5",
+        "taskBlockHash": "cdeca2a0ba4a7101fd27959788455ac53609485617a9cf8146c29c86891a7958",
+        "changedFiles": [
+          "docs/product/maestro-brain-lifecycle-adoption/S04-T02.md",
+          "packages/convex/confect/integrations/slackDirectory.impl.ts",
+          "packages/convex/confect/integrations/slackDirectory.spec.ts",
+          "packages/convex/confect/integrations/slackDirectory.ts",
+          "packages/convex/confect/tables/channelSyncStates.ts",
+          "packages/convex/confect/tables/sourceChannels.ts",
+          "packages/convex/test/slack-directory.test.ts"
+        ],
+        "fileLocks": [
+          "docs/product/maestro-brain-lifecycle-adoption/S04-T02.md",
+          "packages/convex/confect/integrations/slackDirectory.impl.ts",
+          "packages/convex/confect/integrations/slackDirectory.spec.ts",
+          "packages/convex/confect/integrations/slackDirectory.ts",
+          "packages/convex/confect/internal/migrations.ts",
+          "packages/convex/confect/tables/channelSyncStates.ts",
+          "packages/convex/confect/tables/sourceChannels.ts",
+          "packages/convex/test/slack-directory.test.ts"
+        ],
+        "codeStartAfter": [
+          "S04-T01"
+        ],
+        "commitShas": [
+          "9085e95b28d962939a111171ba9f8f861bf45cb6",
+          "9db5d3648e39ff191b08a72eb163cdf689c7d55c",
+          "5b3d821a6bf9eb299d6e08006edc899ebacf8132",
+          "884a5ab03eeaaf4dc2e6858b157a647307ad5095",
+          "ceed76db1dee584403c8301f43c3b17131d400b7"
+        ],
+        "patchState": "applied"
+      }
+    ],
+    "focusedChecks": [
+      "rtk host-test-slot --class focused pnpm --dir packages/convex test slack-directory",
+      "rtk host-test-slot --class focused pnpm --dir packages/integrations test slack",
+      "rtk pnpm brain:factory:check-confect-codegen",
+      "rtk pnpm check:schema-migration-notes",
+      "rtk pnpm check:provider-boundary"
+    ],
+    "generatedFiles": [
+      "packages/convex/confect/_generated/convexSchema.ts",
+      "packages/convex/confect/_generated/docs.ts",
+      "packages/convex/confect/_generated/id.ts",
+      "packages/convex/confect/_generated/registeredFunctions/integrations/slackDirectory.ts",
+      "packages/convex/confect/_generated/schema.ts",
+      "packages/convex/confect/_generated/spec.ts",
+      "packages/convex/confect/_generated/tables/channelSyncStates.ts",
+      "packages/convex/confect/_generated/tables/sourceChannels.ts",
+      "packages/convex/convex/integrations/slackDirectory.ts"
+    ],
+    "selectionPayloadSha256": "972177190ed4266385fa18fe3a3b2344fb0364cb9cfddb3e1ab3076fe57aa024",
+    "selectionFileSha256": "69dc0d651fc6812bdf23a6020198260020e6fafbe8816c865b6115821a5395f5",
+    "broadGate": {
+      "attempts": [
+        {
+          "attempt": 1,
+          "command": "rtk host-test-slot --class full pnpm verify",
+          "headSha": "e8f008574eff0d1a21700ff02926ac4c9870d425",
+          "outputSha256": "da6cc24e60b079379c768aee8f5f512f16990c1fe30130c7fddc59cd6a77e6d2",
+          "status": "passed",
+          "transientVitestWorkerRpcTimeout": false
+        }
+      ],
+      "command": "rtk host-test-slot --class full pnpm verify",
+      "headSha": "e8f008574eff0d1a21700ff02926ac4c9870d425",
+      "schemaVersion": "maestro-brain-broad-gate-receipt/v1",
+      "status": "passed"
+    }
+  },
+  "laneEvidence": [
+    {
+      "taskId": "S04-T02",
+      "proof": {
+        "schemaVersion": "maestro-brain-ci-proof/v1",
+        "planSha256": "e5ad32c375d4fd307b3d5bccd47ea6cf4e9b7580f23bb506c893fd94019ca7c5",
+        "taskBlockHash": "cdeca2a0ba4a7101fd27959788455ac53609485617a9cf8146c29c86891a7958",
+        "taskId": "S04-T02",
+        "baseSha": "aa979378a853ca705f423846a79abe8030f0619b",
+        "headSha": "ceed76db1dee584403c8301f43c3b17131d400b7",
+        "changedFiles": [
+          "docs/product/maestro-brain-lifecycle-adoption/S04-T02.md",
+          "packages/convex/confect/integrations/slackDirectory.impl.ts",
+          "packages/convex/confect/integrations/slackDirectory.spec.ts",
+          "packages/convex/confect/integrations/slackDirectory.ts",
+          "packages/convex/confect/tables/channelSyncStates.ts",
+          "packages/convex/confect/tables/sourceChannels.ts",
+          "packages/convex/test/slack-directory.test.ts"
+        ],
+        "focusedCommands": [
+          "rtk host-test-slot --class focused pnpm --dir packages/convex test slack-directory",
+          "rtk host-test-slot --class focused pnpm --dir packages/integrations test slack",
+          "rtk pnpm brain:factory:check-confect-codegen",
+          "rtk pnpm check:schema-migration-notes",
+          "rtk pnpm check:provider-boundary"
+        ],
+        "supplementalCommandResults": [
+          {
+            "command": "rtk host-test-slot --class focused pnpm --dir packages/convex test slack-directory",
+            "result": "passed on rebased head ceed76db1dee584403c8301f43c3b17131d400b7: test/slack-directory.test.ts (27 tests) passed."
+          },
+          {
+            "command": "rtk host-test-slot --class focused pnpm --dir packages/integrations test slack",
+            "result": "passed on rebased head ceed76db1dee584403c8301f43c3b17131d400b7: no slack-specific test files found; package exits 0 via --passWithNoTests."
+          },
+          {
+            "command": "rtk pnpm brain:factory:check-confect-codegen",
+            "result": "passed on rebased head ceed76db1dee584403c8301f43c3b17131d400b7: transient Confect codegen passed (11 generated files), proving source table/spec/impl registrations without committing generated output."
+          },
+          {
+            "command": "rtk pnpm check:schema-migration-notes",
+            "result": "passed on rebased head ceed76db1dee584403c8301f43c3b17131d400b7: check:schema-migration-notes ok (pin-only)."
+          },
+          {
+            "command": "rtk pnpm check:provider-boundary",
+            "result": "passed on rebased head ceed76db1dee584403c8301f43c3b17131d400b7: check:provider-boundary passed."
+          },
+          {
+            "command": "rtk proxy git rev-list --count aa979378a853ca705f423846a79abe8030f0619b..HEAD",
+            "result": "passed on rebased head: task history has five commits, matching sourceSliceLimit."
+          },
+          {
+            "command": "rtk proxy git show --no-renames --numstat --format= <each-task-commit>",
+            "result": "passed on rebased head using tooling/brain-factory/src/source-budget.ts calculation: per-commit hand-authored source lines are 295, 283, 267, 300, 242; every commit is within the 300-line budget."
+          }
+        ],
+        "testsAdded": [
+          "packages/convex/test/slack-directory.test.ts"
+        ],
+        "reviewVerdict": "pass",
+        "knownRisks": [
+          "packages/integrations slack focused command currently finds no slack-specific test files and exits 0 via --passWithNoTests.",
+          "Generated Confect/Convex files are intentionally not committed in this lane; Appendix O reserves generated output for integration, and exact-head transient codegen passed with sourceChannels/channelSyncStates present.",
+          "Live Slack directory adapter remains behind the S04-T01 provider boundary; default lane implementation fails closed with ProviderUnavailable unless a provider service is injected."
+        ],
+        "reviewFindings": [],
+        "reviewHeadSha": "ceed76db1dee584403c8301f43c3b17131d400b7"
+      },
+      "gate": {
+        "schemaVersion": "maestro-brain-lane-gate/v1",
+        "commandSetHash": "71c119ee7d2a0e4ddccc9f18f280b47e7d7b43253dbd2dc747c6a181439a1184",
+        "commands": [
+          "rtk pnpm exec prettier --check --ignore-unknown docs/product/maestro-brain-lifecycle-adoption/S04-T02.md packages/convex/confect/integrations/slackDirectory.impl.ts packages/convex/confect/integrations/slackDirectory.spec.ts packages/convex/confect/integrations/slackDirectory.ts packages/convex/confect/tables/channelSyncStates.ts packages/convex/confect/tables/sourceChannels.ts packages/convex/test/slack-directory.test.ts",
+          "rtk pnpm exec eslint packages/convex/confect/integrations/slackDirectory.impl.ts packages/convex/confect/integrations/slackDirectory.spec.ts packages/convex/confect/integrations/slackDirectory.ts packages/convex/confect/tables/channelSyncStates.ts packages/convex/confect/tables/sourceChannels.ts packages/convex/test/slack-directory.test.ts",
+          "rtk host-test-slot --class focused pnpm --dir packages/convex test slack-directory",
+          "rtk host-test-slot --class focused pnpm --dir packages/integrations test slack",
+          "rtk pnpm brain:factory:check-confect-codegen",
+          "rtk pnpm check:schema-migration-notes",
+          "rtk pnpm check:provider-boundary",
+          "rtk pnpm check:confect-v9",
+          "rtk pnpm --dir packages/convex typecheck",
+          "rtk host-test-slot --class focused pnpm --dir packages/convex test",
+          "rtk pnpm --dir packages/integrations typecheck",
+          "rtk host-test-slot --class focused pnpm --dir packages/integrations test"
+        ],
+        "currentHeadSha": "ceed76db1dee584403c8301f43c3b17131d400b7",
+        "currentTreeSha": "44c7c3a973c447e41ebb748ac4b434dd6973d9d3",
+        "gateProfiles": [
+          "convex",
+          "integrations"
+        ],
+        "headSha": "ceed76db1dee584403c8301f43c3b17131d400b7",
+        "planSha256": "e5ad32c375d4fd307b3d5bccd47ea6cf4e9b7580f23bb506c893fd94019ca7c5",
+        "changedSourceLines": 1387,
+        "estimateDrift": false,
+        "estimatedSourceLines": 1500,
+        "sourceSliceBudget": 300,
+        "sourceSliceLimit": 5,
+        "sourceSlices": [
+          {
+            "changedSourceLines": 295,
+            "commit": "9085e95b28d962939a111171ba9f8f861bf45cb6"
+          },
+          {
+            "changedSourceLines": 283,
+            "commit": "9db5d3648e39ff191b08a72eb163cdf689c7d55c"
+          },
+          {
+            "changedSourceLines": 267,
+            "commit": "5b3d821a6bf9eb299d6e08006edc899ebacf8132"
+          },
+          {
+            "changedSourceLines": 300,
+            "commit": "884a5ab03eeaaf4dc2e6858b157a647307ad5095"
+          },
+          {
+            "changedSourceLines": 242,
+            "commit": "ceed76db1dee584403c8301f43c3b17131d400b7"
+          }
+        ],
+        "stage": "final",
+        "status": "passed",
+        "taskId": "S04-T02",
+        "taskBlockHash": "cdeca2a0ba4a7101fd27959788455ac53609485617a9cf8146c29c86891a7958",
+        "reusedPreReview": true
+      },
+      "result": {
+        "schemaVersion": "maestro-brain-lane-result/v1",
+        "taskId": "S04-T02",
+        "headSha": "ceed76db1dee584403c8301f43c3b17131d400b7",
+        "treeSha": "44c7c3a973c447e41ebb748ac4b434dd6973d9d3",
+        "tranche": "D2-domain-bodies",
+        "status": "integrated",
+        "accepted": false,
+        "acceptanceBlocker": "Integrated in immutable wave wave-000040, but no acceptanceAfter evidence proves accepted:true for this lane result.",
+        "integrationId": "wave-000040",
+        "integrationHeadSha": "e8f008574eff0d1a21700ff02926ac4c9870d425",
+        "preIntegrationLaneResultSha256": "3660bea96f4ac06256721d500cb9b264b4e7b394f83aadd80f7d6f0240d10048"
+      }
+    }
+  ]
+}

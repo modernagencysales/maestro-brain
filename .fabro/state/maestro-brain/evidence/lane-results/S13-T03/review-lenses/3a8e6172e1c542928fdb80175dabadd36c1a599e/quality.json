@@ -1,0 +1,83 @@
+{
+  "lens": "quality",
+  "taskId": "S13-T03",
+  "planSha256": "cf2e2d6eaca2f6a7c2317efae372f3081564ae73127da9f4ff67af6423289665",
+  "taskBlockHash": "13c071bc2c78035c5563f494b38160a96c981ab2962984f056be4e18853e137e",
+  "baseSha": "f66236e12f93bc254cc2350800a5b2a69d0caff5",
+  "headSha": "3a8e6172e1c542928fdb80175dabadd36c1a599e",
+  "treeSha": "2bfc58008c6dd9598a01484621d34887005d9d05",
+  "reviewerRunId": "maestro/review/S13-T03/3a8e6172e1c542928fdb80175dabadd36c1a599e/ade6e852-8186-47dd-94bc-e07f53f46bd6-v1/quality",
+  "rubricDispositions": [
+    {
+      "rubricId": "quality.test-adequacy",
+      "disposition": "finding",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3579 requires metrics to emit IDs/hashes/counts/durations/status/error tags only.",
+        "packages/observability/src/brainMetrics.test.ts:9-39 asserts canary strings are absent and safe fields remain, but does not assert that forbidden keys are absent from the emitted metric object.",
+        "packages/observability/src/brainMetrics.ts:116-123 redacts first and then copies any allowed key, so a caller supplied errorTag that is itself customer text is emitted unchanged."
+      ],
+      "findingIds": ["Q-S13-T03-002"]
+    },
+    {
+      "rubricId": "quality.layer-law",
+      "disposition": "pass",
+      "evidence": [
+        "AGENTS.md:22-38 requires Confect specs/impls with typed args/returns/errors and no generated-file edits.",
+        "packages/convex/confect/ops/brainOperations.spec.ts:109-121 defines public/internal Confect specs, and packages/convex/confect/ops/brainOperations.impl.ts:37-167 implements them against DatabaseReader/DatabaseWriter rather than bypassing through web or provider layers.",
+        "packages/observability/src/brainMetrics.ts:1-135 stays in the observability package and does not import Convex, Confect, provider SDKs, or route modules."
+      ]
+    },
+    {
+      "rubricId": "quality.maintainability",
+      "disposition": "pass",
+      "evidence": [
+        "packages/convex/confect/ops/brainOperationPolicy.ts:7-17 centralizes the subsystem enumeration used by policy helpers and tests.",
+        "packages/convex/confect/ops/brainOperationPolicy.ts:188-250 keeps record serialization and audit receipt construction in one helper module instead of duplicating JSON shapes in the impl.",
+        "packages/convex/confect/ops/brainOperations.impl.ts:169-325 separates role, loading, replay, expiry, retirement, and return-shape helpers from the Confect handler body."
+      ]
+    },
+    {
+      "rubricId": "quality.observability",
+      "disposition": "finding",
+      "evidence": [
+        "docs/product/maestro-brain-operations.md:10-23 documents that Brain metrics must contain only stable IDs, hashes, counts, durations, status values, and error tags while recursively excluding prompt/source/token/header fields.",
+        "packages/observability/src/brainMetrics.ts:56-69 redacts only a fixed list of field names, then packages/observability/src/brainMetrics.ts:119-123 copies whitelisted metric fields without validating value semantics.",
+        "packages/observability/src/brainMetrics.test.ts:9-39 lacks a false-green assertion for unsafe values in whitelisted fields such as errorTag, status, workspaceId, brainKey, or sourceHash, so customer text can still be emitted through those allowed keys."
+      ],
+      "findingIds": ["Q-S13-T03-002"]
+    },
+    {
+      "rubricId": "quality.budgets",
+      "disposition": "pass",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3575-3578 requires model, Slack, storage, queue, channel, and kill-switch budget coverage.",
+        "packages/observability/src/brainMetrics.ts:126-135 returns typed BudgetExceeded data with budget, limit, and observed values and no payload content.",
+        "packages/observability/src/brainMetrics.test.ts:41-71 covers modelTokens, modelSpendCents, slackRate, storageBytes, queueDepth, and channelCount."
+      ]
+    },
+    {
+      "rubricId": "quality.generated-file-discipline",
+      "disposition": "pass",
+      "evidence": [
+        "AGENTS.md:38 forbids hand-editing generated Confect or Convex files.",
+        "ci-proof-packet.json:85-87 records the lane risk that generated Confect/Convex output is intentionally excluded and must be handled by centralized integration.",
+        "Scoped diff at head 3a8e6172e1c542928fdb80175dabadd36c1a599e lists only task-owned docs, ops source/specs, tests, observability source, and logging-boundary tooling; no packages/convex/confect/_generated or packages/convex/convex/_generated files changed."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "Q-S13-T03-002",
+      "severity": "medium",
+      "summary": "Metric redaction can be bypassed through whitelisted metric values.",
+      "details": "createBrainMetric only removes unsafe field names before copying whitelisted metric keys. If customer text, a prompt fragment, provider payload, or raw source text is passed as errorTag/status/workspaceId/brainKey/sourceHash/evalVersion, it is emitted unchanged. The tests prove named canaries are dropped from disallowed keys, but they do not assert value-shape constraints for the fields the helper keeps, so the documented IDs/hashes/counts/durations/status/error-tag-only boundary is false-green for whitelisted fields.",
+      "evidence": [
+        "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3579 requires emitted metrics to contain IDs/hashes/counts/durations/status/error tags only.",
+        "docs/product/maestro-brain-operations.md:10-23 repeats the safe metric field contract and forbidden customer/provider field classes.",
+        "packages/observability/src/brainMetrics.ts:99-123 redacts by key name and then copies whitelisted keys without validating or sanitizing the retained values.",
+        "packages/observability/src/brainMetrics.test.ts:9-39 checks forbidden-key canaries but does not include a canary in an allowed key such as errorTag or sourceHash."
+      ]
+    }
+  ],
+  "verdict": "rework"
+}

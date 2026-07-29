@@ -1,0 +1,263 @@
+{
+  "schemaVersion": "maestro-brain-prior-evidence-snapshot/v1",
+  "taskId": "S03-T03",
+  "integrationResult": {
+    "baseSha": "3141ccc10fe3194d2f249fa9b0e8205f920248f6",
+    "conflicts": [],
+    "focusedChecks": [
+      "rtk pnpm brain:factory:check-confect-codegen -- --profile web --test brain-editor-revision-fence --test brain-pages-crud",
+      "rtk pnpm --dir packages/editor-react typecheck",
+      "rtk host-test-slot --class focused pnpm --dir packages/editor-react test",
+      "rtk pnpm check:route-tree",
+      "rtk pnpm check:layer-boundaries"
+    ],
+    "generatedFiles": [
+      "packages/convex/convex/brain/pages.ts",
+      "packages/template-core/src/generated/confectManifest.ts"
+    ],
+    "headSha": "9c4287df6544ce00cdf3eed9aea89568ea2f8509",
+    "includedTasks": [
+      {
+        "commitShas": [
+          "88cfb29097c37f07007e4d65b9ee0a6b781f497c",
+          "4f9455e29876322fe5c7502ab5a25518b07807c6",
+          "4705a700ebe88bdabc6e21e1bb1913bf5136bff4",
+          "5cd16643726e0a0285d2638fa1092f26c945e32b",
+          "7ed60b20318c8c5d97ae1323e3d80d62cd1df08c",
+          "06f9a199df9a8fd9764f11d7ae36d61c32e03801",
+          "7d183a53c8235bdb4c11b908b924951479079319"
+        ],
+        "laneHeadSha": "7d183a53c8235bdb4c11b908b924951479079319",
+        "patchState": "applied",
+        "taskId": "S03-T03",
+        "tranche": "D2-domain-bodies"
+      }
+    ],
+    "integrationId": "wave-000055",
+    "mode": "integrate",
+    "schemaVersion": "maestro-brain-integration-result/v3",
+    "selectionFileSha256": "d94c34e989a056c0a77405e7ec8983a0801c870cf221045069ccc80b12ebd93a",
+    "selectionPayloadSha256": "1da5ca3ba333d8cec2a7673af8cda3599fafe5ce8ebc1d96f2fac0dce0b0386c",
+    "reviewVerdict": "pass",
+    "status": "ready_for_review",
+    "remainingFindings": [],
+    "resolvedFindings": [],
+    "broadGate": {
+      "attempts": [
+        {
+          "attempt": 1,
+          "command": "rtk host-test-slot --class full pnpm verify",
+          "headSha": "9c4287df6544ce00cdf3eed9aea89568ea2f8509",
+          "outputSha256": "7d880fb15c947068561a3883b30a6ddd8056ce7746a0de5309aa81741ddf0ba8",
+          "status": "failed",
+          "transientVitestWorkerRpcTimeout": false
+        }
+      ],
+      "command": "rtk host-test-slot --class full pnpm verify",
+      "headSha": "9c4287df6544ce00cdf3eed9aea89568ea2f8509",
+      "schemaVersion": "maestro-brain-broad-gate-receipt/v1",
+      "status": "failed"
+    }
+  },
+  "laneResult": {
+    "schemaVersion": "maestro-brain-lane-result/v1",
+    "taskId": "S03-T03",
+    "headSha": "661d97da1cff8bbcd432d38f7da9b6074d7a4879",
+    "treeSha": "8b389e3aab09663c6102b2a01dbb4de0c9d156cb",
+    "tranche": "D2-domain-bodies",
+    "status": "lane_green",
+    "reproof": {
+      "requestPath": "/Users/headless/maestro-brain-plan/.fabro/state/maestro-brain/evidence/reproofs/S03-T03/ac77073ece3d8addfee7853260cb2bb2bc6bb83ba43405b07a934f310b6a8834/5537e89b094e30dee47fc44a1c815ad49d714413/request.json",
+      "requestSha256": "f9e067edaea5633b2d80380324102341099e50c67f4285f7772d8ff26eb09731",
+      "priorIntegrationHeadSha": "3141ccc10fe3194d2f249fa9b0e8205f920248f6",
+      "priorIntegrationId": "wave-000055"
+    }
+  },
+  "proof": {
+    "schemaVersion": "maestro-brain-ci-proof/v1",
+    "taskId": "S03-T03",
+    "planSha256": "adce0583eeea119d1a949099d3f5bbc98002041065d7ea2cb7a39e4f70975c2c",
+    "taskBlockHash": "ac77073ece3d8addfee7853260cb2bb2bc6bb83ba43405b07a934f310b6a8834",
+    "baseSha": "5537e89b094e30dee47fc44a1c815ad49d714413",
+    "headSha": "661d97da1cff8bbcd432d38f7da9b6074d7a4879",
+    "changedFiles": [
+      "apps/web/src/features/brain/brain-adapter.test.ts",
+      "apps/web/src/features/brain/brain-adapter.ts",
+      "apps/web/src/features/brain/brain-editor-pane.test.tsx",
+      "apps/web/src/features/brain/brain-editor-pane.tsx",
+      "apps/web/src/features/brain/brain-evidence-drawer.test.tsx",
+      "apps/web/src/features/brain/brain-evidence-drawer.tsx",
+      "apps/web/src/features/brain/brain-page-tree.test.tsx",
+      "apps/web/src/features/brain/brain-page-tree.tsx",
+      "apps/web/src/features/brain/brain-surface.test.ts",
+      "apps/web/src/features/brain/brain-surface.ts",
+      "apps/web/src/features/brain/brain-workspace.test.tsx",
+      "apps/web/src/features/brain/brain-workspace.tsx",
+      "apps/web/src/routes/_workspace.brain.tsx",
+      "docs/product/maestro-brain-lifecycle-adoption/S03-T03.md",
+      "packages/convex/confect/brain/pages.impl.ts",
+      "packages/convex/confect/brain/pages.spec.ts",
+      "packages/convex/confect/editor/syncApi.ts",
+      "packages/convex/test/brain-editor-revision-fence.test.ts",
+      "packages/convex/test/brain-pages-crud.test.ts",
+      "packages/convex/test/brain-pages.contract.test.ts",
+      "packages/editor-react/src/BlockNoteSyncEditor.test.tsx",
+      "packages/editor-react/src/BlockNoteSyncEditor.tsx"
+    ],
+    "focusedCommands": [
+      "rtk pnpm brain:factory:check-confect-codegen -- --profile web --test brain-editor-revision-fence --test brain-pages-crud",
+      "rtk pnpm --dir packages/editor-react typecheck",
+      "rtk host-test-slot --class focused pnpm --dir packages/editor-react test",
+      "rtk pnpm check:route-tree",
+      "rtk pnpm check:layer-boundaries"
+    ],
+    "supplementalCommandResults": [
+      {
+        "command": "rtk host-test-slot --class focused pnpm --dir apps/web exec vitest run src/features/brain/brain-workspace.test.tsx src/features/brain/brain-adapter.test.ts src/features/brain/brain-surface.test.ts src/features/brain/brain-page-tree.test.tsx src/features/brain/brain-editor-pane.test.tsx src/features/brain/brain-evidence-drawer.test.tsx",
+        "result": "passed: 6 files, 38 tests"
+      },
+      {
+        "command": "rtk pnpm --dir apps/web typecheck",
+        "result": "passed"
+      },
+      {
+        "command": "rtk pnpm --dir packages/editor-react typecheck",
+        "result": "passed"
+      },
+      {
+        "command": "rtk host-test-slot --class focused pnpm --dir packages/editor-react test",
+        "result": "passed: 1 file, 5 tests"
+      },
+      {
+        "command": "rtk pnpm check:route-tree",
+        "result": "passed: check:route-tree: ok (pin-only)"
+      },
+      {
+        "command": "rtk pnpm check:layer-boundaries",
+        "result": "passed: no dependency violations found (1044 modules, 3608 dependencies cruised)"
+      },
+      {
+        "command": "rtk pnpm brain:factory:check-confect-codegen -- --profile web --test brain-editor-revision-fence --test brain-pages-crud",
+        "result": "passed: transient Confect codegen passed (5 generated files)"
+      },
+      {
+        "command": "rtk proxy git diff --check 5537e89b094e30dee47fc44a1c815ad49d714413..HEAD",
+        "result": "passed"
+      }
+    ],
+    "testsAdded": [
+      "apps/web/src/features/brain/brain-surface.test.ts",
+      "apps/web/src/features/brain/brain-adapter.test.ts",
+      "apps/web/src/features/brain/brain-page-tree.test.tsx",
+      "apps/web/src/features/brain/brain-editor-pane.test.tsx",
+      "apps/web/src/features/brain/brain-evidence-drawer.test.tsx",
+      "apps/web/src/features/brain/brain-workspace.test.tsx",
+      "packages/editor-react/src/BlockNoteSyncEditor.test.tsx",
+      "packages/convex/test/brain-editor-revision-fence.test.ts",
+      "packages/convex/test/brain-pages-crud.test.ts",
+      "packages/convex/test/brain-pages.contract.test.ts"
+    ],
+    "sourceSlices": [
+      {
+        "commit": "048dfb530a1104a2a2a8a6656b287a8168b57cb6",
+        "changedHandAuthoredSourceLines": 257
+      },
+      {
+        "commit": "dcc97d61d60ce4b5015ae5feb230062179746ac4",
+        "changedHandAuthoredSourceLines": 297
+      },
+      {
+        "commit": "41d71ad3c8283a8f1d2a8e189f419148a5c17f08",
+        "changedHandAuthoredSourceLines": 181
+      },
+      {
+        "commit": "65d88dd5c6157ad5d9b059653167c32a41301414",
+        "changedHandAuthoredSourceLines": 247
+      },
+      {
+        "commit": "35deda71603cd19e0c888dd821e6d4514d19ebb2",
+        "changedHandAuthoredSourceLines": 218
+      },
+      {
+        "commit": "a9859920eec7648d7ab3cabad6ab73e6e17fe215",
+        "changedHandAuthoredSourceLines": 263
+      },
+      {
+        "commit": "661d97da1cff8bbcd432d38f7da9b6074d7a4879",
+        "changedHandAuthoredSourceLines": 287
+      }
+    ],
+    "reviewVerdict": "pass",
+    "knownRisks": [
+      "Focused web workspace tests intentionally mock Saas UI primitives; React logs unknown DOM prop warnings from the mock, but all assertions pass.",
+      "Broad verification is deferred to tranche/wave integration per Appendix O/P."
+    ],
+    "reviewFindings": [],
+    "reviewHeadSha": "661d97da1cff8bbcd432d38f7da9b6074d7a4879",
+    "priorFindingDispositions": [],
+    "resolvedPriorFindingIds": []
+  },
+  "gate": {
+    "schemaVersion": "maestro-brain-lane-gate/v1",
+    "commandSetHash": "a6d6aba7af1c5faed9fbeb9dedcb602ad48fb3714733b8f0c12e70415a2dfbc3",
+    "commands": [
+      "rtk pnpm exec prettier --check --ignore-unknown apps/web/src/features/brain/brain-adapter.test.ts apps/web/src/features/brain/brain-adapter.ts apps/web/src/features/brain/brain-editor-pane.test.tsx apps/web/src/features/brain/brain-editor-pane.tsx apps/web/src/features/brain/brain-evidence-drawer.test.tsx apps/web/src/features/brain/brain-evidence-drawer.tsx apps/web/src/features/brain/brain-page-tree.test.tsx apps/web/src/features/brain/brain-page-tree.tsx apps/web/src/features/brain/brain-surface.test.ts apps/web/src/features/brain/brain-surface.ts apps/web/src/features/brain/brain-workspace.test.tsx apps/web/src/features/brain/brain-workspace.tsx apps/web/src/routes/_workspace.brain.tsx docs/product/maestro-brain-lifecycle-adoption/S03-T03.md packages/convex/confect/brain/pages.impl.ts packages/convex/confect/brain/pages.spec.ts packages/convex/confect/editor/syncApi.ts packages/convex/test/brain-editor-revision-fence.test.ts packages/convex/test/brain-pages-crud.test.ts packages/convex/test/brain-pages.contract.test.ts packages/editor-react/src/BlockNoteSyncEditor.test.tsx packages/editor-react/src/BlockNoteSyncEditor.tsx",
+      "rtk pnpm exec eslint apps/web/src/features/brain/brain-adapter.test.ts apps/web/src/features/brain/brain-adapter.ts apps/web/src/features/brain/brain-editor-pane.test.tsx apps/web/src/features/brain/brain-editor-pane.tsx apps/web/src/features/brain/brain-evidence-drawer.test.tsx apps/web/src/features/brain/brain-evidence-drawer.tsx apps/web/src/features/brain/brain-page-tree.test.tsx apps/web/src/features/brain/brain-page-tree.tsx apps/web/src/features/brain/brain-surface.test.ts apps/web/src/features/brain/brain-surface.ts apps/web/src/features/brain/brain-workspace.test.tsx apps/web/src/features/brain/brain-workspace.tsx apps/web/src/routes/_workspace.brain.tsx packages/convex/confect/brain/pages.impl.ts packages/convex/confect/brain/pages.spec.ts packages/convex/confect/editor/syncApi.ts packages/convex/test/brain-editor-revision-fence.test.ts packages/convex/test/brain-pages-crud.test.ts packages/convex/test/brain-pages.contract.test.ts packages/editor-react/src/BlockNoteSyncEditor.test.tsx packages/editor-react/src/BlockNoteSyncEditor.tsx",
+      "rtk pnpm brain:factory:check-confect-codegen -- --profile web --test brain-editor-revision-fence --test brain-pages-crud",
+      "rtk pnpm --dir packages/editor-react typecheck",
+      "rtk host-test-slot --class focused pnpm --dir packages/editor-react test",
+      "rtk pnpm check:route-tree",
+      "rtk pnpm check:layer-boundaries",
+      "rtk pnpm check:confect-v9"
+    ],
+    "currentHeadSha": "661d97da1cff8bbcd432d38f7da9b6074d7a4879",
+    "currentTreeSha": "8b389e3aab09663c6102b2a01dbb4de0c9d156cb",
+    "gateProfiles": [
+      "convex",
+      "web"
+    ],
+    "headSha": "661d97da1cff8bbcd432d38f7da9b6074d7a4879",
+    "planSha256": "adce0583eeea119d1a949099d3f5bbc98002041065d7ea2cb7a39e4f70975c2c",
+    "changedSourceLines": 1750,
+    "estimateDrift": false,
+    "estimatedSourceLines": 1800,
+    "sourceSliceBudget": 300,
+    "sourceSliceLimit": 7,
+    "sourceSlices": [
+      {
+        "changedSourceLines": 257,
+        "commit": "048dfb530a1104a2a2a8a6656b287a8168b57cb6"
+      },
+      {
+        "changedSourceLines": 297,
+        "commit": "dcc97d61d60ce4b5015ae5feb230062179746ac4"
+      },
+      {
+        "changedSourceLines": 181,
+        "commit": "41d71ad3c8283a8f1d2a8e189f419148a5c17f08"
+      },
+      {
+        "changedSourceLines": 247,
+        "commit": "65d88dd5c6157ad5d9b059653167c32a41301414"
+      },
+      {
+        "changedSourceLines": 218,
+        "commit": "35deda71603cd19e0c888dd821e6d4514d19ebb2"
+      },
+      {
+        "changedSourceLines": 263,
+        "commit": "a9859920eec7648d7ab3cabad6ab73e6e17fe215"
+      },
+      {
+        "changedSourceLines": 287,
+        "commit": "661d97da1cff8bbcd432d38f7da9b6074d7a4879"
+      }
+    ],
+    "stage": "final",
+    "status": "passed",
+    "taskId": "S03-T03",
+    "taskBlockHash": "ac77073ece3d8addfee7853260cb2bb2bc6bb83ba43405b07a934f310b6a8834",
+    "reusedPreReview": true
+  },
+  "adoption": null
+}
