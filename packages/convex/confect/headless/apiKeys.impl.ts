@@ -995,6 +995,7 @@ export const rotateApiKeyForBrain = (
     readonly keyId: string;
     readonly expiresAt: number;
     readonly nowMs: number;
+    readonly randomBytes?: () => Uint8Array;
   },
 ) =>
   Effect.gen(function* () {
@@ -1061,9 +1062,22 @@ export const rotateApiKeyForBrain = (
           actor: input.actor,
           nowMs: input.nowMs,
           expiresAt: input.expiresAt,
+          ...(input.randomBytes === undefined
+            ? {}
+            : { randomBytes: input.randomBytes }),
         }),
       catch: knownRotateError,
     });
+    const hashMatches = yield* reader
+      .table("apiKeys")
+      .index("by_key_hash", (q) => q.eq("keyHash", rotated.key.keyHash))
+      .collect()
+      .pipe(Effect.orDie);
+    if (hashMatches.length > 0) {
+      return yield* Effect.fail(
+        new ApiKeyConflict({ reason: "API key hash collision." }),
+      );
+    }
     const writer = yield* DatabaseWriter;
     yield* writer
       .table("servicePrincipals")

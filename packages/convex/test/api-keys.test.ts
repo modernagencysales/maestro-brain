@@ -1,4 +1,5 @@
 import { TestConfect } from "@confect/test";
+import * as Either from "effect/Either";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
@@ -571,6 +572,96 @@ describe("durable one-Brain API-key Confect handlers", () => {
       generation: 2,
       revokedAt: 12_000,
     });
+  });
+
+  it("rejects rotation hash collisions before revoking the active key", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+
+      return yield* confect.run(
+        Effect.gen(function* () {
+          const seeded = yield* seedApiKeyTenant();
+          const scope = {
+            organizationId: seeded.organizationId,
+            workspaceId: seeded.workspaceId,
+            brainKey: "brain_acme",
+          };
+          const actor = { userId: seeded.adminUserId, role: "admin" as const };
+          const repeatedEntropy = () => new Uint8Array(32).fill(41);
+          yield* createApiKeyForBrain({
+            publicInput: {
+              name: "Client Alpha read key",
+              scopes: ["brain:read"],
+              expiresAt: 20_000,
+              randomBytes: repeatedEntropy,
+            },
+            serverScope: scope,
+            actor,
+            nowMs: 10_000,
+          });
+          const listed = yield* listApiKeysForBrain({
+            serverScope: scope,
+            actor,
+          });
+          const collision = yield* Effect.either(
+            rotateApiKeyForBrain({
+              keyId: listed[0]?.id ?? "missing",
+              expiresAt: 22_000,
+              serverScope: scope,
+              actor,
+              nowMs: 11_000,
+              randomBytes: repeatedEntropy,
+            }),
+          );
+          const keyRows = yield* (yield* DatabaseReader)
+            .table("apiKeys")
+            .index("by_brain_status", (q) =>
+              q
+                .eq("workspaceId", scope.workspaceId)
+                .eq("brainKey", scope.brainKey),
+            )
+            .collect()
+            .pipe(Effect.orDie);
+          const principals = yield* (yield* DatabaseReader)
+            .table("servicePrincipals")
+            .index("by_principal_key", (q) =>
+              q.eq("id", keyRows[0]?.principalId ?? ""),
+            )
+            .collect()
+            .pipe(Effect.orDie);
+
+          return {
+            collisionTag: Either.isLeft(collision)
+              ? collision.left._tag
+              : "success",
+            keyRows,
+            principals,
+          };
+        }),
+        Schema.Any,
+      );
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.collisionTag).toBe("ApiKeyConflict");
+    expect(result.keyRows).toHaveLength(1);
+    expect(result.keyRows[0]).toMatchObject({
+      status: "active",
+      revokedAt: null,
+      principalGeneration: 1,
+    });
+    expect(result.principals).toEqual([
+      expect.objectContaining({
+        status: "active",
+        generation: 1,
+        revokedAt: null,
+      }),
+    ]);
   });
 
   it("authenticates by indexed bearer hash before best-effort last-used", async () => {
