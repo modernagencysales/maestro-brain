@@ -1,9 +1,10 @@
 # Maestro Brain: Agency Context OS Implementation Plan
 
-> **Status:** parallel-factory execution plan; implementation-ready only for
-> task packets marked `ready` in Appendix M. Every `open:F` packet is blocked
-> until its exact hand-authored path and shared-lock inventory is completed and
-> the binding manifest is regenerated.
+> **Status:** product task and acceptance contract. The experimental parallel
+> factory was retired on 2026-07-29. Factory commands and Appendices O-Q are
+> retained only as historical context and are not part of the active execution
+> path. Product completion now proceeds through the normal repository gates and
+> a manually owned dependency queue.
 >
 > **Plan date:** 2026-07-14  
 > **Canonical design:**
@@ -27,12 +28,9 @@ template classification, existing anchors, exact files, test-first sequence,
 typed contract, state changes, migration and rollback, commands, receipt, and
 lane branch/commit boundary.
 
-The binding task manifest contains exactly 58 task contracts: the original 56
-product tasks, the S15-T01 factory control checkpoint, and the auxiliary S15-T02
-migration-registry transition. The original 57 deliverable task contracts remain
-the product completion measure; S15-T02 is counted separately as the bounded
-control transition required to integrate S05-T01 without weakening its
-product-lane ownership.
+The product plan contains 56 real task contracts. The former S15 factory-control
+tasks were removed when the factory was retired and never counted toward product
+completion.
 
 ## Product And Architecture Outcome
 

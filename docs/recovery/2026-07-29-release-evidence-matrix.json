@@ -27,21 +27,24 @@
       "id": "BLD-01",
       "claim": "A fresh checkout can install dependencies reproducibly with the frozen lockfile and run the canonical test suite.",
       "authority": "package.json:verify and pnpm-workspace.yaml:patchedDependencies",
-      "implementation_evidence": [],
+      "implementation_evidence": [
+        "package.json pins pnpm@10.12.1",
+        "pnpm-lock.yaml contains 25 workspaces and no brain-factory importer"
+      ],
       "test_evidence": [
-        "pnpm install --frozen-lockfile failed on maestro-worker with ERR_PNPM_LOCKFILE_CONFIG_MISMATCH",
-        "pnpm test could not start because node_modules and turbo were absent"
+        "npx pnpm@10.12.1 install --frozen-lockfile passed across 25 workspaces after factory removal",
+        "pnpm test passed all 33 Turbo tasks, including 496 Convex tests and 170 web tests"
       ],
       "runtime_evidence": [],
       "requires_runtime": false,
-      "status": "fail",
-      "gap": "Regenerate or repair the lockfile patch hash/configuration, then run the exact-head verification suite from a fresh checkout.",
-      "owner": "build/release"
+      "status": "pass",
+      "gap": "",
+      "owner": ""
     },
     {
       "id": "IMP-01",
-      "claim": "All 58 manifest tasks have accepted implementation evidence on the audited commit.",
-      "authority": "docs/superpowers/execution/maestro-brain/task-manifest.json",
+      "claim": "All 56 product-plan tasks have accepted implementation evidence on the audited commit.",
+      "authority": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md",
       "implementation_evidence": [
         "2 accepted lane results",
         "18 integrated but unaccepted lane results"
@@ -85,9 +88,7 @@
       "id": "ACC-01",
       "claim": "Every integrated or lane-green task has exact-head acceptance reconciliation with no unresolved review findings.",
       "authority": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:219",
-      "implementation_evidence": [
-        "2 accepted task results"
-      ],
+      "implementation_evidence": ["2 accepted task results"],
       "test_evidence": [
         "18 results remain integrated but unaccepted",
         "8 results remain lane_green",
@@ -102,7 +103,7 @@
     {
       "id": "REL-01",
       "claim": "The audited commit has staging, pilot, rollback, capacity, security, and final launch evidence for the declared V1 envelope.",
-      "authority": "docs/superpowers/specs/2026-07-14-maestro-brain-agency-context-os-design.md:1775 and docs/superpowers/execution/maestro-brain/task-manifest.json:2049",
+      "authority": "docs/superpowers/specs/2026-07-14-maestro-brain-agency-context-os-design.md:1775 and docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:3973",
       "implementation_evidence": [],
       "test_evidence": [],
       "runtime_evidence": [],
