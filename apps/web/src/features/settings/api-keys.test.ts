@@ -30,9 +30,11 @@ describe("settings API key generated refs contract", () => {
       "utf8",
     );
 
-    expect(routeSource).toContain("type ApiKeyRefs");
-    expect(routeSource).toContain(".public.headless.apiKeys");
-    expect(routeSource).toContain("centralized Confect");
+    expect(routeSource).toContain(
+      "const apiKeyRefs = templateConfectRefs.public.headless.apiKeys;",
+    );
+    expect(routeSource).not.toContain("type ApiKeyRefs");
+    expect(routeSource).not.toContain("as unknown as ApiKeyRefs");
     expect(routeSource).not.toContain("type HeadlessApiKeyRefs");
     expect(routeSource).not.toContain("as HeadlessApiKeyRefs");
   });

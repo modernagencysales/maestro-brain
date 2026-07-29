@@ -1,8 +1,4 @@
-import type { Ref } from "@confect/core";
-import {
-  templateConfectRefs,
-  type TemplateConfectRefs,
-} from "@maestro-template/convex/refs";
+import { templateConfectRefs } from "@maestro-template/convex/refs";
 import { createFileRoute } from "@tanstack/react-router";
 
 import {
@@ -17,86 +13,11 @@ import {
 import { MemberManagement } from "../features/settings/member-management";
 import { createApiKeySettingsAdapter } from "../features/settings/api-keys-adapter";
 import { ApiKeysPanel } from "../features/settings/api-keys-panel";
-import type {
-  ApiKeySettingsMetadata,
-  PublicApiKeySettingsMetadata,
-} from "../features/settings/api-keys";
 import { useWorkspace } from "../providers/workspace";
 import { BusinessSettingsRoute } from "../saas-ui/business-shell";
 import { selectStableApiKeyBrainKey } from "../features/settings/settings-surface";
 
-type ApiKeyScope = "brain:read" | "brain:ask";
-type ApiKeyError =
-  | { readonly _tag: "Unauthorized" }
-  | { readonly _tag: "Forbidden" }
-  | { readonly _tag: "ApiKeyNotFound" }
-  | { readonly _tag: "ApiKeyRevoked" }
-  | { readonly _tag: "ApiKeyConflict" }
-  | { readonly _tag: "ApiKeyExpiryInvalid" }
-  | { readonly _tag: "ApiKeyScopeInvalid" };
-type PublicMutationRef<Args, Returns, Error> = Ref.Ref<
-  { readonly runtime: "Convex"; readonly functionType: "mutation" },
-  "public",
-  Args,
-  Returns,
-  Error
->;
-type PublicQueryRef<Args, Returns, Error> = Ref.Ref<
-  { readonly runtime: "Convex"; readonly functionType: "query" },
-  "public",
-  Args,
-  Returns,
-  Error
->;
-type ApiKeyRefs = {
-  readonly public: TemplateConfectRefs["public"] & {
-    readonly headless: {
-      readonly apiKeys: {
-        readonly create: PublicMutationRef<
-          {
-            readonly brainKey: string;
-            readonly name: string;
-            readonly scopes: readonly ApiKeyScope[];
-            readonly expiresAt: number;
-          },
-          {
-            readonly displayKey: string;
-            readonly key: PublicApiKeySettingsMetadata;
-          },
-          ApiKeyError
-        >;
-        readonly list: PublicQueryRef<
-          { readonly brainKey: string },
-          readonly ApiKeySettingsMetadata[],
-          ApiKeyError
-        >;
-        readonly rotate: PublicMutationRef<
-          {
-            readonly brainKey: string;
-            readonly keyId: string;
-            readonly expiresAt: number;
-          },
-          {
-            readonly displayKey: string;
-            readonly key: PublicApiKeySettingsMetadata;
-          },
-          ApiKeyError
-        >;
-        readonly revoke: PublicMutationRef<
-          { readonly brainKey: string; readonly keyId: string },
-          null,
-          ApiKeyError
-        >;
-      };
-    };
-  };
-};
-
-// Checked-in generated refs are integration-owned until centralized Confect
-// codegen refreshes templateConfectRefs.public.headless.apiKeys.
-// Intersect only the amended ref shape until that integration refresh lands.
-const apiKeyRefs = (templateConfectRefs as unknown as ApiKeyRefs).public
-  .headless.apiKeys;
+const apiKeyRefs = templateConfectRefs.public.headless.apiKeys;
 
 const accessRefs = {
   members: templateConfectRefs.public.access.members,
