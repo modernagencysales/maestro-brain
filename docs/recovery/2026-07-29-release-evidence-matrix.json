@@ -1,0 +1,115 @@
+{
+  "release": "Maestro Brain V1 recovery audit",
+  "commit": "1ad4bcd494871b2ec9ade6160d61c27975b54e4b",
+  "environment": "maestro-worker fresh checkout; production runtime not audited",
+  "requirements": [
+    {
+      "id": "REC-01",
+      "claim": "The canonical product, recovered factory evidence, Fabro heads, and review heads are durably preserved in the dedicated private GitHub repository.",
+      "authority": "docs/recovery/2026-07-29-fabro-recovery-readiness.md:Preservation coordinates",
+      "implementation_evidence": [
+        "modernagencysales/maestro-brain main at 1ad4bcd494871b2ec9ade6160d61c27975b54e4b",
+        "archive/factory-state-20260729",
+        "190 archive/headless/fabro refs",
+        "333 archive/headless/maestro-review refs"
+      ],
+      "test_evidence": [
+        "git ls-remote observed 528 heads total: 190 Fabro, 333 review, main plus four recovery archives",
+        "Gitleaks scanned 2,664 commits; reported patterns were reviewed as test identifiers, factory fixtures, review prose, and vendored examples"
+      ],
+      "runtime_evidence": [],
+      "requires_runtime": false,
+      "status": "pass",
+      "gap": "",
+      "owner": ""
+    },
+    {
+      "id": "BLD-01",
+      "claim": "A fresh checkout can install dependencies reproducibly with the frozen lockfile and run the canonical test suite.",
+      "authority": "package.json:verify and pnpm-workspace.yaml:patchedDependencies",
+      "implementation_evidence": [],
+      "test_evidence": [
+        "pnpm install --frozen-lockfile failed on maestro-worker with ERR_PNPM_LOCKFILE_CONFIG_MISMATCH",
+        "pnpm test could not start because node_modules and turbo were absent"
+      ],
+      "runtime_evidence": [],
+      "requires_runtime": false,
+      "status": "fail",
+      "gap": "Regenerate or repair the lockfile patch hash/configuration, then run the exact-head verification suite from a fresh checkout.",
+      "owner": "build/release"
+    },
+    {
+      "id": "IMP-01",
+      "claim": "All 58 manifest tasks have accepted implementation evidence on the audited commit.",
+      "authority": "docs/superpowers/execution/maestro-brain/task-manifest.json",
+      "implementation_evidence": [
+        "2 accepted lane results",
+        "18 integrated but unaccepted lane results"
+      ],
+      "test_evidence": [
+        "Recovered factory state contains 28 lane-result.json files"
+      ],
+      "runtime_evidence": [],
+      "requires_runtime": false,
+      "status": "fail",
+      "gap": "Eight lane-green tasks remain unintegrated, two additional implementations need bounded rework/review, and 28 tasks lack a strong recovered implementation candidate.",
+      "owner": "product integration"
+    },
+    {
+      "id": "REC-02",
+      "claim": "The ten strongest recovered product candidates remain mechanically applicable to the audited main commit.",
+      "authority": "docs/recovery/2026-07-29-fabro-recovery-readiness.md:Strongest recovered candidates",
+      "implementation_evidence": [
+        "recovery/S03-T03",
+        "recovery/S04-T04-fixed",
+        "recovery/S05-T01",
+        "recovery/S06-T01",
+        "recovery/S08-T03",
+        "recovery/S08-T04",
+        "recovery/S10-T01",
+        "recovery/S11-T02",
+        "recovery/S13-T02",
+        "recovery/S13-T03"
+      ],
+      "test_evidence": [
+        "git apply --check --3way succeeded for all ten product patches against 1ad4bcd4",
+        "Integration preflight found only three overlaps, all on sourceProcessingJobs.ts"
+      ],
+      "runtime_evidence": [],
+      "requires_runtime": false,
+      "status": "pass",
+      "gap": "",
+      "owner": ""
+    },
+    {
+      "id": "ACC-01",
+      "claim": "Every integrated or lane-green task has exact-head acceptance reconciliation with no unresolved review findings.",
+      "authority": "docs/superpowers/plans/2026-07-14-maestro-brain-agency-context-os-implementation-plan.md:219",
+      "implementation_evidence": [
+        "2 accepted task results"
+      ],
+      "test_evidence": [
+        "18 results remain integrated but unaccepted",
+        "8 results remain lane_green",
+        "S08-T04 and S10-T01 retain high safety findings"
+      ],
+      "runtime_evidence": [],
+      "requires_runtime": false,
+      "status": "fail",
+      "gap": "Integrate recovered candidates, repair the two safety findings, and run acceptance reconciliation at the resulting exact head.",
+      "owner": "acceptance owner"
+    },
+    {
+      "id": "REL-01",
+      "claim": "The audited commit has staging, pilot, rollback, capacity, security, and final launch evidence for the declared V1 envelope.",
+      "authority": "docs/superpowers/specs/2026-07-14-maestro-brain-agency-context-os-design.md:1775 and docs/superpowers/execution/maestro-brain/task-manifest.json:2049",
+      "implementation_evidence": [],
+      "test_evidence": [],
+      "runtime_evidence": [],
+      "requires_runtime": true,
+      "status": "fail",
+      "gap": "No complete S14-T01 implementation, exact-head release gate, staging/pilot receipt, launch approval, or rollback proof exists.",
+      "owner": "release owner"
+    }
+  ]
+}
