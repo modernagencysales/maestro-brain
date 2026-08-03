@@ -1,6 +1,8 @@
 import { Table } from "@confect/server";
 import * as Schema from "effect/Schema";
 
+import { PageKey, RevisionKey } from "../brain/pageSchemas";
+
 export default Table.make(() =>
   Schema.Struct({
     workspaceId: Schema.String,
@@ -12,6 +14,8 @@ export default Table.make(() =>
     quotedText: Schema.String,
     startOffset: Schema.Number,
     endOffset: Schema.Number,
+    pageKey: Schema.optional(PageKey),
+    revisionKey: Schema.optional(RevisionKey),
     createdAt: Schema.Number,
   }),
 )

@@ -1,12 +1,14 @@
 import { TestConfect } from "@confect/test";
-import type { GenericId } from "convex/values";
+import type { GenericId, Value } from "convex/values";
 import * as Effect from "effect/Effect";
 import * as Either from "effect/Either";
+import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
 import refs from "../confect/_generated/refs";
+import { Id } from "../confect/_generated/id";
 import databaseSchema from "../confect/_generated/schema";
-import { DatabaseWriter } from "../confect/_generated/services";
+import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
 import type { Role } from "../confect/access/roles";
 import { Forbidden } from "../confect/errors";
 import { testConfectLayer } from "./support/confect";
@@ -18,6 +20,11 @@ type SeededBrain = {
   readonly organizationId: GenericId<"organizations">;
   readonly workspaceId: GenericId<"workspaces">;
 };
+
+const SeededBrainSchema = Schema.Struct({
+  organizationId: Id("organizations"),
+  workspaceId: Id("workspaces"),
+});
 
 const seedBrain = (input: {
   readonly role: Role;
@@ -107,6 +114,62 @@ const actor = (
     workosOrganizationId: `org_${subject}`,
   });
 
+type PublishedStateValue = {
+  readonly pages: readonly any[];
+  readonly revisions: readonly any[];
+  readonly citations: readonly any[];
+};
+
+const PublishedState = Schema.Any as unknown as Schema.Schema<
+  PublishedStateValue,
+  Value,
+  never
+>;
+
+const publishedState = (workspaceId: GenericId<"workspaces">) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const pages = yield* reader
+      .table("brainPages")
+      .index("by_workspace", (q) => q.eq("workspaceId", workspaceId))
+      .collect()
+      .pipe(Effect.orDie);
+    const revisions = yield* reader
+      .table("pageRevisions")
+      .index("by_page_created", (q) =>
+        q
+          .eq("workspaceId", workspaceId)
+          .eq("pageKey", pages[0]?.pageKey ?? "missing"),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const citations = yield* reader
+      .table("citations")
+      .index("by_workspace", (q) => q.eq("workspaceId", String(workspaceId)))
+      .collect()
+      .pipe(Effect.orDie);
+    return {
+      pages: pages.map(({ _id, _creationTime, ...row }) => {
+        void _id;
+        void _creationTime;
+        return {
+          ...row,
+          workspaceId: row.workspaceId as GenericId<"workspaces">,
+        };
+      }),
+      revisions: revisions.map(({ _id, _creationTime, ...row }) => {
+        void _id;
+        void _creationTime;
+        return row;
+      }),
+      citations: citations.map(({ _id, _creationTime, ...row }) => {
+        void _id;
+        void _creationTime;
+        return row;
+      }),
+    };
+  });
+
 describe("Brain pilot contract", () => {
   it("keeps submitted notes pending until an editor approves them", async () => {
     const result = await Effect.runPromise(
@@ -114,13 +177,14 @@ describe("Brain pilot contract", () => {
         const confect = yield* Effect.serviceOptional(
           TestConfect.TestConfect<typeof databaseSchema>(),
         );
-        yield* confect.run(
+        const seeded = yield* confect.run(
           seedBrain({
             role: "editor",
             subject: "editor",
             email: "editor@example.com",
             brainKey,
           }),
+          SeededBrainSchema,
         );
         const editor = actor(confect, "editor", "editor@example.com");
         const submitted = yield* editor.mutation(
@@ -139,7 +203,11 @@ describe("Brain pilot contract", () => {
             decision: "approve",
           },
         );
-        return { submitted, reviewed };
+        const state = yield* confect.run(
+          publishedState(seeded.workspaceId),
+          PublishedState,
+        );
+        return { submitted, reviewed, ...state };
       }).pipe(Effect.provide(testConfectLayer())),
     );
 
@@ -148,6 +216,28 @@ describe("Brain pilot contract", () => {
       sourceKey: result.submitted.sourceKey,
       status: "published",
     });
+    expect(result.pages).toHaveLength(1);
+    expect(result.pages[0]).toMatchObject({
+      title: "Founder interview",
+      markdown: "The product is source-backed.",
+      sourceKind: "note",
+      status: "active",
+    });
+    expect(result.revisions).toHaveLength(1);
+    expect(result.revisions[0]).toMatchObject({
+      pageKey: result.pages[0]?.pageKey,
+      revisionKey: result.pages[0]?.currentRevisionKey,
+      markdown: "The product is source-backed.",
+      state: "published",
+    });
+    expect(result.citations).toEqual([
+      expect.objectContaining({
+        citationId: `citation:${result.submitted.sourceKey}`,
+        sourceId: result.submitted.sourceKey,
+        pageKey: result.pages[0]?.pageKey,
+        revisionKey: result.pages[0]?.currentRevisionKey,
+      }),
+    ]);
   });
 
   it("rejects review and prevents rejected notes from search", async () => {
@@ -156,13 +246,14 @@ describe("Brain pilot contract", () => {
         const confect = yield* Effect.serviceOptional(
           TestConfect.TestConfect<typeof databaseSchema>(),
         );
-        yield* confect.run(
+        const seeded = yield* confect.run(
           seedBrain({
             role: "editor",
             subject: "rejector",
             email: "rejector@example.com",
             brainKey,
           }),
+          SeededBrainSchema,
         );
         const editor = actor(confect, "rejector", "rejector@example.com");
         const submitted = yield* editor.mutation(
@@ -185,12 +276,18 @@ describe("Brain pilot contract", () => {
           brainKey,
           query: "searchable",
         });
-        return { rejected, search };
+        const state = yield* confect.run(
+          publishedState(seeded.workspaceId),
+          PublishedState,
+        );
+        return { rejected, search, ...state };
       }).pipe(Effect.provide(testConfectLayer())),
     );
 
     expect(result.rejected.status).toBe("rejected");
     expect(result.search.results).toEqual([]);
+    expect(result.pages).toEqual([]);
+    expect(result.citations).toEqual([]);
   });
 
   it("returns deterministic citations and isolates tenants", async () => {

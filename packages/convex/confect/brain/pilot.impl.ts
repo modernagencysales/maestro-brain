@@ -98,6 +98,83 @@ const reviewNote = FunctionImpl.make(
         Clock.currentTimeMillis,
       );
       const writer = yield* DatabaseWriter;
+      if (status === "published") {
+        const pageKey = `pag_${sha256Hex(`brain-page:${source.sourceKey}`).slice(0, 32)}`;
+        const revisionKey = `rev_${sha256Hex(`brain-revision:${source.sourceKey}`).slice(0, 32)}`;
+        const siblingSlug = `note-${source.sourceKey.slice(4, 12)}`;
+        const sortKey = `0000000001.${source.sourceKey.slice(4, 12)}`;
+        const lifecycle = {
+          state: "active" as const,
+          generation: 1,
+          updatedAt: reviewedAt,
+          purgeAfter: null,
+        };
+        yield* writer
+          .table("brainPages")
+          .insert({
+            workspaceId: brain.workspaceId,
+            organizationId: brain.organizationId,
+            slug: siblingSlug,
+            title: source.title,
+            markdown: source.markdown,
+            sourceKind: "note",
+            updatedAt: reviewedAt,
+            pageKey,
+            parentPageKey: null,
+            siblingSlug,
+            sortKey,
+            favorite: false,
+            status: "active",
+            currentRevisionKey: revisionKey,
+            lifecycle,
+            createdAt: reviewedAt,
+            schemaVersion: 1,
+          })
+          .pipe(Effect.orDie);
+        yield* writer
+          .table("pageRevisions")
+          .insert({
+            workspaceId: brain.workspaceId,
+            organizationId: brain.organizationId,
+            pageKey,
+            revisionKey,
+            priorRevisionKey: null,
+            blockNoteJson: "",
+            markdown: source.markdown,
+            contentHash: sha256Hex(
+              JSON.stringify({
+                title: source.title,
+                markdown: source.markdown,
+              }),
+            ),
+            causation: "import",
+            actor: { kind: "user", id: brain.actorId },
+            modelReceiptKey: null,
+            effectKey: `brain.pages.create:${pageKey}:${revisionKey}`,
+            state: "published",
+            lifecycle,
+            createdAt: reviewedAt,
+            schemaVersion: 1,
+          })
+          .pipe(Effect.orDie);
+        yield* writer
+          .table("citations")
+          .insert({
+            workspaceId: String(brain.workspaceId),
+            citationId: `citation:${source.sourceKey}`,
+            claimId: `source:${source.sourceKey}`,
+            sourceId: source.sourceKey,
+            sourceKind: "note",
+            sourceTitle: source.title,
+            quotedText: source.markdown,
+            startOffset: 0,
+            endOffset: source.markdown.length,
+            pageKey,
+            revisionKey,
+            createdAt: reviewedAt,
+          })
+          .pipe(Effect.orDie);
+      }
       yield* writer
         .table("brainSources")
         .patch(source._id, {
