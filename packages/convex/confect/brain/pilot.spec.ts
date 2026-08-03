@@ -179,7 +179,7 @@ const search = defineContractFunction(
     name: "search",
     operationId: "brain.pilot.search",
     kind: "query",
-    surfaces: ["web", "api", "mcp"],
+    surfaces: ["web"],
     typedErrors: [
       "Unauthorized",
       "Forbidden",
@@ -207,7 +207,7 @@ const ask = defineContractFunction(
     name: "ask",
     operationId: "brain.pilot.ask",
     kind: "query",
-    surfaces: ["web", "api", "mcp"],
+    surfaces: ["web"],
     typedErrors: [
       "Unauthorized",
       "Forbidden",

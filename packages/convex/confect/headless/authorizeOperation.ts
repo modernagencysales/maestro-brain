@@ -26,12 +26,37 @@ export type HeadlessAuthorizationResult =
 
 const reviewedHeadlessPolicies = [
   {
-    operationId: "brain.pilot.search",
+    operationId: "brain.pages.list",
     headless: true,
     requiredScope: "brain:read",
   },
   {
-    operationId: "brain.pilot.ask",
+    operationId: "brain.pages.get",
+    headless: true,
+    requiredScope: "brain:read",
+  },
+  {
+    operationId: "brain.pages.history",
+    headless: true,
+    requiredScope: "brain:read",
+  },
+  {
+    operationId: "brain.sources.search",
+    headless: true,
+    requiredScope: "brain:read",
+  },
+  {
+    operationId: "brain.sources.get",
+    headless: true,
+    requiredScope: "brain:read",
+  },
+  {
+    operationId: "brain.context.get",
+    headless: true,
+    requiredScope: "brain:read",
+  },
+  {
+    operationId: "brain.answers.ask",
     headless: true,
     requiredScope: "brain:ask",
   },

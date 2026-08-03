@@ -70,6 +70,29 @@ const GetArgs = Schema.extend(
   BrainSelector,
   Schema.Struct({ pageKey: PageKey }),
 );
+const HistoryArgs = Schema.extend(
+  BrainSelector,
+  Schema.Struct({
+    pageKey: PageKey,
+    cursor: Schema.optional(Schema.String),
+    limit: Schema.optional(Schema.Number),
+  }),
+);
+const HistoryReturns = Schema.Struct({
+  brainKey: BrainKey,
+  pageKey: PageKey,
+  asOf: Schema.Number,
+  freshness: Schema.Struct({ status: Schema.Literal("current") }),
+  revisions: Schema.Array(
+    Schema.Struct({
+      revisionKey: RevisionKey,
+      priorRevisionKey: Schema.NullOr(RevisionKey),
+      causation: Schema.String,
+      createdAt: Schema.Number,
+      lifecycleGeneration: Schema.Number,
+    }),
+  ),
+});
 
 const CreateArgs = Schema.extend(
   BrainSelector,
@@ -155,7 +178,7 @@ const definePageQuery = <
       name,
       operationId: `brain.pages.${name}`,
       kind: "query",
-      surfaces: ["web"],
+      surfaces: ["web", "api", "mcp"],
       typedErrors: [...pageReadErrors],
       idempotent: true,
       argsSchemaName: `brain.pages.${name}.args`,
@@ -196,6 +219,7 @@ const definePageMutation = <
 
 const list = definePageQuery("list", ListArgs, ListReturns);
 const get = definePageQuery("get", GetArgs, PageDetail);
+const history = definePageQuery("history", HistoryArgs, HistoryReturns);
 const create = definePageMutation("create", CreateArgs);
 const rename = definePageMutation("rename", RenameArgs);
 const move = definePageMutation("move", MoveArgs);
@@ -212,6 +236,7 @@ const recordSnapshotInternal = FunctionSpec.internalMutation({
 const contractFunctions = [
   list,
   get,
+  history,
   create,
   rename,
   move,
@@ -225,6 +250,7 @@ export const schemaRegistry = collectContractSchemas(contractFunctions);
 export default GroupSpec.make()
   .addFunction(list.spec)
   .addFunction(get.spec)
+  .addFunction(history.spec)
   .addFunction(create.spec)
   .addFunction(rename.spec)
   .addFunction(move.spec)

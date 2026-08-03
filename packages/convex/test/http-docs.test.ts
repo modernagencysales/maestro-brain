@@ -239,11 +239,18 @@ describe("template HTTP docs routes", () => {
       id: 2,
       result: {
         tools: expect.arrayContaining([
-          expect.objectContaining({ name: "template.brain.pilot.search" }),
-          expect.objectContaining({ name: "template.brain.pilot.ask" }),
+          expect.objectContaining({ name: "template.brain.sources.search" }),
+          expect.objectContaining({ name: "template.brain.answers.ask" }),
+          expect.objectContaining({ name: "template.brain.pages.history" }),
         ]),
       },
     });
+    const tools = (listed as { result: { tools: readonly { name: string }[] } })
+      .result.tools;
+    expect(tools).toHaveLength(7);
+    expect(tools.map((tool) => tool.name)).not.toContain(
+      "template.brain.pilot.ask",
+    );
   });
 
   it("rejects MCP tool calls that are not in the reviewed operation policy", async () => {

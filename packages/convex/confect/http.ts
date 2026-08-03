@@ -17,7 +17,8 @@ import {
   type TemplateApiRequestBody,
 } from "./httpRequest";
 import apiKeysSpec from "./headless/apiKeys.spec";
-import pilotSpec from "./brain/pilot.spec";
+import pagesSpec from "./brain/pages.spec";
+import readApiSpec from "./brain/readApi.spec";
 import {
   reviewedHeadlessPolicyFor,
   type HeadlessOperationPolicy,
@@ -81,11 +82,26 @@ const staticTemplateRoutes: Record<string, TemplateRouteMatch | undefined> = {
 };
 
 const staticOperationRefs = {
-  "brain.pilot.search": Ref.getFunctionReference(
-    Ref.make("brain/pilot", pilotSpec.functions.search!),
+  "brain.pages.list": Ref.getFunctionReference(
+    Ref.make("brain/pages", pagesSpec.functions.list!),
   ),
-  "brain.pilot.ask": Ref.getFunctionReference(
-    Ref.make("brain/pilot", pilotSpec.functions.ask!),
+  "brain.pages.get": Ref.getFunctionReference(
+    Ref.make("brain/pages", pagesSpec.functions.get!),
+  ),
+  "brain.pages.history": Ref.getFunctionReference(
+    Ref.make("brain/pages", pagesSpec.functions.history!),
+  ),
+  "brain.sources.search": Ref.getFunctionReference(
+    Ref.make("brain/readApi", readApiSpec.functions.sourcesSearch!),
+  ),
+  "brain.sources.get": Ref.getFunctionReference(
+    Ref.make("brain/readApi", readApiSpec.functions.sourcesGet!),
+  ),
+  "brain.context.get": Ref.getFunctionReference(
+    Ref.make("brain/readApi", readApiSpec.functions.contextGet!),
+  ),
+  "brain.answers.ask": Ref.getFunctionReference(
+    Ref.make("brain/readApi", readApiSpec.functions.answersAsk!),
   ),
 } satisfies Record<string, unknown>;
 
@@ -354,9 +370,16 @@ const filteredOpenApiDocument = (): ReturnType<
   typeof buildGeneratedOpenApiDocument
 > => {
   const document = buildGeneratedOpenApiDocument();
-  const { ["/api/brain.pages.createMarkdown"]: _legacy, ...paths } =
-    document.paths;
-  void _legacy;
+  const allowed = new Set(
+    confectManifest.functions
+      .filter(
+        (entry) => reviewedHeadlessPolicyFor(entry.operationId) !== undefined,
+      )
+      .map((entry) => `/api/${entry.operationId}`),
+  );
+  const paths = Object.fromEntries(
+    Object.entries(document.paths).filter(([path]) => allowed.has(path)),
+  );
   return { ...document, paths };
 };
 

@@ -11,7 +11,6 @@ import {
   type AnswerDeliveryAuthorization,
   type SlackAnswerOutboxRow,
 } from "../../confect/slack/answerOutbox";
-
 const fenceArgs = {
   organizationKey: v.string(),
   workspaceId: v.string(),
@@ -25,26 +24,25 @@ const fenceArgs = {
   deliveryGeneration: v.number(),
   operationGeneration: v.number(),
 };
-const findRow = async (db: any, answerKey: string) =>
+const findRow = async (db: any, key: string) =>
   await db
     .query("outboundDeliveryOutbox")
-    .withIndex("by_answer_key", (q: any) => q.eq("answerKey", answerKey))
+    .withIndex("by_answer_key", (q: any) => q.eq("answerKey", key))
     .unique();
 const mutateRow = async (
   ctx: any,
-  answerKey: string,
+  key: string,
   transition: (
     row: SlackAnswerOutboxRow,
   ) => Either.Either<SlackAnswerOutboxRow, unknown>,
 ) => {
-  const row = await findRow(ctx.db, answerKey);
+  const row = await findRow(ctx.db, key);
   if (!row) return { ok: false };
   const next = transition(row as SlackAnswerOutboxRow);
   if (Either.isLeft(next)) return { ok: false };
   await ctx.db.patch(row._id, next.right);
   return { ok: true };
 };
-
 export const enqueueAnswerOutbox = internalMutationGeneric({
   args: { input: v.any(), authorized: v.any() },
   returns: v.object({ inserted: v.boolean(), answerKey: v.string() }),
@@ -53,8 +51,8 @@ export const enqueueAnswerOutbox = internalMutationGeneric({
       input: args.input as AnswerDeliveryInput,
       authorized: args.authorized as AnswerDeliveryAuthorization,
     });
-    const existing = await findRow(ctx.db, row.answerKey);
-    if (existing) return { inserted: false, answerKey: row.answerKey };
+    if (await findRow(ctx.db, row.answerKey))
+      return { inserted: false, answerKey: row.answerKey };
     await ctx.db.insert("outboundDeliveryOutbox", {
       ...row,
       schemaVersion: 1,

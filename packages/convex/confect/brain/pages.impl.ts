@@ -381,6 +381,33 @@ const get = FunctionImpl.make(
       };
     }),
 );
+const history = FunctionImpl.make(databaseSchema, pages, "history", (args) =>
+  Effect.gen(function* () {
+    const brain = yield* requireBrainAccess(args.brainKey, "viewer");
+    const reader = yield* DatabaseReader;
+    const rows = yield* reader
+      .table("pageRevisions")
+      .index("by_page_created", (q) =>
+        q.eq("workspaceId", brain.workspaceId).eq("pageKey", args.pageKey),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const limit = Math.min(Math.max(args.limit ?? 50, 1), 100);
+    return {
+      brainKey: brain.brainKey,
+      pageKey: args.pageKey,
+      asOf: yield* unsafeAssumeClockProvided(Clock.currentTimeMillis),
+      freshness: { status: "current" as const },
+      revisions: rows.slice(0, limit).map((row) => ({
+        revisionKey: row.revisionKey,
+        priorRevisionKey: row.priorRevisionKey ?? null,
+        causation: row.causation,
+        createdAt: row.createdAt,
+        lifecycleGeneration: row.lifecycle?.generation ?? 0,
+      })),
+    };
+  }),
+);
 const create = FunctionImpl.make(databaseSchema, pages, "create", (args) =>
   withMutationErrorCapture(
     "brain/pages.create",
@@ -668,6 +695,7 @@ const recordSnapshotInternal = FunctionImpl.make(
 export default GroupImpl.make(databaseSchema, pages).pipe(
   Layer.provide(list),
   Layer.provide(get),
+  Layer.provide(history),
   Layer.provide(create),
   Layer.provide(rename),
   Layer.provide(move),

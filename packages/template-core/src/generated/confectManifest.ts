@@ -5,6 +5,42 @@ export const confectManifest = {
   generatedAt: "1970-01-01T00:00:00.000Z",
   functions: [
     {
+      namespace: "brain.readApi",
+      name: "answersAsk",
+      operationId: "brain.answers.ask",
+      kind: "query",
+      surfaces: ["api", "mcp"],
+      typedErrors: [
+        "Unauthorized",
+        "Forbidden",
+        "BrainNotFound",
+        "LifecycleRevoked",
+        "PageNotFound",
+        "ValidationFailed",
+      ],
+      idempotent: true,
+      argsSchemaName: "brain.readApi.answersAsk.args",
+      returnsSchemaName: "brain.readApi.answersAsk.returns",
+    },
+    {
+      namespace: "brain.readApi",
+      name: "contextGet",
+      operationId: "brain.context.get",
+      kind: "query",
+      surfaces: ["api", "mcp"],
+      typedErrors: [
+        "Unauthorized",
+        "Forbidden",
+        "BrainNotFound",
+        "LifecycleRevoked",
+        "PageNotFound",
+        "ValidationFailed",
+      ],
+      idempotent: true,
+      argsSchemaName: "brain.readApi.contextGet.args",
+      returnsSchemaName: "brain.readApi.contextGet.returns",
+    },
+    {
       namespace: "brain.pages",
       name: "archive",
       operationId: "brain.pages.archive",
@@ -69,7 +105,7 @@ export const confectManifest = {
       name: "get",
       operationId: "brain.pages.get",
       kind: "query",
-      surfaces: ["web"],
+      surfaces: ["web", "api", "mcp"],
       typedErrors: [
         "Unauthorized",
         "Forbidden",
@@ -84,10 +120,28 @@ export const confectManifest = {
     },
     {
       namespace: "brain.pages",
+      name: "history",
+      operationId: "brain.pages.history",
+      kind: "query",
+      surfaces: ["web", "api", "mcp"],
+      typedErrors: [
+        "Unauthorized",
+        "Forbidden",
+        "BrainNotFound",
+        "PageNotFound",
+        "LifecycleRevoked",
+        "ValidationFailed",
+      ],
+      idempotent: true,
+      argsSchemaName: "brain.pages.history.args",
+      returnsSchemaName: "brain.pages.history.returns",
+    },
+    {
+      namespace: "brain.pages",
       name: "list",
       operationId: "brain.pages.list",
       kind: "query",
-      surfaces: ["web"],
+      surfaces: ["web", "api", "mcp"],
       typedErrors: [
         "Unauthorized",
         "Forbidden",
@@ -145,7 +199,7 @@ export const confectManifest = {
       name: "ask",
       operationId: "brain.pilot.ask",
       kind: "query",
-      surfaces: ["web", "api", "mcp"],
+      surfaces: ["web"],
       typedErrors: [
         "Unauthorized",
         "Forbidden",
@@ -179,7 +233,7 @@ export const confectManifest = {
       name: "search",
       operationId: "brain.pilot.search",
       kind: "query",
-      surfaces: ["web", "api", "mcp"],
+      surfaces: ["web"],
       typedErrors: [
         "Unauthorized",
         "Forbidden",
@@ -226,6 +280,42 @@ export const confectManifest = {
       idempotent: false,
       argsSchemaName: "brain.pilot.updatePage.args",
       returnsSchemaName: "brain.pilot.updatePage.returns",
+    },
+    {
+      namespace: "brain.readApi",
+      name: "sourcesGet",
+      operationId: "brain.sources.get",
+      kind: "query",
+      surfaces: ["api", "mcp"],
+      typedErrors: [
+        "Unauthorized",
+        "Forbidden",
+        "BrainNotFound",
+        "LifecycleRevoked",
+        "PageNotFound",
+        "ValidationFailed",
+      ],
+      idempotent: true,
+      argsSchemaName: "brain.readApi.sourcesGet.args",
+      returnsSchemaName: "brain.readApi.sourcesGet.returns",
+    },
+    {
+      namespace: "brain.readApi",
+      name: "sourcesSearch",
+      operationId: "brain.sources.search",
+      kind: "query",
+      surfaces: ["api", "mcp"],
+      typedErrors: [
+        "Unauthorized",
+        "Forbidden",
+        "BrainNotFound",
+        "LifecycleRevoked",
+        "PageNotFound",
+        "ValidationFailed",
+      ],
+      idempotent: true,
+      argsSchemaName: "brain.readApi.sourcesSearch.args",
+      returnsSchemaName: "brain.readApi.sourcesSearch.returns",
     },
     {
       namespace: "capabilities.sourceGroundedBrief",
@@ -711,6 +801,110 @@ const sharedConfectJsonSchemas = {
     },
     additionalProperties: false,
   },
+  "brain.pages.history.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    required: ["brainKey", "pageKey"],
+    properties: {
+      brainKey: {
+        type: "string",
+        description:
+          "a string matching the pattern ^br_[0-9A-HJKMNP-TV-Z]{26}$",
+        pattern: "^br_[0-9A-HJKMNP-TV-Z]{26}$",
+      },
+      pageKey: {
+        type: "string",
+        description:
+          "a string matching the pattern ^pag_[a-z0-9][a-z0-9_-]{2,}$",
+        pattern: "^pag_[a-z0-9][a-z0-9_-]{2,}$",
+      },
+      cursor: {
+        type: "string",
+      },
+      limit: {
+        type: "number",
+      },
+    },
+    additionalProperties: false,
+  },
+  "brain.pages.history.returns": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    required: ["brainKey", "pageKey", "asOf", "freshness", "revisions"],
+    properties: {
+      brainKey: {
+        type: "string",
+        description:
+          "a string matching the pattern ^br_[0-9A-HJKMNP-TV-Z]{26}$",
+        pattern: "^br_[0-9A-HJKMNP-TV-Z]{26}$",
+      },
+      pageKey: {
+        type: "string",
+        description:
+          "a string matching the pattern ^pag_[a-z0-9][a-z0-9_-]{2,}$",
+        pattern: "^pag_[a-z0-9][a-z0-9_-]{2,}$",
+      },
+      asOf: {
+        type: "number",
+      },
+      freshness: {
+        type: "object",
+        required: ["status"],
+        properties: {
+          status: {
+            type: "string",
+            enum: ["current"],
+          },
+        },
+        additionalProperties: false,
+      },
+      revisions: {
+        type: "array",
+        items: {
+          type: "object",
+          required: [
+            "revisionKey",
+            "priorRevisionKey",
+            "causation",
+            "createdAt",
+            "lifecycleGeneration",
+          ],
+          properties: {
+            revisionKey: {
+              type: "string",
+              description:
+                "a string matching the pattern ^rev_[a-z0-9][a-z0-9_-]{2,}$",
+              pattern: "^rev_[a-z0-9][a-z0-9_-]{2,}$",
+            },
+            priorRevisionKey: {
+              anyOf: [
+                {
+                  type: "string",
+                  description:
+                    "a string matching the pattern ^rev_[a-z0-9][a-z0-9_-]{2,}$",
+                  pattern: "^rev_[a-z0-9][a-z0-9_-]{2,}$",
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+            causation: {
+              type: "string",
+            },
+            createdAt: {
+              type: "number",
+            },
+            lifecycleGeneration: {
+              type: "number",
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    additionalProperties: false,
+  },
   "brain.pages.list.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -1154,6 +1348,196 @@ const sharedConfectJsonSchemas = {
     additionalProperties: false,
   },
   "brain.pilot.updatePage.returns": sharedConfectJsonSchemasValue1,
+  "brain.readApi.answersAsk.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    required: ["brainKey", "question"],
+    properties: {
+      brainKey: {
+        type: "string",
+      },
+      question: {
+        type: "string",
+      },
+      maxCitations: {
+        type: "number",
+      },
+    },
+    additionalProperties: false,
+  },
+  "brain.readApi.answersAsk.returns": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    $id: "/schemas/unknown",
+    title: "unknown",
+  },
+  "brain.readApi.contextGet.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    required: ["brainKey"],
+    properties: {
+      brainKey: {
+        type: "string",
+      },
+      pageKeys: {
+        type: "array",
+        items: {
+          type: "string",
+          description:
+            "a string matching the pattern ^pag_[a-z0-9][a-z0-9_-]{2,}$",
+          pattern: "^pag_[a-z0-9][a-z0-9_-]{2,}$",
+        },
+      },
+      maxBytes: {
+        type: "number",
+      },
+    },
+    additionalProperties: false,
+  },
+  "brain.readApi.contextGet.returns": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    required: ["brainKey", "asOf", "freshness", "entries"],
+    properties: {
+      brainKey: {
+        type: "string",
+      },
+      asOf: {
+        type: "number",
+      },
+      freshness: {
+        type: "object",
+        required: ["status"],
+        properties: {
+          status: {
+            type: "string",
+            enum: ["current"],
+          },
+        },
+        additionalProperties: false,
+      },
+      entries: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["sourceKey", "citationKey", "title", "excerpt"],
+          properties: {
+            sourceKey: {
+              type: "string",
+            },
+            citationKey: {
+              type: "string",
+            },
+            title: {
+              type: "string",
+            },
+            excerpt: {
+              type: "string",
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    additionalProperties: false,
+  },
+  "brain.readApi.sourcesGet.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    required: ["brainKey", "sourceRevisionKey"],
+    properties: {
+      brainKey: {
+        type: "string",
+      },
+      sourceRevisionKey: {
+        type: "string",
+      },
+    },
+    additionalProperties: false,
+  },
+  "brain.readApi.sourcesGet.returns": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    required: [
+      "brainKey",
+      "sourceKey",
+      "citationKey",
+      "title",
+      "excerpt",
+      "revisionKey",
+      "status",
+    ],
+    properties: {
+      brainKey: {
+        type: "string",
+      },
+      sourceKey: {
+        type: "string",
+      },
+      citationKey: {
+        type: "string",
+      },
+      title: {
+        type: "string",
+      },
+      excerpt: {
+        type: "string",
+      },
+      revisionKey: {
+        type: "string",
+      },
+      status: {
+        type: "string",
+      },
+    },
+    additionalProperties: false,
+  },
+  "brain.readApi.sourcesSearch.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    required: ["brainKey", "query"],
+    properties: {
+      brainKey: {
+        type: "string",
+      },
+      query: {
+        type: "string",
+      },
+    },
+    additionalProperties: false,
+  },
+  "brain.readApi.sourcesSearch.returns": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    required: ["brainKey", "results"],
+    properties: {
+      brainKey: {
+        type: "string",
+      },
+      results: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["sourceKey", "citationKey", "title", "excerpt"],
+          properties: {
+            sourceKey: {
+              type: "string",
+            },
+            citationKey: {
+              type: "string",
+            },
+            title: {
+              type: "string",
+            },
+            excerpt: {
+              type: "string",
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    additionalProperties: false,
+  },
   "capabilities.sourceGroundedBrief.run.args": sharedConfectJsonSchemasValue4,
   "capabilities.sourceGroundedBrief.run.returns":
     sharedConfectJsonSchemasValue5,
