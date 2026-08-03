@@ -1,4 +1,8 @@
-import { internalMutationGeneric } from "convex/server";
+import {
+  internalActionGeneric,
+  internalMutationGeneric,
+  internalQueryGeneric,
+} from "convex/server";
 import { v } from "convex/values";
 const job = {
   jobId: v.string(),
@@ -19,6 +23,19 @@ const find = async (db: any, i: any) =>
         .eq("idempotencyKey", i.idempotencyKey),
     )
     .unique();
+
+export const brainExportPublishable = (input: {
+  readonly job: {
+    readonly state: string;
+    readonly lifecycleGeneration: number;
+    readonly policyGeneration: number;
+  };
+  readonly lifecycleGeneration: number;
+  readonly policyGeneration: number;
+}): boolean =>
+  input.job.state === "requested" &&
+  input.job.lifecycleGeneration === input.lifecycleGeneration &&
+  input.job.policyGeneration === input.policyGeneration;
 export const requestBrainExport = internalMutationGeneric({
   args: job,
   returns: v.object({ inserted: v.boolean(), jobId: v.string() }),
@@ -61,9 +78,11 @@ export const publishBrainExport = internalMutationGeneric({
       .unique();
     if (
       !j ||
-      j.lifecycleGeneration !== i.lifecycleGeneration ||
-      j.policyGeneration !== i.policyGeneration ||
-      j.state !== "requested"
+      !brainExportPublishable({
+        job: j,
+        lifecycleGeneration: i.lifecycleGeneration,
+        policyGeneration: i.policyGeneration,
+      })
     )
       return { ok: false };
     await ctx.db.patch(j._id, {
@@ -78,6 +97,64 @@ export const publishBrainExport = internalMutationGeneric({
     return { ok: true };
   },
 });
+
+/**
+ * The worker seam: callers upload the deterministic JSON payload, then pass
+ * this storage id to publishBrainExport. It is internal so exports stay off
+ * the headless/API surface until a reviewed web capability owns the flow.
+ */
+export const storeBrainExportArtifact = internalActionGeneric({
+  args: { text: v.string() },
+  returns: v.object({ artifactId: v.string(), sizeBytes: v.number() }),
+  handler: async (ctx, { text }) => {
+    const bytes = new TextEncoder().encode(text);
+    const artifactId = await ctx.storage.store(
+      new Blob([bytes], { type: "application/json" }),
+    );
+    return { artifactId: String(artifactId), sizeBytes: bytes.byteLength };
+  },
+});
+
+export const temporaryBrainExportUrl = internalQueryGeneric({
+  args: { jobId: v.string(), now: v.number() },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, i) => {
+    const j = await ctx.db
+      .query("brainExportJobs")
+      .withIndex("by_job_id", (q: any) => q.eq("jobId", i.jobId))
+      .unique();
+    if (
+      !j ||
+      j.state !== "ready" ||
+      !j.artifactId ||
+      j.expiresAt === undefined ||
+      j.expiresAt <= i.now
+    )
+      return null;
+    return await ctx.storage.getUrl(j.artifactId as never);
+  },
+});
+
+export const expireBrainExport = internalMutationGeneric({
+  args: { jobId: v.string(), now: v.number() },
+  returns: v.object({ ok: v.boolean() }),
+  handler: async (ctx, i) => {
+    const j = await ctx.db
+      .query("brainExportJobs")
+      .withIndex("by_job_id", (q: any) => q.eq("jobId", i.jobId))
+      .unique();
+    if (
+      !j ||
+      j.state !== "ready" ||
+      j.expiresAt === undefined ||
+      j.expiresAt > i.now
+    )
+      return { ok: false };
+    await ctx.db.patch(j._id, { state: "expired", updatedAt: i.now });
+    return { ok: true };
+  },
+});
+
 export const revokeBrainExport = internalMutationGeneric({
   args: { jobId: v.string(), lifecycleGeneration: v.number(), now: v.number() },
   returns: v.object({ ok: v.boolean() }),
@@ -101,6 +178,7 @@ export const purgeBrainExport = internalMutationGeneric({
       .withIndex("by_job_id", (q: any) => q.eq("jobId", i.jobId))
       .unique();
     if (!j || j.state === "purged") return { ok: false };
+    if (j.artifactId) await ctx.storage.delete(j.artifactId as never);
     await ctx.db.patch(j._id, {
       state: "purged",
       artifactId: undefined,
