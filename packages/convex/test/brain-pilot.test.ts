@@ -8,6 +8,11 @@ import refs from "../confect/_generated/refs";
 import { Id } from "../confect/_generated/id";
 import databaseSchema from "../confect/_generated/schema";
 import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
+import type {
+  BrainPagesDoc,
+  CitationsDoc,
+  PageRevisionsDoc,
+} from "../confect/_generated/docs";
 import type { Role } from "../confect/access/roles";
 import { Forbidden } from "../confect/errors";
 import { testConfectLayer } from "./support/confect";
@@ -113,28 +118,12 @@ const actor = (
     workosOrganizationId: `org_${subject}`,
   });
 
+type WithoutConvexMetadata<T> = Omit<T, "_id" | "_creationTime">;
+
 type PublishedStateValue = {
-  readonly pages: {
-    pageKey: string;
-    currentRevisionKey: string | null;
-    title: string;
-    markdown: string;
-    sourceKind: string;
-    status: string;
-  }[];
-  readonly revisions: {
-    pageKey: string;
-    revisionKey: string;
-    markdown: string;
-    state: string;
-  }[];
-  readonly citations: {
-    citationId: string;
-    sourceId: string;
-    pageKey: string;
-    revisionKey: string;
-    quotedText: string;
-  }[];
+  readonly pages: WithoutConvexMetadata<BrainPagesDoc>[];
+  readonly revisions: WithoutConvexMetadata<PageRevisionsDoc>[];
+  readonly citations: WithoutConvexMetadata<CitationsDoc>[];
 };
 
 const PublishedState = Schema.Any as unknown as Schema.Schema<
@@ -341,6 +330,13 @@ describe("Brain pilot contract", () => {
           PublishedState,
         );
         const page = before.pages[0];
+        if (
+          page === undefined ||
+          page.pageKey === undefined ||
+          page.currentRevisionKey === undefined ||
+          page.currentRevisionKey === null
+        )
+          throw new Error("Published page is incomplete");
         const updated = yield* editor.mutation(
           refs.public.brain.pilot.updatePage,
           {
