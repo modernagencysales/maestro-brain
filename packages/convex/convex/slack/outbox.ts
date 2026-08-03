@@ -39,6 +39,7 @@ import {
   validateNangoEnv,
   type NangoClient,
 } from "@maestro-template/integrations/nango/client";
+import type { ActionCtx } from "../_generated/server";
 const f = {
   organizationKey: v.string(),
   workspaceId: v.string(),
@@ -64,13 +65,10 @@ type OutboxMutationArgs = Readonly<{
 type OutboxReader = Pick<DatabaseReader, "query">;
 type OutboxEnqueuer = Pick<DatabaseWriter, "query" | "insert">;
 type OutboxMutator = Pick<DatabaseWriter, "query" | "patch">;
-type OutboxActionContext = {
-  runQuery: (ref: unknown, args: unknown) => Promise<unknown>;
-  runMutation: (ref: unknown, args: unknown) => Promise<{ ok: boolean }>;
-  scheduler: {
-    runAfter: (delay: number, ref: unknown, args: unknown) => Promise<void>;
-  };
-};
+type OutboxActionContext = Pick<
+  ActionCtx,
+  "runQuery" | "runMutation" | "scheduler"
+>;
 const internalOutbox = {
   get: makeFunctionReference<"query", { answerKey: string }, unknown>(
     "slack/outbox:getAnswerOutbox",
@@ -140,9 +138,8 @@ export const listExpiredAnswerOutbox = internalQueryGeneric({
   handler: async (ctx, a) =>
     (await ctx.db
       .query("outboundDeliveryOutbox")
-      .withIndex("by_lease_expiry", (q) =>
-        q.eq("status", "in_flight").lte("leaseExpiresAt", a.now),
-      )
+      .withIndex("by_lease_expiry", (q) => q.eq("status", "in_flight"))
+      .filter((q) => q.lte(q.field("leaseExpiresAt"), a.now))
       .take(a.limit)) as SlackAnswerOutboxRow[],
 });
 
@@ -164,8 +161,9 @@ export const finalAuthorizeAnswerOutbox = internalQueryGeneric({
     const policies = await ctx.db
       .query("channelDeliveryPolicies")
       .withIndex("by_channel_active", (q) =>
-        q.eq("channelKey", row.delivery.channelKey).eq("active", true),
+        q.eq("channelKey", row.delivery.channelKey),
       )
+      .filter((q) => q.eq(q.field("active"), true))
       .collect();
     const records = await ctx.db
       .query("policies")
@@ -240,7 +238,13 @@ const mutate = async (
   if (!r) return { ok: false };
   const n = fn(r as SlackAnswerOutboxRow);
   if (Either.isLeft(n)) return { ok: false };
-  await ctx.db.patch(r._id, n.right);
+  await ctx.db.patch(r._id, {
+    ...n.right,
+    answer: {
+      ...n.right.answer,
+      citations: n.right.answer.citations.map((citation) => ({ ...citation })),
+    },
+  } as never);
   return { ok: true };
 };
 export const enqueueAnswerOutboxHandler = async (
@@ -259,9 +263,13 @@ export const enqueueAnswerOutboxHandler = async (
     return { inserted: false, answerKey: r.answerKey };
   await ctx.db.insert("outboundDeliveryOutbox", {
     ...r,
+    answer: {
+      ...r.answer,
+      citations: r.answer.citations.map((citation) => ({ ...citation })),
+    },
     schemaVersion: 1,
     organizationKey: r.delivery.organizationKey,
-  });
+  } as never);
   await schedule(r.answerKey);
   return { inserted: true, answerKey: r.answerKey };
 };
@@ -426,9 +434,14 @@ const getNangoClient = (): NangoClient | null => {
 
 const providerPort = (ctx: OutboxActionContext): ProviderPort => ({
   send: async (input) => {
-    const connection = await ctx.runQuery(internalOutbox.providerConnection, {
+    const connection = (await ctx.runQuery(internalOutbox.providerConnection, {
       connectionKey: input.connectionKey,
-    });
+    })) as {
+      readonly status?: string;
+      readonly nangoConnectionId?: string;
+      readonly connectionGeneration?: number;
+      readonly teamId?: string;
+    } | null;
     if (
       connection === null ||
       connection.status !== "active" ||

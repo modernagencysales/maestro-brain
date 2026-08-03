@@ -93,8 +93,11 @@ describe("Slack answer outbox worker", () => {
       db: {
         query: () => ({ withIndex: () => ({ unique: async () => null }) }),
         insert: async (_table: string, value: Record<string, unknown>) => {
-          rows.set(value.answerKey, value);
-          return value.answerKey;
+          const answerKey = value.answerKey;
+          if (typeof answerKey !== "string")
+            throw new Error("missing answer key");
+          rows.set(answerKey, value);
+          return answerKey;
         },
       },
     };

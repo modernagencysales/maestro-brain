@@ -96,7 +96,10 @@ export const receiveSlackEvent = internalMutationGeneric({
         findArtifact: () => artifactFor(ctx.db, i),
         insert: (t, r) => ctx.db.insert(t as never, r as never),
         patchArtifact: (e, r) =>
-          ctx.db.patch((e as { readonly _id: unknown })._id, r as never),
+          ctx.db.patch(
+            (e as { readonly _id: string })._id as never,
+            r as never,
+          ),
       },
       i,
     ),
