@@ -1,4 +1,4 @@
-import { internalMutationGeneric } from "convex/server";
+import { mutationGeneric } from "convex/server";
 import { v } from "convex/values";
 
 import { ingestSlackEvent } from "../../confect/slack/ingress";
@@ -76,7 +76,7 @@ const sourceArtifactFor = async (db: any, input: any) => {
     .unique();
 };
 
-export const receiveSlackEvent = internalMutationGeneric({
+export const receiveSlackEvent = mutationGeneric({
   args,
   returns: v.object({ outcome: v.string() }),
   handler: async (ctx, input) =>
