@@ -86,6 +86,66 @@ const store = (initial: SlackAnswerOutboxRow): AnswerOutboxStore => {
 };
 
 describe("Slack answer outbox worker", () => {
+  it("schedules delivery only after a new durable enqueue", async () => {
+    const rows = new Map<string, any>();
+    const scheduled: string[] = [];
+    const ctx = {
+      db: {
+        query: () => ({ withIndex: () => ({ unique: async () => null }) }),
+        insert: async (_table: string, value: any) => {
+          rows.set(value.answerKey, value);
+          return value.answerKey;
+        },
+      },
+    };
+    const enqueue = (outbox as Record<string, unknown>)[
+      "enqueueAnswerOutboxHandler"
+    ] as (
+      ctx: any,
+      args: any,
+      schedule: (answerKey: string) => Promise<void>,
+    ) => Promise<any>;
+    expect(enqueue).toBeTypeOf("function");
+    if (enqueue === undefined) return;
+
+    const result = await enqueue(
+      ctx,
+      {
+        input: input(),
+        authorized: row().lifecycle && { lifecycle: row().lifecycle },
+      },
+      async (answerKey) => {
+        scheduled.push(answerKey);
+      },
+    );
+    expect(result.inserted).toBe(true);
+    expect(scheduled).toEqual([result.answerKey]);
+  });
+
+  it("schedules delivery after recovering an expired lease", async () => {
+    const queued = row();
+    const scheduled: string[] = [];
+    const ctx = {
+      runQuery: async () => [queued],
+      runMutation: async () => ({ ok: true }),
+    };
+    const recover = (outbox as Record<string, unknown>)[
+      "recoverExpiredAnswerOutboxesHandler"
+    ] as (
+      ctx: any,
+      args: any,
+      schedule: (answerKey: string) => Promise<void>,
+    ) => Promise<any>;
+    expect(recover).toBeTypeOf("function");
+    if (recover === undefined) return;
+
+    const result = await recover(ctx, { limit: 10 }, async (answerKey) => {
+      scheduled.push(answerKey);
+    });
+    expect(result.recovered).toBe(1);
+    expect(scheduled).toEqual([queued.answerKey]);
+  });
+
   it("final-authorizes then sends only to the stored requester", async () => {
     const worker = (outbox as Record<string, unknown>)[
       "runAnswerOutboxWorker"

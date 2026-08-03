@@ -82,6 +82,9 @@ const internalOutbox = {
   recover: makeFunctionReference<"mutation", any, { ok: boolean }>(
     "slack/outbox:recoverAnswerOutbox",
   ),
+  deliver: makeFunctionReference<"action", { answerKey: string }, unknown>(
+    "slack/outbox:deliverAnswerOutbox",
+  ),
 } as const;
 const find = async (db: any, k: string) =>
   await db
@@ -211,23 +214,33 @@ const mutate = async (
   await ctx.db.patch(r._id, n.right);
   return { ok: true };
 };
+export const enqueueAnswerOutboxHandler = async (
+  ctx: any,
+  a: any,
+  schedule: (answerKey: string) => Promise<void>,
+) => {
+  const r = answerOutboxRow({
+    input: a.input as AnswerDeliveryInput,
+    authorized: a.authorized as AnswerDeliveryAuthorization,
+  });
+  if (await find(ctx.db, r.answerKey))
+    return { inserted: false, answerKey: r.answerKey };
+  await ctx.db.insert("outboundDeliveryOutbox", {
+    ...r,
+    schemaVersion: 1,
+    organizationKey: r.delivery.organizationKey,
+  });
+  await schedule(r.answerKey);
+  return { inserted: true, answerKey: r.answerKey };
+};
+
 export const enqueueAnswerOutbox = internalMutationGeneric({
   args: { input: v.any(), authorized: v.any() },
   returns: v.object({ inserted: v.boolean(), answerKey: v.string() }),
-  handler: async (ctx, a) => {
-    const r = answerOutboxRow({
-      input: a.input as AnswerDeliveryInput,
-      authorized: a.authorized as AnswerDeliveryAuthorization,
-    });
-    if (await find(ctx.db, r.answerKey))
-      return { inserted: false, answerKey: r.answerKey };
-    await ctx.db.insert("outboundDeliveryOutbox", {
-      ...r,
-      schemaVersion: 1,
-      organizationKey: r.delivery.organizationKey,
-    });
-    return { inserted: true, answerKey: r.answerKey };
-  },
+  handler: async (ctx, a) =>
+    await enqueueAnswerOutboxHandler(ctx, a, async (answerKey) => {
+      await ctx.scheduler.runAfter(0, internalOutbox.deliver, { answerKey });
+    }),
 });
 export const claimAnswerOutbox = internalMutationGeneric({
   args: {
@@ -464,24 +477,36 @@ export const deliverAnswerOutbox = internalActionGeneric({
   },
 });
 
+export const recoverExpiredAnswerOutboxesHandler = async (
+  ctx: any,
+  a: { readonly limit: number },
+  schedule: (answerKey: string) => Promise<void>,
+) => {
+  const now = Date.now();
+  const rows = (await ctx.runQuery(internalOutbox.listExpired, {
+    now,
+    limit: a.limit,
+  })) as readonly SlackAnswerOutboxRow[];
+  let recovered = 0;
+  for (const row of rows) {
+    const result = await ctx.runMutation(internalOutbox.recover, {
+      answerKey: row.answerKey,
+      now,
+      expectedLifecycle: row.lifecycle,
+    });
+    if (result.ok) {
+      recovered += 1;
+      await schedule(row.answerKey);
+    }
+  }
+  return { recovered };
+};
+
 export const recoverExpiredAnswerOutboxes = internalActionGeneric({
   args: { limit: v.number() },
   returns: v.object({ recovered: v.number() }),
-  handler: async (ctx, a) => {
-    const now = Date.now();
-    const rows = (await ctx.runQuery(internalOutbox.listExpired, {
-      now,
-      limit: a.limit,
-    })) as readonly SlackAnswerOutboxRow[];
-    let recovered = 0;
-    for (const row of rows) {
-      const result = await ctx.runMutation(internalOutbox.recover, {
-        answerKey: row.answerKey,
-        now,
-        expectedLifecycle: row.lifecycle,
-      });
-      if (result.ok) recovered += 1;
-    }
-    return { recovered };
-  },
+  handler: async (ctx, a) =>
+    await recoverExpiredAnswerOutboxesHandler(ctx, a, async (answerKey) => {
+      await ctx.scheduler.runAfter(0, internalOutbox.deliver, { answerKey });
+    }),
 });
