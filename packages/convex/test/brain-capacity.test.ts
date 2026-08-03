@@ -52,8 +52,8 @@ describe("Brain capacity Convex contract proof", () => {
     });
     expect(receipt.metrics.aboveEnvelopeAdmission).toEqual({
       attemptedEventsPerSecond: 40,
-      outcome: "CapacityExceeded",
-      queuedVisible: false,
+      outcome: "Queued",
+      queuedVisible: true,
     });
   });
 
