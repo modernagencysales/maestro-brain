@@ -5,6 +5,7 @@ import {
   makeFunctionReference,
 } from "convex/server";
 import { v } from "convex/values";
+import type { DatabaseReader, DatabaseWriter } from "../_generated/server";
 import * as Effect from "effect/Effect";
 import * as Either from "effect/Either";
 import {
@@ -60,21 +61,10 @@ type OutboxMutationArgs = Readonly<{
   kind?: "retryable" | "terminal";
   code?: string;
 }>;
-type OutboxQuery = {
-  eq: (field: string, value: unknown) => OutboxQuery;
-  lte: (field: string, value: unknown) => OutboxQuery;
-  unique: () => Promise<unknown>;
-  collect: () => Promise<unknown[]>;
-  take: (limit: number) => Promise<unknown[]>;
-};
-type OutboxDb = {
-  query: (table: string) => {
-    withIndex: (index: string, fn: (q: OutboxQuery) => unknown) => OutboxQuery;
-  };
-  insert: (table: string, row: unknown) => Promise<unknown>;
-  patch: (id: unknown, patch: unknown) => Promise<void>;
-};
-type OutboxActionContext = OutboxDb & {
+type OutboxReader = Pick<DatabaseReader, "query">;
+type OutboxEnqueuer = Pick<DatabaseWriter, "query" | "insert">;
+type OutboxMutator = Pick<DatabaseWriter, "query" | "patch">;
+type OutboxActionContext = {
   runQuery: (ref: unknown, args: unknown) => Promise<unknown>;
   runMutation: (ref: unknown, args: unknown) => Promise<{ ok: boolean }>;
   scheduler: {
@@ -120,7 +110,7 @@ const internalOutbox = {
     "slack/outbox:deliverAnswerOutbox",
   ),
 } as const;
-const find = async (db: OutboxDb, k: string) =>
+const find = async (db: OutboxReader, k: string) =>
   await db
     .query("outboundDeliveryOutbox")
     .withIndex("by_answer_key", (q) => q.eq("answerKey", k))
@@ -242,7 +232,7 @@ export const finalAuthorizeAnswerOutbox = internalQueryGeneric({
   },
 });
 const mutate = async (
-  ctx: { readonly db: OutboxDb },
+  ctx: { readonly db: OutboxMutator },
   k: string,
   fn: (r: SlackAnswerOutboxRow) => Either.Either<SlackAnswerOutboxRow, unknown>,
 ) => {
@@ -254,7 +244,7 @@ const mutate = async (
   return { ok: true };
 };
 export const enqueueAnswerOutboxHandler = async (
-  ctx: { readonly db: OutboxDb },
+  ctx: { readonly db: OutboxEnqueuer },
   a: {
     readonly input: AnswerDeliveryInput;
     readonly authorized: AnswerDeliveryAuthorization;

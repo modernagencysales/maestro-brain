@@ -105,7 +105,7 @@ describe("Slack answer outbox worker", () => {
     if (enqueue === undefined) return;
 
     const result = await enqueue(
-      ctx,
+      ctx as unknown as Parameters<typeof outbox.enqueueAnswerOutboxHandler>[0],
       {
         input: input(),
         authorized: row().lifecycle && { lifecycle: row().lifecycle },
@@ -131,9 +131,15 @@ describe("Slack answer outbox worker", () => {
     expect(recover).toBeTypeOf("function");
     if (recover === undefined) return;
 
-    const result = await recover(ctx, { limit: 10 }, async (answerKey) => {
-      scheduled.push(answerKey);
-    });
+    const result = await recover(
+      ctx as unknown as Parameters<
+        typeof outbox.recoverExpiredAnswerOutboxesHandler
+      >[0],
+      { limit: 10 },
+      async (answerKey) => {
+        scheduled.push(answerKey);
+      },
+    );
     expect(result.recovered).toBe(1);
     expect(scheduled).toEqual([queued.answerKey]);
   });

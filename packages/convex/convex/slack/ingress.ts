@@ -1,5 +1,6 @@
 import { internalMutationGeneric } from "convex/server";
 import { v } from "convex/values";
+import type { DatabaseWriter } from "../_generated/server";
 import { ingestSlackEvent } from "../../confect/slack/ingress";
 const args = {
   organizationKey: v.string(),
@@ -37,21 +38,7 @@ type IngressInput = Readonly<{
   transportDeliveryId: string;
   payload: unknown;
 }>;
-type IngressQuery = {
-  eq: (field: string, value: unknown) => IngressQuery;
-  unique: () => Promise<unknown>;
-  collect: () => Promise<unknown[]>;
-};
-type IngressDb = {
-  query: (table: string) => {
-    withIndex: (
-      index: string,
-      fn: (q: IngressQuery) => unknown,
-    ) => IngressQuery;
-  };
-  insert: (table: string, row: unknown) => Promise<unknown>;
-  patch: (id: unknown, row: unknown) => Promise<void>;
-};
+type IngressDb = Pick<DatabaseWriter, "query" | "insert" | "patch">;
 const receiptFor = async (db: IngressDb, i: IngressInput) =>
   await db
     .query("providerEventReceipts")
