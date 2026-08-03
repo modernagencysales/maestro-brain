@@ -52,9 +52,11 @@ export type BrainDocumentSection = {
 };
 
 type BrainPageRefs = TemplateConfectRefs["public"]["brain"]["pages"];
+type BrainPilotRefs = TemplateConfectRefs["public"]["brain"]["pilot"];
 export type BrainPageListData = Ref.Returns<BrainPageRefs["list"]>;
 export type BrainPageDetail = Ref.Returns<BrainPageRefs["get"]>;
 export type BrainPageSummary = BrainPageListData["pages"][number];
+export type BrainPilotSearchData = Ref.Returns<BrainPilotRefs["search"]>;
 
 type BrainWorkspaceRefs = {
   readonly list: BrainPageRefs["list"];
@@ -63,11 +65,23 @@ type BrainWorkspaceRefs = {
   readonly rename: BrainPageRefs["rename"];
 };
 
+type BrainWorkspacePilotRefs = {
+  readonly submitNote: BrainPilotRefs["submitNote"];
+  readonly reviewNote: BrainPilotRefs["reviewNote"];
+  readonly search: BrainPilotRefs["search"];
+};
+
 export const brainWorkspaceRefs: BrainWorkspaceRefs = {
   list: templateConfectRefs.public.brain.pages.list,
   get: templateConfectRefs.public.brain.pages.get,
   create: templateConfectRefs.public.brain.pages.create,
   rename: templateConfectRefs.public.brain.pages.rename,
+} as const;
+
+export const brainPilotRefs: BrainWorkspacePilotRefs = {
+  submitNote: templateConfectRefs.public.brain.pilot.submitNote,
+  reviewNote: templateConfectRefs.public.brain.pilot.reviewNote,
+  search: templateConfectRefs.public.brain.pilot.search,
 } as const;
 
 export type BrainPageMutationResult<T> = T | Either.Either<T, unknown>;
@@ -89,12 +103,17 @@ export type BrainPilotAdapter = {
   readonly submitNote?: (input: {
     readonly title: string;
     readonly markdown: string;
-  }) => Promise<unknown>;
+  }) => Promise<BrainPilotSourceSummary>;
   readonly reviewNote?: (input: {
     readonly sourceKey: string;
     readonly decision: "approve" | "reject";
-  }) => Promise<unknown>;
+  }) => Promise<BrainPilotSourceSummary>;
   readonly search?: (query: string) => Promise<readonly BrainSearchResult[]>;
+};
+
+export type BrainPilotSourceSummary = {
+  readonly sourceKey: string;
+  readonly status: "pending_review" | "published" | "rejected";
 };
 
 export type BrainSearchResult = {
@@ -119,18 +138,31 @@ export const createBrainWorkspaceAdapter = ({
   canEdit,
   mutations,
   pilot,
+  savePage,
 }: {
   readonly brainKey: string;
   readonly canEdit: boolean;
   readonly mutations: BrainWorkspaceMutationInputs;
   readonly pilot?: BrainPilotAdapter;
+  readonly savePage?: BrainWorkspaceAdapter["savePage"];
 }): BrainWorkspaceAdapter => ({
   brainKey,
   canEdit,
   ...pilot,
   createPage: mutations.create,
   renamePage: mutations.rename,
+  ...(savePage === undefined ? {} : { savePage }),
 });
+
+export const unwrapBrainMutation = <T>(
+  result: BrainPageMutationResult<T>,
+): T => {
+  if (Either.isEither(result)) {
+    if (Either.isLeft(result)) throw result.left;
+    return result.right;
+  }
+  return result;
+};
 
 export function createBrainContextPackPreview(
   items: readonly string[],

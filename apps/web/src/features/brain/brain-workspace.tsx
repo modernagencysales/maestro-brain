@@ -24,12 +24,15 @@ import type {
   BrainPageDetail,
   BrainPageListData,
   BrainPageSummary,
+  BrainPilotSearchData,
   BrainSearchResult,
   BrainWorkspaceAdapter,
 } from "./brain-surface";
 import {
+  brainPilotRefs,
   brainWorkspaceRefs,
   createBrainWorkspaceAdapter,
+  unwrapBrainMutation,
 } from "./brain-surface";
 
 export type BrainPageListState =
@@ -62,9 +65,81 @@ export type BrainReviewNotice = {
   readonly message: string;
 };
 
+export type BrainWorkspaceActionState =
+  | {
+      readonly status: "pending_review" | "published" | "rejected";
+      readonly sourceKey: string;
+    }
+  | { readonly status: "saved" }
+  | { readonly status: "unavailable" | "failure"; readonly message: string };
+
+export const createBrainWorkspaceActions = (
+  adapter: BrainWorkspaceAdapter,
+) => ({
+  submitNote: async (input: {
+    readonly title: string;
+    readonly markdown: string;
+  }): Promise<BrainWorkspaceActionState> => {
+    if (adapter.submitNote === undefined) {
+      return {
+        status: "unavailable",
+        message: "Note submission is unavailable.",
+      };
+    }
+    try {
+      const result = await adapter.submitNote(input);
+      return result.status === "pending_review"
+        ? result
+        : { status: "failure", message: "The note was not queued for review." };
+    } catch (error) {
+      return { status: "failure", message: failureMessage(error) };
+    }
+  },
+  reviewNote: async (input: {
+    readonly sourceKey: string;
+    readonly decision: "approve" | "reject";
+  }): Promise<BrainWorkspaceActionState> => {
+    if (adapter.reviewNote === undefined) {
+      return { status: "unavailable", message: "Note review is unavailable." };
+    }
+    try {
+      const result = await adapter.reviewNote(input);
+      return result.status === "published" || result.status === "rejected"
+        ? result
+        : { status: "failure", message: "The review decision was not saved." };
+    } catch (error) {
+      return { status: "failure", message: failureMessage(error) };
+    }
+  },
+  savePage: async (input: {
+    readonly pageKey: string;
+    readonly markdown: string;
+  }): Promise<BrainWorkspaceActionState> => {
+    if (adapter.savePage === undefined) {
+      return { status: "unavailable", message: "Page saving is unavailable." };
+    }
+    try {
+      await adapter.savePage(input);
+      return { status: "saved" };
+    } catch (error) {
+      return { status: "failure", message: failureMessage(error) };
+    }
+  },
+  search: async (query: string): Promise<readonly BrainSearchResult[]> => {
+    if (adapter.search === undefined) {
+      throw new Error("Search is unavailable");
+    }
+    return adapter.search(query);
+  },
+});
+
+const failureMessage = (error: unknown): string =>
+  error instanceof Error ? error.message : "The Brain operation failed.";
+
 export const BrainWorkspaceRoute = () => {
   const workspace = useWorkspace();
   const [search, setSearch] = useState<BrainSearchState>({ status: "idle" });
+  const [searchQuery, setSearchQuery] = useState<string | null>(null);
   const brainKey =
     workspace.status === "ready" ? workspace.activeWorkspace.workspaceId : null;
   const list = useTemplateQuery(
@@ -81,6 +156,14 @@ export const BrainWorkspaceRoute = () => {
   );
   const create = useTemplateMutation(brainWorkspaceRefs.create);
   const rename = useTemplateMutation(brainWorkspaceRefs.rename);
+  const submitNote = useTemplateMutation(brainPilotRefs.submitNote);
+  const reviewNote = useTemplateMutation(brainPilotRefs.reviewNote);
+  const pilotSearch = useTemplateQuery(
+    brainPilotRefs.search,
+    brainKey === null || searchQuery === null
+      ? "skip"
+      : { brainKey, query: searchQuery },
+  );
 
   if (workspace.status !== "ready") {
     return (
@@ -111,6 +194,39 @@ export const BrainWorkspaceRoute = () => {
     brainKey: workspace.activeWorkspace.workspaceId,
     canEdit: workspace.activeWorkspace.role !== "viewer",
     mutations: { create, rename },
+    pilot: {
+      submitNote: async (input) =>
+        unwrapBrainMutation(
+          await submitNote({
+            brainKey: workspace.activeWorkspace.workspaceId,
+            ...input,
+          }),
+        ),
+      reviewNote: async (input) =>
+        unwrapBrainMutation(
+          await reviewNote({
+            brainKey: workspace.activeWorkspace.workspaceId,
+            ...input,
+          }),
+        ),
+    },
+    savePage:
+      detail.status === "ready"
+        ? async ({ markdown }) => {
+            const suffix = String(Date.now()).padStart(10, "0");
+            return unwrapBrainMutation(
+              await create({
+                brainKey: workspace.activeWorkspace.workspaceId,
+                parentPageKey: detail.data.page.parentPageKey,
+                siblingSlug: `${detail.data.page.siblingSlug}-edit-${suffix}`,
+                sortKey: suffix,
+                title: detail.data.page.title,
+                markdown,
+                expectedCurrentRevisionKey: null,
+              }),
+            );
+          }
+        : undefined,
   });
 
   return (
@@ -126,14 +242,27 @@ export const BrainWorkspaceRoute = () => {
             detail={detailState}
             list={listState}
             onSearch={(query) => {
-              setSearch({
-                status: "failure",
-                query,
-                message:
-                  "Search is unavailable until the Brain pilot backend is connected.",
-              });
+              setSearchQuery(query);
+              setSearch({ status: "loading", query });
             }}
-            search={search}
+            search={
+              searchQuery === null
+                ? search
+                : pilotSearch.status === "ready"
+                  ? {
+                      status: "ready",
+                      query: searchQuery,
+                      results: (pilotSearch.data as BrainPilotSearchData)
+                        .results,
+                    }
+                  : pilotSearch.status === "loading"
+                    ? { status: "loading", query: searchQuery }
+                    : {
+                        status: "failure",
+                        query: searchQuery,
+                        message: "Unable to search Brain. Try again.",
+                      }
+            }
           />
         </Page.Body>
       </BusinessPageRoot>
@@ -158,8 +287,14 @@ export const BrainWorkspace = ({
   readonly reviewNotice?: BrainReviewNotice;
   readonly search?: BrainSearchState;
 }) => {
+  const actions = createBrainWorkspaceActions(adapter);
   const [mode, setMode] = useState(initialMode);
   const [query, setQuery] = useState("");
+  const [noteTitle, setNoteTitle] = useState("");
+  const [noteMarkdown, setNoteMarkdown] = useState("");
+  const [sourceKey, setSourceKey] = useState<string | null>(null);
+  const [reviewState, setReviewState] =
+    useState<BrainWorkspaceActionState | null>(null);
   const [title, setTitle] = useState(
     detail.status === "ready" ? detail.data.page.title : "",
   );
@@ -262,9 +397,12 @@ export const BrainWorkspace = ({
                     brainKey: adapter.brainKey,
                     parentPageKey: null,
                     siblingSlug:
-                      title.trim().toLowerCase().replaceAll(" ", "-") ||
-                      "new-page",
-                    sortKey: String(Date.now()),
+                      title
+                        .trim()
+                        .toLowerCase()
+                        .replace(/[^a-z0-9-]+/g, "-")
+                        .replace(/^-+|-+$/g, "") || "new-page",
+                    sortKey: String(Date.now()).slice(-10),
                     title: title.trim() || "Untitled page",
                     markdown: "",
                     expectedCurrentRevisionKey: null,
@@ -356,16 +494,23 @@ export const BrainWorkspace = ({
                 <Button
                   disabled={adapter.savePage === undefined}
                   type="button"
-                  onClick={() => undefined}
+                  onClick={async () => {
+                    if (detail.status !== "ready") return;
+                    const result = await actions.savePage({
+                      pageKey: detail.data.page.pageKey,
+                      markdown,
+                    });
+                    setOperationNotice(
+                      result.status === "saved"
+                        ? "Page saved as a new Brain page."
+                        : "message" in result
+                          ? result.message
+                          : "Page save failed.",
+                    );
+                  }}
                 >
                   Save page
                 </Button>
-                {adapter.savePage === undefined ? (
-                  <Text color="gray.600" fontSize="sm">
-                    Page content saving is unavailable until the public snapshot
-                    ref is connected.
-                  </Text>
-                ) : null}
                 {operationNotice ? (
                   <Text aria-live="polite" color="gray.600" fontSize="sm">
                     {operationNotice}
@@ -400,18 +545,90 @@ export const BrainWorkspace = ({
             <Text color="gray.600" fontSize="sm">
               Note submission and review are explicit pilot operations.
             </Text>
-            <HStack gap="2" wrap="wrap">
-              <Button disabled={adapter.submitNote === undefined} type="button">
-                Submit note
-              </Button>
-              <Button
-                disabled={adapter.reviewNote === undefined}
-                type="button"
-                variant="outline"
-              >
-                Approve note
-              </Button>
-            </HStack>
+            <form
+              aria-label="Submit note"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                const result = await actions.submitNote({
+                  title: noteTitle.trim(),
+                  markdown: noteMarkdown,
+                });
+                setReviewState(result);
+                if (result.status === "pending_review") {
+                  setSourceKey(result.sourceKey);
+                }
+              }}
+            >
+              <Stack gap="2">
+                <label htmlFor="brain-note-title">Note title</label>
+                <Input
+                  id="brain-note-title"
+                  onChange={(event) => setNoteTitle(event.target.value)}
+                  value={noteTitle}
+                />
+                <label htmlFor="brain-note-markdown">Note markdown</label>
+                <textarea
+                  id="brain-note-markdown"
+                  onChange={(event) => setNoteMarkdown(event.target.value)}
+                  rows={6}
+                  value={noteMarkdown}
+                />
+                <Button
+                  disabled={adapter.submitNote === undefined}
+                  type="submit"
+                >
+                  Submit note
+                </Button>
+              </Stack>
+            </form>
+            {sourceKey !== null && reviewState?.status === "pending_review" ? (
+              <HStack gap="2" wrap="wrap">
+                <Button
+                  disabled={adapter.reviewNote === undefined}
+                  type="button"
+                  onClick={async () => {
+                    const result = await actions.reviewNote({
+                      sourceKey,
+                      decision: "approve",
+                    });
+                    setReviewState(result);
+                  }}
+                >
+                  Approve note
+                </Button>
+                <Button
+                  disabled={adapter.reviewNote === undefined}
+                  type="button"
+                  variant="outline"
+                  onClick={async () => {
+                    const result = await actions.reviewNote({
+                      sourceKey,
+                      decision: "reject",
+                    });
+                    setReviewState(result);
+                  }}
+                >
+                  Reject note
+                </Button>
+              </HStack>
+            ) : null}
+            {reviewState?.status === "pending_review" ? (
+              <Text role="status">Note pending review.</Text>
+            ) : null}
+            {reviewState?.status === "published" ? (
+              <Text role="status">Note approved and published.</Text>
+            ) : null}
+            {reviewState?.status === "rejected" ? (
+              <Text role="status">Note rejected.</Text>
+            ) : null}
+            {reviewState?.status === "failure" ||
+            reviewState?.status === "unavailable" ? (
+              <Text role="alert">
+                {"message" in reviewState
+                  ? reviewState.message
+                  : "Brain review failed."}
+              </Text>
+            ) : null}
             {adapter.submitNote === undefined ||
             adapter.reviewNote === undefined ? (
               <Text color="gray.600" fontSize="sm">

@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { MaestroSaasUiProvider } from "../../saas-ui/provider";
 import {
   BrainWorkspace,
+  createBrainWorkspaceActions,
   type BrainPageDetailState,
   type BrainPageListState,
 } from "./brain-workspace";
@@ -86,6 +87,71 @@ const render = (
   );
 
 describe("BrainWorkspace", () => {
+  it("drives submit, review, page save, and cited search interactions", async () => {
+    const calls: string[] = [];
+    const flowAdapter = {
+      ...adapter(),
+      submitNote: vi.fn().mockImplementation(async () => {
+        calls.push("submit");
+        return { sourceKey: "src_note", status: "pending_review" as const };
+      }),
+      reviewNote: vi.fn().mockImplementation(async ({ decision }) => {
+        calls.push(decision);
+        return { sourceKey: "src_note", status: "published" as const };
+      }),
+      savePage: vi.fn().mockImplementation(async () => {
+        calls.push("save");
+        return page;
+      }),
+      search: vi.fn().mockImplementation(async () => {
+        calls.push("search");
+        return [
+          {
+            citationKey: "cite_src_note_1",
+            title: "Positioning notes",
+            excerpt: "customer-led growth",
+          },
+        ];
+      }),
+    };
+    const actions = createBrainWorkspaceActions(flowAdapter);
+
+    await expect(
+      actions.submitNote({ title: "Positioning notes", markdown: "proof" }),
+    ).resolves.toMatchObject({ status: "pending_review" });
+    await expect(
+      actions.reviewNote({ sourceKey: "src_note", decision: "approve" }),
+    ).resolves.toMatchObject({ status: "published" });
+    await expect(
+      actions.savePage({ pageKey: page.pageKey, markdown: "edited proof" }),
+    ).resolves.toMatchObject({ status: "saved" });
+    await expect(actions.search("proof")).resolves.toEqual([
+      expect.objectContaining({ citationKey: "cite_src_note_1" }),
+    ]);
+    expect(calls).toEqual(["submit", "approve", "save", "search"]);
+  });
+
+  it("returns explicit failure states for unavailable or rejected interactions", async () => {
+    const actions = createBrainWorkspaceActions({
+      ...adapter(),
+      submitNote: vi.fn().mockRejectedValue(new Error("offline")),
+      savePage: vi.fn().mockRejectedValue(new Error("conflict")),
+    });
+
+    await expect(
+      actions.submitNote({ title: "Note", markdown: "body" }),
+    ).resolves.toMatchObject({ status: "failure", message: "offline" });
+    await expect(
+      actions.reviewNote({ sourceKey: "src_note", decision: "reject" }),
+    ).resolves.toMatchObject({ status: "unavailable" });
+    await expect(
+      actions.savePage({ pageKey: page.pageKey, markdown: "body" }),
+    ).resolves.toMatchObject({ status: "failure", message: "conflict" });
+    await expect(actions.search("body")).rejects.toThrow(
+      "Search is unavailable",
+    );
+  });
+
   it("renders loading and empty page states", () => {
     expect(render({ list: listState("loading") })).toContain(
       "Loading Brain pages",
@@ -134,6 +200,28 @@ describe("BrainWorkspace", () => {
         },
       }),
     ).toContain("Unable to review note. Try again.");
+  });
+
+  it("renders connected pilot controls without the unavailable placeholder", () => {
+    const html = render({
+      adapter: {
+        ...adapter(),
+        submitNote: vi.fn().mockResolvedValue({
+          sourceKey: "src_note",
+          status: "pending_review" as const,
+        }),
+        reviewNote: vi.fn().mockResolvedValue({
+          sourceKey: "src_note",
+          status: "published" as const,
+        }),
+      },
+    });
+
+    expect(html).toContain("Submit note");
+    expect(html).toContain("Note markdown");
+    expect(html).not.toContain(
+      "Review unavailable until the Brain pilot backend is connected.",
+    );
   });
 
   it("renders search results with stable citations", () => {
