@@ -5,6 +5,7 @@ import {
   makeFunctionReference,
 } from "convex/server";
 import { v } from "convex/values";
+import * as Effect from "effect/Effect";
 import * as Either from "effect/Either";
 import {
   answerOutboxRow,
@@ -24,6 +25,7 @@ import {
   operationPolicyFromRecord,
   operationPolicyKey,
 } from "../../confect/ops/brainOperationPolicy";
+import { captureBrainMetric } from "../../confect/observability/posthog";
 import {
   runAnswerDelivery,
   type AnswerOutboxStore,
@@ -430,7 +432,7 @@ export const deliverAnswerOutbox = internalActionGeneric({
     })) as SlackAnswerOutboxRow | null;
     if (row === null) return { outcome: "invalid" };
     const now = Date.now();
-    return await runAnswerOutboxWorker(
+    const result = await runAnswerOutboxWorker(
       {
         store: actionStore(ctx),
         reauthorize: async () =>
@@ -445,6 +447,20 @@ export const deliverAnswerOutbox = internalActionGeneric({
       },
       { answerKey: row.answerKey, expectedLifecycle: row.lifecycle },
     );
+    if (result.outcome === "ambiguous_no_retry") {
+      await Effect.runPromise(
+        captureBrainMetric(ctx, {
+          metric: "outbox_ambiguity",
+          value: 1,
+          unit: "count",
+          workspaceId: row.delivery.workspaceId,
+          subsystem: "slackDelivery",
+          state: result.outcome,
+          generation: row.lifecycle.operationGeneration,
+        }),
+      ).catch(() => undefined);
+    }
+    return result;
   },
 });
 
