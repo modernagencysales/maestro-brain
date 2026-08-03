@@ -89,12 +89,42 @@ describe("Brain lifecycle and authorized retrieval", () => {
       reauthorizeRetrievalReceipt(receipt, {
         ...auth,
         lifecycleGeneration: 3,
+        now: 200,
       }),
     ).toMatchObject({ state: "stale" });
     expect(
       reauthorizeRetrievalReceipt(receipt, {
         ...auth,
         lifecycleState: "revoked",
+        now: 200,
+      }),
+    ).toMatchObject({ state: "revoked" });
+  });
+
+  it("rejects expired retrieval assembly and reauthorization", () => {
+    expect(() =>
+      buildAuthorizedRetrievalReceipt({
+        ...auth,
+        lifecycleState: "active",
+        expiresAt: 200,
+        query: "when is launch?",
+        candidates: [candidate],
+        now: 200,
+      }),
+    ).toThrow("LifecycleExpired");
+
+    const receipt = buildAuthorizedRetrievalReceipt({
+      ...auth,
+      query: "when is launch?",
+      candidates: [candidate],
+      now: 200,
+    });
+    expect(
+      reauthorizeRetrievalReceipt(receipt, {
+        ...auth,
+        lifecycleState: "active",
+        expiresAt: 200,
+        now: 200,
       }),
     ).toMatchObject({ state: "revoked" });
   });

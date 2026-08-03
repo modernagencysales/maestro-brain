@@ -1,3 +1,6 @@
+import { assertReadableLifecycle } from "./lifecycle";
+import { sha256Hex } from "../shared/sha256";
+
 export type AskPage = {
   readonly pageKey: string;
   readonly title: string;
@@ -74,7 +77,8 @@ type RetrievalAuthorization = {
   readonly routeGeneration: number;
   readonly lifecycleGeneration: number;
   readonly policyGeneration: number;
-  readonly lifecycleState?: "active" | "revoked" | undefined;
+  readonly lifecycleState?: "active" | "revoked" | "expired" | undefined;
+  readonly expiresAt?: number | null | undefined;
 };
 
 type RetrievalCandidate = {
@@ -91,7 +95,14 @@ export const buildAuthorizedRetrievalReceipt = (
     readonly now: number;
   },
 ): RetrievalReceipt => {
-  if (input.lifecycleState === "revoked") throw new Error("LifecycleRevoked");
+  assertReadableLifecycle(
+    {
+      state: input.lifecycleState ?? "active",
+      generation: input.lifecycleGeneration,
+      expiresAt: input.expiresAt ?? null,
+    },
+    input.now,
+  );
   if (
     input.role === "viewer" ||
     input.role === "editor" ||
@@ -138,9 +149,16 @@ export const reauthorizeRetrievalReceipt = (
   current: Omit<RetrievalAuthorization, "brainKey" | "principalId"> & {
     readonly brainKey?: string;
     readonly principalId?: string;
+    readonly now: number;
   },
 ): RetrievalReceipt => {
-  if (current.lifecycleState === "revoked")
+  if (
+    current.lifecycleState === "revoked" ||
+    current.lifecycleState === "expired" ||
+    (current.expiresAt !== undefined &&
+      current.expiresAt !== null &&
+      current.expiresAt <= current.now)
+  )
     return { ...receipt, state: "revoked" };
   const stale =
     receipt.workspaceId !== current.workspaceId ||
@@ -253,4 +271,3 @@ export const buildAskResponse = (input: {
     evidence,
   };
 };
-import { sha256Hex } from "../shared/sha256";
