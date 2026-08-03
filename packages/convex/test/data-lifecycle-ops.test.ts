@@ -8,6 +8,9 @@ import databaseSchema from "../confect/_generated/schema";
 import { MemberNotInWorkspace, Unauthorized } from "../confect/errors";
 import dataLifecycleImpl from "../confect/ops/dataLifecycle.impl";
 import dataLifecycle, {
+  BrainExportDownloadArgs,
+  BrainExportRequestArgs,
+  BrainExportStatusArgs,
   CreateDsarRequestArgs,
   DsarRequestReturn,
   ListDsarRequestsArgs,
@@ -15,12 +18,60 @@ import dataLifecycle, {
   manifest as dataLifecycleManifest,
   schemaRegistry as dataLifecycleSchemaRegistry,
 } from "../confect/ops/dataLifecycle.spec";
+import brainExportJobs from "../confect/tables/brainExportJobs";
 import dsarRequests, { DsarRequestRow } from "../confect/tables/dsarRequests";
 import { DatabaseReader } from "../confect/_generated/services";
 import { testConfectLayer } from "./support/confect";
 import { SeededTenancy, seedTenancy } from "./support/seedTenancy";
 
 describe("data lifecycle Confect contracts", () => {
+  it("declares web-only Brain export contracts and the export-job indexes", () => {
+    expect(
+      Schema.decodeUnknownSync(BrainExportRequestArgs)({
+        brainKey: "br_export_123",
+        idempotencyKey: "export_123",
+      }),
+    ).toMatchObject({ idempotencyKey: "export_123" });
+    expect(
+      Schema.decodeUnknownSync(BrainExportStatusArgs)({
+        brainKey: "br_export_123",
+        jobId: "bex_123",
+      }),
+    ).toMatchObject({ jobId: "bex_123" });
+    expect(
+      Schema.decodeUnknownSync(BrainExportDownloadArgs)({
+        brainKey: "br_export_123",
+        jobId: "bex_123",
+      }),
+    ).toMatchObject({ jobId: "bex_123" });
+    expect(brainExportJobs.indexes).toMatchObject({
+      by_job_id: ["jobId"],
+      by_org_idempotency: ["organizationKey", "idempotencyKey"],
+    });
+    expect(dataLifecycleManifest).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          operationId: "ops.dataLifecycle.requestBrainExport",
+          kind: "mutation",
+          surfaces: ["web"],
+          idempotent: true,
+        }),
+        expect.objectContaining({
+          operationId: "ops.dataLifecycle.getBrainExport",
+          kind: "query",
+          surfaces: ["web"],
+          idempotent: true,
+        }),
+        expect.objectContaining({
+          operationId: "ops.dataLifecycle.downloadBrainExport",
+          kind: "query",
+          surfaces: ["web"],
+          idempotent: true,
+        }),
+      ]),
+    );
+  });
+
   it("declares DSAR request audit indexes", () => {
     expect(dsarRequests.indexes).toMatchObject({
       by_workspace: ["workspaceId"],
@@ -139,8 +190,14 @@ describe("data lifecycle Confect contracts", () => {
     expect(Object.keys(dataLifecycleSchemaRegistry).sort()).toEqual([
       "ops.dataLifecycle.createDsarRequest.args",
       "ops.dataLifecycle.createDsarRequest.returns",
+      "ops.dataLifecycle.downloadBrainExport.args",
+      "ops.dataLifecycle.downloadBrainExport.returns",
+      "ops.dataLifecycle.getBrainExport.args",
+      "ops.dataLifecycle.getBrainExport.returns",
       "ops.dataLifecycle.listDsarRequests.args",
       "ops.dataLifecycle.listDsarRequests.returns",
+      "ops.dataLifecycle.requestBrainExport.args",
+      "ops.dataLifecycle.requestBrainExport.returns",
     ]);
   });
 
