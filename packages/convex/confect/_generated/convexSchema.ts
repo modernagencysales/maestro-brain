@@ -34,6 +34,7 @@ import notificationPreferences from "./tables/notificationPreferences";
 import notificationRecords from "./tables/notificationRecords";
 import organizationMembers from "./tables/organizationMembers";
 import organizations from "./tables/organizations";
+import outboundDeliveryOutbox from "./tables/outboundDeliveryOutbox";
 import pageRevisions from "./tables/pageRevisions";
 import policies from "./tables/policies";
 import promptRegistry from "./tables/promptRegistry";
@@ -97,6 +98,7 @@ export default $defineSchema({
   notificationRecords: notificationRecords.tableDefinition,
   organizationMembers: organizationMembers.tableDefinition,
   organizations: organizations.tableDefinition,
+  outboundDeliveryOutbox: outboundDeliveryOutbox.tableDefinition,
   pageRevisions: pageRevisions.tableDefinition,
   policies: policies.tableDefinition,
   promptRegistry: promptRegistry.tableDefinition,

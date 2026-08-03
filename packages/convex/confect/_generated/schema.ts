@@ -34,6 +34,7 @@ import notificationPreferences from "./tables/notificationPreferences";
 import notificationRecords from "./tables/notificationRecords";
 import organizationMembers from "./tables/organizationMembers";
 import organizations from "./tables/organizations";
+import outboundDeliveryOutbox from "./tables/outboundDeliveryOutbox";
 import pageRevisions from "./tables/pageRevisions";
 import policies from "./tables/policies";
 import promptRegistry from "./tables/promptRegistry";
@@ -97,6 +98,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof notificationRecords |
   typeof organizationMembers |
   typeof organizations |
+  typeof outboundDeliveryOutbox |
   typeof pageRevisions |
   typeof policies |
   typeof promptRegistry |
@@ -159,6 +161,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   notificationRecords,
   organizationMembers,
   organizations,
+  outboundDeliveryOutbox,
   pageRevisions,
   policies,
   promptRegistry,
