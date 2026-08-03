@@ -1,7 +1,6 @@
 import { TestConfect } from "@confect/test";
 import type { GenericId, Value } from "convex/values";
 import * as Effect from "effect/Effect";
-import * as Either from "effect/Either";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
@@ -115,9 +114,27 @@ const actor = (
   });
 
 type PublishedStateValue = {
-  readonly pages: readonly any[];
-  readonly revisions: readonly any[];
-  readonly citations: readonly any[];
+  readonly pages: {
+    pageKey: string;
+    currentRevisionKey: string | null;
+    title: string;
+    markdown: string;
+    sourceKind: string;
+    status: string;
+  }[];
+  readonly revisions: {
+    pageKey: string;
+    revisionKey: string;
+    markdown: string;
+    state: string;
+  }[];
+  readonly citations: {
+    citationId: string;
+    sourceId: string;
+    pageKey: string;
+    revisionKey: string;
+    quotedText: string;
+  }[];
 };
 
 const PublishedState = Schema.Any as unknown as Schema.Schema<

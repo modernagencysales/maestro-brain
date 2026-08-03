@@ -83,25 +83,56 @@ const staticTemplateRoutes: Record<string, TemplateRouteMatch | undefined> = {
 
 const staticOperationRefs = {
   "brain.pages.list": Ref.getFunctionReference(
-    Ref.make("brain/pages", pagesSpec.functions.list!),
+    Ref.make(
+      "brain/pages",
+      pagesSpec.functions.list as NonNullable<typeof pagesSpec.functions.list>,
+    ),
   ),
   "brain.pages.get": Ref.getFunctionReference(
-    Ref.make("brain/pages", pagesSpec.functions.get!),
+    Ref.make(
+      "brain/pages",
+      pagesSpec.functions.get as NonNullable<typeof pagesSpec.functions.get>,
+    ),
   ),
   "brain.pages.history": Ref.getFunctionReference(
-    Ref.make("brain/pages", pagesSpec.functions.history!),
+    Ref.make(
+      "brain/pages",
+      pagesSpec.functions.history as NonNullable<
+        typeof pagesSpec.functions.history
+      >,
+    ),
   ),
   "brain.sources.search": Ref.getFunctionReference(
-    Ref.make("brain/readApi", readApiSpec.functions.sourcesSearch!),
+    Ref.make(
+      "brain/readApi",
+      readApiSpec.functions.sourcesSearch as NonNullable<
+        typeof readApiSpec.functions.sourcesSearch
+      >,
+    ),
   ),
   "brain.sources.get": Ref.getFunctionReference(
-    Ref.make("brain/readApi", readApiSpec.functions.sourcesGet!),
+    Ref.make(
+      "brain/readApi",
+      readApiSpec.functions.sourcesGet as NonNullable<
+        typeof readApiSpec.functions.sourcesGet
+      >,
+    ),
   ),
   "brain.context.get": Ref.getFunctionReference(
-    Ref.make("brain/readApi", readApiSpec.functions.contextGet!),
+    Ref.make(
+      "brain/readApi",
+      readApiSpec.functions.contextGet as NonNullable<
+        typeof readApiSpec.functions.contextGet
+      >,
+    ),
   ),
   "brain.answers.ask": Ref.getFunctionReference(
-    Ref.make("brain/readApi", readApiSpec.functions.answersAsk!),
+    Ref.make(
+      "brain/readApi",
+      readApiSpec.functions.answersAsk as NonNullable<
+        typeof readApiSpec.functions.answersAsk
+      >,
+    ),
   ),
 } satisfies Record<string, unknown>;
 
