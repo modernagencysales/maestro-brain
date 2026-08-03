@@ -26,6 +26,7 @@ describe("brain pages Confect contract", () => {
     expect(manifest.map((entry) => entry.operationId)).toEqual([
       "brain.pages.list",
       "brain.pages.get",
+      "brain.pages.history",
       "brain.pages.create",
       "brain.pages.rename",
       "brain.pages.move",
@@ -33,8 +34,10 @@ describe("brain pages Confect contract", () => {
       "brain.pages.archive",
     ]);
     expect(
-      manifest.every(
-        (entry) => entry.surfaces.length === 1 && entry.surfaces[0] === "web",
+      manifest.every((entry) =>
+        entry.kind === "query"
+          ? entry.surfaces.join(",") === "web,api,mcp"
+          : entry.surfaces.length === 1 && entry.surfaces[0] === "web",
       ),
     ).toBe(true);
     expect(() =>
