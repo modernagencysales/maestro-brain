@@ -1,4 +1,10 @@
 import type { BrainSource } from "@maestro-template/template-core";
+import type { Ref } from "@confect/core";
+import * as Either from "effect/Either";
+import {
+  templateConfectRefs,
+  type TemplateConfectRefs,
+} from "@maestro-template/convex/refs";
 import type {
   TemplateDataState,
   TemplateTypedFailureState,
@@ -44,6 +50,87 @@ export type BrainDocumentSection = {
   readonly heading: string;
   readonly body: readonly string[];
 };
+
+type BrainPageRefs = TemplateConfectRefs["public"]["brain"]["pages"];
+export type BrainPageListData = Ref.Returns<BrainPageRefs["list"]>;
+export type BrainPageDetail = Ref.Returns<BrainPageRefs["get"]>;
+export type BrainPageSummary = BrainPageListData["pages"][number];
+
+type BrainWorkspaceRefs = {
+  readonly list: BrainPageRefs["list"];
+  readonly get: BrainPageRefs["get"];
+  readonly create: BrainPageRefs["create"];
+  readonly rename: BrainPageRefs["rename"];
+};
+
+export const brainWorkspaceRefs: BrainWorkspaceRefs = {
+  list: templateConfectRefs.public.brain.pages.list,
+  get: templateConfectRefs.public.brain.pages.get,
+  create: templateConfectRefs.public.brain.pages.create,
+  rename: templateConfectRefs.public.brain.pages.rename,
+} as const;
+
+export type BrainPageMutationResult<T> = T | Either.Either<T, unknown>;
+
+export type BrainWorkspaceMutationInputs = {
+  readonly create: (
+    args: Ref.Args<typeof brainWorkspaceRefs.create>,
+  ) => Promise<
+    BrainPageMutationResult<Ref.Returns<typeof brainWorkspaceRefs.create>>
+  >;
+  readonly rename: (
+    args: Ref.Args<typeof brainWorkspaceRefs.rename>,
+  ) => Promise<
+    BrainPageMutationResult<Ref.Returns<typeof brainWorkspaceRefs.rename>>
+  >;
+};
+
+export type BrainPilotAdapter = {
+  readonly submitNote?: (input: {
+    readonly title: string;
+    readonly markdown: string;
+  }) => Promise<unknown>;
+  readonly reviewNote?: (input: {
+    readonly sourceKey: string;
+    readonly decision: "approve" | "reject";
+  }) => Promise<unknown>;
+  readonly search?: (query: string) => Promise<readonly BrainSearchResult[]>;
+};
+
+export type BrainSearchResult = {
+  readonly citationKey: string;
+  readonly title: string;
+  readonly excerpt: string;
+};
+
+export type BrainWorkspaceAdapter = BrainPilotAdapter & {
+  readonly brainKey: string;
+  readonly canEdit: boolean;
+  readonly createPage: BrainWorkspaceMutationInputs["create"];
+  readonly renamePage: BrainWorkspaceMutationInputs["rename"];
+  readonly savePage?: (input: {
+    readonly pageKey: string;
+    readonly markdown: string;
+  }) => Promise<unknown>;
+};
+
+export const createBrainWorkspaceAdapter = ({
+  brainKey,
+  canEdit,
+  mutations,
+  pilot,
+}: {
+  readonly brainKey: string;
+  readonly canEdit: boolean;
+  readonly mutations: BrainWorkspaceMutationInputs;
+  readonly pilot?: BrainPilotAdapter;
+}): BrainWorkspaceAdapter => ({
+  brainKey,
+  canEdit,
+  ...pilot,
+  createPage: mutations.create,
+  renamePage: mutations.rename,
+});
 
 export function createBrainContextPackPreview(
   items: readonly string[],
