@@ -11,7 +11,7 @@ import {
   type AnswerDeliveryAuthorization,
   type SlackAnswerOutboxRow,
 } from "../../confect/slack/answerOutbox";
-const fenceArgs = {
+const f = {
   organizationKey: v.string(),
   workspaceId: v.string(),
   brainKey: v.string(),
@@ -24,41 +24,39 @@ const fenceArgs = {
   deliveryGeneration: v.number(),
   operationGeneration: v.number(),
 };
-const findRow = async (db: any, key: string) =>
+const find = async (db: any, k: string) =>
   await db
     .query("outboundDeliveryOutbox")
-    .withIndex("by_answer_key", (q: any) => q.eq("answerKey", key))
+    .withIndex("by_answer_key", (q: any) => q.eq("answerKey", k))
     .unique();
-const mutateRow = async (
+const mutate = async (
   ctx: any,
-  key: string,
-  transition: (
-    row: SlackAnswerOutboxRow,
-  ) => Either.Either<SlackAnswerOutboxRow, unknown>,
+  k: string,
+  fn: (r: SlackAnswerOutboxRow) => Either.Either<SlackAnswerOutboxRow, unknown>,
 ) => {
-  const row = await findRow(ctx.db, key);
-  if (!row) return { ok: false };
-  const next = transition(row as SlackAnswerOutboxRow);
-  if (Either.isLeft(next)) return { ok: false };
-  await ctx.db.patch(row._id, next.right);
+  const r = await find(ctx.db, k);
+  if (!r) return { ok: false };
+  const n = fn(r as SlackAnswerOutboxRow);
+  if (Either.isLeft(n)) return { ok: false };
+  await ctx.db.patch(r._id, n.right);
   return { ok: true };
 };
 export const enqueueAnswerOutbox = internalMutationGeneric({
   args: { input: v.any(), authorized: v.any() },
   returns: v.object({ inserted: v.boolean(), answerKey: v.string() }),
-  handler: async (ctx, args) => {
-    const row = answerOutboxRow({
-      input: args.input as AnswerDeliveryInput,
-      authorized: args.authorized as AnswerDeliveryAuthorization,
+  handler: async (ctx, a) => {
+    const r = answerOutboxRow({
+      input: a.input as AnswerDeliveryInput,
+      authorized: a.authorized as AnswerDeliveryAuthorization,
     });
-    if (await findRow(ctx.db, row.answerKey))
-      return { inserted: false, answerKey: row.answerKey };
+    if (await find(ctx.db, r.answerKey))
+      return { inserted: false, answerKey: r.answerKey };
     await ctx.db.insert("outboundDeliveryOutbox", {
-      ...row,
+      ...r,
       schemaVersion: 1,
-      organizationKey: row.delivery.organizationKey,
+      organizationKey: r.delivery.organizationKey,
     });
-    return { inserted: true, answerKey: row.answerKey };
+    return { inserted: true, answerKey: r.answerKey };
   },
 });
 export const claimAnswerOutbox = internalMutationGeneric({
@@ -67,34 +65,32 @@ export const claimAnswerOutbox = internalMutationGeneric({
     leaseToken: v.string(),
     leaseExpiresAt: v.number(),
     now: v.number(),
-    expectedLifecycle: v.object(fenceArgs),
+    expectedLifecycle: v.object(f),
   },
   returns: v.object({ ok: v.boolean() }),
-  handler: async (ctx, args) =>
-    mutateRow(ctx, args.answerKey, (row) => claimAnswerOutboxRow(row, args)),
+  handler: async (ctx, a) =>
+    mutate(ctx, a.answerKey, (r) => claimAnswerOutboxRow(r, a)),
 });
 export const completeAnswerOutbox = internalMutationGeneric({
   args: {
     answerKey: v.string(),
     leaseToken: v.string(),
     now: v.number(),
-    expectedLifecycle: v.object(fenceArgs),
+    expectedLifecycle: v.object(f),
   },
   returns: v.object({ ok: v.boolean() }),
-  handler: async (ctx, args) =>
-    mutateRow(ctx, args.answerKey, (row) => completeAnswerDelivery(row, args)),
+  handler: async (ctx, a) =>
+    mutate(ctx, a.answerKey, (r) => completeAnswerDelivery(r, a)),
 });
 export const recoverAnswerOutbox = internalMutationGeneric({
   args: {
     answerKey: v.string(),
     now: v.number(),
-    expectedLifecycle: v.object(fenceArgs),
+    expectedLifecycle: v.object(f),
   },
   returns: v.object({ ok: v.boolean() }),
-  handler: async (ctx, args) =>
-    mutateRow(ctx, args.answerKey, (row) =>
-      recoverExpiredAnswerDelivery(row, args),
-    ),
+  handler: async (ctx, a) =>
+    mutate(ctx, a.answerKey, (r) => recoverExpiredAnswerDelivery(r, a)),
 });
 export const failAnswerOutbox = internalMutationGeneric({
   args: {
@@ -103,11 +99,9 @@ export const failAnswerOutbox = internalMutationGeneric({
     now: v.number(),
     kind: v.union(v.literal("retryable"), v.literal("terminal")),
     code: v.string(),
-    expectedLifecycle: v.object(fenceArgs),
+    expectedLifecycle: v.object(f),
   },
   returns: v.object({ ok: v.boolean() }),
-  handler: async (ctx, args) =>
-    mutateRow(ctx, args.answerKey, (row) =>
-      recordAnswerDeliveryFailure(row, args),
-    ),
+  handler: async (ctx, a) =>
+    mutate(ctx, a.answerKey, (r) => recordAnswerDeliveryFailure(r, a)),
 });

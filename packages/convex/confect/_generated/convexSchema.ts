@@ -7,6 +7,7 @@ import actionJobs from "./tables/actionJobs";
 import actionTriggers from "./tables/actionTriggers";
 import apiKeys from "./tables/apiKeys";
 import billingPlans from "./tables/billingPlans";
+import brainExportJobs from "./tables/brainExportJobs";
 import brainMaintenanceProposals from "./tables/brainMaintenanceProposals";
 import brainPageAuditEvents from "./tables/brainPageAuditEvents";
 import brainPages from "./tables/brainPages";
@@ -72,6 +73,7 @@ export default $defineSchema({
   actionTriggers: actionTriggers.tableDefinition,
   apiKeys: apiKeys.tableDefinition,
   billingPlans: billingPlans.tableDefinition,
+  brainExportJobs: brainExportJobs.tableDefinition,
   brainMaintenanceProposals: brainMaintenanceProposals.tableDefinition,
   brainPageAuditEvents: brainPageAuditEvents.tableDefinition,
   brainPages: brainPages.tableDefinition,

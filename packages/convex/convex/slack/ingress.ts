@@ -27,63 +27,59 @@ const args = {
     effectKey: v.string(),
   }),
 };
-const receiptFor = async (db: any, input: any) =>
+const receiptFor = async (db: any, i: any) =>
   await db
     .query("providerEventReceipts")
     .withIndex("by_connection_generation_transport_delivery", (q: any) =>
       q
-        .eq("organizationKey", input.organizationKey)
-        .eq("connectionKey", input.connectionKey)
-        .eq("connectionGeneration", input.connectionGeneration)
+        .eq("organizationKey", i.organizationKey)
+        .eq("connectionKey", i.connectionKey)
+        .eq("connectionGeneration", i.connectionGeneration)
         .eq("transport", "live")
-        .eq("transportDeliveryId", input.transportDeliveryId),
+        .eq("transportDeliveryId", i.transportDeliveryId),
     )
     .unique();
-const replayFor = async (db: any, input: any) => {
-  const rows = await db
+const replayFor = async (db: any, i: any) => {
+  const r = await db
     .query("providerEventReceipts")
     .withIndex("by_received_at", (q: any) =>
-      q.eq("organizationKey", input.organizationKey),
+      q.eq("organizationKey", i.organizationKey),
     )
     .collect();
   return (
-    rows.find(
-      (row: any) =>
-        row.connectionKey === input.connectionKey &&
-        row.connectionGeneration === input.connectionGeneration &&
-        row.providerEventId === input.providerEventId,
+    r.find(
+      (x: any) =>
+        x.connectionKey === i.connectionKey &&
+        x.connectionGeneration === i.connectionGeneration &&
+        x.providerEventId === i.providerEventId,
     ) ?? null
   );
 };
-const artifactFor = async (db: any, input: any) => {
-  const event = input.payload?.event;
-  const timestamp = event?.ts ?? event?.deleted_ts ?? "";
+const artifactFor = async (db: any, i: any) => {
+  const e = i.payload?.event,
+    t = e?.ts ?? e?.deleted_ts ?? "";
   return await db
     .query("sourceArtifacts")
     .withIndex("by_channel_provider_object", (q: any) =>
       q
-        .eq("channelKey", input.channelKey)
-        .eq(
-          "providerObjectId",
-          `${input.externalChannelId}:${String(timestamp)}`,
-        ),
+        .eq("channelKey", i.channelKey)
+        .eq("providerObjectId", `${i.externalChannelId}:${String(t)}`),
     )
     .unique();
 };
 export const receiveSlackEvent = internalMutationGeneric({
   args,
   returns: v.object({ outcome: v.string() }),
-  handler: async (ctx, input) =>
+  handler: async (ctx, i) =>
     await ingestSlackEvent(
       {
-        findReceipt: (deliveryId) =>
-          receiptFor(ctx.db, { ...input, transportDeliveryId: deliveryId }),
-        findReplay: () => replayFor(ctx.db, input),
-        findArtifact: () => artifactFor(ctx.db, input),
-        insert: (table, row) => ctx.db.insert(table as any, row as any),
-        patchArtifact: (existing, row) =>
-          ctx.db.patch((existing as any)._id, row as any),
+        findReceipt: (d) =>
+          receiptFor(ctx.db, { ...i, transportDeliveryId: d }),
+        findReplay: () => replayFor(ctx.db, i),
+        findArtifact: () => artifactFor(ctx.db, i),
+        insert: (t, r) => ctx.db.insert(t as any, r as any),
+        patchArtifact: (e, r) => ctx.db.patch((e as any)._id, r as any),
       },
-      input,
+      i,
     ),
 });
