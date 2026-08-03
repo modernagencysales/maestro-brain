@@ -5,6 +5,7 @@ export type Tone = "neutral" | "good" | "warn";
 export * from "./coediting";
 export * from "./brainExport";
 export * from "./brainExportJob";
+export * from "./brainExportWorker";
 export * from "./knowledge";
 export {
   checkPrimitiveContract,

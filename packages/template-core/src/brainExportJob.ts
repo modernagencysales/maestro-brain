@@ -12,13 +12,18 @@ export type BrainExportJob = {
   readonly state: BrainExportJobState;
   readonly requestedAt: string;
   readonly lifecycleGeneration: number;
+  readonly attempt?: number;
+  readonly nextAttemptAt?: number;
   readonly artifact?: {
     readonly manifestHash: string;
     readonly artifactHash: string;
     readonly sizeBytes: number;
     readonly fileCount: number;
   };
-  readonly error?: "lifecycle_generation_mismatch" | "encoding_failed";
+  readonly error?:
+    | "lifecycle_generation_mismatch"
+    | "encoding_failed"
+    | "authorization_failed";
 };
 
 export const requestBrainExport = (input: {
@@ -31,7 +36,7 @@ export const requestBrainExport = (input: {
   state: "requested",
 });
 
-const artifactSummary = (bundle: BrainExportBundle) => {
+export const artifactSummary = (bundle: BrainExportBundle) => {
   const manifest = bundle.files[0];
   if (manifest === undefined || manifest.path !== "manifest.json") {
     throw new Error("deterministic export manifest is missing");
