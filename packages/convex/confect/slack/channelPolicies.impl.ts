@@ -302,7 +302,6 @@ const bulkSetChannelPoliciesImpl = FunctionImpl.make(
           .filter((workspace) => workspace.brainKey)
           .map((workspace): BrainTarget => ({
             brainKey: workspace.brainKey ?? "",
-            name: workspace.name ?? "",
             organizationKey: input.organizationKey,
             kind: workspace.kind ?? "client",
             status: workspace.status,

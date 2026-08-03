@@ -7,12 +7,16 @@ import actionJobs from "./tables/actionJobs";
 import actionTriggers from "./tables/actionTriggers";
 import apiKeys from "./tables/apiKeys";
 import billingPlans from "./tables/billingPlans";
+import brainMaintenanceProposals from "./tables/brainMaintenanceProposals";
 import brainPageAuditEvents from "./tables/brainPageAuditEvents";
 import brainPages from "./tables/brainPages";
 import brainSources from "./tables/brainSources";
+import channelDeliveryPolicies from "./tables/channelDeliveryPolicies";
+import channelRoutingPolicies from "./tables/channelRoutingPolicies";
 import channelSyncStates from "./tables/channelSyncStates";
 import citations from "./tables/citations";
 import claims from "./tables/claims";
+import classificationDecisions from "./tables/classificationDecisions";
 import concepts from "./tables/concepts";
 import contextPacks from "./tables/contextPacks";
 import creditLedger from "./tables/creditLedger";
@@ -34,8 +38,13 @@ import pageRevisions from "./tables/pageRevisions";
 import policies from "./tables/policies";
 import promptRegistry from "./tables/promptRegistry";
 import providerConnections from "./tables/providerConnections";
+import providerEventReceipts from "./tables/providerEventReceipts";
 import servicePrincipals from "./tables/servicePrincipals";
+import slackIdentityBindings from "./tables/slackIdentityBindings";
+import sourceArtifacts from "./tables/sourceArtifacts";
 import sourceChannels from "./tables/sourceChannels";
+import sourceProcessingJobs from "./tables/sourceProcessingJobs";
+import sourceRevisions from "./tables/sourceRevisions";
 import transformBlocks from "./tables/transformBlocks";
 import transformDefinitions from "./tables/transformDefinitions";
 import transformRuns from "./tables/transformRuns";
@@ -61,12 +70,16 @@ export default $defineSchema({
   actionTriggers: actionTriggers.tableDefinition,
   apiKeys: apiKeys.tableDefinition,
   billingPlans: billingPlans.tableDefinition,
+  brainMaintenanceProposals: brainMaintenanceProposals.tableDefinition,
   brainPageAuditEvents: brainPageAuditEvents.tableDefinition,
   brainPages: brainPages.tableDefinition,
   brainSources: brainSources.tableDefinition,
+  channelDeliveryPolicies: channelDeliveryPolicies.tableDefinition,
+  channelRoutingPolicies: channelRoutingPolicies.tableDefinition,
   channelSyncStates: channelSyncStates.tableDefinition,
   citations: citations.tableDefinition,
   claims: claims.tableDefinition,
+  classificationDecisions: classificationDecisions.tableDefinition,
   concepts: concepts.tableDefinition,
   contextPacks: contextPacks.tableDefinition,
   creditLedger: creditLedger.tableDefinition,
@@ -88,8 +101,13 @@ export default $defineSchema({
   policies: policies.tableDefinition,
   promptRegistry: promptRegistry.tableDefinition,
   providerConnections: providerConnections.tableDefinition,
+  providerEventReceipts: providerEventReceipts.tableDefinition,
   servicePrincipals: servicePrincipals.tableDefinition,
+  slackIdentityBindings: slackIdentityBindings.tableDefinition,
+  sourceArtifacts: sourceArtifacts.tableDefinition,
   sourceChannels: sourceChannels.tableDefinition,
+  sourceProcessingJobs: sourceProcessingJobs.tableDefinition,
+  sourceRevisions: sourceRevisions.tableDefinition,
   transformBlocks: transformBlocks.tableDefinition,
   transformDefinitions: transformDefinitions.tableDefinition,
   transformRuns: transformRuns.tableDefinition,

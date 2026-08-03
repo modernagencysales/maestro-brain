@@ -12,6 +12,12 @@ import { PageNotFound, StaleRevision } from "./pageTree";
 import { toPublicPageSummary, type BrainPage } from "./pageSchemas";
 import { requireBrainAccess } from "./pages.impl";
 import pilot from "./pilot.spec";
+import {
+  buildAskResponse,
+  type AskCitation,
+  type AskPage,
+  type AskRevision,
+} from "./retrieval";
 
 const unsafeAssumeClockProvided = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect as Effect.Effect<A, E, Exclude<R, Clock.Clock>>;
@@ -351,10 +357,56 @@ const search = FunctionImpl.make(databaseSchema, pilot, "search", (args) =>
   }),
 );
 
+const ask = FunctionImpl.make(databaseSchema, pilot, "ask", (args) =>
+  Effect.gen(function* () {
+    const query = args.query.trim().toLowerCase();
+    const invalid = validateText("query", query);
+    if (invalid !== null) return yield* invalid;
+    const brain = yield* requireBrainAccess(args.brainKey, "viewer");
+    const reader = yield* DatabaseReader;
+    const pages = yield* reader
+      .table("brainPages")
+      .index("by_workspace", (q) => q.eq("workspaceId", brain.workspaceId))
+      .collect()
+      .pipe(Effect.orDie);
+    const revisions = [];
+    for (const page of pages) {
+      if (page.currentRevisionKey === null) continue;
+      const pageRevisions = yield* reader
+        .table("pageRevisions")
+        .index("by_page_created", (q) =>
+          q
+            .eq("workspaceId", brain.workspaceId)
+            .eq("pageKey", page.pageKey ?? "missing"),
+        )
+        .collect()
+        .pipe(Effect.orDie);
+      revisions.push(...pageRevisions);
+    }
+    const citations = yield* reader
+      .table("citations")
+      .index("by_workspace", (q) =>
+        q.eq("workspaceId", String(brain.workspaceId)),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    return {
+      brainKey: brain.brainKey,
+      response: buildAskResponse({
+        query,
+        pages: pages as unknown as AskPage[],
+        revisions: revisions as unknown as AskRevision[],
+        citations: citations as unknown as AskCitation[],
+      }),
+    };
+  }),
+);
+
 export default GroupImpl.make(databaseSchema, pilot).pipe(
   Layer.provide(submitNote),
   Layer.provide(reviewNote),
   Layer.provide(updatePage),
   Layer.provide(search),
+  Layer.provide(ask),
   GroupImpl.finalize,
 );

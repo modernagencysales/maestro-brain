@@ -24,8 +24,18 @@ export type HeadlessAuthorizationSuccess = {
 export type HeadlessAuthorizationResult =
   HeadlessAuthorizationSuccess | HeadlessAuthorizationFailure;
 
-const reviewedHeadlessPolicies =
-  [] as const satisfies readonly HeadlessOperationPolicy[];
+const reviewedHeadlessPolicies = [
+  {
+    operationId: "brain.pilot.search",
+    headless: true,
+    requiredScope: "brain:read",
+  },
+  {
+    operationId: "brain.pilot.ask",
+    headless: true,
+    requiredScope: "brain:ask",
+  },
+] as const satisfies readonly HeadlessOperationPolicy[];
 
 const tenantInputFields = new Set([
   "organizationId",

@@ -134,11 +134,20 @@ describe("source ledger schema", () => {
       ],
     });
     expect(sourceProcessingJobs.indexes).toEqual({
-      by_stage_status_next_retry: ["stage", "status", "nextRetryAt"],
-      by_effect_key: ["effectKey"],
-      by_unit_stage: ["sourceUnitKey", "stage"],
-      by_lease_expiry: ["status", "leaseExpiresAt"],
-      by_organization_status: ["organizationKey", "status"],
+      by_org_stage_status_next_retry: [
+        "organizationKey",
+        "stage",
+        "executionStatus",
+        "nextRetryAt",
+      ],
+      by_org_effect_key: ["organizationKey", "effectKey"],
+      by_org_unit_idempotency_key: [
+        "organizationKey",
+        "organizationUnitIdempotencyKey",
+      ],
+      by_org_unit_stage: ["organizationKey", "unitKey", "stage"],
+      by_org_lease_expiry: ["organizationKey", "leaseExpiresAt"],
+      by_organization_status: ["organizationKey", "executionStatus"],
     });
   });
 
@@ -312,11 +321,12 @@ describe("source ledger schema", () => {
     expect(SourceProcessingJobRow.pipe).toBeDefined();
     expect(rows.processingJob).toMatchObject({
       schemaVersion: 1,
-      stage: "assembly_pending",
-      status: "pending",
+      stage: "assembled",
+      executionStatus: "queued",
       effectKey: rows.processingJob?.effectKey,
-      policyEpoch: 7,
-      attemptCount: 0,
+      policyGeneration: 7,
+      attempt: 0,
+      attemptReceipts: [],
     });
   });
 

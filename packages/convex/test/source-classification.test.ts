@@ -300,21 +300,24 @@ describe("source classification review-first zero-or-one route", () => {
     expect(classificationDecisions.indexes.by_target_brain).toEqual([
       "targetBrainKey",
     ]);
-    expect(sourceProcessingJobs.indexes.by_stage_status_next_retry).toEqual([
-      "stage",
-      "executionStatus",
-      "nextRetryAt",
+    expect(sourceProcessingJobs.indexes.by_org_stage_status_next_retry).toEqual(
+      ["organizationKey", "stage", "executionStatus", "nextRetryAt"],
+    );
+    expect(sourceProcessingJobs.indexes.by_org_effect_key).toEqual([
+      "organizationKey",
+      "effectKey",
     ]);
-    expect(sourceProcessingJobs.indexes.by_effect_key).toEqual(["effectKey"]);
-    expect(sourceProcessingJobs.indexes.by_unit_stage).toEqual([
-      "sourceUnitRevisionKey",
+    expect(sourceProcessingJobs.indexes.by_org_unit_stage).toEqual([
+      "organizationKey",
+      "unitKey",
       "stage",
     ]);
-    expect(sourceProcessingJobs.indexes.by_lease_expiry).toEqual([
+    expect(sourceProcessingJobs.indexes.by_org_lease_expiry).toEqual([
+      "organizationKey",
       "leaseExpiresAt",
     ]);
     expect(sourceProcessingJobs.indexes.by_organization_status).toEqual([
-      "organizationId",
+      "organizationKey",
       "executionStatus",
     ]);
   });

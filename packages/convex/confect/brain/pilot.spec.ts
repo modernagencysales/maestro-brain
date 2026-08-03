@@ -58,6 +58,30 @@ const SearchReturns = Schema.Struct({
   brainKey: BrainKey,
   results: Schema.Array(SearchResult),
 });
+export const AskEvidence = Schema.Struct({
+  citationKey: Schema.String,
+  pageKey: PageKey,
+  revisionKey: RevisionKey,
+  title: Schema.String,
+  excerpt: Schema.String,
+});
+export const AskResponse = Schema.Union(
+  Schema.Struct({
+    status: Schema.Literal("answered"),
+    answer: Schema.String,
+    evidence: Schema.Array(AskEvidence),
+  }),
+  Schema.Struct({
+    status: Schema.Literal("abstained"),
+    reason: Schema.Literal("insufficient_evidence"),
+    answer: Schema.Null,
+    evidence: Schema.Array(AskEvidence),
+  }),
+);
+export const AskReturns = Schema.Struct({
+  brainKey: BrainKey,
+  response: AskResponse,
+});
 const PageSummary = Schema.Struct({
   pageKey: PageKey,
   parentPageKey: Schema.NullOr(PageKey),
@@ -155,7 +179,7 @@ const search = defineContractFunction(
     name: "search",
     operationId: "brain.pilot.search",
     kind: "query",
-    surfaces: ["web"],
+    surfaces: ["web", "api", "mcp"],
     typedErrors: [
       "Unauthorized",
       "Forbidden",
@@ -168,6 +192,34 @@ const search = defineContractFunction(
     returnsSchemaName: "brain.pilot.search.returns",
     argsSchema: SearchArgs,
     returnsSchema: SearchReturns,
+  },
+);
+
+const ask = defineContractFunction(
+  FunctionSpec.publicQuery({
+    name: "ask",
+    args: () => SearchArgs,
+    returns: () => AskReturns,
+    error: () => PilotError,
+  }),
+  {
+    namespace: "brain.pilot",
+    name: "ask",
+    operationId: "brain.pilot.ask",
+    kind: "query",
+    surfaces: ["web", "api", "mcp"],
+    typedErrors: [
+      "Unauthorized",
+      "Forbidden",
+      "BrainNotFound",
+      "LifecycleRevoked",
+      "ValidationFailed",
+    ],
+    idempotent: true,
+    argsSchemaName: "brain.pilot.ask.args",
+    returnsSchemaName: "brain.pilot.ask.returns",
+    argsSchema: SearchArgs,
+    returnsSchema: AskReturns,
   },
 );
 
@@ -201,7 +253,13 @@ const updatePage = defineContractFunction(
   },
 );
 
-const contractFunctions = [submitNote, reviewNote, search, updatePage] as const;
+const contractFunctions = [
+  submitNote,
+  reviewNote,
+  search,
+  ask,
+  updatePage,
+] as const;
 
 export const manifest = collectContractManifest(contractFunctions);
 export const schemaRegistry = collectContractSchemas(contractFunctions);
@@ -210,4 +268,5 @@ export default GroupSpec.make()
   .addFunction(submitNote.spec)
   .addFunction(reviewNote.spec)
   .addFunction(search.spec)
+  .addFunction(ask.spec)
   .addFunction(updatePage.spec);
