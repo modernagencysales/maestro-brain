@@ -33,7 +33,7 @@ const adapter = (): BrainWorkspaceAdapter => ({
   canEdit: true,
   createPage: vi.fn().mockResolvedValue(page),
   renamePage: vi.fn().mockResolvedValue(page),
-  savePage: vi.fn().mockResolvedValue({
+  updatePage: vi.fn().mockResolvedValue({
     pageKey: page.pageKey,
     pageRevisionKey: page.currentRevisionKey,
     contentHash: "hash",
@@ -99,7 +99,7 @@ describe("BrainWorkspace", () => {
         calls.push(decision);
         return { sourceKey: "src_note", status: "published" as const };
       }),
-      savePage: vi.fn().mockImplementation(async () => {
+      updatePage: vi.fn().mockImplementation(async () => {
         calls.push("save");
         return page;
       }),
@@ -123,11 +123,21 @@ describe("BrainWorkspace", () => {
       actions.reviewNote({ sourceKey: "src_note", decision: "approve" }),
     ).resolves.toMatchObject({ status: "published" });
     await expect(
-      actions.savePage({ pageKey: page.pageKey, markdown: "edited proof" }),
+      actions.savePage({
+        pageKey: page.pageKey,
+        expectedCurrentRevisionKey: page.currentRevisionKey,
+        markdown: "edited proof",
+      }),
     ).resolves.toMatchObject({ status: "saved" });
     await expect(actions.search("proof")).resolves.toEqual([
       expect.objectContaining({ citationKey: "cite_src_note_1" }),
     ]);
+    expect(flowAdapter.updatePage).toHaveBeenCalledWith({
+      pageKey: page.pageKey,
+      expectedCurrentRevisionKey: page.currentRevisionKey,
+      markdown: "edited proof",
+    });
+    expect(flowAdapter.createPage).not.toHaveBeenCalled();
     expect(calls).toEqual(["submit", "approve", "save", "search"]);
   });
 
@@ -135,7 +145,7 @@ describe("BrainWorkspace", () => {
     const actions = createBrainWorkspaceActions({
       ...adapter(),
       submitNote: vi.fn().mockRejectedValue(new Error("offline")),
-      savePage: vi.fn().mockRejectedValue(new Error("conflict")),
+      updatePage: vi.fn().mockRejectedValue(new Error("conflict")),
     });
 
     await expect(
@@ -145,7 +155,11 @@ describe("BrainWorkspace", () => {
       actions.reviewNote({ sourceKey: "src_note", decision: "reject" }),
     ).resolves.toMatchObject({ status: "unavailable" });
     await expect(
-      actions.savePage({ pageKey: page.pageKey, markdown: "body" }),
+      actions.savePage({
+        pageKey: page.pageKey,
+        expectedCurrentRevisionKey: page.currentRevisionKey,
+        markdown: "body",
+      }),
     ).resolves.toMatchObject({ status: "failure", message: "conflict" });
     await expect(actions.search("body")).rejects.toThrow(
       "Search is unavailable",

@@ -57,6 +57,7 @@ export type BrainPageListData = Ref.Returns<BrainPageRefs["list"]>;
 export type BrainPageDetail = Ref.Returns<BrainPageRefs["get"]>;
 export type BrainPageSummary = BrainPageListData["pages"][number];
 export type BrainPilotSearchData = Ref.Returns<BrainPilotRefs["search"]>;
+export type BrainPageUpdateData = Ref.Returns<BrainPilotRefs["updatePage"]>;
 
 type BrainWorkspaceRefs = {
   readonly list: BrainPageRefs["list"];
@@ -69,6 +70,7 @@ type BrainWorkspacePilotRefs = {
   readonly submitNote: BrainPilotRefs["submitNote"];
   readonly reviewNote: BrainPilotRefs["reviewNote"];
   readonly search: BrainPilotRefs["search"];
+  readonly updatePage: BrainPilotRefs["updatePage"];
 };
 
 export const brainWorkspaceRefs: BrainWorkspaceRefs = {
@@ -82,6 +84,7 @@ export const brainPilotRefs: BrainWorkspacePilotRefs = {
   submitNote: templateConfectRefs.public.brain.pilot.submitNote,
   reviewNote: templateConfectRefs.public.brain.pilot.reviewNote,
   search: templateConfectRefs.public.brain.pilot.search,
+  updatePage: templateConfectRefs.public.brain.pilot.updatePage,
 } as const;
 
 export type BrainPageMutationResult<T> = T | Either.Either<T, unknown>;
@@ -127,10 +130,11 @@ export type BrainWorkspaceAdapter = BrainPilotAdapter & {
   readonly canEdit: boolean;
   readonly createPage: BrainWorkspaceMutationInputs["create"];
   readonly renamePage: BrainWorkspaceMutationInputs["rename"];
-  readonly savePage?: (input: {
+  readonly updatePage?: (input: {
     readonly pageKey: string;
+    readonly expectedCurrentRevisionKey: string;
     readonly markdown: string;
-  }) => Promise<unknown>;
+  }) => Promise<BrainPageUpdateData>;
 };
 
 export const createBrainWorkspaceAdapter = ({
@@ -138,20 +142,20 @@ export const createBrainWorkspaceAdapter = ({
   canEdit,
   mutations,
   pilot,
-  savePage,
+  updatePage,
 }: {
   readonly brainKey: string;
   readonly canEdit: boolean;
   readonly mutations: BrainWorkspaceMutationInputs;
   readonly pilot?: BrainPilotAdapter;
-  readonly savePage?: BrainWorkspaceAdapter["savePage"];
+  readonly updatePage?: BrainWorkspaceAdapter["updatePage"];
 }): BrainWorkspaceAdapter => ({
   brainKey,
   canEdit,
   ...pilot,
   createPage: mutations.create,
   renamePage: mutations.rename,
-  ...(savePage === undefined ? {} : { savePage }),
+  ...(updatePage === undefined ? {} : { updatePage }),
 });
 
 export const unwrapBrainMutation = <T>(

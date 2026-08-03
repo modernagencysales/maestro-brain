@@ -113,13 +113,14 @@ export const createBrainWorkspaceActions = (
   },
   savePage: async (input: {
     readonly pageKey: string;
+    readonly expectedCurrentRevisionKey: string;
     readonly markdown: string;
   }): Promise<BrainWorkspaceActionState> => {
-    if (adapter.savePage === undefined) {
+    if (adapter.updatePage === undefined) {
       return { status: "unavailable", message: "Page saving is unavailable." };
     }
     try {
-      await adapter.savePage(input);
+      await adapter.updatePage(input);
       return { status: "saved" };
     } catch (error) {
       return { status: "failure", message: failureMessage(error) };
@@ -158,6 +159,7 @@ export const BrainWorkspaceRoute = () => {
   const rename = useTemplateMutation(brainWorkspaceRefs.rename);
   const submitNote = useTemplateMutation(brainPilotRefs.submitNote);
   const reviewNote = useTemplateMutation(brainPilotRefs.reviewNote);
+  const updatePage = useTemplateMutation(brainPilotRefs.updatePage);
   const pilotSearch = useTemplateQuery(
     brainPilotRefs.search,
     brainKey === null || searchQuery === null
@@ -210,22 +212,17 @@ export const BrainWorkspaceRoute = () => {
           }),
         ),
     },
-    savePage:
+    updatePage:
       detail.status === "ready"
-        ? async ({ markdown }) => {
-            const suffix = String(Date.now()).padStart(10, "0");
-            return unwrapBrainMutation(
-              await create({
+        ? async ({ pageKey, expectedCurrentRevisionKey, markdown }) =>
+            unwrapBrainMutation(
+              await updatePage({
                 brainKey: workspace.activeWorkspace.workspaceId,
-                parentPageKey: detail.data.page.parentPageKey,
-                siblingSlug: `${detail.data.page.siblingSlug}-edit-${suffix}`,
-                sortKey: suffix,
-                title: detail.data.page.title,
+                pageKey,
+                expectedCurrentRevisionKey,
                 markdown,
-                expectedCurrentRevisionKey: null,
               }),
-            );
-          }
+            )
         : undefined,
   });
 
@@ -492,17 +489,25 @@ export const BrainWorkspace = ({
                   value={markdown}
                 />
                 <Button
-                  disabled={adapter.savePage === undefined}
+                  disabled={adapter.updatePage === undefined}
                   type="button"
                   onClick={async () => {
                     if (detail.status !== "ready") return;
+                    const revisionKey = detail.data.page.currentRevisionKey;
+                    if (revisionKey === null) {
+                      setOperationNotice(
+                        "Unable to save a page without a current revision.",
+                      );
+                      return;
+                    }
                     const result = await actions.savePage({
                       pageKey: detail.data.page.pageKey,
+                      expectedCurrentRevisionKey: revisionKey,
                       markdown,
                     });
                     setOperationNotice(
                       result.status === "saved"
-                        ? "Page saved as a new Brain page."
+                        ? "Page saved."
                         : "message" in result
                           ? result.message
                           : "Page save failed.",
