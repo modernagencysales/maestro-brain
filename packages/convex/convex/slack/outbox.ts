@@ -40,6 +40,7 @@ import {
   type NangoClient,
 } from "@maestro-template/integrations/nango/client";
 import type { ActionCtx } from "../_generated/server";
+import { readProcessEnv } from "../../confect/shared/env";
 const f = {
   organizationKey: v.string(),
   workspaceId: v.string(),
@@ -418,7 +419,7 @@ const actionStore = (ctx: OutboxActionContext): AnswerOutboxStore => ({
 let nangoClient: NangoClient | undefined;
 const getNangoClient = (): NangoClient | null => {
   if (nangoClient !== undefined) return nangoClient;
-  const env = process.env as Record<string, string | undefined>;
+  const env = readProcessEnv();
   const mode = providerModeFromEnv(env);
   if (mode === "live") {
     const secretKey = env.NANGO_SECRET_KEY?.trim();
