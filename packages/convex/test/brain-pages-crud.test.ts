@@ -447,10 +447,12 @@ describe("authorized Brain page CRUD", () => {
   });
 
   it("keeps every pages manifest entry web-only", () => {
-    expect(manifest).toHaveLength(7);
+    expect(manifest).toHaveLength(8);
     for (const entry of manifest) {
       expect(entry.operationId).toMatch(/^brain\.pages\./);
-      expect(entry.surfaces).toEqual(["web"]);
+      expect(entry.surfaces).toEqual(
+        entry.kind === "query" ? ["web", "api", "mcp"] : ["web"],
+      );
       expect(entry.surfaces).not.toEqual(
         expect.arrayContaining(["api", "cli", "mcp"]),
       );

@@ -12,5 +12,6 @@
     "test/**/*.ts",
     "confect/**/*.ts",
     "convex/**/*.ts"
-  ]
+  ],
+  "exclude": ["confect/**/manifest-json-probe-*/**"]
 }
