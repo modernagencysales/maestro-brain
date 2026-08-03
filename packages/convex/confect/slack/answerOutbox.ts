@@ -126,6 +126,13 @@ export type SlackAnswerOutboxRow = Readonly<{
   readonly sentAt?: number;
 }>;
 
+const withoutLease = (row: SlackAnswerOutboxRow) => {
+  const copy = { ...row };
+  delete copy.leaseToken;
+  delete copy.leaseExpiresAt;
+  return copy;
+};
+
 export type AnswerOutboxError = Readonly<{
   readonly _tag: "AnswerOutboxError";
   readonly reason:
@@ -310,13 +317,8 @@ export const recordAnswerDeliveryFailure = (
     return Either.left(outboxError("terminal_state"));
   if (row.status !== "in_flight" || row.leaseToken !== input.leaseToken)
     return Either.left(outboxError("lease_mismatch"));
-  const {
-    leaseToken: _leaseToken,
-    leaseExpiresAt: _leaseExpiresAt,
-    ...withoutLease
-  } = row;
   return Either.right({
-    ...withoutLease,
+    ...withoutLease(row),
     status: input.kind === "retryable" ? "retryable" : "failed",
     lastError: { kind: input.kind, code: input.code },
     updatedAt: input.now,
@@ -337,13 +339,8 @@ export const completeAnswerDelivery = (
     return Either.left(outboxError("terminal_state"));
   if (row.status !== "in_flight" || row.leaseToken !== input.leaseToken)
     return Either.left(outboxError("lease_mismatch"));
-  const {
-    leaseToken: _leaseToken,
-    leaseExpiresAt: _leaseExpiresAt,
-    ...withoutLease
-  } = row;
   return Either.right({
-    ...withoutLease,
+    ...withoutLease(row),
     status: "sent",
     sentAt: input.now,
     updatedAt: input.now,
@@ -363,13 +360,8 @@ export const recoverExpiredAnswerDelivery = (
     return Either.left(outboxError("invalid_state"));
   if ((row.leaseExpiresAt ?? Number.POSITIVE_INFINITY) > input.now)
     return Either.left(outboxError("lease_not_expired"));
-  const {
-    leaseToken: _leaseToken,
-    leaseExpiresAt: _leaseExpiresAt,
-    ...withoutLease
-  } = row;
   return Either.right({
-    ...withoutLease,
+    ...withoutLease(row),
     status: "retryable",
     updatedAt: input.now,
   });

@@ -87,12 +87,12 @@ const store = (initial: SlackAnswerOutboxRow): AnswerOutboxStore => {
 
 describe("Slack answer outbox worker", () => {
   it("schedules delivery only after a new durable enqueue", async () => {
-    const rows = new Map<string, any>();
+    const rows = new Map<string, Record<string, unknown>>();
     const scheduled: string[] = [];
     const ctx = {
       db: {
         query: () => ({ withIndex: () => ({ unique: async () => null }) }),
-        insert: async (_table: string, value: any) => {
+        insert: async (_table: string, value: Record<string, unknown>) => {
           rows.set(value.answerKey, value);
           return value.answerKey;
         },
@@ -100,11 +100,7 @@ describe("Slack answer outbox worker", () => {
     };
     const enqueue = (outbox as Record<string, unknown>)[
       "enqueueAnswerOutboxHandler"
-    ] as (
-      ctx: any,
-      args: any,
-      schedule: (answerKey: string) => Promise<void>,
-    ) => Promise<any>;
+    ] as typeof outbox.enqueueAnswerOutboxHandler;
     expect(enqueue).toBeTypeOf("function");
     if (enqueue === undefined) return;
 
@@ -131,11 +127,7 @@ describe("Slack answer outbox worker", () => {
     };
     const recover = (outbox as Record<string, unknown>)[
       "recoverExpiredAnswerOutboxesHandler"
-    ] as (
-      ctx: any,
-      args: any,
-      schedule: (answerKey: string) => Promise<void>,
-    ) => Promise<any>;
+    ] as typeof outbox.recoverExpiredAnswerOutboxesHandler;
     expect(recover).toBeTypeOf("function");
     if (recover === undefined) return;
 
@@ -149,8 +141,7 @@ describe("Slack answer outbox worker", () => {
   it("final-authorizes then sends only to the stored requester", async () => {
     const worker = (outbox as Record<string, unknown>)[
       "runAnswerOutboxWorker"
-    ] as
-      undefined | ((runtime: any, args: any) => Promise<{ outcome: string }>);
+    ] as typeof outbox.runAnswerOutboxWorker;
     expect(worker).toBeTypeOf("function");
     if (worker === undefined) return;
 

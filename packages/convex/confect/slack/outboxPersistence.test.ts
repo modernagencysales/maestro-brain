@@ -9,7 +9,6 @@ import {
   type PrivateAnswerProvider,
 } from "./outboxPersistence";
 import {
-  answerOutboxRow,
   authorizeAnswerDelivery,
   claimAnswerOutboxRow,
   type AnswerDeliveryInput,

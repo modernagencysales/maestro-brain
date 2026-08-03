@@ -27,10 +27,35 @@ const args = {
     effectKey: v.string(),
   }),
 };
-const receiptFor = async (db: any, i: any) =>
+type IngressInput = Readonly<{
+  organizationKey: string;
+  connectionKey: string;
+  connectionGeneration: number;
+  channelKey: string;
+  externalChannelId: string;
+  providerEventId: string;
+  transportDeliveryId: string;
+  payload: unknown;
+}>;
+type IngressQuery = {
+  eq: (field: string, value: unknown) => IngressQuery;
+  unique: () => Promise<unknown>;
+  collect: () => Promise<unknown[]>;
+};
+type IngressDb = {
+  query: (table: string) => {
+    withIndex: (
+      index: string,
+      fn: (q: IngressQuery) => unknown,
+    ) => IngressQuery;
+  };
+  insert: (table: string, row: unknown) => Promise<unknown>;
+  patch: (id: unknown, row: unknown) => Promise<void>;
+};
+const receiptFor = async (db: IngressDb, i: IngressInput) =>
   await db
     .query("providerEventReceipts")
-    .withIndex("by_connection_generation_transport_delivery", (q: any) =>
+    .withIndex("by_connection_generation_transport_delivery", (q) =>
       q
         .eq("organizationKey", i.organizationKey)
         .eq("connectionKey", i.connectionKey)
@@ -39,28 +64,33 @@ const receiptFor = async (db: any, i: any) =>
         .eq("transportDeliveryId", i.transportDeliveryId),
     )
     .unique();
-const replayFor = async (db: any, i: any) => {
+const replayFor = async (db: IngressDb, i: IngressInput) => {
   const r = await db
     .query("providerEventReceipts")
-    .withIndex("by_received_at", (q: any) =>
+    .withIndex("by_received_at", (q) =>
       q.eq("organizationKey", i.organizationKey),
     )
     .collect();
   return (
-    r.find(
-      (x: any) =>
-        x.connectionKey === i.connectionKey &&
-        x.connectionGeneration === i.connectionGeneration &&
-        x.providerEventId === i.providerEventId,
-    ) ?? null
+    r.find((x) => {
+      const receipt = x as Record<string, unknown>;
+      return (
+        receipt.connectionKey === i.connectionKey &&
+        receipt.connectionGeneration === i.connectionGeneration &&
+        receipt.providerEventId === i.providerEventId
+      );
+    }) ?? null
   );
 };
-const artifactFor = async (db: any, i: any) => {
-  const e = i.payload?.event,
+const artifactFor = async (db: IngressDb, i: IngressInput) => {
+  const payload = i.payload as {
+    event?: { ts?: unknown; deleted_ts?: unknown };
+  };
+  const e = payload.event,
     t = e?.ts ?? e?.deleted_ts ?? "";
   return await db
     .query("sourceArtifacts")
-    .withIndex("by_channel_provider_object", (q: any) =>
+    .withIndex("by_channel_provider_object", (q) =>
       q
         .eq("channelKey", i.channelKey)
         .eq("providerObjectId", `${i.externalChannelId}:${String(t)}`),
@@ -77,8 +107,9 @@ export const receiveSlackEvent = internalMutationGeneric({
           receiptFor(ctx.db, { ...i, transportDeliveryId: d }),
         findReplay: () => replayFor(ctx.db, i),
         findArtifact: () => artifactFor(ctx.db, i),
-        insert: (t, r) => ctx.db.insert(t as any, r as any),
-        patchArtifact: (e, r) => ctx.db.patch((e as any)._id, r as any),
+        insert: (t, r) => ctx.db.insert(t as never, r as never),
+        patchArtifact: (e, r) =>
+          ctx.db.patch((e as { readonly _id: unknown })._id, r as never),
       },
       i,
     ),

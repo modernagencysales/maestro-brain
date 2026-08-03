@@ -51,6 +51,36 @@ const f = {
   deliveryGeneration: v.number(),
   operationGeneration: v.number(),
 };
+type OutboxMutationArgs = Readonly<{
+  answerKey: string;
+  now: number;
+  expectedLifecycle: AnswerLifecycleFence;
+  leaseToken?: string;
+  leaseExpiresAt?: number;
+  kind?: "retryable" | "terminal";
+  code?: string;
+}>;
+type OutboxQuery = {
+  eq: (field: string, value: unknown) => OutboxQuery;
+  lte: (field: string, value: unknown) => OutboxQuery;
+  unique: () => Promise<unknown>;
+  collect: () => Promise<unknown[]>;
+  take: (limit: number) => Promise<unknown[]>;
+};
+type OutboxDb = {
+  query: (table: string) => {
+    withIndex: (index: string, fn: (q: OutboxQuery) => unknown) => OutboxQuery;
+  };
+  insert: (table: string, row: unknown) => Promise<unknown>;
+  patch: (id: unknown, patch: unknown) => Promise<void>;
+};
+type OutboxActionContext = OutboxDb & {
+  runQuery: (ref: unknown, args: unknown) => Promise<unknown>;
+  runMutation: (ref: unknown, args: unknown) => Promise<{ ok: boolean }>;
+  scheduler: {
+    runAfter: (delay: number, ref: unknown, args: unknown) => Promise<void>;
+  };
+};
 const internalOutbox = {
   get: makeFunctionReference<"query", { answerKey: string }, unknown>(
     "slack/outbox:getAnswerOutbox",
@@ -70,26 +100,30 @@ const internalOutbox = {
     { now: number; limit: number },
     unknown
   >("slack/outbox:listExpiredAnswerOutbox"),
-  claim: makeFunctionReference<"mutation", any, { ok: boolean }>(
+  claim: makeFunctionReference<"mutation", OutboxMutationArgs, { ok: boolean }>(
     "slack/outbox:claimAnswerOutbox",
   ),
-  complete: makeFunctionReference<"mutation", any, { ok: boolean }>(
-    "slack/outbox:completeAnswerOutbox",
-  ),
-  fail: makeFunctionReference<"mutation", any, { ok: boolean }>(
+  complete: makeFunctionReference<
+    "mutation",
+    OutboxMutationArgs,
+    { ok: boolean }
+  >("slack/outbox:completeAnswerOutbox"),
+  fail: makeFunctionReference<"mutation", OutboxMutationArgs, { ok: boolean }>(
     "slack/outbox:failAnswerOutbox",
   ),
-  recover: makeFunctionReference<"mutation", any, { ok: boolean }>(
-    "slack/outbox:recoverAnswerOutbox",
-  ),
+  recover: makeFunctionReference<
+    "mutation",
+    OutboxMutationArgs,
+    { ok: boolean }
+  >("slack/outbox:recoverAnswerOutbox"),
   deliver: makeFunctionReference<"action", { answerKey: string }, unknown>(
     "slack/outbox:deliverAnswerOutbox",
   ),
 } as const;
-const find = async (db: any, k: string) =>
+const find = async (db: OutboxDb, k: string) =>
   await db
     .query("outboundDeliveryOutbox")
-    .withIndex("by_answer_key", (q: any) => q.eq("answerKey", k))
+    .withIndex("by_answer_key", (q) => q.eq("answerKey", k))
     .unique();
 
 export const getAnswerOutbox = internalQueryGeneric({
@@ -104,7 +138,7 @@ export const getSlackProviderConnection = internalQueryGeneric({
   handler: async (ctx, a) =>
     await ctx.db
       .query("providerConnections")
-      .withIndex("by_connection_key", (q: any) =>
+      .withIndex("by_connection_key", (q) =>
         q.eq("connectionKey", a.connectionKey),
       )
       .unique(),
@@ -116,7 +150,7 @@ export const listExpiredAnswerOutbox = internalQueryGeneric({
   handler: async (ctx, a) =>
     (await ctx.db
       .query("outboundDeliveryOutbox")
-      .withIndex("by_lease_expiry", (q: any) =>
+      .withIndex("by_lease_expiry", (q) =>
         q.eq("status", "in_flight").lte("leaseExpiresAt", a.now),
       )
       .take(a.limit)) as SlackAnswerOutboxRow[],
@@ -133,19 +167,19 @@ export const finalAuthorizeAnswerOutbox = internalQueryGeneric({
     if (row === null) return false;
     const binding = await ctx.db
       .query("slackIdentityBindings")
-      .withIndex("by_binding_key", (q: any) =>
+      .withIndex("by_binding_key", (q) =>
         q.eq("bindingKey", row.lifecycle.bindingKey),
       )
       .unique();
     const policies = await ctx.db
       .query("channelDeliveryPolicies")
-      .withIndex("by_channel_active", (q: any) =>
+      .withIndex("by_channel_active", (q) =>
         q.eq("channelKey", row.delivery.channelKey).eq("active", true),
       )
       .collect();
     const records = await ctx.db
       .query("policies")
-      .withIndex("by_policy_version", (q: any) =>
+      .withIndex("by_policy_version", (q) =>
         q.eq(
           "policyKey",
           operationPolicyKey(row.delivery.workspaceId, "slackDelivery"),
@@ -159,15 +193,20 @@ export const finalAuthorizeAnswerOutbox = internalQueryGeneric({
     )
       return false;
     const policy = policies.find(
-      (candidate: any) =>
-        candidate.organizationKey === row.delivery.organizationKey,
-    );
+      (candidate) =>
+        (candidate as Record<string, unknown>).organizationKey ===
+        row.delivery.organizationKey,
+    ) as Parameters<typeof authorizeAnswerDelivery>[0]["policy"] | undefined;
     if (policy === undefined) return false;
     let operation = defaultOperationPolicy("slackDelivery");
     try {
       const current = records
-        .filter((record: any) => record.status === "active")
-        .map(operationPolicyFromRecord)
+        .filter((record) => record.status === "active")
+        .map((record) =>
+          operationPolicyFromRecord(
+            record as Parameters<typeof operationPolicyFromRecord>[0],
+          ),
+        )
         .filter(
           (candidate) =>
             candidate.expiresAt === undefined || candidate.expiresAt > a.now,
@@ -203,7 +242,7 @@ export const finalAuthorizeAnswerOutbox = internalQueryGeneric({
   },
 });
 const mutate = async (
-  ctx: any,
+  ctx: { readonly db: OutboxDb },
   k: string,
   fn: (r: SlackAnswerOutboxRow) => Either.Either<SlackAnswerOutboxRow, unknown>,
 ) => {
@@ -215,8 +254,11 @@ const mutate = async (
   return { ok: true };
 };
 export const enqueueAnswerOutboxHandler = async (
-  ctx: any,
-  a: any,
+  ctx: { readonly db: OutboxDb },
+  a: {
+    readonly input: AnswerDeliveryInput;
+    readonly authorized: AnswerDeliveryAuthorization;
+  },
   schedule: (answerKey: string) => Promise<void>,
 ) => {
   const r = answerOutboxRow({
@@ -317,7 +359,7 @@ export const runAnswerOutboxWorker = async (
 const invalid = (): Either.Either<SlackAnswerOutboxRow, AnswerOutboxError> =>
   Either.left({ _tag: "AnswerOutboxError", reason: "invalid_state" });
 
-const actionStore = (ctx: any): AnswerOutboxStore => ({
+const actionStore = (ctx: OutboxActionContext): AnswerOutboxStore => ({
   insertIfAbsent: async () => {
     throw new Error("delivery workers cannot enqueue answer outbox rows");
   },
@@ -392,7 +434,7 @@ const getNangoClient = (): NangoClient | null => {
   return nangoClient;
 };
 
-const providerPort = (ctx: any): ProviderPort => ({
+const providerPort = (ctx: OutboxActionContext): ProviderPort => ({
   send: async (input) => {
     const connection = await ctx.runQuery(internalOutbox.providerConnection, {
       connectionKey: input.connectionKey,
@@ -478,7 +520,7 @@ export const deliverAnswerOutbox = internalActionGeneric({
 });
 
 export const recoverExpiredAnswerOutboxesHandler = async (
-  ctx: any,
+  ctx: OutboxActionContext,
   a: { readonly limit: number },
   schedule: (answerKey: string) => Promise<void>,
 ) => {
