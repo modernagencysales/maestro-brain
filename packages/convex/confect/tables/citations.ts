@@ -21,4 +21,5 @@ export default Table.make(() =>
 )
   .index("by_workspace", ["workspaceId"])
   .index("by_claim", ["claimId"])
-  .index("by_source", ["sourceId"]);
+  .index("by_source", ["sourceId"])
+  .index("by_workspace_page", ["workspaceId", "pageKey"]);

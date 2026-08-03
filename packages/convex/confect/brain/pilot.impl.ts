@@ -8,6 +8,8 @@ import databaseSchema from "../_generated/schema";
 import { DatabaseReader, DatabaseWriter } from "../_generated/services";
 import { ValidationFailed } from "../errors";
 import { sha256Hex } from "../shared/sha256";
+import { PageNotFound, StaleRevision } from "./pageTree";
+import { toPublicPageSummary, type BrainPage } from "./pageSchemas";
 import { requireBrainAccess } from "./pages.impl";
 import pilot from "./pilot.spec";
 
@@ -186,6 +188,116 @@ const reviewNote = FunctionImpl.make(
     }),
 );
 
+const updatePage = FunctionImpl.make(
+  databaseSchema,
+  pilot,
+  "updatePage",
+  (args) =>
+    Effect.gen(function* () {
+      const brain = yield* requireBrainAccess(args.brainKey, "editor");
+      const reader = yield* DatabaseReader;
+      const pageRow = yield* reader
+        .table("brainPages")
+        .index("by_workspace_page_key", (q) =>
+          q.eq("workspaceId", brain.workspaceId).eq("pageKey", args.pageKey),
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull))
+        .pipe(Effect.orDie);
+      if (pageRow === null)
+        return yield* new PageNotFound({ pageKey: args.pageKey });
+      const page = pageRow as unknown as BrainPage;
+      if (page.status !== "active" || page.lifecycle.state !== "active")
+        return yield* new PageNotFound({ pageKey: args.pageKey });
+      if (page.currentRevisionKey !== args.expectedCurrentRevisionKey)
+        return yield* new StaleRevision({
+          pageKey: page.pageKey,
+          expectedCurrentRevisionKey: args.expectedCurrentRevisionKey,
+          actualCurrentRevisionKey: page.currentRevisionKey,
+        });
+      const updatedAt = yield* unsafeAssumeClockProvided(
+        Clock.currentTimeMillis,
+      );
+      const nextRevisionKey = `rev_${sha256Hex(
+        JSON.stringify({
+          kind: "updatePage",
+          pageKey: page.pageKey,
+          updatedAt,
+        }),
+      ).slice(0, 32)}`;
+      const lifecycle = {
+        ...page.lifecycle,
+        generation: page.lifecycle.generation + 1,
+        updatedAt,
+      };
+      const updatedPage = {
+        ...page,
+        markdown: args.markdown,
+        currentRevisionKey: nextRevisionKey,
+        updatedAt,
+        lifecycle,
+      };
+      const writer = yield* DatabaseWriter;
+      yield* writer
+        .table("brainPages")
+        .patch(pageRow._id, {
+          markdown: args.markdown,
+          currentRevisionKey: nextRevisionKey,
+          updatedAt,
+          lifecycle,
+        })
+        .pipe(Effect.orDie);
+      yield* writer
+        .table("pageRevisions")
+        .insert({
+          workspaceId: brain.workspaceId,
+          organizationId: brain.organizationId,
+          pageKey: page.pageKey,
+          revisionKey: nextRevisionKey,
+          priorRevisionKey: page.currentRevisionKey,
+          blockNoteJson: "",
+          markdown: args.markdown,
+          contentHash: sha256Hex(
+            JSON.stringify({ title: page.title, markdown: args.markdown }),
+          ),
+          causation: "human-edit",
+          actor: { kind: "user", id: brain.actorId },
+          modelReceiptKey: null,
+          effectKey: `brain.pages.updatePage:${page.pageKey}:${nextRevisionKey}`,
+          state: "published",
+          lifecycle: {
+            state: "active",
+            generation: lifecycle.generation,
+            updatedAt,
+            purgeAfter: null,
+          },
+          createdAt: updatedAt,
+          schemaVersion: 1,
+        })
+        .pipe(Effect.orDie);
+      const citations = yield* reader
+        .table("citations")
+        .index("by_workspace_page", (q) =>
+          q
+            .eq("workspaceId", String(brain.workspaceId))
+            .eq("pageKey", page.pageKey),
+        )
+        .collect()
+        .pipe(Effect.orDie);
+      for (const citation of citations) {
+        yield* writer
+          .table("citations")
+          .patch(citation._id, {
+            revisionKey: nextRevisionKey,
+            quotedText: args.markdown,
+            endOffset: args.markdown.length,
+          })
+          .pipe(Effect.orDie);
+      }
+      return toPublicPageSummary(updatedPage);
+    }),
+);
+
 const search = FunctionImpl.make(databaseSchema, pilot, "search", (args) =>
   Effect.gen(function* () {
     const query = args.query.trim().toLowerCase();
@@ -193,25 +305,47 @@ const search = FunctionImpl.make(databaseSchema, pilot, "search", (args) =>
     if (invalid !== null) return yield* invalid;
     const brain = yield* requireBrainAccess(args.brainKey, "viewer");
     const reader = yield* DatabaseReader;
-    const sources = yield* reader
-      .table("brainSources")
-      .index("by_workspace_status", (q) =>
-        q.eq("workspaceId", brain.workspaceId).eq("status", "published"),
+    const pages = yield* reader
+      .table("brainPages")
+      .index("by_workspace", (q) => q.eq("workspaceId", brain.workspaceId))
+      .collect()
+      .pipe(Effect.orDie);
+    const citations = yield* reader
+      .table("citations")
+      .index("by_workspace", (q) =>
+        q.eq("workspaceId", String(brain.workspaceId)),
       )
       .collect()
       .pipe(Effect.orDie);
     return {
       brainKey: brain.brainKey,
-      results: sources
-        .filter((source) =>
-          `${source.title}\n${source.markdown}`.toLowerCase().includes(query),
+      results: pages
+        .map((page) => page as unknown as BrainPage)
+        .filter(
+          (page) =>
+            page.status === "active" && page.lifecycle.state === "active",
         )
-        .sort((left, right) => left.sourceKey.localeCompare(right.sourceKey))
-        .map((source) => ({
-          sourceKey: source.sourceKey,
-          citationKey: `citation:${source.sourceKey}`,
-          title: source.title,
-          excerpt: source.markdown,
+        .map((page) => ({
+          page,
+          citation: citations.find(
+            (citation) =>
+              citation.pageKey === page.pageKey &&
+              citation.revisionKey === page.currentRevisionKey,
+          ),
+        }))
+        .filter(({ page }) =>
+          `${page.title}\n${page.markdown}`.toLowerCase().includes(query),
+        )
+        .sort((left, right) =>
+          (left.citation?.sourceId ?? left.page.pageKey).localeCompare(
+            right.citation?.sourceId ?? right.page.pageKey,
+          ),
+        )
+        .map(({ page, citation }) => ({
+          sourceKey: citation?.sourceId ?? page.pageKey,
+          citationKey: citation?.citationId ?? `citation:${page.pageKey}`,
+          title: page.title,
+          excerpt: page.markdown,
         })),
     };
   }),
@@ -220,6 +354,7 @@ const search = FunctionImpl.make(databaseSchema, pilot, "search", (args) =>
 export default GroupImpl.make(databaseSchema, pilot).pipe(
   Layer.provide(submitNote),
   Layer.provide(reviewNote),
+  Layer.provide(updatePage),
   Layer.provide(search),
   GroupImpl.finalize,
 );

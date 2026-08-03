@@ -7,7 +7,13 @@ import {
   collectContractSchemas,
   defineContractFunction,
 } from "../capabilities/_kit/capability";
-import { BrainNotFound, LifecycleRevoked } from "./pageTree";
+import {
+  BrainNotFound,
+  LifecycleRevoked,
+  PageNotFound,
+  StaleRevision,
+} from "./pageTree";
+import { PageKey, RevisionKey, SiblingSlug, SortKey } from "./pageSchemas";
 
 const BrainKey = Schema.String.pipe(
   Schema.pattern(/^br_[0-9A-HJKMNP-TV-Z]{26}$/),
@@ -52,6 +58,34 @@ const SearchReturns = Schema.Struct({
   brainKey: BrainKey,
   results: Schema.Array(SearchResult),
 });
+const PageSummary = Schema.Struct({
+  pageKey: PageKey,
+  parentPageKey: Schema.NullOr(PageKey),
+  siblingSlug: SiblingSlug,
+  sortKey: SortKey,
+  title: Schema.String,
+  favorite: Schema.Boolean,
+  status: Schema.Literal("active", "archived", "redacted", "purged"),
+  currentRevisionKey: Schema.NullOr(RevisionKey),
+  lifecycleGeneration: Schema.Number,
+});
+const UpdatePageArgs = Schema.extend(
+  BrainSelector,
+  Schema.Struct({
+    pageKey: PageKey,
+    expectedCurrentRevisionKey: RevisionKey,
+    markdown: Schema.String,
+  }),
+);
+const PilotWriteError = Schema.Union(
+  Unauthorized,
+  Forbidden,
+  BrainNotFound,
+  LifecycleRevoked,
+  PageNotFound,
+  StaleRevision,
+  ValidationFailed,
+);
 
 const submitNote = defineContractFunction(
   FunctionSpec.publicMutation({
@@ -137,7 +171,37 @@ const search = defineContractFunction(
   },
 );
 
-const contractFunctions = [submitNote, reviewNote, search] as const;
+const updatePage = defineContractFunction(
+  FunctionSpec.publicMutation({
+    name: "updatePage",
+    args: () => UpdatePageArgs,
+    returns: () => PageSummary,
+    error: () => PilotWriteError,
+  }),
+  {
+    namespace: "brain.pilot",
+    name: "updatePage",
+    operationId: "brain.pilot.updatePage",
+    kind: "mutation",
+    surfaces: ["web"],
+    typedErrors: [
+      "Unauthorized",
+      "Forbidden",
+      "BrainNotFound",
+      "LifecycleRevoked",
+      "PageNotFound",
+      "StaleRevision",
+      "ValidationFailed",
+    ],
+    idempotent: false,
+    argsSchemaName: "brain.pilot.updatePage.args",
+    returnsSchemaName: "brain.pilot.updatePage.returns",
+    argsSchema: UpdatePageArgs,
+    returnsSchema: PageSummary,
+  },
+);
+
+const contractFunctions = [submitNote, reviewNote, search, updatePage] as const;
 
 export const manifest = collectContractManifest(contractFunctions);
 export const schemaRegistry = collectContractSchemas(contractFunctions);
@@ -145,4 +209,5 @@ export const schemaRegistry = collectContractSchemas(contractFunctions);
 export default GroupSpec.make()
   .addFunction(submitNote.spec)
   .addFunction(reviewNote.spec)
-  .addFunction(search.spec);
+  .addFunction(search.spec)
+  .addFunction(updatePage.spec);

@@ -290,6 +290,88 @@ describe("Brain pilot contract", () => {
     expect(result.citations).toEqual([]);
   });
 
+  it("updates the approved page and searches its current cited revision", async () => {
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof databaseSchema>(),
+        );
+        const seeded = yield* confect.run(
+          seedBrain({
+            role: "editor",
+            subject: "page-editor",
+            email: "page-editor@example.com",
+            brainKey,
+          }),
+          SeededBrainSchema,
+        );
+        const editor = actor(confect, "page-editor", "page-editor@example.com");
+        const submitted = yield* editor.mutation(
+          refs.public.brain.pilot.submitNote,
+          {
+            brainKey,
+            title: "Editable note",
+            markdown: "Original text.",
+          },
+        );
+        yield* editor.mutation(refs.public.brain.pilot.reviewNote, {
+          brainKey,
+          sourceKey: submitted.sourceKey,
+          decision: "approve",
+        });
+        const before = yield* confect.run(
+          publishedState(seeded.workspaceId),
+          PublishedState,
+        );
+        const page = before.pages[0];
+        const updated = yield* editor.mutation(
+          refs.public.brain.pilot.updatePage,
+          {
+            brainKey,
+            pageKey: page.pageKey,
+            expectedCurrentRevisionKey: page.currentRevisionKey,
+            markdown: "Edited text.",
+          },
+        );
+        const after = yield* confect.run(
+          publishedState(seeded.workspaceId),
+          PublishedState,
+        );
+        const search = yield* editor.query(refs.public.brain.pilot.search, {
+          brainKey,
+          query: "edited",
+        });
+        return { before, updated, after, search };
+      }).pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.after.pages).toHaveLength(1);
+    expect(result.after.pages[0]?.pageKey).toBe(
+      result.before.pages[0]?.pageKey,
+    );
+    expect(result.after.pages[0]?.markdown).toBe("Edited text.");
+    expect(result.after.pages[0]?.currentRevisionKey).not.toBe(
+      result.before.pages[0]?.currentRevisionKey,
+    );
+    expect(result.after.revisions).toHaveLength(2);
+    expect(result.after.citations[0]).toMatchObject({
+      pageKey: result.after.pages[0]?.pageKey,
+      revisionKey: result.after.pages[0]?.currentRevisionKey,
+      quotedText: "Edited text.",
+    });
+    expect(result.updated.currentRevisionKey).toBe(
+      result.after.pages[0]?.currentRevisionKey,
+    );
+    expect(result.search.results).toEqual([
+      expect.objectContaining({
+        sourceKey: result.search.results[0]?.sourceKey,
+        title: "Editable note",
+        excerpt: "Edited text.",
+        citationKey: `citation:${result.search.results[0]?.sourceKey}`,
+      }),
+    ]);
+  });
+
   it("returns deterministic citations and isolates tenants", async () => {
     const result = await Effect.runPromise(
       Effect.gen(function* () {
