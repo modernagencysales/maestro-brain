@@ -1,15 +1,14 @@
 # Maestro Brain V1 Evidence Checklist
 
 **Audit date:** 2026-08-03  
-**Audited code head:** `ef2bf6c` **Verdict:** no-go; no hosted release evidence
-is present.
+**Audited code head:** `ce6e76f`  
+**Verdict:** no-go; no hosted release evidence is present.
 
 ## Local evidence
 
 - Deterministic Markdown/JSON export encoding, job fencing, and local immutable
-  artifact storage are implemented and covered by 5 focused tests; durable
-  Convex job metadata is present, and template-core typecheck passes. See
-  `S12-T02.md`.
+  artifact storage are implemented and covered by focused tests; durable Convex
+  job metadata is present, and template-core typecheck passes. See `S12-T02.md`.
 - `staging-pilot-launch.md` is a historical no-go packet. Its old commit and
   queued-test wording are not evidence for this code head.
 
