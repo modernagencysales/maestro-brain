@@ -10,6 +10,7 @@ export type ApiKeysDoc = Document.Document<typeof schemaDefinition, "apiKeys">;
 export type BillingPlansDoc = Document.Document<typeof schemaDefinition, "billingPlans">;
 export type BrainPageAuditEventsDoc = Document.Document<typeof schemaDefinition, "brainPageAuditEvents">;
 export type BrainPagesDoc = Document.Document<typeof schemaDefinition, "brainPages">;
+export type BrainSourcesDoc = Document.Document<typeof schemaDefinition, "brainSources">;
 export type ChannelSyncStatesDoc = Document.Document<typeof schemaDefinition, "channelSyncStates">;
 export type CitationsDoc = Document.Document<typeof schemaDefinition, "citations">;
 export type ClaimsDoc = Document.Document<typeof schemaDefinition, "claims">;
@@ -63,6 +64,7 @@ export interface Docs {
   billingPlans: BillingPlansDoc;
   brainPageAuditEvents: BrainPageAuditEventsDoc;
   brainPages: BrainPagesDoc;
+  brainSources: BrainSourcesDoc;
   channelSyncStates: ChannelSyncStatesDoc;
   citations: CitationsDoc;
   claims: ClaimsDoc;

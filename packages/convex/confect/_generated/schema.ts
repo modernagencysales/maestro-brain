@@ -9,6 +9,7 @@ import apiKeys from "./tables/apiKeys";
 import billingPlans from "./tables/billingPlans";
 import brainPageAuditEvents from "./tables/brainPageAuditEvents";
 import brainPages from "./tables/brainPages";
+import brainSources from "./tables/brainSources";
 import channelSyncStates from "./tables/channelSyncStates";
 import citations from "./tables/citations";
 import claims from "./tables/claims";
@@ -62,6 +63,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof billingPlans |
   typeof brainPageAuditEvents |
   typeof brainPages |
+  typeof brainSources |
   typeof channelSyncStates |
   typeof citations |
   typeof claims |
@@ -114,6 +116,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   billingPlans,
   brainPageAuditEvents,
   brainPages,
+  brainSources,
   channelSyncStates,
   citations,
   claims,

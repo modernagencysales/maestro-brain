@@ -82,7 +82,7 @@ const effectKeyFor = (
   pageKey: string,
   revisionKey: string,
 ) => `brain.pages.${kind}:${pageKey}:${revisionKey}`;
-const requireBrainAccess = (
+export const requireBrainAccess = (
   brainKey: string,
   minimumRole: Role,
 ): Effect.Effect<BrainContext, AccessError, ReadPageDeps> =>
