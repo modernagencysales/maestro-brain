@@ -7,6 +7,7 @@ import * as Option from "effect/Option";
 import databaseSchema from "../_generated/schema";
 import { DatabaseReader } from "../_generated/services";
 import { ValidationFailed } from "../errors";
+import { SubsystemDisabled } from "../ops/brainOperations.spec";
 import { sha256Hex } from "../shared/sha256";
 import { requireBrainAccess } from "./pages.impl";
 import {
@@ -16,9 +17,36 @@ import {
   type AskRevision,
 } from "./retrieval";
 import readApi from "./readApi.spec";
+import {
+  operationPolicyFromRecord,
+  operationPolicyKey,
+} from "../ops/brainOperationPolicy";
 
 const now = () =>
   Clock.currentTimeMillis as Effect.Effect<number, never, never>;
+
+const ensureOperationEnabled = (workspaceId: string, subsystem: "ask") =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const rows = yield* reader
+      .table("policies")
+      .index("by_workspace_kind_status", (q) =>
+        q
+          .eq("workspaceId", workspaceId)
+          .eq("kind", "agent.config")
+          .eq("status", "active"),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const row = rows.find(
+      (candidate) =>
+        candidate.policyKey === operationPolicyKey(workspaceId, subsystem),
+    );
+    if (row === undefined) return;
+    const policy = operationPolicyFromRecord(row);
+    if (policy.state === "disabled")
+      return yield* new SubsystemDisabled({ subsystem });
+  });
 
 const sourcesSearch = FunctionImpl.make(
   databaseSchema,
@@ -148,6 +176,7 @@ const answersAsk = FunctionImpl.make(
   (args) =>
     Effect.gen(function* () {
       const brain = yield* requireBrainAccess(args.brainKey, "viewer");
+      yield* ensureOperationEnabled(brain.workspaceId, "ask");
       const reader = yield* DatabaseReader;
       const question = args.question.trim().toLowerCase();
       if (!question)

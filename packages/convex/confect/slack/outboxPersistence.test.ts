@@ -11,6 +11,7 @@ import {
 import {
   answerOutboxRow,
   authorizeAnswerDelivery,
+  claimAnswerOutboxRow,
   type AnswerDeliveryInput,
   type SlackAnswerOutboxRow,
 } from "./answerOutbox";
@@ -182,13 +183,38 @@ describe("durable private Slack answer outbox", () => {
     expect(sends).toBe(1);
   });
 
-  it("recovers expired leases so a restarted worker can claim them", async () => {
+  it("marks a terminal provider rejection terminally", async () => {
     const store = fakeStore();
     const queued = await enqueueAnswer(store, {
       input: input(),
       authorized: authorization(),
     });
-    await runAnswerDelivery(store, {
+    const result = await runAnswerDelivery(store, {
+      answerKey: queued.row.answerKey,
+      expectedLifecycle: queued.row.lifecycle,
+      leaseToken: "lease_1",
+      leaseExpiresAt: 200,
+      now: 101,
+      reauthorize: () => true,
+      provider: {
+        send: async () =>
+          ({ outcome: "terminal", code: "provider_not_configured" }) as never,
+      },
+    });
+    expect(result).toMatchObject({ outcome: "terminal" });
+    expect(store.rows.get(queued.row.answerKey)).toMatchObject({
+      status: "failed",
+      lastError: { kind: "terminal", code: "provider_not_configured" },
+    });
+  });
+
+  it("records a bounded provider timeout as retryable", async () => {
+    const store = fakeStore();
+    const queued = await enqueueAnswer(store, {
+      input: input(),
+      authorized: authorization(),
+    });
+    const result = await runAnswerDelivery(store, {
       answerKey: queued.row.answerKey,
       expectedLifecycle: queued.row.lifecycle,
       leaseToken: "lease_1",
@@ -196,7 +222,29 @@ describe("durable private Slack answer outbox", () => {
       now: 101,
       reauthorize: () => true,
       provider: { send: async () => new Promise(() => undefined) },
+      timeoutMs: 1,
+    } as never);
+    expect(result).toMatchObject({ outcome: "retryable" });
+    expect(store.rows.get(queued.row.answerKey)).toMatchObject({
+      status: "retryable",
+      lastError: { kind: "retryable", code: "provider_timeout" },
     });
+  });
+
+  it("recovers expired leases so a restarted worker can claim them", async () => {
+    const store = fakeStore();
+    const queued = await enqueueAnswer(store, {
+      input: input(),
+      authorized: authorization(),
+    });
+    await store.claim(queued.row.answerKey, (row) =>
+      claimAnswerOutboxRow(row, {
+        expectedLifecycle: queued.row.lifecycle,
+        leaseToken: "lease_1",
+        leaseExpiresAt: 200,
+        now: 101,
+      }),
+    );
     const recovered = await recoverExpiredAnswers(store, {
       now: 201,
       expectedLifecycle: queued.row.lifecycle,

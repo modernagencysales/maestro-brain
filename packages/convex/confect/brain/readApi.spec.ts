@@ -2,6 +2,7 @@ import { FunctionSpec, GroupSpec } from "@confect/core";
 import * as Schema from "effect/Schema";
 
 import { Forbidden, Unauthorized, ValidationFailed } from "../errors";
+import { SubsystemDisabled } from "../ops/brainOperations.spec";
 import {
   collectContractManifest,
   collectContractSchemas,
@@ -19,6 +20,7 @@ const Errors = Schema.Union(
   LifecycleRevoked,
   PageNotFound,
   ValidationFailed,
+  SubsystemDisabled,
 );
 const SearchArgs = Schema.extend(
   BrainSelector,
@@ -99,6 +101,7 @@ const query = <
         "LifecycleRevoked",
         "PageNotFound",
         "ValidationFailed",
+        "SubsystemDisabled",
       ],
       idempotent: true,
       argsSchemaName: `brain.readApi.${name}.args`,

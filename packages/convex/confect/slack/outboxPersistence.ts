@@ -14,9 +14,7 @@ import {
 } from "./answerOutbox";
 
 export type AnswerOutboxStore = {
-  readonly insertIfAbsent: (
-    row: SlackAnswerOutboxRow,
-  ) => Promise<{
+  readonly insertIfAbsent: (row: SlackAnswerOutboxRow) => Promise<{
     readonly inserted: boolean;
     readonly row: SlackAnswerOutboxRow;
   }>;
@@ -37,19 +35,25 @@ export type AnswerOutboxStore = {
   ) => Promise<readonly SlackAnswerOutboxRow[]>;
 };
 
-export type PrivateAnswerProvider = {
+export type ProviderPort = {
   readonly send: (input: {
     readonly answerKey: string;
     readonly answer: SlackAnswerOutboxRow["answer"];
     readonly requesterSlackUserId: string;
     readonly channelId: string;
+    readonly connectionKey: string;
+    readonly connectionGeneration: number;
+    readonly teamId: string;
     readonly threadTs?: string;
   }) => Promise<
     | { readonly outcome: "delivered" }
     | { readonly outcome: "retryable"; readonly code?: string }
     | { readonly outcome: "ambiguous" }
+    | { readonly outcome: "terminal"; readonly code: string }
   >;
 };
+
+export type PrivateAnswerProvider = ProviderPort;
 
 export type EnqueueAnswerResult = {
   readonly inserted: boolean;
@@ -71,6 +75,7 @@ export type AnswerDeliveryResult =
   | { readonly outcome: "delivered" }
   | { readonly outcome: "denied" }
   | { readonly outcome: "ambiguous_no_retry" }
+  | { readonly outcome: "terminal" }
   | { readonly outcome: "retryable" }
   | { readonly outcome: "invalid" };
 
@@ -83,7 +88,8 @@ export const runAnswerDelivery = async (
     readonly leaseExpiresAt: number;
     readonly now: number;
     readonly reauthorize: () => boolean | Promise<boolean>;
-    readonly provider: PrivateAnswerProvider;
+    readonly provider: ProviderPort;
+    readonly timeoutMs?: number;
   },
 ): Promise<AnswerDeliveryResult> => {
   const claimed = await store.claim(input.answerKey, (row) =>
@@ -108,21 +114,48 @@ export const runAnswerDelivery = async (
     );
     return { outcome: "denied" };
   }
-  let providerResult: Awaited<ReturnType<PrivateAnswerProvider["send"]>>;
+  const recordFailure = async (
+    kind: "retryable" | "terminal",
+    code: string,
+    outcome: AnswerDeliveryResult,
+  ): Promise<AnswerDeliveryResult> => {
+    const failed = await store.update(input.answerKey, (current) =>
+      recordAnswerDeliveryFailure(current, {
+        expectedLifecycle: input.expectedLifecycle,
+        leaseToken: input.leaseToken,
+        kind,
+        code,
+        now: input.now,
+      }),
+    );
+    return failed !== null && Either.isRight(failed)
+      ? outcome
+      : { outcome: "invalid" };
+  };
+  let providerResult: Awaited<ReturnType<ProviderPort["send"]>>;
   try {
     const send = input.provider.send({
       answerKey: row.answerKey,
       answer: row.answer,
       requesterSlackUserId: row.requester.slackUserId,
       channelId: row.delivery.externalChannelId,
+      connectionKey: row.delivery.connectionKey,
+      connectionGeneration: row.lifecycle.connectionGeneration,
+      teamId: row.delivery.teamId,
     });
-    const raced = await Promise.race([
-      send,
-      new Promise<{ readonly outcome: "timeout" }>((resolve) => {
-        setTimeout(() => resolve({ outcome: "timeout" }), 100);
-      }),
-    ]);
-    if (raced.outcome === "timeout") return { outcome: "retryable" };
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<{ readonly outcome: "timeout" }>((resolve) => {
+      timeoutHandle = setTimeout(
+        () => resolve({ outcome: "timeout" }),
+        input.timeoutMs ?? 100,
+      );
+    });
+    const raced = await Promise.race([send, timeout]);
+    if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
+    if (raced.outcome === "timeout")
+      return await recordFailure("retryable", "provider_timeout", {
+        outcome: "retryable",
+      });
     providerResult = raced;
   } catch {
     providerResult = { outcome: "retryable", code: "provider_error" };
@@ -139,23 +172,19 @@ export const runAnswerDelivery = async (
       ? { outcome: "delivered" }
       : { outcome: "invalid" };
   }
-  const ambiguous = providerResult.outcome === "ambiguous";
-  const retryCode =
-    providerResult.outcome === "retryable" ? providerResult.code : undefined;
-  await store.update(input.answerKey, (current) =>
-    recordAnswerDeliveryFailure(current, {
-      expectedLifecycle: input.expectedLifecycle,
-      leaseToken: input.leaseToken,
-      kind: ambiguous ? "terminal" : "retryable",
-      code: ambiguous
-        ? "ambiguous_provider_outcome"
-        : (retryCode ?? "provider_retryable"),
-      now: input.now,
-    }),
+  if (providerResult.outcome === "ambiguous")
+    return await recordFailure("terminal", "ambiguous_provider_outcome", {
+      outcome: "ambiguous_no_retry",
+    });
+  if (providerResult.outcome === "terminal")
+    return await recordFailure("terminal", providerResult.code, {
+      outcome: "terminal",
+    });
+  return await recordFailure(
+    "retryable",
+    providerResult.code ?? "provider_retryable",
+    { outcome: "retryable" },
   );
-  return ambiguous
-    ? { outcome: "ambiguous_no_retry" }
-    : { outcome: "retryable" };
 };
 
 export const recoverExpiredAnswers = async (

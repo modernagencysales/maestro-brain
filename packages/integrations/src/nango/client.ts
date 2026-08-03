@@ -72,6 +72,13 @@ type NangoSdk = {
     } | null;
     readonly tags?: Record<string, unknown> | null;
   }>;
+  readonly proxy?: (input: {
+    readonly method: string;
+    readonly endpoint: string;
+    readonly providerConfigKey: string;
+    readonly connectionId: string;
+    readonly data?: unknown;
+  }) => Promise<unknown>;
 };
 
 export type NangoClient = {
@@ -86,6 +93,12 @@ export type NangoClient = {
     readonly connectSessionId: string;
     readonly connectionId: string;
   }) => Promise<NangoConnectionMetadata>;
+  readonly proxy: (input: {
+    readonly connectionId: string;
+    readonly endpoint: string;
+    readonly method: "GET" | "POST";
+    readonly data?: unknown;
+  }) => Promise<{ readonly status: number; readonly data?: unknown }>;
 };
 
 const requiredLiveEnv = [
@@ -172,6 +185,7 @@ export const createFakeNangoClient = (input: {
       correlationTag: `slack-connect:${connectSessionId}`,
     };
   },
+  proxy: async () => ({ status: 200, data: { ok: true } }),
 });
 const stringField = (value: unknown): string | null =>
   typeof value === "string" && value.trim().length > 0 ? value : null;
@@ -256,6 +270,25 @@ export const createLiveNangoClient = (input: {
         endUserId,
         providerConfigKey,
         correlationTag,
+      };
+    },
+    proxy: async ({ connectionId, endpoint, method, data }) => {
+      const nango = await loadNango();
+      if (nango.proxy === undefined) throw new ProviderUnavailable();
+      const response = await nango.proxy({
+        connectionId,
+        endpoint,
+        method,
+        providerConfigKey: input.providerConfigKey,
+        ...(data === undefined ? {} : { data }),
+      });
+      const record =
+        typeof response === "object" && response !== null
+          ? (response as { readonly status?: unknown; readonly data?: unknown })
+          : {};
+      return {
+        status: typeof record.status === "number" ? record.status : 200,
+        ...(record.data === undefined ? {} : { data: record.data }),
       };
     },
   };
