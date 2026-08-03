@@ -4,6 +4,7 @@ import {
   internalQueryGeneric,
 } from "convex/server";
 import { v } from "convex/values";
+import type { DatabaseReader } from "../_generated/server";
 const job = {
   jobId: v.string(),
   idempotencyKey: v.string(),
@@ -14,10 +15,13 @@ const job = {
   policyGeneration: v.number(),
   now: v.number(),
 };
-const find = async (db: any, i: any) =>
+const find = async (
+  db: DatabaseReader,
+  i: { readonly organizationKey: string; readonly idempotencyKey: string },
+) =>
   await db
     .query("brainExportJobs")
-    .withIndex("by_org_idempotency", (q: any) =>
+    .withIndex("by_org_idempotency", (q) =>
       q
         .eq("organizationKey", i.organizationKey)
         .eq("idempotencyKey", i.idempotencyKey),
@@ -74,7 +78,7 @@ export const publishBrainExport = internalMutationGeneric({
   handler: async (ctx, i) => {
     const j = await ctx.db
       .query("brainExportJobs")
-      .withIndex("by_job_id", (q: any) => q.eq("jobId", i.jobId))
+      .withIndex("by_job_id", (q) => q.eq("jobId", i.jobId))
       .unique();
     if (
       !j ||
@@ -121,7 +125,7 @@ export const temporaryBrainExportUrl = internalQueryGeneric({
   handler: async (ctx, i) => {
     const j = await ctx.db
       .query("brainExportJobs")
-      .withIndex("by_job_id", (q: any) => q.eq("jobId", i.jobId))
+      .withIndex("by_job_id", (q) => q.eq("jobId", i.jobId))
       .unique();
     if (
       !j ||
@@ -141,7 +145,7 @@ export const expireBrainExport = internalMutationGeneric({
   handler: async (ctx, i) => {
     const j = await ctx.db
       .query("brainExportJobs")
-      .withIndex("by_job_id", (q: any) => q.eq("jobId", i.jobId))
+      .withIndex("by_job_id", (q) => q.eq("jobId", i.jobId))
       .unique();
     if (
       !j ||
@@ -161,7 +165,7 @@ export const revokeBrainExport = internalMutationGeneric({
   handler: async (ctx, i) => {
     const j = await ctx.db
       .query("brainExportJobs")
-      .withIndex("by_job_id", (q: any) => q.eq("jobId", i.jobId))
+      .withIndex("by_job_id", (q) => q.eq("jobId", i.jobId))
       .unique();
     if (!j || j.lifecycleGeneration === i.lifecycleGeneration)
       return { ok: false };
@@ -175,7 +179,7 @@ export const purgeBrainExport = internalMutationGeneric({
   handler: async (ctx, i) => {
     const j = await ctx.db
       .query("brainExportJobs")
-      .withIndex("by_job_id", (q: any) => q.eq("jobId", i.jobId))
+      .withIndex("by_job_id", (q) => q.eq("jobId", i.jobId))
       .unique();
     if (!j || j.state === "purged") return { ok: false };
     if (j.artifactId) await ctx.storage.delete(j.artifactId as never);

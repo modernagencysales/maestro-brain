@@ -152,8 +152,11 @@ describe("Brain export worker", () => {
       storedAt: input().createdAt,
       ttlMs: 60_000,
     });
-    expect(
-      purgeBrainExportArtifact(store, result.artifact!.artifactId).state,
-    ).toBe("purged");
+    const artifact = result.artifact;
+    expect(artifact).toBeDefined();
+    if (artifact === undefined) throw new Error("artifact was not stored");
+    expect(purgeBrainExportArtifact(store, artifact.artifactId).state).toBe(
+      "purged",
+    );
   });
 });

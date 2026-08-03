@@ -18,6 +18,17 @@ import {
 } from "../../confect/ops/brainOperationPolicy";
 import { orchestrateSlackQuestion } from "../../confect/slack/questionOrchestration";
 import { sha256Hex } from "../../confect/shared/sha256";
+import type { AskResponse } from "../../confect/brain/retrieval";
+
+type SlackQuestionReceiptRow = {
+  readonly state: string;
+  readonly scope: unknown | null;
+};
+type OperationPolicyRecord = {
+  readonly status: string;
+  readonly dataJson: string;
+};
+type IndexQuery = { eq(field: string, value: unknown): IndexQuery };
 
 const delivery = {
   organizationKey: v.string(),
@@ -72,9 +83,7 @@ export const getSlackQuestionReceipt = internalQueryGeneric({
   handler: async (ctx, args) =>
     await ctx.db
       .query("slackQuestionReceipts")
-      .withIndex("by_receipt_key", (q: any) =>
-        q.eq("receiptKey", args.receiptKey),
-      )
+      .withIndex("by_receipt_key", (q) => q.eq("receiptKey", args.receiptKey))
       .unique(),
 });
 
@@ -84,9 +93,7 @@ export const getSlackIdentityBinding = internalQueryGeneric({
   handler: async (ctx, args) =>
     await ctx.db
       .query("slackIdentityBindings")
-      .withIndex("by_binding_key", (q: any) =>
-        q.eq("bindingKey", args.bindingKey),
-      )
+      .withIndex("by_binding_key", (q) => q.eq("bindingKey", args.bindingKey))
       .unique(),
 });
 
@@ -96,8 +103,12 @@ export const getChannelDeliveryPolicies = internalQueryGeneric({
   handler: async (ctx, args) =>
     await ctx.db
       .query("channelDeliveryPolicies")
-      .withIndex("by_channel_active", (q: any) =>
-        q.eq("channelKey", args.channelKey).eq("active", true),
+      .withIndex(
+        "by_channel_active",
+        (q) =>
+          (q as unknown as IndexQuery)
+            .eq("channelKey", args.channelKey)
+            .eq("active", true) as never,
       )
       .collect(),
 });
@@ -108,9 +119,7 @@ export const getOperationPolicies = internalQueryGeneric({
   handler: async (ctx, args) =>
     await ctx.db
       .query("policies")
-      .withIndex("by_policy_version", (q: any) =>
-        q.eq("policyKey", args.policyKey),
-      )
+      .withIndex("by_policy_version", (q) => q.eq("policyKey", args.policyKey))
       .collect(),
 });
 export const receiveSlackQuestionReceipt = internalMutationGeneric({
@@ -132,7 +141,7 @@ export const receiveSlackQuestionReceipt = internalMutationGeneric({
           : `sha256:${sha256Hex(`${s.organizationKey}:${s.providerEventId}`)}`,
       e = await ctx.db
         .query("slackQuestionReceipts")
-        .withIndex("by_receipt_key", (q: any) => q.eq("receiptKey", k))
+        .withIndex("by_receipt_key", (q) => q.eq("receiptKey", k))
         .unique();
     if (!e) {
       await ctx.db.insert("slackQuestionReceipts", {
@@ -152,10 +161,11 @@ export const receiveSlackQuestionReceipt = internalMutationGeneric({
         receivedAt: s.receivedAt,
         createdAt: s.receivedAt,
       });
-      if (s.state === "scoped" && typeof (a.input as any).text === "string") {
+      const input = a.input as { readonly text?: unknown };
+      if (s.state === "scoped" && typeof input.text === "string") {
         await ctx.scheduler.runAfter(0, internalQuestion.answer, {
           receiptKey: k,
-          questionText: (a.input as any).text,
+          questionText: input.text,
           delivery: {
             organizationKey: s.organizationKey,
             workspaceId: s.scope?.workspaceId ?? "",
@@ -190,7 +200,7 @@ export const answerSlackQuestion = internalActionGeneric({
   handler: async (ctx, args) => {
     const row = (await ctx.runQuery(internalQuestion.getReceipt, {
       receiptKey: args.receiptKey,
-    })) as any;
+    })) as SlackQuestionReceiptRow | null;
     if (row === null || row.state !== "scoped" || row.scope === null)
       return { outcome: "ignored" };
     const binding = await ctx.runQuery(internalQuestion.binding, {
@@ -202,14 +212,14 @@ export const answerSlackQuestion = internalActionGeneric({
     if (binding === null || !Array.isArray(policies))
       return { outcome: "denied" };
     const policy = policies.find(
-      (candidate: any) =>
+      (candidate) =>
         candidate.organizationKey === args.delivery.organizationKey &&
         candidate.active === true,
     );
     if (policy === undefined) return { outcome: "denied" };
     const records = (await ctx.runQuery(internalQuestion.operations, {
       policyKey: operationPolicyKey(args.delivery.workspaceId, "slackDelivery"),
-    })) as readonly any[];
+    })) as readonly OperationPolicyRecord[];
     let operation = defaultOperationPolicy("slackDelivery");
     const current = records
       .filter((record) => record.status === "active")
@@ -238,7 +248,7 @@ export const answerSlackQuestion = internalActionGeneric({
       {
         ask: async (input) => {
           const asked = (await ctx.runQuery(internalQuestion.ask, input)) as {
-            readonly response: any;
+            readonly response: AskResponse;
           };
           return asked.response;
         },

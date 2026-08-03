@@ -173,7 +173,8 @@ export const retryBrainExportJob = (
   },
 ): BrainExportJob => {
   if (job.state !== "failed" || job.attempt >= input.maxAttempts) return job;
-  const { error: _error, ...withoutError } = job;
+  const { error, ...withoutError } = job;
+  void error;
   return {
     ...withoutError,
     state: "requested",

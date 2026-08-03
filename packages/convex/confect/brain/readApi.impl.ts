@@ -8,7 +8,6 @@ import databaseSchema from "../_generated/schema";
 import { DatabaseReader } from "../_generated/services";
 import { ValidationFailed } from "../errors";
 import { SubsystemDisabled } from "../ops/brainOperations.spec";
-import { sha256Hex } from "../shared/sha256";
 import { requireBrainAccess } from "./pages.impl";
 import {
   buildAskResponse,

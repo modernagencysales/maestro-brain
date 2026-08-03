@@ -110,8 +110,11 @@ export const expireBrainExportArtifact = (
 export const revokeBrainExportArtifact = (
   store: BrainExportArtifactStore,
   artifactId: string,
-  _currentLifecycleGeneration: number,
-): BrainExportArtifact => replace(store, artifactId, { state: "revoked" });
+  currentLifecycleGeneration: number,
+): BrainExportArtifact => {
+  void currentLifecycleGeneration;
+  return replace(store, artifactId, { state: "revoked" });
+};
 
 export const purgeBrainExportArtifact = (
   store: BrainExportArtifactStore,
