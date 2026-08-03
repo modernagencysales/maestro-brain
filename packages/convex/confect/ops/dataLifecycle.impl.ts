@@ -6,7 +6,11 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import databaseSchema from "../_generated/schema";
-import { DatabaseReader, DatabaseWriter } from "../_generated/services";
+import {
+  DatabaseReader,
+  DatabaseWriter,
+  StorageReader,
+} from "../_generated/services";
 import { requireWorkspaceAccess } from "../capabilities/_kit/workspaceAccess";
 import { ValidationFailed } from "../errors";
 import {
@@ -268,7 +272,22 @@ const downloadBrainExport = FunctionImpl.make(
           field: "jobId",
           message: "Export job is unavailable.",
         });
-      return toBrainExportReturn(row);
+      if (row.state !== "ready" || row.artifactId === undefined)
+        return yield* new ValidationFailed({
+          field: "jobId",
+          message: "Export artifact is not ready.",
+        });
+      const storage = yield* StorageReader;
+      const url = yield* storage.getUrl(row.artifactId as never).pipe(
+        Effect.map(String),
+        Effect.catchAll(() => Effect.succeed(null)),
+      );
+      if (url === null)
+        return yield* new ValidationFailed({
+          field: "jobId",
+          message: "Export artifact is unavailable.",
+        });
+      return { ...toBrainExportReturn(row), downloadUrl: url };
     }),
 );
 

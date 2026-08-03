@@ -98,6 +98,7 @@ const BrainExportJobReturn = Schema.Struct({
   sizeBytes: Schema.optional(Schema.Number),
   manifestHash: Schema.optional(Schema.String),
   artifactHash: Schema.optional(Schema.String),
+  downloadUrl: Schema.optional(Schema.String),
 });
 export const BrainExportRequestArgs = Schema.Struct({
   brainKey: Schema.String,
