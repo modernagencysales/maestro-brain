@@ -42,6 +42,7 @@ import providerConnections from "./tables/providerConnections";
 import providerEventReceipts from "./tables/providerEventReceipts";
 import servicePrincipals from "./tables/servicePrincipals";
 import slackIdentityBindings from "./tables/slackIdentityBindings";
+import slackQuestionReceipts from "./tables/slackQuestionReceipts";
 import sourceArtifacts from "./tables/sourceArtifacts";
 import sourceChannels from "./tables/sourceChannels";
 import sourceProcessingJobs from "./tables/sourceProcessingJobs";
@@ -106,6 +107,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof providerEventReceipts |
   typeof servicePrincipals |
   typeof slackIdentityBindings |
+  typeof slackQuestionReceipts |
   typeof sourceArtifacts |
   typeof sourceChannels |
   typeof sourceProcessingJobs |
@@ -169,6 +171,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   providerEventReceipts,
   servicePrincipals,
   slackIdentityBindings,
+  slackQuestionReceipts,
   sourceArtifacts,
   sourceChannels,
   sourceProcessingJobs,

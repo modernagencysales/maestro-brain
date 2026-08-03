@@ -43,6 +43,7 @@ export type ProviderConnectionsDoc = Document.Document<typeof schemaDefinition, 
 export type ProviderEventReceiptsDoc = Document.Document<typeof schemaDefinition, "providerEventReceipts">;
 export type ServicePrincipalsDoc = Document.Document<typeof schemaDefinition, "servicePrincipals">;
 export type SlackIdentityBindingsDoc = Document.Document<typeof schemaDefinition, "slackIdentityBindings">;
+export type SlackQuestionReceiptsDoc = Document.Document<typeof schemaDefinition, "slackQuestionReceipts">;
 export type SourceArtifactsDoc = Document.Document<typeof schemaDefinition, "sourceArtifacts">;
 export type SourceChannelsDoc = Document.Document<typeof schemaDefinition, "sourceChannels">;
 export type SourceProcessingJobsDoc = Document.Document<typeof schemaDefinition, "sourceProcessingJobs">;
@@ -107,6 +108,7 @@ export interface Docs {
   providerEventReceipts: ProviderEventReceiptsDoc;
   servicePrincipals: ServicePrincipalsDoc;
   slackIdentityBindings: SlackIdentityBindingsDoc;
+  slackQuestionReceipts: SlackQuestionReceiptsDoc;
   sourceArtifacts: SourceArtifactsDoc;
   sourceChannels: SourceChannelsDoc;
   sourceProcessingJobs: SourceProcessingJobsDoc;

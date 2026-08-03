@@ -1,6 +1,5 @@
 import { internalMutationGeneric } from "convex/server";
 import { v } from "convex/values";
-
 import { ingestSlackEvent } from "../../confect/slack/ingress";
 
 const args = {
@@ -29,8 +28,7 @@ const args = {
     effectKey: v.string(),
   }),
 };
-
-const providerEventReceiptFor = async (db: any, input: any) =>
+const receiptFor = async (db: any, input: any) =>
   await db
     .query("providerEventReceipts")
     .withIndex("by_connection_generation_transport_delivery", (q: any) =>
@@ -42,16 +40,15 @@ const providerEventReceiptFor = async (db: any, input: any) =>
         .eq("transportDeliveryId", input.transportDeliveryId),
     )
     .unique();
-
-const replayReceiptFor = async (db: any, input: any) => {
-  const receipts = await db
+const replayFor = async (db: any, input: any) => {
+  const rows = await db
     .query("providerEventReceipts")
     .withIndex("by_received_at", (q: any) =>
       q.eq("organizationKey", input.organizationKey),
     )
     .collect();
   return (
-    receipts.find(
+    rows.find(
       (row: any) =>
         row.connectionKey === input.connectionKey &&
         row.connectionGeneration === input.connectionGeneration &&
@@ -59,8 +56,7 @@ const replayReceiptFor = async (db: any, input: any) => {
     ) ?? null
   );
 };
-
-const sourceArtifactFor = async (db: any, input: any) => {
+const artifactFor = async (db: any, input: any) => {
   const event = input.payload?.event;
   const timestamp = event?.ts ?? event?.deleted_ts ?? "";
   return await db
@@ -83,12 +79,9 @@ export const receiveSlackEvent = internalMutationGeneric({
     await ingestSlackEvent(
       {
         findReceipt: (deliveryId) =>
-          providerEventReceiptFor(ctx.db, {
-            ...input,
-            transportDeliveryId: deliveryId,
-          }),
-        findReplay: () => replayReceiptFor(ctx.db, input),
-        findArtifact: () => sourceArtifactFor(ctx.db, input),
+          receiptFor(ctx.db, { ...input, transportDeliveryId: deliveryId }),
+        findReplay: () => replayFor(ctx.db, input),
+        findArtifact: () => artifactFor(ctx.db, input),
         insert: (table, row) => ctx.db.insert(table as any, row as any),
         patchArtifact: (existing, row) =>
           ctx.db.patch((existing as any)._id, row as any),

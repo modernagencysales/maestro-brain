@@ -42,6 +42,7 @@ import providerConnections from "./tables/providerConnections";
 import providerEventReceipts from "./tables/providerEventReceipts";
 import servicePrincipals from "./tables/servicePrincipals";
 import slackIdentityBindings from "./tables/slackIdentityBindings";
+import slackQuestionReceipts from "./tables/slackQuestionReceipts";
 import sourceArtifacts from "./tables/sourceArtifacts";
 import sourceChannels from "./tables/sourceChannels";
 import sourceProcessingJobs from "./tables/sourceProcessingJobs";
@@ -106,6 +107,7 @@ export default $defineSchema({
   providerEventReceipts: providerEventReceipts.tableDefinition,
   servicePrincipals: servicePrincipals.tableDefinition,
   slackIdentityBindings: slackIdentityBindings.tableDefinition,
+  slackQuestionReceipts: slackQuestionReceipts.tableDefinition,
   sourceArtifacts: sourceArtifacts.tableDefinition,
   sourceChannels: sourceChannels.tableDefinition,
   sourceProcessingJobs: sourceProcessingJobs.tableDefinition,
