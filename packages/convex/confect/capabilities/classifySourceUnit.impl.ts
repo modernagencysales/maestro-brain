@@ -23,7 +23,9 @@ type CommitSourceRouteInput = {
   >["request"];
   readonly output: Schema.Schema.Type<typeof classifySourceUnitReturns>;
   readonly review: ClassificationReviewAction;
-  readonly currentAuthority: Schema.Schema.Type<typeof ClassificationAuthority>;
+  readonly currentAuthority: Schema.Schema.Type<
+    typeof ClassificationAuthority
+  > & { readonly existingRouteEffectKeys?: readonly string[] };
   readonly caller: { readonly kind: string; readonly surface: string };
 };
 

@@ -158,7 +158,7 @@ export const receiveSlackQuestionReceipt = internalMutationGeneric({
         ...(s.reason === undefined ? {} : { reason: s.reason }),
         ...(s.availableBrainKeys === undefined
           ? {}
-          : { availableBrainKeys: s.availableBrainKeys }),
+          : { availableBrainKeys: [...s.availableBrainKeys] }),
         receivedAt: s.receivedAt,
         createdAt: s.receivedAt,
       });
