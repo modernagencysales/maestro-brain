@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   isReferenceRoutesEnabled,
-  requireProductionWebEnv,
+  requireBuildWebEnv,
   resolveWebEnv,
   WebEnvConfigError,
 } from "./env";
@@ -11,19 +11,17 @@ afterEach(() => {
 });
 
 describe("web environment", () => {
-  it("requires a configured Convex URL for production builds", () => {
-    expect(() => requireProductionWebEnv("production", {})).toThrow(
-      WebEnvConfigError,
-    );
+  it("requires a configured Convex URL for Vite builds", () => {
+    expect(() => requireBuildWebEnv("build", {})).toThrow(WebEnvConfigError);
     expect(() =>
-      requireProductionWebEnv("production", { VITE_CONVEX_URL: "   " }),
+      requireBuildWebEnv("build", { VITE_CONVEX_URL: "   " }),
     ).toThrow(WebEnvConfigError);
     expect(() =>
-      requireProductionWebEnv("production", {
+      requireBuildWebEnv("build", {
         VITE_CONVEX_URL: "https://perfect-sparrow-808.convex.cloud",
       }),
     ).not.toThrow();
-    expect(() => requireProductionWebEnv("development", {})).not.toThrow();
+    expect(() => requireBuildWebEnv("serve", {})).not.toThrow();
   });
 
   it("uses a fake-safe Convex fallback when no URL is configured", () => {

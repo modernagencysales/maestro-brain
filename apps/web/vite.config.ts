@@ -3,11 +3,11 @@ import { cloudflare } from "@cloudflare/vite-plugin";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import { fileURLToPath } from "node:url";
 import { defineConfig, loadEnv } from "vite";
-import { requireProductionWebEnv } from "./src/env";
+import { requireBuildWebEnv } from "./src/env";
 
-export default defineConfig(({ mode }) => {
-  requireProductionWebEnv(
-    mode,
+export default defineConfig(({ command, mode }) => {
+  requireBuildWebEnv(
+    command,
     loadEnv(mode, fileURLToPath(new URL(".", import.meta.url)), "VITE_"),
   );
 
