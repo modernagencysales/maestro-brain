@@ -1,11 +1,16 @@
 import { templateConfectRefs } from "@maestro-template/convex/refs";
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 
 import {
   useTemplateAction,
   useTemplateMutation,
   useTemplateQuery,
+  classifyConfectMutationResult,
+  isTemplateFailureState,
+  normalizeMutationError,
 } from "../adapters/confect-state";
+import { describeTypedFailure } from "../adapters/failure-message";
 import {
   createMemberManagementAdapter,
   type WorkspaceId,
@@ -16,8 +21,15 @@ import { ApiKeysPanel } from "../features/settings/api-keys-panel";
 import { useWorkspace } from "../providers/workspace";
 import { BusinessSettingsRoute } from "../saas-ui/business-shell";
 import { selectStableApiKeyBrainKey } from "../features/settings/settings-surface";
+import { BrainExports } from "../features/settings/brain-exports";
+import type {
+  BrainExportJob,
+  BrainExportViewState,
+} from "../features/settings/export-history";
+import { isConvexConfigured } from "../env";
 
 const apiKeyRefs = templateConfectRefs.public.headless.apiKeys;
+const exportRefs = templateConfectRefs.public.ops.dataLifecycle;
 
 const accessRefs = {
   members: templateConfectRefs.public.access.members,
@@ -34,6 +46,13 @@ export const Route = createFileRoute("/_workspace/settings")({
 
 function WorkspaceSettingsRoute() {
   const workspace = useWorkspace();
+  const [requestedExport, setRequestedExport] = useState<BrainExportJob | null>(
+    null,
+  );
+  const [exportRequest, setExportRequest] = useState<
+    | { readonly status: "idle" | "loading" }
+    | { readonly status: "error"; readonly message: string }
+  >({ status: "idle" });
   const createInvitation = useTemplateAction(accessRefs.invitations.create);
   const createApiKey = useTemplateMutation(apiKeyRefs.create);
   const rotateApiKey = useTemplateMutation(apiKeyRefs.rotate);
@@ -64,6 +83,22 @@ function WorkspaceSettingsRoute() {
     apiKeyRefs.list,
     stableBrainKey === null ? "skip" : { brainKey: stableBrainKey },
   );
+  const exportStatus = useTemplateQuery(
+    exportRefs.getBrainExport,
+    requestedExport === null
+      ? "skip"
+      : { brainKey: requestedExport.brainKey, jobId: requestedExport.jobId },
+  );
+  const exportDownload = useTemplateQuery(
+    exportRefs.downloadBrainExport,
+    exportStatus.status === "ready" && exportStatus.data.state === "ready"
+      ? {
+          brainKey: exportStatus.data.brainKey,
+          jobId: exportStatus.data.jobId,
+        }
+      : "skip",
+  );
+  const requestBrainExport = useTemplateMutation(exportRefs.requestBrainExport);
 
   if (workspace.status !== "ready") {
     return <BusinessSettingsRoute />;
@@ -103,9 +138,96 @@ function WorkspaceSettingsRoute() {
         adapter={apiKeyAdapter}
         keys={toRowsState(apiKeys, "API key list access denied.")}
       />
+      <BrainExports
+        role={workspace.activeWorkspace.role}
+        {...(!isConvexConfigured()
+          ? {
+              disabledReason:
+                "Brain export backend unavailable. Configure Convex to request an export.",
+            }
+          : {})}
+        exportState={brainExportView(
+          exportRequest,
+          requestedExport,
+          exportStatus,
+          exportDownload,
+        )}
+        requestPending={exportRequest.status === "loading"}
+        onRequest={async (idempotencyKey) => {
+          setExportRequest({ status: "loading" });
+          try {
+            const result = classifyConfectMutationResult(
+              await requestBrainExport({
+                brainKey: activeBrainKey,
+                idempotencyKey,
+              }),
+            );
+            if (result.status === "ready") {
+              setRequestedExport(result.data);
+              setExportRequest({ status: "idle" });
+            } else if (isTemplateFailureState(result)) {
+              setExportRequest({
+                status: "error",
+                message: describeTypedFailure(
+                  result.error,
+                  "Unable to request export. Try again.",
+                ),
+              });
+            } else {
+              setExportRequest({
+                status: "error",
+                message: "Unable to request export. Try again.",
+              });
+            }
+          } catch (error) {
+            const failure = normalizeMutationError(error);
+            setExportRequest({ status: "error", message: failure.message });
+          }
+        }}
+      />
     </>
   );
 }
+
+const brainExportView = (
+  request:
+    | { readonly status: "idle" | "loading" }
+    | { readonly status: "error"; readonly message: string },
+  requested: BrainExportJob | null,
+  status: ReturnType<typeof useTemplateQuery<typeof exportRefs.getBrainExport>>,
+  download: ReturnType<
+    typeof useTemplateQuery<typeof exportRefs.downloadBrainExport>
+  >,
+): BrainExportViewState => {
+  if (request.status === "error")
+    return { status: "unavailable", message: request.message };
+  if (requested === null)
+    return request.status === "loading"
+      ? { status: "loading" }
+      : { status: "empty" };
+  if (status.status === "loading" || status.status === "skipped")
+    return { status: "ready", job: requested };
+  if (status.status === "ready") {
+    const { downloadUrl: _ignored, ...job } = status.data;
+    return {
+      status: "ready",
+      job: {
+        ...job,
+        ...(download.status === "ready" && download.data.downloadUrl
+          ? { downloadUrl: download.data.downloadUrl }
+          : {}),
+      },
+    };
+  }
+  if (status.status === "empty") return { status: "ready", job: requested };
+  return {
+    status: "unavailable",
+    message:
+      status.status === "typed_failure"
+        ? describeTypedFailure(status.error, "Unable to load export status.")
+        : status.message,
+  };
+};
 
 const toRowsState = <T, E>(
   state:
