@@ -28,11 +28,23 @@ const pageDetail = {
   updatedAt: 1_754_000_000_000,
 };
 
+const childPage = {
+  ...page,
+  pageKey: "pag_01J0000000000000000000000B",
+  parentPageKey: page.pageKey,
+  siblingSlug: "proof",
+  sortKey: "0002",
+  title: "Proof points",
+  currentRevisionKey: "rev_01J0000000000000000000000B",
+};
+
 const adapter = (): BrainWorkspaceAdapter => ({
   brainKey: "br_01J0000000000000000000000A",
   canEdit: true,
   createPage: vi.fn().mockResolvedValue(page),
   renamePage: vi.fn().mockResolvedValue(page),
+  archivePage: vi.fn().mockResolvedValue(page),
+  favoritePage: vi.fn().mockResolvedValue(page),
   updatePage: vi.fn().mockResolvedValue({
     pageKey: page.pageKey,
     pageRevisionKey: page.currentRevisionKey,
@@ -192,6 +204,64 @@ describe("BrainWorkspace", () => {
     expect(html).toContain("textarea");
     expect(html).toContain("Rename page");
     expect(html).toContain("Create page");
+    expect(html).toContain("Archive page");
+    expect(html).toContain("Add favorite");
+  });
+
+  it("renders a parent-grouped selectable page tree", () => {
+    const html = render({
+      list: {
+        status: "ready",
+        data: {
+          brainKey: "br_01J0000000000000000000000A",
+          asOf: 1,
+          freshness: { status: "current" },
+          pages: [page, childPage],
+        },
+      },
+      selectedPageKey: childPage.pageKey,
+    });
+
+    expect(html).toContain('aria-label="Brain pages"');
+    expect(html).toContain('aria-current="page"');
+    expect(html.indexOf(page.title)).toBeLessThan(
+      html.indexOf(childPage.title),
+    );
+  });
+
+  it("hides page mutation controls from viewers", () => {
+    const html = render({
+      adapter: { ...adapter(), canEdit: false },
+      mode: "edit",
+    });
+
+    expect(html).not.toContain("Create page");
+    expect(html).not.toContain("Rename page");
+    expect(html).not.toContain("Archive page");
+    expect(html).not.toContain("Add favorite");
+  });
+
+  it("returns typed stale and lifecycle conflicts", async () => {
+    const stale = createBrainWorkspaceActions({
+      ...adapter(),
+      updatePage: vi.fn().mockRejectedValue({ _tag: "StaleRevision" }),
+    });
+    const revoked = createBrainWorkspaceActions({
+      ...adapter(),
+      updatePage: vi.fn().mockRejectedValue({ _tag: "LifecycleRevoked" }),
+    });
+    const input = {
+      pageKey: page.pageKey,
+      expectedCurrentRevisionKey: page.currentRevisionKey,
+      markdown: "body",
+    };
+
+    await expect(stale.savePage(input)).resolves.toMatchObject({
+      status: "stale_conflict",
+    });
+    await expect(revoked.savePage(input)).resolves.toMatchObject({
+      status: "lifecycle_conflict",
+    });
   });
 
   it("explains when review is unavailable and renders review outcomes", () => {
