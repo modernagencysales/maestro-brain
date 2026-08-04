@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   isReferenceRoutesEnabled,
+  requireProductionWebEnv,
   resolveWebEnv,
   WebEnvConfigError,
 } from "./env";
@@ -10,16 +11,7 @@ afterEach(() => {
 });
 
 describe("web environment", () => {
-  it("requires a configured Convex URL for production builds", async () => {
-    const envModule = await import("./env");
-    const requireProductionWebEnv: unknown = Reflect.get(
-      envModule,
-      "requireProductionWebEnv",
-    );
-
-    expect(requireProductionWebEnv).toBeTypeOf("function");
-    if (typeof requireProductionWebEnv !== "function") return;
-
+  it("requires a configured Convex URL for production builds", () => {
     expect(() => requireProductionWebEnv("production", {})).toThrow(
       WebEnvConfigError,
     );
