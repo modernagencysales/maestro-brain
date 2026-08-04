@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
+import * as Either from "effect/Either";
 import type { BrainSource } from "@maestro-template/template-core";
 import {
   buildBrainDocumentSections,
   buildBrainViewModel,
+  createBrainContextPackPreview,
   describeBrainState,
+  unwrapBrainMutation,
   type BrainContextPackPreview,
 } from "./brain-surface";
 import type { TemplateDataState } from "../../adapters/confect-state";
@@ -79,6 +82,16 @@ describe("Brain source surface", () => {
     expect(text).toContain("Trust Receipts carry the provenance");
     expect(text).toContain("Founder notes");
     expect(text).toContain("https://example.test/positioning");
+  });
+
+  it("builds context previews and unwraps successful mutations", () => {
+    expect(createBrainContextPackPreview(["Founder notes"])).toMatchObject({
+      evidenceSnapshots: ["Founder notes"],
+      freshness: "fresh",
+      trustReceiptPosture: "required",
+    });
+    expect(unwrapBrainMutation(42)).toBe(42);
+    expect(unwrapBrainMutation(Either.right("saved"))).toBe("saved");
   });
 
   it("describes loading, empty, typed error, transport error, and parse error states", () => {
