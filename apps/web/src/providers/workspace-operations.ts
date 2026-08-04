@@ -12,7 +12,7 @@ import type { ClientAuthSnapshot } from "../auth/authkit-server";
 import type { WorkspaceOperations, WorkspaceSummary } from "./workspace";
 
 const demoWorkspace: WorkspaceSummary = {
-  workspaceId: "br_template_demo",
+  workspaceId: "br_01J0000000000000000000000B",
   organizationId: "ag_template_demo",
   name: "Template Demo Workspace",
   slug: "template-demo",

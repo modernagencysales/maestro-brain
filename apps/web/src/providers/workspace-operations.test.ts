@@ -30,7 +30,7 @@ describe("runtime workspace operations", () => {
     await expect(operations.loadWorkspaces()).resolves.toEqual([
       expect.objectContaining({
         role: "owner",
-        workspaceId: "br_template_demo",
+        workspaceId: "br_01J0000000000000000000000B",
       }),
     ]);
   });
