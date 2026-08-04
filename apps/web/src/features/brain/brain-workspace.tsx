@@ -3,6 +3,7 @@ import {
   useTemplateMutation,
   useTemplateQuery,
 } from "../../adapters/confect-state";
+import type { TemplateDataState } from "../../adapters/confect-state";
 import { useWorkspace } from "../../providers/workspace";
 import {
   BusinessAppShell,
@@ -147,14 +148,14 @@ export const BrainWorkspaceRoute = () => {
     brainWorkspaceRefs.list,
     brainKey === null ? "skip" : { brainKey },
     { isEmpty: (data: BrainPageListData) => data.pages.length === 0 },
-  );
+  ) as TemplateDataState<BrainPageListData, unknown>;
   const selected = list.status === "ready" ? list.data.pages[0]?.pageKey : null;
   const detail = useTemplateQuery(
     brainWorkspaceRefs.get,
     brainKey === null || selected === undefined || selected === null
       ? "skip"
       : { brainKey, pageKey: selected },
-  );
+  ) as TemplateDataState<BrainPageDetail, unknown>;
   const create = useTemplateMutation(brainWorkspaceRefs.create);
   const rename = useTemplateMutation(brainWorkspaceRefs.rename);
   const submitNote = useTemplateMutation(brainPilotRefs.submitNote);
@@ -165,7 +166,7 @@ export const BrainWorkspaceRoute = () => {
     brainKey === null || searchQuery === null
       ? "skip"
       : { brainKey, query: searchQuery },
-  );
+  ) as TemplateDataState<BrainPilotSearchData, unknown>;
 
   if (workspace.status !== "ready") {
     return (
