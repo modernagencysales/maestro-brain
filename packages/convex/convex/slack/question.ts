@@ -19,6 +19,7 @@ import {
 import { orchestrateSlackQuestion } from "../../confect/slack/questionOrchestration";
 import { sha256Hex } from "../../confect/shared/sha256";
 import type { AskResponse } from "../../confect/brain/retrieval";
+import type { ActionCtx, MutationCtx, QueryCtx } from "../_generated/server";
 
 type SlackQuestionReceiptRow = {
   readonly state: string;
@@ -80,7 +81,7 @@ const internalQuestion = {
 export const getSlackQuestionReceipt = internalQueryGeneric({
   args: { receiptKey: v.string() },
   returns: v.union(v.any(), v.null()),
-  handler: async (ctx, args) =>
+  handler: async (ctx: QueryCtx, args) =>
     await ctx.db
       .query("slackQuestionReceipts")
       .withIndex("by_receipt_key", (q) => q.eq("receiptKey", args.receiptKey))
@@ -90,7 +91,7 @@ export const getSlackQuestionReceipt = internalQueryGeneric({
 export const getSlackIdentityBinding = internalQueryGeneric({
   args: { bindingKey: v.string() },
   returns: v.union(v.any(), v.null()),
-  handler: async (ctx, args) =>
+  handler: async (ctx: QueryCtx, args) =>
     await ctx.db
       .query("slackIdentityBindings")
       .withIndex("by_binding_key", (q) => q.eq("bindingKey", args.bindingKey))
@@ -100,7 +101,7 @@ export const getSlackIdentityBinding = internalQueryGeneric({
 export const getChannelDeliveryPolicies = internalQueryGeneric({
   args: { channelKey: v.string() },
   returns: v.array(v.any()),
-  handler: async (ctx, args) =>
+  handler: async (ctx: QueryCtx, args) =>
     await ctx.db
       .query("channelDeliveryPolicies")
       .withIndex(
@@ -116,7 +117,7 @@ export const getChannelDeliveryPolicies = internalQueryGeneric({
 export const getOperationPolicies = internalQueryGeneric({
   args: { policyKey: v.string() },
   returns: v.array(v.any()),
-  handler: async (ctx, args) =>
+  handler: async (ctx: QueryCtx, args) =>
     await ctx.db
       .query("policies")
       .withIndex("by_policy_version", (q) => q.eq("policyKey", args.policyKey))
@@ -129,7 +130,7 @@ export const receiveSlackQuestionReceipt = internalMutationGeneric({
     scopeKey: v.optional(v.string()),
   },
   returns: v.object({ state: v.string(), receiptKey: v.string() }),
-  handler: async (ctx, a) => {
+  handler: async (ctx: MutationCtx, a) => {
     const r = receiveSlackQuestion(a.input as never),
       s = selectAuthorizedBrainScope(r, {
         scopes: a.scopes as never,
@@ -197,7 +198,7 @@ export const answerSlackQuestion = internalActionGeneric({
     delivery: v.object(delivery),
   },
   returns: v.object({ outcome: v.string(), answerKey: v.optional(v.string()) }),
-  handler: async (ctx, args) => {
+  handler: async (ctx: ActionCtx, args) => {
     const row = (await ctx.runQuery(internalQuestion.getReceipt, {
       receiptKey: args.receiptKey,
     })) as SlackQuestionReceiptRow | null;
