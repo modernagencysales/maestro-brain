@@ -29,7 +29,10 @@ describe("confect manifest tooling", () => {
       writeFileSync(descriptor, '{"capability":"probe"}\n');
       writeFileSync(unrelated, '{"unrelated":true}\n');
       writeFileSync(
-        join(probeDirectory, "probe.test.ts"),
+        // Keep the compiler probe out of Vitest's Convex test discovery. The
+        // manifest tsconfig includes all generated .ts files, so a test suffix
+        // is unnecessary and races with the parallel Convex test project.
+        join(probeDirectory, "probe.ts"),
         'import metadata from "./probe.headless.json";\nexport const capability = metadata.capability;\n',
       );
 
