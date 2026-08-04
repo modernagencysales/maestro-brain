@@ -82,6 +82,19 @@ export type BrainPilotSearchData = {
   readonly results: readonly BrainSearchResult[];
 };
 export type BrainPageUpdateData = BrainPageSummary;
+export type BrainRevisionHistoryData = {
+  readonly brainKey: string;
+  readonly pageKey: string;
+  readonly asOf: number;
+  readonly freshness: { readonly status: "current" };
+  readonly revisions: readonly {
+    readonly revisionKey: string;
+    readonly priorRevisionKey: string | null;
+    readonly causation: string;
+    readonly createdAt: number;
+    readonly lifecycleGeneration: number;
+  }[];
+};
 
 type BrainWorkspaceRefs = {
   readonly list: BrainPageRefs["list"];
@@ -90,6 +103,8 @@ type BrainWorkspaceRefs = {
   readonly rename: BrainPageRefs["rename"];
   readonly favorite: BrainPageRefs["favorite"];
   readonly archive: BrainPageRefs["archive"];
+  readonly move: BrainPageRefs["move"];
+  readonly history: BrainPageRefs["history"];
 };
 
 type BrainWorkspacePilotRefs = {
@@ -106,6 +121,8 @@ export const brainWorkspaceRefs: BrainWorkspaceRefs = {
   rename: templateConfectRefs.public.brain.pages.rename,
   favorite: templateConfectRefs.public.brain.pages.favorite,
   archive: templateConfectRefs.public.brain.pages.archive,
+  move: templateConfectRefs.public.brain.pages.move,
+  history: templateConfectRefs.public.brain.pages.history,
 } as const;
 
 export const brainPilotRefs: BrainWorkspacePilotRefs = {
@@ -137,6 +154,11 @@ export type BrainWorkspaceMutationInputs = {
     args: Ref.Args<typeof brainWorkspaceRefs.archive>,
   ) => Promise<
     BrainPageMutationResult<Ref.Returns<typeof brainWorkspaceRefs.archive>>
+  >;
+  readonly move?: (
+    args: Ref.Args<typeof brainWorkspaceRefs.move>,
+  ) => Promise<
+    BrainPageMutationResult<Ref.Returns<typeof brainWorkspaceRefs.move>>
   >;
 };
 
@@ -170,6 +192,7 @@ export type BrainWorkspaceAdapter = BrainPilotAdapter & {
   readonly renamePage: BrainWorkspaceMutationInputs["rename"];
   readonly favoritePage?: BrainWorkspaceMutationInputs["favorite"];
   readonly archivePage?: BrainWorkspaceMutationInputs["archive"];
+  readonly movePage?: BrainWorkspaceMutationInputs["move"];
   readonly updatePage?: (input: {
     readonly pageKey: string;
     readonly expectedCurrentRevisionKey: string;
@@ -188,6 +211,7 @@ export const createBrainWorkspaceAdapter = ({
   readonly canEdit: boolean;
   readonly mutations: BrainWorkspaceMutationInputs;
   readonly pilot?: BrainPilotAdapter;
+  readonly movePage?: BrainWorkspaceAdapter["movePage"];
   readonly updatePage?: BrainWorkspaceAdapter["updatePage"];
 }): BrainWorkspaceAdapter => ({
   brainKey,
@@ -201,6 +225,8 @@ export const createBrainWorkspaceAdapter = ({
   ...(mutations.archive === undefined
     ? {}
     : { archivePage: mutations.archive }),
+  ...(mutations.move === undefined ? {} : { movePage: mutations.move }),
+  ...(movePage === undefined ? {} : { movePage }),
   ...(updatePage === undefined ? {} : { updatePage }),
 });
 

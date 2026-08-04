@@ -239,6 +239,39 @@ describe("BrainWorkspace", () => {
     expect(html).not.toContain("Rename page");
     expect(html).not.toContain("Archive page");
     expect(html).not.toContain("Add favorite");
+    expect(html).not.toContain("Move Positioning notes");
+  });
+
+  it("invokes the page move adapter", async () => {
+    const movePage = vi.fn().mockResolvedValue(page);
+    const actions = createBrainWorkspaceActions({ ...adapter(), movePage });
+
+    await expect(
+      actions.movePage({
+        pageKey: page.pageKey,
+        expectedCurrentRevisionKey: page.currentRevisionKey,
+        parentPageKey: childPage.pageKey,
+        sortKey: page.sortKey,
+      }),
+    ).resolves.toMatchObject({ status: "moved" });
+    expect(movePage).toHaveBeenCalledOnce();
+  });
+
+  it("renders editor move controls in the nested page tree", () => {
+    const html = render({
+      list: {
+        status: "ready",
+        data: {
+          brainKey: "br_01J0000000000000000000000A",
+          asOf: 1,
+          freshness: { status: "current" },
+          pages: [page, childPage],
+        },
+      },
+    });
+
+    expect(html).toContain("Move Positioning notes");
+    expect(html).toContain("Top level");
   });
 
   it("returns typed stale and lifecycle conflicts", async () => {

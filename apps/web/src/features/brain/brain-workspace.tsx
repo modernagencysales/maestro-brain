@@ -26,9 +26,14 @@ import type {
   BrainPageListData,
   BrainPageSummary,
   BrainPilotSearchData,
+  BrainRevisionHistoryData,
   BrainSearchResult,
   BrainWorkspaceAdapter,
 } from "./brain-surface";
+import {
+  RevisionHistory,
+  type BrainRevisionHistoryState,
+} from "./revision-history";
 import {
   brainPilotRefs,
   brainWorkspaceRefs,
@@ -71,7 +76,7 @@ export type BrainWorkspaceActionState =
       readonly status: "pending_review" | "published" | "rejected";
       readonly sourceKey: string;
     }
-  | { readonly status: "saved" }
+  | { readonly status: "saved" | "moved" }
   | { readonly status: "stale_conflict" | "lifecycle_conflict" }
   | { readonly status: "unavailable" | "failure"; readonly message: string };
 
@@ -132,6 +137,26 @@ export const createBrainWorkspaceActions = (
       return { status: "failure", message: failureMessage(error) };
     }
   },
+  movePage: async (input: {
+    readonly pageKey: string;
+    readonly expectedCurrentRevisionKey: string;
+    readonly parentPageKey: string | null;
+    readonly sortKey: string;
+  }): Promise<BrainWorkspaceActionState> => {
+    if (adapter.movePage === undefined) {
+      return { status: "unavailable", message: "Page moving is unavailable." };
+    }
+    try {
+      await adapter.movePage(input);
+      return { status: "moved" };
+    } catch (error) {
+      if (hasErrorTag(error, "StaleRevision"))
+        return { status: "stale_conflict" };
+      if (hasErrorTag(error, "LifecycleRevoked"))
+        return { status: "lifecycle_conflict" };
+      return { status: "failure", message: failureMessage(error) };
+    }
+  },
   search: async (query: string): Promise<readonly BrainSearchResult[]> => {
     if (adapter.search === undefined) {
       throw new Error("Search is unavailable");
@@ -142,6 +167,15 @@ export const createBrainWorkspaceActions = (
 
 const failureMessage = (error: unknown): string =>
   error instanceof Error ? error.message : "The Brain operation failed.";
+
+const toRevisionHistoryState = (
+  state: TemplateDataState<BrainRevisionHistoryData, unknown>,
+): BrainRevisionHistoryState => {
+  if (state.status === "ready") return { status: "ready", data: state.data };
+  if (state.status === "loading" || state.status === "skipped")
+    return { status: "loading" };
+  return { status: "failure", message: "Unable to load revision history." };
+};
 
 const hasErrorTag = (error: unknown, tag: string): boolean =>
   typeof error === "object" &&
@@ -173,10 +207,17 @@ export const BrainWorkspaceRoute = () => {
       ? "skip"
       : { brainKey, pageKey: selected },
   ) as TemplateDataState<BrainPageDetail, unknown>;
+  const history = useTemplateQuery(
+    brainWorkspaceRefs.history,
+    brainKey === null || selected === undefined || selected === null
+      ? "skip"
+      : { brainKey, pageKey: selected, limit: 50 },
+  ) as TemplateDataState<BrainRevisionHistoryData, unknown>;
   const create = useTemplateMutation(brainWorkspaceRefs.create);
   const rename = useTemplateMutation(brainWorkspaceRefs.rename);
   const favorite = useTemplateMutation(brainWorkspaceRefs.favorite);
   const archive = useTemplateMutation(brainWorkspaceRefs.archive);
+  const move = useTemplateMutation(brainWorkspaceRefs.move);
   const submitNote = useTemplateMutation(brainPilotRefs.submitNote);
   const reviewNote = useTemplateMutation(brainPilotRefs.reviewNote);
   const updatePage = useTemplateMutation(brainPilotRefs.updatePage);
@@ -215,7 +256,7 @@ export const BrainWorkspaceRoute = () => {
   const adapter = createBrainWorkspaceAdapter({
     brainKey: workspace.activeWorkspace.workspaceId,
     canEdit: workspace.activeWorkspace.role !== "viewer",
-    mutations: { create, rename, favorite, archive },
+    mutations: { create, rename, favorite, archive, move },
     pilot: {
       submitNote: async (input) =>
         unwrapBrainMutation(
@@ -232,6 +273,22 @@ export const BrainWorkspaceRoute = () => {
           }),
         ),
     },
+    movePage: async ({
+      brainKey,
+      pageKey,
+      expectedCurrentRevisionKey,
+      parentPageKey,
+      sortKey,
+    }) =>
+      unwrapBrainMutation(
+        await move({
+          brainKey,
+          pageKey,
+          expectedCurrentRevisionKey,
+          parentPageKey,
+          sortKey,
+        }),
+      ),
     updatePage:
       detail.status === "ready"
         ? async ({ pageKey, expectedCurrentRevisionKey, markdown }) =>
@@ -260,6 +317,7 @@ export const BrainWorkspaceRoute = () => {
             list={listState}
             selectedPageKey={selected ?? undefined}
             onSelectPage={setSelectedPageKey}
+            history={toRevisionHistoryState(history)}
             onSearch={(query) => {
               setSearchQuery(query);
               setSearch({ status: "loading", query });
@@ -297,6 +355,7 @@ export const BrainWorkspace = ({
   onSearch,
   reviewNotice,
   search = { status: "idle" },
+  history = { status: "loading" },
   selectedPageKey,
   onSelectPage,
 }: {
@@ -307,6 +366,7 @@ export const BrainWorkspace = ({
   readonly onSearch?: (query: string) => void;
   readonly reviewNotice?: BrainReviewNotice;
   readonly search?: BrainSearchState;
+  readonly history?: BrainRevisionHistoryState;
   readonly selectedPageKey?: string | undefined;
   readonly onSelectPage?: ((pageKey: string) => void) | undefined;
 }) => {
@@ -450,14 +510,44 @@ export const BrainWorkspace = ({
                   ? `Edit ${detail.data.page.title}`
                   : detail.data.page.title}
               </Heading>
-              {adapter.canEdit ? (
-                <Button
-                  type="button"
-                  onClick={() => setMode(mode === "read" ? "edit" : "read")}
-                >
-                  {mode === "read" ? "Edit page" : "Cancel edit"}
-                </Button>
-              ) : null}
+              <HStack gap="2" wrap="wrap">
+                {adapter.canEdit ? (
+                  <Button
+                    type="button"
+                    onClick={() => setMode(mode === "read" ? "edit" : "read")}
+                  >
+                    {mode === "read" ? "Edit page" : "Cancel edit"}
+                  </Button>
+                ) : null}
+                {adapter.canEdit && mode === "read" ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={async () => {
+                      const revisionKey = detail.data.page.currentRevisionKey;
+                      if (revisionKey === null) return;
+                      const result = await actions.movePage({
+                        pageKey: detail.data.page.pageKey,
+                        expectedCurrentRevisionKey: revisionKey,
+                        parentPageKey: null,
+                        sortKey: detail.data.page.sortKey,
+                      });
+                      setOperationNotice(
+                        result.status === "moved"
+                          ? "Page moved to the top level."
+                          : "message" in result
+                            ? result.message
+                            : "Page move failed.",
+                      );
+                    }}
+                  >
+                    Move {detail.data.page.title}
+                  </Button>
+                ) : null}
+                {adapter.canEdit && mode === "read" ? (
+                  <Text fontSize="sm">Top level</Text>
+                ) : null}
+              </HStack>
             </HStack>
           </Card.Header>
           <Card.Body>
@@ -494,6 +584,37 @@ export const BrainWorkspace = ({
                 >
                   Rename page
                 </Button>
+                <HStack gap="2" wrap="wrap">
+                  <Button
+                    disabled={adapter.movePage === undefined}
+                    type="button"
+                    variant="outline"
+                    onClick={async () => {
+                      const revisionKey = detail.data.page.currentRevisionKey;
+                      if (revisionKey === null) return;
+                      const result = await actions.movePage({
+                        pageKey: detail.data.page.pageKey,
+                        expectedCurrentRevisionKey: revisionKey,
+                        parentPageKey: null,
+                        sortKey: detail.data.page.sortKey,
+                      });
+                      setOperationNotice(
+                        result.status === "moved"
+                          ? "Page moved to the top level."
+                          : result.status === "stale_conflict"
+                            ? "A newer revision exists. Reload before moving this page."
+                            : result.status === "lifecycle_conflict"
+                              ? "This page changed lifecycle state and can no longer be moved."
+                              : "message" in result
+                                ? result.message
+                                : "Page move failed.",
+                      );
+                    }}
+                  >
+                    Move {detail.data.page.title}
+                  </Button>
+                  <Text fontSize="sm">Top level</Text>
+                </HStack>
                 <HStack gap="2" wrap="wrap">
                   <Button
                     disabled={adapter.favoritePage === undefined}
@@ -624,6 +745,7 @@ export const BrainWorkspace = ({
                   : "Search for cited evidence"}
               </Text>
             </Box>
+            <RevisionHistory history={history} />
           </Card.Body>
         </Card.Root>
       ) : (
