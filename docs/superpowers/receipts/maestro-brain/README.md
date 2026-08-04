@@ -1,7 +1,7 @@
 # Maestro Brain V1 Evidence Checklist
 
 **Audit date:** 2026-08-03  
-**Audited code head:** `721fd1e7` **Verdict:** no-go; no hosted release evidence
+**Audited code head:** `a10e4aca` **Verdict:** no-go; no hosted release evidence
 is present.
 
 ## Local evidence
@@ -11,8 +11,9 @@ is present.
   cleanup tests are implemented. See `S12-T02.md`.
 - The Brain workspace now has a selectable nested page tree, role-gated page
   actions, page move controls, revision history, explicit stale/lifecycle
-  conflict messaging, revision/evidence status, and a Settings export lifecycle
-  surface.
+  conflict messaging, revision/evidence status, restore-as-new-revision,
+  BlockNote sync with edit-start revision fences, review queue listing, safe
+  revision diff/citation surfaces, and a Settings export lifecycle surface.
 - `staging-pilot-launch.md` is a historical no-go packet. Its old commit and
   queued-test wording are not evidence for this code head.
 
