@@ -1,5 +1,6 @@
 import { FunctionSpec, Ref } from "@confect/core";
 import { FunctionImpl, GroupImpl } from "@confect/server";
+import type { RegisteredMutation } from "convex/server";
 import type { GenericId } from "convex/values";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
@@ -26,13 +27,16 @@ import dataLifecycleSpec from "./dataLifecycle.spec";
 import { buildWorkspaceDsarPlan } from "./dataLifecycle";
 import type { BrainExportJobRowValue } from "../tables/brainExportJobs";
 import { ExportForbidden } from "./dataLifecycle.spec";
-import type { scheduleBrainExport } from "../../convex/brain/exports";
 
 const scheduleBrainExportRef = Ref.make(
   "brain/exports",
-  FunctionSpec.convexInternalMutation<typeof scheduleBrainExport>()(
-    "scheduleBrainExport",
-  ),
+  FunctionSpec.convexInternalMutation<
+    RegisteredMutation<
+      "internal",
+      { readonly jobId: string },
+      { readonly scheduled: boolean }
+    >
+  >()("scheduleBrainExport"),
 );
 
 const unsafeAssumeClockProvided = <A, E, R>(
