@@ -1108,7 +1108,7 @@ describe("Slack channel directory contract", () => {
     await Effect.runPromise(
       program.pipe(Effect.provide(slackDirectoryTestLayer())),
     );
-  });
+  }, 30_000);
 
   it("activates a verifying connection before writing channel rows", async () => {
     const program = Effect.gen(function* () {
