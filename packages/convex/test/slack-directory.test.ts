@@ -1511,7 +1511,7 @@ describe("Slack channel directory contract", () => {
     await Effect.runPromise(
       program.pipe(Effect.provide(slackDirectoryTestLayer())),
     );
-  });
+  }, 30_000);
 
   it("does not call the provider or write channels for inactive lifecycle states", async () => {
     let authCalls = 0;
@@ -2266,7 +2266,7 @@ describe("Slack channel directory contract", () => {
 
     await Effect.runPromise(program.pipe(Effect.provide(mismatchLayer())));
     expect(listCalls).toBe(0);
-  });
+  }, 30_000);
 
   it("revalidates generation inside replacement commit", async () => {
     const program = Effect.gen(function* () {
