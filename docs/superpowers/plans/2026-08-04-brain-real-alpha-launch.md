@@ -56,8 +56,8 @@ Convex/Confect, Vitest, Playwright.
 
 **Files:**
 
-- Create: `apps/web/src/routes/api.auth.callback.tsx`
-- Create: `apps/web/src/routes/api.auth.sign-in.tsx`
+- Create: `apps/web/src/routes/callback.tsx`
+- Create: `apps/web/src/routes/sign-in.tsx`
 - Modify: `apps/web/src/routes/__root.tsx`
 - Modify: `apps/web/src/routeTree.gen.ts` through the normal route generator
 - Test: `apps/web/src/auth/authkit-routes.test.ts`
@@ -65,8 +65,7 @@ Convex/Confect, Vitest, Playwright.
 **Interfaces:**
 
 - Consumes the installed `handleCallbackRoute` and `getSignInUrl` functions.
-- Produces `/api/auth/callback`, `/api/auth/sign-in`, and a signed-out live
-  redirect.
+- Produces `/callback`, `/sign-in`, and a signed-out live redirect.
 
 - [ ] Write failing route registration/redirect tests.
 - [ ] Run the focused tests and confirm the missing routes fail.

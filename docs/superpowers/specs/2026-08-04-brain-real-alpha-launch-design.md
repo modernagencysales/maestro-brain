@@ -38,8 +38,8 @@ or transport abstraction.
 ## Error handling and security
 
 - Live mode fails closed when WorkOS configuration is absent.
-- Signed-out browser requests redirect to `/api/auth/sign-in`; no Brain queries
-  run under a synthetic owner.
+- Signed-out browser requests redirect to `/sign-in`; no Brain queries run under
+  a synthetic owner.
 - CLI commands require HTTPS except for localhost, never print tokens, and exit
   nonzero for HTTP, network, decode, or typed operation errors.
 - WorkOS, Convex, and Cloudflare secrets remain in provider secret stores and

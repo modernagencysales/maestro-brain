@@ -61,7 +61,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       runtime.authSnapshot.status === "signedOut"
     ) {
       throw redirect({
-        href: `/api/auth/sign-in?returnPathname=${encodeURIComponent(location.pathname)}`,
+        href: `/sign-in?returnPathname=${encodeURIComponent(location.pathname)}`,
       });
     }
 

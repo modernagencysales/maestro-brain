@@ -32,7 +32,7 @@ describe("Cloudflare server deployment", () => {
     expect(wrangler.vars?.APP_ENV).toBe("live");
     expect(wrangler.vars?.APP_PROVIDER_MODE).toBe("live");
     expect(wrangler.vars?.WORKOS_REDIRECT_URI).toBe(
-      "https://maestro-brain-staging.tim-bb0.workers.dev/api/auth/callback",
+      "https://maestro-brain-staging.tim-bb0.workers.dev/callback",
     );
     expect(wrangler.vars?.WORKOS_AUTHKIT_JWKS_URL).toBe(
       "https://api.workos.com/sso/jwks/client_01KV1TTNCJJBCXAZK7KJ2GNTHP",
