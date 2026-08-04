@@ -81,6 +81,16 @@ export type BrainPilotSearchData = {
   readonly brainKey: string;
   readonly results: readonly BrainSearchResult[];
 };
+export type BrainReviewQueueData = {
+  readonly brainKey: string;
+  readonly items: readonly {
+    readonly sourceKey: string;
+    readonly title: string;
+    readonly submittedAt: number;
+    readonly status: "pending_review" | "published" | "rejected";
+    readonly route: "direct" | "classify" | "capture-only" | null;
+  }[];
+};
 export type BrainPageUpdateData = BrainPageSummary;
 export type BrainRevisionHistoryData = {
   readonly brainKey: string;
@@ -104,12 +114,14 @@ type BrainWorkspaceRefs = {
   readonly favorite: BrainPageRefs["favorite"];
   readonly archive: BrainPageRefs["archive"];
   readonly move: BrainPageRefs["move"];
+  readonly restore: BrainPageRefs["restore"];
   readonly history: BrainPageRefs["history"];
 };
 
 type BrainWorkspacePilotRefs = {
   readonly submitNote: BrainPilotRefs["submitNote"];
   readonly reviewNote: BrainPilotRefs["reviewNote"];
+  readonly listReviewQueue: BrainPilotRefs["listReviewQueue"];
   readonly search: BrainPilotRefs["search"];
   readonly updatePage: BrainPilotRefs["updatePage"];
 };
@@ -122,12 +134,14 @@ export const brainWorkspaceRefs: BrainWorkspaceRefs = {
   favorite: templateConfectRefs.public.brain.pages.favorite,
   archive: templateConfectRefs.public.brain.pages.archive,
   move: templateConfectRefs.public.brain.pages.move,
+  restore: templateConfectRefs.public.brain.pages.restore,
   history: templateConfectRefs.public.brain.pages.history,
 } as const;
 
 export const brainPilotRefs: BrainWorkspacePilotRefs = {
   submitNote: templateConfectRefs.public.brain.pilot.submitNote,
   reviewNote: templateConfectRefs.public.brain.pilot.reviewNote,
+  listReviewQueue: templateConfectRefs.public.brain.pilot.listReviewQueue,
   search: templateConfectRefs.public.brain.pilot.search,
   updatePage: templateConfectRefs.public.brain.pilot.updatePage,
 } as const;
@@ -159,6 +173,11 @@ export type BrainWorkspaceMutationInputs = {
     args: Ref.Args<typeof brainWorkspaceRefs.move>,
   ) => Promise<
     BrainPageMutationResult<Ref.Returns<typeof brainWorkspaceRefs.move>>
+  >;
+  readonly restore?: (
+    args: Ref.Args<typeof brainWorkspaceRefs.restore>,
+  ) => Promise<
+    BrainPageMutationResult<Ref.Returns<typeof brainWorkspaceRefs.restore>>
   >;
 };
 
@@ -197,6 +216,7 @@ export type BrainWorkspaceAdapter = BrainPilotAdapter & {
   ) => Promise<
     BrainPageMutationResult<Ref.Returns<typeof brainWorkspaceRefs.move>>
   >;
+  readonly restorePage?: BrainWorkspaceMutationInputs["restore"];
   readonly updatePage?: (input: {
     readonly pageKey: string;
     readonly expectedCurrentRevisionKey: string;
@@ -210,6 +230,7 @@ export const createBrainWorkspaceAdapter = ({
   mutations,
   pilot,
   movePage,
+  restorePage,
   updatePage,
 }: {
   readonly brainKey: string;
@@ -217,6 +238,7 @@ export const createBrainWorkspaceAdapter = ({
   readonly mutations: BrainWorkspaceMutationInputs;
   readonly pilot?: BrainPilotAdapter;
   readonly movePage?: BrainWorkspaceAdapter["movePage"];
+  readonly restorePage?: BrainWorkspaceAdapter["restorePage"];
   readonly updatePage?: BrainWorkspaceAdapter["updatePage"];
 }): BrainWorkspaceAdapter => ({
   brainKey,
@@ -231,6 +253,7 @@ export const createBrainWorkspaceAdapter = ({
     ? {}
     : { archivePage: mutations.archive }),
   ...(movePage === undefined ? {} : { movePage }),
+  ...(restorePage === undefined ? {} : { restorePage }),
   ...(updatePage === undefined ? {} : { updatePage }),
 });
 

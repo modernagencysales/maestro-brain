@@ -21,15 +21,24 @@ import {
   Stack,
   Text,
 } from "@saas-ui/react";
+import {
+  BlockNoteSyncEditor,
+  type BlockNoteSyncEditorProps,
+} from "@maestro-template/editor-react/client";
+import { api } from "@maestro-template/convex";
+import { templateConfectRefs } from "@maestro-template/convex/refs";
 import type {
   BrainPageDetail,
   BrainPageListData,
   BrainPageSummary,
   BrainPilotSearchData,
+  BrainReviewQueueData,
   BrainRevisionHistoryData,
   BrainSearchResult,
   BrainWorkspaceAdapter,
 } from "./brain-surface";
+import { ReviewQueue, type BrainReviewQueueState } from "./review-queue";
+import { RestoreDialog, type BrainRestoreState } from "./restore-dialog";
 import {
   RevisionHistory,
   type BrainRevisionHistoryState,
@@ -218,6 +227,7 @@ export const BrainWorkspaceRoute = () => {
   const favorite = useTemplateMutation(brainWorkspaceRefs.favorite);
   const archive = useTemplateMutation(brainWorkspaceRefs.archive);
   const move = useTemplateMutation(brainWorkspaceRefs.move);
+  const restore = useTemplateMutation(brainWorkspaceRefs.restore);
   const submitNote = useTemplateMutation(brainPilotRefs.submitNote);
   const reviewNote = useTemplateMutation(brainPilotRefs.reviewNote);
   const updatePage = useTemplateMutation(brainPilotRefs.updatePage);
@@ -227,6 +237,10 @@ export const BrainWorkspaceRoute = () => {
       ? "skip"
       : { brainKey, query: searchQuery },
   ) as TemplateDataState<BrainPilotSearchData, unknown>;
+  const queue = useTemplateQuery(
+    brainPilotRefs.listReviewQueue,
+    brainKey === null ? "skip" : { brainKey },
+  ) as TemplateDataState<BrainReviewQueueData, unknown>;
 
   if (workspace.status !== "ready") {
     return (
@@ -253,6 +267,15 @@ export const BrainWorkspaceRoute = () => {
       : detail.status === "loading" || detail.status === "skipped"
         ? detail
         : { status: "failure", message: "The Brain page request failed." };
+  const reviewQueue: BrainReviewQueueState =
+    queue.status === "ready"
+      ? { status: "ready", items: queue.data.items }
+      : queue.status === "loading" || queue.status === "skipped"
+        ? { status: "loading" }
+        : {
+            status: "failure",
+            message: "Unable to load the Brain review queue.",
+          };
   const adapter = createBrainWorkspaceAdapter({
     brainKey: workspace.activeWorkspace.workspaceId,
     canEdit: workspace.activeWorkspace.role !== "viewer",
@@ -288,6 +311,7 @@ export const BrainWorkspaceRoute = () => {
           sortKey,
         }),
       ),
+    restorePage: async (input) => unwrapBrainMutation(await restore(input)),
     updatePage:
       detail.status === "ready"
         ? async ({ pageKey, expectedCurrentRevisionKey, markdown }) =>
@@ -317,6 +341,9 @@ export const BrainWorkspaceRoute = () => {
             selectedPageKey={selected ?? undefined}
             onSelectPage={setSelectedPageKey}
             history={toRevisionHistoryState(history)}
+            editorApi={api.editorSync}
+            reviewQueue={reviewQueue}
+            role={workspace.activeWorkspace.role}
             onSearch={(query) => {
               setSearchQuery(query);
               setSearch({ status: "loading", query });
@@ -355,6 +382,9 @@ export const BrainWorkspace = ({
   reviewNotice,
   search = { status: "idle" },
   history = { status: "loading" },
+  editorApi,
+  reviewQueue = { status: "loading" },
+  role = "viewer",
   selectedPageKey,
   onSelectPage,
 }: {
@@ -366,6 +396,9 @@ export const BrainWorkspace = ({
   readonly reviewNotice?: BrainReviewNotice;
   readonly search?: BrainSearchState;
   readonly history?: BrainRevisionHistoryState;
+  readonly editorApi?: BlockNoteSyncEditorProps["api"];
+  readonly reviewQueue?: BrainReviewQueueState;
+  readonly role?: "viewer" | "editor" | "admin" | "owner";
   readonly selectedPageKey?: string | undefined;
   readonly onSelectPage?: ((pageKey: string) => void) | undefined;
 }) => {
@@ -386,6 +419,10 @@ export const BrainWorkspace = ({
     detail.status === "ready" ? detail.data.markdown : "",
   );
   const [operationNotice, setOperationNotice] = useState<string | null>(null);
+  const [restoreRevisionKey, setRestoreRevisionKey] = useState<string | null>(
+    null,
+  );
+  const [restoreState, setRestoreState] = useState<BrainRestoreState>("idle");
 
   useEffect(() => {
     if (detail.status === "ready") {
@@ -678,6 +715,17 @@ export const BrainWorkspace = ({
                   </Button>
                 </HStack>
                 <label htmlFor="brain-page-markdown">Page markdown</label>
+                {editorApi ? (
+                  <>
+                    <Text fontSize="sm">Live BlockNote document</Text>
+                    <BlockNoteSyncEditor
+                      api={editorApi}
+                      documentId={`brainPage:${adapter.brainKey}:${detail.data.page.pageKey}:${detail.data.page.currentRevisionKey ?? "missing"}`}
+                      editable
+                      snapshotDebounceMs={500}
+                    />
+                  </>
+                ) : null}
                 <textarea
                   aria-label="Page markdown"
                   id="brain-page-markdown"
@@ -744,7 +792,47 @@ export const BrainWorkspace = ({
                   : "Search for cited evidence"}
               </Text>
             </Box>
-            <RevisionHistory history={history} />
+            <RevisionHistory
+              canRestore={adapter.canEdit && adapter.restorePage !== undefined}
+              history={history}
+              onRestore={(revisionKey) => {
+                setRestoreRevisionKey(revisionKey);
+                setRestoreState("idle");
+              }}
+            />
+            {restoreRevisionKey !== null ? (
+              <RestoreDialog
+                canRestore={
+                  adapter.canEdit && adapter.restorePage !== undefined
+                }
+                open
+                revisionKey={restoreRevisionKey}
+                state={restoreState}
+                onCancel={() => setRestoreRevisionKey(null)}
+                onConfirm={async () => {
+                  if (
+                    adapter.restorePage === undefined ||
+                    detail.status !== "ready" ||
+                    detail.data.page.currentRevisionKey === null
+                  )
+                    return;
+                  setRestoreState("restoring");
+                  try {
+                    await adapter.restorePage({
+                      brainKey: adapter.brainKey,
+                      pageKey: detail.data.page.pageKey,
+                      expectedCurrentRevisionKey:
+                        detail.data.page.currentRevisionKey,
+                      revisionKey: restoreRevisionKey,
+                    });
+                    setRestoreState("success");
+                    setOperationNotice("Revision restored as a new revision.");
+                  } catch {
+                    setRestoreState("failure");
+                  }
+                }}
+              />
+            ) : null}
           </Card.Body>
         </Card.Root>
       ) : (
@@ -753,7 +841,7 @@ export const BrainWorkspace = ({
 
       <Card.Root>
         <Card.Header>
-          <Heading size="sm">Review queue</Heading>
+          <Heading size="sm">Submit a note</Heading>
         </Card.Header>
         <Card.Body>
           <Stack gap="3">
@@ -863,6 +951,15 @@ export const BrainWorkspace = ({
           </Stack>
         </Card.Body>
       </Card.Root>
+      <ReviewQueue
+        nowMs={Date.now()}
+        role={role}
+        state={reviewQueue}
+        onDecision={async (sourceKey, decision) => {
+          const result = await actions.reviewNote({ sourceKey, decision });
+          setReviewState(result);
+        }}
+      />
     </Stack>
   );
 };

@@ -32,6 +32,7 @@ describe("brain pages Confect contract", () => {
       "brain.pages.move",
       "brain.pages.favorite",
       "brain.pages.archive",
+      "brain.pages.restore",
     ]);
     expect(
       manifest.every((entry) =>

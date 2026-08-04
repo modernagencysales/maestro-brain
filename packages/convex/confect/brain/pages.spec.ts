@@ -11,6 +11,7 @@ import {
   LifecycleRevoked,
   PageNotFound,
   PageTreeConflict,
+  RevisionNotFound,
   StaleRevision,
 } from "./pageTree";
 import { PageKey, RevisionKey, SiblingSlug, SortKey } from "./pageSchemas";
@@ -32,6 +33,7 @@ const BrainPageReadError = Schema.Union(
 const BrainPageWriteError = Schema.Union(
   BrainPageReadError,
   PageTreeConflict,
+  RevisionNotFound,
   StaleRevision,
 );
 
@@ -128,6 +130,10 @@ const FavoriteArgs = Schema.extend(
   Schema.Struct({ favorite: Schema.Boolean }),
 );
 const ArchiveArgs = PageRevisionSelector;
+const RestoreArgs = Schema.extend(
+  PageRevisionSelector,
+  Schema.Struct({ revisionKey: RevisionKey }),
+);
 
 export const RecordSnapshotArgs = Schema.Struct({
   brainKey: BrainKey,
@@ -155,6 +161,7 @@ const pageReadErrors = [
 const pageWriteErrors = [
   ...pageReadErrors,
   "PageTreeConflict",
+  "RevisionNotFound",
   "StaleRevision",
 ] as const;
 
@@ -225,6 +232,7 @@ const rename = definePageMutation("rename", RenameArgs);
 const move = definePageMutation("move", MoveArgs);
 const favorite = definePageMutation("favorite", FavoriteArgs);
 const archive = definePageMutation("archive", ArchiveArgs);
+const restore = definePageMutation("restore", RestoreArgs);
 
 const recordSnapshotInternal = FunctionSpec.internalMutation({
   name: "recordSnapshotInternal",
@@ -242,6 +250,7 @@ const contractFunctions = [
   move,
   favorite,
   archive,
+  restore,
 ] as const;
 
 export const manifest = collectContractManifest(contractFunctions);
@@ -256,4 +265,5 @@ export default GroupSpec.make()
   .addFunction(move.spec)
   .addFunction(favorite.spec)
   .addFunction(archive.spec)
+  .addFunction(restore.spec)
   .addFunction(recordSnapshotInternal);

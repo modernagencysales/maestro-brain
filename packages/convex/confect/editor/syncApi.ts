@@ -28,13 +28,15 @@ export async function recordEditorSnapshot(
   const target = parseEditorTarget(documentId);
   if (target.kind === "brainPage") {
     if (target.legacyPageId === null) {
-      if (expectedCurrentRevisionKey === undefined) return null;
+      const expectedRevision =
+        expectedCurrentRevisionKey ?? target.expectedCurrentRevisionKey;
+      if (expectedRevision === undefined) return null;
       return await ctx.runMutation(
         internal.brain.pages.recordSnapshotInternal,
         {
           brainKey: target.brainKey,
           pageKey: target.pageKey,
-          expectedCurrentRevisionKey,
+          expectedCurrentRevisionKey: expectedRevision,
           snapshot,
           version: _version,
         },
@@ -61,11 +63,14 @@ export async function recordCurrentEditorSnapshot(
   if (target.kind !== "brainPage") return null;
   const resolved =
     target.legacyPageId === null
-      ? await resolveStableEditorSnapshotTarget(
-          ctx,
-          target.brainKey,
-          target.pageKey,
-        )
+      ? target.expectedCurrentRevisionKey === undefined
+        ? null
+        : await resolveStableEditorSnapshotTarget(
+            ctx,
+            target.brainKey,
+            target.pageKey,
+            target.expectedCurrentRevisionKey,
+          )
       : await resolveLegacyEditorSnapshotTarget(ctx, target.legacyPageId);
   if (resolved === null) return null;
   return await commitEditorSnapshot(ctx, resolved, snapshot, version);
@@ -75,6 +80,7 @@ const resolveStableEditorSnapshotTarget = async (
   ctx: GenericMutationCtx<DataModel>,
   brainKey: string,
   pageKey: string,
+  expectedCurrentRevisionKey: string,
 ): Promise<ResolvedEditorSnapshotTarget | null> => {
   const workspaces = await ctx.db.query("workspaces").collect();
   const workspace = workspaces.find((row) => row.brainKey === brainKey);
@@ -89,7 +95,7 @@ const resolveStableEditorSnapshotTarget = async (
   return {
     brainKey,
     pageKey: page.pageKey,
-    currentRevisionKey: page.currentRevisionKey,
+    currentRevisionKey: expectedCurrentRevisionKey,
   };
 };
 

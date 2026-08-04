@@ -8,6 +8,11 @@ export class PageNotFound extends Schema.TaggedError<PageNotFound>()(
   { pageKey: PageKey },
 ) {}
 
+export class RevisionNotFound extends Schema.TaggedError<RevisionNotFound>()(
+  "RevisionNotFound",
+  { revisionKey: RevisionKey },
+) {}
+
 export class PageTreeConflict extends Schema.TaggedError<PageTreeConflict>()(
   "PageTreeConflict",
   { reason: Schema.String },

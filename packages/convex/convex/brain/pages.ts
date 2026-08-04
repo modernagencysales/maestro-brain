@@ -9,3 +9,4 @@ export const list = registeredFunctions.list;
 export const move = registeredFunctions.move;
 export const recordSnapshotInternal = registeredFunctions.recordSnapshotInternal;
 export const rename = registeredFunctions.rename;
+export const restore = registeredFunctions.restore;

@@ -194,6 +194,36 @@ const reviewNote = FunctionImpl.make(
     }),
 );
 
+const listReviewQueue = FunctionImpl.make(
+  databaseSchema,
+  pilot,
+  "listReviewQueue",
+  (args) =>
+    Effect.gen(function* () {
+      const brain = yield* requireBrainAccess(args.brainKey, "viewer");
+      const reader = yield* DatabaseReader;
+      const sources = yield* reader
+        .table("brainSources")
+        .index("by_workspace_status", (q) =>
+          q.eq("workspaceId", brain.workspaceId).eq("status", "pending_review"),
+        )
+        .collect()
+        .pipe(Effect.orDie);
+      return {
+        brainKey: brain.brainKey,
+        items: [...sources]
+          .sort((left, right) => left.submittedAt - right.submittedAt)
+          .map((source) => ({
+            sourceKey: source.sourceKey,
+            title: source.title,
+            submittedAt: source.submittedAt,
+            status: source.status,
+            route: null,
+          })),
+      };
+    }),
+);
+
 const updatePage = FunctionImpl.make(
   databaseSchema,
   pilot,
@@ -405,6 +435,7 @@ const ask = FunctionImpl.make(databaseSchema, pilot, "ask", (args) =>
 export default GroupImpl.make(databaseSchema, pilot).pipe(
   Layer.provide(submitNote),
   Layer.provide(reviewNote),
+  Layer.provide(listReviewQueue),
   Layer.provide(updatePage),
   Layer.provide(search),
   Layer.provide(ask),

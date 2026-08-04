@@ -25,6 +25,13 @@ const SourceSummary = Schema.Struct({
   sourceKey: SourceKey,
   status: SourceStatus,
 });
+const ReviewQueueItem = Schema.Struct({
+  sourceKey: SourceKey,
+  title: Schema.String,
+  submittedAt: Schema.Number,
+  status: SourceStatus,
+  route: Schema.NullOr(Schema.Literal("direct", "classify", "capture-only")),
+});
 
 const PilotError = Schema.Union(
   Unauthorized,
@@ -57,6 +64,10 @@ const SearchResult = Schema.Struct({
 const SearchReturns = Schema.Struct({
   brainKey: BrainKey,
   results: Schema.Array(SearchResult),
+});
+const ReviewQueueReturns = Schema.Struct({
+  brainKey: BrainKey,
+  items: Schema.Array(ReviewQueueItem),
 });
 export const AskEvidence = Schema.Struct({
   citationKey: Schema.String,
@@ -167,6 +178,34 @@ const reviewNote = defineContractFunction(
   },
 );
 
+const listReviewQueue = defineContractFunction(
+  FunctionSpec.publicQuery({
+    name: "listReviewQueue",
+    args: () => BrainSelector,
+    returns: () => ReviewQueueReturns,
+    error: () => PilotError,
+  }),
+  {
+    namespace: "brain.pilot",
+    name: "listReviewQueue",
+    operationId: "brain.pilot.listReviewQueue",
+    kind: "query",
+    surfaces: ["web"],
+    typedErrors: [
+      "Unauthorized",
+      "Forbidden",
+      "BrainNotFound",
+      "LifecycleRevoked",
+      "ValidationFailed",
+    ],
+    idempotent: true,
+    argsSchemaName: "brain.pilot.listReviewQueue.args",
+    returnsSchemaName: "brain.pilot.listReviewQueue.returns",
+    argsSchema: BrainSelector,
+    returnsSchema: ReviewQueueReturns,
+  },
+);
+
 const search = defineContractFunction(
   FunctionSpec.publicQuery({
     name: "search",
@@ -256,6 +295,7 @@ const updatePage = defineContractFunction(
 const contractFunctions = [
   submitNote,
   reviewNote,
+  listReviewQueue,
   search,
   ask,
   updatePage,
@@ -267,6 +307,7 @@ export const schemaRegistry = collectContractSchemas(contractFunctions);
 export default GroupSpec.make()
   .addFunction(submitNote.spec)
   .addFunction(reviewNote.spec)
+  .addFunction(listReviewQueue.spec)
   .addFunction(search.spec)
   .addFunction(ask.spec)
   .addFunction(updatePage.spec);

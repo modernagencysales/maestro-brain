@@ -9,8 +9,12 @@ export type BrainRevisionHistoryState =
 
 export function RevisionHistory({
   history,
+  canRestore = false,
+  onRestore,
 }: {
   readonly history: BrainRevisionHistoryState;
+  readonly canRestore?: boolean;
+  readonly onRestore?: (revisionKey: string) => void;
 }) {
   return (
     <Stack aria-label="Revision history" as="section" gap="2" mt="4">
@@ -38,12 +42,23 @@ export function RevisionHistory({
                 <Badge width="fit-content">
                   Lifecycle generation {revision.lifecycleGeneration}
                 </Badge>
+                {canRestore ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => onRestore?.(revision.revisionKey)}
+                  >
+                    Restore revision
+                  </Button>
+                ) : null}
               </Stack>
             ))
           )}
-          <Button disabled type="button" variant="outline">
-            Restore unavailable
-          </Button>
+          {!canRestore ? (
+            <Button disabled type="button" variant="outline">
+              Restore unavailable
+            </Button>
+          ) : null}
         </Stack>
       ) : null}
     </Stack>
