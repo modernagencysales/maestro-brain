@@ -49,7 +49,7 @@ export const parseBrainAnswerCases = (
   value: unknown,
 ): readonly BrainAnswerCase[] => {
   if (!Array.isArray(value)) throw new Error("Answer suite must be an array.");
-  return value.map((candidate) => {
+  return (value as readonly unknown[]).map((candidate) => {
     const record = assertRecord(candidate, "answer case");
     const output = parseOutput(record.output);
     return {
@@ -120,7 +120,7 @@ export const parseBrainAnswerRun = (value: unknown): BrainAnswerRun => {
     throw new Error("answer run results must be an array.");
   }
   const sourceArtifacts = Array.isArray(record.sourceArtifacts)
-    ? record.sourceArtifacts.map((entry) => {
+    ? (record.sourceArtifacts as readonly unknown[]).map((entry) => {
         const artifact = assertRecord(entry, "answer source artifact");
         return {
           hash: assertString(artifact.hash, "answer source artifact hash"),
@@ -131,7 +131,7 @@ export const parseBrainAnswerRun = (value: unknown): BrainAnswerRun => {
   return {
     schemaVersion: "maestro-brain-answer-run/v1",
     sourceArtifacts,
-    results: record.results.map((entry) => {
+    results: (record.results as readonly unknown[]).map((entry) => {
       const result = assertRecord(entry, "answer run result");
       return {
         caseId: assertString(result.caseId, "answer run case id"),

@@ -577,10 +577,14 @@ const runRegisteredMigration = FunctionImpl.make(
         },
         args.migrationName,
       ).pipe(Effect.exit);
+      const componentExit = component as Exit.Exit<
+        ComponentBatchResult,
+        unknown
+      >;
       const batch: ComponentBatchResult | null = isDryRun
-        ? decodeDryRunRollback(component)
-        : component._tag === "Success"
-          ? (component.value as ComponentBatchResult)
+        ? decodeDryRunRollback(componentExit)
+        : componentExit._tag === "Success"
+          ? componentExit.value
           : null;
       if (!batch)
         return yield* settleFailedBatch(runner, args, lease, args.mode);
