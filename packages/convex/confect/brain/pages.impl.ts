@@ -413,6 +413,11 @@ const history = FunctionImpl.make(databaseSchema, pages, "history", (args) =>
         causation: row.causation,
         createdAt: row.createdAt,
         lifecycleGeneration: row.lifecycle?.generation ?? 0,
+        markdown: row.markdown,
+        contentHash: row.contentHash,
+        state: row.state,
+        actorKind: row.actor.kind,
+        actorId: row.actor.id,
       })),
     };
   }),

@@ -39,6 +39,8 @@ import type {
 } from "./brain-surface";
 import { ReviewQueue, type BrainReviewQueueState } from "./review-queue";
 import { RestoreDialog, type BrainRestoreState } from "./restore-dialog";
+import { CitationList, type BrainCitation } from "./citation-list";
+import { RevisionDiff } from "./revision-diff";
 import {
   RevisionHistory,
   type BrainRevisionHistoryState,
@@ -423,6 +425,20 @@ export const BrainWorkspace = ({
     null,
   );
   const [restoreState, setRestoreState] = useState<BrainRestoreState>("idle");
+  const citationItems: readonly BrainCitation[] =
+    search.status === "ready"
+      ? search.results.map((result) => ({
+          citationKey: result.citationKey,
+          sourceRevisionKey: result.sourceRevisionKey ?? "unresolved",
+          locator: result.locator ?? "unresolved",
+          freshness: result.freshness ?? "stale",
+          state: result.state ?? "legacy_unresolved",
+          quotedText: result.excerpt,
+          ...(result.permalink === undefined
+            ? {}
+            : { permalink: result.permalink }),
+        }))
+      : [];
 
   useEffect(() => {
     if (detail.status === "ready") {
@@ -833,6 +849,20 @@ export const BrainWorkspace = ({
                 }}
               />
             ) : null}
+            {history.status === "ready" &&
+            history.data.revisions.length >= 2 &&
+            history.data.revisions[0]?.markdown !== undefined &&
+            history.data.revisions[1]?.markdown !== undefined ? (
+              <RevisionDiff
+                diff={{
+                  beforeRevisionKey: history.data.revisions[1].revisionKey,
+                  afterRevisionKey: history.data.revisions[0].revisionKey,
+                  before: history.data.revisions[1].markdown,
+                  after: history.data.revisions[0].markdown,
+                }}
+              />
+            ) : null}
+            <CitationList citations={citationItems} />
           </Card.Body>
         </Card.Root>
       ) : (

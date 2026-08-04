@@ -103,6 +103,11 @@ export type BrainRevisionHistoryData = {
     readonly causation: string;
     readonly createdAt: number;
     readonly lifecycleGeneration: number;
+    readonly markdown?: string;
+    readonly contentHash?: string;
+    readonly state?: string;
+    readonly actorKind?: string;
+    readonly actorId?: string;
   }[];
 };
 
@@ -202,6 +207,11 @@ export type BrainSearchResult = {
   readonly citationKey: string;
   readonly title: string;
   readonly excerpt: string;
+  readonly sourceRevisionKey?: string;
+  readonly locator?: string;
+  readonly permalink?: string;
+  readonly freshness?: "fresh" | "stale";
+  readonly state?: "resolved" | "redacted" | "legacy_unresolved";
 };
 
 export type BrainWorkspaceAdapter = BrainPilotAdapter & {

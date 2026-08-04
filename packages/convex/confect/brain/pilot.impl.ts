@@ -382,6 +382,17 @@ const search = FunctionImpl.make(databaseSchema, pilot, "search", (args) =>
           citationKey: citation?.citationId ?? `citation:${page.pageKey}`,
           title: page.title,
           excerpt: page.markdown,
+          ...(citation?.revisionKey === undefined
+            ? { state: "legacy_unresolved" as const }
+            : {
+                sourceRevisionKey: citation.revisionKey,
+                locator: `offsets:${citation.startOffset}-${citation.endOffset}`,
+                freshness:
+                  citation.revisionKey === page.currentRevisionKey
+                    ? ("fresh" as const)
+                    : ("stale" as const),
+                state: "resolved" as const,
+              }),
         })),
     };
   }),

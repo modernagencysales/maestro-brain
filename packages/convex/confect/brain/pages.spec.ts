@@ -92,6 +92,11 @@ const HistoryReturns = Schema.Struct({
       causation: Schema.String,
       createdAt: Schema.Number,
       lifecycleGeneration: Schema.Number,
+      markdown: Schema.optional(Schema.String),
+      contentHash: Schema.optional(Schema.String),
+      state: Schema.optional(Schema.String),
+      actorKind: Schema.optional(Schema.String),
+      actorId: Schema.optional(Schema.String),
     }),
   ),
 });

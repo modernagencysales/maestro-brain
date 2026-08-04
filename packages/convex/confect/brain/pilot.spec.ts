@@ -60,6 +60,13 @@ const SearchResult = Schema.Struct({
   citationKey: Schema.String,
   title: Schema.String,
   excerpt: Schema.String,
+  sourceRevisionKey: Schema.optional(RevisionKey),
+  locator: Schema.optional(Schema.String),
+  permalink: Schema.optional(Schema.String),
+  freshness: Schema.optional(Schema.Literal("fresh", "stale")),
+  state: Schema.optional(
+    Schema.Literal("resolved", "redacted", "legacy_unresolved"),
+  ),
 });
 const SearchReturns = Schema.Struct({
   brainKey: BrainKey,
