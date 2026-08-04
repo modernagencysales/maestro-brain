@@ -1,7 +1,7 @@
 # Maestro Brain V1 Evidence Checklist
 
 **Audit date:** 2026-08-03  
-**Audited code head:** `a10e4aca` **Verdict:** no-go; no hosted release evidence
+**Audited code head:** `612d1710` **Verdict:** no-go; no hosted release evidence
 is present.
 
 ## Local evidence
