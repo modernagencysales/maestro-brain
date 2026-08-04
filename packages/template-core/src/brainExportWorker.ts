@@ -1,4 +1,8 @@
-import { encodeBrainExport, type BrainExportInput } from "./brainExport";
+import {
+  encodeBrainExport,
+  type BrainExportBundle,
+  type BrainExportInput,
+} from "./brainExport";
 import {
   persistBrainExportArtifact,
   purgeBrainExportArtifact,
@@ -109,7 +113,7 @@ export const runBrainExportWorker = (input: {
     };
   }
 
-  let bundle;
+  let bundle: BrainExportBundle;
   try {
     bundle = encodeBrainExport(rows);
   } catch {
