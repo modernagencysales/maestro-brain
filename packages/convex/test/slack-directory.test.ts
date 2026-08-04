@@ -193,7 +193,6 @@ describe("Slack channel directory contract", () => {
       by_channel: ["channelKey", "lane"],
       by_live_lag: ["organizationKey", "status", "lastProgressAt"],
       by_recent_next_retry: ["organizationKey", "status", "leaseExpiresAt"],
-      by_deep_next_retry: ["organizationKey", "status", "leaseExpiresAt"],
       by_access_state: ["connectionKey", "lane", "status"],
     });
   });
