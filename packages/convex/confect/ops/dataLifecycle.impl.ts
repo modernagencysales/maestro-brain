@@ -1,5 +1,6 @@
 import { FunctionImpl, GroupImpl } from "@confect/server";
 import type { GenericId } from "convex/values";
+import { makeFunctionReference } from "convex/server";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -9,6 +10,7 @@ import databaseSchema from "../_generated/schema";
 import {
   DatabaseReader,
   DatabaseWriter,
+  MutationCtx as ConfectMutationCtx,
   StorageReader,
 } from "../_generated/services";
 import { requireWorkspaceAccess } from "../capabilities/_kit/workspaceAccess";
@@ -24,6 +26,12 @@ import dataLifecycleSpec from "./dataLifecycle.spec";
 import { buildWorkspaceDsarPlan } from "./dataLifecycle";
 import type { BrainExportJobRowValue } from "../tables/brainExportJobs";
 import { ExportForbidden } from "./dataLifecycle.spec";
+
+const runBrainExportRef = makeFunctionReference<
+  "action",
+  { jobId: string },
+  { outcome: string }
+>("brain/exports:runBrainExport");
 
 const unsafeAssumeClockProvided = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
@@ -228,6 +236,12 @@ const requestBrainExport = FunctionImpl.make(
         updatedAt: createdAt,
       };
       yield* writer.table("brainExportJobs").insert(row).pipe(Effect.orDie);
+      const mutationCtx = yield* ConfectMutationCtx;
+      yield* Effect.promise(() =>
+        mutationCtx.scheduler.runAfter(0, runBrainExportRef, {
+          jobId: row.jobId,
+        }),
+      );
       return toBrainExportReturn(row);
     }),
 );
@@ -276,6 +290,34 @@ const downloadBrainExport = FunctionImpl.make(
         return yield* new ValidationFailed({
           field: "jobId",
           message: "Export artifact is not ready.",
+        });
+      const workspace = yield* reader
+        .table("workspaces")
+        .get(brain.workspaceId)
+        .pipe(Effect.orDie);
+      const policyRows = yield* reader
+        .table("policies")
+        .index("by_policy_version", (q) =>
+          q.eq("policyKey", operationPolicyKey(brain.workspaceId, "export")),
+        )
+        .collect()
+        .pipe(Effect.orDie);
+      const policyGeneration =
+        policyRows
+          .filter((policy) => policy.status === "active")
+          .sort((left, right) => right.version - left.version)[0]?.version ?? 1;
+      const now = yield* unsafeAssumeClockProvided(Clock.currentTimeMillis);
+      if (
+        row.expiresAt === undefined ||
+        row.expiresAt <= now ||
+        row.lifecycleGeneration !==
+          ((workspace as { readonly lifecycleGeneration?: number } | null)
+            ?.lifecycleGeneration ?? 1) ||
+        row.policyGeneration !== policyGeneration
+      )
+        return yield* new ValidationFailed({
+          field: "jobId",
+          message: "Export artifact is unavailable.",
         });
       const storage = yield* StorageReader;
       const url = yield* storage.getUrl(row.artifactId as never).pipe(
