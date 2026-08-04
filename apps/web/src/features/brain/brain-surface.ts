@@ -53,11 +53,35 @@ export type BrainDocumentSection = {
 
 type BrainPageRefs = TemplateConfectRefs["public"]["brain"]["pages"];
 type BrainPilotRefs = TemplateConfectRefs["public"]["brain"]["pilot"];
-export type BrainPageListData = Ref.Returns<BrainPageRefs["list"]>;
-export type BrainPageDetail = Ref.Returns<BrainPageRefs["get"]>;
-export type BrainPageSummary = BrainPageListData["pages"][number];
-export type BrainPilotSearchData = Ref.Returns<BrainPilotRefs["search"]>;
-export type BrainPageUpdateData = Ref.Returns<BrainPilotRefs["updatePage"]>;
+export type BrainPageSummary = {
+  readonly pageKey: string;
+  readonly parentPageKey: string | null;
+  readonly siblingSlug: string;
+  readonly sortKey: string;
+  readonly title: string;
+  readonly favorite: boolean;
+  readonly status: "active" | "archived" | "redacted" | "purged";
+  readonly currentRevisionKey: string | null;
+  readonly lifecycleGeneration: number;
+};
+export type BrainPageListData = {
+  readonly brainKey: string;
+  readonly asOf: number;
+  readonly freshness: { readonly status: "current" };
+  readonly pages: readonly BrainPageSummary[];
+};
+export type BrainPageDetail = {
+  readonly page: BrainPageSummary;
+  readonly markdown: string;
+  readonly editorSnapshotJson?: string;
+  readonly editorSnapshotVersion?: number;
+  readonly updatedAt: number;
+};
+export type BrainPilotSearchData = {
+  readonly brainKey: string;
+  readonly results: readonly BrainSearchResult[];
+};
+export type BrainPageUpdateData = BrainPageSummary;
 
 type BrainWorkspaceRefs = {
   readonly list: BrainPageRefs["list"];
