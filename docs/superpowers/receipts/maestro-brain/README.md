@@ -1,7 +1,7 @@
 # Maestro Brain V1 Evidence Checklist
 
 **Audit date:** 2026-08-04  
-**Audited code head:** `4d1bc425` **Verdict:** no-go; no hosted release evidence
+**Audited code head:** `764643f` **Verdict:** no-go; no hosted release evidence
 is present.
 
 ## Local evidence
@@ -16,7 +16,8 @@ is present.
   revision diff/citation surfaces, and a Settings export lifecycle surface.
 - Fresh exact-head evidence: root lint, typecheck, formatting, production build,
   static web smoke, all 22 remote typecheck projects, 15 Convex Brain/export
-  tests, and 18 web Brain/settings tests pass at `4d1bc425`.
+  tests, and 18 web Brain/settings tests pass at product code head `4d1bc425`
+  (evidence head `764643f`).
 - The local fixture check, synthetic capacity harness, and telemetry budget
   harness pass. The fixture-only semantic eval remains explicitly rejected for
   the answer suite because it has no real model run; this is not a release
