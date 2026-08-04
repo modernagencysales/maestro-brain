@@ -42,11 +42,14 @@ describe("Cloudflare server deployment", () => {
     expect(wrangler.assets?.directory).toBe("./dist/client");
     expect(wrangler.vars?.APP_ENV).toBe("live");
     expect(wrangler.vars?.APP_PROVIDER_MODE).toBe("live");
+    expect(wrangler.vars?.WORKOS_CLIENT_ID).toBe(
+      "client_01KV1TTN04BVCPVW2D0GVXZGRH",
+    );
     expect(wrangler.vars?.WORKOS_REDIRECT_URI).toBe(
       "https://maestro-brain-staging.tim-bb0.workers.dev/callback",
     );
     expect(wrangler.vars?.WORKOS_AUTHKIT_JWKS_URL).toBe(
-      "https://api.workos.com/sso/jwks/client_01KV1TTNCJJBCXAZK7KJ2GNTHP",
+      "https://api.workos.com/sso/jwks/client_01KV1TTN04BVCPVW2D0GVXZGRH",
     );
     expect(existsSync(new URL("../public/_redirects", import.meta.url))).toBe(
       false,

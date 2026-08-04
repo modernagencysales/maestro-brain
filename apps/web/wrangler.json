@@ -10,10 +10,10 @@
   "vars": {
     "APP_ENV": "live",
     "APP_PROVIDER_MODE": "live",
-    "WORKOS_CLIENT_ID": "client_01KV1TTNCJJBCXAZK7KJ2GNTHP",
+    "WORKOS_CLIENT_ID": "client_01KV1TTN04BVCPVW2D0GVXZGRH",
     "WORKOS_REDIRECT_URI": "https://maestro-brain-staging.tim-bb0.workers.dev/callback",
     "WORKOS_LOGOUT_URI": "https://maestro-brain-staging.tim-bb0.workers.dev/brain",
     "WORKOS_AUTHKIT_ISSUER": "https://api.workos.com",
-    "WORKOS_AUTHKIT_JWKS_URL": "https://api.workos.com/sso/jwks/client_01KV1TTNCJJBCXAZK7KJ2GNTHP"
+    "WORKOS_AUTHKIT_JWKS_URL": "https://api.workos.com/sso/jwks/client_01KV1TTN04BVCPVW2D0GVXZGRH"
   }
 }
