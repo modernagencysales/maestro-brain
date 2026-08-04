@@ -125,20 +125,6 @@ export const createWorkspaceController = (
 
   const initialize = async () => {
     setState(loadingState);
-
-    let workspaces: readonly WorkspaceSummary[];
-    try {
-      workspaces = await input.loadWorkspaces();
-    } catch (error) {
-      setState(failureState("loading", error, [], null));
-      return;
-    }
-
-    if (workspaces.length > 0) {
-      setState(readyFrom(workspaces, input.storage?.read() ?? null));
-      return;
-    }
-
     setState({
       status: "provisioning",
       workspaces: [],
@@ -154,6 +140,7 @@ export const createWorkspaceController = (
       return;
     }
 
+    let workspaces: readonly WorkspaceSummary[];
     try {
       workspaces = await input.loadWorkspaces();
     } catch (error) {
@@ -161,7 +148,7 @@ export const createWorkspaceController = (
       return;
     }
 
-    setState(readyFrom(workspaces, provisionedId));
+    setState(readyFrom(workspaces, input.storage?.read() ?? provisionedId));
   };
 
   const switchWorkspace = (workspaceId: string) => {
