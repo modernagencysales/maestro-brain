@@ -31,6 +31,8 @@ import { Route as WorkspaceApiRouteImport } from './routes/_workspace.api'
 import { Route as WorkspaceAnalyticsRouteImport } from './routes/_workspace.analytics'
 import { Route as WorkspaceAgentsRouteImport } from './routes/_workspace.agents'
 import { Route as WorkspaceAdminRouteImport } from './routes/_workspace.admin'
+import { Route as ApiAuthSignInRouteImport } from './routes/api.auth.sign-in'
+import { Route as ApiAuthCallbackRouteImport } from './routes/api.auth.callback'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -142,6 +144,16 @@ const WorkspaceAdminRoute = WorkspaceAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuthSignInRoute = ApiAuthSignInRouteImport.update({
+  id: '/api/auth/sign-in',
+  path: '/api/auth/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthCallbackRoute = ApiAuthCallbackRouteImport.update({
+  id: '/api/auth/callback',
+  path: '/api/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -166,6 +178,8 @@ export interface FileRoutesByFullPath {
   '/settings': typeof WorkspaceSettingsRoute
   '/sources': typeof WorkspaceSourcesRoute
   '/workflows': typeof WorkspaceWorkflowsRoute
+  '/api/auth/callback': typeof ApiAuthCallbackRoute
+  '/api/auth/sign-in': typeof ApiAuthSignInRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -190,6 +204,8 @@ export interface FileRoutesByTo {
   '/settings': typeof WorkspaceSettingsRoute
   '/sources': typeof WorkspaceSourcesRoute
   '/workflows': typeof WorkspaceWorkflowsRoute
+  '/api/auth/callback': typeof ApiAuthCallbackRoute
+  '/api/auth/sign-in': typeof ApiAuthSignInRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -215,6 +231,8 @@ export interface FileRoutesById {
   '/_workspace/settings': typeof WorkspaceSettingsRoute
   '/_workspace/sources': typeof WorkspaceSourcesRoute
   '/_workspace/workflows': typeof WorkspaceWorkflowsRoute
+  '/api/auth/callback': typeof ApiAuthCallbackRoute
+  '/api/auth/sign-in': typeof ApiAuthSignInRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -241,6 +259,8 @@ export interface FileRouteTypes {
     | '/settings'
     | '/sources'
     | '/workflows'
+    | '/api/auth/callback'
+    | '/api/auth/sign-in'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -265,6 +285,8 @@ export interface FileRouteTypes {
     | '/settings'
     | '/sources'
     | '/workflows'
+    | '/api/auth/callback'
+    | '/api/auth/sign-in'
   id:
     | '__root__'
     | '/'
@@ -289,6 +311,8 @@ export interface FileRouteTypes {
     | '/_workspace/settings'
     | '/_workspace/sources'
     | '/_workspace/workflows'
+    | '/api/auth/callback'
+    | '/api/auth/sign-in'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -314,6 +338,8 @@ export interface RootRouteChildren {
   WorkspaceSettingsRoute: typeof WorkspaceSettingsRoute
   WorkspaceSourcesRoute: typeof WorkspaceSourcesRoute
   WorkspaceWorkflowsRoute: typeof WorkspaceWorkflowsRoute
+  ApiAuthCallbackRoute: typeof ApiAuthCallbackRoute
+  ApiAuthSignInRoute: typeof ApiAuthSignInRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -472,6 +498,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkspaceAdminRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/auth/sign-in': {
+      id: '/api/auth/sign-in'
+      path: '/api/auth/sign-in'
+      fullPath: '/api/auth/sign-in'
+      preLoaderRoute: typeof ApiAuthSignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/callback': {
+      id: '/api/auth/callback'
+      path: '/api/auth/callback'
+      fullPath: '/api/auth/callback'
+      preLoaderRoute: typeof ApiAuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -498,6 +538,8 @@ const rootRouteChildren: RootRouteChildren = {
   WorkspaceSettingsRoute: WorkspaceSettingsRoute,
   WorkspaceSourcesRoute: WorkspaceSourcesRoute,
   WorkspaceWorkflowsRoute: WorkspaceWorkflowsRoute,
+  ApiAuthCallbackRoute: ApiAuthCallbackRoute,
+  ApiAuthSignInRoute: ApiAuthSignInRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

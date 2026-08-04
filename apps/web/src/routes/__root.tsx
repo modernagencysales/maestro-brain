@@ -2,6 +2,7 @@ import {
   createRootRouteWithContext,
   HeadContent,
   Outlet,
+  redirect,
   Scripts,
   useRouterState,
 } from "@tanstack/react-router";
@@ -52,7 +53,20 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         { rel: "stylesheet", href: appCssUrl },
       ],
     }),
-  loader: async (): Promise<SafeClientRuntime> => loadSafeClientRuntime(),
+  loader: async ({ location }): Promise<SafeClientRuntime> => {
+    const runtime = await loadSafeClientRuntime();
+
+    if (
+      runtime.workspaceRuntimeMode !== "fake" &&
+      runtime.authSnapshot.status === "signedOut"
+    ) {
+      throw redirect({
+        href: `/api/auth/sign-in?returnPathname=${encodeURIComponent(location.pathname)}`,
+      });
+    }
+
+    return runtime;
+  },
   component: RootComponent,
 });
 

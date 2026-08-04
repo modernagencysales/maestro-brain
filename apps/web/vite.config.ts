@@ -1,15 +1,16 @@
 import react from "@vitejs/plugin-react";
+import { cloudflare } from "@cloudflare/vite-plugin";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   build: {
     sourcemap: false,
   },
   plugins: [
+    mode === "test" ? null : cloudflare({ viteEnvironment: { name: "ssr" } }),
     tanstackStart({
-      spa: { enabled: true },
       router: {
         routesDirectory: "./routes",
         generatedRouteTree: "./routeTree.gen.ts",
@@ -49,4 +50,4 @@ export default defineConfig({
       ),
     },
   },
-});
+}));
