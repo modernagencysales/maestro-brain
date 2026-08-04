@@ -50,15 +50,18 @@ describe("workspace provider controller", () => {
     ).toContain("loading:none");
   });
 
-  it("provisions an empty account, reloads workspaces, and selects the provisioned workspace", async () => {
+  it("provisions a new account before listing its workspaces", async () => {
     const calls: string[] = [];
+    let provisioned = false;
     const controller = createWorkspaceController({
       loadWorkspaces: async () => {
         calls.push("load");
-        return calls.length === 1 ? [] : [workspace()];
+        if (!provisioned) throw new Error("user is not provisioned");
+        return [workspace()];
       },
       ensureProvisioned: async () => {
         calls.push("ensure");
+        provisioned = true;
         return { workspaceId: "workspaces_1" };
       },
     });
@@ -67,7 +70,7 @@ describe("workspace provider controller", () => {
       controller.initialize(),
     );
 
-    expect(calls).toEqual(["load", "ensure", "load"]);
+    expect(calls).toEqual(["ensure", "load"]);
     expect(seen).toContain("provisioning");
     expect(controller.getSnapshot()).toMatchObject({
       status: "ready",
