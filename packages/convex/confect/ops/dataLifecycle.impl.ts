@@ -10,7 +10,7 @@ import databaseSchema from "../_generated/schema";
 import {
   DatabaseReader,
   DatabaseWriter,
-  MutationCtx as ConfectMutationCtx,
+  MutationRunner,
   StorageReader,
 } from "../_generated/services";
 import { requireWorkspaceAccess } from "../capabilities/_kit/workspaceAccess";
@@ -27,11 +27,11 @@ import { buildWorkspaceDsarPlan } from "./dataLifecycle";
 import type { BrainExportJobRowValue } from "../tables/brainExportJobs";
 import { ExportForbidden } from "./dataLifecycle.spec";
 
-const runBrainExportRef = makeFunctionReference<
-  "action",
+const scheduleBrainExportRef = makeFunctionReference<
+  "mutation",
   { jobId: string },
-  { outcome: string }
->("brain/exports:runBrainExport");
+  { scheduled: boolean }
+>("brain/exports:scheduleBrainExport");
 
 const unsafeAssumeClockProvided = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
@@ -236,12 +236,8 @@ const requestBrainExport = FunctionImpl.make(
         updatedAt: createdAt,
       };
       yield* writer.table("brainExportJobs").insert(row).pipe(Effect.orDie);
-      const mutationCtx = yield* ConfectMutationCtx;
-      yield* Effect.promise(() =>
-        mutationCtx.scheduler.runAfter(0, runBrainExportRef, {
-          jobId: row.jobId,
-        }),
-      );
+      const runMutation = yield* MutationRunner;
+      yield* runMutation(scheduleBrainExportRef, { jobId: row.jobId });
       return toBrainExportReturn(row);
     }),
 );

@@ -15,6 +15,11 @@ import { encodeBrainExport } from "@maestro-template/template-core";
 import { sha256Hex } from "../../confect/shared/sha256";
 
 const exportTtlMs = 24 * 60 * 60 * 1_000;
+const runBrainExportRef = makeFunctionReference<
+  "action",
+  { jobId: string },
+  { outcome: string }
+>("brain/exports:runBrainExport");
 const internalExport = {
   gather: makeFunctionReference<"query", { jobId: string }, unknown>(
     "brain/exports:gatherBrainExport",
@@ -409,6 +414,15 @@ export const runBrainExport = internalActionGeneric({
       });
       return { outcome: "failed" };
     }
+  },
+});
+
+export const scheduleBrainExport = internalMutationGeneric({
+  args: { jobId: v.string() },
+  returns: v.object({ scheduled: v.boolean() }),
+  handler: async (ctx: MutationCtx, { jobId }) => {
+    await ctx.scheduler.runAfter(0, runBrainExportRef, { jobId });
+    return { scheduled: true };
   },
 });
 

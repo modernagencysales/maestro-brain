@@ -26,7 +26,6 @@ import {
   type BlockNoteSyncEditorProps,
 } from "@maestro-template/editor-react/client";
 import { api } from "@maestro-template/convex";
-import { templateConfectRefs } from "@maestro-template/convex/refs";
 import type {
   BrainPageDetail,
   BrainPageListData,
