@@ -101,14 +101,14 @@
     {
       "name": "CONVEX_SITE_URL",
       "group": "convex",
-      "services": ["convex", "web"],
+      "services": ["convex", "web", "cli"],
       "visibility": "public-config",
       "requiredFor": ["fake", "test", "live"],
       "fakeExampleAllowed": true,
       "fakeExample": "https://acme-demo.example.test",
       "owner": "Backend owner",
       "rotation": "Review when the site URL changes.",
-      "notes": "Convex HTTP/site URL for callbacks and docs."
+      "notes": "Convex HTTP/site URL for callbacks, docs, and the remote Brain CLI."
     },
     {
       "name": "MAESTRO_BRAIN_API_KEY",

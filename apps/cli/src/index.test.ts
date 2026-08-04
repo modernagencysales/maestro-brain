@@ -164,6 +164,7 @@ describe("maestro-template CLI", () => {
 
   it.each([
     "http://brain.example.test",
+    " https://brain.example.test",
     "https://user:password@brain.example.test",
     "https://brain.example.test/api",
     "https://brain.example.test?key=brain_api_secret",
@@ -183,6 +184,28 @@ describe("maestro-template CLI", () => {
     expect(result.exitCode).toBe(1);
     expect(fetchMock).not.toHaveBeenCalled();
     expect(JSON.stringify(result)).not.toContain("brain_api_secret");
+  });
+
+  it("rejects blank or whitespace-contaminated Brain keys", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+
+    for (const brainApiKey of ["", " brain_api_secret "]) {
+      const result = await runCliAsync(
+        ["api", "call", "brain.context.get", "--input", "{}"],
+        decodeCliRuntimeConfig({
+          CONVEX_SITE_URL: "https://brain.example.test",
+          MAESTRO_BRAIN_API_KEY: brainApiKey,
+        }),
+      );
+
+      expect(result.exitCode).toBe(1);
+      if (brainApiKey.trim()) {
+        expect(JSON.stringify(result)).not.toContain(brainApiKey.trim());
+      }
+    }
+
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("allows localhost Brain site URLs", async () => {

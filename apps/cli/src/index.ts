@@ -55,7 +55,7 @@ const containsTenantSelector = (value: unknown): boolean => {
 };
 
 const brainApiOrigin = (value: string | undefined): string | undefined => {
-  if (value === undefined) return undefined;
+  if (value === undefined || value.trim() !== value) return undefined;
 
   try {
     const url = new URL(value);
@@ -103,7 +103,7 @@ const remoteBrainApiResult = async (
       "CONVEX_SITE_URL must be an HTTPS origin without credentials, path, query, or fragment.\n",
     );
   }
-  if (!config.brainApiKey) {
+  if (!config.brainApiKey || config.brainApiKey.trim() !== config.brainApiKey) {
     return cliFailure("MAESTRO_BRAIN_API_KEY is required.\n");
   }
 
