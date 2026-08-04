@@ -117,17 +117,21 @@ describe("AuthKit server bridge", () => {
   });
 
   it("returns redacted live safe runtime metadata from server auth", async () => {
-    await expect(
-      getSafeClientRuntime({
-        env: validLiveEnv,
-        getAuth: async () => ({
-          user: { id: "user_123", email: "user@example.com" },
-          sessionId: "session_123",
-          organizationId: "org_123",
-          accessToken: "token-redacted",
-        }),
+    const provisionedTokens: string[] = [];
+    const input = {
+      env: validLiveEnv,
+      getAuth: async () => ({
+        user: { id: "user_123", email: "user@example.com" },
+        sessionId: "session_123",
+        organizationId: "org_123",
+        accessToken: "token-redacted",
       }),
-    ).resolves.toEqual({
+      provisionWorkspace: async (accessToken: string) => {
+        provisionedTokens.push(accessToken);
+      },
+    };
+
+    await expect(getSafeClientRuntime(input)).resolves.toEqual({
       authSnapshot: {
         status: "authenticated",
         subject: "user_123",
@@ -137,6 +141,7 @@ describe("AuthKit server bridge", () => {
       },
       workspaceRuntimeMode: "live",
     });
+    expect(provisionedTokens).toEqual(["token-redacted"]);
   });
 
   it("marks safe runtime metadata as test mode for test provider config", async () => {
