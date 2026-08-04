@@ -274,7 +274,6 @@ export const BrainWorkspaceRoute = () => {
         ),
     },
     movePage: async ({
-      brainKey,
       pageKey,
       expectedCurrentRevisionKey,
       parentPageKey,
@@ -282,7 +281,7 @@ export const BrainWorkspaceRoute = () => {
     }) =>
       unwrapBrainMutation(
         await move({
-          brainKey,
+          brainKey: workspace.activeWorkspace.workspaceId,
           pageKey,
           expectedCurrentRevisionKey,
           parentPageKey,
