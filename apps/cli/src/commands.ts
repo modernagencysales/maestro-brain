@@ -40,6 +40,7 @@ const helpResult = (): CliResult =>
       "maestro-template workflow run [--workflow <id>] [--workspace <slug>] [--idempotency-key <key>] [--mode <mode>] [--input <json>]",
       "maestro-template api catalog",
       "maestro-template api openapi",
+      "maestro-template api call <operation-id> --input <json>",
       "maestro-template mcp tools",
       "maestro-template mcp call <toolName>",
       "maestro-template integrations report [fake|test|live]",

@@ -1,5 +1,5 @@
 import { confectManifest } from "@maestro-template/template-core/generated/confectManifest";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   HeadlessOperation,
   McpToolCallResult,
@@ -7,7 +7,7 @@ import type {
   TemplateApiResult,
 } from "@maestro-template/workflow-tooling";
 import type { providerConfigReport } from "@maestro-template/integrations";
-import { decodeCliRuntimeConfig, runCli } from "./index";
+import { decodeCliRuntimeConfig, runCli, runCliAsync } from "./index";
 import type { CliResult } from "./types";
 
 type ProviderConfigReport = ReturnType<typeof providerConfigReport>[number];
@@ -31,6 +31,204 @@ type WorkflowReceiptPayload = {
 const parseStdout = <T>(result: CliResult): T => JSON.parse(result.stdout) as T;
 
 describe("maestro-template CLI", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("calls an allowed Brain operation with bearer authentication", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ok: true,
+          operationId: "brain.context.get",
+          result: { entries: [] },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await runCliAsync(
+      [
+        "api",
+        "call",
+        "brain.context.get",
+        "--input",
+        '{"pageKeys":["page_1"]}',
+      ],
+      decodeCliRuntimeConfig({
+        CONVEX_SITE_URL: "https://brain.example.test",
+        MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+      }),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(parseStdout<Record<string, unknown>>(result)).toMatchObject({
+      ok: true,
+      operationId: "brain.context.get",
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://brain.example.test/api/brain.context.get",
+      expect.objectContaining({
+        method: "POST",
+        headers: {
+          authorization: "Bearer brain_api_secret",
+          "content-type": "application/json",
+        },
+        redirect: "error",
+      }),
+    );
+    expect(
+      JSON.parse((fetchMock.mock.calls[0]?.[1] as RequestInit).body as string),
+    ).toEqual({ input: { pageKeys: ["page_1"] } });
+  });
+
+  it("returns typed Brain failures from successful HTTP responses", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            ok: false,
+            error: { _tag: "Forbidden", message: "Forbidden." },
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    const result = await runCliAsync(
+      ["api", "call", "brain.context.get", "--input", "{}"],
+      decodeCliRuntimeConfig({
+        CONVEX_SITE_URL: "https://brain.example.test",
+        MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+      }),
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(parseStdout<Record<string, unknown>>(result)).toMatchObject({
+      ok: false,
+      error: { _tag: "Forbidden" },
+    });
+  });
+
+  it("redacts the Brain key from remote failures", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            ok: false,
+            error: {
+              _tag: "ValidationFailed",
+              message: "brain_api_secret must not be exposed",
+            },
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    const result = await runCliAsync(
+      ["api", "call", "brain.context.get", "--input", "{}"],
+      decodeCliRuntimeConfig({
+        CONVEX_SITE_URL: "https://brain.example.test",
+        MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+      }),
+    );
+
+    expect(JSON.stringify(result)).not.toContain("brain_api_secret");
+  });
+
+  it("does not leak the Brain key on network failure", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockRejectedValue(new Error("brain_api_secret")),
+    );
+
+    const result = await runCliAsync(
+      ["api", "call", "brain.context.get", "--input", "{}"],
+      decodeCliRuntimeConfig({
+        CONVEX_SITE_URL: "https://brain.example.test",
+        MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+      }),
+    );
+
+    expect(result).toEqual({
+      exitCode: 1,
+      stdout: "",
+      stderr: "Brain API request failed.\n",
+    });
+    expect(JSON.stringify(result)).not.toContain("brain_api_secret");
+  });
+
+  it.each([
+    "http://brain.example.test",
+    "https://user:password@brain.example.test",
+    "https://brain.example.test/api",
+    "https://brain.example.test?key=brain_api_secret",
+    "https://brain.example.test#fragment",
+  ])("rejects unsafe Brain site URL %s", async (siteUrl) => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await runCliAsync(
+      ["api", "call", "brain.context.get", "--input", "{}"],
+      decodeCliRuntimeConfig({
+        CONVEX_SITE_URL: siteUrl,
+        MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+      }),
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(JSON.stringify(result)).not.toContain("brain_api_secret");
+  });
+
+  it("allows localhost Brain site URLs", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ok: true, result: {} }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await runCliAsync(
+      ["api", "call", "brain.context.get", "--input", "{}"],
+      decodeCliRuntimeConfig({
+        CONVEX_SITE_URL: "http://localhost:3210",
+        MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+      }),
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3210/api/brain.context.get",
+      expect.any(Object),
+    );
+  });
+
+  it("rejects tenant selectors and Brain write operations locally", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+    const config = decodeCliRuntimeConfig({
+      CONVEX_SITE_URL: "https://brain.example.test",
+      MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+    });
+
+    const selectorResult = await runCliAsync(
+      ["api", "call", "brain.context.get", "--input", '{"brainKey":"other"}'],
+      config,
+    );
+    const writeResult = await runCliAsync(
+      ["api", "call", "brain.pages.createMarkdown", "--input", "{}"],
+      config,
+    );
+
+    expect(selectorResult.exitCode).toBe(1);
+    expect(writeResult.exitCode).toBe(1);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("describes the shared workflow template", () => {
     const result = runCli(["describe"]);
 
