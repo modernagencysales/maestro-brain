@@ -32,7 +32,7 @@ Convex/Confect, Vitest, Playwright.
 **Files:**
 
 - Modify: `apps/web/vite.config.ts`
-- Create: `apps/web/wrangler.jsonc`
+- Create: `apps/web/wrangler.json`
 - Modify: `apps/web/package.json`
 - Modify: `pnpm-lock.yaml`
 - Test: `apps/web/src/cloudflare-deployment.test.ts`

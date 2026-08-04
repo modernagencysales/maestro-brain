@@ -11,7 +11,7 @@ describe("Cloudflare server deployment", () => {
     const pkg = JSON.parse(readWebFile("package.json")) as {
       readonly devDependencies?: Readonly<Record<string, string>>;
     };
-    const wrangler = JSON.parse(readWebFile("wrangler.jsonc")) as {
+    const wrangler = JSON.parse(readWebFile("wrangler.json")) as {
       readonly main?: string;
       readonly compatibility_flags?: readonly string[];
       readonly assets?: { readonly directory?: string };
