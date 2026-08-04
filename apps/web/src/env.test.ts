@@ -10,6 +10,30 @@ afterEach(() => {
 });
 
 describe("web environment", () => {
+  it("requires a configured Convex URL for production builds", async () => {
+    const envModule = await import("./env");
+    const requireProductionWebEnv: unknown = Reflect.get(
+      envModule,
+      "requireProductionWebEnv",
+    );
+
+    expect(requireProductionWebEnv).toBeTypeOf("function");
+    if (typeof requireProductionWebEnv !== "function") return;
+
+    expect(() => requireProductionWebEnv("production", {})).toThrow(
+      WebEnvConfigError,
+    );
+    expect(() =>
+      requireProductionWebEnv("production", { VITE_CONVEX_URL: "   " }),
+    ).toThrow(WebEnvConfigError);
+    expect(() =>
+      requireProductionWebEnv("production", {
+        VITE_CONVEX_URL: "https://perfect-sparrow-808.convex.cloud",
+      }),
+    ).not.toThrow();
+    expect(() => requireProductionWebEnv("development", {})).not.toThrow();
+  });
+
   it("uses a fake-safe Convex fallback when no URL is configured", () => {
     expect(resolveWebEnv({})).toEqual({
       env: { VITE_CONVEX_URL: "https://example-template.convex.cloud" },

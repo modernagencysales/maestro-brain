@@ -6,6 +6,17 @@ const readWebFile = (path: string): string =>
   readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
 describe("Cloudflare server deployment", () => {
+  it("bakes the staging Convex deployment into production builds", () => {
+    const productionEnv = new URL("../.env.production", import.meta.url);
+
+    expect(existsSync(productionEnv)).toBe(true);
+    if (!existsSync(productionEnv)) return;
+
+    expect(readFileSync(productionEnv, "utf8").trim()).toBe(
+      "VITE_CONVEX_URL=https://perfect-sparrow-808.convex.cloud",
+    );
+  });
+
   it("deploys the TanStack server entry with client assets", () => {
     const vite = readWebFile("vite.config.ts");
     const pkg = JSON.parse(readWebFile("package.json")) as {
