@@ -1,7 +1,7 @@
 # Maestro Brain V1 Evidence Checklist
 
-**Audit date:** 2026-08-03  
-**Audited code head:** `612d1710` **Verdict:** no-go; no hosted release evidence
+**Audit date:** 2026-08-04  
+**Audited code head:** `4d1bc425` **Verdict:** no-go; no hosted release evidence
 is present.
 
 ## Local evidence
@@ -14,17 +14,24 @@ is present.
   conflict messaging, revision/evidence status, restore-as-new-revision,
   BlockNote sync with edit-start revision fences, review queue listing, safe
   revision diff/citation surfaces, and a Settings export lifecycle surface.
+- Fresh exact-head evidence: root lint, typecheck, formatting, production build,
+  static web smoke, all 22 remote typecheck projects, 15 Convex Brain/export
+  tests, and 18 web Brain/settings tests pass at `4d1bc425`.
+- The local fixture check, synthetic capacity harness, and telemetry budget
+  harness pass. The fixture-only semantic eval remains explicitly rejected for
+  the answer suite because it has no real model run; this is not a release
+  approval.
 - `staging-pilot-launch.md` is a historical no-go packet. Its old commit and
   queued-test wording are not evidence for this code head.
 
 ## REL-01 through REL-04
 
-| Requirement                                                                                                 | Current evidence                                                                             | Required before acceptance                                                                                                                              |
-| ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| REL-01 — frozen classification, citation, abstention, maintenance, multilingual, and prompt-injection evals | Harnesses exist; no current-head, version-pinned release receipt                             | Run the full frozen suites and record model/prompt versions, thresholds, fixture hashes, and failures                                                   |
-| REL-02 — 25 clients / 100 channels / 100k revisions / burst and concurrency fairness                        | Capacity harness exists; no current-head receipt                                             | Run the declared fixture and record fair progress, loss/isolation, and no-tenant-bleed results                                                          |
-| REL-03 — redacted observability, budgets, admission control, recovery, kill switches                        | Local budget fixture exists; hosted telemetry/alerts/recovery/kill-switch evidence is absent | Deploy the redacted metric path, exercise spend/rate/storage limits and overload controls, and attach audited recovery/kill-switch receipts             |
-| REL-04 — staging, pilot value, rollback, and launch evidence                                                | No hosted staging, pilot, launch approval, or rollback drill is evidenced                    | Prove isolated staging with provider smokes, observe and approve the pilot, run promotion/rollback, and record the launch decision plus incident review |
+| Requirement                                                                                                 | Current evidence                                                                                                                                   | Required before acceptance                                                                                                                              |
+| ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| REL-01 — frozen classification, citation, abstention, maintenance, multilingual, and prompt-injection evals | Local fixture receipt passes classification/maintenance/injection/multilingual; answer fixture-only run is rejected; no real-model release receipt | Run the full frozen suites and record model/prompt versions, thresholds, fixture hashes, and failures                                                   |
+| REL-02 — 25 clients / 100 channels / 100k revisions / burst and concurrency fairness                        | Synthetic-local capacity receipt passes; no hosted/current-head capacity receipt                                                                   | Run the declared fixture and record fair progress, loss/isolation, and no-tenant-bleed results                                                          |
+| REL-03 — redacted observability, budgets, admission control, recovery, kill switches                        | Local budget fixture exists; hosted telemetry/alerts/recovery/kill-switch evidence is absent                                                       | Deploy the redacted metric path, exercise spend/rate/storage limits and overload controls, and attach audited recovery/kill-switch receipts             |
+| REL-04 — staging, pilot value, rollback, and launch evidence                                                | No hosted staging, pilot, launch approval, or rollback drill is evidenced                                                                          | Prove isolated staging with provider smokes, observe and approve the pilot, run promotion/rollback, and record the launch decision plus incident review |
 
 ## Remaining release gate
 
