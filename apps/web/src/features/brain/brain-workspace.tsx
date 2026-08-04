@@ -72,6 +72,7 @@ export type BrainWorkspaceActionState =
       readonly sourceKey: string;
     }
   | { readonly status: "saved" }
+  | { readonly status: "stale_conflict" | "lifecycle_conflict" }
   | { readonly status: "unavailable" | "failure"; readonly message: string };
 
 export const createBrainWorkspaceActions = (
@@ -124,6 +125,10 @@ export const createBrainWorkspaceActions = (
       await adapter.updatePage(input);
       return { status: "saved" };
     } catch (error) {
+      if (hasErrorTag(error, "StaleRevision"))
+        return { status: "stale_conflict" };
+      if (hasErrorTag(error, "LifecycleRevoked"))
+        return { status: "lifecycle_conflict" };
       return { status: "failure", message: failureMessage(error) };
     }
   },
@@ -138,10 +143,17 @@ export const createBrainWorkspaceActions = (
 const failureMessage = (error: unknown): string =>
   error instanceof Error ? error.message : "The Brain operation failed.";
 
+const hasErrorTag = (error: unknown, tag: string): boolean =>
+  typeof error === "object" &&
+  error !== null &&
+  "_tag" in error &&
+  error._tag === tag;
+
 export const BrainWorkspaceRoute = () => {
   const workspace = useWorkspace();
   const [search, setSearch] = useState<BrainSearchState>({ status: "idle" });
   const [searchQuery, setSearchQuery] = useState<string | null>(null);
+  const [selectedPageKey, setSelectedPageKey] = useState<string | null>(null);
   const brainKey =
     workspace.status === "ready" ? workspace.activeWorkspace.workspaceId : null;
   const list = useTemplateQuery(
@@ -149,7 +161,12 @@ export const BrainWorkspaceRoute = () => {
     brainKey === null ? "skip" : { brainKey },
     { isEmpty: (data: BrainPageListData) => data.pages.length === 0 },
   ) as TemplateDataState<BrainPageListData, unknown>;
-  const selected = list.status === "ready" ? list.data.pages[0]?.pageKey : null;
+  const selected =
+    list.status === "ready"
+      ? list.data.pages.some((page) => page.pageKey === selectedPageKey)
+        ? selectedPageKey
+        : list.data.pages[0]?.pageKey
+      : null;
   const detail = useTemplateQuery(
     brainWorkspaceRefs.get,
     brainKey === null || selected === undefined || selected === null
@@ -158,6 +175,8 @@ export const BrainWorkspaceRoute = () => {
   ) as TemplateDataState<BrainPageDetail, unknown>;
   const create = useTemplateMutation(brainWorkspaceRefs.create);
   const rename = useTemplateMutation(brainWorkspaceRefs.rename);
+  const favorite = useTemplateMutation(brainWorkspaceRefs.favorite);
+  const archive = useTemplateMutation(brainWorkspaceRefs.archive);
   const submitNote = useTemplateMutation(brainPilotRefs.submitNote);
   const reviewNote = useTemplateMutation(brainPilotRefs.reviewNote);
   const updatePage = useTemplateMutation(brainPilotRefs.updatePage);
@@ -196,7 +215,7 @@ export const BrainWorkspaceRoute = () => {
   const adapter = createBrainWorkspaceAdapter({
     brainKey: workspace.activeWorkspace.workspaceId,
     canEdit: workspace.activeWorkspace.role !== "viewer",
-    mutations: { create, rename },
+    mutations: { create, rename, favorite, archive },
     pilot: {
       submitNote: async (input) =>
         unwrapBrainMutation(
@@ -239,6 +258,8 @@ export const BrainWorkspaceRoute = () => {
             adapter={adapter}
             detail={detailState}
             list={listState}
+            selectedPageKey={selected ?? undefined}
+            onSelectPage={setSelectedPageKey}
             onSearch={(query) => {
               setSearchQuery(query);
               setSearch({ status: "loading", query });
@@ -276,6 +297,8 @@ export const BrainWorkspace = ({
   onSearch,
   reviewNotice,
   search = { status: "idle" },
+  selectedPageKey,
+  onSelectPage,
 }: {
   readonly adapter: BrainWorkspaceAdapter;
   readonly detail: BrainPageDetailState;
@@ -284,9 +307,13 @@ export const BrainWorkspace = ({
   readonly onSearch?: (query: string) => void;
   readonly reviewNotice?: BrainReviewNotice;
   readonly search?: BrainSearchState;
+  readonly selectedPageKey?: string | undefined;
+  readonly onSelectPage?: ((pageKey: string) => void) | undefined;
 }) => {
   const actions = createBrainWorkspaceActions(adapter);
-  const [mode, setMode] = useState(initialMode);
+  const [mode, setMode] = useState<"read" | "edit">(
+    adapter.canEdit ? initialMode : "read",
+  );
   const [query, setQuery] = useState("");
   const [noteTitle, setNoteTitle] = useState("");
   const [noteMarkdown, setNoteMarkdown] = useState("");
@@ -357,25 +384,11 @@ export const BrainWorkspace = ({
             <Heading size="sm">Pages</Heading>
           </Card.Header>
           <Card.Body>
-            <Stack gap="2">
-              {list.data.pages.map((page: BrainPageSummary) => (
-                <Box
-                  borderColor="gray.200"
-                  borderWidth="1px"
-                  key={page.pageKey}
-                  p="3"
-                >
-                  <HStack justify="space-between" wrap="wrap" gap="2">
-                    <Text fontWeight="semibold">{page.title}</Text>
-                    <Badge
-                      colorPalette={page.status === "active" ? "green" : "gray"}
-                    >
-                      {page.status}
-                    </Badge>
-                  </HStack>
-                </Box>
-              ))}
-            </Stack>
+            <PageTree
+              pages={list.data.pages}
+              selectedPageKey={selectedPageKey ?? detailPageKey(detail)}
+              onSelectPage={onSelectPage}
+            />
           </Card.Body>
         </Card.Root>
       ) : null}
@@ -481,6 +494,69 @@ export const BrainWorkspace = ({
                 >
                   Rename page
                 </Button>
+                <HStack gap="2" wrap="wrap">
+                  <Button
+                    disabled={adapter.favoritePage === undefined}
+                    type="button"
+                    variant="outline"
+                    onClick={async () => {
+                      const revisionKey = detail.data.page.currentRevisionKey;
+                      if (
+                        revisionKey === null ||
+                        adapter.favoritePage === undefined
+                      )
+                        return;
+                      try {
+                        await adapter.favoritePage({
+                          brainKey: adapter.brainKey,
+                          pageKey: detail.data.page.pageKey,
+                          expectedCurrentRevisionKey: revisionKey,
+                          favorite: !detail.data.page.favorite,
+                        });
+                        setOperationNotice(
+                          detail.data.page.favorite
+                            ? "Favorite removed."
+                            : "Favorite added.",
+                        );
+                      } catch {
+                        setOperationNotice(
+                          "Unable to update favorite. Try again.",
+                        );
+                      }
+                    }}
+                  >
+                    {detail.data.page.favorite
+                      ? "Remove favorite"
+                      : "Add favorite"}
+                  </Button>
+                  <Button
+                    disabled={adapter.archivePage === undefined}
+                    type="button"
+                    variant="outline"
+                    onClick={async () => {
+                      const revisionKey = detail.data.page.currentRevisionKey;
+                      if (
+                        revisionKey === null ||
+                        adapter.archivePage === undefined
+                      )
+                        return;
+                      try {
+                        await adapter.archivePage({
+                          brainKey: adapter.brainKey,
+                          pageKey: detail.data.page.pageKey,
+                          expectedCurrentRevisionKey: revisionKey,
+                        });
+                        setOperationNotice("Page archived.");
+                      } catch {
+                        setOperationNotice(
+                          "Unable to archive page. Try again.",
+                        );
+                      }
+                    }}
+                  >
+                    Archive page
+                  </Button>
+                </HStack>
                 <label htmlFor="brain-page-markdown">Page markdown</label>
                 <textarea
                   aria-label="Page markdown"
@@ -509,9 +585,13 @@ export const BrainWorkspace = ({
                     setOperationNotice(
                       result.status === "saved"
                         ? "Page saved."
-                        : "message" in result
-                          ? result.message
-                          : "Page save failed.",
+                        : result.status === "stale_conflict"
+                          ? "A newer revision exists. Reload before saving your changes."
+                          : result.status === "lifecycle_conflict"
+                            ? "This page changed lifecycle state and can no longer be saved."
+                            : "message" in result
+                              ? result.message
+                              : "Page save failed.",
                     );
                   }}
                 >
@@ -526,6 +606,24 @@ export const BrainWorkspace = ({
             ) : (
               <Text whiteSpace="pre-wrap">{detail.data.markdown}</Text>
             )}
+            <Box borderTopWidth="1px" mt="4" pt="3">
+              <Heading size="xs">Revision and evidence</Heading>
+              <Text fontSize="sm">
+                Revision: {detail.data.page.currentRevisionKey ?? "No revision"}
+              </Text>
+              <Text fontSize="sm">
+                Updated: {new Date(detail.data.updatedAt).toLocaleString()}
+              </Text>
+              <Text fontSize="sm">
+                Lifecycle generation: {detail.data.page.lifecycleGeneration}
+              </Text>
+              <Text fontSize="sm">
+                Evidence:{" "}
+                {search.status === "ready"
+                  ? `${search.results.length} cited result${search.results.length === 1 ? "" : "s"}`
+                  : "Search for cited evidence"}
+              </Text>
+            </Box>
           </Card.Body>
         </Card.Root>
       ) : (
@@ -646,6 +744,56 @@ export const BrainWorkspace = ({
       </Card.Root>
     </Stack>
   );
+};
+
+const detailPageKey = (detail: BrainPageDetailState): string | undefined =>
+  detail.status === "ready" ? detail.data.page.pageKey : undefined;
+
+const PageTree = ({
+  pages,
+  selectedPageKey,
+  onSelectPage,
+}: {
+  readonly pages: readonly BrainPageSummary[];
+  readonly selectedPageKey?: string | undefined;
+  readonly onSelectPage?: ((pageKey: string) => void) | undefined;
+}) => {
+  const renderLevel = (parentPageKey: string | null) => {
+    const children = pages
+      .filter((page) => page.parentPageKey === parentPageKey)
+      .slice()
+      .sort((left, right) => left.sortKey.localeCompare(right.sortKey));
+    if (children.length === 0) return null;
+    return (
+      <Box
+        as="ul"
+        listStyleType="none"
+        m="0"
+        pl={parentPageKey === null ? "0" : "4"}
+      >
+        {children.map((page) => (
+          <Box as="li" key={page.pageKey}>
+            <Button
+              aria-current={
+                page.pageKey === selectedPageKey ? "page" : undefined
+              }
+              justifyContent="space-between"
+              type="button"
+              variant="ghost"
+              width="full"
+              onClick={() => onSelectPage?.(page.pageKey)}
+            >
+              <span>{page.title}</span>
+              <span>{page.favorite ? "★" : page.status}</span>
+            </Button>
+            {renderLevel(page.pageKey)}
+          </Box>
+        ))}
+      </Box>
+    );
+  };
+
+  return <nav aria-label="Brain pages">{renderLevel(null)}</nav>;
 };
 
 const PageState = ({ list }: { readonly list: BrainPageListState }) => {

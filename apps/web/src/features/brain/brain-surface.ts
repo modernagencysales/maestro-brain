@@ -88,6 +88,8 @@ type BrainWorkspaceRefs = {
   readonly get: BrainPageRefs["get"];
   readonly create: BrainPageRefs["create"];
   readonly rename: BrainPageRefs["rename"];
+  readonly favorite: BrainPageRefs["favorite"];
+  readonly archive: BrainPageRefs["archive"];
 };
 
 type BrainWorkspacePilotRefs = {
@@ -102,6 +104,8 @@ export const brainWorkspaceRefs: BrainWorkspaceRefs = {
   get: templateConfectRefs.public.brain.pages.get,
   create: templateConfectRefs.public.brain.pages.create,
   rename: templateConfectRefs.public.brain.pages.rename,
+  favorite: templateConfectRefs.public.brain.pages.favorite,
+  archive: templateConfectRefs.public.brain.pages.archive,
 } as const;
 
 export const brainPilotRefs: BrainWorkspacePilotRefs = {
@@ -123,6 +127,16 @@ export type BrainWorkspaceMutationInputs = {
     args: Ref.Args<typeof brainWorkspaceRefs.rename>,
   ) => Promise<
     BrainPageMutationResult<Ref.Returns<typeof brainWorkspaceRefs.rename>>
+  >;
+  readonly favorite?: (
+    args: Ref.Args<typeof brainWorkspaceRefs.favorite>,
+  ) => Promise<
+    BrainPageMutationResult<Ref.Returns<typeof brainWorkspaceRefs.favorite>>
+  >;
+  readonly archive?: (
+    args: Ref.Args<typeof brainWorkspaceRefs.archive>,
+  ) => Promise<
+    BrainPageMutationResult<Ref.Returns<typeof brainWorkspaceRefs.archive>>
   >;
 };
 
@@ -154,6 +168,8 @@ export type BrainWorkspaceAdapter = BrainPilotAdapter & {
   readonly canEdit: boolean;
   readonly createPage: BrainWorkspaceMutationInputs["create"];
   readonly renamePage: BrainWorkspaceMutationInputs["rename"];
+  readonly favoritePage?: BrainWorkspaceMutationInputs["favorite"];
+  readonly archivePage?: BrainWorkspaceMutationInputs["archive"];
   readonly updatePage?: (input: {
     readonly pageKey: string;
     readonly expectedCurrentRevisionKey: string;
@@ -179,6 +195,12 @@ export const createBrainWorkspaceAdapter = ({
   ...pilot,
   createPage: mutations.create,
   renamePage: mutations.rename,
+  ...(mutations.favorite === undefined
+    ? {}
+    : { favoritePage: mutations.favorite }),
+  ...(mutations.archive === undefined
+    ? {}
+    : { archivePage: mutations.archive }),
   ...(updatePage === undefined ? {} : { updatePage }),
 });
 
