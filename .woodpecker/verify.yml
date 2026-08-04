@@ -28,8 +28,7 @@ steps:
       CI: "true"
       NODE_OPTIONS: "--max-old-space-size=6144"
     commands:
-      - corepack enable
-      - corepack prepare pnpm@10.12.1 --activate
+      - npm install --global pnpm@10.12.1 --ignore-scripts
       - pnpm install --frozen-lockfile
       - pnpm check:format
       - pnpm lint
