@@ -1,4 +1,7 @@
 import { confectManifest } from "@maestro-template/template-core/generated/confectManifest";
+import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   HeadlessOperation,
@@ -33,6 +36,25 @@ const parseStdout = <T>(result: CliResult): T => JSON.parse(result.stdout) as T;
 describe("maestro-template CLI", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("ships a runnable maestro-brain executable", () => {
+    const executable = new URL("../bin/maestro-brain.mjs", import.meta.url);
+
+    expect(existsSync(executable)).toBe(true);
+    if (!existsSync(executable)) return;
+
+    const result = spawnSync(
+      process.execPath,
+      [fileURLToPath(executable), "describe"],
+      {
+        encoding: "utf8",
+      },
+    );
+
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({ valid: true });
+    expect(result.stderr).toBe("");
   });
 
   it("calls an allowed Brain operation with bearer authentication", async () => {
