@@ -57,6 +57,14 @@ describe("maestro-template CLI", () => {
     expect(result.stderr).toBe("");
   });
 
+  it("prints maestro-brain commands in help", () => {
+    const result = runCli(["--help"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("maestro-brain api call");
+    expect(result.stdout).not.toContain("maestro-template");
+  });
+
   it("calls an allowed Brain operation with bearer authentication", async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(
