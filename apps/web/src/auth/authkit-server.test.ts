@@ -24,6 +24,8 @@ const validLiveEnv = {
   WORKOS_AUTHKIT_JWKS_URL: "https://api.workos.com/sso/jwks/org_live_example",
 } as const;
 
+const noProvision = async () => {};
+
 describe("AuthKit server bridge", () => {
   it("returns a typed signed-out snapshot without exposing a token", async () => {
     const snapshot = await getAuthSnapshot({
@@ -94,6 +96,7 @@ describe("AuthKit server bridge", () => {
         getAuth: async () => {
           throw new Error("getAuth should not be called in fake mode");
         },
+        provisionWorkspace: noProvision,
       }),
     ).resolves.toEqual({ status: "signedOut" });
   });
@@ -109,6 +112,7 @@ describe("AuthKit server bridge", () => {
         getAuth: async () => {
           throw new Error("getAuth should not be called in fake mode");
         },
+        provisionWorkspace: noProvision,
       }),
     ).resolves.toEqual({
       authSnapshot: { status: "signedOut" },
@@ -118,6 +122,14 @@ describe("AuthKit server bridge", () => {
 
   it("returns redacted live safe runtime metadata from server auth", async () => {
     const provisionedTokens: string[] = [];
+    let releaseProvisioning!: () => void;
+    let markProvisioningStarted!: () => void;
+    const provisioningStarted = new Promise<void>((resolve) => {
+      markProvisioningStarted = resolve;
+    });
+    const provisioningReleased = new Promise<void>((resolve) => {
+      releaseProvisioning = resolve;
+    });
     const input = {
       env: validLiveEnv,
       getAuth: async () => ({
@@ -128,10 +140,27 @@ describe("AuthKit server bridge", () => {
       }),
       provisionWorkspace: async (accessToken: string) => {
         provisionedTokens.push(accessToken);
+        markProvisioningStarted();
+        await provisioningReleased;
       },
     };
 
-    await expect(getSafeClientRuntime(input)).resolves.toEqual({
+    const runtime = getSafeClientRuntime(input);
+    await provisioningStarted;
+    let settled = false;
+    void runtime.then(
+      () => {
+        settled = true;
+      },
+      () => {
+        settled = true;
+      },
+    );
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    releaseProvisioning();
+    await expect(runtime).resolves.toEqual({
       authSnapshot: {
         status: "authenticated",
         subject: "user_123",
@@ -144,11 +173,29 @@ describe("AuthKit server bridge", () => {
     expect(provisionedTokens).toEqual(["token-redacted"]);
   });
 
+  it("fails closed when live workspace provisioning fails", async () => {
+    await expect(
+      getSafeClientRuntime({
+        env: validLiveEnv,
+        getAuth: async () => ({
+          user: { id: "user_123", email: "user@example.com" },
+          sessionId: "session_123",
+          organizationId: "org_123",
+          accessToken: "token-redacted",
+        }),
+        provisionWorkspace: async () => {
+          throw new Error("workspace provisioning failed");
+        },
+      }),
+    ).rejects.toThrow("workspace provisioning failed");
+  });
+
   it("marks safe runtime metadata as test mode for test provider config", async () => {
     await expect(
       getSafeClientRuntime({
         env: { ...validLiveEnv, APP_PROVIDER_MODE: "test" },
         getAuth: async () => ({ user: null }),
+        provisionWorkspace: noProvision,
       }),
     ).resolves.toEqual({
       authSnapshot: { status: "signedOut" },
