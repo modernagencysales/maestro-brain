@@ -86,10 +86,10 @@ Convex/Confect, Vitest, Playwright.
 
 **Interfaces:**
 
-- Consumes `MAESTRO_BRAIN_URL`, `MAESTRO_BRAIN_API_KEY`, and the existing four
-  reviewed operation IDs.
-- Produces remote `brain context`, `brain ask`, `brain sources search`, and
-  `brain sources get` commands.
+- Consumes the existing `CONVEX_SITE_URL`, `MAESTRO_BRAIN_API_KEY`, and four
+  reviewed operation IDs without adding a second backend URL concept.
+- Produces `api call <operation-id> --input <json>` for those four read/Ask
+  operations while preserving existing metadata commands.
 
 - [ ] Write failing tests for request URL, Bearer header, JSON body, typed
       failures, network failures, and secret redaction.
