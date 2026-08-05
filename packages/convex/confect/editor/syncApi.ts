@@ -91,7 +91,11 @@ const resolveStableEditorSnapshotTarget = async (
       q.eq("workspaceId", workspace._id).eq("pageKey", pageKey),
     )
     .unique();
-  if (!isReadableSnapshotPage(page)) return null;
+  if (
+    !isReadableSnapshotPage(page) ||
+    page.currentRevisionKey !== expectedCurrentRevisionKey
+  )
+    return null;
   return {
     brainKey,
     pageKey: page.pageKey,

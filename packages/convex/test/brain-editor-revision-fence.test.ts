@@ -141,6 +141,48 @@ describe("Brain editor revision fences", () => {
     });
   });
 
+  it("drops a debounced snapshot after the page revision has advanced", async () => {
+    const runMutation = vi.fn(async () => null);
+    const page = {
+      _id: "page_1",
+      workspaceId: "workspace_1",
+      pageKey: "pag_editor_fence",
+      currentRevisionKey: "rev_newer",
+      status: "active",
+      lifecycle: { state: "active" },
+    };
+    const ctx = {
+      db: {
+        query: vi.fn((table: string) => {
+          if (table === "workspaces") {
+            return {
+              collect: vi.fn(async () => [
+                {
+                  _id: "workspace_1",
+                  brainKey: "br_0123456789ABCDEFGHJKMNPQRS",
+                },
+              ]),
+            };
+          }
+          return {
+            withIndex: vi.fn(() => ({ unique: vi.fn(async () => page) })),
+          };
+        }),
+      },
+      runMutation,
+    } as unknown as GenericMutationCtx<DataModel>;
+
+    await expect(
+      recordCurrentEditorSnapshot(
+        ctx,
+        "brainPage:br_0123456789ABCDEFGHJKMNPQRS:pag_editor_fence:rev_current",
+        '{"type":"doc"}',
+        12,
+      ),
+    ).resolves.toBeNull();
+    expect(runMutation).not.toHaveBeenCalled();
+  });
+
   it("refuses the live callback when the document has no edit-start fence", async () => {
     const runMutation = vi.fn(async () => null);
     const ctx = {
