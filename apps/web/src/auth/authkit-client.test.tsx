@@ -50,7 +50,7 @@ describe("AuthKit client bridge", () => {
     expect(auth).toMatchObject({ isLoading: false, isAuthenticated: true });
   });
 
-  it("lets Convex request a fresh token when the cached token is missing", async () => {
+  it("keeps Convex unauthenticated until AuthKit returns an access token", async () => {
     const useConvexAuth = createWorkosConvexAuthHook(() => ({
       user: { id: "user_123" },
       loading: false,
@@ -64,6 +64,6 @@ describe("AuthKit client bridge", () => {
     const auth = useConvexAuth();
 
     await expect(auth.fetchAccessToken()).resolves.toBeNull();
-    expect(auth.isAuthenticated).toBe(true);
+    expect(auth.isAuthenticated).toBe(false);
   });
 });
