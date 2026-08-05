@@ -1,15 +1,43 @@
 import { readFileSync } from "node:fs";
+import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import { MaestroSaasUiProvider } from "../../saas-ui/provider";
 import {
   BrainWorkspace,
+  BrainWorkspaceRoute,
   createBrainWorkspaceActions,
+  recoverWorkspaceSession,
   type BrainPageDetailState,
   type BrainPageListState,
 } from "./brain-workspace";
 import type { BrainWorkspaceAdapter } from "./brain-surface";
+
+const routeMocks = vi.hoisted(() => ({
+  workspace: null as unknown,
+  signOut: vi.fn(),
+}));
+
+vi.mock("../../providers/workspace", () => ({
+  useWorkspace: () => routeMocks.workspace,
+}));
+
+vi.mock("../../adapters/confect-state", () => ({
+  useTemplateMutation: () => vi.fn(),
+  useTemplateQuery: () => ({ status: "loading", mode: "read" }),
+}));
+
+vi.mock("@workos/authkit-tanstack-react-start/client", () => ({
+  useAuth: () => ({ signOut: routeMocks.signOut }),
+}));
+
+vi.mock("../../saas-ui/business-shell", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../saas-ui/business-shell")>()),
+  BusinessAppShell: ({ children }: { readonly children: ReactNode }) => (
+    <>{children}</>
+  ),
+}));
 
 const page = {
   pageKey: "pag_01J0000000000000000000000A",
@@ -99,6 +127,13 @@ const render = (
     </MaestroSaasUiProvider>,
   );
 
+const renderRoute = () =>
+  renderToStaticMarkup(
+    <MaestroSaasUiProvider>
+      <BrainWorkspaceRoute />
+    </MaestroSaasUiProvider>,
+  );
+
 describe("BrainWorkspace", () => {
   it("keeps one page editor and exposes workspace session recovery", () => {
     const source = readFileSync(
@@ -108,9 +143,52 @@ describe("BrainWorkspace", () => {
 
     expect(source).not.toContain("BlockNoteSyncEditor");
     expect(source).not.toContain("editorApi");
-    expect(source).toContain('workspace.status === "failure"');
-    expect(source).toContain("workspace.message");
-    expect(source).toContain("Sign in again");
+  });
+
+  it("renders actionable non-ready workspace states", () => {
+    routeMocks.workspace = {
+      status: "loading",
+      workspaces: [],
+      activeWorkspaceId: null,
+      activeWorkspace: null,
+    };
+    expect(renderRoute()).toContain("Loading your workspace.");
+    expect(renderRoute()).toContain('role="status"');
+
+    routeMocks.workspace = {
+      status: "provisioning",
+      workspaces: [],
+      activeWorkspaceId: null,
+      activeWorkspace: null,
+    };
+    expect(renderRoute()).toContain("Setting up your Agency Brain workspace.");
+
+    routeMocks.workspace = {
+      status: "failure",
+      phase: "loading",
+      message: "Token refresh failed.",
+      workspaces: [],
+      activeWorkspaceId: null,
+      activeWorkspace: null,
+    };
+    const failure = renderRoute();
+    expect(failure).toContain('role="alert"');
+    expect(failure).toContain("Token refresh failed.");
+    expect(failure).toContain("Sign in again");
+
+    routeMocks.workspace = {
+      status: "empty",
+      workspaces: [],
+      activeWorkspaceId: null,
+      activeWorkspace: null,
+    };
+    expect(renderRoute()).toContain("Workspace setup did not finish.");
+  });
+
+  it("signs out to restart the Brain session", () => {
+    recoverWorkspaceSession(routeMocks.signOut);
+
+    expect(routeMocks.signOut).toHaveBeenCalledWith({ returnTo: "/brain" });
   });
 
   it("drives submit, review, page save, and cited search interactions", async () => {
@@ -216,6 +294,8 @@ describe("BrainWorkspace", () => {
     expect(html).toContain("Save page");
     expect(html).toContain("Edit Positioning notes");
     expect(html).toContain("textarea");
+    expect(html.match(/aria-label="Page markdown"/g)).toHaveLength(1);
+    expect(html).not.toContain("Live BlockNote document");
     expect(html).toContain("Rename page");
     expect(html).toContain("Create page");
     expect(html).toContain("Archive page");

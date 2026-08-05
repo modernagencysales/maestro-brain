@@ -189,6 +189,10 @@ const hasErrorTag = (error: unknown, tag: string): boolean =>
   "_tag" in error &&
   error._tag === tag;
 
+export const recoverWorkspaceSession = (
+  signOut: (input: { readonly returnTo: string }) => unknown,
+) => signOut({ returnTo: "/brain" });
+
 export const BrainWorkspaceRoute = () => {
   const { signOut } = useAuth();
   const workspace = useWorkspace();
@@ -258,7 +262,7 @@ export const BrainWorkspaceRoute = () => {
                 <Text role="alert">{workspace.message}</Text>
                 <Button
                   type="button"
-                  onClick={() => void signOut({ returnTo: "/brain" })}
+                  onClick={() => void recoverWorkspaceSession(signOut)}
                 >
                   Sign in again
                 </Button>
@@ -268,13 +272,15 @@ export const BrainWorkspaceRoute = () => {
                 <Text role="alert">Workspace setup did not finish.</Text>
                 <Button
                   type="button"
-                  onClick={() => void signOut({ returnTo: "/brain" })}
+                  onClick={() => void recoverWorkspaceSession(signOut)}
                 >
                   Sign in again
                 </Button>
               </Stack>
             ) : (
-              <Text>Brain will load automatically when setup completes.</Text>
+              <Text role="status">
+                Brain will load automatically when setup completes.
+              </Text>
             )}
           </Page.Body>
         </BusinessPageRoot>
