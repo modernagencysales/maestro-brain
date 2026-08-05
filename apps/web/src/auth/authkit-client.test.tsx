@@ -66,4 +66,21 @@ describe("AuthKit client bridge", () => {
     await expect(auth.fetchAccessToken()).resolves.toBeNull();
     expect(auth.isAuthenticated).toBe(false);
   });
+
+  it("keeps the Convex token fetcher stable while the AuthKit session is unchanged", () => {
+    const getAccessToken = async () => "fresh_access_token";
+    const useConvexAuth = createWorkosConvexAuthHook(() => ({
+      user: { id: "user_123" },
+      loading: false,
+      token: {
+        accessToken: "cached_access_token",
+        loading: false,
+        getAccessToken,
+      },
+    }));
+
+    expect(useConvexAuth().fetchAccessToken).toBe(
+      useConvexAuth().fetchAccessToken,
+    );
+  });
 });

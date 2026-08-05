@@ -26,6 +26,21 @@ type WorkosConvexAuthState = {
   };
 };
 
+const convexTokenFetchers = new WeakMap<
+  WorkosConvexAuthState["token"]["getAccessToken"],
+  () => Promise<string | null>
+>();
+
+const convexTokenFetcherFor = (
+  getAccessToken: WorkosConvexAuthState["token"]["getAccessToken"],
+) => {
+  const existing = convexTokenFetchers.get(getAccessToken);
+  if (existing !== undefined) return existing;
+  const fetcher = async () => (await getAccessToken()) ?? null;
+  convexTokenFetchers.set(getAccessToken, fetcher);
+  return fetcher;
+};
+
 export type AuthKitClientBridge = {
   readonly AuthKitProvider: AuthKitProviderComponent;
   readonly useAuth: () => {
@@ -59,8 +74,7 @@ export const createWorkosConvexAuthHook = (
     return {
       isLoading: state.loading || state.token.loading,
       isAuthenticated: Boolean(state.user && state.token.accessToken),
-      fetchAccessToken: async () =>
-        (await state.token.getAccessToken()) ?? null,
+      fetchAccessToken: convexTokenFetcherFor(state.token.getAccessToken),
     };
   };
 
