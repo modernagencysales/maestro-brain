@@ -2,7 +2,6 @@ import { templateConfectRefs } from "@maestro-template/convex/refs";
 import { useReducer } from "react";
 
 import {
-  useTemplateAction,
   useTemplateMutation,
   useTemplateQuery,
   classifyConfectMutationResult,
@@ -10,11 +9,6 @@ import {
   normalizeMutationError,
 } from "../../adapters/confect-state";
 import { describeTypedFailure } from "../../adapters/failure-message";
-import {
-  createMemberManagementAdapter,
-  type WorkspaceId,
-} from "./member-management-adapter";
-import { MemberManagement } from "./member-management";
 import { createApiKeySettingsAdapter } from "./api-keys-adapter";
 import { ApiKeysPanel } from "./api-keys-panel";
 import { useWorkspace } from "../../providers/workspace";
@@ -26,14 +20,6 @@ import { isConvexConfigured } from "../../env";
 
 const apiKeyRefs = templateConfectRefs.public.headless.apiKeys;
 const exportRefs = templateConfectRefs.public.ops.dataLifecycle;
-const accessRefs = {
-  members: templateConfectRefs.public.access.members,
-  invitations: {
-    list: templateConfectRefs.public.access.invitations.list,
-    create: templateConfectRefs.public.access.invitations.create,
-    cancel: templateConfectRefs.public.access.invitations.cancel,
-  },
-} as const;
 
 export function WorkspaceSettingsClient() {
   const workspace = useWorkspace();
@@ -52,28 +38,9 @@ export function WorkspaceSettingsClient() {
     ) => next,
     { status: "idle" } as const,
   );
-  const createInvitation = useTemplateAction(accessRefs.invitations.create);
   const createApiKey = useTemplateMutation(apiKeyRefs.create);
   const rotateApiKey = useTemplateMutation(apiKeyRefs.rotate);
   const revokeApiKey = useTemplateMutation(apiKeyRefs.revoke);
-  const cancelInvitation = useTemplateAction(accessRefs.invitations.cancel);
-  const changeRole = useTemplateAction(accessRefs.members.changeRole);
-  const removeMember = useTemplateAction(accessRefs.members.remove);
-  const transferOwnership = useTemplateAction(
-    accessRefs.members.transferOwnership,
-  );
-  const workspaceId =
-    workspace.status === "ready"
-      ? (workspace.activeWorkspace.workspaceId as WorkspaceId)
-      : null;
-  const members = useTemplateQuery(
-    accessRefs.members.list,
-    workspaceId === null ? "skip" : { workspaceId },
-  );
-  const invitations = useTemplateQuery(
-    accessRefs.invitations.list,
-    workspaceId === null ? "skip" : { workspaceId },
-  );
   const stableBrainKey =
     workspace.status === "ready"
       ? selectStableApiKeyBrainKey(workspace.activeWorkspace)
@@ -108,26 +75,9 @@ export function WorkspaceSettingsClient() {
       revoke: revokeApiKey,
     },
   });
-  const adapter = createMemberManagementAdapter({
-    role: workspace.activeWorkspace.role,
-    workspaceId: workspace.activeWorkspace.workspaceId as WorkspaceId,
-    mutations: {
-      createInvitation,
-      cancelInvitation,
-      changeRole,
-      removeMember,
-      transferOwnership,
-    },
-  });
-
   return (
     <>
       <BusinessSettingsRoute />
-      <MemberManagement
-        adapter={adapter}
-        members={toRowsState(members, "Member list access denied.")}
-        invitations={toRowsState(invitations, "Invitation list access denied.")}
-      />
       <ApiKeysPanel
         adapter={apiKeyAdapter}
         keys={toRowsState(apiKeys, "API key list access denied.")}
