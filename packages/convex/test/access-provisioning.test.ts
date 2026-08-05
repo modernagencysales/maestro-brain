@@ -2,7 +2,7 @@ import { TestConfect } from "@confect/test";
 import * as Effect from "effect/Effect";
 import * as Either from "effect/Either";
 import * as Schema from "effect/Schema";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import refs from "../confect/_generated/refs";
 import databaseSchema from "../confect/_generated/schema";
@@ -63,6 +63,47 @@ describe("access provisioning", () => {
       displayName: "Ada Lovelace",
       email: "ada@example.com",
     });
+  });
+
+  it("combines signed tenant claims with the matching verified WorkOS user", () => {
+    const profile = Effect.runSync(
+      extractIdentityProfile(
+        {
+          subject: "user_12345678",
+          organizationId: "org_12345678",
+        },
+        {
+          subject: "user_12345678",
+          name: "Ada Lovelace",
+          email: " ADA@Example.COM ",
+          emailVerified: true,
+        },
+      ),
+    );
+
+    expect(profile).toEqual({
+      subject: "user_12345678",
+      displayName: "Ada Lovelace",
+      email: "ada@example.com",
+      workosOrganizationId: "org_12345678",
+    });
+  });
+
+  it("rejects a verified WorkOS user that does not match the signed subject", () => {
+    const error = Effect.runSync(
+      Effect.flip(
+        extractIdentityProfile(
+          { subject: "user_signed", organizationId: "org_signed" },
+          {
+            subject: "user_other",
+            email: "other@example.com",
+            emailVerified: true,
+          },
+        ),
+      ),
+    );
+
+    expect(error).toBeInstanceOf(Unauthorized);
   });
 
   it("rejects missing identity before any row planning occurs", () => {
@@ -513,6 +554,77 @@ describe("access provisioning", () => {
         _creationTime: result.firstRows.workspace._creationTime,
       }),
     );
+  });
+
+  it("keeps provisioned workspace access when WorkOS access tokens omit email", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const identity = {
+        subject: "workos|token-user",
+        organizationId: "org_workos_token",
+      };
+      const provisioned = yield* confect
+        .withIdentity({
+          ...identity,
+          email: "token-user@example.com",
+          emailVerified: true,
+        })
+        .mutation(refs.public.access.provisioning.ensureProvisioned, {});
+      const workspaces = yield* confect
+        .withIdentity(identity)
+        .query(refs.public.auth.workspaces.list, {});
+      return { provisioned, workspaces };
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.workspaces.map((workspace) => workspace.brainKey)).toEqual([
+      result.provisioned.brainKey,
+    ]);
+  });
+
+  it("provisions a first WorkOS access token without email from the verified user API", async () => {
+    const previousApiKey = process.env.WORKOS_API_KEY;
+    process.env.WORKOS_API_KEY = "sk_test_workos";
+    const fetchMock = vi.fn(async () =>
+      Response.json({
+        id: "workos|api-user",
+        email: "api-user@example.com",
+        email_verified: true,
+        name: "API User",
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      const program = Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof databaseSchema>(),
+        );
+        return yield* confect
+          .withIdentity({
+            subject: "workos|api-user",
+            organizationId: "org_workos_api",
+          })
+          .action(
+            refs.public.access.provisioning.ensureProvisionedFromWorkos,
+            {},
+          );
+      });
+
+      await expect(
+        Effect.runPromise(program.pipe(Effect.provide(testConfectLayer()))),
+      ).resolves.toMatchObject({ brainKey: expect.stringMatching(/^br_/) });
+      expect(fetchMock).toHaveBeenCalledOnce();
+    } finally {
+      vi.unstubAllGlobals();
+      if (previousApiKey === undefined) delete process.env.WORKOS_API_KEY;
+      else process.env.WORKOS_API_KEY = previousApiKey;
+    }
   });
 
   it("fails closed instead of rebinding an existing WorkOS organization", async () => {

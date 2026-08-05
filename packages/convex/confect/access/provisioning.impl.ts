@@ -6,7 +6,13 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import databaseSchema from "../_generated/schema";
-import { Auth, DatabaseReader, DatabaseWriter } from "../_generated/services";
+import refs from "../_generated/refs";
+import {
+  Auth,
+  DatabaseReader,
+  DatabaseWriter,
+  MutationRunner,
+} from "../_generated/services";
 import {
   CapacityExceeded,
   ClientBrainAlreadyExists,
@@ -21,6 +27,7 @@ import { recordAccessLifecycleEvents } from "./audit";
 import provisioning from "./provisioning.spec";
 import {
   buildProvisioningPlan,
+  extractIdentityBinding,
   extractIdentityProfile,
   requireInsertValue,
   selectLiveOwnedOrganization,
@@ -38,6 +45,36 @@ import { roleAtLeast } from "./roles";
 
 const conflict = (resource: string, message: string) =>
   new ProvisioningConflict({ resource, message });
+
+const loadVerifiedWorkosIdentity = (subject: string) => {
+  const apiKey = process.env.WORKOS_API_KEY?.trim();
+  if (!apiKey) return Effect.fail(new Unauthorized());
+  return Effect.tryPromise({
+    try: () =>
+      fetch(
+        `https://api.workos.com/user_management/users/${encodeURIComponent(subject)}`,
+        { headers: { Authorization: `Bearer ${apiKey}` } },
+      )
+        .then((response) =>
+          response.ok
+            ? response.json()
+            : Promise.reject(new Error("WorkOS user lookup failed.")),
+        )
+        .then((value) => {
+          const user = value as Record<string, unknown>;
+          return {
+            subject: typeof user.id === "string" ? user.id : null,
+            name: typeof user.name === "string" ? user.name : null,
+            email: typeof user.email === "string" ? user.email : null,
+            emailVerified:
+              typeof user.email_verified === "boolean"
+                ? user.email_verified
+                : null,
+          };
+        }),
+    catch: () => new Unauthorized(),
+  });
+};
 
 const assertNoOtherWorkosBinding = (input: {
   readonly workosOrganizationId: string | undefined;
@@ -123,24 +160,68 @@ const assertUniqueBrainKey = (input: {
     }
   });
 
-const ensureProvisioned = FunctionImpl.make(
+const ensureProvisionedFromWorkos = FunctionImpl.make(
   databaseSchema,
   provisioning,
-  "ensureProvisioned",
+  "ensureProvisionedFromWorkos",
   () =>
+    Effect.gen(function* () {
+      const auth = yield* Auth;
+      const claims = yield* auth.getUserIdentity.pipe(
+        Effect.mapError(() => new Unauthorized()),
+      );
+      const subject = claims.subject?.trim();
+      if (!subject) return yield* new Unauthorized();
+      const identity = yield* extractIdentityProfile(claims).pipe(
+        Effect.catchTag("ValidationFailed", () =>
+          loadVerifiedWorkosIdentity(subject).pipe(
+            Effect.flatMap((providerIdentity) =>
+              extractIdentityProfile(claims, providerIdentity),
+            ),
+          ),
+        ),
+      );
+      const runMutation = yield* MutationRunner;
+      yield* runMutation(
+        refs.internal.access.provisioning.seedVerifiedWorkosUser,
+        {
+          subject: identity.subject,
+          email: identity.email,
+          emailVerified: true,
+          name: identity.displayName,
+        },
+      ).pipe(Effect.catchTag("ParseError", Effect.die));
+      return yield* runMutation(
+        refs.public.access.provisioning.ensureProvisioned,
+        {},
+      ).pipe(Effect.catchTag("ParseError", Effect.die));
+    }),
+);
+
+const seedVerifiedWorkosUser = FunctionImpl.make(
+  databaseSchema,
+  provisioning,
+  "seedVerifiedWorkosUser",
+  (providerIdentity) =>
     Effect.gen(function* () {
       const auth = yield* Auth;
       const identity = yield* extractIdentityProfile(
         yield* auth.getUserIdentity.pipe(
           Effect.mapError(() => new Unauthorized()),
         ),
+        {
+          subject: providerIdentity.subject,
+          email: providerIdentity.email,
+          emailVerified: providerIdentity.emailVerified,
+          ...(providerIdentity.name === undefined
+            ? {}
+            : { name: providerIdentity.name }),
+        },
       );
-      const now = yield* Clock.currentTimeMillis;
-
       const reader = yield* DatabaseReader;
       const writer = yield* DatabaseWriter;
-
-      const existingUser = yield* reader
+      const now = yield* Clock.currentTimeMillis;
+      const existing = yield* reader
         .table("users")
         .index("by_subject", (q) => q.eq("subject", identity.subject))
         .first()
@@ -151,6 +232,70 @@ const ensureProvisioned = FunctionImpl.make(
           ),
           Effect.orDie,
         );
+      const userPlan = (yield* buildProvisioningPlan({
+        identity,
+        state: {
+          user: existing,
+          liveOrganization: null,
+          liveWorkspace: null,
+          organizationMembership: null,
+          workspaceMembership: null,
+        },
+        now,
+      })).user;
+      if (existing === null) {
+        yield* writer
+          .table("users")
+          .insert(requireInsertValue(userPlan, "user"))
+          .pipe(Effect.orDie);
+      } else if (userPlan.action === "patch") {
+        yield* writer
+          .table("users")
+          .patch(asGenericId<"users">(existing._id), userPlan.value)
+          .pipe(Effect.orDie);
+      }
+      return null;
+    }),
+);
+
+const ensureProvisioned = FunctionImpl.make(
+  databaseSchema,
+  provisioning,
+  "ensureProvisioned",
+  () =>
+    Effect.gen(function* () {
+      const auth = yield* Auth;
+      const claims = yield* auth.getUserIdentity.pipe(
+        Effect.mapError(() => new Unauthorized()),
+      );
+      const subject = (claims.subject ?? claims.tokenIdentifier)?.trim();
+      if (!subject) return yield* new Unauthorized();
+      const reader = yield* DatabaseReader;
+      const existingUser = yield* reader
+        .table("users")
+        .index("by_subject", (q) => q.eq("subject", subject))
+        .first()
+        .pipe(
+          Effect.map(Option.getOrNull),
+          Effect.map((user) =>
+            user === null ? null : toProvisioningUser(user),
+          ),
+          Effect.orDie,
+        );
+      const storedIdentity =
+        claims.email == null && existingUser !== null
+          ? {
+              subject: existingUser.subject,
+              email: existingUser.email,
+              emailVerified: true,
+              ...(existingUser.displayName === undefined
+                ? {}
+                : { name: existingUser.displayName }),
+            }
+          : undefined;
+      const identity = yield* extractIdentityProfile(claims, storedIdentity);
+      const now = yield* Clock.currentTimeMillis;
+      const writer = yield* DatabaseWriter;
 
       const userPlan = (yield* buildProvisioningPlan({
         identity,
@@ -534,7 +679,7 @@ const createClientBrain = FunctionImpl.make(
       }
 
       const auth = yield* Auth;
-      const identity = yield* extractIdentityProfile(
+      const identity = yield* extractIdentityBinding(
         yield* auth.getUserIdentity.pipe(
           Effect.mapError(() => new Unauthorized()),
         ),
@@ -838,6 +983,8 @@ const toProvisioningUser = (user: {
 
 export default GroupImpl.make(databaseSchema, provisioning).pipe(
   Layer.provide(ensureProvisioned),
+  Layer.provide(ensureProvisionedFromWorkos),
+  Layer.provide(seedVerifiedWorkosUser),
   Layer.provide(createClientBrain),
   GroupImpl.finalize,
 );

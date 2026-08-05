@@ -13,7 +13,7 @@ import {
 } from "../errors";
 import { resolveEffectiveWorkspaceRole } from "../access/auth";
 import { asGenericId, loadCurrentUser } from "../access/handlerContext";
-import { extractIdentityProfile } from "../access/provisioning";
+import { extractIdentityBinding } from "../access/provisioning";
 import stableKeys from "./stableKeys.spec";
 import {
   AgencyNotFound,
@@ -44,7 +44,7 @@ const resolveBrainKey = FunctionImpl.make(
       }
 
       const auth = yield* Auth;
-      const identity = yield* extractIdentityProfile(
+      const identity = yield* extractIdentityBinding(
         yield* auth.getUserIdentity.pipe(
           Effect.mapError(() => new Unauthorized()),
         ),

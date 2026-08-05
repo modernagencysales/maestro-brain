@@ -6,7 +6,7 @@ import * as Layer from "effect/Layer";
 import databaseSchema from "../_generated/schema";
 import { Auth, DatabaseReader } from "../_generated/services";
 import { resolveEffectiveWorkspaceRole } from "../access/auth";
-import { extractIdentityProfile } from "../access/provisioning";
+import { extractIdentityBinding } from "../access/provisioning";
 import { loadCurrentUser } from "../access/handlerContext";
 import {
   OrganizationNotFound,
@@ -35,11 +35,11 @@ const isLiveWorkspaceMembership = (member: {
 const list = FunctionImpl.make(databaseSchema, workspaces, "list", () =>
   Effect.gen(function* () {
     const auth = yield* Auth;
-    const identity = yield* extractIdentityProfile(
+    const identity = yield* extractIdentityBinding(
       yield* auth.getUserIdentity.pipe(
         Effect.mapError(() => new Unauthorized()),
       ),
-    ).pipe(Effect.mapError(() => new Unauthorized()));
+    );
     if (identity.workosOrganizationId === undefined) {
       return yield* new Unauthorized();
     }

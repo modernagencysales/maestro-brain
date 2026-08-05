@@ -9,7 +9,7 @@ import { getWorkosServerAuth } from "./workos-server-adapter";
 const provisionWorkspace = async (accessToken: string) => {
   const client = new ConvexHttpClient(getWebEnv().VITE_CONVEX_URL);
   client.setAuth(accessToken);
-  await client.mutation(api.access.provisioning.ensureProvisioned, {});
+  await client.action(api.access.provisioning.ensureProvisionedFromWorkos, {});
 };
 
 export const loadSafeClientRuntimeOnServer = () =>

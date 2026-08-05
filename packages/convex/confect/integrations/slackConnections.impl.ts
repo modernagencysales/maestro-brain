@@ -14,7 +14,7 @@ import {
   MutationRunner,
 } from "../_generated/services";
 import { asGenericId } from "../access/handlerContext";
-import { extractIdentityProfile } from "../access/provisioning";
+import { extractIdentityBinding } from "../access/provisioning";
 import { roleAtLeast, type Role } from "../access/roles";
 import { Forbidden, Unauthorized } from "../errors";
 import slackConnections, {
@@ -155,9 +155,9 @@ const connectionKeyFor = (organizationKey: string) =>
   `slack_${organizationKey}`;
 
 export const extractSlackIdentityProfile = (
-  claims: Parameters<typeof extractIdentityProfile>[0],
+  claims: Parameters<typeof extractIdentityBinding>[0],
 ) =>
-  extractIdentityProfile(claims).pipe(
+  extractIdentityBinding(claims).pipe(
     Effect.mapError(() => new Unauthorized()),
   );
 
