@@ -1,6 +1,10 @@
 import { Ref } from "@confect/core";
 import { confectManifest } from "@maestro-template/template-core/generated/confectManifest";
-import { httpActionGeneric, httpRouter } from "convex/server";
+import {
+  httpActionGeneric,
+  httpRouter,
+  makeFunctionReference,
+} from "convex/server";
 import { ConvexError } from "convex/values";
 import {
   executeHeadlessOperation,
@@ -118,14 +122,7 @@ const staticOperationRefs = {
       >,
     ),
   ),
-  "brain.context.get": Ref.getFunctionReference(
-    Ref.make(
-      "brain/readApi",
-      readApiSpec.functions.contextGet as NonNullable<
-        typeof readApiSpec.functions.contextGet
-      >,
-    ),
-  ),
+  "brain.context.get": makeFunctionReference("headless/readApi:contextGet"),
   "brain.answers.ask": Ref.getFunctionReference(
     Ref.make(
       "brain/readApi",

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { getFunctionName } from "convex/server";
 import {
   createBrainApiKey,
   hashPresentedApiKey,
@@ -212,10 +213,13 @@ describe("headless HTTP bearer security", () => {
 
   it("rejects top-level tenant aliases before dispatch", async () => {
     for (const field of [
+      "organizationId",
       "organizationKey",
       "agencyKey",
+      "workspaceId",
       "workspaceKey",
       "workspaceSlug",
+      "brainKey",
       "memberId",
       "_id",
       "id",
@@ -524,6 +528,53 @@ describe("headless HTTP bearer security", () => {
       "dispatch",
       "authenticate",
       "mark",
+    ]);
+  });
+
+  it("dispatches Brain context reads through the API-key principal query", async () => {
+    const displayKey = "mbk_live_context";
+    const keyHash = await hashPresentedApiKey(displayKey);
+    const dispatchedRefs: Parameters<typeof getFunctionName>[0][] = [];
+    const dispatchedInputs: Array<Record<string, unknown>> = [];
+    const response = await handleTemplateHttpRequest(
+      {
+        runQuery: vi.fn(async (ref, input) => {
+          if (input.keyHash === keyHash) return authResult(keyHash);
+          dispatchedRefs.push(ref as Parameters<typeof getFunctionName>[0]);
+          dispatchedInputs.push(input);
+          return {
+            brainKey: principal.brainKey,
+            asOf: 1,
+            freshness: { status: "current" },
+            entries: [],
+          };
+        }),
+        runMutation: async () => null,
+        runAction: async () => undefined,
+      },
+      new Request("https://example.test/api/brain.context.get", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${displayKey}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ input: {} }),
+      }),
+    );
+
+    expect(await response.json()).toMatchObject({
+      ok: true,
+      operationId: "brain.context.get",
+    });
+    expect(dispatchedRefs.map(getFunctionName)).toEqual([
+      "headless/readApi:contextGet",
+    ]);
+    expect(dispatchedInputs).toEqual([
+      {
+        organizationId: principal.organizationId,
+        workspaceId: principal.workspaceId,
+        brainKey: principal.brainKey,
+      },
     ]);
   });
 
