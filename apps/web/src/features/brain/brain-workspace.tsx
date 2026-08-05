@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { useAuth } from "@workos/authkit-tanstack-react-start/client";
 import {
   useTemplateMutation,
   useTemplateQuery,
@@ -21,11 +22,6 @@ import {
   Stack,
   Text,
 } from "@saas-ui/react";
-import {
-  BlockNoteSyncEditor,
-  type BlockNoteSyncEditorProps,
-} from "@maestro-template/editor-react/client";
-import { api } from "@maestro-template/convex";
 import type {
   BrainPageDetail,
   BrainPageListData,
@@ -194,6 +190,7 @@ const hasErrorTag = (error: unknown, tag: string): boolean =>
   error._tag === tag;
 
 export const BrainWorkspaceRoute = () => {
+  const { signOut } = useAuth();
   const workspace = useWorkspace();
   const [search, setSearch] = useState<BrainSearchState>({ status: "idle" });
   const [searchQuery, setSearchQuery] = useState<string | null>(null);
@@ -244,13 +241,42 @@ export const BrainWorkspaceRoute = () => {
   ) as TemplateDataState<BrainReviewQueueData, unknown>;
 
   if (workspace.status !== "ready") {
+    const description =
+      workspace.status === "loading"
+        ? "Loading your workspace."
+        : workspace.status === "provisioning"
+          ? "Setting up your Agency Brain workspace."
+          : "Your workspace session needs attention.";
+
     return (
       <BusinessAppShell activePath="/brain">
         <BusinessPageRoot>
-          <Page.Header
-            title="Agency Brain"
-            description="Select an active workspace to load Brain pages."
-          />
+          <Page.Header title="Agency Brain" description={description} />
+          <Page.Body px={{ base: "4", md: "6" }} pb="8">
+            {workspace.status === "failure" ? (
+              <Stack gap="3" align="flex-start">
+                <Text role="alert">{workspace.message}</Text>
+                <Button
+                  type="button"
+                  onClick={() => void signOut({ returnTo: "/brain" })}
+                >
+                  Sign in again
+                </Button>
+              </Stack>
+            ) : workspace.status === "empty" ? (
+              <Stack gap="3" align="flex-start">
+                <Text role="alert">Workspace setup did not finish.</Text>
+                <Button
+                  type="button"
+                  onClick={() => void signOut({ returnTo: "/brain" })}
+                >
+                  Sign in again
+                </Button>
+              </Stack>
+            ) : (
+              <Text>Brain will load automatically when setup completes.</Text>
+            )}
+          </Page.Body>
         </BusinessPageRoot>
       </BusinessAppShell>
     );
@@ -342,7 +368,6 @@ export const BrainWorkspaceRoute = () => {
             selectedPageKey={selected ?? undefined}
             onSelectPage={setSelectedPageKey}
             history={toRevisionHistoryState(history)}
-            editorApi={api.editorSync}
             reviewQueue={reviewQueue}
             role={workspace.activeWorkspace.role}
             onSearch={(query) => {
@@ -383,7 +408,6 @@ export const BrainWorkspace = ({
   reviewNotice,
   search = { status: "idle" },
   history = { status: "loading" },
-  editorApi,
   reviewQueue = { status: "loading" },
   role = "viewer",
   selectedPageKey,
@@ -397,7 +421,6 @@ export const BrainWorkspace = ({
   readonly reviewNotice?: BrainReviewNotice;
   readonly search?: BrainSearchState;
   readonly history?: BrainRevisionHistoryState;
-  readonly editorApi?: BlockNoteSyncEditorProps["api"];
   readonly reviewQueue?: BrainReviewQueueState;
   readonly role?: "viewer" | "editor" | "admin" | "owner";
   readonly selectedPageKey?: string | undefined;
@@ -730,17 +753,6 @@ export const BrainWorkspace = ({
                   </Button>
                 </HStack>
                 <label htmlFor="brain-page-markdown">Page markdown</label>
-                {editorApi ? (
-                  <>
-                    <Text fontSize="sm">Live BlockNote document</Text>
-                    <BlockNoteSyncEditor
-                      api={editorApi}
-                      documentId={`brainPage:${adapter.brainKey}:${detail.data.page.pageKey}:${detail.data.page.currentRevisionKey ?? "missing"}`}
-                      editable
-                      snapshotDebounceMs={500}
-                    />
-                  </>
-                ) : null}
                 <textarea
                   aria-label="Page markdown"
                   id="brain-page-markdown"

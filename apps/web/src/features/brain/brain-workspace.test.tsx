@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
@@ -99,6 +100,19 @@ const render = (
   );
 
 describe("BrainWorkspace", () => {
+  it("keeps one page editor and exposes workspace session recovery", () => {
+    const source = readFileSync(
+      new URL("./brain-workspace.tsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(source).not.toContain("BlockNoteSyncEditor");
+    expect(source).not.toContain("editorApi");
+    expect(source).toContain('workspace.status === "failure"');
+    expect(source).toContain("workspace.message");
+    expect(source).toContain("Sign in again");
+  });
+
   it("drives submit, review, page save, and cited search interactions", async () => {
     const calls: string[] = [];
     const flowAdapter = {
