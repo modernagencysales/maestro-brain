@@ -4,7 +4,7 @@ export type WorkosConvexAuthConfig = {
       readonly type: "customJwt";
       readonly issuer: string;
       readonly jwks: string;
-      readonly applicationID: string;
+      readonly applicationID?: string;
       readonly algorithm: "RS256";
     },
   ];
@@ -25,14 +25,16 @@ export class AuthConfigurationInvalid extends Error {
 export const deriveWorkosConvexAuthConfig = (input: {
   readonly issuer: string;
   readonly jwksUrl: string;
-  readonly applicationId: string;
+  readonly applicationId?: string;
 }): WorkosConvexAuthConfig => ({
   providers: [
     {
       type: "customJwt",
       issuer: input.issuer,
       jwks: input.jwksUrl,
-      applicationID: input.applicationId,
+      ...(input.applicationId
+        ? { applicationID: input.applicationId }
+        : undefined),
       // Convex rejects customJwt providers without an explicit algorithm.
       algorithm: "RS256",
     },
@@ -113,10 +115,18 @@ export const loadWorkosConvexAuthConfig = (
     throw new AuthConfigurationInvalid({ invalidEnv: invalidUrls });
   }
 
+  if (
+    values.WORKOS_AUTHKIT_ISSUER !==
+    `https://api.workos.com/user_management/${values.WORKOS_CLIENT_ID}`
+  ) {
+    throw new AuthConfigurationInvalid({
+      invalidEnv: ["WORKOS_AUTHKIT_ISSUER"],
+    });
+  }
+
   return deriveWorkosConvexAuthConfig({
     issuer: values.WORKOS_AUTHKIT_ISSUER,
     jwksUrl: values.WORKOS_AUTHKIT_JWKS_URL,
-    applicationId: values.WORKOS_CLIENT_ID,
   });
 };
 
