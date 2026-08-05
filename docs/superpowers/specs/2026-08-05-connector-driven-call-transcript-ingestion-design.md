@@ -111,6 +111,7 @@ type CanonicalParticipant = {
 type CanonicalTranscriptSegment = {
   externalSegmentId: string;
   ordinal: number;
+  evidenceKind: "verbatim_transcript" | "provider_notes";
   speakerExternalId: string | null;
   speakerLabel: string;
   startMs: number | null;
@@ -136,10 +137,11 @@ of identical provider data is a no-op. A changed transcript creates a new
 revision. A provider deletion creates a tombstone and revokes current retrieval
 and future model use.
 
-Every segment preserves speaker, ordinal, optional start/end milliseconds, text,
-and content hash. A citation references the exact source-unit revision and
-segment plus its quoted span. Provider summaries remain separately labeled
-derived content and never masquerade as transcript evidence.
+Every segment preserves evidence kind, speaker, ordinal, optional start/end
+milliseconds, text, and content hash. A citation references the exact
+source-unit revision and segment plus its quoted span. Provider notes remain
+visibly labeled derived evidence and never masquerade as verbatim transcript.
+Autopilot and explicit owner/due-date extraction require verbatim evidence.
 
 ## Connection And Adapter Model
 
@@ -217,9 +219,10 @@ One schema-constrained model call returns:
 - a typed no-op when no material change is warranted.
 
 The deterministic commit pipe verifies exact citation membership and quote
-resolution, current route and page generations, tenant ownership, revision
-budget, and lifecycle state. It rejects invented citations, stale pages,
-cross-Brain targets, uncited factual updates, and malformed outputs.
+resolution, evidence-kind restrictions, current route and page generations,
+tenant ownership, revision budget, and lifecycle state. It rejects invented
+citations, stale pages, cross-Brain targets, uncited factual updates, and
+malformed outputs.
 
 One call creates one grouped review item. Source transcripts become searchable
 after routing, but synthesized page changes remain review-first. Reviewers may
@@ -297,7 +300,8 @@ Fabro remains paused. Qlty is advisory.
   availability.
 - A uniquely matched call routes without human intervention.
 - Ambiguous calls never enter a Client Brain before review.
-- Every factual mined output has an exact transcript citation.
+- Every factual mined output has an exact immutable source-segment citation,
+  with provider notes visibly distinguished from verbatim transcript.
 - Accepting a proposal updates web search, Ask, API, CLI, and MCP.
 - Provider changes and deletions produce correct freshness and revocation.
 - A second provider requires no changes to routing, mining, review, publishing,
