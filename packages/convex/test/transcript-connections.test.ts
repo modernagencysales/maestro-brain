@@ -135,15 +135,17 @@ describe("transcript connection capability", () => {
       );
       const rows = () =>
         confect.run(
-          Effect.gen(function* () {
-            return yield* (yield* DatabaseReader)
-              .table("providerConnections")
-              .index("by_organization", (q) =>
-                q.eq("organizationKey", "agency_acme"),
-              )
-              .take(10)
-              .pipe(Effect.orDie);
-          }),
+          DatabaseReader.pipe(
+            Effect.flatMap((reader) =>
+              reader
+                .table("providerConnections")
+                .index("by_organization", (q) =>
+                  q.eq("organizationKey", "agency_acme"),
+                )
+                .take(10)
+                .pipe(Effect.orDie),
+            ),
+          ),
           Schema.Any,
         );
 
