@@ -42,12 +42,13 @@ import {
 } from "../identity/stableKeys";
 import { buildStandardClientBriefPages } from "../brain/clientBrief";
 import { roleAtLeast } from "./roles";
+import { readProcessEnv } from "../shared/env";
 
 const conflict = (resource: string, message: string) =>
   new ProvisioningConflict({ resource, message });
 
 const loadVerifiedWorkosIdentity = (subject: string) => {
-  const apiKey = process.env.WORKOS_API_KEY?.trim();
+  const apiKey = readProcessEnv().WORKOS_API_KEY?.trim();
   if (!apiKey) return Effect.fail(new Unauthorized());
   return Effect.tryPromise({
     try: () =>

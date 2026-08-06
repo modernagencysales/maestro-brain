@@ -14,9 +14,11 @@ import {
   isSecretShaped,
   runSlackMutation,
 } from "./slackConnections.impl";
+import { readProcessEnv } from "../shared/env";
 
 const nango = (now: number) => {
-  if ((process.env.APP_PROVIDER_MODE ?? "fake").trim().toLowerCase() !== "live")
+  const env = readProcessEnv();
+  if ((env.APP_PROVIDER_MODE ?? "fake").trim().toLowerCase() !== "live")
     return {
       createConnectSession: async (input: {
         readonly connectSessionId: string;
@@ -43,8 +45,8 @@ const nango = (now: number) => {
         };
       },
     };
-  const secretKey = process.env.NANGO_SECRET_KEY?.trim();
-  const providerConfigKey = process.env.NANGO_CONNECT_INTEGRATION_ID?.trim();
+  const secretKey = env.NANGO_SECRET_KEY?.trim();
+  const providerConfigKey = env.NANGO_CONNECT_INTEGRATION_ID?.trim();
   if (!secretKey || !providerConfigKey)
     return {
       createConnectSession: async () => {
