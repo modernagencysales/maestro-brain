@@ -531,7 +531,7 @@ describe("headless HTTP bearer security", () => {
     ]);
   });
 
-  it("dispatches Brain context reads through the API-key principal query", async () => {
+  it("dispatches Brain context reads through the internal service-principal query", async () => {
     const displayKey = "mbk_live_context";
     const keyHash = await hashPresentedApiKey(displayKey);
     const dispatchedRefs: Parameters<typeof getFunctionName>[0][] = [];
@@ -567,7 +567,7 @@ describe("headless HTTP bearer security", () => {
       operationId: "brain.context.get",
     });
     expect(dispatchedRefs.map(getFunctionName)).toEqual([
-      "brain/readApi:contextGet",
+      "headless/readApi:contextGet",
     ]);
     expect(dispatchedInputs).toEqual([
       {
