@@ -1,3 +1,9 @@
+import {
+  Children,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
@@ -32,6 +38,11 @@ const render = (
       <CallRoutingQueue role={role} state={state} onReview={vi.fn()} />
     </MaestroSaasUiProvider>,
   );
+
+const childrenOf = (element: ReactElement): ReactElement[] =>
+  Children.toArray(
+    (element.props as { readonly children?: ReactNode }).children,
+  ).filter(isValidElement);
 
 describe("CallRoutingQueue", () => {
   it.each([
@@ -103,5 +114,36 @@ describe("CallRoutingQueue", () => {
       learnScope: "domain",
       learnValue: "acme.com",
     });
+
+    const onReview = vi.fn();
+    const root = CallRoutingQueue({
+      role: "admin",
+      state: { status: "ready", items: [item] },
+      onReview,
+    });
+    const body = childrenOf(root)[1];
+    const stack = body && childrenOf(body)[0];
+    const card = stack && childrenOf(stack)[0];
+    const cardBody = card && childrenOf(card)[0];
+    const form = cardBody && childrenOf(cardBody)[0];
+    if (form === undefined) throw new Error("Expected routing form");
+    vi.stubGlobal(
+      "FormData",
+      vi.fn(() => data),
+    );
+    (
+      form.props as {
+        readonly onSubmit: (event: unknown) => void;
+      }
+    ).onSubmit({
+      preventDefault: vi.fn(),
+      currentTarget: {},
+      nativeEvent: { submitter: null },
+    });
+    vi.unstubAllGlobals();
+
+    expect(onReview).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "change_brain" }),
+    );
   });
 });

@@ -1,3 +1,9 @@
+import {
+  Children,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
@@ -47,6 +53,11 @@ const render = (
       <CallMaintenanceReview role={role} state={state} onReview={vi.fn()} />
     </MaestroSaasUiProvider>,
   );
+
+const childrenOf = (element: ReactElement): ReactElement[] =>
+  Children.toArray(
+    (element.props as { readonly children?: ReactNode }).children,
+  ).filter(isValidElement);
 
 describe("CallMaintenanceReview", () => {
   it.each([
@@ -123,5 +134,36 @@ describe("CallMaintenanceReview", () => {
         },
       ],
     });
+
+    const onReview = vi.fn();
+    const root = CallMaintenanceReview({
+      role: "editor",
+      state: { status: "ready", items: [proposal] },
+      onReview,
+    });
+    const body = childrenOf(root)[1];
+    const stack = body && childrenOf(body)[0];
+    const card = stack && childrenOf(stack)[0];
+    const cardBody = card && childrenOf(card)[0];
+    const form = cardBody && childrenOf(cardBody)[0];
+    if (form === undefined) throw new Error("Expected maintenance form");
+    vi.stubGlobal(
+      "FormData",
+      vi.fn(() => data),
+    );
+    (
+      form.props as {
+        readonly onSubmit: (event: unknown) => void;
+      }
+    ).onSubmit({
+      preventDefault: vi.fn(),
+      currentTarget: {},
+      nativeEvent: { submitter: null },
+    });
+    vi.unstubAllGlobals();
+
+    expect(onReview).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "edit" }),
+    );
   });
 });
