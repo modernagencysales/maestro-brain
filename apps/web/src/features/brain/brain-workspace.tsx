@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useAuth } from "@workos/authkit-tanstack-react-start/client";
+import { useWorkosAuth } from "../../auth/workos-client-runtime";
 import {
   useTemplateMutation,
   useTemplateQuery,
@@ -194,7 +194,7 @@ export const recoverWorkspaceSession = (
 ) => signOut({ returnTo: "/brain" });
 
 export const BrainWorkspaceRoute = () => {
-  const { signOut } = useAuth();
+  const { signOut } = useWorkosAuth();
   const workspace = useWorkspace();
   const [search, setSearch] = useState<BrainSearchState>({ status: "idle" });
   const [searchQuery, setSearchQuery] = useState<string | null>(null);

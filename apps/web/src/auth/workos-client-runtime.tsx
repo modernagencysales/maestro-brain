@@ -27,3 +27,5 @@ export const workosAuthKitClientBridge: AuthKitClientBridge = {
   useAccessToken,
   useAuth,
 };
+
+export const useWorkosAuth = useAuth;

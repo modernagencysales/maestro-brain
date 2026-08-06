@@ -29,6 +29,8 @@ vi.mock("../../adapters/confect-state", () => ({
 }));
 
 vi.mock("@workos/authkit-tanstack-react-start/client", () => ({
+  AuthKitProvider: ({ children }: { readonly children: ReactNode }) => children,
+  useAccessToken: () => ({ getAccessToken: vi.fn() }),
   useAuth: () => ({ signOut: routeMocks.signOut }),
 }));
 
