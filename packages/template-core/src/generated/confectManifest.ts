@@ -17,6 +17,7 @@ export const confectManifest = {
         "LifecycleRevoked",
         "PageNotFound",
         "ValidationFailed",
+        "SubsystemDisabled",
       ],
       idempotent: true,
       argsSchemaName: "brain.readApi.answersAsk.args",
@@ -35,6 +36,7 @@ export const confectManifest = {
         "LifecycleRevoked",
         "PageNotFound",
         "ValidationFailed",
+        "SubsystemDisabled",
       ],
       idempotent: true,
       argsSchemaName: "brain.readApi.contextGet.args",
@@ -54,6 +56,7 @@ export const confectManifest = {
         "LifecycleRevoked",
         "ValidationFailed",
         "PageTreeConflict",
+        "RevisionNotFound",
         "StaleRevision",
       ],
       idempotent: false,
@@ -74,6 +77,7 @@ export const confectManifest = {
         "LifecycleRevoked",
         "ValidationFailed",
         "PageTreeConflict",
+        "RevisionNotFound",
         "StaleRevision",
       ],
       idempotent: false,
@@ -94,6 +98,7 @@ export const confectManifest = {
         "LifecycleRevoked",
         "ValidationFailed",
         "PageTreeConflict",
+        "RevisionNotFound",
         "StaleRevision",
       ],
       idempotent: false,
@@ -168,6 +173,7 @@ export const confectManifest = {
         "LifecycleRevoked",
         "ValidationFailed",
         "PageTreeConflict",
+        "RevisionNotFound",
         "StaleRevision",
       ],
       idempotent: false,
@@ -188,11 +194,33 @@ export const confectManifest = {
         "LifecycleRevoked",
         "ValidationFailed",
         "PageTreeConflict",
+        "RevisionNotFound",
         "StaleRevision",
       ],
       idempotent: false,
       argsSchemaName: "brain.pages.rename.args",
       returnsSchemaName: "brain.pages.rename.returns",
+    },
+    {
+      namespace: "brain.pages",
+      name: "restore",
+      operationId: "brain.pages.restore",
+      kind: "mutation",
+      surfaces: ["web"],
+      typedErrors: [
+        "Unauthorized",
+        "Forbidden",
+        "BrainNotFound",
+        "PageNotFound",
+        "LifecycleRevoked",
+        "ValidationFailed",
+        "PageTreeConflict",
+        "RevisionNotFound",
+        "StaleRevision",
+      ],
+      idempotent: false,
+      argsSchemaName: "brain.pages.restore.args",
+      returnsSchemaName: "brain.pages.restore.returns",
     },
     {
       namespace: "brain.pilot",
@@ -210,6 +238,23 @@ export const confectManifest = {
       idempotent: true,
       argsSchemaName: "brain.pilot.ask.args",
       returnsSchemaName: "brain.pilot.ask.returns",
+    },
+    {
+      namespace: "brain.pilot",
+      name: "listReviewQueue",
+      operationId: "brain.pilot.listReviewQueue",
+      kind: "query",
+      surfaces: ["web"],
+      typedErrors: [
+        "Unauthorized",
+        "Forbidden",
+        "BrainNotFound",
+        "LifecycleRevoked",
+        "ValidationFailed",
+      ],
+      idempotent: true,
+      argsSchemaName: "brain.pilot.listReviewQueue.args",
+      returnsSchemaName: "brain.pilot.listReviewQueue.returns",
     },
     {
       namespace: "brain.pilot",
@@ -294,6 +339,7 @@ export const confectManifest = {
         "LifecycleRevoked",
         "PageNotFound",
         "ValidationFailed",
+        "SubsystemDisabled",
       ],
       idempotent: true,
       argsSchemaName: "brain.readApi.sourcesGet.args",
@@ -312,6 +358,7 @@ export const confectManifest = {
         "LifecycleRevoked",
         "PageNotFound",
         "ValidationFailed",
+        "SubsystemDisabled",
       ],
       idempotent: true,
       argsSchemaName: "brain.readApi.sourcesSearch.args",
@@ -369,6 +416,38 @@ export const confectManifest = {
     },
     {
       namespace: "ops.dataLifecycle",
+      name: "downloadBrainExport",
+      operationId: "ops.dataLifecycle.downloadBrainExport",
+      kind: "query",
+      surfaces: ["web"],
+      typedErrors: [
+        "Unauthorized",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+        "ValidationFailed",
+      ],
+      idempotent: true,
+      argsSchemaName: "ops.dataLifecycle.downloadBrainExport.args",
+      returnsSchemaName: "ops.dataLifecycle.downloadBrainExport.returns",
+    },
+    {
+      namespace: "ops.dataLifecycle",
+      name: "getBrainExport",
+      operationId: "ops.dataLifecycle.getBrainExport",
+      kind: "query",
+      surfaces: ["web"],
+      typedErrors: [
+        "Unauthorized",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+        "ValidationFailed",
+      ],
+      idempotent: true,
+      argsSchemaName: "ops.dataLifecycle.getBrainExport.args",
+      returnsSchemaName: "ops.dataLifecycle.getBrainExport.returns",
+    },
+    {
+      namespace: "ops.dataLifecycle",
       name: "listDsarRequests",
       operationId: "ops.dataLifecycle.listDsarRequests",
       kind: "query",
@@ -382,6 +461,22 @@ export const confectManifest = {
       idempotent: true,
       argsSchemaName: "ops.dataLifecycle.listDsarRequests.args",
       returnsSchemaName: "ops.dataLifecycle.listDsarRequests.returns",
+    },
+    {
+      namespace: "ops.dataLifecycle",
+      name: "requestBrainExport",
+      operationId: "ops.dataLifecycle.requestBrainExport",
+      kind: "mutation",
+      surfaces: ["web"],
+      typedErrors: [
+        "Unauthorized",
+        "MemberNotInWorkspace",
+        "WorkspaceNotFound",
+        "ValidationFailed",
+      ],
+      idempotent: true,
+      argsSchemaName: "ops.dataLifecycle.requestBrainExport.args",
+      returnsSchemaName: "ops.dataLifecycle.requestBrainExport.returns",
     },
   ],
 } as const;
@@ -485,8 +580,8 @@ const sharedConfectJsonSchemasValue3 = {
   properties: {
     sourceKey: {
       type: "string",
-      description: "a string matching the pattern ^src_[a-f0-9]{64}$",
-      pattern: "^src_[a-f0-9]{64}$",
+      description: "a string matching the pattern ^(?:src|sunit)_[a-f0-9]{64}$",
+      pattern: "^(?:src|sunit)_[a-f0-9]{64}$",
     },
     status: {
       type: "string",
@@ -556,6 +651,72 @@ const sharedConfectJsonSchemasValue5 = {
       type: "string",
     },
     trustClaim: {
+      type: "string",
+    },
+  },
+  additionalProperties: false,
+} as const;
+
+const sharedConfectJsonSchemasValue6 = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  type: "object",
+  required: ["brainKey", "jobId"],
+  properties: {
+    brainKey: {
+      type: "string",
+    },
+    jobId: {
+      type: "string",
+      description: "a string at least 1 character(s) long",
+      title: "minLength(1)",
+      minLength: 1,
+    },
+  },
+  additionalProperties: false,
+} as const;
+
+const sharedConfectJsonSchemasValue7 = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  type: "object",
+  required: ["brainKey", "jobId", "state", "createdAt", "updatedAt"],
+  properties: {
+    brainKey: {
+      type: "string",
+    },
+    jobId: {
+      type: "string",
+    },
+    state: {
+      type: "string",
+      enum: [
+        "requested",
+        "running",
+        "ready",
+        "revoked",
+        "failed",
+        "expired",
+        "purged",
+      ],
+    },
+    createdAt: {
+      type: "number",
+    },
+    updatedAt: {
+      type: "number",
+    },
+    expiresAt: {
+      type: "number",
+    },
+    sizeBytes: {
+      type: "number",
+    },
+    manifestHash: {
+      type: "string",
+    },
+    artifactHash: {
+      type: "string",
+    },
+    downloadUrl: {
       type: "string",
     },
   },
@@ -898,6 +1059,21 @@ const sharedConfectJsonSchemas = {
             lifecycleGeneration: {
               type: "number",
             },
+            markdown: {
+              type: "string",
+            },
+            contentHash: {
+              type: "string",
+            },
+            state: {
+              type: "string",
+            },
+            actorKind: {
+              type: "string",
+            },
+            actorId: {
+              type: "string",
+            },
           },
           additionalProperties: false,
         },
@@ -1109,6 +1285,44 @@ const sharedConfectJsonSchemas = {
     additionalProperties: false,
   },
   "brain.pages.rename.returns": sharedConfectJsonSchemasValue1,
+  "brain.pages.restore.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    required: [
+      "brainKey",
+      "pageKey",
+      "expectedCurrentRevisionKey",
+      "revisionKey",
+    ],
+    properties: {
+      brainKey: {
+        type: "string",
+        description:
+          "a string matching the pattern ^br_[0-9A-HJKMNP-TV-Z]{26}$",
+        pattern: "^br_[0-9A-HJKMNP-TV-Z]{26}$",
+      },
+      pageKey: {
+        type: "string",
+        description:
+          "a string matching the pattern ^pag_[a-z0-9][a-z0-9_-]{2,}$",
+        pattern: "^pag_[a-z0-9][a-z0-9_-]{2,}$",
+      },
+      expectedCurrentRevisionKey: {
+        type: "string",
+        description:
+          "a string matching the pattern ^rev_[a-z0-9][a-z0-9_-]{2,}$",
+        pattern: "^rev_[a-z0-9][a-z0-9_-]{2,}$",
+      },
+      revisionKey: {
+        type: "string",
+        description:
+          "a string matching the pattern ^rev_[a-z0-9][a-z0-9_-]{2,}$",
+        pattern: "^rev_[a-z0-9][a-z0-9_-]{2,}$",
+      },
+    },
+    additionalProperties: false,
+  },
+  "brain.pages.restore.returns": sharedConfectJsonSchemasValue1,
   "brain.pilot.ask.args": sharedConfectJsonSchemasValue2,
   "brain.pilot.ask.returns": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
@@ -1234,6 +1448,71 @@ const sharedConfectJsonSchemas = {
     },
     additionalProperties: false,
   },
+  "brain.pilot.listReviewQueue.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    required: ["brainKey"],
+    properties: {
+      brainKey: {
+        type: "string",
+        description:
+          "a string matching the pattern ^br_[0-9A-HJKMNP-TV-Z]{26}$",
+        pattern: "^br_[0-9A-HJKMNP-TV-Z]{26}$",
+      },
+    },
+    additionalProperties: false,
+  },
+  "brain.pilot.listReviewQueue.returns": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    required: ["brainKey", "items"],
+    properties: {
+      brainKey: {
+        type: "string",
+        description:
+          "a string matching the pattern ^br_[0-9A-HJKMNP-TV-Z]{26}$",
+        pattern: "^br_[0-9A-HJKMNP-TV-Z]{26}$",
+      },
+      items: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["sourceKey", "title", "submittedAt", "status", "route"],
+          properties: {
+            sourceKey: {
+              type: "string",
+              description:
+                "a string matching the pattern ^(?:src|sunit)_[a-f0-9]{64}$",
+              pattern: "^(?:src|sunit)_[a-f0-9]{64}$",
+            },
+            title: {
+              type: "string",
+            },
+            submittedAt: {
+              type: "number",
+            },
+            status: {
+              type: "string",
+              enum: ["pending_review", "published", "rejected"],
+            },
+            route: {
+              anyOf: [
+                {
+                  type: "string",
+                  enum: ["direct", "classify", "capture-only"],
+                },
+                {
+                  type: "null",
+                },
+              ],
+            },
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    additionalProperties: false,
+  },
   "brain.pilot.reviewNote.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -1247,8 +1526,9 @@ const sharedConfectJsonSchemas = {
       },
       sourceKey: {
         type: "string",
-        description: "a string matching the pattern ^src_[a-f0-9]{64}$",
-        pattern: "^src_[a-f0-9]{64}$",
+        description:
+          "a string matching the pattern ^(?:src|sunit)_[a-f0-9]{64}$",
+        pattern: "^(?:src|sunit)_[a-f0-9]{64}$",
       },
       decision: {
         type: "string",
@@ -1278,8 +1558,9 @@ const sharedConfectJsonSchemas = {
           properties: {
             sourceKey: {
               type: "string",
-              description: "a string matching the pattern ^src_[a-f0-9]{64}$",
-              pattern: "^src_[a-f0-9]{64}$",
+              description:
+                "a string matching the pattern ^(?:src|sunit)_[a-f0-9]{64}$",
+              pattern: "^(?:src|sunit)_[a-f0-9]{64}$",
             },
             citationKey: {
               type: "string",
@@ -1289,6 +1570,39 @@ const sharedConfectJsonSchemas = {
             },
             excerpt: {
               type: "string",
+            },
+            sourceRevisionKey: {
+              anyOf: [
+                {
+                  type: "string",
+                  description:
+                    "a string matching the pattern ^rev_[a-z0-9][a-z0-9_-]{2,}$",
+                  pattern: "^rev_[a-z0-9][a-z0-9_-]{2,}$",
+                },
+                {
+                  type: "string",
+                  description:
+                    "a string matching the pattern ^surev_[a-f0-9]{64}$",
+                  pattern: "^surev_[a-f0-9]{64}$",
+                },
+              ],
+            },
+            locator: {
+              type: "string",
+            },
+            citationLabel: {
+              type: "string",
+            },
+            permalink: {
+              type: "string",
+            },
+            freshness: {
+              type: "string",
+              enum: ["fresh", "stale"],
+            },
+            state: {
+              type: "string",
+              enum: ["resolved", "redacted", "legacy_unresolved"],
             },
           },
           additionalProperties: false,
@@ -1799,6 +2113,11 @@ const sharedConfectJsonSchemas = {
     },
     additionalProperties: false,
   },
+  "ops.dataLifecycle.downloadBrainExport.args": sharedConfectJsonSchemasValue6,
+  "ops.dataLifecycle.downloadBrainExport.returns":
+    sharedConfectJsonSchemasValue7,
+  "ops.dataLifecycle.getBrainExport.args": sharedConfectJsonSchemasValue6,
+  "ops.dataLifecycle.getBrainExport.returns": sharedConfectJsonSchemasValue7,
   "ops.dataLifecycle.listDsarRequests.args": {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
@@ -2028,6 +2347,25 @@ const sharedConfectJsonSchemas = {
     },
     additionalProperties: false,
   },
+  "ops.dataLifecycle.requestBrainExport.args": {
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    type: "object",
+    required: ["brainKey", "idempotencyKey"],
+    properties: {
+      brainKey: {
+        type: "string",
+      },
+      idempotencyKey: {
+        type: "string",
+        description: "a string at least 1 character(s) long",
+        title: "minLength(1)",
+        minLength: 1,
+      },
+    },
+    additionalProperties: false,
+  },
+  "ops.dataLifecycle.requestBrainExport.returns":
+    sharedConfectJsonSchemasValue7,
 } as const;
 
 export const confectJsonSchemas = {
