@@ -1,5 +1,6 @@
 import { FunctionImpl, GroupImpl } from "@confect/server";
 import { parseTranscriptImport } from "@maestro-template/integrations/transcripts/import";
+import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
@@ -9,6 +10,11 @@ import { requireBrainAccess } from "../brain/pages.impl";
 import importTranscriptGroup from "./importTranscript.spec";
 import { ingestSourceUnitEffect } from "./ingestSourceUnit.impl";
 import { routeCallToBrainEffect } from "./routeCallToBrain.impl";
+
+const withoutClock = <A, E, R>(
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E, Exclude<R, Clock.Clock>> =>
+  effect as Effect.Effect<A, E, Exclude<R, Clock.Clock>>;
 
 const importTranscriptImpl = FunctionImpl.make(
   databaseSchema,
@@ -35,7 +41,7 @@ const importTranscriptImpl = FunctionImpl.make(
             message: "Transcript import could not be decoded.",
           }),
       });
-      const receivedAt = Date.now();
+      const receivedAt = yield* withoutClock(Clock.currentTimeMillis);
       const ingested = yield* ingestSourceUnitEffect({
         input: imported,
         authority: {
