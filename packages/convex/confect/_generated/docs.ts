@@ -9,6 +9,7 @@ export type ActionTriggersDoc = Document.Document<typeof schemaDefinition, "acti
 export type ApiKeysDoc = Document.Document<typeof schemaDefinition, "apiKeys">;
 export type BillingPlansDoc = Document.Document<typeof schemaDefinition, "billingPlans">;
 export type BrainExportJobsDoc = Document.Document<typeof schemaDefinition, "brainExportJobs">;
+export type BrainMaintenanceProposalItemsDoc = Document.Document<typeof schemaDefinition, "brainMaintenanceProposalItems">;
 export type BrainMaintenanceProposalsDoc = Document.Document<typeof schemaDefinition, "brainMaintenanceProposals">;
 export type BrainPageAuditEventsDoc = Document.Document<typeof schemaDefinition, "brainPageAuditEvents">;
 export type BrainPagesDoc = Document.Document<typeof schemaDefinition, "brainPages">;
@@ -80,6 +81,7 @@ export interface Docs {
   apiKeys: ApiKeysDoc;
   billingPlans: BillingPlansDoc;
   brainExportJobs: BrainExportJobsDoc;
+  brainMaintenanceProposalItems: BrainMaintenanceProposalItemsDoc;
   brainMaintenanceProposals: BrainMaintenanceProposalsDoc;
   brainPageAuditEvents: BrainPageAuditEventsDoc;
   brainPages: BrainPagesDoc;

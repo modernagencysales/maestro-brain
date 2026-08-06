@@ -80,6 +80,23 @@ Execute-mode component failures follow the same durable failure receipt path.
 - **Rollback:** stop routing new calls and deploy readers that ignore both new
   tables. Immutable call revisions remain available for a later retry.
 
+## Grouped call maintenance proposals
+
+- **Expand:** add `brainMaintenanceProposalItems` and optional call, receipt,
+  summary, and item-count fields to `brainMaintenanceProposals`. Existing
+  single-page proposal rows remain decodable.
+- **Backfill:** none. Existing proposals keep their required legacy page fields;
+  grouped fields are populated only by newly mined calls.
+- **Verify:** require current route, source lifecycle, page revisions, exact
+  segment citations, one parent proposal, normalized page items, and a hash-only
+  model receipt in focused tests.
+- **Contract:** deferred. Legacy single-page proposal fields and readers remain
+  supported until grouped review and publication have replaced them in a later
+  verified migration.
+- **Rollback:** stop call-maintenance workflow starts and deploy readers that
+  ignore grouped fields and the item table. Immutable source and receipt rows
+  remain intact; no existing proposal needs rewriting.
+
 Rollback for this harness is to remove the wrapper only after proving no
 migration run or receipt rows exist. Product schema migrations must document
 their own expand/backfill/verify/contract rollback in their owning task.

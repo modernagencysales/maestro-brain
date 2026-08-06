@@ -14,6 +14,8 @@ import {
   RevisionBudgetExceeded,
   StaleRevision,
 } from "../capabilities/maintainBrainPage.spec";
+import { MaintenanceContextUnavailable } from "../capabilities/gatherMaintenanceContext.spec";
+import { TranscriptMiningFailed } from "../capabilities/mineCallTranscript.spec";
 import {
   MemberNotInWorkspace,
   NotFound,
@@ -36,6 +38,8 @@ const WorkflowErrors = Schema.Union(
   AutopilotNotEligible,
   StaleRevision,
   LifecycleRevoked,
+  MaintenanceContextUnavailable,
+  TranscriptMiningFailed,
 );
 export const workflowTypedErrors = [
   "Unauthorized",
@@ -49,10 +53,13 @@ export const workflowTypedErrors = [
   "AutopilotNotEligible",
   "StaleRevision",
   "LifecycleRevoked",
+  "MaintenanceContextUnavailable",
+  "TranscriptMiningFailed",
 ] as const;
 const StartArgs = Schema.Struct({
   workspaceId: Id("workspaces"),
   idempotencyKey: Schema.String,
+  unitRevisionKey: Schema.String,
   caller: SystemPrincipal,
 });
 const StatusArgs = Schema.Struct({

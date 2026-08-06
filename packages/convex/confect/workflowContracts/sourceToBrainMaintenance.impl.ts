@@ -25,6 +25,8 @@ import {
   RevisionBudgetExceeded,
   StaleRevision,
 } from "../capabilities/maintainBrainPage.spec";
+import { MaintenanceContextUnavailable } from "../capabilities/gatherMaintenanceContext.spec";
+import { TranscriptMiningFailed } from "../capabilities/mineCallTranscript.spec";
 import {
   MemberNotInWorkspace,
   NotFound,
@@ -52,11 +54,14 @@ type WorkflowError =
   | RevisionBudgetExceeded
   | AutopilotNotEligible
   | StaleRevision
-  | LifecycleRevoked;
+  | LifecycleRevoked
+  | MaintenanceContextUnavailable
+  | TranscriptMiningFailed;
 type RunArgs = {
   readonly args: {
     readonly workspaceId: string;
     readonly idempotencyKey: string;
+    readonly unitRevisionKey: string;
   };
 };
 const workflowComponent = componentsGeneric()
@@ -98,6 +103,8 @@ const typedErrorClasses = [
   AutopilotNotEligible,
   StaleRevision,
   LifecycleRevoked,
+  MaintenanceContextUnavailable,
+  TranscriptMiningFailed,
 ] as const;
 const toWorkflowError = (error: unknown): WorkflowError =>
   typedErrorClasses.some((errorClass) => error instanceof errorClass)
@@ -126,13 +133,13 @@ const startImpl = FunctionImpl.make(
   databaseSchema,
   sourceToBrainMaintenance,
   "start",
-  ({ workspaceId, idempotencyKey, caller }) =>
+  ({ workspaceId, idempotencyKey, unitRevisionKey, caller }) =>
     Effect.gen(function* () {
       const principal = yield* requireInternalWorkflowCaller(caller);
       const startedAt = yield* withConfectClock(Clock.currentTimeMillis);
       const componentWorkflowId = yield* startWorkflowAndRecordOwnership({
         workflowRef: sourceToBrainMaintenanceRunRef,
-        workflowArgs: { workspaceId, idempotencyKey },
+        workflowArgs: { workspaceId, idempotencyKey, unitRevisionKey },
         workspaceId,
         workflowId: sourceToBrainMaintenanceGraph.id,
         workflowVersion: sourceToBrainMaintenanceGraph.version,

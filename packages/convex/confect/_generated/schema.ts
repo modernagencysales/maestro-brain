@@ -8,6 +8,7 @@ import actionTriggers from "./tables/actionTriggers";
 import apiKeys from "./tables/apiKeys";
 import billingPlans from "./tables/billingPlans";
 import brainExportJobs from "./tables/brainExportJobs";
+import brainMaintenanceProposalItems from "./tables/brainMaintenanceProposalItems";
 import brainMaintenanceProposals from "./tables/brainMaintenanceProposals";
 import brainPageAuditEvents from "./tables/brainPageAuditEvents";
 import brainPages from "./tables/brainPages";
@@ -79,6 +80,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof apiKeys |
   typeof billingPlans |
   typeof brainExportJobs |
+  typeof brainMaintenanceProposalItems |
   typeof brainMaintenanceProposals |
   typeof brainPageAuditEvents |
   typeof brainPages |
@@ -149,6 +151,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   apiKeys,
   billingPlans,
   brainExportJobs,
+  brainMaintenanceProposalItems,
   brainMaintenanceProposals,
   brainPageAuditEvents,
   brainPages,

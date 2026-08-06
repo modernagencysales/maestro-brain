@@ -5,7 +5,10 @@ import {
   normalizeMaintainBrainPageInput,
   validateMaintainBrainPageInput,
 } from "./maintainBrainPage.domain";
-import { maintainBrainPageFromContextPack } from "./maintainBrainPage.impl";
+import {
+  maintainBrainPageFromContextPack,
+  requireGroupedMaintenanceCaller,
+} from "./maintainBrainPage.impl";
 
 const metadata = JSON.parse(
   readFileSync(
@@ -40,6 +43,16 @@ const contextPack = {
 } as const;
 
 describe("maintainBrainPage generated capability domain", () => {
+  it("allows grouped call maintenance only from workflow or internal callers", () => {
+    expect(requireGroupedMaintenanceCaller(undefined)).toBe(false);
+    expect(
+      requireGroupedMaintenanceCaller({
+        kind: "system",
+        name: "sourceToBrainMaintenance",
+        surface: "workflow",
+      }),
+    ).toBe(true);
+  });
   it("normalization is idempotent for any input", () => {
     fc.assert(
       fc.property(fc.string(), fc.string(), (workspaceSlug, input) => {

@@ -5,7 +5,9 @@ import {
   workflowTypedErrors,
 } from "../confect/workflowContracts/sourceToBrainMaintenance.spec";
 import {
+  buildGatherMaintenanceContextArgs,
   buildMaintainBrainPageArgs,
+  buildMineCallTranscriptArgs,
   sourceToBrainMaintenanceGraph,
 } from "../confect/workflows/sourceToBrainMaintenance.graph";
 import {
@@ -31,6 +33,8 @@ describe("sourceToBrainMaintenance durable workflow scaffold", () => {
         "AutopilotNotEligible",
         "StaleRevision",
         "LifecycleRevoked",
+        "MaintenanceContextUnavailable",
+        "TranscriptMiningFailed",
       ]),
     );
   });
@@ -46,14 +50,28 @@ describe("sourceToBrainMaintenance durable workflow scaffold", () => {
     ).resolves.toBeUndefined();
   });
 
-  it("runs routed evidence through the maintenance capability", async () => {
-    const calls: Record<string, unknown>[] = [];
+  it("passes gathered routed evidence through mining into maintenance", async () => {
+    const calls: { kind: string; args: Record<string, unknown> }[] = [];
+    const gathered = {
+      workspaceId: "workspace_123",
+      organizationId: "organization_123",
+      organizationKey: "agency_123",
+      brainKey: "br_client",
+      unitRevisionKey: "surev_123",
+      pages: [],
+      citations: [],
+    };
+    const mined = {
+      output: { summary: "", pageProposals: [] },
+      receipt: { attemptKey: "workflow-test-1" },
+    };
     const step: RunDurableGraphStep = {
-      runQuery: async () => {
-        throw new Error("Maintenance graph should not run queries.");
+      runQuery: async (_ref, args) => {
+        calls.push({ kind: "query", args });
+        return gathered;
       },
       runMutation: async (_ref, args) => {
-        calls.push(args);
+        calls.push({ kind: "mutation", args });
         return {
           proposalKey: "proposal_1",
           status: "awaiting_review",
@@ -61,8 +79,9 @@ describe("sourceToBrainMaintenance durable workflow scaffold", () => {
           revisionEffect: null,
         };
       },
-      runAction: async () => {
-        throw new Error("Maintenance graph should not run actions.");
+      runAction: async (_ref, args) => {
+        calls.push({ kind: "action", args });
+        return mined;
       },
       sleep: async () => {},
       awaitEvent: async () => {
@@ -73,6 +92,7 @@ describe("sourceToBrainMaintenance durable workflow scaffold", () => {
     const inputs = {
       workspaceId: "workspace_123",
       idempotencyKey: "workflow-test-1",
+      unitRevisionKey: "surev_123",
     };
     const policySnapshot = { mode: "test" };
 
@@ -81,6 +101,16 @@ describe("sourceToBrainMaintenance durable workflow scaffold", () => {
       inputs,
       policySnapshot,
       capabilityRegistry: {
+        "capabilities.gatherMaintenanceContext": {
+          kind: "query",
+          ref: {} as never,
+          buildArgs: buildGatherMaintenanceContextArgs,
+        },
+        "capabilities.mineCallTranscript": {
+          kind: "action",
+          ref: {} as never,
+          buildArgs: buildMineCallTranscriptArgs,
+        },
         "capabilities.maintainBrainPage": {
           kind: "mutation",
           ref: {} as never,
@@ -90,20 +120,40 @@ describe("sourceToBrainMaintenance durable workflow scaffold", () => {
     });
 
     expect(calls).toEqual([
-      expect.objectContaining({
-        workspaceSlug: "workspace_123",
-        contextPackId: "workflow-test-1",
-        context: expect.objectContaining({ workspaceId: "workspace_123" }),
-        modelOutput: expect.objectContaining({
-          kind: "revision",
-          citationKeys: ["cite_1"],
+      {
+        kind: "query",
+        args: expect.objectContaining({
+          workspaceId: "workspace_123",
+          unitRevisionKey: "surev_123",
         }),
-      }),
+      },
+      {
+        kind: "action",
+        args: expect.objectContaining({
+          context: gathered,
+          attemptKey: "workflow-test-1",
+        }),
+      },
+      {
+        kind: "mutation",
+        args: expect.objectContaining({
+          workspaceSlug: "workspace_123",
+          contextPackId: "workflow-test-1",
+          context: gathered,
+          modelOutput: mined,
+          caller: expect.objectContaining({
+            kind: "system",
+            surface: "workflow",
+          }),
+        }),
+      },
     ]);
     expect(result).toEqual({
       inputs,
       context: {
         start: inputs,
+        gatherMaintenanceContext: gathered,
+        mineCallTranscript: mined,
         maintainBrainPage: {
           proposalKey: "proposal_1",
           status: "awaiting_review",

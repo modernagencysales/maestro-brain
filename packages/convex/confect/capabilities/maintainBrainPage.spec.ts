@@ -1,6 +1,7 @@
 import { FunctionSpec, GroupSpec } from "@confect/core";
 import * as Schema from "effect/Schema";
 import { Forbidden, Unauthorized, ValidationFailed } from "../errors";
+import { SystemPrincipal } from "./_kit/principal";
 
 export class CitationRequired extends Schema.TaggedError<CitationRequired>()(
   "CitationRequired",
@@ -45,6 +46,7 @@ export const maintainBrainPageArgs = Schema.Struct({
   context: Schema.Any,
   modelOutput: Schema.Any,
   autopilot: Schema.optional(Schema.Any),
+  caller: Schema.optional(SystemPrincipal),
 });
 
 export const maintainBrainPageReturns = Schema.Struct({
