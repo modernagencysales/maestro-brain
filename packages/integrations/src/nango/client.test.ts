@@ -20,15 +20,9 @@ describe("Nango provider client boundary", () => {
   it("validates live env names without exposing secret values", () => {
     const result = validateNangoEnv("live", {
       NANGO_SECRET_KEY: ` ${`s${"k"}_${"live"}_secret`} `,
-      NANGO_CONNECT_INTEGRATION_ID: "",
     });
 
-    expect(result).toBeInstanceOf(NangoConfigError);
-    expect(result).toMatchObject({
-      _tag: "NangoConfigError",
-      missingEnv: ["NANGO_CONNECT_INTEGRATION_ID"],
-      invalidEnv: [],
-    });
+    expect(result).toBe(true);
     expect(JSON.stringify(result)).not.toContain(`s${"k"}_${"live"}_secret`);
     expect(validateNangoEnv("test", {})).toBe(true);
   });
@@ -154,6 +148,70 @@ describe("Nango provider client boundary", () => {
     ]);
   });
 
+  it("caps and forwards managed-sync record requests without leaking provider failures", async () => {
+    const calls: unknown[] = [];
+    const client = createLiveNangoClient({
+      secretKey: `s${"k"}_${"live"}_secret`,
+      providerConfigKey: "fireflies",
+      nango: {
+        createConnectSession: async () => ({ data: {} }),
+        getConnection: async () => ({}),
+        listRecords: async (input) => {
+          calls.push(input);
+          return {
+            records: [{ id: "call_1", title: "Acme weekly" }],
+            next_cursor: "cursor_2",
+          };
+        },
+      },
+    });
+
+    await expect(
+      client.listRecords({
+        connectionId: "conn_fireflies_1",
+        providerConfigKey: "fireflies",
+        model: "Meeting",
+        cursor: "cursor_1",
+        limit: 1_000,
+        filter: "updated",
+      }),
+    ).resolves.toEqual({
+      records: [{ id: "call_1", title: "Acme weekly" }],
+      nextCursor: "cursor_2",
+    });
+    expect(calls).toEqual([
+      {
+        connectionId: "conn_fireflies_1",
+        providerConfigKey: "fireflies",
+        model: "Meeting",
+        cursor: "cursor_1",
+        limit: 100,
+        filter: "updated",
+      },
+    ]);
+
+    const failed = createLiveNangoClient({
+      secretKey: `s${"k"}_${"live"}_secret`,
+      providerConfigKey: "fireflies",
+      nango: {
+        createConnectSession: async () => ({ data: {} }),
+        getConnection: async () => ({}),
+        listRecords: async () => {
+          throw new Error(`provider rejected s${"k"}_${"live"}_secret`);
+        },
+      },
+    });
+    const error = await failed
+      .listRecords({
+        connectionId: "conn_fireflies_1",
+        providerConfigKey: "fireflies",
+        model: "Meeting",
+      })
+      .catch((cause: unknown) => cause);
+    expect(error).toMatchObject({ _tag: "ProviderUnavailable" });
+    expect(JSON.stringify(error)).not.toContain(`s${"k"}_${"live"}_secret`);
+  });
+
   it("selects fake/test or live provider layers from validated mode", async () => {
     await expect(
       Effect.runPromise(
@@ -198,7 +256,6 @@ describe("Nango provider client boundary", () => {
               new Map([
                 ["APP_PROVIDER_MODE", "live"],
                 ["NANGO_SECRET_KEY", `s${"k"}_${"live"}_secret`],
-                ["NANGO_CONNECT_INTEGRATION_ID", "slack"],
               ]),
             ),
           ),
@@ -215,7 +272,7 @@ describe("Nango provider client boundary", () => {
     );
   });
 
-  it("rejects blank or whitespace live Config values before SDK construction", async () => {
+  it("rejects a blank live secret before SDK construction", async () => {
     let constructed = false;
     await expect(
       Effect.runPromise(
@@ -234,7 +291,6 @@ describe("Nango provider client boundary", () => {
               new Map([
                 ["APP_PROVIDER_MODE", "live"],
                 ["NANGO_SECRET_KEY", "   "],
-                ["NANGO_CONNECT_INTEGRATION_ID", " slack "],
               ]),
             ),
           ),
@@ -244,7 +300,7 @@ describe("Nango provider client boundary", () => {
     expect(constructed).toBe(false);
   });
 
-  it("trims valid live Config values before SDK construction", async () => {
+  it("trims the live secret and selects provider config per client", async () => {
     const constructedWith: unknown[] = [];
     const layer = await Effect.runPromise(
       Effect.scoped(
@@ -277,7 +333,6 @@ describe("Nango provider client boundary", () => {
             new Map([
               ["APP_PROVIDER_MODE", "live"],
               ["NANGO_SECRET_KEY", ` s${"k"}_${"live"}_secret `],
-              ["NANGO_CONNECT_INTEGRATION_ID", " slack "],
             ]),
           ),
         ),
@@ -287,19 +342,25 @@ describe("Nango provider client boundary", () => {
     const provider: NangoProviderService = layer.unsafeMap.get(
       NangoProvider.key,
     );
-    const client = provider.clientFor({ now: 1 });
+    const client = provider.clientFor({
+      now: 1,
+      providerConfigKey: "fireflies",
+    });
     await expect(
       client.createConnectSession({
         organizationKey: "nango-org-opaque",
         endUserId: "nango-user-opaque",
-        providerConfigKey: "slack",
+        providerConfigKey: "fireflies",
         correlationTag: "slack-connect:opaque-session",
       }),
     ).resolves.toMatchObject({
       expiresAt: Date.parse("2026-07-15T12:05:00.000Z"),
     });
     expect(constructedWith).toEqual([
-      { secretKey: `s${"k"}_${"live"}_secret`, providerConfigKey: "slack" },
+      {
+        secretKey: `s${"k"}_${"live"}_secret`,
+        providerConfigKey: "fireflies",
+      },
     ]);
   });
 
