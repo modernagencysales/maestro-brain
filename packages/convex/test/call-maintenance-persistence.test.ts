@@ -43,6 +43,8 @@ const rows = buildCallSourceUnitRows(
   },
   { organizationKey, connectionGeneration: 1, receivedAt: now },
 );
+const segment = rows.segments[0];
+if (!segment) throw new TypeError("expected transcript fixture segment");
 
 const seed = Effect.gen(function* () {
   const writer = yield* DatabaseWriter;
@@ -79,10 +81,7 @@ const seed = Effect.gen(function* () {
     .table("sourceUnitRevisions")
     .insert(rows.revision)
     .pipe(Effect.orDie);
-  yield* writer
-    .table("sourceSegments")
-    .insert(rows.segments[0]!)
-    .pipe(Effect.orDie);
+  yield* writer.table("sourceSegments").insert(segment).pipe(Effect.orDie);
   yield* writer
     .table("callRoutingProposals")
     .insert({
@@ -195,10 +194,10 @@ describe("call maintenance persistence", () => {
         ],
         citations: [
           {
-            citationKey: `cite_${rows.segments[0]!.segmentKey}`,
+            citationKey: `cite_${segment.segmentKey}`,
             sourceUnitKey: rows.unit.unitKey,
             revisionKey: rows.revision.unitRevisionKey,
-            segmentKey: rows.segments[0]!.segmentKey,
+            segmentKey: segment.segmentKey,
             evidenceKind: "verbatim_transcript",
             speakerLabel: "Alex",
             startMs: 0,
@@ -210,7 +209,7 @@ describe("call maintenance persistence", () => {
       const mined = {
         output: {
           summary: "Acme approved Friday launch.",
-          summaryCitationKeys: [`cite_${rows.segments[0]!.segmentKey}`],
+          summaryCitationKeys: [`cite_${segment.segmentKey}`],
           decisions: [],
           commitments: [],
           risks: [],
@@ -221,7 +220,7 @@ describe("call maintenance persistence", () => {
               pageKey: "pag_br_acme_overview",
               title: "Overview",
               markdown: "# Overview\n\nLaunch Friday.",
-              citationKeys: [`cite_${rows.segments[0]!.segmentKey}`],
+              citationKeys: [`cite_${segment.segmentKey}`],
             },
           ],
         },

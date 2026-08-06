@@ -79,10 +79,10 @@ export const mineCallTranscriptWithGateway = (
           canonicalContentRootHash(contentHashes),
         ),
         contentHashes,
-        contentArtifacts: bytes.map((artifact, index) => ({
-          hash: contentHashes[index]!,
+        contentArtifacts: contentHashes.map((hash, index) => ({
+          hash,
           mediaType: "application/json",
-          bytes: artifact,
+          bytes: bytes[index] ?? "",
         })),
         schemaHash: canonicalOutputSchemaHash(MinedCall),
         schemaGeneration: 1,

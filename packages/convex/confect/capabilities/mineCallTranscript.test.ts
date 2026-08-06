@@ -190,7 +190,7 @@ describe("call transcript mining output", () => {
   });
 
   it("requests strict structured commitments with optional owner and due date", async () => {
-    let requestBody: Record<string, any> = {};
+    let requestBody: Record<string, unknown> = {};
     vi.stubGlobal(
       "fetch",
       vi.fn(async (_url: string, init: RequestInit) => {
@@ -219,9 +219,19 @@ describe("call transcript mining output", () => {
       }),
     );
 
+    const responseFormat = requestBody.response_format as {
+      readonly json_schema: {
+        readonly schema: {
+          readonly properties: {
+            readonly commitments: {
+              readonly items: { readonly properties: Record<string, unknown> };
+            };
+          };
+        };
+      };
+    };
     expect(
-      requestBody.response_format.json_schema.schema.properties.commitments
-        .items.properties,
+      responseFormat.json_schema.schema.properties.commitments.items.properties,
     ).toMatchObject({
       text: { type: "string" },
       owner: { type: "string" },

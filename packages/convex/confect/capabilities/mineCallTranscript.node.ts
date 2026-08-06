@@ -8,6 +8,10 @@ import {
   type StructuredLlmTransportResult,
 } from "@maestro-template/integrations";
 import * as Effect from "effect/Effect";
+import { ConvexError } from "convex/values";
+
+const transportError = (code: string, message: string) =>
+  new ConvexError({ code, message });
 
 const outputSchema = {
   type: "object",
@@ -98,7 +102,11 @@ export const createOpenRouterStructuredTransport = (
             provider: "openrouter",
             model: input.model,
           });
-        if (!apiKey) throw new Error("OpenRouter is not configured.");
+        if (!apiKey)
+          throw transportError(
+            "OPENROUTER_NOT_CONFIGURED",
+            "OpenRouter is not configured.",
+          );
         const response = await fetch(`${baseUrl}/chat/completions`, {
           method: "POST",
           headers: {
@@ -136,7 +144,11 @@ export const createOpenRouterStructuredTransport = (
               ? {}
               : { retryAfterMs: retryAfterMs(response) }),
           });
-        if (!response.ok) throw new Error("OpenRouter request failed.");
+        if (!response.ok)
+          throw transportError(
+            "OPENROUTER_REQUEST_FAILED",
+            "OpenRouter request failed.",
+          );
         const body = (await response.json()) as {
           readonly choices?: readonly {
             readonly message?: { readonly content?: unknown };
@@ -149,7 +161,10 @@ export const createOpenRouterStructuredTransport = (
         };
         const text = body.choices?.[0]?.message?.content;
         if (typeof text !== "string")
-          throw new Error("OpenRouter returned no structured output.");
+          throw transportError(
+            "OPENROUTER_OUTPUT_MISSING",
+            "OpenRouter returned no structured output.",
+          );
         return {
           provider: input.provider,
           model: input.model,

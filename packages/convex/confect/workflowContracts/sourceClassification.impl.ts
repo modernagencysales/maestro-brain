@@ -9,7 +9,6 @@ import * as Option from "effect/Option";
 import { components as generatedComponents } from "../../convex/_generated/api";
 import databaseSchema from "../_generated/schema";
 import { roleAtLeast, type Role } from "../access/roles";
-import type { ClassificationRequest } from "../classification/gather";
 import { gatherClassificationRequest } from "../classification/gather";
 import { DatabaseReader, MutationCtx, QueryCtx } from "../_generated/services";
 import { NotFound, Unauthorized, ValidationFailed } from "../errors";
@@ -44,7 +43,6 @@ const requireCaller = (caller: { kind: string; surface: string }) =>
     ? Effect.void
     : Effect.fail(new Unauthorized());
 
-type StartClassificationRequest = ClassificationRequest;
 type ReviewAuthorityInput = {
   reviewerPrincipalKey: string;
   reviewerAuthority: {

@@ -201,13 +201,14 @@ const reviewCallRoute = FunctionImpl.make(
       const writer = yield* DatabaseWriter;
       let learnedMappingKey: string | undefined;
       if (args.learnScope && args.learnValue && targetBrainKey) {
+        const learnScope = args.learnScope;
         const value = args.learnValue.trim().toLowerCase();
         if (!value)
           return yield* invalid("learnValue", "Learning value is required.");
         learnedMappingKey = `route_map_${sha256Hex(
           JSON.stringify({
             organizationKey,
-            kind: args.learnScope,
+            kind: learnScope,
             value,
             brainKey: targetBrainKey,
           }),
@@ -217,7 +218,7 @@ const reviewCallRoute = FunctionImpl.make(
           .index("by_org_kind_value", (query) =>
             query
               .eq("organizationKey", organizationKey)
-              .eq("kind", args.learnScope!)
+              .eq("kind", learnScope)
               .eq("value", value),
           )
           .first()
@@ -239,7 +240,7 @@ const reviewCallRoute = FunctionImpl.make(
               schemaVersion: 1,
               organizationKey,
               mappingKey: learnedMappingKey,
-              kind: args.learnScope,
+              kind: learnScope,
               value,
               brainKey: targetBrainKey,
               status: "active",
@@ -250,7 +251,8 @@ const reviewCallRoute = FunctionImpl.make(
             .pipe(Effect.orDie);
       }
 
-      const routed = Boolean(targetBrainKey) && args.action !== "reject";
+      const routedBrainKey = args.action === "reject" ? null : targetBrainKey;
+      const routed = routedBrainKey !== null && routedBrainKey !== undefined;
       const status =
         args.action === "reject"
           ? ("rejected" as const)
@@ -259,9 +261,9 @@ const reviewCallRoute = FunctionImpl.make(
         .table("callRoutingProposals")
         .patch(route._id, {
           outcome: routed ? "routed" : "no_match",
-          brainKey: routed ? targetBrainKey! : null,
+          brainKey: routed ? routedBrainKey : null,
           candidateBrainKeys: routed
-            ? [targetBrainKey!]
+            ? [routedBrainKey]
             : route.candidateBrainKeys,
           reason: `review_${args.action}`,
           status,
@@ -319,7 +321,7 @@ const reviewCallRoute = FunctionImpl.make(
         proposalKey: route.proposalKey,
         status,
         outcome: routed ? ("routed" as const) : ("no_match" as const),
-        brainKey: routed ? targetBrainKey! : null,
+        brainKey: routed ? routedBrainKey : null,
         routeGeneration: route.routeGeneration,
         maintenanceQueued: routed,
       };
@@ -369,13 +371,14 @@ const listCallMaintenanceQueue = FunctionImpl.make(
       );
       const queue = [];
       for (const proposal of proposals) {
-        if (!proposal.unitRevisionKey) continue;
+        const unitRevisionKey = proposal.unitRevisionKey;
+        if (!unitRevisionKey) continue;
         const revision = yield* reader
           .table("sourceUnitRevisions")
           .index("by_unit_revision_key", (query) =>
             query
               .eq("organizationKey", brain.organizationKey)
-              .eq("unitRevisionKey", proposal.unitRevisionKey!),
+              .eq("unitRevisionKey", unitRevisionKey),
           )
           .first()
           .pipe(Effect.map(Option.getOrNull), Effect.orDie);
@@ -397,7 +400,7 @@ const listCallMaintenanceQueue = FunctionImpl.make(
           for (const citationKey of item.citationKeys) {
             const { segment } = yield* loadSegmentCitation(
               brain.organizationKey,
-              proposal.unitRevisionKey,
+              unitRevisionKey,
               citationKey,
             );
             citations.push({
@@ -419,7 +422,7 @@ const listCallMaintenanceQueue = FunctionImpl.make(
         }
         queue.push({
           proposalKey: proposal.proposalKey,
-          unitRevisionKey: proposal.unitRevisionKey,
+          unitRevisionKey,
           sourceTitle: revision.title,
           sourceUrl: revision.sourceUrl,
           summary: proposal.summary ?? "",
@@ -499,6 +502,8 @@ const reviewCallMaintenance = FunctionImpl.make(
           expectedCurrentRevisionKey: String(args.expectedRouteGeneration),
           actualCurrentRevisionKey: String(proposal.routeGeneration),
         });
+      const unitKey = proposal.unitKey;
+      const unitRevisionKey = proposal.unitRevisionKey;
       const workspace = yield* reader
         .table("workspaces")
         .get(brain.workspaceId)
@@ -518,7 +523,7 @@ const reviewCallMaintenance = FunctionImpl.make(
         .index("by_unit_key", (query) =>
           query
             .eq("organizationKey", brain.organizationKey)
-            .eq("unitKey", proposal.unitKey!),
+            .eq("unitKey", unitKey),
         )
         .first()
         .pipe(Effect.map(Option.getOrNull), Effect.orDie);
@@ -527,7 +532,7 @@ const reviewCallMaintenance = FunctionImpl.make(
         .index("by_org_revision", (query) =>
           query
             .eq("organizationKey", brain.organizationKey)
-            .eq("unitRevisionKey", proposal.unitRevisionKey!),
+            .eq("unitRevisionKey", unitRevisionKey),
         )
         .first()
         .pipe(Effect.map(Option.getOrNull), Effect.orDie);
@@ -617,7 +622,7 @@ const reviewCallMaintenance = FunctionImpl.make(
           citations.push(
             yield* loadSegmentCitation(
               brain.organizationKey,
-              proposal.unitRevisionKey,
+              unitRevisionKey,
               citationKey,
             ),
           );
@@ -629,13 +634,20 @@ const reviewCallMaintenance = FunctionImpl.make(
             markdown,
           }),
         ).slice(0, 32)}`;
-        prepared.push({ item, page, markdown, citations, revisionKey });
+        prepared.push({
+          item,
+          page,
+          pageLifecycleGeneration: page.lifecycle.generation,
+          markdown,
+          citations,
+          revisionKey,
+        });
       }
 
       for (const entry of prepared) {
         const lifecycle = {
           state: "active" as const,
-          generation: entry.page.lifecycle!.generation + 1,
+          generation: entry.pageLifecycleGeneration + 1,
           updatedAt: reviewedAt,
           purgeAfter: null,
         };

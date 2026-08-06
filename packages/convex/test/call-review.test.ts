@@ -1,5 +1,4 @@
 import { TestConfect } from "@confect/test";
-import type { GenericId } from "convex/values";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it, vi } from "vitest";
@@ -91,11 +90,15 @@ const unrelatedRevisionRows = buildCallSourceUnitRows(
   },
   { organizationKey, connectionGeneration: 1, receivedAt: now },
 );
+const segment = rows.segments[0];
+const unrelatedSegment = unrelatedRevisionRows.segments[0];
+if (!segment || !unrelatedSegment)
+  throw new TypeError("expected transcript fixture segments");
 
 const seed = (
   role: Role,
   maintenanceReady: boolean,
-  maintenanceCitationKey = `cite_${rows.segments[0]!.segmentKey}`,
+  maintenanceCitationKey = `cite_${segment.segmentKey}`,
 ) =>
   Effect.gen(function* () {
     const writer = yield* DatabaseWriter;
@@ -188,14 +191,11 @@ const seed = (
       .table("sourceUnitRevisions")
       .insert(rows.revision)
       .pipe(Effect.orDie);
-    yield* writer
-      .table("sourceSegments")
-      .insert(rows.segments[0]!)
-      .pipe(Effect.orDie);
-    if (maintenanceCitationKey !== `cite_${rows.segments[0]!.segmentKey}`)
+    yield* writer.table("sourceSegments").insert(segment).pipe(Effect.orDie);
+    if (maintenanceCitationKey !== `cite_${segment.segmentKey}`)
       yield* writer
         .table("sourceSegments")
-        .insert(unrelatedRevisionRows.segments[0]!)
+        .insert(unrelatedSegment)
         .pipe(Effect.orDie);
     yield* writer
       .table("callRoutingProposals")
@@ -513,7 +513,7 @@ describe("call routing and maintenance review", () => {
       expect.objectContaining({
         sourceKind: "call_transcript",
         sourceUnitRevisionKey: rows.revision.unitRevisionKey,
-        segmentKey: rows.segments[0]!.segmentKey,
+        segmentKey: segment.segmentKey,
         quotedText: "Alex owns launch by Friday.",
       }),
     ]);
@@ -525,11 +525,7 @@ describe("call routing and maintenance review", () => {
         TestConfect.TestConfect<typeof databaseSchema>(),
       );
       yield* confect.run(
-        seed(
-          "editor",
-          true,
-          `cite_${unrelatedRevisionRows.segments[0]!.segmentKey}`,
-        ),
+        seed("editor", true, `cite_${unrelatedSegment.segmentKey}`),
         Schema.Any,
       );
       return yield* actor(confect)

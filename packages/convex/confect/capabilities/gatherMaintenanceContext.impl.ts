@@ -157,14 +157,15 @@ const gatherMaintenanceContextImpl = FunctionImpl.make(
       const gatheredPages = [];
       for (const expected of expectedPages) {
         const page = pagesByKey.get(expected.pageKey);
-        if (!page?.currentRevisionKey || page.lifecycle?.state !== "active")
+        const currentRevisionKey = page?.currentRevisionKey;
+        if (!currentRevisionKey || page.lifecycle?.state !== "active")
           return yield* unavailable("missing_current_page");
         const current = yield* reader
           .table("pageRevisions")
           .index("by_workspace_revision_key", (query) =>
             query
               .eq("workspaceId", workspaceId)
-              .eq("revisionKey", page.currentRevisionKey!),
+              .eq("revisionKey", currentRevisionKey),
           )
           .first()
           .pipe(Effect.map(Option.getOrNull), Effect.orDie);

@@ -327,6 +327,9 @@ const persistGroupedCallMaintenance = (input: {
       ]),
     ].sort();
     const first = output.pageProposals[0];
+    const firstPage = first ? pageByKey.get(first.pageKey) : undefined;
+    if (first && !firstPage)
+      return yield* new StaleRevision({ proposalKey: first.pageKey });
     const status =
       output.pageProposals.length === 0
         ? ("proposed_noop" as const)
@@ -349,11 +352,10 @@ const persistGroupedCallMaintenance = (input: {
         modelReceiptKey: mined.receipt.attemptKey,
         summary: output.summary,
         itemCount: output.pageProposals.length,
-        ...(first
+        ...(firstPage
           ? {
-              pageKey: first.pageKey,
-              expectedRevisionKey: pageByKey.get(first.pageKey)!
-                .currentRevisionKey,
+              pageKey: firstPage.pageKey,
+              expectedRevisionKey: firstPage.currentRevisionKey,
             }
           : {}),
         idempotencyKey: input.contextPackId,
@@ -362,7 +364,9 @@ const persistGroupedCallMaintenance = (input: {
       })
       .pipe(Effect.orDie);
     for (const proposal of output.pageProposals) {
-      const page = pageByKey.get(proposal.pageKey)!;
+      const page = pageByKey.get(proposal.pageKey);
+      if (!page)
+        return yield* new StaleRevision({ proposalKey: proposal.pageKey });
       yield* writer
         .table("brainMaintenanceProposalItems")
         .insert({

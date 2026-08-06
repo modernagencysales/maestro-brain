@@ -2,7 +2,6 @@ import { TestConfect } from "@confect/test";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
-import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
 import databaseSchema from "../_generated/schema";
@@ -52,6 +51,8 @@ const rows = buildCallSourceUnitRows(
   },
   { organizationKey, connectionGeneration: 1, receivedAt: now },
 );
+const segment = rows.segments[0];
+if (!segment) throw new TypeError("expected transcript fixture segment");
 
 type SeedOptions = {
   readonly sourceState?: "active" | "redacted";
@@ -101,10 +102,7 @@ const seed = (options: SeedOptions = {}) =>
       .insert(rows.revision)
       .pipe(Effect.orDie);
     if (options.includeSegments !== false)
-      yield* writer
-        .table("sourceSegments")
-        .insert(rows.segments[0]!)
-        .pipe(Effect.orDie);
+      yield* writer.table("sourceSegments").insert(segment).pipe(Effect.orDie);
     yield* writer
       .table("callRoutingProposals")
       .insert({
@@ -259,8 +257,8 @@ describe("gather maintenance context", () => {
         ]),
         citations: [
           {
-            citationKey: `cite_${rows.segments[0]!.segmentKey}`,
-            segmentKey: rows.segments[0]!.segmentKey,
+            citationKey: `cite_${segment.segmentKey}`,
+            segmentKey: segment.segmentKey,
             evidenceKind: "verbatim_transcript",
             quote: "Alex owns launch by Friday.",
           },

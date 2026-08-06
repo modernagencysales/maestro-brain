@@ -1,4 +1,4 @@
-import { Badge, Button, Card, Heading, Stack, Text } from "@saas-ui/react";
+import { Button, Card, Heading, Stack, Text } from "@saas-ui/react";
 import type { FormEvent } from "react";
 
 export type CallRoutingItem = {

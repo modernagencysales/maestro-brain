@@ -1,4 +1,8 @@
 import * as Schema from "effect/Schema";
+import { ConvexError } from "convex/values";
+
+const invalidMinedCall = (message: string) =>
+  new ConvexError({ code: "INVALID_MINED_CALL", message });
 
 const CitedFact = Schema.Struct({
   text: Schema.String,
@@ -58,12 +62,12 @@ export const decodeMinedCall = (
     facts.some(({ text, citationKeys }) => text && citationKeys.length === 0) ||
     output.pageProposals.some(({ citationKeys }) => citationKeys.length === 0)
   )
-    throw new Error("factual output requires a citation");
+    throw invalidMinedCall("factual output requires a citation");
   const citations = new Map(
     context.citations.map((citation) => [citation.citationKey, citation.quote]),
   );
   if (citationKeys.some((citationKey) => !citations.has(citationKey)))
-    throw new Error("unknown citation");
+    throw invalidMinedCall("unknown citation");
   if (
     output.pageProposals.some(
       ({ brainKey, pageKey }) =>
@@ -71,7 +75,7 @@ export const decodeMinedCall = (
         (context.pageKeys !== undefined && !context.pageKeys.includes(pageKey)),
     )
   )
-    throw new Error("page proposal targets an unauthorized Brain page");
+    throw invalidMinedCall("page proposal targets an unauthorized Brain page");
   for (const commitment of output.commitments) {
     const evidence = commitment.citationKeys
       .map((citationKey) => citations.get(citationKey) ?? "")
@@ -83,7 +87,7 @@ export const decodeMinedCall = (
       (commitment.dueDate &&
         !evidence.includes(commitment.dueDate.toLowerCase()))
     )
-      throw new Error("owner or due date is not cited");
+      throw invalidMinedCall("owner or due date is not cited");
   }
   return output;
 };
