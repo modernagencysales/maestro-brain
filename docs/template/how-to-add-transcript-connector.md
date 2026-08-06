@@ -97,17 +97,17 @@ This matrix is a discovery queue, not a support claim. Nango catalog entries and
 managed syncs change; verify them on the implementation date and record the
 exact integration/model names in the PR.
 
-| Provider      | Nango auth                    | Nango maintained transcript sync        | Provider path to evaluate                                   | Brain status                                       |
-| ------------- | ----------------------------- | --------------------------------------- | ----------------------------------------------------------- | -------------------------------------------------- |
-| Fireflies     | Configured API key            | Configured models                       | Transcript list plus sentence detail                        | Implemented; live proof still requires credentials |
-| Gong          | Configured OAuth              | Configured models                       | Call transcript plus call metadata                          | Implemented; live proof still requires credentials |
-| Fathom        | Configured OAuth              | None found in current generated catalog | Meeting list plus recording transcript detail through proxy | Implemented                                        |
-| Granola       | Configured API key            | None found in current generated catalog | Note list plus note detail with transcript through proxy    | Implemented                                        |
-| Zoom          | Verify current catalog/config | Not verified; do not assume             | Cloud recording/transcript API and completion events        | Candidate                                          |
-| Clari Copilot | Verify current catalog/config | Not verified; do not assume             | Call export/transcript API                                  | Candidate                                          |
-| Grain         | Verify current catalog/config | Not verified; do not assume             | Recording/transcript API                                    | Candidate                                          |
-| Avoma         | Verify current catalog/config | Not verified; do not assume             | Meeting/transcript API                                      | Candidate                                          |
-| tl;dv         | Verify current catalog/config | Not verified; do not assume             | Recording/transcript API                                    | Candidate                                          |
+| Provider      | Nango auth                     | Nango maintained transcript sync        | Provider path to evaluate                                   | Brain status                                       |
+| ------------- | ------------------------------ | --------------------------------------- | ----------------------------------------------------------- | -------------------------------------------------- |
+| Fireflies     | Configured API key             | Configured models                       | Transcript list plus sentence detail                        | Implemented; live proof still requires credentials |
+| Gong          | Configured access key + secret | Configured `CallTranscript` sync        | Call transcript plus call metadata                          | Implemented; live proof still requires credentials |
+| Fathom        | Configured API key             | None found in current generated catalog | Meeting list plus recording transcript detail through proxy | Implemented; live proof still requires credentials |
+| Granola       | Configured API key             | None found in current generated catalog | Note list plus note detail with transcript through proxy    | Implemented                                        |
+| Zoom          | Verify current catalog/config  | Not verified; do not assume             | Cloud recording/transcript API and completion events        | Candidate                                          |
+| Clari Copilot | Verify current catalog/config  | Not verified; do not assume             | Call export/transcript API                                  | Candidate                                          |
+| Grain         | Verify current catalog/config  | Not verified; do not assume             | Recording/transcript API                                    | Candidate                                          |
+| Avoma         | Verify current catalog/config  | Not verified; do not assume             | Meeting/transcript API                                      | Candidate                                          |
+| tl;dv         | Verify current catalog/config  | Not verified; do not assume             | Recording/transcript API                                    | Candidate                                          |
 
 For an unsupported provider, the shipped manual import is the immediate escape
 hatch. Maestro Capture can implement the same canonical adapter later without
