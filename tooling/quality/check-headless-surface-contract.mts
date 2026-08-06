@@ -17,6 +17,8 @@ type Surface = ExternalSurface | "web" | "workflow" | "internal" | string;
 
 export type HeadlessManifestOperation = {
   readonly operationId: string;
+  readonly namespace?: string;
+  readonly name?: string;
   readonly surfaces: readonly Surface[];
   readonly typedErrors: readonly string[];
   readonly kind?: string;
@@ -137,15 +139,16 @@ const objectMappingPattern = (
 export const missingHttpGeneratedRefMapping = (
   operationIds: readonly string[],
   source: string,
+  generatedRefs: Readonly<Record<string, string>> = {},
 ): string[] =>
-  operationIds.filter(
-    (operationId) =>
-      !objectMappingPattern(
-        "operationRefs",
-        operationId,
-        `api\\.${operationId.replaceAll(".", "\\.")}\\b`,
-      ).test(source),
-  );
+  operationIds.filter((operationId) => {
+    const generatedRef = generatedRefs[operationId] ?? `api.${operationId}`;
+    return !objectMappingPattern(
+      "operationRefs",
+      operationId,
+      `${escapeRegExp(generatedRef)}\\b`,
+    ).test(source);
+  });
 
 export const missingCliGeneratedRefUsage = (
   operationIds: readonly string[],
@@ -198,7 +201,7 @@ export const missingMcpGeneratedRefUsage = (
 
 export const missingHttpExecutorDispatch = (source: string): boolean =>
   !/\bexecuteHeadlessOperation\s*\(/.test(source) ||
-  !/\brefs\s*:\s*operationRefs\b/.test(source);
+  !/\brefs\s*:\s*(?:ctx\.operationRefs\s*\?\?\s*)?operationRefs\b/.test(source);
 
 export const missingRuntimeAdapterDispatch = (source: string): boolean =>
   !/\bTemplateRuntimeAdapter\b/.test(source) ||
@@ -311,10 +314,22 @@ export const evaluateHeadlessSurfaceContract = async (
     );
   }
 
-  const apiMissingRefs = missingGeneratedRefMapping(
+  const generatedHttpRefs = Object.fromEntries(
+    operations.flatMap((operation) =>
+      operation.namespace === undefined || operation.name === undefined
+        ? []
+        : [
+            [
+              operation.operationId,
+              `api.${operation.namespace}.${operation.name}`,
+            ],
+          ],
+    ),
+  );
+  const apiMissingRefs = missingHttpGeneratedRefMapping(
     exposedOperationIds(operations, "api"),
     httpSource,
-    "http",
+    generatedHttpRefs,
   );
   const cliMissingRefs = missingGeneratedRefMapping(
     exposedOperationIds(operations, "cli"),

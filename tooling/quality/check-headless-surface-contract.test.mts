@@ -183,6 +183,25 @@ describe("check:headless-surface-contract", () => {
     expect(missingHttpExecutorDispatch(source)).toBe(false);
   });
 
+  it("accepts generated API refs when the public operation ID differs", () => {
+    const source = `
+      const operationRefs = {
+        "brain.context.get": api.brain.readApi.contextGet,
+      };
+    `;
+
+    expect(
+      missingHttpGeneratedRefMapping(["brain.context.get"], source, {
+        "brain.context.get": "api.brain.readApi.contextGet",
+      }),
+    ).toEqual([]);
+    expect(
+      missingHttpGeneratedRefMapping(["brain.context.get"], source, {
+        "brain.context.get": "api.brain.context.get",
+      }),
+    ).toEqual(["brain.context.get"]);
+  });
+
   it("requires CLI and MCP projections to use a runtime adapter seam", () => {
     expect(
       missingRuntimeAdapterDispatch(

@@ -1,11 +1,8 @@
 import { Ref } from "@confect/core";
 import { confectManifest } from "@maestro-template/template-core/generated/confectManifest";
-import {
-  httpActionGeneric,
-  httpRouter,
-  makeFunctionReference,
-} from "convex/server";
+import { httpActionGeneric, httpRouter } from "convex/server";
 import { ConvexError } from "convex/values";
+import { api } from "../convex/_generated/api";
 import {
   executeHeadlessOperation,
   type HeadlessExecutorRequest,
@@ -21,8 +18,6 @@ import {
   type TemplateApiRequestBody,
 } from "./httpRequest";
 import apiKeysSpec from "./headless/apiKeys.spec";
-import pagesSpec from "./brain/pages.spec";
-import readApiSpec from "./brain/readApi.spec";
 import {
   reviewedHeadlessPolicyFor,
   type HeadlessOperationPolicy,
@@ -85,52 +80,14 @@ const staticTemplateRoutes: Record<string, TemplateRouteMatch | undefined> = {
   "/mcp": { kind: "mcp" },
 };
 
-const staticOperationRefs = {
-  "brain.pages.list": Ref.getFunctionReference(
-    Ref.make(
-      "brain/pages",
-      pagesSpec.functions.list as NonNullable<typeof pagesSpec.functions.list>,
-    ),
-  ),
-  "brain.pages.get": Ref.getFunctionReference(
-    Ref.make(
-      "brain/pages",
-      pagesSpec.functions.get as NonNullable<typeof pagesSpec.functions.get>,
-    ),
-  ),
-  "brain.pages.history": Ref.getFunctionReference(
-    Ref.make(
-      "brain/pages",
-      pagesSpec.functions.history as NonNullable<
-        typeof pagesSpec.functions.history
-      >,
-    ),
-  ),
-  "brain.sources.search": Ref.getFunctionReference(
-    Ref.make(
-      "brain/readApi",
-      readApiSpec.functions.sourcesSearch as NonNullable<
-        typeof readApiSpec.functions.sourcesSearch
-      >,
-    ),
-  ),
-  "brain.sources.get": Ref.getFunctionReference(
-    Ref.make(
-      "brain/readApi",
-      readApiSpec.functions.sourcesGet as NonNullable<
-        typeof readApiSpec.functions.sourcesGet
-      >,
-    ),
-  ),
-  "brain.context.get": makeFunctionReference("headless/readApi:contextGet"),
-  "brain.answers.ask": Ref.getFunctionReference(
-    Ref.make(
-      "brain/readApi",
-      readApiSpec.functions.answersAsk as NonNullable<
-        typeof readApiSpec.functions.answersAsk
-      >,
-    ),
-  ),
+const operationRefs = {
+  "brain.pages.list": api.brain.pages.list,
+  "brain.pages.get": api.brain.pages.get,
+  "brain.pages.history": api.brain.pages.history,
+  "brain.sources.search": api.brain.readApi.sourcesSearch,
+  "brain.sources.get": api.brain.readApi.sourcesGet,
+  "brain.context.get": api.brain.readApi.contextGet,
+  "brain.answers.ask": api.brain.readApi.answersAsk,
 } satisfies Record<string, unknown>;
 
 const apiKeyFunction = (name: "authenticate" | "markLastUsed") => {
@@ -239,11 +196,9 @@ const runTemplateApiOperation = async (
   ctx: HeadlessHttpCtx,
   request: HeadlessExecutorRequest,
 ): Promise<unknown> => {
-  const operationRefs = ctx.operationRefs ?? staticOperationRefs;
-
   return await executeHeadlessOperation(
     {
-      refs: operationRefs,
+      refs: ctx.operationRefs ?? operationRefs,
       runQuery: (ref, input) => ctx.runQuery(ref, input),
       runMutation: (ref, input) => ctx.runMutation(ref, input),
       runAction: (ref, input) => ctx.runAction(ref, input),

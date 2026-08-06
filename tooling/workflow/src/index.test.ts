@@ -15,7 +15,7 @@ import {
 } from "./index";
 
 describe("workflow headless registry", () => {
-  it("reserves Brain page surfaces for web-only consumers outside the headless registry", () => {
+  it("omits the retired Brain page operation and exposes current page surfaces", () => {
     const operations = buildHeadlessOperations();
     const ids = operations.map((operation) => operation.id);
 
@@ -23,14 +23,16 @@ describe("workflow headless registry", () => {
     expect(ids).not.toContain("api:brain.pages.createMarkdown");
     expect(ids).not.toContain("cli:brain.pages.createMarkdown");
     expect(ids).not.toContain("mcp:brain.pages.createMarkdown");
-    expect(ids).not.toContain("web:brain.pages.list");
-    expect(ids).not.toContain("web:brain.pages.get");
+    expect(ids).toContain("web:brain.pages.list");
+    expect(ids).toContain("api:brain.pages.list");
+    expect(ids).toContain("mcp:brain.pages.list");
+    expect(ids).toContain("web:brain.pages.get");
     expect(ids).toContain("web:ops.dataLifecycle.createDsarRequest");
     expect(ids).toContain("workflow:capabilities.sourceGroundedBrief.run");
     expect(
       getHeadlessOperation("api:brain.pages.createMarkdown"),
     ).toBeUndefined();
-    expect(getHeadlessOperation("web:brain.pages.list")).toBeUndefined();
+    expect(getHeadlessOperation("web:brain.pages.list")).toBeDefined();
   });
 
   it("describes the template workflow with manifest-derived contract counts", () => {
@@ -72,7 +74,7 @@ describe("workflow headless registry", () => {
     });
   });
 
-  it("exports generated MCP operation refs for non-reserved manifest tools", () => {
+  it("exports generated MCP operation refs for current Brain page tools", () => {
     const generatedTools = buildGeneratedMcpTools();
 
     expect(Object.keys(generatedMcpOperationRefs).length).toBe(
@@ -83,9 +85,13 @@ describe("workflow headless registry", () => {
 
       expect(generatedMcpOperationRefs[operationId]).toBe(tool.name);
     }
-    expect(
-      generatedTools.some((tool) => tool.name.includes("brain.pages.")),
-    ).toBe(false);
+    expect(generatedTools.map((tool) => tool.name)).toEqual(
+      expect.arrayContaining([
+        "template.brain.pages.list",
+        "template.brain.pages.get",
+        "template.brain.pages.history",
+      ]),
+    );
   });
 
   it("returns NotFound for removed Brain page headless operations", () => {
