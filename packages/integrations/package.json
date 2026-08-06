@@ -15,7 +15,9 @@
     "./transcripts/canonical": "./src/transcripts/canonical.ts",
     "./transcripts/providers": "./src/transcripts/providers.ts",
     "./transcripts/fireflies": "./src/transcripts/fireflies.ts",
-    "./transcripts/gong": "./src/transcripts/gong.ts"
+    "./transcripts/gong": "./src/transcripts/gong.ts",
+    "./transcripts/fathom": "./src/transcripts/fathom.ts",
+    "./transcripts/granola": "./src/transcripts/granola.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --outDir dist --declaration",

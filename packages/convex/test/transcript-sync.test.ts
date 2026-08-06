@@ -711,4 +711,134 @@ describe("Nango transcript provider", () => {
       retryAfterMs: 45_000,
     });
   });
+
+  it("pulls Fathom meetings and transcript detail through Nango proxy", async () => {
+    const meeting = {
+      recording_id: 123,
+      title: "Redacted Fathom call",
+      recording_start_time: "2026-08-05T14:00:00Z",
+      recording_end_time: "2026-08-05T14:01:00Z",
+      recorded_by: { name: "Host", email: "host@agency.test" },
+      calendar_invitees: [],
+      share_url: "https://example.test/fathom-123",
+    };
+    const proxy = vi
+      .fn()
+      .mockResolvedValueOnce({
+        status: 200,
+        data: { items: [meeting], next_cursor: "fathom-next" },
+      })
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          transcript: [
+            {
+              speaker: { display_name: "Host" },
+              text: "Redacted sentence.",
+              timestamp: "00:00:01",
+            },
+          ],
+        },
+      });
+    const provider = createNangoTranscriptSyncProvider(
+      () => ({ proxy }) as never,
+    );
+    const snapshot = {
+      organizationKey: "agency_acme",
+      connectionKey: "fathom_agency_acme",
+      connectionGeneration: 1,
+      provider: "fathom" as const,
+      providerConfigKey: "fathom-oauth",
+      nangoConnectionId: "nango-3",
+      cursor: null,
+      leaseId: "lease-3",
+    };
+
+    const page = await provider.listPage(snapshot);
+    const normalized = await provider.normalize(snapshot, page.records[0]);
+
+    expect(proxy).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        endpoint: "/external/v1/meetings?limit=100&include_summary=true",
+        method: "GET",
+      }),
+    );
+    expect(proxy).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        endpoint: "/external/v1/recordings/123/transcript",
+        method: "GET",
+      }),
+    );
+    expect(page.nextCursor).toBe("fathom-next");
+    expect(normalized).toMatchObject({
+      providerKey: "fathom",
+      externalCallId: "123",
+    });
+  });
+
+  it("pulls Granola note pages and transcript detail through Nango proxy", async () => {
+    const summary = {
+      id: "not_1d3tmYTlCICgjy",
+      object: "note",
+      title: "Redacted Granola call",
+      owner: { name: "Host", email: "host@agency.test" },
+      created_at: "2026-08-05T14:00:00Z",
+      updated_at: "2026-08-05T14:01:00Z",
+    };
+    const proxy = vi
+      .fn()
+      .mockResolvedValueOnce({
+        status: 200,
+        data: { notes: [summary], hasMore: false, cursor: null },
+      })
+      .mockResolvedValueOnce({
+        status: 200,
+        data: {
+          ...summary,
+          web_url: "https://example.test/granola-note",
+          calendar_event: null,
+          attendees: [],
+          summary_text: "Redacted provider note.",
+          summary_markdown: null,
+          transcript: null,
+        },
+      });
+    const provider = createNangoTranscriptSyncProvider(
+      () => ({ proxy }) as never,
+    );
+    const snapshot = {
+      organizationKey: "agency_acme",
+      connectionKey: "granola_agency_acme",
+      connectionGeneration: 1,
+      provider: "granola" as const,
+      providerConfigKey: "granola",
+      nangoConnectionId: "nango-4",
+      cursor: null,
+      leaseId: "lease-4",
+    };
+
+    const page = await provider.listPage(snapshot);
+    const normalized = await provider.normalize(snapshot, page.records[0]);
+
+    expect(proxy).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        endpoint: "/v1/notes?page_size=30",
+        method: "GET",
+      }),
+    );
+    expect(proxy).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        endpoint: "/v1/notes/not_1d3tmYTlCICgjy?include=transcript",
+        method: "GET",
+      }),
+    );
+    expect(page.nextCursor).toBeNull();
+    expect(normalized.segments).toEqual([
+      expect.objectContaining({ evidenceKind: "provider_notes" }),
+    ]);
+  });
 });

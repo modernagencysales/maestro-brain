@@ -10,6 +10,18 @@ import {
   GongDecodeError,
   normalizeGongCall,
 } from "@maestro-template/integrations/transcripts/gong";
+import {
+  decodeFathomMeetingPage,
+  FathomDecodeError,
+  fathomMeetingsEndpoint,
+  normalizeFathomCall,
+} from "@maestro-template/integrations/transcripts/fathom";
+import {
+  decodeGranolaNotePage,
+  GranolaDecodeError,
+  granolaNotesEndpoint,
+  normalizeGranolaNote,
+} from "@maestro-template/integrations/transcripts/granola";
 
 import type { TranscriptSyncErrorTag } from "./transcriptSync.impl";
 
@@ -76,15 +88,39 @@ const assertProxySuccess = (response: {
 export const createNangoTranscriptSyncProvider = (
   clientFor: (providerConfigKey: string) => NangoClient,
 ): TranscriptSyncProvider => ({
-  listPage: async (snapshot) =>
-    clientFor(snapshot.providerConfigKey).listRecords({
+  listPage: async (snapshot) => {
+    const client = clientFor(snapshot.providerConfigKey);
+    if (snapshot.provider === "fireflies" || snapshot.provider === "gong")
+      return client.listRecords({
+        connectionId: snapshot.nangoConnectionId,
+        providerConfigKey: snapshot.providerConfigKey,
+        model:
+          snapshot.provider === "fireflies" ? "Transcript" : "CallTranscript",
+        ...(snapshot.cursor === null ? {} : { cursor: snapshot.cursor }),
+        limit: 100,
+      });
+    const response = await client.proxy({
       connectionId: snapshot.nangoConnectionId,
-      providerConfigKey: snapshot.providerConfigKey,
-      model:
-        snapshot.provider === "fireflies" ? "Transcript" : "CallTranscript",
-      ...(snapshot.cursor === null ? {} : { cursor: snapshot.cursor }),
-      limit: 100,
-    }),
+      endpoint:
+        snapshot.provider === "fathom"
+          ? fathomMeetingsEndpoint(snapshot.cursor)
+          : granolaNotesEndpoint(snapshot.cursor),
+      method: "GET",
+    });
+    assertProxySuccess(response);
+    try {
+      return snapshot.provider === "fathom"
+        ? decodeFathomMeetingPage(response.data)
+        : decodeGranolaNotePage(response.data);
+    } catch (error) {
+      if (
+        error instanceof FathomDecodeError ||
+        error instanceof GranolaDecodeError
+      )
+        throw new TranscriptDecodeFailure();
+      throw error;
+    }
+  },
   normalize: async (snapshot, record) => {
     const client = clientFor(snapshot.providerConfigKey);
     try {
@@ -144,6 +180,41 @@ export const createNangoTranscriptSyncProvider = (
           transcript,
         });
       }
+      if (snapshot.provider === "fathom") {
+        const meeting = object(record);
+        const recordingId = meeting?.recording_id;
+        const id =
+          typeof recordingId === "number" || typeof recordingId === "string"
+            ? String(recordingId)
+            : "";
+        if (!id) throw new TranscriptDecodeFailure();
+        const response = await client.proxy({
+          connectionId: snapshot.nangoConnectionId,
+          endpoint: `/external/v1/recordings/${encodeURIComponent(id)}/transcript`,
+          method: "GET",
+        });
+        assertProxySuccess(response);
+        return normalizeFathomCall({
+          connectionKey: snapshot.connectionKey,
+          meeting,
+          transcript: response.data,
+        });
+      }
+      if (snapshot.provider === "granola") {
+        const summary = object(record);
+        const noteId = typeof summary?.id === "string" ? summary.id : "";
+        if (!noteId) throw new TranscriptDecodeFailure();
+        const response = await client.proxy({
+          connectionId: snapshot.nangoConnectionId,
+          endpoint: `/v1/notes/${encodeURIComponent(noteId)}?include=transcript`,
+          method: "GET",
+        });
+        assertProxySuccess(response);
+        return normalizeGranolaNote({
+          connectionKey: snapshot.connectionKey,
+          note: response.data,
+        });
+      }
       throw new TranscriptDecodeFailure();
     } catch (error) {
       if (
@@ -153,7 +224,9 @@ export const createNangoTranscriptSyncProvider = (
         throw error;
       if (
         error instanceof FirefliesDecodeError ||
-        error instanceof GongDecodeError
+        error instanceof GongDecodeError ||
+        error instanceof FathomDecodeError ||
+        error instanceof GranolaDecodeError
       )
         throw new TranscriptDecodeFailure();
       throw error;
