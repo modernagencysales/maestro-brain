@@ -98,9 +98,7 @@ function checkWorkspaceMemberGuards(
       .map((query) => query.split(";")[0] ?? query)
       .filter((query) => query.includes(".index("));
     const hasUnguardedQuery = membershipQueries.some(
-      (query) =>
-        !query.includes('q.eq("workspaceId"') &&
-        !query.includes("q.eq('workspaceId'"),
+      (query) => !/\bq\s*\.\s*eq\(\s*["']workspaceId["']/.test(query),
     );
 
     if (hasUnguardedQuery) {
