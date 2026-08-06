@@ -20,6 +20,10 @@ import {
   ConnectionsScreen,
   type ConnectionsScreenState,
 } from "./connections-screen";
+import type {
+  TranscriptImportRequest,
+  TranscriptImportState,
+} from "./transcript-import";
 import { startNangoConnect } from "./nango-connect-button";
 import { useWorkspace } from "../../providers/workspace";
 import {
@@ -32,6 +36,8 @@ const transcriptConnectionRefs =
   templateConfectRefs.public.integrations.transcriptConnections;
 const transcriptSyncRefs =
   templateConfectRefs.public.integrations.transcriptSync;
+const importTranscriptRef =
+  templateConfectRefs.public.capabilities.importTranscript.importTranscript;
 type RoutingQueueData = Ref.Returns<typeof callReviewRefs.listCallRoutingQueue>;
 type ConnectionHealthData = Ref.Returns<
   typeof transcriptSyncRefs.listTranscriptConnectionHealth
@@ -49,6 +55,9 @@ export function ConnectionsRouteAdapter() {
   const workspace = useWorkspace();
   const [mutationState, setMutationState] =
     useState<CallRoutingMutationState>();
+  const [importState, setImportState] = useState<TranscriptImportState>({
+    status: "idle",
+  });
   const canReview =
     workspace.status === "ready" &&
     (workspace.activeWorkspace.role === "admin" ||
@@ -66,6 +75,7 @@ export function ConnectionsRouteAdapter() {
     { isEmpty: (data) => data.items.length === 0 },
   ) as TemplateDataState<RoutingQueueData, unknown>;
   const reviewRoute = useTemplateMutation(callReviewRefs.reviewCallRoute);
+  const importTranscript = useTemplateMutation(importTranscriptRef);
   const beginTranscriptConnect = useTemplateAction(
     transcriptConnectionRefs.beginTranscriptConnect,
   );
@@ -144,6 +154,21 @@ export function ConnectionsRouteAdapter() {
     });
   };
 
+  const importFile = async (input: TranscriptImportRequest) => {
+    if (brainKey === null) return;
+    setImportState({ status: "importing" });
+    try {
+      const result = await importTranscript({ brainKey, ...input });
+      if (Either.isEither(result) && Either.isLeft(result)) {
+        setImportState({ status: "typed_failure" });
+        return;
+      }
+      setImportState({ status: "success" });
+    } catch {
+      setImportState({ status: "transport_failure" });
+    }
+  };
+
   return (
     <BusinessAppShell activePath="/connections">
       <BusinessPageRoot>
@@ -157,6 +182,18 @@ export function ConnectionsRouteAdapter() {
           state={toConnectionsState(health, canReview)}
           onConnect={connect}
           onRoutingReview={review}
+          onTranscriptImport={importFile}
+          transcriptImportState={importState}
+          transcriptTargets={
+            workspace.status === "ready"
+              ? workspace.workspaces
+                  .filter(({ kind }) => kind === "client")
+                  .map(({ workspaceId, name }) => ({
+                    brainKey: workspaceId,
+                    name,
+                  }))
+              : []
+          }
         />
       </BusinessPageRoot>
     </BusinessAppShell>

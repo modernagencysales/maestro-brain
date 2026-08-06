@@ -18,6 +18,11 @@ import {
   type CallRoutingQueueState,
   type CallRoutingReview,
 } from "./call-routing-queue";
+import {
+  TranscriptImport,
+  type TranscriptImportRequest,
+  type TranscriptImportState,
+} from "./transcript-import";
 
 export type ConnectionsScreenState =
   | { readonly status: "loading" }
@@ -49,17 +54,28 @@ export type ConnectionRow = {
 export function ConnectionsScreen({
   onRoutingReview,
   onConnect,
+  onTranscriptImport,
   role = "viewer",
   routingQueue,
   state,
+  transcriptImportState = { status: "idle" },
+  transcriptTargets = [],
 }: {
   readonly onRoutingReview?: (
     review: CallRoutingReview,
   ) => void | Promise<void>;
   readonly onConnect?: (providerKey: string) => void | Promise<void>;
+  readonly onTranscriptImport?: (
+    input: TranscriptImportRequest,
+  ) => void | Promise<void>;
   readonly role?: "viewer" | "editor" | "admin" | "owner";
   readonly routingQueue?: CallRoutingQueueState;
   readonly state: ConnectionsScreenState;
+  readonly transcriptImportState?: TranscriptImportState;
+  readonly transcriptTargets?: readonly {
+    readonly brainKey: string;
+    readonly name: string;
+  }[];
 }) {
   return (
     <>
@@ -73,6 +89,12 @@ export function ConnectionsScreen({
             state={state}
             canManage={role === "admin" || role === "owner"}
             {...(onConnect ? { onConnect } : {})}
+          />
+          <TranscriptImport
+            role={role}
+            state={transcriptImportState}
+            targets={transcriptTargets}
+            onImport={(input) => onTranscriptImport?.(input)}
           />
           {routingQueue ? (
             <CallRoutingQueue

@@ -17,7 +17,8 @@
     "./transcripts/fireflies": "./src/transcripts/fireflies.ts",
     "./transcripts/gong": "./src/transcripts/gong.ts",
     "./transcripts/fathom": "./src/transcripts/fathom.ts",
-    "./transcripts/granola": "./src/transcripts/granola.ts"
+    "./transcripts/granola": "./src/transcripts/granola.ts",
+    "./transcripts/import": "./src/transcripts/import.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --outDir dist --declaration",

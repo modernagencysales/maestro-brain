@@ -8,10 +8,19 @@ import { ConnectionsRouteAdapter } from "./connections-route-adapter";
 const mocks = vi.hoisted(() => ({
   queryCall: 0,
   actionCall: 0,
+  mutationCall: 0,
   queryArgs: null as unknown,
   screenProps: undefined as
     ComponentProps<typeof ConnectionsScreen> | undefined,
   reviewRoute: vi.fn().mockResolvedValue({ status: "success" }),
+  importTranscript: vi.fn().mockResolvedValue({
+    outcome: "inserted",
+    unitKey: "sunit_1",
+    unitRevisionKey: "surev_1",
+    segmentCount: 1,
+    routeOutcome: "routed",
+    brainKey: "brain_acme",
+  }),
   beginConnect: vi.fn().mockResolvedValue({
     connectSessionId: "session-gong",
     connectSessionToken: "fixture",
@@ -60,7 +69,12 @@ vi.mock("../../providers/workspace", () => ({
 }));
 
 vi.mock("../../adapters/confect-state", () => ({
-  useTemplateMutation: () => mocks.reviewRoute,
+  useTemplateMutation: () => {
+    mocks.mutationCall += 1;
+    return mocks.mutationCall === 1
+      ? mocks.reviewRoute
+      : mocks.importTranscript;
+  },
   useTemplateAction: () => {
     mocks.actionCall += 1;
     return mocks.actionCall === 1 ? mocks.beginConnect : mocks.completeConnect;
@@ -155,9 +169,11 @@ describe("ConnectionsRouteAdapter", () => {
   beforeEach(() => {
     mocks.queryCall = 0;
     mocks.actionCall = 0;
+    mocks.mutationCall = 0;
     mocks.queryArgs = null;
     mocks.screenProps = undefined;
     mocks.reviewRoute.mockClear();
+    mocks.importTranscript.mockClear();
     mocks.beginConnect.mockClear();
     mocks.completeConnect.mockClear();
   });
@@ -226,6 +242,30 @@ describe("ConnectionsRouteAdapter", () => {
       provider: "gong",
       connectSessionId: "session-gong",
       connectionId: "nango-gong-connection",
+    });
+  });
+
+  it("imports a file through the active Brain and exposes client targets", async () => {
+    renderToStaticMarkup(<ConnectionsRouteAdapter />);
+    expect(mocks.screenProps?.transcriptTargets).toEqual([
+      { brainKey: "brain_acme", name: "Acme" },
+    ]);
+    await mocks.screenProps?.onTranscriptImport?.({
+      format: "txt",
+      content: "A customer quote.",
+      title: "Customer call",
+      occurredAt: "2026-08-05T14:00:00.000Z",
+      participantEmails: ["buyer@example.com"],
+      targetBrainKey: "brain_acme",
+    });
+    expect(mocks.importTranscript).toHaveBeenCalledWith({
+      brainKey: "brain_agency",
+      format: "txt",
+      content: "A customer quote.",
+      title: "Customer call",
+      occurredAt: "2026-08-05T14:00:00.000Z",
+      participantEmails: ["buyer@example.com"],
+      targetBrainKey: "brain_acme",
     });
   });
 });
