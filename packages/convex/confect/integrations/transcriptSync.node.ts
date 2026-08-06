@@ -65,6 +65,15 @@ const object = (value: unknown): Record<string, unknown> | null =>
   typeof value === "object" && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
+const nangoDeleted = (record: Record<string, unknown>): boolean => {
+  const metadata = object(record._nango_metadata);
+  return (
+    record.deleted === true ||
+    (typeof metadata?.deleted_at === "string" &&
+      metadata.deleted_at.trim().length > 0) ||
+    metadata?.last_action === "DELETED"
+  );
+};
 const retryAfterMs = (value: string | undefined, now = Date.now()): number => {
   if (!value) return 60_000;
   const seconds = Number(value);
@@ -126,6 +135,12 @@ export const createNangoTranscriptSyncProvider = (
     try {
       if (snapshot.provider === "fireflies") {
         const transcript = object(record);
+        if (transcript && nangoDeleted(transcript))
+          return normalizeFirefliesCall({
+            connectionKey: snapshot.connectionKey,
+            transcript,
+            sentences: [],
+          });
         const transcriptId =
           typeof transcript?.id === "string" ? transcript.id : "";
         if (!transcriptId) throw new TranscriptDecodeFailure();
@@ -182,6 +197,12 @@ export const createNangoTranscriptSyncProvider = (
       }
       if (snapshot.provider === "fathom") {
         const meeting = object(record);
+        if (meeting && nangoDeleted(meeting))
+          return normalizeFathomCall({
+            connectionKey: snapshot.connectionKey,
+            meeting,
+            transcript: {},
+          });
         const recordingId = meeting?.recording_id;
         const id =
           typeof recordingId === "number" || typeof recordingId === "string"
@@ -202,6 +223,11 @@ export const createNangoTranscriptSyncProvider = (
       }
       if (snapshot.provider === "granola") {
         const summary = object(record);
+        if (summary && nangoDeleted(summary))
+          return normalizeGranolaNote({
+            connectionKey: snapshot.connectionKey,
+            note: summary,
+          });
         const noteId = typeof summary?.id === "string" ? summary.id : "";
         if (!noteId) throw new TranscriptDecodeFailure();
         const response = await client.proxy({

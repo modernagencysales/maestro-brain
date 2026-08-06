@@ -841,4 +841,64 @@ describe("Nango transcript provider", () => {
       expect.objectContaining({ evidenceKind: "provider_notes" }),
     ]);
   });
+
+  it.each([
+    [
+      "fireflies" as const,
+      {
+        id: "ff-deleted",
+        title: "Deleted Fireflies call",
+        date: "2026-08-05T14:00:00Z",
+        _nango_metadata: { deleted_at: "2026-08-06T00:00:00Z" },
+      },
+      "fireflies",
+    ],
+    [
+      "fathom" as const,
+      {
+        recording_id: 123,
+        title: "Deleted Fathom call",
+        recording_start_time: "2026-08-05T14:00:00Z",
+        _nango_metadata: { last_action: "DELETED" },
+      },
+      "fathom-oauth",
+    ],
+    [
+      "granola" as const,
+      {
+        id: "not_1d3tmYTlCICgjy",
+        title: "Deleted Granola note",
+        created_at: "2026-08-05T14:00:00Z",
+        _nango_metadata: { deleted_at: "2026-08-06T00:00:00Z" },
+      },
+      "granola",
+    ],
+  ])(
+    "normalizes deleted %s records without fetching missing detail",
+    async (providerKey, record, providerConfigKey) => {
+      const proxy = vi.fn();
+      const provider = createNangoTranscriptSyncProvider(
+        () => ({ proxy }) as never,
+      );
+      const snapshot = {
+        organizationKey: "agency_acme",
+        connectionKey: `${providerKey}_agency_acme`,
+        connectionGeneration: 1,
+        provider: providerKey,
+        providerConfigKey,
+        nangoConnectionId: "nango-deleted",
+        cursor: null,
+        leaseId: "lease-deleted",
+      };
+
+      await expect(provider.normalize(snapshot, record)).resolves.toMatchObject(
+        {
+          providerKey,
+          deleted: true,
+          segments: [],
+        },
+      );
+      expect(proxy).not.toHaveBeenCalled();
+    },
+  );
 });
