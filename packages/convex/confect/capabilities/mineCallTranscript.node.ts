@@ -1,6 +1,7 @@
 "use node";
 
 import {
+  MalformedModelOutput,
   ModelPolicyDenied,
   ModelTimeout,
   ProviderRateLimited,
@@ -190,7 +191,11 @@ export const createOpenRouterStructuredTransport = (
             provider: "openrouter",
             timeoutMs: 60_000,
           });
-        return error;
+        return new MalformedModelOutput({
+          reason: "OpenRouter failed before returning structured output.",
+          provider: "openrouter",
+          model: input.model,
+        });
       },
     });
 };
