@@ -75,8 +75,9 @@ const parseCues = (
   const segments = blocks.flatMap((block, ordinal) => {
     const lines = block.split("\n");
     const timingIndex = lines.findIndex((line) => line.includes("-->"));
-    if (timingIndex < 0) throw new TranscriptImportError("invalid_cue");
-    const [startValue, endValueWithSettings] = lines[timingIndex]!.split("-->");
+    const timing = lines[timingIndex];
+    if (!timing) throw new TranscriptImportError("invalid_cue");
+    const [startValue, endValueWithSettings] = timing.split("-->");
     const startMs = timestampMs(startValue?.trim() ?? "");
     const endMs = timestampMs(
       endValueWithSettings?.trim().split(/\s+/)[0] ?? "",
