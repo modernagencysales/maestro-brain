@@ -22,6 +22,7 @@ import citations from "./tables/citations";
 import claims from "./tables/claims";
 import classificationDecisions from "./tables/classificationDecisions";
 import concepts from "./tables/concepts";
+import connectorSyncStates from "./tables/connectorSyncStates";
 import contextPacks from "./tables/contextPacks";
 import creditLedger from "./tables/creditLedger";
 import documentAnnotations from "./tables/documentAnnotations";
@@ -94,6 +95,7 @@ export default $defineSchema({
   claims: claims.tableDefinition,
   classificationDecisions: classificationDecisions.tableDefinition,
   concepts: concepts.tableDefinition,
+  connectorSyncStates: connectorSyncStates.tableDefinition,
   contextPacks: contextPacks.tableDefinition,
   creditLedger: creditLedger.tableDefinition,
   documentAnnotations: documentAnnotations.tableDefinition,

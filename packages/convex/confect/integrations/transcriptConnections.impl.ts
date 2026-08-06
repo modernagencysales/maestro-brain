@@ -37,7 +37,7 @@ import {
 
 type TranscriptProvider = keyof typeof transcriptProviders;
 
-const currentAdminOrganizationKey = Effect.gen(function* () {
+export const currentAdminOrganizationKey = Effect.gen(function* () {
   const identity = yield* (yield* Auth).getUserIdentity.pipe(
     Effect.mapError(() => new Unauthorized()),
     Effect.flatMap(extractSlackIdentityProfile),

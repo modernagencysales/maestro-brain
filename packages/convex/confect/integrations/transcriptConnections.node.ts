@@ -5,12 +5,14 @@ import {
   createLiveNangoClient,
 } from "@maestro-template/integrations/nango/client";
 import { transcriptProviders } from "@maestro-template/integrations/transcripts/providers";
+import { Ref } from "@confect/core";
 import { FunctionImpl } from "@confect/server";
 import * as Clock from "effect/Clock";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 
 import databaseSchema from "../_generated/schema";
-import { MutationRunner } from "../_generated/services";
+import { MutationRunner, Scheduler } from "../_generated/services";
 import { readProcessEnv } from "../shared/env";
 import {
   runTranscriptMutation,
@@ -20,6 +22,7 @@ import transcriptConnections, {
   ConnectSessionInvalid,
   ProviderUnavailable,
 } from "./transcriptConnections.spec";
+import { syncTranscriptPage as syncTranscriptPageSpec } from "./transcriptSync.spec";
 
 const nangoClient = (now: number, providerConfigKey: string) => {
   const env = readProcessEnv();
@@ -29,6 +32,10 @@ const nangoClient = (now: number, providerConfigKey: string) => {
   if (!secretKey) throw new ProviderUnavailable();
   return createLiveNangoClient({ secretKey, providerConfigKey });
 };
+const syncTranscriptPageRef = Ref.make(
+  "integrations/transcriptSyncWorker",
+  syncTranscriptPageSpec,
+);
 
 export const beginTranscriptConnect = FunctionImpl.make(
   databaseSchema,
@@ -106,7 +113,7 @@ export const completeTranscriptConnect = FunctionImpl.make(
           }),
         catch: () => new ProviderUnavailable(),
       });
-      return yield* runTranscriptMutation(
+      const result = yield* runTranscriptMutation(
         runMutation,
         transcriptConnectionRefs.finalize,
         {
@@ -119,5 +126,10 @@ export const completeTranscriptConnect = FunctionImpl.make(
           now: yield* Clock.currentTimeMillis,
         },
       );
+      yield* (yield* Scheduler).runAfter(Duration.zero, syncTranscriptPageRef, {
+        connectionKey: result.connectionKey,
+        expectedGeneration: result.connectionGeneration,
+      });
+      return result;
     }),
 );

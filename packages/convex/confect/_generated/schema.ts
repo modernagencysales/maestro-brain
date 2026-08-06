@@ -22,6 +22,7 @@ import citations from "./tables/citations";
 import claims from "./tables/claims";
 import classificationDecisions from "./tables/classificationDecisions";
 import concepts from "./tables/concepts";
+import connectorSyncStates from "./tables/connectorSyncStates";
 import contextPacks from "./tables/contextPacks";
 import creditLedger from "./tables/creditLedger";
 import documentAnnotations from "./tables/documentAnnotations";
@@ -94,6 +95,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof claims |
   typeof classificationDecisions |
   typeof concepts |
+  typeof connectorSyncStates |
   typeof contextPacks |
   typeof creditLedger |
   typeof documentAnnotations |
@@ -165,6 +167,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   claims,
   classificationDecisions,
   concepts,
+  connectorSyncStates,
   contextPacks,
   creditLedger,
   documentAnnotations,

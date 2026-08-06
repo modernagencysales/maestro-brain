@@ -6,10 +6,22 @@ import type { ConnectionsScreen } from "./connections-screen";
 import { ConnectionsRouteAdapter } from "./connections-route-adapter";
 
 const mocks = vi.hoisted(() => ({
+  queryCall: 0,
+  actionCall: 0,
   queryArgs: null as unknown,
   screenProps: undefined as
     ComponentProps<typeof ConnectionsScreen> | undefined,
   reviewRoute: vi.fn().mockResolvedValue({ status: "success" }),
+  beginConnect: vi.fn().mockResolvedValue({
+    connectSessionId: "session-gong",
+    connectSessionToken: "fixture",
+    expiresAt: Date.now() + 60_000,
+  }),
+  completeConnect: vi.fn().mockResolvedValue({
+    connectionKey: "gong_agency_acme",
+    status: "verifying",
+    connectionGeneration: 0,
+  }),
 }));
 
 vi.mock("../../providers/workspace", () => ({
@@ -49,6 +61,10 @@ vi.mock("../../providers/workspace", () => ({
 
 vi.mock("../../adapters/confect-state", () => ({
   useTemplateMutation: () => mocks.reviewRoute,
+  useTemplateAction: () => {
+    mocks.actionCall += 1;
+    return mocks.actionCall === 1 ? mocks.beginConnect : mocks.completeConnect;
+  },
   useTemplateQuery: (
     _ref: unknown,
     args: unknown,
@@ -56,7 +72,29 @@ vi.mock("../../adapters/confect-state", () => ({
       readonly isEmpty: (data: { items: readonly unknown[] }) => boolean;
     },
   ) => {
+    mocks.queryCall += 1;
     mocks.queryArgs = args;
+    if (mocks.queryCall === 1) {
+      options.isEmpty([] as never);
+      return {
+        status: "ready",
+        data: [
+          {
+            provider: "fireflies",
+            connectionKey: "fireflies_agency_acme",
+            state: "ready",
+            lastSuccessAt: 1_782_924_800_000,
+            cursorPresent: true,
+            callsDiscovered: 12,
+            callsIngested: 12,
+            callsRouted: 8,
+            callsAwaitingRouting: 4,
+            backfillComplete: true,
+            lastErrorTag: null,
+          },
+        ],
+      };
+    }
     options.isEmpty({ items: [] });
     return {
       status: "ready",
@@ -82,6 +120,19 @@ vi.mock("../../adapters/confect-state", () => ({
   },
 }));
 
+vi.mock("@maestro-template/integrations/nango/connectBrowser", () => ({
+  openNangoConnect: ({
+    connectSessionToken,
+    open,
+  }: {
+    readonly connectSessionToken: string;
+    readonly open: (input: { readonly token: string }) => Promise<unknown>;
+  }) => open({ token: connectSessionToken }),
+  openNangoConnectWithSdk: vi.fn().mockResolvedValue({
+    connectionId: "nango-gong-connection",
+  }),
+}));
+
 vi.mock("../brain/brain-surface", () => ({
   unwrapBrainMutation: (value: unknown) => value,
 }));
@@ -102,9 +153,13 @@ vi.mock("../../saas-ui/business-shell", () => ({
 
 describe("ConnectionsRouteAdapter", () => {
   beforeEach(() => {
+    mocks.queryCall = 0;
+    mocks.actionCall = 0;
     mocks.queryArgs = null;
     mocks.screenProps = undefined;
     mocks.reviewRoute.mockClear();
+    mocks.beginConnect.mockClear();
+    mocks.completeConnect.mockClear();
   });
 
   it("projects organization clients and submits the exact routing review", async () => {
@@ -147,5 +202,30 @@ describe("ConnectionsRouteAdapter", () => {
         attemptKey: expect.stringMatching(/^route-review\./),
       }),
     );
+  });
+
+  it("projects the four-provider catalog and starts provider-specific connect", async () => {
+    renderToStaticMarkup(<ConnectionsRouteAdapter />);
+    expect(mocks.screenProps?.state).toMatchObject({
+      status: "ready",
+      connections: expect.arrayContaining([
+        expect.objectContaining({
+          key: "fireflies",
+          status: "ready",
+          callsDiscovered: 12,
+        }),
+        expect.objectContaining({ key: "gong", status: "disconnected" }),
+        expect.objectContaining({ key: "fathom", status: "disconnected" }),
+        expect.objectContaining({ key: "granola", status: "disconnected" }),
+      ]),
+    });
+
+    await mocks.screenProps?.onConnect?.("gong");
+    expect(mocks.beginConnect).toHaveBeenCalledWith({ provider: "gong" });
+    expect(mocks.completeConnect).toHaveBeenCalledWith({
+      provider: "gong",
+      connectSessionId: "session-gong",
+      connectionId: "nango-gong-connection",
+    });
   });
 });

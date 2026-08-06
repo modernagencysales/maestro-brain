@@ -107,7 +107,11 @@ export type NangoClient = {
     readonly endpoint: string;
     readonly method: "GET" | "POST";
     readonly data?: unknown;
-  }) => Promise<{ readonly status: number; readonly data?: unknown }>;
+  }) => Promise<{
+    readonly status: number;
+    readonly data?: unknown;
+    readonly headers?: Readonly<Record<string, string>>;
+  }>;
   readonly listRecords: (
     input: NangoListRecordsInput,
   ) => Promise<NangoRecordPage>;
@@ -295,11 +299,29 @@ export const createLiveNangoClient = (input: {
       });
       const record =
         typeof response === "object" && response !== null
-          ? (response as { readonly status?: unknown; readonly data?: unknown })
+          ? (response as {
+              readonly status?: unknown;
+              readonly data?: unknown;
+              readonly headers?: unknown;
+            })
           : {};
+      const headers =
+        typeof record.headers === "object" && record.headers !== null
+          ? Object.fromEntries(
+              Object.entries(record.headers as Record<string, unknown>).flatMap(
+                ([key, value]) =>
+                  typeof value === "string"
+                    ? [[key.toLowerCase(), value] as const]
+                    : [],
+              ),
+            )
+          : undefined;
       return {
         status: typeof record.status === "number" ? record.status : 200,
         ...(record.data === undefined ? {} : { data: record.data }),
+        ...(headers === undefined || Object.keys(headers).length === 0
+          ? {}
+          : { headers }),
       };
     },
     listRecords: async (request) => {

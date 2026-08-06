@@ -1,9 +1,12 @@
 import { templateConfectRefs } from "@maestro-template/convex/refs";
+import { openNangoConnectWithSdk } from "@maestro-template/integrations/nango/connectBrowser";
 import type { Ref } from "@confect/core";
+import * as Either from "effect/Either";
 import { useState } from "react";
 
 import {
   useTemplateMutation,
+  useTemplateAction,
   useTemplateQuery,
   type TemplateDataState,
 } from "../../adapters/confect-state";
@@ -13,7 +16,11 @@ import {
   type CallRoutingQueueState,
   type CallRoutingReview,
 } from "./call-routing-queue";
-import { ConnectionsScreen } from "./connections-screen";
+import {
+  ConnectionsScreen,
+  type ConnectionsScreenState,
+} from "./connections-screen";
+import { startNangoConnect } from "./nango-connect-button";
 import { useWorkspace } from "../../providers/workspace";
 import {
   BusinessAppShell,
@@ -21,7 +28,22 @@ import {
 } from "../../saas-ui/business-shell";
 
 const callReviewRefs = templateConfectRefs.public.brain.callReview;
+const transcriptConnectionRefs =
+  templateConfectRefs.public.integrations.transcriptConnections;
+const transcriptSyncRefs =
+  templateConfectRefs.public.integrations.transcriptSync;
 type RoutingQueueData = Ref.Returns<typeof callReviewRefs.listCallRoutingQueue>;
+type ConnectionHealthData = Ref.Returns<
+  typeof transcriptSyncRefs.listTranscriptConnectionHealth
+>;
+type TranscriptProvider = "fireflies" | "gong" | "fathom" | "granola";
+
+const transcriptCatalog = [
+  { key: "fireflies", name: "Fireflies" },
+  { key: "gong", name: "Gong" },
+  { key: "fathom", name: "Fathom" },
+  { key: "granola", name: "Granola" },
+] as const;
 
 export function ConnectionsRouteAdapter() {
   const workspace = useWorkspace();
@@ -33,12 +55,23 @@ export function ConnectionsRouteAdapter() {
       workspace.activeWorkspace.role === "owner");
   const brainKey =
     workspace.status === "ready" ? workspace.activeWorkspace.workspaceId : null;
+  const health = useTemplateQuery(
+    transcriptSyncRefs.listTranscriptConnectionHealth,
+    canReview ? {} : "skip",
+    { isEmpty: () => false },
+  ) as TemplateDataState<ConnectionHealthData, unknown>;
   const queue = useTemplateQuery(
     callReviewRefs.listCallRoutingQueue,
     canReview && brainKey !== null ? { brainKey } : "skip",
     { isEmpty: (data) => data.items.length === 0 },
   ) as TemplateDataState<RoutingQueueData, unknown>;
   const reviewRoute = useTemplateMutation(callReviewRefs.reviewCallRoute);
+  const beginTranscriptConnect = useTemplateAction(
+    transcriptConnectionRefs.beginTranscriptConnect,
+  );
+  const completeTranscriptConnect = useTemplateAction(
+    transcriptConnectionRefs.completeTranscriptConnect,
+  );
   const routingQueue =
     workspace.status === "ready"
       ? toRoutingQueueState(
@@ -90,6 +123,27 @@ export function ConnectionsRouteAdapter() {
     }
   };
 
+  const connect = async (provider: string) => {
+    if (!transcriptCatalog.some(({ key }) => key === provider)) return;
+    const transcriptProvider = provider as TranscriptProvider;
+    await startNangoConnect({
+      begin: async () =>
+        unwrapActionResult(
+          await beginTranscriptConnect({ provider: transcriptProvider }),
+        ),
+      open: ({ token }) =>
+        openNangoConnectWithSdk({ connectSessionToken: token }),
+      complete: async ({ connectionId, connectSessionId }) =>
+        unwrapActionResult(
+          await completeTranscriptConnect({
+            provider: transcriptProvider,
+            connectionId,
+            connectSessionId,
+          }),
+        ),
+    });
+  };
+
   return (
     <BusinessAppShell activePath="/connections">
       <BusinessPageRoot>
@@ -100,13 +154,58 @@ export function ConnectionsRouteAdapter() {
               : "viewer"
           }
           routingQueue={routingQueue}
-          state={{ status: "empty" }}
+          state={toConnectionsState(health, canReview)}
+          onConnect={connect}
           onRoutingReview={review}
         />
       </BusinessPageRoot>
     </BusinessAppShell>
   );
 }
+
+const toConnectionsState = (
+  health: TemplateDataState<ConnectionHealthData, unknown>,
+  canReview: boolean,
+): ConnectionsScreenState => {
+  if (!canReview) return catalogState([]);
+  if (health.status === "loading" || health.status === "skipped")
+    return { status: "loading" };
+  if (health.status === "typed_failure") return { status: "typed_failure" };
+  if (
+    health.status === "parse_failure" ||
+    health.status === "transport_failure" ||
+    health.status === "defect"
+  )
+    return { status: "transport_failure" };
+  return catalogState(health.data);
+};
+
+const unwrapActionResult = <A, E>(result: A | Either.Either<A, E>): A => {
+  if (!Either.isEither(result)) return result;
+  if (Either.isLeft(result)) throw result.left;
+  return result.right;
+};
+
+const catalogState = (
+  health: ConnectionHealthData,
+): ConnectionsScreenState => ({
+  status: "ready",
+  connections: transcriptCatalog.map((provider) => {
+    const connected = health.find((item) => item.provider === provider.key);
+    return {
+      key: provider.key,
+      provider: provider.name,
+      status: connected?.state ?? "disconnected",
+      lastSync:
+        connected?.lastSuccessAt == null
+          ? null
+          : new Date(connected.lastSuccessAt).toLocaleString(),
+      callsDiscovered: connected?.callsDiscovered ?? 0,
+      callsRouted: connected?.callsRouted ?? 0,
+      callsAwaitingRouting: connected?.callsAwaitingRouting ?? 0,
+    };
+  }),
+});
 
 const toRoutingQueueState = (
   state: TemplateDataState<RoutingQueueData, unknown>,

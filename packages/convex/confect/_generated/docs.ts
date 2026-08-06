@@ -23,6 +23,7 @@ export type CitationsDoc = Document.Document<typeof schemaDefinition, "citations
 export type ClaimsDoc = Document.Document<typeof schemaDefinition, "claims">;
 export type ClassificationDecisionsDoc = Document.Document<typeof schemaDefinition, "classificationDecisions">;
 export type ConceptsDoc = Document.Document<typeof schemaDefinition, "concepts">;
+export type ConnectorSyncStatesDoc = Document.Document<typeof schemaDefinition, "connectorSyncStates">;
 export type ContextPacksDoc = Document.Document<typeof schemaDefinition, "contextPacks">;
 export type CreditLedgerDoc = Document.Document<typeof schemaDefinition, "creditLedger">;
 export type DocumentAnnotationsDoc = Document.Document<typeof schemaDefinition, "documentAnnotations">;
@@ -95,6 +96,7 @@ export interface Docs {
   claims: ClaimsDoc;
   classificationDecisions: ClassificationDecisionsDoc;
   concepts: ConceptsDoc;
+  connectorSyncStates: ConnectorSyncStatesDoc;
   contextPacks: ContextPacksDoc;
   creditLedger: CreditLedgerDoc;
   documentAnnotations: DocumentAnnotationsDoc;

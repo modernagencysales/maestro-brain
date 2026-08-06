@@ -212,6 +212,32 @@ describe("Nango provider client boundary", () => {
     expect(JSON.stringify(error)).not.toContain(`s${"k"}_${"live"}_secret`);
   });
 
+  it("forwards redacted proxy status and Retry-After headers", async () => {
+    const client = createLiveNangoClient({
+      secretKey: `s${"k"}_${"live"}_secret`,
+      providerConfigKey: "gong-oauth",
+      nango: {
+        createConnectSession: async () => ({ data: {} }),
+        getConnection: async () => ({}),
+        proxy: async () => ({
+          status: 429,
+          headers: { "Retry-After": "45", authorization: 123 },
+        }),
+      },
+    });
+
+    await expect(
+      client.proxy({
+        connectionId: "gong-connection",
+        endpoint: "/v2/calls/extensive",
+        method: "POST",
+      }),
+    ).resolves.toEqual({
+      status: 429,
+      headers: { "retry-after": "45" },
+    });
+  });
+
   it("selects fake/test or live provider layers from validated mode", async () => {
     await expect(
       Effect.runPromise(

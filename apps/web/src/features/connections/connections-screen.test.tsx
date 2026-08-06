@@ -36,18 +36,48 @@ describe("ConnectionsScreen", () => {
       status: "ready",
       connections: [
         {
-          key: "slack",
-          provider: "Slack",
-          status: "Ready",
-          scope: "Agency workspace",
+          key: "fireflies",
+          provider: "Fireflies",
+          status: "ready",
           lastSync: "5 minutes ago",
+          callsDiscovered: 12,
+          callsRouted: 8,
+          callsAwaitingRouting: 4,
         },
       ],
     });
 
     expect(html).toContain("Connections");
-    expect(html).toContain("Slack");
-    expect(html).toContain("Agency workspace");
+    expect(html).toContain("Fireflies");
+    expect(html).toContain("12 discovered");
+    expect(html).toContain("8 routed");
+    expect(html).toContain("4 awaiting routing");
+  });
+
+  it("renders every transcript connection lifecycle state", () => {
+    const statuses = [
+      "disconnected",
+      "authorizing",
+      "syncing",
+      "ready",
+      "error",
+      "reauthorizing",
+      "revoked",
+    ] as const;
+    const html = render({
+      status: "ready",
+      connections: statuses.map((status) => ({
+        key: status,
+        provider: status,
+        status,
+        lastSync: null,
+        callsDiscovered: 0,
+        callsRouted: 0,
+        callsAwaitingRouting: 0,
+      })),
+    });
+
+    for (const status of statuses) expect(html).toContain(status);
   });
 
   it("renders the live call routing adapter below connection status", () => {

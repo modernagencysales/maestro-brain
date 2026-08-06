@@ -60,6 +60,22 @@ describe("NangoConnectButton", () => {
     expect(reauthorizing).toContain("disabled");
   });
 
+  it("labels transcript providers without a provider-specific button", () => {
+    const html = renderToStaticMarkup(
+      <MaestroSaasUiProvider>
+        <NangoConnectButton
+          enabled={true}
+          onConnect={vi.fn()}
+          providerName="Gong"
+          status="not_connected"
+        />
+      </MaestroSaasUiProvider>,
+    );
+
+    expect(html).toContain("Connect Gong");
+    expect(html).not.toContain("Slack");
+  });
+
   it("wires enabled clicks to the connect flow only once", async () => {
     const onConnect = vi.fn();
     const active = NangoConnectButton({

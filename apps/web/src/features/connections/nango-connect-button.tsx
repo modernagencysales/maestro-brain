@@ -49,10 +49,12 @@ export const startNangoConnect = async (input: {
 
 export function NangoConnectButton({
   enabled,
+  providerName = "Slack",
   status,
   onConnect,
 }: {
   readonly enabled: boolean;
+  readonly providerName?: string;
   readonly status: SlackConnectStatus;
   readonly onConnect: () => void | Promise<void>;
 }) {
@@ -63,12 +65,12 @@ export function NangoConnectButton({
     status === "reauthorizing";
   const label =
     status === "active"
-      ? "Reauthorize Slack"
+      ? `Reauthorize ${providerName}`
       : status === "verifying"
-        ? "Verifying Slack"
+        ? `Verifying ${providerName}`
         : status === "reauthorizing"
-          ? "Reauthorizing Slack"
-          : "Connect Slack";
+          ? `Reauthorizing ${providerName}`
+          : `Connect ${providerName}`;
   return (
     <Button
       disabled={disabled}
