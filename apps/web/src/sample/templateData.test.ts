@@ -47,6 +47,7 @@ describe("template sample data", () => {
         "LifecycleRevoked",
         "PageNotFound",
         "ValidationFailed",
+        "SubsystemDisabled",
       ],
       authScope: "workspace member",
     });
