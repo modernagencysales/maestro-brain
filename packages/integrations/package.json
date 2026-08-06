@@ -8,7 +8,8 @@
     ".": "./src/index.ts",
     "./nango/client": "./src/nango/client.ts",
     "./nango/connectBrowser": "./src/nango/connectBrowser.ts",
-    "./nango/slack": "./src/nango/slack.ts"
+    "./nango/slack": "./src/nango/slack.ts",
+    "./transcripts/canonical": "./src/transcripts/canonical.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --outDir dist --declaration",

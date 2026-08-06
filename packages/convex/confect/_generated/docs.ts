@@ -49,6 +49,9 @@ export type SourceArtifactsDoc = Document.Document<typeof schemaDefinition, "sou
 export type SourceChannelsDoc = Document.Document<typeof schemaDefinition, "sourceChannels">;
 export type SourceProcessingJobsDoc = Document.Document<typeof schemaDefinition, "sourceProcessingJobs">;
 export type SourceRevisionsDoc = Document.Document<typeof schemaDefinition, "sourceRevisions">;
+export type SourceSegmentsDoc = Document.Document<typeof schemaDefinition, "sourceSegments">;
+export type SourceUnitRevisionsDoc = Document.Document<typeof schemaDefinition, "sourceUnitRevisions">;
+export type SourceUnitsDoc = Document.Document<typeof schemaDefinition, "sourceUnits">;
 export type TransformBlocksDoc = Document.Document<typeof schemaDefinition, "transformBlocks">;
 export type TransformDefinitionsDoc = Document.Document<typeof schemaDefinition, "transformDefinitions">;
 export type TransformRunsDoc = Document.Document<typeof schemaDefinition, "transformRuns">;
@@ -115,6 +118,9 @@ export interface Docs {
   sourceChannels: SourceChannelsDoc;
   sourceProcessingJobs: SourceProcessingJobsDoc;
   sourceRevisions: SourceRevisionsDoc;
+  sourceSegments: SourceSegmentsDoc;
+  sourceUnitRevisions: SourceUnitRevisionsDoc;
+  sourceUnits: SourceUnitsDoc;
   transformBlocks: TransformBlocksDoc;
   transformDefinitions: TransformDefinitionsDoc;
   transformRuns: TransformRunsDoc;

@@ -54,6 +54,19 @@ processed count, their receipt records `scanned: 0`, `failed: 1`, nullable
 component-observed processed count was returned, not an inferred scan total.
 Execute-mode component failures follow the same durable failure receipt path.
 
+## Call transcript source units
+
+- **Expand:** add `sourceUnits`, `sourceUnitRevisions`, and `sourceSegments`,
+  plus optional transcript locator fields and `call_transcript` on citations.
+- **Backfill:** none. Existing pilot notes and Slack ledger rows remain valid
+  and do not move into the new tables in this batch.
+- **Verify:** generate the Confect schema, decode existing note citations, and
+  prove deterministic call revision and segment identities in focused tests.
+- **Contract:** deferred. Slack-specific source tables remain authoritative for
+  Slack capture until a separately proven migration uses the shared seam.
+- **Rollback:** deploy readers that ignore the new tables and optional citation
+  fields. Existing rows require no rewrite or deletion.
+
 Rollback for this harness is to remove the wrapper only after proving no
 migration run or receipt rows exist. Product schema migrations must document
 their own expand/backfill/verify/contract rollback in their owning task.

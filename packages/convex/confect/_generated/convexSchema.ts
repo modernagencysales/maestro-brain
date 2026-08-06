@@ -48,6 +48,9 @@ import sourceArtifacts from "./tables/sourceArtifacts";
 import sourceChannels from "./tables/sourceChannels";
 import sourceProcessingJobs from "./tables/sourceProcessingJobs";
 import sourceRevisions from "./tables/sourceRevisions";
+import sourceSegments from "./tables/sourceSegments";
+import sourceUnitRevisions from "./tables/sourceUnitRevisions";
+import sourceUnits from "./tables/sourceUnits";
 import transformBlocks from "./tables/transformBlocks";
 import transformDefinitions from "./tables/transformDefinitions";
 import transformRuns from "./tables/transformRuns";
@@ -114,6 +117,9 @@ export default $defineSchema({
   sourceChannels: sourceChannels.tableDefinition,
   sourceProcessingJobs: sourceProcessingJobs.tableDefinition,
   sourceRevisions: sourceRevisions.tableDefinition,
+  sourceSegments: sourceSegments.tableDefinition,
+  sourceUnitRevisions: sourceUnitRevisions.tableDefinition,
+  sourceUnits: sourceUnits.tableDefinition,
   transformBlocks: transformBlocks.tableDefinition,
   transformDefinitions: transformDefinitions.tableDefinition,
   transformRuns: transformRuns.tableDefinition,

@@ -48,6 +48,9 @@ import sourceArtifacts from "./tables/sourceArtifacts";
 import sourceChannels from "./tables/sourceChannels";
 import sourceProcessingJobs from "./tables/sourceProcessingJobs";
 import sourceRevisions from "./tables/sourceRevisions";
+import sourceSegments from "./tables/sourceSegments";
+import sourceUnitRevisions from "./tables/sourceUnitRevisions";
+import sourceUnits from "./tables/sourceUnits";
 import transformBlocks from "./tables/transformBlocks";
 import transformDefinitions from "./tables/transformDefinitions";
 import transformRuns from "./tables/transformRuns";
@@ -114,6 +117,9 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof sourceChannels |
   typeof sourceProcessingJobs |
   typeof sourceRevisions |
+  typeof sourceSegments |
+  typeof sourceUnitRevisions |
+  typeof sourceUnits |
   typeof transformBlocks |
   typeof transformDefinitions |
   typeof transformRuns |
@@ -179,6 +185,9 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   sourceChannels,
   sourceProcessingJobs,
   sourceRevisions,
+  sourceSegments,
+  sourceUnitRevisions,
+  sourceUnits,
   transformBlocks,
   transformDefinitions,
   transformRuns,
