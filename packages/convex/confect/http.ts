@@ -2,7 +2,7 @@ import { Ref } from "@confect/core";
 import { confectManifest } from "@maestro-template/template-core/generated/confectManifest";
 import { httpActionGeneric, httpRouter } from "convex/server";
 import { ConvexError } from "convex/values";
-import { api } from "../convex/_generated/api";
+import { api, internal } from "../convex/_generated/api";
 import {
   executeHeadlessOperation,
   type HeadlessExecutorRequest,
@@ -86,7 +86,7 @@ const operationRefs = {
   "brain.pages.history": api.brain.pages.history,
   "brain.sources.search": api.brain.readApi.sourcesSearch,
   "brain.sources.get": api.brain.readApi.sourcesGet,
-  "brain.context.get": api.brain.readApi.contextGet,
+  "brain.context.get": internal.headless.readApi.contextGet,
   "brain.answers.ask": api.brain.readApi.answersAsk,
 } satisfies Record<string, unknown>;
 
