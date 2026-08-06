@@ -78,7 +78,7 @@ describe("frontend platform routes", () => {
       "ClientsScreen",
     );
     expect(read("src/routes/_workspace.connections.tsx")).toContain(
-      "ConnectionsScreen",
+      "ConnectionsRouteAdapter",
     );
     const shellSource = read("src/saas-ui/business-shell.tsx");
     expect(shellSource).toContain("@saas-ui/react");
