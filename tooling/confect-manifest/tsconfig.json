@@ -11,5 +11,6 @@
     "src/**/*.tsx",
     "../../packages/convex/confect/**/*.ts",
     "../../packages/convex/confect/**/*.headless.json"
-  ]
+  ],
+  "exclude": ["../../packages/convex/confect/**/*.test.ts"]
 }
