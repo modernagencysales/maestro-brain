@@ -297,7 +297,7 @@ describe("maestro-template CLI", () => {
     });
   });
 
-  it("omits Brain page operations from headless metadata", () => {
+  it("omits the retired Brain page operation and lists current surfaces", () => {
     const operations = parseStdout<readonly HeadlessOperation[]>(
       runCli(["operations", "list"]),
     );
@@ -306,11 +306,17 @@ describe("maestro-template CLI", () => {
     expect(operations).not.toContainEqual(
       expect.objectContaining({ id: "api:brain.pages.createMarkdown" }),
     );
-    expect(operations).not.toContainEqual(
+    expect(operations).toContainEqual(
       expect.objectContaining({ id: "web:brain.pages.list" }),
     );
-    expect(operations).not.toContainEqual(
+    expect(operations).toContainEqual(
       expect.objectContaining({ id: "web:brain.pages.get" }),
+    );
+    expect(operations).toContainEqual(
+      expect.objectContaining({ id: "api:brain.pages.list" }),
+    );
+    expect(operations).toContainEqual(
+      expect.objectContaining({ id: "mcp:brain.pages.list" }),
     );
     expect(
       runCli(["operations", "get", "api:brain.pages.createMarkdown"]),
