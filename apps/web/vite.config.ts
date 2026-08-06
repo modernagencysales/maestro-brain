@@ -40,6 +40,9 @@ export default defineConfig(({ mode }) => ({
             import.meta.url,
           ),
         ),
+      "@maestro-template/template-core/sha256": fileURLToPath(
+        new URL("../../packages/template-core/src/sha256.ts", import.meta.url),
+      ),
       "@maestro-template/ui": fileURLToPath(
         new URL("../../packages/ui/src/index.tsx", import.meta.url),
       ),

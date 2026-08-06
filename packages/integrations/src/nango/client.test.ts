@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -17,6 +17,8 @@ import {
 } from "./client";
 
 describe("Nango provider client boundary", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
   it("validates live env names without exposing secret values", () => {
     const result = validateNangoEnv("live", {
       NANGO_SECRET_KEY: ` ${`s${"k"}_${"live"}_secret`} `,
@@ -210,6 +212,40 @@ describe("Nango provider client boundary", () => {
       .catch((cause: unknown) => cause);
     expect(error).toMatchObject({ _tag: "ProviderUnavailable" });
     expect(JSON.stringify(error)).not.toContain(`s${"k"}_${"live"}_secret`);
+  });
+
+  it("uses the isolate-safe Nango HTTP API when no SDK is injected", async () => {
+    const requests: Array<{
+      readonly url: string;
+      readonly init?: RequestInit;
+    }> = [];
+    vi.stubGlobal(
+      "fetch",
+      async (url: string | URL | Request, init?: RequestInit) => {
+        requests.push({ url: String(url), ...(init ? { init } : {}) });
+        return new Response(
+          JSON.stringify({ records: [{ id: "call_1" }], next_cursor: null }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      },
+    );
+    const client = createLiveNangoClient({
+      secretKey: `s${"k"}_${"live"}_secret`,
+      providerConfigKey: "fireflies",
+    });
+
+    await expect(
+      client.listRecords({
+        connectionId: "connection-1",
+        providerConfigKey: "fireflies",
+        model: "Transcript",
+      }),
+    ).resolves.toEqual({ records: [{ id: "call_1" }], nextCursor: null });
+    expect(requests[0]?.url).toContain("/records/?model=Transcript");
+    expect(requests[0]?.init?.headers).toMatchObject({
+      "Connection-Id": "connection-1",
+      "Provider-Config-Key": "fireflies",
+    });
   });
 
   it("forwards redacted proxy status and Retry-After headers", async () => {

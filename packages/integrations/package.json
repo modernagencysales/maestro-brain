@@ -10,6 +10,8 @@
     "./nango/records": "./src/nango/records.ts",
     "./nango/connectBrowser": "./src/nango/connectBrowser.ts",
     "./nango/slack": "./src/nango/slack.ts",
+    "./llmEgressPolicy": "./src/llmEgressPolicy.ts",
+    "./llmStructured": "./src/llmStructured.ts",
     "./transcripts/canonical": "./src/transcripts/canonical.ts",
     "./transcripts/providers": "./src/transcripts/providers.ts",
     "./transcripts/fireflies": "./src/transcripts/fireflies.ts",
@@ -21,8 +23,8 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@maestro-template/template-core": "workspace:*",
     "@nangohq/frontend": "0.71.0",
-    "@nangohq/node": "0.71.0",
     "effect": "3.21.4"
   },
   "devDependencies": {

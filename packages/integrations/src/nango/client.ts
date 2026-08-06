@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import * as Config from "effect/Config";
 import * as ConfigError from "effect/ConfigError";
 import * as Context from "effect/Context";
@@ -179,7 +177,8 @@ export const createFakeNangoClient = (input: {
   createConnectSession: async ({ organizationKey, connectSessionId }) => {
     if (organizationKey === "timeout") throw new ProviderUnavailable();
     const sessionId =
-      connectSessionId ?? `maestro-session-${randomUUID().replace(/-/g, "")}`;
+      connectSessionId ??
+      `maestro-session-${crypto.randomUUID().replace(/-/g, "")}`;
     return {
       connectSessionId: sessionId,
       connectSessionToken: `connect_public_${sessionId}`,
@@ -205,23 +204,96 @@ export const createFakeNangoClient = (input: {
 const stringField = (value: unknown): string | null =>
   typeof value === "string" && value.trim().length > 0 ? value : null;
 
+const createNangoHttpClient = (secretKey: string): NangoSdk => {
+  const baseUrl = "https://api.nango.dev";
+  const headers = (extra: Record<string, string> = {}) => ({
+    Authorization: `Bearer ${secretKey}`,
+    ...extra,
+  });
+  const json = async (response: Response): Promise<unknown> => {
+    try {
+      return await response.json();
+    } catch {
+      throw new ProviderUnavailable();
+    }
+  };
+  const requireSuccess = (response: Response) => {
+    if (!response.ok) throw new ProviderUnavailable();
+  };
+
+  return {
+    createConnectSession: async (body) => {
+      const response = await fetch(`${baseUrl}/connect/sessions`, {
+        method: "POST",
+        headers: headers({ "Content-Type": "application/json" }),
+        body: JSON.stringify(body),
+      });
+      requireSuccess(response);
+      return { data: (await json(response)) as never };
+    },
+    getConnection: async (providerConfigKey, connectionId) => {
+      const url = new URL(`${baseUrl}/connections/${connectionId}`);
+      url.searchParams.set("provider_config_key", providerConfigKey);
+      const response = await fetch(url, { headers: headers() });
+      requireSuccess(response);
+      return (await json(response)) as never;
+    },
+    proxy: async ({
+      connectionId,
+      endpoint,
+      method,
+      providerConfigKey,
+      data,
+    }) => {
+      const response = await fetch(
+        `${baseUrl}/proxy${endpoint.startsWith("/") ? "" : "/"}${endpoint}`,
+        {
+          method,
+          headers: headers({
+            "Connection-Id": connectionId,
+            "Provider-Config-Key": providerConfigKey,
+            ...(data === undefined
+              ? {}
+              : { "Content-Type": "application/json" }),
+          }),
+          ...(data === undefined ? {} : { body: JSON.stringify(data) }),
+        },
+      );
+      const responseHeaders: Record<string, string> = {};
+      response.headers.forEach((value, key) => {
+        responseHeaders[key] = value;
+      });
+      return {
+        status: response.status,
+        headers: responseHeaders,
+        ...(response.status === 204 ? {} : { data: await json(response) }),
+      };
+    },
+    listRecords: async (request) => {
+      const url = new URL(`${baseUrl}/records/`);
+      url.searchParams.set("model", request.model);
+      if (request.cursor) url.searchParams.set("cursor", request.cursor);
+      if (request.limit) url.searchParams.set("limit", String(request.limit));
+      if (request.filter) url.searchParams.set("filter", request.filter);
+      const response = await fetch(url, {
+        headers: headers({
+          "Connection-Id": request.connectionId,
+          "Provider-Config-Key": request.providerConfigKey,
+        }),
+      });
+      requireSuccess(response);
+      return (await json(response)) as never;
+    },
+  };
+};
+
 export const createLiveNangoClient = (input: {
   readonly secretKey: string;
   readonly providerConfigKey: string;
   readonly nango?: NangoSdk;
 }): NangoClient => {
-  let nangoPromise: Promise<NangoSdk> | undefined;
-  const loadNango = () => {
-    nangoPromise ??= input.nango
-      ? Promise.resolve(input.nango)
-      : import("@nangohq/node").then(
-          ({ Nango }) =>
-            new Nango({
-              apiKey: input.secretKey,
-            }) as NangoSdk,
-        );
-    return nangoPromise;
-  };
+  const nango = input.nango ?? createNangoHttpClient(input.secretKey);
+  const loadNango = () => Promise.resolve(nango);
 
   return {
     createConnectSession: async ({
@@ -249,7 +321,7 @@ export const createLiveNangoClient = (input: {
         throw new ProviderUnavailable();
       }
       return {
-        connectSessionId: connectSessionId ?? randomUUID(),
+        connectSessionId: connectSessionId ?? crypto.randomUUID(),
         connectSessionToken: token,
         expiresAt: expiresAtMs,
       };

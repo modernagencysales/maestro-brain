@@ -379,10 +379,10 @@ importers:
 
   packages/integrations:
     dependencies:
+      "@maestro-template/template-core":
+        specifier: workspace:*
+        version: link:../template-core
       "@nangohq/frontend":
-        specifier: 0.71.0
-        version: 0.71.0
-      "@nangohq/node":
         specifier: 0.71.0
         version: 0.71.0
       effect:

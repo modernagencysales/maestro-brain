@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { sha256Hex } from "@maestro-template/template-core/sha256";
 import * as Schema from "effect/Schema";
 import type { ProviderMode } from "./index";
 import type { ModelProvider, ModelRegion } from "./llmEgressPolicy";
@@ -68,7 +68,7 @@ const stableJson = (value: unknown): string => {
 };
 
 export const hashModelPayload = (payload: unknown): string =>
-  `sha256:${createHash("sha256").update(stableJson(payload)).digest("hex")}`;
+  `sha256:${sha256Hex(stableJson(payload))}`;
 
 export const makeModelCallReceipt = (
   input: Omit<ModelCallReceipt, "state">,

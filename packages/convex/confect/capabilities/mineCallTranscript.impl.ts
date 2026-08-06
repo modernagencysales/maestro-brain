@@ -1,9 +1,11 @@
 import {
   canonicalContentRootHash,
   canonicalOutputSchemaHash,
+} from "@maestro-template/integrations/llmEgressPolicy";
+import {
   createStructuredLlmGateway,
   type StructuredLlmGateway,
-} from "@maestro-template/integrations";
+} from "@maestro-template/integrations/llmStructured";
 import { FunctionImpl, GroupImpl } from "@confect/server";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";

@@ -2,6 +2,28 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 describe("Convex Node runtime boundaries", () => {
+  it("keeps canonical transcript hashing available in the Convex isolate", () => {
+    const canonical = readFileSync(
+      new URL(
+        "../../integrations/src/transcripts/canonical.ts",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    const egressPolicy = readFileSync(
+      new URL("../../integrations/src/llmEgressPolicy.ts", import.meta.url),
+      "utf8",
+    );
+    const receipt = readFileSync(
+      new URL("../../integrations/src/llmReceipt.ts", import.meta.url),
+      "utf8",
+    );
+
+    expect(canonical).not.toContain('from "node:crypto"');
+    expect(egressPolicy).not.toContain('from "node:crypto"');
+    expect(receipt).not.toContain('from "node:crypto"');
+  });
+
   it("keeps Nango-backed Slack delivery in a use-node action module", () => {
     const outbox = readFileSync(
       new URL("../convex/slack/outbox.ts", import.meta.url),

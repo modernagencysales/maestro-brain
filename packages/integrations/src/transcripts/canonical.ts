@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { sha256Hex } from "@maestro-template/template-core/sha256";
 
 import * as Schema from "effect/Schema";
 
@@ -67,7 +67,5 @@ export const canonicalTranscriptRevision = (
   const providerRevision = Object.fromEntries(
     Object.entries(value).filter(([key]) => key !== "connectionKey"),
   );
-  return `sha256:${createHash("sha256")
-    .update(stableJson(providerRevision))
-    .digest("hex")}`;
+  return `sha256:${sha256Hex(stableJson(providerRevision))}`;
 };
