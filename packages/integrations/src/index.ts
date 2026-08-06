@@ -17,6 +17,8 @@ export * from "./rateLimit";
 export * from "./flags";
 export * from "./transcripts/canonical";
 export * from "./transcripts/providers";
+export * from "./transcripts/fireflies";
+export * from "./transcripts/gong";
 export * from "./nango/records";
 
 export type ProviderMode = "fake" | "test" | "live";

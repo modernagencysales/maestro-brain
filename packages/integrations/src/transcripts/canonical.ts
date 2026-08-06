@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import * as Schema from "effect/Schema";
 
 const IsoTimestamp = Schema.String.pipe(
@@ -47,3 +49,25 @@ export const CanonicalCallTranscript = Schema.Struct({
   deleted: Schema.Boolean,
 });
 export type CanonicalCallTranscript = typeof CanonicalCallTranscript.Type;
+
+const stableJson = (value: unknown): string => {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, nested]) => `${JSON.stringify(key)}:${stableJson(nested)}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
+};
+
+export const canonicalTranscriptRevision = (
+  value: Omit<CanonicalCallTranscript, "externalRevisionId">,
+): string => {
+  const providerRevision = Object.fromEntries(
+    Object.entries(value).filter(([key]) => key !== "connectionKey"),
+  );
+  return `sha256:${createHash("sha256")
+    .update(stableJson(providerRevision))
+    .digest("hex")}`;
+};
