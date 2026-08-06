@@ -55,7 +55,7 @@ export const beginTranscriptConnect = FunctionSpec.publicAction({
       connectSessionToken: Schema.String,
       expiresAt: Schema.Number,
     }),
-  error: connectionError,
+  error: () => connectionError(),
 });
 
 export const completeTranscriptConnect = FunctionSpec.publicAction({
@@ -66,8 +66,8 @@ export const completeTranscriptConnect = FunctionSpec.publicAction({
       connectSessionId: Schema.String,
       connectionId: Schema.String,
     }),
-  returns: connectResult,
-  error: connectionError,
+  returns: () => connectResult(),
+  error: () => connectionError(),
 });
 
 export const prepareTranscriptConnectAttempt = FunctionSpec.internalMutation({
@@ -90,7 +90,7 @@ export const prepareTranscriptConnectAttempt = FunctionSpec.internalMutation({
       nangoOrganizationId: Schema.String,
       correlationTag: Schema.String,
     }),
-  error: connectionError,
+  error: () => connectionError(),
 });
 
 export const authorizeTranscriptConnectCompletion =
@@ -113,7 +113,7 @@ export const authorizeTranscriptConnectCompletion =
         correlationTag: Schema.String,
         alreadyCompleted: Schema.Boolean,
       }),
-    error: connectionError,
+    error: () => connectionError(),
   });
 
 export const finalizeTranscriptConnectAttempt = FunctionSpec.internalMutation({
@@ -130,8 +130,8 @@ export const finalizeTranscriptConnectAttempt = FunctionSpec.internalMutation({
       correlationTag: Schema.String,
       now: Schema.Number,
     }),
-  returns: connectResult,
-  error: connectionError,
+  returns: () => connectResult(),
+  error: () => connectionError(),
 });
 
 export const markTranscriptConnectAttemptFailed = FunctionSpec.internalMutation(
@@ -143,8 +143,8 @@ export const markTranscriptConnectAttemptFailed = FunctionSpec.internalMutation(
         expectedConnectionGeneration: Schema.Number,
         now: Schema.Number,
       }),
-    returns: connectResult,
-    error: connectionError,
+    returns: () => connectResult(),
+    error: () => connectionError(),
   },
 );
 

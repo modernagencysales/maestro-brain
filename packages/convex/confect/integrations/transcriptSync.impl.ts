@@ -1,5 +1,5 @@
 import { transcriptProviders } from "@maestro-template/integrations/transcripts/providers";
-import { DatabaseSchema, FunctionImpl, GroupImpl } from "@confect/server";
+import { FunctionImpl, GroupImpl } from "@confect/server";
 import type { GenericId } from "convex/values";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -7,7 +7,6 @@ import * as Option from "effect/Option";
 
 import databaseSchema from "../_generated/schema";
 import { DatabaseReader, DatabaseWriter } from "../_generated/services";
-import connectorSyncStatesSource from "../tables/connectorSyncStates";
 import { currentAdminOrganizationKey } from "./transcriptConnections.impl";
 import transcriptSync, {
   TranscriptSyncConnectionNotFound,
@@ -163,12 +162,6 @@ export const failTranscriptSyncState = (input: {
       updatedAt: input.now,
     } satisfies TranscriptSyncState;
   });
-
-const connectorSyncStates = connectorSyncStatesSource("connectorSyncStates");
-export const transcriptSyncDatabaseSchema = DatabaseSchema.make({
-  ...databaseSchema.tables,
-  connectorSyncStates,
-});
 
 type RawIndexBuilder = {
   readonly eq: (field: string, value: unknown) => RawIndexBuilder;
@@ -340,7 +333,7 @@ const initialState = (input: {
 });
 
 const claimTranscriptSyncPageImpl = FunctionImpl.make(
-  transcriptSyncDatabaseSchema,
+  databaseSchema,
   transcriptSync,
   "claimTranscriptSyncPage",
   (input) =>
@@ -431,7 +424,7 @@ const updateSyncState = (input: {
   });
 
 const commitTranscriptSyncPageImpl = FunctionImpl.make(
-  transcriptSyncDatabaseSchema,
+  databaseSchema,
   transcriptSync,
   "commitTranscriptSyncPage",
   (input) =>
@@ -453,7 +446,7 @@ const commitTranscriptSyncPageImpl = FunctionImpl.make(
 );
 
 const failTranscriptSyncPageImpl = FunctionImpl.make(
-  transcriptSyncDatabaseSchema,
+  databaseSchema,
   transcriptSync,
   "failTranscriptSyncPage",
   (input) =>
@@ -473,7 +466,7 @@ const failTranscriptSyncPageImpl = FunctionImpl.make(
 );
 
 const listTranscriptConnectionHealthImpl = FunctionImpl.make(
-  transcriptSyncDatabaseSchema,
+  databaseSchema,
   transcriptSync,
   "listTranscriptConnectionHealth",
   () =>
@@ -525,7 +518,7 @@ const listTranscriptConnectionHealthImpl = FunctionImpl.make(
 );
 
 export const makeTranscriptSyncImpl = () =>
-  GroupImpl.make(transcriptSyncDatabaseSchema, transcriptSync).pipe(
+  GroupImpl.make(databaseSchema, transcriptSync).pipe(
     Layer.provide(claimTranscriptSyncPageImpl),
     Layer.provide(commitTranscriptSyncPageImpl),
     Layer.provide(failTranscriptSyncPageImpl),

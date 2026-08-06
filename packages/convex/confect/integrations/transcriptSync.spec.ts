@@ -62,7 +62,7 @@ export const claimTranscriptSyncPage = FunctionSpec.internalMutation({
       cursor: Cursor,
       leaseId: Schema.String,
     }),
-  error: errors,
+  error: () => errors(),
 });
 
 export const commitTranscriptSyncPage = FunctionSpec.internalMutation({
@@ -80,7 +80,7 @@ export const commitTranscriptSyncPage = FunctionSpec.internalMutation({
       now: NonNegativeInteger,
     }),
   returns: () => ConnectorSyncStateRow,
-  error: errors,
+  error: () => errors(),
 });
 
 export const failTranscriptSyncPage = FunctionSpec.internalMutation({
@@ -96,7 +96,7 @@ export const failTranscriptSyncPage = FunctionSpec.internalMutation({
       now: NonNegativeInteger,
     }),
   returns: () => ConnectorSyncStateRow,
-  error: errors,
+  error: () => errors(),
 });
 
 export const listTranscriptConnectionHealth = FunctionSpec.publicQuery({
