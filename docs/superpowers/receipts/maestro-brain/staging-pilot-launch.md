@@ -1,31 +1,32 @@
-# Maestro Brain V1 Release Evidence
+# Maestro Brain Transcript Connector Staging Evidence
 
-Date: 2026-08-03  
-Product release commit: `28e4965c55fbb394b2e8053a2ffb5ec884244202`  
-Attestation scope: deterministic export artifact/job support only
+Date: 2026-08-06  
+Product release commit: `415736eb3958`  
+Staging Worker version: `c7b48017-df81-4a8c-b5ab-c32f90c66e52`
 
-## Local evidence
+## Hosted evidence
 
-| Area                    | Evidence                                                                                                                                  | Status                           |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| Deterministic export    | `packages/template-core/src/brainExport.ts` plus `brainExportJob.ts`; stable file ordering, hashes, byte size, lifecycle-generation fence | implemented; focused test queued |
-| Type safety             | `pnpm --dir packages/template-core typecheck`                                                                                             | pass                             |
-| Semantic/security eval  | Existing frozen harness in `tooling/evals`; no fresh run in this checkpoint                                                               | not reverified                   |
-| Capacity/fairness       | Existing deterministic harness in `tooling/evals/src/brain-capacity.ts`; no fresh run in this checkpoint                                  | not reverified                   |
-| Telemetry/kill switches | Existing operation-policy surface is present, but redacted Brain metric implementation is not complete in this branch                     | gap                              |
-| Rollback                | Export job revokes on lifecycle-generation mismatch; no hosted deploy rollback drill was run                                              | local fence only                 |
+| Area                 | Evidence                                                                                              | Status |
+| -------------------- | ----------------------------------------------------------------------------------------------------- | ------ |
+| Full repository gate | `maestro-remote-test -- pnpm verify` on exact head `415736eb3958`                                     | pass   |
+| Convex backend       | Schema and functions deployed to the isolated staging deployment; no indexes deleted                  | pass   |
+| Web application      | `maestro-brain-staging` Worker deployed with the reviewed client/server build                         | pass   |
+| Authentication       | Bitwarden-backed WorkOS smoke account completed hosted sign-in                                        | pass   |
+| Connections route    | Hosted Playwright loaded `/connections` without `Route unavailable`, page errors, or console errors   | pass   |
+| Connector catalog    | Fireflies, Gong, Fathom, and Granola rows and provider-specific actions rendered                      | pass   |
+| Secret handling      | Repository gitleaks and provider/logging boundaries passed; provider credentials remain outside Brain | pass   |
 
-## Verification limitations
+Hosted smoke timestamp: `2026-08-06T09:22:17Z`.
 
-The focused Vitest command was blocked by `host-test-slot`: host load remained
-above the configured threshold (`15.39`–`22.84`, threshold `10.00`). The
-existing dirty branch also has unrelated `git diff --check` failures at EOF in
-`packages/convex/confect/capabilities/classifySourceUnit.impl.ts` and
-`packages/convex/confect/jobs/workpool.ts`.
+## Provider limitation
+
+`NANGO_SECRET_KEY` is not present in the operator Bitwarden project or the
+staging Convex environment. No real Fireflies or Gong OAuth connection, 30-day
+backfill, imported call, route, mined proposal, accepted update, or cited
+Ask/CLI result is claimed by this receipt.
 
 ## Release verdict
 
-`no-go`. This packet is local implementation evidence, not staging, pilot, or
-production approval. V1 remains blocked on durable authorized export storage,
-lifecycle/retrieval/API transport integration, fresh eval/capacity/telemetry
-receipts, hosted rollback rehearsal, and pilot observation/approval.
+The deployed Brain and transcript Connections route are ready for authenticated
+staging testing. Live provider ingestion remains `no-go` until the Nango server
+secret is added and the provider-backed acceptance sequence is recorded.
