@@ -13,6 +13,8 @@ export type BrainMaintenanceProposalsDoc = Document.Document<typeof schemaDefini
 export type BrainPageAuditEventsDoc = Document.Document<typeof schemaDefinition, "brainPageAuditEvents">;
 export type BrainPagesDoc = Document.Document<typeof schemaDefinition, "brainPages">;
 export type BrainSourcesDoc = Document.Document<typeof schemaDefinition, "brainSources">;
+export type CallRouteMappingsDoc = Document.Document<typeof schemaDefinition, "callRouteMappings">;
+export type CallRoutingProposalsDoc = Document.Document<typeof schemaDefinition, "callRoutingProposals">;
 export type ChannelDeliveryPoliciesDoc = Document.Document<typeof schemaDefinition, "channelDeliveryPolicies">;
 export type ChannelRoutingPoliciesDoc = Document.Document<typeof schemaDefinition, "channelRoutingPolicies">;
 export type ChannelSyncStatesDoc = Document.Document<typeof schemaDefinition, "channelSyncStates">;
@@ -82,6 +84,8 @@ export interface Docs {
   brainPageAuditEvents: BrainPageAuditEventsDoc;
   brainPages: BrainPagesDoc;
   brainSources: BrainSourcesDoc;
+  callRouteMappings: CallRouteMappingsDoc;
+  callRoutingProposals: CallRoutingProposalsDoc;
   channelDeliveryPolicies: ChannelDeliveryPoliciesDoc;
   channelRoutingPolicies: ChannelRoutingPoliciesDoc;
   channelSyncStates: ChannelSyncStatesDoc;

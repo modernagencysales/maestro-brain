@@ -12,6 +12,8 @@ import brainMaintenanceProposals from "./tables/brainMaintenanceProposals";
 import brainPageAuditEvents from "./tables/brainPageAuditEvents";
 import brainPages from "./tables/brainPages";
 import brainSources from "./tables/brainSources";
+import callRouteMappings from "./tables/callRouteMappings";
+import callRoutingProposals from "./tables/callRoutingProposals";
 import channelDeliveryPolicies from "./tables/channelDeliveryPolicies";
 import channelRoutingPolicies from "./tables/channelRoutingPolicies";
 import channelSyncStates from "./tables/channelSyncStates";
@@ -81,6 +83,8 @@ export default $defineSchema({
   brainPageAuditEvents: brainPageAuditEvents.tableDefinition,
   brainPages: brainPages.tableDefinition,
   brainSources: brainSources.tableDefinition,
+  callRouteMappings: callRouteMappings.tableDefinition,
+  callRoutingProposals: callRoutingProposals.tableDefinition,
   channelDeliveryPolicies: channelDeliveryPolicies.tableDefinition,
   channelRoutingPolicies: channelRoutingPolicies.tableDefinition,
   channelSyncStates: channelSyncStates.tableDefinition,

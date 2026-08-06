@@ -10,6 +10,7 @@ import { components as generatedComponents } from "../../convex/_generated/api";
 import databaseSchema from "../_generated/schema";
 import { roleAtLeast, type Role } from "../access/roles";
 import type { ClassificationRequest } from "../classification/gather";
+import { gatherClassificationRequest } from "../classification/gather";
 import { DatabaseReader, MutationCtx, QueryCtx } from "../_generated/services";
 import { NotFound, Unauthorized, ValidationFailed } from "../errors";
 import {
@@ -54,29 +55,140 @@ type ReviewAuthorityInput = {
 };
 // prettier-ignore
 const validateSourceUnitKey = (sourceUnitRevisionKey: string) => sourceUnitRevisionKey.length > 0 ? Effect.void : Effect.fail(validationError());
-const unavailableGatherRequest = (
+const loadGatherRequest = (
   workspaceId: string,
   sourceUnitRevisionKey: string,
-): StartClassificationRequest => ({
-  workspaceId,
-  organizationId: "integration-owned",
-  sourceUnitRevisionKey,
-  sourceUnitHash: "integration-owned",
-  messages: [],
-  policyVersion: 0,
-  lifecycleGeneration: 0,
-  routeGeneration: 0,
-  leaseGeneration: 0,
-  allowedTargets: [],
-  authority: {
-    workspaceId,
-    organizationId: "integration-owned",
-    policyVersion: 0,
-    lifecycleGeneration: 0,
-    routeGeneration: 0,
-    leaseGeneration: 0,
-  },
-});
+) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const workspace = yield* reader
+      .table("workspaces")
+      .get(workspaceId as GenericId<"workspaces">)
+      .pipe(Effect.orDie);
+    if (!workspace)
+      return yield* new NotFound({ resource: "workspaces", id: workspaceId });
+    const organization = yield* reader
+      .table("organizations")
+      .get(workspace.organizationId as GenericId<"organizations">)
+      .pipe(Effect.orDie);
+    if (!organization?.agencyKey || organization.status !== "active")
+      return yield* new NotFound({
+        resource: "organizations",
+        id: workspace.organizationId,
+      });
+    const organizationKey = organization.agencyKey;
+    const revision = yield* reader
+      .table("sourceUnitRevisions")
+      .index("by_unit_revision_key", (q) =>
+        q
+          .eq("organizationKey", organizationKey)
+          .eq("unitRevisionKey", sourceUnitRevisionKey),
+      )
+      .first()
+      .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+    if (!revision)
+      return yield* new NotFound({
+        resource: "sourceUnitRevisions",
+        id: sourceUnitRevisionKey,
+      });
+    const unit = yield* reader
+      .table("sourceUnits")
+      .index("by_unit_key", (q) =>
+        q
+          .eq("organizationKey", organizationKey)
+          .eq("unitKey", revision.unitKey),
+      )
+      .first()
+      .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+    const route = yield* reader
+      .table("callRoutingProposals")
+      .index("by_org_revision", (q) =>
+        q
+          .eq("organizationKey", organizationKey)
+          .eq("unitRevisionKey", sourceUnitRevisionKey),
+      )
+      .first()
+      .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+    if (
+      !unit ||
+      unit.currentUnitRevisionKey !== sourceUnitRevisionKey ||
+      unit.lifecycle.state !== "active" ||
+      revision.tombstone ||
+      !route ||
+      route.status !== "current" ||
+      (route.outcome !== "no_match" && route.outcome !== "awaiting_review")
+    )
+      return yield* Effect.fail(validationError());
+    const segments = yield* reader
+      .table("sourceSegments")
+      .index("by_unit_revision_ordinal", (q) =>
+        q
+          .eq("organizationKey", organizationKey)
+          .eq("unitRevisionKey", sourceUnitRevisionKey),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    if (segments.length === 0) return yield* Effect.fail(validationError());
+    const targets = yield* reader
+      .table("workspaces")
+      .index("by_organization", (q) =>
+        q.eq("organizationId", workspace.organizationId),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const jobs = yield* reader
+      .table("sourceProcessingJobs")
+      .index("by_org_unit_stage", (q) =>
+        q.eq("organizationKey", organizationKey).eq("unitKey", unit.unitKey),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const job = jobs.find(
+      (candidate) =>
+        candidate.lifecycleGeneration === unit.lifecycle.generation &&
+        candidate.routeGeneration === route.routeGeneration,
+    );
+    const authority = {
+      workspaceId,
+      organizationId: workspace.organizationId,
+      policyVersion: job?.policyGeneration ?? 1,
+      lifecycleGeneration: unit.lifecycle.generation,
+      routeGeneration: route.routeGeneration,
+      leaseGeneration: job?.leaseGeneration ?? 0,
+    };
+    const gathered = gatherClassificationRequest({
+      policyMode: "classify",
+      authority,
+      sourceUnit: {
+        ...authority,
+        sourceUnitRevisionKey,
+        sourceUnitHash: revision.contentHash,
+        messages: segments.map((segment) => ({
+          sourceRevisionKey: segment.segmentKey,
+          authorLabel: segment.speakerLabel,
+          providerTimestamp: revision.startedAt,
+          canonicalText: segment.text,
+        })),
+      },
+      allowedTargets: targets.flatMap((target) =>
+        target.status === "active" &&
+        target.kind === "client" &&
+        target.brainKey &&
+        route.candidateBrainKeys.includes(target.brainKey)
+          ? [
+              {
+                workspaceId: target._id,
+                organizationId: workspace.organizationId,
+                brainKey: target.brainKey,
+                displayName: target.name,
+              },
+            ]
+          : [],
+      ),
+    });
+    if (!("request" in gathered)) return yield* Effect.fail(validationError());
+    return gathered.request;
+  });
 // prettier-ignore
 const isLiveAdmin = (member: { readonly role: Role; readonly status: string; readonly acceptedAt: number | null; readonly revokedAt: number | null; readonly deletedAt?: number | null }) => member.status === "active" && member.acceptedAt !== null && member.revokedAt === null && (member.deletedAt === undefined || member.deletedAt === null) && roleAtLeast(member.role, "admin");
 // prettier-ignore
@@ -113,7 +225,7 @@ const gatherImpl = FunctionImpl.make(databaseSchema, sourceClassification, "gath
   Effect.gen(function* () {
     yield* requireCaller(caller);
     yield* validateSourceUnitKey(sourceUnitRevisionKey);
-    return unavailableGatherRequest(workspaceId, sourceUnitRevisionKey);
+    return yield* loadGatherRequest(workspaceId, sourceUnitRevisionKey);
   }),
 );
 // prettier-ignore
@@ -121,7 +233,7 @@ const currentAuthorityImpl = FunctionImpl.make(databaseSchema, sourceClassificat
   Effect.gen(function* () {
     yield* requireCaller(caller);
     yield* validateSourceUnitKey(sourceUnitRevisionKey);
-    return unavailableGatherRequest(workspaceId, sourceUnitRevisionKey).authority;
+    return (yield* loadGatherRequest(workspaceId, sourceUnitRevisionKey)).authority;
   }),
 );
 // prettier-ignore

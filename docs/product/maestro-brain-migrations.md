@@ -67,6 +67,19 @@ Execute-mode component failures follow the same durable failure receipt path.
 - **Rollback:** deploy readers that ignore the new tables and optional citation
   fields. Existing rows require no rewrite or deletion.
 
+## Call transcript routing
+
+- **Expand:** add `callRouteMappings` and `callRoutingProposals`. Existing
+  source units, Slack routes, and Brain rows are unchanged.
+- **Backfill:** none. Routes are created only when a current call revision is
+  processed or an editor reviews its proposal.
+- **Verify:** require tenant-closed exact matching, idempotent route creation,
+  immutable segment gathering, and reviewed model routing in focused tests.
+- **Contract:** deferred. No existing route table or Slack classification row is
+  removed in this batch.
+- **Rollback:** stop routing new calls and deploy readers that ignore both new
+  tables. Immutable call revisions remain available for a later retry.
+
 Rollback for this harness is to remove the wrapper only after proving no
 migration run or receipt rows exist. Product schema migrations must document
 their own expand/backfill/verify/contract rollback in their owning task.

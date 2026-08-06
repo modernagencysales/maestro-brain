@@ -12,6 +12,8 @@ import brainMaintenanceProposals from "./tables/brainMaintenanceProposals";
 import brainPageAuditEvents from "./tables/brainPageAuditEvents";
 import brainPages from "./tables/brainPages";
 import brainSources from "./tables/brainSources";
+import callRouteMappings from "./tables/callRouteMappings";
+import callRoutingProposals from "./tables/callRoutingProposals";
 import channelDeliveryPolicies from "./tables/channelDeliveryPolicies";
 import channelRoutingPolicies from "./tables/channelRoutingPolicies";
 import channelSyncStates from "./tables/channelSyncStates";
@@ -81,6 +83,8 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof brainPageAuditEvents |
   typeof brainPages |
   typeof brainSources |
+  typeof callRouteMappings |
+  typeof callRoutingProposals |
   typeof channelDeliveryPolicies |
   typeof channelRoutingPolicies |
   typeof channelSyncStates |
@@ -149,6 +153,8 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   brainPageAuditEvents,
   brainPages,
   brainSources,
+  callRouteMappings,
+  callRoutingProposals,
   channelDeliveryPolicies,
   channelRoutingPolicies,
   channelSyncStates,

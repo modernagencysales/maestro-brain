@@ -1,6 +1,9 @@
 import { FunctionImpl, GroupImpl } from "@confect/server";
+import type { GenericId } from "convex/values";
+import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Unauthorized } from "../errors";
 import { commitReviewedClassification } from "../classification/commit";
@@ -15,6 +18,7 @@ import {
   default as classifySourceUnitGroup,
 } from "./classifySourceUnit.spec";
 import type { ClassificationReviewAction } from "../classification/review";
+import { DatabaseReader, DatabaseWriter } from "../_generated/services";
 
 type CommitSourceRouteInput = {
   readonly workspaceId: string;
@@ -22,7 +26,9 @@ type CommitSourceRouteInput = {
     typeof classifySourceUnitArgs
   >["request"];
   readonly output: Schema.Schema.Type<typeof classifySourceUnitReturns>;
-  readonly review: ClassificationReviewAction;
+  readonly review: ClassificationReviewAction & {
+    readonly reviewerPrincipalKey: string;
+  };
   readonly currentAuthority: Schema.Schema.Type<
     typeof ClassificationAuthority
   > & { readonly existingRouteEffectKeys?: readonly string[] };
@@ -41,7 +47,41 @@ const classifySourceUnitImpl = FunctionImpl.make(
   ({ request, caller }) =>
     Effect.gen(function* () {
       yield* requireWorkflowCaller(caller);
-      return classifySourceUnitLocally(request);
+      const output = classifySourceUnitLocally(request);
+      const reader = yield* DatabaseReader;
+      const writer = yield* DatabaseWriter;
+      const organization = yield* reader
+        .table("organizations")
+        .get(request.organizationId as GenericId<"organizations">)
+        .pipe(Effect.orDie);
+      if (!organization?.agencyKey)
+        return yield* Effect.fail(new Unauthorized());
+      const organizationKey = organization.agencyKey;
+      const proposal = yield* reader
+        .table("callRoutingProposals")
+        .index("by_org_revision", (query) =>
+          query
+            .eq("organizationKey", organizationKey)
+            .eq("unitRevisionKey", request.sourceUnitRevisionKey),
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      if (proposal !== null) {
+        const updatedAt = yield* Clock.currentTimeMillis;
+        yield* writer
+          .table("callRoutingProposals")
+          .patch(proposal._id, {
+            outcome: "awaiting_review",
+            brainKey: output.targetBrainKey,
+            candidateBrainKeys: request.allowedTargets.map(
+              ({ brainKey }) => brainKey,
+            ),
+            reason: "model_proposal",
+            updatedAt,
+          })
+          .pipe(Effect.orDie);
+      }
+      return output;
     }),
 );
 
@@ -76,7 +116,7 @@ const commitSourceRouteImpl = FunctionImpl.make(
               reviewerAuthority: review.reviewerAuthority,
             },
       );
-      return commitReviewedClassification(reviewed, {
+      const result = commitReviewedClassification(reviewed, {
         expectedPolicyVersion: currentAuthority.policyVersion,
         expectedSourceUnitHash: request.sourceUnitHash,
         expectedLifecycleGeneration: currentAuthority.lifecycleGeneration,
@@ -86,6 +126,47 @@ const commitSourceRouteImpl = FunctionImpl.make(
           currentAuthority.existingRouteEffectKeys ?? [],
         ),
       });
+      const reader = yield* DatabaseReader;
+      const writer = yield* DatabaseWriter;
+      const organization = yield* reader
+        .table("organizations")
+        .get(request.organizationId as GenericId<"organizations">)
+        .pipe(Effect.orDie);
+      if (!organization?.agencyKey)
+        return yield* Effect.fail(new Unauthorized());
+      const organizationKey = organization.agencyKey;
+      const route = yield* reader
+        .table("callRoutingProposals")
+        .index("by_org_revision", (query) =>
+          query
+            .eq("organizationKey", organizationKey)
+            .eq("unitRevisionKey", request.sourceUnitRevisionKey),
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      if (route !== null) {
+        const updatedAt = yield* Clock.currentTimeMillis;
+        yield* writer
+          .table("callRoutingProposals")
+          .patch(route._id, {
+            outcome:
+              result.stage === "routed"
+                ? "routed"
+                : result.stage === "mixed_client_no_route"
+                  ? "mixed_client"
+                  : "no_match",
+            brainKey: result.targetBrainKey,
+            candidateBrainKeys: result.targetBrainKey
+              ? [result.targetBrainKey]
+              : route.candidateBrainKeys,
+            reason: `review_${review.action}`,
+            status: review.action === "reject" ? "rejected" : "accepted",
+            reviewedBy: review.reviewerPrincipalKey,
+            updatedAt,
+          })
+          .pipe(Effect.orDie);
+      }
+      return result;
     }),
 );
 

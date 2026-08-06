@@ -106,7 +106,7 @@ const assertStructuralOutput = (output: ClassificationModelOutput) => {
 };
 
 // prettier-ignore
-const assertTenantBoundRequest = (request: ClassificationRequest) => { const { authority } = request; if (request.workspaceId !== authority.workspaceId || request.organizationId !== authority.organizationId || request.policyVersion !== authority.policyVersion || request.lifecycleGeneration !== authority.lifecycleGeneration || request.routeGeneration !== authority.routeGeneration || request.leaseGeneration !== authority.leaseGeneration || request.allowedTargets.some((target) => target.workspaceId !== authority.workspaceId || target.organizationId !== authority.organizationId)) throw new MalformedModelOutput("Classification request must be tenant-bound to the authority snapshot."); };
+const assertTenantBoundRequest = (request: ClassificationRequest) => { const { authority } = request; if (request.workspaceId !== authority.workspaceId || request.organizationId !== authority.organizationId || request.policyVersion !== authority.policyVersion || request.lifecycleGeneration !== authority.lifecycleGeneration || request.routeGeneration !== authority.routeGeneration || request.leaseGeneration !== authority.leaseGeneration || request.allowedTargets.some((target) => target.organizationId !== authority.organizationId)) throw new MalformedModelOutput("Classification request must be tenant-bound to the authority snapshot."); };
 const assertEvidence = (
   request: ClassificationRequest,
   quotes: ClassificationModelOutput["evidenceQuotes"],

@@ -63,7 +63,7 @@ export const gatherClassificationRequest = ({
   if (policyMode !== "classify")
     return { skipped: "not_classify_policy", modelCalls: 0 };
   // prettier-ignore
-  if (!matchesAuthority(sourceUnit, authority) || allowedTargets.some((target) => target.workspaceId !== authority.workspaceId || target.organizationId !== authority.organizationId)) throw new ClassificationTenantMismatch();
+  if (!matchesAuthority(sourceUnit, authority) || allowedTargets.some((target) => target.organizationId !== authority.organizationId)) throw new ClassificationTenantMismatch();
   return {
     modelCalls: 1,
     request: { ...sourceUnit, allowedTargets, authority },
