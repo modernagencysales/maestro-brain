@@ -66,12 +66,24 @@ describe("maestro-template CLI", () => {
   });
 
   it("calls an allowed Brain operation with bearer authentication", async () => {
+    const transcriptEntry = {
+      sourceKey: `sunit_${"a".repeat(64)}`,
+      sourceRevisionKey: `surev_${"b".repeat(64)}`,
+      citationKey: "citation:call_1:segment_1",
+      title: "Acme weekly",
+      excerpt: "We will launch on Friday.",
+      locator: "timestamp:12000-15400",
+      citationLabel: "Alex · 00:12",
+      permalink: "https://app.fireflies.ai/view/call_1",
+      freshness: "fresh",
+      state: "resolved",
+    };
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(
         JSON.stringify({
           ok: true,
           operationId: "brain.context.get",
-          result: { entries: [] },
+          result: { entries: [transcriptEntry] },
         }),
         { status: 200, headers: { "content-type": "application/json" } },
       ),
@@ -96,6 +108,7 @@ describe("maestro-template CLI", () => {
     expect(parseStdout<Record<string, unknown>>(result)).toMatchObject({
       ok: true,
       operationId: "brain.context.get",
+      result: { entries: [transcriptEntry] },
     });
     expect(fetchMock).toHaveBeenCalledWith(
       "https://brain.example.test/api/brain.context.get",

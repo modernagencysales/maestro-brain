@@ -28,9 +28,15 @@ const SearchArgs = Schema.extend(
 );
 const SearchResult = Schema.Struct({
   sourceKey: Schema.String,
+  sourceRevisionKey: Schema.optional(Schema.String),
   citationKey: Schema.String,
   title: Schema.String,
   excerpt: Schema.String,
+  locator: Schema.optional(Schema.String),
+  citationLabel: Schema.optional(Schema.String),
+  permalink: Schema.optional(Schema.String),
+  freshness: Schema.optional(Schema.Literal("fresh")),
+  state: Schema.optional(Schema.Literal("resolved")),
 });
 const SearchReturns = Schema.Struct({
   brainKey: BrainKey,
@@ -40,15 +46,14 @@ const SourceGetArgs = Schema.extend(
   BrainSelector,
   Schema.Struct({ sourceRevisionKey: Schema.String }),
 );
-const SourceGetReturns = Schema.Struct({
-  brainKey: BrainKey,
-  sourceKey: Schema.String,
-  citationKey: Schema.String,
-  title: Schema.String,
-  excerpt: Schema.String,
-  revisionKey: Schema.String,
-  status: Schema.String,
-});
+const SourceGetReturns = Schema.extend(
+  SearchResult,
+  Schema.Struct({
+    brainKey: BrainKey,
+    revisionKey: Schema.String,
+    status: Schema.String,
+  }),
+);
 const ContextGetArgs = Schema.extend(
   BrainSelector,
   Schema.Struct({

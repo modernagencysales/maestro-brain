@@ -1738,6 +1738,9 @@ const sharedConfectJsonSchemas = {
             sourceKey: {
               type: "string",
             },
+            sourceRevisionKey: {
+              type: "string",
+            },
             citationKey: {
               type: "string",
             },
@@ -1746,6 +1749,23 @@ const sharedConfectJsonSchemas = {
             },
             excerpt: {
               type: "string",
+            },
+            locator: {
+              type: "string",
+            },
+            citationLabel: {
+              type: "string",
+            },
+            permalink: {
+              type: "string",
+            },
+            freshness: {
+              type: "string",
+              enum: ["fresh"],
+            },
+            state: {
+              type: "string",
+              enum: ["resolved"],
             },
           },
           additionalProperties: false,
@@ -1772,19 +1792,19 @@ const sharedConfectJsonSchemas = {
     $schema: "https://json-schema.org/draft/2020-12/schema",
     type: "object",
     required: [
-      "brainKey",
       "sourceKey",
       "citationKey",
       "title",
       "excerpt",
+      "brainKey",
       "revisionKey",
       "status",
     ],
     properties: {
-      brainKey: {
+      sourceKey: {
         type: "string",
       },
-      sourceKey: {
+      sourceRevisionKey: {
         type: "string",
       },
       citationKey: {
@@ -1794,6 +1814,26 @@ const sharedConfectJsonSchemas = {
         type: "string",
       },
       excerpt: {
+        type: "string",
+      },
+      locator: {
+        type: "string",
+      },
+      citationLabel: {
+        type: "string",
+      },
+      permalink: {
+        type: "string",
+      },
+      freshness: {
+        type: "string",
+        enum: ["fresh"],
+      },
+      state: {
+        type: "string",
+        enum: ["resolved"],
+      },
+      brainKey: {
         type: "string",
       },
       revisionKey: {
@@ -1836,6 +1876,9 @@ const sharedConfectJsonSchemas = {
             sourceKey: {
               type: "string",
             },
+            sourceRevisionKey: {
+              type: "string",
+            },
             citationKey: {
               type: "string",
             },
@@ -1844,6 +1887,23 @@ const sharedConfectJsonSchemas = {
             },
             excerpt: {
               type: "string",
+            },
+            locator: {
+              type: "string",
+            },
+            citationLabel: {
+              type: "string",
+            },
+            permalink: {
+              type: "string",
+            },
+            freshness: {
+              type: "string",
+              enum: ["fresh"],
+            },
+            state: {
+              type: "string",
+              enum: ["resolved"],
             },
           },
           additionalProperties: false,

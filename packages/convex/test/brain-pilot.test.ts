@@ -612,6 +612,15 @@ describe("Brain pilot contract", () => {
           }),
           SeededBrainSchema,
         );
+        yield* confect.run(
+          seedBrain({
+            role: "editor",
+            subject: "transcript-isolated",
+            email: "transcript-isolated@example.com",
+            brainKey: "br_2123456789ABCDEFGHJKMNPQRS",
+          }),
+          SeededBrainSchema,
+        );
         const editor = actor(
           confect,
           "transcript-reader",
@@ -659,12 +668,74 @@ describe("Brain pilot contract", () => {
           brainKey,
           query: "launch",
         });
+        const apiSearch = yield* editor.query(
+          refs.public.brain.readApi.sourcesSearch,
+          { brainKey, query: "launch" },
+        );
+        const apiGet = yield* editor.query(
+          refs.public.brain.readApi.sourcesGet,
+          {
+            brainKey,
+            sourceRevisionKey: transcriptKeys.unitRevisionKey,
+          },
+        );
+        const legacySourceAvailable = yield* editor
+          .query(refs.public.brain.readApi.sourcesGet, {
+            brainKey,
+            sourceRevisionKey: submitted.sourceKey,
+          })
+          .pipe(
+            Effect.as(true),
+            Effect.catchAll(() => Effect.succeed(false)),
+          );
+        const context = yield* editor.query(
+          refs.public.brain.readApi.contextGet,
+          {
+            brainKey,
+            pageKeys: [page.pageKey],
+          },
+        );
+        const apiAsk = yield* editor.query(
+          refs.public.brain.readApi.answersAsk,
+          {
+            brainKey,
+            question: "launch",
+          },
+        );
+        const isolated = yield* actor(
+          confect,
+          "transcript-isolated",
+          "transcript-isolated@example.com",
+        ).query(refs.public.brain.readApi.sourcesSearch, {
+          brainKey: "br_2123456789ABCDEFGHJKMNPQRS",
+          query: "launch",
+        });
         yield* confect.run(revokeTranscriptConnection, Schema.Boolean);
         const afterRevoke = yield* editor.query(
           refs.public.brain.pilot.search,
           { brainKey, query: "launch" },
         );
-        return { search, ask, afterRevoke };
+        const apiAfterRevoke = yield* editor.query(
+          refs.public.brain.readApi.sourcesSearch,
+          { brainKey, query: "launch" },
+        );
+        const contextAfterRevoke = yield* editor.query(
+          refs.public.brain.readApi.contextGet,
+          { brainKey, pageKeys: [page.pageKey] },
+        );
+        return {
+          search,
+          ask,
+          apiSearch,
+          apiGet,
+          legacySourceAvailable,
+          context,
+          apiAsk,
+          isolated,
+          afterRevoke,
+          apiAfterRevoke,
+          contextAfterRevoke,
+        };
       }).pipe(Effect.provide(testConfectLayer())),
     );
 
@@ -686,7 +757,44 @@ describe("Brain pilot contract", () => {
         expect.objectContaining({ excerpt: "We will launch on Friday." }),
       ],
     });
+    const transcriptResult = {
+      sourceKey: transcriptKeys.unitKey,
+      sourceRevisionKey: transcriptKeys.unitRevisionKey,
+      title: "Acme weekly",
+      excerpt: "We will launch on Friday.",
+      locator: "timestamp:12000-15400",
+      citationLabel: "Alex · 00:12",
+      permalink: "https://app.fireflies.ai/view/call_1",
+      freshness: "fresh",
+      state: "resolved",
+    };
+    expect(result.apiSearch.results).toEqual([
+      expect.objectContaining(transcriptResult),
+    ]);
+    expect(result.apiGet).toMatchObject({
+      ...transcriptResult,
+      revisionKey: transcriptKeys.unitRevisionKey,
+      status: "published",
+    });
+    expect(result.legacySourceAvailable).toBe(false);
+    expect(result.context.entries).toEqual([
+      expect.objectContaining(transcriptResult),
+    ]);
+    expect(result.apiAsk).toMatchObject({
+      response: {
+        status: "answered",
+        evidence: [
+          expect.objectContaining({
+            citationKey: result.search.results[0]?.citationKey,
+            excerpt: "We will launch on Friday.",
+          }),
+        ],
+      },
+    });
+    expect(result.isolated.results).toEqual([]);
     expect(result.afterRevoke.results).toEqual([]);
+    expect(result.apiAfterRevoke.results).toEqual([]);
+    expect(result.contextAfterRevoke.entries).toEqual([]);
   });
 
   it("denies viewers from submitting or reviewing notes", async () => {
