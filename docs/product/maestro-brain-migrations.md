@@ -69,8 +69,9 @@ Execute-mode component failures follow the same durable failure receipt path.
 
 ## Call transcript routing
 
-- **Expand:** add `callRouteMappings` and `callRoutingProposals`. Existing
-  source units, Slack routes, and Brain rows are unchanged.
+- **Expand:** add `callRouteMappings` and `callRoutingProposals`, including
+  optional review-attempt and learned-mapping references. Existing source units,
+  Slack routes, and Brain rows are unchanged.
 - **Backfill:** none. Routes are created only when a current call revision is
   processed or an editor reviews its proposal.
 - **Verify:** require tenant-closed exact matching, idempotent route creation,

@@ -94,7 +94,7 @@ const gatherMaintenanceContextImpl = FunctionImpl.make(
         .pipe(Effect.map(Option.getOrNull), Effect.orDie);
       if (
         !route ||
-        route.status !== "current" ||
+        (route.status !== "current" && route.status !== "accepted") ||
         route.outcome !== "routed" ||
         route.sourceLifecycleGeneration !== unit.lifecycle.generation
       )

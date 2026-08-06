@@ -97,7 +97,7 @@ const seed = Effect.gen(function* () {
       brainKey: "br_acme",
       candidateBrainKeys: ["br_acme"],
       reason: "participant_domain",
-      status: "current",
+      status: "accepted",
       createdAt: now,
       updatedAt: now,
     })

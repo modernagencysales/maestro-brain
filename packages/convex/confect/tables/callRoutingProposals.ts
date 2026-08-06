@@ -22,6 +22,8 @@ export const CallRoutingProposalRow = Schema.Struct({
   reason: Schema.String,
   status: Schema.Literal("current", "accepted", "rejected", "superseded"),
   reviewedBy: Schema.optional(Schema.String),
+  reviewAttemptKey: Schema.optional(Schema.String),
+  learnedMappingKey: Schema.optional(Schema.String),
   createdAt: Schema.Number,
   updatedAt: Schema.Number,
 });

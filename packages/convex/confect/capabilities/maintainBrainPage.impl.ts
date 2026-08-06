@@ -214,7 +214,7 @@ const persistGroupedCallMaintenance = (input: {
       });
     if (
       !route ||
-      route.status !== "current" ||
+      (route.status !== "current" && route.status !== "accepted") ||
       route.outcome !== "routed" ||
       route.brainKey !== context.brainKey ||
       route.routeGeneration !== context.routeGeneration

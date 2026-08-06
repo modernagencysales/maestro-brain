@@ -55,7 +55,7 @@ const rows = buildCallSourceUnitRows(
 
 type SeedOptions = {
   readonly sourceState?: "active" | "redacted";
-  readonly routeStatus?: "current" | "accepted";
+  readonly routeStatus?: "current" | "accepted" | "superseded";
   readonly routeBrainKey?: string;
   readonly omitPageKey?: string;
   readonly includeSegments?: boolean;
@@ -215,57 +215,63 @@ const seed = (options: SeedOptions = {}) =>
   });
 
 describe("gather maintenance context", () => {
-  it("loads only current routed transcript evidence and current Brain pages", async () => {
-    const program = Effect.gen(function* () {
-      const confect = yield* Effect.serviceOptional(
-        TestConfect.TestConfect<typeof databaseSchema>(),
-      );
-      const workspaceId = yield* confect.run(seed(), Id("workspaces"));
-      return yield* confect.query(
-        refs.internal.capabilities.gatherMaintenanceContext
-          .gatherMaintenanceContext,
-        {
-          workspaceId,
-          unitRevisionKey: rows.revision.unitRevisionKey,
-          caller,
-        },
-      );
-    });
+  it.each(["current", "accepted"] as const)(
+    "loads %s routed transcript evidence and current Brain pages",
+    async (routeStatus) => {
+      const program = Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof databaseSchema>(),
+        );
+        const workspaceId = yield* confect.run(
+          seed({ routeStatus }),
+          Id("workspaces"),
+        );
+        return yield* confect.query(
+          refs.internal.capabilities.gatherMaintenanceContext
+            .gatherMaintenanceContext,
+          {
+            workspaceId,
+            unitRevisionKey: rows.revision.unitRevisionKey,
+            caller,
+          },
+        );
+      });
 
-    const result = await Effect.runPromise(
-      program.pipe(Effect.provide(testConfectLayer())),
-    );
-    expect(result).toMatchObject({
-      organizationKey,
-      brainKey: "br_acme",
-      unitKey: rows.unit.unitKey,
-      unitRevisionKey: rows.revision.unitRevisionKey,
-      sourceLifecycleGeneration: 1,
-      routeGeneration: 4,
-      policyGeneration: 7,
-      workspaceLifecycleGeneration: 3,
-      pages: expect.arrayContaining([
-        expect.objectContaining({
-          pageKey: "pag_br_acme_overview",
-          currentRevisionKey: "rev_br_acme_overview_1",
-          markdown:
-            "# Overview\n\nCapture the client's context, goals, and positioning.",
-        }),
-      ]),
-      citations: [
-        {
-          citationKey: `cite_${rows.segments[0]!.segmentKey}`,
-          segmentKey: rows.segments[0]!.segmentKey,
-          evidenceKind: "verbatim_transcript",
-          quote: "Alex owns launch by Friday.",
-        },
-      ],
-    });
-    expect(result.pages).toHaveLength(6);
-  });
+      const result = await Effect.runPromise(
+        program.pipe(Effect.provide(testConfectLayer())),
+      );
+      expect(result).toMatchObject({
+        organizationKey,
+        brainKey: "br_acme",
+        unitKey: rows.unit.unitKey,
+        unitRevisionKey: rows.revision.unitRevisionKey,
+        sourceLifecycleGeneration: 1,
+        routeGeneration: 4,
+        policyGeneration: 7,
+        workspaceLifecycleGeneration: 3,
+        pages: expect.arrayContaining([
+          expect.objectContaining({
+            pageKey: "pag_br_acme_overview",
+            currentRevisionKey: "rev_br_acme_overview_1",
+            markdown:
+              "# Overview\n\nCapture the client's context, goals, and positioning.",
+          }),
+        ]),
+        citations: [
+          {
+            citationKey: `cite_${rows.segments[0]!.segmentKey}`,
+            segmentKey: rows.segments[0]!.segmentKey,
+            evidenceKind: "verbatim_transcript",
+            quote: "Alex owns launch by Friday.",
+          },
+        ],
+      });
+      expect(result.pages).toHaveLength(6);
+    },
+  );
 
   it.each([
-    ["stale route", { routeStatus: "accepted" }, "stale_route"],
+    ["stale route", { routeStatus: "superseded" }, "stale_route"],
     ["revoked source", { sourceState: "redacted" }, "revoked_source"],
     ["foreign workspace", { routeBrainKey: "br_other" }, "foreign_workspace"],
     [
