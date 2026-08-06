@@ -223,6 +223,16 @@ describe("Nango provider client boundary", () => {
       "fetch",
       async (url: string | URL | Request, init?: RequestInit) => {
         requests.push({ url: String(url), ...(init ? { init } : {}) });
+        if (String(url).endsWith("/connect/sessions"))
+          return new Response(
+            JSON.stringify({
+              data: {
+                token: `${"connect"}_public_org_acme`,
+                expires_at: "2026-07-15T12:05:00.000Z",
+              },
+            }),
+            { status: 201, headers: { "content-type": "application/json" } },
+          );
         return new Response(
           JSON.stringify({ records: [{ id: "call_1" }], next_cursor: null }),
           { status: 200, headers: { "content-type": "application/json" } },
@@ -235,14 +245,31 @@ describe("Nango provider client boundary", () => {
     });
 
     await expect(
+      client.createConnectSession({
+        organizationKey: "nango-org-opaque",
+        endUserId: "nango-user-opaque",
+        providerConfigKey: "fireflies",
+        correlationTag: "fireflies-connect:opaque-session",
+        connectSessionId: "maestro-session-live",
+      }),
+    ).resolves.toEqual({
+      connectSessionId: "maestro-session-live",
+      connectSessionToken: `${"connect"}_public_org_acme`,
+      expiresAt: Date.parse("2026-07-15T12:05:00.000Z"),
+    });
+
+    await expect(
       client.listRecords({
         connectionId: "connection-1",
         providerConfigKey: "fireflies",
         model: "Transcript",
       }),
     ).resolves.toEqual({ records: [{ id: "call_1" }], nextCursor: null });
-    expect(requests[0]?.url).toContain("/records/?model=Transcript");
-    expect(requests[0]?.init?.headers).toMatchObject({
+    const recordsRequest = requests.find(({ url }) =>
+      url.includes("/records/"),
+    );
+    expect(recordsRequest?.url).toContain("/records/?model=Transcript");
+    expect(recordsRequest?.init?.headers).toMatchObject({
       "Connection-Id": "connection-1",
       "Provider-Config-Key": "fireflies",
     });

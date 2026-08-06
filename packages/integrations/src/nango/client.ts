@@ -229,7 +229,7 @@ const createNangoHttpClient = (secretKey: string): NangoSdk => {
         body: JSON.stringify(body),
       });
       requireSuccess(response);
-      return { data: (await json(response)) as never };
+      return (await json(response)) as never;
     },
     getConnection: async (providerConfigKey, connectionId) => {
       const url = new URL(`${baseUrl}/connections/${connectionId}`);

@@ -1,7 +1,7 @@
 export const transcriptProviders = {
   fireflies: { providerConfigKey: "fireflies", auth: "api_key" },
-  gong: { providerConfigKey: "gong-oauth", auth: "oauth2" },
-  fathom: { providerConfigKey: "fathom-oauth", auth: "oauth2" },
+  gong: { providerConfigKey: "gong-oauth", auth: "basic" },
+  fathom: { providerConfigKey: "fathom-oauth", auth: "api_key" },
   granola: { providerConfigKey: "granola", auth: "api_key" },
 } as const;
 
