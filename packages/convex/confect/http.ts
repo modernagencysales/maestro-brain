@@ -2,11 +2,13 @@ import { Ref } from "@confect/core";
 import { confectManifest } from "@maestro-template/template-core/generated/confectManifest";
 import { httpActionGeneric, httpRouter } from "convex/server";
 import { ConvexError } from "convex/values";
+import { api } from "../convex/_generated/api";
 import {
   executeHeadlessOperation,
   type HeadlessExecutorRequest,
 } from "./manifest/executor";
 import { buildGeneratedOpenApiDocument } from "./manifest/openapi";
+import { buildGeneratedMcpTools } from "./manifest/mcp";
 import {
   authenticateBearerRequest,
   authenticatedExecutorRequestFor,
@@ -68,15 +70,25 @@ export type HeadlessHttpCtx = {
 type TemplateRouteMatch =
   | { readonly kind: "openapi" }
   | { readonly kind: "docs" }
+  | { readonly kind: "mcp" }
   | { readonly kind: "operation"; readonly operationId: string }
   | { readonly kind: "notFound"; readonly pathname: string };
 
 const staticTemplateRoutes: Record<string, TemplateRouteMatch | undefined> = {
   "/api/openapi.json": { kind: "openapi" },
   "/api/docs": { kind: "docs" },
+  "/mcp": { kind: "mcp" },
 };
 
-const staticOperationRefs = {} satisfies Record<string, unknown>;
+const operationRefs = {
+  "brain.pages.list": api.brain.pages.list,
+  "brain.pages.get": api.brain.pages.get,
+  "brain.pages.history": api.brain.pages.history,
+  "brain.sources.search": api.brain.readApi.sourcesSearch,
+  "brain.sources.get": api.brain.readApi.sourcesGet,
+  "brain.context.get": api.brain.readApi.contextGet,
+  "brain.answers.ask": api.brain.readApi.answersAsk,
+} satisfies Record<string, unknown>;
 
 const apiKeyFunction = (name: "authenticate" | "markLastUsed") => {
   const spec = apiKeysSpec.functions[name];
@@ -113,6 +125,11 @@ export const templateHttpRoutes = [
     path: "/api/docs",
     method: "GET",
     description: "Serves the Scalar API documentation shell.",
+  },
+  {
+    path: "/mcp",
+    method: "POST",
+    description: "Serves the stateless MCP tool transport.",
   },
   {
     path: "/api/*",
@@ -179,11 +196,9 @@ const runTemplateApiOperation = async (
   ctx: HeadlessHttpCtx,
   request: HeadlessExecutorRequest,
 ): Promise<unknown> => {
-  const operationRefs = ctx.operationRefs ?? staticOperationRefs;
-
   return await executeHeadlessOperation(
     {
-      refs: operationRefs,
+      refs: ctx.operationRefs ?? operationRefs,
       runQuery: (ref, input) => ctx.runQuery(ref, input),
       runMutation: (ref, input) => ctx.runMutation(ref, input),
       runAction: (ref, input) => ctx.runAction(ref, input),
@@ -222,6 +237,9 @@ const templateRouteResponse = async (
     case "docs":
       response = docsRouteResponse(request);
       break;
+    case "mcp":
+      response = await mcpRouteResponse(ctx, request);
+      break;
     case "operation":
       response = await operationRouteResponse(ctx, request, route.operationId);
       break;
@@ -233,13 +251,118 @@ const templateRouteResponse = async (
   return response;
 };
 
+type McpRequest = {
+  readonly jsonrpc: "2.0";
+  readonly id?: string | number;
+  readonly method: "initialize" | "tools/list" | "tools/call";
+  readonly params?: {
+    readonly name?: string;
+    readonly arguments?: Record<string, unknown>;
+  };
+};
+
+const mcpReply = (id: string | number | undefined, result: unknown): Response =>
+  jsonResponse({ jsonrpc: "2.0", ...(id === undefined ? {} : { id }), result });
+
+const mcpError = (
+  id: string | number | undefined,
+  code: number,
+  message: string,
+): Response =>
+  jsonResponse({
+    jsonrpc: "2.0",
+    ...(id === undefined ? {} : { id }),
+    error: { code, message },
+  });
+
+const mcpRouteResponse = async (
+  ctx: HeadlessHttpCtx,
+  request: Request,
+): Promise<Response> => {
+  if (request.method !== "POST")
+    return mcpError(undefined, -32600, "Only POST is supported for /mcp.");
+  if (
+    request.headers.get("content-type")?.split(";", 1)[0] !== "application/json"
+  )
+    return mcpError(
+      undefined,
+      -32600,
+      "Content-Type must be application/json.",
+    );
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return mcpError(undefined, -32700, "Request body must be valid JSON.");
+  }
+  if (body === null || typeof body !== "object" || Array.isArray(body))
+    return mcpError(undefined, -32600, "MCP request must be a JSON object.");
+
+  const candidate = body as Partial<McpRequest>;
+  const id = candidate.id;
+  if (candidate.jsonrpc !== "2.0" || typeof candidate.method !== "string")
+    return mcpError(id, -32600, "Invalid MCP request.");
+  if (candidate.method === "initialize")
+    return mcpReply(id, {
+      protocolVersion: "2025-06-18",
+      capabilities: { tools: {} },
+      serverInfo: { name: "maestro-brain", version: "1.0.0" },
+    });
+  if (candidate.method === "tools/list")
+    return mcpReply(id, { tools: buildGeneratedMcpTools() });
+  if (candidate.method !== "tools/call")
+    return mcpError(id, -32601, "Method not found.");
+
+  const name = candidate.params?.name;
+  const operationId =
+    typeof name === "string" && name.startsWith("template.")
+      ? name.slice("template.".length)
+      : undefined;
+  if (
+    operationId === undefined ||
+    reviewedHeadlessPolicyFor(operationId) === undefined
+  )
+    return mcpError(id, -32602, "Unknown or unavailable MCP tool.");
+
+  const input = candidate.params?.arguments ?? {};
+  const apiRequest = new Request(
+    `${new URL(request.url).origin}/api/${operationId}`,
+    {
+      method: "POST",
+      headers: {
+        authorization: request.headers.get("authorization") ?? "",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ input }),
+    },
+  );
+  const executed = await executeTemplateApiRoute(ctx, apiRequest, operationId);
+  const result = await executed.json();
+  return executed.ok
+    ? mcpReply(id, {
+        content: [{ type: "text", text: JSON.stringify(result) }],
+      })
+    : mcpReply(id, {
+        isError: true,
+        content: [{ type: "text", text: JSON.stringify(result) }],
+      });
+};
+
 const filteredOpenApiDocument = (): ReturnType<
   typeof buildGeneratedOpenApiDocument
 > => {
   const document = buildGeneratedOpenApiDocument();
-  const { ["/api/brain.pages.createMarkdown"]: _legacy, ...paths } =
-    document.paths;
-  void _legacy;
+  const allowed = new Set(
+    confectManifest.functions
+      .filter(
+        (entry) => reviewedHeadlessPolicyFor(entry.operationId) !== undefined,
+      )
+      .map((entry) => `/api/${entry.operationId}`),
+  );
+  const paths = Object.fromEntries(
+    Object.entries(document.paths).filter(([path]) => allowed.has(path)),
+  );
   return { ...document, paths };
 };
 

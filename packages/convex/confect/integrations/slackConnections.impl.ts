@@ -1,14 +1,6 @@
 import { Ref } from "@confect/core";
-import {
-  ConnectSessionInvalid as NangoConnectSessionInvalid,
-  ProviderUnavailable as NangoProviderUnavailable,
-  createNangoProviderLayer,
-  isUnsafeNangoConnectionId,
-  NangoProvider,
-} from "@maestro-template/integrations/nango/client";
 import { FunctionImpl, GroupImpl } from "@confect/server";
 import type { GenericId } from "convex/values";
-import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Either from "effect/Either";
 import * as Layer from "effect/Layer";
@@ -22,7 +14,7 @@ import {
   MutationRunner,
 } from "../_generated/services";
 import { asGenericId } from "../access/handlerContext";
-import { extractIdentityProfile } from "../access/provisioning";
+import { extractIdentityBinding } from "../access/provisioning";
 import { roleAtLeast, type Role } from "../access/roles";
 import { Forbidden, Unauthorized } from "../errors";
 import slackConnections, {
@@ -37,6 +29,11 @@ import slackConnections, {
   reconcileSlackConnectSessionExpiry as reconcileSlackConnectSessionExpirySpec,
   TenantMismatch,
 } from "./slackConnections.spec";
+import {
+  beginSlackConnect,
+  completeSlackConnect,
+} from "./slackConnections.node";
+// NangoProvider is isolated in the use-node action module.
 
 export type SlackConnectionStatus =
   | "not_connected"
@@ -152,14 +149,15 @@ const requireAdmin = (
   return Either.right(principal);
 };
 
-const isSecretShaped = isUnsafeNangoConnectionId;
+export const isSecretShaped = (value: string): boolean =>
+  /^(sk_|xox[a-z]-|nango_secret|connect_public_)/i.test(value);
 const connectionKeyFor = (organizationKey: string) =>
   `slack_${organizationKey}`;
 
 export const extractSlackIdentityProfile = (
-  claims: Parameters<typeof extractIdentityProfile>[0],
+  claims: Parameters<typeof extractIdentityBinding>[0],
 ) =>
-  extractIdentityProfile(claims).pipe(
+  extractIdentityBinding(claims).pipe(
     Effect.mapError(() => new Unauthorized()),
   );
 
@@ -511,7 +509,7 @@ export const authorizeSlackConnectCompletionPlan = (input: {
   });
 };
 
-const generatedRefs = {
+export const generatedRefs = {
   internal: {
     integrations: {
       slackConnections: {
@@ -561,20 +559,7 @@ const currentConnectionFor = (organizationKey: string) =>
     );
   });
 
-const mapNangoError = (error: unknown): SlackConnectionError => {
-  if (error instanceof NangoConnectSessionInvalid)
-    return new ConnectSessionInvalid();
-  if (error instanceof NangoProviderUnavailable)
-    return new ProviderUnavailable();
-  return new ProviderUnavailable();
-};
-
-const loadNangoProvider = Effect.serviceFunction(
-  NangoProvider,
-  (provider) => () => provider,
-)().pipe(Effect.provide(createNangoProviderLayer()));
-
-const runSlackMutation = <Mutation extends Ref.AnyMutation>(
+export const runSlackMutation = <Mutation extends Ref.AnyMutation>(
   runMutation: MutationRunner,
   mutation: Mutation,
   ...args: Ref.OptionalArgs<Mutation>
@@ -591,156 +576,6 @@ const runSlackMutation = <Mutation extends Ref.AnyMutation>(
         : new ProviderUnavailable(),
     ),
   );
-
-const beginSlackConnect = FunctionImpl.make(
-  databaseSchema,
-  slackConnections,
-  "beginSlackConnect",
-  () =>
-    Effect.gen(function* () {
-      const now = yield* Clock.currentTimeMillis;
-      const runMutation = yield* MutationRunner;
-      const attemptExpiresAt = now + 300_000;
-      const attempt = yield* runSlackMutation(
-        runMutation,
-        generatedRefs.internal.integrations.slackConnections
-          .prepareSlackConnectAttempt,
-        {
-          now,
-          attemptExpiresAt,
-          nonce: crypto.randomUUID().replace(/-/g, ""),
-        },
-      );
-      const session = yield* Effect.gen(function* () {
-        const nango = (yield* loadNangoProvider.pipe(
-          Effect.mapError(() => new ProviderUnavailable()),
-        )).clientFor({ now });
-        return yield* Effect.tryPromise({
-          try: () =>
-            nango.createConnectSession({
-              organizationKey: attempt.nangoOrganizationId,
-              endUserId: attempt.nangoEndUserId,
-              providerConfigKey: attempt.providerConfigKey,
-              correlationTag: attempt.correlationTag,
-              connectSessionId: attempt.connectSessionId,
-            }),
-          catch: mapNangoError,
-        });
-      }).pipe(
-        Effect.tapError(() =>
-          runSlackMutation(
-            runMutation,
-            generatedRefs.internal.integrations.slackConnections
-              .markSlackConnectAttemptFailed,
-            {
-              connectSessionId: attempt.connectSessionId,
-              expectedConnectionGeneration: attempt.connectionGeneration,
-              now,
-            },
-          ).pipe(Effect.ignore),
-        ),
-      );
-      yield* runSlackMutation(
-        runMutation,
-        generatedRefs.internal.integrations.slackConnections
-          .reconcileSlackConnectSessionExpiry,
-        {
-          connectSessionId: attempt.connectSessionId,
-          attemptId: attempt.attemptId,
-          expectedConnectionGeneration: attempt.connectionGeneration,
-          providerExpiresAt: session.expiresAt,
-          localMaxExpiresAt: attemptExpiresAt,
-          now,
-        },
-      ).pipe(
-        Effect.tapError(() =>
-          runSlackMutation(
-            runMutation,
-            generatedRefs.internal.integrations.slackConnections
-              .markSlackConnectAttemptFailed,
-            {
-              connectSessionId: attempt.connectSessionId,
-              expectedConnectionGeneration: attempt.connectionGeneration,
-              now,
-            },
-          ).pipe(Effect.ignore),
-        ),
-      );
-      return session;
-    }),
-);
-
-const completeSlackConnect = FunctionImpl.make(
-  databaseSchema,
-  slackConnections,
-  "completeSlackConnect",
-  (input) =>
-    Effect.gen(function* () {
-      if (isSecretShaped(input.connectionId)) {
-        return yield* Effect.fail(new ConnectSessionInvalid());
-      }
-      const now = yield* Clock.currentTimeMillis;
-      const runMutation = yield* MutationRunner;
-      const authorization = yield* runSlackMutation(
-        runMutation,
-        generatedRefs.internal.integrations.slackConnections
-          .authorizeSlackConnectCompletion,
-        {
-          connectSessionId: input.connectSessionId,
-          connectionId: input.connectionId,
-          now,
-        },
-      );
-      if (authorization.alreadyCompleted) {
-        return {
-          connectionKey: authorization.connectionKey,
-          status: authorization.status,
-          connectionGeneration: authorization.connectionGeneration,
-        };
-      }
-      const nango = (yield* loadNangoProvider.pipe(
-        Effect.mapError(() => new ProviderUnavailable()),
-      )).clientFor({ now });
-      const metadata = yield* Effect.tryPromise({
-        try: () =>
-          nango.verifyConnectSession({
-            connectSessionId: input.connectSessionId,
-            connectionId: input.connectionId,
-          }),
-        catch: mapNangoError,
-      });
-      yield* runSlackMutation(
-        runMutation,
-        generatedRefs.internal.integrations.slackConnections
-          .claimSlackConnectAttempt,
-        {
-          connectSessionId: input.connectSessionId,
-          connectionId: input.connectionId,
-          providerOrganizationKey: metadata.organizationKey,
-          providerEndUserId: metadata.endUserId,
-          providerConfigKey: metadata.providerConfigKey,
-          correlationTag: metadata.correlationTag,
-          now,
-        },
-      );
-      const finalizeNow = yield* Clock.currentTimeMillis;
-      const finalized = yield* runSlackMutation(
-        runMutation,
-        generatedRefs.internal.integrations.slackConnections
-          .finalizeSlackConnectAttempt,
-        {
-          connectSessionId: input.connectSessionId,
-          connectionId: input.connectionId,
-          expectedConnectionGeneration: authorization.connectionGeneration,
-          now: finalizeNow,
-        },
-      );
-      return {
-        ...finalized,
-        connectionGeneration: authorization.connectionGeneration,
-      };
-    }),
-);
 
 const prepareSlackConnectAttempt = FunctionImpl.make(
   databaseSchema,

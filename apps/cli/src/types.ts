@@ -8,6 +8,8 @@ export type CliResult = {
 
 export type CliRuntimeConfig = {
   readonly providerEnv: Record<string, string | undefined>;
+  readonly brainSiteUrl?: string;
+  readonly brainApiKey?: string;
 };
 
 export type CliCommandContext = {

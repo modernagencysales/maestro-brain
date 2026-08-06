@@ -7,6 +7,7 @@ coverage/
 .env
 .env.*
 !.env.example
+!apps/web/.env.production
 apps/*/dist/
 packages/*/dist/
 tooling/*/dist/
@@ -21,6 +22,9 @@ playwright-report/
 
 # In-workspace pnpm store used by CI hosted-agent caching
 .pnpm-store/
+
+# Local isolated agent worktrees
+.worktrees/
 
 # qlty local scan artifacts (no trailing slashes — several are symlinks)
 .qlty/logs

@@ -101,14 +101,25 @@
     {
       "name": "CONVEX_SITE_URL",
       "group": "convex",
-      "services": ["convex", "web"],
+      "services": ["convex", "web", "cli"],
       "visibility": "public-config",
       "requiredFor": ["fake", "test", "live"],
       "fakeExampleAllowed": true,
       "fakeExample": "https://acme-demo.example.test",
       "owner": "Backend owner",
       "rotation": "Review when the site URL changes.",
-      "notes": "Convex HTTP/site URL for callbacks and docs."
+      "notes": "Convex HTTP/site URL for callbacks, docs, and the remote Brain CLI."
+    },
+    {
+      "name": "MAESTRO_BRAIN_API_KEY",
+      "group": "convex",
+      "services": ["cli"],
+      "visibility": "server-secret",
+      "requiredFor": ["live"],
+      "fakeExampleAllowed": false,
+      "owner": "Backend owner",
+      "rotation": "Rotate after CLI access changes or suspected exposure.",
+      "notes": "Bearer key for the read-only remote Brain CLI; tenant and Brain scope derive from this key."
     },
     {
       "name": "CONVEX_DEPLOY_KEY",

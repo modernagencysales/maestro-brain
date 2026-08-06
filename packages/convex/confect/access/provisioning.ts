@@ -34,6 +34,10 @@ export type IdentityProfile = {
   readonly workosOrganizationId?: string | undefined;
 };
 
+export type IdentityBinding = Pick<IdentityProfile, "subject"> & {
+  readonly workosOrganizationId?: string | undefined;
+};
+
 type UserStatus = "active" | "suspended" | "deleted";
 type OrganizationStatus = "active" | "suspended" | "archived";
 type MembershipStatus = "pending" | "active" | "revoked";
@@ -145,6 +149,7 @@ export type ProvisioningPlan = {
 
 export const extractIdentityProfile = (
   claims: IdentityClaims | null,
+  verifiedProviderIdentity?: IdentityClaims,
 ): Effect.Effect<IdentityProfile, Unauthorized | ValidationFailed> =>
   Effect.gen(function* () {
     const subject = claims?.subject ?? claims?.tokenIdentifier ?? null;
@@ -152,22 +157,53 @@ export const extractIdentityProfile = (
       return yield* new Unauthorized();
     }
 
-    const emailResult = normalizeEmail(claims?.email);
-    if (emailResult.kind !== "verified" || claims?.emailVerified !== true) {
+    const normalizedSubject = subject.trim();
+    const providerSubject =
+      verifiedProviderIdentity?.subject ??
+      verifiedProviderIdentity?.tokenIdentifier ??
+      null;
+    if (
+      verifiedProviderIdentity !== undefined &&
+      providerSubject?.trim() !== normalizedSubject
+    ) {
+      return yield* new Unauthorized();
+    }
+    const emailClaims = verifiedProviderIdentity ?? claims;
+    const emailResult = normalizeEmail(emailClaims?.email);
+    if (
+      emailResult.kind !== "verified" ||
+      emailClaims?.emailVerified !== true
+    ) {
       return yield* new ValidationFailed({
         field: "email",
         message: "A verified provider email is required for provisioning.",
       });
     }
 
-    const displayName = claims?.name?.trim();
+    const displayName = (
+      verifiedProviderIdentity?.name ?? claims?.name
+    )?.trim();
     return {
-      subject: subject.trim(),
+      subject: normalizedSubject,
       displayName:
         displayName !== undefined && displayName.length > 0
           ? displayName
           : emailResult.email,
       email: emailResult.email,
+      workosOrganizationId: extractWorkosOrganizationId(claims),
+    };
+  });
+
+export const extractIdentityBinding = (
+  claims: IdentityClaims | null,
+): Effect.Effect<IdentityBinding, Unauthorized> =>
+  Effect.gen(function* () {
+    const subject = claims?.subject ?? claims?.tokenIdentifier ?? null;
+    if (subject === null || subject.trim().length === 0) {
+      return yield* new Unauthorized();
+    }
+    return {
+      subject: subject.trim(),
       workosOrganizationId: extractWorkosOrganizationId(claims),
     };
   });

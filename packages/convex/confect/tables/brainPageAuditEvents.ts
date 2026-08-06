@@ -10,6 +10,7 @@ export const BrainPageAuditAction = Schema.Literal(
   "page.moved",
   "page.favoriteChanged",
   "page.archived",
+  "page.restored",
 );
 
 export default Table.make(() =>

@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { sha256Hex } from "@maestro-template/template-core/sha256";
 import * as Schema from "effect/Schema";
 
 export type ModelProvider = "openrouter";
@@ -40,8 +40,7 @@ export const canonicalContentRootHash = async (
 
 export const canonicalOutputSchemaHash = (schema: {
   readonly ast: unknown;
-}): string =>
-  `sha256:${createHash("sha256").update(stableJson(schema.ast)).digest("hex")}`;
+}): string => `sha256:${sha256Hex(stableJson(schema.ast))}`;
 
 export class ModelPolicyDenied extends Schema.TaggedError<ModelPolicyDenied>()(
   "ModelPolicyDenied",

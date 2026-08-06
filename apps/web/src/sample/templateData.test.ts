@@ -38,10 +38,18 @@ describe("template sample data", () => {
   it("derives the API docs summary from the generated OpenAPI artifact", () => {
     expect(openApiSummary).toEqual({
       version: "3.1.0",
-      operationCount: 0,
+      operationCount: 7,
       docsRoute: "/api/docs",
-      typedErrors: [],
-      authScope: "unknown",
+      typedErrors: [
+        "Unauthorized",
+        "Forbidden",
+        "BrainNotFound",
+        "LifecycleRevoked",
+        "PageNotFound",
+        "ValidationFailed",
+        "SubsystemDisabled",
+      ],
+      authScope: "workspace member",
     });
   });
 

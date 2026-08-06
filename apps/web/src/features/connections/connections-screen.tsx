@@ -9,6 +9,20 @@ import {
   Table,
   Text,
 } from "@saas-ui/react";
+import {
+  NangoConnectButton,
+  type SlackConnectStatus,
+} from "./nango-connect-button";
+import {
+  CallRoutingQueue,
+  type CallRoutingQueueState,
+  type CallRoutingReview,
+} from "./call-routing-queue";
+import {
+  TranscriptImport,
+  type TranscriptImportRequest,
+  type TranscriptImportState,
+} from "./transcript-import";
 
 export type ConnectionsScreenState =
   | { readonly status: "loading" }
@@ -23,32 +37,85 @@ export type ConnectionsScreenState =
 export type ConnectionRow = {
   readonly key: string;
   readonly provider: string;
-  readonly status: string;
-  readonly scope: string;
-  readonly lastSync: string;
+  readonly status:
+    | "disconnected"
+    | "authorizing"
+    | "syncing"
+    | "ready"
+    | "error"
+    | "reauthorizing"
+    | "revoked";
+  readonly lastSync: string | null;
+  readonly callsDiscovered: number;
+  readonly callsRouted: number;
+  readonly callsAwaitingRouting: number;
 };
 
 export function ConnectionsScreen({
+  onRoutingReview,
+  onConnect,
+  onTranscriptImport,
+  role = "viewer",
+  routingQueue,
   state,
+  transcriptImportState = { status: "idle" },
+  transcriptTargets = [],
 }: {
+  readonly onRoutingReview?: (
+    review: CallRoutingReview,
+  ) => void | Promise<void>;
+  readonly onConnect?: (providerKey: string) => void | Promise<void>;
+  readonly onTranscriptImport?: (
+    input: TranscriptImportRequest,
+  ) => void | Promise<void>;
+  readonly role?: "viewer" | "editor" | "admin" | "owner";
+  readonly routingQueue?: CallRoutingQueueState;
   readonly state: ConnectionsScreenState;
+  readonly transcriptImportState?: TranscriptImportState;
+  readonly transcriptTargets?: readonly {
+    readonly brainKey: string;
+    readonly name: string;
+  }[];
 }) {
   return (
     <>
       <Page.Header
         title="Connections"
-        description="Approved agency data connections with fake-safe local status by default."
+        description="Connect transcript sources and route completed calls into the right Client Brain."
       />
       <Page.Body px={{ base: "4", md: "6" }} pb="8">
-        <ConnectionsStateCard state={state} />
+        <Stack gap="6">
+          <ConnectionsStateCard
+            state={state}
+            canManage={role === "admin" || role === "owner"}
+            {...(onConnect ? { onConnect } : {})}
+          />
+          <TranscriptImport
+            role={role}
+            state={transcriptImportState}
+            targets={transcriptTargets}
+            onImport={(input) => onTranscriptImport?.(input)}
+          />
+          {routingQueue ? (
+            <CallRoutingQueue
+              role={role}
+              state={routingQueue}
+              onReview={(review) => onRoutingReview?.(review)}
+            />
+          ) : null}
+        </Stack>
       </Page.Body>
     </>
   );
 }
 
 function ConnectionsStateCard({
+  canManage,
+  onConnect,
   state,
 }: {
+  readonly canManage: boolean;
+  readonly onConnect?: (providerKey: string) => void | Promise<void>;
   readonly state: ConnectionsScreenState;
 }) {
   if (state.status === "loading") {
@@ -64,7 +131,7 @@ function ConnectionsStateCard({
     return (
       <StateCard
         title="No connections yet"
-        description="Connect Slack or another approved source when ready."
+        description="No live transcript providers are connected yet."
       />
     );
   }
@@ -109,8 +176,9 @@ function ConnectionsStateCard({
               <Table.Row>
                 <Table.ColumnHeader>Provider</Table.ColumnHeader>
                 <Table.ColumnHeader>Status</Table.ColumnHeader>
-                <Table.ColumnHeader>Scope</Table.ColumnHeader>
+                <Table.ColumnHeader>Calls</Table.ColumnHeader>
                 <Table.ColumnHeader>Last sync</Table.ColumnHeader>
+                <Table.ColumnHeader>Action</Table.ColumnHeader>
               </Table.Row>
             </Table.Header>
             <Table.Body>
@@ -120,10 +188,26 @@ function ConnectionsStateCard({
                     {connection.provider}
                   </Table.Cell>
                   <Table.Cell>
-                    <Badge colorPalette="green">{connection.status}</Badge>
+                    <Badge colorPalette={statusTone(connection.status)}>
+                      {connection.status}
+                    </Badge>
                   </Table.Cell>
-                  <Table.Cell>{connection.scope}</Table.Cell>
-                  <Table.Cell>{connection.lastSync}</Table.Cell>
+                  <Table.Cell>
+                    <Text fontSize="sm">
+                      {connection.callsDiscovered} discovered ·{" "}
+                      {connection.callsRouted} routed ·{" "}
+                      {connection.callsAwaitingRouting} awaiting routing
+                    </Text>
+                  </Table.Cell>
+                  <Table.Cell>{connection.lastSync ?? "Never"}</Table.Cell>
+                  <Table.Cell>
+                    <NangoConnectButton
+                      enabled={canManage}
+                      providerName={connection.provider}
+                      status={connectStatus(connection.status)}
+                      onConnect={() => onConnect?.(connection.key)}
+                    />
+                  </Table.Cell>
                 </Table.Row>
               ))}
             </Table.Body>
@@ -133,6 +217,24 @@ function ConnectionsStateCard({
     </Card.Root>
   );
 }
+
+const statusTone = (status: ConnectionRow["status"]) =>
+  status === "ready"
+    ? "green"
+    : status === "error" || status === "revoked"
+      ? "red"
+      : status === "disconnected"
+        ? "gray"
+        : "yellow";
+
+const connectStatus = (status: ConnectionRow["status"]): SlackConnectStatus =>
+  status === "ready"
+    ? "active"
+    : status === "syncing"
+      ? "verifying"
+      : status === "disconnected" || status === "revoked"
+        ? "not_connected"
+        : status;
 
 function StateCard({
   description,

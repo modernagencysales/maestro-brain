@@ -11,6 +11,8 @@ export type ProviderMode = "fake" | "test" | "live";
 
 export type EnvSource = Readonly<Record<string, string | undefined>>;
 
+export const readProcessEnv = (): EnvSource => process.env;
+
 export class EnvConfigError extends Schema.TaggedError<EnvConfigError>()(
   "EnvConfigError",
   {

@@ -6,7 +6,9 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "APP_ENV=build vite build && cp dist/client/_shell.html dist/client/index.html",
+    "build": "vite build",
+    "deploy": "wrangler deploy",
+    "deploy:dry-run": "wrangler deploy --dry-run",
     "preview": "vite preview --host 0.0.0.0",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests"
@@ -47,11 +49,13 @@
     "react-dom": "19.1.0"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "1.50.0",
     "@tailwindcss/vite": "4.3.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
     "tailwindcss": "4.3.0",
-    "vite": "^8.1.2"
+    "vite": "^8.1.2",
+    "wrangler": "4.118.0"
   }
 }

@@ -12,6 +12,10 @@
     "./generated/confectManifest": {
       "types": "./src/generated/confectManifest.ts",
       "default": "./src/generated/confectManifest.ts"
+    },
+    "./sha256": {
+      "types": "./src/sha256.ts",
+      "default": "./src/sha256.ts"
     }
   },
   "scripts": {

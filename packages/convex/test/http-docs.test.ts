@@ -53,6 +53,11 @@ describe("template HTTP docs routes", () => {
           method: "GET",
           description: "Serves the Scalar API documentation shell.",
         },
+        {
+          path: "/mcp",
+          method: "POST",
+          description: "Serves the stateless MCP tool transport.",
+        },
       ]),
     );
     expect(templateHttpRoutes).not.toContainEqual(
@@ -199,6 +204,76 @@ describe("template HTTP docs routes", () => {
         _tag: "NotFound",
         message: "Unknown template HTTP route: /nope",
       },
+    });
+  });
+
+  it("serves the generated MCP tool list and initialize handshake", async () => {
+    const initialize = await readJson(
+      await handleTemplateHttpRequest(
+        noopCtx,
+        new Request("https://template.local/mcp", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize" }),
+        }),
+      ),
+    );
+    const listed = await readJson(
+      await handleTemplateHttpRequest(
+        noopCtx,
+        new Request("https://template.local/mcp", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }),
+        }),
+      ),
+    );
+
+    expect(initialize).toMatchObject({
+      jsonrpc: "2.0",
+      id: 1,
+      result: { capabilities: { tools: {} } },
+    });
+    expect(listed).toMatchObject({
+      jsonrpc: "2.0",
+      id: 2,
+      result: {
+        tools: expect.arrayContaining([
+          expect.objectContaining({ name: "template.brain.sources.search" }),
+          expect.objectContaining({ name: "template.brain.answers.ask" }),
+          expect.objectContaining({ name: "template.brain.pages.history" }),
+        ]),
+      },
+    });
+    const tools = (listed as { result: { tools: readonly { name: string }[] } })
+      .result.tools;
+    expect(tools).toHaveLength(7);
+    expect(tools.map((tool) => tool.name)).not.toContain(
+      "template.brain.pilot.ask",
+    );
+  });
+
+  it("rejects MCP tool calls that are not in the reviewed operation policy", async () => {
+    const body = await readJson(
+      await handleTemplateHttpRequest(
+        noopCtx,
+        new Request("https://template.local/mcp", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 3,
+            method: "tools/call",
+            params: { name: "template.ops.brainOperations.listPolicies" },
+          }),
+        }),
+      ),
+    );
+
+    expect(body).toEqual({
+      jsonrpc: "2.0",
+      id: 3,
+      error: { code: -32602, message: "Unknown or unavailable MCP tool." },
     });
   });
 });

@@ -10,7 +10,8 @@ const liveEnv = {
   APP_ENV: "live",
   APP_PROVIDER_MODE: "live",
   WORKOS_CLIENT_ID: "client_live_example",
-  WORKOS_AUTHKIT_ISSUER: "https://api.workos.com",
+  WORKOS_AUTHKIT_ISSUER:
+    "https://api.workos.com/user_management/client_live_example",
   WORKOS_AUTHKIT_JWKS_URL: "https://api.workos.com/sso/jwks/org_live_example",
 } as const;
 
@@ -18,21 +19,28 @@ describe("WorkOS Convex auth config", () => {
   it("derives customJwt config from validated WorkOS values", () => {
     expect(
       deriveWorkosConvexAuthConfig({
-        issuer: "https://api.workos.com",
+        issuer: "https://api.workos.com/user_management/client_live_example",
         jwksUrl: "https://api.workos.com/sso/jwks/org_live_example",
-        applicationId: "client_live_example",
       }),
     ).toEqual({
       providers: [
         {
           type: "customJwt",
-          issuer: "https://api.workos.com",
+          issuer: "https://api.workos.com/user_management/client_live_example",
           jwks: "https://api.workos.com/sso/jwks/org_live_example",
-          applicationID: "client_live_example",
           algorithm: "RS256",
         },
       ],
     });
+  });
+
+  it("rejects a live issuer that is not scoped to the WorkOS client", () => {
+    expect(() =>
+      loadWorkosConvexAuthConfig({
+        ...liveEnv,
+        WORKOS_AUTHKIT_ISSUER: "https://api.workos.com",
+      }),
+    ).toThrow(AuthConfigurationInvalid);
   });
 
   it("rejects missing live issuer/JWKS/client values", () => {

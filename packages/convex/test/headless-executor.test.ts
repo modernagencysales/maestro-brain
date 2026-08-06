@@ -48,8 +48,8 @@ const createAdapter = (
 });
 
 describe("headless executor", () => {
-  it("does not expose web-only operations or the deleted legacy page write", () => {
-    expect(findHeadlessOperation("brain.pages.list", "api")).toBeUndefined();
+  it("exposes reviewed Brain reads and rejects the deleted legacy page write", () => {
+    expect(findHeadlessOperation("brain.pages.list", "api")).toBeDefined();
     expect(
       findHeadlessOperation("brain.pages.createMarkdown", "api"),
     ).toBeUndefined();

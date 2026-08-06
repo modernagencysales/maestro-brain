@@ -42,6 +42,28 @@ const ensureProvisioned = FunctionSpec.publicMutation({
     Schema.Union(Unauthorized, ValidationFailed, ProvisioningConflict),
 });
 
+const ensureProvisionedFromWorkos = FunctionSpec.publicAction({
+  name: "ensureProvisionedFromWorkos",
+  args: () => Schema.Struct({}),
+  returns: () => Schema.Struct({ brainKey: Schema.String }),
+  error: () =>
+    Schema.Union(Unauthorized, ValidationFailed, ProvisioningConflict),
+});
+
+const seedVerifiedWorkosUser = FunctionSpec.internalMutation({
+  name: "seedVerifiedWorkosUser",
+  args: () =>
+    Schema.Struct({
+      subject: Schema.String,
+      email: Schema.String,
+      emailVerified: Schema.Boolean,
+      name: Schema.optional(Schema.String),
+    }),
+  returns: () => Schema.Null,
+  error: () =>
+    Schema.Union(Unauthorized, ValidationFailed, ProvisioningConflict),
+});
+
 const createClientBrain = FunctionSpec.publicMutation({
   name: "createClientBrain",
   args: () =>
@@ -65,4 +87,6 @@ const createClientBrain = FunctionSpec.publicMutation({
 
 export default GroupSpec.make()
   .addFunction(ensureProvisioned)
+  .addFunction(ensureProvisionedFromWorkos)
+  .addFunction(seedVerifiedWorkosUser)
   .addFunction(createClientBrain);

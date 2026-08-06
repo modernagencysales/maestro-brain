@@ -24,19 +24,19 @@ const apiKey = {
 } as const;
 
 describe("settings API key generated refs contract", () => {
-  it("wires the route through generated API-key refs without a local intersection", () => {
-    const routeSource = readFileSync(
-      new URL("../../routes/_workspace.settings.tsx", import.meta.url),
+  it("wires the settings client through generated API-key refs without a local intersection", () => {
+    const settingsClientSource = readFileSync(
+      new URL("./workspace-settings-client.tsx", import.meta.url),
       "utf8",
     );
 
-    expect(routeSource).toContain(
+    expect(settingsClientSource).toContain(
       "const apiKeyRefs = templateConfectRefs.public.headless.apiKeys;",
     );
-    expect(routeSource).not.toContain("type ApiKeyRefs");
-    expect(routeSource).not.toContain("as unknown as ApiKeyRefs");
-    expect(routeSource).not.toContain("type HeadlessApiKeyRefs");
-    expect(routeSource).not.toContain("as HeadlessApiKeyRefs");
+    expect(settingsClientSource).not.toContain("type ApiKeyRefs");
+    expect(settingsClientSource).not.toContain("as unknown as ApiKeyRefs");
+    expect(settingsClientSource).not.toContain("type HeadlessApiKeyRefs");
+    expect(settingsClientSource).not.toContain("as HeadlessApiKeyRefs");
   });
 });
 

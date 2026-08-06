@@ -1,4 +1,10 @@
 import type { BrainSource } from "@maestro-template/template-core";
+import type { Ref } from "@confect/core";
+import * as Either from "effect/Either";
+import {
+  templateConfectRefs,
+  type TemplateConfectRefs,
+} from "@maestro-template/convex/refs";
 import type {
   TemplateDataState,
   TemplateTypedFailureState,
@@ -43,6 +49,248 @@ export type BrainStateCopy = {
 export type BrainDocumentSection = {
   readonly heading: string;
   readonly body: readonly string[];
+};
+
+type BrainPageRefs = TemplateConfectRefs["public"]["brain"]["pages"];
+type BrainPilotRefs = TemplateConfectRefs["public"]["brain"]["pilot"];
+type BrainCallReviewRefs = TemplateConfectRefs["public"]["brain"]["callReview"];
+export type BrainPageSummary = {
+  readonly pageKey: string;
+  readonly parentPageKey: string | null;
+  readonly siblingSlug: string;
+  readonly sortKey: string;
+  readonly title: string;
+  readonly favorite: boolean;
+  readonly status: "active" | "archived" | "redacted" | "purged";
+  readonly currentRevisionKey: string | null;
+  readonly lifecycleGeneration: number;
+};
+export type BrainPageListData = {
+  readonly brainKey: string;
+  readonly asOf: number;
+  readonly freshness: { readonly status: "current" };
+  readonly pages: readonly BrainPageSummary[];
+};
+export type BrainPageDetail = {
+  readonly page: BrainPageSummary;
+  readonly markdown: string;
+  readonly editorSnapshotJson?: string;
+  readonly editorSnapshotVersion?: number;
+  readonly updatedAt: number;
+};
+export type BrainPilotSearchData = {
+  readonly brainKey: string;
+  readonly results: readonly BrainSearchResult[];
+};
+export type BrainReviewQueueData = {
+  readonly brainKey: string;
+  readonly items: readonly {
+    readonly sourceKey: string;
+    readonly title: string;
+    readonly submittedAt: number;
+    readonly status: "pending_review" | "published" | "rejected";
+    readonly route: "direct" | "classify" | "capture-only" | null;
+  }[];
+};
+export type BrainCallMaintenanceQueueData = Ref.Returns<
+  BrainCallReviewRefs["listCallMaintenanceQueue"]
+>;
+export type BrainPageUpdateData = BrainPageSummary;
+export type BrainRevisionHistoryData = {
+  readonly brainKey: string;
+  readonly pageKey: string;
+  readonly asOf: number;
+  readonly freshness: { readonly status: "current" };
+  readonly revisions: readonly {
+    readonly revisionKey: string;
+    readonly priorRevisionKey: string | null;
+    readonly causation: string;
+    readonly createdAt: number;
+    readonly lifecycleGeneration: number;
+    readonly markdown?: string;
+    readonly contentHash?: string;
+    readonly state?: string;
+    readonly actorKind?: string;
+    readonly actorId?: string;
+  }[];
+};
+
+type BrainWorkspaceRefs = {
+  readonly list: BrainPageRefs["list"];
+  readonly get: BrainPageRefs["get"];
+  readonly create: BrainPageRefs["create"];
+  readonly rename: BrainPageRefs["rename"];
+  readonly favorite: BrainPageRefs["favorite"];
+  readonly archive: BrainPageRefs["archive"];
+  readonly move: BrainPageRefs["move"];
+  readonly restore: BrainPageRefs["restore"];
+  readonly history: BrainPageRefs["history"];
+};
+
+type BrainWorkspacePilotRefs = {
+  readonly submitNote: BrainPilotRefs["submitNote"];
+  readonly reviewNote: BrainPilotRefs["reviewNote"];
+  readonly listReviewQueue: BrainPilotRefs["listReviewQueue"];
+  readonly search: BrainPilotRefs["search"];
+  readonly updatePage: BrainPilotRefs["updatePage"];
+};
+type BrainWorkspaceCallReviewRefs = {
+  readonly listCallMaintenanceQueue: BrainCallReviewRefs["listCallMaintenanceQueue"];
+  readonly reviewCallMaintenance: BrainCallReviewRefs["reviewCallMaintenance"];
+};
+
+export const brainWorkspaceRefs: BrainWorkspaceRefs = {
+  list: templateConfectRefs.public.brain.pages.list,
+  get: templateConfectRefs.public.brain.pages.get,
+  create: templateConfectRefs.public.brain.pages.create,
+  rename: templateConfectRefs.public.brain.pages.rename,
+  favorite: templateConfectRefs.public.brain.pages.favorite,
+  archive: templateConfectRefs.public.brain.pages.archive,
+  move: templateConfectRefs.public.brain.pages.move,
+  restore: templateConfectRefs.public.brain.pages.restore,
+  history: templateConfectRefs.public.brain.pages.history,
+} as const;
+
+export const brainPilotRefs: BrainWorkspacePilotRefs = {
+  submitNote: templateConfectRefs.public.brain.pilot.submitNote,
+  reviewNote: templateConfectRefs.public.brain.pilot.reviewNote,
+  listReviewQueue: templateConfectRefs.public.brain.pilot.listReviewQueue,
+  search: templateConfectRefs.public.brain.pilot.search,
+  updatePage: templateConfectRefs.public.brain.pilot.updatePage,
+} as const;
+
+export const brainCallReviewRefs: BrainWorkspaceCallReviewRefs = {
+  listCallMaintenanceQueue:
+    templateConfectRefs.public.brain.callReview.listCallMaintenanceQueue,
+  reviewCallMaintenance:
+    templateConfectRefs.public.brain.callReview.reviewCallMaintenance,
+} as const;
+
+export type BrainPageMutationResult<T> = T | Either.Either<T, unknown>;
+
+export type BrainWorkspaceMutationInputs = {
+  readonly create: (
+    args: Ref.Args<typeof brainWorkspaceRefs.create>,
+  ) => Promise<
+    BrainPageMutationResult<Ref.Returns<typeof brainWorkspaceRefs.create>>
+  >;
+  readonly rename: (
+    args: Ref.Args<typeof brainWorkspaceRefs.rename>,
+  ) => Promise<
+    BrainPageMutationResult<Ref.Returns<typeof brainWorkspaceRefs.rename>>
+  >;
+  readonly favorite?: (
+    args: Ref.Args<typeof brainWorkspaceRefs.favorite>,
+  ) => Promise<
+    BrainPageMutationResult<Ref.Returns<typeof brainWorkspaceRefs.favorite>>
+  >;
+  readonly archive?: (
+    args: Ref.Args<typeof brainWorkspaceRefs.archive>,
+  ) => Promise<
+    BrainPageMutationResult<Ref.Returns<typeof brainWorkspaceRefs.archive>>
+  >;
+  readonly move?: (
+    args: Ref.Args<typeof brainWorkspaceRefs.move>,
+  ) => Promise<
+    BrainPageMutationResult<Ref.Returns<typeof brainWorkspaceRefs.move>>
+  >;
+  readonly restore?: (
+    args: Ref.Args<typeof brainWorkspaceRefs.restore>,
+  ) => Promise<
+    BrainPageMutationResult<Ref.Returns<typeof brainWorkspaceRefs.restore>>
+  >;
+};
+
+export type BrainPilotAdapter = {
+  readonly submitNote?: (input: {
+    readonly title: string;
+    readonly markdown: string;
+  }) => Promise<BrainPilotSourceSummary>;
+  readonly reviewNote?: (input: {
+    readonly sourceKey: string;
+    readonly decision: "approve" | "reject";
+  }) => Promise<BrainPilotSourceSummary>;
+  readonly search?: (query: string) => Promise<readonly BrainSearchResult[]>;
+};
+
+export type BrainPilotSourceSummary = {
+  readonly sourceKey: string;
+  readonly status: "pending_review" | "published" | "rejected";
+};
+
+export type BrainSearchResult = {
+  readonly citationKey: string;
+  readonly title: string;
+  readonly excerpt: string;
+  readonly sourceRevisionKey?: string;
+  readonly locator?: string;
+  readonly citationLabel?: string;
+  readonly permalink?: string;
+  readonly freshness?: "fresh" | "stale";
+  readonly state?: "resolved" | "redacted" | "legacy_unresolved";
+};
+
+export type BrainWorkspaceAdapter = BrainPilotAdapter & {
+  readonly brainKey: string;
+  readonly canEdit: boolean;
+  readonly createPage: BrainWorkspaceMutationInputs["create"];
+  readonly renamePage: BrainWorkspaceMutationInputs["rename"];
+  readonly favoritePage?: BrainWorkspaceMutationInputs["favorite"];
+  readonly archivePage?: BrainWorkspaceMutationInputs["archive"];
+  readonly movePage?: (
+    args: Omit<Ref.Args<typeof brainWorkspaceRefs.move>, "brainKey">,
+  ) => Promise<
+    BrainPageMutationResult<Ref.Returns<typeof brainWorkspaceRefs.move>>
+  >;
+  readonly restorePage?: BrainWorkspaceMutationInputs["restore"];
+  readonly updatePage?: (input: {
+    readonly pageKey: string;
+    readonly expectedCurrentRevisionKey: string;
+    readonly markdown: string;
+  }) => Promise<BrainPageUpdateData>;
+};
+
+export const createBrainWorkspaceAdapter = ({
+  brainKey,
+  canEdit,
+  mutations,
+  pilot,
+  movePage,
+  restorePage,
+  updatePage,
+}: {
+  readonly brainKey: string;
+  readonly canEdit: boolean;
+  readonly mutations: BrainWorkspaceMutationInputs;
+  readonly pilot?: BrainPilotAdapter;
+  readonly movePage?: BrainWorkspaceAdapter["movePage"];
+  readonly restorePage?: BrainWorkspaceAdapter["restorePage"];
+  readonly updatePage?: BrainWorkspaceAdapter["updatePage"];
+}): BrainWorkspaceAdapter => ({
+  brainKey,
+  canEdit,
+  ...pilot,
+  createPage: mutations.create,
+  renamePage: mutations.rename,
+  ...(mutations.favorite === undefined
+    ? {}
+    : { favoritePage: mutations.favorite }),
+  ...(mutations.archive === undefined
+    ? {}
+    : { archivePage: mutations.archive }),
+  ...(movePage === undefined ? {} : { movePage }),
+  ...(restorePage === undefined ? {} : { restorePage }),
+  ...(updatePage === undefined ? {} : { updatePage }),
+});
+
+export const unwrapBrainMutation = <T>(
+  result: BrainPageMutationResult<T>,
+): T => {
+  if (Either.isEither(result)) {
+    if (Either.isLeft(result)) throw result.left;
+    return result.right;
+  }
+  return result;
 };
 
 export function createBrainContextPackPreview(

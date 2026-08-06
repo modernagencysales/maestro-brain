@@ -4,8 +4,18 @@ import access_members from "../access/members.spec";
 import access_provisioning from "../access/provisioning.spec";
 import agents_assistant from "../agents/assistant.spec";
 import auth_workspaces from "../auth/workspaces.spec";
+import brain_callReview from "../brain/callReview.spec";
 import brain_pages from "../brain/pages.spec";
+import brain_pilot from "../brain/pilot.spec";
+import brain_readApi from "../brain/readApi.spec";
 import capabilities_catalog from "../capabilities/catalog.spec";
+import capabilities_classifySourceUnit from "../capabilities/classifySourceUnit.spec";
+import capabilities_gatherMaintenanceContext from "../capabilities/gatherMaintenanceContext.spec";
+import capabilities_importTranscript from "../capabilities/importTranscript.spec";
+import capabilities_ingestSourceUnit from "../capabilities/ingestSourceUnit.spec";
+import capabilities_maintainBrainPage from "../capabilities/maintainBrainPage.spec";
+import capabilities_mineCallTranscript from "../capabilities/mineCallTranscript.spec";
+import capabilities_routeCallToBrain from "../capabilities/routeCallToBrain.spec";
 import capabilities_sourceGroundedBrief from "../capabilities/sourceGroundedBrief.spec";
 import demo_showcase from "../demo/showcase.spec";
 import editorSync from "../editorSync.spec";
@@ -13,10 +23,13 @@ import headless_apiKeys from "../headless/apiKeys.spec";
 import identity_stableKeys from "../identity/stableKeys.spec";
 import integrations_slackConnections from "../integrations/slackConnections.spec";
 import integrations_slackDirectory from "../integrations/slackDirectory.spec";
+import integrations_transcriptConnections from "../integrations/transcriptConnections.spec";
+import integrations_transcriptSync from "../integrations/transcriptSync.spec";
 import internal_migrations from "../internal/migrations.spec";
 import jobs_workpool from "../jobs/workpool.spec";
 import ops_actions from "../ops/actions.spec";
 import ops_billing from "../ops/billing.spec";
+import ops_brainOperations from "../ops/brainOperations.spec";
 import ops_coediting from "../ops/coediting.spec";
 import ops_dataLifecycle from "../ops/dataLifecycle.spec";
 import ops_flags from "../ops/flags.spec";
@@ -25,21 +38,27 @@ import ops_knowledge from "../ops/knowledge.spec";
 import ops_notifications from "../ops/notifications.spec";
 import ops_transforms from "../ops/transforms.spec";
 import ops_versioning from "../ops/versioning.spec";
+import slack_channelPolicies from "../slack/channelPolicies.spec";
+import slack_identityLinks from "../slack/identityLinks.spec";
+import workflowContracts_sourceClassification from "../workflowContracts/sourceClassification.spec";
+import workflowContracts_sourceToBrainMaintenance from "../workflowContracts/sourceToBrainMaintenance.spec";
 
 const spec: Spec.Spec<
   | GroupSpec.NamedAt<GroupSpec.GroupSpec<"Convex", "access", never, GroupSpec.NamedAt<typeof access_invitations, "invitations"> | GroupSpec.NamedAt<typeof access_members, "members"> | GroupSpec.NamedAt<typeof access_provisioning, "provisioning">>, "access">
   | GroupSpec.NamedAt<GroupSpec.GroupSpec<"Convex", "agents", never, GroupSpec.NamedAt<typeof agents_assistant, "assistant">>, "agents">
   | GroupSpec.NamedAt<GroupSpec.GroupSpec<"Convex", "auth", never, GroupSpec.NamedAt<typeof auth_workspaces, "workspaces">>, "auth">
-  | GroupSpec.NamedAt<GroupSpec.GroupSpec<"Convex", "brain", never, GroupSpec.NamedAt<typeof brain_pages, "pages">>, "brain">
-  | GroupSpec.NamedAt<GroupSpec.GroupSpec<"Convex", "capabilities", never, GroupSpec.NamedAt<typeof capabilities_catalog, "catalog"> | GroupSpec.NamedAt<typeof capabilities_sourceGroundedBrief, "sourceGroundedBrief">>, "capabilities">
+  | GroupSpec.NamedAt<GroupSpec.GroupSpec<"Convex", "brain", never, GroupSpec.NamedAt<typeof brain_callReview, "callReview"> | GroupSpec.NamedAt<typeof brain_pages, "pages"> | GroupSpec.NamedAt<typeof brain_pilot, "pilot"> | GroupSpec.NamedAt<typeof brain_readApi, "readApi">>, "brain">
+  | GroupSpec.NamedAt<GroupSpec.GroupSpec<"Convex", "capabilities", never, GroupSpec.NamedAt<typeof capabilities_catalog, "catalog"> | GroupSpec.NamedAt<typeof capabilities_classifySourceUnit, "classifySourceUnit"> | GroupSpec.NamedAt<typeof capabilities_gatherMaintenanceContext, "gatherMaintenanceContext"> | GroupSpec.NamedAt<typeof capabilities_importTranscript, "importTranscript"> | GroupSpec.NamedAt<typeof capabilities_ingestSourceUnit, "ingestSourceUnit"> | GroupSpec.NamedAt<typeof capabilities_maintainBrainPage, "maintainBrainPage"> | GroupSpec.NamedAt<typeof capabilities_mineCallTranscript, "mineCallTranscript"> | GroupSpec.NamedAt<typeof capabilities_routeCallToBrain, "routeCallToBrain"> | GroupSpec.NamedAt<typeof capabilities_sourceGroundedBrief, "sourceGroundedBrief">>, "capabilities">
   | GroupSpec.NamedAt<GroupSpec.GroupSpec<"Convex", "demo", never, GroupSpec.NamedAt<typeof demo_showcase, "showcase">>, "demo">
   | GroupSpec.NamedAt<typeof editorSync, "editorSync">
   | GroupSpec.NamedAt<GroupSpec.GroupSpec<"Convex", "headless", never, GroupSpec.NamedAt<typeof headless_apiKeys, "apiKeys">>, "headless">
   | GroupSpec.NamedAt<GroupSpec.GroupSpec<"Convex", "identity", never, GroupSpec.NamedAt<typeof identity_stableKeys, "stableKeys">>, "identity">
-  | GroupSpec.NamedAt<GroupSpec.GroupSpec<"Convex", "integrations", never, GroupSpec.NamedAt<typeof integrations_slackConnections, "slackConnections"> | GroupSpec.NamedAt<typeof integrations_slackDirectory, "slackDirectory">>, "integrations">
+  | GroupSpec.NamedAt<GroupSpec.GroupSpec<"Convex", "integrations", never, GroupSpec.NamedAt<typeof integrations_slackConnections, "slackConnections"> | GroupSpec.NamedAt<typeof integrations_slackDirectory, "slackDirectory"> | GroupSpec.NamedAt<typeof integrations_transcriptConnections, "transcriptConnections"> | GroupSpec.NamedAt<typeof integrations_transcriptSync, "transcriptSync">>, "integrations">
   | GroupSpec.NamedAt<GroupSpec.GroupSpec<"Convex", "internal", never, GroupSpec.NamedAt<typeof internal_migrations, "migrations">>, "internal">
   | GroupSpec.NamedAt<GroupSpec.GroupSpec<"Convex", "jobs", never, GroupSpec.NamedAt<typeof jobs_workpool, "workpool">>, "jobs">
-  | GroupSpec.NamedAt<GroupSpec.GroupSpec<"Convex", "ops", never, GroupSpec.NamedAt<typeof ops_actions, "actions"> | GroupSpec.NamedAt<typeof ops_billing, "billing"> | GroupSpec.NamedAt<typeof ops_coediting, "coediting"> | GroupSpec.NamedAt<typeof ops_dataLifecycle, "dataLifecycle"> | GroupSpec.NamedAt<typeof ops_flags, "flags"> | GroupSpec.NamedAt<typeof ops_health, "health"> | GroupSpec.NamedAt<typeof ops_knowledge, "knowledge"> | GroupSpec.NamedAt<typeof ops_notifications, "notifications"> | GroupSpec.NamedAt<typeof ops_transforms, "transforms"> | GroupSpec.NamedAt<typeof ops_versioning, "versioning">>, "ops">
-> = Spec.make().addAt("access", GroupSpec.makeAt("access").addGroupAt("invitations", access_invitations).addGroupAt("members", access_members).addGroupAt("provisioning", access_provisioning)).addAt("agents", GroupSpec.makeAt("agents").addGroupAt("assistant", agents_assistant)).addAt("auth", GroupSpec.makeAt("auth").addGroupAt("workspaces", auth_workspaces)).addAt("brain", GroupSpec.makeAt("brain").addGroupAt("pages", brain_pages)).addAt("capabilities", GroupSpec.makeAt("capabilities").addGroupAt("catalog", capabilities_catalog).addGroupAt("sourceGroundedBrief", capabilities_sourceGroundedBrief)).addAt("demo", GroupSpec.makeAt("demo").addGroupAt("showcase", demo_showcase)).addAt("editorSync", editorSync).addAt("headless", GroupSpec.makeAt("headless").addGroupAt("apiKeys", headless_apiKeys)).addAt("identity", GroupSpec.makeAt("identity").addGroupAt("stableKeys", identity_stableKeys)).addAt("integrations", GroupSpec.makeAt("integrations").addGroupAt("slackConnections", integrations_slackConnections).addGroupAt("slackDirectory", integrations_slackDirectory)).addAt("internal", GroupSpec.makeAt("internal").addGroupAt("migrations", internal_migrations)).addAt("jobs", GroupSpec.makeAt("jobs").addGroupAt("workpool", jobs_workpool)).addAt("ops", GroupSpec.makeAt("ops").addGroupAt("actions", ops_actions).addGroupAt("billing", ops_billing).addGroupAt("coediting", ops_coediting).addGroupAt("dataLifecycle", ops_dataLifecycle).addGroupAt("flags", ops_flags).addGroupAt("health", ops_health).addGroupAt("knowledge", ops_knowledge).addGroupAt("notifications", ops_notifications).addGroupAt("transforms", ops_transforms).addGroupAt("versioning", ops_versioning));
+  | GroupSpec.NamedAt<GroupSpec.GroupSpec<"Convex", "ops", never, GroupSpec.NamedAt<typeof ops_actions, "actions"> | GroupSpec.NamedAt<typeof ops_billing, "billing"> | GroupSpec.NamedAt<typeof ops_brainOperations, "brainOperations"> | GroupSpec.NamedAt<typeof ops_coediting, "coediting"> | GroupSpec.NamedAt<typeof ops_dataLifecycle, "dataLifecycle"> | GroupSpec.NamedAt<typeof ops_flags, "flags"> | GroupSpec.NamedAt<typeof ops_health, "health"> | GroupSpec.NamedAt<typeof ops_knowledge, "knowledge"> | GroupSpec.NamedAt<typeof ops_notifications, "notifications"> | GroupSpec.NamedAt<typeof ops_transforms, "transforms"> | GroupSpec.NamedAt<typeof ops_versioning, "versioning">>, "ops">
+  | GroupSpec.NamedAt<GroupSpec.GroupSpec<"Convex", "slack", never, GroupSpec.NamedAt<typeof slack_channelPolicies, "channelPolicies"> | GroupSpec.NamedAt<typeof slack_identityLinks, "identityLinks">>, "slack">
+  | GroupSpec.NamedAt<GroupSpec.GroupSpec<"Convex", "workflowContracts", never, GroupSpec.NamedAt<typeof workflowContracts_sourceClassification, "sourceClassification"> | GroupSpec.NamedAt<typeof workflowContracts_sourceToBrainMaintenance, "sourceToBrainMaintenance">>, "workflowContracts">
+> = Spec.make().addAt("access", GroupSpec.makeAt("access").addGroupAt("invitations", access_invitations).addGroupAt("members", access_members).addGroupAt("provisioning", access_provisioning)).addAt("agents", GroupSpec.makeAt("agents").addGroupAt("assistant", agents_assistant)).addAt("auth", GroupSpec.makeAt("auth").addGroupAt("workspaces", auth_workspaces)).addAt("brain", GroupSpec.makeAt("brain").addGroupAt("callReview", brain_callReview).addGroupAt("pages", brain_pages).addGroupAt("pilot", brain_pilot).addGroupAt("readApi", brain_readApi)).addAt("capabilities", GroupSpec.makeAt("capabilities").addGroupAt("catalog", capabilities_catalog).addGroupAt("classifySourceUnit", capabilities_classifySourceUnit).addGroupAt("gatherMaintenanceContext", capabilities_gatherMaintenanceContext).addGroupAt("importTranscript", capabilities_importTranscript).addGroupAt("ingestSourceUnit", capabilities_ingestSourceUnit).addGroupAt("maintainBrainPage", capabilities_maintainBrainPage).addGroupAt("mineCallTranscript", capabilities_mineCallTranscript).addGroupAt("routeCallToBrain", capabilities_routeCallToBrain).addGroupAt("sourceGroundedBrief", capabilities_sourceGroundedBrief)).addAt("demo", GroupSpec.makeAt("demo").addGroupAt("showcase", demo_showcase)).addAt("editorSync", editorSync).addAt("headless", GroupSpec.makeAt("headless").addGroupAt("apiKeys", headless_apiKeys)).addAt("identity", GroupSpec.makeAt("identity").addGroupAt("stableKeys", identity_stableKeys)).addAt("integrations", GroupSpec.makeAt("integrations").addGroupAt("slackConnections", integrations_slackConnections).addGroupAt("slackDirectory", integrations_slackDirectory).addGroupAt("transcriptConnections", integrations_transcriptConnections).addGroupAt("transcriptSync", integrations_transcriptSync)).addAt("internal", GroupSpec.makeAt("internal").addGroupAt("migrations", internal_migrations)).addAt("jobs", GroupSpec.makeAt("jobs").addGroupAt("workpool", jobs_workpool)).addAt("ops", GroupSpec.makeAt("ops").addGroupAt("actions", ops_actions).addGroupAt("billing", ops_billing).addGroupAt("brainOperations", ops_brainOperations).addGroupAt("coediting", ops_coediting).addGroupAt("dataLifecycle", ops_dataLifecycle).addGroupAt("flags", ops_flags).addGroupAt("health", ops_health).addGroupAt("knowledge", ops_knowledge).addGroupAt("notifications", ops_notifications).addGroupAt("transforms", ops_transforms).addGroupAt("versioning", ops_versioning)).addAt("slack", GroupSpec.makeAt("slack").addGroupAt("channelPolicies", slack_channelPolicies).addGroupAt("identityLinks", slack_identityLinks)).addAt("workflowContracts", GroupSpec.makeAt("workflowContracts").addGroupAt("sourceClassification", workflowContracts_sourceClassification).addGroupAt("sourceToBrainMaintenance", workflowContracts_sourceToBrainMaintenance));
 
 export default spec;

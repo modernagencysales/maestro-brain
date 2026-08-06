@@ -55,5 +55,4 @@ export default Table.make(() => ChannelSyncStateRow)
     "status",
     "leaseExpiresAt",
   ])
-  .index("by_deep_next_retry", ["organizationKey", "status", "leaseExpiresAt"])
   .index("by_access_state", ["connectionKey", "lane", "status"]);

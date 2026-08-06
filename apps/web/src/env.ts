@@ -43,6 +43,15 @@ export const resolveWebEnv = (
   };
 };
 
+export const requireBuildWebEnv = (
+  command: string,
+  input: Readonly<Record<string, string | undefined>>,
+): void => {
+  if (command === "build" && !resolveWebEnv(input).convexConfigured) {
+    throw new WebEnvConfigError({ invalidEnv: ["VITE_CONVEX_URL"] });
+  }
+};
+
 export const getWebEnv = (): WebEnv => resolveWebEnv(import.meta.env).env;
 
 /**

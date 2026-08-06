@@ -24,8 +24,43 @@ export type HeadlessAuthorizationSuccess = {
 export type HeadlessAuthorizationResult =
   HeadlessAuthorizationSuccess | HeadlessAuthorizationFailure;
 
-const reviewedHeadlessPolicies =
-  [] as const satisfies readonly HeadlessOperationPolicy[];
+const reviewedHeadlessPolicies = [
+  {
+    operationId: "brain.pages.list",
+    headless: true,
+    requiredScope: "brain:read",
+  },
+  {
+    operationId: "brain.pages.get",
+    headless: true,
+    requiredScope: "brain:read",
+  },
+  {
+    operationId: "brain.pages.history",
+    headless: true,
+    requiredScope: "brain:read",
+  },
+  {
+    operationId: "brain.sources.search",
+    headless: true,
+    requiredScope: "brain:read",
+  },
+  {
+    operationId: "brain.sources.get",
+    headless: true,
+    requiredScope: "brain:read",
+  },
+  {
+    operationId: "brain.context.get",
+    headless: true,
+    requiredScope: "brain:read",
+  },
+  {
+    operationId: "brain.answers.ask",
+    headless: true,
+    requiredScope: "brain:ask",
+  },
+] as const satisfies readonly HeadlessOperationPolicy[];
 
 const tenantInputFields = new Set([
   "organizationId",

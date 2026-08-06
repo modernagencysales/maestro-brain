@@ -24,19 +24,22 @@ const hasSurface = (
   (entry.surfaces as readonly string[]).includes(surface);
 
 const isReservedBrainPageOperation = (entry: ManifestFunction): boolean =>
-  (entry.operationId as string).startsWith("brain.pages.");
+  (entry.operationId as string) === "brain.pages.createMarkdown";
 
 const generatedHeadlessFunctions = (): readonly ManifestFunction[] =>
   confectManifest.functions.filter(
     (entry) => !isReservedBrainPageOperation(entry),
   );
 
-export const generatedMcpOperationRefs: Readonly<Record<string, string>> =
-  Object.fromEntries(
-    generatedHeadlessFunctions()
-      .filter((entry) => hasSurface(entry, "mcp"))
-      .map((entry) => [entry.operationId, `template.${entry.operationId}`]),
-  );
+export const generatedMcpOperationRefs: Readonly<Record<string, string>> = {
+  "brain.answers.ask": "template.brain.answers.ask",
+  "brain.context.get": "template.brain.context.get",
+  "brain.pages.get": "template.brain.pages.get",
+  "brain.pages.history": "template.brain.pages.history",
+  "brain.pages.list": "template.brain.pages.list",
+  "brain.sources.get": "template.brain.sources.get",
+  "brain.sources.search": "template.brain.sources.search",
+};
 
 export type HeadlessOperation = {
   readonly id: string;

@@ -26,6 +26,7 @@ import {
   LifecycleRevoked,
   PageNotFound,
   PageTreeConflict,
+  RevisionNotFound,
   StaleRevision,
   cycleConflict,
   usableTitle,
@@ -35,10 +36,17 @@ import pages from "./pages.spec";
 
 type PageDoc = BrainPage & { readonly _id: GenericId<"brainPages"> };
 type MutationKind =
-  "create" | "rename" | "move" | "favorite" | "archive" | "snapshot";
+  | "create"
+  | "rename"
+  | "move"
+  | "favorite"
+  | "archive"
+  | "restore"
+  | "snapshot";
 type AccessError = Unauthorized | Forbidden | BrainNotFound | LifecycleRevoked;
 type ReadPageError = AccessError | ValidationFailed | PageNotFound;
-type PageError = ReadPageError | PageTreeConflict | StaleRevision;
+type PageError =
+  ReadPageError | PageTreeConflict | RevisionNotFound | StaleRevision;
 type ReadPageDeps = Auth | DatabaseReader | QueryRunner;
 type PageDeps = ReadPageDeps | DatabaseWriter;
 const auditActions = {
@@ -47,10 +55,12 @@ const auditActions = {
   move: "page.moved",
   favorite: "page.favoriteChanged",
   archive: "page.archived",
+  restore: "page.restored",
 } as const satisfies Record<Exclude<MutationKind, "snapshot">, string>;
 type BrainContext = {
   readonly workspaceId: GenericId<"workspaces">;
   readonly organizationId: string;
+  readonly organizationKey: string;
   readonly brainKey: string;
   readonly actorId: string;
 };
@@ -82,7 +92,7 @@ const effectKeyFor = (
   pageKey: string,
   revisionKey: string,
 ) => `brain.pages.${kind}:${pageKey}:${revisionKey}`;
-const requireBrainAccess = (
+export const requireBrainAccess = (
   brainKey: string,
   minimumRole: Role,
 ): Effect.Effect<BrainContext, AccessError, ReadPageDeps> =>
@@ -194,6 +204,7 @@ const requireBrainAccess = (
     return {
       workspaceId: workspace._id,
       organizationId: organization._id,
+      organizationKey: agencyKey,
       brainKey,
       actorId: String(user._id),
     } satisfies BrainContext;
@@ -279,7 +290,7 @@ const writePageRevision = (args: {
           markdown: args.page.markdown,
           editorSnapshotJson: args.page.editorSnapshotJson ?? null,
         }),
-        causation: "human-edit",
+        causation: args.kind === "restore" ? "restore" : "human-edit",
         actor: { kind: "user", id: args.brain.actorId },
         modelReceiptKey: null,
         effectKey,
@@ -380,6 +391,38 @@ const get = FunctionImpl.make(
         updatedAt: page.updatedAt,
       };
     }),
+);
+const history = FunctionImpl.make(databaseSchema, pages, "history", (args) =>
+  Effect.gen(function* () {
+    const brain = yield* requireBrainAccess(args.brainKey, "viewer");
+    const reader = yield* DatabaseReader;
+    const rows = yield* reader
+      .table("pageRevisions")
+      .index("by_page_created", (q) =>
+        q.eq("workspaceId", brain.workspaceId).eq("pageKey", args.pageKey),
+      )
+      .collect()
+      .pipe(Effect.orDie);
+    const limit = Math.min(Math.max(args.limit ?? 50, 1), 100);
+    return {
+      brainKey: brain.brainKey,
+      pageKey: args.pageKey,
+      asOf: yield* unsafeAssumeClockProvided(Clock.currentTimeMillis),
+      freshness: { status: "current" as const },
+      revisions: rows.slice(0, limit).map((row) => ({
+        revisionKey: row.revisionKey,
+        priorRevisionKey: row.priorRevisionKey ?? null,
+        causation: row.causation,
+        createdAt: row.createdAt,
+        lifecycleGeneration: row.lifecycle?.generation ?? 0,
+        markdown: row.markdown,
+        contentHash: row.contentHash,
+        state: row.state,
+        actorKind: row.actor.kind,
+        actorId: row.actor.id,
+      })),
+    };
+  }),
 );
 const create = FunctionImpl.make(databaseSchema, pages, "create", (args) =>
   withMutationErrorCapture(
@@ -581,6 +624,77 @@ const archive = FunctionImpl.make(databaseSchema, pages, "archive", (args) =>
   ),
 );
 
+const restore = FunctionImpl.make(databaseSchema, pages, "restore", (args) =>
+  withMutationErrorCapture(
+    "brain/pages.restore",
+    Effect.gen(function* () {
+      const brain = yield* requireBrainAccess(args.brainKey, "editor");
+      const page = yield* loadPage(brain, args.pageKey);
+      yield* requireCurrentRevision(page, args.expectedCurrentRevisionKey);
+      const reader = yield* DatabaseReader;
+      const revision = yield* reader
+        .table("pageRevisions")
+        .index("by_workspace_revision_key", (q) =>
+          q
+            .eq("workspaceId", brain.workspaceId)
+            .eq("revisionKey", args.revisionKey),
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      if (
+        revision === null ||
+        revision.pageKey !== page.pageKey ||
+        revision.state !== "published" ||
+        revision.lifecycle?.state !== "active"
+      )
+        return yield* new RevisionNotFound({
+          revisionKey: args.revisionKey,
+        });
+      const at = yield* unsafeAssumeClockProvided(Clock.currentTimeMillis);
+      const nextRevisionKey = revisionKeyFor(
+        "restore",
+        page.pageKey,
+        at,
+        page.lifecycle.generation + 1,
+      );
+      const patchedPage = {
+        ...page,
+        markdown: revision.markdown,
+        editorSnapshotJson: revision.blockNoteJson,
+        editorSnapshotVersion: (page.editorSnapshotVersion ?? 0) + 1,
+        currentRevisionKey: nextRevisionKey,
+        updatedAt: at,
+        lifecycle: {
+          ...page.lifecycle,
+          generation: page.lifecycle.generation + 1,
+          updatedAt: at,
+        },
+      };
+      const writer = yield* DatabaseWriter;
+      yield* writer
+        .table("brainPages")
+        .patch(page._id, {
+          markdown: patchedPage.markdown,
+          editorSnapshotJson: patchedPage.editorSnapshotJson,
+          editorSnapshotVersion: patchedPage.editorSnapshotVersion,
+          currentRevisionKey: patchedPage.currentRevisionKey,
+          updatedAt: patchedPage.updatedAt,
+          lifecycle: patchedPage.lifecycle,
+        })
+        .pipe(Effect.orDie);
+      yield* writePageRevision({
+        brain,
+        page: patchedPage,
+        priorRevisionKey: page.currentRevisionKey,
+        revisionKey: nextRevisionKey,
+        kind: "restore",
+        at,
+      });
+      return toPublicPageSummary(patchedPage);
+    }),
+  ),
+);
+
 const recordSnapshotInternal = FunctionImpl.make(
   databaseSchema,
   pages,
@@ -668,11 +782,13 @@ const recordSnapshotInternal = FunctionImpl.make(
 export default GroupImpl.make(databaseSchema, pages).pipe(
   Layer.provide(list),
   Layer.provide(get),
+  Layer.provide(history),
   Layer.provide(create),
   Layer.provide(rename),
   Layer.provide(move),
   Layer.provide(favorite),
   Layer.provide(archive),
+  Layer.provide(restore),
   Layer.provide(recordSnapshotInternal),
   GroupImpl.finalize,
 );

@@ -6,6 +6,7 @@ export type EditorTarget =
       readonly brainKey: string;
       readonly pageKey: string;
       readonly legacyPageId: null;
+      readonly expectedCurrentRevisionKey?: string;
     }
   | {
       readonly kind: "brainPage";
@@ -16,16 +17,25 @@ export type EditorTarget =
 
 export const parseEditorTarget = (documentId: string): EditorTarget => {
   const [kind, ...rest] = documentId.split(":");
-  if (kind === "brainPage" && rest.length === 2) {
+  if (kind === "brainPage" && (rest.length === 2 || rest.length === 3)) {
     const brainKey = rest[0];
     const pageKey = rest[1];
+    const expectedCurrentRevisionKey = rest[2];
     if (
       brainKey !== undefined &&
       pageKey !== undefined &&
       brainKey.length > 0 &&
       pageKey.length > 0
     ) {
-      return { kind, brainKey, pageKey, legacyPageId: null };
+      return {
+        kind,
+        brainKey,
+        pageKey,
+        legacyPageId: null,
+        ...(expectedCurrentRevisionKey === undefined
+          ? {}
+          : { expectedCurrentRevisionKey }),
+      };
     }
   }
 

@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import * as Config from "effect/Config";
 import * as ConfigError from "effect/ConfigError";
 import * as Context from "effect/Context";
@@ -7,6 +5,11 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
 import type { ProviderMode } from "../index";
+import {
+  boundedNangoRecordLimit,
+  type NangoListRecordsInput,
+  type NangoRecordPage,
+} from "./records";
 
 export class NangoConfigError extends Error {
   readonly _tag = "NangoConfigError";
@@ -72,6 +75,17 @@ type NangoSdk = {
     } | null;
     readonly tags?: Record<string, unknown> | null;
   }>;
+  readonly proxy?: (input: {
+    readonly method: string;
+    readonly endpoint: string;
+    readonly providerConfigKey: string;
+    readonly connectionId: string;
+    readonly data?: unknown;
+  }) => Promise<unknown>;
+  readonly listRecords?: (input: NangoListRecordsInput) => Promise<{
+    readonly records: readonly Record<string, unknown>[];
+    readonly next_cursor: string | null;
+  }>;
 };
 
 export type NangoClient = {
@@ -86,12 +100,22 @@ export type NangoClient = {
     readonly connectSessionId: string;
     readonly connectionId: string;
   }) => Promise<NangoConnectionMetadata>;
+  readonly proxy: (input: {
+    readonly connectionId: string;
+    readonly endpoint: string;
+    readonly method: "GET" | "POST";
+    readonly data?: unknown;
+  }) => Promise<{
+    readonly status: number;
+    readonly data?: unknown;
+    readonly headers?: Readonly<Record<string, string>>;
+  }>;
+  readonly listRecords: (
+    input: NangoListRecordsInput,
+  ) => Promise<NangoRecordPage>;
 };
 
-const requiredLiveEnv = [
-  "NANGO_SECRET_KEY",
-  "NANGO_CONNECT_INTEGRATION_ID",
-] as const;
+const requiredLiveEnv = ["NANGO_SECRET_KEY"] as const;
 const secretKeyPattern = /^(sk_|xox[a-z]-|nango_secret)/i;
 const unsafeConnectionIdPattern =
   /^(sk_|xox[a-z]-|nango_secret|connect_public_)/i;
@@ -148,11 +172,13 @@ export const redactNangoDiagnostic = <T extends Record<string, unknown>>(
 
 export const createFakeNangoClient = (input: {
   readonly now: number;
+  readonly providerConfigKey?: string;
 }): NangoClient => ({
   createConnectSession: async ({ organizationKey, connectSessionId }) => {
     if (organizationKey === "timeout") throw new ProviderUnavailable();
     const sessionId =
-      connectSessionId ?? `maestro-session-${randomUUID().replace(/-/g, "")}`;
+      connectSessionId ??
+      `maestro-session-${crypto.randomUUID().replace(/-/g, "")}`;
     return {
       connectSessionId: sessionId,
       connectSessionToken: `connect_public_${sessionId}`,
@@ -166,33 +192,108 @@ export const createFakeNangoClient = (input: {
       throw new ConnectSessionInvalid();
     }
     return {
-      organizationKey: `nango-org-slack-${connectSessionId.replace(/^maestro-session-/, "")}`,
-      endUserId: `nango-user-slack-${connectSessionId.replace(/^maestro-session-/, "")}`,
-      providerConfigKey: "slack",
-      correlationTag: `slack-connect:${connectSessionId}`,
+      organizationKey: `nango-org-${input.providerConfigKey ?? "slack"}-${connectSessionId.replace(/^maestro-session-/, "")}`,
+      endUserId: `nango-user-${input.providerConfigKey ?? "slack"}-${connectSessionId.replace(/^maestro-session-/, "")}`,
+      providerConfigKey: input.providerConfigKey ?? "slack",
+      correlationTag: `${input.providerConfigKey ?? "slack"}-connect:${connectSessionId}`,
     };
   },
+  proxy: async () => ({ status: 200, data: { ok: true } }),
+  listRecords: async () => ({ records: [], nextCursor: null }),
 });
 const stringField = (value: unknown): string | null =>
   typeof value === "string" && value.trim().length > 0 ? value : null;
+
+const createNangoHttpClient = (secretKey: string): NangoSdk => {
+  const baseUrl = "https://api.nango.dev";
+  const headers = (extra: Record<string, string> = {}) => ({
+    Authorization: `Bearer ${secretKey}`,
+    ...extra,
+  });
+  const json = async (response: Response): Promise<unknown> => {
+    try {
+      return await response.json();
+    } catch {
+      throw new ProviderUnavailable();
+    }
+  };
+  const requireSuccess = (response: Response) => {
+    if (!response.ok) throw new ProviderUnavailable();
+  };
+
+  return {
+    createConnectSession: async (body) => {
+      const response = await fetch(`${baseUrl}/connect/sessions`, {
+        method: "POST",
+        headers: headers({ "Content-Type": "application/json" }),
+        body: JSON.stringify(body),
+      });
+      requireSuccess(response);
+      return (await json(response)) as never;
+    },
+    getConnection: async (providerConfigKey, connectionId) => {
+      const url = new URL(`${baseUrl}/connections/${connectionId}`);
+      url.searchParams.set("provider_config_key", providerConfigKey);
+      const response = await fetch(url, { headers: headers() });
+      requireSuccess(response);
+      return (await json(response)) as never;
+    },
+    proxy: async ({
+      connectionId,
+      endpoint,
+      method,
+      providerConfigKey,
+      data,
+    }) => {
+      const response = await fetch(
+        `${baseUrl}/proxy${endpoint.startsWith("/") ? "" : "/"}${endpoint}`,
+        {
+          method,
+          headers: headers({
+            "Connection-Id": connectionId,
+            "Provider-Config-Key": providerConfigKey,
+            ...(data === undefined
+              ? {}
+              : { "Content-Type": "application/json" }),
+          }),
+          ...(data === undefined ? {} : { body: JSON.stringify(data) }),
+        },
+      );
+      const responseHeaders: Record<string, string> = {};
+      response.headers.forEach((value, key) => {
+        responseHeaders[key] = value;
+      });
+      return {
+        status: response.status,
+        headers: responseHeaders,
+        ...(response.status === 204 ? {} : { data: await json(response) }),
+      };
+    },
+    listRecords: async (request) => {
+      const url = new URL(`${baseUrl}/records/`);
+      url.searchParams.set("model", request.model);
+      if (request.cursor) url.searchParams.set("cursor", request.cursor);
+      if (request.limit) url.searchParams.set("limit", String(request.limit));
+      if (request.filter) url.searchParams.set("filter", request.filter);
+      const response = await fetch(url, {
+        headers: headers({
+          "Connection-Id": request.connectionId,
+          "Provider-Config-Key": request.providerConfigKey,
+        }),
+      });
+      requireSuccess(response);
+      return (await json(response)) as never;
+    },
+  };
+};
 
 export const createLiveNangoClient = (input: {
   readonly secretKey: string;
   readonly providerConfigKey: string;
   readonly nango?: NangoSdk;
 }): NangoClient => {
-  let nangoPromise: Promise<NangoSdk> | undefined;
-  const loadNango = () => {
-    nangoPromise ??= input.nango
-      ? Promise.resolve(input.nango)
-      : import("@nangohq/node").then(
-          ({ Nango }) =>
-            new Nango({
-              apiKey: input.secretKey,
-            }) as NangoSdk,
-        );
-    return nangoPromise;
-  };
+  const nango = input.nango ?? createNangoHttpClient(input.secretKey);
+  const loadNango = () => Promise.resolve(nango);
 
   return {
     createConnectSession: async ({
@@ -220,7 +321,7 @@ export const createLiveNangoClient = (input: {
         throw new ProviderUnavailable();
       }
       return {
-        connectSessionId: connectSessionId ?? randomUUID(),
+        connectSessionId: connectSessionId ?? crypto.randomUUID(),
         connectSessionToken: token,
         expiresAt: expiresAtMs,
       };
@@ -258,11 +359,72 @@ export const createLiveNangoClient = (input: {
         correlationTag,
       };
     },
+    proxy: async ({ connectionId, endpoint, method, data }) => {
+      const nango = await loadNango();
+      if (nango.proxy === undefined) throw new ProviderUnavailable();
+      const response = await nango.proxy({
+        connectionId,
+        endpoint,
+        method,
+        providerConfigKey: input.providerConfigKey,
+        ...(data === undefined ? {} : { data }),
+      });
+      const record =
+        typeof response === "object" && response !== null
+          ? (response as {
+              readonly status?: unknown;
+              readonly data?: unknown;
+              readonly headers?: unknown;
+            })
+          : {};
+      const headers =
+        typeof record.headers === "object" && record.headers !== null
+          ? Object.fromEntries(
+              Object.entries(record.headers as Record<string, unknown>).flatMap(
+                ([key, value]) =>
+                  typeof value === "string"
+                    ? [[key.toLowerCase(), value] as const]
+                    : [],
+              ),
+            )
+          : undefined;
+      return {
+        status: typeof record.status === "number" ? record.status : 200,
+        ...(record.data === undefined ? {} : { data: record.data }),
+        ...(headers === undefined || Object.keys(headers).length === 0
+          ? {}
+          : { headers }),
+      };
+    },
+    listRecords: async (request) => {
+      if (request.providerConfigKey !== input.providerConfigKey) {
+        throw new ConnectSessionInvalid();
+      }
+      const nango = await loadNango();
+      if (nango.listRecords === undefined) throw new ProviderUnavailable();
+      try {
+        const page = await nango.listRecords({
+          connectionId: request.connectionId,
+          providerConfigKey: request.providerConfigKey,
+          model: request.model,
+          ...(request.cursor === undefined ? {} : { cursor: request.cursor }),
+          limit: boundedNangoRecordLimit(request.limit),
+          ...(request.filter === undefined ? {} : { filter: request.filter }),
+        });
+        if (!Array.isArray(page.records)) throw new ProviderUnavailable();
+        return { records: page.records, nextCursor: page.next_cursor };
+      } catch {
+        throw new ProviderUnavailable();
+      }
+    },
   };
 };
 
 export type NangoProviderService = {
-  readonly clientFor: (input: { readonly now: number }) => NangoClient;
+  readonly clientFor: (input: {
+    readonly now: number;
+    readonly providerConfigKey?: string;
+  }) => NangoClient;
 };
 
 export class NangoProvider extends Context.Tag("NangoProvider")<
@@ -279,7 +441,6 @@ const ProviderModeConfig = Config.withDefault(
   "fake" as const,
 );
 const NangoSecretKeyConfig = Config.string("NANGO_SECRET_KEY");
-const NangoIntegrationIdConfig = Config.string("NANGO_CONNECT_INTEGRATION_ID");
 
 export const createNangoProviderLayer = (
   input: {
@@ -295,10 +456,8 @@ export const createNangoProviderLayer = (
       const mode = yield* ProviderModeConfig;
       if (mode !== "live") return { clientFor: createFakeNangoClient };
       const secretKeyRaw = yield* NangoSecretKeyConfig;
-      const providerConfigKeyRaw = yield* NangoIntegrationIdConfig;
       const validation = validateNangoEnv("live", {
         NANGO_SECRET_KEY: secretKeyRaw,
-        NANGO_CONNECT_INTEGRATION_ID: providerConfigKeyRaw,
       });
       if (validation !== true) {
         return yield* Effect.fail(
@@ -306,9 +465,8 @@ export const createNangoProviderLayer = (
         );
       }
       const secretKey = secretKeyRaw.trim();
-      const providerConfigKey = providerConfigKeyRaw.trim();
       return {
-        clientFor: () => {
+        clientFor: ({ providerConfigKey = "slack" }) => {
           const nango = input.nangoFactory?.({ secretKey, providerConfigKey });
           return createLiveNangoClient({
             secretKey,

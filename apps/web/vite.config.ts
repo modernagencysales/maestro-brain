@@ -1,15 +1,29 @@
 import react from "@vitejs/plugin-react";
+import { cloudflare } from "@cloudflare/vite-plugin";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import { fileURLToPath } from "node:url";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
+import { requireBuildWebEnv } from "./src/env";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   build: {
     sourcemap: false,
   },
   plugins: [
+    {
+      name: "require-build-web-env",
+      config: (_config, env) =>
+        requireBuildWebEnv(
+          env.command,
+          loadEnv(
+            env.mode,
+            fileURLToPath(new URL(".", import.meta.url)),
+            "VITE_",
+          ),
+        ),
+    },
+    mode === "test" ? null : cloudflare({ viteEnvironment: { name: "ssr" } }),
     tanstackStart({
-      spa: { enabled: true },
       router: {
         routesDirectory: "./routes",
         generatedRouteTree: "./routeTree.gen.ts",
@@ -26,6 +40,9 @@ export default defineConfig({
             import.meta.url,
           ),
         ),
+      "@maestro-template/template-core/sha256": fileURLToPath(
+        new URL("../../packages/template-core/src/sha256.ts", import.meta.url),
+      ),
       "@maestro-template/ui": fileURLToPath(
         new URL("../../packages/ui/src/index.tsx", import.meta.url),
       ),
@@ -49,4 +66,4 @@ export default defineConfig({
       ),
     },
   },
-});
+}));

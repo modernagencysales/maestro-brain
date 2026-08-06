@@ -1,5 +1,8 @@
 import { confectManifest } from "@maestro-template/template-core/generated/confectManifest";
-import { describe, expect, it } from "vitest";
+import { spawnSync } from "node:child_process";
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   HeadlessOperation,
   McpToolCallResult,
@@ -7,7 +10,7 @@ import type {
   TemplateApiResult,
 } from "@maestro-template/workflow-tooling";
 import type { providerConfigReport } from "@maestro-template/integrations";
-import { decodeCliRuntimeConfig, runCli } from "./index";
+import { decodeCliRuntimeConfig, runCli, runCliAsync } from "./index";
 import type { CliResult } from "./types";
 
 type ProviderConfigReport = ReturnType<typeof providerConfigReport>[number];
@@ -31,6 +34,267 @@ type WorkflowReceiptPayload = {
 const parseStdout = <T>(result: CliResult): T => JSON.parse(result.stdout) as T;
 
 describe("maestro-template CLI", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("ships a runnable maestro-brain executable", () => {
+    const executable = new URL("../bin/maestro-brain.mjs", import.meta.url);
+
+    expect(existsSync(executable)).toBe(true);
+    if (!existsSync(executable)) return;
+
+    const result = spawnSync(
+      process.execPath,
+      [fileURLToPath(executable), "describe"],
+      {
+        encoding: "utf8",
+      },
+    );
+
+    expect(result.status).toBe(0);
+    expect(JSON.parse(result.stdout)).toMatchObject({ valid: true });
+    expect(result.stderr).toBe("");
+  });
+
+  it("prints maestro-brain commands in help", () => {
+    const result = runCli(["--help"]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain("maestro-brain api call");
+    expect(result.stdout).not.toContain("maestro-template");
+  });
+
+  it("calls an allowed Brain operation with bearer authentication", async () => {
+    const transcriptEntry = {
+      sourceKey: `sunit_${"a".repeat(64)}`,
+      sourceRevisionKey: `surev_${"b".repeat(64)}`,
+      citationKey: "citation:call_1:segment_1",
+      title: "Acme weekly",
+      excerpt: "We will launch on Friday.",
+      locator: "timestamp:12000-15400",
+      citationLabel: "Alex · 00:12",
+      permalink: "https://app.fireflies.ai/view/call_1",
+      freshness: "fresh",
+      state: "resolved",
+    };
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ok: true,
+          operationId: "brain.context.get",
+          result: { entries: [transcriptEntry] },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await runCliAsync(
+      [
+        "api",
+        "call",
+        "brain.context.get",
+        "--input",
+        '{"pageKeys":["page_1"]}',
+      ],
+      decodeCliRuntimeConfig({
+        CONVEX_SITE_URL: "https://brain.example.test",
+        MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+      }),
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(parseStdout<Record<string, unknown>>(result)).toMatchObject({
+      ok: true,
+      operationId: "brain.context.get",
+      result: { entries: [transcriptEntry] },
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://brain.example.test/api/brain.context.get",
+      expect.objectContaining({
+        method: "POST",
+        headers: {
+          authorization: "Bearer brain_api_secret",
+          "content-type": "application/json",
+        },
+        redirect: "error",
+      }),
+    );
+    expect(
+      JSON.parse((fetchMock.mock.calls[0]?.[1] as RequestInit).body as string),
+    ).toEqual({ input: { pageKeys: ["page_1"] } });
+  });
+
+  it("returns typed Brain failures from successful HTTP responses", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            ok: false,
+            error: { _tag: "Forbidden", message: "Forbidden." },
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    const result = await runCliAsync(
+      ["api", "call", "brain.context.get", "--input", "{}"],
+      decodeCliRuntimeConfig({
+        CONVEX_SITE_URL: "https://brain.example.test",
+        MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+      }),
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(parseStdout<Record<string, unknown>>(result)).toMatchObject({
+      ok: false,
+      error: { _tag: "Forbidden" },
+    });
+  });
+
+  it("redacts the Brain key from remote failures", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            ok: false,
+            error: {
+              _tag: "ValidationFailed",
+              message: "brain_api_secret must not be exposed",
+            },
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    const result = await runCliAsync(
+      ["api", "call", "brain.context.get", "--input", "{}"],
+      decodeCliRuntimeConfig({
+        CONVEX_SITE_URL: "https://brain.example.test",
+        MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+      }),
+    );
+
+    expect(JSON.stringify(result)).not.toContain("brain_api_secret");
+  });
+
+  it("does not leak the Brain key on network failure", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockRejectedValue(new Error("brain_api_secret")),
+    );
+
+    const result = await runCliAsync(
+      ["api", "call", "brain.context.get", "--input", "{}"],
+      decodeCliRuntimeConfig({
+        CONVEX_SITE_URL: "https://brain.example.test",
+        MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+      }),
+    );
+
+    expect(result).toEqual({
+      exitCode: 1,
+      stdout: "",
+      stderr: "Brain API request failed.\n",
+    });
+    expect(JSON.stringify(result)).not.toContain("brain_api_secret");
+  });
+
+  it.each([
+    "http://brain.example.test",
+    " https://brain.example.test",
+    "https://user:password@brain.example.test",
+    "https://brain.example.test/api",
+    "https://brain.example.test?key=brain_api_secret",
+    "https://brain.example.test#fragment",
+  ])("rejects unsafe Brain site URL %s", async (siteUrl) => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await runCliAsync(
+      ["api", "call", "brain.context.get", "--input", "{}"],
+      decodeCliRuntimeConfig({
+        CONVEX_SITE_URL: siteUrl,
+        MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+      }),
+    );
+
+    expect(result.exitCode).toBe(1);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(JSON.stringify(result)).not.toContain("brain_api_secret");
+  });
+
+  it("rejects blank or whitespace-contaminated Brain keys", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+
+    for (const brainApiKey of ["", " brain_api_secret "]) {
+      const result = await runCliAsync(
+        ["api", "call", "brain.context.get", "--input", "{}"],
+        decodeCliRuntimeConfig({
+          CONVEX_SITE_URL: "https://brain.example.test",
+          MAESTRO_BRAIN_API_KEY: brainApiKey,
+        }),
+      );
+
+      expect(result.exitCode).toBe(1);
+      if (brainApiKey.trim()) {
+        expect(JSON.stringify(result)).not.toContain(brainApiKey.trim());
+      }
+    }
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("allows localhost Brain site URLs", async () => {
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ ok: true, result: {} }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await runCliAsync(
+      ["api", "call", "brain.context.get", "--input", "{}"],
+      decodeCliRuntimeConfig({
+        CONVEX_SITE_URL: "http://localhost:3210",
+        MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+      }),
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3210/api/brain.context.get",
+      expect.any(Object),
+    );
+  });
+
+  it("rejects tenant selectors and Brain write operations locally", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    vi.stubGlobal("fetch", fetchMock);
+    const config = decodeCliRuntimeConfig({
+      CONVEX_SITE_URL: "https://brain.example.test",
+      MAESTRO_BRAIN_API_KEY: "brain_api_secret",
+    });
+
+    const selectorResult = await runCliAsync(
+      ["api", "call", "brain.context.get", "--input", '{"brainKey":"other"}'],
+      config,
+    );
+    const writeResult = await runCliAsync(
+      ["api", "call", "brain.pages.createMarkdown", "--input", "{}"],
+      config,
+    );
+
+    expect(selectorResult.exitCode).toBe(1);
+    expect(writeResult.exitCode).toBe(1);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("describes the shared workflow template", () => {
     const result = runCli(["describe"]);
 
@@ -46,7 +310,7 @@ describe("maestro-template CLI", () => {
     });
   });
 
-  it("omits Brain page operations from headless metadata", () => {
+  it("omits the retired Brain page operation and lists current surfaces", () => {
     const operations = parseStdout<readonly HeadlessOperation[]>(
       runCli(["operations", "list"]),
     );
@@ -55,11 +319,17 @@ describe("maestro-template CLI", () => {
     expect(operations).not.toContainEqual(
       expect.objectContaining({ id: "api:brain.pages.createMarkdown" }),
     );
-    expect(operations).not.toContainEqual(
+    expect(operations).toContainEqual(
       expect.objectContaining({ id: "web:brain.pages.list" }),
     );
-    expect(operations).not.toContainEqual(
+    expect(operations).toContainEqual(
       expect.objectContaining({ id: "web:brain.pages.get" }),
+    );
+    expect(operations).toContainEqual(
+      expect.objectContaining({ id: "api:brain.pages.list" }),
+    );
+    expect(operations).toContainEqual(
+      expect.objectContaining({ id: "mcp:brain.pages.list" }),
     );
     expect(
       runCli(["operations", "get", "api:brain.pages.createMarkdown"]),

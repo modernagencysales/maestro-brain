@@ -7,12 +7,22 @@ import actionJobs from "./tables/actionJobs";
 import actionTriggers from "./tables/actionTriggers";
 import apiKeys from "./tables/apiKeys";
 import billingPlans from "./tables/billingPlans";
+import brainExportJobs from "./tables/brainExportJobs";
+import brainMaintenanceProposalItems from "./tables/brainMaintenanceProposalItems";
+import brainMaintenanceProposals from "./tables/brainMaintenanceProposals";
 import brainPageAuditEvents from "./tables/brainPageAuditEvents";
 import brainPages from "./tables/brainPages";
+import brainSources from "./tables/brainSources";
+import callRouteMappings from "./tables/callRouteMappings";
+import callRoutingProposals from "./tables/callRoutingProposals";
+import channelDeliveryPolicies from "./tables/channelDeliveryPolicies";
+import channelRoutingPolicies from "./tables/channelRoutingPolicies";
 import channelSyncStates from "./tables/channelSyncStates";
 import citations from "./tables/citations";
 import claims from "./tables/claims";
+import classificationDecisions from "./tables/classificationDecisions";
 import concepts from "./tables/concepts";
+import connectorSyncStates from "./tables/connectorSyncStates";
 import contextPacks from "./tables/contextPacks";
 import creditLedger from "./tables/creditLedger";
 import documentAnnotations from "./tables/documentAnnotations";
@@ -29,12 +39,22 @@ import notificationPreferences from "./tables/notificationPreferences";
 import notificationRecords from "./tables/notificationRecords";
 import organizationMembers from "./tables/organizationMembers";
 import organizations from "./tables/organizations";
+import outboundDeliveryOutbox from "./tables/outboundDeliveryOutbox";
 import pageRevisions from "./tables/pageRevisions";
 import policies from "./tables/policies";
 import promptRegistry from "./tables/promptRegistry";
 import providerConnections from "./tables/providerConnections";
+import providerEventReceipts from "./tables/providerEventReceipts";
 import servicePrincipals from "./tables/servicePrincipals";
+import slackIdentityBindings from "./tables/slackIdentityBindings";
+import slackQuestionReceipts from "./tables/slackQuestionReceipts";
+import sourceArtifacts from "./tables/sourceArtifacts";
 import sourceChannels from "./tables/sourceChannels";
+import sourceProcessingJobs from "./tables/sourceProcessingJobs";
+import sourceRevisions from "./tables/sourceRevisions";
+import sourceSegments from "./tables/sourceSegments";
+import sourceUnitRevisions from "./tables/sourceUnitRevisions";
+import sourceUnits from "./tables/sourceUnits";
 import transformBlocks from "./tables/transformBlocks";
 import transformDefinitions from "./tables/transformDefinitions";
 import transformRuns from "./tables/transformRuns";
@@ -60,12 +80,22 @@ export default $defineSchema({
   actionTriggers: actionTriggers.tableDefinition,
   apiKeys: apiKeys.tableDefinition,
   billingPlans: billingPlans.tableDefinition,
+  brainExportJobs: brainExportJobs.tableDefinition,
+  brainMaintenanceProposalItems: brainMaintenanceProposalItems.tableDefinition,
+  brainMaintenanceProposals: brainMaintenanceProposals.tableDefinition,
   brainPageAuditEvents: brainPageAuditEvents.tableDefinition,
   brainPages: brainPages.tableDefinition,
+  brainSources: brainSources.tableDefinition,
+  callRouteMappings: callRouteMappings.tableDefinition,
+  callRoutingProposals: callRoutingProposals.tableDefinition,
+  channelDeliveryPolicies: channelDeliveryPolicies.tableDefinition,
+  channelRoutingPolicies: channelRoutingPolicies.tableDefinition,
   channelSyncStates: channelSyncStates.tableDefinition,
   citations: citations.tableDefinition,
   claims: claims.tableDefinition,
+  classificationDecisions: classificationDecisions.tableDefinition,
   concepts: concepts.tableDefinition,
+  connectorSyncStates: connectorSyncStates.tableDefinition,
   contextPacks: contextPacks.tableDefinition,
   creditLedger: creditLedger.tableDefinition,
   documentAnnotations: documentAnnotations.tableDefinition,
@@ -82,12 +112,22 @@ export default $defineSchema({
   notificationRecords: notificationRecords.tableDefinition,
   organizationMembers: organizationMembers.tableDefinition,
   organizations: organizations.tableDefinition,
+  outboundDeliveryOutbox: outboundDeliveryOutbox.tableDefinition,
   pageRevisions: pageRevisions.tableDefinition,
   policies: policies.tableDefinition,
   promptRegistry: promptRegistry.tableDefinition,
   providerConnections: providerConnections.tableDefinition,
+  providerEventReceipts: providerEventReceipts.tableDefinition,
   servicePrincipals: servicePrincipals.tableDefinition,
+  slackIdentityBindings: slackIdentityBindings.tableDefinition,
+  slackQuestionReceipts: slackQuestionReceipts.tableDefinition,
+  sourceArtifacts: sourceArtifacts.tableDefinition,
   sourceChannels: sourceChannels.tableDefinition,
+  sourceProcessingJobs: sourceProcessingJobs.tableDefinition,
+  sourceRevisions: sourceRevisions.tableDefinition,
+  sourceSegments: sourceSegments.tableDefinition,
+  sourceUnitRevisions: sourceUnitRevisions.tableDefinition,
+  sourceUnits: sourceUnits.tableDefinition,
   transformBlocks: transformBlocks.tableDefinition,
   transformDefinitions: transformDefinitions.tableDefinition,
   transformRuns: transformRuns.tableDefinition,

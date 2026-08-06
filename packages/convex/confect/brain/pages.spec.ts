@@ -11,6 +11,7 @@ import {
   LifecycleRevoked,
   PageNotFound,
   PageTreeConflict,
+  RevisionNotFound,
   StaleRevision,
 } from "./pageTree";
 import { PageKey, RevisionKey, SiblingSlug, SortKey } from "./pageSchemas";
@@ -32,6 +33,7 @@ const BrainPageReadError = Schema.Union(
 const BrainPageWriteError = Schema.Union(
   BrainPageReadError,
   PageTreeConflict,
+  RevisionNotFound,
   StaleRevision,
 );
 
@@ -70,6 +72,34 @@ const GetArgs = Schema.extend(
   BrainSelector,
   Schema.Struct({ pageKey: PageKey }),
 );
+const HistoryArgs = Schema.extend(
+  BrainSelector,
+  Schema.Struct({
+    pageKey: PageKey,
+    cursor: Schema.optional(Schema.String),
+    limit: Schema.optional(Schema.Number),
+  }),
+);
+const HistoryReturns = Schema.Struct({
+  brainKey: BrainKey,
+  pageKey: PageKey,
+  asOf: Schema.Number,
+  freshness: Schema.Struct({ status: Schema.Literal("current") }),
+  revisions: Schema.Array(
+    Schema.Struct({
+      revisionKey: RevisionKey,
+      priorRevisionKey: Schema.NullOr(RevisionKey),
+      causation: Schema.String,
+      createdAt: Schema.Number,
+      lifecycleGeneration: Schema.Number,
+      markdown: Schema.optional(Schema.String),
+      contentHash: Schema.optional(Schema.String),
+      state: Schema.optional(Schema.String),
+      actorKind: Schema.optional(Schema.String),
+      actorId: Schema.optional(Schema.String),
+    }),
+  ),
+});
 
 const CreateArgs = Schema.extend(
   BrainSelector,
@@ -105,6 +135,10 @@ const FavoriteArgs = Schema.extend(
   Schema.Struct({ favorite: Schema.Boolean }),
 );
 const ArchiveArgs = PageRevisionSelector;
+const RestoreArgs = Schema.extend(
+  PageRevisionSelector,
+  Schema.Struct({ revisionKey: RevisionKey }),
+);
 
 export const RecordSnapshotArgs = Schema.Struct({
   brainKey: BrainKey,
@@ -132,6 +166,7 @@ const pageReadErrors = [
 const pageWriteErrors = [
   ...pageReadErrors,
   "PageTreeConflict",
+  "RevisionNotFound",
   "StaleRevision",
 ] as const;
 
@@ -155,7 +190,7 @@ const definePageQuery = <
       name,
       operationId: `brain.pages.${name}`,
       kind: "query",
-      surfaces: ["web"],
+      surfaces: ["web", "api", "mcp"],
       typedErrors: [...pageReadErrors],
       idempotent: true,
       argsSchemaName: `brain.pages.${name}.args`,
@@ -196,11 +231,13 @@ const definePageMutation = <
 
 const list = definePageQuery("list", ListArgs, ListReturns);
 const get = definePageQuery("get", GetArgs, PageDetail);
+const history = definePageQuery("history", HistoryArgs, HistoryReturns);
 const create = definePageMutation("create", CreateArgs);
 const rename = definePageMutation("rename", RenameArgs);
 const move = definePageMutation("move", MoveArgs);
 const favorite = definePageMutation("favorite", FavoriteArgs);
 const archive = definePageMutation("archive", ArchiveArgs);
+const restore = definePageMutation("restore", RestoreArgs);
 
 const recordSnapshotInternal = FunctionSpec.internalMutation({
   name: "recordSnapshotInternal",
@@ -212,11 +249,13 @@ const recordSnapshotInternal = FunctionSpec.internalMutation({
 const contractFunctions = [
   list,
   get,
+  history,
   create,
   rename,
   move,
   favorite,
   archive,
+  restore,
 ] as const;
 
 export const manifest = collectContractManifest(contractFunctions);
@@ -225,9 +264,11 @@ export const schemaRegistry = collectContractSchemas(contractFunctions);
 export default GroupSpec.make()
   .addFunction(list.spec)
   .addFunction(get.spec)
+  .addFunction(history.spec)
   .addFunction(create.spec)
   .addFunction(rename.spec)
   .addFunction(move.spec)
   .addFunction(favorite.spec)
   .addFunction(archive.spec)
+  .addFunction(restore.spec)
   .addFunction(recordSnapshotInternal);

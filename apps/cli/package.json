@@ -5,7 +5,8 @@
   "main": "src/index.ts",
   "types": "src/index.ts",
   "bin": {
-    "maestro-template": "src/index.ts"
+    "maestro-brain": "bin/maestro-brain.mjs",
+    "maestro-template": "bin/maestro-brain.mjs"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --outDir dist --declaration",
@@ -20,6 +21,7 @@
     "@maestro-template/integrations": "workspace:*",
     "@maestro-template/template-core": "workspace:*",
     "@maestro-template/workflow-tooling": "workspace:*",
-    "effect": "3.21.4"
+    "effect": "3.21.4",
+    "tsx": "^4.0.0"
   }
 }

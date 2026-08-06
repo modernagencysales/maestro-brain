@@ -19,14 +19,15 @@ briefs, workflow receipts, and headless access.
 
 - Domain nouns: workspace, source, source set, context pack, capability,
   workflow, agent, Trust Receipt.
-- Source types: markdown, links, notes, uploaded documents, approved CRM export.
+- Source types: markdown, links, notes, uploaded documents, approved CRM export,
+  and immutable call transcripts from configured connectors or manual import.
 - First capability: `summarizeSource`.
 - First workflow: `sourceGroundedPlan`.
 - First agent grants: read sources, create context pack, run grounded workflow,
   create Trust Receipt.
 - Required providers: Convex, fake/local LLM gateway, local storage.
 - Optional providers: WorkOS, PostHog, Dodo, MailerSend, OpenRouter-compatible
-  LLM, object storage, search/vector provider.
+  LLM, object storage, search/vector provider, and Nango transcript connectors.
 - UI routes: `/brain`, `/sources`, `/workflows`, `/capabilities`, `/agents`,
   `/runs`, `/api`, `/settings`.
 - Headless surfaces: API, CLI, MCP, OpenAPI/Scalar.

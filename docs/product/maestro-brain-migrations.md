@@ -54,6 +54,50 @@ processed count, their receipt records `scanned: 0`, `failed: 1`, nullable
 component-observed processed count was returned, not an inferred scan total.
 Execute-mode component failures follow the same durable failure receipt path.
 
+## Call transcript source units
+
+- **Expand:** add `sourceUnits`, `sourceUnitRevisions`, and `sourceSegments`,
+  plus optional transcript locator fields and `call_transcript` on citations.
+- **Backfill:** none. Existing pilot notes and Slack ledger rows remain valid
+  and do not move into the new tables in this batch.
+- **Verify:** generate the Confect schema, decode existing note citations, and
+  prove deterministic call revision and segment identities in focused tests.
+- **Contract:** deferred. Slack-specific source tables remain authoritative for
+  Slack capture until a separately proven migration uses the shared seam.
+- **Rollback:** deploy readers that ignore the new tables and optional citation
+  fields. Existing rows require no rewrite or deletion.
+
+## Call transcript routing
+
+- **Expand:** add `callRouteMappings` and `callRoutingProposals`, including
+  optional review-attempt and learned-mapping references. Existing source units,
+  Slack routes, and Brain rows are unchanged.
+- **Backfill:** none. Routes are created only when a current call revision is
+  processed or an editor reviews its proposal.
+- **Verify:** require tenant-closed exact matching, idempotent route creation,
+  immutable segment gathering, and reviewed model routing in focused tests.
+- **Contract:** deferred. No existing route table or Slack classification row is
+  removed in this batch.
+- **Rollback:** stop routing new calls and deploy readers that ignore both new
+  tables. Immutable call revisions remain available for a later retry.
+
+## Grouped call maintenance proposals
+
+- **Expand:** add `brainMaintenanceProposalItems` and optional call, receipt,
+  summary, and item-count fields to `brainMaintenanceProposals`. Existing
+  single-page proposal rows remain decodable.
+- **Backfill:** none. Existing proposals keep their required legacy page fields;
+  grouped fields are populated only by newly mined calls.
+- **Verify:** require current route, source lifecycle, page revisions, exact
+  segment citations, one parent proposal, normalized page items, and a hash-only
+  model receipt in focused tests.
+- **Contract:** deferred. Legacy single-page proposal fields and readers remain
+  supported until grouped review and publication have replaced them in a later
+  verified migration.
+- **Rollback:** stop call-maintenance workflow starts and deploy readers that
+  ignore grouped fields and the item table. Immutable source and receipt rows
+  remain intact; no existing proposal needs rewriting.
+
 Rollback for this harness is to remove the wrapper only after proving no
 migration run or receipt rows exist. Product schema migrations must document
 their own expand/backfill/verify/contract rollback in their owning task.

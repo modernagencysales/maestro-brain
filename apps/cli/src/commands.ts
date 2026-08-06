@@ -33,16 +33,17 @@ const providerModes = new Set<ProviderMode>(["fake", "test", "live"]);
 const helpResult = (): CliResult =>
   cliSuccess(
     [
-      "maestro-template describe",
-      "maestro-template operations list",
-      "maestro-template operations get <id>",
-      "maestro-template capability run <id> [--workspace <slug>] [--input <json>] [--idempotency-key <key>]",
-      "maestro-template workflow run [--workflow <id>] [--workspace <slug>] [--idempotency-key <key>] [--mode <mode>] [--input <json>]",
-      "maestro-template api catalog",
-      "maestro-template api openapi",
-      "maestro-template mcp tools",
-      "maestro-template mcp call <toolName>",
-      "maestro-template integrations report [fake|test|live]",
+      "maestro-brain describe",
+      "maestro-brain operations list",
+      "maestro-brain operations get <id>",
+      "maestro-brain capability run <id> [--workspace <slug>] [--input <json>] [--idempotency-key <key>]",
+      "maestro-brain workflow run [--workflow <id>] [--workspace <slug>] [--idempotency-key <key>] [--mode <mode>] [--input <json>]",
+      "maestro-brain api catalog",
+      "maestro-brain api openapi",
+      "maestro-brain api call <operation-id> --input <json>",
+      "maestro-brain mcp tools",
+      "maestro-brain mcp call <toolName>",
+      "maestro-brain integrations report [fake|test|live]",
     ].join("\n") + "\n",
   );
 

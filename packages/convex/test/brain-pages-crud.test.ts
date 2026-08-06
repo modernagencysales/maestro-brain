@@ -447,10 +447,12 @@ describe("authorized Brain page CRUD", () => {
   });
 
   it("keeps every pages manifest entry web-only", () => {
-    expect(manifest).toHaveLength(7);
+    expect(manifest).toHaveLength(9);
     for (const entry of manifest) {
       expect(entry.operationId).toMatch(/^brain\.pages\./);
-      expect(entry.surfaces).toEqual(["web"]);
+      expect(entry.surfaces).toEqual(
+        entry.kind === "query" ? ["web", "api", "mcp"] : ["web"],
+      );
       expect(entry.surfaces).not.toEqual(
         expect.arrayContaining(["api", "cli", "mcp"]),
       );
@@ -1638,5 +1640,69 @@ describe("authorized Brain page CRUD", () => {
     expect(result.afterStaleMove).toEqual(result.beforeStaleMove);
     expect(result.duplicateSubject).toBeInstanceOf(Unauthorized);
     expect(result.duplicateOrganization).toBeInstanceOf(BrainNotFound);
+  });
+
+  it("restores an earlier published revision as a new revision", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const seeded = yield* confect.run(
+        seedBrain({
+          role: "editor",
+          subject: "restore-editor",
+          email: "restore-editor@example.com",
+          brainKey: editorBrainKey,
+        }),
+        SeededBrain,
+      );
+      const editor = actor(
+        confect,
+        "restore-editor",
+        "restore-editor@example.com",
+      );
+      const created = yield* editor.mutation(refs.public.brain.pages.create, {
+        brainKey: editorBrainKey,
+        parentPageKey: null,
+        siblingSlug: "restore-page",
+        sortKey: "0000000001",
+        title: "Restore page",
+        markdown: "old content",
+        expectedCurrentRevisionKey: null,
+      });
+      const originalRevision = requireRevisionKey(created.currentRevisionKey);
+      const renamed = yield* editor.mutation(refs.public.brain.pages.rename, {
+        brainKey: editorBrainKey,
+        pageKey: created.pageKey,
+        title: "Changed title",
+        expectedCurrentRevisionKey: originalRevision,
+      });
+      const restored = yield* editor.mutation(refs.public.brain.pages.restore, {
+        brainKey: editorBrainKey,
+        pageKey: created.pageKey,
+        expectedCurrentRevisionKey: requireRevisionKey(
+          renamed.currentRevisionKey,
+        ),
+        revisionKey: originalRevision,
+      });
+      const detail = yield* editor.query(refs.public.brain.pages.get, {
+        brainKey: editorBrainKey,
+        pageKey: created.pageKey,
+      });
+      const revisions = yield* confect.run(
+        collectPageRevisions(seeded.workspaceId, created.pageKey),
+        PageRevisionRows,
+      );
+      return { detail, restored, revisions };
+    });
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+    expect(result.detail.markdown).toBe("old content");
+    expect(result.restored.currentRevisionKey).not.toBe(
+      result.revisions[0]?.revisionKey,
+    );
+    expect(result.revisions.at(-1)?.causation).toBe("restore");
+    expect(result.revisions).toHaveLength(3);
   });
 });

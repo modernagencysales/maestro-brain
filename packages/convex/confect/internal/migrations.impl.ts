@@ -32,6 +32,7 @@ import {
   stableTenantOrganizationKeysExpand,
   stableTenantWorkspaceKeysExpand,
   runKeyForMigration,
+  type ComponentBatchResult,
 } from "./migrations";
 import migrations, {
   MigrationAlreadyRunning,
@@ -576,10 +577,14 @@ const runRegisteredMigration = FunctionImpl.make(
         },
         args.migrationName,
       ).pipe(Effect.exit);
-      const batch = isDryRun
-        ? decodeDryRunRollback(component)
-        : component._tag === "Success"
-          ? component.value
+      const componentExit = component as Exit.Exit<
+        ComponentBatchResult,
+        unknown
+      >;
+      const batch: ComponentBatchResult | null = isDryRun
+        ? decodeDryRunRollback(componentExit)
+        : componentExit._tag === "Success"
+          ? componentExit.value
           : null;
       if (!batch)
         return yield* settleFailedBatch(runner, args, lease, args.mode);

@@ -14,7 +14,7 @@ import {
 } from "../access/audit";
 import { resolveEffectiveWorkspaceRole } from "../access/auth";
 import type { Role } from "../access/roles";
-import { extractIdentityProfile } from "../access/provisioning";
+import { extractIdentityBinding } from "../access/provisioning";
 import apiKeysSpec from "./apiKeys.spec";
 import {
   ApiKeyConflict,
@@ -802,7 +802,7 @@ export const markApiKeyLastUsed = (input: {
 const currentBrainContext = (brainKey: string) =>
   Effect.gen(function* () {
     const auth = yield* Auth;
-    const identity = yield* extractIdentityProfile(
+    const identity = yield* extractIdentityBinding(
       yield* auth.getUserIdentity.pipe(
         Effect.mapError(() => new Unauthorized()),
       ),

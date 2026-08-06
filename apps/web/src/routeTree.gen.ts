@@ -9,6 +9,8 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as CallbackRouteImport } from './routes/callback'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WorkspaceWorkflowsRouteImport } from './routes/_workspace.workflows'
 import { Route as WorkspaceSourcesRouteImport } from './routes/_workspace.sources'
@@ -32,6 +34,16 @@ import { Route as WorkspaceAnalyticsRouteImport } from './routes/_workspace.anal
 import { Route as WorkspaceAgentsRouteImport } from './routes/_workspace.agents'
 import { Route as WorkspaceAdminRouteImport } from './routes/_workspace.admin'
 
+const SignInRoute = SignInRouteImport.update({
+  id: '/sign-in',
+  path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CallbackRoute = CallbackRouteImport.update({
+  id: '/callback',
+  path: '/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -145,6 +157,8 @@ const WorkspaceAdminRoute = WorkspaceAdminRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/callback': typeof CallbackRoute
+  '/sign-in': typeof SignInRoute
   '/admin': typeof WorkspaceAdminRoute
   '/agents': typeof WorkspaceAgentsRoute
   '/analytics': typeof WorkspaceAnalyticsRoute
@@ -169,6 +183,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/callback': typeof CallbackRoute
+  '/sign-in': typeof SignInRoute
   '/admin': typeof WorkspaceAdminRoute
   '/agents': typeof WorkspaceAgentsRoute
   '/analytics': typeof WorkspaceAnalyticsRoute
@@ -194,6 +210,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/callback': typeof CallbackRoute
+  '/sign-in': typeof SignInRoute
   '/_workspace/admin': typeof WorkspaceAdminRoute
   '/_workspace/agents': typeof WorkspaceAgentsRoute
   '/_workspace/analytics': typeof WorkspaceAnalyticsRoute
@@ -220,6 +238,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/callback'
+    | '/sign-in'
     | '/admin'
     | '/agents'
     | '/analytics'
@@ -244,6 +264,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/callback'
+    | '/sign-in'
     | '/admin'
     | '/agents'
     | '/analytics'
@@ -268,6 +290,8 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/callback'
+    | '/sign-in'
     | '/_workspace/admin'
     | '/_workspace/agents'
     | '/_workspace/analytics'
@@ -293,6 +317,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CallbackRoute: typeof CallbackRoute
+  SignInRoute: typeof SignInRoute
   WorkspaceAdminRoute: typeof WorkspaceAdminRoute
   WorkspaceAgentsRoute: typeof WorkspaceAgentsRoute
   WorkspaceAnalyticsRoute: typeof WorkspaceAnalyticsRoute
@@ -318,6 +344,20 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/sign-in': {
+      id: '/sign-in'
+      path: '/sign-in'
+      fullPath: '/sign-in'
+      preLoaderRoute: typeof SignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/callback': {
+      id: '/callback'
+      path: '/callback'
+      fullPath: '/callback'
+      preLoaderRoute: typeof CallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -477,6 +517,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CallbackRoute: CallbackRoute,
+  SignInRoute: SignInRoute,
   WorkspaceAdminRoute: WorkspaceAdminRoute,
   WorkspaceAgentsRoute: WorkspaceAgentsRoute,
   WorkspaceAnalyticsRoute: WorkspaceAnalyticsRoute,

@@ -213,9 +213,11 @@ const assertSafeObject = (field: string, value: unknown): void => {
   }
   if (typeof value === "string") assertSafeText(field, value);
   else if (Array.isArray(value)) {
-    value.forEach((item, index) => assertSafeObject(`${field}.${index}`, item));
+    (value as readonly unknown[]).forEach((item, index) =>
+      assertSafeObject(`${field}.${index}`, item),
+    );
   } else if (value && typeof value === "object") {
-    Object.entries(value).forEach(([key, entry]) =>
+    Object.entries(value as Record<string, unknown>).forEach(([key, entry]) =>
       assertSafeObject(`${field}.${key}`, entry),
     );
   }

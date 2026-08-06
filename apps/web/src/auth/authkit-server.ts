@@ -194,6 +194,7 @@ export type SafeClientRuntime = {
 export async function getSafeClientRuntime(input: {
   readonly env: ServerEnvSource;
   readonly getAuth: () => Promise<WorkosServerAuth>;
+  readonly provisionWorkspace: (accessToken: string) => Promise<void>;
 }): Promise<SafeClientRuntime> {
   const config = buildAuthKitRuntimeConfig(input.env);
 
@@ -204,8 +205,13 @@ export async function getSafeClientRuntime(input: {
     };
   }
 
+  const authSnapshot = await getAuthSnapshot({ getAuth: input.getAuth });
+  if (authSnapshot.status === "authenticated") {
+    await input.provisionWorkspace(authSnapshot.accessToken);
+  }
+
   return {
-    authSnapshot: await getClientAuthSnapshot({ getAuth: input.getAuth }),
+    authSnapshot: toClientAuthSnapshot(authSnapshot),
     workspaceRuntimeMode: config.mode,
   };
 }
@@ -213,5 +219,6 @@ export async function getSafeClientRuntime(input: {
 export const getRuntimeClientAuthSnapshot = async (input: {
   readonly env: ServerEnvSource;
   readonly getAuth: () => Promise<WorkosServerAuth>;
+  readonly provisionWorkspace: (accessToken: string) => Promise<void>;
 }): Promise<ClientAuthSnapshot> =>
   (await getSafeClientRuntime(input)).authSnapshot;
