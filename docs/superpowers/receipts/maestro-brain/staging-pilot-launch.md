@@ -1,7 +1,7 @@
 # Maestro Brain Transcript Connector Staging Evidence
 
 Date: 2026-08-06  
-Product release commit: `d26d938`
+Staging candidate commit: `d583e6f`
 
 Staging Worker version: `2e409965-278f-4255-863b-df8a72797ad5`
 
@@ -18,9 +18,24 @@ Staging Worker version: `2e409965-278f-4255-863b-df8a72797ad5`
 | Manual import        | Canonical JSON upload completed and Brain processing started without page or console errors           | pass   |
 | Nango server secret  | Stored in Bitwarden and injected into isolated staging without printing or committing the value       | pass   |
 | Nango Connect        | Authenticated Fireflies action minted a live session and opened `connect.nango.dev`                   | pass   |
+| Nango catalog        | Fireflies, Gong, Fathom, and Granola each minted a fresh hosted Connect session (HTTP 201)            | pass   |
+| Installed CLI        | Bitwarden-backed key completed context, source search/get, and cited Ask against staging              | pass   |
 | Secret handling      | Repository gitleaks and provider/logging boundaries passed; provider credentials remain outside Brain | pass   |
 
-Hosted smoke timestamp: `2026-08-06T16:51:15Z`.
+Latest hosted smoke timestamp: `2026-08-06T17:44:17-04:00`.
+
+## CLI evidence
+
+The installed `maestro-brain` binary authenticated with the scoped staging API
+key and completed all V1 read operations against `perfect-sparrow-808`:
+
+- `brain.context.get` returned the active Brain and current context.
+- `brain.sources.search` returned six published matching sources.
+- `brain.sources.get` returned the requested published source revision.
+- `brain.answers.ask` returned an answered response with three citations.
+
+The HTTP layer dispatches API-key calls to internal service-principal queries;
+the ordinary public queries still require WorkOS user identity.
 
 ## Nango project
 
@@ -42,7 +57,7 @@ Ask/CLI result remain the provider-account acceptance sequence.
 
 ## Release verdict
 
-The deployed Brain and transcript Connections route are ready for provider
-credential entry and authenticated staging testing. Live provider ingestion
-remains `no-go` until one real provider account completes the acceptance
-sequence above.
+The deployed Brain, transcript Connections route, and installed CLI are ready
+for provider credential entry and authenticated staging testing. Live provider
+ingestion remains `no-go` until one real provider account completes the
+acceptance sequence above.

@@ -2,5 +2,8 @@ import registeredFunctions from "../../confect/_generated/registeredFunctions/br
 
 export const answersAsk = registeredFunctions.answersAsk;
 export const contextGet = registeredFunctions.contextGet;
+export const headlessAnswersAsk = registeredFunctions.headlessAnswersAsk;
+export const headlessSourcesGet = registeredFunctions.headlessSourcesGet;
+export const headlessSourcesSearch = registeredFunctions.headlessSourcesSearch;
 export const sourcesGet = registeredFunctions.sourcesGet;
 export const sourcesSearch = registeredFunctions.sourcesSearch;

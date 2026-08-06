@@ -57,7 +57,7 @@ const auditActions = {
   archive: "page.archived",
   restore: "page.restored",
 } as const satisfies Record<Exclude<MutationKind, "snapshot">, string>;
-type BrainContext = {
+export type BrainContext = {
   readonly workspaceId: GenericId<"workspaces">;
   readonly organizationId: string;
   readonly organizationKey: string;
@@ -207,6 +207,39 @@ export const requireBrainAccess = (
       organizationKey: agencyKey,
       brainKey,
       actorId: String(user._id),
+    } satisfies BrainContext;
+  });
+
+export const requireHeadlessBrainAccess = (input: {
+  readonly organizationId: GenericId<"organizations">;
+  readonly workspaceId: GenericId<"workspaces">;
+  readonly brainKey: string;
+}): Effect.Effect<BrainContext, Forbidden, DatabaseReader> =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const [organization, workspace] = yield* Effect.all([
+      reader.table("organizations").get(input.organizationId),
+      reader.table("workspaces").get(input.workspaceId),
+    ]).pipe(Effect.orDie);
+    const organizationKey = organization?.agencyKey;
+    if (
+      organization?.status !== "active" ||
+      workspace?.status !== "active" ||
+      workspace.organizationId !== organization._id ||
+      workspace.brainKey !== input.brainKey ||
+      !generationLive(organization) ||
+      !generationLive(workspace) ||
+      !organizationKey ||
+      !isStableAgencyKey(organizationKey)
+    )
+      return yield* new Forbidden({ reason: "Invalid service principal." });
+
+    return {
+      workspaceId: workspace._id,
+      organizationId: organization._id,
+      organizationKey,
+      brainKey: workspace.brainKey,
+      actorId: "headless",
     } satisfies BrainContext;
   });
 

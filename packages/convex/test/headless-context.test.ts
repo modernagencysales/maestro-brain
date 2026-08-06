@@ -20,6 +20,33 @@ const contextGet = makeFunctionReference<
     entries: Array<{ sourceKey: string; excerpt: string }>;
   }
 >("headless/readApi:contextGet");
+const sourcesSearch = makeFunctionReference<
+  "query",
+  {
+    organizationId: string;
+    workspaceId: string;
+    brainKey: string;
+    query: string;
+  }
+>("brain/readApi:headlessSourcesSearch");
+const sourcesGet = makeFunctionReference<
+  "query",
+  {
+    organizationId: string;
+    workspaceId: string;
+    brainKey: string;
+    sourceRevisionKey: string;
+  }
+>("brain/readApi:headlessSourcesGet");
+const answersAsk = makeFunctionReference<
+  "query",
+  {
+    organizationId: string;
+    workspaceId: string;
+    brainKey: string;
+    question: string;
+  }
+>("brain/readApi:headlessAnswersAsk");
 
 describe("headless Brain context", () => {
   it("reads only pages bound to the authenticated organization, workspace, and Brain", async () => {
@@ -100,6 +127,17 @@ describe("headless Brain context", () => {
         createdAt: 1,
         schemaVersion: 1,
       });
+      await ctx.db.insert("brainSources", {
+        workspaceId,
+        organizationId,
+        sourceKey: "src_launch_context",
+        title: "Launch source",
+        markdown: "verified source from the installed CLI",
+        status: "published",
+        submittedAt: 1,
+        reviewedAt: 1,
+        schemaVersion: 1,
+      });
       return {
         organizationId,
         workspaceId,
@@ -121,6 +159,28 @@ describe("headless Brain context", () => {
           excerpt: "verified from the installed CLI",
         },
       ],
+    });
+    await expect(
+      t.query(sourcesSearch, { ...principal, query: "installed CLI" }),
+    ).resolves.toMatchObject({
+      brainKey: principal.brainKey,
+      results: [{ sourceKey: "src_launch_context" }],
+    });
+    await expect(
+      t.query(sourcesGet, {
+        ...principal,
+        sourceRevisionKey: "src_launch_context",
+      }),
+    ).resolves.toMatchObject({
+      brainKey: principal.brainKey,
+      sourceKey: "src_launch_context",
+      status: "published",
+    });
+    await expect(
+      t.query(answersAsk, { ...principal, question: "installed CLI" }),
+    ).resolves.toMatchObject({
+      brainKey: principal.brainKey,
+      response: { status: "abstained" },
     });
     await expect(
       t.query(contextGet, { ...principal, brainKey: "br_wrong" }),

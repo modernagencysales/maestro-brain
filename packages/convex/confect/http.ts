@@ -2,7 +2,7 @@ import { Ref } from "@confect/core";
 import { confectManifest } from "@maestro-template/template-core/generated/confectManifest";
 import { httpActionGeneric, httpRouter } from "convex/server";
 import { ConvexError } from "convex/values";
-import { api } from "../convex/_generated/api";
+import { api, internal } from "../convex/_generated/api";
 import {
   executeHeadlessOperation,
   type HeadlessExecutorRequest,
@@ -18,6 +18,7 @@ import {
   type TemplateApiRequestBody,
 } from "./httpRequest";
 import apiKeysSpec from "./headless/apiKeys.spec";
+import readApiSpec from "./brain/readApi.spec";
 import {
   reviewedHeadlessPolicyFor,
   type HeadlessOperationPolicy,
@@ -80,14 +81,26 @@ const staticTemplateRoutes: Record<string, TemplateRouteMatch | undefined> = {
   "/mcp": { kind: "mcp" },
 };
 
+const brainReadApiFunction = (
+  name: "headlessSourcesSearch" | "headlessSourcesGet" | "headlessAnswersAsk",
+) => {
+  const spec = readApiSpec.functions[name];
+  if (spec === undefined)
+    throw new ConvexError({
+      code: "HEADLESS_READ_API_SPEC_MISSING",
+      message: `Missing brain.readApi.${name} spec`,
+    });
+  return Ref.getFunctionReference(Ref.make("brain/readApi", spec));
+};
+
 const operationRefs = {
   "brain.pages.list": api.brain.pages.list,
   "brain.pages.get": api.brain.pages.get,
   "brain.pages.history": api.brain.pages.history,
-  "brain.sources.search": api.brain.readApi.sourcesSearch,
-  "brain.sources.get": api.brain.readApi.sourcesGet,
-  "brain.context.get": api.brain.readApi.contextGet,
-  "brain.answers.ask": api.brain.readApi.answersAsk,
+  "brain.sources.search": brainReadApiFunction("headlessSourcesSearch"),
+  "brain.sources.get": brainReadApiFunction("headlessSourcesGet"),
+  "brain.context.get": internal.headless.readApi.contextGet,
+  "brain.answers.ask": brainReadApiFunction("headlessAnswersAsk"),
 } satisfies Record<string, unknown>;
 
 const apiKeyFunction = (name: "authenticate" | "markLastUsed") => {

@@ -531,7 +531,7 @@ describe("headless HTTP bearer security", () => {
     ]);
   });
 
-  it("dispatches Brain context reads through the API-key principal query", async () => {
+  it("dispatches Brain context reads through the internal service-principal query", async () => {
     const displayKey = "mbk_live_context";
     const keyHash = await hashPresentedApiKey(displayKey);
     const dispatchedRefs: Parameters<typeof getFunctionName>[0][] = [];
@@ -567,7 +567,7 @@ describe("headless HTTP bearer security", () => {
       operationId: "brain.context.get",
     });
     expect(dispatchedRefs.map(getFunctionName)).toEqual([
-      "brain/readApi:contextGet",
+      "headless/readApi:contextGet",
     ]);
     expect(dispatchedInputs).toEqual([
       {
@@ -577,6 +577,73 @@ describe("headless HTTP bearer security", () => {
       },
     ]);
   });
+
+  it.each([
+    {
+      operationId: "brain.sources.search",
+      input: { query: "launch" },
+      expectedRef: "brain/readApi:headlessSourcesSearch",
+      requiredScope: "brain:read",
+    },
+    {
+      operationId: "brain.sources.get",
+      input: { sourceRevisionKey: "source_123" },
+      expectedRef: "brain/readApi:headlessSourcesGet",
+      requiredScope: "brain:read",
+    },
+    {
+      operationId: "brain.answers.ask",
+      input: { question: "What launched?" },
+      expectedRef: "brain/readApi:headlessAnswersAsk",
+      requiredScope: "brain:ask",
+    },
+  ] as const)(
+    "dispatches $operationId through its internal service-principal query",
+    async ({ operationId, input, expectedRef, requiredScope }) => {
+      const displayKey = `mbk_live_${operationId}`;
+      const keyHash = await hashPresentedApiKey(displayKey);
+      const dispatchedRefs: Parameters<typeof getFunctionName>[0][] = [];
+      const dispatchedInputs: Array<Record<string, unknown>> = [];
+      const response = await handleTemplateHttpRequest(
+        {
+          runQuery: vi.fn(async (ref, args) => {
+            if (args.keyHash === keyHash)
+              return {
+                ...authResult(keyHash),
+                principal: {
+                  ...principal,
+                  scopes: [requiredScope],
+                },
+              };
+            dispatchedRefs.push(ref as Parameters<typeof getFunctionName>[0]);
+            dispatchedInputs.push(args);
+            return {};
+          }),
+          runMutation: async () => null,
+          runAction: async () => undefined,
+        },
+        new Request(`https://example.test/api/${operationId}`, {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${displayKey}`,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ input }),
+        }),
+      );
+
+      expect(await response.json()).toMatchObject({ ok: true, operationId });
+      expect(dispatchedRefs.map(getFunctionName)).toEqual([expectedRef]);
+      expect(dispatchedInputs).toEqual([
+        {
+          ...input,
+          organizationId: principal.organizationId,
+          workspaceId: principal.workspaceId,
+          brainKey: principal.brainKey,
+        },
+      ]);
+    },
+  );
 
   it("authenticates HTTP routes with the operation-specific ask scope", async () => {
     mockHttpManifest(syntheticAskOperation);
