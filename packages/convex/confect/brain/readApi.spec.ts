@@ -10,6 +10,7 @@ import {
 } from "../capabilities/_kit/capability";
 import { BrainNotFound, LifecycleRevoked, PageNotFound } from "./pageTree";
 import { PageKey } from "./pageSchemas";
+import { Id } from "../_generated/id";
 
 const BrainKey = Schema.String;
 const BrainSelector = Schema.Struct({ brainKey: BrainKey });
@@ -75,6 +76,10 @@ const AskArgs = Schema.extend(
   }),
 );
 const AskReturns = Schema.Unknown;
+const HeadlessSelector = Schema.Struct({
+  organizationId: Id("organizations"),
+  workspaceId: Id("workspaces"),
+});
 
 const query = <
   const Name extends string,
@@ -141,6 +146,25 @@ export const answersAsk = query(
   AskReturns,
 );
 
+const headlessSourcesSearch = FunctionSpec.internalQuery({
+  name: "headlessSourcesSearch",
+  args: () => Schema.extend(SearchArgs, HeadlessSelector),
+  returns: () => SearchReturns,
+  error: () => Errors,
+});
+const headlessSourcesGet = FunctionSpec.internalQuery({
+  name: "headlessSourcesGet",
+  args: () => Schema.extend(SourceGetArgs, HeadlessSelector),
+  returns: () => SourceGetReturns,
+  error: () => Errors,
+});
+const headlessAnswersAsk = FunctionSpec.internalQuery({
+  name: "headlessAnswersAsk",
+  args: () => Schema.extend(AskArgs, HeadlessSelector),
+  returns: () => AskReturns,
+  error: () => Errors,
+});
+
 const functions = [sourcesSearch, sourcesGet, contextGet, answersAsk] as const;
 export const manifest = collectContractManifest(functions);
 export const schemaRegistry = collectContractSchemas(functions);
@@ -148,4 +172,7 @@ export default GroupSpec.make()
   .addFunction(sourcesSearch.spec)
   .addFunction(sourcesGet.spec)
   .addFunction(contextGet.spec)
-  .addFunction(answersAsk.spec);
+  .addFunction(answersAsk.spec)
+  .addFunction(headlessSourcesSearch)
+  .addFunction(headlessSourcesGet)
+  .addFunction(headlessAnswersAsk);
