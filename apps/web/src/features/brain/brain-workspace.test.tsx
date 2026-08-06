@@ -437,6 +437,42 @@ describe("BrainWorkspace", () => {
     );
   });
 
+  it("renders grouped call maintenance review in the Brain workspace", () => {
+    const html = render({
+      role: "editor",
+      callMaintenanceReview: {
+        status: "ready",
+        items: [
+          {
+            proposalKey: "brainmaint_1",
+            unitRevisionKey: "surev_1",
+            sourceTitle: "Acme weekly",
+            sourceUrl: "https://example.test/call_1",
+            summary: "Acme approved a Friday launch.",
+            routeGeneration: 4,
+            sourceLifecycleGeneration: 1,
+            workspaceLifecycleGeneration: 1,
+            createdAt: 1,
+            items: [
+              {
+                itemKey: "brainmaintitem_1",
+                pageKey: page.pageKey,
+                title: page.title,
+                expectedRevisionKey: page.currentRevisionKey,
+                markdown: "Launch Friday.",
+                citations: [],
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(html).toContain("Call-backed Brain updates");
+    expect(html).toContain("Acme weekly");
+    expect(html).toContain("Accept all changes");
+  });
+
   it("renders search results with stable citations", () => {
     const html = render({
       search: {

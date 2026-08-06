@@ -14,6 +14,7 @@ import type { WorkspaceOperations, WorkspaceSummary } from "./workspace";
 const demoWorkspace: WorkspaceSummary = {
   workspaceId: "br_01J0000000000000000000000B",
   organizationId: "ag_template_demo",
+  kind: "agency",
   name: "Template Demo Workspace",
   slug: "template-demo",
   role: "owner",
@@ -81,6 +82,7 @@ export const createLiveWorkspaceOperations = (
     return refs.listResult.data.map((workspace) => ({
       workspaceId: workspace.brainKey,
       organizationId: workspace.agencyKey,
+      kind: workspace.kind,
       name: workspace.name,
       slug: workspace.clientSlug ?? workspace.brainKey,
       role: workspace.effectiveRole,

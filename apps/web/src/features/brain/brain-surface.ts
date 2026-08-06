@@ -53,6 +53,7 @@ export type BrainDocumentSection = {
 
 type BrainPageRefs = TemplateConfectRefs["public"]["brain"]["pages"];
 type BrainPilotRefs = TemplateConfectRefs["public"]["brain"]["pilot"];
+type BrainCallReviewRefs = TemplateConfectRefs["public"]["brain"]["callReview"];
 export type BrainPageSummary = {
   readonly pageKey: string;
   readonly parentPageKey: string | null;
@@ -91,6 +92,9 @@ export type BrainReviewQueueData = {
     readonly route: "direct" | "classify" | "capture-only" | null;
   }[];
 };
+export type BrainCallMaintenanceQueueData = Ref.Returns<
+  BrainCallReviewRefs["listCallMaintenanceQueue"]
+>;
 export type BrainPageUpdateData = BrainPageSummary;
 export type BrainRevisionHistoryData = {
   readonly brainKey: string;
@@ -130,6 +134,10 @@ type BrainWorkspacePilotRefs = {
   readonly search: BrainPilotRefs["search"];
   readonly updatePage: BrainPilotRefs["updatePage"];
 };
+type BrainWorkspaceCallReviewRefs = {
+  readonly listCallMaintenanceQueue: BrainCallReviewRefs["listCallMaintenanceQueue"];
+  readonly reviewCallMaintenance: BrainCallReviewRefs["reviewCallMaintenance"];
+};
 
 export const brainWorkspaceRefs: BrainWorkspaceRefs = {
   list: templateConfectRefs.public.brain.pages.list,
@@ -149,6 +157,13 @@ export const brainPilotRefs: BrainWorkspacePilotRefs = {
   listReviewQueue: templateConfectRefs.public.brain.pilot.listReviewQueue,
   search: templateConfectRefs.public.brain.pilot.search,
   updatePage: templateConfectRefs.public.brain.pilot.updatePage,
+} as const;
+
+export const brainCallReviewRefs: BrainWorkspaceCallReviewRefs = {
+  listCallMaintenanceQueue:
+    templateConfectRefs.public.brain.callReview.listCallMaintenanceQueue,
+  reviewCallMaintenance:
+    templateConfectRefs.public.brain.callReview.reviewCallMaintenance,
 } as const;
 
 export type BrainPageMutationResult<T> = T | Either.Either<T, unknown>;

@@ -13,7 +13,6 @@ import {
   DatabaseWriter,
   Scheduler,
 } from "../_generated/services";
-import { requireWorkspaceAccess } from "../capabilities/_kit/workspaceAccess";
 import { NotFound, ValidationFailed } from "../errors";
 import { sha256Hex } from "../shared/sha256";
 import callReviewGroup from "./callReview.spec";
@@ -25,35 +24,14 @@ const unsafeClock = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 const invalid = (field: string, message: string) =>
   new ValidationFailed({ field, message });
 
-const loadWorkspaceOrganization = (workspaceId: GenericId<"workspaces">) =>
-  Effect.gen(function* () {
-    const reader = yield* DatabaseReader;
-    const workspace = yield* reader
-      .table("workspaces")
-      .get(workspaceId)
-      .pipe(Effect.orDie);
-    if (!workspace)
-      return yield* new NotFound({ resource: "workspaces", id: workspaceId });
-    const organization = yield* reader
-      .table("organizations")
-      .get(workspace.organizationId as GenericId<"organizations">)
-      .pipe(Effect.orDie);
-    if (!organization?.agencyKey || organization.status !== "active")
-      return yield* new NotFound({
-        resource: "organizations",
-        id: workspace.organizationId,
-      });
-    return { workspace, organization, organizationKey: organization.agencyKey };
-  });
-
 const listCallRoutingQueue = FunctionImpl.make(
   databaseSchema,
   callReviewGroup,
   "listCallRoutingQueue",
-  ({ workspaceId }) =>
+  ({ brainKey }) =>
     Effect.gen(function* () {
-      yield* unsafeClock(requireWorkspaceAccess(workspaceId, "admin"));
-      const { organizationKey } = yield* loadWorkspaceOrganization(workspaceId);
+      const brain = yield* requireBrainAccess(brainKey, "admin");
+      const { organizationKey } = brain;
       const reader = yield* DatabaseReader;
       const routes = yield* Effect.all(
         (["awaiting_review", "mixed_client", "no_match"] as const).map(
@@ -99,7 +77,7 @@ const listCallRoutingQueue = FunctionImpl.make(
           });
       }
       return {
-        workspaceId,
+        brainKey,
         items: items.sort((left, right) => left.createdAt - right.createdAt),
       };
     }),
@@ -111,11 +89,8 @@ const reviewCallRoute = FunctionImpl.make(
   "reviewCallRoute",
   (args) =>
     Effect.gen(function* () {
-      const access = yield* unsafeClock(
-        requireWorkspaceAccess(args.workspaceId, "admin"),
-      );
-      const { workspace, organization, organizationKey } =
-        yield* loadWorkspaceOrganization(args.workspaceId);
+      const access = yield* requireBrainAccess(args.brainKey, "admin");
+      const { organizationKey } = access;
       const reader = yield* DatabaseReader;
       const route = yield* reader
         .table("callRoutingProposals")
@@ -195,7 +170,7 @@ const reviewCallRoute = FunctionImpl.make(
           .table("workspaces")
           .index("by_organization_brain_key", (query) =>
             query
-              .eq("organizationId", organization._id)
+              .eq("organizationId", access.organizationId)
               .eq("brainKey", targetBrainKey),
           )
           .collect()
@@ -290,7 +265,7 @@ const reviewCallRoute = FunctionImpl.make(
             : route.candidateBrainKeys,
           reason: `review_${args.action}`,
           status,
-          reviewedBy: String(access.userId),
+          reviewedBy: access.actorId,
           reviewAttemptKey: args.attemptKey,
           ...(learnedMappingKey ? { learnedMappingKey } : {}),
           updatedAt: reviewedAt,

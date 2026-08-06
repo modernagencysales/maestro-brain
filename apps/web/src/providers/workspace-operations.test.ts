@@ -116,6 +116,7 @@ describe("runtime workspace operations", () => {
       {
         workspaceId: "br_01J0000000000000000000000B",
         organizationId: "ag_01J0000000000000000000000A",
+        kind: "client",
         name: "Client Brain",
         slug: "client",
         role: "admin",

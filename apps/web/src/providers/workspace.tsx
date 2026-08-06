@@ -12,6 +12,7 @@ export type WorkspaceRole = "viewer" | "editor" | "admin" | "owner";
 export type WorkspaceSummary = {
   readonly workspaceId: string;
   readonly organizationId: string;
+  readonly kind?: "agency" | "client";
   readonly name: string;
   readonly slug: string;
   readonly role: WorkspaceRole;

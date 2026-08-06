@@ -92,11 +92,6 @@ const unrelatedRevisionRows = buildCallSourceUnitRows(
   { organizationKey, connectionGeneration: 1, receivedAt: now },
 );
 
-type Seeded = {
-  readonly agencyWorkspaceId: GenericId<"workspaces">;
-  readonly clientWorkspaceId: GenericId<"workspaces">;
-};
-
 const seed = (
   role: Role,
   maintenanceReady: boolean,
@@ -342,7 +337,6 @@ const seed = (
         })
         .pipe(Effect.orDie);
     }
-    return { agencyWorkspaceId, clientWorkspaceId } satisfies Seeded;
   });
 
 const actor = (confect: TestConfect.TestConfect<typeof databaseSchema>) =>
@@ -357,16 +351,16 @@ describe("call routing and maintenance review", () => {
       const confect = yield* Effect.serviceOptional(
         TestConfect.TestConfect<typeof databaseSchema>(),
       );
-      const seeded = yield* confect.run(seed("admin", false), Schema.Any);
+      yield* confect.run(seed("admin", false), Schema.Any);
       const admin = actor(confect);
       const queue = yield* admin.query(
         refs.public.brain.callReview.listCallRoutingQueue,
-        { workspaceId: seeded.agencyWorkspaceId },
+        { brainKey },
       );
       const reviewed = yield* admin.mutation(
         refs.public.brain.callReview.reviewCallRoute,
         {
-          workspaceId: seeded.agencyWorkspaceId,
+          brainKey,
           proposalKey: "callroute_1",
           action: "change_brain",
           targetBrainKey: brainKey,
@@ -563,12 +557,12 @@ describe("call routing and maintenance review", () => {
       const confect = yield* Effect.serviceOptional(
         TestConfect.TestConfect<typeof databaseSchema>(),
       );
-      const seeded = yield* confect.run(seed("viewer", true), Schema.Any);
+      yield* confect.run(seed("viewer", true), Schema.Any);
       const viewer = actor(confect);
       return yield* Effect.all([
         viewer
           .query(refs.public.brain.callReview.listCallRoutingQueue, {
-            workspaceId: seeded.agencyWorkspaceId,
+            brainKey,
           })
           .pipe(Effect.flip),
         viewer

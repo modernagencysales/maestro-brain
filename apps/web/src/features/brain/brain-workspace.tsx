@@ -26,12 +26,19 @@ import type {
   BrainPageDetail,
   BrainPageListData,
   BrainPageSummary,
+  BrainCallMaintenanceQueueData,
   BrainPilotSearchData,
   BrainReviewQueueData,
   BrainRevisionHistoryData,
   BrainSearchResult,
   BrainWorkspaceAdapter,
 } from "./brain-surface";
+import {
+  CallMaintenanceReview,
+  type CallMaintenanceDecision,
+  type CallMaintenanceMutationState,
+  type CallMaintenanceReviewState,
+} from "./call-maintenance-review";
 import { ReviewQueue, type BrainReviewQueueState } from "./review-queue";
 import { RestoreDialog, type BrainRestoreState } from "./restore-dialog";
 import { CitationList, type BrainCitation } from "./citation-list";
@@ -42,6 +49,7 @@ import {
 } from "./revision-history";
 import {
   brainPilotRefs,
+  brainCallReviewRefs,
   brainWorkspaceRefs,
   createBrainWorkspaceAdapter,
   unwrapBrainMutation,
@@ -199,6 +207,8 @@ export const BrainWorkspaceRoute = () => {
   const [search, setSearch] = useState<BrainSearchState>({ status: "idle" });
   const [searchQuery, setSearchQuery] = useState<string | null>(null);
   const [selectedPageKey, setSelectedPageKey] = useState<string | null>(null);
+  const [callMaintenanceMutation, setCallMaintenanceMutation] =
+    useState<CallMaintenanceMutationState>();
   const brainKey =
     workspace.status === "ready" ? workspace.activeWorkspace.workspaceId : null;
   const list = useTemplateQuery(
@@ -232,6 +242,9 @@ export const BrainWorkspaceRoute = () => {
   const restore = useTemplateMutation(brainWorkspaceRefs.restore);
   const submitNote = useTemplateMutation(brainPilotRefs.submitNote);
   const reviewNote = useTemplateMutation(brainPilotRefs.reviewNote);
+  const reviewCallMaintenance = useTemplateMutation(
+    brainCallReviewRefs.reviewCallMaintenance,
+  );
   const updatePage = useTemplateMutation(brainPilotRefs.updatePage);
   const pilotSearch = useTemplateQuery(
     brainPilotRefs.search,
@@ -243,6 +256,15 @@ export const BrainWorkspaceRoute = () => {
     brainPilotRefs.listReviewQueue,
     brainKey === null ? "skip" : { brainKey },
   ) as TemplateDataState<BrainReviewQueueData, unknown>;
+  const callMaintenanceQueue = useTemplateQuery(
+    brainCallReviewRefs.listCallMaintenanceQueue,
+    brainKey === null || workspace.activeWorkspace?.role === "viewer"
+      ? "skip"
+      : { brainKey },
+    {
+      isEmpty: (data: BrainCallMaintenanceQueueData) => data.items.length === 0,
+    },
+  ) as TemplateDataState<BrainCallMaintenanceQueueData, unknown>;
 
   if (workspace.status !== "ready") {
     const description =
@@ -309,6 +331,26 @@ export const BrainWorkspaceRoute = () => {
             status: "failure",
             message: "Unable to load the Brain review queue.",
           };
+  const callMaintenanceReview: CallMaintenanceReviewState =
+    workspace.activeWorkspace.role === "viewer"
+      ? { status: "empty" }
+      : callMaintenanceQueue.status === "ready"
+        ? {
+            status: "ready",
+            items: callMaintenanceQueue.data.items,
+            ...(callMaintenanceMutation
+              ? { mutation: callMaintenanceMutation }
+              : {}),
+          }
+        : callMaintenanceQueue.status === "empty"
+          ? { status: "empty" }
+          : callMaintenanceQueue.status === "loading" ||
+              callMaintenanceQueue.status === "skipped"
+            ? { status: "loading" }
+            : {
+                status: "failure",
+                message: "Unable to load call-backed Brain updates.",
+              };
   const adapter = createBrainWorkspaceAdapter({
     brainKey: workspace.activeWorkspace.workspaceId,
     canEdit: workspace.activeWorkspace.role !== "viewer",
@@ -375,7 +417,45 @@ export const BrainWorkspaceRoute = () => {
             onSelectPage={setSelectedPageKey}
             history={toRevisionHistoryState(history)}
             reviewQueue={reviewQueue}
+            callMaintenanceReview={callMaintenanceReview}
             role={workspace.activeWorkspace.role}
+            onCallMaintenanceReview={async ({ proposal, action, edits }) => {
+              setCallMaintenanceMutation({
+                status: "pending",
+                proposalKey: proposal.proposalKey,
+              });
+              try {
+                await unwrapBrainMutation(
+                  await reviewCallMaintenance({
+                    brainKey: workspace.activeWorkspace.workspaceId,
+                    proposalKey: proposal.proposalKey,
+                    action,
+                    attemptKey: `call-review.${crypto.randomUUID()}`,
+                    expectedRouteGeneration: proposal.routeGeneration,
+                    expectedSourceLifecycleGeneration:
+                      proposal.sourceLifecycleGeneration,
+                    expectedWorkspaceLifecycleGeneration:
+                      proposal.workspaceLifecycleGeneration,
+                    edits,
+                  }),
+                );
+                setCallMaintenanceMutation({
+                  status: "success",
+                  message:
+                    action === "reject"
+                      ? "Call updates rejected."
+                      : action === "edit"
+                        ? "Edited call updates published."
+                        : "Call updates published.",
+                });
+              } catch {
+                setCallMaintenanceMutation({
+                  status: "failure",
+                  message:
+                    "Unable to publish call updates. Reload and try again.",
+                });
+              }
+            }}
             onSearch={(query) => {
               setSearchQuery(query);
               setSearch({ status: "loading", query });
@@ -415,7 +495,9 @@ export const BrainWorkspace = ({
   search = { status: "idle" },
   history = { status: "loading" },
   reviewQueue = { status: "loading" },
+  callMaintenanceReview = { status: "loading" },
   role = "viewer",
+  onCallMaintenanceReview,
   selectedPageKey,
   onSelectPage,
 }: {
@@ -428,7 +510,11 @@ export const BrainWorkspace = ({
   readonly search?: BrainSearchState;
   readonly history?: BrainRevisionHistoryState;
   readonly reviewQueue?: BrainReviewQueueState;
+  readonly callMaintenanceReview?: CallMaintenanceReviewState;
   readonly role?: "viewer" | "editor" | "admin" | "owner";
+  readonly onCallMaintenanceReview?: (
+    decision: CallMaintenanceDecision,
+  ) => void | Promise<void>;
   readonly selectedPageKey?: string | undefined;
   readonly onSelectPage?: ((pageKey: string) => void) | undefined;
 }) => {
@@ -1009,6 +1095,11 @@ export const BrainWorkspace = ({
           const result = await actions.reviewNote({ sourceKey, decision });
           setReviewState(result);
         }}
+      />
+      <CallMaintenanceReview
+        role={role}
+        state={callMaintenanceReview}
+        onReview={(decision) => onCallMaintenanceReview?.(decision)}
       />
     </Stack>
   );

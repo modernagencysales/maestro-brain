@@ -62,13 +62,13 @@ const RouteQueueItem = Schema.Struct({
   sourceLifecycleGeneration: Schema.Number,
   createdAt: Schema.Number,
 });
-const ListRoutingArgs = Schema.Struct({ workspaceId: Id("workspaces") });
+const ListRoutingArgs = BrainSelector;
 const ListRoutingReturns = Schema.Struct({
-  workspaceId: Id("workspaces"),
+  brainKey: Schema.String,
   items: Schema.Array(RouteQueueItem),
 });
 const ReviewRouteArgs = Schema.Struct({
-  workspaceId: Id("workspaces"),
+  brainKey: Schema.String,
   proposalKey: Schema.String,
   action: Schema.Literal("confirm", "change_brain", "no_route", "reject"),
   targetBrainKey: Schema.optional(Schema.String),

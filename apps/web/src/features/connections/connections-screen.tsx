@@ -9,6 +9,11 @@ import {
   Table,
   Text,
 } from "@saas-ui/react";
+import {
+  CallRoutingQueue,
+  type CallRoutingQueueState,
+  type CallRoutingReview,
+} from "./call-routing-queue";
 
 export type ConnectionsScreenState =
   | { readonly status: "loading" }
@@ -29,18 +34,35 @@ export type ConnectionRow = {
 };
 
 export function ConnectionsScreen({
+  onRoutingReview,
+  role = "viewer",
+  routingQueue,
   state,
 }: {
+  readonly onRoutingReview?: (
+    review: CallRoutingReview,
+  ) => void | Promise<void>;
+  readonly role?: "viewer" | "editor" | "admin" | "owner";
+  readonly routingQueue?: CallRoutingQueueState;
   readonly state: ConnectionsScreenState;
 }) {
   return (
     <>
       <Page.Header
         title="Connections"
-        description="Approved agency data connections with fake-safe local status by default."
+        description="Connect transcript sources and route completed calls into the right Client Brain."
       />
       <Page.Body px={{ base: "4", md: "6" }} pb="8">
-        <ConnectionsStateCard state={state} />
+        <Stack gap="6">
+          <ConnectionsStateCard state={state} />
+          {routingQueue ? (
+            <CallRoutingQueue
+              role={role}
+              state={routingQueue}
+              onReview={(review) => onRoutingReview?.(review)}
+            />
+          ) : null}
+        </Stack>
       </Page.Body>
     </>
   );
@@ -64,7 +86,7 @@ function ConnectionsStateCard({
     return (
       <StateCard
         title="No connections yet"
-        description="Connect Slack or another approved source when ready."
+        description="No live transcript providers are connected yet."
       />
     );
   }

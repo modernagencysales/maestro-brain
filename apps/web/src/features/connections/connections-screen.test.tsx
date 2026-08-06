@@ -1,4 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
+import type { ComponentProps } from "react";
 import { describe, expect, it } from "vitest";
 
 import { BusinessPageRoot } from "../../saas-ui/business-shell";
@@ -8,11 +9,14 @@ import {
   type ConnectionsScreenState,
 } from "./connections-screen";
 
-const render = (state: ConnectionsScreenState) =>
+const render = (
+  state: ConnectionsScreenState,
+  props: Omit<ComponentProps<typeof ConnectionsScreen>, "state"> = {},
+) =>
   renderToStaticMarkup(
     <MaestroSaasUiProvider>
       <BusinessPageRoot>
-        <ConnectionsScreen state={state} />
+        <ConnectionsScreen state={state} {...props} />
       </BusinessPageRoot>
     </MaestroSaasUiProvider>,
   );
@@ -44,5 +48,19 @@ describe("ConnectionsScreen", () => {
     expect(html).toContain("Connections");
     expect(html).toContain("Slack");
     expect(html).toContain("Agency workspace");
+  });
+
+  it("renders the live call routing adapter below connection status", () => {
+    const html = render(
+      { status: "empty" },
+      {
+        role: "admin",
+        routingQueue: { status: "empty" },
+        onRoutingReview: () => undefined,
+      },
+    );
+
+    expect(html).toContain("Calls to route");
+    expect(html).toContain("No calls need routing");
   });
 });
