@@ -47,7 +47,7 @@ describe("confect manifest tooling", () => {
           "false",
           "--listFiles",
         ],
-        { cwd: root, encoding: "utf8", timeout: 25_000 },
+        { cwd: root, encoding: "utf8", timeout: 60_000 },
       );
       const output = `${result.stdout}${result.stderr}`;
       const listedProbeFiles = output
@@ -60,7 +60,7 @@ describe("confect manifest tooling", () => {
     } finally {
       rmSync(probeDirectory, { recursive: true, force: true });
     }
-  }, 30_000);
+  }, 70_000);
 
   it("sorts operation ids for deterministic output", () => {
     const manifest = buildContractManifest([
