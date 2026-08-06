@@ -23,10 +23,8 @@ const ingestSourceUnitImpl = FunctionImpl.make(
   "ingestSourceUnit",
   ({ input, authority, caller, receivedAt }) =>
     Effect.gen(function* () {
-      yield* Effect.try({
-        try: () => requireSourceIngestionCaller(caller),
-        catch: () => new Unauthorized(),
-      });
+      if (!requireSourceIngestionCaller(caller))
+        return yield* new Unauthorized();
 
       const reader = yield* DatabaseReader;
       const writer = yield* DatabaseWriter;

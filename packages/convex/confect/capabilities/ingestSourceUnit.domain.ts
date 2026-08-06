@@ -1,5 +1,3 @@
-import { Unauthorized } from "../errors";
-
 export type IngestPlan =
   | { readonly outcome: "duplicate" }
   | { readonly outcome: "inserted"; readonly replaceCurrent: boolean }
@@ -28,11 +26,9 @@ export const requireSourceIngestionCaller = (caller: {
   readonly kind: string;
   readonly name?: string;
   readonly surface: string;
-}): true => {
-  if (
+}): boolean => {
+  return !(
     caller.kind !== "system" ||
     (caller.surface !== "workflow" && caller.surface !== "internal")
-  )
-    throw new Unauthorized();
-  return true;
+  );
 };

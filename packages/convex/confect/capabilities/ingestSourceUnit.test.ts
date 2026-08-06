@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { Unauthorized } from "../errors";
 import {
   planSourceUnitIngestion,
   requireSourceIngestionCaller,
@@ -66,12 +65,12 @@ describe("ingestSourceUnit internal capability", () => {
         surface: "internal",
       }),
     ).toBe(true);
-    expect(() =>
+    expect(
       requireSourceIngestionCaller({
         kind: "user",
         name: "not-system",
         surface: "web",
       }),
-    ).toThrow(Unauthorized);
+    ).toBe(false);
   });
 });
