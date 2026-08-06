@@ -1,6 +1,7 @@
 import { TestConfect } from "@confect/test";
 import type { GenericId, Value } from "convex/values";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
@@ -175,6 +176,155 @@ const publishedState = (workspaceId: GenericId<"workspaces">) =>
       }),
     };
   });
+
+const transcriptKeys = {
+  unitKey: `sunit_${"a".repeat(64)}`,
+  unitRevisionKey: `surev_${"b".repeat(64)}`,
+  segmentKey: `seg_${"c".repeat(64)}`,
+  connectionKey: "conn_fireflies_1",
+} as const;
+
+const seedTranscriptCitation = (input: {
+  readonly workspaceId: GenericId<"workspaces">;
+  readonly pageKey: string;
+  readonly pageRevisionKey: string;
+}) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const writer = yield* DatabaseWriter;
+    const organizationKey = `ag_${brainKey.slice(3)}`;
+    const citation = yield* reader
+      .table("citations")
+      .index("by_workspace_page", (query) =>
+        query
+          .eq("workspaceId", String(input.workspaceId))
+          .eq("pageKey", input.pageKey),
+      )
+      .first()
+      .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+    if (citation === null) throw new Error("expected approved note citation");
+    yield* writer
+      .table("providerConnections")
+      .insert({
+        provider: "nango",
+        providerConfigKey: "fireflies",
+        organizationKey,
+        connectionKey: transcriptKeys.connectionKey,
+        connectionGeneration: 2,
+        status: "active",
+        connectSessionId: "session_transcript_1",
+        nangoConnectionId: "nango_transcript_1",
+        nangoEndUserId: "end_user_transcript_1",
+        nangoOrganizationId: "nango_org_transcript_1",
+        correlationTag: "transcript:session_1",
+        attemptId: "attempt_transcript_1",
+        attemptExpiresAt: now + 10_000,
+        completedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
+    yield* writer
+      .table("sourceUnits")
+      .insert({
+        schemaVersion: 1,
+        organizationKey,
+        connectionKey: transcriptKeys.connectionKey,
+        connectionGeneration: 2,
+        providerKey: "fireflies",
+        externalCallId: "call_1",
+        unitKey: transcriptKeys.unitKey,
+        currentUnitRevisionKey: transcriptKeys.unitRevisionKey,
+        lifecycle: {
+          state: "active",
+          generation: 1,
+          updatedAt: now,
+          purgeAfter: null,
+        },
+        createdAt: now,
+        updatedAt: now,
+      })
+      .pipe(Effect.orDie);
+    yield* writer
+      .table("sourceUnitRevisions")
+      .insert({
+        schemaVersion: 1,
+        organizationKey,
+        unitKey: transcriptKeys.unitKey,
+        unitRevisionKey: transcriptKeys.unitRevisionKey,
+        externalRevisionId: "revision_1",
+        title: "Acme weekly",
+        startedAt: "2026-08-05T14:00:00.000Z",
+        endedAt: "2026-08-05T14:30:00.000Z",
+        durationMs: 1_800_000,
+        organizer: null,
+        participants: [],
+        sourceUrl: "https://app.fireflies.ai/view/call_1",
+        recordingUrl: null,
+        providerSummary: null,
+        providerMetadataJson: "{}",
+        contentHash: `sha256:${"d".repeat(64)}`,
+        tombstone: false,
+        createdAt: now,
+      })
+      .pipe(Effect.orDie);
+    yield* writer
+      .table("sourceSegments")
+      .insert({
+        schemaVersion: 1,
+        organizationKey,
+        unitKey: transcriptKeys.unitKey,
+        unitRevisionKey: transcriptKeys.unitRevisionKey,
+        segmentKey: transcriptKeys.segmentKey,
+        externalSegmentId: "call_1:0",
+        ordinal: 0,
+        evidenceKind: "verbatim_transcript",
+        speakerExternalId: "speaker_1",
+        speakerLabel: "Alex",
+        startMs: 12_000,
+        endMs: 15_400,
+        text: "We will launch on Friday.",
+        contentHash: `sha256:${"e".repeat(64)}`,
+        createdAt: now,
+      })
+      .pipe(Effect.orDie);
+    yield* writer
+      .table("citations")
+      .patch(citation._id, {
+        sourceId: transcriptKeys.unitKey,
+        sourceKind: "call_transcript",
+        sourceTitle: "Acme weekly",
+        quotedText: "We will launch on Friday.",
+        startOffset: 0,
+        endOffset: 25,
+        pageKey: input.pageKey,
+        revisionKey: input.pageRevisionKey,
+        sourceUnitRevisionKey: transcriptKeys.unitRevisionKey,
+        segmentKey: transcriptKeys.segmentKey,
+        startMs: 12_000,
+        endMs: 15_400,
+      })
+      .pipe(Effect.orDie);
+    return true;
+  });
+
+const revokeTranscriptConnection = Effect.gen(function* () {
+  const reader = yield* DatabaseReader;
+  const writer = yield* DatabaseWriter;
+  const connection = yield* reader
+    .table("providerConnections")
+    .index("by_connection_key", (query) =>
+      query.eq("connectionKey", transcriptKeys.connectionKey),
+    )
+    .first()
+    .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+  if (connection === null) throw new Error("expected transcript connection");
+  yield* writer
+    .table("providerConnections")
+    .patch(connection._id, { status: "revoked", updatedAt: now + 1 })
+    .pipe(Effect.orDie);
+  return true;
+});
 
 describe("Brain pilot contract", () => {
   it("keeps submitted notes pending until an editor approves them", async () => {
@@ -445,6 +595,98 @@ describe("Brain pilot contract", () => {
       excerpt: "Shared phrase.",
     });
     expect(result.isolated.results).toEqual([]);
+  });
+
+  it("reads exact live transcript citations and hides them after revocation", async () => {
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof databaseSchema>(),
+        );
+        const seeded = yield* confect.run(
+          seedBrain({
+            role: "editor",
+            subject: "transcript-reader",
+            email: "transcript-reader@example.com",
+            brainKey,
+          }),
+          SeededBrainSchema,
+        );
+        const editor = actor(
+          confect,
+          "transcript-reader",
+          "transcript-reader@example.com",
+        );
+        const submitted = yield* editor.mutation(
+          refs.public.brain.pilot.submitNote,
+          {
+            brainKey,
+            title: "Call-backed brief",
+            markdown: "We will launch on Friday.",
+          },
+        );
+        yield* editor.mutation(refs.public.brain.pilot.reviewNote, {
+          brainKey,
+          sourceKey: submitted.sourceKey,
+          decision: "approve",
+        });
+        const state = yield* confect.run(
+          publishedState(seeded.workspaceId),
+          PublishedState,
+        );
+        const page = state.pages[0];
+        if (!page?.pageKey || !page.currentRevisionKey)
+          throw new Error("expected published page");
+        yield* confect.run(
+          seedTranscriptCitation({
+            workspaceId: seeded.workspaceId,
+            pageKey: page.pageKey,
+            pageRevisionKey: page.currentRevisionKey,
+          }),
+          Schema.Boolean,
+        );
+        yield* editor.mutation(refs.public.brain.pilot.updatePage, {
+          brainKey,
+          pageKey: page.pageKey,
+          expectedCurrentRevisionKey: page.currentRevisionKey,
+          markdown: "Friday launch remains on track.",
+        });
+        const search = yield* editor.query(refs.public.brain.pilot.search, {
+          brainKey,
+          query: "launch",
+        });
+        const ask = yield* editor.query(refs.public.brain.pilot.ask, {
+          brainKey,
+          query: "launch",
+        });
+        yield* confect.run(revokeTranscriptConnection, Schema.Boolean);
+        const afterRevoke = yield* editor.query(
+          refs.public.brain.pilot.search,
+          { brainKey, query: "launch" },
+        );
+        return { search, ask, afterRevoke };
+      }).pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.search.results).toEqual([
+      expect.objectContaining({
+        sourceKey: transcriptKeys.unitKey,
+        sourceRevisionKey: transcriptKeys.unitRevisionKey,
+        locator: "timestamp:12000-15400",
+        citationLabel: "Alex · 00:12",
+        permalink: "https://app.fireflies.ai/view/call_1",
+        excerpt: "We will launch on Friday.",
+        freshness: "fresh",
+        state: "resolved",
+      }),
+    ]);
+    expect(result.ask.response).toMatchObject({
+      status: "answered",
+      evidence: [
+        expect.objectContaining({ excerpt: "We will launch on Friday." }),
+      ],
+    });
+    expect(result.afterRevoke.results).toEqual([]);
   });
 
   it("denies viewers from submitting or reviewing notes", async () => {

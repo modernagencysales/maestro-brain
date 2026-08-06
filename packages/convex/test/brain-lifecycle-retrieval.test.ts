@@ -8,6 +8,7 @@ import {
 } from "../confect/brain/lifecycle";
 import {
   buildAuthorizedRetrievalReceipt,
+  resolveTranscriptCitation,
   reauthorizeRetrievalReceipt,
 } from "../confect/brain/retrieval";
 
@@ -127,5 +128,102 @@ describe("Brain lifecycle and authorized retrieval", () => {
         now: 200,
       }),
     ).toMatchObject({ state: "revoked" });
+  });
+
+  it("resolves only current tenant-scoped transcript segments", () => {
+    const citation = {
+      workspaceId: "ws_1",
+      citationId: "citation_call_1",
+      sourceId: "sunit_1",
+      sourceKind: "call_transcript" as const,
+      sourceTitle: "Acme weekly",
+      quotedText: "We will launch on Friday.",
+      startOffset: 0,
+      endOffset: 25,
+      pageKey: "pag_1",
+      revisionKey: "rev_1",
+      sourceUnitRevisionKey: "surev_1",
+      segmentKey: "seg_1",
+      startMs: 12_000,
+      endMs: 15_400,
+    };
+    const unit = {
+      organizationKey: "agency_acme",
+      connectionKey: "conn_1",
+      connectionGeneration: 2,
+      unitKey: "sunit_1",
+      currentUnitRevisionKey: "surev_1",
+      lifecycle: { state: "active", generation: 1 },
+    };
+    const revision = {
+      organizationKey: "agency_acme",
+      unitKey: "sunit_1",
+      unitRevisionKey: "surev_1",
+      sourceUrl: "https://app.fireflies.ai/view/call_1",
+      tombstone: false,
+    };
+    const segment = {
+      organizationKey: "agency_acme",
+      unitKey: "sunit_1",
+      unitRevisionKey: "surev_1",
+      segmentKey: "seg_1",
+      ordinal: 0,
+      evidenceKind: "verbatim_transcript" as const,
+      speakerLabel: "Alex",
+      startMs: 12_000,
+      endMs: 15_400,
+      text: "We will launch on Friday.",
+    };
+    const connection = {
+      organizationKey: "agency_acme",
+      connectionKey: "conn_1",
+      connectionGeneration: 2,
+      status: "active",
+    };
+    const input = {
+      workspaceId: "ws_1",
+      organizationKey: "agency_acme",
+      citation,
+      unit,
+      revision,
+      segment,
+      connection,
+    };
+
+    expect(resolveTranscriptCitation(input)).toMatchObject({
+      citationKey: "citation_call_1",
+      sourceKey: "sunit_1",
+      sourceRevisionKey: "surev_1",
+      locator: "timestamp:12000-15400",
+      label: "Alex · 00:12",
+      permalink: "https://app.fireflies.ai/view/call_1",
+      quotedText: "We will launch on Friday.",
+      freshness: "fresh",
+      state: "resolved",
+    });
+    expect(
+      resolveTranscriptCitation({
+        ...input,
+        connection: { ...connection, status: "revoked" },
+      }),
+    ).toBeNull();
+    expect(
+      resolveTranscriptCitation({
+        ...input,
+        unit: {
+          ...unit,
+          lifecycle: { state: "deleted_tombstone", generation: 2 },
+        },
+      }),
+    ).toBeNull();
+    expect(
+      resolveTranscriptCitation({
+        ...input,
+        connection: { ...connection, connectionGeneration: 3 },
+      }),
+    ).toBeNull();
+    expect(
+      resolveTranscriptCitation({ ...input, workspaceId: "ws_foreign" }),
+    ).toBeNull();
   });
 });

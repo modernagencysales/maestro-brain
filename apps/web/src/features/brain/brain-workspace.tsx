@@ -459,6 +459,9 @@ export const BrainWorkspace = ({
           citationKey: result.citationKey,
           sourceRevisionKey: result.sourceRevisionKey ?? "unresolved",
           locator: result.locator ?? "unresolved",
+          ...(result.citationLabel === undefined
+            ? {}
+            : { label: result.citationLabel }),
           freshness: result.freshness ?? "stale",
           state: result.state ?? "legacy_unresolved",
           quotedText: result.excerpt,

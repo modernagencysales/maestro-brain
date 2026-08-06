@@ -1,3 +1,7 @@
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+
+import { DatabaseReader } from "../_generated/services";
 import { assertReadableLifecycle } from "./lifecycle";
 import { sha256Hex } from "../shared/sha256";
 
@@ -20,6 +24,7 @@ export type AskRevision = {
 
 export type AskCitation = {
   readonly citationId: string;
+  readonly sourceKind?: string;
   readonly pageKey?: string;
   readonly revisionKey?: string;
   readonly sourceTitle: string;
@@ -27,6 +32,206 @@ export type AskCitation = {
   readonly startOffset: number;
   readonly endOffset: number;
 };
+
+export type ResolvedTranscriptCitation = {
+  readonly citationKey: string;
+  readonly sourceKey: string;
+  readonly sourceRevisionKey: string;
+  readonly pageKey: string;
+  readonly revisionKey: string;
+  readonly title: string;
+  readonly quotedText: string;
+  readonly locator: string;
+  readonly label: string;
+  readonly permalink: string;
+  readonly freshness: "fresh";
+  readonly state: "resolved";
+};
+
+type TranscriptCitationInput = {
+  readonly workspaceId: string;
+  readonly citationId: string;
+  readonly sourceId: string;
+  readonly sourceKind: string;
+  readonly sourceTitle: string;
+  readonly quotedText: string;
+  readonly startOffset: number;
+  readonly endOffset: number;
+  readonly pageKey?: string | undefined;
+  readonly revisionKey?: string | undefined;
+  readonly sourceUnitRevisionKey?: string | undefined;
+  readonly segmentKey?: string | undefined;
+  readonly startMs?: number | undefined;
+  readonly endMs?: number | undefined;
+};
+
+export const formatCitationTime = (milliseconds: number) => {
+  const seconds = Math.floor(milliseconds / 1_000);
+  return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+};
+
+export const resolveTranscriptCitation = (input: {
+  readonly workspaceId: string;
+  readonly organizationKey: string;
+  readonly citation: TranscriptCitationInput;
+  readonly unit: {
+    readonly organizationKey: string;
+    readonly connectionKey: string;
+    readonly connectionGeneration: number;
+    readonly unitKey: string;
+    readonly currentUnitRevisionKey: string;
+    readonly lifecycle: {
+      readonly state: string;
+      readonly generation?: number | undefined;
+    };
+  };
+  readonly revision: {
+    readonly organizationKey: string;
+    readonly unitKey: string;
+    readonly unitRevisionKey: string;
+    readonly title?: string;
+    readonly sourceUrl: string;
+    readonly tombstone: boolean;
+  };
+  readonly segment: {
+    readonly organizationKey: string;
+    readonly unitKey: string;
+    readonly unitRevisionKey: string;
+    readonly segmentKey: string;
+    readonly speakerLabel: string;
+    readonly startMs: number | null;
+    readonly endMs: number | null;
+    readonly text: string;
+  };
+  readonly connection: {
+    readonly organizationKey: string;
+    readonly connectionKey: string;
+    readonly connectionGeneration: number;
+    readonly status: string;
+  };
+}): ResolvedTranscriptCitation | null => {
+  const { citation, unit, revision, segment, connection } = input;
+  if (
+    citation.sourceKind !== "call_transcript" ||
+    citation.workspaceId !== input.workspaceId ||
+    !citation.pageKey ||
+    !citation.revisionKey ||
+    !citation.sourceUnitRevisionKey ||
+    !citation.segmentKey ||
+    unit.organizationKey !== input.organizationKey ||
+    revision.organizationKey !== input.organizationKey ||
+    segment.organizationKey !== input.organizationKey ||
+    connection.organizationKey !== input.organizationKey ||
+    unit.unitKey !== citation.sourceId ||
+    unit.currentUnitRevisionKey !== citation.sourceUnitRevisionKey ||
+    unit.lifecycle.state !== "active" ||
+    revision.unitKey !== unit.unitKey ||
+    revision.unitRevisionKey !== citation.sourceUnitRevisionKey ||
+    revision.tombstone ||
+    segment.unitKey !== unit.unitKey ||
+    segment.unitRevisionKey !== revision.unitRevisionKey ||
+    segment.segmentKey !== citation.segmentKey ||
+    connection.connectionKey !== unit.connectionKey ||
+    connection.connectionGeneration !== unit.connectionGeneration ||
+    connection.status !== "active" ||
+    citation.startOffset < 0 ||
+    citation.endOffset <= citation.startOffset ||
+    segment.text.slice(citation.startOffset, citation.endOffset) !==
+      citation.quotedText ||
+    (citation.startMs ?? null) !== segment.startMs ||
+    (citation.endMs ?? null) !== segment.endMs
+  )
+    return null;
+
+  const locator =
+    segment.startMs === null
+      ? `segment:${segment.segmentKey}`
+      : segment.endMs === null
+        ? `timestamp:${segment.startMs}`
+        : `timestamp:${segment.startMs}-${segment.endMs}`;
+  const label =
+    segment.startMs === null
+      ? segment.speakerLabel
+      : `${segment.speakerLabel} · ${formatCitationTime(segment.startMs)}`;
+  return {
+    citationKey: citation.citationId,
+    sourceKey: unit.unitKey,
+    sourceRevisionKey: revision.unitRevisionKey,
+    pageKey: citation.pageKey,
+    revisionKey: citation.revisionKey,
+    title: revision.title ?? citation.sourceTitle,
+    quotedText: citation.quotedText,
+    locator,
+    label,
+    permalink: revision.sourceUrl,
+    freshness: "fresh",
+    state: "resolved",
+  };
+};
+
+export const loadTranscriptCitations = (input: {
+  readonly workspaceId: string;
+  readonly organizationKey: string;
+  readonly citations: readonly TranscriptCitationInput[];
+}) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const resolved: ResolvedTranscriptCitation[] = [];
+    // ponytail: Task 4 replaces this workspace citation fence with a current route check.
+    for (const citation of input.citations
+      .filter(({ sourceKind }) => sourceKind === "call_transcript")
+      .slice(0, 100)) {
+      if (!citation.sourceUnitRevisionKey || !citation.segmentKey) continue;
+      const unitRevisionKey = citation.sourceUnitRevisionKey;
+      const segmentKey = citation.segmentKey;
+      const unit = yield* reader
+        .table("sourceUnits")
+        .index("by_unit_key", (q) =>
+          q
+            .eq("organizationKey", input.organizationKey)
+            .eq("unitKey", citation.sourceId),
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      const revision = yield* reader
+        .table("sourceUnitRevisions")
+        .index("by_unit_revision_key", (q) =>
+          q
+            .eq("organizationKey", input.organizationKey)
+            .eq("unitRevisionKey", unitRevisionKey),
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      const segment = yield* reader
+        .table("sourceSegments")
+        .index("by_segment_key", (q) =>
+          q
+            .eq("organizationKey", input.organizationKey)
+            .eq("segmentKey", segmentKey),
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      if (unit === null || revision === null || segment === null) continue;
+      const connection = yield* reader
+        .table("providerConnections")
+        .index("by_connection_key", (q) =>
+          q.eq("connectionKey", unit.connectionKey),
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      if (connection === null) continue;
+      const projection = resolveTranscriptCitation({
+        ...input,
+        citation,
+        unit,
+        revision,
+        segment,
+        connection,
+      });
+      if (projection !== null) resolved.push(projection);
+    }
+    return resolved;
+  });
 
 export type AskEvidence = {
   readonly citationKey: string;
@@ -193,7 +398,7 @@ const queryWords = (query: string) =>
 const isAuthoritative = (
   page: AskPage,
   revision: AskRevision | undefined,
-  citation: AskCitation | undefined,
+  citation: AskCitation | ResolvedTranscriptCitation | undefined,
 ) =>
   page.status === "active" &&
   page.lifecycle.state === "active" &&
@@ -204,31 +409,39 @@ const isAuthoritative = (
   revision.lifecycle.generation === page.lifecycle.generation &&
   citation?.pageKey === page.pageKey &&
   citation.revisionKey === revision.revisionKey &&
-  citation.citationId.length > 0 &&
-  citation.sourceTitle.length > 0 &&
-  citation.quotedText.length > 0 &&
-  citation.startOffset >= 0 &&
-  citation.endOffset > citation.startOffset &&
-  citation.endOffset <= revision.markdown.length &&
-  revision.markdown.slice(citation.startOffset, citation.endOffset) ===
-    citation.quotedText;
+  ("citationKey" in citation
+    ? citation.state === "resolved" && citation.quotedText.length > 0
+    : citation.sourceKind !== "call_transcript" &&
+      citation.citationId.length > 0 &&
+      citation.sourceTitle.length > 0 &&
+      citation.quotedText.length > 0 &&
+      citation.startOffset >= 0 &&
+      citation.endOffset > citation.startOffset &&
+      citation.endOffset <= revision.markdown.length &&
+      revision.markdown.slice(citation.startOffset, citation.endOffset) ===
+        citation.quotedText);
 
 export const buildAskResponse = (input: {
   readonly query: string;
   readonly pages: readonly AskPage[];
   readonly revisions: readonly AskRevision[];
   readonly citations: readonly AskCitation[];
+  readonly transcriptCitations?: readonly ResolvedTranscriptCitation[];
 }): AskResponse => {
   const words = queryWords(input.query);
   const revisions = new Map(
     input.revisions.map((revision) => [revision.revisionKey, revision]),
   );
-  const citations = new Map(
-    input.citations.map((citation) => [
-      `${citation.pageKey}:${citation.revisionKey}`,
-      citation,
-    ]),
+  const citations = new Map<string, AskCitation | ResolvedTranscriptCitation>(
+    input.citations
+      .filter(({ sourceKind }) => sourceKind !== "call_transcript")
+      .map((citation) => [
+        `${citation.pageKey}:${citation.revisionKey}`,
+        citation,
+      ]),
   );
+  for (const citation of input.transcriptCitations ?? [])
+    citations.set(`${citation.pageKey}:${citation.revisionKey}`, citation);
   const evidence = input.pages
     .map((page) => {
       const revision = page.currentRevisionKey
@@ -248,10 +461,20 @@ export const buildAskResponse = (input: {
     })
     .slice(0, 3)
     .map(({ page, revision, citation }) => ({
-      citationKey: citation?.citationId ?? "",
+      citationKey:
+        citation === undefined
+          ? ""
+          : "citationKey" in citation
+            ? citation.citationKey
+            : citation.citationId,
       pageKey: page.pageKey,
       revisionKey: revision?.revisionKey ?? "",
-      title: citation?.sourceTitle ?? page.title,
+      title:
+        citation === undefined
+          ? page.title
+          : "citationKey" in citation
+            ? citation.title
+            : citation.sourceTitle,
       excerpt: citation?.quotedText ?? "",
     }));
 

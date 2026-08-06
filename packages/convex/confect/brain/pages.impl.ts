@@ -60,6 +60,7 @@ const auditActions = {
 type BrainContext = {
   readonly workspaceId: GenericId<"workspaces">;
   readonly organizationId: string;
+  readonly organizationKey: string;
   readonly brainKey: string;
   readonly actorId: string;
 };
@@ -203,6 +204,7 @@ export const requireBrainAccess = (
     return {
       workspaceId: workspace._id,
       organizationId: organization._id,
+      organizationKey: agencyKey,
       brainKey,
       actorId: String(user._id),
     } satisfies BrainContext;

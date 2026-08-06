@@ -30,4 +30,27 @@ describe("CitationList", () => {
     expect(html).toContain("Citation provenance unresolved.");
     expect(html).not.toContain("secret");
   });
+
+  it("labels timestamped call evidence for humans", () => {
+    const html = renderToStaticMarkup(
+      <CitationList
+        citations={[
+          {
+            citationKey: "cit_call",
+            sourceRevisionKey: "surev_1",
+            locator: "timestamp:12000-15400",
+            label: "Alex · 00:12",
+            freshness: "fresh",
+            state: "resolved",
+            quotedText: "We will launch on Friday.",
+            permalink: "https://app.fireflies.ai/view/call_1",
+          },
+        ]}
+      />,
+    );
+
+    expect(html).toContain("Alex · 00:12");
+    expect(html).toContain("timestamp:12000-15400");
+    expect(html).toContain("We will launch on Friday.");
+  });
 });

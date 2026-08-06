@@ -2,6 +2,7 @@ export type BrainCitation = {
   readonly citationKey: string;
   readonly sourceRevisionKey: string;
   readonly locator: string;
+  readonly label?: string;
   readonly permalink?: string;
   readonly freshness: "fresh" | "stale";
   readonly state: "resolved" | "redacted" | "legacy_unresolved";
@@ -19,6 +20,7 @@ export function CitationList({
       {citations.map((citation) => (
         <div key={citation.citationKey}>
           <strong>{citation.citationKey}</strong>
+          {citation.label ? <p>{citation.label}</p> : null}
           <p>
             {citation.sourceRevisionKey} · {citation.locator}
           </p>

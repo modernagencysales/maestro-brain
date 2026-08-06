@@ -209,6 +209,7 @@ export type BrainSearchResult = {
   readonly excerpt: string;
   readonly sourceRevisionKey?: string;
   readonly locator?: string;
+  readonly citationLabel?: string;
   readonly permalink?: string;
   readonly freshness?: "fresh" | "stale";
   readonly state?: "resolved" | "redacted" | "legacy_unresolved";

@@ -14,6 +14,7 @@ import { requireBrainAccess } from "./pages.impl";
 import pilot from "./pilot.spec";
 import {
   buildAskResponse,
+  loadTranscriptCitations,
   type AskCitation,
   type AskPage,
   type AskRevision,
@@ -325,8 +326,12 @@ const updatePage = FunctionImpl.make(
           .table("citations")
           .patch(citation._id, {
             revisionKey: nextRevisionKey,
-            quotedText: args.markdown,
-            endOffset: args.markdown.length,
+            ...(citation.sourceKind === "call_transcript"
+              ? {}
+              : {
+                  quotedText: args.markdown,
+                  endOffset: args.markdown.length,
+                }),
           })
           .pipe(Effect.orDie);
       }
@@ -353,6 +358,14 @@ const search = FunctionImpl.make(databaseSchema, pilot, "search", (args) =>
       )
       .collect()
       .pipe(Effect.orDie);
+    const transcriptCitations = yield* loadTranscriptCitations({
+      workspaceId: String(brain.workspaceId),
+      organizationKey: brain.organizationKey,
+      citations,
+    });
+    const transcriptsByCitation = new Map(
+      transcriptCitations.map((citation) => [citation.citationKey, citation]),
+    );
     return {
       brainKey: brain.brainKey,
       results: pages
@@ -369,31 +382,67 @@ const search = FunctionImpl.make(databaseSchema, pilot, "search", (args) =>
               citation.revisionKey === page.currentRevisionKey,
           ),
         }))
-        .filter(({ page }) =>
-          `${page.title}\n${page.markdown}`.toLowerCase().includes(query),
+        .map(({ page, citation }) => ({
+          page,
+          citation,
+          transcript:
+            citation?.sourceKind === "call_transcript"
+              ? transcriptsByCitation.get(citation.citationId)
+              : undefined,
+        }))
+        .filter(
+          ({ citation, transcript }) =>
+            citation?.sourceKind !== "call_transcript" ||
+            transcript !== undefined,
+        )
+        .filter(({ page, transcript }) =>
+          `${page.title}\n${page.markdown}\n${transcript?.quotedText ?? ""}`
+            .toLowerCase()
+            .includes(query),
         )
         .sort((left, right) =>
-          (left.citation?.sourceId ?? left.page.pageKey).localeCompare(
-            right.citation?.sourceId ?? right.page.pageKey,
+          (
+            left.transcript?.sourceKey ??
+            left.citation?.sourceId ??
+            left.page.pageKey
+          ).localeCompare(
+            right.transcript?.sourceKey ??
+              right.citation?.sourceId ??
+              right.page.pageKey,
           ),
         )
-        .map(({ page, citation }) => ({
-          sourceKey: citation?.sourceId ?? page.pageKey,
-          citationKey: citation?.citationId ?? `citation:${page.pageKey}`,
-          title: page.title,
-          excerpt: page.markdown,
-          ...(citation?.revisionKey === undefined
-            ? { state: "legacy_unresolved" as const }
+        .map(({ page, citation, transcript }) =>
+          transcript === undefined
+            ? {
+                sourceKey: citation?.sourceId ?? page.pageKey,
+                citationKey: citation?.citationId ?? `citation:${page.pageKey}`,
+                title: page.title,
+                excerpt: page.markdown,
+                ...(citation?.revisionKey === undefined
+                  ? { state: "legacy_unresolved" as const }
+                  : {
+                      sourceRevisionKey: citation.revisionKey,
+                      locator: `offsets:${citation.startOffset}-${citation.endOffset}`,
+                      freshness:
+                        citation.revisionKey === page.currentRevisionKey
+                          ? ("fresh" as const)
+                          : ("stale" as const),
+                      state: "resolved" as const,
+                    }),
+              }
             : {
-                sourceRevisionKey: citation.revisionKey,
-                locator: `offsets:${citation.startOffset}-${citation.endOffset}`,
-                freshness:
-                  citation.revisionKey === page.currentRevisionKey
-                    ? ("fresh" as const)
-                    : ("stale" as const),
-                state: "resolved" as const,
-              }),
-        })),
+                sourceKey: transcript.sourceKey,
+                citationKey: transcript.citationKey,
+                title: transcript.title,
+                excerpt: transcript.quotedText,
+                sourceRevisionKey: transcript.sourceRevisionKey,
+                locator: transcript.locator,
+                citationLabel: transcript.label,
+                permalink: transcript.permalink,
+                freshness: transcript.freshness,
+                state: transcript.state,
+              },
+        ),
     };
   }),
 );
@@ -431,6 +480,11 @@ const ask = FunctionImpl.make(databaseSchema, pilot, "ask", (args) =>
       )
       .collect()
       .pipe(Effect.orDie);
+    const transcriptCitations = yield* loadTranscriptCitations({
+      workspaceId: String(brain.workspaceId),
+      organizationKey: brain.organizationKey,
+      citations,
+    });
     return {
       brainKey: brain.brainKey,
       response: buildAskResponse({
@@ -438,6 +492,7 @@ const ask = FunctionImpl.make(databaseSchema, pilot, "ask", (args) =>
         pages: pages as unknown as AskPage[],
         revisions: revisions as unknown as AskRevision[],
         citations: citations as unknown as AskCitation[],
+        transcriptCitations,
       }),
     };
   }),

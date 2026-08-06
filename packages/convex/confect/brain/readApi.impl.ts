@@ -11,6 +11,7 @@ import { SubsystemDisabled } from "../ops/brainOperations.spec";
 import { requireBrainAccess } from "./pages.impl";
 import {
   buildAskResponse,
+  loadTranscriptCitations,
   type AskCitation,
   type AskPage,
   type AskRevision,
@@ -210,11 +211,17 @@ const answersAsk = FunctionImpl.make(
         )
         .collect()
         .pipe(Effect.orDie);
+      const transcriptCitations = yield* loadTranscriptCitations({
+        workspaceId: String(brain.workspaceId),
+        organizationKey: brain.organizationKey,
+        citations,
+      });
       const response = buildAskResponse({
         query: question,
         pages: pages as unknown as AskPage[],
         revisions: revisions as unknown as AskRevision[],
         citations: citations as unknown as AskCitation[],
+        transcriptCitations,
       });
       return { brainKey: brain.brainKey, response };
     }),

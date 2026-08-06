@@ -18,7 +18,13 @@ import { PageKey, RevisionKey, SiblingSlug, SortKey } from "./pageSchemas";
 const BrainKey = Schema.String.pipe(
   Schema.pattern(/^br_[0-9A-HJKMNP-TV-Z]{26}$/),
 );
-const SourceKey = Schema.String.pipe(Schema.pattern(/^src_[a-f0-9]{64}$/));
+const SourceKey = Schema.String.pipe(
+  Schema.pattern(/^(?:src|sunit)_[a-f0-9]{64}$/),
+);
+const SourceRevisionKey = Schema.Union(
+  RevisionKey,
+  Schema.String.pipe(Schema.pattern(/^surev_[a-f0-9]{64}$/)),
+);
 const BrainSelector = Schema.Struct({ brainKey: BrainKey });
 const SourceStatus = Schema.Literal("pending_review", "published", "rejected");
 const SourceSummary = Schema.Struct({
@@ -60,8 +66,9 @@ const SearchResult = Schema.Struct({
   citationKey: Schema.String,
   title: Schema.String,
   excerpt: Schema.String,
-  sourceRevisionKey: Schema.optional(RevisionKey),
+  sourceRevisionKey: Schema.optional(SourceRevisionKey),
   locator: Schema.optional(Schema.String),
+  citationLabel: Schema.optional(Schema.String),
   permalink: Schema.optional(Schema.String),
   freshness: Schema.optional(Schema.Literal("fresh", "stale")),
   state: Schema.optional(
