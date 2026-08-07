@@ -1071,6 +1071,36 @@ describe("access provisioning", () => {
       expect(workspaceResult.left).toBeInstanceOf(ProvisioningConflict);
     }
   });
+
+  it("selects the Agency Brain when the owner also has a Client Brain", () => {
+    const agency = {
+      _id: "workspaces_agency",
+      organizationId: "organizations_1",
+      ownerUserId: "users_1",
+      slug: "ada-agency",
+      name: "Ada Agency",
+      kind: "agency" as const,
+      status: "active" as const,
+      dataClassification: "internal" as const,
+      createdAt: now,
+      updatedAt: now,
+    };
+    const result = selectLiveOwnedWorkspace(
+      [
+        agency,
+        {
+          ...agency,
+          _id: "workspaces_client",
+          slug: "client-one",
+          name: "Client One",
+          kind: "client",
+        },
+      ],
+      "users_1",
+    );
+
+    expect(result).toEqual(Either.right(agency));
+  });
 });
 
 describe("requireInsertValue", () => {
