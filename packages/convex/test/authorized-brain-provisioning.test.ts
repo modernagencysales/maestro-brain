@@ -559,6 +559,7 @@ describe("authorized Brain provisioning", () => {
           siblingSlug: page.slug,
           sortKey: page.sortKey,
           status: "active",
+          currentRevisionKey: expect.stringMatching(/^rev_/),
         }),
       ),
     );
@@ -1300,6 +1301,7 @@ const ClientBriefPageRows = Schema.mutable(
       status: Schema.UndefinedOr(
         Schema.Literal("active", "archived", "redacted", "purged"),
       ),
+      currentRevisionKey: Schema.NullOr(Schema.String),
     }),
   ),
 );
@@ -1841,6 +1843,7 @@ const readClientBriefPages = (workosOrganizationId: string, brainKey: string) =>
                 siblingSlug: page.siblingSlug,
                 sortKey: page.sortKey,
                 status: page.status,
+                currentRevisionKey: page.currentRevisionKey ?? null,
               };
             }),
         ),
