@@ -151,6 +151,7 @@ describe("Brain lifecycle and authorized retrieval", () => {
       organizationKey: "agency_acme",
       connectionKey: "conn_1",
       connectionGeneration: 2,
+      providerKey: "fireflies",
       unitKey: "sunit_1",
       currentUnitRevisionKey: "surev_1",
       lifecycle: { state: "active", generation: 1 },

@@ -78,6 +78,7 @@ export const resolveTranscriptCitation = (input: {
     readonly organizationKey: string;
     readonly connectionKey: string;
     readonly connectionGeneration: number;
+    readonly providerKey: string;
     readonly unitKey: string;
     readonly currentUnitRevisionKey: string;
     readonly lifecycle: {
@@ -108,9 +109,18 @@ export const resolveTranscriptCitation = (input: {
     readonly connectionKey: string;
     readonly connectionGeneration: number;
     readonly status: string;
-  };
+  } | null;
 }): ResolvedTranscriptCitation | null => {
   const { citation, unit, revision, segment, connection } = input;
+  const hasCurrentAuthority =
+    (unit.providerKey === "manual-transcript" &&
+      unit.connectionKey === `manual_${input.organizationKey}` &&
+      unit.connectionGeneration === 1) ||
+    (connection !== null &&
+      connection.organizationKey === input.organizationKey &&
+      connection.connectionKey === unit.connectionKey &&
+      connection.connectionGeneration === unit.connectionGeneration &&
+      connection.status === "active");
   if (
     citation.sourceKind !== "call_transcript" ||
     citation.workspaceId !== input.workspaceId ||
@@ -121,7 +131,7 @@ export const resolveTranscriptCitation = (input: {
     unit.organizationKey !== input.organizationKey ||
     revision.organizationKey !== input.organizationKey ||
     segment.organizationKey !== input.organizationKey ||
-    connection.organizationKey !== input.organizationKey ||
+    !hasCurrentAuthority ||
     unit.unitKey !== citation.sourceId ||
     unit.currentUnitRevisionKey !== citation.sourceUnitRevisionKey ||
     unit.lifecycle.state !== "active" ||
@@ -131,9 +141,6 @@ export const resolveTranscriptCitation = (input: {
     segment.unitKey !== unit.unitKey ||
     segment.unitRevisionKey !== revision.unitRevisionKey ||
     segment.segmentKey !== citation.segmentKey ||
-    connection.connectionKey !== unit.connectionKey ||
-    connection.connectionGeneration !== unit.connectionGeneration ||
-    connection.status !== "active" ||
     citation.startOffset < 0 ||
     citation.endOffset <= citation.startOffset ||
     segment.text.slice(citation.startOffset, citation.endOffset) !==
@@ -219,7 +226,6 @@ export const loadTranscriptCitations = (input: {
         )
         .first()
         .pipe(Effect.map(Option.getOrNull), Effect.orDie);
-      if (connection === null) continue;
       const projection = resolveTranscriptCitation({
         ...input,
         citation,

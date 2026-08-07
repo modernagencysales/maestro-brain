@@ -77,7 +77,7 @@ test("publishes a cited imported transcript into only its Client Brain", async (
   await review.getByRole("button", { name: "Accept all changes" }).click();
   await expect(page.getByText("Call updates published.")).toBeVisible();
 
-  await page.getByLabel("Search Brain").fill(marker);
+  await page.getByRole("textbox", { name: "Search Brain" }).fill(marker);
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByLabel(`Search results for ${marker}`)).toContainText(
     marker,
@@ -86,10 +86,15 @@ test("publishes a cited imported transcript into only its Client Brain", async (
     "Citation:",
   );
 
-  await page
+  const agencyWorkspaceValue = await page
     .getByLabel("Active workspace")
-    .selectOption({ label: "Agency Brain" });
-  await page.getByLabel("Search Brain").fill(marker);
+    .locator("option")
+    .filter({ hasNotText: clientName })
+    .first()
+    .getAttribute("value");
+  if (!agencyWorkspaceValue) throw new Error("Agency workspace is missing");
+  await page.getByLabel("Active workspace").selectOption(agencyWorkspaceValue);
+  await page.getByRole("textbox", { name: "Search Brain" }).fill(marker);
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByText(`No Brain results for ${marker}.`)).toBeVisible();
 });

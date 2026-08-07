@@ -188,11 +188,16 @@ const seedTranscriptCitation = (input: {
   readonly workspaceId: GenericId<"workspaces">;
   readonly pageKey: string;
   readonly pageRevisionKey: string;
+  readonly manual?: boolean;
 }) =>
   Effect.gen(function* () {
     const reader = yield* DatabaseReader;
     const writer = yield* DatabaseWriter;
     const organizationKey = `ag_${brainKey.slice(3)}`;
+    const connectionKey = input.manual
+      ? `manual_${organizationKey}`
+      : transcriptKeys.connectionKey;
+    const connectionGeneration = input.manual ? 1 : 2;
     const citation = yield* reader
       .table("citations")
       .index("by_workspace_page", (query) =>
@@ -203,35 +208,36 @@ const seedTranscriptCitation = (input: {
       .first()
       .pipe(Effect.map(Option.getOrNull), Effect.orDie);
     if (citation === null) throw new Error("expected approved note citation");
-    yield* writer
-      .table("providerConnections")
-      .insert({
-        provider: "nango",
-        providerConfigKey: "fireflies",
-        organizationKey,
-        connectionKey: transcriptKeys.connectionKey,
-        connectionGeneration: 2,
-        status: "active",
-        connectSessionId: "session_transcript_1",
-        nangoConnectionId: "nango_transcript_1",
-        nangoEndUserId: "end_user_transcript_1",
-        nangoOrganizationId: "nango_org_transcript_1",
-        correlationTag: "transcript:session_1",
-        attemptId: "attempt_transcript_1",
-        attemptExpiresAt: now + 10_000,
-        completedAt: now,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .pipe(Effect.orDie);
+    if (!input.manual)
+      yield* writer
+        .table("providerConnections")
+        .insert({
+          provider: "nango",
+          providerConfigKey: "fireflies",
+          organizationKey,
+          connectionKey,
+          connectionGeneration,
+          status: "active",
+          connectSessionId: "session_transcript_1",
+          nangoConnectionId: "nango_transcript_1",
+          nangoEndUserId: "end_user_transcript_1",
+          nangoOrganizationId: "nango_org_transcript_1",
+          correlationTag: "transcript:session_1",
+          attemptId: "attempt_transcript_1",
+          attemptExpiresAt: now + 10_000,
+          completedAt: now,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .pipe(Effect.orDie);
     yield* writer
       .table("sourceUnits")
       .insert({
         schemaVersion: 1,
         organizationKey,
-        connectionKey: transcriptKeys.connectionKey,
-        connectionGeneration: 2,
-        providerKey: "fireflies",
+        connectionKey,
+        connectionGeneration,
+        providerKey: input.manual ? "manual-transcript" : "fireflies",
         externalCallId: "call_1",
         unitKey: transcriptKeys.unitKey,
         currentUnitRevisionKey: transcriptKeys.unitRevisionKey,
@@ -795,6 +801,73 @@ describe("Brain pilot contract", () => {
     expect(result.afterRevoke.results).toEqual([]);
     expect(result.apiAfterRevoke.results).toEqual([]);
     expect(result.contextAfterRevoke.entries).toEqual([]);
+  });
+
+  it("searches cited manual transcripts without an external provider connection", async () => {
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof databaseSchema>(),
+        );
+        const seeded = yield* confect.run(
+          seedBrain({
+            role: "editor",
+            subject: "manual-transcript-reader",
+            email: "manual-transcript-reader@example.com",
+            brainKey,
+          }),
+          SeededBrainSchema,
+        );
+        const editor = actor(
+          confect,
+          "manual-transcript-reader",
+          "manual-transcript-reader@example.com",
+        );
+        const submitted = yield* editor.mutation(
+          refs.public.brain.pilot.submitNote,
+          {
+            brainKey,
+            title: "Manual call-backed brief",
+            markdown: "We will launch on Friday.",
+          },
+        );
+        yield* editor.mutation(refs.public.brain.pilot.reviewNote, {
+          brainKey,
+          sourceKey: submitted.sourceKey,
+          decision: "approve",
+        });
+        const state = yield* confect.run(
+          publishedState(seeded.workspaceId),
+          PublishedState,
+        );
+        const page = state.pages[0];
+        if (!page?.pageKey || !page.currentRevisionKey)
+          throw new Error("expected published page");
+        yield* confect.run(
+          seedTranscriptCitation({
+            workspaceId: seeded.workspaceId,
+            pageKey: page.pageKey,
+            pageRevisionKey: page.currentRevisionKey,
+            manual: true,
+          }),
+          Schema.Boolean,
+        );
+        return yield* editor.query(refs.public.brain.pilot.search, {
+          brainKey,
+          query: "launch",
+        });
+      }).pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.results).toEqual([
+      expect.objectContaining({
+        sourceKey: transcriptKeys.unitKey,
+        sourceRevisionKey: transcriptKeys.unitRevisionKey,
+        excerpt: "We will launch on Friday.",
+        freshness: "fresh",
+        state: "resolved",
+      }),
+    ]);
   });
 
   it("denies viewers from submitting or reviewing notes", async () => {

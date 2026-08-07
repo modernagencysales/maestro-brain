@@ -11,8 +11,8 @@ const CitedFact = Schema.Struct({
 const Commitment = Schema.extend(
   CitedFact,
   Schema.Struct({
-    owner: Schema.optional(Schema.String),
-    dueDate: Schema.optional(Schema.String),
+    owner: Schema.NullOr(Schema.String),
+    dueDate: Schema.NullOr(Schema.String),
   }),
 );
 const PageProposal = Schema.Struct({
@@ -46,48 +46,70 @@ export const decodeMinedCall = (
   },
 ): MinedCall => {
   const output = Schema.decodeUnknownSync(MinedCall)(raw);
-  const facts = [
-    ...output.decisions,
-    ...output.commitments,
-    ...output.risks,
-    ...output.stakeholderChanges,
-  ];
-  const citationKeys = [
-    ...(output.summary ? output.summaryCitationKeys : []),
-    ...facts.flatMap(({ citationKeys }) => citationKeys),
-    ...output.pageProposals.flatMap(({ citationKeys }) => citationKeys),
-  ];
-  if (
-    (output.summary && output.summaryCitationKeys.length === 0) ||
-    facts.some(({ text, citationKeys }) => text && citationKeys.length === 0) ||
-    output.pageProposals.some(({ citationKeys }) => citationKeys.length === 0)
-  )
-    throw invalidMinedCall("factual output requires a citation");
   const citations = new Map(
     context.citations.map((citation) => [citation.citationKey, citation.quote]),
   );
+  const pageProposals = output.pageProposals.map((proposal) => ({
+    ...proposal,
+    citationKeys: proposal.citationKeys.filter((citationKey) =>
+      citations.has(citationKey),
+    ),
+  }));
+  const commitments = output.commitments.map((commitment) => {
+    const evidence = commitment.citationKeys
+      .map((citationKey) => citations.get(citationKey) ?? "")
+      .join(" ")
+      .toLowerCase();
+    return {
+      ...commitment,
+      owner:
+        commitment.owner && evidence.includes(commitment.owner.toLowerCase())
+          ? commitment.owner
+          : null,
+      dueDate:
+        commitment.dueDate &&
+        evidence.includes(commitment.dueDate.toLowerCase())
+          ? commitment.dueDate
+          : null,
+    };
+  });
+  const normalizedOutput = { ...output, commitments, pageProposals };
+  const facts = [
+    ...normalizedOutput.decisions,
+    ...normalizedOutput.commitments,
+    ...normalizedOutput.risks,
+    ...normalizedOutput.stakeholderChanges,
+  ];
+  const claimCitationKeys = [
+    ...(normalizedOutput.summary ? normalizedOutput.summaryCitationKeys : []),
+    ...facts.flatMap(({ citationKeys }) => citationKeys),
+  ];
+  if (claimCitationKeys.some((citationKey) => !citations.has(citationKey)))
+    throw invalidMinedCall("unknown citation");
+  const citationKeys = [
+    ...claimCitationKeys,
+    ...normalizedOutput.pageProposals.flatMap(
+      ({ citationKeys }) => citationKeys,
+    ),
+  ];
+  if (
+    (normalizedOutput.summary &&
+      normalizedOutput.summaryCitationKeys.length === 0) ||
+    facts.some(({ text, citationKeys }) => text && citationKeys.length === 0) ||
+    normalizedOutput.pageProposals.some(
+      ({ citationKeys }) => citationKeys.length === 0,
+    )
+  )
+    throw invalidMinedCall("factual output requires a citation");
   if (citationKeys.some((citationKey) => !citations.has(citationKey)))
     throw invalidMinedCall("unknown citation");
   if (
-    output.pageProposals.some(
+    normalizedOutput.pageProposals.some(
       ({ brainKey, pageKey }) =>
         brainKey !== context.brainKey ||
         (context.pageKeys !== undefined && !context.pageKeys.includes(pageKey)),
     )
   )
     throw invalidMinedCall("page proposal targets an unauthorized Brain page");
-  for (const commitment of output.commitments) {
-    const evidence = commitment.citationKeys
-      .map((citationKey) => citations.get(citationKey) ?? "")
-      .join(" ")
-      .toLowerCase();
-    if (
-      (commitment.owner &&
-        !evidence.includes(commitment.owner.toLowerCase())) ||
-      (commitment.dueDate &&
-        !evidence.includes(commitment.dueDate.toLowerCase()))
-    )
-      throw invalidMinedCall("owner or due date is not cited");
-  }
-  return output;
+  return normalizedOutput;
 };

@@ -343,7 +343,9 @@ export const BrainWorkspaceRoute = () => {
               : {}),
           }
         : callMaintenanceQueue.status === "empty"
-          ? { status: "empty" }
+          ? callMaintenanceMutation
+            ? { status: "ready", items: [], mutation: callMaintenanceMutation }
+            : { status: "empty" }
           : callMaintenanceQueue.status === "loading" ||
               callMaintenanceQueue.status === "skipped"
             ? { status: "loading" }
