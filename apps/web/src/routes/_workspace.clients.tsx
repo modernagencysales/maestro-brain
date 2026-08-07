@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useClientsController } from "../features/clients/clients-adapter";
 import { ClientsScreen } from "../features/clients/clients-screen";
 import { BusinessAppShell, BusinessPageRoot } from "../saas-ui/business-shell";
+import { useWorkspace } from "../providers/workspace";
 
 export const Route = createFileRoute("/_workspace/clients")({
   component: ClientsRoute,
@@ -9,8 +10,12 @@ export const Route = createFileRoute("/_workspace/clients")({
 
 function ClientsRoute() {
   const navigate = useNavigate();
+  const workspace = useWorkspace();
   const controller = useClientsController({
-    onCreated: (target) => navigate(target),
+    onCreated: (target) => {
+      workspace.switchWorkspace(target.search.brainKey);
+      return navigate(target);
+    },
   });
 
   return (

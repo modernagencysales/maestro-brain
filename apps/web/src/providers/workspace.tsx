@@ -167,11 +167,11 @@ export const createWorkspaceController = (
 
   const switchWorkspace = (workspaceId: string) => {
     if (state.status !== "ready") return;
+    input.storage?.write(workspaceId);
     const active = state.workspaces.find(
       (workspace) => workspace.workspaceId === workspaceId,
     );
     if (!active) return;
-    input.storage?.write(active.workspaceId);
     setState({
       ...state,
       activeWorkspaceId: active.workspaceId,

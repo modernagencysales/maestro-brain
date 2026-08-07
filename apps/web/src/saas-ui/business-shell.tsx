@@ -25,6 +25,7 @@ import {
   type TemplateRouteKey,
 } from "../navigation/workspace";
 import { isReferenceRoutesEnabled } from "../env";
+import { useWorkspace } from "../providers/workspace";
 import { DataLifecycleSurface } from "../features/data-lifecycle/data-lifecycle-surface";
 import { LiveWorkflowRunsPanel } from "../features/workflows/live-runs-panel";
 import {
@@ -707,9 +708,42 @@ export function BusinessAppShell({
         </Stack>
       </Box>
       <Box flex="1" minW="0">
+        <BusinessWorkspaceSelector />
         {children}
       </Box>
     </Flex>
+  );
+}
+
+export function BusinessWorkspaceSelector() {
+  const workspace = useWorkspace();
+  if (workspace.status !== "ready" || workspace.workspaces.length < 2)
+    return null;
+
+  return (
+    <Box
+      bg="white"
+      borderBottomColor="gray.200"
+      borderBottomWidth="1px"
+      px="6"
+      py="3"
+    >
+      <label htmlFor="active-workspace">Active workspace</label>{" "}
+      <select
+        aria-label="Active workspace"
+        id="active-workspace"
+        value={workspace.activeWorkspaceId}
+        onChange={(event) =>
+          workspace.switchWorkspace(event.currentTarget.value)
+        }
+      >
+        {workspace.workspaces.map((option) => (
+          <option key={option.workspaceId} value={option.workspaceId}>
+            {option.name}
+          </option>
+        ))}
+      </select>
+    </Box>
   );
 }
 
