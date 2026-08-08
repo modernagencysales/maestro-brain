@@ -15,6 +15,13 @@ type ClientCallableSurface = (typeof clientCallableSurfaces)[number];
 
 type Surface = ExternalSurface | "web" | "workflow" | "internal" | string;
 
+const servicePrincipalHttpRefs: Readonly<Record<string, string>> = {
+  "brain.sources.search": "internal.brain.readApi.headlessSourcesSearch",
+  "brain.sources.get": "internal.brain.readApi.headlessSourcesGet",
+  "brain.context.get": "internal.headless.readApi.contextGet",
+  "brain.answers.ask": "internal.brain.readApi.headlessAnswersAsk",
+};
+
 export type HeadlessManifestOperation = {
   readonly operationId: string;
   readonly namespace?: string;
@@ -24,6 +31,23 @@ export type HeadlessManifestOperation = {
   readonly kind?: string;
   readonly idempotent?: boolean;
 };
+
+export const httpGeneratedRefMappings = (
+  operations: readonly HeadlessManifestOperation[],
+): Readonly<Record<string, string>> =>
+  Object.fromEntries(
+    operations.flatMap((operation) =>
+      operation.namespace === undefined || operation.name === undefined
+        ? []
+        : [
+            [
+              operation.operationId,
+              servicePrincipalHttpRefs[operation.operationId] ??
+                `api.${operation.namespace}.${operation.name}`,
+            ],
+          ],
+    ),
+  );
 
 const hasExternalSurface = (operation: HeadlessManifestOperation): boolean =>
   operation.surfaces.some((surface) =>
@@ -314,18 +338,7 @@ export const evaluateHeadlessSurfaceContract = async (
     );
   }
 
-  const generatedHttpRefs = Object.fromEntries(
-    operations.flatMap((operation) =>
-      operation.namespace === undefined || operation.name === undefined
-        ? []
-        : [
-            [
-              operation.operationId,
-              `api.${operation.namespace}.${operation.name}`,
-            ],
-          ],
-    ),
-  );
+  const generatedHttpRefs = httpGeneratedRefMappings(operations);
   const apiMissingRefs = missingHttpGeneratedRefMapping(
     exposedOperationIds(operations, "api"),
     httpSource,
