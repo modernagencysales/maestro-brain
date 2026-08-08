@@ -23,6 +23,7 @@ test("renders transcript connectors without a route failure", async ({
   });
 
   await page.goto("/connections");
+  await page.reload();
 
   await expect(page.getByText("Route unavailable")).toHaveCount(0);
   await expect(
@@ -35,8 +36,11 @@ test("renders transcript connectors without a route failure", async ({
     await expect(row).toBeVisible();
     await expect(
       row.getByRole("button", { name: new RegExp(provider) }),
-    ).toBeVisible();
+    ).toBeEnabled();
   }
+
+  await expect(page.getByLabel("Transcript file")).toBeEnabled();
+  await expect(page.getByLabel("Optional target Brain")).toBeEnabled();
 
   expect(errors).toEqual([]);
 });
