@@ -9,7 +9,7 @@ import {
 import type { ConvexQueryClient } from "@convex-dev/react-query";
 import type { ConvexReactClient } from "convex/react";
 import type { QueryClient } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { TemplateToastProvider } from "@maestro-template/ui";
 
 import { createAuthKitProviderWithConvexProviderWithAuth } from "../auth/authkit-client";
@@ -26,8 +26,9 @@ import {
   useTemplateQuery,
 } from "../adapters/confect-state";
 import {
-  createRuntimeWorkspaceOperations,
   createWorkspaceLiveRefs,
+  reuseRuntimeWorkspaceOperations,
+  type RuntimeWorkspaceOperationsCache,
 } from "../providers/workspace-operations";
 import { PostHogWebProvider } from "../providers/posthog";
 import { CookieConsentBoundary } from "../providers/cookie-consent";
@@ -38,6 +39,7 @@ import xyflowCssUrl from "@xyflow/react/dist/style.css?url";
 
 const AuthKitProviderWithConvexProviderWithAuth =
   createAuthKitProviderWithConvexProviderWithAuth(workosAuthKitClientBridge);
+const browserWorkspaceStorage = createBrowserWorkspaceStorage();
 
 export type RouterContext = {
   readonly queryClient: QueryClient;
@@ -96,15 +98,20 @@ function WorkspaceRuntimeBoundary({
     useQuery: useTemplateQuery,
     useMutation: useTemplateMutation,
   });
+  const operationsCache = useRef<RuntimeWorkspaceOperationsCache>(undefined);
+  operationsCache.current = reuseRuntimeWorkspaceOperations(
+    operationsCache.current,
+    {
+      authSnapshot,
+      mode: workspaceRuntimeMode,
+      liveRefs,
+    },
+  );
 
   return (
     <WorkspaceProvider
-      operations={createRuntimeWorkspaceOperations({
-        authSnapshot,
-        mode: workspaceRuntimeMode,
-        liveRefs,
-      })}
-      storage={createBrowserWorkspaceStorage()}
+      operations={operationsCache.current.operations}
+      storage={browserWorkspaceStorage}
     >
       <CookieConsentBoundary>
         {(analyticsConsent) => (
