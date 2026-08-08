@@ -1,6 +1,11 @@
+import type { GenericId } from "convex/values";
+import * as Duration from "effect/Duration";
+import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
+import type { Scheduler } from "../_generated/services";
+import { scheduleManualTranscriptMaintenance } from "./importTranscript.impl";
 import importTranscriptGroup, {
   importTranscriptArgs,
   manifest,
@@ -43,5 +48,36 @@ describe("importTranscript public capability", () => {
         participantEmails: [],
       }),
     ).toThrow();
+  });
+
+  it("queues maintenance for an explicitly routed import", async () => {
+    let scheduled: unknown;
+    const runAfter = ((delay, _ref, args) =>
+      Effect.sync(() => {
+        scheduled = { delayMs: Duration.toMillis(delay), args };
+        return "scheduled";
+      })) as Scheduler["runAfter"];
+
+    await Effect.runPromise(
+      scheduleManualTranscriptMaintenance(runAfter, {
+        workspaceId: "workspace_client" as GenericId<"workspaces">,
+        proposalKey: "callroute_1",
+        unitRevisionKey: "surev_1",
+      }),
+    );
+
+    expect(scheduled).toMatchObject({
+      delayMs: 0,
+      args: {
+        workspaceId: "workspace_client",
+        unitRevisionKey: "surev_1",
+        idempotencyKey: expect.stringMatching(/^maintenance\./),
+        caller: {
+          kind: "system",
+          name: "manual-transcript-import",
+          surface: "internal",
+        },
+      },
+    });
   });
 });

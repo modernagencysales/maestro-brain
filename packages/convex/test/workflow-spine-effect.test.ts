@@ -302,6 +302,82 @@ describe("durable graph runner", () => {
     });
   });
 
+  it("retries a failed node using its declared attempt and backoff policy", async () => {
+    const retryGraph = {
+      id: "workflow_retry",
+      version: 1,
+      startNodeId: "source",
+      nodes: [
+        {
+          id: "source",
+          kind: "source",
+          label: "Source",
+          retry: { maxAttempts: 1, backoffMs: 0 },
+        },
+        {
+          id: "unstable",
+          kind: "capability",
+          label: "Unstable",
+          capability: "unstableCapability",
+          retry: { maxAttempts: 2, backoffMs: 1_000 },
+        },
+        {
+          id: "output",
+          kind: "output",
+          label: "Output",
+          retry: { maxAttempts: 1, backoffMs: 0 },
+        },
+      ],
+      edges: [
+        {
+          id: "source_unstable",
+          sourceNodeId: "source",
+          targetNodeId: "unstable",
+        },
+        {
+          id: "unstable_output",
+          sourceNodeId: "unstable",
+          targetNodeId: "output",
+        },
+      ],
+      joins: [],
+    } satisfies DurableWorkflowGraph;
+    let attempts = 0;
+    const sleeps: Array<{
+      readonly delayMs: number;
+      readonly name: string | undefined;
+    }> = [];
+    const step: RunDurableGraphStep = {
+      runQuery: async () => {
+        attempts += 1;
+        if (attempts === 1) throw new Error("transient output failure");
+        return { ok: true };
+      },
+      runAction: async () => null,
+      runMutation: async () => null,
+      sleep: async (delayMs, options) => {
+        sleeps.push({ delayMs, name: options?.name });
+      },
+      awaitEvent: async <Result>() => ({}) as Result,
+    };
+
+    await expect(
+      runDurableGraphWorkflow(step, {
+        graph: retryGraph,
+        inputs: {},
+        policySnapshot: {},
+        capabilityRegistry: {
+          unstableCapability: { kind: "query", ref: classifyRef },
+        },
+        projectOutput: ({ context }) => ({ result: context.unstable }),
+      }),
+    ).resolves.toEqual({ result: { ok: true } });
+    expect(attempts).toBe(2);
+    expect(sleeps).toEqual([
+      { delayMs: 1_000, name: "workflow_retry.unstable.retry.2" },
+    ]);
+  });
+
   it("dispatches through the registry, sleeps, awaits approval, and observes stages", async () => {
     const queryCalls: unknown[] = [];
     const actionCalls: unknown[] = [];

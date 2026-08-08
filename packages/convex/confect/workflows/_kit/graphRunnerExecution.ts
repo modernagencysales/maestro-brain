@@ -129,22 +129,33 @@ const dequeueNode = (state: GraphExecutionState): WorkflowNode | undefined => {
   return state.nodesById.get(nodeId);
 };
 
-const runGraphNode = (
+const runGraphNode = async (
   step: RunDurableGraphStep,
   state: GraphExecutionState,
   node: WorkflowNode,
-): Promise<unknown> =>
-  runObservedWorkflowStage({
-    step,
-    ...observabilityArgs(state.input),
-    nodeId: node.id,
-    label: node.label,
-    kind: node.kind,
-    stageKey: node.id,
-    attemptNumber: 1,
-    order: state.order,
-    run: () => executeAndValidateNode(step, state, node),
-  });
+): Promise<unknown> => {
+  for (let attemptNumber = 1; ; attemptNumber += 1) {
+    try {
+      return await runObservedWorkflowStage({
+        step,
+        ...observabilityArgs(state.input),
+        nodeId: node.id,
+        label: node.label,
+        kind: node.kind,
+        stageKey: node.id,
+        attemptNumber,
+        order: state.order,
+        run: () => executeAndValidateNode(step, state, node),
+      });
+    } catch (error) {
+      if (attemptNumber >= node.retry.maxAttempts) throw error;
+      const nextAttempt = attemptNumber + 1;
+      await step.sleep(node.retry.backoffMs, {
+        name: `${state.input.graph.id}.${node.id}.retry.${nextAttempt}`,
+      });
+    }
+  }
+};
 
 const observabilityArgs = (
   input: RunDurableGraphInput,

@@ -327,7 +327,11 @@ export const selectLiveOwnedWorkspace = (
   workspaces: ReadonlyArray<WorkspaceProvisioningRow>,
   userId: string,
 ): Either.Either<WorkspaceProvisioningRow | null, ProvisioningConflict> =>
-  selectSingleLiveOwned(workspaces, userId, "workspaces");
+  selectSingleLiveOwned(
+    workspaces.filter((workspace) => (workspace.kind ?? "agency") === "agency"),
+    userId,
+    "workspaces",
+  );
 
 const planUser = (
   identity: IdentityProfile,

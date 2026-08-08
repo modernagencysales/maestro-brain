@@ -43,6 +43,7 @@ import {
 import { buildStandardClientBriefPages } from "../brain/clientBrief";
 import { roleAtLeast } from "./roles";
 import { readProcessEnv } from "../shared/env";
+import { sha256Hex } from "../shared/sha256";
 
 const conflict = (resource: string, message: string) =>
   new ProvisioningConflict({ resource, message });
@@ -900,9 +901,38 @@ const createClientBrain = FunctionImpl.make(
       const pages = yield* insertStandardClientBriefPages({
         brainKey,
         insertPage: (page) =>
-          writer
-            .table("brainPages")
-            .insert({
+          Effect.gen(function* () {
+            const revisionKey = `rev_${sha256Hex(
+              JSON.stringify({ workspaceId, pageKey: page.pageKey }),
+            ).slice(0, 32)}`;
+            const lifecycle = {
+              state: "active" as const,
+              generation: 1,
+              updatedAt: now,
+              purgeAfter: null,
+            };
+            yield* writer
+              .table("pageRevisions")
+              .insert({
+                workspaceId,
+                organizationId,
+                pageKey: page.pageKey,
+                revisionKey,
+                priorRevisionKey: null,
+                blockNoteJson: "",
+                markdown: page.markdown,
+                contentHash: sha256Hex(page.markdown),
+                causation: "migration",
+                actor: { kind: "migration", id: "client-brief-seed" },
+                modelReceiptKey: null,
+                effectKey: `access.provisioning.clientBrief:${workspaceId}:${page.pageKey}`,
+                state: "published",
+                lifecycle,
+                createdAt: now,
+                schemaVersion: 1,
+              })
+              .pipe(Effect.orDie);
+            yield* writer.table("brainPages").insert({
               workspaceId,
               organizationId,
               slug: page.slug,
@@ -916,17 +946,12 @@ const createClientBrain = FunctionImpl.make(
               sortKey: page.sortKey,
               favorite: page.favorite,
               status: "active",
-              currentRevisionKey: null,
-              lifecycle: {
-                state: "active",
-                generation: 0,
-                updatedAt: now,
-                purgeAfter: null,
-              },
+              currentRevisionKey: revisionKey,
+              lifecycle,
               createdAt: now,
               schemaVersion: 1,
-            })
-            .pipe(Effect.orDie),
+            });
+          }).pipe(Effect.orDie),
       });
       const membershipId = yield* writer
         .table("workspaceMembers")

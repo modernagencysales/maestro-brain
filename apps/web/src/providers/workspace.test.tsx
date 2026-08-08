@@ -117,6 +117,31 @@ describe("workspace provider controller", () => {
     expect(storage.read()).toBe("workspaces_2");
   });
 
+  it("remembers a newly created workspace until it appears in the list", async () => {
+    const storage = memoryStorage();
+    let includeNewWorkspace = false;
+    const controller = createWorkspaceController({
+      loadWorkspaces: async () => [
+        workspace({ workspaceId: "workspaces_1", name: "One" }),
+        ...(includeNewWorkspace
+          ? [workspace({ workspaceId: "workspaces_2", name: "Two" })]
+          : []),
+      ],
+      ensureProvisioned: async () => ({ workspaceId: "workspaces_1" }),
+      storage,
+    });
+
+    await controller.initialize();
+    controller.switchWorkspace("workspaces_2");
+    includeNewWorkspace = true;
+    await controller.initialize();
+
+    expect(controller.getSnapshot()).toMatchObject({
+      status: "ready",
+      activeWorkspaceId: "workspaces_2",
+    });
+  });
+
   it("surfaces provisioning failures without requiring live secrets", async () => {
     const controller = createWorkspaceController({
       loadWorkspaces: async () => [],

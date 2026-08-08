@@ -44,6 +44,11 @@ export type CallMaintenanceReviewState =
   | { readonly status: "loading" | "empty" }
   | { readonly status: "failure"; readonly message: string }
   | {
+      readonly status: "settled";
+      readonly outcome: "success" | "failure";
+      readonly message: string;
+    }
+  | {
       readonly status: "ready";
       readonly items: readonly CallMaintenanceProposal[];
       readonly mutation?: CallMaintenanceMutationState;
@@ -73,8 +78,13 @@ export function CallMaintenanceReview({
         {state.status === "loading" ? (
           <Text role="status">Loading call updates…</Text>
         ) : null}
-        {state.status === "empty" ? (
+        {state.status === "empty" || state.status === "settled" ? (
           <Text>No call updates need review.</Text>
+        ) : null}
+        {state.status === "settled" ? (
+          <Text role={state.outcome === "success" ? "status" : "alert"}>
+            {state.message}
+          </Text>
         ) : null}
         {state.status === "failure" ? (
           <Text role="alert">{state.message}</Text>

@@ -79,8 +79,8 @@ describe("call transcript mining output", () => {
     ).toThrow("unknown citation");
   });
 
-  it("rejects uncited or invented owner and due-date fields", () => {
-    expect(() =>
+  it("drops uncited optional owner and due-date fields", () => {
+    expect(
       decodeMinedCall(
         {
           summary: "",
@@ -100,7 +100,36 @@ describe("call transcript mining output", () => {
         },
         context,
       ),
-    ).toThrow("owner or due date is not cited");
+    ).toMatchObject({
+      commitments: [{ owner: null, dueDate: null }],
+    });
+  });
+
+  it("keeps only current call citations on page proposals", () => {
+    expect(
+      decodeMinedCall(
+        {
+          summary: "Launch Friday",
+          summaryCitationKeys: ["cite_segment_1"],
+          decisions: [],
+          commitments: [],
+          risks: [],
+          stakeholderChanges: [],
+          pageProposals: [
+            {
+              brainKey: "br_acme",
+              pageKey: "pag_br_acme_brief",
+              title: "Client Brief",
+              markdown: "Existing cited context plus launch Friday.",
+              citationKeys: ["cite_previous_call", "cite_segment_1"],
+            },
+          ],
+        },
+        context,
+      ),
+    ).toMatchObject({
+      pageProposals: [{ citationKeys: ["cite_segment_1"] }],
+    });
   });
 
   it("mines gathered evidence through the structured gateway without retaining raw text", async () => {
@@ -189,7 +218,7 @@ describe("call transcript mining output", () => {
     );
   });
 
-  it("requests strict structured commitments with optional owner and due date", async () => {
+  it("requests strict structured commitments with nullable owner and due date", async () => {
     let requestBody: Record<string, unknown> = {};
     vi.stubGlobal(
       "fetch",
@@ -224,19 +253,41 @@ describe("call transcript mining output", () => {
         readonly schema: {
           readonly properties: {
             readonly commitments: {
-              readonly items: { readonly properties: Record<string, unknown> };
+              readonly items: {
+                readonly required: readonly string[];
+                readonly properties: Record<string, unknown>;
+              };
             };
           };
         };
       };
     };
+    const messages = requestBody.messages as readonly {
+      readonly role: string;
+      readonly content: string;
+    }[];
     expect(
       responseFormat.json_schema.schema.properties.commitments.items.properties,
     ).toMatchObject({
       text: { type: "string" },
-      owner: { type: "string" },
-      dueDate: { type: "string" },
+      owner: { type: ["string", "null"] },
+      dueDate: { type: ["string", "null"] },
     });
+    expect(
+      responseFormat.json_schema.schema.properties.commitments.items.required,
+    ).toEqual(["text", "citationKeys", "owner", "dueDate"]);
+    expect(messages[0]?.content).toContain(
+      "copy owner and dueDate verbatim from the cited quote",
+    );
+    expect(messages[0]?.content).toContain(
+      "include a pageProposal for each relevant listed Brain page",
+    );
+    expect(messages[0]?.content).toContain(
+      "Use null for owner or dueDate when the exact value is not present",
+    );
+    expect(messages[0]?.content).toContain(
+      "citationKeys arrays must contain only supplied call-evidence citation keys",
+    );
     expect(result.usage).toEqual({
       inputTokens: 10,
       outputTokens: 5,

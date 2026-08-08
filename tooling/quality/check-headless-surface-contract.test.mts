@@ -5,6 +5,7 @@ import {
   cannedRegistryImportFailures,
   cannedRuntimeSuccess,
   descriptor,
+  httpGeneratedRefMappings,
   missingExternalValidationError,
   missingCliGeneratedRefUsage,
   missingGeneratedRefMapping,
@@ -200,6 +201,30 @@ describe("check:headless-surface-contract", () => {
         "brain.context.get": "api.brain.context.get",
       }),
     ).toEqual(["brain.context.get"]);
+  });
+
+  it("requires service-principal Brain reads to use their generated internal refs", () => {
+    expect(
+      httpGeneratedRefMappings([
+        {
+          namespace: "brain.readApi",
+          name: "sourcesSearch",
+          operationId: "brain.sources.search",
+          surfaces: ["api"],
+          typedErrors: ["ValidationFailed"],
+        },
+        {
+          namespace: "brain.pages",
+          name: "list",
+          operationId: "brain.pages.list",
+          surfaces: ["api"],
+          typedErrors: ["ValidationFailed"],
+        },
+      ]),
+    ).toEqual({
+      "brain.sources.search": "internal.brain.readApi.headlessSourcesSearch",
+      "brain.pages.list": "api.brain.pages.list",
+    });
   });
 
   it("requires CLI and MCP projections to use a runtime adapter seam", () => {

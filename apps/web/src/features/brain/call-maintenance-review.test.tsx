@@ -85,6 +85,25 @@ describe("CallMaintenanceReview", () => {
     expect(html).toContain("Reject all changes");
   });
 
+  it("announces a settled mutation after the queue becomes empty", () => {
+    const success = render({
+      status: "settled",
+      outcome: "success",
+      message: "Call updates published.",
+    });
+    const failure = render({
+      status: "settled",
+      outcome: "failure",
+      message: "Unable to publish call updates.",
+    });
+
+    expect(success).toContain("No call updates need review.");
+    expect(success).toContain('role="status"');
+    expect(success).toContain("Call updates published.");
+    expect(failure).toContain('role="alert"');
+    expect(failure).toContain("Unable to publish call updates.");
+  });
+
   it("keeps viewer controls visible but disabled", () => {
     const html = render({ status: "ready", items: [proposal] }, "viewer");
 
