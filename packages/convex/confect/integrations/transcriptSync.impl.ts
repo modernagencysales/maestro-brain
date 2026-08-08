@@ -1,6 +1,7 @@
 import { transcriptProviders } from "@maestro-template/integrations/transcripts/providers";
 import { FunctionImpl, GroupImpl } from "@confect/server";
 import type { GenericId } from "convex/values";
+import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -196,6 +197,7 @@ type StoredConnection = {
   readonly providerConfigKey: string;
   readonly nangoConnectionId?: string | null;
   readonly status: string;
+  readonly attemptExpiresAt: number;
 };
 type HealthConnection = Pick<
   StoredConnection,
@@ -204,6 +206,7 @@ type HealthConnection = Pick<
   | "connectionKey"
   | "connectionGeneration"
   | "status"
+  | "attemptExpiresAt"
 >;
 type HealthSourceUnit = {
   readonly connectionKey: string;
@@ -248,6 +251,7 @@ const providerForConfig = (providerConfigKey: string) =>
   )?.[0] as TranscriptSyncState["provider"] | undefined;
 
 export const buildTranscriptConnectionHealth = (input: {
+  readonly now: number;
   readonly connections: readonly HealthConnection[];
   readonly syncStates: readonly TranscriptSyncState[];
   readonly sourceUnits: readonly HealthSourceUnit[];
@@ -277,8 +281,13 @@ export const buildTranscriptConnectionHealth = (input: {
         )
         .map((route) => route.unitKey),
     ).size;
-    const state =
-      connection.status === "authorizing"
+    const authorizationExpired =
+      (connection.status === "authorizing" ||
+        connection.status === "reauthorizing") &&
+      connection.attemptExpiresAt <= input.now;
+    const state = authorizationExpired
+      ? ("error" as const)
+      : connection.status === "authorizing"
         ? ("authorizing" as const)
         : connection.status === "reauthorizing"
           ? ("reauthorizing" as const)
@@ -508,7 +517,9 @@ const listTranscriptConnectionHealthImpl = FunctionImpl.make(
         )
         .collect()
         .pipe(Effect.orDie)) as readonly HealthRoute[];
+      const now = yield* Clock.currentTimeMillis;
       return buildTranscriptConnectionHealth({
+        now,
         connections,
         syncStates,
         sourceUnits,

@@ -73,7 +73,7 @@ export const createWorkosConvexAuthHook = (
 
     return {
       isLoading: state.loading || state.token.loading,
-      isAuthenticated: Boolean(state.user && state.token.accessToken),
+      isAuthenticated: Boolean(state.user),
       fetchAccessToken: convexTokenFetcherFor(state.token.getAccessToken),
     };
   };
