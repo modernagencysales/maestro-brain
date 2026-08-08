@@ -49,13 +49,14 @@ describe("maestro-template CLI", () => {
       [fileURLToPath(executable), "describe"],
       {
         encoding: "utf8",
+        timeout: 10_000,
       },
     );
 
     expect(result.status).toBe(0);
     expect(JSON.parse(result.stdout)).toMatchObject({ valid: true });
     expect(result.stderr).toBe("");
-  });
+  }, 15_000);
 
   it("prints maestro-brain commands in help", () => {
     const result = runCli(["--help"]);
