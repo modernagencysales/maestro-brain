@@ -277,7 +277,8 @@ const markTranscriptConnectAttemptFailed = FunctionImpl.make(
       const row = yield* rowBySession(input.connectSessionId);
       if (
         row === null ||
-        row.connectionGeneration !== input.expectedConnectionGeneration
+        row.connectionGeneration !== input.expectedConnectionGeneration ||
+        (row.status !== "authorizing" && row.status !== "reauthorizing")
       )
         return yield* Effect.fail(new ConnectSessionInvalid());
       yield* (yield* DatabaseWriter)

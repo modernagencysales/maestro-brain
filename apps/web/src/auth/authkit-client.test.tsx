@@ -57,13 +57,13 @@ describe("AuthKit client bridge", () => {
       token: {
         accessToken: undefined,
         loading: false,
-        getAccessToken: async () => undefined,
+        getAccessToken: async () => "fresh_access_token",
       },
     }));
 
     const auth = useConvexAuth();
 
-    await expect(auth.fetchAccessToken()).resolves.toBeNull();
+    await expect(auth.fetchAccessToken()).resolves.toBe("fresh_access_token");
     expect(auth.isAuthenticated).toBe(true);
   });
 

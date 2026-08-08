@@ -394,28 +394,31 @@ describe("transcript sync persistence", () => {
 });
 
 describe("transcript connection health", () => {
-  it("makes an expired authorization attempt reconnectable", () => {
-    const health = buildTranscriptConnectionHealth({
-      now: 2_000,
-      connections: [
-        {
-          providerConfigKey: "fireflies",
-          organizationKey: "agency_acme",
-          connectionKey: "fireflies_agency_acme",
-          connectionGeneration: 0,
-          status: "authorizing",
-          attemptExpiresAt: 1_000,
-        },
-      ],
-      syncStates: [],
-      sourceUnits: [],
-      routes: [],
-    });
+  it.each(["authorizing", "reauthorizing"] as const)(
+    "makes an expired %s attempt reconnectable",
+    (status) => {
+      const health = buildTranscriptConnectionHealth({
+        now: 1_000,
+        connections: [
+          {
+            providerConfigKey: "fireflies",
+            organizationKey: "agency_acme",
+            connectionKey: "fireflies_agency_acme",
+            connectionGeneration: 0,
+            status,
+            attemptExpiresAt: 1_000,
+          },
+        ],
+        syncStates: [],
+        sourceUnits: [],
+        routes: [],
+      });
 
-    expect(health).toEqual([
-      expect.objectContaining({ provider: "fireflies", state: "error" }),
-    ]);
-  });
+      expect(health).toEqual([
+        expect.objectContaining({ provider: "fireflies", state: "error" }),
+      ]);
+    },
+  );
 
   it("projects lifecycle, sync, and routing counts without provider payloads", () => {
     const health = buildTranscriptConnectionHealth({

@@ -6,19 +6,31 @@ import {
 } from "@confect/server";
 import { TestConfect } from "@confect/test";
 import { defineSchema } from "convex/server";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Either from "effect/Either";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
 import databaseSchema from "../confect/_generated/schema";
-import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
-import transcriptConnectionsImpl from "../confect/integrations/transcriptConnections.impl";
+import {
+  DatabaseReader,
+  DatabaseWriter,
+  type Scheduler,
+} from "../confect/_generated/services";
+import transcriptConnectionsImpl, {
+  transcriptConnectionRefs,
+} from "../confect/integrations/transcriptConnections.impl";
+import {
+  scheduleTranscriptConnectExpiry,
+  scheduleTranscriptConnectExpirySafely,
+} from "../confect/integrations/transcriptConnections.node";
 import transcriptConnections, {
   authorizeTranscriptConnectCompletion,
   beginTranscriptConnect,
   completeTranscriptConnect,
   finalizeTranscriptConnectAttempt,
+  markTranscriptConnectAttemptFailed,
   prepareTranscriptConnectAttempt,
 } from "../confect/integrations/transcriptConnections.spec";
 import providerConnectionsSource from "../confect/tables/providerConnections";
@@ -40,6 +52,10 @@ const refs = {
   finalize: Ref.make(
     "integrations/transcriptConnections",
     finalizeTranscriptConnectAttempt,
+  ),
+  markFailed: Ref.make(
+    "integrations/transcriptConnections",
+    markTranscriptConnectAttemptFailed,
   ),
 };
 
@@ -82,6 +98,64 @@ const identity = {
 };
 
 describe("transcript connection capability", () => {
+  it("schedules a fenced failure transition at attempt expiry", async () => {
+    let scheduled: unknown;
+    const runAfter = ((delay, ref, args) =>
+      Effect.sync(() => {
+        scheduled = { delayMs: Duration.toMillis(delay), ref, args };
+        return "scheduled";
+      })) as Scheduler["runAfter"];
+
+    await Effect.runPromise(
+      scheduleTranscriptConnectExpiry(runAfter, {
+        connectSessionId: "maestro-session-1",
+        expectedConnectionGeneration: 2,
+        attemptExpiresAt: 301_000,
+        now: 1_000,
+      }),
+    );
+
+    expect(scheduled).toMatchObject({
+      delayMs: 300_000,
+      ref: transcriptConnectionRefs.markFailed,
+      args: {
+        connectSessionId: "maestro-session-1",
+        expectedConnectionGeneration: 2,
+        now: 301_000,
+      },
+    });
+  });
+
+  it("marks the attempt failed when scheduler enqueue dies", async () => {
+    const runAfter = (() =>
+      Effect.die("scheduler unavailable")) as Scheduler["runAfter"];
+    let markedFailed = false;
+
+    const result = await Effect.runPromise(
+      Effect.either(
+        scheduleTranscriptConnectExpirySafely(
+          runAfter,
+          {
+            connectSessionId: "maestro-session-1",
+            expectedConnectionGeneration: 2,
+            attemptExpiresAt: 301_000,
+            now: 1_000,
+          },
+          () =>
+            Effect.sync(() => {
+              markedFailed = true;
+            }),
+        ),
+      ),
+    );
+
+    expect(markedFailed).toBe(true);
+    expect(result).toMatchObject({
+      _tag: "Left",
+      left: { _tag: "ProviderUnavailable" },
+    });
+  });
+
   it("allowlists providers and binds completed connections to one organization", async () => {
     const originalMode = process.env.APP_PROVIDER_MODE;
     process.env.APP_PROVIDER_MODE = "fake";
@@ -205,11 +279,19 @@ describe("transcript connection capability", () => {
       if (Either.isLeft(mismatch))
         expect(mismatch.left).toMatchObject({ _tag: "TenantMismatch" });
 
-      yield* authed.action(refs.complete, {
+      const completed = yield* authed.action(refs.complete, {
         provider: "fireflies",
         connectSessionId: fireflies.connectSessionId,
         connectionId: "conn_fireflies_1",
       });
+      const lateFailure = yield* Effect.either(
+        authed.mutation(refs.markFailed, {
+          connectSessionId: fireflies.connectSessionId,
+          expectedConnectionGeneration: completed.connectionGeneration,
+          now: Date.now() + 300_000,
+        }),
+      );
+      expect(Either.isLeft(lateFailure)).toBe(true);
       const gong = yield* authed.action(refs.begin, { provider: "gong" });
       expect(gong.connectSessionId).not.toBe(fireflies.connectSessionId);
       expect(yield* rows()).toEqual(

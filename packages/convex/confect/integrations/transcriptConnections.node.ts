@@ -37,6 +37,35 @@ const syncTranscriptPageRef = Ref.make(
   syncTranscriptPageSpec,
 );
 
+export const scheduleTranscriptConnectExpiry = (
+  runAfter: Scheduler["runAfter"],
+  input: {
+    readonly connectSessionId: string;
+    readonly expectedConnectionGeneration: number;
+    readonly attemptExpiresAt: number;
+    readonly now: number;
+  },
+) =>
+  runAfter(
+    Duration.millis(Math.max(0, input.attemptExpiresAt - input.now)),
+    transcriptConnectionRefs.markFailed,
+    {
+      connectSessionId: input.connectSessionId,
+      expectedConnectionGeneration: input.expectedConnectionGeneration,
+      now: input.attemptExpiresAt,
+    },
+  );
+
+export const scheduleTranscriptConnectExpirySafely = <R>(
+  runAfter: Scheduler["runAfter"],
+  input: Parameters<typeof scheduleTranscriptConnectExpiry>[1],
+  markFailed: () => Effect.Effect<unknown, never, R>,
+) =>
+  scheduleTranscriptConnectExpiry(runAfter, input).pipe(
+    Effect.tapErrorCause(() => markFailed()),
+    Effect.catchAllCause(() => Effect.fail(new ProviderUnavailable())),
+  );
+
 export const beginTranscriptConnect = FunctionImpl.make(
   databaseSchema,
   transcriptConnections,
@@ -54,6 +83,25 @@ export const beginTranscriptConnect = FunctionImpl.make(
           attemptExpiresAt: now + 300_000,
           now,
         },
+      );
+      yield* scheduleTranscriptConnectExpirySafely(
+        (yield* Scheduler).runAfter,
+        {
+          connectSessionId: attempt.connectSessionId,
+          expectedConnectionGeneration: attempt.connectionGeneration,
+          attemptExpiresAt: now + 300_000,
+          now,
+        },
+        () =>
+          runTranscriptMutation(
+            runMutation,
+            transcriptConnectionRefs.markFailed,
+            {
+              connectSessionId: attempt.connectSessionId,
+              expectedConnectionGeneration: attempt.connectionGeneration,
+              now,
+            },
+          ).pipe(Effect.ignore),
       );
       const session = yield* Effect.tryPromise({
         try: () =>
