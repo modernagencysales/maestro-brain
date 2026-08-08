@@ -5,11 +5,73 @@ import * as Either from "effect/Either";
 import {
   createRuntimeWorkspaceOperations,
   createWorkspaceLiveRefs,
+  reuseRuntimeWorkspaceOperations,
   workspaceOperationRefs,
 } from "./workspace-operations";
 import type { SafeWorkspaceRuntime } from "./workspace-operations";
 
 describe("runtime workspace operations", () => {
+  it("reuses equivalent live operations but refreshes when query readiness changes", () => {
+    const ensureProvisioned = (() => {
+      const mutation = Object.assign(
+        async () =>
+          Either.right({
+            brainKey: "br_01J0000000000000000000000C",
+          }),
+        { withOptimisticUpdate: () => mutation },
+      );
+      return mutation;
+    })();
+    const authSnapshot = {
+      status: "authenticated",
+      subject: "user_1",
+      email: "user@example.com",
+      organizationId: "org_1",
+      sessionId: "session_1",
+    } as const;
+
+    const first = reuseRuntimeWorkspaceOperations(undefined, {
+      authSnapshot,
+      mode: "live",
+      liveRefs: {
+        listResult: { status: "loading" },
+        ensureProvisioned,
+      },
+    });
+    const equivalentRerender = reuseRuntimeWorkspaceOperations(first, {
+      authSnapshot: { ...authSnapshot },
+      mode: "live",
+      liveRefs: {
+        listResult: { status: "loading" },
+        ensureProvisioned,
+      },
+    });
+    const readyData: Extract<
+      NonNullable<SafeWorkspaceRuntime["liveRefs"]>["listResult"],
+      { readonly status: "ready" }
+    >["data"] = [];
+    const ready = reuseRuntimeWorkspaceOperations(equivalentRerender, {
+      authSnapshot,
+      mode: "live",
+      liveRefs: {
+        listResult: { status: "ready", mode: "read", data: readyData },
+        ensureProvisioned,
+      },
+    });
+    const readyRerender = reuseRuntimeWorkspaceOperations(ready, {
+      authSnapshot: { ...authSnapshot },
+      mode: "live",
+      liveRefs: {
+        listResult: { status: "ready", mode: "read", data: readyData },
+        ensureProvisioned,
+      },
+    });
+
+    expect(equivalentRerender).toBe(first);
+    expect(ready).not.toBe(first);
+    expect(readyRerender).toBe(ready);
+  });
+
   it("fails closed for signed-out live/production auth instead of granting demo owner tenancy", async () => {
     const operations = createRuntimeWorkspaceOperations({
       authSnapshot: { status: "signedOut" },

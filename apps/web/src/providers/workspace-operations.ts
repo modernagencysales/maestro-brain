@@ -117,6 +117,25 @@ export type SafeWorkspaceRuntime = {
   readonly liveRefs?: LiveWorkspaceRefs;
 };
 
+export type RuntimeWorkspaceOperationsCache = {
+  readonly runtime: SafeWorkspaceRuntime;
+  readonly operations: WorkspaceOperations;
+};
+
+export const reuseRuntimeWorkspaceOperations = (
+  previous: RuntimeWorkspaceOperationsCache | undefined,
+  runtime: SafeWorkspaceRuntime,
+): RuntimeWorkspaceOperationsCache => {
+  if (previous && sameWorkspaceRuntime(previous.runtime, runtime)) {
+    return previous;
+  }
+
+  return {
+    runtime,
+    operations: createRuntimeWorkspaceOperations(runtime),
+  };
+};
+
 export const createRuntimeWorkspaceOperations = (
   runtime: SafeWorkspaceRuntime,
 ): WorkspaceOperations => {
@@ -127,4 +146,49 @@ export const createRuntimeWorkspaceOperations = (
   return runtime.liveRefs === undefined
     ? createFailClosedWorkspaceOperations()
     : createLiveWorkspaceOperations(runtime.liveRefs);
+};
+
+const sameWorkspaceRuntime = (
+  left: SafeWorkspaceRuntime,
+  right: SafeWorkspaceRuntime,
+): boolean => {
+  if (left.mode !== right.mode) return false;
+  if (left.mode === "fake") return true;
+  if (left.authSnapshot.status !== right.authSnapshot.status) return false;
+  if (left.authSnapshot.status !== "authenticated") return true;
+
+  return sameLiveWorkspaceRefs(left.liveRefs, right.liveRefs);
+};
+
+const sameLiveWorkspaceRefs = (
+  left: LiveWorkspaceRefs | undefined,
+  right: LiveWorkspaceRefs | undefined,
+): boolean => {
+  if (left === right) return true;
+  if (left === undefined || right === undefined) return false;
+
+  return (
+    left.ensureProvisioned === right.ensureProvisioned &&
+    left.listResult.status === right.listResult.status &&
+    workspaceListResultValue(left.listResult) ===
+      workspaceListResultValue(right.listResult)
+  );
+};
+
+const workspaceListResultValue = (
+  result: LiveWorkspaceRefs["listResult"],
+): unknown => {
+  switch (result.status) {
+    case "empty":
+    case "ready":
+      return result.data;
+    case "typed_failure":
+    case "parse_failure":
+    case "transport_failure":
+    case "defect":
+      return result.error;
+    case "loading":
+    case "skipped":
+      return null;
+  }
 };
