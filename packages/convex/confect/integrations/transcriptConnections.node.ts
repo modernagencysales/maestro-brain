@@ -181,3 +181,44 @@ export const completeTranscriptConnect = FunctionImpl.make(
       return result;
     }),
 );
+
+export const disconnectTranscriptConnection = FunctionImpl.make(
+  databaseSchema,
+  transcriptConnections,
+  "disconnectTranscriptConnection",
+  (input) =>
+    Effect.gen(function* () {
+      const now = yield* Clock.currentTimeMillis;
+      const runMutation = yield* MutationRunner;
+      const revoked = yield* runTranscriptMutation(
+        runMutation,
+        transcriptConnectionRefs.revoke,
+        { provider: input.provider, now },
+      );
+      if (revoked.nangoConnectionId === null)
+        return {
+          connectionKey: revoked.connectionKey,
+          status: "revoked" as const,
+          connectionGeneration: revoked.connectionGeneration,
+        };
+      const nangoConnectionId = revoked.nangoConnectionId;
+      yield* Effect.tryPromise({
+        try: () =>
+          nangoClient(now, revoked.providerConfigKey).deleteConnection({
+            connectionId: nangoConnectionId,
+          }),
+        catch: () => new ProviderUnavailable(),
+      });
+      return yield* runTranscriptMutation(
+        runMutation,
+        transcriptConnectionRefs.finalizeDisconnect,
+        {
+          provider: input.provider,
+          connectionKey: revoked.connectionKey,
+          expectedConnectionGeneration: revoked.connectionGeneration,
+          expectedNangoConnectionId: nangoConnectionId,
+          now: yield* Clock.currentTimeMillis,
+        },
+      );
+    }),
+);

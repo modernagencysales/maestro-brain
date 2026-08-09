@@ -109,6 +109,12 @@ describe("Nango provider client boundary", () => {
             tags: { correlationTag: "slack-connect:opaque-session" },
           };
         },
+        deleteConnection: async (
+          providerConfigKey: string,
+          connectionId: string,
+        ) => {
+          calls.push(["delete", providerConfigKey, connectionId]);
+        },
       },
     });
 
@@ -136,6 +142,11 @@ describe("Nango provider client boundary", () => {
       providerConfigKey: "slack",
       correlationTag: "slack-connect:opaque-session",
     });
+    await expect(
+      client.deleteConnection({
+        connectionId: "opaque-provider-connection",
+      }),
+    ).resolves.toBeUndefined();
     expect(calls).toEqual([
       [
         "create",
@@ -147,6 +158,7 @@ describe("Nango provider client boundary", () => {
         },
       ],
       ["get", "slack", "opaque-provider-connection"],
+      ["delete", "slack", "opaque-provider-connection"],
     ]);
   });
 
@@ -233,6 +245,8 @@ describe("Nango provider client boundary", () => {
             }),
             { status: 201, headers: { "content-type": "application/json" } },
           );
+        if (init?.method === "DELETE")
+          return new Response(null, { status: 404 });
         return new Response(
           JSON.stringify({ records: [{ id: "call_1" }], next_cursor: null }),
           { status: 200, headers: { "content-type": "application/json" } },
@@ -265,6 +279,11 @@ describe("Nango provider client boundary", () => {
         model: "Transcript",
       }),
     ).resolves.toEqual({ records: [{ id: "call_1" }], nextCursor: null });
+    await expect(
+      client.deleteConnection({
+        connectionId: "connection/with space",
+      }),
+    ).resolves.toBeUndefined();
     const recordsRequest = requests.find(({ url }) =>
       url.includes("/records/"),
     );
@@ -273,6 +292,16 @@ describe("Nango provider client boundary", () => {
       "Connection-Id": "connection-1",
       "Provider-Config-Key": "fireflies",
     });
+    expect(requests).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          url: expect.stringContaining(
+            "/connections/connection%2Fwith%20space?provider_config_key=fireflies",
+          ),
+          init: expect.objectContaining({ method: "DELETE" }),
+        }),
+      ]),
+    );
   });
 
   it("forwards redacted proxy status and Retry-After headers", async () => {

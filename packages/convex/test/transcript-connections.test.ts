@@ -29,9 +29,13 @@ import transcriptConnections, {
   authorizeTranscriptConnectCompletion,
   beginTranscriptConnect,
   completeTranscriptConnect,
+  disconnectTranscriptConnection,
+  finalizeTranscriptDisconnect,
   finalizeTranscriptConnectAttempt,
   markTranscriptConnectAttemptFailed,
   prepareTranscriptConnectAttempt,
+  requestTranscriptPurge,
+  revokeTranscriptConnection,
 } from "../confect/integrations/transcriptConnections.spec";
 import providerConnectionsSource from "../confect/tables/providerConnections";
 
@@ -40,6 +44,22 @@ const refs = {
   complete: Ref.make(
     "integrations/transcriptConnections",
     completeTranscriptConnect,
+  ),
+  disconnect: Ref.make(
+    "integrations/transcriptConnections",
+    disconnectTranscriptConnection,
+  ),
+  revoke: Ref.make(
+    "integrations/transcriptConnections",
+    revokeTranscriptConnection,
+  ),
+  finalizeDisconnect: Ref.make(
+    "integrations/transcriptConnections",
+    finalizeTranscriptDisconnect,
+  ),
+  requestPurge: Ref.make(
+    "integrations/transcriptConnections",
+    requestTranscriptPurge,
   ),
   prepare: Ref.make(
     "integrations/transcriptConnections",
@@ -193,6 +213,21 @@ describe("transcript connection capability", () => {
             })
             .pipe(Effect.orDie);
           yield* writer
+            .table("workspaces")
+            .insert({
+              organizationId,
+              ownerUserId: userId,
+              brainKey: "agency_acme",
+              slug: "acme-agency",
+              name: "Acme Agency",
+              kind: "agency",
+              status: "active",
+              dataClassification: "confidential",
+              createdAt: 1_000,
+              updatedAt: 1_000,
+            })
+            .pipe(Effect.orDie);
+          yield* writer
             .table("organizationMembers")
             .insert({
               organizationId,
@@ -215,6 +250,41 @@ describe("transcript connection capability", () => {
                 .table("providerConnections")
                 .index("by_organization", (q) =>
                   q.eq("organizationKey", "agency_acme"),
+                )
+                .take(10)
+                .pipe(Effect.orDie),
+            ),
+          ),
+          Schema.Any,
+        );
+      const syncRows = () =>
+        confect.run(
+          DatabaseReader.pipe(
+            Effect.flatMap((reader) =>
+              reader
+                .table("connectorSyncStates")
+                .index("by_connection", (q) =>
+                  q.eq("connectionKey", "fireflies_agency_acme"),
+                )
+                .take(10)
+                .pipe(Effect.orDie),
+            ),
+          ),
+          Schema.Any,
+        );
+      const purgeAuditRows = () =>
+        confect.run(
+          DatabaseReader.pipe(
+            Effect.flatMap((reader) =>
+              reader
+                .table("accessAuditEvents")
+                .index("by_subject", (q) =>
+                  q
+                    .eq("subjectKind", "privilegedAction")
+                    .eq(
+                      "subjectId",
+                      "transcript-purge:fireflies_agency_acme:0",
+                    ),
                 )
                 .take(10)
                 .pipe(Effect.orDie),
@@ -284,6 +354,39 @@ describe("transcript connection capability", () => {
         connectSessionId: fireflies.connectSessionId,
         connectionId: "conn_fireflies_1",
       });
+      const prematurePurge = yield* Effect.either(
+        authed.mutation(refs.requestPurge, { provider: "fireflies" }),
+      );
+      expect(prematurePurge).toMatchObject({
+        _tag: "Left",
+        left: { _tag: "TranscriptPurgeNotReady" },
+      });
+      yield* confect.run(
+        DatabaseWriter.pipe(
+          Effect.flatMap((writer) =>
+            writer.table("connectorSyncStates").insert({
+              organizationKey: "agency_acme",
+              connectionKey: "fireflies_agency_acme",
+              connectionGeneration: completed.connectionGeneration,
+              provider: "fireflies",
+              status: "syncing",
+              cursor: "cursor_1",
+              leaseId: "lease_1",
+              leaseExpiresAt: Date.now() + 60_000,
+              nextAttemptAt: Date.now(),
+              lastSuccessAt: null,
+              callsDiscovered: 1,
+              callsIngested: 0,
+              duplicateCount: 0,
+              failureCount: 0,
+              lastErrorTag: null,
+              backfillComplete: false,
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            }),
+          ),
+        ),
+      );
       const lateFailure = yield* Effect.either(
         authed.mutation(refs.markFailed, {
           connectSessionId: fireflies.connectSessionId,
@@ -292,18 +395,102 @@ describe("transcript connection capability", () => {
         }),
       );
       expect(Either.isLeft(lateFailure)).toBe(true);
+      const revoked = yield* authed.mutation(refs.revoke, {
+        provider: "fireflies",
+        now: Date.now(),
+      });
+      expect(revoked).toMatchObject({
+        connectionKey: "fireflies_agency_acme",
+        connectionGeneration: completed.connectionGeneration,
+        providerConfigKey: "fireflies",
+        nangoConnectionId: "conn_fireflies_1",
+      });
+      expect(yield* rows()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            providerConfigKey: "fireflies",
+            status: "revoked",
+            nangoConnectionId: "conn_fireflies_1",
+            errorReason: "NangoCleanupPending",
+          }),
+        ]),
+      );
+      expect(yield* syncRows()).toEqual([
+        expect.objectContaining({
+          status: "revoked",
+          leaseId: null,
+          leaseExpiresAt: null,
+        }),
+      ]);
+      const reconnectWhileCleanupPending = yield* Effect.either(
+        authed.action(refs.begin, { provider: "fireflies" }),
+      );
+      expect(reconnectWhileCleanupPending).toMatchObject({
+        _tag: "Left",
+        left: { _tag: "ConnectionAlreadyExists" },
+      });
+      expect(yield* rows()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            providerConfigKey: "fireflies",
+            nangoConnectionId: "conn_fireflies_1",
+            errorReason: "NangoCleanupPending",
+          }),
+        ]),
+      );
+      const disconnected = yield* authed.action(refs.disconnect, {
+        provider: "fireflies",
+      });
+      expect(disconnected).toMatchObject({
+        connectionKey: "fireflies_agency_acme",
+        status: "revoked",
+        connectionGeneration: completed.connectionGeneration,
+      });
+      yield* authed.action(refs.disconnect, { provider: "fireflies" });
+      const purgeRequest = yield* authed.mutation(refs.requestPurge, {
+        provider: "fireflies",
+      });
+      expect(purgeRequest).toEqual({
+        requestKey: "transcript-purge:fireflies_agency_acme:0",
+        status: "pending_review",
+        physicalDeletion: false,
+      });
+      expect(
+        yield* authed.mutation(refs.requestPurge, { provider: "fireflies" }),
+      ).toEqual(purgeRequest);
+      const purgeAudits = yield* purgeAuditRows();
+      expect(purgeAudits).toHaveLength(1);
+      expect(JSON.parse(purgeAudits[0].metadataJson)).toEqual({
+        connectionGeneration: 0,
+        execution: "pending_review",
+        outcome: "requested",
+        physicalDeletion: false,
+        provider: "fireflies",
+        requestKind: "transcript_connector_purge",
+        retainedEvidence: "revisions,segments,citations,audit",
+      });
       const gong = yield* authed.action(refs.begin, { provider: "gong" });
       expect(gong.connectSessionId).not.toBe(fireflies.connectSessionId);
       expect(yield* rows()).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             providerConfigKey: "fireflies",
-            status: "verifying",
-            nangoConnectionId: "conn_fireflies_1",
+            status: "revoked",
+            nangoConnectionId: null,
           }),
           expect.objectContaining({
             providerConfigKey: "gong-oauth",
             status: "authorizing",
+          }),
+        ]),
+      );
+      yield* authed.action(refs.begin, { provider: "fireflies" });
+      expect(yield* rows()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            providerConfigKey: "fireflies",
+            status: "reauthorizing",
+            purgeRequestedAt: null,
           }),
         ]),
       );
@@ -324,5 +511,17 @@ describe("transcript connection capability", () => {
     expect(
       transcriptConnections.functions.finalizeTranscriptConnectAttempt,
     ).toMatchObject({ functionVisibility: "internal" });
+    expect(
+      transcriptConnections.functions.disconnectTranscriptConnection,
+    ).toMatchObject({ functionVisibility: "public" });
+    expect(
+      transcriptConnections.functions.revokeTranscriptConnection,
+    ).toMatchObject({ functionVisibility: "internal" });
+    expect(
+      transcriptConnections.functions.finalizeTranscriptDisconnect,
+    ).toMatchObject({ functionVisibility: "internal" });
+    expect(
+      transcriptConnections.functions.requestTranscriptPurge,
+    ).toMatchObject({ functionVisibility: "public" });
   });
 });

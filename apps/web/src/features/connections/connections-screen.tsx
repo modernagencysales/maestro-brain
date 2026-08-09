@@ -1,6 +1,7 @@
 import {
   Badge,
   Box,
+  Button,
   Card,
   Flex,
   Heading,
@@ -37,6 +38,7 @@ export type ConnectionsScreenState =
 export type ConnectionRow = {
   readonly key: string;
   readonly provider: string;
+  readonly authMethod: string;
   readonly status:
     | "disconnected"
     | "authorizing"
@@ -49,11 +51,18 @@ export type ConnectionRow = {
   readonly callsDiscovered: number;
   readonly callsRouted: number;
   readonly callsAwaitingRouting: number;
+  readonly backfillComplete: boolean;
+  readonly cleanupPending?: boolean;
+  readonly disconnectAvailable?: boolean;
+  readonly purgeRequested?: boolean;
+  readonly lastError: string | null;
 };
 
 export function ConnectionsScreen({
   onRoutingReview,
   onConnect,
+  onDisconnect,
+  onPurge,
   onTranscriptImport,
   role = "viewer",
   routingQueue,
@@ -65,6 +74,8 @@ export function ConnectionsScreen({
     review: CallRoutingReview,
   ) => void | Promise<void>;
   readonly onConnect?: (providerKey: string) => void | Promise<void>;
+  readonly onDisconnect?: (providerKey: string) => void | Promise<void>;
+  readonly onPurge?: (providerKey: string) => void | Promise<void>;
   readonly onTranscriptImport?: (
     input: TranscriptImportRequest,
   ) => void | Promise<void>;
@@ -89,6 +100,8 @@ export function ConnectionsScreen({
             state={state}
             canManage={role === "admin" || role === "owner"}
             {...(onConnect ? { onConnect } : {})}
+            {...(onDisconnect ? { onDisconnect } : {})}
+            {...(onPurge ? { onPurge } : {})}
           />
           <TranscriptImport
             role={role}
@@ -112,10 +125,14 @@ export function ConnectionsScreen({
 function ConnectionsStateCard({
   canManage,
   onConnect,
+  onDisconnect,
+  onPurge,
   state,
 }: {
   readonly canManage: boolean;
   readonly onConnect?: (providerKey: string) => void | Promise<void>;
+  readonly onDisconnect?: (providerKey: string) => void | Promise<void>;
+  readonly onPurge?: (providerKey: string) => void | Promise<void>;
   readonly state: ConnectionsScreenState;
 }) {
   if (state.status === "loading") {
@@ -184,29 +201,97 @@ function ConnectionsStateCard({
             <Table.Body>
               {state.connections.map((connection) => (
                 <Table.Row key={connection.key}>
-                  <Table.Cell fontWeight="medium">
-                    {connection.provider}
+                  <Table.Cell>
+                    <Stack gap="0">
+                      <Text fontWeight="medium">{connection.provider}</Text>
+                      <Text color="gray.600" fontSize="xs">
+                        {connection.authMethod}
+                      </Text>
+                    </Stack>
                   </Table.Cell>
                   <Table.Cell>
-                    <Badge colorPalette={statusTone(connection.status)}>
-                      {connection.status}
-                    </Badge>
+                    <Stack gap="1">
+                      <Badge
+                        alignSelf="flex-start"
+                        colorPalette={statusTone(connection.status)}
+                      >
+                        {connection.status}
+                      </Badge>
+                      {connection.lastError ? (
+                        <Text color="red.600" fontSize="xs">
+                          {connection.lastError}
+                        </Text>
+                      ) : null}
+                    </Stack>
                   </Table.Cell>
                   <Table.Cell>
-                    <Text fontSize="sm">
-                      {connection.callsDiscovered} discovered ·{" "}
-                      {connection.callsRouted} routed ·{" "}
-                      {connection.callsAwaitingRouting} awaiting routing
-                    </Text>
+                    <Stack gap="1">
+                      <Text fontSize="sm">
+                        {connection.callsDiscovered} discovered ·{" "}
+                        {connection.callsRouted} routed ·{" "}
+                        {connection.callsAwaitingRouting} awaiting routing
+                      </Text>
+                      <Text color="gray.600" fontSize="xs">
+                        {connection.backfillComplete
+                          ? "Backfill complete"
+                          : connection.status === "disconnected"
+                            ? "Backfill not started"
+                            : "Backfill in progress"}
+                      </Text>
+                    </Stack>
                   </Table.Cell>
                   <Table.Cell>{connection.lastSync ?? "Never"}</Table.Cell>
                   <Table.Cell>
-                    <NangoConnectButton
-                      enabled={canManage}
-                      providerName={connection.provider}
-                      status={connectStatus(connection.status)}
-                      onConnect={() => onConnect?.(connection.key)}
-                    />
+                    <Flex gap="2" wrap="wrap">
+                      <NangoConnectButton
+                        enabled={canManage && !connection.cleanupPending}
+                        providerName={connection.provider}
+                        status={connectStatus(connection.status)}
+                        onConnect={() => onConnect?.(connection.key)}
+                      />
+                      {connection.status !== "disconnected" &&
+                      connection.status !== "revoked" &&
+                      connection.disconnectAvailable !== false ? (
+                        <Button
+                          disabled={!canManage}
+                          onClick={() => onDisconnect?.(connection.key)}
+                          type="button"
+                          variant="outline"
+                        >
+                          Disconnect {connection.provider}
+                        </Button>
+                      ) : null}
+                      {connection.status === "revoked" &&
+                      connection.cleanupPending ? (
+                        <Button
+                          disabled={!canManage}
+                          onClick={() => onDisconnect?.(connection.key)}
+                          type="button"
+                          variant="outline"
+                        >
+                          Retry disconnect {connection.provider}
+                        </Button>
+                      ) : null}
+                      {connection.status === "revoked" &&
+                      !connection.cleanupPending &&
+                      connection.purgeRequested ? (
+                        <Text color="yellow.700" fontSize="sm">
+                          Purge request pending review
+                        </Text>
+                      ) : null}
+                      {connection.status === "revoked" &&
+                      !connection.cleanupPending &&
+                      !connection.purgeRequested ? (
+                        <Button
+                          disabled={!canManage}
+                          onClick={() => onPurge?.(connection.key)}
+                          type="button"
+                          variant="outline"
+                        >
+                          Request purge of {connection.provider} data
+                        </Button>
+                      ) : null}
+                    </Flex>
                   </Table.Cell>
                 </Table.Row>
               ))}

@@ -431,6 +431,7 @@ describe("transcript connection health", () => {
           connectionGeneration: 1,
           status: "active",
           attemptExpiresAt: 2_000,
+          nangoConnectionId: "conn_fireflies_1",
         },
         {
           providerConfigKey: "gong-oauth",
@@ -479,16 +480,76 @@ describe("transcript connection health", () => {
         callsRouted: 1,
         callsAwaitingRouting: 1,
         backfillComplete: true,
+        disconnectAvailable: true,
         lastErrorTag: null,
       }),
       expect.objectContaining({
         provider: "gong",
         state: "reauthorizing",
+        disconnectAvailable: false,
         callsRouted: 0,
         callsAwaitingRouting: 0,
       }),
     ]);
     expect(JSON.stringify(health)).not.toContain("nangoConnectionId");
+  });
+
+  it("exposes only a typed cleanup-pending flag for revoked providers", () => {
+    const health = buildTranscriptConnectionHealth({
+      now: 1_000,
+      connections: [
+        {
+          providerConfigKey: "fireflies",
+          organizationKey: "agency_acme",
+          connectionKey: "fireflies_agency_acme",
+          connectionGeneration: 1,
+          status: "revoked",
+          attemptExpiresAt: 2_000,
+          errorReason: "NangoCleanupPending",
+        },
+      ],
+      syncStates: [],
+      sourceUnits: [],
+      routes: [],
+    });
+
+    expect(health).toEqual([
+      expect.objectContaining({
+        provider: "fireflies",
+        state: "revoked",
+        cleanupPending: true,
+      }),
+    ]);
+    expect(JSON.stringify(health)).not.toContain("NangoCleanupPending");
+  });
+
+  it("projects purge request posture without exposing audit timestamps", () => {
+    const health = buildTranscriptConnectionHealth({
+      now: 1_000,
+      connections: [
+        {
+          providerConfigKey: "fathom-oauth",
+          organizationKey: "agency_acme",
+          connectionKey: "fathom_agency_acme",
+          connectionGeneration: 2,
+          status: "revoked",
+          attemptExpiresAt: 2_000,
+          purgeRequestedAt: 900,
+        },
+      ],
+      syncStates: [],
+      sourceUnits: [],
+      routes: [],
+    });
+
+    expect(health).toEqual([
+      expect.objectContaining({
+        provider: "fathom",
+        state: "revoked",
+        purgeRequested: true,
+      }),
+    ]);
+    expect(JSON.stringify(health)).not.toContain("900");
   });
 });
 

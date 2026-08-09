@@ -45,10 +45,10 @@ type ConnectionHealthData = Ref.Returns<
 type TranscriptProvider = "fireflies" | "gong" | "fathom" | "granola";
 
 const transcriptCatalog = [
-  { key: "fireflies", name: "Fireflies" },
-  { key: "gong", name: "Gong" },
-  { key: "fathom", name: "Fathom" },
-  { key: "granola", name: "Granola" },
+  { key: "fireflies", name: "Fireflies", authMethod: "API key" },
+  { key: "gong", name: "Gong", authMethod: "Access key + secret" },
+  { key: "fathom", name: "Fathom", authMethod: "API key" },
+  { key: "granola", name: "Granola", authMethod: "API token" },
 ] as const;
 
 export function ConnectionsRouteAdapter() {
@@ -76,11 +76,17 @@ export function ConnectionsRouteAdapter() {
   ) as TemplateDataState<RoutingQueueData, unknown>;
   const reviewRoute = useTemplateMutation(callReviewRefs.reviewCallRoute);
   const importTranscript = useTemplateMutation(importTranscriptRef);
+  const requestTranscriptPurge = useTemplateMutation(
+    transcriptConnectionRefs.requestTranscriptPurge,
+  );
   const beginTranscriptConnect = useTemplateAction(
     transcriptConnectionRefs.beginTranscriptConnect,
   );
   const completeTranscriptConnect = useTemplateAction(
     transcriptConnectionRefs.completeTranscriptConnect,
+  );
+  const disconnectTranscriptConnection = useTemplateAction(
+    transcriptConnectionRefs.disconnectTranscriptConnection,
   );
   const routingQueue =
     workspace.status === "ready"
@@ -169,6 +175,24 @@ export function ConnectionsRouteAdapter() {
     }
   };
 
+  const disconnect = async (provider: string) => {
+    if (!transcriptCatalog.some(({ key }) => key === provider)) return;
+    await unwrapActionResult(
+      await disconnectTranscriptConnection({
+        provider: provider as TranscriptProvider,
+      }),
+    );
+  };
+
+  const requestPurge = async (provider: string) => {
+    if (!transcriptCatalog.some(({ key }) => key === provider)) return;
+    await unwrapActionResult(
+      await requestTranscriptPurge({
+        provider: provider as TranscriptProvider,
+      }),
+    );
+  };
+
   return (
     <BusinessAppShell activePath="/connections">
       <BusinessPageRoot>
@@ -181,6 +205,8 @@ export function ConnectionsRouteAdapter() {
           routingQueue={routingQueue}
           state={toConnectionsState(health, canReview)}
           onConnect={connect}
+          onDisconnect={disconnect}
+          onPurge={requestPurge}
           onRoutingReview={review}
           onTranscriptImport={importFile}
           transcriptImportState={importState}
@@ -232,6 +258,7 @@ const catalogState = (
     return {
       key: provider.key,
       provider: provider.name,
+      authMethod: provider.authMethod,
       status: connected?.state ?? "disconnected",
       lastSync:
         connected?.lastSuccessAt == null
@@ -240,9 +267,35 @@ const catalogState = (
       callsDiscovered: connected?.callsDiscovered ?? 0,
       callsRouted: connected?.callsRouted ?? 0,
       callsAwaitingRouting: connected?.callsAwaitingRouting ?? 0,
+      backfillComplete: connected?.backfillComplete ?? false,
+      cleanupPending: connected?.cleanupPending ?? false,
+      disconnectAvailable: connected?.disconnectAvailable ?? false,
+      purgeRequested: connected?.purgeRequested ?? false,
+      lastError: connected?.cleanupPending
+        ? "Provider cleanup pending"
+        : lastErrorLabel(connected?.lastErrorTag ?? null),
     };
   }),
 });
+
+const lastErrorLabel = (
+  error:
+    | "ProviderRateLimited"
+    | "ProviderUnavailable"
+    | "PermanentDecodeFailure"
+    | null,
+): string | null => {
+  switch (error) {
+    case "ProviderRateLimited":
+      return "Provider rate limit reached";
+    case "ProviderUnavailable":
+      return "Provider unavailable";
+    case "PermanentDecodeFailure":
+      return "Transcript response could not be decoded";
+    case null:
+      return null;
+  }
+};
 
 const toRoutingQueueState = (
   state: TemplateDataState<RoutingQueueData, unknown>,
