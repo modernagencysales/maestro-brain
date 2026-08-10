@@ -9,6 +9,50 @@ const externalOrganizationId = (userId: string) =>
 const isNotFound = (error: unknown): error is NotFoundException =>
   error instanceof NotFoundException;
 
+const cleanupAcceptanceArtifacts = async (input: {
+  readonly workos: WorkOS;
+  readonly userId: string;
+  readonly externalId: string;
+}) => {
+  let organizationId: string | undefined;
+  try {
+    organizationId = (
+      await input.workos.organizations.getOrganizationByExternalId(
+        input.externalId,
+      )
+    ).id;
+  } catch (error) {
+    if (!isNotFound(error)) throw error;
+  }
+
+  if (organizationId) {
+    const memberships =
+      await input.workos.userManagement.listOrganizationMemberships({
+        userId: input.userId,
+        statuses: ["active", "inactive", "pending"],
+        limit: 100,
+      });
+    for (const membership of memberships.data) {
+      if (membership.organizationId === organizationId) {
+        await input.workos.userManagement.deleteOrganizationMembership(
+          membership.id,
+        );
+      }
+    }
+    try {
+      await input.workos.organizations.deleteOrganization(organizationId);
+    } catch (error) {
+      if (!isNotFound(error)) throw error;
+    }
+  }
+
+  try {
+    await input.workos.userManagement.deleteUser(input.userId);
+  } catch (error) {
+    if (!isNotFound(error)) throw error;
+  }
+};
+
 test("provisions an isolated owner agency for a zero-membership user", async ({
   page,
 }, testInfo) => {
@@ -34,7 +78,8 @@ test("provisions an isolated owner agency for a zero-membership user", async ({
     externalId: `maestro-brain-acceptance:${marker}`,
   });
   const externalId = externalOrganizationId(user.id);
-  let primaryFailed = false;
+  let primaryError: unknown;
+  let cleanupFailed = false;
 
   try {
     const initialMemberships =
@@ -90,47 +135,16 @@ test("provisions an isolated owner agency for a zero-membership user", async ({
       page.getByRole("form", { name: "Create API key" }),
     ).toBeVisible();
   } catch (error) {
-    primaryFailed = true;
-    throw error;
+    primaryError = error;
   } finally {
     try {
-      let organizationId: string | undefined;
-      try {
-        organizationId = (
-          await workos.organizations.getOrganizationByExternalId(externalId)
-        ).id;
-      } catch (error) {
-        if (!isNotFound(error)) throw error;
-      }
-
-      if (organizationId) {
-        const memberships =
-          await workos.userManagement.listOrganizationMemberships({
-            userId: user.id,
-            statuses: ["active", "inactive", "pending"],
-            limit: 100,
-          });
-        for (const membership of memberships.data) {
-          if (membership.organizationId === organizationId) {
-            await workos.userManagement.deleteOrganizationMembership(
-              membership.id,
-            );
-          }
-        }
-        try {
-          await workos.organizations.deleteOrganization(organizationId);
-        } catch (error) {
-          if (!isNotFound(error)) throw error;
-        }
-      }
-
-      try {
-        await workos.userManagement.deleteUser(user.id);
-      } catch (error) {
-        if (!isNotFound(error)) throw error;
-      }
+      await cleanupAcceptanceArtifacts({
+        workos,
+        userId: user.id,
+        externalId,
+      });
     } catch {
-      if (!primaryFailed) throw new Error("WorkOS acceptance cleanup failed");
+      cleanupFailed = true;
       testInfo.annotations.push({
         type: "cleanup",
         description:
@@ -138,4 +152,7 @@ test("provisions an isolated owner agency for a zero-membership user", async ({
       });
     }
   }
+
+  if (primaryError !== undefined) throw primaryError;
+  if (cleanupFailed) throw new Error("WorkOS acceptance cleanup failed");
 });

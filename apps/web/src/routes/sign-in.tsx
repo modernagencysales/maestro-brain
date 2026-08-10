@@ -1,13 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getSignInUrl } from "@workos/authkit-tanstack-react-start";
+import { getSignInUrl, signOut } from "@workos/authkit-tanstack-react-start";
 
 export const Route = createFileRoute("/sign-in")({
   server: {
     handlers: {
       GET: async ({ request }) => {
-        const returnPathname = new URL(request.url).searchParams.get(
-          "returnPathname",
-        );
+        const searchParams = new URL(request.url).searchParams;
+        if (searchParams.get("action") === "logout") {
+          return signOut({ data: { returnTo: "/" } });
+        }
+        const returnPathname = searchParams.get("returnPathname");
         const url = await getSignInUrl(
           returnPathname ? { data: { returnPathname } } : undefined,
         );

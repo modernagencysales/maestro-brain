@@ -41,8 +41,13 @@ describe("AuthKit browser routes", () => {
     expect(existsSync(logoutPath)).toBe(true);
     const logout = read("src/routes/logout.tsx");
     expect(logout).toContain('createFileRoute("/logout")');
-    expect(logout).toContain("await signOut(");
-    expect(logout).toContain('returnTo: "/"');
+    expect(logout).toContain("beforeLoad:");
+    expect(logout).toContain("/sign-in?action=logout");
+
+    const signIn = read("src/routes/sign-in.tsx");
+    expect(signIn).toContain('searchParams.get("action") === "logout"');
+    expect(signIn).toContain("return signOut(");
+    expect(signIn).toContain('returnTo: "/"');
   });
 
   it("renders setup failure before mounting organization-dependent providers", () => {
