@@ -34,6 +34,7 @@ import { PostHogWebProvider } from "../providers/posthog";
 import { CookieConsentBoundary } from "../providers/cookie-consent";
 import { WebRouteUxBoundary } from "../navigation/route-ux-boundary";
 import { buildTemplateRouteHead } from "../adapters/route-head";
+import { AgencySetupFailure } from "../features/setup/agency-setup-failure";
 import appCssUrl from "../index.css?url";
 import xyflowCssUrl from "@xyflow/react/dist/style.css?url";
 
@@ -75,6 +76,14 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 function RootComponent() {
   const { convexClient } = Route.useRouteContext();
   const { authSnapshot, workspaceRuntimeMode } = Route.useLoaderData();
+
+  if (authSnapshot.status === "setupFailure") {
+    return (
+      <RootDocument>
+        <AgencySetupFailure reason={authSnapshot.reason} />
+      </RootDocument>
+    );
+  }
 
   return (
     <AuthKitProviderWithConvexProviderWithAuth

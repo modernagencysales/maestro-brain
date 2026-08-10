@@ -34,4 +34,24 @@ describe("AuthKit browser routes", () => {
       root.indexOf("function RootComponent"),
     );
   });
+
+  it("registers a server-side logout route", () => {
+    const logoutPath = resolve(appRoot, "src/routes/logout.tsx");
+
+    expect(existsSync(logoutPath)).toBe(true);
+    const logout = read("src/routes/logout.tsx");
+    expect(logout).toContain('createFileRoute("/logout")');
+    expect(logout).toContain("await signOut(");
+    expect(logout).toContain('returnTo: "/"');
+  });
+
+  it("renders setup failure before mounting organization-dependent providers", () => {
+    const root = read("src/routes/__root.tsx");
+
+    expect(root).toContain('authSnapshot.status === "setupFailure"');
+    expect(root).toContain("<AgencySetupFailure reason={authSnapshot.reason}");
+    expect(root.indexOf('authSnapshot.status === "setupFailure"')).toBeLessThan(
+      root.indexOf("<AuthKitProviderWithConvexProviderWithAuth"),
+    );
+  });
 });
