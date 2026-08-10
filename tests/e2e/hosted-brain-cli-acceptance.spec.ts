@@ -128,5 +128,8 @@ test("retrieves a cited Client Brain result through the installed CLI", async ({
     const revokeForm = page.getByRole("form", { name: `Revoke ${keyName}` });
     await expect(revokeForm).toBeVisible();
     await revokeForm.getByRole("button", { name: "Revoke key" }).click();
+    await expect(
+      page.getByText(`${keyName} — revoked`, { exact: false }),
+    ).toBeVisible();
   }
 });
