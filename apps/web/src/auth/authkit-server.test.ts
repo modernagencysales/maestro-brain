@@ -188,14 +188,14 @@ describe("AuthKit server bridge", () => {
             lastName: "Keen",
           },
           sessionId: "session_123",
-          accessToken: "token_without_organization",
+          accessToken: "token-redacted",
         }),
         onboardAgency: async (onboardingUser) => {
           calls.push(`onboard:${onboardingUser.id}`);
           return {
             kind: "authenticated",
             organizationId: "org_new",
-            accessToken: "token_with_organization",
+            accessToken: "token-redacted",
           };
         },
         provisionWorkspace: async (accessToken) => {
@@ -212,10 +212,7 @@ describe("AuthKit server bridge", () => {
       },
       workspaceRuntimeMode: "live",
     });
-    expect(calls).toEqual([
-      "onboard:user_123",
-      "provision:token_with_organization",
-    ]);
+    expect(calls).toEqual(["onboard:user_123", "provision:token-redacted"]);
   });
 
   it("returns a safe setup failure without provisioning a workspace", async () => {
@@ -233,7 +230,7 @@ describe("AuthKit server bridge", () => {
             lastName: "Keen",
           },
           sessionId: "session_123",
-          accessToken: "token_without_organization",
+          accessToken: "token-redacted",
         }),
         onboardAgency: async () => ({
           kind: "setupFailure",
