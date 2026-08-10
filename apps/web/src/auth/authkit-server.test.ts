@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   AuthConfigurationInvalid,
@@ -171,6 +171,102 @@ describe("AuthKit server bridge", () => {
       workspaceRuntimeMode: "live",
     });
     expect(provisionedTokens).toEqual(["token-redacted"]);
+  });
+
+  it("onboards a verified organization-less user before Convex provisioning", async () => {
+    const calls: string[] = [];
+
+    await expect(
+      getSafeClientRuntime({
+        env: validLiveEnv,
+        getAuth: async () => ({
+          user: {
+            id: "user_123",
+            email: "tim@example.com",
+            emailVerified: true,
+            firstName: "Tim",
+            lastName: "Keen",
+          },
+          sessionId: "session_123",
+          accessToken: "token_without_organization",
+        }),
+        onboardAgency: async (onboardingUser) => {
+          calls.push(`onboard:${onboardingUser.id}`);
+          return {
+            kind: "authenticated",
+            organizationId: "org_new",
+            accessToken: "token_with_organization",
+          };
+        },
+        provisionWorkspace: async (accessToken) => {
+          calls.push(`provision:${accessToken}`);
+        },
+      }),
+    ).resolves.toEqual({
+      authSnapshot: {
+        status: "authenticated",
+        subject: "user_123",
+        email: "tim@example.com",
+        organizationId: "org_new",
+        sessionId: "session_123",
+      },
+      workspaceRuntimeMode: "live",
+    });
+    expect(calls).toEqual([
+      "onboard:user_123",
+      "provision:token_with_organization",
+    ]);
+  });
+
+  it("returns a safe setup failure without provisioning a workspace", async () => {
+    const provisionWorkspace = vi.fn();
+
+    await expect(
+      getSafeClientRuntime({
+        env: validLiveEnv,
+        getAuth: async () => ({
+          user: {
+            id: "user_123",
+            email: "tim@example.com",
+            emailVerified: true,
+            firstName: "Tim",
+            lastName: "Keen",
+          },
+          sessionId: "session_123",
+          accessToken: "token_without_organization",
+        }),
+        onboardAgency: async () => ({
+          kind: "setupFailure",
+          reason: "provider_failure",
+        }),
+        provisionWorkspace,
+      }),
+    ).resolves.toEqual({
+      authSnapshot: {
+        status: "setupFailure",
+        reason: "provider_failure",
+      },
+      workspaceRuntimeMode: "live",
+    });
+    expect(provisionWorkspace).not.toHaveBeenCalled();
+  });
+
+  it("bypasses agency onboarding for an existing organization claim", async () => {
+    const onboardAgency = vi.fn();
+
+    await getSafeClientRuntime({
+      env: validLiveEnv,
+      getAuth: async () => ({
+        user: { id: "user_123", email: "tim@example.com" },
+        sessionId: "session_123",
+        organizationId: "org_existing",
+        accessToken: "token_existing",
+      }),
+      onboardAgency,
+      provisionWorkspace: noProvision,
+    });
+
+    expect(onboardAgency).not.toHaveBeenCalled();
   });
 
   it("fails closed when live workspace provisioning fails", async () => {

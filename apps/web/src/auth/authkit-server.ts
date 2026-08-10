@@ -1,7 +1,20 @@
 import { readRequiredServerEnv, type ServerEnvSource } from "../server-env";
+import type {
+  AgencyOnboardingUser,
+  AgencySetupResult,
+} from "./agency-onboarding";
+
+export type AgencySetupFailureReason = Extract<
+  AgencySetupResult,
+  { readonly kind: "setupFailure" }
+>["reason"];
 
 export type AuthSnapshot =
   | { readonly status: "signedOut" }
+  | {
+      readonly status: "setupFailure";
+      readonly reason: AgencySetupFailureReason;
+    }
   | {
       readonly status: "authenticated";
       readonly subject: string;
@@ -13,6 +26,10 @@ export type AuthSnapshot =
 
 export type ClientAuthSnapshot =
   | { readonly status: "signedOut" }
+  | {
+      readonly status: "setupFailure";
+      readonly reason: AgencySetupFailureReason;
+    }
   | {
       readonly status: "authenticated";
       readonly subject: string;
@@ -51,7 +68,14 @@ export type AuthKitRuntimeConfig =
 
 export type WorkosServerAuth =
   | {
-      readonly user: { readonly id?: string; readonly email?: string } | null;
+      readonly user: {
+        readonly id?: string;
+        readonly email?: string;
+        readonly emailVerified?: boolean;
+        readonly name?: string | null;
+        readonly firstName?: string | null;
+        readonly lastName?: string | null;
+      } | null;
       readonly organizationId?: string;
       readonly sessionId?: string;
       readonly accessToken?: string;
@@ -163,7 +187,7 @@ export const toAuthSnapshot = (auth: WorkosServerAuth): AuthSnapshot => {
 export const toClientAuthSnapshot = (
   snapshot: AuthSnapshot,
 ): ClientAuthSnapshot => {
-  if (snapshot.status === "signedOut") return snapshot;
+  if (snapshot.status !== "authenticated") return snapshot;
 
   return {
     status: "authenticated",
@@ -195,6 +219,9 @@ export async function getSafeClientRuntime(input: {
   readonly env: ServerEnvSource;
   readonly getAuth: () => Promise<WorkosServerAuth>;
   readonly provisionWorkspace: (accessToken: string) => Promise<void>;
+  readonly onboardAgency?: (
+    user: AgencyOnboardingUser,
+  ) => Promise<AgencySetupResult>;
 }): Promise<SafeClientRuntime> {
   const config = buildAuthKitRuntimeConfig(input.env);
 
@@ -205,13 +232,61 @@ export async function getSafeClientRuntime(input: {
     };
   }
 
-  const authSnapshot = await getAuthSnapshot({ getAuth: input.getAuth });
-  if (authSnapshot.status === "authenticated") {
-    await input.provisionWorkspace(authSnapshot.accessToken);
+  const auth = await input.getAuth();
+  if (!auth.user || auth.organizationId) {
+    const authSnapshot = toAuthSnapshot(auth);
+    if (authSnapshot.status === "authenticated") {
+      await input.provisionWorkspace(authSnapshot.accessToken);
+    }
+
+    return {
+      authSnapshot: toClientAuthSnapshot(authSnapshot),
+      workspaceRuntimeMode: config.mode,
+    };
   }
 
+  if (
+    !auth.user.id ||
+    !auth.user.email ||
+    !auth.sessionId ||
+    !auth.accessToken
+  ) {
+    throw new Unauthorized();
+  }
+
+  const onboarding = input.onboardAgency
+    ? await input.onboardAgency({
+        id: auth.user.id,
+        email: auth.user.email,
+        emailVerified: auth.user.emailVerified === true,
+        name: auth.user.name ?? null,
+        firstName: auth.user.firstName ?? null,
+        lastName: auth.user.lastName ?? null,
+      })
+    : ({
+        kind: "setupFailure",
+        reason: "provider_failure",
+      } as const);
+
+  if (onboarding.kind === "setupFailure") {
+    return {
+      authSnapshot: {
+        status: "setupFailure",
+        reason: onboarding.reason,
+      },
+      workspaceRuntimeMode: config.mode,
+    };
+  }
+
+  await input.provisionWorkspace(onboarding.accessToken);
   return {
-    authSnapshot: toClientAuthSnapshot(authSnapshot),
+    authSnapshot: {
+      status: "authenticated",
+      subject: auth.user.id,
+      email: auth.user.email,
+      organizationId: onboarding.organizationId,
+      sessionId: auth.sessionId,
+    },
     workspaceRuntimeMode: config.mode,
   };
 }

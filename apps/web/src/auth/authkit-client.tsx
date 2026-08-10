@@ -53,7 +53,7 @@ export type AuthKitClientBridge = {
 export const authSnapshotToInitialAuth = (
   snapshot: ClientAuthSnapshot,
 ): AuthKitInitialAuth => {
-  if (snapshot.status === "signedOut") return { user: null };
+  if (snapshot.status !== "authenticated") return { user: null };
 
   return {
     user: {
