@@ -98,6 +98,10 @@ queue, retry framework, provider abstraction, or client-side state machine.
 9. Return the authenticated runtime and continue to the originally requested
    safe local path. No extra success redirect is required.
 
+Call server-side `switchToOrganization` without `returnTo`. AuthKit 0.9.1 turns
+`returnTo` into a thrown router redirect before returning the refreshed access
+token, which would prevent the required Convex provisioning step.
+
 The WorkOS API key, user ID, membership list, organization ID, session cookie,
 and access token remain server-side. The browser submits none of them as
 onboarding authority.
@@ -127,6 +131,9 @@ Keep the runtime contract small:
 - `authenticated`: an active organization claim exists and provisioning
   succeeds.
 - `setupFailure`: onboarding stopped safely and can retry or sign out.
+
+WorkOS and Convex provisioning failures both produce `setupFailure`; they must
+not escape into TanStack's generic route-error surface.
 
 The existing route-pending component covers server work in progress. A separate
 `onboarding`, `organizationSelectionRequired`, or client-side workflow state is

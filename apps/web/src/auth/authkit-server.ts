@@ -215,6 +215,18 @@ export type SafeClientRuntime = {
   readonly workspaceRuntimeMode: AuthKitRuntimeConfig["mode"];
 };
 
+const provisionWorkspaceSafely = async (
+  provisionWorkspace: (accessToken: string) => Promise<void>,
+  accessToken: string,
+) => {
+  try {
+    await provisionWorkspace(accessToken);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 export async function getSafeClientRuntime(input: {
   readonly env: ServerEnvSource;
   readonly getAuth: () => Promise<WorkosServerAuth>;
@@ -235,8 +247,20 @@ export async function getSafeClientRuntime(input: {
   const auth = await input.getAuth();
   if (!auth.user || auth.organizationId) {
     const authSnapshot = toAuthSnapshot(auth);
-    if (authSnapshot.status === "authenticated") {
-      await input.provisionWorkspace(authSnapshot.accessToken);
+    if (
+      authSnapshot.status === "authenticated" &&
+      !(await provisionWorkspaceSafely(
+        input.provisionWorkspace,
+        authSnapshot.accessToken,
+      ))
+    ) {
+      return {
+        authSnapshot: {
+          status: "setupFailure",
+          reason: "provider_failure",
+        },
+        workspaceRuntimeMode: config.mode,
+      };
     }
 
     return {
@@ -278,7 +302,21 @@ export async function getSafeClientRuntime(input: {
     };
   }
 
-  await input.provisionWorkspace(onboarding.accessToken);
+  if (
+    !(await provisionWorkspaceSafely(
+      input.provisionWorkspace,
+      onboarding.accessToken,
+    ))
+  ) {
+    return {
+      authSnapshot: {
+        status: "setupFailure",
+        reason: "provider_failure",
+      },
+      workspaceRuntimeMode: config.mode,
+    };
+  }
+
   return {
     authSnapshot: {
       status: "authenticated",

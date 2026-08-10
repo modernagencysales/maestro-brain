@@ -290,14 +290,17 @@ expect(client.userManagement.listOrganizationMemberships).toHaveBeenCalledWith({
   limit: 100,
 });
 expect(switchToOrganization).toHaveBeenCalledWith({
-  data: { organizationId: "org_new", returnTo: "/brain" },
+  data: { organizationId: "org_new" },
 });
 ```
 
+Omit `returnTo`: AuthKit 0.9.1 converts it into a thrown redirect before the
+refreshed access token can be passed to Convex provisioning.
+
 Add runtime tests where `getAuth()` returns a verified user without
 `organizationId`: successful onboarding calls Convex with the switched token;
-failed onboarding returns `setupFailure`; an existing organization claim
-bypasses WorkOS onboarding.
+failed onboarding and failed Convex provisioning return `setupFailure`; an
+existing organization claim bypasses WorkOS onboarding.
 
 - [ ] **Step 3: Run tests and verify RED**
 
@@ -404,7 +407,8 @@ expect(html).toContain("<main");
 
 For `existing_membership`, assert only `Sign out` is offered and the
 agency-access copy is present. Add route source assertions that `/logout`
-imports and awaits AuthKit `signOut`.
+redirects to the approved sign-in auth handler, which invokes AuthKit `signOut`
+server-side.
 
 - [ ] **Step 2: Run tests and verify RED**
 
@@ -421,15 +425,19 @@ text, native retry button that reloads the current safe URL, and
 `<a href="/logout">Sign out</a>`. Do not mount workspace or Convex providers for
 this state.
 
-Add:
+Keep `/logout` free of a loader or server handler to satisfy the repository's
+route boundary. Redirect it to the approved sign-in auth handler:
 
 ```ts
 export const Route = createFileRoute("/logout")({
-  loader: async () => {
-    await signOut({ data: { returnTo: "/" } });
+  beforeLoad: () => {
+    throw redirect({ href: "/sign-in?action=logout" });
   },
 });
 ```
+
+The sign-in `GET` handler detects `action=logout` and returns
+`signOut({ data: { returnTo: "/" } })` before starting a new sign-in flow.
 
 In `RootComponent`, return the setup component before constructing
 `WorkspaceRuntimeBoundary` when `authSnapshot.status === "setupFailure"`.

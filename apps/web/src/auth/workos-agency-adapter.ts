@@ -38,7 +38,7 @@ export type WorkosAgencyClient = {
 type SwitchToOrganization = (input: {
   readonly data: {
     readonly organizationId: string;
-    readonly returnTo: string;
+    readonly returnTo?: string;
   };
 }) => Promise<{
   readonly organizationId?: string;
@@ -121,7 +121,7 @@ export const createWorkosAgencyDependencies = (input: {
     },
     switchOrganization: async (organizationId) =>
       switchToOrganization({
-        data: { organizationId, returnTo: "/brain" },
+        data: { organizationId },
       }),
   };
 };

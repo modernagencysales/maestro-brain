@@ -266,7 +266,7 @@ describe("AuthKit server bridge", () => {
     expect(onboardAgency).not.toHaveBeenCalled();
   });
 
-  it("fails closed when live workspace provisioning fails", async () => {
+  it("returns a recoverable setup failure when existing workspace provisioning fails", async () => {
     await expect(
       getSafeClientRuntime({
         env: validLiveEnv,
@@ -280,7 +280,44 @@ describe("AuthKit server bridge", () => {
           throw new Error("workspace provisioning failed");
         },
       }),
-    ).rejects.toThrow("workspace provisioning failed");
+    ).resolves.toEqual({
+      authSnapshot: {
+        status: "setupFailure",
+        reason: "provider_failure",
+      },
+      workspaceRuntimeMode: "live",
+    });
+  });
+
+  it("returns a recoverable setup failure when new agency provisioning fails", async () => {
+    await expect(
+      getSafeClientRuntime({
+        env: validLiveEnv,
+        getAuth: async () => ({
+          user: {
+            id: "user_123",
+            email: "tim@example.com",
+            emailVerified: true,
+          },
+          sessionId: "session_123",
+          accessToken: "token-redacted",
+        }),
+        onboardAgency: async () => ({
+          kind: "authenticated",
+          organizationId: "org_new",
+          accessToken: "token-redacted",
+        }),
+        provisionWorkspace: async () => {
+          throw new Error("workspace provisioning failed");
+        },
+      }),
+    ).resolves.toEqual({
+      authSnapshot: {
+        status: "setupFailure",
+        reason: "provider_failure",
+      },
+      workspaceRuntimeMode: "live",
+    });
   });
 
   it("marks safe runtime metadata as test mode for test provider config", async () => {

@@ -171,7 +171,7 @@ describe("WorkOS agency adapter", () => {
     ).rejects.toBeInstanceOf(ConflictException);
   });
 
-  it("delegates the organization switch with a safe Brain return path", async () => {
+  it("switches without requesting a redirect so provisioning receives the token", async () => {
     const client = createClient();
     const switchToOrganization = vi.fn(async () => ({
       organizationId: organization.id,
@@ -190,7 +190,7 @@ describe("WorkOS agency adapter", () => {
       accessToken: "token_new",
     });
     expect(switchToOrganization).toHaveBeenCalledWith({
-      data: { organizationId: organization.id, returnTo: "/brain" },
+      data: { organizationId: organization.id },
     });
   });
 });
