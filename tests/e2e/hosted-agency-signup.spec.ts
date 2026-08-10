@@ -9,11 +9,27 @@ const externalOrganizationId = (userId: string) =>
 const isNotFound = (error: unknown): error is NotFoundException =>
   error instanceof NotFoundException;
 
+const removeDisposableUserMemberships = async (
+  workos: WorkOS,
+  userId: string,
+) => {
+  const memberships = await workos.userManagement.listOrganizationMemberships({
+    userId,
+    statuses: ["active", "inactive", "pending"],
+    limit: 100,
+  });
+  for (const membership of memberships.data) {
+    await workos.userManagement.deleteOrganizationMembership(membership.id);
+  }
+};
+
 const cleanupAcceptanceArtifacts = async (input: {
   readonly workos: WorkOS;
   readonly userId: string;
   readonly externalId: string;
 }) => {
+  await removeDisposableUserMemberships(input.workos, input.userId);
+
   let organizationId: string | undefined;
   try {
     organizationId = (
@@ -26,19 +42,6 @@ const cleanupAcceptanceArtifacts = async (input: {
   }
 
   if (organizationId) {
-    const memberships =
-      await input.workos.userManagement.listOrganizationMemberships({
-        userId: input.userId,
-        statuses: ["active", "inactive", "pending"],
-        limit: 100,
-      });
-    for (const membership of memberships.data) {
-      if (membership.organizationId === organizationId) {
-        await input.workos.userManagement.deleteOrganizationMembership(
-          membership.id,
-        );
-      }
-    }
     try {
       await input.workos.organizations.deleteOrganization(organizationId);
     } catch (error) {
@@ -64,8 +67,7 @@ test("provisions an isolated owner agency for a zero-membership user", async ({
 
   const workos = new WorkOS(apiKey);
   const marker = `${Date.now()}-${randomUUID().slice(0, 8)}`;
-  const emailDomain =
-    process.env.WORKOS_ACCEPTANCE_EMAIL_DOMAIN ?? "example.com";
+  const emailDomain = process.env.WORKOS_ACCEPTANCE_EMAIL_DOMAIN ?? "gmail.com";
   const email = `brain-acceptance-${marker}@${emailDomain}`;
   const password = `AgencyBrain-${randomUUID()}!aA9`;
   const user = await workos.userManagement.createUser({
@@ -82,6 +84,7 @@ test("provisions an isolated owner agency for a zero-membership user", async ({
   let cleanupFailed = false;
 
   try {
+    await removeDisposableUserMemberships(workos, user.id);
     const initialMemberships =
       await workos.userManagement.listOrganizationMemberships({
         userId: user.id,
@@ -123,12 +126,10 @@ test("provisions an isolated owner agency for a zero-membership user", async ({
     expect(memberships.data).toHaveLength(1);
     expect(memberships.data[0]?.organizationId).toBe(organization.id);
 
-    const workspaceSelect = page.getByLabel("Active workspace");
-    await expect(workspaceSelect).toBeVisible();
-    await expect(workspaceSelect.locator("option")).toHaveCount(1);
-    await expect(workspaceSelect.locator("option")).toHaveText(
-      "Brain Acceptance Agency",
-    );
+    await expect(
+      page.getByRole("status").filter({ hasText: "Viewing Agency Brain" }),
+    ).toBeVisible();
+    await expect(page.getByLabel("Active workspace")).toHaveCount(0);
 
     await page.goto("/settings");
     await expect(
