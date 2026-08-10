@@ -21,6 +21,11 @@ const mocks = vi.hoisted(() => ({
     routeOutcome: "routed",
     brainKey: "brain_acme",
   }),
+  requestPurge: vi.fn().mockResolvedValue({
+    requestKey: "transcript-purge:fireflies_agency_acme:0",
+    status: "pending_review",
+    physicalDeletion: false,
+  }),
   beginConnect: vi.fn().mockResolvedValue({
     connectSessionId: "session-gong",
     connectSessionToken: "fixture",
@@ -29,6 +34,11 @@ const mocks = vi.hoisted(() => ({
   completeConnect: vi.fn().mockResolvedValue({
     connectionKey: "gong_agency_acme",
     status: "verifying",
+    connectionGeneration: 0,
+  }),
+  disconnectConnection: vi.fn().mockResolvedValue({
+    connectionKey: "fireflies_agency_acme",
+    status: "revoked",
     connectionGeneration: 0,
   }),
 }));
@@ -73,11 +83,17 @@ vi.mock("../../adapters/confect-state", () => ({
     mocks.mutationCall += 1;
     return mocks.mutationCall === 1
       ? mocks.reviewRoute
-      : mocks.importTranscript;
+      : mocks.mutationCall === 2
+        ? mocks.importTranscript
+        : mocks.requestPurge;
   },
   useTemplateAction: () => {
     mocks.actionCall += 1;
-    return mocks.actionCall === 1 ? mocks.beginConnect : mocks.completeConnect;
+    return mocks.actionCall === 1
+      ? mocks.beginConnect
+      : mocks.actionCall === 2
+        ? mocks.completeConnect
+        : mocks.disconnectConnection;
   },
   useTemplateQuery: (
     _ref: unknown,
@@ -174,8 +190,10 @@ describe("ConnectionsRouteAdapter", () => {
     mocks.screenProps = undefined;
     mocks.reviewRoute.mockClear();
     mocks.importTranscript.mockClear();
+    mocks.requestPurge.mockClear();
     mocks.beginConnect.mockClear();
     mocks.completeConnect.mockClear();
+    mocks.disconnectConnection.mockClear();
   });
 
   it("projects organization clients and submits the exact routing review", async () => {
@@ -227,10 +245,19 @@ describe("ConnectionsRouteAdapter", () => {
       connections: expect.arrayContaining([
         expect.objectContaining({
           key: "fireflies",
+          authMethod: "API key",
           status: "ready",
           callsDiscovered: 12,
+          backfillComplete: true,
+          lastError: null,
         }),
-        expect.objectContaining({ key: "gong", status: "disconnected" }),
+        expect.objectContaining({
+          key: "gong",
+          authMethod: "Access key + secret",
+          status: "disconnected",
+          backfillComplete: false,
+          lastError: null,
+        }),
         expect.objectContaining({ key: "fathom", status: "disconnected" }),
         expect.objectContaining({ key: "granola", status: "disconnected" }),
       ]),
@@ -242,6 +269,26 @@ describe("ConnectionsRouteAdapter", () => {
       provider: "gong",
       connectSessionId: "session-gong",
       connectionId: "nango-gong-connection",
+    });
+  });
+
+  it("disconnects the selected transcript provider", async () => {
+    renderToStaticMarkup(<ConnectionsRouteAdapter />);
+
+    await mocks.screenProps?.onDisconnect?.("fireflies");
+
+    expect(mocks.disconnectConnection).toHaveBeenCalledWith({
+      provider: "fireflies",
+    });
+  });
+
+  it("requests audited purge review for the selected provider", async () => {
+    renderToStaticMarkup(<ConnectionsRouteAdapter />);
+
+    await mocks.screenProps?.onPurge?.("fireflies");
+
+    expect(mocks.requestPurge).toHaveBeenCalledWith({
+      provider: "fireflies",
     });
   });
 

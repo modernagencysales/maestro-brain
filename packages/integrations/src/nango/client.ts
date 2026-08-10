@@ -75,6 +75,10 @@ type NangoSdk = {
     } | null;
     readonly tags?: Record<string, unknown> | null;
   }>;
+  readonly deleteConnection?: (
+    providerConfigKey: string,
+    connectionId: string,
+  ) => Promise<void>;
   readonly proxy?: (input: {
     readonly method: string;
     readonly endpoint: string;
@@ -100,6 +104,9 @@ export type NangoClient = {
     readonly connectSessionId: string;
     readonly connectionId: string;
   }) => Promise<NangoConnectionMetadata>;
+  readonly deleteConnection: (input: {
+    readonly connectionId: string;
+  }) => Promise<void>;
   readonly proxy: (input: {
     readonly connectionId: string;
     readonly endpoint: string;
@@ -198,6 +205,7 @@ export const createFakeNangoClient = (input: {
       correlationTag: `${input.providerConfigKey ?? "slack"}-connect:${connectSessionId}`,
     };
   },
+  deleteConnection: async () => undefined,
   proxy: async () => ({ status: 200, data: { ok: true } }),
   listRecords: async () => ({ records: [], nextCursor: null }),
 });
@@ -237,6 +245,17 @@ const createNangoHttpClient = (secretKey: string): NangoSdk => {
       const response = await fetch(url, { headers: headers() });
       requireSuccess(response);
       return (await json(response)) as never;
+    },
+    deleteConnection: async (providerConfigKey, connectionId) => {
+      const url = new URL(
+        `${baseUrl}/connections/${encodeURIComponent(connectionId)}`,
+      );
+      url.searchParams.set("provider_config_key", providerConfigKey);
+      const response = await fetch(url, {
+        method: "DELETE",
+        headers: headers(),
+      });
+      if (response.status !== 404) requireSuccess(response);
     },
     proxy: async ({
       connectionId,
@@ -358,6 +377,18 @@ export const createLiveNangoClient = (input: {
         providerConfigKey,
         correlationTag,
       };
+    },
+    deleteConnection: async ({ connectionId }) => {
+      if (isUnsafeNangoConnectionId(connectionId)) {
+        throw new ConnectSessionInvalid();
+      }
+      const nango = await loadNango();
+      if (nango.deleteConnection === undefined) throw new ProviderUnavailable();
+      try {
+        await nango.deleteConnection(input.providerConfigKey, connectionId);
+      } catch {
+        throw new ProviderUnavailable();
+      }
     },
     proxy: async ({ connectionId, endpoint, method, data }) => {
       const nango = await loadNango();

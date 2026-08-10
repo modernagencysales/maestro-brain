@@ -207,7 +207,11 @@ type HealthConnection = Pick<
   | "connectionGeneration"
   | "status"
   | "attemptExpiresAt"
->;
+  | "nangoConnectionId"
+> & {
+  readonly errorReason?: string | null;
+  readonly purgeRequestedAt?: number | null;
+};
 type HealthSourceUnit = {
   readonly connectionKey: string;
   readonly unitKey: string;
@@ -310,6 +314,9 @@ export const buildTranscriptConnectionHealth = (input: {
         callsRouted,
         callsAwaitingRouting: Math.max(0, units.length - callsRouted),
         backfillComplete: sync?.backfillComplete ?? false,
+        cleanupPending: connection.errorReason === "NangoCleanupPending",
+        disconnectAvailable: connection.nangoConnectionId != null,
+        purgeRequested: connection.purgeRequestedAt != null,
         lastErrorTag: sync?.lastErrorTag ?? null,
       },
     ];

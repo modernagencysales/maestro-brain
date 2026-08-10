@@ -32,6 +32,7 @@ export const ProviderConnectionRow = Schema.Struct({
   apiAppId: OptionalNullableString,
   botUserId: OptionalNullableString,
   errorReason: OptionalNullableString,
+  purgeRequestedAt: OptionalNullableNumber,
   createdAt: Schema.Number,
   updatedAt: Schema.Number,
 });

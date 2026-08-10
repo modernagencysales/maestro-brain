@@ -20,6 +20,14 @@ export class UnsupportedTranscriptProvider extends Schema.TaggedError<Unsupporte
   "UnsupportedTranscriptProvider",
   {},
 ) {}
+export class TranscriptConnectionNotFound extends Schema.TaggedError<TranscriptConnectionNotFound>()(
+  "TranscriptConnectionNotFound",
+  {},
+) {}
+export class TranscriptPurgeNotReady extends Schema.TaggedError<TranscriptPurgeNotReady>()(
+  "TranscriptPurgeNotReady",
+  {},
+) {}
 
 export const TranscriptProvider = Schema.Literal(
   "fireflies",
@@ -37,6 +45,8 @@ const connectionError = () =>
     ConnectSessionInvalid,
     ProviderUnavailable,
     TenantMismatch,
+    TranscriptConnectionNotFound,
+    TranscriptPurgeNotReady,
   );
 
 const connectResult = () =>
@@ -67,6 +77,63 @@ export const completeTranscriptConnect = FunctionSpec.publicAction({
       connectionId: Schema.String,
     }),
   returns: () => connectResult(),
+  error: () => connectionError(),
+});
+
+const disconnectResult = () =>
+  Schema.Struct({
+    connectionKey: Schema.String,
+    status: Schema.Literal("revoked"),
+    connectionGeneration: Schema.Number,
+  });
+
+export const disconnectTranscriptConnection = FunctionSpec.publicAction({
+  name: "disconnectTranscriptConnection",
+  args: () => Schema.Struct({ provider: TranscriptProvider }),
+  returns: () => disconnectResult(),
+  error: () => connectionError(),
+});
+
+export const revokeTranscriptConnection = FunctionSpec.internalMutation({
+  name: "revokeTranscriptConnection",
+  args: () =>
+    Schema.Struct({
+      provider: TranscriptProvider,
+      now: Schema.Number,
+    }),
+  returns: () =>
+    Schema.Struct({
+      connectionKey: Schema.String,
+      connectionGeneration: Schema.Number,
+      providerConfigKey: Schema.String,
+      nangoConnectionId: Schema.NullOr(Schema.String),
+    }),
+  error: () => connectionError(),
+});
+
+export const finalizeTranscriptDisconnect = FunctionSpec.internalMutation({
+  name: "finalizeTranscriptDisconnect",
+  args: () =>
+    Schema.Struct({
+      provider: TranscriptProvider,
+      connectionKey: Schema.String,
+      expectedConnectionGeneration: Schema.Number,
+      expectedNangoConnectionId: Schema.String,
+      now: Schema.Number,
+    }),
+  returns: () => disconnectResult(),
+  error: () => connectionError(),
+});
+
+export const requestTranscriptPurge = FunctionSpec.publicMutation({
+  name: "requestTranscriptPurge",
+  args: () => Schema.Struct({ provider: TranscriptProvider }),
+  returns: () =>
+    Schema.Struct({
+      requestKey: Schema.String,
+      status: Schema.Literal("pending_review"),
+      physicalDeletion: Schema.Literal(false),
+    }),
   error: () => connectionError(),
 });
 
@@ -151,6 +218,10 @@ export const markTranscriptConnectAttemptFailed = FunctionSpec.internalMutation(
 export default GroupSpec.make()
   .addFunction(beginTranscriptConnect)
   .addFunction(completeTranscriptConnect)
+  .addFunction(disconnectTranscriptConnection)
+  .addFunction(revokeTranscriptConnection)
+  .addFunction(finalizeTranscriptDisconnect)
+  .addFunction(requestTranscriptPurge)
   .addFunction(prepareTranscriptConnectAttempt)
   .addFunction(authorizeTranscriptConnectCompletion)
   .addFunction(finalizeTranscriptConnectAttempt)

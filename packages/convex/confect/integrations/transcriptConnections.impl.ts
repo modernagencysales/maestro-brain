@@ -1,6 +1,7 @@
 import { transcriptProviders } from "@maestro-template/integrations/transcripts/providers";
 import { Ref } from "@confect/core";
 import { FunctionImpl, GroupImpl } from "@confect/server";
+import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -13,20 +14,27 @@ import {
   MutationRunner,
 } from "../_generated/services";
 import { asGenericId } from "../access/handlerContext";
+import { recordAccessAuditEvent } from "../access/audit";
 import { Forbidden, Unauthorized } from "../errors";
 import transcriptConnections, {
   authorizeTranscriptConnectCompletion as authorizeSpec,
   ConnectSessionInvalid,
   ConnectionAlreadyExists,
+  finalizeTranscriptDisconnect as finalizeDisconnectSpec,
   finalizeTranscriptConnectAttempt as finalizeSpec,
   markTranscriptConnectAttemptFailed as markFailedSpec,
   prepareTranscriptConnectAttempt as prepareSpec,
   ProviderUnavailable,
+  requestTranscriptPurge as requestPurgeSpec,
+  revokeTranscriptConnection as revokeSpec,
   TenantMismatch,
+  TranscriptConnectionNotFound,
+  TranscriptPurgeNotReady,
 } from "./transcriptConnections.spec";
 import {
   beginTranscriptConnect,
   completeTranscriptConnect,
+  disconnectTranscriptConnection,
 } from "./transcriptConnections.node";
 import {
   extractSlackIdentityProfile,
@@ -37,7 +45,7 @@ import {
 
 type TranscriptProvider = keyof typeof transcriptProviders;
 
-export const currentAdminOrganizationKey = Effect.gen(function* () {
+const currentAdminOrganizationContext = Effect.gen(function* () {
   const identity = yield* (yield* Auth).getUserIdentity.pipe(
     Effect.mapError(() => new Unauthorized()),
     Effect.flatMap(extractSlackIdentityProfile),
@@ -76,8 +84,17 @@ export const currentAdminOrganizationKey = Effect.gen(function* () {
     return yield* Effect.fail(
       new Forbidden({ reason: "Active organization required." }),
     );
-  return organization.agencyKey;
+  return {
+    organizationKey: organization.agencyKey,
+    organizationId: String(organization._id),
+    userId: String(user._id),
+    actorEmail: user.email,
+  };
 });
+
+export const currentAdminOrganizationKey = currentAdminOrganizationContext.pipe(
+  Effect.map(({ organizationKey }) => organizationKey),
+);
 
 const connectionKeyFor = (
   organizationKey: string,
@@ -132,6 +149,14 @@ const prepareTranscriptConnectAttempt = FunctionImpl.make(
         return yield* Effect.fail(
           new ConnectionAlreadyExists({ organizationKey }),
         );
+      if (
+        current !== null &&
+        current.status === "revoked" &&
+        current.nangoConnectionId !== null
+      )
+        return yield* Effect.fail(
+          new ConnectionAlreadyExists({ organizationKey }),
+        );
       const connectionGeneration = current?.connectionGeneration ?? 0;
       const nangoEndUserId = `nango-user-${providerConfigKey}-${input.nonce}`;
       const nangoOrganizationId = `nango-org-${providerConfigKey}-${input.nonce}`;
@@ -144,7 +169,9 @@ const prepareTranscriptConnectAttempt = FunctionImpl.make(
         connectionGeneration,
         status:
           current !== null &&
-          (current.connectionGeneration > 0 || current.nangoConnectionId)
+          (current.connectionGeneration > 0 ||
+            current.nangoConnectionId ||
+            current.completedAt != null)
             ? ("reauthorizing" as const)
             : ("authorizing" as const),
         connectSessionId,
@@ -155,6 +182,7 @@ const prepareTranscriptConnectAttempt = FunctionImpl.make(
         attemptId: `attempt_${input.nonce}`,
         attemptExpiresAt: input.attemptExpiresAt,
         completedAt: null,
+        purgeRequestedAt: null,
         updatedAt: input.now,
       };
       const writer = (yield* DatabaseWriter).table("providerConnections");
@@ -268,6 +296,186 @@ const finalizeTranscriptConnectAttempt = FunctionImpl.make(
     }),
 );
 
+const revokeTranscriptConnection = FunctionImpl.make(
+  databaseSchema,
+  transcriptConnections,
+  "revokeTranscriptConnection",
+  (input) =>
+    Effect.gen(function* () {
+      const organizationKey = yield* currentAdminOrganizationKey;
+      const providerConfigKey =
+        transcriptProviders[input.provider].providerConfigKey;
+      const connectionKey = connectionKeyFor(organizationKey, input.provider);
+      const row = yield* rowByConnectionKey(connectionKey);
+      if (
+        row === null ||
+        row.organizationKey !== organizationKey ||
+        row.providerConfigKey !== providerConfigKey
+      )
+        return yield* Effect.fail(new TranscriptConnectionNotFound());
+
+      if (row.status !== "revoked") {
+        if (!row.nangoConnectionId)
+          return yield* Effect.fail(new TranscriptConnectionNotFound());
+        yield* (yield* DatabaseWriter)
+          .table("providerConnections")
+          .patch(row._id, {
+            status: "revoked",
+            errorReason: "NangoCleanupPending",
+            updatedAt: input.now,
+          })
+          .pipe(Effect.orDie);
+      }
+
+      const syncStates = yield* (yield* DatabaseReader)
+        .table("connectorSyncStates")
+        .index("by_connection", (q) => q.eq("connectionKey", connectionKey))
+        .take(10)
+        .pipe(Effect.orDie);
+      for (const syncState of syncStates) {
+        if (syncState.connectionGeneration !== row.connectionGeneration)
+          continue;
+        yield* (yield* DatabaseWriter)
+          .table("connectorSyncStates")
+          .patch(syncState._id, {
+            status: "revoked",
+            leaseId: null,
+            leaseExpiresAt: null,
+            nextAttemptAt: input.now,
+            updatedAt: input.now,
+          })
+          .pipe(Effect.orDie);
+      }
+
+      return {
+        connectionKey: row.connectionKey,
+        connectionGeneration: row.connectionGeneration,
+        providerConfigKey: row.providerConfigKey,
+        nangoConnectionId: row.nangoConnectionId ?? null,
+      };
+    }),
+);
+
+const finalizeTranscriptDisconnect = FunctionImpl.make(
+  databaseSchema,
+  transcriptConnections,
+  "finalizeTranscriptDisconnect",
+  (input) =>
+    Effect.gen(function* () {
+      const organizationKey = yield* currentAdminOrganizationKey;
+      const providerConfigKey =
+        transcriptProviders[input.provider].providerConfigKey;
+      const row = yield* rowByConnectionKey(input.connectionKey);
+      if (
+        row === null ||
+        row.organizationKey !== organizationKey ||
+        row.providerConfigKey !== providerConfigKey ||
+        row.connectionGeneration !== input.expectedConnectionGeneration ||
+        row.status !== "revoked"
+      )
+        return yield* Effect.fail(new TranscriptConnectionNotFound());
+      if (row.nangoConnectionId === null)
+        return {
+          connectionKey: row.connectionKey,
+          status: "revoked" as const,
+          connectionGeneration: row.connectionGeneration,
+        };
+      if (row.nangoConnectionId !== input.expectedNangoConnectionId)
+        return yield* Effect.fail(new TranscriptConnectionNotFound());
+      yield* (yield* DatabaseWriter)
+        .table("providerConnections")
+        .patch(row._id, {
+          nangoConnectionId: null,
+          errorReason: null,
+          updatedAt: input.now,
+        })
+        .pipe(Effect.orDie);
+      return {
+        connectionKey: row.connectionKey,
+        status: "revoked" as const,
+        connectionGeneration: row.connectionGeneration,
+      };
+    }),
+);
+
+const requestTranscriptPurge = FunctionImpl.make(
+  databaseSchema,
+  transcriptConnections,
+  "requestTranscriptPurge",
+  (input) =>
+    Effect.gen(function* () {
+      const context = yield* currentAdminOrganizationContext;
+      const providerConfigKey =
+        transcriptProviders[input.provider].providerConfigKey;
+      const connectionKey = connectionKeyFor(
+        context.organizationKey,
+        input.provider,
+      );
+      const row = yield* rowByConnectionKey(connectionKey);
+      if (
+        row === null ||
+        row.organizationKey !== context.organizationKey ||
+        row.providerConfigKey !== providerConfigKey
+      )
+        return yield* Effect.fail(new TranscriptConnectionNotFound());
+      if (row.status !== "revoked" || row.nangoConnectionId !== null)
+        return yield* Effect.fail(new TranscriptPurgeNotReady());
+
+      const workspace = yield* (yield* DatabaseReader)
+        .table("workspaces")
+        .index("by_organization_kind", (q) =>
+          q.eq("organizationId", context.organizationId).eq("kind", "agency"),
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      if (workspace === null)
+        return yield* Effect.fail(new TranscriptConnectionNotFound());
+
+      const requestKey = `transcript-purge:${connectionKey}:${row.connectionGeneration}`;
+      const existing = yield* (yield* DatabaseReader)
+        .table("accessAuditEvents")
+        .index("by_subject", (q) =>
+          q.eq("subjectKind", "privilegedAction").eq("subjectId", requestKey),
+        )
+        .first()
+        .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+      if (existing === null) {
+        const now = yield* Clock.currentTimeMillis;
+        const writer = yield* DatabaseWriter;
+        yield* recordAccessAuditEvent(
+          writer,
+          {
+            workspaceId: String(workspace._id),
+            action: "retention.policyChanged",
+            actorUserId: context.userId,
+            actorEmail: context.actorEmail,
+            subjectKind: "privilegedAction",
+            subjectId: requestKey,
+            metadata: {
+              connectionGeneration: row.connectionGeneration,
+              execution: "pending_review",
+              outcome: "requested",
+              physicalDeletion: false,
+              provider: input.provider,
+              requestKind: "transcript_connector_purge",
+              retainedEvidence: "revisions,segments,citations,audit",
+            },
+          },
+          now,
+        );
+        yield* writer
+          .table("providerConnections")
+          .patch(row._id, { purgeRequestedAt: now, updatedAt: now })
+          .pipe(Effect.orDie);
+      }
+      return {
+        requestKey,
+        status: "pending_review" as const,
+        physicalDeletion: false as const,
+      };
+    }),
+);
+
 const markTranscriptConnectAttemptFailed = FunctionImpl.make(
   databaseSchema,
   transcriptConnections,
@@ -303,7 +511,9 @@ type TranscriptConnectionError =
   | ConnectionAlreadyExists
   | ConnectSessionInvalid
   | ProviderUnavailable
-  | TenantMismatch;
+  | TenantMismatch
+  | TranscriptConnectionNotFound
+  | TranscriptPurgeNotReady;
 
 export const runTranscriptMutation = <Mutation extends Ref.AnyMutation>(
   runMutation: MutationRunner,
@@ -317,7 +527,9 @@ export const runTranscriptMutation = <Mutation extends Ref.AnyMutation>(
       error instanceof ConnectionAlreadyExists ||
       error instanceof ConnectSessionInvalid ||
       error instanceof ProviderUnavailable ||
-      error instanceof TenantMismatch
+      error instanceof TenantMismatch ||
+      error instanceof TranscriptConnectionNotFound ||
+      error instanceof TranscriptPurgeNotReady
         ? error
         : new ProviderUnavailable(),
     ),
@@ -328,11 +540,24 @@ export const transcriptConnectionRefs = {
   authorize: Ref.make("integrations/transcriptConnections", authorizeSpec),
   finalize: Ref.make("integrations/transcriptConnections", finalizeSpec),
   markFailed: Ref.make("integrations/transcriptConnections", markFailedSpec),
+  revoke: Ref.make("integrations/transcriptConnections", revokeSpec),
+  finalizeDisconnect: Ref.make(
+    "integrations/transcriptConnections",
+    finalizeDisconnectSpec,
+  ),
+  requestPurge: Ref.make(
+    "integrations/transcriptConnections",
+    requestPurgeSpec,
+  ),
 };
 
 export default GroupImpl.make(databaseSchema, transcriptConnections).pipe(
   Layer.provide(beginTranscriptConnect),
   Layer.provide(completeTranscriptConnect),
+  Layer.provide(disconnectTranscriptConnection),
+  Layer.provide(revokeTranscriptConnection),
+  Layer.provide(finalizeTranscriptDisconnect),
+  Layer.provide(requestTranscriptPurge),
   Layer.provide(prepareTranscriptConnectAttempt),
   Layer.provide(authorizeTranscriptConnectCompletion),
   Layer.provide(finalizeTranscriptConnectAttempt),
