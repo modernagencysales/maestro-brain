@@ -2,178 +2,249 @@
 
 ## Decision
 
-Every successful public signup creates or selects an isolated WorkOS
-organization and provisions one Agency Brain workspace for that organization.
-The first user becomes the Brain workspace owner. A user session without an
-active organization is an onboarding state, not an authorization defect and
-never a generic route error.
+A successful public signup with no WorkOS organization memberships creates one
+isolated WorkOS organization and one Agency Brain workspace. The first user is
+the Brain workspace owner. A user session without an active organization is an
+onboarding condition, not an authorization defect, and never renders the generic
+route error.
 
-The app must not add public signups to the shared WRIP organization. Existing
-invitations and organization memberships remain authoritative and take
-precedence over creating a new agency.
+The app never adds a public signup to WRIP or another existing organization. It
+never treats an unrelated WorkOS membership as proof that the user should own
+the corresponding Brain tenant. Existing team-member invitation onboarding is a
+separate flow and remains outside this fix.
 
 ## Outcome
 
-A new agency owner can sign up, complete organization setup, and arrive at
-Agency Brain without operator intervention. Retrying an interrupted signup is
-idempotent. If setup cannot complete, the page explains what happened and offers
-working retry and sign-out actions.
+A new agency owner can sign up and reach a usable Agency Brain without operator
+intervention. Refreshing or retrying an interrupted setup resumes the same
+agency. If setup cannot finish, the page gives the user working retry and
+sign-out actions instead of `Route unavailable`.
 
 ## Scope Guard
 
 Included:
 
-- Detecting an authenticated WorkOS user whose session has no organization.
-- Reusing a sole existing active membership or creating a new agency
-  organization for a user with no memberships.
-- Creating the user's WorkOS membership and switching the session into that
+- Detecting an authenticated WorkOS user whose session has no active
   organization.
-- Provisioning the corresponding Brain organization, Agency Brain, owner
-  membership, and default workspace through the existing Convex boundary.
-- A recoverable onboarding failure surface and a server-side logout route.
-- Idempotency, race handling, tenant-isolation checks, and hosted acceptance.
+- Creating one deterministic agency organization only when the user has no
+  active WorkOS memberships.
+- Resuming only the organization created for that same founding user.
+- Creating the WorkOS membership and switching the session through AuthKit.
+- Provisioning the Agency Brain and owner role through the existing Convex
+  `ensureProvisionedFromWorkos` boundary.
+- One recoverable setup-failure state and a server-side logout route.
+- Idempotency, race handling, tenant isolation, accessibility, and hosted
+  acceptance.
 
 Excluded:
 
+- Team-member invitation acceptance and cross-agency membership selection.
+- Automatically choosing or provisioning an unrelated existing WorkOS
+  membership.
 - Billing, trials, plan selection, domains, SSO, and directory sync.
-- Joining multiple agencies during signup.
-- Automatically selecting between multiple existing memberships.
-- Adding any public signup to WRIP or another existing customer organization.
+- Asking for an agency name during signup. The existing provisioner uses the
+  verified display name; renaming is a later settings concern.
 - Changing connector, transcript, Client Brain, or retrieval behavior.
 
 Fabro remains paused. Woodpecker remains the required CI authority.
 
+## Known Adjacent Gap
+
+The existing Brain invitation acceptance path creates internal workspace
+membership but does not yet reconcile a first-time invitee's WorkOS membership
+with owner-oriented Convex provisioning. This design does not conceal that gap
+by promoting invitees or creating personal agencies for them. Such sessions fail
+closed with the agency-access message above. Team-member onboarding needs its
+own follow-up design and acceptance test.
+
+## Minimal Architecture
+
+Reuse the installed and existing boundaries:
+
+- `@workos-inc/node` for organization and membership reads/writes. Add it as a
+  direct web dependency because AuthKit currently provides it only transitively.
+- WorkOS `externalId` plus `createOrganization`'s native `idempotencyKey` for
+  deterministic organization creation.
+- AuthKit `switchToOrganization` to refresh the session cookie and access token
+  with the new organization claim.
+- Existing Convex `ensureProvisionedFromWorkos` for stable Brain organization,
+  Agency Brain, organization owner, and workspace owner creation.
+- Existing route-pending UI while the server loader performs setup.
+
+Add one small server-only onboarding service. Do not add a generic workflow, job
+queue, retry framework, provider abstraction, or client-side state machine.
+
 ## Signup And Session Flow
 
 1. WorkOS authenticates the user.
-2. The server reads the authenticated user and active organization claim.
-3. If an organization claim exists, the current provisioning path continues.
-4. If the claim is absent, the onboarding service lists only that user's active
-   WorkOS memberships.
-5. With one active membership, the server switches the session to it.
-6. With no memberships, the server creates one organization using a stable
-   external ID derived from the WorkOS user ID, creates the membership, and
-   switches the session to the new organization.
-7. With multiple memberships and no active selection, the server returns an
-   explicit organization-selection state. It does not guess.
-8. After the organization switch refreshes the session claims, the existing
-   Convex `ensureProvisionedFromWorkos` action provisions the Agency Brain and
-   grants the first internal member the owner role.
-9. The browser returns to the originally requested safe application path.
+2. Require the server-derived WorkOS user ID, email, and verified-email flag. An
+   incomplete or unverified identity stops before any organization write.
+3. If the session already has an active organization, run the existing Convex
+   provisioning path unchanged.
+4. If the organization claim is absent, list the authenticated user's active
+   WorkOS memberships and look up the onboarding-owned organization by the
+   deterministic external ID `maestro-brain-founder:{workosUserId}`.
+5. If that organization exists and the user is its active member, call AuthKit
+   `switchToOrganization` and resume. This is the interrupted-setup path.
+6. If the user has no active memberships, create or recover that deterministic
+   organization, using the verified display name with `Agency` appended (or the
+   email local-part as a fallback), create its membership, and switch the
+   session to it.
+7. If any active membership exists but none is the deterministic
+   onboarding-owned organization, stop safely. Do not create another agency,
+   choose an organization, or grant Brain ownership.
+8. Use the access token returned by `switchToOrganization` to call the existing
+   Convex `ensureProvisionedFromWorkos` action in the same server request.
+9. Return the authenticated runtime and continue to the originally requested
+   safe local path. No extra success redirect is required.
 
-Organization and membership creation are server-only WorkOS API operations. The
-browser never receives the WorkOS API key. The session switch uses the official
-AuthKit server operation so the refreshed cookie and access token contain the
-selected organization.
+The WorkOS API key, user ID, membership list, organization ID, session cookie,
+and access token remain server-side. The browser submits none of them as
+onboarding authority.
 
 ## Idempotency And Concurrency
 
-The WorkOS organization external ID is deterministic for the founding user.
-Retries first look up the organization and current memberships, then create only
-missing resources. A duplicate-creation conflict triggers a read and resume
-instead of a second organization.
+Organization creation uses both:
 
-Convex provisioning keeps its existing organization-derived stable keys and
-idempotent receipt. Concurrent browser requests may repeat reads and safe ensure
-operations but cannot create a second Agency Brain or grant access to a
-different tenant.
+- external ID `maestro-brain-founder:{workosUserId}`; and
+- a stable WorkOS idempotency key derived from the same versioned value.
 
-## Runtime States
+The server reads before creating. If create returns a duplicate conflict, it
+reads by external ID and continues only when that organization has the expected
+external ID. Membership creation reads active memberships first; a concurrent
+create or reactivation is resolved by re-reading the authoritative membership.
 
-The auth/runtime contract distinguishes:
+The existing Convex provisioner already derives stable keys, selects a single
+live owner-controlled organization and Agency Brain, creates owner memberships,
+and rejects duplicate WorkOS-organization bindings. The onboarding layer does
+not duplicate that logic.
+
+## Runtime And UI States
+
+Keep the runtime contract small:
 
 - `signedOut`: redirect to sign in.
-- `authenticated`: active organization claim exists; load the workspace.
-- `onboarding`: organization setup or session switching is in progress.
-- `organizationSelectionRequired`: multiple authorized memberships require an
-  explicit choice.
-- `onboardingFailure`: setup stopped with a safe typed reason and can retry.
+- `authenticated`: an active organization claim exists and provisioning
+  succeeds.
+- `setupFailure`: onboarding stopped safely and can retry or sign out.
 
-An organization-less user is never converted to generic `Unauthorized`. Root
-rendering handles onboarding states before mounting workspace queries, so
-workspace hooks cannot throw while organization authority is incomplete.
+The existing route-pending component covers server work in progress. A separate
+`onboarding`, `organizationSelectionRequired`, or client-side workflow state is
+not needed for this owner-signup fix.
+
+Root rendering handles `setupFailure` before AuthKit, workspace, Convex-query,
+or application-shell providers mount. This prevents organization-dependent hooks
+from throwing while authority is incomplete.
 
 ## Product Copy
 
-Pending state:
+Default recoverable failure:
 
-- Heading: `Setting up your agency`
-- Body: `Creating your private Agency Brain workspace.`
-
-Recoverable failure:
-
-- Heading: `Agency setup needs attention`
+- Heading: `Agency setup couldn't finish`
 - Body:
-  `We couldn't finish creating your workspace. Retry setup or sign out and try another account.`
+  `Your account is ready, but your private workspace isn't. Retry setup or sign out and try again.`
 - Primary action: `Retry setup`
 - Secondary action: `Sign out`
 
-Multiple memberships:
+Existing unrelated membership:
 
-- Heading: `Choose an agency`
-- Body: `Select the agency you want to open.`
-- Action per organization: `Open {organizationName}`
+- Heading: `Agency access needs attention`
+- Body:
+  `This account already belongs to an agency, but Brain can't open it from this session. Sign out, then use that agency's invitation link.`
+- Action: `Sign out`
 
 Errors remain calm and actionable. Raw provider errors, identifiers, tokens, and
 stack traces are never shown.
 
+## Accessibility
+
+- Render the setup failure inside a visible primary `main` landmark with one
+  page-level heading.
+- Move focus to the heading when the failure route renders.
+- Announce the failure through a stable `role="alert"` region.
+- Use a native button for `Retry setup` and a normal link to `/logout` for
+  `Sign out`.
+- While retry is submitting, disable only that button, preserve its label, and
+  expose progress text through a polite status region.
+- Preserve visible focus indicators, logical keyboard order, 200% zoom, and
+  320-pixel reflow.
+
 ## Error Handling
 
-- Retry transient WorkOS failures with a short bounded policy and preserve the
-  typed onboarding state when exhausted.
-- Treat duplicate organization or membership creation as a recoverable race.
-- Treat a forbidden or inactive membership as a non-retryable setup failure.
+- Do not add automatic retry machinery. A failed server request returns the
+  typed setup state; the explicit retry action is safe because creation is
+  idempotent.
+- Treat organization or membership duplicate conflicts as races: re-read and
+  verify before continuing.
+- Treat forbidden, inactive, or unrelated membership states as non-retryable for
+  owner onboarding.
 - Never call Convex provisioning until the refreshed access token contains the
-  selected WorkOS organization.
-- Preserve the requested application path only when it is a local safe path;
-  otherwise return to `/brain`.
-- Provide `/logout` through the official AuthKit server `signOut` operation so a
-  stale organization-less cookie can always be cleared.
+  organization selected by AuthKit.
+- Preserve a requested path only when it is a safe local application path;
+  otherwise continue to `/brain`.
+- Provide `/logout` through AuthKit's server `signOut` operation so a stale
+  organization-less cookie can always be cleared.
 
 ## Security And Isolation
 
-- Public signup never joins an existing organization by email domain, name, or
-  operator default.
-- Existing membership reuse is allowed only when WorkOS says the authenticated
-  user is an active member.
-- Organization switching accepts only an organization from that membership list.
-- WorkOS user ID and organization ID remain server-derived; the browser cannot
-  submit either as onboarding authority.
+- Zero active memberships is required before creating a new self-service agency,
+  except when resuming the deterministic organization owned by the same founding
+  user.
+- Public signup never joins an existing organization by email domain, name,
+  operator default, or membership count.
+- Organization switching accepts only the deterministic onboarding-owned
+  organization in this flow.
 - Every Convex write remains fenced by the organization claim in the refreshed
   access token.
-- Logs record stable correlation tags and typed outcomes, not email addresses,
-  cookies, access tokens, API keys, or WorkOS response bodies.
+- Logs record a correlation tag and typed outcome, not email addresses, WorkOS
+  response bodies, cookies, access tokens, or API keys.
+- Failed setup creates no cross-tenant access. Orphaned WorkOS resources may be
+  resumed by the same user only; they are never reassigned.
 
 ## Testing
 
-Behavior tests cover:
+Focused behavior tests cover:
 
-- Signed-out redirect.
-- Existing organization claim continuing without onboarding.
-- No memberships creating one organization and membership exactly once.
-- One existing membership switching without creating another organization.
-- Multiple memberships requiring explicit selection.
-- Duplicate-creation races resuming from the authoritative WorkOS state.
-- Session switch completing before Convex provisioning.
-- WorkOS and Convex transient failure, retry success, retry exhaustion, and
-  non-retryable failure states.
+- Signed-out redirect and existing organization passthrough.
+- Zero memberships creating one organization and membership.
+- Interrupted setup recovering the deterministic organization.
+- Stable WorkOS idempotency key and duplicate-conflict re-read.
+- An unrelated membership refusing owner provisioning.
+- AuthKit session switch completing before Convex provisioning.
+- WorkOS create, membership, switch, and Convex failures producing the safe
+  setup state.
+- Retry success and logout from an organization-less session.
 - Safe return-path validation.
-- Logout clearing a stale organization-less session.
-- Cross-user and cross-organization negative cases.
-- UI loading, selection, failure, retry, and sign-out states.
+- Cross-user external-ID and cross-organization negative cases.
+- Keyboard traversal, focus placement, accessible names, live announcements,
+  200% zoom, and narrow-width reflow for the failure surface.
 
-Hosted acceptance uses a disposable WorkOS user with no organization, verifies
-that first login reaches Agency Brain, hard reloads the route, confirms the
-workspace owner role, and proves another agency cannot read it. Cleanup removes
-the disposable WorkOS and Brain test records through supported lifecycle paths.
+Hosted acceptance creates a disposable WorkOS user with a generated password and
+no memberships, signs in through the real hosted UI, reaches Agency Brain, hard
+reloads, verifies the owner role, and confirms another agency cannot read the
+workspace. The test deletes its WorkOS membership, organization, and user in
+`finally`. It runs as a release smoke, not on every PR. Brain staging records
+are marked with a stable acceptance prefix and remain until a supported Brain
+purge path exists; the test does not pretend physical cleanup exists.
+
+## Staging Migration
+
+Before hosted acceptance, remove only the manually created WRIP membership for
+`timkeen+test@gmail.com` after verifying no internal Brain authorization depends
+on it. That membership was an operator workaround, not a valid tenant binding,
+and would correctly fail the new unrelated-membership guard. Do not change the
+smoke account or any pre-existing membership. After deployment, the same user
+can resume its organization-less session and create its own isolated agency.
 
 ## Success Criteria
 
-- A new signup reaches a usable Agency Brain without operator intervention.
-- Repeating or refreshing onboarding creates no duplicate WorkOS organization,
-  membership, Brain organization, or Agency Brain.
+- A zero-membership signup reaches a usable Agency Brain without operator
+  intervention.
+- Refreshing or retrying creates no duplicate WorkOS organization, membership,
+  Brain organization, or Agency Brain.
 - No organization-less session renders `Route unavailable`.
 - A stale session can always sign out and restart setup.
-- A public signup gains no access to WRIP or any existing customer tenant.
+- Existing memberships never cause automatic owner promotion or access to WRIP
+  or another customer tenant.
 - Required focused tests, full repository verification, Woodpecker, and hosted
   fresh-signup acceptance pass on the release head.
