@@ -22,6 +22,15 @@ describe("AuthKit client bridge", () => {
     expect(JSON.stringify(initialAuth)).not.toContain("access_token");
   });
 
+  it("does not construct authenticated provider state from setup failure", () => {
+    expect(
+      authSnapshotToInitialAuth({
+        status: "setupFailure",
+        reason: "provider_failure",
+      }),
+    ).toEqual({ user: null });
+  });
+
   it("converts authenticated snapshots to AuthKit initial auth without access tokens", () => {
     const initialAuth = authSnapshotToInitialAuth(authenticatedSnapshot);
 

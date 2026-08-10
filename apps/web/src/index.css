@@ -432,19 +432,40 @@ a {
 
 .template-route-state-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
+  gap: 8px;
   margin-top: 18px;
 }
 
 .template-route-state-actions a,
 .template-route-state-actions button {
-  min-height: 36px;
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
   border: 1px solid var(--template-border);
   border-radius: 6px;
   background: var(--template-page);
   color: var(--template-text);
   padding: 8px 12px;
+  cursor: pointer;
   text-decoration: none;
+}
+
+.template-route-state-actions [data-variant="primary"] {
+  border-color: var(--template-text);
+  background: var(--template-text);
+  color: var(--template-page);
+}
+
+.template-route-state-actions a:hover,
+.template-route-state-actions button:hover {
+  background: var(--template-hover);
+}
+
+.template-route-state-actions [data-variant="primary"]:hover {
+  background: #37352f;
 }
 
 .template-route-state.error {

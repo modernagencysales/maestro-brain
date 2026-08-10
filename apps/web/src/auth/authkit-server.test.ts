@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   AuthConfigurationInvalid,
@@ -173,7 +173,100 @@ describe("AuthKit server bridge", () => {
     expect(provisionedTokens).toEqual(["token-redacted"]);
   });
 
-  it("fails closed when live workspace provisioning fails", async () => {
+  it("onboards a verified organization-less user before Convex provisioning", async () => {
+    const calls: string[] = [];
+
+    await expect(
+      getSafeClientRuntime({
+        env: validLiveEnv,
+        getAuth: async () => ({
+          user: {
+            id: "user_123",
+            email: "tim@example.com",
+            emailVerified: true,
+            firstName: "Tim",
+            lastName: "Keen",
+          },
+          sessionId: "session_123",
+          accessToken: "token-redacted",
+        }),
+        onboardAgency: async (onboardingUser) => {
+          calls.push(`onboard:${onboardingUser.id}`);
+          return {
+            kind: "authenticated",
+            organizationId: "org_new",
+            accessToken: "token-redacted",
+          };
+        },
+        provisionWorkspace: async (accessToken) => {
+          calls.push(`provision:${accessToken}`);
+        },
+      }),
+    ).resolves.toEqual({
+      authSnapshot: {
+        status: "authenticated",
+        subject: "user_123",
+        email: "tim@example.com",
+        organizationId: "org_new",
+        sessionId: "session_123",
+      },
+      workspaceRuntimeMode: "live",
+    });
+    expect(calls).toEqual(["onboard:user_123", "provision:token-redacted"]);
+  });
+
+  it("returns a safe setup failure without provisioning a workspace", async () => {
+    const provisionWorkspace = vi.fn();
+
+    await expect(
+      getSafeClientRuntime({
+        env: validLiveEnv,
+        getAuth: async () => ({
+          user: {
+            id: "user_123",
+            email: "tim@example.com",
+            emailVerified: true,
+            firstName: "Tim",
+            lastName: "Keen",
+          },
+          sessionId: "session_123",
+          accessToken: "token-redacted",
+        }),
+        onboardAgency: async () => ({
+          kind: "setupFailure",
+          reason: "provider_failure",
+        }),
+        provisionWorkspace,
+      }),
+    ).resolves.toEqual({
+      authSnapshot: {
+        status: "setupFailure",
+        reason: "provider_failure",
+      },
+      workspaceRuntimeMode: "live",
+    });
+    expect(provisionWorkspace).not.toHaveBeenCalled();
+  });
+
+  it("bypasses agency onboarding for an existing organization claim", async () => {
+    const onboardAgency = vi.fn();
+
+    await getSafeClientRuntime({
+      env: validLiveEnv,
+      getAuth: async () => ({
+        user: { id: "user_123", email: "tim@example.com" },
+        sessionId: "session_123",
+        organizationId: "org_existing",
+        accessToken: "token_existing",
+      }),
+      onboardAgency,
+      provisionWorkspace: noProvision,
+    });
+
+    expect(onboardAgency).not.toHaveBeenCalled();
+  });
+
+  it("returns a recoverable setup failure when existing workspace provisioning fails", async () => {
     await expect(
       getSafeClientRuntime({
         env: validLiveEnv,
@@ -187,7 +280,44 @@ describe("AuthKit server bridge", () => {
           throw new Error("workspace provisioning failed");
         },
       }),
-    ).rejects.toThrow("workspace provisioning failed");
+    ).resolves.toEqual({
+      authSnapshot: {
+        status: "setupFailure",
+        reason: "provider_failure",
+      },
+      workspaceRuntimeMode: "live",
+    });
+  });
+
+  it("returns a recoverable setup failure when new agency provisioning fails", async () => {
+    await expect(
+      getSafeClientRuntime({
+        env: validLiveEnv,
+        getAuth: async () => ({
+          user: {
+            id: "user_123",
+            email: "tim@example.com",
+            emailVerified: true,
+          },
+          sessionId: "session_123",
+          accessToken: "token-redacted",
+        }),
+        onboardAgency: async () => ({
+          kind: "authenticated",
+          organizationId: "org_new",
+          accessToken: "token-redacted",
+        }),
+        provisionWorkspace: async () => {
+          throw new Error("workspace provisioning failed");
+        },
+      }),
+    ).resolves.toEqual({
+      authSnapshot: {
+        status: "setupFailure",
+        reason: "provider_failure",
+      },
+      workspaceRuntimeMode: "live",
+    });
   });
 
   it("marks safe runtime metadata as test mode for test provider config", async () => {

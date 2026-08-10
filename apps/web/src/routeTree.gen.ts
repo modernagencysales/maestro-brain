@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as LogoutRouteImport } from './routes/logout'
 import { Route as CallbackRouteImport } from './routes/callback'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WorkspaceWorkflowsRouteImport } from './routes/_workspace.workflows'
@@ -37,6 +38,11 @@ import { Route as WorkspaceAdminRouteImport } from './routes/_workspace.admin'
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LogoutRoute = LogoutRouteImport.update({
+  id: '/logout',
+  path: '/logout',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CallbackRoute = CallbackRouteImport.update({
@@ -158,6 +164,7 @@ const WorkspaceAdminRoute = WorkspaceAdminRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/callback': typeof CallbackRoute
+  '/logout': typeof LogoutRoute
   '/sign-in': typeof SignInRoute
   '/admin': typeof WorkspaceAdminRoute
   '/agents': typeof WorkspaceAgentsRoute
@@ -184,6 +191,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/callback': typeof CallbackRoute
+  '/logout': typeof LogoutRoute
   '/sign-in': typeof SignInRoute
   '/admin': typeof WorkspaceAdminRoute
   '/agents': typeof WorkspaceAgentsRoute
@@ -211,6 +219,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/callback': typeof CallbackRoute
+  '/logout': typeof LogoutRoute
   '/sign-in': typeof SignInRoute
   '/_workspace/admin': typeof WorkspaceAdminRoute
   '/_workspace/agents': typeof WorkspaceAgentsRoute
@@ -239,6 +248,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/callback'
+    | '/logout'
     | '/sign-in'
     | '/admin'
     | '/agents'
@@ -265,6 +275,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/callback'
+    | '/logout'
     | '/sign-in'
     | '/admin'
     | '/agents'
@@ -291,6 +302,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/callback'
+    | '/logout'
     | '/sign-in'
     | '/_workspace/admin'
     | '/_workspace/agents'
@@ -318,6 +330,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CallbackRoute: typeof CallbackRoute
+  LogoutRoute: typeof LogoutRoute
   SignInRoute: typeof SignInRoute
   WorkspaceAdminRoute: typeof WorkspaceAdminRoute
   WorkspaceAgentsRoute: typeof WorkspaceAgentsRoute
@@ -349,6 +362,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-in'
       fullPath: '/sign-in'
       preLoaderRoute: typeof SignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/logout': {
+      id: '/logout'
+      path: '/logout'
+      fullPath: '/logout'
+      preLoaderRoute: typeof LogoutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/callback': {
@@ -518,6 +538,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CallbackRoute: CallbackRoute,
+  LogoutRoute: LogoutRoute,
   SignInRoute: SignInRoute,
   WorkspaceAdminRoute: WorkspaceAdminRoute,
   WorkspaceAgentsRoute: WorkspaceAgentsRoute,
