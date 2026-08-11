@@ -189,4 +189,100 @@ describe("runtime workspace operations", () => {
       workspaceId: "br_01J0000000000000000000000C",
     });
   });
+
+  it("passes an authorized empty workspace list to provisioning", async () => {
+    const operations = createRuntimeWorkspaceOperations({
+      authSnapshot: {
+        status: "authenticated",
+        subject: "user_1",
+        email: "user@example.com",
+        organizationId: "org_1",
+        sessionId: "session_1",
+      },
+      mode: "live",
+      liveRefs: {
+        listResult: {
+          status: "empty",
+          data: [],
+        },
+        ensureProvisioned: (() => {
+          const mutation = Object.assign(
+            async () =>
+              Either.right({
+                brainKey: "br_01J0000000000000000000000C",
+              }),
+            { withOptimisticUpdate: () => mutation },
+          );
+          return mutation;
+        })(),
+      } satisfies NonNullable<SafeWorkspaceRuntime["liveRefs"]>,
+    });
+
+    await expect(operations.loadWorkspaces()).resolves.toEqual([]);
+  });
+
+  it("preserves a settled workspace query failure diagnostic", async () => {
+    const failure = new TypeError("workspace transport failed");
+    const operations = createRuntimeWorkspaceOperations({
+      authSnapshot: {
+        status: "authenticated",
+        subject: "user_1",
+        email: "user@example.com",
+        organizationId: "org_1",
+        sessionId: "session_1",
+      },
+      mode: "live",
+      liveRefs: {
+        listResult: {
+          status: "transport_failure",
+          error: failure,
+          message: failure.message,
+        },
+        ensureProvisioned: (() => {
+          const mutation = Object.assign(
+            async () =>
+              Either.right({
+                brainKey: "br_01J0000000000000000000000C",
+              }),
+            { withOptimisticUpdate: () => mutation },
+          );
+          return mutation;
+        })(),
+      } satisfies NonNullable<SafeWorkspaceRuntime["liveRefs"]>,
+    });
+
+    await expect(operations.loadWorkspaces()).rejects.toThrow(
+      "workspace transport failed",
+    );
+  });
+
+  it("distinguishes a pending workspace query from a settled failure", async () => {
+    const operations = createRuntimeWorkspaceOperations({
+      authSnapshot: {
+        status: "authenticated",
+        subject: "user_1",
+        email: "user@example.com",
+        organizationId: "org_1",
+        sessionId: "session_1",
+      },
+      mode: "live",
+      liveRefs: {
+        listResult: { status: "loading" },
+        ensureProvisioned: (() => {
+          const mutation = Object.assign(
+            async () =>
+              Either.right({
+                brainKey: "br_01J0000000000000000000000C",
+              }),
+            { withOptimisticUpdate: () => mutation },
+          );
+          return mutation;
+        })(),
+      } satisfies NonNullable<SafeWorkspaceRuntime["liveRefs"]>,
+    });
+
+    await expect(operations.loadWorkspaces()).rejects.toThrow(
+      "Workspace list query is still loading.",
+    );
+  });
 });
