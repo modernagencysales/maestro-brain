@@ -76,18 +76,19 @@ export const createLiveWorkspaceOperations = (
   refs: LiveWorkspaceRefs,
 ): WorkspaceOperations => ({
   loadWorkspaces: async () => {
-    if (refs.listResult.status !== "ready") {
-      throw new Error("Authorized workspace list is not ready.");
+    switch (refs.listResult.status) {
+      case "ready":
+      case "empty":
+        return refs.listResult.data.map(toWorkspaceSummary);
+      case "loading":
+      case "skipped":
+        throw new Error("Workspace list query is still loading.");
+      case "typed_failure":
+      case "parse_failure":
+      case "transport_failure":
+      case "defect":
+        throw workspaceListFailure(refs.listResult);
     }
-    return refs.listResult.data.map((workspace) => ({
-      workspaceId: workspace.brainKey,
-      organizationId: workspace.agencyKey,
-      kind: workspace.kind,
-      name: workspace.name,
-      slug: workspace.clientSlug ?? workspace.brainKey,
-      role: workspace.effectiveRole,
-      status: workspace.status,
-    }));
   },
   ensureProvisioned: async () => {
     const provisioned = await refs.ensureProvisioned({});
@@ -97,6 +98,44 @@ export const createLiveWorkspaceOperations = (
     return { workspaceId: provisioned.right.brainKey };
   },
 });
+
+export const isWorkspaceListPending = (
+  result: LiveWorkspaceRefs["listResult"],
+): boolean => result.status === "loading" || result.status === "skipped";
+
+const toWorkspaceSummary = (
+  workspace: Ref.Returns<WorkspaceListRef>[number],
+): WorkspaceSummary => ({
+  workspaceId: workspace.brainKey,
+  organizationId: workspace.agencyKey,
+  kind: workspace.kind,
+  name: workspace.name,
+  slug: workspace.clientSlug ?? workspace.brainKey,
+  role: workspace.effectiveRole,
+  status: workspace.status,
+});
+
+const workspaceListFailure = (
+  result: Extract<
+    LiveWorkspaceRefs["listResult"],
+    {
+      readonly status:
+        "typed_failure" | "parse_failure" | "transport_failure" | "defect";
+    }
+  >,
+): Error => {
+  if (result.error instanceof Error) return result.error;
+  if ("message" in result) return new Error(result.message);
+  if (
+    typeof result.error === "object" &&
+    result.error !== null &&
+    "message" in result.error &&
+    typeof result.error.message === "string"
+  ) {
+    return new Error(result.error.message);
+  }
+  return new Error("Workspace list query failed.");
+};
 
 export const createFailClosedWorkspaceOperations = (): WorkspaceOperations => ({
   loadWorkspaces: async () => {
