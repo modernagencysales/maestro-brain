@@ -76,83 +76,9 @@ export const ApiKeyRow = Schema.Struct({
   expiresAt: NullableNumber,
   revokedAt: NullableNumber,
   lastUsedAt: NullableNumber,
-  legacyMetadataJson: Schema.optional(Schema.String),
 });
 
 export type ApiKeyRow = Schema.Schema.Type<typeof ApiKeyRow>;
-
-export const LegacyPersistedApiKeyRow = Schema.Struct({
-  organizationId: Schema.String,
-  workspaceId: Schema.NullOr(Schema.String),
-  name: Schema.String,
-  keyId: Schema.String,
-  secretHash: Schema.String,
-  hashVersion: Schema.Literal("hmac-sha256-v1"),
-  pepperVersion: Schema.Literal("v1"),
-  preview: Schema.String,
-  scopeKind: Schema.Literal("organization", "workspace"),
-  status: Schema.Literal("active", "revoked"),
-  scopes: Schema.Array(Schema.String),
-  roleCap: Schema.Literal("viewer", "editor"),
-  createdByUserId: Schema.String,
-  createdAt: Schema.Number,
-  expiresAt: NullableNumber,
-  lastUsedAt: NullableNumber,
-  lastUsedIpHash: Schema.NullOr(Schema.String),
-  lastUsedUserAgentHash: Schema.NullOr(Schema.String),
-  revokedAt: NullableNumber,
-  revokedByUserId: Schema.NullOr(Schema.String),
-  revokeReason: Schema.NullOr(Schema.String),
-  rotationOfKeyId: Schema.NullOr(Schema.String),
-});
-export type LegacyPersistedApiKeyRow = Schema.Schema.Type<
-  typeof LegacyPersistedApiKeyRow
->;
-
-export const ApiKeyStorageRow = Schema.Struct({
-  id: Schema.optional(Schema.String),
-  principalId: Schema.optional(Schema.String),
-  organizationId: Schema.optional(Schema.String),
-  workspaceId: Schema.NullOr(Schema.String),
-  brainKey: Schema.optional(Schema.String),
-  name: Schema.String,
-  keyHash: Schema.optional(Schema.String),
-  displayPrefix: Schema.optional(Schema.String),
-  scopes: Schema.Array(Schema.String),
-  principalGeneration: Schema.optional(Schema.Number),
-  organizationGeneration: Schema.optional(Schema.Number),
-  organizationRevocationGeneration: Schema.optional(Schema.Number),
-  workspaceGeneration: Schema.optional(Schema.Number),
-  workspaceRevocationGeneration: Schema.optional(Schema.Number),
-  roleCeiling: Schema.optional(Schema.Literal("viewer")),
-  status: ApiKeyStatus,
-  createdByUserId: Schema.String,
-  createdAt: Schema.Number,
-  expiresAt: NullableNumber,
-  revokedAt: NullableNumber,
-  lastUsedAt: NullableNumber,
-  legacyMetadataJson: Schema.optional(Schema.String),
-  keyId: Schema.optional(Schema.String),
-  secretHash: Schema.optional(Schema.String),
-  hashVersion: Schema.optional(Schema.Literal("hmac-sha256-v1")),
-  pepperVersion: Schema.optional(Schema.Literal("v1")),
-  preview: Schema.optional(Schema.String),
-  scopeKind: Schema.optional(Schema.Literal("organization", "workspace")),
-  roleCap: Schema.optional(Schema.Literal("viewer", "editor")),
-  lastUsedIpHash: Schema.optional(Schema.NullOr(Schema.String)),
-  lastUsedUserAgentHash: Schema.optional(Schema.NullOr(Schema.String)),
-  revokedByUserId: Schema.optional(Schema.NullOr(Schema.String)),
-  revokeReason: Schema.optional(Schema.NullOr(Schema.String)),
-  rotationOfKeyId: Schema.optional(Schema.NullOr(Schema.String)),
-});
-export type ApiKeyStorageRow = Schema.Schema.Type<typeof ApiKeyStorageRow>;
-
-export const isModernApiKeyRow = (row: ApiKeyStorageRow): row is ApiKeyRow =>
-  row.id !== undefined &&
-  row.workspaceId !== null &&
-  row.keyHash !== undefined &&
-  row.displayPrefix !== undefined &&
-  row.scopes.every((scope) => Schema.is(ApiKeyScope)(scope));
 
 export const ApiKeyMetadataSchema = Schema.Struct({
   id: Schema.String,
