@@ -31,10 +31,12 @@ import {
   PublicBrainApiKeyCreateResult,
   createBrainApiKey,
   hashPresentedApiKey,
+  isModernApiKeyRow,
   parseBearerApiKey,
   revokeBrainApiKey,
   rotateBrainApiKey,
   type ApiKeyRow,
+  type ApiKeyStorageRow,
   type ServicePrincipalRow,
 } from "./auth";
 import { sha256Base64Url } from "../shared/tokenCrypto";
@@ -51,6 +53,10 @@ export type PublicApiKeyServerContext = {
   readonly serverScope: BrainApiKeyServerScope;
   readonly actor: { readonly userId: string; readonly role: Role };
 };
+
+const isModernStoredApiKey = <Row extends ApiKeyStorageRow>(
+  row: Row,
+): row is Row & ApiKeyRow => isModernApiKeyRow(row);
 
 const authError = (
   code: HeadlessAuthErrorCode,
@@ -407,6 +413,7 @@ export const listApiKeysForBrain = (input: PublicApiKeyServerContext) =>
       .collect()
       .pipe(Effect.orDie);
     return rows
+      .filter(isModernStoredApiKey)
       .filter((row) => row.organizationId === input.serverScope.organizationId)
       .map(publicMetadata);
   });
@@ -454,11 +461,13 @@ export const revokeApiKeyForBrain = (
       .collect()
       .pipe(Effect.orDie);
     const key = requireExactlyOne(
-      keys.filter(
-        (candidate) =>
-          candidate.id === input.keyId &&
-          candidate.organizationId === input.serverScope.organizationId,
-      ),
+      keys
+        .filter(isModernStoredApiKey)
+        .filter(
+          (candidate) =>
+            candidate.id === input.keyId &&
+            candidate.organizationId === input.serverScope.organizationId,
+        ),
     );
     if (key === undefined) {
       return yield* Effect.fail(new ApiKeyNotFound({ keyId: input.keyId }));
@@ -526,7 +535,7 @@ export const authenticateBrainKeyHash = (input: {
       .index("by_key_hash", (q) => q.eq("keyHash", input.keyHash))
       .collect()
       .pipe(Effect.orDie);
-    const key = requireExactlyOne(keys);
+    const key = requireExactlyOne(keys.filter(isModernStoredApiKey));
     const principalId = key?.principalId ?? "__missing_principal_probe__";
     const principal =
       (yield* reader
@@ -739,7 +748,7 @@ export const markApiKeyLastUsed = (input: {
       .index("by_key_hash", (q) => q.eq("keyHash", input.keyHash))
       .collect()
       .pipe(Effect.orDie);
-    const key = requireExactlyOne(keys);
+    const key = requireExactlyOne(keys.filter(isModernStoredApiKey));
     if (
       key === undefined ||
       key._id !== input.keyId ||
@@ -1037,11 +1046,13 @@ export const rotateApiKeyForBrain = (
       .collect()
       .pipe(Effect.orDie);
     const key = requireExactlyOne(
-      keys.filter(
-        (candidate) =>
-          candidate.id === input.keyId &&
-          candidate.organizationId === input.serverScope.organizationId,
-      ),
+      keys
+        .filter(isModernStoredApiKey)
+        .filter(
+          (candidate) =>
+            candidate.id === input.keyId &&
+            candidate.organizationId === input.serverScope.organizationId,
+        ),
     );
     if (key === undefined) {
       return yield* Effect.fail(new ApiKeyNotFound({ keyId: input.keyId }));

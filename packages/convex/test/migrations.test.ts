@@ -183,6 +183,13 @@ const stableWorkspaceArgs = {
   schemaAfter: "sha256:stable-workspace-after",
   batchSize: 1,
 };
+const legacyApiKeysArgs = {
+  ...args,
+  migrationName: "legacyApiKeys.inert.expand",
+  releaseCommit: "release-legacy-api-keys",
+  schemaAfter: "sha256:legacy-api-keys-inert",
+  batchSize: 100,
+};
 
 const seedStableTenantTargets = async (t: TestHarness) => {
   await t.run(async (ctx) => {
@@ -1192,6 +1199,95 @@ describe("Maestro Brain migration harness", () => {
     ]);
   });
 
+  it("replaces legacy API-key rows in place and leaves modern rows byte-identical", async () => {
+    const t = makeTest();
+    const seeded = await t.run(async (ctx) => {
+      const legacyId = await ctx.db.insert("apiKeys", {
+        organizationId: "organizations_legacy",
+        workspaceId: "workspaces_legacy",
+        name: "MCP",
+        keyId: "legacy-key-id",
+        secretHash: "a".repeat(64),
+        hashVersion: "hmac-sha256-v1",
+        pepperVersion: "v1",
+        preview: "mstro_stg_legacy...abcd",
+        scopeKind: "workspace",
+        status: "active",
+        scopes: ["navigation:write"],
+        roleCap: "viewer",
+        createdByUserId: "users_legacy",
+        createdAt: 1_000,
+        expiresAt: null,
+        lastUsedAt: 2_000,
+        lastUsedIpHash: null,
+        lastUsedUserAgentHash: null,
+        revokedAt: null,
+        revokedByUserId: null,
+        revokeReason: null,
+        rotationOfKeyId: null,
+      });
+      const modernId = await ctx.db.insert("apiKeys", {
+        id: "api_key_modern",
+        workspaceId: "workspaces_modern",
+        name: "Modern",
+        keyHash: "modern-hash",
+        displayPrefix: "mbk_live_modern",
+        scopes: ["brain:read"],
+        status: "revoked",
+        createdByUserId: "users_modern",
+        createdAt: 3_000,
+        expiresAt: 4_000,
+        revokedAt: 3_500,
+        lastUsedAt: null,
+      });
+      return { legacyId, modernId };
+    });
+    const modernBefore = await t.run((ctx) => ctx.db.get(seeded.modernId));
+
+    let result = await runAction(
+      t,
+      migrationRefs.runRegisteredMigration,
+      legacyApiKeysArgs,
+    );
+    while (result.status !== "complete") {
+      result = await runAction(
+        t,
+        migrationRefs.runRegisteredMigration,
+        legacyApiKeysArgs,
+      );
+    }
+
+    const after = await t.run(async (ctx) => ({
+      legacy: await ctx.db.get(seeded.legacyId),
+      modern: await ctx.db.get(seeded.modernId),
+    }));
+    expect(after.modern).toEqual(modernBefore);
+    expect(after.legacy).toMatchObject({
+      _id: seeded.legacyId,
+      id: "legacy_legacy-key-id",
+      keyHash: "a".repeat(64),
+      displayPrefix: "mstro_stg_legacy...abcd",
+      scopes: [],
+      status: "active",
+    });
+    expect(after.legacy).not.toHaveProperty("secretHash");
+    expect(after.legacy).not.toHaveProperty("keyId");
+    expect(after.legacy?.legacyMetadataJson).not.toContain("a".repeat(64));
+
+    const rerun = await runAction(
+      t,
+      migrationRefs.runRegisteredMigration,
+      legacyApiKeysArgs,
+    );
+    expect(rerun).toEqual(result);
+    expect(
+      await t.run(async (ctx) => ({
+        legacy: await ctx.db.get(seeded.legacyId),
+        modern: await ctx.db.get(seeded.modernId),
+      })),
+    ).toEqual(after);
+  });
+
   it("keeps migration functions internal-only through generated Confect refs", () => {
     expect(Ref.getFunctionReference(migrationRefs.probeExpand)).toBeDefined();
     expect(
@@ -1206,6 +1302,9 @@ describe("Maestro Brain migration harness", () => {
     ).toBeDefined();
     expect(
       Ref.getFunctionReference(migrationRefs.stableTenantWorkspaceKeysExpand),
+    ).toBeDefined();
+    expect(
+      Ref.getFunctionReference(migrationRefs.legacyApiKeysInertExpand),
     ).toBeDefined();
     expect("migrations" in (refs.public as object)).toBe(false);
   });
