@@ -68,3 +68,15 @@ export function AgencySetupFailure({
     </main>
   );
 }
+
+export function AgencyWorkspaceLoading() {
+  return (
+    <main className="template-route-state" aria-busy="true">
+      <div className="template-route-state-panel">
+        <p className="template-route-state-kicker">Agency Brain</p>
+        <h1>Loading your Agency Brain</h1>
+        <p role="status">Your authorized workspace is being prepared.</p>
+      </div>
+    </main>
+  );
+}

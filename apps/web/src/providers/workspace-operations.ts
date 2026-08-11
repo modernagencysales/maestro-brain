@@ -124,15 +124,16 @@ const workspaceListFailure = (
     }
   >,
 ): Error => {
-  if (result.error instanceof Error) return result.error;
-  if ("message" in result) return new Error(result.message);
+  const error: unknown = result.error;
+  if (error instanceof Error) return error;
+  if (result.status !== "typed_failure") return new Error(result.message);
   if (
-    typeof result.error === "object" &&
-    result.error !== null &&
-    "message" in result.error &&
-    typeof result.error.message === "string"
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof error.message === "string"
   ) {
-    return new Error(result.error.message);
+    return new Error(error.message);
   }
   return new Error("Workspace list query failed.");
 };

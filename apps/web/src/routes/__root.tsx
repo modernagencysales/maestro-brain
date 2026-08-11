@@ -27,6 +27,7 @@ import {
 } from "../adapters/confect-state";
 import {
   createWorkspaceLiveRefs,
+  isWorkspaceListPending,
   reuseRuntimeWorkspaceOperations,
   type RuntimeWorkspaceOperationsCache,
 } from "../providers/workspace-operations";
@@ -34,7 +35,10 @@ import { PostHogWebProvider } from "../providers/posthog";
 import { CookieConsentBoundary } from "../providers/cookie-consent";
 import { WebRouteUxBoundary } from "../navigation/route-ux-boundary";
 import { buildTemplateRouteHead } from "../adapters/route-head";
-import { AgencySetupFailure } from "../features/setup/agency-setup-failure";
+import {
+  AgencySetupFailure,
+  AgencyWorkspaceLoading,
+} from "../features/setup/agency-setup-failure";
 import appCssUrl from "../index.css?url";
 import xyflowCssUrl from "@xyflow/react/dist/style.css?url";
 
@@ -108,6 +112,18 @@ function WorkspaceRuntimeBoundary({
     useMutation: useTemplateMutation,
   });
   const operationsCache = useRef<RuntimeWorkspaceOperationsCache>(undefined);
+
+  if (
+    workspaceRuntimeMode !== "fake" &&
+    isWorkspaceListPending(liveRefs.listResult)
+  ) {
+    return (
+      <RootDocument>
+        <AgencyWorkspaceLoading />
+      </RootDocument>
+    );
+  }
+
   operationsCache.current = reuseRuntimeWorkspaceOperations(
     operationsCache.current,
     {

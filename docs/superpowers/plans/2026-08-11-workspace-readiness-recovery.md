@@ -44,8 +44,8 @@ Vitest, Playwright.
 
 - Modify: `apps/web/src/providers/workspace-operations.ts`
 - Modify: `apps/web/src/providers/workspace-operations.test.ts`
-- Create: `apps/web/src/features/setup/agency-workspace-loading.tsx`
-- Create: `apps/web/src/features/setup/agency-workspace-loading.test.tsx`
+- Modify: `apps/web/src/features/setup/agency-setup-failure.tsx`
+- Modify: `apps/web/src/features/setup/agency-setup-failure.test.tsx`
 - Modify: `apps/web/src/routes/__root.tsx`
 
 **Interfaces:**
@@ -84,17 +84,17 @@ initialization and fail closed if called directly.
 
 - [ ] **Step 4: Add and test the loading route state**
 
-Create `AgencyWorkspaceLoading` using the existing `template-route-state`
-classes, `aria-busy="true"`, and `role="status"`. In `WorkspaceRuntimeBoundary`,
-render it inside `RootDocument` whenever live/test mode has a pending list
-result.
+Add `AgencyWorkspaceLoading` beside the existing agency setup route states,
+using the existing `template-route-state` classes, `aria-busy="true"`, and
+`role="status"`. In `WorkspaceRuntimeBoundary`, render it inside `RootDocument`
+whenever live/test mode has a pending list result.
 
 - [ ] **Step 5: Run focused tests and typecheck**
 
 Run:
 
 ```sh
-host-test-slot --class focused pnpm --dir apps/web test -- src/providers/workspace-operations.test.ts src/features/setup/agency-workspace-loading.test.tsx src/providers/workspace.test.tsx
+host-test-slot --class focused pnpm --dir apps/web test -- src/providers/workspace-operations.test.ts src/features/setup/agency-setup-failure.test.tsx src/providers/workspace.test.tsx
 host-test-slot --class focused pnpm --dir apps/web typecheck
 ```
 
@@ -103,7 +103,7 @@ Expected: all commands exit 0.
 - [ ] **Step 6: Commit**
 
 ```sh
-git add apps/web/src/providers/workspace-operations.ts apps/web/src/providers/workspace-operations.test.ts apps/web/src/features/setup/agency-workspace-loading.tsx apps/web/src/features/setup/agency-workspace-loading.test.tsx apps/web/src/routes/__root.tsx
+git add apps/web/src/providers/workspace-operations.ts apps/web/src/providers/workspace-operations.test.ts apps/web/src/features/setup/agency-setup-failure.tsx apps/web/src/features/setup/agency-setup-failure.test.tsx apps/web/src/routes/__root.tsx
 git commit -m "fix: preserve workspace query readiness"
 ```
 
