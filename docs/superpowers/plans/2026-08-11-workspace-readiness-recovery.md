@@ -128,9 +128,17 @@ was recorded.
 
 - [ ] **Step 2: Run the hosted test against the current deployment**
 
-Run the staging WorkOS acceptance command. Expected before deployment: existing
-happy-path remains green; the new unit tests from Task 1 are the regression
-proof for deterministic pending/empty states.
+Run the staging WorkOS acceptance with `WORKOS_API_KEY_STAGING` mapped to the
+test's `WORKOS_API_KEY`; the generic BWS WorkOS key belongs to a different
+client and cannot create users for this Worker:
+
+```sh
+rtk headless-bws-env exec rtk zsh -lc 'WORKOS_API_KEY="$WORKOS_API_KEY_STAGING" WORKOS_CLIENT_ID="client_01KV1TTN04BVCPVW2D0GVXZGRH" TEMPLATE_HOSTED_URL="https://maestro-brain-staging.tim-bb0.workers.dev" rtk pnpm exec playwright test tests/e2e/hosted-agency-signup.spec.ts --project desktop-chromium --workers=1'
+```
+
+Expected before deployment: existing happy-path remains green; the new unit
+tests from Task 1 are the regression proof for deterministic pending/empty
+states.
 
 - [ ] **Step 3: Commit**
 

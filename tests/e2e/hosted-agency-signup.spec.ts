@@ -80,6 +80,20 @@ test("provisions an isolated owner agency for a zero-membership user", async ({
     externalId: `maestro-brain-acceptance:${marker}`,
   });
   const externalId = externalOrganizationId(user.id);
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  const expectVisibleBrainDocument = async () => {
+    const body = page.locator("body");
+    await expect(body).toBeVisible();
+    expect((await body.innerText()).trim()).not.toBe("");
+    await expect(
+      page.getByText("Authorized workspace list is not ready.", {
+        exact: true,
+      }),
+    ).toHaveCount(0);
+    await expect(page.getByText("Route unavailable")).toHaveCount(0);
+    expect(pageErrors).toEqual([]);
+  };
   let primaryError: unknown;
   let cleanupFailed = false;
 
@@ -102,13 +116,13 @@ test("provisions an isolated owner agency for a zero-membership user", async ({
       timeout: 60_000,
     });
 
-    await expect(page.getByText("Route unavailable")).toHaveCount(0);
+    await expectVisibleBrainDocument();
     await expect(
       page.getByRole("heading", { name: "Agency Brain", exact: true }),
     ).toBeVisible({ timeout: 60_000 });
 
     await page.reload();
-    await expect(page.getByText("Route unavailable")).toHaveCount(0);
+    await expectVisibleBrainDocument();
     await expect(
       page.getByRole("heading", { name: "Agency Brain", exact: true }),
     ).toBeVisible({ timeout: 60_000 });
@@ -135,6 +149,7 @@ test("provisions an isolated owner agency for a zero-membership user", async ({
     await expect(
       page.getByRole("form", { name: "Create API key" }),
     ).toBeVisible();
+    expect(pageErrors).toEqual([]);
   } catch (error) {
     primaryError = error;
   } finally {
