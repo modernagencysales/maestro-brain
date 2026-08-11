@@ -15,6 +15,10 @@ export type NangoConnectOpen = (input: {
   readonly token: string;
 }) => Promise<{ readonly connectionId: string }>;
 
+export class NangoConnectCancelled extends Error {
+  readonly _tag = "NangoConnectCancelled";
+}
+
 export const openNangoConnect = async (input: {
   readonly connectSessionToken: string;
   readonly expiresAt: number;
@@ -60,19 +64,26 @@ export const openNangoConnectWithSdk = async (input: {
     connectSessionToken: input.connectSessionToken,
   });
   return await new Promise((resolve, reject) => {
+    let settled = false;
     const ui = nango.openConnectUI({
       sessionToken: input.connectSessionToken,
       onEvent: (event) => {
+        if (settled) return;
         const connectionId = connectionIdFromEvent(event);
         if (connectionId !== null) {
+          settled = true;
           ui.close?.();
           resolve({ connectionId });
+          return;
         }
-        if (
-          typeof event === "object" &&
-          event !== null &&
-          (event as { readonly type?: unknown }).type === "error"
-        ) {
+        if (typeof event !== "object" || event === null) return;
+        const eventType = (event as { readonly type?: unknown }).type;
+        if (eventType === "close") {
+          settled = true;
+          ui.close?.();
+          reject(new NangoConnectCancelled());
+        } else if (eventType === "error") {
+          settled = true;
           ui.close?.();
           reject(new ConnectSessionInvalid());
         }

@@ -29,13 +29,28 @@ export const startNangoConnect = async (input: {
     readonly connectionId: string;
     readonly connectSessionId: string;
   }) => Promise<SlackConnectResult>;
+  readonly cancel: (input: {
+    readonly connectSessionId: string;
+  }) => Promise<void>;
   readonly log?: (event: string, metadata: Record<string, unknown>) => void;
-}): Promise<SlackConnectResult> => {
+}): Promise<SlackConnectResult | undefined> => {
   const session = await input.begin();
-  const { connectionId } = await openNangoConnect({
-    ...session,
-    open: input.open,
-  });
+  let connectionId: string;
+  try {
+    ({ connectionId } = await openNangoConnect({
+      ...session,
+      open: input.open,
+    }));
+  } catch (error) {
+    if (
+      typeof error !== "object" ||
+      error === null ||
+      (error as { readonly _tag?: unknown })._tag !== "NangoConnectCancelled"
+    )
+      throw error;
+    await input.cancel({ connectSessionId: session.connectSessionId });
+    return undefined;
+  }
   const result = await input.complete({
     connectionId,
     connectSessionId: session.connectSessionId,

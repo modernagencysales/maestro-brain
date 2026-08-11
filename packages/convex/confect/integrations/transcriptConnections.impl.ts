@@ -18,6 +18,7 @@ import { recordAccessAuditEvent } from "../access/audit";
 import { Forbidden, Unauthorized } from "../errors";
 import transcriptConnections, {
   authorizeTranscriptConnectCompletion as authorizeSpec,
+  cancelTranscriptConnect as cancelSpec,
   ConnectSessionInvalid,
   ConnectionAlreadyExists,
   finalizeTranscriptDisconnect as finalizeDisconnectSpec,
@@ -158,6 +159,13 @@ const prepareTranscriptConnectAttempt = FunctionImpl.make(
           new ConnectionAlreadyExists({ organizationKey }),
         );
       const connectionGeneration = current?.connectionGeneration ?? 0;
+      const previousStatus =
+        current === null
+          ? null
+          : current.status === "authorizing" ||
+              current.status === "reauthorizing"
+            ? (current.previousStatus ?? null)
+            : current.status;
       const nangoEndUserId = `nango-user-${providerConfigKey}-${input.nonce}`;
       const nangoOrganizationId = `nango-org-${providerConfigKey}-${input.nonce}`;
       const correlationTag = `${providerConfigKey}-connect:${connectSessionId}`;
@@ -174,15 +182,16 @@ const prepareTranscriptConnectAttempt = FunctionImpl.make(
             current.completedAt != null)
             ? ("reauthorizing" as const)
             : ("authorizing" as const),
+        previousStatus,
         connectSessionId,
-        nangoConnectionId: null,
+        nangoConnectionId: current?.nangoConnectionId ?? null,
         nangoEndUserId,
         nangoOrganizationId,
         correlationTag,
         attemptId: `attempt_${input.nonce}`,
         attemptExpiresAt: input.attemptExpiresAt,
-        completedAt: null,
-        purgeRequestedAt: null,
+        completedAt: current?.completedAt ?? null,
+        purgeRequestedAt: current?.purgeRequestedAt ?? null,
         updatedAt: input.now,
       };
       const writer = (yield* DatabaseWriter).table("providerConnections");
@@ -201,6 +210,40 @@ const prepareTranscriptConnectAttempt = FunctionImpl.make(
         nangoOrganizationId,
         correlationTag,
       };
+    }),
+);
+
+const cancelTranscriptConnect = FunctionImpl.make(
+  databaseSchema,
+  transcriptConnections,
+  "cancelTranscriptConnect",
+  (input) =>
+    Effect.gen(function* () {
+      const organizationKey = yield* currentAdminOrganizationKey;
+      const row = yield* rowBySession(input.connectSessionId);
+      const providerConfigKey =
+        transcriptProviders[input.provider].providerConfigKey;
+      if (
+        row === null ||
+        row.organizationKey !== organizationKey ||
+        row.providerConfigKey !== providerConfigKey
+      )
+        return yield* Effect.fail(new TenantMismatch());
+      if (row.status !== "authorizing" && row.status !== "reauthorizing")
+        return yield* Effect.fail(new ConnectSessionInvalid());
+
+      const writer = (yield* DatabaseWriter).table("providerConnections");
+      if (row.previousStatus == null)
+        yield* writer.delete(row._id).pipe(Effect.orDie);
+      else
+        yield* writer
+          .patch(row._id, {
+            status: row.previousStatus,
+            previousStatus: null,
+            updatedAt: yield* Clock.currentTimeMillis,
+          })
+          .pipe(Effect.orDie);
+      return { status: "cancelled" as const };
     }),
 );
 
@@ -284,7 +327,9 @@ const finalizeTranscriptConnectAttempt = FunctionImpl.make(
         .patch(row._id, {
           status: "verifying",
           nangoConnectionId: input.connectionId,
+          previousStatus: null,
           completedAt: input.now,
+          purgeRequestedAt: null,
           updatedAt: input.now,
         })
         .pipe(Effect.orDie);
@@ -493,6 +538,7 @@ const markTranscriptConnectAttemptFailed = FunctionImpl.make(
         .table("providerConnections")
         .patch(row._id, {
           status: "error",
+          previousStatus: null,
           completedAt: null,
           updatedAt: input.now,
         })
@@ -536,6 +582,7 @@ export const runTranscriptMutation = <Mutation extends Ref.AnyMutation>(
   );
 
 export const transcriptConnectionRefs = {
+  cancel: Ref.make("integrations/transcriptConnections", cancelSpec),
   prepare: Ref.make("integrations/transcriptConnections", prepareSpec),
   authorize: Ref.make("integrations/transcriptConnections", authorizeSpec),
   finalize: Ref.make("integrations/transcriptConnections", finalizeSpec),
@@ -552,6 +599,7 @@ export const transcriptConnectionRefs = {
 };
 
 export default GroupImpl.make(databaseSchema, transcriptConnections).pipe(
+  Layer.provide(cancelTranscriptConnect),
   Layer.provide(beginTranscriptConnect),
   Layer.provide(completeTranscriptConnect),
   Layer.provide(disconnectTranscriptConnection),

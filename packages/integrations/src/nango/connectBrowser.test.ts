@@ -54,6 +54,24 @@ describe("Nango browser adapter", () => {
     ]);
   });
 
+  it("settles with a typed cancellation when the user closes Connect UI", async () => {
+    const close = vi.fn();
+    class FakeNangoFrontend {
+      openConnectUI(params: { onEvent: (event: unknown) => void }) {
+        setTimeout(() => params.onEvent({ type: "close" }));
+        return { open: vi.fn(), close };
+      }
+    }
+
+    await expect(
+      openNangoConnectWithSdk({
+        connectSessionToken: `${"connect"}_public_${"org_acme"}`,
+        NangoFrontend: FakeNangoFrontend,
+      }),
+    ).rejects.toMatchObject({ _tag: "NangoConnectCancelled" });
+    expect(close).toHaveBeenCalledOnce();
+  });
+
   it("rejects expired or secret-shaped session tokens without opening provider UI", async () => {
     const open = vi.fn();
 

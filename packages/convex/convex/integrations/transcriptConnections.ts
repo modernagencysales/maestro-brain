@@ -4,6 +4,8 @@ export const authorizeTranscriptConnectCompletion =
   registeredFunctions.authorizeTranscriptConnectCompletion;
 export const beginTranscriptConnect =
   registeredFunctions.beginTranscriptConnect;
+export const cancelTranscriptConnect =
+  registeredFunctions.cancelTranscriptConnect;
 export const completeTranscriptConnect =
   registeredFunctions.completeTranscriptConnect;
 export const disconnectTranscriptConnection =
