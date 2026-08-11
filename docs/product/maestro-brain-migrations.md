@@ -107,28 +107,6 @@ keys before any reader/writer switch; if rollback is required, restore readers
 to legacy IDs while preserving additive keys; restore sensitive dry-run
 fail-closed classification before reverting the dependency patch.
 
-## Legacy API-key expansion
-
-`legacyApiKeys.inert.expand` is the bounded staging bridge from the pre-Brain
-Maestro API-key table to the current headless credential shape. The temporary
-expand schema accepts the complete historical document shape while modern
-readers explicitly ignore rows that have not been migrated.
-
-The migration replaces each legacy document in place, preserving its Convex
-document ID, status, timestamps, organization binding, HMAC digest, safe display
-preview, and redacted audit metadata. Historical scopes are retained only inside
-`legacyMetadataJson`; the migrated credential receives no current scope and no
-service principal, so it cannot gain Brain authority. Historical
-organization-scoped rows with no workspace receive a deterministic
-`legacy_unscoped_` sentinel rather than an existing workspace binding.
-
-Run dry-run and execute in batches of at most 100. Before contracting the
-schema, prove that no `apiKeys` document retains `secretHash`, `keyId`, or the
-other legacy-only fields and that every modern row has `id`, `keyHash`, and
-`displayPrefix`. Rollback during expansion is to stop before contract and use
-the preserved `legacyMetadataJson` plus `keyHash`; contract is allowed only
-after parity counts and document-shape checks match the recorded receipt.
-
 ## Dry-run log safety
 
 `@convex-dev/migrations` is pinned to `0.3.5` and checked in through pnpm's

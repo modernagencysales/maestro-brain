@@ -1,8 +1,6 @@
 import registeredFunctions from "../../confect/_generated/registeredFunctions/internal/migrations";
 
 export const acquireLease = registeredFunctions.acquireLease;
-export const legacyApiKeysInertExpand =
-  registeredFunctions.legacyApiKeysInertExpand;
 export const maybeCrashAfterComponent =
   registeredFunctions.maybeCrashAfterComponent;
 export const probeExpand = registeredFunctions.probeExpand;

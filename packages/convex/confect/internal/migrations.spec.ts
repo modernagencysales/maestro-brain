@@ -2,7 +2,6 @@ import { FunctionSpec, GroupSpec } from "@confect/core";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import type {
-  legacyApiKeysInertExpand,
   probeExpand,
   probeFail,
   stableTenantOrganizationKeysExpand,
@@ -159,17 +158,9 @@ const stableTenantExpand = {
   rollbackOwner: "identity-tenancy",
   observationWindowMs: 24 * 60 * 60_000,
 } as const;
-const legacyApiKeysExpand = {
-  phase: "expand",
-  hasExactExecuteCounters: true,
-  dryRunSafety: "patchedNoRawDocumentLogs",
-  rollbackOwner: "headless-auth",
-  observationWindowMs: 24 * 60 * 60_000,
-} as const;
 export const executableMigrations = {
   "probe.expand": probeSafe,
   "probe.fail": probeSafe,
-  "legacyApiKeys.inert.expand": legacyApiKeysExpand,
   "stableTenant.organizationKeys.expand": stableTenantExpand,
   "stableTenant.workspaceKeys.expand": stableTenantExpand,
 } as const;
@@ -317,11 +308,6 @@ const componentMutation = FunctionSpec.convexInternalMutation;
 export default GroupSpec.make()
   .addFunction(componentMutation<typeof probeExpand>()("probeExpand"))
   .addFunction(componentMutation<typeof probeFail>()("probeFail"))
-  .addFunction(
-    componentMutation<typeof legacyApiKeysInertExpand>()(
-      "legacyApiKeysInertExpand",
-    ),
-  )
   .addFunction(
     componentMutation<typeof stableTenantOrganizationKeysExpand>()(
       "stableTenantOrganizationKeysExpand",
