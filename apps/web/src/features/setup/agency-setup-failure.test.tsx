@@ -1,7 +1,10 @@
+import { createElement, type ComponentType } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { AgencySetupFailure } from "./agency-setup-failure";
+import * as AgencySetupStates from "./agency-setup-failure";
+
+const { AgencySetupFailure } = AgencySetupStates;
 
 describe("Agency setup failure", () => {
   it("offers retry and sign out after a provider failure", () => {
@@ -36,5 +39,22 @@ describe("Agency setup failure", () => {
     expect(html).toContain("Verify your email to finish setup");
     expect(html).toContain("Retry setup");
     expect(html).toContain(">Sign out</a>");
+  });
+
+  it("keeps a visible busy status while workspace authorization loads", () => {
+    const loading = (AgencySetupStates as unknown as Record<string, unknown>)
+      .AgencyWorkspaceLoading;
+
+    expect(typeof loading).toBe("function");
+    if (typeof loading !== "function") return;
+
+    const html = renderToStaticMarkup(
+      createElement(loading as ComponentType<Record<string, never>>),
+    );
+
+    expect(html).toContain('aria-busy="true"');
+    expect(html).toContain('role="status"');
+    expect(html).toContain("Loading your Agency Brain");
+    expect(html).toContain("Your authorized workspace is being prepared.");
   });
 });
