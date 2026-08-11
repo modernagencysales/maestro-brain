@@ -20,6 +20,7 @@ export const ProviderConnectionRow = Schema.Struct({
   connectionKey: Schema.String,
   connectionGeneration: Schema.Number,
   status: ProviderConnectionStatus,
+  previousStatus: Schema.optional(Schema.NullOr(ProviderConnectionStatus)),
   connectSessionId: Schema.String,
   nangoConnectionId: OptionalNullableString,
   nangoEndUserId: Schema.String,

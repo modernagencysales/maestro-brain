@@ -80,6 +80,17 @@ export const completeTranscriptConnect = FunctionSpec.publicAction({
   error: () => connectionError(),
 });
 
+export const cancelTranscriptConnect = FunctionSpec.publicMutation({
+  name: "cancelTranscriptConnect",
+  args: () =>
+    Schema.Struct({
+      provider: TranscriptProvider,
+      connectSessionId: Schema.String,
+    }),
+  returns: () => Schema.Struct({ status: Schema.Literal("cancelled") }),
+  error: () => connectionError(),
+});
+
 const disconnectResult = () =>
   Schema.Struct({
     connectionKey: Schema.String,
@@ -218,6 +229,7 @@ export const markTranscriptConnectAttemptFailed = FunctionSpec.internalMutation(
 export default GroupSpec.make()
   .addFunction(beginTranscriptConnect)
   .addFunction(completeTranscriptConnect)
+  .addFunction(cancelTranscriptConnect)
   .addFunction(disconnectTranscriptConnection)
   .addFunction(revokeTranscriptConnection)
   .addFunction(finalizeTranscriptDisconnect)

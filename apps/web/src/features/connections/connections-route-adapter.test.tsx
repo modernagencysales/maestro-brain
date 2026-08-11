@@ -26,6 +26,10 @@ const mocks = vi.hoisted(() => ({
     status: "pending_review",
     physicalDeletion: false,
   }),
+  cancelConnect: vi.fn().mockResolvedValue({ status: "cancelled" }),
+  openConnect: vi.fn().mockResolvedValue({
+    connectionId: "nango-gong-connection",
+  }),
   beginConnect: vi.fn().mockResolvedValue({
     connectSessionId: "session-gong",
     connectSessionToken: "fixture",
@@ -85,7 +89,9 @@ vi.mock("../../adapters/confect-state", () => ({
       ? mocks.reviewRoute
       : mocks.mutationCall === 2
         ? mocks.importTranscript
-        : mocks.requestPurge;
+        : mocks.mutationCall === 3
+          ? mocks.requestPurge
+          : mocks.cancelConnect;
   },
   useTemplateAction: () => {
     mocks.actionCall += 1;
@@ -158,9 +164,7 @@ vi.mock("@maestro-template/integrations/nango/connectBrowser", () => ({
     readonly connectSessionToken: string;
     readonly open: (input: { readonly token: string }) => Promise<unknown>;
   }) => open({ token: connectSessionToken }),
-  openNangoConnectWithSdk: vi.fn().mockResolvedValue({
-    connectionId: "nango-gong-connection",
-  }),
+  openNangoConnectWithSdk: (input: unknown) => mocks.openConnect(input),
 }));
 
 vi.mock("../brain/brain-surface", () => ({
@@ -191,6 +195,11 @@ describe("ConnectionsRouteAdapter", () => {
     mocks.reviewRoute.mockClear();
     mocks.importTranscript.mockClear();
     mocks.requestPurge.mockClear();
+    mocks.cancelConnect.mockClear();
+    mocks.openConnect.mockReset();
+    mocks.openConnect.mockResolvedValue({
+      connectionId: "nango-gong-connection",
+    });
     mocks.beginConnect.mockClear();
     mocks.completeConnect.mockClear();
     mocks.disconnectConnection.mockClear();
@@ -270,6 +279,22 @@ describe("ConnectionsRouteAdapter", () => {
       connectSessionId: "session-gong",
       connectionId: "nango-gong-connection",
     });
+  });
+
+  it("cancels the provider attempt when Connect UI closes", async () => {
+    mocks.openConnect.mockRejectedValueOnce({
+      _tag: "NangoConnectCancelled",
+    });
+    renderToStaticMarkup(<ConnectionsRouteAdapter />);
+
+    await expect(
+      mocks.screenProps?.onConnect?.("fireflies"),
+    ).resolves.toBeUndefined();
+    expect(mocks.cancelConnect).toHaveBeenCalledWith({
+      provider: "fireflies",
+      connectSessionId: "session-gong",
+    });
+    expect(mocks.completeConnect).not.toHaveBeenCalled();
   });
 
   it("disconnects the selected transcript provider", async () => {

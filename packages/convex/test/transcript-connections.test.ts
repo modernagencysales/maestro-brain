@@ -28,6 +28,7 @@ import {
 import transcriptConnections, {
   authorizeTranscriptConnectCompletion,
   beginTranscriptConnect,
+  cancelTranscriptConnect,
   completeTranscriptConnect,
   disconnectTranscriptConnection,
   finalizeTranscriptDisconnect,
@@ -44,6 +45,10 @@ const refs = {
   complete: Ref.make(
     "integrations/transcriptConnections",
     completeTranscriptConnect,
+  ),
+  cancel: Ref.make(
+    "integrations/transcriptConnections",
+    cancelTranscriptConnect,
   ),
   disconnect: Ref.make(
     "integrations/transcriptConnections",
@@ -309,6 +314,23 @@ describe("transcript connection capability", () => {
       });
       expect(prepared.providerConfigKey).toBe("granola");
 
+      const cancelledFirstAttempt = yield* authed.action(refs.begin, {
+        provider: "fathom",
+      });
+      expect(
+        yield* authed.mutation(refs.cancel, {
+          provider: "fathom",
+          connectSessionId: cancelledFirstAttempt.connectSessionId,
+        }),
+      ).toEqual({ status: "cancelled" });
+      expect(
+        (yield* rows()).some(
+          (row: unknown) =>
+            (row as { providerConfigKey?: string }).providerConfigKey ===
+            "fathom",
+        ),
+      ).toBe(false);
+
       const fireflies = yield* authed.action(refs.begin, {
         provider: "fireflies",
       });
@@ -354,6 +376,31 @@ describe("transcript connection capability", () => {
         connectSessionId: fireflies.connectSessionId,
         connectionId: "conn_fireflies_1",
       });
+      const reauthorization = yield* authed.action(refs.begin, {
+        provider: "fireflies",
+      });
+      expect(yield* rows()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            providerConfigKey: "fireflies",
+            status: "reauthorizing",
+            nangoConnectionId: "conn_fireflies_1",
+          }),
+        ]),
+      );
+      yield* authed.mutation(refs.cancel, {
+        provider: "fireflies",
+        connectSessionId: reauthorization.connectSessionId,
+      });
+      expect(yield* rows()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            providerConfigKey: "fireflies",
+            status: "verifying",
+            nangoConnectionId: "conn_fireflies_1",
+          }),
+        ]),
+      );
       const prematurePurge = yield* Effect.either(
         authed.mutation(refs.requestPurge, { provider: "fireflies" }),
       );
@@ -484,13 +531,28 @@ describe("transcript connection capability", () => {
           }),
         ]),
       );
-      yield* authed.action(refs.begin, { provider: "fireflies" });
+      const reconnect = yield* authed.action(refs.begin, {
+        provider: "fireflies",
+      });
       expect(yield* rows()).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             providerConfigKey: "fireflies",
             status: "reauthorizing",
-            purgeRequestedAt: null,
+            purgeRequestedAt: expect.any(Number),
+          }),
+        ]),
+      );
+      yield* authed.mutation(refs.cancel, {
+        provider: "fireflies",
+        connectSessionId: reconnect.connectSessionId,
+      });
+      expect(yield* rows()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            providerConfigKey: "fireflies",
+            status: "revoked",
+            purgeRequestedAt: expect.any(Number),
           }),
         ]),
       );
@@ -507,6 +569,9 @@ describe("transcript connection capability", () => {
   it("declares only typed public and internal connection operations", () => {
     expect(
       transcriptConnections.functions.beginTranscriptConnect,
+    ).toMatchObject({ functionVisibility: "public" });
+    expect(
+      transcriptConnections.functions.cancelTranscriptConnect,
     ).toMatchObject({ functionVisibility: "public" });
     expect(
       transcriptConnections.functions.finalizeTranscriptConnectAttempt,

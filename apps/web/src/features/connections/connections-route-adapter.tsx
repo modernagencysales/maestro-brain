@@ -79,6 +79,9 @@ export function ConnectionsRouteAdapter() {
   const requestTranscriptPurge = useTemplateMutation(
     transcriptConnectionRefs.requestTranscriptPurge,
   );
+  const cancelTranscriptConnect = useTemplateMutation(
+    transcriptConnectionRefs.cancelTranscriptConnect,
+  );
   const beginTranscriptConnect = useTemplateAction(
     transcriptConnectionRefs.beginTranscriptConnect,
   );
@@ -157,6 +160,14 @@ export function ConnectionsRouteAdapter() {
             connectSessionId,
           }),
         ),
+      cancel: async ({ connectSessionId }) => {
+        unwrapActionResult(
+          await cancelTranscriptConnect({
+            provider: transcriptProvider,
+            connectSessionId,
+          }),
+        );
+      },
     });
   };
 

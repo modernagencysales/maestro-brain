@@ -112,10 +112,11 @@ describe("NangoConnectButton", () => {
       connectionKey: "slack_org_acme",
       status: "verifying" as const,
     }));
+    const cancel = vi.fn();
     const log = vi.fn();
 
     await expect(
-      startNangoConnect({ begin, open, complete, log }),
+      startNangoConnect({ begin, open, complete, cancel, log }),
     ).resolves.toEqual({
       connectionKey: "slack_org_acme",
       status: "verifying",
@@ -124,6 +125,7 @@ describe("NangoConnectButton", () => {
       connectionId: "conn_org_acme",
       connectSessionId: "cs_org_acme",
     });
+    expect(cancel).not.toHaveBeenCalled();
     expect(log).toHaveBeenCalledWith("slack_connect_completed", {
       provider: "nango",
       status: "verifying",
@@ -131,5 +133,24 @@ describe("NangoConnectButton", () => {
     expect(JSON.stringify(log.mock.calls)).not.toContain("conn_org_acme");
     expect(JSON.stringify(log.mock.calls)).not.toContain("connect_public");
     expect(JSON.stringify(log.mock.calls)).not.toContain("cs_org_acme");
+  });
+
+  it("cancels the durable attempt when the user closes provider UI", async () => {
+    const begin = vi.fn(async () => ({
+      connectSessionId: "cs_cancelled",
+      connectSessionToken: `${"connect"}_public_org_acme`,
+      expiresAt: Date.now() + 60_000,
+    }));
+    const open = vi.fn(async () => {
+      throw { _tag: "NangoConnectCancelled" };
+    });
+    const complete = vi.fn();
+    const cancel = vi.fn(async () => undefined);
+
+    await expect(
+      startNangoConnect({ begin, open, complete, cancel }),
+    ).resolves.toBeUndefined();
+    expect(cancel).toHaveBeenCalledWith({ connectSessionId: "cs_cancelled" });
+    expect(complete).not.toHaveBeenCalled();
   });
 });
