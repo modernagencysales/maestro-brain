@@ -1,8 +1,8 @@
 import { Table } from "@confect/server";
 
-import { ApiKeyRow } from "../headless/auth";
+import { ApiKeyStorageRow } from "../headless/auth";
 
-export default Table.make(() => ApiKeyRow)
+export default Table.make(() => ApiKeyStorageRow)
   .index("by_key_hash", ["keyHash"])
   .index("by_workspace", ["workspaceId"])
   .index("by_workspace_status", ["workspaceId", "status"])

@@ -24,6 +24,7 @@ import {
   type Lease,
   makeBatchReceipt,
   makeSettlementInput,
+  legacyApiKeysInertExpand,
   parentReceipt,
   parentReceiptHash,
   probeExpand,
@@ -347,6 +348,12 @@ const probeFailImpl = FunctionImpl.make(
   "probeFail",
   probeFail,
 );
+const legacyApiKeysInertExpandImpl = FunctionImpl.make(
+  databaseSchema,
+  migrations,
+  "legacyApiKeysInertExpand",
+  legacyApiKeysInertExpand,
+);
 const stableTenantOrganizationKeysExpandImpl = FunctionImpl.make(
   databaseSchema,
   migrations,
@@ -531,6 +538,8 @@ const settleBatch = FunctionImpl.make(
 const migrationRef = (migrationName: string) => {
   if (migrationName === "probe.fail")
     return refs.internal.internal.migrations.probeFail;
+  if (migrationName === "legacyApiKeys.inert.expand")
+    return refs.internal.internal.migrations.legacyApiKeysInertExpand;
   if (migrationName === "stableTenant.organizationKeys.expand")
     return refs.internal.internal.migrations.stableTenantOrganizationKeysExpand;
   if (migrationName === "stableTenant.workspaceKeys.expand")
@@ -622,6 +631,7 @@ const runRegisteredMigration = FunctionImpl.make(
 export default GroupImpl.make(databaseSchema, migrations).pipe(
   Layer.provide(probeExpandImpl),
   Layer.provide(probeFailImpl),
+  Layer.provide(legacyApiKeysInertExpandImpl),
   Layer.provide(stableTenantOrganizationKeysExpandImpl),
   Layer.provide(stableTenantWorkspaceKeysExpandImpl),
   Layer.provide(runRegisteredMigration),

@@ -12,6 +12,11 @@ import {
   stableAgencyKeySeed,
   stableBrainKeySeed,
 } from "../identity/stableKeys";
+import type { ApiKeyRow, LegacyPersistedApiKeyRow } from "../headless/auth";
+import {
+  isModernApiKeyRow,
+  LegacyPersistedApiKeyRow as LegacyPersistedApiKeyRowSchema,
+} from "../headless/auth";
 import { sha256Hex } from "../shared/sha256";
 import {
   type AcquireLeaseResult,
@@ -148,6 +153,53 @@ export const stableJson = (value: JsonValue): string => {
     )
     .join(",")}}`;
 };
+
+export const legacyApiKeyReplacement = (row: LegacyPersistedApiKeyRow) =>
+  ({
+    id: `legacy_${row.keyId}`,
+    organizationId: row.organizationId,
+    workspaceId: row.workspaceId ?? `legacy_unscoped_${row.organizationId}`,
+    name: row.name,
+    keyHash: row.secretHash,
+    displayPrefix: row.preview,
+    scopes: [],
+    status: row.status,
+    createdByUserId: row.createdByUserId,
+    createdAt: row.createdAt,
+    expiresAt: row.expiresAt,
+    revokedAt: row.revokedAt,
+    lastUsedAt: row.lastUsedAt,
+    legacyMetadataJson: stableJson({
+      hashVersion: row.hashVersion,
+      keyId: row.keyId,
+      lastUsedIpHash: row.lastUsedIpHash,
+      lastUsedUserAgentHash: row.lastUsedUserAgentHash,
+      pepperVersion: row.pepperVersion,
+      originalWorkspaceId: row.workspaceId,
+      revokeReason: row.revokeReason,
+      revokedByUserId: row.revokedByUserId,
+      roleCap: row.roleCap,
+      rotationOfKeyId: row.rotationOfKeyId,
+      scopeKind: row.scopeKind,
+      scopes: row.scopes,
+    }),
+  }) satisfies ApiKeyRow;
+
+export const legacyApiKeysInertExpand = componentMigrations.define({
+  table: "apiKeys",
+  batchSize: 100,
+  migrateOne: async (ctx, row) => {
+    if (isModernApiKeyRow(row)) return;
+    if (!Schema.is(LegacyPersistedApiKeyRowSchema)(row)) {
+      throw new Error("invalid legacy API-key document");
+    }
+    const replacement = legacyApiKeyReplacement(row);
+    await ctx.db.replace(row._id, {
+      ...replacement,
+      scopes: [...replacement.scopes],
+    });
+  },
+});
 
 export const canonicalReceiptHash = (value: JsonValue): string =>
   `sha256:${sha256Hex(stableJson(value))}`;
