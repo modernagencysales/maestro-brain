@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useClientsController } from "../features/clients/clients-adapter";
 import { ClientsScreen } from "../features/clients/clients-screen";
-import { BusinessAppShell, BusinessPageRoot } from "../saas-ui/business-shell";
+import { Page } from "@saas-ui/react";
 import { useWorkspace } from "../providers/workspace";
 
 export const Route = createFileRoute("/_workspace/clients")({
@@ -19,14 +19,12 @@ function ClientsRoute() {
   });
 
   return (
-    <BusinessAppShell activePath="/clients">
-      <BusinessPageRoot>
-        <ClientsScreen
-          state={controller.state}
-          onboarding={controller.onboarding}
-          onCreateClient={controller.onCreateClient}
-        />
-      </BusinessPageRoot>
-    </BusinessAppShell>
+    <Page.Root>
+      <ClientsScreen
+        state={controller.state}
+        onboarding={controller.onboarding}
+        onCreateClient={controller.onCreateClient}
+      />
+    </Page.Root>
   );
 }

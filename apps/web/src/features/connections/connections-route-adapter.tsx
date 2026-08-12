@@ -26,10 +26,7 @@ import type {
 } from "./transcript-import";
 import { startNangoConnect } from "./nango-connect-button";
 import { useWorkspace } from "../../providers/workspace";
-import {
-  BusinessAppShell,
-  BusinessPageRoot,
-} from "../../saas-ui/business-shell";
+import { Page } from "@saas-ui/react";
 
 const callReviewRefs = templateConfectRefs.public.brain.callReview;
 const transcriptConnectionRefs =
@@ -205,35 +202,33 @@ export function ConnectionsRouteAdapter() {
   };
 
   return (
-    <BusinessAppShell activePath="/connections">
-      <BusinessPageRoot>
-        <ConnectionsScreen
-          role={
-            workspace.status === "ready"
-              ? workspace.activeWorkspace.role
-              : "viewer"
-          }
-          routingQueue={routingQueue}
-          state={toConnectionsState(health, canReview)}
-          onConnect={connect}
-          onDisconnect={disconnect}
-          onPurge={requestPurge}
-          onRoutingReview={review}
-          onTranscriptImport={importFile}
-          transcriptImportState={importState}
-          transcriptTargets={
-            workspace.status === "ready"
-              ? workspace.workspaces
-                  .filter(({ kind }) => kind === "client")
-                  .map(({ workspaceId, name }) => ({
-                    brainKey: workspaceId,
-                    name,
-                  }))
-              : []
-          }
-        />
-      </BusinessPageRoot>
-    </BusinessAppShell>
+    <Page.Root>
+      <ConnectionsScreen
+        role={
+          workspace.status === "ready"
+            ? workspace.activeWorkspace.role
+            : "viewer"
+        }
+        routingQueue={routingQueue}
+        state={toConnectionsState(health, canReview)}
+        onConnect={connect}
+        onDisconnect={disconnect}
+        onPurge={requestPurge}
+        onRoutingReview={review}
+        onTranscriptImport={importFile}
+        transcriptImportState={importState}
+        transcriptTargets={
+          workspace.status === "ready"
+            ? workspace.workspaces
+                .filter(({ kind }) => kind === "client")
+                .map(({ workspaceId, name }) => ({
+                  brainKey: workspaceId,
+                  name,
+                }))
+            : []
+        }
+      />
+    </Page.Root>
   );
 }
 

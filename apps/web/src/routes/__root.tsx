@@ -16,7 +16,7 @@ import { createAuthKitProviderWithConvexProviderWithAuth } from "../auth/authkit
 import type { SafeClientRuntime } from "../auth/authkit-server";
 import { workosAuthKitClientBridge } from "../auth/workos-client-runtime";
 import { loadSafeClientRuntime } from "../auth/safe-client-runtime";
-import { MaestroSaasUiProvider } from "../saas-ui/provider";
+import { AppProvider } from "../features/common/providers/app-provider";
 import {
   createBrowserWorkspaceStorage,
   WorkspaceProvider,
@@ -146,11 +146,11 @@ function WorkspaceRuntimeBoundary({
                 href={location.href}
                 pathname={location.pathname}
               >
-                <MaestroSaasUiProvider>
+                <AppProvider>
                   <TemplateToastProvider>
                     <Outlet />
                   </TemplateToastProvider>
-                </MaestroSaasUiProvider>
+                </AppProvider>
               </WebRouteUxBoundary>
             </RootDocument>
           </PostHogWebProvider>

@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
-
-import { BusinessDashboardRoute } from "../saas-ui/business-shell";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/")({
-  component: BusinessDashboardRoute,
+  beforeLoad: () => {
+    throw redirect({ to: "/clients" });
+  },
 });

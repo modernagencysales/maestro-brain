@@ -7,10 +7,6 @@ import {
 import type { TemplateDataState } from "../../adapters/confect-state";
 import { useWorkspace } from "../../providers/workspace";
 import {
-  BusinessAppShell,
-  BusinessPageRoot,
-} from "../../saas-ui/business-shell";
-import {
   Badge,
   Box,
   Button,
@@ -275,8 +271,7 @@ export const BrainWorkspaceRoute = () => {
           : "Your workspace session needs attention.";
 
     return (
-      <BusinessAppShell activePath="/brain">
-        <BusinessPageRoot>
+      <Page.Root>
           <Page.Header title="Agency Brain" description={description} />
           <Page.Body px={{ base: "4", md: "6" }} pb="8">
             {workspace.status === "failure" ? (
@@ -305,8 +300,7 @@ export const BrainWorkspaceRoute = () => {
               </Text>
             )}
           </Page.Body>
-        </BusinessPageRoot>
-      </BusinessAppShell>
+      </Page.Root>
     );
   }
 
@@ -409,8 +403,7 @@ export const BrainWorkspaceRoute = () => {
   });
 
   return (
-    <BusinessAppShell activePath="/brain">
-      <BusinessPageRoot>
+    <Page.Root>
         <Page.Header
           title="Agency Brain"
           description="Review and edit source-grounded workspace knowledge."
@@ -487,8 +480,7 @@ export const BrainWorkspaceRoute = () => {
             }
           />
         </Page.Body>
-      </BusinessPageRoot>
-    </BusinessAppShell>
+    </Page.Root>
   );
 };
 
