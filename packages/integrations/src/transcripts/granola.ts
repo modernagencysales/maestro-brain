@@ -1,5 +1,6 @@
 import {
   canonicalTranscriptRevision,
+  providerTimestampRevisionOrder,
   type CanonicalCallTranscript,
   type CanonicalParticipant,
 } from "./canonical";
@@ -162,10 +163,20 @@ export const normalizeGranolaNote = (input: {
         ...transcriptSegments,
       ].map((segment, ordinal) => ({ ...segment, ordinal }));
   const endedMs = Date.parse(string(calendar?.scheduled_end_time) ?? "");
+  const metadata = object(note._nango_metadata);
+  const revisionOrder = isDeleted
+    ? providerTimestampRevisionOrder(
+        "_nango_metadata.deleted_at",
+        metadata?.deleted_at,
+      )
+    : (providerTimestampRevisionOrder("updated_at", note.updated_at) ??
+      providerTimestampRevisionOrder("created_at", note.created_at));
+  if (revisionOrder === null) throw new GranolaDecodeError("invalid_note");
   const call = {
     providerKey: "granola",
     connectionKey: input.connectionKey,
     externalCallId,
+    revisionOrder,
     title:
       string(note.title) ??
       string(calendar?.event_title) ??

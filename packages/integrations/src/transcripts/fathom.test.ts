@@ -37,6 +37,11 @@ describe("Fathom transcript adapter", () => {
     expect(normalized).toMatchObject({
       providerKey: "fathom",
       externalCallId: "123456789",
+      revisionOrder: {
+        kind: "provider_timestamp",
+        timestamp: "2026-08-03T14:29:00.000Z",
+        source: "recording_end_time",
+      },
       startedAt: "2026-08-03T14:01:00.000Z",
       endedAt: "2026-08-03T14:29:00.000Z",
       durationMs: 1_680_000,
@@ -78,10 +83,29 @@ describe("Fathom transcript adapter", () => {
         ...input,
         meeting: {
           ...(meeting as Record<string, unknown>),
+          _nango_metadata: {
+            last_action: "DELETED",
+            deleted_at: "2026-08-05T00:00:00Z",
+          },
+        },
+      }),
+    ).toMatchObject({
+      deleted: true,
+      segments: [],
+      revisionOrder: {
+        timestamp: "2026-08-05T00:00:00.000Z",
+        source: "_nango_metadata.deleted_at",
+      },
+    });
+    expect(() =>
+      normalizeFathomCall({
+        ...input,
+        meeting: {
+          ...(meeting as Record<string, unknown>),
           _nango_metadata: { last_action: "DELETED" },
         },
       }),
-    ).toMatchObject({ deleted: true, segments: [] });
+    ).toThrow(FathomDecodeError);
   });
 
   it("rejects malformed IDs without exposing payload text", () => {

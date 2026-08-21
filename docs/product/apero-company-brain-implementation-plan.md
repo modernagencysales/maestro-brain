@@ -954,7 +954,7 @@ until every required row and the clean-branch gates pass.
 | Durable jobs, lost-schedule recovery, cursor continuation                       | `test/retrieval-publication.test.ts`, `test/retrieval-publication-crons.test.ts`                             | Implemented    |
 | Slack policy and accepted call-route target diffs                               | `test/channel-policies.test.ts`, `test/call-review.test.ts`, `confect/capabilities/routeCallToBrain.test.ts` | Implemented    |
 | Connection-generation fencing and rebuild enqueue                               | `test/transcript-connections.test.ts`, `test/retrieval-publication.test.ts`                                  | Implemented    |
-| Delayed v2 after v3; equal-order conflict; tombstone/recreation                 | `test/source-unit-ingestion.test.ts`                                                                         | Required       |
+| Delayed v2 after v3; equal-order conflict; tombstone/recreation                 | `test/source-unit-ingestion.test.ts`                                                                         | Implemented    |
 | Public `(publicationSetKey, entryKey)` identity and policy-only citation reopen | `test/brain-pilot.test.ts`, `test/headless-context.test.ts`                                                  | Required       |
 | Origin-ledger hash/offset verification and corruption rejection                 | `test/brain-pilot.test.ts`                                                                                   | Required       |
 | Derived-table cleanup before final-origin purge                                 | `test/data-lifecycle.test.ts`, `test/data-lifecycle-ops.test.ts`                                             | Required       |

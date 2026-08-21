@@ -9,6 +9,21 @@ const NonNegativeInteger = Schema.Number.pipe(
   Schema.int(),
   Schema.greaterThanOrEqualTo(0),
 );
+const PositiveInteger = Schema.Number.pipe(Schema.int(), Schema.greaterThan(0));
+
+export const CanonicalTranscriptRevisionOrder = Schema.Union(
+  Schema.Struct({
+    kind: Schema.Literal("provider_timestamp"),
+    timestamp: IsoTimestamp,
+    source: Schema.String.pipe(Schema.minLength(1)),
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("reconciliation_epoch"),
+    epoch: PositiveInteger,
+  }),
+);
+export type CanonicalTranscriptRevisionOrder =
+  typeof CanonicalTranscriptRevisionOrder.Type;
 
 export const CanonicalParticipant = Schema.Struct({
   externalParticipantId: Schema.String,
@@ -35,6 +50,7 @@ export const CanonicalCallTranscript = Schema.Struct({
   connectionKey: Schema.String,
   externalCallId: Schema.String,
   externalRevisionId: Schema.String,
+  revisionOrder: CanonicalTranscriptRevisionOrder,
   title: Schema.String,
   startedAt: IsoTimestamp,
   endedAt: Schema.NullOr(IsoTimestamp),
@@ -49,6 +65,24 @@ export const CanonicalCallTranscript = Schema.Struct({
   deleted: Schema.Boolean,
 });
 export type CanonicalCallTranscript = typeof CanonicalCallTranscript.Type;
+
+export const providerTimestampRevisionOrder = (
+  source: string,
+  ...candidates: readonly unknown[]
+): CanonicalTranscriptRevisionOrder | null => {
+  for (const candidate of candidates) {
+    if (typeof candidate !== "string" || candidate.trim().length === 0)
+      continue;
+    const timestamp = Date.parse(candidate);
+    if (!Number.isFinite(timestamp)) continue;
+    return {
+      kind: "provider_timestamp",
+      timestamp: new Date(timestamp).toISOString(),
+      source,
+    };
+  }
+  return null;
+};
 
 const stableJson = (value: unknown): string => {
   if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;

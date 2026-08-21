@@ -11,6 +11,7 @@ import {
 import {
   ConnectionRevoked,
   DuplicateKeyConflict,
+  RevisionOrderConflict,
   TenantMismatch,
 } from "./ingestSourceUnit.spec";
 import { StaleCallRoute } from "./routeCallToBrain.spec";
@@ -26,7 +27,7 @@ export const importTranscriptArgs = Schema.Struct({
 });
 
 export const importTranscriptReturns = Schema.Struct({
-  outcome: Schema.Literal("inserted", "duplicate", "tombstone"),
+  outcome: Schema.Literal("inserted", "duplicate", "stale", "tombstone"),
   unitKey: Schema.String,
   unitRevisionKey: Schema.String,
   segmentCount: Schema.Number,
@@ -46,6 +47,7 @@ const errors = Schema.Union(
   TenantMismatch,
   ConnectionRevoked,
   DuplicateKeyConflict,
+  RevisionOrderConflict,
   StaleCallRoute,
 );
 
@@ -72,6 +74,7 @@ export const importTranscript = defineContractFunction(
       "TenantMismatch",
       "ConnectionRevoked",
       "DuplicateKeyConflict",
+      "RevisionOrderConflict",
       "StaleCallRoute",
     ],
     idempotent: true,

@@ -15,6 +15,7 @@ import {
 import ingestSourceUnitGroup, {
   ConnectionRevoked,
   DuplicateKeyConflict,
+  RevisionOrderConflict,
   TenantMismatch,
 } from "./ingestSourceUnit.spec";
 import { ingestSourceUnitArgs } from "./ingestSourceUnit.spec";
@@ -99,7 +100,9 @@ export const ingestSourceUnitEffect = ({
     if (
       knownRevision !== null &&
       (knownRevision.contentHash !== rows.revision.contentHash ||
-        knownRevision.tombstone !== rows.revision.tombstone)
+        knownRevision.tombstone !== rows.revision.tombstone ||
+        JSON.stringify(knownRevision.revisionOrder) !==
+          JSON.stringify(rows.revision.revisionOrder))
     )
       return yield* Effect.fail(
         new DuplicateKeyConflict({ key: rows.revision.unitRevisionKey }),
@@ -114,7 +117,9 @@ export const ingestSourceUnitEffect = ({
 
     const plan = planSourceUnitIngestion({
       currentUnitRevisionKey: current?.currentUnitRevisionKey ?? null,
+      currentRevisionOrder: current?.currentRevisionOrder ?? null,
       incomingUnitRevisionKey: rows.revision.unitRevisionKey,
+      incomingRevisionOrder: input.revisionOrder,
       incomingDeleted: rows.revision.tombstone,
       revisionAlreadyExists: knownRevision !== null,
     });
@@ -125,14 +130,29 @@ export const ingestSourceUnitEffect = ({
         unitRevisionKey: rows.revision.unitRevisionKey,
         segmentCount: rows.segments.length,
       };
+    if (plan.outcome === "conflict")
+      return yield* Effect.fail(
+        new RevisionOrderConflict({
+          unitKey: rows.unit.unitKey,
+          reason: plan.reason,
+        }),
+      );
 
-    const lifecycleGeneration = (current?.lifecycle.generation ?? 0) + 1;
     yield* writer
       .table("sourceUnitRevisions")
       .insert(rows.revision)
       .pipe(Effect.orDie);
     for (const segment of rows.segments)
       yield* writer.table("sourceSegments").insert(segment).pipe(Effect.orDie);
+    if (plan.outcome === "stale")
+      return {
+        outcome: plan.outcome,
+        unitKey: rows.unit.unitKey,
+        unitRevisionKey: rows.revision.unitRevisionKey,
+        segmentCount: rows.segments.length,
+      };
+
+    const lifecycleGeneration = (current?.lifecycle.generation ?? 0) + 1;
     const unit = {
       ...rows.unit,
       createdAt: current?.createdAt ?? rows.unit.createdAt,

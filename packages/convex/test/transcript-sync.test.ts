@@ -65,6 +65,11 @@ const canonicalCall = (id: string, deleted = false) => ({
   connectionKey: "fireflies_agency_acme",
   externalCallId: id,
   externalRevisionId: `revision-${id}`,
+  revisionOrder: {
+    kind: "provider_timestamp" as const,
+    timestamp: "2026-08-05T14:01:00.000Z",
+    source: "updated_at",
+  },
   title: `Call ${id}`,
   startedAt: "2026-08-05T14:00:00.000Z",
   endedAt: "2026-08-05T14:01:00.000Z",
@@ -627,6 +632,35 @@ describe("transcript sync page execution", () => {
     expect(result).toEqual({ kind: "failed", errorTag: "ProviderUnavailable" });
   });
 
+  it("stops the page on a visible revision-order conflict", async () => {
+    const commit = vi.fn();
+    const fail = vi.fn(async (result: unknown) => result);
+    const result = await runTranscriptSyncPage({
+      cursor: "cursor-1",
+      listPage: async () => ({
+        records: [{ id: "conflict" }],
+        nextCursor: "cursor-2",
+      }),
+      normalize: async () => canonicalCall("conflict"),
+      ingest: async () => {
+        throw { _tag: "RevisionOrderConflict" };
+      },
+      commit,
+      fail,
+    });
+
+    expect(commit).not.toHaveBeenCalled();
+    expect(fail).toHaveBeenCalledWith({
+      expectedCursor: "cursor-1",
+      errorTag: "RevisionOrderConflict",
+      retryAfterMs: null,
+    });
+    expect(result).toEqual({
+      kind: "failed",
+      errorTag: "RevisionOrderConflict",
+    });
+  });
+
   it("honors Retry-After and redacts permanent decode failures", async () => {
     const commit = vi.fn();
     const rateFail = vi.fn(async (result: unknown) => result);
@@ -949,7 +983,10 @@ describe("Nango transcript provider", () => {
         recording_id: 123,
         title: "Deleted Fathom call",
         recording_start_time: "2026-08-05T14:00:00Z",
-        _nango_metadata: { last_action: "DELETED" },
+        _nango_metadata: {
+          last_action: "DELETED",
+          deleted_at: "2026-08-06T00:00:00Z",
+        },
       },
       "fathom-oauth",
     ],

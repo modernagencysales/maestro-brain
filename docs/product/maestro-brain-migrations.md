@@ -81,6 +81,38 @@ Execute-mode component failures follow the same durable failure receipt path.
 - **Rollback:** stop routing new calls and deploy readers that ignore both new
   tables. Immutable call revisions remain available for a later retry.
 
+## Call transcript revision ordering
+
+- **Expand:** add required `revisionOrder` to new canonical transcript inputs
+  and optional `currentRevisionOrder` / `revisionOrder` fields to the populated
+  `sourceUnits` / `sourceUnitRevisions` tables. Provider timestamp order stores
+  both normalized UTC time and the exact provider field used. A future complete
+  reconciliation may instead use a positive reconciliation epoch.
+- **Provider fences:** Fireflies prefers `_nango_metadata.deleted_at`, then
+  `updated_at`, then `date`; Gong prefers call/transcript deletion time, then
+  call/transcript `updated_at`, then `started`; Fathom prefers deletion time,
+  `updated_at`, `recording_end_time`, then `created_at`; Granola prefers
+  deletion time, `updated_at`, then `created_at`. Manual imports are
+  content-addressed units and use reconciliation epoch 1 for their one immutable
+  snapshot.
+- **Comparison:** a strictly newer compatible order replaces current. An older
+  delivery is appended as an immutable stale observation without changing the
+  unit or enqueueing processing. Equal order with different revision identity,
+  incompatible order kinds, and existing current rows without an order fail with
+  `RevisionOrderConflict`. Tombstones and recreation use the same rule.
+- **Backfill:** do not synthesize provider order from `receivedAt` or revision
+  ID. Existing current rows without an order remain readable but reject
+  replacement until a provider re-observation supplies a reviewed provider
+  timestamp or a successfully closed reconciliation supplies an epoch. Backfill
+  the immutable current revision and unit pointer together, then verify before
+  narrowing the optional stored fields in a later release.
+- **Verify:** require v3-before-delayed-v2, duplicate, equal-order conflict,
+  tombstone-before-delayed-live, and newer-recreation tests. Confirm stale
+  observations create no processing job and current lifecycle generation does
+  not advance.
+- **Rollback:** deploy the earlier input contract and planner. Optional stored
+  order fields remain harmless; do not delete immutable stale observations.
+
 ## Grouped call maintenance proposals
 
 - **Expand:** add `brainMaintenanceProposalItems` and optional call, receipt,

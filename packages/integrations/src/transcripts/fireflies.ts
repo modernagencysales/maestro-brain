@@ -1,5 +1,6 @@
 import {
   canonicalTranscriptRevision,
+  providerTimestampRevisionOrder,
   type CanonicalCallTranscript,
   type CanonicalParticipant,
 } from "./canonical";
@@ -68,6 +69,15 @@ export const normalizeFirefliesCall = (input: {
 
   const durationMs = secondsToMs(transcript.duration);
   const isDeleted = deleted(transcript);
+  const metadata = object(transcript._nango_metadata);
+  const revisionOrder = isDeleted
+    ? providerTimestampRevisionOrder(
+        "_nango_metadata.deleted_at",
+        metadata?.deleted_at,
+      )
+    : (providerTimestampRevisionOrder("updated_at", transcript.updated_at) ??
+      providerTimestampRevisionOrder("date", transcript.date));
+  if (revisionOrder === null) throw new FirefliesDecodeError("invalid_call");
   const emails = Array.isArray(transcript.participants)
     ? transcript.participants.flatMap((value) => {
         const email = string(value);
@@ -142,6 +152,7 @@ export const normalizeFirefliesCall = (input: {
     providerKey: "fireflies",
     connectionKey: input.connectionKey,
     externalCallId,
+    revisionOrder,
     title: string(transcript.title) ?? "Untitled Fireflies call",
     startedAt: new Date(startedMs).toISOString(),
     endedAt:

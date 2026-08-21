@@ -19,6 +19,7 @@ export const ConnectorSyncErrorTag = Schema.Literal(
   "ProviderRateLimited",
   "ProviderUnavailable",
   "PermanentDecodeFailure",
+  "RevisionOrderConflict",
 );
 
 export const ConnectorSyncStateRow = Schema.Struct({

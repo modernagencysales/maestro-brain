@@ -21,7 +21,10 @@ export type TranscriptSyncStatus =
   "queued" | "syncing" | "ready" | "retry_wait" | "error" | "revoked";
 
 export type TranscriptSyncErrorTag =
-  "ProviderRateLimited" | "ProviderUnavailable" | "PermanentDecodeFailure";
+  | "ProviderRateLimited"
+  | "ProviderUnavailable"
+  | "PermanentDecodeFailure"
+  | "RevisionOrderConflict";
 
 export type TranscriptSyncState = {
   readonly organizationKey: string;
@@ -152,7 +155,9 @@ export const failTranscriptSyncState = (input: {
 }) =>
   Effect.gen(function* () {
     yield* assertClaim(input);
-    const permanent = input.errorTag === "PermanentDecodeFailure";
+    const permanent =
+      input.errorTag === "PermanentDecodeFailure" ||
+      input.errorTag === "RevisionOrderConflict";
     return {
       ...input.state,
       status: permanent ? "error" : "retry_wait",

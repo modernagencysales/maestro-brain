@@ -1,5 +1,7 @@
 import { TestConfect } from "@confect/test";
+import { CanonicalTranscriptRevisionOrder } from "@maestro-template/integrations/transcripts/canonical";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 
@@ -8,6 +10,7 @@ import refs from "../confect/_generated/refs";
 import { DatabaseReader, DatabaseWriter } from "../confect/_generated/services";
 import {
   ConnectionRevoked,
+  RevisionOrderConflict,
   TenantMismatch,
 } from "../confect/capabilities/ingestSourceUnit.spec";
 import { testConfectLayer } from "./support/confect";
@@ -18,6 +21,11 @@ const call = {
   connectionKey: "conn_fireflies_1",
   externalCallId: "call_1",
   externalRevisionId: "revision_1",
+  revisionOrder: {
+    kind: "provider_timestamp",
+    timestamp: "2026-08-05T14:00:00.000Z",
+    source: "updated_at",
+  },
   title: "Acme weekly",
   startedAt: "2026-08-05T14:00:00.000Z",
   endedAt: "2026-08-05T14:30:00.000Z",
@@ -154,6 +162,10 @@ describe("source-unit ingestion persistence", () => {
         input: {
           ...call,
           externalRevisionId: "revision_2",
+          revisionOrder: {
+            ...call.revisionOrder,
+            timestamp: "2026-08-05T15:00:00.000Z",
+          },
           segments: [{ ...call.segments[0], text: "We launched on Friday." }],
         },
         authority,
@@ -237,6 +249,219 @@ describe("source-unit ingestion persistence", () => {
     expect(await denied({ organizationKey: "agency_other" })).toBeInstanceOf(
       TenantMismatch,
     );
+  });
+
+  it("keeps delayed revisions immutable without regressing current state", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      yield* confect.run(seedConnection(), Schema.Boolean);
+      const first = yield* confect.mutation(ingestRef, {
+        input: call,
+        authority,
+        caller,
+        receivedAt: now,
+      });
+      const newest = yield* confect.mutation(ingestRef, {
+        input: {
+          ...call,
+          externalRevisionId: "revision_3",
+          revisionOrder: {
+            ...call.revisionOrder,
+            timestamp: "2026-08-05T16:00:00.000Z",
+          },
+          segments: [{ ...call.segments[0], text: "Newest transcript." }],
+        },
+        authority,
+        caller,
+        receivedAt: now + 1,
+      });
+      const delayed = yield* confect.mutation(ingestRef, {
+        input: {
+          ...call,
+          externalRevisionId: "revision_2",
+          revisionOrder: {
+            ...call.revisionOrder,
+            timestamp: "2026-08-05T15:00:00.000Z",
+          },
+          segments: [{ ...call.segments[0], text: "Delayed transcript." }],
+        },
+        authority,
+        caller,
+        receivedAt: now + 2,
+      });
+      const state = yield* confect.run(
+        Effect.gen(function* () {
+          const reader = yield* DatabaseReader;
+          const unit = yield* reader
+            .table("sourceUnits")
+            .index("by_unit_key", (query) =>
+              query.eq("organizationKey", "agency_acme"),
+            )
+            .first()
+            .pipe(Effect.map(Option.getOrThrow), Effect.orDie);
+          const counts = yield* countRows;
+          return {
+            currentUnitRevisionKey: unit.currentUnitRevisionKey,
+            currentRevisionOrder: unit.currentRevisionOrder ?? null,
+            lifecycleState: unit.lifecycle.state,
+            counts,
+          };
+        }),
+        Schema.Struct({
+          currentUnitRevisionKey: Schema.String,
+          currentRevisionOrder: Schema.NullOr(CanonicalTranscriptRevisionOrder),
+          lifecycleState: Schema.Literal(
+            "active",
+            "deleted_tombstone",
+            "redacted",
+            "purged",
+          ),
+          counts: Counts,
+        }),
+      );
+      return { first, newest, delayed, state };
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+    expect(result.first.outcome).toBe("inserted");
+    expect(result.newest.outcome).toBe("inserted");
+    expect(result.delayed.outcome).toBe("stale");
+    expect(result.state).toMatchObject({
+      currentUnitRevisionKey: result.newest.unitRevisionKey,
+      currentRevisionOrder: {
+        timestamp: "2026-08-05T16:00:00.000Z",
+      },
+      lifecycleState: "active",
+      counts: { units: 1, revisions: 3, segments: 3, jobs: 2 },
+    });
+  });
+
+  it("surfaces equal-order content changes as an explicit conflict", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      yield* confect.run(seedConnection(), Schema.Boolean);
+      yield* confect.mutation(ingestRef, {
+        input: call,
+        authority,
+        caller,
+        receivedAt: now,
+      });
+      return yield* confect
+        .mutation(ingestRef, {
+          input: {
+            ...call,
+            externalRevisionId: "revision_same_order_changed_content",
+            segments: [
+              { ...call.segments[0], text: "Conflicting transcript." },
+            ],
+          },
+          authority,
+          caller,
+          receivedAt: now + 1,
+        })
+        .pipe(Effect.flip);
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+    expect(result).toBeInstanceOf(RevisionOrderConflict);
+    expect(result).toMatchObject({ reason: "equal_order" });
+  });
+
+  it("fences delayed live events after tombstones and permits newer recreation", async () => {
+    const program = Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      yield* confect.run(seedConnection(), Schema.Boolean);
+      yield* confect.mutation(ingestRef, {
+        input: call,
+        authority,
+        caller,
+        receivedAt: now,
+      });
+      const tombstone = yield* confect.mutation(ingestRef, {
+        input: {
+          ...call,
+          externalRevisionId: "revision_deleted",
+          revisionOrder: {
+            ...call.revisionOrder,
+            timestamp: "2026-08-05T16:00:00.000Z",
+          },
+          segments: [],
+          deleted: true,
+        },
+        authority,
+        caller,
+        receivedAt: now + 1,
+      });
+      const delayed = yield* confect.mutation(ingestRef, {
+        input: {
+          ...call,
+          externalRevisionId: "revision_2",
+          revisionOrder: {
+            ...call.revisionOrder,
+            timestamp: "2026-08-05T15:00:00.000Z",
+          },
+        },
+        authority,
+        caller,
+        receivedAt: now + 2,
+      });
+      const recreated = yield* confect.mutation(ingestRef, {
+        input: {
+          ...call,
+          externalRevisionId: "revision_4",
+          revisionOrder: {
+            ...call.revisionOrder,
+            timestamp: "2026-08-05T17:00:00.000Z",
+          },
+          segments: [{ ...call.segments[0], text: "Recreated transcript." }],
+        },
+        authority,
+        caller,
+        receivedAt: now + 3,
+      });
+      const state = yield* confect.run(
+        Effect.gen(function* () {
+          const reader = yield* DatabaseReader;
+          const unit = yield* reader
+            .table("sourceUnits")
+            .index("by_unit_key", (query) =>
+              query.eq("organizationKey", "agency_acme"),
+            )
+            .first()
+            .pipe(Effect.map(Option.getOrThrow), Effect.orDie);
+          return {
+            currentUnitRevisionKey: unit.currentUnitRevisionKey,
+            lifecycleState: unit.lifecycle.state,
+          };
+        }),
+        Schema.Struct({
+          currentUnitRevisionKey: Schema.String,
+          lifecycleState: Schema.String,
+        }),
+      );
+      return { tombstone, delayed, recreated, state };
+    });
+
+    const result = await Effect.runPromise(
+      program.pipe(Effect.provide(testConfectLayer())),
+    );
+    expect(result.tombstone.outcome).toBe("tombstone");
+    expect(result.delayed.outcome).toBe("stale");
+    expect(result.recreated.outcome).toBe("inserted");
+    expect(result.state).toEqual({
+      currentUnitRevisionKey: result.recreated.unitRevisionKey,
+      lifecycleState: "active",
+    });
   });
 
   it("accepts pre-authorized manual imports only under the manual provider", async () => {

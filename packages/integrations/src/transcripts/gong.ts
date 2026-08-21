@@ -1,5 +1,6 @@
 import {
   canonicalTranscriptRevision,
+  providerTimestampRevisionOrder,
   type CanonicalCallTranscript,
   type CanonicalParticipant,
 } from "./canonical";
@@ -90,6 +91,27 @@ export const normalizeGongCall = (input: {
   const mediaUrls = object(callRecord.mediaUrls);
   const isDeleted = deleted(callRecord) || deleted(transcriptRecord);
   const transcriptId = string(transcriptRecord.id) ?? externalCallId;
+  const callMetadata = object(callRecord._nango_metadata);
+  const transcriptMetadata = object(transcriptRecord._nango_metadata);
+  const revisionOrder = isDeleted
+    ? (providerTimestampRevisionOrder(
+        "call._nango_metadata.deleted_at",
+        callMetadata?.deleted_at,
+      ) ??
+      providerTimestampRevisionOrder(
+        "transcript._nango_metadata.deleted_at",
+        transcriptMetadata?.deleted_at,
+      ))
+    : (providerTimestampRevisionOrder(
+        "call.updated_at",
+        callRecord.updated_at,
+      ) ??
+      providerTimestampRevisionOrder(
+        "transcript.updated_at",
+        transcriptRecord.updated_at,
+      ) ??
+      providerTimestampRevisionOrder("started", callRecord.started));
+  if (revisionOrder === null) throw new GongDecodeError("invalid_call");
 
   const segments = isDeleted
     ? []
@@ -150,6 +172,7 @@ export const normalizeGongCall = (input: {
     providerKey: "gong",
     connectionKey: input.connectionKey,
     externalCallId,
+    revisionOrder,
     title: string(callRecord.title) ?? "Untitled Gong call",
     startedAt: new Date(startedMs).toISOString(),
     endedAt:

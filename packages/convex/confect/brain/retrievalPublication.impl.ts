@@ -1475,7 +1475,7 @@ export const rebuildTranscriptBatchEffect = (
     const reader = yield* DatabaseReader;
     const units = yield* reader
       .table("sourceUnits")
-      .index("by_org_unit_key", (query) => {
+      .index("by_unit_key", (query) => {
         const scoped = query.eq("organizationKey", args.organizationKey);
         return args.afterSourceKey === undefined
           ? scoped

@@ -275,7 +275,7 @@ export const runTranscriptSyncPage = async (input: {
   readonly normalize: (record: unknown) => Promise<CanonicalCallTranscript>;
   readonly ingest: (
     call: CanonicalCallTranscript,
-  ) => Promise<"inserted" | "duplicate" | "tombstone">;
+  ) => Promise<"inserted" | "duplicate" | "stale" | "tombstone">;
   readonly commit: (result: {
     readonly expectedCursor: string | null;
     readonly nextCursor: string | null;
@@ -306,6 +306,11 @@ export const runTranscriptSyncPage = async (input: {
     });
     return { kind: "committed", nextCursor: page.nextCursor };
   } catch (error) {
+    const errorRecord = object(error);
+    const errorData = object(errorRecord?.data);
+    const revisionOrderConflict =
+      errorRecord?._tag === "RevisionOrderConflict" ||
+      errorData?._tag === "RevisionOrderConflict";
     const failure: Failure =
       error instanceof TranscriptProviderRateLimited
         ? {
@@ -319,11 +324,17 @@ export const runTranscriptSyncPage = async (input: {
               errorTag: "PermanentDecodeFailure",
               retryAfterMs: null,
             }
-          : {
-              expectedCursor: input.cursor,
-              errorTag: "ProviderUnavailable",
-              retryAfterMs: 60_000,
-            };
+          : revisionOrderConflict
+            ? {
+                expectedCursor: input.cursor,
+                errorTag: "RevisionOrderConflict",
+                retryAfterMs: null,
+              }
+            : {
+                expectedCursor: input.cursor,
+                errorTag: "ProviderUnavailable",
+                retryAfterMs: 60_000,
+              };
     await input.fail(failure);
     return { kind: "failed", errorTag: failure.errorTag };
   }
