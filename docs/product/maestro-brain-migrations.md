@@ -145,7 +145,12 @@ Execute-mode component failures follow the same durable failure receipt path.
   re-ingestion is not required. Record processed, published, revoked,
   retry-wait, and dead-letter counts plus final current publication-set keys as
   the deployment receipt. The direct bounded rebuild mutations remain available
-  for diagnosis and migration tooling.
+  for diagnosis and migration tooling. Existing queued rows remain valid while
+  optional cumulative discovered/published counters are added to rebuild
+  cursors. Only the successfully completed final Brain-page continuation marks
+  page coverage complete. Provider-backed corpora remain partial until their
+  provider reconciliation closes successfully. Terminal publication failures
+  increment corpus failure health and preserve a degraded reason.
 - **Verify:** require exact UTF-8 passage round trips, bounded passages, stable
   keys, durable retry after missing scheduler delivery, stale-revision
   rejection, atomic current-set replacement, removal of retired postings,

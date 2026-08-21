@@ -11,6 +11,7 @@ import * as Schema from "effect/Schema";
 
 import databaseSchema from "../_generated/schema";
 import refs from "../_generated/refs";
+import type { RetrievalPublicationJobsDoc } from "../_generated/docs";
 import {
   DatabaseReader,
   DatabaseWriter,
@@ -1181,6 +1182,130 @@ export const enqueueOrganizationCorpusRebuildsEffect = (input: {
     return jobKeys;
   });
 
+const corpusKeyForJob = (
+  originKind: RetrievalPublicationJobsDoc["originKind"],
+) =>
+  originKind === "page" || originKind === "page_rebuild"
+    ? "brain-pages"
+    : originKind === "slack" || originKind === "slack_rebuild"
+      ? "slack"
+      : "transcripts";
+
+const healthRowsForJob = (job: RetrievalPublicationJobsDoc) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const corpusKey = corpusKeyForJob(job.originKind);
+    const rows = yield* reader
+      .table("brainCorpusHealth")
+      .index("by_workspace_brain", (index) =>
+        index.eq("workspaceId", job.workspaceId).eq("brainKey", job.brainKey),
+      )
+      .take(100)
+      .pipe(Effect.orDie);
+    return {
+      corpusKey,
+      rows: rows.filter((row) => row.corpusKey === corpusKey),
+    };
+  });
+
+const markRebuildHealthComplete = (
+  job: RetrievalPublicationJobsDoc,
+  counts: { readonly discovered: number; readonly published: number },
+  at: number,
+) =>
+  Effect.gen(function* () {
+    const writer = yield* DatabaseWriter;
+    const { corpusKey, rows } = yield* healthRowsForJob(job);
+    if (rows.length === 0) {
+      yield* writer
+        .table("brainCorpusHealth")
+        .insert({
+          schemaVersion: 1,
+          organizationKey: job.organizationKey,
+          workspaceId: job.workspaceId,
+          brainKey: job.brainKey,
+          corpusKey,
+          policyGeneration: Math.max(1, job.requestGeneration),
+          reconciliationGeneration: Math.max(1, job.requestGeneration),
+          coverageStatus: "complete",
+          lastReconciledAt: at,
+          freshnessThresholdMs:
+            corpusKey === "brain-pages"
+              ? 7 * 24 * 60 * 60 * 1_000
+              : 24 * 60 * 60 * 1_000,
+          discoveredCount: counts.discovered,
+          publishedCount: counts.published,
+          failedCount: 0,
+          updatedAt: at,
+        })
+        .pipe(Effect.orDie);
+      return;
+    }
+    for (const row of rows)
+      yield* writer
+        .table("brainCorpusHealth")
+        .patch(row._id, {
+          reconciliationGeneration: Math.max(1, job.requestGeneration),
+          coverageStatus: "complete",
+          lastReconciledAt: at,
+          ...(corpusKey === "brain-pages"
+            ? {
+                discoveredCount: counts.discovered,
+                publishedCount: counts.published,
+              }
+            : {}),
+          failedCount: 0,
+          degradedReason: undefined,
+          updatedAt: at,
+        })
+        .pipe(Effect.orDie);
+  });
+
+const markPublicationDeadLetter = (
+  job: RetrievalPublicationJobsDoc,
+  lastErrorTag: string,
+  at: number,
+) =>
+  Effect.gen(function* () {
+    const writer = yield* DatabaseWriter;
+    const { corpusKey, rows } = yield* healthRowsForJob(job);
+    const degradedReason = `Publication dead letter: ${lastErrorTag}.`;
+    if (rows.length === 0) {
+      yield* writer
+        .table("brainCorpusHealth")
+        .insert({
+          schemaVersion: 1,
+          organizationKey: job.organizationKey,
+          workspaceId: job.workspaceId,
+          brainKey: job.brainKey,
+          corpusKey,
+          policyGeneration: Math.max(1, job.requestGeneration),
+          coverageStatus: "partial",
+          freshnessThresholdMs:
+            corpusKey === "brain-pages"
+              ? 7 * 24 * 60 * 60 * 1_000
+              : 24 * 60 * 60 * 1_000,
+          discoveredCount: 0,
+          publishedCount: 0,
+          failedCount: 1,
+          degradedReason,
+          updatedAt: at,
+        })
+        .pipe(Effect.orDie);
+      return;
+    }
+    for (const row of rows)
+      yield* writer
+        .table("brainCorpusHealth")
+        .patch(row._id, {
+          coverageStatus: "partial",
+          failedCount: row.failedCount + 1,
+          degradedReason,
+          updatedAt: at,
+        })
+        .pipe(Effect.orDie);
+  });
+
 export const runPublicationJobEffect = (args: RunPublicationJobInput) =>
   Effect.gen(function* () {
     if (args.caller.kind !== "system") return yield* new Unauthorized();
@@ -1325,11 +1450,31 @@ export const runPublicationJobEffect = (args: RunPublicationJobInput) =>
             rebuild: {
               afterSourceKey,
               limit: job.rebuild?.limit ?? 1,
+              discoveredCount:
+                (job.rebuild?.discoveredCount ?? 0) +
+                exit.value.value.processed,
+              publishedCount:
+                (job.rebuild?.publishedCount ?? 0) + exit.value.value.published,
             },
           },
           args.now,
         );
       }
+      if (
+        exit.value.kind === "rebuild" &&
+        !exit.value.value.hasMore &&
+        job.originKind === "page_rebuild"
+      )
+        yield* markRebuildHealthComplete(
+          job,
+          {
+            discovered:
+              (job.rebuild?.discoveredCount ?? 0) + exit.value.value.processed,
+            published:
+              (job.rebuild?.publishedCount ?? 0) + exit.value.value.published,
+          },
+          args.now,
+        );
       const completed = {
         status,
         attemptCount,
@@ -1373,6 +1518,8 @@ export const runPublicationJobEffect = (args: RunPublicationJobInput) =>
       .table("retrievalPublicationJobs")
       .patch(job._id, failed)
       .pipe(Effect.orDie);
+    if (deadLetter)
+      yield* markPublicationDeadLetter(job, lastErrorTag, args.now);
     return publicationJobResult({ ...job, ...failed });
   });
 

@@ -12,6 +12,8 @@ const PagePublicationPolicy = Schema.Struct({
 const RebuildCursor = Schema.Struct({
   afterSourceKey: Schema.optional(Schema.String),
   limit: PositiveInteger,
+  discoveredCount: Schema.optional(NonNegativeInteger),
+  publishedCount: Schema.optional(NonNegativeInteger),
 });
 
 export const RetrievalPublicationJobRow = Schema.Struct({

@@ -22,6 +22,8 @@ export type RetrievalPublicationJobInput = {
   readonly rebuild?: {
     readonly afterSourceKey?: string;
     readonly limit: number;
+    readonly discoveredCount?: number;
+    readonly publishedCount?: number;
   };
 };
 

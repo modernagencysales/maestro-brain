@@ -1043,10 +1043,10 @@ describe("retrieval publication persistence", () => {
           }),
           AnyResult,
         );
-        const publishedEntries = yield* confect.run(
+        const state = yield* confect.run(
           Effect.gen(function* () {
             const reader = yield* DatabaseReader;
-            return yield* reader
+            const publishedEntries = yield* reader
               .table("retrievalEntries")
               .index("by_workspace_brain_state_entry", (query) =>
                 query
@@ -1056,10 +1056,22 @@ describe("retrieval publication persistence", () => {
               )
               .take(10)
               .pipe(Effect.orDie);
+            const health = yield* reader
+              .table("brainCorpusHealth")
+              .index("by_workspace_brain_corpus_scope", (query) =>
+                query
+                  .eq("workspaceId", workspaceId)
+                  .eq("brainKey", brainKey)
+                  .eq("corpusKey", "brain-pages")
+                  .eq("connectorScopeKey", undefined),
+              )
+              .first()
+              .pipe(Effect.orDie);
+            return { publishedEntries, health };
           }),
           AnyResult,
         );
-        return { first, second, publishedEntries };
+        return { first, second, ...state };
       }).pipe(Effect.provide(testConfectLayer())),
     );
 
@@ -1078,6 +1090,123 @@ describe("retrieval publication persistence", () => {
         ),
       ),
     ).toEqual(new Set([pageKey, secondPageKey]));
+    expect(result.health.value).toMatchObject({
+      coverageStatus: "complete",
+      reconciliationGeneration: 1,
+      lastReconciledAt: now,
+      discoveredCount: 2,
+      publishedCount: 2,
+      failedCount: 0,
+    });
+  });
+
+  it("records a terminal publication failure in corpus health", async () => {
+    const missingRevisionKey = "rev_company_context_missing";
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof databaseSchema>(),
+        );
+        const { workspaceId } = yield* confect.run(seedPage, AnyResult);
+        yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const writer = yield* DatabaseWriter;
+            const page = yield* reader
+              .table("brainPages")
+              .index("by_workspace_page_key", (query) =>
+                query.eq("workspaceId", workspaceId).eq("pageKey", pageKey),
+              )
+              .first()
+              .pipe(Effect.orDie);
+            if (page._tag === "None") throw new Error("missing page");
+            yield* writer
+              .table("brainPages")
+              .patch(page.value._id, {
+                currentRevisionKey: missingRevisionKey,
+              })
+              .pipe(Effect.orDie);
+          }),
+          AnyResult,
+        );
+        const jobKey = yield* confect.run(
+          enqueueRetrievalPublicationJobEffect(
+            {
+              organizationKey,
+              workspaceId,
+              brainKey,
+              originKind: "page",
+              sourceKey: pageKey,
+              sourceRevisionKey: missingRevisionKey,
+              requestGeneration: 1,
+              page: {
+                authority: "derived",
+                authorityPolicyKey: "company-pages",
+                policyGeneration: 1,
+              },
+            },
+            now,
+          ),
+          AnyResult,
+        );
+        yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const writer = yield* DatabaseWriter;
+            const job = yield* reader
+              .table("retrievalPublicationJobs")
+              .index("by_job_key", (query) => query.eq("jobKey", jobKey))
+              .first()
+              .pipe(Effect.orDie);
+            if (job._tag === "None") throw new Error("missing job");
+            yield* writer
+              .table("retrievalPublicationJobs")
+              .patch(job.value._id, { maxAttempts: 1 })
+              .pipe(Effect.orDie);
+          }),
+          AnyResult,
+        );
+        const failed = yield* confect.run(
+          runPublicationJobEffect({
+            jobKey,
+            caller: {
+              kind: "system",
+              name: "publication-dead-letter-test",
+              surface: "internal",
+            },
+            now,
+          }),
+          AnyResult,
+        );
+        const health = yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            return yield* reader
+              .table("brainCorpusHealth")
+              .index("by_workspace_brain_corpus_scope", (query) =>
+                query
+                  .eq("workspaceId", workspaceId)
+                  .eq("brainKey", brainKey)
+                  .eq("corpusKey", "brain-pages")
+                  .eq("connectorScopeKey", undefined),
+              )
+              .first()
+              .pipe(Effect.orDie);
+          }),
+          AnyResult,
+        );
+        return { failed, health };
+      }).pipe(Effect.provide(testConfectLayer())),
+    );
+    expect(result.failed).toMatchObject({
+      status: "dead_letter",
+      lastErrorTag: "RetrievalOriginUnavailable",
+    });
+    expect(result.health.value).toMatchObject({
+      coverageStatus: "partial",
+      failedCount: 1,
+      degradedReason: expect.stringContaining("RetrievalOriginUnavailable"),
+    });
   });
 
   it("publishes a routed Slack revision with its immutable origin", async () => {
@@ -1288,7 +1417,14 @@ describe("retrieval publication persistence", () => {
             query: "repeatable qualified pipeline",
           },
         );
-        return { published, search, source, rebuilt, revoked, afterRevocation };
+        return {
+          published,
+          search,
+          source,
+          rebuilt,
+          revoked,
+          afterRevocation,
+        };
       }).pipe(Effect.provide(testConfectLayer())),
     );
     expect(result.published).toMatchObject({
