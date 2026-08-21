@@ -1,8 +1,8 @@
 # Apero Company Brain Data-First Implementation Plan
 
-**Status:** execution-ready plan; engineering may continue, but the current
-implementation is not read-switch-, deployment-, or pilot-ready until the
-completion gates below pass
+**Status:** engineering execution-ready; release execution blocked. Continue
+WP00-WP02 work, but do not merge the canonical read switch, deploy, or begin
+dogfood until the phased rollout and completion gates below pass.
 
 **Date:** 2026-08-21
 
@@ -115,12 +115,21 @@ it cannot be deployed into the pilot while the full gate is red.
 - compatibility reads are explicitly gated and disabled in WP02 acceptance and
   pilot receipts, so an empty projection cannot be masked by legacy reads.
 
-As of 2026-08-21, the fast `just verify` chain reaches the canonical SaaS UI
-transplant backlog and the complete `just verify-full` / `pnpm verify` gate is
-also red. The mixed branch is not merge-, deploy-, or pilot-ready. Backend work
-may continue behind focused gates, but release requires a clean,
-default-branch-derived Brain PR and a separately reviewable UI repair stream
-that both pass `just verify-full`.
+As of 2026-08-21, the original mixed worktree has been separated into two clean,
+default-branch-derived streams:
+
+- backend: `codex/company-brain-backend` at `4226d808`;
+- UI: `codex/canonical-saas-ui-clean` at `7bcb635e`.
+
+The split is complete, but neither stream is release-ready. The backend
+`just verify-full` reaches type coverage at 99.62% against a 99.7% target. The
+UI stream passes lint but fails web typecheck with 264 errors from the
+incomplete template transplant. The backend stack also combines additive schema,
+publication workers, and default projection reads; it must be separated or
+feature-gated so deployment cannot switch reads before backfill and validation.
+Backend correctness work may continue behind focused gates. Merge requires a
+green full gate for each phase, and promotion requires a green integrated-tip
+gate and a receipt from the same SHA.
 
 ## 4. Pilot Acceptance Contract
 
@@ -242,8 +251,9 @@ Gmail, DocuSign document retention, write approval, granular permissions, and
 multi-Brain composition default to **not authorized for the pilot** and do not
 block M0.
 
-**Exit gate:** E0 can be run reproducibly and each question names the evidence
-required to judge it.
+**Exit gate:** E0 can be run reproducibly, each question names the evidence
+required to judge it, and the page, Slack, and transcript freshness thresholds
+used by WP02C are filled in rather than inherited from hard-coded defaults.
 
 ### WP02A — Add The Brain-Scoped Retrieval Publication Contract
 
@@ -326,6 +336,21 @@ monotonic publication generation and the state sequence
 the inactive set, validated, then made current in the same transaction that
 retires the previous set. Failed or partial builds never change the current
 pointer.
+
+`RetrievalPublicationSet.state` is the sole authority for which projection is
+current. Entry state and token publication state are denormalized index aids and
+must be checked against the set; they cannot independently authorize a read.
+
+Immediate revocation uses bounded authoritative eligibility fences rather than
+waiting for unbounded derived-row cleanup. Each publication records the
+controlling page lifecycle, Slack policy, call route, connector scope,
+allowlist, and connection-generation fence keys and generations that apply to
+its source. The owning mutation advances or disables the small fence row in the
+same transaction as archive, route rejection, policy removal, scope removal, or
+connection revocation. Search, ContextPack, and source-get deduplicate and
+verify all referenced fences before returning evidence. Async jobs retire and
+delete derived rows afterward; losing every scheduled cleanup invocation must
+not make revoked evidence readable.
 
 Add retrieval-entry indexes for:
 
@@ -448,12 +473,30 @@ transcript adapter records which persisted field supplies ordering, how equal
 and older deliveries behave, and how tombstone/recreation is fenced. An unseen
 revision key is not, by itself, proof that the observation is newer.
 
+Publication generations are monotonic across the entire logical publication
+history, including retire, revoke, restore, and republish. Generation allocation
+must inspect or reserve against retired history; removing the current pointer
+must never reset the next generation to one.
+
+Rebuild is a convergence operation, not merely enumeration. Each rebuild uses a
+fenced snapshot or a high-water mark plus a catch-up phase, then performs a set
+difference between authoritative eligible origins and current publications.
+Concurrent inserts, updates, archives, and removals cannot be hidden behind a
+mutable cursor, and a stranded publication must be retired even when its normal
+lifecycle hook was lost.
+
+A terminal dead letter remains unresolved until a repair job or rebuild records
+which failed effect it superseded. Health derives from unresolved failures; an
+unrelated successful rebuild cannot clear them, and a repaired effect cannot
+leave the corpus permanently degraded.
+
 **Required tests:** current-revision replacement, delayed v2 after v3, duplicate
 publication, lost initial scheduler delivery followed by automatic sweeper
 recovery, scheduler/action failure followed by durable retry, policy-only and
 lifecycle-only republish, route/target/connection revocation, tombstone and
 purge, and complete rebuild equivalence for all three corpora, plus
-existing-call rerouting and bounded Slack backfill.
+existing-call rerouting, bounded Slack backfill, cutoff enforcement, monotonic
+generation after revoke/restore, and dead-letter repair attribution.
 
 **Focused gate:**
 
@@ -477,7 +520,10 @@ Implement shared Brain-scoped retrieval over the publication projection:
 - fetch the complete posting union for those tokens up to a hard 5,000-posting
   pilot capacity; return an explicit capacity error instead of silently dropping
   postings;
-- retrieve at most 40 candidates;
+- compute the complete declared ranking score before applying the 40-candidate
+  cap; posting summaries must carry every pre-cap scoring input needed to avoid
+  discarding a title, heading, term-frequency, authority, or freshness winner;
+- retrieve at most 40 fully ranked candidates;
 - allow at most three entries from one source revision;
 - score token coverage, title/heading matches, authority, and freshness;
 - break ties by `entryKey` for deterministic results;
@@ -510,6 +556,23 @@ presence of a healthy page corpus cannot hide a missing Slack, transcript, or
 document corpus. A terminal publication dead letter increments failure health
 and records a degraded reason.
 
+Do not overload one timestamp or generation across four different facts. Keep
+explicit records for:
+
+1. the incremental provider cursor/checkpoint;
+2. the provider reconciliation run and per-scope seen markers;
+3. the projection rebuild run pinned to a ledger high-water mark;
+4. publication delivery attempts, unresolved dead letters, and attributed
+   repair.
+
+`complete` requires a successfully closed reconciliation for the current
+connection, scope, and allowlist generations plus zero due or unresolved
+publication failures for that scope. Projection rebuild can prove ledger versus
+projection parity but cannot refresh provider observation time or provider
+reconciliation coverage. The expected manifest and ContextPack coverage output
+carry `connectorScopeKey`, the controlling generation tuple, and whether the
+scope is required; aggregation by corpus name alone is forbidden.
+
 `brain.context.get` accepts a question and returns the typed assembled pack
 without model generation. Codex and Claude Code synthesize the pilot answer from
 that pack. Keep `brain.answers.ask` as a deterministic compatibility/extractive
@@ -533,6 +596,14 @@ verifies passage offsets and content hash, and then returns the stable provider
 locator. A missing or mismatched origin is a typed integrity failure. Add one
 resolver and corruption test per origin variant.
 
+Citation availability distinguishes supersession from revocation. A citation
+captured before an ordinary content edit or eligibility-preserving policy-only
+republish reopens the exact immutable evidence it originally cited and is
+labeled `superseded`. Deletion, unshare, lifecycle revocation, or loss of source
+eligibility returns a typed revoked/unavailable result and never returns copied
+projection text. Search and ContextPack still return only current eligible
+evidence.
+
 Legacy transcript and page reads remain a rollback aid only. Put them behind an
 explicit compatibility mode, record when it is used, and disable it for WP02
 parity, evaluation, dogfood, and pilot receipts.
@@ -552,7 +623,8 @@ pnpm check:headless-surface-contract
 Code return the same versioned candidate manifest, citations, freshness,
 coverage, and truncation metadata for the same pinned dataset. Web, CLI, and
 other adapters must delegate to that contract but presentation parity is not on
-the pilot critical path.
+the pilot critical path. Every WP02 evidence-matrix row marked `Required` must
+be green before the canonical read switch.
 
 ### WP03 — Bootstrap And Prove Existing Apero Evidence
 
@@ -662,6 +734,14 @@ source/observed timestamps, content hash, source locator, and tombstone state.
 Only after that revision commits does its publisher create `RetrievalEntry`
 rows.
 
+The ledger also stores immutable provider observation receipts, normalization
+version, cursor lineage, and a permission/scope snapshot hash. Folder membership
+is represented by versioned `documentSourceMembershipEdges`; per-reconciliation
+seen markers are keyed by connector scope because one object may belong to more
+than one approved scope. Do not store one global `lastSeenGeneration` on the
+object. Retention classification is recorded with the source revision even
+though automated retention enforcement remains post-pilot hardening.
+
 Freeze the Drive-specific lifecycle contract before implementing the live
 adapter:
 
@@ -702,16 +782,23 @@ Normalize long documents into deterministic heading-aware passages:
 - `packages/convex/confect/integrations/driveSource.impl.ts`
 - `packages/convex/test/drive-source.test.ts`
 
-Use a generalized reconciliation run contract rather than extending the
+Use a generalized, fenced reconciliation run contract rather than extending the
 transcript-only sync state:
 
 ```text
-open generation -> enumerate every page -> mark every seen object
-                -> close traversal successfully -> infer removals
+open generation at provider high-water mark
+  -> enumerate every page -> mark every seen object for this scope
+  -> close traversal successfully
+  -> apply inferred removals against observations at/before the fence
+  -> drain derived revocations
+  -> close complete
 ```
 
 A partial or failed traversal never infers deletion. Incremental cursors and
-full-reconciliation generations are independent.
+full-reconciliation generations are independent. Live observations newer than
+the reconciliation fence survive removal inference. Coverage remains partial
+through the apply and derived-revocation phases; a crash resumes the same run
+idempotently and cannot report complete midway through tombstoning.
 
 Add provider-neutral connector scope and reconciliation-run records containing
 the organization, connection generation, provider/container key, allowlist
@@ -865,7 +952,7 @@ Indicative ranges assume one primary engineer with timely business decisions:
 | A1    | WP00-WP01 inventory, decisions, and E0                    | 2-3 business days       |
 | A2    | Review/import WP03 snapshot as unpublished Brain pages    | 1-2 business days       |
 | A3    | WP04 skill work behind fixtures; dogfood waits for B3     | 2-3 engineering days    |
-| B0    | Clean the worktree, restore full gates, split rollout PRs | 1-2 engineering days    |
+| B0    | Restore full gates and split backend rollout phases       | 1-3 engineering days    |
 | B1    | WP02A publication schema and agency route                 | 2-3 engineering days    |
 | B2    | WP02B durable publishers, reconciliation, and rebuild     | 3-5 engineering days    |
 | B3    | WP02C lexical retrieval, context, and surface convergence | 3-4 engineering days    |
@@ -874,60 +961,96 @@ Indicative ranges assume one primary engineer with timely business decisions:
 | C     | WP07 structured source only when measured gaps justify it | 1-2 engineering weeks   |
 | Pilot | WP08-WP09 dogfood closure and five-user pilot             | 2-3 calendar weeks      |
 
-Before new feature work, complete B0: preserve the committed atomic
-retrieval-capacity slice, obtain a clean worktree, and extract the UI and
-backend phases onto default-branch-derived branches. Inventory, evaluation
-capture, snapshot review, and fixture-only skill packaging may continue in
-parallel. Two-user dogfood begins only after B1-B3 pass; this avoids launching
-on a legacy page-read path that would later be replaced. Drive adapter unit work
-may overlap B2-B3 behind fixtures, but live ingestion begins only after WP02 is
+The WP02 ranges predate the adversarial correctness matrix and are not delivery
+commitments. Re-estimate BE1-BE3 after the eligibility-fence, reconciliation,
+and scoped-health contracts have executable tests; do not compress a phase by
+dropping a required row.
+
+Branch extraction is complete. Finish B0 by restoring the backend 99.7% type
+coverage gate, repairing the UI stream independently, and turning the current
+backend stack into three promotable phases. Inventory, evaluation capture,
+snapshot review, and fixture-only skill packaging may continue in parallel.
+Two-user dogfood begins only after B1-B3 pass. Drive adapter unit work may
+overlap B2-B3 behind fixtures, but live ingestion begins only after WP02 is
 green. Track C is conditional.
 
-Use a merge train rather than one mixed rollout commit:
+Use this merge train rather than promoting the current combined backend stack:
 
-1. restore the branch gates and land additive schema/spec contracts;
-2. land durable publishers plus one bounded backfill/rebuild per corpus;
-3. verify counts, health, target-diff reconciliation, and lifecycle cleanup;
-4. switch canonical reads and prove headless/runtime parity;
-5. remove compatibility paths only after rollback and parity receipts pass.
+1. **BE1 — expand:** additive schema, writers, eligibility fences, durable jobs,
+   and compatibility-preserving reads. Projection reads remain disabled.
+2. **BE2 — backfill and observe:** registered operator operations start and
+   resume pages, Slack, and transcript projection backfills; an executable
+   transcript-order migration runs; live health and metrics prove backlog,
+   freshness, capacity failures, and unresolved dead letters.
+3. **BE3 — switch:** a per-Brain, schema-compatible read-mode record changes
+   from `compatibility` to `projection` only after the same-SHA staging receipt
+   proves counts, reconciliation, origin integrity, and runtime parity.
+4. **UI — independent:** finish the canonical SaaS UI and wire `/health` to the
+   live backend contract. This remains required by the product goal, but the
+   288-file transplant does not block the headless data pipeline from landing.
+5. Remove compatibility code only after pilot acceptance and a separately
+   rehearsed rollback window.
+
+BE2 must expose documented, registered operations equivalent to
+`startProjectionBackfill`, `resumeProjectionBackfill`,
+`backfillTranscriptRevisionOrder`, and `pausePublicationWorkers`. Names may
+follow repository conventions, but operators may not be required to call test
+helpers or manually invent cursor loops.
+
+Rollback is a forward, schema-compatible operation: set the affected Brain's
+read mode back to `compatibility`, pause new publication work, preserve the raw
+ledger and derived rows for diagnosis, and verify the prior read receipt. Do not
+claim that deploying the pre-schema binary is a rollback; current release
+tooling rejects schema/manifest hash mismatches.
 
 Each step runs focused gates and `just verify-full` (or the equivalent
 `pnpm verify`), and uses a phase-scoped branch or PR derived from the current
-default branch. UI transplant work and Company Brain rollout work must remain
-reviewable as separate intentions even if they are temporarily stacked locally.
+default branch. The eventual combined staging tip runs the full gate again.
+Every receipt records that exact SHA; a receipt from an earlier phase cannot
+authorize the read switch. UI transplant work and Company Brain rollout work
+remain reviewable as separate intentions even if temporarily stacked locally.
 
 OAuth approval, provider sandbox access, source-owner review, or CRM custom
 field mapping may dominate elapsed time. Each package should name an engineering
 DRI, business DRI, external dependency, and maximum timebox before it starts.
 
-## 9. First Ten Actions
+## 9. Next Execution Actions
 
 1. **Complete:** current retrieval capacity excludes classified retired
    postings, supports bounded pre-backfill rows, and fails visibly above the
    shared current-publication budget.
-2. Extract backend/docs work and UI work into phase-scoped,
-   default-branch-derived branches before adding Drive or runtime-package code.
-3. Make revocation fail closed immediately: a revoked page, route, policy, or
-   provider connection cannot remain readable while an async rebuild is lost or
-   delayed, and health degrades in the owning transaction.
-4. Add opened/closed provider reconciliation epochs for Slack and transcripts;
-   only a successful close may infer removals or report complete coverage.
-5. Close the remaining WP02 integrity cases: derived-row cleanup before final
+2. **Complete:** backend/docs and UI work are on clean, default-branch-derived
+   branches. Restore the backend 99.7% type-coverage gate without lowering the
+   threshold, and repair the UI branch's 264 web type errors independently.
+3. Extract or feature-gate BE1/BE2/BE3 so projection reads cannot become the
+   default before the operator backfill, validation, and same-SHA receipt.
+4. Implement bounded eligibility fences so revocation fails closed immediately:
+   a revoked page, route, policy, scope, or provider connection cannot remain
+   readable when every async cleanup job is lost.
+5. Add fenced provider reconciliation epochs for Slack and transcripts with
+   scan, apply-removals, derived-drain, and complete phases; only a successful
+   final close may report complete coverage.
+6. Close the remaining WP02 integrity cases: derived-row cleanup before final
    origin purge, unresolved dead-letter preservation, all Slack target paths
    beyond one enumeration window, scoped health/freshness, origin validation in
-   Search and ContextPack, public page-write conformance, rebuild races, and
-   non-exact revision-only source lookup.
-6. Repair the canonical SaaS UI in its separate stream, wire `/health` to real
-   corpus/connector state, and make `just verify-full` green.
-7. In parallel, inventory Ask Apero, capture E0, name owners/users, import the
+   Search and ContextPack, superseded-versus-revoked citation reopening, public
+   page-write conformance, fenced rebuild closure, correct pre-cap ranking,
+   Slack cutoff enforcement, monotonic generations, and non-exact revision-only
+   source lookup.
+7. Add registered backfill/migration/pause operations and wire `/health` plus
+   metrics to scoped backlog, freshness, capacity, and unresolved-failure data.
+8. In parallel, inventory Ask Apero, capture E0, name owners/users, import the
    approved snapshot, and package the shared runtime skill without dogfood yet.
-8. Prove compatibility-disabled Codex/Claude candidate-manifest parity and
+9. Prove compatibility-disabled Codex/Claude candidate-manifest parity and
    archive the exact runtime manifest and receipt.
-9. Freeze the provider-specific Drive identity, cursor, membership, export, and
-   tombstone rules; build the adapter against fixtures.
-10. After WP02 and the full repository gate pass, exercise the one-container
-    live Drive slice; begin dogfood only after the runtime and staging receipt
-    packets pass.
+10. Freeze the provider-specific Drive identity, cursor, membership, export, and
+    tombstone rules; build the adapter against fixtures.
+11. After WP02 and the full backend/integrated gates pass, exercise the
+    one-container live Drive slice; begin dogfood only after the runtime and
+    staging receipt packets pass.
+12. Finish the canonical SaaS UI and its real health surface in the separate UI
+    stream; it is a product completion gate, not a prerequisite for headless
+    provider data to begin flowing through the phased backend rollout.
 
 ## 10. Required Cross-Corpus And Connector Tests
 
@@ -937,6 +1060,8 @@ Implementation is not complete without explicit tests for:
 - current-revision replacement and stale out-of-order delivery;
 - delayed transcript v2 after v3 and tombstone/recreation ordering;
 - tombstone, connection revocation, and route revocation;
+- immediate read fencing after page, policy, route, scope, and connection
+  revocation with every cleanup scheduler invocation suppressed;
 - organization-wide connection rebuilds beyond one workspace-enumeration page;
 - crash between raw-ledger commit and publication;
 - lost scheduler/action delivery followed by recurring-sweeper recovery, durable
@@ -945,11 +1070,17 @@ Implementation is not complete without explicit tests for:
 - policy-only and lifecycle-only republication with stable logical entry keys;
 - more than one per-token query capacity of retired postings without starvation;
 - partial reconciliation causing no deletion;
-- completed reconciliation causing correct deletion;
+- live events newer than a reconciliation high-water mark surviving inferred
+  removal, interrupted apply remaining partial, and completed reconciliation
+  causing correct deletion;
 - deterministic ranking, stable tie-breaking, and byte-budget truncation;
+- the true title/heading/freshness winner ranking above 40 otherwise-equal
+  candidates regardless of insertion order;
 - exact revision and segment citation resolution;
 - exact `(publicationSetKey, entryKey)` citation reopen after a policy-only
   republication that retains the logical entry key;
+- a displayed citation reopening exact superseded evidence after an ordinary
+  edit while revoked/unshared evidence fails closed;
 - origin-ledger hash/offset verification and corrupted-projection rejection;
 - search and ContextPack integrity behavior when an immutable origin is missing
   or corrupted;
@@ -959,7 +1090,13 @@ Implementation is not complete without explicit tests for:
 - reconciliation freshness based on source observation, not merely a recent
   rebuild timestamp, with health updates isolated to the affected scope;
 - rebuild closure under concurrent insert, update, and archive activity;
+- reconciliation and rebuild health remaining distinct, scoped, and pinned to
+  their respective provider and ledger high-water marks;
 - indexed, bounded provider-event replay detection;
+- Slack publication enforcing the configured historical cutoff for rebuilds and
+  delayed deliveries;
+- publication generations remaining monotonic across revoke and restore;
+- dead-letter repair recording the failed effect it resolves;
 - WP02 reads with legacy compatibility explicitly disabled;
 - cross-runtime candidate-manifest parity;
 - coverage reporting when a required corpus or connector is unavailable.
@@ -974,29 +1111,36 @@ Keep this table current in every WP02 PR. “Implemented” means the named focu
 test passes on the current backend branch; it does not authorize the read switch
 until every required row and the clean-branch gates pass.
 
-| Acceptance behavior                                                             | Exact evidence location                                                                                      | Current status                                                                 |
-| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| Durable jobs, lost-schedule recovery, cursor continuation                       | `test/retrieval-publication.test.ts`, `test/retrieval-publication-crons.test.ts`                             | Implemented                                                                    |
-| Slack policy and accepted call-route target diffs                               | `test/channel-policies.test.ts`, `test/call-review.test.ts`, `confect/capabilities/routeCallToBrain.test.ts` | Implemented                                                                    |
-| Connection-generation fencing and rebuild enqueue                               | `test/transcript-connections.test.ts`, `test/retrieval-publication.test.ts`                                  | Implemented                                                                    |
-| Delayed v2 after v3; equal-order conflict; tombstone/recreation                 | `test/source-unit-ingestion.test.ts`                                                                         | Implemented                                                                    |
-| Public `(publicationSetKey, entryKey)` identity and policy-only citation reopen | `test/retrieval-publication.test.ts`, generated Confect contract, `check:headless-surface-contract`          | Implemented                                                                    |
-| Origin-ledger hash/offset verification and corruption rejection                 | `test/retrieval-publication.test.ts`                                                                         | Current corpora implemented; document/projection resolvers await their ledgers |
-| Derived-table cleanup before final-origin purge                                 | `test/data-lifecycle.test.ts`, `test/data-lifecycle-ops.test.ts`                                             | Required                                                                       |
-| Successful-close-only provider coverage and inferred removals                   | provider reconciliation tests for Slack and transcripts                                                      | Required                                                                       |
-| Revocation immediately blocks reads and degrades health                         | connection, policy, lifecycle, search, and lost-scheduler adversarial tests                                  | Required                                                                       |
-| Successful rebuild preserves unresolved dead-letter health                      | `test/retrieval-publication.test.ts`, `test/brain-pilot.test.ts`                                             | Required                                                                       |
-| Health freshness and failures remain scoped to the affected corpus/connector    | `test/retrieval-publication.test.ts`, `test/headless-context.test.ts`                                        | Required                                                                       |
-| Missing expected corpus is unavailable/unknown                                  | `test/headless-context.test.ts`                                                                              | Implemented                                                                    |
-| Organization rebuild beyond one enumeration page                                | `test/retrieval-publication.test.ts`                                                                         | Implemented with explicit active-Brain capacity failure                        |
-| Slack ingress and policy targets beyond one enumeration window                  | `test/channel-policies.test.ts` plus Slack ingress tests                                                     | Required                                                                       |
-| Provider replay lookup is indexed and bounded                                   | Slack ingress tests                                                                                          | Required                                                                       |
-| Retired postings above capacity cannot starve current results                   | `test/brain-pilot.test.ts`                                                                                   | Implemented with legacy-state compatibility and typed overflow                 |
-| Search and ContextPack reject copied text with a missing/corrupt origin         | `test/brain-pilot.test.ts`, `test/headless-context.test.ts`                                                  | Required                                                                       |
-| Revision-only source lookup never claims an arbitrary passage is exact          | `test/brain-pilot.test.ts`, `test/headless-context.test.ts`                                                  | Required                                                                       |
-| Every public page write surface uses the durable publication contract           | page and pilot surface conformance tests                                                                     | Required                                                                       |
-| Rebuild close is fenced against concurrent ledger changes                       | adversarial rebuild/reconciliation race tests                                                                | Required                                                                       |
-| Compatibility disabled and Codex/Claude manifest parity                         | `test/brain-pilot.test.ts`, `test/headless-context.test.ts`, plus pinned runtime fixture receipt             | Compatibility gate implemented; runtime parity receipt required                |
+| Acceptance behavior                                                            | Exact evidence location                                                                                      | Current status                                                                 |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| Durable jobs, lost-schedule recovery, cursor continuation                      | `test/retrieval-publication.test.ts`, `test/retrieval-publication-crons.test.ts`                             | Implemented                                                                    |
+| Slack policy and accepted call-route target diffs                              | `test/channel-policies.test.ts`, `test/call-review.test.ts`, `confect/capabilities/routeCallToBrain.test.ts` | Implemented                                                                    |
+| Connection-generation fencing and rebuild enqueue                              | `test/transcript-connections.test.ts`, `test/retrieval-publication.test.ts`                                  | Implemented                                                                    |
+| Delayed v2 after v3; equal-order conflict; tombstone/recreation                | `test/source-unit-ingestion.test.ts`                                                                         | Implemented                                                                    |
+| Public `(publicationSetKey, entryKey)` identity                                | `test/retrieval-publication.test.ts`, generated Confect contract, `check:headless-surface-contract`          | Implemented                                                                    |
+| Origin-ledger hash/offset verification and corruption rejection                | `test/retrieval-publication.test.ts`                                                                         | Current corpora implemented; document/projection resolvers await their ledgers |
+| Derived-table cleanup before final-origin purge                                | `test/data-lifecycle.test.ts`, `test/data-lifecycle-ops.test.ts`                                             | Required                                                                       |
+| Successful-close-only provider coverage and inferred removals                  | provider reconciliation tests for Slack and transcripts                                                      | Required                                                                       |
+| Reconciliation high-water fence, resumable removal apply, and derived drain    | provider reconciliation and live-event interleaving tests                                                    | Required                                                                       |
+| Revocation immediately blocks reads and degrades health                        | connection, policy, lifecycle, search, and lost-scheduler adversarial tests                                  | Required                                                                       |
+| Successful rebuild preserves unresolved dead-letter health                     | `test/retrieval-publication.test.ts`, `test/brain-pilot.test.ts`                                             | Required                                                                       |
+| Health freshness and failures remain scoped to the affected corpus/connector   | `test/retrieval-publication.test.ts`, `test/headless-context.test.ts`                                        | Required                                                                       |
+| Missing expected corpus is unavailable/unknown                                 | `test/headless-context.test.ts`                                                                              | Implemented                                                                    |
+| Organization rebuild beyond one enumeration page                               | `test/retrieval-publication.test.ts`                                                                         | Implemented with explicit active-Brain capacity failure                        |
+| Slack ingress and policy targets beyond one enumeration window                 | `test/channel-policies.test.ts` plus Slack ingress tests                                                     | Required                                                                       |
+| Provider replay lookup is indexed and bounded                                  | Slack ingress tests                                                                                          | Required                                                                       |
+| Retired postings above capacity cannot starve current results                  | `test/brain-pilot.test.ts`                                                                                   | Implemented with legacy-state compatibility and typed overflow                 |
+| Search and ContextPack reject copied text with a missing/corrupt origin        | `test/brain-pilot.test.ts`, `test/headless-context.test.ts`                                                  | Required                                                                       |
+| Superseded citations reopen exact evidence; revoked citations fail closed      | `test/brain-pilot.test.ts`, `test/headless-context.test.ts`                                                  | Required                                                                       |
+| Revision-only source lookup never claims an arbitrary passage is exact         | `test/brain-pilot.test.ts`, `test/headless-context.test.ts`                                                  | Required                                                                       |
+| Every public page write surface uses the durable publication contract          | page and pilot surface conformance tests                                                                     | Required                                                                       |
+| Rebuild close is fenced against concurrent ledger changes                      | adversarial rebuild/reconciliation race tests                                                                | Required                                                                       |
+| Full declared score is applied before the 40-candidate cap                     | `test/brain-pilot.test.ts` randomized ranking fixture                                                        | Required                                                                       |
+| Slack historical cutoff excludes rebuild and delayed pre-cutoff evidence       | `test/retrieval-publication.test.ts`, `test/channel-policies.test.ts`                                        | Required                                                                       |
+| Publication generation remains monotonic through revoke/restore                | `test/retrieval-publication.test.ts`                                                                         | Required                                                                       |
+| Terminal dead-letter repair is attributable and health reflects unresolved set | `test/retrieval-publication.test.ts`, `test/brain-pilot.test.ts`                                             | Required                                                                       |
+| Registered backfill, transcript migration, pause, read switch, and rollback    | operator contract tests plus same-SHA staging receipt                                                        | Required                                                                       |
+| Compatibility disabled and Codex/Claude manifest parity                        | `test/brain-pilot.test.ts`, `test/headless-context.test.ts`, plus pinned runtime fixture receipt             | Compatibility gate implemented; runtime parity receipt required                |
 
 Each required row gains an engineering owner in its PR. Real-provider receipts
 add the context owner and connector/access owner before WP03 or WP05 acceptance.
