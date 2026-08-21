@@ -14,6 +14,7 @@ import {
   MutationRunner,
   QueryRunner,
 } from "../_generated/services";
+import { enqueueOrganizationCorpusRebuildsEffect } from "../brain/retrievalPublication.impl";
 import type { ProviderConnectionRow } from "./slackConnections.impl";
 import slackDirectory, {
   BotIdentityMismatch,
@@ -649,6 +650,14 @@ const applyReplacementRevocation = (input: {
         })
         .pipe(Effect.orDie);
     }
+    yield* enqueueOrganizationCorpusRebuildsEffect({
+      organizationKey: input.connection.organizationKey,
+      originKind: "slack_rebuild",
+      sourceKey: input.connection.connectionKey,
+      sourceRevisionKey: `connection:${input.connection.connectionKey}:revoked:${input.connection.connectionGeneration}`,
+      requestGeneration: Math.max(1, input.connection.connectionGeneration),
+      now: input.now,
+    });
   });
 
 const readReconcileConnectionImpl = FunctionImpl.make(
@@ -707,6 +716,21 @@ const commitReconcileIdentityImpl = FunctionImpl.make(
           )
           .pipe(Effect.orDie);
       }
+      if (
+        activated.right.connection.connectionGeneration !==
+        connection.connectionGeneration
+      )
+        yield* enqueueOrganizationCorpusRebuildsEffect({
+          organizationKey: connection.organizationKey,
+          originKind: "slack_rebuild",
+          sourceKey: connection.connectionKey,
+          sourceRevisionKey: `connection:${connection.connectionKey}:active:${activated.right.connection.connectionGeneration}`,
+          requestGeneration: Math.max(
+            1,
+            activated.right.connection.connectionGeneration,
+          ),
+          now,
+        });
       return {
         kind: "ok" as const,
         connectionGeneration: activated.right.connection.connectionGeneration,
@@ -776,6 +800,21 @@ const commitReconcileChannelsImpl = FunctionImpl.make(
           )
           .pipe(Effect.orDie);
       }
+      if (
+        activated.right.connection.connectionGeneration !==
+        connection.connectionGeneration
+      )
+        yield* enqueueOrganizationCorpusRebuildsEffect({
+          organizationKey: connection.organizationKey,
+          originKind: "slack_rebuild",
+          sourceKey: connection.connectionKey,
+          sourceRevisionKey: `connection:${connection.connectionKey}:active:${activated.right.connection.connectionGeneration}`,
+          requestGeneration: Math.max(
+            1,
+            activated.right.connection.connectionGeneration,
+          ),
+          now,
+        });
       const existingChannels = (yield* reader
         .table("sourceChannels")
         .index("by_connection_generation", (q) =>

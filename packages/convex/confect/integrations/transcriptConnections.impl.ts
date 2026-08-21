@@ -16,6 +16,7 @@ import {
 import { asGenericId } from "../access/handlerContext";
 import { recordAccessAuditEvent } from "../access/audit";
 import { Forbidden, Unauthorized } from "../errors";
+import { enqueueOrganizationCorpusRebuildsEffect } from "../brain/retrievalPublication.impl";
 import transcriptConnections, {
   authorizeTranscriptConnectCompletion as authorizeSpec,
   cancelTranscriptConnect as cancelSpec,
@@ -391,6 +392,15 @@ const revokeTranscriptConnection = FunctionImpl.make(
           })
           .pipe(Effect.orDie);
       }
+
+      yield* enqueueOrganizationCorpusRebuildsEffect({
+        organizationKey,
+        originKind: "transcript_rebuild",
+        sourceKey: row.connectionKey,
+        sourceRevisionKey: `connection:${row.connectionKey}:revoked:${row.connectionGeneration}`,
+        requestGeneration: Math.max(1, row.connectionGeneration),
+        now: input.now,
+      });
 
       return {
         connectionKey: row.connectionKey,

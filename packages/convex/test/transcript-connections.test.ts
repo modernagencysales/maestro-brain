@@ -277,6 +277,30 @@ describe("transcript connection capability", () => {
           ),
           Schema.Any,
         );
+      const publicationJobs = () =>
+        confect.run(
+          DatabaseReader.pipe(
+            Effect.flatMap((reader) =>
+              reader
+                .table("retrievalPublicationJobs")
+                .index("by_status_due_job", (q) => q.eq("status", "pending"))
+                .take(20)
+                .pipe(
+                  Effect.map((jobs) =>
+                    jobs.filter(
+                      (job) =>
+                        job.brainKey === "agency_acme" &&
+                        job.originKind === "transcript_rebuild" &&
+                        job.sourceRevisionKey ===
+                          `connection:fireflies_agency_acme:revoked:${completed.connectionGeneration}`,
+                    ),
+                  ),
+                  Effect.orDie,
+                ),
+            ),
+          ),
+          Schema.Any,
+        );
       const purgeAuditRows = () =>
         confect.run(
           DatabaseReader.pipe(
@@ -467,6 +491,14 @@ describe("transcript connection capability", () => {
           status: "revoked",
           leaseId: null,
           leaseExpiresAt: null,
+        }),
+      ]);
+      expect(yield* publicationJobs()).toEqual([
+        expect.objectContaining({
+          brainKey: "agency_acme",
+          originKind: "transcript_rebuild",
+          status: "pending",
+          sourceKey: "fireflies_agency_acme",
         }),
       ]);
       const reconnectWhileCleanupPending = yield* Effect.either(

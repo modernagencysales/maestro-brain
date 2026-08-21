@@ -919,6 +919,27 @@ describe("retrieval publication persistence", () => {
               purgeAfter: null,
             };
             yield* writer
+              .table("providerConnections")
+              .insert({
+                provider: "nango",
+                providerConfigKey: "slack",
+                organizationKey,
+                connectionKey: "conn_slack",
+                connectionGeneration: 1,
+                status: "active",
+                connectSessionId: "session_slack",
+                nangoConnectionId: "nango_slack",
+                nangoEndUserId: "user_slack",
+                nangoOrganizationId: "org_slack",
+                correlationTag: "slack:test",
+                attemptId: "attempt_slack",
+                attemptExpiresAt: now + 60_000,
+                completedAt: now,
+                createdAt: now,
+                updatedAt: now,
+              })
+              .pipe(Effect.orDie);
+            yield* writer
               .table("sourceArtifacts")
               .insert({
                 schemaVersion: 1,
@@ -1025,7 +1046,54 @@ describe("retrieval publication persistence", () => {
           }),
           AnyResult,
         );
-        return { published, search, rebuilt };
+        yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const writer = yield* DatabaseWriter;
+            const connection = yield* reader
+              .table("providerConnections")
+              .index("by_connection_key", (query) =>
+                query.eq("connectionKey", "conn_slack"),
+              )
+              .first()
+              .pipe(Effect.orDie);
+            if (connection._tag === "None")
+              throw new Error("missing connection");
+            yield* writer
+              .table("providerConnections")
+              .patch(connection.value._id, {
+                status: "revoked",
+                updatedAt: now + 2,
+              })
+              .pipe(Effect.orDie);
+          }),
+          AnyResult,
+        );
+        const revoked = yield* confect.run(
+          publishSlackRevisionEffect({
+            organizationKey,
+            workspaceId,
+            brainKey,
+            sourceRevisionKey,
+            caller: {
+              kind: "system",
+              name: "slack-revoke-test",
+              surface: "internal",
+            },
+            now: now + 2,
+          }),
+          AnyResult,
+        );
+        const afterRevocation = yield* confect.query(
+          refs.internal.brain.readApi.headlessSourcesSearch,
+          {
+            organizationId,
+            workspaceId,
+            brainKey,
+            query: "repeatable qualified pipeline",
+          },
+        );
+        return { published, search, rebuilt, revoked, afterRevocation };
       }).pipe(Effect.provide(testConfectLayer())),
     );
     expect(result.published).toMatchObject({
@@ -1047,6 +1115,8 @@ describe("retrieval publication persistence", () => {
       hasMore: false,
       nextAfterSourceKey: sourceKey,
     });
+    expect(result.revoked).toMatchObject({ outcome: "revoked" });
+    expect(result.afterRevocation.results).toEqual([]);
   });
 
   it("publishes every segment from an accepted transcript route", async () => {
@@ -1065,6 +1135,27 @@ describe("retrieval publication persistence", () => {
         yield* confect.run(
           Effect.gen(function* () {
             const writer = yield* DatabaseWriter;
+            yield* writer
+              .table("providerConnections")
+              .insert({
+                provider: "nango",
+                providerConfigKey: "fireflies",
+                organizationKey,
+                connectionKey: "conn_calls",
+                connectionGeneration: 1,
+                status: "active",
+                connectSessionId: "session_calls",
+                nangoConnectionId: "nango_calls",
+                nangoEndUserId: "user_calls",
+                nangoOrganizationId: "org_calls",
+                correlationTag: "calls:test",
+                attemptId: "attempt_calls",
+                attemptExpiresAt: now + 60_000,
+                completedAt: now,
+                createdAt: now,
+                updatedAt: now,
+              })
+              .pipe(Effect.orDie);
             yield* writer
               .table("sourceUnits")
               .insert({
@@ -1190,7 +1281,54 @@ describe("retrieval publication persistence", () => {
           }),
           AnyResult,
         );
-        return { published, context, rebuilt };
+        yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const writer = yield* DatabaseWriter;
+            const connection = yield* reader
+              .table("providerConnections")
+              .index("by_connection_key", (query) =>
+                query.eq("connectionKey", "conn_calls"),
+              )
+              .first()
+              .pipe(Effect.orDie);
+            if (connection._tag === "None")
+              throw new Error("missing connection");
+            yield* writer
+              .table("providerConnections")
+              .patch(connection.value._id, {
+                connectionGeneration: 2,
+                updatedAt: now + 2,
+              })
+              .pipe(Effect.orDie);
+          }),
+          AnyResult,
+        );
+        const revoked = yield* confect.run(
+          publishTranscriptRevisionEffect({
+            organizationKey,
+            workspaceId,
+            brainKey,
+            sourceRevisionKey: unitRevisionKey,
+            caller: {
+              kind: "system",
+              name: "transcript-generation-test",
+              surface: "internal",
+            },
+            now: now + 2,
+          }),
+          AnyResult,
+        );
+        const afterGenerationChange = yield* confect.query(
+          refs.internal.brain.readApi.headlessContextGet,
+          {
+            organizationId,
+            workspaceId,
+            brainKey,
+            question: "What is the qualified pipeline close-rate target?",
+          },
+        );
+        return { published, context, rebuilt, revoked, afterGenerationChange };
       }).pipe(Effect.provide(testConfectLayer())),
     );
     expect(result.published).toMatchObject({
@@ -1212,5 +1350,7 @@ describe("retrieval publication persistence", () => {
       hasMore: false,
       nextAfterSourceKey: unitKey,
     });
+    expect(result.revoked).toMatchObject({ outcome: "revoked" });
+    expect(result.afterGenerationChange.entries).toEqual([]);
   });
 });

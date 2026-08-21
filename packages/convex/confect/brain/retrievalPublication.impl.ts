@@ -808,6 +808,28 @@ const validatePublicationTarget = (input: {
     return workspace;
   });
 
+const connectionIsCurrent = (input: {
+  readonly organizationKey: string;
+  readonly connectionKey: string;
+  readonly connectionGeneration: number;
+}) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const connection = yield* reader
+      .table("providerConnections")
+      .index("by_connection_key", (query) =>
+        query.eq("connectionKey", input.connectionKey),
+      )
+      .first()
+      .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+    return (
+      connection !== null &&
+      connection.organizationKey === input.organizationKey &&
+      connection.status === "active" &&
+      connection.connectionGeneration === input.connectionGeneration
+    );
+  });
+
 export const publishSlackRevisionEffect = (
   args: Schema.Schema.Type<typeof PublishSlackRevisionArgs>,
 ) =>
@@ -846,6 +868,11 @@ export const publishSlackRevisionEffect = (
         entryCount: 0,
         tokenCount: 0,
       };
+    const currentConnection = yield* connectionIsCurrent({
+      organizationKey: args.organizationKey,
+      connectionKey: revision.connectionKey,
+      connectionGeneration: revision.connectionGeneration,
+    });
     const policies = yield* reader
       .table("channelRoutingPolicies")
       .index("by_channel_active", (query) =>
@@ -864,6 +891,7 @@ export const publishSlackRevisionEffect = (
       revision.tombstone ||
       revision.lifecycle.state !== "active" ||
       artifact.lifecycle.state !== "active" ||
+      !currentConnection ||
       policy === undefined;
     const passages = buildRetrievalPassages(
       revision.normalizedText,
@@ -944,6 +972,11 @@ export const publishTranscriptRevisionEffect = (
         entryCount: 0,
         tokenCount: 0,
       };
+    const currentConnection = yield* connectionIsCurrent({
+      organizationKey: args.organizationKey,
+      connectionKey: unit.connectionKey,
+      connectionGeneration: unit.connectionGeneration,
+    });
     const routes = yield* reader
       .table("callRoutingProposals")
       .index("by_org_revision", (query) =>
@@ -1016,6 +1049,7 @@ export const publishTranscriptRevisionEffect = (
       revoked:
         revision.tombstone ||
         unit.lifecycle.state !== "active" ||
+        !currentConnection ||
         route === undefined,
       passages,
       now: args.now,
@@ -1098,6 +1132,53 @@ export const enqueueRetrievalPublicationJobEffect = (
         },
       );
     return jobKey;
+  });
+
+export const enqueueOrganizationCorpusRebuildsEffect = (input: {
+  readonly organizationKey: string;
+  readonly originKind: "page_rebuild" | "slack_rebuild" | "transcript_rebuild";
+  readonly sourceKey: string;
+  readonly sourceRevisionKey: string;
+  readonly requestGeneration: number;
+  readonly now: number;
+}) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const organization = yield* reader
+      .table("organizations")
+      .index("by_agency_key", (query) =>
+        query.eq("agencyKey", input.organizationKey),
+      )
+      .first()
+      .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+    if (organization === null) return [];
+    const targets = yield* reader
+      .table("workspaces")
+      .index("by_organization", (query) =>
+        query.eq("organizationId", organization._id),
+      )
+      .take(26)
+      .pipe(Effect.orDie);
+    const jobKeys: string[] = [];
+    for (const target of targets) {
+      if (target.status !== "active" || target.brainKey === undefined) continue;
+      jobKeys.push(
+        yield* enqueueRetrievalPublicationJobEffect(
+          {
+            organizationKey: input.organizationKey,
+            workspaceId: target._id,
+            brainKey: target.brainKey,
+            originKind: input.originKind,
+            sourceKey: input.sourceKey,
+            sourceRevisionKey: input.sourceRevisionKey,
+            requestGeneration: input.requestGeneration,
+            rebuild: { limit: 5 },
+          },
+          input.now,
+        ),
+      );
+    }
+    return jobKeys;
   });
 
 export const runPublicationJobEffect = (args: RunPublicationJobInput) =>

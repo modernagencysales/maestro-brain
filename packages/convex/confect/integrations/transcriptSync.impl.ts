@@ -8,6 +8,7 @@ import * as Option from "effect/Option";
 
 import databaseSchema from "../_generated/schema";
 import { DatabaseReader, DatabaseWriter } from "../_generated/services";
+import { enqueueOrganizationCorpusRebuildsEffect } from "../brain/retrievalPublication.impl";
 import { currentAdminOrganizationKey } from "./transcriptConnections.impl";
 import transcriptSync, {
   TranscriptSyncConnectionNotFound,
@@ -408,6 +409,15 @@ const claimTranscriptSyncPageImpl = FunctionImpl.make(
           .table("connectorSyncStates")
           .patch(existing._id, claimed)
           .pipe(Effect.orDie);
+      if (connection.status === "verifying")
+        yield* enqueueOrganizationCorpusRebuildsEffect({
+          organizationKey: connection.organizationKey,
+          originKind: "transcript_rebuild",
+          sourceKey: connection.connectionKey,
+          sourceRevisionKey: `connection:${connection.connectionKey}:active:${generation}`,
+          requestGeneration: generation,
+          now: input.now,
+        });
       return {
         organizationKey: connection.organizationKey,
         connectionKey: connection.connectionKey,
