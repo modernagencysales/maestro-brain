@@ -9,6 +9,12 @@ provider adapters, CI gates, and a reviewer-safe reference app.
 This is not a public starter kit. It is an internal accelerator for custom AI
 implementation work and technical diligence.
 
+The current product direction is to use this foundation as Apero's shared,
+evidence-backed company context plane between systems of record and agent
+runtimes. See
+[Apero Company Brain Architecture](./docs/product/apero-company-brain-architecture.md)
+for the proposed source, retrieval, credential, and tool-calling boundaries.
+
 ## Quickstart
 
 ```bash
@@ -141,6 +147,8 @@ pnpm verify
 ## Navigation
 
 - Agent instructions: [AGENTS.md](./AGENTS.md)
+- Apero company-brain direction:
+  [docs/product/apero-company-brain-architecture.md](./docs/product/apero-company-brain-architecture.md)
 - Repo map: [docs/template/repo-map.md](./docs/template/repo-map.md)
 - Reviewer guide:
   [docs/template/reviewer-guide.md](./docs/template/reviewer-guide.md)
