@@ -33,7 +33,8 @@ engineering begins.
 | ------------------------------ | --------------- | -------------------------------------------- | --------- |
 | Context/business owner         | TBD             | TBD                                          | WP00      |
 | Engineering DRI                | TBD             | TBD                                          | WP01      |
-| Active agency Brain key        | Engineering DRI | TBD                                          | WP02A     |
+| Connector/access owner         | TBD             | TBD                                          | WP05      |
+| Active agency Brain key        | Engineering DRI | TBD                                          | WP03      |
 | First two dogfood users        | Context owner   | TBD                                          | WP04      |
 | Remaining three pilot users    | Context owner   | TBD                                          | WP09      |
 | Claude Project access holder   | Context owner   | TBD                                          | WP00      |
@@ -59,8 +60,10 @@ Owners may amend these before the first frozen run:
 
 ## Start Authorization
 
-WP00-WP01 may start immediately. WP02A may start as soon as the engineering DRI
-and active agency Brain key are known. Snapshot review/import needs the context
+WP00-WP01 and generic WP02 contract work may start immediately. The active
+agency Brain key is required for deployed backfill and real acceptance receipts,
+not local contract implementation. Snapshot review/import needs the context
 owner and Claude Project access. Fixture-only Drive adapter work may begin once
 the WP02A publication contract is frozen, but live ingestion requires the full
-WP02A-WP02C completion gates and a dedicated provider test container.
+WP02A-WP02C completion gates, a connector/access owner, and a dedicated provider
+test container.

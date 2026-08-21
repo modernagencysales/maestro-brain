@@ -273,11 +273,24 @@ authorize -> discover -> allowlist -> observe -> normalize -> route
 ### 8.1 Shared Drive
 
 - Select shared drives and folders explicitly.
-- Preserve file ID, revision/version identity, MIME type, owners, modified time,
-  permissions snapshot, and canonical link.
+- Use Drive file ID as object identity and store folder membership as a
+  versioned edge under a specific drive, folder-root allowlist, connection
+  generation, and allowlist generation.
+- Preserve a meaningful provider version when available; otherwise derive
+  revision identity from the provider change observation, deterministic export
+  bytes/content hash, and normalization version.
+- Preserve MIME type, owners, modified time, permissions snapshot, canonical
+  link, export MIME type, and change-cursor lineage.
 - Normalize Google Docs text and headings deterministically.
 - Record binary files as metadata-only until an approved extraction path exists.
-- Treat moved, unshared, trashed, and deleted files as lifecycle events.
+- Treat explicit removed or trashed events as lifecycle evidence. Infer
+  move-out, unshare, permission-loss, or deletion only after explicit evidence
+  or a successfully closed full reconciliation; transient 404s never infer
+  deletion.
+- Define shortcuts as either unsupported or resolved with independent scope and
+  citation proof.
+- Report unsupported MIME types in connector coverage instead of silently
+  skipping them.
 - Do not ingest personal My Drive by default.
 
 ### 8.2 CRM
@@ -358,6 +371,15 @@ authorize -> discover -> allowlist -> observe -> normalize -> route
   retrieval entry, passage key, normalized offsets, origin revision, and content
   hash. Exact citation reopening requires the tuple
   `(publicationSetKey, entryKey)`.
+- Citation opening resolves that entry through its discriminated origin to the
+  immutable provider/page ledger, verifies the normalized offsets and content
+  hash, and returns the provider locator. Projection text cannot validate
+  itself.
+- Context coverage is an outer join of the Brain's expected corpus/scope
+  manifest and observed corpus-health rows. A missing expected health row is
+  unavailable or unknown, not absent from the response.
+- Legacy page/transcript reads are an explicit, observable rollback mode and are
+  disabled for acceptance, evaluation, dogfood, and pilot receipts.
 - Semantic indexes, when present, are tenant- and lifecycle-scoped derived data.
 - The answer model receives only the authorized candidate manifest.
 
@@ -465,6 +487,11 @@ For the pilot, Codex and Claude Code synthesize the user-facing answer from the
 typed `brain.context.get` pack. `brain.answers.ask` may remain a deterministic
 extractive compatibility operation; model-backed server answering is not a pilot
 dependency.
+
+Cross-runtime acceptance pins the dataset and ContextPack schema version and
+requires the same ordered candidate/citation manifest. Generated prose may
+differ; evidence identity, freshness, coverage, truncation, and abstention state
+may not.
 
 Operations remain one-Brain-scoped until a separately reviewed multi-Brain
 selector proves authorization for every requested Brain.
