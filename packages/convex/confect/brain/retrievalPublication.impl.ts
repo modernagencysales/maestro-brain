@@ -1,6 +1,7 @@
 import { FunctionImpl, GroupImpl } from "@confect/server";
 import type { GenericId } from "convex/values";
 import * as Cause from "effect/Cause";
+import * as Clock from "effect/Clock";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -1125,53 +1126,129 @@ export const runPublicationJobEffect = (args: RunPublicationJobInput) =>
       name: "retrieval-publication-job",
       surface: "internal" as const,
     };
-    const publication =
-      job.originKind === "page"
-        ? job.page === undefined
-          ? Effect.fail(
-              new ValidationFailed({
-                field: "page",
-                message: "Page publication policy is required.",
-              }),
-            )
-          : publishPageRevisionEffect({
-              organizationKey: job.organizationKey,
-              workspaceId: job.workspaceId,
-              brainKey: job.brainKey,
-              pageKey: job.sourceKey,
-              revisionKey: job.sourceRevisionKey,
-              authority: job.page.authority,
-              authorityPolicyKey: job.page.authorityPolicyKey,
-              policyGeneration: job.page.policyGeneration,
-              caller,
-              now: args.now,
-            })
-        : job.originKind === "slack"
-          ? publishSlackRevisionEffect({
-              organizationKey: job.organizationKey,
-              workspaceId: job.workspaceId,
-              brainKey: job.brainKey,
-              sourceRevisionKey: job.sourceRevisionKey,
-              caller,
-              now: args.now,
-            })
-          : publishTranscriptRevisionEffect({
-              organizationKey: job.organizationKey,
-              workspaceId: job.workspaceId,
-              brainKey: job.brainKey,
-              sourceRevisionKey: job.sourceRevisionKey,
-              caller,
-              now: args.now,
-            });
-    const exit = yield* Effect.exit(publication);
+    const execution = Effect.gen(function* () {
+      if (job.originKind === "page") {
+        if (job.page === undefined)
+          return yield* new ValidationFailed({
+            field: "page",
+            message: "Page publication policy is required.",
+          });
+        const value = yield* publishPageRevisionEffect({
+          organizationKey: job.organizationKey,
+          workspaceId: job.workspaceId,
+          brainKey: job.brainKey,
+          pageKey: job.sourceKey,
+          revisionKey: job.sourceRevisionKey,
+          authority: job.page.authority,
+          authorityPolicyKey: job.page.authorityPolicyKey,
+          policyGeneration: job.page.policyGeneration,
+          caller,
+          now: args.now,
+        });
+        return { kind: "publication" as const, value };
+      }
+      if (job.originKind === "slack") {
+        const value = yield* publishSlackRevisionEffect({
+          organizationKey: job.organizationKey,
+          workspaceId: job.workspaceId,
+          brainKey: job.brainKey,
+          sourceRevisionKey: job.sourceRevisionKey,
+          caller,
+          now: args.now,
+        });
+        return { kind: "publication" as const, value };
+      }
+      if (job.originKind === "transcript") {
+        const value = yield* publishTranscriptRevisionEffect({
+          organizationKey: job.organizationKey,
+          workspaceId: job.workspaceId,
+          brainKey: job.brainKey,
+          sourceRevisionKey: job.sourceRevisionKey,
+          caller,
+          now: args.now,
+        });
+        return { kind: "publication" as const, value };
+      }
+      if (job.rebuild === undefined)
+        return yield* new ValidationFailed({
+          field: "rebuild",
+          message: "Rebuild cursor and limit are required.",
+        });
+      if (job.originKind === "page_rebuild") {
+        const result = yield* rebuildPageBatchEffect({
+          organizationKey: job.organizationKey,
+          workspaceId: job.workspaceId,
+          brainKey: job.brainKey,
+          ...(job.rebuild.afterSourceKey === undefined
+            ? {}
+            : { afterPageKey: job.rebuild.afterSourceKey }),
+          limit: job.rebuild.limit,
+          caller,
+          now: args.now,
+        });
+        const { nextAfterPageKey, ...value } = result;
+        return {
+          kind: "rebuild" as const,
+          value: {
+            ...value,
+            ...(nextAfterPageKey === undefined
+              ? {}
+              : { nextAfterSourceKey: nextAfterPageKey }),
+          },
+        };
+      }
+      const rebuild =
+        job.originKind === "slack_rebuild"
+          ? rebuildSlackBatchEffect
+          : rebuildTranscriptBatchEffect;
+      const value = yield* rebuild({
+        organizationKey: job.organizationKey,
+        workspaceId: job.workspaceId,
+        brainKey: job.brainKey,
+        ...(job.rebuild.afterSourceKey === undefined
+          ? {}
+          : { afterSourceKey: job.rebuild.afterSourceKey }),
+        limit: job.rebuild.limit,
+        caller,
+        now: args.now,
+      });
+      return { kind: "rebuild" as const, value };
+    });
+    const exit = yield* Effect.exit(execution);
     const attemptCount = job.attemptCount + 1;
     if (Exit.isSuccess(exit)) {
       const status =
-        exit.value.outcome === "stale"
+        exit.value.kind === "publication" &&
+        exit.value.value.outcome === "stale"
           ? ("superseded" as const)
-          : exit.value.outcome === "revoked"
+          : exit.value.kind === "publication" &&
+              exit.value.value.outcome === "revoked"
             ? ("revoked" as const)
             : ("succeeded" as const);
+      if (exit.value.kind === "rebuild" && exit.value.value.hasMore) {
+        const afterSourceKey = exit.value.value.nextAfterSourceKey;
+        if (afterSourceKey === undefined)
+          return yield* new ValidationFailed({
+            field: "rebuild.afterSourceKey",
+            message: "A rebuild with more rows must return its next cursor.",
+          });
+        yield* enqueueRetrievalPublicationJobEffect(
+          {
+            organizationKey: job.organizationKey,
+            workspaceId: job.workspaceId,
+            brainKey: job.brainKey,
+            originKind: job.originKind,
+            sourceKey: job.sourceKey,
+            sourceRevisionKey: job.sourceRevisionKey,
+            requestGeneration: job.requestGeneration,
+            rebuild: {
+              afterSourceKey,
+              limit: job.rebuild?.limit ?? 1,
+            },
+          },
+          args.now,
+        );
+      }
       const completed = {
         status,
         attemptCount,
@@ -1223,20 +1300,21 @@ export const sweepPublicationJobsEffect = (
 ) =>
   Effect.gen(function* () {
     if (args.caller.kind !== "system") return yield* new Unauthorized();
+    const currentTime = args.now ?? (yield* Clock.currentTimeMillis);
     const reader = yield* DatabaseReader;
     const scheduler = yield* Scheduler;
     const [pending, retryWait] = yield* Effect.all([
       reader
         .table("retrievalPublicationJobs")
         .index("by_status_due_job", (query) =>
-          query.eq("status", "pending").lte("nextAttemptAt", args.now),
+          query.eq("status", "pending").lte("nextAttemptAt", currentTime),
         )
         .take(args.limit)
         .pipe(Effect.orDie),
       reader
         .table("retrievalPublicationJobs")
         .index("by_status_due_job", (query) =>
-          query.eq("status", "retry_wait").lte("nextAttemptAt", args.now),
+          query.eq("status", "retry_wait").lte("nextAttemptAt", currentTime),
         )
         .take(args.limit)
         .pipe(Effect.orDie),
@@ -1255,7 +1333,7 @@ export const sweepPublicationJobsEffect = (
         {
           jobKey: job.jobKey,
           caller: args.caller,
-          now: args.now,
+          now: currentTime,
         },
       );
     return {

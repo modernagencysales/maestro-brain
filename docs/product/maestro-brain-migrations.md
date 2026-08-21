@@ -104,15 +104,16 @@ Execute-mode component failures follow the same durable failure receipt path.
   `retrievalTokens`, `retrievalPublicationJobs`, and `brainCorpusHealth`.
   Writers continue preserving Brain pages, Slack revisions, and transcript
   ledgers as the source of truth. Source mutations enqueue deterministic
-  publication jobs transactionally; a bounded sweeper retries pending and
-  retry-wait jobs that were not delivered by the initial scheduler invocation.
-- **Backfill:** run `brain.retrievalPublication.rebuildPageBatch` in batches of
-  at most five pages, persisting `nextAfterPageKey` until `hasMore` is false.
-  Run `rebuildSlackBatch` and `rebuildTranscriptBatch` in batches of at most
-  five source objects, persisting `nextAfterSourceKey` until `hasMore` is false.
-  Provider re-ingestion is not required. Record processed, published, revoked,
+  publication jobs transactionally. The Confect cron owned by the backend
+  platform runs every minute and schedules at most 20 due pending or retry-wait
+  jobs, recovering work not delivered by the initial scheduler invocation.
+- **Backfill:** enqueue `page_rebuild`, `slack_rebuild`, or `transcript_rebuild`
+  publication jobs with batches of at most five source objects. Each successful
+  non-final batch transactionally creates the next cursor-keyed job; provider
+  re-ingestion is not required. Record processed, published, revoked,
   retry-wait, and dead-letter counts plus final current publication-set keys as
-  the deployment receipt.
+  the deployment receipt. The direct bounded rebuild mutations remain available
+  for diagnosis and migration tooling.
 - **Verify:** require exact UTF-8 passage round trips, bounded passages, stable
   keys, durable retry after missing scheduler delivery, stale-revision
   rejection, atomic current-set replacement, removal of retired postings,

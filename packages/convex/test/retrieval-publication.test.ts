@@ -733,6 +733,170 @@ describe("retrieval publication persistence", () => {
     });
   });
 
+  it("continues a durable page rebuild until every batch succeeds", async () => {
+    const secondPageKey = "pag_company_context_z";
+    const secondRevisionKey = "rev_company_context_2";
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof databaseSchema>(),
+        );
+        const { workspaceId, organizationId } = yield* confect.run(
+          seedPage,
+          AnyResult,
+        );
+        yield* confect.run(
+          Effect.gen(function* () {
+            const writer = yield* DatabaseWriter;
+            const lifecycle = {
+              state: "active" as const,
+              generation: 1,
+              updatedAt: now,
+              purgeAfter: null,
+            };
+            yield* writer
+              .table("brainPages")
+              .insert({
+                workspaceId,
+                organizationId,
+                slug: "company-context-two",
+                title: "Company Context Two",
+                markdown: "# Market\n\nApero serves growth-minded agencies.",
+                sourceKind: "markdown",
+                updatedAt: now,
+                pageKey: secondPageKey,
+                parentPageKey: null,
+                siblingSlug: "company-context-two",
+                sortKey: "0000000002",
+                favorite: false,
+                status: "active",
+                currentRevisionKey: secondRevisionKey,
+                lifecycle,
+                createdAt: now,
+                schemaVersion: 1,
+              })
+              .pipe(Effect.orDie);
+            yield* writer
+              .table("pageRevisions")
+              .insert({
+                workspaceId,
+                organizationId,
+                pageKey: secondPageKey,
+                revisionKey: secondRevisionKey,
+                priorRevisionKey: null,
+                blockNoteJson: "",
+                markdown: "# Market\n\nApero serves growth-minded agencies.",
+                contentHash: "page-hash-2",
+                causation: "import",
+                actor: { kind: "migration", id: "apero-bootstrap" },
+                modelReceiptKey: null,
+                effectKey: "apero-bootstrap:2",
+                state: "published",
+                lifecycle,
+                createdAt: now,
+                schemaVersion: 1,
+              })
+              .pipe(Effect.orDie);
+          }),
+          AnyResult,
+        );
+        const firstJobKey = yield* confect.run(
+          enqueueRetrievalPublicationJobEffect(
+            {
+              organizationKey,
+              workspaceId,
+              brainKey,
+              originKind: "page_rebuild",
+              sourceKey: "corpus:pages",
+              sourceRevisionKey: "rebuild:1",
+              requestGeneration: 1,
+              rebuild: { limit: 1 },
+            },
+            now,
+          ),
+          AnyResult,
+        );
+        const first = yield* confect.run(
+          runPublicationJobEffect({
+            jobKey: firstJobKey,
+            caller: {
+              kind: "system",
+              name: "page-rebuild-test",
+              surface: "internal",
+            },
+            now,
+          }),
+          AnyResult,
+        );
+        const nextJobKey = yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const jobs = yield* reader
+              .table("retrievalPublicationJobs")
+              .index("by_origin_target", (query) =>
+                query
+                  .eq("workspaceId", workspaceId)
+                  .eq("brainKey", brainKey)
+                  .eq("originKind", "page_rebuild")
+                  .eq("sourceRevisionKey", "rebuild:1"),
+              )
+              .take(3)
+              .pipe(Effect.orDie);
+            const pending = jobs.find(({ status }) => status === "pending");
+            if (pending === undefined) throw new Error("missing continuation");
+            return pending.jobKey;
+          }),
+          AnyResult,
+        );
+        const second = yield* confect.run(
+          runPublicationJobEffect({
+            jobKey: nextJobKey,
+            caller: {
+              kind: "system",
+              name: "page-rebuild-test",
+              surface: "internal",
+            },
+            now,
+          }),
+          AnyResult,
+        );
+        const publishedEntries = yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            return yield* reader
+              .table("retrievalEntries")
+              .index("by_workspace_brain_state_entry", (query) =>
+                query
+                  .eq("workspaceId", workspaceId)
+                  .eq("brainKey", brainKey)
+                  .eq("state", "published"),
+              )
+              .take(10)
+              .pipe(Effect.orDie);
+          }),
+          AnyResult,
+        );
+        return { first, second, publishedEntries };
+      }).pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.first).toMatchObject({
+      status: "succeeded",
+      attemptCount: 1,
+    });
+    expect(result.second).toMatchObject({
+      status: "succeeded",
+      attemptCount: 1,
+    });
+    expect(
+      new Set(
+        result.publishedEntries.map(
+          ({ sourceKey }: { sourceKey: string }) => sourceKey,
+        ),
+      ),
+    ).toEqual(new Set([pageKey, secondPageKey]));
+  });
+
   it("publishes a routed Slack revision with its immutable origin", async () => {
     const sourceKey = "src_slack.message.1";
     const sourceRevisionKey = `srev_${"a".repeat(64)}`;

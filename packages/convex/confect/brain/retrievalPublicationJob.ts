@@ -4,7 +4,13 @@ export type RetrievalPublicationJobInput = {
   readonly organizationKey: string;
   readonly workspaceId: string;
   readonly brainKey: string;
-  readonly originKind: "page" | "slack" | "transcript";
+  readonly originKind:
+    | "page"
+    | "page_rebuild"
+    | "slack"
+    | "transcript"
+    | "slack_rebuild"
+    | "transcript_rebuild";
   readonly sourceKey: string;
   readonly sourceRevisionKey: string;
   readonly requestGeneration: number;
@@ -12,6 +18,10 @@ export type RetrievalPublicationJobInput = {
     readonly authority: "authoritative" | "derived" | "advisory";
     readonly authorityPolicyKey: string;
     readonly policyGeneration: number;
+  };
+  readonly rebuild?: {
+    readonly afterSourceKey?: string;
+    readonly limit: number;
   };
 };
 
@@ -28,6 +38,7 @@ export const retrievalPublicationJobKey = (
       sourceRevisionKey: input.sourceRevisionKey,
       requestGeneration: input.requestGeneration,
       page: input.page ?? null,
+      rebuild: input.rebuild ?? null,
     }),
   )}`;
 
@@ -45,6 +56,7 @@ export const retrievalPublicationJobRow = (
   sourceRevisionKey: input.sourceRevisionKey,
   requestGeneration: input.requestGeneration,
   ...(input.page === undefined ? {} : { page: input.page }),
+  ...(input.rebuild === undefined ? {} : { rebuild: input.rebuild }),
   status: "pending" as const,
   attemptCount: 0,
   maxAttempts: 5,

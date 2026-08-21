@@ -136,7 +136,9 @@ export const SweepPublicationJobsArgs = Schema.Struct({
     Schema.lessThanOrEqualTo(20),
   ),
   caller: SystemPrincipal,
-  now: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+  now: Schema.optional(
+    Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0)),
+  ),
 });
 
 export const SweepPublicationJobsReturns = Schema.Struct({

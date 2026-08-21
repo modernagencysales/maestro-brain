@@ -9,6 +9,10 @@ const PagePublicationPolicy = Schema.Struct({
   authorityPolicyKey: Schema.String,
   policyGeneration: PositiveInteger,
 });
+const RebuildCursor = Schema.Struct({
+  afterSourceKey: Schema.optional(Schema.String),
+  limit: PositiveInteger,
+});
 
 export const RetrievalPublicationJobRow = Schema.Struct({
   schemaVersion: Schema.Literal(1),
@@ -16,11 +20,19 @@ export const RetrievalPublicationJobRow = Schema.Struct({
   workspaceId: Id("workspaces"),
   brainKey: Schema.String,
   jobKey: Schema.String.pipe(Schema.pattern(/^rjob_[a-f0-9]{64}$/)),
-  originKind: Schema.Literal("page", "slack", "transcript"),
+  originKind: Schema.Literal(
+    "page",
+    "page_rebuild",
+    "slack",
+    "transcript",
+    "slack_rebuild",
+    "transcript_rebuild",
+  ),
   sourceKey: Schema.String,
   sourceRevisionKey: Schema.String,
   requestGeneration: PositiveInteger,
   page: Schema.optional(PagePublicationPolicy),
+  rebuild: Schema.optional(RebuildCursor),
   status: Schema.Literal(
     "pending",
     "retry_wait",
