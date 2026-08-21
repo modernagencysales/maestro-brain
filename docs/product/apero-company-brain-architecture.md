@@ -202,6 +202,40 @@ The result replicates the useful part of “Ask Apero Advisors”—shared curre
 company context—without coupling that context to one Claude Project or giving
 every coding session universal company-tool access.
 
+## Pilot Decision Register
+
+Four owner decisions are required before connector work begins:
+
+1. Name one owner for agency context quality and one owner for connector and
+   access policy. These may be the same person during the pilot, but the
+   responsibilities remain distinct.
+2. Select the authoritative CRM and an allowlist of Shared Drive folders for the
+   first source cohort.
+3. Select five pilot users and turn the recurring questions they currently ask
+   in Claude Chat into a versioned evaluation set.
+4. Choose the default policy for agent writes: always require confirmation,
+   permit role-bound actions, or approve specific workflows. Read access does
+   not imply write authority.
+
+Do not use connector implementation to make these product and governance choices
+implicitly.
+
+## Evaluation Contract
+
+Before the pilot, assign target values and owners for:
+
+- answer coverage across the approved question set;
+- citation correctness and source-authority selection;
+- freshness lag by source type;
+- required abstention when evidence is missing, stale, or unauthorized;
+- cross-surface consistency across web, CLI, Slack, and MCP;
+- tenant-leakage tests and credential-revocation time;
+- connector reconciliation, deletion propagation, and health visibility.
+
+The baseline is the current “Ask Apero Advisors” workflow. Maestro Brain should
+replace it only when the pilot is at least as useful while being more current,
+citable, revocable, and portable across agent runtimes.
+
 ## Recommended Delivery Sequence
 
 ### Phase 0 — Use what is already real
