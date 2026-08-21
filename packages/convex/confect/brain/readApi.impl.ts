@@ -7,7 +7,11 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import databaseSchema from "../_generated/schema";
-import type { RetrievalEntriesDoc } from "../_generated/docs";
+import type {
+  RetrievalEntriesDoc,
+  RetrievalPublicationSetsDoc,
+  RetrievalTokensDoc,
+} from "../_generated/docs";
 import { DatabaseReader } from "../_generated/services";
 import { ValidationFailed } from "../errors";
 import { SubsystemDisabled } from "../ops/brainOperations.spec";
@@ -173,7 +177,6 @@ const legacyTranscriptResult = (citation: ResolvedTranscriptCitation) => ({
   state: "resolved" as const,
 });
 
-const PER_TOKEN_POSTING_LIMIT = 1_000;
 const CORPUS_HEALTH_LIMIT = 512;
 const ACTIVE_SLACK_POLICY_LIMIT = 100;
 const ACTIVE_PROVIDER_CONNECTION_LIMIT = 20;
@@ -510,21 +513,7 @@ const searchProjection = (
     const brain = yield* resolveReadBrain(selector);
     const reader = yield* DatabaseReader;
     const at = yield* now();
-    const [postingGroups, healthRows, expectedCorpora] = yield* Effect.all([
-      Effect.all(
-        queryTokens.map((token) =>
-          reader
-            .table("retrievalTokens")
-            .index("by_workspace_brain_token_authority_entry", (index) =>
-              index
-                .eq("workspaceId", brain.workspaceId)
-                .eq("brainKey", brain.brainKey)
-                .eq("token", token),
-            )
-            .take(PER_TOKEN_POSTING_LIMIT + 1)
-            .pipe(Effect.orDie),
-        ),
-      ),
+    const [healthRows, expectedCorpora] = yield* Effect.all([
       reader
         .table("brainCorpusHealth")
         .index("by_workspace_brain", (index) =>
@@ -542,50 +531,101 @@ const searchProjection = (
         message: "Corpus health capacity exceeded.",
       });
     const omissions: Array<{ reason: string; count: number }> = [];
-    const boundedGroups = postingGroups
-      .map((postings, index) => ({
-        token: queryTokens[index] ?? "",
-        postings: postings.slice(0, PER_TOKEN_POSTING_LIMIT),
-        overflow: Math.max(0, postings.length - PER_TOKEN_POSTING_LIMIT),
-      }))
-      .sort(
-        (left, right) =>
-          left.postings.length - right.postings.length ||
-          left.token.localeCompare(right.token),
-      );
-    const overflow = boundedGroups.reduce(
-      (total, group) => total + group.overflow,
-      0,
-    );
-    if (overflow > 0)
-      omissions.push({ reason: "per-token posting capacity", count: overflow });
-    const postingsByEntry = new Map<
+    const publicationSetStates = new Map<
       string,
-      (typeof boundedGroups)[number]["postings"]
+      RetrievalPublicationSetsDoc["state"] | null
     >();
-    let postingCount = 0;
-    for (const group of boundedGroups) {
-      for (const posting of group.postings) {
-        if (postingCount >= RETRIEVAL_POSTING_LIMIT) break;
-        const candidateKey = `${posting.publicationSetKey}\u0000${posting.entryKey}`;
-        postingsByEntry.set(candidateKey, [
-          ...(postingsByEntry.get(candidateKey) ?? []),
-          posting,
-        ]);
-        postingCount += 1;
-      }
-      if (postingCount >= RETRIEVAL_POSTING_LIMIT) break;
-    }
-    if (
-      boundedGroups.reduce((sum, group) => sum + group.postings.length, 0) >
-      postingCount
-    )
-      omissions.push({
-        reason: "query posting capacity",
-        count:
-          boundedGroups.reduce((sum, group) => sum + group.postings.length, 0) -
-          postingCount,
+    const publicationSetStateFor = (publicationSetKey: string) =>
+      Effect.gen(function* () {
+        const cached = publicationSetStates.get(publicationSetKey);
+        if (cached !== undefined) return cached;
+        const publicationSet = yield* reader
+          .table("retrievalPublicationSets")
+          .index("by_workspace_publication_set", (index) =>
+            index
+              .eq("workspaceId", brain.workspaceId)
+              .eq("publicationSetKey", publicationSetKey),
+          )
+          .first()
+          .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+        const state = publicationSet?.state ?? null;
+        publicationSetStates.set(publicationSetKey, state);
+        return state;
       });
+    const postingsByEntry = new Map<string, RetrievalTokensDoc[]>();
+    let postingCount = 0;
+    const addPosting = (posting: RetrievalTokensDoc) => {
+      const candidateKey = `${posting.publicationSetKey}\u0000${posting.entryKey}`;
+      postingsByEntry.set(candidateKey, [
+        ...(postingsByEntry.get(candidateKey) ?? []),
+        posting,
+      ]);
+      postingCount += 1;
+    };
+    for (const token of queryTokens) {
+      const remaining = RETRIEVAL_POSTING_LIMIT - postingCount;
+      const postings = yield* reader
+        .table("retrievalTokens")
+        .index(
+          "by_workspace_brain_token_publication_state_authority_entry",
+          (index) =>
+            index
+              .eq("workspaceId", brain.workspaceId)
+              .eq("brainKey", brain.brainKey)
+              .eq("token", token)
+              .eq("publicationState", "current"),
+        )
+        .take(remaining + 1)
+        .pipe(Effect.orDie);
+      if (postings.length > remaining)
+        return yield* new ValidationFailed({
+          field: "query",
+          message: `Current retrieval posting capacity exceeded (${RETRIEVAL_POSTING_LIMIT}).`,
+        });
+      for (const posting of postings) {
+        if (
+          (yield* publicationSetStateFor(posting.publicationSetKey)) !==
+          "current"
+        )
+          return yield* new ValidationFailed({
+            field: "query",
+            message: "Retrieval token publication state is inconsistent.",
+          });
+        addPosting(posting);
+      }
+    }
+    const classifiedPostingCount = postingCount;
+    let unclassifiedCount = 0;
+    for (const token of queryTokens) {
+      const remaining =
+        RETRIEVAL_POSTING_LIMIT - classifiedPostingCount - unclassifiedCount;
+      const postings = yield* reader
+        .table("retrievalTokens")
+        .index(
+          "by_workspace_brain_token_publication_state_authority_entry",
+          (index) =>
+            index
+              .eq("workspaceId", brain.workspaceId)
+              .eq("brainKey", brain.brainKey)
+              .eq("token", token)
+              .eq("publicationState", undefined),
+        )
+        .take(remaining + 1)
+        .pipe(Effect.orDie);
+      if (postings.length > remaining)
+        return yield* new ValidationFailed({
+          field: "query",
+          message: `Unclassified retrieval posting capacity exceeded (${RETRIEVAL_POSTING_LIMIT}); complete the publication-state backfill.`,
+        });
+      unclassifiedCount += postings.length;
+      for (const posting of postings) {
+        if (
+          (yield* publicationSetStateFor(posting.publicationSetKey)) ===
+          "current"
+        )
+          addPosting(posting);
+      }
+    }
 
     const candidateKeys = [...postingsByEntry]
       .sort(([, left], [, right]) => {
@@ -655,16 +695,10 @@ const searchProjection = (
           entry.state !== "published"
         )
           continue;
-        const publicationSet = yield* reader
-          .table("retrievalPublicationSets")
-          .index("by_workspace_publication_set", (index) =>
-            index
-              .eq("workspaceId", brain.workspaceId)
-              .eq("publicationSetKey", entry.publicationSetKey),
-          )
-          .first()
-          .pipe(Effect.map(Option.getOrNull), Effect.orDie);
-        if (publicationSet?.state !== "current") continue;
+        if (
+          (yield* publicationSetStateFor(entry.publicationSetKey)) !== "current"
+        )
+          continue;
         const freshness = freshnessFor(entry, at, healthByCorpus);
         active.push({
           entry,

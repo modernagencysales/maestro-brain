@@ -905,6 +905,277 @@ describe("Brain pilot contract", () => {
     ]);
   });
 
+  it("does not let retired postings consume the current retrieval budget", async () => {
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof databaseSchema>(),
+        );
+        const seeded = yield* confect.run(
+          seedBrain({
+            role: "viewer",
+            subject: "capacity-reader",
+            email: "capacity-reader@example.com",
+            brainKey,
+          }),
+          SeededBrainSchema,
+        );
+        const currentTokenId = yield* confect.run(
+          Effect.gen(function* () {
+            const writer = yield* DatabaseWriter;
+            const organizationKey = `ag_${brainKey.slice(3)}`;
+            const retiredSetKey = `rset_${"a".repeat(64)}`;
+            const currentSetKey = `rset_${"f".repeat(64)}`;
+            const retiredEntryKey = `rent_${"a".repeat(64)}`;
+            const currentEntryKey = `rent_${"f".repeat(64)}`;
+            const baseSet = {
+              schemaVersion: 1 as const,
+              organizationKey,
+              workspaceId: seeded.workspaceId,
+              brainKey,
+              corpusKey: "capacity-test",
+              publicationGeneration: 1,
+              originKind: "projection" as const,
+              originTable: "brainSources",
+              routeGeneration: 1,
+              lifecycleGeneration: 1,
+              policyGeneration: 1,
+              expectedEntryCount: 1,
+              expectedTokenCount: 1,
+              manifestHash: `sha256:${"b".repeat(64)}`,
+              createdAt: now,
+            };
+            yield* writer
+              .table("retrievalPublicationSets")
+              .insert({
+                ...baseSet,
+                publicationSetKey: retiredSetKey,
+                sourceKey: "retired-capacity-source",
+                sourceRevisionKey: "retired-capacity-revision",
+                state: "retired",
+                retiredAt: now,
+              })
+              .pipe(Effect.orDie);
+            yield* writer
+              .table("retrievalPublicationSets")
+              .insert({
+                ...baseSet,
+                publicationSetKey: currentSetKey,
+                sourceKey: "current-capacity-source",
+                sourceRevisionKey: "current-capacity-revision",
+                state: "current",
+                activatedAt: now,
+              })
+              .pipe(Effect.orDie);
+            const insertEntry = (input: {
+              readonly publicationSetKey: string;
+              readonly entryKey: string;
+              readonly sourceKey: string;
+              readonly sourceRevisionKey: string;
+              readonly text: string;
+              readonly fill: string;
+            }) =>
+              writer.table("retrievalEntries").insert({
+                schemaVersion: 1,
+                organizationKey,
+                workspaceId: seeded.workspaceId,
+                brainKey,
+                publicationSetKey: input.publicationSetKey,
+                publicationGeneration: 1,
+                entryKey: input.entryKey,
+                kind: "projection",
+                corpusKey: "capacity-test",
+                origin: {
+                  kind: "projection",
+                  projectionKey: input.sourceKey,
+                  revisionKey: input.sourceRevisionKey,
+                },
+                originTable: "brainSources",
+                sourceKey: input.sourceKey,
+                sourceRevisionKey: input.sourceRevisionKey,
+                passageKey: `rpass_${input.fill.repeat(64)}`,
+                startOffset: 0,
+                endOffset: input.text.length,
+                title: input.text,
+                headingPath: null,
+                text: input.text,
+                contentHash: `sha256:${input.fill.repeat(64)}`,
+                observedAt: now,
+                indexedAt: now,
+                authority: "derived",
+                authorityPolicyKey: "capacity-test",
+                policyGeneration: 1,
+                lifecycleGeneration: 1,
+                routeGeneration: 1,
+                state: "published",
+              });
+            yield* insertEntry({
+              publicationSetKey: retiredSetKey,
+              entryKey: retiredEntryKey,
+              sourceKey: "retired-capacity-source",
+              sourceRevisionKey: "retired-capacity-revision",
+              text: "retired capacity evidence",
+              fill: "a",
+            }).pipe(Effect.orDie);
+            yield* insertEntry({
+              publicationSetKey: currentSetKey,
+              entryKey: currentEntryKey,
+              sourceKey: "current-capacity-source",
+              sourceRevisionKey: "current-capacity-revision",
+              text: "current capacity evidence",
+              fill: "f",
+            }).pipe(Effect.orDie);
+            for (let index = 0; index < 1_001; index += 1)
+              yield* writer
+                .table("retrievalTokens")
+                .insert({
+                  schemaVersion: 1,
+                  organizationKey,
+                  workspaceId: seeded.workspaceId,
+                  brainKey,
+                  publicationSetKey: retiredSetKey,
+                  publicationState: "retired",
+                  tokenizerVersion: 1,
+                  token: "capacity",
+                  entryKey: retiredEntryKey,
+                  authorityRank: 2,
+                  termFrequency: 1,
+                  inTitle: false,
+                  inHeading: false,
+                })
+                .pipe(Effect.orDie);
+            return yield* writer
+              .table("retrievalTokens")
+              .insert({
+                schemaVersion: 1,
+                organizationKey,
+                workspaceId: seeded.workspaceId,
+                brainKey,
+                publicationSetKey: currentSetKey,
+                publicationState: "current",
+                tokenizerVersion: 1,
+                token: "capacity",
+                entryKey: currentEntryKey,
+                authorityRank: 2,
+                termFrequency: 1,
+                inTitle: true,
+                inHeading: false,
+              })
+              .pipe(Effect.orDie);
+          }),
+          Id("retrievalTokens"),
+        );
+        const reader = actor(
+          confect,
+          "capacity-reader",
+          "capacity-reader@example.com",
+        );
+        const classified = yield* reader.query(
+          refs.public.brain.readApi.sourcesSearch,
+          {
+            brainKey,
+            query: "capacity",
+          },
+        );
+        yield* confect.run(
+          Effect.gen(function* () {
+            const writer = yield* DatabaseWriter;
+            yield* writer
+              .table("retrievalTokens")
+              .delete(currentTokenId)
+              .pipe(Effect.orDie);
+            yield* writer
+              .table("retrievalTokens")
+              .insert({
+                schemaVersion: 1,
+                organizationKey: `ag_${brainKey.slice(3)}`,
+                workspaceId: seeded.workspaceId,
+                brainKey,
+                publicationSetKey: `rset_${"f".repeat(64)}`,
+                tokenizerVersion: 1,
+                token: "capacity",
+                entryKey: `rent_${"f".repeat(64)}`,
+                authorityRank: 2,
+                termFrequency: 1,
+                inTitle: true,
+                inHeading: false,
+              })
+              .pipe(Effect.orDie);
+            return true;
+          }),
+          Schema.Boolean,
+        );
+        const legacy = yield* reader.query(
+          refs.public.brain.readApi.sourcesSearch,
+          {
+            brainKey,
+            query: "capacity",
+          },
+        );
+        yield* confect.run(
+          Effect.gen(function* () {
+            const writer = yield* DatabaseWriter;
+            for (let index = 0; index < 5_001; index += 1)
+              yield* writer
+                .table("retrievalTokens")
+                .insert({
+                  schemaVersion: 1,
+                  organizationKey: `ag_${brainKey.slice(3)}`,
+                  workspaceId: seeded.workspaceId,
+                  brainKey,
+                  publicationSetKey: `rset_${"f".repeat(64)}`,
+                  publicationState: "current",
+                  tokenizerVersion: 1,
+                  token: "overflow",
+                  entryKey: `rent_${"f".repeat(64)}`,
+                  authorityRank: 2,
+                  termFrequency: 1,
+                  inTitle: false,
+                  inHeading: false,
+                })
+                .pipe(Effect.orDie);
+            return true;
+          }),
+          Schema.Boolean,
+        );
+        const overflow = yield* reader
+          .query(refs.public.brain.readApi.sourcesSearch, {
+            brainKey,
+            query: "overflow",
+          })
+          .pipe(
+            Effect.match({
+              onFailure: (error) => ({
+                kind: "failure" as const,
+                tag: error._tag,
+                ...(error._tag === "ValidationFailed"
+                  ? { field: error.field, message: error.message }
+                  : {}),
+              }),
+              onSuccess: () => ({ kind: "success" as const }),
+            }),
+          );
+        return { classified, legacy, overflow };
+      }).pipe(Effect.provide(testConfectLayer())),
+    );
+    expect(result.classified.results).toEqual([
+      expect.objectContaining({
+        publicationSetKey: `rset_${"f".repeat(64)}`,
+        sourceKey: "current-capacity-source",
+        excerpt: "current capacity evidence",
+      }),
+    ]);
+    expect(result.classified.omissions).toEqual([]);
+    expect(result.legacy.results).toEqual(result.classified.results);
+    expect(result.legacy.omissions).toEqual([]);
+    expect(result.overflow).toMatchObject({
+      kind: "failure",
+      tag: "ValidationFailed",
+      field: "query",
+      message: "Current retrieval posting capacity exceeded (5000).",
+    });
+  });
+
   it("denies viewers from submitting or reviewing notes", async () => {
     const result = await Effect.runPromise(
       Effect.gen(function* () {

@@ -14,6 +14,7 @@ export const RetrievalTokenRow = Schema.Struct({
   workspaceId: Id("workspaces"),
   brainKey: Schema.String,
   publicationSetKey: RetrievalPublicationSetKey,
+  publicationState: Schema.optional(Schema.Literal("current", "retired")),
   tokenizerVersion: Schema.Literal(1),
   token: Schema.String,
   entryKey: RetrievalEntryKey,
@@ -28,6 +29,14 @@ export default Table.make(() => RetrievalTokenRow)
     "workspaceId",
     "brainKey",
     "token",
+    "authorityRank",
+    "entryKey",
+  ])
+  .index("by_workspace_brain_token_publication_state_authority_entry", [
+    "workspaceId",
+    "brainKey",
+    "token",
+    "publicationState",
     "authorityRank",
     "entryKey",
   ])

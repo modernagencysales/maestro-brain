@@ -330,6 +330,7 @@ const commitPreparedPublication = (input: {
         schemaVersion: 1 as const,
         workspaceId: input.workspaceId,
         publicationSetKey,
+        publicationState: "current" as const,
       })),
     );
     if (
@@ -656,6 +657,7 @@ export const publishPageRevisionEffect = (
         schemaVersion: 1 as const,
         workspaceId: args.workspaceId,
         publicationSetKey,
+        publicationState: "current" as const,
       })),
     );
     if (
