@@ -46,6 +46,18 @@ engineering begins.
 | Document-source freshness      | Context owner   | TBD for the selected document source         | WP06      |
 | Structured source required?    | Context owner   | Decide from E0-E3 gaps                       | WP07      |
 
+## Required Scope SLOs
+
+Fill one row for every required pilot scope before BE2-S3 promotion validation
+or dogfood. These values are runtime inputs, not prose-only expectations.
+
+| Corpus/scope          | Observation-to-publication max | Full reconciliation age max | Edit propagation max | Delete/unshare propagation max | Oldest nonterminal obligation max | Retry/dead-letter escalation age | Alert severity | Responder |
+| --------------------- | ------------------------------ | --------------------------- | -------------------- | ------------------------------ | --------------------------------- | -------------------------------- | -------------- | --------- |
+| Brain pages           | TBD                            | TBD                         | TBD                  | TBD                            | TBD                               | TBD                              | TBD            | TBD       |
+| Slack                 | TBD                            | TBD                         | TBD                  | TBD                            | TBD                               | TBD                              | TBD            | TBD       |
+| Transcripts           | TBD                            | TBD                         | TBD                  | TBD                            | TBD                               | TBD                              | TBD            | TBD       |
+| First document source | TBD                            | TBD                         | TBD                  | TBD                            | TBD                               | TBD                              | TBD            | TBD       |
+
 ## Default Pilot Thresholds
 
 Owners may amend these before the first frozen run:
