@@ -15,8 +15,11 @@ import {
 } from "../confect/brain/retrievalPublication.impl";
 import { rebuildPageBatchEffect } from "../confect/brain/retrievalPublication.impl";
 import {
+  RETRIEVAL_ELIGIBILITY_FENCE_MAX,
   retrievalEntryKey,
+  retrievalEligibilityFenceKey,
   retrievalPublicationSubjectKey,
+  type RetrievalEligibilityFenceRef,
   type RetrievalOrigin,
 } from "../confect/brain/retrievalPublication";
 import {
@@ -97,7 +100,7 @@ const seedPage = Effect.gen(function* () {
     .insert({
       organizationId,
       userId,
-      role: "viewer",
+      role: "editor",
       status: "active",
       acceptedAt: now,
       revokedAt: null,
@@ -110,7 +113,7 @@ const seedPage = Effect.gen(function* () {
     .insert({
       workspaceId,
       userId,
-      role: "viewer",
+      role: "editor",
       status: "active",
       acceptedAt: now,
       revokedAt: null,
@@ -189,6 +192,109 @@ const publicationArgs = (workspaceId: GenericId<"workspaces">) => ({
   },
   now,
 });
+
+const assertEligibilityManifestFailsClosed = async (
+  corrupt: (
+    ref: RetrievalEligibilityFenceRef,
+    workspaceId: string,
+  ) => {
+    readonly manifest: RetrievalEligibilityFenceRef[];
+    readonly additionalFenceRows?: ReadonlyArray<{
+      readonly ref: RetrievalEligibilityFenceRef;
+      readonly controllerKey: string;
+    }>;
+  },
+) => {
+  const result = await Effect.runPromise(
+    Effect.gen(function* () {
+      const confect = yield* Effect.serviceOptional(
+        TestConfect.TestConfect<typeof databaseSchema>(),
+      );
+      const { organizationId, workspaceId } = yield* confect.run(
+        seedPage,
+        resultSchema(),
+      );
+      const published = yield* confect.run(
+        publishPageRevisionEffect(publicationArgs(workspaceId)),
+        resultSchema(),
+      );
+      if (published.outcome !== "published")
+        throw new Error("expected page publication");
+      const entryKey = yield* confect.run(
+        Effect.gen(function* () {
+          const reader = yield* DatabaseReader;
+          const writer = yield* DatabaseWriter;
+          const set = yield* reader
+            .table("retrievalPublicationSets")
+            .index("by_workspace_publication_set", (query) =>
+              query
+                .eq("workspaceId", workspaceId)
+                .eq("publicationSetKey", published.publicationSetKey),
+            )
+            .first()
+            .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+          const ref = set?.eligibilityFences?.[0];
+          if (set === null || ref === undefined)
+            throw new Error("missing publication fence manifest");
+          const corruption = corrupt(ref, String(workspaceId));
+          for (const additional of corruption.additionalFenceRows ?? []) {
+            yield* writer
+              .table("retrievalEligibilityFences")
+              .insert({
+                schemaVersion: 1,
+                organizationKey,
+                fenceKey: additional.ref.fenceKey,
+                kind: additional.ref.kind,
+                controllerKey: additional.controllerKey,
+                eligibilityGeneration: additional.ref.eligibilityGeneration,
+                eligible: true,
+                updatedAt: now + 1,
+              })
+              .pipe(Effect.orDie);
+          }
+          yield* writer
+            .table("retrievalPublicationSets")
+            .patch(set._id, { eligibilityFences: corruption.manifest })
+            .pipe(Effect.orDie);
+          const entry = yield* reader
+            .table("retrievalEntries")
+            .index("by_workspace_brain_publication_set_entry", (query) =>
+              query
+                .eq("workspaceId", workspaceId)
+                .eq("brainKey", brainKey)
+                .eq("publicationSetKey", published.publicationSetKey),
+            )
+            .first()
+            .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+          if (entry === null) throw new Error("missing entry");
+          return entry.entryKey;
+        }),
+        resultSchema(),
+      );
+      const search = yield* confect.query(
+        refs.internal.brain.readApi.headlessSourcesSearch,
+        {
+          organizationId,
+          workspaceId,
+          brainKey,
+          query: "qualified pipeline",
+        },
+      );
+      const sourceAttempt = yield* confect
+        .query(refs.internal.brain.readApi.headlessSourcesGet, {
+          organizationId,
+          workspaceId,
+          brainKey,
+          publicationSetKey: published.publicationSetKey,
+          entryKey,
+        })
+        .pipe(Effect.either);
+      return { search, sourceAttempt };
+    }).pipe(Effect.provide(testConfectLayer())),
+  );
+  expect(result.search.results).toEqual([]);
+  expectCitationFailure(result.sourceAttempt, "origin_mismatch");
+};
 
 describe("retrieval publication persistence", () => {
   it("derives a revision-independent publication subject per connector scope", () => {
@@ -795,7 +901,25 @@ describe("retrieval publication persistence", () => {
               )
               .collect()
               .pipe(Effect.orDie);
-            return { tokens, entries };
+            const sets = yield* reader
+              .table("retrievalPublicationSets")
+              .index("by_workspace_brain_source_state_generation", (query) =>
+                query
+                  .eq("workspaceId", workspaceId)
+                  .eq("brainKey", brainKey)
+                  .eq("originTable", "pageRevisions")
+                  .eq("sourceKey", pageKey),
+              )
+              .collect()
+              .pipe(Effect.orDie);
+            const fences = yield* reader
+              .table("retrievalEligibilityFences")
+              .index("by_organization_fence", (query) =>
+                query.eq("organizationKey", organizationKey),
+              )
+              .collect()
+              .pipe(Effect.orDie);
+            return { tokens, entries, sets, fences };
           }),
           resultSchema(),
         );
@@ -843,6 +967,29 @@ describe("retrieval publication persistence", () => {
         ),
       ),
     ).toEqual(new Set([result.search.results[0]?.entryKey]));
+    expect(
+      result.stored.sets.map(({ eligibilityFences }) => eligibilityFences),
+    ).toEqual([
+      [
+        expect.objectContaining({
+          kind: "lifecycle",
+          eligibilityGeneration: 1,
+        }),
+      ],
+      [
+        expect.objectContaining({
+          kind: "lifecycle",
+          eligibilityGeneration: 1,
+        }),
+      ],
+    ]);
+    expect(result.stored.fences).toEqual([
+      expect.objectContaining({
+        kind: "lifecycle",
+        eligibilityGeneration: 1,
+        eligible: true,
+      }),
+    ]);
   });
 
   it("keeps one subject and monotonic generations through revoke and restore", async () => {
@@ -1316,6 +1463,20 @@ describe("retrieval publication persistence", () => {
         );
         const entryKey = beforeArchive.results[0]?.entryKey;
         if (entryKey === undefined) throw new Error("missing page entry");
+        const publisher = confect.withIdentity({
+          subject: "publisher",
+          email: "publisher@example.com",
+          emailVerified: true,
+          workosOrganizationId: "org_publisher",
+        });
+        const archived = yield* publisher.mutation(
+          refs.public.brain.pages.archive,
+          {
+            brainKey,
+            pageKey,
+            expectedCurrentRevisionKey: revisionKey,
+          },
+        );
         yield* confect.run(
           Effect.gen(function* () {
             const reader = yield* DatabaseReader;
@@ -1331,15 +1492,166 @@ describe("retrieval publication persistence", () => {
             yield* writer
               .table("brainPages")
               .patch(page.value._id, {
-                status: "archived",
+                status: "active",
+                currentRevisionKey: revisionKey,
                 lifecycle: {
-                  state: "archived",
-                  generation: 2,
+                  state: "active",
+                  generation: archived.lifecycleGeneration,
                   updatedAt: now + 1,
                   purgeAfter: null,
                 },
               })
               .pipe(Effect.orDie);
+          }),
+          resultSchema(),
+        );
+        const stored = yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const sets = yield* reader
+              .table("retrievalPublicationSets")
+              .index("by_workspace_publication_set", (query) =>
+                query
+                  .eq("workspaceId", workspaceId)
+                  .eq("publicationSetKey", published.publicationSetKey),
+              )
+              .collect()
+              .pipe(Effect.orDie);
+            const entries = yield* reader
+              .table("retrievalEntries")
+              .index("by_workspace_brain_publication_set_entry", (query) =>
+                query
+                  .eq("workspaceId", workspaceId)
+                  .eq("brainKey", brainKey)
+                  .eq("publicationSetKey", published.publicationSetKey),
+              )
+              .collect()
+              .pipe(Effect.orDie);
+            const fences = yield* reader
+              .table("retrievalEligibilityFences")
+              .index("by_organization_fence", (query) =>
+                query.eq("organizationKey", organizationKey),
+              )
+              .collect()
+              .pipe(Effect.orDie);
+            return { sets, entries, fences };
+          }),
+          resultSchema(),
+        );
+        const search = yield* confect.query(
+          refs.internal.brain.readApi.headlessSourcesSearch,
+          {
+            organizationId,
+            workspaceId,
+            brainKey,
+            query: "qualified pipeline",
+          },
+        );
+        const sourceAttempt = yield* confect
+          .query(refs.internal.brain.readApi.headlessSourcesGet, {
+            organizationId,
+            workspaceId,
+            brainKey,
+            publicationSetKey: published.publicationSetKey,
+            entryKey,
+          })
+          .pipe(Effect.either);
+        return { archived, stored, search, sourceAttempt };
+      }).pipe(Effect.provide(testConfectLayer())),
+    );
+    expect(result.archived).toMatchObject({
+      status: "archived",
+      lifecycleGeneration: 2,
+    });
+    expect(result.stored.sets).toEqual([
+      expect.objectContaining({
+        state: "current",
+        eligibilityFences: [
+          expect.objectContaining({
+            kind: "lifecycle",
+            eligibilityGeneration: 1,
+          }),
+        ],
+      }),
+    ]);
+    expect(result.stored.entries).toEqual([
+      expect.objectContaining({ state: "published" }),
+    ]);
+    expect(result.stored.fences).toEqual([
+      expect.objectContaining({
+        kind: "lifecycle",
+        eligibilityGeneration: 2,
+        eligible: false,
+      }),
+    ]);
+    expect(result.search.results).toEqual([]);
+    expect(Either.isLeft(result.sourceAttempt)).toBe(true);
+    if (Either.isRight(result.sourceAttempt)) {
+      throw new Error("expected archived citation to fail closed");
+    }
+    expect(result.sourceAttempt.left).toMatchObject({
+      _tag: "CitationIntegrityFailure",
+      reason: "origin_mismatch",
+    });
+  });
+
+  it("fails current publication closed when its eligibility fence is missing", async () => {
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof databaseSchema>(),
+        );
+        const { organizationId, workspaceId } = yield* confect.run(
+          seedPage,
+          resultSchema(),
+        );
+        const published = yield* confect.run(
+          publishPageRevisionEffect(publicationArgs(workspaceId)),
+          resultSchema(),
+        );
+        if (published.outcome !== "published")
+          throw new Error("expected page publication");
+        const entryKey = yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const writer = yield* DatabaseWriter;
+            const set = yield* reader
+              .table("retrievalPublicationSets")
+              .index("by_workspace_publication_set", (query) =>
+                query
+                  .eq("workspaceId", workspaceId)
+                  .eq("publicationSetKey", published.publicationSetKey),
+              )
+              .first()
+              .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+            const fenceKey = set?.eligibilityFences?.[0]?.fenceKey;
+            if (fenceKey === undefined) throw new Error("missing fence ref");
+            const fence = yield* reader
+              .table("retrievalEligibilityFences")
+              .index("by_organization_fence", (query) =>
+                query
+                  .eq("organizationKey", organizationKey)
+                  .eq("fenceKey", fenceKey),
+              )
+              .first()
+              .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+            if (fence === null) throw new Error("missing fence row");
+            yield* writer
+              .table("retrievalEligibilityFences")
+              .delete(fence._id)
+              .pipe(Effect.orDie);
+            const entry = yield* reader
+              .table("retrievalEntries")
+              .index("by_workspace_brain_publication_set_entry", (query) =>
+                query
+                  .eq("workspaceId", workspaceId)
+                  .eq("brainKey", brainKey)
+                  .eq("publicationSetKey", published.publicationSetKey),
+              )
+              .first()
+              .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+            if (entry === null) throw new Error("missing entry");
+            return entry.entryKey;
           }),
           resultSchema(),
         );
@@ -1365,15 +1677,81 @@ describe("retrieval publication persistence", () => {
       }).pipe(Effect.provide(testConfectLayer())),
     );
     expect(result.search.results).toEqual([]);
-    expect(Either.isLeft(result.sourceAttempt)).toBe(true);
-    if (Either.isRight(result.sourceAttempt)) {
-      throw new Error("expected archived citation to fail closed");
-    }
-    expect(result.sourceAttempt.left).toMatchObject({
-      _tag: "CitationIntegrityFailure",
-      reason: "origin_mismatch",
-    });
+    expectCitationFailure(result.sourceAttempt, "origin_mismatch");
   });
+
+  it("fails current publication closed for a duplicated fence manifest", () =>
+    assertEligibilityManifestFailsClosed((ref) => ({
+      manifest: [ref, ref],
+    })));
+
+  it("fails current publication closed for an empty fence manifest", () =>
+    assertEligibilityManifestFailsClosed(() => ({ manifest: [] })));
+
+  it("fails current publication closed for duplicate fence kinds", () =>
+    assertEligibilityManifestFailsClosed((ref) => ({
+      manifest: [
+        ref,
+        {
+          ...ref,
+          fenceKey: `rfen_${"f".repeat(64)}`,
+        },
+      ],
+    })));
+
+  it("fails current publication closed when a fence generation mismatches", () =>
+    assertEligibilityManifestFailsClosed((ref) => ({
+      manifest: [
+        {
+          ...ref,
+          eligibilityGeneration: ref.eligibilityGeneration + 1,
+        },
+      ],
+    })));
+
+  it("fails current publication closed above the six-fence manifest limit", () =>
+    assertEligibilityManifestFailsClosed((ref) => ({
+      manifest: [
+        ref,
+        ...Array.from(
+          { length: RETRIEVAL_ELIGIBILITY_FENCE_MAX },
+          (_, index): RetrievalEligibilityFenceRef => ({
+            kind: "policy",
+            fenceKey: `rfen_${String(index).padStart(64, "0")}`,
+            eligibilityGeneration: 1,
+          }),
+        ),
+      ],
+    })));
+
+  it("fails current page publication closed for another controller's fence", () =>
+    assertEligibilityManifestFailsClosed((_ref, workspaceId) => {
+      const controllerKey = `page:${workspaceId}:pag_other_page`;
+      const wrongRef: RetrievalEligibilityFenceRef = {
+        kind: "lifecycle",
+        fenceKey: retrievalEligibilityFenceKey({
+          organizationKey,
+          kind: "lifecycle",
+          controllerKey,
+        }),
+        eligibilityGeneration: 1,
+      };
+      return {
+        manifest: [wrongRef],
+        additionalFenceRows: [{ ref: wrongRef, controllerKey }],
+      };
+    }));
+
+  it("fails current publication closed for duplicate authoritative fence rows", () =>
+    assertEligibilityManifestFailsClosed((ref, workspaceId) => ({
+      manifest: [ref],
+      additionalFenceRows: [
+        {
+          ref,
+          controllerKey: `page:${workspaceId}:${pageKey}`,
+        },
+      ],
+    })));
 
   it("rebuilds active pages in bounded batches", async () => {
     const result = await Effect.runPromise(

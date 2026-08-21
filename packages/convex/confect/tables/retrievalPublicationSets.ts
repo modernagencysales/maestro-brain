@@ -6,6 +6,7 @@ import {
   ContentHash,
   NonNegativeInteger,
   PositiveInteger,
+  RetrievalEligibilityFenceRef,
   RetrievalPublicationSetKey,
   RetrievalPublicationSubjectKey,
 } from "../brain/retrievalSchemas";
@@ -33,6 +34,9 @@ export const RetrievalPublicationSetRow = Schema.Struct({
   routeGeneration: PositiveInteger,
   lifecycleGeneration: PositiveInteger,
   policyGeneration: PositiveInteger,
+  eligibilityFences: Schema.optional(
+    Schema.Array(RetrievalEligibilityFenceRef),
+  ),
   expectedEntryCount: NonNegativeInteger,
   expectedTokenCount: NonNegativeInteger,
   manifestHash: ContentHash,

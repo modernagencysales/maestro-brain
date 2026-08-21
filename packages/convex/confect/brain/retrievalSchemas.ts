@@ -23,6 +23,22 @@ export const RetrievalPublicationSetKey = Schema.String.pipe(
 export const RetrievalPublicationSubjectKey = Schema.String.pipe(
   Schema.pattern(/^rsub_[a-f0-9]{64}$/),
 );
+export const RetrievalEligibilityFenceKey = Schema.String.pipe(
+  Schema.pattern(/^rfen_[a-f0-9]{64}$/),
+);
+export const RetrievalEligibilityFenceKind = Schema.Literal(
+  "lifecycle",
+  "route",
+  "policy",
+  "scope",
+  "allowlist",
+  "connection",
+);
+export const RetrievalEligibilityFenceRef = Schema.Struct({
+  kind: RetrievalEligibilityFenceKind,
+  fenceKey: RetrievalEligibilityFenceKey,
+  eligibilityGeneration: PositiveInteger,
+});
 
 export const RetrievalOriginReference = Schema.Union(
   Schema.Struct({

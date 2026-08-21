@@ -35,6 +35,10 @@ import {
 import { toPublicPageSummary, type BrainPage } from "./pageSchemas";
 import pages from "./pages.spec";
 import { enqueueRetrievalPublicationJobEffect } from "./retrievalPublication.impl";
+import {
+  pageLifecycleFenceIdentity,
+  transitionEligibilityFenceEffect,
+} from "./retrievalEligibility";
 
 type PageDoc = BrainPage & { readonly _id: GenericId<"brainPages"> };
 type MutationKind =
@@ -589,6 +593,16 @@ const patchPage = (args: {
     const patchedPage = { ...page, ...patch };
     const writer = yield* DatabaseWriter;
     yield* writer.table("brainPages").patch(page._id, patch).pipe(Effect.orDie);
+    if (args.kind === "archive")
+      yield* transitionEligibilityFenceEffect({
+        identity: pageLifecycleFenceIdentity({
+          organizationKey: brain.organizationKey,
+          workspaceId: String(brain.workspaceId),
+          pageKey: page.pageKey,
+        }),
+        eligible: false,
+        now: at,
+      });
     yield* writePageRevision({
       brain,
       page: patchedPage,

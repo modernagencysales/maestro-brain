@@ -47,6 +47,7 @@ export type PoliciesDoc = Document.Document<typeof schemaDefinition, "policies">
 export type PromptRegistryDoc = Document.Document<typeof schemaDefinition, "promptRegistry">;
 export type ProviderConnectionsDoc = Document.Document<typeof schemaDefinition, "providerConnections">;
 export type ProviderEventReceiptsDoc = Document.Document<typeof schemaDefinition, "providerEventReceipts">;
+export type RetrievalEligibilityFencesDoc = Document.Document<typeof schemaDefinition, "retrievalEligibilityFences">;
 export type RetrievalEntriesDoc = Document.Document<typeof schemaDefinition, "retrievalEntries">;
 export type RetrievalPublicationJobsDoc = Document.Document<typeof schemaDefinition, "retrievalPublicationJobs">;
 export type RetrievalPublicationSetsDoc = Document.Document<typeof schemaDefinition, "retrievalPublicationSets">;
@@ -127,6 +128,7 @@ export interface Docs {
   promptRegistry: PromptRegistryDoc;
   providerConnections: ProviderConnectionsDoc;
   providerEventReceipts: ProviderEventReceiptsDoc;
+  retrievalEligibilityFences: RetrievalEligibilityFencesDoc;
   retrievalEntries: RetrievalEntriesDoc;
   retrievalPublicationJobs: RetrievalPublicationJobsDoc;
   retrievalPublicationSets: RetrievalPublicationSetsDoc;

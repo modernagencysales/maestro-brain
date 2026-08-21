@@ -22,8 +22,10 @@ import {
   RETRIEVAL_CANDIDATE_LIMIT,
   RETRIEVAL_CONTEXT_ENTRY_LIMIT,
   RETRIEVAL_CONTEXT_MAX_BYTES,
+  RETRIEVAL_ELIGIBILITY_FENCE_MAX,
   RETRIEVAL_POSTING_LIMIT,
   retrievalScore,
+  retrievalEligibilityFenceKey,
   uniqueQueryTokens,
 } from "./retrievalPublication";
 import {
@@ -868,6 +870,81 @@ const verifiedPassage = (
   return Effect.succeed(passage.text);
 };
 
+const publicationEligibilityMatches = (entry: RetrievalEntriesDoc) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const publicationSet = yield* reader
+      .table("retrievalPublicationSets")
+      .index("by_workspace_publication_set", (index) =>
+        index
+          .eq("workspaceId", entry.workspaceId)
+          .eq("publicationSetKey", entry.publicationSetKey),
+      )
+      .first()
+      .pipe(Effect.map(Option.getOrNull), Effect.orDie);
+    if (
+      publicationSet === null ||
+      publicationSet.organizationKey !== entry.organizationKey
+    )
+      return false;
+    const refs = publicationSet.eligibilityFences;
+    if (refs === undefined) return true;
+    if (
+      refs.length === 0 ||
+      refs.length > RETRIEVAL_ELIGIBILITY_FENCE_MAX ||
+      new Set(refs.map(({ fenceKey }) => fenceKey)).size !== refs.length ||
+      new Set(refs.map(({ kind }) => kind)).size !== refs.length
+    )
+      return false;
+    const expectedPageLifecycle =
+      entry.origin.kind === "page"
+        ? {
+            kind: "lifecycle" as const,
+            controllerKey: `page:${entry.workspaceId}:${entry.origin.pageKey}`,
+          }
+        : null;
+    if (
+      expectedPageLifecycle !== null &&
+      !refs.some(
+        (ref) =>
+          ref.kind === expectedPageLifecycle.kind &&
+          ref.fenceKey ===
+            retrievalEligibilityFenceKey({
+              organizationKey: entry.organizationKey,
+              ...expectedPageLifecycle,
+            }),
+      )
+    )
+      return false;
+    const fences = yield* Effect.all(
+      refs.map(({ fenceKey }) =>
+        reader
+          .table("retrievalEligibilityFences")
+          .index("by_organization_fence", (index) =>
+            index
+              .eq("organizationKey", entry.organizationKey)
+              .eq("fenceKey", fenceKey),
+          )
+          .take(2)
+          .pipe(Effect.orDie),
+      ),
+    );
+    return refs.every((ref, index) => {
+      const matches = fences[index];
+      const fence = matches?.[0];
+      return (
+        matches?.length === 1 &&
+        fence !== undefined &&
+        fence.kind === ref.kind &&
+        fence.eligibilityGeneration === ref.eligibilityGeneration &&
+        fence.eligible &&
+        (expectedPageLifecycle === null ||
+          ref.kind !== "lifecycle" ||
+          fence.controllerKey === expectedPageLifecycle.controllerKey)
+      );
+    });
+  });
+
 const currentEntryEligible = (
   entry: RetrievalEntriesDoc,
   options: { readonly requireCurrentRevision: boolean } = {
@@ -875,6 +952,7 @@ const currentEntryEligible = (
   },
 ) =>
   Effect.gen(function* () {
+    if (!(yield* publicationEligibilityMatches(entry))) return false;
     const origin = entry.origin;
     const reader = yield* DatabaseReader;
     if (origin.kind === "page") {

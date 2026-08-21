@@ -8,10 +8,18 @@ export const RETRIEVAL_CANDIDATE_LIMIT = 40;
 export const RETRIEVAL_CONTEXT_ENTRY_LIMIT = 8;
 export const RETRIEVAL_CONTEXT_MAX_BYTES = 64 * 1024;
 export const RETRIEVAL_ENTRY_MAX_BYTES = 12 * 1024;
+export const RETRIEVAL_ELIGIBILITY_FENCE_MAX = 6;
 
 export type RetrievalAuthority = "authoritative" | "derived" | "advisory";
 export type RetrievalKind =
   "page" | "slack" | "transcript" | "document" | "projection";
+export type RetrievalEligibilityFenceKind =
+  "lifecycle" | "route" | "policy" | "scope" | "allowlist" | "connection";
+export type RetrievalEligibilityFenceRef = {
+  readonly kind: RetrievalEligibilityFenceKind;
+  readonly fenceKey: string;
+  readonly eligibilityGeneration: number;
+};
 
 export type RetrievalOrigin = {
   readonly organizationKey: string;
@@ -58,6 +66,17 @@ export const retrievalPublicationSubjectKey = (
     kind: origin.kind,
     sourceKey: origin.sourceKey,
     connectorScopeKey: origin.connectorScopeKey ?? null,
+  })}`;
+
+export const retrievalEligibilityFenceKey = (input: {
+  readonly organizationKey: string;
+  readonly kind: RetrievalEligibilityFenceKind;
+  readonly controllerKey: string;
+}) =>
+  `rfen_${hash({
+    organizationKey: input.organizationKey,
+    kind: input.kind,
+    controllerKey: input.controllerKey,
   })}`;
 
 export type RetrievalPassage = {

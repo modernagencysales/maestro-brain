@@ -148,6 +148,13 @@ Execute-mode component failures follow the same durable failure receipt path.
   source, the writer uses the existing indexed, bounded publication history to
   initialize the subject before allocating another generation; BE2 performs the
   complete bounded backfill before narrowing optional fields.
+- **Eligibility-fence expand:** add `retrievalEligibilityFences`, keyed by
+  organization, fence kind, and stable controller identity. Add optional,
+  bounded `eligibilityFences` manifests to the populated publication-set table.
+  New page publishers populate a lifecycle reference immediately, and page
+  archive advances that fence generation to ineligible in the same mutation as
+  the source lifecycle change. Policy, route, scope, allowlist, and connection
+  writers adopt the same substrate in BE1-S2B.
 - **Backfill:** enqueue `page_rebuild`, `slack_rebuild`, or `transcript_rebuild`
   publication jobs with batches of at most five source objects. Each successful
   non-final batch transactionally creates the next cursor-keyed job; provider
@@ -170,6 +177,12 @@ Execute-mode component failures follow the same durable failure receipt path.
   one stable document object in two connector scopes, idempotent duplicate
   publication, and generations `1 -> 2 -> revoke -> restore -> 3` without a
   current-pointer reset.
+- **Eligibility-fence verify:** suppress every cleanup scheduler invocation,
+  archive a current page, then simulate a stale writer restoring the old source
+  state and prove search and exact source-get remain closed. Missing,
+  duplicated, excessive, ineligible, or generation-mismatched references fail
+  closed. Eligibility-preserving content or policy republication retains its
+  captured generation.
 - **Read switch:** deploy additive tables and publishers first. Complete the
   page rebuild, verify corpus-health counts, then enable question-based
   `brain.context.get`. The temporary page-list compatibility path remains only
@@ -180,6 +193,16 @@ Execute-mode component failures follow the same durable failure receipt path.
 - **Publication-subject contract:** keep new fields optional until BE2 has
   backfilled every legacy set/entry and proved one subject row per expected
   logical publication. Only then narrow the schema in a separate migration.
+- **Eligibility-fence contract:** legacy sets may omit the manifest during the
+  expand and compatibility phases only. BE2 backfills the complete required
+  fence-kind manifest for every current set and every retained retired set that
+  remains citation-addressable, records a monotonic fence-backfill generation,
+  and proves zero incomplete sets in that population. BE3 binds its same-SHA
+  promotion receipt and compare-and-set mutation to that generation. Projection
+  promotion and projection-mode reads fail closed on an absent or incomplete
+  required manifest. Retired historical sets outside the retained citation
+  window are explicitly invalidated before exclusion; they are never silently
+  omitted from the backfill population.
 - **Rollback:** stop publication scheduling and route reads to the compatibility
   page path. The provider/page ledgers remain untouched. Derived publication
   rows may be retained for diagnosis and rebuilt later; rollback never deletes
@@ -187,6 +210,11 @@ Execute-mode component failures follow the same durable failure receipt path.
 - **Publication-subject rollback:** older readers ignore the additive subject
   table and optional keys. Preserve subject rows and generation history; never
   delete them during rollback because doing so can reset a later restore.
+- **Eligibility-fence rollback:** older binaries may ignore the additive table
+  and optional manifests only while projection reads are disabled. Preserve the
+  fence rows and generations. If compatibility reads cannot enforce equivalent
+  lifecycle and controller eligibility, rollback disables Ask Apero instead of
+  exposing legacy evidence.
 
 ## Slack provider event ordering and replay lookup
 

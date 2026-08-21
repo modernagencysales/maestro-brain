@@ -20,6 +20,10 @@ import {
 import { Unauthorized, ValidationFailed } from "../errors";
 import { sha256Hex } from "../shared/sha256";
 import {
+  ensureEligibilityFenceEffect,
+  pageLifecycleFenceIdentity,
+} from "./retrievalEligibility";
+import {
   buildRetrievalPassages,
   buildRetrievalTokenRows,
   retrievalEntryKey,
@@ -701,6 +705,19 @@ export const publishPageRevisionEffect = (
         tokenCount: 0,
       };
     }
+    const lifecycleFence = yield* ensureEligibilityFenceEffect({
+      identity: pageLifecycleFenceIdentity({
+        organizationKey: args.organizationKey,
+        workspaceId: String(args.workspaceId),
+        pageKey: args.pageKey,
+      }),
+      eligible: true,
+      now: args.now,
+    });
+    if (!lifecycleFence.eligible)
+      return yield* new RetrievalPublicationConflict({
+        publicationSetKey: lifecycleFence.ref.fenceKey,
+      });
     if (
       current?.sourceRevisionKey === args.revisionKey &&
       current.policyGeneration === args.policyGeneration &&
@@ -828,6 +845,7 @@ export const publishPageRevisionEffect = (
         routeGeneration: origin.routeGeneration,
         lifecycleGeneration: origin.lifecycleGeneration,
         policyGeneration: origin.policyGeneration,
+        eligibilityFences: [lifecycleFence.ref],
         expectedEntryCount: entries.length,
         expectedTokenCount: tokens.length,
         manifestHash: expectedHash,

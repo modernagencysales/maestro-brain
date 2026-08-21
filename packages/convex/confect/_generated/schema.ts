@@ -46,6 +46,7 @@ import policies from "./tables/policies";
 import promptRegistry from "./tables/promptRegistry";
 import providerConnections from "./tables/providerConnections";
 import providerEventReceipts from "./tables/providerEventReceipts";
+import retrievalEligibilityFences from "./tables/retrievalEligibilityFences";
 import retrievalEntries from "./tables/retrievalEntries";
 import retrievalPublicationJobs from "./tables/retrievalPublicationJobs";
 import retrievalPublicationSets from "./tables/retrievalPublicationSets";
@@ -126,6 +127,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   typeof promptRegistry |
   typeof providerConnections |
   typeof providerEventReceipts |
+  typeof retrievalEligibilityFences |
   typeof retrievalEntries |
   typeof retrievalPublicationJobs |
   typeof retrievalPublicationSets |
@@ -205,6 +207,7 @@ const databaseSchema: $DatabaseSchema.DatabaseSchema<
   promptRegistry,
   providerConnections,
   providerEventReceipts,
+  retrievalEligibilityFences,
   retrievalEntries,
   retrievalPublicationJobs,
   retrievalPublicationSets,
