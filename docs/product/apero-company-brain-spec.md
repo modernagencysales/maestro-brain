@@ -1,6 +1,7 @@
 # Apero Company Brain Product And Technical Specification
 
-**Status:** proposed pilot specification
+**Status:** accepted for engineering; pilot activation still requires the named
+owner inputs and acceptance receipts
 
 **Date:** 2026-08-21
 
@@ -237,6 +238,7 @@ authorize -> discover -> allowlist -> observe -> normalize -> route
 - provider connection generation;
 - approved source/container allowlist;
 - incremental cursor or reconciliation checkpoint;
+- expected cursor, lease, and run-fence generation for compare-and-set commits;
 - provider object and revision identity;
 - policy epoch and retention class;
 - authenticated principal and requested operation.
@@ -251,6 +253,7 @@ authorize -> discover -> allowlist -> observe -> normalize -> route
 - lifecycle and permission snapshot;
 - idempotency/effect key;
 - sync cursor and health result;
+- per-page observation/seen-marker commit receipt and next-cursor value;
 - tombstone or purge result for removals.
 
 ### 7.3 Required connector behavior
@@ -259,10 +262,29 @@ authorize -> discover -> allowlist -> observe -> normalize -> route
 - OAuth/token storage is delegated to the approved connection provider.
 - A provider object is ingested only when its container is allowlisted.
 - Incremental sync is at-least-once; deterministic commit is idempotent.
+- A fetched page advances its provider or traversal cursor only in the same
+  transaction that commits every observation, revision, membership/seen marker,
+  and target-resolution intent produced from that page. Fetch success and
+  downstream publication success never advance the cursor. When a provider page
+  cannot fit one transaction, durable page/chunk receipts must make the final
+  cursor advance conditional on every chunk being committed.
 - Webhooks never replace reconciliation.
 - A full reconciliation may infer removal only after every page is enumerated
   and the reconciliation generation closes successfully. Partial traversal never
   produces tombstones.
+- Reconciliation and rebuild runs have a per-scope monotonic authority
+  generation. A successor supersedes its predecessors; every apply and close
+  mutation compares that generation, lease, provider high-water, and internal
+  ledger high-water. A late predecessor cannot infer removals, overwrite health,
+  or report completion.
+- The connector scope also owns one current
+  `(connectionGeneration, allowlistGeneration)` tuple. Membership edges are
+  versioned by that tuple, and every apply/close compares the scope-level tuple
+  as well as the run generation. A run from an older configuration cannot remain
+  authoritative merely because it is current inside its obsolete tuple.
+- Revision identity and observation order are separate. Each adapter defines how
+  duplicate, equal-conflict, older, tombstone, recreation, and reconciliation-
+  epoch observations compare.
 - Permission loss stops future reads and revokes affected projections.
 - Provider deletion produces a lifecycle transition, not a silent absence.
 - Raw provider payloads and credentials are never logged.
@@ -345,6 +367,16 @@ authorize -> discover -> allowlist -> observe -> normalize -> route
 - `brainSources` remains a legacy/manual intake path and is not the canonical
   storage destination for provider connectors.
 - Publication is idempotent and rebuildable without provider re-ingestion.
+- Every publication belongs to a revision-independent `publicationSubjectKey`,
+  derived from the Brain target, corpus, stable provider object/source identity,
+  stable route target, and connector scope. Each subject owns exactly one
+  current-set pointer and one monotonic publication-generation sequence. A
+  document admitted through multiple scopes has one subject per scope; it never
+  shares an ambiguous current pointer.
+- Publication jobs and target-resolution intents persist the subject key,
+  corpus/scope, controlling configuration and eligibility generations,
+  observation/reconciliation fence, stable effect key, and repair or
+  supersession linkage.
 - Route changes, tombstones, connection generation changes, and lifecycle
   changes revoke affected derived entries.
 - All public read surfaces share one lexical retrieval and bounded
@@ -366,6 +398,23 @@ authorize -> discover -> allowlist -> observe -> normalize -> route
 - Every query has an explicit Brain set; no query means “all Brains.”
 - A caller cannot expand scope with a prompt or model-selected Brain key.
 - Deleted, purged, or lifecycle-revoked evidence is not retrievable.
+- Eligibility is checked through bounded references:
+
+  ```ts
+  type EligibilityFenceRef = {
+    kind:
+      "lifecycle" | "route" | "policy" | "scope" | "allowlist" | "connection";
+    key: string;
+    eligibilityGeneration: number;
+  };
+  ```
+
+  The generation changes only when eligibility is revoked or restored, not for
+  ordinary content edits or eligibility-preserving configuration changes. Source
+  state and its eligibility fence become ineligible atomically; derived
+  set/token retirement follows asynchronously. This preserves exact reopening
+  for superseded evidence while revoked evidence fails closed immediately.
+
 - Search result excerpts are linked to exact source/page revisions.
 - Search, source-get, and ContextPack results expose the same publication set,
   retrieval entry, passage key, normalized offsets, origin revision, and content
@@ -378,6 +427,9 @@ authorize -> discover -> allowlist -> observe -> normalize -> route
 - Context coverage is an outer join of the Brain's expected corpus/scope
   manifest and observed corpus-health rows. A missing expected health row is
   unavailable or unknown, not absent from the response.
+- Required-corpus and required-scope intent is durable. Deleting or deactivating
+  a policy, connection, or scope row leaves that intent expected and unavailable
+  until an explicit owner-approved decommission generation removes it.
 - Legacy page/transcript reads are an explicit, observable rollback mode and are
   disabled for acceptance, evaluation, dogfood, and pilot receipts.
 - Semantic indexes, when present, are tenant- and lifecycle-scoped derived data.
@@ -475,22 +527,19 @@ type ContextPack = {
     subject: string;
     revisionKeys: string[];
   }>;
-  limits: {
-    truncated: boolean;
-    maxBytes: number;
-    omittedEntryCount: number;
-    omissionReasons: string[];
-  };
+  omissions: Array<{
+    reason: string;
+    count: number;
+  }>;
 };
 ```
 
 The exact Effect schema and public error set are implementation artifacts. The
-behavioral contract above is ContextPack v1. The runtime currently calls the
-budget/truncation field `omissions`; before BE3 the product spec, Confect
-schema, OpenAPI, MCP, CLI, and runtime fixtures must converge on one name and
-shape. Coverage is never collapsed by `sourceKind`: two connector scopes in one
-corpus remain independently visible, and a healthy sibling cannot hide a missing
-required scope.
+behavioral contract above is ContextPack v1; `omissions` is the canonical
+budget/truncation field for the Confect schema, OpenAPI, MCP, CLI, and runtime
+fixtures. Coverage is never collapsed by `sourceKind`: two connector scopes in
+one corpus remain independently visible, and a healthy sibling cannot hide a
+missing required scope.
 
 ### 10.3 Supported Brain tools
 
@@ -606,6 +655,13 @@ Each connector reports:
 - declared freshness status;
 - last real-provider acceptance receipt version.
 
+A read-mode promotion is a transactionally fenced compare-and-set. The mutation
+must match the exact validated corpus/config/eligibility generation tuple and
+the reconciliation and rebuild high-waters recorded by the receipt. It rejects
+the switch if any relevant watermark advanced or any required effect is
+nonterminal or unresolved, explicitly including pending, due, claimed, leased,
+or running work. Validation and promotion are never two unguarded steps.
+
 Freshness thresholds are source-specific owner decisions. The UI and Ask Apero
 must not convert `unknown` or `stale` into `current`.
 
@@ -665,10 +721,15 @@ The pilot exits successfully when:
 
 ### 16.3 Rollback
 
-Rollback disables external delivery and connector sync without deleting source
-history. It revokes pilot credentials, preserves audited evidence under the
-retention policy, and restores the previous approved team workflow. A connector
-may be disabled independently from the Brain read path.
+Rollback has three explicit scopes: read-switch rollback, one-connector pause,
+and full-pilot rollback. It preserves raw and derived history for diagnosis.
+Compatibility reads must enforce the current lifecycle, cutoff, policy,
+connection, scope, allowlist, and origin-integrity fences. If that equivalence
+cannot be proved, rollback disables Ask Apero and restores the previous approved
+team workflow instead of returning legacy evidence. Pausing workers fences new
+claims, and already leased workers must recheck the pause epoch before
+activating a publication. Connector cursors and durable intents remain
+preserved.
 
 ## 17. Required Owner Decisions
 

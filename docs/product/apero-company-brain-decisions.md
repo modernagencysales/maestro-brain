@@ -32,7 +32,7 @@ engineering begins.
 | Input                          | Owner           | Value                                        | Needed by |
 | ------------------------------ | --------------- | -------------------------------------------- | --------- |
 | Context/business owner         | TBD             | TBD                                          | WP00      |
-| Engineering DRI                | TBD             | TBD                                          | WP01      |
+| Engineering DRI                | TBD             | Assign before the first BE1 PR merges        | BE1 merge |
 | Connector/access owner         | TBD             | TBD                                          | WP05      |
 | Active agency Brain key        | Engineering DRI | TBD                                          | WP03      |
 | First two dogfood users        | Context owner   | TBD                                          | WP04      |
@@ -42,7 +42,8 @@ engineering begins.
 | First document provider        | Context owner   | Shared Drive unless inventory says otherwise | WP05      |
 | Dedicated test container       | Engineering DRI | TBD                                          | WP05      |
 | Production container allowlist | Context owner   | TBD                                          | WP06      |
-| Freshness targets              | Context owner   | TBD by source                                | WP06      |
+| Existing-corpus freshness      | Context owner   | TBD for pages, Slack, and transcripts        | WP02C     |
+| Document-source freshness      | Context owner   | TBD for the selected document source         | WP06      |
 | Structured source required?    | Context owner   | Decide from E0-E3 gaps                       | WP07      |
 
 ## Default Pilot Thresholds
@@ -60,10 +61,12 @@ Owners may amend these before the first frozen run:
 
 ## Start Authorization
 
-WP00-WP01 and generic WP02 contract work may start immediately. The active
-agency Brain key is required for deployed backfill and real acceptance receipts,
-not local contract implementation. Snapshot review/import needs the context
-owner and Claude Project access. Fixture-only Drive adapter work may begin once
-the WP02A publication contract is frozen, but live ingestion requires the full
-WP02A-WP02C completion gates, a connector/access owner, and a dedicated provider
-test container.
+WP00-WP01 and generic WP02 contract/test work may start immediately after the
+publication-subject, eligibility-fence, cursor-commit, run-authority,
+promotion-CAS, and rollback contracts in the canonical plan are accepted. The
+active agency Brain key is required for deployed backfill and real acceptance
+receipts, not local contract implementation. Snapshot review/import needs the
+context owner and Claude Project access. Fixture-only Drive adapter work may
+begin once the WP02A publication contract is frozen, but live ingestion requires
+the full WP02A-WP02C completion gates, a connector/access owner, and a dedicated
+provider test container.
