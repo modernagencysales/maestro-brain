@@ -133,7 +133,7 @@ it cannot be deployed into the pilot while the full gate is red.
 As of 2026-08-21, the original mixed worktree has been separated into two
 default-branch-derived streams:
 
-- backend: `codex/company-brain-backend` at committed checkpoint `d858b68e`;
+- backend: `codex/company-brain-backend` at committed checkpoint `27347b08`;
 - UI: `codex/canonical-saas-ui-clean` at `7bcb635e`.
 
 The split is complete, but neither stream is release-ready. BE1-S1 at `1a5ed461`
@@ -141,16 +141,18 @@ passed the full gate with 1,688 coverage tests, 84.96% line coverage, and 99.71%
 type coverage. BE1-S2A has passed its expanded 25-test focused suite and the
 full backend gate with 817 Convex tests, 1,696 coverage tests, 85.02% line
 coverage, and 99.71% type coverage at `d858b68e`. This is engineering evidence,
-not a staging promotion receipt. The UI stream still passes lint and tests but,
-as rechecked on 2026-08-21, fails web typecheck with exactly 264 errors from the
-incomplete template transplant. The existing durable jobs prove recovery from
-lost scheduler delivery, but do not yet persist and recheck the full
-subject-incarnation, scope, configuration, eligibility,
-observation/reconciliation, and repair-attribution envelope. That is required
-BE1 work, not completed evidence. The backend stack also combines additive
-schema, publication workers, and callable projection reads; BE1-S3 must make
-compatibility the default before BE1 can be deployed, so row presence cannot
-switch reads before backfill and validation. Backend correctness work may
+not a staging promotion receipt. BE1-S2B at `27347b08` passes its 110-test
+focused controller/race suite and the full backend gate with 818 Convex tests,
+1,697 coverage tests, 85.08% line coverage, and 99.71% type coverage. The UI
+stream still passes lint and tests but, as rechecked on 2026-08-21, fails web
+typecheck with exactly 264 errors from the incomplete template transplant. The
+existing durable jobs prove recovery from lost scheduler delivery, but do not
+yet persist and recheck the full subject-incarnation, scope, configuration,
+eligibility, observation/reconciliation, and repair-attribution envelope. That
+is required BE1 work, not completed evidence. The backend stack also combines
+additive schema, publication workers, and callable projection reads; BE1-S3 must
+make compatibility the default before BE1 can be deployed, so row presence
+cannot switch reads before backfill and validation. Backend correctness work may
 continue behind focused gates. Merge requires a green full gate for each phase,
 and promotion requires a green integrated-tip gate and a receipt from the same
 SHA.
@@ -1473,10 +1475,11 @@ citation-addressable, while a later revocation makes it unavailable.
 
 **Dependency:** BE1-S2A is committed and green.
 
-**Status:** in progress and uncommitted. The nine existing affected focused
-files pass 109/109 and Convex typecheck passes on 2026-08-21, but the required
-dedicated generation-race file and full repository gate are still outstanding.
-This is not commit or merge evidence.
+**Status:** implemented and verified at backend commit `27347b08`. The ten
+focused files pass 110/110, including the dedicated delayed-generation race, and
+`just verify-full` passes with 818 Convex tests, 1,697 coverage tests, 85.08%
+line coverage, and 99.71% type coverage. Projection reads remain disabled and
+BE1-S2C is next.
 
 **Intention:** bind the existing Slack source-artifact lifecycle and channel
 policy, transcript source-unit lifecycle and accepted route, and both provider
@@ -1974,9 +1977,9 @@ DRI, business DRI, external dependency, and maximum timebox before it starts.
    lowering the threshold.
 3. Name the engineering DRI before the first BE1 merge; local test-first work
    may continue while that business assignment is completed.
-4. Finish BE1-S2B so Slack/transcript object lifecycle, route, policy, and
-   provider-connection revocation fail closed when every async cleanup job is
-   lost.
+4. **Complete:** BE1-S2B makes Slack/transcript object lifecycle, route, policy,
+   and provider-connection revocation fail closed when every async cleanup job
+   is lost, and stale G1 publication cannot activate after restore.
 5. Land BE1-S2C so every durable effect carries and transactionally rechecks its
    complete authority envelope.
 6. Land BE1-S3 so compatibility is the default and projection reads cannot
@@ -2113,7 +2116,7 @@ until every required row and the clean-branch gates pass.
 | Public `(publicationSetKey, entryKey)` identity                                                           | `test/retrieval-publication.test.ts`, `confect/brain/readApi.spec.ts`                                                                                  | Implemented                                                                    |
 | Origin-ledger hash/offset verification and corruption rejection                                           | `test/retrieval-publication.test.ts`                                                                                                                   | Current corpora implemented; document/projection resolvers await their ledgers |
 | Page lifecycle fence rejects lost cleanup, corrupt manifests, and wrong controller                        | `test/retrieval-publication.test.ts`                                                                                                                   | Implemented in BE1-S2A                                                         |
-| Slack/transcript lifecycle, policy/route, and connection fences reject lost cleanup                       | `test/retrieval-publication-races.test.ts`, `test/slack-ingress-runtime.test.ts`, `test/source-unit-ingestion.test.ts`                                 | Required in BE1-S2B                                                            |
+| Slack/transcript lifecycle, policy/route, and connection fences reject lost cleanup                       | `test/retrieval-publication-races.test.ts`, `test/slack-ingress-runtime.test.ts`, `test/source-unit-ingestion.test.ts`                                 | Implemented in BE1-S2B                                                         |
 | Legacy current/retained sets have one valid subject, pointer, and allocator                               | `test/brain-rollout-operations.test.ts`, `test/retrieval-publication-races.test.ts`                                                                    | Required in BE2-S0                                                             |
 | Current and retained retired sets receive complete required fence manifests                               | `test/brain-rollout-operations.test.ts`, `test/retrieval-publication-races.test.ts`                                                                    | Required                                                                       |
 | Publication pointer/cardinality and set/entry/token integrity fail closed                                 | `test/brain-rollout-operations.test.ts`, `test/retrieval-publication-races.test.ts`                                                                    | Required in BE2-S0                                                             |
