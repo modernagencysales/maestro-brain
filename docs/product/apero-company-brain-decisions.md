@@ -61,5 +61,6 @@ Owners may amend these before the first frozen run:
 
 WP00-WP01 may start immediately. WP02A may start as soon as the engineering DRI
 and active agency Brain key are known. Snapshot review/import needs the context
-owner and Claude Project access. Drive adapter work needs only the frozen WP02A
-publication contract and a dedicated provider test container.
+owner and Claude Project access. Fixture-only Drive adapter work may begin once
+the WP02A publication contract is frozen, but live ingestion requires the full
+WP02A-WP02C completion gates and a dedicated provider test container.

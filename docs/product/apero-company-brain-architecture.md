@@ -250,7 +250,8 @@ citable, revocable, and portable across agent runtimes.
 
 - Inventory the Claude Project and ten initial questions.
 - Import approved material as dated, reviewed Brain pages.
-- Package agent-side Ask Apero and begin two-user dogfood.
+- Package agent-side Ask Apero behind fixtures. Begin two-user dogfood only
+  after Track B's canonical publication, retrieval, and ContextPack gates pass.
 
 ### Track B — Live evidence path
 

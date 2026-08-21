@@ -71,31 +71,36 @@ post-pilot hardening unless real pilot use proves one is immediately required.
 
 ### Current Engineering Checkpoint
 
-Commit `1fed19fb` establishes the first retrieval-publication vertical slice:
-publication sets, discriminated origin references, UTF-8 passage offsets,
-Brain-scoped token postings, page/Slack/transcript publishers, agency routing,
-lexical ContextPack assembly, and the generated headless surface.
+Commits through `ac2f03ec` establish the first retrieval-publication vertical
+slice and close three earlier defects: current-publication identity, truthful
+freshness, and durable publication-job persistence. The Convex package
+typechecks and focused retrieval tests pass.
 
-That commit is an implementation checkpoint, not a rollout checkpoint. Before
-the read switch or Drive work begins, WP02 must still prove all of the
-following:
+This remains an implementation checkpoint, not a rollout checkpoint. The
+worktree contains an unfinished rebuild-job extension, and the full repository
+verification gate is red. Before the read switch or live Drive work begins, WP02
+must still prove all of the following:
 
 - the Convex package typechecks and the full repository verification gate is
   green;
 - every ledger commit creates a durable publication job or receipt whose failure
   is retryable and visible rather than being lost after a one-shot scheduler
-  call;
+  call, and a registered recurring sweeper recovers jobs whose initial schedule
+  invocation is lost;
 - pages, Slack, and transcripts each have bounded enumeration, backfill, and
   rebuild paths;
 - current retrieval identity includes the publication set, so retired rows or
   postings can never hide or starve the current publication;
 - route-policy, accepted-route, lifecycle, and connection-generation changes
-  reconcile target additions and removals;
+  reconcile target additions and removals from their owning mutations;
 - transcript revisions have a provider-specific monotonic ordering or a
   reconciliation fence, so delayed older events cannot become current;
 - only a successfully closed reconciliation may report complete coverage, and
   top-level ContextPack freshness is derived from corpus health rather than
-  hard-coded current.
+  hard-coded current;
+- search, ContextPack, and source-get carry `(publicationSetKey, entryKey)` so a
+  citation always reopens the exact current publication rather than an older row
+  with the same logical entry key.
 
 As of 2026-08-21, focused retrieval/routing tests, formatting, lint, the Convex
 package typecheck, Confect contracts, headless-surface contracts, migration
@@ -399,7 +404,9 @@ and publication must be recoverable by retry. A transactional outbox or durable
 publication job keyed by origin revision, Brain target, and route/lifecycle/
 policy generations records attempts, success, terminal failure, and the effect
 on corpus health. A one-shot scheduled function with a typed error return is not
-a delivery guarantee.
+a delivery guarantee. Register a recurring internal sweeper, name its interval
+and deployment owner, and prove that a pending job converges when its initial
+scheduler invocation never runs.
 
 Add Brain-scoped, bounded enumerators for pages, Slack revisions, and transcript
 segments that recreate entries and tokens without provider re-ingestion. New
@@ -409,12 +416,20 @@ target-diff reconciliation that publishes added targets and retires removed
 targets. Source lifecycle cleanup includes every derived retrieval table so a
 purged origin cannot leave retrievable copied text.
 
+The required enqueue hooks are the Slack channel-policy mutation, the call-route
+review/acceptance mutation, and each provider-connection lifecycle or generation
+mutation. Each hook computes the union of old and new targets and durably
+rebuilds both sides; relying on a future provider event is not convergence.
+
 Transcript ingestion must compare a provider-native monotonic revision/version
-or a successfully closed reconciliation epoch. An unseen revision key is not, by
-itself, proof that the observation is newer.
+or a successfully closed reconciliation epoch. Before implementation, each
+transcript adapter records which persisted field supplies ordering, how equal
+and older deliveries behave, and how tombstone/recreation is fenced. An unseen
+revision key is not, by itself, proof that the observation is newer.
 
 **Required tests:** current-revision replacement, delayed v2 after v3, duplicate
-publication, scheduler/action failure followed by durable retry, policy-only and
+publication, lost initial scheduler delivery followed by automatic sweeper
+recovery, scheduler/action failure followed by durable retry, policy-only and
 lifecycle-only republish, route/target/connection revocation, tombstone and
 purge, and complete rebuild equivalence for all three corpora, plus
 existing-call rerouting and bounded Slack backfill.
@@ -476,9 +491,12 @@ Add a Confect `headlessContextGet` internal query, route HTTP/MCP through it,
 and remove the plain duplicate. Update the generated manifest, OpenAPI, MCP,
 CLI, and contract tests together. `brain.sources.search`, `brain.sources.get`,
 and `brain.context.get` must use the same publication projection. Search, Get,
-and Context entries all expose `entryKey`, `passageKey`, normalized start/end
-offsets, origin revision, and content hash so citations resolve to the exact
-published passage.
+and Context entries all expose `publicationSetKey`, `entryKey`, `passageKey`,
+normalized start/end offsets, origin revision, and content hash. Source-get
+requires `publicationSetKey` with `entryKey` for an exact lookup; a
+revision-only lookup may enumerate current matches but may not claim exact
+citation reopening. Citation keys include both publication and logical entry
+identity.
 
 **Focused gates:**
 
@@ -526,8 +544,8 @@ Tasks:
     published, failed, and stale counts.
 
 **Exit gate:** the snapshot answers the page-backed E0 subset with resolvable
-citations, and separate receipts show whether Slack and transcript subsets are
-ready or still waiting on WP02B.
+citations, and separate receipts prove the required Slack and transcript subsets
+passed WP02B rather than being masked by snapshot coverage.
 
 ### WP04 — Ship The Ask Apero Thin Slice
 
@@ -703,7 +721,8 @@ gate after the structured-source slice.
 
 ### WP08 — Continue And Close Two-User Dogfood
 
-**Timebox:** 1-2 calendar weeks beginning at WP04 and overlapping WP02B-WP07
+**Timebox:** 1-2 calendar weeks beginning at WP04 after WP02A-WP02C are green;
+it may overlap WP07 only after dogfood evidence justifies that source
 
 Track:
 
@@ -783,7 +802,7 @@ Indicative ranges assume one primary engineer with timely business decisions:
 | A1    | WP00-WP01 inventory, decisions, and E0                    | 2-3 business days       |
 | A2    | Review/import WP03 snapshot as unpublished Brain pages    | 1-2 business days       |
 | A3    | WP04 skill work behind fixtures; dogfood waits for B3     | 2-3 engineering days    |
-| B0    | Restore typecheck/full verification and split rollout PRs | 1-2 engineering days    |
+| B0    | Clean the worktree, restore full gates, split rollout PRs | 1-2 engineering days    |
 | B1    | WP02A publication schema and agency route                 | 2-3 engineering days    |
 | B2    | WP02B durable publishers, reconciliation, and rebuild     | 3-5 engineering days    |
 | B3    | WP02C lexical retrieval, context, and surface convergence | 3-4 engineering days    |
@@ -817,19 +836,25 @@ DRI, business DRI, external dependency, and maximum timebox before it starts.
 
 ## 9. First Ten Actions
 
-1. Fix the current Convex type errors and run the full verification gate.
-2. Split the mixed branch into phase-scoped, default-branch-derived rollout PRs.
-3. Add durable publication jobs/receipts and visible retry/failure handling.
-4. Fix active-publication candidate identity and retired-posting starvation.
-5. Add Slack/transcript enumerators plus all-corpus backfill/rebuild receipts.
-6. Reconcile route, policy, lifecycle, and connection target changes; enforce
-   monotonic transcript revisions.
-7. Derive truthful coverage/freshness and prove citation reopen plus runtime
-   candidate-manifest parity.
-8. In parallel, inventory Ask Apero, capture E0, name owners/users, and import
-   approved snapshot pages without enabling dogfood.
-9. Package Ask Apero and begin two-user dogfood through `brain.context.get`.
-10. Build one Drive walking skeleton and pass the full provider lifecycle.
+1. Finish or remove the dirty rebuild-job extension; explicit rebuild handlers
+   must persist cursor continuation and terminal receipts.
+2. Register the recurring publication-job sweeper and prove recovery when the
+   initial scheduled invocation is lost.
+3. Add target-diff enqueue hooks to Slack policy, accepted call-route, provider
+   connection, and lifecycle mutations.
+4. Persist and enforce the transcript-provider ordering/fence contract,
+   including delayed revisions and tombstone/recreation.
+5. Carry `(publicationSetKey, entryKey)` through Search, ContextPack, citation
+   keys, and exact source-get.
+6. Add retrieval-table lifecycle cleanup and successful-close-only corpus
+   reconciliation counts/health, then pass the cross-corpus WP02 tests.
+7. Restore formatting and the canonical SaaS UI/full-repository verification
+   gate without mixing UI fixes into the Brain rollout changes.
+8. Split the mixed branch into phase-scoped, default-branch-derived rollout PRs.
+9. In parallel, inventory Ask Apero, capture E0, name owners/users, import the
+   approved snapshot, and package the shared runtime skill without dogfood yet.
+10. After WP02 and scoped/full gates pass, begin dogfood and the one-container
+    Drive walking skeleton.
 
 ## 10. Required Cross-Corpus And Connector Tests
 
@@ -840,7 +865,8 @@ Implementation is not complete without explicit tests for:
 - delayed transcript v2 after v3 and tombstone/recreation ordering;
 - tombstone, connection revocation, and route revocation;
 - crash between raw-ledger commit and publication;
-- lost scheduler/action delivery followed by durable retry and visible failure;
+- lost scheduler/action delivery followed by recurring-sweeper recovery, durable
+  retry, and visible failure;
 - idempotent retry and full projection rebuild;
 - policy-only and lifecycle-only republication with stable logical entry keys;
 - more than one per-token query capacity of retired postings without starvation;
@@ -848,6 +874,8 @@ Implementation is not complete without explicit tests for:
 - completed reconciliation causing correct deletion;
 - deterministic ranking, stable tie-breaking, and byte-budget truncation;
 - exact revision and segment citation resolution;
+- exact `(publicationSetKey, entryKey)` citation reopen after a policy-only
+  republication that retains the logical entry key;
 - cross-runtime candidate-manifest parity;
 - coverage reporting when a required corpus or connector is unavailable.
 
@@ -881,7 +909,8 @@ packets only.
 
 **WP05 requires:**
 
-- WP02A's publication contract is frozen;
+- WP02A-WP02C completion gates and the scoped rollout verification gate are
+  green;
 - one dedicated Drive test folder exists and OAuth/provider setup has started.
 
 Use these execution packets:

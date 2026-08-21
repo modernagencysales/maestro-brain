@@ -354,8 +354,10 @@ authorize -> discover -> allowlist -> observe -> normalize -> route
 - A caller cannot expand scope with a prompt or model-selected Brain key.
 - Deleted, purged, or lifecycle-revoked evidence is not retrievable.
 - Search result excerpts are linked to exact source/page revisions.
-- Search, source-get, and ContextPack results expose the same retrieval entry,
-  passage key, normalized offsets, origin revision, and content hash.
+- Search, source-get, and ContextPack results expose the same publication set,
+  retrieval entry, passage key, normalized offsets, origin revision, and content
+  hash. Exact citation reopening requires the tuple
+  `(publicationSetKey, entryKey)`.
 - Semantic indexes, when present, are tenant- and lifecycle-scoped derived data.
 - The answer model receives only the authorized candidate manifest.
 
@@ -415,6 +417,7 @@ type ContextPack = {
     excerpt: string;
     sourceKey: string;
     revisionKey: string;
+    publicationSetKey: string;
     entryKey: string;
     passageKey: string;
     unitKey?: string;
