@@ -30,6 +30,7 @@ import type { RetrievalOriginReference } from "./retrievalSchemas";
 const MAX_PUBLICATION_WRITES = 7_000;
 const MAX_PRIOR_PUBLICATION_SETS = 100;
 const MAX_ENTRIES_PER_PUBLICATION_SET = 512;
+const MAX_ACTIVE_PUBLICATION_ROWS = 3_300;
 
 const manifestHash = (input: {
   readonly entryKeys: readonly string[];
@@ -52,6 +53,39 @@ const activeLifecycle = (value: unknown) => {
   if (typeof value !== "object" || value === null) return false;
   return (value as { readonly state?: unknown }).state === "active";
 };
+
+const loadCurrentPublicationTokens = (input: {
+  readonly workspaceId: GenericId<"workspaces">;
+  readonly brainKey: string;
+  readonly publicationSetKeys: readonly string[];
+}) =>
+  Effect.gen(function* () {
+    const reader = yield* DatabaseReader;
+    const groups = yield* Effect.all(
+      input.publicationSetKeys.map((publicationSetKey) =>
+        reader
+          .table("retrievalTokens")
+          .index("by_workspace_brain_publication_set_entry", (query) =>
+            query
+              .eq("workspaceId", input.workspaceId)
+              .eq("brainKey", input.brainKey)
+              .eq("publicationSetKey", publicationSetKey),
+          )
+          .take(MAX_ACTIVE_PUBLICATION_ROWS + 1)
+          .pipe(Effect.orDie),
+      ),
+    );
+    return groups.flat();
+  });
+
+const removePublicationTokens = (
+  rows: readonly { readonly _id: GenericId<"retrievalTokens"> }[],
+) =>
+  Effect.gen(function* () {
+    const writer = yield* DatabaseWriter;
+    for (const row of rows)
+      yield* writer.table("retrievalTokens").delete(row._id).pipe(Effect.orDie);
+  });
 
 type PreparedPassage = {
   readonly origin: RetrievalOriginReference;
@@ -110,7 +144,20 @@ const commitPreparedPublication = (input: {
     const current = [...currentSets].sort(
       (left, right) => right.publicationGeneration - left.publicationGeneration,
     )[0];
+    const currentTokens = yield* loadCurrentPublicationTokens({
+      workspaceId: input.workspaceId,
+      brainKey: input.brainKey,
+      publicationSetKeys: currentSets.map(
+        ({ publicationSetKey }) => publicationSetKey,
+      ),
+    });
+    if (currentTokens.length > MAX_ACTIVE_PUBLICATION_ROWS)
+      return yield* new RetrievalPublicationCapacityExceeded({
+        entryCount: 0,
+        tokenCount: currentTokens.length,
+      });
     if (input.revoked) {
+      yield* removePublicationTokens(currentTokens);
       for (const prior of currentSets)
         yield* writer
           .table("retrievalPublicationSets")
@@ -262,7 +309,9 @@ const commitPreparedPublication = (input: {
     );
     if (
       entries.length > MAX_ENTRIES_PER_PUBLICATION_SET ||
-      entries.length + tokens.length + 2 > MAX_PUBLICATION_WRITES
+      entries.length + tokens.length > MAX_ACTIVE_PUBLICATION_ROWS ||
+      entries.length + tokens.length + currentTokens.length + 4 >
+        MAX_PUBLICATION_WRITES
     )
       return yield* new RetrievalPublicationCapacityExceeded({
         entryCount: entries.length,
@@ -310,6 +359,7 @@ const commitPreparedPublication = (input: {
       .pipe(Effect.map(Option.getOrNull), Effect.orDie);
     if (insertedSet === null)
       return yield* new RetrievalPublicationConflict({ publicationSetKey });
+    yield* removePublicationTokens(currentTokens);
     for (const prior of currentSets)
       yield* writer
         .table("retrievalPublicationSets")
@@ -455,12 +505,25 @@ export const publishPageRevisionEffect = (
     const current = [...currentSets].sort(
       (left, right) => right.publicationGeneration - left.publicationGeneration,
     )[0];
+    const currentTokens = yield* loadCurrentPublicationTokens({
+      workspaceId: args.workspaceId,
+      brainKey: args.brainKey,
+      publicationSetKeys: currentSets.map(
+        ({ publicationSetKey }) => publicationSetKey,
+      ),
+    });
+    if (currentTokens.length > MAX_ACTIVE_PUBLICATION_ROWS)
+      return yield* new RetrievalPublicationCapacityExceeded({
+        entryCount: 0,
+        tokenCount: currentTokens.length,
+      });
     if (
       page.status !== "active" ||
       revision.state !== "published" ||
       !activeLifecycle(page.lifecycle) ||
       !activeLifecycle(revision.lifecycle)
     ) {
+      yield* removePublicationTokens(currentTokens);
       for (const prior of currentSets)
         yield* writer
           .table("retrievalPublicationSets")
@@ -572,7 +635,9 @@ export const publishPageRevisionEffect = (
     );
     if (
       entries.length > MAX_ENTRIES_PER_PUBLICATION_SET ||
-      entries.length + tokens.length + 2 > MAX_PUBLICATION_WRITES
+      entries.length + tokens.length > MAX_ACTIVE_PUBLICATION_ROWS ||
+      entries.length + tokens.length + currentTokens.length + 4 >
+        MAX_PUBLICATION_WRITES
     )
       return yield* new RetrievalPublicationCapacityExceeded({
         entryCount: entries.length,
@@ -622,6 +687,7 @@ export const publishPageRevisionEffect = (
       .pipe(Effect.map(Option.getOrNull), Effect.orDie);
     if (insertedSet === null)
       return yield* new RetrievalPublicationConflict({ publicationSetKey });
+    yield* removePublicationTokens(currentTokens);
     for (const prior of currentSets)
       yield* writer
         .table("retrievalPublicationSets")

@@ -97,11 +97,11 @@ following:
   top-level ContextPack freshness is derived from corpus health rather than
   hard-coded current.
 
-As of 2026-08-21, focused retrieval/routing tests, formatting, lint, Confect
-contracts, headless-surface contracts, migration notes, and secret canaries are
-green. `pnpm --dir packages/convex typecheck` is red in
-`confect/brain/readApi.impl.ts`, so the branch is not merge-, deploy-, or
-pilot-ready.
+As of 2026-08-21, focused retrieval/routing tests, formatting, lint, the Convex
+package typecheck, Confect contracts, headless-surface contracts, migration
+notes, and secret canaries are green. Full `just verify` remains red in the web
+package after the canonical SaaS UI transplant, so the branch is not merge-,
+deploy-, or pilot-ready.
 
 ## 4. Pilot Acceptance Contract
 

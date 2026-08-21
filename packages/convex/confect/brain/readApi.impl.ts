@@ -28,7 +28,7 @@ import {
   type AskRevision,
   type ResolvedTranscriptCitation,
 } from "./retrieval";
-import readApi from "./readApi.spec";
+import readApi, { SearchResult } from "./readApi.spec";
 import {
   operationPolicyFromRecord,
   operationPolicyKey,
@@ -312,6 +312,8 @@ const toRetrievalResult = (
   state: "resolved" as const,
 });
 
+type SearchResultValue = typeof SearchResult.Type;
+
 const searchProjection = (
   queryText: string,
   selector: ReadSelector,
@@ -378,8 +380,9 @@ const searchProjection = (
     for (const group of boundedGroups) {
       for (const posting of group.postings) {
         if (postingCount >= RETRIEVAL_POSTING_LIMIT) break;
-        postingsByEntry.set(posting.entryKey, [
-          ...(postingsByEntry.get(posting.entryKey) ?? []),
+        const candidateKey = `${posting.publicationSetKey}\u0000${posting.entryKey}`;
+        postingsByEntry.set(candidateKey, [
+          ...(postingsByEntry.get(candidateKey) ?? []),
           posting,
         ]);
         postingCount += 1;
@@ -409,7 +412,14 @@ const searchProjection = (
         const rightTokens = new Set(right.map(({ token }) => token)).size;
         return leftAuthority - rightAuthority || rightTokens - leftTokens;
       })
-      .map(([entryKey]) => entryKey);
+      .map(([candidateKey]) => {
+        const separator = candidateKey.indexOf("\u0000");
+        return {
+          publicationSetKey: candidateKey.slice(0, separator),
+          entryKey: candidateKey.slice(separator + 1),
+          candidateKey,
+        };
+      });
     const healthByCorpus = new Map(
       healthRows.map((row) => [row.corpusKey, row] as const),
     );
@@ -425,20 +435,28 @@ const searchProjection = (
     ) {
       const keys = candidateKeys.slice(offset, offset + 40);
       const rows = yield* Effect.all(
-        keys.map((entryKey) =>
+        keys.map(({ publicationSetKey, entryKey }) =>
           reader
             .table("retrievalEntries")
-            .index("by_workspace_entry", (index) =>
+            .index("by_workspace_brain_publication_set_entry", (index) =>
               index
                 .eq("workspaceId", brain.workspaceId)
+                .eq("brainKey", brain.brainKey)
+                .eq("publicationSetKey", publicationSetKey)
                 .eq("entryKey", entryKey),
             )
             .first()
             .pipe(Effect.map(Option.getOrNull), Effect.orDie),
         ),
       );
-      for (const entry of rows) {
-        if (entry === null || entry.state !== "published") continue;
+      for (let index = 0; index < rows.length; index += 1) {
+        const entry = rows[index];
+        if (
+          entry === undefined ||
+          entry === null ||
+          entry.state !== "published"
+        )
+          continue;
         const publicationSet = yield* reader
           .table("retrievalPublicationSets")
           .index("by_workspace_publication_set", (index) =>
@@ -454,7 +472,8 @@ const searchProjection = (
           entry,
           score: retrievalScore({
             queryTokens,
-            postings: postingsByEntry.get(entry.entryKey) ?? [],
+            postings:
+              postingsByEntry.get(keys[index]?.candidateKey ?? "") ?? [],
             authority: entry.authority,
             freshness,
           }),
@@ -739,7 +758,7 @@ const getContext = (
       .sort((left, right) =>
         String(left.pageKey).localeCompare(String(right.pageKey)),
       )
-      .flatMap((page) => {
+      .flatMap<SearchResultValue>((page) => {
         const pageKey = String(page.pageKey);
         const transcript = transcripts.find(
           (citation) =>

@@ -27,7 +27,7 @@ const SearchArgs = Schema.extend(
   BrainSelector,
   Schema.Struct({ query: Schema.String }),
 );
-const SearchResult = Schema.Struct({
+export const SearchResult = Schema.Struct({
   sourceKey: Schema.String,
   sourceRevisionKey: Schema.String,
   entryKey: Schema.String,

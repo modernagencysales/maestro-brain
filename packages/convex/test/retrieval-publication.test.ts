@@ -386,6 +386,88 @@ describe("retrieval publication persistence", () => {
     ).toEqual(["current", "retired"]);
   });
 
+  it("keeps a policy-only republication searchable and removes retired postings", async () => {
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const confect = yield* Effect.serviceOptional(
+          TestConfect.TestConfect<typeof databaseSchema>(),
+        );
+        const { organizationId, workspaceId } = yield* confect.run(
+          seedPage,
+          AnyResult,
+        );
+        const first = yield* confect.run(
+          publishPageRevisionEffect(publicationArgs(workspaceId)),
+          AnyResult,
+        );
+        const second = yield* confect.run(
+          publishPageRevisionEffect({
+            ...publicationArgs(workspaceId),
+            authority: "authoritative",
+            authorityPolicyKey: "company-pages-reviewed",
+            policyGeneration: 2,
+            now: now + 1,
+          }),
+          AnyResult,
+        );
+        const search = yield* confect.query(
+          refs.internal.brain.readApi.headlessSourcesSearch,
+          {
+            organizationId,
+            workspaceId,
+            brainKey,
+            query: "qualified pipeline economics",
+          },
+        );
+        const stored = yield* confect.run(
+          Effect.gen(function* () {
+            const reader = yield* DatabaseReader;
+            const tokens = yield* reader
+              .table("retrievalTokens")
+              .index("by_workspace_entry", (query) =>
+                query.eq("workspaceId", workspaceId),
+              )
+              .collect()
+              .pipe(Effect.orDie);
+            const entries = yield* reader
+              .table("retrievalEntries")
+              .index("by_workspace_brain_publication_set_entry", (query) =>
+                query.eq("workspaceId", workspaceId).eq("brainKey", brainKey),
+              )
+              .collect()
+              .pipe(Effect.orDie);
+            return { tokens, entries };
+          }),
+          AnyResult,
+        );
+        return { first, second, search, stored };
+      }).pipe(Effect.provide(testConfectLayer())),
+    );
+
+    expect(result.second).toMatchObject({
+      outcome: "published",
+      publicationGeneration: 2,
+      entryCount: result.first.entryCount,
+      tokenCount: result.first.tokenCount,
+    });
+    expect(result.search.results).toEqual([
+      expect.objectContaining({
+        sourceRevisionKey: revisionKey,
+        authority: "authoritative",
+        authorityPolicyKey: "company-pages-reviewed",
+      }),
+    ]);
+    expect(
+      new Set(
+        result.stored.tokens.map(
+          ({ publicationSetKey }: { publicationSetKey: string }) =>
+            publicationSetKey,
+        ),
+      ),
+    ).toEqual(new Set([result.second.publicationSetKey]));
+    expect(result.stored.entries).toHaveLength(2);
+  });
+
   it("revokes current retrieval when the page is archived", async () => {
     const result = await Effect.runPromise(
       Effect.gen(function* () {
