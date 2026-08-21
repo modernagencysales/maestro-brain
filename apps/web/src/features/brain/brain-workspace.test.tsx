@@ -34,13 +34,6 @@ vi.mock("@workos/authkit-tanstack-react-start/client", () => ({
   useAuth: () => ({ signOut: routeMocks.signOut }),
 }));
 
-vi.mock("../../saas-ui/business-shell", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../saas-ui/business-shell")>()),
-  BusinessAppShell: ({ children }: { readonly children: ReactNode }) => (
-    <>{children}</>
-  ),
-}));
-
 const page = {
   pageKey: "pag_01J0000000000000000000000A",
   parentPageKey: null,

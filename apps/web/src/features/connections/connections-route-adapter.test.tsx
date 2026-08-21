@@ -178,12 +178,16 @@ vi.mock("./connections-screen", () => ({
   },
 }));
 
-vi.mock("../../saas-ui/business-shell", () => ({
-  BusinessAppShell: ({ children }: { readonly children: ReactNode }) =>
-    children,
-  BusinessPageRoot: ({ children }: { readonly children: ReactNode }) =>
-    children,
-}));
+vi.mock("@saas-ui/react", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@saas-ui/react")>();
+  return {
+    ...original,
+    Page: {
+      ...original.Page,
+      Root: ({ children }: { readonly children: ReactNode }) => children,
+    },
+  };
+});
 
 describe("ConnectionsRouteAdapter", () => {
   beforeEach(() => {

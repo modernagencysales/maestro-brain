@@ -272,34 +272,34 @@ export const BrainWorkspaceRoute = () => {
 
     return (
       <Page.Root>
-          <Page.Header title="Agency Brain" description={description} />
-          <Page.Body px={{ base: "4", md: "6" }} pb="8">
-            {workspace.status === "failure" ? (
-              <Stack gap="3" align="flex-start">
-                <Text role="alert">{workspace.message}</Text>
-                <Button
-                  type="button"
-                  onClick={() => void recoverWorkspaceSession(signOut)}
-                >
-                  Sign in again
-                </Button>
-              </Stack>
-            ) : workspace.status === "empty" ? (
-              <Stack gap="3" align="flex-start">
-                <Text role="alert">Workspace setup did not finish.</Text>
-                <Button
-                  type="button"
-                  onClick={() => void recoverWorkspaceSession(signOut)}
-                >
-                  Sign in again
-                </Button>
-              </Stack>
-            ) : (
-              <Text role="status">
-                Brain will load automatically when setup completes.
-              </Text>
-            )}
-          </Page.Body>
+        <Page.Header title="Agency Brain" description={description} />
+        <Page.Body px={{ base: "4", md: "6" }} pb="8">
+          {workspace.status === "failure" ? (
+            <Stack gap="3" align="flex-start">
+              <Text role="alert">{workspace.message}</Text>
+              <Button
+                type="button"
+                onClick={() => void recoverWorkspaceSession(signOut)}
+              >
+                Sign in again
+              </Button>
+            </Stack>
+          ) : workspace.status === "empty" ? (
+            <Stack gap="3" align="flex-start">
+              <Text role="alert">Workspace setup did not finish.</Text>
+              <Button
+                type="button"
+                onClick={() => void recoverWorkspaceSession(signOut)}
+              >
+                Sign in again
+              </Button>
+            </Stack>
+          ) : (
+            <Text role="status">
+              Brain will load automatically when setup completes.
+            </Text>
+          )}
+        </Page.Body>
       </Page.Root>
     );
   }
@@ -404,82 +404,81 @@ export const BrainWorkspaceRoute = () => {
 
   return (
     <Page.Root>
-        <Page.Header
-          title="Agency Brain"
-          description="Review and edit source-grounded workspace knowledge."
-        />
-        <Page.Body px={{ base: "4", md: "6" }} pb="8">
-          <BrainWorkspace
-            adapter={adapter}
-            detail={detailState}
-            list={listState}
-            selectedPageKey={selected ?? undefined}
-            onSelectPage={setSelectedPageKey}
-            history={toRevisionHistoryState(history)}
-            reviewQueue={reviewQueue}
-            callMaintenanceReview={callMaintenanceReview}
-            role={workspace.activeWorkspace.role}
-            onCallMaintenanceReview={async ({ proposal, action, edits }) => {
+      <Page.Header
+        title="Agency Brain"
+        description="Review and edit source-grounded workspace knowledge."
+      />
+      <Page.Body px={{ base: "4", md: "6" }} pb="8">
+        <BrainWorkspace
+          adapter={adapter}
+          detail={detailState}
+          list={listState}
+          selectedPageKey={selected ?? undefined}
+          onSelectPage={setSelectedPageKey}
+          history={toRevisionHistoryState(history)}
+          reviewQueue={reviewQueue}
+          callMaintenanceReview={callMaintenanceReview}
+          role={workspace.activeWorkspace.role}
+          onCallMaintenanceReview={async ({ proposal, action, edits }) => {
+            setCallMaintenanceMutation({
+              status: "pending",
+              proposalKey: proposal.proposalKey,
+            });
+            try {
+              await unwrapBrainMutation(
+                await reviewCallMaintenance({
+                  brainKey: workspace.activeWorkspace.workspaceId,
+                  proposalKey: proposal.proposalKey,
+                  action,
+                  attemptKey: `call-review.${crypto.randomUUID()}`,
+                  expectedRouteGeneration: proposal.routeGeneration,
+                  expectedSourceLifecycleGeneration:
+                    proposal.sourceLifecycleGeneration,
+                  expectedWorkspaceLifecycleGeneration:
+                    proposal.workspaceLifecycleGeneration,
+                  edits,
+                }),
+              );
               setCallMaintenanceMutation({
-                status: "pending",
-                proposalKey: proposal.proposalKey,
+                status: "success",
+                message:
+                  action === "reject"
+                    ? "Call updates rejected."
+                    : action === "edit"
+                      ? "Edited call updates published."
+                      : "Call updates published.",
               });
-              try {
-                await unwrapBrainMutation(
-                  await reviewCallMaintenance({
-                    brainKey: workspace.activeWorkspace.workspaceId,
-                    proposalKey: proposal.proposalKey,
-                    action,
-                    attemptKey: `call-review.${crypto.randomUUID()}`,
-                    expectedRouteGeneration: proposal.routeGeneration,
-                    expectedSourceLifecycleGeneration:
-                      proposal.sourceLifecycleGeneration,
-                    expectedWorkspaceLifecycleGeneration:
-                      proposal.workspaceLifecycleGeneration,
-                    edits,
-                  }),
-                );
-                setCallMaintenanceMutation({
-                  status: "success",
-                  message:
-                    action === "reject"
-                      ? "Call updates rejected."
-                      : action === "edit"
-                        ? "Edited call updates published."
-                        : "Call updates published.",
-                });
-              } catch {
-                setCallMaintenanceMutation({
-                  status: "failure",
-                  message:
-                    "Unable to publish call updates. Reload and try again.",
-                });
-              }
-            }}
-            onSearch={(query) => {
-              setSearchQuery(query);
-              setSearch({ status: "loading", query });
-            }}
-            search={
-              searchQuery === null
-                ? search
-                : pilotSearch.status === "ready"
-                  ? {
-                      status: "ready",
-                      query: searchQuery,
-                      results: (pilotSearch.data as BrainPilotSearchData)
-                        .results,
-                    }
-                  : pilotSearch.status === "loading"
-                    ? { status: "loading", query: searchQuery }
-                    : {
-                        status: "failure",
-                        query: searchQuery,
-                        message: "Unable to search Brain. Try again.",
-                      }
+            } catch {
+              setCallMaintenanceMutation({
+                status: "failure",
+                message:
+                  "Unable to publish call updates. Reload and try again.",
+              });
             }
-          />
-        </Page.Body>
+          }}
+          onSearch={(query) => {
+            setSearchQuery(query);
+            setSearch({ status: "loading", query });
+          }}
+          search={
+            searchQuery === null
+              ? search
+              : pilotSearch.status === "ready"
+                ? {
+                    status: "ready",
+                    query: searchQuery,
+                    results: (pilotSearch.data as BrainPilotSearchData).results,
+                  }
+                : pilotSearch.status === "loading"
+                  ? { status: "loading", query: searchQuery }
+                  : {
+                      status: "failure",
+                      query: searchQuery,
+                      message: "Unable to search Brain. Try again.",
+                    }
+          }
+        />
+      </Page.Body>
     </Page.Root>
   );
 };

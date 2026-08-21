@@ -38,7 +38,6 @@ import { useUserSettings } from "../../../lib/user-settings/use-user-settings";
 
 import { BillingStatus } from "./billing-status";
 import { InvitePeopleDialog } from "./invite-people";
-import { AppSidebarTags } from "./sidebar-tags";
 import { UserMenu } from "./user-menu";
 import { WorkspacesMenu } from "./workspaces-menu";
 
@@ -130,8 +129,6 @@ export const AppSidebar: React.FC<AppSidebarProps> = (props) => {
             />
           </Sidebar.Group>
 
-          <AppSidebarTags />
-
           <Sidebar.Group>
             <Sidebar.GroupHeader>
               <Sidebar.GroupTitle>Teams</Sidebar.GroupTitle>
@@ -197,9 +194,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = (props) => {
 };
 
 interface AppSidebarlink
-  extends
-    Sidebar.NavItemProps,
-    Pick<LinkProps, "to" | "activeOptions"> {
+  extends Sidebar.NavItemProps, Pick<LinkProps, "to" | "activeOptions"> {
   hotkey: string;
   label: string;
   icon: React.ReactNode;

@@ -8,8 +8,8 @@ const read = (path: string) => readFileSync(resolve(root, path), "utf8");
 
 describe("upstream chassis route authority", () => {
   it("routes authenticated pages through the transplanted chassis", () => {
-    expect(read("src/routes/_workspace.tsx")).toContain("<AppLayout");
     expect(read("src/routes/_workspace.tsx")).toContain("<DashboardLayout");
+    expect(read("src/routes/_workspace.tsx")).toContain("ssr: false");
     expect(existsSync(resolve(root, "src/saas-ui/business-shell.tsx"))).toBe(
       false,
     );

@@ -29,7 +29,7 @@ type EnsureProvisionedRef =
 type WorkspaceLiveRefHooks = {
   readonly useQuery: (
     ref: WorkspaceListRef,
-    args: Ref.Args<WorkspaceListRef>,
+    args: Ref.Args<WorkspaceListRef> | "skip",
   ) => TemplateDataState<
     Ref.Returns<WorkspaceListRef>,
     Ref.Error<WorkspaceListRef>
@@ -58,8 +58,12 @@ export const workspaceOperationRefs: {
 
 export const createWorkspaceLiveRefs = (
   hooks: WorkspaceLiveRefHooks,
+  enabled = true,
 ): LiveWorkspaceRefs => ({
-  listResult: hooks.useQuery(workspaceOperationRefs.list, {}),
+  listResult: hooks.useQuery(
+    workspaceOperationRefs.list,
+    enabled ? {} : "skip",
+  ),
   ensureProvisioned: hooks.useMutation(
     workspaceOperationRefs.ensureProvisioned,
   ),

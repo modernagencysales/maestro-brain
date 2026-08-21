@@ -16,7 +16,7 @@ export class WebEnvConfigError extends Error {
   }
 }
 
-const fallbackConvexUrl = "https://example-template.convex.cloud";
+const fallbackConvexUrl = "https://fake-template-123.convex.cloud";
 
 export type ResolvedWebEnv = {
   readonly env: WebEnv;

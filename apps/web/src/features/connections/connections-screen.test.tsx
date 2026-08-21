@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ComponentProps } from "react";
 import { describe, expect, it } from "vitest";
+import { Page } from "@saas-ui/react";
 
-import { BusinessPageRoot } from "../../saas-ui/business-shell";
 import { MaestroSaasUiProvider } from "../../saas-ui/provider";
 import {
   ConnectionsScreen,
@@ -15,9 +15,9 @@ const render = (
 ) =>
   renderToStaticMarkup(
     <MaestroSaasUiProvider>
-      <BusinessPageRoot>
+      <Page.Root>
         <ConnectionsScreen state={state} {...props} />
-      </BusinessPageRoot>
+      </Page.Root>
     </MaestroSaasUiProvider>,
   );
 

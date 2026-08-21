@@ -34,13 +34,14 @@ describe("frontend platform routes", () => {
   it("routes the product through the canonical upstream chassis", () => {
     for (const item of TEMPLATE_ROUTE_ITEMS) {
       const route = `src/routes/_workspace.${item.path.slice(1).replaceAll("/", ".")}.tsx`;
-      expect(existsSync(resolve(appRoot, route)), `${item.path} should exist`).toBe(
-        true,
-      );
+      expect(
+        existsSync(resolve(appRoot, route)),
+        `${item.path} should exist`,
+      ).toBe(true);
     }
 
-    expect(read("src/routes/_workspace.tsx")).toContain("<AppLayout");
     expect(read("src/routes/_workspace.tsx")).toContain("<DashboardLayout");
+    expect(read("src/routes/_workspace.tsx")).toContain("ssr: false");
     expect(existsSync(resolve(appRoot, "src/saas-ui/business-shell.tsx"))).toBe(
       false,
     );

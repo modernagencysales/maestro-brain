@@ -8,12 +8,15 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useColorMode } from "../../../components/color-mode.tsx";
 import { UserAvatar } from "../../../components/user-avatar";
 
-import { useCurrentUser } from "../hooks/use-current-user";
+const currentUser = {
+  id: "maestro-user",
+  name: "Maestro User",
+  email: "user@maestro.local",
+  status: "online" as const,
+};
 
 export const UserMenu = () => {
   const navigate = useNavigate();
-
-  const [currentUser] = useCurrentUser();
 
   const logOutAndClearCache = () => {
     void navigate({ to: "/logout" });
@@ -39,7 +42,7 @@ export const UserMenu = () => {
       </Menu.Trigger>
 
       <Menu.Content minW="200px" portalled>
-        <Menu.ItemGroup title={currentUser?.name || ""}>
+        <Menu.ItemGroup title={currentUser.name}>
           <Menu.Item value="profile" asChild>
             <Link to="/settings">Profile</Link>
           </Menu.Item>

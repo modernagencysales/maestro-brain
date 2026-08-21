@@ -1,18 +1,17 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 
-import { AppLayout } from "../features/common/layouts/app-layout";
 import { DashboardLayout } from "../features/common/layouts/dashboard-layout";
 
 export const Route = createFileRoute("/_workspace")({
+  // The canonical Pro Resizer reads browser globals while rendering.
+  ssr: false,
   component: WorkspaceLayout,
 });
 
 function WorkspaceLayout() {
   return (
-    <AppLayout>
-      <DashboardLayout>
-        <Outlet />
-      </DashboardLayout>
-    </AppLayout>
+    <DashboardLayout>
+      <Outlet />
+    </DashboardLayout>
   );
 }

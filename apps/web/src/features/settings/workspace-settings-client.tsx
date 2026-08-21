@@ -1,5 +1,6 @@
 import { templateConfectRefs } from "@maestro-template/convex/refs";
 import { useReducer } from "react";
+import { Page, Text } from "@saas-ui/react";
 
 import {
   useTemplateMutation,
@@ -12,7 +13,6 @@ import { describeTypedFailure } from "../../adapters/failure-message";
 import { createApiKeySettingsAdapter } from "./api-keys-adapter";
 import { ApiKeysPanel } from "./api-keys-panel";
 import { useWorkspace } from "../../providers/workspace";
-import { BusinessSettingsRoute } from "../../saas-ui/business-shell";
 import { selectStableApiKeyBrainKey } from "./settings-surface";
 import { BrainExports } from "./brain-exports";
 import type { BrainExportJob, BrainExportViewState } from "./export-history";
@@ -63,7 +63,19 @@ export function WorkspaceSettingsClient() {
   );
   const requestBrainExport = useTemplateMutation(exportRefs.requestBrainExport);
 
-  if (workspace.status !== "ready") return <BusinessSettingsRoute />;
+  if (workspace.status !== "ready") {
+    return (
+      <Page.Root>
+        <Page.Header
+          title="Settings"
+          description="Workspace access, integrations, and Brain data controls."
+        />
+        <Page.Body>
+          <Text role="status">Loading workspace settings.</Text>
+        </Page.Body>
+      </Page.Root>
+    );
+  }
 
   const activeBrainKey = selectStableApiKeyBrainKey(workspace.activeWorkspace);
   const apiKeyAdapter = createApiKeySettingsAdapter({
@@ -76,59 +88,64 @@ export function WorkspaceSettingsClient() {
     },
   });
   return (
-    <>
-      <BusinessSettingsRoute />
-      <ApiKeysPanel
-        adapter={apiKeyAdapter}
-        keys={toRowsState(apiKeys, "API key list access denied.")}
+    <Page.Root>
+      <Page.Header
+        title="Settings"
+        description="Workspace access, integrations, and Brain data controls."
       />
-      <BrainExports
-        role={workspace.activeWorkspace.role}
-        {...(!isConvexConfigured()
-          ? {
-              disabledReason:
-                "Brain export backend unavailable. Configure Convex to request an export.",
+      <Page.Body>
+        <ApiKeysPanel
+          adapter={apiKeyAdapter}
+          keys={toRowsState(apiKeys, "API key list access denied.")}
+        />
+        <BrainExports
+          role={workspace.activeWorkspace.role}
+          {...(!isConvexConfigured()
+            ? {
+                disabledReason:
+                  "Brain export backend unavailable. Configure Convex to request an export.",
+              }
+            : {})}
+          exportState={brainExportView(
+            exportRequest,
+            requestedExport,
+            exportStatus,
+            exportDownload,
+          )}
+          requestPending={exportRequest.status === "loading"}
+          onRequest={async (idempotencyKey) => {
+            setExportRequest({ status: "loading" });
+            try {
+              const result = classifyConfectMutationResult(
+                await requestBrainExport({
+                  brainKey: activeBrainKey,
+                  idempotencyKey,
+                }),
+              );
+              if (result.status === "ready") {
+                setRequestedExport(result.data);
+                setExportRequest({ status: "idle" });
+              } else if (isTemplateFailureState(result)) {
+                setExportRequest({
+                  status: "error",
+                  message: describeTypedFailure(
+                    result.error,
+                    "Unable to request export. Try again.",
+                  ),
+                });
+              } else
+                setExportRequest({
+                  status: "error",
+                  message: "Unable to request export. Try again.",
+                });
+            } catch (error) {
+              const failure = normalizeMutationError(error);
+              setExportRequest({ status: "error", message: failure.message });
             }
-          : {})}
-        exportState={brainExportView(
-          exportRequest,
-          requestedExport,
-          exportStatus,
-          exportDownload,
-        )}
-        requestPending={exportRequest.status === "loading"}
-        onRequest={async (idempotencyKey) => {
-          setExportRequest({ status: "loading" });
-          try {
-            const result = classifyConfectMutationResult(
-              await requestBrainExport({
-                brainKey: activeBrainKey,
-                idempotencyKey,
-              }),
-            );
-            if (result.status === "ready") {
-              setRequestedExport(result.data);
-              setExportRequest({ status: "idle" });
-            } else if (isTemplateFailureState(result)) {
-              setExportRequest({
-                status: "error",
-                message: describeTypedFailure(
-                  result.error,
-                  "Unable to request export. Try again.",
-                ),
-              });
-            } else
-              setExportRequest({
-                status: "error",
-                message: "Unable to request export. Try again.",
-              });
-          } catch (error) {
-            const failure = normalizeMutationError(error);
-            setExportRequest({ status: "error", message: failure.message });
-          }
-        }}
-      />
-    </>
+          }}
+        />
+      </Page.Body>
+    </Page.Root>
   );
 }
 

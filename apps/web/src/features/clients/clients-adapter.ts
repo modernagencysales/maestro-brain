@@ -15,6 +15,7 @@ import {
   useTemplateQuery,
 } from "../../adapters/confect-state";
 import { buildClientsState, transitionClientOnboarding } from "./clients-state";
+import { isConvexConfigured } from "../../env";
 import type {
   ClientBrainSummary,
   ClientOnboardingState,
@@ -179,7 +180,11 @@ export function useClientsController({
 }: {
   readonly onCreated: (target: BrainSearchTarget) => void | Promise<void>;
 }) {
-  const listState = useTemplateQuery(clientsRefs.list, {});
+  const convexConfigured = isConvexConfigured();
+  const listState = useTemplateQuery(
+    clientsRefs.list,
+    convexConfigured ? {} : "skip",
+  );
   const createMutation = useTemplateMutation(clientsRefs.createClientBrain);
   const [onboarding, setOnboarding] = useState<ClientOnboardingState>({
     status: "idle",
@@ -218,7 +223,9 @@ export function useClientsController({
     );
   };
   return {
-    state: buildClientsState(toClientsDataState(listState)),
+    state: convexConfigured
+      ? buildClientsState(toClientsDataState(listState))
+      : { status: "empty" as const },
     onboarding,
     onCreateClient,
   };

@@ -107,10 +107,13 @@ function WorkspaceRuntimeBoundary({
   workspaceRuntimeMode,
 }: Pick<SafeClientRuntime, "authSnapshot" | "workspaceRuntimeMode">) {
   const location = useRouterState({ select: (state) => state.location });
-  const liveRefs = createWorkspaceLiveRefs({
-    useQuery: useTemplateQuery,
-    useMutation: useTemplateMutation,
-  });
+  const liveRefs = createWorkspaceLiveRefs(
+    {
+      useQuery: useTemplateQuery,
+      useMutation: useTemplateMutation,
+    },
+    workspaceRuntimeMode !== "fake",
+  );
   const operationsCache = useRef<RuntimeWorkspaceOperationsCache>(undefined);
 
   if (
@@ -142,16 +145,16 @@ function WorkspaceRuntimeBoundary({
         {(analyticsConsent) => (
           <PostHogWebProvider analyticsConsent={analyticsConsent}>
             <RootDocument>
-              <WebRouteUxBoundary
-                href={location.href}
-                pathname={location.pathname}
-              >
-                <AppProvider>
+              <AppProvider>
+                <WebRouteUxBoundary
+                  href={location.href}
+                  pathname={location.pathname}
+                >
                   <TemplateToastProvider>
                     <Outlet />
                   </TemplateToastProvider>
-                </AppProvider>
-              </WebRouteUxBoundary>
+                </WebRouteUxBoundary>
+              </AppProvider>
             </RootDocument>
           </PostHogWebProvider>
         )}

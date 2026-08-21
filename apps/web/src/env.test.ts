@@ -26,11 +26,11 @@ describe("web environment", () => {
 
   it("uses a fake-safe Convex fallback when no URL is configured", () => {
     expect(resolveWebEnv({})).toEqual({
-      env: { VITE_CONVEX_URL: "https://example-template.convex.cloud" },
+      env: { VITE_CONVEX_URL: "https://fake-template-123.convex.cloud" },
       convexConfigured: false,
     });
     expect(resolveWebEnv({ VITE_CONVEX_URL: "   " })).toEqual({
-      env: { VITE_CONVEX_URL: "https://example-template.convex.cloud" },
+      env: { VITE_CONVEX_URL: "https://fake-template-123.convex.cloud" },
       convexConfigured: false,
     });
   });
