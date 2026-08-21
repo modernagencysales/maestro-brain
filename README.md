@@ -149,6 +149,10 @@ pnpm verify
 - Agent instructions: [AGENTS.md](./AGENTS.md)
 - Apero company-brain direction:
   [docs/product/apero-company-brain-architecture.md](./docs/product/apero-company-brain-architecture.md)
+- Apero company-brain specification:
+  [docs/product/apero-company-brain-spec.md](./docs/product/apero-company-brain-spec.md)
+- Apero company-brain implementation plan:
+  [docs/product/apero-company-brain-implementation-plan.md](./docs/product/apero-company-brain-implementation-plan.md)
 - Repo map: [docs/template/repo-map.md](./docs/template/repo-map.md)
 - Reviewer guide:
   [docs/template/reviewer-guide.md](./docs/template/reviewer-guide.md)

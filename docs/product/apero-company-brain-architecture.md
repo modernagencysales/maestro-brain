@@ -1,6 +1,14 @@
 # Apero Company Brain Architecture
 
-**Status:** recommended product direction **Date:** 2026-08-20
+**Status:** recommended product direction
+
+**Date:** 2026-08-20
+
+**Detailed specification:**
+[Apero Company Brain Product And Technical Specification](./apero-company-brain-spec.md)
+
+**Execution plan:**
+[Apero Company Brain Implementation Plan](./apero-company-brain-implementation-plan.md)
 
 ## Decision
 
